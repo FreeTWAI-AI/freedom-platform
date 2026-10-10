@@ -146,6 +146,20 @@ const FOUNDATION_NAMES = [
   '146_squad_management_and_kinds.sql',
   '147_social_post_edits.sql',
   '148_social_wall_interactions.sql',
+  // Personal reminder policy only; no inbox, read cursor, subscription or delivery writes.
+  '149_notification_preferences.sql',
+  '150_message_retraction.sql',
+  '151_interaction_notifications.sql',
+  '152_first_participation.sql',
+  // Participation is opt-in. Existing event publication and review authority do not change.
+  '153_event_participation.sql',
+  '154_squad_outcomes.sql',
+  '155_event_outcomes.sql',
+  '156_login_email_change.sql',
+  '157_email_verification.sql',
+  '158_member_totp.sql',
+  '159_participation_metrics.sql',
+  '160_member_reports.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

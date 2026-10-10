@@ -1,0 +1,60 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "member-reporting",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/community/member-reporting.ts",
+    "apps/platform-api/src/routes/member-reporting.ts",
+    "apps/portal-web/src/modules/MemberReporting.tsx",
+    "apps/portal-web/src/modules/MemberReporting.css",
+    "tests/runtime/member-reporting.test.ts",
+    "tests/e2e/member-reporting.spec.ts",
+    "migrations/160_member_reports.sql"
+  ],
+  "public_exports": [
+    "modules/community/member-reporting.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "community",
+    "member-card",
+    "member-communications",
+    "media-migration",
+    "asset-storage",
+    "shared"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/member-api.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "immutable-private-evidence",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.member-reporting",
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "community.member-reporting.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/member-reporting.ts",
+      "operations": [
+        "community.member-report.list",
+        "community.member-report.create",
+        "community.admin-member-report.list",
+        "community.admin-member-report.read",
+        "community.admin-member-report.image.read",
+        "community.member-report.transition"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

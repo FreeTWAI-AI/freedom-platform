@@ -6,7 +6,7 @@ import { directMessageReceiptRefreshDue, hasDirectMessageChanges, mergeDirectMes
 const readAt = '2026-10-04T06:00:00.000Z';
 const message = (index: number, sender = 'sender', read: string | null = null): Message => ({
   message_id: String(index).padStart(4, '0'), sender_ref: sender, recipient_ref: sender === 'sender' ? 'peer' : 'sender',
-  body: `synthetic ${index}`, created_at: new Date(Date.UTC(2026, 9, 4, 0, index)).toISOString(), read_at: read,
+  body: `synthetic ${index}`, created_at: new Date(Date.UTC(2026, 9, 4, 0, index)).toISOString(), read_at: read, retracted_at: null,
 });
 const page = (items: Message[], next: number | null = null): MessagePage => ({
   items, next_offset: next, unread_count: 0, can_send: true,
@@ -99,4 +99,22 @@ test('an older receipt committed after the send refresh is reconciled without a 
   assert.equal(hasDirectMessageChanges(activity, shown, directMessageReceiptRefreshDue(shown.items, 'sender', 1000, 9000)), true);
   assert.equal(directMessageReceiptRefreshDue([message(1, 'peer')], 'sender', 0, 9000), false);
   assert.equal(directMessageReceiptRefreshDue([message(1, 'sender', readAt)], 'sender', 0, 9000), false);
+});
+
+
+test('unread tombstones neither schedule receipt polling nor walk older history pages', async () => {
+  const tombstone = {...message(1), body: '', retracted_at: readAt};
+  assert.equal(directMessageReceiptRefreshDue([tombstone], 'sender', 0, 9000), false);
+  const receipts = await readLoadedDirectMessageReceipts(page([], 20), [tombstone], 'sender', async () => {
+    assert.fail('a withdrawn outgoing message has no pending read receipt');
+  }, () => true);
+  assert.equal(receipts!.size, 0);
+  const live = message(2);
+  assert.equal(directMessageReceiptRefreshDue([tombstone, live], 'sender', 0, 9000), true);
+  const offsets: number[] = [];
+  const mixed = await readLoadedDirectMessageReceipts(page([], 20), [tombstone, live], 'sender', async offset => {
+    offsets.push(offset);return page([{...live, read_at: readAt}], 40);
+  }, () => true);
+  assert.deepEqual(offsets, [20], 'stop after the actual pending receipt, before the older tombstone page');
+  assert.deepEqual([...mixed!], [[live.message_id, readAt]]);
 });

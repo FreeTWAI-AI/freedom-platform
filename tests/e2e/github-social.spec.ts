@@ -45,6 +45,31 @@ test('project author Follow is explicit, confirmed and offers reauthorization on
   await page.setViewportSize({width:320,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+for(const enabled of [false,true]){
+  test(`guild skill Star prerequisite notices follow the site flag (${enabled})`,async({page})=>{
+    let writes=0;
+    await page.route('**/api/v1/site',async route=>{
+      const response=await route.fetch();
+      return route.fulfill({json:{...await response.json(),skill_book_star_gate_enabled:enabled}});
+    });
+    await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'synthetic-gate',login:'synthetic-gate'}}}));
+    await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:metrics}));
+    await page.route('**/api/v1/me/github/books/*/star',route=>{
+      if(route.request().method()==='POST')writes++;
+      return route.fulfill({json:{starred:writes>0,connected:true,confirmed:true}});
+    });
+    await login(page);await navigate(page,'職業公會');
+    const gates=page.getByRole('region',{name:'技能書 Star 前置條件'});
+    if(!enabled){await expect(gates).toHaveCount(0);return;}
+    const gate=gates.first();await expect(gate).toBeVisible();
+    await expect(gate.getByText(/未加星或無法確認時不會放行/)).toBeVisible();
+    await gate.locator('.github-book-social').first().scrollIntoViewIfNeeded();
+    const star=gate.getByRole('button',{name:'Star',exact:true}).first();
+    await expect(star).toBeEnabled();expect(writes).toBe(0);
+    await star.click();await expect(gate.getByRole('button',{name:'取消 Star',exact:true}).first()).toHaveAttribute('aria-pressed','true');
+    expect(writes).toBe(1);
+  });
+}
 
 test('visible book widgets share actual metrics and confirmed Star state across cards and dialogs',async({page})=>{
   let accounts=0,starReads=0,starred=false;const reads=new Map<string,number>(),writes:{starred:boolean;confirmed:boolean}[]=[];
@@ -214,6 +239,20 @@ test('public skill OAuth returns to the same book and connecting never submits a
   expect(connects).toEqual([{return_to:'/development/skills/social-post'}]);expect(writes).toBe(0);
   await page.goto('/github/callback?code=synthetic&state=synthetic');await expect(page).toHaveURL(/\/development\/skills\/social-post$/);
   await expect(page.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(writes).toBe(0);
+});
+
+for(const target of ['#join/supplier','#join/showcase','#join/tasks'])test(`onboarding OAuth callback returns to ${target} without Star writes`,async({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'onboarding-return',login:'onboarding-return'}}}));
+  await page.route('**/api/v1/me/github/books/*/star',route=>{if(route.request().method()==='POST')writes++;return route.fulfill({json:{book_id:'social-post',connected:true,starred:false}});});
+  await page.route('**/api/v1/me/github/complete',route=>{expect(route.request().headers()['x-csrf-token']).toBeTruthy();return route.fulfill({json:{return_to:target}});});
+  await login(page);await page.goto('/github/callback?code=synthetic&state=synthetic');
+  await expect(page).toHaveURL(url=>url.pathname==='/'&&url.hash===target);expect(writes).toBe(0);
+});
+for(const target of ['https://elsewhere.example.invalid/#join/tasks','//elsewhere.example.invalid/#join/tasks','#join/unknown','#join/supplier?next=outside'])test(`onboarding OAuth callback rejects unsafe return ${target}`,async({page})=>{
+  await page.route('**/api/v1/me/github/complete',route=>route.fulfill({json:{return_to:target}}));
+  await login(page);const origin=new URL(page.url()).origin;await page.goto('/github/callback?code=synthetic&state=synthetic');
+  await expect(page).toHaveURL(origin+'/#skills');
 });
 
 test('public Star, Fork, Watch and Follow remain links without login or JavaScript',async({page,browser})=>{

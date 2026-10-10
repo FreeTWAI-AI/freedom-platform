@@ -70,12 +70,16 @@ export type RequestOptions = {
   ifMatch?: number | string
   /** Unquoted positive decimal version for leave-v2 when the guild is a category primary. */
   preferenceVersion?: string
+  /** Email-proven event participation only; never a member or general API credential. */
+  eventParticipationToken?: string
   skipAuthHandler?: boolean
   background?: boolean
   suppressConsole?: boolean
   signal?: AbortSignal
   /** Opt in only for reads whose callers permit the same in-flight snapshot. */
   coalesce?: boolean
+  /** Small, explicit signals that may finish after document navigation. */
+  keepalive?: boolean
 }
 
 function quoteEtag(version: number | string): string {
@@ -214,11 +218,11 @@ export class PortalClient {
     return this.get<SessionPayload>('/session', { skipAuthHandler: true })
   }
 
-  async login(email: string, password: string): Promise<SessionPayload> {
+  async login(email: string, password: string, code?: string): Promise<SessionPayload> {
     return this.post<SessionPayload>(
       '/auth/login',
-      { email, password },
-      { skipAuthHandler: true },
+      { email, password, ...(code !== undefined ? { code } : {}) },
+      { skipAuthHandler: true, suppressConsole: true },
     )
   }
 
@@ -236,8 +240,16 @@ export class PortalClient {
     const requestCsrfToken = this.csrfToken
     const requestAuthGeneration = this.authGeneration
     const headers: Record<string, string> = { Accept: 'application/json' }
-    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/register$/.test(path))
-    const needsCsrf = method !== 'GET' && !publicAuth
+    const guestParticipationPath = /^\/public\/events\/[0-9a-f-]{36}\/(?:participation|reminder|calendar)$/.test(path)
+    const guestParticipation = guestParticipationPath && options.eventParticipationToken !== undefined
+    if (options.eventParticipationToken !== undefined) {
+      if (!guestParticipationPath || !/^[A-Za-z0-9_-]{43}$/.test(options.eventParticipationToken)) {
+        throw new ApiError({message:'活動管理連結格式不正確。',status:400})
+      }
+      headers['X-Event-Participation-Token'] = options.eventParticipationToken
+    }
+    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm','/auth/email-change/confirm','/auth/email-verification/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/(?:register|participation-request)$/.test(path))
+    const needsCsrf = method !== 'GET' && !publicAuth && !guestParticipation
 
     if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json'
@@ -249,6 +261,9 @@ export class PortalClient {
       headers['X-CSRF-Token'] = this.csrfToken
       const key = options.idempotencyKey ?? crypto.randomUUID()
       headers['Idempotency-Key'] = key
+    }
+    if (!needsCsrf && method !== 'GET' && options.idempotencyKey !== undefined) {
+      headers['Idempotency-Key'] = options.idempotencyKey
     }
     if (options.ifMatch !== undefined) {
       headers['If-Match'] = quoteEtag(options.ifMatch)
@@ -279,6 +294,7 @@ export class PortalClient {
     const operation = async () => {
       response = await accessAwareFetch(`${API_BASE}${path}`, {
         method, headers, credentials: 'same-origin', signal: controller.signal,
+        ...(options.keepalive === true ? {keepalive: true} : {}),
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
       })
       if (await isExpiredAccessResponse(response)) {
@@ -317,13 +333,15 @@ export class PortalClient {
         const problem = isProblem(payload) ? payload : null
         const serverFailure = response.status >= 500
         const knownGitHub = serverFailure && typeof problem?.code === 'string' && GITHUB_MEMBER_CODES.has(problem.code)
+        const knownVerification = path==='/me/account/email-verification/request' && response.status===503
+          && (problem?.code==='email_verification_unavailable'||problem?.code==='email_verification_send_failed')
         const safeDetail = typeof problem?.detail === 'string' && safePlatformDetail(problem.detail.trim()) ? problem.detail : undefined
         throw new ApiError({
           message: messageFromProblem(response.status, problem, method !== 'GET', path, response.headers.get('retry-after')), status: response.status, cfRay:cloudflareRay(response), requestId:requestId(response),
           type: serverFailure && !knownGitHub ? undefined : problem?.type,
           title: serverFailure && !knownGitHub ? undefined : problem?.title,
           detail: serverFailure ? (knownGitHub ? safeDetail : undefined) : problem?.detail,
-          code: serverFailure && !knownGitHub ? undefined : problem?.code, network: serverFailure && method !== 'GET' && !knownGitHub,
+          code: serverFailure && !knownGitHub && !knownVerification ? undefined : problem?.code, network: serverFailure && method !== 'GET' && !knownGitHub,
           errors: serverFailure && !knownGitHub ? undefined : fieldErrors(payload),
           candidates: serverFailure && !knownGitHub ? undefined : instanceCandidates(payload),
         })

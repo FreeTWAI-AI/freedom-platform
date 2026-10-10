@@ -33,6 +33,8 @@ export type PlatformRuntime = {
   registrationCommunityId: () => string | undefined;
   /** Base64 AES key protecting stored GitHub credentials; never logged or returned. */
   githubTokenKey: () => string | undefined;
+  /** Dedicated canonical base64 AES-256 key for member TOTP credentials. */
+  totpEncryptionKey?: () => string | undefined;
   /** Read-only GitHub token for public repository counts; never logged or returned. */
   githubMetricsToken: () => string | undefined;
   /** GitHub App webhook secret. Undefined leaves only that route answering 503. */
@@ -95,6 +97,8 @@ export type PlatformRuntime = {
   communityDiscoveryEnabled?: boolean;
   /** Management surface only; saved blocks continue protecting contact when false. */
   memberBlockingEnabled?: boolean;
+  /** Explicit release setting; reporting routes remain unavailable unless exactly true. */
+  memberReportingEnabled?: boolean;
   /** Explicit release setting for community content search. Absent or false leaves routes unregistered. */
   communitySearchEnabled?: boolean;
   /** Additive sharing navigation only; domain authorization remains authoritative. */
@@ -103,4 +107,17 @@ export type PlatformRuntime = {
   communityRelationsEnabled?: boolean;
   /** Owner-only content management release setting; absent or false keeps the new surface unavailable. */
   personalContentEnabled?: boolean;
+  /** Explicit authored squad publication; no private Result or roster publication. */
+  squadOutcomesEnabled?: boolean;
+  /** Event summaries and current-authorized canonical outcome links. */
+  eventOutcomesEnabled?: boolean;
+  firstParticipationEnabled?: boolean;
+  /** Owner notification preference release setting; does not authorize Email digests. */
+  notificationPreferencesEnabled?: boolean;
+  /** Calendar, voluntary reminders and FIFO waitlists; absent or false keeps new surfaces unavailable. */
+  eventParticipationEnabled?: boolean;
+  /** Admin-only participation report and search outcome signals. */
+  participationMetricsEnabled?: boolean;
+  /** Opt-in linked GitHub Star prerequisite for skill grants and full-tier promotion. */
+  skillBookStarGateEnabled?: boolean;
 };

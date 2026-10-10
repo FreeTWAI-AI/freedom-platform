@@ -103,6 +103,7 @@ test('a skill-book share link credits one guest click on the weekly board', asyn
   const skill = board(page, '技能推廣排行榜');
   await expect(skill).toContainText('示範創作者');
   await expect(skill).toContainText(`我的名次：第 1 名・${weekBefore + 1} 分`);
+  await expect(skill.locator('li').filter({ hasText: '示範創作者' }).locator('.promotion-rank')).toHaveText('第 1 名');
 
   await creditVisit(browser, go, url => url.pathname === '/development/skills/social-post');
   await page.goto(go);
@@ -293,6 +294,16 @@ test('all six boards render, and a board with no clicks says so', async ({ page 
   await expect(cards).toContainText('你在這個排行榜還沒有分數。');
   await expect(board(page, '業務推廣排行榜')).toContainText('還沒有人得分，分享第一個連結吧。');
   await expect(page.getByText('計分規則', { exact: true })).toBeVisible();
+  const note = page.locator('.promotion-period-note');
+  const mine = page.getByRole('region', { name: '我的推廣連結', exact: true });
+  await expect(note).toHaveText(/^本週：從 \d{1,2}\/\d{1,2}（週一） 00:00（台北時間）起算。每塊榜列出前 10 名，同分同名次。$/);
+  await expect(mine).toContainText('右側數字是本週的點擊分數。');
+  await page.getByRole('button', { name: '本月', exact: true }).click();
+  await expect(note).toHaveText(/^本月：從 \d{1,2}\/1（週.） 00:00（台北時間）起算。/);
+  await expect(mine).toContainText('右側數字是本月的點擊分數。');
+  await page.getByRole('button', { name: '累計', exact: true }).click();
+  await expect(note).toHaveText('累計：開站以來的全部點擊。每塊榜列出前 10 名，同分同名次。');
+  await expect(mine).toContainText('右側數字是累計的點擊分數。');
 });
 
 test('計分規則 shows a disclosure marker and opens from a click or Enter', async ({ page }) => {

@@ -24,6 +24,8 @@ import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
 import {pruneExpiredAuthRecords} from '../../../modules/identity-membership/auth-pruning.js';
+import {processEventWaitlist} from '../../../modules/community/event-waitlist.js';
+import {processEventReminders} from '../../../modules/community/event-reminders.js';
 import {createEventVideoAssetService,resolveEventVideoUploadPolicy} from '../../../modules/assets/event-video.js';
 import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../../../modules/assets/event-banner.js';
 import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
@@ -76,10 +78,18 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_TENANT_CURSOR_SIGNING_KEY?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
   FREEDOM_MEMBER_BLOCKING_ENABLED?: string;
+  FREEDOM_MEMBER_REPORTING_ENABLED?: string;
   FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
   FREEDOM_UNIFIED_SHARING_ENABLED?: string;
   FREEDOM_COMMUNITY_RELATIONS_ENABLED?: string;
   FREEDOM_PERSONAL_CONTENT_ENABLED?: string;
+  FREEDOM_SQUAD_OUTCOMES_ENABLED?: string;
+  FREEDOM_EVENT_OUTCOMES_ENABLED?: string;
+  FREEDOM_FIRST_PARTICIPATION_ENABLED?: string;
+  FREEDOM_NOTIFICATION_PREFERENCES_ENABLED?: string;
+  FREEDOM_EVENT_PARTICIPATION_ENABLED?: string;
+  FREEDOM_PARTICIPATION_METRICS_ENABLED?: string;
+  FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -92,6 +102,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_ADMIN_ACCESS_AUD?: string;
   FREEDOM_ADMIN_CSRF_SECRET?: string;
   GITHUB_SOCIAL_TOKEN_KEY?: string;
+  TOTP_ENCRYPTION_KEY?: string;
   /** Optional read-only GitHub token: Workers share egress IPs, so anonymous GitHub quota is gone. */
   GITHUB_METRICS_TOKEN?: string;
   /** Optional. Without it only POST /api/v1/maintainer/github/webhook answers 503. */
@@ -126,6 +137,16 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if (typeof env.ASSETS?.fetch !== 'function') throw new ReadinessError('ASSETS binding is required.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED !== undefined && !['true','false'].includes(env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED)) throw new ReadinessError('FREEDOM_PASSWORD_RESET_EMAIL_ENABLED must be true or false.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED === 'true' && typeof env.EMAIL?.send !== 'function') throw new ReadinessError('EMAIL binding is required when password recovery is enabled.');
+  for(const flag of [env.FREEDOM_SQUAD_OUTCOMES_ENABLED,env.FREEDOM_EVENT_OUTCOMES_ENABLED]){
+    if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Outcome publication flag must be true or false.');
+  }
+  if(env.FREEDOM_EVENT_OUTCOMES_ENABLED==='true'&&env.FREEDOM_SQUAD_OUTCOMES_ENABLED!=='true')throw new ReadinessError('Event outcomes require squad outcomes to expose all canonical sources.');
+  if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_PARTICIPATION_ENABLED))throw new ReadinessError('FREEDOM_EVENT_PARTICIPATION_ENABLED must be true or false.');
+  if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true'&&typeof env.EMAIL?.send!=='function')throw new ReadinessError('EMAIL binding is required when event participation is enabled.');
+  if(env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED))throw new ReadinessError('FREEDOM_NOTIFICATION_PREFERENCES_ENABLED must be true or false.');
+  if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_FIRST_PARTICIPATION_ENABLED))throw new ReadinessError('First participation flag must be true or false.');
+  if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED==='true'&&env.FREEDOM_PERSONAL_CONTENT_ENABLED!=='true')throw new ReadinessError('First participation requires personal content.');
+  if(env.FREEDOM_PARTICIPATION_METRICS_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PARTICIPATION_METRICS_ENABLED))throw new ReadinessError('Participation metrics flag must be true or false.');
   for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED,env.FREEDOM_EVENT_HIGHLIGHT_ENABLED,env.FREEDOM_MESSAGE_IMAGE_ENABLED]){
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
     if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
@@ -211,6 +232,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     shopKeyPolicy:env.FREEDOM_SHOP_KEY_POLICY,
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
+    totpEncryptionKey: () => env.TOTP_ENCRYPTION_KEY,
     githubMetricsToken: () => metricsToken,
     maintainerWebhookSecret: () => maintainerWebhookSecret,
     adminVerifier: workerAdminVerifier(env),
@@ -233,10 +255,18 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',
+    memberReportingEnabled: env.FREEDOM_MEMBER_REPORTING_ENABLED === 'true',
     communitySearchEnabled: env.FREEDOM_COMMUNITY_SEARCH_ENABLED === 'true',
     unifiedSharingEnabled: env.FREEDOM_UNIFIED_SHARING_ENABLED === 'true',
     communityRelationsEnabled: env.FREEDOM_COMMUNITY_RELATIONS_ENABLED === 'true',
     personalContentEnabled: env.FREEDOM_PERSONAL_CONTENT_ENABLED === 'true',
+    squadOutcomesEnabled: env.FREEDOM_SQUAD_OUTCOMES_ENABLED === 'true',
+    eventOutcomesEnabled: env.FREEDOM_EVENT_OUTCOMES_ENABLED === 'true',
+    firstParticipationEnabled: env.FREEDOM_FIRST_PARTICIPATION_ENABLED === 'true',
+    notificationPreferencesEnabled: env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED === 'true',
+    eventParticipationEnabled: env.FREEDOM_EVENT_PARTICIPATION_ENABLED === 'true',
+    participationMetricsEnabled: env.FREEDOM_PARTICIPATION_METRICS_ENABLED === 'true',
+    skillBookStarGateEnabled: env.FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }
@@ -316,6 +346,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         if (request.method === 'GET' || request.method === 'HEAD') return new Response(null, { status: 308, headers: { ...SAFE_HEADERS, Location: config.origin + url.pathname + url.search } });
         return problem(403, 'host_rejected', '請從自由工坊網站操作。');
       }
+      if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!=='true'&&(url.pathname==='/api/v1/me/first-participation'||url.pathname.startsWith('/api/v1/first-participation/')))return problem(404,'not_found','找不到這個頁面。');
       let pool: Pool;
       // A throwing factory must not escape with its raw error or leave anything to end.
       try { pool = createPool(env); } catch (error) {
@@ -399,6 +430,14 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
       const work = (async () => {
         try {
           pool = createPool(env);
+          if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true'){
+            try{
+              const config=readWorkerConfig(env);
+              const send=async(to:string,subject:string,text:string)=>{await env.EMAIL!.send({to,from:'no-reply@mail.freetwai.com',subject,text});};
+              try{await processEventWaitlist(pool,send,config.origin);}catch{console.error('event_waitlist_failed');}
+              try{await processEventReminders(pool,send,{enabled:true});}catch{console.error('event_reminders_failed');}
+            }catch{console.error('event_participation_not_ready');}
+          }
           try{await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});}
           catch(error){const name=error instanceof Error&&/^[A-Za-z][A-Za-z0-9_]*$/.test(error.name)?error.name:'unknown';console.error('github_sync_failed',name);}
           if(env.FREEDOM_REGISTRATION_COMMUNITY_ID){

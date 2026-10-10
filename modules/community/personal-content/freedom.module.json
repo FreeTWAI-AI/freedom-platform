@@ -9,7 +9,13 @@
     "apps/portal-web/src/modules/MyContent.tsx",
     "migrations/142_community_content_relations.sql",
     "tests/runtime/community-relations.test.ts",
-    "tests/runtime/personal-content.test.ts"
+    "tests/runtime/personal-content.test.ts",
+    "modules/community/first-participation.ts",
+    "apps/portal-web/src/modules/FirstParticipation.tsx",
+    "apps/portal-web/src/modules/FirstParticipation.css",
+    "tests/runtime/first-participation.test.ts",
+    "tests/e2e/first-participation.spec.ts",
+    "migrations/152_first_participation.sql"
   ],
   "public_exports": [],
   "dependencies": [
@@ -18,7 +24,8 @@
     "command-core",
     "scoped-commands",
     "skill-submissions",
-    "work"
+    "work",
+    "member-communications"
   ],
   "contract_families": [],
   "client_profiles": [
@@ -53,6 +60,15 @@
       "entry": "apps/portal-web/src/modules/CommunityRelations.tsx",
       "operations": [
         "community.relations-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.first-participation",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/FirstParticipation.tsx",
+      "operations": [
+        "community.first-participation.view"
       ],
       "auth_profile": "member-session"
     }

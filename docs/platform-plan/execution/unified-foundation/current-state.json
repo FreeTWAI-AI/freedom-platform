@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-10T02:34:31.616221+00:00",
+  "recorded_at": "2026-10-10T14:16:00.225005+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -14,52 +14,100 @@
   },
   "merged_source": {
     "repository": "FreeTWAI-AI/freedom-platform",
-    "sha": "0cb147393d4675c3513fc53a05e9d2d01e7bad84",
-    "tree": "a513585bf8ff60a35a790f9638cf4d077d06e7b9",
-    "pull_request": 394,
+    "sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+    "tree": "55d6cbf04029d862a865d9c78a6c857bf35b1b60",
+    "pull_request": 427,
     "verify": {
-      "head": "55d9cfef8b1074ae64c19bae10ed1448a3da19aa",
+      "head": "fccc1739895ec3814b9d49bb4815ad9156951aac",
       "conclusion": "success",
-      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38013918956/job/114107709589"
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38052439063"
     },
-    "runtime_release_source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-    "limitation": "#394 local inventory port and continuous new-member browser coverage are merged after the deployed #391 source. This rollout does not deploy #394."
+    "runtime_release_source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+    "limitation": "#425/#426 are pending a separate protected merge; local next-batch candidates are not deployed."
   },
   "deployment": {
     "production": {
       "url": "https://freetwai.com/",
-      "observed_release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "observed_at": "2026-10-10T02:14:03.078Z",
+      "observed_release_sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "observed_at": "2026-10-10T13:58:44.146Z",
       "health": {
         "http": 200,
         "status": "ok",
         "mode": "public",
         "runtime": "cloudflare-workers",
-        "release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "release_sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
         "cache_control_no_store": true
       },
-      "worker_version": "d2b3d28c-9a84-44d7-a99a-ba5060ba7357",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
+      "worker_version": "fe7e8089-9624-4924-a818-b2722f3331d0",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json",
       "limitation": "Production has selected public/authenticated HTTP checks, not a full merchant browser journey."
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
-      "observed_release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "observed_at": "2026-10-10T01:48:37.833Z",
+      "observed_release_sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "observed_at": "2026-10-10T13:35:43.160Z",
       "health": {
         "http": 200,
         "status": "ok",
         "mode": "staging",
         "runtime": "cloudflare-workers",
-        "release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "release_sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
         "cache_control_no_store": true
       },
-      "worker_version": "fa0e2b80-2ba8-4b41-9552-695e7a332895",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
+      "worker_version": "c99e7ca0-93db-4977-af1a-34f5f27cfa60",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json",
       "limitation": "Live staging uses two existing fictional qualified members; new-member registration/promotion browser evidence is local, not a production member acceptance.",
-      "last_operator_release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c"
+      "last_operator_release_sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa"
     },
     "last_operator_rollout": {
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "at": "2026-10-10T14:16:00.225005+00:00",
+      "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
+      "scope": "Reviewed #427 release, including #390/#420/#422, deployed to staging and production. #425/#426 are not part of this release.",
+      "status": "complete",
+      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json",
+      "receipt_sha256": "d878d75b52023f3fa4286443bb719fac16a8d862992f9f07ae78908b8a7111ec",
+      "selected_checks": {
+        "staging": {
+          "public_http": 34,
+          "merchant_browser": 24,
+          "social_browser": 26,
+          "squad_browser": 16
+        },
+        "production": {
+          "public_http": 34,
+          "authenticated_http": 19
+        }
+      },
+      "database_migrations_applied": {
+        "staging": [],
+        "production": [
+          "142_community_content_relations.sql",
+          "143_personal_content.sql",
+          "144_hosted_distribution_offers.sql",
+          "145_social_note_image_creation.sql",
+          "146_squad_management_and_kinds.sql",
+          "147_social_post_edits.sql",
+          "148_social_wall_interactions.sql"
+        ]
+      },
+      "worker_versions": {
+        "staging": "c99e7ca0-93db-4977-af1a-34f5f27cfa60",
+        "production": "fe7e8089-9624-4924-a818-b2722f3331d0"
+      },
+      "limitation": "Staging browser acceptance and selected production HTTP checks; not full Foundation/M1 or real-member production browser acceptance."
+    },
+    "last_production_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "at": "2026-10-10T13:58:44.146Z"
+    },
+    "last_staging_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "at": "2026-10-10T13:35:43.160Z"
+    },
+    "previous_production_rollout": {
       "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
       "at": "2026-10-10T02:34:31.616221+00:00",
       "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
@@ -97,67 +145,11 @@
       },
       "limitation": "Full Foundation/M1, production merchant journey, cross-member supply and portable inventory remain open."
     },
-    "last_production_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "at": "2026-10-10T02:14:03.078Z"
-    },
-    "last_staging_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "at": "2026-10-10T01:48:37.833Z"
-    },
-    "previous_production_rollout": {
-      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
-      "at": "2026-10-09T16:52:54.243571+00:00",
-      "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
-      "scope": "Staging then production, exact same source and built dist, migrations through 140 and unique required cursor key per target. Existing feature flags preserved.",
-      "status": "complete",
-      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json",
-      "receipt_sha256": "229dd95a38a6994b77818ed7e6c1c67642153e9f6130a28fc3683f0df05c7146",
-      "selected_checks": {
-        "staging": {
-          "public": 34,
-          "authenticated": 61,
-          "all_passed": true,
-          "synthetic_fixture_cleanup": true
-        },
-        "production": {
-          "public": 34,
-          "authenticated": 19,
-          "all_passed": true,
-          "synthetic_fixture_cleanup": true
-        }
-      },
-      "database_migrations_applied": {
-        "staging": [
-          "135_hosted_store_offering.sql",
-          "136_member_interaction_blocks.sql",
-          "137_community_content_topics.sql",
-          "138_hosted_direct_reservations.sql",
-          "139_member_message_images.sql",
-          "140_storefront_presentation.sql"
-        ],
-        "production": [
-          "134_hosted_storefronts.sql",
-          "135_hosted_store_offering.sql",
-          "136_member_interaction_blocks.sql",
-          "137_community_content_topics.sql",
-          "138_hosted_direct_reservations.sql",
-          "139_member_message_images.sql",
-          "140_storefront_presentation.sql"
-        ]
-      },
-      "worker_versions": {
-        "staging": "ef4b4d25-85a7-4ad8-a196-18232bee478c",
-        "production": "e8df68ff-c914-4cb2-b297-653c7e00707b"
-      },
-      "limitation": "No full Foundation, M1 or financial/payment acceptance. See receipt for failed operator attempts, cleanup and exact test limits."
-    },
     "previous_staging_rollout": {
-      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
-      "observed_at": "2026-10-10T01:37:34.501Z",
-      "kind": "pre-rollout operator readback"
+      "source": "64f27357760d5c7ce6f400459e103679aa811d67",
+      "observed_at": "2026-10-10T12:57:58.628Z",
+      "schema": 148,
+      "kind": "R15 authenticated operator pre-rollout observation; intermediate R14 staging release"
     },
     "earlier_production_rollout": {
       "source": "3685d6266a6cd9c1dbe023bf595140f5035a02f5",
@@ -737,7 +729,54 @@
       }
     ],
     "execution_mode": "Explicitly authorized private operator invocation for an exact source; no automatic GitHub Release trigger was verified.",
-    "manifest_semantics": "freedom.project.yaml deployment.trigger=published_release declares the v1 production release policy. Installed automation, signed release provenance and actual deployment observations are separate evidence; policy conformance is not inferred from this value."
+    "manifest_semantics": "freedom.project.yaml deployment.trigger=published_release declares the v1 production release policy. Installed automation, signed release provenance and actual deployment observations are separate evidence; policy conformance is not inferred from this value.",
+    "historical_r12_rollout": {
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "at": "2026-10-09T16:52:54.243571+00:00",
+      "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
+      "scope": "Staging then production, exact same source and built dist, migrations through 140 and unique required cursor key per target. Existing feature flags preserved.",
+      "status": "complete",
+      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json",
+      "receipt_sha256": "229dd95a38a6994b77818ed7e6c1c67642153e9f6130a28fc3683f0df05c7146",
+      "selected_checks": {
+        "staging": {
+          "public": 34,
+          "authenticated": 61,
+          "all_passed": true,
+          "synthetic_fixture_cleanup": true
+        },
+        "production": {
+          "public": 34,
+          "authenticated": 19,
+          "all_passed": true,
+          "synthetic_fixture_cleanup": true
+        }
+      },
+      "database_migrations_applied": {
+        "staging": [
+          "135_hosted_store_offering.sql",
+          "136_member_interaction_blocks.sql",
+          "137_community_content_topics.sql",
+          "138_hosted_direct_reservations.sql",
+          "139_member_message_images.sql",
+          "140_storefront_presentation.sql"
+        ],
+        "production": [
+          "134_hosted_storefronts.sql",
+          "135_hosted_store_offering.sql",
+          "136_member_interaction_blocks.sql",
+          "137_community_content_topics.sql",
+          "138_hosted_direct_reservations.sql",
+          "139_member_message_images.sql",
+          "140_storefront_presentation.sql"
+        ]
+      },
+      "worker_versions": {
+        "staging": "ef4b4d25-85a7-4ad8-a196-18232bee478c",
+        "production": "e8df68ff-c914-4cb2-b297-653c7e00707b"
+      },
+      "limitation": "No full Foundation, M1 or financial/payment acceptance. See receipt for failed operator attempts, cleanup and exact test limits."
+    }
   },
   "schema": {
     "last_observed_live": {
@@ -750,68 +789,72 @@
     },
     "staging_observed": {
       "environment": "staging",
-      "ledger_rows": 140,
-      "through_number": 141,
-      "applied": [
-        "141_storefront_product_photos.sql"
-      ],
+      "ledger_rows": 147,
+      "through_number": 148,
+      "applied": [],
       "pending": [],
-      "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "at": "2026-10-10T01:47:46.146Z",
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "at": "2026-10-10T13:26:30.851Z",
       "kind": "operator_observed_private_receipt",
       "role": "staging migrator",
       "source_digest_drift": 0,
-      "post_checks": "Canonical runtime grants and read-only checks; no expanded operator/vault access, unchanged context authority, new photo table visibility and backup role verified.",
-      "pre_migration_backup": "a2ded56b-5262-4e2e-9b70-d018b63ae6a8",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+      "post_checks": "Canonical runtime privileges, RLS, immutable context authority, policies and backup role verified; no expanded runtime authority.",
+      "pre_migration_backup": "d5b8e858-0614-4557-8a1c-c4c74f6f7fb7",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
     },
     "production_observed": {
       "environment": "production",
-      "ledger_rows": 140,
-      "through_number": 141,
+      "ledger_rows": 147,
+      "through_number": 148,
       "applied": [
-        "141_storefront_product_photos.sql"
+        "142_community_content_relations.sql",
+        "143_personal_content.sql",
+        "144_hosted_distribution_offers.sql",
+        "145_social_note_image_creation.sql",
+        "146_squad_management_and_kinds.sql",
+        "147_social_post_edits.sql",
+        "148_social_wall_interactions.sql"
       ],
       "pending": [],
-      "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "at": "2026-10-10T02:13:22.746Z",
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "at": "2026-10-10T13:57:03.216Z",
       "kind": "operator_observed_private_receipt",
       "role": "production migrator",
       "source_digest_drift": 0,
-      "post_checks": "Canonical runtime grants and read-only checks; no expanded operator/vault access, unchanged context authority, new photo table visibility and backup role verified.",
-      "pre_migration_backup": "61b03194-297b-4698-9869-251a16007c69",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+      "post_checks": "Canonical runtime privileges, RLS, immutable context authority, policies and backup role verified; no expanded runtime authority.",
+      "pre_migration_backup": "c2facfa5-2727-4099-a1e1-bf4bdbdaf9be",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
     },
-    "production_last_reported": "Only new migration 141 applied; all 140 ledger names/digests verified. Historical gap 022 unchanged, deployed 001–140 bytes preserved.",
+    "production_last_reported": "Applied142–148;147 ledger names/digests verified. Staging already148 before R15; historical gap022 unchanged.",
     "fresh_live_ledger_read": {
       "staging": {
-        "at": "2026-10-10T01:47:46.146Z",
-        "rows": 140,
-        "last_applied": "141_storefront_product_photos.sql",
+        "at": "2026-10-10T13:26:30.851Z",
+        "rows": 147,
+        "last_applied": "148_social_wall_interactions.sql",
         "source_digest_drift": 0,
-        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
       },
       "production": {
-        "at": "2026-10-10T02:13:22.746Z",
-        "rows": 140,
-        "last_applied": "141_storefront_product_photos.sql",
+        "at": "2026-10-10T13:57:03.216Z",
+        "rows": 147,
+        "last_applied": "148_social_wall_interactions.sql",
         "source_digest_drift": 0,
-        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
       }
     },
     "limitation": "Ledger evidence is the authenticated operator query, separate from HTTP health. Re-read before future schema/recovery operations.",
     "row_security_observed": {
       "staging": {
-        "tables": 32,
-        "policies": 43,
+        "tables": 33,
+        "policies": 45,
         "forced": 0,
         "security_definers_referencing_rls": 0,
         "runtime_bypass": false,
         "backup_bypass": true
       },
       "production": {
-        "tables": 32,
-        "policies": 43,
+        "tables": 33,
+        "policies": 45,
         "forced": 0,
         "security_definers_referencing_rls": 0,
         "runtime_bypass": false,
@@ -867,20 +910,21 @@
         "authority": 0
       },
       "if_enabled": "Each environment has one tenant_capacity_policies row with the same values: default scope, plan_ref interim-default-20261007, revision 1 (10 active instances, 3 per module, 2 concurrent provisions, 1000 work items, 104857600 retained bytes, 2 concurrent jobs, model budget 0). Staging's was written 2026-10-08T05:51Z by the staging migrator under the owner's 2026-10-07 trial approval; production's was written 2026-10-08T06:55Z by the production migrator with scripts/tenant-policy.ts after the owner chose the staging values on 2026-10-08. Neither environment has a tenant_authority_policies row, so ownership transfer and recovery return 403 policy_unconfigured. policy_rows counts the rows in each environment (the same in both).",
-      "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "at": "2026-10-10T02:34:31.616221+00:00",
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "at": "2026-10-10T14:16:00.225005+00:00",
       "evidence": [
         "docs/platform-plan/execution/unified-foundation/closeout.md",
         "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json",
         "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json",
-        "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+        "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
+        "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
       ],
       "limitation": "Full M1 and production merchant journey not accepted; existing capacity and absent authority policy unchanged."
     },
     "limitation": "Merged or deployed source does not enable default-off features or establish full acceptance; see the release flags and receipt.",
     "release_flags": {
-      "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "observed_at": "2026-10-10T02:34:31.616221+00:00",
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "observed_at": "2026-10-10T14:16:00.225005+00:00",
       "off": [
         "FREEDOM_COMMUNITY_DISCOVERY_ENABLED",
         "FREEDOM_HOSTED_RESERVATIONS_ENABLED",
@@ -889,7 +933,7 @@
         "FREEDOM_UNIFIED_SHARING_ENABLED",
         "FREEDOM_MESSAGE_IMAGE_ENABLED"
       ],
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json",
       "on_added": [
         "FREEDOM_HOSTED_STORE_PHOTOS_ENABLED",
         "FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED"
@@ -897,34 +941,43 @@
       "preserved_except_explicit_photo_admission": true
     },
     "hosted_store": {
-      "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json",
       "display_and_product_photos": "deployed",
       "private_supply_terms_and_independent_retail": "deployed",
       "buyer_reservations": "implemented, admission OFF",
-      "cross_member_supplier_selections": "missing implementation",
+      "cross_member_supplier_selections": "Deployed consented supply listings, independent seller retail terms and versioned adoption (#413). Cross-seller buyer reservations and actual production journey not established.",
       "inventory_module_portability": "missing implementation",
       "inventory_port": {
         "pull_request": 394,
         "merged_source": "0cb147393d4675c3513fc53a05e9d2d01e7bad84",
-        "deployed": false,
+        "deployed": true,
         "runtime_cases": 4171,
         "browser_cases": 770,
         "evidence": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38013918956/job/114107709589",
         "scope": "Local reserve/release/status port in the same PostgreSQL transaction; no foreign supplier consent, remote adapter or module export."
       }
+    },
+    "comment_images": {
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "mode": "r2_only",
+      "retained_byte_limit": 67108864,
+      "reader_floor": "media.comment-image.asset.v1",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json",
+      "staging_browser_journey": "passed; retained objects restored in after-rollout backup",
+      "production_browser_journey": "not_run"
     }
   },
   "recovery": {
-    "daily_operator_source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+    "daily_operator_source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
     "last_rollout_backup_release_pins": {
-      "staging": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "production": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "wrapper_sha256": "d430b0cc3e405562dc61f5cf30a3a7e94e1eff8285ed0d97aa1a7373dbb88440",
-      "at": "2026-10-10T02:14:04.111030+00:00",
-      "operator_source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+      "staging": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "production": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "wrapper_sha256": "bf34ea66684d7ded02df5cc1e247ed309261830d66dace69a9fe8134d1a5ba64",
+      "at": "2026-10-10T13:57:44.524347+00:00",
+      "operator_source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
       "schedules_unchanged": true,
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
     },
     "production_rollout_backups": [
       {
@@ -1128,6 +1181,34 @@
         "operator_source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
         "retained_photo_objects": 0,
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+      },
+      {
+        "label": "before-migration (2026-10-10 r15)",
+        "set": "c2facfa5-2727-4099-a1e1-bf4bdbdaf9be",
+        "source_release": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "created_at": "2026-10-10T13:46:28.063Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "retained_photo_objects": 3,
+        "retained_comment_objects": 0,
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
+      },
+      {
+        "label": "after-rollout (2026-10-10 r15)",
+        "set": "e598795a-1f13-4c29-add9-4f35b8164665",
+        "source_release": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "created_at": "2026-10-10T13:59:43.828Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "retained_photo_objects": 3,
+        "retained_comment_objects": 0,
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
       }
     ],
     "staging_rollout_backups": [
@@ -1324,6 +1405,34 @@
         "operator_source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
         "retained_photo_objects": 2,
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json"
+      },
+      {
+        "label": "before-migration (2026-10-10 r15)",
+        "set": "d5b8e858-0614-4557-8a1c-c4c74f6f7fb7",
+        "source_release": "64f27357760d5c7ce6f400459e103679aa811d67",
+        "created_at": "2026-10-10T13:17:23.956Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "retained_photo_objects": 4,
+        "retained_comment_objects": 0,
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
+      },
+      {
+        "label": "after-rollout (2026-10-10 r15)",
+        "set": "1574e0ad-1d66-4073-bef0-325f31dad7c1",
+        "source_release": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "created_at": "2026-10-10T13:36:20.514Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "retained_photo_objects": 6,
+        "retained_comment_objects": 4,
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json"
       }
     ],
     "scheduled_drill_source": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
@@ -1336,8 +1445,18 @@
       "Same-host isolated current-schema restore passed; a second authorized operator in a new environment is not yet accepted",
       "GC/OFF daily mode remains selected; retention executor and historical unsettled PUT remain open"
     ],
-    "operator_source_note": "Compatible photo-profile operator installed before first live photo write; disk PG18 recovery, remote readback and cleanup passed. Timers and GC/retention settings unchanged.",
-    "current_operator_scheduled_run": "not_run: next timer occurrence is after this rollout; manual live-backed capture/readback/restore receipts are listed separately"
+    "operator_source_note": "Photo/comment-image compatible source2d5 installed; both runtime pins2d5. Disk PG18 DB/object restore and remote readback passed. Timers, GC/retention settings unchanged.",
+    "current_operator_scheduled_run": "not_run: next timer occurrence is after this rollout; manual live-backed capture/readback/restore receipts are listed separately",
+    "rollback": {
+      "current_schema": 148,
+      "known_gaps": [
+        22
+      ],
+      "private_content_floor": "Do not redeploy e977 after migration143 private-content writes.",
+      "comment_image_floor": "19c6 is only a rollback candidate before comment-image activation. After activation retain media.comment-image.asset.v1 reader and use forward repair.",
+      "gc_and_retention": "OFF; historical object retention unchanged.",
+      "local_rollback_evidence": "Earlier schema148 local HTTP eleven-case evidence is retained; it is not a live Worker rollback drill."
+    }
   },
   "governance_pins": [
     {

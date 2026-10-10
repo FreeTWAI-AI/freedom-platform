@@ -37,13 +37,17 @@ function matchesMessageContentAck(value:Record<string,unknown>,input:DirectMessa
   }else if(value.sticker!==undefined)return false;
   if(input.reply_to_message_id!==undefined){
     const reply=value.reply_to;
+    // The authorized server projection can redact the quotation after commit.
+    // Require the exact original target identity; an arbitrary missing reply is unknown.
+    if(reply===undefined)return isUuid(value.reply_to_message_id)&&value.reply_to_message_id===input.reply_to_message_id.toLowerCase();
+    if(value.reply_to_message_id!==undefined&&value.reply_to_message_id!==input.reply_to_message_id.toLowerCase())return false;
     if(!record(reply)||reply.message_id!==input.reply_to_message_id.toLowerCase()||!isUuid(reply.sender_ref)||typeof reply.sender_name!=='string'||typeof reply.body!=='string'||[...reply.body].length>160)return false;
     if(reply.sticker!==undefined){
       if(!record(reply.sticker)||typeof reply.sticker.id!=='string')return false;
       const quotedSticker=findChatSticker(reply.sticker.id);
       if(!quotedSticker||reply.sticker.label!==quotedSticker.label)return false;
     }
-  }else if(value.reply_to!==undefined)return false;
+  }else if(value.reply_to!==undefined||value.reply_to_message_id!==undefined)return false;
   return true;
 }
 /** Only a first decoder rejection is known to precede upload preparation. A

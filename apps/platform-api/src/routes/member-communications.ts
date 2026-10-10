@@ -2,7 +2,7 @@ import { Hono,type Context } from 'hono';
 import type { Pool } from 'pg';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
 import {
-  listNotifications,markNotificationRead,markAllInboxRead,listConversations,conversationMessages,conversationActivity,sendDirectMessage,markConversationRead,searchConversationMessages,
+  listNotifications,markNotificationRead,markAllInboxRead,listConversations,conversationMessages,conversationActivity,sendDirectMessage,markConversationRead,searchConversationMessages,retractDirectMessage,
 } from '../../../../modules/member-communications/service.js';
 import {authRateLimit} from '../../../../modules/identity-membership/members.js';
 import {MESSAGE_IMAGE_INPUT_BYTES,MESSAGE_IMAGE_MIME_TYPES} from '../../../../modules/assets/message-image.js';
@@ -10,7 +10,7 @@ import {readMessageImage,uploadMessageImage} from '../../../../modules/member-co
 import {Problem,requireCondition} from '../../../../packages/shared/problem.js';
 import {AssetStorageError,readBounded} from '../../../../packages/asset-storage/index.js';
 import type {PlatformRuntime} from '../runtime.js';
-import {listChannels,channelMessages,channelActivity,sendChannelMessage,markChannelRead,searchChannelMessages} from '../../../../modules/member-communications/channels.js';
+import {listChannels,channelMessages,channelActivity,sendChannelMessage,markChannelRead,searchChannelMessages,retractChannelMessage} from '../../../../modules/member-communications/channels.js';
 import {listBlocks,blockState,changeBlock} from '../../../../modules/identity-membership/blocks.js';
 
 type ImageRuntime=Pick<PlatformRuntime,'messageImageAssets'|'messageImageAssetStore'>;
@@ -96,12 +96,17 @@ export function createMemberCommunicationRoutes(pool:Pool,runtime?:ImageRuntime,
     c.header('Content-Length',String(bytes.length));
     return c.body(new Uint8Array(bytes));
   });
+  app.post('/me/conversations/:userId/messages/:messageId/retract',async c=>c.json(await retractDirectMessage(pool,await canonicalCommand(c,`/me/conversations/${uuidParam(c,'userId')}/messages/${uuidParam(c,'messageId')}/retract`),c.req.param('userId'),c.req.param('messageId'))));
   app.post('/me/conversations/:userId/read',async c=>c.json(await markConversationRead(pool,await canonicalCommand(c,`/me/conversations/${uuidParam(c,'userId')}/read`),c.req.param('userId'))));
   app.get('/me/channels',async c=>c.json(await listChannels(pool,c.get('actor'),c.req.query())));
   app.get('/me/channels/:kind/:key/activity',async c=>c.json(await channelActivity(pool,c.get('actor'),c.req.param('kind'),c.req.param('key'),c.req.query())));
   app.get('/me/channels/:kind/:key/messages',async c=>c.json(await channelMessages(pool,c.get('actor'),c.req.param('kind'),c.req.param('key'),c.req.query())));
   app.get('/me/channels/:kind/:key/messages/search',async c=>c.json(await searchChannelMessages(pool,c.get('actor'),c.req.param('kind'),c.req.param('key'),c.req.query())));
   app.post('/me/channels/:kind/:key/messages',async c=>c.json(await sendChannelMessage(pool,await channelCommand(c,'messages'),c.req.param('kind'),c.req.param('key')),201));
+  app.post('/me/channels/:kind/:key/messages/:messageId/retract',async c=>{
+    const kind=c.req.param('kind')??'',key=c.req.param('key')??'';
+    return c.json(await retractChannelMessage(pool,await canonicalCommand(c,`/me/channels/${kind}/${kind==='squad'?key.toLowerCase():key}/messages/${uuidParam(c,'messageId')}/retract`),kind,key,c.req.param('messageId')));
+  });
   app.post('/me/channels/:kind/:key/read',async c=>c.json(await markChannelRead(pool,await channelCommand(c,'read'),c.req.param('kind'),c.req.param('key'))));
   return app;
 }

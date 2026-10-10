@@ -11,7 +11,7 @@ import {AssetStorageError,prepareLegacyMediaRepresentation,sha256,type ObjectSto
 import {authorizeHighlightUpload,publishHighlightAssetPair,cleanHighlightTitle} from '../community/event-highlights.js';
 import {createAssetLifecycle,assetCommandKey,type LifecyclePolicy,type LifecycleIntent} from './engine.js';
 const IMAGE_MAX=1048576,THUMB_MAX=204800,PAIR_MAX=IMAGE_MAX+THUMB_MAX;
-const bodySchema=z.object({sha256:z.string().regex(/^[0-9a-f]{64}$/),orientation:z.enum(['landscape','portrait']),title:z.string().max(120).nullable()}).strict();
+const bodySchema=z.object({sha256:z.string().regex(/^[0-9a-f]{64}$/),orientation:z.enum(['landscape','portrait']),title:z.string().max(120).nullable(),outcome_id:z.uuid().optional()}).strict();
 const prepareSchema=z.object({key:assetCommandKey,targetMediaId:OpaqueId,expectedVersion:z.literal('1'),contentType:z.literal('image/webp'),byteSize:z.number().int().positive(),sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict();
 type Prepare=z.infer<typeof prepareSchema>;
 type Published=Awaited<ReturnType<typeof publishHighlightAssetPair>>;
@@ -62,7 +62,7 @@ export function createEventHighlightAssetService(pool:Pool,dependencies:EventHig
      if(variant==='thumb'){
       const ready=(await q.query("SELECT asset_id FROM assets WHERE asset_id=ANY($1::uuid[]) AND state='ready' AND purpose='community.event-highlight' ORDER BY asset_id",[[imageAssetId,thumbAssetId]])).rows;
       requireCondition(ready.length===2,409,'asset_pair_incomplete','圖片變體尚未就緒。');
-      result=await publishHighlightAssetPair(q,current,eventId,mediaId,kind,image.length,orientation,title);
+      result=await publishHighlightAssetPair(q,current,eventId,mediaId,kind,image.length,orientation,title,body.outcome_id);
       await q.query('UPDATE community_event_highlight_asset_targets SET image_asset_id=$2,thumb_asset_id=$3,published_at=clock_timestamp() WHERE media_id=$1',[mediaId,imageAssetId,thumbAssetId]);
      }
      return {aggregateVersion:'1',result,fact:{aggregateType:'community_event_highlight',id:mediaId,data:{image_asset_id:imageAssetId,thumb_asset_id:thumbAssetId,variant,intent_id:row.intent_id}}};

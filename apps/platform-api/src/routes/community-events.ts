@@ -9,6 +9,9 @@ import { authRateLimit } from '../../../../modules/identity-membership/members.j
 import type { EventEmailSender } from '../../../../modules/community/events.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { eventVideoHttp, cancelEvent, createEvent, eventReferralReport,eventAttendees, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
+import {readMemberEventCalendar} from '../../../../modules/community/event-calendar.js';
+import {readEventReminder,saveEventReminder} from '../../../../modules/community/event-reminders.js';
+import {mutateEventWaitlist,processEventWaitlist,readEventParticipation,setEventWaitlistPolicy,updateEventSchedule} from '../../../../modules/community/event-waitlist.js';
 
 const BANNER_MAX_BYTES=512*1024;
 const VIDEO_MAX_BYTES=20*1024*1024;
@@ -54,12 +57,22 @@ export async function eventAssetVideoResponse(c:Context,pool:Pool,id:string,stor
  return c.body(media.body,media.plan.status);
 }
 
-export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='',runtime?:Pick<PlatformRuntime,'eventBannerAssets'|'eventBannerAssetStore'|'eventVideoAssets'|'eventVideoAssetStore'>) {
+export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSender,origin='',runtime?:Pick<PlatformRuntime,'eventBannerAssets'|'eventBannerAssetStore'|'eventVideoAssets'|'eventVideoAssetStore'|'eventParticipationEnabled'>) {
   const app=new Hono<PlatformEnv>();
   const id=(raw:string)=>z.uuid().parse(raw);
+  const dispatch=async(eventId:string)=>{if(runtime?.eventParticipationEnabled===true)await processEventWaitlist(pool,async(to,subject,body)=>{requireCondition(emailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');await emailSender(to,subject,body);},origin,undefined,eventId);};
+  if(runtime?.eventParticipationEnabled===true){
+    app.get('/events/:id/participation',async c=>c.json(await readEventParticipation(pool,c.get('actor'),id(c.req.param('id')))));
+    app.get('/events/:id/calendar',async c=>c.json(await readMemberEventCalendar(pool,c.get('actor'),id(c.req.param('id')))));
+    app.get('/events/:id/reminder',async c=>c.json(await readEventReminder(pool,c.get('actor'),id(c.req.param('id')))));
+    app.patch('/events/:id/reminder',async c=>c.json(await saveEventReminder(pool,await moduleCommand(c),id(c.req.param('id')))));
+    app.post('/events/:id/waitlist',async c=>{const eventId=id(c.req.param('id'));const result=await mutateEventWaitlist(pool,await moduleCommand(c),eventId);await dispatch(eventId);return c.json(result);});
+    app.patch('/events/:id/waitlist-policy',async c=>{const eventId=id(c.req.param('id'));const result=await setEventWaitlistPolicy(pool,await moduleCommand(c),eventId);await dispatch(eventId);return c.json(result);});
+    app.patch('/events/:id/schedule',async c=>{const eventId=id(c.req.param('id'));const result=await updateEventSchedule(pool,await moduleCommand(c),eventId);await dispatch(eventId);return c.json(result);});
+  }
   app.get('/events',async c=>c.json({items:await listEvents(pool,c.get('actor'))}));
   app.get('/events/bulletins',async c=>c.json({items:await listEventBulletins(pool,c.get('actor'))}));
-  app.get('/events/:id',async c=>c.json(await readEvent(pool,c.get('actor'),id(c.req.param('id')))));
+  app.get('/events/:id',async c=>c.json(await readEvent(pool,c.get('actor'),id(c.req.param('id')),runtime?.eventParticipationEnabled===true)));
   app.get('/events/:id/referrals',async c=>c.json({items:await eventReferralReport(pool,c.get('actor'),id(c.req.param('id')))}));
   app.get('/events/:id/attendees',async c=>{c.header('Cache-Control','private, no-store');return c.json(await eventAttendees(pool,c.get('actor'),id(c.req.param('id')),c.req.query()));});
   app.post('/events/:id/share-code',async c=>c.json(await getEventShareCode(pool,c.get('actor'),id(c.req.param('id')))));
@@ -92,7 +105,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
   });
   app.post('/events/:id/video/remove',async c=>c.json(await saveEventVideo(pool,await moduleCommand(c),id(c.req.param('id')),null)));
   app.post('/events/:id/update',async c=>c.json(await updateEvent(pool,await moduleCommand(c),id(c.req.param('id')))));
-  app.post('/events/:id/cancel',async c=>c.json(await cancelEvent(pool,await moduleCommand(c),id(c.req.param('id')))));
+  app.post('/events/:id/cancel',async c=>{const eventId=id(c.req.param('id'));const result=await cancelEvent(pool,await moduleCommand(c),eventId,runtime?.eventParticipationEnabled===true);await dispatch(eventId);return c.json(result);});
   app.post('/events/:id/review',async c=>c.json(await reviewEventAsGuildMaster(pool,await moduleCommand(c),id(c.req.param('id')))));
   app.post('/events/:id/rsvp',async c=>{
     const input=await moduleCommand(c),eventId=id(c.req.param('id'));
@@ -102,11 +115,12 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
       requireCondition(emailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
       await authRateLimit(pool,'event-rsvp-email',c.get('actor').user_id,6,3600);
     }
-    const result=await setRsvp(pool,input,eventId);
+    const result=await setRsvp(pool,input,eventId,runtime?.eventParticipationEnabled===true);
+    await dispatch(eventId);
     if((input.body as {going?:boolean})?.going&&result.visibility==='referral'&&emailSender){
       try{await emailSender(c.get('actor').email,'自由工坊：活動參與資料',
         `你已報名「${result.title}」。\n\n活動頁：${origin}/events/${eventId}\n\n地點：${result.location}${result.online_url?`\n線上參與連結：${result.online_url}`:''}`);}
-      catch{requireCondition(false,503,'event_email_delivery_failed','活動已報名，但郵件暫時無法寄送。請在活動專頁查看，或稍後重試。');}
+      catch{requireCondition(false,503,'event_email_delivery_failed','報名已確認，但 Email 提供者尚未確認接受郵件；這不代表未報名。請在活動專頁查看目前狀態。');}
     }
     return c.json(result);
   });

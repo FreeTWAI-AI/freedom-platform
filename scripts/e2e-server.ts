@@ -182,11 +182,17 @@ const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
 const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
+  memberReportingEnabled:process.env.FREEDOM_MEMBER_REPORTING_ENABLED==='true',
   // Explicit browser-harness option; product server/Worker release flags remain default OFF.
   communitySearchEnabled:process.env.FREEDOM_E2E_COMMUNITY_SEARCH==='1',
   communityRelationsEnabled:process.env.FREEDOM_E2E_COMMUNITY_RELATIONS==='1',
   personalContentEnabled:process.env.FREEDOM_E2E_PERSONAL_CONTENT==='1',
+  squadOutcomesEnabled:process.env.FREEDOM_SQUAD_OUTCOMES_ENABLED==='true',
+  eventOutcomesEnabled:process.env.FREEDOM_EVENT_OUTCOMES_ENABLED==='true',
+  firstParticipationEnabled:process.env.FREEDOM_E2E_FIRST_PARTICIPATION==='1',
+  notificationPreferencesEnabled:process.env.FREEDOM_E2E_NOTIFICATION_PREFERENCES==='1',
   hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
+  eventParticipationEnabled:process.env.FREEDOM_E2E_EVENT_PARTICIPATION==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),
   ...(storePhotoFixture?{storePhotoAssets:storePhotoFixture.assets,storePhotoAssetStore:storePhotoFixture.store,storePhotoUploadsEnabled:true}:{}),

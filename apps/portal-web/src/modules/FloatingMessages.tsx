@@ -8,8 +8,8 @@ import './ChatWorkspace.css';
 import './FloatingMessages.css';
 
 /** One persistent inbox. Closing only hides it, so drafts and unknown sends survive. */
-export function FloatingMessages({client,open,onToggle,onClose,children}:{client:PortalClient;open:boolean;onToggle:()=>void;onClose:()=>void;children:ReactNode}){
-  const {t}=useLanguage(),{total}=useInboxUnread(client,'messages');
+export function FloatingMessages({client,open,onToggle,onClose,children,preferencesEnabled=false}:{client:PortalClient;preferencesEnabled?:boolean|null;open:boolean;onToggle:()=>void;onClose:()=>void;children:ReactNode}){
+  const {t}=useLanguage(),{total}=useInboxUnread(client,'messages',preferencesEnabled);
   const trigger=useRef<HTMLButtonElement>(null),heading=useRef<HTMLHeadingElement>(null);
   const label=open?t('chat.collapse'):t(total===undefined?'chat.launchLoading':total===null?'chat.launchUnknown':total>0?'chat.launchUnread':'chat.launch',{count:total??0});
   const close=()=>{onClose();trigger.current?.focus({preventScroll:true});};

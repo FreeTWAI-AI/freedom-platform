@@ -6,15 +6,15 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-10 release.production=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c release.staging=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c flag.production=true flag.staging=true repo_max_migration=148 applied_migration.production=141 applied_migration.staging=141 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-10 release.production=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa release.staging=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa flag.production=true flag.staging=true repo_max_migration=160 applied_migration.production=148 applied_migration.staging=148 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-本候選的 repository migration 已到 148（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動）；這是程式整合狀態，兩環境已套用的版本仍為下述 141。
+本候選的 repository migration 已到 160（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動，149 為 #412 通知偏好、150 為 #405 訊息收回、151 為 #410 互動通知、152 為 #347 第一次參與、153 為 #348 活動參與、154 為小隊成果、155 為活動成果、156 為登入信箱變更、157 為信箱驗證、158 為 TOTP、159 為參與統計、160 為會員檢舉）；這是程式整合狀態，兩環境已套用的版本仍為下述 148。
 
-2026-10-10 更新（operator 私有收據的去敏摘要）：production 與 staging 都已部署 reviewed runtime `e9770b3a`（#391），使用同一份 dist；兩邊 ledger 已到 141，共 140 筆，022 是唯一歷史缺號。staging 於 01:48Z、production 於 02:14Z 讀回新版本。公會啟動台保持啟用，商品照片讀取／上傳已啟用，預留接單仍關閉。私人供貨條件與零售價已分開；跨會員選品、供貨接受／撤回及共同庫存訂單仍缺實作。
+2026-10-10 R15 更新（operator 私有收據的去敏摘要）：production 與 staging 都已部署 #427 `2d5f158c`，與 reviewed `fccc1739` 同 tree，使用同一份 dist。正式站套用 142–148，staging 在 R15 前已到 148、本輪沒有重套；兩邊 ledger 共 147 筆，022 是唯一歷史缺號。公會啟動台保持啟用，留言圖片為 r2_only／64 MiB；排程、GC 與 retention 維持原狀。
 
-Staging 真實 Workers／PostgreSQL／R2／Images 店主瀏覽器旅程通過，包含建立商店、商品與版型、照片新增／替換／移除、私人預覽、明確發布、重新登入及另一會員無權讀取。這次使用兩位既有合格示範會員；正式站則完成 34 個公開與 19 個登入 HTTP 檢查，未宣稱正式完整店主瀏覽器驗收。兩環境發布前後四份備份的資料庫與物件還原、遠端讀回及清理皆通過，其中 staging 更新後備份涵蓋兩個實際照片版本。相容照片的備份 operator 已先安裝，臨時 staging Access 已撤銷。
+Staging 實際商店 24、社群 26、小隊 16、公開入口 34 項通過；正式站公開 34／登入 19 項 HTTP 檢查通過。兩環境發布前後四份備份均完成磁碟 DB／物件還原與異地 readback，daily operator 與兩環境 runtime pins 皆為 `2d5f158c`，臨時 staging Access 已撤銷。這些選定檢查不代表完整 Foundation／M1 或第二操作者恢復驗收。
 
-詳見 [10 月 10 日發布收據](../unified-foundation/rollout-2026-10-10.json)。main 另已合併 #394 `0cb14739` 的本地庫存介面與連續新會員開店測試，但它尚未部署；不能把同店兩位買家的庫存競態當成跨賣方供貨或庫存外移。installed CI source 已更新為 `fa2fcdef`，實際正反例見[固定 workflow 收據](../../verification/main-ruleset-2026-10-10.json)。完整 Foundation／M1／第二操作者復原仍未接受。
+詳見 [R15 發布收據](../unified-foundation/rollout-r15-2026-10-10.json) 與 [現況快照](../unified-foundation/current-state.json)。較早的 [e977 發布收據](../unified-foundation/rollout-2026-10-10.json) 保留為歷史。#425／#426 以及本次 #429 的程式整合不在 R15 發布範圍內；不得把本候選或 repository 最大 migration 當成已部署。installed CI source 仍為 `fa2fcdef`，實際正反例見[固定 workflow 收據](../../verification/main-ruleset-2026-10-10.json)。
 
 以下 r9 的部署／migration／功能與候選描述保留為 2026-10-08 歷史紀錄；最新部署與已套用 schema 以上述 10 月 10 日摘要及現況快照為準，不把本輪 selected HTTP checks 當成原 T-ID 或完整產品驗收。
 

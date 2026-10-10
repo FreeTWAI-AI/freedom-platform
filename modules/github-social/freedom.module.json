@@ -5,6 +5,7 @@
   "owned_paths": [
     "apps/platform-api/src/routes/github-social.ts",
     "apps/portal-web/src/modules/GitHubAuthorFollow.tsx",
+    "apps/portal-web/src/modules/GitHubCallback.tsx",
     "apps/portal-web/src/modules/github-social-client.ts",
     "modules/github-social/provider.ts",
     "modules/github-social/service.ts",
@@ -12,7 +13,10 @@
     "tests/e2e/github-social.spec.ts",
     "tests/runtime/github-social-routes.test.ts",
     "tests/runtime/github-social-store.test.ts",
-    "tests/runtime/github-social.test.ts"
+    "tests/runtime/github-social.test.ts",
+    "apps/portal-web/src/modules/GitHubSocial.tsx",
+    "apps/portal-web/src/modules/SkillBookCover.tsx",
+    "tests/runtime/skill-book-star-gate.test.ts"
   ],
   "public_exports": [],
   "dependencies": [

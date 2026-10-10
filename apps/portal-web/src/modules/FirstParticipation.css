@@ -1,0 +1,11 @@
+.freedom-home .first-participation { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); min-width: 0; color: var(--ink); font-size: .875rem; line-height: 1.65; overflow-wrap: anywhere; }
+.freedom-home .first-participation p { margin: .5rem 0; }
+.freedom-home .first-participation-heading, .freedom-home .first-participation-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; min-width: 0; }
+.freedom-home .first-participation .btn { min-height: 44px; max-width: 100%; white-space: normal; text-align: start; }
+.freedom-home .first-participation details { margin-top: .75rem; }
+.freedom-home .first-participation summary { cursor: pointer; min-height: 44px; padding: .55rem 0; color: var(--ink); }
+.freedom-home .first-participation a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.freedom-home .first-participation :is(button, a, summary):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.freedom-home .first-participation-queue { padding-inline-start: 1.2rem; }
+.freedom-home .first-participation-queue li { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+@media (max-width: 390px) { .freedom-home .first-participation-heading { align-items: flex-start; } }

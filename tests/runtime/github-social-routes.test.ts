@@ -140,14 +140,23 @@ test('public metrics read the stored catalog snapshot and appear in no-JavaScrip
  assert.equal((await app.request(origin+'/api/v1/me/github')).status,401);
 });
 
-test('member OAuth and star routes enforce origin, CSRF, completed positioning and explicit desired state',async()=>{
+test('member OAuth and star routes enforce origin, CSRF and explicit desired state before guild selection',async()=>{
  assert.equal((await request('/me/github/connect',{},member,{'X-CSRF-Token':'wrong'})).status,403);
  assert.equal((await request('/me/github/connect',{},member,{Origin:'https://elsewhere.invalid'})).status,403);
  assert.equal((await request('/me/github/connect',{return_to:'https://elsewhere.invalid'})).status,422);
  assert.equal((await request('/me/github/books/security-scanner/star',{starred:true})).status,422);
  assert.equal((await request('/me/github/books/security-scanner/star',{starred:true,confirmed:true,token:'override'})).status,422);
  await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1',[DEMO_USERS[0].user_id]);
- assert.equal((await request('/me/github/connect',{})).status,403);assert.equal(calls.length,0);
+ assert.equal((await request('/me/github',undefined)).status,200);
+ assert.equal(calls.length,0);
+ await connect();
+ assert.equal((await request('/me/github/books/security-scanner/star',{starred:true,confirmed:true})).status,200);
+ assert.equal((await (await request('/me/github/books/security-scanner/star')).json() as any).starred,true);
+ const before=calls.length;
+ assert.equal((await request('/me/github/authors/source-author/follow',{following:true,confirmed:true})).status,403);
+ assert.equal((await request('/me/github/pages/home/issues',{title:'首頁提案',description:'尚未選擇公會的提案內容',confirmed:true})).status,403);
+ assert.equal(calls.length,before);
+ assert.equal((await request('/me/github/disconnect',{})).status,200);
 });
 
 test('OAuth binds the exact member session; direct Star uses that member token and never publishes credentials',async()=>{

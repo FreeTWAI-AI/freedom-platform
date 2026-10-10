@@ -30,7 +30,6 @@
     "apps/platform-api/src/routes/member-services.ts",
     "apps/platform-api/src/routes/promotion.ts",
     "apps/platform-api/src/routes/repo-author-claims.ts",
-    "apps/platform-api/src/routes/skill-discovery.ts",
     "apps/portal-web/src/modules/Community.tsx",
     "apps/portal-web/src/modules/EventsPanel.tsx",
     "apps/portal-web/src/modules/EventCalendar.tsx",
@@ -41,7 +40,6 @@
     "apps/portal-web/src/modules/CommunityHistory.tsx",
     "apps/portal-web/src/modules/PublicDiscovery.tsx",
     "apps/portal-web/src/modules/PublicEventPage.tsx",
-    "apps/portal-web/src/modules/SkillDiscovery.tsx",
     "apps/portal-web/src/modules/AuthorClaim.tsx",
     "apps/portal-web/src/modules/AuthorClaim.css",
     "apps/portal-web/src/modules/CommunityHistory.css",
@@ -50,20 +48,17 @@
     "apps/portal-web/src/modules/MemberServices.css",
     "apps/portal-web/src/modules/PromotionBoards.css",
     "apps/portal-web/src/modules/PublicEventPage.css",
-    "apps/portal-web/src/modules/SkillDiscovery.css",
     "apps/portal-web/src/modules/event-banner-client.ts",
     "apps/portal-web/src/modules/highlight-media.ts",
-    "apps/portal-web/src/modules/skill-discovery-client.ts",
     "tests/runtime/community-discovery.test.ts",
     "tests/runtime/event-create-rate-limit.test.ts",
     "tests/runtime/event-highlights.test.ts",
+    "tests/runtime/github-history.test.ts",
     "tests/runtime/member-service-cursor.test.ts",
     "tests/runtime/member-services.test.ts",
     "tests/runtime/repo-author-claims.test.ts",
     "tests/runtime/share-promotion.test.ts",
-    "tests/runtime/skill-discovery.test.ts",
     "tests/runtime/skill-share-content.test.ts",
-    "tests/runtime/social-thumbnail-assets.test.ts",
     "tests/e2e/event-highlights.spec.ts",
     "tests/e2e/member-services.spec.ts"
   ],
@@ -256,15 +251,6 @@
       "auth_profile": "member-session"
     },
     {
-      "surface_id": "community.skill-discovery.public-api",
-      "kind": "http",
-      "entry": "apps/platform-api/src/routes/skill-discovery.ts",
-      "operations": [
-        "community.skill-discovery.read"
-      ],
-      "auth_profile": "public-anonymous-read"
-    },
-    {
       "surface_id": "community.catalog-page",
       "kind": "page",
       "entry": "apps/portal-web/src/modules/Community.tsx",
@@ -351,15 +337,6 @@
       "entry": "apps/portal-web/src/modules/PublicEventPage.tsx",
       "operations": [
         "community.event-page.view"
-      ],
-      "auth_profile": "public-anonymous-read"
-    },
-    {
-      "surface_id": "community.skill-discovery-page",
-      "kind": "page",
-      "entry": "apps/portal-web/src/modules/SkillDiscovery.tsx",
-      "operations": [
-        "community.skill-discovery-page.view"
       ],
       "auth_profile": "public-anonymous-read"
     },

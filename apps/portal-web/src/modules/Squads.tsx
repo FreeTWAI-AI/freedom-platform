@@ -4,6 +4,7 @@ import {ApiError,type PortalClient} from '../api';
 import {useModuleMutation,type ModulePanelProps} from './shared';
 import {Status} from './Membership';
 import {ModuleBanner} from './ModuleBanner';
+import {SquadOutcomePublisher} from './SquadOutcomes';
 import {SquadOwnerTools} from './SquadOwnerTools';
 import './ModuleDiscovery.css';
 import './SquadInvitations.css';
@@ -90,7 +91,7 @@ function OwnerInvitations({client,squad,selfId,mutate,busy,refreshToken,onChange
     {outgoing.nextOffset!==null&&!outgoing.error&&<button className="btn btn-ghost" disabled={outgoing.loading} onClick={()=>void outgoing.load(outgoing.nextOffset!)}>查看更多送出的邀請</button>}
   </section>;
 }
-export function SquadsPanel({client,session}:ModulePanelProps){
+export function SquadsPanel({client,session,outcomesEnabled=false,eventLinksEnabled=false}:ModulePanelProps&{outcomesEnabled?:boolean;eventLinksEnabled?:boolean}){
   const [squads,setSquads]=useState<Squad[]>([]),[detail,setDetail]=useState<SquadDetail|null>(null);
   const [loadError,setLoadError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[nextOffset,setNextOffset]=useState<number|null>(null);
   const [query,setQuery]=useState(''),[kind,setKind]=useState<'all'|SquadKind>('all'),[onlyMine,setOnlyMine]=useState(false);
@@ -215,6 +216,7 @@ export function SquadsPanel({client,session}:ModulePanelProps){
       {!isOwner&&(detail.membership?.state==='active'?<div className="actions"><button className="btn btn-ghost" disabled={busy} onClick={()=>void change(detail,'leave',detail.membership?.aggregate_version)}>退出這支小隊</button></div>
         :detail.membership?.state==='pending'?<p className="muted">等候隊主接受</p>:<div className="actions"><button className="btn btn-primary" disabled={busy} onClick={()=>void change(detail,'request',detail.membership?.aggregate_version)}>申請加入</button><p className="field-hint">隊長接受後，才能查看分享給小隊的聯絡方式。</p></div>)}
     </section>}
+    {detail&&outcomesEnabled&&<section className="card stack"><SquadOutcomePublisher key={detail.squad_id} client={client} squadId={detail.squad_id} owner={detail.owner_ref===session.user.user_id} actorId={session.user.user_id} eventLinksEnabled={eventLinksEnabled}/></section>}
     {creating&&<div className="squad-start">
       <form className="card stack" onSubmit={create}>
         <div className="card-head"><h3>成立一支小隊</h3><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>{setCreating(false);requestAnimationFrame(()=>createTrigger.current?.focus());}}>返回小隊列表</button></div>

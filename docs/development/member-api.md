@@ -16,6 +16,70 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+## Member reporting and moderation cases
+
+This surface is default OFF. Only `FREEDOM_MEMBER_REPORTING_ENABLED=true`
+enables it; `/api/v1/site` exposes `member_reporting_enabled`. Disabled reporting
+routes return 404 before session authentication. Existing messaging and channel
+permissions are unchanged.
+
+- `POST /me/reports`: `{target_kind,target_id,reason,note}`. Targets are visible
+  `post`, `comment`, `direct_message`, `channel_message`, or `member` UUIDs.
+  The server checks current visibility and captures immutable evidence, rather
+  than accepting a client-supplied snapshot. Returns a case number and status.
+  Repeated reports by the same reporter for the same target reuse the case;
+  at most 20 new cases per reporter per hour are allowed.
+- `GET /me/reports`: only the current reporter's case numbers, status and public
+  outcome summary; no private evidence or reporter identity is disclosed.
+- `GET /admin/reports`: case summaries only, restricted to active platform
+  administrators with verified email. Guild titles confer no access. Both list
+  routes accept `limit` (1–50, default 20), optional `state`, and a descending
+  `case_number` cursor. `state=open` selects received/in-progress cases;
+  `state=all` or omitted state preserves the unfiltered list contract.
+  `next_cursor` is null after the final page; new cases do
+  not shift older pages. Lists never select private notes or evidence.
+- `GET /admin/reports/:id`: separately authorized case detail, including private
+  notes and the immutable server snapshot. Member evidence retains the card
+  content visible to the reporter, including only contacts they could see;
+  transient presence, last-seen, self and friendship fields are not retained.
+  Retracted messages are not reportable.
+- `GET /admin/reports/:id/image`: admin-only private-message image evidence.
+  Capture pins the existing immutable image target/object identity and digest;
+  it does not expose the participant image route or trust a live message after
+  retraction or reporter deactivation. Existing message-image targets/objects remain permanent and outside
+  domain GC. No bytes are copied into receipts, JSON evidence, or public storage.
+  The reader checks session/admin authority before and after object I/O and serves
+  `private, no-store`, `Vary: Cookie`, and `nosniff`. The host needs the existing
+  message-image object store; missing transport fails closed.
+- `POST /admin/reports/:id/transition`: `{state,reason,summary,action}`, with
+  `If-Match` and `Idempotency-Key`. States progress from `received` to
+  `in_progress` to `closed`; actions are `none`, `hide`, or `restore`.
+  Hide/restore uses existing post/comment moderation; messages and members can
+  be reviewed without changing their visibility or account permissions.
+  Handler, reason, action and version are audited. Content moderation, case
+  status, audit and command receipt commit together; a failed action does not
+  mark a case handled. Stale versions and invalid state transitions return 409.
+  Restoring a hidden asset-thumbnail post whose current asset pointer was retired
+  returns 409 `report_restore_media_unavailable`; content, retained thumbnail
+  evidence, and case state are unchanged. Text-only posts and comments remain
+  restorable. Full asset-image restoration is not implemented by this guard.
+
+Reports are not sent to the reported member. Other members cannot read cases
+or evidence, including private-message evidence they could not originally see.
+Pending migration `160_member_reports.sql` follows the integrated account and
+participation migrations 156–159; published 001–148 bytes remain unchanged.
+Evidence retention period and an owner-approved general rules/appeal page are
+deferred to #261; no appeal contact is invented here.
+
+The browser spec uses the existing per-test local HTTP feature fixture on the
+owned schema. Enabled and default-OFF cases run in the ordinary suite, including
+`npm run test:e2e -- tests/e2e/member-reporting.spec.ts`; no extra CI pass or trusted
+pin change is needed. The admin view loads evidence on demand and supports state
+filters and additional pages. Unknown transition results retain their exact
+body/version/key and prevent list replacement until the same operation resolves.
+
+## Existing member APIs
+
 Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
@@ -40,19 +104,82 @@ mutation body or creating, replacing or revoking sessions.
   with a private default. Registration has exactly one email input: `email`.
   A separate `contacts.email` input is rejected. Contact email always comes from
   the login identity; its audience starts empty (private).
-- `POST /auth/login`: existing `{email,password}`. Password login does not verify
-  email or automatically link providers. Slugs confer no GitHub/Discord/LINE
-  ownership or privileged action.
+- `POST /auth/login`: `{email,password,code?}`. Enabled MFA accounts first return
+  `401 totp_required` without a session; submit the same email/password with a
+  six-digit authenticator code or an unused backup code to complete login.
+  Password login does not verify email or link providers; slugs confer no ownership.
 - `POST /auth/reset/request`: `{email}`; requires the configured recovery sender
   and returns the same result for existing and unknown accounts.
 - `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
-  changes the password, revokes old sessions, clears account lockout and issues a
-  new session atomically. Returns `{reset,expires_after_minutes,user,csrf_token}`
-  with the same session cookie/lifetime as login; the session cookie already sent
-  by this browser is also revoked, as on login. Invalid, expired and inactive
-  proofs are rejected. See [password-recovery.md](password-recovery.md).
+  changes the password and revokes old sessions atomically. Without MFA it returns
+  `{reset,expires_after_minutes,user,csrf_token}` and a new session cookie.
+  Enabled MFA instead returns `{reset:true,totp_required:true,expires_after_minutes}`
+  without a session: return to login and supply the second factor. Resetting a
+  password does not disable MFA or replenish its attempt budget. Invalid, expired
+  and inactive proofs are rejected. See [password-recovery.md](password-recovery.md).
+- `GET /me/totp`: `{enabled,backup_codes_remaining}` for the current member.
+- `POST /me/totp/enable`: `{password,secret,code}`; secret is 20 browser-generated
+  random bytes encoded as 32 uppercase Base32 characters. The browser shows the
+  provisioning secret locally, never in an API response. A valid password and
+  RFC 6238 SHA-1 code (six digits, 30 seconds, ±1 step) enable MFA and return ten
+  96-bit backup codes once. Store them securely; only SHA-256 hashes are retained.
+  Replay returns 409 rather than recovering plaintext codes. After a lost enable
+  response, the UI rereads state and explains using the enrolled authenticator
+  to disable/re-enroll for fresh codes; it never replays backup plaintext. State-only command
+  receipts and metadata-only audit facts never contain secrets or backup codes.
+- `POST /me/totp/disable`: `{password,code}`; requires password plus an unused
+  authenticator or backup code. Successful disable deletes secret and code hashes.
+  Enable/disable require CSRF and Idempotency-Key but no If-Match; both revoke
+  all other member sessions. Reusing an operation key with changed content conflicts.
+  Failed enrollment, disable and login second factors share a persisted per-user
+  budget of ten failures per 15 minutes, serialized with the member row. New
+  password-only submissions cannot reset it. Accepted counters are monotonically
+  consumed, including enrollment, and backup deletion is atomic.
+
+Hosts must install a dedicated `TOTP_ENCRYPTION_KEY` (canonical Base64 of 32 random
+bytes) as a Node environment secret or Worker secret binding before enrollment.
+The member secret is AES-256-GCM encrypted with user-bound associated data.
+Missing/malformed keys fail closed with `503 totp_unavailable` for factor checks;
+ordinary accounts still log in. Keep the key stable and securely backed up:
+changing it without separately migrating ciphertext makes enabled factors unreadable.
+No deployment, remote key installation or authenticator-device acceptance is implied.
+
+- `POST /me/account/email-verification/request`: `{}`; authenticated member with
+  CSRF, including before onboarding completion. The account page exposes send/resend.
+  Uses the existing transactional `eventEmailSender` adapter (Worker `EMAIL`
+  binding; Node injection), with a verification-specific subject/body. Missing
+  configuration returns 503 `email_verification_unavailable`; delivery failure
+  returns 503 `email_verification_send_failed` and removes that proof.
+  Persistent budgets: 3/member/hour, 12/network/hour, 500/global/hour.
+- `POST /auth/email-verification/confirm`: `{token}`; same-origin JSON request,
+  no login required. The mail link `/#verify-email/<token>` opens a confirmation
+  page. A 30-minute, hashed, single-use proof marks only the issued login email
+  verified; changed email, inactive user, expired/reused proof return 422
+  `email_verification_link_invalid`. Successful confirmation consumes all
+  outstanding verification proofs for that user, without logging in or changing
+  passwords/sessions. Confirmation budgets: 30/network/hour, 500/global/hour.
+  Apply migration `157_email_verification.sql` before using these routes; no
+  deployment or mail-provider availability is implied by this implementation.
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
+- `POST /me/account/email-change/request`: authenticated, CSRF-protected
+  `{email,password}`; verifies the current password and sends a 30-minute link
+  to the normalized new address. Duplicate/current emails are rejected. Latest
+  request replaces earlier proofs. Requires the existing generic mail sender
+  (`eventEmailSender` / Worker `EMAIL`) and migration 156. The requesting session
+  is checked again after proof replacement, before handing the committed proof to mail.
+- `POST /auth/email-change/confirm`: `{token}`; the public `#change-email/<token>`
+  page requires an explicit confirmation action (GET does not consume it).
+  Proofs are one-use, SHA-256-only at rest, bound to the old email and password
+  credential. Switching verifies the new mailbox, invalidates password-reset
+  links, increments account version, audits without addresses/tokens, and
+  revokes every session except the requesting session. An expired requesting
+  session is not renewed. Old-address notification delivery failure rolls back
+  the change and permits retry. Mail-provider acceptance is not an inbox delivery
+  guarantee; a lost database commit after mail acceptance can cause a duplicate
+  notification on retry. The old-address notice describes a change attempt, not
+  committed success: delivery can cross the final proof expiry check, which still
+  rolls the transaction back. No production delivery/deployment is claimed.
 - `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**
   `verified`); social entries are `{value,audiences}`; email is **only**
   `{audiences}`. Sending `email.value` is rejected. GET still includes the
@@ -170,6 +297,230 @@ submissions return `429 auth_rate_limited` without those side effects. Exact
 Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
+
+## Event highlights and published squad outcomes (#257)
+
+This source candidate adds `154_squad_outcomes.sql` and
+`155_event_outcomes.sql`. Apply both **before switching source, even with
+features off**: existing highlight media readers always check persisted
+bindings. `FREEDOM_SQUAD_OUTCOMES_ENABLED` and
+`FREEDOM_EVENT_OUTCOMES_ENABLED` default off; event outcomes require squad
+outcomes, and an incomplete combination fails runtime configuration. Disabled
+new API routes return 404 before authentication. Flags off do not erase
+bindings or bypass their ACL. Do not roll back to a reader that ignores them.
+
+The agreed publishing boundary is the current active squad owner publishing
+their own authored outcome, not a formal #261 policy, roster projection,
+private Result or inferred team acceptance. All member routes below use
+`/api/v1`, existing session/CSRF and Idempotency-Key controls; edits, publishing
+and withdrawal require quoted `If-Match` for the outcome's aggregate version.
+Stale commands return 412 without replacing the browser's unsaved input.
+
+| Route | Body / projection |
+| --- | --- |
+| `GET /squads/:id/outcomes?limit=&offset=` | Current readable outcomes; default 20, maximum 50; `next_offset` and offset at most 10000. |
+| `POST /squads/:id/outcomes` | Private draft `{title,summary,artifact_url?}`; title 1–120, summary 1–4000; optional HTTPS public-host source link, no fetching. |
+| `GET /squad-outcomes/:id` | Own management history or current published reader projection. |
+| `POST /squad-outcomes/:id/edit` | Same draft fields; resets scope to squad and clears previous publication consent. |
+| `POST /squad-outcomes/:id/publish` | `{audience:squad|community|public,consent_to_share:true}`; explicit rights, persons and author/squad-name sharing consent. |
+| `POST /squad-outcomes/:id/withdraw` | `{}`; stops current published use without deleting truthful author history. |
+| `GET /me/squad-outcomes` | Own authored history. |
+| `GET /event-highlights/:id/outcomes` | Currently readable published recaps. |
+| `GET /event-highlights/:id/outcomes/own` | Own drafts/published/withdrawn history, not another author's private data. |
+| `GET /event-highlights/:id/outcome-references` | Bounded current, same-community source picker (at most 100). |
+| `POST /event-highlights/:id/outcomes` | Private draft `{title,summary,audience:community|guild|public,refs:[{kind,id}]}`; maximum 8 unique references. |
+| `GET /event-outcomes/:id` | Own management projection. |
+| `GET /event-outcomes/:id/published` | Current published ACL, with no own-history exception. |
+| `POST /event-outcomes/:id/update` | Same draft fields, clears publication consent; event/author cannot be rebound. |
+| `POST /event-outcomes/:id/publish` | `{consent_to_share:true}` for the saved scope and current readable sources. |
+| `POST /event-outcomes/:id/withdraw` | `{}`; hides bound media and backlinks. |
+| `GET /event-outcome-backlinks/:kind/:sourceId` | Current authorized event/detail links, never cached private labels. |
+
+Reference kinds are `work`, `skill_book` and `squad_outcome`; arbitrary,
+foreign-community, withdrawn or unreadable targets are rejected. Work means
+the original published community showcase, never a private Result, so it
+cannot be placed in a public recap. Skill books use original curated or public
+submission readers and retain attribution/self-declared relationship
+boundaries. A squad source must still be published and currently readable;
+own withdrawn history does not grant reuse. Guild scope requires an original
+guild event and current publisher/viewer membership. Any unreadable source
+hides the **whole** dependent recap, bound media and backlinks.
+
+Legal current event members can author recaps for ended events; Going is not
+required or asserted as attendance. Each event has at most 100 recap records.
+The original photo/poster/link upload pipeline remains authoritative.
+JSON link/image metadata may include `outcome_id`; raw photo/poster uploads
+use `X-Event-Outcome-Id`. Binding verifies the same author/event in the
+original atomic media transaction. A draft binding is private to its author;
+it cannot become an anonymous gallery item until explicit eligible publication.
+An invalid later file leaves earlier successes intact; the browser reloads
+them and retains only failed/not-yet-sent files rather than re-uploading
+successful ones. Uploading without a binding uses the original event ACL,
+not an invented private gallery.
+
+Anonymous equivalents use `/api/v1/public` for published squad/outcome,
+event-outcome list and backlink reads. `/squad-outcomes/:id` is the canonical
+public squad detail. Member source navigation uses `#showcase/:id`,
+`#squad-outcomes/:id` and original skill canonical pages. Backlinks return
+`#highlights/:eventId`; canonical skill HTML prefixes member fragments with
+`/` so they actually return to the portal. Its personalized backlink HTML is
+`no-store` with `Vary: Cookie`, without making private recap text OG metadata.
+
+Anonymous original highlight HTML, metadata, banners and gallery bytes admit
+only open/referral events; workshop/guild details return 404. Member media
+routes `/event-highlights/media/:id/image|thumb` and
+`/event-highlights/:id/banner` recheck current event/member and source ACL,
+including a fence after object I/O. Media is `no-store`; disabling features
+does not restore withdrawn bytes or detach bindings. Withdrawal cannot recall
+previously downloaded or third-party-cached copies.
+
+Private outcome JSON and authenticated skill backlink HTML hold current
+user/session locks through their database projection and recheck expiry with
+the database clock after its last query. Member media takes separate short
+session-and-ACL snapshots before and after object I/O; revoked or expired
+sessions return `401 session_expired` even when the underlying event is public.
+The anonymous media endpoint continues to enforce its own public policy.
+
+Local isolated database/browser checks are not trusted CI, deployment,
+flag-on, actual attendance, formal acceptance, XP or external delivery evidence.
+
+## Event calendar, reminders and waitlists (#256)
+
+The candidate uses migration `153_event_participation.sql`. Apply it **before
+switching source, even with the feature off**: existing RSVP capacity and guest
+acknowledgement paths also use its columns. The new routes and UI require
+`FREEDOM_EVENT_PARTICIPATION_ENABLED=true` (default off); disabled routes return
+404 before authentication. Worker enablement requires a usable `EMAIL.send`
+binding. This is not deployment, sender authorization or trusted CI evidence.
+
+All routes below use `/api/v1`. Member routes retain session, CSRF,
+Idempotency-Key and quoted If-Match controls:
+
+- `GET /events/:id/participation`: current event version, own RSVP/waitlist and
+  available seats, never other participants' identities or contact details.
+- `POST /events/:id/waitlist`: `{action:join|leave|accept|decline,referral_code?}`.
+- `PATCH /events/:id/waitlist-policy`: organizer-only
+  `{waitlist_enabled,response_window_minutes}`; enabling requires an explicit
+  positive safe-integer number of minutes, with no default window.
+- `PATCH /events/:id/schedule`: organizer-only `{starts_at,ends_at,capacity}`;
+  ISO timestamps, end after start, capacity null or 1–500.
+- `GET /events/:id/calendar`: `{calendar,filename}` for a currently readable
+  event. The browser downloads those bytes as a private `.ics` Blob.
+- `GET|PATCH /events/:id/reminder`: the independent reminder version and choice;
+  mutation `{enabled,minutes_before_start?,channel?}`. Enabling requires Going,
+  an explicit positive safe-integer lead time and `in_app` or `email`.
+
+Legal public guests request a mailbox management link with
+`POST /public/events/:id/participation-request` and
+`{name,email,referral_code?}`. Requesting it does not register, join the queue or
+enable a reminder. Existing network/email/global registration budgets apply.
+Its acknowledgement means provider acceptance, not inbox delivery.
+The private link uses `#participation=<opaque-token>`; treat it as a bearer
+credential and do not forward it. The client keeps it in memory and sends only
+`X-Event-Participation-Token` to that event's guest participation, calendar or
+reminder endpoint, never query parameters, storage, telemetry or ICS content.
+
+- `GET /public/events/:id/participation|calendar|reminder` returns the authorized
+  guest's projection. `POST .../participation` accepts member queue actions plus
+  `register|cancel`, and `expected_version` matching the quoted event If-Match.
+- `PATCH /public/events/:id/reminder` accepts the reminder choice plus
+  `command_id` matching Idempotency-Key and numeric `expected_version` matching
+  the reminder If-Match; guests may select only `email`.
+- Guest command keys are 8–128 base64url characters. Exact command replays do
+  not create another action or physical send. A stale version returns 412;
+  the UI retains the draft. An unknown response freezes the submitted command
+  for explicit retry with its original key/body/version, while retaining edits.
+
+All new endpoints use `private, no-store` and `noindex, nofollow`. Reads and
+dispatch recheck source visibility, current guild/account eligibility, referral
+codes and verification-test exclusions. Cancelled history remains accessible
+only with a genuine own RSVP or waitlist history; possession of an unrelated
+link or a bare cancelled reservation does not grant access.
+
+An event lock serializes capacity changes, original RSVP and queue commands.
+Occupancy includes confirmed Going, unexpired ten-minute public guest
+reservations and live offers, without counting an identity's own overlapping
+reservation twice. The agreed deduplication boundary is member ID separately
+from trimmed lowercase guest Email; no inferred member/guest identity linking,
+mailbox-alias equivalence or real-person verification is claimed.
+FIFO uses join time with a stable tie-breaker; leaving and rejoining goes to the
+back. Offers reserve seats, require explicit acceptance and expire no later
+than event start. Decline/expiry advances the queue. Capacity cannot fall below
+confirmed/live pending occupancy; excess newest unaccepted offers return to
+their original queue positions. Genuine transitions retain factual history,
+not invented participant actions or attendance.
+
+The existing Worker ten-minute schedule performs bounded round-robin queue
+reconciliation and reminder dispatch; affected mutations also dispatch queue
+updates. There is no minute-precision SLA or automatic scheduler in Node.
+Cancelled RSVP/event stops unsent reminders; rescheduling fences old attempts
+and uses the current start. Durable attempt identities prevent repeating the
+same start/lead/channel send, including a round-trip reschedule. Ambiguous
+physical sends are not automatically retried. Reminder status `provider_accepted`
+means only sender acceptance, `recorded` means a station notification was
+recorded, and `pending|cancelled|failed` are not delivery claims. In-app starts
+respect current notification preferences and quiet hours; essential invitation,
+schedule and cancellation notices retain their transactional classification.
+
+ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellation
+STATUS and RFC text escaping/octet folding. It does not turn private locations
+or joining links into a public calendar feed. Import is a manual snapshot:
+redownload after changes; no automatic subscription/update is promised.
+Isolated browser download, UTC/time-zone and independent parser checks do not
+claim an actual Apple/Google Calendar import, external Email delivery, Worker
+cron deployment, attendance rate, XP, ticketing or payment completion.
+
+## Optional first participation (#259)
+
+This source candidate adds `152_first_participation.sql` on top of #344's
+personal-content prerequisite. `FREEDOM_FIRST_PARTICIPATION_ENABLED` defaults off
+in Node and Worker; `/site` exposes `first_participation_enabled`. Enabling it
+requires `FREEDOM_PERSONAL_CONTENT_ENABLED`. Disabled routes return 404 before
+authentication; invalid dependency combinations fail closed before pool/static work.
+
+The optional home card follows lawful quick guild entry, not a compulsory
+assessment, GitHub/AI binding or friendship. Its two choices return to original
+consented showcase publishing or the selected primary guild's original chat.
+Teaching examples are fictional and never prefill or publish. Native #193 public
+questions are unavailable; guild chat is not a substitute public post.
+
+`GET /api/v1/me/first-participation` returns versioned choice, selection time,
+state, current completion, own private draft resume and reception preference.
+`POST` accepts `{action:"choose",choice:"work"|"introduction"}` or an action of
+`skip`, `dismiss`, `resume`, `request_reception`, `stop_reception`, with the
+existing If-Match/Idempotency-Key contract. No client completion flag is accepted.
+Selection, suppression and opt-in survive relogin; content is not copied.
+Unknown transport outcomes retry the identical body/version/key. Late results
+cannot navigate a subsequent account. Unsent chat is browser-memory-only.
+
+Only an original first showcase-publication journal fact or actual own selected
+guild message at/after selection completes a chosen path. Old publications,
+private drafts and page opens do not. Projections recheck current ownership,
+community, visibility and guild membership. A retracted introduction is unavailable;
+retracted replies are excluded, and reception filters the original first source
+before pagination. Later messages do not replace it. Withdrawal/revocation produces
+`source_unavailable`, null completion and no cached title/link. Draft resume
+opens original own content. Guild links preserve the selected guild after reload.
+
+`GET /api/v1/first-participation/reception?offset=0&limit=20` lists explicitly
+opted-in currently readable same-community requests, with ACL before pagination
+(limit 1–50, offset 0–10000). `POST .../reception/:userId/claim` and `/release`
+accept `{}` with the target If-Match/key. Eligible volunteers may claim another
+member; concurrent claims have one winner. Disabled/ineligible claimants are
+not presented as active. Stopping removes the request. No email/contact/private
+draft is exposed. Claims do not send messages, add friends or certify identity,
+quality or response. Guild reply counts include other-author replies only;
+own work counts private opportunities and volunteers receive null.
+
+Local verification is synthetic source evidence only. Consented real-human
+newcomer trial, operational receptionist handoff, native #193 paths,
+production activation and formal #261 policy acceptance remain unverified.
+
+Build before the isolated `FREEDOM_E2E_FIRST_PARTICIPATION=1` browser pass.
+After changing worktree dependency links, rebuild the portal: an existing bundle
+can retain duplicate React instances and fail before the home card mounts.
+The browser regression also rejects page runtime errors instead of diagnosing
+an empty application as a missing guidance card.
 
 ## Event registration list (#401)
 
@@ -409,3 +760,48 @@ Successful receipts point to actual original work/submission/opportunity/
 project readers, not provisional drafts or inferred acceptance. The entry itself
 collects no content. Local verification is not deployment, flag-on or full #258
 acceptance evidence.
+
+## Participation metrics (#262)
+
+This source candidate adds `159_participation_metrics.sql` (number provisional
+until merge order is known) and `FREEDOM_PARTICIPATION_METRICS_ENABLED`
+(default off in Node and Worker; a non-boolean value fails closed). With the
+flag off the report route does not exist and search records nothing.
+
+`GET /admin/api/participation-metrics?from=YYYY-MM-DD&to=YYYY-MM-DD` is behind
+the existing verified platform-admin identity, reads only that admin's own
+community, is `no-store`, and is recomputed from current authoritative records
+on every request, so there is no stored report to go stale or leak. The default
+range is the last 28 Asia/Taipei days; the maximum is 366 days. Invalid calendar
+dates return 422 before any report query. Search rates expose distinct excluded
+test-account counts and excluded read counts for their own denominator. The response
+embeds its own definition (`participation-metrics/v2`): cohort, time zone,
+window, de-duplication and exclusions are part of the data, not tribal
+knowledge.
+
+Metrics: share and comment within 7 days of registration; a different human
+active member's comment within 48 hours of an active native post (a
+reproducible proxy, not a quality judgement); a later-calendar-day durable
+participation event within 7 days of a first share; and search zero-result and open rates.
+Cohort members and posts only enter a denominator after their window has fully
+elapsed; the rest is `pending_window`. Fewer than 10 in a denominator returns
+`rate: null, status: insufficient_sample`. Verification/test accounts, launch-day
+backfilled joiners, authors replying to themselves, inactive or foreign
+responders and removed content are excluded and test-account counts are shown.
+Moderation case time is `not_available`: reporting cases exist, but their
+processing time has not been instrumented, so no number is invented.
+
+Search outcomes store only an operation id, member, time, whether it was the
+first page, a result count and one opened content kind. Query text, filters,
+titles, messages, email and media are never stored. The open signal is
+accepted only from the member who ran the search. Its small same-origin CSRF
+request uses keepalive across document navigation; this is an outcome signal,
+not evidence that the target was read. Return uses timestamps of
+native posts/comments, showcase consent, skill publication and recorded search
+operations, not mutable session last-seen. It measures participation, not all
+visits; removal/withdrawal of those authoritative facts can change the report.
+Promotion clicks, RSVPs and reactions are not inputs and never become quality,
+acceptance, XP or reward.
+
+No real baseline was observed: production read access and the retention/opt-out
+policy (#261) are not available, so any number here is synthetic evidence only.

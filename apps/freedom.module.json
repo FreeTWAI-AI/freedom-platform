@@ -22,7 +22,8 @@
     "tenant-workspaces",
     "work",
     "member-squads",
-    "github-social"
+    "github-social",
+    "member-reporting"
   ],
   "format": "freedom.module/v1",
   "instructions": [
@@ -73,11 +74,30 @@
     "tests/e2e/simple-social-experience.spec.ts",
     "apps/portal-web/src/LazyPage.tsx",
     "tests/e2e/shared-feedback-language.spec.ts",
-    "tests/e2e/audit-shell.spec.ts"
+    "tests/e2e/audit-shell.spec.ts",
+    "apps/portal-web/src/api.ts",
+    "apps/portal-web/vite.config.ts",
+    "apps/portal-web/src/styles.css",
+    "apps/portal-web/src/auth-messages.ts",
+    "apps/platform-api/src/routes/admin.ts",
+    "modules/platform-admin/guild-appointment-membership.ts",
+    "modules/platform-admin/guild-experts.ts",
+    "modules/platform-admin/leadership.ts",
+    "modules/platform-admin/service.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],
-  "surfaces": [],
+  "surfaces": [
+    {
+      "surface_id": "application-composition.participation-metrics-admin",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/admin.ts",
+      "operations": [
+        "community.participation-metrics.read"
+      ],
+      "auth_profile": "platform-admin"
+    }
+  ],
   "tests": [
     "runtime.full"
   ]

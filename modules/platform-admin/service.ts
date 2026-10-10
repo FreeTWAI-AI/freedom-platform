@@ -1,3 +1,4 @@
+import {withBookStarChecks} from '../positioning/onboarding.js';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import type {Pool,PoolClient} from 'pg';
@@ -230,11 +231,11 @@ export async function adminGuildMasterCandidates(pool:Pool,admin:AdminActor,key:
 export async function appointGuildMaster(pool:Pool,input:AdminCommand,key:string){
   const body=z.object({user_id:z.uuid(),reason}).strict().parse(input.body);
   const authorize=(q:PoolClient)=>authorizeGuildAppointee(q,input.admin,body.user_id,key);
-  return adminCommand(pool,input,authorize,async q=>{
+  return withBookStarChecks(pool,run=>adminCommand(pool,input,authorize,run),async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-officer/${input.admin.community_id}/${key}`]);
     const prior=(await q.query('SELECT * FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 FOR UPDATE',[input.admin.community_id,key])).rows[0];
     if(prior)checkVersion(prior.aggregate_version,input.expected);else requireCondition(!input.expected,412,'version_conflict','公會長資料已變更，請重新整理。');
-    const membership=await ensureGuildAppointeeMembership(q,input.admin,body.user_id,key,body.reason);
+    const membership=await ensureGuildAppointeeMembership(pool, q, input.admin,body.user_id,key,body.reason);
     const row=(await q.query(`INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3) ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=$3,appointed_at=now(),aggregate_version=nextval('positioning_guild_officer_revision') RETURNING *`,[input.admin.community_id,key,body.user_id])).rows[0];
     await notifyGuildMasterChange(q,input.admin.community_id,prior?.user_id??null,row);
     await audit(q,input.admin,'appoint_guild_master','guild',key,body.reason,prior?{user_id:prior.user_id,aggregate_version:prior.aggregate_version}:null,{user_id:row.user_id,aggregate_version:row.aggregate_version,membership_joined:membership.membership_joined});return {...row,membership_joined:membership.membership_joined};

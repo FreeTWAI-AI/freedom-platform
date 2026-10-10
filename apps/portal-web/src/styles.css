@@ -745,3 +745,18 @@ input,textarea,select{background:#0c1017;border-color:#404959;color:var(--ink)}i
 .community-content-search .btn-small { justify-self: start; min-height: 44px; padding: 8px 14px; }
 .community-search-action, .community-content-search .btn-secondary { width: fit-content; max-width: 100%; justify-self: start; align-self: start; min-height: 44px; padding: 8px 14px; background: var(--bg-elev); color: var(--ink); border: 1px solid var(--line); }
 .community-search-action:hover, .community-search-action:focus-visible, .community-content-search .btn-secondary:hover:not(:disabled), .community-content-search .btn-secondary:focus-visible { background: var(--bg-elev); color: var(--ink); border-color: var(--focus); }
+
+.outcome-section { min-width: 0; }
+.outcome-section h2, .outcome-section h3, .outcome-section h4, .outcome-section p, .outcome-section a { overflow-wrap: anywhere; }
+.outcome-section .btn-secondary { width: fit-content; max-width: 100%; justify-self: start; align-self: start; min-height: 44px; padding: 8px 14px; background: var(--bg-elev); color: var(--ink); border: 1px solid var(--line); }
+.outcome-section .btn-secondary:hover:not(:disabled), .outcome-section .btn-secondary:focus-visible { border-color: var(--focus); }
+.outcome-section fieldset { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.outcome-section .choice { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; padding-block: 8px; overflow-wrap: anywhere; }
+.outcome-section .choice input { width: auto; flex-shrink: 0; }
+
+/* Email links also render outside the lazy member shell. */
+.email-confirm { width: min(100%, 42rem); margin: clamp(1rem, 5vh, 3rem) auto; padding: 1rem; }
+.email-confirm h1 { font-size: 1.35rem; margin: 0; }
+.email-settings .btn, .email-confirm .btn { width: fit-content; max-width: 100%; justify-self: start; align-self: start; min-height: 44px; border: 1px solid var(--line); }
+.email-settings .btn-secondary, .email-confirm .btn-secondary { background: var(--bg-elev); color: var(--ink); }
+.email-settings .btn:hover:not(:disabled), .email-settings .btn:focus-visible, .email-confirm .btn:hover:not(:disabled), .email-confirm .btn:focus-visible { border-color: var(--focus); }

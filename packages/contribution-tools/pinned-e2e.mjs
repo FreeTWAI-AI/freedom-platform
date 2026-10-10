@@ -28,6 +28,7 @@ member-services.spec.ts member-session-lifecycle.spec.ts member-settings-real.sp
 message-images.spec.ts member-settings.spec.ts member-todos-real.spec.ts member-todos.spec.ts model-settings.spec.ts
 modules-beginners.spec.ts navigation-audit.spec.ts newcomer-guides.spec.ts
 notification-bell-actions.spec.ts onboarding-members.spec.ts onboarding-recovery.spec.ts
+notification-preferences.spec.ts
 opensource-modules.spec.ts page-issue-recovery.spec.ts page-tools-notification.spec.ts
 page-tools.spec.ts password-recovery.spec.ts positioning-modules.spec.ts private-work-ai.spec.ts
 repo-author-claims.spec.ts session-recovery.spec.ts share-promotion.spec.ts sidebar-refine.spec.ts
@@ -39,11 +40,12 @@ tenant-workspaces.spec.ts text-autospace.spec.ts typed-line-breaks.spec.ts works
 
 // Host-owned whole-pass bounds; candidate config and environment cannot enlarge them.
 export const E2E_PASS_TIMEOUT_MS = Object.freeze({
-  default: 40 * 60 * 1000,
+  default: 50 * 60 * 1000,
   'private-ai': 30 * 60 * 1000,
   'avatar-asset': 30 * 60 * 1000,
   'message-image': 30 * 60 * 1000,
   'store-photo': 30 * 60 * 1000,
+  'notification-preferences': 30 * 60 * 1000,
 });
 
 export const E2E_PLAN = Object.freeze([
@@ -51,7 +53,8 @@ export const E2E_PLAN = Object.freeze([
   { id: 'private-ai', env: { FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' }, files: ['tests/e2e/private-work-ai.spec.ts'] },
   { id: 'avatar-asset', env: { FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1' }, files: ['tests/e2e/member-avatar-asset.spec.ts'] },
   { id: 'message-image', env: { FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' }, files: ['tests/e2e/message-images.spec.ts'] },
-  { id: 'store-photo', env: { FREEDOM_E2E_STORE_PHOTO_FIXTURE: '1' }, files: ['tests/e2e/hosted-store-photo.spec.ts'] }
+  { id: 'store-photo', env: { FREEDOM_E2E_STORE_PHOTO_FIXTURE: '1' }, files: ['tests/e2e/hosted-store-photo.spec.ts'] },
+  { id: 'notification-preferences', env: { FREEDOM_E2E_NOTIFICATION_PREFERENCES: '1' }, files: ['tests/e2e/notification-preferences.spec.ts'] }
 ]);
 
 const SPEC_NAME = /^[a-z0-9][a-z0-9-]*\.spec\.ts$/;

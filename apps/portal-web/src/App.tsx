@@ -12,6 +12,8 @@ import {EntryResources} from './modules/EntryResources'
 import {CHAT_ENTRY_EVENT,isChatEntry,type ChatEntry} from './modules/chat-entry'
 import type { OnboardingView } from './modules/Onboarding'
 import type { MemberCardData } from './modules/Membership'
+import { EmailChangeConfirm } from './modules/EmailChange'
+import {EmailVerificationConfirm} from './modules/EmailVerification';
 import { MemberAvatar } from './modules/MemberAvatar'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
 import { AuthorClaimProvider } from './modules/AuthorClaim'
@@ -20,12 +22,15 @@ import {NotificationBell,type BellAction} from './modules/NotificationBell'
 import {FloatingMessages} from './modules/FloatingMessages'
 import './SocialLayout.css'
 import { PlatformPurpose, entryIntentFromHash, entryIntentLabel, type EntryIntent } from './PlatformPurpose'
+const NotificationPreferencesPanel = lazy(() => import('./modules/NotificationPreferences').then(m => ({default: m.NotificationPreferencesPanel})))
+import {readEventParticipationToken} from './modules/EventParticipation'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { GameConsoleProvider, GameConsolePopout, useGameConsole } from './GameConsole'
 import {PageTools} from './PageTools'
 import {GuideHost} from './modules/newcomer-guides/GuideHost'
 import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
+import {AdminReports,MemberReportingProvider} from './modules/MemberReporting'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
 import { CommunitySearch } from './modules/CommunitySearch'
@@ -49,6 +54,7 @@ const Onboarding = lazy(() => import('./modules/Onboarding').then(m => ({default
 const AccountPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.AccountPanel})))
 const MembersPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.MembersPanel})))
 const SquadsPanel = lazy(() => import('./modules/Squads').then(m => ({default: m.SquadsPanel})))
+const SquadOutcomeDetail = lazy(() => import('./modules/SquadOutcomes').then(m => ({default: m.SquadOutcomeDetail})))
 const CoCreationPanel = lazy(() => import('./modules/CoCreationPanel').then(m => ({default: m.CoCreationPanel})))
 const AdminPanel = lazy(() => import('./modules/AdminPanel').then(m => ({default: m.AdminPanel})))
 const GitHubCallback = lazy(() => import('./modules/GitHubCallback').then(m => ({default: m.GitHubCallback})))
@@ -137,7 +143,7 @@ const resetTokenFromHash=()=>/^#reset-password\/([A-Za-z0-9_-]{43})$/.exec(windo
 const eventIdFromLocation=()=>{
   const inHash=/^#events\/([0-9a-f-]{36})(?:\?.*)?$/.exec(window.location.hash)?.[1];
   if(inHash)return inHash;
-  if(window.location.hash)return null;
+  if(window.location.hash&&!readEventParticipationToken())return null;
   return /^\/events\/([0-9a-f-]{36})\/?$/.exec(window.location.pathname)?.[1]??null;
 }
 const memberCardFromLocation=()=>/^\/member-cards\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1]??null
@@ -163,6 +169,7 @@ function MemberApp() {
   const [gateError, setGateError] = useState('')
   const [exploring,setExploring]=useState(true)
   const [resetToken,setResetToken]=useState(resetTokenFromHash)
+  const [emailVerificationToken,setEmailVerificationToken]=useState(()=>/^#verify-email\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null);
   const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
   const [eventLoginRequested,setEventLoginRequested]=useState(false)
   const [locationHash,setLocationHash]=useState(() => window.location.hash)
@@ -175,6 +182,7 @@ function MemberApp() {
   const editOwnCard=()=>{window.history.replaceState(null,'','/#account');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
+  useEffect(()=>{const changed=()=>setEmailVerificationToken(/^#verify-email\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null);window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[]);
   useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setEntryIntent(entryIntentFromHash());setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
@@ -267,6 +275,14 @@ function MemberApp() {
   const leaveCurrentSession = (notice?: string) => {
     if (sessionGeneration.current === renderedSessionGeneration) toLogin(notice)
   }
+  const eventLogin=()=>{
+    if(readEventParticipationToken()){
+      window.history.replaceState(null,'',window.location.pathname+window.location.search);
+      setLocationHash('');
+      setPublicEventId(eventIdFromLocation());
+    }
+    setEventLoginRequested(true);
+  };
 
   if (phase === 'boot') {
     return (
@@ -280,11 +296,15 @@ function MemberApp() {
       </div>
     )
   }
+  if(!resetToken&&publicEventId&&readEventParticipationToken(locationHash)&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} participationEnabled={site?.event_participation_enabled===true} onLogin={eventLogin}/>;
 
+  const emailChangeToken=/^#change-email\/([A-Za-z0-9_-]{43})$/.exec(locationHash)?.[1];
+  if(emailChangeToken)return <EmailChangeConfirm key={emailChangeToken} client={client} token={emailChangeToken}/>;
+  if(emailVerificationToken)return <EmailVerificationConfirm key={emailVerificationToken} client={client} token={emailVerificationToken}/>;
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;
-    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
+    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} participationEnabled={site?.event_participation_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
     if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PageLoadBoundary label="自由工坊" resetKey={launchpadKey}><PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/></PageLoadBoundary>;
     if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
@@ -302,30 +322,35 @@ function MemberApp() {
           onChooseEntry={intent=>{setEntryIntent(intent);window.location.hash=`join/${intent}`}}
           resetToken={resetToken}
           onCancelReset={()=>{clearResetHash();setResetToken(null)}}
-          onPasswordReset={next=>{clearResetHash();setResetToken(null);applySession(next)}}
+          onPasswordReset={next=>{clearResetHash();setResetToken(null);if(next)applySession(next);else toLogin('密碼已重設。請使用新密碼登入，並輸入驗證器代碼或備用碼。')}}
         />
       </div>
     )
   }
 
   return (
-    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} site={site} feedEnabled={false} headless>
+    <MemberReportingProvider key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} enabled={site?.member_reporting_enabled===true}>
+    <GameConsoleProvider key={session.user.user_id+':'+client.sessionGeneration} client={client} userId={session.user.user_id} session={session} site={site} feedEnabled={false} headless>
+    <GitHubSocialProvider client={client} session={session} starGateEnabled={site?.skill_book_star_gate_enabled===true}>
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
       ? <WelcomePreview client={client} name={session.user.display_name} entryLabel={entryIntent?t(`intent.${entryIntent}`):undefined} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
       : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent && !buyerRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash + '/orders'))window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
     : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
-    <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
+    <AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace key={`${session.user.user_id}:${client.sessionGeneration}`}
       site={site}
       session={session}
       onLoggedOut={() => leaveCurrentSession()}
       onSessionExpired={() => leaveCurrentSession('登入已過期，請重新登入。')}
     />
-    </DevelopmentAccessProvider></AuthorClaimProvider></GitHubSocialProvider>
+    <AdminReports client={client}/>
+    </DevelopmentAccessProvider></AuthorClaimProvider>
     </>}
+    </GitHubSocialProvider>
     </GameConsoleProvider>
+    </MemberReportingProvider>
   )
 }
 
@@ -359,7 +384,7 @@ function LoginView({
   onChooseEntry: (intent: EntryIntent) => void
   resetToken:string|null
   onCancelReset:()=>void
-  onPasswordReset:(session:SessionPayload)=>void
+  onPasswordReset:(session?:SessionPayload)=>void
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'request-reset'>('login')
   const [returnPath] = useState(() => publicDiscoveryPath(new URLSearchParams(window.location.search).get('return_to')))
@@ -376,11 +401,15 @@ function LoginView({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword,setConfirmPassword]=useState('')
+  const [totpRequired,setTotpRequired]=useState(false)
+  const [loginCode,setLoginCode]=useState('')
+  const codeInput=useRef<HTMLInputElement>(null)
+  useEffect(()=>{setTotpRequired(false);setLoginCode('')},[activeMode,email,password])
   const [resetNotice,setResetNotice]=useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const {language,t}=useLanguage()
-  const errorDetails=error?{...describeError(error),message:authErrorMessage(error,language)}:null
+  const errorDetails=error?{...describeError(error),message:totpRequired&&error instanceof ApiError&&error.status===401&&!error.accessExpired?t('error.totpInvalid'):authErrorMessage(error,language)}:null
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -395,14 +424,20 @@ function LoginView({
       }
       if(activeMode==='confirm-reset'){
         if(password!==confirmPassword)throw new Error('兩次輸入的新密碼不一致。')
-        const session=await client.post<SessionPayload>('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true})
+        const session=await client.post<SessionPayload|{reset:true;totp_required:true;expires_after_minutes:number}>('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true,suppressConsole:true})
+        if(session&&'reset' in session&&session.reset&&session.totp_required){
+          setPassword('');setConfirmPassword('');setMode('login')
+          onPasswordReset()
+          return
+        }
+        if(!session||!('user' in session))throw new Error('登入回應不完整')
         if(!session?.user||!session.csrf_token)throw new Error('登入回應不完整')
         onPasswordReset(session)
         return
       }
       const session = activeMode === 'register'
         ? await client.register({email:email.trim(),password,nickname:nickname.trim()})
-        : await client.login(email.trim(), password)
+        : await client.login(email.trim(), password, totpRequired?loginCode.trim():undefined)
       if (!session?.user || !session.csrf_token) {
         throw new Error('登入回應不完整')
       }
@@ -413,7 +448,10 @@ function LoginView({
         onLoggedIn(session, '帳號已建立。原本的公開內容目前無法確認或已停止公開，你仍可繼續逛工坊。')
       } else onLoggedIn(session)
     } catch (err) {
-      setError(err)
+      if(activeMode==='login'&&err instanceof ApiError&&err.code==='totp_required'){
+        setTotpRequired(true);setLoginCode('')
+        requestAnimationFrame(()=>codeInput.current?.focus())
+      }else setError(err)
     } finally {
       setPending(false)
     }
@@ -473,6 +511,7 @@ function LoginView({
               disabled={pending}
             />
           </label>}
+          {activeMode==='login'&&totpRequired&&<label className="field"><span className="field-label">{t('auth.totpCode')}</span><input ref={codeInput} name="code" type="text" autoComplete="one-time-code" autoCapitalize="none" spellCheck={false} required maxLength={64} value={loginCode} onChange={event=>setLoginCode(event.target.value)} disabled={pending} aria-describedby="login-totp-hint"/><span id="login-totp-hint" className="field-hint">{t('auth.totpHint')}</span></label>}
           {activeMode==='confirm-reset'&&<label className="field">{t('auth.confirmPassword')}<input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} disabled={pending}/></label>}
           {activeMode==='register'&&<><label className="field"><span className="field-label" id="register-nickname-label">{t('auth.nickname')}</span><input name="nickname" maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" placeholder={t('auth.optionalName')} value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">{t('auth.nicknameHint')}</span></label><p className="field-hint">{t('auth.passwordHint')} {t(site?.password_recovery_enabled?'auth.recoveryAvailable':'auth.recoveryUnavailable')}</p></>}
           {activeMode==='request-reset'&&<p className="field-hint">{t('auth.resetHint')}</p>}
@@ -584,6 +623,7 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
+    if(tab!=='social')setNotificationTarget(current=>current?.tab==='social'?null:current)
     logConsoleEvent({channel:consoleChannel('guide_navigation'),kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
@@ -636,6 +676,11 @@ function Workspace({
     const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;selectTab('messages');setChatEntry({...value,request:++chatEntrySequence.current})}
     window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
   },[selectTab])
+  useEffect(()=>{
+    if(locationHash.split('?')[0]!=='#messages')return
+    const entry={kind:'guild',key:new URLSearchParams(locationHash.split('?')[1]??'').get('guild')}
+    if(isChatEntry(entry))setChatEntry(current=>({...entry,request:(current?.request??0)+1}))
+  },[locationHash])
   const launchpadEnabled = site?.guild_launchpad_enabled === true
   useEffect(() => {
     setLocationHash(window.location.hash)
@@ -745,7 +790,7 @@ function Workspace({
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
             <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
-          <div className="topbar-actions community-account-tools"><NotificationBell client={client} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
+          <div className="topbar-actions community-account-tools"><NotificationBell key={session.user.user_id+':'+session.csrf_token} client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current});if(action.tab==='events'&&action.resource_id)window.location.hash=`events/${action.resource_id}`}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
@@ -767,7 +812,7 @@ function Workspace({
               />
             )}
             <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
-            {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'account' && <><AccountPanel client={client} session={session} onNavigate={selectTab} />{site?.notification_preferences_enabled===true&&<NotificationPreferencesPanel key={session.user.user_id+':'+session.csrf_token} client={client} followingEnabled={site.community_relations_enabled===true}/>}</>}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
             {tab === 'friends' && <FriendsPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
             {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
@@ -775,19 +820,19 @@ function Workspace({
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} authKey={`${session.user.user_id}:${client.sessionGeneration}`} relationsEnabled={site.community_relations_enabled === true}/> : <p>社群內容搜尋尚未開放。</p>)}
             {tab === 'my-content' && (site?.personal_content_enabled === true ? <MyContent key={`${session.user.user_id}:${client.sessionGeneration}`}/> : <p>我的內容尚未開放。</p>)}
-            {tab === 'events' && <EventsPanel client={client} session={session} />}
-            {tab === 'highlights' && <EventHighlights client={client} />}
+            {tab === 'events' && <EventsPanel key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} session={session} participationEnabled={site?.event_participation_enabled===true}/>}
+            {tab === 'highlights' && <EventHighlights key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} outcomesEnabled={site?.event_outcomes_enabled===true}/>}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
-            {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}}/>}
+            {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}} focusPost={notificationTarget?.tab==='social'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined}/>}
             {tab === 'services' && <MemberServices client={client} />}
             {tab === 'promotion' && <PromotionBoards client={client} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'squads' && (/^#squad-outcomes\/[0-9a-f-]{36}$/i.test(locationHash)&&site?.squad_outcomes_enabled===true ? <SquadOutcomeDetail client={client} id={locationHash.slice('#squad-outcomes/'.length)} eventLinksEnabled={site?.event_outcomes_enabled===true}/> : <SquadsPanel client={client} session={session} onNavigate={selectTab} outcomesEnabled={site?.squad_outcomes_enabled===true} eventLinksEnabled={site?.event_outcomes_enabled===true}/>)}
             {tab === 'workbench' && <WorkbenchPanel />}
             {tab === 'private-ai' && <PrivateWorkAI client={client} key={session.user.user_id}/>}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
-            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} firstParticipationEnabled={site?.first_participation_enabled===true}/>}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
@@ -803,7 +848,7 @@ function Workspace({
             </div>
           </section>
         </div>
-        {!error?.accessExpired&&<FloatingMessages client={client} open={messagesOpen} onToggle={()=>messagesOpen?closeMessages():openMessages()} onClose={closeMessages}>
+        {!error?.accessExpired&&<FloatingMessages client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} open={messagesOpen} onToggle={()=>messagesOpen?closeMessages():openMessages()} onClose={closeMessages}>
           {messagesMounted&&<PageLoadBoundary label={t('nav.messages')} resetKey={session.user.user_id} onHome={closeMessages}>
             <MemberMessages registerLeave={registerMessageLeave} active={messagesOpen} messageImagesEnabled={site?.message_images_enabled===true} client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined}/>
           </PageLoadBoundary>}
@@ -824,9 +869,11 @@ function tabFromHash(launchpadEnabled: boolean): TabId {
   if(value.split('?')[0]==='community-search')return 'community-search'
   if(value==='my-content'||value.startsWith('my-content/'))return 'my-content'
   if(value.split('?')[0]==='opensource')return 'opensource'
+  if(value.split('?')[0]==='messages')return 'messages'
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value.startsWith('showcase/'))return 'showcase'
+  if(value.startsWith('squad-outcomes/'))return 'squads'
   if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
   if(value === 'stores' || value.startsWith('stores/'))return 'stores'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'

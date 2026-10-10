@@ -7,7 +7,17 @@
     "apps/portal-web/src/modules/CommunitySearch.tsx",
     "tests/runtime/community-search.test.ts",
     "migrations/137_community_content_topics.sql",
-    "tests/e2e/community-search.spec.ts"
+    "tests/e2e/community-search.spec.ts",
+    "modules/community/content-relations.ts",
+    "modules/community/participation-metrics.ts",
+    "tests/runtime/participation-metrics.test.ts",
+    "migrations/159_participation_metrics.sql",
+    "tests/e2e/participation-metrics.spec.ts",
+    "apps/platform-api/src/routes/skill-discovery.ts",
+    "apps/portal-web/src/modules/SkillDiscovery.tsx",
+    "apps/portal-web/src/modules/SkillDiscovery.css",
+    "apps/portal-web/src/modules/skill-discovery-client.ts",
+    "tests/runtime/skill-discovery.test.ts"
   ],
   "public_exports": [
     "modules/community/content-search.ts"
@@ -56,6 +66,24 @@
         "community.content-topics.update"
       ],
       "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.skill-discovery.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/skill-discovery.ts",
+      "operations": [
+        "community.skill-discovery.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.skill-discovery-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/SkillDiscovery.tsx",
+      "operations": [
+        "community.skill-discovery-page.view"
+      ],
+      "auth_profile": "public-anonymous-read"
     }
   ]
 }

@@ -8,9 +8,11 @@ export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.scoped-member-command': ['scoped-member-command'],
   'runtime.avatar': ['avatar', 'image-runtime', 'image-cloudflare'],
   'runtime.member-card': ['member-ecard', 'member-directory', 'social-links', 'member-card-qr'],
+  'runtime.member-reporting': ['member-reporting'],
   'runtime.work': ['flows', 'benefits', 'co-creation'],
   'runtime.work-privacy': ['work-privacy'],
   'runtime.personal-content': ['personal-content', 'community-relations', 'community-search', 'work-privacy'],
+  'runtime.event-outcomes': ['event-outcomes', 'squad-outcomes', 'event-highlights', 'event-highlight-assets', 'worker-adapter'],
 }).map(([id, names]) => [id, Object.freeze(paths(names))])));
 
 // Reviewed consumer adapters share the same bounded reporter/process runner.
@@ -37,7 +39,7 @@ event-highlights events-past execution-authority-adversarial execution-prerequis
 generator-drift github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
 github-social github-sync guild-category-preferences guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile
 guild-workspace guild-launchpad guild-launchpad-contracts guild-launchpad-deadline identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
-member-blocking member-channels-core member-communications member-connections member-directory member-ecard member-experience
+member-blocking member-reporting member-channels-core member-communications member-connections member-directory member-ecard member-experience
 model-broker-authorizations model-broker-bridge model-broker-client model-broker-process model-broker-bridge-adversarial
 model-step-service model-step-contracts model-step-adversarial member-model-http member-model-http-adversarial
 member-model-settings member-model-settings-adversarial member-model-settings-process
@@ -47,7 +49,7 @@ machine-model-execution machine-model-http machine-model-revocation machine-mode
 agent-commerce-key-expiry shop-service-command shop-service-identity shop-key-exit
 model-adapter-common model-adapter-independent model-adapter-registry model-byok-adapter model-claude-adapter model-cli-probe model-codex-adapter
 member-services member-skill-registration notification-events onboarding-diagnostics onboarding opensource-marketing
-page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials
+page-github page-issue-label page-tools-notification password-hash password-recovery email-change platform-admin platform-credentials
 portal-client-recovery positioning preview-protocol private-policy-grants private-result-races private-result-schema private-results private-work-commands private-work-http private-work-http-adversarial private-work-policy private-work-policy-adversarial published-skills repo-author-claims repo-maintainer-admin
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
 repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runtime-registration-adversarial runtime-registration-contracts runtime-registration-grants scoped-member-command scoped-member-domain-revalidation scoped-tenant-domain-revalidation share-promotion skill-book-guides skill-book-upstreams
@@ -63,5 +65,8 @@ session-cookie-security social-preview-assets social-thumbnail-assets verify-gui
 storefront-presentation-contracts hosted-store-media-contracts hosted-store-photo-state hosted-store-photo storefront-product-photo-core storefront-product-photo-sql storefront-product-photo-native hosted-store hosted-store-isolation hosted-order-contracts hosted-order-http hosted-order-http-contracts hosted-seller-orders hosted-seller-order-ui hosted-order-ui hosted-direct-orders hosted-store-offering
 guild-launchpad-profiles launchpad-profile-defaults production-dossier positioning-action-card
 message-images message-image-ack message-image-upload-reader message-image-preview json-wire
-personal-content community-relations social-feed social-post-edit social-share
+personal-content community-relations first-participation social-feed social-post-edit social-share notification-preferences
+event-participation-api event-participation-reminders event-reminders-delivery event-waitlist
+event-outcomes squad-outcomes
+participation-metrics
 `.trim().split(/\s+/)).sort());

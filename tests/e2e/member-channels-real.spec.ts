@@ -194,19 +194,29 @@ test('two synthetic members chat in their own guild and squad through the real U
     for(const m of [sender,receiver,third])await joinGuild(m,guild);
     const squad=await newSquad(own,sender,squadName);await joinSquad(db,squad,receiver,sender);await joinSquad(db,squad,third,sender);
     const room={guild:{key:guild,name:guildName},squad:{key:squad,name:squadName}};
-    // Existing private and notification unread of the receiver, which a channel read must never clear.
+    // Read only this case's guild/squad setup notices through the real API, after
+    // asserting their exact kinds and targets. Channel reads must preserve the
+    // separate private message and friend-request unread created below.
+    type Notice={notification_id:string;kind:string;read_at:string|null;action:{tab:string;resource_id:string|null}|null};
+    const thirdSetupNoticeIds:string[]=[];
+    for(const m of [sender,receiver,third]){
+      const notices=await expectOk(m.get('/me/notifications?limit=50&offset=0')) as {unread_count:number;items:Notice[]};
+      const expected=m===sender?['guild_application_approved','squad_join_requested','squad_join_requested']:['squad_join_accepted'];
+      expect(notices.unread_count).toBe(expected.length);
+      expect(notices.items.map(item=>item.kind).sort()).toEqual(expected.sort());
+      for(const item of notices.items){
+        expect(item.read_at).toBeNull();
+        expect(item.action).toEqual(item.kind==='guild_application_approved'?{tab:'guilds',resource_id:guild}:{tab:'squads',resource_id:squad});
+        expect((await expectOk(m.post(`/me/notifications/${item.notification_id}/read`))).notification_id).toBe(item.notification_id);
+        if(m===third)thirdSetupNoticeIds.push(item.notification_id);
+      }
+      expect(await m.unread('/me/notifications?limit=1&offset=0')).toBe(0);
+    }
     const privateText=`私訊 private-${run}`;
     await expectOk(sender.post(`/me/conversations/${receiver.id}/messages`,{body:privateText}),201);
     await expectOk(sender.post(`/friends/${receiver.id}/request`));
     expect(await receiver.unread('/me/conversations?limit=1&offset=0')).toBe(1);expect(await receiver.unread('/me/notifications?limit=1&offset=0')).toBe(1);
     for(const kind of ['guild','squad'] as const)expect(await receiver.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(0);
-    // The founder's only unread is the real approval notice of this run's guild; read exactly that one through the
-    // notification API so every sender source starts at 0 and the settings dot can only come from channel unread.
-    const senderNotices=await expectOk(sender.get('/me/notifications?limit=50&offset=0')) as {unread_count:number;items:{notification_id:string;kind:string;read_at:string|null;action:{tab:string;resource_id:string|null}|null}[]};
-    expect(senderNotices.unread_count).toBe(1);
-    const approval=senderNotices.items.filter(item=>item.read_at===null);
-    expect(approval).toHaveLength(1);expect(approval[0].kind).toBe('guild_application_approved');expect(approval[0].action).toEqual({tab:'guilds',resource_id:guild});
-    expect((await expectOk(sender.post(`/me/notifications/${approval[0].notification_id}/read`))).notification_id).toBe(approval[0].notification_id);
     for(const path of ['/me/notifications','/me/conversations','/me/channels?kind=guild&','/me/channels?kind=squad&'])
       expect(await sender.unread(`${path}${path.includes('?')?'':'?'}limit=1&offset=0`),path).toBe(0);
     expect(await receiver.unread('/me/conversations?limit=1&offset=0')).toBe(1);expect(await receiver.unread('/me/notifications?limit=1&offset=0')).toBe(1);
@@ -312,7 +322,9 @@ test('two synthetic members chat in their own guild and squad through the real U
     await tab(t,'私人訊息').click();
     await expect(panel(t,'私人訊息')).not.toContainText(privateText);await expect(panel(t,'私人訊息').getByRole('list',{name:'對話列表'}).getByRole('button')).toHaveCount(0);
     expect((await expectOk(third.get('/me/conversations'))).items).toEqual([]);
-    expect(await count(db,'member_notifications WHERE recipient_ref=$1',[third.id])).toBe(0);
+    const thirdNotices=await expectOk(third.get('/me/notifications?limit=50&offset=0')) as {unread_count:number;items:Notice[]};
+    expect(thirdNotices.unread_count).toBe(0);
+    expect(thirdNotices.items.map(item=>item.notification_id).sort()).toEqual(thirdSetupNoticeIds.sort());
     await shot(t,'third-desktop');
   });
 });

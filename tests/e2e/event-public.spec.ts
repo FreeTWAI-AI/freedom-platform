@@ -21,7 +21,7 @@ test('public referral event keeps its share code when the URL query loses it',as
   await page.getByLabel('你的名字').fill('訪客');
   await page.getByLabel('接收參與資料的 Email').fill('guest@example.org');
   await page.getByRole('button',{name:'報名並寄送參與資料'}).click();
-  await expect(page.getByText('報名資料已送出，參與資訊已寄到你的 Email。請檢查收件匣。')).toBeVisible();
+  await expect(page.getByText('報名已確認；Email 服務已接受參與資訊郵件，不代表郵件已送達。請檢查收件匣。')).toBeVisible();
   expect(registered).toBe(code);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.getByRole('button',{name:'會員登入'}).click();

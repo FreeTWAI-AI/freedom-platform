@@ -145,8 +145,8 @@ jobs:
     needs: select
     if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.runtime_full == 'true') }}
     # Independent runners and PostgreSQL services: six partitions, each one
-    # serial test process. Measured weights balance the partitions, and each
-    # keeps its own 900-second budget. Selection and aggregation stay dynamic.
+    # serial test process. Measured weights balance the partitions; the pinned
+    # suite runner owns their execution budgets. Selection and aggregation stay dynamic.
     strategy:
       fail-fast: false
       matrix:
@@ -280,7 +280,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Setup + the measured full default pass + four fixture passes + cleanup.
     # This remains a total bound, not the sum of all individual worst-case caps.
-    timeout-minutes: 50
+    timeout-minutes: 60
     needs: select
     if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.ui_e2e == 'true') }}
     services:

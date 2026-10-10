@@ -1,3 +1,4 @@
+import {withBookStarChecks} from './onboarding.js';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -55,9 +56,9 @@ export async function listGuilds(pool:Pool,actor:Actor) {
 }
 export async function changeGuildMembership(pool:Pool,input:Command,guildKey:string,action:'join'|'leave') {
   z.object({}).strict().parse(input.body);
-  return command(pool,input,async q=>{
+  return withBookStarChecks(pool,run=>command(pool,input,async q=>{
     requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[guildKey])).rowCount===1,404,'guild_not_found','找不到這個公會。');
-  },async q=>{
+  },run),async q=>{
     await lockGuildCatalogShared(q);
     await lockMemberGuilds(q,input.actor);
     const switched=await communitySwitched(q,input.actor.community_id);
@@ -66,7 +67,7 @@ export async function changeGuildMembership(pool:Pool,input:Command,guildKey:str
       else await assertCanLeaveGuild(q,input.actor,guildKey);
     }
     let membership=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
-    if(action==='join'&&membership?.state==='active'){await grantGuildBooks(q,input.actor,guildKey);if(!switched)await recomputeLegacyProjection(q,input.actor);return membership;}
+    if(action==='join'&&membership?.state==='active'){await grantGuildBooks(pool, q, input.actor,guildKey);if(!switched)await recomputeLegacyProjection(q,input.actor);return membership;}
     if(membership)checkVersion(membership.aggregate_version,input.expected);
     else { requireCondition(action==='join',404,'membership_not_found','你尚未加入這個公會。');requireCondition(!input.expected,412,'version_conflict','公會狀態已變更，請重新整理。'); }
     const state=action==='join'?'active':'left';
@@ -75,7 +76,7 @@ export async function changeGuildMembership(pool:Pool,input:Command,guildKey:str
     if(membership)membership=(await q.query(`UPDATE positioning_profession_memberships SET state=$1,member_tier=CASE WHEN $1='active' THEN 'intern' ELSE member_tier END,aggregate_version=aggregate_version+1,left_at=CASE WHEN $1='left' THEN now() ELSE NULL END,
       joined_at=CASE WHEN $1='active' THEN now() ELSE joined_at END WHERE membership_id=$2 RETURNING *`,[state,membership.membership_id])).rows[0];
     else membership=(await q.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier) VALUES($1,$2,$3,$4,'active','intern') RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
-    if(action==='join')await grantGuildBooks(q,input.actor,guildKey);
+    if(action==='join')await grantGuildBooks(pool, q, input.actor,guildKey);
     await journal(q,input.actor,'profession_membership',membership.membership_id,membership.aggregate_version,`${action}_guild`,{guild_key:guildKey,state,rank:'runner'},'freedom.organization.profession_membership.updated.v1');
     if(!switched)await recomputeLegacyProjection(q,input.actor);
     return membership;

@@ -138,4 +138,6 @@ html[data-theme="versefolk"] .member-messages .messages-tabs [aria-selected=true
   .messages-hub .messages-thread[data-chat-open=true] .is-mine>.chat-message-actions{right:auto;left:-48px}
   .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions>.btn{width:44px;padding:0;font-size:0;border:0;background:transparent}
   .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions>.btn::before{content:'↩';font-size:20px}
+  .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions{display:grid}
+  .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions>.btn.chat-retract::before{content:'✕'}
 }

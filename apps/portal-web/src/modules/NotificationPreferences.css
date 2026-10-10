@@ -1,0 +1,22 @@
+.notification-preferences { min-width: 0; color: var(--ink); }
+.notification-preferences .notification-preferences-group { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); }
+.notification-preferences legend { padding: 0 6px; font-weight: 650; }
+.notification-preferences-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; }
+.notification-preferences .field { min-width: 0; }
+.notification-preferences .field input, .notification-preferences .field select { width: 100%; min-width: 0; font-size: 1rem; }
+.notification-preferences .hint { color: var(--muted); }
+.notification-preferences .checkbox-row { min-height: 44px; align-items: center; margin: 0; overflow-wrap: anywhere; }
+.notification-preferences .checkbox-row input { margin-top: 0; }
+.notification-preferences-channels { display: grid; gap: 4px; }
+.notification-preferences .btn-small { min-height: 44px; max-width: 100%; white-space: normal; }
+.notification-preferences .btn-secondary { width: fit-content; background: var(--bg-elev); color: var(--ink); border: 1px solid var(--line); }
+.notification-preferences .actions { flex-wrap: wrap; align-items: center; }
+.notification-preferences summary { min-height: 44px; padding: 8px 0; cursor: pointer; }
+.notification-preferences-muted, .notification-preferences-summary { padding-left: 20px; margin: 8px 0; }
+.notification-preferences-muted li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.notification-preferences-muted span, .notification-preferences-summary li { overflow-wrap: anywhere; min-width: 0; }
+.notification-preferences :is(button, input, select, summary, a):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+@media (max-width: 480px) {
+  .notification-preferences .notification-preferences-group { padding: 10px; }
+  .notification-preferences-grid { grid-template-columns: minmax(0, 1fr); }
+}

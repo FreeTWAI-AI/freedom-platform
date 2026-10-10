@@ -7,15 +7,23 @@
     "migrations/120_guild_categories_preferences.sql",
     "tests/runtime/guild-category-preferences.test.ts",
     "contracts/guild-launchpad/v1/guild-preferences.ts",
-    "scripts/guild-preferences-backfill.ts"
+    "scripts/guild-preferences-backfill.ts",
+    "apps/portal-web/src/modules/GuildCard.tsx",
+    "apps/portal-web/src/modules/QuickStart.tsx"
   ],
   "public_exports": [
     "modules/positioning/guild-categories.ts",
     "contracts/guild-launchpad/v1/guild-preferences.ts"
   ],
-  "dependencies": ["command-core"],
-  "contract_families": ["preview"],
-  "client_profiles": ["member"],
+  "dependencies": [
+    "command-core"
+  ],
+  "contract_families": [
+    "preview"
+  ],
+  "client_profiles": [
+    "member"
+  ],
   "instructions": [
     "docs/development/member-api.md",
     "docs/development/onboarding-api.md"
@@ -24,6 +32,8 @@
     "current-authority-before-replay",
     "single-transaction-effects"
   ],
-  "tests": ["runtime.full"],
+  "tests": [
+    "runtime.full"
+  ],
   "surfaces": []
 }

@@ -50,6 +50,11 @@
     "tests/runtime/verify-guild-work.test.ts",
     "migrations/126_project_public_metadata.sql",
     "tests/runtime/organization-project-editing.test.ts",
+    "apps/platform-api/src/app.ts",
+    "apps/platform-api/src/runtime.ts",
+    "apps/platform-api/src/server.ts",
+    "apps/platform-api/src/worker.ts",
+    "apps/portal-web/src/App.tsx",
     "apps/portal-web/src/modules/WorkSharing.css",
     "apps/portal-web/src/modules/showcase-drafts.ts",
     "migrations/143_personal_content.sql",
@@ -86,7 +91,14 @@
         "work.list",
         "work.create",
         "work.claim",
-        "work.claim.update"
+        "work.claim.update",
+        "notification-preferences.read",
+        "notification-preferences.save",
+        "notification-preferences.reminders",
+        "notification-preferences.summary",
+        "notification-preferences.channel-reminders",
+        "notification-preferences.following-reminders",
+        "notification-preferences.event-reminders"
       ],
       "auth_profile": "member-session"
     },

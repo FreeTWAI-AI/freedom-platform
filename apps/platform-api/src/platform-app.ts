@@ -1,3 +1,4 @@
+import {readWithMemberSession} from '../../../packages/db/member-session.js';
 import {createHostedStoreMediaRoutes,createPublicHostedStoreMediaRoutes,isStorePhotoUpload,checkStorePhotoHeaders,storePhotosInstalled,storePhotoUploadsInstalled} from './routes/hosted-store-media.js';
 import { createHostedOrderRoutes } from './routes/hosted-orders.js';
 import { privateCache as hostedOrderPrivateCache } from './routes/tenant-http.js';
@@ -6,7 +7,7 @@ import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
-import { Hono, type MiddlewareHandler } from 'hono';
+import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { routePath } from 'hono/route';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
@@ -19,20 +20,27 @@ import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { listOwnShowcases,readOwnShowcase,createShowcaseDraft,updateOwnShowcase,publishOwnShowcase,withdrawOwnShowcase } from '../../../modules/opportunity-project-work/business.js';
 import { listPersonalContent } from '../../../modules/community/personal-content.js';
+import {readFirstParticipation,changeFirstParticipation,listFirstParticipationReception,claimFirstParticipationReception} from '../../../modules/community/first-participation.js';
+import {readNotificationPreferences,saveNotificationPreferences,readNotificationReminders,readNotificationSummary,readChannelReminderCounts,readFollowingReminders,readEventBulletinReminders} from '../../../modules/member-communications/notification-preferences.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import { AssetStorageError } from '../../../packages/asset-storage/index.js';
 import { DependencySelectionRequired, InstanceSelectionRequired, QuotaExceeded } from '../../../modules/module-registry/problems.js';
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
 import type { PlatformRuntime } from './runtime.js';
+import { requestEmailChange, confirmEmailChange } from '../../../modules/identity-membership/email-change.js';
+import {configureBookStarGate} from '../../../modules/positioning/onboarding.js';
 import {PUBLIC_REVALIDATION_SCRIPT} from '../../../packages/shared/public-revalidation.js';
 import { createPositioningRoutes } from './routes/positioning.js';
 import { listGuildCategories } from '../../../modules/positioning/guild-categories.js';
 import { createCommerceRoutes } from './routes/commerce.js';
 import { createMemberRoutes } from './routes/members.js';
+import { createMemberReportingRoutes } from './routes/member-reporting.js';
 import { checkAvatarUploadHeaders, createAvatarRoutes, isAvatarUpload } from './routes/avatars.js';
 import { authRateLimit,registerMember } from '../../../modules/identity-membership/members.js';
 import { requestPasswordReset,confirmPasswordReset } from '../../../modules/identity-membership/password-recovery.js';
+import { requestEmailVerification,confirmEmailVerification } from '../../../modules/identity-membership/email-verification.js';
+import { enableTotp, disableTotp, totpStatus } from '../../../modules/identity-membership/totp.js';
 import { communityCatalog } from '../../../modules/community/catalog.js';
 import {publicDiscovery,discoveryReadAllowed} from '../../../modules/community/public-discovery.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
@@ -64,13 +72,21 @@ import {checkMessageImageHeaders,createMemberCommunicationRoutes,isMessageImageU
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
 import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideoUploadHeaders,eventVideoResponse,eventAssetVideoResponse,isEventBannerUpload,isEventVideoUpload} from './routes/community-events.js';
 import {checkHighlightPhotoUploadHeaders,checkHighlightPosterUploadHeaders,createEventHighlightMemberRoutes,createEventHighlightPublicRoutes,isHighlightPhotoUpload,isHighlightPosterUpload} from './routes/event-highlights.js';
+import {createSquadOutcomeRoutes,createPublicSquadOutcomeRoutes} from './routes/squad-outcomes.js';
+import {createEventOutcomeRoutes,createPublicEventOutcomeRoutes} from './routes/event-outcomes.js';
+import {publicSquadOutcomeHtml} from '../../../modules/identity-membership/squad-outcomes-page.js';
+import {eventOutcomeBacklinksHtml} from '../../../modules/community/event-outcomes-page.js';
 import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
 import {publicEvent,publicEventBanner,publicEventVideo,registerPublicEvent} from '../../../modules/community/events.js';
+import {readGuestEventCalendar} from '../../../modules/community/event-calendar.js';
+import {readGuestEventReminder,saveGuestEventReminder} from '../../../modules/community/event-reminders.js';
+import {mutateGuestEventParticipation,processEventWaitlist,readGuestEventParticipation,requestGuestEventParticipation} from '../../../modules/community/event-waitlist.js';
 import {checkSocialThumbnailHeaders,isSocialThumbnailUpload,registerMemberPromotion,registerPublicPromotion} from './routes/promotion.js';
 import {SOCIAL_NOTE_REQUEST_BYTES} from '../../../modules/community/social-posts.js';
 import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,registerPublicMemberServices} from './routes/member-services.js';
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
+import {recordSearchOperation,markSearchOpened} from '../../../modules/community/participation-metrics.js';
 import { searchCommunityContent, assignContentTopics, listTaggableContent } from '../../../modules/community/content-search.js';
 import { listCommunityBookmarks,changeCommunityBookmark,listCommunityFollows,changeCommunityFollow,listCommunityFollowUpdates } from '../../../modules/community/content-relations.js';
 
@@ -78,12 +94,17 @@ const SLOW_REQUEST_THRESHOLD_MS=1000;
 
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
+  if(path==='/api/v1/me/totp'||path==='/api/v1/me/totp/enable'||path==='/api/v1/me/totp/disable')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
   if(method==='POST'&&/^\/api\/v1\/events\/[0-9a-f-]{36}\/banner$/.test(path))return true;
   if(method==='POST'&&/^\/api\/v1\/events\/[0-9a-f-]{36}\/video$/.test(path))return true;
   if(path==='/api/v1/me/notifications'&&method==='GET')return true;
   if(method==='POST'&&/^\/api\/v1\/me\/notifications\/[0-9a-f-]+\/read$/.test(path))return true;
   if(path==='/api/v1/session'||path==='/api/v1/auth/logout'||path==='/api/v1/me/account'||path==='/api/v1/me/account/deactivate')return true;
+  if(path==='/api/v1/me/account/email-verification/request'&&method==='POST')return true;
+  if(path==='/api/v1/me/github'&&method==='GET')return true;
+  if(method==='POST'&&/^\/api\/v1\/me\/github\/(connect|complete|disconnect)$/.test(path))return true;
+  if(['GET','POST'].includes(method)&&/^\/api\/v1\/me\/github\/books\/[a-z0-9-]+\/star$/.test(path))return true;
   if(method==='GET'&&['/api/v1/assessment-definition','/api/v1/career-tracks','/api/v1/guilds','/api/v1/me/skill-books','/api/v1/me/guild-preferences','/api/v1/guilds/directory','/api/v1/events','/api/v1/task-board/preview'].includes(path))return true;
   if(/^\/api\/v1\/me\/onboarding(?:\/(answers|evaluate|complete|quick-start))?$/.test(path))return true;
   return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
@@ -130,6 +151,8 @@ export function platformResponseHeaders(path:string,brokerFormOrigin?:string){
 }
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
+  if(runtime.eventOutcomesEnabled===true&&runtime.squadOutcomesEnabled!==true)throw new Error('event_outcomes_require_squad_outcomes');
+  if(runtime.firstParticipationEnabled===true&&runtime.personalContentEnabled!==true)throw new Error('first_participation_requires_personal_content');
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
@@ -143,6 +166,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const secureCookies=freedomEnv!=='local';
   const COOKIE=sessionCookieName(origin);
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
+  configureBookStarGate(pool,runtime.skillBookStarGateEnabled===true?async(actor,books)=>{
+    const social=await loadSocial();
+    return social.prepareBookStars(actor,books);
+  }:undefined);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
   const pageGitHub=new PageGitHubReader(pool);
   const pageGitHubEvents=new PageGitHubEventReader(pool);
@@ -179,6 +206,9 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
     if(c.req.path==='/api/v1/community-search'||c.req.path.startsWith('/api/v1/community-search/'))c.header('X-Robots-Tag','noindex, nofollow');
+    if(c.req.path==='/api/v1/me/reports'||c.req.path.startsWith('/api/v1/me/reports/')||c.req.path==='/api/v1/admin/reports'||c.req.path.startsWith('/api/v1/admin/reports/')){
+      requireCondition(runtime.memberReportingEnabled===true,404,'not_found','找不到這個頁面。');
+    }
     readSessionCookie(c.req.header('Cookie'),origin);
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     c.header('Content-Security-Policy',headers['Content-Security-Policy']);
@@ -272,12 +302,19 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     });
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
-  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true));
-  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore,runtime.communityDiscoveryEnabled===true));
-  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
+  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true,runtime.participationMetricsEnabled===true));
+  const skillEventBacklinks=runtime.eventOutcomesEnabled===true?async(id:string,c:Context)=>{
+    let actor:Actor|null=null;
+    const session=readSessionCookie(c.req.header('Cookie'),origin);
+    if(session){try{actor=await authenticate(pool,session);}catch(error){if(!(error instanceof Problem&&error.status===401&&['login_required','session_expired'].includes(error.code)))throw error;}}
+    if(actor?.onboarding_required&&!actor.onboarding_completed_at)actor=null;
+    return actor?readWithMemberSession(pool,actor,q=>eventOutcomeBacklinksHtml(q,{kind:'skill_book',id},{communityId:actor!.community_id,userId:actor!.user_id})):eventOutcomeBacklinksHtml(pool,{kind:'skill_book',id},null);
+  }:undefined;
+  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore,runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
+  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,message_images_enabled:messageImagesInstalled(runtime),hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -309,6 +346,44 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.use('/api/v1/me/content',personalContentEnabled);
   app.use('/api/v1/me/showcases',personalContentEnabled);
   app.use('/api/v1/me/showcases/*',personalContentEnabled);
+  const squadOutcomesEnabled:MiddlewareHandler=async(c,next)=>{c.header('Cache-Control','no-store');requireCondition(runtime.squadOutcomesEnabled===true,404,'not_found','找不到這個頁面。');await next();};
+  for(const path of ['/api/v1/squads/:id/outcomes','/api/v1/squad-outcomes/*','/api/v1/me/squad-outcomes','/api/v1/public/squad-outcomes/*'])app.use(path,squadOutcomesEnabled);
+  const eventOutcomesEnabled:MiddlewareHandler=async(c,next)=>{c.header('Cache-Control','no-store');requireCondition(runtime.eventOutcomesEnabled===true,404,'not_found','找不到這個頁面。');await next();};
+  for(const path of ['/api/v1/event-highlights/:id/outcomes','/api/v1/event-highlights/:id/outcomes/*','/api/v1/event-highlights/:id/outcome-references','/api/v1/event-outcomes/*','/api/v1/event-outcome-backlinks/*','/api/v1/public/event-highlights/:id/outcomes','/api/v1/public/event-outcomes/*','/api/v1/public/event-outcome-backlinks/*'])app.use(path,eventOutcomesEnabled);
+  const firstParticipationEnabled:MiddlewareHandler=async(c,next)=>{
+    c.header('Cache-Control','private, no-store');c.header('X-Robots-Tag','noindex, nofollow');
+    requireCondition(runtime.firstParticipationEnabled===true,404,'not_found','找不到這個頁面。');await next();
+  };
+  app.use('/api/v1/me/first-participation',firstParticipationEnabled);
+  app.use('/api/v1/first-participation/*',firstParticipationEnabled);
+  const notificationPreferencesEnabled:MiddlewareHandler=async(c,next)=>{
+    c.header('Cache-Control','private, no-store');
+    c.header('X-Robots-Tag','noindex, nofollow');
+    requireCondition(runtime.notificationPreferencesEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  };
+  app.use('/api/v1/me/notification-preferences',notificationPreferencesEnabled);
+  app.use('/api/v1/me/notification-preferences/*',notificationPreferencesEnabled);
+  const eventParticipationEnabled:MiddlewareHandler=async(c,next)=>{
+    c.header('Cache-Control','private, no-store');
+    c.header('X-Robots-Tag','noindex, nofollow');
+    requireCondition(runtime.eventParticipationEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  };
+  app.use('/api/v1/events/:id/participation',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/waitlist',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/waitlist-policy',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/schedule',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/calendar',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/reminder',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/participation',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/participation-request',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/calendar',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/reminder',eventParticipationEnabled);
+  app.use('/api/v1/community-search/operations/*',async(_c,next)=>{
+    requireCondition(runtime.participationMetricsEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  });
   if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -321,7 +396,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       }
     }
     if(actor?.onboarding_required&&!actor.onboarding_completed_at)actor=null;
-    return c.json(await searchCommunityContent(pool,actor,c.req.query()));
+    const page=await searchCommunityContent(pool,actor,c.req.query());
+    // Only the result count is kept, never the query, filters or titles.
+    const operation_id=runtime.participationMetricsEnabled===true&&actor?await recordSearchOperation(pool,actor,{first_page:!c.req.query('cursor'),result_count:page.items.length}):null;
+    return c.json(operation_id?{...page,operation_id}:page);
   });
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/public/member-cards/:token',async c=>{
@@ -348,6 +426,43 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   registerPublicPromotion(app,pool,runtime,origin);
   registerPublicMemberServices(app,pool,runtime);
   app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin,runtime));
+  if(runtime.squadOutcomesEnabled===true)app.route('/api/v1/public',createPublicSquadOutcomeRoutes(pool));
+  if(runtime.squadOutcomesEnabled===true)app.get('/squad-outcomes/:id',async c=>{
+    c.header('Cache-Control','no-store');
+    try{return c.html(await publicSquadOutcomeHtml(pool,z.uuid().parse(c.req.param('id')),runtime.publicOrigin,runtime.eventOutcomesEnabled===true));}
+    catch(error){if(error instanceof Problem&&error.status===404)return c.html('<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>找不到公開成果｜自由工坊</title></head><body><h1>找不到公開成果</h1><p>這份成果尚未公開、已撤下，或目前不再可閱讀。</p><a href="/">返回自由工坊</a></body></html>',404);throw error;}
+  });
+  if(runtime.eventOutcomesEnabled===true)app.route('/api/v1/public',createPublicEventOutcomeRoutes(pool));
+  const dispatchGuest=async(eventId:string)=>processEventWaitlist(pool,async(to,subject,body)=>{requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');await runtime.eventEmailSender(to,subject,body);},origin,undefined,eventId);
+  if(runtime.eventParticipationEnabled===true){
+    const guestMutation=async(c:Context)=>{
+      const body=await c.req.json(),version=c.req.header('If-Match')??'',key=c.req.header('Idempotency-Key')??'';
+      requireCondition(/^"[1-9][0-9]*"$/.test(version)&&Number.isSafeInteger(Number(version.slice(1,-1))),version?400:428,'version_required','請提供有效的 If-Match 版本。');
+      requireCondition(String(body?.expected_version)===version.slice(1,-1),400,'version_mismatch','內容版本必須與 If-Match 相同。');
+      requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
+      return {body,key,token:c.req.header('X-Event-Participation-Token')??''};
+    };
+    app.get('/api/v1/public/events/:id/participation',async c=>c.json(await readGuestEventParticipation(pool,z.uuid().parse(c.req.param('id')),c.req.header('X-Event-Participation-Token')??'')));
+    app.get('/api/v1/public/events/:id/calendar',async c=>c.json(await readGuestEventCalendar(pool,z.uuid().parse(c.req.param('id')),c.req.header('X-Event-Participation-Token')??'')));
+    app.get('/api/v1/public/events/:id/reminder',async c=>c.json(await readGuestEventReminder(pool,z.uuid().parse(c.req.param('id')),c.req.header('X-Event-Participation-Token')??'')));
+    app.post('/api/v1/public/events/:id/participation',async c=>{
+      const {body,key,token}=await guestMutation(c),eventId=z.uuid().parse(c.req.param('id'));
+      const result=await mutateGuestEventParticipation(pool,eventId,token,body,key);await dispatchGuest(eventId);return c.json(result);
+    });
+    app.patch('/api/v1/public/events/:id/reminder',async c=>{
+      const {body,key,token}=await guestMutation(c);
+      requireCondition(body.command_id===key,400,'idempotency_mismatch','內容命令識別碼必須與 Idempotency-Key 相同。');
+      return c.json(await saveGuestEventReminder(pool,z.uuid().parse(c.req.param('id')),token,body));
+    });
+    app.post('/api/v1/public/events/:id/participation-request',async c=>{
+      requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
+      const body=await c.req.json(),email=z.email().max(200).parse(body?.email).trim().toLowerCase();
+      await authRateLimit(pool,'event-register-network',authNetwork(c),10,3600);
+      await authRateLimit(pool,'event-register-email',email,3,3600);
+      await authRateLimit(pool,'event-register-global','global',300,3600);
+      return c.json(await requestGuestEventParticipation(pool,z.uuid().parse(c.req.param('id')),body,runtime.eventEmailSender,origin));
+    });
+  }
   app.post('/api/v1/public/events/:id/register',async c=>{
     requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
     const body=await c.req.json();
@@ -355,7 +470,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'event-register-network',authNetwork(c),10,3600);
     await authRateLimit(pool,'event-register-email',email,3,3600);
     await authRateLimit(pool,'event-register-global','global',300,3600);
-    return c.json(await registerPublicEvent(pool,z.uuid().parse(c.req.param('id')),body,runtime.eventEmailSender,origin));
+    const eventId=z.uuid().parse(c.req.param('id'));
+    const result=await registerPublicEvent(pool,eventId,body,runtime.eventEmailSender,origin,runtime.eventParticipationEnabled===true);
+    if(runtime.eventParticipationEnabled===true)await dispatchGuest(eventId);
+    return c.json(result);
   });
   app.get('/api/v1/pages/github-activity',async c=>c.json(await pageGitHub.read(c.req.query('page'),c.req.query('refresh')==='1')));
   app.get('/api/v1/pages/github-events',async c=>c.json(await pageGitHubEvents.read()));
@@ -381,8 +499,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.post('/api/v1/auth/login',async c=>{
     await authRateLimit(pool,'login-network',authNetwork(c),60);
     await authRateLimit(pool,'login-global','global',240,60);
-    const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
-    const result=await login(pool,body.email,body.password);
+    const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200),code:z.string().min(1).max(64).optional()}).strict().parse(await c.req.json());
+    const result=await login(pool,body.email,body.password,body.code,runtime.totpEncryptionKey?.());
     // Replace any old session on login, so changing accounts never keeps an active old cookie.
     const old=readSessionCookie(c.req.header('Cookie'),origin);
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
@@ -406,10 +524,24 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const body=z.object({token:z.string().max(100),password:z.string().max(128)}).strict().parse(await c.req.json());
     const old=readSessionCookie(c.req.header('Cookie'),origin);
     const result=await confirmPasswordReset(pool,body.token,body.password);
+    if ('totp_required' in result) return c.json(result);
     // Replace any old session on reset, so changing accounts never keeps an active old cookie.
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json({reset:result.reset,expires_after_minutes:result.expires_after_minutes,...sessionView(result.actor)});
+  });
+  app.post('/api/v1/auth/email-change/confirm',async c=>{
+    requireCondition(runtime.eventEmailSender,503,'email_change_unavailable','Email 變更郵件服務尚未設定。');
+    await authRateLimit(pool,'email-change-confirm-network',authNetwork(c),30,3600);
+    await authRateLimit(pool,'email-change-confirm-global','global',500,3600);
+    const body=z.object({token:z.string().max(100)}).strict().parse(await c.req.json());
+    return c.json(await confirmEmailChange(pool,body.token,runtime.eventEmailSender));
+  });
+  app.post('/api/v1/auth/email-verification/confirm',async c=>{
+    const body=z.object({token:z.string().max(100)}).strict().parse(await c.req.json());
+    await authRateLimit(pool,'email-verification-confirm-network',authNetwork(c),30,3600);
+    await authRateLimit(pool,'email-verification-confirm-global','global',500,3600);
+    return c.json(await confirmEmailVerification(pool,body.token));
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
@@ -422,6 +554,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
+  app.post('/api/v1/me/account/email-verification/request',async c=>{
+    requireCondition(runtime.eventEmailSender,503,'email_verification_unavailable','驗證信郵件服務尚未設定完成。');
+    z.object({}).strict().parse(await c.req.json());
+    await authRateLimit(pool,'email-verification-network',authNetwork(c),12,3600);
+    await authRateLimit(pool,'email-verification-global','global',500,3600);
+    return c.json(await requestEmailVerification(pool,c.get('actor'),origin,runtime.eventEmailSender));
+  });
   app.route('/api/v1', createHostedOrderRoutes(pool, { discoveryInstalled: runtime.guildLaunchpadEnabled === true, admissionEnabled: runtime.hostedReservationsEnabled === true, cursors: runtime.tenantListCursors }));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
@@ -431,6 +570,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const routeId=(c:any,name='id')=>z.uuid().parse(c.req.param(name).split(':')[0]);
   const respond=(c:any,value:any,status=200)=>{if(value?.aggregate_version)c.header('ETag',`"${value.aggregate_version}"`);return c.json(value,status);};
   if(runtime.communitySearchEnabled===true){
+    if(runtime.participationMetricsEnabled===true)app.post('/api/v1/community-search/operations/:id/open',async c=>c.json(await markSearchOpened(pool,c.get('actor'),c.req.param('id'),await c.req.json())));
     app.get('/api/v1/community-search/mine',async c=>c.json(await listTaggableContent(pool,c.get('actor'))));
     app.post('/api/v1/community-search/topics',async c=>respond(c,await assignContentTopics(pool,await cmd(c))));
   }
@@ -450,7 +590,42 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.post('/api/v1/me/showcases/:id/publish',async c=>respond(c,await publishOwnShowcase(pool,await cmd(c),routeId(c))));
     app.post('/api/v1/me/showcases/:id/withdraw',async c=>respond(c,await withdrawOwnShowcase(pool,await cmd(c),routeId(c))));
   }
+  if(runtime.firstParticipationEnabled===true){
+    app.get('/api/v1/me/first-participation',async c=>respond(c,await readFirstParticipation(pool,c.get('actor'))));
+    app.post('/api/v1/me/first-participation',async c=>respond(c,await changeFirstParticipation(pool,await cmd(c))));
+    app.get('/api/v1/first-participation/reception',async c=>c.json(await listFirstParticipationReception(pool,c.get('actor'),c.req.query())));
+    app.post('/api/v1/first-participation/reception/:userId/claim',async c=>respond(c,await claimFirstParticipationReception(pool,await cmd(c),c.req.param('userId'))));
+    app.post('/api/v1/first-participation/reception/:userId/release',async c=>respond(c,await claimFirstParticipationReception(pool,await cmd(c),c.req.param('userId'),true)));
+  }
+  if(runtime.notificationPreferencesEnabled===true){
+    const followingEnabled=runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true;
+    app.get('/api/v1/me/notification-preferences',async c=>{
+      const preferences=await readNotificationPreferences(pool,c.get('actor'),followingEnabled);
+      c.header('ETag',`"${preferences.version}"`);
+      return c.json(preferences);
+    });
+    app.patch('/api/v1/me/notification-preferences',async c=>{
+      const preferences=await saveNotificationPreferences(pool,await cmd(c),followingEnabled);
+      c.header('ETag',`"${preferences.version}"`);
+      return c.json(preferences);
+    });
+    app.get('/api/v1/me/notification-preferences/reminders',async c=>c.json(await readNotificationReminders(pool,c.get('actor'),followingEnabled,runtime.now?.()??new Date())));
+    app.get('/api/v1/me/notification-preferences/summary',async c=>c.json(await readNotificationSummary(pool,c.get('actor'),followingEnabled,runtime.now?.()??new Date())));
+    app.get('/api/v1/me/notification-preferences/channel-reminders',async c=>c.json(await readChannelReminderCounts(pool,c.get('actor'),runtime.now?.()??new Date())));
+    app.get('/api/v1/me/notification-preferences/following-reminders',async c=>c.json(await readFollowingReminders(pool,c.get('actor'),followingEnabled,runtime.now?.()??new Date())));
+    app.get('/api/v1/me/notification-preferences/event-reminders',async c=>c.json(await readEventBulletinReminders(pool,c.get('actor'),runtime.now?.()??new Date())));
+  }
   app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
+  app.post('/api/v1/me/account/email-change/request',async c=>{
+    requireCondition(runtime.eventEmailSender,503,'email_change_unavailable','Email 變更郵件服務尚未設定。');
+    const actor=c.get('actor');
+    await authRateLimit(pool,'email-change-user',actor.user_id,5,3600);
+    await authRateLimit(pool,'email-change-network',authNetwork(c),20,3600);
+    return c.json(await requestEmailChange(pool,actor,await c.req.json(),origin,runtime.eventEmailSender));
+  });
+  app.get('/api/v1/me/totp',async c=>c.json(await totpStatus(pool,c.get('actor'))));
+  app.post('/api/v1/me/totp/enable',async c=>c.json(await enableTotp(pool,await cmd(c),runtime.totpEncryptionKey?.())));
+  app.post('/api/v1/me/totp/disable',async c=>c.json(await disableTotp(pool,await cmd(c),runtime.totpEncryptionKey?.())));
   app.post('/api/v1/me/client-errors',async c=>{
     const body=z.object({action:z.string().regex(/^(GET|POST|PUT|PATCH|DELETE|UI) \/[a-zA-Z0-9_/:.#-]*$/).max(120),error_code:z.string().regex(/^[a-zA-Z0-9_:-]{1,80}$/),http_status:z.number().int().min(0).max(599).optional()}).strict().parse(await c.req.json());
     const actor=c.get('actor');
@@ -483,11 +658,14 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   }
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
   app.route('/api/v1',createMemberRoutes(pool));
+  if(runtime.memberReportingEnabled===true)app.route('/api/v1',createMemberReportingRoutes(pool,runtime.messageImageAssetStore));
   app.route('/api/v1',createMemberCommunicationRoutes(pool,runtime,runtime.memberBlockingEnabled===true));
   app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin,runtime));
   registerMemberPromotion(app,pool,runtime);
   registerMemberServices(app,pool,runtime);
   app.route('/api/v1',createEventHighlightMemberRoutes(pool,runtime));
+  if(runtime.squadOutcomesEnabled===true)app.route('/api/v1',createSquadOutcomeRoutes(pool));
+  if(runtime.eventOutcomesEnabled===true)app.route('/api/v1',createEventOutcomeRoutes(pool));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));

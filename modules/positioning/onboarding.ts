@@ -39,8 +39,67 @@ export async function listGuildSkillBooks(q:Queryable,communityId:string,guildKe
  for(const binding of bound){const book=communityCatalog.skill_books.find(book=>book.id===binding.book_id);if(book)books.set(book.id,book);}
  return [...books.values()];
 }
-export async function grantGuildBooks(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,guildKey:string){
- for(const book of await listGuildSkillBooks(q,actor.community_id,guildKey))await q.query(`INSERT INTO member_skill_book_grants(grant_id,community_id,user_id,guild_key,book_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[randomUUID(),actor.community_id,actor.user_id,guildKey,book.id]);
+type BookStarActor=Pick<Actor,'community_id'|'user_id'>;
+type BookStarProof=(q:PoolClient,bookIds:string[])=>Promise<void>;
+type BookStarGate=(actor:BookStarActor,bookIds:string[])=>Promise<BookStarProof>;
+const bookStarChecks=new WeakMap<PoolClient,(actor:BookStarActor,bookIds:string[])=>Promise<void>>();
+const bookStarGates=new WeakMap<Pool,{gate:BookStarGate|undefined}>();
+/** Host-owned policy; scoped to the pool, never selected by a command body. */
+export function configureBookStarGate(pool:Pool,gate:BookStarGate|undefined){
+ const existing=bookStarGates.get(pool);
+ if(existing){
+   if(Boolean(existing.gate)!==Boolean(gate))throw new Error('skill_book_star_gate_pool_policy_conflict');
+   return;
+ }
+ bookStarGates.set(pool,{gate});
+}
+/** The first authorized command gathers every required book and rolls back. After
+ * releasing its connection, provider checks commit only credential/rate state.
+ * The final command repeats authorization, versions and receipt checks, and holds
+ * the credential fence through the atomic membership/grant/receipt commit. */
+export async function withBookStarChecks<T>(pool:Pool,operation:<R>(write:(q:PoolClient)=>Promise<R>)=>Promise<R>,write:(q:PoolClient)=>Promise<T>):Promise<T>{
+ const prepare=bookStarGates.get(pool)?.gate;
+ if(!prepare)return operation(write);
+ const needed=new Error('book_star_preparation_required');
+ const plans=new Map<string,{actor:BookStarActor;books:Set<string>}>();
+ const key=(actor:BookStarActor)=>actor.community_id+'/'+actor.user_id;
+ const execute=(proofs?:Map<string,BookStarProof>)=>operation(async q=>{
+   bookStarChecks.set(q,async(actor,books)=>{
+     if(!books.length)return;
+     if(proofs){
+       const proof=proofs.get(key(actor));
+       requireCondition(proof,409,'skill_book_star_check_changed','公會技能書或 GitHub 連線已變更，請重試。');
+       await proof(q,books);
+     }else{
+       let plan=plans.get(key(actor));
+       if(!plan){plan={actor,books:new Set()};plans.set(key(actor),plan);}
+       for(const book of books)plan.books.add(book);
+     }
+   });
+   try{
+     const result=await write(q);
+     if(!proofs&&plans.size)throw needed;
+     return result;
+   }finally{bookStarChecks.delete(q);}
+ });
+ try{return await execute();}catch(error){if(error!==needed)throw error;}
+ const proofs=new Map<string,BookStarProof>();
+ for(const [id,plan] of plans)proofs.set(id,await prepare(plan.actor,[...plan.books]));
+ return execute(proofs);
+}
+async function requireBookStars(pool:Pool,q:PoolClient,actor:BookStarActor,books:string[]){
+ if(!bookStarGates.get(pool)?.gate)return;
+ const check=bookStarChecks.get(q);
+ if(!check)throw new Error('book_star_command_scope_required');
+ await check(actor,books);
+}
+export async function assertGuildBookStars(pool:Pool,q:PoolClient,actor:BookStarActor,guildKey:string){
+ await requireBookStars(pool,q,actor,(await listGuildSkillBooks(q,actor.community_id,guildKey)).map(book=>book.id));
+}
+export async function grantGuildBooks(pool:Pool,q:PoolClient,actor:BookStarActor,guildKey:string){
+ const books=await listGuildSkillBooks(q,actor.community_id,guildKey);
+ await requireBookStars(pool,q,actor,books.map(book=>book.id));
+ for(const book of books)await q.query(`INSERT INTO member_skill_book_grants(grant_id,community_id,user_id,guild_key,book_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[randomUUID(),actor.community_id,actor.user_id,guildKey,book.id]);
 }
 export async function assertCanLeaveGuild(q:PoolClient,actor:Actor,guildKey:string){
  const pref=(await q.query('SELECT primary_guild_key FROM guild_member_preferences WHERE community_id=$1 AND user_id=$2',[actor.community_id,actor.user_id])).rows[0];
@@ -174,24 +233,24 @@ export async function evaluateSavedAssessment(pool:Pool,input:Command){
 }
 const CompleteInput=z.object({guild_keys:distinct(100).refine(keys=>keys.length>0,'請至少加入一個公會。'),primary_guild_key:z.string().min(1).max(100),confirmed:z.literal(true)}).strict();
 const QuickStartInput=CompleteInput.extend({guild_answers:z.unknown().optional()});
-async function joinInTransaction(q:PoolClient,actor:Actor,guildKey:string){
+async function joinInTransaction(pool:Pool,q:PoolClient,actor:Actor,guildKey:string){
  let member=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[actor.community_id,actor.user_id,guildKey])).rows[0];
  if(!member||member.state!=='active'){
    if(member)member=(await q.query("UPDATE positioning_profession_memberships SET state='active',member_tier='intern',aggregate_version=aggregate_version+1,joined_at=now(),left_at=NULL WHERE membership_id=$1 RETURNING *",[member.membership_id])).rows[0];
    else member=(await q.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier) VALUES($1,$2,$3,$4,'active','intern') RETURNING *",[randomUUID(),actor.community_id,actor.user_id,guildKey])).rows[0];
    await journal(q,actor,'profession_membership',member.membership_id,member.aggregate_version,'join_guild',{guild_key:guildKey,state:'active',rank:'runner'},'freedom.organization.profession_membership.updated.v1');
  }
- await grantGuildBooks(q,actor,guildKey);
+ await grantGuildBooks(pool, q, actor,guildKey);
 }
 export async function completeOnboarding(pool:Pool,input:Command){
  const body=CompleteInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主力公會必須是你這次選擇加入的公會。');
- return command(pool,{...input,lockUser:true},async()=>{},async q=>{
+ return withBookStarChecks(pool,run=>command(pool,{...input,lockUser:true},async()=>{},run),async q=>{
    await lockGuildCatalogShared(q);
    const current=await currentAssessment(q,input);
    requireCondition(current.state==='evaluated'&&current.result,409,'assessment_not_evaluated','請先完成定位並查看公會建議。');
    requireCondition((await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[])',[body.guild_keys])).rowCount===body.guild_keys.length,422,'unknown_guild','請選擇目前已建立的公會。');
-   for(const key of body.guild_keys)await joinInTransaction(q,input.actor,key);
+   for(const key of body.guild_keys)await joinInTransaction(pool, q, input.actor,key);
    await savePrimaryPreference(q,input.actor,body.primary_guild_key);
    await projectOnboardingGuild(q,input.actor,body.primary_guild_key);
    await q.query("UPDATE onboarding_assessments SET state='completed',published_profile=jsonb_build_object('capabilities',capabilities,'equipment',equipment,'custom_capabilities',custom_capabilities,'custom_equipment',custom_equipment,'featured_capabilities',featured_capabilities),aggregate_version=aggregate_version+1,updated_at=now() WHERE assessment_id=$1",[current.assessment_id]);
@@ -203,14 +262,14 @@ export async function completeOnboarding(pool:Pool,input:Command){
 export async function quickStartOnboarding(pool:Pool,input:Command){
  const body=QuickStartInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主要公會必須是你選擇加入的公會。');
- return command(pool,{...input,lockUser:true},async()=>{},async q=>{
+ return withBookStarChecks(pool,run=>command(pool,{...input,lockUser:true},async()=>{},run),async q=>{
    await lockGuildCatalogShared(q);
    await lockMemberGuilds(q,input.actor);
    const user=(await q.query('SELECT onboarding_completed_at FROM users WHERE user_id=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id])).rows[0];
    requireCondition(!user.onboarding_completed_at,409,'onboarding_already_completed','已完成加入，請到公會頁調整公會。');
    requireCondition((await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[])',[body.guild_keys])).rowCount===body.guild_keys.length,422,'unknown_guild','請選擇目前已建立的公會。');
    const answers=assertGuildAnswers(body.primary_guild_key,body.guild_answers),questionSet=entryQuestionsForGuild(body.primary_guild_key);
-   for(const key of body.guild_keys)await joinInTransaction(q,input.actor,key);
+   for(const key of body.guild_keys)await joinInTransaction(pool, q, input.actor,key);
    await q.query(`INSERT INTO member_guild_answers(community_id,user_id,guild_key,question_set_version,question_set_sha256,answers) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,[input.actor.community_id,input.actor.user_id,body.primary_guild_key,questionSet.version,questionSet.sha256,JSON.stringify(answers)]);
    await savePrimaryPreference(q,input.actor,body.primary_guild_key);
    await projectOnboardingGuild(q,input.actor,body.primary_guild_key);

@@ -1,0 +1,32 @@
+.event-participation {
+  min-width: 0;
+  max-width: 100%;
+  padding-block: 14px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.event-participation .field,
+.event-participation .stack,
+.event-participation form {
+  min-width: 0;
+}
+.event-participation input:not([type="checkbox"]),
+.event-participation select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 16px;
+}
+.event-participation .experience-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.event-participation .btn-small {
+  flex: 0 1 auto;
+  align-self: flex-start;
+  width: auto;
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+}

@@ -23,5 +23,6 @@ export const communitySearchItemSchema = z.object({
 export const communitySearchPageSchema = z.object({
   items: z.array(communitySearchItemSchema),
   next_cursor: z.string().nullable(),
+  operation_id: z.string().optional(),
 }).strict();
 export type CommunitySearchPage = z.infer<typeof communitySearchPageSchema>;

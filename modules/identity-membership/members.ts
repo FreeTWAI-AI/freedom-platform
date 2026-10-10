@@ -108,16 +108,16 @@ export async function saveAccount(pool:Pool,input:Command) {
   return accountView(pool,input.actor);
 }
 const pair=(a:string,b:string)=>[a,b].sort();
-async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
+export async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
   z.uuid().parse(id);
   const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id)) ${lock?'FOR SHARE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;
 }
-export async function memberCard(pool:Pool,actor:Actor,id:string) {
+export async function memberCard(pool:Pick<Pool,'query'>,actor:Actor,id:string) {
   const cards=await memberCards(pool,actor,[id]);
   requireCondition(cards[0],404,'member_not_found','找不到這位會員。');return cards[0];
 }
-export async function memberCards(pool:Pool,actor:Actor,ids:string[]) {
+export async function memberCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string[]) {
   ids=ids.map(id=>z.uuid().parse(id).toLowerCase());
   if(!ids.length)return [];
   // Contact values and their audience predicates must share ONE database snapshot.
@@ -347,6 +347,15 @@ export async function changeSquadMembership(pool:Pool,input:Command,id:string,ac
     if(action==='remove')await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:targetId,kind:'squad_member_removed',
       source_key:`squad-removed:${id}:${targetId}:${saved.aggregate_version}`,title:`你已不在小隊「${String(live.name).slice(0,140)}」`,
       body:'隊主調整了小隊成員。需要時可以再次申請加入。',action:{tab:'squads',resource_id:id}});
+    if(action==='request'||action==='accept'){
+      // Same transaction as the membership change; the version keys a fresh notice per new request.
+      const squad=(await q.query('SELECT s.name,s.owner_ref,u.display_name AS actor_name FROM member_squads s JOIN users u ON u.user_id=$2 WHERE s.squad_id=$1',[id,input.actor.user_id])).rows[0];
+      const name=String(squad.name).slice(0,60);
+      if(action==='request')await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:squad.owner_ref,kind:'squad_join_requested',source_key:`squad-request:${id}:${targetId}:${saved.aggregate_version}`,
+        title:`${String(squad.actor_name).slice(0,80)} 申請加入小隊「${name}」`,body:'前往小隊集合查看申請，決定是否接受。',action:{tab:'squads',resource_id:id}});
+      else await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:targetId,kind:'squad_join_accepted',source_key:`squad-accepted:${id}:${targetId}:${saved.aggregate_version}`,
+        title:`你已加入小隊「${name}」`,body:'隊主接受了你的申請，可以在小隊集合與頻道和夥伴聯絡。',action:{tab:'squads',resource_id:id}});
+    }
     return saved;
   },async q=>{if(peerId){await lockInteractionPair(q,input.actor,peerId);await assertCanContact(q,input.actor,peerId);}});
 }
