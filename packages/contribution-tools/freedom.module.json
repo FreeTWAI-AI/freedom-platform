@@ -47,6 +47,8 @@
     "deploy/cloudflare/test/migration-plan.test.mjs",
     "deploy/cloudflare/test/release-compatibility.test.mjs",
     "scripts/ci/select-affected-jobs.mjs",
+    "scripts/reconcile-issue-closures.mjs",
+    ".github/workflows/reconcile-issue-closures.yml",
     "scripts/ci/select-affected-jobs.test.mjs"
   ],
   "owner_role": "foundation",

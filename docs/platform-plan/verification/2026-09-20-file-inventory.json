@@ -128,6 +128,11 @@
       "sha256": "b8047ef27d9d2642d87c8512acb8f5cb17da5bfd7eb44abec536a49e13439a07"
     },
     {
+      "path": ".github/workflows/reconcile-issue-closures.yml",
+      "bytes": 879,
+      "sha256": "224172458ff0d748895e278a988d83166cc567c64568c3f6f9874da5400874ca"
+    },
+    {
       "path": ".github/workflows/skill-book-upstreams.yml",
       "bytes": 545,
       "sha256": "c2ca5c511bafa00e5d2054786ad46bc97f38f7f1ad6a76598a0bdbe10bbc0fa4"
@@ -13713,6 +13718,11 @@
       "sha256": "56bef3c1279c0409168575e01e271dc420fae4d50e851325833ef8a0aa7cb061"
     },
     {
+      "path": "docs/development/github-issue-automation.md",
+      "bytes": 1820,
+      "sha256": "c7e249d641f0904115c6859f2b5348853b1739722745396d3cbe2439d39f2a7f"
+    },
+    {
       "path": "docs/development/github-social.md",
       "bytes": 13020,
       "sha256": "509f12f9464368e6c3517e59f91beda0235355a2c3a8cee3669d313890d5920b"
@@ -18639,8 +18649,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 3421,
-      "sha256": "f433272a57f783fafe29a463543f1c412cb85d9b624532726752a19c95e0fc0d"
+      "bytes": 3519,
+      "sha256": "5e5b838c186e012c64db91f5657b8d646b85da6899e1b92dfb6a3d0d6379e7a2"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -18951,6 +18961,11 @@
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
       "bytes": 23074,
       "sha256": "759473ccbec8d29e9e96429d705d597c547d0b603e9e729417905ccc88b44240"
+    },
+    {
+      "path": "packages/contribution-tools/test/reconcile-issue-closures.test.mjs",
+      "bytes": 7003,
+      "sha256": "78feaed9e1059ea42565f987288d445f9c782997dd28f76df837ae73c58f4e13"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
@@ -19726,6 +19741,11 @@
       "path": "scripts/migrate-installed.mjs",
       "bytes": 1220,
       "sha256": "f7748c8bb95e886a29707937bdaccae968094cb62f41cd45d83e457788a7f5b0"
+    },
+    {
+      "path": "scripts/reconcile-issue-closures.mjs",
+      "bytes": 4676,
+      "sha256": "6b9e67ad1532b9a7c2d7c37aef8ea62731f21f780a7906466590f284dbd594f3"
     },
     {
       "path": "scripts/release-source-archive.py",
