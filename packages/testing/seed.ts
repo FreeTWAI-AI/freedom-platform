@@ -12,8 +12,12 @@ export const DEMO_USERS=[
   {user_id:'20000000-0000-4000-8000-000000000002',email:'reviewer@local.test',display_name:'示範需求者',profession_membership_ref:'40000000-0000-4000-8000-000000000002'},
   {user_id:'20000000-0000-4000-8000-000000000003',email:'client@local.test',display_name:'示範合作方',profession_membership_ref:'40000000-0000-4000-8000-000000000003'}
 ];
+// These are public local-demo credentials, not member passwords. Keep one
+// independently salted hash per demo account for this process so repeated test
+// resets do not derive the same known password three times on every seed.
+let demoPasswordHashes: readonly string[] | undefined;
 export async function seedLocal(pool:Pool) {
-  const passwords=DEMO_USERS.map(()=>hashPassword(DEMO_PASSWORD));
+  const passwords=demoPasswordHashes ??= DEMO_USERS.map(()=>hashPassword(DEMO_PASSWORD));
   return transaction(pool,async q=>{
     await q.query('SELECT pg_advisory_xact_lock(2026092001)');
     await q.query('INSERT INTO communities VALUES($1,$2) ON CONFLICT DO NOTHING',[DEMO_COMMUNITY,'Freedom 本機示範社群']);

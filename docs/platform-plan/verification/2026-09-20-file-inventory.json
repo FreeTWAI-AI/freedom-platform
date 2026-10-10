@@ -2429,8 +2429,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 44941,
-      "sha256": "a2bf2482841ebc1c4f3455c23c9f0a622f07175d4ae36b92529a5a6309eec466"
+      "bytes": 45078,
+      "sha256": "bf83ae260b136f5d705cd8fc132c4461bedc076348b267c1ae7035d1aa6015a6"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -2469,8 +2469,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 62391,
-      "sha256": "27e69a24cd44e1ada8c71b2ae9226c2b0899a78b073dac554eb617558bd18d23"
+      "bytes": 62610,
+      "sha256": "c7a5b530ac46e2be43adf0749d6c23bbaee354e47e0ab33d2c8e130c59b9447f"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -13634,8 +13634,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 22681,
-      "sha256": "80b5841ffae186d9c731c802742688f5cbc040ae07afa2882619e3fd867fd1e3"
+      "bytes": 22703,
+      "sha256": "9b3e11568cf3bdceac7bfd06db5f7208d0a48c568ae35cffa35229027be8707b"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -17844,8 +17844,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 4083,
-      "sha256": "a5c5bb9fa79625dd14c26f7e89980f371772d8c3ba4c6048d1293373890637c2"
+      "bytes": 4190,
+      "sha256": "e1c68f7924cba75c11a4c57808cf67340370f4d1ef7c4ce158917496168fcf59"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -19463,6 +19463,11 @@
       "sha256": "2aa122768b1ba3a49d9b4c1ba3e822bce33b9dd687651d388aa071213670ccda"
     },
     {
+      "path": "packages/testing/freedom.module.json",
+      "bytes": 486,
+      "sha256": "682942783646cc20908d4091ae5ab7794a13152be64b668c5ce7091f06934450"
+    },
+    {
       "path": "packages/testing/github-collaboration.ts",
       "bytes": 7284,
       "sha256": "285e655caf0faf25cfd05235f93db4dbbb46c84eda5fffd922134796d9143a24"
@@ -19474,8 +19479,8 @@
     },
     {
       "path": "packages/testing/seed.ts",
-      "bytes": 4755,
-      "sha256": "d967441b376a4e16ebd448f13a41bccfa994c6c5e2216c59c65edb95f15c48f9"
+      "bytes": 5063,
+      "sha256": "10cac971ca536fb75ba097810103ce4876e9c643e933afe94330c151a8db8a89"
     },
     {
       "path": "packages/testing/synthetic-module-provider.ts",
@@ -20084,13 +20089,13 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 6666,
-      "sha256": "e3627fb68440cf6b6da2b94e341dcf227094dc50715904e9842f2fcfbf918062"
+      "bytes": 11050,
+      "sha256": "2801b69b20e07ffab79c16b52081517ef6fa3383dd767e6dc7b58b06b76c6ce4"
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1363,
-      "sha256": "5bfc7d67a1ead69affee0dd8c0b9d52990f0233b1ad485ee5caa1343f5c525a5"
+      "bytes": 1386,
+      "sha256": "4d7b02507186870a5de3803175ab3c02ba7cfcdcc3b118313830b847b6405793"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
@@ -21384,8 +21389,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-offering.test.ts",
-      "bytes": 4654,
-      "sha256": "20dfb968c1825bd290f2eeb0b353ffe23bde178d68cb04d7f998c4f1d3fb5fd2"
+      "bytes": 6118,
+      "sha256": "a38ab9a6ce92ef94c29a487447e270da08b8d2772ebfe6a469d530ff598bfd1f"
     },
     {
       "path": "tests/runtime/hosted-store-pagination-contracts.test.ts",

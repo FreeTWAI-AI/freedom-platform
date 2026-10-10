@@ -5,6 +5,7 @@
     "assets",
     "command-core",
     "execution-runs",
+    "local-demo-data",
     "public-guide-assets"
   ],
   "format": "freedom.module/v1",

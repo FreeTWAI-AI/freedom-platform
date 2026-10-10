@@ -416,9 +416,9 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   }
 
   async function markRead(through?:string,retry=false){
-    if(!peer||!thread||readLocks.current.has(peer))return;
+    if(!snapshot.current.active||!snapshot.current.readingThread||!peer||!thread||readLocks.current.has(peer))return;
     if(!retry&&readAttempts.current.has(peer))return;
-    const id=peer,target=thread.items.find(item=>item.message_id===through);
+    const id=peer,generation=threadGeneration.current,target=thread.items.find(item=>item.message_id===through);
     const attempt=readAttempts.current.get(id)??(target?{through:target.message_id,key:crypto.randomUUID()}:null);
     if(!attempt)return;
     readAttempts.current.set(id,attempt);readLocks.current.add(id);readIssues.current.delete(id);setReading(true);setReadError('');
@@ -426,7 +426,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       const boundary=thread.items.find(item=>item.message_id===attempt.through);
       const result=await client.post<{user_id:string;read_at:string;updated_count:number}>(`/me/conversations/${encodeURIComponent(id)}/read`,{through_message_id:attempt.through},{idempotencyKey:attempt.key});
       readAttempts.current.delete(id);announceInboxChange();
-      if(!alive.current)return;
+      if(!alive.current||!snapshot.current.active||!snapshot.current.readingThread||generation!==threadGeneration.current||currentPeer.current!==id)return;
       if(currentPeer.current===id&&boundary)setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.sender_ref===id&&!message.read_at&&messageOrder(message,boundary)<=0?{...message,read_at:result.read_at}:message)}:value);
       // Replay counts describe the original command, not the current UI snapshot.
       // Re-read after ACK instead of subtracting that count from possibly newer mail.
