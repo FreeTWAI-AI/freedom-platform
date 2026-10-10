@@ -2,6 +2,7 @@ import {createCipheriv,createDecipheriv,createHash,randomBytes} from 'node:crypt
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {transaction} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog} from '../community/catalog.js';
@@ -232,6 +233,30 @@ export class GitHubSocial {
       try{await this.saveMetrics(q,key,await this.provider.metrics(book.repository,token));}
       catch(error){if(!(error instanceof GitHubProviderError))throw error;await this.failMetrics(q,key,error.code);}
       return {book_id:bookId,connected:true,starred:desired,confirmed:true};
+    });
+  }
+  async following(actor:Actor,username:string){
+    z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
+    return this.member(actor,async q=>{
+      const connection=await this.connection(q,actor);
+      if(!this.config||!connection)return {username,connected:false,following:null};
+      await this.rate(q,actor,'follow-read',90);
+      const following=await this.withToken(q,actor,connection,async token=>{await assertCurrentSessionClock(q,actor);return this.provider.following(username,token,()=>assertCurrentSessionClock(q,actor));});
+      await assertCurrentSessionClock(q,actor);
+      return {username,connected:true,following};
+    });
+  }
+  async follow(actor:Actor,username:string,desired:boolean){
+    z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);z.boolean().parse(desired);this.configured();
+    return this.member(actor,async q=>{
+      await this.rate(q,actor,'follow-write',30);
+      const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連接自己的 GitHub 帳號。');
+      await this.withToken(q,actor,connection,async token=>{
+        // Refresh the decision clock after connection-lock/token-refresh waits.
+        await assertCurrentSessionClock(q,actor);
+        await this.provider.follow(username,token,desired,()=>assertCurrentSessionClock(q,actor));
+      });
+      return {username,connected:true,following:desired,confirmed:true};
     });
   }
   async createPageIssue(actor:Actor,pageId:string,title:string,description:string,operationKey:string){

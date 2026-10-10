@@ -38,6 +38,25 @@ export function ChatQuote({reply}:{reply:MessageReply}){
     <strong>{reply.sender_name}</strong><span>{reply.sticker?`[貼圖] ${reply.sticker.label}`:reply.body}</span>
   </blockquote>;
 }
+export function ChatRetracted({mine}:{mine:boolean}){
+  return <p className="messages-body chat-retracted" role="note">{mine?'你已收回這則訊息。':'這則訊息已收回。'}</p>;
+}
+export type RetractTarget={message_id:string;label:string};
+/** Site dialog for retracting one message; the trigger regains focus on close. */
+export function RetractMessageDialog({target,busy,error,onConfirm,onClose}:{target:RetractTarget|null;busy:boolean;error:string;onConfirm:()=>void;onClose:()=>void}){
+  const dialog=useRef<HTMLDialogElement>(null),id=useId();
+  useEffect(()=>{const element=dialog.current;if(!element)return;if(target&&!element.open)element.showModal();else if(!target&&element.open)element.close();},[target]);
+  return <dialog ref={dialog} className="chat-retract-dialog" aria-labelledby={`${id}-title`} onCancel={event=>{event.preventDefault();if(!busy)onClose();}} onClose={onClose}>
+    <h3 id={`${id}-title`}>收回這則訊息？</h3>
+    <p>{target?.label}</p>
+    <p className="field-hint">收回後對方與頻道成員會看到「這則訊息已收回」，內容與圖片不再顯示，無法復原。</p>
+    {error&&<p className="banner banner-error" role="alert">{error}</p>}
+    <div className="actions">
+      <button type="button" className="btn btn-ghost" disabled={busy} onClick={onClose}>取消</button>
+      <button type="button" className="btn btn-primary" disabled={busy} aria-busy={busy} onClick={onConfirm}>{busy?'收回中…':'確定收回'}</button>
+    </div>
+  </dialog>;
+}
 export function ChatExtras({draft,onChange,onSendSticker,disabled,target}:{draft:RichChatDraft;onChange:(value:Partial<RichChatDraft>)=>void;onSendSticker:(id:string)=>void;disabled:boolean;target:string}){
   const [open,setOpen]=useState(false),[search,setSearch]=useState(''),[pack,setPack]=useState('freetwai-v2');
   const id=useId(),toggle=useRef<HTMLButtonElement>(null),input=useRef<HTMLInputElement>(null);

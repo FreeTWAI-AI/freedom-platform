@@ -60,8 +60,12 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       const retrying = alertRef.current?.contains(document.activeElement);
       setMember(data); setLoadError(null); setLoading(false);
       if (retrying) requestAnimationFrame(() => {
-        const disclosure = summary.current?.closest('details');
-        if (disclosure) disclosure.open = true;
+        // Retry recovery must reveal both the member card and its optional outer guide.
+        let disclosure = summary.current?.closest('details');
+        while (disclosure) {
+          disclosure.open = true;
+          disclosure = disclosure.parentElement?.closest('details') ?? null;
+        }
         summary.current?.focus();
       });
     }).catch((error: unknown) => {
@@ -145,6 +149,10 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   }, [nextStep]);
 
   return <div className="member-home freedom-home">
+    {loadError && <div ref={alertRef} role="alert" className="banner banner-error home-load-error">
+      <p>{loadError}下方常用入口仍可使用。</p>
+      <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
+    </div>}
     <div className="home-layout">
     <div className="home-main">
     <section className="home-timeline" aria-label="首頁社群動態"><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
@@ -152,10 +160,6 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     <details className="home-context home-guide-disclosure" aria-label="我的工坊" open={wide}><summary>我的工坊 · 合作與學習入口</summary>
     <div className="home-support">
     <PlatformPurpose variant="member" onAction={target=>onNavigate?.(target)}/>
-    {loadError && <div ref={alertRef} role="alert" className="banner banner-error home-load-error">
-      <p>{loadError}下方常用入口仍可使用。</p>
-      <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
-    </div>}
     {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
       <div className="home-next-copy">
       <p className="home-next-eyebrow">下一步</p>

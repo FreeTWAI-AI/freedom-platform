@@ -53,7 +53,7 @@ npm run demo
 | `GET/POST /work-items`、`POST /work-items/{id}:claim` | 列表、有限自願工作、原子認領 |
 | `POST /work-claims/{id}:start/:submit/:begin-review/:decide` | 各別 action suffix 路徑；開始、提交、開始驗收、作成決定 |
 | `GET /dashboard` | 從 canonical 工作／貢獻事實讀取 Now／Next／Gained |
-| `GET/POST /showcases`、`GET/POST /opportunities` | 本人同意展示、雙方商機 |
+| `GET/POST /showcases`（GET 分頁 `limit`／`offset`）、`GET/POST /opportunities` | 本人同意展示、雙方商機 |
 | `POST /opportunities/{id}/engagements`、`GET /engagements` | 有明示條款的本機合作提案 |
 | `POST /engagements/{id}:agree/:deliver/:accept/:confirm-receipt` | 各別 action suffix 路徑；本人身分與版本核對 |
 | `POST /engagements/{id}/receipts` | 一次全額收款觀測，必須同幣別、同約定金額；相同證據不可重複 |

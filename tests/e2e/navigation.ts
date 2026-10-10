@@ -13,12 +13,18 @@ export async function openPageTools(page:Page){
   }
 }
 
-/** Reach the original profile/recommendation and module cards on the simple home. */
-export async function expandHomeSections(page:Page){
+/** Open the optional home guide through its visible mobile disclosure. */
+export async function openHomeGuide(page:Page){
   // Lazy home content may mount after the shell title becomes visible.
   const guide=page.locator('.home-guide-disclosure');
   await expect(guide).toBeAttached();
   if(!await guide.evaluate(element=>(element as HTMLDetailsElement).open))await guide.locator(':scope > summary').click();
+  await expect(guide).toHaveJSProperty('open',true);
+}
+
+/** Reach the original profile/recommendation and module cards on the simple home. */
+export async function expandHomeSections(page:Page){
+  await openHomeGuide(page);
   await expect(page.locator('.home-personal')).toBeVisible();
   for(const selector of ['.home-personal','.home-module-section']){
     const section=page.locator(selector);
@@ -27,6 +33,7 @@ export async function expandHomeSections(page:Page){
 }
 
 export async function openFeatureSearch(page:Page){
+  await closeChat(page);
   const menu=page.getByRole('button',{name:'開啟選單',exact:true});
   if(await menu.isVisible())await menu.click();
   const more=page.locator('.nav-more');
@@ -37,10 +44,12 @@ export async function openFeatureSearch(page:Page){
 export async function navigate(page: Page, name: string) {
   await expect(page.locator('.shell')).toBeVisible();
   if (name === '我的訊息') {
-    await page.getByRole('button', { name: /^通知/ }).click();
-    await page.getByRole('button', { name: '查看所有通知與訊息' }).click();
+    const bubble=page.locator('.floating-messages');
+    if(await bubble.getAttribute('aria-expanded')!=='true')await bubble.click();
     return;
   }
+  const bubble=page.locator('.floating-messages');
+  if(await bubble.getAttribute('aria-expanded')==='true')await bubble.click();
   if (['我的名片', '待辦清單'].includes(name)) {
     const settings = page.getByRole('button', { name: '設定', exact: true });
     if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
@@ -84,4 +93,22 @@ export async function signOut(page: Page) {
     await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
   }
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
+}
+
+/** Notification history is owned by the bell, separately from chats. */
+export async function openNotifications(page:Page){
+  const bubble=page.locator('.floating-messages');
+  if(await bubble.count()&&await bubble.getAttribute('aria-expanded')==='true')await bubble.click();
+  const bell=page.locator('.notification-bell-trigger');
+  if(await bell.getAttribute('aria-expanded')!=='true')await bell.click();
+  const all=page.getByRole('button',{name:'查看所有通知',exact:true});
+  if(await all.isVisible())await all.click();
+}
+export async function openChat(page:Page){
+  const bubble=page.locator('.floating-messages');
+  if(await bubble.getAttribute('aria-expanded')!=='true')await bubble.click();
+}
+export async function closeChat(page:Page){
+  const bubble=page.locator('.floating-messages');
+  if(await bubble.getAttribute('aria-expanded')==='true')await bubble.click();
 }

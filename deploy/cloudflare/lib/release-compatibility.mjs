@@ -146,7 +146,10 @@ const FOUNDATION_NAMES = [
   '146_squad_management_and_kinds.sql',
   '147_social_post_edits.sql',
   '148_social_wall_interactions.sql',
-  '149_interaction_notifications.sql',
+  // Personal reminder policy only; no inbox, read cursor, subscription or delivery writes.
+  '149_notification_preferences.sql',
+  '150_message_retraction.sql',
+  '151_interaction_notifications.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

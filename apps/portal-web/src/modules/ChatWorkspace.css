@@ -106,14 +106,6 @@ html[data-theme="versefolk"] .member-messages .messages-tabs [aria-selected=true
 }
 /* A phone conversation has one header and one composer. Back restores the full inbox. */
 @media(max-width:760px){
-  html:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]){overflow:hidden}
-  .app-frame.social-layout:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]){position:fixed;inset:0;top:var(--chat-viewport-offset,0px);height:var(--chat-viewport-height,100dvh);min-height:0;z-index:60;background:var(--bg-elev);overflow:hidden}
-  .app-frame.social-layout:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]) .shell{display:flex;flex-direction:column;flex:1;min-height:0}
-  .app-frame.social-layout:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]) :is(.community-header,.workspace-companion,.guide-load-retry){display:none}
-  .app-frame.social-layout:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]) :is(.workspace-main,.workspace-content,.workspace-page){display:flex;flex-direction:column;flex:1;min-height:0;max-width:none;width:100%;margin:0;padding:0;gap:0;border:0;border-radius:0}
-  .app-frame.social-layout:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]) .workspace-topbar{position:absolute;width:1px;height:1px;min-height:0;overflow:hidden;clip-path:inset(50%);padding:0;margin:0;border:0}
-  .app-frame.social-layout:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]) .workspace-topbar>:not(:first-child){display:none}
-  body:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]) .game-console{display:none}
   .messages-hub:has(>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]){display:flex;flex-direction:column;align-items:stretch;flex:1;width:100%;min-height:0;gap:0}
   .messages-hub:has(>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true])>.messages-categories{display:none}
   .messages-hub:has(>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true])>[role=tabpanel]:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0}
@@ -146,4 +138,6 @@ html[data-theme="versefolk"] .member-messages .messages-tabs [aria-selected=true
   .messages-hub .messages-thread[data-chat-open=true] .is-mine>.chat-message-actions{right:auto;left:-48px}
   .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions>.btn{width:44px;padding:0;font-size:0;border:0;background:transparent}
   .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions>.btn::before{content:'↩';font-size:20px}
+  .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions{display:grid}
+  .messages-hub .messages-thread[data-chat-open=true] .chat-message-actions>.btn.chat-retract::before{content:'✕'}
 }

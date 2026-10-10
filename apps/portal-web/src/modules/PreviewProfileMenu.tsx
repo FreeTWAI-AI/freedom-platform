@@ -1,10 +1,13 @@
-import {useEffect,useRef} from 'react';
+import type {PortalClient} from '../api';
+import {AccountDeactivation} from './AccountDeactivation';
+import {useEffect,useRef,useState} from 'react';
 import {WORKSHOP_THEMES,useWorkshopTheme} from '../workshop-theme';
 import './MemberSettings.css';
 import {LanguagePicker,useLanguage} from '../language';
 
 /** Profile controls remain available before the member workspace is unlocked. */
-export function PreviewProfileMenu({name,onLogout,onExplore,disabled=false}:{name:string;onLogout:()=>void;onExplore?:()=>void;disabled?:boolean}){
+export function PreviewProfileMenu({client,name,onLogout,onExplore,disabled=false}:{client:PortalClient;name:string;onLogout:()=>void;onExplore?:()=>void;disabled?:boolean}){
+  const [deactivationOpen,setDeactivationOpen]=useState(false);
   const {theme,selectTheme}=useWorkshopTheme();
   const {language,t}=useLanguage();
   const details=useRef<HTMLDetailsElement>(null);
@@ -20,6 +23,8 @@ export function PreviewProfileMenu({name,onLogout,onExplore,disabled=false}:{nam
       <LanguagePicker/>
       <fieldset className="settings-theme-group"><legend>{t('settings.appearance')}</legend>{WORKSHOP_THEMES.map(([id,label])=><label key={id} className="settings-menu-item settings-theme-option" lang="zh-Hant"><input type="radio" name="preview-theme" value={id} checked={theme===id} onChange={()=>selectTheme(id)}/>{label}</label>)}</fieldset>
       {onExplore&&<button type="button" className="settings-menu-item" disabled={disabled} onClick={()=>{details.current?.removeAttribute('open');onExplore()}}>{t('settings.explore')}</button>}
+      <button type="button" className="settings-menu-item" disabled={disabled} aria-expanded={deactivationOpen} onClick={()=>setDeactivationOpen(open=>!open)}>停用帳號</button>
+      {deactivationOpen&&<AccountDeactivation client={client} disabled={disabled}/>}
       <button type="button" className="settings-menu-item" disabled={disabled} onClick={onLogout}>{t('settings.logout')}</button>
     </div>
   </details>;

@@ -1,3 +1,4 @@
+import {refreshLoadedMessages} from './message-refresh';
 import {useEffect,useLayoutEffect,useId,useRef,useState,type FormEvent} from 'react';
 import {ApiError,type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
@@ -7,7 +8,7 @@ import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
 import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
-import {ChatBody,ChatQuote,ChatExtras,chatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
+import {ChatBody,ChatQuote,ChatExtras,ChatRetracted,RetractMessageDialog,chatPayload,quoteMessage,useRichChatDraft,type RetractTarget} from './ChatContent';
 import {ChatInput,ChatTime,useChatViewport,useVisibleChatRead} from './ChatWorkspace';
 import {ChatSearch} from './ChatSearch';
 import {matchesChannelMessageAck} from './message-image-client';
@@ -17,9 +18,9 @@ import {chatPollDue,idleChatPoll,resetChatPoll} from './adaptive-chat-poll';
 export type ChannelKind='guild'|'squad'|'world';
 type ChannelSummary={kind:ChannelKind;channel_key:string;name:string;unread_count:number;last_message_at:string|null};
 type ChannelPage={items:ChannelSummary[];unread_count:number;next_offset:number|null};
-type ChannelMessage={message_id:string;kind:ChannelKind;channel_key:string;sequence:string;sender_ref:string;sender_name:string;body:string;created_at:string}&MessageContent;
-type History={channel:{kind:ChannelKind;channel_key:string;name:string};items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
-type Activity={latest_sequence:string;unread_count:number};
+type ChannelMessage={message_id:string;kind:ChannelKind;channel_key:string;sequence:string;sender_ref:string;sender_name:string;body:string;created_at:string;retracted_at:string|null}&MessageContent;
+type History={channel:{kind:ChannelKind;channel_key:string;name:string};items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null;retraction_count?:string};
+type Activity={latest_sequence:string;unread_count:number;retraction_count?:string};
 type Pending={key:string;body:string;payload:MessageContentInput;status:'sending'|'unknown'};
 type Props={client:PortalClient;session:SessionPayload;kind:ChannelKind;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;active?:boolean;compact?:boolean;openChannel?:{key:string;request:number}|null;onReturnToChats?:()=>void;registerLeave?:(guard:(()=>boolean)|null)=>void};
 
@@ -83,6 +84,19 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   const readAttempts=useRef(new Map<string,{through:string;key:string}>()),readLocks=useRef(new Set<string>()),readIssues=useRef(new Map<string,string>());
   const heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
   const [roomQuery,setRoomQuery]=useState(''),[liveError,setLiveError]=useState(''),[hasNew,setHasNew]=useState(false);
+  const [retractTarget,setRetractTarget]=useState<RetractTarget|null>(null),[retracting,setRetracting]=useState(false),[retractError,setRetractError]=useState('');
+  const retractTrigger=useRef<HTMLButtonElement|null>(null);
+  function closeRetract(){setRetractTarget(null);setRetractError('');retractTrigger.current?.focus();retractTrigger.current=null;}
+  async function retract(){
+    if(!retractTarget||!selected)return;
+    const key=selected.key,messageId=retractTarget.message_id;setRetracting(true);setRetractError('');
+    try{
+      const result=await client.post<{message_id:string;retracted_at:string}>(`/me/channels/${kind}/${encodeURIComponent(key)}/messages/${encodeURIComponent(messageId)}/retract`,{},{idempotencyKey:crypto.randomUUID()});
+      setHistory(value=>value&&value.channel.channel_key===key?{...value,items:value.items.map(message=>message.message_id===messageId?{message_id:message.message_id,kind:message.kind,channel_key:message.channel_key,sequence:message.sequence,sender_ref:message.sender_ref,sender_name:message.sender_name,created_at:message.created_at,body:'',retracted_at:result.retracted_at}:message)}:value);
+      setRetractTarget(null);retractTrigger.current?.focus();retractTrigger.current=null;
+    }catch(cause){setRetractError(cause instanceof Error?cause.message:'訊息尚未收回，請稍後再試。');}
+    finally{setRetracting(false);}
+  }
   const [searchOpen,setSearchOpen]=useState(false);
   const [picking,setPicking]=useState(true);
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{top:number;height:number}|null>(null),polling=useRef(false),retryAt=useRef(0),failures=useRef(0);
@@ -178,8 +192,23 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       // Idle checks never download history bodies or refresh every joined room.
       const activity=await client.get<Activity>(path(key,'activity'),{background:true});
       if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active||snapshot.current.sending)return;
-      if(compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
+      const retractionsChanged=(activity.retraction_count??'0')!==(shown.history.retraction_count??'0');
+      if(!retractionsChanged&&compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
       idlePoll.current=resetChatPoll();
+      if(retractionsChanged){
+        const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key&&snapshot.current.active&&!snapshot.current.sending;
+        const latest=await client.get<History>(path(key,'messages?limit=50&offset=0'),{background:true});
+        if(!isCurrent())return;
+        const items=await refreshLoadedMessages(latest,shown.history.items,
+          offset=>client.get<History>(path(key,`messages?limit=50&offset=${offset}`),{background:true}),isCurrent);
+        if(!items||!isCurrent())return;
+        const fresh=latest.items.filter(item=>!shown.history!.items.some(known=>known.message_id===item.message_id));
+        if(fresh.length&&!stick.current)setHasNew(true);
+        setHistory({...latest,items:newestFirst(items),next_offset:fresh.length?latest.next_offset:shown.history.next_offset});
+        failures.current=0;retryAt.current=0;setLiveError('');setCountUnconfirmed('');
+        if(kind==='world')onUnread(latest.unread_count);else void loadList(true);
+        announceInboxChange();return;
+      }
       const value=await client.get<History>(path(key,`messages?limit=50&after_sequence=${shown.history.items[0]?.sequence??'0'}`),{background:true});
       if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active)return;
       failures.current=0;retryAt.current=0;setLiveError('');
@@ -403,13 +432,14 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           {history.items.length===0?<p className="empty">這個頻道還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="頻道訊息">
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
               <p className="messages-meta">{mine?'你':message.sender_name} · <ChatTime value={message.created_at}/>{mine?' · 已送出':''}</p>
-              {message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
-              <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[selected.key])return;richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>
+              {message.retracted_at?<ChatRetracted mine={mine}/>:<>{message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
+              <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[selected.key])return;richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button>{mine&&<button className="btn btn-ghost chat-retract" type="button" aria-label="收回你的訊息" disabled={retracting} onClick={event=>{retractTrigger.current=event.currentTarget;setRetractError('');setRetractTarget({message_id:message.message_id,label:message.sticker?`[貼圖] ${message.sticker.label}`:[...message.body].slice(0,160).join('')});}}>收回</button>}</div></>}
             </li>;})}
           </ol>}
           {attempt&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">{attempt.status==='sending'?'傳送中…':'尚未確認送出，可用下方按鈕重試'}</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
+          <RetractMessageDialog target={retractTarget} busy={retracting} error={retractError} onConfirm={()=>void retract()} onClose={closeRetract}/>
           {countUnconfirmed&&<div className="banner banner-error" role="alert">已標為已讀，但目前未讀數未確認：{countUnconfirmed}<div className="messages-actions"><button className="btn btn-ghost" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>重新讀取訊息</button></div></div>}
           {reading&&<p className="messages-meta" role="status">正在同步已讀…</p>}
           {!countUnconfirmed&&newerUnseen&&history.unread_count>0&&<p className="messages-meta" role="note">還有 {history.unread_count} 則較新的未讀訊息，顯示後會自動已讀。</p>}

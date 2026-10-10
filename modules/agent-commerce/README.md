@@ -36,7 +36,9 @@ For stores without order history, delete selections first, then items, then both
 
 Member UI: commerce members enter from the launchpad’s 「建立我的商店」 primary action, the 「我的商店」 tab, or 「設定我的商店」 after the existing launch flow succeeds. `#stores` lists readable stores; `#stores/<tenant_id>/<instance_id>` provides setup, product editing, preview and publication. This UI only calls the existing hosted-store API; ordering remains disabled.
 
-「我的商店」列表（#352）在初次 membership 查詢併讀 tenant 名稱；每個可讀 instance 只查一次 capability 與 confirmed-mapping profile，不為列表未使用的商品數或完整詳頁 DTO 重查。每個 tenant 的 `lockTenantScope`、context 綁定及 instance 查詢仍保留：`module_instances`／`deployment_bindings` 的 RLS 僅接受目前單一 tenant，不能以跨 tenant `ANY` 查詢取代而不擴大授權面。列表形狀、tenant 排序、100-tenant 上限與隔離政策不變。
+`GET /api/v1/me/stores` preserves the immutable legacy `{items,truncated}` response. Clients opt into `{items,next_cursor}` with `?pagination=cursor`; continuation requests must retain that opt-in and forward the opaque cursor unchanged as `?pagination=cursor&cursor=...` to continue through at most 100 tenant memberships per request, including pages with no readable storefront. The cursor uses the existing principal-bound tenant keyset codec; every page rechecks session, memberships and instance capabilities under tenant RLS. The Portal appends pages via 「載入更多商店」 and keeps loaded cards when a continuation fails. The pagination DTO lives in `storefront-pagination.ts`, separate from the immutable `storefront@1.0.0` registry contract pin; no registry release or migration changes.
+
+「我的商店」列表（#352）在初次 membership 查詢併讀 tenant 名稱；每個可讀 instance 只查一次 capability 與 confirmed-mapping profile，不為列表未使用的商品數或完整詳頁 DTO 重查。每個 tenant 的 `lockTenantScope`、context 綁定及 instance 查詢仍保留：`module_instances`／`deployment_bindings` 的 RLS 僅接受目前單一 tenant，不能以跨 tenant `ANY` 查詢取代而不擴大授權面。保留 tenant 排序、每頁 100-tenant 上限與隔離政策；legacy 回應形狀保持不變，新分頁需明確 opt-in。
 
 ## Direct-sale reservation candidate
 

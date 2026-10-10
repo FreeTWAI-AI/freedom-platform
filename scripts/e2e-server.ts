@@ -186,6 +186,7 @@ const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bou
   communitySearchEnabled:process.env.FREEDOM_E2E_COMMUNITY_SEARCH==='1',
   communityRelationsEnabled:process.env.FREEDOM_E2E_COMMUNITY_RELATIONS==='1',
   personalContentEnabled:process.env.FREEDOM_E2E_PERSONAL_CONTENT==='1',
+  notificationPreferencesEnabled:process.env.FREEDOM_E2E_NOTIFICATION_PREFERENCES==='1',
   hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),

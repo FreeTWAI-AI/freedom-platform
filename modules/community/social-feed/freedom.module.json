@@ -26,7 +26,8 @@
     "migrations/147_social_post_edits.sql",
     "migrations/148_social_wall_interactions.sql",
     "modules/community/comment-images.ts",
-    "modules/community/social-content.ts"
+    "modules/community/social-content.ts",
+    "tests/e2e/member-home-next-step.spec.ts"
   ],
   "public_exports": [],
   "dependencies": [

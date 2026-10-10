@@ -86,7 +86,7 @@ export async function changeCommunityFollow(pool: Pool, input: Command) {
   });
 }
 
-async function readFollowUpdates(pool: PoolClient, actor: Actor, raw: Record<string, string | undefined>): Promise<CommunitySearchPage> {
+export async function readFollowUpdates(pool: PoolClient, actor: Actor, raw: Record<string, string | undefined>): Promise<CommunitySearchPage> {
   requireCondition(Object.keys(raw).every(key => key === 'cursor'), 422, 'validation_failed', '追蹤更新只接受分頁標記。');
   const { items } = await readFollows(pool, actor);
   const authorIds: string[] = [];

@@ -1,7 +1,29 @@
 {
+  "client_profiles": [
+    "member"
+  ],
+  "contract_families": [],
+  "dependencies": [
+    "command-core",
+    "scoped-commands",
+    "asset-lifecycle",
+    "asset-storage",
+    "shared",
+    "media-migration",
+    "community",
+    "positioning"
+  ],
   "format": "freedom.module/v1",
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/member-communications.md",
+    "modules/assets/message-image.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
   "module_id": "member-communications",
-  "owner_role": "foundation",
   "owned_paths": [
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts",
@@ -18,39 +40,67 @@
     "modules/member-communications/notifications.ts",
     "apps/portal-web/src/modules/MemberMessages.tsx",
     "apps/portal-web/src/modules/NotificationBell.tsx",
-    "migrations/149_interaction_notifications.sql",
+    "migrations/151_interaction_notifications.sql",
     "tests/e2e/interaction-notifications.spec.ts",
     "tests/runtime/interaction-notifications.test.ts",
     "tests/runtime/member-channel-access.test.ts",
-    "tests/runtime/social-notification-focus.test.ts"
+    "tests/runtime/social-notification-focus.test.ts",
+    "apps/platform-api/src/routes/member-communications.ts",
+    "apps/portal-web/src/modules/ChatContent.css",
+    "apps/portal-web/src/modules/ChatContent.tsx",
+    "apps/portal-web/src/modules/ChatWorkspace.css",
+    "apps/portal-web/src/modules/MemberChannels.tsx",
+    "migrations/150_message_retraction.sql",
+    "modules/member-communications/channel-types.ts",
+    "modules/member-communications/content.ts",
+    "modules/member-communications/service.ts",
+    "tests/e2e/message-retraction.spec.ts",
+    "tests/runtime/direct-message-receipts.test.ts",
+    "tests/runtime/member-channels-core.test.ts",
+    "tests/runtime/member-communications.test.ts",
+    "tests/runtime/message-retraction-client.test.ts",
+    "tests/runtime/message-retraction.test.ts",
+    "modules/member-communications/content-types.ts",
+    "apps/portal-web/src/modules/direct-message-receipts.ts",
+    "apps/portal-web/src/modules/message-refresh.ts",
+    "modules/member-communications/notification-preferences.ts",
+    "apps/portal-web/src/modules/NotificationPreferences.tsx",
+    "apps/portal-web/src/modules/NotificationPreferences.css",
+    "migrations/149_notification_preferences.sql",
+    "tests/runtime/notification-preferences.test.ts",
+    "tests/e2e/notification-preferences.spec.ts",
+    "apps/portal-web/src/GameConsole.tsx",
+    "apps/portal-web/src/game-console-feed.ts",
+    "apps/portal-web/src/modules/FloatingMessages.css",
+    "apps/portal-web/src/modules/FloatingMessages.tsx",
+    "apps/portal-web/src/modules/member-inbox.ts",
+    "tests/e2e/chat-stickers.spec.ts",
+    "tests/e2e/floating-messages.spec.ts",
+    "tests/e2e/member-channels-real.spec.ts",
+    "tests/e2e/member-channels.spec.ts",
+    "tests/e2e/notification-bell-actions.spec.ts",
+    "tests/e2e/notification-bell-refresh.spec.ts",
+    "docs/development/member-settings-messages.md"
   ],
+  "owner_role": "foundation",
   "public_exports": [
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts"
   ],
-  "dependencies": [
-    "command-core",
-    "scoped-commands",
-    "asset-lifecycle",
-    "asset-storage",
-    "shared",
-    "media-migration"
-  ],
-  "contract_families": [],
-  "client_profiles": [
-    "member"
-  ],
-  "instructions": [
-    "AGENTS.md",
-    "docs/development/member-communications.md",
-    "modules/assets/message-image.md"
-  ],
-  "invariants": [
-    "current-authority-before-replay",
-    "no-secrets-in-artifacts"
+  "surfaces": [
+    {
+      "surface_id": "communications.notification-preferences-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/NotificationPreferences.tsx",
+      "operations": [
+        "notification-preferences.read",
+        "notification-preferences.save",
+        "notification-preferences.summary"
+      ],
+      "auth_profile": "member-session"
+    }
   ],
   "tests": [
     "runtime.full"
-  ],
-  "surfaces": []
+  ]
 }
