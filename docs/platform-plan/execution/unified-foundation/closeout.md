@@ -445,3 +445,22 @@ GOV-16／R2:D04 附加證據但不改狀態，accepted 仍是 3 列。這次只�
 限制：#297 沒有執行驗收，staging 也沒有跑驗收；production checks 是唯讀 HTTP 與兩個公會的公開首頁，兩邊都沒有建立帳號。
 部署後另一個 session 用 staging 示範帳號做了會員實測：電商公會的正式成員看到主要動作「選品／營運待辦」，非成員看到加入提示，公會長存的推薦草稿重新進入後仍在、公開首頁不變；廣告攝影公會沒有正式成員的示範帳號，production 沒有登入實測。
 這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。
+
+## 2026-10-10 R15：社群修補與 schema148 正式發布
+
+本次真正受保護合併的 #427 `2d5f158c` 已發布至 staging 與正式站，與 reviewed `fccc1739` 同 tree；
+必要 Verify38052439063 的14 jobs及CodeQL通過，兩環境使用相同dist。正式站套用142–148；
+staging在R15前已是148，本輪沒有重套migration。兩邊147筆ledger、RLS33表／45 policies，runtime無BYPASS。
+
+staging實際商店24、社群26、小隊16、公開入口34項通過；正式站公開34／登入19項HTTP檢查通過。
+社群驗收前三次工具失敗（body長度量測、編輯未完成登出、等待錯誤HTTP verb）保留，
+最後修正量測與等待後同產品source通過。這不是正式一般會員完整瀏覽器旅程，也不宣告Foundation／M1完成。
+
+發布前後四份備份均完成磁碟DB／物件還原與異地readback。staging-after保留6照片／4留言圖片，
+production-after3照片／0留言圖片；synthetic資料完成指定清理，歷史物件保留供恢復。
+daily operator及兩環境runtime pins皆2d5，排程／GC／retention不变；臨時staging Access已撤銷。
+留言圖片兩邊為r2_only／64MiB。e977不能作143私人資料寫入後回退；19c6只在留言圖片啟用前適用，
+現在修復必須保留media.comment-image.asset.v1 reader。沒有以本機11項回退證據冒稱live回退演練。
+
+細節見 [R15發布收據](rollout-r15-2026-10-10.json) 與 [現況快照](current-state.json)。
+較早 [e977發布紀錄](rollout-2026-10-10.json) 保留歷史，不代表目前release。#425／#426尚未包含在此發布。
