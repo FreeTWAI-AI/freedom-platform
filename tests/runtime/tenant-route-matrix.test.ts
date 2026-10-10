@@ -513,7 +513,12 @@ async function buildFixture() {
 let fixture: Awaited<ReturnType<typeof buildFixture>>;
 
 test('T-022 1. Route inventory guard', () => {
-  const relevantPaths = /(tenants|tenant-|module-instances|application-|operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
+  const relevantPaths = /(tenants|tenant-|module-instances|application-|^\/api\/v1\/tenants\/[^/]+\/operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
+  // Member search telemetry has an operations path, but is not tenant authority.
+  assert.equal(relevantPaths.test('/api/v1/community-search/operations/*'), false);
+  for (const suffix of ['', '/reconcile', '/cancel']) {
+    assert.equal(relevantPaths.test(`/api/v1/tenants/:tenant_id/operations/:operation_id${suffix}`), true);
+  }
   const selectedRoutes = app.routes.filter(r => relevantPaths.test(r.path));
   const counts = Object.values(routeTable).reduce<Record<string, number>>((all, kind) => {
     all[kind] = (all[kind] ?? 0) + 1;
