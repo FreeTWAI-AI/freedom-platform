@@ -145,8 +145,8 @@ jobs:
     needs: select
     if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.runtime_full == 'true') }}
     # Independent runners and PostgreSQL services: six partitions, each one
-    # serial test process. Measured weights balance the partitions, and each
-    # keeps its own 900-second budget. Selection and aggregation stay dynamic.
+    # serial test process. Measured weights balance the partitions; the pinned
+    # suite runner owns their execution budgets. Selection and aggregation stay dynamic.
     strategy:
       fail-fast: false
       matrix:
