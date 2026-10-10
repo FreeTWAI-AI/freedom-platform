@@ -20,9 +20,9 @@ function markdownProse(text) {
       else if (marker[0] === fence.character && marker.length >= fence.length) fence = null;
       continue;
     }
-    if (!fence && !/^(?: {4}|\t)/u.test(line)) lines.push(line.replace(/(`+)[^`\n]*?\1/gu, ''));
+    if (!fence && !/^(?: {4}|\t)/u.test(line)) lines.push(line);
   }
-  return lines.join('\n');
+  return lines.join('\n').replace(/(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/gu, '');
 }
 
 function matchingIssueNumbers(text, repository) {
@@ -40,8 +40,11 @@ export function issueClosureCandidates(issues, pullRequests, repository, default
   const mergedClosers = new Map();
   for (const pull of pullRequests) {
     if (!pull.merged_at || pull.base?.ref !== defaultBranch) continue;
-    const text = `${pull.title ?? ''}\n${pull.body ?? ''}`;
-    for (const number of matchingIssueNumbers(text, repository)) {
+    const numbers = new Set([
+      ...matchingIssueNumbers(pull.title ?? '', repository),
+      ...matchingIssueNumbers(pull.body ?? '', repository),
+    ]);
+    for (const number of numbers) {
       const mergedAt = Date.parse(pull.merged_at);
       if (!Number.isFinite(mergedAt)) continue;
       const current = mergedClosers.get(number);

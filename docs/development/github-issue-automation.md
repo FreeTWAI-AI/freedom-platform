@@ -8,4 +8,6 @@
 
 排程與 Actions 手動執行都固定為 report-only，沒有切換成寫入的選項。workflow 只有 `contents: read`、`issues: read` 與 `pull-requests: read`，checkout 不保存憑證。結果以 JSON 輸出 `mode`、掃描數量及 `candidates`，不會把候選標成 `closed`。
 
-腳本和測試可分別用 `node scripts/reconcile-issue-closures.mjs`（需提供 `GH_TOKEN`、`GITHUB_REPOSITORY`）及 `node --test scripts/reconcile-issue-closures.test.mjs` 執行。供本機使用的 token 也應只具讀取權；舊 `DRY_RUN` 變數不會啟用任何寫入。
+腳本和測試可分別用 `node scripts/reconcile-issue-closures.mjs`（需提供 `GH_TOKEN`、`GITHUB_REPOSITORY`）及 `node --test packages/contribution-tools/test/reconcile-issue-closures.test.mjs` 執行。供本機使用的 token 也應只具讀取權；舊 `DRY_RUN` 變數不會啟用任何寫入。
+
+回歸測試放在既有 `ci.governance-unit` 的目錄，會由固定 runner 自動納入完整檔案聯集；不新增獨立 CI job，也不修改已安裝的 runner。

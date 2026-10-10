@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
-import {issueClosureCandidates, reportIssueClosureCandidates} from './reconcile-issue-closures.mjs';
+import {issueClosureCandidates, reportIssueClosureCandidates} from '../../../scripts/reconcile-issue-closures.mjs';
 
 const repository = 'FreeTWAI-AI/freedom-platform';
 const issues = [
@@ -107,9 +107,23 @@ test('an issue reopened after the scan is never overwritten', async () => {
 });
 
 test('scheduled and manual workflow credentials remain read-only', () => {
-  const workflow = readFileSync(new URL('../.github/workflows/reconcile-issue-closures.yml', import.meta.url), 'utf8');
+  const workflow = readFileSync(new URL('../../../.github/workflows/reconcile-issue-closures.yml', import.meta.url), 'utf8');
   assert.match(workflow, /issues: read/u);
   assert.match(workflow, /pull-requests: read/u);
   assert.doesNotMatch(workflow, /:\s*write\b|write-all|DRY_RUN|dry_run/u);
   assert.match(workflow, /persist-credentials: false/u);
+});
+
+test('does not combine closing keywords across the PR title and body', () => {
+  const pulls = [{number: 40, title: 'Maintenance fixes', body: '#12 is still under investigation',
+    merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}];
+  assert.deepEqual(issueClosureCandidates(issues, pulls, repository, 'main'), []);
+});
+
+test('excludes multiline code spans while retaining actual prose after them', () => {
+  const pulls = [{number: 40, body: '`example\nCloses #12`\n``example `quoted`\nFixes #14``\nResolves #15',
+    merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}];
+  assert.deepEqual(issueClosureCandidates(issues, pulls, repository, 'main'), [
+    {issueNumber: 15, pullNumber: 40, requiresReview: true},
+  ]);
 });
