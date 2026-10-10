@@ -16,6 +16,7 @@ export const communitySearchItemSchema = z.object({
   summary: z.string(),
   path: z.string(),
   label: z.string().nullable(),
+  author_id: z.string().uuid().nullable(),
   media_path: z.string().nullable(),
   topics: z.array(z.enum(communitySearchTopics)),
 }).strict();

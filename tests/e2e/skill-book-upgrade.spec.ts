@@ -1,6 +1,7 @@
 import { navigate } from './navigation.js';
 import { test, expect, type Locator, type Page } from './fixtures.js';
 import { DEMO_PASSWORD, DEMO_USERS } from '../../packages/testing/seed.js';
+import { mountSharingFixture } from './sharing-authoring-fixture.js';
 
 const GRANT = 'fsu_synthetic_grant_token_for_e2e_only';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
@@ -744,3 +745,114 @@ test('the shelf callout upgrades a published simple submission into a new draft'
   await dialog.getByRole('button', { name: `撤銷草稿：${title}`, exact: true }).click();
   await expect(dialog.getByText('草稿已撤銷，憑證無法再上傳。', { exact: true })).toBeVisible();
 });
+
+// Real authoring components and stores; deferred synthetic transport isolates
+// navigation/mutation ordering without claiming database/publication evidence.
+const skillFixture = <T,>(page: Page, run: (fixture: any) => T) => page.evaluate(
+  source => new Function('f', 'return (' + source + ')(f)')((window as any).sharingFixture), run.toString(),
+);
+function manualResumeItem(id: string, title: string) {
+  return {
+    submission_id: id, status: 'ready_for_review', can_edit: true, aggregate_version: 7, public_path: null,
+    payload: { repository_url: 'https://github.com/synthetic/repo', title, description: 'Saved description', use_notes: 'Saved notes', demo_url: null, relationship: 'curator' },
+  };
+}
+async function resolveManualResume(page: Page, index: number, id: string, title: string) {
+  await page.evaluate(({ index, item }) => (window as any).sharingFixture.resolveRead(index, item), { index, item: manualResumeItem(id, title) });
+}
+async function requestManualResume(page: Page, id: string) {
+  await page.evaluate(id => { const fixture = (window as any).sharingFixture; fixture.deferReads(true); fixture.resume(id); }, id);
+}
+
+test('private submission resume waits through create and publication across remount and uses the newest URL', async ({ page }) => {
+  await mountSharingFixture(page, 'resume');
+  await page.getByLabel('GitHub 專案網址', { exact: true }).fill('https://github.com/synthetic/repo');
+  await page.getByLabel('作品名稱', { exact: true }).fill('Original operation');
+  await page.getByLabel('一句話介紹', { exact: true }).fill('Original description');
+  await page.getByRole('button', { name: '預覽投稿', exact: true }).click();
+  await page.getByLabel('我同意公開這份作品介紹與來源關係', { exact: true }).check();
+  await page.getByRole('button', { name: '確認並公開', exact: true }).click();
+  await requestManualResume(page, 'next-draft');
+  await expect(page.getByRole('region', { name: '載入私人投稿' })).toBeVisible();
+  expect(await skillFixture(page, f => f.pendingReads.length)).toBe(0);
+  await page.getByRole('button', { name: 'Toggle form', exact: true }).click();
+  await page.getByRole('button', { name: 'Toggle form', exact: true }).click();
+  expect(await skillFixture(page, f => f.pendingReads.length)).toBe(0);
+  await skillFixture(page, f => f.resolve(0, { submission_id: 'original-draft', status: 'ready_for_review', can_edit: true, aggregate_version: 3, public_path: null, payload: f.calls[0].body }));
+  await expect.poll(() => skillFixture(page, f => f.calls.length)).toBe(2);
+  expect(await skillFixture(page, f => ({ path: f.calls[1].path, version: f.calls[1].options.ifMatch, reads: f.pendingReads.length }))).toEqual({ path: '/me/skill-submissions/original-draft/publish', version: 3, reads: 0 });
+  await requestManualResume(page, 'newest-draft');
+  expect(await skillFixture(page, f => f.pendingReads.length)).toBe(0);
+  await skillFixture(page, f => f.resolve(1, { submission_id: 'original-draft', status: 'published', aggregate_version: 4, public_path: '/development/submissions/10000000-0000-4000-8000-000000000098' }));
+  await expect.poll(() => skillFixture(page, f => f.pendingReads.map((read: { path: string }) => read.path))).toEqual(['/me/skill-submissions/newest-draft']);
+  await resolveManualResume(page, 0, 'newest-draft', 'Newest saved draft');
+  await expect(page.getByRole('heading', { name: 'Newest saved draft', exact: true })).toBeVisible();
+  expect(await skillFixture(page, f => f.readDraft('skill:saved').submission_id)).toBe('newest-draft');
+});
+
+test('private submission consumed resume preserves unknown retry identity CAS and canonical success', async ({ page }) => {
+  await mountSharingFixture(page, 'resume');
+  await requestManualResume(page, 'saved-draft');
+  await expect.poll(() => skillFixture(page, f => f.pendingReads.length)).toBe(1);
+  await resolveManualResume(page, 0, 'saved-draft', 'Saved draft');
+  await page.getByLabel('我同意公開這份作品介紹與來源關係', { exact: true }).check();
+  await page.getByRole('button', { name: '重試公開投稿', exact: true }).click();
+  await skillFixture(page, f => f.reject(0));
+  await expect(page.getByRole('button', { name: '重試公開投稿', exact: true })).toBeEnabled();
+  expect(await skillFixture(page, f => f.pendingReads.length)).toBe(1);
+  await expect(page.getByLabel('我同意公開這份作品介紹與來源關係', { exact: true })).toBeChecked();
+  await page.getByRole('button', { name: '重試公開投稿', exact: true }).click();
+  expect(await skillFixture(page, f => JSON.stringify(f.calls[0]) === JSON.stringify(f.calls[1]))).toBe(true);
+  expect(await skillFixture(page, f => f.calls[1].options.ifMatch)).toBe(7);
+  await skillFixture(page, f => f.resolve(1, { submission_id: 'saved-draft', status: 'published', aggregate_version: 8, public_path: '/development/submissions/10000000-0000-4000-8000-000000000099' }));
+  await expect(page.getByRole('region', { name: '投稿完成' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '閱讀已公開技能書 ↗' })).toHaveAttribute('href', '/development/submissions/10000000-0000-4000-8000-000000000099');
+  expect(await skillFixture(page, f => f.pendingReads.length)).toBe(1);
+});
+
+for (const operation of ['revoke', 'upgrade'] as const) {
+  test(`private submission resume waits for ${operation} before applying the requested draft`, async ({ page }) => {
+    await mountSharingFixture(page, 'resume');
+    await requestManualResume(page, 'saved-draft');
+    await expect.poll(() => skillFixture(page, f => f.pendingReads.length)).toBe(1);
+    await resolveManualResume(page, 0, 'saved-draft', 'Saved draft');
+    if (operation === 'upgrade') {
+      await page.getByLabel('我同意公開這份作品介紹與來源關係', { exact: true }).check();
+      await page.getByRole('button', { name: '重試公開投稿', exact: true }).click();
+      await skillFixture(page, f => f.resolve(0, { submission_id: 'saved-draft', status: 'published', aggregate_version: 8, public_path: '/development/submissions/10000000-0000-4000-8000-000000000099' }));
+      await page.getByRole('button', { name: '補充分享介紹（示意圖選填）', exact: true }).click();
+    } else await page.getByRole('button', { name: '撤銷這份私人投稿', exact: true }).click();
+    await requestManualResume(page, 'next-draft');
+    await expect(page.getByRole('region', { name: '載入私人投稿' })).toBeVisible();
+    expect(await skillFixture(page, f => f.pendingReads.length)).toBe(1);
+    await skillFixture(page, f => f.resolve(f.calls.length - 1, { submission_id: 'operation-result', status: 'awaiting_upload', aggregate_version: 9 }));
+    await expect.poll(() => skillFixture(page, f => f.pendingReads.length)).toBe(2);
+    await resolveManualResume(page, 1, 'next-draft', 'Next saved draft');
+    await expect(page.getByRole('heading', { name: 'Next saved draft', exact: true })).toBeVisible();
+    expect(await skillFixture(page, f => f.readDraft('skill:saved').submission_id)).toBe('next-draft');
+  });
+}
+
+for (const scope of ['skill', 'skill:upgrade']) {
+  test(`private submission late resume response is fenced when ${scope} begins before it arrives`, async ({ page }) => {
+    await mountSharingFixture(page, 'resume');
+    await page.getByLabel('作品名稱', { exact: true }).fill('Keep local input');
+    await requestManualResume(page, 'next-draft');
+    await expect.poll(() => skillFixture(page, f => f.pendingReads.length)).toBe(1);
+    // Begin the real shared mutation and resolve the old read in one browser
+    // turn, without relying on a completed render/effect cleanup to fence it.
+    await page.evaluate(({ scope, item }) => {
+      const fixture = (window as any).sharingFixture;
+      fixture.startSkillMutation(scope);
+      fixture.resolveRead(0, item);
+    }, { scope, item: manualResumeItem('next-draft', 'Stale pre-operation draft') });
+    await expect(page.getByRole('region', { name: '載入私人投稿' })).toBeVisible();
+    expect(await skillFixture(page, f => f.readDraft('skill:draft').title)).toBe('Keep local input');
+    expect(await skillFixture(page, f => f.readDraft('skill:saved'))).toBeNull();
+    await skillFixture(page, f => f.resolve(0, { complete: true }));
+    await expect.poll(() => skillFixture(page, f => f.pendingReads.length)).toBe(2);
+    await resolveManualResume(page, 1, 'next-draft', 'Fresh post-operation draft');
+    await expect(page.getByRole('heading', { name: 'Fresh post-operation draft', exact: true })).toBeVisible();
+    await expect(page.getByText('Stale pre-operation draft', { exact: true })).toHaveCount(0);
+  });
+}
