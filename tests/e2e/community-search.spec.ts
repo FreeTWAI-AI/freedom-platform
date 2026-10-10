@@ -158,3 +158,16 @@ test('SEARCH-003 current full-guild maintainer saves topics through HTTP while a
     await e2eAuthPool.query('DELETE FROM skill_editorial_ownership WHERE book_id=$1 AND community_id=$2', [book!.id, DEMO_COMMUNITY]);
   }
 });
+
+test('SEARCH-004 opening a non-hash result records the open signal even though the click unloads the document', async ({ browser, baseURL, e2eAuthPool }) => {
+  const member = await person(e2eAuthPool), book = communityCatalog.skill_books[0]!;
+  const logged = await signedIn(browser, baseURL!, member.email);
+  try {
+    await search(logged.page, book.title);
+    const link = results(logged.page).getByRole('link', { name: book.title, exact: true }).first();
+    await expect(link).toHaveAttribute('href', `/development/skills/${book.id}`);
+    await Promise.all([logged.page.waitForURL(`**/development/skills/${book.id}`), link.click()]);
+    await expect.poll(async () => (await e2eAuthPool.query(
+      'SELECT opened_kind FROM community_search_operations WHERE user_id=$1 AND opened_at IS NOT NULL', [member.id])).rows.map(row => row.opened_kind)).toEqual(['skill_book']);
+  } finally { await logged.context.close(); }
+});

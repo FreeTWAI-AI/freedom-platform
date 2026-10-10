@@ -16,5 +16,5 @@ export default defineConfig({
   // and scripts/e2e-server.ts never runs its SIGTERM DROP SCHEMA. The budget has
   // to cover npx → tsx → node: the group signal reaches the child that owns the
   // pool, and close waits until that child exits.
-  webServer:{command:'npx tsx scripts/e2e-server.ts',env:{FREEDOM_E2E_GUIDE_FIXTURE:'1',FREEDOM_E2E_GITHUB_FIXTURES:'1',FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_COMMUNITY_RELATIONS:'1',FREEDOM_E2E_PERSONAL_CONTENT:'1',FREEDOM_E2E_HOSTED_RESERVATIONS:'1',FREEDOM_E2E_SCHEMA:schema},url:`${origin}/api/v1/health`,reuseExistingServer:false,timeout:30000,gracefulShutdown:{signal:'SIGTERM',timeout:15000}}
+  webServer:{command:'npx tsx scripts/e2e-server.ts',env:{FREEDOM_E2E_GUIDE_FIXTURE:'1',FREEDOM_E2E_GITHUB_FIXTURES:'1',FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_COMMUNITY_RELATIONS:'1',FREEDOM_E2E_PERSONAL_CONTENT:'1',FREEDOM_E2E_PARTICIPATION_METRICS:'1',FREEDOM_E2E_HOSTED_RESERVATIONS:'1',FREEDOM_E2E_SCHEMA:schema},url:`${origin}/api/v1/health`,reuseExistingServer:false,timeout:30000,gracefulShutdown:{signal:'SIGTERM',timeout:15000}}
 });
