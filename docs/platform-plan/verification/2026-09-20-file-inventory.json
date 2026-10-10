@@ -1944,8 +1944,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AccountSecurity.tsx",
-      "bytes": 5605,
-      "sha256": "6737c515c899715ee7328aeaf9c991665f250cb5493349169147bc6ce2afd276"
+      "bytes": 6888,
+      "sha256": "e97e022483101028495e3ee7d31a7fd3cefb1ddd54694e7b9ac6ee7bb9a67c07"
     },
     {
       "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
@@ -19744,8 +19744,8 @@
     },
     {
       "path": "tests/e2e/account-security.spec.ts",
-      "bytes": 5514,
-      "sha256": "4416334284283c21384002eafefee3ea7a6a19c0cbd42766f884c86f43f155c5"
+      "bytes": 7506,
+      "sha256": "fa36ed732aec5017d25ef182cd9f2340f80d30bcb9d0848edcdfaa9032cc461c"
     },
     {
       "path": "tests/e2e/admin-credentials.spec.ts",
@@ -19924,8 +19924,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 11050,
-      "sha256": "2801b69b20e07ffab79c16b52081517ef6fa3383dd767e6dc7b58b06b76c6ce4"
+      "bytes": 11773,
+      "sha256": "85dc32701e5222a2c65eb4737447599179843a95d95fc05bf0af4cf508635497"
     },
     {
       "path": "tests/e2e/freedom.module.json",
