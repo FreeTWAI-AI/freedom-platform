@@ -2389,8 +2389,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 41559,
-      "sha256": "6f5a4223ea495b716078015bcc190c8dfaa67643d6b1ab88f5f16354175a0240"
+      "bytes": 41696,
+      "sha256": "24bf9a389bbcff6ddce2fc43824b1f4ca1f3140272e3ba7e01b931d7bf21e2eb"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -2429,8 +2429,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 59373,
-      "sha256": "61394833fefbe37866ae9bac78c1008fd8ced7319b683a0e1fb24a84f5726e94"
+      "bytes": 59592,
+      "sha256": "09f87930f46ba33698d0a9ae96ec3a5ec2d463acfd899ca990dca82b7403bb92"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -19924,8 +19924,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 7857,
-      "sha256": "abcc3d0efdb7ab9bdfc15af3a365fb58983cb9f6d8df98763ae3356f4242ab35"
+      "bytes": 11050,
+      "sha256": "2801b69b20e07ffab79c16b52081517ef6fa3383dd767e6dc7b58b06b76c6ce4"
     },
     {
       "path": "tests/e2e/freedom.module.json",

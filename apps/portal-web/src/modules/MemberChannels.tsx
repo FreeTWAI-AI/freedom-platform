@@ -260,7 +260,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   }
 
   async function markRead(throughId?:string,retry=false){
-    if(!selected||!history||!history.items.length||readLocks.current.has(selected.key))return;
+    if(!snapshot.current.active||!selected||!history||!history.items.length||readLocks.current.has(selected.key))return;
     if(!retry&&readAttempts.current.has(selected.key))return;
     // Only through the newest message this member has actually been shown.
     const key=selected.key,since=epoch.current,generation=threadGeneration.current;
@@ -271,7 +271,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     try{
       await client.post<{read_sequence:string;read_at:string}>(path(key,'read'),{through_message_id:through},{idempotencyKey:attempt.key});
       readAttempts.current.delete(key);announceInboxChange();
-      if(!alive.current)return;
+      if(!alive.current||!snapshot.current.active||since!==epoch.current||generation!==threadGeneration.current||current.current!==key)return;
       rereadAfterWrite(key);
       if(listInFlight.current===null)void loadList(true);
       // Newer messages may have arrived meanwhile; their unread count comes from the server, never assumed 0.
