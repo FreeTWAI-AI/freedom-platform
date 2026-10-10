@@ -35,13 +35,19 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
   // The existing guild officer is fixture infrastructure. Neither merchant is
   // inserted, promoted or given a tenant/grant with SQL or direct API calls.
   const officerId = randomUUID(), officerEmail = `merchant-officer-${officerId}@example.test`;
-  await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
-    VALUES($1,$2,$3,'商店驗收會長',$4,$5,false)`, [officerId, DEMO_COMMUNITY, officerEmail, hashPassword(DEMO_PASSWORD), randomUUID()]);
-  await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
-    VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, officerId, guild]);
-  await e2eAuthPool.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)', [DEMO_COMMUNITY, guild, officerId]);
+  const officerRows = () => e2eAuthPool.query(
+    'SELECT user_id,appointed_at FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2', [DEMO_COMMUNITY, guild]);
+  const previousOfficers = (await officerRows()).rows;
   const officer = await browser.newContext({baseURL}), stranger = await browser.newContext({baseURL}), publicContext = await browser.newContext({baseURL});
   try {
+    await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+      VALUES($1,$2,$3,'商店驗收會長',$4,$5,false)`, [officerId, DEMO_COMMUNITY, officerEmail, hashPassword(DEMO_PASSWORD), randomUUID()]);
+    await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+      VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, officerId, guild]);
+    // Full-suite predecessors may already have appointed a guild officer.
+    // Borrow only this fixture slot, retaining its appointment time for cleanup.
+    await e2eAuthPool.query(`INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)
+      ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=EXCLUDED.user_id`, [DEMO_COMMUNITY, guild, officerId]);
     const nickname = `新店主 ${randomUUID().slice(0, 8)}`, email = await register(page, nickname);
     await guildHome(page);
     const primary = page.getByRole('region', {name: '主要動作', exact: true});
@@ -105,7 +111,16 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     await page.screenshot({path: info.outputPath('registered-merchant-return.png'), fullPage: true});
     await publicPage.screenshot({path: info.outputPath('registered-merchant-public.png'), fullPage: true});
   } finally {
-    await officer.close(); await stranger.close(); await publicContext.close();
-    await e2eAuthPool.query('DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 AND user_id=$3', [DEMO_COMMUNITY, guild, officerId]);
+    try {
+      await officer.close(); await stranger.close(); await publicContext.close();
+    } finally {
+      if (previousOfficers.length) {
+        await e2eAuthPool.query(`UPDATE positioning_guild_officers SET user_id=$4
+          WHERE community_id=$1 AND guild_key=$2 AND user_id=$3`, [DEMO_COMMUNITY, guild, officerId, previousOfficers[0].user_id]);
+      } else {
+        await e2eAuthPool.query('DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 AND user_id=$3', [DEMO_COMMUNITY, guild, officerId]);
+      }
+      expect((await officerRows()).rows).toEqual(previousOfficers);
+    }
   }
 });
