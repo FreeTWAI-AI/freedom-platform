@@ -13629,8 +13629,8 @@
     },
     {
       "path": "docs/development/github-issue-automation.md",
-      "bytes": 1766,
-      "sha256": "4bac8734d0a698abed94abbcfeca3d5a5e7154b037ff9d3f3a84b5568fc558db"
+      "bytes": 2411,
+      "sha256": "b1a397ada0aad3d0fe416d00948861ffcc5f0ff68e84bc9fe62ee5b0c739458a"
     },
     {
       "path": "docs/development/github-social.md",
@@ -19509,13 +19509,13 @@
     },
     {
       "path": "scripts/reconcile-issue-closures.mjs",
-      "bytes": 9830,
-      "sha256": "ed96757d3445b57f8a4f81d61214e3db45697b00ac2f810df8510780f8cb350c"
+      "bytes": 10439,
+      "sha256": "6270bab62cdc7fd720aa8159e5c9c18ea16fa1d9ab24d2a664fc2f19bd542f40"
     },
     {
       "path": "scripts/reconcile-issue-closures.test.mjs",
-      "bytes": 6122,
-      "sha256": "921db2114c7d5074729838671cabc35f1d866c1d67cdfd99ccbc16d0fab72cfd"
+      "bytes": 7252,
+      "sha256": "4a8a932869fbc63183f5989c2d7ff49d30d18be349c524e6ad91f511d3376c23"
     },
     {
       "path": "scripts/release-source-archive.py",

@@ -55,8 +55,13 @@ export function captureMergeEvidence(event, repository, {runId, runAttempt} = {}
     || runAttempt < 1
   ) return null;
 
-  const text = `${pull.title ?? ''}\n${pull.body ?? ''}`;
-  const issueNumbers = [...matchingIssueNumbers(text, repository)].sort((a, b) => a - b);
+  const title = pull.title ?? '';
+  const body = pull.body ?? '';
+  const text = `${title}\n${body}`;
+  const issueNumbers = [...new Set([
+    ...matchingIssueNumbers(title, repository),
+    ...matchingIssueNumbers(body, repository),
+  ])].sort((a, b) => a - b);
   if (issueNumbers.length === 0) return null;
   return {
     format: 'freedom.issue-closure-evidence/v1',
@@ -157,7 +162,7 @@ export function closeableIssues(issues, pullRequests, evidenceRecords, repositor
   return issues.flatMap((issue) => {
     const closer = mergedClosers.get(issue.number);
     const updatedAt = Date.parse(issue.updated_at);
-    if (issue.state !== 'open' || !closer || !Number.isFinite(updatedAt) || updatedAt > closer.mergedAt) return [];
+    if (issue.state !== 'open' || !closer || !Number.isFinite(updatedAt) || updatedAt >= closer.mergedAt) return [];
     return [{issueNumber: issue.number, pullNumber: closer.pullNumber}];
   });
 }
@@ -205,6 +210,16 @@ export async function reconcileIssueClosures({fetcher = fetch, token, repository
   const candidates = closeableIssues(issues, pullRequests, evidenceRecords, repository, repo.default_branch);
   const closed = [];
   for (const candidate of candidates) {
+    const latestResponse = await request(`${API}/repos/${repository}/issues/${candidate.issueNumber}`);
+    const latestIssue = await latestResponse.json();
+    const stillCloseable = !latestIssue.pull_request && closeableIssues(
+      [latestIssue],
+      pullRequests,
+      evidenceRecords,
+      repository,
+      repo.default_branch,
+    ).some((current) => current.issueNumber === candidate.issueNumber && current.pullNumber === candidate.pullNumber);
+    if (!stillCloseable) continue;
     if (!dryRun) {
       await request(`${API}/repos/${repository}/issues/${candidate.issueNumber}`, {
         method: 'PATCH',

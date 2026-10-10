@@ -42,6 +42,7 @@ function evidenceApi(record) {
     if (init.method === 'PATCH') return json({});
     if (String(url).endsWith(`/repos/${repository}`)) return json({default_branch: 'main'});
     if (String(url).includes('/issues?')) return json([issue(12)]);
+    if (String(url).endsWith('/issues/12')) return json(issue(12));
     if (String(url).includes('/pulls?')) return json([pull(record.pull_request_number, record.merged_at, 'main', 'Edited after merge: Closes #12')]);
     if (String(url).endsWith('/git/ref/heads/issue-closure-evidence')) return json({object: {sha: 'commit-sha'}});
     if (String(url).endsWith('/git/commits/commit-sha')) return json({tree: {sha: 'tree-sha'}});
@@ -75,6 +76,11 @@ test('captures only merge-time closure references from a merged default-branch P
   assert.equal(record.merge_commit_sha, sha(40));
   assert.equal(captureMergeEvidence({...event, pull_request: {...event.pull_request, merged: false}}, repository, {runId: 100, runAttempt: 1}), null);
   assert.equal(captureMergeEvidence({...event, pull_request: {...event.pull_request, base: {ref: 'release', repo: {full_name: repository}}}}, repository, {runId: 100, runAttempt: 1}), null);
+  const splitClosingReference = captureMergeEvidence({
+    ...event,
+    pull_request: {...event.pull_request, title: 'Maintenance fixes', body: '#13 unrelated reference'},
+  }, repository, {runId: 100, runAttempt: 1});
+  assert.equal(splitClosingReference, null);
 });
 
 test('only closes issues recorded at merge for a PR merged to the default branch', () => {
@@ -121,6 +127,17 @@ test('does not re-close an issue updated after the merge-time evidence', () => {
   assert.deepEqual(candidate, []);
 });
 
+test('does not close an issue updated in the same timestamp second as merge', () => {
+  const candidate = closeableIssues(
+    [issue(12, mergedAt)],
+    [pull(40)],
+    [evidence(40, [12])],
+    repository,
+    'main',
+  );
+  assert.deepEqual(candidate, []);
+});
+
 test('dry-run reads merge-time evidence without writing issue state', async () => {
   const calls = [];
   const fetcher = async (url, init = {}) => {
@@ -149,4 +166,16 @@ test('closes an issue only when merge-time evidence matches the merged PR', asyn
     url: `https://api.github.com/repos/${repository}/issues/12`,
     body: {state: 'closed', state_reason: 'completed'},
   }]);
+});
+
+test('rechecks issue state immediately before mutation', async () => {
+  const writes = [];
+  const fetcher = async (url, init = {}) => {
+    if (String(url).endsWith('/issues/12') && !init.method) return json(issue(12, '2026-10-03T00:00:00Z'));
+    if (init.method === 'PATCH') writes.push(String(url));
+    return evidenceApi(evidence(40, [12]))(url, init);
+  };
+  const result = await reconcileIssueClosures({fetcher, token: 'test-token', repository});
+  assert.deepEqual(result.closed, []);
+  assert.deepEqual(writes, []);
 });
