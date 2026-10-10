@@ -60,3 +60,16 @@
 @media(max-width: 700px) { .experience-intro { align-items: start; flex-direction: column; } .experience-row,.experience-points,.welcome-preview-grid { grid-template-columns: 1fr; } .welcome-preview-top { flex-wrap: wrap; } .welcome-preview-top .experience-actions { margin-left: auto; }
   /* The bell sits left of the profile menu, so its popover hangs from the group's right edge to stay on screen. */
   .welcome-preview-top .experience-actions { position: relative; } .welcome-preview-top .notification-bell { position: static; } .welcome-preview-top .notification-bell-popover { width: min(380px, calc(100vw - 2rem)); } }
+
+/* #401: organizer-only registration list. */
+.event-attendees-dialog{width:min(520px,calc(100vw - 32px));max-height:min(80dvh,720px);border:1px solid var(--line);border-radius:14px;padding:1.1rem 1.2rem;background:var(--bg-elev);color:var(--ink)}
+.event-attendees-dialog::backdrop{background:rgba(0,0,0,.45)}
+.event-attendees-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.event-attendees-head h3{margin:0}
+.event-attendee-list{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+.event-attendee-list li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.6rem;padding:.4rem .2rem;border-bottom:1px solid var(--line)}
+.event-attendee-list strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.event-attendee-list time{color:var(--muted);font-size:.85rem}
+.event-attendee-guest{display:inline-grid;place-items:center;width:2rem;height:2rem;border-radius:50%;background:var(--line);font-size:.85rem}
+@media(max-width:480px){.event-attendee-list li{grid-template-columns:auto minmax(0,1fr)}.event-attendee-list time{grid-column:2}}
+.event-attendee-list .member-avatar{width:2rem;height:2rem;min-width:2rem;font-size:.85rem;box-shadow:none;border-radius:50%}
