@@ -40,6 +40,12 @@ export function TotpSettings({client,email}:{client:PortalClient;email:string}){
       else{setBackupCodes(null);setStatus({enabled:false,backup_codes_remaining:0});setNotice('雙因素驗證已停用，原驗證器金鑰與備用碼已失效。')}
     }catch(cause){
       if(!live.current)return;
+      if(cause instanceof ApiError&&['totp_backup_codes_already_delivered','totp_already_enabled'].includes(cause.code??'')){
+        pending.current=null;setSecret('');setPassword('');setCode('');setBackupCodes(null);
+        setStatus(null);setRevision(value=>value+1);
+        setNotice('雙因素驗證已啟用，但本次未取得備用碼。請使用已設定的驗證器；若需要新的備用碼，可用驗證器代碼停用後重新設定。');
+        return;
+      }
       if(!(cause instanceof ApiError)||!cause.network)pending.current=null;
       setError(cause instanceof ApiError&&cause.network?'尚未確認操作結果。請保留目前欄位再按一次提交；若離開此頁，備用碼不會再次顯示。':cause instanceof ApiError&&cause.status===429?'驗證嘗試過多，請稍後再試。':cause instanceof ApiError&&cause.status===401?'密碼或驗證碼不正確，或登入已過期。請確認後再試。':'設定未完成，請確認密碼與驗證碼後重試。');
     }finally{if(live.current)setBusy(false)}

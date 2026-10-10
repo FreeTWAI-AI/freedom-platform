@@ -76,7 +76,8 @@
     "tests/e2e/audit-shell.spec.ts",
     "apps/portal-web/src/api.ts",
     "apps/portal-web/vite.config.ts",
-    "apps/portal-web/src/styles.css"
+    "apps/portal-web/src/styles.css",
+    "apps/portal-web/src/auth-messages.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],

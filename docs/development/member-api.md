@@ -59,7 +59,9 @@ mutation body or creating, replacing or revoking sessions.
   provisioning secret locally, never in an API response. A valid password and
   RFC 6238 SHA-1 code (six digits, 30 seconds, ±1 step) enable MFA and return ten
   96-bit backup codes once. Store them securely; only SHA-256 hashes are retained.
-  Replay returns 409 rather than recovering plaintext codes. State-only command
+  Replay returns 409 rather than recovering plaintext codes. After a lost enable
+  response, the UI rereads state and explains using the enrolled authenticator
+  to disable/re-enroll for fresh codes; it never replays backup plaintext. State-only command
   receipts and metadata-only audit facts never contain secrets or backup codes.
 - `POST /me/totp/disable`: `{password,code}`; requires password plus an unused
   authenticator or backup code. Successful disable deletes secret and code hashes.

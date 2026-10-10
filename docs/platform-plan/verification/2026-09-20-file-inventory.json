@@ -149,8 +149,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 2640,
-      "sha256": "fa71330179e305d0987008a0d7226eec1f78033b800f9e37006b8e954817c887"
+      "bytes": 2684,
+      "sha256": "9f9772beedf86ba6bfce99f85d9a7613fc1260ab80a48e9d8ee399de012ec99b"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -2829,8 +2829,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/TotpSettings.tsx",
-      "bytes": 7609,
-      "sha256": "d3db9495bc98ac6e1b4589c6c8fe7ca15b49f147789168d10c89105ef6abd167"
+      "bytes": 8090,
+      "sha256": "c67a5c72e78e4fc1b134657b0202b365484b5451e2d309da9bca86b382ffe588"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
@@ -2894,8 +2894,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 8026,
-      "sha256": "c51b61c98f14310b364d8f1bca28d8e73ef1dffc953bf459ebbb9ff97b301577"
+      "bytes": 8102,
+      "sha256": "f8608cad3008f1581bdead5624c32d7d11e4067adf6b529fab1395e6d1a0eaca"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -13749,8 +13749,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 47774,
-      "sha256": "f9ee41060f99baf722fd3cc6bc6c798d90bf1c350586346b13d8040b2f4dfe70"
+      "bytes": 47948,
+      "sha256": "52228b81d87ac1e96b1aad6458d9c84bb32ffedb14b856b31a7700709dd3edfe"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -20364,8 +20364,8 @@
     },
     {
       "path": "tests/e2e/member-feature-fixture.ts",
-      "bytes": 1957,
-      "sha256": "183702c2cb1e67c9b68ed559668abef102727908be771ff4ca5c02ea9cd9c265"
+      "bytes": 1999,
+      "sha256": "34e2b59f488829b0877f97cba3ca311021ee1a4e19c9c71de0e366deed916dd8"
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
@@ -20661,6 +20661,11 @@
       "path": "tests/e2e/text-autospace.spec.ts",
       "bytes": 1828,
       "sha256": "51c7fc98aa2d691d5f0b41ae4c9aff2386ac9da758d0d792d6ea8d92823fa0a3"
+    },
+    {
+      "path": "tests/e2e/totp.spec.ts",
+      "bytes": 7326,
+      "sha256": "276462b69ba484f13f0d9b29f5cf50ecee75fd10aa4f38cf9c96fbacec0404d0"
     },
     {
       "path": "tests/e2e/typed-line-breaks.spec.ts",

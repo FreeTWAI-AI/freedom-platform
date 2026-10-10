@@ -76,7 +76,9 @@
     "apps/portal-web/src/modules/totp-setup.ts",
     "migrations/158_member_totp.sql",
     "tests/runtime/totp.test.ts",
-    "tests/runtime/portal-totp.test.ts"
+    "tests/runtime/portal-totp.test.ts",
+    "modules/identity-membership/service.ts",
+    "tests/e2e/totp.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [
