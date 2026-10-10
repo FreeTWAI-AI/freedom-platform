@@ -183,7 +183,7 @@ export const interfaceMessages = {
   'nav.retail': ['我可以賣東西', 'Sell products', '商品を販売する', '상품 판매', 'Vender productos'],
   'nav.marketing': ['行銷工作室', 'Marketing studio', 'マーケティング', '마케팅 스튜디오', 'Estudio de marketing'],
   'nav.guild-workspace': ['公會管理', 'Guild management', 'ギルド管理', '길드 관리', 'Gestión de gremios'],
-  'nav.reservations': ['查詢我的預留', 'My reservations', '予約を確認', '내 예약 확인', 'Mis reservas'],
+  'nav.reservations': ['我的訂單', 'My orders', '注文履歴', '내 주문', 'Mis pedidos'],
   'nav.stores': ['我的商店', 'My stores', 'マイショップ', '내 상점', 'Mis tiendas'],
   'nav.business': ['業務空間', 'Business workspace', 'ビジネススペース', '비즈니스 공간', 'Espacio de negocios'],
   'nav.community': ['自由工坊社群', 'Community', 'コミュニティ', '커뮤니티', 'Comunidad'],

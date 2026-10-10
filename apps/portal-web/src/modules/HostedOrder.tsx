@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import {PublicStoreProjectionSchema, type PublicStoreProjection} from '../../../../contracts/guild-launchpad/v1/storefront';
-import {QuoteInputSchema, ReadinessSchema, type HostedOrder, type HostedOrderQuote} from '../../../../contracts/guild-launchpad/v1/hosted-order';
+import {QuoteInputSchema, ReadinessSchema, OrderPageSchema, type HostedOrderPage as BuyerOrderPage, type HostedOrder, type HostedOrderQuote} from '../../../../contracts/guild-launchpad/v1/hosted-order';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor} from '../format';
 import {buyerRoute, readOrder, readQuote, readCancelObservation, type BuyerAttempt, type BuyerRoute} from './hosted-order-state';
@@ -17,6 +17,7 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
   const [ready, setReady] = useState(false), [loading, setLoading] = useState(false);
   const [quantity, setQuantity] = useState<Record<string, string>>({});
   const [quote, setQuote] = useState<HostedOrderQuote | null>(null), [order, setOrder] = useState<HostedOrder | null>(null);
+  const [page, setPage] = useState<BuyerOrderPage | null>(null);
   const [busy, setBusy] = useState(false), [unknown, setUnknown] = useState(false);
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [reference, setReference] = useState('');
   const held = useRef<BuyerAttempt | null>(null), busyRef = useRef(false), dirty = useRef(false);
@@ -41,15 +42,18 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
     // Establishing the recovery URL before submit must not clear its held tuple.
     const attempt = held.current;
     if (attempt?.kind === 'submit' && route?.kind === 'intent' && route.intent === attempt.body.client_order_id && route.slug === attempt.slug) return;
-    setStore(null); setReady(false); setOrder(null); setQuote(null); setQuantity({}); setError(''); setNotice(''); dirty.current = false;
+    setStore(null); setReady(false); setOrder(null); setQuote(null); setPage(null); setQuantity({}); setError(''); setNotice(''); dirty.current = false;
     void load(route);
     return () => {reads.current++;};
   }, [locationHash]);
-  async function load(target: BuyerRoute | null) {
+  async function load(target: BuyerRoute | null, cursor?: string) {
     const ticket = ++reads.current; const current = () => live() && ticket === reads.current;
     setLoading(true); setError('');
     try {
-      if (target?.kind === 'shop') {
+      if (target?.kind === 'lookup') {
+        const found = OrderPageSchema.parse(await client.get(`/me/hosted-orders${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, {signal: controller.current.signal}));
+        if (current()) setPage(found);
+      } else if (target?.kind === 'shop') {
         // Never preserve a previous true readiness through an unsuccessful refresh.
         setReady(false);
         const display = PublicStoreProjectionSchema.parse(await client.get(`/public/stores/${target.slug}`, {signal: controller.current.signal}));
@@ -142,11 +146,23 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
     {error && <p role="alert" className="banner banner-error">{error}</p>}
     {unknown && <div className="actions"><button className="btn btn-ghost" disabled={busy || loading} onClick={() => held.current && void send(held.current)}>重試原操作</button>
       {held.current?.kind !== 'quote' && <button className="btn btn-ghost" disabled={busy || loading} onClick={() => void load(lookupTarget)}>查詢原預留</button>}</div>}
-    {!route ? <p>預留連結格式不正確。</p> : route.kind === 'lookup' ? <form className="stack" onSubmit={lookup}>
-      <p>輸入你保存的預留編號，或開啟原預留連結。這裡目前不提供完整歷史清單。</p>
-      <label className="field"><span>預留編號</span><input value={reference} maxLength={36} onChange={e => setReference(e.target.value)} required/></label>
-      <div className="actions"><button className="btn btn-primary">查詢我的預留</button></div>
-    </form> : <>
+    {!route ? <p>預留連結格式不正確。</p> : route.kind === 'lookup' ? <>
+      <section className="stack" aria-label="我的訂單"><h2>我的訂單</h2>
+        {page?.items.length === 0 && <p>目前沒有訂單。</p>}
+        {page?.items.map(item => <article className="hosted-store-product stack" key={item.order_id}>
+          <h3>{item.store.name}</h3><p>{item.state === 'reserved' ? '預留中' : item.state === 'cancelled' ? '已取消' : '已到期'} · 商品金額 {formatMinor(item.merchandise_total_minor, item.currency)}（非應付金額）</p>
+          <p>預留截止：{formatIsoLocal(item.reservation_expires_at)}</p>
+          <a className="btn btn-small btn-ghost" href={`#reservations/order/${item.order_id}`}>查看訂單</a>
+        </article>)}
+        <div className="actions"><button className="btn btn-small btn-ghost" disabled={loading} onClick={() => void load(route)}>重新整理／第一頁</button>
+          {page?.next_cursor && <button className="btn btn-small btn-ghost" disabled={loading} onClick={() => void load(route, page.next_cursor!)}>下一頁</button>}</div>
+      </section>
+      <form className="stack" onSubmit={lookup}>
+        <p>也可輸入你保存的預留編號，或開啟原預留連結。</p>
+        <label className="field"><span>預留編號</span><input value={reference} maxLength={36} onChange={e => setReference(e.target.value)} required/></label>
+        <div className="actions"><button className="btn btn-small btn-ghost">查詢我的預留</button></div>
+      </form>
+    </> : <>
       {route.kind === 'shop' && store && !quote && !order && <form className="stack" onSubmit={requestQuote}>
         <h2>{store.name}</h2><p>{store.description}</p>
         {!ready && !loading && <p>新的預留目前不可用，商品僅供展示。</p>}
@@ -165,7 +181,7 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
       {!unknown && error && <div className="actions"><button className="btn btn-ghost" disabled={busy || loading} onClick={() => void load(route)}>重新查詢</button></div>}
       {route.kind === 'intent' && !order && !locked && !loading && <a href={`#reservations/${route.slug}`} className="btn btn-ghost">返回商店查看預留內容</a>}
     </>}
-    <div className="actions"><a href="#reservations" className="btn btn-ghost">查詢其他預留</a>{route && 'slug' in route && <a href={`/shops/${route.slug}`} onClick={e => {if (!canLeave()) e.preventDefault();}}>查看公開商品頁</a>}</div>
+    <div className="actions"><a href="#reservations" className="btn btn-small btn-ghost">我的訂單</a>{route && 'slug' in route && <a href={`/shops/${route.slug}`} onClick={e => {if (!canLeave()) e.preventDefault();}}>查看公開商品頁</a>}</div>
   </div>;
 }
 function Lines({value}: {value: HostedOrderQuote | HostedOrder}) {

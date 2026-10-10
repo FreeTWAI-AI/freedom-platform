@@ -15,9 +15,11 @@ import { storeHtml, storeMissingHtml } from '../../../../modules/agent-commerce/
 import { Problem } from '../../../../packages/shared/problem.js';
 import type { PlatformEnv } from '../module-context.js';
 import { privateCache, singleQuery, commandHeaders, etag } from './tenant-http.js';
+import {createHostedDistributionRoutes} from './hosted-distribution.js';
 
 export function createHostedStoreRoutes(pool: Pool) {
   const app = new Hono<PlatformEnv>();
+  app.route('/', createHostedDistributionRoutes(pool));
   app.use('*', async (c, next) => { try { await next(); } finally { privateCache(c); } });
   const ids = (c: Parameters<typeof singleQuery>[0]) => [OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('instance_id'))] as const;
   const root = '/tenants/:tenant_id/storefronts/:instance_id';

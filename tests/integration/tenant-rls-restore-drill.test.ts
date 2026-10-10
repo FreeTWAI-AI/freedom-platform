@@ -134,7 +134,7 @@ function copyCounts(dump: Buffer): Record<string, number> {
 
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
-  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
+  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
@@ -234,6 +234,7 @@ async function publishResult(q: PoolClient, space: Space, author: Person) {
 async function insertHostedQuote(q: PoolClient, data: { tenantId: string; principalId: string; instanceId: string }, buyerPrincipalId = data.principalId) {
   const instanceId = randomUUID(), bindingId = randomUUID(), supplyId = randomUUID(), shopId = randomUUID();
   const itemId = randomUUID(), selectionId = randomUUID(), publicationId = randomUUID(), quoteId = randomUUID();
+  const offerId = randomUUID();
   const slug = `s-${instanceId}`, name = 'Synthetic retained store', title = 'Synthetic retained item';
   const inserted = await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,application_release_ref,module_release_ref,
       data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
@@ -259,6 +260,12 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
     shipping_minor: 0, shipping_terms: '交易尚未啟用；運送方式尚未設定。', return_terms: '交易尚未啟用；退換貨規則尚未設定。' };
   await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,price_minor,stock,reserved,shipping_minor,shipping_terms,return_terms)
     VALUES($1,$2,'P0001',$3,'',100,1,0,0,$4,$5)`, [itemId, supplyId, title, product.shipping_terms, product.return_terms]);
+  // Non-empty immutable offers must survive the same exported snapshot as their source items.
+  const offerHash = digest(product);
+  await q.query(`INSERT INTO commerce_hosted_supply_offers(offer_id,tenant_id,instance_id,item_id,community_id,
+      supplier_name,source_version,terms,terms_sha256)
+    SELECT $1,$2,$3,$4,community_id,$5,1,$6,$7 FROM commerce_shops WHERE shop_id=$8`,
+  [offerId, data.tenantId, instanceId, itemId, name, product, offerHash, supplyId]);
   await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot)
     VALUES($1,$2,$3,100,'交易尚未啟用。',$4)`, [selectionId, shopId, itemId, product]);
   const now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
@@ -280,7 +287,7 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
       terms,bindings,terms_sha256,quoted_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
   [quoteId, data.tenantId, instanceId, shopId, buyerPrincipalId, publicationId, quote, JSON.stringify(bindings), hash, now, quote.expires_at]);
   assert.equal((await q.query('SELECT reservation_enabled FROM commerce_storefront_profiles WHERE instance_id=$1', [instanceId])).rows[0].reservation_enabled, false);
-  return { instanceId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
+  return { instanceId, bindingId, quoteId, buyerPrincipalId, quote, bindings, offerId, itemId, offerTerms: product, offerHash };
 }
 
 async function installSpace(space: Space, author: Person, invitee: Person) {
@@ -390,7 +397,7 @@ const EXPECTED: Record<string, number> = {
   tenant_authority_audit: 2, module_instances: 4, deployment_bindings: 4, workspace_module_bindings: 2,
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
   // This fixture has no explicit instance grants; verify the new table survives empty.
-  tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2,
+  tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2, commerce_hosted_supply_offers: 2,
   // Photo-bearing restore is exercised by media-backup-restore; this fixture
   // must still preserve both empty tables and their tenant policies.
   commerce_product_photo_targets: 0, commerce_publication_photo_refs: 0,
@@ -674,6 +681,22 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_order_quotes WHERE tenant_id=$1 OR quote_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.quoteId])).rowCount, 0);
+  const offerIds = [spaces.a.hosted!.offerId, spaces.b.hosted!.offerId].sort();
+  const offerRows = async (pool: Pool) => (await pool.query(`SELECT * FROM commerce_hosted_supply_offers ORDER BY offer_id`)).rows;
+  const restoredOffers = await offerRows(restoredPool);
+  assert.deepEqual(restoredOffers.map(row => row.offer_id), offerIds);
+  assert.deepEqual(restoredOffers, (await offerRows(owner)).filter(row => offerIds.includes(row.offer_id)));
+  for (const space of [spaces.a, spaces.b]) {
+    const row = restoredOffers.find(row => row.offer_id === space.hosted!.offerId)!;
+    assert.equal(row.tenant_id, space.tenantId);
+    assert.equal(row.instance_id, space.hosted!.instanceId);
+    assert.equal(row.item_id, space.hosted!.itemId);
+    assert.deepEqual(row.terms, space.hosted!.offerTerms);
+    assert.equal(row.terms_sha256, space.hosted!.offerHash);
+    assert.equal(row.terms_sha256, digest(row.terms));
+  }
+  assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
+    [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
   const restoredKeys = await foreignKeys(restoredPool);
   assert(restoredKeys.length > 0); assert.deepEqual(restoredKeys, await foreignKeys(owner));
   for (const key of restoredKeys) assert.equal(key.convalidated, true);
@@ -731,6 +754,18 @@ test('J6-R4 lockdown precedes grants; one restored runtime connection cycles A, 
       assert.deepEqual(await visible(q), space ? tenantSlice(space) : personalOnly());
     });
   }
+});
+
+test('J6-R4 restored supply offers require context and retain same-community member visibility', async () => {
+  await isolatedTransaction(runtimePool, async q => {
+    assert.deepEqual(await column(q, 'SELECT offer_id AS id FROM commerce_hosted_supply_offers'), []);
+    await bindPrincipalContext(q, people.p1.principalId);
+    assert.deepEqual(await column(q, 'SELECT offer_id AS id FROM commerce_hosted_supply_offers'),
+      [spaces.a.hosted!.offerId, spaces.b.hosted!.offerId].sort());
+  });
+  await isolatedTransaction(runtimePool, async q => {
+    assert.deepEqual(await column(q, 'SELECT offer_id AS id FROM commerce_hosted_supply_offers'), []);
+  });
 });
 
 test('J6-R4 restored quote buyer visibility survives without granting another buyer access', async () => {
