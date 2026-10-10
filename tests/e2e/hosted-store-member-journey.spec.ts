@@ -65,6 +65,7 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     await flow.getByRole('button', {name: '產生啟動方案', exact: true}).click();
     await flow.getByRole('button', {name: '確認啟動', exact: true}).click();
     await flow.getByRole('button', {name: '設定我的商店', exact: true}).click();
+    await expect(page).toHaveURL(/#stores\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/);
     const storeHash = new URL(page.url()).hash, slug = 'member-' + randomUUID().slice(0, 8);
     const setup = page.getByRole('form', {name: '建立商店', exact: true});
     await setup.getByLabel('商店名稱', {exact: true}).fill('新會員選物店');
@@ -91,7 +92,7 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     await preview.close();
     await signOut(page); await login(page, email); await guildHome(page);
     await primary.getByRole('button', {name: '進入我的商店', exact: true}).click();
-    expect(new URL(page.url()).hash).toBe(storeHash);
+    await expect(page).toHaveURL(new RegExp(storeHash + '$'));
     await expect(page.getByRole('radio', {name: /^直列目錄/})).toBeChecked();
     await expect(page.locator('.hosted-store-product')).toContainText('手作茶杯');
     const strangerPage = await stranger.newPage(); await register(strangerPage, '另一位新會員');
