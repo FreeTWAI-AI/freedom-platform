@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Problem, requireCondition } from '../shared/problem.js';
 import type { Actor } from '../../modules/identity-membership/service.js';
 export { digest } from './legacy-digest.js';
-export { transaction } from './transaction.js';
+export { afterRollback, transaction } from './transaction.js';
 export { memberCommand, memberCommand as command, type Command } from './member-command.js';
 
 export const LOCAL_DATABASE_URL = 'postgresql://freedom_local:local-development-only@127.0.0.1:54339/freedom_local';
