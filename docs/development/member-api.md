@@ -62,6 +62,19 @@ mutation body or creating, replacing or revoking sessions.
   the current value, null clears it. Default null; self-selected, never inferred.
   It is visible with the authenticated same-community card, and does not grant authority.
   Nickname is the editable community display name; use the name familiar to your community.
+- `POST /me/password` (#397): `{current_password,new_password}`; the signed-in
+  member re-proves the current password (same 10-failure/15-minute lockout as
+  login, keyed per member), stores the new 12–128 character password, revokes
+  every other session and keeps the proving session. Returns
+  `{changed:true,revoked_sessions}`; wrong password → 403
+  `current_password_invalid`, unchanged → 422 `password_unchanged`, locked → 429
+  `password_change_rate_limited`. No command receipt: the password never enters
+  a request digest; the journal records only the revoked count and advances the
+  account `aggregate_version`.
+- `GET /me/sessions`: `{items:[{current,created_at,last_seen_at,expires_at}],total}` —
+  the member's live sessions (≤50, current first); no token material is returned.
+- `POST /me/sessions/revoke-others`: `{}` with `Idempotency-Key`; ends every
+  session except the current one and returns `{revoked_sessions,aggregate_version}`.
 - `GET /members?limit=20&offset=0`: `{items,total,next_offset}`. Limit 1–50.
   Optional `search`, `guild_key`, `primary_guild_key`, `capability`, and `sort`
   filters combine before pagination. `capability` accepts a catalog capability ID
