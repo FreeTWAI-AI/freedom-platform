@@ -70,3 +70,9 @@
 .account-panel .contact-row .fieldset { display: flex; flex-wrap: wrap; column-gap: 16px; row-gap: 0; margin: 0; min-width: 0; }
 .account-panel .contact-row .fieldset legend { width: 100%; }
 .account-panel .contact-row .fieldset .field-hint { flex-basis: 100%; margin: 4px 0 0; }
+
+/* Account security: compact session rows under the password form. */
+.account-security h4 { margin: 0; }
+.account-security .session-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.account-security .session-row { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.account-security .session-row span { color: var(--muted); font-size: 0.9rem; }

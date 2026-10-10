@@ -25,7 +25,14 @@
     "modules/identity-membership/blocks.ts",
     "apps/portal-web/src/modules/MemberBlocking.tsx",
     "tests/runtime/member-blocking.test.ts",
-    "migrations/136_member_interaction_blocks.sql"
+    "migrations/136_member_interaction_blocks.sql",
+    "apps/platform-api/src/routes/members.ts",
+    "apps/portal-web/src/modules/AccountSecurity.tsx",
+    "apps/portal-web/src/modules/MemberDirectory.css",
+    "modules/identity-membership/account-security.ts",
+    "modules/identity-membership/password-recovery.ts",
+    "tests/e2e/account-security.spec.ts",
+    "tests/runtime/account-security.test.ts"
   ],
   "public_exports": [
     "modules/identity-membership/member-sharing.ts",
@@ -80,6 +87,28 @@
       "operations": [
         "member.block.list",
         "member.block.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "member.account-security",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/members.ts",
+      "operations": [
+        "member.password.change",
+        "member.sessions.list",
+        "member.sessions.revoke-others"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "member.account-security-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/AccountSecurity.tsx",
+      "operations": [
+        "member.password.change",
+        "member.sessions.list",
+        "member.sessions.revoke-others"
       ],
       "auth_profile": "member-session"
     }

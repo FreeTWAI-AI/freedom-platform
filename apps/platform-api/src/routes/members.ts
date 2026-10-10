@@ -8,6 +8,7 @@ import { moduleCommand,type PlatformEnv } from '../module-context.js';
 import { accountView,saveAccount,listMembers,memberPresence,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership,updateSquadProfile,transferSquad,disbandSquad } from '../../../../modules/identity-membership/members.js';
 import {inviteToSquad,resolveSquadInvitation,squadInvitations,receivedSquadInvitations} from '../../../../modules/identity-membership/squad-invitations.js';
 import {ownSocialLinks,visibleSocialLinks,createSocialLink,editSocialLink,deleteSocialLink} from '../../../../modules/identity-membership/social-links.js';
+import {changePassword,listMemberSessions,revokeOtherSessions} from '../../../../modules/identity-membership/account-security.js';
 // One receipt per invitation/squad regardless of the id's letter case.
 const lowercaseIds=(input:Command)=>({...input,operation:input.operation.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,id=>id.toLowerCase())});
 const pagination=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0)});
@@ -20,6 +21,9 @@ export function createMemberRoutes(pool:Pool) {
   app.get('/members/recommendations',async c=>c.json(await memberRecommendations(pool,c.get('actor'),c.req.query())));
   app.get('/friends/directory',async c=>c.json(await friendDirectory(pool,c.get('actor'),c.req.query())));
   app.post('/me/account',async c=>{const result=await saveAccount(pool,await moduleCommand(c));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
+  app.post('/me/password',async c=>c.json(await changePassword(pool,c.get('actor'),await c.req.json())));
+  app.get('/me/sessions',async c=>c.json(await listMemberSessions(pool,c.get('actor'))));
+  app.post('/me/sessions/revoke-others',async c=>c.json(await revokeOtherSessions(pool,await moduleCommand(c))));
   app.get('/me/social-links',async c=>c.json(await ownSocialLinks(pool,c.get('actor'),c.req.query())));
   app.post('/me/social-links',async c=>{const result=await createSocialLink(pool,await moduleCommand(c));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result,201);});
   app.post('/me/social-links/:id/edit',async c=>{const result=await editSocialLink(pool,await moduleCommand(c),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
