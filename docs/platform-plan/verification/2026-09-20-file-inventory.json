@@ -14929,8 +14929,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 24466,
-      "sha256": "fd622905e53876862feacd6a5dd886cf7a4cf7ad5cc4389c81f0cc4a72b21525"
+      "bytes": 24249,
+      "sha256": "77ed262c3e7bb8a677a41cc29227b9838632396096c64f8f9b775d92e640df3e"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -20664,8 +20664,8 @@
     },
     {
       "path": "tests/integration/media-backup-restore.test.ts",
-      "bytes": 33170,
-      "sha256": "c76c993e055903e748e0807e1e9cbe6404357db7b84c5948738f8c92505257c4"
+      "bytes": 33439,
+      "sha256": "1f1104c65f772185b326e39da37e8bf8bbd19edf4aee7ed03838400cf0849be2"
     },
     {
       "path": "tests/integration/media-recovery-handover-producer.ts",
