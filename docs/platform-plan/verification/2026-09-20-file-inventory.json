@@ -17319,8 +17319,8 @@
     },
     {
       "path": "modules/community/personal-content/freedom.module.json",
-      "bytes": 2189,
-      "sha256": "e584048d32fdd831116bef4757c53043dfe91b4415557fb7ad0a1195573a357d"
+      "bytes": 2235,
+      "sha256": "b46cbd00bca7b8dafbda6d22d741c23c1b728b6ee1c9236e91a1bae1b2a7c5c2"
     },
     {
       "path": "modules/community/share-introductions/agent-kit.json",
