@@ -20019,8 +20019,8 @@
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
-      "bytes": 23868,
-      "sha256": "34f873cdb1ac7a16db26a9d4e8ba4b436dd5af7ffe743ba4814a58885e08a5df"
+      "bytes": 23961,
+      "sha256": "db818198657da6ca85fb5c2536b27a306026bf34a005a7f5ee1484fd560da447"
     },
     {
       "path": "tests/e2e/member-connections.spec.ts",

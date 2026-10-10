@@ -66,6 +66,8 @@ async function shellTheme(page:Page,name:string,theme:string){
   if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
   await page.getByRole('menuitemradio',{name,exact:true}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+  await settings.click();
+  await expect(settings).toHaveAttribute('aria-expanded','false');
 }
 async function previewTheme(page:Page,name:string,label:string,theme:string){
   const menu=page.locator('.preview-profile-menu');
