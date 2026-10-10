@@ -202,9 +202,6 @@ async function installSyntheticCatalog() {
 }
 
 const routeTable: Record<string, string> = {
-  // The member-search flag gate matches the operations inventory keyword.
-  // Its owner/flag behavior is covered by participation-metrics.test.ts.
-  'ALL /api/v1/community-search/operations/*': 'middleware',
   // Cache middleware is inventoried separately, never sent as a synthetic ALL request.
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*': 'middleware',
@@ -516,14 +513,19 @@ async function buildFixture() {
 let fixture: Awaited<ReturnType<typeof buildFixture>>;
 
 test('T-022 1. Route inventory guard', () => {
-  const relevantPaths = /(tenants|tenant-|module-instances|application-|operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
+  const relevantPaths = /(tenants|tenant-|module-instances|application-|^\/api\/v1\/tenants\/[^/]+\/operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
+  // Member search telemetry has an operations path, but is not tenant authority.
+  assert.equal(relevantPaths.test('/api/v1/community-search/operations/*'), false);
+  for (const suffix of ['', '/reconcile', '/cancel']) {
+    assert.equal(relevantPaths.test(`/api/v1/tenants/:tenant_id/operations/:operation_id${suffix}`), true);
+  }
   const selectedRoutes = app.routes.filter(r => relevantPaths.test(r.path));
   const counts = Object.values(routeTable).reduce<Record<string, number>>((all, kind) => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 74, middleware: 3 });
-  assert.equal(selectedRoutes.length, 105);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 74, middleware: 2 });
+  assert.equal(selectedRoutes.length, 104);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
