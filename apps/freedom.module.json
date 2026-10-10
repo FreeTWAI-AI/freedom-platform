@@ -54,7 +54,10 @@
     "tests/runtime/game-console-routing.test.ts",
     "tests/e2e/audit-identity.spec.ts",
     "tests/e2e/modules-beginners.spec.ts",
-    "tests/e2e/typed-line-breaks.spec.ts"
+    "tests/e2e/typed-line-breaks.spec.ts",
+    "tests/e2e/calm-experience.spec.ts",
+    "tests/e2e/member-connections-51.spec.ts",
+    "tests/e2e/member-experience.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],

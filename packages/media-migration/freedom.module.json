@@ -4,6 +4,8 @@
   "owner_role": "foundation",
   "owned_paths": [
     "packages/media-migration/**",
+    "deploy/cloudflare/media-preflight.md",
+    "tests/runtime/media-domain-bridge.test.ts",
     "apps/media-operator/**",
     "wrangler.media-operator.example.jsonc",
     "tests/worker/media-operator-worker.test.ts",

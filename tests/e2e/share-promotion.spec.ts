@@ -171,6 +171,7 @@ test('the home share button stays as compact as the profile button', async ({ pa
   await expect(share).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expandHomeSections(page);
   const phoneShare = (await share.boundingBox())!;
   const phoneEdit = (await edit.boundingBox())!;
   const phoneRow = (await row.boundingBox())!;
@@ -182,7 +183,11 @@ test('the home share button stays as compact as the profile button', async ({ pa
   await page.setViewportSize({ width: 1280, height: 900 });
   const deskShare = (await share.boundingBox())!;
   const deskEdit = (await edit.boundingBox())!;
-  expect(Math.abs(deskShare.y - deskEdit.y)).toBeLessThanOrEqual(4);
+  // The compact left rail may wrap actions; both controls must fit their container.
+  expect(deskShare.width).toBeLessThanOrEqual((await row.boundingBox())!.width);
+  expect(deskShare.height).toBeGreaterThanOrEqual(44);
+  expect(deskEdit.height).toBeGreaterThanOrEqual(44);
+  await noOverflow(page);
 
   await shot(page, 'home-light-1280');
   await page.setViewportSize({ width: 390, height: 844 });
