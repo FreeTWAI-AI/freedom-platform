@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { navigate } from './navigation.js';
+import { navigate, openHomeGuide } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 
 // 2026-09-24 identity/guild audit. Screenshots go to test-results/audit-identity/.
@@ -167,14 +167,14 @@ test('keyboard users land on a squad after creating or opening it and return on 
   const heading = page.getByRole('heading', { name: `${squad}的夥伴`, exact: true });
   await expect(heading).toBeFocused();
   await expect(heading).toBeInViewport();
-  await page.getByRole('button', { name: '收起', exact: true }).click();
+  await page.getByRole('button', { name: '返回小隊列表', exact: true }).click();
   await expect(heading).toHaveCount(0);
   // The visible label stays short; the accessible name still identifies the squad.
   const open = page.getByRole('button', { name: `查看小隊：${squad}`, exact: true });
   await expect(open).toHaveText('查看小隊');
   await open.focus(); await page.keyboard.press('Enter');
   await expect(heading).toBeFocused();
-  await page.getByRole('button', { name: '收起', exact: true }).click();
+  await page.getByRole('button', { name: '返回小隊列表', exact: true }).click();
   await expect(open).toBeFocused();
   await expect(page.getByText(/^顯示 \d+ \/ \d+ 支小隊$/)).toBeVisible();
 });
@@ -211,7 +211,10 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await page.route('**/api/v1/assessment-definition', route => route.fulfill({ status: 503, body: '' }));
   await page.reload();
   const summary = page.getByRole('region', { name: '我的會員摘要', exact: true, includeHidden: true });
+  const guide = page.locator('.home-guide-disclosure');
+  await expect(guide).toHaveJSProperty('open', false);
   const alert = page.getByRole('alert');
+  await expect(alert).toBeVisible();
   await expect(alert).toHaveCount(1);
   await expect(alert).toContainText('名片暫時無法載入');
   await expect(alert).not.toContainText('重新整理');
@@ -219,11 +222,16 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await expect(summary).not.toBeVisible();
   await expect(summary).not.toContainText('主要公會');
   await expect(page.locator('.member-featured')).toHaveCount(0);
+  await openHomeGuide(page);
   const shortcuts = page.getByRole('navigation', { name: '常用入口', exact: true });
   await expect(shortcuts.getByRole('button')).toHaveCount(3);
   for (const name of ['看社群動態', '開始聊天', '找夥伴']) await expect(shortcuts.getByRole('button', {name, exact: true})).toBeVisible();
   await pageFits(page, 'phone home error');
   await page.screenshot({ path: `${shots}/phone-home-card-error.png`, fullPage: true });
+  // Recovery stays accessible even when the member closes the optional guide.
+  await guide.locator(':scope > summary').click();
+  await expect(guide).toHaveJSProperty('open', false);
+  await expect(alert).toBeVisible();
   const retry = alert.getByRole('button', { name: '重新載入名片', exact: true });
   await expect(retry).toHaveClass(/btn/);
   // Each explicit retry sends exactly one request (the shell's own avatar read is counted in the base).

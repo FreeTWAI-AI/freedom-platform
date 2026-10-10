@@ -47,6 +47,7 @@ let privateAiFixture:Awaited<ReturnType<typeof import('../packages/testing/priva
 let avatarAssetFixture:Awaited<ReturnType<typeof import('../packages/testing/e2e-avatar-asset-fixture.js')['createAvatarAssetBrowserFixture']>>|undefined;
 // Asset fixtures run in separate passes with a local-only enabled policy row.
 let storePhotoFixture:{store:FakeObjectStore;assets:ReturnType<typeof createStorefrontProductPhotoLifecycle>}|undefined;
+let commentImageStore:FakeObjectStore|undefined;
 let messageImageFixture:{store:FakeObjectStore;assets:ReturnType<typeof createMessageImageAssetService>}|undefined;
 // Installed before migrate. Playwright's graceful SIGTERM must drop the schema even if startup is still running.
 // npx/tsx dies on the group SIGTERM and SIGKILLs this process at its first await, so the
@@ -162,6 +163,12 @@ try{
     // Real native Sharp normalization; only the object provider is synthetic.
     storePhotoFixture={store,assets:createStorefrontProductPhotoLifecycle(productPool,{store})};
   }
+  // The isolated browser harness explicitly installs comment media in every pass.
+  // Product Node/Worker policy remains OFF; trusted CI need not inherit a new flag.
+  {
+    await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-comment-image-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='community.comment-image'");
+    commentImageStore=new FakeObjectStore();
+  }
   if(process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE==='1'){
     if(process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1'||process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1')throw Error('Fixture passes are mutually exclusive.');
     await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-message-image-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='member.message-image'");
@@ -184,6 +191,7 @@ const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bou
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),
   ...(storePhotoFixture?{storePhotoAssets:storePhotoFixture.assets,storePhotoAssetStore:storePhotoFixture.store,storePhotoUploadsEnabled:true}:{}),
+  ...(commentImageStore?{socialThumbnailAssetStore:commentImageStore}:{}),
   ...(messageImageFixture?{messageImageAssets:messageImageFixture.assets,messageImageAssetStore:messageImageFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));

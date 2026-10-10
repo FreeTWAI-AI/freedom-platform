@@ -15,6 +15,7 @@ export const MEDIA_OBJECT_PROFILES = Object.freeze({
   /** New uploads only; there is no legacy byte source to preserve. Output is always the canonical WebP written by modules/assets/message-image.ts. */
   'storefront.product-photo': Object.freeze({maxBytes:1024*1024,contentTypes:Object.freeze(['image/webp'] as const),transformVersion:'storefront.product-photo.webp.v1',source:'modules/assets/storefront-product-photo.ts'}),
   'member.message-image': Object.freeze({maxBytes:1024*1024,contentTypes:Object.freeze(['image/webp'] as const),transformVersion:'member.message-image.webp.v1',source:'modules/assets/message-image.ts'}),
+  'community.comment-image': Object.freeze({maxBytes:1024*1024,contentTypes:Object.freeze(['image/webp'] as const),transformVersion:'community.comment-image.webp.v1',source:'modules/assets/comment-image.ts'}),
 } as const);
 export type MediaObjectProfileId = keyof typeof MEDIA_OBJECT_PROFILES;
 export type MediaObjectTransform = typeof MEDIA_OBJECT_PROFILES[MediaObjectProfileId]['transformVersion'];

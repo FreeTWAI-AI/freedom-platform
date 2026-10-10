@@ -1,4 +1,6 @@
 import { test } from 'node:test';
+import {existsSync} from 'node:fs';
+import {join} from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -104,18 +106,67 @@ test('full shards cover every file once; one failing shard cannot hide the compl
 
 test('global cancellation kills all four active shards and cleans only invocation-owned databases', {}, async t => {
   const root = await fullFixture(t);
-  for (const path of partitionRuntimeFiles(names, 4).map(shard => shard[0])) await put(root, path, "import {test} from 'node:test';test('pending',()=>new Promise(()=>setInterval(()=>{},1000))); ");
+  const ready = partitionRuntimeFiles(names, 4).map(shard => ({path:shard[0],marker:join(root,shard[0]+'.ready')}));
+  for (const {path} of ready) await put(root, path, "import {test} from 'node:test';import {writeFileSync} from 'node:fs';import {fileURLToPath} from 'node:url';test('pending',()=>new Promise(()=>{writeFileSync(fileURLToPath(import.meta.url)+'.ready','ready');setInterval(()=>{},1000);}));");
+  // Disk provisioning can outlast the old one-second cancellation timer. Keep
+  // that condition deterministic, then cancel only once all four children run.
+  const original = Client.prototype.query;
+  let delayed = false;
+  Client.prototype.query = function(...args) {
+    const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+    if (!delayed && text?.startsWith('CREATE DATABASE "fp_suite_')) {
+      delayed = true;
+      return original.call(this, {text:'SELECT pg_sleep(1.2)', query_timeout:3000})
+        .then(() => original.apply(this, args));
+    }
+    return original.apply(this, args);
+  };
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 1000);
+  let settled=false;
+  const running=runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal }).finally(()=>{settled=true;});
   try {
-    const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal });
+    // Provisioning can exceed one second. Abort only after each real shard has
+    // entered its pending test, so this case actually exercises four SIGKILLs.
+    const deadline=Date.now()+30_000;
+    while(!ready.every(({marker})=>existsSync(marker))&&!settled&&Date.now()<deadline) await delay(25);
+    assert(ready.every(({marker})=>existsSync(marker)), 'all four shards must enter their pending test before cancellation');
+    assert(delayed);
+    controller.abort();
+    const result = await running;
     validateReport(result);
     assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_cancelled');
     assert.equal(result.database_cleanup_verified, true);
     assert.equal(result.shards.length, 4);
     assert(result.shards.every(shard => shard.reason === 'test_cancelled' && shard.termination_signal === 'SIGKILL'));
     assert.deepEqual(result.shards.flatMap(shard => shard.selected_files).sort(), names);
-  } finally { clearTimeout(timer); }
+  } finally {
+    controller.abort();
+    try { await running; } finally { Client.prototype.query = original; }
+  }
+
+});
+
+test('cancellation during database provisioning starts no shards and cleans owned databases', {}, async t => {
+  const root = await fullFixture(t), controller = new AbortController();
+  const original = Client.prototype.query;
+  let cancelled = false;
+  Client.prototype.query = function(...args) {
+    const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+    const result = original.apply(this, args);
+    if (!cancelled && text?.startsWith('CREATE DATABASE "fp_suite_')) {
+      cancelled = true;
+      controller.abort();
+    }
+    return result;
+  };
+  try {
+    const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal });
+    validateReport(result);
+    assert(cancelled);
+    assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_cancelled');
+    assert.deepEqual(result.shards, []); assert.equal(result.test_count, 0);
+    assert.equal(result.database_cleanup_verified, true);
+  } finally { Client.prototype.query = original; }
 });
 
 test('lost DROP acknowledgement reconciles exact owned names on a fresh verified connection', {}, async () => {

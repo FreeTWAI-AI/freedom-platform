@@ -1,7 +1,29 @@
 {
+  "client_profiles": [
+    "member"
+  ],
+  "contract_families": [],
+  "dependencies": [
+    "command-core",
+    "scoped-commands",
+    "asset-lifecycle",
+    "asset-storage",
+    "shared",
+    "media-migration",
+    "community",
+    "positioning"
+  ],
   "format": "freedom.module/v1",
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/member-communications.md",
+    "modules/assets/message-image.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
   "module_id": "member-communications",
-  "owner_role": "foundation",
   "owned_paths": [
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts",
@@ -16,42 +38,19 @@
     "modules/member-communications/notification-preferences.ts",
     "apps/portal-web/src/modules/NotificationPreferences.tsx",
     "apps/portal-web/src/modules/NotificationPreferences.css",
-    "migrations/144_notification_preferences.sql",
+    "migrations/149_notification_preferences.sql",
     "tests/runtime/notification-preferences.test.ts",
     "tests/e2e/notification-preferences.spec.ts",
     "apps/portal-web/src/GameConsole.tsx",
     "apps/portal-web/src/game-console-feed.ts",
-    "apps/portal-web/src/modules/NotificationBell.tsx"
+    "apps/portal-web/src/modules/NotificationBell.tsx",
+    "modules/member-communications/channels.ts",
+    "modules/member-communications/types.ts"
   ],
+  "owner_role": "foundation",
   "public_exports": [
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts"
-  ],
-  "dependencies": [
-    "command-core",
-    "scoped-commands",
-    "asset-lifecycle",
-    "asset-storage",
-    "shared",
-    "media-migration",
-    "community",
-    "positioning"
-  ],
-  "contract_families": [],
-  "client_profiles": [
-    "member"
-  ],
-  "instructions": [
-    "AGENTS.md",
-    "docs/development/member-communications.md",
-    "modules/assets/message-image.md"
-  ],
-  "invariants": [
-    "current-authority-before-replay",
-    "no-secrets-in-artifacts"
-  ],
-  "tests": [
-    "runtime.full"
   ],
   "surfaces": [
     {
@@ -65,5 +64,8 @@
       ],
       "auth_profile": "member-session"
     }
+  ],
+  "tests": [
+    "runtime.full"
   ]
 }

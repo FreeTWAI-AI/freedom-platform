@@ -9,9 +9,9 @@ import { transferBackup, transferRestore, assertBackupCaptureCurrent, MediaBacku
 const stream=(bytes:Uint8Array)=>new ReadableStream<Uint8Array>({start(c){c.enqueue(bytes);c.close();}});
 const policy={revision:'synthetic-transfer',platformPersistenceAllowed:true};
 const code=(expected:string)=>(e:unknown)=>e instanceof MediaBackupError&&e.code===expected&&!e.message.includes('RAW_PRIVATE');
-async function fixture(video=false){
+async function fixture(video:boolean|'comment'=false){
   const source=new FakeObjectStore(),destination=new FakeObjectStore();
-  const value=video?await prepareLegacyMediaRepresentation(stream(Object.assign(new Uint8Array(20*1024*1024),
+  const value=video==='comment'?await prepareLegacyMediaRepresentation(stream(await (await import('sharp')).default({create:{width:16,height:16,channels:3,background:'#556677'}}).webp().toBuffer()),'image/webp','community.comment-image',policy):video?await prepareLegacyMediaRepresentation(stream(Object.assign(new Uint8Array(20*1024*1024),
     {4:102,5:116,6:121,7:112})),'video/mp4','community.event-video',policy)
     :await preparePrivateText(stream(new TextEncoder().encode('Synthetic immutable backup text')),'text/plain',policy);
   const assetId=randomUUID(),scopeId=randomUUID(),representationId=randomUUID(),key=objectKey({assetId,scopeId,representationId});
@@ -96,4 +96,13 @@ test('Restore revocation during I/O prevents success and mutable caller manifest
   const mutable={...manifest,objects:manifest.objects.map(entry=>({key:entry.key,metadata:{...entry.metadata}}))},target2=new FakeObjectStore();let called=false;
   const result=await transferRestore(mutable,f.destination,target2,{async assertAllowed(){if(!called){called=true;mutable.objects[0].metadata.sha256='f'.repeat(64);mutable.objects[0].key=objectKey({scopeId:randomUUID(),assetId:randomUUID(),representationId:randomUUID()});}}});
   assert.equal(result.objectCount,1);assert.deepEqual((await readVerifiedObject(target2,f.key,f.value.metadata)).bytes,f.value.bytes);
+});
+
+// The new comment purpose uses the shared backup manifest and verified restore.
+test('comment image backup survives source loss and restores its pinned profile and exact bytes',async()=>{
+ const f=await fixture('comment'),manifest=await transferBackup(f.capture,f.source,f.destination,f.protection);
+ assert.equal(manifest.objects[0].metadata.profileId,'community.comment-image');
+ await f.source.delete(f.key);const restored=new FakeObjectStore();
+ await transferRestore(manifest,f.destination,restored,{async assertAllowed(){}});
+ assert.deepEqual((await readVerifiedObject(restored,f.key,f.value.metadata)).bytes,f.value.bytes);
 });
