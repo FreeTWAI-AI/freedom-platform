@@ -16794,8 +16794,8 @@
     },
     {
       "path": "modules/assets/social-thumbnail.ts",
-      "bytes": 12744,
-      "sha256": "c04e1b6b8586c674eea78c3e57666d95cc5622a67ee14151d50a30eca0c843a8"
+      "bytes": 12941,
+      "sha256": "4627349636c93852b8996c68699196e98ee7b80b980511883490c93bbfc3c520"
     },
     {
       "path": "modules/assets/tenant-lifecycle-authority.ts",
@@ -16964,8 +16964,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 30426,
-      "sha256": "efec0ebbbf87a78b6ec2c233fff062e6f031200a5ae2474588f8664e43c03981"
+      "bytes": 30675,
+      "sha256": "98ce6149b25468a515bd0ec956a631ec4d536b1a7c8e8646de92b9734bb94d26"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -21564,8 +21564,8 @@
     },
     {
       "path": "tests/runtime/social-preview-assets.test.ts",
-      "bytes": 23592,
-      "sha256": "5cdb9156b5291f65b134075e70a9da4a063eaf8bdb33ff86fd74edbecac8da3e"
+      "bytes": 24376,
+      "sha256": "30e1385ba7da7278c8e34d61ab71537bd69e51ba5d12a7ec107d1e5d963e2594"
     },
     {
       "path": "tests/runtime/social-share.test.ts",

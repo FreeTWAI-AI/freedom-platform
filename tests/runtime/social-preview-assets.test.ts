@@ -144,3 +144,15 @@ test('note image without an installed Asset writer is refused before any post or
  await assert.rejects(createNativeSocialPost(pool,noteCommand(s.owner),new Date()),code('media_upload_unavailable'));
  assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,0);
 });
+
+for (const state of ['hidden', 'deleted'] as const) {
+ test(`note image creation receipt rejects ${state} posts in Asset mode`, async () => {
+  const s = await setup(), command = noteCommand(s.owner);
+  const result = await createNativeSocialPost(pool, command, new Date(), s.api);
+  assert.deepEqual(await createNativeSocialPost(pool, command, new Date(), s.api), result);
+  await fixture.query('UPDATE community_social_posts SET state=$2 WHERE post_id=$1', [result.post_id, state]);
+  await assert.rejects(createNativeSocialPost(pool, command, new Date(), s.api), code('not_found'));
+  assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n, 1);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n, 1);
+ });
+}

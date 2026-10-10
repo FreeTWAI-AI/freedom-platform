@@ -157,11 +157,16 @@ export async function createNativeSocialPost(pool: Pool, inputCommand: Command, 
   return publishNativeNote(pool, input, body.text, now, image);
 }
 
+/** A native-note receipt never bypasses the current post visibility boundary. */
+export async function authorizeNativeSocialReplay(q: Pick<Pool, 'query'>, input: Command): Promise<boolean> {
+  const prior = (await q.query('SELECT response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3', [input.actor.user_id, input.operation, input.key])).rows[0];
+  if (!prior) return false;
+  await activePost(q, input.actor, prior.response.post_id, true);
+  return true;
+}
+
 function publishNativeNote(pool: Pool, input: Command, text: string, now: Date, image?: Buffer) {
-  return command(pool, input, async q => {
-    const prior = (await q.query('SELECT response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3', [input.actor.user_id, input.operation, input.key])).rows[0];
-    if (prior) await activePost(q, input.actor, prior.response.post_id, true);
-  }, async q => {
+  return command(pool, input, q => authorizeNativeSocialReplay(q, input), async q => {
     await socialPostBudget(q, input.actor, now);
     const row = (await q.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at)
       VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [input.actor.community_id, input.actor.user_id, text.split('\n')[0].slice(0, 120), text, now])).rows[0];

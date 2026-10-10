@@ -10,7 +10,7 @@ import type {MemberScopeContext} from '../../packages/resource-scopes/index.js';
 import {OpaqueId} from '../../contracts/common/v1/identity.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {normalizeSocialThumbnail} from '../skill-submissions/payload.js';
-import {authorizeSocialThumbnailWrite,preparedSocialPost,authorizeSocialCreate,publishSocialCreate,shownSocial,type NativeSocialDraft,type SocialCreationDraft,type SocialPostView} from '../community/social-posts.js';
+import {authorizeNativeSocialReplay,authorizeSocialThumbnailWrite,preparedSocialPost,authorizeSocialCreate,publishSocialCreate,shownSocial,type NativeSocialDraft,type SocialCreationDraft,type SocialPostView} from '../community/social-posts.js';
 import {readBounded,prepareLegacyMediaRepresentation,type ObjectStore} from '../../packages/asset-storage/index.js';
 import {assetCommandKey,assetVersion,createAssetLifecycle,type LifecyclePolicy} from './engine.js';
 const input=z.object({key:assetCommandKey,targetPostId:OpaqueId,expectedVersion:assetVersion,contentType:z.enum(['image/png','image/jpeg','image/webp']),byteSize:z.number().int().min(1).max(524288),sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict();
@@ -60,11 +60,12 @@ export function createSocialThumbnailAssetService(pool:Pool,dependencies:SocialT
  async function publishCreation(command:Command,draft:SocialCreationDraft,source:Creation['source'],image:Buffer,now:Date){
   const hash=await sha256(image),key=digest({key:command.key,operation:command.operation});
   const hex=createHash('sha256').update(digest({owner:command.actor.user_id,key})).digest('hex'),id=`${hex.slice(0,8)}-${hex.slice(8,12)}-5${hex.slice(13,16)}-8${hex.slice(17,20)}-${hex.slice(20,32)}`;
-  const probe=async()=>{const miss=new Error('social_create_receipt_miss');try{return await socialPostCreateMemberCommand<SocialPostView>(pool,command,id,async()=>{},async()=>{throw miss;});}catch(e){if(e!==miss)throw e;}};const previous=await probe();if(previous)return previous;
+  const authorizeReplay=(q:PoolClient)=>source==='upload'?authorizeNativeSocialReplay(q,command):Promise.resolve(false);
+  const probe=async()=>{const miss=new Error('social_create_receipt_miss');try{return await socialPostCreateMemberCommand<SocialPostView>(pool,command,id,authorizeReplay,async()=>{throw miss;});}catch(e){if(e!==miss)throw e;}};const previous=await probe();if(previous)return previous;
   const create={id,command,draft,source,now,sourceDigest:digest({body:command.body,draft,source,hash,size:image.length}),key},api=lifecycle(create);
   try{const prepared=await api.prepare(command.actor,{key: digest({key,phase:'prepare'}),targetPostId:id,expectedVersion:'1',contentType:'image/webp',byteSize:image.length,sha256:hash}),lease=await api.resumeUpload(command.actor,{key,intentId:prepared.intentId}),bind={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
    if(lease.state==='prepared'||lease.state==='processing')await api.write(command.actor,{...bind,key:digest({key,phase:'write',fence:lease.fence})},new ReadableStream({start(c){c.enqueue(image);c.close();}}));let live:PoolClient;
-   return await api.finalizeVia(command.actor,{...bind,key:digest({key,phase:'finalize'})},{operation:'community.social.post.create',validateIntent:row=>requireCondition(row.target_post_id===id&&row.source_sha256===hash,409,'asset_source_mismatch','圖片來源已改變。'),execute:run=>socialPostCreateMemberCommand(pool,command,id,q=>authorizeSocialCreate(q,command.actor,draft,create.now),async(q,context)=>{live=q;return run(q,context);}),result:()=>shownSocial(live!,command.actor,id)});
+   return await api.finalizeVia(command.actor,{...bind,key:digest({key,phase:'finalize'})},{operation:'community.social.post.create',validateIntent:row=>requireCondition(row.target_post_id===id&&row.source_sha256===hash,409,'asset_source_mismatch','圖片來源已改變。'),execute:run=>socialPostCreateMemberCommand(pool,command,id,async q=>{if(!await authorizeReplay(q))await authorizeSocialCreate(q,command.actor,draft,create.now);},async(q,context)=>{live=q;return run(q,context);}),result:()=>shownSocial(live!,command.actor,id)});
   }catch(error){const committed=await probe();if(committed)return committed;if(error instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','圖片上傳暫時無法使用。');throw error;}
  }
  async function createPost(raw:Command,preview:LinkPreview,now:Date,publicOrigin:string){
