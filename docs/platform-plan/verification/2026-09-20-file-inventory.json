@@ -20949,8 +20949,8 @@
     },
     {
       "path": "tests/runtime/chat-content.test.ts",
-      "bytes": 15046,
-      "sha256": "3ba295ab7f2c7cea8e6ef72287a7f56a25a11eb35d0483f0b4d78986dbf2cce2"
+      "bytes": 15139,
+      "sha256": "faf23741b1bae833d38c234a691bd3336c0dddad08dbc60cd15420a5d4806a6e"
     },
     {
       "path": "tests/runtime/chat-sticker-send.test.ts",
