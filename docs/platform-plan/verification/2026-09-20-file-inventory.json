@@ -2089,13 +2089,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.css",
-      "bytes": 2284,
-      "sha256": "fbcae4ab1a7ef6d31737c6b95a614621eddd639568843b28afba600e75f70824"
+      "bytes": 2364,
+      "sha256": "4dc5af1586e469b7dd4b77497c488a8703b380a1ea1d8af98bb77dbfd138c659"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.tsx",
-      "bytes": 13312,
-      "sha256": "6bf6bd61180e088a600da41c4b44519cc2264fe93874288371041538cefb0256"
+      "bytes": 13457,
+      "sha256": "f1e7ba61510f3bf93e58694a8caa4df6fbc66dda28e3849bd1d64ca282ed9797"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityRelations.tsx",
@@ -2574,13 +2574,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.css",
-      "bytes": 2247,
-      "sha256": "d3462192c7a76501c39ca428dfdcaf912b457b4b2c693840c9f4018361e207c3"
+      "bytes": 2400,
+      "sha256": "0c74b1bc3603405fe47040c0f6e521e26d03b39c3857ba72fdb39f75df3a1ab0"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.tsx",
-      "bytes": 5921,
-      "sha256": "affc8a4a1ba26b2c86b73447b659400fdebccc0ef82bcb51c965d330ea30aa30"
+      "bytes": 6926,
+      "sha256": "40eb31186e9a5691152f0872d8e38aa2357fb5cb0456b690eb9942101d6048b2"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionShare.tsx",
@@ -19149,8 +19149,8 @@
     },
     {
       "path": "packages/shared/github-leaderboard.ts",
-      "bytes": 2538,
-      "sha256": "0e4ae09fc509fd9359436dcb542b8ef8aa40fc32704bcf034eab09f931342bab"
+      "bytes": 2956,
+      "sha256": "76af12c05e137dd91e3dd01d4a66dfbeecb921004f34743167905e5b9bf3bcd1"
     },
     {
       "path": "packages/shared/guild-topics.ts",
@@ -20119,8 +20119,8 @@
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
-      "bytes": 23660,
-      "sha256": "ff81228c9fd9668bbc92a7b0772eb87f66fc110322f0037b7e2a2240c5cd0fa6"
+      "bytes": 23886,
+      "sha256": "28de074bddbeb4d13f64731895546d0bfe07fc75be2eac2caa41ccd0aecc787e"
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
@@ -20279,8 +20279,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 26816,
-      "sha256": "844934c817712d734b9b336f826924d1987bd1df314a009bb5d83bd36861dd39"
+      "bytes": 27856,
+      "sha256": "46465291b557c740a0afd9d9dc45cdb04ab9d81c15e9445727858e3a39b48e8a"
     },
     {
       "path": "tests/e2e/shared-feedback-language.spec.ts",
@@ -21014,8 +21014,8 @@
     },
     {
       "path": "tests/runtime/github-history.test.ts",
-      "bytes": 24668,
-      "sha256": "a0bcb883bd65d064c5a655d6a88e7127731046b4237158ce37856b4a9005b03b"
+      "bytes": 24923,
+      "sha256": "49e87b13acefa9bacc4b022a16f4878abb4d9bf54eeec58a8cd8da66aa21abc9"
     },
     {
       "path": "tests/runtime/github-identity.test.ts",

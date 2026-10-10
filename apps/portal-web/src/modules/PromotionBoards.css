@@ -6,11 +6,12 @@
 .promotion-boards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}
 .promotion-board,.promotion-mine{min-width:0}
 .promotion-board h2,.promotion-mine h2{margin:0 0 .4rem;font-size:1.05rem}
-.promotion-howto,.promotion-empty,.promotion-me{margin:.35rem 0;color:var(--muted);font-size:.85rem;line-height:1.5}
+.promotion-howto,.promotion-empty,.promotion-me,.promotion-period-note{margin:.35rem 0;color:var(--muted);font-size:.85rem;line-height:1.5}
 .promotion-board ol,.promotion-mine ul{margin:.4rem 0 0;padding:0;list-style:none}
 .promotion-board li{display:flex;justify-content:space-between;gap:.5rem;align-items:center;padding:.4rem 0;border-top:1px solid var(--line);min-width:0}
 .promotion-person{min-width:0}
 .promotion-person span,.promotion-link-title{min-width:0;overflow-wrap:anywhere}
+.promotion-person .promotion-rank{flex:none;min-width:1.5rem;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
 .promotion-person .member-avatar.promotion-avatar{width:2rem;height:2rem;min-width:2rem;flex:none;border-radius:50%;font-size:.8rem;box-shadow:none}
 .promotion-board strong,.promotion-mine strong{font-variant-numeric:tabular-nums}
 .promotion-mine li{padding:.45rem 0;border-top:1px solid var(--line)}
