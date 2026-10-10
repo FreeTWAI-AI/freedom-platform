@@ -62,3 +62,28 @@ test('same receipt key with changed normalized source cannot rebind pair or issu
 test('missing native object cannot expose old bytes or only one ready representation',async()=>{const s=await setup(true),result=await upload(s),row=(await pool.query("SELECT o.asset_id,o.scope_id,o.representation_id FROM asset_objects o WHERE variant='thumb'")).rows[0];await bucket.delete(objectKey({assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id}));await assert.rejects(highlightImageBytes(pool,result.media_id,'thumb',s.store),code('media_unavailable'));assert.deepEqual(await highlightImageBytes(pool,result.media_id,'image',s.store),s.variants.image);});
 
 test('canonical policy prohibition and pinned revision change after the last object read reject both variants',async()=>{for(const mutation of ['prohibition','revision'] as const){const s=await setup(),get=s.store.get.bind(s.store),locker=await fixture.connect();let gets=0,signal!:()=>void;const blocked=new Promise<void>(r=>signal=r);s.store.get=async(...args)=>{const value=await get(...args);if(++gets===4){await locker.query('BEGIN');await locker.query("SELECT purpose FROM domain_media_storage_policy WHERE purpose='community.event-highlight' FOR UPDATE");signal();}return value;};const pending=upload(s),outcome=pending.then(value=>({value}),error=>({error}));try{await blocked;let waiting=false;for(let i=0;i<80;i++){waiting=(await fixture.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE query LIKE '%SELECT%domain_media_storage_policy%' AND wait_event_type='Lock' AND pid<>pg_backend_pid()) AS waiting")).rows[0].waiting;if(waiting)break;await new Promise(r=>setTimeout(r,10));}assert.equal(waiting,true,'publication must really wait on the canonical policy row');await locker.query(mutation==='revision'?"UPDATE domain_media_storage_policy SET policy_revision='synthetic-revoked-revision' WHERE purpose='community.event-highlight'":"UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='community.event-highlight'");await locker.query('COMMIT');const result=await outcome;assert.ok('error' in result);assert.equal((await pool.query('SELECT count(*)::int n FROM community_event_highlights')).rows[0].n,0);assert.ok((await pool.query('SELECT state FROM assets')).rows.every(r=>r.state==='pending'));}finally{await locker.query('ROLLBACK');locker.release();await outcome;}await fixture.query("UPDATE domain_media_storage_policy SET policy_revision='synthetic-social-policy',persistence_allowed=true WHERE purpose='community.event-highlight'");}});
+
+for(const variant of ['image','thumb'] as const)for(const phase of ['get','body'] as const)for(const ending of ['revoked','expired'] as const){
+ test(`member highlight ${variant} refuses bytes after session ${ending} during object ${phase}`,async()=>{
+  const s=await setup(true),media=await upload(s),origin='http://127.0.0.1:4310';
+  const app=createApp(pool,origin,'local',{eventHighlightAssetStore:s.store});
+  const cookie=`freedom_local_session=${(s.owner as Actor&{synthetic_token:string}).synthetic_token}`;
+  const read=()=>app.request(origin+`/api/v1/event-highlights/media/${media.media_id}/${variant}`,{headers:{Cookie:cookie}});
+  assert.equal((await read()).status,200);
+  const get=s.store.get.bind(s.store);let changed=false;
+  const invalidate=async()=>{
+   if(changed)return;changed=true;
+   await fixture.query(ending==='revoked'?'UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1':"UPDATE sessions SET expires_at=clock_timestamp()+interval '100 milliseconds' WHERE token_hash=$1",[s.owner.session_hash]);
+   if(ending==='expired')await fixture.query('SELECT pg_sleep(0.15)');
+  };
+  s.store.get=async(...args)=>{
+   const object=await get(...args);assert.ok(object);
+   if(phase==='get'){await invalidate();return object;}
+   return {...object,body:new ReadableStream({async start(controller){try{await invalidate();controller.enqueue(new Uint8Array(await new Response(object.body).arrayBuffer()));controller.close();}catch(error){controller.error(error);}}})};
+  };
+  const response=await read();assert.equal(changed,true);assert.equal(response.status,401);assert.equal((await response.json() as any).code,'session_expired');
+  s.store.get=get;
+  const publicRead=await app.request(origin+`/api/v1/public/event-highlights/media/${media.media_id}/${variant}`);
+  assert.equal(publicRead.status,200);assert.deepEqual(Buffer.from(await publicRead.arrayBuffer()),variant==='image'?s.variants.image:s.variants.thumb);
+ });
+}

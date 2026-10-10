@@ -175,3 +175,41 @@ test('guild publisher revocation closes recaps, bound media and backlinks for re
  const withdrawn=await withdrawEventOutcome(pool,input('withdraw',{},2),entry.outcome_id);
  await assert.rejects(publishEventOutcome(pool,input('publish',{consent_to_share:true},withdrawn.aggregate_version),entry.outcome_id),is404);
 });
+
+for(const route of ['event-list','own-list','references','own-detail','published-detail','backlinks','squad-own-list','squad-list','squad-detail','skill-html','submission-html'] as const){
+ test(`private outcome ${route} checks expiry after a blocked projection`,async()=>{
+  const origin='http://127.0.0.1:4310',book=route==='submission-html'?randomUUID():communityCatalog.skill_books[0]!.id;
+  if(route==='submission-html'){
+   const project=randomUUID(),version=randomUUID(),sha='a'.repeat(64);
+   await pool.query(`INSERT INTO oss_projects(project_id,community_id,owner_ref,title,description,use_notes,repository_id,repository_full_name,repository_url,relationship) VALUES($1,$2,$3,'Synthetic skill','Original description','Original usage','8801001','example/expiry-work','https://github.com/example/expiry-work','author')`,[project,DEMO_COMMUNITY,actors[0]!.user_id]);
+   await pool.query(`INSERT INTO oss_project_versions(version_id,project_id,repository_id,commit_sha,default_branch,repository_full_name,repository_url,readme_url,license_spdx,is_fork,archived,source_snapshot,source_sha256,facts_sha256,inspected_at) VALUES($1,$2,'8801001',$3,'main','example/expiry-work','https://github.com/example/expiry-work','https://github.com/example/expiry-work#readme','MIT',false,false,'{}',$4,$4,now())`,[version,project,'b'.repeat(40),sha]);
+   await pool.query('UPDATE oss_projects SET current_version_id=$2 WHERE project_id=$1',[project,version]);
+   await pool.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,consent_to_share,project_id,project_version_id,published_at,grant_consumed_at) VALUES($1,$2,$3,'published',$4,$5,true,$6,$7,now(),now())`,[book,DEMO_COMMUNITY,actors[0]!.user_id,JSON.stringify({title:'Synthetic skill',description:'Original description',relationship:'author',share_introductions:[],use_notes:'Original usage'}),sha,project,version]);
+  }
+  const entry=await draft([{kind:'skill_book',id:book}],'community');await publishEventOutcome(pool,input('publish',{consent_to_share:true},1),entry.outcome_id);
+  const sid=randomUUID(),oid=randomUUID();
+  await pool.query("INSERT INTO member_squads(squad_id,community_id,name,kind,purpose,owner_ref) VALUES($1,$2,'Synthetic private squad','project','Original outcome',$3)",[sid,DEMO_COMMUNITY,actors[0]!.user_id]);
+  await pool.query("INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,'active')",[sid,actors[0]!.user_id]);
+  await pool.query("INSERT INTO member_squad_outcomes(outcome_id,squad_id,community_id,author_ref,title,summary) VALUES($1,$2,$3,$4,'Private authored title','Private original summary')",[oid,sid,DEMO_COMMUNITY,actors[0]!.user_id]);
+  const paths={'event-list':`/api/v1/event-highlights/${eventId}/outcomes`,'own-list':`/api/v1/event-highlights/${eventId}/outcomes/own`,references:`/api/v1/event-highlights/${eventId}/outcome-references`,'own-detail':`/api/v1/event-outcomes/${entry.outcome_id}`,'published-detail':`/api/v1/event-outcomes/${entry.outcome_id}/published`,backlinks:`/api/v1/event-outcome-backlinks/skill_book/${book}`,'squad-own-list':'/api/v1/me/squad-outcomes','squad-list':`/api/v1/squads/${sid}/outcomes`,'squad-detail':`/api/v1/squad-outcomes/${oid}`,'skill-html':`/development/skills/${book}`,'submission-html':`/development/submissions/${book}`};
+  const auth=await login(pool,DEMO_USERS[0]!.email,DEMO_PASSWORD),applicationName=schema+'_'+route;
+  const reader=new Pool({connectionString:url,options:`-c search_path=${schema} -c statement_timeout=10000`,application_name:applicationName,max:2});
+  const app=createApp(reader,origin,'local',{squadOutcomesEnabled:true,eventOutcomesEnabled:true}),headers={Cookie:`freedom_local_session=${auth.token}`};
+  const locker=await pool.connect();let pending:Promise<Response>|undefined;
+  try{
+   const normal=await app.request(origin+paths[route],{headers});assert.equal(normal.status,200,await normal.clone().text());
+   await locker.query('BEGIN');
+   await locker.query('LOCK TABLE '+(route.startsWith('squad-')||route==='references'?'member_squad_outcomes':'community_event_outcomes')+' IN ACCESS EXCLUSIVE MODE');
+   await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[auth.actor.session_hash]);
+   pending=Promise.resolve(app.request(origin+paths[route],{headers}));let waiting=false;
+   for(let attempt=0;attempt<200;attempt++){
+    waiting=(await admin.query("SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'",[applicationName])).rowCount===1;
+    if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+   }
+   assert.ok(waiting,'projection must reach the held table while session is initially valid');
+   await pool.query("SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM (expires_at-clock_timestamp())))+0.05) FROM sessions WHERE token_hash=$1",[auth.actor.session_hash]);
+   await locker.query('COMMIT');
+   const response=await pending;assert.equal(response.status,401);assert.equal((await response.json() as any).code,'session_expired');
+  }finally{await locker.query('ROLLBACK');locker.release();await pending;await reader.end();}
+ });
+}
