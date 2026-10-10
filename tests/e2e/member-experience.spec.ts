@@ -178,6 +178,8 @@ test('completed member submits an event and sees accepted-work facts without pro
   await expect(edits).toContainText('contributor-demo');
   await expect(edits).toContainText('2 PR');
   await expect(edits).toContainText('1 PR');
+  await expect(edits.locator('li').filter({hasText:'2 PR'}).locator('.community-rank')).toHaveText('第 1 名');
+  await expect(edits.locator('li').filter({hasText:'1 PR'}).locator('.community-rank')).toHaveText('第 2 名');
   const points=page.locator('section.community-leaderboard').filter({has:page.getByRole('heading',{name:'貢獻排行榜'})});
   await expect(points).toContainText('每個 Issue 5 分，每個 PR 20 分（Issue × 5 + PR × 20）');
   await expect(points).toContainText('40 分');

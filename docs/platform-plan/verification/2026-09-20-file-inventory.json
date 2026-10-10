@@ -2089,13 +2089,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.css",
-      "bytes": 2284,
-      "sha256": "fbcae4ab1a7ef6d31737c6b95a614621eddd639568843b28afba600e75f70824"
+      "bytes": 2534,
+      "sha256": "7debd0ae5b0a34d58d0f90f1fe3d15182fde8bfcb7fb28a621bb08f47faa4aec"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.tsx",
-      "bytes": 13312,
-      "sha256": "6bf6bd61180e088a600da41c4b44519cc2264fe93874288371041538cefb0256"
+      "bytes": 13483,
+      "sha256": "e5e079bad97e6f07e954b99781573d0eefa298985868416023ac81d4dd454c2f"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityRelations.tsx",
@@ -19149,8 +19149,8 @@
     },
     {
       "path": "packages/shared/github-leaderboard.ts",
-      "bytes": 2538,
-      "sha256": "0e4ae09fc509fd9359436dcb542b8ef8aa40fc32704bcf034eab09f931342bab"
+      "bytes": 2956,
+      "sha256": "76af12c05e137dd91e3dd01d4a66dfbeecb921004f34743167905e5b9bf3bcd1"
     },
     {
       "path": "packages/shared/guild-topics.ts",
@@ -20119,8 +20119,8 @@
     },
     {
       "path": "tests/e2e/member-experience.spec.ts",
-      "bytes": 23660,
-      "sha256": "ff81228c9fd9668bbc92a7b0772eb87f66fc110322f0037b7e2a2240c5cd0fa6"
+      "bytes": 23886,
+      "sha256": "28de074bddbeb4d13f64731895546d0bfe07fc75be2eac2caa41ccd0aecc787e"
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
@@ -21014,8 +21014,8 @@
     },
     {
       "path": "tests/runtime/github-history.test.ts",
-      "bytes": 24668,
-      "sha256": "a0bcb883bd65d064c5a655d6a88e7127731046b4237158ce37856b4a9005b03b"
+      "bytes": 24923,
+      "sha256": "49e87b13acefa9bacc4b022a16f4878abb4d9bf54eeec58a8cd8da66aa21abc9"
     },
     {
       "path": "tests/runtime/github-identity.test.ts",
