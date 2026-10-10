@@ -217,6 +217,16 @@ const routeTable: Record<string, string> = {
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms': 'tenant',
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-offers': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-catalog': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-offer': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-offers/:offer_id/withdraw': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-selections': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-selections': 'tenant',
+  'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-selections/:selection_id': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-requests': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-requests/:selection_id/decision': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-selections/:selection_id/withdraw': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/preview': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/appearance': 'tenant',
@@ -509,8 +519,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 64, middleware: 2 });
-  assert.equal(selectedRoutes.length, 94);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 74, middleware: 2 });
+  assert.equal(selectedRoutes.length, 104);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -606,6 +616,19 @@ const routes: Route[] = [
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms' },
   { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms',
     body: { cost_minor: 100, shipping_minor: 0, shipping_terms: '合成出貨條件', return_terms: '合成退貨條件' }, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-offers' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-catalog' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-offer', body: {}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-offers/:offer_id/withdraw', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/distribution-selections' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/distribution-selections',
+    body: { offer_id: ':offer_id', terms_sha256: '0'.repeat(64), retail_price_minor: 100 } },
+  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/distribution-selections/:selection_id',
+    body: { offer_id: ':offer_id', terms_sha256: '0'.repeat(64), retail_price_minor: 100 }, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-requests' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-requests/:selection_id/decision',
+    body: { decision: 'accepted', listing_sha256: '0'.repeat(64) }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/distribution-selections/:selection_id/withdraw', body: {}, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove', body: {}, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/preview' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/appearance' },
@@ -626,7 +649,8 @@ type TenantData = Awaited<ReturnType<typeof buildFixture>>['A'];
 function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
-    principal_id: data.principalId, product_id: data.workId, order_id: data.workId, instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
+    principal_id: data.principalId, product_id: data.workId, order_id: data.workId, offer_id: data.workId, selection_id: data.workId,
+    instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
     plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
 }
