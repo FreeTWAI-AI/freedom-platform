@@ -12,7 +12,8 @@ test.beforeEach(async({e2eAuthPool})=>{
 });
 test.afterEach(async({e2eAuthPool})=>{
   await e2eAuthPool.query('DELETE FROM member_totp_backup_codes WHERE user_id=$1',[userId]);
-  await e2eAuthPool.query('DELETE FROM member_totp WHERE user_id=$1',[userId]);
+  // Keep the journal generation so the next enrollment cannot reuse an audited version.
+  await e2eAuthPool.query('UPDATE member_totp SET enabled=false,secret_ciphertext=NULL,last_counter=-1,failures=0 WHERE user_id=$1',[userId]);
   await e2eAuthPool.query('DELETE FROM password_reset_tokens WHERE user_id=$1',[userId]);
   if(originalHash)await e2eAuthPool.query('UPDATE users SET password_hash=$2 WHERE user_id=$1',[userId,originalHash]);
 });
@@ -24,7 +25,7 @@ async function passwordLogin(page:Page,password=DEMO_PASSWORD){
 }
 async function logout(page:Page){
   await page.getByRole('button',{name:'設定',exact:true}).click();
-  await page.getByRole('button',{name:'登出',exact:true}).click();
+  await page.getByRole('menuitem',{name:'登出',exact:true}).click();
   await expect(page.getByLabel('電子郵件',{exact:true})).toBeVisible();
 }
 
@@ -43,24 +44,24 @@ test('enrollment, authenticator login, one-use backup and MFA password reset fin
     await page.screenshot({path:testInfo.outputPath(`totp-enrollment-${width}.png`)});
   }
   await panel.getByRole('button',{name:'確認啟用',exact:true}).click();
-  const codes=(await panel.getByLabel('備用碼',{exact:true}).inputValue()).split('\n');
+  const codes=(await panel.getByRole('textbox',{name:'備用碼',exact:true}).inputValue()).split('\n');
   expect(codes).toHaveLength(10);
   await panel.getByRole('button',{name:'已保存，隱藏備用碼',exact:true}).click();
   await logout(page);
   await passwordLogin(page);
-  await expect(page.getByLabel('驗證器代碼或備用碼',{exact:true})).toBeVisible();
+  await expect(page.getByRole('textbox',{name:/^驗證器代碼或備用碼/})).toBeVisible();
   expect((await page.request.get('/api/v1/session')).status()).toBe(401);
-  await page.getByLabel('驗證器代碼或備用碼',{exact:true}).fill(totpCode(secret,counter+1));
+  await page.getByRole('textbox',{name:/^驗證器代碼或備用碼/}).fill(totpCode(secret,counter+1));
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(panel.getByRole('button',{name:'停用雙因素驗證',exact:true})).toBeVisible();
   await logout(page);
   await passwordLogin(page);
-  await page.getByLabel('驗證器代碼或備用碼',{exact:true}).fill(codes[0]);
+  await page.getByRole('textbox',{name:/^驗證器代碼或備用碼/}).fill(codes[0]);
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(panel).toContainText('剩餘 9 組備用碼');
   await logout(page);
   await passwordLogin(page);
-  await page.getByLabel('驗證器代碼或備用碼',{exact:true}).fill(codes[0]);
+  await page.getByRole('textbox',{name:/^驗證器代碼或備用碼/}).fill(codes[0]);
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('備用碼只能使用一次');
   expect((await page.request.get('/api/v1/session')).status()).toBe(401);
@@ -76,7 +77,7 @@ test('enrollment, authenticator login, one-use backup and MFA password reset fin
   await expect(page.getByText('密碼已重設。請使用新密碼登入，並輸入驗證器代碼或備用碼。',{exact:true})).toBeVisible();
   expect((await page.request.get('/api/v1/session')).status()).toBe(401);
   await passwordLogin(page,rotated);
-  await page.getByLabel('驗證器代碼或備用碼',{exact:true}).fill(codes[1]);
+  await page.getByRole('textbox',{name:/^驗證器代碼或備用碼/}).fill(codes[1]);
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(panel).toContainText('剩餘 8 組備用碼');
   await panel.getByLabel('目前密碼',{exact:true}).fill(rotated);

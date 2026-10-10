@@ -20664,8 +20664,8 @@
     },
     {
       "path": "tests/e2e/totp.spec.ts",
-      "bytes": 7326,
-      "sha256": "276462b69ba484f13f0d9b29f5cf50ecee75fd10aa4f38cf9c96fbacec0404d0"
+      "bytes": 7514,
+      "sha256": "c4d576e825d3be9eadb07b3d5ef0da70d28467aa6d8706039dfaee4393d9da04"
     },
     {
       "path": "tests/e2e/typed-line-breaks.spec.ts",
