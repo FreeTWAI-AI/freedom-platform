@@ -7,6 +7,14 @@ import type { Actor } from '../../identity-membership/service.js';
 import { profile, ready, storeCommand, storeRead, storeView, storeFact, type Profile } from './store.js';
 import { photoProducts, draftMediaSnapshot, privatePhotoView, insertPublicationPhotos, type PhotoProduct } from './photo-projection.js';
 import { storeHtml } from './page.js';
+import {distributionProducts} from './distribution.js';
+
+async function publicationProducts(q: PoolClient, p: Profile): Promise<PhotoProduct[]> {
+  const own = await photoProducts(q, p), shared = await distributionProducts(q, p);
+  requireCondition(own.length+shared.length<=200, 500, 'storefront_product_limit', '商品資料超出上限。');
+  // This projection does not extend the own-product photo reader/writer ACL.
+  return [...own,...shared];
+}
 
 /** The same strict allowlist validates live preview, saved publication, and public reads. */
 export function publicProjection(raw: unknown): PublicStoreProjection { return PublicStoreProjectionSchema.parse(raw); }
@@ -28,7 +36,7 @@ async function buildProjection(q: PoolClient, p: Profile, items: readonly PhotoP
 export async function previewStore(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {
   return storeRead(pool, actor, tenantId, instanceId, 'store:read', async q => {
     const p = await profile(q, tenantId, instanceId); ready(p);
-    const items = await photoProducts(q, p);
+    const items = await publicationProducts(q, p);
     let projection = await buildProjection(q, p, items);
     const dirty = projectionDigest(projection) !== p.projection_sha256 || p.template_id !== p.published_template_id || draftMediaSnapshot(items).sha256 !== p.media_sha256;
     if (!dirty && p.projection) projection = publicProjection(p.projection);
@@ -39,7 +47,7 @@ export async function previewStore(pool: Pool, actor: Actor, tenantId: string, i
 export async function previewStorePage(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {
   return storeRead(pool, actor, tenantId, instanceId, 'store:read', async q => {
     const p = await profile(q, tenantId, instanceId); ready(p);
-    const items = await photoProducts(q, p);
+    const items = await publicationProducts(q, p);
     return storeHtml(await buildProjection(q, p, items), p.template_id, items.map(item => ({ sku:item.product.sku,photo:privatePhotoView(p,item).photo })));
   });
 }
@@ -52,7 +60,7 @@ export async function publishStore(pool: Pool, actor: Actor, tenantId: string, i
       await q.query(`UPDATE commerce_storefront_profiles p SET current_publication_id=NULL,version=p.version+1,updated_at=clock_timestamp()
         FROM commerce_resource_tenants m WHERE m.resource_id=p.storefront_shop_id AND m.tenant_id=$1 AND m.instance_id=$2 AND p.instance_id=m.instance_id`, [tenantId, instanceId]);
     } else {
-      const items = await photoProducts(q, p), media = draftMediaSnapshot(items);
+      const items = await publicationProducts(q, p), media = draftMediaSnapshot(items);
       const projection = await buildProjection(q, p, items);
       requireCondition(projection.products.length > 0, 409, 'storefront_has_no_products', '請先新增至少一項商品再公開。');
       const hash = projectionDigest(projection);
