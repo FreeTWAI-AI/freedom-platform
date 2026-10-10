@@ -2154,8 +2154,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
-      "bytes": 30800,
-      "sha256": "408afbb14541d1dbcee9e3dbedc173050197f57fea3cfabfd723ab5bd3f1aa8f"
+      "bytes": 32129,
+      "sha256": "2eb07fa92ff7ebd26695a90f504411ddbb1c90769bcef90190e1537c786eb788"
     },
     {
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
@@ -19833,6 +19833,11 @@
       "sha256": "b2f20f748c08365132eafcd8468e085cf6c941104d05929949ca7fbf9cf226c1"
     },
     {
+      "path": "tests/e2e/event-banner.spec.ts",
+      "bytes": 7229,
+      "sha256": "77b5475275cea21b4d0a21a857884a2c76cc172564b6d43916dd1e132a1e71d5"
+    },
+    {
       "path": "tests/e2e/event-highlights.spec.ts",
       "bytes": 28804,
       "sha256": "029af7a62a74fb82c2eebe924a8bf53b0b236cd612a2db60dbc2f9fbc5a60585"
@@ -19859,8 +19864,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1135,
-      "sha256": "21f3f104896933ccd3e365969a0b63bc574ec578e758a662288c3d7589dd9baa"
+      "bytes": 1211,
+      "sha256": "d1cdbb9a335474611368f09d7605c6bdcdb82fad604f49d1182609f278d1abfb"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
