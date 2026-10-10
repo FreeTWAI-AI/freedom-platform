@@ -96,11 +96,13 @@ export function SocialZone({client, canReview = false, viewer, focusPost}: {clie
   const [originalDraft,setOriginalDraft]=useState<{before:string;after:string}|null>(null);
   const pending = useRef<{text: string; key: string} | null>(null);
   const loadSequence = useRef(0);
+  const pendingFeedLoad = useRef(false);
   const selection = useRef({platform: 'note', version: 0});
   const composerVersion = useRef(0);
   const newPosts = useRef<Post[]>([]);
   const load = useCallback(async (nextPlatform: string, nextCursor?: string) => {
     const sequence = ++loadSequence.current;
+    pendingFeedLoad.current = true;
     if (nextCursor) setMore(true); else setLoading(true);
     setError('');
     try {
@@ -116,7 +118,7 @@ export function SocialZone({client, canReview = false, viewer, focusPost}: {clie
       setCursor(page.next_cursor);
       setCanHide(page.can_hide);
     } catch (cause) { if (sequence === loadSequence.current) setError(cause instanceof Error ? cause.message : '貼文暫時無法載入。'); }
-    finally { if (sequence === loadSequence.current) { setLoading(false); setMore(false); } }
+    finally { if (sequence === loadSequence.current) { pendingFeedLoad.current = false; setLoading(false); setMore(false); } }
   }, [client]);
   useEffect(() => { void load(platform); }, [load, platform]);
   // A notification opens one post: show every kind, then page a few times until it appears.
@@ -129,7 +131,8 @@ export function SocialZone({client, canReview = false, viewer, focusPost}: {clie
   }, [focusPost?.sequence]);
   useEffect(() => {
     const target = focusing.current;
-    if (!target || loading || more || platform !== '') return;
+    // Earlier effects may have started a request while this render still has loading=false.
+    if (!target || pendingFeedLoad.current || loading || more || platform !== '') return;
     const card = document.getElementById(`social-post-${target.id}`);
     if (card) { focusing.current = null; card.scrollIntoView({block: 'center'}); card.focus({preventScroll: true}); return; }
     if (cursor && target.pages < FOCUS_PAGE_LIMIT) { target.pages += 1; void load('', cursor); return; }

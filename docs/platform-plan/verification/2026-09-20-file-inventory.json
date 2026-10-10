@@ -2679,8 +2679,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 28359,
-      "sha256": "bfce2ec047d06f68eaa29998b8c6b05333bd79bbb0af93d81223a4927eaf0469"
+      "bytes": 28589,
+      "sha256": "5f5438f6ffdd205c13751e620c32bb647e054e229ec46f56bf164595eb127f5d"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -21781,6 +21781,11 @@
       "path": "tests/runtime/social-links.test.ts",
       "bytes": 15951,
       "sha256": "21b8b266189e08985c020556ed4331d10693e135f5f38741d1573789c8bd4b26"
+    },
+    {
+      "path": "tests/runtime/social-notification-focus.test.ts",
+      "bytes": 2513,
+      "sha256": "13facf04c98f19dc880a5909b8ae83300c1ca5fbecdf8ed9459859077df1fed2"
     },
     {
       "path": "tests/runtime/social-post-task.test.ts",
