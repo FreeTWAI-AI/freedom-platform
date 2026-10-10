@@ -356,7 +356,7 @@ export async function deleteSocialPost(pool: Pool, inputCommand: Command, id: st
 
 export async function hideSocialPost(pool: Pool, inputCommand: Command, id: string, now = new Date()) {
   z.object({}).strict().parse(inputCommand.body ?? {});
-  const authorize=(q:PoolClient)=>requireMemberContentAdmin(q,inputCommand.actor);
+  const authorize=(q:PoolClient)=>requireMemberContentAdmin(q,inputCommand.actor,'social_post_admin_required');
   return command(pool, inputCommand, authorize, async q => {
     await moderateSocialContent(q,inputCommand.actor,'post',id,'hide',now);
     return { post_id: id, state: 'hidden' as const };

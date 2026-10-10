@@ -17404,8 +17404,8 @@
     },
     {
       "path": "modules/community/moderation.ts",
-      "bytes": 3118,
-      "sha256": "4458c6630d9c0dd8f6e3acf44d98177e2005dad7c9a08dfd0471877c8fec15c3"
+      "bytes": 3271,
+      "sha256": "d70c84ea2ce932b9f0e53e9cc0f4e6f55ecec77a850c9cd3804325fbfdc5c272"
     },
     {
       "path": "modules/community/participation-metrics.ts",
@@ -17454,8 +17454,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 44215,
-      "sha256": "b4c3dd9df5a609ea57665c291cab90326a3297dc8b9b5be2bd79498b0c10c14d"
+      "bytes": 44244,
+      "sha256": "c59af6e2673ff52872345eaa604c0b4f0998e5a395594600240b63ca94e3c035"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -21814,8 +21814,8 @@
     },
     {
       "path": "tests/runtime/member-reporting.test.ts",
-      "bytes": 29077,
-      "sha256": "a63973817ebf415b3b9b62f10b9be50000b5e0be3fbf4101146f5d3e82986b13"
+      "bytes": 29191,
+      "sha256": "1ae862d834441269fa2675e4be43bbba1e8fbbf1dda32e22faa4ea5e3420adf2"
     },
     {
       "path": "tests/runtime/member-service-cursor.test.ts",

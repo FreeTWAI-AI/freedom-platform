@@ -189,7 +189,9 @@ test('deployed routes enforce member CSRF, version and admin authority without e
   const created=await app.request(origin+'/api/v1/me/reports',{method:'POST',headers:reporter,body});
   assert.equal(created.status,201);
   const r=await created.json() as {case_id:string;aggregate_version:number};
-  assert.equal((await app.request(origin+'/api/v1/admin/reports',{headers:reported})).status,403);
+  const denied=await app.request(origin+'/api/v1/admin/reports',{headers:reported});
+  assert.equal(denied.status,403);
+  assert.equal((await denied.json() as {code:string}).code,'member_content_admin_required');
   const mine=await app.request(origin+'/api/v1/me/reports',{headers:reported});
   assert.deepEqual(await mine.json(),{items:[],next_cursor:null});
   const transition=origin+`/api/v1/admin/reports/${r.case_id}/transition`,moveBody=JSON.stringify({state:'in_progress',reason:'合成處理理由',summary:'已檢視',action:'none'});

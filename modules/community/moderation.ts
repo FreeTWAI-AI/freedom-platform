@@ -10,12 +10,12 @@ export async function canHideMemberContent(db: Pool | PoolClient, actor: Actor) 
 }
 
 /** Call inside the member transaction, after its user/session locks. */
-export async function requireMemberContentAdmin(q: PoolClient, actor: Actor) {
+export async function requireMemberContentAdmin(q: PoolClient, actor: Actor, code: 'member_content_admin_required'|'social_post_admin_required' = 'member_content_admin_required') {
   const rows = await q.query(`SELECT p.admin_id FROM users u JOIN platform_admins p
     ON p.community_id=u.community_id AND p.email=lower(u.email)
     WHERE u.user_id=$1 AND u.community_id=$2 AND u.active AND u.email_verified_at IS NOT NULL AND p.active
     ORDER BY p.admin_id FOR SHARE OF u,p`, [actor.user_id,actor.community_id]);
-  requireCondition(rows.rowCount,403,'member_content_admin_required','只有已驗證的平台管理員能處理檢舉。');
+  requireCondition(rows.rowCount,403,code,code==='social_post_admin_required'?'只有平台管理員能隱藏貼文。':'只有已驗證的平台管理員能處理檢舉。');
 }
 
 /** Shared real moderation effect; never opens a nested transaction or receipt. */
