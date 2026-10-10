@@ -1,7 +1,7 @@
 import type {Route} from '@playwright/test';
 import {test, expect, type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
-import {buyerLogin, enableStore, fixtureStore, offListener} from './hosted-order-fixture.js';
+import {buyerLogin, apiLogin, enableStore, fixtureStore, offListener} from './hosted-order-fixture.js';
 import {OrderSchema, ReadinessSchema, type HostedOrder} from '../../contracts/guild-launchpad/v1/hosted-order.js';
 
 const surface = (page: Page) => page.locator('.hosted-store');
@@ -166,4 +166,51 @@ test('HO-UI03 both host flags OFF retain own lookup and cancellation through rea
     expect((await e2eAuthPool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved).toBe(0);
     expect((await e2eAuthPool.query('SELECT reservation_version::text FROM commerce_orders WHERE order_id=$1', [id])).rows[0].reservation_version).toBe('2');
   } finally {try {await context.close();} finally {await off.close();}}
+});
+
+test('buyer order list follows next page and isolates another account', async ({page, browser, baseURL, e2eAuthPool}) => {
+  test.setTimeout(90000);
+  const s = await fixtureStore(e2eAuthPool, browser, baseURL!); await enableStore(e2eAuthPool, s.instance);
+  const context = await browser.newContext({baseURL});
+  try {
+    const session = await apiLogin(context, baseURL!, s.buyer.email);
+    const post = async (path: string, data: unknown, status: number, version?: string) => {
+      const response = await context.request.post('/api/v1' + path, {data, headers: {
+        Origin: baseURL!, 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': crypto.randomUUID(),
+        ...(version ? {'If-Match': `"${version}"`} : {}),
+      }});
+      expect(response.status(), await response.text()).toBe(status); return response.json();
+    };
+    const ids: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const quote = await post(`/hosted-stores/${s.slug}/quotes`, {publication_revision: '1', items: [{sku: s.product.sku, quantity: 1}]}, 201);
+      const order = await post(`/hosted-stores/${s.slug}/orders`, {quote_id: quote.quote_id, terms_sha256: quote.terms_sha256, client_order_id: crypto.randomUUID()}, 201);
+      ids.push(order.order_id);
+      await post(`/me/hosted-orders/${order.order_id}/cancel`, {}, 200, order.version);
+    }
+    // Exercise the real server's bounded page option without exhausting the
+    // production mutation rate limit or mocking any response/authority.
+    await page.route(url => url.pathname === '/api/v1/me/hosted-orders', async route => {
+      const url = new URL(route.request().url()); url.searchParams.set('limit', '1');
+      await route.continue({url: url.toString()});
+    });
+    await buyerLogin(page, s.buyer.email, '#reservations');
+    const list = page.getByRole('region', {name: '我的訂單'});
+    await expect(list.getByRole('link', {name: '查看訂單', exact: true})).toHaveCount(1);
+    await page.setViewportSize({width: 390, height: 844});
+    await expect(list.getByRole('button', {name: '下一頁', exact: true})).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await list.getByRole('button', {name: '下一頁', exact: true}).click();
+    await expect(list.getByRole('link', {name: '查看訂單', exact: true})).toHaveCount(1);
+    await expect(list.getByRole('link', {name: '查看訂單', exact: true})).toHaveAttribute('href', `#reservations/order/${ids[0]}`);
+    await expect(list.getByRole('button', {name: '下一頁', exact: true})).toHaveCount(0);
+    await list.getByRole('link', {name: '查看訂單', exact: true}).click();
+    await expect(page.getByRole('region', {name: '我的預留'})).toContainText('已取消');
+    const other = await browser.newContext({baseURL});
+    try {
+      const strangerPage = await other.newPage(); await buyerLogin(strangerPage, s.stranger.email, '#reservations');
+      await expect(strangerPage.getByRole('region', {name: '我的訂單'})).toContainText('目前沒有訂單');
+      await expect(strangerPage.getByRole('link', {name: '查看訂單', exact: true})).toHaveCount(0);
+    } finally {await other.close();}
+  } finally {await context.close();}
 });
