@@ -20394,8 +20394,8 @@
     },
     {
       "path": "tests/e2e/notification-preferences.spec.ts",
-      "bytes": 9173,
-      "sha256": "2fcc697de5e8f11397fa51cf5370ff8fb0a4492ddea0e0aae5b14d7d8989f3b5"
+      "bytes": 9606,
+      "sha256": "07005c46894d50624150bb1ba172481ac7ee5fe39db06a52b5ca97e98678aed2"
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",
