@@ -181,7 +181,9 @@ export async function eventReferralReport(pool:Pool,actor:Actor,id:string){
     FROM community_event_share_codes c JOIN users u ON u.user_id=c.user_id WHERE c.event_id=$1 AND (c.user_id=$2 OR NOT is_verification_test_account(c.user_id)) ORDER BY registrations DESC,u.display_name`,[id,actor.user_id])).rows;
 }
 
-const AttendeeQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0)}).strict();
+// Keep the page bounded while allowing every advertised continuation; Zod int
+// rejects fractional and unsafe numeric offsets before they reach PostgreSQL.
+const AttendeeQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).default(0)}).strict();
 export type EventAttendee={kind:'member';user_id:string;nickname:string;avatar_url:string|null;registered_at:string}|{kind:'guest';registered_at:string};
 /** Organizer-only list of who is currently going, newest registration last (#401).
  * Same population as attending_count; members show only their card summary and

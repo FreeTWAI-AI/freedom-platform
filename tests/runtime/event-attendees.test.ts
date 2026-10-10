@@ -74,7 +74,23 @@ test('only the organizer may read the list; others, unknown events and bad queri
   assert.equal((await request(`/events/${randomUUID()}/attendees`,owner)).status,404);
   assert.equal((await request(`/events/${id}/attendees?limit=51`,owner)).status,422);
   assert.equal((await request(`/events/${id}/attendees?sort=name`,owner)).status,422);
+  for(const offset of ['-1','1.5','9007199254740992'])assert.equal((await request(`/events/${id}/attendees?offset=${offset}`,owner)).status,422);
   assert.equal((await app.request(`${origin}/api/v1/events/${id}/attendees`,{headers:{Origin:origin}})).status,401);
+});
+
+test('an unlimited event can continue after 10,000 registrations without exposing guest contacts',async()=>{
+  const owner=await signIn(0),reviewer=await signIn(1);
+  const id=await publishedEvent(owner,reviewer,{capacity:null});
+  await pool.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,created_at,email_sent_at)
+    SELECT $1,'boundary-'||n||'@example.test','私人訪客',timestamptz '2026-10-01T00:00:00Z'+make_interval(secs=>n),now()
+    FROM generate_series(1,10025) n`,[id]);
+  const boundary=await request<Page>(`/events/${id}/attendees?limit=20&offset=10000`,owner);
+  assert.equal(boundary.status,200);assert.equal(boundary.data.total,10025);
+  assert.equal(boundary.data.items.length,20);assert.equal(boundary.data.next_offset,10020);
+  const tail=await request<Page>(`/events/${id}/attendees?limit=20&offset=${boundary.data.next_offset}`,owner);
+  assert.equal(tail.status,200);assert.equal(tail.data.items.length,5);assert.equal(tail.data.next_offset,null);
+  for(const item of [...boundary.data.items,...tail.data.items])assert.deepEqual(Object.keys(item).sort(),['kind','registered_at']);
+  assert.equal(JSON.stringify(tail.data).includes('example.test'),false);
 });
 
 test('pages are stable and verification-only test accounts are excluded like the count',async()=>{
