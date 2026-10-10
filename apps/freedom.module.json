@@ -70,7 +70,9 @@
     "tests/e2e/mobile-install.spec.ts",
     "tests/e2e/page-issue-recovery.spec.ts",
     "tests/e2e/page-tools.spec.ts",
-    "tests/e2e/simple-social-experience.spec.ts"
+    "tests/e2e/simple-social-experience.spec.ts",
+    "apps/portal-web/src/LazyPage.tsx",
+    "tests/e2e/shared-feedback-language.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],

@@ -149,8 +149,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 2403,
-      "sha256": "20e4767f34f95997249bc3667f310218edb86ecf806e3bede4212dd244588284"
+      "bytes": 2493,
+      "sha256": "69a792c8ac81e3464554a0882ec683aafe8d5e6a41eddd524256d2e962b36aef"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -1679,8 +1679,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 55444,
-      "sha256": "8d2b1aeecd70d11edc603594611db27cddab3737f16d89931160ad302bc59c08"
+      "bytes": 55467,
+      "sha256": "6db9bc07b53962a13d350cb011768498f5ac750bb6e814ba076ca87a42f25b9a"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -1724,8 +1724,8 @@
     },
     {
       "path": "apps/portal-web/src/LazyPage.tsx",
-      "bytes": 1366,
-      "sha256": "fdd595add5362c24f8e03cb4f5ebb4d0cdbf4e38bb332e49fe9a2db5b8096d0a"
+      "bytes": 1409,
+      "sha256": "ea09cd9119022765cdc3cc6e85b86888039a03ae7092ffd1e606ebe29a727514"
     },
     {
       "path": "apps/portal-web/src/LocalAction.css",
@@ -2529,8 +2529,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.tsx",
-      "bytes": 7181,
-      "sha256": "7a872ea8a694b0c14919807b8c65bcb44417a85b2d299f1c73e1e36930146166"
+      "bytes": 7209,
+      "sha256": "5ea33e3b37156dcc071aa94ba6098a894327fb418437eaff024db13863c225bb"
     },
     {
       "path": "apps/portal-web/src/modules/Onboarding.tsx",
@@ -20279,8 +20279,8 @@
     },
     {
       "path": "tests/e2e/shared-feedback-language.spec.ts",
-      "bytes": 12031,
-      "sha256": "38900a3ffe3047f9466a7908dfe100f44bc76eb0cbd3899f69eba9ddda74d90e"
+      "bytes": 12013,
+      "sha256": "ad67ab0e329b48c2c45f033258cd75958db42b4610c194b474ca55d3bd26a2fd"
     },
     {
       "path": "tests/e2e/sharing-authoring-fixture.ts",
