@@ -17474,8 +17474,8 @@
     },
     {
       "path": "modules/community/participation/freedom.module.json",
-      "bytes": 1631,
-      "sha256": "03aece39fc2c62821146d14b6ce4c4ea85b445a013ec96a3ad907549496c5afe"
+      "bytes": 1668,
+      "sha256": "444556cac69fb4ba6ef81d5126814fac3ef1fb897cc0128785e4d16d1ac06a26"
     },
     {
       "path": "modules/community/personal-content/freedom.module.json",
@@ -20184,8 +20184,8 @@
     },
     {
       "path": "tests/e2e/events-past.spec.ts",
-      "bytes": 5965,
-      "sha256": "25ef46c2e9289cd5991b2cd70aad40506e7ba4cb1a9232f2e8c1a3ec4708baf6"
+      "bytes": 6605,
+      "sha256": "ed088d773fecaaa2bd702f03df426df106119e097a9c544631f460b1081d3fc8"
     },
     {
       "path": "tests/e2e/first-participation.spec.ts",
@@ -20364,8 +20364,8 @@
     },
     {
       "path": "tests/e2e/member-channels-real.spec.ts",
-      "bytes": 33390,
-      "sha256": "d7e219ba821330ab50759375f91a8abbbe6c51d1a5379fce19a5bc596fbaaa06"
+      "bytes": 33938,
+      "sha256": "91c8672bffedee0d78535588c995dacad886072fc071d19faa8947b3a75ecd94"
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
@@ -20454,8 +20454,8 @@
     },
     {
       "path": "tests/e2e/message-retraction.spec.ts",
-      "bytes": 11116,
-      "sha256": "b383e208d1ae8e065e4cdc1c4224bf897668288d13cce8619b648ed21b003564"
+      "bytes": 11141,
+      "sha256": "f248e97b2b04a8dfe4b22b94687922e9bb2f996c7f417bf78f435f22e1acd4ff"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
