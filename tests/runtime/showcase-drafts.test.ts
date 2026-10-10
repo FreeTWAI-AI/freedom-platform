@@ -72,6 +72,31 @@ test('withdraw clears the original publication cache and an authoritative missin
   assert.equal(published.read(), null); assert.equal(state.read().row?.status, 'withdrawn');
 });
 
+test('partial showcase pages retain a receipt until its row arrives or the complete union proves absence', () => {
+  const published = authoringDraftState<Showcase | null>('owner', 'showcase:published', null);
+  const receipt = {...row('published'), aggregate_version: 1};
+  published.write(receipt);
+  reconcilePublishedShowcase('owner', [], receipt, false);
+  assert.equal(published.read(), receipt);
+  const refreshed = {...receipt, title: 'Current title'};
+  reconcilePublishedShowcase('owner', [refreshed], receipt, true);
+  assert.equal(published.read(), refreshed);
+  reconcilePublishedShowcase('owner', [], refreshed, false);
+  assert.equal(published.read(), refreshed);
+  reconcilePublishedShowcase('owner', [], refreshed, true);
+  assert.equal(published.read(), null);
+});
+
+test('an exhausted older pagination generation cannot clear a newer publication receipt', () => {
+  const published = authoringDraftState<Showcase | null>('owner', 'showcase:published', null);
+  const observed = {...row('published'), aggregate_version: 1};
+  published.write(observed);
+  const newer = {...observed, showcase_id: 'newer-publication'};
+  published.write(newer);
+  reconcilePublishedShowcase('owner', [], observed, true);
+  assert.equal(published.read(), newer);
+});
+
 for (const boundary of ['switch', 'same-user replacement', 'logout'] as const) test(`${boundary} clears private editor input/retry and fences delayed receipts`, async () => {
   const { client, pending } = transport(), state = showcaseEditorState('owner', null);
   state.patch({ input: { title: 'Private input', description: 'Secret', artifact_ref: '', public_url: '' } });

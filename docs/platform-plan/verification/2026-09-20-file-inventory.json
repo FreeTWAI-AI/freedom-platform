@@ -2619,8 +2619,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
-      "bytes": 30640,
-      "sha256": "66734eaa77a2cf575fe2bd89ed0e1e1d8366bf86528d916af71b93173554f3cc"
+      "bytes": 31213,
+      "sha256": "d5f0ec4e06d4350afc0d28e2a1da9c1bf02d2af5cd778da28bd6279912712c6d"
     },
     {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
@@ -2909,8 +2909,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/showcase-drafts.ts",
-      "bytes": 5422,
-      "sha256": "01fa43785af002ec3dc0d88c7c8ab1d889d6350573b54164df1366325530d9d3"
+      "bytes": 5577,
+      "sha256": "7e34123d71aafa27eb157719f11e23c76e4b2fec9942968113fcc8c3e90c3ed6"
     },
     {
       "path": "apps/portal-web/src/modules/skill-discovery-client.ts",
@@ -21974,8 +21974,8 @@
     },
     {
       "path": "tests/runtime/showcase-drafts.test.ts",
-      "bytes": 7122,
-      "sha256": "b65f0d614355d3818a2541e7e9bea833f47e0b16f351a68b7cc0adabc02ce8b6"
+      "bytes": 8388,
+      "sha256": "7948ffdcbf4df4d2870a6df25f9c9e4dd400796d313e2dbb707285efc908e2ea"
     },
     {
       "path": "tests/runtime/showcase-pages.test.ts",

@@ -49,12 +49,16 @@ export function useShowcaseEditor(userId: string, id: string | null) {
   return [value, showcaseEditorState(userId, id)] as const;
 }
 
-export function reconcilePublishedShowcase(userId: string, items: Showcase[], observed?: Showcase | null) {
+export function reconcilePublishedShowcase(userId: string, items: Showcase[], observed?: Showcase | null, complete = true) {
   const published = authoringDraftState<Showcase | null>(userId, 'showcase:published', null);
   const previous = published.read();
   // A read begun before a new publication cannot invalidate its later receipt.
   if (observed !== undefined && previous !== observed) return;
-  if (previous) published.write(items.find(item => item.showcase_id === previous.showcase_id) ?? null);
+  if (previous) {
+    const found = items.find(item => item.showcase_id === previous.showcase_id);
+    // Absence from a partial page is not evidence that a publication vanished.
+    if (found || complete) published.write(found ?? null);
+  }
 }
 
 export async function performShowcaseRequest(client: PortalClient, userId: string, state: ReturnType<typeof showcaseEditorState>, request: ShowcaseRequest) {
