@@ -110,7 +110,7 @@ export async function markAllInboxRead(pool:Pool,input:Command){
 
 // ---------- direct messages ----------
 type Peer={participant:Participant;ready:boolean;viewer_ready:boolean;has_history:boolean;blocked:boolean};
-async function resolvePeer(q:PoolClient|Pool,actor:Actor,id:string):Promise<Peer>{
+export async function resolvePeer(q:PoolClient|Pool,actor:Actor,id:string):Promise<Peer>{
   const row=(await q.query(`SELECT u.user_id,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.present AS avatar_present,
       (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
       EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()

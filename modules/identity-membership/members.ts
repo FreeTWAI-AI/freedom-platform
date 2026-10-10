@@ -108,7 +108,7 @@ export async function saveAccount(pool:Pool,input:Command) {
   return accountView(pool,input.actor);
 }
 const pair=(a:string,b:string)=>[a,b].sort();
-async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
+export async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
   z.uuid().parse(id);
   const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id)) ${lock?'FOR SHARE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;
@@ -117,13 +117,15 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
   const cards=await memberCards(pool,actor,[id]);
   requireCondition(cards[0],404,'member_not_found','找不到這位會員。');return cards[0];
 }
-export async function memberCards(pool:Pool,actor:Actor,ids:string[]) {
+export async function memberCards(q:Pool|PoolClient,actor:Actor,ids:string[]) {
   ids=ids.map(id=>z.uuid().parse(id).toLowerCase());
   if(!ids.length)return [];
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
-  const [projection,positioning]=await Promise.all([
-    pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.present AS avatar_present,
+  // A transaction client (report evidence) runs the reads in turn on that client.
+  const both=<A,B>(a:()=>Promise<A>,b:()=>Promise<B>):Promise<[A,B]>=>'release' in q?a().then(async left=>[left,await b()]):Promise.all([a(),b()]);
+  const [projection,positioning]=await both(()=>
+    q.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.present AS avatar_present,
       (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
       EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
         AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
@@ -133,9 +135,9 @@ export async function memberCards(pool:Pool,actor:Actor,ids:string[]) {
       FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
       LEFT JOIN member_avatar_presence avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
       WHERE u.user_id=ANY($3::uuid[]) AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (u.user_id=$2 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,actor.user_id,ids]),
-    memberPositioningSummaries(pool,actor.community_id,ids),
-  ]);
-  const tiers=ids.includes(actor.user_id)?(await pool.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,actor.user_id])).rows:undefined;
+    ()=>memberPositioningSummaries(q,actor.community_id,ids),
+  );
+  const tiers=ids.includes(actor.user_id)?(await q.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,actor.user_id])).rows:undefined;
   const cards=new Map(projection.rows.map(relation=>{
   const id=relation.user_id,isSelf=id===actor.user_id,contacts:Record<string,string>={};
   for(const [key,field] of Object.entries(normalizedContacts(relation.contacts,relation.email))) {

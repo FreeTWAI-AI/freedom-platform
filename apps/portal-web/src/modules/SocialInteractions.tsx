@@ -1,3 +1,4 @@
+import {ReportButton} from './MemberReporting';
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
@@ -143,6 +144,7 @@ export function SocialInteractions({client, post, canHide, onUpdate,onTag}: {onT
     <div className="social-actions">
       <button type="button" className="btn btn-ghost" aria-pressed={post.liked ?? false} disabled={liking} onClick={() => void like()}><SocialIcon name="like"/>{liking ? '處理中…' : pendingLike.current ? '重試按讚' : post.liked ? '已讚' : '讚'} · {post.like_count ?? 0}</button>
       <button type="button" className="btn btn-ghost" aria-expanded={open} aria-controls={`social-comments-${post.post_id}`} onClick={() => { setOpen(!open); if (!open) void load(); else { ++sequence.current; setLoading(false); } }}><SocialIcon name="comment"/>留言 · {post.comment_count ?? 0}</button>
+      <ReportButton kind="post" id={post.post_id} label="貼文"/>
       <SocialPostShare client={client} post={post}/>
     </div>
     {error && <p className="banner banner-error" role="alert">{error}</p>}
@@ -156,6 +158,7 @@ export function SocialInteractions({client, post, canHide, onUpdate,onTag}: {onT
           <div className="social-actions"><button className="btn btn-ghost" disabled={sending || !editing.text.trim() || editing.text.trim() === comment.body}>{sending ? '儲存中…' : '儲存留言'}</button><button type="button" className="btn btn-ghost" disabled={sending} onClick={() => setEditing(null)}>取消</button></div>
         </form> : <div className="social-comment-bubble">{comment.body!=='[圖片]'&&comment.body!=='[貼圖]'&&<p className="multiline-text"><SocialRichText client={client} text={comment.body} mentions={comment.mentions} onTag={onTag}/></p>}{comment.sticker_id&&<ChatSticker id={comment.sticker_id}/>} {comment.image_url&&<a href={comment.image_url} target="_blank" rel="noopener noreferrer" aria-label="開啟留言圖片"><img className="social-comment-image" src={comment.image_url} alt="留言附圖" loading="lazy"/></a>}</div>}
         <div className="social-comment-actions"><button className="social-text-link" type="button" aria-label={`${comment.liked?'留言已讚':'留言讚'} · ${comment.like_count??0}`} aria-pressed={comment.liked??false} disabled={!!commentLiking} onClick={()=>void likeComment(comment)}>{commentLikeCommands.current.has(comment.comment_id)?'重試按讚':comment.liked?'已讚':'讚'}{(comment.like_count??0)>0&&` · ${comment.like_count}`}</button></div>
+        <ReportButton kind="comment" id={comment.comment_id} label="留言"/>
         {(comment.mine || canHide) && editing?.id !== comment.comment_id && <details className="social-post-menu social-comment-menu"><summary aria-label="留言選項">⋯</summary><div className="social-post-menu-actions">{confirmDelete === comment.comment_id ? <>
           <button type="button" className="btn btn-ghost" disabled={sending} onClick={() => void remove(comment)}>確定刪除留言</button><button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>取消</button>
         </> : <>{comment.mine && <button type="button" className="btn btn-ghost" disabled={sending} onClick={() => { setConfirmDelete(null); setEditing({id: comment.comment_id, text: comment.body}); }}>編輯留言</button>}<button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(comment.comment_id)}>刪除留言</button></>}</div></details>}

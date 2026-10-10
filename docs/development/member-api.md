@@ -16,6 +16,58 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+## Member reporting and moderation cases
+
+This surface is default OFF. Only `FREEDOM_MEMBER_REPORTING_ENABLED=true`
+enables it; `/api/v1/site` exposes `member_reporting_enabled`. Disabled reporting
+routes return 404 before session authentication. Existing messaging and channel
+permissions are unchanged.
+
+- `POST /me/reports`: `{target_kind,target_id,reason,note}`. Targets are visible
+  `post`, `comment`, `direct_message`, `channel_message`, or `member` UUIDs.
+  The server checks current visibility and captures immutable evidence, rather
+  than accepting a client-supplied snapshot. Returns a case number and status.
+  A `member` report stores the card exactly as this reporter sees it in the same
+  transaction (positioning, custom skills, audience-filtered contacts), never the
+  member's private fields. An image direct message also pins the stored image
+  (hash and size) in `member_report_evidence_images`, which is immutable.
+  Repeated reports by the same reporter for the same target reuse the case;
+  at most 20 new cases per reporter per hour are allowed.
+- `GET /me/reports?limit=&cursor=`: only the current reporter's case numbers,
+  status and public outcome summary, newest first, at most 50 per page with
+  `next_cursor`; no private evidence or reporter identity is disclosed.
+- `GET /admin/reports?state=open|received|in_progress|closed|all&limit=&cursor=`:
+  the queue (default `open`), at most 50 per page. Rows carry status, reason,
+  target and handler only, never the note or evidence. Restricted to active
+  platform administrators with verified email. Guild titles confer no access.
+- `GET /admin/reports/:id`: one case with its note, captured evidence and, for
+  image messages, `evidence_image` metadata.
+- `GET /admin/reports/:id/evidence-image`: the pinned image bytes, `private,
+  no-store`, for case administrators only. Authority is the case: the reporter
+  and the reported sender get 403, and later loss of the reporter's own access
+  does not hide it. Bytes are served only if the stored object still matches the
+  captured hash.
+- `POST /admin/reports/:id/transition`: `{state,reason,summary,action}`, with
+  `If-Match` and `Idempotency-Key`. States progress from `received` to
+  `in_progress` to `closed`; actions are `none`, `hide`, or `restore`.
+  Hide/restore uses existing post/comment moderation; messages and members can
+  be reviewed without changing their visibility or account permissions.
+  Handler, reason, action and version are audited. Content moderation, case
+  status, audit and command receipt commit together; a failed action does not
+  mark a case handled. Stale versions and invalid state transitions return 409.
+
+Reports are not sent to the reported member. Other members cannot read cases
+or evidence, including private-message evidence they could not originally see.
+Migration `149_member_reports.sql` is newly added; maintainers must renumber it
+at merge if required. Evidence retention period and an owner-approved general
+rules/appeal page are deferred to #261; no appeal contact is invented here.
+
+The E2E runner adds an isolated reporting-enabled pass to the default suite.
+`npm run test:e2e -- tests/e2e/member-reporting.spec.ts` enables the flag for that
+invocation automatically; ordinary suite passes retain reporting's default OFF.
+
+## Existing member APIs
+
 Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.

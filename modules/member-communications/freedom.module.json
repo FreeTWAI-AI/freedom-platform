@@ -35,6 +35,8 @@
     "apps/portal-web/src/modules/MemberChannels.tsx"
   ],
   "public_exports": [
+    "modules/member-communications/channels.ts",
+    "modules/member-communications/service.ts",
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts"
   ],

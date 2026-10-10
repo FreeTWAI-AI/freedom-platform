@@ -1,0 +1,59 @@
+{
+  "format": "freedom.module/v1",
+  "owner_role": "foundation",
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/member-api.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.member-reporting",
+    "runtime.full"
+  ],
+  "module_id": "member-reporting",
+  "owned_paths": [
+    "modules/community/member-reporting.ts",
+    "apps/platform-api/src/routes/member-reporting.ts",
+    "apps/portal-web/src/modules/MemberReporting.tsx",
+    "apps/portal-web/src/modules/MemberReporting.css",
+    "migrations/149_member_reports.sql",
+    "tests/runtime/member-reporting.test.ts",
+    "tests/e2e/member-reporting.spec.ts"
+  ],
+  "public_exports": [
+    "modules/community/member-reporting.ts"
+  ],
+  "dependencies": [
+    "community",
+    "member-communications",
+    "member-squads",
+    "command-core",
+    "asset-storage",
+    "media-migration",
+    "shared"
+  ],
+  "contract_families": [],
+  "surfaces": [
+    {
+      "surface_id": "community.member-reporting.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/member-reporting.ts",
+      "operations": [
+        "community.member-report.list",
+        "community.member-report.create",
+        "community.member-report.read",
+        "community.admin-member-report.list",
+        "community.admin-member-report.read",
+        "community.member-report.transition",
+        "community.member-report.evidence-image"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

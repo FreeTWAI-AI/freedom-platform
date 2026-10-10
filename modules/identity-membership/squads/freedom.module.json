@@ -17,7 +17,9 @@
     "tests/e2e/squad-management.spec.ts",
     "tests/e2e/squad-types-channel.spec.ts"
   ],
-  "public_exports": [],
+  "public_exports": [
+    "modules/identity-membership/members.ts"
+  ],
   "dependencies": [
     "command-core",
     "shared",
