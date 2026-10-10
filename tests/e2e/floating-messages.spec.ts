@@ -15,20 +15,35 @@ test('chat launcher counts chat sources only, does not open history or mark anyt
   await login(page);const launcher=page.locator('.floating-messages');await expect(launcher).toHaveAccessibleName('開啟聊天室，10 則未讀');expect([...counted].sort()).toEqual(['direct','guild','squad','world']);expect(history).toBe(0);expect(writes).toBe(0);
   unread=0;await page.evaluate(()=>window.dispatchEvent(new Event('freedom-inbox-updated')));await expect(launcher).toHaveAccessibleName('開啟聊天室');await expect(launcher.locator('.floating-messages-badge')).toHaveCount(0);
   fail=true;await page.evaluate(()=>window.dispatchEvent(new Event('freedom-inbox-updated')));await expect(launcher).toHaveAccessibleName('開啟聊天室，未讀數尚未確認');await expect(launcher.locator('.floating-messages-badge')).toHaveText('?');expect(writes).toBe(0);expect(history).toBe(0);
-  await launcher.click();await expect(page).toHaveURL(/#messages$/);await expect(page.locator('.messages-categories')).toBeVisible();await expect(launcher).toHaveCount(0);
+  await launcher.click();await expect(page.locator('.messages-categories')).toBeVisible();await expect(launcher).toBeVisible();await expect(launcher).toHaveAttribute('aria-expanded','true');await expect(page.locator('.game-console')).toHaveCount(0);
 });
 
-test('phone and desktop launcher fit all three base themes, avoid the console and dialogs, open the real inbox and return with browser Back',async({page})=>{
-  await page.setViewportSize({width:320,height:844});await login(page);const homeUrl=page.url();
+test('one bubble toggles the persistent inbox across pages and themes at phone, tablet and desktop widths',async({page})=>{
+  await login(page);const homeUrl=page.url(),bubble=page.locator('.floating-messages'),panel=page.locator('.floating-message-panel');
   for(const [name,theme] of [['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']]){
-    const settings=page.getByRole('button',{name:'設定',exact:true});await settings.click();await page.getByRole('menuitemradio',{name,exact:true}).click();await page.keyboard.press('Escape');await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
-    for(const width of [320,390,1280]){
-      await page.setViewportSize({width,height:844});const button=page.locator('.floating-messages');await expect(button).toBeVisible();await expect(button).toBeInViewport();
-      const box=(await button.boundingBox())!,console=(await page.locator('.game-console-ticker').boundingBox())!;expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);expect(box.y+box.height).toBeLessThanOrEqual(console.y);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      if(width===390)await page.screenshot({path:`test-results/floating-messages-${theme}-390.png`});
+    await page.getByRole('button',{name:'設定',exact:true}).click();await page.getByRole('menuitemradio',{name,exact:true}).click();await page.keyboard.press('Escape');
+    for(const width of [320,390,768,1440]){
+      await page.setViewportSize({width,height:900});await expect(bubble).toBeVisible();await expect(bubble).toBeInViewport();await bubble.click();await expect(panel).toBeVisible();await expect(bubble).toHaveAttribute('aria-expanded','true');
+      const box=(await bubble.boundingBox())!,inbox=(await panel.boundingBox())!;expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);expect(inbox.y+inbox.height).toBeLessThanOrEqual(box.y);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await expect(panel.getByRole('tab')).toHaveCount(4);await expect(panel.getByRole('tab',{name:/^通知/})).toHaveCount(0);await expect(page.locator('.nav-primary').getByRole('button',{name:'我的訊息'})).toHaveCount(0);
+      if([390,768,1440].includes(width))await page.screenshot({path:`test-results/unified-messages-${theme}-${width}.png`});
+      await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(bubble).toBeFocused();await expect(page).toHaveURL(homeUrl);
     }
   }
-  await page.getByRole('button',{name:'建立貼文',exact:true}).click();await expect(page.getByRole('dialog',{name:'建立貼文',exact:true})).toBeVisible();await expect(page.locator('.floating-messages')).toBeHidden();await page.keyboard.press('Escape');await expect(page.locator('.floating-messages')).toBeVisible();
-  await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();await expect(page.locator('.floating-messages')).toBeHidden();await page.getByRole('button',{name:'收合訊息控制台',exact:true}).click();await expect(page.locator('.floating-messages')).toBeVisible();
-  await page.locator('.floating-messages').click();await expect(page).toHaveURL(/#messages$/);await expect(page.getByRole('tab',{name:/^私人訊息/})).toHaveAttribute('aria-selected','true');await expect(page.locator('.floating-messages')).toHaveCount(0);await page.goBack();await expect(page).toHaveURL(homeUrl);await expect(page.locator('.floating-messages')).toBeVisible();
+  await page.setViewportSize({width:1440,height:900});await bubble.click();
+  await panel.getByLabel('搜尋會員',{exact:true}).fill('示範需求者');await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();await panel.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
+  const draft=panel.getByRole('textbox',{name:'寫給 示範需求者 的訊息'});await draft.fill('跨頁與收合後保留的草稿');await bubble.click();await expect(panel).toBeHidden();
+  await page.getByRole('button',{name:'技能書架',exact:true}).click();await bubble.click();await expect(draft).toHaveValue('跨頁與收合後保留的草稿');
+  await page.setViewportSize({width:390,height:844});await expect(bubble).toBeVisible();await expect(draft).toBeVisible();await page.screenshot({path:'test-results/unified-messages-draft-phone.png'});
+  await bubble.click();await expect(panel).toBeHidden();await expect(page.locator('.community-header')).toBeVisible();
+});
+
+test('closed history stays idle and legacy inbox/popout links open the same panel',async({page})=>{
+  let history=0,reads=0;
+  page.on('request',request=>{const url=new URL(request.url());if(/channels\/world\/world\/messages$/.test(url.pathname))history++;if(request.method()==='POST'&&url.pathname.endsWith('/read'))reads++;});
+  await login(page);const bubble=page.locator('.floating-messages'),panel=page.locator('.floating-message-panel');
+  await bubble.click();await panel.getByRole('tab',{name:/世界聊天/}).click();await expect(panel.getByRole('textbox',{name:'世界聊天訊息'})).toBeVisible();
+  await bubble.click();const before={history,reads};await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(1300);expect({history,reads}).toEqual(before);
+  await page.goto('/#messages');await expect(panel).toBeVisible();await expect(bubble).toBeVisible();await expect(page.locator('.member-messages')).toHaveCount(1);
+  await page.goto('/?game-console=popout&scope=legacy-fixture');await expect(panel).toBeVisible();await expect(page).toHaveURL(/\/#messages$/);await expect(page.locator('.game-console')).toHaveCount(0);
 });

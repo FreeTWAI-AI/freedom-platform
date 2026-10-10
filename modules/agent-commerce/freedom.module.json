@@ -91,10 +91,7 @@
     "contracts/guild-launchpad/v1/hosted-supply-terms.schema.json",
     "apps/portal-web/src/modules/HostedSupplyTerms.tsx",
     "tests/e2e/hosted-supply-terms.spec.ts",
-    "tests/runtime/hosted-order-navigation.test.ts",
-    "contracts/guild-launchpad/v1/storefront-pagination.ts",
-    "tests/runtime/hosted-store-pagination-contracts.test.ts",
-    "tests/e2e/hosted-store-pagination.spec.ts"
+    "tests/runtime/hosted-order-navigation.test.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [

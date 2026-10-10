@@ -1,3 +1,4 @@
+import {openChat,closeChat} from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 import sharp from 'sharp';
 import type {Pool} from 'pg';
@@ -143,10 +144,10 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     async function openComposer(page:Page){
       const thread=await openDirect(page);
       if(mode==='page')return thread;
-      await page.getByRole('button',{name:'展開訊息控制台'}).click();const dock=page.locator('.game-console-expanded');
-      await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();await dock.getByLabel('搜尋會員').fill('示範需求者');
+      await openChat(page);const dock=page.locator('.floating-message-panel');
+      await dock.getByRole('tab',{name:/^私人訊息/}).click();await dock.getByLabel('搜尋會員').fill('示範需求者');
       await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
-      return dock.locator('.messages-thread');
+      return dock.locator('#messages-panel-direct .messages-thread');
     }
     test(`${mode} first real image decoder rejection keeps an editable image, caption and reply`,async({page,e2eAuthPool})=>{
       const thread=await openComposer(page),quote=`Decoder quote ${crypto.randomUUID()}`,caption=`Rejected image ${crypto.randomUUID()}`;
@@ -175,7 +176,7 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
       await thread.locator('input[type=file]').setInputFiles(image);await expect(thread.getByLabel('待送出的圖片')).toContainText(image.name);
       expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
       let dialogs=0;page.on('dialog',async dialog=>{dialogs++;await dialog.accept();});
-      if(mode==='dock'){await page.getByRole('button',{name:'收合訊息控制台'}).click();await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();}
+      if(mode==='dock'){await closeChat(page);await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();}
       else {await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#home$/);}
       expect(dialogs).toBe(0);expect(await counts()).toEqual(before);
     });
@@ -206,13 +207,13 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
       for(const name of ['移除','附加圖片','取消回覆'])await expect(thread.getByRole('button',{name,exact:true})).toBeDisabled();
       expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
       let blocked=0;page.on('dialog',async dialog=>{blocked++;await dialog.accept();});
-      if(mode==='page'){await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#messages$/);}
+      if(mode==='page'){await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#home$/);}
       else {
-        await page.getByRole('button',{name:'收合訊息控制台'}).click();await page.getByRole('button',{name:'設定',exact:true}).click();
+        await closeChat(page);await page.getByRole('button',{name:'設定',exact:true}).click();
         await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();
-        expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);await page.getByRole('button',{name:'展開訊息控制台'}).click();
+        expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);await openChat(page);
       }
-      expect(blocked).toBe(1);await expect(thread.getByRole('textbox')).toHaveValue(caption);
+      expect(blocked).toBe(mode==='page'?0:1);await expect(thread.getByRole('textbox')).toHaveValue(caption);
       await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
       await expect(thread.getByRole('button',{name:'移除',exact:true})).toBeDisabled();
       await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByLabel('待送出的圖片')).toHaveCount(0);
@@ -222,8 +223,8 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
       expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM member_message_image_asset_targets WHERE image_id=$1',[imageId])).rows[0].n).toBe(1);
       await expect(thread.getByRole('textbox')).toHaveValue('');await expect(thread.locator('.chat-reply-draft')).toHaveCount(0);
       if(mode==='page'){await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#home$/);}
-      else {await page.getByRole('button',{name:'收合訊息控制台'}).click();await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();}
-      expect(blocked).toBe(1);
+      else {await closeChat(page);await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();}
+      expect(blocked).toBe(mode==='page'?0:1);
     });
   }
 
@@ -254,7 +255,7 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await panel.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
     await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(thread.getByLabel('待送出的圖片')).toContainText('screenshot.png');
     let notices=0;page.on('dialog',async dialog=>{notices++;await dialog.accept();});
-    await page.evaluate(()=>{window.location.hash='home';});await expect(page).toHaveURL(/#messages$/);expect(notices).toBe(1);
+    await page.evaluate(()=>{window.location.hash='home';});await expect(page).toHaveURL(/#home$/);expect(notices).toBe(0);
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByLabel('待送出的圖片')).toHaveCount(0);
     await expect(thread.getByRole('textbox')).toHaveValue('');expect(uploads).toHaveLength(2);expect(uploads[1]).toBe(uploads[0]);expect(sends).toHaveLength(2);expect(sends[1]).toBe(sends[0]);
@@ -302,11 +303,11 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
   });
 
   test('dock unknown send blocks intentional logout and survives collapse until original retry confirms',async({page})=>{
-    await openDirect(page);await page.getByRole('button',{name:'展開訊息控制台'}).click();
-    const dock=page.locator('.game-console-expanded');await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();
+    await openDirect(page);await openChat(page);
+    const dock=page.locator('.floating-message-panel');await dock.getByRole('tab',{name:/^私人訊息/}).click();
     await dock.getByLabel('搜尋會員').fill('示範需求者');await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();
     await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
-    const thread=dock.locator('.messages-thread'),caption=`Console original ${crypto.randomUUID()}`,keys:string[]=[],payloads:string[]=[];
+    const thread=dock.locator('#messages-panel-direct .messages-thread'),caption=`Console original ${crypto.randomUUID()}`,keys:string[]=[],payloads:string[]=[];
     await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
       if(route.request().method()!=='POST')return route.continue();
       keys.push(route.request().headers()['idempotency-key']);payloads.push(route.request().postData()!);
@@ -315,16 +316,16 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     });
     await thread.locator('input[type=file]').setInputFiles(image);await thread.getByRole('textbox').fill(caption);await thread.getByRole('button',{name:'送出',exact:true}).click();
     await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
-    await dock.getByRole('button',{name:'收合訊息控制台'}).click();
+    await dock.getByRole('button',{name:'收合聊天室'}).click();
     let blocked=0;page.on('dialog',async dialog=>{blocked++;await dialog.accept();});
     let logouts=0;page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/api/v1/auth/logout'))logouts++;});
     await page.getByRole('button',{name:'設定',exact:true}).click();
     await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();expect(blocked).toBe(1);expect(logouts).toBe(0);
     expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);
-    await page.getByRole('button',{name:'展開訊息控制台'}).click();await expect(thread.getByRole('textbox')).toHaveValue(caption);
+    await openChat(page);await expect(thread.getByRole('textbox')).toHaveValue(caption);
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('textbox')).toHaveValue('');
     expect(keys).toHaveLength(2);expect(keys[1]).toBe(keys[0]);expect(payloads[1]).toBe(payloads[0]);
-    await dock.getByRole('button',{name:'收合訊息控制台'}).click();await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();
+    await dock.getByRole('button',{name:'收合聊天室'}).click();await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();
   });
 
   for(const malformed of ['empty','wrong-recipient'] as const)test(`committed image send with ${malformed} ACK keeps the exact retry tuple`,async({page,e2eAuthPool})=>{
@@ -401,9 +402,9 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     const sender=await isolatedGuardSender(e2eAuthPool);let thread=await openDirect(page,true,sender.email);
     expect((await (await page.request.get('/api/v1/session')).json()).user.user_id).toBe(sender.id);
     if(mode==='dock-logout'){
-      await page.getByRole('button',{name:'展開訊息控制台'}).click();const dock=page.locator('.game-console-expanded');
-      await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();await dock.getByLabel('搜尋會員').fill('示範需求者');
-      await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();thread=dock.locator('.messages-thread');
+      await openChat(page);const dock=page.locator('.floating-message-panel');
+      await dock.getByRole('tab',{name:/^私人訊息/}).click();await dock.getByLabel('搜尋會員').fill('示範需求者');
+      await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();thread=dock.locator('#messages-panel-direct .messages-thread');
     }
     await thread.locator('input[type=file]').setInputFiles(image);const caption=`Synchronous guard ${crypto.randomUUID()}`;await thread.getByRole('textbox').fill(caption);
     if(mode==='dock-logout')await page.getByRole('button',{name:'設定',exact:true}).click();
@@ -430,8 +431,8 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     },mode);
     await thread.locator('form.messages-compose').evaluate((form:HTMLFormElement)=>form.requestSubmit());
     await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
-    expect(await page.locator('html').getAttribute('data-dm-immediate-unload')).toBe('true');expect(notices).toBe(1);expect(logouts).toBe(0);
-    await expect(page).toHaveURL(/#messages$/);await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(thread.getByLabel('待送出的圖片')).toBeVisible();
+    expect(await page.locator('html').getAttribute('data-dm-immediate-unload')).toBe('true');expect(notices).toBe(mode==='dock-logout'?1:0);expect(logouts).toBe(0);
+    await expect(page).toHaveURL(mode==='dock-logout'?/#messages$/:/#home$/);await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(thread.getByLabel('待送出的圖片')).toBeVisible();
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('textbox')).toHaveValue('');
     expect(keys).toHaveLength(2);expect(keys[1]).toBe(keys[0]);expect(payloads[1]).toBe(payloads[0]);await assertOneStoredImage(e2eAuthPool,caption,payloads[0],sender.email);
   });

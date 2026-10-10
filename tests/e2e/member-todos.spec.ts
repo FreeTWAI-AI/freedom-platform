@@ -1,3 +1,4 @@
+import {navigate} from './navigation.js';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page,type Route} from './fixtures.js';
 
@@ -166,8 +167,8 @@ test('a slower earlier read never overwrites a newer one, even across a remount'
     if(hold){hold=false;await late.held;await route.fulfill({json});lateDelivered.open();return;}
     return route.fulfill({json});});
   await refocus(page);
-  await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息'}).click();
-  await expect(page).toHaveURL(/#messages$/);
+  await navigate(page,'會員首頁');
+  await expect(page).toHaveURL(/#home$/);
   facts.completed=false;
   await page.getByRole('button',{name:'設定',exact:true}).click();await page.getByRole('menuitem',{name:'待辦清單',exact:true}).click();
   await expectStates(page,{onboarding:'todo'});

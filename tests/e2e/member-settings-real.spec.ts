@@ -1,3 +1,4 @@
+import {openNotifications,openChat,closeChat} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import type {Pool} from 'pg';
@@ -44,7 +45,7 @@ async function member(browser:Browser,baseURL:string,user:Account,viewport:{widt
 }
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
 const bell=(page:Page)=>page.getByRole('button',{name:/^通知/});
-async function openMessages(page:Page){await bell(page).click();await page.getByRole('button',{name:'查看所有通知與訊息'}).click();await expect(page).toHaveURL(/#messages$/);}
+async function openMessages(page:Page){await openChat(page);}
 async function expectZero(page:Page){
   await expect(settings(page).locator('.settings-dot')).toHaveCount(0);
   await expect(bell(page)).toHaveAccessibleName('通知');
@@ -105,8 +106,8 @@ test('two synthetic members exchange a private message and a friend notification
     await settings(r).click();
     await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單','加入主畫面','登出']);
     await noOverflow(r);await shot(r,'settings-320');
-    await settings(r).click();await openMessages(r);await expect(r.locator('#main-content')).toBeFocused();
-    await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');
+    await settings(r).click();await openMessages(r);await expect(r.locator('#floating-message-title')).toBeFocused();
+    await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('1 則未讀');await expect(r.locator('.notification-bell-trigger')).toHaveAccessibleName('通知');
     await r.getByRole('tab',{name:/私人訊息/,includeHidden:true}).click();
     const rPanel=r.getByRole('tabpanel',{name:/私人訊息/}),rThread=rPanel.locator('.messages-thread'),rList=rPanel.getByRole('list',{name:'對話列表'});
     const fromSender=rList.getByRole('button',{name:new RegExp(sender.display_name)});
@@ -175,13 +176,13 @@ test('two synthetic members exchange a private message and a friend notification
     const notices=(await db.query("SELECT notification_id,read_at,action_tab,action_resource_id FROM member_notifications WHERE recipient_ref=$1",[receiverSide.id])).rows;
     expect(notices).toHaveLength(1);expect(notices[0]).toMatchObject({read_at:null,action_tab:'members',action_resource_id:senderSide.id});
     expect(await receiverSide.unread('notifications')).toBe(1);
-    await returnToList.click();await r.getByRole('tab',{name:/通知/}).click();
-    const nPanel=r.getByRole('tabpanel',{name:/通知/}),refreshNotices=nPanel.getByRole('button',{name:'重新整理通知',exact:true});
+    await returnToList.click();await openNotifications(r);
+    const nPanel=r.getByRole('region',{name:'最近通知'}),refreshNotices=nPanel.getByRole('button',{name:'重新整理通知',exact:true});
     await refreshNotices.click();
     const notice=nPanel.locator(`li[data-notification="${notices[0].notification_id}"]`);
     await expect(notice).toContainText(`${sender.display_name} 想加你為好友。`);await expect(notice).toContainText('未讀');
     await expect(refreshNotices).toBeFocused();
-    await expect(r.getByRole('tab',{name:/通知/})).toContainText('1 則未讀');
+    await expect(r.locator('.notification-bell-trigger')).toHaveAccessibleName('通知，1 則未讀');
     await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
     await expect(bell(r)).toHaveAccessibleName('通知，1 則未讀');
     await noOverflow(r);await shot(r,'notifications-320');
