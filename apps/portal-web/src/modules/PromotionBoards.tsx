@@ -8,7 +8,7 @@ type Period = 'week' | 'month' | 'all';
 type Kind = 'member_card' | 'platform' | 'skill_book' | 'social_post' | 'member_service' | 'event';
 type Item = {rank: number; user_id: string; display_name: string; avatar_url: string | null; points: number};
 type Board = {kind: Kind; items: Item[]; me: {rank: number; points: number} | null};
-type Boards = {period: Period; boards: Board[]};
+type Boards = {period: Period; since: string | null; boards: Board[]};
 type Mine = {period: Period; items: {kind: Kind; target: string; code: string; path: string; title: string; period_points: number; available: boolean}[]};
 
 const PERIODS: {id: Period; label: string}[] = [{id: 'week', label: '本週'}, {id: 'month', label: '本月'}, {id: 'all', label: '累計'}];
@@ -20,11 +20,17 @@ const COPY: Record<Kind, {title: string; how: string; label: string}> = {
   member_service: {title: '業務推廣排行榜', label: '業務', how: '在社員服務分享區分享社員的服務，每次點擊 +1。'},
   event: {title: '活動推廣排行榜', label: '活動', how: '分享社群活動，每次點擊 +1。'},
 };
+const SINCE_FORMAT = new Intl.DateTimeFormat('zh-TW', {timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', weekday: 'short'});
+function periodNote(period: Period, since: string | null): string {
+  if (period === 'all' || !since) return '累計：開站以來的全部點擊。';
+  return `${period === 'week' ? '本週' : '本月'}：從 ${SINCE_FORMAT.format(new Date(since))} 00:00（台北時間）起算。`;
+}
 const WORKSHOP_TEXT = '自由工坊：加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。';
 
 export function PromotionBoards({client}: {client: PortalClient}) {
   const [period, setPeriod] = useState<Period>('week');
   const [boards, setBoards] = useState<Board[] | null>(null);
+  const [range, setRange] = useState<{period: Period; since: string | null}>({period: 'week', since: null});
   const [mine, setMine] = useState<Mine['items']>([]);
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState('');
@@ -35,7 +41,7 @@ export function PromotionBoards({client}: {client: PortalClient}) {
     void Promise.all([
       client.get<Boards>(`/promotion/leaderboards?period=${period}`),
       client.get<Mine>(`/promotion/links/mine?period=${period}`),
-    ]).then(([board, links]) => { if (live) { setBoards(board.boards); setMine(links.items); } })
+    ]).then(([board, links]) => { if (live) { setBoards(board.boards); setRange({period: board.period, since: board.since}); setMine(links.items); } })
       .catch((cause: unknown) => { if (live) setError(cause instanceof Error ? cause.message : '排行榜暫時無法載入。'); });
     return () => { live = false; };
   }, [client, period]);
@@ -52,6 +58,7 @@ export function PromotionBoards({client}: {client: PortalClient}) {
       </div>
       <PromotionShare client={client} kind="platform" target="workshop" title="自由工坊" text={WORKSHOP_TEXT} label="分享自由工坊"/>
     </header>
+    {boards && <p className="promotion-period-note">{periodNote(range.period, range.since)}每塊榜列出前 10 名，同分同名次。</p>}
     {notice && <p className="banner banner-info" role="status">{notice}</p>}
     {error && <div className="banner banner-error" role="alert"><p>{error}</p></div>}
     {!boards && !error && <p role="status">正在載入排行榜…</p>}
@@ -60,13 +67,14 @@ export function PromotionBoards({client}: {client: PortalClient}) {
         <h2>{COPY[board.kind].title}</h2>
         <p className="promotion-howto">{COPY[board.kind].how}</p>
         {board.items.length === 0 ? <p className="promotion-empty">還沒有人得分，分享第一個連結吧。</p> : <ol>
-          {board.items.map(item => <li key={item.user_id}><span className="promotion-person"><MemberAvatar nickname={item.display_name} avatarUrl={item.avatar_url} className="promotion-avatar"/> <span>{item.display_name}</span></span><strong>{item.points}</strong></li>)}
+          {board.items.map(item => <li key={item.user_id}><span className="promotion-person"><span className="promotion-rank"><span className="promotion-hidden">第 </span>{item.rank}<span className="promotion-hidden"> 名</span></span><MemberAvatar nickname={item.display_name} avatarUrl={item.avatar_url} className="promotion-avatar"/> <span>{item.display_name}</span></span><strong>{item.points}</strong></li>)}
         </ol>}
         <p className="promotion-me">{board.me ? `我的名次：第 ${board.me.rank} 名・${board.me.points} 分` : '你在這個排行榜還沒有分數。'}</p>
       </article>)}
     </div>}
     <section className="card promotion-mine" aria-label="我的推廣連結">
       <h2>我的推廣連結</h2>
+      <p className="promotion-howto">右側數字是{PERIODS.find(item => item.id === range.period)!.label}的點擊分數。</p>
       {shown.length === 0 ? <p className="promotion-empty">還沒有分享連結。</p> : <ul>
         {shown.map(item => <li key={item.code} className={item.available ? undefined : 'is-unavailable'}><span className="promotion-kind">{COPY[item.kind].label}</span><span className="promotion-link-title">{item.available ? item.title : '已無法開啟'}</span>{item.available && <button type="button" className="btn btn-ghost" onClick={() => void copy(item.path)}>複製</button>}<strong>{item.period_points}</strong></li>)}
       </ul>}
