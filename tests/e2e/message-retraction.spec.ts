@@ -54,6 +54,11 @@ test('a sender retracts a private message through the site dialog and the recipi
   await expect(mine).toBeVisible();
   // Only my own message offers 收回.
   await expect(panel.locator('.messages-bubbles li:not(.is-mine)').getByRole('button',{name:'收回你的訊息'})).toHaveCount(0);
+  // Keep the recipient open before retraction. Opening afterwards only tests GET projection,
+  // and cannot detect an unchanged activity token or stale cached history.
+  const recipient=await member(browser,baseURL!,1,390),other=await openDirect(recipient,accounts[0].name);
+  await expect(other.locator('.messages-bubbles')).toContainText('0912');
+  await expect.poll(async()=>Number((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1 AND recipient_ref=$2 AND read_at IS NULL',[accounts[0].id,accounts[1].id])).rows[0].n)).toBe(0);
   const trigger=mine.getByRole('button',{name:'收回你的訊息'});
   await trigger.click();
   const dialog=sender.getByRole('dialog',{name:'收回這則訊息？'});
@@ -65,11 +70,33 @@ test('a sender retracts a private message through the site dialog and the recipi
   await expect(panel.locator('.messages-bubbles')).not.toContainText('0912');
   await expect(panel.locator('.messages-bubbles .chat-retracted')).toHaveText('你已收回這則訊息。');
 
-  const recipient=await member(browser,baseURL!,1,390),other=await openDirect(recipient,accounts[0].name);
-  await expect(other.locator('.messages-bubbles .chat-retracted')).toHaveText('這則訊息已收回。');
+  await recipient.bringToFront();
+  // More than two maximum idle polling intervals; no refresh/navigation is allowed.
+  await expect(other.locator('.messages-bubbles .chat-retracted')).toHaveText('這則訊息已收回。',{timeout:15000});
   await expect(other.locator('.messages-bubbles')).not.toContainText('0912');
   await expect(other.locator('.messages-bubbles li',{has:recipient.locator('.chat-retracted')}).locator('.messages-meta')).not.toContainText('未讀');
   await expect(other.getByRole('button',{name:'收回你的訊息'})).toHaveCount(1);
   await recipient.screenshot({path:'test-results/message-retract-390.png'});
   expect((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE retracted_at IS NOT NULL AND sender_ref=$1',[accounts[0].id])).rows[0].n).toBe(1);
+});
+
+test('an already-open channel replaces a read message after another member retracts it',async({browser,baseURL})=>{
+  const sender=await member(browser,baseURL!,0),recipient=await member(browser,baseURL!,1);
+  for(const page of [sender,recipient])await page.getByRole('tab',{name:/^世界聊天/}).click();
+  const own=sender.locator('#messages-panel-world'),other=recipient.locator('#messages-panel-world');
+  const body=`合成：開啟中的頻道收回 ${randomUUID()}`;
+  await own.getByRole('textbox',{name:'世界聊天訊息',exact:true}).fill(body);
+  await own.getByRole('button',{name:'傳送',exact:true}).click();
+  await expect(other.locator('.messages-bubbles')).toContainText(body,{timeout:15000});
+  const sent=(await db.query('SELECT message_id,sequence FROM member_channel_messages WHERE sender_ref=$1 AND body=$2',[accounts[0].id,body])).rows[0];
+  await expect.poll(async()=>{
+    const row=(await db.query("SELECT last_read_sequence FROM member_channel_reads WHERE community_id=$1 AND kind='world' AND channel_key='world' AND user_id=$2",[DEMO_COMMUNITY,accounts[1].id])).rows[0];
+    return row&&BigInt(row.last_read_sequence)>=BigInt(sent.sequence);
+  }).toBe(true);
+  await own.locator(`[data-message-id="${sent.message_id}"]`).getByRole('button',{name:'收回你的訊息'}).click();
+  await sender.getByRole('dialog',{name:'收回這則訊息？'}).getByRole('button',{name:'確定收回'}).click();
+  await recipient.bringToFront();
+  // No reload or new message: neither sequence nor unread count changes.
+  await expect(other.locator(`[data-message-id="${sent.message_id}"] .chat-retracted`)).toHaveText('這則訊息已收回。',{timeout:15000});
+  await expect(other.locator('.messages-bubbles')).not.toContainText(body);
 });

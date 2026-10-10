@@ -19954,8 +19954,8 @@
     },
     {
       "path": "tests/e2e/message-retraction.spec.ts",
-      "bytes": 6038,
-      "sha256": "71ab7cfa2e8d534a73ad5e64c1198599f7b26f844c83ff1391713355fd5c99c5"
+      "bytes": 8401,
+      "sha256": "ae4841f43b5d787b43095a1ec0902c972e9a7cad8437853312fc2c238339b2e3"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -21236,6 +21236,11 @@
       "path": "tests/runtime/message-images.test.ts",
       "bytes": 36536,
       "sha256": "46078f1aa1b317ba3906497511080984775d4c9f16a0a6e272a375275f78224c"
+    },
+    {
+      "path": "tests/runtime/message-retraction-client.test.ts",
+      "bytes": 2121,
+      "sha256": "a23a42565300ed6fc0757a8bdd1e275739bd680ce9ed2d5dd8ab5e41362e1780"
     },
     {
       "path": "tests/runtime/message-retraction.test.ts",
