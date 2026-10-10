@@ -17699,8 +17699,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 2187,
-      "sha256": "d8430af101fe2c2618a1069e9e1e5b9e25b4fb34cb99129e51617d0255b8d93b"
+      "bytes": 2241,
+      "sha256": "af2303e86a7a3f1a731b66d71a6bfc4714bbd72f3e099a56bd5e93c49b422400"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
