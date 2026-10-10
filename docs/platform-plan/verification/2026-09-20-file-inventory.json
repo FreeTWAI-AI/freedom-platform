@@ -20770,7 +20770,7 @@
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
       "bytes": 51368,
-      "sha256": "8fdd14cec239d58877f11565d31a76609eb729dfc008113efa783fb14f1440f3"
+      "sha256": "b178e75851e632f71b0ee48dbfc21fd0dbc287b3ec2096b4dcc9b16106c9e580"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
