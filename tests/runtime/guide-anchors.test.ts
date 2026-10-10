@@ -37,7 +37,7 @@ test('dragon guides retain the 26 supported pages and exclude unsupported privat
   assert.equal(Object.values(DRAGON_GUIDES).reduce((count, topics) => count + Object.keys(topics).length, 0), 45);
 });
 
-test('all 48 guide steps use a unique, declared anchor in their own page namespace', () => {
+test('all 47 guide steps use a unique, declared anchor in their own page namespace', () => {
   const declarations = anchorDeclarations();
   const used = new Set<string>();
   let steps = 0;
@@ -59,7 +59,7 @@ test('all 48 guide steps use a unique, declared anchor in their own page namespa
       }
     }
   }
-  assert.equal(steps, 48);
+  assert.equal(steps, 47);
 });
 
 test('friendship guidance points to the list rather than another member’s contextual action', () => {
@@ -81,4 +81,14 @@ test('permission and data dependent targets remain attached to the existing cond
   assert.match(positioning, /<h2 id="positioning-result-title" data-guide-anchor="positioning:result"/);
   const events = readFileSync(path.join(moduleRoot, 'EventsPanel.tsx'), 'utf8');
   assert.match(events, /<button[^>]*data-guide-anchor="events:submit-event"[^\n]*>＋ 提交活動<\/button>/);
+});
+
+
+test('message guidance keeps the declared private-chat anchor and directs notifications to the separate bell', () => {
+  const guide=DRAGON_GUIDES.messages['messages:topic-1'];
+  assert.deepEqual(guide.steps.map(step=>step.selector), ['[data-guide-anchor="messages:direct"]']);
+  const content=JSON.parse(readFileSync(path.join(moduleRoot,'newcomer-guides/packs/dragon/content/messages.json'),'utf8'));
+  assert.match(content.entryLine,/右下聊天室/);assert.match(content.topics[0].answer,/四個分頁/);
+  assert.match(content.topics[0].answer,/全部標為已讀只處理通知/);
+  assert.doesNotMatch(content.topics[0].answer,/五個分頁/);
 });

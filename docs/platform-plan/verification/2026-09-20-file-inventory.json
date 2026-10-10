@@ -3039,8 +3039,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/page-guides.ts",
-      "bytes": 14109,
-      "sha256": "1752a3b667feb38bd72a5ed0360fb9cc9c71a8ac5a7ca9c64a93c669af7458c1"
+      "bytes": 13934,
+      "sha256": "ba3aeb858d56c0b8cc916ca944d412d5ab29a0f9389c60adbe0b2f7632cbcbc7"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/ai-sister/characters.json",
@@ -3129,8 +3129,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/messages.json",
-      "bytes": 2633,
-      "sha256": "69dac8faedfe5a429984070beac414f37091d51b5e8702edc64204a7f5d18e82"
+      "bytes": 2792,
+      "sha256": "bff77a064967da03405b8f009b91f9be345d03ec3c241df66b20929051b13934"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/content/opensource.json",
@@ -13719,8 +13719,8 @@
     },
     {
       "path": "docs/development/newcomer-guides.md",
-      "bytes": 9536,
-      "sha256": "0ee6fb41dcf590ed8413395f418a26b757d361dd83356e6aa80ba44e1f9bce01"
+      "bytes": 9809,
+      "sha256": "6b9f3f66393c80d81f4ea2424e5817b7c17b234f0467d9970cf61175f9f1f3d5"
     },
     {
       "path": "docs/development/onboarding-api.md",
@@ -21044,8 +21044,8 @@
     },
     {
       "path": "tests/runtime/guide-anchors.test.ts",
-      "bytes": 4911,
-      "sha256": "06cf9fafcdd6b739de7625274bcb64723ae5711694d449faf0bd1e15393bbd4d"
+      "bytes": 5569,
+      "sha256": "3eb480c647e7beaaf67728d354aeced5d33b15b00123aee05a16e0c013d4ed0c"
     },
     {
       "path": "tests/runtime/guide-pack-assets.test.ts",
