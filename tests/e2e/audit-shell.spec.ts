@@ -234,7 +234,7 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole('link', { name: '跳到主要內容', exact: true })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(nav.getByRole('button',{name:'會員首頁',exact:true})).toBeFocused();
-      for (const name of ['社群分享', '我的訊息', '職業公會', '技能書架', '搜尋社群內容']) {
+      for (const name of ['社群分享', '職業公會', '技能書架', '搜尋社群內容']) {
         await page.keyboard.press('Tab');
         await expect(nav.getByRole('button', { name, exact: true })).toBeFocused();
         expect(await focusedIsVisiblyOutlined(page)).toBe(true);

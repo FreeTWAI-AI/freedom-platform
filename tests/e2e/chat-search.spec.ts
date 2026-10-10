@@ -73,7 +73,7 @@ test('private search finds older pages, preserves drafts and only reads new arri
   await dialog.getByRole('button',{name:'關閉搜尋',exact:true}).click();await expect(dialog).toBeHidden();await expect(box).toHaveValue('這份草稿要保留');
   await expect(panel.getByRole('button',{name:'搜尋訊息',exact:true})).toBeFocused();
   await expect.poll(async()=>(await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE recipient_ref=$1 AND read_at IS NULL',[accounts[0].id])).rows[0].n).toBe(0);
-  const viewport=page.viewportSize()!,log=(await panel.getByRole('log').boundingBox())!;expect(log.height).toBeGreaterThanOrEqual(viewport.height/2);expect(log.width).toBe(viewport.width);
+  const viewport=page.viewportSize()!,log=(await panel.getByRole('log').boundingBox())!,floating=(await page.locator('.floating-message-panel').boundingBox())!;expect(log.height).toBeGreaterThanOrEqual(viewport.height/2);expect(log.width).toBeGreaterThanOrEqual(floating.width-32);expect(log.x).toBeGreaterThanOrEqual(floating.x);expect(log.x+log.width).toBeLessThanOrEqual(floating.x+floating.width);expect(floating.x+floating.width).toBeLessThanOrEqual(viewport.width);
   for(const button of [panel.getByRole('button',{name:'搜尋訊息',exact:true}),panel.getByRole('button',{name:'送出',exact:true})])expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   mkdirSync('test-results/social-chat-search',{recursive:true});await page.screenshot({path:'test-results/social-chat-search/private-chat-390.png'});
 });
