@@ -1939,8 +1939,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AccountDeactivation.tsx",
-      "bytes": 2759,
-      "sha256": "3c66f3117fe2c24e8d9fef9cbd7d9236ae0be5396a0c4786abee2d3a1f856b81"
+      "bytes": 2801,
+      "sha256": "6997abe9a977753aa3634467ea02173862f7ae8862f4b3802b6bb2afd771d416"
     },
     {
       "path": "apps/portal-web/src/modules/AccountSecurity.tsx",

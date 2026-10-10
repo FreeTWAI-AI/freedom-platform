@@ -32,6 +32,6 @@ export function AccountDeactivation({client,version,disabled=false}:{client:Port
     <h3>停用帳號</h3><p id={hint}>停用後會登出所有裝置，且無法再登入。這不是資料刪除：訂單、稽核與相關歷史資料會保留，不提供自行重新啟用。</p>
     <label className="field">目前密碼<input type="password" autoComplete="current-password" required maxLength={200} aria-describedby={hint} value={password} onChange={event=>setPassword(event.target.value)} disabled={busy||disabled}/></label>
     {error&&<p role="alert">{error}</p>}
-    <button className="btn btn-ghost" type="submit" disabled={busy||disabled||(version??loadedVersion)===null}>{busy?'停用中…':'確認停用帳號並登出所有裝置'}</button>
+    <div className="experience-actions"><button className="btn btn-ghost" type="submit" disabled={busy||disabled||(version??loadedVersion)===null}>{busy?'停用中…':'確認停用帳號並登出所有裝置'}</button></div>
   </form>;
 }
