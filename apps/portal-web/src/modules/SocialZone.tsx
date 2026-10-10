@@ -6,6 +6,7 @@ import {PLATFORM_LABELS, type SocialPlatform} from '../../../../packages/shared/
 import {MemberAvatar} from './MemberAvatar';
 import {PromotionShare} from './PromotionShare';
 import {SocialInteractions} from './SocialInteractions';
+import {SocialPostEditor} from './SocialPostEditor';
 import './SocialZone.css';
 import {socialPostJobForSession} from '../social-post-task';
 import {SocialPostOptimizer} from './SocialPostOptimizer';
@@ -25,6 +26,7 @@ class ShareLoadBoundary extends Component<{children:ReactNode;fallback:(cause:un
 
 export type SocialPost = {
   post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; platform_label: string; title: string; note: string | null; created_at: string;
+  edited_at: string | null; revision: number;
   author: {user_id: string; display_name: string; avatar_url: string | null};
   thumbnail_url: string | null; total_points: number; my_points: number; mine: boolean;
   like_count: number; comment_count: number; liked: boolean;
@@ -81,6 +83,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<Post | null>(null), editTrigger = useRef<HTMLElement | null>(null);
   const [text, setText] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
@@ -121,6 +124,8 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   useEffect(() => () => { ++loadSequence.current; }, []);
   useEffect(() => { if (composerOpen && !composer.current?.open) {composer.current?.showModal(); composer.current?.querySelector<HTMLTextAreaElement>('textarea:not(:disabled)')?.focus();} }, [composerOpen]);
   useEffect(() => { if (optionsOpen && !options.current?.open) options.current?.showModal(); }, [optionsOpen]);
+  // The editor's own effect closes its dialog first (child effects run before this one), so focus can return to the menu.
+  useEffect(() => { if (!editingPost && editTrigger.current) { editTrigger.current.focus(); editTrigger.current = null; } }, [editingPost]);
   useEffect(() => { if (linkOpen && !linkComposer.current?.open) {linkComposer.current?.showModal(); linkComposer.current?.querySelector<HTMLInputElement>('input[type=url]')?.focus();} }, [linkOpen]);
   function selectPlatform(next: string) {
     if (selection.current.platform === next) return;
@@ -273,6 +278,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
         </form>
       </div>}
     </dialog>
+    <SocialPostEditor client={client} post={editingPost} onClose={()=>setEditingPost(null)} onSaved={saved=>{setItems(current=>current.map(item=>item.post_id===saved.post_id?{...item,...saved,thumbnail_url:item.thumbnail_url}:item));setNotice('貼文已更新。');}}/>
     {notice && !linkOpen && <p className="social-feedback" role="status">{notice}</p>}
     {error && !linkOpen && <div className="banner banner-error" role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={() => void load(platform)}>重試</button></div>}
     <div className="social-feed-heading" data-guide-anchor="social:platform">
@@ -284,10 +290,11 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
     <div className="social-grid">
       {items.map(post => <article className="card social-card" key={post.post_id} id={`social-post-${post.post_id}`}>
         <div className="social-card-body">
-          <div className="social-post-header"><p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> <time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time></p>
+          <div className="social-post-header"><p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> {post.edited_at ? <small className="social-byline-meta"><time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time><small className="social-edited" title={formatIsoLocal(post.edited_at)}>已編輯</small></small> : <time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time>}</p>
             {(post.mine||canHide)&&<details className="social-post-menu" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}}>
               <summary aria-label="貼文選項">⋯</summary><div className="social-post-menu-actions">
                 {post.mine && <label className="btn btn-ghost social-file">{post.kind==='note'?post.thumbnail_url?'換圖片':'加入圖片':'換縮圖'}<input aria-label={post.kind==='note'?'貼文圖片（JPEG、PNG、WebP，512 KiB 以下）':'更換縮圖'} type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} onChange={event=>{const next=event.target.files?.[0];if(next)void upload(post,next);event.target.value='';}}/></label>}
+                {post.mine && confirming!==post.post_id && <button type="button" className="btn btn-ghost" disabled={saving} onClick={event=>{editTrigger.current=event.currentTarget.closest('details')?.querySelector('summary')??null;event.currentTarget.closest('details')?.removeAttribute('open');setNotice('');setEditingPost(post);}}>編輯</button>}
                 {post.mine && confirming!==post.post_id && <button type="button" className="btn btn-ghost" disabled={saving} onClick={()=>setConfirming(post.post_id)}>刪除</button>}
                 {post.mine && confirming===post.post_id && <><button type="button" className="btn btn-primary" disabled={saving} onClick={()=>void remove(post)}>確定刪除</button><button type="button" className="btn btn-ghost" onClick={()=>setConfirming(null)}>取消</button></>}
                 {canHide && !post.mine && <button type="button" className="btn btn-ghost" disabled={saving} onClick={()=>void hide(post)}>隱藏</button>}

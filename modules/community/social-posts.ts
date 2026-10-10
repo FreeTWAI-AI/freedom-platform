@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
-import { command,digest as commandDigest, type Command } from '../../packages/db/index.js';
+import { checkVersion,command,digest as commandDigest, type Command } from '../../packages/db/index.js';
 import { socialThumbnailMemberCommand } from '../../packages/scoped-commands/index.js';
 import { AssetStorageError,type ObjectStore } from '../../packages/asset-storage/index.js';
 import { readDomainMedia,type DomainMediaSnapshot } from '../../packages/media-migration/domain-bridge.js';
@@ -30,6 +30,7 @@ const input = z.object({
 
 type PostRow = {
   post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; title: string; note: string | null; created_at: Date | string;
+  edited_at: Date | string | null; edit_revision: number;
   author_user_id: string; display_name: string; aggregate_version: string | null; has_avatar: boolean; test_account: boolean;
   has_thumbnail: boolean; total_points: number; my_points: number; like_count: number; comment_count: number; liked: boolean;
 };
@@ -40,6 +41,7 @@ function view(row: PostRow, viewerId: string) {
   return {
     post_id: row.post_id, url: row.url, kind: row.kind, platform: row.platform, platform_label: row.kind === 'note' ? '工坊貼文' : PLATFORM_LABELS[row.platform] ?? '其他',
     title: row.title, note: row.note, created_at: created,
+    edited_at: row.edited_at ? new Date(row.edited_at).toISOString() : null, revision: Number(row.edit_revision),
     author: { user_id: row.author_user_id, display_name: row.display_name, avatar_url: showAvatar ? avatarUrl(row.author_user_id, row.aggregate_version ?? 1, row.has_avatar) : null },
     thumbnail_url: row.has_thumbnail ? `/api/v1/social-posts/${row.post_id}/thumbnail` : null,
     total_points: Number(row.total_points) || 0, my_points: Number(row.my_points) || 0,
@@ -48,7 +50,7 @@ function view(row: PostRow, viewerId: string) {
   };
 }
 
-const LIST = `SELECT p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.author_user_id,u.display_name,
+const LIST = `SELECT p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.edited_at,p.edit_revision,p.author_user_id,u.display_name,
   (SELECT count(*)::int FROM community_social_likes l WHERE l.post_id=p.post_id) AS like_count,
   EXISTS(SELECT 1 FROM community_social_likes l WHERE l.post_id=p.post_id AND l.user_id=$2) AS liked,
   (SELECT count(*)::int FROM community_social_comments c WHERE c.post_id=p.post_id AND c.state='active') AS comment_count,
@@ -142,17 +144,23 @@ export async function setSocialLike(pool: Pool, inputCommand: Command, id: strin
   });
 }
 
+export type SocialCommentView = { comment_id: string; body: string; created_at: string; edited_at: string | null; revision: number; author: { user_id: string; display_name: string }; mine: boolean };
+type CommentRow = { comment_id: string; body: string; created_at: Date | string; edited_at: Date | string | null; edit_revision: number; author_user_id: string; display_name: string };
+function commentView(row: CommentRow, actor: Actor): SocialCommentView {
+  return {comment_id: row.comment_id, body: row.body, created_at: new Date(row.created_at).toISOString(), edited_at: row.edited_at ? new Date(row.edited_at).toISOString() : null,
+    revision: Number(row.edit_revision), author: {user_id: row.author_user_id, display_name: row.display_name}, mine: row.author_user_id === actor.user_id};
+}
+
 export async function listSocialComments(pool: Pool, actor: Actor, id: string, rawCursor?: string) {
   await activePost(pool, actor, id);
   const cursor = cursorOf(rawCursor);
-  const rows = (await pool.query(`SELECT c.comment_id,c.body,c.created_at,c.author_user_id,u.display_name
+  const rows = (await pool.query(`SELECT c.comment_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,u.display_name
     FROM community_social_comments c JOIN users u ON u.user_id=c.author_user_id
     JOIN community_social_posts p ON p.post_id=c.post_id AND p.state='active'
     WHERE c.post_id=$1 AND c.community_id=$2 AND c.state='active'
       AND ($3::timestamptz IS NULL OR (c.created_at,c.comment_id)>($3::timestamptz,$4::uuid))
     ORDER BY c.created_at,c.comment_id LIMIT 25`, [id, actor.community_id, cursor?.createdAt ?? null, cursor?.id ?? null])).rows;
-  const items = rows.slice(0, 24).map(row => ({comment_id: row.comment_id as string, body: row.body as string,
-    created_at: new Date(row.created_at).toISOString(), author: {user_id: row.author_user_id as string, display_name: row.display_name as string}, mine: row.author_user_id === actor.user_id}));
+  const items = rows.slice(0, 24).map(row => commentView(row, actor));
   const last = items.at(-1);
   return {items, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.comment_id}`).toString('base64url') : null};
 }
@@ -170,7 +178,7 @@ export async function createSocialComment(pool: Pool, inputCommand: Command, id:
     requireCondition(used < 100, 429, 'social_comment_limit', '今天的留言已達上限。');
     const row = (await q.query(`INSERT INTO community_social_comments(post_id,community_id,author_user_id,body,created_at) VALUES($1,$2,$3,$4,$5) RETURNING comment_id`, [id, inputCommand.actor.community_id, inputCommand.actor.user_id, text, now])).rows[0];
     const author = (await q.query('SELECT display_name FROM users WHERE user_id=$1', [inputCommand.actor.user_id])).rows[0];
-    return {comment_id: row.comment_id as string, body: text, created_at: now.toISOString(), author: {user_id: inputCommand.actor.user_id, display_name: author.display_name as string}, mine: true};
+    return {comment_id: row.comment_id as string, body: text, created_at: now.toISOString(), edited_at: null, revision: 1, author: {user_id: inputCommand.actor.user_id, display_name: author.display_name as string}, mine: true};
   });
 }
 
@@ -309,4 +317,52 @@ export async function readSocialThumbnail(pool:Pool,actor:Actor,id:string,store?
 }
 export async function publicSocialThumbnail(pool:Pool,id:string,store?:ObjectStore){
  try{return (await readDomainMedia(()=>socialThumbnailSnapshot(pool,id),{purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到縮圖。');throw error;}
+}
+
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+const NoteEdit = z.object({text: z.string().trim().min(1).max(2000)}).strict();
+const LinkEdit = z.object({title: z.string().trim().min(1).max(120), note: z.string().trim().max(500).nullable()}).strict();
+
+/** The author edits text only. A link keeps its URL, platform and thumbnail;
+ * likes, comments and points stay on the same post. If-Match is edit_revision. */
+export async function editSocialPost(pool: Pool, inputCommand: Command, id: string, now = new Date()) {
+  let authorized: { kind: 'link' | 'note' } | undefined;
+  return command(pool, inputCommand, async q => {
+    const row = (await q.query('SELECT author_user_id,kind,state,edit_revision FROM community_social_posts WHERE post_id=$1 AND community_id=$2 FOR UPDATE', [id, inputCommand.actor.community_id])).rows[0];
+    requireCondition(row && row.state === 'active', 404, 'not_found', '找不到這則貼文。');
+    requireCondition(row.author_user_id === inputCommand.actor.user_id, 403, 'author_required', '只能編輯自己分享的貼文。');
+    authorized = {kind: row.kind};
+  }, async q => {
+    const row = (await q.query('SELECT kind,edit_revision FROM community_social_posts WHERE post_id=$1 FOR UPDATE', [id])).rows[0];
+    checkVersion(String(row.edit_revision), inputCommand.expected);
+    if (authorized!.kind === 'note') {
+      const {text} = NoteEdit.parse(inputCommand.body);
+      requireCondition(!CONTROL.test(text), 422, 'validation_failed', '內容含有無法使用的字元。');
+      await q.query('UPDATE community_social_posts SET title=$2,note=$3,edited_at=$4,updated_at=$4,edit_revision=edit_revision+1 WHERE post_id=$1', [id, text.split('\n')[0].slice(0, 120), text, now]);
+    } else {
+      const body = LinkEdit.parse(inputCommand.body);
+      requireCondition(!/[\u0000-\u001f\u007f]/.test(body.title), 422, 'validation_failed', '標題含有無法使用的字元。');
+      requireCondition(!body.note || !CONTROL.test(body.note), 422, 'validation_failed', '說明含有無法使用的字元。');
+      await q.query('UPDATE community_social_posts SET title=$2,note=$3,edited_at=$4,updated_at=$4,edit_revision=edit_revision+1 WHERE post_id=$1', [id, body.title, body.note || null, now]);
+    }
+    return shownSocial(q, inputCommand.actor, id);
+  });
+}
+
+export async function editSocialComment(pool: Pool, inputCommand: Command, postId: string, commentId: string, now = new Date()) {
+  const {text} = z.object({text: z.string().trim().min(1).max(1000)}).strict().parse(inputCommand.body);
+  requireCondition(!CONTROL.test(text), 422, 'validation_failed', '內容含有無法使用的字元。');
+  return command(pool, inputCommand, async q => {
+    await activePost(q, inputCommand.actor, postId, true);
+    const row = (await q.query("SELECT author_user_id,state FROM community_social_comments WHERE comment_id=$1 AND post_id=$2 AND community_id=$3 FOR UPDATE", [commentId, postId, inputCommand.actor.community_id])).rows[0];
+    requireCondition(row && row.state === 'active', 404, 'not_found', '找不到這則留言。');
+    requireCondition(row.author_user_id === inputCommand.actor.user_id, 403, 'author_required', '只能編輯自己的留言。');
+  }, async q => {
+    const current = (await q.query('SELECT edit_revision FROM community_social_comments WHERE comment_id=$1 FOR UPDATE', [commentId])).rows[0];
+    checkVersion(String(current.edit_revision), inputCommand.expected);
+    await q.query('UPDATE community_social_comments SET body=$2,edited_at=$3,edit_revision=edit_revision+1 WHERE comment_id=$1', [commentId, text, now]);
+    const row = (await q.query(`SELECT c.comment_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,u.display_name
+      FROM community_social_comments c JOIN users u ON u.user_id=c.author_user_id WHERE c.comment_id=$1`, [commentId])).rows[0] as CommentRow;
+    return commentView(row, inputCommand.actor);
+  });
 }

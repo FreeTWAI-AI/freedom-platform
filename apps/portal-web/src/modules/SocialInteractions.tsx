@@ -3,7 +3,7 @@ import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import type {SocialPost} from './SocialZone';
 
-type Comment = {comment_id: string; body: string; created_at: string; author: {user_id: string; display_name: string}; mine: boolean};
+type Comment = {comment_id: string; body: string; created_at: string; edited_at: string | null; revision: number; author: {user_id: string; display_name: string}; mine: boolean};
 type Comments = {items: Comment[]; next_cursor: string | null};
 function mergeComments(current: Comment[], incoming: Comment[]) {
   const all = new Map([...current, ...incoming].map(item => [item.comment_id, item]));
@@ -20,6 +20,7 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{id: string; text: string} | null>(null);
   const pendingComment = useRef<{text: string; key: string} | null>(null);
   const pendingLike = useRef<{liked: boolean; key: string} | null>(null);
   const confirmedComments = useRef<Comment[]>([]);
@@ -79,6 +80,19 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
     } catch (cause) { setError(cause instanceof Error ? cause.message : '留言未能刪除。'); }
     finally { setSending(false); }
   }
+  async function saveEdit(event: FormEvent, comment: Comment) {
+    event.preventDefault();
+    if (!editing || sending) return;
+    setSending(true); setError('');
+    try {
+      const saved = await client.post<Comment>(`/social-posts/${post.post_id}/comments/${comment.comment_id}/edit`, {text: editing.text.trim()}, {ifMatch: comment.revision});
+      confirmedComments.current = confirmedComments.current.map(item => item.comment_id === saved.comment_id ? saved : item);
+      setComments(current => current.map(item => item.comment_id === saved.comment_id ? saved : item));
+      setEditing(null);
+    } catch (cause) {
+      setError(cause instanceof ApiError && cause.status === 412 ? '這則留言已在別處更新，請重新載入留言後再編輯。' : cause instanceof Error ? cause.message : '留言未能更新。');
+    } finally { setSending(false); }
+  }
   return <div className="social-interactions stack">
     <div className="social-actions">
       <button type="button" className="btn btn-ghost" aria-pressed={post.liked ?? false} disabled={liking} onClick={() => void like()}>{liking ? '處理中…' : pendingLike.current ? '重試按讚' : post.liked ? '已讚' : '讚'} · {post.like_count ?? 0}</button>
@@ -89,11 +103,14 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
       {loading && <p role="status">正在載入留言…</p>}
       {!loading && comments.length === 0 && <p className="muted">還沒有留言，聊聊你的想法。</p>}
       {comments.map(comment => <article className="social-comment" key={comment.comment_id}>
-        <div className="social-comment-meta"><strong>{comment.author.display_name}</strong><time dateTime={comment.created_at}>{formatIsoLocal(comment.created_at)}</time></div>
-        <p className="multiline-text">{comment.body}</p>
-        {(comment.mine || canHide) && <div className="social-actions">{confirmDelete === comment.comment_id ? <>
+        <div className="social-comment-meta"><strong>{comment.author.display_name}</strong><time dateTime={comment.created_at}>{formatIsoLocal(comment.created_at)}</time>{comment.edited_at && <span className="social-edited" title={formatIsoLocal(comment.edited_at)}>已編輯</span>}</div>
+        {editing?.id === comment.comment_id ? <form className="stack" onSubmit={event => void saveEdit(event, comment)} aria-busy={sending}>
+          <label className="field">編輯留言<textarea aria-label="編輯留言" required rows={2} maxLength={1000} value={editing.text} disabled={sending} onChange={event => setEditing({id: comment.comment_id, text: event.target.value})}/></label>
+          <div className="social-actions"><button className="btn btn-ghost" disabled={sending || !editing.text.trim() || editing.text.trim() === comment.body}>{sending ? '儲存中…' : '儲存留言'}</button><button type="button" className="btn btn-ghost" disabled={sending} onClick={() => setEditing(null)}>取消</button></div>
+        </form> : <p className="multiline-text">{comment.body}</p>}
+        {(comment.mine || canHide) && editing?.id !== comment.comment_id && <div className="social-actions">{confirmDelete === comment.comment_id ? <>
           <button type="button" className="btn btn-ghost" disabled={sending} onClick={() => void remove(comment)}>確定刪除留言</button><button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>取消</button>
-        </> : <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(comment.comment_id)}>刪除留言</button>}</div>}
+        </> : <>{comment.mine && <button type="button" className="btn btn-ghost" disabled={sending} onClick={() => { setConfirmDelete(null); setEditing({id: comment.comment_id, text: comment.body}); }}>編輯留言</button>}<button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(comment.comment_id)}>刪除留言</button></>}</div>}
       </article>)}
       {cursor && <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(cursor)}>載入更多留言</button>}
       {error && <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load()}>重新載入留言</button>}
