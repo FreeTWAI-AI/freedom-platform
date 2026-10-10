@@ -469,7 +469,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.get('/api/v1/task-board/preview',async c=>c.json({items:await previewTasks(pool,c.get('actor'))}));
   app.get('/api/v1/me/contribution-records',async c=>c.json(await contributionRecords(pool,c.get('actor'))));
   app.get('/api/v1/community/accepted-work',async c=>c.json({items:await acceptedWorkFeed(pool,c.get('actor'))}));
-  app.get('/api/v1/showcases',async c=>c.json({items:await listShowcases(pool,c.get('actor'))}));
+  app.get('/api/v1/showcases',async c=>c.json(await listShowcases(pool,c.get('actor'),c.req.query())));
   app.post('/api/v1/showcases',async c=>respond(c,await createShowcase(pool,await cmd(c)),201));
   app.get('/api/v1/opportunities',async c=>c.json({items:await listOpportunities(pool,c.get('actor'))}));
   app.post('/api/v1/opportunities',async c=>respond(c,await createOpportunity(pool,await cmd(c)),201));
