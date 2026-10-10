@@ -30,7 +30,8 @@
     "tests/e2e/notification-bell-actions.spec.ts",
     "tests/e2e/notification-bell-refresh.spec.ts",
     "docs/development/member-settings-messages.md",
-    "tests/e2e/chat-search.spec.ts"
+    "tests/e2e/chat-search.spec.ts",
+    "apps/portal-web/src/modules/ChatWorkspace.tsx"
   ],
   "public_exports": [
     "modules/member-communications/images.ts",

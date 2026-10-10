@@ -42,21 +42,24 @@ test('one bubble toggles the persistent inbox across pages and themes at phone, 
 test('closed history stays idle and legacy inbox/popout links open the same panel',async({page,request,baseURL})=>{
   const sender=await request.post('/api/v1/auth/login',{data:{email:'reviewer@local.test',password:'freedom-local-demo'},headers:{Origin:baseURL!}});
   expect(sender.status()).toBe(200);const {csrf_token}=await sender.json();
-  const sent=await request.post('/api/v1/me/channels/world/world/messages',{data:{body:`收合前可见的未讀訊息 ${randomUUID()}`},headers:{Origin:baseURL!,'X-CSRF-Token':csrf_token,'Idempotency-Key':randomUUID()}});
+  const body=`收合前可見的未讀訊息 ${randomUUID()}`;
+  const sent=await request.post('/api/v1/me/channels/world/world/messages',{data:{body},headers:{Origin:baseURL!,'X-CSRF-Token':csrf_token,'Idempotency-Key':randomUUID()}});
   expect(sent.status()).toBe(201);
-  await page.addInitScript(()=>{
-    const original=window.fetch.bind(window);(window as any).__floatingReads=[];
-    window.fetch=(input,init)=>{
-      const path=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url,location.href).pathname;
-      if(path.endsWith('/read')||path.endsWith('/world/world/messages'))(window as any).__floatingReads.push({path,method:init?.method??'GET',panelHidden:document.getElementById('floating-message-panel')?.hidden??null,at:performance.now()});
-      return original(input,init);
-    };
-  });
+  const message=await sent.json();
   let history=0,reads=0;
   page.on('request',request=>{const url=new URL(request.url());if(/channels\/world\/world\/messages$/.test(url.pathname))history++;if(request.method()==='POST'&&url.pathname.endsWith('/read'))reads++;});
   await login(page);const bubble=page.locator('.floating-messages'),panel=page.locator('.floating-message-panel');
-  await bubble.click();await panel.getByRole('tab',{name:/世界聊天/}).click();await expect(panel.getByRole('textbox',{name:'世界聊天訊息'})).toBeVisible();
-  await bubble.click();const before={history,reads};await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(1300);expect({history,reads},JSON.stringify(await page.evaluate(()=>(window as any).__floatingReads))).toEqual(before);
+  // The visible initial read and its count refresh must finish before measuring
+  // closed-panel idleness; the textbox can render before history/read settles.
+  const initialRead=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/channels/world/world/read'));
+  await bubble.click();await panel.getByRole('tab',{name:/世界聊天/}).click();
+  await expect(panel.getByRole('log')).toContainText(body);
+  const acknowledged=await initialRead;expect(acknowledged.status()).toBe(200);
+  expect(acknowledged.request().postDataJSON()).toEqual({through_message_id:message.message_id});
+  await expect(panel.getByText('正在同步已讀…',{exact:true})).toBeHidden();
+  await bubble.click();await expect(panel).toBeHidden();const before={history,reads};
+  await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));document.dispatchEvent(new Event('visibilitychange'));});
+  await page.waitForTimeout(1300);expect({history,reads}).toEqual(before);
   await page.goto('/#messages');await expect(panel).toBeVisible();await expect(bubble).toBeVisible();await expect(page.locator('.member-messages')).toHaveCount(1);
   await page.goto('/?game-console=popout&scope=legacy-fixture');await expect(panel).toBeVisible();await expect(page).toHaveURL(/\/#messages$/);await expect(page.locator('.game-console')).toHaveCount(0);
 });

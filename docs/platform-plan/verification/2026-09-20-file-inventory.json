@@ -17699,8 +17699,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 2134,
-      "sha256": "6c6bd0f3f130b3efdb254921e91c943dcaaafc8bed8da710ec2d32a0cf8d51e4"
+      "bytes": 2187,
+      "sha256": "d8430af101fe2c2618a1069e9e1e5b9e25b4fb34cb99129e51617d0255b8d93b"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -19924,8 +19924,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 7838,
-      "sha256": "fbead54c29110aa5e5a59eab15a38422d40e14819c3dec44df816ec62c0abcc2"
+      "bytes": 7857,
+      "sha256": "abcc3d0efdb7ab9bdfc15af3a365fb58983cb9f6d8df98763ae3356f4242ab35"
     },
     {
       "path": "tests/e2e/freedom.module.json",
