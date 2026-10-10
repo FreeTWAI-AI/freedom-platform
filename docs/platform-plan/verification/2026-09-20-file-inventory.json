@@ -148,6 +148,11 @@
       "sha256": "95c5b79f7056d15b5648ed9d79da46b4fc661ab4202733176a604fae19e66dbb"
     },
     {
+      "path": "apps/freedom.module.json",
+      "bytes": 1471,
+      "sha256": "b9eb473747f2b7d694130452dc234dab35f3b3b7e925c79e7cb83f529cc40af6"
+    },
+    {
       "path": "apps/credential-broker/README.md",
       "bytes": 5011,
       "sha256": "d5576e5a92cb8974f99d07a2bdbe8007d7ffe3c898b8196da16232a055f8ee51"
@@ -16284,8 +16289,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 8368,
-      "sha256": "4b54fa78400085f4b9055f5b3ce7800b4c63dc4fe99efd3191366e961f136306"
+      "bytes": 8421,
+      "sha256": "1e68f56b9dde475519319924c69bb68e0b7512151ba3cae447e37c1f30cca86d"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -17138,6 +17143,11 @@
       "sha256": "6176e2d27005a58e9720f923ca09ca4bb2a02ebd6f084ef3553164abb5f70583"
     },
     {
+      "path": "modules/community/personal-content/freedom.module.json",
+      "bytes": 1630,
+      "sha256": "9c8f6cb61f4044855aa232452a2d0d39bca7ee0035725327639cc0a59921a218"
+    },
+    {
       "path": "modules/community/share-introductions/agent-kit.json",
       "bytes": 10780,
       "sha256": "703e2d3c17cbbebc2e2162844d83f96710e99c82aacdd329d24e4ac48aa81b89"
@@ -17724,8 +17734,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 4591,
-      "sha256": "64c480eb41654cf4253c6133371d83582f5164eadddd1672aaccba15a57a6d2a"
+      "bytes": 4876,
+      "sha256": "04d7689844a4bf994ebdf23f16425541f8836363a3f3a1f82426d09cc5845cd0"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -19749,8 +19759,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1089,
-      "sha256": "cceb6f9b56f6d40e8e0148d4ab59322089db9fe076f011b6abd8313f36051ecd"
+      "bytes": 1135,
+      "sha256": "21f3f104896933ccd3e365969a0b63bc574ec578e758a662288c3d7589dd9baa"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
