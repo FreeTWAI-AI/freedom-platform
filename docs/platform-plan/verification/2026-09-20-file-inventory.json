@@ -17749,8 +17749,8 @@
     },
     {
       "path": "modules/member-communications/notification-preferences.ts",
-      "bytes": 20044,
-      "sha256": "4acdf0c21ef238796243bb0f996d780d573a0474f42a79c2228830ff71cf9312"
+      "bytes": 20179,
+      "sha256": "9c1bd8ef3760378366a3cdeb0e00a2144e939995ea753be53c9644d5489c3d43"
     },
     {
       "path": "modules/member-communications/notifications.ts",

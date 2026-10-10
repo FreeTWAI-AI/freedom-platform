@@ -203,7 +203,9 @@ export async function readNotificationReminders(pool: Pool, actor: Actor, follow
     const items: Notification[] = [];
     for (const row of await unreadNotices(q, actor, suppressed, false)) {
       const group = category(row.kind);
-      let action: Notification['action'] = row.action_tab === 'events' ? { tab: 'events', resource_id: null } : row.action_tab ? { tab: row.action_tab, resource_id: row.action_resource_id } : null;
+      let action: Notification['action'] = row.action_tab === 'events' ? { tab: 'events', resource_id: null }
+        : row.action_tab === 'social' ? row.action_resource_id ? { tab: 'social', resource_id: row.action_resource_id } : null
+        : row.action_tab ? { tab: row.action_tab, resource_id: row.action_resource_id } : null;
       if (group === 'events' && !row.action_resource_id) action = null;
       items.push({ notification_id: row.notification_id, kind: row.kind, title: group === 'events' ? '活動通知' : row.title,
         body: '', created_at: new Date(row.created_at).toISOString(), read_at: null, action });
