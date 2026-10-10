@@ -94,6 +94,13 @@ test('channel mute and quiet suppress badges without changing original history o
   value.quiet_hours={enabled:true,time_zone:'Asia/Taipei',start:'11:00',end:'13:00'};await save(owner,value);
   assert.equal((await (await owner.request(endpoint+'/channel-reminders')).json() as {world:number}).world,0);
   assert.equal((await (await owner.request('me/channels?kind=world')).json() as {unread_count:number}).unread_count,1);
+  value.quiet_hours.enabled=false;await save(owner,value);
+  assert.equal((await (await owner.request(endpoint+'/channel-reminders')).json() as {world:number}).world,1);
+  const message=await sent.json() as {message_id:string};
+  assert.equal((await sender.request(`me/channels/world/world/messages/${message.message_id}/retract`,{},undefined,randomUUID(),'POST')).status,200);
+  assert.equal((await (await owner.request(endpoint+'/channel-reminders')).json() as {world:number}).world,0);
+  assert.equal((await (await owner.request('me/channels?kind=world')).json() as {unread_count:number}).unread_count,0);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_channel_reads WHERE user_id=$1',[DEMO_USERS[2].user_id])).rows[0].n,0);
 });
 
 test('follow reminder and summary recheck original published content and opt-out at each read',async()=>{

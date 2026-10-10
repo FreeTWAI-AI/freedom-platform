@@ -804,7 +804,7 @@ function Workspace({
             </div>
           </section>
         </div>
-        {!error?.accessExpired&&<FloatingMessages client={client} open={messagesOpen} onToggle={()=>messagesOpen?closeMessages():openMessages()} onClose={closeMessages}>
+        {!error?.accessExpired&&<FloatingMessages client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} open={messagesOpen} onToggle={()=>messagesOpen?closeMessages():openMessages()} onClose={closeMessages}>
           {messagesMounted&&<PageLoadBoundary label={t('nav.messages')} resetKey={session.user.user_id} onHome={closeMessages}>
             <MemberMessages registerLeave={registerMessageLeave} active={messagesOpen} messageImagesEnabled={site?.message_images_enabled===true} client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined}/>
           </PageLoadBoundary>}

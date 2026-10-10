@@ -250,7 +250,7 @@ export async function readChannelReminderCounts(pool: Pool, actor: Actor, now: D
     for (const kind of ['guild', 'squad', 'world'] as const) {
       const keys = rooms.filter(id => id.startsWith(`${kind}:`)).map(id => id.slice(kind.length + 1));
       const row = (await q.query(`SELECT count(*)::int AS n FROM member_channel_messages x
-        WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=ANY($4::text[]) AND x.sender_ref<>$3
+        WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=ANY($4::text[]) AND x.sender_ref<>$3 AND x.retracted_at IS NULL
         AND ($2<>'world' OR NOT is_verification_test_account(x.sender_ref))
         AND x.sequence>COALESCE((SELECT d.last_read_sequence FROM member_channel_reads d
           WHERE d.community_id=$1 AND d.kind=$2 AND d.channel_key=x.channel_key AND d.user_id=$3),0)`, [actor.community_id, kind, actor.user_id, keys])).rows[0];

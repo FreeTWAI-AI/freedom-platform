@@ -68,4 +68,24 @@ if(process.env.FREEDOM_E2E_NOTIFICATION_PREFERENCES!=='1'){
     await expect(bell).toHaveAccessibleName('通知');
     expect((await e2eAuthPool.query(`SELECT read_at FROM member_notifications WHERE recipient_ref=$1 AND source_key='preferences-history-friend'`,[recipient.user_id])).rows[0].read_at).toBeNull();
   });
+
+  test('floating chat reminders honor mute and quiet hours without consuming unread history',async({page,e2eAuthPool})=>{
+    await login(page,DEMO_USERS[1].email);
+    expect(await page.evaluate(async()=>{
+      const session=await (await fetch('/api/v1/session')).json();
+      return (await fetch('/api/v1/me/channels/world/world/messages',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf_token,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({body:'合成：靜音後仍保留的公開聊天'})})).status;
+    })).toBe(201);
+    await signOut(page);await login(page,DEMO_USERS[2].email);
+    const bubble=page.locator('.floating-messages'),panel=page.locator('.notification-preferences');
+    await expect(bubble).toHaveAccessibleName('開啟聊天室，1 則未讀');
+    const before=(await e2eAuthPool.query('SELECT * FROM member_channel_reads WHERE user_id=$1 ORDER BY kind,channel_key',[DEMO_USERS[2].user_id])).rows;
+    await panel.getByLabel('頻道類型').selectOption('world');const muted=panel.locator('.notification-preferences-channels input').first();
+    await muted.check();await panel.getByRole('button',{name:'儲存通知偏好',exact:true}).click();await expect(bubble).toHaveAccessibleName('開啟聊天室');
+    await muted.uncheck();await panel.getByRole('button',{name:'儲存通知偏好',exact:true}).click();await expect(bubble).toHaveAccessibleName('開啟聊天室，1 則未讀');
+    await panel.getByLabel('啟用安靜時段').check();await panel.getByLabel('時區（IANA）').fill('UTC');
+    const now=Date.now();await panel.getByLabel('開始時間').fill(new Date(now-3600000).toISOString().slice(11,16));await panel.getByLabel('結束時間').fill(new Date(now+3600000).toISOString().slice(11,16));
+    await panel.getByRole('button',{name:'儲存通知偏好',exact:true}).click();await expect(bubble).toHaveAccessibleName('開啟聊天室');
+    expect(await page.evaluate(async()=>(await (await fetch('/api/v1/me/channels?kind=world')).json()).unread_count)).toBe(1);
+    expect((await e2eAuthPool.query('SELECT * FROM member_channel_reads WHERE user_id=$1 ORDER BY kind,channel_key',[DEMO_USERS[2].user_id])).rows).toEqual(before);
+  });
 }
