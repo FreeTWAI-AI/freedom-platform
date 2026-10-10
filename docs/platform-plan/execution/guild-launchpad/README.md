@@ -6,9 +6,9 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-10 release.production=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa release.staging=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa flag.production=true flag.staging=true repo_max_migration=159 applied_migration.production=148 applied_migration.staging=148 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-10 release.production=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa release.staging=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa flag.production=true flag.staging=true repo_max_migration=160 applied_migration.production=148 applied_migration.staging=148 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-本候選的 repository migration 已到 159（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動，149 為 #412 通知偏好、150 為 #405 訊息收回、151 為 #410 互動通知、152 為 #347 第一次參與、153 為 #348 活動參與、154 為小隊成果、155 為活動成果、156 為登入信箱變更、157 為信箱驗證、158 為 TOTP、159 為參與統計）；這是程式整合狀態，兩環境已套用的版本仍為下述 148。
+本候選的 repository migration 已到 160（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動，149 為 #412 通知偏好、150 為 #405 訊息收回、151 為 #410 互動通知、152 為 #347 第一次參與、153 為 #348 活動參與、154 為小隊成果、155 為活動成果、156 為登入信箱變更、157 為信箱驗證、158 為 TOTP、159 為參與統計、160 為會員檢舉）；這是程式整合狀態，兩環境已套用的版本仍為下述 148。
 
 2026-10-10 R15 更新（operator 私有收據的去敏摘要）：production 與 staging 都已部署 #427 `2d5f158c`，與 reviewed `fccc1739` 同 tree，使用同一份 dist。正式站套用 142–148，staging 在 R15 前已到 148、本輪沒有重套；兩邊 ledger 共 147 筆，022 是唯一歷史缺號。公會啟動台保持啟用，留言圖片為 r2_only／64 MiB；排程、GC 與 retention 維持原狀。
 
