@@ -1,7 +1,22 @@
 {
+  "client_profiles": [
+    "member"
+  ],
+  "contract_families": [
+    "preview"
+  ],
+  "dependencies": [],
   "format": "freedom.module/v1",
+  "instructions": [
+    "governance/README.md",
+    "packages/contribution-tools/behavior-supervisor.md",
+    "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
   "module_id": "governance",
-  "owner_role": "foundation",
   "owned_paths": [
     "governance/**",
     "packages/contribution-tools/**",
@@ -28,31 +43,14 @@
     "deploy/cloudflare/environments.json",
     "deploy/cloudflare/lib/release-compatibility.mjs",
     "deploy/cloudflare/test/migration-plan.test.mjs",
-    "deploy/cloudflare/test/release-compatibility.test.mjs"
+    "deploy/cloudflare/test/release-compatibility.test.mjs",
+    "scripts/ci/select-affected-jobs.mjs",
+    "scripts/ci/select-affected-jobs.test.mjs"
   ],
+  "owner_role": "foundation",
   "public_exports": [
     "packages/contribution-tools/contracts.mjs",
     "packages/contribution-tools/context.mjs"
-  ],
-  "dependencies": [],
-  "contract_families": [
-    "preview"
-  ],
-  "client_profiles": [
-    "member"
-  ],
-  "instructions": [
-    "governance/README.md",
-    "packages/contribution-tools/behavior-supervisor.md",
-    "docs/platform-plan/execution/unified-foundation/01-contracts-and-governance.md"
-  ],
-  "invariants": [
-    "current-authority-before-replay",
-    "no-secrets-in-artifacts"
-  ],
-  "tests": [
-    "governance.unit",
-    "runtime.full"
   ],
   "surfaces": [
     {
@@ -102,5 +100,9 @@
       ],
       "auth_profile": "isolated-fixed-host-fixture"
     }
+  ],
+  "tests": [
+    "governance.unit",
+    "runtime.full"
   ]
 }

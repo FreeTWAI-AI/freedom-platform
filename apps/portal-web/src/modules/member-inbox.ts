@@ -5,9 +5,10 @@ import {ApiError} from '../api';
 /** Fired after the server confirms a read or a sent message so the menu re-reads real totals. */
 export const INBOX_UPDATED='freedom-inbox-updated';
 export const INBOX_ALL_READ='freedom-inbox-all-read';
+export const NOTIFICATIONS_READ='freedom-notifications-read';
 export const announceInboxChange=()=>window.dispatchEvent(new Event(INBOX_UPDATED));
 
-export function useReadAllInbox(client:PortalClient){
+export function useReadAllInbox(client:PortalClient,scope:'inbox'|'notifications'='inbox'){
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const key=useRef<string|null>(null),locked=useRef(false),alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[]);
@@ -16,12 +17,12 @@ export function useReadAllInbox(client:PortalClient){
     const session=client.sessionGeneration,valid=()=>alive.current&&session===client.sessionGeneration;
     locked.current=true;setBusy(true);setError('');key.current??=crypto.randomUUID();
     try{
-      await client.post('/me/inbox/read-all',{},{idempotencyKey:key.current,suppressConsole:true});
+      await client.post('/me/inbox/read-all',scope==='notifications'?{scope}:{},{idempotencyKey:key.current,suppressConsole:true});
       // The shell still needs the confirmed totals after this page unmounts.
       // A different login must never receive the previous session’s acknowledgement.
       if(session!==client.sessionGeneration)return;
       key.current=null;
-      window.dispatchEvent(new Event(INBOX_ALL_READ));announceInboxChange();
+      window.dispatchEvent(new Event(scope==='notifications'?NOTIFICATIONS_READ:INBOX_ALL_READ));announceInboxChange();
     }catch(cause){
       if(!valid())return;
       if(cause instanceof ApiError&&!cause.network&&cause.status>0&&cause.status<500)key.current=null;

@@ -45,7 +45,21 @@
     "apps/portal-web/src/game-console-feed.ts",
     "apps/portal-web/src/modules/NotificationBell.tsx",
     "modules/member-communications/channels.ts",
-    "modules/member-communications/types.ts"
+    "modules/member-communications/types.ts",
+    "modules/member-communications/service.ts",
+    "apps/portal-web/src/modules/ChatWorkspace.css",
+    "apps/portal-web/src/modules/FloatingMessages.css",
+    "apps/portal-web/src/modules/FloatingMessages.tsx",
+    "apps/portal-web/src/modules/MemberMessages.tsx",
+    "apps/portal-web/src/modules/member-inbox.ts",
+    "tests/runtime/member-communications.test.ts",
+    "tests/e2e/chat-stickers.spec.ts",
+    "tests/e2e/floating-messages.spec.ts",
+    "tests/e2e/member-channels-real.spec.ts",
+    "tests/e2e/member-channels.spec.ts",
+    "tests/e2e/notification-bell-actions.spec.ts",
+    "tests/e2e/notification-bell-refresh.spec.ts",
+    "docs/development/member-settings-messages.md"
   ],
   "owner_role": "foundation",
   "public_exports": [

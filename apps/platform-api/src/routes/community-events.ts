@@ -8,7 +8,7 @@ import { planObjectHttpRequest } from '../../../../packages/asset-storage/http-r
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import type { EventEmailSender } from '../../../../modules/community/events.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
-import { eventVideoHttp, cancelEvent, createEvent, eventReferralReport, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
+import { eventVideoHttp, cancelEvent, createEvent, eventReferralReport,eventAttendees, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
 
 const BANNER_MAX_BYTES=512*1024;
 const VIDEO_MAX_BYTES=20*1024*1024;
@@ -61,6 +61,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
   app.get('/events/bulletins',async c=>c.json({items:await listEventBulletins(pool,c.get('actor'))}));
   app.get('/events/:id',async c=>c.json(await readEvent(pool,c.get('actor'),id(c.req.param('id')))));
   app.get('/events/:id/referrals',async c=>c.json({items:await eventReferralReport(pool,c.get('actor'),id(c.req.param('id')))}));
+  app.get('/events/:id/attendees',async c=>{c.header('Cache-Control','private, no-store');return c.json(await eventAttendees(pool,c.get('actor'),id(c.req.param('id')),c.req.query()));});
   app.post('/events/:id/share-code',async c=>c.json(await getEventShareCode(pool,c.get('actor'),id(c.req.param('id')))));
   app.get('/events/:id/banner',async c=>{
     const bytes=await readEventBanner(pool,c.get('actor'),id(c.req.param('id')),runtime?.eventBannerAssetStore);

@@ -43,6 +43,11 @@ export function createGitHubSocialRoutes(load:ReturnType<typeof socialLoader>){
     const body=z.object({starred:z.boolean(),confirmed:z.literal(true)}).strict().parse(await c.req.json());
     return c.json(await (await load()).star(c.get('actor'),bookId(c.req.param('id')),body.starred));
   });
+  app.get('/me/github/authors/:username/follow',async c=>c.json(await (await load()).following(c.get('actor'),c.req.param('username'))));
+  app.post('/me/github/authors/:username/follow',async c=>{
+    const body=z.object({following:z.boolean(),confirmed:z.literal(true)}).strict().parse(await c.req.json());
+    return c.json(await (await load()).follow(c.get('actor'),c.req.param('username'),body.following));
+  });
   app.post('/me/github/pages/:id/issues',async c=>{
     const body=z.object({title:z.string().min(3).max(120),description:z.string().min(10).max(2000),confirmed:z.literal(true)}).strict().parse(await c.req.json());
     return c.json(await (await load()).createPageIssue(c.get('actor'),c.req.param('id'),body.title,body.description,c.req.header('Idempotency-Key')??''),201);

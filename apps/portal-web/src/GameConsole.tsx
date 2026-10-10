@@ -76,7 +76,7 @@ function keyTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 }
 
-export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,site}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;site?:SiteConfig|null}) {
+export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,headless = false,site}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;headless?:boolean;site?:SiteConfig|null}) {
   const [localSite,setLocalSite]=useState<{client:PortalClient;site:SiteConfig}|null>(null)
   // Omitted config means an independent console; null means the shell has not loaded it or failed.
   useEffect(()=>{if(site!==undefined||!client)return;let active=true;void client.get<SiteConfig>('/site').then(value=>{if(active)setLocalSite({client,site:value})}).catch(()=>{if(active)setLocalSite(null)});return()=>{active=false}},[client,site])
@@ -178,7 +178,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   }, [client])
 
   useEffect(() => {
-    if (variant === 'popout') return
+    if (variant === 'popout'||headless) return
     const toggle = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || keyTarget(event.target)) return
       if (event.code !== 'Backquote' && event.key !== '~' && event.key !== '`') return
@@ -186,7 +186,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
     }
     window.addEventListener('keydown', toggle)
     return () => window.removeEventListener('keydown', toggle)
-  }, [variant])
+  }, [variant,headless])
 
   const selectChannel = useCallback((channel: GameConsoleChannel) => {
     setActiveChannel(channel); setUnread(current => ({...current, [channel]: 0}))
@@ -195,8 +195,8 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   const value = useMemo<ConsoleContextValue>(() => ({registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log: logConsoleEvent, setExpanded, setActiveChannel: selectChannel}), [events, expanded, activeChannel, visibility, toggleVisibility,selectChannel,registerDmSessionEnd,canEndSession])
   if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
-    {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
-    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={config?.member_blocking_enabled===true} messageImagesEnabled={config?.message_images_enabled===true} preferencesEnabled={preferencesEnabled}/>
+    {variant === 'dock'&&!headless ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
+    {!headless&&<GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={config?.member_blocking_enabled===true} messageImagesEnabled={config?.message_images_enabled===true} preferencesEnabled={preferencesEnabled}/>}
   </ConsoleContext.Provider>
 }
 
@@ -281,7 +281,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
   }
 
   function popOut() {
-    const url = new URL(window.location.origin)
+    const url = new URL('/admin',window.location.origin)
     url.searchParams.set('game-console', 'popout')
     url.searchParams.set('scope', syncScope)
     const opened = window.open(url, `freedom-game-console-${syncScope}`, 'popup=yes,width=880,height=620,resizable=yes,scrollbars=yes')

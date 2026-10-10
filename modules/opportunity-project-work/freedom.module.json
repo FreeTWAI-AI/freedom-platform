@@ -60,7 +60,11 @@
     "migrations/143_personal_content.sql",
     "tests/runtime/showcase-drafts.test.ts",
     "tests/runtime/sharing-authoring.test.ts",
-    "tests/e2e/simple-work-sharing.spec.ts"
+    "tests/e2e/simple-work-sharing.spec.ts",
+    "tests/e2e/share-launcher.spec.ts",
+    "tests/e2e/sharing-authoring-fixture.ts",
+    "tests/e2e/showcase-pages.spec.ts",
+    "tests/runtime/showcase-pages.test.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [

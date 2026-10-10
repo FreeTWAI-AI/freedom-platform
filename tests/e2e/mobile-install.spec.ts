@@ -1,5 +1,5 @@
 import {test,expect,type Page} from './fixtures.js';
-import {navigate} from './navigation.js';
+import {navigate,closeChat} from './navigation.js';
 
 async function login(page:Page){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
@@ -62,7 +62,7 @@ test('simulated standalone launch keeps authenticated home, settings and native 
     const page=await context.newPage();await login(page);await expect(page.locator('.app-install-trigger')).toHaveCount(0);
     const settings=page.getByRole('button',{name:'設定',exact:true});await settings.click();const menu=page.getByRole('menu');await expect(menu.getByRole('menuitem',{name:'加入主畫面',exact:true})).toHaveCount(0);
     await page.keyboard.press('End');await expect(menu.getByRole('menuitem',{name:'登出',exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(settings).toBeFocused();
-    await navigate(page,'我的訊息');await expect(page.locator('.messages-categories')).toBeVisible();await page.goBack();await expect(page.getByRole('heading',{name:'會員首頁',level:1,exact:true})).toBeVisible();
+    await navigate(page,'我的訊息');await expect(page.locator('.messages-categories')).toBeVisible();await closeChat(page);await navigate(page,'技能書架');await page.goBack();await expect(page.getByRole('heading',{name:'會員首頁',level:1,exact:true})).toBeVisible();
   }finally{await context.close();}
 });
 

@@ -1,3 +1,4 @@
+import {openChat,closeChat} from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 import {mkdirSync} from 'node:fs';
 
@@ -41,23 +42,23 @@ test('a delayed chat chunk keeps the navigation and shows a page-specific loadin
   await login(page);let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});let requested=0;
   await page.route(/\/assets\/MemberMessages-[^/]+\.js$/,async route=>{requested++;await gate;await route.continue();});
   try{
-    await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息',exact:true}).click();
+    await openChat(page);
     await expect(page.locator('.page-loading')).toContainText('正在開啟我的訊息');
     await expect(page.getByRole('navigation',{name:'主要工作區'})).toBeVisible();
     await expect.poll(()=>requested).toBe(1);
     await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'社群分享',exact:true}).click();
     await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeVisible();
   }finally{release();}
-  await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息',exact:true}).click();
+  await openChat(page);
   await expect(page.getByRole('tab',{name:/^私人訊息/})).toBeVisible();
 });
 
 test('a failed deferred page offers recovery while the shared member shell stays usable',async({page})=>{
   await login(page);await page.route(/\/assets\/MemberMessages-[^/]+\.js$/,route=>route.abort());
-  await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息',exact:true}).click();
+  await openChat(page);
   await expect(page.getByRole('alert')).toContainText('我的訊息暫時無法開啟');
   await expect(page.getByRole('button',{name:'重新載入頁面',exact:true})).toBeVisible();
-  await page.getByRole('link',{name:'返回首頁',exact:true}).click();
+  await closeChat(page);await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'會員首頁',exact:true}).click();
   await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeVisible();
 });
 
@@ -78,13 +79,13 @@ test('offline feedback follows all three themes at 320px and leaves local naviga
   await expect(page.locator('.request-feedback')).toHaveCount(0);
 });
 
-test('deferred console chat panes retain the world draft across channel switches',async({page})=>{
-  await login(page);await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
-  const dock=page.locator('.game-console-expanded');
-  await dock.getByRole('tab',{name:'世界聊天',exact:true}).click();
+test('deferred floating chat panes retain the world draft across channel switches',async({page})=>{
+  await login(page);await openChat(page);
+  const dock=page.locator('.floating-message-panel');
+  await dock.getByRole('tab',{name:/^世界聊天/}).click();
   const input=dock.getByRole('textbox',{name:'世界聊天訊息',exact:true});
   await expect(input).toBeVisible();await input.fill('這份世界頻道草稿要保留');
-  await dock.getByRole('tab',{name:/^私人聊天/}).click();
-  await expect(input).toBeHidden();await dock.getByRole('tab',{name:'世界聊天',exact:true}).click();
+  await dock.getByRole('tab',{name:/^私人訊息/}).click();
+  await expect(input).toBeHidden();await dock.getByRole('tab',{name:/^世界聊天/}).click();
   await expect(input).toHaveValue('這份世界頻道草稿要保留');
 });
