@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MEMBER_REPORTING_SPEC, AVATAR_ASSET_SPEC, EVENT_PARTICIPATION_SPEC, explicitFileArgs, MESSAGE_IMAGE_SPEC, STORE_PHOTO_SPEC, NOTIFICATION_PREFERENCES_SPEC, FIRST_PARTICIPATION_SPEC, planE2e, PRIVATE_AI_SPEC, runE2e } from './run-e2e.mjs';
+import { AVATAR_ASSET_SPEC, EVENT_PARTICIPATION_SPEC, explicitFileArgs, MESSAGE_IMAGE_SPEC, STORE_PHOTO_SPEC, NOTIFICATION_PREFERENCES_SPEC, FIRST_PARTICIPATION_SPEC, planE2e, PRIVATE_AI_SPEC, runE2e } from './run-e2e.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runner = new URL('./run-e2e.mjs', import.meta.url).href;
@@ -27,7 +27,7 @@ test('flag values are not file filters and path filters are', () => {
 test('default plan runs the baseline, private fixture, avatar asset fixture, then message image and photo fixtures', () => {
   const env = { FREEDOM_E2E_PORT: '4311' };
   const steps = planE2e(['--headed', '--workers', '1'], env);
-  assert.equal(steps.length, 9);
+  assert.equal(steps.length, 8);
   assert.deepEqual(steps[0].args, ['--headed', '--workers', '1']);
   assert.equal(steps[0].env, env);
   assert.equal(steps[0].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
@@ -57,9 +57,6 @@ test('default plan runs the baseline, private fixture, avatar asset fixture, the
   assert.equal(steps[6].env.FREEDOM_E2E_FIRST_PARTICIPATION, '1');
   for(const step of steps.slice(0,6))assert.equal(step.env.FREEDOM_E2E_FIRST_PARTICIPATION, undefined);
   assert.equal(planE2e([], { FREEDOM_E2E_FIRST_PARTICIPATION: '1' }).length,1);
-  assert.deepEqual(steps[8].args, ['--headed', '--workers', '1', MEMBER_REPORTING_SPEC]);
-  assert.equal(steps[8].env.FREEDOM_MEMBER_REPORTING_ENABLED,'true');
-  for(const step of steps.slice(0,8))assert.equal(step.env.FREEDOM_MEMBER_REPORTING_ENABLED,undefined);
   assert.equal(env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
   assert.equal(env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
   assert.deepEqual(steps[5].args, ['--headed', '--workers', '1', NOTIFICATION_PREFERENCES_SPEC]);
@@ -97,17 +94,6 @@ test('file arguments and an explicit fixture stay one invocation', () => {
   assert.equal(avatar.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, '1');
 });
 
-test('an explicit reporting filter enables reporting in one isolated invocation', () => {
-  const env = { FREEDOM_E2E_PORT: '4311' };
-  const steps = planE2e([MEMBER_REPORTING_SPEC, '--grep', '1280px light'], env);
-  assert.equal(steps.length, 1);
-  assert.deepEqual(steps[0].args, [MEMBER_REPORTING_SPEC, '--grep', '1280px light']);
-  assert.equal(steps[0].env.FREEDOM_MEMBER_REPORTING_ENABLED, 'true');
-  assert.equal(env.FREEDOM_MEMBER_REPORTING_ENABLED, undefined);
-  const enabled = { FREEDOM_MEMBER_REPORTING_ENABLED: 'true' };
-  assert.equal(planE2e([], enabled).length, 1);
-});
-
 test('a baseline failure does not start the private fixture', async () => {
   const calls = [];
   const result = await runE2e(['--headed'], {}, async (args, env) => {
@@ -143,14 +129,14 @@ test('the private fixture failure is returned after a passing baseline', async (
   assert.equal(calls[1].other, 'kept');
 });
 
-test('all nine passes run when the earlier passes succeed', async () => {
+test('all eight passes run when the earlier passes succeed', async () => {
   const calls = [];
   const result = await runE2e([], { OTHER: 'kept' }, async (args, env) => {
     calls.push({ args, privateAi: env.FREEDOM_E2E_PRIVATE_AI_FIXTURE ?? null, avatar: env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE ?? null, messageImage: env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE ?? null, storePhoto: env.FREEDOM_E2E_STORE_PHOTO_FIXTURE ?? null, preferences: env.FREEDOM_E2E_NOTIFICATION_PREFERENCES ?? null, firstParticipation: env.FREEDOM_E2E_FIRST_PARTICIPATION ?? null, eventParticipation: env.FREEDOM_E2E_EVENT_PARTICIPATION ?? null, other: env.OTHER });
     return { code: 0, signal: null };
   });
   assert.equal(result.code, 0);
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 8);
   assert.equal(calls[0].privateAi, null);
   assert.equal(calls[0].avatar, null);
   assert.equal(calls[1].privateAi, '1');
@@ -182,7 +168,6 @@ test('all nine passes run when the earlier passes succeed', async () => {
   assert.deepEqual(calls[7].args, [EVENT_PARTICIPATION_SPEC]);
   assert.equal(calls[7].eventParticipation,'1');
   for(const call of calls.slice(0,7))assert.equal(call.eventParticipation,null);
-  assert.deepEqual(calls[8].args,[MEMBER_REPORTING_SPEC]);
 });
 
 test('the avatar fixture failure is returned after the earlier passes', async () => {

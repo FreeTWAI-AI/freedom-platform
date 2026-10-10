@@ -52,7 +52,7 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 
 此候選以普通 merge 整合 #318／#344 與審查修補，接續照片 #359；私人關係 SQL 原樣改名為 `142_community_content_relations.sql`，本案使用 `143_personal_content.sql`，接續照片 141，manifest 僅保留既有缺號 22。書籤／追蹤需同時開啟 `FREEDOM_COMMUNITY_SEARCH_ENABLED` 與 `FREEDOM_COMMUNITY_RELATIONS_ENABLED`，預設均不啟用。本機瀏覽器伺服器對應使用 `FREEDOM_E2E_COMMUNITY_SEARCH=1`、`FREEDOM_E2E_COMMUNITY_RELATIONS=1`、`FREEDOM_E2E_PERSONAL_CONTENT=1`。
 
-本分支的 #255 在「我的名片」提供本人通知偏好：好友、小隊、活動及已啟用的追蹤更新可選即時提醒、站內摘要或不提醒，另有指定 IANA 時區的安靜時段與目前可存取頻道的靜音。設定以版本比對、同筆 command 重送與帳號隔離保存；只改提醒投影，不刪除原通知／聊天、不改已讀位置，也不授予來源權限。摘要與追蹤每次重查目前來源，活動快訊同樣遵循偏好與活動資格；必要權限、安全及交易提醒不被一般社群偏好停用。新入口需 `FREEDOM_NOTIFICATION_PREFERENCES_ENABLED=true`（預設關閉）及 migration 149；追蹤仍需搜尋與關係兩個 flags。Email 摘要因尚缺獲授權的摘要寄送環境與訂閱／寄送政策，明確顯示未啟用、預設未訂閱，不提供假寄送或訂閱成功；留言或按讚尚不會產生通知（本分支不改動 #193 的寫入路徑），Email 以外的全 Issue 驗收也仍未完成。本機預覽、測試及既有交易郵件能力都不是部署或摘要寄送授權。
+本分支的 #255 在「我的名片」提供本人通知偏好：好友、小隊、活動及已啟用的追蹤更新可選即時提醒、站內摘要或不提醒，另有指定 IANA 時區的安靜時段與目前可存取頻道的靜音。設定以版本比對、同筆 command 重送與帳號隔離保存；只改提醒投影，不刪除原通知／聊天、不改已讀位置，也不授予來源權限。摘要與追蹤每次重查目前來源，活動快訊同樣遵循偏好與活動資格；必要權限、安全及交易提醒不被一般社群偏好停用。新入口需 `FREEDOM_NOTIFICATION_PREFERENCES_ENABLED=true`（預設關閉）及 migration 149；追蹤仍需搜尋與關係兩個 flags。Email 摘要因尚缺獲授權的摘要寄送環境與訂閱／寄送政策，明確顯示未啟用、預設未訂閱，不提供假寄送或訂閱成功；本候選已整合 #410 的留言／按讚／小隊互動通知；Email 以外的全 Issue 驗收也仍未完成。本機預覽、測試及既有交易郵件能力都不是部署或摘要寄送授權。
 
 本分支的 #259「第一次參與」也是預設關閉的 source candidate：`FREEDOM_FIRST_PARTICIPATION_ENABLED=true` 須同時啟用 `FREEDOM_PERSONAL_CONTENT_ENABLED`（與分享入口的旗標互相獨立），並先套用 migration 152。合法快速加入公會後，可選原作品分享或所選公會原聊天室自我介紹；不用補做完整定位、綁 GitHub／AI 或加好友。只承認選擇後的原發布／訊息事實，私人草稿、點開頁面、舊作品及接待認領不算成果；原來源撤下或失去權限後不保留可讀標題／連結。
 
@@ -65,7 +65,9 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 本分支的 #257 是活動精華／成果連結的 **source candidate**：在原活動集錦儲存自己的摘要草稿，明確選擇閱讀範圍與發布同意後，連結目前可閱讀的社群作品、技能書及真正的小隊成果；三者有詳細入口與返回原活動的連結。小隊成果由目前隊主本人撰寫、儲存私人草稿並明確發布，不把名冊、私人 Result、自填署名或 Going 回覆當成成果、出席、驗收或 XP。來源撤下或權限變更會停止顯示整份相依摘要、媒體與反向連結，不會退回成未綁定的公開照片。
 
 `FREEDOM_SQUAD_OUTCOMES_ENABLED`、`FREEDOM_EVENT_OUTCOMES_ENABLED` 均預設關閉；活動精華必須同時啟用小隊成果，否則 runtime 拒絕不完整設定。**換入本版 source 前，即使 flags 關閉，也須套用 migrations 154、155**：既有媒體讀取仍使用 binding 表核對目前權限。關閉 flags 不會取消已存 binding 的隱私檢查；不可盲退到忽略 binding 的舊 source。匿名集錦只讀公開／推薦活動，不揭露公會或會員限定活動、圖片、封面與 metadata；目前仍有閱讀權限的會員使用受驗證媒體入口。撤下阻止後續讀取，不承諾收回已下載或外站快取的副本。API、限制與命令契約見 [member API](docs/development/member-api.md#event-highlights-and-published-squad-outcomes-257)。這不是部署、flag-on、正式 #261 政策或需求驗收證據。
-#262 參與量測是預設關閉的 source candidate（`FREEDOM_PARTICIPATION_METRICS_ENABLED`、migration 159）：只提供有權平台管理員讀取的唯讀報表，每次由權威資料重新計算，附 v2 指標定義，窗口未滿與樣本不足（少於 10）不顯示百分比；七日回訪限既有發布、留言與搜尋時間的參與代理，不讀會覆寫的 session last-seen，不宣稱涵蓋所有瀏覽。搜尋只記結果數與開啟的內容類型，不存查詢文字。目前沒有正式讀權與保存／退出政策，沒有真實 baseline；檢舉處理時間因尚無檢舉流程標為不可用。詳見 [會員 API](docs/development/member-api.md#participation-metrics-262)。
+#251 檢舉與稽核案件是預設關閉的 source candidate（`FREEDOM_MEMBER_REPORTING_ENABLED`、待部署 migration 160）：會員只能檢舉當前可見內容、查看本人案件狀態；平台管理員依狀態與游標分頁，個別讀取當時的名片／私訊圖片證據，記錄處理理由與摘要。圖片收回後仍保留案件證據；撤銷管理權或 session 後拒絕讀取。#261 的規則、保存期限與申訴管道仍待核准，本候選不啟用正式檢舉。
+
+#262 參與量測是預設關閉的 source candidate（`FREEDOM_PARTICIPATION_METRICS_ENABLED`、migration 159）：只提供有權平台管理員讀取的唯讀報表，每次由權威資料重新計算，附 v2 指標定義，窗口未滿與樣本不足（少於 10）不顯示百分比；七日回訪限既有發布、留言與搜尋時間的參與代理，不讀會覆寫的 session last-seen，不宣稱涵蓋所有瀏覽。搜尋只記結果數與開啟的內容類型，不存查詢文字。目前沒有正式讀權與保存／退出政策，沒有真實 baseline；檢舉處理時間尚未串接 #251 案件流程，仍標為不可用。詳見 [會員 API](docs/development/member-api.md#participation-metrics-262)。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
@@ -77,9 +79,9 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 
 本分支新增工坊原創圖片貼圖與指定訊息回覆，公會、小隊、世界與私訊均可使用；重新載入後仍能讀取，未知傳送結果可用同一筆 key 重試。舊社群專案的採用對照、資料邊界、素材來源及部署步驟見 [社群設計與聊天升級](./docs/development/social-project-upgrade.md)。這是本分支提交範圍，尚未宣稱已部署。
 
-本分支的社群活動支援每場專頁與會員專屬分享連結、分享報名統計、未來活動行事曆，以及公會限定／工坊會員／推薦連結公開／完全公開四種參與範圍。推薦連結公開活動在報名後才提供線上連結，並寄送參與資料到填寫的 Email；公開訪客報名需要可用的 `EMAIL` binding（Node 本機可注入 `eventEmailSender`）。活動海報支援直式與橫式 PNG／JPEG／WebP（512 KiB 以下），影片支援 MP4／WebM（20 MiB 以下）。會員名冊與私訊依最近兩分鐘的有效 session 活動顯示在線狀態，並列出可確認的上次上線時間（最近一次 session 活動）；沒有活動紀錄的舊 session 不推測。這些是本分支實作，並非已部署聲明。
+本分支的社群活動支援每場專頁與會員專屬分享連結、分享報名統計、未來活動行事曆，以及公會限定／工坊會員／推薦連結公開／完全公開四種參與範圍。推薦連結公開活動在報名後才提供線上連結，並寄送參與資料到填寫的 Email；公開訪客報名需要可用的 `EMAIL` binding（Node 本機可注入 `eventEmailSender`）。活動海報支援直式與橫式 PNG／JPEG／WebP 原始圖片（20 MiB 以下），瀏覽器自動縮放壓縮到儲存上限 512 KiB，影片支援 MP4／WebM（20 MiB 以下）。會員名冊與私訊依最近兩分鐘的有效 session 活動顯示在線狀態，並列出可確認的上次上線時間（最近一次 session 活動）；沒有活動紀錄的舊 session 不推測。這些是本分支實作，並非已部署聲明。
 
-登入後的全站 Game Console 以底欄、展開面板與獨立視窗呈現系統提示、AI 工作說明、會員聊天與發布動態；資料來源和更新間隔見 [會員 Game Console](./docs/development/game-console.md)。
+會員聊天使用右下常駐訊息泡泡；面板收合與切頁保留草稿及未知傳送操作，通知鈴獨立呈現通知。會員 Game Console 提供 headless 狀態，管理 console 仍留在 `/admin`；資料來源和更新間隔見 [會員 Game Console](./docs/development/game-console.md)。
 
 各頁右上角提供想法、說明與編修入口；想法按頁面標記整理 GitHub Issue，站內發布使用會員自己的 GitHub 授權，手機世界聊天使用站內抽屜。權限與資料邊界見 [頁面工具與世界聊天](./docs/development/page-tools.md)。
 

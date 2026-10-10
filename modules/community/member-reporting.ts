@@ -1,10 +1,12 @@
 import type {Pool,PoolClient} from 'pg';
+import {readDomainMedia,type DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
+import type {ObjectStore} from '../../packages/asset-storage/index.js';
 import {z} from 'zod';
 import {command,journal,transaction,type Command} from '../../packages/db/index.js';
 import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
-import {visibleMember} from '../identity-membership/members.js';
+import {visibleMember,memberCard} from '../identity-membership/members.js';
 import {currentMember,lockRoom} from '../member-communications/channels.js';
 import {resolvePeer} from '../member-communications/service.js';
 import {moderateSocialContent,requireMemberContentAdmin} from './moderation.js';
@@ -36,22 +38,34 @@ async function visibleEvidence(q:PoolClient,actor:Actor,target:Target):Promise<R
       break;
     case 'direct_message':{
       row=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,sticker_id,reply_to_message_id,created_at FROM member_direct_messages
-        WHERE message_id=$1 AND community_id=$2 AND (sender_ref=$3 OR recipient_ref=$3) FOR SHARE`,[...args,actor.user_id])).rows[0];
-      if(row)await resolvePeer(q,actor,String(row.sender_ref===actor.user_id?row.recipient_ref:row.sender_ref));
+        WHERE message_id=$1 AND community_id=$2 AND retracted_at IS NULL AND (sender_ref=$3 OR recipient_ref=$3) FOR SHARE`,[...args,actor.user_id])).rows[0];
+      if(row){
+        await resolvePeer(q,actor,String(row.sender_ref===actor.user_id?row.recipient_ref:row.sender_ref));
+        // Linked DM targets and objects are immutable and excluded from domain GC.
+        // Pin their identity here; the admin reader never depends on the live message.
+        const image=(await q.query(`SELECT t.image_id,t.asset_id,t.scope_id,a.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
+          FROM member_message_image_asset_targets t JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.deletion_fence=0
+          JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='member.message-image' AND o.variant='image'
+          WHERE t.message_id=$1 AND t.community_id=$2 FOR SHARE OF t,a,o`,args)).rows[0];
+        if(image)row={...row,image};
+      }
       break;
     }
     case 'channel_message':{
       // Resolve room identity without reading body, then reuse the room's locked membership policy.
       const room=(await q.query(`SELECT kind,channel_key FROM member_channel_messages WHERE message_id=$1 AND community_id=$2
-        AND (kind<>'world' OR sender_ref=$3 OR NOT is_verification_test_account(sender_ref))`,[...args,actor.user_id])).rows[0];
+        AND retracted_at IS NULL AND (kind<>'world' OR sender_ref=$3 OR NOT is_verification_test_account(sender_ref))`,[...args,actor.user_id])).rows[0];
       requireCondition(room,404,'report_target_not_found','找不到可檢舉的內容。');
       await lockRoom(q,actor,{kind:room.kind,key:room.channel_key});
       row=(await q.query(`SELECT message_id,kind,channel_key,sender_ref,body,sticker_id,reply_to_message_id,created_at FROM member_channel_messages
         WHERE message_id=$1 AND community_id=$2 AND kind=$4 AND channel_key=$5
-        AND (kind<>'world' OR sender_ref=$3 OR NOT is_verification_test_account(sender_ref)) FOR SHARE`,[...args,actor.user_id,room.kind,room.channel_key])).rows[0];
+        AND retracted_at IS NULL AND (kind<>'world' OR sender_ref=$3 OR NOT is_verification_test_account(sender_ref)) FOR SHARE`,[...args,actor.user_id,room.kind,room.channel_key])).rows[0];
       break;
     }
-    case 'member':row=await visibleMember(q,actor,target.target_id,true);break;
+    case 'member':
+      await visibleMember(q,actor,target.target_id,true);
+      await q.query('SELECT user_id FROM member_accounts WHERE user_id=$1 FOR SHARE',[target.target_id]);
+      row=await memberCard(q,actor,target.target_id);break;
   }
   requireCondition(row,404,'report_target_not_found','找不到可檢舉的內容。');
   return row;
@@ -80,25 +94,58 @@ export async function createMemberReport(pool:Pool,input:Command){
   });
 }
 
-export async function listMyMemberReports(pool:Pool,actor:Actor){
+const ListQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),cursor:z.string().regex(/^[1-9][0-9]{0,18}$/).refine(value=>BigInt(value)<=9223372036854775807n,'無效的案件游標。').optional(),state:z.enum(['received','in_progress','closed']).optional()}).strict();
+const reportColumns='case_id,case_number,target_kind,target_id,reason,state,aggregate_version,summary,created_at,updated_at';
+function pageRows(rows:ReportRow[],limit:number){const more=rows.length>limit,items=rows.slice(0,limit);return {items,next_cursor:more?String(items.at(-1)!.case_number):null};}
+export async function listMyMemberReports(pool:Pool,actor:Actor,raw:unknown={}){
+  const query=ListQuery.parse(raw);
   return transaction(pool,async q=>{
-    await lockMemberSession(q,actor);
-    await currentMember(q,actor,false);
-    const rows=(await q.query(`SELECT case_id,case_number,target_kind,target_id,reason,state,aggregate_version,summary,created_at,updated_at
-      FROM member_reports WHERE community_id=$1 AND reporter_user_id=$2 ORDER BY created_at DESC,case_id`,[actor.community_id,actor.user_id])).rows as ReportRow[];
+    await lockMemberSession(q,actor);await currentMember(q,actor,false);
+    const rows=(await q.query(`SELECT ${reportColumns} FROM member_reports WHERE community_id=$1 AND reporter_user_id=$2
+      AND ($3::bigint IS NULL OR case_number<$3) AND ($4::text IS NULL OR state=$4) ORDER BY case_number DESC LIMIT $5`,
+      [actor.community_id,actor.user_id,query.cursor??null,query.state??null,query.limit+1])).rows as ReportRow[];
     await assertCurrentSessionClock(q,actor);
-    return {items:rows.map(reporterView)};
+    const page=pageRows(rows,query.limit);return {...page,items:page.items.map(reporterView)};
   });
 }
-
-export async function listAdminMemberReports(pool:Pool,actor:Actor){
+export async function listAdminMemberReports(pool:Pool,actor:Actor,raw:unknown={}){
+  const query=ListQuery.parse(raw);
   return transaction(pool,async q=>{
-    await lockMemberSession(q,actor);
-    await requireMemberContentAdmin(q,actor);
-    const rows=(await q.query('SELECT * FROM member_reports WHERE community_id=$1 ORDER BY created_at DESC,case_id',[actor.community_id])).rows as ReportRow[];
+    await lockMemberSession(q,actor);await requireMemberContentAdmin(q,actor);
+    const rows=(await q.query(`SELECT ${reportColumns},handler_user_id,processing_reason,action FROM member_reports WHERE community_id=$1
+      AND ($2::bigint IS NULL OR case_number<$2) AND ($3::text IS NULL OR state=$3) ORDER BY case_number DESC LIMIT $4`,
+      [actor.community_id,query.cursor??null,query.state??null,query.limit+1])).rows as ReportRow[];
     await assertCurrentSessionClock(q,actor);
-    return {items:rows.map(row=>({...reporterView(row),reporter_user_id:row.reporter_user_id,handler_user_id:row.handler_user_id,processing_reason:row.processing_reason,action:row.action,note:row.note,evidence:row.evidence}))};
+    const page=pageRows(rows,query.limit);return {...page,items:page.items.map(row=>({...reporterView(row),handler_user_id:row.handler_user_id,processing_reason:row.processing_reason,action:row.action}))};
   });
+}
+async function adminReport(q:PoolClient,actor:Actor,id:string){
+  await lockMemberSession(q,actor);await requireMemberContentAdmin(q,actor);
+  const row=(await q.query(`SELECT ${reportColumns},reporter_user_id,handler_user_id,processing_reason,action,note,evidence FROM member_reports WHERE case_id=$1 AND community_id=$2`,[id,actor.community_id])).rows[0] as ReportRow|undefined;
+  requireCondition(row,404,'report_not_found','找不到這件檢舉。');
+  await assertCurrentSessionClock(q,actor);return row;
+}
+export async function readAdminMemberReport(pool:Pool,actor:Actor,rawId:string){
+  const id=z.uuid().parse(rawId).toLowerCase();
+  return transaction(pool,async q=>{
+    const row=await adminReport(q,actor,id);
+    const image=(row.evidence as {content?:{image?:unknown}}).content?.image;
+    return {...reporterView(row),reporter_user_id:row.reporter_user_id,handler_user_id:row.handler_user_id,processing_reason:row.processing_reason,action:row.action,note:row.note,evidence:row.evidence,
+      image_url:image?`/api/v1/admin/reports/${id}/image`:null};
+  });
+}
+export async function readAdminReportImage(pool:Pool,actor:Actor,rawId:string,store?:ObjectStore){
+  const id=z.uuid().parse(rawId).toLowerCase();
+  const snapshot=()=>transaction(pool,async q=>{
+    const row=await adminReport(q,actor,id);
+    const image=(row.evidence as {content?:{image?:Record<string,any>}}).content?.image;
+    if(row.target_kind!=='direct_message'||!image)return;
+    return {purpose:'member.message-image',targetId:row.target_id,variant:'image',domainVersion:'1',source:'asset',authorizationVersion:id,
+      legacyBytes:null,assetId:image.asset_id,scopeId:image.scope_id,representationId:image.representation_id,
+      metadata:{contentType:image.content_type,byteSize:image.byte_size,sha256:image.content_sha256,transformVersion:image.transform_version,policyRevision:image.policy_revision,profileId:image.profile_id}} satisfies DomainMediaSnapshot;
+  });
+  const first=await snapshot();requireCondition(first,404,'report_image_not_found','案件沒有圖片證據。');
+  return (await readDomainMedia(snapshot,{purpose:'member.message-image',targetId:first.targetId,variant:'image'},store)).bytes;
 }
 
 export async function transitionMemberReport(pool:Pool,input:Command,rawId:string){

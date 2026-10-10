@@ -13,7 +13,6 @@
     "modules/community/github-sync.ts",
     "modules/community/guild-discovery.ts",
     "modules/community/link-preview.ts",
-    "modules/community/member-reporting.ts",
     "modules/community/member-service-pages.ts",
     "modules/community/member-services.ts",
     "modules/community/member-skill-books.ts",
@@ -28,7 +27,6 @@
     "modules/community/share-introductions/**",
     "apps/platform-api/src/routes/community-events.ts",
     "apps/platform-api/src/routes/event-highlights.ts",
-    "apps/platform-api/src/routes/member-reporting.ts",
     "apps/platform-api/src/routes/member-services.ts",
     "apps/platform-api/src/routes/promotion.ts",
     "apps/platform-api/src/routes/repo-author-claims.ts",
@@ -36,8 +34,6 @@
     "apps/portal-web/src/modules/EventsPanel.tsx",
     "apps/portal-web/src/modules/EventCalendar.tsx",
     "apps/portal-web/src/modules/EventHighlights.tsx",
-    "apps/portal-web/src/modules/MemberReporting.tsx",
-    "apps/portal-web/src/modules/MemberReporting.css",
     "apps/portal-web/src/modules/MemberServices.tsx",
     "apps/portal-web/src/modules/PromotionBoards.tsx",
     "apps/portal-web/src/modules/PromotionShare.tsx",
@@ -57,16 +53,13 @@
     "tests/runtime/community-discovery.test.ts",
     "tests/runtime/event-create-rate-limit.test.ts",
     "tests/runtime/event-highlights.test.ts",
-    "tests/runtime/member-reporting.test.ts",
     "tests/runtime/member-service-cursor.test.ts",
     "tests/runtime/member-services.test.ts",
     "tests/runtime/repo-author-claims.test.ts",
     "tests/runtime/share-promotion.test.ts",
     "tests/runtime/skill-share-content.test.ts",
     "tests/e2e/event-highlights.spec.ts",
-    "tests/e2e/member-reporting.spec.ts",
-    "tests/e2e/member-services.spec.ts",
-    "migrations/160_member_reports.sql"
+    "tests/e2e/member-services.spec.ts"
   ],
   "public_exports": [
     "modules/community/catalog.ts",
@@ -79,7 +72,6 @@
     "modules/community/github-sync.ts",
     "modules/community/guild-discovery.ts",
     "modules/community/link-preview.ts",
-    "modules/community/member-reporting.ts",
     "modules/community/member-service-pages.ts",
     "modules/community/member-services.ts",
     "modules/community/member-skill-books.ts",
@@ -114,22 +106,9 @@
     "no-secrets-in-artifacts"
   ],
   "tests": [
-    "runtime.member-reporting",
     "runtime.full"
   ],
   "surfaces": [
-    {
-      "surface_id": "community.member-reporting.member-api",
-      "kind": "http",
-      "entry": "apps/platform-api/src/routes/member-reporting.ts",
-      "operations": [
-        "community.member-report.list",
-        "community.member-report.create",
-        "community.admin-member-report.list",
-        "community.member-report.transition"
-      ],
-      "auth_profile": "member-session"
-    },
     {
       "surface_id": "community.community-events.member-api",
       "kind": "http",

@@ -10,3 +10,7 @@
 .report-admin textarea,.report-dialog textarea{width:100%}
 .report-admin summary{cursor:pointer;display:flex;align-items:center}
 .report-admin [hidden]{display:none}
+.report-evidence-image{display:block;max-width:100%;max-height:60vh;object-fit:contain}
+
+.report-evidence-copy{white-space:pre-wrap}
+@media(min-width:601px){.report-admin .btn{justify-self:start;align-self:start;width:fit-content;max-width:100%}}

@@ -113,11 +113,11 @@ export async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock
   const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id)) ${lock?'FOR SHARE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;
 }
-export async function memberCard(pool:Pool,actor:Actor,id:string) {
+export async function memberCard(pool:Pick<Pool,'query'>,actor:Actor,id:string) {
   const cards=await memberCards(pool,actor,[id]);
   requireCondition(cards[0],404,'member_not_found','找不到這位會員。');return cards[0];
 }
-export async function memberCards(pool:Pool,actor:Actor,ids:string[]) {
+export async function memberCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string[]) {
   ids=ids.map(id=>z.uuid().parse(id).toLowerCase());
   if(!ids.length)return [];
   // Contact values and their audience predicates must share ONE database snapshot.

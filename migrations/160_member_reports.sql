@@ -23,7 +23,9 @@ CREATE TABLE member_reports (
   UNIQUE(reporter_user_id,target_kind,target_id)
 );
 CREATE INDEX member_reports_reporter_time ON member_reports(reporter_user_id,created_at DESC);
-CREATE INDEX member_reports_admin_queue ON member_reports(community_id,state,created_at DESC);
+CREATE INDEX member_reports_admin_queue ON member_reports(community_id,state,case_number DESC);
+CREATE INDEX member_reports_admin_page ON member_reports(community_id,case_number DESC);
+CREATE INDEX member_reports_reporter_page ON member_reports(reporter_user_id,case_number DESC);
 
 -- Preserve the captured evidence and reporter even if live content is edited.
 CREATE FUNCTION preserve_member_report_evidence() RETURNS trigger LANGUAGE plpgsql AS $$

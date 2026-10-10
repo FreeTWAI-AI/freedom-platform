@@ -22,7 +22,8 @@
     "tenant-workspaces",
     "work",
     "member-squads",
-    "github-social"
+    "github-social",
+    "member-reporting"
   ],
   "format": "freedom.module/v1",
   "instructions": [

@@ -31,8 +31,23 @@ permissions are unchanged.
   at most 20 new cases per reporter per hour are allowed.
 - `GET /me/reports`: only the current reporter's case numbers, status and public
   outcome summary; no private evidence or reporter identity is disclosed.
-- `GET /admin/reports`: private cases and evidence, restricted to active
-  platform administrators with verified email. Guild titles confer no access.
+- `GET /admin/reports`: case summaries only, restricted to active platform
+  administrators with verified email. Guild titles confer no access. Both list
+  routes accept `limit` (1–50, default 20), optional `state`, and a descending
+  `case_number` cursor. `next_cursor` is null after the final page; new cases do
+  not shift older pages. Lists never select private notes or evidence.
+- `GET /admin/reports/:id`: separately authorized case detail, including private
+  notes and the immutable server snapshot. Member evidence is the complete card
+  visible to the reporter at capture, including only contacts they could see.
+  Retracted messages are not reportable.
+- `GET /admin/reports/:id/image`: admin-only private-message image evidence.
+  Capture pins the existing immutable image target/object identity and digest;
+  it does not expose the participant image route or trust a live message after
+  retraction. Existing message-image targets/objects remain permanent and outside
+  domain GC. No bytes are copied into receipts, JSON evidence, or public storage.
+  The reader checks session/admin authority before and after object I/O and serves
+  `private, no-store`, `Vary: Cookie`, and `nosniff`. The host needs the existing
+  message-image object store; missing transport fails closed.
 - `POST /admin/reports/:id/transition`: `{state,reason,summary,action}`, with
   `If-Match` and `Idempotency-Key`. States progress from `received` to
   `in_progress` to `closed`; actions are `none`, `hide`, or `restore`.
@@ -48,13 +63,17 @@ permissions are unchanged.
 
 Reports are not sent to the reported member. Other members cannot read cases
 or evidence, including private-message evidence they could not originally see.
-Migration `141_member_reports.sql` is newly added; maintainers must renumber it
-at merge if required. Evidence retention period and an owner-approved general
-rules/appeal page are deferred to #261; no appeal contact is invented here.
+Pending migration `160_member_reports.sql` follows the integrated account and
+participation migrations 156–159; published 001–148 bytes remain unchanged.
+Evidence retention period and an owner-approved general rules/appeal page are
+deferred to #261; no appeal contact is invented here.
 
-The E2E runner adds an isolated reporting-enabled pass to the default suite.
-`npm run test:e2e -- tests/e2e/member-reporting.spec.ts` enables the flag for that
-invocation automatically; ordinary suite passes retain reporting's default OFF.
+The browser spec uses the existing per-test local HTTP feature fixture on the
+owned schema. Enabled and default-OFF cases run in the ordinary suite, including
+`npm run test:e2e -- tests/e2e/member-reporting.spec.ts`; no extra CI pass or trusted
+pin change is needed. The admin view loads evidence on demand and supports state
+filters and additional pages. Unknown transition results retain their exact
+body/version/key and prevent list replacement until the same operation resolves.
 
 ## Existing member APIs
 
