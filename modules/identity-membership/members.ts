@@ -330,6 +330,8 @@ export async function changeSquadMembership(pool:Pool,input:Command,id:string,ac
     // Squad row before membership: a transfer or disband holding it settles first.
     const live=(await q.query('SELECT owner_ref,name FROM member_squads WHERE squad_id=$1 AND disbanded_at IS NULL FOR SHARE',[id])).rows[0];
     requireCondition(live,404,'squad_not_found','找不到這個小隊。');
+    // The contact pair was authorized before this lock; a transfer changes that peer.
+    if(action==='request')requireCondition(live.owner_ref===peerId,412,'version_conflict','小隊隊主已變更，請重新整理後再申請。');
     if(OWNER_ACTIONS.includes(action))requireCondition(live.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以處理加入申請與成員。');
     else if(action==='leave')requireCondition(live.owner_ref!==input.actor.user_id,409,'squad_owner_cannot_leave','發起人請先把小隊轉移給其他成員，或解散小隊。');
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-membership/${id}/${targetId}`]);

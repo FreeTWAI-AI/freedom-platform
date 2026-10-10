@@ -178,3 +178,42 @@ test('a former owner cannot replay a saved owner-management receipt after transf
   const replay=await request(`/squads/${id}/profile`,owner,body,version,key);
   assert.equal(replay.status,403);assert.equal(replay.data.code,'squad_owner_required');
 });
+
+
+for(const blocked of [false,true]){
+  test(`a join request waiting behind transfer reauthorizes the new owner on retry (blocked=${blocked})`,async()=>{
+    const {owner,a,b,id}=await team();
+    await request(`/squads/${id}/members/${a.id}/accept`,owner,{},(await member(id,a.id)).aggregate_version);
+    await request(`/squads/${id}/leave`,b,{},(await member(id,b.id)).aggregate_version);
+    const version=(await member(id,b.id)).aggregate_version,key=randomUUID();
+    if(blocked)await pool.query(`INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state)
+      SELECT community_id,$2,$3,'active' FROM member_squads WHERE squad_id=$1`,[id,a.id,b.id]);
+    const barrier=await pool.connect();let pending:Promise<{status:number;data:Problem}>|undefined;
+    try{
+      await barrier.query('BEGIN');
+      const pid=(await barrier.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      // Stage the ownership transition in PostgreSQL. Authorization sees the old
+      // committed owner; the later squad row lock must wait for this commit.
+      await barrier.query('UPDATE member_squads SET owner_ref=$2,aggregate_version=aggregate_version+1 WHERE squad_id=$1',[id,a.id]);
+      pending=request(`/squads/${id}/request`,b,{},version,key);
+      let waiting=false;const deadline=Date.now()+5000;
+      while(Date.now()<deadline){
+        waiting=(await pool.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%member_squads%FOR SHARE%') AS waiting",[pid])).rows[0].waiting;
+        if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      assert.equal(waiting,true,'the request must reach the held squad row');
+      await barrier.query('COMMIT');
+      const stale=await pending;
+      assert.equal(stale.status,412);assert.equal(stale.data.code,'version_conflict');
+      assert.equal((await member(id,b.id)).state,'left');
+      assert.equal(String((await member(id,b.id)).aggregate_version),String(version));
+      assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts WHERE user_id=$1 AND idempotency_key=$2',[b.id,key])).rows[0].n,0);
+      // Retry re-runs authorization against the committed owner, with the same
+      // key because the rejected transaction wrote neither membership nor receipt.
+      const retried=await request(`/squads/${id}/request`,b,{},version,key);
+      assert.equal(retried.status,blocked?409:200);
+      if(blocked)assert.equal(retried.data.code,'recipient_unavailable');
+      assert.equal((await member(id,b.id)).state,blocked?'left':'pending');
+    }finally{await barrier.query('ROLLBACK');barrier.release();if(pending)await pending;}
+  });
+}
