@@ -2674,8 +2674,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialInteractions.tsx",
-      "bytes": 20511,
-      "sha256": "62deab0410264b19aaec595dbc5a2305c35ccd41787bfc9e3b11e230b7eebde0"
+      "bytes": 20892,
+      "sha256": "517f228e14a4ce579fc31526d90828d7fb3d2ae88758c27a1ab6f7b540788b5a"
     },
     {
       "path": "apps/portal-web/src/modules/SocialPostEditor.tsx",
@@ -2709,8 +2709,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 38263,
-      "sha256": "93874258cd697ee8b2db5bc56d7cd221642030d1f66ce6d39ddc2f2819133613"
+      "bytes": 38310,
+      "sha256": "5a9b2faf42216347fe7e74f2ff2c54912dd00cd78b841aca8fd9dac3ac6e6322"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -20289,8 +20289,8 @@
     },
     {
       "path": "tests/e2e/social-wall.spec.ts",
-      "bytes": 8824,
-      "sha256": "2e9be5097b27985f9d253b71df2bc735759718761e99defc04c88e916fcd653b"
+      "bytes": 12921,
+      "sha256": "8b0d2e66035e01628a01283568c943da21daedad5126c36986230a6d466d8455"
     },
     {
       "path": "tests/e2e/squad-invitations.spec.ts",

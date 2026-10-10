@@ -45,3 +45,37 @@ test('pasted comment image and unknown delivery keep one upload and comment; rel
  await page.reload();await post.getByRole('button',{name:'留言 · 1',exact:true}).click();await expect(post.getByAltText('留言附圖')).toBeVisible();await post.locator('.social-post-header').scrollIntoViewIfNeeded();await expect(post.locator('.social-interaction-summary')).toContainText('已讀 1 人');
  await post.getByLabel('留言選項',{exact:true}).click();await post.getByRole('button',{name:'刪除留言',exact:true}).click();await post.getByRole('button',{name:'確定刪除留言',exact:true}).click();await expect(post.locator('.social-comment')).toHaveCount(0);
 });
+
+
+test('malformed successful image acknowledgements retain the exact upload and never publish without its photo',async({page})=>{
+ await login(page);await page.getByRole('button',{name:'建立貼文',exact:true}).click();
+ const text=`圖片回應驗證 ${Date.now()}`;await page.getByLabel('貼文內容',{exact:true}).fill(text);await page.getByRole('button',{name:'發布貼文',exact:true}).click();
+ const post=card(page,text);await post.getByRole('button',{name:'留言 · 0',exact:true}).click();await post.getByLabel('寫留言',{exact:true}).fill('照片必須一起送出');
+ const png=await sharp({create:{width:80,height:50,channels:3,background:'#539db8'}}).png().toBuffer();
+ await post.getByLabel('留言圖片',{exact:true}).setInputFiles({name:'ack.png',mimeType:'image/png',buffer:png});await expect(post.getByAltText('留言圖片預覽')).toBeVisible();
+ const uploads:{key:string;bytes:string}[]=[],comments:Record<string,unknown>[]=[];let canonical:Record<string,unknown>={};
+ const invalid=[{}, {image_id:'not-a-uuid',content_type:'image/webp',byte_size:1}, {image_id:'11111111-1111-4111-8111-111111111111',content_type:'image/png',byte_size:1}, {image_id:'11111111-1111-4111-8111-111111111111',content_type:'image/webp',byte_size:1048577}];
+ await page.route('**/api/v1/social-posts/*/comment-images',async route=>{
+  uploads.push({key:route.request().headers()['idempotency-key'],bytes:route.request().postDataBuffer()!.toString('base64')});
+  const response=await route.fetch();expect(response.status()).toBe(201);canonical=await response.json();
+  const malformed=invalid[uploads.length-1];await route.fulfill(malformed?{response,json:malformed}:{response});
+ });
+ await page.route('**/api/v1/social-posts/*/comments',async route=>{if(route.request().method()==='POST')comments.push(route.request().postDataJSON());await route.continue();});
+ for(let i=0;i<invalid.length;i++){
+  await post.getByRole('button',{name:i?'重試留言':'送出留言',exact:true}).click();
+  await expect(post.getByRole('button',{name:'重試留言',exact:true})).toBeEnabled();await expect(post.getByAltText('留言圖片預覽')).toBeVisible();
+  expect(comments).toHaveLength(0);await expect(post.getByLabel('寫留言',{exact:true})).toHaveValue('照片必須一起送出');
+ }
+ await post.getByRole('button',{name:'重試留言',exact:true}).click();await expect(post.locator('.social-comment')).toHaveCount(1);await expect(post.getByAltText('留言附圖')).toBeVisible();
+ expect(uploads).toHaveLength(invalid.length+1);for(const upload of uploads)expect(upload).toEqual(uploads[0]);
+ expect(comments).toHaveLength(1);expect(comments[0].image_id).toBe(canonical.image_id);
+});
+
+test('removing mention text removes its selected identity from new post and comment commands',async({page})=>{
+ await login(page);await page.getByRole('button',{name:'建立貼文',exact:true}).click();const compose=page.getByRole('dialog',{name:'建立貼文',exact:true});
+ async function pick(scope:ReturnType<Page['locator']>){await scope.getByRole('button',{name:'標註會員',exact:true}).click();await scope.getByLabel('搜尋標註會員').fill('示範需求者');await scope.locator('.social-mention-choice').first().click();}
+ await pick(compose);const text=`已移除標註 ${Date.now()}`;await compose.getByLabel('貼文內容',{exact:true}).fill(text);
+ const sentPost=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/social-posts/notes'));await compose.getByRole('button',{name:'發布貼文',exact:true}).click();expect((await sentPost).postDataJSON().mention_ids).toEqual([]);
+ const post=card(page,text);await post.getByRole('button',{name:'留言 · 0',exact:true}).click();await pick(post);await post.getByLabel('寫留言',{exact:true}).fill('這則留言沒有標註');
+ const sentComment=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/comments'));await post.getByRole('button',{name:'送出留言',exact:true}).click();expect((await sentComment).postDataJSON().mention_ids).toEqual([]);await expect(post.locator('.social-comment')).toHaveCount(1);
+});

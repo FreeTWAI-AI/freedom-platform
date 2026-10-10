@@ -4,6 +4,7 @@ import {formatIsoLocal} from '../format';
 import type {SocialPost} from './SocialZone';
 import {accessAwareFetch} from '../access-fetch';
 import {prepareSocialImage} from './social-image';
+import {isMessageImage} from './message-image-client';
 import {ChatExtras,ChatSticker} from './ChatContent';
 import {MemberAvatar} from './MemberAvatar';
 import {SocialIcon,SocialTextTools,SocialRichText,SocialMemberLink,type Mention} from './SocialTools';
@@ -85,7 +86,7 @@ export function SocialInteractions({client, post, canHide, onUpdate,onTag}: {onT
     event?.preventDefault();
     if(sending||preparing)return;
     const generation=client.sessionGeneration;
-    const command=pendingComment.current??{body:stickerId?{sticker_id:stickerId}:{text:text.trim(),mention_ids:mentions.map(m=>m.user_id)},file:stickerId?null:file,uploadKey:crypto.randomUUID(),key:crypto.randomUUID()};
+    const command=pendingComment.current??{body:stickerId?{sticker_id:stickerId}:{text:text.trim(),mention_ids:mentions.filter(m=>text.includes(`@${m.display_name}`)).map(m=>m.user_id)},file:stickerId?null:file,uploadKey:crypto.randomUUID(),key:crypto.randomUUID()};
     if(!command.body.text&&!command.body.sticker_id&&!command.file)return;
     pendingComment.current=command;setSending(true);setError('');
     try{
@@ -95,6 +96,7 @@ export function SocialInteractions({client, post, canHide, onUpdate,onTag}: {onT
         if(!current(generation))return;
         const result=await response.json() as {image_id:string;detail?:string;code?:string};
         if(!response.ok)throw new ApiError({message:result.detail??'圖片尚未上傳，請重試。',status:response.status,code:result.code});
+        if(!result||typeof result.image_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(result.image_id)||!isMessageImage(result))throw new ApiError({message:'回應未完整收到，請重試以確認圖片上傳結果。',network:true});
         command.body.image_id=result.image_id;
       }
       const created=await client.post<Comment>(`/social-posts/${post.post_id}/comments`,command.body,{idempotencyKey:command.key});

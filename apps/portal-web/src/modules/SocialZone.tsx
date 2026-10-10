@@ -208,7 +208,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   async function publish(event: FormEvent) {
     event.preventDefault();
     if (publishing || preparingImage) return;
-    const command: NonNullable<typeof pending.current> = pending.current ?? {text: text.trim(),topic,location_name:checkIn&&locationName.trim()?locationName.trim():undefined,mention_ids:mentions.map(m=>m.user_id), key: crypto.randomUUID()};
+    const command: NonNullable<typeof pending.current> = pending.current ?? {text: text.trim(),topic,location_name:checkIn&&locationName.trim()?locationName.trim():undefined,mention_ids:mentions.filter(m=>text.includes(`@${m.display_name}`)).map(m=>m.user_id), key: crypto.randomUUID()};
     if (!command.text) return;
     const selectedVersion = selection.current.version, interactionVersion = composerVersion.current, generation = client.sessionGeneration;
     setPublishing(true); setPublishError(''); setNotice('');
