@@ -12,7 +12,16 @@
     "tests/runtime/message-image-preview.test.ts",
     "tests/e2e/message-images.spec.ts",
     "migrations/139_member_message_images.sql",
-    "docs/development/member-communications.md"
+    "docs/development/member-communications.md",
+    "modules/member-communications/notification-preferences.ts",
+    "apps/portal-web/src/modules/NotificationPreferences.tsx",
+    "apps/portal-web/src/modules/NotificationPreferences.css",
+    "migrations/144_notification_preferences.sql",
+    "tests/runtime/notification-preferences.test.ts",
+    "tests/e2e/notification-preferences.spec.ts",
+    "apps/portal-web/src/GameConsole.tsx",
+    "apps/portal-web/src/game-console-feed.ts",
+    "apps/portal-web/src/modules/NotificationBell.tsx"
   ],
   "public_exports": [
     "modules/member-communications/images.ts",
@@ -24,7 +33,9 @@
     "asset-lifecycle",
     "asset-storage",
     "shared",
-    "media-migration"
+    "media-migration",
+    "community",
+    "positioning"
   ],
   "contract_families": [],
   "client_profiles": [
@@ -42,5 +53,17 @@
   "tests": [
     "runtime.full"
   ],
-  "surfaces": []
+  "surfaces": [
+    {
+      "surface_id": "communications.notification-preferences-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/NotificationPreferences.tsx",
+      "operations": [
+        "notification-preferences.read",
+        "notification-preferences.save",
+        "notification-preferences.summary"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
 }

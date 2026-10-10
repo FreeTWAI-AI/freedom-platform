@@ -17349,8 +17349,8 @@
     },
     {
       "path": "modules/community-search/freedom.module.json",
-      "bytes": 1622,
-      "sha256": "2322ea99f078f273d01f322230a11011139ba9a901c577c74f9b4bbbb3257173"
+      "bytes": 1668,
+      "sha256": "7d523d809a9677e4b688cf5c95404bad2fa67d708f454510f2f0048110ae2cf9"
     },
     {
       "path": "modules/development/freedom.module.json",
@@ -17544,8 +17544,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 1254,
-      "sha256": "2e99d3cd1f1118ab2bbea881595b09493f51ce133d761b9b313b5e18f0db4ef9"
+      "bytes": 2157,
+      "sha256": "3ff7dab71b0a88ea92110019e04e2ae389cfdb4137a85ea0b44b6ef7f73ec6c1"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -17729,8 +17729,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 4591,
-      "sha256": "64c480eb41654cf4253c6133371d83582f5164eadddd1672aaccba15a57a6d2a"
+      "bytes": 5114,
+      "sha256": "48ea536ed64cc2365642c87236b75da8aaae48cd55cc999e0feacf5d96ac809c"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -18244,8 +18244,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 2995,
-      "sha256": "6b1da109644b3ee039fabcc19dc90c3c4c945fb5d94ca0912c068efbba35dc4a"
+      "bytes": 3208,
+      "sha256": "467ffe9481ea206be6c4f7e7b246da07be8cabd89bed57bde87e19355a36ff69"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -19754,8 +19754,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1089,
-      "sha256": "cceb6f9b56f6d40e8e0148d4ab59322089db9fe076f011b6abd8313f36051ecd"
+      "bytes": 1173,
+      "sha256": "961660d656f6e117981f9f349a89a9a15ff30351b53db2c9c69036894734bf0d"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",

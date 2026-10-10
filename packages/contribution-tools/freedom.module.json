@@ -24,7 +24,11 @@
     ".github/workflows/trusted-consumer-runtime.yml",
     "tests/integration/agent-kit-device-runtime.test.mjs",
     "tests/integration/native-consumer-runtime.test.ts",
-    "tests/integration/consumer-supported-transition.test.mjs"
+    "tests/integration/consumer-supported-transition.test.mjs",
+    "deploy/cloudflare/environments.json",
+    "deploy/cloudflare/lib/release-compatibility.mjs",
+    "deploy/cloudflare/test/migration-plan.test.mjs",
+    "deploy/cloudflare/test/release-compatibility.test.mjs"
   ],
   "public_exports": [
     "packages/contribution-tools/contracts.mjs",
