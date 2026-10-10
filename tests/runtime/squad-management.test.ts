@@ -19,9 +19,9 @@ before(async()=>{await admin.query(`CREATE SCHEMA ${schema}`);await migrate(pool
 after(async()=>{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});
 beforeEach(async()=>{await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits CASCADE');await seedLocal(pool);});
 
-async function request<T=Problem>(path:string,s:Session|undefined,body?:unknown,version?:string|number){
+async function request<T=Problem>(path:string,s:Session|undefined,body?:unknown,version?:string|number,key=randomUUID()){
   const headers:Record<string,string>={Origin:origin,...(s?{Cookie:s.cookie,'X-CSRF-Token':s.csrf}:{})};
-  if(body!==undefined){headers['Content-Type']='application/json';headers['Idempotency-Key']=randomUUID();if(version!==undefined)headers['If-Match']=`"${version}"`;}
+  if(body!==undefined){headers['Content-Type']='application/json';headers['Idempotency-Key']=key;if(version!==undefined)headers['If-Match']=`"${version}"`;}
   const response=await app.request(origin+'/api/v1'+path,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body)});
   return {status:response.status,data:await response.json() as T};
 }
@@ -129,4 +129,45 @@ test('disband ends the squad for everyone: memberships leave, invitations withdr
   // Disbanded squads no longer count toward the owner's limit; the journal keeps the history.
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM transition_journal WHERE aggregate_id=$1 AND command='disband_squad'",[id])).rows[0].n,1);
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE channel_key=$1',[id])).rows[0].n,1);
+});
+
+for(const transition of ['transfer','disband'] as const){
+  test(`channel edit rechecks authority after waiting for ${transition}, even with the future If-Match`,async()=>{
+    const {owner,a,id}=await team();
+    await request(`/squads/${id}/members/${a.id}/accept`,owner,{},(await member(id,a.id)).aggregate_version);
+    const blocker=await pool.connect();let pending:Promise<{status:number;data:Problem}>|undefined;
+    try{
+      await blocker.query('BEGIN');
+      const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      // Hold the exact committed row transition behind a transaction barrier. The
+      // request's unlocked owner check sees the old row, then FOR UPDATE waits.
+      const changed=transition==='transfer'
+        ?await blocker.query('UPDATE member_squads SET owner_ref=$2,aggregate_version=aggregate_version+1 WHERE squad_id=$1 RETURNING aggregate_version',[id,a.id])
+        :await blocker.query('UPDATE member_squads SET disbanded_at=now(),aggregate_version=aggregate_version+1 WHERE squad_id=$1 RETURNING aggregate_version',[id]);
+      const futureVersion=changed.rows[0].aggregate_version;
+      pending=request(`/squads/${id}/channel`,owner,{communication_channel_name:'stale-owner-edit'},futureVersion);
+      let waiting=false;const deadline=Date.now()+5000;
+      while(Date.now()<deadline){
+        waiting=(await pool.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%member_squads%FOR UPDATE%') AS waiting",[pid])).rows[0].waiting;
+        if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      assert.equal(waiting,true,'the channel edit must reach the held squad row');
+      await blocker.query('COMMIT');
+      const denied=await pending;
+      assert.equal(denied.status,transition==='transfer'?403:404);
+      assert.equal(denied.data.code,transition==='transfer'?'squad_owner_required':'squad_not_found');
+      const saved=(await pool.query('SELECT communication_channel_name,aggregate_version FROM member_squads WHERE squad_id=$1',[id])).rows[0];
+      assert.equal(saved.communication_channel_name,'');assert.equal(String(saved.aggregate_version),String(futureVersion));
+    }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+  });
+}
+
+test('a former owner cannot replay a saved owner-management receipt after transfer',async()=>{
+  const {owner,a,id}=await team();
+  await request(`/squads/${id}/members/${a.id}/accept`,owner,{},(await member(id,a.id)).aggregate_version);
+  const version=(await view(owner,id)).data.aggregate_version,key=randomUUID(),body={name:'replay-owned',purpose:'receipt test'};
+  const saved=await request<Squad>(`/squads/${id}/profile`,owner,body,version,key);assert.equal(saved.status,200);
+  assert.equal((await request(`/squads/${id}/transfer`,owner,{user_id:a.id},saved.data.aggregate_version)).status,200);
+  const replay=await request(`/squads/${id}/profile`,owner,body,version,key);
+  assert.equal(replay.status,403);assert.equal(replay.data.code,'squad_owner_required');
 });

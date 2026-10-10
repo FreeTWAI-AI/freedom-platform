@@ -297,6 +297,9 @@ export async function updateSquadChannel(pool:Pool,input:Command,id:string) {
     requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有隊主可以設定小隊溝通頻道。');
   },async q=>{
     const squad=(await q.query('SELECT * FROM member_squads WHERE squad_id=$1 AND community_id=$2 FOR UPDATE',[id,input.actor.community_id])).rows[0];
+    // Transfer or disband may have committed while this row lock waited.
+    requireCondition(squad&&squad.disbanded_at===null,404,'squad_not_found','找不到這個小隊。');
+    requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有隊主可以設定小隊溝通頻道。');
     checkVersion(String(squad.aggregate_version),input.expected);
     const updated=(await q.query(`UPDATE member_squads SET communication_channel_name=$2,aggregate_version=aggregate_version+1 WHERE squad_id=$1 RETURNING squad_id,communication_channel_name,aggregate_version`,[id,body.communication_channel_name])).rows[0];
     await journal(q,input.actor,'member_squad',id,updated.aggregate_version,'update_squad_channel',{});

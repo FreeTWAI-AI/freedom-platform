@@ -17474,8 +17474,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 39539,
-      "sha256": "6b9d6d0b9efd9d2e2a66e787050b5d4c1f1cefdc59cd7551c575b608ed35da52"
+      "bytes": 39854,
+      "sha256": "6fbe82f8b38d362750896bd6b3e43a35d8d24388f8f9390ad7f47c6090534b66"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -21809,8 +21809,8 @@
     },
     {
       "path": "tests/runtime/squad-management.test.ts",
-      "bytes": 11488,
-      "sha256": "118682fcc5f7d4a6f29e792cb3586a9402925221f204e7dfb351d54e5f887dc1"
+      "bytes": 14600,
+      "sha256": "d441776106759f1dd037830cf7c7aab75d9429d9efaf2daeb41daddc412f59cc"
     },
     {
       "path": "tests/runtime/storefront-presentation-contracts.test.ts",
