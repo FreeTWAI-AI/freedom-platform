@@ -1,7 +1,7 @@
 import {useEffect,useId,useRef,useState,useSyncExternalStore} from 'react';
 import type {PortalClient} from '../api';
 import {useLanguage,type InterfaceLanguage} from '../language';
-import {SHARE_LABELS,SHARE_PLATFORMS,socialShareForSession,socialShareUrl,type ShareFault,type SharePlatform} from '../social-share';
+import {SHARE_LABELS,SHARE_PLATFORMS,socialShareForSession,socialShareUrl,type ShareFault,type SharePlatform,type SocialShareSession} from '../social-share';
 import './SocialCrossPlatformShare.css';
 
 // Deferred with the feature; user-authored captions and filenames remain verbatim.
@@ -79,9 +79,9 @@ export function PlatformLogo({platform}:{platform:SharePlatform}){
   </svg>;
 }
 
-export function SocialCrossPlatformShare({client,draft,disabled,onRestore,onClose}:{client:PortalClient;draft:string;disabled:boolean;onRestore:(text:string)=>void;onClose:()=>void}){
+export function SocialCrossPlatformShare({client,draft,disabled,onRestore,onClose,shareJob}:{shareJob?:SocialShareSession;client:PortalClient;draft:string;disabled:boolean;onRestore?:(text:string)=>void;onClose:()=>void}){
   const {language}=useLanguage(),id=useId(),root=useRef<HTMLElement>(null),input=useRef<HTMLInputElement>(null);
-  const [job]=useState(()=>socialShareForSession(client));
+  const [job]=useState(()=>shareJob??socialShareForSession(client));
   const state=useSyncExternalStore(job.subscribe,job.snapshot,job.snapshot),saved=state.prepared;
   const t=(key:keyof typeof messages,values:Record<string,string|number>={})=>messages[key][languageIndex[language]].replace(/\{(\w+)\}/g,(match,key)=>String(values[key]??match));
   const busy=disabled||!!state.busy,changed=job.changed(draft),done=saved?.platforms.filter(platform=>state.progress[platform]?.confirmedAt).length??0;
@@ -120,7 +120,7 @@ export function SocialCrossPlatformShare({client,draft,disabled,onRestore,onClos
       <div className="social-share-actions"><button type="button" className="btn btn-primary" disabled={busy||!!saved&&!changed} onClick={()=>job.prepare(draft)}>{saved?t('reprepare'):t('prepare')}</button><button type="button" className="btn btn-ghost" onClick={()=>job.disable()}>{t('disable')}</button></div>
       {saved&&<div className="social-share-prepared">
         {clipboardFault&&alert}
-        <div className="social-share-caption"><details open={state.fault==='clipboard'||undefined}><summary>{t('caption')}</summary><textarea aria-label={t('caption')} value={saved.text} readOnly translate="no" rows={4} onFocus={event=>event.currentTarget.select()}/><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>{if(!disabled&&job.payload(saved.id))onRestore(saved.text);}}>{t('restore')}</button></details><button type="button" className="btn btn-ghost" disabled={busy||!saved.text} onClick={()=>{if(!disabled)void job.copy(saved.id,text=>navigator.clipboard.writeText(text));}}>{state.busy==='clipboard'?t('copying'):t('copy')}</button></div>
+        <div className="social-share-caption"><details open={state.fault==='clipboard'||undefined}><summary>{t('caption')}</summary><textarea aria-label={t('caption')} value={saved.text} readOnly translate="no" rows={4} onFocus={event=>event.currentTarget.select()}/>{onRestore&&<button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>{if(!disabled&&job.payload(saved.id))onRestore(saved.text);}}>{t('restore')}</button>}</details><button type="button" className="btn btn-ghost" disabled={busy||!saved.text} onClick={()=>{if(!disabled)void job.copy(saved.id,text=>navigator.clipboard.writeText(text));}}>{state.busy==='clipboard'?t('copying'):t('copy')}</button></div>
         {!!saved.files.length&&<div className="social-share-downloads">{saved.files.map((file,index)=><button key={index} type="button" className="btn btn-ghost" disabled={busy} onClick={()=>download(index)}><span>{t('download',{name:file.name})}</span></button>)}</div>}
         <p className="social-share-progress">{t('progress',{done,total:saved.platforms.length})}</p>
         <div className="social-share-steps">{saved.platforms.map((platform,index)=>{

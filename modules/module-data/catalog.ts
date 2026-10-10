@@ -2283,6 +2283,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "display_name",
             "tenant_work_mode",
             "target_message_image_id",
+            "target_comment_image_id",
             "target_product_id",
             "target_instance_id",
           ],
@@ -2537,6 +2538,21 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             rls: "exempt" as const,
             reason_code: "non_tenant_sidecar",
             reason: "Personal or community asset sidecar with no tenant column. It is listed because a foreign key reaches an asset or scope row. Row security stays off so those flows still see every row.",
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "community_comment_image_asset_targets",
+          columns: [
+            "image_id", "post_id", "community_id", "scope_id", "scope_kind",
+            "owner_principal_id", "owner_user_id", "asset_id", "linked_at_version",
+            "comment_id", "purpose", "asset_state", "created_at",
+          ],
+          tenant_resolution: { kind: "fk_chain" as const, via: ["assets"] },
+          isolation: {
+            rls: "exempt" as const,
+            reason_code: "non_tenant_sidecar",
+            reason: "Personal comment image sidecar with no tenant column. It is listed because its foreign key reaches assets. Current post visibility and immutable owner binding authorize access; maintenance must see every row.",
           },
         },
         {

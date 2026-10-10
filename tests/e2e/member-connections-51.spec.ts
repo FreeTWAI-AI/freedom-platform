@@ -66,6 +66,8 @@ async function shellTheme(page:Page,name:string,theme:string){
   if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
   await page.getByRole('menuitemradio',{name,exact:true}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+  await settings.click();
+  await expect(settings).toHaveAttribute('aria-expanded','false');
 }
 async function previewTheme(page:Page,name:string,label:string,theme:string){
   const menu=page.locator('.preview-profile-menu');
@@ -231,6 +233,7 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
     await shellTheme(page,label,theme);
     for(const width of widths){
       await page.setViewportSize({width,height:width===390?844:900});
+      await expandHomeSections(page);
       await noOverflow(page,`${theme} ${width} home hint`);
       const paint=await hintContrast(page);
       expect(paint.ratio,`${theme} ${width}`).toBeGreaterThanOrEqual(4.5);
