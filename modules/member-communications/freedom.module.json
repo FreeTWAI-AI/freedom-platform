@@ -82,8 +82,7 @@
     "tests/e2e/notification-bell-refresh.spec.ts",
     "docs/development/member-settings-messages.md",
     "tests/e2e/chat-search.spec.ts",
-    "apps/portal-web/src/modules/ChatWorkspace.tsx",
-    "apps/portal-web/src/modules/MemberChannels.tsx"
+    "apps/portal-web/src/modules/ChatWorkspace.tsx"
   ],
   "owner_role": "foundation",
   "public_exports": [
