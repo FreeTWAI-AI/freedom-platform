@@ -236,7 +236,7 @@ test('ordinary showcase search preserves the original member audience and topic 
   assert.deepEqual((await searchCommunityContent(pool, null, query)).items, []);
   assert.deepEqual((await searchCommunityContent(pool, foreign, query)).items, []);
   const visible = await searchCommunityContent(pool, reader, query);
-  const originalAudience = (await listShowcases(pool, reader)).filter(row => row.title === create.body.title);
+  const originalAudience = (await listShowcases(pool, reader, {limit: 50})).items.filter(row => row.title === create.body.title);
   assert.deepEqual(visible.items.map(row => row.id), originalAudience.map(row => row.showcase_id));
   assert.equal(visible.items[0].path, `#showcase/${showcase.showcase_id}`);
   assert.equal(visible.items[0].summary, create.body.description);
@@ -244,7 +244,7 @@ test('ordinary showcase search preserves the original member audience and topic 
   await pool.query('UPDATE users SET email=$2 WHERE user_id=$1', [owner.user_id, `search-fixture-${owner.user_id}@example.invalid`]);
   try {
     assert.deepEqual((await searchCommunityContent(pool, reader, query)).items, []);
-    assert.equal((await listShowcases(pool, reader)).some(row => row.showcase_id === showcase.showcase_id), false);
+    assert.equal((await listShowcases(pool, reader, {limit: 50})).items.some(row => row.showcase_id === showcase.showcase_id), false);
     assert.deepEqual((await searchCommunityContent(pool, owner, query)).items.map(row => row.id), [showcase.showcase_id]);
   } finally { await pool.query('UPDATE users SET email=$2 WHERE user_id=$1', [owner.user_id, DEMO_USERS[2].email]); }
 
