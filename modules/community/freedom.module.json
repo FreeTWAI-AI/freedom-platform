@@ -65,8 +65,7 @@
     "tests/runtime/skill-share-content.test.ts",
     "tests/runtime/social-thumbnail-assets.test.ts",
     "tests/e2e/event-highlights.spec.ts",
-    "tests/e2e/member-services.spec.ts",
-    "tests/e2e/events-past.spec.ts"
+    "tests/e2e/member-services.spec.ts"
   ],
   "public_exports": [
     "modules/community/catalog.ts",

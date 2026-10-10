@@ -17299,8 +17299,8 @@
     },
     {
       "path": "modules/community/freedom.module.json",
-      "bytes": 13104,
-      "sha256": "af052c42dd5b7d64ca7d979b09da9f06085586dcc8048279b9b331235b8d4ca9"
+      "bytes": 13067,
+      "sha256": "e2c68066782447d792866ec9769d6464ce97a3a0b8a713b60ca81e7ceafa36c4"
     },
     {
       "path": "modules/community/github-history.ts",
@@ -17404,8 +17404,8 @@
     },
     {
       "path": "modules/community/participation/freedom.module.json",
-      "bytes": 1631,
-      "sha256": "03aece39fc2c62821146d14b6ce4c4ea85b445a013ec96a3ad907549496c5afe"
+      "bytes": 1668,
+      "sha256": "444556cac69fb4ba6ef81d5126814fac3ef1fb897cc0128785e4d16d1ac06a26"
     },
     {
       "path": "modules/community/personal-content/freedom.module.json",
