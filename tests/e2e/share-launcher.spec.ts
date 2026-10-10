@@ -56,7 +56,7 @@ test('320px share choices fit all themes, back and Escape return keyboard focus'
 
 test('an unavailable share page reports failure, keeps retry and does not create content',async({page})=>{
   await login(page);let unavailable=true;
-  await page.route('**/api/v1/showcases',route=>unavailable?route.fulfill({status:503,json:{code:'synthetic_unavailable'}}):route.fallback());
+  await page.route(/\/api\/v1\/showcases(?:\?.*)?$/,route=>unavailable?route.fulfill({status:503,json:{code:'synthetic_unavailable'}}):route.fallback());
   await choose(page,'分享作品');await expect(page.getByRole('status').filter({hasText:'分享入口暫時無法載入'})).toBeVisible();
   await expect(page.getByRole('button',{name:'重新載入',exact:true})).toBeEnabled();
   unavailable=false;await page.getByRole('button',{name:'重新載入',exact:true}).click();

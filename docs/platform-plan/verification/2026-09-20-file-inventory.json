@@ -359,8 +359,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 42969,
-      "sha256": "e5f59218b98d8379891048635e4b20365706faad132008180b4f89451c4be01e"
+      "bytes": 42975,
+      "sha256": "11ed3001e247a1ca85ae5037c8e59d3601906e8773079dd7f6549134cd6fda6a"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -2599,8 +2599,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
-      "bytes": 28304,
-      "sha256": "06e8cdea4cf8270b1297fdf2adc2a7ed5fee3ac6d5ed26215c7d69b961051ff2"
+      "bytes": 30392,
+      "sha256": "41f68a74e817581023e6af3c7a1abf93819310927729c153307c034b125dd15d"
     },
     {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
@@ -13624,8 +13624,8 @@
     },
     {
       "path": "docs/development/local-runtime.md",
-      "bytes": 7588,
-      "sha256": "3daf63c0c5b455fdf3df213d3c75120bfa21695c77bab007e1ac74b42cf21b2a"
+      "bytes": 7623,
+      "sha256": "0d218a20f31289b60544965c7352f3b2063049ca7655d582ea20bc76f7312681"
     },
     {
       "path": "docs/development/manual-work-skill-books.md",
@@ -13799,8 +13799,8 @@
     },
     {
       "path": "docs/development/simple-work-sharing.md",
-      "bytes": 10260,
-      "sha256": "500137898cc7d29cba4fb8a21b7433880c1cd9b07cfa802a68db2464af95f628"
+      "bytes": 10622,
+      "sha256": "8f9978a3370f1633653c0553b6c735a22bd3480dc6126137e2d33bbac918deb3"
     },
     {
       "path": "docs/development/skill-editor-guild-access.md",
@@ -17824,8 +17824,8 @@
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
-      "bytes": 15796,
-      "sha256": "9d1d0b1adb661c4ac0d9f2aae9c1ce8b9fb170d03e6590c0c0fa73ba9c63fa60"
+      "bytes": 16242,
+      "sha256": "21426603dafed1d508dc3b321998dc260b47892975716e82bd904aa3cd89906b"
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
@@ -20199,8 +20199,8 @@
     },
     {
       "path": "tests/e2e/share-launcher.spec.ts",
-      "bytes": 5455,
-      "sha256": "3c64876d8349b42bc90d7235c15f6963baace283a21454d2d28eae3e45399b02"
+      "bytes": 5466,
+      "sha256": "c1a8f7ae1dc27fdc24fd8abf245941f279d8e09aab29d8ba7fccdb5f5e5f5293"
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
@@ -20214,13 +20214,18 @@
     },
     {
       "path": "tests/e2e/sharing-authoring-fixture.ts",
-      "bytes": 33747,
-      "sha256": "652f0b5eadb55d461712064accf5b3454d16adf1d2d90639791342e94e500a88"
+      "bytes": 33796,
+      "sha256": "f781779482db757bb22d928b8e37620eac00a19573e74ffce6ea5bb928befc66"
     },
     {
       "path": "tests/e2e/sharing-authoring.spec.ts",
       "bytes": 198,
       "sha256": "7c98ef149a073cccb181667c51d9c5ad52a436baa33e452491ec159b769dc4fe"
+    },
+    {
+      "path": "tests/e2e/showcase-pages.spec.ts",
+      "bytes": 2149,
+      "sha256": "6aa6708acde994e7434c266194c14a8a8be56106680aa538112e0445b059442d"
     },
     {
       "path": "tests/e2e/sidebar-refine.spec.ts",
@@ -20699,8 +20704,8 @@
     },
     {
       "path": "tests/runtime/community-search.test.ts",
-      "bytes": 25961,
-      "sha256": "79c400df8cd52f770822d519dc107e08edb7ff5a25052b539a0e740c9ced8679"
+      "bytes": 25999,
+      "sha256": "02ead541c00d67c9800d718b1cd7ae8df09b711e61cc857b876cc54cd87a8321"
     },
     {
       "path": "tests/runtime/credential-broker-adversarial.test.ts",
@@ -21871,6 +21876,11 @@
       "path": "tests/runtime/showcase-drafts.test.ts",
       "bytes": 7122,
       "sha256": "b65f0d614355d3818a2541e7e9bea833f47e0b16f351a68b7cc0adabc02ce8b6"
+    },
+    {
+      "path": "tests/runtime/showcase-pages.test.ts",
+      "bytes": 4546,
+      "sha256": "b20d1abdcb8584343e08f2e19e091d781765e06b06671fa3b5da96608b22f7a3"
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",
