@@ -1,13 +1,9 @@
-# GitHub Issue / PR 結案候選巡檢
+# GitHub Issue / PR 唯讀巡檢
 
-`Report issue closure candidates` 每小時唯讀查詢本倉 open Issues 與所有狀態的 PR，產出待核對清單。GitHub 原生的 PR closing keywords 仍是正常主路徑；此巡檢不關閉、留言或修改任何 Issue／PR。
+`Report issue closure candidates` 每小時及手動執行皆只讀取本倉 open Issues 與 PR，輸出待人工核對的候選，不關閉 Issue、不發留言，也沒有可啟用寫入的參數。workflow 僅有 `contents: read`、`issues: read`、`pull-requests: read`；排程不等於結案授權。
 
-已 merge 到預設分支的 PR 標題／內文含 GitHub closing keyword（`close`、`fix`、`resolve` 的標準變體）及同倉 `#<issue-number>`，且 Issue 在 merge 後沒有更新時，才列為候選。單純提及、程式碼範例、未 merge 或非預設分支的 PR 不列入；merge 後有新留言或重新開啟等 Issue 活動也會跳過。
+候選只採已 merge 到目前預設分支的 PR，且 Issue 沒有在 merge 後更新。標題與內文分開解析，只接受獨立一行的 closing keyword 與同倉 `#<issue-number>`（可有項目符號、同倉名稱或句末標點）。否定敘述、引言、程式碼與跨行／跨欄位拼出的詞句不當作聲明；這個保守的提示解析器不宣稱完整模擬 GitHub Markdown 或 closing semantics。
 
-**候選不等於完成證據。** PR 標題／內文在合併後仍可編輯，後補的關鍵字也可能被列入；掃描後 Issue 也可能出現新留言或重新開啟。每列均標示 `requiresReview: true`，必須另外核對原 Issue 驗收條件、實際合併內容、必要部署／啟用證據及最新討論，才能由有權者結案。沒有候選不代表所有 Issue 尚未完成。
+報告明示 `mode: report-only`、`criteriaVerified: false`。PR 文字可在合併後修改，Issue 時間也是讀取時快照；兩者都不能證明原需求、測試、部署或真人驗收已完成。維護者需重新讀取原 Issue、最新討論及實際 merged coverage，保留未完成項，再依授權個別致謝與結案。此工具不能取代該核對，也不聲稱原子性的最新狀態。
 
-排程與 Actions 手動執行都固定為 report-only，沒有切換成寫入的選項。workflow 只有 `contents: read`、`issues: read` 與 `pull-requests: read`，checkout 不保存憑證。結果以 JSON 輸出 `mode`、掃描數量及 `candidates`，不會把候選標成 `closed`。
-
-腳本和測試可分別用 `node scripts/reconcile-issue-closures.mjs`（需提供 `GH_TOKEN`、`GITHUB_REPOSITORY`）及 `node --test packages/contribution-tools/test/reconcile-issue-closures.test.mjs` 執行。供本機使用的 token 也應只具讀取權；舊 `DRY_RUN` 變數不會啟用任何寫入。
-
-回歸測試放在既有 `ci.governance-unit` 的目錄，會由固定 runner 自動納入完整檔案聯集；不新增獨立 CI job，也不修改已安裝的 runner。
+手動使用 `node scripts/reconcile-issue-closures.mjs`（需 `GH_TOKEN`、`GITHUB_REPOSITORY`），同樣只有 GET。測試位於既有 governance discovery 範圍：`node --test packages/contribution-tools/test/reconcile-issue-closures.test.mjs`，亦由 `npm run test:governance` 與 pinned `ci.governance-unit` 的目錄規則選入；不需要新 suite 或更新 installed pin。
