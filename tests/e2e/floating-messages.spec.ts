@@ -1,6 +1,13 @@
 import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
 
+const isChatReadPath=(pathname:string)=>/^\/api\/v1\/me\/(?:conversations\/[^/]+|channels\/(?:guild|squad|world)\/[^/]+)\/read$/.test(pathname);
+
+test('idle request counter includes chat receipts but excludes social and notification reads',()=>{
+  for(const pathname of ['/api/v1/me/conversations/peer/read','/api/v1/me/channels/world/world/read','/api/v1/me/channels/guild/guild_ai_vibe/read','/api/v1/me/channels/squad/squad-id/read'])expect(isChatReadPath(pathname)).toBe(true);
+  for(const pathname of ['/api/v1/social-posts/post-id/read','/api/v1/me/notifications/notice-id/read','/api/v1/me/channels/world/world/messages','/api/v1/me/channels/world/world/read/extra'])expect(isChatReadPath(pathname)).toBe(false);
+});
+
 async function login(page:Page){
   await page.goto('/');await expect(page.locator('.floating-messages')).toHaveCount(0);
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
@@ -68,7 +75,7 @@ test('closed history stays idle and legacy inbox/popout links open the same pane
   expect(sent.status()).toBe(201);
   const message=await sent.json();
   let history=0,reads=0;
-  page.on('request',request=>{const url=new URL(request.url());if(/channels\/world\/world\/messages$/.test(url.pathname))history++;if(request.method()==='POST'&&url.pathname.endsWith('/read'))reads++;});
+  page.on('request',request=>{const url=new URL(request.url());if(/channels\/world\/world\/messages$/.test(url.pathname))history++;if(request.method()==='POST'&&isChatReadPath(url.pathname))reads++;});
   await login(page);const bubble=page.locator('.floating-messages'),panel=page.locator('.floating-message-panel');
   // The visible initial read and its count refresh must finish before measuring
   // closed-panel idleness; the textbox can render before history/read settles.

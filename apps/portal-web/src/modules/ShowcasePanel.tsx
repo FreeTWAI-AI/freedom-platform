@@ -29,6 +29,7 @@ export function ShowcasePanel() {
   const [published, , current] = useAuthoringDraft<Showcase | null>(session.user.user_id, 'showcase:published', null)
   const [latestOpportunity] = useAuthoringDraft<Opportunity | null>(session.user.user_id, 'opportunity:latest', null)
   const loadSequence = useRef(0)
+  const loadedPages = useRef<{items: Showcase[]; observed: Showcase | null}>({items: [], observed: null})
   useEffect(() => {
     if (published) setShowcases(items => !items || items.some(item => item.showcase_id === published.showcase_id) ? items : [published, ...items])
   }, [published, showcases])
@@ -55,7 +56,8 @@ export function ShowcasePanel() {
       ])
       if (!current() || sequence !== loadSequence.current) return
       const items = requireItems<Showcase>(showcasePayload, '作品')
-      reconcilePublishedShowcase(session.user.user_id, items, observed)
+      loadedPages.current = {items, observed}
+      reconcilePublishedShowcase(session.user.user_id, items, observed, nextOffsetOf(showcasePayload) === null)
       setShowcases(items)
       setNextOffset(nextOffsetOf(showcasePayload))
       setMoreError(null)
@@ -82,7 +84,13 @@ export function ShowcasePanel() {
       const payload = await client.get<unknown>(`/showcases?limit=${SHOWCASE_PAGE}&offset=${nextOffset}`)
       if (!current() || sequence !== loadSequence.current) return
       const items = requireItems<Showcase>(payload, '作品')
-      setShowcases(existing => [...(existing ?? []), ...items.filter(item => !existing?.some(known => known.showcase_id === item.showcase_id))])
+      // Keep fetched rows separate from the optimistic publication card. Only
+      // the complete fetched union can establish that a cached row is absent.
+      const loaded = loadedPages.current
+      const merged = [...loaded.items, ...items.filter(item => !loaded.items.some(known => known.showcase_id === item.showcase_id))]
+      loadedPages.current = {...loaded, items: merged}
+      reconcilePublishedShowcase(session.user.user_id, merged, loaded.observed, nextOffsetOf(payload) === null)
+      setShowcases(merged)
       setNextOffset(nextOffsetOf(payload))
     } catch (err) {
       if (current() && sequence === loadSequence.current) setMoreError(describeError(err))

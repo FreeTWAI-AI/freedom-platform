@@ -1954,8 +1954,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AccountSecurity.tsx",
-      "bytes": 5605,
-      "sha256": "6737c515c899715ee7328aeaf9c991665f250cb5493349169147bc6ce2afd276"
+      "bytes": 6888,
+      "sha256": "e97e022483101028495e3ee7d31a7fd3cefb1ddd54694e7b9ac6ee7bb9a67c07"
     },
     {
       "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
@@ -2669,8 +2669,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
-      "bytes": 30794,
-      "sha256": "10847c8a586791d0898ab89f0c498f8bfb006d1efd1b55e82407407e68e3dc0c"
+      "bytes": 31367,
+      "sha256": "59614d1a8265411778eef52a382ce57e6ce7724eaf6aa2acbb61c8f2e486e188"
     },
     {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
@@ -2969,8 +2969,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/showcase-drafts.ts",
-      "bytes": 5422,
-      "sha256": "01fa43785af002ec3dc0d88c7c8ab1d889d6350573b54164df1366325530d9d3"
+      "bytes": 5577,
+      "sha256": "7e34123d71aafa27eb157719f11e23c76e4b2fec9942968113fcc8c3e90c3ed6"
     },
     {
       "path": "apps/portal-web/src/modules/skill-discovery-client.ts",
@@ -19899,8 +19899,8 @@
     },
     {
       "path": "tests/e2e/account-security.spec.ts",
-      "bytes": 5514,
-      "sha256": "4416334284283c21384002eafefee3ea7a6a19c0cbd42766f884c86f43f155c5"
+      "bytes": 7506,
+      "sha256": "fa36ed732aec5017d25ef182cd9f2340f80d30bcb9d0848edcdfaa9032cc461c"
     },
     {
       "path": "tests/e2e/admin-credentials.spec.ts",
@@ -20094,8 +20094,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 11050,
-      "sha256": "2801b69b20e07ffab79c16b52081517ef6fa3383dd767e6dc7b58b06b76c6ce4"
+      "bytes": 11773,
+      "sha256": "85dc32701e5222a2c65eb4737447599179843a95d95fc05bf0af4cf508635497"
     },
     {
       "path": "tests/e2e/freedom.module.json",
@@ -22214,8 +22214,8 @@
     },
     {
       "path": "tests/runtime/showcase-drafts.test.ts",
-      "bytes": 7122,
-      "sha256": "b65f0d614355d3818a2541e7e9bea833f47e0b16f351a68b7cc0adabc02ce8b6"
+      "bytes": 8388,
+      "sha256": "7948ffdcbf4df4d2870a6df25f9c9e4dd400796d313e2dbb707285efc908e2ea"
     },
     {
       "path": "tests/runtime/showcase-pages.test.ts",
