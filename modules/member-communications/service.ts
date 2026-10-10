@@ -65,7 +65,9 @@ async function snapshot<T>(pool:Pool,actor:Actor,run:(q:PoolClient)=>Promise<T>)
   }
 }
 function message(row:any):Message{
-  return {message_id:row.message_id,sender_ref:row.sender_ref,recipient_ref:row.recipient_ref,body:row.body,created_at:iso(row.created_at)!,read_at:iso(row.read_at)};
+  const retracted=iso(row.retracted_at??null);
+  // A retracted row keeps its place and read state; the text never leaves the server again.
+  return {message_id:row.message_id,sender_ref:row.sender_ref,recipient_ref:row.recipient_ref,body:retracted?'':row.body,created_at:iso(row.created_at)!,read_at:iso(row.read_at),retracted_at:retracted};
 }
 function notification(row:any):Notification{
   return {notification_id:row.notification_id,kind:row.kind,title:row.title,body:row.body,created_at:iso(row.created_at)!,read_at:iso(row.read_at),
@@ -131,10 +133,10 @@ async function resolvePeer(q:PoolClient|Pool,actor:Actor,id:string):Promise<Peer
 export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promise<ConversationPage>{
   const {limit,offset}=CommunicationPageQuery.parse(raw);
   return snapshot(pool,actor,async q=>{
-    const unread=(await q.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[actor.community_id,actor.user_id])).rows[0].n;
+    const unread=(await q.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL AND retracted_at IS NULL',[actor.community_id,actor.user_id])).rows[0].n;
     const viewerReady=(await q.query(`SELECT ${ready('v')} AS ready FROM users v WHERE v.user_id=$1 AND v.community_id=$2`,[actor.user_id,actor.community_id])).rows[0]?.ready===true;
     const rows=(await q.query(`WITH latest AS (
-        SELECT DISTINCT ON (peer) peer,message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM (
+        SELECT DISTINCT ON (peer) peer,message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at FROM (
           SELECT CASE WHEN sender_ref=$2 THEN recipient_ref ELSE sender_ref END AS peer,* FROM member_direct_messages
           WHERE community_id=$1 AND (sender_ref=$2 OR recipient_ref=$2)) pair
         ORDER BY peer,created_at DESC,message_id DESC)
@@ -144,7 +146,7 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
         (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
         EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
           AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
-        (SELECT count(*)::int FROM member_direct_messages d WHERE d.community_id=$1 AND d.recipient_ref=$2 AND d.sender_ref=l.peer AND d.read_at IS NULL) AS unread_count
+        (SELECT count(*)::int FROM member_direct_messages d WHERE d.community_id=$1 AND d.recipient_ref=$2 AND d.sender_ref=l.peer AND d.read_at IS NULL AND d.retracted_at IS NULL) AS unread_count
       FROM latest l JOIN users u ON u.user_id=l.peer AND u.community_id=$1
       LEFT JOIN member_avatar_presence av ON av.user_id=u.user_id AND av.community_id=u.community_id
       ORDER BY l.created_at DESC,l.message_id DESC LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
@@ -161,8 +163,8 @@ export async function conversationMessages(pool:Pool,actor:Actor,rawPeer:string,
   const {limit,offset}=CommunicationPageQuery.parse(raw),id=peerId(actor,rawPeer);
   return snapshot(pool,actor,async q=>{
     const peer=await resolvePeer(q,actor,id);
-    const unread=(await q.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL',[actor.community_id,actor.user_id,id])).rows[0].n;
-    const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages
+    const unread=(await q.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL AND retracted_at IS NULL',[actor.community_id,actor.user_id,id])).rows[0].n;
+    const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at FROM member_direct_messages
       WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
       ORDER BY created_at DESC,message_id DESC LIMIT $4 OFFSET $5`,[actor.community_id,actor.user_id,id,limit+1,offset])).rows;
     const page=pageOf(rows,limit,offset),contents=await messageContents(q,page.items,'direct',actor.user_id);
@@ -178,9 +180,9 @@ export async function conversationActivity(pool:Pool,actor:Actor,rawPeer:string,
       (SELECT message_id FROM member_direct_messages WHERE community_id=$1
         AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
         ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_message_id,
-      (SELECT count(*)::int FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL) AS unread_count,
+      (SELECT count(*)::int FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL AND retracted_at IS NULL) AS unread_count,
       (SELECT json_build_object('message_id',message_id,'read_at',read_at) FROM member_direct_messages
-        WHERE community_id=$1 AND sender_ref=$2 AND recipient_ref=$3
+        WHERE community_id=$1 AND sender_ref=$2 AND recipient_ref=$3 AND retracted_at IS NULL
         ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_outgoing`,
       [actor.community_id,actor.user_id,id])).rows[0];
     return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready&&!peer.blocked,
@@ -198,9 +200,9 @@ export async function searchConversationMessages(pool:Pool,actor:Actor,rawPeer:s
       if(cursor)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
         AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
         [cursor,actor.community_id,actor.user_id,id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
-      const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages
+      const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at FROM member_direct_messages
         WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
-          AND body ILIKE $4 AND ($5::uuid IS NULL OR (created_at,message_id)<(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$5))
+          AND retracted_at IS NULL AND body ILIKE $4 AND ($5::uuid IS NULL OR (created_at,message_id)<(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$5))
         ORDER BY created_at DESC,message_id DESC LIMIT $6`,[actor.community_id,actor.user_id,id,messageSearchPattern(query),cursor??null,limit+1])).rows;
       const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'direct',actor.user_id);
       return {items:shown.map((row,index)=>({...message(row),...contents[index]})),next_cursor:rows.length>limit?shown[shown.length-1].message_id:null};
@@ -251,7 +253,7 @@ export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string,o
     return {message_id:row.message_id as string};
   },async q=>{await currentMember(q,input.actor,false);await assertCanContact(q,input.actor,id);});
   return snapshot(pool,input.actor,async q=>{
-    const row=(await q.query('SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3',
+    const row=(await q.query('SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3',
       [sent.message_id,input.actor.community_id,input.actor.user_id])).rows[0];
     requireCondition(row,404,'message_not_found','找不到這則訊息。');
     return {...message(row),...(await messageContents(q,[row],'direct',input.actor.user_id))[0]};
@@ -273,5 +275,25 @@ export async function markConversationRead(pool:Pool,input:Command,rawPeer:strin
           AND ($4::uuid IS NULL OR (created_at,message_id)<=(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$4)) RETURNING 1)
       SELECT now() AS read_at,(SELECT count(*)::int FROM marked) AS updated_count`,[input.actor.community_id,input.actor.user_id,id,through??null])).rows[0];
     return {user_id:id,read_at:iso(row.read_at)!,updated_count:row.updated_count as number};
+  });
+}
+
+export type MessageRetraction={message_id:string;retracted_at:string};
+/** Only the sender retracts, at any time. The row stays for ordering and read
+ * cursors; replaying the receipt or retracting twice returns the same stamp. */
+export async function retractDirectMessage(pool:Pool,input:Command,rawPeer:string,rawMessageId:string):Promise<MessageRetraction>{
+  Empty.parse(input.body);
+  const id=peerId(input.actor,rawPeer),messageId=rawMessageId.toLowerCase();
+  requireCondition(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(messageId),404,'message_not_found','找不到這則訊息。');
+  return command(pool,input,async q=>{
+    await currentMember(q,input.actor,false);
+    const row=(await q.query('SELECT sender_ref FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND ((sender_ref=$3 AND recipient_ref=$4) OR (sender_ref=$4 AND recipient_ref=$3))',
+      [messageId,input.actor.community_id,input.actor.user_id,id])).rows[0];
+    requireCondition(row,404,'message_not_found','找不到這則訊息。');
+    requireCondition(row.sender_ref===input.actor.user_id,403,'message_not_own','只能收回自己傳送的訊息。');
+  },async q=>{
+    const row=(await q.query(`UPDATE member_direct_messages SET retracted_at=COALESCE(retracted_at,clock_timestamp())
+      WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3 AND recipient_ref=$4 RETURNING retracted_at`,[messageId,input.actor.community_id,input.actor.user_id,id])).rows[0];
+    return {message_id:messageId,retracted_at:iso(row.retracted_at)!};
   });
 }

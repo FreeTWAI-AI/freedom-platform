@@ -32,9 +32,10 @@ export type Notification={
 };
 export type NotificationList={items:Notification[];unread_count:number;next_offset:number|null};
 
+/** retracted_at set: body is empty and no sticker, image or quote is returned. */
 export type Message={
   message_id:string;sender_ref:string;recipient_ref:string;body:string;
-  created_at:string;read_at:string|null;
+  created_at:string;read_at:string|null;retracted_at:string|null;
 }&MessageContent;
 export type Participant={user_id:string;display_name:string;avatar_url:string|null;last_seen_at:string|null;is_online:boolean};
 export type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};

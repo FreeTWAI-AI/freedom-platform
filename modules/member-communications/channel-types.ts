@@ -17,7 +17,7 @@ export type ChannelList={items:ChannelSummary[];unread_count:number;next_offset:
 /** sender_ref is users.user_id. */
 export type ChannelMessage={
   message_id:string;kind:ChannelKind;channel_key:string;sequence:string;
-  sender_ref:string;sender_name:string;body:string;created_at:string;
+  sender_ref:string;sender_name:string;body:string;created_at:string;retracted_at:string|null;
 }&MessageContent;
 /** Newest sequence first; unread_count is this channel's unread for the viewer. */
 export type ChannelMessagePage={channel:Channel;items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};

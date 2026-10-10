@@ -36,15 +36,15 @@ function stickerContent(id:string|null|undefined):Pick<MessageContent,'sticker'>
 }
 /** One bounded query for quotes of the already-authorized page, never N+1 reads. */
 export async function messageContents(q:Pool|PoolClient,rows:any[],kind:'channel'|'direct',viewer:string):Promise<MessageContent[]>{
-  const ids=[...new Set(rows.map(row=>row.reply_to_message_id).filter(Boolean))];
+  const ids=[...new Set(rows.filter(row=>!row.retracted_at).map(row=>row.reply_to_message_id).filter(Boolean))];
   const replies=ids.length?(await q.query(`SELECT m.message_id,m.sender_ref,u.display_name AS sender_name,left(m.body,160) AS body,m.sticker_id
     FROM ${kind==='channel'?'member_channel_messages':'member_direct_messages'} m JOIN users u ON u.user_id=m.sender_ref
-    WHERE m.message_id=ANY($1::uuid[]) ${kind==='channel'?"AND (m.kind<>'world' OR m.sender_ref=$2 OR NOT is_verification_test_account(m.sender_ref))":'AND ($2::uuid IS NOT NULL)'}`,[ids,viewer])).rows:[];
+    WHERE m.message_id=ANY($1::uuid[]) AND m.retracted_at IS NULL ${kind==='channel'?"AND (m.kind<>'world' OR m.sender_ref=$2 OR NOT is_verification_test_account(m.sender_ref))":'AND ($2::uuid IS NOT NULL)'}`,[ids,viewer])).rows:[];
   const byId=new Map(replies.map(row=>[row.message_id,row]));
-  const imageIds=kind==='direct'?rows.map(row=>row.message_id).filter(Boolean):[];
+  const imageIds=kind==='direct'?rows.filter(row=>!row.retracted_at).map(row=>row.message_id).filter(Boolean):[];
   const images=new Map<string,MessageImage>(imageIds.length?(await q.query(`SELECT t.message_id,o.byte_size FROM member_message_image_asset_targets t
     JOIN assets a ON a.asset_id=t.asset_id AND a.purpose='member.message-image' AND a.state='ready' AND a.deletion_fence=0
     JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='member.message-image'
     WHERE t.message_id=ANY($1::uuid[])`,[imageIds])).rows.map(row=>[row.message_id as string,{content_type:'image/webp' as const,byte_size:row.byte_size as number}]):[]);
-  return rows.map(row=>{const quote=byId.get(row.reply_to_message_id);const image=images.get(row.message_id);return {...stickerContent(row.sticker_id),...(image?{image}:{}),...(quote?{reply_to:{message_id:quote.message_id,sender_ref:quote.sender_ref,sender_name:quote.sender_name,body:quote.body,...stickerContent(quote.sticker_id)}}:{})};});
+  return rows.map(row=>{if(row.retracted_at)return {};const quote=byId.get(row.reply_to_message_id);const image=images.get(row.message_id);return {...stickerContent(row.sticker_id),...(image?{image}:{}),...(quote?{reply_to:{message_id:quote.message_id,sender_ref:quote.sender_ref,sender_name:quote.sender_name,body:quote.body,...stickerContent(quote.sticker_id)}}:{})};});
 }

@@ -15,6 +15,8 @@
 | `GET /api/v1/me/conversations/:userId/messages` | `{participant, can_send, items: Message[], unread_count, next_offset}`；還沒對話時回空陣列，可直接開始撰寫 |
 | `POST /api/v1/me/conversations/:userId/messages` `{body}` | `201 Message` |
 | `POST /api/v1/me/conversations/:userId/read` `{}` | `{user_id, read_at, updated_count}`；只標對方傳給自己的未讀訊息 |
+| `POST /api/v1/me/conversations/:userId/messages/:messageId/retract` `{}` | `{message_id, retracted_at}`；只有傳送者可收回（#398） |
+| `POST /api/v1/me/channels/:kind/:key/messages/:messageId/retract` `{}` | `{message_id, retracted_at}`；只有傳送者、且仍是該頻道成員可收回 |
 
 DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；`avatar_url` 只在對方目前可見且有頭像時給既有的 `/api/v1/members/:id/avatar?v=` 路徑。回應不含 email、聯絡方式或任何 token。
 
@@ -64,6 +66,12 @@ number 136 is provisional if another migration lands first.
 公會與小隊共用每位傳送者每 60 秒 20 則的頻率限制，與私訊計量分開。內容沿用純文字、Unicode 2,000 字與冪等規則；收據只留 message ID。每個頻道在同一交易內配置並提交遞增序號，DTO 用字串保存 bigint 精度。標讀以本人指定的已載入 `through_message_id` 推進游標，不能把之後提交的訊息一併標讀；自己的發言不計未讀。
 
 離開保留歷史和已讀游標，但不保留讀寫權。重新加入後接續游標，離開期間的他人發言仍計未讀。前端先取得可用頻道列表，由本人選擇後才讀取正文，未讀提示不會預先載入頻道內容。
+
+## 收回訊息（#398，migration 149）
+
+私訊與頻道訊息新增 `retracted_at`。傳送者隨時可收回自己的訊息：路由走既有 Origin、CSRF、`Idempotency-Key`，body 只接受 `{}`；UUID 大小寫正規化為同一 receipt 目標。收件者或其他成員收回回 `403 message_not_own`；找不到、非本對話／頻道或格式錯誤回 404，不透露訊息是否存在。重複收回或重播同一 key 回同一個 `retracted_at`。頻道收回前重新鎖定成員資格，離開後就不能再收回。
+
+收回後的 `Message`／`ChannelMessage` 仍佔原位置與已讀狀態，但 `body` 為空字串、不回 `sticker`／`image`／`reply_to`；引用它的回覆也不再帶出原文。私訊圖片位元組路由對已收回訊息回 404。收回的訊息不計入任何未讀數（私訊 pair、總數、activity 及頻道 cursor），`last_outgoing` 已讀回條略過它，搜尋也不再命中。資料列與原文保留在資料庫供稽核，receipt 只存 `{message_id, retracted_at}`，不複製正文。前端在自己的訊息旁顯示「收回」，以站內 dialog 確認，收回後雙方顯示「這則訊息已收回」。
 
 ## 通知來源
 
