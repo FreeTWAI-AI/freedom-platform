@@ -192,7 +192,7 @@ test('direct messages: compose with a ready member, trimmed plain text, idempote
   assert.ok(Number.isFinite(Date.parse(empty.data.participant.last_seen_at)));
   const key=randomUUID(),text='  <b>你好</b> [連結](https://example.invalid)\r\n第二行  ';
   const sent=await request(path,a,{body:text},{key});assert.equal(sent.status,201,JSON.stringify(sent.data));
-  assert.deepEqual(Object.keys(sent.data).sort(),['body','created_at','message_id','read_at','recipient_ref','sender_ref']);
+  assert.deepEqual(Object.keys(sent.data).sort(),['body','created_at','message_id','read_at','recipient_ref','retracted_at','sender_ref']);
   assert.equal(sent.data.body,'<b>你好</b> [連結](https://example.invalid)\n第二行');assert.equal(sent.data.sender_ref,A);assert.equal(sent.data.recipient_ref,B);assert.equal(sent.data.read_at,null);
   const replay=await request(path,a,{body:text},{key});assert.equal(replay.status,201);assert.deepEqual(replay.data,sent.data);
   assert.equal((await request(path,a,{body:'不同內容'},{key})).data.code,'idempotency_conflict');

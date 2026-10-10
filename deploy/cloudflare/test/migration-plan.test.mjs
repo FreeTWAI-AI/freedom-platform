@@ -156,13 +156,13 @@ test('host DAG profile argument returns planner dependencies; default scan stays
   assert.equal(dag.dependencies.length, dag.ledger.length);
   assert.deepEqual(dag.dependencies.find((entry) => entry.name === A).depends_on, [legacy.at(-1).name]);
   assert.deepEqual(dag.dependencies.find((entry) => entry.name === B).depends_on, [legacy.at(-1).name]);
-  const real = checkMigrations(join(root, 'migrations'), { first: 1, last: 148, known_gaps: [22] });
+  const real = checkMigrations(join(root, 'migrations'), { first: 1, last: 149, known_gaps: [22] });
   assert.equal(real.ok, true);
   assert.equal(Object.hasOwn(real, 'dependencies'), false);
   const deployed = readMigrationSources(join(root, 'migrations')).filter(e => Number(e.name.slice(0, 3)) <= 140);
   assert.equal(resolveMigrationPlan(deployed, { format: LEGACY_MIGRATIONS, first: 1, last: 140, known_gaps: [22] }).ledger_digest,
     'b92b95dd71a94286a3038ccf88942205ded6dc453340de1dc15a62c57e0e62bc');
-  assert.equal(real.ledger_digest, 'cc0fb5c716c71fefa63f6047624e9ffb2f81a0f96a7bcbfb5a6e1665877d3c90');
+  assert.equal(real.ledger_digest, 'e90d33e64640ff9f855fd92136e2f9b8174ddebcb8cba0fdf57b26634f40e92e');
   writeFileSync(join(dir, A), v2(A, [legacy.at(-1).name], 'CREATE ROLE forbidden;\n').sql);
   const privileged = checkMigrations(dir, legacyProfile, profile());
   assert.equal(privileged.ok, false);
