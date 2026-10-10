@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import sharp from 'sharp';
 import { DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { test,expect } from './fixtures.js';
-import { navigate } from './navigation.js';
+import { navigate, openHomeGuide } from './navigation.js';
 
 const leaderboardFixtureUsers: string[] = [];
 test.afterEach(async ({ e2eAuthPool }) => {
@@ -291,6 +291,7 @@ test('story theme keeps the workshop controls and cute artwork usable on a narro
   await page.getByRole('button',{name:'設定',exact:true}).click();
   // 頁面說明 uses the theme's soft green, the same tint family as the filled 提出想法.
   await expect.poll(()=>page.evaluate(()=>{const tool=document.querySelector('.page-tool-button--help')!,probe=document.createElement('span');probe.style.background=getComputedStyle(document.documentElement).getPropertyValue('--green-soft').trim();document.body.append(probe);const soft=getComputedStyle(probe).backgroundColor;probe.remove();return getComputedStyle(tool).backgroundColor===soft})).toBe(true);
+  await openHomeGuide(page);
   await page.locator('.home-module-section > summary').click();
   await expect(page.locator('.home-module-supplier .home-module-cover')).toHaveCSS('background-image',/versefolk-market\.webp/);
   await page.locator('.home-module-section > summary').click();
