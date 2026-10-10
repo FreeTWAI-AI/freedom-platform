@@ -155,3 +155,35 @@ test('late successful or failed Star mutation cannot overwrite or invalidate a s
     assert.equal(accountReads,2);assert.equal(client.gets.length,3);assert.equal(client.posts.length,1);
   }
 });
+
+test('Follow shares case-insensitive owner state and serializes duplicate-card writes',async()=>{
+  const pending=deferred<{username:string;connected:boolean;following:boolean;confirmed:boolean}>();
+  const client=new Client(()=>({username:'source-author',connected:true,following:false}),()=>pending.promise);
+  const store=new GitHubSocialStore(client,true);
+  await store.loadFollow('Source-Author');
+  assert.equal(store.follow('Source-Author'),store.follow('source-author'));
+  const first=store.toggleFollow('Source-Author');await store.toggleFollow('source-author');
+  assert.equal(client.posts.length,1);assert.equal(store.follow('source-author').saving,true);
+  pending.resolve({username:'source-author',connected:true,following:true,confirmed:true});await first;
+  assert.equal(store.follow('Source-Author').value?.following,true);
+  assert.deepEqual(client.posts[0],{path:'/me/github/authors/source-author/follow',body:{following:true,confirmed:true}});
+});
+
+test('Follow denial clears shared state and offers reauthorization without retrying the write',async()=>{
+  const client=new Client(()=>({username:'author',connected:true,following:false}),()=>{throw new ApiError({status:403,code:'github_follow_permission_required',message:'請重新授權'});});
+  const store=new GitHubSocialStore(client,true);await store.loadFollow('author');await store.toggleFollow('author');
+  assert.equal(store.follow('AUTHOR').value,undefined);assert.equal(store.follow('author').reauthorize,true);
+  assert.match(store.follow('author').error,/重新授權/);assert.equal(client.posts.length,1);
+});
+
+test('late Follow reads and writes cannot repopulate a refreshed account',async()=>{
+  for(const operation of ['read','write'] as const){
+    const pending=deferred<{username:string;connected:boolean;following:boolean}>();
+    const client=new Client(path=>path==='/me/github'?unlinked:operation==='read'?pending.promise:{username:'author',connected:true,following:false},()=>pending.promise);
+    const store=new GitHubSocialStore(client,true);
+    if(operation==='write')await store.loadFollow('author');
+    const work=operation==='read'?store.loadFollow('author'):store.toggleFollow('author');
+    await store.refreshConnection();pending.resolve({username:'author',connected:true,following:true});await work;
+    assert.equal(store.follow('author').value,undefined);assert.equal(store.follow('author').saving,false);
+  }
+});

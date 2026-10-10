@@ -149,8 +149,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 1719,
-      "sha256": "502efda4e9cbc78db4fe43233eff56fc89517a23e7eee54cad847877e4535ba8"
+      "bytes": 1740,
+      "sha256": "b05a3e6596c80d2fffd9de575f444fa96f90f6f48b6439259c5106ada8bd2b90"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -489,8 +489,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/github-social.ts",
-      "bytes": 3797,
-      "sha256": "07803c3854b212468970cbb942c25ecf09eeea8e76b9b834a3858d227d226757"
+      "bytes": 4215,
+      "sha256": "4237bd45fd506a301dc5436f635fa18d76e57d3d3c8a52559b7a473b2b675a94"
     },
     {
       "path": "apps/platform-api/src/routes/guide-packs.ts",
@@ -2188,6 +2188,11 @@
       "sha256": "2031799702794104411517f254f97f98a47f5618ede4aacc60a53c80ecb4cb1b"
     },
     {
+      "path": "apps/portal-web/src/modules/GitHubAuthorFollow.tsx",
+      "bytes": 1897,
+      "sha256": "6efa695d312138f9b57e1356957118a5a78713122c3f8d102c930b72ad78f243"
+    },
+    {
       "path": "apps/portal-web/src/modules/GitHubCallback.tsx",
       "bytes": 1816,
       "sha256": "ad2fca88817a7599537ccbcad39520f5a697fd14c9a92e37f913c235898a77f4"
@@ -2529,8 +2534,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 21505,
-      "sha256": "51549a50ac38081f57632278db6e755a3035cb5af41fffb41794140bb0b90d3b"
+      "bytes": 21709,
+      "sha256": "f2b87bc14a56f45ad8e2e0b548e4d93b7868f8e13e6adb0eb99ae1c8629274bd"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningActionCard.tsx",
@@ -2809,8 +2814,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/github-social-client.ts",
-      "bytes": 7355,
-      "sha256": "95e2e29be8a32e0549443eb635e6221ff6ecc0b0272dfc68bcd8a9d5bd743167"
+      "bytes": 9489,
+      "sha256": "00cde62b0f35b82eb7e71471d21d6839fa394045db3c007fe5a6b39ca7599bdf"
     },
     {
       "path": "apps/portal-web/src/modules/guild-launchpad-route.ts",
@@ -13594,8 +13599,8 @@
     },
     {
       "path": "docs/development/github-social.md",
-      "bytes": 9900,
-      "sha256": "5b908cd4da720dc96983769438d9c2ecc159fc9df5e7935336e519264b293906"
+      "bytes": 11515,
+      "sha256": "abee44f860d9dbf0db4fbab030353ddcb2f870d8013328de01db2cbafc5b8fe4"
     },
     {
       "path": "docs/development/guide-publisher-2026-10-05.md",
@@ -17463,14 +17468,19 @@
       "sha256": "3cec323a21e04edfe9c069e966a5b7bc77c1303d165115d529af0b03ec398ee1"
     },
     {
+      "path": "modules/github-social/freedom.module.json",
+      "bytes": 1375,
+      "sha256": "536a2cddf3611391e22ff2bc8a51a4863b722e12454f413cb288140e2f70d638"
+    },
+    {
       "path": "modules/github-social/provider.ts",
-      "bytes": 19309,
-      "sha256": "c5153d92f7a3218f853459ba3ba681053a5e3ba8db3785b4b0aa6b4205c6833c"
+      "bytes": 20813,
+      "sha256": "576b9b41a5b3eaef5945d9543d1c8a2cf139502f74b391de9ef644a6998e72f7"
     },
     {
       "path": "modules/github-social/service.ts",
-      "bytes": 31222,
-      "sha256": "dc1e1400bffb341343916d619f44428f7b21e00127d7bee0857b1fd0810829af"
+      "bytes": 32810,
+      "sha256": "e2db362d2cc44f7813a21989e81a049b6794e4e3b2e6ac06e83247ee0bcf799d"
     },
     {
       "path": "modules/github-social/setup.ts",
@@ -19869,8 +19879,8 @@
     },
     {
       "path": "tests/e2e/github-social.spec.ts",
-      "bytes": 20671,
-      "sha256": "6b97fca50e36beda943152d9c108108a506f7623d3a21a780292d95b761594e3"
+      "bytes": 23303,
+      "sha256": "0a6091c6c9fe69523d22f97dca437116848025b872c03d339586bd8ee6274bd2"
     },
     {
       "path": "tests/e2e/guild-alias.spec.ts",
@@ -20939,18 +20949,18 @@
     },
     {
       "path": "tests/runtime/github-social-routes.test.ts",
-      "bytes": 16470,
-      "sha256": "790590be4132b426e1b2e480de01029584b58823a399dda887b226a61ce78bdc"
+      "bytes": 17881,
+      "sha256": "ee90ddeb0a474611084596385fbee21b1779a0a81bdc6822480abb6be15774e5"
     },
     {
       "path": "tests/runtime/github-social-store.test.ts",
-      "bytes": 8836,
-      "sha256": "6008706d5c32723074f598e916ec9468136904c9a0ed77e82a1700e827baa48c"
+      "bytes": 11264,
+      "sha256": "6b176a03071586a916bb25c4ef07afe0da496df1fa5da6c94d0a761bdd8f404d"
     },
     {
       "path": "tests/runtime/github-social.test.ts",
-      "bytes": 30041,
-      "sha256": "ed6d59a59c1528f05fa5d3bfcfb92e5338a7a2bb385639982d46eb96f920eaaf"
+      "bytes": 37377,
+      "sha256": "f43beff32bc33e8f609a8a348482d3152c38180e4564604a4b4da6d59b559370"
     },
     {
       "path": "tests/runtime/github-sync.test.ts",
