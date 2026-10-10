@@ -15,6 +15,7 @@ import {sha256,objectKey} from '../../packages/asset-storage/index.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {previewLink} from '../../modules/community/link-preview.js';
 import {Problem} from '../../packages/shared/problem.js';
+import {socialPostCreateMemberCommand} from '../../packages/scoped-commands/index.js';
 const url=process.env.TEST_DATABASE_URL;if(!url)throw new Error('Explicit isolated TEST_DATABASE_URL required');
 const schema=`fp_social_preview_${process.pid}_${Date.now()}`,role=`${schema}_app`,admin=new Pool({connectionString:url}),fixture=new Pool({connectionString:url,options:`-c search_path=${schema} -c statement_timeout=10000`}),pool=new Pool({connectionString:url,options:`-c role=${role} -c search_path=${schema} -c statement_timeout=10000`});
 const community=randomUUID();let png:Buffer,initialized=false,mf:Miniflare,bucket:AssetR2Binding;
@@ -156,3 +157,29 @@ for (const state of ['hidden', 'deleted'] as const) {
   assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n, 1);
  });
 }
+
+for(const mode of ['bridge','r2_only'])test(`native R2 note with metadata publishes atomically and binds replay in ${mode}`,async()=>{
+ const s=await setup(true),peer=await member(),base=noteCommand(s.owner,'與 @Synthetic owner 一起 #驗收');
+ await fixture.query("UPDATE domain_media_storage_policy SET mode=$1 WHERE purpose='community.social-thumbnail'",[mode]);
+ const body={...base.body,topic:'work',location_name:'  合成工坊  ',mention_ids:[peer.user_id]};
+ const origin='http://127.0.0.1:4310',app=createApp(pool,origin,'local',{socialThumbnailAssets:s.api,socialThumbnailAssetStore:s.store});
+ const send=(value:unknown=body)=>app.request(origin+'/api/v1/social-posts/notes',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:`freedom_local_session=${(s.owner as Actor&{synthetic_token:string}).synthetic_token}`,'X-CSRF-Token':'synthetic','Idempotency-Key':base.key},body:JSON.stringify(value)});
+ const response=await send();assert.equal(response.status,201,await response.clone().text());const result=await response.json();
+ assert.equal(result.topic,'work');assert.equal(result.location_name,'合成工坊');assert.deepEqual(result.mentions.map((x:any)=>x.user_id),[peer.user_id]);
+ assert.equal((await sharp(await readSocialThumbnail(pool,s.owner,result.post_id,s.store)).metadata()).width,640);
+ assert.deepEqual(await(await send()).json(),result);
+ for(const changed of [{topic:'event'},{location_name:'其他地點'},{mention_ids:[]}]){const rejected=await send({...body,...changed});assert.equal(rejected.status,409);assert.equal((await rejected.json()).code,'idempotency_conflict');}
+ assert.deepEqual((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows,[{n:1}]);
+ assert.deepEqual((await pool.query("SELECT count(*)::int n FROM assets WHERE state='ready'")).rows,[{n:1}]);
+ const receipts=JSON.stringify((await pool.query('SELECT * FROM command_receipts')).rows);assert.equal(receipts.includes(png.toString('base64')),false);
+ await fixture.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[s.owner.session_hash]);assert.equal((await send()).status,401);
+});
+
+test('note command rejects unbounded metadata and unknown keys before any database or object effects',async()=>{
+ const owner=await member(),base={actor:owner,operation:'POST /api/v1/social-posts/notes',key:randomUUID(),body:{text:'合成',image:{mime_type:'image/png',sha256:'a'.repeat(64)}}};
+ const noDatabase={connect(){throw new Error('invalid metadata reached database');}} as unknown as Pool;
+ for(const invalid of [{topic:'unknown'},{topic:{}},{location_name:' '},{location_name:'a'.repeat(121)},{location_name:'a\nb'},{mention_ids:[randomUUID(),null]},{mention_ids:Array(11).fill(randomUUID())},{mention_ids:'invalid'},{unexpected:true}]){
+  await assert.rejects(socialPostCreateMemberCommand(noDatabase,{...base,body:{...base.body,...invalid}},randomUUID(),async()=>{},async()=>({})),code('invalid_social_create_command'));
+ }
+ assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n,0);
+});

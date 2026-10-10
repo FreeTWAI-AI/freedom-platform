@@ -561,7 +561,10 @@ function validLinkCreateBody(body: Record<string, unknown>) {
 }
 /** Note creation carries the text plus the image's type and source digest; bytes never enter the command. */
 function validNoteCreateBody(body: Record<string, unknown>) {
-  if (!Object.keys(body).every(k => ['text', 'image'].includes(k)) || typeof body.text !== 'string' || body.text.length === 0 || body.text.length > 2000) return false;
+  if (!Object.keys(body).every(k => ['text', 'image', 'topic', 'location_name', 'mention_ids'].includes(k)) || typeof body.text !== 'string' || body.text.length === 0 || body.text.length > 2000) return false;
+  if (body.topic !== undefined && !['mood', 'event', 'work'].includes(body.topic as string)) return false;
+  if (body.location_name !== undefined && (typeof body.location_name !== 'string' || !body.location_name.trim().length || body.location_name.trim().length > 120 || /[\x00-\x1f\x7f]/.test(body.location_name.trim()))) return false;
+  if (body.mention_ids !== undefined && (!Array.isArray(body.mention_ids) || body.mention_ids.length > 10 || !body.mention_ids.every(uuid))) return false;
   const image = body.image as Record<string, unknown> | undefined;
   return !!image && typeof image === 'object' && !Array.isArray(image) && Object.keys(image).every(k => ['mime_type', 'sha256'].includes(k))
     && ['image/png', 'image/jpeg', 'image/webp'].includes(image.mime_type as string) && typeof image.sha256 === 'string' && /^[0-9a-f]{64}$/.test(image.sha256);

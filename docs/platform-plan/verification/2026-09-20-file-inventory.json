@@ -19089,8 +19089,8 @@
     },
     {
       "path": "packages/scoped-commands/index.ts",
-      "bytes": 52475,
-      "sha256": "d263ab899f134efbf5f8c805652a421634e15bb9152fd36171c07112cc228c25"
+      "bytes": 53008,
+      "sha256": "74092f509c4bed3e52547ba3dbedade53c240c1f1012381d65fe03c769672269"
     },
     {
       "path": "packages/sdk/client.d.mts",
@@ -22049,8 +22049,8 @@
     },
     {
       "path": "tests/runtime/social-preview-assets.test.ts",
-      "bytes": 24376,
-      "sha256": "30e1385ba7da7278c8e34d61ab71537bd69e51ba5d12a7ec107d1e5d963e2594"
+      "bytes": 27558,
+      "sha256": "c30d6d58c7c38ad570cce1a3d3a38dcb5b042fbc3bd8bd3bf365889cb99963b8"
     },
     {
       "path": "tests/runtime/social-share.test.ts",
