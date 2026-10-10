@@ -584,8 +584,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/promotion.ts",
-      "bytes": 9518,
-      "sha256": "25601c4cec313b2ead8d6a49ec02d39d6c710eda2a221f50e820cbd33fad3fac"
+      "bytes": 10134,
+      "sha256": "d1edcd665a4c6bb215c7759e575d84d64ab92e465d9c4f1ff67582a8a71e7a66"
     },
     {
       "path": "apps/platform-api/src/routes/published-skills.ts",
@@ -2659,8 +2659,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialInteractions.tsx",
-      "bytes": 7665,
-      "sha256": "c5813abba6e90408b46bd41700235c5b85b0be7856d534b193f625ee672ab6a7"
+      "bytes": 9767,
+      "sha256": "e31b4ec6f7159a317d99c9b35a818e5796dd637a7359c41473003bab59bb59d9"
+    },
+    {
+      "path": "apps/portal-web/src/modules/SocialPostEditor.tsx",
+      "bytes": 3639,
+      "sha256": "2be06e3d819655bf65a3ccb5d2aff017d38e589f095725f6c2110879e55661a3"
     },
     {
       "path": "apps/portal-web/src/modules/SocialPostOptimizer.css",
@@ -2674,13 +2679,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.css",
-      "bytes": 7043,
-      "sha256": "998c3348b3e3617a875da76b5646093757b87828d6e82280f86383a243905de8"
+      "bytes": 7586,
+      "sha256": "e7ae08441055ab80462a5dcfd64dc0a354ae78fa7790979ef85d0e131c0a230a"
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 27319,
-      "sha256": "0a4d22726e8a9fd7c4640683a4a16a54f37d5b9ab361c742746a1a6c47d245c9"
+      "bytes": 28651,
+      "sha256": "51d246c36a822da03fa66c0acb4e9aae7a41830f9c9a23688629212bfed24791"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -12804,8 +12809,8 @@
     },
     {
       "path": "deploy/cloudflare/environments.json",
-      "bytes": 30992,
-      "sha256": "00a9b24512d4463e8fbd325bd8b813745fc479511f66096d3ac586707d9b5ca0"
+      "bytes": 31002,
+      "sha256": "d40b1759af64850ff93b471c661f3ccc9ce7f443cd4add49450b0e749bb398f7"
     },
     {
       "path": "deploy/cloudflare/media-preflight.md",
@@ -12934,8 +12939,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 42124,
-      "sha256": "e70bf7399a4f0a58773a210e57916c0cda4deedd2b6b67f03e11ddb31809a0ba"
+      "bytes": 42294,
+      "sha256": "9d76188365b68cf473325e3eeee6846ab12d865249bce24845e54999d27caeac"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -13014,8 +13019,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 12677,
-      "sha256": "074bf0386a5010bf0fee14643131ef0d5be18e292b01084d8996b748673a17c7"
+      "bytes": 12687,
+      "sha256": "8d8618e43e8d5510b49cd9b54281684d90346af30adb29f404c5c3ca7c3c951e"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -13024,8 +13029,8 @@
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
-      "bytes": 74721,
-      "sha256": "c400fa3d843d16f23ca0425810c87c6ddb2defc35d9563b2624e89575be8b8d5"
+      "bytes": 74736,
+      "sha256": "229bec2009e4e7bc27f7c7cfb02f48bb1c9b51381fcaf93ff6fdc421893f1463"
     },
     {
       "path": "deploy/cloudflare/test/release-agent-connections.test.mjs",
@@ -13044,8 +13049,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
-      "bytes": 11149,
-      "sha256": "765853b943c9c911d63fe99db8ae7c5a683bf6245bc05b22176b9516b781a9ea"
+      "bytes": 11262,
+      "sha256": "547e12ba2c2895e27c3f7278bf6d46ca74a6745385bfb44ffd94b2448403d5c5"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
@@ -13744,8 +13749,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 21266,
-      "sha256": "a8587b58bd8731fcc56dac0da38e3ae8c956fc7540208ca7a62661d3c0c174eb"
+      "bytes": 21727,
+      "sha256": "63479e828141a6d215b28be471b1101a83cd075ea8a10e9faca3060a6f9962c3"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -16253,6 +16258,11 @@
       "sha256": "6ef8e00dcd07386f579d5cc8b98462d19f4934707752a753ceb159d06a14a917"
     },
     {
+      "path": "migrations/146_social_post_edits.sql",
+      "bytes": 579,
+      "sha256": "16eaf6ee666f3909eb1b011cc948a52c97c2cd85bfe8d39211912f838c0dd993"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 22284,
       "sha256": "21c9e3b9c9d6f3e3dbb031d25a86f6848e505e01c17efeb14d8c1dd4e9f575ca"
@@ -17109,8 +17119,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 27157,
-      "sha256": "f02d2e5c8a5bcd534cafef45b06ae2f99893f4f06280517ad59f581023960266"
+      "bytes": 31949,
+      "sha256": "04dd23adc00c56faa03d277f98d44502f72f73fdac7885eb09357ef89a2f3885"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -20129,8 +20139,8 @@
     },
     {
       "path": "tests/e2e/social-feed.spec.ts",
-      "bytes": 18945,
-      "sha256": "2301f42ca291c02b481e4573f89844b33a708eedf0a6506162f94da151f2d732"
+      "bytes": 21944,
+      "sha256": "bda75b5f77877097e22d9653b771a320d885a8189edde8f0cc69fc4e58189c74"
     },
     {
       "path": "tests/e2e/social-links.spec.ts",
@@ -21766,6 +21776,11 @@
       "path": "tests/runtime/social-links.test.ts",
       "bytes": 15951,
       "sha256": "21b8b266189e08985c020556ed4331d10693e135f5f38741d1573789c8bd4b26"
+    },
+    {
+      "path": "tests/runtime/social-post-edit.test.ts",
+      "bytes": 9261,
+      "sha256": "db05a33bd61b67742acd0bac9ea0a5975786b33490dfc842d8421773030c6d4b"
     },
     {
       "path": "tests/runtime/social-post-task.test.ts",
