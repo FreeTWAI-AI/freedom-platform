@@ -1,7 +1,30 @@
 {
+  "client_profiles": [
+    "member"
+  ],
+  "contract_families": [
+    "preview",
+    "common"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands"
+  ],
   "format": "freedom.module/v1",
+  "instructions": [
+    "modules/opportunity-project-work/README.md",
+    "modules/opportunity-project-work/results-schema.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
+    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
   "module_id": "work",
-  "owner_role": "foundation",
   "owned_paths": [
     "modules/opportunity-project-work/**",
     "apps/platform-api/src/platform-app.ts",
@@ -32,41 +55,17 @@
     "migrations/143_personal_content.sql",
     "tests/runtime/showcase-drafts.test.ts",
     "tests/runtime/sharing-authoring.test.ts",
-    "tests/e2e/simple-work-sharing.spec.ts"
+    "tests/e2e/simple-work-sharing.spec.ts",
+    "tests/e2e/share-launcher.spec.ts",
+    "tests/e2e/sharing-authoring-fixture.ts",
+    "tests/e2e/showcase-pages.spec.ts",
+    "tests/runtime/showcase-pages.test.ts"
   ],
+  "owner_role": "foundation",
   "public_exports": [
     "modules/opportunity-project-work/work.ts",
     "modules/opportunity-project-work/private-work.ts",
     "modules/opportunity-project-work/private-commands.ts"
-  ],
-  "dependencies": [
-    "command-core",
-    "resource-scopes",
-    "scoped-commands"
-  ],
-  "contract_families": [
-    "preview",
-    "common"
-  ],
-  "client_profiles": [
-    "member"
-  ],
-  "instructions": [
-    "modules/opportunity-project-work/README.md",
-    "modules/opportunity-project-work/results-schema.md",
-    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
-    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
-    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
-    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"
-  ],
-  "invariants": [
-    "current-authority-before-replay",
-    "no-secrets-in-artifacts"
-  ],
-  "tests": [
-    "runtime.work",
-    "runtime.work-privacy",
-    "runtime.full"
   ],
   "surfaces": [
     {
@@ -155,5 +154,10 @@
       ],
       "auth_profile": "member-session"
     }
+  ],
+  "tests": [
+    "runtime.work",
+    "runtime.work-privacy",
+    "runtime.full"
   ]
 }

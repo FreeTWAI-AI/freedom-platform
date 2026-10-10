@@ -53,6 +53,7 @@ Agent／聊天 AI／CLI 上傳保留在進階工具中；其既有 100 則短文
 ## API 與資料
 
 - `POST /api/v1/showcases`：`artifact_ref` 改為選填，未提供時在同一交易內產生；新增選填 `public_url`。保留舊 request 與既有引用規則。
+- `GET /api/v1/showcases?limit=20&offset=0`（#402）：社群已發布作品分頁，`limit` 1–50（預設 20）、`offset` 0–10000，回 `{items,next_offset}`，依 `created_at DESC, showcase_id` 穩定排序；未知參數回 422。「作品與需求」頁顯示「載入更多作品」，`#showcase/<id>` 深連結會逐頁載入直到找到該作品。
 - `POST /api/v1/me/skill-submissions/manual`：只保存本人私人草稿；不建立 upload key 或 bearer grant。
 - `POST /api/v1/me/skill-submissions/:id/manual`：只修改本人、尚未公開、沒有 Agent grant 的手動草稿；要求 If-Match。
 - `POST /api/v1/me/skill-submissions/:id/publish`：沿用現有公開機制、來源查驗、稽核與交易回滾。
