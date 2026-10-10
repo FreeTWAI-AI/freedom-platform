@@ -17239,8 +17239,8 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 55826,
-      "sha256": "9fce2b5af00434b3c2f9ce0b606652eed6a6b68465af5a0e618030ceb7eee7ae"
+      "bytes": 55926,
+      "sha256": "d831a967fea1ae323c3de4b0437c2c6b2c54e5b5a32f486da2db68dfc1c91acf"
     },
     {
       "path": "modules/community/first-participation.ts",
