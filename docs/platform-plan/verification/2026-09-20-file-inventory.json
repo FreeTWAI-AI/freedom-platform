@@ -1919,8 +1919,8 @@
     },
     {
       "path": "apps/portal-web/src/styles.css",
-      "bytes": 35958,
-      "sha256": "0dedc769503dc7bf5054877e66710c599c455189005706e1f8198e6051571425"
+      "bytes": 36641,
+      "sha256": "ddc4ce93e33c4906db0021dc01867160d38f84a684a1b2a944a76d9c8a56a3da"
     },
     {
       "path": "apps/portal-web/src/types.ts",
@@ -2144,13 +2144,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/EmailChange.tsx",
-      "bytes": 2902,
-      "sha256": "607e9882b980a284c70c3f8e68b241e356556dcce2f95532586112cc20139bb2"
+      "bytes": 2883,
+      "sha256": "61b10cc04c621d5dfc59e53840ec3fadf303523e926bb01c6f6126fa4e482693"
     },
     {
       "path": "apps/portal-web/src/modules/EmailVerification.tsx",
-      "bytes": 2609,
-      "sha256": "743d231a975d6a63d7b2d3390b41652e4ffa7af034efb54c55f1fc77a6d59314"
+      "bytes": 2627,
+      "sha256": "0323345db50dae3659beae6f5217eec57f9dbad60b82491f5a0ee94dcae9005e"
     },
     {
       "path": "apps/portal-web/src/modules/EngagementPanel.tsx",
