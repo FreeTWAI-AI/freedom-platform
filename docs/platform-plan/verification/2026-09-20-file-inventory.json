@@ -19789,8 +19789,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 15293,
-      "sha256": "71e695a02591299151e5edcf79705013916599d4f57a794ad8302ff6e33e0b74"
+      "bytes": 15298,
+      "sha256": "3fc9c8d58f416a706a88b2fe5e8e19113476d635ce0da1456734052e8e51e65e"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
@@ -20869,8 +20869,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-photo.test.ts",
-      "bytes": 13093,
-      "sha256": "9ac96adf30c59b66bd8c4ee7cf480a80cef0734372b32d453fb0bdd1973b5140"
+      "bytes": 13098,
+      "sha256": "cc0f55a76939ba1a072e1a210eeaab94dc88c162b78934805b008a4f29cdd516"
     },
     {
       "path": "tests/runtime/hosted-store.test.ts",
