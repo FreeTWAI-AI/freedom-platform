@@ -13694,8 +13694,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 31568,
-      "sha256": "842a8c996640662762e40b7cfdda363733a337768fddaf201415393ac82a12bb"
+      "bytes": 31742,
+      "sha256": "d1efae27e7f45f57a64bf038a0be23f0be343ebb9565756e43ab12abfcd04c0f"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17214,8 +17214,8 @@
     },
     {
       "path": "modules/community/first-participation.ts",
-      "bytes": 15463,
-      "sha256": "5e37546bb8ae1a58d4f528c5934c1408dcdcaf2e3629df6fe967081f42c54102"
+      "bytes": 15891,
+      "sha256": "e688adc46f149f50ba21fb1045044857ef783a3fa1262dd1cb62f2b513b1e441"
     },
     {
       "path": "modules/community/freedom.module.json",

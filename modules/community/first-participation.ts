@@ -35,12 +35,13 @@ async function source(q:PoolClient,actor:Actor,r:ParticipationRow|undefined):Pro
   const replies=s&&actor.user_id===r.user_id?Number((await q.query('SELECT count(*) AS n FROM opportunities WHERE community_id=$1 AND showcase_id=$2 AND provider_ref=$3',[r.community_id,s.showcase_id,actor.user_id])).rows[0].n):null;
   return {unavailable:!s,completion:s?{kind:'work',source_id:s.showcase_id,created_at:iso(fact.created_at),title:s.title,href:`#showcase/${s.showcase_id}`,audience:'community',reply_count:replies}:null};
  }
- const fact=(await q.query(`SELECT message_id,created_at FROM member_channel_messages WHERE community_id=$1 AND sender_ref=$2 AND kind='guild' AND channel_key=$3 AND created_at>=$4 ORDER BY created_at,message_id LIMIT 1`,[r.community_id,r.user_id,r.guild_key,r.started_at])).rows[0];
+ const fact=(await q.query(`SELECT message_id,created_at,retracted_at FROM member_channel_messages WHERE community_id=$1 AND sender_ref=$2 AND kind='guild' AND channel_key=$3 AND created_at>=$4 ORDER BY created_at,message_id LIMIT 1`,[r.community_id,r.user_id,r.guild_key,r.started_at])).rows[0];
  if(!fact)return {completion:null,unavailable:false};
+ if(fact.retracted_at)return {completion:null,unavailable:true};
  const owner={...actor,user_id:r.user_id};
  const readable=await member(q,r.user_id,r.community_id)&&await guild(q,owner,r.guild_key)&&await guild(q,actor,r.guild_key);
  if(!readable)return {completion:null,unavailable:true};
- const replies=Number((await q.query(`SELECT count(*) AS n FROM member_channel_messages WHERE community_id=$1 AND kind='guild' AND channel_key=$2 AND reply_to_message_id=$3 AND sender_ref<>$4`,[r.community_id,r.guild_key,fact.message_id,r.user_id])).rows[0].n);
+ const replies=Number((await q.query(`SELECT count(*) AS n FROM member_channel_messages WHERE community_id=$1 AND kind='guild' AND channel_key=$2 AND reply_to_message_id=$3 AND sender_ref<>$4 AND retracted_at IS NULL`,[r.community_id,r.guild_key,fact.message_id,r.user_id])).rows[0].n);
  return {unavailable:false,completion:{kind:'guild_message',source_id:fact.message_id,created_at:iso(fact.created_at),title:null,href:`#messages?guild=${encodeURIComponent(r.guild_key!)}`,audience:'guild',reply_count:replies}};
 }
 async function projection(q:PoolClient,actor:Actor,r:ParticipationRow|undefined):Promise<FirstParticipation>{
@@ -90,7 +91,8 @@ export async function listFirstParticipationReception(pool:Pool,actor:Actor,raw:
    AND ((p.choice='work' AND NOT is_verification_test_account(p.user_id) AND EXISTS(
     SELECT 1 FROM showcases s WHERE s.community_id=p.community_id AND s.owner_ref=p.user_id AND s.status='published' AND s.visibility='community' AND s.consent_recorded_at IS NOT NULL
     AND s.showcase_id=(SELECT j.aggregate_id FROM transition_journal j WHERE j.community_id=p.community_id AND j.actor_ref=p.user_id AND j.aggregate_type='showcase' AND j.command='share_with_community' GROUP BY j.aggregate_id HAVING MIN(j.created_at)>=p.started_at ORDER BY MIN(j.created_at),j.aggregate_id LIMIT 1)))
-    OR (p.choice='introduction' AND EXISTS(SELECT 1 FROM member_channel_messages m WHERE m.community_id=p.community_id AND m.sender_ref=p.user_id AND m.kind='guild' AND m.channel_key=p.guild_key AND m.created_at>=p.started_at)
+    OR (p.choice='introduction' AND EXISTS(SELECT 1 FROM member_channel_messages m WHERE m.community_id=p.community_id AND m.sender_ref=p.user_id AND m.kind='guild' AND m.channel_key=p.guild_key AND m.created_at>=p.started_at AND m.retracted_at IS NULL
+      AND m.message_id=(SELECT first.message_id FROM member_channel_messages first WHERE first.community_id=p.community_id AND first.sender_ref=p.user_id AND first.kind='guild' AND first.channel_key=p.guild_key AND first.created_at>=p.started_at ORDER BY first.created_at,first.message_id LIMIT 1))
      AND EXISTS(SELECT 1 FROM positioning_profession_memberships m JOIN guild_member_preferences pref ON pref.community_id=m.community_id AND pref.user_id=m.user_id WHERE m.community_id=p.community_id AND m.user_id=p.user_id AND m.guild_key=p.guild_key AND m.state='active')
      AND EXISTS(SELECT 1 FROM positioning_profession_memberships m JOIN guild_member_preferences pref ON pref.community_id=m.community_id AND pref.user_id=m.user_id WHERE m.community_id=p.community_id AND m.user_id=$2 AND m.guild_key=p.guild_key AND m.state='active')
      AND (p.guild_key NOT LIKE 'guild_custom_%' OR EXISTS(SELECT 1 FROM guild_creation_applications a WHERE a.community_id=p.community_id AND a.approved_guild_key=p.guild_key AND a.state='approved'))))

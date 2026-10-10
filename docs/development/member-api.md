@@ -197,7 +197,9 @@ cannot navigate a subsequent account. Unsent chat is browser-memory-only.
 Only an original first showcase-publication journal fact or actual own selected
 guild message at/after selection completes a chosen path. Old publications,
 private drafts and page opens do not. Projections recheck current ownership,
-community, visibility and guild membership. Withdrawal/revocation produces
+community, visibility and guild membership. A retracted introduction is unavailable;
+retracted replies are excluded, and reception filters the original first source
+before pagination. Later messages do not replace it. Withdrawal/revocation produces
 `source_unavailable`, null completion and no cached title/link. Draft resume
 opens original own content. Guild links preserve the selected guild after reload.
 
