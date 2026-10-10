@@ -19669,8 +19669,8 @@
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
-      "bytes": 18814,
-      "sha256": "ff219b3160d91f8a97f334b29e5f44da697553eaa6c7e39aa61442636e0c3e49"
+      "bytes": 18684,
+      "sha256": "0c27d04d040dcb4b5fd48ea9d4ae1a446c73c11636d7710d616f0d86e2218f65"
     },
     {
       "path": "tests/contribution-tools/runtime-union.integration.test.mjs",
