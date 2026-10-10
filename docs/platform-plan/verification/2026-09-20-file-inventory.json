@@ -504,8 +504,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-orders.ts",
-      "bytes": 5479,
-      "sha256": "905911c51a7af8a31d3e292b210e2e7589933ba5e0977386ac61b1f8ffad38a4"
+      "bytes": 5925,
+      "sha256": "fdda9388b98a607d9f2cd088d0746c825671ccc946a43ab81c84e164ce446712"
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store-media.ts",
@@ -1724,8 +1724,8 @@
     },
     {
       "path": "apps/portal-web/src/Navigation.tsx",
-      "bytes": 6421,
-      "sha256": "b4cff5a20b581ac62e77979b1e18ffd3e1267febb78f93228f4b0f1ff96c3369"
+      "bytes": 6415,
+      "sha256": "b8b7fee79255a6e3175cad77ce7e23fbd91f6a96efdf28cb2d3ce2495d0be07b"
     },
     {
       "path": "apps/portal-web/src/PageTools.css",
@@ -1829,8 +1829,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 52332,
-      "sha256": "a9969b951f7bba6969f51386ea7feeb5a11976b87ee9a2615a21ae510da1c142"
+      "bytes": 52309,
+      "sha256": "4dd75e34c0fc96f03bb3d657895309f4b82bb5d1e22f5041ce371c605719f81e"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -1854,8 +1854,8 @@
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
-      "bytes": 18313,
-      "sha256": "53fc19161fd2575afabdd0e6c1c0e286eaa9cb12bfa2c2c82fdb3062f8d53351"
+      "bytes": 18346,
+      "sha256": "16a6559c608a2ed6d5da9f1666943ff4513f986068d80489dbdcecc83625382a"
     },
     {
       "path": "apps/portal-web/src/portal-feedback.tsx",
@@ -2294,8 +2294,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedOrder.tsx",
-      "bytes": 15153,
-      "sha256": "b0e65c1a1f3d9983ee851165e6f2fbcc6b30e43b967dcb062e6ee422f25fe2e0"
+      "bytes": 16622,
+      "sha256": "ba5419c7a19e37285179d523836ca9bcb6f194838da6508ac6960442f2da7319"
     },
     {
       "path": "apps/portal-web/src/modules/HostedSellerOrders.tsx",
@@ -12534,8 +12534,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-order.ts",
-      "bytes": 5161,
-      "sha256": "53da89cc0b83b5108e0e464d07fb8701464eb56fbbb558b872a60e506a9c8e16"
+      "bytes": 5224,
+      "sha256": "1151e2ef644df9bffdfcbbe782cf160dc2936ec1d651a6467ba8c6b499a2dfbd"
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-store-media.schema.json",
@@ -16269,8 +16269,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 22284,
-      "sha256": "21c9e3b9c9d6f3e3dbb031d25a86f6848e505e01c17efeb14d8c1dd4e9f575ca"
+      "bytes": 23075,
+      "sha256": "548c660e5e6c4476c32d4ff8b8024c98eb10c3b57b7b543798a3721cfa08ccc2"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -16334,8 +16334,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/direct-orders.ts",
-      "bytes": 7735,
-      "sha256": "ccd3afae2916727f78a4561f6e67dd87cc15b34b0fc8e049394000e0029b087f"
+      "bytes": 10675,
+      "sha256": "7b8e3dca9249e65e6a410ce196bb23ad04a8a91387cd8ae9f5138bb26469408f"
     },
     {
       "path": "modules/agent-commerce/hosted/direct-quotes.ts",
@@ -19069,8 +19069,8 @@
     },
     {
       "path": "packages/shared/tenant-list-cursor.ts",
-      "bytes": 3596,
-      "sha256": "4852d17d6cfd2b52e64be4f29dc1eb5bd957bb3d581cf5414483f4db048dd915"
+      "bytes": 3613,
+      "sha256": "480412dc20f97ba8f0118d8a9b57aef1a3e036cffcc71f98ac3c8bd285fc1f7b"
     },
     {
       "path": "packages/shared/validation.ts",
@@ -19839,8 +19839,8 @@
     },
     {
       "path": "tests/e2e/hosted-order.spec.ts",
-      "bytes": 14093,
-      "sha256": "c896fb81a17a94a860139574989effc83887e96c1980bfe06a8357669992a707"
+      "bytes": 17363,
+      "sha256": "4860178302a53f78b362e7ae1e01c1ce118ab2f7167cdb0c6d60a53bc361a314"
     },
     {
       "path": "tests/e2e/hosted-seller-order.spec.ts",
@@ -20909,8 +20909,13 @@
     },
     {
       "path": "tests/runtime/hosted-order-http.test.ts",
-      "bytes": 19106,
-      "sha256": "3d9484535a978cf1c693b055c852393ac85f3381e40b610ff4b372484581f91f"
+      "bytes": 21238,
+      "sha256": "f988e91f2c322b32fb5a891f48543854a66dd3ae681af31bba8bbad822361202"
+    },
+    {
+      "path": "tests/runtime/hosted-order-navigation.test.ts",
+      "bytes": 1024,
+      "sha256": "0f50b6573f2d6247cbecbc06be17c9070eacf338765d6774cb5a7d38bd08f6ae"
     },
     {
       "path": "tests/runtime/hosted-order-ui.test.ts",
