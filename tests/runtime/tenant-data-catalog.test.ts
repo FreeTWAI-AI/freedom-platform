@@ -522,7 +522,10 @@ test('T-021 hosted coverage distinguishes shop mapping from direct quote FK clos
       'commerce_payment_events', 'commerce_supplier_payables', 'commerce_obligation_reversals', 'commerce_settlement_records']) {
       assert.equal(snapshot.detected.includes(table), true, `direct quote FK closure covers ${table}`);
     }
-    for (const table of ['communities', 'users', 'principals', 'commerce_shop_keys', 'commerce_distribution_acceptances']) {
+    for (const table of ['commerce_hosted_supply_offers', 'commerce_distribution_acceptances']) {
+      assert.equal(snapshot.detected.includes(table), true, `explicit hosted offer FK closure covers ${table}`);
+    }
+    for (const table of ['communities', 'users', 'principals', 'commerce_shop_keys']) {
       assert.equal(snapshot.detected.includes(table), false, `mapping does not assign ${table}`);
     }
   });
@@ -563,7 +566,9 @@ test('T-021 reverse mapping rejects a missing, repointed, wrong-column or wider 
       }
       if (replacement) await q.query(replacement);
       const snapshot = await liveSnapshot(q);
-      for (const table of MAPPED_COMMERCE) assert.equal(snapshot.detected.includes(table), false);
+      // The explicit offer FK still detects selections, but it cannot replace
+      // the seller's shop mapping. The same three mismatches must remain below.
+      for (const table of MAPPED_COMMERCE) assert.equal(snapshot.detected.includes(table), table==='commerce_selections');
       assert.deepEqual(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG),
         [...MAPPED_COMMERCE].sort().map(subject => ({ code: 'tenant_resolution_mismatch', subject })), replacement);
     });
@@ -577,7 +582,7 @@ test('T-021 mapped items and selections require their own exact shop FK', async 
         await q.query(`ALTER TABLE ${table} DROP CONSTRAINT ${table}_shop_id_fkey`);
         if (repoint) await q.query(`ALTER TABLE ${table} ADD FOREIGN KEY (shop_id) REFERENCES users(user_id)`);
         const snapshot = await liveSnapshot(q);
-        assert.equal(snapshot.detected.includes(table), false);
+        assert.equal(snapshot.detected.includes(table), table==='commerce_selections');
         // A selection's item reference must never substitute for seller scope.
         assert.deepEqual(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG), [
           { code: 'tenant_resolution_mismatch', subject: table },

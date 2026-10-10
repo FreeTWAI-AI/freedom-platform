@@ -62,7 +62,8 @@
     "contracts/guild-launchpad/v1/hosted-supply-terms.ts",
     "contracts/guild-launchpad/v1/hosted-supply-terms.schema.json",
     "apps/portal-web/src/modules/HostedSupplyTerms.tsx",
-    "tests/e2e/hosted-supply-terms.spec.ts"
+    "tests/e2e/hosted-supply-terms.spec.ts",
+    "tests/runtime/hosted-order-navigation.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",

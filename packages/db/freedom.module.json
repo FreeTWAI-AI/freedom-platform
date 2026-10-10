@@ -17,7 +17,8 @@
     "tests/runtime/migration-runner-plan.test.ts",
     "deploy/cloudflare/environments.json",
     "deploy/cloudflare/lib/release-compatibility.mjs",
-    "deploy/cloudflare/test/migration-plan.test.mjs"
+    "deploy/cloudflare/test/migration-plan.test.mjs",
+    "deploy/cloudflare/test/release-compatibility.test.mjs"
   ],
   "public_exports": [
     "packages/db/index.ts",

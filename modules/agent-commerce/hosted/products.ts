@@ -79,6 +79,7 @@ export async function removeProduct(pool: Pool, actor: Actor, tenantId: string, 
     const old = (await products(q, p)).find(item => item.product_id === productId);
     requireCondition(old, 404, 'not_found', '找不到這項商品。'); checkVersion(old.version, expected);
     const refs = await q.query(`SELECT 1 FROM commerce_order_lines WHERE item_id=$1 UNION ALL
+      SELECT 1 FROM commerce_hosted_supply_offers WHERE item_id=$1 UNION ALL
       SELECT 1 FROM commerce_distribution_acceptances a JOIN commerce_selections l USING(selection_id) WHERE l.item_id=$1`, [productId]);
     requireCondition(!refs.rowCount, 409, 'storefront_product_in_use', '這項商品已有交易或供貨紀錄，不能移除。');
     // Retained upload/history targets outlive the real product; only its draft pointer is cleared.
