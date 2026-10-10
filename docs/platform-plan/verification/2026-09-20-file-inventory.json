@@ -21129,8 +21129,8 @@
     },
     {
       "path": "tests/runtime/event-participation-api.test.ts",
-      "bytes": 24658,
-      "sha256": "43d835fbc5ae42439a6e18eca47f97cb7b15d526dcbc53473a33e4b23572d4fb"
+      "bytes": 24920,
+      "sha256": "662a1e59ed2a92d2801e82819e2469c2a5a53ff91f122a076d4163ec4852c362"
     },
     {
       "path": "tests/runtime/event-participation-reminders.test.ts",

@@ -24,6 +24,7 @@ type Mail={to:string;body:string};
 let sessions:Session[],mail:Mail[],eventId:string;
 const starts='2099-03-14T06:30:00.000Z',ends='2099-03-14T08:30:00.000Z';
 const privateLocation='合成私人教室',privateOnline='https://meeting.local.test/private-room';
+const calendarProperty=(calendar:string,name:string)=>calendar.replace(/\r\n[ \t]/g,'').split('\r\n').find(line=>line.startsWith(name+':'))?.slice(name.length+1);
 const responseBody=z.object({code:z.string().optional(),event_version:z.number().optional(),version:z.number().optional(),calendar:z.string().optional(),rsvp_state:z.string().nullable().optional(),enabled:z.boolean().optional()}).passthrough();
 before(async()=>{
   assert.ok(databaseUrl,'TEST_DATABASE_URL must explicitly name an isolated test database');
@@ -201,12 +202,12 @@ test('legal open and referral sources authorize private calendar data only after
   const code=z.string().parse(share.data.code),g=await guest(referral,'referral@local.test',false,code);
   const before=await call(path(referral,'calendar'),{token:g.token});assert.equal(before.status,200);
   assert.ok(before.data.calendar);
-  assert.equal(before.data.calendar.includes(privateLocation),false);assert.equal(before.data.calendar.includes(privateOnline),false);
-  const memberBefore=await call(path(referral,'calendar',false),{session:sessions[1]});assert.equal(memberBefore.status,200);assert.ok(memberBefore.data.calendar);assert.equal(memberBefore.data.calendar.includes(privateOnline),false);
+  assert.equal(calendarProperty(before.data.calendar,'LOCATION'),undefined);assert.equal(calendarProperty(before.data.calendar,'X-FREETWAI-ONLINE'),undefined);
+  const memberBefore=await call(path(referral,'calendar',false),{session:sessions[1]});assert.equal(memberBefore.status,200);assert.ok(memberBefore.data.calendar);assert.equal(calendarProperty(memberBefore.data.calendar,'X-FREETWAI-ONLINE'),undefined);
   const registered=await mutate(g.token,'register',referral,randomUUID(),code);assert.equal(registered.result.status,200);
   const calendar=await call(path(referral,'calendar'),{token:g.token});assert.equal(calendar.status,200);clean(calendar.data,[g.token,g.email]);
   assert.ok(calendar.data.calendar);
-  const text=calendar.data.calendar.replace(/\r\n[ \t]/g,'');assert.ok(text.includes(`UID:${referral}@freetwai.com\r\n`));assert.ok(text.includes(`SEQUENCE:${registered.result.data.event_version}\r\n`));assert.ok(text.includes('DTSTART:20990314T063000Z\r\n'));assert.ok(text.includes('DTEND:20990314T083000Z\r\n'));assert.ok(text.includes(privateOnline));
+  const text=calendar.data.calendar.replace(/\r\n[ \t]/g,'');assert.ok(text.includes(`UID:${referral}@freetwai.com\r\n`));assert.ok(text.includes(`SEQUENCE:${registered.result.data.event_version}\r\n`));assert.ok(text.includes('DTSTART:20990314T063000Z\r\n'));assert.ok(text.includes('DTEND:20990314T083000Z\r\n'));assert.equal(calendarProperty(text,'X-FREETWAI-ONLINE'),privateOnline);
   await pool.query('DELETE FROM community_event_share_codes WHERE event_id=$1',[referral]);
   for(const suffix of ['participation','calendar','reminder'])assert.equal((await call(path(referral,suffix),{token:g.token})).status,404);
   for(const visibility of ['workshop','guild']){
@@ -236,7 +237,7 @@ test('cancelled actual own participation remains accessible with stable calendar
   const calendar=await call(path(eventId,'calendar'),{token:g.token});assert.ok(calendar.data.calendar);
   const text=calendar.data.calendar.replace(/\r\n[ \t]/g,'');
   assert.ok(before.data.calendar);assert.equal(before.data.calendar.replace(/\r\n[ \t]/g,'').split('\r\n').find(line=>line.startsWith('UID:')),text.split('\r\n').find(line=>line.startsWith('UID:')));
-  assert.ok(text.includes(`UID:${eventId}@freetwai.com\r\n`));assert.ok(text.includes('STATUS:CANCELLED\r\n'));assert.ok(text.includes(`SEQUENCE:${version+1}\r\n`));assert.equal(text.includes(privateOnline),false);assert.equal(text.includes(privateLocation),false);
+  assert.ok(text.includes(`UID:${eventId}@freetwai.com\r\n`));assert.ok(text.includes('STATUS:CANCELLED\r\n'));assert.ok(text.includes(`SEQUENCE:${version+1}\r\n`));assert.equal(calendarProperty(text,'X-FREETWAI-ONLINE'),undefined);assert.equal(calendarProperty(text,'LOCATION'),undefined);
   await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state) VALUES($1,$2,'合成取消列','cancelled')",[eventId,other.email]);
   await pool.query("INSERT INTO community_event_rsvps(rsvp_id,event_id,user_id,state) VALUES($1,$2,$3,'cancelled')",[randomUUID(),eventId,DEMO_USERS[2].user_id]);
   for(const suffix of ['participation','calendar','reminder']){
