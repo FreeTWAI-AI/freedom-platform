@@ -20049,8 +20049,8 @@
     },
     {
       "path": "tests/e2e/event-highlights.spec.ts",
-      "bytes": 30519,
-      "sha256": "2e3cf28ebcbf3279208e6fe52d4abec9bbf9cbad9ae6cdda1561185a4b68ee07"
+      "bytes": 30537,
+      "sha256": "f0e038bda08d86df9fe1070af0c0ea90a659b9f15bd638d155dca45e876414f9"
     },
     {
       "path": "tests/e2e/event-outcomes.spec.ts",

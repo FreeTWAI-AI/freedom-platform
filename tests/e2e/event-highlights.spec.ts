@@ -464,8 +464,8 @@ test('badges, chips and placeholders stay readable in light, dark and versefolk'
   await noOverflow(page, 'member detail 1280');
   // Guild-only cards are correctly absent from the public list. Seed an actual
   // public event without a banner to measure the public placeholder contrast.
-  await e2eAuthPool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,state,visibility,event_kind)
-    VALUES($1,$2,$3,'公開無封面回顧','公開活動的無封面狀態',now()-interval '4 days',now()-interval '3 days','online','published','open','other')`,[PUBLIC_EMPTY,COMMUNITY,MAKER]);
+  await e2eAuthPool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
+    VALUES($1,$2,$3,'公開無封面回顧','公開活動的無封面狀態',now()-interval '4 days',now()-interval '3 days','online','線上','published','open','other')`,[PUBLIC_EMPTY,COMMUNITY,MAKER]);
   const guest = await page.context().browser()!.newContext({colorScheme: 'dark'});
   await allowLocal(guest);
   const publicPage = await guest.newPage();
