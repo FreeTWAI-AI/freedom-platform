@@ -77,11 +77,22 @@
     "apps/portal-web/src/api.ts",
     "apps/portal-web/vite.config.ts",
     "apps/portal-web/src/styles.css",
-    "apps/portal-web/src/auth-messages.ts"
+    "apps/portal-web/src/auth-messages.ts",
+    "apps/platform-api/src/routes/admin.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],
-  "surfaces": [],
+  "surfaces": [
+    {
+      "surface_id": "application-composition.participation-metrics-admin",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/admin.ts",
+      "operations": [
+        "community.participation-metrics.read"
+      ],
+      "auth_profile": "platform-admin"
+    }
+  ],
   "tests": [
     "runtime.full"
   ]

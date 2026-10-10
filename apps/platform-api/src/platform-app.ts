@@ -83,6 +83,7 @@ import {checkSocialThumbnailHeaders,isSocialThumbnailUpload,registerMemberPromot
 import {SOCIAL_NOTE_REQUEST_BYTES} from '../../../modules/community/social-posts.js';
 import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,registerPublicMemberServices} from './routes/member-services.js';
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
+import {recordSearchOperation,markSearchOpened} from '../../../modules/community/participation-metrics.js';
 import { searchCommunityContent, assignContentTopics, listTaggableContent } from '../../../modules/community/content-search.js';
 import { listCommunityBookmarks,changeCommunityBookmark,listCommunityFollows,changeCommunityFollow,listCommunityFollowUpdates } from '../../../modules/community/content-relations.js';
 
@@ -288,7 +289,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     });
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
-  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true));
+  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true,runtime.participationMetricsEnabled===true));
   const skillEventBacklinks=runtime.eventOutcomesEnabled===true?async(id:string,c:Context)=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -366,6 +367,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.use('/api/v1/public/events/:id/participation-request',eventParticipationEnabled);
   app.use('/api/v1/public/events/:id/calendar',eventParticipationEnabled);
   app.use('/api/v1/public/events/:id/reminder',eventParticipationEnabled);
+  app.use('/api/v1/community-search/operations/*',async(_c,next)=>{
+    requireCondition(runtime.participationMetricsEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  });
   if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -378,7 +383,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       }
     }
     if(actor?.onboarding_required&&!actor.onboarding_completed_at)actor=null;
-    return c.json(await searchCommunityContent(pool,actor,c.req.query()));
+    const page=await searchCommunityContent(pool,actor,c.req.query());
+    // Only the result count is kept, never the query, filters or titles.
+    const operation_id=runtime.participationMetricsEnabled===true&&actor?await recordSearchOperation(pool,actor,{first_page:!c.req.query('cursor'),result_count:page.items.length}):null;
+    return c.json(operation_id?{...page,operation_id}:page);
   });
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/public/member-cards/:token',async c=>{
@@ -549,6 +557,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const routeId=(c:any,name='id')=>z.uuid().parse(c.req.param(name).split(':')[0]);
   const respond=(c:any,value:any,status=200)=>{if(value?.aggregate_version)c.header('ETag',`"${value.aggregate_version}"`);return c.json(value,status);};
   if(runtime.communitySearchEnabled===true){
+    if(runtime.participationMetricsEnabled===true)app.post('/api/v1/community-search/operations/:id/open',async c=>c.json(await markSearchOpened(pool,c.get('actor'),c.req.param('id'),await c.req.json())));
     app.get('/api/v1/community-search/mine',async c=>c.json(await listTaggableContent(pool,c.get('actor'))));
     app.post('/api/v1/community-search/topics',async c=>respond(c,await assignContentTopics(pool,await cmd(c))));
   }

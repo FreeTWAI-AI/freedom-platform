@@ -158,6 +158,7 @@ const FOUNDATION_NAMES = [
   '156_login_email_change.sql',
   '157_email_verification.sql',
   '158_member_totp.sql',
+  '159_participation_metrics.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

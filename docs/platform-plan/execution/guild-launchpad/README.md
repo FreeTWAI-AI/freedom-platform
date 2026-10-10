@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-10 release.production=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa release.staging=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa flag.production=true flag.staging=true repo_max_migration=158 applied_migration.production=148 applied_migration.staging=148 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-10 release.production=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa release.staging=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa flag.production=true flag.staging=true repo_max_migration=159 applied_migration.production=148 applied_migration.staging=148 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 本候選的 repository migration 已到 153（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動，149 為 #412 通知偏好、150 為 #405 訊息收回、151 為 #410 互動通知、152 為 #347 第一次參與、153 為 #348 活動參與）；這是程式整合狀態，兩環境已套用的版本仍為下述 141。
 

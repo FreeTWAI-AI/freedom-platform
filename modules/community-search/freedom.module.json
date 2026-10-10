@@ -8,7 +8,10 @@
     "tests/runtime/community-search.test.ts",
     "migrations/137_community_content_topics.sql",
     "tests/e2e/community-search.spec.ts",
-    "modules/community/content-relations.ts"
+    "modules/community/content-relations.ts",
+    "modules/community/participation-metrics.ts",
+    "tests/runtime/participation-metrics.test.ts",
+    "migrations/159_participation_metrics.sql"
   ],
   "public_exports": [
     "modules/community/content-search.ts"

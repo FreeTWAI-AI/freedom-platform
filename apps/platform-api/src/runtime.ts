@@ -114,4 +114,6 @@ export type PlatformRuntime = {
   notificationPreferencesEnabled?: boolean;
   /** Calendar, voluntary reminders and FIFO waitlists; absent or false keeps new surfaces unavailable. */
   eventParticipationEnabled?: boolean;
+  /** Admin-only participation report and search outcome signals. */
+  participationMetricsEnabled?: boolean;
 };
