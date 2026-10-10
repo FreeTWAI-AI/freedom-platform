@@ -373,7 +373,9 @@ test('signed-out visitors see public pages while guild highlights and private fi
   await expect(page.getByRole('heading', {name: '實體公會聚會', level: 1})).toHaveCount(0);
   await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
   expect(await page.content()).not.toContain(GUILD_COPY);
-  expect((await page.request.get(`/api/v1/public/event-highlights/${GUILD}`)).status()).toBe(404);
+  const memberOnly = await page.request.get(`/api/v1/event-highlights/${GUILD}`);
+  expect(memberOnly.status()).toBe(401);
+  expect(await memberOnly.text()).not.toContain(GUILD_COPY);
   expect((await page.request.get(`/api/v1/public/event-highlights/${GUILD}/banner`)).status()).toBe(404);
   await page.screenshot({path: `${SHOTS}/public-guild-light-1280.png`, fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
