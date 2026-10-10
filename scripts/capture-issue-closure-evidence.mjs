@@ -83,6 +83,9 @@ export async function appendEvidence(record, {repository, token, fetcher = fetch
     index.records.push(record);
     index.records.sort((left, right) => left.pull_request_number - right.pull_request_number);
     const content = `${JSON.stringify(index, null, 2)}\n`;
+    if (Buffer.byteLength(content, 'utf8') > 1_000_000) {
+      throw new Error(`Evidence file exceeds the size limit: ${recordPath}`);
+    }
     const blob = await api('/git/blobs', {method: 'POST', body: {content, encoding: 'utf-8'}});
     const tree = await api('/git/trees', {
       method: 'POST',

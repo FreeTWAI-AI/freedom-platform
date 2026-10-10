@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {captureMergeEvidence, closeableIssues, reconcileIssueClosures} from './reconcile-issue-closures.mjs';
+import {captureMergeEvidence, closeableIssues, reconcileIssueClosures} from '../../../scripts/reconcile-issue-closures.mjs';
 
 const repository = 'FreeTWAI-AI/freedom-platform';
 const mergedAt = '2026-10-02T00:00:00Z';
@@ -91,6 +91,16 @@ test('captures only merge-time closure references from a merged default-branch P
     pull_request: {...event.pull_request, title: '', body: 'Closes #14 and Closes #0'},
   }, repository, {runId: 100, runAttempt: 1});
   assert.deepEqual(mixedReferences.issue_numbers, [14]);
+  const multilineCodeReference = captureMergeEvidence({
+    ...event,
+    pull_request: {...event.pull_request, title: '', body: 'Example: `example\nCloses #17`'},
+  }, repository, {runId: 100, runAttempt: 1});
+  assert.equal(multilineCodeReference, null);
+  const inlineCodeBoundary = captureMergeEvidence({
+    ...event,
+    pull_request: {...event.pull_request, title: '', body: 'Fix`example`es #18'},
+  }, repository, {runId: 100, runAttempt: 1});
+  assert.equal(inlineCodeBoundary, null);
 });
 
 test('only closes issues recorded at merge for a PR merged to the default branch', () => {

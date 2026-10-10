@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 export const EVIDENCE_BRANCH = 'issue-closure-evidence';
 const API = 'https://api.github.com';
-const CLOSING_KEYWORD = /\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+(?:([a-z0-9_.-]+\/[a-z0-9_.-]+))?#(\d+)\b/giu;
+const CLOSING_KEYWORD = /\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)[ \t]+(?:([a-z0-9_.-]+\/[a-z0-9_.-]+))?#(\d+)\b/giu;
 
 function requireInput(value, name) {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`Missing ${name}`);
@@ -15,16 +15,16 @@ function paginationLinks(value) {
 function markdownProse(text) {
   let fence = null;
   const lines = [];
-  for (const line of text.replace(/<!--[\s\S]*?-->/gu, '').split('\n')) {
+  for (const line of text.replace(/<!--[\s\S]*?-->/gu, ' ').split('\n')) {
     const marker = line.match(/^ {0,3}(`{3,}|~{3,})/u)?.[1];
     if (marker) {
       if (!fence) fence = {character: marker[0], length: marker.length};
       else if (marker[0] === fence.character && marker.length >= fence.length) fence = null;
       continue;
     }
-    if (!fence && !/^(?: {4}|\t)/u.test(line)) lines.push(line.replace(/(`+)[^`\n]*?\1/gu, ''));
+    if (!fence && !/^(?: {4}|\t)/u.test(line)) lines.push(line);
   }
-  return lines.join('\n');
+  return lines.join('\n').replace(/(?<!`)(`+)[\s\S]*?(?<!`)\1(?!`)/gu, ' ');
 }
 
 function matchingIssueNumbers(text, repository) {

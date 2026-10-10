@@ -13629,8 +13629,8 @@
     },
     {
       "path": "docs/development/github-issue-automation.md",
-      "bytes": 2411,
-      "sha256": "b1a397ada0aad3d0fe416d00948861ffcc5f0ff68e84bc9fe62ee5b0c739458a"
+      "bytes": 2397,
+      "sha256": "623bfa99961535e25849086135903f6b39a15424b02577b421d8aabf4455fc42"
     },
     {
       "path": "docs/development/github-social.md",
@@ -18409,8 +18409,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 3398,
-      "sha256": "0e149ab52ae43b97c630bfd5a67c55ee48ad3e3087d74b55b04d6ef0973febf6"
+      "bytes": 3294,
+      "sha256": "d1a53a53c98340c183187fc0aed806905d96386330cee39ec37c7561d34838bc"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -18484,8 +18484,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
-      "bytes": 6533,
-      "sha256": "fcb5e7f12a6896a8eff9abef7e35ea26d75fbdb2f773f7ed260cb28162cb4244"
+      "bytes": 6581,
+      "sha256": "ecf061f3c927e2ce5203108eaa2ffde5044e24aae5e6355fa3931cdf14afe732"
     },
     {
       "path": "packages/contribution-tools/process-env.mjs",
@@ -18706,6 +18706,16 @@
       "path": "packages/contribution-tools/test/io.test.mjs",
       "bytes": 5714,
       "sha256": "a400de3901b8fa961696c19915cfede02284218ef45813abfd9c0f4c824474db"
+    },
+    {
+      "path": "packages/contribution-tools/test/issue-closure-evidence.test.mjs",
+      "bytes": 7453,
+      "sha256": "baa59c19c12258aba70bfb2e935904d9fc46e1f6c0bbdcddfaaa0d934787e257"
+    },
+    {
+      "path": "packages/contribution-tools/test/issue-closure-reconciler.test.mjs",
+      "bytes": 8265,
+      "sha256": "330595d0d8ac76f9c5058d3a56106e618385da1c629b4ac6e17c798b645a7fb0"
     },
     {
       "path": "packages/contribution-tools/test/machine-device-cli.test.mjs",
@@ -19384,13 +19394,8 @@
     },
     {
       "path": "scripts/capture-issue-closure-evidence.mjs",
-      "bytes": 6126,
-      "sha256": "1cdfdd72fe94d906584bf80fb4984e8e3cce860b5530235994cfee8c0ac480e7"
-    },
-    {
-      "path": "scripts/capture-issue-closure-evidence.test.mjs",
-      "bytes": 5986,
-      "sha256": "6fcb067be438755acf2ac55e1001b8b8219096f282be86656e39713587b64903"
+      "bytes": 6268,
+      "sha256": "b21333be61b344a06747289313508728ecf5f60b9edfcb41ae4013c3846cd283"
     },
     {
       "path": "scripts/check-skill-book-upstreams.ts",
@@ -19509,13 +19514,8 @@
     },
     {
       "path": "scripts/reconcile-issue-closures.mjs",
-      "bytes": 10538,
-      "sha256": "47bc6fea59d6cf034ec323a832f83b74eb69b6b4bcf504a3f3f8f93e0117d201"
-    },
-    {
-      "path": "scripts/reconcile-issue-closures.test.mjs",
-      "bytes": 7756,
-      "sha256": "469eba9fb28bab6766db001e2847b8db3a4f6af4676c52cb4ad4adf9039d718f"
+      "bytes": 10560,
+      "sha256": "590171167d9395c79dd415d41f8c8c3612eb51c34f5c615a465cecd4aab6bce4"
     },
     {
       "path": "scripts/release-source-archive.py",

@@ -27,9 +27,7 @@
     "tests/integration/consumer-supported-transition.test.mjs",
     "scripts/ci/select-affected-jobs.mjs",
     "scripts/reconcile-issue-closures.mjs",
-    "scripts/reconcile-issue-closures.test.mjs",
     "scripts/capture-issue-closure-evidence.mjs",
-    "scripts/capture-issue-closure-evidence.test.mjs",
     ".github/workflows/reconcile-issue-closures.yml",
     ".github/workflows/capture-issue-closure-evidence.yml",
     "scripts/ci/select-affected-jobs.test.mjs"
