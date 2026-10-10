@@ -31,17 +31,17 @@
 
 `playwright.config.ts` 的 webServer 另固定帶上 `FREEDOM_E2E_GUIDE_FIXTURE=1` 與 `FREEDOM_E2E_GITHUB_FIXTURES=1`，以及這一輪的 `FREEDOM_E2E_SCHEMA`。`reuseExistingServer` 是 false。
 
-## Pinned CI 的容量界線（2026-10-08）
+## Pinned CI 的容量界線（source 候選 2026-10-10）
 
-可信 runner 對 default 整輪給 40 分鐘；private-AI、avatar-asset 與新增 message-image 各為
-30 分鐘上限。`ui-e2e` job 的整體上限為 50 分鐘，容納安裝／建置、default、
-三個 fixture 輪次與收尾。這是有限的整體上限，不承諾四輪各自耗盡最大上限時仍能
+此 source 對 default 整輪給 50 分鐘；private-AI、avatar-asset、message-image 與 store-photo 各為
+30 分鐘上限。`ui-e2e` job 的整體上限為 60 分鐘，容納安裝／建置、default、
+四個 fixture 輪次與收尾。這是有限的整體上限，不承諾五輪各自耗盡最大上限時仍能
 全部跑完。單一案例 timeout、1 worker、0 retries、完整檔案／案例選擇、預期 skip
 政策與結果驗證不變。逾時仍先 SIGTERM，最多再等 20 秒後 SIGKILL；即使 child
 在 SIGTERM 後以 0 結束，仍記 `test_timeout` 並停止後續輪次，不以不完整報告算通過。
 預算是 trusted source 常數，candidate config、CLI 參數與環境不能自行調大。
 
-調整依據：[PR #284 的完整通過 run](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37778414757)
+2026-10-08 的歷史調整依據（30→40 分鐘）：[PR #284 的完整通過 run](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37778414757)
 在 tree `b69fa0ab276830ea8801e7cc744a0f355d6ab076` 的 default 為 668 pass／12 個
 預期 skip，29.1 分鐘，另兩輪 49.3 秒與 12.9 秒。
 [同 tree 的 main run](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37782673747)
@@ -328,3 +328,15 @@ These cases need no new installed workflow pin or additional hosted pass.
 Existing candidate opt-in commands remain usable, but their environment cannot
 silently omit the opposite-mode tests in these four specs. Actual email delivery
 is not enabled by this fixture; event reminder browser coverage uses `in_app`.
+
+### 2026-10-10 UI 容量候選
+
+本次容量來源只把 default 整輪 40 → 50 分鐘、ui-e2e job 50 → 60 分鐘。
+其餘四個 fixture passes 各 30 分鐘、每個案例 timeout、1 worker、0 retries、
+完整 file/case union、全部案例通過及預期 skip 規則不變。這是 source 提案，
+尚須獨立 review、使用者核准與正式 fixed-SHA rollout；不表示 installed pin 已變。
+
+#434 Verify38078934877 在 default 842 項中跑到第820項後觸及40分鐘上限，
+其中兩個案例曾失敗，另案追查，不能以增加時間消除那些失敗。相較 #433 的
+完整正例，604 個共同且原本至少1秒的成功案例耗時中位比為1.25；兩候選
+source不同，因此只記錄耗時觀察，不宣稱等價或已排除產品回歸。

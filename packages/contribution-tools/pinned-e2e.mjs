@@ -40,7 +40,7 @@ tenant-workspaces.spec.ts text-autospace.spec.ts typed-line-breaks.spec.ts works
 
 // Host-owned whole-pass bounds; candidate config and environment cannot enlarge them.
 export const E2E_PASS_TIMEOUT_MS = Object.freeze({
-  default: 40 * 60 * 1000,
+  default: 50 * 60 * 1000,
   'private-ai': 30 * 60 * 1000,
   'avatar-asset': 30 * 60 * 1000,
   'message-image': 30 * 60 * 1000,
