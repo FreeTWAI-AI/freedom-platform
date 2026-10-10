@@ -9,6 +9,7 @@ import type { Actor } from '../../identity-membership/service.js';
 import { directCommand, directFact } from './direct-authority.js';
 import { ownQuote } from './direct-quotes.js';
 import { closeDirectOrder, directOrderView, expireDirectForItems, lockDirectOrder } from './direct-effects.js';
+import { localReservationInventory } from './inventory.js';
 
 /** Backend-only direct sale. Existing imported create/payment/shipment functions
  * cannot reach this profile; no supplier acceptance, transfer or payable exists. */
@@ -33,14 +34,16 @@ export async function submitDirectOrderOutcome(pool: Pool, actor: Actor, rawSlug
       requireCondition((await q.query('SELECT 1 WHERE $1::timestamptz>clock_timestamp()', [quote.expires_at])).rowCount === 1,
         409, 'quote_expired', '報價已到期，請重新確認。');
       await expireDirectForItems(q, context, quote.bindings);
-      const rows = (await q.query(`SELECT l.selection_id,i.item_id,l.aggregate_version::text AS version,i.sku,i.title,l.retail_price_minor,i.stock,i.reserved
+      const rows = (await q.query(`SELECT l.selection_id,i.item_id,l.aggregate_version::text AS version,i.sku,i.title,l.retail_price_minor
         FROM commerce_selections l JOIN commerce_items i USING(item_id) WHERE l.shop_id=$1 AND i.shop_id=$2 AND l.selection_id=ANY($3::uuid[])
         ORDER BY l.selection_id,i.item_id FOR UPDATE OF l,i`, [p.storefront_shop_id, p.supply_shop_id, quote.bindings.map(b => b.selection_id)])).rows;
+      const inventory = localReservationInventory(q, context);
+      const balances = await inventory.lock(rows.map(row => row.item_id));
       for (const binding of quote.bindings) {
         const row = rows.find(row => row.selection_id === binding.selection_id), terms = quote.terms.items.find(line => line.sku === binding.sku);
         requireCondition(row && terms && row.item_id === binding.item_id && row.version === binding.version && row.title === terms.title
           && Number(row.retail_price_minor) === terms.unit_price_minor, 409, 'quote_terms_changed', '商品已更新，請重新確認報價。');
-        requireCondition(row.stock - row.reserved >= binding.quantity, 409, 'stock_unavailable', '商品庫存不足。');
+        requireCondition((balances.get(row.item_id)?.available ?? -1) >= binding.quantity, 409, 'stock_unavailable', '商品庫存不足。');
       }
       const now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
       const id = randomUUID();
@@ -53,7 +56,7 @@ export async function submitDirectOrderOutcome(pool: Pool, actor: Actor, rawSlug
         const terms = quote.terms.items.find(line => line.sku === binding.sku)!;
         await q.query(`INSERT INTO commerce_order_lines(order_id,selection_id,item_id,quantity,snapshot,order_profile)
           VALUES($1,$2,$3,$4,$5,'hosted_direct_reservation')`, [id, binding.selection_id, binding.item_id, binding.quantity, terms]);
-        await q.query('UPDATE commerce_items SET reserved=reserved+$2 WHERE item_id=$1', [binding.item_id, binding.quantity]);
+        await inventory.reserve(binding.item_id, binding.quantity);
       }
       await directFact(q, context, id, '1', 'reserved');
       created = true;

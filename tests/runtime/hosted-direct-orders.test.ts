@@ -114,6 +114,31 @@ test('publication/price/current pause authority precedes receipts; pause permits
   await assert.rejects(quote(s), code('publication_changed'));
 });
 
+test('ten units reject concurrent 6+5 reservations, replay cancellation once and leave another store untouched', async () => {
+  const s = await fixture(10), otherStore = await fixture(10);
+  const untouched = await submitDirectOrder(runtime, otherStore.buyer, otherStore.slug,
+    body(await quote(otherStore, otherStore.buyer, 4)), randomUUID());
+  const quotes = [await quote(s, s.buyer, 6), await quote(s, s.other, 5)];
+  const buyers = [s.buyer, s.other], quantities = [6, 5];
+  const results = await Promise.allSettled(quotes.map((q, index) =>
+    submitDirectOrder(runtime, buyers[index], s.slug, body(q), randomUUID())));
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  const rejected = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
+  assert.equal(rejected.reason.code, 'stock_unavailable');
+  const winner = results.findIndex(result => result.status === 'fulfilled');
+  const order = (results[winner] as PromiseFulfilledResult<Awaited<ReturnType<typeof submitDirectOrder>>>).value;
+  const balance = async () => (await h.pool.query('SELECT stock,reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0];
+  assert.deepEqual(await balance(), {stock: 10, reserved: quantities[winner]});
+  const cancelKey = randomUUID();
+  const cancellations = await Promise.all([0, 1].map(() =>
+    cancelDirectOrder(runtime, buyers[winner], order.order_id, cancelKey, '1')));
+  assert.ok(cancellations.every(result => result.state === 'cancelled' && result.version === '2'));
+  assert.deepEqual(await balance(), {stock: 10, reserved: 0});
+  assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [otherStore.product.product_id])).rows[0].reserved, 4);
+  assert.equal((await readDirectOrder(runtime, otherStore.buyer, untouched.order_id)).state, 'reserved');
+  assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM scoped_transition_journal WHERE aggregate_id=$1 AND aggregate_version=2", [order.order_id])).rows[0].n, 1);
+});
+
 test('multi-line shortage rolls back every reserve, order, receipt and journal', async () => {
   const s = await fixture(1);
   const second = ok(await post(s.root + '/products', s.owner, { title: '第二件合成商品', price_minor: 500, stock: 1 }), 201);
