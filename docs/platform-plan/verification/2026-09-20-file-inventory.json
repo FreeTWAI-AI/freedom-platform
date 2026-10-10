@@ -2574,13 +2574,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.css",
-      "bytes": 2543,
-      "sha256": "e8536f51dbc9b3223067d49591ee80c3081f15f2815aaa0acae981a7e490e51a"
+      "bytes": 2400,
+      "sha256": "0c74b1bc3603405fe47040c0f6e521e26d03b39c3857ba72fdb39f75df3a1ab0"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.tsx",
-      "bytes": 6944,
-      "sha256": "a8225dce2203f5952639564ec50c50d18cc2f5136c6d5e9f5adf7cf98aaed8bc"
+      "bytes": 6926,
+      "sha256": "40eb31186e9a5691152f0872d8e38aa2357fb5cb0456b690eb9942101d6048b2"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionShare.tsx",

@@ -67,7 +67,7 @@ export function PromotionBoards({client}: {client: PortalClient}) {
         <h2>{COPY[board.kind].title}</h2>
         <p className="promotion-howto">{COPY[board.kind].how}</p>
         {board.items.length === 0 ? <p className="promotion-empty">還沒有人得分，分享第一個連結吧。</p> : <ol>
-          {board.items.map(item => <li key={item.user_id}><span className="promotion-person"><span className="promotion-rank"><span className="promotion-hidden">第 </span>{item.rank}<span className="promotion-hidden"> 名</span></span><MemberAvatar nickname={item.display_name} avatarUrl={item.avatar_url} className="promotion-avatar"/> <span>{item.display_name}</span></span><strong>{item.points}</strong></li>)}
+          {board.items.map(item => <li key={item.user_id}><span className="promotion-person"><span className="promotion-rank"><span className="sr-only">第 </span>{item.rank}<span className="sr-only"> 名</span></span><MemberAvatar nickname={item.display_name} avatarUrl={item.avatar_url} className="promotion-avatar"/> <span>{item.display_name}</span></span><strong>{item.points}</strong></li>)}
         </ol>}
         <p className="promotion-me">{board.me ? `我的名次：第 ${board.me.rank} 名・${board.me.points} 分` : '你在這個排行榜還沒有分數。'}</p>
       </article>)}
