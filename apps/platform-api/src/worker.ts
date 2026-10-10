@@ -99,6 +99,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_ADMIN_ACCESS_AUD?: string;
   FREEDOM_ADMIN_CSRF_SECRET?: string;
   GITHUB_SOCIAL_TOKEN_KEY?: string;
+  TOTP_ENCRYPTION_KEY?: string;
   /** Optional read-only GitHub token: Workers share egress IPs, so anonymous GitHub quota is gone. */
   GITHUB_METRICS_TOKEN?: string;
   /** Optional. Without it only POST /api/v1/maintainer/github/webhook answers 503. */
@@ -226,6 +227,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     shopKeyPolicy:env.FREEDOM_SHOP_KEY_POLICY,
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
+    totpEncryptionKey: () => env.TOTP_ENCRYPTION_KEY,
     githubMetricsToken: () => metricsToken,
     maintainerWebhookSecret: () => maintainerWebhookSecret,
     adminVerifier: workerAdminVerifier(env),

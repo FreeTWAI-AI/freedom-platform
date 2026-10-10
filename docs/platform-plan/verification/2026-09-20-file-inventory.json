@@ -29,8 +29,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 11917,
-      "sha256": "92b34db0b391802451693f5e25ad2cf3136a504662824bbeb0cccf3065e9b85d"
+      "bytes": 12438,
+      "sha256": "3af1c0c5b733fd2eb3d14077c76a787ae637a58137662c78f8a7b9a233b97768"
     },
     {
       "path": "README.md",
@@ -299,8 +299,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 7989,
-      "sha256": "0ee1ae6d2784e4c9426d5483e16c979a4f0fcb91a1b13e80ccb255e662c97453"
+      "bytes": 8104,
+      "sha256": "da102c8143e632bb67da43ba129690a9b4bdc40e20bfe07a9bea873a444eaa86"
     },
     {
       "path": "apps/platform-api/src/credential-ingest-client.ts",
@@ -359,8 +359,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 57241,
-      "sha256": "297525a49e0fb6bb143a2a773cbd7555c9eb42d1008304aecb96144927640a89"
+      "bytes": 57920,
+      "sha256": "cd72baf478c03f435fa2e6881817d0086c4d6001575311a19ba90cde8d96ff4f"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -379,8 +379,8 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 7115,
-      "sha256": "7ba9bd20495c3f4448599347abe63cf289e09105db80ca72e38c5b591f3ba8a9"
+      "bytes": 7240,
+      "sha256": "2c76f0bcff807f67c4e2fc0de4922bbbad0106c82ce88907f2943e655bc5035e"
     },
     {
       "path": "apps/platform-api/src/server.ts",
@@ -419,8 +419,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 33223,
-      "sha256": "662028d860b84283e50d117ed7e6d58e6ad4770b209184fa5c2622e41027bd3d"
+      "bytes": 33309,
+      "sha256": "4edf59d5bc4e27a84a52b97a2f9ad31a429e02241bdc0057f832c251f2de163f"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -1689,8 +1689,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 59143,
-      "sha256": "d2866f67386ee432efcc8a8d211f675d550d28cd3fff4c4967f14bb22f1514ba"
+      "bytes": 60682,
+      "sha256": "4e54491a9b1398895ed573629dc25410eaec1c6aff9c4ee4cb07512aa8e42727"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -1809,13 +1809,13 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 22244,
-      "sha256": "03493158cf9f3dfaf7d0cee72bb77990fceb915fdd5c8eb0316c0c565c205d8a"
+      "bytes": 22323,
+      "sha256": "ebca8fc70a573b873bd8d50db93f9af473dab94f8648c6015233a6d443248fbc"
     },
     {
       "path": "apps/portal-web/src/auth-messages.ts",
-      "bytes": 2060,
-      "sha256": "987ff0de764267473eb364f835f1a719671864e5f885dd94e1b2e61a3807fdfb"
+      "bytes": 2484,
+      "sha256": "bce6712241a2c069b2ff6a9f88cfa991fa0ce12ee262b0f0a92c6911cd4defc8"
     },
     {
       "path": "apps/portal-web/src/dragon-theme.css",
@@ -1849,8 +1849,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 52385,
-      "sha256": "132d9b11e70fff14b9f19f8f67f189cdaef72c79e011c6f6c799fceb48f058fb"
+      "bytes": 55080,
+      "sha256": "b1f823d0bfa68b340fce392c9a548db71f4ff9e474bf463e5ddf58e04dfd6b9d"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -2449,8 +2449,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberDirectory.css",
-      "bytes": 7426,
-      "sha256": "8c70904b83b01357a9937e9567edf3ba9b20301377084caf996da08896f7bc1e"
+      "bytes": 7960,
+      "sha256": "69de313e398d4834d4e6b5a3a65dc694a223c2dc20231de4d93f0e312504c286"
     },
     {
       "path": "apps/portal-web/src/modules/MemberECard.css",
@@ -2534,8 +2534,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 31993,
-      "sha256": "e6b5fbe7bc7d378664bcf19d2c51e5511d414142fa002e1734edf6685911a1e4"
+      "bytes": 32140,
+      "sha256": "ee4431d681f99a320bcae465075bb6d416d72f741b9f4f7f9586be9205d50f4c"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -2828,6 +2828,11 @@
       "sha256": "0b6017f29581b74f39a5c4ced8fb456109c955dbd49ba072c07269ca207da375"
     },
     {
+      "path": "apps/portal-web/src/modules/TotpSettings.tsx",
+      "bytes": 7609,
+      "sha256": "d3db9495bc98ac6e1b4589c6c8fe7ca15b49f147789168d10c89105ef6abd167"
+    },
+    {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
       "bytes": 6688,
       "sha256": "c6e9f3659f190fae87846e5888f892d25e9387fc9c6a4e5dbf99d1038bf4da0a"
@@ -2889,8 +2894,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 7157,
-      "sha256": "897fc22f5f40c18dfe6f7afa28cc11d962101e35c85a6a6cd04a4c9e8fab70ee"
+      "bytes": 8026,
+      "sha256": "c51b61c98f14310b364d8f1bca28d8e73ef1dffc953bf459ebbb9ff97b301577"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -3001,6 +3006,11 @@
       "path": "apps/portal-web/src/modules/tenant-workspaces.css",
       "bytes": 1319,
       "sha256": "806bd11ea2c2db54fadabebe7dc8583a9d6bed8bdc7aa1bd22d6c6c87b40962e"
+    },
+    {
+      "path": "apps/portal-web/src/modules/totp-setup.ts",
+      "bytes": 711,
+      "sha256": "a8ce65ca5c6c8a82c3ea4a287c03c70b8493b34ac810b4f543cb1fc1c43bbcea"
     },
     {
       "path": "apps/portal-web/src/modules/work-document-reader.ts",
@@ -12950,7 +12960,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "a49656ba55519fb5d601255834a16ef0c37fed7f589e45aa03e438994792abe2"
+      "sha256": "d7290f5566f04eb95cc9e41e6cd8441dc543eb14bce466b38266db712e076c03"
     },
     {
       "path": "deploy/cloudflare/media-preflight.md",
@@ -13079,8 +13089,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 43031,
-      "sha256": "f24b380a6f765484f9f7537f468b9f42e8efbb68ceeff26928ec9860b89adf98"
+      "bytes": 43056,
+      "sha256": "23f20c223aff73c5ec699d88cf1b2736b53571cc3c582c244835472c28d31e9b"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -13160,7 +13170,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12677,
-      "sha256": "19fa3bce7c5d93b6c0157d647626ef5cb12b91803bf6811eee7d1ab2d8100263"
+      "sha256": "0584086fc231e49039fd0183229571bca8c16a1aec98a347167286788e300d3b"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -13739,8 +13749,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 45704,
-      "sha256": "0cc4f651d90651f8067f0e7fe14906689c97e1b333a5238cd4f9fb992479217d"
+      "bytes": 47774,
+      "sha256": "f9ee41060f99baf722fd3cc6bc6c798d90bf1c350586346b13d8040b2f4dfe70"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -13824,8 +13834,8 @@
     },
     {
       "path": "docs/development/password-recovery.md",
-      "bytes": 3473,
-      "sha256": "4dcd9b08d5b7771a0df7976ca3aff1604e711e3be707c3b9721a5f169f9f6159"
+      "bytes": 3930,
+      "sha256": "5a194465f66b2df95ac6c39bd88389a78d419a51c1443deb6504e060077dcac8"
     },
     {
       "path": "docs/development/plan-drift-2026-09-23.md",
@@ -14940,7 +14950,7 @@
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 24466,
-      "sha256": "b895f5a7c361216334af980da14440651283be20494a894201e17ec6d65d8d18"
+      "sha256": "6d3d6d632ba2b081490f5ef20ac9d780adaafe624d86e579b9a91bc297b2f04b"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -16483,6 +16493,11 @@
       "sha256": "9512718aa3104b0cf7d58ee6b7a9cbbde99e0b41b1113bc77145c863badfcec8"
     },
     {
+      "path": "migrations/158_member_totp.sql",
+      "bytes": 731,
+      "sha256": "aa1f6525c3d37ccf0d47de58f17a06c9213a7250106901abb5347db8356e2c50"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 23935,
       "sha256": "a994b3f8a86254a68780455cb1d8991ed82f5f710163314d388895829b255713"
@@ -17814,13 +17829,13 @@
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
-      "bytes": 4384,
-      "sha256": "c20123889d5dec3493f3011334da2955d952f63f074cd7b1b131eef95e3bbefb"
+      "bytes": 4618,
+      "sha256": "e360c75607ebe49310e8712bbf7513c2a82e4ffb1f7c931b129bc154228f0111"
     },
     {
       "path": "modules/identity-membership/service.ts",
-      "bytes": 5517,
-      "sha256": "8f0f6ac88084e9ed785c41470533f284a0ef79cc293df0cf64d9e7af2c15897e"
+      "bytes": 6596,
+      "sha256": "43b734674b84e5000560271cbbe67b2a1ae3ca5c73185d1b8c0767d609439d19"
     },
     {
       "path": "modules/identity-membership/social-links.ts",
@@ -17846,6 +17861,11 @@
       "path": "modules/identity-membership/test-accounts.ts",
       "bytes": 377,
       "sha256": "ccf4e7688d6d9e67294d81c42d32695755fe7277091697ed8d1f5f71e5f9be38"
+    },
+    {
+      "path": "modules/identity-membership/totp.ts",
+      "bytes": 10939,
+      "sha256": "c869147870f868aa129596e8d2650c625ee6713e0fc8bccb18eccc85a078d0f3"
     },
     {
       "path": "modules/identity-membership/squads/freedom.module.json",
@@ -22073,6 +22093,11 @@
       "sha256": "0a06b5b8ca7c1e3ae0a61584b29e38ccc5f8f88ff20d76581672a4194ab147f8"
     },
     {
+      "path": "tests/runtime/portal-totp.test.ts",
+      "bytes": 2525,
+      "sha256": "7a4a23f891afa8589390a3a55dcc93b3ebf854c31527c50e695cc324ccf37d91"
+    },
+    {
       "path": "tests/runtime/positioning-action-card.test.ts",
       "bytes": 6677,
       "sha256": "e9c153d946600dcb0d4e475749652538695ffb4d8f522bfceeecbf16ff370045"
@@ -22526,6 +22551,11 @@
       "path": "tests/runtime/tenant-work.test.ts",
       "bytes": 90026,
       "sha256": "fc1ac526c8d8e9f43090ed99a5d73abb35f8d5cc7ae86f08c2cd0309ffbebbfc"
+    },
+    {
+      "path": "tests/runtime/totp.test.ts",
+      "bytes": 20006,
+      "sha256": "1e0b7aa08eb3560cc97e79e00954e3fe1b1dee7acf67a92e47cb324ac893d2df"
     },
     {
       "path": "tests/runtime/verification-test-data.test.ts",

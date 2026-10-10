@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'no
 import type { Pool, PoolClient } from 'pg';
 import { transaction } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
+import { consumeTotp, lockTotp } from './totp.js';
 
 export interface Actor {
   user_id: string; community_id: string; email: string; display_name: string;
@@ -39,7 +40,7 @@ export async function createMemberSession(q:PoolClient,user:Omit<Actor,'session_
   await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+make_interval(secs=>$4),NULL)`,[tokenHash(token),user.user_id,csrf,SESSION_LIFETIME_SECONDS]);
   return {token,actor:{...user,session_hash:tokenHash(token),csrf_token:csrf}};
 }
-export async function login(pool: Pool, email: string, password: string) {
+export async function login(pool: Pool, email: string, password: string, code?: string, encryptionKey?: string) {
   const normalized = email.trim().toLowerCase();
   const attemptKey = tokenHash(normalized);
   const result = await transaction(pool,async q => {
@@ -50,11 +51,22 @@ export async function login(pool: Pool, email: string, password: string) {
       await q.query('UPDATE login_attempts SET failures=0,window_start=now() WHERE attempt_key=$1',[attemptKey]); attempt.failures=0;
     }
     if (attempt.failures>=10) return {blocked:true} as const;
-    const user = (await q.query('SELECT * FROM users WHERE email=$1 FOR SHARE',[normalized])).rows[0];
+    const user = (await q.query('SELECT * FROM users WHERE email=$1 FOR UPDATE',[normalized])).rows[0];
     const valid = await matches(password,user?.password_hash ?? unknownUserHash());
     if (!valid || !user?.active) {
       await q.query('UPDATE login_attempts SET failures=failures+1 WHERE attempt_key=$1',[attemptKey]);
       return {invalid:true} as const;
+    }
+    const configured = (await q.query('SELECT enabled FROM member_totp WHERE user_id=$1',[user.user_id])).rows[0];
+    if (configured?.enabled) {
+      if (!code) return {totpRequired:true} as const;
+      const row = await lockTotp(q,user.user_id);
+      if (row.failures >= 10) return {totpBlocked:true} as const;
+      if (!await consumeTotp(q,user.user_id,row,code,encryptionKey)) {
+        await q.query('UPDATE member_totp SET failures=failures+1 WHERE user_id=$1',[user.user_id]);
+        return {totpInvalid:true} as const;
+      }
+      await q.query('UPDATE member_totp SET failures=0 WHERE user_id=$1',[user.user_id]);
     }
     const session=await createMemberSession(q,user);
     await q.query('UPDATE login_attempts SET failures=0 WHERE attempt_key=$1',[attemptKey]);
@@ -62,6 +74,9 @@ export async function login(pool: Pool, email: string, password: string) {
   });
   if ('blocked' in result) throw new Problem(429,'login_rate_limited','登入嘗試過多，請稍後再試。');
   if ('invalid' in result) throw new Problem(401,'invalid_credentials','帳號或密碼不正確。');
+  if ('totpRequired' in result) throw new Problem(401,'totp_required','請輸入驗證器的一次性驗證碼或備援碼。');
+  if ('totpBlocked' in result) throw new Problem(429,'totp_rate_limited','驗證嘗試過多，請稍後再試。');
+  if ('totpInvalid' in result) throw new Problem(401,'invalid_totp','驗證碼不正確或已使用。');
   return result;
 }
 export async function authenticate(pool: Pool, raw: string | undefined): Promise<Actor> {

@@ -70,7 +70,13 @@
     "tests/runtime/email-verification.test.ts",
     "tests/runtime/portal-email-verification.test.ts",
     "tests/e2e/email-verification.spec.ts",
-    "tests/e2e/email-change.spec.ts"
+    "tests/e2e/email-change.spec.ts",
+    "modules/identity-membership/totp.ts",
+    "apps/portal-web/src/modules/TotpSettings.tsx",
+    "apps/portal-web/src/modules/totp-setup.ts",
+    "migrations/158_member_totp.sql",
+    "tests/runtime/totp.test.ts",
+    "tests/runtime/portal-totp.test.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [
@@ -203,6 +209,28 @@
         "member.email-verification.confirm"
       ],
       "auth_profile": "member-session-or-single-use-email-proof"
+    },
+    {
+      "surface_id": "member.totp",
+      "kind": "http",
+      "entry": "apps/platform-api/src/platform-app.ts",
+      "operations": [
+        "member.totp.status",
+        "member.totp.enable",
+        "member.totp.disable"
+      ],
+      "auth_profile": "member-session-csrf-password-second-factor"
+    },
+    {
+      "surface_id": "member.totp.page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/TotpSettings.tsx",
+      "operations": [
+        "member.totp.status",
+        "member.totp.enable",
+        "member.totp.disable"
+      ],
+      "auth_profile": "member-session"
     }
   ],
   "tests": [

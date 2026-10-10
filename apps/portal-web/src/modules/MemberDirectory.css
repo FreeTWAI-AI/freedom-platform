@@ -76,3 +76,9 @@
 .account-security .session-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .account-security .session-row { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; }
 .account-security .session-row span { color: var(--muted); font-size: 0.9rem; }
+.totp-settings { min-width: 0; }
+.totp-settings .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.totp-settings .btn { width: fit-content; max-width: 100%; justify-self: start; align-self: start; flex: 0 1 auto; border: 1px solid var(--line); }
+.totp-settings .btn-secondary { background: var(--bg-elev); color: var(--ink); }
+.totp-settings .btn:hover:not(:disabled), .totp-settings .btn:focus-visible { border-color: var(--focus); }
+.totp-settings input, .totp-settings textarea { width: 100%; min-width: 0; font-size: 16px; }

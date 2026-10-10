@@ -321,7 +321,7 @@ function MemberApp() {
           onChooseEntry={intent=>{setEntryIntent(intent);window.location.hash=`join/${intent}`}}
           resetToken={resetToken}
           onCancelReset={()=>{clearResetHash();setResetToken(null)}}
-          onPasswordReset={next=>{clearResetHash();setResetToken(null);applySession(next)}}
+          onPasswordReset={next=>{clearResetHash();setResetToken(null);if(next)applySession(next);else toLogin('密碼已重設。請使用新密碼登入，並輸入驗證器代碼或備用碼。')}}
         />
       </div>
     )
@@ -378,7 +378,7 @@ function LoginView({
   onChooseEntry: (intent: EntryIntent) => void
   resetToken:string|null
   onCancelReset:()=>void
-  onPasswordReset:(session:SessionPayload)=>void
+  onPasswordReset:(session?:SessionPayload)=>void
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'request-reset'>('login')
   const [returnPath] = useState(() => publicDiscoveryPath(new URLSearchParams(window.location.search).get('return_to')))
@@ -395,11 +395,15 @@ function LoginView({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword,setConfirmPassword]=useState('')
+  const [totpRequired,setTotpRequired]=useState(false)
+  const [loginCode,setLoginCode]=useState('')
+  const codeInput=useRef<HTMLInputElement>(null)
+  useEffect(()=>{setTotpRequired(false);setLoginCode('')},[activeMode,email,password])
   const [resetNotice,setResetNotice]=useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const {language,t}=useLanguage()
-  const errorDetails=error?{...describeError(error),message:authErrorMessage(error,language)}:null
+  const errorDetails=error?{...describeError(error),message:totpRequired&&error instanceof ApiError&&error.status===401&&!error.accessExpired?t('error.totpInvalid'):authErrorMessage(error,language)}:null
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -414,14 +418,20 @@ function LoginView({
       }
       if(activeMode==='confirm-reset'){
         if(password!==confirmPassword)throw new Error('兩次輸入的新密碼不一致。')
-        const session=await client.post<SessionPayload>('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true})
+        const session=await client.post<SessionPayload|{reset:true;totp_required:true;expires_after_minutes:number}>('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true,suppressConsole:true})
+        if(session&&'reset' in session&&session.reset&&session.totp_required){
+          setPassword('');setConfirmPassword('');setMode('login')
+          onPasswordReset()
+          return
+        }
+        if(!session||!('user' in session))throw new Error('登入回應不完整')
         if(!session?.user||!session.csrf_token)throw new Error('登入回應不完整')
         onPasswordReset(session)
         return
       }
       const session = activeMode === 'register'
         ? await client.register({email:email.trim(),password,nickname:nickname.trim()})
-        : await client.login(email.trim(), password)
+        : await client.login(email.trim(), password, totpRequired?loginCode.trim():undefined)
       if (!session?.user || !session.csrf_token) {
         throw new Error('登入回應不完整')
       }
@@ -432,7 +442,10 @@ function LoginView({
         onLoggedIn(session, '帳號已建立。原本的公開內容目前無法確認或已停止公開，你仍可繼續逛工坊。')
       } else onLoggedIn(session)
     } catch (err) {
-      setError(err)
+      if(activeMode==='login'&&err instanceof ApiError&&err.code==='totp_required'){
+        setTotpRequired(true);setLoginCode('')
+        requestAnimationFrame(()=>codeInput.current?.focus())
+      }else setError(err)
     } finally {
       setPending(false)
     }
@@ -492,6 +505,7 @@ function LoginView({
               disabled={pending}
             />
           </label>}
+          {activeMode==='login'&&totpRequired&&<label className="field"><span className="field-label">{t('auth.totpCode')}</span><input ref={codeInput} name="code" type="text" autoComplete="one-time-code" autoCapitalize="none" spellCheck={false} required maxLength={64} value={loginCode} onChange={event=>setLoginCode(event.target.value)} disabled={pending} aria-describedby="login-totp-hint"/><span id="login-totp-hint" className="field-hint">{t('auth.totpHint')}</span></label>}
           {activeMode==='confirm-reset'&&<label className="field">{t('auth.confirmPassword')}<input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} disabled={pending}/></label>}
           {activeMode==='register'&&<><label className="field"><span className="field-label" id="register-nickname-label">{t('auth.nickname')}</span><input name="nickname" maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" placeholder={t('auth.optionalName')} value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">{t('auth.nicknameHint')}</span></label><p className="field-hint">{t('auth.passwordHint')} {t(site?.password_recovery_enabled?'auth.recoveryAvailable':'auth.recoveryUnavailable')}</p></>}
           {activeMode==='request-reset'&&<p className="field-hint">{t('auth.resetHint')}</p>}

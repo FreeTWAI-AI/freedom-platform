@@ -33,6 +33,8 @@ export type PlatformRuntime = {
   registrationCommunityId: () => string | undefined;
   /** Base64 AES key protecting stored GitHub credentials; never logged or returned. */
   githubTokenKey: () => string | undefined;
+  /** Dedicated canonical base64 AES-256 key for member TOTP credentials. */
+  totpEncryptionKey?: () => string | undefined;
   /** Read-only GitHub token for public repository counts; never logged or returned. */
   githubMetricsToken: () => string | undefined;
   /** GitHub App webhook secret. Undefined leaves only that route answering 503. */

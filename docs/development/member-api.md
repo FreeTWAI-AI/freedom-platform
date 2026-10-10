@@ -40,17 +40,44 @@ mutation body or creating, replacing or revoking sessions.
   with a private default. Registration has exactly one email input: `email`.
   A separate `contacts.email` input is rejected. Contact email always comes from
   the login identity; its audience starts empty (private).
-- `POST /auth/login`: existing `{email,password}`. Password login does not verify
-  email or automatically link providers. Slugs confer no GitHub/Discord/LINE
-  ownership or privileged action.
+- `POST /auth/login`: `{email,password,code?}`. Enabled MFA accounts first return
+  `401 totp_required` without a session; submit the same email/password with a
+  six-digit authenticator code or an unused backup code to complete login.
+  Password login does not verify email or link providers; slugs confer no ownership.
 - `POST /auth/reset/request`: `{email}`; requires the configured recovery sender
   and returns the same result for existing and unknown accounts.
 - `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
-  changes the password, revokes old sessions, clears account lockout and issues a
-  new session atomically. Returns `{reset,expires_after_minutes,user,csrf_token}`
-  with the same session cookie/lifetime as login; the session cookie already sent
-  by this browser is also revoked, as on login. Invalid, expired and inactive
-  proofs are rejected. See [password-recovery.md](password-recovery.md).
+  changes the password and revokes old sessions atomically. Without MFA it returns
+  `{reset,expires_after_minutes,user,csrf_token}` and a new session cookie.
+  Enabled MFA instead returns `{reset:true,totp_required:true,expires_after_minutes}`
+  without a session: return to login and supply the second factor. Resetting a
+  password does not disable MFA or replenish its attempt budget. Invalid, expired
+  and inactive proofs are rejected. See [password-recovery.md](password-recovery.md).
+- `GET /me/totp`: `{enabled,backup_codes_remaining}` for the current member.
+- `POST /me/totp/enable`: `{password,secret,code}`; secret is 20 browser-generated
+  random bytes encoded as 32 uppercase Base32 characters. The browser shows the
+  provisioning secret locally, never in an API response. A valid password and
+  RFC 6238 SHA-1 code (six digits, 30 seconds, ±1 step) enable MFA and return ten
+  96-bit backup codes once. Store them securely; only SHA-256 hashes are retained.
+  Replay returns 409 rather than recovering plaintext codes. State-only command
+  receipts and metadata-only audit facts never contain secrets or backup codes.
+- `POST /me/totp/disable`: `{password,code}`; requires password plus an unused
+  authenticator or backup code. Successful disable deletes secret and code hashes.
+  Enable/disable require CSRF and Idempotency-Key but no If-Match; both revoke
+  all other member sessions. Reusing an operation key with changed content conflicts.
+  Failed enrollment, disable and login second factors share a persisted per-user
+  budget of ten failures per 15 minutes, serialized with the member row. New
+  password-only submissions cannot reset it. Accepted counters are monotonically
+  consumed, including enrollment, and backup deletion is atomic.
+
+Hosts must install a dedicated `TOTP_ENCRYPTION_KEY` (canonical Base64 of 32 random
+bytes) as a Node environment secret or Worker secret binding before enrollment.
+The member secret is AES-256-GCM encrypted with user-bound associated data.
+Missing/malformed keys fail closed with `503 totp_unavailable` for factor checks;
+ordinary accounts still log in. Keep the key stable and securely backed up:
+changing it without separately migrating ciphertext makes enabled factors unreadable.
+No deployment, remote key installation or authenticator-device acceptance is implied.
+
 - `POST /me/account/email-verification/request`: `{}`; authenticated member with
   CSRF, including before onboarding completion. The account page exposes send/resend.
   Uses the existing transactional `eventEmailSender` adapter (Worker `EMAIL`
