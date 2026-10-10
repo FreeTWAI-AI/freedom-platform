@@ -1,0 +1,52 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "github-social",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/platform-api/src/routes/github-social.ts",
+    "apps/portal-web/src/modules/GitHubAuthorFollow.tsx",
+    "apps/portal-web/src/modules/github-social-client.ts",
+    "modules/github-social/provider.ts",
+    "modules/github-social/service.ts",
+    "docs/development/github-social.md",
+    "tests/e2e/github-social.spec.ts",
+    "tests/runtime/github-social-routes.test.ts",
+    "tests/runtime/github-social-store.test.ts",
+    "tests/runtime/github-social.test.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "command-core",
+    "community",
+    "development",
+    "shared"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/github-social.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "member.github-social",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/github-social.ts",
+      "operations": [
+        "member.github-follow.read",
+        "member.github-follow.set"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

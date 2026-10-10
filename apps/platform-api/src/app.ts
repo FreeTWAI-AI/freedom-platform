@@ -15,9 +15,9 @@ import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type 
 import type { ModuleProviderMap } from '../../../modules/module-registry/providers.js';
 import { createNodePreviewFetch } from './node-preview-fetch.js';
 
-type NodeAppOptions = {shopKeyPolicy?:PlatformRuntime['shopKeyPolicy'];publicGuideAssets?:PlatformRuntime['publicGuideAssets'];adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
+type NodeAppOptions = {storePhotoAssetStore?:PlatformRuntime['storePhotoAssetStore'];storePhotoAssets?:PlatformRuntime['storePhotoAssets'];storePhotoUploadsEnabled?:boolean;shopKeyPolicy?:PlatformRuntime['shopKeyPolicy'];publicGuideAssets?:PlatformRuntime['publicGuideAssets'];adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
   eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];messageImageAssets?:PlatformRuntime['messageImageAssets'];messageImageAssetStore?:PlatformRuntime['messageImageAssetStore'];eventBannerAssets?:PlatformRuntime['eventBannerAssets'];eventBannerAssetStore?:PlatformRuntime['eventBannerAssetStore'];eventVideoAssets?:PlatformRuntime['eventVideoAssets'];eventVideoAssetStore?:PlatformRuntime['eventVideoAssetStore'];skillImageAssets?:PlatformRuntime['skillImageAssets'];skillImageAssetStore?:PlatformRuntime['skillImageAssetStore'];socialThumbnailAssets?:PlatformRuntime['socialThumbnailAssets'];socialThumbnailAssetStore?:PlatformRuntime['socialThumbnailAssetStore'];eventHighlightAssets?:PlatformRuntime['eventHighlightAssets'];eventHighlightAssetStore?:PlatformRuntime['eventHighlightAssetStore'];
-  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport;moduleProviders?:ModuleProviderMap;guildLaunchpadEnabled?:boolean;hostedReservationsEnabled?:boolean;tenantCursorSigningKey?:string;communityDiscoveryEnabled?:boolean;memberBlockingEnabled?:boolean;communitySearchEnabled?:boolean;unifiedSharingEnabled?:boolean;communityRelationsEnabled?:boolean;personalContentEnabled?:boolean;firstParticipationEnabled?:boolean;tenantWorkAssetStore?:PlatformRuntime['tenantWorkAssetStore']};
+  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport;moduleProviders?:ModuleProviderMap;guildLaunchpadEnabled?:boolean;hostedReservationsEnabled?:boolean;tenantCursorSigningKey?:string;communityDiscoveryEnabled?:boolean;memberBlockingEnabled?:boolean;communitySearchEnabled?:boolean;unifiedSharingEnabled?:boolean;communityRelationsEnabled?:boolean;personalContentEnabled?:boolean;notificationPreferencesEnabled?:boolean;firstParticipationEnabled?:boolean;tenantWorkAssetStore?:PlatformRuntime['tenantWorkAssetStore']};
 
 // Node host adapter. The Worker bundle never imports this module, so the
 // socket-based address below is only ever read from a real Node server.
@@ -34,6 +34,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
     publicGuideAssets:options.publicGuideAssets,
+    storePhotoAssetStore:options.storePhotoAssetStore,storePhotoAssets:options.storePhotoAssets,storePhotoUploadsEnabled:options.storePhotoUploadsEnabled===true,
     shopKeyPolicy:options.shopKeyPolicy??process.env.FREEDOM_SHOP_KEY_POLICY as PlatformRuntime['shopKeyPolicy'],
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
@@ -57,6 +58,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
     unifiedSharingEnabled:options.unifiedSharingEnabled===true,
     communityRelationsEnabled:options.communityRelationsEnabled===true,
     personalContentEnabled:options.personalContentEnabled===true,
+    notificationPreferencesEnabled:options.notificationPreferencesEnabled===true,
     firstParticipationEnabled:options.firstParticipationEnabled===true,
     tenantWorkAssetStore:options.tenantWorkAssetStore,
     tenantListCursors:createTenantListCursorCodec(

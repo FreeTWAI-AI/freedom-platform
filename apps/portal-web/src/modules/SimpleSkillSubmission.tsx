@@ -3,7 +3,7 @@ import { requireItems, type PortalClient } from '../api';
 import { useModuleMutation } from './shared';
 import { relationshipLabels } from './SkillUpload';
 import './WorkSharing.css';
-import { useAuthoringDraft } from './authoring-drafts';
+import { authoringDraftState, sharingMutationState, useAuthoringDraft } from './authoring-drafts';
 import { PublishedSkillLinks, skillPublicationPath } from './SkillPublication';
 
 type Relationship = keyof typeof relationshipLabels;
@@ -24,11 +24,24 @@ export function SimpleSkillSubmission({ client, userId, resumeId = null, onPubli
   const previewHeading = useRef<HTMLHeadingElement>(null), success = useRef<HTMLElement>(null);
   const [resumedId, setResumedId] = useState<string | null>(null), [resumeRetry, setResumeRetry] = useState(0);
   const [resumedAdvanced,setResumedAdvanced] = useState(false);
+  const requestedResume = useRef(resumeId); requestedResume.current = resumeId;
+  const pending = busy || working || upgrade.busy;
   useEffect(() => {
     if (!resumeId) { setResumedId(null); return; }
+    // Navigation may arrive while a previous mount is still saving/publishing.
+    // Resume only after it settles; an already consumed URL must not reload on
+    // that draft's own later publish/revoke transitions.
+    if (resumedId === resumeId || pending || lock.current) return;
+    const writing = authoringDraftState(userId, 'skill:working', false);
+    const submission = sharingMutationState({ userId, type: 'skill' });
+    const upgrading = sharingMutationState({ userId, type: 'skill:upgrade' });
     const controller = new AbortController(), generation = client.sessionGeneration;
-    const live = () => !controller.signal.aborted && generation === client.sessionGeneration && current();
-    setResumedId(null); setResumedAdvanced(false); setLoadError('');
+    // Read the existing stores here, rather than a render-time busy snapshot,
+    // so a late response cannot replace the draft between mutation and render.
+    const live = () => !controller.signal.aborted && requestedResume.current === resumeId && generation === client.sessionGeneration && current()
+      && !lock.current && !writing.read() && !submission.snapshot.busy && !upgrading.snapshot.busy;
+    if (!live()) return;
+    setLoadError('');
     void client.get<Submission>(`/me/skill-submissions/${encodeURIComponent(resumeId)}`, { signal: controller.signal })
       .then(item => {
         if (!live()) return;
@@ -36,13 +49,14 @@ export function SimpleSkillSubmission({ client, userId, resumeId = null, onPubli
         if (item.seed || !item.payload || item.status !== 'ready_for_review') { setResumedAdvanced(true); onOpenDraft?.(item.submission_id, item.status === 'ready_for_review' ? 'preview' : 'complete'); }
         else {
           const payload = item.payload;
+          setResumedAdvanced(false);
           setDraft({ ...payload, demo_url: payload.demo_url ?? '' });
           setSaved(item); setPublished(null); setConsent(false); setReview(true); setError(null);
         }
         setResumedId(resumeId);
       }).catch(cause => { if (live()) setLoadError(cause instanceof Error ? cause.message : '私人投稿暫時無法載入。'); });
     return () => controller.abort();
-  }, [client, userId, resumeId, resumeRetry]);
+  }, [client, userId, resumeId, resumeRetry, resumedId, pending]);
   async function loadDrafts() {
     setLoadError('');
     try { const items = requireItems<Submission>(await client.get('/me/skill-submissions'), '投稿草稿'); if (current()) setReady(items.filter(item => item.status === 'ready_for_review' && item.payload && !item.seed)); }
@@ -51,7 +65,6 @@ export function SimpleSkillSubmission({ client, userId, resumeId = null, onPubli
   useEffect(() => { setReady([]); void loadDrafts(); }, [client, userId]);
   useEffect(() => { if (review) previewHeading.current?.focus(); }, [review]);
   useEffect(() => { if (published) success.current?.focus(); }, [published]);
-  const pending = busy || working || upgrade.busy;
   function preview(event: FormEvent) {
     event.preventDefault(); if (pending || !current()) return; setPublished(null); setError(null); setConsent(false); setReview(true);
   }

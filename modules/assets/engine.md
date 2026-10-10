@@ -86,3 +86,13 @@ late-retirement clock bug against the first extraction checkpoint, then verified
 the unchanged reproduction and 89 combined tests against the sorted prelock fix.
 The sorted prelock followup is required, not optional. Cross-Work/domain acceptance belongs with the actual
 084 adapter and its independent tests, not a fabricated generic test target.
+
+## Closed storefront photo extension
+
+`storefront.product-photo` admits only the branded storefront authority, never
+the Work/member brand or a copied object. Its target is the existing item within
+the exact tenant/instance; dimensions are derived from canonical WebP bytes.
+All phases acquire the commerce boundary and capacity/media policy locks before
+the item/selection/retained target. See [the photo contract](storefront-product-photo.md)
+for default-OFF policy, shared conservative retention and immutable publication
+references. Existing purposes retain their own authority and lock contracts.

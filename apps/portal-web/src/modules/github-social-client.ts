@@ -3,6 +3,7 @@ import {refreshSkillDiscovery} from './skill-discovery-client';
 
 export type GitHubMetrics={book_id:string;repository_url:string;stargazers_count:number|null;forks_count:number|null;open_issues_count:number|null;subscribers_count:number|null;pushed_at:string|null;language:string|null;archived:boolean|null;checked_at:string|null;stale:boolean;error:string|null};
 export type GitHubConnection={configured:boolean;connected:boolean;github_user:{id:string;login:string}|null};
+export type GitHubFollowState={username:string;following:boolean|null;connected:boolean;confirmed?:boolean};
 export type GitHubStarState={book_id:string;starred:boolean|null;connected:boolean;confirmed?:boolean};
 type Entry<T>={value?:T;loading:boolean;error:string;received:number};
 const entry=<T>():Entry<T>=>({loading:false,error:'',received:0});
@@ -19,6 +20,7 @@ export class GitHubSocialStore {
   private requests=new Map<string,Promise<void>>();
   private metrics=new Map<string,Entry<GitHubMetrics>>();
   private stars=new Map<string,Entry<GitHubStarState>&{saving:boolean}>();
+  private follows=new Map<string,Entry<GitHubFollowState>&{saving:boolean;reauthorize:boolean}>();
   readonly account=entry<GitHubConnection>();
   constructor(private client:PortalClient,readonly member:boolean){}
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
@@ -26,6 +28,31 @@ export class GitHubSocialStore {
   private emit(){this.revision++;this.listeners.forEach(listener=>listener());}
   metric(bookId:string){if(!this.metrics.has(bookId))this.metrics.set(bookId,entry());return this.metrics.get(bookId)!;}
   star(bookId:string){if(!this.stars.has(bookId))this.stars.set(bookId,{...entry<GitHubStarState>(),saving:false});return this.stars.get(bookId)!;}
+  follow(username:string){const key=username.toLowerCase();if(!this.follows.has(key))this.follows.set(key,{...entry<GitHubFollowState>(),saving:false,reauthorize:false});return this.follows.get(key)!;}
+  loadFollow(username:string,force=false){
+    if(!this.member)return Promise.resolve();
+    const key=username.toLowerCase(),state=this.follow(key);
+    state.reauthorize=false;
+    return this.read(`follow:${key}`,state,`/me/github/authors/${encodeURIComponent(key)}/follow`,30_000,force,{
+      received:value=>{state.reauthorize=!value.connected;},
+      failed:cause=>{state.value=undefined;state.reauthorize=this.followReauthorization(cause);},
+    });
+  }
+  private followReauthorization(cause:unknown){return cause instanceof ApiError&&['github_connect_required','github_reconnect_required','github_follow_permission_required','github_permission_required'].includes(cause.code??'');}
+  async toggleFollow(username:string){
+    const key=username.toLowerCase(),state=this.follow(key);
+    if(state.saving||state.loading||typeof state.value?.following!=='boolean')return;
+    const revision=this.connectionRevision,current=()=>revision===this.connectionRevision&&this.follows.get(key)===state;
+    const desired=!state.value.following;state.saving=true;state.error='';state.reauthorize=false;this.emit();
+    try{
+      const value=await this.client.post<GitHubFollowState>(`/me/github/authors/${encodeURIComponent(key)}/follow`,{following:desired,confirmed:true});
+      if(!current())return;
+      state.value=value;state.received=Date.now();state.reauthorize=!value.connected;
+    }catch(cause){
+      if(!current())return;
+      state.value=undefined;state.received=0;state.error=cause instanceof Error?cause.message:'GitHub 操作未確認，請重新查詢。';state.reauthorize=this.followReauthorization(cause);
+    }finally{state.saving=false;this.emit();}
+  }
   private async read<T>(key:string,target:Entry<T>,path:string,ttl:number,force=false,hooks:{received?:(value:T)=>void|Promise<void>;failed?:(cause:unknown)=>void|Promise<void>;message?:(cause:unknown)=>string}={}){
     const pending=this.requests.get(key);if(pending)return pending;
     if(!force&&target.received&&Date.now()-target.received<ttl)return;
@@ -59,8 +86,8 @@ export class GitHubSocialStore {
   }
   private clearStars(){
     this.connectionRevision++;
-    for(const key of this.requests.keys())if(key.startsWith('star:'))this.requests.delete(key);
-    this.stars.clear();
+    for(const key of this.requests.keys())if(key.startsWith('star:')||key.startsWith('follow:'))this.requests.delete(key);
+    this.stars.clear();this.follows.clear();
   }
   async refreshConnection(){
     this.requests.delete('account');this.clearStars();

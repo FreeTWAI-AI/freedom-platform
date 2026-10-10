@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { OrderSchema, QuoteSchema, type HostedOrder } from '../../../contracts/guild-launchpad/v1/hosted-order.js';
 import { requireCondition } from '../../../packages/shared/problem.js';
 import { directFact, type DirectContext, type DirectEffectContext } from './direct-authority.js';
+import { localReservationInventory } from './inventory.js';
 
 export interface DirectOrderRow {
   order_id: string; public_shop_id: string; buyer_principal_id: string; client_order_id: string; quote_id: string;
@@ -27,8 +28,10 @@ export async function closeDirectOrder(q: PoolClient, context: DirectEffectConte
   if (now.getTime() < row.expires_at.getTime() && !cancel) return row;
   const items = (await q.query<{ item_id: string; quantity: number }>(`SELECT item_id,sum(quantity)::int AS quantity
     FROM commerce_order_lines WHERE order_id=$1 AND order_profile='hosted_direct_reservation' GROUP BY item_id ORDER BY item_id`, [row.order_id])).rows;
+  const inventory = localReservationInventory(q, context);
+  const balances = await inventory.lock(items.map(item => item.item_id));
   for (const item of items) {
-    const stock = (await q.query<{ reserved: number }>(`SELECT reserved FROM commerce_items WHERE item_id=$1 AND shop_id=$2 FOR UPDATE`, [item.item_id, context.profile.supply_shop_id])).rows[0];
+    const stock = balances.get(item.item_id);
     requireCondition(stock && stock.reserved >= item.quantity, 409, 'reservation_inconsistent', '庫存保留紀錄不一致。');
   }
   // A row-lock wait can cross expiry: decide terminal reason only after every
@@ -36,7 +39,7 @@ export async function closeDirectOrder(q: PoolClient, context: DirectEffectConte
   now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
   const expired = now.getTime() >= row.expires_at.getTime();
   if (!expired) context.reservationDeadline = row.expires_at;
-  for (const item of items) await q.query('UPDATE commerce_items SET reserved=reserved-$2 WHERE item_id=$1', [item.item_id, item.quantity]);
+  for (const item of items) await inventory.release(item.item_id, item.quantity);
   const next = (await q.query<DirectOrderRow>(`UPDATE commerce_orders SET reservation_state=$2,reservation_version=reservation_version+1,closed_at=$3,close_reason=$4
     WHERE order_id=$1 AND reservation_state='reserved' AND reservation_version=$5
     RETURNING *,reservation_version::text AS reservation_version`,
@@ -53,11 +56,11 @@ export async function expireDirectForItems(q: PoolClient, context: DirectContext
   // item suffice. With <=50 requested items this is bounded by 4950 orders.
   requireCondition(requested.length <= 50 && requested.every(r => Number.isInteger(r.quantity) && r.quantity > 0 && r.quantity <= 99),
     400, 'invalid_reservation_items', '商品數量無效。');
+  const inventory = localReservationInventory(q, context);
   for (const item of [...requested].sort((a, b) => a.item_id.localeCompare(b.item_id))) {
-    const stock = (await q.query<{ stock: number; reserved: number }>('SELECT stock,reserved FROM commerce_items WHERE item_id=$1 AND shop_id=$2',
-      [item.item_id, context.profile.supply_shop_id])).rows[0];
+    const stock = await inventory.status(item.item_id);
     requireCondition(stock, 409, 'quote_terms_changed', '商品已更新，請重新確認。');
-    const shortage = Math.max(0, item.quantity - (stock.stock - stock.reserved));
+    const shortage = Math.max(0, item.quantity - stock.available);
     if (!shortage) continue;
     const rows = (await q.query<{ order_id: string }>(`SELECT o.order_id FROM commerce_orders o JOIN commerce_order_lines line USING(order_id)
       WHERE o.public_shop_id=$1 AND o.order_profile='hosted_direct_reservation' AND o.reservation_state='reserved'

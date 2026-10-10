@@ -8,12 +8,13 @@ export function directMessageReceiptRefreshDue(items: Message[], sender: string,
 
 export function hasDirectMessageChanges(
   activity: Omit<ConversationActivity, 'last_outgoing'> & Partial<Pick<ConversationActivity, 'last_outgoing'>>,
-  shown: Pick<MessagePage, 'items' | 'unread_count' | 'can_send'>,
+  shown: Pick<MessagePage, 'items' | 'unread_count' | 'can_send' | 'retraction_count'>,
   receiptDirty = false,
 ): boolean {
   const sent = activity.last_outgoing;
   const outgoing = sent && shown.items.find(item => item.message_id === sent.message_id);
   return receiptDirty || Boolean(sent && outgoing && sent.read_at !== outgoing.read_at)
+    || (activity.retraction_count??'0')!==(shown.retraction_count??'0')
     || activity.last_message_id !== (shown.items[0]?.message_id ?? null)
     || activity.unread_count !== shown.unread_count || activity.can_send !== shown.can_send;
 }

@@ -1,3 +1,4 @@
+import {FirstParticipation} from './FirstParticipation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ModulePanelProps } from './shared';
 import type { TabId } from '../types';
@@ -14,7 +15,6 @@ import {openMemberChat} from './chat-entry';
 import {SocialZone} from './SocialZone';
 import {PlatformPurpose} from '../PlatformPurpose';
 import {SECTION_LABELS} from '../../../../contracts/guild-launchpad/v1/guild-preferences';
-import {FirstParticipation} from './FirstParticipation';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'social', title: '看社群動態' },
@@ -39,6 +39,8 @@ const taskActions = {
 type HomeOnboarding = { entry_mode?: string; assessment_completed?: boolean };
 
 export function MemberHome({ client, session, onNavigate, firstParticipationEnabled=false }: ModulePanelProps&{firstParticipationEnabled?:boolean}) {
+  const [wide,setWide]=useState(()=>window.matchMedia('(min-width:861px)').matches);
+  useEffect(()=>{const media=window.matchMedia('(min-width:861px)'),update=()=>setWide(media.matches);media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
   const [member, setMember] = useState<MemberCardData | null>(null);
   const [labels, setLabels] = useState<Record<string, string> | null>(null);
   const [onboarding, setOnboarding] = useState<HomeOnboarding | null>(null);
@@ -59,8 +61,12 @@ export function MemberHome({ client, session, onNavigate, firstParticipationEnab
       const retrying = alertRef.current?.contains(document.activeElement);
       setMember(data); setLoadError(null); setLoading(false);
       if (retrying) requestAnimationFrame(() => {
-        const disclosure = summary.current?.closest('details');
-        if (disclosure) disclosure.open = true;
+        // Retry recovery must reveal both the member card and its optional outer guide.
+        let disclosure = summary.current?.closest('details');
+        while (disclosure) {
+          disclosure.open = true;
+          disclosure = disclosure.parentElement?.closest('details') ?? null;
+        }
         summary.current?.focus();
       });
     }).catch((error: unknown) => {
@@ -144,17 +150,17 @@ export function MemberHome({ client, session, onNavigate, firstParticipationEnab
   }, [nextStep]);
 
   return <div className="member-home freedom-home">
-    <div className="home-layout">
-    <div className="home-main">
-    <section className="home-timeline" aria-label="首頁社群動態"><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
-    </div>
-    <aside className="home-context" aria-label="我的工坊">
-    <div className="home-support">
-    <PlatformPurpose variant="member" onAction={target=>onNavigate?.(target)}/>
     {loadError && <div ref={alertRef} role="alert" className="banner banner-error home-load-error">
       <p>{loadError}下方常用入口仍可使用。</p>
       <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
     </div>}
+    <div className="home-layout">
+    <div className="home-main">
+    <section className="home-timeline" aria-label="首頁社群動態"><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
+    </div>
+    <details className="home-context home-guide-disclosure" aria-label="我的工坊" open={wide}><summary>我的工坊 · 合作與學習入口</summary>
+    <div className="home-support">
+    <PlatformPurpose variant="member" onAction={target=>onNavigate?.(target)}/>
     {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
       <div className="home-next-copy">
       <p className="home-next-eyebrow">下一步</p>
@@ -219,7 +225,7 @@ export function MemberHome({ client, session, onNavigate, firstParticipationEnab
     <MemberRecommendations client={client}/>
     </aside>
     </details>
-    </aside>
+    </details>
     </div>
   </div>;
 }

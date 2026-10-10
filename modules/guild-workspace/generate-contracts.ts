@@ -19,7 +19,10 @@ import {
 
 import * as storefront from '../../contracts/guild-launchpad/v1/storefront.js';
 import * as presentation from '../../contracts/guild-launchpad/v1/storefront-presentation.js';
+import * as hostedMedia from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
 import * as hostedOrder from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import * as distribution from '../../contracts/guild-launchpad/v1/hosted-distribution.js';
+import * as supplyTerms from '../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
 
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
 const displayName = ['display_name_control_character'] as const;
@@ -101,7 +104,26 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 ];
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
+  ['hosted-distribution', 'Explicit supplier offer and exact seller listing consent. One supplier item; no payment authority.', [
+    ['offer', distribution.SupplyOfferSchema, 'output', ['explicit_supplier_publication']],
+    ['offers', distribution.SupplyOffersSchema, 'output', ['bounded_catalog']],
+    ['proposal', distribution.DistributionInputSchema, 'input', ['exact_offer_digest']],
+    ['decision', distribution.DistributionDecisionSchema, 'input', ['exact_listing_digest_and_version']],
+    ['selection', distribution.DistributionSchema, 'output', ['independent_seller_price']],
+    ['selections', distribution.DistributionsSchema, 'output', ['private_participant_projection']],
+  ]],
+  ['hosted-supply-terms', 'Private supplier terms on the existing inventory item. No supply offer, acceptance or transaction is enabled.', [
+    ['input', supplyTerms.SupplyTermsInputSchema, 'input', ['current_same_instance_store_write_capability', 'product_version_cas']],
+    ['view', supplyTerms.SupplyTermsSchema, 'output', ['available_equals_stock_minus_reserved', 'private_cost_and_terms']],
+  ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
+  ['hosted-store-media', 'Independent hosted store media candidate. No upload or read route is installed; Asset identity and current authorization stay server-only.', [
+    ['product-media', hostedMedia.ProductMediaViewSchema, 'output', ['exact_product_version_path', 'current_same_instance_store_read', 'authorized_ready_photo_representation']],
+    ['product-media-page', hostedMedia.ProductMediaPageSchema, 'output', ['unique_product_ids', 'current_same_instance_store_read']],
+    ['product-media-command', hostedMedia.ProductMediaCommandSchema, 'output', ['same_product_identity', 'original_completed_version', 'current_version_not_older_than_completion', 'current_same_instance_store_write']],
+    ['public-store-media', hostedMedia.PublicStoreMediaSchema, 'output', ['unique_skus', 'exact_publication_revision_sku_path', 'current_publication_liveness', 'immutable_media_digest']],
+    ['remove-photo-input', hostedMedia.RemoveProductPhotoInputSchema, 'input', ['current_same_instance_store_write', 'product_selection_version_cas']],
+  ]],
   ['storefront-presentation', 'Additive saved store presentation. Existing storefront/v1 content, releases and capabilities remain unchanged.', [
     ['appearance-input', presentation.StoreAppearanceInputSchema, 'input', []],
     ['appearance', presentation.StoreAppearanceSchema, 'output', ['current_same_instance_store_capability', 'profile_version_cas']],

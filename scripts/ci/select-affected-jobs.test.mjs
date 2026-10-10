@@ -377,6 +377,46 @@ test('real checkout descriptors parse without freezing live document ownership',
   // future module claiming an existing doc may legitimately select full CI.
 });
 
+test('descriptor self-ownership respects the path bound and fails closed when no slot remains', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-select-bound-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  const git = args => execFileSync('git', ['-C', directory, '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    env: {...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 'Selector Test', GIT_AUTHOR_EMAIL: 'selector@example.invalid',
+      GIT_COMMITTER_NAME: 'Selector Test', GIT_COMMITTER_EMAIL: 'selector@example.invalid'},
+  }).trim();
+  const path = 'modules/example/freedom.module.json';
+  const extras = Array.from({length: 64}, (_, index) => `modules/other/file-${index}.ts`);
+  await mkdir(dirname(join(directory, path)), {recursive: true});
+  git(['init', '-q', '-b', 'main']);
+  for (const covered of [true, false]) for (const count of [63, 64]) {
+    const paths = covered ? ['modules/example/**', ...extras.slice(0, count - 1)] : extras.slice(0, count);
+    await writeFile(join(directory, path), JSON.stringify(moduleDescriptor('example', paths)));
+    await writeFile(join(directory, 'README.md'), '# Before\n');
+    git(['add', '.']); git(['commit', '-qm', `coverage=${covered} count=${count}`]);
+    const base = git(['rev-parse', 'HEAD']);
+    const loaded = loadModuleDescriptors(directory, base);
+    assert.equal(loaded.ok, covered || count < 64);
+    if (loaded.ok) {
+      const [descriptor] = loaded.descriptors;
+      validateDescriptor(descriptor);
+      assert.equal(descriptor.owned_paths.length, count + (covered ? 0 : 1));
+      assert.deepEqual(selectImpact({baseline: loaded.descriptors, candidate: loaded.descriptors, changedPaths: [path]}).module_ids, ['example']);
+    } else assert.deepEqual(loaded.descriptors, []);
+    await writeFile(join(directory, 'README.md'), '# After\n');
+    git(['add', '.']); git(['commit', '-qm', 'README only']);
+    const result = collectRepositoryDecision({repository: directory, event: 'pull_request', base, head: git(['rev-parse', 'HEAD'])});
+    assert.equal(result.mode, loaded.ok ? 'docs' : 'full');
+    if (!loaded.ok) {
+      assert.equal(result.reason, 'descriptors_unproven');
+      assert(SELECTABLE_JOBS.every(job => result.jobs[job]));
+    }
+    assert.equal(decideAffectedJobs({event: 'pull_request', diffComplete: true, changes: [{path, status: 'M'}],
+      baseline: loaded.descriptors, candidate: loaded.descriptors, descriptorsProven: loaded.ok}).mode, 'full');
+  }
+});
+
 test('repository tree diff narrows a docs edit and refuses a rename or merge_group input', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'fp-select-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -638,6 +678,83 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.match(consumers, /--suite ci\.consumer-repositories/);
   assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.deploy-preflight/);
   assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.migration-postgres/);
+});
+
+test('deploy preflight caches npm downloads before its clean install', async () => {
+  const preflight = jobBlock(await readFile(workflowPath, 'utf8'), 'deploy-preflight');
+  assert.match(preflight, /- uses: actions\/setup-node@[^\n]+\n {8}with:\n {10}node-version: '24'\n {10}cache: npm\n {6}- run: npm ci --ignore-scripts/u);
+});
+
+test('CI services and migration prefetch retain one immutable PostgreSQL image on disk', async () => {
+  const text = await readFile(workflowPath, 'utf8');
+  const image = 'mirror.gcr.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
+  for (const id of ['runtime-full', 'ui-e2e', 'static-worker', 'governance-consumers']) {
+    const job = jobBlock(text, id);
+    assert.ok(job.includes(`image: ${image}\n`), id);
+    assert.ok(job.includes('dynamic_shared_memory_type=mmap'), id);
+    assert.doesNotMatch(job, /--tmpfs|type=tmpfs/u);
+  }
+  assert.match(jobBlock(text, 'runtime-full'), /--memory 4g/u);
+  assert.ok(jobBlock(text, 'deploy-preflight').includes(`run: docker pull ${image}\n`));
+});
+
+test('PostgreSQL prerequisite rejects RAM storage, changed images and weakened durability', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-ci-postgres-readback-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  // Synthetic docker readback only: this test creates no container or database.
+  await writeFile(join(directory, 'docker'), `#!/usr/bin/env python3
+import json,os,sys
+f=json.loads(os.environ['CI_STORAGE_FIXTURE']);a=sys.argv[1:]
+if a[:2]==['inspect','--format']:
+ if a[2]=='{{.Config.Image}}': print(f['image'])
+ elif a[2]=='{{json .}}': print(json.dumps(f['storage']))
+ else: raise Exception('unexpected inspect')
+elif a[0]=='exec' and a[2]=='df':
+ print('Filesystem Type 1024-blocks Used Available Capacity Mounted on')
+ print('/dev/test '+f['filesystem']+' 20000000 1000 19999000 1% /var/lib/postgresql')
+elif a[0]=='exec' and a[2]=='psql': print(json.dumps(f['settings']))
+else: raise Exception('unexpected Docker command')
+`, { mode: 0o755 });
+  const valid = () => ({
+    image: 'mirror.gcr.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd',
+    storage: { HostConfig: { Tmpfs: null, Memory: 4294967296 }, Mounts: [{ Type: 'volume', Destination: '/var/lib/postgresql', RW: true }] },
+    filesystem: 'ext4', settings: { database: 'fp_foundation_ci', data_directory: '/var/lib/postgresql/18/docker',
+      checkpoint_completion_target: '0', max_locks_per_transaction: '256', dynamic_shared_memory_type: 'mmap', fsync: 'on', full_page_writes: 'on' },
+  });
+  const run = (fixture, env = {}) => spawnSync('bash', [join(root, 'scripts/ci/verify-runtime-postgres.sh'), 'a'.repeat(64)], {
+    encoding: 'utf8', timeout: 5000, env: { PATH: `${directory}:${process.env.PATH}`, GITHUB_ACTIONS: 'true',
+      RUNNER_ENVIRONMENT: 'github-hosted', CI_STORAGE_FIXTURE: JSON.stringify(fixture), ...env },
+  });
+  const good = run(valid());
+  assert.equal(good.status, 0, good.stdout + good.stderr);
+  assert.match(good.stdout, /runtime_postgres_storage_readback=pass storage=disk/u);
+  for (const mutate of [
+    f => { f.image = f.image.replace('6c538e72', '00000000'); },
+    f => { f.image = f.image.replace('mirror.gcr.io/library/', ''); },
+    f => { f.storage.HostConfig.Tmpfs = { '/var/lib/postgresql': 'rw,size=4294967296' }; },
+    f => { f.storage.HostConfig.Memory = 0; },
+    f => { f.storage.Mounts[0].Type = 'bind'; },
+    f => { f.storage.Mounts[0].Destination = '/data'; },
+    f => { f.storage.Mounts[0].RW = false; },
+    f => { f.storage.Mounts.push({ Type: 'tmpfs', Destination: '/tmp', RW: true }); },
+    f => { f.filesystem = 'tmpfs'; },
+    f => { f.filesystem = 'ramfs'; },
+    f => { f.filesystem = ''; },
+    f => { f.settings.database = 'other_database'; },
+    f => { f.settings.data_directory = '/tmp/data'; },
+    f => { f.settings.dynamic_shared_memory_type = 'posix'; },
+    f => { f.settings.checkpoint_completion_target = '0.9'; },
+    f => { f.settings.max_locks_per_transaction = '64'; },
+    f => { f.settings.fsync = 'off'; },
+    f => { f.settings.full_page_writes = 'off'; },
+  ]) {
+    const fixture = valid(); mutate(fixture);
+    const result = run(fixture);
+    assert.notEqual(result.status, 0, JSON.stringify(fixture));
+    assert.doesNotMatch(result.stdout, /runtime_postgres_storage_readback=pass/u);
+  }
+  assert.notEqual(run(valid(), { GITHUB_ACTIONS: 'false' }).status, 0);
+  assert.notEqual(run(valid(), { RUNNER_ENVIRONMENT: 'self-hosted' }).status, 0);
 });
 
 function leafDescriptors() {

@@ -46,14 +46,14 @@ export function PlatformPurpose({ variant, onAction, disabled = false }: {
   const {t}=useLanguage();
   const keys={supplier:'supplier',showcase:'creator',tasks:'developer'} as const;
   return <section className={`platform-purpose platform-purpose--${variant}`} aria-label={t('purpose.entryGroup')}>
-    {variant === 'member' && <h2>從你的專長開始</h2>}
+    {variant === 'member' && <h2>合作入口</h2>}
     <div className="purpose-roles">
       {roles.map(role => variant === 'public'
         ? <button key={role.name} type="button" className="purpose-entry" aria-label={t(`purpose.${keys[role.target]}Entry`)} disabled={disabled} onClick={() => onAction(role.target)}>
           <strong>{t(`purpose.${keys[role.target]}`)}</strong><span className="purpose-summary">{t(`purpose.${keys[role.target]}Summary`)}</span><span className="purpose-mobile-summary" aria-hidden="true">{t(`purpose.${keys[role.target]}Short`)}</span><span className="purpose-arrow" aria-hidden="true">→</span>
         </button>
         : <article key={role.name} className="purpose-role">
-          <h3>{role.name}</h3><p>{role.description}</p>
+          <h3>{role.name}</h3><p>{role.summary}</p>
           <div className="purpose-actions">{role.actions.map(action => <button key={action.label} type="button" className="btn btn-ghost" onClick={() => onAction(action.target)}>{action.label}</button>)}</div>
         </article>)}
     </div>

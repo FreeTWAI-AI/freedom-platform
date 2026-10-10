@@ -1,0 +1,75 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "personal-content",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/community/content-relations.ts",
+    "modules/community/personal-content.ts",
+    "apps/portal-web/src/modules/CommunityRelations.tsx",
+    "apps/portal-web/src/modules/MyContent.tsx",
+    "migrations/142_community_content_relations.sql",
+    "tests/runtime/community-relations.test.ts",
+    "tests/runtime/personal-content.test.ts",
+    "modules/community/first-participation.ts",
+    "apps/portal-web/src/modules/FirstParticipation.tsx",
+    "apps/portal-web/src/modules/FirstParticipation.css",
+    "tests/runtime/first-participation.test.ts",
+    "tests/e2e/first-participation.spec.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "community",
+    "community-search",
+    "command-core",
+    "scoped-commands",
+    "skill-submissions",
+    "work",
+    "member-communications"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/share-promotion.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "community.personal-content-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/MyContent.tsx",
+      "operations": [
+        "community.personal-content-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.relations-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/CommunityRelations.tsx",
+      "operations": [
+        "community.relations-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.first-participation",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/FirstParticipation.tsx",
+      "operations": [
+        "community.first-participation.view"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

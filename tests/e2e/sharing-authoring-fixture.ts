@@ -12,8 +12,8 @@ export async function mountSharingFixture(page:Page, kind='probe') {
     import {createRoot} from 'react-dom/client';
     import {ApiError} from './apps/portal-web/src/api';
     import {client,PortalContext} from './apps/portal-web/src/portal-session';
-    import {useAuthoringDraft,setSharingDraftAccount} from './apps/portal-web/src/modules/authoring-drafts';
-    import {useModuleMutation} from './apps/portal-web/src/modules/shared';
+    import {useAuthoringDraft,setSharingDraftAccount,authoringDraftState,sharingMutationState} from './apps/portal-web/src/modules/authoring-drafts';
+    import {useModuleMutation,performModuleMutation} from './apps/portal-web/src/modules/shared';
     import {SimpleSkillSubmission} from './apps/portal-web/src/modules/SimpleSkillSubmission';
     import {CoCreationPanel} from './apps/portal-web/src/modules/CoCreationPanel';
     import {ShowcasePanel} from './apps/portal-web/src/modules/ShowcasePanel';
@@ -28,9 +28,11 @@ export async function mountSharingFixture(page:Page, kind='probe') {
     let user=owner,token='synthetic-session-1',projects=[],drafts=[],showcases=[],opportunities=[],blocked=false,render,content=[],deferReads=false,enabled=true,resumeId=null;
     client.csrfToken=token;setSharingDraftAccount(user,client.sessionGeneration);
     client.post=(path,body,options)=>new Promise((resolve,reject)=>{calls.push({path,body:structuredClone(body),options:structuredClone(options)});pending.push({resolve,reject});});
+    client.patch=client.post;
     client.get=async path=>{reads.push(path);
       if(deferReads&&(path==='/me/content'||path.startsWith('/me/skill-submissions/'))){const deferred=Promise.withResolvers();pendingReads.push({path,...deferred});return deferred.promise;}
       if(path==='/me/content')return {items:content};
+      if(path.startsWith('/me/showcases/')){const row=showcases.find(row=>path.endsWith('/'+row.showcase_id));if(row)return row;throw Error('Missing synthetic showcase');}
       if(path.startsWith('/community-search?'))return {items:[],next_cursor:null};
       if(path==='/community-relations/bookmarks')return {items:[],next_cursor:null};
       if(path==='/community-relations/follows')return {items:[]};
@@ -38,12 +40,14 @@ export async function mountSharingFixture(page:Page, kind='probe') {
       if(path==='/co-creation/projects')return {items:projects,guilds:[]};
       if(path==='/opensource/projects')return {items:[{project_id:'source-1',owner_ref:user,title:'Synthetic source',repository_full_name:'synthetic/repo'}]};
       if(path.includes('/activity'))return {repository_url:'https://github.com/synthetic/repo',issues:[],contributions:[],checked_at:'2026-10-09',truncated:false};
-      if(path==='/showcases')return {items:showcases};
+      if(path==='/showcases'||path.startsWith('/showcases?'))return {items:showcases,next_offset:null};
       if(path==='/opportunities')return {items:opportunities};
       if(path.startsWith('/me/blocks/'))return {user_id:other,blocked_by_me:blocked,aggregate_version:blocked?2:1};
       throw Error('Unexpected fixture read '+path);
     };
     window.sharingFixture={calls,reads,owner,other,
+      readDraft:key=>authoringDraftState(user,key,null).read(),
+      startSkillMutation:(type='skill')=>{void performModuleMutation(client,sharingMutationState({userId:user,type}),'/synthetic-skill-operation',{});},
       pendingReads,resolveRead:(index,value)=>pendingReads[index].resolve(value),rejectRead:index=>pendingReads[index].reject(Error('Synthetic private read failure')),
       content:value=>{content=value},deferReads:value=>{deferReads=value},enabled:value=>{enabled=value;render()},resume:value=>{resumeId=value;render()},
       resolve:(index,value)=>pending[index].resolve(value),
@@ -93,6 +97,52 @@ const fixture=(page:Page,body:(f:any)=>unknown)=>page.evaluate(body=>new Functio
 const remount=async(page:Page)=>{await page.getByRole('button',{name:'Toggle form',exact:true}).click();await page.getByRole('button',{name:'Toggle form',exact:true}).click();};
 
 export const sharingCases:Record<string,(page:Page)=>Promise<void>>={
+  'private showcase unknown create survives Close reopen with exact replay':async page=>{
+    await mountSharingFixture(page,'content');
+    await page.getByRole('button',{name:'新增私人作品草稿',exact:true}).click();
+    await page.getByLabel('作品標題',{exact:true}).fill('Unknown private draft');
+    await page.getByLabel('一句話介紹',{exact:true}).fill('Private description');
+    await page.getByRole('button',{name:'儲存私人草稿',exact:true}).click();
+    await fixture(page,f=>f.reject(0));
+    await expect(page.getByRole('button',{name:'重試原請求',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'回到內容清單',exact:true}).click();
+    await page.getByRole('button',{name:'新增私人作品草稿',exact:true}).click();
+    await expect(page.getByLabel('作品標題',{exact:true})).toHaveValue('Unknown private draft');
+    await page.getByRole('button',{name:'重試原請求',exact:true}).click();
+    expect(await fixture(page,f=>JSON.stringify(f.calls[0])===JSON.stringify(f.calls[1]))).toBe(true);
+    await fixture(page,f=>f.resolve(1,{showcase_id:'saved-private',title:'Unknown private draft',description:'Private description',artifact_ref:'artifact:saved',public_url:null,owner_ref:f.owner,owner_name:'Owner',status:'draft',visibility:'private',aggregate_version:1}));
+    await expect(page.getByRole('region',{name:'私人作品編輯'})).toContainText('私人草稿已儲存');
+  },
+  'saved new showcase keeps dirty input after Close and PATCHes its saved ID':async page=>{
+    await mountSharingFixture(page,'content');
+    await page.getByRole('button',{name:'新增私人作品草稿',exact:true}).click();
+    await page.getByLabel('作品標題',{exact:true}).fill('Saved private draft');
+    await page.getByLabel('一句話介紹',{exact:true}).fill('Private description');
+    await page.getByRole('button',{name:'儲存私人草稿',exact:true}).click();
+    await fixture(page,f=>{f.content([{kind:'showcase',id:'saved-private',title:'Saved private draft',status:'draft',version:1,visibility:'private',actions:['edit']}]);f.resolve(0,{showcase_id:'saved-private',title:'Saved private draft',description:'Private description',artifact_ref:'artifact:saved',public_url:null,owner_ref:f.owner,owner_name:'Owner',status:'draft',visibility:'private',aggregate_version:1});});
+    await expect(page.getByRole('region',{name:'私人作品編輯'})).toContainText('私人草稿已儲存');
+    await page.getByLabel('作品標題',{exact:true}).fill('Unsent private edit');
+    await page.getByRole('button',{name:'回到內容清單',exact:true}).click();
+    await page.getByRole('link',{name:'編輯',exact:true}).click();
+    await expect(page.getByLabel('作品標題',{exact:true})).toHaveValue('Unsent private edit');
+    await page.getByRole('button',{name:'儲存私人草稿',exact:true}).click();
+    expect(await fixture(page,f=>({path:f.calls[1].path,title:f.calls[1].body.title,version:f.calls[1].options.ifMatch}))).toEqual({path:'/me/showcases/saved-private',title:'Unsent private edit',version:1});
+    await fixture(page,f=>f.resolve(1,{showcase_id:'saved-private',title:'Unsent private edit',description:'Private description',artifact_ref:'artifact:saved',public_url:null,owner_ref:f.owner,owner_name:'Owner',status:'draft',visibility:'private',aggregate_version:2}));
+    await expect(page.getByRole('region',{name:'私人作品編輯'})).toContainText('版本 2');
+  },
+  'authoritative gallery removal cannot resurrect the last publication receipt':async page=>{
+    await mountSharingFixture(page,'showcase');
+    await page.getByLabel('作品標題',{exact:true}).fill('Withdrawn work');
+    await page.getByLabel('一句話介紹',{exact:true}).fill('Description');
+    await page.getByLabel('我同意以社群可見方式分享這件作品').check();
+    await page.getByRole('button',{name:'發布作品',exact:true}).click();
+    await fixture(page,f=>f.resolve(0,{showcase_id:'withdrawn-work',title:'Withdrawn work',description:'Description',artifact_ref:'artifact:saved',public_url:null,owner_ref:f.owner,owner_name:'Owner',status:'published',visibility:'community',aggregate_version:1}));
+    await expect(page.getByRole('heading',{name:'Withdrawn work',exact:true})).toBeVisible();
+    await remount(page);
+    await expect(page.getByRole('heading',{name:'Withdrawn work',exact:true})).toHaveCount(0);
+    expect(await fixture(page,f=>f.readDraft('showcase:published'))).toBe(null);
+  },
+
   'personal content keyboard navigation sharing and flags in three themes at desktop 320 and 390':async page=>{
     for(const width of [1280,320,390])for(const theme of ['light','dark','versefolk']){
       await page.setViewportSize({width,height:844});await mountSharingFixture(page,'content');

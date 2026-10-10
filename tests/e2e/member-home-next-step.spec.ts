@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import type { MemberCardData } from '../../apps/portal-web/src/modules/Membership.js';
 import { test, expect, type Page } from './fixtures.js';
-import { navigate } from './navigation.js';
+import { navigate, openHomeGuide } from './navigation.js';
 
 const shots = 'test-results/home-next-step';
 mkdirSync(shots, { recursive: true });
@@ -39,6 +39,7 @@ async function login(page: Page) {
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
   // These cases inspect the optional member summary, reached through its visible disclosure.
+  await openHomeGuide(page);
   await page.locator('.home-personal > summary').click();
 }
 
@@ -46,15 +47,10 @@ function suggestion(page: Page) {
   return page.getByRole('region', { name: '公會與技能書建議', exact: true });
 }
 
-async function checkConsole(page: Page, message: string, destination: 'guilds' | 'skills') {
-  await page.getByRole('button', { name: '展開訊息控制台', exact: true }).click();
-  await page.getByRole('tab', { name: /^系統導覽/ }).click();
-  const next = page.locator('.game-console-entry[data-next-step="true"]').last();
-  await expect(next).toContainText(message);
-  await expect(next.getByRole('link', { name: '帶我到下一步', exact: true })).toHaveAttribute('href', `/#${destination}`);
-  await page.getByRole('button', { name: '收合訊息控制台', exact: true }).click();
-  // Collapse returns focus on the next animation frame; wait before testing another control.
-  await expect(page.getByRole('button', { name: '展開訊息控制台', exact: true })).toBeFocused();
+async function checkGuidance(page: Page, message: string, _destination: 'guilds' | 'skills') {
+  await expect(suggestion(page)).toContainText(message);
+  await expect(page.locator('.game-console')).toHaveCount(0);
+  await expect(page.locator('.floating-messages')).toBeVisible();
 }
 
 const scenarios = [
@@ -84,7 +80,7 @@ for (const scenario of scenarios) {
       await expect(summary).toContainText('主要公會 · 測試資安公會');
       await expect(summary).toContainText('測試探索者');
     }
-    await checkConsole(page, scenario.message, scenario.destination);
+    await checkGuidance(page, scenario.message, scenario.destination);
     const button = prompt.getByRole('button', { name: scenario.button, exact: true });
     await button.focus();
     await expect(button).toBeFocused();
@@ -94,26 +90,26 @@ for (const scenario of scenarios) {
   });
 }
 
-test('a changed guild fact produces the updated Console guidance when home is revisited', async ({ page }) => {
+test('a changed guild fact updates the home guidance when home is revisited', async ({ page }) => {
   let card = memberCard();
   await page.route(memberCardUrl, route => route.request().method() === 'GET'
     ? route.fulfill({ json: card }) : route.fallback());
   await login(page);
   await expect(suggestion(page)).toContainText(noGuildMessage);
-  await checkConsole(page, noGuildMessage, 'guilds');
+  await checkGuidance(page, noGuildMessage, 'guilds');
   await suggestion(page).getByRole('button', { name: '探索職業公會', exact: true }).click();
   await expect(page.getByRole('heading', { name: '職業公會', level: 1, exact: true })).toBeVisible();
   card = memberCard({ joined_guilds: [guild] });
   await navigate(page, '會員首頁');
   await expect(suggestion(page)).toContainText(choosePrimaryMessage);
-  await checkConsole(page, choosePrimaryMessage, 'guilds');
+  await checkGuidance(page, choosePrimaryMessage, 'guilds');
   await suggestion(page).getByRole('button', { name: '設定主要公會', exact: true }).click();
   await expect(page.getByRole('heading', { name: '職業公會', level: 1, exact: true })).toBeVisible();
   // Leaving the only joined guild returns to an earlier state in this same login.
   card = memberCard();
   await navigate(page, '會員首頁');
   await expect(suggestion(page)).toContainText(noGuildMessage);
-  await checkConsole(page, noGuildMessage, 'guilds');
+  await checkGuidance(page, noGuildMessage, 'guilds');
 });
 
 test('home does not guess a next action while the member read waits or fails and recovers on retry', async ({ page }) => {
@@ -137,10 +133,7 @@ test('home does not guess a next action while the member read waits or fails and
   await expect(alert).toBeVisible();
   await expect(suggestion(page)).toHaveCount(0);
   await expect(summary).not.toContainText('尚未設定主要公會');
-  await page.getByRole('button', { name: '展開訊息控制台', exact: true }).click();
-  await page.getByRole('tab', { name: /^系統導覽/ }).click();
-  await expect(page.locator('.game-console-entry[data-next-step="true"]')).toHaveCount(0);
-  await page.getByRole('button', { name: '收合訊息控制台', exact: true }).click();
+  await expect(page.locator('.game-console')).toHaveCount(0);
   await page.screenshot({ path: `${shots}/phone-read-failed.png`, fullPage: true });
   const baseline = requests;
   mode = 'pass';
@@ -149,7 +142,7 @@ test('home does not guess a next action while the member read waits or fails and
   await expect(alert).toHaveCount(0);
   await expect(summary).toBeFocused();
   expect(requests).toBe(baseline + 1);
-  await checkConsole(page, choosePrimaryMessage, 'guilds');
+  await checkGuidance(page, choosePrimaryMessage, 'guilds');
 });
 
 test('a granted primary-guild book opens from the same next-step region', async ({ page }) => {
@@ -200,7 +193,7 @@ test('a granted primary-guild book opens from the same next-step region', async 
 
 const taskHint = '社群任務板有開放中的任務，可自行挑選一件參與。';
 
-test('the task hint appears only when the board has open tasks and leaves the Console guidance unchanged', async ({ page }) => {
+test('the task hint appears only when the board has open tasks and keeps the skill-book guidance', async ({ page }) => {
   await stubCard(page, memberCard({ primary_guild: guild }));
   await stubJson(page, '/api/v1/me/skill-books', { items: [] });
   await stubJson(page, '/api/v1/task-board/preview', { items: [{ work_item_id: 'preview-1', title: '不應顯示的任務標題' }] });
@@ -212,8 +205,7 @@ test('the task hint appears only when the board has open tasks and leaves the Co
   await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
   await expect(prompt).not.toContainText('不應顯示的任務標題');
   await expect(prompt.getByRole('button', { name: '查看社群任務', exact: true })).toHaveAccessibleDescription(`${skillsMessage} ${taskHint}`);
-  await checkConsole(page, skillsMessage, 'skills');
-  await expect(page.locator('.game-console-entry[data-next-step="true"]').last()).not.toContainText(taskHint);
+  await checkGuidance(page, skillsMessage, 'skills');
 });
 
 for (const [name, mock] of [
@@ -254,8 +246,7 @@ test('an unfinished claim replaces the open-task hint with a return to my work',
   await expect(prompt).not.toContainText('不應顯示的');
   const resume = prompt.getByRole('button', { name: '回到我的工作', exact: true });
   await expect(resume).toHaveAccessibleDescription(`${skillsMessage} ${workHint}`);
-  await checkConsole(page, skillsMessage, 'skills');
-  await expect(page.locator('.game-console-entry[data-next-step="true"]').last()).not.toContainText(workHint);
+  await checkGuidance(page, skillsMessage, 'skills');
   await resume.focus();
   await expect(resume).toBeFocused();
   await page.keyboard.press('Enter');
@@ -295,6 +286,7 @@ test('the home action stays compact, readable and reachable in all themes on des
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     for (const width of [1440, 820, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
+      await openHomeGuide(page);
       await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
       const region = await prompt.boundingBox();
       for (const name of names) {

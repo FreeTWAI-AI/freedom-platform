@@ -171,6 +171,7 @@ test('the home share button stays as compact as the profile button', async ({ pa
   await expect(share).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expandHomeSections(page);
   const phoneShare = (await share.boundingBox())!;
   const phoneEdit = (await edit.boundingBox())!;
   const phoneRow = (await row.boundingBox())!;
@@ -182,7 +183,11 @@ test('the home share button stays as compact as the profile button', async ({ pa
   await page.setViewportSize({ width: 1280, height: 900 });
   const deskShare = (await share.boundingBox())!;
   const deskEdit = (await edit.boundingBox())!;
-  expect(Math.abs(deskShare.y - deskEdit.y)).toBeLessThanOrEqual(4);
+  // The compact left rail may wrap actions; both controls must fit their container.
+  expect(deskShare.width).toBeLessThanOrEqual((await row.boundingBox())!.width);
+  expect(deskShare.height).toBeGreaterThanOrEqual(44);
+  expect(deskEdit.height).toBeGreaterThanOrEqual(44);
+  await noOverflow(page);
 
   await shot(page, 'home-light-1280');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -454,6 +459,6 @@ test('the author can delete their social post', async ({ page }) => {
   const youtube = page.locator('article.social-card').filter({ has: page.getByRole('heading', { name: 'E2E 示範影片', level: 3 }) });
   await youtube.getByText('⋯',{exact:true}).click();
   await youtube.getByRole('button', { name: '刪除', exact: true }).click();
-  await youtube.getByRole('button', { name: '確定刪除', exact: true }).click();
+  await page.getByRole('dialog', { name: '刪除貼文？', exact: true }).getByRole('button', { name: '確定刪除', exact: true }).click();
   await expect(youtube).toHaveCount(0);
 });

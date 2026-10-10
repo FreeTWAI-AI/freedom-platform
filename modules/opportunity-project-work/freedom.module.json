@@ -1,7 +1,30 @@
 {
+  "client_profiles": [
+    "member"
+  ],
+  "contract_families": [
+    "preview",
+    "common"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands"
+  ],
   "format": "freedom.module/v1",
+  "instructions": [
+    "modules/opportunity-project-work/README.md",
+    "modules/opportunity-project-work/results-schema.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
+    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
   "module_id": "work",
-  "owner_role": "foundation",
   "owned_paths": [
     "modules/opportunity-project-work/**",
     "apps/platform-api/src/platform-app.ts",
@@ -26,41 +49,28 @@
     "scripts/verify-guild-work.mjs",
     "tests/runtime/verify-guild-work.test.ts",
     "migrations/126_project_public_metadata.sql",
-    "tests/runtime/organization-project-editing.test.ts"
+    "tests/runtime/organization-project-editing.test.ts",
+    "apps/platform-api/src/app.ts",
+    "apps/platform-api/src/runtime.ts",
+    "apps/platform-api/src/server.ts",
+    "apps/platform-api/src/worker.ts",
+    "apps/portal-web/src/App.tsx",
+    "apps/portal-web/src/modules/WorkSharing.css",
+    "apps/portal-web/src/modules/showcase-drafts.ts",
+    "migrations/143_personal_content.sql",
+    "tests/runtime/showcase-drafts.test.ts",
+    "tests/runtime/sharing-authoring.test.ts",
+    "tests/e2e/simple-work-sharing.spec.ts",
+    "tests/e2e/share-launcher.spec.ts",
+    "tests/e2e/sharing-authoring-fixture.ts",
+    "tests/e2e/showcase-pages.spec.ts",
+    "tests/runtime/showcase-pages.test.ts"
   ],
+  "owner_role": "foundation",
   "public_exports": [
     "modules/opportunity-project-work/work.ts",
     "modules/opportunity-project-work/private-work.ts",
     "modules/opportunity-project-work/private-commands.ts"
-  ],
-  "dependencies": [
-    "command-core",
-    "resource-scopes",
-    "scoped-commands"
-  ],
-  "contract_families": [
-    "preview",
-    "common"
-  ],
-  "client_profiles": [
-    "member"
-  ],
-  "instructions": [
-    "modules/opportunity-project-work/README.md",
-    "modules/opportunity-project-work/results-schema.md",
-    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
-    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
-    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
-    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md"
-  ],
-  "invariants": [
-    "current-authority-before-replay",
-    "no-secrets-in-artifacts"
-  ],
-  "tests": [
-    "runtime.work",
-    "runtime.work-privacy",
-    "runtime.full"
   ],
   "surfaces": [
     {
@@ -81,7 +91,14 @@
         "work.list",
         "work.create",
         "work.claim",
-        "work.claim.update"
+        "work.claim.update",
+        "notification-preferences.read",
+        "notification-preferences.save",
+        "notification-preferences.reminders",
+        "notification-preferences.summary",
+        "notification-preferences.channel-reminders",
+        "notification-preferences.following-reminders",
+        "notification-preferences.event-reminders"
       ],
       "auth_profile": "member-session"
     },
@@ -149,5 +166,10 @@
       ],
       "auth_profile": "member-session"
     }
+  ],
+  "tests": [
+    "runtime.work",
+    "runtime.work-privacy",
+    "runtime.full"
   ]
 }

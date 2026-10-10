@@ -1,3 +1,4 @@
+import {openChat,closeChat} from './navigation.js';
 import {openPageTools} from './navigation.js';
 import {test,expect} from './fixtures.js';
 import {navigate} from './navigation.js';
@@ -54,12 +55,7 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
     expect(await edit.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
   }
   await edit.getByRole('button',{name:'關閉'}).click();
-  await page.getByRole('button',{name:'展開訊息控制台'}).click();
-  await page.getByRole('tab',{name:/系統公告/}).click();
-  await expect(page.getByRole('log')).toContainText('member-demo 提出 Issue');
-  await expect(page.getByRole('log')).toContainText('contributor-demo 提交 PR');
-  await expect(page.getByRole('log')).toContainText('maintainer-demo 核准 PR');
-  await expect(page.getByRole('log')).toContainText('designer-demo 表示願意接手 Issue 設計');
+  await expect(page.locator('.game-console')).toHaveCount(0);
   await page.screenshot({path:'test-results/page-tools-desktop.png'});
 });
 
@@ -71,13 +67,14 @@ test('phone keeps world chat in an in-page drawer and admin keeps a dock',async(
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
   await openPageTools(page); await expect(page.getByRole('button',{name:'提出想法'})).toBeVisible(); await page.locator('.page-tools-menu > summary').click();
-  await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  await openChat(page);
   await expect(page.getByRole('button',{name:'在獨立視窗開啟訊息控制台'})).toBeHidden();
   await page.getByRole('tab',{name:/^世界聊天/}).click();
+  const world=page.getByRole('button',{name:'世界聊天',exact:true});if(await world.isVisible())await world.click();
   await expect(page.getByRole('textbox',{name:'世界聊天訊息'})).toBeVisible();
   await page.screenshot({path:'test-results/page-tools-mobile-chat.png'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.getByRole('button',{name:'收合訊息控制台'}).click();
+  await closeChat(page);
   await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   await page.screenshot({path:'test-results/page-tools-idea-mobile.png'});
   await page.getByRole('dialog',{name:'會員首頁：提出想法'}).getByRole('button',{name:'關閉'}).click();
@@ -85,6 +82,9 @@ test('phone keeps world chat in an in-page drawer and admin keeps a dock',async(
   await expect(page.getByRole('button',{name:'展開訊息控制台'})).toBeVisible();
   await expect(page.getByRole('button',{name:'提出想法'})).toBeVisible();
   await expect(page.locator('.page-tools-menu')).toHaveCount(0);
+  await page.setViewportSize({width:1280,height:900});await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
+  const opened=page.waitForEvent('popup');await page.getByRole('button',{name:'在獨立視窗開啟訊息控制台',exact:true}).click();
+  const popup=await opened;await expect(popup).toHaveURL(/\/admin\?game-console=popout/);await expect(popup.locator('.game-console.is-popout')).toBeVisible();await popup.close();
 });
 
 test('unlinked member gets GitHub guidance and screenshot handoff',async({page})=>{

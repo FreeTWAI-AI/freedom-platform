@@ -1,3 +1,4 @@
+import {openChat} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {Pool} from 'pg';
@@ -170,7 +171,7 @@ const count=async(db:Pool,sql:string,values:unknown[]=[])=>(await db.query(`SELE
 
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
 async function openMessages(page:Page){
-  await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息'}).click();await expect(page).toHaveURL(/#messages$/);
+  await openChat(page);
 }
 const tab=(page:Page,name:string)=>page.locator('.messages-categories').getByRole('tab',{name:new RegExp(`^${name}`),includeHidden:true});
 const panel=(page:Page,name:string)=>page.getByRole('tabpanel',{name:new RegExp(`^${name}`)});
@@ -213,7 +214,7 @@ test('two synthetic members chat in their own guild and squad through the real U
     // Four tabs in order; opening a chat tab lists channels only - no history GET, no read.
     for(const m of [sender,receiver,third])await openMessages(m.page);
     await expect(settings(sender.page)).toHaveAttribute('aria-expanded','false');await expect(settings(sender.page).locator('.settings-dot')).toHaveCount(0);
-    await expect(receiver.page.getByRole('tab')).toHaveText([/^私訊/,/^公會/,/^群組/,/^公開/,/^通知/]);
+    await expect(receiver.page.getByRole('tab')).toHaveText([/^私訊/,/^公會/,/^群組/,/^公開/]);
     for(const kind of ['guild','squad'] as const){
       const {key,name}=room[kind],r=receiver.page,s=sender.page,label=copy[kind].tab;
       receiver.channelRequests.length=0;
@@ -275,9 +276,9 @@ test('two synthetic members chat in their own guild and squad through the real U
       expect(await cursor(db,receiver,kind,key)).toBe(rows[0].sequence);
       expect(await receiver.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(0);
       expect(await receiver.unread('/me/conversations?limit=1&offset=0')).toBe(1);expect(await receiver.unread('/me/notifications?limit=1&offset=0')).toBe(1);
-      await expect(tab(r,'私人訊息')).toContainText('1 則未讀');await expect(tab(r,'通知')).toContainText('1 則未讀');
+      await expect(tab(r,'私人訊息')).toContainText('1 則未讀');await expect(r.locator('.notification-bell-trigger')).toHaveAccessibleName('通知，1 則未讀');
       await expect(tab(r,'私人訊息')).toContainText('1 則未讀');
-      await expect(tab(r,'通知')).toContainText('1 則未讀');
+      await expect(r.locator('.notification-bell-trigger')).toHaveAccessibleName('通知，1 則未讀');
 
       // The receiver answers from 320px; the selected sender room updates automatically.
       const reply=`${kind} 回覆 <i>純文字</i> ${run}`;

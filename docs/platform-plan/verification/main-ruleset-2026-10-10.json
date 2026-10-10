@@ -1,0 +1,104 @@
+{
+  "format": "freedom.main-ruleset-evidence/v1",
+  "recorded_at": "2026-10-10T02:34:31.616221+00:00",
+  "ruleset": 24469536,
+  "previous_source": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+  "source": "fa2fcdefbeda2454db9a10ec13714effc453b702",
+  "installed_at": "2026-10-10T00:55:38.310781+00:00",
+  "only_changed_field": "/rules/3/parameters/workflows/0/sha",
+  "guard_properties_unchanged": [
+    "App15368 verify",
+    "App57789 CodeQL",
+    "strict current base",
+    "one effective independent approval",
+    "latest push approval",
+    "dismiss stale reviews",
+    "resolved threads",
+    "no bypass",
+    "no force push or branch deletion"
+  ],
+  "positive_rehearsal": {
+    "pr": 391,
+    "run": 38008278158,
+    "tree": "c4edc57cc2f895c5124fc6c61cfaf29712f40a4d",
+    "runtime_cases": 4170,
+    "browser_cases": 769
+  },
+  "negative_probes": {
+    "missing_photo_baselines": {
+      "pr": 392,
+      "run": 38008454356,
+      "reason": "e2e_files_unavailable",
+      "normal_merge_http": 405,
+      "closed_unmerged": true
+    },
+    "skipped_photo_cases": {
+      "pr": 393,
+      "run": 38008459260,
+      "reason": "skipped_test_never_expected",
+      "normal_merge_http": 405,
+      "closed_unmerged": true
+    },
+    "main_missing_inventory": {
+      "pr": 395,
+      "run": 38011152800,
+      "reason": "source_integrity_not_success",
+      "normal_merge_http": 405,
+      "closed_unmerged": true
+    }
+  },
+  "main_positive": {
+    "pr": 391,
+    "head": "1c262c4c693e8aa517ed7ba330047fd8f186033b",
+    "base": "c4ffa2cf872e0ddbdc76dbf9c2dbf411731f474b",
+    "run": 38011518824,
+    "merged_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+    "runtime_cases": 4170,
+    "browser_cases": 769
+  },
+  "temporary_probe_cleanup": {
+    "rule": 24823344,
+    "ruleReadback": 404,
+    "closedUnmerged": [
+      392,
+      393
+    ],
+    "deletedHeads": [
+      "ci-probe/store-photo-missing-20261010",
+      "ci-probe/store-photo-skip-20261010"
+    ],
+    "deletedBases": [
+      "refs/heads/ci-probe/store-photo-missing-base-20261010",
+      "refs/heads/ci-probe/store-photo-skip-base-20261010"
+    ]
+  },
+  "baseline_delta": {
+    "runtime": {
+      "before": 283,
+      "after": 311,
+      "added": 28,
+      "removed": 0
+    },
+    "e2e_files": {
+      "before": 89,
+      "after": 91,
+      "added": 2,
+      "removed": 0
+    }
+  },
+  "limitations": [
+    "Targeted missing/skip photo probes and actual main positive/negative were rerun. Older unchanged fork/supersession/check-spoof evidence remains dated with its original source.",
+    "This fixed workflow update does not establish repository-wide surface coverage or shared-library invocation."
+  ],
+  "positive_probe_base_cleanup": {
+    "at": "2026-10-10T02:09:02.176009+00:00",
+    "deleted_owned_base": "ci-probe/store-delivery-base-20261010",
+    "pr391_merged_to_main": true,
+    "open_references": 0
+  },
+  "main_negative_probe_cleanup": {
+    "closedUnmerged": 395,
+    "deletedHead": "ci-probe/store-main-inventory-negative-20261010",
+    "mainUnchanged": "c4ffa2cf872e0ddbdc76dbf9c2dbf411731f474b"
+  }
+}

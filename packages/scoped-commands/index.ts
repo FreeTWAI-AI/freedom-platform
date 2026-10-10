@@ -555,12 +555,24 @@ export async function socialThumbnailMemberCommand<T>(pool: Pool, input: Command
   } finally { if (context!) forgetScopedCommand(context); }
 }
 
+function validLinkCreateBody(body: Record<string, unknown>) {
+  return Object.keys(body).every(k => ['url', 'title', 'note'].includes(k)) && typeof body.url === 'string' && body.url.length > 0 && body.url.length <= 4096
+    && (body.title === undefined || typeof body.title === 'string' && body.title.length <= 200) && (body.note === undefined || typeof body.note === 'string' && body.note.length <= 500);
+}
+/** Note creation carries the text plus the image's type and source digest; bytes never enter the command. */
+function validNoteCreateBody(body: Record<string, unknown>) {
+  if (!Object.keys(body).every(k => ['text', 'image'].includes(k)) || typeof body.text !== 'string' || body.text.length === 0 || body.text.length > 2000) return false;
+  const image = body.image as Record<string, unknown> | undefined;
+  return !!image && typeof image === 'object' && !Array.isArray(image) && Object.keys(image).every(k => ['mime_type', 'sha256'].includes(k))
+    && ['image/png', 'image/jpeg', 'image/webp'].includes(image.mime_type as string) && typeof image.sha256 === 'string' && /^[0-9a-f]{64}$/.test(image.sha256);
+}
+
 export async function socialPostCreateMemberCommand<T>(pool: Pool, input: Command, postId:string,
   authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
   run: (q: PoolClient, context: MemberScopeContext) => Promise<T>): Promise<T> {
   requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
     ['actor', 'operation', 'key', 'body', 'expected', 'lockUser'].includes(key))
-    && input.operation==='POST /api/v1/social-posts' && uuid(postId), 400, 'invalid_social_thumbnail_command', '縮圖操作資料無效。');
+    && (input.operation==='POST /api/v1/social-posts' || input.operation==='POST /api/v1/social-posts/notes') && uuid(postId), 400, 'invalid_social_thumbnail_command', '縮圖操作資料無效。');
   requireCondition(typeof input.key === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(input.key)
     && !/[\r\n]/.test(input.key), 400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
   requireCondition(input.expected === undefined || validVersion(input.expected), 400, 'invalid_expected_version', '版本無效。');
@@ -569,7 +581,7 @@ export async function socialPostCreateMemberCommand<T>(pool: Pool, input: Comman
     && typeof input.actor.session_hash === 'string' && input.actor.session_hash.length > 0 && input.actor.session_hash.length <= 256,
   401, 'session_expired', '請重新登入。');
   const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value as Record<string, unknown>;
-  requireCondition(body && typeof body==='object' && !Array.isArray(body) && Object.keys(body).every(k=>['url','title','note'].includes(k)) && typeof body.url==='string' && body.url.length>0 && body.url.length<=4096 && (body.title===undefined||typeof body.title==='string'&&body.title.length<=200) && (body.note===undefined||typeof body.note==='string'&&body.note.length<=500),400,'invalid_social_create_command','分享操作資料無效。');
+  requireCondition(body && typeof body==='object' && !Array.isArray(body) && (input.operation==='POST /api/v1/social-posts/notes' ? validNoteCreateBody(body) : validLinkCreateBody(body)),400,'invalid_social_create_command','分享操作資料無效。');
   const actor = Object.freeze({ ...input.actor });
   const snapshot: Command = Object.freeze({ actor, operation: input.operation, key: input.key,
     body, expected: input.expected, lockUser: true });
@@ -675,4 +687,48 @@ export async function scopedJournal(q: PoolClient, context: ScopedFactContext, i
     await q.query(`INSERT INTO scoped_outbox(event_id,transition_id,scope_id,scope_kind,event_type,payload)
       VALUES($1,$2,$3,$4,$5,$6)`, [randomUUID(), transition, context.scope.scope_id, context.scope.kind, eventType, payload.json]);
   }
+}
+
+/** Comment image uploads use personal ownership and live post authority. */
+export async function commentImageMemberCommand<T>(pool: Pool, input: Command, imageId: string,
+  authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
+  run: (q: PoolClient, context: MemberScopeContext) => Promise<T>): Promise<T> {
+  requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
+    ['actor', 'operation', 'key', 'body', 'expected', 'lockUser'].includes(key))
+    && typeof input.operation === 'string' && /^POST \/api\/v1\/social-posts\/[0-9a-f-]{36}\/comment-images$/.test(input.operation)
+    && uuid(input.operation.split('/')[4]) && uuid(imageId), 400, 'invalid_comment_image_command', '圖片操作資料無效。');
+  requireCondition(typeof input.key === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(input.key)
+    && !/[\r\n]/.test(input.key), 400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
+  requireCondition(input.expected === undefined || validVersion(input.expected), 400, 'invalid_expected_version', '版本無效。');
+  requireCondition(input.lockUser === undefined || typeof input.lockUser === 'boolean', 400, 'invalid_comment_image_command', '圖片操作資料無效。');
+  requireCondition(input.actor && uuid(input.actor.user_id) && uuid(input.actor.community_id)
+    && typeof input.actor.session_hash === 'string' && input.actor.session_hash.length > 0 && input.actor.session_hash.length <= 256,
+  401, 'session_expired', '請重新登入。');
+  const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value as Record<string, unknown>;
+  requireCondition(body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === 1 && Object.hasOwn(body, 'sha256')
+    && typeof body.sha256 === 'string' && /^[a-f0-9]{64}$/.test(body.sha256) && body.sha256.length === 64,
+  400, 'invalid_comment_image_command', '圖片操作資料無效。');
+  const actor = Object.freeze({ ...input.actor });
+  const snapshot: Command = Object.freeze({ actor, operation: input.operation, key: input.key,
+    body, expected: input.expected, lockUser: input.lockUser });
+  let context: MemberScopeContext;
+  const receipts = legacyMemberReceiptPorts<T>(snapshot, async q => { await authorize(q, context); });
+  try {
+    return await runCommandCore(pool, {
+      ...receipts,
+      async authenticateAndLock(q) {
+        context = await lockMemberScope(q, { actor, scope: 'personal', lockUser: snapshot.lockUser });
+        await assertCurrentSessionClock(q, actor);
+        registerScopedCommand(context, q, 'community.comment-image.upload', { aggregate_type: 'community_comment_image', id: imageId });
+      },
+      async readReceipt(q) {
+        const prior = await receipts.readReceipt(q);
+        return prior ? { ...prior, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
+      },
+    }, async q => {
+      await authorize(q, context);
+      await assertCurrentSessionClock(q, actor);
+      authorizeScopedCommand(context);
+    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
+  } finally { if (context!) forgetScopedCommand(context); }
 }

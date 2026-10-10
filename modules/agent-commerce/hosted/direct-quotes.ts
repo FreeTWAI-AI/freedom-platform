@@ -9,6 +9,7 @@ import type { Actor } from '../../identity-membership/service.js';
 import { publicProjection } from './publish.js';
 import { directCommand, type DirectContext } from './direct-authority.js';
 import { expireDirectForItems } from './direct-effects.js';
+import { localReservationInventory } from './inventory.js';
 
 export interface QuoteBinding { selection_id: string; item_id: string; version: string; sku: string; quantity: number }
 export interface QuoteRow {
@@ -47,14 +48,15 @@ export async function createDirectQuote(pool: Pool, actor: Actor, rawSlug: strin
         WHERE l.shop_id=$1 AND i.shop_id=$2 AND i.sku=ANY($3::text[])`, [p.storefront_shop_id, p.supply_shop_id, input.items.map(line => line.sku)])).rows;
       await expireDirectForItems(q, context, selected.map(item => ({ item_id: item.item_id, quantity: input.items.find(line => line.sku === item.sku)!.quantity })));
       const rows = (await q.query(`SELECT l.selection_id,i.item_id,l.aggregate_version::text AS version,i.sku,i.title,
-        l.retail_price_minor,i.stock,i.reserved FROM commerce_selections l JOIN commerce_items i USING(item_id)
+        l.retail_price_minor FROM commerce_selections l JOIN commerce_items i USING(item_id)
         WHERE l.shop_id=$1 AND i.shop_id=$2 AND i.sku=ANY($3::text[]) ORDER BY l.selection_id,i.item_id FOR UPDATE OF l,i`,
       [p.storefront_shop_id, p.supply_shop_id, input.items.map(line => line.sku)])).rows;
+      const balances = await localReservationInventory(q, context).lock(rows.map(row => row.item_id));
       for (const requested of [...input.items].sort((a, b) => a.sku.localeCompare(b.sku))) {
         const row = rows.find(row => row.sku === requested.sku), published = projection.products.find(line => line.sku === requested.sku);
         requireCondition(row && published && row.title === published.title && Number(row.retail_price_minor) === published.price_minor,
           409, 'publication_changed', '商品與公開版本不同，請等待商店重新公開。');
-        requireCondition(row.stock - row.reserved >= requested.quantity, 409, 'stock_unavailable', '商品庫存不足。');
+        requireCondition((balances.get(row.item_id)?.available ?? -1) >= requested.quantity, 409, 'stock_unavailable', '商品庫存不足。');
         bindings.push({ selection_id: row.selection_id, item_id: row.item_id, version: row.version, sku: row.sku, quantity: requested.quantity });
         lines.push({ sku: row.sku, title: row.title, quantity: requested.quantity, unit_price_minor: Number(row.retail_price_minor),
           line_total_minor: Number(row.retail_price_minor) * requested.quantity });

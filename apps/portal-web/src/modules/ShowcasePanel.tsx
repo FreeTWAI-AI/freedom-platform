@@ -1,18 +1,29 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, requireItems } from '../api'
+import { requireItems } from '../api'
 import { client, usePortal, describeError, type ActionError, type PortalContextValue } from '../portal-session'
 import { Section, EmptyState, ErrorPanel } from '../portal-feedback'
 import { WorkSharingEntry } from './WorkSharingEntry'
 import { looksLikeUrl, opportunityStateLabel, parseMajorToMinor } from '../format'
 import type { Opportunity, Showcase } from '../types'
-import { useAuthoringDraft } from './authoring-drafts'
+import { authoringDraftState, useAuthoringDraft } from './authoring-drafts'
 import { useModuleMutation } from './shared'
+import { useShowcaseEditor, showcaseBody, showcaseInput, performShowcaseRequest, reconcilePublishedShowcase, type PersonalShowcase, type ShowcaseInput, type ShowcaseRequest } from './showcase-drafts'
+export type { PersonalShowcase } from './showcase-drafts'
+
+const SHOWCASE_PAGE = 20
+function nextOffsetOf(payload: unknown): number | null {
+  const value = payload && typeof payload === 'object' && 'next_offset' in payload ? payload.next_offset : null
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
 
 export function ShowcasePanel() {
   const { session, pending, mutate, isMe } = usePortal()
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<ActionError | null>(null)
   const [showcases, setShowcases] = useState<Showcase[] | null>(null)
+  const [nextOffset, setNextOffset] = useState<number | null>(null)
+  const [moreLoading, setMoreLoading] = useState(false)
+  const [moreError, setMoreError] = useState<ActionError | null>(null)
   const [opportunities, setOpportunities] = useState<Opportunity[] | null>(null)
   const [published, , current] = useAuthoringDraft<Showcase | null>(session.user.user_id, 'showcase:published', null)
   const [latestOpportunity] = useAuthoringDraft<Opportunity | null>(session.user.user_id, 'opportunity:latest', null)
@@ -28,15 +39,25 @@ export function ShowcasePanel() {
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current
+    const observed = authoringDraftState<Showcase | null>(session.user.user_id, 'showcase:published', null).read()
     setLoading(true)
     setLoadError(null)
+    // A first-page refresh supersedes any pending continuation. Its stale
+    // finally handler cannot clear state owned by this new request generation.
+    setMoreLoading(false)
+    setMoreError(null)
+    setNextOffset(null)
     try {
       const [showcasePayload, opportunityPayload] = await Promise.all([
-        client.get<unknown>('/showcases'),
+        client.get<unknown>(`/showcases?limit=${SHOWCASE_PAGE}&offset=0`),
         client.get<unknown>('/opportunities'),
       ])
       if (!current() || sequence !== loadSequence.current) return
-      setShowcases(requireItems<Showcase>(showcasePayload, '作品'))
+      const items = requireItems<Showcase>(showcasePayload, '作品')
+      reconcilePublishedShowcase(session.user.user_id, items, observed)
+      setShowcases(items)
+      setNextOffset(nextOffsetOf(showcasePayload))
+      setMoreError(null)
       setOpportunities(requireItems<Opportunity>(opportunityPayload, '商機'))
     } catch (err) {
       if (!current() || sequence !== loadSequence.current) return
@@ -52,10 +73,28 @@ export function ShowcasePanel() {
     void load()
     return () => { loadSequence.current++ }
   }, [load, session.user.user_id, latestOpportunity?.opportunity_id])
+  const loadMore = useCallback(async () => {
+    if (loading || nextOffset === null || moreLoading) return
+    const sequence = loadSequence.current
+    setMoreLoading(true); setMoreError(null)
+    try {
+      const payload = await client.get<unknown>(`/showcases?limit=${SHOWCASE_PAGE}&offset=${nextOffset}`)
+      if (!current() || sequence !== loadSequence.current) return
+      const items = requireItems<Showcase>(payload, '作品')
+      setShowcases(existing => [...(existing ?? []), ...items.filter(item => !existing?.some(known => known.showcase_id === item.showcase_id))])
+      setNextOffset(nextOffsetOf(payload))
+    } catch (err) {
+      if (current() && sequence === loadSequence.current) setMoreError(describeError(err))
+    } finally {
+      if (current() && sequence === loadSequence.current) setMoreLoading(false)
+    }
+  }, [loading, nextOffset, moreLoading])
   useEffect(() => {
     const reveal = () => {
       const id = window.location.hash.slice('#showcase/'.length);
-      if (!window.location.hash.startsWith('#showcase/') || !showcases?.some(item => item.showcase_id === id)) return;
+      if (!window.location.hash.startsWith('#showcase/') || !showcases) return;
+      // A deep link may point past the first page: keep paging until it appears or the list ends.
+      if (!showcases.some(item => item.showcase_id === id)) { if (nextOffset !== null && !moreError) void loadMore(); return; }
       const card = document.getElementById(`showcase-${id}`);
       card?.scrollIntoView({ block: 'center', behavior: 'instant' });
       card?.focus();
@@ -63,7 +102,7 @@ export function ShowcasePanel() {
     reveal();
     window.addEventListener('hashchange', reveal);
     return () => window.removeEventListener('hashchange', reveal);
-  }, [showcases]);
+  }, [showcases, nextOffset, moreError, loadMore]);
 
   if (loading && !showcases) return <p className="muted" role="status">載入作品與商機…</p>
   if (loadError || !showcases || !opportunities) {
@@ -90,6 +129,8 @@ export function ShowcasePanel() {
             ))}
           </div>
         )}
+        {moreError && <p className="banner banner-error" role="alert">較多作品暫時無法載入：{moreError.message}</p>}
+        {nextOffset !== null && <div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={moreLoading} onClick={() => void loadMore()}>{moreLoading ? '正在載入…' : moreError ? '重試載入更多作品' : '載入更多作品'}</button></div>}
         </div>
       </Section>
       <Section data-guide-anchor="showcase:opportunities" title="與你相關的商機" description="只顯示你是提出者或作品作者的商機。">
@@ -398,84 +439,67 @@ function OpportunityCard({
   )
 }
 
-export type PersonalShowcase = Omit<Showcase, 'aggregate_version'> & { status: 'draft' | 'published' | 'withdrawn'; aggregate_version: number | string }
-type ShowcaseInput = { title: string; description: string; artifact_ref: string; public_url: string }
-type ShowcaseRequest = { method: 'POST' | 'PATCH'; path: string; body: object; version?: number | string; key: string }
-const emptyShowcase: ShowcaseInput = { title: '', description: '', artifact_ref: '', public_url: '' }
-const showcaseInput = (row: PersonalShowcase): ShowcaseInput => ({ title: row.title, description: row.description, artifact_ref: row.artifact_ref ?? '', public_url: row.public_url ?? '' })
-const showcaseBody = (input: ShowcaseInput) => ({ title: input.title.trim(), description: input.description.trim(), ...(input.artifact_ref.trim() ? { artifact_ref: input.artifact_ref.trim() } : {}), public_url: input.public_url.trim() || null })
-
 export function ShowcaseDraftEditor({ id, onChanged, onClose }: { id: string | null; onChanged: () => void; onClose: () => void }) {
-  const [row, setRow] = useState<PersonalShowcase | null>(null)
-  const [input, setInput] = useState<ShowcaseInput>({ ...emptyShowcase })
-  const [loading, setLoading] = useState(Boolean(id)), [busy, setBusy] = useState(false)
-  const [error, setError] = useState(''), [notice, setNotice] = useState('')
-  const [conflict, setConflict] = useState(false), [confirm, setConfirm] = useState(false), [consent, setConsent] = useState(false)
-  const [retry, setRetry] = useState<ShowcaseRequest | null>(null)
-  const generation = useRef(0), locked = useRef(false)
+  const { session } = usePortal()
+  const userId = session.user.user_id
+  const [{ row, input, busy, error, notice, conflict, confirm, consent, retry }, state] = useShowcaseEditor(userId, id)
+  const [loading, setLoading] = useState(Boolean(id && !row))
+  const generation = useRef(0)
   const heading = useRef<HTMLHeadingElement>(null)
+  const setInput = (input: ShowcaseInput) => state.patch({ input })
+  const setError = (error: string) => state.patch({ error })
+  const setConfirm = (confirm: boolean) => state.patch({ confirm })
+  const setConsent = (consent: boolean) => state.patch({ consent })
   useEffect(() => {
-    const current = ++generation.current
     heading.current?.focus()
-    setRow(null); setInput({ ...emptyShowcase }); setError(''); setNotice(''); setRetry(null); setConflict(false); setConfirm(false); setConsent(false)
-    setLoading(Boolean(id))
-    if (id) void client.get<PersonalShowcase>(`/me/showcases/${encodeURIComponent(id)}`).then(result => {
-      if (generation.current !== current) return
-      setRow(result); setInput(showcaseInput(result))
-    }).catch(cause => { if (generation.current === current) setError(describeError(cause).message) })
-      .finally(() => { if (generation.current === current) setLoading(false) })
+    const current = ++generation.current
+    const sessionGeneration = client.sessionGeneration
+    const live = () => state.live() && generation.current === current && sessionGeneration === client.sessionGeneration
+    // Retained edits and unknown outcomes must not be overwritten by a remount GET.
+    const saved = state.read()
+    const edited = saved.row && JSON.stringify(showcaseBody(saved.input)) !== JSON.stringify(showcaseBody(showcaseInput(saved.row)))
+    if (id && !edited && !saved.busy && !saved.retry) {
+      setLoading(true)
+      void client.get<PersonalShowcase>(`/me/showcases/${encodeURIComponent(id)}`).then(result => {
+        if (live() && state.read() === saved) state.patch({ row: result, input: showcaseInput(result) })
+      }).catch(cause => { if (live()) setError(describeError(cause).message) })
+        .finally(() => { if (live()) setLoading(false) })
+    } else setLoading(false)
     return () => { generation.current++ }
-  }, [id])
+  }, [id, userId, client.sessionGeneration])
   const dirty = !row || JSON.stringify(showcaseBody(input)) !== JSON.stringify(showcaseBody(showcaseInput(row)))
   async function reload(preserve: boolean) {
-    if (!row && !id) return
-    const current = generation.current
+    if ((!row && !id) || state.read().busy || state.read().retry) return
+    const current = generation.current, sessionGeneration = client.sessionGeneration
+    const live = () => state.live() && current === generation.current && sessionGeneration === client.sessionGeneration
     setLoading(true)
     try {
       const result = await client.get<PersonalShowcase>(`/me/showcases/${encodeURIComponent(row?.showcase_id ?? id!)}`)
-      if (current !== generation.current) return
-      setRow(result); if (!preserve) setInput(showcaseInput(result))
-      setConflict(false); setError(''); setRetry(null); setConfirm(false); setConsent(false)
-      setNotice(preserve ? '已載入最新版本；你的輸入保留，請核對後再儲存。' : '已載入伺服器保存的內容。')
-    } catch (cause) { if (current === generation.current) setError(describeError(cause).message) }
-    finally { if (current === generation.current) setLoading(false) }
+      if (!live()) return
+      state.patch({ row: result, ...(!preserve ? { input: showcaseInput(result) } : {}), conflict: false, error: '', retry: null, confirm: false, consent: false,
+        notice: preserve ? '已載入最新版本；你的輸入保留，請核對後再儲存。' : '已載入伺服器保存的內容。' })
+    } catch (cause) { if (live()) setError(describeError(cause).message) }
+    finally { if (live()) setLoading(false) }
   }
   async function execute(request: ShowcaseRequest) {
-    if (locked.current) return
-    locked.current = true; setBusy(true); setError(''); setNotice('')
     const current = generation.current
-    try {
-      const options = { idempotencyKey: request.key, ifMatch: request.version }
-      const result = request.method === 'PATCH'
-        ? await client.patch<PersonalShowcase>(request.path, request.body, options)
-        : await client.post<PersonalShowcase>(request.path, request.body, options)
-      if (current !== generation.current) return
-      setRow(result); setInput(showcaseInput(result)); setRetry(null); setConflict(false); setConfirm(false); setConsent(false)
-      setNotice(result.status === 'published' ? '已發布；只有本社群會員可見。' : result.status === 'withdrawn' ? '已撤下；現在只有你可見。' : '私人草稿已儲存；尚未發布。')
-      onChanged()
-    } catch (cause) {
-      if (current !== generation.current) return
-      setError(describeError(cause).message)
-      setConflict(cause instanceof ApiError && cause.conflict)
-      setRetry(cause instanceof ApiError && cause.network ? request : null)
-    } finally {
-      locked.current = false
-      if (current === generation.current) setBusy(false)
-    }
+    const result = await performShowcaseRequest(client, userId, state, request)
+    if (result && state.live() && current === generation.current) onChanged()
   }
   function save(event: React.FormEvent) {
     event.preventDefault()
-    if (retry || conflict || row?.status === 'published') return
+    if (loading || busy || retry || conflict || row?.status === 'published') return
     if (input.artifact_ref.trim() && looksLikeUrl(input.artifact_ref.trim())) { setError('成果引用須為不透明代號'); return }
     void execute({ method: row ? 'PATCH' : 'POST', path: row ? `/me/showcases/${encodeURIComponent(row.showcase_id)}` : '/me/showcases', body: showcaseBody(input), version: row?.aggregate_version, key: crypto.randomUUID() })
   }
   function command(kind: 'publish' | 'withdraw') {
-    if (!row || retry || conflict || (kind === 'publish' && (!consent || dirty))) return
+    if (loading || busy || !row || retry || conflict || (kind === 'publish' && (!consent || dirty))) return
     void execute({ method: 'POST', path: `/me/showcases/${encodeURIComponent(row.showcase_id)}/${kind}`, body: kind === 'publish' ? { consent_to_share: true } : {}, version: row.aggregate_version, key: crypto.randomUUID() })
   }
+  function close() { state.close(); onClose() }
   const disabled = loading || busy || Boolean(retry)
   return <section className="card stack work-sharing-form personal-content" aria-label="私人作品編輯">
-    <div className="section-head"><h2 ref={heading} tabIndex={-1}>{row?.status === 'published' ? '已發布作品' : '私人作品草稿'}</h2><button type="button" className="btn btn-secondary btn-small" disabled={busy} onClick={onClose}>回到內容清單</button></div>
+    <div className="section-head"><h2 ref={heading} tabIndex={-1}>{row?.status === 'published' ? '已發布作品' : '私人作品草稿'}</h2><button type="button" className="btn btn-secondary btn-small" disabled={busy} onClick={close}>回到內容清單</button></div>
     {loading && <p role="status">載入作品…</p>}
     {error && <p role="alert" className="banner banner-error">{error}（你的輸入已保留）</p>}
     {notice && <p role="status">{notice}</p>}
