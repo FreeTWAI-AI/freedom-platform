@@ -226,6 +226,7 @@ export class GitHubSocial {
             repositories.add(book.repository.toLowerCase());
             await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
             const starred=await this.provider.starred(book.repository,token);
+            await reconcileConfirmedStar(q,connection.github_user_id,book.repository,starred);
             requireCondition(starred,409,'skill_book_star_required',`領取技能書或晉升前，請先為 ${book.repository} 加星。可在公會技能書的 Star 按鈕一鍵加星，再重試；不會自動替你加星。`);
           }
         });

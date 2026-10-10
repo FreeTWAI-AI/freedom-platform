@@ -232,8 +232,11 @@ test('a refreshed credential survives an unstarred business rollback',async()=>{
   const before=(await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens;
   await assert.rejects(changeGuildMembership(pool,cmd(actor,'refresh-denied'),guild,'join'),code('skill_book_star_required'));
   assert.equal(mock.refreshes,1);
-  assert.notEqual((await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens,before);
+  const rotated=(await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens;assert.notEqual(rotated,before);
   assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE user_id=$1',[actor.user_id])).rows[0].count,'0');
+  mock.starred=true;await changeGuildMembership(pool,cmd(actor,'refresh-accepted'),guild,'join');await assertGranted();
+  assert.equal(mock.refreshes,1,'the already-rotated refresh token must not be reused');
+  assert.equal((await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens,rotated);
 });
 
 test('invalid credentials remain disconnected after a rejected grant',async()=>{
@@ -275,14 +278,26 @@ test('final grant rejects a later platform Star write even with the same credent
     await rejectsUnchanged(()=>changeGuildMembership(pool,cmd(actor,'changed-star-write'),guild,'join'),'skill_book_star_check_changed');
   });
 });
-test('a one-connection configured host grants atomically and receipt replay skips provider I/O',async()=>{
+test('a one-connection configured host rejects then grants multiple guilds and replays without provider I/O',async()=>{
   const one=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,max:1,connectionTimeoutMillis:300});
   try{
     createApp(one,origin,'local',{skillBookStarGateEnabled:true,githubSocial:{config,fetcher}});
-    await connect();mock.starred=true;const input=cmd(actor,'single-success');
-    const first=await changeGuildMembership(one,input,guild,'join');await assertGranted();
+    mock.expiresIn=30;await connect();const input=cmd(actor,'single-success',{guild_keys:[guild,secondGuild],primary_guild_key:guild,confirmed:true,guild_answers:sampleGuildAnswers(guild)});
+    await assert.rejects(quickStartOnboarding(one,input),code('skill_book_star_required'));assert.equal(mock.refreshes,1);assert.equal(await membership(),undefined);
+    mock.starred=true;const first=await quickStartOnboarding(one,input);await assertGranted();assert.equal(first.completed,true);assert.equal(mock.refreshes,1);
     mock.failure=true;mock.calls=[];
-    assert.deepEqual(await changeGuildMembership(one,input,guild,'join'),JSON.parse(JSON.stringify(first)));
+    assert.deepEqual(await quickStartOnboarding(one,input),JSON.parse(JSON.stringify(first)));
     assert.equal(mock.calls.length,0);
   }finally{await one.end();}
+});
+
+// Preserve the confirmed-support regression from upstream review 9f7e3119.
+test('a rejected live check reconciles an existing confirmed Star without changing business state',async()=>{
+  await connect();const books=await listGuildSkillBooks(pool,actor.community_id,guild);
+  const repository=new URL(books[0].upstream_url??books[0].repository_url).pathname.slice(1).toLowerCase();
+  await pool.query('INSERT INTO skill_star_support(github_user_id,repository_key,active) VALUES($1,$2,true)',[String(mock.userId),repository]);
+  const before=await state();delete before.skill_star_support;
+  await assert.rejects(changeGuildMembership(pool,cmd(actor,'support-reject'),guild,'join'),code('skill_book_star_required'));
+  assert.equal((await pool.query('SELECT active FROM skill_star_support WHERE repository_key=$1',[repository])).rows[0].active,false);
+  const after=await state();delete after.skill_star_support;assert.deepEqual(after,before);
 });

@@ -17744,8 +17744,8 @@
     },
     {
       "path": "modules/github-social/service.ts",
-      "bytes": 36047,
-      "sha256": "881895cb120b5c790fdbec3402ee4b1d54a24a51be23936c0b70b015e6d0bf07"
+      "bytes": 36142,
+      "sha256": "5b29259ce83294d2ff011b5332bab0aba4392b5820d4178b1166c61665a346a7"
     },
     {
       "path": "modules/github-social/setup.ts",
@@ -22384,8 +22384,8 @@
     },
     {
       "path": "tests/runtime/skill-book-star-gate.test.ts",
-      "bytes": 22502,
-      "sha256": "619fa27eafe3ee2cf2f7905ec06cca0b66d5d32bce90c2089966b11e85fec631"
+      "bytes": 24188,
+      "sha256": "5898ee3a8fcccc200af39cdb63a1dcc68880d3bfef8f1094b34e074938cc55bd"
     },
     {
       "path": "tests/runtime/skill-book-upstreams.test.ts",
