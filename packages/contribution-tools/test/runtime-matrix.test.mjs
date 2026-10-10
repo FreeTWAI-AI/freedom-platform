@@ -61,6 +61,8 @@ test('each of four partitions has its own 1200-second bound inside one 1800-seco
   skewed.forEach((fragment,index)=>{const start=Date.parse('2026-10-03T00:00:00.000Z')+index*200_000;
     fragment.started_at=new Date(start).toISOString();fragment.ended_at=new Date(start+1_100_000).toISOString();});
   assert.equal((await aggregateRuntimePartitions(root,skewed)).status,'passed');
+  const exactWindow=await fixtures();exactWindow[3].started_at='2026-10-03T00:20:00.000Z';exactWindow[3].ended_at='2026-10-03T00:30:00.000Z';
+  assert.equal((await aggregateRuntimePartitions(root,exactWindow)).status,'passed');
   const wide=await fixtures();wide[3].started_at='2026-10-03T00:20:00.001Z';wide[3].ended_at='2026-10-03T00:30:00.001Z';
   assert.equal((await aggregateRuntimePartitions(root,wide)).reason,'runtime_full_window_exceeded');
 });
@@ -128,13 +130,23 @@ test('six-partition cases', async t => {
   assert.equal((await aggregateRuntimePartitions(root, fragments, { foo: 1 })).reason, 'runtime_partition_options_invalid');
   assert.equal((await aggregateRuntimePartitions(root, fragments, { partitionCount: 5 })).reason, 'runtime_partition_options_invalid');
 
-  // Six partitions return to a 900-second bound per fragment.
+  // Six partitions permit 1200 seconds exactly, never an unbounded fragment.
   const full = structuredClone(fragments);
-  full[0].ended_at = '2026-10-03T00:15:00.000Z';
+  full[0].ended_at = '2026-10-03T00:20:00.000Z';
   assert.equal((await aggregateRuntimePartitions(root, full, { partitionCount: 6 })).status, 'passed');
   const long = structuredClone(fragments);
-  long[0].ended_at = '2026-10-03T00:15:00.001Z';
+  long[0].ended_at = '2026-10-03T00:20:00.001Z';
   assert.equal((await aggregateRuntimePartitions(root, long, { partitionCount: 6 })).reason, 'runtime_partition_window_exceeded');
+
+  // Valid individual fragments must still belong to one finite coherent run.
+  const exactWindow = structuredClone(fragments);
+  exactWindow[5].started_at = '2026-10-03T00:20:00.000Z';
+  exactWindow[5].ended_at = '2026-10-03T00:40:00.000Z';
+  assert.equal((await aggregateRuntimePartitions(root, exactWindow, { partitionCount: 6 })).status, 'passed');
+  const wide = structuredClone(exactWindow);
+  wide[5].started_at = '2026-10-03T00:20:00.001Z';
+  wide[5].ended_at = '2026-10-03T00:40:00.001Z';
+  assert.equal((await aggregateRuntimePartitions(root, wide, { partitionCount: 6 })).reason, 'runtime_full_window_exceeded');
 
   await assert.rejects(runRuntimePartition(root, { partitionCount: 6, partitionIndex: 6 }), /invalid_runtime_partition/);
   await assert.rejects(runRuntimePartition(root, { partitionCount: 5, partitionIndex: 0 }), /invalid_runtime_partition/);
