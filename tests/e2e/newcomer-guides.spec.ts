@@ -180,7 +180,11 @@ test('joined member loads only the current hero before interaction and each perm
   test.setTimeout(120_000);
   const requests = collectArtRequests(page);
   const packRequests:string[]=[];
-  const packChunk=new RegExp(`/assets/(${Object.keys(SPIRIT_CHARACTERS).join('|')})-[^/]+\\.js$`);
+  const packChunk=new RegExp(`/assets/(${Object.keys(SPIRIT_CHARACTERS).join('|')})-[A-Za-z0-9_-]{8}\\.js$`);
+  // Match a content module plus Vite's emitted hash, not a shared product module
+  // whose name begins with a page id (for example social-image).
+  for(const id of Object.keys(SPIRIT_CHARACTERS))expect(packChunk.test(`/assets/${id}-Ab3_-xyz.js`)).toBe(true);
+  expect(packChunk.test('/assets/social-image-BKMxIenW.js')).toBe(false);
   page.on('request',request=>{const path=new URL(request.url()).pathname;if(packChunk.test(path)||/\/content\/[^/]+\.json$/.test(path))packRequests.push(path);});
   await registerJoined(page);
   await expect(widget(page).locator('.page-spirit-launcher img')).toHaveJSProperty('complete',true);
@@ -679,7 +683,7 @@ test('every companion mode reserves its own region and leaves real main-page con
 
 for(const [profile,label] of [['light','自由工坊－明亮'],['dark','自由工坊－夜航'],['versefolk','自由工坊－敘生']] as const)test(`${label} starts with zero guide code, content, status and art requests`,async({page})=>{
   const guideRequests:string[]=[];
-  const contentChunk=new RegExp(`/assets/(${Object.keys(SPIRIT_CHARACTERS).join('|')})-[^/]+\\.js$`);
+  const contentChunk=new RegExp(`/assets/(${Object.keys(SPIRIT_CHARACTERS).join('|')})-[A-Za-z0-9_-]{8}\\.js$`);
   page.on('request',request=>{if(/guide-packs|GuideEngine|GuideGallery|newcomer-guides|ai-sister-|page-guides-|dragon-|\/content\/[^/]+\.json/.test(request.url())||contentChunk.test(new URL(request.url()).pathname))guideRequests.push(request.url())});
   await registerJoined(page,profile);
   await navigate(page,'技能書架');await navigate(page,'會員首頁');
