@@ -74,6 +74,15 @@ async function publicItems(api:APIRequestContext,eventId:string){
   expect(response.status()).toBe(200);
   return (await response.json()).items as {outcome_id:string;title:string}[];
 }
+async function tabTo(page:Page,target:Locator){
+  // Traverse real sequential focus, including the optional source checkboxes.
+  // A removed tab stop or focus trap must fail instead of being bypassed.
+  for(let step=0;step<120;step++){
+    await page.keyboard.press('Tab');
+    if(await target.evaluate(el=>el===document.activeElement))return;
+  }
+  await expect(target).toBeFocused();
+}
 
 // Every case creates unique rows in the runner-owned schema. Immutable media
 // bindings intentionally cannot be deleted; the server drops this whole schema.
@@ -152,12 +161,12 @@ test.describe('isolated authored outcomes',()=>{
       await page.goto(`/#highlights/${eventId}`);
       const section=page.getByRole('region',{name:'活動精華與成果'});
       const disclosure=section.locator('summary');
-      await disclosure.focus();await page.keyboard.press('Enter');
+      await expect(disclosure).toBeVisible();
+      await tabTo(page,disclosure);await page.keyboard.press('Enter');
       await expect(section.getByLabel('精華標題')).toBeVisible();
-      await page.keyboard.press('Tab');
       // Existing drafts add selection controls before the form on later themes.
       const title=section.getByLabel('精華標題');
-      for(let i=0;i<12&&!await title.evaluate(el=>el===document.activeElement);i++)await page.keyboard.press('Tab');
+      await tabTo(page,title);
       await expect(title).toBeFocused();
       const text=`鍵盤 ${width} ${theme}`;
       await page.keyboard.insertText(text);
@@ -169,11 +178,11 @@ test.describe('isolated authored outcomes',()=>{
       await page.keyboard.press('End');
       await expect(section.getByLabel('發布範圍')).toHaveValue('public');
       const save=section.getByRole('button',{name:'儲存私人草稿',exact:true});
-      await save.focus();await page.keyboard.press('Enter');
+      await tabTo(page,save);await page.keyboard.press('Enter');
       await expect(section.getByRole('status')).toContainText('摘要草稿已儲存');
       const consent=section.getByLabel('我有權向所選範圍發布摘要、連結與綁定媒體，已保留真實作者及來源，並取得涉及人物所需同意。');
       await expect(consent).toBeEnabled();
-      await consent.focus();await expect(consent).toBeFocused();
+      await tabTo(page,consent);await expect(consent).toBeFocused();
       await page.keyboard.press('Space');await expect(consent).toBeChecked();
       await expect(section.getByRole('button',{name:'發布已儲存精華與綁定媒體'})).toBeEnabled();
       await page.keyboard.press('Tab');
