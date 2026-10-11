@@ -18949,8 +18949,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 15779,
-      "sha256": "efc1c7db65002a1105a4842cf4e04be94f98d4fe088b60b88dcd59fc7cdeb934"
+      "bytes": 15829,
+      "sha256": "0ff2806f7767253f3eeb211fe2c4c66335736f6e9571cfba86b569783459a536"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
