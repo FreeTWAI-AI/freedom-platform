@@ -47,6 +47,8 @@ test('supplier terms persist across login, keep retail separate and show the sha
   await retail.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('420');
   await retail.getByRole('button', {name: '儲存', exact: true}).click();
   await expect(retail).toHaveCount(0);
+  // Closing the form precedes the post-save reload; wait until the leave guard is released.
+  await expect(page.locator('.hosted-store [role="status"]').first()).toContainText('已儲存。');
   const row = (await db.query(`SELECT i.price_minor AS cost,l.retail_price_minor,i.stock,i.reserved,i.shipping_minor FROM commerce_items i JOIN commerce_selections l USING(item_id) WHERE i.item_id=$1`, [s.product.product_id])).rows[0];
   expect(row).toEqual({cost: '18000', retail_price_minor: '42000', stock: 4, reserved: 2, shipping_minor: '0'});
   const published = await (await page.request.get('/api/v1/public/stores/' + s.slug)).json();
