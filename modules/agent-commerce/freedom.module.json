@@ -195,7 +195,9 @@
         "store.publish",
         "store.unpublish",
         "store.supply-terms.read",
-        "store.supply-terms.update"
+        "store.supply-terms.update",
+        "storefront.reservations.read",
+        "storefront.reservations.configure"
       ],
       "auth_profile": "member-session"
     },

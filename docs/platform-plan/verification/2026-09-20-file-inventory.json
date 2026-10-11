@@ -16574,8 +16574,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 8549,
-      "sha256": "f122483635ebeb4fcab77ca286d9e69d889f3a519638784a2f79160abc586273"
+      "bytes": 8634,
+      "sha256": "bc9f69d6b283df01bbf9cedf1cabe0050dada0134e8555ae7a772eb1ac6485c7"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -21505,7 +21505,7 @@
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
       "bytes": 51368,
-      "sha256": "f91e35dac52a01afdfe93b0c7470679f0aaca2b45faf1d26f47c68a87d49375f"
+      "sha256": "0ce0ff94d23d3d9d3b24dc20a0425d8bb234272fd164c22cc0a64d52b19720a5"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
@@ -22679,8 +22679,8 @@
     },
     {
       "path": "tests/runtime/tenant-route-matrix.test.ts",
-      "bytes": 113630,
-      "sha256": "2c3c1c32a2d8c2c3cf7efd93646e8f5d919458ddd47d297144082cd53a456237"
+      "bytes": 114943,
+      "sha256": "5f38ae94859b233519cedd9244b7b791ebb97758b8c792a5141cfdace8dee74f"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
