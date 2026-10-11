@@ -2424,13 +2424,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
-      "bytes": 3344,
-      "sha256": "6cf1b1a0ac4d14988a3293cd8a2537231541a4b8d423619d954501d8513e098e"
+      "bytes": 3467,
+      "sha256": "e59eec6f18b7ba34c14d8c05adb83ab8c18ffab5a4eade73784185915e6dc9db"
     },
     {
       "path": "apps/portal-web/src/modules/HostedSupplyCatalog.tsx",
-      "bytes": 18744,
-      "sha256": "47a725328b6c67a5a7d686fd42a002a70a7c45aecd63ee579c623a5debdf8a24"
+      "bytes": 21513,
+      "sha256": "5af935dccaec8a7f100d8755fcc36c7087d60f278beea623cd82dca73b501591"
     },
     {
       "path": "apps/portal-web/src/modules/HostedSupplyTerms.tsx",
@@ -16714,13 +16714,13 @@
     },
     {
       "path": "modules/agent-commerce/hosted/freedom.module.json",
-      "bytes": 4341,
-      "sha256": "7fb421be846c91e047356575da7562017ed37de7bce41d9eb024034c10d4d029"
+      "bytes": 4426,
+      "sha256": "b853a25a19ce9213655a79eb4a1c9f3bc40db3cc119f418979fad705e77b04e7"
     },
     {
       "path": "modules/agent-commerce/hosted/inventory-reservations.md",
-      "bytes": 3813,
-      "sha256": "20e0125b14f00222be81295de734df32541a613b95feb5d8608a27419d8ef7fc"
+      "bytes": 4624,
+      "sha256": "a1ce5ace85553a9abcb61ce8dda4f8f154a0f0ecc2614b3194e19b11b73197bd"
     },
     {
       "path": "modules/agent-commerce/hosted/inventory.ts",
@@ -20404,8 +20404,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",
-      "bytes": 31053,
-      "sha256": "cc188483c7b5feec903598505aee1d296adc0896d42ccf676d67550676615d94"
+      "bytes": 31910,
+      "sha256": "309c04f39a590a6b7659c18b1a84e9297d9ddbea3d6e9b7fc1ccd4eb8f07c5de"
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
@@ -20494,8 +20494,8 @@
     },
     {
       "path": "tests/e2e/hosted-supply-catalog.spec.ts",
-      "bytes": 6420,
-      "sha256": "c690d574a49c53f99fb997a6ada94595e23f960d4d4b5fca6e4a2e1e42cdcbb2"
+      "bytes": 13539,
+      "sha256": "21aff9a198e75ac56dbd35b00fe769930517d363fd95eab4bdeff6daf889fa15"
     },
     {
       "path": "tests/e2e/hosted-supply-terms.spec.ts",

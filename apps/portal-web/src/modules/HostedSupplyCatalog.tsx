@@ -3,6 +3,7 @@ import type {z} from 'zod';
 import {SupplyCatalogViewSchema, SupplyCatalogSetupInputSchema, SupplyProductInputSchema, SupplyProductViewSchema, SupplyProductPageSchema, SupplyCatalogReceiptSchema, SupplyProductReceiptSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-catalog';
 import {SupplyTermsSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms';
 import {SupplyOfferSchema} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
+import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {ApiError, type PortalClient} from '../api';
 import {formatMinor, parseMajorToMinor} from '../format';
 import {useMyStores} from './MyStoreAction';
@@ -40,6 +41,7 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
 }) {
   const root = `/tenants/${tenantId}/storefronts/${instanceId}`;
   const [view, setView] = useState<Catalog | null>(null);
+  const [reservationSetting, setReservationSetting] = useState<z.infer<typeof ReservationSettingSchema> | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true), [readFailed, setReadFailed] = useState(false);
   const [error, setError] = useState(''), [status, setStatus] = useState('');
@@ -77,8 +79,14 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
       // Metadata readers must never request the cost-bearing product or offer projections.
       const items = next.setup_state === 'ready' && next.capabilities.includes('store:write')
         ? SupplyProductPageSchema.parse(await client.get(root + '/supply-products', {signal})).items : [];
+      let setting: z.infer<typeof ReservationSettingSchema> | null = null;
+      if (next.setup_state === 'ready' && next.capabilities.includes('store:manage')) {
+        // A successful current-owner read is required; manage capability alone is insufficient.
+        try {setting = ReservationSettingSchema.parse(await client.get(root + '/reservation-setting', {signal}));}
+        catch (cause) {if (!(cause instanceof ApiError && [403, 404].includes(cause.status))) throw cause;}
+      }
       if (!current()) return;
-      setView(next); setProducts(items); setError(''); setRefresh(value => value + 1);
+      setView(next); setProducts(items); setReservationSetting(setting); setError(''); setRefresh(value => value + 1);
     } catch (cause) {
       if (!current()) return;
       setReadFailed(true);
@@ -129,6 +137,21 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
       {!catalog ? can('store:manage') ? <SupplySetupForm busy={locked} onDirty={value => markDirty('setup', value)} onSave={(body, success) => command({method: 'post', path: root + '/supply-profile', body, schema: SupplyCatalogReceiptSchema, success, notice: '已建立供貨商品庫。'})}/>
         : <p>商品庫還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
         <p>{catalog.description}</p><p>幣別：{catalog.currency}</p><p>共用商品容量：{view.product_count}／{view.product_limit}（含供貨商品與商店選品）</p>
+        <section className="stack" aria-labelledby="supply-reservation-title"><h3 id="supply-reservation-title">供貨庫存預留</h3>
+          {reservationSetting ? <>
+            <p>{!reservationSetting.admission_enabled ? '平台目前暫停接受新預留。' : reservationSetting.reservation_enabled ? '已開放 30 分鐘供貨預留。' : '尚未開放供貨預留。'}付款與出貨尚未啟用。</p>
+            <p className="field-hint">開放後，已取得你同意的合作店家仍需發布選品並開放預留，買家才能預留這筆共用庫存。停止只影響新預留；既有預留仍可查看，由買家或店主取消，或到期後釋放庫存。</p>
+            <div className="actions"><button type="button" className="btn btn-ghost"
+              disabled={locked || !reservationSetting.reservation_enabled && (!view.writable || !reservationSetting.admission_enabled)}
+              onClick={() => {
+                if (Object.values(dirtyForms.current).some(Boolean)) {announce('還有尚未儲存的內容，請先儲存或取消編輯，再變更預留設定。'); return;}
+                void command({targetMissingIsStore: false, method: 'patch', path: root + '/reservation-setting', body: {reservation_enabled: !reservationSetting.reservation_enabled},
+                  version: reservationSetting.version, schema: ReservationSettingSchema, success: () => {},
+                  notice: reservationSetting.reservation_enabled ? '已停止接受新供貨預留。既有預留仍可查看。' : '已開放 30 分鐘供貨預留。'});
+              }}>{reservationSetting.reservation_enabled ? '停止接受新供貨預留' : '開放 30 分鐘供貨預留'}</button>
+              <a className="btn btn-ghost" href={`#stores/${tenantId}/${instanceId}/supply-orders`}>查看供貨訂單</a></div>
+          </> : <p className="field-hint">只有目前業務空間擁有者可設定供貨預留及查看供貨訂單；目前沒有可用的預留管理權限。</p>}
+        </section>
         {view.capabilities.includes('store:write') && <>
           <section className="stack" aria-labelledby="supply-products-title"><h3 id="supply-products-title">供貨商品</h3>
             {!products.length && !loading && <p>還沒有商品。新增商品後可設定供貨條件。</p>}

@@ -1,6 +1,97 @@
 import {test, expect} from './fixtures.js';
 import {person, login, launchStore, open, post} from './hosted-store-fixture.js';
 
+async function readyCatalog(page: Parameters<typeof login>[0], db: Parameters<typeof person>[0]) {
+  const member = await person(db); await login(page, member.email);
+  const store = await launchStore(page, '預留設定測試空間');
+  await post(page, store.root + '/supply-profile', {name: '供貨預留商品庫', currency: 'TWD'}, 201);
+  return store;
+}
+
+for (const responseKind of ['unreadable', 'server-error'] as const) {
+  test(`supply reservation ${responseKind} keeps the committed command and recovers without retail setup`, async ({page, e2eAuthPool}) => {
+    const store = await readyCatalog(page, e2eAuthPool);
+    const attempts: {body: string | null; key: string; version: string}[] = [];
+    await page.route('**/api/v1' + store.root + '/reservation-setting', async route => {
+      if (route.request().method() !== 'PATCH') return route.continue();
+      const request = route.request(); attempts.push({body: request.postData(), key: request.headers()['idempotency-key'], version: request.headers()['if-match']});
+      const response = await route.fetch(); expect(response.status()).toBe(200);
+      if (attempts.length === 1) await route.fulfill({status: responseKind === 'unreadable' ? 200 : 503, contentType: 'application/json', body: '{"incomplete":true}'});
+      else await route.fulfill({response});
+    });
+    await open(page, store.hash + '/supply');
+    const settings = page.getByRole('region', {name: '供貨庫存預留', exact: true});
+    await expect(settings).toContainText('尚未開放供貨預留');
+    const form = page.getByRole('form', {name: '新增供貨商品', exact: true});
+    await form.getByLabel('商品名稱', {exact: true}).fill('仍在編輯的茶杯');
+    await settings.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true}).click();
+    await expect(page.locator('.hosted-supply-catalog > [role="status"]')).toContainText('請先儲存或取消編輯');
+    expect(attempts).toHaveLength(0);
+    await expect(form.getByLabel('商品名稱', {exact: true})).toHaveValue('仍在編輯的茶杯');
+    await form.getByLabel('商品名稱', {exact: true}).fill('');
+    await settings.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true}).click();
+    await expect(page.locator('.hosted-supply-catalog').getByRole('alert')).toContainText('尚未確認原操作的結果');
+    await expect(settings.getByRole('button')).toBeDisabled();
+    await settings.getByRole('link', {name: '查看供貨訂單', exact: true}).click();
+    await expect(page).toHaveURL(new RegExp('#' + store.hash + '/supply$'));
+    await page.locator('.hosted-supply-catalog').getByRole('button', {name: '重試', exact: true}).click();
+    await expect(settings.getByRole('button', {name: '停止接受新供貨預留', exact: true})).toBeEnabled();
+    expect(attempts).toHaveLength(2); expect(attempts[1]).toEqual(attempts[0]); expect(attempts[0].key).toBeTruthy();
+    await settings.getByRole('link', {name: '查看供貨訂單', exact: true}).click();
+    await expect(page.getByText('這一頁沒有供貨預留。', {exact: true})).toBeVisible();
+    await page.getByRole('link', {name: '返回供貨商品庫', exact: true}).click();
+    await expect(settings.getByRole('button', {name: '停止接受新供貨預留', exact: true})).toBeEnabled();
+    await settings.getByRole('button', {name: '停止接受新供貨預留', exact: true}).click();
+    await expect(settings).toContainText('尚未開放供貨預留');
+    expect((await (await page.request.get('/api/v1' + store.root + '/supply-profile')).json()).retail_enabled).toBe(false);
+    expect((await (await page.request.get('/api/v1/me/stores?pagination=cursor')).json()).items).toEqual([]);
+  });
+}
+
+test('supply reservation version conflict reloads current state before a new decision', async ({page, e2eAuthPool}) => {
+  const store = await readyCatalog(page, e2eAuthPool);
+  await open(page, store.hash + '/supply');
+  await expect(page.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true})).toBeEnabled();
+  const instance = store.hash.split('/')[2];
+  await e2eAuthPool.query('UPDATE commerce_storefront_profiles SET reservation_enabled=true,version=version+1 WHERE instance_id=$1', [instance]);
+  await page.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true}).click();
+  await expect(page.locator('.hosted-supply-catalog > [role="status"]')).toContainText('資料剛剛被更新');
+  await expect(page.getByRole('button', {name: '停止接受新供貨預留', exact: true})).toBeEnabled();
+});
+
+test('supply reservation controls require a successful owner read and recover from read failure', async ({page, e2eAuthPool}) => {
+  const store = await readyCatalog(page, e2eAuthPool);
+  let status = 503;
+  await page.route('**/api/v1' + store.root + '/reservation-setting', route => status === 200 ? route.continue()
+    : route.fulfill({status, contentType: 'application/problem+json', json: {title: '目前無法讀取預留設定', status, code: status === 403 ? 'seller_owner_required' : 'unavailable'}}));
+  await open(page, store.hash + '/supply');
+  await expect(page.locator('.hosted-supply-catalog').getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true})).toHaveCount(0);
+  status = 403;
+  await page.getByRole('button', {name: '重新載入', exact: true}).click();
+  await expect(page.getByRole('region', {name: '供貨庫存預留', exact: true})).toContainText('只有目前業務空間擁有者');
+  await expect(page.getByRole('link', {name: '查看供貨訂單', exact: true})).toHaveCount(0);
+  await expect(page.getByRole('form', {name: '新增供貨商品', exact: true})).toBeVisible();
+  status = 200; await page.reload();
+  await expect(page.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true})).toBeEnabled();
+});
+
+test('host pause blocks supply opt-in but preserves stopping and retained order navigation', async ({page, e2eAuthPool}) => {
+  const store = await readyCatalog(page, e2eAuthPool);
+  await open(page, store.hash + '/supply');
+  await page.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true}).click();
+  await expect(page.getByRole('button', {name: '停止接受新供貨預留', exact: true})).toBeEnabled();
+  await page.route('**/api/v1' + store.root + '/reservation-setting', async route => {
+    const response = await route.fetch(); await route.fulfill({response, json: {...await response.json(), admission_enabled: false}});
+  });
+  await page.reload();
+  await expect(page.getByRole('region', {name: '供貨庫存預留', exact: true})).toContainText('平台目前暫停接受新預留');
+  await page.getByRole('button', {name: '停止接受新供貨預留', exact: true}).click();
+  await expect(page.getByRole('button', {name: '開放 30 分鐘供貨預留', exact: true})).toBeDisabled();
+  await page.getByRole('link', {name: '查看供貨訂單', exact: true}).click();
+  await expect(page.getByText('這一頁沒有供貨預留。', {exact: true})).toBeVisible();
+});
+
 for (const action of ['setup', 'create', 'edit'] as const) {
   test(`supply-only ${action} retains the original operation after a committed unreadable response`, async ({page, e2eAuthPool}, info) => {
     let prompts = 0;

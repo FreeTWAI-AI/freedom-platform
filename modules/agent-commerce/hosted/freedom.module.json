@@ -115,7 +115,9 @@
         "store.supply-offer.publish",
         "store.supply-offer.withdraw",
         "store.distribution.list",
-        "store.distribution.decide"
+        "store.distribution.decide",
+        "storefront.reservations.read",
+        "storefront.reservations.configure"
       ],
       "auth_profile": "member-session"
     }

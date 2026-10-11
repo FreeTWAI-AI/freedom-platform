@@ -23,7 +23,8 @@ export function HostedSupplierOrders({client,route}:{client:PortalClient;route:S
     finally{if(live())setLoading(false);}
   }
   return <div className="hosted-store stack">
-    <div className="actions"><a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}`}>返回商店後台</a>
+    <div className="actions"><a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}/supply`}>返回供貨商品庫</a>
+      <a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}`}>返回商店後台</a>
       <a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}/orders`}>查看本店預留</a></div>
     <h2>供貨訂單</h2><p className="banner" role="note">只顯示你供應的商品。預留最多 30 分鐘，尚未付款或安排出貨；供貨金額不是請款紀錄。</p>
     <div className="actions"><button className="btn btn-ghost" disabled={loading} onClick={()=>void load()}>更新供貨訂單</button></div>
