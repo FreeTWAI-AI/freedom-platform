@@ -26,6 +26,9 @@ before(async()=>{
  await admin.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
  for(const table of ['users','commerce_shops','commerce_shop_keys','commerce_orders','commerce_order_lines','commerce_items','principals','resource_scopes','scoped_command_receipts','scoped_transition_journal'])
   await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${schema}.${table} TO ${role}`);
+ // Migration 162 checks imported orders for forbidden hosted holds at commit.
+ // The invoker-rights constraint needs read access, not ledger write privileges.
+ await admin.query(`GRANT SELECT ON ${schema}.commerce_inventory_reservations TO ${role}`);
 });
 after(async()=>{await dml.end();await pool.end();if(created)await admin.query(`DROP SCHEMA ${schema} CASCADE`);if(roleCreated)await admin.query(`DROP ROLE ${role}`);await admin.end();});
 async function fixture(target=pool,community=randomUUID()){
