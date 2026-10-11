@@ -137,46 +137,56 @@ test('supplier starts the hosted flow and reuses the same commerce store and sup
 
 test('supplier-only member opens the existing store and publishes supply without joining commerce', async ({page, e2eAuthPool}) => {
   const member = await person(e2eAuthPool, false, [supplier]);
-  await login(page, member.email); await open(page, supplier);
-  await expect(primary(page)).toContainText('使用我的商店管理供貨');
-  await primary(page).getByRole('button', {name: '開始供貨設定', exact: true}).focus();
-  await page.keyboard.press('Enter');
-  const launch = flow(page);
-  await launch.getByLabel('業務空間名稱', {exact: true}).fill('供應商工作室');
-  await launch.getByRole('button', {name: '建立業務空間', exact: true}).click();
-  await launch.getByRole('button', {name: '產生啟動方案', exact: true}).click();
-  await launch.getByRole('button', {name: '確認啟動', exact: true}).click();
-  await launch.getByRole('button', {name: '設定我的商店', exact: true}).click();
-  const storeHash = new URL(page.url()).hash;
-  const setup = page.getByRole('form', {name: '建立商店', exact: true});
-  await setup.getByLabel('商店名稱', {exact: true}).fill('供應商商品庫');
-  await setup.getByLabel('商店網址', {exact: true}).fill('supply-' + randomUUID().slice(0, 8));
-  await setup.getByRole('button', {name: '建立商店', exact: true}).click();
-  const product = page.getByRole('form', {name: '新增商品', exact: true});
-  await product.getByLabel('商品名稱', {exact: true}).fill('供貨茶杯');
-  await product.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('300');
-  await product.getByLabel('庫存', {exact: true}).fill('10');
-  await product.getByRole('button', {name: '新增商品', exact: true}).click();
-  await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
-  const supply = page.getByRole('form', {name: '供貨茶杯供貨條件', exact: true});
-  await supply.getByLabel('供貨單價（TWD）', {exact: true}).fill('150');
-  await supply.getByLabel('每件運費（TWD）', {exact: true}).fill('0');
-  await supply.getByRole('textbox', {name: '出貨條件', exact: true}).fill('三日內出貨');
-  await supply.getByRole('textbox', {name: '退貨條件', exact: true}).fill('請先聯絡供應商');
-  await supply.getByRole('button', {name: '儲存供貨條件', exact: true}).click();
-  await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
-  await supply.getByRole('button', {name: '公開供貨版本', exact: true}).click();
-  await expect(page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'})).toBeVisible();
-  await page.getByRole('button', {name: '設定', exact: true}).click();
-  await page.getByRole('menu', {name: '個人檔案'}).getByRole('menuitem', {name: '登出', exact: true}).click();
-  await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
-  await login(page, member.email); await open(page, supplier);
-  await primary(page).getByRole('button', {name: '查看商品與供貨', exact: true}).click();
-  await expect(page).toHaveURL(new RegExp(storeHash + '$'));
-  await page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'}).click();
-  await expect(page.locator('.hosted-distribution')).toContainText('供貨茶杯');
-  const memberships = (await e2eAuthPool.query("SELECT guild_key FROM positioning_profession_memberships WHERE user_id=$1 AND state='active'", [member.id])).rows;
-  expect(memberships).toEqual([{guild_key: supplier}]);
+  try {
+    await login(page, member.email); await open(page, supplier);
+    await expect(primary(page)).toContainText('使用我的商店管理供貨');
+    await primary(page).getByRole('button', {name: '開始供貨設定', exact: true}).focus();
+    await page.keyboard.press('Enter');
+    const launch = flow(page);
+    await launch.getByLabel('業務空間名稱', {exact: true}).fill('供應商工作室');
+    await launch.getByRole('button', {name: '建立業務空間', exact: true}).click();
+    await launch.getByRole('button', {name: '產生啟動方案', exact: true}).click();
+    await launch.getByRole('button', {name: '確認啟動', exact: true}).click();
+    await launch.getByRole('button', {name: '設定我的商店', exact: true}).click();
+    const storeHash = new URL(page.url()).hash;
+    const setup = page.getByRole('form', {name: '建立商店', exact: true});
+    await setup.getByLabel('商店名稱', {exact: true}).fill('供應商商品庫');
+    await setup.getByLabel('商店網址', {exact: true}).fill('supply-' + randomUUID().slice(0, 8));
+    await setup.getByRole('button', {name: '建立商店', exact: true}).click();
+    const product = page.getByRole('form', {name: '新增商品', exact: true});
+    await product.getByLabel('商品名稱', {exact: true}).fill('供貨茶杯');
+    await product.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('300');
+    await product.getByLabel('庫存', {exact: true}).fill('10');
+    await product.getByRole('button', {name: '新增商品', exact: true}).click();
+    await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
+    const supply = page.getByRole('form', {name: '供貨茶杯供貨條件', exact: true});
+    await supply.getByLabel('供貨單價（TWD）', {exact: true}).fill('150');
+    await supply.getByLabel('每件運費（TWD）', {exact: true}).fill('0');
+    await supply.getByRole('textbox', {name: '出貨條件', exact: true}).fill('三日內出貨');
+    await supply.getByRole('textbox', {name: '退貨條件', exact: true}).fill('請先聯絡供應商');
+    await supply.getByRole('button', {name: '儲存供貨條件', exact: true}).click();
+    await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
+    await supply.getByRole('button', {name: '公開供貨版本', exact: true}).click();
+    await expect(page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'})).toBeVisible();
+    await page.getByRole('button', {name: '設定', exact: true}).click();
+    await page.getByRole('menu', {name: '個人檔案'}).getByRole('menuitem', {name: '登出', exact: true}).click();
+    await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
+    await login(page, member.email); await open(page, supplier);
+    await primary(page).getByRole('button', {name: '查看商品與供貨', exact: true}).click();
+    await expect(page).toHaveURL(new RegExp(storeHash + '$'));
+    await page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'}).click();
+    await expect(page.locator('.hosted-distribution')).toContainText('供貨茶杯');
+    const memberships = (await e2eAuthPool.query("SELECT guild_key FROM positioning_profession_memberships WHERE user_id=$1 AND state='active'", [member.id])).rows;
+    expect(memberships).toEqual([{guild_key: supplier}]);
+  } finally {
+    // The ordinary pass shares one schema. Retain history but withdraw only
+    // this synthetic supplier's offers, including when the journey fails.
+    await e2eAuthPool.query(`UPDATE commerce_hosted_supply_offers o
+      SET state='withdrawn',version=o.version+1
+      FROM commerce_storefront_profiles p JOIN commerce_shops s ON s.shop_id=p.supply_shop_id
+      WHERE o.instance_id=p.instance_id AND o.tenant_id=p.tenant_id
+        AND s.owner_id=$1 AND o.state='offered'`, [member.id]);
+  }
 });
 
 test('read-only access to another store does not hide supplier setup or grant writes', async ({page, browser, baseURL, e2eAuthPool}) => {

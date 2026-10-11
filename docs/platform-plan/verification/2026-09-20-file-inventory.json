@@ -20344,8 +20344,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",
-      "bytes": 29252,
-      "sha256": "18de79ca4cdec0d70b2bcb88ea8fd0fa998f25d9b05690a60e70b8bff023fd4e"
+      "bytes": 29852,
+      "sha256": "9122cceabb618b79a4e8a63bb1c53d79d36f32940859d3cd9642dfcdfbdab10c"
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
@@ -20384,8 +20384,8 @@
     },
     {
       "path": "tests/e2e/hosted-distribution.spec.ts",
-      "bytes": 7585,
-      "sha256": "3ccba348c10e8afbd7fbfdaea5aea732a599b8cead2d2cb3cc875f84f581a690"
+      "bytes": 8602,
+      "sha256": "93571a4e382880d87bf7bd4efc7a0443e19e0796eeee8977e4303d4b25a11dff"
     },
     {
       "path": "tests/e2e/hosted-order-fixture.ts",
