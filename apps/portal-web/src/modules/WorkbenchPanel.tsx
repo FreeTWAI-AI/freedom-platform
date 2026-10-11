@@ -4,6 +4,7 @@ import { client, usePortal, describeError, isOwnRef, type ActionError, type Port
 import { Section, EmptyState, ErrorPanel } from '../portal-feedback'
 import { ModuleBanner } from './ModuleBanner'
 import { BenefitObservations } from './BenefitObservations'
+import {WorkContributionRoles} from './ContributionOutcomes'
 import { claimStateLabel, formatIsoLocal, hoursFromNowLocalInput, isPastIso, localInputToIso, looksLikeUrl, participationModeLabel, workStateLabel } from '../format'
 import type { Dashboard, ReviewQueueItem, WorkClaim, WorkItem } from '../types'
 
@@ -110,6 +111,7 @@ export function WorkbenchPanel() {
                   </div>
                 </dl>
                 <BenefitObservations client={client} workItemId={gain.work_item_id}/>
+                <WorkContributionRoles client={client} workItemId={gain.work_item_id}/>
               </article>
             ))}
           </div>
@@ -315,6 +317,7 @@ function WorkItemCard({
       {claim?.state === 'in_review' && <p className="hint">回饋進行中。</p>}
       {claim?.state === 'accepted' && <p className="hint">這次提交已被接受，非正式官方品管。</p>}
       {(isOwnRef(session.user,item.owner_ref)||(claim&&claim.state!=='claimed'))&&<BenefitObservations client={client} workItemId={item.work_item_id}/>}
+      <WorkContributionRoles client={client} workItemId={item.work_item_id}/>
     </article>
   )
 }

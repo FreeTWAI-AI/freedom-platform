@@ -9,7 +9,8 @@
   "dependencies": [
     "command-core",
     "resource-scopes",
-    "scoped-commands"
+    "scoped-commands",
+    "shared"
   ],
   "format": "freedom.module/v1",
   "instructions": [
@@ -64,13 +65,22 @@
     "tests/e2e/share-launcher.spec.ts",
     "tests/e2e/sharing-authoring-fixture.ts",
     "tests/e2e/showcase-pages.spec.ts",
-    "tests/runtime/showcase-pages.test.ts"
+    "tests/runtime/showcase-pages.test.ts",
+    "apps/platform-api/src/routes/contribution-roles.ts",
+    "apps/portal-web/src/modules/ContributionOutcomes.tsx",
+    "apps/portal-web/src/modules/ContributionOutcomes.css",
+    "migrations/163_work_contribution_roles.sql",
+    "tests/runtime/contribution-roles.test.ts",
+    "tests/e2e/contribution-roles.spec.ts",
+    "docs/development/contribution-cooperation.md"
   ],
   "owner_role": "foundation",
   "public_exports": [
     "modules/opportunity-project-work/work.ts",
     "modules/opportunity-project-work/private-work.ts",
-    "modules/opportunity-project-work/private-commands.ts"
+    "modules/opportunity-project-work/private-commands.ts",
+    "modules/opportunity-project-work/contribution-roles.ts",
+    "apps/portal-web/src/modules/ContributionOutcomes.tsx"
   ],
   "surfaces": [
     {
@@ -163,6 +173,34 @@
         "work.tenant.prepare",
         "work.tenant.write",
         "work.tenant.finalize"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "work.contribution-roles-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/contribution-roles.ts",
+      "operations": [
+        "work.roles.read",
+        "work.roles.declare",
+        "work.roles.edit",
+        "work.roles.withdraw",
+        "work.roles.confirm",
+        "member.contribution-outcomes.read"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "work.contribution-outcomes-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/ContributionOutcomes.tsx",
+      "operations": [
+        "work.roles.read",
+        "work.roles.declare",
+        "work.roles.edit",
+        "work.roles.withdraw",
+        "work.roles.confirm",
+        "member.contribution-outcomes.read"
       ],
       "auth_profile": "member-session"
     }
