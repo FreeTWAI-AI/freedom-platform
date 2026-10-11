@@ -22,7 +22,7 @@ export function useModuleMutation(client: PortalClient, authorScope?: SharingMut
   const setError = useCallback((next: SetStateAction<string | null>) => {
     updateMutationState(state, { error: typeof next === 'function' ? next(state.snapshot.error) : next });
   }, [state]);
-  const mutate = <T,>(path: string, body: unknown, ifMatch?: number) => performModuleMutation<T>(client, state, path, body, ifMatch);
+  const mutate = <T,>(path: string, body: unknown, ifMatch?: number | string) => performModuleMutation<T>(client, state, path, body, ifMatch);
   return { mutate, busy, error, setError, lastFailureUnknown };
 }
 
@@ -32,7 +32,7 @@ function updateMutationState(state: SharingMutationState, patch: Partial<Sharing
   for (const notify of state.listeners) notify();
 }
 
-export async function performModuleMutation<T>(client: PortalClient, state: SharingMutationState, path: string, body: unknown, ifMatch?: number): Promise<T | undefined> {
+export async function performModuleMutation<T>(client: PortalClient, state: SharingMutationState, path: string, body: unknown, ifMatch?: number | string): Promise<T | undefined> {
   if (!state.live() || state.snapshot.busy) return undefined;
   const request = JSON.stringify([path, body, ifMatch]);
   const key = state.keys.get(request) ?? crypto.randomUUID();

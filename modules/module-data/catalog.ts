@@ -1961,6 +1961,20 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
         },
         {
           kind: "table" as const,
+          table: "work_contribution_roles",
+          columns: ["role_id", "community_id", "work_item_id", "work_mode", "member_ref", "role", "summary", "evidence_ref", "payload_sha256", "state", "aggregate_version", "shared_at", "updated_at"],
+          tenant_resolution: {kind: "fk_chain" as const, via: ["work_items"]},
+          isolation: {rls: "exempt" as const, reason_code: "mixed_work_child", reason: "Community-only Work attribution; a literal work_mode composite FK rejects personal and tenant Work. Member API authorization governs reads and writes."},
+        },
+        {
+          kind: "table" as const,
+          table: "work_contribution_confirmations",
+          columns: ["confirmation_id", "role_id", "claim_version", "payload_sha256", "confirmer_ref", "confirmed_at"],
+          tenant_resolution: {kind: "fk_chain" as const, via: ["work_contribution_roles", "work_items"]},
+          isolation: {rls: "exempt" as const, reason_code: "mixed_work_child", reason: "Immutable confirmation metadata of community-only Work roles; there is no tenant or public reader."},
+        },
+        {
+          kind: "table" as const,
           table: "work_items",
           columns: [
             "work_item_id",
