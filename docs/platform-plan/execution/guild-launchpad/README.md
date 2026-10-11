@@ -6,9 +6,11 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-11 release.production=df20b66affe5578ad46dffc5b9d826f8ded2264a release.staging=df20b66affe5578ad46dffc5b9d826f8ded2264a flag.production=true flag.staging=true repo_max_migration=161 applied_migration.production=161 applied_migration.staging=161 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-11 release.production=df20b66affe5578ad46dffc5b9d826f8ded2264a release.staging=df20b66affe5578ad46dffc5b9d826f8ded2264a flag.production=true flag.staging=true repo_max_migration=162 applied_migration.production=161 applied_migration.staging=161 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-11 紐約時間 R17 更新（operator 私有收據的去敏摘要）：production 與 staging 都已部署 #439 `df20b66a`，與 reviewed `bb6c0022` 同 tree，使用同一份 dist。本輪只追加 migration161；兩環境已到161、ledger共160筆，022仍是唯一歷史缺號。公會啟動台保持啟用，既有capacity／authority政策列不變。
+
+本候選原始碼另含 migration162 的持久庫存預留 ID 與一致性檢查，尚未部署；既有 R17 環境仍為 schema161。這是庫存外移的本機交易前置，獨立庫存執行環境與寫入權威移交仍未完成。
 
 Staging 正常合成新會員註冊、現有合成會長批准、A/B/C 各自建店與供貨同意、店主准入及買家預留旅程21項通過：A庫存10面對6＋5不超賣，重新登入取消、真實30分鐘到期只釋放一次，撤回後舊quote拒絕，供應商只見自身必要行項。另有staging公開HTTP36及production公開HTTP36／合成帳號HTTP19項通過；沒有宣稱正式會員交易、真人反覆使用或完整Foundation／M1驗收。
 
