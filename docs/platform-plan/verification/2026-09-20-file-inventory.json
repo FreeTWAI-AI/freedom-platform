@@ -2214,8 +2214,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventParticipation.tsx",
-      "bytes": 25325,
-      "sha256": "ce845d20c84ec38b0fc55945b4b11e242ef68a78975c916bdf3ce37ec16124b8"
+      "bytes": 25578,
+      "sha256": "906aa2c652333c9e75d12fb8ea2f7b6ef28f2a7b524aeca1a16e3ffc2d580795"
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",

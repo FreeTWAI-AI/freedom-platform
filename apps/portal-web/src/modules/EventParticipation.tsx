@@ -133,7 +133,8 @@ function ParticipationPanel({client,eventId,eventVersion,rsvpState,token,actor,r
         <button type="button" className="btn btn-ghost btn-small" disabled={transport.busy} onClick={()=>void downloadCalendar(transport,`${base}/calendar`)}>下載行事曆 .ics</button>
         <button type="button" className="btn btn-ghost btn-small" disabled={transport.busy} onClick={()=>void reload()}>更新本人狀態</button>
       </div>
-      <p className="field-hint">行事曆使用 UTC 時刻；日曆軟體依你的時區顯示。改期後請重新下載；下載不會報名或開啟提醒。</p>
+      <p className="field-hint">這是單次行事曆快照，不會自動同步。改期時請先保留自己的備註、移除日曆中的舊活動，再下載並匯入新版；活動取消時，請移除日曆中的舊活動。</p>
+      <p className="field-hint">檔案使用 UTC 時刻；匯入後請核對日曆時區與活動頁時間，最新狀態以活動頁為準。下載不會報名或開啟提醒。</p>
     </>}
     {reminder&&<ReminderForm value={reminder} transport={transport} path={`${base}/reminder`} guest={Boolean(token)} reload={reload} allowed={value?.rsvp_state==='going'&&value.event_state==='published'&&Date.parse(value.starts_at)>Date.now()}/>}
     <Feedback transport={transport} reload={retryReload}/>
