@@ -149,8 +149,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 25312,
-      "sha256": "56fc6d750ef412aed1a582456c6056ff028c8591a30dccec736466da0f44e7f6"
+      "bytes": 26381,
+      "sha256": "4ed51056378a1d49acc93c722636113712ecddf77d8e6157db66f0c22f252b92"
     },
     {
       "path": "apps/freedom.module.json",
@@ -13689,8 +13689,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 23550,
-      "sha256": "35186567b9be8ec85c1dec7c2f6d5b6ecc10a9eafbdb5b2e8b2130bf024b105d"
+      "bytes": 28629,
+      "sha256": "dd83594b41e8dba8502a055edc59278b01a0cdbecd25e742f3dc2b6fc1403365"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -18769,8 +18769,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 10065,
-      "sha256": "2314b66ca6013e97b521760914f636e44ba80c1d6b58ccd23c0103b1d575d2dd"
+      "bytes": 15779,
+      "sha256": "efc1c7db65002a1105a4842cf4e04be94f98d4fe088b60b88dcd59fc7cdeb934"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -19004,8 +19004,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 26301,
-      "sha256": "6d3dbba267dd74aeb38dce81a5b1409aaeb4d8bd31d9ccf74ce05e8afb22b50c"
+      "bytes": 33083,
+      "sha256": "37fc0fbf895eebd5c996a5125ad36d694960193f72eab8b1a88784221f968cf6"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -19954,8 +19954,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 7219,
-      "sha256": "271bac2ec81f5f02ac17ddbdc6115c9b6d0481018e54d061a6b20a20a791f640"
+      "bytes": 9494,
+      "sha256": "a207dfb806b213ff6cee37fda9f0495aa425becaa7c85c5bb5b3abdafa286bae"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -19964,13 +19964,13 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 27800,
-      "sha256": "131039bbb326d88d278c805957cb7b9b9f0a368e0072ecc6554078cfaa3659df"
+      "bytes": 33252,
+      "sha256": "09578dd5c6cec2366153b661df0376e9daa94306d4b60f06ecdf09f4ddd047aa"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 63213,
-      "sha256": "cfbfad425a7b5ad57a48c4cd3e351ef1b23e7f275318f18d2a52d3301577f302"
+      "bytes": 70153,
+      "sha256": "25e83ea0b713677474b97c58fa7fee8f83b224c1d952e605b53d8089a38afa7a"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",

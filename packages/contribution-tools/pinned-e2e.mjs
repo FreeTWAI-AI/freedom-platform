@@ -57,9 +57,71 @@ export const E2E_PLAN = Object.freeze([
   { id: 'notification-preferences', env: { FREEDOM_E2E_NOTIFICATION_PREFERENCES: '1' }, files: ['tests/e2e/notification-preferences.spec.ts'] }
 ]);
 
+// App composition is an actual reverse dependent of the globally mounted guide.
+// Its reviewed test ownership is included, never removed from the impact graph.
+export const GUIDE_COMPOSITION_PROFILE = Object.freeze({
+  module: 'application-composition',
+  dependencies: Object.freeze(`agent-commerce community community-search personal-content development
+execution-runs guild-workspace member-card member-communications module-registry newcomer-guides
+positioning runtime-registration skill-submissions social-feed tenant-workspaces work member-squads
+github-social member-reporting`.trim().split(/\s+/)),
+  files: Object.freeze(`audit-identity modules-beginners typed-line-breaks calm-experience
+member-connections-51 member-experience game-console instant-feedback member-directory
+member-settings-real member-settings member-todos mobile-install page-issue-recovery
+page-tools simple-social-experience shared-feedback-language audit-shell`.trim().split(/\s+/)
+    .map(name => `tests/e2e/${name}.spec.ts`).sort()),
+});
+
+// Pilot ownership is reviewed host data. Descriptors never provide filenames.
+// Keep fixture specs in default too: their OFF cases are not the ON passes.
+export const GUIDE_DEFAULT_FILES = Object.freeze([...new Set([
+  'tests/e2e/newcomer-guides.spec.ts', 'tests/e2e/ai-sister-guides.spec.ts',
+  'tests/e2e/member-experience.spec.ts', 'tests/e2e/journeys.spec.ts',
+  'tests/e2e/navigation-audit.spec.ts', 'tests/e2e/audit-shell.spec.ts',
+  'tests/e2e/member-session-lifecycle.spec.ts', 'tests/e2e/session-recovery.spec.ts',
+  'tests/e2e/onboarding-members.spec.ts', 'tests/e2e/page-tools.spec.ts',
+  'tests/e2e/page-tools-notification.spec.ts',
+  ...GUIDE_COMPOSITION_PROFILE.files,
+  ...E2E_PLAN.slice(1).flatMap(pass => pass.files),
+])].sort());
+export function planE2eSelection(profile, catalog) {
+  const narrow = profile === 'newcomer-guides' && GUIDE_DEFAULT_FILES.every(file => catalog.includes(file));
+  const expectedFiles = narrow ? [...GUIDE_DEFAULT_FILES] : [...catalog];
+  return { profile: narrow ? 'newcomer-guides' : 'full', expectedFiles,
+    plan: E2E_PLAN.map((pass, index) => narrow && index === 0 ? { ...pass, files: [...GUIDE_DEFAULT_FILES] } : pass) };
+}
+
 const SPEC_NAME = /^[a-z0-9][a-z0-9-]*\.spec\.ts$/;
 const text = value => typeof value === 'string' && !value.includes('\0');
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+// --list uses the same trusted config/files/env but does not start the server.
+// The independent enumeration catches dropped cases inside a selected file.
+function listedCaseIdentities(report, files, options) {
+  if (!object(report) || report.config?.rootDir !== options.rootDir || report.config?.configFile !== options.configFile
+    || report.config?.forbidOnly !== true || report.config?.projects?.length !== 1
+    || report.config.projects[0]?.name !== 'chromium' || report.config.projects[0]?.testDir !== options.rootDir
+    || !Array.isArray(report.errors) || report.errors.length || !Array.isArray(report.suites)) throw Error('invalid_case_listing');
+  const identities = new Set();
+  const visit = (suite, file, titles) => {
+    if (!object(suite) || !text(suite.title) || !SPEC_NAME.test(file) || suite.file !== file
+      || !files.includes('tests/e2e/' + file) || !Array.isArray(suite.specs)
+      || (suite.suites !== undefined && !Array.isArray(suite.suites))) throw Error('invalid_case_listing');
+    for (const spec of suite.specs) {
+      if (!object(spec) || spec.file !== file || !text(spec.title) || !Array.isArray(spec.tests) || !spec.tests.length) throw Error('invalid_case_listing');
+      for (const test of spec.tests) {
+        if (test?.projectName !== 'chromium') throw Error('invalid_case_listing');
+        const identity = createHash('sha256').update(`tests/e2e/${file}\0${titles.join('\0')}\0${spec.title}\0${test.projectName}`).digest('hex');
+        if (identities.has(identity)) throw Error('invalid_case_listing');
+        identities.add(identity);
+      }
+    }
+    for (const nested of suite.suites ?? []) visit(nested, file, [...titles, nested?.title]);
+  };
+  for (const suite of report.suites) visit(suite, suite?.file, []);
+  if (!identities.size) throw Error('invalid_case_listing');
+  return identities;
+}
 
 // Playwright 1.63 JSON: file suites are relative to config.rootDir, test.status
 // is an outcome, and results[].status is an execution state. No test.titlePath.
@@ -73,6 +135,8 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
       || new Set(expectedFiles).size !== expectedFiles.length) throw Error('invalid_expected_files');
     selected_files = [...expectedFiles].sort();
     if (!selected_files.length) throw Error('empty_test_set');
+    const pilot = options?.profile === 'newcomer-guides';
+    if (pilot && JSON.stringify(selected_files) !== JSON.stringify(GUIDE_DEFAULT_FILES)) throw Error('invalid_expected_files');
     if (!object(options) || !text(options.rootDir) || !options.rootDir.startsWith('/')
       || options.rootDir.includes('\\')) throw Error('invalid_root_dir');
     if (!text(options.configFile) || !isAbsolute(options.configFile)) throw Error('invalid_test_results');
@@ -80,7 +144,9 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
     passes = passReports.map(pass => ({ id: text(pass?.id) ? pass.id : '',
       exit_code: Number.isInteger(pass?.exit_code) ? pass.exit_code : null,
       ...(typeof pass?.evidence_sha256 === 'string' && /^[a-f0-9]{64}$/.test(pass.evidence_sha256)
-        ? { evidence_sha256: pass.evidence_sha256 } : {}) }));
+        ? { evidence_sha256: pass.evidence_sha256 } : {}),
+      ...(typeof pass?.listing_evidence_sha256 === 'string' && /^[a-f0-9]{64}$/.test(pass.listing_evidence_sha256)
+        ? { listing_evidence_sha256: pass.listing_evidence_sha256 } : {}) }));
     if (passReports.length !== E2E_PLAN.length || passReports.some((pass, i) => pass?.id !== E2E_PLAN[i].id)) {
       throw Error('invalid_pass_plan');
     }
@@ -98,12 +164,15 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
       }
       if (report.errors.length || report.stats.unexpected !== 0 || report.stats.flaky !== 0) throw Error('test_not_passed');
       const seen = new Set();
+      const caseResults = [];
+      const observedCounts = { expected: 0, skipped: 0, unexpected: 0, flaky: 0 };
       const visit = (suite, file, titles) => {
         if (!object(suite) || !text(suite.title) || !text(suite.file) || !SPEC_NAME.test(suite.file)
           || suite.file !== file || !Array.isArray(suite.specs)
           || (suite.suites !== undefined && !Array.isArray(suite.suites))) throw Error('invalid_test_results');
         const path = 'tests/e2e/' + file;
         if (!expected.has(path)) throw Error('unexpected_file');
+        if (pilot && index > 0 && !E2E_PLAN[index].files.includes(path)) throw Error('unexpected_file_in_pass');
         for (const spec of suite.specs) {
           if (!object(spec) || !text(spec.file) || !SPEC_NAME.test(spec.file) || spec.file !== file
             || !text(spec.title) || !Array.isArray(spec.tests) || !spec.tests.length) throw Error('invalid_test_results');
@@ -117,6 +186,8 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
               && test.results.every(result => object(result) && result.status === 'passed');
             const skipped = test.status === 'skipped' && test.results.every(result => object(result) && result.status === 'skipped');
             if (!passed && !skipped) throw Error('test_not_passed');
+            observedCounts[passed ? 'expected' : 'skipped']++;
+            if (pilot) caseResults.push({ case_sha256: identity, status: passed ? 'passed' : 'skipped' });
             const info = identities.get(identity) ?? { file: path, expected: false, skipped: false };
             info.expected ||= passed;
             info.skipped ||= skipped;
@@ -126,13 +197,22 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
         for (const nested of suite.suites ?? []) visit(nested, file, [...titles, nested?.title]);
       };
       for (const suite of report.suites) visit(suite, suite?.file, []);
+      if (pilot) {
+        if (Object.keys(observedCounts).some(key => observedCounts[key] !== report.stats[key])) throw Error('case_listing_mismatch');
+        if (pass.listing_exit_code !== 0 || !/^[a-f0-9]{64}$/.test(pass.listing_evidence_sha256 ?? '')) throw Error('invalid_case_listing');
+        const listed = listedCaseIdentities(pass.listing, index === 0 ? selected_files : E2E_PLAN[index].files, options);
+        if (listed.size !== seen.size || [...listed].some(identity => !seen.has(identity))) throw Error('case_listing_mismatch');
+        passes[index].listed_case_count = listed.size;
+        passes[index].listed_cases_sha256 = createHash('sha256').update(JSON.stringify([...listed].sort())).digest('hex');
+        passes[index].cases = caseResults.sort((a, b) => a.case_sha256.localeCompare(b.case_sha256));
+      }
     }
     if ([...identities.values()].some(info => info.skipped && !info.expected)) throw Error('skipped_test_never_expected');
     if (selected_files.some(file => ![...identities.values()].some(info => info.file === file && info.expected))) throw Error('missing_or_empty_file');
   } catch (error) {
     const allowed = ['invalid_expected_files', 'empty_test_set', 'invalid_root_dir', 'invalid_pass_plan',
       'test_process_failed', 'invalid_test_results', 'test_not_passed', 'unexpected_file',
-      'unexpected_file_in_pass', 'duplicate_test_identity', 'skipped_test_never_expected', 'missing_or_empty_file'];
+      'unexpected_file_in_pass', 'invalid_case_listing', 'case_listing_mismatch', 'duplicate_test_identity', 'skipped_test_never_expected', 'missing_or_empty_file'];
     reason = allowed.includes(error?.message) ? error.message : 'invalid_test_results';
   }
   const test_files = selected_files.map(path => {

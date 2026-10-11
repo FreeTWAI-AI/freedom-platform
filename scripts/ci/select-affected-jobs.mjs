@@ -17,6 +17,7 @@ import { pathToFileURL } from 'node:url';
 import { selectImpact, validateDescriptor, isModuleDescriptorPath, ROOT_INSTRUCTIONS, owns } from '../../packages/contribution-tools/context.mjs';
 import { artifactPath, parseJson } from '../../packages/contribution-tools/io.mjs';
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
+import { GUIDE_COMPOSITION_PROFILE } from '../../packages/contribution-tools/pinned-e2e.mjs';
 import { runtimeTextSources } from '../generate-runtime-text.mjs';
 
 export const SELECTABLE_JOBS = Object.freeze([
@@ -203,6 +204,49 @@ export function decideAffectedJobs(input) {
   }
   if (impact.module_ids.length || impact.tests.length) return full('baseline_candidate_union');
   return docs();
+}
+
+// Browser narrowing is a separate, fixed pilot; it never narrows job selection.
+export function decideE2eProfile(input) {
+  const selected = decideAffectedJobs(input);
+  // Reuse every admission/fallback above. Only the original leaf-impact guard
+  // may defer to this explicit two-module browser profile; jobs still stay full.
+  if (selected.mode !== 'affected' && selected.reason !== 'leaf_profile_unproven') return { profile: 'full', reason: selected.reason };
+  const leaves = input.changes.map(change => leafProfile(change.path)).filter(Boolean);
+  if (!leaves.length || leaves.some(profile => profile.module !== 'newcomer-guides')) return { profile: 'full', reason: 'non_guide_leaf' };
+  try {
+    const graphs = [validatedDescriptorGraph(input.baseline), validatedDescriptorGraph(input.candidate)];
+    if (!sameSet([...graphs[0].keys()], [...graphs[1].keys()])) throw Error();
+    for (const [id, value] of graphs[0]) if (JSON.stringify(value) !== JSON.stringify(graphs[1].get(id))) throw Error();
+    const guide = FRONTEND_LEAF_PROFILES.find(profile => profile.module === 'newcomer-guides');
+    for (const descriptors of [input.baseline, input.candidate]) {
+      for (const change of input.changes.filter(change => leafProfile(change.path))) {
+        const owners = descriptors.filter(descriptor => owns(descriptor, change.path));
+        if (owners.length !== 1 || owners[0].module_id !== guide.module) throw Error();
+      }
+      const owner = descriptors.find(descriptor => descriptor.module_id === guide.module);
+      const composition = descriptors.find(descriptor => descriptor.module_id === GUIDE_COMPOSITION_PROFILE.module);
+      if (owner?.owner_role !== 'foundation' || !sameSet(owner.dependencies, guide.dependencies) || !sameSet(owner.tests, guide.tests)
+        || composition?.owner_role !== 'foundation' || !sameSet(composition.dependencies, GUIDE_COMPOSITION_PROFILE.dependencies)
+        || !sameSet(composition.tests, ['runtime.full'])
+        || !sameSet(composition.owned_paths.filter(path => path.startsWith('tests/')),
+          [...GUIDE_COMPOSITION_PROFILE.files, 'tests/runtime/game-console-routing.test.ts'])
+        || !sameSet(owner.owned_paths.filter(path => path.startsWith('tests/') && !path.startsWith('tests/runtime/')),
+          ['tests/e2e/newcomer-guides.spec.ts', 'tests/e2e/ai-sister-guides.spec.ts'])) throw Error();
+      for (const [id, files] of [[guide.module, ['tests/e2e/newcomer-guides.spec.ts', 'tests/e2e/ai-sister-guides.spec.ts']],
+        [GUIDE_COMPOSITION_PROFILE.module, GUIDE_COMPOSITION_PROFILE.files]]) {
+        for (const file of files) {
+          const owners = descriptors.filter(descriptor => owns(descriptor, file));
+          if (owners.length !== 1 || owners[0].module_id !== id) throw Error();
+        }
+      }
+    }
+    const paths = input.changes.map(change => change.path).filter(path => path !== GENERATED_INVENTORY_PATH);
+    const impact = selectImpact({baseline: input.baseline, candidate: input.candidate, changedPaths: paths});
+    if (impact.unknown_paths.length || !sameSet(impact.module_ids, [guide.module, GUIDE_COMPOSITION_PROFILE.module])
+      || !sameSet(impact.tests, ['runtime.full'])) throw Error();
+    return { profile: 'newcomer-guides', reason: 'newcomer_guide_composition' };
+  } catch { return { profile: 'full', reason: 'guide_impact_unproven' }; }
 }
 
 // Shared bounded validation for the two explicitly narrowed CI profiles.
@@ -409,6 +453,31 @@ export function collectRepositoryDecision({ repository, event, base = '', head =
     baseline: baseline.descriptors, candidate: candidate.descriptors,
     descriptorsProven: baseline.ok && candidate.ok,
   });
+}
+
+// Host event SHAs, not a candidate profile/file list, authorize the pilot.
+// Read the exact integration tree: a head-only or stale-base comparison cannot
+// prove the browser checkout. Any missing evidence keeps the complete suite.
+export function collectRepositoryE2eDecision({ repository, event, base = '', head = '', candidate = '', pullRequest = '', allowFetch = false } = {}) {
+  const fallback = reason => ({ profile: 'full', reason });
+  if (event !== 'pull_request') return fallback('non_pull_request');
+  if (typeof repository !== 'string' || !isAbsolute(repository)
+    || ![base, head, candidate].every(value => SHA.test(value))) return fallback('candidate_unproven');
+  const root = resolve(repository);
+  try {
+    if (runGit(root, ['rev-parse', 'HEAD']).toString().trim() !== candidate
+      || runGit(root, ['status', '--porcelain', '--untracked-files=all']).toString().trim()
+      || runGit(root, ['ls-files', '--others', '--ignored', '--exclude-standard', '--', 'tests/e2e']).toString().trim()) return fallback('candidate_unproven');
+    if (!ensureCommit(root, candidate, pullRequest, allowFetch)
+      || !ensureCommit(root, base, '', allowFetch) || !ensureCommit(root, head, pullRequest, allowFetch)) return fallback('candidate_unproven');
+    const parents = runGit(root, ['cat-file', '-p', candidate]).toString().split('\n\n')[0]
+      .split('\n').filter(line => line.startsWith('parent ')).map(line => line.slice(7));
+    if (parents.length !== 2 || parents[0] !== base || parents[1] !== head) return fallback('candidate_unproven');
+    const diff = loadTrees(root, base, candidate);
+    const baseline = loadModuleDescriptors(root, base), current = loadModuleDescriptors(root, candidate);
+    return decideE2eProfile({ event, diffComplete: diff?.ok === true, changes: diff?.changes ?? [],
+      baseline: baseline.descriptors, candidate: current.descriptors, descriptorsProven: baseline.ok && current.ok });
+  } catch { return fallback('candidate_unproven'); }
 }
 
 function resultOf(job) {
