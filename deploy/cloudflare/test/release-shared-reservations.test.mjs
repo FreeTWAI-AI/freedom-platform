@@ -17,18 +17,19 @@ function fixture() {
    observation:{evidence_id:'synthetic-shared-observation',target,observed_at_ms:9999,schema_ledger:scan.ledger,schema_ledger_digest:scan.ledger_digest,
     enabled_shapes:[],written_shapes:[],active_releases:[active],complete:true},
    release_records:[active,candidate].map(identity=>({...identity,evidence_id:'synthetic-shared-approval',status:'approved',environments:['staging-next'],
-    schema_ledger_digests:[scan.ledger_digest],capabilities:['platform.legacy.v1','work.explicit-wire.v1',shape],approved_at_ms:9000,expires_at_ms:11000}))}};
+    schema_ledger_digests:[scan.ledger_digest],capabilities:['commerce.hosted-inventory-reservation.v1','platform.legacy.v1','work.explicit-wire.v1',shape],approved_at_ms:9000,expires_at_ms:11000}))}};
 }
 function run(f){const r=evaluateReleaseCompatibility(f.input,{scan:f.scan,host:f.host});
  for(const field of ['deployment_authority','restore_proof','execution_authority'])assert.equal(r[field],false);return r;}
-function lower(f,planned=true){
- const ledger=f.scan.ledger.filter(row=>Number(row.name.slice(0,3))<=160),digest=compatibilityLedgerDigest(ledger);
+function lower(f,planned=true,last=160){
+ const ledger=f.scan.ledger.filter(row=>Number(row.name.slice(0,3))<=last),digest=compatibilityLedgerDigest(ledger);
  if(planned)f.scan={...f.scan,ledger,ledger_digest:digest};
  for(const part of [f.host.observation,f.host.rollback_floor]){part.schema_ledger=ledger;part.schema_ledger_digest=digest;}
  for(const record of f.host.release_records)record.schema_ledger_digests.push(digest);
 }
 test('schema 161 alone enables nothing and preserves disabled old-reader compatibility',()=>{
- const f=fixture();for(const r of f.host.release_records)r.capabilities.pop();
+ const f=fixture();lower(f,true,161);
+ for(const r of f.host.release_records)r.capabilities=['platform.legacy.v1','work.explicit-wire.v1'];
  const result=run(f);assert.equal(result.status,'compatible');assert.deepEqual(result.required_shapes,[]);
  assert.deepEqual(result.required_capabilities,['platform.legacy.v1','work.explicit-wire.v1']);
 });
@@ -49,4 +50,39 @@ test('disabling admission or restoring schema 160 cannot drop a retained shared-
  tampered.host.observation.schema_ledger.at(-1).sha256='e'.repeat(64);
  tampered.host.observation.schema_ledger_digest=compatibilityLedgerDigest(tampered.host.observation.schema_ledger);
  assert.equal(run(tampered).status,'unavailable');
+});
+
+const inventory='commerce.hosted-inventory-reservation.v1';
+for(const version of ['v2','v3'])test(`schema162 ${version} fences every hosted writer before enabling any shape`,()=>{
+ const f=fixture();
+ if(version==='v3'){
+  f.host.schema='freedom.release-compatibility-host/v3';
+  const {first,last,known_gaps}=loadManifest().database_defaults.migrations;
+  f.host.migration_profile={format:'freedom.migrations/dag-v2',
+   legacy:{format:'freedom.migrations/legacy-v1',first,last,known_gaps},legacy_ledger:f.scan.ledger};
+ }
+ const before=structuredClone(f);const result=run(f);
+ assert.equal(result.status,'compatible');assert.deepEqual(result.required_shapes,[]);
+ assert(result.required_capabilities.includes(inventory));assert.deepEqual(f,before);
+ for(const index of [0,1]){
+  const old=structuredClone(f);old.host.release_records[index].capabilities=old.host.release_records[index].capabilities.filter(c=>c!==inventory);
+  assert(run(old).issues.some(i=>i.code==='release_capability_missing'&&i.capability===inventory&&i.source_sha===old.host.release_records[index].source_sha));
+ }
+});
+for(const source of ['enable_shapes','enabled_shapes','written_shapes','rollback_floor_shapes'])test(`durable inventory ${source} retains the exact162 floor`,()=>{
+ const f=fixture();(source==='enable_shapes'?f.input:source==='rollback_floor_shapes'?f.host:f.host.observation)[source]=[inventory];
+ assert.equal(run(f).status,'compatible');
+ const old=structuredClone(f);lower(old,source==='enable_shapes',161);
+ const code=source==='enable_shapes'?'shape_schema_missing':source==='rollback_floor_shapes'?'historical_shape_schema_missing':'observed_shape_schema_missing';
+ assert(run(old).issues.some(i=>i.code===code&&i.shape===inventory));
+});
+test('capability-only inventory history cannot be erased by restoring161 or disabling admission',()=>{
+ const f=fixture();f.host.rollback_floor.capabilities=[inventory];lower(f,true,161);
+ const result=run(f);assert(result.issues.some(i=>i.code==='shape_schema_missing'&&i.shape===inventory));
+ assert(result.issues.some(i=>i.code==='historical_shape_schema_missing'&&i.shape===inventory));
+ assert.deepEqual(result.required_shapes,[]);
+ const retained=fixture();lower(retained,true,161);
+ const current=fixture();retained.host.rollback_floor=current.host.rollback_floor;
+ retained.host.release_records[0].capabilities=retained.host.release_records[0].capabilities.filter(c=>c!==inventory);
+ assert(run(retained).issues.some(i=>i.code==='release_capability_missing'&&i.capability===inventory));
 });

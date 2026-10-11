@@ -407,3 +407,20 @@ does not authorize inference export, credentials, execution or deployment. The
 original human Result shape remains separate; model history is never projected
 as human provenance. Runtime policy ACLs now protect both persistence and model
 inference export operator tables, including old column grants.
+
+## Durable hosted inventory writer floor (schema162)
+
+`commerce.hosted-inventory-reservation.v1` records read/write support for retained
+local hold identities and their one-time release. Migration162 installs deferred
+checks on both direct and shared hosted orders, including when new admission is
+disabled. Therefore every active and candidate release needs this capability
+whenever162 is planned or retained; knowing the shared-reservation shape alone
+is insufficient. Schema161 compatibility and its exact ledger digest are unchanged.
+
+The inventory shape, written/enabled observations and independently retained
+shape or capability-only floors require actual schema162. Disabling admission
+or restoring161 cannot erase this requirement. Host approvals still bind exact
+source/artifact and ledger digests. Recognition supplies no admission, payment,
+external inventory handoff, deployment or restore authority. Follow the bounded
+migration/application handover in the hosted inventory reservation contract;
+rolling back only to an older writer is not a working reservation rollback.
