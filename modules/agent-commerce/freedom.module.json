@@ -212,7 +212,10 @@
         "storefront.order.cancel",
         "storefront.seller.orders.list",
         "storefront.seller.order.read",
-        "storefront.seller.order.cancel"
+        "storefront.seller.order.cancel",
+        "storefront.supplier.orders.list",
+        "storefront.reservations.read",
+        "storefront.reservations.configure"
       ],
       "auth_profile": "member-session"
     },

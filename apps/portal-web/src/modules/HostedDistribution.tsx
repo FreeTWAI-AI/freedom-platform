@@ -21,7 +21,7 @@ export function HostedDistribution({client,root,refresh,busy,writable,onDirty,on
   const command=(value:Command)=>onCommand({...value,targetMissingIsStore:false});
   return <section className="stack hosted-distribution" aria-labelledby="store-distribution-title">
     <h3 id="store-distribution-title">供貨合作</h3>
-    <p className="field-hint">供應商確認這一版售價後，商品才能加入你的展示頁。跨店商品目前尚未開放買家預留。</p>
+    <p className="field-hint">供應商確認這一版售價後，商品才能加入你的展示頁。跨店預留需雙方開放庫存預留；供貨撤回或條件變更後，買家須重新確認。</p>
     <div className="actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void onReload()}>更新供貨狀態</button></div>
     {error&&<p role="alert">{error}</p>}
     {!data?<p>{error ? '請更新供貨狀態後再試一次。' : '正在讀取供貨合作…'}</p>:<>
@@ -30,7 +30,7 @@ export function HostedDistribution({client,root,refresh,busy,writable,onDirty,on
         {data.offers.map(o=><article className="hosted-distribution-item stack" key={o.offer_id}>
           <h4>{o.terms.title}</h4><Terms offer={o}/>
           <div className="actions"><button type="button" className="btn btn-ghost" disabled={busy||!writable||!!error} onClick={()=>{
-            if(window.confirm('撤回後，所有採用這一版的商店都不能再加入新的公開版本。既有公開內容與歷史紀錄會保留。'))void command({method:'post',path:root+`/supply-offers/${o.offer_id}/withdraw`,body:{},version:o.version,schema:SupplyOfferSchema,notice:'已撤回這一版供貨。',success:()=>{}});
+            if(window.confirm('撤回後，所有採用這一版的商店都不能再加入新的公開版本或建立新預留。既有公開內容與訂單會保留，已成立的預留仍可取消或到期。'))void command({method:'post',path:root+`/supply-offers/${o.offer_id}/withdraw`,body:{},version:o.version,schema:SupplyOfferSchema,notice:'已撤回這一版供貨。',success:()=>{}});
           }}>撤回供貨版本</button></div>
         </article>)}
       </details>

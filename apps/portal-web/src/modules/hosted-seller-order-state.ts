@@ -1,13 +1,13 @@
 import {OpaqueId} from '../../../../contracts/guild-launchpad/v1/primitives';
-import {OrderPageSchema, OrderSchema, type HostedOrder} from '../../../../contracts/guild-launchpad/v1/hosted-order';
+import {ReservationPageSchema as OrderPageSchema, ReservationOrderSchema as OrderSchema, type ReservationOrder as HostedOrder} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 
-export type SellerRoute = {tenantId: string; instanceId: string};
+export type SellerRoute = {tenantId: string; instanceId: string; supplier?: boolean};
 /** Only opaque store locators; never a redirect, credential or buyer identity. */
 export function sellerOrdersRoute(hash: string): SellerRoute | null {
   const p = hash.split('/');
   const id = (v: string) => /^[0-9a-f-]{36}$/.test(v) && OpaqueId.safeParse(v).success;
-  return p.length === 4 && p[0] === '#stores' && p[3] === 'orders' && id(p[1]) && id(p[2])
-    ? {tenantId: p[1], instanceId: p[2]} : null;
+  return p.length === 4 && p[0] === '#stores' && ['orders','supply-orders'].includes(p[3]) && id(p[1]) && id(p[2])
+    ? {tenantId: p[1], instanceId: p[2], ...(p[3] === 'supply-orders' ? {supplier:true} : {})} : null;
 }
 export function readSellerPage(raw: unknown) {
   const p = OrderPageSchema.safeParse(raw);
