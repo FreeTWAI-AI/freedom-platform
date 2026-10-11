@@ -1,12 +1,12 @@
 import {useEffect, useRef, useState} from 'react';
 import type {z} from 'zod';
 import {MyStoresPageSchema} from '../../../../contracts/guild-launchpad/v1/storefront-pagination';
-import type {PortalClient} from '../api';
+import type {UiReadClient} from '../../../../packages/shared/guild-block-ui';
 
 type MyStores = z.infer<typeof MyStoresPageSchema>;
 export const stateWord = (item: MyStores['items'][number]) => item.setup_state === 'setup_required' ? '待設定'
   : {never_published: '尚未發布', published: '已發布', unpublished: '已停止公開'}[item.publication_state];
-export function useMyStores(client: PortalClient, purpose?: 'supply') {
+export function useMyStores(client: UiReadClient, purpose?: 'supply') {
   const endpoint = purpose === 'supply' ? '/me/supply-catalogs' : '/me/stores';
   const [data, setData] = useState<MyStores | null>(null);
   const [error, setError] = useState(false);
@@ -40,7 +40,7 @@ export function useMyStores(client: PortalClient, purpose?: 'supply') {
   return {data, error, retry: () => setRefresh(value => value + 1), loadMore, loadingMore, pageError};
 }
 export function MyStoreAction({client, canStart, reasons, onCreate, onEnter, purpose}: {
-  purpose?: 'supply'; client: PortalClient; canStart: boolean; reasons: string[]; onCreate: () => void; onEnter: (path: string) => void;
+  purpose?: 'supply'; client: UiReadClient; canStart: boolean; reasons: string[]; onCreate: () => void; onEnter: (path: string) => void;
 }) {
   const {data, error, retry} = useMyStores(client, purpose);
   const supply = purpose === 'supply';

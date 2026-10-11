@@ -61,7 +61,11 @@
     "apps/portal-web/src/modules/PositioningActionCard.tsx",
     "apps/portal-web/src/modules/work-document-reader.ts",
     "tests/runtime/positioning-action-card.test.ts",
-    "tests/runtime/launchpad-profile-defaults.test.ts"
+    "tests/runtime/launchpad-profile-defaults.test.ts",
+    "tests/runtime/guild-block-composition.test.ts",
+    "docs/development/guild-block-composition.md",
+    "apps/portal-web/src/modules/guild-blocks/composition.ts",
+    "apps/portal-web/src/modules/guild-blocks/GuildBlockHost.tsx"
   ],
   "public_exports": [
     "modules/guild-workspace/launchpad-config.ts",
@@ -71,7 +75,10 @@
   ],
   "dependencies": [
     "command-core",
-    "module-registry"
+    "module-registry",
+    "community",
+    "hosted-distribution",
+    "shared"
   ],
   "contract_families": [],
   "client_profiles": [],

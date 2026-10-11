@@ -28,7 +28,8 @@
     "apps/portal-web/src/modules/GuildLaunchpadApplications.tsx",
     "apps/portal-web/src/modules/GuildLaunchpadApplications.css",
     "apps/portal-web/src/modules/module-words.ts",
-    "tests/e2e/guild-launchpad-applications.spec.ts"
+    "tests/e2e/guild-launchpad-applications.spec.ts",
+    "apps/portal-web/src/modules/application-eligibility.ts"
   ],
   "public_exports": [
     "modules/module-registry/service.ts",
@@ -36,7 +37,8 @@
     "modules/module-registry/definitions.ts",
     "modules/module-registry/providers.ts",
     "modules/module-registry/capacity.ts",
-    "modules/module-registry/operations.ts"
+    "modules/module-registry/operations.ts",
+    "apps/portal-web/src/modules/application-eligibility.ts"
   ],
   "dependencies": [
     "command-core",

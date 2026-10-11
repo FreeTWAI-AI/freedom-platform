@@ -60,7 +60,8 @@
     "tests/runtime/share-promotion.test.ts",
     "tests/runtime/skill-share-content.test.ts",
     "tests/e2e/event-highlights.spec.ts",
-    "tests/e2e/member-services.spec.ts"
+    "tests/e2e/member-services.spec.ts",
+    "apps/portal-web/src/modules/guild-blocks/UpcomingEventsBlock.tsx"
   ],
   "public_exports": [
     "modules/community/catalog.ts",
@@ -83,7 +84,8 @@
     "modules/community/skill-book-guides.ts",
     "modules/community/skill-collaboration.ts",
     "modules/community/skill-share-content.ts",
-    "modules/community/social-posts.ts"
+    "modules/community/social-posts.ts",
+    "apps/portal-web/src/modules/guild-blocks/UpcomingEventsBlock.tsx"
   ],
   "dependencies": [
     "command-core",

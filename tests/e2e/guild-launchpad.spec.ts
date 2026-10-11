@@ -245,3 +245,57 @@ test('a failed public launchpad chunk can return home and recover after reload',
     await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
   } finally { await context.close(); }
 });
+
+test('synthetic event-block reads recover from errors and navigate through the existing event page', async ({browser, baseURL, e2eAuthPool}) => {
+  const seeded = await seed(e2eAuthPool);
+  const session = await login(browser, baseURL!, seeded.email);
+  const page = session.page;
+  let release: () => void = () => undefined;
+  const pending = new Promise<void>(resolve => {release = resolve;});
+  let reads = 0;
+  const eventId = randomUUID();
+  const event = {event_id: eventId, title: '合成近期活動', starts_at: '2099-10-12T10:00:00Z', ends_at: '2099-10-12T11:00:00Z',
+    state: 'published', mode: 'online', description: '區塊導覽測試，並非 ACL 驗收', organizer_name: '合成主辦者', organizer_ref: seeded.userId,
+    location: '合成場地', event_kind: 'other', visibility: 'workshop', guild_key: null, review_guild_key: null,
+    capacity: null, attending_count: 0, my_rsvp: null, aggregate_version: 1, online_url: null, banner_url: null, video_url: null};
+  await page.route('**/api/v1/events', async route => {
+    reads++;
+    if (reads === 1) {await pending; await route.fulfill({status: 503, json: {title: 'unavailable'}});}
+    else await route.fulfill({json: {items: reads === 2 ? [] : [event]}});
+  });
+  try {
+    await page.goto(`/#guilds/${space}`);
+    const block = page.getByRole('region', {name: '近期活動', exact: true});
+    await expect(block.getByRole('status')).toHaveText('正在讀取近期活動…');
+    release();
+    await expect(block.getByRole('alert')).toHaveText('暫時無法讀取近期活動。');
+    await block.getByRole('button', {name: '重試', exact: true}).click();
+    await expect(block).toContainText('目前沒有可顯示的近期活動。');
+    await page.evaluate(key => {window.location.hash = `guilds/${key}`;}, music);
+    await expect(block).toHaveCount(0);
+    await page.evaluate(key => {window.location.hash = `guilds/${key}`;}, space);
+    await expect(block.getByRole('link', {name: '合成近期活動', exact: true})).toHaveAttribute('href', `#events/${eventId}`);
+    await noOverflow(page);
+    await page.setViewportSize({width: 360, height: 800});
+    await noOverflow(page);
+    await block.getByRole('link', {name: '合成近期活動', exact: true}).click();
+    await expect(page).toHaveURL(new RegExp(`#events/${eventId}$`));
+    await page.goBack();
+    await expect(page.getByRole('region', {name: '近期活動', exact: true})).toBeVisible();
+  } finally {release(); await session.context.close(); await cleanup(e2eAuthPool, seeded.userId, seeded.previousOfficer);}
+});
+
+test('public event-guild block never requests member events', async ({browser, baseURL}) => {
+  const context = await browser.newContext({baseURL, viewport: {width: 360, height: 800}});
+  const page = await context.newPage();
+  let reads = 0;
+  await page.route('**/api/v1/events', async route => {reads++; await route.fulfill({json: {items: []}});});
+  try {
+    await page.goto(`/#guilds/${space}`);
+    const block = page.getByRole('region', {name: '近期活動', exact: true});
+    await expect(block).toContainText('登入並加入公會後，可查看目前有權閱讀的近期活動。');
+    await expect(block.getByRole('link')).toHaveCount(0);
+    expect(reads).toBe(0);
+    await noOverflow(page);
+  } finally {await context.close();}
+});

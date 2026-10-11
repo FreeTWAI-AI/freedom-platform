@@ -29,11 +29,16 @@
     "apps/portal-web/src/modules/HostedSupplyCatalog.tsx",
     "tests/runtime/hosted-supply-catalog.test.ts",
     "tests/e2e/hosted-supply-catalog.spec.ts",
-    "migrations/164_hosted_supply_catalogs.sql"
+    "migrations/164_hosted_supply_catalogs.sql",
+    "apps/portal-web/src/modules/guild-blocks/SupplierBlock.tsx"
   ],
-  "public_exports": [],
+  "public_exports": [
+    "apps/portal-web/src/modules/guild-blocks/SupplierBlock.tsx"
+  ],
   "dependencies": [
-    "agent-commerce"
+    "agent-commerce",
+    "shared",
+    "module-registry"
   ],
   "contract_families": [
     "common"

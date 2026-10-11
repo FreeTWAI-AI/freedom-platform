@@ -84,7 +84,8 @@
     "modules/platform-admin/guild-appointment-membership.ts",
     "modules/platform-admin/guild-experts.ts",
     "modules/platform-admin/leadership.ts",
-    "modules/platform-admin/service.ts"
+    "modules/platform-admin/service.ts",
+    "apps/portal-web/guild-block-preview/**"
   ],
   "owner_role": "foundation",
   "public_exports": [],

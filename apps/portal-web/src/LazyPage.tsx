@@ -1,7 +1,7 @@
 import {Component, Suspense, type ReactNode} from 'react';
 import {useLanguage} from './language';
 
-class PageErrorBoundary extends Component<{children: ReactNode; fallback: ReactNode}, {failed: boolean}> {
+export class PageErrorBoundary extends Component<{children: ReactNode; fallback: ReactNode}, {failed: boolean}> {
   state = {failed: false};
   static getDerivedStateFromError() { return {failed: true}; }
   render() {
