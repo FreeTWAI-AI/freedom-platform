@@ -72,9 +72,14 @@ Publish a supply offer, have a separate retailer propose its retail terms, and
 let the supplier accept the exact version. Accepted offers, shared reservations,
 held stock and supplier orders use the existing immutable snapshots and durable
 holds. Reservation admission still requires the existing owner opt-ins; creating
-a catalog grants no checkout, payment or fulfilment authority. This supply-only
-UI does not configure that owner reservation opt-in; it remains available only
-through the existing authorized API until a separate UI increment.
+a catalog grants no checkout, payment or fulfilment authority. The supply catalog exposes that setting only after the existing owner-authorized
+read succeeds; an administrator's setup capability does not grant it. The control
+uses the existing versioned command, retains the exact key on unknown outcomes,
+and blocks navigation until those outcomes are resolved. Admission OFF prevents
+opening new reservations but still permits stopping admission and reading retained
+supplier orders. The supplier-order entry is gated by its own authorized read,
+shows only the original supplier projection, and returns to the supply catalog
+without requiring retail activation or granting seller cancellation authority.
 
 Migration164 changes only forward schema. Full database backups/restores must
 retain null slugs, `own_retail_enabled`, both shop mappings, items, selection

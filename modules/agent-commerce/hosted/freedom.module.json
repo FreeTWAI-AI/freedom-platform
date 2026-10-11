@@ -17,6 +17,7 @@
     "tests/runtime/hosted-shared-orders.test.ts",
     "contracts/guild-launchpad/v1/hosted-shared-order.schema.json",
     "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
+    "apps/portal-web/src/modules/HostedReservationSetting.tsx",
     "tests/e2e/hosted-shared-orders.spec.ts",
     "modules/agent-commerce/hosted/shared-authority.ts",
     "modules/agent-commerce/hosted/shared-orders.ts",
@@ -94,7 +95,8 @@
       "kind": "page",
       "entry": "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
       "operations": [
-        "storefront.supplier.orders.list"
+        "storefront.supplier.orders.list",
+        "storefront.supply-catalog.read"
       ],
       "auth_profile": "member-session"
     },
@@ -117,7 +119,8 @@
         "store.distribution.list",
         "store.distribution.decide",
         "storefront.reservations.read",
-        "storefront.reservations.configure"
+        "storefront.reservations.configure",
+        "storefront.supplier.orders.list"
       ],
       "auth_profile": "member-session"
     }
