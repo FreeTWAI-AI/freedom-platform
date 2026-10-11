@@ -255,6 +255,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   const [convRefresh,setConvRefresh]=useState({loading:false,error:''}),[threadRefresh,setThreadRefresh]=useState({loading:false,error:''});
   // The in-flight refs record the full read that is still out, so a confirmed write can supersede it.
   const convInFlight=useRef<boolean|null>(null),threadInFlight=useRef<{id:string;quiet:boolean}|null>(null);
+  const olderInFlight=useRef<{id:string;generation:number;refresh:boolean}|null>(null);
   const convGeneration=useRef(0),threadGeneration=useRef(0),currentPeer=useRef<string|null>(null),heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
   const readAttempts=useRef(new Map<string,{through:string;key:string}>()),readLocks=useRef(new Set<string>()),readIssues=useRef(new Map<string,string>());
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{height:number;top:number}|null>(null),moreState=useRef(threadMore);
@@ -312,10 +313,13 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   }
 
   const loadThread=useCallback(async(id:string,quiet=false)=>{
+    // A read ACK or background refresh must not cancel a member's older-page request.
+    const older=olderInFlight.current;
+    if(quiet&&older?.id===id&&older.generation===threadGeneration.current){older.refresh=true;return true;}
     const current=++threadGeneration.current;threadInFlight.current={id,quiet};
     idlePoll.current=resetChatPoll();
     const receiptVersion=receiptRefresh.current.get(id);
-    setThreadMore({loading:false,error:''});if(!quiet)setReadError(readIssues.current.get(id)??'');
+    setThreadMore(value=>({loading:false,error:quiet?value.error:''}));if(!quiet)setReadError(readIssues.current.get(id)??'');
     if(quiet)setThreadRefresh({loading:true,error:''});else{setThreadStatus('loading');setThreadError('');setThreadRefresh({loading:false,error:''});setThread(null);}
     try{
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=0`,{background:quiet});
@@ -406,8 +410,10 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   useEffect(()=>{if(threadStatus==='ready'&&focusThread.current){focusThread.current=false;heading.current?.focus();}},[threadStatus]);
 
   async function earlier(){
-    if(!thread||thread.next_offset===null||threadMore.loading||!peer)return;
-    const current=threadGeneration.current,id=peer;setThreadMore({loading:true,error:''});
+    if(!thread||thread.next_offset===null||threadMore.loading||!peer||(olderInFlight.current?.id===peer&&olderInFlight.current.generation===threadGeneration.current))return;
+    const current=threadGeneration.current,id=peer;
+    const request={id,generation:current,refresh:false};olderInFlight.current=request;
+    setThreadMore({loading:true,error:''});
     try{
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=${thread.next_offset}`);
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
@@ -417,6 +423,10 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       if(scroll.current)anchor.current={top:scroll.current.scrollTop,height:scroll.current.scrollHeight};
       setThread(existing=>existing&&{...existing,items:newestMessages(merge(existing.items,value.items,item=>item.message_id)),next_offset:value.next_offset});setThreadMore({loading:false,error:''});
     }catch(cause){if(current===threadGeneration.current)setThreadMore({loading:false,error:fail(cause)});}
+    finally{
+      if(olderInFlight.current===request)olderInFlight.current=null;
+      if(request.refresh&&alive.current&&current===threadGeneration.current&&currentPeer.current===id)void loadThread(id,true);
+    }
   }
 
   async function markRead(through?:string,retry=false){

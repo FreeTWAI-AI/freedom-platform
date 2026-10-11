@@ -79,9 +79,38 @@ for(const [outgoing,incoming] of [[25,0],[1,21]]){
       SELECT $1,$2,$3,'合成舊訊息 '||i,now()-interval '1 hour'+i*interval '1 second' FROM generate_series(1,$4::int) AS i`,[DEMO_COMMUNITY,accounts[0].id,accounts[1].id,outgoing]);
     if(incoming)await db.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at)
       SELECT $1,$2,$3,'合成回覆 '||i,now()-interval '1 hour'+(100+i)*interval '1 second' FROM generate_series(1,$4::int) AS i`,[DEMO_COMMUNITY,accounts[1].id,accounts[0].id,incoming]);
-    const sender=await member(browser,baseURL!,0),a=await direct(sender,accounts[1]);
-    await a.getByRole('button',{name:'載入較早訊息',exact:true}).click();
-    await expect(a.locator('.messages-bubbles > li')).toHaveCount(outgoing+incoming);
+    const sender=await member(browser,baseURL!,0);
+    // Delay real responses so an automatic read ACK arrives during older paging.
+    // The server still commits the read and supplies both message pages normally.
+    const gate=()=>{let resolve!:()=>void;const promise=new Promise<void>(done=>{resolve=done;});return {promise,resolve};};
+    const readGate=gate(),olderGate=gate(),readReached=gate(),olderReached=gate();
+    let latestPages=0,heldOlder=false;
+    if(incoming){
+      await sender.route(`**/me/conversations/${accounts[1].id}/read`,async route=>{
+        const response=await route.fetch();expect(response.status()).toBe(200);readReached.resolve();
+        await readGate.promise;await route.fulfill({response});
+      });
+      await sender.route(`**/me/conversations/${accounts[1].id}/messages?*`,async route=>{
+        const offset=new URL(route.request().url()).searchParams.get('offset');
+        if(offset==='0')latestPages++;
+        if(offset!=='20'||heldOlder)return route.continue();
+        heldOlder=true;const response=await route.fetch();expect(response.status()).toBe(200);olderReached.resolve();
+        await olderGate.promise;await route.fulfill({response});
+      });
+    }
+    const a=await direct(sender,accounts[1]);
+    try{
+      if(incoming)await readReached.promise;
+      await a.getByRole('button',{name:'載入較早訊息',exact:true}).click();
+      if(incoming){
+        await olderReached.promise;const before=latestPages;readGate.resolve();
+        await expect(a.locator('.messages-meta').filter({hasText:' · 未讀'})).toHaveCount(0);
+        expect(latestPages).toBe(before);
+        olderGate.resolve();
+        await expect.poll(()=>latestPages).toBeGreaterThan(before);
+      }
+      await expect(a.locator('.messages-bubbles > li')).toHaveCount(outgoing+incoming);
+    }finally{readGate.resolve();olderGate.resolve();}
     const receipts=a.locator('.messages-bubbles > .is-mine .messages-meta');
     await expect(receipts).toHaveCount(outgoing);await expect(receipts).toHaveText(Array.from({length:outgoing},()=>/已送出/));
     const receiver=await member(browser,baseURL!,1),b=await direct(receiver,accounts[0]);

@@ -2519,8 +2519,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 63307,
-      "sha256": "28ee3bca34c574e74383ace2d8bf0ec394b607dd7545f5f236b894f37bd79684"
+      "bytes": 64061,
+      "sha256": "a7577d055e1d58b792c18cb4860dabbf9e0cf0970cd8cbdaa9c125501956e0f0"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -20239,8 +20239,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 45357,
-      "sha256": "7cca15a36f5d282dae5ba503f3ae3ca691342377a686a10f35b845f1ec3165dd"
+      "bytes": 46985,
+      "sha256": "93eb6fe46643cd3b6c0874384a9dfdb076493d56da390201f1f6330c89ae9e79"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -20504,8 +20504,8 @@
     },
     {
       "path": "tests/e2e/hosted-supply-terms.spec.ts",
-      "bytes": 7223,
-      "sha256": "3033ef0297e436aa29f0cee99727732e5cdc8aa835579507ea2eff22e2370189"
+      "bytes": 7417,
+      "sha256": "b10a5a95cb515c54936cbeaeab2c7328880b2ad714b41aa81ca7a63202ed815d"
     },
     {
       "path": "tests/e2e/instant-feedback.spec.ts",
@@ -20664,8 +20664,8 @@
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
-      "bytes": 2548,
-      "sha256": "885736f436173ffabc4ca5aaa42b628b3a69ed01a8a6d9791a1b4db62fe4cfab"
+      "bytes": 2611,
+      "sha256": "b4610bef2316a3720b6c711a25ff10206b8bf26673bdcaf4a69da10f61c26aec"
     },
     {
       "path": "tests/e2e/notification-bell-refresh.spec.ts",
@@ -21484,8 +21484,8 @@
     },
     {
       "path": "tests/runtime/execution-runs.test.ts",
-      "bytes": 22318,
-      "sha256": "85a29b6c596590a1fed4fe8b2834640f6a44d9a66b2023e9037597616652a817"
+      "bytes": 22622,
+      "sha256": "912eda83fbc6f2cb292e4852ff528572c04955c57764e95cf1c81c4f5be4863b"
     },
     {
       "path": "tests/runtime/execution-state-adversarial.test.ts",

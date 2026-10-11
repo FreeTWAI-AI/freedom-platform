@@ -24,8 +24,8 @@ test('clicking one notification opens its friend response and closes the bell',a
   await page.getByRole('button',{name:/^通知/}).click();
   const popover=page.getByRole('region',{name:'最近通知'});
   await expect(popover).toBeVisible();
+  await expect.poll(()=>popover.locator('.notification-bell-item.is-unread').count()).toBeGreaterThanOrEqual(2);
   const unreadBefore=await popover.locator('.notification-bell-item.is-unread').count();
-  expect(unreadBefore).toBeGreaterThanOrEqual(2);
   const requestNotice=popover.locator('.notification-bell-item.is-unread').filter({hasText:'示範需求者'}).first();
   await expect(requestNotice).toBeVisible();
   await requestNotice.click();
