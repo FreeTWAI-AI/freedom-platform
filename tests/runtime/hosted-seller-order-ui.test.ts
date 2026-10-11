@@ -1,3 +1,6 @@
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {HostedReservationSetting} from '../../apps/portal-web/src/modules/HostedReservationSetting.js';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {HOSTED_ORDER_PROFILE, OrderSchema} from '../../contracts/guild-launchpad/v1/hosted-order.js';
@@ -29,4 +32,28 @@ test('seller cancellation requires original identity, immutable terms and a newe
   const later = {...order, version: '9007199254740993'};
   assert.equal(readSellerCancel({...cancelled, version: '9007199254740994'}, later)?.confirmed, true);
   assert.equal(readSellerCancel({...cancelled, version: '9007199254740992'}, later), null);
+});
+
+
+test('shared reservation control requires admission and writable scope to open, but permits stopping with either disabled', () => {
+  for (const reservation_enabled of [false, true]) for (const admission_enabled of [false, true]) {
+    for (const writable of [false, true]) for (const locked of [false, true]) {
+      const markup = renderToStaticMarkup(createElement(HostedReservationSetting, {
+        setting: {reservation_enabled, admission_enabled, version: '1'}, writable, locked, onToggle: () => {},
+      }));
+      assert.equal(/<button[^>]* disabled=""/.test(markup), locked || !reservation_enabled && (!writable || !admission_enabled));
+      assert.ok(markup.includes(reservation_enabled ? '停止接受新預留' : '開放 30 分鐘預留'));
+    }
+  }
+});
+test('supplier reservation copy describes shared stock without promising supplier cancellation authority', () => {
+  for (const admission_enabled of [false, true]) {
+    const markup = renderToStaticMarkup(createElement(HostedReservationSetting, {
+      setting: {reservation_enabled: true, admission_enabled, version: '2'}, writable: true, locked: false,
+      supplierOnly: true, onToggle: () => {},
+    }));
+    assert.ok(markup.includes(admission_enabled ? '經你同意的店主' : '仍可查看既有供貨預留'));
+    assert.ok(!markup.includes('查看與取消'));
+    assert.ok(markup.includes('btn btn-ghost'));
+  }
 });

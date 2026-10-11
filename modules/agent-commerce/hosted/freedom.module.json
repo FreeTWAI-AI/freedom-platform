@@ -17,6 +17,7 @@
     "tests/runtime/hosted-shared-orders.test.ts",
     "contracts/guild-launchpad/v1/hosted-shared-order.schema.json",
     "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
+    "apps/portal-web/src/modules/HostedReservationSetting.tsx",
     "tests/e2e/hosted-shared-orders.spec.ts",
     "modules/agent-commerce/hosted/shared-authority.ts",
     "modules/agent-commerce/hosted/shared-orders.ts",
