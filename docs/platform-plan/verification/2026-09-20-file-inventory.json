@@ -13124,8 +13124,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 43119,
-      "sha256": "e2aeeddd0bb049c16ff1752bf3d0fb659401eaa6bf83ad0c9e102bbc2c36b0c0"
+      "bytes": 43515,
+      "sha256": "4e59b2a79e3220286a3158b80c5d2a9fcf2f3b699915dd43baa0d3ef359e926c"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -13205,7 +13205,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12677,
-      "sha256": "2c07c0ba19a89e1c6d79ed8e1f751ef4029f1390ebeb1770a1abbc83f07233b9"
+      "sha256": "0efbf5be61fb76557573d28658329fc0c04c26f8ea28a9d56584ef2782bce53e"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -13301,6 +13301,11 @@
       "path": "deploy/cloudflare/test/release-runtime-enrollment.test.mjs",
       "bytes": 4764,
       "sha256": "9272ac7bbbfe099eecd1eeceacc3c757a7cdec67934ebc91a691abad5aa61b7c"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-shared-reservations.test.mjs",
+      "bytes": 4421,
+      "sha256": "53e1d7eec3c1c68b2e9a5dc30dccd92225f00d1c26ebf1009cbe22545c12a395"
     },
     {
       "path": "deploy/cloudflare/test/shop-key-policy.test.mjs",
@@ -14989,8 +14994,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 24364,
-      "sha256": "833bd2903e6359a651c6eeb6cf7b30c391feb7cc3a1c1e6e48884dad358e72e0"
+      "bytes": 24436,
+      "sha256": "f01ac04f6998967c336a14ec3964ce8e313f298a318b643840b829a99c6c6c15"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -16729,8 +16734,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/shared-order-contract.md",
-      "bytes": 4981,
-      "sha256": "952a9027ac93caf130e3cd3ba273e309edd95cf629eff8b8e111e555c41d83ee"
+      "bytes": 5246,
+      "sha256": "9efdf7b99b71933db4193013031401740eb7dd597343e30dcd3581f02cfe2f9b"
     },
     {
       "path": "modules/agent-commerce/hosted/shared-orders.ts",
@@ -19099,8 +19104,8 @@
     },
     {
       "path": "packages/db/freedom.module.json",
-      "bytes": 2052,
-      "sha256": "8140b914bd150837b308d9aa460324d3f8402a7141e40823c71cbe28c231e6a3"
+      "bytes": 2119,
+      "sha256": "1815222809f52b34de08cfbc2bd5560e378fb5e1dca4b970c4f122006211b847"
     },
     {
       "path": "packages/db/index.ts",
