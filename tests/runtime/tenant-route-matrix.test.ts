@@ -214,6 +214,11 @@ const routeTable: Record<string, string> = {
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-reservations': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/reservation-setting': 'tenant',
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/reservation-setting': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-profile': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-profile': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-products': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-products': 'tenant',
+  'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-products/:product_id': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/setup': 'tenant',
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'tenant',
@@ -530,8 +535,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 80, middleware: 2 });
-  assert.equal(selectedRoutes.length, 110);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 85, middleware: 2 });
+  assert.equal(selectedRoutes.length, 115);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -623,6 +628,11 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/invitations/:id/decline', body: {} },
   { method: 'POST', path: '/tenants/:tenant_id/invitations/:id/revoke', body: { reason: 'synthetic revoke' }, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/leave', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-profile' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-profile', body: { name: '合成供貨商品庫', currency: 'TWD' } },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-products' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-products', body: { title: '合成供貨商品', cost_minor: 100, stock: 1 } },
+  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-products/:product_id', body: { cost_minor: 150 }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/setup', body: { name: '商店', slug: 'matrix-shop', currency: 'TWD' } },
   { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id', body: { name: '更名' }, version: '"1"' },
