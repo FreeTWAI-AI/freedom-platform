@@ -20,6 +20,7 @@ import {HostedSellerOrders, SellerOrdersLink} from './HostedSellerOrders';
 import {HostedSupplierOrders} from './HostedSupplierOrders';
 import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {sellerOrdersRoute} from './hosted-seller-order-state';
+import {HostedSupplyCatalog, SupplyCatalogList} from './HostedSupplyCatalog';
 import './HostedStore.css';
 
 const NOTICE = '店鋪／商品展示已就緒，交易尚未啟用';
@@ -53,6 +54,8 @@ export function HostedStore({client, enabled, locationHash, userId, registerLeav
   if (!enabled) return <p className="banner" role="status">目前不開放商店設定。若要查看或取消既有預留，請開啟你保存的店主管理連結；登入後會重新確認目前權限。</p>;
   const path = locationHash.replace(/^#/, '').split('/');
   if (path.length === 1 && path[0] === 'stores') return <StoreList key={userId} client={client}/>;
+  if (path.length === 2 && path[0] === 'stores' && path[1] === 'supply') return <SupplyCatalogList key={`${userId}:${client.sessionGeneration}`} client={client}/>;
+  if (path.length === 4 && path[0] === 'stores' && path[3] === 'supply' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success) return <HostedSupplyCatalog key={`${userId}:${client.sessionGeneration}:${path[1]}:${path[2]}`} client={client} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave}/>;
   const valid = path.length === 3 && path[0] === 'stores' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success;
   return valid ? <StorePage key={`${userId}:${client.sessionGeneration}:${path[1]}:${path[2]}`} client={client} userId={userId} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/> : <MissingStore/>;
 }

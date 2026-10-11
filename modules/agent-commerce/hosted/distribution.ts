@@ -6,7 +6,7 @@ import {SupplyOfferSchema, SupplyOffersSchema, SupplyOfferTermsSchema, Distribut
   DistributionSchema, DistributionsSchema, type SupplyOffer} from '../../../contracts/guild-launchpad/v1/hosted-distribution.js';
 import type {Actor} from '../../identity-membership/service.js';
 import {resellerArrangement} from '../distribution.js';
-import {profile, ready, productCount, storeRead, storeCommand, storeFact, type Profile} from './store.js';
+import {profile, ready, retailReady, productCount, storeRead, storeCommand, storeFact, type Profile} from './store.js';
 
 function offerView(row: Record<string, any>): SupplyOffer {
   return SupplyOfferSchema.parse({offer_id: row.offer_id, product_id: row.item_id, supplier_name: row.supplier_name,
@@ -86,7 +86,7 @@ export async function listDistributions(pool: Pool, actor: Actor, tenantId: stri
 export async function proposeDistribution(pool: Pool, actor: Actor, tenantId: string, instanceId: string, raw: unknown, key: string, selectionId?: string, expected?: string) {
   const input = DistributionInputSchema.parse(raw);
   return storeCommand(pool, actor, tenantId, instanceId, 'store:write', 'storefront.distribution.propose', input, key, expected, async (q, context) => {
-    const p = await profile(q, tenantId, instanceId, true); ready(p);
+    const p = await profile(q, tenantId, instanceId, true); retailReady(p);
     const offer = (await q.query(`SELECT o.*,s.owner_id AS supplier_user_id FROM commerce_hosted_supply_offers o
       JOIN commerce_storefront_profiles p ON p.instance_id=o.instance_id AND p.tenant_id=o.tenant_id
       JOIN commerce_shops s ON s.shop_id=p.supply_shop_id AND s.origin='hosted'

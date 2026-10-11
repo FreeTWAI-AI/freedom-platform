@@ -424,3 +424,19 @@ source/artifact and ledger digests. Recognition supplies no admission, payment,
 external inventory handoff, deployment or restore authority. Follow the bounded
 migration/application handover in the hosted inventory reservation contract;
 rolling back only to an older writer is not a working reservation rollback.
+
+## Supply catalog reader and writer floor (schema164)
+
+Migration 164 follows contribution migration 163 and allows hosted profiles with
+no retail slug. Supplier-created selections have `own_retail_enabled=false` and
+must be excluded from retail products and public publication. Both active and
+candidate releases therefore need `commerce.hosted-supply-catalog.v1` whenever
+164 is planned or retained, even with new supply creation disabled. Older readers
+cannot safely interpret these profiles or selections. Preserve the schema162
+inventory floor as well; an older worker alone is not a compatible rollback.
+
+The existing compatibility checker recognizes this shape in enabled, written
+and retained observations, including capability-only rollback floors. Restoring
+schema163 cannot erase a retained164 requirement. Exact source, artifact and
+ledger approvals remain required. This source registration does not apply a
+migration, deploy a release or enable reservation admission.

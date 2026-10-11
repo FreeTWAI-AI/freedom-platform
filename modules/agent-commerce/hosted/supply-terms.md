@@ -42,3 +42,54 @@ stock and per-supplier order visibility are still required next. It must reuse e
 acceptances and transfers while adding explicit cross-party authorization;
 removing the legacy `origin='imported'` filter is insufficient. The current direct
 reservation profile must not be used to accept foreign supply without that work.
+
+## Supply-only catalogs (schema164)
+
+The supplier guild enters `#stores/supply`, then a private supply catalog on the
+existing hosted-store instance. `POST .../supply-profile` accepts only name,
+currency and optional description. It reuses an existing profile without changing
+its IDs, retail publication or inventory. A new profile has a null slug: no public
+URL, template selection or retail activation is required. Both technical shop
+mappings remain so the existing offer, consent, order and stock authorities apply.
+
+`GET .../supply-profile` exposes metadata under `store:read`; the cost-bearing
+`GET/POST/PATCH .../supply-products` requires `store:write`. Setup requires
+`store:manage`. Offer publication continues to require the existing publish
+capability. Existing formal membership, tenant status, instance status, current
+capability checks before replay, CSRF, idempotency and version fences remain.
+
+New supply products use the existing inventory item and own selection, with
+`own_retail_enabled=false`. Retail product lists and publication projections
+exclude those selections. Editing supply cost never changes an existing retail
+price. Historical own retail selections default to true. A null-slug profile is
+excluded from `/me/stores` and rejected by retail setup/update, appearance,
+preview, publication and retailer-proposal entry points. `/me/supply-catalogs`
+includes reusable existing profiles. Retail activation is deliberately not an
+operation in this increment; a future explicit upgrade must retain IDs and
+require per-product retail opt-in before publishing any supplier placeholder.
+
+Publish a supply offer, have a separate retailer propose its retail terms, and
+let the supplier accept the exact version. Accepted offers, shared reservations,
+held stock and supplier orders use the existing immutable snapshots and durable
+holds. Reservation admission still requires the existing owner opt-ins; creating
+a catalog grants no checkout, payment or fulfilment authority. This supply-only
+UI does not configure that owner reservation opt-in; it remains available only
+through the existing authorized API until a separate UI increment.
+
+Migration164 changes only forward schema. Full database backups/restores must
+retain null slugs, `own_retail_enabled`, both shop mappings, items, selection
+versions, offers, consents and holds together. The existing whole-database backup
+and module data catalog cover these fields; a retail-only CSV is not a restore.
+Every active/candidate reader and writer requires
+`commerce.hosted-supply-catalog.v1` at schema164, even when admission is disabled.
+Do not roll back to an older binary that assumes every profile is a public store.
+
+New supply setup/create/update commands follow the private Work command pattern:
+receipts and HTTP command responses contain only instance/product IDs, version
+and (for setup) the created flag. They contain no name, description, cost, URL or
+raw input. The request contributes only its existing command digest. Exact-key
+retries return the original metadata receipt after current authorization, even
+when the resource has subsequently changed; effects are not repeated. The UI
+then calls the separately authorized metadata/product GET for current content.
+These GETs do not pretend to be the original command snapshot. Existing retail,
+supply-terms and offer receipt shapes are preserved as legacy contracts.

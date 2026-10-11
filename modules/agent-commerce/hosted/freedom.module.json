@@ -22,7 +22,13 @@
     "modules/agent-commerce/hosted/shared-orders.ts",
     "modules/agent-commerce/hosted/shared-quotes.ts",
     "modules/agent-commerce/hosted/supplier-orders.ts",
-    "modules/agent-commerce/hosted/shared-order-contract.md"
+    "modules/agent-commerce/hosted/shared-order-contract.md",
+    "contracts/guild-launchpad/v1/hosted-supply-catalog.ts",
+    "contracts/guild-launchpad/v1/hosted-supply-catalog.schema.json",
+    "apps/portal-web/src/modules/HostedSupplyCatalog.tsx",
+    "tests/runtime/hosted-supply-catalog.test.ts",
+    "tests/e2e/hosted-supply-catalog.spec.ts",
+    "migrations/164_hosted_supply_catalogs.sql"
   ],
   "public_exports": [],
   "dependencies": [
@@ -89,6 +95,27 @@
       "entry": "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
       "operations": [
         "storefront.supplier.orders.list"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.hosted-supply-catalog-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/HostedSupplyCatalog.tsx",
+      "operations": [
+        "storefront.supply-catalog.list",
+        "storefront.supply-catalog.read",
+        "storefront.supply-catalog.setup",
+        "storefront.supply-product.list",
+        "storefront.supply-product.create",
+        "storefront.supply-product.update",
+        "store.supply-terms.read",
+        "store.supply-terms.update",
+        "store.supply-offer.list",
+        "store.supply-offer.publish",
+        "store.supply-offer.withdraw",
+        "store.distribution.list",
+        "store.distribution.decide"
       ],
       "auth_profile": "member-session"
     }

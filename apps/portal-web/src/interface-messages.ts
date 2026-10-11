@@ -192,6 +192,7 @@ export const interfaceMessages = {
   'nav.guild-workspace': ['公會管理', 'Guild management', 'ギルド管理', '길드 관리', 'Gestión de gremios'],
   'nav.reservations': ['我的訂單', 'My orders', '注文履歴', '내 주문', 'Mis pedidos'],
   'nav.stores': ['我的商店', 'My stores', 'マイショップ', '내 상점', 'Mis tiendas'],
+  'stores.supplyTitle': ['我的供貨商品庫', 'My supply catalogs', 'マイ供給カタログ', '내 공급 카탈로그', 'Mis catálogos de suministro'],
   'nav.business': ['業務空間', 'Business workspace', 'ビジネススペース', '비즈니스 공간', 'Espacio de negocios'],
   'nav.community': ['自由工坊社群', 'Community', 'コミュニティ', '커뮤니티', 'Comunidad'],
   'nav.todos': ['待辦清單', 'To-do list', 'やることリスト', '할 일 목록', 'Lista de tareas'],

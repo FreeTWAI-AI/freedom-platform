@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-11 release.production=9d7d84bcf88cfc2ea4b34df83206280f645b8885 release.staging=9d7d84bcf88cfc2ea4b34df83206280f645b8885 flag.production=true flag.staging=true repo_max_migration=163 applied_migration.production=162 applied_migration.staging=162 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-11 release.production=9d7d84bcf88cfc2ea4b34df83206280f645b8885 release.staging=9d7d84bcf88cfc2ea4b34df83206280f645b8885 flag.production=true flag.staging=true repo_max_migration=164 applied_migration.production=162 applied_migration.staging=162 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-11 紐約時間 R18 更新（operator 私有收據的去敏摘要）：production 與 staging 均已部署 #441 `9d7d84bc`，與 reviewed `e6b5e767` 的 CI 候選同 tree，兩環境使用同一份 dist。本輪追加 migration162；目前到162、ledger共161筆，022仍是唯一歷史缺號。公會啟動台保持啟用，既有capacity／authority政策列不變。
 
