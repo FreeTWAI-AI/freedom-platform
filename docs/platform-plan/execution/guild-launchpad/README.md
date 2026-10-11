@@ -6,17 +6,17 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-10 release.production=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa release.staging=2d5f158c9885765ed20a9bb5f9f9210e6f2740aa flag.production=true flag.staging=true repo_max_migration=160 applied_migration.production=148 applied_migration.staging=148 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-11 release.production=b9ed788cc380ae1bd286158ee1dc55fdbbadcceb release.staging=b9ed788cc380ae1bd286158ee1dc55fdbbadcceb flag.production=true flag.staging=true repo_max_migration=160 applied_migration.production=160 applied_migration.staging=160 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-本候選的 repository migration 已到 160（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動，149 為 #412 通知偏好、150 為 #405 訊息收回、151 為 #410 互動通知、152 為 #347 第一次參與、153 為 #348 活動參與、154 為小隊成果、155 為活動成果、156 為登入信箱變更、157 為信箱驗證、158 為 TOTP、159 為參與統計、160 為會員檢舉）；這是程式整合狀態，兩環境已套用的版本仍為下述 148。
+2026-10-10 紐約時間 R16 更新（觀察時間 UTC 2026-10-11，operator 私有收據的去敏摘要）：production 與 staging 都已部署 #434 `b9ed788c`，與 reviewed `907b2516` 同 tree，使用同一份 dist。兩環境本輪套用149–160，repository與已套用migration均到160，ledger共159筆；022仍是唯一歷史缺號。公會啟動台保持啟用，既有capacity／authority政策列不變。
 
-2026-10-10 R15 更新（operator 私有收據的去敏摘要）：production 與 staging 都已部署 #427 `2d5f158c`，與 reviewed `fccc1739` 同 tree，使用同一份 dist。正式站套用 142–148，staging 在 R15 前已到 148、本輪沒有重套；兩邊 ledger 共 147 筆，022 是唯一歷史缺號。公會啟動台保持啟用，留言圖片為 r2_only／64 MiB；排程、GC 與 retention 維持原狀。
+Staging選定檢查為公開36、帳號／TOTP28、商店24、社群26、小隊16、Banner13、訊息48、內容搜尋50、互動通知22、訊息收回19項；production為公開36與帳號／TOTP28項HTTP檢查。商店使用既有合成合格會員，其餘流程亦為合成帳號；這不是一般真人反覆使用或完整Foundation／M1驗收。
 
-Staging 實際商店 24、社群 26、小隊 16、公開入口 34 項通過；正式站公開 34／登入 19 項 HTTP 檢查通過。兩環境發布前後四份備份均完成磁碟 DB／物件還原與異地 readback，daily operator 與兩環境 runtime pins 皆為 `2d5f158c`，臨時 staging Access 已撤銷。這些選定檢查不代表完整 Foundation／M1 或第二操作者恢復驗收。
+兩環境發布前後四份備份均完成磁碟DB／物件隔離還原、遠端readback與清理，daily operator及runtime pins均為`b9ed788c`；臨時staging Access已撤銷。訊息圖片採r2_only，purpose保存容量64MiB，單張上傳上限仍為2MiB；既有商品照片與留言圖片政策保留。搜尋、會員封鎖與通知偏好已啟用；跨店預留、Star gate、檢舉、首次參與、指標、活動候補／成果及GC／retention保持OFF。T-047恢復後tenant撤權存續、第二操作者／異機TOTP金鑰恢復仍未完成，隔離restore成功不授予重新公開服務的權限。
 
-詳見 [R15 發布收據](../unified-foundation/rollout-r15-2026-10-10.json) 與 [現況快照](../unified-foundation/current-state.json)。較早的 [e977 發布收據](../unified-foundation/rollout-2026-10-10.json) 保留為歷史。#425／#426 以及本次 #429 的程式整合不在 R15 發布範圍內；不得把本候選或 repository 最大 migration 當成已部署。installed CI source 仍為 `fa2fcdef`，實際正反例見[固定 workflow 收據](../../verification/main-ruleset-2026-10-10.json)。
+詳見[R16發布收據](../unified-foundation/rollout-r16-2026-10-10.json)與[現況快照](../unified-foundation/current-state.json)。[R15收據](../unified-foundation/rollout-r15-2026-10-10.json)及[e977收據](../unified-foundation/rollout-2026-10-10.json)保留歷史；R16已包含#425／#426及#434的有界整合。installed Verify source為`dc2f5ba8`，必要checks與review仍保留。後續主交付集中跨店訂單共用庫存，再完成一次庫存模組外移與本人CLI／BYOK執行流程，不擴大本批功能。
 
-以下 r9 的部署／migration／功能與候選描述保留為 2026-10-08 歷史紀錄；最新部署與已套用 schema 以上述 10 月 10 日摘要及現況快照為準，不把本輪 selected HTTP checks 當成原 T-ID 或完整產品驗收。
+以下r9的部署／migration／功能與候選描述保留為2026-10-08歷史紀錄；最新部署與已套用schema以上述R16摘要及現況快照為準，不把selected checks當成原T-ID或完整產品驗收。
 
 本節以下的部署與已套用 migration 是 r9 歷史收據，觀察截至 2026-10-08 19:46Z，不是即時狀態；repository 最大編號則反映本候選原始碼。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
