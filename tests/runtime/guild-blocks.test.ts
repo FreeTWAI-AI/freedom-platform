@@ -6,6 +6,7 @@ import CatalogBlock from '../../modules/guild-supply/CatalogBlock';
 import WorksBlock from '../../modules/guild-open-source/WorksBlock';
 import {GuildBlock} from '../../apps/portal-web/src/guild-blocks/runtime';
 import type {GuildBlockProps} from '../../packages/guild-presentation/block';
+import {canReplaceLaunchpadLayout} from '../../modules/guild-workspace/launchpad-layout-guards';
 import {BLOCK_KINDS, parseConfig as parseV1} from '../../contracts/guild-launchpad/v1/config';
 import {parseConfig, convertV1, assertAvailableBlocks, publicSafeConfig} from '../../contracts/guild-launchpad/v2/config';
 // @ts-expect-error Build tooling is a native ESM JavaScript module.
@@ -70,4 +71,27 @@ test('unknown stored versions can render inert but cannot be published; public p
   assert.throws(() => assertAvailableBlocks(loaded, new Set([extension.extension_id])));
   assert.equal('extensions' in publicSafeConfig(loaded), false);
   assert.deepEqual(publicSafeConfig(loaded).blocks, body.blocks);
+});
+
+
+test('layout edits and late adoption preserve mounted work and launch flows when leave is rejected', () => {
+  const current = convertV1(v1());
+  for (const kind of ['my_work', 'applications'] as const) {
+    for (const change of ['disable', 'remove', 'replace-id'] as const) {
+      const next = structuredClone(current);
+      next.blocks = change === 'remove' ? next.blocks.filter(block => block.kind !== kind)
+        : next.blocks.map(block => block.kind !== kind ? block : {...block, ...(change === 'disable' ? {enabled: false} : {id: 'replacement'})});
+      let calls = 0;
+      assert.equal(canReplaceLaunchpadLayout(current, next, {[kind]: () => {calls++; return false;}}), false, `${kind}/${change}`);
+      assert.equal(calls, 1);
+      assert.equal(canReplaceLaunchpadLayout(current, next, {[kind]: () => true}), true);
+      assert.equal(canReplaceLaunchpadLayout(current, next, {}), true);
+    }
+  }
+  assert.equal(canReplaceLaunchpadLayout(current, structuredClone(current), {my_work: () => {throw new Error('unchanged section');}}), true);
+  assert.equal(canReplaceLaunchpadLayout(null, current, {my_work: () => {throw new Error('initial load');}}), true);
+  const legacy = v1();
+  legacy.blocks = legacy.blocks.map(block => block.kind === 'my_work' ? {...block, enabled: false} : block);
+  assert.equal(canReplaceLaunchpadLayout(v1(), legacy, {my_work: () => {throw new Error('v1 work remains visible');}}), true);
+  assert.equal(canReplaceLaunchpadLayout(legacy, {...legacy, schema_version: 'guild-launchpad.config/v2'}, {my_work: () => false}), false);
 });

@@ -71,7 +71,8 @@
     "apps/platform-api/src/routes/guild-launchpad.ts",
     "contracts/guild-launchpad/v1/config.ts",
     "contracts/guild-launchpad/v2/config.ts",
-    "modules/guild-workspace/LegacyLaunchpadPrimary.tsx"
+    "modules/guild-workspace/LegacyLaunchpadPrimary.tsx",
+    "modules/guild-workspace/launchpad-layout-guards.ts"
   ],
   "dependencies": [
     "command-core",

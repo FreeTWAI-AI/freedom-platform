@@ -39,6 +39,29 @@ for (const sample of [
     expect(original.body.schema_version).toBe('guild-launchpad.config/v1');
     await page.goto(`/#guilds/${sample.guild}`);
     await page.getByRole('button', {name: '啟用可組裝版面', exact: true}).click();
+    if (sample.guild === 'guild_product_quality_supply') {
+      const session = await (await page.request.get('/api/v1/session')).json();
+      const created = await page.request.post('/api/v1/tenants', {data: {display_name: `組裝離開守門 ${id}`, workspace_name: '預設工作區'}, headers: {
+        Origin: baseURL!, 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': randomUUID(),
+      }});
+      expect(created.status()).toBe(201);
+      // Reload once so the existing My Work panel discovers the synthetic tenant.
+      await page.reload();
+      await page.getByRole('button', {name: '啟用可組裝版面', exact: true}).click();
+      await page.getByRole('button', {name: '啟用手動工作', exact: true}).click();
+      await page.locator('#my-work-title').fill('尚未保存的組裝測試草稿');
+      const workToggle = page.locator('.guild-launchpad-editor .guild-launchpad-block').filter({has: page.locator('p', {hasText: /^我的工作$/})}).getByRole('checkbox');
+      page.once('dialog', dialog => {expect(dialog.message()).toBe('有尚未儲存的內容，確定要離開嗎？'); void dialog.dismiss();});
+      await workToggle.click();
+      await expect(workToggle).toBeChecked();
+      await expect(page.locator('#my-work-title')).toHaveValue('尚未保存的組裝測試草稿');
+      page.once('dialog', dialog => {expect(dialog.message()).toBe('有尚未儲存的內容，確定要離開嗎？'); void dialog.accept();});
+      await workToggle.click();
+      await expect(workToggle).not.toBeChecked();
+      await expect(page.locator('#my-work-title')).toHaveCount(0);
+      await workToggle.check();
+    }
+
     await page.getByRole('combobox', {name: '加入公會工具', exact: true}).selectOption(sample.id);
     await page.getByRole('button', {name: '新增公會區塊', exact: true}).click();
     await page.getByRole('button', {name: '預覽公開', exact: true}).click();

@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useId,useRef,useState} from 'react';
 import {hasLoneSurrogate, recommendedApplications, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
 import {parseConfig, convertV1, type Config, type ConfigView} from '../../../../contracts/guild-launchpad/v2/config';
+import {canReplaceLaunchpadLayout} from '../../../../modules/guild-workspace/launchpad-layout-guards';
 import {GuildBlock, type GuildBlockLoaders} from '../guild-blocks/runtime';
 import {LaunchpadApplicationSchema, type LaunchpadApplication} from '../../../../contracts/guild-launchpad/v1/module-registry';
 import {ApiError, type PortalClient} from '../api';
@@ -309,11 +310,14 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     return () => {live = false;};
   }, [showEditor, blockLoaders]);
 
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const canAdoptLayout = (next: Config) => canReplaceLaunchpadLayout(draftRef.current, next, {applications: launchLeaveGuard.current, my_work: leaveGuard.current});
+
   function remember(view: ConfigView, announce = true) {
     const next = asConfig(guildKey, view.body);
-    // Check at adoption: this response may predate a now-pending tenant creation.
-    if (!next.blocks.some(block => block.kind === 'applications' && block.enabled)
-      && launchLeaveGuard.current && !launchLeaveGuard.current()) {
+    // Check current mounted editors at adoption: this response may predate pending work.
+    if (!canAdoptLayout(next)) {
       setBanner('最新配置尚未套用。請先確認原操作，再重新載入最新版本。'); setConflict(true);
       return false;
     }
@@ -488,9 +492,10 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     } catch (error) { fail(error); }
   }
   function updateBlock(index: number, patch: Partial<Pick<Config['blocks'][number], 'title' | 'enabled' | 'order'>>) {
-    if (draft?.blocks[index]?.kind === 'applications' && patch.enabled === false
-      && launchLeaveGuard.current && !launchLeaveGuard.current()) return;
-    setDraft(current => current && ({...current, blocks: current.blocks.map((block, blockIndex) => blockIndex === index ? {...block, ...patch} : block)} as Config));
+    const current = draftRef.current;
+    if (!current) return;
+    const next = {...current, blocks: current.blocks.map((block, blockIndex) => blockIndex === index ? {...block, ...patch} : block)} as Config;
+    if (canAdoptLayout(next)) setDraft(next);
   }
   function moveBlock(index: number, delta: number) {
     setDraft(current => {
