@@ -2,9 +2,11 @@
 
 The launchpad reads published guild configuration and computes a platform default when no usable revision exists. Leaders and delegates save immutable drafts, preview them, publish with pointer CAS, and revert by creating a new revision. Public configuration passes through `publicSafeConfig`; guild content authority grants no access to tenant Work.
 
-`launchpad-profiles.ts` defines purpose profiles for `guild_commerce_sales`, `guild_commercial_production` and `guild_talent_direction`; every other guild keeps the existing block order and empty recommendations. Default `application_refs` come from offered releases in the viewer's scope. `PLATFORM_DEFAULT_REVISION` pins default content at `4`, while `DEFAULT_POINTER_VERSION` keeps the initial pointer CAS at `1`. The primary application is the first application returned by `recommendedApplications` for the rendered configuration.
+`launchpad-profiles.ts` defines purpose profiles for `guild_commerce_sales`, `guild_product_quality_supply`, `guild_commercial_production` and `guild_talent_direction`; every other guild keeps the existing block order and empty recommendations. Default `application_refs` come from offered releases in the viewer's scope. `PLATFORM_DEFAULT_REVISION` pins default content at `5`, while `DEFAULT_POINTER_VERSION` keeps the initial pointer CAS at `1`. The primary application is the first application returned by `recommendedApplications` for the rendered configuration.
 
-The commerce purpose profile recommends 「線上商店」 first, followed by the existing manual workspace; the production profile keeps manual workspace first.
+The commerce and supplier purpose profiles recommend 「線上商店」 first, followed by the existing manual workspace; the production profile keeps manual workspace first.
+
+供應商公會的預設主要動作「商品與供貨」沿用同一個線上商店，說明商品→供貨條件→公開供貨版本→供貨合作的路徑。只有供應商公會正式資格即可依既有啟動規則建立商店，不要求另入電商公會；實習資格及 tenant／instance 權限保持原樣。已發布的公會推薦仍優先，不自動覆蓋。
 
 The portal parses `#guilds/<key>` in the UI-free `guild-launchpad-route.ts` helper. The public launchpad loads through `React.lazy` under App's existing `PageLoadBoundary`; the member launchpad remains inside the lazy guilds panel. `GuildLaunchpad`, `GuildLaunchpadMyWork` and `GuildLaunchpadApplications` are not part of the initial index chunk.
 
@@ -30,7 +32,7 @@ The portal parses `#guilds/<key>` in the UI-free `guild-launchpad-route.ts` help
 仍走原有建立空間／啟用手動工作，訪客與實習成員不取得工作權限。下架 offering 不生成
 替代推薦；已存在的 Work 存取仍由原 API 判定。
 
-平台預設內容 revision 4 對所有平台預設視圖生效，pointer CAS 仍從 1 開始，
+平台預設內容 revision 5 對所有平台預設視圖生效，pointer CAS 仍從 1 開始，
 config schema v1 不變，沒有資料庫 migration。SP-03 §2.3 的 v0 原文保留；本次人才
 default starter 使用已提供的方向卡說明。會長已發布的 starter、block order 及推薦
 exact refs 仍是權威，不在讀取或呈現時改寫成平台預設；製作與其他公會的既有內容不變。

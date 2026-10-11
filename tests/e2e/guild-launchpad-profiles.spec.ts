@@ -6,10 +6,12 @@ import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
 import type {Config} from '../../contracts/guild-launchpad/v1/config.js';
 
+const supplier = 'guild_product_quality_supply';
 const commerce = 'guild_commerce_sales';
 const production = 'guild_commercial_production';
 const talent = 'guild_talent_direction';
 const profiles = [
+  {key: supplier, title: '商品與供貨', headings: ['使命', '應用', '我的工作', '公告', '技能書', '公共任務', '協助']},
   {key: commerce, title: '線上商店', headings: ['使命', '應用', '我的工作', '公告', '技能書', '公共任務', '協助']},
   {key: talent, title: '我的方向卡', headings: ['使命', '我的工作', '技能書', '公告', '應用', '公共任務', '協助']},
   {key: production, title: '拍攝brief／分鏡／交付', headings: ['使命', '我的工作', '技能書', '公告', '應用', '公共任務', '協助']},
@@ -18,16 +20,16 @@ const primary = (page: Page) => page.getByRole('region', {name: '主要動作', 
 const recommendations = (page: Page) => page.getByRole('region', {name: '公會推薦', exact: true});
 const flow = (page: Page) => page.getByRole('region', {name: '啟動應用', exact: true});
 
-async function person(db: Pool, leader = false) {
+async function person(db: Pool, leader = false, guilds = [commerce, production, talent, supplier]) {
   const id = randomUUID();
   const email = `profile-${id}@example.test`;
   await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
     VALUES($1,$2,$3,'用途配置測試會員',$4,$5,false)`, [id, DEMO_COMMUNITY, email, hashPassword(DEMO_PASSWORD), randomUUID()]);
-  for (const key of [commerce, production, talent]) {
+  for (const key of guilds) {
     await db.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, id, key]);
   }
-  await db.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)', [DEMO_COMMUNITY, id, commerce]);
+  await db.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)', [DEMO_COMMUNITY, id, guilds[0]]);
   if (leader) await db.query(`INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)
     ON CONFLICT (community_id,guild_key) DO UPDATE SET user_id=$3`, [DEMO_COMMUNITY, commerce, id]);
   return {id, email};
@@ -69,7 +71,7 @@ test('members see distinct purpose orders and their primary action focuses My Wo
     await expect(page.locator('.guild-launchpad > .guild-launchpad-block > h2')).toHaveText(profile.headings);
     await expect(primary(page).getByRole('heading', {level: 2})).toHaveText(profile.title);
     await expect(page.locator('.launchpad-applications')).toHaveCount(1);
-    if (profile.key === commerce) {
+    if ([commerce, supplier].includes(profile.key)) {
       await expect(primary(page).getByRole('button', {name: '建立我的商店', exact: true})).toBeEnabled();
       await expect(recommendations(page).locator('.application-card').first()).toContainText('線上商店');
     } else {
@@ -78,7 +80,7 @@ test('members see distinct purpose orders and their primary action focuses My Wo
       await expect(recommendations(page).locator('.application-card').first()).toContainText('人工工作空間');
     }
   }
-  for (const key of [commerce, talent]) {
+  for (const key of [commerce, supplier, talent]) {
     await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET member_tier='intern',aggregate_version=aggregate_version+1
       WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [DEMO_COMMUNITY, member.id, key]);
     await open(page, key);
@@ -86,6 +88,50 @@ test('members see distinct purpose orders and their primary action focuses My Wo
     await expect(primary(page)).not.toContainText('建立新方向卡或繼續原卡');
     await expect(primary(page).getByRole('button')).toHaveCount(0);
   }
+});
+
+test('supplier-only member opens the existing store and publishes supply without joining commerce', async ({page, e2eAuthPool}) => {
+  const member = await person(e2eAuthPool, false, [supplier]);
+  await login(page, member.email); await open(page, supplier);
+  await expect(primary(page)).toContainText('供貨使用同一個線上商店');
+  await primary(page).getByRole('button', {name: '建立我的商店', exact: true}).focus();
+  await page.keyboard.press('Enter');
+  const launch = flow(page);
+  await launch.getByLabel('業務空間名稱', {exact: true}).fill('供應商工作室');
+  await launch.getByRole('button', {name: '建立業務空間', exact: true}).click();
+  await launch.getByRole('button', {name: '產生啟動方案', exact: true}).click();
+  await launch.getByRole('button', {name: '確認啟動', exact: true}).click();
+  await launch.getByRole('button', {name: '設定我的商店', exact: true}).click();
+  const storeHash = new URL(page.url()).hash;
+  const setup = page.getByRole('form', {name: '建立商店', exact: true});
+  await setup.getByLabel('商店名稱', {exact: true}).fill('供應商商品庫');
+  await setup.getByLabel('商店網址', {exact: true}).fill('supply-' + randomUUID().slice(0, 8));
+  await setup.getByRole('button', {name: '建立商店', exact: true}).click();
+  const product = page.getByRole('form', {name: '新增商品', exact: true});
+  await product.getByLabel('商品名稱', {exact: true}).fill('供貨茶杯');
+  await product.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('300');
+  await product.getByLabel('庫存', {exact: true}).fill('10');
+  await product.getByRole('button', {name: '新增商品', exact: true}).click();
+  await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
+  const supply = page.getByRole('form', {name: '供貨茶杯供貨條件', exact: true});
+  await supply.getByLabel('供貨單價（TWD）', {exact: true}).fill('150');
+  await supply.getByLabel('每件運費（TWD）', {exact: true}).fill('0');
+  await supply.getByRole('textbox', {name: '出貨條件', exact: true}).fill('三日內出貨');
+  await supply.getByRole('textbox', {name: '退貨條件', exact: true}).fill('請先聯絡供應商');
+  await supply.getByRole('button', {name: '儲存供貨條件', exact: true}).click();
+  await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
+  await supply.getByRole('button', {name: '公開供貨版本', exact: true}).click();
+  await expect(page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'})).toBeVisible();
+  await page.getByRole('button', {name: '設定', exact: true}).click();
+  await page.getByRole('menu', {name: '個人檔案'}).getByRole('menuitem', {name: '登出', exact: true}).click();
+  await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
+  await login(page, member.email); await open(page, supplier);
+  await primary(page).getByRole('button', {name: '進入我的商店', exact: true}).click();
+  await expect(page).toHaveURL(new RegExp(storeHash + '$'));
+  await page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'}).click();
+  await expect(page.locator('.hosted-distribution')).toContainText('供貨茶杯');
+  const memberships = (await e2eAuthPool.query("SELECT guild_key FROM positioning_profession_memberships WHERE user_id=$1 AND state='active'", [member.id])).rows;
+  expect(memberships).toEqual([{guild_key: supplier}]);
 });
 
 test('talent entry focuses the existing workspace, then saves and reopens the same direction card after fresh login', async ({page, e2eAuthPool}) => {

@@ -14,6 +14,10 @@ export const LAUNCHPAD_PROFILES: Readonly<Partial<Record<string, PurposeProfile>
     block_order: Object.freeze(['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support'] as const),
     preferred_applications: Object.freeze(['hosted-store', 'manual-workspace']),
   }),
+  guild_product_quality_supply: Object.freeze({
+    block_order: Object.freeze(['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support'] as const),
+    preferred_applications: Object.freeze(['hosted-store', 'manual-workspace']),
+  }),
   guild_commercial_production: Object.freeze({
     block_order: Object.freeze(['mission', 'my_work', 'skill_books', 'announcements', 'applications', 'community_tasks', 'support'] as const),
     preferred_applications: Object.freeze(['manual-workspace']),

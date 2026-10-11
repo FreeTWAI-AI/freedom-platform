@@ -181,12 +181,14 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   useEffect(() => { if (workRefresh) focusWork(); }, [workRefresh]);
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
   const primary = recommendedApplications(config.application_refs, applications)[0];
+  const supplyEntry = guildKey === 'guild_product_quality_supply' && primary?.application_key === 'hosted-store';
   const showPrimary = !visitor && mode === 'member' && Boolean(userId) && primary
     && (primary.application_key === 'manual-workspace' || blocks.some(block => block.kind === 'applications'));
   return <>
     {memberTier && <p className="field-hint">成員身分：{memberTier === 'intern' ? '實習成員' : memberTier === 'full' ? '正式成員' : memberTier}</p>}
     {showPrimary && <section className="card guild-launchpad-primary" aria-label="主要動作">
-      <h2>{primary.application_key === 'manual-workspace' ? config.starter.title_label : primary.display_name}</h2>
+      <h2>{primary.application_key === 'manual-workspace' ? config.starter.title_label : supplyEntry ? '商品與供貨' : primary.display_name}</h2>
+      {supplyEntry && <p>供貨使用同一個線上商店。新增商品後，開啟「供貨條件」儲存草稿，再按「公開供貨版本」；店主提出選品與售價後，在「供貨合作」確認。</p>}
       {primary.application_key === 'manual-workspace' ? <>
         <p>{config.starter.objective_hint}</p>
         {guildKey === 'guild_talent_direction' && memberTier === 'full' && <p className="field-hint">在下方選擇可使用的工作空間，再建立新方向卡或繼續原卡；尚未完成設定時，依下方提示完成設定。</p>}

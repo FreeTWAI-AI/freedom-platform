@@ -12,8 +12,8 @@ import {
 import {assertOfferedApplications, availableReleases} from '../module-registry/catalog.js';
 import {LAUNCHPAD_PROFILES} from './launchpad-profiles.js';
 
-/** Revision 4 exposes the existing direction card through the talent default. */
-export const PLATFORM_DEFAULT_REVISION = '4';
+/** Revision 5 exposes the existing hosted supply flow through the supplier default. */
+export const PLATFORM_DEFAULT_REVISION = '5';
 /** Initial pointer CAS remains 1 independently of the default content revision. */
 export const DEFAULT_POINTER_VERSION = '1';
 export const PUBLISHED_EVENT = 'freedom.guild.launchpad.config.published.v1';
