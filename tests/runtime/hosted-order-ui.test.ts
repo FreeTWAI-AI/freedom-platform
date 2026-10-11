@@ -51,3 +51,8 @@ test('cancellation acknowledgement binds order, store and intent and requires a 
   assert.equal(observed?.order.state, 'reserved'); assert.equal(observed?.confirmed, false);
   for (const raw of [{}, {...cancelled, order_id: other}, {...cancelled, client_order_id: other}, {...cancelled, store: {...terms.store, slug: 'other-shop'}}]) assert.equal(readCancelObservation(raw, expected), null);
 });
+
+test('product reservation links accept only an exact published SKU shape without redirects or extra state', () => {
+  assert.deepEqual(buyerRoute('#reservations/small-shop/product/P0001'), {kind: 'shop', slug: 'small-shop', sku: 'P0001'});
+  for (const hash of ['#reservations/small-shop/product/P0001/extra', '#reservations/small-shop/product/P0001?quantity=99', '#reservations/small-shop/product/%500001', '#reservations/small-shop/product/p0001', '#reservations/small-shop/product/P0001\n', '#reservations/small-shop/product/P'+'0'.repeat(24)]) assert.equal(buyerRoute(hash), null);
+});
