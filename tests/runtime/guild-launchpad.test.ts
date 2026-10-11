@@ -8,6 +8,7 @@ import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packag
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {BLOCK_KINDS, ConfigValidationError, parseConfig} from '../../contracts/guild-launchpad/v1/config.js';
 import {defaultConfigFor} from '../../modules/guild-workspace/launchpad-config.js';
+import {convertV1} from '../../contracts/guild-launchpad/v2/config.js';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -76,6 +77,50 @@ async function counts() {
   for (const table of tables) result[table] = (await pool.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n;
   return result;
 }
+
+test('reviewed v2 blocks use existing draft, preview, publish and revert authority without rewriting v1 history', async () => {
+  const leader = await signIn(), member = await signIn(DEMO_USERS[1].email);
+  await lead(leader.user.user_id); await join(member.user.user_id, guild);
+  const original = defaultConfigFor(await catalog(guild));
+  const old = await request(`/guilds/${guild}/launchpad-config/drafts`, leader, {body: original}, '1');
+  assert.equal(old.status, 201);
+  const first = await request(`/guilds/${guild}/launchpad-config/${old.data.config_id}/publish`, leader, {expected_body_sha256: old.data.body_sha256}, old.data.pointer_version);
+  assert.equal(first.status, 200);
+  const assembled = convertV1(original);
+  assembled.blocks.push({id: 'supply', kind: 'extension', extension_id: 'guild-block.supply-catalog.v1', order: 7, enabled: true, title: '供貨摘要', settings: {}});
+  assembled.blocks.push({id: 'works', kind: 'extension', extension_id: 'guild-block.open-source-works.v1', order: 8, enabled: true, title: '作品摘要', settings: {}});
+  const unchanged = await counts();
+  const preview = await request(`/guilds/${guild}/launchpad-config/preview`, leader, {body: assembled, preview_mode: 'member'});
+  assert.equal(preview.status, 200, JSON.stringify(preview.data)); assert.deepEqual(await counts(), unchanged);
+  const denied = await request(`/guilds/${guild}/launchpad-config/drafts`, member, {body: assembled}, first.data.pointer_version);
+  assert.equal(denied.status, 403); assert.deepEqual(await counts(), unchanged);
+  const draft = await request(`/guilds/${guild}/launchpad-config/drafts`, leader, {body: assembled}, first.data.pointer_version);
+  assert.equal(draft.status, 201, JSON.stringify(draft.data));
+  assert.equal((await request(`/public/guilds/${guild}/launchpad`)).data.config.body.schema_version, 'guild-launchpad.config/v1');
+  const published = await request(`/guilds/${guild}/launchpad-config/${draft.data.config_id}/publish`, leader, {expected_body_sha256: draft.data.body_sha256}, draft.data.pointer_version);
+  assert.equal(published.status, 200, JSON.stringify(published.data));
+  const visible = await request(`/public/guilds/${guild}/launchpad`);
+  assert.equal(visible.data.config.body.schema_version, 'guild-launchpad.config/v2');
+  assert.equal(visible.data.config.body.blocks.length, 9); assert.equal('extensions' in visible.data.config.body, false);
+  const prior = (await pool.query('SELECT body,body_sha256 FROM guild_launchpad_config_revisions WHERE config_id=$1', [old.data.config_id])).rows[0];
+  assert.deepEqual(prior.body, original); assert.equal(prior.body_sha256, old.data.body_sha256);
+  const reverted = await request(`/guilds/${guild}/launchpad-config/revert`, leader, {to_revision: first.data.revision, reason: '回復原七區塊版面'}, published.data.pointer_version);
+  assert.equal(reverted.status, 200, JSON.stringify(reverted.data)); assert.deepEqual(reverted.data.body, original);
+});
+
+test('unknown v2 block cannot be previewed or saved even by a current leader', async () => {
+  const leader = await signIn(); await lead(leader.user.user_id);
+  const body = convertV1(defaultConfigFor(await catalog(guild)));
+  body.blocks.push({id: 'unknown', kind: 'extension', extension_id: 'guild-block.not-reviewed.v1', order: 7, enabled: true, title: null, settings: {}});
+  const before = await counts();
+  for (const [path, input, version] of [
+    ['preview', {body, preview_mode: 'member'}, undefined], ['drafts', {body}, '1'],
+  ] as const) {
+    const result = await request(`/guilds/${guild}/launchpad-config/${path}`, leader, input, version);
+    assert.equal(result.status, 422); hasError(result.data, 'block_version_unavailable');
+  }
+  assert.deepEqual(await counts(), before);
+});
 
 test('every catalog guild and one custom guild resolve the platform default on public and member views', async () => {
   const hex = randomUUID().replaceAll('-', '');

@@ -4,7 +4,8 @@ import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog, skillBooksForGuild, type SkillBook} from '../community/catalog.js';
-import {ConfigValidationError, assertStoredVersion, publicSafeConfig, type ConfigView} from '../../contracts/guild-launchpad/v1/config.js';
+import {ConfigValidationError, assertStoredVersion} from '../../contracts/guild-launchpad/v1/config.js';
+import {publicSafeConfig, type ConfigView} from '../../contracts/guild-launchpad/v2/config.js';
 import {applicationsForGuild, availableReleaseRefs, availableReleases} from '../module-registry/catalog.js';
 import {
   DEFAULT_POINTER_VERSION, activeMember, assertDelegatedViewerDeadline, listDelegationCandidates, listDelegations, listRevisionMeta, loadCatalog, platformDefaultView,
