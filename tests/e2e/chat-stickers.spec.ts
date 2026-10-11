@@ -73,6 +73,30 @@ async function post(page:Page,path:string,data:unknown){
   expect(response.status()).toBe(201);return response.json();
 }
 
+test('older history waits for the confirmed read refresh instead of losing its page to that refresh',async({browser,baseURL})=>{
+  await db.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at)
+    VALUES($1,$2,$3,'合成舊訊息',now()-interval '2 hours')`,[DEMO_COMMUNITY,accounts[0].id,accounts[1].id]);
+  await db.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at)
+    SELECT $1,$2,$3,'合成回覆 '||i,now()-interval '1 hour'+i*interval '1 second' FROM generate_series(1,21) AS i`,[DEMO_COMMUNITY,accounts[1].id,accounts[0].id]);
+  const sender=await member(browser,baseURL!,0);
+  let release=()=>{},committed=()=>{};
+  const gate=new Promise<void>(resolve=>{release=resolve;}),seen=new Promise<void>(resolve=>{committed=resolve;});
+  const path=`**/api/v1/me/conversations/${accounts[1].id}/read`;
+  await sender.route(path,async route=>{
+    const response=await route.fetch();committed();await gate;await route.fulfill({response});
+  });
+  try{
+    const panel=await direct(sender,accounts[1]);await seen;
+    const older=panel.getByRole('button',{name:'載入較早訊息',exact:true});
+    await expect(older).toBeDisabled();
+    const response=sender.waitForResponse(url=>url.url().endsWith(`/me/conversations/${accounts[1].id}/read`));
+    release();expect((await response).status()).toBe(200);
+    await expect(older).toBeEnabled();await older.click();
+    await expect(panel.locator('.messages-bubbles > li')).toHaveCount(22);
+    await expect(panel.locator('.messages-bubbles > .is-mine .messages-meta')).toHaveText(/已送出/);
+  }finally{release();await sender.unroute(path);}
+});
+
 for(const [outgoing,incoming] of [[25,0],[1,21]]){
   test(`private read receipts refresh older loaded history (${outgoing} outgoing, ${incoming} newer incoming)`,async({browser,baseURL})=>{
     await db.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at)

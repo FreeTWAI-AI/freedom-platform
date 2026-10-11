@@ -367,6 +367,9 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     try{
       const activity=await client.get<ConversationActivity>(`/me/conversations/${encodeURIComponent(id)}/activity`,{background:true});
       if(!alive.current||generation!==threadGeneration.current||currentPeer.current!==id||!snapshot.current.active||snapshot.current.sending)return;
+      // A member can request older history while this activity probe is out.
+      // Its later refresh must not invalidate that in-flight history page.
+      if(moreState.current.loading||readLocks.current.has(id))return;
       const receiptsDue=directMessageReceiptRefreshDue(shown.thread.items,me,receiptCheckedAt.current.get(id)??0,Date.now());
       if(!hasDirectMessageChanges(activity,shown.thread,receiptRefresh.current.has(id)||receiptsDue)){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
       idlePoll.current=resetChatPoll();
@@ -406,8 +409,9 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   useEffect(()=>{if(threadStatus==='ready'&&focusThread.current){focusThread.current=false;heading.current?.focus();}},[threadStatus]);
 
   async function earlier(){
-    if(!thread||thread.next_offset===null||threadMore.loading||!peer)return;
-    const current=threadGeneration.current,id=peer;setThreadMore({loading:true,error:''});
+    if(!thread||thread.next_offset===null||threadMore.loading||!peer||threadInFlight.current||readLocks.current.has(peer))return;
+    const current=threadGeneration.current,id=peer;
+    moreState.current={loading:true,error:''};setThreadMore(moreState.current);
     try{
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=${thread.next_offset}`);
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
@@ -552,10 +556,10 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
         {threadStatus==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{threadError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(peer)}>重新讀取訊息</button></div></div>}
         {threadStatus==='ready'&&thread&&<>
           {/* Also the safe way to check an unconfirmed send: the pending key and draft stay as they are. */}
-          <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" aria-label="重新讀取訊息" type="button" aria-disabled={threadRefresh.loading} onClick={()=>{if(!threadRefresh.loading)void loadThread(peer,true);}}>{threadRefresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
+          <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" aria-label="重新讀取訊息" type="button" aria-disabled={threadRefresh.loading||threadMore.loading||reading} onClick={()=>{if(!threadRefresh.loading&&!moreState.current.loading&&!readLocks.current.has(peer))void loadThread(peer,true);}}>{threadRefresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
           {threadRefresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{threadRefresh.error}</p>}
           <div ref={scroll} className="messages-scroll" role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label={`與${thread.participant.display_name}的對話紀錄`} onScroll={()=>{if(scroll.current){stick.current=scroll.current.scrollHeight-scroll.current.scrollTop-scroll.current.clientHeight<80;if(stick.current)setHasNew(false);}}}>
-          {thread.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={threadMore.loading} onClick={()=>void earlier()}>{threadMore.loading?'正在讀取…':threadMore.error?'重試載入較早訊息':'載入較早訊息'}</button>}
+          {thread.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={threadMore.loading||threadRefresh.loading||reading} onClick={()=>void earlier()}>{threadMore.loading?'正在讀取…':threadMore.error?'重試載入較早訊息':'載入較早訊息'}</button>}
           {threadMore.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{threadMore.error}</p>}
           {thread.items.length===0?<p className="empty">還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="訊息">
             {[...thread.items].reverse().map(message=>{const mine=message.sender_ref!==thread.participant.user_id;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>

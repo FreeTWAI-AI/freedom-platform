@@ -85,6 +85,9 @@ export async function signOut(page: Page) {
   const settings = page.getByRole('button', { name: '設定', exact: true });
   const preview = page.locator('.preview-profile-menu');
   await expect(settings.or(preview)).toBeVisible();
+  // Keep transport completion separate from the subsequent five-second UI
+  // assertion. A slow successful logout is not a missing login screen.
+  const response = page.waitForResponse(value => new URL(value.url()).pathname === '/api/v1/auth/logout' && value.request().method() === 'POST');
   if (await preview.isVisible()) {
     if (!await preview.evaluate(element => (element as HTMLDetailsElement).open)) await preview.locator(':scope > summary').click();
     await preview.getByRole('button', { name: '登出', exact: true }).click();
@@ -92,6 +95,9 @@ export async function signOut(page: Page) {
     if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
     await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
   }
+  const result = await response;
+  expect(result.status()).toBe(200);
+  await result.finished();
   await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
 }
 

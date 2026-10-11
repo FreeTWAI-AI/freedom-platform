@@ -2514,8 +2514,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 63307,
-      "sha256": "28ee3bca34c574e74383ace2d8bf0ec394b607dd7545f5f236b894f37bd79684"
+      "bytes": 63744,
+      "sha256": "ca66ac4adb110d6aeab7a75199447162c194c03cc8d2e6b03fa6c546b71821c1"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -20234,8 +20234,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 45357,
-      "sha256": "7cca15a36f5d282dae5ba503f3ae3ca691342377a686a10f35b845f1ec3165dd"
+      "bytes": 47048,
+      "sha256": "16be87759fdc10fc57931db4e105f0239237e9ae3b02f81faa9a087ac2b880d7"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -20649,8 +20649,8 @@
     },
     {
       "path": "tests/e2e/navigation.ts",
-      "bytes": 5995,
-      "sha256": "ddaf13ff7d4da5c9e9c80c56c680e2ad092068b6ad6ac2de674862acacdf2af8"
+      "bytes": 6385,
+      "sha256": "1960caaa44219cc88e034d3bcc4cdd9f2a158f0236b08508c31dd6381c8da240"
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
@@ -20659,8 +20659,8 @@
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
-      "bytes": 2548,
-      "sha256": "885736f436173ffabc4ca5aaa42b628b3a69ed01a8a6d9791a1b4db62fe4cfab"
+      "bytes": 2661,
+      "sha256": "d0336bfa8c513e7edff78411c013019c7f25c5495183a55bdcdd42476248f60b"
     },
     {
       "path": "tests/e2e/notification-bell-refresh.spec.ts",
