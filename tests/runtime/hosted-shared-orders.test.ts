@@ -1,3 +1,4 @@
+import {retainedHostedOrder} from '../helpers/hosted-inventory-history.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {before, after, beforeEach, test} from 'node:test';
@@ -158,15 +159,17 @@ async function expiredCopy(source:any) {
       bindings,terms_sha256,date_trunc('milliseconds',statement_timestamp()-interval '2 hours'),
       date_trunc('milliseconds',statement_timestamp()-interval '115 minutes'),quote_profile
     FROM commerce_order_quotes WHERE quote_id=$1`,[source.quote_id,quoteId]);
-  await h.pool.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
-    order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
-    SELECT $2::uuid,o.public_shop_id,'historical-'||$2::text,o.request_sha256,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
-      o.order_profile,$3::uuid,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE o.order_id=$1`,
-  [source.order_id,orderId,quoteId,clientId]);
-  await h.pool.query(`INSERT INTO commerce_order_lines(order_id,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile,supplier_shop_id,hosted_offer_id)
-    SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile,supplier_shop_id,hosted_offer_id
-    FROM commerce_order_lines WHERE order_id=$1`,[source.order_id,orderId]);
-  await h.pool.query(`UPDATE commerce_items i SET reserved=reserved+line.quantity FROM commerce_order_lines line WHERE line.order_id=$1 AND line.item_id=i.item_id`,[orderId]);
+  await retainedHostedOrder(h.pool,orderId,async history => {
+    await history.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
+      order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
+      SELECT $2::uuid,o.public_shop_id,'historical-'||$2::text,o.request_sha256,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
+        o.order_profile,$3::uuid,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE o.order_id=$1`,
+    [source.order_id,orderId,quoteId,clientId]);
+    await history.query(`INSERT INTO commerce_order_lines(order_id,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile,supplier_shop_id,hosted_offer_id)
+      SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile,supplier_shop_id,hosted_offer_id
+      FROM commerce_order_lines WHERE order_id=$1`,[source.order_id,orderId]);
+    await history.query(`UPDATE commerce_items i SET reserved=reserved+line.quantity FROM commerce_order_lines line WHERE line.order_id=$1 AND line.item_id=i.item_id`,[orderId]);
+  });
   return orderId;
 }
 

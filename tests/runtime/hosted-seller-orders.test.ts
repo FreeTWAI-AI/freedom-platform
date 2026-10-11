@@ -1,3 +1,4 @@
+import {retainedHostedOrder} from '../helpers/hosted-inventory-history.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, test } from 'node:test';
@@ -207,13 +208,15 @@ test('seller page physically expires retained history and exact cancel keeps exp
   await h.pool.query(`INSERT INTO commerce_order_quotes SELECT $2::uuid,tenant_id,instance_id,public_shop_id,buyer_principal_id,publication_id,
     terms || jsonb_build_object('quote_id',$2::text,'quoted_at',$3::text,'expires_at',$4::text),bindings,terms_sha256,$3::timestamptz,$4::timestamptz
     FROM commerce_order_quotes WHERE quote_id=$1`,[q.quote_id,quoteId,quoted.toISOString(),expires.toISOString()]);
-  await h.pool.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
-    order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
-    SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
-      'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
-    [source.order_id,orderId,quoteId,intent,digest({quote_id:quoteId,terms_sha256:q.terms_sha256,client_order_id:intent})]);
-  await h.pool.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile FROM commerce_order_lines WHERE order_id=$1`,[source.order_id,orderId]);
-  await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1',[s.product.product_id]);
+  await retainedHostedOrder(h.pool,orderId,async history => {
+    await history.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
+      order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
+      SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
+        'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
+      [source.order_id,orderId,quoteId,intent,digest({quote_id:quoteId,terms_sha256:q.terms_sha256,client_order_id:intent})]);
+    await history.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile FROM commerce_order_lines WHERE order_id=$1`,[source.order_id,orderId]);
+    await history.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1',[s.product.product_id]);
+  });
   const page=ok(await wire('GET',s.root+'/orders',s.owner));
   assert.equal(page.items.find((o:any)=>o.order_id===orderId).state,'expired');
   const result=ok(await wire('POST',s.root+'/orders/'+orderId+'/cancel',s.owner,{},randomUUID(),'2'));

@@ -9,20 +9,34 @@ export interface InventoryBalance {
   available: number;
 }
 
-/** Internal transaction port. Order receipts and the locked order state own
- * idempotency; these methods must not be retried outside that transaction.
- * A remote implementation requires durable reservation IDs and reconciliation,
- * not a network call substituted inside the current PostgreSQL transaction. */
+export interface InventoryReservation {
+  reservation_id: string;
+  order_id: string;
+  item_id: string;
+  supplier_shop_id: string;
+  quantity: number;
+  state: 'held' | 'released';
+  created_at: Date;
+  expires_at: Date;
+  released_at: Date | null;
+}
+
+/** Internal transaction port. Durable holds give retries a stable identity;
+ * the caller still authorizes and locks the order before sorted item locks.
+ * This is not a remote protocol: network effects require a separate durable
+ * coordinator, unknown-result recovery and writer authority handoff. */
 export interface ReservationInventory {
   status(itemId: string): Promise<InventoryBalance | null>;
   lock(itemIds: readonly string[]): Promise<ReadonlyMap<string, InventoryBalance>>;
-  reserve(itemId: string, quantity: number): Promise<void>;
-  release(itemId: string, quantity: number): Promise<void>;
+  reservation(orderId: string, itemId: string): Promise<InventoryReservation | null>;
+  reserve(orderId: string, itemId: string, quantity: number): Promise<InventoryReservation>;
+  release(orderId: string, itemId: string, quantity: number): Promise<InventoryReservation>;
 }
 
 /** Construct only after the existing direct/seller command authorizes its
  * profile and takes the instance/community/profile locks. The supplied client
- * stays in that same scoped transaction; no pool, RLS rebinding or new ledger. */
+ * stays in that same scoped transaction; no pool or RLS rebinding. An order ID
+ * is an already-authorized reference, never a new grant of buyer/order access. */
 export function localReservationInventory(q: PoolClient, context: DirectEffectContext): ReservationInventory {
   return inventory(q, () => context.profile.supply_shop_id);
 }
@@ -36,7 +50,12 @@ export function boundReservationInventory(q: PoolClient, sources: ReadonlyMap<st
 function inventory(q: PoolClient, source: (itemId: string) => string | undefined): ReservationInventory {
   const quantityValid = (quantity: number) => requireCondition(Number.isSafeInteger(quantity) && quantity > 0,
     400, 'invalid_reservation_items', '商品數量無效。');
+  const reservation = async (orderId: string, itemId: string, lock = false) =>
+    (await q.query<InventoryReservation>(`SELECT * FROM commerce_inventory_reservations
+      WHERE order_id=$1 AND item_id=$2 AND supplier_shop_id=$3${lock ? ' FOR UPDATE' : ''}`,
+    [orderId, itemId, source(itemId) ?? null])).rows[0] ?? null;
   return {
+    reservation,
     async status(itemId) {
       return (await q.query<InventoryBalance>(`SELECT item_id,stock,reserved,stock-reserved AS available
         FROM commerce_items WHERE item_id=$1 AND shop_id=$2`, [itemId, source(itemId) ?? null])).rows[0] ?? null;
@@ -50,17 +69,41 @@ function inventory(q: PoolClient, source: (itemId: string) => string | undefined
       [ids, ids.map(id => source(id) ?? null)])).rows;
       return new Map(rows.map(row => [row.item_id, row]));
     },
-    async reserve(itemId, quantity) {
+    async reserve(orderId, itemId, quantity) {
       quantityValid(quantity);
+      const prior = await reservation(orderId, itemId, true);
+      if (prior) {
+        requireCondition(prior.quantity === quantity, 409, 'reservation_inconsistent', '庫存保留紀錄不一致。');
+        requireCondition(prior.state === 'held', 409, 'reservation_closed', '這筆庫存保留已結束。');
+        return prior;
+      }
+      // Immutable order lines, not caller-supplied supplier or quantity, bind
+      // each hold. The deferred database guard checks complete order coverage.
+      const held = (await q.query<InventoryReservation>(`INSERT INTO commerce_inventory_reservations
+        (order_id,item_id,supplier_shop_id,quantity,state,created_at,expires_at)
+        SELECT o.order_id,i.item_id,i.shop_id,sum(l.quantity)::integer,'held',o.created_at,o.expires_at
+        FROM commerce_orders o JOIN commerce_order_lines l USING(order_id) JOIN commerce_items i USING(item_id)
+        JOIN commerce_shops s ON s.shop_id=i.shop_id AND s.origin='hosted'
+        WHERE o.order_id=$1 AND i.item_id=$2 AND i.shop_id=$3 AND o.reservation_state='reserved'
+          AND o.order_profile IN ('hosted_direct_reservation','hosted_shared_reservation')
+        GROUP BY o.order_id,i.item_id,i.shop_id HAVING sum(l.quantity)=$4
+        RETURNING *`, [orderId, itemId, source(itemId) ?? null, quantity])).rows[0];
+      requireCondition(held, 409, 'reservation_inconsistent', '庫存保留來源不一致。');
       const result = await q.query(`UPDATE commerce_items SET reserved=reserved+$2
         WHERE item_id=$1 AND shop_id=$3 AND stock-reserved >= $2`, [itemId, quantity, source(itemId) ?? null]);
       requireCondition(result.rowCount === 1, 409, 'stock_unavailable', '商品庫存不足。');
+      return held;
     },
-    async release(itemId, quantity) {
+    async release(orderId, itemId, quantity) {
       quantityValid(quantity);
+      const held = await reservation(orderId, itemId, true);
+      requireCondition(held && held.quantity === quantity, 409, 'reservation_inconsistent', '庫存保留紀錄不一致。');
+      if (held.state === 'released') return held;
       const result = await q.query(`UPDATE commerce_items SET reserved=reserved-$2
         WHERE item_id=$1 AND shop_id=$3 AND reserved >= $2`, [itemId, quantity, source(itemId) ?? null]);
       requireCondition(result.rowCount === 1, 409, 'reservation_inconsistent', '庫存保留紀錄不一致。');
+      return (await q.query<InventoryReservation>(`UPDATE commerce_inventory_reservations
+        SET state='released',released_at=clock_timestamp() WHERE reservation_id=$1 RETURNING *`, [held.reservation_id])).rows[0];
     },
   };
 }

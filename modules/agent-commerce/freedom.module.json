@@ -19,7 +19,8 @@
     "modules/agent-commerce/README.md",
     "packages/resource-scopes/README.md",
     "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
-    "modules/agent-commerce/hosted/supply-terms.md"
+    "modules/agent-commerce/hosted/supply-terms.md",
+    "modules/agent-commerce/hosted/inventory-reservations.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -91,7 +92,9 @@
     "contracts/guild-launchpad/v1/hosted-supply-terms.schema.json",
     "apps/portal-web/src/modules/HostedSupplyTerms.tsx",
     "tests/e2e/hosted-supply-terms.spec.ts",
-    "tests/runtime/hosted-order-navigation.test.ts"
+    "tests/runtime/hosted-order-navigation.test.ts",
+    "migrations/162_hosted_inventory_reservations.sql",
+    "tests/helpers/hosted-inventory-history.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [

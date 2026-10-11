@@ -48,7 +48,7 @@ export async function submitSharedOrderOutcome(pool: Pool, actor: Actor, rawSlug
           supplier_shop_id,hosted_offer_id,acceptance_id,listing_sha256)
           VALUES($1,$2,$3,$4,$5,'hosted_shared_reservation',$6,$7,$8,$9)`,
         [id,b.selection_id,b.item_id,b.quantity,terms,b.supplier_shop_id,b.offer_id,b.acceptance_id,b.listing_sha256]);
-        await resolved.inventory.reserve(b.item_id,b.quantity);
+        await resolved.inventory.reserve(id,b.item_id,b.quantity);
       }
       await directFact(q,context,id,'1','reserved'); created = true; return {id};
     },directOrderView,{quoteId:input.quote_id});

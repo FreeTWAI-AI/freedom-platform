@@ -1,11 +1,14 @@
+import {retainedHostedOrder} from '../helpers/hosted-inventory-history.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { after, before, beforeEach, test } from 'node:test';
 import { Pool } from 'pg';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { authenticate, type Actor } from '../../modules/identity-membership/service.js';
 import { createDirectQuote } from '../../modules/agent-commerce/hosted/direct-quotes.js';
 import { submitDirectOrder, readDirectOrder, readDirectOrderByIntent, cancelDirectOrder } from '../../modules/agent-commerce/hosted/direct-orders.js';
+import { boundReservationInventory } from '../../modules/agent-commerce/hosted/inventory.js';
 import { createRegistryHarness, type RegistryHarness, type Session, type Reply } from './module-registry-harness.js';
 
 let h: RegistryHarness, runtime: Pool, app: ReturnType<typeof createApp>;
@@ -58,6 +61,91 @@ beforeEach(async () => h.reset());
 after(async () => {
   await runtime?.end();
   if (h) { await h.stop(); const admin = new Pool({ connectionString: process.env.TEST_DATABASE_URL }); try { await admin.query(`DROP ROLE ${role}`); } finally { await admin.end(); } }
+});
+
+test('durable inventory identity survives repeated reserve/release and refuses changed quantity or supplier', async () => {
+  const s=await fixture(10),q=await quote(s,s.buyer,4),input=body(q);
+  const order=await submitDirectOrder(runtime,s.buyer,s.slug,input,randomUUID());
+  const itemId=s.product.product_id,shopId=(await h.pool.query('SELECT shop_id FROM commerce_items WHERE item_id=$1',[itemId])).rows[0].shop_id;
+  const connection=await runtime.connect();
+  let reservationId: string;
+  try {
+    await connection.query('BEGIN');
+    await connection.query('SELECT 1 FROM commerce_orders WHERE order_id=$1 FOR UPDATE',[order.order_id]);
+    const inventory=boundReservationInventory(connection,new Map([[itemId,shopId]]));
+    await inventory.lock([itemId]);
+    const first=await inventory.reserve(order.order_id,itemId,4);
+    reservationId=first.reservation_id;
+    assert.equal((await inventory.reserve(order.order_id,itemId,4)).reservation_id,reservationId);
+    assert.equal((await inventory.reservation(order.order_id,itemId))?.state,'held');
+    assert.equal((await inventory.status(itemId))?.reserved,4);
+    await assert.rejects(inventory.reserve(order.order_id,itemId,3),code('reservation_inconsistent'));
+    const foreign=boundReservationInventory(connection,new Map([[itemId,randomUUID()]]));
+    assert.equal(await foreign.reservation(order.order_id,itemId),null);
+    await assert.rejects(foreign.release(order.order_id,itemId,4),code('reservation_inconsistent'));
+    await connection.query('COMMIT');
+  } catch(error) {await connection.query('ROLLBACK');throw error;} finally {connection.release();}
+  assert.equal((await submitDirectOrder(runtime,s.buyer,s.slug,input,randomUUID())).order_id,order.order_id);
+  await cancelDirectOrder(runtime,s.buyer,order.order_id,randomUUID(),'1');
+  const recovered=await runtime.connect();
+  try {
+    await recovered.query('BEGIN');
+    await recovered.query('SELECT 1 FROM commerce_orders WHERE order_id=$1 FOR UPDATE',[order.order_id]);
+    const inventory=boundReservationInventory(recovered,new Map([[itemId,shopId]]));await inventory.lock([itemId]);
+    for(let n=0;n<2;n++) {
+      const result=await inventory.release(order.order_id,itemId,4);
+      assert.equal(result.reservation_id,reservationId!);assert.equal(result.state,'released');
+    }
+    await assert.rejects(inventory.reserve(order.order_id,itemId,4),code('reservation_closed'));
+    assert.equal((await inventory.status(itemId))?.reserved,0);
+    await recovered.query('COMMIT');
+  } catch(error) {await recovered.query('ROLLBACK');throw error;} finally {recovered.release();}
+  assert.equal((await h.pool.query('SELECT count(*)::int n FROM commerce_inventory_reservations WHERE order_id=$1',[order.order_id])).rows[0].n,1);
+});
+
+test('database fences untracked hosted writers and immutable holds; a release without its order transition rolls back', async () => {
+  const s=await fixture(10),order=await submitDirectOrder(runtime,s.buyer,s.slug,body(await quote(s)),randomUUID());
+  const row=(await h.pool.query('SELECT * FROM commerce_inventory_reservations WHERE order_id=$1',[order.order_id])).rows[0];
+  await assert.rejects(runtime.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1',[row.item_id]),code('23514'));
+  await assert.rejects(runtime.query('UPDATE commerce_inventory_reservations SET quantity=2 WHERE reservation_id=$1',[row.reservation_id]),code('23514'));
+  await assert.rejects(runtime.query('DELETE FROM commerce_inventory_reservations WHERE reservation_id=$1',[row.reservation_id]),code('23514'));
+  const connection=await runtime.connect();
+  try {
+    await connection.query('BEGIN');
+    await connection.query('SELECT 1 FROM commerce_orders WHERE order_id=$1 FOR UPDATE',[order.order_id]);
+    const inventory=boundReservationInventory(connection,new Map([[row.item_id,row.supplier_shop_id]]));await inventory.lock([row.item_id]);
+    await inventory.release(order.order_id,row.item_id,1);
+    assert.equal((await inventory.release(order.order_id,row.item_id,1)).state,'released');
+    await assert.rejects(connection.query('COMMIT'),code('23514'));
+  } finally {await connection.query('ROLLBACK');connection.release();}
+  assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[row.item_id])).rows[0].reserved,1);
+  assert.equal((await h.pool.query('SELECT state FROM commerce_inventory_reservations WHERE reservation_id=$1',[row.reservation_id])).rows[0].state,'held');
+});
+
+test('upgrade backfills active and terminal holds without changing stock; inconsistent old stock aborts the migration', async () => {
+  const s=await fixture(10),a=await submitDirectOrder(runtime,s.buyer,s.slug,body(await quote(s,s.buyer,2)),randomUUID());
+  const b=await submitDirectOrder(runtime,s.buyer,s.slug,body(await quote(s,s.buyer,3)),randomUUID());
+  await cancelDirectOrder(runtime,s.buyer,a.order_id,randomUUID(),'1');
+  const ddl=await readFile(new URL('../../migrations/162_hosted_inventory_reservations.sql',import.meta.url),'utf8');
+  // This disposable schema deliberately models the old version: remove only
+  // the new ledger and its functions, keeping every original order constraint.
+  await h.pool.query(`DROP FUNCTION check_commerce_inventory_change() CASCADE;
+    DROP TABLE commerce_inventory_reservations;
+    DROP FUNCTION preserve_commerce_inventory_reservation();
+    DROP FUNCTION check_commerce_inventory_balance(uuid);DROP FUNCTION check_commerce_inventory_order(uuid)`);
+  await h.pool.query('UPDATE commerce_items SET reserved=4 WHERE item_id=$1',[s.product.product_id]);
+  const connection=await h.pool.connect();
+  try {
+    await connection.query('BEGIN');await assert.rejects(connection.query(ddl),code('23514'));await connection.query('ROLLBACK');
+    assert.equal((await connection.query("SELECT to_regclass('commerce_inventory_reservations') AS table_name")).rows[0].table_name,null);
+    await connection.query('UPDATE commerce_items SET reserved=3 WHERE item_id=$1',[s.product.product_id]);
+    await connection.query('BEGIN');await connection.query(ddl);await connection.query('COMMIT');
+    await connection.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON commerce_inventory_reservations TO ${role}`);
+  } finally {await connection.query('ROLLBACK');connection.release();}
+  const holds=(await h.pool.query('SELECT order_id,quantity,state FROM commerce_inventory_reservations ORDER BY quantity')).rows;
+  assert.deepEqual(holds,[{order_id:a.order_id,quantity:2,state:'released'},{order_id:b.order_id,quantity:3,state:'held'}]);
+  await cancelDirectOrder(runtime,s.buyer,b.order_id,randomUUID(),'1');
+  assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[s.product.product_id])).rows[0].reserved,0);
 });
 
 test('direct buyer outside seller tenant reserves once, resumes login, cancels CAS and replays current state without financial facts', async () => {
@@ -189,14 +277,16 @@ test('expired quote refuses a fresh effect; historical committed intent recovers
   // Retained order at a historical DB clock, built from actual service terms.
   const input = { quote_id: expiredQuote, terms_sha256: q.terms_sha256, client_order_id: intent };
   const { digest } = await import('../../packages/db/index.js');
-  await h.pool.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
-    order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
-    SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
-      'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
-  [source.order_id, orderId, expiredQuote, intent, digest(input)]);
-  await h.pool.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile
-    FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
-  await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
+  await retainedHostedOrder(h.pool,orderId,async history => {
+    await history.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
+      order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
+      SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
+        'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
+    [source.order_id, orderId, expiredQuote, intent, digest(input)]);
+    await history.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile
+      FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
+    await history.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
+  });
   const recovered = await submitDirectOrder(runtime, s.buyer, s.slug, input, randomUUID());
   assert.equal(recovered.order_id, orderId); assert.equal(recovered.state, 'expired'); assert.equal(recovered.version, '2');
   await h.pool.query("UPDATE module_instances SET status='archived' WHERE instance_id=$1", [s.instanceId]);
@@ -257,14 +347,16 @@ test('100 polls use bounded ID receipts and a cached read reference still expire
   // immutable trigger is modified. Its actual buyer and quote bindings persist.
   const retainedQuote = await pastQuote(q.quote_id, 30 + 57 / 60), orderId = randomUUID();
   const { digest } = await import('../../packages/db/index.js');
-  await h.pool.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
-    order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
-    SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
-      'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
-  [source.order_id, orderId, retainedQuote, intent, digest({ quote_id: retainedQuote, terms_sha256: q.terms_sha256, client_order_id: intent })]);
-  await h.pool.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile
-    FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
-  await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
+  await retainedHostedOrder(h.pool,orderId,async history => {
+    await history.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
+      order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
+      SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
+        'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
+    [source.order_id, orderId, retainedQuote, intent, digest({ quote_id: retainedQuote, terms_sha256: q.terms_sha256, client_order_id: intent })]);
+    await history.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile
+      FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
+    await history.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
+  });
   assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'reserved');
   // A projection can cross the actual database expiry before the final fence.
   // Retry only that deliberate conflict once, with the same public read tuple;
@@ -358,13 +450,15 @@ test('requested item 101 makes physical expiry progress without cycling an unrel
     await h.pool.query(`INSERT INTO commerce_order_quotes(quote_id,tenant_id,instance_id,public_shop_id,buyer_principal_id,publication_id,terms,bindings,terms_sha256,quoted_at,expires_at)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10::timestamptz+interval '5 minutes')`,
     [quoteId, source.tenant_id, source.instance_id, source.public_shop_id, source.buyer_principal_id, source.publication_id, terms, JSON.stringify(bindings), hash, quoted]);
-    await h.pool.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
-      order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
-      VALUES($1,$2,$3,$4,'TWD',100,$5,$5::timestamptz+interval '30 minutes','hosted_direct_reservation',$6,$7,$8,'reserved',1)`,
-    [orderId, source.public_shop_id, `${source.buyer_principal_id}:${intent}`, hash, created, quoteId, source.buyer_principal_id, intent]);
-    await h.pool.query(`INSERT INTO commerce_order_lines(order_id,selection_id,item_id,quantity,snapshot,order_profile)
-      VALUES($1,$2,$3,1,$4,'hosted_direct_reservation')`, [orderId, item.selection_id, item.item_id, line]);
-    await h.pool.query('UPDATE commerce_items SET reserved=1 WHERE item_id=$1', [item.item_id]);
+    await retainedHostedOrder(h.pool,orderId,async history => {
+      await history.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
+        order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
+        VALUES($1,$2,$3,$4,'TWD',100,$5,$5::timestamptz+interval '30 minutes','hosted_direct_reservation',$6,$7,$8,'reserved',1)`,
+      [orderId, source.public_shop_id, `${source.buyer_principal_id}:${intent}`, hash, created, quoteId, source.buyer_principal_id, intent]);
+      await history.query(`INSERT INTO commerce_order_lines(order_id,selection_id,item_id,quantity,snapshot,order_profile)
+        VALUES($1,$2,$3,1,$4,'hosted_direct_reservation')`, [orderId, item.selection_id, item.item_id, line]);
+      await history.query('UPDATE commerce_items SET reserved=1 WHERE item_id=$1', [item.item_id]);
+    });
   }
   const target = items[100], targetId = '00000000-0000-4000-8000-000000000101';
   const fresh = await createDirectQuote(runtime, s.other, s.slug, { publication_revision: '2', items: [{ sku: target.sku, quantity: 1 }] }, randomUUID());
@@ -389,14 +483,16 @@ async function diagnosticRetainedOrder() {
   // immutable trigger is modified. Its actual buyer and quote bindings persist.
   const retainedQuote = await pastQuote(q.quote_id, 30 + 57 / 60), orderId = randomUUID();
   const { digest } = await import('../../packages/db/index.js');
-  await h.pool.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
-    order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
-    SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
-      'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
-  [source.order_id, orderId, retainedQuote, intent, digest({ quote_id: retainedQuote, terms_sha256: q.terms_sha256, client_order_id: intent })]);
-  await h.pool.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile
-    FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
-  await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
+  await retainedHostedOrder(h.pool,orderId,async history => {
+    await history.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
+      order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
+      SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
+        'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
+    [source.order_id, orderId, retainedQuote, intent, digest({ quote_id: retainedQuote, terms_sha256: q.terms_sha256, client_order_id: intent })]);
+    await history.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile
+      FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
+    await history.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
+  });
   return { s, orderId, intent };
 }
 async function diagnosticWaitForExpiry(orderId: string, queryMarker: string) {

@@ -62,7 +62,7 @@ export async function submitDirectOrderOutcome(pool: Pool, actor: Actor, rawSlug
         const terms = quote.terms.items.find(line => line.sku === binding.sku)!;
         await q.query(`INSERT INTO commerce_order_lines(order_id,selection_id,item_id,quantity,snapshot,order_profile)
           VALUES($1,$2,$3,$4,$5,'hosted_direct_reservation')`, [id, binding.selection_id, binding.item_id, binding.quantity, terms]);
-        await inventory.reserve(binding.item_id, binding.quantity);
+        await inventory.reserve(id, binding.item_id, binding.quantity);
       }
       await directFact(q, context, id, '1', 'reserved');
       created = true;
