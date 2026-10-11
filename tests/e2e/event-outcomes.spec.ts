@@ -74,6 +74,15 @@ async function publicItems(api:APIRequestContext,eventId:string){
   expect(response.status()).toBe(200);
   return (await response.json()).items as {outcome_id:string;title:string}[];
 }
+async function tabTo(page:Page,target:Locator){
+  // Traverse real sequential focus, including the optional source checkboxes.
+  // A removed tab stop or focus trap must fail instead of being bypassed.
+  for(let step=0;step<120;step++){
+    await page.keyboard.press('Tab');
+    if(await target.evaluate(el=>el===document.activeElement))return;
+  }
+  await expect(target).toBeFocused();
+}
 
 // Every case creates unique rows in the runner-owned schema. Immutable media
 // bindings intentionally cannot be deleted; the server drops this whole schema.
@@ -92,6 +101,100 @@ test.describe('outcome flags off',()=>{
 test.describe('isolated authored outcomes',()=>{
   test.use({memberFeatures:{squadOutcomesEnabled:true,eventOutcomesEnabled:true}});
   test.setTimeout(180000);
+
+  test('a partial photo batch keeps the saved recap and successful bytes, then retries only the remaining photo',async({page,request,e2eAuthPool})=>{
+    const author=await account(e2eAuthPool,'部分上傳作者'),eventId=await event(e2eAuthPool,author);
+    const title=`部分成功 ${randomUUID()}`;
+    await login(page,author);
+    const section=await openEvent(page,eventId);
+    await saveRecap(section,title);
+    const summary='已儲存摘要之外，這段尚未儲存的輸入也必須保留。';
+    await section.getByLabel('活動摘要').fill(summary);
+    await page.getByText('補上照片或影片連結',{exact:true}).click();
+    await page.getByRole('group',{name:'要補上的內容'}).getByRole('button',{name:'照片',exact:true}).click();
+    const photo=await sharp({create:{width:80,height:40,channels:3,background:'#2255aa'}}).jpeg().toBuffer();
+    const input=page.getByLabel('照片',{exact:true});
+    // The second request reaches the real decoder and fails validation. No
+    // mocked success, fabricated media row or network replay is involved.
+    await input.setInputFiles([
+      {name:'first.jpg',mimeType:'image/jpeg',buffer:photo},
+      {name:'broken.jpg',mimeType:'image/jpeg',buffer:Buffer.from('not an image')},
+    ]);
+    await page.getByRole('button',{name:'送出',exact:true}).click();
+    await expect(page.getByRole('alert')).toContainText('已新增 1 張；成功項目保留，其餘尚未新增。');
+    await expect(page.locator('.hl-photos img')).toHaveCount(1);
+    await expect(section.getByLabel('精華標題')).toHaveValue(title);
+    await expect(section.getByLabel('活動摘要')).toHaveValue(summary);
+    expect(await input.evaluate(el=>Array.from((el as HTMLInputElement).files??[],file=>file.name))).toEqual(['broken.jpg']);
+    const first=await boundPhoto(e2eAuthPool,eventId);
+    await mediaStatus(page.request,first.media_id,200);
+    await mediaStatus(request,first.media_id,404,true);
+    expect(await publicItems(request,eventId)).toEqual([]);
+    await input.setInputFiles({name:'repaired.jpg',mimeType:'image/jpeg',buffer:photo});
+    await page.getByRole('button',{name:'送出',exact:true}).click();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.locator('.hl-photos img')).toHaveCount(2);
+    await expect.poll(()=>page.locator('.hl-photos img').evaluateAll(images=>images.every(img=>(img as HTMLImageElement).naturalWidth>0))).toBe(true);
+    const ids=(await e2eAuthPool.query('SELECT media_id FROM community_event_outcome_media WHERE outcome_id=$1',[first.outcome_id])).rows.map(row=>row.media_id);
+    expect(ids).toHaveLength(2);expect(ids).toContain(first.media_id);
+    await expect(section.getByLabel('活動摘要')).toHaveValue(summary);
+    await section.getByRole('button',{name:'儲存私人草稿',exact:true}).click();
+    await expect(section.getByRole('status')).toContainText('摘要草稿已儲存');
+    await publishRecap(section);
+    await page.reload();
+    await expect(page.getByRole('region',{name:'活動精華與成果'}).getByText(summary,{exact:true})).toBeVisible();
+    await expect(page.locator('.hl-photos img')).toHaveCount(2);
+    for(const id of ids)await mediaStatus(request,id,200,true);
+  });
+
+  for(const width of [1280,320,390])test(`recap authoring works by keyboard in all themes at ${width}px`,async({page,e2eAuthPool},testInfo)=>{
+    await page.setViewportSize({width,height:900});
+    const author=await account(e2eAuthPool,'鍵盤精華作者'),eventId=await event(e2eAuthPool,author);
+    await login(page,author);
+    for(const [name,theme] of [['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']]){
+      const settings=page.getByRole('button',{name:'設定',exact:true});
+      await settings.click();
+      await page.getByRole('menuitemradio',{name,exact:true}).click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+      await settings.click();
+      await expect(settings).toHaveAttribute('aria-expanded','false');
+      await page.goto(`/#highlights/${eventId}`);
+      const section=page.getByRole('region',{name:'活動精華與成果'});
+      const disclosure=section.locator('summary');
+      await expect(disclosure).toBeVisible();
+      await tabTo(page,disclosure);await page.keyboard.press('Enter');
+      await expect(section.getByLabel('精華標題')).toBeVisible();
+      // Existing drafts add selection controls before the form on later themes.
+      const title=section.getByLabel('精華標題');
+      await tabTo(page,title);
+      await expect(title).toBeFocused();
+      const text=`鍵盤 ${width} ${theme}`;
+      await page.keyboard.insertText(text);
+      await page.keyboard.press('Tab');
+      await expect(section.getByLabel('活動摘要')).toBeFocused();
+      await page.keyboard.insertText('用鍵盤完成摘要並選擇公開範圍；不代表出席或平台驗收。');
+      await page.keyboard.press('Tab');
+      await expect(section.getByLabel('發布範圍')).toBeFocused();
+      await page.keyboard.press('End');
+      await expect(section.getByLabel('發布範圍')).toHaveValue('public');
+      const save=section.getByRole('button',{name:'儲存私人草稿',exact:true});
+      await tabTo(page,save);await page.keyboard.press('Enter');
+      await expect(section.getByRole('status')).toContainText('摘要草稿已儲存');
+      const consent=section.getByLabel('我有權向所選範圍發布摘要、連結與綁定媒體，已保留真實作者及來源，並取得涉及人物所需同意。');
+      await expect(consent).toBeEnabled();
+      await tabTo(page,consent);await expect(consent).toBeFocused();
+      await page.keyboard.press('Space');await expect(consent).toBeChecked();
+      await expect(section.getByRole('button',{name:'發布已儲存精華與綁定媒體'})).toBeEnabled();
+      await page.keyboard.press('Tab');
+      await expect(section.getByRole('button',{name:'發布已儲存精華與綁定媒體'})).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(section.getByRole('status')).toHaveText('活動精華已依所選範圍發布。');
+      await expect(section.getByRole('heading',{name:text,exact:true})).toBeVisible();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${theme}/${width} page width`).toBe(true);
+      await testInfo.attach(`event-outcome-${width}-${theme}`,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
+      await page.goto('/#home');
+    }
+  });
 
   test('an author keeps draft photos private, explicitly publishes, then withdraws recap and bytes',async({page,browser,request,e2eAuthPool})=>{
     const author=await account(e2eAuthPool,'精華作者'),viewer=await account(e2eAuthPool,'另一位會員');
