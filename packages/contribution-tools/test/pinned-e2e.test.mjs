@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses } from '../pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, GUIDE_DEFAULT_FILES, GUIDE_COMPOSITION_PROFILE, planE2eSelection } from '../pinned-e2e.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const rootDir = '/fixture/tests/e2e';
@@ -459,5 +459,92 @@ test('trusted webServer forwards the host fixture and preserves candidate search
       const child=spawnSync(process.execPath,['--input-type=module','-e',source],{encoding:'utf8',env:{...process.env,FREEDOM_PINNED_E2E_ROOT:root,FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_STORE_PHOTO_FIXTURE:'0',FREEDOM_E2E_NOTIFICATION_PREFERENCES:'0',FREEDOM_E2E_FIRST_PARTICIPATION:firstParticipation}});
       assert.equal(child.status,0,child.stderr);assert.deepEqual(JSON.parse(child.stdout),{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_STORE_PHOTO_FIXTURE:'0',FREEDOM_E2E_NOTIFICATION_PREFERENCES:'0',FREEDOM_E2E_FIRST_PARTICIPATION:firstParticipation});
     }
+  });
+});
+
+
+function guidePasses() {
+  return E2E_PLAN.map((pass,index) => {
+    const files=index===0?GUIDE_DEFAULT_FILES:pass.files;
+    const result=report(files.map(file=>suite(file.slice('tests/e2e/'.length),[['one','expected'],['two','expected']])));
+    return {id:pass.id,exit_code:0,report:result,listing:structuredClone(result),listing_exit_code:0,listing_evidence_sha256:'a'.repeat(64)};
+  });
+}
+const evaluateGuide = passes => evaluateE2ePasses(GUIDE_DEFAULT_FILES,passes,{rootDir,configFile,profile:'newcomer-guides'});
+
+test('guide selection owns exact files and retains every dedicated fixture and default OFF coverage', () => {
+  const selected=planE2eSelection('newcomer-guides',[...E2E_BASELINE,...GUIDE_DEFAULT_FILES]);
+  assert.equal(selected.profile,'newcomer-guides');
+  assert.deepEqual(selected.expectedFiles,GUIDE_DEFAULT_FILES);
+  assert.deepEqual(selected.plan[0].files,GUIDE_DEFAULT_FILES);
+  assert.deepEqual(selected.plan.slice(1),E2E_PLAN.slice(1));
+  for (const file of ['newcomer-guides','ai-sister-guides','navigation-audit','audit-shell','member-session-lifecycle',
+    'session-recovery','journeys','onboarding-members','member-experience','page-tools','page-tools-notification'])
+    assert.ok(GUIDE_DEFAULT_FILES.includes('tests/e2e/'+file+'.spec.ts'));
+  for (const pass of E2E_PLAN.slice(1)) for (const file of pass.files) assert.ok(selected.plan[0].files.includes(file));
+  for (const profile of [undefined,'','unknown','full']) assert.deepEqual(planE2eSelection(profile,E2E_BASELINE).plan,E2E_PLAN);
+  assert.equal(planE2eSelection('newcomer-guides',[]).profile,'full');
+  assert.equal(evaluateGuide(guidePasses()).status,'passed');
+});
+
+test('guide per-pass enumeration rejects missing/additional cases, wrong counts and absent evidence', () => {
+  for (const mutate of [
+    passes=>passes[0].report.suites[0].suites[0].suites[0].specs.pop(),
+    passes=>{passes[0].report.suites[0].suites[0].suites[0].specs.pop();passes[0].report.stats.expected--;},
+    passes=>passes[0].report.stats.expected++,
+    passes=>passes[0].report.suites[0].suites[0].suites[0].specs.push(spec(GUIDE_DEFAULT_FILES[0].slice(10),'extra','expected')),
+    passes=>delete passes[0].listing,
+    passes=>passes[0].listing_exit_code=1,
+    passes=>passes[0].listing_evidence_sha256='',
+    passes=>passes[1].listing.suites=[],
+    passes=>passes[0].report.suites.pop(),
+    passes=>passes[1].report.suites.push(suite('newcomer-guides.spec.ts',[])),
+  ]) { const passes=guidePasses();mutate(passes);assert.equal(evaluateGuide(passes).status,'failed'); }
+  const omitted=GUIDE_DEFAULT_FILES.slice(1);
+  assert.equal(evaluateE2ePasses(omitted,guidePasses(),{rootDir,configFile,profile:'newcomer-guides'}).reason,'invalid_expected_files');
+});
+
+test('CLI derives guide selection from clean host-bound integration and lists every executed case', async () => {
+  await withFixture(async root => {
+    await playwrightFixture(root, "export default {grep:/never/,testIgnore:['**/*'],projects:[{name:'chromium'}]};");
+    for (const file of GUIDE_DEFAULT_FILES) await writeFile(join(root,file),ordinaryTests);
+    const metadata = (id,paths,dependencies,tests) => ({format:'freedom.module/v1',module_id:id,owner_role:'foundation',
+      owned_paths:paths,dependencies,tests,public_exports:[],contract_families:['preview'],client_profiles:['member'],
+      instructions:['governance/README.md'],invariants:['local-only'],surfaces:[]});
+    const leaf='apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx';
+    const paths=['GuideHost.tsx','engine/GuideEngine.tsx','engine/GuideGallery.tsx','engine/page-spirit.css']
+      .map(path=>'apps/portal-web/src/modules/newcomer-guides/'+path);
+    const descriptors = [metadata('newcomer-guides',[...paths,'tests/e2e/newcomer-guides.spec.ts','tests/e2e/ai-sister-guides.spec.ts'],['public-guide-assets'],['runtime.full']),
+      metadata('public-guide-assets',['packages/public-guide-assets/**'],[],['runtime.full']),
+      metadata(GUIDE_COMPOSITION_PROFILE.module,[...GUIDE_COMPOSITION_PROFILE.files,'tests/runtime/game-console-routing.test.ts'],[...GUIDE_COMPOSITION_PROFILE.dependencies],['runtime.full'])];
+    for (const id of GUIDE_COMPOSITION_PROFILE.dependencies) if (!descriptors.some(x=>x.module_id===id))
+      descriptors.push(metadata(id,[`modules/${id}/**`],[],['runtime.full']));
+    for (const descriptor of descriptors) {
+      const dir=join(root,'modules',descriptor.module_id);await mkdir(dir,{recursive:true});
+      await writeFile(join(dir,'freedom.module.json'),JSON.stringify(descriptor));
+    }
+    await mkdir(join(root,'apps/portal-web/src/modules/newcomer-guides'),{recursive:true});
+    await writeFile(join(root,leaf),'before');await writeFile(join(root,'.gitignore'),'node_modules\nresult.json\n');
+    const git=(args,input)=>execFileSync('/usr/bin/git',['-C',root,'-c','commit.gpgsign=false','-c','core.hooksPath=/dev/null',...args],{
+      input,encoding:'utf8',env:{...process.env,GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',
+        GIT_AUTHOR_NAME:'Guide Test',GIT_AUTHOR_EMAIL:'guide@example.invalid',GIT_COMMITTER_NAME:'Guide Test',GIT_COMMITTER_EMAIL:'guide@example.invalid'},
+    }).trim();
+    git(['init','-q','-b','main']);git(['add','.']);git(['commit','-qm','base']);const base=git(['rev-parse','HEAD']);
+    await writeFile(join(root,leaf),'after');git(['add','.']);git(['commit','-qm','guide']);const head=git(['rev-parse','HEAD']);
+    const candidate=git(['commit-tree',git(['rev-parse','HEAD^{tree}']),'-p',base,'-p',head],'integration\n');git(['checkout','-q',candidate]);
+    const output=join(root,'result.json');
+    const child=invoke(['--root',root,'--output',output,'--event','pull_request','--base',base,'--head',head,'--candidate',candidate],
+      {FREEDOM_E2E_PROFILE:'full',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'1',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1'});
+    assert.equal(child.status,0,child.stdout+child.stderr);
+    const result=JSON.parse(await readFile(output,'utf8'));
+    assert.equal(result.selection.profile,'newcomer-guides',JSON.stringify(result.selection));
+    assert.deepEqual(result.selected_files,GUIDE_DEFAULT_FILES);
+    assert.equal(result.test_count,GUIDE_DEFAULT_FILES.length*2);
+    assert.equal(result.passes.length,E2E_PLAN.length);
+    assert.ok(result.passes.every(pass=>/^[a-f0-9]{64}$/.test(pass.listing_evidence_sha256)));
+    assert.ok(result.passes.every(pass=>pass.listed_case_count===pass.cases.length
+      && pass.cases.every(item=>/^[a-f0-9]{64}$/.test(item.case_sha256)&&item.status==='passed')));
+    assert.ok(!JSON.stringify(result).includes('smoke'));
+    assert.equal(invoke(['--root',root,'--profile','newcomer-guides']).status,2);
   });
 });

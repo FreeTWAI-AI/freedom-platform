@@ -328,7 +328,28 @@ jobs:
         run: |
           test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
           test -z "$(git -C .freedom/trusted status --porcelain)"
-      - run: node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root .
+      - name: Run the pinned browser plan for the exact integration tree
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CANDIDATE_SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --allow-fetch \
+              --event "$EVENT_NAME" --base "$BASE_SHA" --head "$HEAD_SHA" \
+              --candidate "$CANDIDATE_SHA" --pull-request "$PR_NUMBER"
+          else
+            node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --event "$EVENT_NAME" --candidate "$CANDIDATE_SHA"
+          fi
+      - name: Preserve sanitized browser selection and case evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-selection-${{ github.sha }}
+          path: .freedom/reports/pinned-e2e.json
+          if-no-files-found: warn
   static-worker:
     runs-on: ubuntu-24.04
     timeout-minutes: 40

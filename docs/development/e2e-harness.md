@@ -340,3 +340,81 @@ is not enabled by this fixture; event reminder browser coverage uses `in_app`.
 其中兩個案例曾失敗，另案追查，不能以增加時間消除那些失敗。相較 #433 的
 完整正例，604 個共同且原本至少1秒的成功案例耗時中位比為1.25；兩候選
 source不同，因此只記錄耗時觀察，不宣稱等價或已排除產品回歸。
+
+## Newcomer guide browser-selection pilot (source proposal, 2026-10-11)
+
+This proposal reuses `scripts/ci/select-affected-jobs.mjs` and its existing
+baseline/candidate ownership union, reverse dependencies and unchanged-graph
+checks. It changes no product module, database fixture or deployment boundary.
+Only modifications to the four existing `newcomer-guides` frontend leaf paths
+can select the pilot. Mixed member-card edits, guide gates/contracts/content,
+API/auth/security/shared/harness/config/migration changes, unknown paths,
+new/deleted/renamed/copied/mode-changed leaves, descriptor drift, incomplete
+metadata, pushes and merge groups keep the complete browser plan. Existing
+runtime, integrity and aggregate job obligations remain unchanged.
+
+The actual main graph includes the reverse-dependent `application-composition`
+module, so browser narrowing requires exactly the two-module impact union
+`newcomer-guides` + `application-composition` in both descriptor graphs. The
+composition module's reviewed dependencies and complete 18-spec browser ownership
+are fixed in trusted source. Additional dependents, overlapping test owners or
+changed test ownership restore full coverage. The existing job selector still
+returns full for this graph; this proof only narrows the browser file plan.
+
+The pinned browser runner independently derives selection from host event
+base/head/candidate SHAs. The checkout must be clean and its exact candidate
+commit must have the ordered base and head parents. Candidate config, environment
+and CLI cannot supply a profile, grep or arbitrary exclusion list. Missing proof
+falls back to full. The full baseline plus discovered catalog is still checked
+for missing source before narrowing. Positional Playwright file patterns are
+escaped and end-anchored; observed files outside the selected pass are rejected.
+
+The host-owned default file set contains both `newcomer-guides.spec.ts` and
+`ai-sister-guides.spec.ts`, plus these existing shared journeys:
+
+- `navigation-audit` and `audit-shell`: global navigation and shell interaction
+- `member-session-lifecycle` and `session-recovery`: member identity/expiry/reset
+- `journeys`, `onboarding-members` and `member-experience`: sign-up, entry,
+  logout and the pre-join guide visibility boundary
+- `page-tools` and `page-tools-notification`: dialogs, navigation and notification
+  interactions with the globally mounted guide
+
+These are explicit reviewed filenames, not candidate descriptor-supplied test
+lists. GuideHost is globally mounted; the engine affects focus/tabindex and
+reacts to other dialogs/chat, so the pilot is not limited to its own two specs.
+All 18 existing application-composition browser specs are also mandatory.
+Their union with guide/shared/fixture coverage is exactly 31 files.
+Every dedicated fixture file remains in the default pass to preserve OFF cases;
+all dedicated fixture IDs, environments, files and timeouts remain unchanged.
+Each pass still owns a fresh server/schema, one worker and zero retries. This
+proposal introduces neither parallel workers nor shared-server reuse.
+
+Only narrowed runs add a bounded 60-second `--list` collection before each pass,
+using the same trusted config, exact files and fixture environment as execution.
+Listed and executed case identities must match exactly per pass; execution
+counts must agree with traversed cases. Existing cross-pass skipped-to-passed
+coverage and failure/cancellation/timeout checks remain. Collection also uses
+the existing 20-second SIGTERM-to-SIGKILL escalation. Its time consumes the
+existing job budget; no budget is increased. The sanitized summary records
+selection, candidate SHAs, per-file counts, per-pass hashed case identities and
+outcomes, and list/report digests. The workflow retains that summary even on
+failure. It does not retain raw test names or claim hostile-candidate isolation
+on the shared runner.
+
+Source and installed plan remain distinct: main `665d7e4` already contains a
+sixth `notification-preferences` pass, while installed `dc2f5ba8` has default
+plus four fixture passes. This proposal does not add, delete or authorize any
+fixture pass. A prospective pin candidate must separately transplant the
+reviewed selection delta onto installed `dc2f5ba8` to preserve its five-pass
+plan, or explicitly review the sixth-pass change. No settings or pin are changed
+by this source proposal.
+
+Local collection on the unmodified product source at `665d7e4`: full default
+listed 843 cases in 138 nonempty files in 2.962 seconds; the proposed default
+listed 187 cases in 30 nonempty files in 1.682 seconds. Its fixed set is 31 files;
+the avatar fixture declares no cases in default OFF mode and remains mandatory
+in its dedicated pass. These are collection measurements, not browser runtimes
+or a demonstrated speedup. Synthetic real-Playwright runner tests exercise the
+selection and evidence path without launching a browser or connecting to a DB.
+A real isolated PostgreSQL/browser comparison and independent review are still
+required before an operator-authorized pin rollout.

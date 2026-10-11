@@ -8,9 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { validateDescriptor, ROOT_INSTRUCTIONS, selectImpact } from '../../packages/contribution-tools/context.mjs';
 import {
   ALWAYS_ON_INTEGRITY_COMMANDS, DOCS_ALLOWLIST_PREFIXES, GENERATED_INVENTORY_PATH, JOB_OUTPUT_KEYS, SELECTABLE_JOBS, FRONTEND_LEAF_PROFILES, FRONTEND_LEAF_JOBS,
-  changesFromTrees, collectRepositoryDecision, decideAffectedJobs, evaluateVerifyAggregate, githubOutput,
+  changesFromTrees, collectRepositoryDecision, collectRepositoryE2eDecision, decideE2eProfile, decideAffectedJobs, evaluateVerifyAggregate, githubOutput,
   heavyJobCondition, isDocsAllowlisted, loadModuleDescriptors, parseLsTreeZ, parseNameStatusZ,
 } from './select-affected-jobs.mjs';
+
+import { GUIDE_COMPOSITION_PROFILE } from '../../packages/contribution-tools/pinned-e2e.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const selector = fileURLToPath(new URL('./select-affected-jobs.mjs', import.meta.url));
@@ -979,4 +981,92 @@ test('trusted Git tree and CLI admit README docs and reject mixed, owned and non
   git(['update-index', '--add', '--cacheinfo', `120000,${symlinkOid},README.md`]);
   git(['commit', '-qm', 'symlink README']);
   assert.equal(choose(base, git(['rev-parse', 'HEAD'])).mode, 'full');
+});
+
+
+function guideDescriptors() {
+  const descriptors = leafDescriptors();
+  descriptors.find(x=>x.module_id==='newcomer-guides').owned_paths.push('tests/e2e/newcomer-guides.spec.ts','tests/e2e/ai-sister-guides.spec.ts');
+  for (const id of GUIDE_COMPOSITION_PROFILE.dependencies) if (!descriptors.some(x=>x.module_id===id))
+    descriptors.push(moduleDescriptor(id, [`modules/${id}/**`]));
+  descriptors.push(moduleDescriptor(GUIDE_COMPOSITION_PROFILE.module,
+    [...GUIDE_COMPOSITION_PROFILE.files,'tests/runtime/game-console-routing.test.ts'],
+    {dependencies:[...GUIDE_COMPOSITION_PROFILE.dependencies],tests:['runtime.full']}));
+  return descriptors;
+}
+
+test('guide browser pilot admits only the existing guide leaves and unchanged impact graph', () => {
+  const guide = FRONTEND_LEAF_PROFILES.find(profile => profile.module === 'newcomer-guides');
+  const decide = (changes, extra = {}) => decideE2eProfile({ event: 'pull_request', diffComplete: true,
+    baseline: guideDescriptors(), candidate: guideDescriptors(), changes, ...extra });
+  for (const path of guide.paths) assert.equal(decide([edited(path)]).profile, 'newcomer-guides');
+  assert.equal(decide([...guide.paths.map(path => edited(path)), edited(GENERATED_INVENTORY_PATH), edited('docs/development/guide.md')]).profile, 'newcomer-guides');
+  const excluded = ['apps/portal-web/src/App.tsx', 'apps/portal-web/src/WorkspaceCompanionLayout.tsx',
+    'apps/platform-api/src/app.ts', 'modules/identity-membership/service.ts', 'packages/db/index.ts',
+    'packages/testing/e2e-auth-isolation.ts', 'migrations/161_test.sql', 'scripts/ci/run-pinned-e2e.mjs',
+    'tests/e2e/newcomer-guides.spec.ts', 'tests/e2e/fixtures.ts', 'scripts/e2e-server.ts',
+    'playwright.config.ts', 'package.json', 'vite.config.ts',
+    ...['gate.ts','contracts.ts','release-pin.ts','content.ts'].map(path => 'apps/portal-web/src/modules/newcomer-guides/' + path),
+    FRONTEND_LEAF_PROFILES[0].paths[0], 'unknown-path.ts'];
+  for (const path of excluded) assert.equal(decide([edited(guide.paths[0]), edited(path)]).profile, 'full', path);
+  for (const status of ['A','D','R100','C100','T']) assert.equal(decide([edited(guide.paths[0], status)]).profile, 'full');
+  for (const event of ['push','merge_group','workflow_dispatch',undefined]) assert.equal(decide([edited(guide.paths[0])], {event}).profile, 'full');
+  assert.equal(decide([edited(guide.paths[0])], {diffComplete:false}).profile, 'full');
+  const baseline = guideDescriptors();
+  for (const mutate of [
+    graph => graph.find(x=>x.module_id==='newcomer-guides').owned_paths.splice(0),
+    graph => graph.push(moduleDescriptor('other', [guide.paths[0]])),
+    graph => graph.push(moduleDescriptor('other', ['modules/other/**'], {dependencies:['newcomer-guides']})),
+    graph => graph.find(x=>x.module_id==='newcomer-guides').dependencies.push('missing'),
+    graph => graph.find(x=>x.module_id==='public-guide-assets').dependencies.push('newcomer-guides'),
+    graph => graph.push(graph[0]),
+    graph => graph.find(x=>x.module_id==='application-composition').owned_paths.push('tests/e2e/new-composition.spec.ts'),
+    graph => graph.find(x=>x.module_id==='application-composition').dependencies.pop(),
+    graph => graph.find(x=>x.module_id==='application-composition').owned_paths.push('tests/**'),
+    graph => graph.find(x=>x.module_id==='newcomer-guides').owned_paths.push('tests/**'),
+    graph => graph.push(moduleDescriptor('overlap', [GUIDE_COMPOSITION_PROFILE.files[0]])),
+    graph => graph.push(moduleDescriptor('consumer', ['modules/consumer/**'],{dependencies:['application-composition']})),
+  ]) {
+    const candidate = structuredClone(baseline); mutate(candidate);
+    assert.equal(decide([edited(guide.paths[0])], {baseline,candidate}).profile, 'full');
+    assert.equal(decide([edited(guide.paths[0])], {baseline:candidate,candidate}).profile, 'full');
+  }
+});
+
+test('guide pilot binds clean integration checkout, ordered parents and host event before narrowing', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-guide-select-'));
+  t.after(() => rm(directory, {recursive:true,force:true}));
+  const git = (args,input) => execFileSync('/usr/bin/git', ['-C', directory, '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], {
+    input,encoding:'utf8',env:{...process.env,GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',
+      GIT_AUTHOR_NAME:'Guide Test',GIT_AUTHOR_EMAIL:'guide@example.invalid',GIT_COMMITTER_NAME:'Guide Test',GIT_COMMITTER_EMAIL:'guide@example.invalid'},
+  }).trim();
+  const put = async (path,body) => { await mkdir(dirname(join(directory,path)),{recursive:true});await writeFile(join(directory,path),body); };
+  git(['init','-q','-b','main']);
+  for (const descriptor of guideDescriptors()) await put(`modules/${descriptor.module_id}/freedom.module.json`,JSON.stringify(descriptor));
+  const leaf = FRONTEND_LEAF_PROFILES.find(p=>p.module==='newcomer-guides').paths[0];
+  await put('.gitignore','tests/e2e/generated.spec.ts\n');
+  await put(leaf,'before');git(['add','.']);git(['commit','-qm','base']);const base=git(['rev-parse','HEAD']);
+  await put(leaf,'after');git(['add','.']);git(['commit','-qm','guide']);const head=git(['rev-parse','HEAD']);
+  const candidate=git(['commit-tree',git(['rev-parse','HEAD^{tree}']),'-p',base,'-p',head], 'integration\n');
+  git(['checkout','-q',candidate]);
+  const input={repository:directory,event:'pull_request',base,head,candidate};
+  assert.equal(collectRepositoryE2eDecision(input).profile,'newcomer-guides');
+  for (const extra of [{event:'push'},{event:'merge_group'},{candidate:head},{head:base},{base:head},{candidate:''}])
+    assert.equal(collectRepositoryE2eDecision({...input,...extra}).profile,'full');
+  await put(leaf,'dirty');assert.equal(collectRepositoryE2eDecision(input).profile,'full');
+  git(['checkout','--',leaf]);await put('tests/e2e/generated.spec.ts','ignored new test');
+  assert.equal(git(['status','--porcelain']), '');
+  assert.equal(collectRepositoryE2eDecision(input).profile,'full');
+  await rm(join(directory,'tests/e2e/generated.spec.ts'));
+  await put('unexpected.ts','new');assert.equal(collectRepositoryE2eDecision(input).profile,'full');
+});
+
+
+test('actual repository guide graph includes composition and selects its complete browser obligation', () => {
+  const graph=loadModuleDescriptors(root,'HEAD');assert.equal(graph.ok,true);
+  for (const path of FRONTEND_LEAF_PROFILES.find(p=>p.module==='newcomer-guides').paths) {
+    const input={event:'pull_request',diffComplete:true,changes:[edited(path)],baseline:graph.descriptors,candidate:graph.descriptors};
+    assert.equal(decideAffectedJobs(input).mode,'full','job obligations are not narrowed');
+    assert.equal(decideE2eProfile(input).profile,'newcomer-guides');
+  }
 });
