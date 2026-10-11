@@ -18719,8 +18719,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 3569,
-      "sha256": "d628c02ac931322bb1b8f31123f337bedc9aed2961d021eb37ebbdbd2cf178ef"
+      "bytes": 4415,
+      "sha256": "572c688afe5ea098deb759302d9a9cf6d3f8fe7cbf18b823ad2dcf6fe8d65dc0"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
