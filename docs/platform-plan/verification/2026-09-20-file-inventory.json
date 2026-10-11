@@ -13139,8 +13139,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 44197,
-      "sha256": "5c75d4058d1d5ebf063922300df637a3b19c7d59334faedba03ccb6c58d2a5bf"
+      "bytes": 44324,
+      "sha256": "1c059ca3c23bfcdb4779567420fb4313cb4c347b432955d8855f4218c3395400"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -13219,8 +13219,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 13127,
-      "sha256": "8386b8d2973f4111e058b95017d39bf73e143089e2936fd8d3f083f2af4cadab"
+      "bytes": 13121,
+      "sha256": "37165e3a59d2bd6c559faeef227818b0513fcd8e2cc502412cfa24cbc31a7d81"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -15015,7 +15015,7 @@
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 24802,
-      "sha256": "04e340f4f6433f32a301004794fa31b755aa563c6d0573df1579e0f1959ba4d3"
+      "sha256": "6df816d4b2724e738baa5045fb5bd8548e077192ac4dc07a7633f0efad06da49"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -20249,8 +20249,8 @@
     },
     {
       "path": "tests/e2e/contribution-roles.spec.ts",
-      "bytes": 11831,
-      "sha256": "b4e1b5312b83bc146cef7d7d1498cec99e1c57908daeac2240062c510d3a80f1"
+      "bytes": 12887,
+      "sha256": "b4854b126c88db936ddb1cb587f58fd0f36c389e853550b0538db7e0d683354e"
     },
     {
       "path": "tests/e2e/development-access.spec.ts",

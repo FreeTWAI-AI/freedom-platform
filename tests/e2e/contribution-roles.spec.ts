@@ -40,8 +40,9 @@ async function fillRole(roles:Locator,role='proposal',summary='提出手機使�
   await roles.getByRole('checkbox').check();
 }
 
-test('three real members declare, confirm, amend and withdraw roles; cooperation shows evidence once per accepted Work',async({page,browser,baseURL})=>{
+test('three real members declare, confirm, amend and withdraw roles; cooperation shows evidence once per accepted Work',async({page,browser,baseURL,e2eAuthPool})=>{
   test.setTimeout(120_000);
+  const directoryPeers=Array.from({length:21},()=>randomUUID());
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
   const makerContext=await browser.newContext({baseURL}),ownerContext=await browser.newContext({baseURL});
   const makerPage=await makerContext.newPage(),ownerPage=await ownerContext.newPage();
@@ -99,12 +100,25 @@ test('three real members declare, confirm, amend and withdraw roles; cooperation
     await expect(outcomes).toContainText('0 件已驗收工作');
     await tasks(page,work.title);await expect(outcomes).toContainText('0 件已驗收工作');
     await tasks(makerPage,work.title);await expect(makerPage.getByRole('region',{name:'我的成果紀錄'})).toContainText(`${makerBaseline+1} 件已驗收工作`);
+    // Keep the partner outside the newest first page without relying on prior specs.
+    await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+      SELECT id,u.community_id,'contribution-page-'||id::text||'@example.test','分頁測試會員',u.password_hash,id,false
+      FROM unnest($1::uuid[]) id CROSS JOIN users u WHERE u.user_id=$2`,[directoryPeers,maker.user.user_id]);
     await navigate(makerPage,'工坊夥伴');
-    const partner=makerPage.locator('.directory-member').filter({has:makerPage.getByRole('heading',{name:'示範合作方',exact:true})});
+    const directory=makerPage.locator('.members-panel');
+    const partner=directory.locator('.directory-member').filter({has:makerPage.getByRole('heading',{name:'示範合作方',exact:true})});
+    await expect(directory.locator('.directory-member')).toHaveCount(20);
+    await expect(partner).toHaveCount(0);
+    await directory.getByRole('searchbox',{name:'搜尋夥伴',exact:true}).fill('示範合作方');
+    await directory.getByRole('button',{name:'搜尋',exact:true}).click();
+    await expect(partner).toBeVisible();
     await partner.getByText('更多資料',{exact:true}).click();
     await expect(partner.getByRole('region',{name:'夥伴的成果紀錄'})).toContainText('0 件已驗收工作');
     await expect(partner).not.toContainText('修正後的提案說明');expect(errors).toEqual([]);
-  }finally{await makerContext.close();await ownerContext.close();}
+  }finally{
+    try{await makerContext.close();await ownerContext.close();}
+    finally{await e2eAuthPool.query('DELETE FROM users WHERE user_id=ANY($1::uuid[])',[directoryPeers]);}
+  }
 });
 
 test('a committed declaration with a lost response retries the same receipt; unavailable outcomes are never shown as zero',async({page,browser,baseURL})=>{
