@@ -1,0 +1,1564 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-11T10:24:48.228286+00:00",
+  "status": "complete",
+  "scope": "Reviewed #441 / #234: durable per-order/item inventory holds, immutable quantity/supplier/deadline, one-time release and historical backfill in the existing database transaction.",
+  "source": {
+    "release": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+    "reviewedHead": "e6b5e7678b6c8f34258d6e1be05ef1008502d1c2",
+    "tree": "8be02d6578ca8249acc269391f2876c62558887d",
+    "trustedPin": "dc2f5ba8e003d2ae1f54a2965133e2e979d9d809",
+    "verifyRun": 38123593530,
+    "verifyAttempt": 1,
+    "codeqlRun": 38123590758,
+    "reviewId": 5482489676,
+    "mergeMethod": "protected merge commit"
+  },
+  "authorization": "22 個 PR 還有很多 issue 都在那，你的工作應該是照著 plan 開放，審核，能 merge, push , deploy 的都處理掉才對",
+  "source_verification": {
+    "pull_request": 441,
+    "required_jobs_passed": 14,
+    "counts": {
+      "head": "e6b5e7678b6c8f34258d6e1be05ef1008502d1c2",
+      "release": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "conclusion": "success",
+      "verifyRun": 38123593530,
+      "runtime": {
+        "candidate_commit": "251ed5863c212881b4444f06c1b85e530c09dfff",
+        "status": "passed",
+        "test_count": 4536,
+        "partition_count": 6,
+        "database_cleanup_verified": true,
+        "started_at": "2026-10-11T08:07:50.391Z",
+        "ended_at": "2026-10-11T08:24:42.651Z",
+        "evidence_sha256": "8ba1bb76c24740b3df6e7936c62ba796fd750d71ab9bb588fe36150d1f489501",
+        "testFiles": 355,
+        "shopService": {
+          "tests": 23,
+          "passed": 23,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      },
+      "ui": {
+        "check_id": "ci.e2e",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 867,
+        "file_count": 140,
+        "passes": [
+          {
+            "id": "default",
+            "exit_code": 0
+          },
+          {
+            "id": "private-ai",
+            "exit_code": 0
+          },
+          {
+            "id": "avatar-asset",
+            "exit_code": 0
+          },
+          {
+            "id": "message-image",
+            "exit_code": 0
+          },
+          {
+            "id": "store-photo",
+            "exit_code": 0
+          }
+        ]
+      },
+      "treeMatchesNaturalCandidate": true
+    },
+    "reviewed_tree_equals_merged_tree": true,
+    "main_verify": {
+      "at": "2026-10-11T09:38:52.348471+00:00",
+      "head": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "verifyRun": 38126298872,
+      "verifyAttempt": 1,
+      "conclusion": "success",
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38126298872",
+      "naturalPushRun": true,
+      "manualRerun": false,
+      "jobs": [
+        {
+          "name": "select",
+          "conclusion": "success"
+        },
+        {
+          "name": "source-integrity",
+          "conclusion": "success"
+        },
+        {
+          "name": "ui-e2e",
+          "conclusion": "success"
+        },
+        {
+          "name": "governance-consumers",
+          "conclusion": "success"
+        },
+        {
+          "name": "static-worker",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 5)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 2)",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy-preflight",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 0)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 3)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 1)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 4)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-aggregate",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify",
+          "conclusion": "success"
+        }
+      ],
+      "codeqlRun": 38126299104,
+      "codeqlConclusion": "success",
+      "codeqlPath": "dynamic/github-code-scanning/codeql",
+      "codeqlCheckSuite": 103297885520,
+      "codeqlJobAppId": 15368,
+      "codeqlJobs": [
+        {
+          "id": 114431262016,
+          "name": "Analyze (python)",
+          "conclusion": "success"
+        },
+        {
+          "id": 114431262177,
+          "name": "Analyze (javascript-typescript)",
+          "conclusion": "success"
+        },
+        {
+          "id": 114431262617,
+          "name": "Analyze (actions)",
+          "conclusion": "success"
+        }
+      ],
+      "requiredPrCodeqlGateUnchanged": true
+    },
+    "main_counts": {
+      "runtime": {
+        "status": "passed",
+        "test_count": 4536,
+        "partition_count": 6,
+        "database_cleanup_verified": true,
+        "evidence_sha256": "6ac883afcfee709122dae92fe03691670fe46f087ddbae1b73793b8cdd25b7cf",
+        "candidate_commit": "9d7d84bcf88cfc2ea4b34df83206280f645b8885"
+      },
+      "runtimeFiles": 355,
+      "ui": {
+        "check_id": "ci.e2e",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 867,
+        "file_count": 140,
+        "selection": {
+          "profile": "full",
+          "reason": "non_pull_request"
+        },
+        "binding": {
+          "candidate": "9d7d84bcf88cfc2ea4b34df83206280f645b8885"
+        },
+        "passes": [
+          {
+            "id": "default",
+            "exit_code": 0
+          },
+          {
+            "id": "private-ai",
+            "exit_code": 0
+          },
+          {
+            "id": "avatar-asset",
+            "exit_code": 0
+          },
+          {
+            "id": "message-image",
+            "exit_code": 0
+          },
+          {
+            "id": "store-photo",
+            "exit_code": 0
+          },
+          {
+            "id": "notification-preferences",
+            "exit_code": 0
+          }
+        ]
+      },
+      "boundary": "Natural push on main executed its source workflow; this six-pass observation does not change the separately installed five-pass PR workflow pin.",
+      "observedPushRunnerPin": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "installedPrWorkflowPin": "dc2f5ba8e003d2ae1f54a2965133e2e979d9d809"
+    },
+    "review_boundary": "detna AI-assisted exact-head source/integration approval; no claim of independent human test execution"
+  },
+  "environments": {
+    "staging": {
+      "source": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "observed_at": "2026-10-11T09:18:23.265Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "cache_control_no_store": true
+      },
+      "worker_version": "35ef9de7-e3ea-40d4-b624-1c41274ecfa6",
+      "dist_sha256": "30b6c7c832d096e36b3c080a4254b7ddbd7b5f735d499700fac8783f70ef3fbc",
+      "migration": {
+        "at": "2026-10-11T09:17:13.771Z",
+        "applied": [
+          "162_hosted_inventory_reservations.sql"
+        ],
+        "lastApplied": "162_hosted_inventory_reservations.sql",
+        "ledgerCount": 161,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "265c3dbe-b3d7-4820-aa5f-a95065b2328d"
+      },
+      "activation": {
+        "at": "2026-10-11T09:18:23.916398+00:00",
+        "enabled": true,
+        "shopsAutomaticallyEnabled": 0,
+        "readerFloorRetained": true,
+        "sameArtifact": true,
+        "backupPinsUnchanged": true,
+        "paymentEnabled": false,
+        "fulfilmentEnabled": false
+      },
+      "writer_floor": {
+        "capability": "commerce.hosted-inventory-reservation.v1",
+        "minimumSchema": 162,
+        "schemaLedgerDigest": "f9890431841b0a79d2e03db5180d64b7c6eec2e805b811c08758891286f5173a",
+        "artifactSha256": "30b6c7c832d096e36b3c080a4254b7ddbd7b5f735d499700fac8783f70ef3fbc",
+        "retainAfterAdmissionOff": true,
+        "restoreQuarantineRequired": true
+      },
+      "configuration": {
+        "existingTotpKeyPreserved": true,
+        "mediaPoliciesPreserved": true,
+        "otherBindingsAndVarsPreserved": true,
+        "gcEnabled": false,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true"
+        }
+      },
+      "selected_checks": {
+        "public_http": 36,
+        "inventory_reservation_browser": 32
+      },
+      "selected_check_results": {
+        "public_http": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "inventory_reservation_browser": [
+          {
+            "name": "exact_merged_source",
+            "passed": true
+          },
+          {
+            "name": "simultaneous_6_plus_5_only_one_reserved",
+            "passed": true
+          },
+          {
+            "name": "new_order_has_one_durable_hold",
+            "passed": true
+          },
+          {
+            "name": "retry_existing_order_200",
+            "passed": true
+          },
+          {
+            "name": "retry_existing_order_200",
+            "passed": true
+          },
+          {
+            "name": "same_and_new_receipt_keys_keep_one_hold",
+            "passed": true
+          },
+          {
+            "name": "supplier_view_200",
+            "passed": true
+          },
+          {
+            "name": "supplier_view_no_buyer_quote_or_cart",
+            "passed": true
+          },
+          {
+            "name": "other_seller_supplier_view_denied",
+            "passed": true
+          },
+          {
+            "name": "anonymous_supplier_view_denied",
+            "passed": true
+          },
+          {
+            "name": "fresh_login_and_cancel_restores_stock",
+            "passed": true
+          },
+          {
+            "name": "cancel_releases_original_hold",
+            "passed": true
+          },
+          {
+            "name": "cancelled_order_recovery_200",
+            "passed": true
+          },
+          {
+            "name": "cancel_recovery_keeps_release_timestamp",
+            "passed": true
+          },
+          {
+            "name": "owner_stops_new_reservations",
+            "passed": true
+          },
+          {
+            "name": "real_expiry_order_created",
+            "passed": true
+          },
+          {
+            "name": "expiry_holds_four_units",
+            "passed": true
+          },
+          {
+            "name": "expiry_order_has_durable_hold",
+            "passed": true
+          },
+          {
+            "name": "ordinary_ui_supply_consent_and_reservation_journey",
+            "passed": true
+          },
+          {
+            "name": "actual_clock_expiry",
+            "passed": true
+          },
+          {
+            "name": "expiry_read_replay_same_version",
+            "passed": true
+          },
+          {
+            "name": "expiry_releases_original_hold",
+            "passed": true
+          },
+          {
+            "name": "expiry_retry_keeps_one_release",
+            "passed": true
+          },
+          {
+            "name": "expiry_released_once",
+            "passed": true
+          },
+          {
+            "name": "supplier_retains_expired_history",
+            "passed": true
+          },
+          {
+            "name": "old_quote_rejected_after_withdrawal",
+            "passed": true
+          },
+          {
+            "name": "withdrawal_keeps_prior_history",
+            "passed": true
+          },
+          {
+            "name": "withdrawal_does_not_change_stock",
+            "passed": true
+          },
+          {
+            "name": "pre_upgrade_terminal_holds_unchanged",
+            "passed": true
+          },
+          {
+            "name": "owned_stock_unreserved",
+            "passed": true
+          },
+          {
+            "name": "owned_accounts_inactive",
+            "passed": true
+          },
+          {
+            "name": "owned_stores_admission_closed",
+            "passed": true
+          }
+        ]
+      },
+      "synthetic_cleanup": {
+        "cleanupVerified": true,
+        "actualClockExpiry": true,
+        "authorizationFixtureWrites": false,
+        "cleanupAdministrativeWrites": true,
+        "realUserAdoption": false
+      },
+      "github_deployment": {
+        "at": "2026-10-11T10:24:42.342356+00:00",
+        "environment": "staging-next",
+        "sha": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "deploymentId": 6994165146,
+        "statusId": 19596466113,
+        "state": "success",
+        "environmentUrl": "https://staging.freetwai.com/"
+      }
+    },
+    "production": {
+      "source": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "observed_at": "2026-10-11T10:13:19.989Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "cache_control_no_store": true
+      },
+      "worker_version": "2a81558c-f32f-4fa9-be4e-ae2bdc342dc9",
+      "dist_sha256": "30b6c7c832d096e36b3c080a4254b7ddbd7b5f735d499700fac8783f70ef3fbc",
+      "migration": {
+        "at": "2026-10-11T10:11:53.742Z",
+        "applied": [
+          "162_hosted_inventory_reservations.sql"
+        ],
+        "lastApplied": "162_hosted_inventory_reservations.sql",
+        "ledgerCount": 161,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "927e9293-7182-4ec3-a280-a08688296084"
+      },
+      "activation": {
+        "at": "2026-10-11T10:13:20.623580+00:00",
+        "enabled": true,
+        "shopsAutomaticallyEnabled": 0,
+        "readerFloorRetained": true,
+        "sameArtifact": true,
+        "backupPinsUnchanged": true,
+        "paymentEnabled": false,
+        "fulfilmentEnabled": false
+      },
+      "writer_floor": {
+        "capability": "commerce.hosted-inventory-reservation.v1",
+        "minimumSchema": 162,
+        "schemaLedgerDigest": "f9890431841b0a79d2e03db5180d64b7c6eec2e805b811c08758891286f5173a",
+        "artifactSha256": "30b6c7c832d096e36b3c080a4254b7ddbd7b5f735d499700fac8783f70ef3fbc",
+        "retainAfterAdmissionOff": true,
+        "restoreQuarantineRequired": true
+      },
+      "configuration": {
+        "existingTotpKeyPreserved": true,
+        "mediaPoliciesPreserved": true,
+        "otherBindingsAndVarsPreserved": true,
+        "gcEnabled": false,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true"
+        }
+      },
+      "selected_checks": {
+        "public_http": 36,
+        "account_http": 19
+      },
+      "selected_check_results": {
+        "public_http": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "account_http": [
+          {
+            "name": "reviewed_source_deployed",
+            "passed": true
+          },
+          {
+            "name": "register_201",
+            "passed": true
+          },
+          {
+            "name": "new_member_onboarding_required",
+            "passed": true
+          },
+          {
+            "name": "onboarding_directory_200",
+            "passed": true
+          },
+          {
+            "name": "synthetic_onboarding_guild",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "private_tenant_201",
+            "passed": true
+          },
+          {
+            "name": "list_0_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_0_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "list_1_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_1_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_1_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "list_1_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "owned_account_inactive",
+            "passed": true
+          },
+          {
+            "name": "owned_sessions_revoked",
+            "passed": true
+          },
+          {
+            "name": "owned_tenant_archived",
+            "passed": true
+          }
+        ]
+      },
+      "synthetic_cleanup": {
+        "syntheticAccountDeactivated": true,
+        "syntheticTenantArchived": true,
+        "existingMemberPermissionsChanged": false,
+        "syntheticInternMembershipEnded": true,
+        "passwordOrSessionRecorded": false
+      },
+      "github_deployment": {
+        "at": "2026-10-11T10:24:43.180959+00:00",
+        "environment": "next",
+        "sha": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "deploymentId": 6994165264,
+        "statusId": 19596466414,
+        "state": "success",
+        "environmentUrl": "https://freetwai.com/"
+      }
+    }
+  },
+  "backups": [
+    {
+      "environment": "staging",
+      "label": "before-migration",
+      "sourceRelease": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+      "operatorSource": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "createdAt": "2026-10-11T08:57:37.427Z",
+      "setId": "265c3dbe-b3d7-4820-aa5f-a95065b2328d",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "f6d78adfa4cee0e83d94f1787fe28513f8225d6b855964bed796336189fb26d2",
+      "dumpSha256": "c7dee593b9a98448df15843ff39d6c8c5e291905ec4d7e8b99ea855d85bdafd9",
+      "diskRestore": true,
+      "retainedPhotoObjects": 8,
+      "remotePhotoObjects": 8,
+      "retainedCommentObjects": 5,
+      "remoteCommentObjects": 5,
+      "retainedMessageObjects": 4,
+      "remoteMessageObjects": 4
+    },
+    {
+      "environment": "staging",
+      "label": "after-rollout",
+      "sourceRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "operatorSource": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "createdAt": "2026-10-11T09:54:02.617Z",
+      "setId": "e313bf4a-6203-48b6-bded-41660338d6b8",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "da31c61012330fd362a9538c8b8b9cc06d6467d60cfad948e64efffd645bbe86",
+      "dumpSha256": "b87ffaa2ffa5f13452f0c5e561627b5748af4f2803696ad16f310eb54f307804",
+      "diskRestore": true,
+      "retainedPhotoObjects": 8,
+      "remotePhotoObjects": 8,
+      "retainedCommentObjects": 5,
+      "remoteCommentObjects": 5,
+      "retainedMessageObjects": 4,
+      "remoteMessageObjects": 4
+    },
+    {
+      "environment": "production",
+      "label": "before-migration",
+      "sourceRelease": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+      "operatorSource": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "createdAt": "2026-10-11T09:20:39.791Z",
+      "setId": "927e9293-7182-4ec3-a280-a08688296084",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "03d558433aaf5e3a6d78484e06c1809cc7edcbef8fd2db80392412fb52ccfa0d",
+      "dumpSha256": "656c854eb9a58f49e600dca23e602b8f0d18a2eb57a6b7822575cb97ac942842",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0,
+      "retainedMessageObjects": 0,
+      "remoteMessageObjects": 0
+    },
+    {
+      "environment": "production",
+      "label": "after-rollout",
+      "sourceRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "operatorSource": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "createdAt": "2026-10-11T10:14:01.443Z",
+      "setId": "7e51b541-2452-44b6-bcea-bdcc6fb37f7a",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "68245083b4c7a952d5e198e332a84350a44db945140bc37eda0076a27d7ffabc",
+      "dumpSha256": "cf48073c02117dfe410390c0d9b06fb0ecb8616c373ec650dd3dde889ede1dfe",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0,
+      "retainedMessageObjects": 0,
+      "remoteMessageObjects": 0
+    }
+  ],
+  "limitations": [
+    "Staging uses new synthetic ordinary accounts and an existing synthetic guild officer; no real-member adoption or production buyer journey is claimed.",
+    "Host admission is enabled; existing storefronts were not opted in automatically. Each participating owner must explicitly enable reservations.",
+    "No payment, platform collection, supplier payable, fulfilment, remote inventory authority or portable module export.",
+    "T-047 restored tenant revocation reconciliation remains unresolved. Restore drills stay quarantined until current membership, invitation, session, credential and execution authority are reconciled.",
+    "Second-operator/off-host recovery, GC/retention policy, real email delivery and consented recurring-member use remain separate.",
+    "Private AI/CLI Grant-to-Result/Stop/Revoke/reconnection and Foundation acceptance remain incomplete."
+  ],
+  "backup_operator": {
+    "completedAt": "2026-10-11T10:12:37.616838+00:00",
+    "afterSha256": "9f421db4456f50ae64d614f0ec3a0ee120d6414f893def37e967554b4b27b7b8",
+    "pins": {
+      "staging": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "production": "9d7d84bcf88cfc2ea4b34df83206280f645b8885"
+    },
+    "operatorSource": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+    "backupAdapterSha256": "a0d08f34d36e27e7e90a3794a2450c0852d2da7452329ba45c50d57ec89b8512",
+    "diskRestore": true,
+    "gcSafety": "disabled",
+    "schedulesUnchanged": true
+  },
+  "temporary_staging_access": {
+    "revoked_at": "2026-10-11T10:05:44.448Z",
+    "policy": "deleted",
+    "token": "deleted",
+    "access_credential": "removed",
+    "curl_headers": "removed"
+  },
+  "rollback": {
+    "current_schema": 162,
+    "known_gaps": [
+      22
+    ],
+    "rule": "Forward repair retaining private-content, disbanded-squad, comment-image, retracted-message and outcome-source ACL readers; no blanket downgrade to R15 after new writes. Once message-image persistence is activated, retain media.message-image.asset.v1; stop new uploads with persistence_allowed=false while preserving authorized existing reads. Preserve enrolled TOTP enforcement and its environment-specific encryption key; R15 password-only login is not a compatible rollback after enrollment. After shared-reservation writes retain commerce.hosted-shared-reservation.v1 and schema 161 even with admission OFF; preserve restore quarantine and current-authority reconciliation. Schema162 requires commerce.hosted-inventory-reservation.v1 and its retained full ledger even with new admission OFF. Use the new compatible writer or forward repair; no pre162 Worker-only rollback. T-047 remains unresolved.",
+    "live_rollback_drill": "not_run",
+    "gc_and_retention": "OFF; historical assets retained",
+    "restored_environment_exposure": "Quarantine and reconcile current authorization; worker rollback does not restore the database or object storage.",
+    "pre162_worker_rollback_valid": false,
+    "post_migration_recovery": "Keep schema162 writer floor after admission OFF; use compatible forward repair. Restore remains quarantined pending current authorization reconciliation."
+  },
+  "retained_failed_attempts": {
+    "recordedAt": "2026-10-11T09:25:11.579759+00:00",
+    "localBackupAdmissionDeferred": {
+      "at": "2026-10-11T08:56:33.042584+00:00",
+      "stage": "local_heavy_job_admission",
+      "reason": "Host IO pressure exceeds local heavy-job limit",
+      "providerCommandStarted": false,
+      "backupStartedFileExists": false,
+      "backupRunDirectories": 0
+    },
+    "operatorProbeParseFailure": {
+      "at": "2026-10-11T09:22:43.691783+00:00",
+      "phase": "local_ts_transform",
+      "error": "missing closing parenthesis in pool initialization",
+      "scriptSha256": "d41e96fc6c1812336a73329ba8dfb02f88bcdfef236e6e8c2f79b5e68707a696",
+      "databaseConnectionOpened": false,
+      "productSourceChanged": false
+    },
+    "earlierCandidateVerify": {
+      "run": 38118366867,
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38118366867",
+      "conclusion": "failure",
+      "runtimePassed": 4535,
+      "runtimeTotal": 4536,
+      "uiPassed": 863,
+      "uiTotal": 863,
+      "failures": [
+        "Release metadata/scanner did not yet include migration162.",
+        "Restricted shop-service fixture lacked SELECT on the migration ledger; runtime grants already included that permission."
+      ],
+      "replacementEvidence": "Exact reviewed e6b5e767, natural Verify38123593530 and matching merged tree; no failed-job evidence stitching."
+    },
+    "historicalProductionServiceFailure": {
+      "at": "2026-10-11T04:34Z",
+      "releaseRecord": "rollout-r17-2026-10-11.json",
+      "boundary": "Historical R17 attempt retained in its original receipt. The R18 invocation has a distinct backup set and actual service result, recorded separately."
+    },
+    "productionPausedAdmissionProbe": {
+      "firstAttempt": {
+        "at": "2026-10-11T10:06:09.558Z",
+        "target": "next",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "status": "failed",
+        "newAdmissionRefused": false,
+        "checks": [
+          {
+            "name": "prior_source_live",
+            "passed": true
+          },
+          {
+            "name": "synthetic_registration_201",
+            "passed": true
+          },
+          {
+            "name": "directory_200",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "quotes_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "reservation-quotes_host_admission_refused",
+            "passed": false
+          }
+        ],
+        "failure": {
+          "name": "AssertionError",
+          "code": "ERR_ASSERTION"
+        },
+        "cleanupVerified": true,
+        "realMemberDataChanged": false
+      },
+      "firstAttemptSha256": "e6efdfcebb1212d647c509f2990d6b33d59fbac5cea4ac87fbadbb60123e23c4",
+      "actualFirstResponse": "not_retained_by_initial_operator_probe",
+      "rootCause": "undetermined",
+      "secondAttempt": {
+        "at": "2026-10-11T10:10:58.269Z",
+        "target": "next",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "status": "passed",
+        "newAdmissionRefused": true,
+        "checks": [
+          {
+            "name": "prior_source_live",
+            "passed": true
+          },
+          {
+            "name": "synthetic_registration_201",
+            "passed": true
+          },
+          {
+            "name": "directory_200",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "quotes_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "reservation-quotes_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "orders_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "reservation-orders_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "all_four_admission_paths_refused",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          }
+        ],
+        "responses": [
+          {
+            "path": "/health",
+            "method": "GET",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13d6bdbcb98a-ORD"
+          },
+          {
+            "path": "/auth/register",
+            "method": "POST",
+            "status": 201,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13d8187bb98a-ORD"
+          },
+          {
+            "path": "/guilds/directory",
+            "method": "GET",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13db3f28b98a-ORD"
+          },
+          {
+            "path": "/me/onboarding/quick-start",
+            "method": "POST",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13dede82b98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/quotes",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e1ecfeb98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/reservation-quotes",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e3584db98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/orders",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e4fb6eb98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/reservation-orders",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e65eb1b98a-ORD"
+          },
+          {
+            "path": "/auth/logout",
+            "method": "POST",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e7a952b98a-ORD"
+          }
+        ],
+        "failure": null,
+        "cleanupVerified": true,
+        "realMemberDataChanged": false
+      },
+      "resolution": "Independent instrumented four-path proof passed with unchanged expected status/code and unchanged R17 source/config; do not label the first response as rate limiting or environment fluctuation. Subsequent quiescence remains required.",
+      "productSourceChanged": false
+    }
+  },
+  "handover": {
+    "staging": {
+      "pause": {
+        "at": "2026-10-11T09:10:57.190Z",
+        "target": "staging",
+        "status": "complete",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "candidateRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "version": "4f343a14-80bc-412f-9a18-22cd36bf7266",
+        "admissionEnabled": false,
+        "singleVersion": true,
+        "otherBindingsPreserved": true
+      },
+      "authenticated_http_refusal": {
+        "at": "2026-10-11T09:11:42.667Z",
+        "target": "staging",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "status": "passed",
+        "newAdmissionRefused": true,
+        "checks": [
+          {
+            "name": "prior_source_live",
+            "passed": true
+          },
+          {
+            "name": "synthetic_registration_201",
+            "passed": true
+          },
+          {
+            "name": "directory_200",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "quotes_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "reservation-quotes_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "orders_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "reservation-orders_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          }
+        ],
+        "failure": null,
+        "cleanupVerified": true,
+        "realMemberDataChanged": false
+      },
+      "quiescence": {
+        "at": "2026-10-11T09:16:43.217Z",
+        "target": "staging",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "candidateRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "status": "passed",
+        "activeHostedOrders": 0,
+        "reserved": 0,
+        "enabledShops": 0,
+        "commerceLocksAcquired": 7,
+        "waitingCommerceTransactions": 0,
+        "postPauseHttpRefusal": true,
+        "noDataWrites": true
+      },
+      "historical_backfill": {
+        "at": "2026-10-11T09:17:16.202Z",
+        "target": "staging",
+        "release": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "status": "passed",
+        "holdCount": 2,
+        "states": [
+          {
+            "reservation_state": "cancelled",
+            "count": 1
+          },
+          {
+            "reservation_state": "expired",
+            "count": 1
+          }
+        ],
+        "reserved": 0,
+        "immutableHistoryProjectionMatches": true,
+        "holdSnapshotSha256": "8ccf89d4213e4f81969ede8ffa81b960843b740f5b90725f6e1f71efb0d00c70",
+        "readOnly": true
+      },
+      "migration_commit_floor": {
+        "at": "2026-10-11T09:16:48.382Z",
+        "minimumSchema": 162,
+        "candidateRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "pre162WorkerRollbackValid": false,
+        "restoreQuarantineRequired": true
+      },
+      "boundary": "A bounded observed pause/drain at zero active hosted orders and zero opted-in shops, not a generic distributed drain protocol."
+    },
+    "production": {
+      "pause": {
+        "at": "2026-10-11T10:06:03.009Z",
+        "target": "next",
+        "status": "complete",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "candidateRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "version": "28e75681-f0b6-4a3c-b924-886f41aff949",
+        "admissionEnabled": false,
+        "singleVersion": true,
+        "otherBindingsPreserved": true
+      },
+      "authenticated_http_refusal": {
+        "at": "2026-10-11T10:10:58.269Z",
+        "target": "next",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "status": "passed",
+        "newAdmissionRefused": true,
+        "checks": [
+          {
+            "name": "prior_source_live",
+            "passed": true
+          },
+          {
+            "name": "synthetic_registration_201",
+            "passed": true
+          },
+          {
+            "name": "directory_200",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "quotes_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "reservation-quotes_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "orders_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "reservation-orders_host_admission_refused",
+            "passed": true
+          },
+          {
+            "name": "all_four_admission_paths_refused",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          }
+        ],
+        "responses": [
+          {
+            "path": "/health",
+            "method": "GET",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13d6bdbcb98a-ORD"
+          },
+          {
+            "path": "/auth/register",
+            "method": "POST",
+            "status": 201,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13d8187bb98a-ORD"
+          },
+          {
+            "path": "/guilds/directory",
+            "method": "GET",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13db3f28b98a-ORD"
+          },
+          {
+            "path": "/me/onboarding/quick-start",
+            "method": "POST",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13dede82b98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/quotes",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e1ecfeb98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/reservation-quotes",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e3584db98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/orders",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e4fb6eb98a-ORD"
+          },
+          {
+            "path": "/hosted-stores/r18-pause-probe/reservation-orders",
+            "method": "POST",
+            "status": 404,
+            "code": "not_found",
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e65eb1b98a-ORD"
+          },
+          {
+            "path": "/auth/logout",
+            "method": "POST",
+            "status": 200,
+            "code": null,
+            "contentType": "application/json",
+            "retryAfter": null,
+            "cfRay": "a48d13e7a952b98a-ORD"
+          }
+        ],
+        "failure": null,
+        "cleanupVerified": true,
+        "realMemberDataChanged": false
+      },
+      "quiescence": {
+        "at": "2026-10-11T10:11:20.244Z",
+        "target": "next",
+        "release": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+        "candidateRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "status": "passed",
+        "activeHostedOrders": 0,
+        "reserved": 0,
+        "enabledShops": 0,
+        "commerceLocksAcquired": 1,
+        "waitingCommerceTransactions": 0,
+        "postPauseHttpRefusal": true,
+        "noDataWrites": true
+      },
+      "historical_backfill": {
+        "at": "2026-10-11T10:11:56.211Z",
+        "target": "next",
+        "release": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "status": "passed",
+        "holdCount": 0,
+        "states": [],
+        "reserved": 0,
+        "immutableHistoryProjectionMatches": true,
+        "holdSnapshotSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "readOnly": true
+      },
+      "migration_commit_floor": {
+        "at": "2026-10-11T10:11:28.006Z",
+        "minimumSchema": 162,
+        "candidateRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+        "pre162WorkerRollbackValid": false,
+        "restoreQuarantineRequired": true
+      },
+      "boundary": "A bounded observed pause/drain at zero active hosted orders and zero opted-in shops, not a generic distributed drain protocol."
+    }
+  },
+  "legacy_writer_counterexample": {
+    "at": "2026-10-11T09:22:47.588Z",
+    "release": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+    "status": "passed",
+    "environment": "staging",
+    "counterexample": "pre162-style balance update without corresponding hold transition",
+    "sqlState": "23514",
+    "transactionRolledBack": true,
+    "ownedSyntheticItemOnly": true,
+    "stockAndHoldUnchanged": true,
+    "oldWorkerBinaryExecuted": false
+  },
+  "backup_service_execution": {
+    "at": "2026-10-11T09:31:31.346794+00:00",
+    "status": "passed",
+    "service": {
+      "ActiveState": "inactive",
+      "Result": "success",
+      "ExecMainStartTimestamp": "Sun 2026-10-11 05:20:39 EDT",
+      "ExecMainStatus": "0"
+    },
+    "setId": "927e9293-7182-4ec3-a280-a08688296084",
+    "sourceRelease": "df20b66affe5578ad46dffc5b9d826f8ded2264a",
+    "operatorSource": "9d7d84bcf88cfc2ea4b34df83206280f645b8885"
+  }
+}
