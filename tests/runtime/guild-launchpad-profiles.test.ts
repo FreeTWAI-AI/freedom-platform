@@ -8,9 +8,9 @@ import {isolatedTransaction} from '../../packages/resource-scopes/tenant-transac
 import {DEMO_COMMUNITY, DEMO_USERS} from '../../packages/testing/seed.js';
 import {createRegistryHarness, type RegistryHarness, type Session} from './module-registry-harness.js';
 
-const supplier = 'guild_product_quality_supply';
 const commerce = 'guild_commerce_sales';
 const production = 'guild_commercial_production';
+const supplier = 'guild_product_quality_supply';
 const talent = 'guild_talent_direction';
 const other = 'guild_music_mv';
 const manual = {application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0'};
@@ -67,7 +67,7 @@ test('member, public and leader defaults use revision 5 with pointer 1 and scope
     for (const config of [view.data.config, pub.data.config]) {
       assert.equal(config.revision, '5');
       assert.deepEqual(config.body.blocks.map((block: {kind: string}) => block.kind), orders[key] ?? BLOCK_KINDS);
-      assert.deepEqual(config.body.application_refs, key === other ? [] : ([commerce, supplier].includes(key) ? [hosted, manual] : [manual]).map((ref, order) => ({...ref, order})));
+      assert.deepEqual(config.body.application_refs, key === other ? [] : ((key === commerce || key === supplier) ? [hosted, manual] : [manual]).map((ref, order) => ({...ref, order})));
     }
     assert.equal(view.data.config.pointer_version, '1');
     const applications = LaunchpadApplicationSchema.array().parse(view.data.applications);
@@ -154,14 +154,14 @@ test('available releases use catalog winner precedence and retain the release-re
 });
 
 
-for (const key of [talent, supplier]) test(`${key} published starter, block order and empty recommendations stay authoritative after the default revision changes`, async () => {
-  const owner = await leader(key), session = await member();
-  const initial = (await h.call('GET', `/guilds/${key}/launchpad-config`, owner)).data;
+for (const guildKey of [talent, supplier]) test(`${guildKey} published starter, block order and empty recommendations stay authoritative after the default revision changes`, async () => {
+  const owner = await leader(guildKey), session = await member();
+  const initial = (await h.call('GET', `/guilds/${guildKey}/launchpad-config`, owner)).data;
   const body: Config = {...initial.body, starter: {title_label: '會長保留的練習', objective_hint: '先討論下一步', note_hint: '保留原說明'},
     blocks: [...initial.body.blocks].reverse().map((block, order) => ({...block, order})), application_refs: []};
-  await publish(owner, body, initial.pointer_version, key);
-  const memberView = await h.call('GET', `/guilds/${key}/launchpad`, session);
-  const publicView = await h.call('GET', `/public/guilds/${key}/launchpad`);
+  await publish(owner, body, initial.pointer_version, guildKey);
+  const memberView = await h.call('GET', `/guilds/${guildKey}/launchpad`, session);
+  const publicView = await h.call('GET', `/public/guilds/${guildKey}/launchpad`);
   assert.equal(memberView.data.config.source, 'guild_editor');
   assert.equal(memberView.data.config.revision, '1');
   for (const view of [memberView, publicView]) {

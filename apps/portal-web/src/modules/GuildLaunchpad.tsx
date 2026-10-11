@@ -181,21 +181,21 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   useEffect(() => { if (workRefresh) focusWork(); }, [workRefresh]);
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
   const primary = recommendedApplications(config.application_refs, applications)[0];
-  const supplyEntry = guildKey === 'guild_product_quality_supply' && primary?.application_key === 'hosted-store';
+  const supplyPrimary = guildKey === 'guild_product_quality_supply' && primary?.application_key === 'hosted-store';
   const showPrimary = !visitor && mode === 'member' && Boolean(userId) && primary
     && (primary.application_key === 'manual-workspace' || blocks.some(block => block.kind === 'applications'));
   return <>
     {memberTier && <p className="field-hint">成員身分：{memberTier === 'intern' ? '實習成員' : memberTier === 'full' ? '正式成員' : memberTier}</p>}
     {showPrimary && <section className="card guild-launchpad-primary" aria-label="主要動作">
-      <h2>{primary.application_key === 'manual-workspace' ? config.starter.title_label : supplyEntry ? '商品與供貨' : primary.display_name}</h2>
-      {supplyEntry && <p>供貨使用同一個線上商店。新增商品後，開啟「供貨條件」儲存草稿，再按「公開供貨版本」；店主提出選品與售價後，在「供貨合作」確認。</p>}
+      <h2>{primary.application_key === 'manual-workspace' ? config.starter.title_label : supplyPrimary ? '商品與供貨' : primary.display_name}</h2>
+      {supplyPrimary && <p>使用我的商店管理供貨：新增商品後，開啟「供貨條件」設定供貨價格、運費與退換貨條件，再自行決定是否「公開供貨版本」。已有商店可直接沿用。</p>}
       {primary.application_key === 'manual-workspace' ? <>
         <p>{config.starter.objective_hint}</p>
         {guildKey === 'guild_talent_direction' && memberTier === 'full' && <p className="field-hint">在下方選擇可使用的工作空間，再建立新方向卡或繼續原卡；尚未完成設定時，依下方提示完成設定。</p>}
         {memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
           : <div className="actions"><button type="button" className="btn btn-primary" onClick={focusWork}>{guildKey === 'guild_talent_direction' ? '前往方向卡' : '前往我的工作'}</button></div>}
       </> : primary.application_key === 'hosted-store' ? memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
-        : <MyStoreAction client={client} canStart={startable(primary)} reasons={primary.eligibility.reason_codes.map(code => REASONS[code])}
+        : <MyStoreAction client={client} purpose={supplyPrimary ? 'supply' : undefined} canStart={startable(primary)} reasons={primary.eligibility.reason_codes.map(code => REASONS[code])}
           onCreate={() => {if (canLeave()) setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1});}}
           onEnter={path => {if (canNavigate()) window.location.hash = path;}}/> : <>
         {primary.eligibility.tenant_action !== 'denied' && <div className="actions"><button type="button" className="btn btn-primary" disabled={!primary.eligibility.can_launch} onClick={() => setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1})}>{primary.eligibility.tenant_action === 'continue' ? '繼續使用' : '啟動'}{primary.display_name}</button></div>}

@@ -26,7 +26,7 @@ test('talent defaults use only the current offered manual release; revision 5 do
 });
 
 test('commerce, production and unprofiled guild content retain their existing default contracts', () => {
-  assert.deepEqual(Object.keys(LAUNCHPAD_PROFILES).sort(), ['guild_commerce_sales', 'guild_product_quality_supply', 'guild_commercial_production', talent].sort());
+  assert.deepEqual(Object.keys(LAUNCHPAD_PROFILES).sort(), ['guild_commerce_sales', 'guild_commercial_production', 'guild_product_quality_supply', talent].sort());
   assert.ok(Object.isFrozen(LAUNCHPAD_PROFILES));
   for (const profile of Object.values(LAUNCHPAD_PROFILES)) {
     assert.ok(Object.isFrozen(profile) && Object.isFrozen(profile!.block_order) && Object.isFrozen(profile!.preferred_applications));
@@ -60,4 +60,16 @@ test('rendered leader refs control recommendations without inserting talent defa
   assert.deepEqual(recommendedApplications([], apps), []);
   assert.deepEqual(recommendedApplications([{...manual, release_ref: 'manual-workspace@future', order: 0}], apps), []);
   assert.deepEqual(recommendedApplications([{...synthetic, order: 0}], apps), [synthetic]);
+});
+
+test('supplier defaults recommend the offered hosted store without inventing a release or changing the starter', () => {
+  const supplier = guild('guild_product_quality_supply');
+  const current = {...hosted, release_ref: 'hosted-store@2.0.0'};
+  const body = defaultConfigFor(supplier, [manual, current, hosted, synthetic]);
+  assert.deepEqual(body.application_refs, [current, manual].map((ref, order) => ({...ref, order})));
+  assert.deepEqual(body.blocks.map(block => block.kind), ['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support']);
+  assert.equal(body.starter.title_label, '商品／供貨檢查清單');
+  assert.deepEqual(defaultConfigFor(supplier, [manual]).application_refs, [{...manual, order: 0}]);
+  assert.deepEqual(defaultConfigFor(supplier, [synthetic]).application_refs, []);
+  assert.deepEqual(defaultConfigFor(supplier).application_refs, []);
 });

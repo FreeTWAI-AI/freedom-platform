@@ -6,6 +6,7 @@ import {ApplicationPageSchema} from '../../contracts/guild-launchpad/v1/module-r
 import {createRegistryHarness, type RegistryHarness} from './module-registry-harness.js';
 
 const commerce = 'guild_commerce_sales';
+const supplier = 'guild_product_quality_supply';
 const production = 'guild_commercial_production';
 let h: RegistryHarness;
 before(async () => {
@@ -51,9 +52,9 @@ test('repeated demo seeding preserves independent salts, real password checks an
     }
   } finally { q.release(); }
 });
-test('commerce recommends hosted-store then manual-workspace while production keeps manual-workspace', async () => {
+test('commerce and supplier recommend hosted-store then manual-workspace while production keeps manual-workspace', async () => {
   const session = (await h.person('商店會員')).session;
-  for (const [guild, expected] of [[commerce, ['hosted-store', 'manual-workspace']], [production, ['manual-workspace']]] as const) {
+  for (const [guild, expected] of [[commerce, ['hosted-store', 'manual-workspace']], [supplier, ['hosted-store', 'manual-workspace']], [production, ['manual-workspace']]] as const) {
     await h.fullMember(session.user.user_id, guild);
     const result = await h.call('GET', `/guilds/${guild}/launchpad`, session);
     assert.equal(result.status, 200);
@@ -61,11 +62,11 @@ test('commerce recommends hosted-store then manual-workspace while production ke
     assert.equal(result.data.config.revision, '5'); assert.equal(result.data.config.pointer_version, '1');
   }
 });
-test('full commerce members can start with no space and can launch after creating one; interns are refused', async () => {
+for (const guild of [commerce, supplier]) test(`full ${guild} members can start with no space and can launch after creating one; interns are refused`, async () => {
   const session = (await h.person('商店資格會員')).session;
-  await h.fullMember(session.user.user_id, commerce);
+  await h.fullMember(session.user.user_id, guild);
   async function eligibility() {
-    const result = await h.call('GET', `/applications?guild_key=${commerce}`, session);
+    const result = await h.call('GET', `/applications?guild_key=${guild}`, session);
     assert.equal(result.status, 200);
     const item = ApplicationPageSchema.parse(result.data).items.find(app => app.application_key === 'hosted-store');
     assert.ok(item?.eligibility); return item.eligibility;
@@ -73,7 +74,7 @@ test('full commerce members can start with no space and can launch after creatin
   assert.deepEqual(await eligibility(), {can_launch: false, reason_codes: ['tenant_manage_required'], required_guild_tier: 'full', tenant_action: 'create', policy_revision: '1'});
   await h.createTenant(session, '選物工作室');
   assert.deepEqual(await eligibility(), {can_launch: true, reason_codes: [], required_guild_tier: 'full', tenant_action: 'select', policy_revision: '1'});
-  await h.fullMember(session.user.user_id, commerce, 'intern');
+  await h.fullMember(session.user.user_id, guild, 'intern');
   assert.deepEqual(await eligibility(), {can_launch: false, reason_codes: ['guild_full_member_required'], required_guild_tier: 'full', tenant_action: 'denied', policy_revision: '1'});
 });
 test('withdrawn hosted offering makes the commerce default fall back to manual-workspace', async () => {
