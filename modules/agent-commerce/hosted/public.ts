@@ -15,7 +15,7 @@ export async function readPublicStorePage(pool: Pool, rawSlug: string) {
     const row = (await q.query<{ tenant_id: string; instance_id: string; storefront_shop_id: string; supply_shop_id: string; publication_id: string; media_sha256:string; projection: unknown; template_id: unknown }>(`SELECT p.tenant_id,p.instance_id,p.storefront_shop_id,p.supply_shop_id,pub.publication_id,pub.media_sha256,pub.projection,pub.template_id
       FROM commerce_storefront_profiles p JOIN commerce_storefront_publications pub ON pub.publication_id=p.current_publication_id AND pub.instance_id=p.instance_id AND pub.tenant_id=p.tenant_id
       JOIN commerce_shops s ON s.shop_id=p.storefront_shop_id AND s.origin='hosted'
-      WHERE p.slug=$1`, [slug])).rows[0];
+      WHERE p.slug IS NOT NULL AND p.slug=$1`, [slug])).rows[0];
     if (!row) return null;
     const scope = (await q.query<{ scope_id: string }>(`SELECT scope_id FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1 AND status='active'`, [row.tenant_id])).rows[0];
     if (!scope) return null;

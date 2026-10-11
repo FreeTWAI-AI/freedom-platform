@@ -30,7 +30,7 @@ export async function photoProducts(q: PoolClient, p: Profile): Promise<PhotoPro
     LEFT JOIN commerce_product_photo_targets t ON t.product_id=i.item_id AND t.tenant_id=m.tenant_id AND t.instance_id=m.instance_id
     LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.scope_id=t.scope_id AND a.tenant_ref=t.tenant_id AND a.scope_kind='tenant' AND a.purpose='storefront.product-photo' AND a.state='ready' AND a.deletion_fence=0 AND a.representation_id=t.representation_id
     LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.scope_id=a.scope_id AND o.representation_id=a.representation_id AND o.policy_revision=t.policy_revision AND o.purpose=a.purpose AND o.profile_id='storefront.product-photo'
-    WHERE m.tenant_id=$1 AND m.instance_id=$2 AND i.shop_id=$3 AND l.shop_id=$4 ORDER BY i.sku LIMIT 201`,
+    WHERE m.tenant_id=$1 AND m.instance_id=$2 AND i.shop_id=$3 AND l.shop_id=$4 AND l.own_retail_enabled ORDER BY i.sku LIMIT 201`,
   [p.tenant_id,p.instance_id,p.supply_shop_id,p.storefront_shop_id])).rows;
   requireCondition(rows.length <= 200, 500, 'storefront_photo_invalid', '商品資料超出上限。');
   return rows.map(row => ({ product: ProductViewSchema.parse({ product_id: row.product_id, sku: row.sku, title: row.title,

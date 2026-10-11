@@ -17,7 +17,7 @@ function fixture() {
    observation:{evidence_id:'synthetic-shared-observation',target,observed_at_ms:9999,schema_ledger:scan.ledger,schema_ledger_digest:scan.ledger_digest,
     enabled_shapes:[],written_shapes:[],active_releases:[active],complete:true},
    release_records:[active,candidate].map(identity=>({...identity,evidence_id:'synthetic-shared-approval',status:'approved',environments:['staging-next'],
-    schema_ledger_digests:[scan.ledger_digest],capabilities:['commerce.hosted-inventory-reservation.v1','platform.legacy.v1','work.explicit-wire.v1',shape],approved_at_ms:9000,expires_at_ms:11000}))}};
+    schema_ledger_digests:[scan.ledger_digest],capabilities:['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','platform.legacy.v1','work.explicit-wire.v1',shape],approved_at_ms:9000,expires_at_ms:11000}))}};
 }
 function run(f){const r=evaluateReleaseCompatibility(f.input,{scan:f.scan,host:f.host});
  for(const field of ['deployment_authority','restore_proof','execution_authority'])assert.equal(r[field],false);return r;}
@@ -85,4 +85,28 @@ test('capability-only inventory history cannot be erased by restoring161 or disa
  const current=fixture();retained.host.rollback_floor=current.host.rollback_floor;
  retained.host.release_records[0].capabilities=retained.host.release_records[0].capabilities.filter(c=>c!==inventory);
  assert(run(retained).issues.some(i=>i.code==='release_capability_missing'&&i.capability===inventory));
+});
+
+const supplyCatalog='commerce.hosted-supply-catalog.v1';
+test('schema164 fences every supply catalog reader/writer without activating any shape',()=>{
+ const f=fixture(),before=structuredClone(f),result=run(f);
+ assert.equal(result.status,'compatible');assert.deepEqual(result.required_shapes,[]);
+ assert(result.required_capabilities.includes(supplyCatalog));assert.deepEqual(f,before);
+ for(const index of [0,1]){
+  const old=structuredClone(f);old.host.release_records[index].capabilities=old.host.release_records[index].capabilities.filter(c=>c!==supplyCatalog);
+  assert(run(old).issues.some(i=>i.code==='release_capability_missing'&&i.capability===supplyCatalog&&i.source_sha===old.host.release_records[index].source_sha));
+ }
+});
+for(const source of ['enable_shapes','enabled_shapes','written_shapes','rollback_floor_shapes'])test(`supply catalog ${source} retains the exact164 floor`,()=>{
+ const f=fixture();(source==='enable_shapes'?f.input:source==='rollback_floor_shapes'?f.host:f.host.observation)[source]=[supplyCatalog];
+ assert.equal(run(f).status,'compatible');
+ const old=structuredClone(f);lower(old,source==='enable_shapes',163);
+ const code=source==='enable_shapes'?'shape_schema_missing':source==='rollback_floor_shapes'?'historical_shape_schema_missing':'observed_shape_schema_missing';
+ assert(run(old).issues.some(i=>i.code===code&&i.shape===supplyCatalog));
+});
+test('restoring163 cannot erase retained supply catalog capability history',()=>{
+ const f=fixture();f.host.rollback_floor.capabilities=[supplyCatalog];lower(f,true,163);
+ const result=run(f);assert(result.issues.some(i=>i.code==='shape_schema_missing'&&i.shape===supplyCatalog));
+ assert(result.issues.some(i=>i.code==='historical_shape_schema_missing'&&i.shape===supplyCatalog));
+ assert.deepEqual(result.required_shapes,[]);
 });

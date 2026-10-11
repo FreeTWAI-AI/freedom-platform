@@ -7,24 +7,29 @@ async function expand(p:Page,label:string) {
   const section=panel(p).locator('details').filter({has:p.locator('summary').filter({hasText:label})});
   if(await section.getAttribute('open')===null)await section.locator('summary').click(); return section;
 }
-test('supplier A and independent B/C complete exact-version consent, publication, repricing and withdrawal through their own UI',async ({browser,baseURL,e2eAuthPool},info)=>{
+for (const supplierOnly of [false, true]) {
+test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C complete exact-version consent, publication, repricing and withdrawal through their own UI`,async ({browser,baseURL,e2eAuthPool},info)=>{
   const contexts=await Promise.all([0,1,2].map(()=>browser.newContext({baseURL})));
+  let supplierId: string | undefined;
   try {
     const stores=[];
     for(const [n,ctx] of contexts.entries()) {
-      const member=await person(e2eAuthPool),page=await ctx.newPage(); await login(page,member.email);
+      const member=await person(e2eAuthPool),page=await ctx.newPage();
+      if(n===0)supplierId=member.id;
+      await login(page,member.email);
       const s=await launchStore(page,['供貨茶坊','小島選物','山城選物'][n]);
       const slug=`supply-${randomUUID().slice(0,12)}`;
-      await post(page,s.root+'/setup',{name:['供貨茶坊','小島選物','山城選物'][n],slug,currency:'TWD'},201);
-      await open(page,s.hash); stores.push({...s,page,slug});
+      if (n === 0 && supplierOnly) await post(page,s.root+'/supply-profile',{name:'供貨茶坊',currency:'TWD'},201);
+      else await post(page,s.root+'/setup',{name:['供貨茶坊','小島選物','山城選物'][n],slug,currency:'TWD'},201);
+      await open(page,s.hash+(n === 0 && supplierOnly ? '/supply' : '')); stores.push({...s,page,slug});
     }
     const [a,b,c]=stores;
-    const add=a.page.getByRole('form',{name:'新增商品',exact:true});
+    const add=a.page.getByRole('form',{name:supplierOnly?'新增供貨商品':'新增商品',exact:true});
     await add.getByLabel('商品名稱',{exact:true}).fill('共用庫存茶杯');
-    await add.getByLabel('價格（新臺幣 TWD）',{exact:true}).fill('10');
+    await add.getByLabel(supplierOnly?'供貨單價（TWD）':'價格（新臺幣 TWD）',{exact:true}).fill('10');
     await add.getByLabel('庫存',{exact:true}).fill('10');
-    await add.getByRole('button',{name:'新增商品',exact:true}).click();
-    await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText('已新增商品');
+    await add.getByRole('button',{name:supplierOnly?'新增供貨商品':'新增商品',exact:true}).click();
+    await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText(supplierOnly?'已新增供貨商品':'已新增商品');
     await a.page.getByRole('button',{name:'供貨條件',exact:true}).click();
     let supply=a.page.getByRole('form',{name:'共用庫存茶杯供貨條件',exact:true});
     await supply.getByLabel('供貨單價（TWD）',{exact:true}).fill('4');
@@ -33,8 +38,14 @@ test('supplier A and independent B/C complete exact-version consent, publication
     await supply.getByRole('textbox',{name:'退貨條件',exact:true}).fill('瑕疵品由茶坊處理');
     await supply.getByRole('button',{name:'儲存供貨條件',exact:true}).click();
     await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText('已儲存供貨條件');
-    await b.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
-    await expect(await expand(b.page,'選用其他商店')).toContainText('目前沒有其他店主公開');
+    const [privateCatalog]=await Promise.all([
+      b.page.waitForResponse(response=>new URL(response.url()).pathname===`/api/v1${b.root}/supply-catalog`&&response.request().method()==='GET'),
+      b.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click(),
+    ]);
+    expect(privateCatalog.status()).toBe(200);
+    expect((await privateCatalog.json()).items.some((offer:{terms:{title:string}})=>offer.terms.title==='共用庫存茶杯')).toBe(false);
+    // Other suppliers may already be public; this private item must remain absent.
+    await expect((await expand(b.page,'選用其他商店')).getByRole('heading',{name:'共用庫存茶杯・供貨茶坊',exact:true})).toHaveCount(0);
     await a.page.getByRole('button',{name:'供貨條件',exact:true}).click();
     supply=a.page.getByRole('form',{name:'共用庫存茶杯供貨條件',exact:true});
     await supply.getByRole('button',{name:'公開供貨版本',exact:true}).click();
@@ -42,10 +53,11 @@ test('supplier A and independent B/C complete exact-version consent, publication
     for(const [s,price] of [[b,'11'],[c,'13']] as const) {
       await s.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
       const catalog=await expand(s.page,'選用其他商店');
-      await expect(catalog.getByRole('heading',{name:'共用庫存茶杯・供貨茶坊',exact:true})).toBeVisible();
-      await catalog.getByRole('button',{name:'設定我的售價',exact:true}).click();
-      await catalog.getByLabel('我的零售價（TWD）',{exact:true}).fill(price);
-      await catalog.getByRole('button',{name:'送出供貨申請',exact:true}).click();
+      const offer=catalog.locator('article').filter({has:s.page.getByRole('heading',{name:'共用庫存茶杯・供貨茶坊',exact:true})});
+      await expect(offer).toBeVisible();
+      await offer.getByRole('button',{name:'設定我的售價',exact:true}).click();
+      await offer.getByLabel('我的零售價（TWD）',{exact:true}).fill(price);
+      await offer.getByRole('button',{name:'送出供貨申請',exact:true}).click();
       await expect(s.page.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
       await expect(s.page.getByRole('button',{name:'發布展示頁',exact:true})).toBeDisabled();
     }
@@ -95,5 +107,20 @@ test('supplier A and independent B/C complete exact-version consent, publication
     await expect(await expand(b.page,'我的選品')).toContainText('已撤回供貨');
     await expect(b.page.getByRole('button',{name:'發布更新',exact:true})).toBeDisabled();
     const privateAttempt=await c.page.request.get(`/api/v1${b.root}/distribution-selections`);expect(privateAttempt.status()).toBe(404);
-  } finally {await Promise.allSettled(contexts.map(ctx=>ctx.close()));}
+    if (supplierOnly) {
+      expect((await (await a.page.request.get('/api/v1/me/stores?pagination=cursor')).json()).items).toEqual([]);
+      expect((await (await a.page.request.get('/api/v1'+a.root+'/supply-profile')).json()).retail_enabled).toBe(false);
+      expect((await e2eAuthPool.query(`SELECT count(*)::int AS n FROM commerce_storefront_publications p
+        JOIN commerce_storefront_profiles f USING(instance_id) JOIN commerce_shops s ON s.shop_id=f.supply_shop_id
+        WHERE s.owner_id=$1`,[supplierId])).rows[0].n).toBe(0);
+    }
+  } finally {
+    await Promise.allSettled(contexts.map(ctx=>ctx.close()));
+    if(supplierId)await e2eAuthPool.query(`UPDATE commerce_hosted_supply_offers o
+      SET state='withdrawn',version=o.version+1
+      FROM commerce_storefront_profiles p JOIN commerce_shops s ON s.shop_id=p.supply_shop_id
+      WHERE o.instance_id=p.instance_id AND o.tenant_id=p.tenant_id
+        AND s.owner_id=$1 AND o.state='offered'`,[supplierId]);
+  }
 });
+}

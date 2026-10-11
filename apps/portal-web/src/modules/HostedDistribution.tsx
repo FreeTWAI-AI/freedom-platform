@@ -6,22 +6,22 @@ import {formatMinor,parseMajorToMinor} from '../format';
 
 type Command = {method:'post'|'patch';path:string;body:unknown;version?:string;schema:z.ZodType;notice:string;success:(value:unknown)=>void;targetMissingIsStore?:boolean};
 const stateWord:Record<Distribution['state'],string> = {awaiting_supply_acceptance:'等待供應商確認',sellable:'已同意，可加入展示頁',declined:'供應商未同意',changes_requested:'需要修改',revoked:'已撤回供貨'};
-export function HostedDistribution({client,root,refresh,busy,writable,onDirty,onCommand,onReload}:{client:PortalClient;root:string;refresh:number;busy:boolean;writable:boolean;onDirty:(key:string,value:boolean)=>void;onCommand:(command:Command)=>Promise<void>;onReload:()=>Promise<void>}) {
+export function HostedDistribution({client,root,refresh,busy,writable,onDirty,onCommand,onReload,supplierOnly=false}:{supplierOnly?:boolean;client:PortalClient;root:string;refresh:number;busy:boolean;writable:boolean;onDirty:(key:string,value:boolean)=>void;onCommand:(command:Command)=>Promise<void>;onReload:()=>Promise<void>}) {
   const [data,setData]=useState<{offers:SupplyOffer[];catalog:SupplyOffer[];selections:Distribution[];requests:Distribution[];truncated:boolean}|null>(null);
   const [error,setError]=useState(''),[editing,setEditing]=useState<string|null>(null);
   useEffect(()=>{
     const abort=new AbortController(); setError('');
-    void Promise.all(['supply-offers','supply-catalog','distribution-selections','supply-requests'].map(path=>client.get(root+'/'+path,{signal:abort.signal}))).then(raw=>{
+    void Promise.all((supplierOnly ? ['supply-offers','supply-requests'] : ['supply-offers','supply-catalog','distribution-selections','supply-requests']).map(path=>client.get(root+'/'+path,{signal:abort.signal}))).then(raw=>{
       if(abort.signal.aborted)return;
-      const offers=SupplyOffersSchema.parse(raw[0]),catalog=SupplyOffersSchema.parse(raw[1]),selections=DistributionsSchema.parse(raw[2]),requests=DistributionsSchema.parse(raw[3]);
+      const offers=SupplyOffersSchema.parse(raw[0]),catalog=supplierOnly ? {items:[],truncated:false} : SupplyOffersSchema.parse(raw[1]),selections=supplierOnly ? {items:[],truncated:false} : DistributionsSchema.parse(raw[2]),requests=DistributionsSchema.parse(raw[supplierOnly ? 1 : 3]);
       setData({offers:offers.items,catalog:catalog.items,selections:selections.items,requests:requests.items,truncated:[offers,catalog,selections,requests].some(p=>p.truncated)});
     }).catch(cause=>{if(!abort.signal.aborted){setError(cause instanceof ApiError ? cause.detail??'目前無法讀取供貨合作。':'暫時無法讀取供貨合作。');}});
     return()=>abort.abort();
-  },[client,root,refresh]);
+  },[client,root,refresh,supplierOnly]);
   const command=(value:Command)=>onCommand({...value,targetMissingIsStore:false});
   return <section className="stack hosted-distribution" aria-labelledby="store-distribution-title">
     <h3 id="store-distribution-title">供貨合作</h3>
-    <p className="field-hint">供應商確認這一版售價後，商品才能加入你的展示頁。跨店預留需雙方開放庫存預留；供貨撤回或條件變更後，買家須重新確認。</p>
+    <p className="field-hint">{supplierOnly ? '公開供貨版本後，同社群且有選品權限的店主可查看商品介紹、供貨價與條件，再提出售價供你確認。這不會建立買家可見的零售展示頁。' : '供應商確認這一版售價後，商品才能加入你的展示頁。跨店預留需雙方開放庫存預留；供貨撤回或條件變更後，買家須重新確認。'}</p>
     <div className="actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void onReload()}>更新供貨狀態</button></div>
     {error&&<p role="alert">{error}</p>}
     {!data?<p>{error ? '請更新供貨狀態後再試一次。' : '正在讀取供貨合作…'}</p>:<>
@@ -42,7 +42,7 @@ export function HostedDistribution({client,root,refresh,busy,writable,onDirty,on
           <div className="actions">{(r.state==='sellable'?['revoked']:r.offer.state==='offered'&&r.state==='awaiting_supply_acceptance'?['accepted','declined']:[]).map(decision=><button type="button" className="btn btn-ghost" disabled={busy||!writable||!!error} key={decision} onClick={()=>void command({method:'post',path:root+`/supply-requests/${r.selection_id}/decision`,body:{decision,listing_sha256:r.listing_sha256},version:r.version,schema:DistributionSchema,notice:decision==='accepted'?'已同意這一版選品。':decision==='revoked'?'已撤回這間店的供貨同意。':'已回覆不同意。',success:()=>{}})}>{decision==='accepted'?'同意這一版':decision==='revoked'?'撤回這間店的同意':'不同意'}</button>)}</div>
         </article>)}
       </details>
-      <details><summary>我的選品（{data.selections.length}）</summary>
+      {!supplierOnly && <><details><summary>我的選品（{data.selections.length}）</summary>
         {!data.selections.length&&<p>尚未選用其他商店的商品。</p>}
         {data.selections.map(r=><article className="hosted-distribution-item stack" key={r.selection_id}>
           <h4>{r.offer.terms.title}・{r.offer.supplier_name}</h4>
@@ -61,6 +61,7 @@ export function HostedDistribution({client,root,refresh,busy,writable,onDirty,on
           {editing===o.offer_id?<><PriceForm offer={o} busy={busy||!writable||!!error} onDirty={v=>onDirty(o.offer_id,v)} onSubmit={body=>command({method:'post',path:root+'/distribution-selections',body,schema:DistributionSchema,notice:'已送出選品，等待供應商確認。',success:()=>{onDirty(o.offer_id,false);setEditing(null);}})}/><div className="actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>{onDirty(o.offer_id,false);setEditing(null);}}>取消選品</button></div></>:<div className="actions"><button type="button" className="btn btn-ghost" disabled={busy||!writable||!!error||editing!==null} onClick={()=>setEditing(o.offer_id)}>設定我的售價</button></div>}
         </article>)}
       </details>
+      </>}
       {data.truncated&&<p className="field-hint">目前只顯示部分供貨與申請，這份清單尚未包含全部資料。</p>}
     </>}
   </section>;

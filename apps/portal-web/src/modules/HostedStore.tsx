@@ -20,6 +20,7 @@ import {HostedSellerOrders, SellerOrdersLink} from './HostedSellerOrders';
 import {HostedSupplierOrders} from './HostedSupplierOrders';
 import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {sellerOrdersRoute} from './hosted-seller-order-state';
+import {HostedSupplyCatalog, SupplyCatalogList} from './HostedSupplyCatalog';
 import './HostedStore.css';
 
 const NOTICE = '店鋪／商品展示已就緒，交易尚未啟用';
@@ -53,6 +54,8 @@ export function HostedStore({client, enabled, locationHash, userId, registerLeav
   if (!enabled) return <p className="banner" role="status">目前不開放商店設定。若要查看或取消既有預留，請開啟你保存的店主管理連結；登入後會重新確認目前權限。</p>;
   const path = locationHash.replace(/^#/, '').split('/');
   if (path.length === 1 && path[0] === 'stores') return <StoreList key={userId} client={client}/>;
+  if (path.length === 2 && path[0] === 'stores' && path[1] === 'supply') return <SupplyCatalogList key={`${userId}:${client.sessionGeneration}`} client={client}/>;
+  if (path.length === 4 && path[0] === 'stores' && path[3] === 'supply' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success) return <HostedSupplyCatalog key={`${userId}:${client.sessionGeneration}:${path[1]}:${path[2]}`} client={client} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave}/>;
   const valid = path.length === 3 && path[0] === 'stores' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success;
   return valid ? <StorePage key={`${userId}:${client.sessionGeneration}:${path[1]}:${path[2]}`} client={client} userId={userId} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/> : <MissingStore/>;
 }
@@ -62,7 +65,7 @@ function StoreList({client}: {client: PortalClient}) {
   const {data, error, retry, loadMore, loadingMore, pageError} = useMyStores(client);
   return <div className="hosted-store stack">
     {error ? <><p role="alert">暫時無法讀取你的商店。</p><div className="actions"><button type="button" className="btn btn-ghost" onClick={retry}>重試</button></div></> : !data ? <p role="status">正在確認你的商店…</p> : <>
-      {data.items.length === 0 && !data.next_cursor && <><p>你還沒有商店。</p><div className="actions"><a className="btn btn-ghost" href="#guilds/guild_commerce_sales">前往電商與銷售公會建立</a></div></>}
+      {data.items.length === 0 && !data.next_cursor && <><p>你還沒有商店。</p><div className="actions"><a className="btn btn-ghost" href="#guilds/guild_commerce_sales">前往電商與銷售公會建立</a><a className="btn btn-ghost" href="#guilds/guild_product_quality_supply">前往商品品質與供應公會設定供貨</a></div></>}
       {data.items.map(item => <article className="card stack" key={item.instance_id}>
         <h2>{item.name ?? '尚未完成設定的商店'}</h2><p>業務空間：{item.tenant_display_name}</p><p>{stateWord(item)}</p>
         <div className="actions"><a className="btn btn-primary" href={`#stores/${item.tenant_id}/${item.instance_id}`}>進入我的商店</a>
