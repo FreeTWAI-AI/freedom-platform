@@ -2424,8 +2424,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
-      "bytes": 3467,
-      "sha256": "e59eec6f18b7ba34c14d8c05adb83ab8c18ffab5a4eade73784185915e6dc9db"
+      "bytes": 4141,
+      "sha256": "be4470302f7cafc22a0b3b8cdc4c95f302626b28cf3d8de824ca6237506d67db"
     },
     {
       "path": "apps/portal-web/src/modules/HostedSupplyCatalog.tsx",
@@ -16829,8 +16829,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/supply-terms.md",
-      "bytes": 6499,
-      "sha256": "69aecb82b91e8fe7706d1d36346024fef1e0c9e686c427be3a26a63d5e1bd651"
+      "bytes": 6572,
+      "sha256": "07a238067a561a7d2254b26ee680baa70f2f1bd8bd7141bed90e179af6c59b85"
     },
     {
       "path": "modules/agent-commerce/hosted/supply-terms.ts",
@@ -20494,8 +20494,8 @@
     },
     {
       "path": "tests/e2e/hosted-supply-catalog.spec.ts",
-      "bytes": 13539,
-      "sha256": "21aff9a198e75ac56dbd35b00fe769930517d363fd95eab4bdeff6daf889fa15"
+      "bytes": 13982,
+      "sha256": "b9e0f3e8d1e9a432bc5d7c1e8fa58663a4ebdb522c319d53cf7af2a899fcb882"
     },
     {
       "path": "tests/e2e/hosted-supply-terms.spec.ts",

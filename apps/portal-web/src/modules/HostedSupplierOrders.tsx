@@ -1,16 +1,24 @@
 import {useEffect,useRef,useState} from 'react';
 import {SupplierReservationPageSchema,type SupplierReservationPage} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {ApiError,type PortalClient} from '../api';
+import {SupplyCatalogViewSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-catalog';
 import {formatIsoLocal,formatMinor} from '../format';
 import type {SellerRoute} from './hosted-seller-order-state';
 import './HostedStore.css';
 
 export function HostedSupplierOrders({client,route}:{client:PortalClient;route:SellerRoute}) {
   const [page,setPage]=useState<SupplierReservationPage|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
+  const [retailEnabled,setRetailEnabled]=useState(false);
   const controller=useRef(new AbortController()),ticket=useRef(0),generation=useRef(client.sessionGeneration);
   const root=`/tenants/${route.tenantId}/storefronts/${route.instanceId}/supply-reservations`;
   useEffect(()=>{
     controller.current=new AbortController();generation.current=client.sessionGeneration;void load();
+    const signal=controller.current.signal,session=client.sessionGeneration;setRetailEnabled(false);
+    // Supply-only profiles must not lead into retail setup or a retail order list.
+    void client.get(`/tenants/${route.tenantId}/storefronts/${route.instanceId}/supply-profile`,{signal}).then(raw=>{
+      const profile=SupplyCatalogViewSchema.parse(raw);
+      if(!signal.aborted && session===client.sessionGeneration)setRetailEnabled(profile.retail_enabled);
+    }).catch(()=>{});
     return ()=>{controller.current.abort();ticket.current++;};
   },[client,root]);
   async function load(cursor?:string) {
@@ -24,8 +32,8 @@ export function HostedSupplierOrders({client,route}:{client:PortalClient;route:S
   }
   return <div className="hosted-store stack">
     <div className="actions"><a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}/supply`}>返回供貨商品庫</a>
-      <a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}`}>返回商店後台</a>
-      <a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}/orders`}>查看本店預留</a></div>
+      {retailEnabled && <><a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}`}>返回商店後台</a>
+        <a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}/orders`}>查看本店預留</a></>}</div>
     <h2>供貨訂單</h2><p className="banner" role="note">只顯示你供應的商品。預留最多 30 分鐘，尚未付款或安排出貨；供貨金額不是請款紀錄。</p>
     <div className="actions"><button className="btn btn-ghost" disabled={loading} onClick={()=>void load()}>更新供貨訂單</button></div>
     <p role="status">{loading?'正在確認供貨訂單…':''}</p>{error&&<p role="alert" className="banner banner-error">{error}</p>}

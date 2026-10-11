@@ -37,8 +37,12 @@ for (const responseKind of ['unreadable', 'server-error'] as const) {
     await page.locator('.hosted-supply-catalog').getByRole('button', {name: '重試', exact: true}).click();
     await expect(settings.getByRole('button', {name: '停止接受新供貨預留', exact: true})).toBeEnabled();
     expect(attempts).toHaveLength(2); expect(attempts[1]).toEqual(attempts[0]); expect(attempts[0].key).toBeTruthy();
+    const navigationProfile = page.waitForResponse(response => response.request().method() === 'GET' && response.url().endsWith(store.root + '/supply-profile'));
     await settings.getByRole('link', {name: '查看供貨訂單', exact: true}).click();
+    expect((await (await navigationProfile).json()).retail_enabled).toBe(false);
     await expect(page.getByText('這一頁沒有供貨預留。', {exact: true})).toBeVisible();
+    await expect(page.getByRole('link', {name: '返回商店後台', exact: true})).toHaveCount(0);
+    await expect(page.getByRole('link', {name: '查看本店預留', exact: true})).toHaveCount(0);
     await page.getByRole('link', {name: '返回供貨商品庫', exact: true}).click();
     await expect(settings.getByRole('button', {name: '停止接受新供貨預留', exact: true})).toBeEnabled();
     await settings.getByRole('button', {name: '停止接受新供貨預留', exact: true}).click();
