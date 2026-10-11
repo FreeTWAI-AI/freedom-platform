@@ -18,7 +18,7 @@ const reserved = new Set('admin api app apps assets auth billing cart checkout d
 export const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 export interface Instance { instance_id: string; status: string; deployment_state: string | null }
 export interface Profile {
-  instance_id: string; tenant_id: string; supply_shop_id: string; storefront_shop_id: string; slug: string; brand: string | null;
+  instance_id: string; tenant_id: string; supply_shop_id: string; storefront_shop_id: string; slug: string | null; brand: string | null;
   version: string; product_seq: number; first_published_at: Date | null; current_publication_id: string | null;
   name: string; description: string; currency: 'TWD' | 'USD'; revision: string | null; published_at: Date | null;
   projection: unknown; projection_sha256: string | null; media_sha256: string | null;
@@ -56,6 +56,10 @@ export async function profile(q: PoolClient, tenantId: string, instanceId: strin
 export function ready(p: Profile | null): asserts p is Profile {
   requireCondition(p, 409, 'storefront_not_set_up', '請先設定商店。');
 }
+export function retailReady(p: Profile | null): asserts p is Profile & {slug: string} {
+  ready(p);
+  requireCondition(p.slug !== null, 409, 'retail_not_activated', '這是供貨目錄，尚未啟用零售商店。請從供貨目錄管理商品與供貨。');
+}
 export async function productCount(q: PoolClient, p: Profile): Promise<number> {
   return (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM commerce_selections i
     JOIN commerce_resource_tenants m ON m.resource_kind='shop' AND m.resource_id=i.shop_id
@@ -64,6 +68,7 @@ export async function productCount(q: PoolClient, p: Profile): Promise<number> {
 }
 export async function storeView(q: PoolClient, context: TenantScopeContext, inst: Instance): Promise<StoreView> {
   const p = await profile(q, context.tenant_id, inst.instance_id);
+  if (p) retailReady(p);
   const keys = await effectiveStoreCapabilities(q, context, inst.instance_id);
   return StoreViewSchema.parse({ tenant_id: context.tenant_id, instance_id: inst.instance_id, instance_status: inst.status,
     setup_state: p ? 'ready' : 'setup_required',
@@ -120,27 +125,31 @@ async function assertSlug(q: PoolClient, raw: string, instanceId: string) {
   requireCondition(result.available, 409, 'storefront_slug_taken', '這個商店網址已被使用。');
   return result.slug;
 }
-export async function setupStore(pool: Pool, actor: Actor, tenantId: string, instanceId: string, raw: unknown, key: string) {
-  const parsed = StoreSetupInputSchema.parse(raw);
-  const input = { ...parsed, brand: parsed.brand ?? null, description: parsed.description ?? '', slug: parsed.slug.toLowerCase() };
-  return storeCommand(pool, actor, tenantId, instanceId, 'store:manage', 'storefront.setup', input, key, undefined, async (q, context, inst) => {
-    const prior = await profile(q, tenantId, instanceId, true);
-    if (prior) {
-      requireCondition(prior.slug === input.slug && prior.name === input.name && prior.brand === input.brand && prior.description === input.description && prior.currency === input.currency,
-        409, 'storefront_already_set_up', '這間商店已經完成設定。');
-      return { created: false, view: await storeView(q, context, inst) };
-    }
-    const slug = await assertSlug(q, input.slug, instanceId);
+export async function createHostedProfile(q: PoolClient, context: TenantScopeContext, actor: Actor, instanceId: string, input: {name: string; description: string; currency: 'TWD' | 'USD'; slug: string | null; brand: string | null}) {
     const supply = randomUUID(), storefront = randomUUID();
     for (const [shopId, kind, suffix] of [[supply, 'internal', 'supply'], [storefront, 'public', 'storefront']]) {
       await q.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,origin,mode,accepting_orders,name,description,website_url,contact,currency,manifest_sha256)
         VALUES($1,$2,$3,$4,'hosted','test',false,$5,$6,'','',$7,$8)`,
       [shopId, context.community_id, actor.user_id, kind, input.name, input.description, input.currency, sha256(`freedom.hosted-store/v1\n${instanceId}\n${suffix}`)]);
       await q.query(`INSERT INTO commerce_resource_tenants(resource_kind,resource_id,tenant_id,instance_id,source_owner_id,mapping_state)
-        VALUES('shop',$1,$2,$3,$4,'confirmed')`, [shopId, tenantId, instanceId, context.principal_id]);
+        VALUES('shop',$1,$2,$3,$4,'confirmed')`, [shopId, context.tenant_id, instanceId, context.principal_id]);
     }
     await q.query(`INSERT INTO commerce_storefront_profiles(instance_id,tenant_id,supply_shop_id,storefront_shop_id,slug,brand,created_by_principal_id)
-      VALUES($1,$2,$3,$4,$5,$6,$7)`, [instanceId, tenantId, supply, storefront, slug, input.brand, context.principal_id]);
+      VALUES($1,$2,$3,$4,$5,$6,$7)`, [instanceId, context.tenant_id, supply, storefront, input.slug, input.brand, context.principal_id]);
+}
+export async function setupStore(pool: Pool, actor: Actor, tenantId: string, instanceId: string, raw: unknown, key: string) {
+  const parsed = StoreSetupInputSchema.parse(raw);
+  const input = { ...parsed, brand: parsed.brand ?? null, description: parsed.description ?? '', slug: parsed.slug.toLowerCase() };
+  return storeCommand(pool, actor, tenantId, instanceId, 'store:manage', 'storefront.setup', input, key, undefined, async (q, context, inst) => {
+    const prior = await profile(q, tenantId, instanceId, true);
+    if (prior) {
+      retailReady(prior);
+      requireCondition(prior.slug === input.slug && prior.name === input.name && prior.brand === input.brand && prior.description === input.description && prior.currency === input.currency,
+        409, 'storefront_already_set_up', '這間商店已經完成設定。');
+      return { created: false, view: await storeView(q, context, inst) };
+    }
+    const slug = await assertSlug(q, input.slug, instanceId);
+    await createHostedProfile(q, context, actor, instanceId, {...input, slug});
     await storeFact(q, context, instanceId, '1', 'storefront.setup');
     return { created: true, view: await storeView(q, context, inst) };
   });
@@ -148,7 +157,7 @@ export async function setupStore(pool: Pool, actor: Actor, tenantId: string, ins
 export async function updateStore(pool: Pool, actor: Actor, tenantId: string, instanceId: string, raw: unknown, key: string, expected: string) {
   const input = StoreUpdateInputSchema.parse(raw);
   return storeCommand(pool, actor, tenantId, instanceId, 'store:manage', 'storefront.update', input, key, expected, async (q, context, inst) => {
-    const p = await profile(q, tenantId, instanceId, true); ready(p); checkVersion(p.version, expected);
+    const p = await profile(q, tenantId, instanceId, true); retailReady(p); checkVersion(p.version, expected);
     const slug = input.slug?.toLowerCase() ?? p.slug;
     requireCondition(slug === p.slug || !p.first_published_at, 409, 'storefront_slug_locked', '首次公開後不能更改商店網址。');
     await assertSlug(q, slug, instanceId);
@@ -162,13 +171,13 @@ export async function updateStore(pool: Pool, actor: Actor, tenantId: string, in
     return storeView(q, context, inst);
   });
 }
-export async function listMyStores(pool: Pool, actor: Actor, cursor?: string) {
+export async function listMyStores(pool: Pool, actor: Actor, cursor?: string, supplyCatalog = false) {
   return isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
     const principal = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
     await bindPrincipalContext(q, principal.principal_id);
-    const after = readCursor(cursor, principal.principal_id, 'my_stores', null);
+    const after = readCursor(cursor, principal.principal_id, supplyCatalog ? 'my_supply_catalogs' : 'my_stores', null);
     const tenants = (await q.query<{ tenant_id: string; display_name: string }>(`SELECT t.tenant_id,t.display_name FROM tenant_memberships m JOIN tenants t USING(tenant_id)
       WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 AND ($3::uuid IS NULL OR t.tenant_id>$3)
       ORDER BY t.tenant_id LIMIT 101`, [principal.principal_id, actor.community_id, after])).rows;
@@ -184,6 +193,7 @@ export async function listMyStores(pool: Pool, actor: Actor, cursor?: string) {
           // The list needs no product count or second capability read. Keep the
           // confirmed profile mappings and per-tenant RLS context authoritative.
           const p = await profile(q, context.tenant_id, inst.instance_id);
+          if (p?.slug === null && !supplyCatalog) continue;
           items.push({ tenant_id: t.tenant_id, tenant_display_name: t.display_name, instance_id: inst.instance_id, setup_state: p ? 'ready' : 'setup_required',
             name: p?.name ?? null, slug: p?.slug ?? null, publication_state: p?.current_publication_id ? 'published' : p?.first_published_at ? 'unpublished' : 'never_published',
             public_path: p?.current_publication_id ? `/shops/${p.slug}` : null, version: p?.version ?? null });
@@ -192,6 +202,6 @@ export async function listMyStores(pool: Pool, actor: Actor, cursor?: string) {
       await clearTenantContext(q); await bindPrincipalContext(q, principal.principal_id);
     }
     await assertCurrentSessionClock(q, actor);
-    return MyStoresPageSchema.parse({ items, next_cursor: tenants.length > 100 ? encodeCursor(principal.principal_id, 'my_stores', null, tenants[99].tenant_id) : null });
+    return MyStoresPageSchema.parse({ items, next_cursor: tenants.length > 100 ? encodeCursor(principal.principal_id, supplyCatalog ? 'my_supply_catalogs' : 'my_stores', null, tenants[99].tenant_id) : null });
   });
 }

@@ -176,7 +176,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   };
   const showStore = (tenantId: string, instanceId: string) => {
     if (!canNavigate()) return false;
-    window.location.hash = `stores/${tenantId}/${instanceId}`; return true;
+    window.location.hash = `stores/${tenantId}/${instanceId}${guildKey === 'guild_product_quality_supply' ? '/supply' : ''}`; return true;
   };
   useEffect(() => { if (workRefresh) focusWork(); }, [workRefresh]);
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
@@ -188,7 +188,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
     {memberTier && <p className="field-hint">成員身分：{memberTier === 'intern' ? '實習成員' : memberTier === 'full' ? '正式成員' : memberTier}</p>}
     {showPrimary && <section className="card guild-launchpad-primary" aria-label="主要動作">
       <h2>{primary.application_key === 'manual-workspace' ? config.starter.title_label : supplyPrimary ? '商品與供貨' : primary.display_name}</h2>
-      {supplyPrimary && <p>使用我的商店管理供貨：新增商品後，開啟「供貨條件」設定供貨價格、運費與退換貨條件，再自行決定是否「公開供貨版本」。已有商店可直接沿用。</p>}
+      {supplyPrimary && <p>建立供貨商品庫，管理商品、供貨價、運費與退換貨條件，再自行決定是否向同社群店主公開供貨版本。不需要商店網址或零售展示頁；已有商店可直接沿用。</p>}
       {primary.application_key === 'manual-workspace' ? <>
         <p>{config.starter.objective_hint}</p>
         {guildKey === 'guild_talent_direction' && memberTier === 'full' && <p className="field-hint">在下方選擇可使用的工作空間，再建立新方向卡或繼續原卡；尚未完成設定時，依下方提示完成設定。</p>}

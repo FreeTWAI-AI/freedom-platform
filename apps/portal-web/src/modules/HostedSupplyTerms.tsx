@@ -3,8 +3,8 @@ import {SupplyTermsInputSchema, SupplyTermsSchema, type SupplyTerms, type Supply
 import {ApiError, type PortalClient} from '../api';
 import {formatMinor, parseMajorToMinor} from '../format';
 
-export function HostedSupplyTerms({client, path, title, busy, onDirty, onCancel, onSave, onPublish}: {
-  client: PortalClient; path: string; title: string; busy: boolean;
+export function HostedSupplyTerms({client, path, title, busy, onDirty, onCancel, onSave, onPublish, supplierOnly=false}: {
+  supplierOnly?: boolean; client: PortalClient; path: string; title: string; busy: boolean;
   onDirty: (dirty: boolean) => void; onCancel: () => void;
   onPublish?: (version: string) => Promise<void>;
   onSave: (body: SupplyTermsInput, version: string, success: () => void) => Promise<void>;
@@ -26,11 +26,11 @@ export function HostedSupplyTerms({client, path, title, busy, onDirty, onCancel,
     <div className="actions">{error && <button type="button" className="btn btn-ghost" onClick={() => setReload(n => n + 1)}>重試讀取供貨條件</button>}
       <button type="button" className="btn btn-ghost" onClick={onCancel}>返回商品</button></div>
   </div>;
-  return <SupplyForm view={view} title={title} busy={busy} onDirty={onDirty} onCancel={onCancel} onSave={onSave} onPublish={onPublish}/>;
+  return <SupplyForm view={view} title={title} busy={busy} onDirty={onDirty} onCancel={onCancel} onSave={onSave} onPublish={onPublish} supplierOnly={supplierOnly}/>;
 }
 
-function SupplyForm({view, title, busy, onDirty, onCancel, onSave, onPublish}: {
-  view: SupplyTerms; title: string; busy: boolean; onDirty: (dirty: boolean) => void; onCancel: () => void;
+function SupplyForm({view, title, busy, onDirty, onCancel, onSave, onPublish, supplierOnly=false}: {
+  supplierOnly?: boolean; view: SupplyTerms; title: string; busy: boolean; onDirty: (dirty: boolean) => void; onCancel: () => void;
   onPublish?: (version: string) => Promise<void>;
   onSave: (body: SupplyTermsInput, version: string, success: () => void) => Promise<void>;
 }) {
@@ -58,7 +58,7 @@ function SupplyForm({view, title, busy, onDirty, onCancel, onSave, onPublish}: {
     <fieldset className="hosted-store-fields stack" disabled={busy}>
       <legend className="sr-only">供貨條件</legend>
       <label className="field">供貨單價（{view.currency}）<input required inputMode="decimal" value={fields.cost} onChange={e => change('cost', e.target.value)}/></label>
-      <p className="field-hint">每件商品的供貨價；店內零售價另行編輯。</p>
+      <p className="field-hint">{supplierOnly ? '每件商品的供貨價；合作店主提出的零售價會另行送你確認。' : '每件商品的供貨價；店內零售價另行編輯。'}</p>
       <label className="field">每件運費（{view.currency}）<input required inputMode="decimal" value={fields.shipping} onChange={e => change('shipping', e.target.value)}/></label>
       <p className="field-hint">金額上限 {formatMinor(100000000, view.currency)}；免運請填 0。</p>
       <label className="field">出貨條件<textarea required maxLength={2000} value={fields.shippingTerms} onChange={e => change('shippingTerms', e.target.value)}/></label>

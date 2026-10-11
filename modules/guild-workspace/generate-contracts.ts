@@ -1,3 +1,4 @@
+import * as supplyCatalog from '../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { configSchema } from '../../contracts/guild-launchpad/v1/config.js';
@@ -105,6 +106,16 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 ];
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
+  ['hosted-supply-catalog', 'Private supplier preparation without retail activation; existing inventory and consent authority.', [
+    ['setup', supplyCatalog.SupplyCatalogSetupInputSchema, 'input', []],
+    ['setup-receipt', supplyCatalog.SupplyCatalogReceiptSchema, 'output', ['stable_metadata_only_command_receipt']],
+    ['product-receipt', supplyCatalog.SupplyProductReceiptSchema, 'output', ['stable_metadata_only_command_receipt']],
+    ['view', supplyCatalog.SupplyCatalogViewSchema, 'output', ['current_tenant_instance_capabilities']],
+    ['product-create', supplyCatalog.SupplyProductInputSchema, 'input', []],
+    ['product-update', supplyCatalog.SupplyProductUpdateInputSchema, 'input', ['at_least_one_field']],
+    ['product', supplyCatalog.SupplyProductViewSchema, 'output', ['store_write_required_for_cost']],
+    ['products', supplyCatalog.SupplyProductPageSchema, 'output', ['store_write_required_for_cost']],
+  ]],
   ['hosted-distribution', 'Explicit supplier offer and exact seller listing consent. One supplier item; no payment authority.', [
     ['offer', distribution.SupplyOfferSchema, 'output', ['explicit_supplier_publication']],
     ['offers', distribution.SupplyOffersSchema, 'output', ['bounded_catalog']],

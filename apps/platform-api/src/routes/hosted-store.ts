@@ -1,3 +1,5 @@
+import {SupplyCatalogSetupInputSchema,SupplyProductInputSchema,SupplyProductUpdateInputSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
+import {readSupplyCatalog,setupSupplyCatalog,listSupplyProducts,addSupplyProduct,updateSupplyProduct} from '../../../../modules/agent-commerce/hosted/supply-catalog.js';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
@@ -27,6 +29,32 @@ export function createHostedStoreRoutes(pool: Pool) {
     const query = MyStoresQuerySchema.parse(singleQuery(c));
     const page = await listMyStores(pool, c.get('actor'), query.cursor);
     return c.json(query.pagination === 'cursor' ? page : MyStoresLegacyProjectionSchema.parse(page));
+  });
+  app.get('/me/supply-catalogs', async c => {
+    const query = MyStoresQuerySchema.parse(singleQuery(c));
+    const page = await listMyStores(pool, c.get('actor'), query.cursor, true);
+    return c.json(query.pagination === 'cursor' ? page : MyStoresLegacyProjectionSchema.parse(page));
+  });
+  app.get(root + '/supply-profile', async c => {
+    EmptyStoreInputSchema.parse(singleQuery(c)); const [t,i]=ids(c);
+    const view=await readSupplyCatalog(pool,c.get('actor'),t,i);if(view.version)etag(c,view.version);return c.json(view);
+  });
+  app.post(root + '/supply-profile', async c => {
+    const h=commandHeaders(c,false),body=SupplyCatalogSetupInputSchema.parse(await c.req.json()),[t,i]=ids(c);
+    const result=await setupSupplyCatalog(pool,c.get('actor'),t,i,body,h.key);etag(c,result.version);
+    return c.json(result,result.created?201:200);
+  });
+  app.get(root + '/supply-products', async c => {
+    EmptyStoreInputSchema.parse(singleQuery(c));const [t,i]=ids(c);return c.json(await listSupplyProducts(pool,c.get('actor'),t,i));
+  });
+  app.post(root + '/supply-products', async c => {
+    const h=commandHeaders(c,false),body=SupplyProductInputSchema.parse(await c.req.json()),[t,i]=ids(c);
+    const product=await addSupplyProduct(pool,c.get('actor'),t,i,body,h.key);etag(c,product.version);return c.json(product,201);
+  });
+  app.patch(root + '/supply-products/:product_id', async c => {
+    const h=commandHeaders(c,true),body=SupplyProductUpdateInputSchema.parse(await c.req.json()),[t,i]=ids(c);
+    const product=await updateSupplyProduct(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('product_id')),body,h.key,h.expected!);
+    etag(c,product.version);return c.json(product);
   });
   app.get(root, async c => {
     EmptyStoreInputSchema.parse(singleQuery(c));

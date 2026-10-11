@@ -4,7 +4,7 @@ import { PublicStoreProjectionSchema, StorePreviewSchema, type PublicStoreProjec
 import { checkVersion, digest } from '../../../packages/db/index.js';
 import { requireCondition } from '../../../packages/shared/problem.js';
 import type { Actor } from '../../identity-membership/service.js';
-import { profile, ready, storeCommand, storeRead, storeView, storeFact, type Profile } from './store.js';
+import { profile, retailReady, storeCommand, storeRead, storeView, storeFact, type Profile } from './store.js';
 import { photoProducts, draftMediaSnapshot, privatePhotoView, insertPublicationPhotos, type PhotoProduct } from './photo-projection.js';
 import { storeHtml } from './page.js';
 import {distributionProducts} from './distribution.js';
@@ -35,7 +35,7 @@ async function buildProjection(q: PoolClient, p: Profile, items: readonly PhotoP
 }
 export async function previewStore(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {
   return storeRead(pool, actor, tenantId, instanceId, 'store:read', async q => {
-    const p = await profile(q, tenantId, instanceId); ready(p);
+    const p = await profile(q, tenantId, instanceId); retailReady(p);
     const items = await publicationProducts(q, p);
     let projection = await buildProjection(q, p, items);
     const dirty = projectionDigest(projection) !== p.projection_sha256 || p.template_id !== p.published_template_id || draftMediaSnapshot(items).sha256 !== p.media_sha256;
@@ -46,7 +46,7 @@ export async function previewStore(pool: Pool, actor: Actor, tenantId: string, i
 /** Private saved-draft preview uses the exact public renderer and its allowlisted projection. */
 export async function previewStorePage(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {
   return storeRead(pool, actor, tenantId, instanceId, 'store:read', async q => {
-    const p = await profile(q, tenantId, instanceId); ready(p);
+    const p = await profile(q, tenantId, instanceId); retailReady(p);
     const items = await publicationProducts(q, p);
     return storeHtml(await buildProjection(q, p, items), p.template_id, items.map(item => ({ sku:item.product.sku,photo:privatePhotoView(p,item).photo })));
   });
@@ -54,7 +54,7 @@ export async function previewStorePage(pool: Pool, actor: Actor, tenantId: strin
 export async function publishStore(pool: Pool, actor: Actor, tenantId: string, instanceId: string, key: string, expected: string, unpublish = false) {
   const operation = unpublish ? 'storefront.unpublish' : 'storefront.publish';
   return storeCommand(pool, actor, tenantId, instanceId, 'store:publish', operation, {}, key, expected, async (q, context, inst) => {
-    const p = await profile(q, tenantId, instanceId, true); ready(p); checkVersion(p.version, expected);
+    const p = await profile(q, tenantId, instanceId, true); retailReady(p); checkVersion(p.version, expected);
     if (unpublish) {
       if (!p.current_publication_id) return storeView(q, context, inst);
       await q.query(`UPDATE commerce_storefront_profiles p SET current_publication_id=NULL,version=p.version+1,updated_at=clock_timestamp()

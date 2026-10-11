@@ -166,7 +166,13 @@
         "store.publish",
         "store.unpublish",
         "store.supply-terms.read",
-        "store.supply-terms.update"
+        "store.supply-terms.update",
+        "storefront.supply-catalog.list",
+        "storefront.supply-catalog.read",
+        "storefront.supply-catalog.setup",
+        "storefront.supply-product.list",
+        "storefront.supply-product.create",
+        "storefront.supply-product.update"
       ],
       "auth_profile": "member-session"
     },
