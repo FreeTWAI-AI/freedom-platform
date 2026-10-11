@@ -60,7 +60,7 @@ export async function closeDirectOrder(q: PoolClient, context: DirectEffectConte
   now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
   const expired = now.getTime() >= row.expires_at.getTime();
   if (!expired) context.reservationDeadline = row.expires_at;
-  for (const item of items) await inventory.release(item.item_id, item.quantity);
+  for (const item of items) await inventory.release(row.order_id, item.item_id, item.quantity);
   const next = (await q.query<DirectOrderRow>(`UPDATE commerce_orders SET reservation_state=$2,reservation_version=reservation_version+1,closed_at=$3,close_reason=$4
     WHERE order_id=$1 AND reservation_state='reserved' AND reservation_version=$5
     RETURNING *,reservation_version::text AS reservation_version`,

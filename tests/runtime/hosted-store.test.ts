@@ -214,8 +214,20 @@ test('my stores preserves multi-tenant detail projections without redundant name
 
 test('supplier preparation retains item identity, one stock balance and independent retail pricing', async () => {
   const s = await ready(), item = await add(s), path = s.root + '/products/' + item.product_id + '/supply-terms';
-  await h.pool.query('UPDATE commerce_items SET reserved=3 WHERE item_id=$1', [item.product_id]);
   expect(await publish(s));
+  // A real retained reservation replaces the old untracked reserved=3 fixture.
+  // Supply-term edits must preserve that hold, not manufacture an order.
+  const reservations=createApp(runtime,h.origin,'local',{guildLaunchpadEnabled:true,hostedReservationsEnabled:true});
+  const setting=expect(await call('GET',s.root+'/reservation-setting',s.owner,undefined,{},reservations));
+  expect(await call('PATCH',s.root+'/reservation-setting',s.owner,{reservation_enabled:true},
+    {'Idempotency-Key':randomUUID(),'If-Match':`"${setting.version}"`},reservations));
+  const buyer=(await h.person('供貨準備的合成買家')).session;
+  const quote=expect(await call('POST',`/hosted-stores/${settings.slug}/quotes`,buyer,
+    {publication_revision:'1',items:[{sku:item.sku,quantity:3}]},{'Idempotency-Key':randomUUID()},reservations),201);
+  const order=expect(await call('POST',`/hosted-stores/${settings.slug}/orders`,buyer,
+    {quote_id:quote.quote_id,terms_sha256:quote.terms_sha256,client_order_id:randomUUID()},
+    {'Idempotency-Key':randomUUID()},reservations),201);
+  assert.equal(order.state,'reserved');
   const before = await publicPair(settings.slug);
   const initial = expect(await call('GET', path, s.owner));
   assert.deepEqual([initial.cost_minor, initial.stock, initial.reserved, initial.available], [12345, 17, 3, 14]);
@@ -237,7 +249,8 @@ test('supplier preparation retains item identity, one stock balance and independ
     assert.ok(!text.includes('cost_minor') && !text.includes('shipping_minor'));
   }
   assert.equal(await h.count('commerce_items'), 1); assert.equal(await h.count('commerce_selections'), 1);
-  assert.equal(await h.count('commerce_orders'), 0); assert.equal(await h.count('commerce_distribution_acceptances'), 0);
+  assert.equal(await h.count('commerce_orders'), 1); assert.equal(await h.count('commerce_distribution_acceptances'), 0);
+  assert.equal((await h.pool.query('SELECT quantity FROM commerce_inventory_reservations WHERE order_id=$1 AND state=\'held\'',[order.order_id])).rows[0].quantity,3);
 });
 
 test('supply terms require current instance write permission, including receipt replay after revocation', async () => {

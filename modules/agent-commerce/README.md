@@ -111,3 +111,9 @@ This source depends on the unmerged #310/#311 parents and is not deployment or a
 ## Cross-store reservation candidate (#437)
 
 [Shared reservation boundary](hosted/shared-order-contract.md) extends the same PostgreSQL stock/order authority with an explicit opt-in wire profile. The existing direct endpoints and imported financial path keep their original contracts. This candidate adds owner admission controls and a supplier-only order page; migration 161 does not enable admission. Deployed state remains the dated operator receipt, not the presence of these sources.
+
+[Durable inventory reservations](hosted/inventory-reservations.md) adds stable local
+hold IDs and order/balance consistency guards in migration 162 as the first
+inventory-portability increment. It establishes a new hosted writer floor;
+external inventory, authority handoff and unknown network outcomes remain
+unimplemented. Existing member DTOs and admission settings are unchanged.
