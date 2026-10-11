@@ -21,6 +21,7 @@ import {HostedSupplierOrders} from './HostedSupplierOrders';
 import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {sellerOrdersRoute} from './hosted-seller-order-state';
 import {HostedSupplyCatalog, SupplyCatalogList} from './HostedSupplyCatalog';
+import {HostedReservationSetting} from './HostedReservationSetting';
 import './HostedStore.css';
 
 const NOTICE = '店鋪／商品展示已就緒，交易尚未啟用';
@@ -206,13 +207,9 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
       {!store ? can('store:manage') ? <SettingsForm key="setup" client={client} root={root} busy={locked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'post', path: root + '/setup', body, schema: StoreViewSchema, notice: '已建立商店。', success, fieldError})}/>
         : <p>這間商店還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
         <p className="banner" role="note">{reservationSetting?.reservation_enabled && reservationSetting.admission_enabled ? '已開放 30 分鐘庫存預留；付款與出貨尚未啟用。' : NOTICE}</p>
-        {reservationSetting && <section className="stack" aria-label="預留設定"><h3>庫存預留</h3>
-          <p>{reservationSetting.admission_enabled ? '開放後，買家可預留你店裡的商品；其他店主經你同意的選品也會使用同一筆庫存。取消或到期會釋放庫存。' : '平台目前未開放新預留；仍可查看與取消既有預留。'}</p>
-          <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked || hasDraft || loading || !reservationSetting.reservation_enabled && (!view.writable || !reservationSetting.admission_enabled)}
-            onClick={() => void command({method:'patch',path:root+'/reservation-setting',body:{reservation_enabled:!reservationSetting.reservation_enabled},
-              version:reservationSetting.version,schema:ReservationSettingSchema,notice:reservationSetting.reservation_enabled?'已停止接受新預留。既有預留仍可查看與取消。':'已開放 30 分鐘預留。',success:()=>{}})}>
-            {reservationSetting.reservation_enabled?'停止接受新預留':'開放 30 分鐘預留'}</button></div>
-        </section>}
+        {reservationSetting && <HostedReservationSetting setting={reservationSetting} writable={view.writable} locked={locked || hasDraft || loading}
+          onToggle={() => void command({method:'patch',path:root+'/reservation-setting',body:{reservation_enabled:!reservationSetting.reservation_enabled},
+            version:reservationSetting.version,schema:ReservationSettingSchema,notice:reservationSetting.reservation_enabled?'已停止接受新預留。既有預留仍可查看與取消。':'已開放 30 分鐘預留。',success:()=>{}})}/>}
         <section className="stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
           <p>{view.product_count}／{view.product_limit} 件商品</p>
           {!products.length && <p>{view.product_count ? '這間店目前使用合作選品；下方可管理供貨合作。' : '還沒有商品。新增第一件商品後就能發布。'}</p>}

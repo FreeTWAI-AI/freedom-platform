@@ -208,22 +208,29 @@ for (const table of ['scoped_transition_journal', 'scoped_outbox', 'scoped_comma
 for (const action of ['read','pause','stop'] as const) {
   test(`RUN-15 ${action} rejects current session expiry after actual Run lock wait`, async () => {
     const f = await fixture(), value = await stored(f), holder = await pool.connect();
-    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '350 milliseconds' WHERE token_hash=$1", [f.actor.session_hash]);
-    await holder.query('BEGIN'); await holder.query('SELECT run_id FROM execution_runs WHERE run_id=$1 FOR UPDATE', [value.runId]);
-    const operation = action === 'read' ? runs.read(f.actor, { runId: value.runId }) : runs[action](f.actor, controlInput(value.runId));
-    const rejected = assert.rejects(operation, status(401));
-    try { await blocking(holder); await expired(f.actor); } finally { await holder.query('ROLLBACK'); holder.release(); }
+    let rejected: Promise<void>;
+    try {
+      await holder.query('BEGIN'); await holder.query('SELECT run_id FROM execution_runs WHERE run_id=$1 FOR UPDATE', [value.runId]);
+      // Arm the same expiry after setup, before the operation takes its session SHARE lock.
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '350 milliseconds' WHERE token_hash=$1", [f.actor.session_hash]);
+      const operation = action === 'read' ? runs.read(f.actor, { runId: value.runId }) : runs[action](f.actor, controlInput(value.runId));
+      rejected = assert.rejects(operation, status(401));
+      await blocking(holder); await expired(f.actor);
+    } finally { try { await holder.query('ROLLBACK'); } finally { holder.release(); } }
     await rejected;
     assert.equal((await pool.query('SELECT aggregate_version::text FROM execution_runs WHERE run_id=$1', [value.runId])).rows[0].aggregate_version, '1');
   });
 }
 test('RUN-16 create rechecks session clock after actual policy wait and snapshots actor/input before awaits', async () => {
   const f = await fixture(), peer = await fixture(), holder = await pool.connect(), actor = { ...f.actor }, input = createInput(f);
-  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '350 milliseconds' WHERE token_hash=$1", [f.actor.session_hash]);
-  await holder.query('BEGIN'); await holder.query('SELECT scope_id FROM private_work_persistence_policy WHERE scope_id=$1 FOR UPDATE', [f.context.scope.scope_id]);
-  const operation = runs.create(actor, input), rejected = assert.rejects(operation, status(401));
-  try { await blocking(holder); actor.user_id=peer.actor.user_id; input.workId=peer.workId; await expired(f.actor); }
-  finally { await holder.query('ROLLBACK'); holder.release(); }
+  let rejected: Promise<void>;
+  try {
+    await holder.query('BEGIN'); await holder.query('SELECT scope_id FROM private_work_persistence_policy WHERE scope_id=$1 FOR UPDATE', [f.context.scope.scope_id]);
+    // Do not spend the session's expiry window acquiring the fixture's policy lock.
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '350 milliseconds' WHERE token_hash=$1", [f.actor.session_hash]);
+    const operation = runs.create(actor, input); rejected = assert.rejects(operation, status(401));
+    await blocking(holder); actor.user_id=peer.actor.user_id; input.workId=peer.workId; await expired(f.actor);
+  } finally { try { await holder.query('ROLLBACK'); } finally { holder.release(); } }
   await rejected; assert.equal(await count('execution_runs'), 0);
 });
 test('RUN-17 successful policy barrier retains immutable actor/input snapshot and replays exact request', async () => {
