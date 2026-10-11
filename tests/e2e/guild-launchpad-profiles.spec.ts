@@ -8,9 +8,11 @@ import type {Config} from '../../contracts/guild-launchpad/v1/config.js';
 
 const commerce = 'guild_commerce_sales';
 const production = 'guild_commercial_production';
+const supplier = 'guild_product_quality_supply';
 const talent = 'guild_talent_direction';
 const profiles = [
   {key: commerce, title: '線上商店', headings: ['使命', '應用', '我的工作', '公告', '技能書', '公共任務', '協助']},
+  {key: supplier, title: '商品與供貨', headings: ['使命', '應用', '我的工作', '公告', '技能書', '公共任務', '協助']},
   {key: talent, title: '我的方向卡', headings: ['使命', '我的工作', '技能書', '公告', '應用', '公共任務', '協助']},
   {key: production, title: '拍攝brief／分鏡／交付', headings: ['使命', '我的工作', '技能書', '公告', '應用', '公共任務', '協助']},
 ];
@@ -23,7 +25,7 @@ async function person(db: Pool, leader = false) {
   const email = `profile-${id}@example.test`;
   await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
     VALUES($1,$2,$3,'用途配置測試會員',$4,$5,false)`, [id, DEMO_COMMUNITY, email, hashPassword(DEMO_PASSWORD), randomUUID()]);
-  for (const key of [commerce, production, talent]) {
+  for (const key of [commerce, supplier, production, talent]) {
     await db.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, id, key]);
   }
@@ -69,8 +71,8 @@ test('members see distinct purpose orders and their primary action focuses My Wo
     await expect(page.locator('.guild-launchpad > .guild-launchpad-block > h2')).toHaveText(profile.headings);
     await expect(primary(page).getByRole('heading', {level: 2})).toHaveText(profile.title);
     await expect(page.locator('.launchpad-applications')).toHaveCount(1);
-    if (profile.key === commerce) {
-      await expect(primary(page).getByRole('button', {name: '建立我的商店', exact: true})).toBeEnabled();
+    if (profile.key === commerce || profile.key === supplier) {
+      await expect(primary(page).getByRole('button', {name: profile.key === supplier ? '開始供貨設定' : '建立我的商店', exact: true})).toBeEnabled();
       await expect(recommendations(page).locator('.application-card').first()).toContainText('線上商店');
     } else {
       await primary(page).getByRole('button', {name: profile.key === talent ? '前往方向卡' : '前往我的工作', exact: true}).click();
@@ -78,7 +80,7 @@ test('members see distinct purpose orders and their primary action focuses My Wo
       await expect(recommendations(page).locator('.application-card').first()).toContainText('人工工作空間');
     }
   }
-  for (const key of [commerce, talent]) {
+  for (const key of [commerce, supplier, talent]) {
     await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET member_tier='intern',aggregate_version=aggregate_version+1
       WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [DEMO_COMMUNITY, member.id, key]);
     await open(page, key);
@@ -86,6 +88,50 @@ test('members see distinct purpose orders and their primary action focuses My Wo
     await expect(primary(page)).not.toContainText('建立新方向卡或繼續原卡');
     await expect(primary(page).getByRole('button')).toHaveCount(0);
   }
+});
+
+test('supplier starts the hosted flow and reuses the same commerce store and supply editor', async ({page, e2eAuthPool}) => {
+  test.setTimeout(120_000);
+  const member = await person(e2eAuthPool);
+  await login(page, member.email);
+  await page.goto('/#stores');
+  await expect(page.getByRole('link', {name: '前往商品品質與供應公會設定供貨', exact: true})).toHaveAttribute('href', `#guilds/${supplier}`);
+  await open(page, supplier);
+  await expect(primary(page)).toContainText('已有商店可直接沿用');
+  await primary(page).getByRole('button', {name: '開始供貨設定', exact: true}).click();
+  await expect(flow(page).getByRole('heading', {name: '啟動線上商店', exact: true})).toBeFocused();
+  await flow(page).getByRole('button', {name: '取消', exact: true}).click();
+  await expect(primary(page).getByRole('button', {name: '開始供貨設定', exact: true})).toBeFocused();
+  // Start through commerce, then prove the supplier entry reuses this exact instance.
+  await open(page, commerce);
+  await primary(page).getByRole('button', {name: '建立我的商店', exact: true}).click();
+  await flow(page).getByLabel('業務空間名稱', {exact: true}).fill('共用供貨工作室');
+  await flow(page).getByRole('button', {name: '建立業務空間', exact: true}).click();
+  await flow(page).getByRole('button', {name: '產生啟動方案', exact: true}).click();
+  await flow(page).getByRole('button', {name: '確認啟動', exact: true}).click();
+  await flow(page).getByRole('button', {name: '設定我的商店', exact: true}).click();
+  await expect(page).toHaveURL(/#stores\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/);
+  const storeHash = new URL(page.url()).hash;
+  const setup = page.getByRole('form', {name: '建立商店', exact: true});
+  await setup.getByLabel('商店名稱', {exact: true}).fill('共用供貨商店');
+  await setup.getByLabel('商店網址', {exact: true}).fill('supply-' + randomUUID().slice(0, 8));
+  await setup.getByRole('button', {name: '建立商店', exact: true}).click();
+  const product = page.getByRole('form', {name: '新增商品', exact: true});
+  await product.getByLabel('商品名稱', {exact: true}).fill('供貨測試商品');
+  await product.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('350');
+  await product.getByLabel('庫存', {exact: true}).fill('10');
+  await product.getByRole('button', {name: '新增商品', exact: true}).click();
+  await expect(page.locator('.hosted-store-product')).toContainText('供貨測試商品');
+  const before = await (await page.request.get('/api/v1/me/stores?pagination=cursor')).json();
+  await open(page, supplier);
+  await expect(primary(page).getByRole('button', {name: '開始供貨設定', exact: true})).toHaveCount(0);
+  await primary(page).getByRole('button', {name: '管理商品與供貨', exact: true}).click();
+  await expect(page).toHaveURL(new RegExp(storeHash + '$'));
+  await page.getByRole('button', {name: '供貨條件', exact: true}).click();
+  await expect(page.getByRole('button', {name: '公開供貨版本', exact: true})).toBeVisible();
+  expect(await (await page.request.get('/api/v1/me/stores?pagination=cursor')).json()).toEqual(before);
+  await open(page, commerce);
+  await expect(primary(page).getByRole('button', {name: '進入我的商店', exact: true})).toBeVisible();
 });
 
 test('talent entry focuses the existing workspace, then saves and reopens the same direction card after fresh login', async ({page, e2eAuthPool}) => {

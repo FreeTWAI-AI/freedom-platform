@@ -10,12 +10,14 @@ import {createRegistryHarness, type RegistryHarness, type Session} from './modul
 
 const commerce = 'guild_commerce_sales';
 const production = 'guild_commercial_production';
+const supplier = 'guild_product_quality_supply';
 const talent = 'guild_talent_direction';
 const other = 'guild_music_mv';
 const manual = {application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0'};
 const hosted = {application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0'};
 const synthetic = {application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0'};
 const orders: Record<string, readonly string[]> = {
+  [supplier]: ['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support'],
   [commerce]: ['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support'],
   [talent]: ['mission', 'my_work', 'skill_books', 'announcements', 'applications', 'community_tasks', 'support'],
   [production]: ['mission', 'my_work', 'skill_books', 'announcements', 'applications', 'community_tasks', 'support'],
@@ -27,7 +29,7 @@ beforeEach(async () => {await h.reset();});
 
 async function member() {
   const session = await h.signIn(DEMO_USERS[1].email);
-  for (const key of [commerce, production, talent, other]) await h.fullMember(session.user.user_id, key);
+  for (const key of [commerce, supplier, production, talent, other]) await h.fullMember(session.user.user_id, key);
   return session;
 }
 async function leader(key = commerce) {
@@ -55,17 +57,17 @@ async function publish(session: Session, config: Config, pointer: string, key = 
 }
 const keys = (items: readonly {application_key: string}[]) => items.map(item => item.application_key);
 
-test('member, public and leader defaults use revision 4 with pointer 1 and scoped recommendations', async () => {
+test('member, public and leader defaults use revision 5 with pointer 1 and scoped recommendations', async () => {
   const session = await member();
-  for (const key of [commerce, production, talent, other]) {
+  for (const key of [commerce, supplier, production, talent, other]) {
     const view = await h.call('GET', `/guilds/${key}/launchpad`, session);
     const pub = await h.call('GET', `/public/guilds/${key}/launchpad`);
     assert.equal(view.status, 200, JSON.stringify(view.data));
     assert.equal(pub.status, 200, JSON.stringify(pub.data));
     for (const config of [view.data.config, pub.data.config]) {
-      assert.equal(config.revision, '4');
+      assert.equal(config.revision, '5');
       assert.deepEqual(config.body.blocks.map((block: {kind: string}) => block.kind), orders[key] ?? BLOCK_KINDS);
-      assert.deepEqual(config.body.application_refs, key === other ? [] : (key === commerce ? [hosted, manual] : [manual]).map((ref, order) => ({...ref, order})));
+      assert.deepEqual(config.body.application_refs, key === other ? [] : ((key === commerce || key === supplier) ? [hosted, manual] : [manual]).map((ref, order) => ({...ref, order})));
     }
     assert.equal(view.data.config.pointer_version, '1');
     const applications = LaunchpadApplicationSchema.array().parse(view.data.applications);
@@ -76,7 +78,7 @@ test('member, public and leader defaults use revision 4 with pointer 1 and scope
   const initial = await h.call('GET', `/guilds/${commerce}/launchpad-config`, owner);
   assert.equal(initial.status, 200);
   assert.deepEqual(initial.data.body.application_refs, [hosted, manual].map((ref, order) => ({...ref, order})));
-  assert.equal(initial.data.revision, '4');
+  assert.equal(initial.data.revision, '5');
   assert.equal(initial.data.pointer_version, '1');
   const closed = await h.call('GET', `/guilds/${commerce}/launchpad`, session, undefined, {}, h.closed);
   assert.equal(closed.status, 404);
@@ -152,14 +154,14 @@ test('available releases use catalog winner precedence and retain the release-re
 });
 
 
-test('talent published starter, block order and empty recommendations stay authoritative after the default revision changes', async () => {
-  const owner = await leader(talent), session = await member();
-  const initial = (await h.call('GET', `/guilds/${talent}/launchpad-config`, owner)).data;
+for (const guildKey of [talent, supplier]) test(`${guildKey} published starter, block order and empty recommendations stay authoritative after the default revision changes`, async () => {
+  const owner = await leader(guildKey), session = await member();
+  const initial = (await h.call('GET', `/guilds/${guildKey}/launchpad-config`, owner)).data;
   const body: Config = {...initial.body, starter: {title_label: '會長保留的練習', objective_hint: '先討論下一步', note_hint: '保留原說明'},
     blocks: [...initial.body.blocks].reverse().map((block, order) => ({...block, order})), application_refs: []};
-  await publish(owner, body, initial.pointer_version, talent);
-  const memberView = await h.call('GET', `/guilds/${talent}/launchpad`, session);
-  const publicView = await h.call('GET', `/public/guilds/${talent}/launchpad`);
+  await publish(owner, body, initial.pointer_version, guildKey);
+  const memberView = await h.call('GET', `/guilds/${guildKey}/launchpad`, session);
+  const publicView = await h.call('GET', `/public/guilds/${guildKey}/launchpad`);
   assert.equal(memberView.data.config.source, 'guild_editor');
   assert.equal(memberView.data.config.revision, '1');
   for (const view of [memberView, publicView]) {

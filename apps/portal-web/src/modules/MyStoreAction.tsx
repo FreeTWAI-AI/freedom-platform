@@ -38,18 +38,18 @@ export function useMyStores(client: PortalClient) {
   }
   return {data, error, retry: () => setRefresh(value => value + 1), loadMore, loadingMore, pageError};
 }
-export function MyStoreAction({client, canStart, reasons, onCreate, onEnter}: {
-  client: PortalClient; canStart: boolean; reasons: string[]; onCreate: () => void; onEnter: (path: string) => void;
+export function MyStoreAction({client, canStart, reasons, onCreate, onEnter, purpose}: {
+  purpose?: 'supply'; client: PortalClient; canStart: boolean; reasons: string[]; onCreate: () => void; onEnter: (path: string) => void;
 }) {
   const {data, error, retry} = useMyStores(client);
   if (error) return <><p role="alert" className="field-hint">暫時無法讀取你的商店。</p><div className="actions"><button type="button" className="btn btn-ghost" onClick={retry}>重試</button></div></>;
   if (!data) return <p role="status">正在確認你的商店…</p>;
   if (data.items.length) return <>
     {data.items.slice(0, 3).map(item => <p key={item.instance_id}>{item.name ?? '尚未完成設定'}・{stateWord(item)}</p>)}
-    <div className="actions"><button type="button" className="btn btn-primary" onClick={() => onEnter(data.items.length === 1 && !data.next_cursor ? `#stores/${data.items[0].tenant_id}/${data.items[0].instance_id}` : '#stores')}>進入我的商店</button></div>
+    <div className="actions"><button type="button" className="btn btn-primary" onClick={() => onEnter(data.items.length === 1 && !data.next_cursor ? `#stores/${data.items[0].tenant_id}/${data.items[0].instance_id}` : '#stores')}>{purpose === 'supply' ? '管理商品與供貨' : '進入我的商店'}</button></div>
   </>;
-  if (data.next_cursor) return <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => onEnter('#stores')}>查看我的商店</button></div>;
-  return <><div className="actions"><button type="button" className="btn btn-primary" disabled={!canStart} onClick={onCreate}>建立我的商店</button></div>
+  if (data.next_cursor) return <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => onEnter('#stores')}>{purpose === 'supply' ? '查看供貨商店' : '查看我的商店'}</button></div>;
+  return <><div className="actions"><button type="button" className="btn btn-primary" disabled={!canStart} onClick={onCreate}>{purpose === 'supply' ? '開始供貨設定' : '建立我的商店'}</button></div>
     {reasons.map((reason, index) => <p className="field-hint" key={index}>{reason}</p>)}
     <p className="field-hint">交易尚未啟用，只提供店鋪與商品展示。</p></>;
 }

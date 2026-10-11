@@ -742,7 +742,7 @@ test('an unparsable published config falls back to the previous safe revision', 
   const deepMember = await request(`/guilds/${deepKey}/launchpad`, member);
   assert.deepEqual(deepPublic.data.config_problem, deepProblem);
   assert.deepEqual(deepMember.data.config_problem, deepProblem);
-  assert.equal(deepPublic.data.config.revision, '4');
+  assert.equal(deepPublic.data.config.revision, '5');
   assert.equal(deepPublic.data.config.body.mission_override, null);
   assert.equal(JSON.stringify(deepPublic.data).includes(deepMarker), false);
   assert.equal(deepMember.data.config.source, 'platform_default');

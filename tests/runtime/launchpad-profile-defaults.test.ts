@@ -11,7 +11,7 @@ const guild = (guild_key: string) => ({guild_key, name: '測試公會', purpose:
 const talent = 'guild_talent_direction';
 const workOrder = ['mission', 'my_work', 'skill_books', 'announcements', 'applications', 'community_tasks', 'support'];
 
-test('talent defaults use only the current offered manual release; revision 4 does not advance pointer CAS', () => {
+test('talent defaults use only the current offered manual release; revision 5 does not advance pointer CAS', () => {
   const selected = {...manual, release_ref: 'manual-workspace@2.0.0'};
   const offered = Object.freeze([synthetic, selected, manual]);
   const body = defaultConfigFor(guild(talent), offered);
@@ -20,13 +20,13 @@ test('talent defaults use only the current offered manual release; revision 4 do
   assert.deepEqual(defaultConfigFor(guild(talent), [synthetic, hosted]).application_refs, []);
   assert.deepEqual(defaultConfigFor(guild(talent)).application_refs, []);
   const view = platformDefaultView(guild(talent), undefined, offered);
-  assert.equal(view.revision, '4'); assert.equal(view.pointer_version, '1');
+  assert.equal(view.revision, '5'); assert.equal(view.pointer_version, '1');
   assert.equal(platformDefaultView(guild(talent), '17', offered).pointer_version, '17');
   assert.equal(view.body.starter.title_label, '我的方向卡');
 });
 
 test('commerce, production and unprofiled guild content retain their existing default contracts', () => {
-  assert.deepEqual(Object.keys(LAUNCHPAD_PROFILES).sort(), ['guild_commerce_sales', 'guild_commercial_production', talent].sort());
+  assert.deepEqual(Object.keys(LAUNCHPAD_PROFILES).sort(), ['guild_commerce_sales', 'guild_commercial_production', 'guild_product_quality_supply', talent].sort());
   assert.ok(Object.isFrozen(LAUNCHPAD_PROFILES));
   for (const profile of Object.values(LAUNCHPAD_PROFILES)) {
     assert.ok(Object.isFrozen(profile) && Object.isFrozen(profile!.block_order) && Object.isFrozen(profile!.preferred_applications));
@@ -60,4 +60,16 @@ test('rendered leader refs control recommendations without inserting talent defa
   assert.deepEqual(recommendedApplications([], apps), []);
   assert.deepEqual(recommendedApplications([{...manual, release_ref: 'manual-workspace@future', order: 0}], apps), []);
   assert.deepEqual(recommendedApplications([{...synthetic, order: 0}], apps), [synthetic]);
+});
+
+test('supplier defaults recommend the offered hosted store without inventing a release or changing the starter', () => {
+  const supplier = guild('guild_product_quality_supply');
+  const current = {...hosted, release_ref: 'hosted-store@2.0.0'};
+  const body = defaultConfigFor(supplier, [manual, current, hosted, synthetic]);
+  assert.deepEqual(body.application_refs, [current, manual].map((ref, order) => ({...ref, order})));
+  assert.deepEqual(body.blocks.map(block => block.kind), ['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support']);
+  assert.equal(body.starter.title_label, '商品／供貨檢查清單');
+  assert.deepEqual(defaultConfigFor(supplier, [manual]).application_refs, [{...manual, order: 0}]);
+  assert.deepEqual(defaultConfigFor(supplier, [synthetic]).application_refs, []);
+  assert.deepEqual(defaultConfigFor(supplier).application_refs, []);
 });
