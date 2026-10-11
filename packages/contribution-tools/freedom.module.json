@@ -44,6 +44,7 @@
     "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
     "deploy/cloudflare/environments.json",
     "deploy/cloudflare/lib/release-compatibility.mjs",
+    "deploy/cloudflare/release-compatibility.md",
     "deploy/cloudflare/test/migration-plan.test.mjs",
     "deploy/cloudflare/test/release-compatibility.test.mjs",
     "scripts/ci/select-affected-jobs.mjs",

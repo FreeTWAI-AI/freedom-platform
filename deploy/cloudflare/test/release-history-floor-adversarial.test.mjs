@@ -11,7 +11,7 @@ const current = checkMigrations(join(root, 'migrations'), loadManifest().databas
 // These are deliberately historical085 vectors, not a hardcoded latest scanner.
 const historicalLedger = current.ledger.filter(row => Number(row.name.slice(0, 3)) <= 85);
 const scanner = { ok: current.ok, ledger: historicalLedger, ledger_digest: compatibilityLedgerDigest(historicalLedger) };
-const capabilities = ['commerce.hosted-inventory-reservation.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1',
+const capabilities = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1',
   'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 const identity = character => ({ source_sha: character.repeat(40), artifact_sha256: character.repeat(64) });
 const rowsThrough = last => structuredClone(scanner.ledger.filter(row => Number(row.name.slice(0, 3)) <= last));
@@ -155,7 +155,7 @@ test('HISTORY independent floor075 permits compatible expansion, without inventi
   const f = fixture(); f.host.rollback_floor.schema_ledger = rowsThrough(75);
   f.host.rollback_floor.schema_ledger_digest = compatibilityLedgerDigest(f.host.rollback_floor.schema_ledger);
   f.host.rollback_floor.capabilities = [];
-  for (const record of f.host.release_records) record.capabilities = ['commerce.hosted-inventory-reservation.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
+  for (const record of f.host.release_records) record.capabilities = ['platform.legacy.v1', 'work.explicit-wire.v1'];
   const report = run(f); assert.equal(report.status, 'compatible'); assert(!report.required_capabilities.includes('work.server-policy.v1'));
 });
 
