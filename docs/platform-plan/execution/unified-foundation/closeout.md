@@ -464,3 +464,23 @@ daily operator及兩環境runtime pins皆2d5，排程／GC／retention不变；�
 
 細節見 [R15發布收據](rollout-r15-2026-10-10.json) 與 [現況快照](current-state.json)。
 較早 [e977發布紀錄](rollout-2026-10-10.json) 保留歷史，不代表目前release。#425／#426尚未包含在此發布。
+
+## 2026-10-10 R16：舊 PR 集中整合與 schema160 發布
+
+#434 `b9ed788c` 已透過受保護合併並發布至 staging 與正式站，與 reviewed `907b2516` 同 tree。
+必要 Verify 38092198284 全部通過；精確案例數與選定環境驗收見 [R16 發布收據](rollout-r16-2026-10-10.json)。
+兩環境套用149–160、159筆ledger；使用相同dist，資料庫／物件恢復與遠端readback通過。
+訊息圖片啟用r2_only，purpose保存容量64MiB，單張上傳上限仍為2MiB；
+保留既有留言圖片與商品照片政策，搜尋、封鎖及通知偏好已啟用。
+TOTP使用分環境金鑰並完成合成帳號驗收；異地主機／第二操作者金鑰恢復仍未驗證。
+Banner以大於512KiB的原圖驗收瀏覽器自動轉換；不以API傳输上限要求使用者手動壓圖。
+這些是選定雲端流程的實測，不代表Foundation／M1完成。真實投遞、真人試用、正式政策、
+真實指標baseline及Maintainer App等未完成事項保持獨立追蹤；不以source存在自動關單。
+臨時staging Access已撤銷，兩環境backup pins同步，GC／retention保持OFF。
+
+本批範圍已結束；後續主交付依 [#234](https://github.com/FreeTWAI-AI/freedom-platform/issues/234#issuecomment-6103127315)
+集中在跨店訂單共用庫存：A的10件商品由B／C以各自獲同意的版本及售價接單，6＋5並行不得超賣，
+quote／submit重驗當前供貨與權限，取消／到期只釋放一次，各方只讀必要訂單資訊。
+接著交付一次庫存單模組外移及一條本人CLI／BYOK的Grant→Result→Stop／Revoke／重連流程。
+T-047還原後tenant撤權存續尚未完成；隔離還原成功不代表可公開服務，重新開放前須與當前授權權威對帳。
+真人反覆使用、供貨狀態理解與失敗恢復仍需經同意的實際回饋，不以合成驗收推定。
