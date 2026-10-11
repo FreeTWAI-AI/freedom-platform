@@ -24,31 +24,42 @@ export interface ReservationInventory {
  * profile and takes the instance/community/profile locks. The supplied client
  * stays in that same scoped transaction; no pool, RLS rebinding or new ledger. */
 export function localReservationInventory(q: PoolClient, context: DirectEffectContext): ReservationInventory {
-  const shopId = context.profile.supply_shop_id;
+  return inventory(q, () => context.profile.supply_shop_id);
+}
+
+/** Sources are resolved by the closed quote adapter or immutable order lines.
+ * Never construct this map from a request body. All writes still target the
+ * original item/shop balance in the same transaction and community lock. */
+export function boundReservationInventory(q: PoolClient, sources: ReadonlyMap<string, string>): ReservationInventory {
+  return inventory(q, itemId => sources.get(itemId));
+}
+function inventory(q: PoolClient, source: (itemId: string) => string | undefined): ReservationInventory {
   const quantityValid = (quantity: number) => requireCondition(Number.isSafeInteger(quantity) && quantity > 0,
     400, 'invalid_reservation_items', '商品數量無效。');
   return {
     async status(itemId) {
       return (await q.query<InventoryBalance>(`SELECT item_id,stock,reserved,stock-reserved AS available
-        FROM commerce_items WHERE item_id=$1 AND shop_id=$2`, [itemId, shopId])).rows[0] ?? null;
+        FROM commerce_items WHERE item_id=$1 AND shop_id=$2`, [itemId, source(itemId) ?? null])).rows[0] ?? null;
     },
     async lock(itemIds) {
       if (!itemIds.length) return new Map();
-      const rows = (await q.query<InventoryBalance>(`SELECT item_id,stock,reserved,stock-reserved AS available
-        FROM commerce_items WHERE item_id=ANY($1::uuid[]) AND shop_id=$2 ORDER BY item_id FOR UPDATE`,
-      [[...new Set(itemIds)].sort(), shopId])).rows;
+      const ids = [...new Set(itemIds)].sort();
+      const rows = (await q.query<InventoryBalance>(`SELECT i.item_id,stock,reserved,stock-reserved AS available
+        FROM commerce_items i JOIN unnest($1::uuid[],$2::uuid[]) AS bound(item_id,shop_id)
+          ON i.item_id=bound.item_id AND i.shop_id=bound.shop_id ORDER BY i.item_id FOR UPDATE OF i`,
+      [ids, ids.map(id => source(id) ?? null)])).rows;
       return new Map(rows.map(row => [row.item_id, row]));
     },
     async reserve(itemId, quantity) {
       quantityValid(quantity);
       const result = await q.query(`UPDATE commerce_items SET reserved=reserved+$2
-        WHERE item_id=$1 AND shop_id=$3 AND stock-reserved >= $2`, [itemId, quantity, shopId]);
+        WHERE item_id=$1 AND shop_id=$3 AND stock-reserved >= $2`, [itemId, quantity, source(itemId) ?? null]);
       requireCondition(result.rowCount === 1, 409, 'stock_unavailable', '商品庫存不足。');
     },
     async release(itemId, quantity) {
       quantityValid(quantity);
       const result = await q.query(`UPDATE commerce_items SET reserved=reserved-$2
-        WHERE item_id=$1 AND shop_id=$3 AND reserved >= $2`, [itemId, quantity, shopId]);
+        WHERE item_id=$1 AND shop_id=$3 AND reserved >= $2`, [itemId, quantity, source(itemId) ?? null]);
       requireCondition(result.rowCount === 1, 409, 'reservation_inconsistent', '庫存保留紀錄不一致。');
     },
   };

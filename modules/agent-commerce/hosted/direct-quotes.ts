@@ -10,11 +10,13 @@ import { publicProjection } from './publish.js';
 import { directCommand, type DirectContext } from './direct-authority.js';
 import { expireDirectForItems } from './direct-effects.js';
 import { localReservationInventory } from './inventory.js';
+import type {ReservationQuote} from '../../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 
 export interface QuoteBinding { selection_id: string; item_id: string; version: string; sku: string; quantity: number }
 export interface QuoteRow {
   quote_id: string; public_shop_id: string; buyer_principal_id: string; publication_id: string;
-  terms: HostedOrderQuote; bindings: QuoteBinding[]; terms_sha256: string; quoted_at: Date; expires_at: Date;
+  terms: ReservationQuote; bindings: QuoteBinding[]; terms_sha256: string; quoted_at: Date; expires_at: Date;
+  quote_profile: 'hosted_direct_reservation' | 'hosted_shared_reservation';
 }
 export async function ownQuote(q: PoolClient, context: DirectContext, id: string): Promise<QuoteRow> {
   const row = (await q.query<QuoteRow>(`SELECT * FROM commerce_order_quotes WHERE quote_id=$1 AND buyer_principal_id=$2

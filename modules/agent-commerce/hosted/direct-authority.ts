@@ -9,16 +9,18 @@ import { scopedMemberCommand, scopedJournal } from '../../../packages/scoped-com
 import { assertCurrentSessionClock } from '../../../packages/db/member-session.js';
 import { Problem, requireCondition } from '../../../packages/shared/problem.js';
 import { profile, ready, type Profile } from './store.js';
+import {lockSharedParties, sharedSupplier, type SharedAuthority} from './shared-authority.js';
 
 export type DirectOperation = 'storefront.quote.create' | 'storefront.order.submit' | 'storefront.order.cancel' | 'storefront.order.read';
 export type Target = { slug: string } | { order_id: string };
-export type DirectEffectContext = { profile: Profile; operation: string; reservationDeadline?: Date }
+export type DirectEffectContext = { profile: Profile; operation: string; reservationDeadline?: Date; shared?: SharedAuthority }
   & ({ member: MemberScopeContext } | { tenant: TenantScopeContext });
 export interface DirectContext {
   member: MemberScopeContext; profile: Profile; operation: DirectOperation;
   /** Set only for a newly created effect, never a committed outcome replay. */
   deadline?: Date; monotonicDeadline?: number;
   reservationDeadline?: Date; deadlineCode?: 'quote_expired' | 'reservation_clock_changed';
+  shared?: SharedAuthority;
 }
 const missing = () => requireCondition(false, 404, 'hosted_order_not_found', '找不到這間商店或訂單。');
 export async function lockCommerceCommunity(q: PoolClient, communityId: string) {
@@ -34,7 +36,7 @@ async function eligibleMember(q: PoolClient, actor: Actor) {
 /** Closed exact-store adapter. The member remains on their personal scope;
  * transaction-local tenant settings are a domain-selected RLS bound, not a
  * TenantScopeContext, tenant membership, or transferable authorization. */
-async function authorize(q: PoolClient, actor: Actor, member: MemberScopeContext, target: Target, requireLive: boolean): Promise<Profile> {
+async function authorize(q: PoolClient, actor: Actor, member: MemberScopeContext, target: Target, requireLive: boolean, shared?: SharedAuthority): Promise<Profile> {
   const principal = member.subject_principal.principal_id;
   await bindPrincipalContext(q, principal);
   await eligibleMember(q, actor);
@@ -42,8 +44,10 @@ async function authorize(q: PoolClient, actor: Actor, member: MemberScopeContext
     ? (await q.query(`SELECT tenant_id,instance_id FROM commerce_storefront_profiles WHERE slug=$1`, [target.slug])).rows[0]
     : (await q.query(`SELECT quote.tenant_id,quote.instance_id FROM commerce_orders o
         JOIN commerce_order_quotes quote ON quote.quote_id=o.quote_id
-        WHERE o.order_id=$1 AND o.buyer_principal_id=$2 AND o.order_profile='hosted_direct_reservation'`, [target.order_id, principal])).rows[0];
+        WHERE o.order_id=$1 AND o.buyer_principal_id=$2 AND (o.order_profile='hosted_direct_reservation'
+          OR $3::boolean AND o.order_profile='hosted_shared_reservation')`, [target.order_id, principal, !!shared])).rows[0];
   if (!row) missing();
+  if (shared && requireLive) await lockSharedParties(q, principal, row, shared);
   const scope = (await q.query(`SELECT scope_id,status FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1 FOR SHARE`, [row.tenant_id])).rows[0];
   if (!scope) missing();
   await bindTenantContext(q, { tenantId: row.tenant_id, tenantScopeId: scope.scope_id });
@@ -67,6 +71,9 @@ async function authorize(q: PoolClient, actor: Actor, member: MemberScopeContext
       && deployment?.state === 'active' && owner.rowCount === 1, 409, 'storefront_unavailable', '商店目前無法接受新訂單。');
     requireCondition(p.reservation_enabled, 409, 'reservation_not_enabled', '商店尚未啟用庫存保留訂單。');
     requireCondition(p.current_publication_id, 409, 'publication_required', '商店目前未公開。');
+    // Recheck every retained source at receipt/final projection too. Lifecycle
+    // locks were acquired before the commerce lock; no new party is discovered here.
+    if (shared) for (const id of shared.parties!.keys()) await sharedSupplier(q, p, shared, id);
   }
   // Historical reads/releases deliberately survive suspension/archive/pause.
   // They still require the real buyer relation and both retained mappings.
@@ -95,18 +102,18 @@ async function decisionClock(q: PoolClient, context: DirectContext) {
 export async function directCommand<T>(pool: Pool, actor: Actor, target: Target, operation: DirectOperation,
   body: unknown, key: string, targetId: string, expected: string | undefined,
   run: (q: PoolClient, context: DirectContext) => Promise<{ id: string }>,
-  project: (q: PoolClient, context: DirectContext, id: string) => Promise<T>): Promise<T> {
+  project: (q: PoolClient, context: DirectContext, id: string) => Promise<T>, shared?: SharedAuthority): Promise<T> {
   let context!: DirectContext, output!: T;
   const live = operation === 'storefront.quote.create' || operation === 'storefront.order.submit';
   const clock = () => requireCondition(context?.monotonicDeadline === undefined || performance.now() < context.monotonicDeadline,
     409, context?.deadlineCode ?? 'quote_expired', '報價或庫存保留狀態已更新，請重新讀取。');
   const revalidate = async (q: PoolClient, member: MemberScopeContext) => {
-    context.profile = await authorize(q, actor, member, target, live);
+    context.profile = await authorize(q, actor, member, target, live, shared);
     await decisionClock(q, context);
   };
   await scopedMemberCommand(pool, { actor, scope: 'personal', operation, body, key, expected,
     target: { kind: 'hosted_order', id: targetId } }, async (q, member) => {
-    context = { member, operation, profile: await authorize(q, actor, member, target, live) };
+    context = { member, operation, shared, profile: await authorize(q, actor, member, target, live, shared) };
   }, q => run(q, context), revalidate, clock, (source, command) => isolatedTransaction(source, async q => {
     const reference = await command(q);
     // The generic adapter returns its reference type; only this closed command

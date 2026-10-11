@@ -17,6 +17,8 @@ import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor, parseMajorToMinor} from '../format';
 import {useMyStores, stateWord} from './MyStoreAction';
 import {HostedSellerOrders, SellerOrdersLink} from './HostedSellerOrders';
+import {HostedSupplierOrders} from './HostedSupplierOrders';
+import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {sellerOrdersRoute} from './hosted-seller-order-state';
 import './HostedStore.css';
 
@@ -46,6 +48,7 @@ type Preview = z.infer<typeof StorePreviewSchema>;
 type RegisterLeave = (guard: (() => boolean) | null) => void;
 export function HostedStore({client, enabled, locationHash, userId, registerLeave, photosEnabled=false, photoUploadsEnabled=false}: {client: PortalClient; photosEnabled?:boolean;photoUploadsEnabled?:boolean;enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
   const retained = sellerOrdersRoute(locationHash) ?? (!enabled ? sellerOrdersRoute(locationHash + '/orders') : null);
+  if (retained?.supplier) return <HostedSupplierOrders key={`${userId}:${client.sessionGeneration}:${retained.tenantId}:${retained.instanceId}`} client={client} route={retained}/>;
   if (retained) return <HostedSellerOrders key={`${userId}:${client.sessionGeneration}:${retained.tenantId}:${retained.instanceId}`} client={client} route={retained} registerLeave={registerLeave}/>;
   if (!enabled) return <p className="banner" role="status">目前不開放商店設定。若要查看或取消既有預留，請開啟你保存的店主管理連結；登入後會重新確認目前權限。</p>;
   const path = locationHash.replace(/^#/, '').split('/');
@@ -77,6 +80,7 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
   const root = `/tenants/${tenantId}/storefronts/${instanceId}`;
   const [distributionRefresh,setDistributionRefresh]=useState(0);
   const [view, setView] = useState<StoreView | null>(null);
+  const [reservationSetting,setReservationSetting] = useState<z.infer<typeof ReservationSettingSchema>|null>(null);
   const [products, setProducts] = useState<ProductView[]>([]);
   const [media,setMedia]=useState<ProductMediaView[]>([]);
   const [photoBlocks,setPhotoBlocks]=useState<Record<string,boolean>>({});
@@ -131,15 +135,17 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
     setLoading(true);
     try {
       const next = StoreViewSchema.parse(await client.get(root, {signal}));
-      let photos:ProductMediaView[]=[];
+      let photos:ProductMediaView[]=[], setting:z.infer<typeof ReservationSettingSchema>|null=null;
       let items: ProductView[] = [], draft: Preview | null = null, presentation: StoreAppearance | null = null;
       if (next.setup_state === 'ready') {
         const results = await Promise.all([client.get(root + '/products', {signal}), client.get(root + '/preview', {signal}), client.get(root + '/appearance', {signal}), photosEnabled ? client.get(root+'/product-media',{signal}) : Promise.resolve(null)]);
         items = ProductPageSchema.parse(results[0]).items; draft = StorePreviewSchema.parse(results[1]); presentation = StoreAppearanceSchema.parse(results[2]);
         if(photosEnabled)photos=ProductMediaPageSchema.parse(results[3]).items;
+        try {setting=ReservationSettingSchema.parse(await client.get(root+'/reservation-setting',{signal}));}
+        catch(cause) {if(!(cause instanceof ApiError && [403,404].includes(cause.status))) throw cause;}
       }
       if (!current()) return;
-      setView(next); setDistributionRefresh(n=>n+1); setProducts(items); setMedia(photos); setPreview(draft); setAppearance(presentation); setError('');
+      setReservationSetting(setting); setView(next); setDistributionRefresh(n=>n+1); setProducts(items); setMedia(photos); setPreview(draft); setAppearance(presentation); setError('');
     } catch (cause) {
       if (!current()) return;
       if (cause instanceof ApiError && cause.status === 404 && !Object.values(photoBlockRef.current).some(Boolean)) setMissing(true);
@@ -196,7 +202,14 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
       {!view.writable && <p>{view.capabilities.some(key => key !== 'store:read') ? '這間商店目前暫停，無法修改。' : '你可以檢視這間商店，但不能修改。'}</p>}
       {!store ? can('store:manage') ? <SettingsForm key="setup" client={client} root={root} busy={locked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'post', path: root + '/setup', body, schema: StoreViewSchema, notice: '已建立商店。', success, fieldError})}/>
         : <p>這間商店還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
-        <p className="banner" role="note">{NOTICE}</p>
+        <p className="banner" role="note">{reservationSetting?.reservation_enabled && reservationSetting.admission_enabled ? '已開放 30 分鐘庫存預留；付款與出貨尚未啟用。' : NOTICE}</p>
+        {reservationSetting && <section className="stack" aria-label="預留設定"><h3>庫存預留</h3>
+          <p>{reservationSetting.admission_enabled ? '開放後，買家可預留你店裡的商品；其他店主經你同意的選品也會使用同一筆庫存。取消或到期會釋放庫存。' : '平台目前未開放新預留；仍可查看與取消既有預留。'}</p>
+          <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked || hasDraft || loading || !reservationSetting.reservation_enabled && (!view.writable || !reservationSetting.admission_enabled)}
+            onClick={() => void command({method:'patch',path:root+'/reservation-setting',body:{reservation_enabled:!reservationSetting.reservation_enabled},
+              version:reservationSetting.version,schema:ReservationSettingSchema,notice:reservationSetting.reservation_enabled?'已停止接受新預留。既有預留仍可查看與取消。':'已開放 30 分鐘預留。',success:()=>{}})}>
+            {reservationSetting.reservation_enabled?'停止接受新預留':'開放 30 分鐘預留'}</button></div>
+        </section>}
         <section className="stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
           <p>{view.product_count}／{view.product_limit} 件商品</p>
           {!products.length && <p>{view.product_count ? '這間店目前使用合作選品；下方可管理供貨合作。' : '還沒有商品。新增第一件商品後就能發布。'}</p>}

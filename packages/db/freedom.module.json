@@ -19,6 +19,7 @@
     "deploy/cloudflare/lib/release-compatibility.mjs",
     "deploy/cloudflare/test/migration-plan.test.mjs",
     "deploy/cloudflare/test/release-domain-media.test.mjs",
+    "deploy/cloudflare/test/release-shared-reservations.test.mjs",
     "deploy/cloudflare/lib/media-wrangler.mjs",
     "deploy/cloudflare/test/media-wrangler.test.mjs",
     "deploy/cloudflare/test/isolated-candidate.test.mjs",

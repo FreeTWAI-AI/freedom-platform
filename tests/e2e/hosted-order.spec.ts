@@ -2,7 +2,8 @@ import type {Route} from '@playwright/test';
 import {test, expect, type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
 import {buyerLogin, apiLogin, enableStore, fixtureStore, offListener} from './hosted-order-fixture.js';
-import {OrderSchema, ReadinessSchema, type HostedOrder} from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import {ReadinessSchema} from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import {ReservationOrderSchema as OrderSchema,type ReservationOrder as HostedOrder} from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 
 const surface = (page: Page) => page.locator('.hosted-store');
 function gate<T>() {let resolve!: (value: T) => void; const promise = new Promise<T>(done => {resolve = done;}); return {promise, resolve};}
@@ -65,7 +66,7 @@ test('HO-UI02 committed unreadable submit retains exact tuple and guards; fresh 
   expect((await e2eAuthPool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved).toBe(0);
   const committed = gate<HostedOrder>(), release = gate<void>();
   const sent: ReturnType<typeof tuple>[] = []; let damage = true;
-  const path = `**/api/v1/hosted-stores/${s.slug}/orders`;
+  const path = `**/api/v1/hosted-stores/${s.slug}/reservation-orders`;
   await page.route(path, async route => {
     if (route.request().method() !== 'POST') return route.continue();
     sent.push(tuple(route)); const response = await route.fetch(); expect([200, 201]).toContain(response.status());
@@ -87,7 +88,7 @@ test('HO-UI02 committed unreadable submit retains exact tuple and guards; fresh 
     const fresh = await browser.newContext({baseURL});
     try {
       const freshPage = await fresh.newPage(); let posts = 0;
-      freshPage.on('request', request => {if (request.method() === 'POST' && request.url().endsWith(`/hosted-stores/${s.slug}/orders`)) posts++;});
+      freshPage.on('request', request => {if (request.method() === 'POST' && request.url().endsWith(`/hosted-stores/${s.slug}/reservation-orders`)) posts++;});
       await buyerLogin(freshPage, s.buyer.email, intentHash);
       await expect(freshPage.getByRole('region', {name: '我的預留'})).toContainText('預留中');
       await expect(freshPage.getByLabel('預留編號', {exact: true})).toHaveValue(original.order_id); expect(posts).toBe(0);
@@ -104,14 +105,14 @@ test('HO-UI02 committed unreadable submit retains exact tuple and guards; fresh 
   try {
     const other = await stranger.newPage(); await buyerLogin(other, s.stranger.email, `#reservations/order/${original.order_id}`);
     await expect(surface(other)).toContainText('查不到屬於你的這筆預留');
-    expect((await other.request.get(`/api/v1/me/hosted-orders/${original.order_id}`)).status()).toBe(404);
-    expect((await other.request.get(`/api/v1/me/hosted-orders/by-intent/${original.client_order_id}?store_slug=${s.slug}`)).status()).toBe(404);
+    expect((await other.request.get(`/api/v1/me/reservations/${original.order_id}`)).status()).toBe(404);
+    expect((await other.request.get(`/api/v1/me/reservations/by-intent/${original.client_order_id}?store_slug=${s.slug}`)).status()).toBe(404);
     await expect(other.getByRole('region', {name: '我的預留'})).toHaveCount(0);
   } finally {await stranger.close();}
   // Real cancellation commits before a canonical OLD reserved acknowledgement is substituted.
   const cancelled = gate<void>(), releaseCancel = gate<void>(), cancellations: ReturnType<typeof tuple>[] = [];
   let damageCancel = true;
-  const cancelPath = `**/api/v1/me/hosted-orders/${original.order_id}/cancel`;
+  const cancelPath = `**/api/v1/me/reservations/${original.order_id}/cancel`;
   await page.route(cancelPath, async route => {
     cancellations.push(tuple(route)); const response = await route.fetch(); expect(response.status()).toBe(200);
     expect(OrderSchema.parse(await response.json()).state).toBe('cancelled');
@@ -125,7 +126,7 @@ test('HO-UI02 committed unreadable submit retains exact tuple and guards; fresh 
     releaseCancel.resolve(); await expect(surface(page).getByRole('button', {name: '重試原操作'})).toBeEnabled();
     await guardAttempts(page, orderHash);
     // A canonical old own GET also cannot clear the unknown cancel tuple.
-    const ownPath = `**/api/v1/me/hosted-orders/${original.order_id}`;
+    const ownPath = `**/api/v1/me/reservations/${original.order_id}`;
     await page.route(ownPath, async route => {const response = await route.fetch(); expect(OrderSchema.parse(await response.json()).state).toBe('cancelled'); await route.fulfill({response, json: original});});
     try {await surface(page).getByRole('button', {name: '查詢原預留'}).click(); await expect(surface(page).getByRole('button', {name: '重試原操作'})).toBeEnabled(); await guardAttempts(page, orderHash);}
     finally {await page.unroute(ownPath);}
@@ -150,7 +151,7 @@ test('HO-UI03 both host flags OFF retain own lookup and cancellation through rea
   await surface(page).getByRole('button', {name: '確認預留 30 分鐘', exact: true}).click();
   await expect(page.getByRole('region', {name: '我的預留'})).toContainText('預留中');
   const id = await page.getByLabel('預留編號', {exact: true}).inputValue();
-  const original = OrderSchema.parse(await (await page.request.get(`/api/v1/me/hosted-orders/${id}`)).json());
+  const original = OrderSchema.parse(await (await page.request.get(`/api/v1/me/reservations/${id}`)).json());
   const off = await offListener(e2eAuthPool, false), context = await browser.newContext();
   try {
     const offPage = await context.newPage();
@@ -183,14 +184,14 @@ test('buyer order list follows next page and isolates another account', async ({
     };
     const ids: string[] = [];
     for (let i = 0; i < 2; i++) {
-      const quote = await post(`/hosted-stores/${s.slug}/quotes`, {publication_revision: '1', items: [{sku: s.product.sku, quantity: 1}]}, 201);
-      const order = await post(`/hosted-stores/${s.slug}/orders`, {quote_id: quote.quote_id, terms_sha256: quote.terms_sha256, client_order_id: crypto.randomUUID()}, 201);
+      const quote = await post(`/hosted-stores/${s.slug}/reservation-quotes`, {publication_revision: '1', items: [{sku: s.product.sku, quantity: 1}]}, 201);
+      const order = await post(`/hosted-stores/${s.slug}/reservation-orders`, {quote_id: quote.quote_id, terms_sha256: quote.terms_sha256, client_order_id: crypto.randomUUID()}, 201);
       ids.push(order.order_id);
-      await post(`/me/hosted-orders/${order.order_id}/cancel`, {}, 200, order.version);
+      await post(`/me/reservations/${order.order_id}/cancel`, {}, 200, order.version);
     }
     // Exercise the real server's bounded page option without exhausting the
     // production mutation rate limit or mocking any response/authority.
-    await page.route(url => url.pathname === '/api/v1/me/hosted-orders', async route => {
+    await page.route(url => url.pathname === '/api/v1/me/reservations', async route => {
       const url = new URL(route.request().url()); url.searchParams.set('limit', '1');
       await route.continue({url: url.toString()});
     });

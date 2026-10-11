@@ -1,6 +1,8 @@
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import {PublicStoreProjectionSchema, type PublicStoreProjection} from '../../../../contracts/guild-launchpad/v1/storefront';
-import {QuoteInputSchema, ReadinessSchema, OrderPageSchema, type HostedOrderPage as BuyerOrderPage, type HostedOrder, type HostedOrderQuote} from '../../../../contracts/guild-launchpad/v1/hosted-order';
+import {QuoteInputSchema, ReadinessSchema} from '../../../../contracts/guild-launchpad/v1/hosted-order';
+import {ReservationPageSchema as OrderPageSchema, type ReservationOrder as HostedOrder, type ReservationQuote as HostedOrderQuote} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
+type BuyerOrderPage = {items:HostedOrder[];next_cursor:string|null};
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor} from '../format';
 import {buyerRoute, readOrder, readQuote, readCancelObservation, type BuyerAttempt, type BuyerRoute} from './hosted-order-state';
@@ -51,7 +53,7 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
     setLoading(true); setError('');
     try {
       if (target?.kind === 'lookup') {
-        const found = OrderPageSchema.parse(await client.get(`/me/hosted-orders${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, {signal: controller.current.signal}));
+        const found = OrderPageSchema.parse(await client.get(`/me/reservations${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, {signal: controller.current.signal}));
         if (current()) setPage(found);
       } else if (target?.kind === 'shop') {
         // Never preserve a previous true readiness through an unsuccessful refresh.
@@ -62,7 +64,7 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
         const readiness = ReadinessSchema.parse(await client.get(`/hosted-stores/${target.slug}/order-readiness`, {signal: controller.current.signal}));
         if (current()) {setReady(readiness.reservation_enabled); if (!readiness.reservation_enabled) setNotice('這間商店目前未開放新的預留；商品僅供展示。');}
       } else if (target?.kind === 'order' || target?.kind === 'intent') {
-        const path = target.kind === 'order' ? `/me/hosted-orders/${target.id}` : `/me/hosted-orders/by-intent/${target.intent}?store_slug=${target.slug}`;
+        const path = target.kind === 'order' ? `/me/reservations/${target.id}` : `/me/reservations/by-intent/${target.intent}?store_slug=${target.slug}`;
         const raw = await client.get(path, {signal: controller.current.signal});
         const attempt = held.current;
         const found = readOrder(raw, target, attempt?.kind === 'submit' ? attempt.body : undefined);
@@ -93,7 +95,7 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
     if (busyRef.current || !live()) return;
     held.current = attempt; busyRef.current = true; setBusy(true); setError('');
     try {
-      const path = attempt.kind === 'cancel' ? `/me/hosted-orders/${attempt.id}/cancel` : `/hosted-stores/${attempt.slug}/${attempt.kind === 'quote' ? 'quotes' : 'orders'}`;
+      const path = attempt.kind === 'cancel' ? `/me/reservations/${attempt.id}/cancel` : `/hosted-stores/${attempt.slug}/${attempt.kind === 'quote' ? 'reservation-quotes' : 'reservation-orders'}`;
       const raw = await client.post(path, attempt.body, {idempotencyKey: attempt.key, ifMatch: attempt.kind === 'cancel' ? attempt.version : undefined, signal: controller.current.signal});
       if (!live()) return;
       if (attempt.kind === 'quote') {

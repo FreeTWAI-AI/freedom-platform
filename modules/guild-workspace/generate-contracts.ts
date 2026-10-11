@@ -20,6 +20,7 @@ import {
 import * as storefront from '../../contracts/guild-launchpad/v1/storefront.js';
 import * as presentation from '../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import * as hostedMedia from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
+import * as sharedOrder from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 import * as hostedOrder from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import * as distribution from '../../contracts/guild-launchpad/v1/hosted-distribution.js';
 import * as supplyTerms from '../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
@@ -127,6 +128,14 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
   ['storefront-presentation', 'Additive saved store presentation. Existing storefront/v1 content, releases and capabilities remain unchanged.', [
     ['appearance-input', presentation.StoreAppearanceInputSchema, 'input', []],
     ['appearance', presentation.StoreAppearanceSchema, 'output', ['current_same_instance_store_capability', 'profile_version_cas']],
+  ]],
+  ['hosted-shared-order', 'Explicit same-database shared supplier stock reservations. Original direct profile and financial exclusions remain intact; admission defaults OFF.', [
+    ['shared-quote', sharedOrder.SharedQuoteSchema, 'output', ['unique_skus', 'line_and_merchandise_totals', 'five_minute_quote', 'current_exact_supply_consent']],
+    ['shared-order', sharedOrder.SharedOrderSchema, 'output', ['unique_skus', 'line_and_merchandise_totals', 'thirty_minute_reservation', 'closure_ordering', 'authoritative_state']],
+    ['reservation-page', sharedOrder.ReservationPageSchema, 'output', ['current_party_filter', 'signed_cursor', 'order_semantics']],
+    ['reservation-setting-input', sharedOrder.ReservationSettingInputSchema, 'input', ['current_owner_only', 'host_admission_for_enable', 'profile_version_cas']],
+    ['reservation-setting', sharedOrder.ReservationSettingSchema, 'output', ['current_owner_only']],
+    ['supplier-reservation-page', sharedOrder.SupplierReservationPageSchema, 'output', ['current_supplier_owner', 'own_supplied_lines_only', 'signed_cursor', 'supplied_line_totals']],
   ]],
   ['hosted-order', 'HO-0 direct-sale order reservation candidate. No routes or releases enabled; payment/refund/fulfilment disabled.', [
     ['readiness', hostedOrder.ReadinessSchema, 'output', ['current_readiness_authority']],

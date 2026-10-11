@@ -106,3 +106,8 @@ of the selected presentation. DC-08 registers both new columns; this is schema c
 not a new tenant export/restore permission. Existing backup of these same tables must include
 the columns; this slice does not implement a new export or prove operational restore.
 This source depends on the unmerged #310/#311 parents and is not deployment or acceptance.
+
+
+## Cross-store reservation candidate (#437)
+
+[Shared reservation boundary](hosted/shared-order-contract.md) extends the same PostgreSQL stock/order authority with an explicit opt-in wire profile. The existing direct endpoints and imported financial path keep their original contracts. This candidate adds owner admission controls and a supplier-only order page; migration 161 does not enable admission. Deployed state remains the dated operator receipt, not the presence of these sources.

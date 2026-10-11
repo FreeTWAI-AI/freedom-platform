@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { z } from 'zod';
 import * as c from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import * as shared from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 
 const id = '12345678-1234-4234-8234-123456789abc';
 const digest = 'a'.repeat(64);
@@ -16,6 +17,26 @@ const order = { ...terms, order_id: id, client_order_id: id, quote_id: id, versi
   reservation_expires_at: '2026-10-08T12:30:00.000Z', state: 'reserved', closed_at: null, close_reason: null };
 const submit = { quote_id: id, terms_sha256: digest, client_order_id: id };
 const input = { publication_revision: '1', items: [{ sku: 'P0001', quantity: 2 }] };
+
+test('shared opt-in retains totals, lifetime, terminal and financial fences without widening the original profile', () => {
+  const q = {...quote, profile: shared.HOSTED_SHARED_ORDER_PROFILE};
+  const o = {...order, profile: shared.HOSTED_SHARED_ORDER_PROFILE};
+  assert.equal(shared.SharedQuoteSchema.safeParse(q).success, true);
+  assert.equal(shared.SharedOrderSchema.safeParse(o).success, true);
+  assert.equal(c.QuoteSchema.safeParse(q).success, false);
+  assert.equal(c.OrderSchema.safeParse(o).success, false);
+  for (const invalid of [{...q, merchandise_total_minor: 601}, {...q, expires_at: '2026-10-08T12:06:00.000Z'},
+    {...q, items: [...q.items, ...q.items], merchandise_total_minor: 1200}, {...q, supplier_shop_id: id}]) {
+    assert.equal(shared.SharedQuoteSchema.safeParse(invalid).success, false);
+  }
+  for (const invalid of [{...o, payment_enabled: true}, {...o, supplier_payable: 600},
+    {...o, reservation_expires_at: '2026-10-08T12:31:00.000Z'}, {...o, merchandise_total_minor: 599},
+    {...o, state: 'expired', closed_at: '2026-10-08T12:29:59.999Z', close_reason: 'reservation_expired'},
+    {...o, state: 'cancelled', closed_at: o.reservation_expires_at, close_reason: 'buyer_cancelled'}]) {
+    assert.equal(shared.SharedOrderSchema.safeParse(invalid).success, false);
+  }
+  assert.equal(shared.ReservationPageSchema.safeParse({items: [order, o], next_cursor: null}).success, true);
+});
 
 test('buyer input cannot supply identities, price, payment, contact or service authority', () => {
   assert.deepEqual(c.SubmitInputSchema.parse(submit), submit);

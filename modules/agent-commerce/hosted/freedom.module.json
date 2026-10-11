@@ -11,7 +11,18 @@
     "contracts/guild-launchpad/v1/hosted-distribution.schema.json",
     "migrations/144_hosted_distribution_offers.sql",
     "tests/runtime/hosted-distribution.test.ts",
-    "tests/e2e/hosted-distribution.spec.ts"
+    "tests/e2e/hosted-distribution.spec.ts",
+    "contracts/guild-launchpad/v1/hosted-shared-order.ts",
+    "migrations/161_hosted_shared_reservations.sql",
+    "tests/runtime/hosted-shared-orders.test.ts",
+    "contracts/guild-launchpad/v1/hosted-shared-order.schema.json",
+    "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
+    "tests/e2e/hosted-shared-orders.spec.ts",
+    "modules/agent-commerce/hosted/shared-authority.ts",
+    "modules/agent-commerce/hosted/shared-orders.ts",
+    "modules/agent-commerce/hosted/shared-quotes.ts",
+    "modules/agent-commerce/hosted/supplier-orders.ts",
+    "modules/agent-commerce/hosted/shared-order-contract.md"
   ],
   "public_exports": [],
   "dependencies": [
@@ -27,7 +38,8 @@
     "modules/agent-commerce/README.md",
     "packages/resource-scopes/README.md",
     "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
-    "modules/agent-commerce/hosted/supply-terms.md"
+    "modules/agent-commerce/hosted/supply-terms.md",
+    "modules/agent-commerce/hosted/shared-order-contract.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -68,6 +80,15 @@
         "store.distribution.propose",
         "store.distribution.decide",
         "store.distribution.withdraw"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.hosted-order-supplier-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
+      "operations": [
+        "storefront.supplier.orders.list"
       ],
       "auth_profile": "member-session"
     }

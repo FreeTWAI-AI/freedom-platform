@@ -58,7 +58,7 @@ test('HO-SUI01 owner entry, committed stale cancel ACK, original tuple guards an
   await surface(page).getByRole('button', {name: '查看這筆預留'}).click();
   await expect(page.getByRole('region', {name: '預留明細'})).toContainText('預留中');
   const committed = gate(), release = gate(); const sent: ReturnType<typeof tuple>[] = []; let damaged = false;
-  const path = `**/api/v1${s.root}/orders/${s.order.order_id}/cancel`;
+  const path = `**/api/v1${s.root}/reservations/${s.order.order_id}/cancel`;
   await page.route(path, async route => {
     sent.push(tuple(route)); const response = await route.fetch(); expect(response.status()).toBe(200);
     expect(OrderSchema.parse(await response.json()).state).toBe('cancelled');
@@ -69,7 +69,7 @@ test('HO-SUI01 owner entry, committed stale cancel ACK, original tuple guards an
     page.once('dialog', d => d.accept()); await surface(page).getByRole('button', {name: '取消這筆預留'}).click();
     await committed.promise; await blocked(page, hash); release.resolve();
     await expect(surface(page).getByRole('button', {name: '重試原取消'})).toBeEnabled(); await blocked(page, hash);
-    const readPath = `**/api/v1${s.root}/orders/${s.order.order_id}`;
+    const readPath = `**/api/v1${s.root}/reservations/${s.order.order_id}`;
     await page.route(readPath, async route => {const response = await route.fetch(); await route.fulfill({response, json: s.order});});
     await surface(page).getByRole('button', {name: '查詢原預留'}).click();
     await expect(surface(page).getByRole('button', {name: '重試原取消'})).toBeEnabled();
@@ -117,7 +117,7 @@ test('HO-SUI03 a known 412 refreshes the terminal state without silently resubmi
     expect(response.status()).toBe(200);
   } finally {await buyer.close();}
   let posts = 0;
-  page.on('request', r => {if (r.method() === 'POST' && r.url().endsWith(`/orders/${s.order.order_id}/cancel`)) posts++;});
+  page.on('request', r => {if (r.method() === 'POST' && r.url().endsWith(`/reservations/${s.order.order_id}/cancel`)) posts++;});
   page.once('dialog', d => d.accept()); await surface(page).getByRole('button', {name: '取消這筆預留'}).click();
   await expect(surface(page)).toContainText('預留版本已更新');
   await expect(page.getByRole('region', {name: '預留明細'})).toContainText('已取消');
