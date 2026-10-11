@@ -1,0 +1,2357 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-11T00:37:03.209991+00:00",
+  "status": "complete",
+  "scope": "Reviewed #434 integration, including earlier #425/#426, deployed to staging and production with selected acceptance. Original contribution histories retained; rebased PR heads are not asserted merged.",
+  "source": {
+    "release": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+    "reviewedHead": "907b2516869daa99ffcee092a1ffa7a15f43d118",
+    "tree": "d8c52ecef21de721b73706d1fe2d5aa5a3dc3945",
+    "trustedPin": "dc2f5ba8e003d2ae1f54a2965133e2e979d9d809",
+    "verifyRun": 38092198284,
+    "verifyAttempt": 1,
+    "codeqlRun": 38092197451,
+    "reviewId": 5481068932,
+    "mergeMethod": "protected merge commit"
+  },
+  "authorization": "22 個 PR 還有很多 issue 都在那，你的工作應該是照著 plan 開放，審核，能 merge, push , deploy 的都處理掉才對",
+  "source_verification": {
+    "pull_request": 434,
+    "required_jobs_passed": 14,
+    "counts": {
+      "at": "2026-10-10T23:23:56.905768+00:00",
+      "run": 38092198284,
+      "attempt": 1,
+      "head": "907b2516869daa99ffcee092a1ffa7a15f43d118",
+      "conclusion": "success",
+      "runtime": {
+        "at": "2026-10-10T22:59:40.677169+00:00",
+        "run": 38092198284,
+        "head": "907b2516869daa99ffcee092a1ffa7a15f43d118",
+        "testedMerge": "aa4103fdde710747726f6237a3dd949aeff3f96b",
+        "testedTree": "d8c52ecef21de721b73706d1fe2d5aa5a3dc3945",
+        "sourceHashesMatch": true,
+        "files": 354,
+        "tests": 4522,
+        "partitionCount": 6,
+        "windowSeconds": 975.1,
+        "databaseCleanupVerified": true,
+        "evidenceSha256": "2a4910a3dc59c597f89af3865c8e1e270bd436b3cea1690945427ea52e069e90",
+        "artifactSha256": "6ef92a135f7fcf326eadc7d09ca25b88de63ac620e7cc9501fb4f2309deacd89"
+      },
+      "browser": {
+        "check_id": "ci.e2e",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 862,
+        "file_count": 139,
+        "passes": [
+          {
+            "id": "default",
+            "exit_code": 0
+          },
+          {
+            "id": "private-ai",
+            "exit_code": 0
+          },
+          {
+            "id": "avatar-asset",
+            "exit_code": 0
+          },
+          {
+            "id": "message-image",
+            "exit_code": 0
+          },
+          {
+            "id": "store-photo",
+            "exit_code": 0
+          }
+        ]
+      },
+      "uiJob": 114330833031,
+      "uiLogSha256": "a97d3ce388a1c5047ab2daa21cd8884a3a247b5592ef675625883b31f5dd4ef1",
+      "boundary": "Browser test_count is the distinct union across five pinned passes; a case may be skipped in a pass only when actually passed in its designated pass."
+    },
+    "reviewed_tree_equals_merged_tree": true,
+    "main_verify": {
+      "at": "2026-10-11T00:07:29.151422+00:00",
+      "head": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "verifyRun": 38094834378,
+      "verifyAttempt": 1,
+      "conclusion": "success",
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38094834378",
+      "naturalPushRun": true,
+      "manualRerun": false,
+      "jobs": [
+        {
+          "name": "source-integrity",
+          "conclusion": "success"
+        },
+        {
+          "name": "select",
+          "conclusion": "success"
+        },
+        {
+          "name": "governance-consumers",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy-preflight",
+          "conclusion": "success"
+        },
+        {
+          "name": "ui-e2e",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 4)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 2)",
+          "conclusion": "success"
+        },
+        {
+          "name": "static-worker",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 5)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 0)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 3)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 1)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-aggregate",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify",
+          "conclusion": "success"
+        }
+      ],
+      "codeqlRun": 38094834108,
+      "codeqlConclusion": "success"
+    },
+    "review_boundary": "detna AI-assisted exact-head source/integration approval; not an independent human test execution claim"
+  },
+  "environments": {
+    "staging": {
+      "source": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "observed_at": "2026-10-10T23:43:15.036Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+        "cache_control_no_store": true
+      },
+      "worker_version": "70bd7aae-ffb9-48d8-ba53-3cc21036fdd5",
+      "dist_sha256": "8e5ac5cbb74bc00886de6629b126ea1da71463a05ab2f1dd214687f8b79903e3",
+      "migration": {
+        "at": "2026-10-10T23:38:14.357Z",
+        "applied": [
+          "149_notification_preferences.sql",
+          "150_message_retraction.sql",
+          "151_interaction_notifications.sql",
+          "152_first_participation.sql",
+          "153_event_participation.sql",
+          "154_squad_outcomes.sql",
+          "155_event_outcomes.sql",
+          "156_login_email_change.sql",
+          "157_email_verification.sql",
+          "158_member_totp.sql",
+          "159_participation_metrics.sql",
+          "160_member_reports.sql"
+        ],
+        "lastApplied": "160_member_reports.sql",
+        "ledgerCount": 159,
+        "rlsTables": 33,
+        "rlsPolicies": 45,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "15b63b8c-3a39-464d-a6c1-3932bb467a14"
+      },
+      "message_image_policy": {
+        "at": "2026-10-10T23:42:50.285Z",
+        "policy": {
+          "purpose": "member.message-image",
+          "mode": "r2_only",
+          "policy_revision": "member.message-image.rollout-r16-20261010.v1",
+          "persistence_allowed": true,
+          "retained_byte_limit": "67108864"
+        },
+        "existingPoliciesPreserved": true,
+        "readerFloor": "media.message-image.asset.v1",
+        "gcEnabled": false
+      },
+      "configuration": {
+        "otherBindingsAndVarsPreserved": true,
+        "dedicatedTotpKeyInstalled": true,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true"
+        },
+        "photoReadAndUploadEnabled": true,
+        "photoRetainedByteLimit": 67108864,
+        "reservationsEnabled": false,
+        "commentImagePersistence": true,
+        "gcEnabled": false
+      },
+      "totp_key_recovery": {
+        "environment_specific": true,
+        "operator_private_copy": true,
+        "off_host_verified": false
+      },
+      "selected_checks": {
+        "public_http": 36,
+        "account_http": 28,
+        "merchant_browser": 24,
+        "social_browser": 26,
+        "squad_browser": 16,
+        "banner_browser": 13,
+        "communication": 48,
+        "search_acl": 50,
+        "interaction_notifications": 22,
+        "message_retraction": 19
+      },
+      "selected_check_results": {
+        "public_http": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "account_http": [
+          {
+            "name": "reviewed_source_deployed",
+            "passed": true
+          },
+          {
+            "name": "register_201",
+            "passed": true
+          },
+          {
+            "name": "new_member_onboarding_required",
+            "passed": true
+          },
+          {
+            "name": "onboarding_directory_200",
+            "passed": true
+          },
+          {
+            "name": "synthetic_onboarding_guild",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "totp_enrollment_200",
+            "passed": true
+          },
+          {
+            "name": "totp_password_alone_denied",
+            "passed": true
+          },
+          {
+            "name": "totp_enrollment_code_replay_denied",
+            "passed": true
+          },
+          {
+            "name": "totp_authenticator_login_200",
+            "passed": true
+          },
+          {
+            "name": "totp_backup_login_200",
+            "passed": true
+          },
+          {
+            "name": "totp_backup_replay_denied",
+            "passed": true
+          },
+          {
+            "name": "totp_remaining_backup_count",
+            "passed": true
+          },
+          {
+            "name": "totp_disable_200",
+            "passed": true
+          },
+          {
+            "name": "totp_disabled_password_login_200",
+            "passed": true
+          },
+          {
+            "name": "private_tenant_201",
+            "passed": true
+          },
+          {
+            "name": "list_0_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_0_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "list_1_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_1_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_1_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "list_1_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "owned_account_inactive",
+            "passed": true
+          },
+          {
+            "name": "owned_sessions_revoked",
+            "passed": true
+          },
+          {
+            "name": "owned_tenant_archived",
+            "passed": true
+          }
+        ],
+        "merchant_browser": [
+          {
+            "name": "live_release",
+            "passed": true
+          },
+          {
+            "name": "create_tenant_ui_201",
+            "passed": true
+          },
+          {
+            "name": "merchant_entry_existing_guild_application_catalog",
+            "passed": true
+          },
+          {
+            "name": "new_store_in_own_tenant",
+            "passed": true
+          },
+          {
+            "name": "product_create_ui_201",
+            "passed": true
+          },
+          {
+            "name": "independent_supply_cost_and_shared_stock",
+            "passed": true
+          },
+          {
+            "name": "anonymous_supply_terms_401",
+            "passed": true
+          },
+          {
+            "name": "private_photo_authenticated",
+            "passed": true
+          },
+          {
+            "name": "anonymous_private_photo_401",
+            "passed": true
+          },
+          {
+            "name": "public_retail_price_independent",
+            "passed": true
+          },
+          {
+            "name": "private_terms_absent_from_public",
+            "passed": true
+          },
+          {
+            "name": "one_public_photo",
+            "passed": true
+          },
+          {
+            "name": "public_photo_webp",
+            "passed": true
+          },
+          {
+            "name": "public_revision_unchanged_before_publish",
+            "passed": true
+          },
+          {
+            "name": "public_bytes_unchanged_before_publish",
+            "passed": true
+          },
+          {
+            "name": "new_public_revision",
+            "passed": true
+          },
+          {
+            "name": "old_public_path_404",
+            "passed": true
+          },
+          {
+            "name": "no_horizontal_overflow_390",
+            "passed": true
+          },
+          {
+            "name": "no_horizontal_overflow_1280",
+            "passed": true
+          },
+          {
+            "name": "other_member_private_photo_404",
+            "passed": true
+          },
+          {
+            "name": "other_member_supply_terms_404",
+            "passed": true
+          },
+          {
+            "name": "published_removal",
+            "passed": true
+          },
+          {
+            "name": "unpublished_store_404",
+            "passed": true
+          },
+          {
+            "name": "cleanup_command_archive",
+            "passed": true
+          }
+        ],
+        "social_browser": [
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "source_photo_above_old_input_limit",
+            "passed": true
+          },
+          {
+            "name": "invalid_replacement_keeps_draft",
+            "passed": true
+          },
+          {
+            "name": "compose_fits_390",
+            "passed": true
+          },
+          {
+            "name": "compose_fits_1280",
+            "passed": true
+          },
+          {
+            "name": "prepared_body_under_512k",
+            "passed": true
+          },
+          {
+            "name": "actual_webp_mime",
+            "passed": true
+          },
+          {
+            "name": "metadata_removed",
+            "passed": true
+          },
+          {
+            "name": "post_created_0",
+            "passed": true
+          },
+          {
+            "name": "cloud_image_published",
+            "passed": true
+          },
+          {
+            "name": "published_image_survives_relogin",
+            "passed": true
+          },
+          {
+            "name": "unknown_comment_same_key_and_body",
+            "passed": true
+          },
+          {
+            "name": "unknown_comment_one_upload",
+            "passed": true
+          },
+          {
+            "name": "comment_media_no_store",
+            "passed": true
+          },
+          {
+            "name": "comment_media_normalized",
+            "passed": true
+          },
+          {
+            "name": "comment_edit_saved_200",
+            "passed": true
+          },
+          {
+            "name": "comment_media_survives_relogin",
+            "passed": true
+          },
+          {
+            "name": "comment_fits_390",
+            "passed": true
+          },
+          {
+            "name": "comment_fits_1280",
+            "passed": true
+          },
+          {
+            "name": "post_created_1",
+            "passed": true
+          },
+          {
+            "name": "external_link_photo_created",
+            "passed": true
+          },
+          {
+            "name": "replacement_cloud_200",
+            "passed": true
+          },
+          {
+            "name": "replacement_prepared_body",
+            "passed": true
+          },
+          {
+            "name": "replacement_body_is_webp",
+            "passed": true
+          },
+          {
+            "name": "deleted_thumbnail_404",
+            "passed": true
+          },
+          {
+            "name": "deleted_post_comment_media_404",
+            "passed": true
+          }
+        ],
+        "squad_browser": [
+          {
+            "name": "live_release",
+            "passed": true
+          },
+          {
+            "name": "create_project",
+            "passed": true
+          },
+          {
+            "name": "create_mutual_help",
+            "passed": true
+          },
+          {
+            "name": "create_coaching",
+            "passed": true
+          },
+          {
+            "name": "create_social",
+            "passed": true
+          },
+          {
+            "name": "four_distinct_squad_types",
+            "passed": true
+          },
+          {
+            "name": "directory_fits_390",
+            "passed": true
+          },
+          {
+            "name": "directory_fits_1280",
+            "passed": true
+          },
+          {
+            "name": "card_invitation_submitted",
+            "passed": true
+          },
+          {
+            "name": "invite_does_not_add_member",
+            "passed": true
+          },
+          {
+            "name": "other_member_cannot_manage",
+            "passed": true
+          },
+          {
+            "name": "recipient_accepts_before_membership",
+            "passed": true
+          },
+          {
+            "name": "owner_transfer_200",
+            "passed": true
+          },
+          {
+            "name": "former_owner_write_revoked",
+            "passed": true
+          },
+          {
+            "name": "cancel_disband_keeps_squad",
+            "passed": true
+          },
+          {
+            "name": "disbanded_not_readable_by_either_member",
+            "passed": true
+          }
+        ],
+        "banner_browser": [
+          {
+            "name": "deployed_release",
+            "passed": true
+          },
+          {
+            "name": "source_over_512k_under_20m",
+            "passed": true
+          },
+          {
+            "name": "no_overflow_390",
+            "passed": true
+          },
+          {
+            "name": "no_overflow_768",
+            "passed": true
+          },
+          {
+            "name": "no_overflow_1440",
+            "passed": true
+          },
+          {
+            "name": "event_created",
+            "passed": true
+          },
+          {
+            "name": "actual_upload_prepared",
+            "passed": true
+          },
+          {
+            "name": "live_asset_read_200",
+            "passed": true
+          },
+          {
+            "name": "live_asset_webp",
+            "passed": true
+          },
+          {
+            "name": "invalid_image_preserves_pending_draft",
+            "passed": true
+          },
+          {
+            "name": "portrait_replacement_prepared",
+            "passed": true
+          },
+          {
+            "name": "owned_event_cancelled",
+            "passed": true
+          },
+          {
+            "name": "owned_browser_session_logged_out",
+            "passed": true
+          }
+        ],
+        "communication": [
+          {
+            "name": "installed_flags",
+            "passed": true
+          },
+          {
+            "name": "real_images_upload",
+            "passed": true
+          },
+          {
+            "name": "upload_replay_same_image",
+            "passed": true
+          },
+          {
+            "name": "unsupported_type_rejected_with_chinese",
+            "passed": true
+          },
+          {
+            "name": "forged_type_rejected_with_chinese",
+            "passed": true
+          },
+          {
+            "name": "oversize_rejected_with_chinese",
+            "passed": true
+          },
+          {
+            "name": "image_message_sent",
+            "passed": true
+          },
+          {
+            "name": "send_replay_same_message",
+            "passed": true
+          },
+          {
+            "name": "authorized_bytes_f8b05111-594f-4c23-b81d-b0fa4d17edee",
+            "passed": true
+          },
+          {
+            "name": "canonical_webp_f8b05111-594f-4c23-b81d-b0fa4d17edee",
+            "passed": true
+          },
+          {
+            "name": "authorized_bytes_8f4848b6-5dfd-4077-8c64-d82b5e6c337e",
+            "passed": true
+          },
+          {
+            "name": "canonical_webp_8f4848b6-5dfd-4077-8c64-d82b5e6c337e",
+            "passed": true
+          },
+          {
+            "name": "third_member_404",
+            "passed": true
+          },
+          {
+            "name": "foreign_community_404",
+            "passed": true
+          },
+          {
+            "name": "wrong_peer_404",
+            "passed": true
+          },
+          {
+            "name": "anonymous_401",
+            "passed": true
+          },
+          {
+            "name": "chat_initially_unread",
+            "passed": true
+          },
+          {
+            "name": "notification_scope_200",
+            "passed": true
+          },
+          {
+            "name": "notification_read_all_preserves_chat",
+            "passed": true
+          },
+          {
+            "name": "legacy_empty_read_all_200",
+            "passed": true
+          },
+          {
+            "name": "legacy_empty_clears_chat",
+            "passed": true
+          },
+          {
+            "name": "preferences_available",
+            "passed": true
+          },
+          {
+            "name": "preferences_saved",
+            "passed": true
+          },
+          {
+            "name": "recipient_logout_200",
+            "passed": true
+          },
+          {
+            "name": "revoked_image_session_401",
+            "passed": true
+          },
+          {
+            "name": "relogin_image_read_200",
+            "passed": true
+          },
+          {
+            "name": "preferences_survive_relogin",
+            "passed": true
+          },
+          {
+            "name": "floating_panel_single_mount",
+            "passed": true
+          },
+          {
+            "name": "draft_cross_page_preserved",
+            "passed": true
+          },
+          {
+            "name": "mobile_no_overflow",
+            "passed": true
+          },
+          {
+            "name": "preview_removal_keeps_text",
+            "passed": true
+          },
+          {
+            "name": "client_oversize_feedback",
+            "passed": true
+          },
+          {
+            "name": "unknown_upload_keeps_draft",
+            "passed": true
+          },
+          {
+            "name": "unknown_message_keeps_draft",
+            "passed": true
+          },
+          {
+            "name": "unknown_retry_reuses_keys",
+            "passed": true
+          },
+          {
+            "name": "unknown_retry_exactly_one_message",
+            "passed": true
+          },
+          {
+            "name": "browser_image_retraction_placeholder",
+            "passed": true
+          },
+          {
+            "name": "member_block_200",
+            "passed": true
+          },
+          {
+            "name": "blocked_upload_denied",
+            "passed": true
+          },
+          {
+            "name": "blocked_upload_replay_denied",
+            "passed": true
+          },
+          {
+            "name": "historical_read_preserved_while_blocked",
+            "passed": true
+          },
+          {
+            "name": "member_unblock_200",
+            "passed": true
+          },
+          {
+            "name": "recipient_cannot_retract",
+            "passed": true
+          },
+          {
+            "name": "sender_retraction_200",
+            "passed": true
+          },
+          {
+            "name": "retracted_bytes_denied_f8b05111-594f-4c23-b81d-b0fa4d17edee",
+            "passed": true
+          },
+          {
+            "name": "retracted_projection_f8b05111-594f-4c23-b81d-b0fa4d17edee",
+            "passed": true
+          },
+          {
+            "name": "retracted_bytes_denied_8f4848b6-5dfd-4077-8c64-d82b5e6c337e",
+            "passed": true
+          },
+          {
+            "name": "retracted_projection_8f4848b6-5dfd-4077-8c64-d82b5e6c337e",
+            "passed": true
+          }
+        ],
+        "search_acl": [
+          {
+            "name": "search_flag_on",
+            "passed": true
+          },
+          {
+            "name": "anonymous_public_only",
+            "passed": true
+          },
+          {
+            "name": "private_location_omitted",
+            "passed": true
+          },
+          {
+            "name": "member_scope",
+            "passed": true
+          },
+          {
+            "name": "foreign_public_only",
+            "passed": true
+          },
+          {
+            "name": "foreign_private_summary_absent",
+            "passed": true
+          },
+          {
+            "name": "joined_guild_content_visible",
+            "passed": true
+          },
+          {
+            "name": "page_success_0",
+            "passed": true
+          },
+          {
+            "name": "page_success_1",
+            "passed": true
+          },
+          {
+            "name": "page_success_2",
+            "passed": true
+          },
+          {
+            "name": "page_success_3",
+            "passed": true
+          },
+          {
+            "name": "paging_union_no_duplicate",
+            "passed": true
+          },
+          {
+            "name": "revoked_guild_content_absent",
+            "passed": true
+          },
+          {
+            "name": "owner_topic_write",
+            "passed": true
+          },
+          {
+            "name": "foreign_topic_write_denied",
+            "passed": true
+          },
+          {
+            "name": "topic_search_exact",
+            "passed": true
+          },
+          {
+            "name": "owned_showcase_created",
+            "passed": true
+          },
+          {
+            "name": "chinese_partial_work_search",
+            "passed": true
+          },
+          {
+            "name": "private_work_not_public_18",
+            "passed": true
+          },
+          {
+            "name": "private_work_not_public_19",
+            "passed": true
+          },
+          {
+            "name": "public_skill_book_search",
+            "passed": true
+          },
+          {
+            "name": "skill_original_page_path",
+            "passed": true
+          },
+          {
+            "name": "skill_title_search",
+            "passed": true
+          },
+          {
+            "name": "changed_visibility_hidden_anonymous",
+            "passed": true
+          },
+          {
+            "name": "changed_visibility_hidden_foreign",
+            "passed": true
+          },
+          {
+            "name": "browser_visible_scope",
+            "passed": true
+          },
+          {
+            "name": "search_mobile_no_overflow",
+            "passed": true
+          },
+          {
+            "name": "work_link_and_back_query",
+            "passed": true
+          },
+          {
+            "name": "keyboard_query_filter",
+            "passed": true
+          },
+          {
+            "name": "layout_light_320",
+            "passed": true
+          },
+          {
+            "name": "layout_light_390",
+            "passed": true
+          },
+          {
+            "name": "layout_light_1440",
+            "passed": true
+          },
+          {
+            "name": "layout_dark_320",
+            "passed": true
+          },
+          {
+            "name": "layout_dark_390",
+            "passed": true
+          },
+          {
+            "name": "layout_dark_1440",
+            "passed": true
+          },
+          {
+            "name": "layout_versefolk_320",
+            "passed": true
+          },
+          {
+            "name": "layout_versefolk_390",
+            "passed": true
+          },
+          {
+            "name": "layout_versefolk_1440",
+            "passed": true
+          },
+          {
+            "name": "browser_page_and_back_stable",
+            "passed": true
+          },
+          {
+            "name": "late_real_response_does_not_replace_query",
+            "passed": true
+          },
+          {
+            "name": "empty_is_not_failure",
+            "passed": true
+          },
+          {
+            "name": "transport_failure_distinct_and_retry_live",
+            "passed": true
+          },
+          {
+            "name": "browser_type_topic_combination",
+            "passed": true
+          },
+          {
+            "name": "skill_link_opens_original_page",
+            "passed": true
+          },
+          {
+            "name": "logout_clears_private_search",
+            "passed": true
+          },
+          {
+            "name": "switched_login_drops_private_results",
+            "passed": true
+          },
+          {
+            "name": "logout_success",
+            "passed": true
+          },
+          {
+            "name": "revoked_cookie_only_public",
+            "passed": true
+          },
+          {
+            "name": "withdrawn_sources_absent_member",
+            "passed": true
+          },
+          {
+            "name": "withdrawn_sources_absent_anonymous",
+            "passed": true
+          }
+        ],
+        "interaction_notifications": [
+          {
+            "name": "post_created",
+            "passed": true
+          },
+          {
+            "name": "comment_idempotent_0",
+            "passed": true
+          },
+          {
+            "name": "comment_idempotent_1",
+            "passed": true
+          },
+          {
+            "name": "comment_notice_once_with_action",
+            "passed": true
+          },
+          {
+            "name": "like_status_4",
+            "passed": true
+          },
+          {
+            "name": "like_status_5",
+            "passed": true
+          },
+          {
+            "name": "like_status_6",
+            "passed": true
+          },
+          {
+            "name": "like_status_7",
+            "passed": true
+          },
+          {
+            "name": "like_notice_once",
+            "passed": true
+          },
+          {
+            "name": "self_comment_created",
+            "passed": true
+          },
+          {
+            "name": "self_like_200",
+            "passed": true
+          },
+          {
+            "name": "self_activity_no_extra_notice",
+            "passed": true
+          },
+          {
+            "name": "actor_no_self_notice",
+            "passed": true
+          },
+          {
+            "name": "squad_created",
+            "passed": true
+          },
+          {
+            "name": "join_requested",
+            "passed": true
+          },
+          {
+            "name": "join_request_replay_200",
+            "passed": true
+          },
+          {
+            "name": "join_notice_once_with_action",
+            "passed": true
+          },
+          {
+            "name": "join_accepted",
+            "passed": true
+          },
+          {
+            "name": "acceptance_notice_once",
+            "passed": true
+          },
+          {
+            "name": "bell_opens_source_post",
+            "passed": true
+          },
+          {
+            "name": "bell_read_state_persisted",
+            "passed": true
+          },
+          {
+            "name": "bell_mobile_no_overflow",
+            "passed": true
+          }
+        ],
+        "message_retraction": [
+          {
+            "name": "direct_initial_unread",
+            "passed": true
+          },
+          {
+            "name": "recipient_cannot_retract",
+            "passed": true
+          },
+          {
+            "name": "sender_retracts",
+            "passed": true
+          },
+          {
+            "name": "retraction_stable_3",
+            "passed": true
+          },
+          {
+            "name": "retraction_stable_4",
+            "passed": true
+          },
+          {
+            "name": "direct_tombstone_5267f527-d624-4de9-b32e-16b2036777b8",
+            "passed": true
+          },
+          {
+            "name": "reply_quote_removed_5267f527-d624-4de9-b32e-16b2036777b8",
+            "passed": true
+          },
+          {
+            "name": "other_message_retained_5267f527-d624-4de9-b32e-16b2036777b8",
+            "passed": true
+          },
+          {
+            "name": "direct_search_omits_retracted_5267f527-d624-4de9-b32e-16b2036777b8",
+            "passed": true
+          },
+          {
+            "name": "direct_tombstone_3486ee1a-6754-4091-8577-52b4d0535204",
+            "passed": true
+          },
+          {
+            "name": "reply_quote_removed_3486ee1a-6754-4091-8577-52b4d0535204",
+            "passed": true
+          },
+          {
+            "name": "other_message_retained_3486ee1a-6754-4091-8577-52b4d0535204",
+            "passed": true
+          },
+          {
+            "name": "direct_search_omits_retracted_3486ee1a-6754-4091-8577-52b4d0535204",
+            "passed": true
+          },
+          {
+            "name": "direct_unread_projection",
+            "passed": true
+          },
+          {
+            "name": "channel_initial_unread",
+            "passed": true
+          },
+          {
+            "name": "channel_other_sender_denied",
+            "passed": true
+          },
+          {
+            "name": "channel_sender_retracts",
+            "passed": true
+          },
+          {
+            "name": "channel_tombstone_and_unread",
+            "passed": true
+          },
+          {
+            "name": "channel_search_omits_retracted",
+            "passed": true
+          }
+        ]
+      },
+      "synthetic_cleanup": {
+        "public_http": {},
+        "account_http": {
+          "syntheticAccountDeactivated": true,
+          "syntheticTenantArchived": true,
+          "existingMemberPermissionsChanged": false,
+          "syntheticInternMembershipEnded": true,
+          "passwordOrSessionRecorded": false
+        },
+        "merchant_browser": {
+          "syntheticInstanceArchived": true,
+          "syntheticTenantArchived": true
+        },
+        "social_browser": {
+          "syntheticPostsDeleted": true
+        },
+        "squad_browser": {
+          "syntheticSquadsDisbanded": true
+        },
+        "banner_browser": {
+          "ownedEventCancelled": true,
+          "ownedSessionLoggedOut": true,
+          "mediaHistoryRetainedForBackup": true
+        },
+        "communication": {
+          "syntheticAccountsDeactivated": true,
+          "realMemberDataUsed": false
+        },
+        "search_acl": {
+          "fixtureStatesControlledInStagingDatabase": true,
+          "syntheticAccountsDeactivated": true,
+          "realMemberDataUsed": false
+        },
+        "interaction_notifications": {
+          "syntheticSourceWithdrawn": true,
+          "syntheticAccountsDeactivated": true,
+          "realMemberDataUsed": false
+        },
+        "message_retraction": {
+          "syntheticAccountsDeactivated": true,
+          "syntheticMessagesRetracted": true
+        }
+      },
+      "github_deployment": {
+        "at": "2026-10-11T00:36:54.025753+00:00",
+        "environment": "staging-next",
+        "sha": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+        "deploymentId": 6988933646,
+        "statusId": 19584073020,
+        "state": "success",
+        "environmentUrl": "https://staging.freetwai.com/"
+      },
+      "banner_source_bytes": 18029818
+    },
+    "production": {
+      "source": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "observed_at": "2026-10-11T00:25:33.057Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+        "cache_control_no_store": true
+      },
+      "worker_version": "0d78ffdd-71d8-48bf-ae24-94284ec295db",
+      "dist_sha256": "8e5ac5cbb74bc00886de6629b126ea1da71463a05ab2f1dd214687f8b79903e3",
+      "migration": {
+        "at": "2026-10-11T00:23:42.916Z",
+        "applied": [
+          "149_notification_preferences.sql",
+          "150_message_retraction.sql",
+          "151_interaction_notifications.sql",
+          "152_first_participation.sql",
+          "153_event_participation.sql",
+          "154_squad_outcomes.sql",
+          "155_event_outcomes.sql",
+          "156_login_email_change.sql",
+          "157_email_verification.sql",
+          "158_member_totp.sql",
+          "159_participation_metrics.sql",
+          "160_member_reports.sql"
+        ],
+        "lastApplied": "160_member_reports.sql",
+        "ledgerCount": 159,
+        "rlsTables": 33,
+        "rlsPolicies": 45,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "f8a3fdc0-d8ea-4ca9-bec2-4457000f5422"
+      },
+      "message_image_policy": {
+        "at": "2026-10-11T00:25:12.024Z",
+        "policy": {
+          "purpose": "member.message-image",
+          "mode": "r2_only",
+          "policy_revision": "member.message-image.rollout-r16-20261010.v1",
+          "persistence_allowed": true,
+          "retained_byte_limit": "67108864"
+        },
+        "existingPoliciesPreserved": true,
+        "readerFloor": "media.message-image.asset.v1",
+        "gcEnabled": false
+      },
+      "configuration": {
+        "otherBindingsAndVarsPreserved": true,
+        "dedicatedTotpKeyInstalled": true,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true"
+        },
+        "photoReadAndUploadEnabled": true,
+        "photoRetainedByteLimit": 67108864,
+        "reservationsEnabled": false,
+        "commentImagePersistence": true,
+        "gcEnabled": false
+      },
+      "totp_key_recovery": {
+        "environment_specific": true,
+        "operator_private_copy": true,
+        "off_host_verified": false
+      },
+      "selected_checks": {
+        "public_http": 36,
+        "account_http": 28
+      },
+      "selected_check_results": {
+        "public_http": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "account_http": [
+          {
+            "name": "reviewed_source_deployed",
+            "passed": true
+          },
+          {
+            "name": "register_201",
+            "passed": true
+          },
+          {
+            "name": "new_member_onboarding_required",
+            "passed": true
+          },
+          {
+            "name": "onboarding_directory_200",
+            "passed": true
+          },
+          {
+            "name": "synthetic_onboarding_guild",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "totp_enrollment_200",
+            "passed": true
+          },
+          {
+            "name": "totp_password_alone_denied",
+            "passed": true
+          },
+          {
+            "name": "totp_enrollment_code_replay_denied",
+            "passed": true
+          },
+          {
+            "name": "totp_authenticator_login_200",
+            "passed": true
+          },
+          {
+            "name": "totp_backup_login_200",
+            "passed": true
+          },
+          {
+            "name": "totp_backup_replay_denied",
+            "passed": true
+          },
+          {
+            "name": "totp_remaining_backup_count",
+            "passed": true
+          },
+          {
+            "name": "totp_disable_200",
+            "passed": true
+          },
+          {
+            "name": "totp_disabled_password_login_200",
+            "passed": true
+          },
+          {
+            "name": "private_tenant_201",
+            "passed": true
+          },
+          {
+            "name": "list_0_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_0_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "list_1_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_1_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_1_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "list_1_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "owned_account_inactive",
+            "passed": true
+          },
+          {
+            "name": "owned_sessions_revoked",
+            "passed": true
+          },
+          {
+            "name": "owned_tenant_archived",
+            "passed": true
+          }
+        ]
+      },
+      "synthetic_cleanup": {
+        "public_http": {},
+        "account_http": {
+          "syntheticAccountDeactivated": true,
+          "syntheticTenantArchived": true,
+          "existingMemberPermissionsChanged": false,
+          "syntheticInternMembershipEnded": true,
+          "passwordOrSessionRecorded": false
+        }
+      },
+      "github_deployment": {
+        "at": "2026-10-11T00:36:54.557836+00:00",
+        "environment": "next",
+        "sha": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+        "deploymentId": 6988933740,
+        "statusId": 19584073198,
+        "state": "success",
+        "environmentUrl": "https://freetwai.com/"
+      }
+    }
+  },
+  "backups": [
+    {
+      "environment": "staging",
+      "label": "before-migration",
+      "sourceRelease": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "operatorSource": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "createdAt": "2026-10-10T23:27:44.468Z",
+      "setId": "15b63b8c-3a39-464d-a6c1-3932bb467a14",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "299d37fdd73debb28c04372fb950755ec67c79a07e1e3a897d203446cf02ef7b",
+      "dumpSha256": "1ec5072261bf208313be0fcba536f7881ed7684207b6f7644f8054b8a1c37159",
+      "diskRestore": true,
+      "retainedPhotoObjects": 6,
+      "remotePhotoObjects": 6,
+      "retainedCommentObjects": 4,
+      "remoteCommentObjects": 4,
+      "retainedMessageObjects": 0,
+      "remoteMessageObjects": 0
+    },
+    {
+      "environment": "staging",
+      "label": "after-rollout",
+      "sourceRelease": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "operatorSource": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "createdAt": "2026-10-11T00:01:15.254Z",
+      "setId": "1280bc99-b2ac-48c9-ae12-1d4f9ffdff93",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "78f1f58a3a6c2b98c8696f8f9c5391ef422391c8d08d0cf45081167fffe6d931",
+      "dumpSha256": "3bbcba241d70a6c4a0cc4f2e84f5e8a73be36a39e405618823a6b06139b91736",
+      "diskRestore": true,
+      "retainedPhotoObjects": 8,
+      "remotePhotoObjects": 8,
+      "retainedCommentObjects": 5,
+      "remoteCommentObjects": 5,
+      "retainedMessageObjects": 4,
+      "remoteMessageObjects": 4
+    },
+    {
+      "environment": "production",
+      "label": "before-migration",
+      "sourceRelease": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "operatorSource": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "createdAt": "2026-10-11T00:12:46.348Z",
+      "setId": "f8a3fdc0-d8ea-4ca9-bec2-4457000f5422",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "139fc5f147b5a14dc0a808618f5b0f14fcff5792c4fabf4b657e762f807a1028",
+      "dumpSha256": "ddd61edb9090949f1b7b47aab57213e43b23298f7844b25452b850c8d2dab945",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0,
+      "retainedMessageObjects": 0,
+      "remoteMessageObjects": 0
+    },
+    {
+      "environment": "production",
+      "label": "after-rollout",
+      "sourceRelease": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "operatorSource": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "createdAt": "2026-10-11T00:26:17.973Z",
+      "setId": "caed509d-c2d0-4f88-8da4-7218959b2bc2",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "f2dca435cb6e985c5027c4b5fb2bcedb482db14c0dcb9108f1705f21a1def9f1",
+      "dumpSha256": "c48c588a104bd18cb5ae9c7bc01f6656967d3da14e67488ffbd83d2275074edb",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0,
+      "retainedMessageObjects": 0,
+      "remoteMessageObjects": 0
+    }
+  ],
+  "limitations": [
+    "Selected staging browser and production HTTP acceptance, not Foundation/M1 completion or all 168 requirements.",
+    "Synthetic actors are deactivated; no real-member production browser journey is claimed.",
+    "TOTP keys have environment-specific private operator recovery copies; second-operator/off-host key recovery is not verified.",
+    "Real email delivery, newcomer trials, curation consent, final policy text, actual metrics baseline and Maintainer App operations remain separate.",
+    "GC/retention, cross-seller reservations and second-operator recovery remain open.",
+    "T-047 tenant membership/invitation revocation survival after restoring an older backup remains unresolved. Restore drills stay quarantined; successful database/object restore is not permission to expose restored services. Current membership, invitation, session, credential and execution authority must be reconciled before reopening."
+  ],
+  "backup_operator": {
+    "completedAt": "2026-10-11T00:24:47.631929+00:00",
+    "afterSha256": "3de26a39b2094180aa30a27a043c8288f55cd2fbb9282c18dba77debe4a26ca0",
+    "pins": {
+      "staging": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+      "production": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb"
+    },
+    "operatorSource": "b9ed788cc380ae1bd286158ee1dc55fdbbadcceb",
+    "backupAdapterSha256": "7839b44efa4578d9557393bd508386f9e4274867f58cbc4b1727d0edfb63297b",
+    "diskRestore": true,
+    "gcSafety": "disabled",
+    "schedulesUnchanged": true
+  },
+  "temporary_staging_access": {
+    "revoked_at": "2026-10-11T00:08:00.872Z",
+    "policy": "deleted",
+    "token": "deleted",
+    "access_credential": "removed",
+    "curl_headers": "removed"
+  },
+  "retained_failed_attempts": {
+    "recordedAt": "2026-10-10T22:37:47.284287+00:00",
+    "ciAndLocal": [
+      {
+        "kind": "hosted CI",
+        "run": 38078934877,
+        "head": "9b469d8876bfddaf0c69d6fdb6504fd15cfccad6",
+        "conclusion": "failure",
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38078934877",
+        "findings": [
+          "Contracts source frontier stale; corrected to160 without claiming live schema160.",
+          "Historical128/129 session fixture invoked newer TOTP login; fixture corrected without changing old migrations.",
+          "Social hide legacy error-code regression restored.",
+          "Tenant route guard namespace classification corrected.",
+          "UI default terminated at40minutes after820/842;802passed/16fixture-skipped/2failed, no full assertion report."
+        ],
+        "follow_up": "Each contract/runtime repair reproduced then passed. Local UI diagnosis did not reproduce; old failure retained. Subsequent full hosted run is separate."
+      },
+      {
+        "kind": "hosted CI",
+        "run": 38085599349,
+        "head": "3e9693d00c5506bbd850b320c77d9df142909979",
+        "conclusion": "failure",
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38085599349",
+        "runtime": {
+          "files": 354,
+          "tests": 4522,
+          "windowSeconds": 1054.786,
+          "sourceHashesMatch": true,
+          "cleanup": true
+        },
+        "browser": {
+          "ordinaryScheduled": 842,
+          "passed": 825,
+          "fixtureSkipped": 16,
+          "failed": 1,
+          "wallMinutes": 41.6,
+          "timeout": false,
+          "laterCanonicalPassesExecuted": false
+        },
+        "findings": [
+          "page-tools.spec.ts screenshot status assertion matched both legitimate stale-activity and screenshot-handoff statuses.",
+          "Prior member-settings-real case passed this run."
+        ],
+        "follow_up": "ac4398 fixes only fixture/locator and inventory; full new required Verify38088750688 determines final acceptance."
+      },
+      {
+        "kind": "deliberate local red counterexample",
+        "headBefore": "3e9693d00c5506bbd850b320c77d9df142909979",
+        "case": "page-tools stale activity plus screenshot handoff",
+        "result": "Original broad status locator failed deterministically with fixed stale response. Form-scoped locator passed page-tools3 plus member-settings1,4/4. Build/typecheck/inventory/diff checks passed; owned PostgreSQL container and volume removed.",
+        "repairCommit": "ac4398c83ed38ba07e92841ff4e9ae43c045cf3a"
+      },
+      {
+        "kind": "hosted CI",
+        "run": 38088750688,
+        "head": "ac4398c83ed38ba07e92841ff4e9ae43c045cf3a",
+        "conclusion": "failure",
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38088750688",
+        "runtime": {
+          "files": 354,
+          "tests": 4522,
+          "windowSeconds": 838.538,
+          "cleanup": true
+        },
+        "browser": {
+          "ordinaryScheduled": 842,
+          "passed": 824,
+          "fixtureSkipped": 16,
+          "failed": 2,
+          "wallMinutes": 40.2,
+          "timeout": false,
+          "laterCanonicalPassesExecuted": false
+        },
+        "findings": [
+          "member-reporting.spec.ts:71 disclosure heading absent after clicking at768px versefolk.",
+          "member-settings-real.spec.ts:148 refreshed thread visible but unread tab remained1.",
+          "page-tools fixed assertion passed."
+        ],
+        "follow_up": "907b2516 carries independently reviewed0363 read-ACK fix and controlled real-API regressions. Local21/21; new hosted Verify still required."
+      },
+      {
+        "kind": "deliberate local red counterexamples",
+        "headBefore": "ac4398c83ed38ba07e92841ff4e9ae43c045cf3a",
+        "cases": [
+          "held real read ACK after newer thread GET",
+          "late real profile cards between pointerdown and pointerup"
+        ],
+        "repairCommit": "907b2516869daa99ffcee092a1ffa7a15f43d118",
+        "proof": "operator-private-evidence/final434-ack-report-local-proof.json",
+        "diagnosticHarnessFailures": [
+          "fixed duplicate profile-response count assumption (3 requests,2 unique paths)",
+          "fixed nonunique account-settings locator (3 elements)"
+        ],
+        "finalLocalBrowser": "21 passed; no retry or timeout increase; own disk PostgreSQL removed"
+      }
+    ],
+    "deploymentAttempts": [
+      {
+        "at": "2026-10-10T23:40:39.677938+00:00",
+        "phase": "staging pre-deploy binding readback",
+        "result": "blocked_before_worker_write",
+        "cause": "Operator live-releases.mjs compared against original bindings after authorized TOTP installation; would also reject declared release flags after deployment.",
+        "workerDeploymentAttempted": false,
+        "intentFileExists": false,
+        "helperBeforeSha256": "3aaf5f866b3a00a7b44a85f6ba83899868f4c6927bb2917b4bd90d31b6e7b424",
+        "repair": "Match exact observed old/new release to baseline plus receipted TOTP and authorized flags; reject all other drift."
+      },
+      {
+        "at": "2026-10-10T23:52:23.575216+00:00",
+        "phase": "staging communication acceptance attempt1",
+        "result": "incomplete_exit143_no_pass_receipt",
+        "terminationOrigin": "not determined",
+        "partialArtifacts": [
+          "communication-attempt1/communication-mobile.png",
+          "communication-attempt1/communication-retracted-mobile.png"
+        ],
+        "cleanup": {
+          "at": "2026-10-10T23:51:19.660Z",
+          "status": "passed",
+          "scope": "r16-communication-3281036b",
+          "ownedAccountsDeactivated": 4,
+          "ownedMessagesRetracted": 2,
+          "sessionsRevoked": true,
+          "assetHistoryRetained": true,
+          "realMemberDataUsed": false
+        },
+        "next": "Repeat only this interrupted staging journey with durable checkpoint and signal records; same deployed source, no CI rerun."
+      },
+      {
+        "at": "2026-10-10T23:59:04.054581+00:00",
+        "phase": "staging search acceptance attempt1",
+        "result": "44 checks passed, stopped at incorrect login-view expectation; cleanup script failed",
+        "causes": [
+          "Logout reached anonymous public search with Return to login; helper wrongly expected login heading immediately. Probe reproduced at login_heading.",
+          "Operator cleanup referenced nonexistent community_social_posts.aggregate_version; earlier event cancellation succeeded, remaining cleanup initially skipped."
+        ],
+        "repair": "Follow public Return to login, assert private results cleared; use actual post columns and independently attempt every cleanup step. Product remains b9ed.",
+        "cleanup": {
+          "at": "2026-10-10T23:58:43.388Z",
+          "status": "passed",
+          "scope": "r16-search-474b63fc",
+          "ownedAccountsDeactivated": 4,
+          "ownedEventsCancelled": 3,
+          "ownedPostsDeleted": 1,
+          "ownedShowcasesRemoved": 1,
+          "sessionsRevoked": true,
+          "realMemberDataUsed": false
+        },
+        "priorArtifacts": "search-attempt1"
+      }
+    ],
+    "boundary": "Deployment has not started at record creation. Append actual failed operator attempts without deleting their private raw receipts; successful later attempts do not erase earlier outcomes."
+  },
+  "rollback": {
+    "current_schema": 160,
+    "known_gaps": [
+      22
+    ],
+    "rule": "Forward repair preserves private content, disbanded squads, comment/message image readers, message retraction, outcome ACLs and enrolled TOTP enforcement with its environment-specific encryption key. Do not return to the R15 password-only login path after TOTP enrollment. Stop new image persistence through the policy rather than downgrading readers.",
+    "live_rollback_drill": "not_run",
+    "gc_and_retention": "OFF; historical assets retained",
+    "restored_environment_exposure": "Quarantine until current authorization and revocation reconciliation; T-047 tenant revocation floor is not implemented. Worker rollback does not restore database or object state."
+  },
+  "issue_reconciliation_basis": {
+    "observed_at": "2026-10-10T20:50:54.550048+00:00",
+    "rows": [
+      {
+        "issue": 72,
+        "title": "後台 PR／Issue 審核中心：公會長與管理員分工審核，AI 只在按下按鈕時動作",
+        "source_prs_to_reconcile": [
+          73,
+          91
+        ],
+        "status": "provider_install_and_live_acceptance",
+        "next_action": "Source #73/#91 merged/deployed. Need actual Maintainer App, mirror Worker, Access webhook exception and staging role/claim/requested-reviewer/no-unprompted-write acceptance.",
+        "close_now": false
+      },
+      {
+        "issue": 107,
+        "title": "登入速度",
+        "source_prs_to_reconcile": [
+          111,
+          167
+        ],
+        "status": "implementation_gap_passkeys",
+        "next_action": "30-day sessions and stale-response fix already deployed; device passkey/biometric auth remains unimplemented. Do not equate password-manager autofill with passkeys.",
+        "close_now": false
+      },
+      {
+        "issue": 109,
+        "title": "技能書Star操作失敗，顯示無法透過平台按星",
+        "source_prs_to_reconcile": [
+          231,
+          243
+        ],
+        "status": "affected_member_reauthorization",
+        "next_action": "Allowlisted provider diagnostics merged and deployed; affected-member reauthorization and real Star/unstar remain unverified. Do not use admin token as a substitute.",
+        "close_now": false
+      },
+      {
+        "issue": 230,
+        "title": "私訊無法上傳檔案或截圖：提案開放私訊圖片附件 page:messages",
+        "source_prs_to_reconcile": [
+          298,
+          311,
+          426
+        ],
+        "status": "live_media_acceptance",
+        "next_action": "Source and local image tests exist; original issue requires remote Workers/R2/Images permission/rehydration/revocation and flag/policy readback. Keep open until actual deployed evidence is mapped.",
+        "close_now": false
+      },
+      {
+        "issue": 234,
+        "title": "Guild business workflows and hosted stores roadmap",
+        "source_prs_to_reconcile": [
+          434
+        ],
+        "status": "integration_and_release_owner",
+        "next_action": "Main session owns review, protected merge, staged release/backup/acceptance, production rollout, and accurate old-PR/issue reconciliation. Foundation/M1 full business paths remain separate.",
+        "close_now": false
+      },
+      {
+        "issue": 251,
+        "title": "[P0] Add member reporting, direct-message blocking and moderation cases",
+        "source_prs_to_reconcile": [
+          267,
+          343,
+          434
+        ],
+        "status": "integration_and_policy",
+        "next_action": "Blocking merged; reporting included in #434 with immutable private-image evidence and bounded paging. General rules/appeal and evidence retention remain #261-dependent.",
+        "close_now": false
+      },
+      {
+        "issue": 252,
+        "title": "[P1] Add ACL-aware community content search and topic filters",
+        "source_prs_to_reconcile": [
+          268,
+          305
+        ],
+        "status": "live_acl_acceptance",
+        "next_action": "Search source merged via #305 and follow-ups. Latest issue explicitly preserves deployment/flag-on and anonymous/member/revoked/cross-community/withdrawn-content acceptance.",
+        "close_now": false
+      },
+      {
+        "issue": 255,
+        "title": "[P1] Add notification preferences, channel mute and opt-in summaries",
+        "source_prs_to_reconcile": [
+          345,
+          412,
+          429,
+          434
+        ],
+        "status": "implementation_gap_email_digest",
+        "next_action": "In-app preferences/mute/quiet/summary are in #434; email digest subscription/unsubscribe/scheduler/provider delivery acceptance remains absent. Keep issue open for that explicit remainder.",
+        "close_now": false
+      },
+      {
+        "issue": 256,
+        "title": "[P2] Add calendar export, event reminders and fair waitlists",
+        "source_prs_to_reconcile": [
+          348,
+          429,
+          434
+        ],
+        "status": "integration_then_acceptance",
+        "next_action": "Merge #434; migrate 153 even if OFF; requires EMAIL binding for enablement. Verify calendar import, concurrent last seat, expiry/decline/promotion and reminder failure behavior.",
+        "close_now": false
+      },
+      {
+        "issue": 257,
+        "title": "[P2] Link event highlights to reusable community outcomes",
+        "source_prs_to_reconcile": [
+          346,
+          429,
+          434
+        ],
+        "status": "integration_then_acceptance",
+        "next_action": "Merge #434; migrate 154/155 even if OFF; enable paired flags only with existing deployment validation. Verify source withdrawal removes recap/media/backlinks.",
+        "close_now": false
+      },
+      {
+        "issue": 259,
+        "title": "[P1] Guide new members to their first meaningful community contribution",
+        "source_prs_to_reconcile": [
+          347,
+          429,
+          434
+        ],
+        "status": "consented_human_trial",
+        "next_action": "Code is in #434; requires at least one consented real newcomer trial, documented completion/friction, plus default-OFF deployment decision.",
+        "close_now": false
+      },
+      {
+        "issue": 260,
+        "title": "[P0] Establish consent-based community curation and newcomer response operations",
+        "source_prs_to_reconcile": [
+          290
+        ],
+        "status": "real_operations",
+        "next_action": "Read-only inventory/handoff exists; author permissions, volunteered ownership, actual curation/review and consented newcomer feedback remain required.",
+        "close_now": false
+      },
+      {
+        "issue": 261,
+        "title": "[P0] Publish accessible community rules and privacy or service policy entrypoints",
+        "source_prs_to_reconcile": [],
+        "status": "owner_policy_text",
+        "next_action": "Await authorized final community/privacy/service/appeal text and operational ownership; no invented legal approval.",
+        "close_now": false
+      },
+      {
+        "issue": 262,
+        "title": "[P1] Measure meaningful participation and retention without exposing private content",
+        "source_prs_to_reconcile": [
+          342,
+          434
+        ],
+        "status": "policy_and_real_baseline",
+        "next_action": "Code is in #434, including immutable cohort repair 6e85; production retention/opt-out policy and authorized real baseline remain missing. Do not substitute synthetic counts.",
+        "close_now": false
+      },
+      {
+        "issue": 263,
+        "title": "[Roadmap] Complete the community sharing, discovery and retention loop",
+        "source_prs_to_reconcile": [],
+        "status": "roadmap_rollup",
+        "next_action": "Refresh source/merge/deploy/flag/acceptance for child issues after #434. Keep umbrella open while real trials/operations/policy and email-digest gaps remain.",
+        "close_now": false
+      },
+      {
+        "issue": 349,
+        "title": "[Perf] 社群工作列表 listWorks 無上限且逐筆查 claim／submission（1+2N 查詢）",
+        "source_prs_to_reconcile": [
+          361,
+          366
+        ],
+        "status": "implementation_gap_versioned_pagination",
+        "next_action": "Fixed 3-query projection merged with DTO/count tests; list remains unbounded. Work dashboard depends on older active claims; add versioned paging and migrate callers without truncating those tasks.",
+        "close_now": false
+      },
+      {
+        "issue": 352,
+        "title": "[Perf] 我的商店列表逐 tenant 循序查名稱、instances 與權限",
+        "source_prs_to_reconcile": [
+          357,
+          366
+        ],
+        "status": "design_remainder_rls",
+        "next_action": "Safe optimization merged: same fixtures 107→95 queries, 24 hosted and 51 tenant tests recorded. Cross-tenant instance batching still conflicts with single-tenant RLS; keep exact remainder, do not weaken RLS for speed.",
+        "close_now": false
+      },
+      {
+        "issue": 372,
+        "title": "[Feature] 會員無法自行更改登入 Email",
+        "source_prs_to_reconcile": [
+          379,
+          434
+        ],
+        "status": "deployment_acceptance",
+        "next_action": "Merge #434 and migrate 156; controlled new/old-mailbox flow, session revocation and replay verification with synthetic identities only.",
+        "close_now": false
+      },
+      {
+        "issue": 373,
+        "title": "[Feature] 有 email_verified 狀態但沒有驗證／重寄入口",
+        "source_prs_to_reconcile": [
+          382,
+          434
+        ],
+        "status": "deployment_acceptance",
+        "next_action": "Merge #434 and migrate 157; verify existing mail sender availability and controlled send/resend/one-use/expiry flows.",
+        "close_now": false
+      },
+      {
+        "issue": 374,
+        "title": "[Security][Feature] 支援 TOTP 兩步驟驗證",
+        "source_prs_to_reconcile": [
+          384,
+          434
+        ],
+        "status": "deployment_configuration",
+        "next_action": "Merge #434; install and back up a dedicated environment-specific TOTP key via the existing secret path, verify enrollment/login/backup/disable; do not publish key material.",
+        "close_now": false
+      },
+      {
+        "issue": 375,
+        "title": "[Feature] 技能書領取／晉升前未檢查是否已 Star 該 repo",
+        "source_prs_to_reconcile": [
+          383,
+          434
+        ],
+        "status": "integration_then_acceptance",
+        "next_action": "Merge #434; retain default OFF, confirm feature ON/OFF, provider failure and confirmed-support checks; #109 remains separate.",
+        "close_now": false
+      },
+      {
+        "issue": 398,
+        "title": "[Feature] 私訊與頻道訊息無法收回／刪除",
+        "source_prs_to_reconcile": [
+          405,
+          429,
+          434
+        ],
+        "status": "integration_then_acceptance",
+        "next_action": "Merge #434; verify sender-only recall, tombstone/search/image access, idempotency, unread/sidebar/reply consistency on deployed candidate.",
+        "close_now": false
+      },
+      {
+        "issue": 403,
+        "title": "[Feature] 貼文留言／按讚與小隊加入申請沒有任何通知",
+        "source_prs_to_reconcile": [
+          410,
+          429,
+          434
+        ],
+        "status": "integration_then_acceptance",
+        "next_action": "Merge #434; verify comment/like and squad request/accept notifications, self exclusion, dedup, bell navigation and read state.",
+        "close_now": false
+      }
+    ],
+    "limitation": "Pre-rollout next steps; closing decisions require separate actual acceptance mapping."
+  },
+  "issue_state_change_since_basis": {
+    "issue": 352,
+    "state": "closed",
+    "at": "2026-10-10T20:46:59Z",
+    "reason": "Reviewer accepted measured 107→95 queries and unchanged DTO/isolation; cross-tenant privileged batching explicitly declined. No constant-query or production latency claim.",
+    "evidence": "https://github.com/FreeTWAI-AI/freedom-platform/issues/352"
+  }
+}
