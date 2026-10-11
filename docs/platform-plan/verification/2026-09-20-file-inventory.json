@@ -13704,8 +13704,8 @@
     },
     {
       "path": "docs/development/contribution-cooperation.md",
-      "bytes": 5816,
-      "sha256": "9a439bb1075797398f337f07e7e6cdf370d457193c835e3de6865c1469ea5ffa"
+      "bytes": 6080,
+      "sha256": "198e019aa86e7cb0298fbe4c9ba985897f0cda4a2805df42ed92fc42ff53bafe"
     },
     {
       "path": "docs/development/daily-recovery-backup-installation.md",
@@ -18234,8 +18234,8 @@
     },
     {
       "path": "modules/opportunity-project-work/contribution-roles.ts",
-      "bytes": 14776,
-      "sha256": "256615b2fc4f0cc69e13abe5306b51a7c304a89956a8d1e25016b820903e2719"
+      "bytes": 14807,
+      "sha256": "21cdba0b91061104b759e87a8d8de1de4cf8ec80999a644de60b8160a48daaf6"
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
@@ -21249,8 +21249,8 @@
     },
     {
       "path": "tests/runtime/contribution-roles.test.ts",
-      "bytes": 17776,
-      "sha256": "a91d7e1e255416d386c83920ca5e03cbddd28fb8249759cbeed4ca7f091594b4"
+      "bytes": 19150,
+      "sha256": "88e38660e56c3a5ff79f8edf87d70aa7feaea68582aff7bd4cf312b5610c6033"
     },
     {
       "path": "tests/runtime/credential-broker-adversarial.test.ts",

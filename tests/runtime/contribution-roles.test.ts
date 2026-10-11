@@ -57,6 +57,26 @@ test('three members keep separate roles, pending is explicit, and accepted outco
   assert.equal(journal.includes('提出需求'),false);assert.equal(journal.includes('member-evidence-v1'),false);
 });
 
+test('historical delivery references remain self-only before sharing and after confirmed roles are withdrawn',async()=>{
+  const maker=await signIn(),owner=await signIn(1),observer=await signIn(2);await accept(maker,owner);
+  const check=async(shared:boolean)=>{
+    const own=await outcomes(maker),other=await outcomes(observer,maker.user.user_id);
+    assert.equal(own.status,200);assert.equal(own.data.entries[0].delivery_ref,'artifact:accepted-delivery');
+    assert.equal(other.status,200);assert.equal(other.data.accepted_count,1);
+    assert.equal(other.data.entries[0].work_item_id,DEMO_WORK);
+    assert.equal(other.data.entries[0].delivery_ref,null);
+    assert.equal(JSON.stringify(other.data).includes('artifact:accepted-delivery'),false);
+    assert.equal(other.data.entries[0].roles.length,shared?1:0);
+    if(shared)assert.equal(other.data.entries[0].roles[0].evidence_ref,'artifact:member-evidence-v1');
+    else assert.equal(JSON.stringify(other.data).includes('artifact:member-evidence-v1'),false);
+  };
+  await check(false);
+  const role=await declare(maker,'implementation');await check(false);
+  const confirmed=await confirm(owner,role);assert.equal(confirmed.status,200);await check(true);
+  assert.equal((await request(`/contribution-roles/${role.role_id}/withdraw`,maker,{},confirmed.data.aggregate_version)).status,200);
+  await check(false);
+});
+
 test('amendment clears current confirmation, stale version/hash rejects, and withdrawal removes live facts while retaining confirmation history',async()=>{
   const maker=await signIn(),owner=await signIn(1),member=await signIn(2);await accept(maker,owner);
   const role=await declare(member),confirmed=await confirm(owner,role);assert.equal(confirmed.status,200);

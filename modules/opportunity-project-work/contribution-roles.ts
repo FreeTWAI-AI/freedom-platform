@@ -150,7 +150,7 @@ export async function memberContributionOutcomes(pool:Pool,actor:Actor,memberId:
     requireCondition(visible===1,404,'not_found','找不到這位夥伴的成果紀錄。');
     const result=(await q.query(`WITH outcomes AS (
       SELECT w.work_item_id,w.title,c.accepted_at,d.reviewer_ref AS accepted_by,
-        CASE WHEN c.user_id=$2 THEN c.artifact_ref ELSE NULL END AS delivery_ref,
+        CASE WHEN c.user_id=$2 AND c.user_id=$5 THEN c.artifact_ref ELSE NULL END AS delivery_ref,
         COALESCE((SELECT jsonb_agg(jsonb_build_object('role',r.role,'summary',r.summary,'evidence_ref',r.evidence_ref,
           'confirmer_name',v.display_name,'confirmed_at',f.confirmed_at) ORDER BY r.role)
           FROM work_contribution_roles r JOIN work_contribution_confirmations f ON f.role_id=r.role_id AND f.claim_version=r.aggregate_version-1 AND f.payload_sha256=r.payload_sha256
@@ -163,7 +163,7 @@ export async function memberContributionOutcomes(pool:Pool,actor:Actor,memberId:
           WHERE r.work_item_id=w.work_item_id AND r.community_id=$1 AND r.member_ref=$2 AND r.state='confirmed'))
     ) SELECT (SELECT count(*)::int FROM outcomes) AS accepted_count,
       COALESCE((SELECT jsonb_agg(p) FROM (SELECT o.*,v.display_name AS accepted_by_name FROM outcomes o
-        JOIN users v ON v.user_id=o.accepted_by ORDER BY accepted_at DESC,work_item_id LIMIT $3 OFFSET $4) p),'[]'::jsonb) AS entries`,[actor.community_id,memberId,page.limit,page.offset])).rows[0];
+        JOIN users v ON v.user_id=o.accepted_by ORDER BY accepted_at DESC,work_item_id LIMIT $3 OFFSET $4) p),'[]'::jsonb) AS entries`,[actor.community_id,memberId,page.limit,page.offset,actor.user_id])).rows[0];
     return {policy:'community_work_roles_v1',member_ref:memberId,accepted_count:result.accepted_count,entries:result.entries,
       next_offset:page.offset+page.limit<result.accepted_count?page.offset+page.limit:null};
   });

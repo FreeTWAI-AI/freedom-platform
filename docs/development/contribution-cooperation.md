@@ -31,6 +31,8 @@
 | `POST /api/v1/contribution-roles/:id/withdraw` | 本人停止署名展示，`If-Match` 比對目前版本 |
 | `POST /api/v1/contribution-roles/:id/confirm` | 合資格另一人確認指定 `payload_sha256`，`If-Match` 比對讀過的版本 |
 
+原交付引用 `delivery_ref` 只回給交付者本人；查看他人成果仍可見已驗收事實與件數，但只能取得對方明示分享、目前已確認的角色 `evidence_ref`。未分享、待確認或撤回的角色不使歷史交付引用公開。
+
 兩個 GET 清單均接受 `limit` 1–50、`offset` 0–10000；未知 query key 拒絕。新命令沿 member session、Origin、CSRF、Idempotency-Key、共享 `command()` transaction。UUID 大小寫使用相同 receipt namespace。body／Actor 在第一次 await 前 snapshot；changed body/key、CAS、原子 role／確認／journal／receipt 與 response-loss replay 分開驗證。domain 期限使用 `clock_timestamp()`，role/receipt 等待後重新檢查，journal 不包含摘要或成果引用。
 
 新表和 confirmation metadata 登記到既有資料責任 catalog；保留期限仍沿 `policy_undecided`，沒有 GC、刪除排程、匿名公開成果或事件 consumer。官方公開名片不接入此會員 reader。修改／撤回後，舊確認不作新版本的權威；命令 receipt 只回歷史 ID/state/version/hash，UI 隨後讀目前狀態。
