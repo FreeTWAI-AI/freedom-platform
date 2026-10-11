@@ -1,6 +1,6 @@
 import {OpaqueId} from '../../../../contracts/guild-launchpad/v1/primitives';
 import {StoreSlugSchema} from '../../../../contracts/guild-launchpad/v1/storefront';
-import {OrderSchema, QuoteSchema, type HostedOrder, type HostedOrderQuote} from '../../../../contracts/guild-launchpad/v1/hosted-order';
+import {ReservationOrderSchema as OrderSchema, ReservationQuoteSchema as QuoteSchema, type ReservationOrder as HostedOrder, type ReservationQuote as HostedOrderQuote} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import type {z} from 'zod';
 import type {QuoteInputSchema, SubmitInputSchema} from '../../../../contracts/guild-launchpad/v1/hosted-order';
 

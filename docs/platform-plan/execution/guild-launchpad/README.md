@@ -6,9 +6,9 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-11 release.production=b9ed788cc380ae1bd286158ee1dc55fdbbadcceb release.staging=b9ed788cc380ae1bd286158ee1dc55fdbbadcceb flag.production=true flag.staging=true repo_max_migration=160 applied_migration.production=160 applied_migration.staging=160 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-11 release.production=b9ed788cc380ae1bd286158ee1dc55fdbbadcceb release.staging=b9ed788cc380ae1bd286158ee1dc55fdbbadcceb flag.production=true flag.staging=true repo_max_migration=161 applied_migration.production=160 applied_migration.staging=160 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-2026-10-10 紐約時間 R16 更新（觀察時間 UTC 2026-10-11，operator 私有收據的去敏摘要）：production 與 staging 都已部署 #434 `b9ed788c`，與 reviewed `907b2516` 同 tree，使用同一份 dist。兩環境本輪套用149–160，repository與已套用migration均到160，ledger共159筆；022仍是唯一歷史缺號。公會啟動台保持啟用，既有capacity／authority政策列不變。
+2026-10-10 紐約時間 R16 更新（觀察時間 UTC 2026-10-11，operator 私有收據的去敏摘要）：production 與 staging 都已部署 #434 `b9ed788c`，與 reviewed `907b2516` 同 tree，使用同一份 dist。兩環境本輪套用149–160，已套用 migration 到160，ledger共159筆；022仍是唯一歷史缺號。公會啟動台保持啟用，既有capacity／authority政策列不變。本候選原始碼另加入跨店預留 migration 161，尚未部署或開放預留。
 
 Staging選定檢查為公開36、帳號／TOTP28、商店24、社群26、小隊16、Banner13、訊息48、內容搜尋50、互動通知22、訊息收回19項；production為公開36與帳號／TOTP28項HTTP檢查。商店使用既有合成合格會員，其餘流程亦為合成帳號；這不是一般真人反覆使用或完整Foundation／M1驗收。
 

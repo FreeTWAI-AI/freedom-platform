@@ -208,6 +208,12 @@ const routeTable: Record<string, string> = {
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/reservations': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/reservations/:order_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/reservations/:order_id/cancel': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-reservations': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/reservation-setting': 'tenant',
+  'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/reservation-setting': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/setup': 'tenant',
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'tenant',
@@ -524,8 +530,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 74, middleware: 2 });
-  assert.equal(selectedRoutes.length, 104);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 80, middleware: 2 });
+  assert.equal(selectedRoutes.length, 110);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -566,6 +572,12 @@ const routes: Route[] = [
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/reservations' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/reservations/:order_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/reservations/:order_id/cancel', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/supply-reservations' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/reservation-setting' },
+  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/reservation-setting', body: { reservation_enabled: false }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id' },
   { method: 'POST', path: '/tenants/:tenant_id/edit', body: { display_name: 'new name', public_slug: null }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/members' },
@@ -648,7 +660,7 @@ test('T-022 Matrix route matching routeTable', () => {
     Object.entries(routeTable).filter(([, kind]) => kind === 'tenant').map(([key]) => key).sort());
 });
 
-const isSellerOrderRoute = (path: string) => path.includes('/storefronts/') && path.includes('/orders');
+const isSellerOrderRoute = (path: string) => /\/storefronts\/[^/]+\/(?:orders|reservations|supply-reservations|reservation-setting)(?:\/|$)/.test(path);
 
 type TenantData = Awaited<ReturnType<typeof buildFixture>>['A'];
 function ids(data: TenantData, route: Route): Record<string, string> {
@@ -1012,7 +1024,7 @@ test('T-022 4. Body, header and query substitution', async () => {
 
   const workB = await call('GET', `/tenants/${B.tenantId}/works/${B.workId}`, N);
   assert.equal(workB.status, 200, JSON.stringify(describe(workB)));
-  const update = routes.find(r => r.method === 'PATCH')!;
+  const update = routes.find(r => r.method === 'PATCH' && r.path === '/tenants/:tenant_id/works/:work_id')!;
   const matched = await execute({ ...update, version: workB.headers.get('etag')! }, P, ids(A, update));
   assert.equal(matched.status, A.workVersion === B.workVersion ? 200 : 412, JSON.stringify(describe(matched)));
   scanForLeaks(matched, '4 B ETag on A', B);

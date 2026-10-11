@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {type HostedOrder} from '../../../../contracts/guild-launchpad/v1/hosted-order';
+import {type ReservationOrder as HostedOrder} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor} from '../format';
 import {readSellerPage, readSellerCancel, type SellerCancelAttempt, type SellerRoute} from './hosted-seller-order-state';
@@ -8,7 +8,7 @@ import './HostedStore.css';
 type RegisterLeave = (guard: (() => boolean) | null) => void;
 const unavailable = () => new ApiError({message: '回應未完整收到，尚未確認原取消結果。', network: true});
 const word = (order: HostedOrder) => order.state === 'reserved' ? '預留中' : order.state === 'cancelled' ? '已取消' : '已到期';
-const rootPath = (route: SellerRoute) => `/tenants/${route.tenantId}/storefronts/${route.instanceId}/orders`;
+const rootPath = (route: SellerRoute) => `/tenants/${route.tenantId}/storefronts/${route.instanceId}/reservations`;
 
 /** This successful owner-only read, not a role template or guild title, enables the link. */
 export function SellerOrdersLink({client, tenantId, instanceId}: SellerRoute & {client: PortalClient}) {
@@ -20,7 +20,7 @@ export function SellerOrdersLink({client, tenantId, instanceId}: SellerRoute & {
     }).catch(() => {});
     return () => controller.abort();
   }, [client, tenantId, instanceId]);
-  return allowed ? <div className="actions"><a className="btn btn-ghost" href={`#stores/${tenantId}/${instanceId}/orders`}>預留訂單</a></div> : null;
+  return allowed ? <div className="actions"><a className="btn btn-ghost" href={`#stores/${tenantId}/${instanceId}/orders`}>預留訂單</a><a className="btn btn-ghost" href={`#stores/${tenantId}/${instanceId}/supply-orders`}>供貨訂單</a></div> : null;
 }
 
 /** Mounted by exact account/session/store key. No private order data is persisted. */

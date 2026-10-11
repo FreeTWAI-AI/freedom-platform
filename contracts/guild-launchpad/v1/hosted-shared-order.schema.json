@@ -1,0 +1,2205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/hosted-shared-order",
+  "description": "Explicit same-database shared supplier stock reservations. Original direct profile and financial exclusions remain intact; admission defaults OFF.",
+  "$defs": {
+    "shared-quote": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "const": "freedom.hosted-shared-order-reservation/v1"
+        },
+        "store": {
+          "type": "object",
+          "properties": {
+            "slug": {
+              "type": "string",
+              "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "slug",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "publication_revision": {
+          "type": "string",
+          "maxLength": 19,
+          "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "TWD",
+            "USD"
+          ]
+        },
+        "items": {
+          "minItems": 1,
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sku": {
+                "type": "string",
+                "maxLength": 32,
+                "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99
+              },
+              "unit_price_minor": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000000
+              },
+              "line_total_minor": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000000000
+              }
+            },
+            "required": [
+              "sku",
+              "title",
+              "quantity",
+              "unit_price_minor",
+              "line_total_minor"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "merchandise_total_minor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000000000
+        },
+        "amount_due_minor": {
+          "type": "null"
+        },
+        "shipping_state": {
+          "type": "string",
+          "const": "not_configured"
+        },
+        "tax_state": {
+          "type": "string",
+          "const": "not_assessed"
+        },
+        "payment_state": {
+          "type": "string",
+          "const": "not_enabled"
+        },
+        "terms_sha256": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "payment_enabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "refund_enabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "fulfilment_enabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "money_movement_enabled": {
+          "type": "boolean",
+          "const": false
+        },
+        "quote_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "quoted_at": {
+          "type": "string",
+          "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+        },
+        "reserves_stock": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "profile",
+        "store",
+        "publication_revision",
+        "currency",
+        "items",
+        "merchandise_total_minor",
+        "amount_due_minor",
+        "shipping_state",
+        "tax_state",
+        "payment_state",
+        "terms_sha256",
+        "payment_enabled",
+        "refund_enabled",
+        "fulfilment_enabled",
+        "money_movement_enabled",
+        "quote_id",
+        "quoted_at",
+        "expires_at",
+        "reserves_stock"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: unique_skus, line_and_merchandise_totals, five_minute_quote, current_exact_supply_consent."
+    },
+    "shared-order": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "profile": {
+              "type": "string",
+              "const": "freedom.hosted-shared-order-reservation/v1"
+            },
+            "store": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "required": [
+                "slug",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "publication_revision": {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            "currency": {
+              "type": "string",
+              "enum": [
+                "TWD",
+                "USD"
+              ]
+            },
+            "items": {
+              "minItems": 1,
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "sku": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99
+                  },
+                  "unit_price_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000
+                  },
+                  "line_total_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  }
+                },
+                "required": [
+                  "sku",
+                  "title",
+                  "quantity",
+                  "unit_price_minor",
+                  "line_total_minor"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "merchandise_total_minor": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000000000
+            },
+            "amount_due_minor": {
+              "type": "null"
+            },
+            "shipping_state": {
+              "type": "string",
+              "const": "not_configured"
+            },
+            "tax_state": {
+              "type": "string",
+              "const": "not_assessed"
+            },
+            "payment_state": {
+              "type": "string",
+              "const": "not_enabled"
+            },
+            "terms_sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64,
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "payment_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "refund_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "fulfilment_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "money_movement_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "order_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "client_order_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "quote_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "version": {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            "created_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "reservation_expires_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "state": {
+              "type": "string",
+              "const": "reserved"
+            },
+            "closed_at": {
+              "type": "null"
+            },
+            "close_reason": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "profile",
+            "store",
+            "publication_revision",
+            "currency",
+            "items",
+            "merchandise_total_minor",
+            "amount_due_minor",
+            "shipping_state",
+            "tax_state",
+            "payment_state",
+            "terms_sha256",
+            "payment_enabled",
+            "refund_enabled",
+            "fulfilment_enabled",
+            "money_movement_enabled",
+            "order_id",
+            "client_order_id",
+            "quote_id",
+            "version",
+            "created_at",
+            "reservation_expires_at",
+            "state",
+            "closed_at",
+            "close_reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "profile": {
+              "type": "string",
+              "const": "freedom.hosted-shared-order-reservation/v1"
+            },
+            "store": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "required": [
+                "slug",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "publication_revision": {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            "currency": {
+              "type": "string",
+              "enum": [
+                "TWD",
+                "USD"
+              ]
+            },
+            "items": {
+              "minItems": 1,
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "sku": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99
+                  },
+                  "unit_price_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000
+                  },
+                  "line_total_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  }
+                },
+                "required": [
+                  "sku",
+                  "title",
+                  "quantity",
+                  "unit_price_minor",
+                  "line_total_minor"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "merchandise_total_minor": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000000000
+            },
+            "amount_due_minor": {
+              "type": "null"
+            },
+            "shipping_state": {
+              "type": "string",
+              "const": "not_configured"
+            },
+            "tax_state": {
+              "type": "string",
+              "const": "not_assessed"
+            },
+            "payment_state": {
+              "type": "string",
+              "const": "not_enabled"
+            },
+            "terms_sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64,
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "payment_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "refund_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "fulfilment_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "money_movement_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "order_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "client_order_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "quote_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "version": {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            "created_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "reservation_expires_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "state": {
+              "type": "string",
+              "const": "cancelled"
+            },
+            "closed_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "close_reason": {
+              "type": "string",
+              "enum": [
+                "buyer_cancelled",
+                "seller_cancelled"
+              ]
+            }
+          },
+          "required": [
+            "profile",
+            "store",
+            "publication_revision",
+            "currency",
+            "items",
+            "merchandise_total_minor",
+            "amount_due_minor",
+            "shipping_state",
+            "tax_state",
+            "payment_state",
+            "terms_sha256",
+            "payment_enabled",
+            "refund_enabled",
+            "fulfilment_enabled",
+            "money_movement_enabled",
+            "order_id",
+            "client_order_id",
+            "quote_id",
+            "version",
+            "created_at",
+            "reservation_expires_at",
+            "state",
+            "closed_at",
+            "close_reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "profile": {
+              "type": "string",
+              "const": "freedom.hosted-shared-order-reservation/v1"
+            },
+            "store": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "required": [
+                "slug",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "publication_revision": {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            "currency": {
+              "type": "string",
+              "enum": [
+                "TWD",
+                "USD"
+              ]
+            },
+            "items": {
+              "minItems": 1,
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "sku": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99
+                  },
+                  "unit_price_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000
+                  },
+                  "line_total_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  }
+                },
+                "required": [
+                  "sku",
+                  "title",
+                  "quantity",
+                  "unit_price_minor",
+                  "line_total_minor"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "merchandise_total_minor": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000000000
+            },
+            "amount_due_minor": {
+              "type": "null"
+            },
+            "shipping_state": {
+              "type": "string",
+              "const": "not_configured"
+            },
+            "tax_state": {
+              "type": "string",
+              "const": "not_assessed"
+            },
+            "payment_state": {
+              "type": "string",
+              "const": "not_enabled"
+            },
+            "terms_sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64,
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "payment_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "refund_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "fulfilment_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "money_movement_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "order_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "client_order_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "quote_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "version": {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            "created_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "reservation_expires_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "state": {
+              "type": "string",
+              "const": "expired"
+            },
+            "closed_at": {
+              "type": "string",
+              "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+            },
+            "close_reason": {
+              "type": "string",
+              "const": "reservation_expired"
+            }
+          },
+          "required": [
+            "profile",
+            "store",
+            "publication_revision",
+            "currency",
+            "items",
+            "merchandise_total_minor",
+            "amount_due_minor",
+            "shipping_state",
+            "tax_state",
+            "payment_state",
+            "terms_sha256",
+            "payment_enabled",
+            "refund_enabled",
+            "fulfilment_enabled",
+            "money_movement_enabled",
+            "order_id",
+            "client_order_id",
+            "quote_id",
+            "version",
+            "created_at",
+            "reservation_expires_at",
+            "state",
+            "closed_at",
+            "close_reason"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: unique_skus, line_and_merchandise_totals, thirty_minute_reservation, closure_ordering, authoritative_state."
+    },
+    "reservation-page": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "string",
+                        "const": "freedom.hosted-direct-order-reservation/v1"
+                      },
+                      "store": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "publication_revision": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "TWD",
+                          "USD"
+                        ]
+                      },
+                      "items": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sku": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "unit_price_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000
+                            },
+                            "line_total_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000000
+                            }
+                          },
+                          "required": [
+                            "sku",
+                            "title",
+                            "quantity",
+                            "unit_price_minor",
+                            "line_total_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "merchandise_total_minor": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000000
+                      },
+                      "amount_due_minor": {
+                        "type": "null"
+                      },
+                      "shipping_state": {
+                        "type": "string",
+                        "const": "not_configured"
+                      },
+                      "tax_state": {
+                        "type": "string",
+                        "const": "not_assessed"
+                      },
+                      "payment_state": {
+                        "type": "string",
+                        "const": "not_enabled"
+                      },
+                      "terms_sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "payment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "refund_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "fulfilment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "money_movement_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "client_order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "quote_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "reservation_expires_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "state": {
+                        "type": "string",
+                        "const": "reserved"
+                      },
+                      "closed_at": {
+                        "type": "null"
+                      },
+                      "close_reason": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "profile",
+                      "store",
+                      "publication_revision",
+                      "currency",
+                      "items",
+                      "merchandise_total_minor",
+                      "amount_due_minor",
+                      "shipping_state",
+                      "tax_state",
+                      "payment_state",
+                      "terms_sha256",
+                      "payment_enabled",
+                      "refund_enabled",
+                      "fulfilment_enabled",
+                      "money_movement_enabled",
+                      "order_id",
+                      "client_order_id",
+                      "quote_id",
+                      "version",
+                      "created_at",
+                      "reservation_expires_at",
+                      "state",
+                      "closed_at",
+                      "close_reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "string",
+                        "const": "freedom.hosted-direct-order-reservation/v1"
+                      },
+                      "store": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "publication_revision": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "TWD",
+                          "USD"
+                        ]
+                      },
+                      "items": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sku": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "unit_price_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000
+                            },
+                            "line_total_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000000
+                            }
+                          },
+                          "required": [
+                            "sku",
+                            "title",
+                            "quantity",
+                            "unit_price_minor",
+                            "line_total_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "merchandise_total_minor": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000000
+                      },
+                      "amount_due_minor": {
+                        "type": "null"
+                      },
+                      "shipping_state": {
+                        "type": "string",
+                        "const": "not_configured"
+                      },
+                      "tax_state": {
+                        "type": "string",
+                        "const": "not_assessed"
+                      },
+                      "payment_state": {
+                        "type": "string",
+                        "const": "not_enabled"
+                      },
+                      "terms_sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "payment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "refund_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "fulfilment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "money_movement_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "client_order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "quote_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "reservation_expires_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "state": {
+                        "type": "string",
+                        "const": "cancelled"
+                      },
+                      "closed_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "close_reason": {
+                        "type": "string",
+                        "enum": [
+                          "buyer_cancelled",
+                          "seller_cancelled"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "profile",
+                      "store",
+                      "publication_revision",
+                      "currency",
+                      "items",
+                      "merchandise_total_minor",
+                      "amount_due_minor",
+                      "shipping_state",
+                      "tax_state",
+                      "payment_state",
+                      "terms_sha256",
+                      "payment_enabled",
+                      "refund_enabled",
+                      "fulfilment_enabled",
+                      "money_movement_enabled",
+                      "order_id",
+                      "client_order_id",
+                      "quote_id",
+                      "version",
+                      "created_at",
+                      "reservation_expires_at",
+                      "state",
+                      "closed_at",
+                      "close_reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "string",
+                        "const": "freedom.hosted-direct-order-reservation/v1"
+                      },
+                      "store": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "publication_revision": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "TWD",
+                          "USD"
+                        ]
+                      },
+                      "items": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sku": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "unit_price_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000
+                            },
+                            "line_total_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000000
+                            }
+                          },
+                          "required": [
+                            "sku",
+                            "title",
+                            "quantity",
+                            "unit_price_minor",
+                            "line_total_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "merchandise_total_minor": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000000
+                      },
+                      "amount_due_minor": {
+                        "type": "null"
+                      },
+                      "shipping_state": {
+                        "type": "string",
+                        "const": "not_configured"
+                      },
+                      "tax_state": {
+                        "type": "string",
+                        "const": "not_assessed"
+                      },
+                      "payment_state": {
+                        "type": "string",
+                        "const": "not_enabled"
+                      },
+                      "terms_sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "payment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "refund_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "fulfilment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "money_movement_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "client_order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "quote_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "reservation_expires_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "state": {
+                        "type": "string",
+                        "const": "expired"
+                      },
+                      "closed_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "close_reason": {
+                        "type": "string",
+                        "const": "reservation_expired"
+                      }
+                    },
+                    "required": [
+                      "profile",
+                      "store",
+                      "publication_revision",
+                      "currency",
+                      "items",
+                      "merchandise_total_minor",
+                      "amount_due_minor",
+                      "shipping_state",
+                      "tax_state",
+                      "payment_state",
+                      "terms_sha256",
+                      "payment_enabled",
+                      "refund_enabled",
+                      "fulfilment_enabled",
+                      "money_movement_enabled",
+                      "order_id",
+                      "client_order_id",
+                      "quote_id",
+                      "version",
+                      "created_at",
+                      "reservation_expires_at",
+                      "state",
+                      "closed_at",
+                      "close_reason"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "string",
+                        "const": "freedom.hosted-shared-order-reservation/v1"
+                      },
+                      "store": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "publication_revision": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "TWD",
+                          "USD"
+                        ]
+                      },
+                      "items": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sku": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "unit_price_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000
+                            },
+                            "line_total_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000000
+                            }
+                          },
+                          "required": [
+                            "sku",
+                            "title",
+                            "quantity",
+                            "unit_price_minor",
+                            "line_total_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "merchandise_total_minor": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000000
+                      },
+                      "amount_due_minor": {
+                        "type": "null"
+                      },
+                      "shipping_state": {
+                        "type": "string",
+                        "const": "not_configured"
+                      },
+                      "tax_state": {
+                        "type": "string",
+                        "const": "not_assessed"
+                      },
+                      "payment_state": {
+                        "type": "string",
+                        "const": "not_enabled"
+                      },
+                      "terms_sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "payment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "refund_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "fulfilment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "money_movement_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "client_order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "quote_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "reservation_expires_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "state": {
+                        "type": "string",
+                        "const": "reserved"
+                      },
+                      "closed_at": {
+                        "type": "null"
+                      },
+                      "close_reason": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "profile",
+                      "store",
+                      "publication_revision",
+                      "currency",
+                      "items",
+                      "merchandise_total_minor",
+                      "amount_due_minor",
+                      "shipping_state",
+                      "tax_state",
+                      "payment_state",
+                      "terms_sha256",
+                      "payment_enabled",
+                      "refund_enabled",
+                      "fulfilment_enabled",
+                      "money_movement_enabled",
+                      "order_id",
+                      "client_order_id",
+                      "quote_id",
+                      "version",
+                      "created_at",
+                      "reservation_expires_at",
+                      "state",
+                      "closed_at",
+                      "close_reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "string",
+                        "const": "freedom.hosted-shared-order-reservation/v1"
+                      },
+                      "store": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "publication_revision": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "TWD",
+                          "USD"
+                        ]
+                      },
+                      "items": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sku": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "unit_price_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000
+                            },
+                            "line_total_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000000
+                            }
+                          },
+                          "required": [
+                            "sku",
+                            "title",
+                            "quantity",
+                            "unit_price_minor",
+                            "line_total_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "merchandise_total_minor": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000000
+                      },
+                      "amount_due_minor": {
+                        "type": "null"
+                      },
+                      "shipping_state": {
+                        "type": "string",
+                        "const": "not_configured"
+                      },
+                      "tax_state": {
+                        "type": "string",
+                        "const": "not_assessed"
+                      },
+                      "payment_state": {
+                        "type": "string",
+                        "const": "not_enabled"
+                      },
+                      "terms_sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "payment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "refund_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "fulfilment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "money_movement_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "client_order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "quote_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "reservation_expires_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "state": {
+                        "type": "string",
+                        "const": "cancelled"
+                      },
+                      "closed_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "close_reason": {
+                        "type": "string",
+                        "enum": [
+                          "buyer_cancelled",
+                          "seller_cancelled"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "profile",
+                      "store",
+                      "publication_revision",
+                      "currency",
+                      "items",
+                      "merchandise_total_minor",
+                      "amount_due_minor",
+                      "shipping_state",
+                      "tax_state",
+                      "payment_state",
+                      "terms_sha256",
+                      "payment_enabled",
+                      "refund_enabled",
+                      "fulfilment_enabled",
+                      "money_movement_enabled",
+                      "order_id",
+                      "client_order_id",
+                      "quote_id",
+                      "version",
+                      "created_at",
+                      "reservation_expires_at",
+                      "state",
+                      "closed_at",
+                      "close_reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "string",
+                        "const": "freedom.hosted-shared-order-reservation/v1"
+                      },
+                      "store": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "publication_revision": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "TWD",
+                          "USD"
+                        ]
+                      },
+                      "items": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sku": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "unit_price_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000
+                            },
+                            "line_total_minor": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100000000000
+                            }
+                          },
+                          "required": [
+                            "sku",
+                            "title",
+                            "quantity",
+                            "unit_price_minor",
+                            "line_total_minor"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "merchandise_total_minor": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000000000
+                      },
+                      "amount_due_minor": {
+                        "type": "null"
+                      },
+                      "shipping_state": {
+                        "type": "string",
+                        "const": "not_configured"
+                      },
+                      "tax_state": {
+                        "type": "string",
+                        "const": "not_assessed"
+                      },
+                      "payment_state": {
+                        "type": "string",
+                        "const": "not_enabled"
+                      },
+                      "terms_sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "payment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "refund_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "fulfilment_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "money_movement_enabled": {
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "client_order_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "quote_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "maxLength": 19,
+                        "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "reservation_expires_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "state": {
+                        "type": "string",
+                        "const": "expired"
+                      },
+                      "closed_at": {
+                        "type": "string",
+                        "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                      },
+                      "close_reason": {
+                        "type": "string",
+                        "const": "reservation_expired"
+                      }
+                    },
+                    "required": [
+                      "profile",
+                      "store",
+                      "publication_revision",
+                      "currency",
+                      "items",
+                      "merchandise_total_minor",
+                      "amount_due_minor",
+                      "shipping_state",
+                      "tax_state",
+                      "payment_state",
+                      "terms_sha256",
+                      "payment_enabled",
+                      "refund_enabled",
+                      "fulfilment_enabled",
+                      "money_movement_enabled",
+                      "order_id",
+                      "client_order_id",
+                      "quote_id",
+                      "version",
+                      "created_at",
+                      "reservation_expires_at",
+                      "state",
+                      "closed_at",
+                      "close_reason"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^[A-Za-z0-9_.-]+$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: current_party_filter, signed_cursor, order_semantics."
+    },
+    "reservation-setting-input": {
+      "type": "object",
+      "properties": {
+        "reservation_enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reservation_enabled"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: current_owner_only, host_admission_for_enable, profile_version_cas."
+    },
+    "reservation-setting": {
+      "type": "object",
+      "properties": {
+        "reservation_enabled": {
+          "type": "boolean"
+        },
+        "admission_enabled": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 19,
+          "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "reservation_enabled",
+        "admission_enabled",
+        "version"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: current_owner_only."
+    },
+    "supplier-reservation-page": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "profile": {
+                "type": "string",
+                "const": "freedom.hosted-supplier-reservations/v1"
+              },
+              "order_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "version": {
+                "type": "string",
+                "maxLength": 19,
+                "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+              },
+              "store": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "slug",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "TWD",
+                  "USD"
+                ]
+              },
+              "items": {
+                "minItems": 1,
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "product_id": {
+                      "type": "string",
+                      "minLength": 36,
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "offer_id": {
+                      "type": "string",
+                      "minLength": 36,
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "acceptance_id": {
+                      "type": "string",
+                      "minLength": 36,
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sku": {
+                      "type": "string",
+                      "maxLength": 32,
+                      "pattern": "^P[0-9]{4,}$(?![\\s\\S])"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 99
+                    },
+                    "unit_supply_price_minor": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000000
+                    },
+                    "supply_total_minor": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9900000000
+                    }
+                  },
+                  "required": [
+                    "product_id",
+                    "offer_id",
+                    "acceptance_id",
+                    "sku",
+                    "title",
+                    "quantity",
+                    "unit_supply_price_minor",
+                    "supply_total_minor"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "reserved",
+                  "cancelled",
+                  "expired"
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+              },
+              "reservation_expires_at": {
+                "type": "string",
+                "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+              },
+              "closed_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "payment_enabled": {
+                "type": "boolean",
+                "const": false
+              },
+              "fulfilment_enabled": {
+                "type": "boolean",
+                "const": false
+              },
+              "money_movement_enabled": {
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "profile",
+              "order_id",
+              "version",
+              "store",
+              "currency",
+              "items",
+              "state",
+              "created_at",
+              "reservation_expires_at",
+              "closed_at",
+              "payment_enabled",
+              "fulfilment_enabled",
+              "money_movement_enabled"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^[A-Za-z0-9_.-]+$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: current_supplier_owner, own_supplied_lines_only, signed_cursor, supplied_line_totals."
+    }
+  }
+}
