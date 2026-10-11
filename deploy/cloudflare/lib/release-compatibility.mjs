@@ -168,6 +168,8 @@ const FOUNDATION_NAMES = [
   '160_member_reports.sql',
   '161_hosted_shared_reservations.sql',
   '162_hosted_inventory_reservations.sql',
+  // Community-only attribution; existing private-reader and hosted-writer floors remain.
+  '163_work_contribution_roles.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
