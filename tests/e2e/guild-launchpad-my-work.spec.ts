@@ -67,7 +67,9 @@ async function login(browser: Browser, baseURL: string, email: string) {
 async function relogin(page: Page, email: string) {
   const settings = page.getByRole('button', { name: '設定', exact: true });
   if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+  const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
   await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+  expect((await signedOut).status()).toBe(200);
   // Leaving a guild hash stays on the public launchpad. Its login button opens the form.
   const heading = page.getByRole('heading', { name: '登入', exact: true });
   const enter = page.getByRole('button', { name: '會員登入', exact: true });
@@ -1544,7 +1546,9 @@ test('PA-002 committed but unreadable create and Result responses retain their e
     await page.getByRole('button', { name: '會員首頁', exact: true }).click();
     await expect(form).toBeVisible();
     await page.getByRole('button', { name: '設定', exact: true }).click();
-    await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+    const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
+  await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+  expect((await signedOut).status()).toBe(200);
     await expect(form).toBeVisible();
     await page.getByRole('button', { name: '返回公會列表', exact: true }).click(); await expect(form).toBeVisible();
     await expect(form.getByLabel('小活動 1', { exact: true })).toHaveValue('只保存一次的小活動');
@@ -1705,7 +1709,9 @@ for (const phase of ['prepare', 'put', 'finalize', 'create'] as const) {
         await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
         const settings = page.getByRole('button', { name: '設定', exact: true });
         if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
-        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
+  await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+  expect((await signedOut).status()).toBe(200);
         await expect(page.getByRole('heading', { name: '登入', exact: true })).toHaveCount(0);
         await page.evaluate(() => { window.location.hash = 'home'; });
         await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
@@ -1759,7 +1765,9 @@ for (const phase of ['prepare', 'put', 'finalize', 'create'] as const) {
       if (phase === 'put') {
         const settings = page.getByRole('button', { name: '設定', exact: true });
         if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
-        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
+  await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+  expect((await signedOut).status()).toBe(200);
         await expect(page.getByRole('button', { name: '會員登入', exact: true }).or(page.getByRole('heading', { name: '登入', exact: true }))).toBeVisible();
       } else if (phase === 'finalize') {
         await page.evaluate(() => { window.location.hash = 'home'; });

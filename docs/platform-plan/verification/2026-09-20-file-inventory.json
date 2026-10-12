@@ -20534,8 +20534,8 @@
     },
     {
       "path": "tests/e2e/guild-block-composition.spec.ts",
-      "bytes": 19730,
-      "sha256": "b663565fec377ea28222bb76065a3cbde2240cf450b595d964425334bba369db"
+      "bytes": 19952,
+      "sha256": "d3db244b00490643bf3779278e095ef0d4255de4accfa89918014560e9019486"
     },
     {
       "path": "tests/e2e/guild-category-preferences.spec.ts",
@@ -20554,8 +20554,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-my-work.spec.ts",
-      "bytes": 129224,
-      "sha256": "0f65cb73be84f5deddbba2da262d91ed3b9639ea71b56ac199a5927bc7365c4e"
+      "bytes": 130116,
+      "sha256": "f18a9e36bfab170bffff4a461e88ec222a7c7168eab96700f83c169a07c2c3fe"
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",
@@ -20564,8 +20564,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 27329,
-      "sha256": "47c5089c0182ec965b927981f54fcd1bc76e359374c8b21bdcd2b50af6a4c8e8"
+      "bytes": 27465,
+      "sha256": "5ca453d14bbe806a1e803e6573f536d32cb1289e6a14f327b2ef4a435d7e3db6"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",

@@ -13,7 +13,8 @@ const edited = 'guild_human_design';
 async function seed(db: Pool, appointLeader = true) {
   const run = randomUUID().slice(0, 8);
   const userId = randomUUID();
-  const email = `launchpad-${run}@example.invalid`;
+  // Delegation candidates exclude verification accounts; the ordinary member fixture uses .test.
+  const email = `launchpad-${run}@${appointLeader ? 'example.invalid' : 'example.test'}`;
   const names = await db.query('SELECT guild_key, name FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[])', [[music, space, edited]]);
   const nameOf = (key: string) => names.rows.find(row => row.guild_key === key).name as string;
   const previous = await db.query('SELECT user_id FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2', [DEMO_COMMUNITY, edited]);
