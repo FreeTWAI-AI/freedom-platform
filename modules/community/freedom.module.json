@@ -60,7 +60,8 @@
     "tests/runtime/share-promotion.test.ts",
     "tests/runtime/skill-share-content.test.ts",
     "tests/e2e/event-highlights.spec.ts",
-    "tests/e2e/member-services.spec.ts"
+    "tests/e2e/member-services.spec.ts",
+    "tests/e2e/event-member-journey.spec.ts"
   ],
   "public_exports": [
     "modules/community/catalog.ts",
