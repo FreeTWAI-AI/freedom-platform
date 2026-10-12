@@ -6,21 +6,17 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-11 release.production=9d7d84bcf88cfc2ea4b34df83206280f645b8885 release.staging=9d7d84bcf88cfc2ea4b34df83206280f645b8885 flag.production=true flag.staging=true repo_max_migration=164 applied_migration.production=162 applied_migration.staging=162 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-11 release.production=31166e5230d8a2ba3b06e2429de103c98687711b release.staging=31166e5230d8a2ba3b06e2429de103c98687711b flag.production=true flag.staging=true repo_max_migration=164 applied_migration.production=164 applied_migration.staging=164 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-2026-10-11 紐約時間 R18 更新（operator 私有收據的去敏摘要）：production 與 staging 均已部署 #441 `9d7d84bc`，與 reviewed `e6b5e767` 的 CI 候選同 tree，兩環境使用同一份 dist。本輪追加 migration162；目前到162、ledger共161筆，022仍是唯一歷史缺號。公會啟動台保持啟用，既有capacity／authority政策列不變。
+2026-10-11 紐約時間 R19 更新（operator 私有收據的去敏摘要）：production 與 staging 均已部署 #445 `31166e52`，與 reviewed `29649260` 同 tree、同 dist；包含先前已合併 #447。本輪追加 migration163／164，目前到164、ledger共163筆，022仍是唯一歷史缺號。
 
-持久庫存預留 ID 已部署。原商品仍是唯一庫存，hold 保存原供應商、數量與期限；重試沿用 ID，取消／到期只釋放一次。這仍是同一資料庫交易，獨立庫存執行環境、匯出與寫入權威移交尚未完成。
+供應公會正式成員可建立自己的供貨商品庫，不需先加入電商公會或建立零售店。staging 正常合成會員驗證建立／修改商品、供貨條件、公開版本、B/C兩間零售店各自申請與同意、改價重審、撤回，以及重新登入回到同一商品庫。供應商沒有retail slug或publication；私人成本與條件不進公開投影。既有零售店可重用同一份商品及庫存。純供貨轉零售的UI與新的預留opt-in UI不在本增量。
 
-staging 正常合成會員 A/B/C 供貨與預留旅程 32 項通過，含6＋5不超賣、同／新key重試、重新登入取消、真實30分鐘到期、撤回後拒絕舊quote及歷史／ACL。舊式只改餘額的SQL在自有合成交易內被拒且回復不變，不宣稱執行過舊Worker binary。另有兩環境各36項公開HTTP與production 19 項合成帳號HTTP；真人採用與完整Foundation／M1仍未驗收。
+交接用既有GLP與相依圖片開關短暫停止舊商店讀寫，確認100%暫停版本、等待60秒且沒有更早runtime交易，再升級並以新Worker恢復原設定。店主預留opt-in、TOTP金鑰與媒體政策保留；schema164供貨reader/writer與schema162庫存下限都須保留，不能只退回舊Worker。四份發布前後DB／物件備份完成磁碟還原、遠端readback及清理；臨時staging Access撤銷，自有合成帳號／空間停用封存。production有公開資源及合成帳號HTTP驗證，不宣稱完整正式商家旅程或真人採用。
 
-升級先暫停新單，實測HTTP拒絕並在既有commerce鎖下核對零active orders／reserved／開放店鋪／等待交易，再套用162並安裝新writer，最後恢復原host准入。沒有自動替既有店鋪opt-in。schema162提交後須保留writer下限，不能只退回pre162 Worker；原shared reader、TOTP金鑰、媒體政策與其他高影響flags保留。
+詳見[R19收據](../unified-foundation/rollout-r19-2026-10-11.json)與[現況快照](../unified-foundation/current-state.json)。[R18收據](../unified-foundation/rollout-r18-2026-10-11.json)保留預留並行、取消與真實到期的原日期證據。installed PR Verify仍固定`dc2f5ba8`；付款、履約、獨立庫存權威、T-047與第二操作者恢復仍未完成，Foundation／M1狀態不變。
 
-四份發布前後DB／物件備份完成磁碟隔離還原、遠端readback與清理。production前備份直接沿用既有systemd服務一次成功執行，未重複capture；歷史R17排程失敗留在原收據。daily operator／runtime pins均為`9d7d84bc`，臨時staging Access已撤銷，自有合成帳號／店鋪已停用封存。T-047與第二操作者恢復仍未完成，restore保持隔離並對帳目前權限後才能重新開放。
-
-詳見[R18發布收據](../unified-foundation/rollout-r18-2026-10-11.json)與[現況快照](../unified-foundation/current-state.json)。[R17收據](../unified-foundation/rollout-r17-2026-10-11.json)保留跨店預留首輪；[R16收據](../unified-foundation/rollout-r16-2026-10-10.json)保留先前社群／圖片驗收，沒有重標成這輪重驗。installed PR Verify仍為`dc2f5ba8`五個pass；main自然push使用`9d7d84bc`六個pass，不代表ruleset已升級。下一個增量仍為庫存單模組外移及本人CLI／BYOK完整流程，沒有付款或履約交付。
-
-以下r9紀錄保留原觀察時間，最新部署與schema以上述R18摘要及現況快照為準。
+以下r9紀錄保留原觀察時間，最新部署與schema以上述R19摘要及現況快照為準。
 
 本節以下的部署與已套用 migration 是 r9 歷史收據，觀察截至 2026-10-08 19:46Z，不是即時狀態；repository 最大編號則反映本候選原始碼。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
