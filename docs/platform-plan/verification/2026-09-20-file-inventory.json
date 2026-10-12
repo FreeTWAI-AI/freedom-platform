@@ -20349,8 +20349,8 @@
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",
-      "bytes": 22132,
-      "sha256": "2631b533b5e7aada62d5259b84deba94ebbe673f446a907eff5bf40ad4b2b9b0"
+      "bytes": 22697,
+      "sha256": "970252acadf1d8b94f89447146cc1a1468cd42f550c574323f9aaa03f41a224a"
     },
     {
       "path": "tests/e2e/avatar.spec.ts",
