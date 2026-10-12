@@ -2,7 +2,7 @@ import {person,login,open,post,launchStore} from './hosted-store-fixture.js';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {test, expect, type Page, type Locator, type TestInfo} from './fixtures.js';
-import {navigate, signOut} from './navigation.js';
+import {navigate, signOut, openGuildSection} from './navigation.js';
 import {formatMinor} from '../../apps/portal-web/src/format.js';
 import {StoreViewSchema, ProductViewSchema} from '../../contracts/guild-launchpad/v1/storefront.js';
 
@@ -30,8 +30,19 @@ test('a commerce member opens, stocks, publishes and re-enters their own store',
   await open(page, `guilds/${commerce}`);
   await expect(primary(page).getByRole('heading')).toHaveText('線上商店');
   await expect(primary(page).getByRole('button', {name: '建立我的商店', exact: true})).toBeEnabled();
+  const productionLoaded = page.waitForResponse(response => response.request().method() === 'GET'
+    && new URL(response.url()).pathname === `/api/v1/guilds/${production}/launchpad`);
   await open(page, `guilds/${production}`);
-  await expect(primary(page).getByRole('heading')).toHaveText('拍攝brief／分鏡／交付');
+  const productionResponse = await productionLoaded;
+  expect(productionResponse.status()).toBe(200);
+  const productionView = await productionResponse.json();
+  await expect(page.getByRole('heading', {name: productionView.guild.name, level: 1, exact: true})).toBeVisible();
+  // Production uses the real work panel, without a duplicate primary-action card.
+  await openGuildSection(page, '我的工作');
+  const productionWork = page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {name: '我的工作', level: 2, exact: true})});
+  await expect(productionWork).toBeVisible();
+  await expect(productionWork.locator('.my-work')).toContainText('你還沒有業務空間。');
+  await expect(page.getByRole('button', {name: '建立我的商店', exact: true})).toHaveCount(0);
   await open(page, `guilds/${commerce}`);
   await primary(page).getByRole('button', {name: '建立我的商店', exact: true}).click();
   await expect(flow(page)).toContainText('你還沒有業務空間。');

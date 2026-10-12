@@ -75,7 +75,18 @@ test('removing mention text removes its selected identity from new post and comm
  await login(page);await page.getByRole('button',{name:'建立貼文',exact:true}).click();const compose=page.getByRole('dialog',{name:'建立貼文',exact:true});
  async function pick(scope:ReturnType<Page['locator']>){await scope.getByRole('button',{name:'標註會員',exact:true}).click();await scope.getByLabel('搜尋標註會員').fill('示範需求者');await scope.locator('.social-mention-choice').first().click();}
  await pick(compose);const text=`已移除標註 ${Date.now()}`;await compose.getByLabel('貼文內容',{exact:true}).fill(text);
- const sentPost=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/social-posts/notes'));await compose.getByRole('button',{name:'發布貼文',exact:true}).click();expect((await sentPost).postDataJSON().mention_ids).toEqual([]);
+ const [postResponse]=await Promise.all([
+  page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/social-posts/notes',{timeout:25_000}),
+  compose.getByRole('button',{name:'發布貼文',exact:true}).click(),
+ ]);
+ expect(postResponse.request().postDataJSON().mention_ids).toEqual([]);
+ expect(postResponse.status(),await postResponse.text()).toBe(201);
  const post=card(page,text);await post.getByRole('button',{name:'留言 · 0',exact:true}).click();await pick(post);await post.getByLabel('寫留言',{exact:true}).fill('這則留言沒有標註');
- const sentComment=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/comments'));await post.getByRole('button',{name:'送出留言',exact:true}).click();expect((await sentComment).postDataJSON().mention_ids).toEqual([]);await expect(post.locator('.social-comment')).toHaveCount(1);
+ const [commentResponse]=await Promise.all([
+  page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/comments'),{timeout:25_000}),
+  post.getByRole('button',{name:'送出留言',exact:true}).click(),
+ ]);
+ expect(commentResponse.request().postDataJSON().mention_ids).toEqual([]);
+ expect(commentResponse.status(),await commentResponse.text()).toBe(201);
+ await expect(post.locator('.social-comment')).toHaveCount(1);
 });

@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {test, expect, type Page} from './fixtures.js';
 import {quickJoin} from './quick-join.js';
+import {navigate, openHomeGuide} from './navigation.js';
 
 async function login(page:Page) {
   await page.getByRole('button',{name:'會員登入',exact:true}).click();
@@ -33,16 +34,21 @@ for (const entry of entries) test(`${entry.target} entry survives registration a
   await expect(page.getByRole('heading',{name:entry.heading,exact:true,level:1})).toBeVisible();
 });
 
-test('existing members reach their chosen entry and can use all six home actions without selecting a permanent role',async({page})=>{
+test('existing members reach their chosen entry and all six collaboration destinations without selecting a permanent role',async({page})=>{
   await page.goto('/');await page.getByRole('button',{name:entries[0].button,exact:true}).click();await login(page);
   await expect(page).toHaveURL(/#supplier$/);
   const actions=[['展示我的商品','supplier','我有東西要賣'],['找合作夥伴','members','工坊夥伴'],['找合作案件','showcase','作品與需求'],['挑商品推廣','retail','我可以賣東西'],['找專案任務','tasks','社群任務'],['分享開發作品','showcase','作品與需求']];
   for(const [label,target,heading] of actions){
     await page.goto('/#home');
-    const entry=page.getByRole('region',{name:'商品、創作與開發合作入口'});
+    await openHomeGuide(page);
+    const entry=page.getByRole('navigation',{name:'商品、作品與活動',exact:true});
     await expect(entry).toBeVisible();
+    await expect(entry.getByRole('heading')).toHaveText(['商品與供貨','作品與活動']);
+    await expect(entry.getByRole('button')).toHaveCount(4);
     await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeVisible();
-    await entry.getByRole('button',{name:label,exact:true}).click();
+    // The legacy intent remains reachable through its canonical global entry,
+    // rather than duplicating six role-oriented buttons on the member home.
+    await test.step(label, () => navigate(page, heading));
     await expect(page).toHaveURL(new RegExp(`#${target}$`));
     await expect(page.getByRole('heading',{name:heading,exact:true,level:1})).toBeVisible();
   }

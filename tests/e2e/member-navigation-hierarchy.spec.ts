@@ -39,10 +39,13 @@ test('disabled content and catalog capabilities do not advertise their entry poi
   await expect(page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的內容',exact:true})).toHaveCount(0);
 });
 
-test('member hierarchy keeps one feed, distinct destinations and readable controls in each theme and viewport',async({page},testInfo)=>{
+test('member hierarchy keeps one feed, distinct destinations and readable controls in each theme and viewport',async({page,e2eAuthPool},testInfo)=>{
   await page.route(url=>!['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
   await login(page);
   await expect(page.locator('.home-next-step')).toBeAttached();
+  const createdPosts:{id:string;text:string}[]=[];
+  let primaryError:unknown;
+  try {
   for (const text of [
     '合成示範｜把開源筆記工具整理成可分享的作品。這週補上用途、授權與操作畫面，讓第一次看到的人知道如何試用。',
     '合成示範｜週末一起交流商品攝影。想練習的人可以先整理自己的商品照片；正式活動資訊以活動頁為準。',
@@ -50,7 +53,14 @@ test('member hierarchy keeps one feed, distinct destinations and readable contro
     await page.getByRole('button',{name:'建立貼文',exact:true}).click();
     const composer=page.getByRole('dialog',{name:'建立貼文',exact:true});
     await composer.getByLabel('貼文內容',{exact:true}).fill(text);
-    await composer.getByRole('button',{name:'發布貼文',exact:true}).click();
+    const [response]=await Promise.all([
+      page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/social-posts/notes'&&r.request().method()==='POST',{timeout:25_000}),
+      composer.getByRole('button',{name:'發布貼文',exact:true}).click(),
+    ]);
+    expect(response.status(),await response.text()).toBe(201);
+    const created=await response.json();
+    expect(created.post_id).toMatch(/^[0-9a-f-]{36}$/);
+    createdPosts.push({id:created.post_id,text});
     await expect(composer).not.toBeVisible();
     await expect(page.getByText(text,{exact:true})).toBeVisible();
   }
@@ -79,5 +89,21 @@ test('member hierarchy keeps one feed, distinct destinations and readable contro
     await page.screenshot({path:testInfo.outputPath(`navigation-${theme}-${width}.png`)});
     await page.keyboard.press('Escape');
     const close=page.getByRole('button',{name:'關閉選單',exact:true});if(await close.isVisible())await close.click();
+  }
+  } catch(error) { primaryError=error; throw error; } finally {
+    const cleanupErrors:unknown[]=[];
+    // Text-only rows owned by this case, inside the run-specific E2E schema.
+    // Soft deletion still consumes the shared author's daily post allowance.
+    for(const post of createdPosts){
+      try {
+      const removed=await e2eAuthPool.query(`DELETE FROM community_social_posts
+        WHERE post_id=$1 AND kind='note' AND note=$2
+          AND author_user_id=(SELECT user_id FROM users WHERE email='maker@local.test')
+        RETURNING post_id`,[post.id,post.text]);
+      expect(removed.rowCount).toBe(1);
+      } catch(error) { cleanupErrors.push(error); }
+    }
+    if(cleanupErrors.length)throw new AggregateError(primaryError?[primaryError,...cleanupErrors]:cleanupErrors,
+      'Member hierarchy fixture cleanup failed');
   }
 });

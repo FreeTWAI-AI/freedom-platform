@@ -20329,8 +20329,8 @@
     },
     {
       "path": "tests/e2e/audit-identity.spec.ts",
-      "bytes": 16036,
-      "sha256": "18caddec1b151f4f04f3ff002855d477e8b67b538a40317ce77380febb7b3a3d"
+      "bytes": 16387,
+      "sha256": "b4ed713242b82a42ae0ef9d8e0a132b9f313333865699f23c016974f97fc8303"
     },
     {
       "path": "tests/e2e/audit-operations.spec.ts",
@@ -20634,8 +20634,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-member-journey.spec.ts",
-      "bytes": 11875,
-      "sha256": "ed13e31d7b7e8e6c959f8a7314d0c9b61657b07ad5adc1fe3cceca6f345e7e50"
+      "bytes": 11993,
+      "sha256": "9a64cc3850f016989e435e9461e820c497d4f58740652ffe6ccb6bc427cfed38"
     },
     {
       "path": "tests/e2e/hosted-store-pagination.spec.ts",
@@ -20649,8 +20649,8 @@
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
-      "bytes": 35698,
-      "sha256": "7d7885bf63b8539b13ebe02a7e3535f55265171e4a4b5a447f8071f03ebc41b5"
+      "bytes": 36607,
+      "sha256": "fad3745e0130d0242938ce5435bf0efb0fdb5e121d6b25e4898c4e61dc0f37e5"
     },
     {
       "path": "tests/e2e/hosted-supply-catalog.spec.ts",
@@ -20739,8 +20739,8 @@
     },
     {
       "path": "tests/e2e/member-navigation-hierarchy.spec.ts",
-      "bytes": 5997,
-      "sha256": "30e7fa4dc9d4edd0d1d42a3a95bdf9536e7109e799dabc05e6568f7822e80a7e"
+      "bytes": 7330,
+      "sha256": "5d91472ecdef5f05a7cb87c620c6c754d64e4cebcf28b5d975938a78fffa772f"
     },
     {
       "path": "tests/e2e/member-reporting.spec.ts",
@@ -20879,8 +20879,8 @@
     },
     {
       "path": "tests/e2e/platform-purpose.spec.ts",
-      "bytes": 7759,
-      "sha256": "d8fa10f233c9c2bb4f5ff30768b904aa90a919f26c963158bf283acd298ba6d3"
+      "bytes": 8158,
+      "sha256": "53e03b214db9ec33596a3c13fd1795ff8e66f1bac39281878aafbda2e2945af4"
     },
     {
       "path": "tests/e2e/positioning-modules.spec.ts",
@@ -21004,8 +21004,8 @@
     },
     {
       "path": "tests/e2e/social-wall.spec.ts",
-      "bytes": 12921,
-      "sha256": "8b0d2e66035e01628a01283568c943da21daedad5126c36986230a6d466d8455"
+      "bytes": 13232,
+      "sha256": "1f190f367c631a1d82b5ee66fbbd37d6b4b091d087721eefef38b6f1e3048902"
     },
     {
       "path": "tests/e2e/squad-invitations.spec.ts",
