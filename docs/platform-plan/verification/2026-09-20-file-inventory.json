@@ -2279,8 +2279,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
-      "bytes": 33508,
-      "sha256": "83fd30f2f82f95825733b9d73c1d8c684c54f6c6a678146a7b1e2278a6bfa7ce"
+      "bytes": 35781,
+      "sha256": "1e6812239fb22f477a832683246d391af4b29ea377e4dcf16988afae82375b08"
     },
     {
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
@@ -17564,8 +17564,8 @@
     },
     {
       "path": "modules/community/freedom.module.json",
-      "bytes": 12233,
-      "sha256": "ceda9e97bb623ea8145896b2c4c76ee0cd668c4422b837ebc90b71c8e0833a32"
+      "bytes": 12279,
+      "sha256": "6e5fc2292818057db0b018f474925f0bd0ffb38cc829d04bf4f47cd3f919792c"
     },
     {
       "path": "modules/community/github-history.ts",
@@ -20478,6 +20478,11 @@
       "sha256": "f0e038bda08d86df9fe1070af0c0ea90a659b9f15bd638d155dca45e876414f9"
     },
     {
+      "path": "tests/e2e/event-member-journey.spec.ts",
+      "bytes": 7176,
+      "sha256": "38f399b339b0611e5ad5f1b42e564a7887ea9b3dc72524bb270e830a13fed1e7"
+    },
+    {
       "path": "tests/e2e/event-outcomes.spec.ts",
       "bytes": 19700,
       "sha256": "a89f507507f34eadd8fb949c2fe1d446716f315ddb7353b76c2610fbc8546846"
@@ -20819,8 +20824,8 @@
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
-      "bytes": 2611,
-      "sha256": "b4610bef2316a3720b6c711a25ff10206b8bf26673bdcaf4a69da10f61c26aec"
+      "bytes": 3934,
+      "sha256": "79ec5dfdde451211897d2f2c913d1777fdd664865eda574ea05c47dd810e9c6b"
     },
     {
       "path": "tests/e2e/notification-bell-refresh.spec.ts",
