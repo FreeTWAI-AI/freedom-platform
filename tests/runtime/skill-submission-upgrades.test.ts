@@ -381,3 +381,31 @@ test('seed constraints reject a second open upgrade and a seed without a source'
     (error: any) => { assert.equal(error.code, '23514'); assert.equal(error.constraint, 'skill_submissions_seed_pair'); return true; },
   );
 });
+
+test('withdrawal removes both upgraded links without resurrecting the original publication', async t => {
+  mockGitHub(t,{'example/withdraw-upgrade':{id:9201}});
+  const owner=await login(),simple=await publishManual(owner,'https://github.com/example/withdraw-upgrade','可撤下的舊版');
+  const upgrade=(await api(`/me/skill-submissions/${simple.submission_id}/upgrade`,owner,{})).data;
+  const issued=await api(`/me/skill-submissions/${upgrade.submission_id}/grant`,owner,{},upgrade.aggregate_version);
+  const uploaded=await agent(`/skill-submissions/${upgrade.submission_id}`,issued.data.upload_grant.token,uploadBody('https://github.com/example/withdraw-upgrade','可撤下的完整版'));
+  assert.equal(uploaded.status,200,JSON.stringify(uploaded.data));
+  const ready=(await api(`/me/skill-submissions/${upgrade.submission_id}`,owner)).data;
+  const full=await api(`/me/skill-submissions/${upgrade.submission_id}/publish`,owner,{consent_to_share:true},ready.aggregate_version);
+  assert.equal(full.status,200,JSON.stringify(full.data));
+  const redirect=await app.request(origin+simple.public_path);
+  assert.equal(redirect.status,302);assert.equal(redirect.headers.get('location'),full.data.public_path);
+  assert.equal(redirect.headers.get('cache-control'),'no-store');
+  // Legacy stored bytes exercise the same anonymous image visibility fence.
+  const image=Buffer.from('synthetic retained illustration');
+  await pool.query('UPDATE skill_submissions SET image_bytes=$2 WHERE submission_id=$1',[upgrade.submission_id,image]);
+  const imagePath=`/api/v1/skill-submissions/${upgrade.submission_id}/illustration`;
+  assert.equal((await app.request(origin+imagePath)).status,200);
+  const project=(await api('/opensource/projects',owner)).data.items.find((item:any)=>item.project_id===simple.project_id);
+  const withdrawn=await api(`/opensource/projects/${project.project_id}/withdraw`,owner,{},project.aggregate_version);
+  assert.equal(withdrawn.status,200,JSON.stringify(withdrawn.data));
+  for(const path of [simple.public_path,full.data.public_path,`${simple.public_path}/SKILL.md`,`${full.data.public_path}/SKILL.md`,imagePath]) {
+    const missing=await app.request(origin+path);assert.equal(missing.status,404,path);assert.equal(missing.headers.get('location'),null);
+  }
+  assert.deepEqual((await api('/skill-submissions/published')).data.items,[]);
+  assert.equal((await app.request(origin+`/api/v1/me/skill-submissions/${upgrade.submission_id}/illustration`,{headers:{Cookie:owner.cookie}})).status,200,'original owner retains their historical image');
+});

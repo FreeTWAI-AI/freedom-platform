@@ -68,7 +68,7 @@ github-social member-reporting guild-presentation guild-supply guild-open-source
   files: Object.freeze(`audit-identity modules-beginners typed-line-breaks calm-experience
 member-connections-51 member-experience game-console instant-feedback member-directory
 member-settings-real member-settings member-todos mobile-install page-issue-recovery
-page-tools simple-social-experience shared-feedback-language audit-shell member-navigation-hierarchy workshop-design navigation-audit`.trim().split(/\s+/)
+page-tools simple-social-experience shared-feedback-language audit-shell member-navigation-hierarchy workshop-design navigation-audit platform-purpose`.trim().split(/\s+/)
     .map(name => `tests/e2e/${name}.spec.ts`).sort()),
 });
 

@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-11 release.production=31166e5230d8a2ba3b06e2429de103c98687711b release.staging=31166e5230d8a2ba3b06e2429de103c98687711b flag.production=true flag.staging=true repo_max_migration=164 applied_migration.production=164 applied_migration.staging=164 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-11 release.production=31166e5230d8a2ba3b06e2429de103c98687711b release.staging=31166e5230d8a2ba3b06e2429de103c98687711b flag.production=true flag.staging=true repo_max_migration=165 applied_migration.production=164 applied_migration.staging=164 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-11 紐約時間 R19 更新（operator 私有收據的去敏摘要）：production 與 staging 均已部署 #445 `31166e52`，與 reviewed `29649260` 同 tree、同 dist；包含先前已合併 #447。本輪追加 migration163／164，目前到164、ledger共163筆，022仍是唯一歷史缺號。
 
