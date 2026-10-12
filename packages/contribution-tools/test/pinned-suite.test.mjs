@@ -301,6 +301,7 @@ test('env', () => {
 });
   `);
 
+  await put(root, 'scripts/ci/guild-presentation-profile.test.mjs', await readFile(join(root, 'scripts/ci/select-affected-jobs.test.mjs'), 'utf8'));
   const result = await runPinnedSuite(root, 'ci.selector-unit');
   assert.equal(result.status, 'passed');
 });
@@ -329,6 +330,7 @@ test('Option checks', async (t) => {
   const root = await fixtureRoot(t);
   await put(root, 'scripts/ci/select-affected-jobs.test.mjs', "import { test } from 'node:test';\ntest('a', () => {});");
 
+  await put(root, 'scripts/ci/guild-presentation-profile.test.mjs', "import { test } from 'node:test';\ntest('guild', () => {});");
   const result1 = await runPinnedSuite(root, 'ci.selector-unit', { timeoutMs: 99999999 });
   assert.equal(result1.status, 'not_run');
   assert.equal(result1.reason, 'invalid_suite_timeout');

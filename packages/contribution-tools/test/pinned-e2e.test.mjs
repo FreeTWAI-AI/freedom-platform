@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir, symlink } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GUILD_PRESENTATION_PROFILE } from '../guild-presentation-profile.mjs';
 import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, GUIDE_DEFAULT_FILES, GUIDE_COMPOSITION_PROFILE, planE2eSelection } from '../pinned-e2e.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -547,4 +548,47 @@ test('CLI derives guide selection from clean host-bound integration and lists ev
     assert.ok(!JSON.stringify(result).includes('smoke'));
     assert.equal(invoke(['--root',root,'--profile','newcomer-guides']).status,2);
   });
+});
+
+
+test('Guild integration plan covers exactly the reviewed composition, contract and permission journeys', () => {
+  const files = [...GUILD_PRESENTATION_PROFILE.integrationFiles].sort();
+  const plan = planE2eSelection('guild-presentation', [...files, ...expectedFiles]);
+  assert.equal(plan.profile, 'guild-presentation');
+  assert.deepEqual(plan.expectedFiles, files);
+  assert.equal(plan.plan.length, 1);
+  assert.equal(planE2eSelection('guild-presentation', files.slice(1)).profile, 'full');
+  const results = report(files.map(path => suite(path.slice('tests/e2e/'.length), [['required scenario', 'expected']])));
+  const clean = () => [{id: 'default', exit_code: 0, evidence_sha256: 'a'.repeat(64), report: structuredClone(results),
+    listing: structuredClone(results), listing_exit_code: 0, listing_evidence_sha256: 'b'.repeat(64)}];
+  const check = passes => evaluateE2ePasses(files, passes, {rootDir, configFile, profile: 'guild-presentation'});
+  assert.equal(check(clean()).status, 'passed');
+  for (const mutate of [
+    passes => passes.pop(),
+    passes => passes.push(structuredClone(passes[0])),
+    passes => { passes[0].report.suites.pop(); passes[0].report.stats.expected--; },
+    passes => { passes[0].listing.suites.pop(); },
+    passes => { passes[0].listing_exit_code = 1; },
+    passes => { passes[0].exit_code = 1; },
+    passes => { const test=passes[0].report.suites[0].suites[0].suites[0].specs[0].tests[0]; Object.assign(test,state('skipped')); passes[0].report.stats.expected--; passes[0].report.stats.skipped++; },
+  ]) { const passes=clean();mutate(passes);assert.equal(check(passes).status,'failed'); }
+  assert.equal(evaluateE2ePasses(files.slice(1),clean(),{rootDir,configFile,profile:'guild-presentation'}).status,'failed');
+});
+
+
+test('Guild preview requires every listed case from both approved module files', () => {
+  const files=[...GUILD_PRESENTATION_PROFILE.previewFiles].sort();
+  const results=report(files.map(path=>suite(path.slice('modules/'.length), [['preview scenario','expected']])));
+  const clean=()=>[{id:'default',exit_code:0,evidence_sha256:'a'.repeat(64),report:structuredClone(results),
+    listing:structuredClone(results),listing_exit_code:0,listing_evidence_sha256:'b'.repeat(64)}];
+  const check=passes=>evaluateE2ePasses(files,passes,{rootDir,configFile,profile:'guild-preview'});
+  assert.equal(check(clean()).status,'passed');
+  for(const mutate of [
+    passes=>{passes[0].report.suites[0].file='../guild-supply/CatalogBlock.spec.ts';},
+    passes=>{passes[0].report.suites.pop();passes[0].report.stats.expected--;},
+    passes=>{passes[0].listing.suites.pop();},
+    passes=>{passes[0].report.config.forbidOnly=false;},
+    passes=>{passes[0].report.config.projects[0].testDir='/wrong';},
+  ]) {const passes=clean();mutate(passes);assert.equal(check(passes).status,'failed');}
+  assert.equal(evaluateE2ePasses([...files,'modules/other/WorksBlock.spec.ts'],clean(),{rootDir,configFile,profile:'guild-preview'}).status,'failed');
 });

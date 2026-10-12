@@ -7,12 +7,15 @@ on:
     types: [checks_requested]
 # Candidate CI is diagnostic; it cannot publish the operator's App-bound gate.
 # Only superseded PR runs are cancelled; queued merge candidates run independently.
-# verify always runs. source-integrity always runs inventory, the canonical preview
-# rebuild and diff, runtime-text drift, and the governance/publisher unit tests.
+# verify always runs. source-integrity preserves canonical contracts, runtime
+# text, immutable migrations, Git source identity, links and trusted unit tests.
+# Complete byte inventories and restored source trees are produced on main.
 # A pull request skips all heavy jobs only when the pinned selector proves a
 # docs-only change. Fixed frontend leaf profiles retain every runtime, browser
 # and static job, skipping only unrelated consumer/deployment checks. Unknown
-# paths or descriptor/owner/dependency drift retain full selection.
+# paths or descriptor/owner/dependency drift retain full selection. The two
+# reviewed guild leaves use their complete presentation lane plus static-worker,
+# only after proving the exact clean integration tree and dependency closure.
 # The exact generated manifest
 # docs/platform-plan/verification/2026-09-20-file-inventory.json may accompany
 # qualifying edits and is not itself allowlisted. No other docs/platform-plan path is exempt.
@@ -41,6 +44,7 @@ jobs:
       static_worker: ${{ steps.decision.outputs.static_worker }}
       governance_consumers: ${{ steps.decision.outputs.governance_consumers }}
       deploy_preflight: ${{ steps.decision.outputs.deploy_preflight }}
+      guild_presentation: ${{ steps.decision.outputs.guild_presentation }}
     steps:
       - name: Checkout the pinned selector
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -67,6 +71,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CANDIDATE_SHA: ${{ github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           node trusted-selector/scripts/ci/select-affected-jobs.mjs \
@@ -75,11 +80,14 @@ jobs:
             --repository "$GITHUB_WORKSPACE/candidate" \
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
+            --candidate "$CANDIDATE_SHA" \
             --pull-request "$PR_NUMBER" \
             --github-output "$GITHUB_OUTPUT"
   source-integrity:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      SOURCE_ARCHIVE_ROOT: ${{ runner.temp }}/freedom-source-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -97,7 +105,6 @@ jobs:
       - run: npm run contracts:build
       - run: git diff --exit-code -- contracts/preview/v1 packages/sdk
       - run: npm run check:runtime-text
-      - run: npm run verify:inventory
       - name: Checkout the pinned runner
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -112,6 +119,51 @@ jobs:
         run: |
           test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
           test -z "$(git -C .freedom/trusted status --porcelain)"
+      - name: Verify source identity, immutable migrations and local links
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CANDIDATE_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if ! git cat-file -e "$BASE_SHA^{commit}"; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          fi
+          mkdir -p .freedom/reports
+          python .freedom/trusted/scripts/ci/verify-source-boundaries.py \
+            --repository "$GITHUB_WORKSPACE" --base "$BASE_SHA" \
+            --candidate "$CANDIDATE_SHA" --head "$HEAD_SHA" --event "$EVENT_NAME" \
+            > .freedom/reports/source-boundaries.json
+      - run: python .freedom/trusted/scripts/ci/test_source_boundaries.py
+      - name: Archive and restore the complete main source
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          mkdir -m 700 "$SOURCE_ARCHIVE_ROOT"
+          trap 'rm -rf "$SOURCE_ARCHIVE_ROOT/restored"' EXIT
+          SOURCE_TREE=$(git rev-parse "$CANDIDATE_SHA^{tree}")
+          python .freedom/trusted/scripts/release-source-archive.py build \
+            --repository "$GITHUB_WORKSPACE" --source "$CANDIDATE_SHA" \
+            --expected-tree "$SOURCE_TREE" --output "$SOURCE_ARCHIVE_ROOT/source" \
+            > .freedom/reports/source-archive-build.json
+          SOURCE_INVENTORY=$(python -c 'import json; print(json.load(open(".freedom/reports/source-archive-build.json"))["inventory_sha256"])')
+          python .freedom/trusted/scripts/release-source-archive.py verify \
+            --archive "$SOURCE_ARCHIVE_ROOT/source/source.tar" \
+            --inventory "$SOURCE_ARCHIVE_ROOT/source/inventory.json" \
+            --source "$CANDIDATE_SHA" --expected-tree "$SOURCE_TREE" \
+            --expected-inventory "$SOURCE_INVENTORY" --restore-to "$SOURCE_ARCHIVE_ROOT/restored" \
+            > .freedom/reports/source-archive-restore.json
+      - name: Preserve the source verification and release archive
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-integrity-${{ github.sha }}
+          path: |
+            .freedom/reports/source-*.json
+            ${{ env.SOURCE_ARCHIVE_ROOT }}/source/
+          if-no-files-found: warn
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.selector-unit
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit
   # This required check always runs. source-integrity must succeed. A selected
@@ -120,7 +172,7 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    needs: [select, source-integrity, runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers, deploy-preflight]
+    needs: [select, source-integrity, runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers, deploy-preflight, guild-presentation]
     if: ${{ always() }}
     steps:
       - name: Checkout the pinned aggregate script
@@ -350,6 +402,75 @@ jobs:
           name: browser-selection-${{ github.sha }}
           path: .freedom/reports/pinned-e2e.json
           if-no-files-found: warn
+  guild-presentation:
+    runs-on: ubuntu-24.04
+    # Full candidates retain the comparison; proven guild leaves select this
+    # fixed lane and static-worker without unrelated runtime/browser jobs.
+    timeout-minutes: 25
+    needs: select
+    if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.guild_presentation == 'true') }}
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+        env:
+          POSTGRES_USER: freedom_local
+          POSTGRES_PASSWORD: local-development-only
+          POSTGRES_DB: fp_foundation_ci
+          # Disposable runner-only synthetic DB: low-privilege fixture LOGIN roles
+          # have no passwords. Never use this authentication mode outside CI.
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: '-c dynamic_shared_memory_type=mmap'
+        ports: ['127.0.0.1:5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U freedom_local -d fp_foundation_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://freedom_local:local-development-only@127.0.0.1:5432/fp_foundation_ci
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Same immutable PR integration / merge-group candidate in every job.
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run contracts:build
+      - run: npm run build
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - name: Check registration and build the isolated preview
+        run: |
+          npm run typecheck
+          node scripts/generate-guild-blocks.mjs --check
+          node node_modules/vite/bin/vite.js build --config apps/portal-web/guild-preview/vite.config.ts
+      - name: Run the fixed guild runtime, integration and preview cases
+        run: |
+          node .freedom/trusted/scripts/ci/run-guild-runtime.mjs
+          node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --guild-presentation --output .freedom/reports/guild-integration.json
+          node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --guild-preview --output .freedom/reports/guild-preview.json
+      - name: Preserve the guild comparison evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: guild-presentation-${{ github.sha }}
+          path: .freedom/reports/guild-*.json
+          if-no-files-found: warn
   static-worker:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -501,7 +622,8 @@ jobs:
           FREEDOM_CONSUMER_SOURCE_COMMIT: 91b943ac61e132fbbce72ea066cb2301aa065600
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.contracts-pytest
-      - run: npm run verify:inventory
+      # Source identity/SQL/link checks belong to the always-required
+      # source-integrity job; main also archives and restores the complete tree.
   # Selected preflight must succeed for verify. Enforcing this revision through
   # an installed workflow pin still requires its reviewed ruleset upgrade.
   deploy-preflight:

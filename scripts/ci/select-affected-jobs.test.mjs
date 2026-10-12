@@ -591,7 +591,8 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.match(on, /merge_group:\n/);
   assert.match(on, /push:\n/);
   assert.doesNotMatch(on, /\n\s+paths:/u);
-  assert.equal(text.includes('github.event.merge_group'), false);
+  assert.equal([...text.matchAll(/github\.event\.merge_group/g)].length, 1);
+  assert.ok(jobBlock(text, 'source-integrity').includes('github.event.merge_group.base_sha')); // baseline for immutable migrations, never a skip
   assert.match(text, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/u);
   for (const id of ['select', 'verify']) {
     const trusted = jobBlock(text, id);
@@ -668,7 +669,10 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   const consumers = jobBlock(text, 'governance-consumers');
   assert.match(consumers, /node \.freedom\/trusted\/scripts\/ci\/run-pinned-suite\.mjs --root \. --suite ci\.contracts-pytest/);
   assert.match(consumers, /node \.freedom\/trusted\/scripts\/ci\/run-pinned-suite\.mjs --root \. --suite ci\.pinned-pytest-integration/);
-  assert.match(consumers, /npm run verify:inventory/);
+  assert.doesNotMatch(text, /run: npm run verify:inventory/);
+  assert.match(integrity, /python \.freedom\/trusted\/scripts\/ci\/verify-source-boundaries\.py/);
+  assert.match(integrity, /python \.freedom\/trusted\/scripts\/release-source-archive\.py build/);
+  assert.match(integrity, /python \.freedom\/trusted\/scripts\/release-source-archive\.py verify/);
 
   assert.match(integrity, /--suite ci\.selector-unit/);
   assert.match(integrity, /--suite ci\.governance-unit/);
@@ -783,7 +787,7 @@ test('fixed frontend profiles retain complete runtime/browser/static jobs withou
   assertLeaf(leafDecision(FRONTEND_LEAF_PROFILES.flatMap(profile => profile.paths)));
   assertLeaf(leafDecision([FRONTEND_LEAF_PROFILES[0].paths[0], 'docs/development/ordinary.md', GENERATED_INVENTORY_PATH]));
   assert.deepEqual(FRONTEND_LEAF_JOBS, ['runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker']);
-  assert.equal(SELECTABLE_JOBS.length, 6);
+  assert.equal(SELECTABLE_JOBS.length, 7);
 });
 
 test('leaf selection refuses new/unmapped/auth/contract/descriptor/runtime-text and destructive paths', () => {
