@@ -2379,8 +2379,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
-      "bytes": 66956,
-      "sha256": "2d3df92cbd03282d2836970ba13fd48ca3fa7225895b3a75d1803dc104ef4027"
+      "bytes": 67057,
+      "sha256": "adb24209f796ad65fd35d87d70a55b293866011748a03d319362f7dbe0c1e156"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -20554,8 +20554,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-my-work.spec.ts",
-      "bytes": 130139,
-      "sha256": "3afa85298edf5ee0bf48dbc8581690e6c98d7299e19a5366ffa4ee987c8f2d2d"
+      "bytes": 131628,
+      "sha256": "4f34e75057464b685db8d308547699484f15de050cba983ac28e65e579bcbad6"
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",

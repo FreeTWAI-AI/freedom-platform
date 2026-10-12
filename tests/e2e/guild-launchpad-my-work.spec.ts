@@ -1304,7 +1304,31 @@ test('NP-003 failed first save recovers the same Work, 412 preserves production 
     const work = works.items[0];
     await page.getByLabel('核心訊息', { exact: true }).fill('衝突後仍須保留的訊息');
     await patchJson(page, `/tenants/${tenantId}/works/${work.work_id}`, { title: work.title, objective: '另一分頁更新摘要', progress: work.progress }, work.version);
-    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    // Delay the first fresh Work read after the 412. The old document is still
+    // present, but choosing it before this read completes would be overwritten
+    // by the pending conflict handler and leave the save button locked again.
+    let releaseFresh: () => void = () => undefined;
+    const heldFresh = new Promise<void>(resolve => { releaseFresh = resolve; });
+    const freshPath = `/api/v1/tenants/${tenantId}/works/${work.work_id}`;
+    let delayed = false;
+    await page.route(url => url.pathname === freshPath, async route => {
+      if (route.request().method() !== 'GET' || delayed) return route.fallback();
+      delayed = true;
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      await heldFresh;
+      await route.fulfill({response});
+    });
+    const freshRequested = page.waitForRequest(request => request.method() === 'GET'
+      && new URL(request.url()).pathname === freshPath, {timeout: 25_000});
+    try {
+      await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+      await freshRequested;
+      await expect(page.getByRole('button', { name: '保留我的製作草稿', exact: true })).toBeDisabled();
+      await expect(page.getByRole('button', { name: '改用伺服器製作版本', exact: true })).toBeDisabled();
+      await expect(page.getByText('正在重新讀取伺服器版本…', {exact: true})).toBeVisible();
+      await expect(page.getByLabel('核心訊息', { exact: true })).toHaveValue('衝突後仍須保留的訊息');
+    } finally { releaseFresh(); }
     await expect(page.getByRole('button', { name: '保留我的製作草稿', exact: true })).toBeEnabled();
     await expect(page.getByLabel('核心訊息', { exact: true })).toHaveValue('衝突後仍須保留的訊息');
     await page.getByRole('button', { name: '保留我的製作草稿', exact: true }).click();
