@@ -67,7 +67,7 @@ test('a visitor can read a guild launchpad without a session', async ({browser, 
   const page = await context.newPage();
   let releaseChunk: () => void = () => undefined;
   const chunkReleased = new Promise<void>(resolve => { releaseChunk = resolve; });
-  await page.route(/\/assets\/GuildLaunchpad-[^/]+\.js$/, async route => {
+  await page.route(/\/assets\/GuildLaunchpadPage-[^/]+\.js$/, async route => {
     await chunkReleased;
     await route.continue();
   });
@@ -226,7 +226,7 @@ test('a failed public launchpad chunk can return home and recover after reload',
   const context = await browser.newContext({baseURL, viewport: {width: 360, height: 800}});
   await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
   const page = await context.newPage();
-  const chunk = /\/assets\/GuildLaunchpad-[^/]+\.js$/;
+  const chunk = /\/assets\/GuildLaunchpadPage-[^/]+\.js$/;
   await page.route(chunk, route => route.abort());
   try {
     await page.goto(`/#guilds/${music}`);

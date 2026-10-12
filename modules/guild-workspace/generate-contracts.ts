@@ -2,6 +2,7 @@ import * as supplyCatalog from '../../contracts/guild-launchpad/v1/hosted-supply
 import { readFile, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { configSchema } from '../../contracts/guild-launchpad/v1/config.js';
+import { configSchema as assemblySchema } from '../../contracts/guild-launchpad/v2/config.js';
 import {
   BackfillInput, BackfillReport, ClassificationInput, GuildClassification, LeaveV2Input, PreferenceView, SetPreferenceInput, SwitchInput,
 } from '../../contracts/guild-launchpad/v1/guild-preferences.js';
@@ -221,4 +222,12 @@ for (const [bundleName, bundleDescription, defs] of bundles) {
     if (await readFile(path, 'utf8') !== bytes) throw new Error(`Generated ${bundleName} bundle is stale.`);
   } else await writeFile(path, bytes);
 }
-console.log(`${documents.length} guild launchpad schemas and ${bundles.length} bundle checked/generated. Structural shapes only; no identity, membership, capability, version, or quota authority.`);
+const assemblyPath = new URL('../../contracts/guild-launchpad/v2/launchpad-config.schema.json', import.meta.url);
+const assemblyBytes = JSON.stringify({$schema: 'https://json-schema.org/draft/2020-12/schema',
+  $id: 'https://freetwai.com/contracts/guild-launchpad/v2/launchpad-config',
+  ...inlineDef('launchpad-config/v2', assemblySchema, 'input', ['guild_key_match', 'content_and_url_bounds', 'unique_block_ids_orders_and_builtin_kinds', 'reviewed_block_versions', 'application_duplicate', 'canonical_size_limit']),
+}, null, 2) + '\n';
+if (process.argv.includes('--check')) {
+  if (await readFile(assemblyPath, 'utf8') !== assemblyBytes) throw new Error('Generated v2 launchpad config schema is stale.');
+} else await writeFile(assemblyPath, assemblyBytes);
+console.log(`${documents.length} v1 guild launchpad schemas, ${bundles.length} bundles and one v2 assembly schema checked/generated. Structural shapes only; no identity, membership, capability, version, or quota authority.`);
