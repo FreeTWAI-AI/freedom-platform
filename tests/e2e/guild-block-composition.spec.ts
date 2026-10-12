@@ -20,6 +20,27 @@ async function command(page: Page, path: string, body: unknown, version: string)
   }});
 }
 
+async function signOutHere(page: Page) {
+  const response = page.waitForResponse(value => new URL(value.url()).pathname === '/api/v1/auth/logout' && value.request().method() === 'POST');
+  await page.getByRole('button', {name: '設定', exact: true}).click();
+  await page.getByRole('menuitem', {name: '登出', exact: true}).click();
+  expect((await response).status()).toBe(200); await (await response).finished();
+}
+async function privateShowcase(page: Page, title: string) {
+  await page.evaluate(() => {window.location.hash = 'my-content';});
+  await page.getByRole('button', {name: '新增私人作品草稿', exact: true}).click();
+  const editor = page.getByRole('region', {name: '私人作品編輯', exact: true});
+  await editor.getByLabel('作品標題', {exact: true}).fill(title);
+  await editor.getByLabel('一句話介紹', {exact: true}).fill('公會區塊驗收的合成私人內容');
+  const saved = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/me/showcases' && response.request().method() === 'POST');
+  await editor.getByRole('button', {name: '儲存私人草稿', exact: true}).click();
+  const response = await saved; expect(response.status()).toBe(201);
+  const row = await response.json();
+  await editor.getByRole('button', {name: '回到內容清單', exact: true}).click();
+  await expect(page.getByRole('article', {name: `作品：${title}`, exact: true})).toBeVisible();
+  return row.showcase_id as string;
+}
+
 for (const sample of [
   {guild: 'guild_product_quality_supply', id: 'guild-block.supply-catalog.v1', title: '商品與供貨', empty: '目前沒有可讀取的供貨商品庫。', endpoint: '/api/v1/me/supply-catalogs'},
   {guild: 'guild_ai_vibe', id: 'guild-block.open-source-works.v1', title: '我的作品與開源分享', empty: '還沒有作品或技能投稿，可以先保存一份私人草稿。', endpoint: '/api/v1/me/content'},
@@ -82,6 +103,7 @@ for (const sample of [
     await page.getByRole('button', {name: '發布', exact: true}).click();
     await page.getByRole('button', {name: '確認發布', exact: true}).click();
     await expect(page.getByText(/已發布版本 \d+/)).toBeVisible();
+    const firstRevision = /已發布版本 (\d+)/.exec(await page.getByText(/已發布版本 \d+/).innerText())![1];
     await openGuildSection(page, sample.title);
     await expect(page.locator('.guild-launchpad-content > .guild-launchpad-block').getByRole('heading', {level: 2, name: sample.title, exact: true})).toBeVisible();
     await expect(page.getByText(sample.empty, {exact: true})).toBeVisible();
@@ -109,6 +131,107 @@ for (const sample of [
     await openGuildSection(page, sample.title);
     expect(response.status()).toBe(200); await response.finished();
     await expect(page.getByText(sample.empty, {exact: true})).toBeVisible();
+    if (sample.guild === 'guild_product_quality_supply') {
+      // Start from the published custom block, then return to that block's
+      // server-backed catalog entry rather than only checking an empty state.
+      const custom = page.locator('.guild-launchpad-content > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: sample.title, exact: true})});
+      await custom.getByRole('button', {name: '開始供貨設定', exact: true}).click();
+      const launch = page.getByRole('region', {name: '啟動應用', exact: true});
+      // Reuse the one tenant created by the dirty-work guard above.
+      await expect(launch.getByRole('button', {name: `組裝離開守門 ${id}・擁有者`, exact: true})).toBeVisible();
+      await launch.getByRole('button', {name: '產生啟動方案', exact: true}).click();
+      await launch.getByRole('button', {name: '確認啟動', exact: true}).click();
+      await launch.getByRole('button', {name: '設定供貨資料', exact: true}).click();
+      const catalogHash = new URL(page.url()).hash, catalogName = `區塊商品庫 ${id.slice(0, 8)}`;
+      const setup = page.getByRole('form', {name: '建立供貨商品庫', exact: true});
+      await setup.getByLabel('商品庫名稱', {exact: true}).fill(catalogName);
+      await setup.getByRole('button', {name: '建立供貨商品庫', exact: true}).click();
+      const product = page.getByRole('form', {name: '新增供貨商品', exact: true});
+      await product.getByLabel('商品名稱', {exact: true}).fill('區塊回訪茶杯');
+      await product.getByLabel('供貨單價（TWD）', {exact: true}).fill('300');
+      await product.getByLabel('庫存', {exact: true}).fill('10');
+      await product.getByRole('button', {name: '新增供貨商品', exact: true}).click();
+      await expect(page.locator('.hosted-store-product')).toContainText('區塊回訪茶杯');
+      await signOutHere(page); await login(page, email);
+      await page.goto(`/#guilds/${sample.guild}`);
+      await custom.getByRole('button', {name: catalogName, exact: true}).click();
+      await expect(page).toHaveURL(new RegExp(catalogHash + '$'));
+      await expect(page.locator('.hosted-store-product')).toContainText('區塊回訪茶杯');
+      const catalogs = await (await page.request.get('/api/v1/me/supply-catalogs?pagination=cursor')).json();
+      expect(catalogs.items).toHaveLength(1);
+      expect(catalogHash).toBe(`#stores/${catalogs.items[0].tenant_id}/${catalogs.items[0].instance_id}/supply`);
+      await page.goto(`/#guilds/${sample.guild}`);
+
+      // Exercise the actual v2 history UI; the finally restore is only cleanup.
+      await openGuildSection(page, '管理啟動台');
+      const changedMission = `第二版組裝 ${id}`;
+      await page.locator('#launchpad-mission').fill(changedMission);
+      await page.getByRole('button', {name: '儲存草稿', exact: true}).click();
+      await expect(page.getByText(/已儲存草稿版本/)).toBeVisible();
+      await page.getByRole('button', {name: '發布', exact: true}).click();
+      await page.getByRole('button', {name: '確認發布', exact: true}).click();
+      await expect(page.getByText(/已發布版本 \d+/)).toBeVisible();
+      await guest.reload(); await expect(guest.getByText(changedMission, {exact: true})).toBeVisible();
+      await page.getByRole('listitem').filter({hasText: new RegExp(`^版本 ${firstRevision} ·`)}).getByRole('button', {name: '回復到此版本', exact: true}).click();
+      await page.getByRole('dialog').getByLabel('回復原因', {exact: true}).fill('回到第一份可組裝版面');
+      await page.getByRole('button', {name: '確認回復', exact: true}).click();
+      await expect(page.locator('#launchpad-mission')).toHaveValue(original.body.mission_override ?? '');
+      const restored = await (await page.request.get(`/api/v1/public/guilds/${sample.guild}/launchpad`)).json();
+      expect(restored.config.body.schema_version).toBe('guild-launchpad.config/v2');
+      expect(restored.config.body.mission_override).toBe(original.body.mission_override);
+      await guest.reload(); await expect(guest.getByText(changedMission, {exact: true})).toHaveCount(0);
+      await openGuildSection(guest, sample.title);
+      await expect(block).toContainText('公會公開頁不會顯示私人資料');
+      expect(privateReads).toEqual([]);
+    } else {
+      const titleA = `本人甲私人作品 ${id.slice(0, 8)}`, titleB = `本人乙私人作品 ${id.slice(0, 8)}`;
+      const workId = await privateShowcase(page, titleA);
+      await page.evaluate(guild => {window.location.hash = `guilds/${guild}`;}, sample.guild);
+      await expect(page.getByText(titleA, {exact: true})).toBeVisible();
+      await page.getByRole('button', {name: '查看我的內容', exact: true}).click();
+      await page.getByRole('article', {name: `作品：${titleA}`, exact: true}).getByRole('link', {name: '編輯', exact: true}).click();
+      await expect(page).toHaveURL(new RegExp(`#my-content/showcases/${workId}$`));
+      await expect(page.getByLabel('作品標題', {exact: true})).toHaveValue(titleA);
+      await page.getByRole('button', {name: '回到內容清單', exact: true}).click();
+
+      const otherId = randomUUID(), otherEmail = `block-member-${otherId}@example.test`;
+      await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+        SELECT $1,$2,$3,'合成第二位區塊會員',password_hash,$4,false FROM users WHERE user_id=$5`, [otherId, DEMO_COMMUNITY, otherEmail, randomUUID(), DEMO_USERS[0].user_id]);
+      await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier) VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, otherId, sample.guild]);
+      await login(guest, otherEmail); await privateShowcase(guest, titleB);
+      let release = () => {}, settled = () => {}, intercepted = false, captured = false;
+      const gate = new Promise<void>(resolve => {release = resolve;}), finished = new Promise<void>(resolve => {settled = resolve;});
+      await page.route('**/api/v1/me/content', async route => {
+        if (intercepted) return route.continue();
+        intercepted = true;
+        try {
+          const response = await route.fetch();
+          expect(response.status()).toBe(200);
+          expect((await response.json()).items.some((item: {title: string}) => item.title === titleA)).toBe(true);
+          captured = true;
+          await gate;
+          // Logout may abort the old request; either discard or late delivery
+          // must keep account A's private data out of the new session.
+          await route.fulfill({response}).catch(() => undefined);
+        } finally {settled();}
+      });
+      try {
+        await page.evaluate(guild => {window.location.hash = `guilds/${guild}`;}, sample.guild);
+        await expect.poll(() => captured).toBe(true);
+        await signOutHere(page);
+        await page.getByRole('button', {name: '會員登入', exact: true}).click();
+        await page.getByLabel('電子郵件', {exact: true}).fill(otherEmail);
+        await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
+        await page.getByRole('button', {name: '登入', exact: true}).click();
+        await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible();
+        await page.evaluate(guild => {window.location.hash = `guilds/${guild}`;}, sample.guild);
+        await expect(page.getByText(titleB, {exact: true})).toBeVisible();
+        release(); await finished;
+        await expect(page.getByText(titleA, {exact: true})).toHaveCount(0);
+        await expect(page.getByText(titleB, {exact: true})).toBeVisible();
+        expect((await page.request.get(`/api/v1/me/showcases/${workId}`)).status()).toBe(404);
+      } finally {release(); await page.unroute('**/api/v1/me/content');}
+    }
     await page.setViewportSize({width: 390, height: 844});
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally {

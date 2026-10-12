@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import {hasLoneSurrogate, recommendedApplications, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
 import {parseConfig, convertV1, type Config, type ConfigView} from '../../../../contracts/guild-launchpad/v2/config';
 import {canReplaceLaunchpadLayout} from '../../../../modules/guild-workspace/launchpad-layout-guards';
@@ -288,12 +288,12 @@ function SupportLine({support}: {support: Config['support']}) {
   const href = httpsUrl(support.public_url);
   if (href) return <p><a href={href} rel="noopener noreferrer" target="_blank">{support.kind === 'guild_public_contact' ? '公會公開聯絡' : '平台說明'}</a></p>;
   if (support.kind === 'guild_public_contact') return <p>這個公會尚未提供公開聯絡方式。</p>;
-  return <p>需要協助時，請使用頁面右上角的頁面說明。</p>;
+  return <p>需要協助時，可開啟頁面工具中的「頁面說明」。</p>;
 }
 
-export function PublicGuildLaunchpad({client, guildKey, onLogin, blockLoaders = EMPTY_BLOCK_LOADERS}: {client: PortalClient; guildKey: string; onLogin: () => void; blockLoaders?: GuildBlockLoaders}) {
+export function PublicGuildLaunchpad({client, guildKey, onLogin, pageTools, blockLoaders = EMPTY_BLOCK_LOADERS}: {client: PortalClient; guildKey: string; onLogin: () => void; pageTools?: ReactNode; blockLoaders?: GuildBlockLoaders}) {
   return <div className="guild-launchpad-public">
-    <header><img src="/brand/freedom-workshop.webp" alt="自由工坊" width={1280} height={720}/><button type="button" className="btn btn-ghost" onClick={onLogin}>會員登入</button></header>
+    <header><img src="/brand/freedom-workshop.webp" alt="自由工坊" width={1280} height={720}/><div className="guild-launchpad-public-tools">{pageTools}<button type="button" className="btn btn-ghost" onClick={onLogin}>會員登入</button></div></header>
     <main><GuildLaunchpad client={client} guildKey={guildKey} mode="public" onLogin={onLogin} blockLoaders={blockLoaders}/></main>
   </div>;
 }

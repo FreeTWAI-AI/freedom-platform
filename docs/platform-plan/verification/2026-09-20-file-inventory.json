@@ -1724,8 +1724,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 61207,
-      "sha256": "78199ffc33808a70abad868a72c76a9f473737662e2715a23305b7b0c89014ee"
+      "bytes": 61619,
+      "sha256": "eb19ab5b575b4a94cc29dcbba8a5b950b5e200ca003fe75168ea23f2a4929e96"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -2354,13 +2354,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.css",
-      "bytes": 4236,
-      "sha256": "4a4be73b92512ff6357ee946fa20afa4d680e7871a0ecd073ae0daef9b5e59f6"
+      "bytes": 4371,
+      "sha256": "68d61829116fc878f4ab94ca69a8e480475fc87ac29e5de03d4c6fbd6d915045"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.tsx",
-      "bytes": 58593,
-      "sha256": "49a08a6cb8a46fdcbb2adaf0d71ef94e6d56c3e198ec7a23061170a9df0ab2fd"
+      "bytes": 58711,
+      "sha256": "636e4aae82b0ca5b232b9ec5a42c5c62e524a0a920fa7768f2843165b2add602"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadApplications.css",
@@ -20534,8 +20534,8 @@
     },
     {
       "path": "tests/e2e/guild-block-composition.spec.ts",
-      "bytes": 10138,
-      "sha256": "bee1bc206c1c0ad54dca8c03618d67c1cba1126a8e9c13cc0c478f0a4c7081bc"
+      "bytes": 19730,
+      "sha256": "b663565fec377ea28222bb76065a3cbde2240cf450b595d964425334bba369db"
     },
     {
       "path": "tests/e2e/guild-category-preferences.spec.ts",
@@ -20564,8 +20564,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 18072,
-      "sha256": "8322cd25b3854ea87a8cff580f84b3da71306562176311cd226d3cd53dd9bc2b"
+      "bytes": 27329,
+      "sha256": "47c5089c0182ec965b927981f54fcd1bc76e359374c8b21bdcd2b50af6a4c8e8"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",
