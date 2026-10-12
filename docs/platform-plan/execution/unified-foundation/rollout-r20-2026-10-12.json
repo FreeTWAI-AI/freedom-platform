@@ -1,0 +1,857 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-12T01:03:38.417724+00:00",
+  "status": "complete",
+  "scope": "Reviewed #449 / #234: suppliers enable and stop unpaid inventory reservations in their own supply catalog, without opening a retail store; existing orders remain readable and cancellable.",
+  "source": {
+    "release": "72236f58334719010922ac18483471c0a66bf578",
+    "reviewedHead": "a8694fef6c09cad517c7ccfb2e17c13bab10415f",
+    "base": "31166e5230d8a2ba3b06e2429de103c98687711b",
+    "tree": "6b5a4ede7ffe216c96b6d556a1dbc9d96cd204e6",
+    "trustedPin": "dc2f5ba8e003d2ae1f54a2965133e2e979d9d809",
+    "verifyRun": 38182295971,
+    "verifyAttempt": 1,
+    "codeqlRun": 38182293787,
+    "reviewId": 5485388122,
+    "mergeMethod": "protected squash with reviewed source tree equality"
+  },
+  "source_verification": {
+    "pull_request": 449,
+    "required_jobs_passed": 14,
+    "reviewed_tree_equals_merged_tree": true,
+    "main_verify": {
+      "at": "2026-10-12T00:13:06.186982+00:00",
+      "head": "72236f58334719010922ac18483471c0a66bf578",
+      "conclusion": "success",
+      "naturalPushRun": true,
+      "verifyRun": 38184753138,
+      "codeqlRun": 38184753249,
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38184753138",
+      "jobs": [
+        {
+          "name": "select",
+          "conclusion": "success"
+        },
+        {
+          "name": "source-integrity",
+          "conclusion": "success"
+        },
+        {
+          "name": "ui-e2e",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy-preflight",
+          "conclusion": "success"
+        },
+        {
+          "name": "static-worker",
+          "conclusion": "success"
+        },
+        {
+          "name": "governance-consumers",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 2)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 3)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 5)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 0)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 4)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 1)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-aggregate",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify",
+          "conclusion": "success"
+        }
+      ]
+    },
+    "independent_human_review": false,
+    "review_boundary": "Approver disclosed participation in the same AI workflow"
+  },
+  "environments": {
+    "staging": {
+      "observed_at": "2026-10-12T00:01:09.701Z",
+      "release": "72236f58334719010922ac18483471c0a66bf578",
+      "worker_version": "22d39adc-5805-4d85-b068-fa9ae0f3807d",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "72236f58334719010922ac18483471c0a66bf578",
+        "cache_control_no_store": true
+      },
+      "single_version": true,
+      "public_smoke": {
+        "at": "2026-10-12T00:01:21.264Z",
+        "target": "staging",
+        "release": "72236f58334719010922ac18483471c0a66bf578",
+        "status": "passed",
+        "checks": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "failure": null
+      },
+      "github_deployment": {
+        "at": "2026-10-12T01:03:37.585795+00:00",
+        "environment": "staging-next",
+        "sha": "72236f58334719010922ac18483471c0a66bf578",
+        "deploymentId": 7004299880,
+        "statusId": 19619694892,
+        "state": "success",
+        "environmentUrl": "https://staging.freetwai.com/"
+      },
+      "schema": {
+        "verificationMode": "unchanged_schema_readonly",
+        "at": "2026-10-12T00:00:38.236Z",
+        "applied": [],
+        "lastApplied": "164_hosted_supply_catalogs.sql",
+        "ledgerCount": 163,
+        "policiesPreserved": true,
+        "rlsTables": 33,
+        "rlsPolicies": 46
+      },
+      "floor": {
+        "minimumSchema": 164,
+        "capability": "commerce.hosted-supply-catalog.v1",
+        "retainedCapabilities": [
+          "commerce.hosted-inventory-reservation.v1"
+        ],
+        "retainAfterAdmissionOff": true,
+        "pre164WorkerRollbackValid": false,
+        "restoreQuarantineRequired": true
+      },
+      "settings": {
+        "otherBindingsAndVarsPreserved": true,
+        "temporaryHostedPauseRestored": true,
+        "existingTotpKeyPreserved": true,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true"
+        },
+        "reservationsEnabled": true,
+        "gcEnabled": false
+      }
+    },
+    "production": {
+      "observed_at": "2026-10-12T00:36:23.867Z",
+      "release": "72236f58334719010922ac18483471c0a66bf578",
+      "worker_version": "dca72b99-5cfc-47b7-af55-1c9143c9fc4d",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "72236f58334719010922ac18483471c0a66bf578",
+        "cache_control_no_store": true
+      },
+      "single_version": true,
+      "public_smoke": {
+        "at": "2026-10-12T00:36:34.810Z",
+        "target": "next",
+        "release": "72236f58334719010922ac18483471c0a66bf578",
+        "status": "passed",
+        "checks": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "failure": null
+      },
+      "github_deployment": {
+        "at": "2026-10-12T01:03:38.410717+00:00",
+        "environment": "next",
+        "sha": "72236f58334719010922ac18483471c0a66bf578",
+        "deploymentId": 7004300035,
+        "statusId": 19619695257,
+        "state": "success",
+        "environmentUrl": "https://freetwai.com/"
+      },
+      "schema": {
+        "verificationMode": "unchanged_schema_readonly",
+        "at": "2026-10-12T00:35:51.123Z",
+        "applied": [],
+        "lastApplied": "164_hosted_supply_catalogs.sql",
+        "ledgerCount": 163,
+        "policiesPreserved": true,
+        "rlsTables": 33,
+        "rlsPolicies": 46
+      },
+      "floor": {
+        "minimumSchema": 164,
+        "capability": "commerce.hosted-supply-catalog.v1",
+        "retainedCapabilities": [
+          "commerce.hosted-inventory-reservation.v1"
+        ],
+        "retainAfterAdmissionOff": true,
+        "pre164WorkerRollbackValid": false,
+        "restoreQuarantineRequired": true
+      },
+      "settings": {
+        "otherBindingsAndVarsPreserved": true,
+        "temporaryHostedPauseRestored": true,
+        "existingTotpKeyPreserved": true,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true"
+        },
+        "reservationsEnabled": true,
+        "gcEnabled": false
+      }
+    }
+  },
+  "backups": {
+    "staging": [
+      {
+        "label": "before-rollout",
+        "status": "passed",
+        "sourceRelease": "31166e5230d8a2ba3b06e2429de103c98687711b",
+        "operatorSource": "72236f58334719010922ac18483471c0a66bf578",
+        "createdAt": "2026-10-11T23:47:42.020Z",
+        "setId": "effcc76d-de20-4572-86b3-c9316f9ab7be",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "81b95403a0d4243cb39a4c4592e5f88f369ce72f92cd9c81cb77b41b2a20f7d1",
+        "dumpSha256": "7d3b262884d33d3aaf158e23820d9381adfdc8a1af0540eba4559af690043929",
+        "diskRestore": true
+      },
+      {
+        "label": "after-rollout",
+        "status": "passed",
+        "sourceRelease": "72236f58334719010922ac18483471c0a66bf578",
+        "operatorSource": "72236f58334719010922ac18483471c0a66bf578",
+        "createdAt": "2026-10-12T00:07:54.933Z",
+        "setId": "010d0653-8e94-4730-ab52-3ad412d08961",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "f1e643a2266fcee4790540dcd41106ce9307b76a1ece745ff6ba09827fd5a288",
+        "dumpSha256": "351b915d846db37fb852bec3c17c14790177760e0f864be8a0e5c923fa4aeaf6",
+        "diskRestore": true
+      }
+    ],
+    "production": [
+      {
+        "label": "before-rollout",
+        "status": "passed",
+        "sourceRelease": "31166e5230d8a2ba3b06e2429de103c98687711b",
+        "operatorSource": "72236f58334719010922ac18483471c0a66bf578",
+        "createdAt": "2026-10-12T00:23:41.799Z",
+        "setId": "40712375-f2cf-43a1-8f1a-8e57c856307f",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "633420cedf76c3a535f0069cc6b3ce616d0029663454a764cd3269cfdd68c0ba",
+        "dumpSha256": "ed6cddd9a65d8105be965f3c616f319d2571167dc20012398f8a60073d8f0a1e",
+        "diskRestore": true
+      },
+      {
+        "label": "after-rollout",
+        "status": "passed",
+        "sourceRelease": "72236f58334719010922ac18483471c0a66bf578",
+        "operatorSource": "72236f58334719010922ac18483471c0a66bf578",
+        "createdAt": "2026-10-12T00:52:48.281Z",
+        "setId": "81f53e09-c492-4e5e-a353-7674b95d5c66",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "57da2bc2c326ab19550adf5ab4da32849ee278cb5fc81af1b9365f486de1bcdb",
+        "dumpSha256": "79a2c25d3975eb136a6a68698d04978cebe1c9de00f3c25d7064f9769a2766f7",
+        "diskRestore": true
+      }
+    ]
+  },
+  "backup_failed_attempts": [
+    {
+      "environment": "production",
+      "setId": "e9271432-1720-465d-8fea-e06ac4ed125b",
+      "phase": "after-rollout",
+      "stage": "capture",
+      "code": "daily_backup_phase_failed",
+      "cleanupVerified": true,
+      "restore": "not_verified",
+      "remoteReadback": "not_verified",
+      "exactCause": "unknown",
+      "retry": "Same pinned adapter, no redeployment or weakened timeout; successful replacement set 81f53e09-c492-4e5e-a353-7674b95d5c66."
+    }
+  ],
+  "staging_journey": {
+    "at": "2026-10-12T00:04:24.339Z",
+    "release": "72236f58334719010922ac18483471c0a66bf578",
+    "status": "passed",
+    "checks": [
+      {
+        "name": "exact_merged_source",
+        "passed": true
+      },
+      {
+        "name": "one_supplier_product",
+        "passed": true
+      },
+      {
+        "name": "edit_keeps_original_product_and_stock",
+        "passed": true
+      },
+      {
+        "name": "private_terms_not_offered",
+        "passed": true
+      },
+      {
+        "name": "independent_retailer_publication_200",
+        "passed": true
+      },
+      {
+        "name": "retail_price_and_private_terms_boundary",
+        "passed": true
+      },
+      {
+        "name": "independent_retailer_publication_200",
+        "passed": true
+      },
+      {
+        "name": "retail_price_and_private_terms_boundary",
+        "passed": true
+      },
+      {
+        "name": "supply_catalog_not_a_retail_store",
+        "passed": true
+      },
+      {
+        "name": "retail_never_activated",
+        "passed": true
+      },
+      {
+        "name": "supplier_has_only_supply_guild",
+        "passed": true
+      },
+      {
+        "name": "no_slug_publication_or_implicit_reservations",
+        "passed": true
+      },
+      {
+        "name": "no_supplier_publication_history",
+        "passed": true
+      },
+      {
+        "name": "single_source_stock",
+        "passed": true
+      },
+      {
+        "name": "cross_tenant_private_cost_denied",
+        "passed": true
+      },
+      {
+        "name": "anonymous_private_cost_denied",
+        "passed": true
+      },
+      {
+        "name": "cross_tenant_write_denied",
+        "passed": true
+      },
+      {
+        "name": "consent_without_supplier_opt_in_refused",
+        "passed": true
+      },
+      {
+        "name": "supplier_explicit_ui_opt_in_creates_real_hold",
+        "passed": true
+      },
+      {
+        "name": "supplier_reads_own_order_lines",
+        "passed": true
+      },
+      {
+        "name": "fresh_login_reads_existing_order_with_supplier_opt_in_off",
+        "passed": true
+      },
+      {
+        "name": "buyer_cancel_releases_supplier_stock",
+        "passed": true
+      },
+      {
+        "name": "fresh_login_recovers_same_catalog",
+        "passed": true
+      },
+      {
+        "name": "supplier_no_horizontal_overflow_light",
+        "passed": true
+      },
+      {
+        "name": "supplier_no_horizontal_overflow_dark",
+        "passed": true
+      },
+      {
+        "name": "supplier_no_horizontal_overflow_versefolk",
+        "passed": true
+      },
+      {
+        "name": "repricing_requires_new_consent_and_revocation_blocks_update",
+        "passed": true
+      },
+      {
+        "name": "supplier_withdraws_original_offer",
+        "passed": true
+      },
+      {
+        "name": "no_browser_page_errors",
+        "passed": true
+      },
+      {
+        "name": "owned_accounts_inactive",
+        "passed": true
+      },
+      {
+        "name": "owned_tenants_archived",
+        "passed": true
+      },
+      {
+        "name": "owned_stock_unreserved",
+        "passed": true
+      },
+      {
+        "name": "owned_supply_withdrawn",
+        "passed": true
+      }
+    ],
+    "failure": null,
+    "cleanupVerified": true,
+    "ordinaryNewMemberUI": true,
+    "existingSyntheticOfficer": true,
+    "authorizationFixtureWrites": false,
+    "cleanupAdministrativeWrites": true,
+    "realUserAdoption": false,
+    "retailRequired": false,
+    "reservationAdmissionChanged": false,
+    "syntheticOwnerOptInChangedThroughUI": true,
+    "unpaidReservationCancelled": true
+  },
+  "production_authenticated_smoke": {
+    "at": "2026-10-12T00:36:46.339Z",
+    "release": "72236f58334719010922ac18483471c0a66bf578",
+    "status": "passed",
+    "checks": [
+      {
+        "name": "reviewed_source_deployed",
+        "passed": true
+      },
+      {
+        "name": "register_201",
+        "passed": true
+      },
+      {
+        "name": "new_member_onboarding_required",
+        "passed": true
+      },
+      {
+        "name": "onboarding_directory_200",
+        "passed": true
+      },
+      {
+        "name": "synthetic_onboarding_guild",
+        "passed": true
+      },
+      {
+        "name": "ordinary_onboarding_200",
+        "passed": true
+      },
+      {
+        "name": "private_tenant_201",
+        "passed": true
+      },
+      {
+        "name": "supply_catalog_list_200_empty",
+        "passed": true
+      },
+      {
+        "name": "retail_list_remains_empty",
+        "passed": true
+      },
+      {
+        "name": "list_0_first_page_200",
+        "passed": true
+      },
+      {
+        "name": "list_0_invalid_cursor_422",
+        "passed": true
+      },
+      {
+        "name": "list_0_inaccessible_404",
+        "passed": true
+      },
+      {
+        "name": "list_1_first_page_200",
+        "passed": true
+      },
+      {
+        "name": "list_1_invalid_cursor_422",
+        "passed": true
+      },
+      {
+        "name": "list_1_inaccessible_404",
+        "passed": true
+      },
+      {
+        "name": "logout_200",
+        "passed": true
+      },
+      {
+        "name": "supply_list_revoked_401",
+        "passed": true
+      },
+      {
+        "name": "list_0_revoked_401",
+        "passed": true
+      },
+      {
+        "name": "list_1_revoked_401",
+        "passed": true
+      },
+      {
+        "name": "owned_account_inactive",
+        "passed": true
+      },
+      {
+        "name": "owned_sessions_revoked",
+        "passed": true
+      },
+      {
+        "name": "owned_tenant_archived",
+        "passed": true
+      }
+    ],
+    "failure": null,
+    "syntheticAccountDeactivated": true,
+    "syntheticTenantArchived": true,
+    "existingMemberPermissionsChanged": false,
+    "syntheticInternMembershipEnded": true,
+    "passwordOrSessionRecorded": false
+  },
+  "limitations": [
+    "Staging uses ordinary synthetic member accounts and an existing synthetic guild officer. Production uses selected HTTP checks. No independent human review, merchant adoption, payment or fulfilment acceptance is claimed.",
+    "T-047 post-restore authorization reconciliation and second-operator acceptance remain incomplete; restores stay isolated.",
+    "Guild extension samples, proportionate CI installation, storefront changes, open-source withdrawal and event previews are separate candidates, not part of this deployed release."
+  ],
+  "backup_operator": {
+    "source": "72236f58334719010922ac18483471c0a66bf578",
+    "runtime_pins": {
+      "staging": "72236f58334719010922ac18483471c0a66bf578",
+      "production": "72236f58334719010922ac18483471c0a66bf578"
+    },
+    "wrapper_sha256": "2fb0e8f2582e1e0d9a0ad4667aa93a409762fd267afc5646dee2371e301edf4b",
+    "adapter_sha256": "17b805bbc6b35a2edcabf22ef6dbe4080802cd3eedd32558c5e70fb3c2a1c419",
+    "schedules_unchanged": true,
+    "gc_enabled": false
+  }
+}

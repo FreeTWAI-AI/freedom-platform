@@ -96,7 +96,9 @@
     "tests/e2e/workshop-design.spec.ts",
     "tests/e2e/navigation-audit.spec.ts",
     "tests/e2e/platform-purpose.spec.ts",
-    "tests/e2e/audit-skills.spec.ts"
+    "tests/e2e/audit-skills.spec.ts",
+    "apps/portal-web/src/modules/GuildWorkspace.tsx",
+    "tests/e2e/guild-workspace.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],
