@@ -18989,8 +18989,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-databases.mjs",
-      "bytes": 9564,
-      "sha256": "c85267c13c46b99328a384529f3f1e576cb140b2eb070ea332721e86a49a7f5e"
+      "bytes": 12706,
+      "sha256": "158d6318e408e5bbfbcd8b0ceb5755d87d2b0e31f55fbb4a8600d2dc921b0bf9"
     },
     {
       "path": "packages/contribution-tools/runtime-file-weights.mjs",
@@ -19221,6 +19221,11 @@
       "path": "packages/contribution-tools/test/reconcile-issue-closures.test.mjs",
       "bytes": 9213,
       "sha256": "79a2a04180d42bad40229a4abe6898fe07d3a7b515e6714ed65d4ff78934f98c"
+    },
+    {
+      "path": "packages/contribution-tools/test/runtime-cleanup-diagnostics.test.mjs",
+      "bytes": 5652,
+      "sha256": "9f3e071a89049059e01a1cf4e4d93bd721de57572d306cca72aa355cb71809e8"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
@@ -20279,8 +20284,8 @@
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
-      "bytes": 18716,
-      "sha256": "bbea2239ffeb31c50a5a0231edf1af2d925bded9cbaf263951ca14fe64153b8f"
+      "bytes": 20060,
+      "sha256": "c6bf298ee1e8506a3fb1994b7a69e42918da547ce6626c517076f7908568a0c9"
     },
     {
       "path": "tests/contribution-tools/runtime-union.integration.test.mjs",

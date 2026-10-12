@@ -1,6 +1,29 @@
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
+import fs from 'node:fs';
+
+// Only bounded, reviewed vocabulary reaches CI logs. Never serialize errors,
+// connection URLs, database names, SQL, or server detail/message fields.
+export function runtimeCleanupDiagnostic(phase, result, error, elapsedMs) {
+  const phases = ['owner_close', 'cleaner_connect', 'cleaner_identity', 'owner_stop',
+    'database_owner', 'database_stop', 'database_stop_readback', 'drop',
+    'cleaner_close', 'verifier_connect', 'verifier_identity', 'cleaner_stop', 'absence', 'verifier_close'];
+  const results = ['unknown_ack', 'rejected', 'failed', 'unverified', 'verified_absent', 'no_owned_names'];
+  const codes = ['cleanup_deadline', 'cleanup_identity', 'owner_backend_unsettled',
+    'database_backend_unsettled', 'ownership_mismatch', 'cleaner_identity_missing',
+    'verification_budget_exhausted', 'database_present'];
+  const sqlstates = ['57014', '57P01', '55006', '42501', '3D000', '08006', '08003', '53300', '53200', '58030'];
+  const messages = {'Query read timeout': 'query_read_timeout',
+    'Connection terminated unexpectedly': 'connection_terminated',
+    'Connection terminated': 'connection_terminated', 'timeout expired': 'connection_timeout'};
+  const code = error == null ? 'none' : sqlstates.includes(error.code) ? error.code
+    : codes.includes(error.message) ? error.message
+    : Object.hasOwn(messages, error.message) ? messages[error.message] : 'unclassified';
+  return {event: 'runtime_database_cleanup', phase: phases.includes(phase) ? phase : 'unknown',
+    result: results.includes(result) ? result : 'unverified', code,
+    elapsed_ms: Number.isFinite(elapsedMs) ? Math.max(0, Math.min(20000, Math.floor(elapsedMs))) : 0};
+}
 
 // Admission checks are not proof that a database is disposable. Its operator
 // must provision an isolated test-only server; this library never discovers one.
@@ -53,7 +76,16 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
     // One absolute 20s budget, inside the suite's unchanged 24s cleanup reserve.
     // In particular, DROP may wait for a checkpoint; it must not inherit the
     // short metadata-query timeout or gain an unbounded per-database budget.
-    const deadline = performance.now() + 20_000;
+    const started = performance.now();
+    const deadline = started + 20_000;
+    let phase = 'owner_close';
+    const diagnostic = (result, error) => {
+      // A tiny synchronous fd write makes EPIPE catchable here; stream.write
+      // can emit an uncaught asynchronous error after returning successfully.
+      // Logging must never change cleanup success, failure, or its deadline.
+      try { fs.writeSync(2, JSON.stringify(runtimeCleanupDiagnostic(phase, result, error, performance.now() - started)) + '\n'); }
+      catch { /* A closed diagnostic stream cannot change cleanup semantics. */ }
+    };
     const remaining = () => Math.floor(deadline - performance.now());
     async function boundedQuery(c, text, values = [], maximum = 2000) {
       const milliseconds = Math.min(maximum, remaining() - 100);
@@ -81,20 +113,23 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
     // CREATE may commit with an unknown ACK. Its exact nonce-bound owner must
     // stop before we consider any pre-registered name on a fresh connection.
     await close(client, Math.min(1000, remaining()));
-    if (!names.length) return true;
+    if (!names.length) { diagnostic('no_owned_names'); return true; }
     const cleanupApplication = prefix + '_cleanup';
     const cleaner = connection(cleanupApplication, { connectionTimeoutMillis: Math.max(1, Math.min(2000, remaining())) });
     let okay = true, cleanerPid;
     try {
-      await cleaner.connect();
-      cleanerPid = await identity(cleaner);
-      await stop(cleaner, ownerPid, ownerApplication);
+      phase = 'cleaner_connect'; await cleaner.connect();
+      phase = 'cleaner_identity'; cleanerPid = await identity(cleaner);
+      phase = 'owner_stop'; await stop(cleaner, ownerPid, ownerApplication);
       for (const [index, name] of names.entries()) {
+        phase = 'database_owner';
         const found = await boundedQuery(cleaner, 'SELECT pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=$1', [name]);
         if (!found.rows.length) continue;
-        if (found.rows[0].owner !== owner) { okay = false; continue; }
+        if (found.rows[0].owner !== owner) { okay = false; diagnostic('rejected', Error('ownership_mismatch')); continue; }
+        phase = 'database_stop';
         const stopped = await boundedQuery(cleaner, 'SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()', [name]);
         if (stopped.rows.some(row => row.stopped !== true)) {
+          phase = 'database_stop_readback';
           const live = await boundedQuery(cleaner, 'SELECT 1 FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()', [name]);
           if (live.rowCount) throw Error('database_backend_unsettled');
         }
@@ -102,24 +137,32 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
         // reserving four seconds for fresh reconciliation. Disk deletion can
         // exceed six seconds even when the checkpoint has already completed.
         const dropBudget = Math.floor((remaining() - 4000) / (names.length - index));
+        phase = 'drop';
         try { await boundedQuery(cleaner, `DROP DATABASE ${quote(name)}`, [], dropBudget); }
-        catch { /* Unknown DROP acknowledgement requires fresh reconciliation. */ }
+        catch (error) { diagnostic('unknown_ack', error); /* Fresh reconciliation is still required. */ }
       }
-    } catch { okay = false; }
+    } catch (error) { okay = false; diagnostic('failed', error); }
+    phase = 'cleaner_close';
     await close(cleaner, Math.min(1000, remaining()));
     // Never equate an ACK (or its absence) to proof of deletion. Settle the
     // exact cleanup backend, then positively verify every owned name absent.
     // An identity/ownership failure above cannot be converted into success.
-    if (!okay || !cleanerPid || remaining() <= 1000) return false;
+    if (!okay || !cleanerPid || remaining() <= 1000) {
+      diagnostic('unverified', Error(!okay ? 'unclassified' : !cleanerPid ? 'cleaner_identity_missing' : 'verification_budget_exhausted'));
+      return false;
+    }
     const verifier = connection(prefix + '_verify', { connectionTimeoutMillis: Math.min(2000, remaining()) });
     try {
-      await verifier.connect();
-      await identity(verifier);
-      await stop(verifier, cleanerPid, cleanupApplication);
+      phase = 'verifier_connect'; await verifier.connect();
+      phase = 'verifier_identity'; await identity(verifier);
+      phase = 'cleaner_stop'; await stop(verifier, cleanerPid, cleanupApplication);
+      phase = 'absence';
       const found = await boundedQuery(verifier, 'SELECT datname FROM pg_database WHERE datname=ANY($1)', [names]);
-      return found.rowCount === 0 && remaining() > 0;
-    } catch { return false; }
-    finally { await close(verifier, Math.min(1000, remaining())); }
+      const verified = found.rowCount === 0 && remaining() > 0;
+      diagnostic(verified ? 'verified_absent' : 'unverified', verified ? undefined : Error(found.rowCount ? 'database_present' : 'cleanup_deadline'));
+      return verified;
+    } catch (error) { diagnostic('failed', error); return false; }
+    finally { phase = 'verifier_close'; await close(verifier, Math.min(1000, remaining())); }
   }
 
   async function provisionQuery(text, values = [], maximum = 2000) {
