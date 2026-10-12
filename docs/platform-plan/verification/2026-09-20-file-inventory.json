@@ -20149,8 +20149,8 @@
     },
     {
       "path": "scripts/ci/guild-presentation-profile.test.mjs",
-      "bytes": 8115,
-      "sha256": "acd160554644ec4503799fde8381daaedfffc2d4825075e036b4601885b8c555"
+      "bytes": 8338,
+      "sha256": "7b78caf3cf25de4a601d7cb7f4c89f5fe3e963bd2e22e3fab41b60f66c263358"
     },
     {
       "path": "scripts/ci/native-cli-audit-readback.mjs",

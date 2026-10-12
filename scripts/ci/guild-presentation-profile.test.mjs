@@ -77,15 +77,19 @@ test('real clean integration selects the fixed guild lane and aggregate requires
 });
 
 test('new source imports cannot preserve a falsely unchanged descriptor graph',t=>{
-  const args=integration(t,"import '../../modules/community/service';\n");
-  assert.equal(collectRepositoryDecision(args).mode,'full');
-  assert.equal(collectRepositoryDecision(args).reason,'guild_source_dependencies_unproven');
+  for(const extra of ["import '../../modules/community/service';\n",
+    "export * from // additional source dependency\n '../../apps/portal-web/src/api';\n"]){
+    const args=integration(t,extra);
+    assert.equal(collectRepositoryDecision(args).mode,'full');
+    assert.equal(collectRepositoryDecision(args).reason,'guild_source_dependencies_unproven');
+  }
 });
 
 test('reviewed source import boundaries fail closed on dynamic or unfamiliar dependencies',()=>{
   for(const path of Object.keys(GUILD_PRESENTATION_IMPORTS)){
     const source=readFileSync(join(root,path),'utf8');assert.equal(guildPresentationImportsProven(path,source),true,path);
-    for(const extra of ["\nimport('new-package')", "\nrequire('new-package')", "\nexport {foo} from /* unfamiliar */ 'new-package'", "\nnew Function('return 1')"]){
+    for(const extra of ["\nimport('new-package')", "\nrequire('new-package')", "\nexport {foo} from /* unfamiliar */ 'new-package'",
+      "\nexport * from // additional source dependency\n '../../apps/portal-web/src/api';", "\nnew Function('return 1')"]){
       assert.equal(guildPresentationImportsProven(path,source+extra),false);
     }
     assert.equal(guildPresentationImportsProven(path,source.replace("from 'react'", "from 'new-package'")),false);
