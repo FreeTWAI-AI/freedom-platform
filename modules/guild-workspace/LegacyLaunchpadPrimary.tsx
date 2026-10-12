@@ -11,7 +11,7 @@ export const legacyWorkNavigationGuard = (guildKey: string) => ['guild_commercia
 export const legacyStorePath = (guildKey: string, tenantId: string, instanceId: string) =>
   `stores/${tenantId}/${instanceId}${guildKey === 'guild_product_quality_supply' ? '/supply' : ''}`;
 export const legacyPrimaryVisible = (primary: LaunchpadApplication | undefined, applicationsVisible: boolean) =>
-  Boolean(primary && (primary.application_key === 'manual-workspace' || applicationsVisible));
+  Boolean(primary && primary.application_key !== 'manual-workspace' && applicationsVisible);
 
 export const legacyPrimaryLabel = (guildKey: string, primary: LaunchpadApplication) =>
   guildKey === 'guild_product_quality_supply' && primary.application_key === 'hosted-store' ? '商品與供貨' : primary.display_name;

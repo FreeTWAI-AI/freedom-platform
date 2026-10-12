@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useId,useRef,useState} from 'react';
+import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {hasLoneSurrogate, recommendedApplications, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
 import {parseConfig, convertV1, type Config, type ConfigView} from '../../../../contracts/guild-launchpad/v2/config';
 import {canReplaceLaunchpadLayout} from '../../../../modules/guild-workspace/launchpad-layout-guards';
@@ -162,7 +162,7 @@ function launchpadSections(guildKey: string, config: Config, applications: Launc
   const blocks = [...config.blocks].filter(block => block.enabled).sort((a, b) => a.order - b.order);
   const primary = recommendedApplications(config.application_refs, applications)[0];
   const dedicated = member && !blocks.some(block => block.kind === 'extension') && primary
-    && primary.application_key !== 'manual-workspace' && legacyPrimaryVisible(primary, blocks.some(block => block.kind === 'applications'));
+    && legacyPrimaryVisible(primary, blocks.some(block => block.kind === 'applications'));
   const sections: LaunchpadSection[] = dedicated ? [{id: 'primary', label: legacyPrimaryLabel(guildKey, primary), group: '工作'}] : [];
   for (const block of blocks) {
     const id = blockSection(block);
@@ -206,13 +206,24 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
     requestAnimationFrame(() => {workSection.current?.focus();});
   };
   const returnSection = useRef<string | null>(null);
+  const applicationsSection = useRef<HTMLElement | null>(null);
+  const focusAfterReveal = useRef(false);
+  useLayoutEffect(() => {
+    if (focusAfterReveal.current && applicationsSection.current && !applicationsSection.current.hidden) {
+      focusAfterReveal.current = false;
+      applicationsSection.current.querySelector<HTMLElement>('.application-flow h3')?.focus();
+    }
+  }, [activeSection]);
   const onLaunchStateChange = useCallback((active: boolean) => {
     setLaunching(active);
     if (active) {
       const applications = config.blocks.find(block => block.kind === 'applications' && block.enabled);
       if (applications) {
-        returnSection.current = activeSection; selectSection(blockSection(applications));
-        requestAnimationFrame(() => document.querySelector<HTMLElement>('.guild-launchpad .application-flow h3')?.focus());
+        if (activeSection !== blockSection(applications)) {
+          returnSection.current = activeSection;
+          focusAfterReveal.current = true;
+          selectSection(blockSection(applications));
+        } else applicationsSection.current?.querySelector<HTMLElement>('.application-flow h3')?.focus();
       }
     } else if (returnSection.current) {
       selectSection(returnSection.current); returnSection.current = null;
@@ -233,11 +244,11 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || config.schema_version === 'guild-launchpad.config/v1' && !OPTIONAL.has(block.kind));
   const primary = recommendedApplications(config.application_refs, applications)[0];
   const showPrimary = !blocks.some(block => block.kind === 'extension') && !visitor && mode === 'member' && Boolean(userId) && primary
-    && primary.application_key !== 'manual-workspace' && legacyPrimaryVisible(primary, blocks.some(block => block.kind === 'applications'));
+    && legacyPrimaryVisible(primary, blocks.some(block => block.kind === 'applications'));
   return <>
     {showPrimary && <div hidden={activeSection !== 'primary'}><LegacyLaunchpadPrimary primary={primary} config={config} guildKey={guildKey} memberTier={memberTier} internHint={INTERN_HINT} client={client}
       focusWork={focusWork} canLeave={canLeave} canNavigate={canNavigate} launchRequest={launchRequest} setLaunchRequest={setLaunchRequest}/></div>}
-    {blocks.map(block => <section key={block.id} hidden={activeSection !== blockSection(block)} className="guild-launchpad-block" ref={block.kind === 'my_work' ? workSection : undefined} tabIndex={block.kind === 'my_work' ? -1 : undefined}>
+    {blocks.map(block => <section key={block.id} hidden={activeSection !== blockSection(block)} className="guild-launchpad-block" ref={block.kind === 'my_work' ? workSection : block.kind === 'applications' ? applicationsSection : undefined} tabIndex={block.kind === 'my_work' ? -1 : undefined}>
       {block.kind !== 'extension' && !(block.kind === 'applications' && launching) && <><h2>{block.kind === 'applications' ? '工具目錄' : BLOCK_LABEL[block.kind]}</h2>{block.title && <p>{block.title}</p>}</>}
       {block.kind === 'extension' && <GuildBlock id={block.extension_id} heading={block.title} loaders={blockLoaders} client={client}
         viewer={visitor || mode === 'public' ? 'visitor' : memberTier === 'full' ? 'member' : 'read_only'}

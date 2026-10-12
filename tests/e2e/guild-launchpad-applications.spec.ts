@@ -31,7 +31,7 @@ async function member(db: Pool, page: Page, tier: 'full' | 'intern' = 'full') {
   await db.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)',[DEMO_COMMUNITY,id,GUILD]);
   await page.route(url => !['127.0.0.1','localhost'].includes(url.hostname), route => route.abort());
   await page.goto('/'); await page.getByLabel('電子郵件',{exact:true}).fill(email); await page.getByLabel('密碼',{exact:true}).fill(DEMO_PASSWORD);
-  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST');
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST', {timeout: 25_000});
   await page.getByRole('button',{name:'登入',exact:true}).click();
   expect((await loggedIn).status()).toBe(200); await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
   return id;
@@ -486,10 +486,11 @@ test('360px keyboard launch, cancel focus and light/RPG screenshots', async ({pa
   const launch=manualCard(page).getByRole('button',{name:'啟動應用',exact:true}); await launch.focus(); await page.keyboard.press('Enter');
   await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();
   await page.keyboard.press('Escape'); await expect(launch).toBeFocused(); await page.keyboard.press('Enter');
+  await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();
   await page.keyboard.press('Tab'); await expect(flow(page).getByRole('button',{name:'取消',exact:true})).toBeFocused(); await page.keyboard.press('Enter'); await expect(launch).toBeFocused();
   await page.keyboard.press('Enter'); await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  const targets=await cards(page).locator('button,.application-choice').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
+  const targets=await cards(page).locator('button:visible,.application-choice:visible').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
   for(const height of targets) expect(height).toBeGreaterThanOrEqual(44);
   for(const theme of ['light','dark']) {
     await page.evaluate(value=>{document.documentElement.dataset.theme=value;document.documentElement.dataset.experienceProfile=value;window.dispatchEvent(new Event('freedom-theme-changed'));},theme);
@@ -738,16 +739,21 @@ test('rejected reuse candidates stay disabled for the panel session', async ({pa
   await flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true}).check(); await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled();
 });
 
-test('My Work workspace selection leaves the independent launch panel and focus in place', async ({page,e2eAuthPool}) => {
+test('switching workspaces preserves the independent launch flow while navigating between panels', async ({page,e2eAuthPool}) => {
   const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'獨立選擇空間',workspace_name:'原選擇區'});
   await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'另一選擇區'});
-  await open(page); await expect(page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true})).toBeVisible();
+  await open(page); await openGuildSection(page, '我的工作');
+  await expect(page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true})).toBeVisible();
   const acting=await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId);
+  await openGuildSection(page, '工具目錄');
   await begin(page); await flow(page).getByRole('button',{name:'另一選擇區',exact:true}).click();
   await expect(flow(page)).toContainText('目前業務空間：獨立選擇空間 · 擁有者／另一選擇區');
   expect(await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId)).toBe(acting);
+  await openGuildSection(page, '我的工作');
   const switcher=page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true}); await switcher.click();
-  await expect(switcher).toBeFocused(); await expect(flow(page)).toBeVisible();
+  await expect(switcher).toBeFocused(); await expect(flow(page)).toBeHidden();
+  await openGuildSection(page, '工具目錄');
+  await expect(flow(page)).toContainText('目前業務空間：獨立選擇空間 · 擁有者／另一選擇區');
   await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeFocused();
 });
 

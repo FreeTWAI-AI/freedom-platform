@@ -87,7 +87,6 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
     setRestoredRow(undefined); setLaunch(app);
     if (launch && applicationKey(launch) === applicationKey(app)) {
       launchStateChange.current?.(true);
-      requestAnimationFrame(() => container.current?.querySelector<HTMLElement>('.application-flow h3')?.focus());
     }
   }, [launchRequest, items, publicMode, userId]);
   useEffect(() => {
