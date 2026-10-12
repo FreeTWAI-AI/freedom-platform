@@ -126,9 +126,15 @@ for (const width of [1280, 390]) {
       await login(page); await navigate(page, '開源投稿');
       const failure = page.getByRole('alert').filter({ has: page.getByRole('button', { name: '重新載入', exact: true }) });
       await expect(failure).toBeVisible();
+      const reloaded = page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname === '/api/v1/opensource/projects' && response.status() === 200);
       await failure.getByRole('button', { name: '重新載入', exact: true }).click();
+      const result = await (await reloaded).json();
+      expect(Array.isArray(result.items)).toBe(true);
       await expect(failure).toHaveCount(0);
-      await expect(page.getByRole('region', { name: '社群開源作品' }).getByText(/已登錄 \d+ 件/)).toBeVisible();
+      const projects = page.getByRole('region', { name: '社群開源作品' });
+      await expect(projects.getByRole('status')).toHaveCount(0);
+      await expect(projects.getByText(`目前顯示 ${result.items.length} 件 · 自由探索，不必先談商務合作`, { exact: true })).toBeVisible();
+      await expect(projects.getByRole('article')).toHaveCount(result.items.length);
       await expect(page.getByRole('heading', { name: '投稿你的開源工具', exact: true })).toBeVisible();
       await expect(page.getByText('推薦別人的工具也可以，原作者與授權都會保留。這是你的聲明，不是作者身分驗證。', { exact: true })).toBeVisible();
       await expect(page.getByText('平台目前尚未驗證你的 GitHub 身分', { exact: false })).toHaveCount(0);

@@ -12,7 +12,7 @@ export const PUBLISHED = `FROM skill_submissions s
   JOIN users u ON u.user_id=s.owner_ref AND u.community_id=s.community_id
   JOIN oss_projects p ON p.project_id=s.project_id AND p.owner_ref=s.owner_ref AND p.community_id=s.community_id
   JOIN oss_project_versions v ON v.version_id=s.project_version_id AND v.project_id=s.project_id
-  WHERE s.status='published' AND s.consent_to_share AND NOT p.official
+  WHERE s.status='published' AND s.consent_to_share AND NOT p.official AND p.sharing_withdrawn_at IS NULL
     AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
     AND NOT is_verification_test_account(u.user_id)`;
 const PUBLIC_PAYLOAD = `s.payload || CASE WHEN p.public_metadata_revised THEN
@@ -73,7 +73,10 @@ export async function listPublishedSkillSubmissions(pool: Pool, limit = 100, com
 /** The published full skill book that upgrades this submission, if one exists. */
 export async function readPublishedUpgrade(pool: Pool, id: string): Promise<string | null> {
   if (!z.uuid().safeParse(id).success) return null;
-  const row = (await pool.query(`SELECT submission_id FROM skill_submissions WHERE upgrades_submission_id=$1 AND status='published'`, [id.toLowerCase()])).rows[0];
+  const row = (await pool.query(`SELECT s.submission_id ${PUBLISHED} AND s.upgrades_submission_id=$1
+    AND EXISTS (SELECT 1 FROM skill_submissions parent WHERE parent.submission_id=$1 AND parent.status='published'
+      AND parent.consent_to_share AND parent.project_id=s.project_id AND parent.owner_ref=s.owner_ref
+      AND parent.community_id=s.community_id)`, [id.toLowerCase()])).rows[0];
   return row ? String(row.submission_id) : null;
 }
 

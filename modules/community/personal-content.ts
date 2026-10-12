@@ -10,6 +10,7 @@ export interface PersonalContentItem {
   status: string;
   version: string | null;
   path: string;
+  manage_path?: string;
   visibility: string;
   actions: string[];
 }
@@ -30,9 +31,11 @@ async function readPersonalContent(pool: PoolClient, actor: Actor): Promise<{ it
   const [showcases, skills, events, posts] = await Promise.all([
     pool.query(`SELECT showcase_id,title,status,aggregate_version,visibility,created_at FROM showcases
       WHERE community_id=$1 AND owner_ref=$2 ORDER BY created_at DESC,showcase_id`, scope),
-    pool.query(`SELECT submission_id,status,aggregate_version,COALESCE(payload->>'title',seed->>'title','技能投稿草稿') AS title,
-      (grant_hash IS NULL AND seed IS NULL) AS manual,created_at FROM skill_submissions
-      WHERE community_id=$1 AND owner_ref=$2 ORDER BY created_at DESC,submission_id`, scope),
+    pool.query(`SELECT s.submission_id,s.status,s.aggregate_version,s.project_id,
+      COALESCE(CASE WHEN p.public_metadata_revised THEN p.title END,s.payload->>'title',s.seed->>'title','技能投稿草稿') AS title,
+      (s.grant_hash IS NULL AND s.seed IS NULL) AS manual,s.created_at FROM skill_submissions s
+      LEFT JOIN oss_projects p ON p.project_id=s.project_id AND p.community_id=s.community_id AND p.owner_ref=s.owner_ref
+      WHERE s.community_id=$1 AND s.owner_ref=$2 ORDER BY s.created_at DESC,s.submission_id`, scope),
     pool.query(`SELECT e.event_id,e.title,e.state,e.aggregate_version,e.visibility,e.starts_at,e.created_at,
       EXISTS (SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=e.community_id
         AND m.user_id=$2 AND m.guild_key=e.guild_key AND m.state='active' AND m.member_tier='intern')
@@ -49,13 +52,14 @@ async function readPersonalContent(pool: PoolClient, actor: Actor): Promise<{ it
     actions: row.status === 'published' ? ['view', 'withdraw'] : row.status === 'draft' ? ['edit', 'publish', 'withdraw'] : ['edit', 'publish'],
   } });
   for (const row of skills.rows) {
-    const actions = row.status === 'published' ? ['view'] : row.status === 'revoked' ? [] : ['continue', 'withdraw'];
+    const actions = row.status === 'published' ? ['view', 'manage'] : row.status === 'revoked' ? (row.project_id ? ['manage'] : []) : ['continue', 'withdraw'];
     if (row.status === 'ready_for_review' && ready) {
       if (row.manual) actions.push('edit');
       actions.push('publish');
     }
     entries.push({ created: new Date(row.created_at).getTime(), item: {
       kind: 'skill_submission', id: row.submission_id, title: row.title, status: row.status, version: String(row.aggregate_version),
+      ...(row.project_id ? {manage_path: `#opensource?project=${row.project_id}`} : {}),
       path: row.status === 'published' ? `/development/submissions/${row.submission_id}` : `#opensource?submission=${row.submission_id}`,
       visibility: row.status === 'published' ? 'public' : 'private', actions,
     } });
