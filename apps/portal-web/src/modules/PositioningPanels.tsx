@@ -166,6 +166,7 @@ export function GuildsPanel({client,session,onNavigate,site,locationHash,registe
       await load();window.dispatchEvent(new Event('freedom-profile-updated'));
     }catch(cause){
       if(cause instanceof ApiError&&(cause.network||cause.status===0||cause.status>=500)){setCategoryNote('正在確認是否已儲存');return;}
+      if(cause instanceof ApiError&&cause.status===412)setLeaveDraft(null);
       preferenceKeys.current.delete(requestKey);setError(cause instanceof Error?cause.message:'需要處理');
     }finally{setCategoryBusy(false);}
   }

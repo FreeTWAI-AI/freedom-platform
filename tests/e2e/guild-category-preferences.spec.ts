@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import {test, expect, type Browser, type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
-import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
+import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
 
 const keys = {
@@ -125,6 +125,131 @@ test('a switched community can set and clear two category primaries, including k
   }
 });
 
+
+test('confirmed category-primary leave survives reload and rejoin without changing private workspace access', async ({browser, baseURL, e2eAuthPool}) => {
+  test.setTimeout(240_000);
+  const run = randomUUID().slice(0, 8), communityId = DEMO_COMMUNITY, userId = randomUUID();
+  const email = `category-lifecycle-${run}@example.invalid`;
+  const labels = {internal: '社群架構開發主力', external: '社群業務推廣主力', professional_industry: '社群專業服務主力'} as const;
+  type Category = keyof typeof labels;
+  const guilds = (await e2eAuthPool.query<{guild_key: string; name: string; category: Category}>(`SELECT DISTINCT ON (c.category) g.guild_key,g.name,c.category::text AS category
+    FROM positioning_guild_catalog g JOIN guild_catalog_categories c USING(guild_key)
+    WHERE c.category_review='approved' AND c.category IS NOT NULL AND c.active
+    ORDER BY c.category,g.guild_key`)).rows;
+  expect(guilds.map(g => g.category).sort()).toEqual(Object.keys(labels).sort());
+  // This suite uses one worker. Restore the exact shared switch after this synthetic journey.
+  const priorSwitch = (await e2eAuthPool.query('SELECT state,aggregate_version,switched_at,switched_by FROM guild_preference_switch WHERE community_id=$1', [communityId])).rows[0];
+  let session: Awaited<ReturnType<typeof open>> | undefined;
+  try {
+    await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+      VALUES($1,$2,$3,$4,$5,$6,false)`, [userId, communityId, email, `離會會員 ${run}`, hashPassword(DEMO_PASSWORD), randomUUID()]);
+    for (const guild of guilds) await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+      VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), communityId, userId, guild.guild_key]);
+    await e2eAuthPool.query(`INSERT INTO guild_preference_switch(community_id,state,aggregate_version,switched_at) VALUES($1,'switched',2,now())
+      ON CONFLICT (community_id) DO UPDATE SET state='switched',aggregate_version=2,switched_at=now(),switched_by=NULL`, [communityId]);
+    await e2eAuthPool.query(`INSERT INTO guild_preference_sets(community_id,user_id,aggregate_version,migration_state) VALUES($1,$2,1,'switched')`, [communityId, userId]);
+    session = await open(browser, baseURL!, email, {width: 1280, height: 900});
+    const page = session.page;
+    const post = async <T,>(path: string, data: unknown, status: number): Promise<T> => {
+      const current = await page.request.get('/api/v1/session');
+      expect(current.ok()).toBe(true);
+      const csrf = (await current.json() as {csrf_token: string}).csrf_token;
+      const response = await page.request.post(`/api/v1${path}`, {data, headers: {
+        Origin: new URL(page.url()).origin, 'X-CSRF-Token': csrf, 'Idempotency-Key': randomUUID(),
+      }});
+      const body = await response.json();
+      expect(response.status(), JSON.stringify(body)).toBe(status);
+      return body as T;
+    };
+    // Fixture writes use the same local HTTP APIs as the existing my-work tests.
+    const tenantName = `保留的私人空間 ${run}`, workspaceName = '原工作區';
+    const made = await post<{tenant: {tenant_id: string}; workspace: {workspace_id: string}}>('/tenants', {
+      display_name: tenantName, workspace_name: workspaceName,
+    }, 201);
+    const tenantId = made.tenant.tenant_id, workspaceId = made.workspace.workspace_id;
+    await post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, {guild_key: guilds[0].guild_key}, 200);
+    const work = await post<{resource_ref: {resource_id: string}}>(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, {
+      title: `私人工作 ${run}`, objective: '離會前後仍由原擁有者讀取', progress: 'todo',
+    }, 201);
+    const workPath = `/api/v1/tenants/${tenantId}/works/${work.resource_ref.resource_id}`;
+    const readWork = async () => {
+      const response = await page.request.get(workPath);
+      expect(response.status()).toBe(200);
+      expect(response.headers()['cache-control']).toBe('private, no-store');
+      return response.json();
+    };
+    const originalWork = await readWork();
+    const originalTenant = await page.request.get(`/api/v1/tenants/${tenantId}`);
+    expect(originalTenant.status()).toBe(200);
+    const originalMembership = (await originalTenant.json()).my_membership;
+
+    await navigate(page, '職業公會');
+    const expected = new Map(guilds.map(g => [g.category, g.guild_key as string | null]));
+    for (const guild of guilds) {
+      await page.getByRole('article', {name: guild.name, exact: true}).getByRole('button', {name: '設為本類主力', exact: true}).click();
+      await expect(page.getByRole('group', {name: labels[guild.category], exact: true}).getByRole('article', {name: guild.name, exact: true})).toBeVisible();
+    }
+    const assertSlots = async () => {
+      for (const guild of guilds) {
+        const slot = page.getByRole('group', {name: labels[guild.category], exact: true});
+        if (expected.get(guild.category)) await expect(slot.getByRole('article', {name: guild.name, exact: true})).toBeVisible();
+        else await expect(slot).toContainText('尚未選擇');
+      }
+      const response = await page.request.get('/api/v1/me/guild-preferences/v2');
+      expect(response.status()).toBe(200);
+      const view = await response.json() as {primaries: {category: Category; guild_key: string | null}[]};
+      expect(Object.fromEntries(view.primaries.map(slot => [slot.category, slot.guild_key]))).toEqual(Object.fromEntries(expected));
+    };
+    const assertPrivateAccess = async () => {
+      await navigate(page, '業務空間');
+      await expect(page.getByText(`${tenantName}／${workspaceName}`, {exact: true})).toBeVisible();
+      await expect(page.getByText('我的角色：擁有者', {exact: true})).toBeVisible();
+      const response = await page.request.get(`/api/v1/tenants/${tenantId}`);
+      expect(response.status()).toBe(200);
+      expect((await response.json()).my_membership).toEqual(originalMembership);
+      expect(await readWork()).toEqual(originalWork);
+    };
+
+    for (const guild of guilds) {
+      await assertSlots();
+      await page.getByRole('group', {name: labels[guild.category], exact: true}).getByRole('button', {name: `退出${guild.name}`, exact: true}).click();
+      const confirmation = page.getByRole('status').filter({hasText: `退出${guild.name}會清空${labels[guild.category]}`});
+      await expect(confirmation).toContainText('私人業務資料不會移動，也不會刪除。');
+      await confirmation.getByRole('button', {name: '確認退出', exact: true}).click();
+      await expect(page.getByRole('status').filter({hasText: `已退出${guild.name}`})).toBeVisible();
+      expected.set(guild.category, null);
+      await page.reload();
+      await assertSlots();
+      const directory = await page.request.get('/api/v1/guilds/directory');
+      expect(directory.status()).toBe(200);
+      const left = (await directory.json() as {items: {guild_key: string; membership: {state: string; aggregate_version: number}}[]}).items.find(g => g.guild_key === guild.guild_key)!.membership;
+      expect(left.state).toBe('left');
+      await expect(page.getByRole('region', {name: '未加入公會', exact: true}).getByRole('article', {name: guild.name, exact: true})).toBeVisible();
+      await assertPrivateAccess();
+
+      await page.goto(`/#guilds/${guild.guild_key}`);
+      const request = page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === `/api/v1/guilds/${guild.guild_key}/join`);
+      await page.getByRole('button', {name: `加入${guild.name}`, exact: true}).click();
+      expect((await request).headers()['if-match']).toBe(`"${left.aggregate_version}"`);
+      await expect(page.getByText('成員身分：實習成員', {exact: true})).toBeVisible();
+      await page.reload();
+      await expect(page.getByText('成員身分：實習成員', {exact: true})).toBeVisible();
+      await assertPrivateAccess();
+      await navigate(page, '職業公會');
+      await assertSlots(); // Rejoin must not resurrect the cleared category primary.
+    }
+    expect([...expected.values()]).toEqual([null, null, null]);
+  } finally {
+    await session?.context.close();
+    if (priorSwitch) await e2eAuthPool.query('UPDATE guild_preference_switch SET state=$2,aggregate_version=$3,switched_at=$4,switched_by=$5 WHERE community_id=$1', [communityId, priorSwitch.state, priorSwitch.aggregate_version, priorSwitch.switched_at, priorSwitch.switched_by]);
+    else await e2eAuthPool.query('DELETE FROM guild_preference_switch WHERE community_id=$1', [communityId]);
+    // Tenant fixtures persist only in this disposable E2E schema, as in tenant-workspaces.spec.ts.
+    await e2eAuthPool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1', [userId]);
+    await e2eAuthPool.query('UPDATE users SET active=false WHERE user_id=$1', [userId]);
+  }
+});
+
+
 test('用新版本送出草稿 reloads the version and sends that If-Match', async ({browser, baseURL, e2eAuthPool}) => {
   test.setTimeout(120_000);
   const run = randomUUID().slice(0, 8);
@@ -163,6 +288,53 @@ test('用新版本送出草稿 reloads the version and sends that If-Match', asy
       expect(matches).toHaveLength(2);
       expect(matches[0]).not.toBe(`"${version}"`);
       expect(matches[1]).toBe(`"${version}"`);
+
+
+      // A real tier change also advances membership version. Inject that scoped
+      // concurrent change here; tier-command authorization is covered separately.
+      const internal = second.page.getByRole('group', {name: '社群架構開發主力', exact: true});
+      const leavePath = `/api/v1/guilds/${keys.talent}/leave-v2`;
+      const leaveMatches: string[] = [];
+      second.page.on('request', request => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname === leavePath) leaveMatches.push(request.headers()['if-match'] ?? '');
+      });
+      await internal.getByRole('button', {name: `退出${guildNames.talent}`, exact: true}).click();
+      const confirmation = second.page.getByRole('status').filter({hasText: `退出${guildNames.talent}會清空社群架構開發主力`});
+      await expect(confirmation).toBeVisible();
+      const changed = (await e2eAuthPool.query<{aggregate_version: string}>(`UPDATE positioning_profession_memberships
+        SET member_tier='full',aggregate_version=aggregate_version+1
+        WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'
+        RETURNING aggregate_version::text AS aggregate_version`, [communityId, userId, keys.talent])).rows[0];
+      expect(changed).toBeDefined();
+      const rejected = second.page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === leavePath);
+      await confirmation.getByRole('button', {name: '確認退出', exact: true}).click();
+      expect((await rejected).status()).toBe(412);
+      await expect(second.page.getByRole('alert')).toContainText('資料已更新，請重新整理後再操作。');
+      await expect(confirmation).toHaveCount(0);
+      const stillJoined = (await e2eAuthPool.query(`SELECT state FROM positioning_profession_memberships
+        WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [communityId, userId, keys.talent])).rows[0];
+      expect(stillJoined.state).toBe('active');
+      await expect(internal.getByRole('article', {name: guildNames.talent, exact: true})).toBeVisible();
+
+      // Reload does not submit the old decision. The member explicitly opens and
+      // confirms a fresh leave against the newly displayed membership.
+      await second.page.getByRole('alert').getByRole('button', {name: '重新載入公會', exact: true}).click();
+      await expect(internal.getByRole('article', {name: guildNames.talent, exact: true})).toBeVisible();
+      await expect(internal.locator('.guild-intern-notice')).toHaveCount(0);
+      await expect(confirmation).toHaveCount(0);
+      expect(leaveMatches).toHaveLength(1);
+      await internal.getByRole('button', {name: `退出${guildNames.talent}`, exact: true}).click();
+      await expect(confirmation).toContainText('私人業務資料不會移動，也不會刪除。');
+      const completed = second.page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === leavePath);
+      await confirmation.getByRole('button', {name: '確認退出', exact: true}).click();
+      expect((await completed).status()).toBe(200);
+      expect(leaveMatches).toEqual([`"${BigInt(changed.aggregate_version) - 1n}"`, `"${changed.aggregate_version}"`]);
+      await expect(internal).toContainText('尚未選擇');
+      await expect(second.page.getByRole('group', {name: '社群業務推廣主力', exact: true}).getByRole('article', {name: guildNames.partnership, exact: true})).toBeVisible();
+      const departed = (await e2eAuthPool.query(`SELECT state,aggregate_version::text AS aggregate_version
+        FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [communityId, userId, keys.talent])).rows[0];
+      expect(departed).toEqual({state: 'left', aggregate_version: String(BigInt(changed.aggregate_version) + 1n)});
+
     } finally {
       await first.context.close();
       await second.context.close();

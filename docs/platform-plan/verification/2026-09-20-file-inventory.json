@@ -2704,8 +2704,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
-      "bytes": 33515,
-      "sha256": "b841b29a48cfc875b107236f297bf2c88ca2f11ebf1bad485a5f1db5520a7962"
+      "bytes": 33591,
+      "sha256": "976d40eef2089b49d62c04b29d3a6859a5db6351da47ad3b0da1e37bfb914a85"
     },
     {
       "path": "apps/portal-web/src/modules/PreviewProfileMenu.tsx",
@@ -20544,8 +20544,8 @@
     },
     {
       "path": "tests/e2e/guild-alias.spec.ts",
-      "bytes": 16008,
-      "sha256": "b296f34604694ad0dbb5cfd3a4cbb8c43cb5063f1b575128b6ea47ff7a20325c"
+      "bytes": 19197,
+      "sha256": "8e18c5966d6c711170b92fe8ba9f9f443dd9024888570cd16ac1830722f3d2ed"
     },
     {
       "path": "tests/e2e/guild-block-composition.spec.ts",
@@ -20554,8 +20554,8 @@
     },
     {
       "path": "tests/e2e/guild-category-preferences.spec.ts",
-      "bytes": 20004,
-      "sha256": "6045260e38697744c52e648c6d7c38f6d176c5f5d6a789499d6e24b39df63a71"
+      "bytes": 32986,
+      "sha256": "e602ae00f399fbb5804db6d384aa596a5f902b963cd6ab17f92a04550cfa9504"
     },
     {
       "path": "tests/e2e/guild-entry-questions.spec.ts",
