@@ -8,10 +8,12 @@ export const GUILD_PRESENTATION_IMPORTS = Object.freeze({
 // Deliberately conservative admission, not a JS security sandbox/parser. A new
 // dependency (or unfamiliar import syntax) requires the full reviewed lane.
 // False positives in text/comments only make verification broader.
+// Match `from` as a word too; parsing intervening comments is unnecessary and
+// nested repetition could make malformed candidate input expensive to inspect.
 export function guildPresentationImportsProven(path, source) {
   const prefix = GUILD_PRESENTATION_IMPORTS[path];
   return typeof source === 'string' && source.length <= 262144 && typeof prefix === 'string'
-    && source.startsWith(prefix) && !/\b(?:import|require|eval|Function|Worker|SharedWorker|constructor)\b|\bfrom\s*(?:\/\*[\s\S]*?\*\/\s*)*['"]/.test(source.slice(prefix.length));
+    && source.startsWith(prefix) && !/\b(?:import|require|eval|Function|Worker|SharedWorker|constructor|from)\b/.test(source.slice(prefix.length));
 }
 
 export const GUILD_PRESENTATION_PROFILE = Object.freeze({

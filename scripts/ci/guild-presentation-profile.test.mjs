@@ -89,5 +89,7 @@ test('reviewed source import boundaries fail closed on dynamic or unfamiliar dep
       assert.equal(guildPresentationImportsProven(path,source+extra),false);
     }
     assert.equal(guildPresentationImportsProven(path,source.replace("from 'react'", "from 'new-package'")),false);
+    assert.equal(guildPresentationImportsProven(path,source+'\nexport {foo} from '+ '*//*'.repeat(16384)+'!'),false,
+      'malformed repeated comments fall back without parsing a nested regular expression');
   }
 });

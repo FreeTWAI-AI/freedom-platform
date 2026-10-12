@@ -18949,8 +18949,8 @@
     },
     {
       "path": "packages/contribution-tools/guild-presentation-profile.mjs",
-      "bytes": 2764,
-      "sha256": "a984fc877c456f086c6a4333bba00a9847480e3ea4ea1b0b41ff7b3750254754"
+      "bytes": 2890,
+      "sha256": "73de6d92407a1a8fa3593ec861bd2a1496c589e56cd92c89dc226b6ec0745e3d"
     },
     {
       "path": "packages/contribution-tools/io.mjs",
@@ -20149,8 +20149,8 @@
     },
     {
       "path": "scripts/ci/guild-presentation-profile.test.mjs",
-      "bytes": 7906,
-      "sha256": "d7141c9ea7dee6b5ebe7b93e300068094e8cc1045548658804277f833731b4eb"
+      "bytes": 8115,
+      "sha256": "acd160554644ec4503799fde8381daaedfffc2d4825075e036b4601885b8c555"
     },
     {
       "path": "scripts/ci/native-cli-audit-readback.mjs",
