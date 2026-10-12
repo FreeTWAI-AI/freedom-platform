@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import {existsSync} from 'node:fs';
+import fs, {existsSync} from 'node:fs';
 import {join} from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
@@ -31,6 +31,27 @@ async function fullFixture(t) {
 }
 async function connect(url) {
   const client = new pg.Client({ connectionString: url }); await client.connect(); return client;
+}
+
+async function captureCleanupDiagnostics(action) {
+  const originalWrite = fs.writeSync, originalRead = fs.readFileSync, events = [];
+  // Control only the diagnostic transport; all PostgreSQL operations remain real.
+  fs.readFileSync = function(path, ...args) {
+    if (path === '/proc/self/fdinfo/2') return 'flags:\t04001\n';
+    return originalRead.call(this, path, ...args);
+  };
+  fs.writeSync = function(fd, chunk, ...args) {
+    try {
+      const event = fd === 2 ? JSON.parse(String(chunk)) : {};
+      if (event.event === 'runtime_database_cleanup') {
+        events.push(event);
+        return Buffer.byteLength(chunk);
+      }
+    } catch { /* Preserve unrelated test/server output. */ }
+    return originalWrite.call(this, fd, chunk, ...args);
+  };
+  try { return {result: await action(), events}; }
+  finally { fs.writeSync = originalWrite; fs.readFileSync = originalRead; }
 }
 
 test('fresh owned databases isolate identical public tables and cleanup preserves base', {}, async () => {
@@ -182,7 +203,11 @@ test('lost DROP acknowledgement reconciles exact owned names on a fresh verified
     return original.apply(this,args);
   };
   let cleanup;
-  try { cleanup = await created.cleanup(); } finally { pg.Client.prototype.query = original; }
+  let diagnostics;
+  try { ({result: cleanup, events: diagnostics} = await captureCleanupDiagnostics(() => created.cleanup())); }
+  finally { pg.Client.prototype.query = original; }
+  assert.equal(diagnostics.filter(event => event.phase === 'drop' && event.result === 'unknown_ack').length, 4);
+  assert(diagnostics.some(event => event.phase === 'absence' && event.result === 'verified_absent'));
   const owner = await connect(database);
   try {
     assert.equal(dropped,4);
@@ -198,7 +223,10 @@ test('cleanup refuses changed ownership and preserves that database and the supp
   try {
     await admin.query(`CREATE ROLE "${foreign}" NOLOGIN`);
     await admin.query(`ALTER DATABASE "${names[0]}" OWNER TO "${foreign}"`);
-    assert.equal(await created.cleanup(),false);
+    const observed = await captureCleanupDiagnostics(() => created.cleanup());
+    assert.equal(observed.result, false);
+    assert(observed.events.some(event => event.phase === 'database_owner' && event.code === 'ownership_mismatch'));
+    assert(!JSON.stringify(observed.events).includes(foreign));
     assert.equal((await admin.query('SELECT pg_get_userbyid(datdba) owner FROM pg_database WHERE datname=$1',[names[0]])).rows[0].owner,foreign);
     assert.equal((await admin.query('SELECT current_database() name')).rows[0].name,new URL(database).pathname.slice(1));
   } finally {
@@ -314,7 +342,10 @@ test('cleanup still refuses a false termination while an owned database backend 
     return original.apply(this, args);
   };
   try {
-    assert.equal(await created.cleanup(), false);
+    const observed = await captureCleanupDiagnostics(() => created.cleanup());
+    assert.equal(observed.result, false);
+    assert(observed.events.some(event => event.phase === 'database_stop_readback' && event.code === 'database_backend_unsettled'));
+    assert(!observed.events.some(event => event.result === 'verified_absent'));
     assert.equal((await observer.query('SELECT 1 FROM pg_database WHERE datname=$1', [name])).rowCount, 1);
     assert.equal((await victim.query('SELECT 1 AS alive')).rows[0].alive, 1);
   } finally {
