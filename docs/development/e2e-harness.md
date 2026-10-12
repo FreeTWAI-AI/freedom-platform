@@ -17,15 +17,23 @@
 
 `public_exports` 是三個 helper：`tests/e2e/fixtures.ts`、`navigation.ts`、`quick-join.ts`。功能規格用 `./fixtures.js` 這類路徑 import 它們。規格檔本身不是 export，也不是這個模組的擁有路徑。
 
-## `npm run test:e2e` 的五輪
+## `npm run test:e2e` 的六輪
 
-`package.json` 的 `test:e2e` 是 `node scripts/run-e2e.mjs`。沒有額外參數時，`planE2e` 依序跑五個行程，每一輪都是新的 Playwright 行程與新的 schema：
+`package.json` 的 `test:e2e` 是 `node scripts/run-e2e.mjs`。沒有額外參數時，`planE2e` 依序跑六個行程，每一輪都是新的 Playwright 行程與新的 schema：
 
 1. 普通輪。參數原樣轉交，不設任何 fixture 旗標。
 2. private-AI 輪。加上 `tests/e2e/private-work-ai.spec.ts`，且只設 `FREEDOM_E2E_PRIVATE_AI_FIXTURE=1`。
 3. avatar-asset 輪。加上 `tests/e2e/member-avatar-asset.spec.ts`，且只設 `FREEDOM_E2E_AVATAR_ASSET_FIXTURE=1`。
 4. message-image 輪。加上 `tests/e2e/message-images.spec.ts`，且只設 `FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1`。伺服器這輪用記憶體內物件儲存，並把本機 schema 的 `member.message-image` 政策列設為啟用；普通輪保持功能未安裝，該規格在普通輪只驗證「沒有圖片控制項、路由 404」。
 5. store-photo 輪。加上 `tests/e2e/hosted-store-photo.spec.ts`，且只設 `FREEDOM_E2E_STORE_PHOTO_FIXTURE=1`。使用獨立 schema 與本機照片儲存 fixture，驗證上傳、發布、移除及未知結果重播；不開啟正式照片保存政策。
+
+6. notification-preferences 輪。加上 `tests/e2e/notification-preferences.spec.ts`，且只設 `FREEDOM_E2E_NOTIFICATION_PREFERENCES=1`。保留既有專用輪次，與目前 pinned plan 一致。
+
+`first-participation.spec.ts` 與 `event-participation.spec.ts` 使用下方說明的
+`member-feature-fixture.ts`：普通輪已透過每個案例的 Node options 執行 ON／OFF，
+不再重複開兩個相同功能的 Playwright／schema 行程。既有明示檔案與 feature opt-in
+命令仍可使用。這只減少本機 runner 的重複輪次，不更改 trusted plan、required
+workflow pin、測試選取、worker 數、重試或資料隔離，也不宣稱 pinned CI 會因此加速。
 
 前一輪非零結束碼或訊號會停下來，不開下一輪。呼叫端已經帶了其中一個 fixture 旗標、帶了檔案篩選，或是 `--help`／`--version` 時，維持單一行程，不再自動加另外幾輪。預設計畫不會在同一輪同時設兩個旗標。若環境已經有兩個以上是 `1`，編排不會拆開它們；`scripts/e2e-server.ts` 在啟動遷移前直接拋錯，fixture 不能一起用。
 

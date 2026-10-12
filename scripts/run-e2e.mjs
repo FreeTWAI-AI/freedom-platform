@@ -1,9 +1,13 @@
-// Required CI calls `npm run test:e2e` with no extra arguments. That command
-// runs the ordinary Playwright suite first, then the private-AI spec with
+// Local `npm run test:e2e` without extra arguments runs the ordinary Playwright
+// suite first. Required CI uses its independently pinned runner instead.
+// Dedicated passes then run the private-AI spec with
 // FREEDOM_E2E_PRIVATE_AI_FIXTURE=1, then the shared-asset avatar spec with
 // FREEDOM_E2E_AVATAR_ASSET_FIXTURE=1, then the direct-message image spec with
 // FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1, then hosted-store photos with
-// FREEDOM_E2E_STORE_PHOTO_FIXTURE=1, then notification preferences and first participation enabled. Each extra pass is a new process and
+// FREEDOM_E2E_STORE_PHOTO_FIXTURE=1, then notification preferences enabled.
+// First/event participation select both modes through per-test member feature
+// hosts in the ordinary pass; they need no duplicate server/schema pass.
+// Each extra pass is a new process and
 // schema. Explicit test filters and an already requested fixture stay one
 // Playwright invocation. The fixture flags are never set on the same pass.
 import { spawn } from 'node:child_process';
@@ -85,8 +89,6 @@ export function planE2e(argv, env = {}) {
     { args: [...args, MESSAGE_IMAGE_SPEC], env: { ...env, FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' } },
     { args: [...args, STORE_PHOTO_SPEC], env: { ...env, FREEDOM_E2E_STORE_PHOTO_FIXTURE: '1' } },
     { args: [...args, NOTIFICATION_PREFERENCES_SPEC], env: { ...env, FREEDOM_E2E_NOTIFICATION_PREFERENCES: '1' } },
-    { args: [...args, FIRST_PARTICIPATION_SPEC], env: { ...env, FREEDOM_E2E_FIRST_PARTICIPATION: '1' } },
-    { args: [...args, EVENT_PARTICIPATION_SPEC], env: { ...env, FREEDOM_E2E_EVENT_PARTICIPATION: '1' } },
   ];
 }
 
