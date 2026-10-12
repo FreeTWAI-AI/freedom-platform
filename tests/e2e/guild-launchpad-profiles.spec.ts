@@ -48,7 +48,9 @@ async function login(page: Page, email: string) {
 async function open(page: Page, guild: string) {
   const loaded = page.waitForResponse(response => response.request().method() === 'GET'
     && new URL(response.url()).pathname === `/api/v1/guilds/${guild}/launchpad`);
-  await page.evaluate(key => {window.location.hash = `guilds/${key}`;}, guild);
+  // Same-hash navigation emits no request; observe the reload before starting it.
+  if (new URL(page.url()).hash === `#guilds/${guild}`) await page.reload();
+  else await page.evaluate(key => {window.location.hash = `guilds/${key}`;}, guild);
   const response = await loaded;
   expect(response.status()).toBe(200);
   await response.finished();
@@ -272,7 +274,7 @@ test('talent entry focuses the existing workspace, then saves and reopens the sa
   await expect(work.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();
   // Use the same existing member API; the entry action itself creates nothing.
   const created = await post(page, '/tenants', {display_name: '方向卡入口空間', workspace_name: '主工作區'}, 201);
-  await page.reload(); await open(page, talent);
+  await open(page, talent);
   await openGuildSection(page, '我的工作'); await expect(work).toBeVisible();
   await work.getByRole('button', {name: '啟用手動工作', exact: true}).click(); await expect(work.getByText('繼續工作', {exact: true})).toBeVisible();
   await work.getByLabel('方向卡名稱', {exact: true}).fill(title); await work.getByLabel('這週想改變的一件事', {exact: true}).fill('選一件小事開始');
