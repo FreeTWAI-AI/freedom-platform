@@ -8,14 +8,15 @@ import { PublishedSkillLinks, skillPublicationPath } from './SkillPublication';
 
 type Relationship = keyof typeof relationshipLabels;
 type Draft = { repository_url: string; title: string; description: string; use_notes: string; demo_url: string; relationship: Relationship };
-type Submission = { submission_id: string; status: string; can_edit?: boolean; aggregate_version: number | string; public_path: string | null; seed?: unknown; payload: (Omit<Draft, 'demo_url'> & { demo_url: string | null }) | null };
+type Submission = { project_id?: string|null; submission_id: string; status: string; can_edit?: boolean; aggregate_version: number | string; public_path: string | null; seed?: unknown; payload: (Omit<Draft, 'demo_url'> & { demo_url: string | null }) | null };
 const blank: Draft = { repository_url: '', title: '', description: '', use_notes: '', demo_url: '', relationship: 'curator' };
 const defaultNotes = '請先閱讀原作 README，依其中的安裝步驟開始使用；使用條件與授權以原作文件為準。';
 
-export function SimpleSkillSubmission({ client, userId, resumeId = null, onPublished, onOpenDraft }: { client: PortalClient; userId: string; resumeId?: string | null; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void }) {
+export function SimpleSkillSubmission({ client, userId, resumeId = null, withdrawnProjectIds = [], onPublished, onOpenDraft }: { client: PortalClient; userId: string; resumeId?: string | null; withdrawnProjectIds?:string[]; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void }) {
   const [draft, setDraft, current] = useAuthoringDraft<Draft>(userId, 'skill:draft', { ...blank });
   const [review, setReview] = useAuthoringDraft(userId, 'skill:review', false), [consent, setConsent] = useAuthoringDraft(userId, 'skill:consent', false);
   const [saved, setSaved] = useAuthoringDraft<Submission | null>(userId, 'skill:saved', null), [published, setPublished] = useAuthoringDraft<Submission | null>(userId, 'skill:published', null);
+  useEffect(()=>{if(published?.project_id&&withdrawnProjectIds.includes(published.project_id)){setPublished(null);setCopied('');}},[published?.project_id,withdrawnProjectIds.join(',')]);
   const [ready, setReady] = useState<Submission[]>([]), [loadError, setLoadError] = useState('');
   const [copied, setCopied] = useState('');
   const { mutate, busy, error, setError } = useModuleMutation(client, { userId, type: 'skill' });
@@ -117,7 +118,7 @@ export function SimpleSkillSubmission({ client, userId, resumeId = null, onPubli
     {published ? <section ref={success} tabIndex={-1} className="work-sharing-success stack" aria-label="投稿完成">
       <h2>你的工具已分享！</h2><p>已公開為社群技能書，夥伴現在就能閱讀與分享。公會指定技能書另有選書流程。</p>
       <p>這本技能書已可使用。可再補上 100 則分享介紹，示意圖選填；新版公開前，現在的版本保持不變。</p>
-      <PublishedSkillLinks submission={published}/><div className="actions"><button type="button" className="btn btn-ghost" disabled={upgrade.busy} onClick={() => void startUpgrade()}>補充分享介紹（示意圖選填）</button><button type="button" className="btn btn-ghost" onClick={() => void copyLink()}>複製作品連結</button><a className="btn btn-ghost" href="#cocreation">找人一起開發</a></div>
+      <PublishedSkillLinks submission={published}/>{published.project_id&&<a className="btn btn-secondary btn-small" href={`#opensource?project=${encodeURIComponent(published.project_id)}`}>管理這份作品</a>}<div className="actions"><button type="button" className="btn btn-ghost" disabled={upgrade.busy} onClick={() => void startUpgrade()}>補充分享介紹（示意圖選填）</button><button type="button" className="btn btn-ghost" onClick={() => void copyLink()}>複製作品連結</button><a className="btn btn-ghost" href="#cocreation">找人一起開發</a></div>
       {upgrade.error && <p className="banner banner-error" role="alert">{upgrade.error}</p>}
       {copied && <p role="status">{copied}</p>}<button type="button" className="btn btn-ghost" onClick={() => setPublished(null)}>再投稿一個工具</button>
     </section> : review ? <form className="stack" onSubmit={event => void publish(event)} aria-busy={pending}>

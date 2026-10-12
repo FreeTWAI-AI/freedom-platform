@@ -20,11 +20,11 @@ export const campaignInput=campaignContent.extend({source_project_id:z.uuid().nu
 const shareInput=z.object({channel:text(80),share_url:externalLink,note:z.string().trim().max(1000).default('')}).strict();
 type ProjectSource=Awaited<ReturnType<typeof inspectGitHubRepository>>;
 
-async function projectView(q:Pool|PoolClient,actor:Actor,id:string) {
+export async function projectView(q:Pool|PoolClient,actor:Actor,id:string) {
   const row=(await q.query(`SELECT p.*,u.display_name AS owner_name,to_jsonb(v) AS current_version
     FROM oss_projects p JOIN users u ON u.user_id=p.owner_ref
     JOIN oss_project_versions v ON v.version_id=p.current_version_id AND v.project_id=p.project_id
-    WHERE p.project_id=$1 AND p.community_id=$2 AND (p.owner_ref=$3 OR NOT is_verification_test_account(p.owner_ref))`,[id,actor.community_id,actor.user_id])).rows[0];
+    WHERE p.project_id=$1 AND p.community_id=$2 AND (p.owner_ref=$3 OR (p.sharing_withdrawn_at IS NULL AND NOT is_verification_test_account(p.owner_ref)))`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'not_found','找不到這件開源作品。');return row;
 }
 async function ownedProject(q:PoolClient,actor:Actor,id:string,lock=false) {
@@ -34,7 +34,7 @@ async function ownedProject(q:PoolClient,actor:Actor,id:string,lock=false) {
 export type RepositoryManager=(q:PoolClient,actor:Actor,repository:string,repositoryId:string)=>Promise<boolean>;
 async function editableProject(q:PoolClient,actor:Actor,id:string,manager?:RepositoryManager) {
   const row=(await q.query<{owner_ref:string;repository_url:string;repository_id:string}>(`SELECT owner_ref,repository_url,repository_id FROM oss_projects
-    WHERE project_id=$1 AND community_id=$2 AND (owner_ref=$3 OR NOT is_verification_test_account(owner_ref)) FOR UPDATE`,[id,actor.community_id,actor.user_id])).rows[0];
+    WHERE project_id=$1 AND community_id=$2 AND (owner_ref=$3 OR (sharing_withdrawn_at IS NULL AND NOT is_verification_test_account(owner_ref))) FOR UPDATE`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'not_found','找不到可由你管理的開源作品。');
   const allowed=row.owner_ref===actor.user_id||(manager&&await manager(q,actor,githubCoordinate(row.repository_url),row.repository_id));
   requireCondition(allowed,404,'not_found','找不到可由你管理的開源作品；請先連結 GitHub，並確認授權涵蓋這個 Repo 的 admin／maintain 管理權。');
@@ -56,7 +56,19 @@ async function insertVersion(q:PoolClient,projectId:string,source:ProjectSource)
 export async function listProjects(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT p.*,u.display_name AS owner_name,to_jsonb(v) AS current_version
     FROM oss_projects p JOIN users u ON u.user_id=p.owner_ref JOIN oss_project_versions v ON v.version_id=p.current_version_id AND v.project_id=p.project_id
-    WHERE p.community_id=$1 AND (p.owner_ref=$2 OR NOT is_verification_test_account(p.owner_ref)) ORDER BY p.created_at DESC,p.project_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
+    WHERE p.community_id=$1 AND (p.owner_ref=$2 OR (p.sharing_withdrawn_at IS NULL AND NOT is_verification_test_account(p.owner_ref))) ORDER BY p.created_at DESC,p.project_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
+}
+
+/** Called by the publication command after locking this member's submissions.
+ * This module owns project visibility; publication history remains in its owner. */
+export async function withdrawProjectSharing(q:PoolClient,input:Command,id:string) {
+  const project=await ownedProject(q,input.actor,id,true);
+  checkVersion(project.aggregate_version,input.expected);
+  requireCondition(!project.sharing_withdrawn_at,409,'project_withdrawn','這件作品已撤下分享，請重新載入。');
+  const row=(await q.query(`UPDATE oss_projects SET sharing_withdrawn_at=now(),aggregate_version=aggregate_version+1,
+    updated_at=now() WHERE project_id=$1 RETURNING aggregate_version`,[id])).rows[0];
+  await journal(q,input.actor,'oss_project',id,row.aggregate_version,'withdraw_sharing',{});
+  return {project_id:id,aggregate_version:String(row.aggregate_version),sharing_withdrawn:true};
 }
 export type GitHubRead={fetcher?:typeof fetch;token?:string};
 export async function importProject(pool:Pool,input:Command,read:GitHubRead={}) {
@@ -66,17 +78,33 @@ export async function importProject(pool:Pool,input:Command,read:GitHubRead={}) 
 // The caller already holds the authenticated user's mutation locks. Keeping
 // repository import on that same client lets publication commit source facts
 // and the public submission atomically without a second pool checkout.
-export async function importProjectWithinTransaction(q:PoolClient,input:Pick<Command,'actor'>,raw:unknown,options:{reuseOwned?:boolean;fetcher?:typeof fetch;token?:string}={}) {
+export async function importProjectWithinTransaction(q:PoolClient,input:Pick<Command,'actor'>,raw:unknown,options:{reuseOwned?:boolean;fetcher?:typeof fetch;token?:string;beforePersist?:()=>Promise<void>;publicationCreatedAt?:Date|string;preparedProject?:{id:string;version:string}}={}) {
     const body=projectInput.parse(raw);
     const source=await inspectGitHubRepository(body.repository_url,options.fetcher??globalThis.fetch,options.token);
+    await options.beforePersist?.();
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`oss/${input.actor.community_id}/${input.actor.user_id}/${source.repository_id}`]);
-    const prior=(await q.query('SELECT project_id,current_version_id,aggregate_version FROM oss_projects WHERE community_id=$1 AND owner_ref=$2 AND repository_id=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,source.repository_id])).rows[0];
+    const prior=(await q.query('SELECT project_id,current_version_id,aggregate_version,sharing_withdrawn_at FROM oss_projects WHERE community_id=$1 AND owner_ref=$2 AND repository_id=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,source.repository_id])).rows[0];
+    requireCondition(!options.preparedProject || prior?.project_id===options.preparedProject.id,
+      409,'repository_identity_changed','這份草稿的來源已變更。請撤回草稿，再從作品管理重新製作與預覽。');
     if(prior) {
       requireCondition(options.reuseOwned,409,'project_exists','你已登錄這件作品，請使用更新 GitHub 版本。');
+      requireCondition(!prior.sharing_withdrawn_at || (options.publicationCreatedAt && new Date(options.publicationCreatedAt).getTime()>new Date(prior.sharing_withdrawn_at).getTime()),
+        409,'publication_withdrawn','這份草稿建立後，作品曾被撤下。請從作品管理重新建立草稿、預覽並公開。');
+      requireCondition(!prior.sharing_withdrawn_at || options.preparedProject?.version===String(prior.aggregate_version),
+        412,'project_publication_changed','作品已撤下或私人內容有新修改，這次沒有公開。請先撤回這份草稿，再從作品管理重新製作與預覽。');
       const versionId=await insertVersion(q,prior.project_id,source);
-      if(versionId!==prior.current_version_id) {
+      // Re-publication is explicit consent. Its project version advances even
+      // when GitHub has not changed, so a stale withdrawal cannot hide a newer
+      // publication. Use the text the member just previewed and approved.
+      if(options.reuseOwned) {
         const updated=(await q.query(`UPDATE oss_projects SET current_version_id=$2,repository_full_name=$3,repository_url=$4,
-          aggregate_version=aggregate_version+1,updated_at=now() WHERE project_id=$1 RETURNING aggregate_version`,[prior.project_id,versionId,source.repository_full_name,source.repository_url])).rows[0];
+          title=CASE WHEN sharing_withdrawn_at IS NOT NULL THEN $5 ELSE title END,
+          description=CASE WHEN sharing_withdrawn_at IS NOT NULL THEN $6 ELSE description END,
+          use_notes=CASE WHEN sharing_withdrawn_at IS NOT NULL THEN $7 ELSE use_notes END,
+          demo_url=CASE WHEN sharing_withdrawn_at IS NOT NULL THEN $8 ELSE demo_url END,
+          public_metadata_revised=public_metadata_revised OR sharing_withdrawn_at IS NOT NULL,sharing_withdrawn_at=NULL,
+          aggregate_version=aggregate_version+1,updated_at=now() WHERE project_id=$1 RETURNING aggregate_version`,
+          [prior.project_id,versionId,source.repository_full_name,source.repository_url,body.title,body.description,body.use_notes,body.demo_url])).rows[0];
         await journal(q,input.actor,'oss_project',prior.project_id,updated.aggregate_version,'refresh_for_skill_publication',{version_id:versionId,commit_sha:source.commit_sha},'freedom.skills.candidate.versioned.v1');
       }
       return projectView(q,input.actor,prior.project_id);

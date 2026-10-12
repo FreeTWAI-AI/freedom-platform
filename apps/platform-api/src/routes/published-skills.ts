@@ -63,6 +63,10 @@ export function submittedSkillHtml(skill:Published,intro?:string,publicOrigin=LI
 
 export function createPublishedSkillRoutes(pool:Pool,publicOrigin=LIVE_PUBLIC_ORIGIN,store?:ObjectStore,discoveryEnabled=false,readEventBacklinks?:(id:string,c:Context)=>Promise<string>){
   const app=new Hono();
+  // Dynamic publication responses, redirects and missing pages must all be
+  // checked against current consent. Static upload instructions are unaffected.
+  app.use('/api/v1/skill-submissions/*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
+  app.use('/development/submissions/*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
   const skillMarkdown=authoredUploadText(skillUploadSkillMarkdown,publicOrigin),protocolMarkdown=authoredUploadText(skillUploadProtocolMarkdown,publicOrigin);
   app.get('/api/v1/skill-submissions/published',async c=>{
     const limit=z.coerce.number().int().min(1).max(100).optional().parse(c.req.query('limit'));

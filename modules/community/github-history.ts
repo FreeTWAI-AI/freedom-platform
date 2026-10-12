@@ -73,7 +73,7 @@ function iso(value: Date | null | undefined) {
 export async function historyRepositories(pool: Pool, actor: Actor): Promise<HistoryRepository[]> {
   const rows = await Promise.all([
     pool.query('SELECT book_id FROM guild_skill_book_bindings WHERE community_id=$1', [actor.community_id]),
-    pool.query('SELECT repository_full_name,title FROM oss_projects WHERE community_id=$1 ORDER BY created_at DESC', [actor.community_id]),
+    pool.query('SELECT repository_full_name,title FROM oss_projects WHERE community_id=$1 AND sharing_withdrawn_at IS NULL ORDER BY created_at DESC', [actor.community_id]),
   ]);
   const assigned = new Set<string>(rows[0].rows.map(row => row.book_id));
   for (const key of Object.keys(guildTitles)) for (const book of skillBooksForGuild(key)) assigned.add(book.id);

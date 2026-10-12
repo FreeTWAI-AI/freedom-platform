@@ -737,7 +737,9 @@ test('the shelf callout upgrades a published simple submission into a new draft'
   await navigate(page, '技能書架');
   const callout = page.locator('.skill-draft-callout');
   await expect(callout).toContainText(`「${title}」已公開為社群技能書。可再補充 100 則分享介紹，示意圖選填。`);
+  const upgrading=page.waitForResponse(response=>response.request().method()==='POST'&&/\/api\/v1\/me\/skill-submissions\/[^/]+\/upgrade$/.test(new URL(response.url()).pathname));
   await callout.getByRole('button', { name: '補充分享介紹', exact: true }).click();
+  const upgraded=await upgrading;expect(upgraded.status()).toBe(201);await upgraded.finished();
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
   await expect(dialog.getByText(`正在補完：${title}`, { exact: true })).toBeVisible();
   await expect(dialog.getByText(`升級：${title}`, { exact: true })).toBeVisible();

@@ -2,9 +2,9 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
-import { listProjects,importProject,refreshProject,reviseProject,checkProjectEditing,type RepositoryManager,listCampaigns,createCampaign,reviseCampaign,recordShare } from '../../../../modules/opensource-marketing/service.js';
+import { listProjects,projectView,importProject,refreshProject,reviseProject,checkProjectEditing,type RepositoryManager,listCampaigns,createCampaign,reviseCampaign,recordShare } from '../../../../modules/opensource-marketing/service.js';
 import type {socialLoader} from './github-social.js';
-import { prepareProjectSkillSubmission } from '../../../../modules/skill-submissions/service.js';
+import { prepareProjectSkillSubmission, withdrawProjectPublication } from '../../../../modules/skill-submissions/service.js';
 import { projectSkillBookLinks } from '../../../../modules/skill-submissions/project-books.js';
 
 export function createOpenSourceRoutes(pool:Pool, readToken:()=>string|undefined=()=>undefined,loadSocial?:ReturnType<typeof socialLoader>) {
@@ -15,10 +15,20 @@ export function createOpenSourceRoutes(pool:Pool, readToken:()=>string|undefined
     const books=await projectSkillBookLinks(pool,actor,projects);
     return c.json({items:projects.map(project=>({...project,skill_book:books.get(project.project_id)??null}))});
   });
+  app.get('/opensource/projects/:id',async c=>{
+    const actor=c.get('actor'),project=await projectView(pool,actor,z.uuid().parse(c.req.param('id')));
+    const books=await projectSkillBookLinks(pool,actor,[project]);
+    c.header('Cache-Control','no-store');
+    return c.json({...project,skill_book:books.get(project.project_id)??null});
+  });
   app.post('/opensource/projects/:id/skill-submission',async c=>{
     const result=await prepareProjectSkillSubmission(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')));
     if(result.submission)c.header('ETag',`"${result.submission.aggregate_version}"`);
     return c.json(result,result.created?201:200);
+  });
+  app.post('/opensource/projects/:id/withdraw',async c=>{
+    const result=await withdrawProjectPublication(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')));
+    c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
   app.post('/opensource/projects',async c=>c.json(await importProject(pool,await moduleCommand(c),{token:readToken()}),201));
   app.post('/opensource/projects/:id/edit-access',async c=>c.json(await checkProjectEditing(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')),manager)));
