@@ -1546,9 +1546,7 @@ test('PA-002 committed but unreadable create and Result responses retain their e
     await page.getByRole('button', { name: '會員首頁', exact: true }).click();
     await expect(form).toBeVisible();
     await page.getByRole('button', { name: '設定', exact: true }).click();
-    const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
-  await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
-  expect((await signedOut).status()).toBe(200);
+    await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
     await expect(form).toBeVisible();
     await page.getByRole('button', { name: '返回公會列表', exact: true }).click(); await expect(form).toBeVisible();
     await expect(form.getByLabel('小活動 1', { exact: true })).toHaveValue('只保存一次的小活動');
@@ -1617,7 +1615,12 @@ test('PA-003 direction cards enforce tenant reads, independent Result grants, 41
       } else {
         await form.getByLabel('需要的協助', { exact: true }).fill('保留在本頁等待比較的草稿');
         await readForm.getByLabel('需要的協助', { exact: true }).fill('另一位有成果權限成員保存的版本');
+        // Saving confirms the new revision, then re-reads its content before enabling edits.
+        const readBack = member.page.waitForResponse(response => response.request().method() === 'GET'
+          && new URL(response.url()).pathname.startsWith(`/api/v1/tenants/${tenantId}/works/${work.work_id}/results/`)
+          && new URL(response.url()).pathname.endsWith('/content'), {timeout: 25_000});
         await readForm.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+        expect((await readBack).status()).toBe(200);
         await expect(member.page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
         await expect(readForm.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
       }
@@ -1709,9 +1712,7 @@ for (const phase of ['prepare', 'put', 'finalize', 'create'] as const) {
         await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
         const settings = page.getByRole('button', { name: '設定', exact: true });
         if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
-        const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
-  await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
-  expect((await signedOut).status()).toBe(200);
+        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
         await expect(page.getByRole('heading', { name: '登入', exact: true })).toHaveCount(0);
         await page.evaluate(() => { window.location.hash = 'home'; });
         await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
@@ -1766,8 +1767,8 @@ for (const phase of ['prepare', 'put', 'finalize', 'create'] as const) {
         const settings = page.getByRole('button', { name: '設定', exact: true });
         if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
         const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
-  await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
-  expect((await signedOut).status()).toBe(200);
+        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        expect((await signedOut).status()).toBe(200);
         await expect(page.getByRole('button', { name: '會員登入', exact: true }).or(page.getByRole('heading', { name: '登入', exact: true }))).toBeVisible();
       } else if (phase === 'finalize') {
         await page.evaluate(() => { window.location.hash = 'home'; });
