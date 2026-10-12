@@ -8,6 +8,9 @@ import {formatMinor, parseMajorToMinor} from '../format';
 import {useMyStores} from './MyStoreAction';
 import {HostedSupplyTerms} from './HostedSupplyTerms';
 import {HostedDistribution} from './HostedDistribution';
+import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
+import {HostedReservationSetting} from './HostedReservationSetting';
+import {SupplierOrdersLink} from './HostedSupplierOrders';
 
 type Catalog = z.infer<typeof SupplyCatalogViewSchema>;
 type Product = z.infer<typeof SupplyProductViewSchema>;
@@ -40,6 +43,9 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
 }) {
   const root = `/tenants/${tenantId}/storefronts/${instanceId}`;
   const [view, setView] = useState<Catalog | null>(null);
+  const [reservationSetting, setReservationSetting] = useState<z.infer<typeof ReservationSettingSchema> | null>(null);
+  const [hasDraft, setHasDraft] = useState(false);
+  const session = useRef(client.sessionGeneration);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true), [readFailed, setReadFailed] = useState(false);
   const [error, setError] = useState(''), [status, setStatus] = useState('');
@@ -51,7 +57,7 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   const held = useRef<Attempt | null>(null), busyRef = useRef(false);
   const controller = useRef(new AbortController()), generation = useRef(0);
   const statusLine = useRef<HTMLParagraphElement>(null);
-  function markDirty(key: string, value: boolean) {dirtyForms.current[key] = value;}
+  function markDirty(key: string, value: boolean) {dirtyForms.current[key] = value; setHasDraft(Object.values(dirtyForms.current).some(Boolean));}
   function announce(text: string) {setStatus(text); requestAnimationFrame(() => statusLine.current?.focus());}
   function leaveOk() {
     if (busyRef.current || held.current) {
@@ -61,7 +67,7 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   }
   useEffect(() => {registerLeave(leaveOk); return () => registerLeave(null);}, [registerLeave]);
   useEffect(() => {
-    controller.current = new AbortController();
+    controller.current = new AbortController(); session.current = client.sessionGeneration;
     const unloading = (event: BeforeUnloadEvent) => {
       if (busyRef.current || held.current || Object.values(dirtyForms.current).some(Boolean)) {event.preventDefault(); event.returnValue = '';}
     };
@@ -70,15 +76,21 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   }, [client, root]);
   async function load() {
     const signal = controller.current.signal, ticket = ++generation.current;
-    const current = () => !signal.aborted && ticket === generation.current;
+    const current = () => !signal.aborted && ticket === generation.current && session.current === client.sessionGeneration;
     setLoading(true); setReadFailed(false);
     try {
       const next = SupplyCatalogViewSchema.parse(await client.get(root + '/supply-profile', {signal}));
       // Metadata readers must never request the cost-bearing product or offer projections.
       const items = next.setup_state === 'ready' && next.capabilities.includes('store:write')
         ? SupplyProductPageSchema.parse(await client.get(root + '/supply-products', {signal})).items : [];
+      let setting: z.infer<typeof ReservationSettingSchema> | null = null;
+      if (next.setup_state === 'ready') {
+        // This endpoint checks current ownership. An admin's store:manage is insufficient.
+        try {setting = ReservationSettingSchema.parse(await client.get(root + '/reservation-setting', {signal}));}
+        catch (cause) {if (!(cause instanceof ApiError && [403, 404].includes(cause.status))) throw cause;}
+      }
       if (!current()) return;
-      setView(next); setProducts(items); setError(''); setRefresh(value => value + 1);
+      setReservationSetting(setting); setView(next); setProducts(items); setError(''); setRefresh(value => value + 1);
     } catch (cause) {
       if (!current()) return;
       setReadFailed(true);
@@ -87,18 +99,19 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
     } finally {if (current()) setLoading(false);}
   }
   async function send(attempt: Attempt) {
-    if (busyRef.current || held.current && held.current !== attempt) return;
+    if (session.current !== client.sessionGeneration || busyRef.current || held.current && held.current !== attempt) return;
     held.current = attempt; busyRef.current = true; setBusy(true); setRetry(null); setError('');
-    const signal = controller.current.signal;
+    const signal = controller.current.signal, sessionGeneration = client.sessionGeneration;
+    const current = () => !signal.aborted && sessionGeneration === client.sessionGeneration && session.current === sessionGeneration;
     try {
       const raw = await client[attempt.method](attempt.path, attempt.body, {idempotencyKey: attempt.key, ifMatch: attempt.version, signal});
       const parsed = attempt.schema.safeParse(raw);
       if (!parsed.success) throw new ApiError({message: '回應未完整收到，請重試確認原操作。', network: true});
-      if (signal.aborted) return;
+      if (!current()) return;
       held.current = null; attempt.success(parsed.data);
-      await load(); if (!signal.aborted) announce(attempt.notice);
+      await load(); if (current()) announce(attempt.notice);
     } catch (cause) {
-      if (signal.aborted) return;
+      if (!current()) return;
       // Preserve the exact key, payload and version across unknown responses, including 5xx.
       if (!(cause instanceof ApiError) || cause.network || cause.status >= 500) {
         setRetry(attempt); setError('尚未確認原操作的結果，請按「重試」確認。'); return;
@@ -107,10 +120,10 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
       if (cause.status === 404 && attempt.targetMissingIsStore !== false) setMissing(true);
       else if (cause.status === 412) {
         setEditing(null); setSupplyEditing(null); markDirty('edit', false); markDirty('supply', false);
-        await load(); announce('資料剛剛被更新，已重新載入，請確認後再編輯。');
-      } else if (cause.code === 'storefront_already_set_up') {await load(); announce('商品庫已經設定過，已重新載入。');}
+        await load(); if (current()) announce('資料剛剛被更新，已重新載入，請確認後再編輯。');
+      } else if (cause.code === 'storefront_already_set_up') {await load(); if (current()) announce('商品庫已經設定過，已重新載入。');}
       else setError(errorText(cause));
-    } finally {if (!signal.aborted) {busyRef.current = false; setBusy(false);}}
+    } finally {if (current()) {busyRef.current = false; setBusy(false);}}
   }
   const command = (attempt: Omit<Attempt, 'key'>) => send({...attempt, key: crypto.randomUUID()});
   const locked = busy || retry !== null || loading || readFailed;
@@ -128,6 +141,13 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
       {!view.writable && <p>{view.capabilities.includes('store:write') ? '這個商品庫目前暫停，無法修改。' : '你可以檢視商品庫資料，但沒有供貨編輯權限；供貨價與條件不會顯示。'}</p>}
       {!catalog ? can('store:manage') ? <SupplySetupForm busy={locked} onDirty={value => markDirty('setup', value)} onSave={(body, success) => command({method: 'post', path: root + '/supply-profile', body, schema: SupplyCatalogReceiptSchema, success, notice: '已建立供貨商品庫。'})}/>
         : <p>商品庫還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
+        <SupplierOrdersLink client={client} tenantId={tenantId} instanceId={instanceId}/>
+        {reservationSetting && <HostedReservationSetting supplierOnly setting={reservationSetting} writable={view.writable} locked={locked || hasDraft}
+          onToggle={() => void command({targetMissingIsStore: false, method: 'patch', path: root + '/reservation-setting', body: {reservation_enabled: !reservationSetting.reservation_enabled},
+            version: reservationSetting.version, schema: ReservationSettingSchema, success: () => {},
+            notice: reservationSetting.reservation_enabled ? '已停止接受新預留。既有供貨預留仍可查看。' : '已開放 30 分鐘預留。'})}/>}
+        {reservationSetting && hasDraft && <p className="field-hint">還有尚未儲存的內容，請先儲存或取消編輯，再變更預留設定。</p>}
+        {!reservationSetting && <p className="field-hint">只有目前業務空間擁有者可設定供貨預留；目前沒有可用的預留管理權限。</p>}
         <p>{catalog.description}</p><p>幣別：{catalog.currency}</p><p>共用商品容量：{view.product_count}／{view.product_limit}（含供貨商品與商店選品）</p>
         {view.capabilities.includes('store:write') && <>
           <section className="stack" aria-labelledby="supply-products-title"><h3 id="supply-products-title">供貨商品</h3>

@@ -1,5 +1,16 @@
 # Durable local inventory reservations
 
+Supplier-only catalogs expose the existing owner-controlled reservation setting
+at `#stores/{tenant}/{instance}/supply`. The current owner can open or stop new
+30-minute reservations and follow the supplier-order link without a retail slug
+or a retail publication. The control requires a successful owner-only setting
+read; a manage grant alone does not expose it. Host admission OFF prevents opening
+but retains stopping and historical order reads. Cooperating retailers still need
+the exact supplier consent, a published selection and their own reservation opt-in.
+Uncertain command responses retain the original key, payload and version for retry.
+The supplier order page links back to the same supply catalog. These controls do
+not provide payment, fulfilment or cancellation of another retailer's orders.
+
 This is the first inventory-portability increment under #234. It gives existing
 direct and shared reservations stable hold identities; it does not move stock,
 install an external runtime, or enable a new product capability.

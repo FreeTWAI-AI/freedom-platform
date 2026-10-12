@@ -4,6 +4,9 @@ import { navigate, signOut } from './navigation.js';
 import { quickJoin } from './quick-join.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
+import {person, login as fixtureLogin, launchStore, open, post} from './hosted-store-fixture.js';
+import {buyerLogin, offListener} from './hosted-order-fixture.js';
+import {SupplierReservationPageSchema} from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 
 const guild = 'guild_commerce_sales';
 async function register(page: Page, nickname: string) {
@@ -158,5 +161,127 @@ test('ordinary A/B/C members open stores, agree supply, opt in, race shared stoc
     if(prior.length) await e2eAuthPool.query('UPDATE positioning_guild_officers SET user_id=$4 WHERE community_id=$1 AND guild_key=$2 AND user_id=$3',[DEMO_COMMUNITY,guild,officerId,prior[0].user_id]);
     else await e2eAuthPool.query('DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 AND user_id=$3',[DEMO_COMMUNITY,guild,officerId]);
     expect((await e2eAuthPool.query('SELECT user_id,appointed_at FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2',[DEMO_COMMUNITY,guild])).rows).toEqual(prior);
+  }
+});
+
+test('supplier-only A accepts B, explicitly opens reservations, reads only its own lines and returns to its supply catalog', async ({browser, baseURL, e2eAuthPool}, info) => {
+  test.setTimeout(150000);
+  const contexts = await Promise.all(Array.from({length: 3}, () => browser.newContext({baseURL})));
+  const title = '純供貨茶杯 ' + randomUUID().slice(0, 6), otherTitle = '零售商自己的商品 ' + randomUUID().slice(0, 6);
+  const supplier = await person(e2eAuthPool), retailer = await person(e2eAuthPool), buyer = await person(e2eAuthPool);
+  try {
+    const [a, b, customer] = await Promise.all(contexts.map(context => context.newPage()));
+    await fixtureLogin(a, supplier.email); await fixtureLogin(b, retailer.email); await fixtureLogin(customer, buyer.email);
+    const supplierStore = await launchStore(a, '純供貨 A 空間'), sellerStore = await launchStore(b, '零售 B 空間');
+    const slug = 'supplier-ui-' + randomUUID().slice(0, 12);
+    await open(a, supplierStore.hash + '/supply');
+    await expect(a.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toHaveCount(0);
+    const setup = a.getByRole('form', {name: '建立供貨商品庫', exact: true});
+    await setup.getByLabel('商品庫名稱', {exact: true}).fill('純供貨 A');
+    await setup.getByRole('button', {name: '建立供貨商品庫', exact: true}).click();
+    await expect(a.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
+    await expect(a.getByLabel('商店網址', {exact: true})).toHaveCount(0);
+    await expect(a.getByRole('button', {name: '發布展示頁', exact: true})).toHaveCount(0);
+    await post(b, sellerStore.root + '/setup', {name: '零售 B', slug, currency: 'TWD'}, 201);
+    await post(b, sellerStore.root + '/products', {title: otherTitle, price_minor: 900, stock: 5}, 201);
+    await open(b, sellerStore.hash);
+    await b.getByRole('button', {name: '開放 30 分鐘預留', exact: true}).click();
+    await expect(b.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
+    const add = a.getByRole('form', {name: '新增供貨商品', exact: true});
+    await add.getByLabel('商品名稱', {exact: true}).fill(title);
+    await add.getByLabel('供貨單價（TWD）', {exact: true}).fill('4');
+    await add.getByLabel('庫存', {exact: true}).fill('10');
+    await add.getByRole('button', {name: '新增供貨商品', exact: true}).click();
+    await expect(a.locator('.hosted-store > [role="status"]')).toContainText('已新增供貨商品');
+    await a.getByRole('button', {name: '供貨條件', exact: true}).click();
+    let terms = a.getByRole('form', {name: title + '供貨條件', exact: true});
+    await terms.getByLabel('每件運費（TWD）', {exact: true}).fill('0');
+    await terms.getByRole('textbox', {name: '出貨條件', exact: true}).fill('另行確認出貨');
+    await terms.getByRole('textbox', {name: '退貨條件', exact: true}).fill('另行確認退貨');
+    await terms.getByRole('button', {name: '儲存供貨條件', exact: true}).click();
+    await expect(a.locator('.hosted-store > [role="status"]')).toContainText('已儲存供貨條件');
+    await a.getByRole('button', {name: '供貨條件', exact: true}).click();
+    terms = a.getByRole('form', {name: title + '供貨條件', exact: true});
+    await terms.getByRole('button', {name: '公開供貨版本', exact: true}).click();
+    await expect(a.locator('.hosted-store > [role="status"]')).toContainText('已公開供貨版本');
+    await b.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    const offer = (await expand(b, '選用其他商店')).getByRole('article').filter({has: b.getByRole('heading', {name: title + '・純供貨 A', exact: true})});
+    await offer.getByRole('button', {name: '設定我的售價', exact: true}).click();
+    await offer.getByLabel('我的零售價（TWD）', {exact: true}).fill('11');
+    await offer.getByRole('button', {name: '送出供貨申請', exact: true}).click();
+    await expect(b.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
+    await a.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    const request = (await expand(a, '供貨申請')).getByRole('article').filter({has: a.getByRole('heading', {name: title + '・零售 B', exact: true})});
+    await request.getByRole('button', {name: '同意這一版', exact: true}).click();
+    await expect(request).toContainText('已同意');
+    await b.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    await b.getByRole('button', {name: '發布展示頁', exact: true}).click();
+    await expect(b.locator('.hosted-store > [role="status"]')).toContainText('已發布');
+    // Exact-version supply consent alone must not opt A into reservations.
+    await customer.goto('/#reservations/' + slug);
+    await customer.getByLabel(title + '數量', {exact: true}).fill('3');
+    await customer.getByLabel(otherTitle + '數量', {exact: true}).fill('1');
+    const refused = customer.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/reservation-quotes'));
+    await customer.getByRole('button', {name: '查看預留內容', exact: true}).click();
+    expect((await refused).status()).toBe(409);
+    await expect(customer.getByRole('button', {name: '確認預留 30 分鐘', exact: true})).toHaveCount(0);
+    await a.getByRole('button', {name: '開放 30 分鐘預留', exact: true}).click();
+    await expect(a.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
+    await customer.getByRole('button', {name: '查看預留內容', exact: true}).click();
+    await expect(customer.getByRole('region', {name: '確認預留內容'})).toContainText('非應付金額');
+    await customer.getByRole('button', {name: '確認預留 30 分鐘', exact: true}).click();
+    await expect(customer.getByRole('region', {name: '我的預留'})).toContainText('預留中');
+    const orderId = await customer.getByLabel('預留編號', {exact: true}).inputValue();
+    await a.getByRole('link', {name: '供貨訂單', exact: true}).click();
+    await expect(a).toHaveURL(new RegExp('#' + supplierStore.hash + '/supply-orders$'));
+    const orders = a.locator('.hosted-store');
+    await expect(orders).toContainText('零售 B'); await expect(orders).toContainText(title + ' × 3');
+    await expect(orders).not.toContainText(otherTitle); await expect(orders).not.toContainText(buyer.email);
+    await expect(orders.getByRole('button', {name: /取消.*預留/})).toHaveCount(0);
+    await expect(a.getByRole('link', {name: '查看本店預留', exact: true})).toHaveCount(0);
+    await expect(a.getByRole('link', {name: '返回商店後台', exact: true})).toHaveCount(0);
+    const supplierOrders = SupplierReservationPageSchema.parse(await (await a.request.get('/api/v1' + supplierStore.root + '/supply-reservations')).json());
+    expect(supplierOrders.items).toHaveLength(1); expect(supplierOrders.items[0].order_id).toBe(orderId);
+    expect(supplierOrders.items[0].items.map(line => [line.title, line.quantity, line.unit_supply_price_minor])).toEqual([[title, 3, 400]]);
+    expect(JSON.stringify(supplierOrders)).not.toContain(buyer.email); expect(JSON.stringify(supplierOrders)).not.toContain(otherTitle);
+    for (const theme of ['light', 'dark', 'versefolk']) {
+      await a.evaluate(value => {localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; document.documentElement.dataset.experienceProfile = value; window.dispatchEvent(new Event('freedom-theme-changed'));}, theme);
+      for (const width of [390, 768, 1440]) {
+        await a.setViewportSize({width, height: 900});
+        expect(await a.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await a.screenshot({path: info.outputPath(`supply-only-orders-${theme}-${width}.png`), fullPage: true});
+      }
+    }
+    await a.getByRole('link', {name: '返回供貨商品庫', exact: true}).click();
+    await expect(a).toHaveURL(new RegExp('#' + supplierStore.hash + '/supply$'));
+    await expect(a.getByRole('form', {name: '新增供貨商品', exact: true})).toBeVisible();
+    await a.getByRole('button', {name: '停止接受新預留', exact: true}).click();
+    await expect(a.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
+    await a.getByRole('link', {name: '供貨訂單', exact: true}).click();
+    await expect(orders).toContainText(orderId); await expect(orders).toContainText('預留中');
+    // Recovery remains a real authorized read when both host flags are OFF.
+    const off = await offListener(e2eAuthPool, false), recoveryContext = await browser.newContext({baseURL: off.origin});
+    try {
+      const recovery = await recoveryContext.newPage();
+      await buyerLogin(recovery, supplier.email, '#' + supplierStore.hash + '/supply-orders', off.origin);
+      await expect(recovery.locator('.hosted-store')).toContainText(orderId);
+      await expect(recovery.locator('.hosted-store')).toContainText(title + ' × 3');
+      await expect(recovery.getByRole('link', {name: '查看本店預留', exact: true})).toHaveCount(0);
+    } finally {try {await recoveryContext.close();} finally {await off.close();}}
+    customer.once('dialog', dialog => dialog.accept()); await customer.getByRole('button', {name: '取消預留', exact: true}).click();
+    await expect(customer.getByRole('region', {name: '我的預留'})).toContainText('已取消');
+    await a.getByRole('button', {name: '更新供貨訂單', exact: true}).click(); await expect(orders).toContainText('已取消');
+    expect((await e2eAuthPool.query('SELECT stock,reserved FROM commerce_items WHERE title=$1', [title])).rows).toEqual([{stock: 10, reserved: 0}]);
+    const profile = await (await a.request.get('/api/v1' + supplierStore.root + '/supply-profile')).json();
+    expect(profile.retail_enabled).toBe(false);
+    expect((await (await a.request.get('/api/v1/me/stores?pagination=cursor')).json()).items).toEqual([]);
+    expect((await e2eAuthPool.query(`SELECT count(*)::int AS n FROM commerce_storefront_publications p
+      JOIN commerce_storefront_profiles f USING(instance_id) JOIN commerce_shops s ON s.shop_id=f.supply_shop_id
+      WHERE s.owner_id=$1`, [supplier.id])).rows[0].n).toBe(0);
+  } finally {
+    await Promise.allSettled(contexts.map(context => context.close()));
+    await e2eAuthPool.query(`UPDATE commerce_hosted_supply_offers o SET state='withdrawn',version=o.version+1
+      FROM commerce_storefront_profiles p JOIN commerce_shops s ON s.shop_id=p.supply_shop_id
+      WHERE o.instance_id=p.instance_id AND o.tenant_id=p.tenant_id AND s.owner_id=$1 AND o.state='offered'`, [supplier.id]);
   }
 });
