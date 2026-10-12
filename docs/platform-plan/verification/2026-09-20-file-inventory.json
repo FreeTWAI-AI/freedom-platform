@@ -149,8 +149,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 33034,
-      "sha256": "8781cfb109feeea7528e2f53dcc1651061751b53544cfed57cc74db9acf3846e"
+      "bytes": 33213,
+      "sha256": "7cea95d72c3df5cdd337bb3c1b7d6c0d521b8542673b3675b749e76e9bcdaaef"
     },
     {
       "path": "apps/freedom.module.json",
