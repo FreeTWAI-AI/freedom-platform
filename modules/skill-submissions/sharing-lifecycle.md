@@ -27,7 +27,8 @@ project 的 sharing_withdrawn_at。公開 HTML、JSON、Agent 文件、圖片、
 ## 部署與恢復限制
 
 Schema 165 增加既有 project 的可見性欄位與投稿的來源版本綁定。**正式部署尚未執行**。
-啟用前必須在部署／恢復操作器保留 `opensource.sharing-visibility.v1` 與
+既有 release-compatibility evaluator 已加入此 capability、schema 自動 floor、
+混合舊 reader/writer 拒絕與還原反例；啟用前仍須在真實部署／恢復操作器保留 `opensource.sharing-visibility.v1` 與
 schema 165 的 reader/writer floor，並實測拒絕舊版 rollback。舊 binary 的會員
 目錄不認識撤下欄位，不能當作相容 rollback。此文件不是已安裝 floor 的證據。
 備份須保留 project、全部 submission、grant 撤權與 asset 關係；還原後依
