@@ -440,3 +440,14 @@ and retained observations, including capability-only rollback floors. Restoring
 schema163 cannot erase a retained164 requirement. Exact source, artifact and
 ledger approvals remain required. This source registration does not apply a
 migration, deploy a release or enable reservation admission.
+
+## Open-source sharing visibility floor (schema165)
+
+A planned or retained schema165 requires `opensource.sharing-visibility.v1` from
+every active and candidate reader/writer, even with all feature shapes disabled.
+Earlier binaries can redisplay withdrawn work and cannot be a compatible rollback.
+Explicit enabled, written and retained shapes also require the exact schema;
+restoring schema164 cannot erase the retained capability. The capability covers
+current publication visibility and prepared-project version checks, and grants
+neither publication consent nor deployment/restore authority. Host approvals
+remain independently bound to source, artifact, environment and ledger digest.

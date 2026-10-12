@@ -139,3 +139,56 @@ test('320px tool form and review remain readable in all three themes with option
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/simple-work-sharing/review-320.png', fullPage: true });
 });
+
+test('member returns to manage a shared tool, withdraws it privately and publishes the edited work again', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await login(page);await navigate(page,'開源投稿');
+  await fillTool(page,'可持續管理的工具');
+  await page.getByLabel('GitHub 專案網址',{exact:true}).fill('https://github.com/freetwai-test/managed-work');
+  await page.getByRole('button',{name:'預覽投稿',exact:true}).click();
+  await page.getByLabel('我同意公開這份作品介紹與來源關係',{exact:true}).check();
+  await page.getByRole('button',{name:'確認並公開',exact:true}).click();
+  const completed=page.getByRole('region',{name:'投稿完成'});
+  const oldPath=await completed.getByRole('link',{name:'閱讀已公開技能書 ↗'}).getAttribute('href');
+  await completed.getByRole('link',{name:'管理這份作品',exact:true}).click();
+  let card=page.getByRole('article',{name:'開源作品：可持續管理的工具',exact:true});
+  await expect(card).toBeFocused();
+  await card.getByRole('button',{name:'編輯作品介紹',exact:true}).click();
+  await card.getByLabel('作品名稱',{exact:true}).fill('重新整理的工具');
+  await card.getByRole('button',{name:'儲存作品介紹',exact:true}).click();
+  card=page.getByRole('article',{name:'開源作品：重新整理的工具',exact:true});
+  await expect(card).toContainText('使用說明已更新');
+  expect(await (await page.request.get(oldPath!)).text()).toContain('重新整理的工具');
+  const logout=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname==='/api/v1/auth/logout');
+  await signOut(page);await (await logout).finished();await login(page);await navigate(page,'我的內容');
+  const own=page.getByRole('article').filter({has:page.getByRole('heading',{name:'重新整理的工具',exact:true})});
+  // Simulate a collection page that does not contain this older work. The
+  // management detail and every mutation still use the real authorized API.
+  await page.route('**/api/v1/opensource/projects',route=>route.fulfill({json:{items:[]}}));
+  const managed=page.waitForResponse(response=>response.request().method()==='GET'&&/\/api\/v1\/opensource\/projects\/[0-9a-f-]+$/.test(new URL(response.url()).pathname));
+  await own.getByRole('link',{name:'管理作品',exact:true}).click();
+  card=page.getByRole('article',{name:'開源作品：重新整理的工具',exact:true});
+  expect((await managed).status()).toBe(200);await expect(card).toBeFocused();
+  await page.unroute('**/api/v1/opensource/projects');
+  await card.getByRole('button',{name:'撤下作品分享',exact:true}).click();
+  await expect(card.getByRole('button',{name:'確認撤下作品分享',exact:true})).toBeDisabled();
+  await card.getByLabel('我了解這件作品的所有分享版本都會撤下',{exact:true}).check();
+  await card.getByRole('button',{name:'確認撤下作品分享',exact:true}).click();
+  await expect(card).toContainText('已撤下分享・僅本人可見');
+  expect((await page.request.get(oldPath!)).status()).toBe(404);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/simple-work-sharing/withdrawn-tool-390.png',fullPage:true});
+  await page.reload();card=page.getByRole('article',{name:'開源作品：重新整理的工具',exact:true});
+  await expect(card).toContainText('已撤下分享・僅本人可見');
+  await card.getByRole('button',{name:'重新預覽並公開',exact:true}).click();
+  const advanced=page.getByRole('region',{name:'預覽：重新整理的工具',exact:true});
+  await expect(advanced).toBeVisible();
+  expect((await page.request.get(oldPath!)).status()).toBe(404);
+  await advanced.getByRole('button',{name:'送出技能',exact:true}).click();
+  await expect(advanced.getByRole('link',{name:'閱讀已公開技能書 ↗'})).toBeVisible();
+  await page.getByRole('button',{name:'關閉上傳技能',exact:true}).click();
+  await expect(card).toContainText('已公開社群技能書');
+  const newPath=await card.getByRole('link',{name:'閱讀已公開技能書 ↗'}).getAttribute('href');
+  expect(newPath).not.toBe(oldPath);expect((await page.request.get(newPath!)).status()).toBe(200);
+  expect((await page.request.get(oldPath!)).status()).toBe(404);
+});

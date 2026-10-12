@@ -41,6 +41,7 @@
     "tests/e2e/cloud-candidate-acceptance.spec.ts",
     "tests/e2e/member-feature-fixture.ts",
     "tests/e2e/event-banner.spec.ts",
+    "packages/testing/github-collaboration.ts",
     "scripts/ci/pinned-guild-preview.config.mjs"
   ],
   "owner_role": "foundation",
