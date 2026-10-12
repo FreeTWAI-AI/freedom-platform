@@ -7,6 +7,7 @@ import {signOut} from './navigation.js';
 import {ReservationSettingSchema} from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
 
+const workspace = (page: Page, name: string) => page.getByRole('navigation', {name: '供貨工作區', exact: true}).getByRole('button', {name, exact: true});
 const supplySurface = (page: Page) => page.locator('.hosted-supply-catalog');
 function settingTuple(route: Route) {
   const request = route.request();
@@ -49,10 +50,14 @@ test('supply reservation controls require a successful owner read and recover fr
   await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toHaveCount(0);
   status = 403;
   await page.getByRole('button', {name: '重新載入', exact: true}).click();
+  await workspace(page, '預留與訂單').click();
   await expect(page.locator('.hosted-supply-catalog')).toContainText('只有目前業務空間擁有者');
   await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toHaveCount(0);
+  await workspace(page, '商品').click();
+  await page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
   await expect(page.getByRole('form', {name: '新增供貨商品', exact: true})).toBeVisible();
   status = 200; await page.reload();
+  await workspace(page, '預留與訂單').click();
   await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
 });
 
@@ -73,6 +78,7 @@ for (const action of ['setup', 'create', 'edit'] as const) {
     await expect(page.getByRole('heading', {level: 1, name: '我的供貨商品庫', exact: true})).toBeVisible();
     await expect(page.getByLabel('商店網址', {exact: true})).toHaveCount(0);
     await expect(page.getByRole('heading', {name: '預覽與發布', exact: true})).toHaveCount(0);
+    if (action === 'create') await page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
     if (action === 'edit') await page.getByRole('button', {name: '編輯供貨商品', exact: true}).click();
     const form = page.getByRole('form', {name: action === 'setup' ? '建立供貨商品庫' : action === 'create' ? '新增供貨商品' : '編輯供貨商品', exact: true});
     if (action === 'setup') await form.getByLabel('商品庫名稱', {exact: true}).fill('私人商品庫');
@@ -102,6 +108,15 @@ for (const action of ['setup', 'create', 'edit'] as const) {
     await expect(page).toHaveURL(new RegExp('#' + store.hash + '/supply$'));
     expect(prompts).toBe(0);
     expect(tuples).toHaveLength(1);
+    if (action !== 'setup') {
+      await workspace(page, '供貨合作').click();
+      await expect(form).toBeHidden();
+      await expect(page.getByRole('button', {name: '更新供貨狀態', exact: true})).toBeDisabled();
+      await expect(supplySurface(page).getByRole('alert')).toContainText('尚未確認原操作的結果');
+      await workspace(page, '商品').click();
+      await expect(form.getByLabel('商品名稱', {exact: true})).toHaveValue('供貨茶杯');
+      expect(tuples).toHaveLength(1);
+    }
     await page.locator('.hosted-supply-catalog').getByRole('button', {name: '重試', exact: true}).click();
     await expect(page.locator('.hosted-supply-catalog > [role="status"]')).toContainText(action === 'setup' ? '已建立供貨商品庫。' : action === 'create' ? '已新增供貨商品。' : '已儲存供貨商品。');
     expect(tuples).toHaveLength(2); expect(tuples[1]).toEqual(tuples[0]);
@@ -122,7 +137,7 @@ for (const action of ['setup', 'create', 'edit'] as const) {
       await page.setViewportSize({width, height: 900});
       await page.evaluate(() => window.scrollTo(0, 0));
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await page.screenshot({path: info.outputPath(`supply-${action}-${theme}-${width}.png`), fullPage: true});
+      await page.screenshot({path: info.outputPath(`supply-${action}-${theme}-${width}.png`), fullPage: true, animations: 'disabled'});
     }
     }
     await page.getByRole('link', {name: '返回我的供貨商品庫', exact: true}).click();
@@ -140,11 +155,18 @@ test('supply-only reservation opt-in keeps its exact tuple and navigation guard 
   const setting = await readSetting(page, store.root);
   expect(setting.reservation_enabled).toBe(false);
   const toggle = page.getByRole('button', {name: '開放 30 分鐘預留', exact: true});
+  await workspace(page, '預留與訂單').click();
   await expect(toggle).toBeEnabled();
+  await workspace(page, '商品').click();
+  await page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
   const draftTitle = page.getByRole('form', {name: '新增供貨商品', exact: true}).getByLabel('商品名稱', {exact: true});
   await draftTitle.fill('尚未儲存的供貨商品');
+  await workspace(page, '預留與訂單').click();
   await expect(toggle).toBeDisabled();
+  await workspace(page, '商品').click();
+  await expect(draftTitle).toHaveValue('尚未儲存的供貨商品');
   await draftTitle.clear();
+  await workspace(page, '預留與訂單').click();
   await expect(toggle).toBeEnabled();
   const tuples: ReturnType<typeof settingTuple>[] = [];
   await page.route('**/api/v1' + store.root + '/reservation-setting', async route => {
@@ -158,8 +180,11 @@ test('supply-only reservation opt-in keeps its exact tuple and navigation guard 
   await toggle.click();
   await expect(supplySurface(page).getByRole('alert')).toContainText('尚未確認原操作的結果');
   await expect(toggle).toBeDisabled();
+  await workspace(page, '商品').click();
   await expect(page.getByRole('form', {name: '新增供貨商品', exact: true}).getByLabel('商品名稱', {exact: true})).toBeDisabled();
+  await workspace(page, '供貨合作').click();
   await expect(page.getByRole('button', {name: '更新供貨狀態', exact: true})).toBeDisabled();
+  await workspace(page, '預留與訂單').click();
   await page.getByRole('link', {name: '返回我的供貨商品庫', exact: true}).click();
   await expect(page).toHaveURL(new RegExp('#' + store.hash + '/supply$'));
   await page.evaluate(() => {location.hash = 'home';});
@@ -196,6 +221,7 @@ test('supply-only reservation setting handles a known CAS conflict by refreshing
   const store = await launchStore(page, '並行預留設定空間');
   await post(page, store.root + '/supply-profile', {name: '並行預留設定商品庫', currency: 'TWD'}, 201);
   await open(page, store.hash + '/supply');
+  await workspace(page, '預留與訂單').click();
   await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
   const initial = await readSetting(page, store.root);
   const newer = await patchSetting(page, store.root, true, initial.version);
@@ -244,7 +270,10 @@ test('supply-only reservation controls require owner reads and never follow admi
       await expect(memberPage.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toHaveCount(0);
       await expect(memberPage.getByRole('button', {name: '停止接受新預留', exact: true})).toHaveCount(0);
       await expect(memberPage.getByRole('link', {name: '供貨訂單', exact: true})).toHaveCount(0);
-      if (role === 'admin') await expect(memberPage.getByRole('form', {name: '新增供貨商品', exact: true})).toBeVisible();
+      if (role === 'admin') {
+        await memberPage.getByRole('button', {name: '新增供貨商品', exact: true}).click();
+        await expect(memberPage.getByRole('form', {name: '新增供貨商品', exact: true})).toBeVisible();
+      }
       else await expect(memberPage.getByRole('form', {name: '新增供貨商品', exact: true})).toHaveCount(0);
     } finally {await context.close();}
   }
@@ -269,6 +298,7 @@ test('supply-only order entry waits for the authorized supplier read and stays a
   });
   try {
     await open(page, store.hash + '/supply'); await requested.promise;
+    await workspace(page, '預留與訂單').click();
     await expect(page.getByRole('link', {name: '供貨訂單', exact: true})).toHaveCount(0);
     const denial = page.waitForResponse(response => response.url().includes(store.root + '/supply-reservations'));
     release.resolve();
@@ -276,6 +306,7 @@ test('supply-only order entry waits for the authorized supplier read and stays a
     await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
     await expect(page.getByRole('link', {name: '供貨訂單', exact: true})).toHaveCount(0);
     phase = 'unavailable'; await page.reload();
+    await workspace(page, '預留與訂單').click();
     await expect(supplySurface(page)).toContainText('暫時無法確認供貨訂單入口');
     await expect(page.getByRole('link', {name: '供貨訂單', exact: true})).toHaveCount(0);
     phase = 'malformed';
@@ -298,11 +329,13 @@ test('supply-only admission OFF disables opening but allows the owner to stop an
   try {
     const offPage = await context.newPage();
     await buyerLogin(offPage, member.email, '#' + store.hash + '/supply', off.origin);
+    await workspace(offPage, '預留與訂單').click();
     await expect(offPage.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeDisabled();
     await expect(supplySurface(offPage)).toContainText('平台目前未開放新預留');
     expect((await readSetting(offPage, store.root)).admission_enabled).toBe(false);
     const setting = await readSetting(page, store.root); await patchSetting(page, store.root, true, setting.version);
     await offPage.reload();
+    await workspace(offPage, '預留與訂單').click();
     await expect(offPage.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
     await offPage.getByRole('button', {name: '停止接受新預留', exact: true}).click();
     await expect(offPage.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeDisabled();
@@ -344,4 +377,58 @@ test('a delayed supplier owner-setting read cannot restore controls after logout
     await expect(page.getByRole('link', {name: '供貨訂單', exact: true})).toHaveCount(0);
     await expect(supplySurface(page)).not.toContainText('上一位會員的供貨商品庫');
   } finally {release.resolve(); await page.unroute(path);}
+});
+
+
+test('supplier work areas preserve drafts, show one task at a time and discard only after confirmation', async ({page, e2eAuthPool}, info) => {
+  const store = await readyCatalog(page, e2eAuthPool);
+  await post(page, store.root + '/supply-products', {title: '草稿測試茶杯', cost_minor: 15000, stock: 10}, 201);
+  await open(page, store.hash + '/supply');
+  const products = page.getByRole('region', {name: '供貨商品', exact: true});
+  const form = page.getByRole('form', {name: '新增供貨商品', exact: true});
+  await expect(workspace(page, '商品')).toHaveAttribute('aria-pressed', 'true');
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole('button', {name: '更新供貨狀態', exact: true})).toBeHidden();
+  await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeHidden();
+  await page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
+  await expect(form.getByLabel('商品名稱', {exact: true})).toBeFocused();
+  await form.getByLabel('商品名稱', {exact: true}).fill('留在商品區的草稿');
+  await form.getByLabel('供貨單價（TWD）', {exact: true}).fill('180');
+  await workspace(page, '供貨合作').click();
+  await expect(products).toBeHidden();
+  await expect(page.getByRole('button', {name: '更新供貨狀態', exact: true})).toBeVisible();
+  await workspace(page, '預留與訂單').click();
+  await expect(page.getByRole('button', {name: '更新供貨狀態', exact: true})).toBeHidden();
+  await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeDisabled();
+  await expect(page.getByRole('region', {name: '預留與訂單', exact: true})).toContainText('還有尚未儲存');
+  await workspace(page, '商品').click();
+  await expect(form.getByLabel('商品名稱', {exact: true})).toHaveValue('留在商品區的草稿');
+  await expect(form.getByLabel('供貨單價（TWD）', {exact: true})).toHaveValue('180');
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.getByRole('button', {name: '編輯供貨商品', exact: true}).click();
+  await expect(form.getByLabel('商品名稱', {exact: true})).toHaveValue('留在商品區的草稿');
+  page.once('dialog', dialog => dialog.accept());
+  await form.getByRole('button', {name: '取消編輯', exact: true}).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole('heading', {name: '供貨商品', exact: true})).toBeFocused();
+  await page.getByRole('button', {name: '供貨條件', exact: true}).click();
+  const terms = page.getByRole('form', {name: '草稿測試茶杯供貨條件', exact: true});
+  await terms.getByRole('textbox', {name: '出貨條件', exact: true}).fill('供貨條件草稿');
+  await workspace(page, '供貨合作').click();
+  await workspace(page, '商品').click();
+  await expect(terms.getByRole('textbox', {name: '出貨條件', exact: true})).toHaveValue('供貨條件草稿');
+  page.once('dialog', dialog => dialog.accept());
+  await terms.getByRole('button', {name: '返回商品', exact: true}).click();
+  for (const area of ['供貨合作', '預留與訂單']) {
+    await workspace(page, area).click();
+    for (const theme of ['light', 'dark', 'versefolk']) {
+      await page.evaluate(value => {localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; document.documentElement.dataset.experienceProfile = value; window.dispatchEvent(new Event('freedom-theme-changed'));}, theme);
+      for (const width of [390, 768, 1440]) {
+        await page.setViewportSize({width, height: 900});
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({path: info.outputPath(`supply-area-${area}-${theme}-${width}.png`), fullPage: true, animations: 'disabled'});
+      }
+    }
+  }
+  expect((await (await page.request.get('/api/v1' + store.root + '/supply-products')).json()).items).toHaveLength(1);
 });

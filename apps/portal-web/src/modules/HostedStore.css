@@ -24,3 +24,14 @@
 .hosted-store-photo input[type="file"] { display: block; min-height: 44px; width: 100%; }
 
 .hosted-order-quantity input { width: 160px; max-width: 100%; }
+.hosted-supply-catalog > [role="status"]:empty {display: none;}
+.hosted-supply-about summary {cursor: pointer; min-height: 44px; align-content: center; text-decoration: underline; text-underline-offset: 4px;}
+.hosted-supply-about summary:focus-visible {outline: 2px solid var(--focus); outline-offset: 4px;}
+.hosted-supply-nav {display: flex; flex-wrap: wrap; gap: 8px; padding-block: 8px; border-bottom: 1px solid var(--line);}
+.hosted-supply-nav .btn[aria-pressed="true"] {background: var(--bg-elev); color: var(--ink); border-color: var(--ink); font-weight: 700; text-decoration: underline; text-underline-offset: 4px;}
+.hosted-supply-panel[hidden] {display: none;}
+.hosted-supply-toolbar {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;}
+.hosted-supply-toolbar h3 {margin: 0;}
+
+.hosted-supply-catalog .hosted-store-product {gap: 8px; margin-top: 0;}
+.hosted-supply-catalog .hosted-store-product h4 {margin: 0;}
