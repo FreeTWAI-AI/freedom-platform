@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
-import { navigate, signOut } from './navigation.js';
+import { navigate, signOut, openGuildSection } from './navigation.js';
 import { quickJoin } from './quick-join.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
@@ -53,6 +53,7 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     const primary = page.getByRole('region', {name: '主要動作', exact: true});
     await expect(primary).toContainText('你是這個公會的實習成員');
     await expect(primary.getByRole('button', {name: '建立我的商店', exact: true})).toHaveCount(0);
+    await openGuildSection(page, '工具目錄');
     await expect(page.getByRole('article').filter({has: page.getByRole('heading', {name: '線上商店', exact: true})})
       .getByRole('button', {name: '啟動應用', exact: true})).toBeDisabled();
     const officerPage = await officer.newPage(); await login(officerPage, officerEmail);
@@ -67,6 +68,7 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     await member.getByRole('button', {name: '設為正式成員', exact: true}).click();
     await expect(member.locator('.guild-member-tier-full')).toHaveText('正式成員');
     await page.reload();
+    await openGuildSection(page, '線上商店');
     await primary.getByRole('button', {name: '建立我的商店', exact: true}).click();
     const flow = page.getByRole('region', {name: '啟動應用', exact: true});
     await flow.getByLabel('業務空間名稱', {exact: true}).fill('新會員選物工作室');

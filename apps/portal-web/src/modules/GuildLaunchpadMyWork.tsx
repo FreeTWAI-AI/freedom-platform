@@ -596,7 +596,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave, 
     } finally { if (call.live()) setBusy(false); }
   }
   function resolveDocumentConflict(useServer: boolean) {
-    if (!work || documentLoading || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')) return;
+    if (!work || busyRef.current || documentLoading || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')) return;
     if (useServer) {
       const value = documentRead.kind === 'found' ? documentRead.value : emptyDocument(work.work_id);
       setWorkDocument(value); setDocumentBaseline(JSON.stringify(value));
@@ -974,9 +974,10 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave, 
           {documentRead?.kind === 'more' && <div className="stack"><p>較新的成果是一般文字；繼續讀取較早版本後才能編輯{documentLabel}。</p><button type="button" className="btn btn-ghost" disabled={documentLoading || busy} onClick={() => void loadDocument(work.work_id, currentCall(), documentRead.scan, documentReadContinuation.current.keepDraft, documentReadContinuation.current.expectedText)}>繼續尋找{documentLabel}</button></div>}
           {documentConflict && <div className="my-work-conflict" role="status">
             <p>工作版本已改變，你的{isPositioning ? '方向卡' : '製作'}草稿仍保留。先比較伺服器版本，再選擇要繼續的內容。</p>
+            {busy && <p>正在重新讀取伺服器版本…</p>}
             {documentRead?.kind === 'found' && <><p>伺服器{documentLabel}：第 {documentRead.result.revision} 版</p><details><summary>查看伺服器{documentLabel}內容</summary><pre>{documentRead.text}</pre></details></>}
             {documentRead?.kind === 'empty' && <p>伺服器尚無{documentLabel}。</p>}
-            <div className="my-work-actions"><button type="button" className="btn btn-ghost" disabled={documentLoading || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')} onClick={() => resolveDocumentConflict(false)}>保留我的{isPositioning ? '方向卡' : '製作'}草稿</button><button type="button" className="btn btn-ghost" disabled={documentLoading || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')} onClick={() => resolveDocumentConflict(true)}>改用伺服器{documentLabel}</button></div>
+            <div className="my-work-actions"><button type="button" className="btn btn-ghost" disabled={busy || documentLoading || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')} onClick={() => resolveDocumentConflict(false)}>保留我的{isPositioning ? '方向卡' : '製作'}草稿</button><button type="button" className="btn btn-ghost" disabled={busy || documentLoading || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')} onClick={() => resolveDocumentConflict(true)}>改用伺服器{documentLabel}</button></div>
           </div>}
           {workDocument?.profile === PRODUCTION_PROFILE && <ProductionProject key={work.work_id} value={workDocument} onChange={value => { setWorkDocument(value); setStage('尚未儲存'); }} onSave={() => void saveDocument()} onDraftChange={setDocumentComposerDirty} results={results} disabled={busy || writeLocked || documentLoading || Boolean(attempt) || Boolean(resave) || documentConflict || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')} readOnly={!writable || !canSaveResults} saved={documentRead?.kind === 'found'} error={noteError} />}
           {workDocument?.profile === POSITIONING_CARD_PROFILE && <PositioningActionCardForm value={workDocument} onChange={value => { setWorkDocument(value); setStage('尚未儲存'); }} onSave={() => void saveDocument()} disabled={busy || writeLocked || documentLoading || Boolean(attempt) || Boolean(resave) || documentConflict || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')} readOnly={!writable || !canSaveResults} saved={documentRead?.kind === 'found'} error={noteError} />}

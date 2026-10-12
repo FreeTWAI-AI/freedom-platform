@@ -36,7 +36,9 @@ async function login(page: Page) {
   await page.goto('/');
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
+  const authResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST', {timeout: 25_000});
   await page.getByRole('button', { name: '登入', exact: true }).click();
+  expect((await authResponse).status()).toBe(200);
   await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
   // These cases inspect the optional member summary, reached through its visible disclosure.
   await openHomeGuide(page);
@@ -127,7 +129,7 @@ test('home does not guess a next action while the member read waits or fails and
   await expect(summary).toHaveAttribute('aria-busy', 'true');
   await expect(summary).toContainText('正在載入名片');
   await expect(suggestion(page)).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: '常用入口', exact: true }).getByRole('button')).toHaveCount(3);
+  await expect(page.getByRole('navigation', { name: '常用入口', exact: true }).getByRole('button')).toHaveCount(2);
   mode = 'fail'; release();
   const alert = page.getByRole('alert').filter({ hasText: '名片暫時無法載入' });
   await expect(alert).toBeVisible();
