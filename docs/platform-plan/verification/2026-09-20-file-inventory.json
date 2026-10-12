@@ -20329,8 +20329,8 @@
     },
     {
       "path": "tests/e2e/event-member-journey.spec.ts",
-      "bytes": 7040,
-      "sha256": "a1e504b2f110dfc6d1d54e77041d09ddfaa22ef54893644b42d0772799d8ce18"
+      "bytes": 7176,
+      "sha256": "38f399b339b0611e5ad5f1b42e564a7887ea9b3dc72524bb270e830a13fed1e7"
     },
     {
       "path": "tests/e2e/event-outcomes.spec.ts",

@@ -12,6 +12,8 @@ async function login(page:Page,email='maker@local.test'){
   await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
 async function logout(page:Page){
+  // Public event pages remain readable after logout; use the member shell to verify the login transition.
+  await page.goto('/');
   const response=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/auth/logout');
   await signOut(page);const result=await response;expect(result.status()).toBe(200);await result.finished();
 }
@@ -32,7 +34,7 @@ test('member previews an event, an authorized officer approves it, and participa
   await form.getByLabel('活動說明',{exact:true}).fill('這是合成內容；一起用範例資料整理工具，沒有付款或真實招募。');
   await form.getByLabel('線上場地',{exact:true}).fill('合成線上工作室');
   await form.getByLabel('線上參與連結',{exact:true}).fill('https://example.com/synthetic-event');
-  await form.getByLabel('參與範圍',{exact:true}).selectOption('open');
+  await form.getByRole('combobox',{name:/^參與範圍/}).selectOption('open');
   await expect(form).toContainText('America/New_York');
   const start=await form.getByLabel('開始時間',{exact:true}).inputValue();
   const expectedIso=await page.evaluate(value=>new Date(value).toISOString(),start);
