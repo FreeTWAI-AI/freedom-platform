@@ -1,0 +1,1196 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-11T21:46:57.929775+00:00",
+  "status": "complete",
+  "scope": "Reviewed #445 / #234: suppliers create a private supply catalog, products and offers without a retail store; independent retailers consent to exact versions. Also includes already merged #447 contribution source and migration163.",
+  "source": {
+    "release": "31166e5230d8a2ba3b06e2429de103c98687711b",
+    "reviewedHead": "296492606d7f08d70e85090944e99fc158dbfcbc",
+    "tree": "13cc103810f1f94f7dfffb4564e38c44769cd17b",
+    "trustedPin": "dc2f5ba8e003d2ae1f54a2965133e2e979d9d809",
+    "verifyRun": 38167663412,
+    "verifyAttempt": 1,
+    "codeqlRun": 38167661565,
+    "reviewId": 5484603625,
+    "mergeMethod": "protected merge commit"
+  },
+  "authorization": "22 個 PR 還有很多 issue 都在那，你的工作應該是照著 plan 開放，審核，能 merge, push , deploy 的都處理掉才對",
+  "continued_by": "繼續，一路做下去",
+  "source_verification": {
+    "pull_request": 445,
+    "required_jobs_passed": 14,
+    "reviewed_tree_equals_merged_tree": true,
+    "main_verify": {
+      "at": "2026-10-11T20:38:02.763410+00:00",
+      "head": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "conclusion": "success",
+      "naturalPushRun": true,
+      "verifyRun": 38170287569,
+      "codeqlRun": 38170287738,
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38170287569",
+      "jobs": [
+        {
+          "name": "source-integrity",
+          "conclusion": "success"
+        },
+        {
+          "name": "select",
+          "conclusion": "success"
+        },
+        {
+          "name": "ui-e2e",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy-preflight",
+          "conclusion": "success"
+        },
+        {
+          "name": "governance-consumers",
+          "conclusion": "success"
+        },
+        {
+          "name": "static-worker",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 4)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 5)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 0)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 3)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 1)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-full (partition 2)",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime-aggregate",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify",
+          "conclusion": "success"
+        }
+      ],
+      "runs": [
+        {
+          "id": 38170287738,
+          "name": "Push on main",
+          "event": "dynamic",
+          "path": "dynamic/github-code-scanning/codeql",
+          "conclusion": "success",
+          "run_attempt": 1,
+          "html_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38170287738"
+        },
+        {
+          "id": 38170287569,
+          "name": "Verify local milestone",
+          "event": "push",
+          "path": ".github/workflows/verify.yml",
+          "conclusion": "success",
+          "run_attempt": 1,
+          "html_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38170287569"
+        }
+      ]
+    },
+    "counts": {
+      "at": "2026-10-11T20:01:59.962622+00:00",
+      "head": "296492606d7f08d70e85090944e99fc158dbfcbc",
+      "release": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "conclusion": "success",
+      "verifyRun": 38167663412,
+      "runtime": {
+        "candidate_commit": "33089c165f2e10f619fdf42d3edda6766beeb23e",
+        "status": "passed",
+        "test_count": 4559,
+        "partition_count": 6,
+        "database_cleanup_verified": true,
+        "started_at": "2026-10-11T19:23:41.868Z",
+        "ended_at": "2026-10-11T19:41:30.967Z",
+        "evidence_sha256": "44a56208345e1c238e9ae7472ccfc94e9a29d8466f00038925ceb581bad22cf0"
+      },
+      "runtimeFiles": 357,
+      "ui": {
+        "check_id": "ci.e2e",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 876,
+        "file_count": 142,
+        "passes": [
+          {
+            "id": "default",
+            "exit_code": 0
+          },
+          {
+            "id": "private-ai",
+            "exit_code": 0
+          },
+          {
+            "id": "avatar-asset",
+            "exit_code": 0
+          },
+          {
+            "id": "message-image",
+            "exit_code": 0
+          },
+          {
+            "id": "store-photo",
+            "exit_code": 0
+          }
+        ]
+      },
+      "uiLogSha256": "231d4b3bfb2b9394e6e97a9c5eea1aa148084bd937c6e44e29068976cf978535",
+      "treeMatchesNaturalCandidate": true,
+      "runtimeSourceHashesMatch": true
+    },
+    "main_counts": {
+      "at": "2026-10-11T20:39:00.072382+00:00",
+      "head": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "release": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "conclusion": "success",
+      "verifyRun": 38170287569,
+      "runtime": {
+        "candidate_commit": "31166e5230d8a2ba3b06e2429de103c98687711b",
+        "status": "passed",
+        "test_count": 4559,
+        "partition_count": 6,
+        "database_cleanup_verified": true,
+        "started_at": "2026-10-11T20:01:28.348Z",
+        "ended_at": "2026-10-11T20:19:10.875Z",
+        "evidence_sha256": "6bc439b3b21636f3722cace55bf37eba681e12d571eb206a739d0c9ca86e92e0"
+      },
+      "runtimeFiles": 357,
+      "ui": {
+        "check_id": "ci.e2e",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 876,
+        "file_count": 142,
+        "selection": {
+          "profile": "full",
+          "reason": "non_pull_request"
+        },
+        "binding": {
+          "candidate": "31166e5230d8a2ba3b06e2429de103c98687711b"
+        },
+        "passes": [
+          {
+            "id": "default",
+            "exit_code": 0
+          },
+          {
+            "id": "private-ai",
+            "exit_code": 0
+          },
+          {
+            "id": "avatar-asset",
+            "exit_code": 0
+          },
+          {
+            "id": "message-image",
+            "exit_code": 0
+          },
+          {
+            "id": "store-photo",
+            "exit_code": 0
+          },
+          {
+            "id": "notification-preferences",
+            "exit_code": 0
+          }
+        ]
+      },
+      "uiLogSha256": "5e334987aa916a6ce4ae0673a4de1907667a870db4ea7e5b10dc6f9b93eac858",
+      "treeMatchesNaturalCandidate": true,
+      "runtimeSourceHashesMatch": true
+    },
+    "review_boundary": "detna exact-head AI-assisted approval, with underlying source and matrix repair authorship disclosed; no independent human test-execution claim"
+  },
+  "environments": {
+    "staging": {
+      "source": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "observed_at": "2026-10-11T20:48:31.894Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "31166e5230d8a2ba3b06e2429de103c98687711b",
+        "cache_control_no_store": true
+      },
+      "worker_version": "5b0b4f58-7579-406c-90b1-2639072d9777",
+      "dist_sha256": "1aaface034dc311a2fb14b54e682788f39fabaa492cd3741ab9711720a69ee53",
+      "migration": {
+        "at": "2026-10-11T20:48:08.805Z",
+        "applied": [
+          "163_work_contribution_roles.sql",
+          "164_hosted_supply_catalogs.sql"
+        ],
+        "lastApplied": "164_hosted_supply_catalogs.sql",
+        "ledgerCount": 163,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "92dfc808-d705-434e-8c4b-2db00b409d8e"
+      },
+      "reader_writer_floor": {
+        "at": "2026-10-11T20:47:41.323Z",
+        "minimumSchema": 164,
+        "capability": "commerce.hosted-supply-catalog.v1",
+        "retained_inventory_capability": "commerce.hosted-inventory-reservation.v1",
+        "retainAfterAdmissionOff": true,
+        "pre164WorkerRollbackValid": false
+      },
+      "configuration": {
+        "existingTotpKeyPreserved": true,
+        "mediaPoliciesPreserved": true,
+        "otherBindingsAndVarsPreserved": true,
+        "gcEnabled": false,
+        "reservationAdmissionChanged": false,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true"
+        }
+      },
+      "selected_checks": {
+        "public_http": 36,
+        "supply_catalog_browser": 28
+      },
+      "selected_check_results": {
+        "public_http": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "supply_catalog_browser": [
+          {
+            "name": "exact_merged_source",
+            "passed": true
+          },
+          {
+            "name": "one_supplier_product",
+            "passed": true
+          },
+          {
+            "name": "edit_keeps_original_product_and_stock",
+            "passed": true
+          },
+          {
+            "name": "private_terms_not_offered",
+            "passed": true
+          },
+          {
+            "name": "independent_retailer_publication_200",
+            "passed": true
+          },
+          {
+            "name": "retail_price_and_private_terms_boundary",
+            "passed": true
+          },
+          {
+            "name": "independent_retailer_publication_200",
+            "passed": true
+          },
+          {
+            "name": "retail_price_and_private_terms_boundary",
+            "passed": true
+          },
+          {
+            "name": "supply_catalog_not_a_retail_store",
+            "passed": true
+          },
+          {
+            "name": "retail_never_activated",
+            "passed": true
+          },
+          {
+            "name": "supplier_has_only_supply_guild",
+            "passed": true
+          },
+          {
+            "name": "no_slug_publication_or_implicit_reservations",
+            "passed": true
+          },
+          {
+            "name": "no_supplier_publication_history",
+            "passed": true
+          },
+          {
+            "name": "single_source_stock",
+            "passed": true
+          },
+          {
+            "name": "cross_tenant_private_cost_denied",
+            "passed": true
+          },
+          {
+            "name": "anonymous_private_cost_denied",
+            "passed": true
+          },
+          {
+            "name": "cross_tenant_write_denied",
+            "passed": true
+          },
+          {
+            "name": "fresh_login_recovers_same_catalog",
+            "passed": true
+          },
+          {
+            "name": "supplier_no_horizontal_overflow_light",
+            "passed": true
+          },
+          {
+            "name": "supplier_no_horizontal_overflow_dark",
+            "passed": true
+          },
+          {
+            "name": "supplier_no_horizontal_overflow_versefolk",
+            "passed": true
+          },
+          {
+            "name": "repricing_requires_new_consent_and_revocation_blocks_update",
+            "passed": true
+          },
+          {
+            "name": "supplier_withdraws_original_offer",
+            "passed": true
+          },
+          {
+            "name": "no_browser_page_errors",
+            "passed": true
+          },
+          {
+            "name": "owned_accounts_inactive",
+            "passed": true
+          },
+          {
+            "name": "owned_tenants_archived",
+            "passed": true
+          },
+          {
+            "name": "owned_stock_unreserved",
+            "passed": true
+          },
+          {
+            "name": "owned_supply_withdrawn",
+            "passed": true
+          }
+        ]
+      },
+      "synthetic_cleanup": {
+        "cleanupVerified": true,
+        "authorizationFixtureWrites": false,
+        "cleanupAdministrativeWrites": true,
+        "realUserAdoption": false
+      },
+      "github_deployment": {
+        "at": "2026-10-11T21:46:31.370217+00:00",
+        "environment": "staging-next",
+        "sha": "31166e5230d8a2ba3b06e2429de103c98687711b",
+        "deploymentId": 7002264314,
+        "statusId": 19614945331,
+        "state": "success",
+        "environmentUrl": "https://staging.freetwai.com/"
+      }
+    },
+    "production": {
+      "source": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "observed_at": "2026-10-11T21:25:23.357Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "31166e5230d8a2ba3b06e2429de103c98687711b",
+        "cache_control_no_store": true
+      },
+      "worker_version": "9b7069f6-61b7-412e-95ad-d0055021dd59",
+      "dist_sha256": "1aaface034dc311a2fb14b54e682788f39fabaa492cd3741ab9711720a69ee53",
+      "migration": {
+        "at": "2026-10-11T21:24:46.563Z",
+        "applied": [
+          "163_work_contribution_roles.sql",
+          "164_hosted_supply_catalogs.sql"
+        ],
+        "lastApplied": "164_hosted_supply_catalogs.sql",
+        "ledgerCount": 163,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "2c730647-c876-4425-aed7-62a84e34ecc6"
+      },
+      "reader_writer_floor": {
+        "at": "2026-10-11T21:24:18.447Z",
+        "minimumSchema": 164,
+        "capability": "commerce.hosted-supply-catalog.v1",
+        "retained_inventory_capability": "commerce.hosted-inventory-reservation.v1",
+        "retainAfterAdmissionOff": true,
+        "pre164WorkerRollbackValid": false
+      },
+      "configuration": {
+        "existingTotpKeyPreserved": true,
+        "mediaPoliciesPreserved": true,
+        "otherBindingsAndVarsPreserved": true,
+        "gcEnabled": false,
+        "reservationAdmissionChanged": false,
+        "releaseFlags": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true"
+        }
+      },
+      "selected_checks": {
+        "public_http": 36,
+        "account_http": 22
+      },
+      "selected_check_results": {
+        "public_http": [
+          {
+            "name": "health_200",
+            "passed": true
+          },
+          {
+            "name": "health_no_store",
+            "passed": true
+          },
+          {
+            "name": "release",
+            "passed": true
+          },
+          {
+            "name": "mode",
+            "passed": true
+          },
+          {
+            "name": "shop_key_policy",
+            "passed": true
+          },
+          {
+            "name": "no_money_movement",
+            "passed": true
+          },
+          {
+            "name": "html_matches_build",
+            "passed": true
+          },
+          {
+            "name": "entries_present",
+            "passed": true
+          },
+          {
+            "name": "entry_0_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_0_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_1_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_1_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_2_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_2_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_3_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_3_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_4_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_4_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_5_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_5_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_6_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_6_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_7_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_7_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_8_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_8_immutable",
+            "passed": true
+          },
+          {
+            "name": "entry_9_matches",
+            "passed": true
+          },
+          {
+            "name": "entry_9_immutable",
+            "passed": true
+          },
+          {
+            "name": "dragon_release_200",
+            "passed": true
+          },
+          {
+            "name": "dragon_pinned",
+            "passed": true
+          },
+          {
+            "name": "dragon_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_release_200",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_pinned",
+            "passed": true
+          },
+          {
+            "name": "ai-sister_asset_verified",
+            "passed": true
+          },
+          {
+            "name": "store_reader_404",
+            "passed": true
+          },
+          {
+            "name": "store_reader_application_response",
+            "passed": true
+          }
+        ],
+        "account_http": [
+          {
+            "name": "reviewed_source_deployed",
+            "passed": true
+          },
+          {
+            "name": "register_201",
+            "passed": true
+          },
+          {
+            "name": "new_member_onboarding_required",
+            "passed": true
+          },
+          {
+            "name": "onboarding_directory_200",
+            "passed": true
+          },
+          {
+            "name": "synthetic_onboarding_guild",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "private_tenant_201",
+            "passed": true
+          },
+          {
+            "name": "supply_catalog_list_200_empty",
+            "passed": true
+          },
+          {
+            "name": "retail_list_remains_empty",
+            "passed": true
+          },
+          {
+            "name": "list_0_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_0_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "list_1_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_1_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_1_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          },
+          {
+            "name": "supply_list_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "list_0_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "list_1_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "owned_account_inactive",
+            "passed": true
+          },
+          {
+            "name": "owned_sessions_revoked",
+            "passed": true
+          },
+          {
+            "name": "owned_tenant_archived",
+            "passed": true
+          }
+        ]
+      },
+      "synthetic_cleanup": {
+        "syntheticAccountDeactivated": true,
+        "syntheticTenantArchived": true,
+        "existingMemberPermissionsChanged": false,
+        "syntheticInternMembershipEnded": true,
+        "passwordOrSessionRecorded": false
+      },
+      "github_deployment": {
+        "at": "2026-10-11T21:46:32.225697+00:00",
+        "environment": "next",
+        "sha": "31166e5230d8a2ba3b06e2429de103c98687711b",
+        "deploymentId": 7002264473,
+        "statusId": 19614945710,
+        "state": "success",
+        "environmentUrl": "https://freetwai.com/"
+      }
+    }
+  },
+  "backups": [
+    {
+      "environment": "staging",
+      "label": "before-migration",
+      "sourceRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "operatorSource": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "createdAt": "2026-10-11T20:32:31.291Z",
+      "setId": "92dfc808-d705-434e-8c4b-2db00b409d8e",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "acdc734358da369359a82d280029045f9b2ad98cdede8047b645aa5b752af2c0",
+      "dumpSha256": "789e410995fa74537899c06ea2d52d57a0a2df5c103ef1644195d668447f50f3",
+      "diskRestore": true,
+      "retainedPhotoObjects": 8,
+      "remotePhotoObjects": 8,
+      "retainedCommentObjects": 5,
+      "remoteCommentObjects": 5,
+      "retainedMessageObjects": 4,
+      "remoteMessageObjects": 4
+    },
+    {
+      "environment": "staging",
+      "label": "after-rollout",
+      "sourceRelease": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "operatorSource": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "createdAt": "2026-10-11T20:56:04.261Z",
+      "setId": "56d78557-3eac-4b86-bd24-278bc247a0a8",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "656ac85fd19a42596ee838ea16c55210b5ead84d7d0d1c83189248571dd4cdb0",
+      "dumpSha256": "303a6537ddaa86f508e5c8a5fb065ddc791d09425f5825176e6fd95ee8f6bf31",
+      "diskRestore": true,
+      "retainedPhotoObjects": 8,
+      "remotePhotoObjects": 8,
+      "retainedCommentObjects": 5,
+      "remoteCommentObjects": 5,
+      "retainedMessageObjects": 4,
+      "remoteMessageObjects": 4
+    },
+    {
+      "environment": "production",
+      "label": "before-migration",
+      "sourceRelease": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "operatorSource": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "createdAt": "2026-10-11T21:09:12.124Z",
+      "setId": "2c730647-c876-4425-aed7-62a84e34ecc6",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "a41b850337af77851aaabdda6e12c4df9b4584ec171842877ad694b99da10d5a",
+      "dumpSha256": "2edec4de436ddf33b6aeb760b759f1b91d2414f2ef3e4e677b783e5399248803",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0,
+      "retainedMessageObjects": 0,
+      "remoteMessageObjects": 0
+    },
+    {
+      "environment": "production",
+      "label": "after-rollout",
+      "sourceRelease": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "operatorSource": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "createdAt": "2026-10-11T21:34:45.246Z",
+      "setId": "e19febce-0fb8-4928-a36f-d91c1ad4c0c2",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "eb0a4997acc7e7d754db8815a81e3322f653cb826a8fe55e5861657c617eb528",
+      "dumpSha256": "6be56a911167778d2370dc12f1fe85f9bcff7674a8c4f562e5870b998f7d13de",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0,
+      "retainedMessageObjects": 0,
+      "remoteMessageObjects": 0
+    }
+  ],
+  "handover": {
+    "staging": {
+      "at": "2026-10-11T20:47:35.494Z",
+      "pausedAt": "2026-10-11T20:46:31.667Z",
+      "target": "staging",
+      "release": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "candidateRelease": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "singleVersion": true,
+      "pausedFlags": [
+        "FREEDOM_GUILD_LAUNCHPAD_ENABLED",
+        "FREEDOM_HOSTED_STORE_PHOTOS_ENABLED",
+        "FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED"
+      ],
+      "otherBindingsPreserved": true,
+      "siteFlagsObservedOff": true,
+      "observedOlderRuntimeTransactions": 0,
+      "settleSeconds": 60,
+      "retainedSchema": 162
+    },
+    "production": {
+      "at": "2026-10-11T21:24:12.202Z",
+      "pausedAt": "2026-10-11T21:23:08.008Z",
+      "target": "next",
+      "release": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+      "candidateRelease": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "singleVersion": true,
+      "pausedFlags": [
+        "FREEDOM_GUILD_LAUNCHPAD_ENABLED",
+        "FREEDOM_HOSTED_STORE_PHOTOS_ENABLED",
+        "FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED"
+      ],
+      "otherBindingsPreserved": true,
+      "siteFlagsObservedOff": true,
+      "observedOlderRuntimeTransactions": 0,
+      "settleSeconds": 60,
+      "retainedSchema": 162
+    },
+    "boundary": {
+      "historical_profiles": "All preexisting profiles had retail slugs before and immediately after migration; existing selections retained own_retail_enabled=true.",
+      "supply_only_writes": "Existing GLP and dependent photo flags temporarily paused the old hosted reader/writer. Observed100% paused version, flags OFF and60-second settling with no older runtime transactions. The new compatible Worker restored original flags before supply writes. No split-version deployment.",
+      "recovery": "Retain164 and162 floors; use compatible reviewed source or forward repair. An unknown outcome requires re-reading the authoritative ledger."
+    }
+  },
+  "limitations": [
+    "Staging uses ordinary new synthetic accounts and an existing synthetic guild officer; production has selected public and authenticated HTTP checks, not a full merchant browser journey.",
+    "No real-member adoption, payment, platform collection, fulfilment or remote inventory authority claim.",
+    "Existing reservation host setting and owner opt-ins are preserved. This increment does not add a supply-only reservation opt-in UI or retail conversion UI.",
+    "T-047 restore authorization reconciliation and second-operator/off-host recovery remain unresolved; restored environments stay quarantined.",
+    "Original Foundation requirements retain their existing acceptance states."
+  ],
+  "rollback": {
+    "current_schema": 164,
+    "known_gaps": [
+      22
+    ],
+    "required_capabilities": [
+      "commerce.hosted-supply-catalog.v1",
+      "commerce.hosted-inventory-reservation.v1"
+    ],
+    "rule": "Forward repair retaining private-content, disbanded-squad, comment-image, retracted-message and outcome-source ACL readers; no blanket downgrade to R15 after new writes. Once message-image persistence is activated, retain media.message-image.asset.v1; stop new uploads with persistence_allowed=false while preserving authorized existing reads. Preserve enrolled TOTP enforcement and its environment-specific encryption key; R15 password-only login is not a compatible rollback after enrollment. After shared-reservation writes retain commerce.hosted-shared-reservation.v1 and schema 161 even with admission OFF; preserve restore quarantine and current-authority reconciliation. Schema162 requires commerce.hosted-inventory-reservation.v1 and its retained full ledger even with new admission OFF. Use the new compatible writer or forward repair; no pre162 Worker-only rollback. T-047 remains unresolved. Schema164 additionally requires commerce.hosted-supply-catalog.v1. Preserve both floors; no pre164 Worker-only rollback. Before null-slug supply writes all historical profiles and selections must retain retail shape. No replica/old Worker may serve new null-slug data.",
+    "pre164_worker_rollback_valid": false,
+    "live_rollback_drill": "not_run"
+  },
+  "backup_operator": {
+    "completedAt": "2026-10-11T21:25:24.493381+00:00",
+    "afterSha256": "9e86b5ecd8f58edf6cb7568e12e768e5f349bed4f40cee773af2d390ab5c0d4b",
+    "pins": {
+      "staging": "31166e5230d8a2ba3b06e2429de103c98687711b",
+      "production": "31166e5230d8a2ba3b06e2429de103c98687711b"
+    },
+    "operatorSource": "31166e5230d8a2ba3b06e2429de103c98687711b",
+    "backupAdapterSha256": "5557a6c6134861a0bb0cd0c4a9977ddc1b7fa80f64abb5bf39e60f741b14607c",
+    "diskRestore": true,
+    "gcSafety": "disabled",
+    "schedulesUnchanged": true
+  },
+  "temporary_staging_access": {
+    "revoked_at": "2026-10-11T21:08:39.036Z",
+    "policy": "deleted",
+    "token": "deleted",
+    "access_credential": "removed",
+    "curl_headers": "removed"
+  },
+  "staging_visual_observation": {
+    "at": "2026-10-11T20:56:24.731516+00:00",
+    "release": "31166e5230d8a2ba3b06e2429de103c98687711b",
+    "status": "product_form_layout_observed",
+    "source": "actual staging screenshots inspected by root",
+    "viewports": [
+      {
+        "theme": "light",
+        "width": 390,
+        "image": "supplier-light-390.png",
+        "sha256": "2618fc5a54147321ce3cd8dbff31faa1f20ede33f960ddf3e06aa0dfd266b3c4"
+      },
+      {
+        "theme": "dark",
+        "width": 1440,
+        "image": "supplier-dark-1440.png",
+        "sha256": "7ddaf9095c8c518b2355ea776c943a062691e80aa0e0b3171bb9864ddceed1e7"
+      },
+      {
+        "theme": "versefolk",
+        "width": 768,
+        "image": "supplier-versefolk-768.png",
+        "sha256": "7891ece982a44f981318508816a3d39e14f2fd4c1ea6ed63c94322f6be8b483d"
+      }
+    ],
+    "observed": [
+      "Supplier catalog heading, product with supply unit price and stock, edit/terms actions, and new product form rendered.",
+      "No horizontal overflow in the loaded product section at capture."
+    ],
+    "limitations": [
+      "Cooperation section was still loading in these screenshots; they are not visual evidence of fully expanded cooperation rows.",
+      "The functional cooperation assertions completed afterwards in the passed journey.",
+      "Earlier loading-only screenshots retained with rejected first attempt; not accepted as product layout evidence."
+    ]
+  },
+  "retained_failed_attempts": {
+    "at": "2026-10-11T20:32:00.827896+00:00",
+    "attempts": [
+      {
+        "phase": "staging-before-backup",
+        "setId": "84c3042b-605b-4ed8-91cc-17b78f1c7f5d",
+        "status": "failed_timeout",
+        "completedRecoverySet": false,
+        "remoteReadback": "not_run",
+        "restore": "not_run",
+        "reconciliation": {
+          "at": "2026-10-11T20:31:45.072Z",
+          "setId": "84c3042b-605b-4ed8-91cc-17b78f1c7f5d",
+          "status": "reconciled_failed_attempt",
+          "failed": true,
+          "timeoutSeconds": 1250,
+          "completedRecoverySet": false,
+          "capturedObjects": 47,
+          "offsiteReadback": "not_run",
+          "restore": "not_run",
+          "ownedBackend": 587696,
+          "ownedBackendStart": "2026-10-11T20:03:20.881Z",
+          "ownedBackendTerminated": true,
+          "originalMaintenanceOffRestored": true,
+          "domainMaintenanceOff": true,
+          "schema": 162,
+          "source": "9d7d84bcf88cfc2ea4b34df83206280f645b8885",
+          "workerUnchanged": true,
+          "ownedContainersRemaining": 0,
+          "pinsRetained": true
+        },
+        "cause": "Source connection stalled; underlying cause not established. Server idle_session_timeout and idle_in_transaction_session_timeout were zero.",
+        "cleanupCorrection": "The first cleanup selector compared millisecond-precision JavaScript time against microsecond PostgreSQL time. It matched no backend. Cleanup was corrected to validate identity and reuse exact database timestamp 2026-10-11 20:03:20.881153+00; the owned backend was then terminated and absence verified.",
+        "retryAmendment": "45 second client query bound, TCP keepalive, 300 second idle-client lifetime, and 20 second advisory-lock connection heartbeat; original backup checks and 20 minute overall deadline retained."
+      },
+      {
+        "phase": "staging-supply-journey",
+        "status": "failed_cleanup",
+        "at": "2026-10-11T20:50:50.370Z",
+        "failure": {
+          "phase": "cleanup",
+          "name": "error",
+          "code": "23514",
+          "message": "guild_category_preference_rejected"
+        },
+        "functionalChecksBeforeCleanup": 21,
+        "visualAssertionsNotAccepted": true,
+        "visualReason": "First screenshots captured loading state after fresh login; require loaded product controls before layout assertion and screenshot.",
+        "cleanupReconciliation": {
+          "at": "2026-10-11T20:52:10.348Z",
+          "status": "passed",
+          "tag": "r19-supply-827dd72b",
+          "cleanupVerified": true,
+          "checks": [
+            {
+              "name": "owned_accounts_inactive",
+              "passed": true
+            },
+            {
+              "name": "owned_tenants_archived",
+              "passed": true
+            },
+            {
+              "name": "owned_stock_unreserved",
+              "passed": true
+            },
+            {
+              "name": "owned_supply_withdrawn",
+              "passed": true
+            },
+            {
+              "name": "owned_guild_preferences_removed",
+              "passed": true
+            }
+          ],
+          "correction": "Delete only synthetic users guild category preferences before ending their memberships; original constraint retained."
+        },
+        "expectationsRelaxed": false
+      },
+      {
+        "phase": "production-pause-hosted",
+        "status": "failed_readonly_probe_before_migration",
+        "at": "2026-10-11T21:20:48.343359+00:00",
+        "observed": "Provider settings showed all three flags false and the paused version at100%, but the first /api/v1/site check observed guild_launchpad_enabled=true.",
+        "subsequentReadOnlyObservation": {
+          "at": "2026-10-11T21:22:08Z",
+          "ordinarySiteFlags": false,
+          "cacheBustedSiteFlags": false,
+          "cacheControl": "no-store",
+          "pausedVersion": "ad3a5451-1e50-4e17-8384-ea5e62b80a4d",
+          "providerPercent": 100
+        },
+        "cause": "Not established; initial response headers were not captured. No cache or propagation cause claimed.",
+        "next": "Repeat the same full pause/60-second drain/ledger checks before any migration; do not redeploy or relax expectations.",
+        "schemaAtFailure": 162,
+        "successfulRecheck": {
+          "at": "2026-10-11T21:24:12.202Z",
+          "pausedAt": "2026-10-11T21:23:08.008Z",
+          "singleVersion": true,
+          "siteFlagsObservedOff": true,
+          "observedOlderRuntimeTransactions": 0,
+          "settleSeconds": 60,
+          "retainedSchema": 162
+        },
+        "sameExpectationsRetained": true
+      }
+    ]
+  }
+}
