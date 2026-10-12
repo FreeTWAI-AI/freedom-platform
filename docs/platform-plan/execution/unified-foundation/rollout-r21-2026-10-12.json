@@ -1,0 +1,928 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-12T11:34:48.615775+00:00",
+  "status": "complete",
+  "scope": "Member navigation hierarchy, guild block development/CI, storefront product pages, source sharing withdrawal, event preview, and return-to-work activation.",
+  "source": {
+    "release": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+    "reviewedHead": "633d9c70ff1034240e18832bc197c5bd9590036e",
+    "base": "f57348e86280356146744889a56e088db28e313c",
+    "tree": "59c35a6d443ef1ec73e714ae9adc07d05e00e0b5",
+    "trustedPin": "dc2f5ba8e003d2ae1f54a2965133e2e979d9d809",
+    "verifyRun": 38225138260,
+    "verifyAttempt": 1,
+    "codeqlRun": 38225133909,
+    "reviewId": 5488489155,
+    "mergeMethod": "protected merge preserving original commits; reviewed source tree equality",
+    "humanIndependentReview": false,
+    "reviewDisclosure": "Approver disclosed participation in the same AI workflow"
+  },
+  "natural_main_ci": {
+    "at": "2026-10-12T10:13:54.573392+00:00",
+    "head": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+    "conclusion": "success",
+    "naturalPushRun": true,
+    "verifyRun": 38230347332,
+    "codeqlRun": 38230347396,
+    "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38230347332",
+    "jobs": [
+      {
+        "name": "select",
+        "conclusion": "success"
+      },
+      {
+        "name": "source-integrity",
+        "conclusion": "success"
+      },
+      {
+        "name": "static-worker",
+        "conclusion": "success"
+      },
+      {
+        "name": "ui-e2e",
+        "conclusion": "success"
+      },
+      {
+        "name": "guild-presentation",
+        "conclusion": "success"
+      },
+      {
+        "name": "governance-consumers",
+        "conclusion": "success"
+      },
+      {
+        "name": "deploy-preflight",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 4)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 5)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 3)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 2)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 1)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 0)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-aggregate",
+        "conclusion": "success"
+      },
+      {
+        "name": "verify",
+        "conclusion": "success"
+      }
+    ],
+    "runs": [
+      {
+        "id": 38230347396,
+        "name": "Push on main",
+        "event": "dynamic",
+        "path": "dynamic/github-code-scanning/codeql",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38230347396"
+      },
+      {
+        "id": 38230347332,
+        "name": "Verify local milestone",
+        "event": "push",
+        "path": ".github/workflows/verify.yml",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38230347332"
+      }
+    ]
+  },
+  "environments": {
+    "staging": {
+      "observed_at": "2026-10-12T10:10:34.611Z",
+      "worker_version": "30da2798-d9ad-4bbf-8ad7-4553a31db319",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "cache_control_no_store": true
+      },
+      "same_dist_sha256": "b61b0575b71f7022c1c306edb231ab1bda879af625da5a324ba987667e69cfc7",
+      "migration": {
+        "at": "2026-10-12T09:51:29.306Z",
+        "applied": [
+          "165_oss_sharing_withdrawal.sql"
+        ],
+        "lastApplied": "165_oss_sharing_withdrawal.sql",
+        "ledgerCount": 164,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        }
+      },
+      "release_flags": {
+        "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+        "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+        "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+        "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+        "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+        "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+      },
+      "unrelated_bindings_and_media_preserved": true,
+      "public_http_checks": 40,
+      "public_http_status": "passed"
+    },
+    "production": {
+      "observed_at": "2026-10-12T10:54:31.230Z",
+      "worker_version": "de9bd8b3-ad1b-4b8d-8f91-377a83b53c00",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "cache_control_no_store": true
+      },
+      "same_dist_sha256": "b61b0575b71f7022c1c306edb231ab1bda879af625da5a324ba987667e69cfc7",
+      "migration": {
+        "at": "2026-10-12T10:53:45.999Z",
+        "applied": [
+          "165_oss_sharing_withdrawal.sql"
+        ],
+        "lastApplied": "165_oss_sharing_withdrawal.sql",
+        "ledgerCount": 164,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        }
+      },
+      "release_flags": {
+        "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+        "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+        "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+        "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+        "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+        "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+      },
+      "unrelated_bindings_and_media_preserved": true,
+      "public_http_checks": 40,
+      "public_http_status": "passed"
+    }
+  },
+  "backups": {
+    "staging": [
+      {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "72236f58334719010922ac18483471c0a66bf578",
+        "operatorSource": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "createdAt": "2026-10-12T09:31:45.298Z",
+        "setId": "b9350dcb-a345-4946-9ba6-81e5069f14f3",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "33bd4ad750e28135bf7491e65ec781cf0c85b940522ab378de264a0250d24934",
+        "label": "before-rollout",
+        "dumpSha256": "92b657dfc36332476fe2de8350b712a58e68723cee5d982476317c987caf3ce9",
+        "diskRestore": true,
+        "retainedPhotoObjects": 8,
+        "remotePhotoObjects": 8,
+        "retainedCommentObjects": 5,
+        "remoteCommentObjects": 5,
+        "retainedMessageObjects": 4,
+        "remoteMessageObjects": 4
+      },
+      {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "operatorSource": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "createdAt": "2026-10-12T10:23:35.955Z",
+        "setId": "26dada5b-b8eb-49f3-b186-81e897327bb3",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "c1264d779a02b8ba43c2552c56e10e1ea4e1d60be9f15b39a473dfcde5d75b97",
+        "label": "after-rollout",
+        "dumpSha256": "86dfa0fdc2364ae6e594807c30d5220cc73fd0ffbb38948de5638b48bae2e722",
+        "diskRestore": true,
+        "retainedPhotoObjects": 8,
+        "remotePhotoObjects": 8,
+        "retainedCommentObjects": 5,
+        "remoteCommentObjects": 5,
+        "retainedMessageObjects": 4,
+        "remoteMessageObjects": 4,
+        "restoredSchema165Floor": {
+          "status": "passed",
+          "schema": 165,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        }
+      }
+    ],
+    "production": [
+      {
+        "status": "passed",
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "72236f58334719010922ac18483471c0a66bf578",
+        "operatorSource": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "createdAt": "2026-10-12T10:42:49.058Z",
+        "setId": "4562ef09-ef93-45af-b0d3-abf6ae563d0f",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "cb932d3342e7c1b15e99eedb90e09dc20d887bdeb7a421d39f676ce56fb587da",
+        "label": "before-rollout",
+        "dumpSha256": "415800ef5d81df9a3ef4599590f82ab75cf03b19da5711e92a7c873bba895655",
+        "diskRestore": true,
+        "retainedPhotoObjects": 3,
+        "remotePhotoObjects": 3,
+        "retainedCommentObjects": 0,
+        "remoteCommentObjects": 0,
+        "retainedMessageObjects": 0,
+        "remoteMessageObjects": 0
+      },
+      {
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "operatorSource": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "createdAt": "2026-10-12T11:00:29.916Z",
+        "setId": "928fb101-5763-42b3-b76f-755ecb286d21",
+        "manifestSha256": "7e54e6e43ff729d8af8e79e830134b72ce0b2fef77ed443a7abcbae73cb7408b",
+        "status": "passed",
+        "label": "after-rollout",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "dumpSha256": "e4065850ffa65e22d127cede566c60bcc976e72b1d8ec336723b0dfd911b35cd",
+        "diskRestore": true,
+        "restoredSchema165Floor": {
+          "status": "passed",
+          "schema": 165,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "verificationMode": "capture_remote_readback_then_same_set_restore_only_retry",
+        "originalRunFailure": {
+          "status": "failed",
+          "stage": "restore",
+          "code": "daily_backup_phase_failed",
+          "cleanupVerified": true,
+          "sha256": "eab3654f2869e9de97f667c1ab7785619e6672a76b0e10c5964aaba4339fe470"
+        },
+        "restoreRetry": {
+          "status": "passed",
+          "scope": "restore_only_of_same_published_immutable_set",
+          "startedAt": "2026-10-12T11:31:02.080Z",
+          "at": "2026-10-12T11:31:24.095Z",
+          "setId": "928fb101-5763-42b3-b76f-755ecb286d21",
+          "sourceRelease": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+          "operatorSource": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+          "manifestSha256": "7e54e6e43ff729d8af8e79e830134b72ce0b2fef77ed443a7abcbae73cb7408b",
+          "remoteArchiveSha256": "ab9a3e30954778a9364d950f3dfaeec2d7fcbdcac0d1eebd1ccb0023796c59cb",
+          "originalFailureRetained": true,
+          "newCapture": false,
+          "newRemotePublication": false,
+          "sourcePolicyChanged": false,
+          "restore": "database_and_objects_restored",
+          "restoredEvidence": "matched",
+          "objects": {
+            "status": "objects_verified",
+            "objectCount": 46,
+            "byteCount": 620336
+          },
+          "exposure": "quarantine_not_approved_for_exposure",
+          "cleanupVerified": true
+        },
+        "retainedPhotoObjects": 3,
+        "remotePhotoObjects": 3,
+        "retainedCommentObjects": 0,
+        "remoteCommentObjects": 0,
+        "retainedMessageObjects": 0,
+        "remoteMessageObjects": 0
+      }
+    ]
+  },
+  "limitations": [
+    "Ordinary synthetic members and an existing synthetic guild officer exercise staging; production uses selected public and synthetic-account HTTP checks. No human usability/adoption or two non-core guild-author acceptance is claimed.",
+    "Payments, fulfilment, inventory authority transfer, T-047 current-authority reconciliation and a second recovery operator remain incomplete. Restores remain quarantined.",
+    "Exact reviewed source and actual installation are separate from later main changes. Guild-management draft retention #462 is a separate release."
+  ],
+  "staging_access_cleanup": {
+    "policy_deleted": true,
+    "token_deleted": true,
+    "local_credential_removed": true,
+    "at": "2026-10-12T10:36:18.676Z"
+  },
+  "github_deployments": {
+    "staging": {
+      "at": "2026-10-12T11:31:38.045945+00:00",
+      "environment": "staging-next",
+      "sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+      "deploymentId": 7012994675,
+      "statusId": 19640268983,
+      "state": "success",
+      "environmentUrl": "https://staging.freetwai.com/"
+    },
+    "production": {
+      "at": "2026-10-12T11:31:38.571914+00:00",
+      "environment": "next",
+      "sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+      "deploymentId": 7012994903,
+      "statusId": 19640269385,
+      "state": "success",
+      "environmentUrl": "https://freetwai.com/"
+    }
+  },
+  "staging_journey": {
+    "at": "2026-10-12T10:23:04.745Z",
+    "status": "passed",
+    "cleanupVerified": true,
+    "ordinaryNewMemberUI": true,
+    "existingSyntheticOfficer": true,
+    "authorizationFixtureWrites": false,
+    "cleanupAdministrativeWrites": true,
+    "realUserAdoption": false,
+    "eventApprovalAndRsvpLive": true,
+    "retailRequired": false,
+    "acceptanceMode": "isolated_components_same_source_and_configuration",
+    "components": [
+      {
+        "scope": "supply_storefront_hierarchy_and_sharing",
+        "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "privateReceipt": "journey-attempt5/supply-staging-acceptance.json",
+        "originalRunStatus": "failed_later_on_event_label_selector",
+        "acceptedChecks": 48,
+        "allAcceptedChecksPassed": true,
+        "cleanupVerified": true
+      },
+      {
+        "scope": "event_publication_rsvp_and_cancellation",
+        "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "status": "passed",
+        "cleanupVerified": true
+      }
+    ],
+    "passed_checks": [
+      "exact_merged_source",
+      "home_grouped_destinations_light",
+      "guild_one_work_area_light",
+      "guild_resources_separate_light",
+      "home_grouped_destinations_dark",
+      "guild_one_work_area_dark",
+      "guild_resources_separate_dark",
+      "home_grouped_destinations_versefolk",
+      "guild_one_work_area_versefolk",
+      "guild_resources_separate_versefolk",
+      "one_supplier_product",
+      "edit_keeps_original_product_and_stock",
+      "private_terms_not_offered",
+      "independent_retailer_publication_200",
+      "retail_price_and_private_terms_boundary",
+      "public_store_product_link_brand_and_share_metadata",
+      "independent_retailer_publication_200",
+      "retail_price_and_private_terms_boundary",
+      "supply_catalog_not_a_retail_store",
+      "retail_never_activated",
+      "supplier_has_only_supply_guild",
+      "no_slug_publication_or_implicit_reservations",
+      "no_supplier_publication_history",
+      "single_source_stock",
+      "cross_tenant_private_cost_denied",
+      "anonymous_private_cost_denied",
+      "cross_tenant_write_denied",
+      "consent_without_supplier_opt_in_refused",
+      "supplier_explicit_ui_opt_in_creates_real_hold",
+      "supplier_reads_own_order_lines",
+      "fresh_login_reads_existing_order_with_supplier_opt_in_off",
+      "buyer_cancel_releases_supplier_stock",
+      "fresh_login_recovers_same_catalog",
+      "supplier_no_horizontal_overflow_light",
+      "supplier_no_horizontal_overflow_dark",
+      "supplier_no_horizontal_overflow_versefolk",
+      "repricing_requires_new_consent_and_revocation_blocks_update",
+      "supplier_withdraws_original_offer",
+      "exact_merged_source",
+      "sharing_preview_requires_explicit_consent",
+      "public_share_link_reads_published_content",
+      "personal_content_keeps_owner_boundary",
+      "signed_out_personal_content_401",
+      "withdrawal_hides_old_public_link",
+      "withdrawal_removes_other_member_directory",
+      "republication_draft_keeps_old_link_private",
+      "explicit_republication_uses_new_link",
+      "sharing_cleanup_both_links_private",
+      "exact_merged_source",
+      "event_time_zone_and_pending_state",
+      "event_existing_guild_reviewer_and_public_share",
+      "event_participant_returns_and_cancels",
+      "own_published_event_returns_and_cancels",
+      "no_browser_page_errors",
+      "owned_accounts_inactive",
+      "owned_tenants_archived",
+      "owned_stock_unreserved",
+      "owned_supply_withdrawn"
+    ]
+  },
+  "staging_attempts": [
+    {
+      "attempt": "journey-attempt1",
+      "at": "2026-10-12T09:54:58.185Z",
+      "status": "failed",
+      "cleanupVerified": true,
+      "passed_checks": 19,
+      "failure": {
+        "name": "AssertionError",
+        "message": "public_store_product_link_brand_and_share_metadata"
+      },
+      "private_receipt_sha256": "233d3c75dccaeeb416b6856fbf072325c3222d05067d06e6d646d42b68c1dfe8"
+    },
+    {
+      "attempt": "journey-attempt2",
+      "at": "2026-10-12T09:56:56.128Z",
+      "status": "failed",
+      "cleanupVerified": true,
+      "passed_checks": 5,
+      "failure": {
+        "name": "TimeoutError",
+        "message": "locator.fill: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('電子郵件', { exact: true })\u001b[22m\n"
+      },
+      "private_receipt_sha256": "f64d24f2d02a84cfd018e7c8038b0c5ecd53ea9873a2c58c5a1dceac8793504e"
+    },
+    {
+      "attempt": "journey-attempt3",
+      "at": "2026-10-12T10:04:16.664Z",
+      "status": "failed",
+      "cleanupVerified": true,
+      "passed_checks": 44,
+      "failure": {
+        "name": "Error",
+        "message": "expect(locator).toHaveCount(expected) failed\n\nLocator:  getByRole('navigation', { name: '主要工作區', includeHidden: true }).getByRole('button', { name: '我的內容', exact: true, includeHidden: true })\nExpected: 1\nReceived: 0\nTimeout:  30000ms\n\nCall log:\n  - Expect \"toHaveCount\" getByRole('navigation', { name: '主要工作區', includeHidden: true }).getByRole('button', { name: '我的內容', exact: true, includeHidden: true }) with timeout 30000ms\n  - waiting for getByRole('navigation', { name: '主要工作區', includeHidden: true }).getByRole('button', { name: '我的內容', exact: true, includeHidden: true })\n    64 × locator resolved to 0 elements\n       - unexpected value \"0\"\n"
+      },
+      "private_receipt_sha256": "e8f5f06ef565337525a79f036f23651efbe5ea729e1d0d4d19f770407610ae18"
+    },
+    {
+      "attempt": "journey-attempt4",
+      "at": "2026-10-12T10:15:10.163Z",
+      "status": "failed",
+      "cleanupVerified": true,
+      "passed_checks": 46,
+      "failure": {
+        "name": "Error",
+        "message": "expect(page).toHaveURL(expected) failed\n\nExpected pattern: /#opensource?project=2a7fe282-b4a4-41d7-a392-ecd210fabf9c$/\nReceived string:  \"https://staging.freetwai.com/#opensource?project=2a7fe282-b4a4-41d7-a392-ecd210fabf9c\"\nTimeout: 30000ms\n\nCall log:\n  - Expect \"toHaveURL\" with timeout 30000ms\n    63 × locator resolved to <html lang=\"zh-Hant\" data-theme=\"versefolk\" data-experience-profile=\"versefolk\">…</html>\n       - unexpected value \"https://staging.freetwai.com/#opensource?project=2a7fe282-b4a4-41d7-a392-ecd210fabf9c\"\n"
+      },
+      "private_receipt_sha256": "41eccdcae617a550347ef8edee32f8dc8e8ea3e9b258906c499a4f90d1406cf2"
+    },
+    {
+      "attempt": "journey-attempt5",
+      "at": "2026-10-12T10:20:32.157Z",
+      "status": "failed",
+      "cleanupVerified": true,
+      "passed_checks": 52,
+      "failure": {
+        "name": "TimeoutError",
+        "message": "locator.selectOption: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('form').filter({ has: getByRole('heading', { name: '提交活動', exact: true }) }).getByLabel('活動類型', { exact: true })\u001b[22m\n"
+      },
+      "private_receipt_sha256": "e97952dc623fea22ba96a1bf91d9d2376586ce2062db918e42a6bc1a5fbf6a25"
+    }
+  ],
+  "production_authenticated_smoke": {
+    "at": "2026-10-12T10:54:59.349Z",
+    "status": "passed",
+    "syntheticAccountDeactivated": true,
+    "syntheticTenantArchived": true,
+    "existingMemberPermissionsChanged": false,
+    "syntheticInternMembershipEnded": true,
+    "passwordOrSessionRecorded": false,
+    "passed_checks": [
+      "reviewed_source_deployed",
+      "register_201",
+      "new_member_onboarding_required",
+      "onboarding_directory_200",
+      "synthetic_onboarding_guild",
+      "ordinary_onboarding_200",
+      "private_tenant_201",
+      "supply_catalog_list_200_empty",
+      "retail_list_remains_empty",
+      "list_0_first_page_200",
+      "list_0_invalid_cursor_422",
+      "list_0_inaccessible_404",
+      "list_1_first_page_200",
+      "list_1_invalid_cursor_422",
+      "list_1_inaccessible_404",
+      "new_member_personal_content_200_empty",
+      "personal_content_private_no_store",
+      "logout_200",
+      "personal_content_revoked_401",
+      "supply_list_revoked_401",
+      "list_0_revoked_401",
+      "list_1_revoked_401",
+      "owned_account_inactive",
+      "owned_sessions_revoked",
+      "owned_tenant_archived"
+    ]
+  },
+  "personal_content_activation": {
+    "flag": "FREEDOM_PERSONAL_CONTENT_ENABLED",
+    "before": "absent/false",
+    "after": true,
+    "reason": "Live acceptance found the merged owner-content return entry disabled; enable the existing reviewed capability, validate anonymous denial, own/other isolation, logout revocation, and return from shared work/event.",
+    "source_unchanged": true,
+    "other_feature_flags_preserved": true,
+    "staging_at": "2026-10-12T10:10:34.809565+00:00",
+    "rollback": "Disable only this flag on a schema165-compatible source; retain private records and normal domain ACL."
+  },
+  "backup_operator": {
+    "operatorSource": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+    "adapterSha256": "c8deb302308b599deff3966317ea6373880692826457485d747de9f80c052da8",
+    "diskRestore": true,
+    "gcSafety": "disabled",
+    "schedulesUnchanged": true,
+    "release_pins": {
+      "staging": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+      "production": "14f82aa29860c805e63edb98e9cb1f85eccd251f"
+    },
+    "wrapper_sha256": "595b9cdb7641597fdc29cf63d9d5375c89757181387c4618cd845a7207ae0211"
+  },
+  "ci_installation": {
+    "at": "2026-10-12T10:19:33.830679+00:00",
+    "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+    "reviewedHead": "633d9c70ff1034240e18832bc197c5bd9590036e",
+    "reviewIds": [
+      5488489155
+    ],
+    "independentHumanAcceptance": false,
+    "verifyRun": 38230347332,
+    "verifyAttempt": 1,
+    "codeqlRun": 38230347396,
+    "jobs": [
+      {
+        "id": 114748002293,
+        "name": "select",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748002767,
+        "name": "source-integrity",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134173,
+        "name": "static-worker",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134250,
+        "name": "ui-e2e",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134262,
+        "name": "guild-presentation",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134270,
+        "name": "governance-consumers",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134280,
+        "name": "deploy-preflight",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134310,
+        "name": "runtime-full (partition 4)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134367,
+        "name": "runtime-full (partition 5)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134392,
+        "name": "runtime-full (partition 3)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134478,
+        "name": "runtime-full (partition 2)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134518,
+        "name": "runtime-full (partition 1)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748134537,
+        "name": "runtime-full (partition 0)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114754537974,
+        "name": "runtime-aggregate",
+        "conclusion": "success"
+      },
+      {
+        "id": 114763238628,
+        "name": "verify",
+        "conclusion": "success"
+      }
+    ],
+    "guildSummaries": [
+      {
+        "check_id": "runtime.guild-presentation",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 38
+      },
+      {
+        "check_id": "ci.e2e",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 15,
+        "file_count": 3,
+        "selection": {
+          "profile": "guild-presentation",
+          "reason": "reviewed_guild_job_obligations"
+        },
+        "binding": {},
+        "passes": [
+          {
+            "id": "default",
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "check_id": "ci.e2e",
+        "status": "passed",
+        "reason": "tests_executed",
+        "test_count": 3,
+        "file_count": 2,
+        "selection": {
+          "profile": "guild-preview",
+          "reason": "reviewed_guild_job_obligations"
+        },
+        "binding": {},
+        "passes": [
+          {
+            "id": "default",
+            "exit_code": 0
+          }
+        ]
+      }
+    ],
+    "artifactReadback": [
+      {
+        "id": 11738820482,
+        "sha256": "66672fa46b952d10d251179bab765768ce52d4f531c1547aa7c2967f059a1cce",
+        "remoteDigestMatched": true,
+        "jsonFiles": [
+          "guild-integration.json",
+          "guild-preview.json",
+          "guild-runtime.json"
+        ]
+      },
+      {
+        "id": 11737839381,
+        "sha256": "62c4eecf705cfd74fc6822493f85689877c9ae7b415b17f0595d26cf359467b9",
+        "remoteDigestMatched": true,
+        "jsonFiles": [
+          "freedom-platform/freedom-platform/.freedom/reports/source-archive-build.json",
+          "freedom-platform/freedom-platform/.freedom/reports/source-archive-restore.json",
+          "freedom-platform/freedom-platform/.freedom/reports/source-boundaries.json",
+          "_temp/freedom-source-38230347332-1/source/complete.json",
+          "_temp/freedom-source-38230347332-1/source/inventory.json"
+        ]
+      }
+    ],
+    "onlyChangedField": "/rules/3/parameters/workflows/0/sha",
+    "codeqlReviewedHeadGate": [
+      {
+        "id": 114730882885,
+        "head_sha": "633d9c70ff1034240e18832bc197c5bd9590036e",
+        "appId": 57789,
+        "conclusion": "success"
+      }
+    ],
+    "codeqlMainAnalyses": [
+      {
+        "id": 114748008965,
+        "name": "Analyze (javascript-typescript)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748009170,
+        "name": "Analyze (actions)",
+        "conclusion": "success"
+      },
+      {
+        "id": 114748009275,
+        "name": "Analyze (python)",
+        "conclusion": "success"
+      }
+    ],
+    "ruleset": 24469536,
+    "bypass_actors": [],
+    "enforcement": "active",
+    "qualifying_leaf_pr": {
+      "at": "2026-10-12T10:29:16.495189+00:00",
+      "status": "reviewed_and_merged",
+      "pullRequest": 467,
+      "head": "74d341186a7b534a063fa36d022e1756a51b7ebf",
+      "base": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+      "trustedSelector": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+      "ruleset": 24469536,
+      "verifyRun": 38235723633,
+      "workflowEvent": "pull_request",
+      "durationSeconds": 388.0,
+      "changedFiles": [
+        "modules/guild-supply/CatalogBlock.tsx"
+      ],
+      "manualInventoryChanges": false,
+      "decision": {
+        "mode": "affected",
+        "reason": "guild_presentation_dependency_closure",
+        "jobs": {
+          "runtime-full": false,
+          "runtime-aggregate": false,
+          "ui-e2e": false,
+          "static-worker": true,
+          "governance-consumers": false,
+          "deploy-preflight": false,
+          "guild-presentation": true
+        }
+      },
+      "jobs": [
+        {
+          "id": 114765787162,
+          "name": "select",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 114765787414,
+          "name": "source-integrity",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 114765937157,
+          "name": "guild-presentation",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 114765937171,
+          "name": "static-worker",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 114765938800,
+          "name": "governance-consumers",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 114765938854,
+          "name": "ui-e2e",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 114765938909,
+          "name": "deploy-preflight",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 114765939271,
+          "name": "runtime-full (partition ${{ matrix.partition }})",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 114765939718,
+          "name": "runtime-aggregate",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 114767969947,
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "guildSummaries": [
+        {
+          "check_id": "runtime.guild-presentation",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 38
+        },
+        {
+          "check_id": "ci.e2e",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 15,
+          "file_count": 3,
+          "selection": {
+            "profile": "guild-presentation",
+            "reason": "reviewed_guild_job_obligations"
+          },
+          "binding": {},
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            }
+          ]
+        },
+        {
+          "check_id": "ci.e2e",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 3,
+          "file_count": 2,
+          "selection": {
+            "profile": "guild-preview",
+            "reason": "reviewed_guild_job_obligations"
+          },
+          "binding": {},
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            }
+          ]
+        }
+      ],
+      "codeqlRequiredGate": "success",
+      "selectorLogSha256": "ec95b1d64963fef741865eb67f8fedad94cf8a6db9b566f0b93be211aaeceed1",
+      "guildLogSha256": "1dd89f98ba0dad8d34bcc14b1c5acb5af745bb9610474acd2bc3c40d1dd47b0f",
+      "fullRuntimeAndBrowserNotSelected": true,
+      "requiredVerifyNotSkipped": true,
+      "independentHumanContributorAcceptance": false,
+      "recordedAt": "2026-10-12T10:33:39.934336+00:00",
+      "mergeCommit": "e16dc6b8c71fb9f1cf3891fc2fb8d74771434be7",
+      "mergedAt": "2026-10-12T10:29:38Z",
+      "mergedBy": "teddashh",
+      "review": {
+        "id": 5489469037,
+        "login": "detna-vibe-coding",
+        "commit": "74d341186a7b534a063fa36d022e1756a51b7ebf",
+        "submittedAt": "2026-10-12T10:29:28Z",
+        "disclosure": "AI source review; not independent human usability or contributor acceptance."
+      }
+    }
+  }
+}

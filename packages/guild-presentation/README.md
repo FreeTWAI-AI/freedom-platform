@@ -89,7 +89,7 @@ v1 仍嚴格讀取七區塊，轉換只建立新的 v2 草稿，不改寫已存�
 
 `guild-presentation` 固定工作包含型別、登錄一致性、入口建置、五個公會 runtime 檔、三個殼層整合 browser 檔，以及兩個公會目錄自己的 preview 測試。完整與未知改動仍同時執行這些檢查。只有乾淨的 PR 整合 commit、完整相依圖與兩端已審查 import 邊界都成立時，才選 `guild-presentation` 與 `static-worker`。固定必要 `verify` 仍執行並核對所選工作，CodeQL、review 與禁止 bypass 的合併門檻保留。
 
-只改兩個已審查範例的 `CatalogBlock.tsx`／`WorksBlock.tsx`，才是候選縮減範圍。選測器核對基線與候選的完整 descriptor 圖、原始 ownership、公開介面、權限及實際反向依賴，保留共用殼層的整合測試。新增公會、改 manifest／SDK／契約／測試／API、新增 import／動態載入、增加消費者或未知路徑，都保留完整驗證。這不是任意新套件的自動核准。
+只改兩個已審查範例的 `CatalogBlock.tsx`／`WorksBlock.tsx`，才在局部驗證範圍內。選測器核對基線與候選的完整 descriptor 圖、原始 ownership、公開介面、權限及實際反向依賴，保留共用殼層的整合測試。新增公會、改 manifest／SDK／契約／測試／API、新增 import／動態載入、增加消費者或未知路徑，都保留完整驗證。這不是任意新套件的自動核准。
 
 本機不需要資料庫的開發入口仍是 `npm run guild:preview` 與 `npm run guild:test`。平台維護者可用隔離 PostgreSQL 跑 `node scripts/ci/run-guild-runtime.mjs`；`TEST_DATABASE_URL` 必須指向可丟棄的測試庫。CI 的 browser 執行器接受固定 `--guild-presentation` 或 `--guild-preview` 工作，不接受任意檔案清單，逐案例核對列舉與執行結果；選中却未執行、只 skip、零案例、測試程序失敗都不算通過。
 
