@@ -66,10 +66,17 @@ test('member hierarchy keeps one feed, distinct destinations and readable contro
     await expect(page.locator('.platform-purpose--member,.home-module-card')).toHaveCount(0);
     for(const button of await destinations.getByRole('button').all())expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    // The guide click scrolls on phones; capture the sticky header at the actual page top.
+    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+    const header=await page.locator('.community-header').boundingBox();
+    const title=await page.locator('.workspace-topbar').boundingBox();
+    expect(header!.y).toBeGreaterThanOrEqual(0);
+    expect(header!.y+header!.height).toBeLessThanOrEqual(title!.y);
     await page.screenshot({path:testInfo.outputPath(`home-${theme}-${width}.png`),fullPage:true});
     await openFeatureSearch(page);
     await expect(page.locator('.nav-primary > button')).toHaveText(['會員首頁','我的內容','職業公會','技能書架','搜尋社群內容']);
-    await page.screenshot({path:testInfo.outputPath(`navigation-${theme}-${width}.png`),fullPage:true});
+    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+    await page.screenshot({path:testInfo.outputPath(`navigation-${theme}-${width}.png`)});
     await page.keyboard.press('Escape');
     const close=page.getByRole('button',{name:'關閉選單',exact:true});if(await close.isVisible())await close.click();
   }

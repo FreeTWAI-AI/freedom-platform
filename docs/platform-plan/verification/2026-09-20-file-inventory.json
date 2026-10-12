@@ -20734,8 +20734,8 @@
     },
     {
       "path": "tests/e2e/member-navigation-hierarchy.spec.ts",
-      "bytes": 5511,
-      "sha256": "ff4edaf5769aa29365541847e36aa4c14642f1a0e5d21ec4f49b63fa992b7ec6"
+      "bytes": 5997,
+      "sha256": "30e7fa4dc9d4edd0d1d42a3a95bdf9536e7109e799dabc05e6568f7822e80a7e"
     },
     {
       "path": "tests/e2e/member-reporting.spec.ts",
