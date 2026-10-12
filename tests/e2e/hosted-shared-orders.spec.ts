@@ -179,6 +179,7 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     const setup = a.getByRole('form', {name: '建立供貨商品庫', exact: true});
     await setup.getByLabel('商品庫名稱', {exact: true}).fill('純供貨 A');
     await setup.getByRole('button', {name: '建立供貨商品庫', exact: true}).click();
+    await a.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '預留與訂單', exact: true}).click();
     await expect(a.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
     await expect(a.getByLabel('商店網址', {exact: true})).toHaveCount(0);
     await expect(a.getByRole('button', {name: '發布展示頁', exact: true})).toHaveCount(0);
@@ -187,6 +188,8 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     await open(b, sellerStore.hash);
     await b.getByRole('button', {name: '開放 30 分鐘預留', exact: true}).click();
     await expect(b.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
+    await a.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '商品', exact: true}).click();
+    await a.getByRole('button', {name: '新增供貨商品', exact: true}).click();
     const add = a.getByRole('form', {name: '新增供貨商品', exact: true});
     await add.getByLabel('商品名稱', {exact: true}).fill(title);
     await add.getByLabel('供貨單價（TWD）', {exact: true}).fill('4');
@@ -210,6 +213,7 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     await offer.getByLabel('我的零售價（TWD）', {exact: true}).fill('11');
     await offer.getByRole('button', {name: '送出供貨申請', exact: true}).click();
     await expect(b.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
+    await a.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
     await a.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
     const request = (await expand(a, '供貨申請')).getByRole('article').filter({has: a.getByRole('heading', {name: title + '・零售 B', exact: true})});
     await request.getByRole('button', {name: '同意這一版', exact: true}).click();
@@ -225,6 +229,7 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     await customer.getByRole('button', {name: '查看預留內容', exact: true}).click();
     expect((await refused).status()).toBe(409);
     await expect(customer.getByRole('button', {name: '確認預留 30 分鐘', exact: true})).toHaveCount(0);
+    await a.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '預留與訂單', exact: true}).click();
     await a.getByRole('button', {name: '開放 30 分鐘預留', exact: true}).click();
     await expect(a.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
     await customer.getByRole('button', {name: '查看預留內容', exact: true}).click();
@@ -254,7 +259,8 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     }
     await a.getByRole('link', {name: '返回供貨商品庫', exact: true}).click();
     await expect(a).toHaveURL(new RegExp('#' + supplierStore.hash + '/supply$'));
-    await expect(a.getByRole('form', {name: '新增供貨商品', exact: true})).toBeVisible();
+    await expect(a.getByRole('button', {name: '新增供貨商品', exact: true})).toBeVisible();
+    await a.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '預留與訂單', exact: true}).click();
     await a.getByRole('button', {name: '停止接受新預留', exact: true}).click();
     await expect(a.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
     await a.getByRole('link', {name: '供貨訂單', exact: true}).click();

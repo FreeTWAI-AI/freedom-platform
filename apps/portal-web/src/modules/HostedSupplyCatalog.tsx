@@ -52,11 +52,14 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   const [missing, setMissing] = useState(false), [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState<Attempt | null>(null);
   const [editing, setEditing] = useState<string | null>(null), [supplyEditing, setSupplyEditing] = useState<string | null>(null);
+  const [area, setArea] = useState<'products' | 'cooperation' | 'reservations'>('products');
+  const [adding, setAdding] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const dirtyForms = useRef<Record<string, boolean>>({});
   const held = useRef<Attempt | null>(null), busyRef = useRef(false);
   const controller = useRef(new AbortController()), generation = useRef(0);
   const statusLine = useRef<HTMLParagraphElement>(null);
+  const productsHeading = useRef<HTMLHeadingElement>(null);
   function markDirty(key: string, value: boolean) {dirtyForms.current[key] = value; setHasDraft(Object.values(dirtyForms.current).some(Boolean));}
   function announce(text: string) {setStatus(text); requestAnimationFrame(() => statusLine.current?.focus());}
   function leaveOk() {
@@ -129,43 +132,76 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   const locked = busy || retry !== null || loading || readFailed;
   const can = (key: string) => view?.writable === true && view.capabilities.includes(key);
   const catalog = view?.catalog;
+  const productAccess = view?.capabilities.includes('store:write');
+  const activeArea = productAccess ? area : 'reservations';
+  function closeEditor() {
+    if (!leaveOk()) return;
+    setAdding(false); setEditing(null); setSupplyEditing(null);
+    markDirty('add', false); markDirty('edit', false); markDirty('supply', false);
+    requestAnimationFrame(() => productsHeading.current?.focus());
+  }
+  function openEditor(kind: 'add' | 'edit' | 'supply', productId?: string) {
+    if (!leaveOk()) return;
+    setAdding(kind === 'add'); setEditing(kind === 'edit' ? productId! : null); setSupplyEditing(kind === 'supply' ? productId! : null);
+    markDirty('add', false); markDirty('edit', false); markDirty('supply', false);
+  }
   return <div className="hosted-store hosted-supply-catalog stack">
     <div className="actions"><a className="btn btn-ghost" href="#stores/supply">返回我的供貨商品庫</a></div>
     <p ref={statusLine} tabIndex={-1} role="status" aria-live="polite">{loading && !view ? '正在載入供貨資料…' : status}</p>
     {error && <p className="banner banner-error" role="alert">{error}</p>}
-    <div className="actions">{retry ? <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void send(retry)}>重試</button>
-      : error && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => {if (leaveOk()) void load();}}>重新載入</button>}</div>
+    {(retry || error) && <div className="actions">{retry ? <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void send(retry)}>重試</button>
+      : <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => {if (leaveOk()) void load();}}>重新載入</button>}</div>}
     {missing ? <p>找不到這個供貨商品庫。</p> : view && <>
       <h2>{catalog?.name ?? '設定供貨資料'}</h2>
-      <p className="field-hint">{SHARING}</p>
+      {!catalog && <p className="field-hint">{SHARING}</p>}
       {!view.writable && <p>{view.capabilities.includes('store:write') ? '這個商品庫目前暫停，無法修改。' : '你可以檢視商品庫資料，但沒有供貨編輯權限；供貨價與條件不會顯示。'}</p>}
       {!catalog ? can('store:manage') ? <SupplySetupForm busy={locked} onDirty={value => markDirty('setup', value)} onSave={(body, success) => command({method: 'post', path: root + '/supply-profile', body, schema: SupplyCatalogReceiptSchema, success, notice: '已建立供貨商品庫。'})}/>
         : <p>商品庫還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
-        <SupplierOrdersLink client={client} tenantId={tenantId} instanceId={instanceId}/>
-        {reservationSetting && <HostedReservationSetting supplierOnly setting={reservationSetting} writable={view.writable} locked={locked || hasDraft}
-          onToggle={() => void command({targetMissingIsStore: false, method: 'patch', path: root + '/reservation-setting', body: {reservation_enabled: !reservationSetting.reservation_enabled},
-            version: reservationSetting.version, schema: ReservationSettingSchema, success: () => {},
-            notice: reservationSetting.reservation_enabled ? '已停止接受新預留。既有供貨預留仍可查看。' : '已開放 30 分鐘預留。'})}/>}
-        {reservationSetting && hasDraft && <p className="field-hint">還有尚未儲存的內容，請先儲存或取消編輯，再變更預留設定。</p>}
-        {!reservationSetting && <p className="field-hint">只有目前業務空間擁有者可設定供貨預留；目前沒有可用的預留管理權限。</p>}
-        <p>{catalog.description}</p><p>幣別：{catalog.currency}</p><p>共用商品容量：{view.product_count}／{view.product_limit}（含供貨商品與商店選品）</p>
-        {view.capabilities.includes('store:write') && <>
-          <section className="stack" aria-labelledby="supply-products-title"><h3 id="supply-products-title">供貨商品</h3>
+        <details className="hosted-supply-about"><summary>供貨與公開範圍</summary>
+          {catalog.description && <p>{catalog.description}</p>}<p className="field-hint">{SHARING}</p>
+        </details>
+        {productAccess && <nav className="hosted-supply-nav" aria-label="供貨工作區">
+          <button type="button" className="btn btn-ghost" aria-pressed={activeArea === 'products'} aria-controls="supply-products-panel" onClick={() => setArea('products')}>商品</button>
+          <button type="button" className="btn btn-ghost" aria-pressed={activeArea === 'cooperation'} aria-controls="supply-cooperation-panel" onClick={() => setArea('cooperation')}>供貨合作</button>
+          <button type="button" className="btn btn-ghost" aria-pressed={activeArea === 'reservations'} aria-controls="supply-reservations-panel" onClick={() => setArea('reservations')}>預留與訂單</button>
+        </nav>}
+        {productAccess && <>
+          {/* Keep work areas mounted: switching never discards a draft or releases an unknown command. */}
+          <section id="supply-products-panel" className="hosted-supply-panel stack" hidden={activeArea !== 'products'} aria-labelledby="supply-products-title">
+            <div className="hosted-supply-toolbar"><h3 id="supply-products-title" ref={productsHeading} tabIndex={-1}>供貨商品</h3>
+              {can('store:write') && !adding && !editing && !supplyEditing && view.product_count < view.product_limit && <button type="button" className="btn btn-primary" disabled={locked} onClick={() => openEditor('add')}>新增供貨商品</button>}
+            </div>
+            <p className="field-hint">幣別：{catalog.currency} · 共用商品容量：{view.product_count}／{view.product_limit}（含供貨商品與商店選品）</p>
+            {adding && <SupplyProductForm currency={catalog.currency} busy={locked || !can('store:write')} onDirty={value => markDirty('add', value)}
+              onCancel={closeEditor}
+              onSave={(body, success) => command({method: 'post', path: root + '/supply-products', body, schema: SupplyProductReceiptSchema, notice: '已新增供貨商品。', success: () => {success(); setAdding(false); markDirty('add', false);}})}/>}
             {!products.length && !loading && <p>還沒有商品。新增商品後可設定供貨條件。</p>}
             <div className="hosted-store-products">{products.map(product => <article className="hosted-store-product stack" key={product.product_id}>
               {supplyEditing === product.product_id ? <HostedSupplyTerms key={product.version} supplierOnly client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked || !can('store:write')} onDirty={value => markDirty('supply', value)}
-                onCancel={() => {if (leaveOk()) {setSupplyEditing(null); markDirty('supply', false);}}}
+                onCancel={closeEditor}
                 onSave={(body, version, success) => command({targetMissingIsStore: false, method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, notice: '已儲存供貨條件。', success: () => {success(); setSupplyEditing(null); markDirty('supply', false);}})}
                 onPublish={can('store:publish') && can('store:write') ? version => command({targetMissingIsStore: false, method: 'post', path: root + '/products/' + product.product_id + '/supply-offer', body: {}, version, schema: SupplyOfferSchema, notice: '已公開供貨版本，同社群店主可申請選用。', success: () => {setSupplyEditing(null); markDirty('supply', false);}}) : undefined}/>
-                : editing === product.product_id ? <SupplyProductForm key={product.version} product={product} currency={catalog.currency} busy={locked || !can('store:write')} onDirty={value => markDirty('edit', value)} onCancel={() => {if (leaveOk()) {setEditing(null); markDirty('edit', false);}}} onSave={(body, success) => command({targetMissingIsStore: false, method: 'patch', path: root + '/supply-products/' + product.product_id, body, version: product.version, schema: SupplyProductReceiptSchema, notice: '已儲存供貨商品。', success: () => {success(); setEditing(null); markDirty('edit', false);}})}/>
-                : <><h4>{product.title}</h4><p>供貨單價 {formatMinor(product.cost_minor, product.currency)}</p><p>庫存 {product.stock}</p><p className="hosted-store-description">{product.description}</p>
-                  {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setSupplyEditing(null); setEditing(product.product_id);}}}>編輯供貨商品</button>
-                    <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setEditing(null); setSupplyEditing(product.product_id);}}}>供貨條件</button></div>}</>}
+                : editing === product.product_id ? <SupplyProductForm key={product.version} product={product} currency={catalog.currency} busy={locked || !can('store:write')} onDirty={value => markDirty('edit', value)} onCancel={closeEditor} onSave={(body, success) => command({targetMissingIsStore: false, method: 'patch', path: root + '/supply-products/' + product.product_id, body, version: product.version, schema: SupplyProductReceiptSchema, notice: '已儲存供貨商品。', success: () => {success(); setEditing(null); markDirty('edit', false);}})}/>
+                : <><h4>{product.title}</h4><p>供貨單價 {formatMinor(product.cost_minor, product.currency)}</p><p>庫存 {product.stock}</p>{product.description && <p className="hosted-store-description">{product.description}</p>}
+                  {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => openEditor('edit', product.product_id)}>編輯供貨商品</button>
+                    <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => openEditor('supply', product.product_id)}>供貨條件</button></div>}</>}
             </article>)}</div>
-            {can('store:write') && (view.product_count >= view.product_limit ? <p>已達 {view.product_limit} 件共用商品容量上限（含供貨商品與商店選品）。</p> : <SupplyProductForm currency={catalog.currency} busy={locked} onDirty={value => markDirty('add', value)} onSave={(body, success) => command({method: 'post', path: root + '/supply-products', body, schema: SupplyProductReceiptSchema, notice: '已新增供貨商品。', success})}/>)}
+            {can('store:write') && view.product_count >= view.product_limit && <p>已達 {view.product_limit} 件共用商品容量上限（含供貨商品與商店選品）。</p>}
           </section>
-          <HostedDistribution supplierOnly client={client} root={root} refresh={refresh} busy={locked} writable={can('store:write')} onDirty={(id, value) => markDirty('distribution/' + id, value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>
+          <div id="supply-cooperation-panel" className="hosted-supply-panel" hidden={activeArea !== 'cooperation'}>
+            <HostedDistribution supplierOnly client={client} root={root} refresh={refresh} busy={locked} writable={can('store:write')} onDirty={(id, value) => markDirty('distribution/' + id, value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>
+          </div>
         </>}
+        <section id="supply-reservations-panel" className="hosted-supply-panel stack" hidden={activeArea !== 'reservations'} aria-label="預留與訂單">
+          <h3>預留與訂單</h3>
+          <SupplierOrdersLink client={client} tenantId={tenantId} instanceId={instanceId}/>
+          {reservationSetting && <HostedReservationSetting supplierOnly setting={reservationSetting} writable={view.writable} locked={locked || hasDraft}
+            onToggle={() => void command({targetMissingIsStore: false, method: 'patch', path: root + '/reservation-setting', body: {reservation_enabled: !reservationSetting.reservation_enabled},
+              version: reservationSetting.version, schema: ReservationSettingSchema, success: () => {},
+              notice: reservationSetting.reservation_enabled ? '已停止接受新預留。既有供貨預留仍可查看。' : '已開放 30 分鐘預留。'})}/>}
+          {reservationSetting && hasDraft && <p className="field-hint">還有尚未儲存的內容，請先儲存或取消編輯，再變更預留設定。</p>}
+          {!reservationSetting && <p className="field-hint">只有目前業務空間擁有者可設定供貨預留；目前沒有可用的預留管理權限。</p>}
+        </section>
       </>}
     </>}
   </div>;
@@ -209,11 +245,11 @@ function SupplyProductForm({product, currency, busy, onDirty, onCancel, onSave}:
   const title = product ? '編輯供貨商品' : '新增供貨商品';
   return <form className="hosted-store-form stack" aria-label={title} onSubmit={event => void submit(event)}>
     <h4>{title}</h4><fieldset className="hosted-store-fields stack" disabled={busy}><legend className="sr-only">供貨商品資料</legend>
-      <label className="field">商品名稱<input required maxLength={120} value={fields.title} onChange={event => change('title', event.target.value)}/></label>
+      <label className="field">商品名稱<input autoFocus required maxLength={120} value={fields.title} onChange={event => change('title', event.target.value)}/></label>
       <label className="field">商品說明<textarea maxLength={2000} value={fields.description} onChange={event => change('description', event.target.value)}/></label>
       <label className="field">供貨單價（{currency}）<input required inputMode="decimal" value={fields.cost} onChange={event => change('cost', event.target.value)}/></label>
       <label className="field">庫存<input required inputMode="numeric" value={fields.stock} onChange={event => change('stock', event.target.value)}/></label>
-      {error && <p role="alert">{error}</p>}<div className="actions"><button className="btn btn-ghost" disabled={busy}>{product ? '儲存供貨商品' : title}</button>{onCancel && <button type="button" className="btn btn-ghost" disabled={busy} onClick={onCancel}>取消編輯</button>}</div>
+      {error && <p role="alert">{error}</p>}<div className="actions"><button className="btn btn-primary" disabled={busy}>{product ? '儲存供貨商品' : title}</button>{onCancel && <button type="button" className="btn btn-ghost" disabled={busy} onClick={onCancel}>取消編輯</button>}</div>
     </fieldset>
   </form>;
 }

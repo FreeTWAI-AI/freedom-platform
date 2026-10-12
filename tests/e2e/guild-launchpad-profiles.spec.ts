@@ -172,6 +172,7 @@ test('supplier-only member publishes supply without a slug, retail page or comme
     await expect(page.getByLabel('商店網址', {exact: true})).toHaveCount(0);
     await expect(page.getByText('商店版型', {exact: true})).toHaveCount(0);
     await setup.getByRole('button', {name: '建立供貨商品庫', exact: true}).click();
+    await page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
     const product = page.getByRole('form', {name: '新增供貨商品', exact: true});
     await product.getByLabel('商品名稱', {exact: true}).fill('供貨茶杯');
     await product.getByLabel('供貨單價（TWD）', {exact: true}).fill('300');
@@ -186,6 +187,7 @@ test('supplier-only member publishes supply without a slug, retail page or comme
     await supply.getByRole('button', {name: '儲存供貨條件', exact: true}).click();
     await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
     await supply.getByRole('button', {name: '公開供貨版本', exact: true}).click();
+    await page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
     await expect(page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'})).toBeVisible();
     await expect(page.locator('.hosted-distribution summary').filter({hasText: '我的選品'})).toHaveCount(0);
     await expect(page.getByRole('heading', {name: '預覽與發布', exact: true})).toHaveCount(0);
@@ -194,6 +196,7 @@ test('supplier-only member publishes supply without a slug, retail page or comme
     expect(catalogs.items).toHaveLength(1);
     const profile = await (await page.request.get(`/api/v1/tenants/${catalogs.items[0].tenant_id}/storefronts/${catalogs.items[0].instance_id}/supply-profile`)).json();
     expect(profile.retail_enabled).toBe(false);
+    await page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '預留與訂單', exact: true}).click();
     await page.getByRole('button', {name: '開放 30 分鐘預留', exact: true}).click();
     await expect(page.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
     await page.getByRole('link', {name: '供貨訂單', exact: true}).click();
@@ -206,9 +209,11 @@ test('supplier-only member publishes supply without a slug, retail page or comme
     await login(page, member.email); await open(page, supplier);
     await primary(page).getByRole('button', {name: '查看商品與供貨', exact: true}).click();
     await expect(page).toHaveURL(new RegExp(storeHash + '$'));
+    await page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '預留與訂單', exact: true}).click();
     await expect(page.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
     await page.getByRole('button', {name: '停止接受新預留', exact: true}).click();
     await expect(page.getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toBeEnabled();
+    await page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
     await page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'}).click();
     await expect(page.locator('.hosted-distribution')).toContainText('供貨茶杯');
     const memberships = (await e2eAuthPool.query("SELECT guild_key FROM positioning_profession_memberships WHERE user_id=$1 AND state='active'", [member.id])).rows;

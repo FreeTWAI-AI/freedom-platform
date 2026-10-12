@@ -24,6 +24,7 @@ test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C 
       await open(page,s.hash+(n === 0 && supplierOnly ? '/supply' : '')); stores.push({...s,page,slug});
     }
     const [a,b,c]=stores;
+    if (supplierOnly) await a.page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
     const add=a.page.getByRole('form',{name:supplierOnly?'新增供貨商品':'新增商品',exact:true});
     await add.getByLabel('商品名稱',{exact:true}).fill('共用庫存茶杯');
     await add.getByLabel(supplierOnly?'供貨單價（TWD）':'價格（新臺幣 TWD）',{exact:true}).fill('10');
@@ -61,6 +62,7 @@ test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C 
       await expect(s.page.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
       await expect(s.page.getByRole('button',{name:'發布展示頁',exact:true})).toBeDisabled();
     }
+    if (supplierOnly) await a.page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
     await a.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
     const requests=await expand(a.page,'供貨申請');
     for(const name of ['小島選物','山城選物']) {

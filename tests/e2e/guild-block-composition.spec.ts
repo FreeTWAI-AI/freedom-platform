@@ -175,6 +175,7 @@ for (const sample of [
     const setup = page.getByRole('form', {name: '建立供貨商品庫', exact: true});
     await setup.getByLabel('商品庫名稱', {exact: true}).fill(catalogName);
     await setup.getByRole('button', {name: '建立供貨商品庫', exact: true}).click();
+    await page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
     const product = page.getByRole('form', {name: '新增供貨商品', exact: true});
     await product.getByLabel('商品名稱', {exact: true}).fill('區塊回訪茶杯');
     await product.getByLabel('供貨單價（TWD）', {exact: true}).fill('300');
