@@ -591,7 +591,8 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.match(on, /merge_group:\n/);
   assert.match(on, /push:\n/);
   assert.doesNotMatch(on, /\n\s+paths:/u);
-  assert.equal(text.includes('github.event.merge_group'), false);
+  assert.equal([...text.matchAll(/github\.event\.merge_group/g)].length, 1);
+  assert.ok(jobBlock(text, 'source-integrity').includes('github.event.merge_group.base_sha')); // baseline for immutable migrations, never a skip
   assert.match(text, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/u);
   for (const id of ['select', 'verify']) {
     const trusted = jobBlock(text, id);

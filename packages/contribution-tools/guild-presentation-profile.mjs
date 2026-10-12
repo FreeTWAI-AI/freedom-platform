@@ -1,5 +1,19 @@
 // Reviewed CI obligations for the two sample guilds. This is not an application
 // registry or executable descriptor data; unknown guilds require a reviewed plan.
+export const GUILD_PRESENTATION_IMPORTS = Object.freeze({
+  'modules/guild-supply/CatalogBlock.tsx': "import React from 'react';\nimport {MyStoresPageSchema} from '../../contracts/guild-launchpad/v1/storefront-pagination';\nimport {useGuildRead, type GuildBlockProps} from '../../packages/guild-presentation/block';\nimport {GuildBlockState} from '../../apps/portal-web/src/guild-blocks/GuildBlockState';\n\n",
+  'modules/guild-open-source/WorksBlock.tsx': "import React from 'react';\nimport {z} from 'zod';\nimport {useGuildRead, type GuildBlockProps} from '../../packages/guild-presentation/block';\nimport {GuildBlockState} from '../../apps/portal-web/src/guild-blocks/GuildBlockState';\n\n",
+});
+
+// Deliberately conservative admission, not a JS security sandbox/parser. A new
+// dependency (or unfamiliar import syntax) requires the full reviewed lane.
+// False positives in text/comments only make verification broader.
+export function guildPresentationImportsProven(path, source) {
+  const prefix = GUILD_PRESENTATION_IMPORTS[path];
+  return typeof source === 'string' && source.length <= 262144 && typeof prefix === 'string'
+    && source.startsWith(prefix) && !/\b(?:import|require|eval|Function|Worker|SharedWorker|constructor)\b|\bfrom\s*(?:\/\*[\s\S]*?\*\/\s*)*['"]/.test(source.slice(prefix.length));
+}
+
 export const GUILD_PRESENTATION_PROFILE = Object.freeze({
   id: 'guild-presentation',
   leaves: Object.freeze([

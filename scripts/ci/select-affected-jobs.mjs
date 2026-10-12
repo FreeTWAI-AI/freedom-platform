@@ -5,8 +5,8 @@
 // Leaf edits retain all runtime/browser/static
 // jobs and require unchanged, compatible baseline/candidate descriptor graphs.
 // The exact generated inventory manifest may accompany qualifying edits; owning that one metadata file does not widen the decision, and the file
-// is not itself an allowlisted document. source-integrity still verifies the
-// manifest unconditionally. Rename, delete, copy, mode change, unknown paths,
+// is not itself an allowlisted document. source-integrity verifies immutable migrations and local links; main archives
+// generate and restore a complete inventory. Rename, delete, copy, mode change, unknown paths,
 // merge_group, push, and governance, security, or shared-runtime paths keep
 // every selectable job. The aggregate accepts a skip only for a job this
 // decision left unselected; failure and cancellation do not pass.
@@ -18,7 +18,7 @@ import { selectImpact, validateDescriptor, isModuleDescriptorPath, ROOT_INSTRUCT
 import { artifactPath, parseJson } from '../../packages/contribution-tools/io.mjs';
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 import { GUIDE_COMPOSITION_PROFILE } from '../../packages/contribution-tools/pinned-e2e.mjs';
-import { GUILD_PRESENTATION_PROFILE } from '../../packages/contribution-tools/guild-presentation-profile.mjs';
+import { GUILD_PRESENTATION_PROFILE, guildPresentationImportsProven } from '../../packages/contribution-tools/guild-presentation-profile.mjs';
 import { runtimeTextSources } from '../generate-runtime-text.mjs';
 
 export const SELECTABLE_JOBS = Object.freeze([
@@ -40,7 +40,8 @@ export const ALWAYS_ON_INTEGRITY_COMMANDS = Object.freeze([
   'npm run contracts:build',
   'git diff --exit-code -- contracts/preview/v1 packages/sdk',
   'npm run check:runtime-text',
-  'npm run verify:inventory',
+  'python .freedom/trusted/scripts/ci/verify-source-boundaries.py',
+  'python .freedom/trusted/scripts/ci/test_source_boundaries.py',
   'node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.selector-unit',
   'node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit',
 ]);
@@ -93,11 +94,13 @@ export function heavyJobCondition(outputKey) {
   return `!cancelled() && (needs.select.result != 'success' || needs.select.outputs.${outputKey} == 'true')`;
 }
 
+export const GUILD_PRESENTATION_JOBS = Object.freeze(['guild-presentation', 'static-worker']);
 function decision(mode, reason, selected) {
   if (!['full', 'docs', 'affected'].includes(mode) || !/^[a-z0-9_]+$/.test(reason)) throw new Error('invalid_selection_decision');
   return Object.freeze({
     mode, reason,
-    jobs: Object.freeze(Object.fromEntries(SELECTABLE_JOBS.map(id => [id, mode === 'affected' ? FRONTEND_LEAF_JOBS.includes(id) : selected]))),
+    jobs: Object.freeze(Object.fromEntries(SELECTABLE_JOBS.map(id => [id, mode === 'affected'
+      ? (reason === 'guild_presentation_dependency_closure' ? GUILD_PRESENTATION_JOBS : FRONTEND_LEAF_JOBS).includes(id) : selected]))),
   });
 }
 const full = reason => decision('full', reason, true);
@@ -493,19 +496,21 @@ function loadTrees(repository, base, head) {
     return changesFromTrees(baseTree.files, headTree.files);
   } catch { return null; }
 }
-export function collectRepositoryDecision({ repository, event, base = '', head = '', pullRequest = '', allowFetch = false } = {}) {
+export function collectRepositoryDecision({ repository, event, base = '', head = '', candidate = '', pullRequest = '', allowFetch = false } = {}) {
   if (event !== 'pull_request') return decideAffectedJobs({ event, diffComplete: false, changes: [], baseline: [], candidate: [] });
+  const guild = collectRepositoryGuildDecision({repository, event, base, head, candidate, pullRequest, allowFetch});
+  if (guild.profile === GUILD_PRESENTATION_PROFILE.id) return decision('affected', guild.reason, false);
   const root = typeof repository === 'string' && isAbsolute(repository) ? resolve(repository) : '';
   if (!root || root.startsWith('-') || !SHA.test(base) || !SHA.test(head)) return full('diff_unproven');
   if (!ensureCommit(root, base, '', allowFetch) || !ensureCommit(root, head, pullRequest, allowFetch)) return full('diff_unproven');
   const diff = loadTrees(root, base, head);
   if (!diff?.ok) return full('diff_unproven');
   const baseline = loadModuleDescriptors(root, base);
-  const candidate = loadModuleDescriptors(root, head);
+  const headGraph = loadModuleDescriptors(root, head);
   return decideAffectedJobs({
     event, diffComplete: true, changes: diff.changes,
-    baseline: baseline.descriptors, candidate: candidate.descriptors,
-    descriptorsProven: baseline.ok && candidate.ok,
+    baseline: baseline.descriptors, candidate: headGraph.descriptors,
+    descriptorsProven: baseline.ok && headGraph.ok,
   });
 }
 
@@ -531,8 +536,18 @@ function collectIntegrationProfile({ repository, event, base = '', head = '', ca
     if (parents.length !== 2 || parents[0] !== base || parents[1] !== head) return fallback('candidate_unproven');
     const diff = loadTrees(root, base, candidate);
     const baseline = loadModuleDescriptors(root, base), current = loadModuleDescriptors(root, candidate);
-    return decide({ event, diffComplete: diff?.ok === true, changes: diff?.changes ?? [],
+    const result = decide({ event, diffComplete: diff?.ok === true, changes: diff?.changes ?? [],
       baseline: baseline.descriptors, candidate: current.descriptors, descriptorsProven: baseline.ok && current.ok });
+    if (result.profile === GUILD_PRESENTATION_PROFILE.id) {
+      for (const change of diff.changes) {
+        if (change.path === GENERATED_INVENTORY_PATH) continue;
+        for (const revision of [base, candidate]) {
+          const source = runGit(root, ['cat-file', 'blob', `${revision}:${change.path}`]).toString('utf8');
+          if (!guildPresentationImportsProven(change.path, source)) return fallback('guild_source_dependencies_unproven');
+        }
+      }
+    }
+    return result;
   } catch { return fallback('candidate_unproven'); }
 }
 
@@ -553,8 +568,11 @@ export function decisionFromNeeds(needs) {
   const selectedNone = SELECTABLE_JOBS.every(id => !jobs[id]);
   if (outputs.mode === 'full' && !selectedAll) return { ok: false, reason: 'decision_inconsistent' };
   if (outputs.mode === 'docs' && !selectedNone) return { ok: false, reason: 'decision_inconsistent' };
-  if (outputs.mode === 'affected' && (outputs.reason !== 'frontend_leaf_profiles'
-    || SELECTABLE_JOBS.some(id => jobs[id] !== FRONTEND_LEAF_JOBS.includes(id)))) return { ok: false, reason: 'decision_inconsistent' };
+  if (outputs.mode === 'affected') {
+    const profile = outputs.reason === 'frontend_leaf_profiles' ? FRONTEND_LEAF_JOBS
+      : outputs.reason === 'guild_presentation_dependency_closure' ? GUILD_PRESENTATION_JOBS : null;
+    if (!profile || SELECTABLE_JOBS.some(id => jobs[id] !== profile.includes(id))) return { ok: false, reason: 'decision_inconsistent' };
+  }
   if (jobs['runtime-full'] !== jobs['runtime-aggregate']) return { ok: false, reason: 'runtime_selection_split' };
   return { ok: true, decision: { mode: outputs.mode, reason: outputs.reason ?? '', jobs } };
 }
@@ -595,6 +613,7 @@ function parseArgs(argv) {
     else if (arg === '--repository') args.repository = argv[++index];
     else if (arg === '--base') args.base = argv[++index];
     else if (arg === '--head') args.head = argv[++index];
+    else if (arg === '--candidate') args.candidate = argv[++index];
     else if (arg === '--pull-request') args.pullRequest = argv[++index];
     else if (arg === '--github-output') args.githubOutput = argv[++index];
     else return null;
@@ -617,7 +636,7 @@ function main() {
     console.error('invalid_selection_arguments'); process.exitCode = 2; return;
   }
   const selection = collectRepositoryDecision({
-    repository: args.repository, event: args.event, base: args.base ?? '', head: args.head ?? '',
+    repository: args.repository, event: args.event, base: args.base ?? '', head: args.head ?? '', candidate: args.candidate ?? '',
     pullRequest: args.pullRequest, allowFetch: args.allowFetch,
   });
   appendFileSync(args.githubOutput, githubOutput(selection));

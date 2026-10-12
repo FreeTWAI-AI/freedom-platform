@@ -65,7 +65,10 @@
     ".github/workflows/reconcile-issue-closures.yml",
     "scripts/ci/select-affected-jobs.test.mjs",
     "scripts/ci/guild-presentation-profile.test.mjs",
-    "scripts/ci/run-guild-runtime.mjs"
+    "scripts/ci/run-guild-runtime.mjs",
+    "scripts/ci/verify-source-boundaries.py",
+    "scripts/ci/test_source_boundaries.py",
+    "scripts/ci/release-inventory.md"
   ],
   "owner_role": "foundation",
   "public_exports": [

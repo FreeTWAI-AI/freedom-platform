@@ -10,11 +10,18 @@ submodules are refused, rather than silently omitted.
 
 This is a local release/archive integrity tool. It does not install a release
 workflow, approve its own source, sign a ReleaseSet, restore a database or alter
-migration compatibility. **Daily `verify:inventory` remains unchanged.** The
-later daily-inventory transition needs the reviewed affected selector, a real
-release artifact/restore path, retained contract generation, historical migration
-immutability and link checks. Current dated inventory bytes are not rewritten or
-reclassified by this packet.
+migration compatibility. The activation candidate connects this tool to main source-integrity: build the
+exact source tar/inventory, restore and read it back, retain both receipts and
+upload the archive. Its daily PR lane uses the pinned `verify-source-boundaries.py`
+for exact Git identity, immutable baseline SQL migrations and relative Markdown
+links; contract generation/diff and runtime-text checks remain. It does not use
+the candidate's dated inventory to decide correctness. Existing dated inventories
+remain historical; `verify:inventory` can reproduce the old bytes when needed.
+
+This is source for a workflow transition, **not evidence that the organization
+ruleset has installed its pin**. Until the reviewed pin is installed and read back,
+the prior daily inventory gate still applies. Record full/shadow comparison,
+source archive/restore evidence and a real qualifying PR after installation.
 
 Use the reviewed tool on Linux with Python 3.11+ and `/usr/bin/git`. Supply the
 source commit and tree from the independent release decision. The output parent

@@ -149,8 +149,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 29781,
-      "sha256": "2c3f4c966893a5bc660c3aee63facac1ad59dd8c73bbef77d5bc3261a8a306fd"
+      "bytes": 32844,
+      "sha256": "abd92a3c994d68cbfac31ebdde35f649ac75895a89e3d42c6d5c1e654bce67e9"
     },
     {
       "path": "apps/freedom.module.json",
@@ -18889,8 +18889,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 4509,
-      "sha256": "3b1e85c0bc2a373a262b8005b1b252ec488c567a5df2315d63603b789823a4cc"
+      "bytes": 4638,
+      "sha256": "a348e0881b385d87544e8d310dcdcd5c0e408d8c927568c0c029aa0b55236716"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -18944,8 +18944,8 @@
     },
     {
       "path": "packages/contribution-tools/guild-presentation-profile.mjs",
-      "bytes": 1446,
-      "sha256": "56502ce66a35875419ddd6ef9702000fc144d3d043eca6ccec6f253cc1a408d0"
+      "bytes": 2764,
+      "sha256": "a984fc877c456f086c6a4333bba00a9847480e3ea4ea1b0b41ff7b3750254754"
     },
     {
       "path": "packages/contribution-tools/io.mjs",
@@ -19404,8 +19404,8 @@
     },
     {
       "path": "packages/guild-presentation/README.md",
-      "bytes": 6767,
-      "sha256": "c1c95743249569593df856e5684001ea659351e345d99d16f799f6e266984d23"
+      "bytes": 7485,
+      "sha256": "ce220d6da2845022da8d98dcd3c0ccc8ed022ab19f9452e42b4828161afda190"
     },
     {
       "path": "packages/guild-presentation/block.ts",
@@ -20144,8 +20144,8 @@
     },
     {
       "path": "scripts/ci/guild-presentation-profile.test.mjs",
-      "bytes": 3677,
-      "sha256": "4f62999cac783fcba1c813e193597e897275580b35517bf4df7cbc67c07de1bf"
+      "bytes": 7813,
+      "sha256": "08b33f6e66b6e02e3bd8f50879f4b0e3ecc7a53d9837f74f4c95060bd0baea30"
     },
     {
       "path": "scripts/ci/native-cli-audit-readback.mjs",
@@ -20179,8 +20179,8 @@
     },
     {
       "path": "scripts/ci/release-inventory.md",
-      "bytes": 5505,
-      "sha256": "8a7701f1fee75450647d241280f0fbfc66c91aabfd7794431382c1177cfb9576"
+      "bytes": 6065,
+      "sha256": "f4a8109fe5f7fdee0afe50da3a176e0461e70772a5a4d0646d618973c726783b"
     },
     {
       "path": "scripts/ci/render-bwrap-deleted-compat.py",
@@ -20204,18 +20204,23 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 37480,
-      "sha256": "03fb01042b0f53310ffaf2c254b6031fc71b859fb3f8111d89ca36bb6b1eb323"
+      "bytes": 38843,
+      "sha256": "42998aac34bd5e3e34f3eb9fb1bff63c50a6a3b04e60b81910f4eb2da8fda407"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 70153,
-      "sha256": "299a16f67f10f5a0e4bff70b9c9322de8beefd15c89fbd2ce2efab08f4d931bd"
+      "bytes": 70310,
+      "sha256": "d0ac93b14acbdee6010418122f74d85824892279c3059d4ee0ecdc4b5fdc265e"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
       "bytes": 16033,
       "sha256": "e5388bbc79f8719c3abed612f50b5f1c683034687fd64d81219f2a431c0f5c53"
+    },
+    {
+      "path": "scripts/ci/test_source_boundaries.py",
+      "bytes": 5243,
+      "sha256": "48f31af7d3bbf1c00ab69f65e61b42752ad06567d7d1a023248f8f8f660d6f6a"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
@@ -20226,6 +20231,11 @@
       "path": "scripts/ci/verify-runtime-postgres.sh",
       "bytes": 2710,
       "sha256": "6168a85ee8c9b2a63e802bddf8d7cf6b670fdb825945805414dd4217f3d34b28"
+    },
+    {
+      "path": "scripts/ci/verify-source-boundaries.py",
+      "bytes": 4401,
+      "sha256": "ac74ada495873c724849e58a161c16f5ffda1941fac0e3018acbde472dfc332e"
     },
     {
       "path": "scripts/lib/openrouter-acceptance-guard.ts",
