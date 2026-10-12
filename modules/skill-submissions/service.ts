@@ -7,7 +7,7 @@ import { checkVersion, command, digest, journal, transaction, type Command } fro
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { tokenHash, type Actor } from '../identity-membership/service.js';
 import { authRateLimit } from '../identity-membership/members.js';
-import { importProjectWithinTransaction, projectInput, type GitHubRead } from '../opensource-marketing/service.js';
+import { importProjectWithinTransaction, projectInput, withdrawProjectSharing, type GitHubRead } from '../opensource-marketing/service.js';
 import type { NormalizedSubmission } from './payload.js';
 import { lockMemberDrafts, MAX_ACTIVE_DRAFTS } from './limits.js';
 import { catalogBookForRepository, repositoryDisplayName, repositoryKey } from './repository-match.js';
@@ -324,6 +324,42 @@ export async function revokeSubmission(pool: Pool, input: Command, id: string) {
   });
 }
 
+/** Withdraw this owner's project and every publication/upgrade of it together.
+ * Drafts and historical payloads remain owner-readable. Old links must not fall
+ * back to an earlier public version, and outstanding upload grants must close. */
+export async function withdrawProjectPublication(pool: Pool, input: Command, projectId: string) {
+  empty.parse(input.body);
+  projectId = uuidOrNotFound(projectId);
+  const authorize = async (q: PoolClient) => {
+    const own = await q.query('SELECT 1 FROM oss_projects WHERE project_id=$1 AND community_id=$2 AND owner_ref=$3',
+      [projectId, input.actor.community_id, input.actor.user_id]);
+    requireCondition(own.rowCount === 1, 404, 'not_found', '找不到可由你撤下的開源作品。');
+  };
+  return command(pool, input, authorize, async q => {
+    // Shared by prepare/upgrade/publish. Keep submission-before-project lock
+    // order, including independent tabs publishing the same source repository.
+    await lockMemberDrafts(q, input.actor.user_id);
+    const family = (await q.query(`WITH RECURSIVE family AS (
+      SELECT submission_id FROM skill_submissions WHERE community_id=$2 AND owner_ref=$3
+        AND (project_id=$1 OR lower(COALESCE(payload->>'repository_url',seed->>'repository_url')) IN (
+          SELECT lower(repository_url) FROM oss_project_versions WHERE project_id=$1
+          UNION SELECT lower(repository_url) FROM oss_projects WHERE project_id=$1))
+      UNION SELECT s.submission_id FROM skill_submissions s JOIN family f ON s.upgrades_submission_id=f.submission_id
+        WHERE s.community_id=$2 AND s.owner_ref=$3
+    ) SELECT submission_id FROM skill_submissions WHERE submission_id IN (SELECT submission_id FROM family)
+      ORDER BY submission_id FOR UPDATE`, [projectId, input.actor.community_id, input.actor.user_id])).rows;
+    const project = await withdrawProjectSharing(q, input, projectId);
+    const ids = family.map(row => row.submission_id);
+    const withdrawn = (await q.query(`UPDATE skill_submissions SET status='revoked',consent_to_share=false,revoked_at=now(),
+      grant_revoked_at=CASE WHEN grant_hash IS NULL THEN grant_revoked_at ELSE COALESCE(grant_revoked_at,now()) END,
+      aggregate_version=aggregate_version+1,updated_at=now() WHERE submission_id=ANY($1::uuid[]) AND status<>'revoked'
+      RETURNING submission_id,aggregate_version`, [ids])).rows;
+    for (const row of withdrawn) await journal(q, input.actor, 'skill_submission', row.submission_id,
+      row.aggregate_version, 'withdraw_project_publication', { project_id: projectId });
+    return project;
+  }, authorize);
+}
+
 const PUBLISH_GITHUB_CODES = new Set(['github_rate_limited', 'github_unavailable', 'github_invalid_response', 'github_response_too_large', 'github_read_budget']);
 function publishGitHubFailure(error: Problem): Problem {
   const wait = typeof error.retryAfterSeconds === 'number' && error.retryAfterSeconds > 0
@@ -336,9 +372,10 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
   id = uuidOrNotFound(id);
   await authRateLimit(pool, 'skill-submission-publish', input.actor.user_id, 20, 3600);
   return command(pool, input, async q => { await requireReadyMember(q, input.actor); await ownedSubmission(q, input.actor, id); }, async q => {
-    // The draft stays locked while the import runs and until publication is
-    // recorded, so no concurrent publish/revoke can interleave.
-    const current = await ownedSubmission(q, input.actor, id, true);
+    // Keep the authenticated member lock during source inspection, then take
+    // owner/submission locks in publication order. Independent provider reads
+    // may progress together even with a two-connection pool.
+    const current = await ownedSubmission(q, input.actor, id);
     checkVersion(current.aggregate_version, input.expected);
     requireCondition(current.status === 'ready_for_review', 409, 'submission_not_ready', current.status === 'published' ? '這份投稿已公開。' : '這份草稿尚未上傳完成或已撤回，不能公開。');
     const payload = current.payload;
@@ -350,7 +387,14 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
       project = await importProjectWithinTransaction(q, input, {
         repository_url: payload.repository_url, title: payload.title, description: payload.description, use_notes: payload.use_notes,
         demo_url: payload.demo_url ?? null, relationship: payload.relationship, consent_to_share: true,
-      }, { reuseOwned: true, fetcher: read.fetcher, token: read.token });
+      }, { reuseOwned: true, fetcher: read.fetcher, token: read.token, publicationCreatedAt: current.created_at,
+        beforePersist: async () => {
+          await lockMemberDrafts(q, input.actor.user_id);
+          const latest = await ownedSubmission(q, input.actor, id, true);
+          checkVersion(latest.aggregate_version, input.expected);
+          requireCondition(latest.status === 'ready_for_review',409,'submission_not_ready','這份草稿已公開或撤回，請重新載入。');
+        },
+      });
     } catch (error) {
       if (error instanceof Problem && PUBLISH_GITHUB_CODES.has(error.code)) throw publishGitHubFailure(error);
       throw error;

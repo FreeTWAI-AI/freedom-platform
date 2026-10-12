@@ -7,6 +7,7 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal, DEMO_USERS, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {communityCatalog} from '../../modules/community/catalog.js';
+import {historyRepositories} from '../../modules/community/github-history.js';
 
 // This suite requires an explicitly provisioned disposable database; no default database discovery.
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -121,7 +122,7 @@ test('published submission is reused ahead of a later draft for the same canonic
   assert.equal(manual.status, 201, JSON.stringify(manual.data)); const published = await publish(owner, manual.data);
   const later = await api('/me/skill-submissions/manual', owner, {...metadata(), title: '另一份未公開草稿'});
   assert.equal(later.status, 201);
-  const result = await prepare(owner, project); assert.equal(result.data.created, false);
+  const result = await prepare(owner, await listed(owner,project.project_id)); assert.equal(result.data.created, false);
   assert.equal(expectPrepared(result).submission_id, published.submission_id); assert.equal(expectPrepared(result).status, 'published');
   assert.equal((await listed(owner, project.project_id)).skill_book.submission_id, published.submission_id);
   assert.equal((await pool.query('SELECT count(*) FROM skill_submissions')).rows[0].count, '2');
@@ -206,12 +207,12 @@ test('an existing manual draft found by canonical repository is reused without a
 
 test('an awaiting-upload upgrade keeps its seeded identity and does not turn into a new manual draft', async t => {
   github(t); const owner = await login(), project = await registered(owner);
-  const first = await publish(owner, expectPrepared(await prepare(owner, project)));
+  const first = await publish(owner, expectPrepared(await prepare(owner, await listed(owner,project.project_id))));
   const upgrade = await api(`/me/skill-submissions/${first.submission_id}/upgrade`, owner, {});
   assert.equal(upgrade.status, 201, JSON.stringify(upgrade.data));
   // Simulate operator withdrawal of the original public book; the retained private upgrade is still the owner's work.
   await pool.query("UPDATE skill_submissions SET status='revoked',consent_to_share=false,revoked_at=now() WHERE submission_id=$1", [first.submission_id]);
-  const result = await prepare(owner, project), draft = expectPrepared(result);
+  const result = await prepare(owner, await listed(owner,project.project_id)), draft = expectPrepared(result);
   assert.equal(result.data.created, false); assert.equal(draft.submission_id, upgrade.data.submission_id);
   assert.equal(draft.status, 'awaiting_upload'); assert.deepEqual(draft.seed, upgrade.data.seed);
   assert.equal(draft.payload, null); assert.equal(draft.can_edit, false);
@@ -250,4 +251,85 @@ test('a publication whose stored version no longer belongs to its project is omi
   await pool.query('UPDATE skill_submissions SET project_version_id=$2 WHERE submission_id=$1', [published.submission_id, otherProject.current_version.version_id]);
   assert.equal((await listed(other, project.project_id)).skill_book, null);
   assert.equal((await api(`/skill-submissions/${published.submission_id}`)).status, 404);
+});
+
+test('owner withdraws the whole work, retains private editing, and explicitly republishes on a new link', async t => {
+  github(t); const owner=await login(), other=await login(DEMO_USERS[1].email);
+  const original=await registered(owner), book=await publish(owner,expectPrepared(await prepare(owner,original)));
+  let project=await listed(owner,original.project_id);
+  const path=`/opensource/projects/${project.project_id}/withdraw`;
+  assert.equal((await api(path,other,{},project.aggregate_version)).status,404);
+  assert.equal((await api(path,undefined,{},project.aggregate_version)).status,401);
+  assert.equal((await api(path,{...owner,csrf:'wrong'},{},project.aggregate_version)).status,403);
+  assert.equal((await api(path,owner,{},original.aggregate_version)).status,412);
+  const key=randomUUID(), withdrawn=await api(path,owner,{},project.aggregate_version,key);
+  assert.equal(withdrawn.status,200,JSON.stringify(withdrawn.data));
+  assert.deepEqual(Object.keys(withdrawn.data).sort(),['aggregate_version','project_id','sharing_withdrawn']);
+  assert.deepEqual((await api(path,owner,{},project.aggregate_version,key)).data,withdrawn.data);
+  assert.equal(await listed(other,project.project_id),undefined);
+  project=await listed(owner,project.project_id);
+  assert.ok(project.sharing_withdrawn_at);assert.equal(project.skill_book,null);
+  for(const route of [`/skill-submissions/${book.submission_id}`,`/skill-submissions/${book.submission_id}/share-content`]) {
+    const missing=await api(route);assert.equal(missing.status,404);assert.equal(missing.response.headers.get('cache-control'),'no-store');
+  }
+  for(const route of [book.public_path,`${book.public_path}/SKILL.md`,`/api/v1/skill-submissions/${book.submission_id}/illustration`]) {
+    const missing=await app.request(origin+route);assert.equal(missing.status,404);assert.equal(missing.headers.get('cache-control'),'no-store');
+  }
+  assert.deepEqual((await api('/skill-submissions/published')).data.items,[]);
+  assert.equal((await api(`/me/skill-submissions/${book.submission_id}`,owner)).data.status,'revoked');
+  const hidden=await api(`/opensource/projects/${project.project_id}:revise`,owner,{title:'只給自己的修改',description:'尚未重新同意公開',use_notes:'先本機試用',demo_url:null},project.aggregate_version);
+  assert.equal(hidden.status,200,JSON.stringify(hidden.data));assert.ok(hidden.data.sharing_withdrawn_at);
+  assert.equal(await listed(other,project.project_id),undefined);
+  const nextDraft=expectPrepared(await prepare(owner,hidden.data));
+  assert.equal(nextDraft.payload.title,'只給自己的修改');
+  assert.equal(await listed(other,project.project_id),undefined,'preparing a draft cannot restore visibility');
+  const next=await publish(owner,nextDraft);
+  assert.notEqual(next.submission_id,book.submission_id);
+  assert.equal(next.project_id,project.project_id);
+  assert.equal((await api(`/skill-submissions/${next.submission_id}`)).data.title,'只給自己的修改');
+  assert.equal((await app.request(origin+book.public_path)).status,404,'withdrawn old links stay closed after republishing');
+  assert.equal((await listed(other,project.project_id)).sharing_withdrawn_at,null);
+  assert.equal((await api(path,owner,{},hidden.data.aggregate_version)).status,412,'new publication invalidates the old project version');
+});
+
+test('withdrawing closes pending upgrade grants and co-creation discovery without changing another owners source', async t => {
+  github(t);const owner=await login(),other=await login(DEMO_USERS[1].email);
+  const project=await registered(owner), independent=await registered(other);
+  const book=await publish(owner,expectPrepared(await prepare(owner,project)));
+  const upgraded=await api(`/me/skill-submissions/${book.submission_id}/upgrade`,owner,{});
+  assert.equal(upgraded.status,201,JSON.stringify(upgraded.data));
+  const upgrade=upgraded.data;
+  const grant=await api(`/me/skill-submissions/${upgrade.submission_id}/grant`,owner,{},upgrade.aggregate_version);
+  assert.equal(grant.status,200,JSON.stringify(grant.data));
+  const co=await api('/co-creation/projects',owner,{source_project_id:project.project_id,title:'一起改進工具',goal:'用合成資料試用',guild_keys:[],help_wanted:['testing'],contribution_notes:'依原 Repo 規範參與'});
+  assert.equal(co.status,201,JSON.stringify(co.data));
+  const current=await listed(owner,project.project_id);
+  assert.equal((await api(`/opensource/projects/${project.project_id}/withdraw`,owner,{},current.aggregate_version)).status,200);
+  const retained=(await api(`/me/skill-submissions/${upgrade.submission_id}`,owner)).data;
+  assert.equal(retained.status,'revoked');assert.ok(retained.grant_revoked_at);
+  assert.equal((await api(`/me/skill-submissions/${upgrade.submission_id}/grant`,owner,{},retained.aggregate_version)).status,409);
+  assert.equal((await api(`/co-creation/projects/${co.data.project_id}/brief`,other)).status,404);
+  assert.equal((await api(`/co-creation/projects/${co.data.project_id}/brief`,owner)).status,200);
+  assert.ok(await listed(other,independent.project_id));
+  const history=await historyRepositories(pool,{community_id:project.community_id,user_id:owner.user.user_id} as any);
+  assert.equal(history.find(item=>item.name.toLowerCase()==='example/legacy-tool')?.title,independent.title,'an independent valid source remains discoverable');
+});
+
+test('withdrawal during GitHub inspection prevents the late publication from restoring sharing', async t => {
+  github(t);const owner=await login(),project=await registered(owner);
+  await publish(owner,expectPrepared(await prepare(owner,project)));
+  const current=await listed(owner,project.project_id);
+  const draft=await api('/me/skill-submissions/manual',owner,{...metadata(),title:'同來源的新分享'});
+  let entered!:()=>void,release!:()=>void;
+  const inspecting=new Promise<void>(resolve=>{entered=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+  const originalFetch=globalThis.fetch;
+  t.mock.method(globalThis,'fetch',async (...args:Parameters<typeof fetch>)=>{entered();await gate;return originalFetch(...args);});
+  const publishing=api(`/me/skill-submissions/${draft.data.submission_id}/publish`,owner,{consent_to_share:true},draft.data.aggregate_version);
+  await inspecting;
+  const withdrawing=api(`/opensource/projects/${project.project_id}/withdraw`,owner,{},current.aggregate_version);
+  const withdrawn=await withdrawing;release();
+  const published=await publishing;
+  assert.equal(withdrawn.status,200,JSON.stringify(withdrawn.data));assert.equal(published.status,412,JSON.stringify(published.data));
+  assert.ok((await listed(owner,project.project_id)).sharing_withdrawn_at);
+  assert.deepEqual((await api('/skill-submissions/published')).data.items,[]);
 });

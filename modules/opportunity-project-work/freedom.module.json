@@ -72,7 +72,8 @@
     "migrations/163_work_contribution_roles.sql",
     "tests/runtime/contribution-roles.test.ts",
     "tests/e2e/contribution-roles.spec.ts",
-    "docs/development/contribution-cooperation.md"
+    "docs/development/contribution-cooperation.md",
+    "modules/co-creation/service.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [
