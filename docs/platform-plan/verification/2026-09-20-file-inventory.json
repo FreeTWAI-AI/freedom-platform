@@ -2429,8 +2429,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildWorkspace.tsx",
-      "bytes": 33394,
-      "sha256": "655f9a9a3e54e24bed94f704c0f6bc560854048efa2f5e93fa71676f8cc4e118"
+      "bytes": 35152,
+      "sha256": "81bc31ae709e075047df6e303a030f6b9ec1b8b5f92f185ca27f831887b92523"
     },
     {
       "path": "apps/portal-web/src/modules/HomeDesign.css",
@@ -20589,8 +20589,8 @@
     },
     {
       "path": "tests/e2e/guild-workspace.spec.ts",
-      "bytes": 12849,
-      "sha256": "06ec491c8bbb0c4af4cf75a9978150cdfd7986d0f6ceee2dee965020c94d5bc0"
+      "bytes": 27521,
+      "sha256": "82f1d5eb8ec691e76b1aab979b38f22d9c4dd93b2d2c88279891924b43cb8c25"
     },
     {
       "path": "tests/e2e/help-box-padding.spec.ts",

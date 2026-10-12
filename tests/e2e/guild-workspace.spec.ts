@@ -61,3 +61,162 @@ test('retry after an unknown announcement result retains the idempotency key',as
   });
   await login(page);await navigate(page, '公會管理');await page.getByLabel('公告標題',{exact:true}).fill('安排下一場共創');await page.getByLabel('公告內容',{exact:true}).fill('帶一份可以公開的合成測試素材。');await page.getByRole('button',{name:'保存公告',exact:true}).click();await expect(page.getByRole('alert')).toContainText('尚未確認');await expect(page.getByLabel('公告標題',{exact:true})).toHaveValue('安排下一場共創');await page.getByRole('button',{name:'保存公告',exact:true}).click();await expect(page.locator('.guild-workspace').getByRole('status')).toContainText('公告已保存');expect(keys).toHaveLength(2);expect(keys[0]).toBeTruthy();expect(keys[1]).toBe(keys[0]);expect(items).toHaveLength(1);
 });
+
+test('management tabs retain announcement and skill drafts without opening unvisited private panels',async({page})=>{
+  let skillReads=0,councilReads=0;
+  let permissions=caps;
+  await page.route('**/api/v1/guild-workspace',route=>route.fulfill({json:permissions}));
+  await page.route('**/api/v1/guilds/synthetic-guild/announcements',route=>route.fulfill({json:{items:[]}}));
+  await page.route('**/api/v1/skill-books/video-autopilot/editor',route=>{skillReads++;return route.fulfill({json:{book_id:'video-autopilot',summary:'原技能摘要',collaboration_intro:'原協作說明',milestones:[],tasks:[],aggregate_version:4,updated_at:null}});});
+  await page.route('**/api/v1/guild-council/threads',route=>{councilReads++;return route.fulfill({json:{items:[]}});});
+  await login(page);await navigate(page,'公會管理');
+  const workspace=page.locator('.guild-workspace'),tabs=workspace.getByRole('navigation',{name:'公會管理功能'});
+  const title=workspace.getByLabel('公告標題',{exact:true}),body=workspace.getByLabel('公告內容',{exact:true});
+  await title.fill('尚未保存的公告');await body.fill('仍屬於原公會的公告草稿');
+  expect(skillReads).toBe(0);expect(councilReads).toBe(0);
+  await tabs.getByRole('button',{name:'技能書編輯',exact:true}).click();
+  const summary=workspace.getByLabel('一句話摘要',{exact:true});
+  await expect(summary).toHaveValue('原技能摘要');await summary.fill('尚未保存的技能摘要');
+  await expect(title).toBeHidden();await expect(title).toHaveValue('尚未保存的公告');
+  await tabs.getByRole('button',{name:'公會公告',exact:true}).click();
+  await expect(title).toBeVisible();await expect(title).toHaveValue('尚未保存的公告');
+  await expect(body).toHaveValue('仍屬於原公會的公告草稿');await expect(summary).toBeHidden();
+  permissions={...caps,managed_guilds:[...caps.managed_guilds,{guild_key:'another-guild',name:'另一公會'}],managed_books:[...caps.managed_books,{book_id:'another-book',title:'另一技能書'}]};
+  await page.evaluate(()=>window.dispatchEvent(new Event('freedom-profile-updated')));
+  await expect(workspace.getByLabel('管理公會',{exact:true}).locator('option')).toHaveCount(2);
+  await expect(title).toHaveValue('尚未保存的公告');await expect(body).toHaveValue('仍屬於原公會的公告草稿');
+  await title.focus();await page.keyboard.press('Tab');await expect(body).toBeFocused();
+  await tabs.getByRole('button',{name:'技能書編輯',exact:true}).click();
+  await expect(summary).toHaveValue('尚未保存的技能摘要');expect(skillReads).toBe(1);expect(councilReads).toBe(0);
+});
+
+test('a pending announcement save survives tab changes and retries an unknown result with its original body version and key',async({page})=>{
+  const writes:{body:unknown;version:string|undefined;key:string|undefined}[]=[];
+  let saved=announcement,release=()=>{};
+  let permissions=caps;
+  await page.route('**/api/v1/guild-workspace',route=>route.fulfill({json:permissions}));
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/v1/guilds/synthetic-guild/announcements',route=>route.fulfill({json:{items:[saved]}}));
+  await page.route('**/api/v1/skill-books/video-autopilot/editor',route=>route.fulfill({json:{book_id:'video-autopilot',summary:'技能摘要',collaboration_intro:'協作說明',milestones:[],tasks:[],aggregate_version:4,updated_at:null}}));
+  await page.route('**/api/v1/guild-announcements/synthetic-announcement/edit',async route=>{
+    writes.push({body:route.request().postDataJSON(),version:route.request().headers()['if-match'],key:route.request().headers()['idempotency-key']});
+    if(writes.length===1){await gate;return route.fulfill({status:503,json:{detail:'保存結果尚未確認。'}});}
+    saved={...announcement,...route.request().postDataJSON(),aggregate_version:3};return route.fulfill({json:saved});
+  });
+  try{
+    await login(page);await navigate(page,'公會管理');
+    const workspace=page.locator('.guild-workspace'),tabs=workspace.getByRole('navigation',{name:'公會管理功能'});
+    await workspace.getByRole('button',{name:'編輯公告',exact:true}).click();
+    await workspace.getByLabel('公告標題',{exact:true}).fill('保留原操作的公告');
+    await workspace.getByLabel('公告內容',{exact:true}).fill('原公告正文與版本');
+    await workspace.getByRole('button',{name:'保存公告',exact:true}).click();await expect.poll(()=>writes.length).toBe(1);
+    await tabs.getByRole('button',{name:'技能書編輯',exact:true}).click();
+    await expect(workspace.getByLabel('公告標題',{exact:true})).toBeHidden();
+    permissions={...caps,managed_guilds:[...caps.managed_guilds,{guild_key:'another-guild',name:'另一公會'}]};
+    await page.evaluate(()=>window.dispatchEvent(new Event('freedom-profile-updated')));
+    await expect(workspace.getByLabel('管理公會',{exact:true}).locator('option')).toHaveCount(2);
+    await expect(workspace.getByLabel('公告標題',{exact:true})).toHaveValue('保留原操作的公告');
+    await expect(workspace.getByLabel('公告標題',{exact:true})).toBeDisabled();
+    const failed=page.waitForResponse(response=>response.url().endsWith('/guild-announcements/synthetic-announcement/edit'));
+    release();expect((await failed).status()).toBe(503);
+    await tabs.getByRole('button',{name:'公會公告',exact:true}).click();
+    await expect(workspace.getByRole('alert')).toContainText('尚未確認');
+    await expect(workspace.getByLabel('公告標題',{exact:true})).toHaveValue('保留原操作的公告');
+    await expect(workspace.getByLabel('公告內容',{exact:true})).toHaveValue('原公告正文與版本');
+    await workspace.getByRole('button',{name:'保存公告',exact:true}).click();
+    await expect(workspace.getByRole('status')).toContainText('公告已保存');
+    expect(writes).toHaveLength(2);expect(writes[0].key).toBeTruthy();expect(writes[0].version).toBe('"2"');
+    expect(writes[0].body).toEqual({title:'保留原操作的公告',body:'原公告正文與版本',state:'published'});expect(writes[1]).toEqual(writes[0]);
+    await tabs.getByRole('button',{name:'技能書編輯',exact:true}).click();await tabs.getByRole('button',{name:'公會公告',exact:true}).click();
+    await expect(workspace.getByRole('heading',{name:'保留原操作的公告',exact:true})).toBeVisible();expect(writes).toHaveLength(2);
+  }finally{release();}
+});
+
+test('removing selected management targets clears their hidden drafts without reviving them when grants return',async({page})=>{
+  const otherGuild={guild_key:'another-guild',name:'另一公會'},otherBook={book_id:'another-book',title:'另一技能書'};
+  let permissions={...caps,managed_guilds:[...caps.managed_guilds,otherGuild],managed_books:[...caps.managed_books,otherBook]},release=()=>{},saving=false;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/v1/guild-workspace',route=>route.fulfill({json:permissions}));
+  await page.route('**/api/v1/guilds/*/announcements',async route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{items:[]}});
+    saving=true;await gate;return route.fulfill({json:{...announcement,...route.request().postDataJSON(),aggregate_version:3}});
+  });
+  await page.route('**/api/v1/skill-books/*/editor',route=>route.fulfill({json:{book_id:new URL(route.request().url()).pathname.split('/').at(-2),summary:'目前授權的摘要',collaboration_intro:'協作說明',milestones:[],tasks:[],aggregate_version:4,updated_at:null}}));
+  await page.route('**/api/v1/guild-council/threads',route=>route.fulfill({json:{items:[]}}));
+  try{
+  await login(page);await navigate(page,'公會管理');
+  const workspace=page.locator('.guild-workspace'),tabs=workspace.getByRole('navigation',{name:'公會管理功能'});
+  await workspace.getByLabel('公告標題',{exact:true}).fill('撤權後不可保留的公告');
+  await workspace.getByLabel('公告內容',{exact:true}).fill('原公會待確認的正文');
+  await workspace.getByRole('button',{name:'保存公告',exact:true}).click();await expect.poll(()=>saving).toBe(true);
+  await tabs.getByRole('button',{name:'技能書編輯',exact:true}).click();
+  await workspace.getByLabel('一句話摘要',{exact:true}).fill('撤權後不可保留的技能草稿');
+  permissions={...caps,managed_guilds:[otherGuild],managed_books:[otherBook]};
+  await page.evaluate(()=>window.dispatchEvent(new Event('freedom-profile-updated')));
+  await expect(workspace.getByLabel('管理技能書',{exact:true})).toHaveValue(otherBook.book_id);
+  await expect(workspace.getByLabel('一句話摘要',{exact:true})).toHaveValue('目前授權的摘要');
+  await tabs.getByRole('button',{name:'公會公告',exact:true}).click();
+  await expect(workspace.getByLabel('管理公會',{exact:true})).toHaveValue(otherGuild.guild_key);
+  await expect(workspace.getByLabel('公告標題',{exact:true})).toHaveValue('');
+  await workspace.getByLabel('公告標題',{exact:true}).fill('新公會尚未保存的公告');
+  const completed=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/guilds/synthetic-guild/announcements'));
+  const oldReload=page.waitForResponse(response=>response.request().method()==='GET'&&response.url().endsWith('/guilds/synthetic-guild/announcements'));
+  release();const completedResponse=await completed;expect(completedResponse.status()).toBe(200);await completedResponse.finished();
+  // The old save clears its local draft before this follow-up read. Waiting for
+  // that continuation makes the replacement-draft assertion deterministic.
+  await (await oldReload).finished();
+  await expect(workspace.getByLabel('公告標題',{exact:true})).toHaveValue('新公會尚未保存的公告');
+  await expect(workspace.getByLabel('公告標題',{exact:true})).toBeEnabled();
+  await expect(workspace.getByText('公告已保存。',{exact:true})).toHaveCount(0);
+  permissions={...caps,managed_guilds:[...caps.managed_guilds,otherGuild],managed_books:[...caps.managed_books,otherBook]};
+  await page.evaluate(()=>window.dispatchEvent(new Event('freedom-profile-updated')));
+  await expect(workspace.getByLabel('管理公會',{exact:true}).locator('option')).toHaveCount(2);
+  await expect(workspace.getByLabel('管理公會',{exact:true})).toHaveValue(otherGuild.guild_key);
+  await workspace.getByLabel('管理公會',{exact:true}).selectOption('synthetic-guild');
+  await expect(workspace.getByLabel('公告標題',{exact:true})).toHaveValue('');
+  await tabs.getByRole('button',{name:'技能書編輯',exact:true}).click();
+  await expect(workspace.getByLabel('管理技能書',{exact:true})).toHaveValue(otherBook.book_id);
+  await workspace.getByLabel('管理技能書',{exact:true}).selectOption('video-autopilot');
+  await expect(workspace.getByLabel('一句話摘要',{exact:true})).toHaveValue('目前授權的摘要');
+  permissions={...caps,managed_guilds:[],managed_books:[]};
+  await page.evaluate(()=>window.dispatchEvent(new Event('freedom-profile-updated')));
+  await expect(tabs.getByRole('button',{name:'技能書編輯',exact:true})).toHaveCount(0);
+  await expect(workspace.getByLabel('公告標題',{exact:true})).toHaveCount(0);await expect(workspace.getByLabel('一句話摘要',{exact:true})).toHaveCount(0);
+  }finally{release();}
+});
+test('a removed skill editor cannot lock its replacement with a late guild-required save rejection',async({page})=>{
+  const otherBook={book_id:'another-book',title:'另一技能書'};
+  let permissions={...caps,managed_books:[...caps.managed_books,otherBook]},release=()=>{},saving=false,failRefresh=false,permissionReads=0;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/v1/guild-workspace',route=>{
+    permissionReads++;
+    return failRefresh?route.fulfill({status:503,json:{detail:'重新核對暫時不可用。'}}):route.fulfill({json:permissions});
+  });
+  await page.route('**/api/v1/guilds/synthetic-guild/announcements',route=>route.fulfill({json:{items:[]}}));
+  await page.route('**/api/v1/skill-books/*/editor',async route=>{
+    const book=new URL(route.request().url()).pathname.split('/').at(-2);
+    if(route.request().method()==='GET')return route.fulfill({json:{book_id:book,summary:`目前摘要 ${book}`,collaboration_intro:'協作說明',milestones:[],tasks:[],aggregate_version:4,updated_at:null}});
+    expect(book).toBe('video-autopilot');saving=true;await gate;
+    return route.fulfill({status:403,contentType:'application/problem+json',json:{code:'skill_editor_guild_required',detail:'原技能書已失去編輯資格。'}});
+  });
+  try{
+    await login(page);await navigate(page,'公會管理');
+    const workspace=page.locator('.guild-workspace'),tabs=workspace.getByRole('navigation',{name:'公會管理功能'});
+    await tabs.getByRole('button',{name:'技能書編輯',exact:true}).click();
+    await workspace.getByLabel('一句話摘要',{exact:true}).fill('原技能書待確認草稿');
+    await workspace.getByRole('button',{name:'保存技能書',exact:true}).click();await expect.poll(()=>saving).toBe(true);
+    permissions={...caps,managed_books:[otherBook]};await page.evaluate(()=>window.dispatchEvent(new Event('freedom-profile-updated')));
+    await expect(workspace.getByLabel('管理技能書',{exact:true})).toHaveValue(otherBook.book_id);
+    await expect(workspace.getByLabel('一句話摘要',{exact:true})).toHaveValue(`目前摘要 ${otherBook.book_id}`);
+    await workspace.getByLabel('一句話摘要',{exact:true}).fill('另一技能書仍可編輯的草稿');
+    const reads=permissionReads;failRefresh=true;
+    const rejected=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/skill-books/video-autopilot/editor'));
+    release();const response=await rejected;expect(response.status()).toBe(403);await response.finished();
+    // Settle the completed response's rejection and React updates, rather than
+    // asserting the replacement's pre-response enabled state.
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+    await expect(workspace.getByLabel('一句話摘要',{exact:true})).toHaveValue('另一技能書仍可編輯的草稿');
+    await expect(workspace.getByRole('button',{name:'保存技能書',exact:true})).toBeEnabled();
+    await expect(workspace.getByRole('region',{name:'技能書編輯資格',exact:true})).toHaveCount(0);expect(permissionReads).toBe(reads);
+  }finally{release();}
+});
