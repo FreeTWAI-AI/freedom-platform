@@ -1,3 +1,4 @@
+import {openGuildSection} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import {test, expect, type Browser, type Page} from './fixtures.js';
@@ -47,7 +48,9 @@ async function login(browser: Browser, baseURL: string, email: string) {
   await page.goto('/');
   await page.getByLabel('電子郵件', {exact: true}).fill(email);
   await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST');
   await page.getByRole('button', {name: '登入', exact: true}).click();
+  expect((await loggedIn).status()).toBe(200);
   await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible();
   return {context, page};
 }
@@ -81,6 +84,7 @@ test('a visitor can read a guild launchpad without a session', async ({browser, 
     await expect(page.getByRole('heading', {level: 1, name: payload.guild.name})).toBeVisible();
     await expect(page.getByText(mission, {exact: true}).first()).toBeVisible();
     await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
+    await openGuildSection(page, '我的工作');
     const myWork = page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
     await expect(myWork.locator('p').filter({hasText: /^登入並加入公會後，可以在這裡看到自己的工作。$/})).toBeVisible();
     await expect(page.locator('body')).not.toContainText('業務空間尚未在此環境啟用');
@@ -144,6 +148,8 @@ test('a non-primary guild leader edits, publishes, and reverts the launchpad', a
     expect(backBox).not.toBeNull();
     expect(backBox!.width).toBeLessThan(400);
     await expect(session.page.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();
+    await expect(session.page.locator('.guild-launchpad-editor')).toBeHidden();
+    await openGuildSection(session.page, '管理啟動台');
     await expect(session.page.getByText('目前沒有授權。', {exact: true})).toBeVisible();
     await expect(session.page.getByRole('button', {name: '儲存草稿', exact: true})).toHaveClass(/btn-ghost/);
     await expect(session.page.getByRole('button', {name: '發布', exact: true})).toHaveClass(/btn-primary/);
@@ -158,10 +164,10 @@ test('a non-primary guild leader edits, publishes, and reverts the launchpad', a
     await session.page.locator('#launchpad-mission').fill(first);
     const moveAnnouncements = session.page.getByRole('button', {name: '上移公告', exact: true});
     for (let step = 0; step < 7; step += 1) {
-      if (await session.page.getByRole('heading', {level: 2}).first().innerText() === '公告') break;
+      if (await session.page.locator('.guild-launchpad-content > section > h2').first().innerText() === '公告') break;
       await moveAnnouncements.click();
     }
-    await expect(session.page.getByRole('heading', {level: 2}).first()).toHaveText('公告');
+    await expect(session.page.locator('.guild-launchpad-content > section > h2').first()).toHaveText('公告');
     await session.page.getByRole('button', {name: '預覽公開', exact: true}).click();
     const preview = session.page.getByRole('dialog');
     await expect(preview.getByRole('heading', {name: '合成預覽'})).toBeVisible();
@@ -175,19 +181,25 @@ test('a non-primary guild leader edits, publishes, and reverts the launchpad', a
     await expect(published).toBeVisible();
     const revision = /已發布版本 (\d+)/.exec(await published.innerText())?.[1];
     expect(revision).toBeTruthy();
+    await openGuildSection(session.page, '公會資訊');
     await expect(session.page.getByText(first).first()).toBeVisible();
+    await openGuildSection(session.page, '管理啟動台');
     await session.page.locator('#launchpad-mission').fill(second);
     await session.page.getByRole('button', {name: '儲存草稿', exact: true}).click();
     await expect(session.page.getByText(/已儲存草稿版本/)).toBeVisible();
     await session.page.getByRole('button', {name: '發布', exact: true}).click();
     await session.page.getByRole('button', {name: '確認發布', exact: true}).click();
+    await openGuildSection(session.page, '公會資訊');
     await expect(session.page.getByText(second).first()).toBeVisible();
+    await openGuildSection(session.page, '管理啟動台');
     await session.page.getByRole('listitem').filter({hasText: `版本 ${revision}`}).getByRole('button', {name: '回復到此版本', exact: true}).click();
     await session.page.getByRole('dialog').getByLabel('回復原因').fill('回復這次測試的第一個發布');
     await session.page.getByRole('button', {name: '確認回復', exact: true}).click();
     await expect(session.page.getByText(/已發布版本 \d+/)).toBeVisible();
     await expect(session.page.locator('#launchpad-mission')).toHaveValue(first);
+    await openGuildSection(session.page, '公會資訊');
     await expect(session.page.getByText(first).first()).toBeVisible();
+    await openGuildSection(session.page, '管理啟動台');
     await session.page.setViewportSize({width: 360, height: 800});
     await noOverflow(session.page);
     await tallEnough(session.page);

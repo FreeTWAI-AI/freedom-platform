@@ -58,7 +58,9 @@ async function login(browser: Browser, baseURL: string, email: string) {
   await page.goto('/');
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(DEMO_PASSWORD);
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST');
   await page.getByRole('button', { name: '登入', exact: true }).click();
+  expect((await loggedIn).status()).toBe(200);
   await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
   return { context, page, urls };
 }
@@ -74,7 +76,9 @@ async function relogin(page: Page, email: string) {
   await expect(heading).toBeVisible();
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(DEMO_PASSWORD);
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST');
   await page.getByRole('button', { name: '登入', exact: true }).click();
+  expect((await loggedIn).status()).toBe(200);
   await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
 }
 async function openGuild(page: Page, guildKey: string, name: string) {

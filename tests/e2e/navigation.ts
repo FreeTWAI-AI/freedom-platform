@@ -112,3 +112,11 @@ export async function closeChat(page:Page){
   const bubble=page.locator('.floating-messages');
   if(await bubble.getAttribute('aria-expanded')==='true')await bubble.click();
 }
+
+/** Select one complete guild workspace through the visible desktop or phone navigation. */
+export async function openGuildSection(page: Page, label: string) {
+  const mobile = page.getByRole('combobox', {name: '公會功能', exact: true});
+  await expect(page.locator('.guild-launchpad-layout')).toBeVisible();
+  if (await mobile.isVisible()) await mobile.selectOption({label});
+  else await page.getByRole('navigation', {name: '公會功能', exact: true}).getByRole('button', {name: label, exact: true}).click();
+}

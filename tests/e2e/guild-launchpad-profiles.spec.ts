@@ -1,6 +1,6 @@
+import {openGuildSection} from './navigation.js';
 import {launchStore} from './hosted-store-fixture.js';
 import {randomUUID} from 'node:crypto';
-import {writeFile} from 'node:fs/promises';
 import type {Pool} from 'pg';
 import {test, expect, type Page} from './fixtures.js';
 import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
@@ -40,13 +40,15 @@ async function login(page: Page, email: string) {
   await page.goto('/');
   await page.getByLabel('電子郵件', {exact: true}).fill(email);
   await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST');
   await page.getByRole('button', {name: '登入', exact: true}).click();
+  expect((await loggedIn).status()).toBe(200);
   await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible();
 }
 async function open(page: Page, guild: string) {
   await page.evaluate(key => {window.location.hash = `guilds/${key}`;}, guild);
-  await expect(page.locator('.guild-launchpad > .guild-launchpad-block')).toHaveCount(7);
-  await expect(page.locator('.launchpad-applications .application-card').first()).toBeVisible();
+  await expect(page.locator('.guild-launchpad-content > .guild-launchpad-block')).toHaveCount(7);
+  await expect(page.locator('.launchpad-applications .application-card').first()).toBeAttached();
 }
 async function post(page: Page, path: string, body: unknown, status: number, pointer?: string) {
   const session = await (await page.request.get('/api/v1/session')).json();
@@ -64,30 +66,36 @@ async function publishOriginal(page: Page, body: Config) {
   await post(page, `/guilds/${commerce}/launchpad-config/${draft.config_id}/publish`, {expected_body_sha256: draft.body_sha256}, 200, draft.pointer_version);
 }
 
-test('members see distinct purpose orders and their primary action focuses My Work', async ({page, e2eAuthPool}) => {
+test('guild navigation separates working, resources and management without duplicate start buttons', async ({page, e2eAuthPool}) => {
   const member = await person(e2eAuthPool);
   await login(page, member.email);
   for (const profile of profiles) {
     await open(page, profile.key);
-    await expect(page.locator('.guild-launchpad > .guild-launchpad-block > h2')).toHaveText(profile.headings);
-    await expect(primary(page).getByRole('heading', {level: 2})).toHaveText(profile.title);
-    await expect(page.locator('.launchpad-applications')).toHaveCount(1);
+    await expect(page.getByRole('navigation', {name: '公會功能', exact: true})).toBeVisible();
+    await expect(page.locator('.application-card').first()).toBeHidden();
+    await expect(page.getByRole('button', {name: '管理啟動台', exact: true})).toHaveCount(0);
     if (profile.key === commerce || profile.key === supplier) {
+      await expect(primary(page).getByRole('heading', {level: 2})).toHaveText(profile.title);
       await expect(primary(page).getByRole('button', {name: profile.key === supplier ? '開始供貨設定' : '建立我的商店', exact: true})).toBeEnabled();
-      await expect(recommendations(page).locator('.application-card').first()).toContainText(profile.key === supplier ? '商品與供貨' : '線上商店');
+      await expect(page.locator('.my-work')).toBeHidden();
     } else {
-      await primary(page).getByRole('button', {name: profile.key === talent ? '前往方向卡' : '前往我的工作', exact: true}).click();
-      await expect(page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})})).toBeFocused();
-      await expect(recommendations(page).locator('.application-card').first()).toContainText('人工工作空間');
+      await expect(primary(page)).toHaveCount(0);
+      await expect(page.locator('.my-work')).toBeVisible();
     }
+    await openGuildSection(page, '工具目錄');
+    await expect(recommendations(page).locator('.application-card').first()).toContainText(profile.key === supplier ? '商品與供貨' : profile.key === commerce ? '線上商店' : '人工工作空間');
+    await expect(page.getByText('來源以固定提交與成品摘要核對。')).toHaveCount(0);
+    await openGuildSection(page, '公會資訊');
+    await expect(page.getByRole('heading', {name: '使命', exact: true})).toBeVisible();
+    await expect(page.locator('.application-card').first()).toBeHidden();
   }
   for (const key of [commerce, supplier, talent]) {
     await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET member_tier='intern',aggregate_version=aggregate_version+1
       WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [DEMO_COMMUNITY, member.id, key]);
     await open(page, key);
-    await expect(primary(page)).toContainText('你是這個公會的實習成員');
-    await expect(primary(page)).not.toContainText('建立新方向卡或繼續原卡');
-    await expect(primary(page).getByRole('button')).toHaveCount(0);
+    const current = key === talent ? page.locator('.guild-launchpad-content > section:visible') : primary(page);
+    await expect(current).toContainText('你是這個公會的實習成員');
+    await expect(current.getByRole('button')).toHaveCount(0);
   }
 });
 
@@ -99,6 +107,9 @@ test('supplier starts the hosted flow and reuses the same commerce store and sup
   await expect(page.getByRole('link', {name: '前往商品品質與供應公會設定供貨', exact: true})).toHaveAttribute('href', `#guilds/${supplier}`);
   await open(page, supplier);
   await expect(primary(page)).toContainText('已有商店可直接沿用');
+  await primary(page).getByRole('button', {name: '開始供貨設定', exact: true}).click();
+  await expect(flow(page).getByRole('heading', {name: '啟動商品與供貨', exact: true})).toBeFocused();
+  await openGuildSection(page, '商品與供貨');
   await primary(page).getByRole('button', {name: '開始供貨設定', exact: true}).click();
   await expect(flow(page).getByRole('heading', {name: '啟動商品與供貨', exact: true})).toBeFocused();
   await flow(page).getByRole('button', {name: '取消', exact: true}).click();
@@ -249,15 +260,15 @@ test('read-only access to another store does not hide supplier setup or grant wr
 test('talent entry focuses the existing workspace, then saves and reopens the same direction card after fresh login', async ({page, e2eAuthPool}) => {
   const member = await person(e2eAuthPool), title = `入口方向卡 ${randomUUID()}`;
   await login(page, member.email); await open(page, talent);
-  const work = page.locator('.guild-launchpad > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
-  await expect(primary(page)).toContainText('選擇可使用的工作空間');
-  await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click();
-  await expect(work).toBeFocused(); await expect(work).toContainText('你還沒有業務空間');
+  const work = page.locator('.guild-launchpad-content > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
+  await expect(primary(page)).toHaveCount(0);
+  await openGuildSection(page, '我的工作');
+  await expect(work).toBeVisible(); await expect(work).toContainText('你還沒有業務空間');
   await expect(work.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();
   // Use the same existing member API; the entry action itself creates nothing.
   const created = await post(page, '/tenants', {display_name: '方向卡入口空間', workspace_name: '主工作區'}, 201);
   await page.reload(); await open(page, talent);
-  await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click(); await expect(work).toBeFocused();
+  await openGuildSection(page, '我的工作'); await expect(work).toBeVisible();
   await work.getByRole('button', {name: '啟用手動工作', exact: true}).click(); await expect(work.getByText('繼續工作', {exact: true})).toBeVisible();
   await work.getByLabel('方向卡名稱', {exact: true}).fill(title); await work.getByLabel('這週想改變的一件事', {exact: true}).fill('選一件小事開始');
   await work.getByRole('button', {name: '建立', exact: true}).click();
@@ -275,7 +286,7 @@ test('talent entry focuses the existing workspace, then saves and reopens the sa
   await page.getByRole('menu', {name: '個人檔案'}).getByRole('menuitem', {name: '登出', exact: true}).click();
   await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
   await login(page, member.email); await open(page, talent);
-  await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click(); await expect(work).toBeFocused();
+  await openGuildSection(page, '我的工作'); await expect(work).toBeVisible();
   await work.getByRole('button', {name: title, exact: true}).click();
   await expect(work.getByRole('form', {name: '我的方向卡', exact: true})).toBeVisible();
   await expect(card.getByLabel('目前的情境', {exact: true})).toHaveValue('從公會入口選一個小活動');
@@ -306,13 +317,17 @@ test('a leader publishes recommendations and the member primary action opens the
   const memberContext = await browser.newContext({baseURL});
   const memberPage = await memberContext.newPage();
   try {
+    await openGuildSection(page, '管理啟動台');
     const editor = page.locator('.guild-launchpad-editor');
     await editor.getByRole('combobox', {name: '加入推薦應用', exact: true}).selectOption(JSON.stringify([appKey, releaseRef]));
     await editor.getByRole('button', {name: '加入推薦', exact: true}).click();
     await editor.getByRole('button', {name: `上移${displayName}`, exact: true}).click();
     await editor.getByRole('button', {name: `上移${displayName}`, exact: true}).click();
+    await openGuildSection(page, displayName);
     await expect(primary(page).getByRole('heading')).toHaveText(displayName);
+    await openGuildSection(page, '工具目錄');
     await expect(recommendations(page).locator('.application-card').first()).toContainText(displayName);
+    await openGuildSection(page, '管理啟動台');
     await editor.getByRole('button', {name: '預覽會員', exact: true}).click();
     await expect(page.getByRole('dialog')).toContainText('合成資料');
     await page.getByRole('dialog').getByRole('button', {name: '關閉', exact: true}).click();
@@ -341,7 +356,9 @@ test('a leader publishes recommendations and the member primary action opens the
       }});
     });
     await open(memberPage, commerce);
+    await openGuildSection(memberPage, '工具目錄');
     await expect(recommendations(memberPage).locator('.application-card').first()).toContainText(displayName);
+    await openGuildSection(memberPage, displayName);
     expect(catalogReads).toBe(2);
     await expect(primary(memberPage).getByRole('heading')).toHaveText(displayName);
     await primary(memberPage).getByRole('button', {name: `啟動${displayName}`, exact: true}).click();
@@ -369,53 +386,40 @@ test('a leader publishes recommendations and the member primary action opens the
   }
 });
 
-test('profile pages remain readable in light and RPG at mobile and desktop widths', async ({page, e2eAuthPool}, testInfo) => {
+test('profile pages remain readable in all themes with one workspace at mobile, tablet and desktop widths', async ({page, e2eAuthPool}, testInfo) => {
   const member = await person(e2eAuthPool);
   await login(page, member.email);
   await page.emulateMedia({reducedMotion: 'reduce'});
   for (const profile of profiles) {
     await open(page, profile.key);
-    await expect(primary(page).getByRole('heading')).toHaveText(profile.title);
-    const myWork = page.locator('.guild-launchpad > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
-    await expect(myWork.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();
-    for (const theme of ['light', 'dark']) {
+    for (const theme of ['light', 'dark', 'versefolk']) {
       await page.evaluate(value => {
         localStorage.setItem('freedom-theme', value);
         document.documentElement.dataset.theme = value;
         document.documentElement.dataset.experienceProfile = value;
         window.dispatchEvent(new Event('freedom-theme-changed'));
       }, theme);
-      for (const width of [1440, 360, 768]) {
-        await page.setViewportSize({width, height: 900});
+      for (const width of [1440, 390, 768]) {
+        await page.setViewportSize({width, height: width === 390 ? 844 : 900});
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        const bounds = await primary(page).evaluate(card => ({
-          width: card.getBoundingClientRect().width,
-          buttons: [...card.querySelectorAll('.btn')].map(button => ({width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height})),
-        }));
-        for (const button of bounds.buttons) {
-          expect(button.width).toBeLessThanOrEqual(bounds.width);
-          expect(button.height).toBeGreaterThanOrEqual(44);
-          if (width === 1440) expect(button.width).toBeLessThan(bounds.width / 2);
+        const visible = page.locator('.guild-launchpad button:visible, .guild-launchpad select:visible');
+        for (const box of await visible.evaluateAll(items => items.map(item => ({width:item.getBoundingClientRect().width,height:item.getBoundingClientRect().height})))) {
+          expect(box.height).toBeGreaterThanOrEqual(44); expect(box.width).toBeLessThanOrEqual(width);
         }
-        const myWorkBounds = await myWork.evaluate(block => ({
-          width: block.getBoundingClientRect().width,
-          buttons: [...block.querySelectorAll('.btn')].map(button => ({text: button.textContent?.trim(), width: button.getBoundingClientRect().width})),
-        }));
-        expect(myWorkBounds.buttons.length).toBeGreaterThan(0);
-        for (const button of myWorkBounds.buttons) {
-          expect(button.width).toBeLessThanOrEqual(myWorkBounds.width);
-          if (width === 1440) expect(button.width).toBeLessThan(myWorkBounds.width / 2);
-        }
-        await writeFile(testInfo.outputPath(`${profile.key}-${theme}-${width}-my-work-buttons.json`), JSON.stringify(myWorkBounds, null, 2));
-        const colours = await recommendations(page).locator('.pill').first().evaluate(element => ({
-          color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor,
-        }));
-        expect(colours).toEqual(theme === 'light'
-          ? {color: 'rgb(86, 99, 118)', background: 'rgb(246, 248, 251)'}
-          : {color: 'rgb(217, 223, 235)', background: 'rgb(43, 48, 58)'});
-        await writeFile(testInfo.outputPath(`${profile.key}-${theme}-${width}-colours.json`), JSON.stringify(colours, null, 2));
         await page.evaluate(() => window.scrollTo({left: 0, top: 0, behavior: 'instant'}));
         await page.screenshot({path: testInfo.outputPath(`${profile.key}-${theme}-${width}.png`), fullPage: true});
+        if (width === 1440) {
+          const contentWidth = await page.locator('.guild-launchpad-content').evaluate(element => element.getBoundingClientRect().width);
+          for (const width of await page.locator('.guild-launchpad-content .btn:visible').evaluateAll(items => items.map(item => item.getBoundingClientRect().width))) expect(width).toBeLessThan(contentWidth / 2);
+        }
+        await openGuildSection(page, '工具目錄');
+        await expect(page.locator('.application-card').first()).toBeVisible();
+        if (theme !== 'versefolk') {
+          const colours = await recommendations(page).locator('.pill').first().evaluate(element => ({color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor}));
+          expect(colours).toEqual(theme === 'light' ? {color: 'rgb(86, 99, 118)', background: 'rgb(246, 248, 251)'} : {color: 'rgb(217, 223, 235)', background: 'rgb(43, 48, 58)'});
+        }
+        if (profile.key === supplier) await page.screenshot({path: testInfo.outputPath(`supply-tools-${theme}-${width}.png`), fullPage: true});
+        await openGuildSection(page, profile.key === supplier || profile.key === commerce ? profile.title : '我的工作');
       }
     }
   }

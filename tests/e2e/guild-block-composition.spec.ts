@@ -1,3 +1,4 @@
+import {openGuildSection} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 import {test, expect, type Page} from './fixtures.js';
 import {DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS} from '../../packages/testing/seed.js';
@@ -6,7 +7,9 @@ async function login(page: Page, email: string) {
   await page.goto('/');
   await page.getByLabel('電子郵件', {exact: true}).fill(email);
   await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST');
   await page.getByRole('button', {name: '登入', exact: true}).click();
+  expect((await loggedIn).status()).toBe(200);
   await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible();
 }
 async function command(page: Page, path: string, body: unknown, version: string) {
@@ -38,6 +41,7 @@ for (const sample of [
     original = await (await page.request.get(`/api/v1/guilds/${sample.guild}/launchpad-config`)).json();
     expect(original.body.schema_version).toBe('guild-launchpad.config/v1');
     await page.goto(`/#guilds/${sample.guild}`);
+    await openGuildSection(page, '管理啟動台');
     await page.getByRole('button', {name: '啟用可組裝版面', exact: true}).click();
     if (sample.guild === 'guild_product_quality_supply') {
       const session = await (await page.request.get('/api/v1/session')).json();
@@ -47,9 +51,12 @@ for (const sample of [
       expect(created.status()).toBe(201);
       // Reload once so the existing My Work panel discovers the synthetic tenant.
       await page.reload();
+      await openGuildSection(page, '管理啟動台');
       await page.getByRole('button', {name: '啟用可組裝版面', exact: true}).click();
+      await openGuildSection(page, '我的工作');
       await page.getByRole('button', {name: '啟用手動工作', exact: true}).click();
       await page.locator('#my-work-title').fill('尚未保存的組裝測試草稿');
+      await openGuildSection(page, '管理啟動台');
       const workToggle = page.locator('.guild-launchpad-editor .guild-launchpad-block').filter({has: page.locator('p', {hasText: /^我的工作$/})}).getByRole('checkbox');
       page.once('dialog', dialog => {expect(dialog.message()).toBe('有尚未儲存的內容，確定要離開嗎？'); void dialog.dismiss();});
       await workToggle.click();
@@ -75,13 +82,15 @@ for (const sample of [
     await page.getByRole('button', {name: '發布', exact: true}).click();
     await page.getByRole('button', {name: '確認發布', exact: true}).click();
     await expect(page.getByText(/已發布版本 \d+/)).toBeVisible();
-    await expect(page.locator('.guild-launchpad > .guild-launchpad-block').getByRole('heading', {level: 2, name: sample.title, exact: true})).toBeVisible();
+    await openGuildSection(page, sample.title);
+    await expect(page.locator('.guild-launchpad-content > .guild-launchpad-block').getByRole('heading', {level: 2, name: sample.title, exact: true})).toBeVisible();
     await expect(page.getByText(sample.empty, {exact: true})).toBeVisible();
 
     const guest = await visitor.newPage();
     const privateReads: string[] = [];
     guest.on('request', request => {if (new URL(request.url()).pathname === sample.endpoint) privateReads.push(request.url());});
     await guest.goto(`/#guilds/${sample.guild}`);
+    await openGuildSection(guest, sample.title);
     const block = guest.locator('.guild-launchpad-block').filter({has: guest.getByRole('heading', {level: 2, name: sample.title, exact: true})});
     await expect(block).toContainText('公會公開頁不會顯示私人資料');
     await expect(block.getByRole('button')).toHaveCount(0);
@@ -97,6 +106,7 @@ for (const sample of [
     const read = page.waitForResponse(response => new URL(response.url()).pathname === sample.endpoint && response.request().method() === 'GET');
     await page.goto(`/#guilds/${sample.guild}`);
     const response = await read;
+    await openGuildSection(page, sample.title);
     expect(response.status()).toBe(200); await response.finished();
     await expect(page.getByText(sample.empty, {exact: true})).toBeVisible();
     await page.setViewportSize({width: 390, height: 844});
