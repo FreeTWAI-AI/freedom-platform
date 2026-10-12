@@ -6,9 +6,11 @@ import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {
-  BLOCK_KINDS, ConfigValidationError, VERSION_PATTERN, assertStoredVersion, hasLoneSurrogate, parseConfig, parseFieldErrors,
-  type Config, type ConfigView,
+  BLOCK_KINDS, ConfigValidationError, VERSION_PATTERN, assertStoredVersion, hasLoneSurrogate, parseFieldErrors,
+  type Config as V1Config,
 } from '../../contracts/guild-launchpad/v1/config.js';
+import {parseConfig, assertAvailableBlocks, type Config, type ConfigView} from '../../contracts/guild-launchpad/v2/config.js';
+import {APPROVED_GUILD_BLOCK_IDS} from '../../packages/guild-presentation/catalog.generated.js';
 import {assertOfferedApplications, availableReleases} from '../module-registry/catalog.js';
 import {LAUNCHPAD_PROFILES} from './launchpad-profiles.js';
 
@@ -63,7 +65,7 @@ type StoredRevision = {
   status: 'draft' | 'published' | 'superseded'; source: 'platform_default' | 'guild_editor'; created_at: Date | string;
 };
 
-export function defaultConfigFor(guild: CatalogGuild, offered: readonly {application_key: string; release_ref: string}[] = []): Config {
+export function defaultConfigFor(guild: CatalogGuild, offered: readonly {application_key: string; release_ref: string}[] = []): V1Config {
   requireCondition(typeof guild.name === 'string' && typeof guild.purpose === 'string', 404, 'guild_not_found', '找不到這個公會。');
   const profile = LAUNCHPAD_PROFILES[guild.guild_key];
   const application_refs: Config['application_refs'] = [];
@@ -107,7 +109,7 @@ function configFrom(input: unknown, guildKey: string, prefix = ''): Config {
 }
 function pgCode(error: unknown): string { return typeof error === 'object' && error !== null && 'code' in error ? String((error as {code: unknown}).code) : ''; }
 async function assertRefs(q: PoolClient, guildKey: string, communityId: string, config: Config, prefix = '') {
-  try { await assertOfferedApplications(q, guildKey, communityId, config.application_refs); }
+  try { assertAvailableBlocks(config, APPROVED_GUILD_BLOCK_IDS); await assertOfferedApplications(q, guildKey, communityId, config.application_refs); }
   catch (error) {
     if (error instanceof ConfigValidationError && prefix) throw new ConfigValidationError(error.errors.map(item => ({code: item.code, path: item.path ? `${prefix}.${item.path}` : prefix})));
     throw error;

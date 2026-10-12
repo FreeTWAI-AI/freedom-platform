@@ -9,14 +9,17 @@
     "contracts/guild-launchpad/v1/guild-preferences.ts",
     "scripts/guild-preferences-backfill.ts",
     "apps/portal-web/src/modules/GuildCard.tsx",
-    "apps/portal-web/src/modules/QuickStart.tsx"
+    "apps/portal-web/src/modules/QuickStart.tsx",
+    "apps/portal-web/src/modules/PositioningPanels.tsx"
   ],
   "public_exports": [
     "modules/positioning/guild-categories.ts",
     "contracts/guild-launchpad/v1/guild-preferences.ts"
   ],
   "dependencies": [
-    "command-core"
+    "command-core",
+    "guild-workspace",
+    "guild-presentation"
   ],
   "contract_families": [
     "preview"
