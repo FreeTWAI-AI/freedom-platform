@@ -1,3 +1,4 @@
+import {LIVE_PUBLIC_ORIGIN} from '../../apps/platform-api/src/routes/published-skills.js';
 import {createHash,randomUUID} from 'node:crypto';
 import sharp from 'sharp';
 import {test,expect,type Page,type Request} from './fixtures.js';
@@ -56,6 +57,16 @@ for(const width of [390,1280])test(`member photo draft, preview, immutable publi
     const pub=await anonymous.newPage();await pub.goto('/shops/'+s.slug);
     const media=async()=>PublicStoreMediaSchema.parse(await(await anonymous.request.get('/api/v1/public/stores/'+s.slug+'/media')).json());
     const first=await media(),publicA=first.photos[0].photo.read_path;await expect(pub.locator('article img')).toHaveAttribute('src',publicA);
+    await expect(preview.locator('meta[property^="og:"]')).toHaveCount(0);
+    await expect(pub.locator('meta[property="og:image"]')).toHaveAttribute('content',LIVE_PUBLIC_ORIGIN+publicA);
+    const detail=await anonymous.newPage();
+    await detail.goto('/shops/'+s.slug+'/products/'+s.product.sku);
+    await expect(detail.getByRole('heading',{level:1})).toHaveText('手作茶杯');
+    await expect(detail.locator('article img')).toHaveAttribute('src',publicA);
+    await expect(detail.locator('meta[property="og:image"]')).toHaveAttribute('content',LIVE_PUBLIC_ORIGIN+publicA);
+    await expect.poll(()=>detail.locator('article img').evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBe(120);
+    await detail.screenshot({path:info.outputPath(`synthetic-photo-product-${width}.png`),fullPage:true});
+    await detail.close();
     const bytesA=await(await anonymous.request.get(publicA)).body();expect(bytesA.subarray(0,4).toString()).toBe('RIFF');expect(digest(await(await page.request.get(privateA!)).body())).toBe(digest(bytesA));
     await save(page,b,true);await preview.reload();await expect(preview.locator('article img')).toHaveAttribute('src',new RegExp('/photo/3$'));
     await pub.reload();expect(await media()).toEqual(first);expect(digest(await(await anonymous.request.get(publicA)).body())).toBe(digest(bytesA));
