@@ -99,6 +99,7 @@ test('pending poster processing blocks submission and cannot overwrite a replace
   await holdDecoder(page);
   await form.getByLabel('活動海報（選填）').setInputFiles({name: '取消的照片.png', mimeType: 'image/png', buffer: image});
   await expect(form.getByRole('status')).toHaveText('正在處理圖片…');
+  page.once('dialog',async dialog=>{expect(dialog.message()).toContain('尚未儲存');await dialog.accept();});
   await form.getByRole('button', {name: '返回', exact: true}).click();
   await page.getByRole('button', {name: '＋ 提交活動'}).click();
   await page.evaluate(() => (window as unknown as {releasePoster(): Promise<void>}).releasePoster());

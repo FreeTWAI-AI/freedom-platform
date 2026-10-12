@@ -824,7 +824,7 @@ function Workspace({
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} authKey={`${session.user.user_id}:${client.sessionGeneration}`} relationsEnabled={site.community_relations_enabled === true}/> : <p>社群內容搜尋尚未開放。</p>)}
             {tab === 'my-content' && (site?.personal_content_enabled === true ? <MyContent key={`${session.user.user_id}:${client.sessionGeneration}`}/> : <p>我的內容尚未開放。</p>)}
-            {tab === 'events' && <EventsPanel key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} session={session} participationEnabled={site?.event_participation_enabled===true}/>}
+            {tab === 'events' && <EventsPanel key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} session={session} locationHash={locationHash} registerLeave={registerPageLeave} onList={()=>selectTab('events')} participationEnabled={site?.event_participation_enabled===true}/>}
             {tab === 'highlights' && <EventHighlights key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} outcomesEnabled={site?.event_outcomes_enabled===true}/>}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
             {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}} focusPost={notificationTarget?.tab==='social'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined}/>}
