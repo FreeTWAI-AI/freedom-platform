@@ -1824,8 +1824,8 @@
     },
     {
       "path": "apps/portal-web/src/SocialLayout.css",
-      "bytes": 14343,
-      "sha256": "5253f1a10cb706ace9db6cfecae01c3ea3aaee912f13363ff54bd902827f2656"
+      "bytes": 14346,
+      "sha256": "39a643a822dcd3f96a10d0a7d27d070724735543a20622341c3c16ecd38d2814"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -2559,8 +2559,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 15154,
-      "sha256": "5388b24328231bcbad4bc9dc5086f35f97d0bbed492357b0e8fdad3e079230fb"
+      "bytes": 15574,
+      "sha256": "b7c34dd6c607f14a10a94ce4d44f7ba18ef38c048329df0abb95707f78e0ed68"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",

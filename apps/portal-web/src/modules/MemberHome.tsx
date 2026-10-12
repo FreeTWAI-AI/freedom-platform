@@ -155,17 +155,17 @@ export function MemberHome({ client, session, onNavigate, firstParticipationEnab
       <section>
         <h2>商品與供貨</h2>
         {guildLaunchpadEnabled ? <>
-          <button type="button" onClick={onOpenSupply}><strong>我的供貨商品庫</strong><span>管理商品與合作條件</span></button>
-          <button type="button" onClick={() => onNavigate?.('stores')}><strong>我的商店</strong><span>編輯店面與公開商品</span></button>
+          <button type="button" onClick={onOpenSupply}><strong>我的供貨商品庫</strong><span>管理商品與合作條件</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+          <button type="button" onClick={() => onNavigate?.('stores')}><strong>我的商店</strong><span>編輯店面與公開商品</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
         </> : <>
-          <button type="button" onClick={() => onNavigate?.('supplier')}><strong>我有東西要賣</strong><span>整理商品提案</span></button>
-          <button type="button" onClick={() => onNavigate?.('retail')}><strong>我可以賣東西</strong><span>挑選商品與規劃展示</span></button>
+          <button type="button" onClick={() => onNavigate?.('supplier')}><strong>我有東西要賣</strong><span>整理商品提案</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+          <button type="button" onClick={() => onNavigate?.('retail')}><strong>我可以賣東西</strong><span>挑選商品與規劃展示</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
         </>}
       </section>
       <section>
         <h2>作品與活動</h2>
-        <button type="button" onClick={() => onNavigate?.('opensource')}><strong>開源投稿</strong><span>介紹工具與預覽分享內容</span></button>
-        <button type="button" onClick={() => onNavigate?.('events')}><strong>社群活動</strong><span>查看、提交與管理活動</span></button>
+        <button type="button" onClick={() => onNavigate?.('opensource')}><strong>開源投稿</strong><span>介紹工具與預覽分享內容</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+        <button type="button" onClick={() => onNavigate?.('events')}><strong>社群活動</strong><span>查看、提交與管理活動</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
       </section>
     </nav>
     {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
