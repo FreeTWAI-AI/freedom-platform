@@ -149,6 +149,38 @@ test('static catalog match returns its genuine book link and never creates a dup
   assert.equal(projection.catalog_book.book_id, book.id); assert.equal((await pool.query('SELECT count(*) FROM skill_submissions')).rows[0].count, '0');
 });
 
+test('a catalog repository can restore its owners withdrawn project through a new preview without changing the independent book', async t => {
+  const book = communityCatalog.skill_books.find(book => /^https:\/\/github.com\/[^/]+\/[^/]+$/.test(book.repository_url))!;
+  const catalogBefore = structuredClone(book), catalogPath = `/development/skills/${book.id}`;
+  const repository = new URL(book.repository_url).pathname.slice(1); github(t, repository);
+  const owner = await login(), other = await login(DEMO_USERS[1].email), original = await registered(owner, repository);
+  assert.equal(original.official, false);
+  assert.equal((await prepare(owner, original)).data.catalog_book.book_id, book.id);
+  assert.equal((await app.request(origin + catalogPath)).status, 200);
+  assert.equal((await api(`/opensource/projects/${original.project_id}/withdraw`, owner, {}, original.aggregate_version)).status, 200);
+  assert.equal(await listed(other, original.project_id), undefined);
+  let project = await listed(owner, original.project_id);
+  const revised = await api(`/opensource/projects/${project.project_id}:revise`, owner,
+    {title: '本人的再次分享', description: '這份介紹獨立於公會收錄內容', use_notes: '先預覽再同意公開', demo_url: null}, project.aggregate_version);
+  assert.equal(revised.status, 200, JSON.stringify(revised.data));
+  project = revised.data;
+  const prepared = await prepare(owner, project), draft = expectPrepared(prepared);
+  assert.equal(prepared.data.created, true); assert.equal(prepared.data.catalog_book, null);
+  assert.equal(draft.status, 'ready_for_review'); assert.equal(draft.public_path, null);
+  assert.equal(draft.payload.title, project.title);
+  assert.equal(expectPrepared(await prepare(owner, project)).submission_id, draft.submission_id);
+  assert.equal(await listed(other, project.project_id), undefined, 'preview must not restore visibility');
+  assert.equal((await app.request(origin + catalogPath)).status, 200, 'independent catalog stays readable while this work is private');
+  const published = await publish(owner, draft);
+  assert.equal(published.project_id, project.project_id);
+  assert.equal((await app.request(origin + published.public_path)).status, 200);
+  const visible = await listed(other, project.project_id);
+  assert.equal(visible.sharing_withdrawn_at, null); assert.equal(visible.title, '本人的再次分享');
+  assert.equal(visible.official, false);
+  assert.equal((await app.request(origin + catalogPath)).status, 200);
+  assert.deepEqual(communityCatalog.skill_books.find(candidate => candidate.id === book.id), catalogBefore);
+});
+
 test('foreign viewers cannot see private draft metadata or prepare a book; published links are safe projections', async t => {
   github(t); const owner = await login(), other = await login(DEMO_USERS[1].email), project = await registered(owner);
   const draft = expectPrepared(await prepare(owner, project));

@@ -15035,7 +15035,7 @@
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 24126,
-      "sha256": "af36085309bb12f6bbeb390f9e896f7b839e3b38d632cd2e21ff9499ddcb567d"
+      "sha256": "ff45058f61246e17c2793f3d91f6d0552b9e8f8a1ee96b6f6bdb1a362cbbfef4"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -18499,13 +18499,13 @@
     },
     {
       "path": "modules/skill-submissions/service.ts",
-      "bytes": 40925,
-      "sha256": "33d00bc46934972f64f246e16ba7a0687b89496c7b6d78e7968d4b4ee5142b3c"
+      "bytes": 41144,
+      "sha256": "f10e7932842caf165bb145d5f68a57c8462b005fc2c301759aca5a3b5fe5906e"
     },
     {
       "path": "modules/skill-submissions/sharing-lifecycle.md",
-      "bytes": 2759,
-      "sha256": "806712dbdd9cec98ecb25536cec21b9cc26cb0789ec73c718bc4381596abb466"
+      "bytes": 2959,
+      "sha256": "b8afe43e553b74374f21032ce288f45a73060ec9efec64dbe7f360f7f85f038b"
     },
     {
       "path": "modules/skill-submissions/upload-authority.ts",
@@ -22254,8 +22254,8 @@
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",
-      "bytes": 30351,
-      "sha256": "7f6e63f1661d44cb057adc6ea3236ecf245d20683cdfa03f220133c1b1068ae5"
+      "bytes": 32984,
+      "sha256": "9685a1bb33bcda6b7e3a8f3b7656886dcbd22f20f93eda4ae86fad5e83972c29"
     },
     {
       "path": "tests/runtime/operator-avatar-backfill.test.ts",

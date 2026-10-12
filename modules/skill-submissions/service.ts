@@ -154,7 +154,7 @@ export async function prepareProjectSkillSubmission(pool: Pool, input: Command, 
   projectId = uuidOrNotFound(projectId);
   await authRateLimit(pool, 'skill-submission-issue', input.actor.user_id, 30, 3600);
   const ownedProject = async (q: PoolClient) => {
-    const row = (await q.query(`SELECT project_id,owner_ref,repository_url,title,description,use_notes,demo_url,relationship,aggregate_version
+    const row = (await q.query(`SELECT project_id,owner_ref,repository_url,title,description,use_notes,demo_url,relationship,aggregate_version,sharing_withdrawn_at
       FROM oss_projects WHERE project_id=$1 AND community_id=$2 AND owner_ref=$3 AND NOT official`,
       [projectId, input.actor.community_id, input.actor.user_id])).rows[0];
     requireCondition(row, 404, 'not_found', '找不到可由你製作技能書的開源作品。');
@@ -178,7 +178,9 @@ export async function prepareProjectSkillSubmission(pool: Pool, input: Command, 
     project = await ownedProject(q);
     checkVersion(String(project.aggregate_version), input.expected);
     const catalog = catalogBookForRepository(repositoryKey(project.repository_url));
-    if (catalog) return { submission: null, created: false, catalog_book: catalog };
+    // A separately curated book cannot restore this owner's withdrawn project.
+    // Prepare a version-bound private draft so only explicit publication can do so.
+    if (catalog && !project.sharing_withdrawn_at) return { submission: null, created: false, catalog_book: catalog };
     const existing = candidates.find(row => row.status !== 'published' || row.project_id === projectId);
     if (existing) return { submission: submissionView(existing), created: false, catalog_book: null };
     await requireDraftCapacity(q, input.actor);
