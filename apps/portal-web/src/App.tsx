@@ -306,7 +306,7 @@ function MemberApp() {
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;
     if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} participationEnabled={site?.event_participation_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
-    if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PageLoadBoundary label="自由工坊" resetKey={launchpadKey}><PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/></PageLoadBoundary>;
+    if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PageLoadBoundary label="自由工坊" resetKey={launchpadKey}><PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)} pageTools={<PageTools pageId="guilds" compact/>}/></PageLoadBoundary>;
     if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
     return (
       <div className="app-frame">
@@ -318,6 +318,7 @@ function MemberApp() {
           bootError={bootError}
           onRetrySession={() => void bootstrap()}
           onLoggedIn={(next, returnNotice) => { applySession(next); setPublicReturnNotice(returnNotice ?? null) }}
+          onReturnToGuild={!resetToken&&launchpadKey&&launchpadLoginRequested&&site?.guild_launchpad_enabled===true?()=>setLaunchpadLoginRequested(false):undefined}
           entryIntent={entryIntent}
           onChooseEntry={intent=>{setEntryIntent(intent);window.location.hash=`join/${intent}`}}
           resetToken={resetToken}
@@ -374,6 +375,7 @@ function LoginView({
   resetToken,
   onCancelReset,
   onPasswordReset,
+  onReturnToGuild,
 }: {
   site: SiteConfig | null
   notice: string | null
@@ -385,6 +387,7 @@ function LoginView({
   resetToken:string|null
   onCancelReset:()=>void
   onPasswordReset:(session?:SessionPayload)=>void
+  onReturnToGuild?:()=>void
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'request-reset'>('login')
   const [returnPath] = useState(() => publicDiscoveryPath(new URLSearchParams(window.location.search).get('return_to')))
@@ -519,6 +522,7 @@ function LoginView({
             {t(pending?'auth.pending':activeMode==='register'?'auth.createExplore':activeMode==='request-reset'?'auth.sendReset':activeMode==='confirm-reset'?'auth.savePassword':'auth.login')}
           </button>
         </form>}
+        {onReturnToGuild&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={onReturnToGuild}>返回公會啟動台</button>}
         {!accessExpired&&<div className="login-secondary-actions">
           {site?.password_recovery_enabled&&activeMode==='login'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('request-reset');setError(null);setResetNotice('')}}>{t('auth.forgotButton')}</button>}
           {activeMode==='request-reset'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>{t('auth.backLogin')}</button>}
@@ -629,19 +633,19 @@ function Workspace({
     mainContent.current?.focus({ preventScroll: true })
     workspaceTopbar.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
   }, [tab])
-  const selectTab = useCallback((next: TabId) => {
+  const selectTab = useCallback((next: TabId, destinationHash?: string) => {
     if(next==='messages'){openMessages();return}
-    const nextHash = `#${next}`
+    const nextHash = destinationHash ?? `#${next}`
     if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) return
     acceptedHash.current = nextHash
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
     if(/^\/events\/[0-9a-f-]{36}\/?$/.test(window.location.pathname)){
-      window.history.replaceState(null,'',`/#${next}`)
+      window.history.replaceState(null,'',`/${nextHash}`)
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     }
-    else window.location.hash = next
+    else window.location.hash = nextHash
   }, [openMessages])
   function chooseShare(target:ShareTarget){
     const destination=target==='post'&&tab==='home'?'home':SHARE_TARGETS[target].tab
@@ -788,7 +792,7 @@ function Workspace({
               </div>
             </div>
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
-            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
+            <Navigation current={tab} currentHash={locationHash} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
           <div className="topbar-actions community-account-tools"><NotificationBell key={session.user.user_id+':'+session.csrf_token} client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current});if(action.tab==='events'&&action.resource_id)window.location.hash=`events/${action.resource_id}`}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
@@ -832,7 +836,7 @@ function Workspace({
             {tab === 'private-ai' && <PrivateWorkAI client={client} key={session.user.user_id}/>}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
-            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} firstParticipationEnabled={site?.first_participation_enabled===true}/>}
+            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} onOpenSupply={() => selectTab('stores', '#stores/supply')} firstParticipationEnabled={site?.first_participation_enabled===true}/>}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}

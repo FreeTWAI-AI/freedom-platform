@@ -13,21 +13,12 @@ import {MemberRecommendations} from './MemberRecommendations';
 import {SkillBookIntro, type IntroBook} from './SkillBookIntro';
 import {openMemberChat} from './chat-entry';
 import {SocialZone} from './SocialZone';
-import {PlatformPurpose} from '../PlatformPurpose';
 import {SECTION_LABELS} from '../../../../contracts/guild-launchpad/v1/guild-preferences';
 
 const shortcuts: { id: TabId; title: string }[] = [
-  { id: 'social', title: '看社群動態' },
   { id: 'messages', title: '開始聊天' },
   { id: 'members', title: '找夥伴' },
 ];
-const entries: { id: TabId; title: string; description: string; cover: string }[] = [
-  { id: 'supplier', title: '我有東西要賣', description: '讓 AI 整理商品、建立內部商店', cover: 'market-network' },
-  { id: 'retail', title: '我可以賣東西', description: '挑商品、讓 AI 製作公開商店', cover: 'workshop-hub' },
-  { id: 'opensource', title: '開源投稿', description: '貼上網址與介紹，預覽後分享工具', cover: 'cooperation-forge' },
-  { id: 'marketing', title: '行銷工作室', description: '撰寫介紹與記錄分享', cover: 'cooperation-forge' },
-];
-
 // The third next-step button follows real work facts, in this order: a claim of mine that is not finished (/dashboard, work.ts),
 // then the open task board, then work sharing. Titles stay on their own pages and no count is shown.
 const taskActions = {
@@ -38,7 +29,7 @@ const taskActions = {
 
 type HomeOnboarding = { entry_mode?: string; assessment_completed?: boolean };
 
-export function MemberHome({ client, session, onNavigate, firstParticipationEnabled=false }: ModulePanelProps&{firstParticipationEnabled?:boolean}) {
+export function MemberHome({ client, session, onNavigate, firstParticipationEnabled=false, guildLaunchpadEnabled=false, onOpenSupply }: ModulePanelProps&{firstParticipationEnabled?:boolean; guildLaunchpadEnabled?:boolean; onOpenSupply?:()=>void}) {
   const [wide,setWide]=useState(()=>window.matchMedia('(min-width:861px)').matches);
   useEffect(()=>{const media=window.matchMedia('(min-width:861px)'),update=()=>setWide(media.matches);media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
   const [member, setMember] = useState<MemberCardData | null>(null);
@@ -158,12 +149,28 @@ export function MemberHome({ client, session, onNavigate, firstParticipationEnab
     <div className="home-main">
     <section className="home-timeline" aria-label="首頁社群動態"><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
     </div>
-    <details className="home-context home-guide-disclosure" aria-label="我的工坊" open={wide}><summary>我的工坊 · 合作與學習入口</summary>
+    <details className="home-context home-guide-disclosure" aria-label="我的工坊" open={wide}><summary>我的工坊</summary>
     <div className="home-support">
-    <PlatformPurpose variant="member" onAction={target=>onNavigate?.(target)}/>
+    <nav className="home-destinations" aria-label="商品、作品與活動">
+      <section>
+        <h2>商品與供貨</h2>
+        {guildLaunchpadEnabled ? <>
+          <button type="button" onClick={onOpenSupply}><strong>我的供貨商品庫</strong><span>管理商品與合作條件</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+          <button type="button" onClick={() => onNavigate?.('stores')}><strong>我的商店</strong><span>編輯店面與公開商品</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+        </> : <>
+          <button type="button" onClick={() => onNavigate?.('supplier')}><strong>我有東西要賣</strong><span>整理商品提案</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+          <button type="button" onClick={() => onNavigate?.('retail')}><strong>我可以賣東西</strong><span>挑選商品與規劃展示</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+        </>}
+      </section>
+      <section>
+        <h2>作品與活動</h2>
+        <button type="button" onClick={() => onNavigate?.('opensource')}><strong>開源投稿</strong><span>介紹工具與預覽分享內容</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+        <button type="button" onClick={() => onNavigate?.('events')}><strong>社群活動</strong><span>查看、提交與管理活動</span><span className="home-destination-arrow" aria-hidden="true">›</span></button>
+      </section>
+    </nav>
     {nextStep && <section className="home-next-step" aria-label="公會與技能書建議">
       <div className="home-next-copy">
-      <p className="home-next-eyebrow">下一步</p>
+      <h2 className="home-next-eyebrow">公會與學習</h2>
       <p id="home-next-step-description">{nextStep.message}</p>
       {internPrimary && <p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}
       {primaryGuild && taskAction && taskActions[taskAction].hint && <p id="home-next-task-hint">{taskActions[taskAction].hint}</p>}
@@ -185,20 +192,6 @@ export function MemberHome({ client, session, onNavigate, firstParticipationEnab
       </button>)}
     </nav>
 
-    <details className="home-module-section home-disclosure">
-      <summary>創作、商品與推廣</summary>
-      <header className="home-section-heading"><h2 id="home-module-title">商品、作品與推廣</h2></header>
-      <div className="home-module-grid">
-        {entries.map(entry => <article key={entry.id} className={`home-module-card home-module-${entry.id}`}>
-          <div className="home-module-cover"><img src={`/art/rpg/${entry.cover}.webp`} alt="" width="768" height="512" loading="lazy"/></div>
-          <div className="home-module-body">
-            <h3 className="home-module-name">{entry.title}</h3>
-            <p className="home-module-description">{entry.description}</p>
-            <button type="button" className="btn home-module-button" aria-label={`進入${entry.title}`} onClick={() => onNavigate?.(entry.id)}>進入<span aria-hidden="true">↗</span></button>
-          </div>
-        </article>)}
-      </div>
-    </details>
     </div>
     <details className="home-personal home-disclosure">
     <summary>我的名片與推薦夥伴</summary>

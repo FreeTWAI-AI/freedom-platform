@@ -1,3 +1,4 @@
+import {openGuildSection} from './navigation.js';
 import {writeFile} from 'node:fs/promises';
 import type {TestInfo} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
@@ -30,14 +31,21 @@ async function member(db: Pool, page: Page, tier: 'full' | 'intern' = 'full') {
   await db.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)',[DEMO_COMMUNITY,id,GUILD]);
   await page.route(url => !['127.0.0.1','localhost'].includes(url.hostname), route => route.abort());
   await page.goto('/'); await page.getByLabel('電子郵件',{exact:true}).fill(email); await page.getByLabel('密碼',{exact:true}).fill(DEMO_PASSWORD);
-  await page.getByRole('button',{name:'登入',exact:true}).click(); await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST', {timeout: 25_000});
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  expect((await loggedIn).status()).toBe(200); await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
   return id;
 }
 async function open(page: Page) {
   await page.evaluate(key => {window.location.hash=`guilds/${key}`;},GUILD);
-  await expect(cards(page).getByRole('heading',{name:'人工工作空間',exact:true})).toBeVisible();
+  await openGuildSection(page, '工具目錄');
+  await expect(cards(page)).toBeVisible();
+  await expect(cards(page).locator('.application-card').first()).toBeAttached();
 }
-async function begin(page: Page) {await manualCard(page).getByRole('button',{name:'啟動應用',exact:true}).click(); await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();}
+async function begin(page: Page) {
+  const catalog = cards(page).locator('.application-catalog');
+  if (!await catalog.evaluate(element => (element as HTMLDetailsElement).open)) await catalog.locator(':scope > summary').click();
+  await manualCard(page).getByRole('button',{name:'啟動應用',exact:true}).click(); await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();}
 async function review(page: Page) {await flow(page).getByRole('button',{name:'產生啟動方案',exact:true}).click(); await expect(flow(page).getByRole('heading',{name:'確認啟動方案',exact:true})).toBeVisible();}
 async function confirm(page: Page) {await flow(page).getByRole('button',{name:'確認啟動',exact:true}).click(); await expect(flow(page).getByRole('region',{name:'啟動進度'})).toContainText('已啟用');}
 async function installations(page: Page, tenantId: string) {
@@ -76,7 +84,7 @@ async function capture(page: Page, testInfo: TestInfo, state: string) {
 
 test('visitor sees application cards and public release details without launch controls', async ({page}) => {
   await page.route(url => !['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
-  await page.goto(`/#guilds/${GUILD}`); await expect(cards(page)).toContainText('可用');
+  await page.goto(`/#guilds/${GUILD}`); await openGuildSection(page, '工具目錄'); await expect(cards(page)).toContainText('可用');
   await manualCard(page).getByRole('button',{name:'版本資料',exact:true}).click();
   await expect(cards(page)).toContainText('來源提交：'); await expect(cards(page)).toContainText('成品摘要：');
   await expect(cards(page)).toContainText('人工工作：必要，允許共用既有實例');
@@ -104,7 +112,7 @@ test('catalog status mapping and pagination require the explicit load-more actio
       {...app,application_key:'retired-page',display_name:'停用版本',release_status:'retired'},
     ],next_cursor:next?null:'synthetic-page'}});
   });
-  await page.goto(`/#guilds/${GUILD}`); await expect(cards(page).locator('.application-card')).toHaveCount(4);
+  await page.goto(`/#guilds/${GUILD}`); await openGuildSection(page, '工具目錄'); await expect(cards(page).locator('.application-card')).toHaveCount(4);
   for(const status of ['可用','審核中','外部／試用','停用／版本需更新']) await expect(cards(page).getByText(status,{exact:true})).toBeVisible();
   expect(reads).toBe(1); await cards(page).getByRole('button',{name:'載入更多',exact:true}).click();
   await expect(cards(page).getByRole('button',{name:'重試',exact:true})).toBeVisible();
@@ -124,7 +132,7 @@ test('repeated catalog rows render one card and one release detail', async ({pag
     displayName=app.display_name;
     await route.fulfill({response,json:{...body,items:next?[app,{...app,application_key:'second-page',display_name:'第二頁'}]:[app,app],next_cursor:next?null:'synthetic-page'}});
   });
-  await page.goto(`/#guilds/${GUILD}`);
+  await page.goto(`/#guilds/${GUILD}`); await openGuildSection(page, '工具目錄');
   await expect(cards(page).locator('.application-card')).toHaveCount(1);
   await expect(cards(page).getByRole('heading',{name:'第二頁',exact:true})).toHaveCount(0);
   await cards(page).getByRole('button',{name:'載入更多',exact:true}).click();
@@ -170,28 +178,35 @@ test('leader configuration cannot remove a committed pending tenant creation or 
     FROM tenants t JOIN principals p ON p.principal_id=t.created_by_principal_id
     JOIN workspaces w ON w.tenant_id=t.tenant_id WHERE p.user_ref=$1`,[userId])).rows).toEqual([{...results[0],is_default:true}]);
   const preserved=async(message:string)=>{
-    await expect(enabled).toBeChecked(); await expect(input).toBeDisabled(); await expect(input).toHaveValue(name);
+    await openGuildSection(page, '管理啟動台');
+    await expect(enabled).toBeChecked(); await openGuildSection(page, '工具目錄'); await expect(input).toBeDisabled(); await expect(input).toHaveValue(name);
     await expect(flow(page).locator('#launch-space-error')).toHaveText(message);
   };
   try {
+    await openGuildSection(page, '管理啟動台');
     await enabled.uncheck(); await expect(cards(page)).toHaveCount(0);
     await editor.getByRole('button',{name:'儲存草稿',exact:true}).click(); await expect.poll(()=>saved).toBe(true);
-    await enabled.check(); await begin(page); await input.fill(name);
+    await enabled.check(); await openGuildSection(page, '工具目錄'); await begin(page); await input.fill(name);
     await flow(page).getByRole('button',{name:'建立業務空間',exact:true}).click();
     await expect.poll(()=>results.length).toBe(1); await ownsOnePair();
+    await openGuildSection(page, '管理啟動台');
     await enabled.click(); await preserved('正在確認原操作，請等候完成後再離開。');
     // Unrelated text remains editable while the original create is pending.
+    await openGuildSection(page, '管理啟動台');
     await editor.getByLabel('公會使命補充').fill('保留的版面草稿');
     releaseConfig();
     await expect(page.getByRole('alert').filter({hasText:'最新配置尚未套用'})).toBeVisible();
     await preserved('正在確認原操作，請等候完成後再離開。');
+    await openGuildSection(page, '管理啟動台');
     await expect(editor.getByLabel('公會使命補充')).toHaveValue('保留的版面草稿');
     releaseTenant();
-    const retry=flow(page).getByRole('button',{name:'重試',exact:true}); await expect(retry).toBeEnabled();
+    const retry=flow(page).getByRole('button',{name:'重試',exact:true}); await openGuildSection(page, '工具目錄'); await expect(retry).toBeEnabled();
+    await openGuildSection(page, '管理啟動台');
     await enabled.click(); await preserved('尚未確認原操作的結果，請按「重試」確認後再離開。');
     await page.getByRole('button',{name:'重新載入最新版本',exact:true}).click();
     await expect(page.getByRole('alert').filter({hasText:'最新配置尚未套用'})).toBeVisible();
     await preserved('尚未確認原操作的結果，請按「重試」確認後再離開。');
+    await openGuildSection(page, '管理啟動台');
     await expect(editor.getByLabel('公會使命補充')).toHaveValue('保留的版面草稿');
     await editor.getByRole('button',{name:'上移應用',exact:true}).click();
     await preserved('尚未確認原操作的結果，請按「重試」確認後再離開。');
@@ -202,8 +217,10 @@ test('leader configuration cannot remove a committed pending tenant creation or 
     expect(results[1]).toEqual(results[0]); await ownsOnePair();
     // Once confirmed, the actual saved configuration can hide the flow normally.
     await page.getByRole('button',{name:'重新載入最新版本',exact:true}).click();
+    await openGuildSection(page, '管理啟動台');
     await expect(enabled).not.toBeChecked(); await expect(cards(page)).toHaveCount(0);
-    await enabled.check(); await expect(manualCard(page)).toBeVisible();
+    await enabled.check(); await openGuildSection(page, '工具目錄'); await expect(manualCard(page)).toBeVisible();
+    await openGuildSection(page, '管理啟動台');
     await page.unroute(`**/api/v1/guilds/${GUILD}/launchpad-config/drafts`);
     await editor.getByLabel('公會使命補充').fill('確認後正常編輯');
     await editor.getByRole('button',{name:'儲存草稿',exact:true}).click();
@@ -249,6 +266,7 @@ test('unreadable committed tenant creation retains its name and key across two r
     await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await stays(message);
     await flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true}).focus();
     await page.keyboard.press('Escape'); await stays(message);
+    if (!await cards(page).locator('.application-catalog').evaluate(element => (element as HTMLDetailsElement).open)) await cards(page).locator('.application-catalog > summary').click();
     await cards(page).locator('.application-card').filter({has:page.getByRole('heading',{name:'線上商店',exact:true})}).getByRole('button',{name:'啟動應用',exact:true}).click(); await stays(message);
     await page.getByRole('button',{name:'返回公會列表',exact:true}).click(); await stays(message);
     await navigate(page,'技能書架'); await stays(message);
@@ -468,10 +486,11 @@ test('360px keyboard launch, cancel focus and light/RPG screenshots', async ({pa
   const launch=manualCard(page).getByRole('button',{name:'啟動應用',exact:true}); await launch.focus(); await page.keyboard.press('Enter');
   await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();
   await page.keyboard.press('Escape'); await expect(launch).toBeFocused(); await page.keyboard.press('Enter');
+  await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();
   await page.keyboard.press('Tab'); await expect(flow(page).getByRole('button',{name:'取消',exact:true})).toBeFocused(); await page.keyboard.press('Enter'); await expect(launch).toBeFocused();
   await page.keyboard.press('Enter'); await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  const targets=await cards(page).locator('button,.application-choice').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
+  const targets=await cards(page).locator('button:visible,.application-choice:visible').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
   for(const height of targets) expect(height).toBeGreaterThanOrEqual(44);
   for(const theme of ['light','dark']) {
     await page.evaluate(value=>{document.documentElement.dataset.theme=value;document.documentElement.dataset.experienceProfile=value;window.dispatchEvent(new Event('freedom-theme-changed'));},theme);
@@ -587,7 +606,7 @@ test('stored operator acting context selects the owned tenant without registry r
   await flow(page).getByRole('button',{name:'取消',exact:true}).click();
   await e2eAuthPool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`,[p.tenant.tenant_id,otherPrincipal]);
   await e2eAuthPool.query(`UPDATE tenant_memberships SET role='operator',version=version+1 WHERE tenant_id=$1 AND principal_id=$2`,[p.tenant.tenant_id,principal]);
-  await page.reload(); await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeEnabled();
+  await page.reload(); await openGuildSection(page, '工具目錄'); await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeEnabled();
   await expect(cards(page)).toContainText('你目前沒有可管理的業務空間');
   await begin(page); await expect(flow(page).getByLabel('業務空間名稱',{exact:true})).toHaveValue('');
   expect(requests.filter(path=>path.startsWith(`/api/v1/tenants/${t.tenant.tenant_id}/`) && /\/(application-installations|module-instances|application-launch-plans)$/.test(path))).toEqual([]);
@@ -597,9 +616,13 @@ test('go to My Work preserves dirty content on decline and switches context only
   const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'離開確認空間',workspace_name:'原工作區'});
   await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id);
   await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'新啟動區'});
-  await open(page); const myWork=page.locator('.my-work'); await expect(myWork.locator('#my-work-title')).toBeVisible();
+  await open(page); await openGuildSection(page, '我的工作'); const myWork=page.locator('.my-work'); await expect(myWork.locator('#my-work-title')).toBeVisible();
   await myWork.locator('#my-work-title').fill('尚未儲存的工作');
   const acting=await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId);
+  await openGuildSection(page, '公會資訊');
+  await openGuildSection(page, '我的工作');
+  await expect(myWork.locator('#my-work-title')).toHaveValue('尚未儲存的工作');
+  await openGuildSection(page, '工具目錄');
   await begin(page); await flow(page).getByRole('button',{name:'新啟動區',exact:true}).click(); await review(page); await confirm(page);
   page.once('dialog',dialog=>{expect(dialog.message()).toBe('有尚未儲存的內容，確定要離開嗎？'); void dialog.dismiss();});
   await flow(page).getByRole('button',{name:'前往我的工作',exact:true}).click();
@@ -620,14 +643,14 @@ test('archived saved workspace shows a removable notice without opening or focus
   await flow(page).getByRole('button',{name:'確認啟動',exact:true}).click(); await expect(flow(page)).toContainText('結果未確認');
   await expect.poll(()=>committed,{timeout:5000}).toBe(true);
   await e2eAuthPool.query(`UPDATE workspaces SET status='archived',version=version+1 WHERE workspace_id=$1`,[workspace.workspace_id]);
-  await page.reload(); const notice=cards(page).getByRole('status').filter({hasText:'上次的啟動結果目前無法在這裡查看'});
+  await page.reload(); await openGuildSection(page, '工具目錄'); const notice=cards(page).getByRole('status').filter({hasText:'上次的啟動結果目前無法在這裡查看'});
   await expect(notice).toContainText('人工工作空間'); await expect(notice).toContainText('尚未取得操作識別碼');
   await expect(flow(page)).toHaveCount(0); expect(await cards(page).evaluate(el=>el.contains(document.activeElement))).toBe(false);
   await expect(notice.locator(':scope > p')).toHaveCount(1);
   await expect(notice.locator(':scope > .application-actions').getByRole('button',{name:'不再追蹤',exact:true})).toBeVisible();
   await capture(page,testInfo,'restore-notice');
   await notice.getByRole('button',{name:'不再追蹤',exact:true}).click(); await expect(notice).toHaveCount(0);
-  await page.reload(); await expect(cards(page).getByRole('heading',{name:'人工工作空間',exact:true})).toBeVisible(); await expect(flow(page)).toHaveCount(0);
+  await page.reload(); await openGuildSection(page, '工具目錄'); await expect(cards(page).getByRole('heading',{name:'人工工作空間',exact:true})).toBeVisible(); await expect(flow(page)).toHaveCount(0);
   await expect(cards(page)).not.toContainText('上次的啟動結果目前無法在這裡查看');
 });
 
@@ -716,16 +739,21 @@ test('rejected reuse candidates stay disabled for the panel session', async ({pa
   await flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true}).check(); await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled();
 });
 
-test('My Work workspace selection leaves the independent launch panel and focus in place', async ({page,e2eAuthPool}) => {
+test('switching workspaces preserves the independent launch flow while navigating between panels', async ({page,e2eAuthPool}) => {
   const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'獨立選擇空間',workspace_name:'原選擇區'});
   await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'另一選擇區'});
-  await open(page); await expect(page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true})).toBeVisible();
+  await open(page); await openGuildSection(page, '我的工作');
+  await expect(page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true})).toBeVisible();
   const acting=await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId);
+  await openGuildSection(page, '工具目錄');
   await begin(page); await flow(page).getByRole('button',{name:'另一選擇區',exact:true}).click();
   await expect(flow(page)).toContainText('目前業務空間：獨立選擇空間 · 擁有者／另一選擇區');
   expect(await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId)).toBe(acting);
+  await openGuildSection(page, '我的工作');
   const switcher=page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true}); await switcher.click();
-  await expect(switcher).toBeFocused(); await expect(flow(page)).toBeVisible();
+  await expect(switcher).toBeFocused(); await expect(flow(page)).toBeHidden();
+  await openGuildSection(page, '工具目錄');
+  await expect(flow(page)).toContainText('目前業務空間：獨立選擇空間 · 擁有者／另一選擇區');
   await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeFocused();
 });
 
@@ -737,7 +765,7 @@ test('release detail retry repeats its failed action and retains catalog pages',
     if(releases===1) {await route.fulfill({response,status:503,contentType:'application/problem+json',json:{code:'dependency_unavailable',detail:'版本暫時無法讀取。'}}); return;}
     await route.fulfill({response});
   });
-  await page.goto(`/#guilds/${GUILD}`); await manualCard(page).getByRole('button',{name:'版本資料',exact:true}).click();
+  await page.goto(`/#guilds/${GUILD}`); await openGuildSection(page, '工具目錄'); await manualCard(page).getByRole('button',{name:'版本資料',exact:true}).click();
   await expect(cards(page).getByRole('alert')).toContainText('服務暫時無法回應（503）。請稍後重試。'); await cards(page).getByRole('button',{name:'重試',exact:true}).click();
   await expect(cards(page)).toContainText('來源提交：'); expect(releases).toBe(2); expect(catalogs).toBe(1);
 });
@@ -778,8 +806,9 @@ test('business link from an empty workspace preserves unsaved My Work when leavi
   await launchApi(page,b.tenant.tenant_id,b.workspace.workspace_id);
   await e2eAuthPool.query("UPDATE workspaces SET status='archived',version=version+1 WHERE workspace_id=$1",[a.workspace.workspace_id]);
   await page.evaluate(({userId,b})=>sessionStorage.setItem(`freedom-acting-tenant:${userId}`,JSON.stringify({tenant_id:b.tenant.tenant_id,workspace_id:b.workspace.workspace_id})),{userId,b});
-  await open(page); const title=page.locator('.my-work').locator('#my-work-title');
+  await open(page); await openGuildSection(page, '我的工作'); const title=page.locator('.my-work').locator('#my-work-title');
   await expect(title).toBeVisible(); await title.fill('離開前仍需保留的工作');
+  await openGuildSection(page, '工具目錄');
   await begin(page); await flow(page).getByRole('button',{name:'尚無工作區空間・擁有者',exact:true}).click();
   const link=flow(page).getByRole('link',{name:'前往業務空間',exact:true}); await expect(link).toBeVisible();
   page.once('dialog',dialog=>{expect(dialog.message()).toBe('有尚未儲存的內容，確定要離開嗎？'); void dialog.dismiss();});

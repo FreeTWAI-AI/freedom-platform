@@ -26,7 +26,7 @@ export async function login(page: Page, email: string) {
 }
 export async function open(page: Page, hash: string) {
   await page.evaluate(value => {window.location.hash = value;}, hash);
-  if (hash.startsWith('guilds/')) await expect(page.locator('.guild-launchpad > .guild-launchpad-block')).toHaveCount(7);
+  if (hash.startsWith('guilds/')) await expect(page.locator('.guild-launchpad-content > .guild-launchpad-block')).toHaveCount(7);
   else await expect(storePage(page)).toBeVisible();
 }
 export async function post(page: Page, path: string, body: unknown, status: number, version?: string) {

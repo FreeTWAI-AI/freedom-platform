@@ -1,4 +1,4 @@
-import {openChat,closeChat} from './navigation.js';
+import {openChat,closeChat,navigate} from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 import {mkdirSync} from 'node:fs';
 
@@ -46,7 +46,7 @@ test('a delayed chat chunk keeps the navigation and shows a page-specific loadin
     await expect(page.locator('.page-loading')).toContainText('正在開啟我的訊息');
     await expect(page.getByRole('navigation',{name:'主要工作區'})).toBeVisible();
     await expect.poll(()=>requested).toBe(1);
-    await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'社群分享',exact:true}).click();
+    await navigate(page,'社群分享');
     await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeVisible();
   }finally{release();}
   await openChat(page);

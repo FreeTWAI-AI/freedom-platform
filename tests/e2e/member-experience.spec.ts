@@ -296,9 +296,8 @@ test('story theme keeps the workshop controls and cute artwork usable on a narro
   // 頁面說明 uses the theme's soft green, the same tint family as the filled 提出想法.
   await expect.poll(()=>page.evaluate(()=>{const tool=document.querySelector('.page-tool-button--help')!,probe=document.createElement('span');probe.style.background=getComputedStyle(document.documentElement).getPropertyValue('--green-soft').trim();document.body.append(probe);const soft=getComputedStyle(probe).backgroundColor;probe.remove();return getComputedStyle(tool).backgroundColor===soft})).toBe(true);
   await openHomeGuide(page);
-  await page.locator('.home-module-section > summary').click();
-  await expect(page.locator('.home-module-supplier .home-module-cover')).toHaveCSS('background-image',/versefolk-market\.webp/);
-  await page.locator('.home-module-section > summary').click();
+  await expect(page.locator('.home-destinations')).toBeVisible();
+  await expect(page.locator('.home-destinations').getByRole('heading')).toHaveText(['商品與供貨','作品與活動']);
   await page.locator('.page-tools-menu > summary').click();
   for(const name of ['提出想法','頁面說明','參與編修'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
   await page.locator('.page-tools-menu > summary').click();

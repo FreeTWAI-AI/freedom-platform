@@ -123,3 +123,18 @@
  .app-frame.social-layout .home-guide-disclosure>summary{display:flex;align-items:center}
  .app-frame.social-layout .home-guide-disclosure:not([open])>:not(summary){display:none}
 }
+
+/* Home destinations share one compact hierarchy; artwork belongs to the content. */
+.app-frame.social-layout .home-destinations{display:grid;gap:1rem}
+.app-frame.social-layout .home-destinations section{display:grid;gap:.25rem}
+.app-frame.social-layout .home-destinations h2,.app-frame.social-layout .home-next-eyebrow{font-size:.875rem;margin:0 0 .25rem;color:var(--muted)}
+.app-frame.social-layout .home-destinations button{display:grid;gap:.25rem;width:100%;min-height:44px;padding:.5rem .75rem;text-align:left;border:0;border-radius:var(--radius);background:transparent;color:var(--ink);cursor:pointer}
+.app-frame.social-layout .home-destinations button strong{font-size:1rem;font-weight:600}
+.app-frame.social-layout .home-destinations button span{font-size:.875rem;color:var(--muted)}
+.app-frame.social-layout .home-destinations button:hover,.app-frame.social-layout .home-destinations button:focus-visible{background:var(--bg-elev)}
+.app-frame.social-layout .home-context .home-next-step{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:1rem 0 0}
+.app-frame.social-layout .home-context .home-shortcut{border:0;background:transparent;padding:.5rem .75rem}
+
+.app-frame.social-layout .home-destinations button{grid-template-columns:minmax(0,1fr) auto}
+.app-frame.social-layout .home-destinations button strong,.app-frame.social-layout .home-destinations button span{grid-column:1}
+.app-frame.social-layout .home-destinations button .home-destination-arrow{grid-column:2;grid-row:1/3;align-self:center;color:var(--muted)}

@@ -32,9 +32,10 @@ export const startable = (app: Pick<ApplicationView, 'eligibility'>) => app.elig
     && app.eligibility.reason_codes.every(code => code === 'tenant_manage_required'));
 export type LaunchRequest = {application_key: string; release_ref: string; nonce: number};
 
-export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork, onStore, canLeave, registerPendingLeave, recommendedRefs = [], launchRequest}: {
+export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork, onStore, canLeave, registerPendingLeave, recommendedRefs = [], launchRequest, onLaunchStateChange}: {
   client: PortalClient; guildKey: string; publicMode: boolean; visitor?: boolean; userId?: string; onLogin?: () => void; canLeave: () => boolean; onWork?: (tenantId: string, workspaceId: string) => boolean; onStore?: (tenantId: string, instanceId: string) => boolean;
   recommendedRefs?: readonly ApplicationRef[]; launchRequest?: LaunchRequest;
+  onLaunchStateChange?: (active: boolean, returnFocus?: HTMLButtonElement | null) => void;
   registerPendingLeave: (guard: (() => boolean) | null) => void;
 }) {
   const [items, setItems] = useState<ApplicationView[]>([]);
@@ -48,7 +49,13 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
   const [details, setDetails] = useState<Record<string, Release>>({});
   const [openDetail, setOpenDetail] = useState<string | null>(null);
   const [launch, setLaunch] = useState<ApplicationView | null>(null);
+  const launchStateChange = useRef(onLaunchStateChange);
+  launchStateChange.current = onLaunchStateChange;
   const opener = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (launchStateChange.current) launchStateChange.current(Boolean(launch), launch ? undefined : opener.current);
+    else if (!launch) opener.current?.focus();
+  }, [launch]);
   const restored = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
@@ -81,7 +88,9 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
     if (!startable(app)) return;
     opener.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
     setRestoredRow(undefined); setLaunch(app);
-    if (launch && applicationKey(launch) === applicationKey(app)) container.current?.querySelector<HTMLElement>('.application-flow h3')?.focus();
+    if (launch && applicationKey(launch) === applicationKey(app)) {
+      launchStateChange.current?.(true);
+    }
   }, [launchRequest, items, publicMode, userId]);
   useEffect(() => {
     if (restored.current || publicMode || !userId || !catalogLoaded) return;
@@ -118,7 +127,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
       if (ticket === generation.current && !signal?.aborted) { setProblem(problemText(error)); setFailedAction({kind: 'restore'}); }
     }
   }
-  function closeLaunch() { setLaunch(null); setRestoredRow(undefined); opener.current?.focus(); }
+  function closeLaunch() { setLaunch(null); setRestoredRow(undefined); }
   async function load(next?: string) {
     const ticket = generation.current;
     setLoading(true); setProblem(''); setFailedAction(null);
@@ -167,14 +176,14 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
       const detail = details[key];
       return <article key={key} className="application-card stack">
         <div className="application-heading"><CardHeading>{displayName}</CardHeading>{isRecommended && <span className="pill">公會推薦</span>}<span className="pill">{applicationStatus(app)}</span></div>
-        <p>版本：{app.release_ref} · 授權：{LICENSE[app.license_state]}</p>
-        <p className="field-hint">來源以固定提交與成品摘要核對。</p>
-        <div className="application-actions"><button type="button" className="btn btn-ghost" aria-expanded={openDetail === key} onClick={() => void release(app)}>版本資料</button>
-          {!publicMode && <button type="button" className="btn btn-ghost" disabled={!startable(app)} onClick={event => { if (flowLeaveGuard.current && !flowLeaveGuard.current()) return; opener.current = event.currentTarget; setLaunch(app); }}>啟動應用</button>}
+        <div className="application-actions"><button type="button" className="btn btn-ghost btn-small" aria-expanded={openDetail === key} onClick={() => void release(app)}>版本資料</button>
+          {!publicMode && <button type="button" className="btn btn-secondary btn-small" disabled={!startable(app)} onClick={event => { if (flowLeaveGuard.current && !flowLeaveGuard.current()) return; opener.current = event.currentTarget; setLaunch(app); }}>啟動應用</button>}
         </div>
         {!publicMode && app.eligibility?.reason_codes.map(code => <p key={code} className="field-hint">{visitor && code === 'guild_full_member_required' ? '先加入這個公會，才能啟動應用。' : REASONS[code]}</p>)}
         {!publicMode && app.eligibility?.reason_codes.includes('tenant_manage_required') && <div className="application-actions"><a className="btn btn-ghost" href="#business" onClick={event => { if (!canLeave()) event.preventDefault(); }}>建立或選擇業務空間</a></div>}
         {openDetail === key && detail && <section className="stack" aria-label={`${displayName}版本資料`}>
+          <p>版本：{app.release_ref} · 授權：{LICENSE[app.license_state]}</p>
+          <p className="field-hint">來源以固定提交與成品摘要核對。</p>
           <p>來源提交：<code>{detail.source_commit.slice(0, 12)}</code></p>
           <p>成品摘要：<code>{detail.artifact_digest.value.slice(0, 12)}</code></p>
           <p>授權審查：{LICENSE[detail.license_state]} · {detail.license_review_ref ?? '尚無審查參照'}</p>
@@ -187,10 +196,12 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
     {problem && <p role="alert" className="banner banner-error">{problem}<button type="button" className="btn btn-ghost" onClick={retryCatalog}>重試</button></p>}
     {loading && <p role="status" aria-live="polite">正在載入應用…</p>}
     {!loading && !problem && items.length === 0 && <p>此公會目前沒有已核准的應用</p>}
+    <details open={!launch} className="stack application-catalog"><summary hidden={!launch}>選擇其他工具</summary>
     {recommended.length ? <>
       <section className="guild-launchpad-recommendations stack" aria-label="公會推薦"><h3>公會推薦</h3>{recommended.map(app => card(app, true))}</section>
       {remaining.length > 0 && <section className="stack" aria-label="其他應用"><h3>其他應用</h3>{remaining.map(app => card(app))}</section>}
     </> : items.map(app => card(app))}
+    </details>
     {unavailable.map(row => <div role="status" key={row.key}>
       <p>
       {row.application?.display_name ?? items.find(item => item.application_key === row.application_key && item.release_ref === row.release_ref)?.display_name ?? row.application_key}：上次的啟動結果目前無法在這裡查看（{row.operation ? `操作識別碼 ${row.operation.operation_id}` : '尚未取得操作識別碼'}）。你可能已不是該業務空間的擁有者或管理員，或業務空間、工作區已無法使用；操作本身不會因此停止。</p>

@@ -9,3 +9,5 @@
 .application-flow ul{padding-left:20px}
 .application-flow h3:focus,.application-flow h4:focus{outline:2px solid var(--focus);outline-offset:4px}
 @media(max-width:420px){.launchpad-applications select{font-size:16px}.application-flow .application-primary{width:100%}}
+
+.application-catalog>summary{cursor:pointer;min-height:44px;padding:.5rem 0;color:var(--muted)}
