@@ -1,0 +1,13 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "guild-supply",
+  "owner_role": "guild-supply-maintainer",
+  "owned_paths": ["modules/guild-supply/**"],
+  "public_exports": ["modules/guild-supply/CatalogBlock.tsx"],
+  "dependencies": ["guild-presentation", "hosted-distribution"],
+  "contract_families": [], "client_profiles": ["member"],
+  "instructions": ["AGENTS.md", "DESIGN.md"],
+  "invariants": ["current-authority-before-replay", "no-secrets-in-artifacts"],
+  "tests": ["runtime.guild-blocks"],
+  "surfaces": [{"surface_id": "guild-block.supply-catalog.v1", "kind": "page", "entry": "modules/guild-supply/CatalogBlock.tsx", "operations": ["storefront.supply-catalog.list"], "auth_profile": "member-session"}]
+}

@@ -1,0 +1,32 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "guild-presentation",
+  "owner_role": "platform-maintainer",
+  "owned_paths": [
+    "packages/guild-presentation/**",
+    "apps/portal-web/src/guild-blocks/GuildBlockState.tsx",
+    "apps/portal-web/src/guild-blocks/runtime.tsx",
+    "scripts/generate-guild-blocks.mjs",
+    "tests/runtime/guild-blocks.test.ts"
+  ],
+  "public_exports": [
+    "packages/guild-presentation/block.ts",
+    "apps/portal-web/src/guild-blocks/GuildBlockState.tsx",
+    "apps/portal-web/src/guild-blocks/runtime.tsx",
+    "packages/guild-presentation/catalog.generated.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "AGENTS.md",
+    "DESIGN.md"
+  ],
+  "invariants": [
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.guild-blocks"
+  ],
+  "surfaces": []
+}

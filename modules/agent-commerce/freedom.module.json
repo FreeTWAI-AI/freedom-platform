@@ -94,7 +94,8 @@
     "tests/e2e/hosted-supply-terms.spec.ts",
     "tests/runtime/hosted-order-navigation.test.ts",
     "migrations/162_hosted_inventory_reservations.sql",
-    "tests/helpers/hosted-inventory-history.ts"
+    "tests/helpers/hosted-inventory-history.ts",
+    "tests/e2e/storefront-product.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [
@@ -182,7 +183,8 @@
       "entry": "apps/platform-api/src/routes/hosted-store.ts",
       "operations": [
         "store.public.read",
-        "store.public.page"
+        "store.public.page",
+        "store.public.product-page"
       ],
       "auth_profile": "public-anonymous-read"
     },

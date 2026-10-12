@@ -42,7 +42,7 @@ import {LanguageProvider,LanguagePicker,useLanguage} from './language'
 import {authErrorMessage} from './auth-messages'
 import {AppInstallProvider,InstallAppButton} from './AppInstall'
 
-const PublicGuildLaunchpad = lazy(() => import('./modules/GuildLaunchpad').then(m => ({default: m.PublicGuildLaunchpad})))
+const PublicGuildLaunchpad = lazy(() => import('./guild-blocks/GuildLaunchpadPage').then(m => ({default: m.PublicGuildLaunchpad})))
 const WorkbenchPanel = lazy(() => import('./modules/WorkbenchPanel').then(m => ({default: m.WorkbenchPanel})))
 const ShowcasePanel = lazy(() => import('./modules/ShowcasePanel').then(m => ({default: m.ShowcasePanel})))
 const EngagementPanel = lazy(() => import('./modules/EngagementPanel').then(m => ({default: m.EngagementPanel})))
@@ -73,7 +73,7 @@ const HostedOrderPage = lazy(() => import('./modules/HostedOrder').then(m => ({d
 const HostedStore = lazy(() => import('./modules/HostedStore').then(m => ({default: m.HostedStore})))
 const TenantSettings = lazy(() => import('./modules/TenantSettings').then(m => ({default: m.TenantSettings})))
 const PositioningPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.PositioningPanel})))
-const GuildsPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.GuildsPanel})))
+const GuildsPanel = lazy(() => import('./guild-blocks/GuildDirectoryPage').then(m => ({default: m.GuildsPanel})))
 const SupplierPanel = lazy(() => import('./modules/CommercePanels').then(m => ({default: m.SupplierPanel})))
 const RetailPanel = lazy(() => import('./modules/CommercePanels').then(m => ({default: m.RetailPanel})))
 const OpenSourcePanel = lazy(() => import('./modules/OpenSourcePanels').then(m => ({default: m.OpenSourcePanel})))

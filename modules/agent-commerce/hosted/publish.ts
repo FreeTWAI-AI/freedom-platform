@@ -48,7 +48,7 @@ export async function previewStorePage(pool: Pool, actor: Actor, tenantId: strin
   return storeRead(pool, actor, tenantId, instanceId, 'store:read', async q => {
     const p = await profile(q, tenantId, instanceId); retailReady(p);
     const items = await publicationProducts(q, p);
-    return storeHtml(await buildProjection(q, p, items), p.template_id, items.map(item => ({ sku:item.product.sku,photo:privatePhotoView(p,item).photo })));
+    return storeHtml(await buildProjection(q, p, items), p.template_id, items.map(item => ({ sku:item.product.sku,photo:privatePhotoView(p,item).photo })), {preview: true});
   });
 }
 export async function publishStore(pool: Pool, actor: Actor, tenantId: string, instanceId: string, key: string, expected: string, unpublish = false) {

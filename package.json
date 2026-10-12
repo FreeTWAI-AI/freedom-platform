@@ -11,7 +11,7 @@
     "db:down": "docker compose down",
     "db:migrate": "tsx scripts/database.ts migrate",
     "db:seed": "tsx scripts/database.ts seed",
-    "build": "node scripts/generate-runtime-text.mjs --check && node scripts/build-skill-upload-client.mjs && vite build --config apps/portal-web/vite.config.ts",
+    "build": "node scripts/generate-guild-blocks.mjs --check && node scripts/generate-runtime-text.mjs --check && node scripts/build-skill-upload-client.mjs && vite build --config apps/portal-web/vite.config.ts",
     "start": "tsx apps/platform-api/src/server.ts",
     "generate:runtime-text": "node scripts/generate-runtime-text.mjs",
     "check:runtime-text": "node scripts/generate-runtime-text.mjs --check",
@@ -72,7 +72,10 @@
     "media:restore-acl": "tsx scripts/media-restore-acl.ts",
     "media:worker-preflight": "node -- deploy/cloudflare/media-preflight.mjs",
     "worker:dry-run:media-operator": "wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env \"\" --outdir .wrangler/dry-run/media-operator-local && wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env staging-next --outdir .wrangler/dry-run/media-operator-staging-next && wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env next --outdir .wrangler/dry-run/media-operator-next",
-    "guide:publish-plan": "node --import tsx scripts/guide-pack-publish-plan.ts"
+    "guide:publish-plan": "node --import tsx scripts/guide-pack-publish-plan.ts",
+    "guild:preview": "node scripts/generate-guild-blocks.mjs && vite --config apps/portal-web/guild-preview/vite.config.ts",
+    "guild:check": "node scripts/generate-guild-blocks.mjs --check && tsx --test tests/runtime/guild-blocks.test.ts",
+    "guild:test": "node scripts/generate-guild-blocks.mjs --check && vite build --config apps/portal-web/guild-preview/vite.config.ts && playwright test --config packages/guild-presentation/playwright.config.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
