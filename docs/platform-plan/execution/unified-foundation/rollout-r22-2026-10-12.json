@@ -546,6 +546,14 @@
     "full_repository_rule_chunks_read": 152,
     "manual_reconciliation": "All 152 baseline and candidate rule chunks read; all module descriptors and reverse dependencies retained. No rules changed since the complete baseline context. No path or module was excluded.",
     "verification_scope": "Full exact-head CI, no reduced suite selection",
-    "correction": "The documentation follow-up proposes exact ownership in the existing application-composition descriptor; it has a clean local context and 30 passing context tests. Its review/merge is separate; runtime source remains immutable."
+    "correction": "The follow-up registers exact ownership in the existing application-composition descriptor and adds its existing guild-workspace browser spec to the guide composition obligation. It has a clean local context and 30 passing context tests. Its review/merge is separate; runtime source remains immutable.",
+    "followup_initial_ci_failure": {
+      "head": "7411e5bd9055ff1d8e3d278c0cbbd7d154d1841c",
+      "run": 38251112561,
+      "job": 114817352109,
+      "test": "actual repository guide graph includes composition and selects its complete browser obligation",
+      "reproduced_locally": true,
+      "cause": "New composition ownership was absent from the guide browser obligation; selector correctly fell back to full. Added the existing management spec to the reviewed guide profile. No selector relaxation or installed pin change."
+    }
   }
 }

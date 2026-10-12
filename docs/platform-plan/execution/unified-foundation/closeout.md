@@ -653,6 +653,9 @@ staging 與 production 使用同一 source／dist，既有 schema165 的 164 筆
 保留自動 `surface_unmapped` 報告，逐項核對全倉規則與完整 CI。交接同時僅補
 `application-composition` 對 `GuildWorkspace.tsx` 與其 browser spec 的 ownership，
 不改工具判定或縮减測試；修補後本機 context 無 blocker，30項 context 測試通過。
+首次 #459 CI 發現新人指南的共同殼層測試清單仍缺這份管理頁 spec；已在本機重現，
+同步增加 `guild-workspace.spec.ts` 的驗證義務。既有 selector 與 browser runner 測試
+驗證這項補齊；installed pin 不變，舊 pin 遇到新增歸屬仍保守選擇完整 browser。
 此修補隨本 PR 接受 review，沒有倒改已部署的 immutable source。
 
 R22 是工程與部署驗證，不代替最初十位會員重新評估介面，或兩位非核心公會作者的實際

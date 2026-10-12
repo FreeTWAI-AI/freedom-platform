@@ -66,7 +66,7 @@
       "scope": "Retain visited authorized management drafts across tabs and simplify the approved supply presentation block. No database migrations, member permissions or feature-flag changes.",
       "status": "complete",
       "receipt": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json",
-      "receipt_sha256": "91e6957f02206211da911a5b8816faa3e888c036d0b38c259888641887809f3e",
+      "receipt_sha256": "d3694b45bece2edc3c880faf6f8987d2a8afccc102daf46379ee1d9a2503c029",
       "selected_checks": {
         "staging": {
           "public_http": 40,
