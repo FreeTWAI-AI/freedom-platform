@@ -21014,8 +21014,8 @@
     },
     {
       "path": "tests/e2e/social-wall.spec.ts",
-      "bytes": 13232,
-      "sha256": "1f190f367c631a1d82b5ee66fbbd37d6b4b091d087721eefef38b6f1e3048902"
+      "bytes": 13346,
+      "sha256": "e7a9d39d399c3a824906083a09cef494c96ef5afcb97adf28baa222636fdaecb"
     },
     {
       "path": "tests/e2e/squad-invitations.spec.ts",

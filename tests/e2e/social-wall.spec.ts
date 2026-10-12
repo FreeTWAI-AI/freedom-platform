@@ -14,7 +14,9 @@ test('wall tools publish topics, mentions, check-ins and pictures; social commen
  const png=await sharp({create:{width:480,height:300,channels:3,background:'#728a41'}}).png().toBuffer();
  await compose.getByLabel('貼文圖片（選填）').setInputFiles({name:'作品.png',mimeType:'image/png',buffer:png});await expect(compose.getByAltText('待發布圖片預覽')).toBeVisible();
  await compose.getByRole('button',{name:'發布貼文',exact:true}).click();const post=card(page,text);await expect(post).toBeVisible();await expect(post).toContainText('作品分享');await expect(post).toContainText('台北松菸');await expect(post.locator('.social-note .social-text-link').filter({hasText:'@'})).toHaveCount(1);
- await post.getByRole('button',{name:'讚 · 0',exact:true}).click();await post.getByRole('button',{name:'查看按讚名單'}).click();const people=page.getByRole('dialog',{name:'按讚名單',exact:true});await expect(people).toContainText('示範創作者');await page.keyboard.press('Escape');await expect(post.getByRole('button',{name:'查看按讚名單'})).toBeFocused();
+ await post.getByRole('button',{name:'讚 · 0',exact:true}).click();
+ await expect(post.getByRole('button',{name:'已讚 · 1',exact:true})).toHaveAttribute('aria-pressed','true');
+ await post.getByRole('button',{name:'查看按讚名單'}).click();const people=page.getByRole('dialog',{name:'按讚名單',exact:true});await expect(people).toContainText('示範創作者');await page.keyboard.press('Escape');await expect(post.getByRole('button',{name:'查看按讚名單'})).toBeFocused();
  await post.getByRole('button',{name:'留言 · 0',exact:true}).click();await post.getByLabel('寫留言',{exact:true}).fill('看起來不錯 ');
  await post.getByRole('button',{name:'插入 emoji'}).click();await post.getByRole('button',{name:'插入 😂',exact:true}).click();
  await post.getByLabel('留言圖片',{exact:true}).setInputFiles({name:'回覆.png',mimeType:'image/png',buffer:png});await expect(post.getByAltText('留言圖片預覽')).toBeVisible();await post.getByRole('button',{name:'送出留言',exact:true}).click();
