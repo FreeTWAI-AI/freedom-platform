@@ -56,7 +56,7 @@ async function badgeBesideHeading(card:Locator){
   expect(boxes!.badgeLeft).toBeGreaterThan(boxes!.headingRight);
 }
 
-test('guild aliases sit beside the name, and an admin can edit profiles, approve and merge',async({page,browser,e2eAuthPool})=>{
+test('guild aliases sit beside the name, and an admin can edit profiles, approve and merge',async({page,browser,baseURL,e2eAuthPool})=>{
   test.setTimeout(120_000);
   const stamp=randomUUID().slice(0,8);
   const approveName=`別名核准${stamp}`,mergeName=`併入申請${stamp}`;
@@ -177,6 +177,46 @@ test('guild aliases sit beside the name, and an admin can edit profiles, approve
     const stored=await e2eAuthPool.query('SELECT profession_title FROM positioning_guild_catalog WHERE name=$1',[renamed]);
     expect(stored.rows[0].profession_title).toBe('改過的稱號');
 
+    // Approval used the real admin UI above; the public check uses a fresh context.
+    const approved=(await e2eAuthPool.query<{approved_guild_key:string}>('SELECT approved_guild_key FROM guild_creation_applications WHERE application_id=$1',[approveId])).rows[0].approved_guild_key;
+    // Synthetic membership is only a positive control for member-private visibility.
+    await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+      VALUES($1,$2,$3,$4,'active','intern')`,[randomUUID(),DEMO_COMMUNITY,DEMO_USERS[0].user_id,approved]);
+    const privateMarker=`僅會員公告 ${stamp}`;
+    await e2eAuthPool.query(`INSERT INTO guild_announcements(announcement_id,community_id,guild_key,author_user_id,title,body,state)
+      VALUES($1,$2,$3,$4,$5,$5,'published')`,[randomUUID(),DEMO_COMMUNITY,approved,DEMO_USERS[0].user_id,privateMarker]);
+    const memberView=await page.request.get(`/api/v1/guilds/${approved}/launchpad`);
+    expect(memberView.status()).toBe(200);
+    expect((await memberView.json()).announcements.some((item:{title:string})=>item.title===privateMarker)).toBe(true);
+    const anonymous=await browser.newContext({baseURL,viewport:{width:390,height:844}});
+    await anonymous.route(url=>!['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
+    try{
+      const visitor=await anonymous.newPage();
+      const response=await visitor.request.get(`/api/v1/public/guilds/${approved}/launchpad`);
+      expect(response.status()).toBe(200);
+      const payload=await response.json();
+      expect(payload.guild).toMatchObject({guild_key:approved,name:renamed});
+      expect(payload.announcements).toEqual([]);
+      expect(payload.public_results).toEqual([]);
+      expect(JSON.stringify(payload)).not.toContain(privateMarker);
+      for(const field of ['membership','viewer_can_edit_config','viewer_can_publish_config','delegations','revisions']) expect(payload).not.toHaveProperty(field);
+      for(const suffix of ['launchpad','launchpad-config','announcements']){
+        const denied=await visitor.request.get(`/api/v1/guilds/${approved}/${suffix}`);
+        expect(denied.status()).toBe(401);
+        expect(await denied.text()).not.toContain(privateMarker);
+      }
+      await visitor.goto(`/#guilds/${approved}`);
+      await expect(visitor.getByRole('heading',{level:1,name:renamed,exact:true})).toBeVisible();
+      await expect(visitor.getByRole('button',{name:'會員登入',exact:true})).toBeVisible();
+      await expect(visitor.locator('body')).not.toContainText(privateMarker);
+      await expect(visitor.getByRole('button',{name:'儲存草稿',exact:true})).toHaveCount(0);
+      await expect(visitor.getByRole('button',{name:'發布',exact:true})).toHaveCount(0);
+      await fits(visitor);
+      await visitor.reload();
+      await expect(visitor.getByRole('heading',{level:1,name:renamed,exact:true})).toBeVisible();
+      await expect(visitor.locator('body')).not.toContainText(privateMarker);
+    }finally{await anonymous.close();}
+
     await admin.getByRole('button',{name:'公會申請',exact:true}).click();
     const mergeCard=admin.locator('article').filter({has:admin.getByRole('heading',{name:mergeName,exact:true})});
     await mergeCard.getByLabel('審核決定',{exact:true}).selectOption({label:'併入既有公會'});
@@ -224,6 +264,7 @@ test('guild aliases sit beside the name, and an admin can edit profiles, approve
       const custom=[...new Set(linked.rows.map(row=>row.approved_guild_key as string|null).filter((key):key is string=>!!key&&/^guild_custom_[0-9a-f]{32}$/i.test(key)))];
       await client.query('DELETE FROM guild_creation_applications WHERE application_id=ANY($1::uuid[])',[ids]);
       if(custom.length){
+        await client.query('DELETE FROM guild_announcements WHERE guild_key=ANY($1::text[])',[custom]);
         await client.query('DELETE FROM guild_skill_book_bindings WHERE guild_key=ANY($1::text[])',[custom]);
         await client.query('DELETE FROM positioning_guild_officers WHERE guild_key=ANY($1::text[])',[custom]);
         await client.query('DELETE FROM positioning_guild_experts WHERE guild_key=ANY($1::text[])',[custom]);
