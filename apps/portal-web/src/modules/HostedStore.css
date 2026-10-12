@@ -22,3 +22,5 @@
 .hosted-store-photo { border-top: 1px solid var(--line); padding-top: 12px; gap: 8px; }
 .hosted-store-photo > img { display: block; width: auto; height: auto; max-width: 100%; max-height: 240px; object-fit: contain; border-radius: var(--radius); }
 .hosted-store-photo input[type="file"] { display: block; min-height: 44px; width: 100%; }
+
+.hosted-order-quantity input { width: 160px; max-width: 100%; }

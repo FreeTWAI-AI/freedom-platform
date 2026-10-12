@@ -1,3 +1,4 @@
+import {LIVE_PUBLIC_ORIGIN} from '../../apps/platform-api/src/routes/published-skills.js';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -468,9 +469,12 @@ test('T-006 public allowlist hides identifiers and all hidden cases return ident
   for (const secret of [s.tenantId,s.instanceId,p.supply_shop_id,p.storefront_shop_id,p.created_by_principal_id,s.owner.user.user_id,s.owner.user.email,item.product_id,'"stock"']) {
     assert.equal(shown.jsonText.includes(secret), false, secret); assert.equal(shown.htmlText.includes(secret), false, secret);
   }
-  assert.doesNotMatch(shown.htmlText, /<form|<button|<script|checkout|cart/i); assert.match(shown.htmlText, /商品展示頁不提供付款或出貨/); assert.match(shown.htmlText, /name="robots" content="noindex"/);
+  assert.doesNotMatch(shown.htmlText, /<form|<button|<script|checkout|cart/i); assert.match(shown.htmlText, /此頁不提供付款，也不會安排出貨/); assert.match(shown.htmlText, /name="robots" content="noindex"/);
   const missing = await publicPair('unknown-shop');
+  const missingProduct = await (await app.request(h.origin + '/shops/unknown-shop/products/' + item.sku)).text();
   async function hidden(slug = settings.slug) {
+    const detail = await app.request(h.origin + '/shops/' + slug + '/products/' + item.sku);
+    assert.equal(detail.status, 404); assert.equal(await detail.text(), missingProduct);
     const r = await publicPair(slug); assert.equal(r.json.status, 404); assert.equal(r.html.status, 404);
     assert.equal(r.jsonText, missing.jsonText); assert.equal(r.htmlText, missing.htmlText);
     assert.deepEqual([...r.json.headers], [...missing.json.headers]); assert.deepEqual([...r.html.headers], [...missing.html.headers]);
@@ -774,7 +778,10 @@ test('saved appearance stays private until a new immutable publication, without 
   const rows = (await h.pool.query('SELECT * FROM commerce_storefront_publications WHERE instance_id=$1 ORDER BY revision', [s.instanceId])).rows;
   assert.equal(rows.length, 2); assert.deepEqual(rows[0], old); assert.equal(rows[1].template_id, 'catalog-list-v1');
   assert.equal(rows[1].projection_sha256, old.projection_sha256);
-  assert.equal((await publicPair('myshop')).htmlText, previewHtml);
+  const publishedHtml = (await publicPair('myshop')).htmlText;
+  for (const html of [publishedHtml, previewHtml]) {assert.match(html, /shop-products-list/); assert.match(html, /合成商品/); assert.match(html, /商品說明/);}
+  assert.match(publishedHtml, /property="og:title"/); assert.doesNotMatch(previewHtml, /property="og:/);
+  assert.match(previewHtml, /這是未發布的預覽/);
   assert.deepEqual((await h.pool.query('SELECT item_id,shop_id,stock,reserved FROM commerce_items WHERE item_id=$1', [item.product_id])).rows, before);
   assert.equal(expect(await call('GET', s.root + '/preview', s.owner)).dirty, false);
   await assert.rejects(h.pool.query("UPDATE commerce_storefront_publications SET template_id='catalog-grid-v1' WHERE publication_id=$1", [rows[1].publication_id]));
@@ -802,4 +809,25 @@ test('appearance and private preview use current exact-store authorization, incl
   expect(await patch(s.root + '/appearance', s.owner, {...body, supplier_price: 1}, (await view(s)).version), 422);
   expect(await post('/auth/logout', s.owner, {}));
   for (const suffix of ['/appearance', '/preview-page']) expect(await call('GET', s.root + suffix, s.owner), 401);
+});
+
+test('product share pages expose only the current publication and disappear with unpublish', async () => {
+  const s = await ready(), item = await add(s);
+  const path = '/shops/' + settings.slug + '/products/' + item.sku;
+  assert.equal((await app.request(h.origin + path)).status, 404);
+  expect(await publish(s));
+  const read = () => app.request(h.origin + path, {headers: {Host: 'untrusted.example.test', 'X-Forwarded-Host': 'untrusted.example.test'}});
+  const first = await read(), original = await first.text();
+  assert.equal(first.status, 200); assert.equal(first.headers.get('cache-control'), 'no-store');
+  assert.match(original, /property="og:title" content="合成商品｜同名品牌"/);
+  assert.ok(original.includes('rel="canonical" href="' + LIVE_PUBLIC_ORIGIN + path + '"'));
+  assert.doesNotMatch(original, /untrusted.example.test/);
+  for (const secret of [s.tenantId, s.instanceId, item.product_id, s.owner.user.email]) assert.equal(original.includes(secret), false);
+  expect(await patch(s.root + '/products/' + item.product_id, s.owner, {title: '未公開的新商品名稱'}, item.version));
+  assert.equal(await (await read()).text(), original);
+  const draft = await call('GET', s.root + '/preview-page', s.owner); expect(draft);
+  const preview = await draft.response.text(); assert.match(preview, /未公開的新商品名稱/); assert.doesNotMatch(preview, /property="og:|rel="canonical"/);
+  expect(await publish(s)); assert.match(await (await read()).text(), /property="og:title" content="未公開的新商品名稱｜同名品牌"/);
+  expect(await publish(s, 'unpublish'));
+  const missing = await read(); assert.equal(missing.status, 404); assert.doesNotMatch(await missing.text(), /合成商品|未公開的新商品名稱|property="og:/);
 });

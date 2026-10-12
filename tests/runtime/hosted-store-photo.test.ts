@@ -1,3 +1,4 @@
+import {LIVE_PUBLIC_ORIGIN} from '../../apps/platform-api/src/routes/published-skills.js';
 import {retainedByteUsage} from '../../modules/opportunity-project-work/tenant-capacity.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -131,4 +132,16 @@ test('PHOTO-DOMAIN-06 current exact-instance permissions protect receipt replay 
   assert.equal((await f.app.request(f.h.origin+page.photos[0].photo.read_path)).status,200);
   await f.h.pool.query("UPDATE commerce_resource_tenants SET mapping_state='ambiguous' WHERE resource_id=(SELECT supply_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1)",[s.instanceId]);
   for(const route of ['/shops/'+s.slug,'/api/v1/public/stores/'+s.slug,'/api/v1/public/stores/'+s.slug+'/media',page.photos[0].photo.read_path])assert.equal((await f.app.request(f.h.origin+route)).status,404);
+});
+
+test('product and store share covers stay on the published photo until publication changes',async()=>{
+  const s=await f.openStore();await enable();const uploadResult=f.ok(await upload(s,'1'));await publish(s);
+  const one=await(await media(s)).json() as any,sku=one.photos[0].sku,path=one.photos[0].photo.read_path;
+  const routes=['/shops/'+s.slug,'/shops/'+s.slug+'/products/'+sku];
+  async function covers(expected:string){for(const route of routes){const response=await f.app.request(f.h.origin+route);assert.equal(response.status,200);const html=await response.text();assert.ok(html.includes('property="og:image" content="'+LIVE_PUBLIC_ORIGIN+expected+'"'));assert.equal(html.includes(uploadResult.current.photo.read_path),false);}}
+  await covers(path);f.ok(await upload(s,'2'));await covers(path);
+  const preview=await f.app.request(f.h.origin+'/api/v1'+s.root+'/preview-page',{headers:{Cookie:s.owner.cookie}});
+  assert.equal(preview.status,200);assert.doesNotMatch(await preview.text(),/property="og:|rel="canonical"/);
+  await publish(s);const two=await(await media(s)).json() as any;assert.notEqual(two.photos[0].photo.read_path,path);await covers(two.photos[0].photo.read_path);
+  await publish(s,'unpublish');for(const route of routes){const response=await f.app.request(f.h.origin+route);assert.equal(response.status,404);assert.doesNotMatch(await response.text(),/property="og:|rel="canonical"/);}
 });
