@@ -20224,8 +20224,8 @@
     },
     {
       "path": "scripts/ci/test_source_boundaries.py",
-      "bytes": 5243,
-      "sha256": "48f31af7d3bbf1c00ab69f65e61b42752ad06567d7d1a023248f8f8f660d6f6a"
+      "bytes": 8595,
+      "sha256": "0ac4792ef5624d7c88c25d98046cf74aaa7e753c3f5152f300dbe3290277f793"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
@@ -20239,8 +20239,8 @@
     },
     {
       "path": "scripts/ci/verify-source-boundaries.py",
-      "bytes": 4401,
-      "sha256": "ac74ada495873c724849e58a161c16f5ffda1941fac0e3018acbde472dfc332e"
+      "bytes": 6593,
+      "sha256": "f67a973c4e1d731015fcb3aac33cc4ed019d5f190dd9611b4857f3bc78c4b3bc"
     },
     {
       "path": "scripts/lib/openrouter-acceptance-guard.ts",

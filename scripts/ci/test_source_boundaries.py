@@ -1,5 +1,6 @@
 """Real Git adversarial cases for the daily boundary, on disposable disk paths."""
 import importlib.util
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -74,6 +75,65 @@ class SourceBoundaryTests(unittest.TestCase):
         (self.root/'untracked.txt').unlink()
         self.write('README.md', 'uncommitted')
         with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_checkout_dirty'): self.verify()
+
+    def test_index_flags_cannot_hide_changed_checkout_migrations(self):
+        path = 'migrations/001_base.sql'
+        for flag in ['--assume-unchanged', '--skip-worktree']:
+            with self.subTest(flag=flag):
+                self.git('update-index', flag, path)
+                self.write(path, 'DROP TABLE synthetic;\n')
+                self.assertEqual(self.git('status', '--porcelain', '--untracked-files=all'), '')
+                with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_index_flags'):
+                    self.verify()
+                self.git('update-index', '--no-assume-unchanged', '--no-skip-worktree', path)
+                self.git('reset', '--hard', self.base)
+
+    def test_index_stat_cache_cannot_hide_same_size_changed_bytes(self):
+        path = self.root/'migrations/001_base.sql'
+        os.utime(path, (1700000000, 1700000000))
+        self.git('update-index', '--refresh')
+        before = path.stat()
+        self.git('config', 'core.trustctime', 'false')
+        self.git('config', 'core.checkStat', 'minimal')
+        path.write_text('DROP TABLE synthetic;'.ljust(before.st_size-1)+'\n')
+        os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+        # A status refresh can cache the false stat match even before trusted checking.
+        self.assertEqual(self.git('status', '--porcelain', '--untracked-files=all'), '')
+        self.assertEqual(self.git('ls-files', '-v', 'migrations/001_base.sql')[0], 'H')
+        with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_checkout_mismatch'):
+            self.verify()
+
+    def test_checkout_reader_rejects_missing_file_and_file_or_parent_symlink(self):
+        _, files = boundary.catalog(str(self.root), self.base)
+        path = self.root/'migrations/001_base.sql'
+        original = path.read_bytes()
+        path.unlink()
+        with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_checkout_unreadable'):
+            boundary.checked_checkout(str(self.root), files)
+        outside = Path(tempfile.mkdtemp(prefix='fp-source-outside-'))
+        self.addCleanup(shutil.rmtree, outside)
+        (outside/'001_base.sql').write_bytes(original)
+        path.symlink_to(outside/'001_base.sql')
+        with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_checkout_unreadable'):
+            boundary.checked_checkout(str(self.root), files)
+        path.unlink()
+        path.write_bytes(original)
+        self.git('reset', '--hard', self.base)
+        shutil.rmtree(self.root/'migrations')
+        (self.root/'migrations').symlink_to(outside)
+        with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_checkout_unreadable'):
+            boundary.checked_checkout(str(self.root), files)
+
+    def test_checkout_reader_rejects_mode_change_and_nonregular_file(self):
+        _, files = boundary.catalog(str(self.root), self.base)
+        path = self.root/'migrations/001_base.sql'
+        path.chmod(0o755)
+        with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_checkout_mismatch'):
+            boundary.checked_checkout(str(self.root), files)
+        path.unlink()
+        os.mkfifo(path)
+        with self.assertRaisesRegex(boundary.archive.ArchiveError, 'source_checkout_not_regular'):
+            boundary.checked_checkout(str(self.root), files)
 
     def test_head_only_and_wrong_parent_are_not_a_pr_integration(self):
         self.git('switch', '-qc', 'candidate')
