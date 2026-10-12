@@ -154,8 +154,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 3763,
-      "sha256": "06f8c2635bcabf9208dd20f8aef5774e7d99b11f2d0c02da3eb8912dfdea78d5"
+      "bytes": 3801,
+      "sha256": "8bc3698ab3110c2d741e7157f73c1b28b93f27add2114bd29cfa815e7fcb1148"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -18474,8 +18474,8 @@
     },
     {
       "path": "modules/positioning/freedom.module.json",
-      "bytes": 1080,
-      "sha256": "c1e5d4556a9a5225c7388bdfcbcaec4c34d3c854b42a0b09f5890d656f6c45cf"
+      "bytes": 1169,
+      "sha256": "ae70cb496908f677f2582a6074bbeed5edccd7f9d3423bc171817b9dbcd7a014"
     },
     {
       "path": "modules/positioning/guild-categories.ts",
@@ -18979,8 +18979,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 17175,
-      "sha256": "11eb77b89bb86ea213b7063266138632f482916583899cc229cdc6a8be5cf72d"
+      "bytes": 17188,
+      "sha256": "af92b7803ce9d55fd4b64b9d97fab296be70dae7753855e92ca30da3e42e5b44"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
