@@ -149,8 +149,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 33034,
-      "sha256": "8781cfb109feeea7528e2f53dcc1651061751b53544cfed57cc74db9acf3846e"
+      "bytes": 33213,
+      "sha256": "7cea95d72c3df5cdd337bb3c1b7d6c0d521b8542673b3675b749e76e9bcdaaef"
     },
     {
       "path": "apps/freedom.module.json",
@@ -18994,8 +18994,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-databases.mjs",
-      "bytes": 9564,
-      "sha256": "c85267c13c46b99328a384529f3f1e576cb140b2eb070ea332721e86a49a7f5e"
+      "bytes": 13322,
+      "sha256": "f1f7efe030cb3c96f5033e6e30f80a1f3140c7c2b9aa674f8aa38646db6c0cfe"
     },
     {
       "path": "packages/contribution-tools/runtime-file-weights.mjs",
@@ -19226,6 +19226,11 @@
       "path": "packages/contribution-tools/test/reconcile-issue-closures.test.mjs",
       "bytes": 9213,
       "sha256": "79a2a04180d42bad40229a4abe6898fe07d3a7b515e6714ed65d4ff78934f98c"
+    },
+    {
+      "path": "packages/contribution-tools/test/runtime-cleanup-diagnostics.test.mjs",
+      "bytes": 8615,
+      "sha256": "ca053780f11f7a00bddd38ea081f573b70f4c780fd71ea77bc8e29428eb7958d"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
@@ -20309,8 +20314,8 @@
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
-      "bytes": 18716,
-      "sha256": "bbea2239ffeb31c50a5a0231edf1af2d925bded9cbaf263951ca14fe64153b8f"
+      "bytes": 20449,
+      "sha256": "f292180f9e6794b52fba502b3da6eb1a6ce3be22f3b05ac7281dd054e9898161"
     },
     {
       "path": "tests/contribution-tools/runtime-union.integration.test.mjs",

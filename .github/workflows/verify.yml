@@ -460,6 +460,9 @@ jobs:
           node scripts/generate-guild-blocks.mjs --check
           node node_modules/vite/bin/vite.js build --config apps/portal-web/guild-preview/vite.config.ts
       - name: Run the fixed guild runtime, integration and preview cases
+        env:
+          # This job's synthetic PostgreSQL service uses loopback trust only.
+          TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
         run: |
           node .freedom/trusted/scripts/ci/run-guild-runtime.mjs
           node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --guild-presentation --output .freedom/reports/guild-integration.json
