@@ -204,7 +204,7 @@ test('a non-primary guild leader edits, publishes, and reverts the launchpad', a
   } finally { await session.context.close(); await cleanup(e2eAuthPool, fixture.userId, fixture.previousOfficer); }
 });
 
-test('a chair delegates editing and preview only, then revokes access from a stale editor', async ({browser, baseURL, e2eAuthPool}) => {
+test('a chair delegates editing and preview only, then revokes access from a stale editor', async ({browser, baseURL, e2eAuthPool}, testInfo) => {
   test.setTimeout(180_000);
   const chair = await seed(e2eAuthPool);
   const member = await seed(e2eAuthPool, false);
@@ -214,6 +214,15 @@ test('a chair delegates editing and preview only, then revokes access from a sta
   const sessions: Awaited<ReturnType<typeof login>>[] = [];
   const path = `/api/v1/guilds/${edited}`;
   const mission = `委派草稿 ${randomUUID().slice(0, 8)}`;
+  let originalFailure: unknown;
+  let failed = false;
+  const responseFor = (page: Page, phase: string, endpoint: string, click: () => Promise<unknown>) => test.step(phase, async () => {
+    const [response] = await Promise.all([
+      page.waitForResponse(response => response.url().endsWith(endpoint) && response.request().method() === 'POST', {timeout: 30_000}),
+      click(),
+    ]);
+    return response;
+  });
   try {
     const leader = await login(browser, baseURL!, chair.email);
     sessions.push(leader);
@@ -230,9 +239,8 @@ test('a chair delegates editing and preview only, then revokes access from a sta
     await leader.page.getByLabel('發布配置', {exact: true}).uncheck();
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
     await leader.page.getByLabel('到期時間', {exact: true}).fill(expiry);
-    const granted = leader.page.waitForResponse(response => response.url().endsWith(`${path}/launchpad-delegations`) && response.request().method() === 'POST');
-    await leader.page.getByRole('button', {name: '授權', exact: true}).click();
-    const grantResponse = await granted;
+    const grantResponse = await responseFor(leader.page, 'chair grants edit and preview', `${path}/launchpad-delegations`,
+      () => leader.page.getByRole('button', {name: '授權', exact: true}).click());
     expect(grantResponse.status()).toBe(201);
     const grant = await grantResponse.json();
     expect(grant.capabilities).toEqual(['guild.content.edit', 'guild.config.preview']);
@@ -245,16 +253,14 @@ test('a chair delegates editing and preview only, then revokes access from a sta
     await expect(delegate.page.getByRole('button', {name: '撤銷', exact: true})).toHaveCount(0);
     await expect(delegate.page.getByLabel('成員', {exact: true})).toHaveCount(0);
     await delegate.page.locator('#launchpad-mission').fill(mission);
-    const saved = delegate.page.waitForResponse(response => response.url().endsWith(`${path}/launchpad-config/drafts`) && response.request().method() === 'POST');
-    await delegate.page.getByRole('button', {name: '儲存草稿', exact: true}).click();
-    const savedResponse = await saved;
+    const savedResponse = await responseFor(delegate.page, 'delegate saves draft', `${path}/launchpad-config/drafts`,
+      () => delegate.page.getByRole('button', {name: '儲存草稿', exact: true}).click());
     expect(savedResponse.status()).toBe(201);
     const draft = await savedResponse.json();
     expect(draft.body.mission_override).toBe(mission);
     await expect(delegate.page.getByText(/已儲存草稿版本/)).toBeVisible();
-    const previewed = delegate.page.waitForResponse(response => response.url().endsWith(`${path}/launchpad-config/preview`) && response.request().method() === 'POST');
-    await delegate.page.getByRole('button', {name: '預覽公開', exact: true}).click();
-    const previewResponse = await previewed;
+    const previewResponse = await responseFor(delegate.page, 'delegate previews draft', `${path}/launchpad-config/preview`,
+      () => delegate.page.getByRole('button', {name: '預覽公開', exact: true}).click());
     expect(previewResponse.status()).toBe(200);
     expect(await previewResponse.json()).toMatchObject({effective_config: {mission_override: mission}, preview_data_origin: 'synthetic_fixture'});
     const preview = delegate.page.getByRole('dialog', {name: '合成預覽', exact: true});
@@ -285,17 +291,16 @@ test('a chair delegates editing and preview only, then revokes access from a sta
     await delegate.page.locator('#launchpad-mission').fill(`${mission} 撤權後修改`);
     await leader.page.getByRole('listitem').filter({hasText: member.displayName}).getByRole('button', {name: '撤銷', exact: true}).click();
     await leader.page.getByRole('dialog', {name: '撤銷授權', exact: true}).getByLabel('撤銷原因', {exact: true}).fill('結束本次編輯委派');
-    const revoked = leader.page.waitForResponse(response => response.url().endsWith(`${path}/launchpad-delegations/${grant.delegation_id}/revoke`) && response.request().method() === 'POST');
-    await leader.page.getByRole('button', {name: '確認撤銷', exact: true}).click();
-    expect((await revoked).status()).toBe(200);
+    const revoked = await responseFor(leader.page, 'chair revokes delegate', `${path}/launchpad-delegations/${grant.delegation_id}/revoke`,
+      () => leader.page.getByRole('button', {name: '確認撤銷', exact: true}).click());
+    expect(revoked.status()).toBe(200);
     await expect(leader.page.getByText('已撤銷授權。', {exact: true})).toBeVisible();
     for (const action of [
       {label: '儲存草稿', endpoint: 'drafts'},
       {label: '預覽公開', endpoint: 'preview'},
     ]) {
-      const denied = delegate.page.waitForResponse(response => response.url().endsWith(`${path}/launchpad-config/${action.endpoint}`) && response.request().method() === 'POST');
-      await delegate.page.getByRole('button', {name: action.label, exact: true}).click();
-      const response = await denied;
+      const response = await responseFor(delegate.page, `revoked delegate is denied: ${action.endpoint}`, `${path}/launchpad-config/${action.endpoint}`,
+        () => delegate.page.getByRole('button', {name: action.label, exact: true}).click());
       expect(response.status()).toBe(403);
       expect(await response.json()).toMatchObject({code: 'guild_leader_required'});
       await expect(delegate.page.getByRole('alert')).toHaveText('此操作限目前在任的公會長。');
@@ -307,15 +312,33 @@ test('a chair delegates editing and preview only, then revokes access from a sta
     const publicAfterRevoke = await leader.page.request.get(`/api/v1/public/guilds/${edited}/launchpad`);
     expect(publicAfterRevoke.status()).toBe(200);
     expect((await publicAfterRevoke.json()).config).toEqual(publicConfig);
-    await delegate.page.reload();
+    await test.step('reload revoked delegate', () => delegate.page.reload({timeout: 30_000}));
     await expect(delegate.page.getByRole('heading', {level: 1, name: chair.editedName})).toBeVisible();
     await expect(delegate.page.locator('#launchpad-mission')).toHaveCount(0);
     await expect(delegate.page.getByRole('button', {name: '預覽公開', exact: true})).toHaveCount(0);
+  } catch (error) {
+    failed = true; originalFailure = error;
   } finally {
-    for (const session of sessions) await session.context.close();
-    await cleanup(e2eAuthPool, member.userId, undefined);
-    await cleanup(e2eAuthPool, chair.userId, chair.previousOfficer);
+    // Do not let one context-close failure skip another context or fixture cleanup,
+    // or replace the phase/assertion that originally failed.
+    const cleanupErrors: unknown[] = [];
+    const attempt = async (phase: string, action: () => Promise<unknown>) => {
+      try { await test.step(phase, action); }
+      catch (error) {
+        cleanupErrors.push(error);
+        console.error(`Delegation cleanup failed (${phase}): ${String(error)}`);
+      }
+    };
+    await Promise.all(sessions.map((session, index) => attempt(`close session ${index + 1}`, () => session.context.close())));
+    await attempt('clean delegate fixture', () => cleanup(e2eAuthPool, member.userId, undefined));
+    await attempt('restore chair fixture', () => cleanup(e2eAuthPool, chair.userId, chair.previousOfficer));
+    if (cleanupErrors.length) {
+      try { await testInfo.attach('delegation-cleanup-errors', {body: cleanupErrors.map(error => String(error)).join('\n'), contentType: 'text/plain'}); }
+      catch (error) { cleanupErrors.push(error); }
+      if (!failed) { failed = true; originalFailure = new AggregateError(cleanupErrors, 'Delegation fixture cleanup failed'); }
+    }
   }
+  if (failed) throw originalFailure;
 });
 
 test('a member who left can rejoin from the launchpad', async ({browser, baseURL, e2eAuthPool}) => {
@@ -369,3 +392,4 @@ test('a failed public launchpad chunk can return home and recover after reload',
     await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
   } finally { await context.close(); }
 });
+

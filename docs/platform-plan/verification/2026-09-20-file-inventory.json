@@ -20564,8 +20564,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 26353,
-      "sha256": "dc1e07716c841473da81813689ca9923a5084b372033fd6668638454111ad77a"
+      "bytes": 27563,
+      "sha256": "582a49493cd9075c30a74aa70ef24d374ef0eb5d645405b892393496d5d6c7dd"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",
