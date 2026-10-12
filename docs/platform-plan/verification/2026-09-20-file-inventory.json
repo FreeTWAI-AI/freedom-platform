@@ -2650,7 +2650,7 @@
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
       "bytes": 25389,
-      "sha256": "92da9fbd2e758124befafa66056c3f7aa5bcdcace1c8bec3455c4d973d5ab231"
+      "sha256": "e3c7671ef3f34c272414bfb6986a86314324b12e707853fe707a5956f9c7d8ac"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningActionCard.tsx",

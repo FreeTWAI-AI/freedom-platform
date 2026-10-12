@@ -33,7 +33,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const refresh=useCallback(async()=>{
     const sequence=++loadSequence.current,generation=client.sessionGeneration;
     const current=()=>sequence===loadSequence.current&&generation===client.sessionGeneration;
-    setLoading(true);setLoadError(null);setProjects([]);
+    setLoading(true);setLoadError(null);
     try{
       const items=requireItems<Project>(await client.get('/opensource/projects'),'開源作品');
       // A stable management link must also reach works beyond the collection's
@@ -46,7 +46,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
     catch(cause){if(current())setLoadError(cause instanceof Error?cause.message:'無法載入開源作品。');}
     finally{if(current())setLoading(false);}
   },[client,session.user.user_id,projectId]);
-  useEffect(()=>{void refresh();return()=>{loadSequence.current++;};},[refresh]);
+  useEffect(()=>{setProjects([]);void refresh();return()=>{loadSequence.current++;};},[refresh]);
   return <div className="stack">
     <WorkSharingEntry current="opensource"/>
     <SimpleSkillSubmission key={`${session.user.user_id}:${client.sessionGeneration}`} userId={session.user.user_id} resumeId={resumeId} client={client} withdrawnProjectIds={projects.filter(project=>Boolean(project.sharing_withdrawn_at)).map(project=>project.project_id)} onPublished={refresh} onOpenDraft={openSkill}/>
