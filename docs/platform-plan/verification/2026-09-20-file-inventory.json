@@ -149,8 +149,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 32844,
-      "sha256": "abd92a3c994d68cbfac31ebdde35f649ac75895a89e3d42c6d5c1e654bce67e9"
+      "bytes": 32957,
+      "sha256": "ecf07bea8fbf7b63822bc53868332505736fbbec8cd5a362f166f4f0e980c52b"
     },
     {
       "path": "apps/freedom.module.json",
@@ -20214,8 +20214,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 70310,
-      "sha256": "d0ac93b14acbdee6010418122f74d85824892279c3059d4ee0ecdc4b5fdc265e"
+      "bytes": 70615,
+      "sha256": "802539ef7ea0f4f8d68b1b34edf112da23e65b1f26a1c3d7e52080a7c832553f"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",

@@ -669,7 +669,10 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   const consumers = jobBlock(text, 'governance-consumers');
   assert.match(consumers, /node \.freedom\/trusted\/scripts\/ci\/run-pinned-suite\.mjs --root \. --suite ci\.contracts-pytest/);
   assert.match(consumers, /node \.freedom\/trusted\/scripts\/ci\/run-pinned-suite\.mjs --root \. --suite ci\.pinned-pytest-integration/);
-  assert.match(consumers, /npm run verify:inventory/);
+  assert.doesNotMatch(text, /run: npm run verify:inventory/);
+  assert.match(integrity, /python \.freedom\/trusted\/scripts\/ci\/verify-source-boundaries\.py/);
+  assert.match(integrity, /python \.freedom\/trusted\/scripts\/release-source-archive\.py build/);
+  assert.match(integrity, /python \.freedom\/trusted\/scripts\/release-source-archive\.py verify/);
 
   assert.match(integrity, /--suite ci\.selector-unit/);
   assert.match(integrity, /--suite ci\.governance-unit/);

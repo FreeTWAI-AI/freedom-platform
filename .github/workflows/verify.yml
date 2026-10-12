@@ -622,7 +622,8 @@ jobs:
           FREEDOM_CONSUMER_SOURCE_COMMIT: 91b943ac61e132fbbce72ea066cb2301aa065600
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.contracts-pytest
-      - run: npm run verify:inventory
+      # Source identity/SQL/link checks belong to the always-required
+      # source-integrity job; main also archives and restores the complete tree.
   # Selected preflight must succeed for verify. Enforcing this revision through
   # an installed workflow pin still requires its reviewed ruleset upgrade.
   deploy-preflight:
