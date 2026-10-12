@@ -1,4 +1,5 @@
 import {spawn} from 'node:child_process';
+import {verificationEnvironment} from '../process-env.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {runtimeCleanupDiagnostic} from '../runtime-databases.mjs';
@@ -46,41 +47,94 @@ class Client {
 }
 Module._load=function(request,...rest){return request==='pg'?{Client}:oldLoad.call(this,request,...rest)};
 process.once('message',async()=> {
+ if(process.argv[4]==='hang'){setInterval(()=>{},1000);return;}
+ let diagnosticAttempted=false,diagnosticEagain=false;
  if(process.argv[3]==='full'){
-  const fs=require('node:fs');let saturated=false;
-  for(let i=0;i<1024;i++)try{fs.writeSync(2,Buffer.alloc(65536));}catch(error){if(error.code!=='EAGAIN')throw error;saturated=true;break;}
-  if(!saturated)throw Error('fixture_stderr_not_saturated');
+  // Deliberately initialize the fixture pipe before filling it. The normal
+  // scenario leaves stderr untouched until the product writer initializes it.
+  process.stderr._handle.setBlocking(false);
+  const fs=require('node:fs');
+  const flags=/^flags:[ \t]+([0-7]+)$/m.exec(fs.readFileSync('/proc/self/fdinfo/2','utf8'));
+  if(!flags||!(Number.parseInt(flags[1],8)&fs.constants.O_NONBLOCK))throw Error('fixture_stderr_not_nonblocking');
+  for(let pass=0;pass<2;pass++){
+   if(pass)await new Promise(resolve=>setTimeout(resolve,100));
+   let saturated=false;
+   for(let i=0;i<1024;i++)try{fs.writeSync(2,Buffer.alloc(65536));}catch(error){if(error.code!=='EAGAIN')throw error;saturated=true;break;}
+   if(!saturated)throw Error('fixture_stderr_not_saturated');
+  }
+  const originalWrite=fs.writeSync;
+  fs.writeSync=function(fd,chunk,...args){
+   if(fd===2&&String(chunk).startsWith('{"event":"runtime_database_cleanup"')){
+    diagnosticAttempted=true;
+    try{return originalWrite.call(this,fd,chunk,...args);}catch(error){if(error.code==='EAGAIN')diagnosticEagain=true;throw error;}
+   }
+   return originalWrite.call(this,fd,chunk,...args);
+  };
   process.stdout.write('stderr saturated\\n');
+  if(process.argv[5]==='blocking'){process.stderr._handle.setBlocking(true);process.stdout.write('stderr blocking\\n');}
  }
  const {createRuntimeDatabases}=await import(process.argv[1]);
  const created=await createRuntimeDatabases('postgresql://review@localhost/fp_review',1);
  process.stdout.write('cleanup result='+await created.cleanup()+' remaining_databases='+dbs.size+'\\n');
+ process.stdout.write('diagnostic attempted='+diagnosticAttempted+' eagain='+diagnosticEagain+'\\n');
  process.disconnect();
  setTimeout(()=>process.stdout.write('process remained alive\\n'),50);
 });
 `;
+function runFixture(scenario, signal, budgetMs = 5000) {
+  return new Promise((resolve,reject)=>{
+    const child=spawn(process.execPath,['-e',childCode,new URL('../runtime-databases.mjs',import.meta.url).href,
+      scenario.retain?'retain':'drop',scenario.full?'full':'normal',scenario.hang?'hang':'run',scenario.blocking?'blocking':'normal'],
+      {env:verificationEnvironment(),stdio:['ignore','pipe','pipe','ipc']});
+    let out='',diagnostics='',failure;
+    const dispose=()=>{
+      if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
+      child.stdout.destroy();child.stderr.destroy();
+    };
+    const stop=error=>{failure??=error;dispose();};
+    const abort=()=>stop(Error('cleanup_fixture_aborted'));
+    const timer=setTimeout(()=>stop(Error('cleanup_fixture_deadline')),budgetMs);
+    signal.addEventListener('abort',abort,{once:true});
+    if(signal.aborted)abort();
+    child.stdout.on('data',chunk=>{out+=chunk;});
+    child.on('error',stop);
+    child.on('close',(code,exitSignal)=>{
+      clearTimeout(timer);signal.removeEventListener('abort',abort);
+      try {if(failure)reject(failure);else resolve({code,signal:exitSignal,out,diagnostics});}
+      finally {dispose();}
+    });
+    const run=()=>{if(!failure)child.send('run',error=>{if(error)stop(error);});};
+    if(scenario.closed){child.stderr.once('close',run);child.stderr.destroy();}
+    else if(scenario.full){child.once('exit',()=>child.stderr.destroy());run();}
+    else {child.stderr.on('data',chunk=>{diagnostics+=chunk;});run();}
+  });
+}
 for (const scenario of [
   {closed:false, retain:false}, {closed:true, retain:false}, {closed:true, retain:true},
   {closed:false, retain:false, full:true},
-]) test(`cleanup remains fail-closed with diagnostic pipe closed=${scenario.closed}, retained=${scenario.retain}, full=${Boolean(scenario.full)}`, {timeout:10000}, async () => {
-  const result=await new Promise((resolve,reject)=>{
-    const child=spawn(process.execPath,['-e',childCode,new URL('../runtime-databases.mjs',import.meta.url).href,scenario.retain?'retain':'drop',scenario.full?'full':'normal'],
-      {stdio:['ignore','pipe','pipe','ipc']});
-    let out='',diagnostics='';
-    child.stdout.on('data',chunk=>{out+=chunk;});
-    child.on('error',reject);
-    child.on('close',(code,signal)=>resolve({code,signal,out,diagnostics}));
-    if(scenario.closed){child.stderr.once('close',()=>child.send('run'));child.stderr.destroy();}
-    else if(scenario.full){child.once('exit',()=>child.stderr.destroy());child.send('run');}
-    else {child.stderr.on('data',chunk=>{diagnostics+=chunk;});child.send('run');}
-  });
+  {closed:false, retain:false, full:true, blocking:true},
+]) test(`cleanup remains fail-closed with diagnostic pipe closed=${scenario.closed}, retained=${scenario.retain}, full=${Boolean(scenario.full)}, blocking=${Boolean(scenario.blocking)}`, {timeout:10000}, async t => {
+  const result=await runFixture(scenario,t.signal);
   assert.equal(result.code,0,JSON.stringify(result));assert.equal(result.signal,null);
   assert.match(result.out,scenario.retain?/cleanup result=false remaining_databases=1/:/cleanup result=true remaining_databases=0/);
   assert.match(result.out,/process remained alive/);
   if(scenario.full)assert.match(result.out,/stderr saturated/);
+  if(scenario.blocking){assert.match(result.out,/stderr blocking/);assert.match(result.out,/diagnostic attempted=false eagain=false/);}
+  else if(scenario.full)assert.match(result.out,/diagnostic attempted=true eagain=true/);
   if(!scenario.closed&&!scenario.full){
     const events=result.diagnostics.trim().split('\n').map(line=>JSON.parse(line));
     assert(events.some(event=>event.phase==='absence'&&event.result==='verified_absent'));
     assert.doesNotMatch(result.diagnostics,/fp_suite_|postgresql:|DROP DATABASE|password/);
   }
+});
+
+test('a stalled transport child is killed and reaped at the fixture deadline', {timeout:10000}, async t => {
+  await assert.rejects(runFixture({hang:true},t.signal,100),/cleanup_fixture_deadline/);
+});
+
+test('test cancellation kills and reaps the transport child', {timeout:10000}, async () => {
+  const controller=new AbortController();
+  const pending=runFixture({hang:true},controller.signal);
+  controller.abort();
+  await assert.rejects(pending,/cleanup_fixture_aborted/);
 });

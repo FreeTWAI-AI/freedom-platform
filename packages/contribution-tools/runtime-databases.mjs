@@ -80,10 +80,20 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
     const deadline = started + 20_000;
     let phase = 'owner_close';
     const diagnostic = (result, error) => {
+      // Initialize Node's lazy pipe handle before raw writes. Otherwise an inherited
+      // blocking fd can stall before Node configures the pipe as nonblocking.
       // A tiny synchronous fd write makes EPIPE catchable here; stream.write
       // can emit an uncaught asynchronous error after returning successfully.
       // Logging must never change cleanup success, failure, or its deadline.
-      try { fs.writeSync(2, JSON.stringify(runtimeCleanupDiagnostic(phase, result, error, performance.now() - started)) + '\n'); }
+      try {
+        const fd = process.stderr.fd;
+        // Linux CI exposes the actual open-file flags. If nonblocking output
+        // cannot be proved, omit this optional diagnostic rather than stall.
+        if (process.platform !== 'linux') return;
+        const flags = /^flags:\s+([0-7]+)$/m.exec(fs.readFileSync(`/proc/self/fdinfo/${fd}`, 'utf8'));
+        if (!flags || !(Number.parseInt(flags[1], 8) & fs.constants.O_NONBLOCK)) return;
+        fs.writeSync(fd, JSON.stringify(runtimeCleanupDiagnostic(phase, result, error, performance.now() - started)) + '\n');
+      }
       catch { /* A closed diagnostic stream cannot change cleanup semantics. */ }
     };
     const remaining = () => Math.floor(deadline - performance.now());

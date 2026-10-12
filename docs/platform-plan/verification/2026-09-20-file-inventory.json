@@ -149,8 +149,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 26381,
-      "sha256": "4ed51056378a1d49acc93c722636113712ecddf77d8e6157db66f0c22f252b92"
+      "bytes": 32957,
+      "sha256": "ecf07bea8fbf7b63822bc53868332505736fbbec8cd5a362f166f4f0e980c52b"
     },
     {
       "path": "apps/freedom.module.json",
@@ -18904,8 +18904,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 4415,
-      "sha256": "572c688afe5ea098deb759302d9a9cf6d3f8fe7cbf18b823ad2dcf6fe8d65dc0"
+      "bytes": 4638,
+      "sha256": "a348e0881b385d87544e8d310dcdcd5c0e408d8c927568c0c029aa0b55236716"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -18958,6 +18958,11 @@
       "sha256": "df363d63c8792576f2d053f81ad9e4c4a384f1b6b37c607cafde20fa2d5df93d"
     },
     {
+      "path": "packages/contribution-tools/guild-presentation-profile.mjs",
+      "bytes": 2890,
+      "sha256": "73de6d92407a1a8fa3593ec861bd2a1496c589e56cd92c89dc226b6ec0745e3d"
+    },
+    {
       "path": "packages/contribution-tools/io.mjs",
       "bytes": 9366,
       "sha256": "72f7efa4d7e7f068dd7dc34641eb5ba743c39a49630121a512ea665321b70c00"
@@ -18974,13 +18979,13 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 15829,
-      "sha256": "0ff2806f7767253f3eeb211fe2c4c66335736f6e9571cfba86b569783459a536"
+      "bytes": 17097,
+      "sha256": "a5847950ff279c85ed77e679183bb46cf43fbb921396a835ad37b47a813d8ba8"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
-      "bytes": 6533,
-      "sha256": "fcb5e7f12a6896a8eff9abef7e35ea26d75fbdb2f773f7ed260cb28162cb4244"
+      "bytes": 6583,
+      "sha256": "7171becb9099e5ed13a8cd236cfac8fc455e0023f767123cd3dc353a0876c0af"
     },
     {
       "path": "packages/contribution-tools/process-env.mjs",
@@ -18989,8 +18994,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-databases.mjs",
-      "bytes": 12706,
-      "sha256": "158d6318e408e5bbfbcd8b0ceb5755d87d2b0e31f55fbb4a8600d2dc921b0bf9"
+      "bytes": 13322,
+      "sha256": "f1f7efe030cb3c96f5033e6e30f80a1f3140c7c2b9aa674f8aa38646db6c0cfe"
     },
     {
       "path": "packages/contribution-tools/runtime-file-weights.mjs",
@@ -19004,8 +19009,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 8970,
-      "sha256": "733e9a95f03ab519ea09dfe2eb828a693b1dc680c564d0159087ca0733b9edcf"
+      "bytes": 9126,
+      "sha256": "8a3d541c27e88e24b9ac68254d9bb55b19136681a15c6dfe348b8de05f28eecb"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -19209,13 +19214,13 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 33083,
-      "sha256": "37fc0fbf895eebd5c996a5125ad36d694960193f72eab8b1a88784221f968cf6"
+      "bytes": 36166,
+      "sha256": "be81b299890c0e24a2b2ac1a5df423bd406865f82f4d9a826797c82cc8e7cd01"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
-      "bytes": 23074,
-      "sha256": "759473ccbec8d29e9e96429d705d597c547d0b603e9e729417905ccc88b44240"
+      "bytes": 23355,
+      "sha256": "60dd5f69614323a66213a9a87dd8c862ed0a458f3e458eea3eec6efa945a2ada"
     },
     {
       "path": "packages/contribution-tools/test/reconcile-issue-closures.test.mjs",
@@ -19224,8 +19229,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-cleanup-diagnostics.test.mjs",
-      "bytes": 5652,
-      "sha256": "9f3e071a89049059e01a1cf4e4d93bd721de57572d306cca72aa355cb71809e8"
+      "bytes": 8615,
+      "sha256": "ca053780f11f7a00bddd38ea081f573b70f4c780fd71ea77bc8e29428eb7958d"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
@@ -19419,8 +19424,8 @@
     },
     {
       "path": "packages/guild-presentation/README.md",
-      "bytes": 5255,
-      "sha256": "128bd29579eb3300359146c22f4ce400174995b896dc512eade4ba23d8396cba"
+      "bytes": 7485,
+      "sha256": "ce220d6da2845022da8d98dcd3c0ccc8ed022ab19f9452e42b4828161afda190"
     },
     {
       "path": "packages/guild-presentation/block.ts",
@@ -20163,6 +20168,11 @@
       "sha256": "22d11ea12748a6e70a15244faa85c4a5891139f4c8ee0a5a081fe44cae7c8dd4"
     },
     {
+      "path": "scripts/ci/guild-presentation-profile.test.mjs",
+      "bytes": 8338,
+      "sha256": "7b78caf3cf25de4a601d7cb7f4c89f5fe3e963bd2e22e3fab41b60f66c263358"
+    },
+    {
       "path": "scripts/ci/native-cli-audit-readback.mjs",
       "bytes": 1545,
       "sha256": "82ffb3dab5201047160d5166eb056e10768deb6887c09eff6ef25aab9c248c94"
@@ -20178,6 +20188,11 @@
       "sha256": "bc8ebfbace821b9abcb14c94e8cb868e12e6aef61bd240d04cdcff4dad9d564b"
     },
     {
+      "path": "scripts/ci/pinned-guild-preview.config.mjs",
+      "bytes": 1174,
+      "sha256": "e6c8a9af434a304788be43f3b6e88d32c9097b27560a1ee1574185d09476dc91"
+    },
+    {
       "path": "scripts/ci/pinned-playwright.config.mjs",
       "bytes": 2490,
       "sha256": "9dad823997840997d3d7e5d0ab64b89b66156b3671ab8d3c614b6d3dcf55d41d"
@@ -20189,8 +20204,8 @@
     },
     {
       "path": "scripts/ci/release-inventory.md",
-      "bytes": 5505,
-      "sha256": "8a7701f1fee75450647d241280f0fbfc66c91aabfd7794431382c1177cfb9576"
+      "bytes": 6065,
+      "sha256": "f4a8109fe5f7fdee0afe50da3a176e0461e70772a5a4d0646d618973c726783b"
     },
     {
       "path": "scripts/ci/render-bwrap-deleted-compat.py",
@@ -20198,9 +20213,14 @@
       "sha256": "4b3ea7018bed2c44b988ab0d8ec23f0d9f422c0552e19532b113cb225a93d102"
     },
     {
+      "path": "scripts/ci/run-guild-runtime.mjs",
+      "bytes": 1116,
+      "sha256": "8ec21e250f7f9c846893e9ded2cf9fce1bd364afcd4e833fb6de1a77ce7b24e7"
+    },
+    {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 9494,
-      "sha256": "a207dfb806b213ff6cee37fda9f0495aa425becaa7c85c5bb5b3abdafa286bae"
+      "bytes": 10570,
+      "sha256": "840122e4d825612ef5f19cdb1a6dcfd0f1f483db6bfe6190f3997cc655b19658"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -20209,18 +20229,23 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 33252,
-      "sha256": "09578dd5c6cec2366153b661df0376e9daa94306d4b60f06ecdf09f4ddd047aa"
+      "bytes": 38964,
+      "sha256": "a5948d18ec0a473f3a970fcc9d08bc8bd571b0110b1538b637de306d9bea427a"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 70153,
-      "sha256": "25e83ea0b713677474b97c58fa7fee8f83b224c1d952e605b53d8089a38afa7a"
+      "bytes": 70615,
+      "sha256": "802539ef7ea0f4f8d68b1b34edf112da23e65b1f26a1c3d7e52080a7c832553f"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
       "bytes": 16033,
       "sha256": "e5388bbc79f8719c3abed612f50b5f1c683034687fd64d81219f2a431c0f5c53"
+    },
+    {
+      "path": "scripts/ci/test_source_boundaries.py",
+      "bytes": 8595,
+      "sha256": "0ac4792ef5624d7c88c25d98046cf74aaa7e753c3f5152f300dbe3290277f793"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
@@ -20231,6 +20256,11 @@
       "path": "scripts/ci/verify-runtime-postgres.sh",
       "bytes": 2710,
       "sha256": "6168a85ee8c9b2a63e802bddf8d7cf6b670fdb825945805414dd4217f3d34b28"
+    },
+    {
+      "path": "scripts/ci/verify-source-boundaries.py",
+      "bytes": 6593,
+      "sha256": "f67a973c4e1d731015fcb3aac33cc4ed019d5f190dd9611b4857f3bc78c4b3bc"
     },
     {
       "path": "scripts/lib/openrouter-acceptance-guard.ts",
@@ -20284,8 +20314,8 @@
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
-      "bytes": 20060,
-      "sha256": "c6bf298ee1e8506a3fb1994b7a69e42918da547ce6626c517076f7908568a0c9"
+      "bytes": 20449,
+      "sha256": "f292180f9e6794b52fba502b3da6eb1a6ce3be22f3b05ac7281dd054e9898161"
     },
     {
       "path": "tests/contribution-tools/runtime-union.integration.test.mjs",
@@ -20529,8 +20559,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1472,
-      "sha256": "3f71524fada3a5d892fad4b3b88e235508d4e0ee32b8cbfdb128cb2f0d116a39"
+      "bytes": 1522,
+      "sha256": "4d66ad4b07326df96e8c0cb05fdebfdb53ca04baf66cf4e4ef05f4394eeb8344"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
@@ -20579,8 +20609,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",
-      "bytes": 31874,
-      "sha256": "62485387be1e8e52702a34a706748721d1aa79d576d6297454122e14eb44d597"
+      "bytes": 32145,
+      "sha256": "9ecc5037855b03fa3557c39fa87fd77d614eb735aa19c80d70da8aebdc73eaee"
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",

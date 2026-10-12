@@ -34,16 +34,24 @@ async function connect(url) {
 }
 
 async function captureCleanupDiagnostics(action) {
-  const original = fs.writeSync, events = [];
+  const originalWrite = fs.writeSync, originalRead = fs.readFileSync, events = [];
+  // Control only the diagnostic transport; all PostgreSQL operations remain real.
+  fs.readFileSync = function(path, ...args) {
+    if (path === '/proc/self/fdinfo/2') return 'flags:\t04001\n';
+    return originalRead.call(this, path, ...args);
+  };
   fs.writeSync = function(fd, chunk, ...args) {
     try {
       const event = fd === 2 ? JSON.parse(String(chunk)) : {};
-      if (event.event === 'runtime_database_cleanup') events.push(event);
+      if (event.event === 'runtime_database_cleanup') {
+        events.push(event);
+        return Buffer.byteLength(chunk);
+      }
     } catch { /* Preserve unrelated test/server output. */ }
-    return original.call(this, fd, chunk, ...args);
+    return originalWrite.call(this, fd, chunk, ...args);
   };
   try { return {result: await action(), events}; }
-  finally { fs.writeSync = original; }
+  finally { fs.writeSync = originalWrite; fs.readFileSync = originalRead; }
 }
 
 test('fresh owned databases isolate identical public tables and cleanup preserves base', {}, async () => {
