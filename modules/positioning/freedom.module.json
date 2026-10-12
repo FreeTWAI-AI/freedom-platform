@@ -10,7 +10,9 @@
     "scripts/guild-preferences-backfill.ts",
     "apps/portal-web/src/modules/GuildCard.tsx",
     "apps/portal-web/src/modules/QuickStart.tsx",
-    "apps/portal-web/src/modules/PositioningPanels.tsx"
+    "apps/portal-web/src/modules/PositioningPanels.tsx",
+    "tests/e2e/guild-alias.spec.ts",
+    "tests/e2e/guild-category-preferences.spec.ts"
   ],
   "public_exports": [
     "modules/positioning/guild-categories.ts",
