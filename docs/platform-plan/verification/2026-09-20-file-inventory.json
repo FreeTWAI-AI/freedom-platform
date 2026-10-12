@@ -154,8 +154,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 3679,
-      "sha256": "25724c7ef6dceff10f7be056d9c96e8763ae8c62f4e696b3ceb7e3c5f46e039e"
+      "bytes": 3721,
+      "sha256": "7d6e985d009e45cf7ac696352a33b5d6aedbff811cb2a3eb0e33a317c2d8372e"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -1824,8 +1824,8 @@
     },
     {
       "path": "apps/portal-web/src/SocialLayout.css",
-      "bytes": 13983,
-      "sha256": "4465604599f06b3a18c2aceed50fc454485ae5609087192c2876b2adcd3a7f23"
+      "bytes": 14343,
+      "sha256": "5253f1a10cb706ace9db6cfecae01c3ea3aaee912f13363ff54bd902827f2656"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -18964,8 +18964,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 15873,
-      "sha256": "b19c71631ce2829f79cd9045ce9cd8d946fd922a6842e2bcdb10df2ebe80beb5"
+      "bytes": 15890,
+      "sha256": "4719788541804cd05bcdc01033d6ed249023e2efac937c7c90f8c1574d2080b6"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -20339,8 +20339,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 20093,
-      "sha256": "b2fdc7ac709a7123e8baed37df5f426d7163b33e72a58d73479d973d78d51496"
+      "bytes": 20321,
+      "sha256": "df10950fcddb71ea8b69eb144647e359533de22afba43693007dab14eabf07e1"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",
@@ -20729,13 +20729,13 @@
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
-      "bytes": 19697,
-      "sha256": "354cdb01d0b232c5f2c216ff48bb3bdc0557a9414f81893b28147db3cfb43a67"
+      "bytes": 19925,
+      "sha256": "bfa27e020ee9f4c75b58144887cadf7fa085be220781851c7854e72324b6343d"
     },
     {
       "path": "tests/e2e/member-navigation-hierarchy.spec.ts",
-      "bytes": 4743,
-      "sha256": "23937af7e803edc859047ade81cd96c721185ae1caf017ef7e2723c16c9f454e"
+      "bytes": 5511,
+      "sha256": "ff4edaf5769aa29365541847e36aa4c14642f1a0e5d21ec4f49b63fa992b7ec6"
     },
     {
       "path": "tests/e2e/member-reporting.spec.ts",
@@ -20804,8 +20804,8 @@
     },
     {
       "path": "tests/e2e/navigation-audit.spec.ts",
-      "bytes": 13107,
-      "sha256": "515e8d7a4615d713bccc4feda79bc6376c05b84815412a11bbee38e15d34d947"
+      "bytes": 13335,
+      "sha256": "c25816cc16eaac7c1a53b33ca1f8e084ceb6280a073cd00e3c366486c1db619a"
     },
     {
       "path": "tests/e2e/navigation.ts",
@@ -20904,8 +20904,8 @@
     },
     {
       "path": "tests/e2e/share-launcher.spec.ts",
-      "bytes": 5466,
-      "sha256": "c1a8f7ae1dc27fdc24fd8abf245941f279d8e09aab29d8ba7fccdb5f5e5f5293"
+      "bytes": 5694,
+      "sha256": "885f44e3dd218ae2eaa7cfaefcd39e57ed3c142974ef5862a99f6e2f84367525"
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
@@ -21054,8 +21054,8 @@
     },
     {
       "path": "tests/e2e/workshop-design.spec.ts",
-      "bytes": 6598,
-      "sha256": "cd9f27fbe228adc7329ed1158bdb5fe5f2c604814a436c4027f2ee610739d956"
+      "bytes": 6617,
+      "sha256": "2fb636542b864fbc5f6194d3d53298dafbf43b544e5d7bccf76224c26e4a9e93"
     },
     {
       "path": "tests/helpers/hosted-inventory-history.ts",

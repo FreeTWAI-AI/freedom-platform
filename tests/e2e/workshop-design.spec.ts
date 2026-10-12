@@ -82,8 +82,8 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
     const response = await page.request.get(`/art/rpg/${file}.webp`);
     expect(response.status()).toBe(200);expect(response.headers()['content-type']).toContain('image/webp');
   }
-  // Lazy artwork loads when a member opens the section and scrolls to it.
-  await expect(page.locator('.home-module-cover img[src^="/art/rpg/"]')).toHaveCount(4);
+  // Destinations are compact text rows; original artwork remains available to content pages.
+  await expect(page.locator('.home-module-cover img[src^="/art/rpg/"]')).toHaveCount(0);
   for (const image of await page.locator('img[src^="/art/rpg/"]').all()) {
     if (!await image.isVisible()) continue;
     await image.scrollIntoViewIfNeeded();

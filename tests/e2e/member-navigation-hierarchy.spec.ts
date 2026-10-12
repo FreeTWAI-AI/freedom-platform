@@ -43,6 +43,18 @@ test('member hierarchy keeps one feed, distinct destinations and readable contro
   await page.route(url=>!['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
   await login(page);
   await expect(page.locator('.home-next-step')).toBeAttached();
+  for (const text of [
+    '合成示範｜把開源筆記工具整理成可分享的作品。這週補上用途、授權與操作畫面，讓第一次看到的人知道如何試用。',
+    '合成示範｜週末一起交流商品攝影。想練習的人可以先整理自己的商品照片；正式活動資訊以活動頁為準。',
+  ]) {
+    await page.getByRole('button',{name:'建立貼文',exact:true}).click();
+    const composer=page.getByRole('dialog',{name:'建立貼文',exact:true});
+    await composer.getByLabel('貼文內容',{exact:true}).fill(text);
+    await composer.getByRole('button',{name:'發布貼文',exact:true}).click();
+    await expect(composer).not.toBeVisible();
+    await expect(page.getByText(text,{exact:true})).toBeVisible();
+  }
+
   for(const theme of ['light','dark','versefolk'])for(const width of [390,768,1440]){
     await page.setViewportSize({width,height:width===1440?900:844});
     await page.evaluate(value=>{document.documentElement.dataset.theme=value;document.documentElement.dataset.experienceProfile=value;window.dispatchEvent(new Event('freedom-theme-changed'));},theme);

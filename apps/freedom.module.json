@@ -93,7 +93,8 @@
     "apps/portal-web/src/guild-blocks/GuildLaunchpadPage.tsx",
     "apps/portal-web/src/guild-blocks/GuildDirectoryPage.tsx",
     "tests/e2e/member-navigation-hierarchy.spec.ts",
-    "tests/e2e/workshop-design.spec.ts"
+    "tests/e2e/workshop-design.spec.ts",
+    "tests/e2e/navigation-audit.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],
