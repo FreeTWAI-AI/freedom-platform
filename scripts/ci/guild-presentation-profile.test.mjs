@@ -79,6 +79,7 @@ test('real clean integration selects the fixed guild lane and aggregate requires
 test('new source imports cannot preserve a falsely unchanged descriptor graph',t=>{
   const args=integration(t,"import '../../modules/community/service';\n");
   assert.equal(collectRepositoryDecision(args).mode,'full');
+  assert.equal(collectRepositoryDecision(args).reason,'guild_source_dependencies_unproven');
 });
 
 test('reviewed source import boundaries fail closed on dynamic or unfamiliar dependencies',()=>{

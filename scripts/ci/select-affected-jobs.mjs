@@ -500,6 +500,7 @@ export function collectRepositoryDecision({ repository, event, base = '', head =
   if (event !== 'pull_request') return decideAffectedJobs({ event, diffComplete: false, changes: [], baseline: [], candidate: [] });
   const guild = collectRepositoryGuildDecision({repository, event, base, head, candidate, pullRequest, allowFetch});
   if (guild.profile === GUILD_PRESENTATION_PROFILE.id) return decision('affected', guild.reason, false);
+  if (['guild_source_dependencies_unproven', 'guild_impact_unproven'].includes(guild.reason)) return full(guild.reason);
   const root = typeof repository === 'string' && isAbsolute(repository) ? resolve(repository) : '';
   if (!root || root.startsWith('-') || !SHA.test(base) || !SHA.test(head)) return full('diff_unproven');
   if (!ensureCommit(root, base, '', allowFetch) || !ensureCommit(root, head, pullRequest, allowFetch)) return full('diff_unproven');

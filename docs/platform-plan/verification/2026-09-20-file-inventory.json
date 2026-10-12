@@ -20149,8 +20149,8 @@
     },
     {
       "path": "scripts/ci/guild-presentation-profile.test.mjs",
-      "bytes": 7813,
-      "sha256": "08b33f6e66b6e02e3bd8f50879f4b0e3ecc7a53d9837f74f4c95060bd0baea30"
+      "bytes": 7906,
+      "sha256": "d7141c9ea7dee6b5ebe7b93e300068094e8cc1045548658804277f833731b4eb"
     },
     {
       "path": "scripts/ci/native-cli-audit-readback.mjs",
@@ -20209,8 +20209,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 38843,
-      "sha256": "42998aac34bd5e3e34f3eb9fb1bff63c50a6a3b04e60b81910f4eb2da8fda407"
+      "bytes": 38964,
+      "sha256": "a5948d18ec0a473f3a970fcc9d08bc8bd571b0110b1538b637de306d9bea427a"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
