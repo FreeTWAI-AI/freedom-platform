@@ -61,17 +61,24 @@
     "apps/portal-web/src/modules/PositioningActionCard.tsx",
     "apps/portal-web/src/modules/work-document-reader.ts",
     "tests/runtime/positioning-action-card.test.ts",
-    "tests/runtime/launchpad-profile-defaults.test.ts"
+    "tests/runtime/launchpad-profile-defaults.test.ts",
+    "contracts/guild-launchpad/v2/**",
+    "tests/e2e/guild-block-composition.spec.ts"
   ],
   "public_exports": [
     "modules/guild-workspace/launchpad-config.ts",
     "modules/guild-workspace/launchpad-view.ts",
     "apps/platform-api/src/routes/guild-launchpad.ts",
-    "contracts/guild-launchpad/v1/config.ts"
+    "contracts/guild-launchpad/v1/config.ts",
+    "contracts/guild-launchpad/v2/config.ts",
+    "modules/guild-workspace/LegacyLaunchpadPrimary.tsx",
+    "modules/guild-workspace/launchpad-layout-guards.ts"
   ],
   "dependencies": [
     "command-core",
-    "module-registry"
+    "module-registry",
+    "guild-presentation",
+    "agent-commerce"
   ],
   "contract_families": [],
   "client_profiles": [],

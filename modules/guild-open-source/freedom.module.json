@@ -1,0 +1,13 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "guild-open-source",
+  "owner_role": "guild-open-source-maintainer",
+  "owned_paths": ["modules/guild-open-source/**"],
+  "public_exports": ["modules/guild-open-source/WorksBlock.tsx"],
+  "dependencies": ["guild-presentation", "personal-content"],
+  "contract_families": [], "client_profiles": ["member"],
+  "instructions": ["AGENTS.md", "DESIGN.md"],
+  "invariants": ["current-authority-before-replay", "no-secrets-in-artifacts"],
+  "tests": ["runtime.guild-blocks"],
+  "surfaces": [{"surface_id": "guild-block.open-source-works.v1", "kind": "page", "entry": "modules/guild-open-source/WorksBlock.tsx", "operations": ["community.personal-content-page.view"], "auth_profile": "member-session"}]
+}
