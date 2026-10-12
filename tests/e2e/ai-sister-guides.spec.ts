@@ -132,13 +132,18 @@ test('OFF or mismatched AI release cannot load art, and late AI release cannot r
 
 test('bright AI Sister panel and wardrobe remain readable within desktop, tablet and mobile viewports',async({page},testInfo)=>{
   await page.emulateMedia({reducedMotion:'reduce'});await registerJoined(page);
+  await expect(page.locator('.freedom-home')).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   expect(await widget(page).evaluate(element=>getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
   expect(await widget(page).evaluate(element=>getComputedStyle(element).color)).toBe('rgb(28, 38, 54)');
   const directory=process.env.FREEDOM_GUIDE_SCREENSHOT_DIR??testInfo.outputPath('screenshots');await mkdir(directory,{recursive:true});
   for(const width of [1440,1280,1279,1024,768,390,320]){
     await page.setViewportSize({width,height:width<=390?844:900});await page.evaluate(()=>{window.scrollTo(0,0);document.querySelector('.workspace-companion')?.scrollTo(0,0)});await imageReady(widget(page).locator('.page-spirit-art'));await fits(page,widget(page),true);
-    const companion=(await page.locator('.workspace-companion').boundingBox())!,main=(await page.locator('#main-content').boundingBox())!;
+    // Both rectangles must describe the same layout, not two sides of an async home render.
+    const {companion,main}=await page.evaluate(()=>{
+      const box=(selector:string)=>{const {x,y,width,height}=document.querySelector(selector)!.getBoundingClientRect();return {x,y,width,height};};
+      return {companion:box('.workspace-companion'),main:box('#main-content')};
+    });
     if(width>=1280)expect(main.x+main.width).toBeLessThanOrEqual(companion.x);
     else expect(companion.y+companion.height).toBeLessThanOrEqual(main.y);
     await page.screenshot({path:`${directory}/ai-sister-presence-${width}.png`});

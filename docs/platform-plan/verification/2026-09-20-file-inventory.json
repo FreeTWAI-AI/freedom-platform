@@ -15089,8 +15089,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 24802,
-      "sha256": "a5e8ec7b44ee1a202db54ce39af8fc8731389476f40d6aa6060f5ae0f67fd9c6"
+      "bytes": 24126,
+      "sha256": "af36085309bb12f6bbeb390f9e896f7b839e3b38d632cd2e21ff9499ddcb567d"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15499,8 +15499,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 65237,
-      "sha256": "0b2a4f4fdb3c7b1a70b165e7a9a9dd0dcb76cb7cea880b84198f67f581394a79"
+      "bytes": 66713,
+      "sha256": "7958b9bd55575676c57edac2a55f2903e00353d2331ae7b0ff5a727ee6dd87dd"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -15519,8 +15519,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 109398,
-      "sha256": "89c974d44f90b85e3e30ef21673eb68659b9eb6d785815cf376f26b454ea64aa"
+      "bytes": 114188,
+      "sha256": "6e699ab5a821d6ad062d7368e51e8f059f946c44300b82eb8808b29528e46eee"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -15661,6 +15661,11 @@
       "path": "docs/platform-plan/execution/unified-foundation/rollout-r18-2026-10-11.json",
       "bytes": 48981,
       "sha256": "f0dd5edc973b57302bc19b17459e5ffc62b05b2e8ad5c0db30636db898b01098"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/rollout-r19-2026-10-11.json",
+      "bytes": 39227,
+      "sha256": "9e8944a8e8c3a8d8f5b2940c5963c46d6c690474bf0265304570a352e0151383"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json",
@@ -20329,8 +20334,8 @@
     },
     {
       "path": "tests/e2e/ai-sister-guides.spec.ts",
-      "bytes": 17117,
-      "sha256": "5de22fb04785a2d63b78e35fd3c1823bc2c2757d582cfbf189fea58dc94f9a23"
+      "bytes": 17421,
+      "sha256": "47df275e2d43afcce71b10e86a8f6ddc73b21a400dc361326d598f8b7c0ad5cf"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",
