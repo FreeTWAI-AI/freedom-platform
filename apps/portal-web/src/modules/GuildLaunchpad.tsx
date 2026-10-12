@@ -208,13 +208,18 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   const returnSection = useRef<string | null>(null);
   const applicationsSection = useRef<HTMLElement | null>(null);
   const focusAfterReveal = useRef(false);
+  const focusAfterReturn = useRef<HTMLButtonElement | null>(null);
   useLayoutEffect(() => {
     if (focusAfterReveal.current && applicationsSection.current && !applicationsSection.current.hidden) {
       focusAfterReveal.current = false;
       applicationsSection.current.querySelector<HTMLElement>('.application-flow h3')?.focus();
     }
+    if (focusAfterReturn.current) {
+      focusAfterReturn.current.focus();
+      focusAfterReturn.current = null;
+    }
   }, [activeSection]);
-  const onLaunchStateChange = useCallback((active: boolean) => {
+  const onLaunchStateChange = useCallback((active: boolean, returnFocus?: HTMLButtonElement | null) => {
     setLaunching(active);
     if (active) {
       const applications = config.blocks.find(block => block.kind === 'applications' && block.enabled);
@@ -226,8 +231,9 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
         } else applicationsSection.current?.querySelector<HTMLElement>('.application-flow h3')?.focus();
       }
     } else if (returnSection.current) {
+      focusAfterReturn.current = returnFocus ?? null;
       selectSection(returnSection.current); returnSection.current = null;
-    }
+    } else returnFocus?.focus();
   }, [config.blocks, activeSection, selectSection]);
   const showWork = (tenantId: string, workspaceId: string) => {
     if (!canLeave() || !userId) return false;

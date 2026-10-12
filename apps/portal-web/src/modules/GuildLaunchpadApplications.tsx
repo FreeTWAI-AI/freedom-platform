@@ -35,7 +35,7 @@ export type LaunchRequest = {application_key: string; release_ref: string; nonce
 export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork, onStore, canLeave, registerPendingLeave, recommendedRefs = [], launchRequest, onLaunchStateChange}: {
   client: PortalClient; guildKey: string; publicMode: boolean; visitor?: boolean; userId?: string; onLogin?: () => void; canLeave: () => boolean; onWork?: (tenantId: string, workspaceId: string) => boolean; onStore?: (tenantId: string, instanceId: string) => boolean;
   recommendedRefs?: readonly ApplicationRef[]; launchRequest?: LaunchRequest;
-  onLaunchStateChange?: (active: boolean) => void;
+  onLaunchStateChange?: (active: boolean, returnFocus?: HTMLButtonElement | null) => void;
   registerPendingLeave: (guard: (() => boolean) | null) => void;
 }) {
   const [items, setItems] = useState<ApplicationView[]>([]);
@@ -51,8 +51,11 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
   const [launch, setLaunch] = useState<ApplicationView | null>(null);
   const launchStateChange = useRef(onLaunchStateChange);
   launchStateChange.current = onLaunchStateChange;
-  useEffect(() => {launchStateChange.current?.(Boolean(launch));}, [launch]);
   const opener = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (launchStateChange.current) launchStateChange.current(Boolean(launch), launch ? undefined : opener.current);
+    else if (!launch) opener.current?.focus();
+  }, [launch]);
   const restored = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
@@ -124,7 +127,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
       if (ticket === generation.current && !signal?.aborted) { setProblem(problemText(error)); setFailedAction({kind: 'restore'}); }
     }
   }
-  function closeLaunch() { setLaunch(null); setRestoredRow(undefined); requestAnimationFrame(() => opener.current?.focus()); }
+  function closeLaunch() { setLaunch(null); setRestoredRow(undefined); }
   async function load(next?: string) {
     const ticket = generation.current;
     setLoading(true); setProblem(''); setFailedAction(null);
