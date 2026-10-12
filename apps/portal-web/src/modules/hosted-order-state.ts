@@ -4,7 +4,7 @@ import {ReservationOrderSchema as OrderSchema, ReservationQuoteSchema as QuoteSc
 import type {z} from 'zod';
 import type {QuoteInputSchema, SubmitInputSchema} from '../../../../contracts/guild-launchpad/v1/hosted-order';
 
-export type BuyerRoute = {kind: 'lookup'} | {kind: 'shop'; slug: string} | {kind: 'intent'; slug: string; intent: string} | {kind: 'order'; id: string};
+export type BuyerRoute = {kind: 'lookup'} | {kind: 'shop'; slug: string; sku?: string} | {kind: 'intent'; slug: string; intent: string} | {kind: 'order'; id: string};
 /** Exact same-origin hash grammar; no query, encoding, private fields or redirect target. */
 export function buyerRoute(hash: string): BuyerRoute | null {
   if (hash === '#reservations') return {kind: 'lookup'};
@@ -15,6 +15,7 @@ export function buyerRoute(hash: string): BuyerRoute | null {
   const slug = p[1];
   if (!slug || !/^[a-z][a-z0-9-]{1,38}[a-z0-9]$/.test(slug) || !StoreSlugSchema.safeParse(slug).success) return null;
   if (p.length === 2) return {kind: 'shop', slug};
+  if (p.length === 4 && p[2] === 'product' && /^P[0-9]{4,23}$(?![\s\S])/.test(p[3])) return {kind: 'shop', slug, sku: p[3]};
   if (p.length === 4 && p[2] === 'intent' && id(p[3])) return {kind: 'intent', slug, intent: p[3]};
   return null;
 }
