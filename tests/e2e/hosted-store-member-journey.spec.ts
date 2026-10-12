@@ -79,9 +79,11 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     const setup = page.getByRole('form', {name: '建立商店', exact: true});
     await setup.getByLabel('商店名稱', {exact: true}).fill('新會員選物店');
     await setup.getByLabel('商店網址', {exact: true}).fill(slug);
+    await setup.getByLabel('商店介紹', {exact: true}).fill('新會員親手挑選的生活器物');
     await setup.getByRole('button', {name: '建立商店', exact: true}).click();
     const product = page.getByRole('form', {name: '新增商品', exact: true});
     await product.getByLabel('商品名稱', {exact: true}).fill('手作茶杯');
+    await product.getByLabel('商品介紹', {exact: true}).fill('手工製作，適合日常品茶');
     await product.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('350');
     await product.getByLabel('庫存', {exact: true}).fill('10');
     await product.getByRole('button', {name: '新增商品', exact: true}).click();
@@ -97,7 +99,39 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     await page.getByRole('button', {name: '發布展示頁', exact: true}).click();
     await expect(page.locator('.hosted-store').getByRole('status')).toContainText('已發布・第 1 版');
     await publicPage.reload(); await expect(publicPage.locator('.shop-products-list article')).toHaveCount(1);
-    expect(await publicPage.locator('main').innerHTML()).toBe(await preview.locator('main').innerHTML());
+    // Publication preserves the saved catalog content, while preview-only
+    // notices/details and public navigation intentionally use different markup.
+    const catalogContent = (target: Page) => target.locator('main').evaluate(main => ({
+      name: main.querySelector('h1')?.textContent,
+      brand: main.querySelector('.shop-eyebrow')?.textContent,
+      introduction: main.querySelector('.shop-introduction')?.textContent,
+      count: main.querySelector('.shop-section-heading p')?.textContent,
+      products: [...main.querySelectorAll('.shop-products-list article')].map(article => ({
+        title: article.querySelector('h3')?.textContent,
+        price: article.querySelector('.shop-price')?.textContent,
+        description: article.querySelector('.shop-product-summary')?.textContent,
+        placeholder: article.querySelector('.shop-photo-placeholder')?.textContent,
+      })),
+    }));
+    const savedCatalog = await catalogContent(preview);
+    expect(savedCatalog).toEqual({
+      name: '新會員選物店', brand: '獨立商店', introduction: '新會員親手挑選的生活器物', count: '1 件商品',
+      products: [{title: '手作茶杯', price: '$350.00',
+        description: '手工製作，適合日常品茶', placeholder: '尚未提供商品照片'}],
+    });
+    expect(await catalogContent(publicPage)).toEqual(savedCatalog);
+    await expect(preview.locator('.shop-preview-notice')).toContainText('這是未發布的預覽');
+    await expect(preview.locator('.shop-preview-description')).toContainText('手工製作，適合日常品茶');
+    await expect(preview.locator('main a[href^="/shops/"], main a[href^="/#reservations/"]')).toHaveCount(0);
+    await expect(preview.locator('link[rel="canonical"], meta[property^="og:"]')).toHaveCount(0);
+    await expect(publicPage.locator('.shop-preview-notice, .shop-preview-description')).toHaveCount(0);
+    await expect(publicPage.getByRole('link', {name: '查看商品：手作茶杯', exact: true}))
+      .toHaveAttribute('href', new RegExp(`^/shops/${slug}/products/P[0-9]{4,23}$`));
+    await expect(publicPage.getByRole('complementary', {name: '預留與交易說明'})).toBeVisible();
+    await expect(publicPage.getByRole('link', {name: '登入查看預留狀態', exact: true}))
+      .toHaveAttribute('href', '/#reservations/' + slug);
+    await expect(publicPage.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/shops/${slug}$`));
+    await expect(publicPage.locator('meta[property="og:title"]')).toHaveAttribute('content', '新會員選物店');
     await preview.close();
     await signOut(page); await login(page, email); await guildHome(page);
     await primary.getByRole('button', {name: '進入我的商店', exact: true}).click();

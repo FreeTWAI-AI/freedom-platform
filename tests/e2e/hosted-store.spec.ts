@@ -78,7 +78,7 @@ test('a commerce member opens, stocks, publishes and re-enters their own store',
   try {
     const pub = await anonymous.newPage(); await pub.goto(`/shops/${slug.toLowerCase()}`);
     await expect(pub.getByRole('heading', {level: 1})).toHaveText('小島選物');
-    await expect(pub.getByRole('note')).toHaveText('商品展示頁不提供付款或出貨；預留狀態請登入查看。');
+    await expect(pub.getByRole('complementary', {name: '預留與交易說明'})).toContainText('此頁不提供付款，也不會安排出貨。');
     await expect(pub.getByRole('link', {name: '登入查看預留狀態'})).toHaveAttribute('href', `/#reservations/${slug.toLowerCase()}`);
     for (const title of ['手工茶杯', '亞麻杯墊']) await expect(pub.getByRole('heading', {name: title, exact: true})).toBeVisible();
     for (const price of prices) await expect(pub.getByText(price, {exact: true})).toBeVisible();
@@ -164,9 +164,9 @@ test('store pages stay readable in every theme and width', async ({page, browser
   try {const pub = await anonymous.newPage(); for (const width of [360, 768, 1280]) {
     await pub.setViewportSize({width, height: 900}); await pub.goto(`/shops/${slug}`); await expect(pub.getByRole('heading', {level: 1})).toHaveText('小島選物');
     expect(await pub.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(pub.getByRole('note')).toHaveText('商品展示頁不提供付款或出貨；預留狀態請登入查看。');
+    await expect(pub.getByRole('complementary', {name: '預留與交易說明'})).toContainText('此頁不提供付款，也不會安排出貨。');
     await expect(pub.locator('form,button,script,input')).toHaveCount(0);
-    const links = pub.locator('.shop-actions a');
+    const links = pub.locator('.shop-notice a, .shop-footer a');
     await expect(links).toHaveCount(2);
     const targets = await links.evaluateAll(elements => elements.map(element => {
       const {left, right, top, bottom, width, height} = element.getBoundingClientRect();
@@ -177,7 +177,7 @@ test('store pages stay readable in every theme and width', async ({page, browser
       expect(target.left).toBeGreaterThanOrEqual(0); expect(target.right).toBeLessThanOrEqual(width);
     }
     expect(targets[0].right <= targets[1].left || targets[1].right <= targets[0].left || targets[0].bottom <= targets[1].top || targets[1].bottom <= targets[0].top).toBe(true);
-    await pub.locator('.shop-top a').focus(); await pub.keyboard.press('Tab');
+    await links.nth(0).focus();
     await expect(links.nth(0)).toBeFocused();
     await pub.keyboard.press('Tab'); await expect(links.nth(1)).toBeFocused();
     await pub.screenshot({path: testInfo.outputPath(`store-public-${width}.png`), fullPage: true});
@@ -391,7 +391,12 @@ test('saved store template survives login and matches private preview and the pu
     await page.getByRole('button', {name: '發布更新', exact: true}).click();
     await expect(storePage(page).getByRole('status')).toContainText('已發布・第 2 版'); await pub.reload();
     await expect(pub.locator('.shop-products-list article')).toHaveCount(2);
-    expect(await pub.locator('main').innerHTML()).toBe(await preview.locator('main').innerHTML());
+    expect(await pub.locator('.shop-brand-header').innerHTML()).toBe(await preview.locator('.shop-brand-header').innerHTML());
+    expect(await pub.locator('article h3').allTextContents()).toEqual(await preview.locator('article h3').allTextContents());
+    expect(await pub.locator('.shop-price').allTextContents()).toEqual(await preview.locator('.shop-price').allTextContents());
+    expect(await pub.locator('.shop-product-summary').allTextContents()).toEqual(await preview.locator('.shop-product-summary').allTextContents());
+    await expect(preview.locator('.shop-preview-notice')).toContainText('這是未發布的預覽');
+    await expect(preview.locator('meta[property^="og:"]')).toHaveCount(0);
     for (const width of [390, 768, 1440]) {
       await page.setViewportSize({width, height: 900}); await pub.setViewportSize({width, height: 900});
       for (const target of [page, pub]) expect(await target.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
