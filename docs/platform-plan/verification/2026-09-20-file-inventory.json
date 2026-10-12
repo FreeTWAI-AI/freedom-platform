@@ -19724,8 +19724,8 @@
     },
     {
       "path": "packages/testing/github-collaboration.ts",
-      "bytes": 7284,
-      "sha256": "285e655caf0faf25cfd05235f93db4dbbb46c84eda5fffd922134796d9143a24"
+      "bytes": 7388,
+      "sha256": "76543851d2c324ab0b6f3d0c3a7457febb6dc918e5178e0c09c82d704ea1cbe6"
     },
     {
       "path": "packages/testing/private-ai-product-fixture.ts",
@@ -20799,8 +20799,8 @@
     },
     {
       "path": "tests/e2e/simple-work-sharing.spec.ts",
-      "bytes": 14665,
-      "sha256": "eb2a87b6b8a87048b6aa782878f5974d7e53c80ef70b322618f66ee05d7c7ed1"
+      "bytes": 14780,
+      "sha256": "2cd091a0fc80b2eadb5cff8edd18f70d7b67c4e5c8f4b16b60b424a59dab7678"
     },
     {
       "path": "tests/e2e/skill-book-library.spec.ts",
@@ -20809,8 +20809,8 @@
     },
     {
       "path": "tests/e2e/skill-book-upgrade.spec.ts",
-      "bytes": 56045,
-      "sha256": "10069ab2677571a9293f7678358ef41504ce689d0cf5fa40fcaab13ce44a1b3e"
+      "bytes": 56321,
+      "sha256": "61361fb671f484f22aa731f163583aac6d998bf086b49f20b04ec4ec52833a75"
     },
     {
       "path": "tests/e2e/skill-editor-guild-access.spec.ts",

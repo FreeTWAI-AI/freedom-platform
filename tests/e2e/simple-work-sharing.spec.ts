@@ -144,6 +144,7 @@ test('member returns to manage a shared tool, withdraws it privately and publish
   await page.setViewportSize({width:390,height:844});
   await login(page);await navigate(page,'開源投稿');
   await fillTool(page,'可持續管理的工具');
+  await page.getByLabel('GitHub 專案網址',{exact:true}).fill('https://github.com/freetwai-test/managed-work');
   await page.getByRole('button',{name:'預覽投稿',exact:true}).click();
   await page.getByLabel('我同意公開這份作品介紹與來源關係',{exact:true}).check();
   await page.getByRole('button',{name:'確認並公開',exact:true}).click();
