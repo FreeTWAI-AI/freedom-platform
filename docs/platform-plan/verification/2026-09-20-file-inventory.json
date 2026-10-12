@@ -20179,8 +20179,8 @@
     },
     {
       "path": "tests/e2e/ai-sister-guides.spec.ts",
-      "bytes": 17117,
-      "sha256": "5de22fb04785a2d63b78e35fd3c1823bc2c2757d582cfbf189fea58dc94f9a23"
+      "bytes": 17421,
+      "sha256": "47df275e2d43afcce71b10e86a8f6ddc73b21a400dc361326d598f8b7c0ad5cf"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",
