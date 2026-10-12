@@ -98,7 +98,8 @@ test('a commerce member opens, stocks, publishes and re-enters their own store',
   } finally {await anonymous.close();}
   await signOut(page); await login(page, member.email); await open(page, `guilds/${commerce}`);
   await expect(primary(page)).toContainText('小島選物・已發布');
-  const applications = page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '應用', exact: true})});
+  await openGuildSection(page, '工具目錄');
+  const applications = page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '工具目錄', exact: true})});
   const storeCard = applications.locator('.application-card').filter({has: page.getByRole('heading', {name: '線上商店', exact: true})});
   await storeCard.getByRole('button', {name: '啟動應用', exact: true}).click();
   const space = flow(page).getByRole('group', {name: '業務空間', exact: true}).getByRole('button', {name: /^小島選物工作室・/});
@@ -115,6 +116,8 @@ test('a commerce member opens, stocks, publishes and re-enters their own store',
   await expect(flow(page).getByRole('radio', {name: /^將共用既有的商店（ID 尾碼 /})).toBeVisible();
   await flow(page).getByRole('button', {name: '取消', exact: true}).click();
   await expect(flow(page)).toHaveCount(0);
+  await expect(storeCard.getByRole('button', {name: '啟動應用', exact: true})).toBeFocused();
+  await openGuildSection(page, '線上商店');
   await primary(page).getByRole('button', {name: '進入我的商店', exact: true}).click();
   await expect(page).toHaveURL(new RegExp(hash + '$'));
   await expect(storePage(page).getByRole('heading', {level: 2})).toHaveText('小島選物');
