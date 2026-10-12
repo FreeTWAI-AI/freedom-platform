@@ -6,9 +6,15 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-12 release.production=14ffd70ab8991cd26ee99090bbc2faecfa21979b release.staging=14ffd70ab8991cd26ee99090bbc2faecfa21979b flag.production=true flag.staging=true repo_max_migration=165 applied_migration.production=165 applied_migration.staging=165 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-12 release.production=2bd62c256185f209dd936a8d811dc3c5d3b0d051 release.staging=2bd62c256185f209dd936a8d811dc3c5d3b0d051 flag.production=true flag.staging=true repo_max_migration=165 applied_migration.production=165 applied_migration.staging=165 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-2026-10-12 UTC R22 更新：兩環境目前為 `14ffd70a`，包含 detna 審查合併的 #462／#467。管理分頁切換保留未保存草稿，核准供貨區塊整理主要動作與流程說明；既有公會 v1 配置不會自動改寫。沒有 migration、權限或 feature flag 變更，仍是 schema165／164筆 ledger。
+2026-10-12 UTC R23 更新：兩環境目前為 `2bd62c25`，包含 detna 審查合併的 #468。供貨商品庫依「商品／供貨合作／預留與訂單」分區，新增商品表單按需開啟，切換保留未儲存輸入。供應商仍使用同一商品與庫存，不需建立零售店。沒有 migration、既有會員授權或 feature flag 變更，仍是 schema165／164筆 ledger。
+
+staging 公開40項及普通合成會員供貨旅程43項、production 公開40項及合成帳號 HTTP25項通過；四份前後備份完成隔離還原、遠端讀回與清理。首次腳本的唯讀 ECONNRESET 與清理紀錄保留，重跑通過，應用未重新部署。精確來源、檢查與視覺證據界線見 [R23 收據](../unified-foundation/rollout-r23-2026-10-12.json)。真人易用性、非核心公會作者、T-047 與第二還原操作者仍待驗。
+
+### R22 歷史發布
+
+2026-10-12 UTC R22 更新：兩環境當時為 `14ffd70a`，包含 detna 審查合併的 #462／#467。管理分頁切換保留未保存草稿，核准供貨區塊整理主要動作與流程說明；既有公會 v1 配置不會自動改寫。沒有 migration、權限或 feature flag 變更，仍是 schema165／164筆 ledger。
 
 staging 公開40項與實際合成幹部草稿 12 項，production 公開40項與合成帳號 HTTP25項通過。四份發布前後備份均完成真實磁碟還原、遠端讀回與清理，臨時 Access 已撤銷。精確来源／CI／既有schema檢查與界線見 [R22 收據](../unified-foundation/rollout-r22-2026-10-12.json)。真人易用性、非核心作者與第二操作者仍待驗；舊72236 Worker仍禁止回退。
 
@@ -28,7 +34,7 @@ installed PR Verify 已從 `dc2f5ba8` 切至 `14f82aa2`，其自然 main 完整 
 
 R20 無 schema 變更，兩環境仍為 migration 164，reader/writer 下限維持供貨164／庫存162。四份發布前後備份均完成資料庫／物件還原、遠端讀回及清理；production 第一次發布後備份 capture 失敗，保留失敗收據且未宣告恢復驗證，重試成功後才完成發布紀錄。正式排程與 GC 關閉狀態保留。臨時 Access 已撤銷、自有合成帳號停用／空間封存，未做真人採用或第二操作者驗收。
 
-詳見 [R20 收據](../unified-foundation/rollout-r20-2026-10-12.json)與[現況快照](../unified-foundation/current-state.json)。以下 R19 與 r9 段落保留當時交付範圍；R20 當時 installed PR Verify 固定 `dc2f5ba8`；目前 runtime 以上方 R22、installed CI pin 以 R21 安裝紀錄為準。Foundation／M1 與 T-047 未完成狀態不變。
+詳見 [R20 收據](../unified-foundation/rollout-r20-2026-10-12.json)與[現況快照](../unified-foundation/current-state.json)。以下 R19 與 r9 段落保留當時交付範圍；R20 當時 installed PR Verify 固定 `dc2f5ba8`；目前 runtime 以上方 R23、installed CI pin 以 R21 安裝紀錄為準。Foundation／M1 與 T-047 未完成狀態不變。
 
 2026-10-11 紐約時間 R19 更新（operator 私有收據的去敏摘要）：production 與 staging 均已部署 #445 `31166e52`，與 reviewed `29649260` 同 tree、同 dist；包含先前已合併 #447。本輪追加 migration163／164，目前到164、ledger共163筆，022仍是唯一歷史缺號。
 
