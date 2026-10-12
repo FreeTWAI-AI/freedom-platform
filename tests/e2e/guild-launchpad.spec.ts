@@ -30,7 +30,9 @@ async function seed(db: Pool, appointLeader = true) {
   return {userId, email, displayName: `啟動台會員 ${run}`, musicName: nameOf(music), spaceName: nameOf(space), editedName: nameOf(edited), previousOfficer: previous.rows[0]?.user_id as string | undefined};
 }
 async function cleanup(db: Pool, userId: string, previousOfficer: string | undefined) {
-  await db.query('DELETE FROM guild_launchpad_delegations WHERE community_id=$1 AND guild_key=$2', [DEMO_COMMUNITY, edited]);
+  // Delegation history is append-only. Keep it in the isolated schema until the
+  // suite drops that schema; disable only this fixture account during cleanup.
+  await db.query('UPDATE users SET active=false WHERE user_id=$1', [userId]);
   await db.query('DELETE FROM command_receipts WHERE user_id=$1', [userId]);
   await db.query('DELETE FROM outbox WHERE transition_id IN (SELECT transition_id FROM transition_journal WHERE actor_ref=$1)', [userId]);
   await db.query('DELETE FROM transition_journal WHERE actor_ref=$1', [userId]);
