@@ -46,7 +46,12 @@ async function login(page: Page, email: string) {
   await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible();
 }
 async function open(page: Page, guild: string) {
+  const loaded = page.waitForResponse(response => response.request().method() === 'GET'
+    && new URL(response.url()).pathname === `/api/v1/guilds/${guild}/launchpad`);
   await page.evaluate(key => {window.location.hash = `guilds/${key}`;}, guild);
+  const response = await loaded;
+  expect(response.status()).toBe(200);
+  await response.finished();
   await expect(page.locator('.guild-launchpad-content > .guild-launchpad-block')).toHaveCount(7);
   await expect(page.locator('.launchpad-applications .application-card').first()).toBeAttached();
 }

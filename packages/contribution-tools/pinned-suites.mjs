@@ -59,7 +59,7 @@ test_check_package_dag test_check_specs
 
 export const PINNED_SUITES = Object.freeze({
   'ci.governance-unit': Object.freeze({ directory: 'packages/contribution-tools/test', pattern: /^[a-z][a-z0-9-]*\.test\.mjs$/, baseline: GOVERNANCE_BASELINE, loader: 'node', database: false, timeoutMs: 300000, env: Object.freeze([]) }),
-  'ci.selector-unit': Object.freeze({ files: Object.freeze(['scripts/ci/select-affected-jobs.test.mjs']), loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),
+  'ci.selector-unit': Object.freeze({ files: Object.freeze(['scripts/ci/select-affected-jobs.test.mjs', 'scripts/ci/guild-presentation-profile.test.mjs']), loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),
   'ci.skill-client-unit': Object.freeze({ directory: 'packages/skill-upload-client/test', pattern: /^[a-z][a-z0-9_-]*\.test\.mjs$/, baseline: SKILL_CLIENT_BASELINE, loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),
   'ci.worker-unit': Object.freeze({ directory: 'tests/worker', pattern: /^[a-z][a-z0-9_-]*\.test\.ts$/, baseline: WORKER_BASELINE, loader: 'tsx', database: true, timeoutMs: 900000, env: Object.freeze(['HOME', 'FREEDOM_WORKERD_BUNDLE_DIR']) }),
   'ci.deploy-preflight': Object.freeze({ directory: 'deploy/cloudflare/test', pattern: /^[a-z][a-z0-9_-]*\.test\.mjs$/, baseline: DEPLOY_PREFLIGHT_BASELINE, loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),

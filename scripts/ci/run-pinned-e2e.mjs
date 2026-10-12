@@ -5,16 +5,17 @@ import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, planE2eSelection } from '../../packages/contribution-tools/pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, GUILD_E2E_PLAN, GUILD_PREVIEW_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, planE2eSelection } from '../../packages/contribution-tools/pinned-e2e.mjs';
+import { GUILD_PRESENTATION_PROFILE } from '../../packages/contribution-tools/guild-presentation-profile.mjs';
 import { collectRepositoryE2eDecision } from './select-affected-jobs.mjs';
 import { readBounded } from '../../packages/contribution-tools/io.mjs';
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
-const configFile = fileURLToPath(new URL('./pinned-playwright.config.mjs', import.meta.url));
+const defaultConfigFile = fileURLToPath(new URL('./pinned-playwright.config.mjs', import.meta.url));
 
 // SIGTERM allows Playwright's 15s webServer shutdown to drop the private schema.
 // Escalation is bounded independently of the host-owned whole-pass budget.
-function execute(root, cli, pass, env, signal, listing = false) {
+function execute(root, cli, pass, env, signal, configFile, listing = false) {
   return new Promise(done => {
     const group = process.platform !== 'win32';
     const files = pass.files.map(file => '(?:^|/)' + file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$');
@@ -51,6 +52,7 @@ async function main() {
   let valid = true;
   for (let index = 0; index < args.length; index++) {
     const flag = args[index];
+    if (['--guild-presentation', '--guild-preview'].includes(flag) && input.guildProfile === undefined) { input.guildProfile=flag.slice(2); continue; }
     if (flag === '--allow-fetch' && input.allowFetch === undefined) { input.allowFetch = true; continue; }
     const key = flags[flag], value = args[++index];
     if (!key || Object.hasOwn(input, key) || typeof value !== 'string' || !value || value.startsWith('--')) { valid = false; break; }
@@ -62,10 +64,11 @@ async function main() {
     return;
   }
   const root = resolve(input.root);
+  const configFile = input.guildProfile === 'guild-preview' ? fileURLToPath(new URL('./pinned-guild-preview.config.mjs', import.meta.url)) : defaultConfigFile;
   const output = input.output ? resolve(input.output) : resolve(root, '.freedom/reports/pinned-e2e.json');
   // Recompute from host SHAs before candidate test/config execution. No profile
   // env var, candidate JSON report or arbitrary file argument is accepted.
-  const selection = collectRepositoryE2eDecision({ ...input, repository: root });
+  const selection = input.guildProfile ? {profile: input.guildProfile, reason: 'reviewed_guild_job_obligations'} : collectRepositoryE2eDecision({ ...input, repository: root });
   let plan = E2E_PLAN, profile = 'full';
   let expectedFiles = [], passReports = [];
   const fail = (status, reason) => ({ check_id: 'ci.e2e', status, reason, test_count: 0,
@@ -90,12 +93,18 @@ async function main() {
     return;
   }
   try {
+    if (input.guildProfile) {
+      profile=input.guildProfile;plan=profile==='guild-preview'?GUILD_PREVIEW_PLAN:GUILD_E2E_PLAN;
+      expectedFiles=[...(profile==='guild-preview'?GUILD_PRESENTATION_PROFILE.previewFiles:GUILD_PRESENTATION_PROFILE.integrationFiles)].sort();
+      for (const file of expectedFiles) await readBounded(root,file);
+    } else {
     const found = (await readdir(resolve(root, 'tests/e2e')))
       .filter(name => /^[a-z0-9][a-z0-9-]*\.spec\.ts$/.test(name)).map(name => 'tests/e2e/' + name);
     expectedFiles = [...new Set([...E2E_BASELINE, ...found])].sort();
     for (const file of expectedFiles) await readBounded(root, file);
     const selected = planE2eSelection(selection.profile, expectedFiles);
     expectedFiles = selected.expectedFiles; plan = selected.plan; profile = selected.profile;
+    }
   } catch {
     await publish(fail('not_run', 'e2e_files_unavailable'));
     return;
@@ -114,6 +123,7 @@ async function main() {
   for (const key of Object.keys(baseEnv)) {
     if (key === 'NODE_OPTIONS' || key === 'ACTIONS_ID_TOKEN_REQUEST_URL' || key.endsWith('_TOKEN') || key.endsWith('_SECRET')) delete baseEnv[key];
   }
+  if (profile === 'guild-preview') { delete baseEnv.TEST_DATABASE_URL; delete baseEnv.DATABASE_URL; }
   // The pinned plan owns all fixture flags; inherited flags cannot alter pass 1.
   delete baseEnv.FREEDOM_E2E_PRIVATE_AI_FIXTURE;
   delete baseEnv.FREEDOM_E2E_AVATAR_ASSET_FIXTURE;
@@ -135,8 +145,8 @@ async function main() {
         const env = { ...baseEnv, ...pass.env, FREEDOM_PINNED_E2E_ROOT: root,
           PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath, PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: join(temp, 'last-run.json') };
         let listing, listing_exit_code, listing_evidence_sha256;
-        if (profile === 'newcomer-guides') {
-          const listed = await execute(root, cli, pass, env, controller.signal, true);
+        if (profile !== 'full') {
+          const listed = await execute(root, cli, pass, env, controller.signal, configFile, true);
           listing_exit_code = listed.exit_code;
           executionReason = listed.reason ?? (listed.exit_code !== 0 ? 'invalid_case_listing' : undefined);
           try {
@@ -146,7 +156,7 @@ async function main() {
           await rm(reportPath, { force: true });
           if (executionReason) break;
         }
-        const ran = await execute(root, cli, pass, env, controller.signal);
+        const ran = await execute(root, cli, pass, env, controller.signal, configFile);
         executionReason = ran.reason;
         let report, evidence_sha256;
         try {
@@ -155,7 +165,7 @@ async function main() {
           evidence_sha256 = sha256(bytes);
         } catch { /* unreadable evidence fails closed */ }
         passReports.push({ id: pass.id, exit_code: ran.exit_code, report, evidence_sha256,
-          ...(profile === 'newcomer-guides' ? { listing, listing_exit_code, listing_evidence_sha256 } : {}) });
+          ...(profile !== 'full' ? { listing, listing_exit_code, listing_evidence_sha256 } : {}) });
         // An early stop leaves fewer passes; report its cause rather than invalid_pass_plan.
         if (!executionReason && ran.exit_code !== 0) executionReason = 'test_process_failed';
         if (!executionReason && !report) executionReason = 'invalid_test_results';
@@ -170,7 +180,7 @@ async function main() {
     process.removeListener('SIGTERM', onSignal);
   }
   if (controller.signal.aborted) executionReason = 'test_cancelled';
-  const result = evaluateE2ePasses(expectedFiles, passReports, { rootDir: resolve(root, 'tests/e2e').split(sep).join('/'), configFile, profile });
+  const result = evaluateE2ePasses(expectedFiles, passReports, { rootDir: resolve(root, profile==='guild-preview'?'modules':'tests/e2e').split(sep).join('/'), configFile, profile });
   if (executionReason) { result.status = 'failed'; result.reason = executionReason; }
   await publish(result);
 }

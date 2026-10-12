@@ -5,6 +5,7 @@ const paths = names => names.map(name => `tests/runtime/${name}.test.ts`);
 export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.command-core': ['command-core'],
   'runtime.guild-blocks': ['guild-blocks'],
+  'runtime.guild-presentation': ['guild-blocks', 'guild-launchpad', 'guild-launchpad-contracts', 'guild-launchpad-profiles', 'launchpad-profile-defaults'],
   'runtime.resource-scopes': ['resource-scopes'],
   'runtime.scoped-member-command': ['scoped-member-command'],
   'runtime.avatar': ['avatar', 'image-runtime', 'image-cloudflare'],
