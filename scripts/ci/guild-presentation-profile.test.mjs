@@ -7,9 +7,13 @@ import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
 import {decideGuildPresentationProfile, loadModuleDescriptors, GENERATED_INVENTORY_PATH,collectRepositoryDecision,evaluateVerifyAggregate,githubOutput,SELECTABLE_JOBS} from './select-affected-jobs.mjs';
 import {GUILD_PRESENTATION_IMPORTS,guildPresentationImportsProven} from '../../packages/contribution-tools/guild-presentation-profile.mjs';
+import {isModuleDescriptorPath} from '../../packages/contribution-tools/context.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const head=execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim();
 const graph=loadModuleDescriptors(root,head);assert.equal(graph.ok,true);
+const descriptorSources=execFileSync('git',['-C',root,'ls-tree','-r','--name-only','-z',head],{encoding:'utf8'})
+  .split('\0').filter(isModuleDescriptorPath)
+  .map(path=>[path,execFileSync('git',['-C',root,'show',`${head}:${path}`])]);
 const supply='modules/guild-supply/CatalogBlock.tsx',opensource='modules/guild-open-source/WorksBlock.tsx';
 function input(paths=[supply]){return {event:'pull_request',diffComplete:true,descriptorsProven:true,changes:paths.map(path=>({status:'M',path})),baseline:structuredClone(graph.descriptors),candidate:structuredClone(graph.descriptors)};}
 const decide=decideGuildPresentationProfile;
@@ -51,7 +55,9 @@ function integration(t, extra='') {
   const write=(path,text)=>{mkdirSync(dirname(join(repository,path)),{recursive:true});writeFileSync(join(repository,path),text);};
   const commit=()=>{git('add','.');git('commit','-qm','Synthetic guild fixture');return git('rev-parse','HEAD');};
   git('init','-q','-b','main');
-  for(const descriptor of graph.descriptors)write(`module_defs/${descriptor.module_id}/freedom.module.json`,JSON.stringify(descriptor));
+  // Preserve actual locations and raw descriptors: relocating a descriptor
+  // invents another owned path and can exceed the schema's 64-path limit.
+  for(const [path,source] of descriptorSources)write(path,source);
   for(const [path,prefix] of Object.entries(GUILD_PRESENTATION_IMPORTS))write(path,prefix+'export const label="before";\n');
   const base=commit();git('switch','-qc','feature');
   write(supply,GUILD_PRESENTATION_IMPORTS[supply]+'export const label="after";\n'+extra);

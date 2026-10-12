@@ -37,7 +37,9 @@ async function expectTouchTargets(page: Page, selector: string, label: string) {
 async function signIn(page: Page) {
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
+  const authResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST', {timeout: 25_000});
   await page.getByLabel('密碼', { exact: true }).press('Enter');
+  expect((await authResponse).status()).toBe(200);
   await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
 }
 
@@ -208,7 +210,7 @@ for (const viewport of VIEWPORTS) {
       await page.keyboard.press('Tab');
       await expect(nav.getByRole('button', { name: '會員首頁', exact: true })).toBeFocused();
       await page.keyboard.press('Tab');
-      await expect(nav.getByRole('button', { name: '社群分享', exact: true })).toBeFocused();
+      await expect(nav.getByRole('button', { name: '我的內容', exact: true })).toBeFocused();
       // Every group opens inside the menu; the last destination can be scrolled into view and chosen.
       for (const summary of await nav.locator('.nav-section > summary').all()) {
         if (!await summary.evaluate(node => (node.parentElement as HTMLDetailsElement).open)) await summary.click();
@@ -234,7 +236,7 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole('link', { name: '跳到主要內容', exact: true })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(nav.getByRole('button',{name:'會員首頁',exact:true})).toBeFocused();
-      for (const name of ['社群分享', '職業公會', '技能書架', '搜尋社群內容']) {
+      for (const name of ['我的內容', '職業公會', '技能書架', '搜尋社群內容']) {
         await page.keyboard.press('Tab');
         await expect(nav.getByRole('button', { name, exact: true })).toBeFocused();
         expect(await focusedIsVisiblyOutlined(page)).toBe(true);

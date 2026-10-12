@@ -86,9 +86,9 @@ jobs:
   source-integrity:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
-    env:
-      SOURCE_ARCHIVE_ROOT: ${{ runner.temp }}/freedom-source-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      - name: Set the run-specific source archive path
+        run: printf 'SOURCE_ARCHIVE_ROOT=%s/freedom-source-%s-%s\n' "$RUNNER_TEMP" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}

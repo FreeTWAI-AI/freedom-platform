@@ -2,7 +2,9 @@ import {test,expect,type Page} from './fixtures.js';
 
 async function login(page:Page){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
-  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');const authResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST', {timeout: 25_000});
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  expect((await authResponse).status()).toBe(200);
   await expect(page.getByRole('heading',{name:'會員首頁',level:1,exact:true})).toBeVisible();
 }
 async function choose(page:Page,label:string){

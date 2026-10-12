@@ -58,14 +58,18 @@ async function login(browser: Browser, baseURL: string, email: string) {
   await page.goto('/');
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(DEMO_PASSWORD);
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST', {timeout: 25_000});
   await page.getByRole('button', { name: '登入', exact: true }).click();
+  expect((await loggedIn).status()).toBe(200);
   await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
   return { context, page, urls };
 }
 async function relogin(page: Page, email: string) {
   const settings = page.getByRole('button', { name: '設定', exact: true });
   if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+  const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
   await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+  expect((await signedOut).status()).toBe(200);
   // Leaving a guild hash stays on the public launchpad. Its login button opens the form.
   const heading = page.getByRole('heading', { name: '登入', exact: true });
   const enter = page.getByRole('button', { name: '會員登入', exact: true });
@@ -74,7 +78,9 @@ async function relogin(page: Page, email: string) {
   await expect(heading).toBeVisible();
   await page.getByLabel('電子郵件', { exact: true }).fill(email);
   await page.getByLabel('密碼', { exact: true }).fill(DEMO_PASSWORD);
+  const loggedIn = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST', {timeout: 25_000});
   await page.getByRole('button', { name: '登入', exact: true }).click();
+  expect((await loggedIn).status()).toBe(200);
   await expect(page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
 }
 async function openGuild(page: Page, guildKey: string, name: string) {
@@ -1298,7 +1304,31 @@ test('NP-003 failed first save recovers the same Work, 412 preserves production 
     const work = works.items[0];
     await page.getByLabel('核心訊息', { exact: true }).fill('衝突後仍須保留的訊息');
     await patchJson(page, `/tenants/${tenantId}/works/${work.work_id}`, { title: work.title, objective: '另一分頁更新摘要', progress: work.progress }, work.version);
-    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    // Delay the first fresh Work read after the 412. The old document is still
+    // present, but choosing it before this read completes would be overwritten
+    // by the pending conflict handler and leave the save button locked again.
+    let releaseFresh: () => void = () => undefined;
+    const heldFresh = new Promise<void>(resolve => { releaseFresh = resolve; });
+    const freshPath = `/api/v1/tenants/${tenantId}/works/${work.work_id}`;
+    let delayed = false;
+    await page.route(url => url.pathname === freshPath, async route => {
+      if (route.request().method() !== 'GET' || delayed) return route.fallback();
+      delayed = true;
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      await heldFresh;
+      await route.fulfill({response});
+    });
+    const freshRequested = page.waitForRequest(request => request.method() === 'GET'
+      && new URL(request.url()).pathname === freshPath, {timeout: 25_000});
+    try {
+      await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+      await freshRequested;
+      await expect(page.getByRole('button', { name: '保留我的製作草稿', exact: true })).toBeDisabled();
+      await expect(page.getByRole('button', { name: '改用伺服器製作版本', exact: true })).toBeDisabled();
+      await expect(page.getByText('正在重新讀取伺服器版本…', {exact: true})).toBeVisible();
+      await expect(page.getByLabel('核心訊息', { exact: true })).toHaveValue('衝突後仍須保留的訊息');
+    } finally { releaseFresh(); }
     await expect(page.getByRole('button', { name: '保留我的製作草稿', exact: true })).toBeEnabled();
     await expect(page.getByLabel('核心訊息', { exact: true })).toHaveValue('衝突後仍須保留的訊息');
     await page.getByRole('button', { name: '保留我的製作草稿', exact: true }).click();
@@ -1609,7 +1639,12 @@ test('PA-003 direction cards enforce tenant reads, independent Result grants, 41
       } else {
         await form.getByLabel('需要的協助', { exact: true }).fill('保留在本頁等待比較的草稿');
         await readForm.getByLabel('需要的協助', { exact: true }).fill('另一位有成果權限成員保存的版本');
+        // Saving confirms the new revision, then re-reads its content before enabling edits.
+        const readBack = member.page.waitForResponse(response => response.request().method() === 'GET'
+          && new URL(response.url()).pathname.startsWith(`/api/v1/tenants/${tenantId}/works/${work.work_id}/results/`)
+          && new URL(response.url()).pathname.endsWith('/content'), {timeout: 25_000});
         await readForm.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+        expect((await readBack).status()).toBe(200);
         await expect(member.page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
         await expect(readForm.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
       }
@@ -1755,7 +1790,9 @@ for (const phase of ['prepare', 'put', 'finalize', 'create'] as const) {
       if (phase === 'put') {
         const settings = page.getByRole('button', { name: '設定', exact: true });
         if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+        const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/logout' && response.request().method() === 'POST', {timeout: 25_000});
         await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        expect((await signedOut).status()).toBe(200);
         await expect(page.getByRole('button', { name: '會員登入', exact: true }).or(page.getByRole('heading', { name: '登入', exact: true }))).toBeVisible();
       } else if (phase === 'finalize') {
         await page.evaluate(() => { window.location.hash = 'home'; });

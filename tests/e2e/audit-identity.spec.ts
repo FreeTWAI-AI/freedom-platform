@@ -224,13 +224,17 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await expect(page.locator('.member-featured')).toHaveCount(0);
   await openHomeGuide(page);
   const shortcuts = page.getByRole('navigation', { name: '常用入口', exact: true });
-  await expect(shortcuts.getByRole('button')).toHaveCount(3);
-  for (const name of ['看社群動態', '開始聊天', '找夥伴']) await expect(shortcuts.getByRole('button', {name, exact: true})).toBeVisible();
+  // The feed is already on the home page; only chat and people need shortcuts.
+  await expect(shortcuts.getByRole('button')).toHaveCount(2);
+  for (const name of ['開始聊天', '找夥伴']) await expect(shortcuts.getByRole('button', {name, exact: true})).toBeVisible();
+  await expect(page.getByRole('region', {name: '首頁社群動態', exact: true})).toBeVisible();
+  await expect(page.getByRole('button', {name: '建立貼文', exact: true})).toBeVisible();
   await pageFits(page, 'phone home error');
   await page.screenshot({ path: `${shots}/phone-home-card-error.png`, fullPage: true });
-  // Recovery stays accessible even when the member closes the optional guide.
+  // Recovery and the feed stay accessible when the optional guide is closed.
   await guide.locator(':scope > summary').click();
   await expect(guide).toHaveJSProperty('open', false);
+  await expect(page.getByRole('region', {name: '首頁社群動態', exact: true})).toBeVisible();
   await expect(alert).toBeVisible();
   const retry = alert.getByRole('button', { name: '重新載入名片', exact: true });
   await expect(retry).toHaveClass(/btn/);
