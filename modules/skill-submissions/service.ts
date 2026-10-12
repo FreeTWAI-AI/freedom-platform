@@ -7,7 +7,7 @@ import { checkVersion, command, digest, journal, transaction, type Command } fro
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { tokenHash, type Actor } from '../identity-membership/service.js';
 import { authRateLimit } from '../identity-membership/members.js';
-import { importProjectWithinTransaction, projectInput, type GitHubRead } from '../opensource-marketing/service.js';
+import { importProjectWithinTransaction, projectInput, withdrawProjectSharing, type GitHubRead } from '../opensource-marketing/service.js';
 import type { NormalizedSubmission } from './payload.js';
 import { lockMemberDrafts, MAX_ACTIVE_DRAFTS } from './limits.js';
 import { catalogBookForRepository, repositoryDisplayName, repositoryKey } from './repository-match.js';
@@ -24,7 +24,7 @@ const MEMBER_READY = 'active AND (NOT onboarding_required OR onboarding_complete
 const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,upgrades_submission_id,seed,(image_bytes IS NOT NULL OR storage_source='asset') AS has_image,(grant_hash IS NULL AND seed IS NULL) AS manual,
   LEAST(grant_expires_at,(SELECT k.expires_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_expires_at,
   COALESCE(grant_revoked_at,(SELECT k.revoked_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_revoked_at,
-  grant_consumed_at,created_at,updated_at,
+  grant_consumed_at,created_at,updated_at,prepared_project_id,prepared_project_version,
   (SELECT json_build_object('submission_id',u.submission_id,'status',u.status) FROM skill_submissions u
     WHERE u.upgrades_submission_id=skill_submissions.submission_id ORDER BY u.created_at DESC,u.submission_id ASC LIMIT 1) AS upgrade,
   EXISTS (SELECT 1 FROM skill_submissions u WHERE u.upgrades_submission_id=skill_submissions.submission_id
@@ -154,7 +154,7 @@ export async function prepareProjectSkillSubmission(pool: Pool, input: Command, 
   projectId = uuidOrNotFound(projectId);
   await authRateLimit(pool, 'skill-submission-issue', input.actor.user_id, 30, 3600);
   const ownedProject = async (q: PoolClient) => {
-    const row = (await q.query(`SELECT project_id,owner_ref,repository_url,title,description,use_notes,demo_url,relationship,aggregate_version
+    const row = (await q.query(`SELECT project_id,owner_ref,repository_url,title,description,use_notes,demo_url,relationship,aggregate_version,sharing_withdrawn_at
       FROM oss_projects WHERE project_id=$1 AND community_id=$2 AND owner_ref=$3 AND NOT official`,
       [projectId, input.actor.community_id, input.actor.user_id])).rows[0];
     requireCondition(row, 404, 'not_found', '找不到可由你製作技能書的開源作品。');
@@ -178,16 +178,18 @@ export async function prepareProjectSkillSubmission(pool: Pool, input: Command, 
     project = await ownedProject(q);
     checkVersion(String(project.aggregate_version), input.expected);
     const catalog = catalogBookForRepository(repositoryKey(project.repository_url));
-    if (catalog) return { submission: null, created: false, catalog_book: catalog };
+    // A separately curated book cannot restore this owner's withdrawn project.
+    // Prepare a version-bound private draft so only explicit publication can do so.
+    if (catalog && !project.sharing_withdrawn_at) return { submission: null, created: false, catalog_book: catalog };
     const existing = candidates.find(row => row.status !== 'published' || row.project_id === projectId);
     if (existing) return { submission: submissionView(existing), created: false, catalog_book: null };
     await requireDraftCapacity(q, input.actor);
     const payload = manualPayload(manualInput.parse({ repository_url: project.repository_url, title: project.title,
       description: project.description, use_notes: project.use_notes, demo_url: project.demo_url, relationship: project.relationship }));
     const id = randomUUID();
-    const row = (await q.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,grant_consumed_at)
-      VALUES($1,$2,$3,'ready_for_review',$4,$5,now()) RETURNING ${SUBMISSION_COLUMNS}`,
-      [id, input.actor.community_id, input.actor.user_id, JSON.stringify(payload), digest(payload)])).rows[0];
+    const row = (await q.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,grant_consumed_at,prepared_project_id,prepared_project_version)
+      VALUES($1,$2,$3,'ready_for_review',$4,$5,now(),$6,$7) RETURNING ${SUBMISSION_COLUMNS}`,
+      [id, input.actor.community_id, input.actor.user_id, JSON.stringify(payload), digest(payload), projectId, project.aggregate_version])).rows[0];
     await journal(q, input.actor, 'skill_submission', id, 1, 'prepare_registered_project_book',
       { project_id: projectId, payload_sha256: digest(payload), source: 'registered_project' });
     return { submission: submissionView(row), created: true, catalog_book: null };
@@ -324,6 +326,42 @@ export async function revokeSubmission(pool: Pool, input: Command, id: string) {
   });
 }
 
+/** Withdraw this owner's project and every publication/upgrade of it together.
+ * Drafts and historical payloads remain owner-readable. Old links must not fall
+ * back to an earlier public version, and outstanding upload grants must close. */
+export async function withdrawProjectPublication(pool: Pool, input: Command, projectId: string) {
+  empty.parse(input.body);
+  projectId = uuidOrNotFound(projectId);
+  const authorize = async (q: PoolClient) => {
+    const own = await q.query('SELECT 1 FROM oss_projects WHERE project_id=$1 AND community_id=$2 AND owner_ref=$3',
+      [projectId, input.actor.community_id, input.actor.user_id]);
+    requireCondition(own.rowCount === 1, 404, 'not_found', '找不到可由你撤下的開源作品。');
+  };
+  return command(pool, input, authorize, async q => {
+    // Shared by prepare/upgrade/publish. Keep submission-before-project lock
+    // order, including independent tabs publishing the same source repository.
+    await lockMemberDrafts(q, input.actor.user_id);
+    const family = (await q.query(`WITH RECURSIVE family AS (
+      SELECT submission_id FROM skill_submissions WHERE community_id=$2 AND owner_ref=$3
+        AND (project_id=$1 OR lower(COALESCE(payload->>'repository_url',seed->>'repository_url')) IN (
+          SELECT lower(repository_url) FROM oss_project_versions WHERE project_id=$1
+          UNION SELECT lower(repository_url) FROM oss_projects WHERE project_id=$1))
+      UNION SELECT s.submission_id FROM skill_submissions s JOIN family f ON s.upgrades_submission_id=f.submission_id
+        WHERE s.community_id=$2 AND s.owner_ref=$3
+    ) SELECT submission_id FROM skill_submissions WHERE submission_id IN (SELECT submission_id FROM family)
+      ORDER BY submission_id FOR UPDATE`, [projectId, input.actor.community_id, input.actor.user_id])).rows;
+    const project = await withdrawProjectSharing(q, input, projectId);
+    const ids = family.map(row => row.submission_id);
+    const withdrawn = (await q.query(`UPDATE skill_submissions SET status='revoked',consent_to_share=false,revoked_at=now(),
+      grant_revoked_at=CASE WHEN grant_hash IS NULL THEN grant_revoked_at ELSE COALESCE(grant_revoked_at,now()) END,
+      aggregate_version=aggregate_version+1,updated_at=now() WHERE submission_id=ANY($1::uuid[]) AND status<>'revoked'
+      RETURNING submission_id,aggregate_version`, [ids])).rows;
+    for (const row of withdrawn) await journal(q, input.actor, 'skill_submission', row.submission_id,
+      row.aggregate_version, 'withdraw_project_publication', { project_id: projectId });
+    return project;
+  }, authorize);
+}
+
 const PUBLISH_GITHUB_CODES = new Set(['github_rate_limited', 'github_unavailable', 'github_invalid_response', 'github_response_too_large', 'github_read_budget']);
 function publishGitHubFailure(error: Problem): Problem {
   const wait = typeof error.retryAfterSeconds === 'number' && error.retryAfterSeconds > 0
@@ -336,9 +374,10 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
   id = uuidOrNotFound(id);
   await authRateLimit(pool, 'skill-submission-publish', input.actor.user_id, 20, 3600);
   return command(pool, input, async q => { await requireReadyMember(q, input.actor); await ownedSubmission(q, input.actor, id); }, async q => {
-    // The draft stays locked while the import runs and until publication is
-    // recorded, so no concurrent publish/revoke can interleave.
-    const current = await ownedSubmission(q, input.actor, id, true);
+    // Keep the authenticated member lock during source inspection, then take
+    // owner/submission locks in publication order. Independent provider reads
+    // may progress together even with a two-connection pool.
+    const current = await ownedSubmission(q, input.actor, id);
     checkVersion(current.aggregate_version, input.expected);
     requireCondition(current.status === 'ready_for_review', 409, 'submission_not_ready', current.status === 'published' ? '這份投稿已公開。' : '這份草稿尚未上傳完成或已撤回，不能公開。');
     const payload = current.payload;
@@ -350,7 +389,15 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
       project = await importProjectWithinTransaction(q, input, {
         repository_url: payload.repository_url, title: payload.title, description: payload.description, use_notes: payload.use_notes,
         demo_url: payload.demo_url ?? null, relationship: payload.relationship, consent_to_share: true,
-      }, { reuseOwned: true, fetcher: read.fetcher, token: read.token });
+      }, { reuseOwned: true, fetcher: read.fetcher, token: read.token, publicationCreatedAt: current.created_at,
+        preparedProject: current.prepared_project_id ? { id: current.prepared_project_id, version: String(current.prepared_project_version) } : undefined,
+        beforePersist: async () => {
+          await lockMemberDrafts(q, input.actor.user_id);
+          const latest = await ownedSubmission(q, input.actor, id, true);
+          checkVersion(latest.aggregate_version, input.expected);
+          requireCondition(latest.status === 'ready_for_review',409,'submission_not_ready','這份草稿已公開或撤回，請重新載入。');
+        },
+      });
     } catch (error) {
       if (error instanceof Problem && PUBLISH_GITHUB_CODES.has(error.code)) throw publishGitHubFailure(error);
       throw error;

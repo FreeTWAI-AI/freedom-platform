@@ -66,7 +66,7 @@ export type GitHubSyncSummary = {
 };
 
 export async function trackedGitHubRepositories(pool: Pool): Promise<{key: string; name: string}[]> {
-  const oss = await pool.query<{repository_full_name: string}>('SELECT repository_full_name FROM oss_projects');
+  const oss = await pool.query<{repository_full_name: string}>('SELECT repository_full_name FROM oss_projects WHERE sharing_withdrawn_at IS NULL');
   const byKey = new Map<string, string>();
   const add = (value: string) => {
     if (!GITHUB_REPOSITORY_NAME.test(value)) return;
