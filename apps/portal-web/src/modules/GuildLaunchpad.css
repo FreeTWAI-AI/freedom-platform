@@ -12,7 +12,7 @@
 .guild-launchpad dialog{width:min(40rem,calc(100vw - 1.5rem));max-height:min(80vh,40rem);margin:auto;padding:1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);color:var(--ink)}
 .guild-launchpad dialog::backdrop{background:color-mix(in srgb,var(--ink) 40%,transparent)}
 .guild-launchpad-public{min-height:100vh;background:var(--bg);color:var(--ink)}
-.guild-launchpad-public>header{display:flex;justify-content:space-between;align-items:center;gap:1rem;max-width:72rem;margin:auto;padding:1rem}
+.guild-launchpad-public>header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem;max-width:72rem;margin:auto;padding:1rem}
 .guild-launchpad-public>header img{display:block;width:min(220px,55vw);height:auto}
 .guild-launchpad-public>main{max-width:72rem;margin:auto;padding:0 1rem 3rem}
 .guild-launchpad-books{display:grid;gap:.6rem}
@@ -28,3 +28,5 @@
   .guild-launchpad input,.guild-launchpad textarea,.guild-launchpad select{font-size:16px}
   .guild-launchpad-primary .actions>.btn-primary{width:100%}
 }
+
+.guild-launchpad-public-tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;max-width:100%;margin-left:auto}
