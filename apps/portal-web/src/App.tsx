@@ -633,19 +633,19 @@ function Workspace({
     mainContent.current?.focus({ preventScroll: true })
     workspaceTopbar.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
   }, [tab])
-  const selectTab = useCallback((next: TabId) => {
+  const selectTab = useCallback((next: TabId, destinationHash?: string) => {
     if(next==='messages'){openMessages();return}
-    const nextHash = `#${next}`
+    const nextHash = destinationHash ?? `#${next}`
     if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) return
     acceptedHash.current = nextHash
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
     if(/^\/events\/[0-9a-f-]{36}\/?$/.test(window.location.pathname)){
-      window.history.replaceState(null,'',`/#${next}`)
+      window.history.replaceState(null,'',`/${nextHash}`)
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     }
-    else window.location.hash = next
+    else window.location.hash = nextHash
   }, [openMessages])
   function chooseShare(target:ShareTarget){
     const destination=target==='post'&&tab==='home'?'home':SHARE_TARGETS[target].tab
@@ -792,7 +792,7 @@ function Workspace({
               </div>
             </div>
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
-            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
+            <Navigation current={tab} currentHash={locationHash} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
           <div className="topbar-actions community-account-tools"><NotificationBell key={session.user.user_id+':'+session.csrf_token} client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current});if(action.tab==='events'&&action.resource_id)window.location.hash=`events/${action.resource_id}`}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
@@ -836,7 +836,7 @@ function Workspace({
             {tab === 'private-ai' && <PrivateWorkAI client={client} key={session.user.user_id}/>}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
-            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} firstParticipationEnabled={site?.first_participation_enabled===true}/>}
+            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} onOpenSupply={() => selectTab('stores', '#stores/supply')} firstParticipationEnabled={site?.first_participation_enabled===true}/>}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}

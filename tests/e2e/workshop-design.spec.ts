@@ -50,25 +50,16 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
       await expect(page.getByRole('alert')).toHaveCount(0);
       if(button==='會員首頁'){
         await expandHomeSections(page);
-        await expect(page.locator('.home-module-card')).toHaveCount(4);
+        await expect(page.locator('.home-destinations button')).toHaveCount(4);
         for(const label of await page.locator('.home-member-skills > span,.home-next-eyebrow,.home-member-name > .positioning-title,.home-partner-heading h2,.home-partner-swap').all()){
           expect(await label.evaluate(element=>parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
         }
         const swap=page.locator('.home-partner-swap');
         if(await swap.count()){const box=await swap.boundingBox();expect(box!.width).toBeGreaterThanOrEqual(44);expect(box!.height).toBeGreaterThanOrEqual(44);}
-        for(const card of await page.locator('.home-module-card').all()){
-          const cover=card.locator('.home-module-cover'),box=await cover.boundingBox();
-          if(width>=1100){
-            expect(box!.width).toBeLessThanOrEqual(112);
-            expect(box!.height).toBeLessThanOrEqual(112);
-            const body=await card.locator('.home-module-body').boundingBox();
-            expect(box!.x+box!.width).toBeLessThanOrEqual(body!.x);
-            expect((await card.boundingBox())!.height).toBeLessThan(220);
-          }else{
-            expect(box!.height,'Module artwork should not dominate the phone').toBeLessThanOrEqual(96);
-            expect(box!.width).toBeLessThanOrEqual(96);
-            expect((await card.boundingBox())!.height).toBeLessThan(220);
-          }
+        for(const destination of await page.locator('.home-destinations button').all()){
+          const bounds=await destination.boundingBox();
+          expect(bounds!.height).toBeGreaterThanOrEqual(44);
+          expect(bounds!.width).toBeLessThanOrEqual((await page.locator('.home-context').boundingBox())!.width);
         }
         if(width<700){
           const actions=page.locator('.home-member-actions'),bounds=await actions.boundingBox();

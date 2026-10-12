@@ -208,7 +208,7 @@ for (const viewport of VIEWPORTS) {
       await page.keyboard.press('Tab');
       await expect(nav.getByRole('button', { name: '會員首頁', exact: true })).toBeFocused();
       await page.keyboard.press('Tab');
-      await expect(nav.getByRole('button', { name: '社群分享', exact: true })).toBeFocused();
+      await expect(nav.getByRole('button', { name: '我的內容', exact: true })).toBeFocused();
       // Every group opens inside the menu; the last destination can be scrolled into view and chosen.
       for (const summary of await nav.locator('.nav-section > summary').all()) {
         if (!await summary.evaluate(node => (node.parentElement as HTMLDetailsElement).open)) await summary.click();

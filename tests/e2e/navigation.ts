@@ -26,7 +26,7 @@ export async function openHomeGuide(page:Page){
 export async function expandHomeSections(page:Page){
   await openHomeGuide(page);
   await expect(page.locator('.home-personal')).toBeVisible();
-  for(const selector of ['.home-personal','.home-module-section']){
+  for(const selector of ['.home-personal']){
     const section=page.locator(selector);
     if(await section.count()&&!await section.evaluate(element=>(element as HTMLDetailsElement).open))await section.locator(':scope > summary').click();
   }
@@ -61,6 +61,11 @@ export async function navigate(page: Page, name: string) {
   const navigation = page.getByRole('navigation', { name: '主要工作區', includeHidden: true });
   await expect(navigation).toBeVisible();
   const target = navigation.getByRole('button', { name, exact: true, includeHidden: true });
+  if (await target.count() === 0) {
+    const more = navigation.locator('.nav-more');
+    if (!await more.evaluate(element => (element as HTMLDetailsElement).open)) await more.locator(':scope > summary').click();
+    await navigation.getByRole('searchbox').fill(name);
+  }
   await expect(target).toHaveCount(1);
   const groups = target.locator('xpath=ancestor::details');
   // Open the outer disclosure before its nested group, using visible controls.

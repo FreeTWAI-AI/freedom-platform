@@ -12,11 +12,12 @@ async function login(page:Page){
 test('home and navigation reveal secondary functions on demand and page tools return keyboard focus',async({page})=>{
   await login(page);
   await expect(page.locator('.nav-primary > button')).toHaveCount(5);
-  await expect(page.locator('.nav-primary > button')).toHaveText(['會員首頁','社群分享','職業公會','技能書架','搜尋社群內容']);
+  await expect(page.locator('.nav-primary > button')).toHaveText(['會員首頁','我的內容','職業公會','技能書架','搜尋社群內容']);
   await expect(page.locator('.nav-more')).not.toHaveAttribute('open','');
   await expect(page.locator('.home-personal')).not.toHaveAttribute('open','');
-  await expect(page.locator('.home-module-section')).not.toHaveAttribute('open','');
-  await expect(page.getByRole('navigation',{name:'常用入口'}).getByRole('button')).toHaveCount(3);
+  await expect(page.locator('.home-destinations')).toBeVisible();
+  await expect(page.locator('.home-destinations button')).toHaveCount(4);
+  await expect(page.getByRole('navigation',{name:'常用入口'}).getByRole('button')).toHaveCount(2);
   await expect(page.locator('.topbar').getByRole('button',{name:'參與編修'})).toBeHidden();
   const tools=page.locator('.page-tools-menu > summary');await tools.click();
   await page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true}).click();
