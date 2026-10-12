@@ -271,7 +271,7 @@ test('owner withdraws the whole work, retains private editing, and explicitly re
   assert.ok(project.sharing_withdrawn_at);assert.equal(project.skill_book,null);
   const managed=await api(`/opensource/projects/${project.project_id}`,owner);
   assert.equal(managed.status,200);assert.equal(managed.data.project_id,project.project_id);
-  assert.equal(managed.response.headers.get('cache-control'),'no-store');
+  assert.equal(managed.response.headers.get('cache-control'),'private, no-store');
   assert.equal((await api(`/opensource/projects/${project.project_id}`,other)).status,404);
   assert.equal((await api(`/opensource/projects/${project.project_id}`)).status,401);
   for(const route of [`/skill-submissions/${book.submission_id}`,`/skill-submissions/${book.submission_id}/share-content`]) {
