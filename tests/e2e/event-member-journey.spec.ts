@@ -117,6 +117,7 @@ test('event submission blocks departure while pending and saved edits require ex
   await page.route('**/api/v1/events',async route=>{if(route.request().method()!=='POST')return route.continue();reached=true;writes++;await held;await route.continue();});
   try{
     await form.getByRole('button',{name:'送出審核',exact:true}).click();await expect.poll(()=>reached).toBe(true);
+    await expect(form.getByLabel('活動名稱',{exact:true})).toBeDisabled();
     await navigate(page,'我的內容');await expect(page).toHaveURL(/#events$/);await expect(page.getByRole('status').filter({hasText:'正在處理活動'})).toBeVisible();
   }finally{release();}
   await expect(page.getByText('活動已送出審核，核准後開放報名。',{exact:true})).toBeVisible();expect(writes).toBe(1);
@@ -142,6 +143,11 @@ test('event submission blocks departure while pending and saved edits require ex
 test('an unknown event submission keeps its original retry key and cannot be abandoned',async({page,e2eAuthPool})=>{
   await login(page);await navigate(page,'社群活動');await page.getByRole('button',{name:'＋ 提交活動',exact:true}).click();
   const title='不明結果 '+randomUUID().slice(0,8),form=page.locator('form').filter({has:page.getByRole('heading',{name:'提交活動',exact:true})});
+  const otherTitle='其他活動 '+randomUUID().slice(0,8);
+  await form.getByLabel('活動名稱',{exact:true}).fill(otherTitle);await form.getByLabel('活動說明',{exact:true}).fill('合成案例：原操作未決時不可插入取消其他活動。');await form.getByLabel('線上場地',{exact:true}).fill('合成場地');
+  await form.getByRole('button',{name:'送出審核',exact:true}).click();await expect(page.getByText('活動已送出審核，核准後開放報名。',{exact:true})).toBeVisible();
+  const other=page.locator('.experience-card').filter({has:page.getByRole('heading',{name:otherTitle,exact:true})});
+  await page.getByRole('button',{name:'＋ 提交活動',exact:true}).click();
   await form.getByLabel('活動名稱',{exact:true}).fill(title);await form.getByLabel('活動說明',{exact:true}).fill('合成案例，原請求已完成但回應遺失。');await form.getByLabel('線上場地',{exact:true}).fill('合成場地');
   const attempts:{body:string|null;key:string|undefined}[]=[];
   await page.route('**/api/v1/events',async route=>{
@@ -151,6 +157,12 @@ test('an unknown event submission keeps its original retry key and cannot be aba
     else await route.continue();
   });
   await form.getByRole('button',{name:'送出審核',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();
+  const titleInput=form.getByLabel('活動名稱',{exact:true});await expect(titleInput).toBeDisabled();
+  await titleInput.evaluate(input=>(input as HTMLInputElement).focus());await page.keyboard.type('不能改成另一筆活動');await expect(titleInput).toHaveValue(title);
+  await expect(form.getByLabel('開始時間',{exact:true})).toBeDisabled();await expect(form.locator('input[type="file"]')).toHaveCount(2);
+  for(const input of await form.locator('input[type="file"]').all())await expect(input).toBeDisabled();
+  await expect(other.getByRole('button',{name:'取消活動',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'＋ 提交活動',exact:true}).click();await expect(titleInput).toHaveValue(title);expect(attempts).toHaveLength(1);
   let prompts=0;page.on('dialog',async dialog=>{prompts++;await dialog.accept();});
   await navigate(page,'我的內容');await expect(page).toHaveURL(/#events$/);expect(prompts).toBe(0);
   await expect(page.getByRole('status').filter({hasText:'尚未確認原操作的結果'})).toBeVisible();
@@ -159,4 +171,16 @@ test('an unknown event submission keeps its original retry key and cannot be aba
   expect(attempts).toHaveLength(2);expect(attempts[0].key).toBeTruthy();expect(attempts[1]).toEqual(attempts[0]);
   expect(Number((await e2eAuthPool.query('SELECT count(*) FROM community_events WHERE title=$1',[title])).rows[0].count)).toBe(1);
   await navigate(page,'我的內容');await expect(page).toHaveURL(/#my-content$/);expect(prompts).toBe(0);
+});
+
+test('a known event rejection unlocks the draft for correction and a new submission',async({page,e2eAuthPool})=>{
+  await login(page);await navigate(page,'社群活動');await page.getByRole('button',{name:'＋ 提交活動',exact:true}).click();
+  const title='修正時間 '+randomUUID().slice(0,8),form=page.locator('form').filter({has:page.getByRole('heading',{name:'提交活動',exact:true})});
+  await form.getByLabel('活動名稱',{exact:true}).fill(title);await form.getByLabel('活動說明',{exact:true}).fill('結束時間早於開始時間，已知拒絕後可修正。');await form.getByLabel('線上場地',{exact:true}).fill('合成場地');
+  await form.getByLabel('開始時間',{exact:true}).fill('2030-06-10T14:30');await form.getByLabel('結束時間',{exact:true}).fill('2030-06-10T13:30');
+  const rejected=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/events');
+  await form.getByRole('button',{name:'送出審核',exact:true}).click();expect((await rejected).status()).toBe(422);await expect(page.getByRole('alert')).toBeVisible();
+  await expect(form.getByLabel('活動名稱',{exact:true})).toBeEnabled();await form.getByLabel('結束時間',{exact:true}).fill('2030-06-10T15:30');
+  await form.getByRole('button',{name:'送出審核',exact:true}).click();await expect(page.getByText('活動已送出審核，核准後開放報名。',{exact:true})).toBeVisible();
+  expect(Number((await e2eAuthPool.query('SELECT count(*) FROM community_events WHERE title=$1',[title])).rows[0].count)).toBe(1);
 });
