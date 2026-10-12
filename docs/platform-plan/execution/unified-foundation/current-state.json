@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-12T11:34:48.615775+00:00",
+  "recorded_at": "2026-10-12T12:44:43.523342+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -16,50 +16,88 @@
     "repository": "FreeTWAI-AI/freedom-platform",
     "sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
     "tree": "b5229af3425b47d9a1bdf2a4c3bb5eb88499d3fd",
-    "observed_at": "2026-10-12T11:34:48.615775+00:00",
-    "runtime_release_source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+    "observed_at": "2026-10-12T12:44:43.523342+00:00",
+    "runtime_release_source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
     "release_source_verify": {
       "conclusion": "success",
-      "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+      "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
     },
-    "limitation": "Current main observation does not imply deployment or human acceptance; exact runtime release and CI are recorded separately."
+    "limitation": "Exact runtime is separate from later source/documentation changes and human acceptance."
   },
   "deployment": {
     "production": {
       "url": "https://freetwai.com/",
-      "observed_release_sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "observed_at": "2026-10-12T10:54:31.230Z",
+      "observed_release_sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "observed_at": "2026-10-12T12:30:46.772Z",
       "health": {
         "http": 200,
         "status": "ok",
         "mode": "public",
         "runtime": "cloudflare-workers",
-        "release_sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "release_sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
         "cache_control_no_store": true
       },
-      "worker_version": "de9bd8b3-ad1b-4b8d-8f91-377a83b53c00",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json",
-      "limitation": "Ordinary synthetic members and an existing synthetic guild officer exercise staging; production uses selected public and synthetic-account HTTP checks. No human usability/adoption or two non-core guild-author acceptance is claimed."
+      "worker_version": "7e13ce2f-3bf6-45b5-ace6-3c050418dd00",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json",
+      "limitation": "Live staging acceptance uses the existing synthetic officer, unsaved browser drafts and its own session. It does not publish announcements, change existing member authority, or represent a human usability test."
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
-      "observed_release_sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "observed_at": "2026-10-12T10:10:34.611Z",
+      "observed_release_sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "observed_at": "2026-10-12T11:47:51.229Z",
       "health": {
         "http": 200,
         "status": "ok",
         "mode": "staging",
         "runtime": "cloudflare-workers",
-        "release_sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "release_sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
         "cache_control_no_store": true
       },
-      "worker_version": "30da2798-d9ad-4bbf-8ad7-4553a31db319",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json",
-      "limitation": "Ordinary synthetic members and an existing synthetic guild officer exercise staging; production uses selected public and synthetic-account HTTP checks. No human usability/adoption or two non-core guild-author acceptance is claimed.",
-      "last_operator_release_sha": "14f82aa29860c805e63edb98e9cb1f85eccd251f"
+      "worker_version": "8cfd0517-2502-4866-b95c-70d0a5534e75",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json",
+      "limitation": "Live staging acceptance uses the existing synthetic officer, unsaved browser drafts and its own session. It does not publish announcements, change existing member authority, or represent a human usability test.",
+      "last_operator_release_sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b"
     },
     "last_operator_rollout": {
+      "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "at": "2026-10-12T12:44:43.523342+00:00",
+      "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
+      "scope": "Retain visited authorized management drafts across tabs and simplify the approved supply presentation block. No database migrations, member permissions or feature-flag changes.",
+      "status": "complete",
+      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json",
+      "receipt_sha256": "91e6957f02206211da911a5b8816faa3e888c036d0b38c259888641887809f3e",
+      "selected_checks": {
+        "staging": {
+          "public_http": 40,
+          "member_browser": 12
+        },
+        "production": {
+          "public_http": 40,
+          "account_http": 25
+        }
+      },
+      "database_migrations_applied": {
+        "staging": [],
+        "production": []
+      },
+      "worker_versions": {
+        "staging": "8cfd0517-2502-4866-b95c-70d0a5534e75",
+        "production": "7e13ce2f-3bf6-45b5-ace6-3c050418dd00"
+      },
+      "limitation": "Live staging acceptance uses the existing synthetic officer, unsaved browser drafts and its own session. It does not publish announcements, change existing member authority, or represent a human usability test."
+    },
+    "last_production_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "at": "2026-10-12T12:30:46.772Z"
+    },
+    "last_staging_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "at": "2026-10-12T11:47:51.229Z"
+    },
+    "previous_production_rollout": {
       "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
       "at": "2026-10-12T11:34:48.615775+00:00",
       "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
@@ -91,71 +129,37 @@
       },
       "limitation": "Ordinary synthetic members and an existing synthetic guild officer exercise staging; production uses selected public and synthetic-account HTTP checks. No human usability/adoption or two non-core guild-author acceptance is claimed."
     },
-    "last_production_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "at": "2026-10-12T10:54:31.230Z"
-    },
-    "last_staging_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "at": "2026-10-12T10:10:34.611Z"
-    },
-    "previous_production_rollout": {
-      "source": "72236f58334719010922ac18483471c0a66bf578",
-      "at": "2026-10-12T01:03:38.417724+00:00",
-      "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
-      "scope": "Reviewed #449 / #234: suppliers enable and stop unpaid inventory reservations in their own supply catalog, without opening a retail store; existing orders remain readable and cancellable.",
-      "status": "complete",
-      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-r20-2026-10-12.json",
-      "receipt_sha256": "e3ef7985765e99cf70b025a4f146d3bdaf1584eb55b831573a7f15c40e6eaf59",
-      "selected_checks": {
-        "staging": {
-          "public_http": 36,
-          "supply_catalog_browser": 33
-        },
-        "production": {
-          "public_http": 36,
-          "account_http": 22
-        }
-      },
-      "database_migrations_applied": {
-        "staging": [],
-        "production": []
-      },
-      "worker_versions": {
-        "staging": "22d39adc-5805-4d85-b068-fa9ae0f3807d",
-        "production": "dca72b99-5cfc-47b7-af55-1c9143c9fc4d"
-      },
-      "limitation": "Staging uses ordinary synthetic member accounts and an existing synthetic guild officer. Production uses selected HTTP checks. No independent human review, merchant adoption, payment or fulfilment acceptance is claimed."
-    },
     "previous_staging_rollout": {
-      "source": "72236f58334719010922ac18483471c0a66bf578",
-      "at": "2026-10-12T01:03:38.417724+00:00",
+      "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+      "at": "2026-10-12T11:34:48.615775+00:00",
       "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
-      "scope": "Reviewed #449 / #234: suppliers enable and stop unpaid inventory reservations in their own supply catalog, without opening a retail store; existing orders remain readable and cancellable.",
+      "scope": "Member navigation hierarchy, guild block development/CI, storefront product pages, source sharing withdrawal, event preview, and return-to-work activation.",
       "status": "complete",
-      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-r20-2026-10-12.json",
-      "receipt_sha256": "e3ef7985765e99cf70b025a4f146d3bdaf1584eb55b831573a7f15c40e6eaf59",
+      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json",
+      "receipt_sha256": "8dc41ea27eae2dfc397b89a0354f51be187d0fe4d820338a103feb5bf47053a9",
       "selected_checks": {
         "staging": {
-          "public_http": 36,
-          "supply_catalog_browser": 33
+          "public_http": 40,
+          "member_browser": 58
         },
         "production": {
-          "public_http": 36,
-          "account_http": 22
+          "public_http": 40,
+          "account_http": 25
         }
       },
       "database_migrations_applied": {
-        "staging": [],
-        "production": []
+        "staging": [
+          "165_oss_sharing_withdrawal.sql"
+        ],
+        "production": [
+          "165_oss_sharing_withdrawal.sql"
+        ]
       },
       "worker_versions": {
-        "staging": "22d39adc-5805-4d85-b068-fa9ae0f3807d",
-        "production": "dca72b99-5cfc-47b7-af55-1c9143c9fc4d"
+        "staging": "30da2798-d9ad-4bbf-8ad7-4553a31db319",
+        "production": "de9bd8b3-ad1b-4b8d-8f91-377a83b53c00"
       },
-      "limitation": "Staging uses ordinary synthetic member accounts and an existing synthetic guild officer. Production uses selected HTTP checks. No independent human review, merchant adoption, payment or fulfilment acceptance is claimed."
+      "limitation": "Ordinary synthetic members and an existing synthetic guild officer exercise staging; production uses selected public and synthetic-account HTTP checks. No human usability/adoption or two non-core guild-author acceptance is claimed."
     },
     "earlier_production_rollout": {
       "source": "3685d6266a6cd9c1dbe023bf595140f5035a02f5",
@@ -797,49 +801,45 @@
       "environment": "staging",
       "ledger_rows": 164,
       "through_number": 165,
-      "applied": [
-        "165_oss_sharing_withdrawal.sql"
-      ],
+      "applied": [],
       "pending": [],
-      "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "at": "2026-10-12T09:51:29.306Z",
+      "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "at": "2026-10-12T11:47:25.752Z",
       "kind": "operator_observed_private_receipt",
       "role": "staging migrator",
       "source_digest_drift": 0,
-      "post_checks": "Append-only migration165; retained ledgers, existing policies and schema165 sharing-visibility floor; old Worker rollback rejected.",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+      "post_checks": "Read-only verification of existing165 ledger; no migration or grant execution. Policies and sharing/supply/inventory floors retained.",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
     },
     "production_observed": {
       "environment": "production",
       "ledger_rows": 164,
       "through_number": 165,
-      "applied": [
-        "165_oss_sharing_withdrawal.sql"
-      ],
+      "applied": [],
       "pending": [],
-      "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "at": "2026-10-12T10:53:45.999Z",
+      "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "at": "2026-10-12T12:29:10.360Z",
       "kind": "operator_observed_private_receipt",
       "role": "production migrator",
       "source_digest_drift": 0,
-      "post_checks": "Append-only migration165; retained ledgers, existing policies and schema165 sharing-visibility floor; old Worker rollback rejected.",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+      "post_checks": "Read-only verification of existing165 ledger; no migration or grant execution. Policies and sharing/supply/inventory floors retained.",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
     },
     "production_last_reported": "Applied165;164 immutable ledger names/digests verified; historical gap022 unchanged.",
     "fresh_live_ledger_read": {
       "staging": {
-        "at": "2026-10-12T09:51:29.306Z",
+        "at": "2026-10-12T11:47:25.752Z",
         "rows": 164,
         "last_applied": "165_oss_sharing_withdrawal.sql",
         "source_digest_drift": 0,
-        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
       },
       "production": {
-        "at": "2026-10-12T10:53:45.999Z",
+        "at": "2026-10-12T12:29:10.360Z",
         "rows": 164,
         "last_applied": "165_oss_sharing_withdrawal.sql",
         "source_digest_drift": 0,
-        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
       }
     },
     "limitation": "Ledger evidence is the authenticated operator query, separate from HTTP health. Re-read before future schema/recovery operations.",
@@ -922,7 +922,8 @@
         "docs/platform-plan/execution/unified-foundation/rollout-r17-2026-10-11.json",
         "docs/platform-plan/execution/unified-foundation/rollout-r18-2026-10-11.json",
         "docs/platform-plan/execution/unified-foundation/rollout-r19-2026-10-11.json",
-        "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+        "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json",
+        "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
       ],
       "limitation": "Full M1 and production merchant journey not accepted; existing capacity and absent authority policy unchanged.",
       "previous_dated_journey": {
@@ -939,17 +940,34 @@
           "docs/platform-plan/execution/unified-foundation/rollout-r17-2026-10-11.json",
           "docs/platform-plan/execution/unified-foundation/rollout-r18-2026-10-11.json"
         ]
+      },
+      "r22_management_drafts": {
+        "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json",
+        "local_tab_drafts_retained": true,
+        "new_session_drafts_cleared": true,
+        "source_permission_checks_retained": true,
+        "live_human_acceptance": false
+      },
+      "r22_supply_block": {
+        "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json",
+        "reviewed_pr": 467,
+        "existing_v1_not_rewritten": true,
+        "single_catalog_return_is_primary": true,
+        "explanation_collapsed": true,
+        "live_guild_configuration_not_changed": true
       }
     },
     "limitation": "Merged or deployed source does not enable default-off features or establish full acceptance; see the release flags and receipt.",
     "release_flags": {
-      "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "observed_at": "2026-10-12T11:34:48.615775+00:00",
+      "source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "observed_at": "2026-10-12T12:44:43.523342+00:00",
       "off": [
         "FREEDOM_COMMUNITY_DISCOVERY_ENABLED",
         "FREEDOM_UNIFIED_SHARING_ENABLED"
       ],
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json",
       "on_added": [
         "FREEDOM_HOSTED_STORE_PHOTOS_ENABLED",
         "FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED"
@@ -994,6 +1012,24 @@
       "existing_flags_preserved_after_r18_handover": true,
       "existing_flags_preserved_after_r19": true,
       "r21_enabled": {
+        "staging": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+        },
+        "production": {
+          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+        }
+      },
+      "r22_unchanged": {
         "staging": {
           "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
           "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
@@ -1140,15 +1176,15 @@
     }
   },
   "recovery": {
-    "daily_operator_source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+    "daily_operator_source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
     "last_rollout_backup_release_pins": {
-      "staging": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "production": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
-      "wrapper_sha256": "595b9cdb7641597fdc29cf63d9d5375c89757181387c4618cd845a7207ae0211",
-      "at": "2026-10-12T10:54:32.996635+00:00",
-      "operator_source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+      "staging": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "production": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "wrapper_sha256": "e05cfb963747a5fbed84e4e30498b9aa28ea107c20ad62175c8d51f4cf6d2c75",
+      "at": "2026-10-12T12:30:47.734916+00:00",
+      "operator_source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
       "schedules_unchanged": true,
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
     },
     "production_rollout_backups": [
       {
@@ -1558,6 +1594,30 @@
         "disk_restore": true,
         "operator_source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+      },
+      {
+        "label": "before-rollout (round22)",
+        "set": "d4f1e3b2-6c8b-442e-88ec-d22ef16bcaaa",
+        "source_release": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "created_at": "2026-10-12T12:15:21.339Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
+      },
+      {
+        "label": "after-rollout (round22)",
+        "set": "a73c0bf8-7508-42a8-a679-6ccdf415b69b",
+        "source_release": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "created_at": "2026-10-12T12:31:43.165Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
       }
     ],
     "staging_rollout_backups": [
@@ -1946,6 +2006,30 @@
         "disk_restore": true,
         "operator_source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json"
+      },
+      {
+        "label": "before-rollout (round22)",
+        "set": "f351acd8-06e8-45dd-9448-0976bbdcc908",
+        "source_release": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "created_at": "2026-10-12T11:35:09.798Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
+      },
+      {
+        "label": "after-rollout (round22)",
+        "set": "cbb73b66-cf27-4230-bf77-4fa2e71c9a51",
+        "source_release": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "created_at": "2026-10-12T11:54:50.837Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r22-2026-10-12.json"
       }
     ],
     "scheduled_drill_source": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
@@ -1958,7 +2042,7 @@
       "Same-host isolated current-schema restore passed; a second authorized operator in a new environment is not yet accepted",
       "GC/OFF daily mode remains selected; retention executor and historical unsettled PUT remain open"
     ],
-    "operator_source_note": "R21 operator and both runtime pins match14f82. Four database/object recovery sets restored on disk and passed remote readback; post-rollout restores also verify schema165 reader floor and quarantine. Schedules unchanged; earlier scheduled service observations retain their own dates.",
+    "operator_source_note": "R22 operator and both runtime pins match14ffd70a. Four rollout recovery sets restored on disk with remote readback and cleanup. All retain schema165 quarantine; previous R21 remains schema compatible, pre16572236 remains forbidden. Prior R21 failed first restore and same-set retry remain in the historical receipt.",
     "current_operator_scheduled_run": {
       "observed_at": "2026-10-11T10:24:48.228286+00:00",
       "trigger": "operator invoked existing production systemd service once for the necessary pre-migration backup; timer schedule unchanged",

@@ -1,0 +1,551 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-12T12:44:43.523342+00:00",
+  "status": "complete",
+  "scope": "Retain visited authorized management drafts across tabs and simplify the approved supply presentation block. No database migrations, member permissions or feature-flag changes.",
+  "source": {
+    "release": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+    "reviewedHead": "3b2d5abf0e0a3d5b2d5577bc460cd18af3bab0dd",
+    "base": "e16dc6b8c71fb9f1cf3891fc2fb8d74771434be7",
+    "tree": "b5229af3425b47d9a1bdf2a4c3bb5eb88499d3fd",
+    "trustedPin": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+    "verifyRun": 38236806748,
+    "verifyAttempt": 1,
+    "codeqlRun": 38236801933,
+    "reviewId": 5489484805,
+    "mergeMethod": "protected merge preserving original commits; reviewed source tree equality",
+    "humanIndependentReview": false,
+    "reviewDisclosure": "Approver disclosed participation in the same AI workflow"
+  },
+  "included_prs": [
+    462,
+    467
+  ],
+  "natural_main_ci": {
+    "at": "2026-10-12T12:11:38.233552+00:00",
+    "head": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+    "conclusion": "success",
+    "naturalPushRun": true,
+    "verifyRun": 38242101318,
+    "codeqlRun": 38242101378,
+    "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38242101318",
+    "jobs": [
+      {
+        "name": "select",
+        "conclusion": "success"
+      },
+      {
+        "name": "source-integrity",
+        "conclusion": "success"
+      },
+      {
+        "name": "deploy-preflight",
+        "conclusion": "success"
+      },
+      {
+        "name": "guild-presentation",
+        "conclusion": "success"
+      },
+      {
+        "name": "ui-e2e",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 3)",
+        "conclusion": "success"
+      },
+      {
+        "name": "static-worker",
+        "conclusion": "success"
+      },
+      {
+        "name": "governance-consumers",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 4)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 0)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 1)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 5)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-full (partition 2)",
+        "conclusion": "success"
+      },
+      {
+        "name": "runtime-aggregate",
+        "conclusion": "success"
+      },
+      {
+        "name": "verify",
+        "conclusion": "success"
+      }
+    ],
+    "runs": [
+      {
+        "id": 38242101378,
+        "name": "Push on main",
+        "event": "dynamic",
+        "path": "dynamic/github-code-scanning/codeql",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38242101378"
+      },
+      {
+        "id": 38242101318,
+        "name": "Verify local milestone",
+        "event": "push",
+        "path": ".github/workflows/verify.yml",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "html_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38242101318"
+      }
+    ]
+  },
+  "natural_main_browser": {
+    "logSha256": "10f1ef5521ded274f85335398a789024c8682c66a8de47c2764b6e4445a330c4",
+    "check_id": "ci.e2e",
+    "status": "passed",
+    "reason": "tests_executed",
+    "test_count": 899,
+    "file_count": 146,
+    "selection": {
+      "profile": "full",
+      "reason": "non_pull_request"
+    },
+    "binding": {
+      "candidate": "14ffd70ab8991cd26ee99090bbc2faecfa21979b"
+    },
+    "passes": [
+      {
+        "id": "default",
+        "exit_code": 0
+      },
+      {
+        "id": "private-ai",
+        "exit_code": 0
+      },
+      {
+        "id": "avatar-asset",
+        "exit_code": 0
+      },
+      {
+        "id": "message-image",
+        "exit_code": 0
+      },
+      {
+        "id": "store-photo",
+        "exit_code": 0
+      },
+      {
+        "id": "notification-preferences",
+        "exit_code": 0
+      }
+    ]
+  },
+  "environments": {
+    "staging": {
+      "observed_at": "2026-10-12T11:47:51.229Z",
+      "worker_version": "8cfd0517-2502-4866-b95c-70d0a5534e75",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "cache_control_no_store": true
+      },
+      "same_dist_sha256": "9850bc0a717c1776434da9058cf0720102d17e416a7f47ed12c7f031b2f1d2b6",
+      "schema": {
+        "at": "2026-10-12T11:47:25.752Z",
+        "applied": [],
+        "lastApplied": "165_oss_sharing_withdrawal.sql",
+        "ledgerCount": 164,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "verificationMode": "existing_schema_verified_readonly"
+      },
+      "release_flags": {
+        "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+        "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+        "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+        "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+        "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+        "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+      },
+      "unrelated_bindings_and_media_preserved": true,
+      "public_http_checks": 40,
+      "public_http_status": "passed",
+      "floor": {
+        "minimum_schema": 165,
+        "existing_ledger_retained": true,
+        "previous_compatible_release": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "incompatible_pre165_release": "72236f58334719010922ac18483471c0a66bf578",
+        "candidate_bound_to_reviewed_tree": true,
+        "restore_quarantine_required": true
+      }
+    },
+    "production": {
+      "observed_at": "2026-10-12T12:30:46.772Z",
+      "worker_version": "7e13ce2f-3bf6-45b5-ace6-3c050418dd00",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "cache_control_no_store": true
+      },
+      "same_dist_sha256": "9850bc0a717c1776434da9058cf0720102d17e416a7f47ed12c7f031b2f1d2b6",
+      "schema": {
+        "at": "2026-10-12T12:29:10.360Z",
+        "applied": [],
+        "lastApplied": "165_oss_sharing_withdrawal.sql",
+        "ledgerCount": 164,
+        "rlsTables": 33,
+        "rlsPolicies": 46,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "verificationMode": "existing_schema_verified_readonly"
+      },
+      "release_flags": {
+        "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+        "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+        "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+        "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+        "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+        "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+      },
+      "unrelated_bindings_and_media_preserved": true,
+      "public_http_checks": 40,
+      "public_http_status": "passed",
+      "floor": {
+        "minimum_schema": 165,
+        "existing_ledger_retained": true,
+        "previous_compatible_release": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "incompatible_pre165_release": "72236f58334719010922ac18483471c0a66bf578",
+        "candidate_bound_to_reviewed_tree": true,
+        "restore_quarantine_required": true
+      }
+    }
+  },
+  "backups": {
+    "staging": [
+      {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "operatorSource": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "createdAt": "2026-10-12T11:35:09.798Z",
+        "setId": "f351acd8-06e8-45dd-9448-0976bbdcc908",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "5713c04084f80e6d3206e51237c27eed1ff940cb9bdb4b269596ece4b43d4610",
+        "label": "before-rollout",
+        "dumpSha256": "4683207d70ca004f43c9c68f61a80c2216117f0951b81b92129da62f27797d57",
+        "diskRestore": true,
+        "retainedPhotoObjects": 8,
+        "remotePhotoObjects": 8,
+        "retainedCommentObjects": 5,
+        "remoteCommentObjects": 5,
+        "retainedMessageObjects": 4,
+        "remoteMessageObjects": 4
+      },
+      {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "operatorSource": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "createdAt": "2026-10-12T11:54:50.837Z",
+        "setId": "cbb73b66-cf27-4230-bf77-4fa2e71c9a51",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "c381a63c3f41d741ad2d08f8934bdcc70703ed08f7d9c962fd5a1744574a4f6f",
+        "label": "after-rollout",
+        "dumpSha256": "f8763123ad7be62d4ebf78d074b63cfcfed190a179f7848a3bce0080713680ae",
+        "diskRestore": true,
+        "retainedPhotoObjects": 8,
+        "remotePhotoObjects": 8,
+        "retainedCommentObjects": 5,
+        "remoteCommentObjects": 5,
+        "retainedMessageObjects": 4,
+        "remoteMessageObjects": 4,
+        "restoredSchema165Floor": {
+          "status": "passed",
+          "schema": 165,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        }
+      }
+    ],
+    "production": [
+      {
+        "status": "passed",
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
+        "operatorSource": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "createdAt": "2026-10-12T12:15:21.339Z",
+        "setId": "d4f1e3b2-6c8b-442e-88ec-d22ef16bcaaa",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "3c31b04aa23e271677f03d3cd72a3df75273852f769280a9e946e8ac1830a889",
+        "label": "before-rollout",
+        "dumpSha256": "22d75dbf0a89aa5933fe6ac0a14f385ad325c585bf7e54e4e9351b39f0ba259e",
+        "diskRestore": true,
+        "retainedPhotoObjects": 3,
+        "remotePhotoObjects": 3,
+        "retainedCommentObjects": 0,
+        "remoteCommentObjects": 0,
+        "retainedMessageObjects": 0,
+        "remoteMessageObjects": 0
+      },
+      {
+        "status": "passed",
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "operatorSource": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+        "createdAt": "2026-10-12T12:31:43.165Z",
+        "setId": "a73c0bf8-7508-42a8-a679-6ccdf415b69b",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "b756b2c18fe242267e64bb40de1f9a6c5531b809e5dac0c8ad600d2e4a26f8f7",
+        "label": "after-rollout",
+        "dumpSha256": "ee2281ae57259811f8b2c4106e383bd03d24fb6f10d1670eb7324e74e9ef077d",
+        "diskRestore": true,
+        "retainedPhotoObjects": 3,
+        "remotePhotoObjects": 3,
+        "retainedCommentObjects": 0,
+        "remoteCommentObjects": 0,
+        "retainedMessageObjects": 0,
+        "remoteMessageObjects": 0,
+        "restoredSchema165Floor": {
+          "status": "passed",
+          "schema": 165,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        }
+      }
+    ]
+  },
+  "github_deployments": {
+    "staging": {
+      "at": "2026-10-12T12:44:29.090131+00:00",
+      "environment": "staging-next",
+      "sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "deploymentId": 7014341313,
+      "statusId": 19643441044,
+      "state": "success",
+      "environmentUrl": "https://staging.freetwai.com/"
+    },
+    "production": {
+      "at": "2026-10-12T12:44:29.963256+00:00",
+      "environment": "next",
+      "sha": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "deploymentId": 7014341684,
+      "statusId": 19643441747,
+      "state": "success",
+      "environmentUrl": "https://freetwai.com/"
+    }
+  },
+  "staging_access_cleanup": {
+    "policy_deleted": true,
+    "token_deleted": true,
+    "local_credential_removed": true,
+    "at": "2026-10-12T12:07:44.621Z"
+  },
+  "limitations": [
+    "Live staging acceptance uses the existing synthetic officer, unsaved browser drafts and its own session. It does not publish announcements, change existing member authority, or represent a human usability test.",
+    "Supply-block presentation is validated by the reviewed component/preview/contract CI. Existing v1 configurations are not automatically switched to v2; not every live guild is claimed to render that block.",
+    "In-flight unknown-result and revoked-target late-response cases use reviewed CI, not injected faults or permission changes against staging.",
+    "T-047 current-authority reconciliation, second recovery operator, human member usability and two non-core guild-author delivery remain incomplete. Restores remain quarantined."
+  ],
+  "production_plan_read_retry": {
+    "first_attempt_at": "2026-10-12T12:26:29.623098+00:00",
+    "first_attempt_status": "refused",
+    "message": "Cloudflare request failed.",
+    "completed_before_failure": [
+      "production-before-backup"
+    ],
+    "worker_or_database_mutated_before_retry": false,
+    "read_only_retry_count": 1,
+    "retry_status": "passed",
+    "reason": "Cloudflare plan request failed before a plan or deploy intent existed. Retried only the read-only plan using the unchanged artifact; retained the already verified before-rollout backup and deployed once."
+  },
+  "deployment_record_read_retry": {
+    "first_attempt_at": "2026-10-12T12:44:04.997672+00:00",
+    "first_attempt_status": "live_version_read_timeout",
+    "retry_status": "passed",
+    "github_deployment_intent_existed_before_retry": false,
+    "deployment_or_backup_repeated": false,
+    "reason": "The final read-only live-version check timed out before any GitHub deployment intent existed. The unchanged record-only step was retried after all deployment, smoke and recovery work had already passed."
+  },
+  "staging_journey": {
+    "at": "2026-10-12T11:53:33.050Z",
+    "status": "passed",
+    "cleanupVerified": true,
+    "existingSyntheticOfficer": true,
+    "ordinaryNewMemberUI": false,
+    "authorizationFixtureWrites": false,
+    "existingMemberPermissionsChanged": false,
+    "existingSyntheticAccountDeactivated": false,
+    "publicContentWrites": 0,
+    "realUserAdoption": false,
+    "scope": "Live authorized management tab drafts and own session cleanup; unknown-result and revoke-race cases covered by reviewed CI, not injected into staging.",
+    "captures": [
+      {
+        "name": "management-draft-1440.png",
+        "width": 1440,
+        "height": 1098,
+        "sha256": "b6fe17a289d1adf40819b32f0891c9b9f1a23581ff18465e9d9932d8d609bdbc"
+      },
+      {
+        "name": "management-draft-390.png",
+        "width": 390,
+        "height": 1192,
+        "sha256": "d482e3d958b929b348558699c2c68a4f1ac801cd3b935a25ad1bd4dd5f5a905f"
+      }
+    ],
+    "passed_checks": [
+      "exact_merged_source",
+      "existing_synthetic_officer_capabilities",
+      "announcement_panel_hidden_not_competing",
+      "announcement_draft_survives_tab_change",
+      "council_panel_hidden_not_competing",
+      "council_draft_survives_tab_change",
+      "settled_management_no_overflow_1440",
+      "settled_management_no_overflow_390",
+      "logout_revokes_management_read",
+      "new_session_does_not_restore_old_private_drafts",
+      "no_announcement_council_or_skill_writes",
+      "no_browser_page_errors"
+    ]
+  },
+  "staging_prior_attempt": {
+    "status": "failed",
+    "originalCleanupVerified": false,
+    "passedChecks": 3,
+    "failure": {
+      "name": "Error",
+      "message": "expect(locator).toHaveValue(expected) failed\n\nLocator: getByLabel('公告內容', { exact: true })\nExpected: \"明示合成操作：切換管理功能後保留這段文字，沒有發布。\"\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toHaveValue\" getByLabel('公告內容', { exact: true }) with timeout 30000ms\n  - waiting for getByLabel('公告內容', { exact: true })\n"
+    },
+    "cleanupReconciliation": {
+      "at": "2026-10-12T11:52:21.592Z",
+      "status": "passed",
+      "uniqueTestSessionMatched": 1,
+      "sessionRevoked": true,
+      "otherSessionsChanged": 0,
+      "accountOrPermissionChanges": false,
+      "originalFailureRetained": true,
+      "identification": "Successful login within exact test interval; database expiry minus source-defined30-day lifetime uniquely identifies the one created row"
+    },
+    "reason": "Private harness used exact textarea labels that include controlled text and omitted the JSON body required by logout. Prefix label matching follows reviewed tests; cleanup JSON and exact owned-session checks corrected. Application source and deployment unchanged."
+  },
+  "production_authenticated_smoke": {
+    "at": "2026-10-12T12:31:12.602Z",
+    "status": "passed",
+    "syntheticAccountDeactivated": true,
+    "syntheticTenantArchived": true,
+    "existingMemberPermissionsChanged": false,
+    "syntheticInternMembershipEnded": true,
+    "passwordOrSessionRecorded": false,
+    "passed_checks": [
+      "reviewed_source_deployed",
+      "register_201",
+      "new_member_onboarding_required",
+      "onboarding_directory_200",
+      "synthetic_onboarding_guild",
+      "ordinary_onboarding_200",
+      "private_tenant_201",
+      "supply_catalog_list_200_empty",
+      "retail_list_remains_empty",
+      "list_0_first_page_200",
+      "list_0_invalid_cursor_422",
+      "list_0_inaccessible_404",
+      "list_1_first_page_200",
+      "list_1_invalid_cursor_422",
+      "list_1_inaccessible_404",
+      "new_member_personal_content_200_empty",
+      "personal_content_private_no_store",
+      "logout_200",
+      "personal_content_revoked_401",
+      "supply_list_revoked_401",
+      "list_0_revoked_401",
+      "list_1_revoked_401",
+      "owned_account_inactive",
+      "owned_sessions_revoked",
+      "owned_tenant_archived"
+    ]
+  },
+  "backup_operator": {
+    "operatorSource": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+    "adapterSha256": "f943bec7c4741e3989e9d427a7a45e83e71785e4ee1576406f02ed81f4302970",
+    "diskRestore": true,
+    "gcSafety": "disabled",
+    "schedulesUnchanged": true,
+    "release_pins": {
+      "staging": "14ffd70ab8991cd26ee99090bbc2faecfa21979b",
+      "production": "14ffd70ab8991cd26ee99090bbc2faecfa21979b"
+    },
+    "wrapper_sha256": "e05cfb963747a5fbed84e4e30498b9aa28ea107c20ad62175c8d51f4cf6d2c75"
+  },
+  "local_context_tool": {
+    "automatedCompleteness": false,
+    "blockers_preserved": [
+      "surface_unmapped"
+    ],
+    "unmapped_paths": [
+      "apps/portal-web/src/modules/GuildWorkspace.tsx",
+      "tests/e2e/guild-workspace.spec.ts"
+    ],
+    "full_repository_rule_chunks_read": 152,
+    "manual_reconciliation": "All 152 baseline and candidate rule chunks read; all module descriptors and reverse dependencies retained. No rules changed since the complete baseline context. No path or module was excluded.",
+    "verification_scope": "Full exact-head CI, no reduced suite selection",
+    "correction": "The documentation follow-up proposes exact ownership in the existing application-composition descriptor; it has a clean local context and 30 passing context tests. Its review/merge is separate; runtime source remains immutable."
+  }
+}
