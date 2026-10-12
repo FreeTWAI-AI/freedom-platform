@@ -64,9 +64,9 @@ npm run guild:test -- modules/guild-open-source
 領域變更另跑領域與反向相依測試。不要為此連接正式 DB。
 
 提交前沿 [現有 context／影響工具](../../governance/README.md)檢查 baseline、
-candidate、擁有者、依賴及 blockers。**目前正式安裝 CI 仍使用廣範圍驗證**；
-上述命令是可用的本機開發路徑，不代表已安裝縮減 CI。可信 selector 的縮減需與完整
-結果對照、獨立 review 與安裝；未知路徑、核心或不完整依賴不可自動少測。
+candidate、擁有者、依賴及 blockers。**2026-10-12 已安裝公會局部 CI**，
+可信 workflow 固定為 `14f82aa2`。下方列出適用範圍及實際 PR 證據；
+未知路徑、核心或不完整依賴仍跑廣範圍驗證。
 
 ## 會長如何使用已審查的區塊
 
@@ -85,14 +85,16 @@ v1 仍嚴格讀取七區塊，轉換只建立新的 v2 草稿，不改寫已存�
 正式部署、相稱 CI 安裝與真人成果分別記錄，不互相替代。
 
 
-## 公會驗證與啟用候選
+## 已安裝的公會驗證路徑
 
-目前這份 CI 來源新增 `guild-presentation` 固定工作：型別、登錄一致性、入口建置、五個公會 runtime 檔、三個殼層整合 browser 檔，以及兩個公會目錄自己的 preview 測試。完整與未知改動仍同時執行這些檢查。啟用候選只有在乾淨的 PR 整合 commit、完整相依圖與兩端已審查 import 邊界都成立時，才選 `guild-presentation` 與 `static-worker`。合併來源不代表組織 required workflow 已換 pin；正式縮減仍待安裝與讀回驗收。
+`guild-presentation` 固定工作包含型別、登錄一致性、入口建置、五個公會 runtime 檔、三個殼層整合 browser 檔，以及兩個公會目錄自己的 preview 測試。完整與未知改動仍同時執行這些檢查。只有乾淨的 PR 整合 commit、完整相依圖與兩端已審查 import 邊界都成立時，才選 `guild-presentation` 與 `static-worker`。固定必要 `verify` 仍執行並核對所選工作，CodeQL、review 與禁止 bypass 的合併門檻保留。
 
 只改兩個已審查範例的 `CatalogBlock.tsx`／`WorksBlock.tsx`，才是候選縮減範圍。選測器核對基線與候選的完整 descriptor 圖、原始 ownership、公開介面、權限及實際反向依賴，保留共用殼層的整合測試。新增公會、改 manifest／SDK／契約／測試／API、新增 import／動態載入、增加消費者或未知路徑，都保留完整驗證。這不是任意新套件的自動核准。
 
 本機不需要資料庫的開發入口仍是 `npm run guild:preview` 與 `npm run guild:test`。平台維護者可用隔離 PostgreSQL 跑 `node scripts/ci/run-guild-runtime.mjs`；`TEST_DATABASE_URL` 必須指向可丟棄的測試庫。CI 的 browser 執行器接受固定 `--guild-presentation` 或 `--guild-preview` 工作，不接受任意檔案清單，逐案例核對列舉與執行結果；選中却未執行、只 skip、零案例、測試程序失敗都不算通過。
 
-安裝縮減之前，必須保存同一版本的完整與公會工作結果、可信 workflow pin 與合併門檻讀回。現階段的對照不能冒稱公會長已走完快速 PR；兩位非核心作者的真實交付驗收仍待進行。
+安裝前，`14f82aa2` 的 natural main Verify [38230347332](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38230347332) 全部 15 jobs 通過，包含完整 browser 895 案及公會工作；CodeQL 與來源封存的實際還原亦通過。組織 ruleset `24469536` 僅更新 workflow SHA，並讀回確認其他門檻不變。
 
-正式採用此候選 workflow 後，公會作者不用重寫全倉 hash inventory。每日必要 source-integrity 從可信 Git objects 核對既有 migration 不變與相對連結，保留契約生成／diff、runtime text 及治理測試；完整來源 tar、雜湊清單與實際還原改由 main 整合產生 artifact。日期清單保留為歷史資料；`verify:inventory` 是舊清單的重現工具，不再是新 workflow 的日常門檻。切換前舊固定 workflow 仍要求它。
+安裝後的 [#467](https://github.com/FreeTWAI-AI/freedom-platform/pull/467) 只改 `modules/guild-supply/CatalogBlock.tsx`，未修改中央殼層或全倉 inventory。[必要 Verify](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38235723633) 在 388 秒內完成：公會 runtime 38 案、殼層整合 browser 15 案、預覽 3 案，以及 source-integrity、static-worker、彙總皆通過；完整 runtime／browser 是未選取，不是聲稱已執行。detna-vibe-coding 審查 exact head `74d34118` 後合併為 `e16dc6b8`。這證明已安裝的局部 PR 路徑可用；作者與 review 都是 AI 協作，兩位非核心公會作者的真人交付驗收仍待進行。
+
+公會作者現在不用重寫全倉 hash inventory。每日必要 source-integrity 從可信 Git objects 核對既有 migration 不變與相對連結，保留契約生成／diff、runtime text 及治理測試；完整來源 tar、雜湊清單與實際還原由 main 整合產生 artifact。日期清單保留為歷史資料；`verify:inventory` 是舊清單的重現工具，不再是新 workflow 的日常門檻。
