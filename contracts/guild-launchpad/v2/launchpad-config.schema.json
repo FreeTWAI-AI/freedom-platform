@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v2/launchpad-config",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "guild-launchpad.config/v2"
+    },
+    "guild_key": {
+      "type": "string"
+    },
+    "mission_override": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blocks": {
+      "minItems": 1,
+      "maxItems": 24,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]{0,159}$(?![\\s\\S])"
+              },
+              "order": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "mission",
+                  "announcements",
+                  "skill_books",
+                  "applications",
+                  "community_tasks",
+                  "my_work",
+                  "support"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "order",
+              "enabled",
+              "title",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]{0,159}$(?![\\s\\S])"
+              },
+              "order": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "const": "extension"
+              },
+              "extension_id": {
+                "type": "string",
+                "pattern": "^guild-block\\.[a-z][a-z0-9-]*\\.v[1-9][0-9]*$"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "order",
+              "enabled",
+              "title",
+              "kind",
+              "extension_id",
+              "settings"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "application_refs": {
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "application_key": {
+            "type": "string"
+          },
+          "release_ref": {
+            "type": "string"
+          },
+          "order": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "application_key",
+          "release_ref",
+          "order"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "starter": {
+      "type": "object",
+      "properties": {
+        "title_label": {
+          "type": "string"
+        },
+        "objective_hint": {
+          "type": "string"
+        },
+        "note_hint": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title_label",
+        "objective_hint",
+        "note_hint"
+      ],
+      "additionalProperties": false
+    },
+    "support": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "platform_help",
+            "guild_public_contact"
+          ]
+        },
+        "public_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "public_url"
+      ],
+      "additionalProperties": false
+    },
+    "extensions": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "guild_key",
+    "mission_override",
+    "blocks",
+    "application_refs",
+    "starter",
+    "support",
+    "extensions"
+  ],
+  "additionalProperties": false,
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: guild_key_match, content_and_url_bounds, unique_block_ids_orders_and_builtin_kinds, reviewed_block_versions, application_duplicate, canonical_size_limit."
+}

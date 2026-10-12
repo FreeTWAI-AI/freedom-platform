@@ -23,7 +23,10 @@
     "work",
     "member-squads",
     "github-social",
-    "member-reporting"
+    "member-reporting",
+    "guild-presentation",
+    "guild-supply",
+    "guild-open-source"
   ],
   "format": "freedom.module/v1",
   "instructions": [
@@ -84,7 +87,11 @@
     "modules/platform-admin/guild-appointment-membership.ts",
     "modules/platform-admin/guild-experts.ts",
     "modules/platform-admin/leadership.ts",
-    "modules/platform-admin/service.ts"
+    "modules/platform-admin/service.ts",
+    "apps/portal-web/src/guild-blocks/registry.generated.ts",
+    "apps/portal-web/guild-preview/**",
+    "apps/portal-web/src/guild-blocks/GuildLaunchpadPage.tsx",
+    "apps/portal-web/src/guild-blocks/GuildDirectoryPage.tsx"
   ],
   "owner_role": "foundation",
   "public_exports": [],
