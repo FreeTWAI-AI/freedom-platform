@@ -20674,8 +20674,8 @@
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
-      "bytes": 2611,
-      "sha256": "b4610bef2316a3720b6c711a25ff10206b8bf26673bdcaf4a69da10f61c26aec"
+      "bytes": 3934,
+      "sha256": "79ec5dfdde451211897d2f2c913d1777fdd664865eda574ea05c47dd810e9c6b"
     },
     {
       "path": "tests/e2e/notification-bell-refresh.spec.ts",
