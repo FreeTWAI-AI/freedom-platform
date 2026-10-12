@@ -6,7 +6,13 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-11 release.production=31166e5230d8a2ba3b06e2429de103c98687711b release.staging=31166e5230d8a2ba3b06e2429de103c98687711b flag.production=true flag.staging=true repo_max_migration=165 applied_migration.production=164 applied_migration.staging=164 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-11 release.production=72236f58334719010922ac18483471c0a66bf578 release.staging=72236f58334719010922ac18483471c0a66bf578 flag.production=true flag.staging=true repo_max_migration=165 applied_migration.production=164 applied_migration.staging=164 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+
+2026-10-11 紐約時間 R20 更新（UTC 2026-10-12 完成）：production 與 staging 已部署 #449 `72236f58`，與 reviewed `a8694fef` 同 tree。純供貨會員現在可在自己的商品庫介面開放／停止預留，重新登入返回供貨訂單；不需零售店或手動呼叫 API。staging 的 33 項合成會員旅程驗證跨店同意、開放預留、真實持久 hold、關閉後查回既有訂單與取消釋放庫存；production 的 36 項公開及 22 項合成帳號 HTTP 檢查通過。
+
+R20 無 schema 變更，兩環境仍為 migration 164，reader/writer 下限維持供貨164／庫存162。四份發布前後備份均完成資料庫／物件還原、遠端讀回及清理；production 第一次發布後備份 capture 失敗，保留失敗收據且未宣告恢復驗證，重試成功後才完成發布紀錄。正式排程與 GC 關閉狀態保留。臨時 Access 已撤銷、自有合成帳號停用／空間封存，未做真人採用或第二操作者驗收。
+
+詳見 [R20 收據](../unified-foundation/rollout-r20-2026-10-12.json)與[現況快照](../unified-foundation/current-state.json)。以下 R19 與 r9 段落保留當時交付範圍；目前上線狀態以上述 R20 為準。installed PR Verify 仍固定 `dc2f5ba8`；Foundation／M1 與 T-047 未完成狀態不變。
 
 2026-10-11 紐約時間 R19 更新（operator 私有收據的去敏摘要）：production 與 staging 均已部署 #445 `31166e52`，與 reviewed `29649260` 同 tree、同 dist；包含先前已合併 #447。本輪追加 migration163／164，目前到164、ledger共163筆，022仍是唯一歷史缺號。
 
