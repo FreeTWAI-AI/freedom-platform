@@ -18,10 +18,11 @@ import { selectImpact, validateDescriptor, isModuleDescriptorPath, ROOT_INSTRUCT
 import { artifactPath, parseJson } from '../../packages/contribution-tools/io.mjs';
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 import { GUIDE_COMPOSITION_PROFILE } from '../../packages/contribution-tools/pinned-e2e.mjs';
+import { GUILD_PRESENTATION_PROFILE } from '../../packages/contribution-tools/guild-presentation-profile.mjs';
 import { runtimeTextSources } from '../generate-runtime-text.mjs';
 
 export const SELECTABLE_JOBS = Object.freeze([
-  'runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers', 'deploy-preflight',
+  'runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers', 'deploy-preflight', 'guild-presentation',
 ]);
 // Every selectable job must report a result, including an intentional docs skip.
 // Keep one list so a selected check cannot disappear from aggregate validation.
@@ -33,6 +34,7 @@ export const JOB_OUTPUT_KEYS = Object.freeze({
   'static-worker': 'static_worker',
   'governance-consumers': 'governance_consumers',
   'deploy-preflight': 'deploy_preflight',
+  'guild-presentation': 'guild_presentation',
 });
 export const ALWAYS_ON_INTEGRITY_COMMANDS = Object.freeze([
   'npm run contracts:build',
@@ -204,6 +206,58 @@ export function decideAffectedJobs(input) {
   }
   if (impact.module_ids.length || impact.tests.length) return full('baseline_candidate_union');
   return docs();
+}
+
+/** Explain the actual reverse-dependency closure before permitting the guild lane.
+ * Descriptor, contract, SDK, registration, test, new-file and unknown changes
+ * retain the complete integration path. This first profile only covers edits
+ * to the two reviewed presentation entries; it is not arbitrary plugin admission.
+ */
+export function decideGuildPresentationProfile(input) {
+  const fallback = reason => ({profile: 'full', reason});
+  if (input?.event !== 'pull_request') return fallback('non_pull_request');
+  if (input.diffComplete !== true || !Array.isArray(input.changes) || !input.changes.length || input.changes.length > CHANGE_LIMIT) return fallback('diff_unproven');
+  if (input.descriptorsProven === false || !input.baseline?.length || !input.candidate?.length) return fallback('descriptors_unproven');
+  const paths = [], leaves = [];
+  for (const change of input.changes) {
+    if (statusReason(change) || change.status !== 'M') return fallback('guild_change_unproven');
+    if (change.path === GENERATED_INVENTORY_PATH) continue;
+    const leaf = GUILD_PRESENTATION_PROFILE.leaves.find(item => item.entry === change.path);
+    if (!leaf) return fallback('outside_guild_presentation');
+    paths.push(change.path); leaves.push(leaf);
+  }
+  if (!paths.length || new Set(paths).size !== paths.length) return fallback('guild_change_unproven');
+  try {
+    const graphs = [validatedDescriptorGraph(input.baseline), validatedDescriptorGraph(input.candidate)];
+    if (!sameSet([...graphs[0].keys()], [...graphs[1].keys()])) throw Error();
+    for (const [id, value] of graphs[0]) if (JSON.stringify(value) !== JSON.stringify(graphs[1].get(id))) throw Error();
+    for (const descriptors of [input.baseline, input.candidate]) {
+      for (const leaf of leaves) {
+        const owners = descriptors.filter(descriptor => owns(descriptor, leaf.entry));
+        if (owners.length !== 1) throw Error();
+        const owner = owners[0];
+        if (owner.module_id !== leaf.module || owner.owner_role !== leaf.owner
+          || !sameSet(owner.dependencies, leaf.dependencies) || !sameSet(owner.tests, ['runtime.guild-blocks'])
+          || !sameSet(owner.public_exports, [leaf.entry]) || owner.surfaces.length !== 1) throw Error();
+        const surface = owner.surfaces[0];
+        if (surface.surface_id !== leaf.surface || surface.entry !== leaf.entry || surface.kind !== 'page'
+          || surface.auth_profile !== 'member-session' || !sameSet(surface.operations, [leaf.operation])) throw Error();
+      }
+      const composition = descriptors.find(item => item.module_id === GUIDE_COMPOSITION_PROFILE.module);
+      if (!composition || composition.owner_role !== 'foundation'
+        || !sameSet(composition.dependencies, GUIDE_COMPOSITION_PROFILE.dependencies)
+        || !sameSet(composition.tests, ['runtime.full'])) throw Error();
+    }
+    const impact = selectImpact({baseline: input.baseline, candidate: input.candidate, changedPaths: paths});
+    if (impact.unknown_paths.length || !sameSet(impact.module_ids, [...new Set(leaves.map(item => item.module)), GUIDE_COMPOSITION_PROFILE.module])
+      || !sameSet(impact.tests, ['runtime.full', 'runtime.guild-blocks'])) throw Error();
+    return {profile: GUILD_PRESENTATION_PROFILE.id, reason: 'guild_presentation_dependency_closure',
+      affected_modules: impact.module_ids, declared_suites: impact.tests,
+      required_checks: ['typecheck', 'portal-build', 'guild-registration', GUILD_PRESENTATION_PROFILE.runtimeSuite, 'guild-integration', 'guild-preview', 'static-worker'],
+      runtime_files: GUILD_PRESENTATION_PROFILE.runtimeFiles,
+      integration_files: GUILD_PRESENTATION_PROFILE.integrationFiles,
+      preview_files: GUILD_PRESENTATION_PROFILE.previewFiles};
+  } catch { return fallback('guild_impact_unproven'); }
 }
 
 // Browser narrowing is a separate, fixed pilot; it never narrows job selection.
@@ -458,7 +512,9 @@ export function collectRepositoryDecision({ repository, event, base = '', head =
 // Host event SHAs, not a candidate profile/file list, authorize the pilot.
 // Read the exact integration tree: a head-only or stale-base comparison cannot
 // prove the browser checkout. Any missing evidence keeps the complete suite.
-export function collectRepositoryE2eDecision({ repository, event, base = '', head = '', candidate = '', pullRequest = '', allowFetch = false } = {}) {
+export function collectRepositoryE2eDecision(input = {}) { return collectIntegrationProfile(input, decideE2eProfile); }
+export function collectRepositoryGuildDecision(input = {}) { return collectIntegrationProfile(input, decideGuildPresentationProfile); }
+function collectIntegrationProfile({ repository, event, base = '', head = '', candidate = '', pullRequest = '', allowFetch = false } = {}, decide) {
   const fallback = reason => ({ profile: 'full', reason });
   if (event !== 'pull_request') return fallback('non_pull_request');
   if (typeof repository !== 'string' || !isAbsolute(repository)
@@ -475,7 +531,7 @@ export function collectRepositoryE2eDecision({ repository, event, base = '', hea
     if (parents.length !== 2 || parents[0] !== base || parents[1] !== head) return fallback('candidate_unproven');
     const diff = loadTrees(root, base, candidate);
     const baseline = loadModuleDescriptors(root, base), current = loadModuleDescriptors(root, candidate);
-    return decideE2eProfile({ event, diffComplete: diff?.ok === true, changes: diff?.changes ?? [],
+    return decide({ event, diffComplete: diff?.ok === true, changes: diff?.changes ?? [],
       baseline: baseline.descriptors, candidate: current.descriptors, descriptorsProven: baseline.ok && current.ok });
   } catch { return fallback('candidate_unproven'); }
 }

@@ -783,7 +783,7 @@ test('fixed frontend profiles retain complete runtime/browser/static jobs withou
   assertLeaf(leafDecision(FRONTEND_LEAF_PROFILES.flatMap(profile => profile.paths)));
   assertLeaf(leafDecision([FRONTEND_LEAF_PROFILES[0].paths[0], 'docs/development/ordinary.md', GENERATED_INVENTORY_PATH]));
   assert.deepEqual(FRONTEND_LEAF_JOBS, ['runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker']);
-  assert.equal(SELECTABLE_JOBS.length, 6);
+  assert.equal(SELECTABLE_JOBS.length, 7);
 });
 
 test('leaf selection refuses new/unmapped/auth/contract/descriptor/runtime-text and destructive paths', () => {

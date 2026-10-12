@@ -40,7 +40,8 @@
     "scripts/verify-cloud-candidate-members.ts",
     "tests/e2e/cloud-candidate-acceptance.spec.ts",
     "tests/e2e/member-feature-fixture.ts",
-    "tests/e2e/event-banner.spec.ts"
+    "tests/e2e/event-banner.spec.ts",
+    "scripts/ci/pinned-guild-preview.config.mjs"
   ],
   "owner_role": "foundation",
   "public_exports": [

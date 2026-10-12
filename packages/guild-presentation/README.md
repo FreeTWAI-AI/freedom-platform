@@ -83,3 +83,14 @@ v1 仍嚴格讀取七區塊，轉換只建立新的 v2 草稿，不改寫已存�
 本輪 Agent 實作與隔離測試不代表真人驗收完成。仍需兩位非核心公會開發者，
 各自在自己的目錄交付一次有用的修改，記錄使用入口、適用測試、維護者協助及卡點。
 正式部署、相稱 CI 安裝與真人成果分別記錄，不互相替代。
+
+
+## 公會驗證的對照階段
+
+目前這份 CI 來源新增 `guild-presentation` 固定工作：型別、登錄一致性、入口建置、五個公會 runtime 檔、三個殼層整合 browser 檔，以及兩個公會目錄自己的 preview 測試。完整驗證仍同時執行；合併此來源不代表組織 required workflow 已換 pin，也不代表縮減已啟用。
+
+只改兩個已審查範例的 `CatalogBlock.tsx`／`WorksBlock.tsx`，才是候選縮減範圍。選測器核對基線與候選的完整 descriptor 圖、原始 ownership、公開介面、權限及實際反向依賴，保留共用殼層的整合測試。新增公會、改 manifest／SDK／契約／測試／API、增加消費者或未知路徑，都保留完整驗證。這不是任意新套件的自動核准。
+
+本機不需要資料庫的開發入口仍是 `npm run guild:preview` 與 `npm run guild:test`。平台維護者可用隔離 PostgreSQL 跑 `node scripts/ci/run-guild-runtime.mjs`；`TEST_DATABASE_URL` 必須指向可丟棄的測試庫。CI 的 browser 執行器接受固定 `--guild-presentation` 或 `--guild-preview` 工作，不接受任意檔案清單，逐案例核對列舉與執行結果；選中却未執行、只 skip、零案例、測試程序失敗都不算通過。
+
+安裝縮減之前，必須保存同一版本的完整與公會工作結果、可信 workflow pin 與合併門檻讀回。現階段的對照不能冒稱公會長已走完快速 PR；兩位非核心作者的真實交付驗收仍待進行。

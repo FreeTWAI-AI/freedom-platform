@@ -63,7 +63,9 @@
     "scripts/ci/select-affected-jobs.mjs",
     "scripts/reconcile-issue-closures.mjs",
     ".github/workflows/reconcile-issue-closures.yml",
-    "scripts/ci/select-affected-jobs.test.mjs"
+    "scripts/ci/select-affected-jobs.test.mjs",
+    "scripts/ci/guild-presentation-profile.test.mjs",
+    "scripts/ci/run-guild-runtime.mjs"
   ],
   "owner_role": "foundation",
   "public_exports": [
