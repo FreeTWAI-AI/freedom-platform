@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-11 release.production=72236f58334719010922ac18483471c0a66bf578 release.staging=72236f58334719010922ac18483471c0a66bf578 flag.production=true flag.staging=true repo_max_migration=165 applied_migration.production=164 applied_migration.staging=164 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-12 release.production=14f82aa29860c805e63edb98e9cb1f85eccd251f release.staging=14f82aa29860c805e63edb98e9cb1f85eccd251f flag.production=true flag.staging=true repo_max_migration=165 applied_migration.production=165 applied_migration.staging=165 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-12 UTC R21 更新：staging 與 production 已部署 `14f82aa2`，同一 dist，schema165／164 筆 ledger。會員首頁、全站導覽與公會「工作／資源／管理」已有分層；供貨者仍不需零售店。商品分享頁、開源作品撤下／再次公開、活動預覽／審核／報名，以及「我的內容」返回入口已部署。
 
