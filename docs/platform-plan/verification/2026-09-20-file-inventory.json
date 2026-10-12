@@ -594,8 +594,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
-      "bytes": 3488,
-      "sha256": "26d82a49477b316705c66839f9aa72c2c676f856fddb875fdd0093ba8fcdd426"
+      "bytes": 3847,
+      "sha256": "635995ffe4da1f37b3574cedb27f1f4a8a5addd65be84b6ceb23432e571deefe"
     },
     {
       "path": "apps/platform-api/src/routes/positioning.ts",
@@ -2649,8 +2649,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 24402,
-      "sha256": "3466def63c9269f18406fec7baaafaaea205142f8ee852a047ea7624ba5a17e2"
+      "bytes": 25389,
+      "sha256": "92da9fbd2e758124befafa66056c3f7aa5bcdcace1c8bec3455c4d973d5ab231"
     },
     {
       "path": "apps/portal-web/src/modules/PositioningActionCard.tsx",
@@ -16629,8 +16629,8 @@
     },
     {
       "path": "migrations/165_oss_sharing_withdrawal.sql",
-      "bytes": 227,
-      "sha256": "6c6b6ca3da3a9361095f33c0b4676f904e1e3b60d504e78b5a9de54e691f766e"
+      "bytes": 739,
+      "sha256": "633aee2706b1dde3162e2b17f601a4c87fa3864bea99b053f41f1d4b609095f2"
     },
     {
       "path": "modules/agent-commerce/README.md",
@@ -18254,8 +18254,8 @@
     },
     {
       "path": "modules/opensource-marketing/service.ts",
-      "bytes": 18514,
-      "sha256": "f209044a4dddbcd5e6d8e3a8f012d2efe4dfe6167bd08bddf97fbab87ccad6ab"
+      "bytes": 19104,
+      "sha256": "32a0d4752b7c5837cd9b35e7f063b837a0f8606ac6224484d2df4dc0c0e8901c"
     },
     {
       "path": "modules/opportunity-project-work/README.md",
@@ -18464,8 +18464,8 @@
     },
     {
       "path": "modules/skill-submissions/freedom.module.json",
-      "bytes": 5248,
-      "sha256": "eb25ebb81e4f873d5a3a1eebbd953a8b739495b7d34773b5628cdc748b31e2b1"
+      "bytes": 5301,
+      "sha256": "d79c5585a41b788b6612874fc2735fd5e88dc623dc6bfd7877465ca7db857bf2"
     },
     {
       "path": "modules/skill-submissions/limits.ts",
@@ -18494,13 +18494,13 @@
     },
     {
       "path": "modules/skill-submissions/service.ts",
-      "bytes": 40636,
-      "sha256": "ff7f981b7c6b4c8cad2f199fa09170de5e50055a7c7633e833f603874606a208"
+      "bytes": 40925,
+      "sha256": "33d00bc46934972f64f246e16ba7a0687b89496c7b6d78e7968d4b4ee5142b3c"
     },
     {
       "path": "modules/skill-submissions/sharing-lifecycle.md",
-      "bytes": 2154,
-      "sha256": "950c513e35f5b56557656e212ba3fd9621879cdf1f761b7e698bd86d093e9acc"
+      "bytes": 2617,
+      "sha256": "67239d2a48fef86621ed38a348a7f2948b1a935591a1dd85bdf27cc0cf5a25ad"
     },
     {
       "path": "modules/skill-submissions/upload-authority.ts",
@@ -20374,8 +20374,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1424,
-      "sha256": "17995595984b58059627b56b8bb6f527d3d6a0faaf125a64c402ee8e1acafd3b"
+      "bytes": 1472,
+      "sha256": "3f71524fada3a5d892fad4b3b88e235508d4e0ee32b8cbfdb128cb2f0d116a39"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
@@ -20799,8 +20799,8 @@
     },
     {
       "path": "tests/e2e/simple-work-sharing.spec.ts",
-      "bytes": 14780,
-      "sha256": "2cd091a0fc80b2eadb5cff8edd18f70d7b67c4e5c8f4b16b60b424a59dab7678"
+      "bytes": 15298,
+      "sha256": "712776a8413b7ec7d2a86059077c974791b8bf5af04eda92bd2663549dd97ada"
     },
     {
       "path": "tests/e2e/skill-book-library.spec.ts",
@@ -22249,8 +22249,8 @@
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",
-      "bytes": 27696,
-      "sha256": "2e96e75fb82b64d8b84109933936e46742e64a24bf7acccc0c41ae95db65d977"
+      "bytes": 30342,
+      "sha256": "d2e0a497cb88e841c07b04f03013d54b8b181ce42f0a71c259aa1b284ae50037"
     },
     {
       "path": "tests/runtime/operator-avatar-backfill.test.ts",

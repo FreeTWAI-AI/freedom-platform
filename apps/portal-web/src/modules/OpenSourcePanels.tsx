@@ -27,20 +27,32 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const openNonce=useRef(0);
   const openSkill=(submissionId:string,mode: 'preview'|'complete')=>{openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});};
   const [resumeId,setResumeId]=useState<string|null>(()=>new URLSearchParams(window.location.hash.split('?')[1]??'').get('submission'));
-  useEffect(()=>{const change=()=>setResumeId(new URLSearchParams(window.location.hash.split('?')[1]??'').get('submission'));window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
+  const [projectId,setProjectId]=useState<string|null>(()=>new URLSearchParams(window.location.hash.split('?')[1]??'').get('project'));
+  useEffect(()=>{const change=()=>{const params=new URLSearchParams(window.location.hash.split('?')[1]??'');setResumeId(params.get('submission'));setProjectId(params.get('project'));};window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
+  const loadSequence=useRef(0);
   const refresh=useCallback(async()=>{
-    setLoading(true);setLoadError(null);
-    try{setProjects(requireItems<Project>(await client.get('/opensource/projects'),'開源作品'));}
-    catch(cause){setLoadError(cause instanceof Error?cause.message:'無法載入開源作品。');}
-    finally{setLoading(false);}
-  },[client]);
-  useEffect(()=>{void refresh();},[refresh]);
+    const sequence=++loadSequence.current,generation=client.sessionGeneration;
+    const current=()=>sequence===loadSequence.current&&generation===client.sessionGeneration;
+    setLoading(true);setLoadError(null);setProjects([]);
+    try{
+      const items=requireItems<Project>(await client.get('/opensource/projects'),'開源作品');
+      // A stable management link must also reach works beyond the collection's
+      // first page. The domain endpoint applies the same current visibility ACL.
+      if(current()&&projectId&&/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(projectId)&&!items.some(item=>item.project_id===projectId)){
+        const project=await client.get<Project>(`/opensource/projects/${projectId}`);items.unshift(project);
+      }
+      if(current())setProjects(items);
+    }
+    catch(cause){if(current())setLoadError(cause instanceof Error?cause.message:'無法載入開源作品。');}
+    finally{if(current())setLoading(false);}
+  },[client,session.user.user_id,projectId]);
+  useEffect(()=>{void refresh();return()=>{loadSequence.current++;};},[refresh]);
   return <div className="stack">
     <WorkSharingEntry current="opensource"/>
     <SimpleSkillSubmission key={`${session.user.user_id}:${client.sessionGeneration}`} userId={session.user.user_id} resumeId={resumeId} client={client} withdrawnProjectIds={projects.filter(project=>Boolean(project.sharing_withdrawn_at)).map(project=>project.project_id)} onPublished={refresh} onOpenDraft={openSkill}/>
     <details className="card work-sharing-advanced"><summary>使用 Agent 或聊天 AI 協助整理（進階）</summary><div className="stack"><p className="hint">已有 Agent 草稿，或想讓 AI 整理介紹與分享短文，可使用原有上傳工具。</p><div className="actions"><SkillUpload client={client} onPublished={refresh} openRequest={openRequest}/></div></div></details>
     <LoadError error={loadError} retry={()=>void refresh()}/>
-      <section className="stack" aria-label="社群開源作品"><div className="section-head"><h2>社群開源作品</h2><p>已登錄 {projects.length} 件 · 自由探索，不必先談商務合作</p></div>
+      <section className="stack" aria-label="社群開源作品"><div className="section-head"><h2>社群開源作品</h2><p>目前顯示 {projects.length} 件 · 自由探索，不必先談商務合作</p></div>
         {loading&&<p role="status">正在載入作品…</p>}
         {!loading&&!loadError&&projects.length===0&&<div className="card empty"><h3>第一件作品，從你開始</h3><p>登錄後會顯示使用說明、授權與固定版本，方便其他會員試用和參與。</p></div>}
         {projects.map(project=><ProjectCard key={project.project_id} project={project} own={project.owner_ref===session.user.user_id} client={client} session={session} reload={refresh} onNavigate={onNavigate} onOpenSkill={openSkill}/>)}

@@ -71,7 +71,8 @@
       "operations": [
         "skill-submissions.registered-project.list",
         "skill-submissions.registered-project.prepare",
-        "skill-submissions.registered-project.withdraw"
+        "skill-submissions.registered-project.withdraw",
+        "skill-submissions.registered-project.read"
       ],
       "auth_profile": "member-session"
     },

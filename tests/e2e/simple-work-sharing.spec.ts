@@ -162,9 +162,15 @@ test('member returns to manage a shared tool, withdraws it privately and publish
   const logout=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname==='/api/v1/auth/logout');
   await signOut(page);await (await logout).finished();await login(page);await navigate(page,'我的內容');
   const own=page.getByRole('article').filter({has:page.getByRole('heading',{name:'重新整理的工具',exact:true})});
+  // Simulate a collection page that does not contain this older work. The
+  // management detail and every mutation still use the real authorized API.
+  await page.route('**/api/v1/opensource/projects',route=>route.fulfill({json:{items:[]}}));
+  const managed=page.waitForResponse(response=>response.request().method()==='GET'&&/\/api\/v1\/opensource\/projects\/[0-9a-f-]+$/.test(new URL(response.url()).pathname));
   await own.getByRole('link',{name:'管理作品',exact:true}).click();
   card=page.getByRole('article',{name:'開源作品：重新整理的工具',exact:true});
-  await expect(card).toBeFocused();await card.getByRole('button',{name:'撤下作品分享',exact:true}).click();
+  expect((await managed).status()).toBe(200);await expect(card).toBeFocused();
+  await page.unroute('**/api/v1/opensource/projects');
+  await card.getByRole('button',{name:'撤下作品分享',exact:true}).click();
   await expect(card.getByRole('button',{name:'確認撤下作品分享',exact:true})).toBeDisabled();
   await card.getByLabel('我了解這件作品的所有分享版本都會撤下',{exact:true}).check();
   await card.getByRole('button',{name:'確認撤下作品分享',exact:true}).click();

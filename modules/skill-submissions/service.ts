@@ -24,7 +24,7 @@ const MEMBER_READY = 'active AND (NOT onboarding_required OR onboarding_complete
 const SUBMISSION_COLUMNS = `submission_id,status,aggregate_version,payload,project_id,upgrades_submission_id,seed,(image_bytes IS NOT NULL OR storage_source='asset') AS has_image,(grant_hash IS NULL AND seed IS NULL) AS manual,
   LEAST(grant_expires_at,(SELECT k.expires_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_expires_at,
   COALESCE(grant_revoked_at,(SELECT k.revoked_at FROM skill_upload_keys k WHERE k.key_id=skill_submissions.grant_key_id)) AS grant_revoked_at,
-  grant_consumed_at,created_at,updated_at,
+  grant_consumed_at,created_at,updated_at,prepared_project_id,prepared_project_version,
   (SELECT json_build_object('submission_id',u.submission_id,'status',u.status) FROM skill_submissions u
     WHERE u.upgrades_submission_id=skill_submissions.submission_id ORDER BY u.created_at DESC,u.submission_id ASC LIMIT 1) AS upgrade,
   EXISTS (SELECT 1 FROM skill_submissions u WHERE u.upgrades_submission_id=skill_submissions.submission_id
@@ -185,9 +185,9 @@ export async function prepareProjectSkillSubmission(pool: Pool, input: Command, 
     const payload = manualPayload(manualInput.parse({ repository_url: project.repository_url, title: project.title,
       description: project.description, use_notes: project.use_notes, demo_url: project.demo_url, relationship: project.relationship }));
     const id = randomUUID();
-    const row = (await q.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,grant_consumed_at)
-      VALUES($1,$2,$3,'ready_for_review',$4,$5,now()) RETURNING ${SUBMISSION_COLUMNS}`,
-      [id, input.actor.community_id, input.actor.user_id, JSON.stringify(payload), digest(payload)])).rows[0];
+    const row = (await q.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,grant_consumed_at,prepared_project_id,prepared_project_version)
+      VALUES($1,$2,$3,'ready_for_review',$4,$5,now(),$6,$7) RETURNING ${SUBMISSION_COLUMNS}`,
+      [id, input.actor.community_id, input.actor.user_id, JSON.stringify(payload), digest(payload), projectId, project.aggregate_version])).rows[0];
     await journal(q, input.actor, 'skill_submission', id, 1, 'prepare_registered_project_book',
       { project_id: projectId, payload_sha256: digest(payload), source: 'registered_project' });
     return { submission: submissionView(row), created: true, catalog_book: null };
@@ -388,6 +388,7 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
         repository_url: payload.repository_url, title: payload.title, description: payload.description, use_notes: payload.use_notes,
         demo_url: payload.demo_url ?? null, relationship: payload.relationship, consent_to_share: true,
       }, { reuseOwned: true, fetcher: read.fetcher, token: read.token, publicationCreatedAt: current.created_at,
+        preparedProject: current.prepared_project_id ? { id: current.prepared_project_id, version: String(current.prepared_project_version) } : undefined,
         beforePersist: async () => {
           await lockMemberDrafts(q, input.actor.user_id);
           const latest = await ownedSubmission(q, input.actor, id, true);

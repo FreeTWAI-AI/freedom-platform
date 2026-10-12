@@ -17,11 +17,16 @@ project 的 sharing_withdrawn_at。公開 HTML、JSON、Agent 文件、圖片、
 並同意公開。新的公開使用原 project ID 與新的投稿連結；已撤下的舊連結
 維持缺少頁，不因再公開自動恢復。更新 GitHub 版本或修改文字不會解除撤下。
 每次新 publication 都推進 project version，過期的撤下要求不能隱藏新發布。
+準備草稿時保存 project ID 與版本；重新公開已撤下作品前，在同一交易核對
+該版本。另一分頁的新修改會阻擋舊稿公開，保留私人內容與草稿，會員可撤回
+舊稿後重新製作、預覽。直接另填同 Repo 不會繞過這項確認。
 命令重送不重複寫入；撤下 receipt 僅含 ID、版本與狀態，UI 另讀目前資料。
+管理連結依穩定 project ID 讀取目前授權的作品，不受目錄前 100 件限制；
+完整目錄分頁仍沿原追蹤項目處理。
 
 ## 部署與恢復限制
 
-Schema 165 增加既有 project 的可見性欄位。**正式部署尚未執行**。
+Schema 165 增加既有 project 的可見性欄位與投稿的來源版本綁定。**正式部署尚未執行**。
 啟用前必須在部署／恢復操作器保留 `opensource.sharing-visibility.v1` 與
 schema 165 的 reader/writer floor，並實測拒絕舊版 rollback。舊 binary 的會員
 目錄不認識撤下欄位，不能當作相容 rollback。此文件不是已安裝 floor 的證據。

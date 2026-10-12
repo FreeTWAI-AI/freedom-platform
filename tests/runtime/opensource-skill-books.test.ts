@@ -269,6 +269,11 @@ test('owner withdraws the whole work, retains private editing, and explicitly re
   assert.equal(await listed(other,project.project_id),undefined);
   project=await listed(owner,project.project_id);
   assert.ok(project.sharing_withdrawn_at);assert.equal(project.skill_book,null);
+  const managed=await api(`/opensource/projects/${project.project_id}`,owner);
+  assert.equal(managed.status,200);assert.equal(managed.data.project_id,project.project_id);
+  assert.equal(managed.response.headers.get('cache-control'),'no-store');
+  assert.equal((await api(`/opensource/projects/${project.project_id}`,other)).status,404);
+  assert.equal((await api(`/opensource/projects/${project.project_id}`)).status,401);
   for(const route of [`/skill-submissions/${book.submission_id}`,`/skill-submissions/${book.submission_id}/share-content`]) {
     const missing=await api(route);assert.equal(missing.status,404);assert.equal(missing.response.headers.get('cache-control'),'no-store');
   }
@@ -290,6 +295,31 @@ test('owner withdraws the whole work, retains private editing, and explicitly re
   assert.equal((await app.request(origin+book.public_path)).status,404,'withdrawn old links stay closed after republishing');
   assert.equal((await listed(other,project.project_id)).sharing_withdrawn_at,null);
   assert.equal((await api(path,owner,{},hidden.data.aggregate_version)).status,412,'new publication invalidates the old project version');
+});
+
+test('republishing cannot overwrite a newer private edit and recovers through a newly prepared draft', async t => {
+  github(t); const owner=await login(),other=await login(DEMO_USERS[1].email);
+  const original=await registered(owner),book=await publish(owner,expectPrepared(await prepare(owner,original)));
+  let project=await listed(owner,original.project_id);
+  const withdrawn=await api(`/opensource/projects/${project.project_id}/withdraw`,owner,{},project.aggregate_version);
+  assert.equal(withdrawn.status,200,JSON.stringify(withdrawn.data));
+  project=await listed(owner,project.project_id);
+  const staleDraft=expectPrepared(await prepare(owner,project));
+  const revised=await api(`/opensource/projects/${project.project_id}:revise`,owner,
+    {title:'另一分頁保存的新標題',description:'這些私人修改不能被舊預覽覆蓋',use_notes:'先確認新版內容',demo_url:null},project.aggregate_version);
+  assert.equal(revised.status,200,JSON.stringify(revised.data));
+  const conflict=await api(`/me/skill-submissions/${staleDraft.submission_id}/publish`,owner,{consent_to_share:true},staleDraft.aggregate_version);
+  assert.equal(conflict.status,412,JSON.stringify(conflict.data));assert.equal(conflict.data.code,'project_publication_changed');
+  assert.match(conflict.data.detail,/撤回這份草稿/);
+  const retained=await listed(owner,project.project_id);
+  assert.equal(retained.title,revised.data.title);assert.equal(retained.aggregate_version,revised.data.aggregate_version);
+  assert.ok(retained.sharing_withdrawn_at);assert.equal(await listed(other,project.project_id),undefined);
+  assert.equal((await api(`/me/skill-submissions/${staleDraft.submission_id}`,owner)).data.status,'ready_for_review');
+  assert.equal((await api(`/me/skill-submissions/${staleDraft.submission_id}/revoke`,owner,{},staleDraft.aggregate_version)).status,200);
+  const fresh=expectPrepared(await prepare(owner,retained));assert.equal(fresh.payload.title,revised.data.title);
+  const published=await publish(owner,fresh);
+  assert.equal((await api(`/skill-submissions/${published.submission_id}`)).data.title,revised.data.title);
+  assert.equal((await app.request(origin+book.public_path)).status,404);
 });
 
 test('withdrawing closes pending upgrade grants and co-creation discovery without changing another owners source', async t => {
