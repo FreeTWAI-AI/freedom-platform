@@ -13,7 +13,7 @@ import { readStoreAppearance, updateStoreAppearance } from '../../../../modules/
 import { SupplyTermsInputSchema } from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
 import { readSupplyTerms, updateSupplyTerms } from '../../../../modules/agent-commerce/hosted/supply-terms.js';
 import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-commerce/hosted/public.js';
-import { storeHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
+import { storeHtml, productHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
 import { Problem } from '../../../../packages/shared/problem.js';
 import type { PlatformEnv } from '../module-context.js';
 import { privateCache, singleQuery, commandHeaders, etag } from './tenant-http.js';
@@ -119,7 +119,7 @@ export function createHostedStoreRoutes(pool: Pool) {
   });
   return app;
 }
-export function createPublicHostedStoreRoutes(pool: Pool) {
+export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string) {
   const app = new Hono<PlatformEnv>();
   app.get('/api/v1/public/stores/:slug', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
@@ -131,7 +131,14 @@ export function createPublicHostedStoreRoutes(pool: Pool) {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStorePage(pool, c.req.param('slug'));
     if (!store) return c.html(storeMissingHtml(), 404);
-    c.header('Cache-Control', store.media.photos.length ? 'no-store' : 'public, max-age=60'); return c.html(storeHtml(store.projection, store.template_id, store.media.photos));
+    return c.html(storeHtml(store.projection, store.template_id, store.media.photos, publicOrigin ? {publicOrigin} : undefined));
+  });
+  app.get('/shops/:slug/products/:sku', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    const html = store && productHtml(store.projection, c.req.param('sku'), store.media.photos, publicOrigin ? {publicOrigin} : undefined);
+    if (!html) return c.html(storeMissingHtml(true), 404);
+    return c.html(html);
   });
   return app;
 }

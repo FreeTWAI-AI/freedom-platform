@@ -60,9 +60,17 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
         setReady(false);
         const display = PublicStoreProjectionSchema.parse(await client.get(`/public/stores/${target.slug}`, {signal: controller.current.signal}));
         if (display.slug !== target.slug) throw unreadable();
+        if (target.sku && !display.products.some(product => product.sku === target.sku)) {
+          if (current()) {setStore(null); setNotice('分享的商品目前沒有公開，請回到商店重新選擇。');}
+          return;
+        }
         if (current()) setStore(display);
         const readiness = ReadinessSchema.parse(await client.get(`/hosted-stores/${target.slug}/order-readiness`, {signal: controller.current.signal}));
-        if (current()) {setReady(readiness.reservation_enabled); if (!readiness.reservation_enabled) setNotice('這間商店目前未開放新的預留；商品僅供展示。');}
+        if (current()) {
+          setReady(readiness.reservation_enabled);
+          if (readiness.reservation_enabled && target.sku) setQuantity(value => value[target.sku!] === undefined ? {...value, [target.sku!]: '1'} : value);
+          if (!readiness.reservation_enabled) setNotice('這間商店目前未開放新的預留；商品僅供展示。');
+        }
       } else if (target?.kind === 'order' || target?.kind === 'intent') {
         const path = target.kind === 'order' ? `/me/reservations/${target.id}` : `/me/reservations/by-intent/${target.intent}?store_slug=${target.slug}`;
         const raw = await client.get(path, {signal: controller.current.signal});
@@ -165,11 +173,14 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
         <div className="actions"><button className="btn btn-small btn-ghost">查詢我的預留</button></div>
       </form>
     </> : <>
-      {route.kind === 'shop' && store && !quote && !order && <form className="stack" onSubmit={requestQuote}>
+      {route.kind === 'shop' && <p><a href={`/shops/${route.slug}`}>返回商店展示頁</a></p>}
+      {route.kind === 'shop' && store && !quote && !order && <form className="hosted-store-form stack" onSubmit={requestQuote}>
         <h2>{store.name}</h2><p>{store.description}</p>
         {!ready && !loading && <p>新的預留目前不可用，商品僅供展示。</p>}
-        {store.products.map(p => <div className="hosted-store-product stack" key={p.sku}><h3>{p.title}</h3><p>{formatMinor(p.price_minor, store.currency)}</p><p>{p.description}</p>
-          {ready && <label className="field"><span>{p.title}數量</span><input type="number" min={0} max={99} step={1} value={quantity[p.sku] ?? '0'} disabled={locked} onChange={e => {dirty.current = true; setQuantity(v => ({...v, [p.sku]: e.target.value}));}}/></label>}</div>)}
+        {[...store.products].sort((a,b) => Number(b.sku === route.sku) - Number(a.sku === route.sku)).map(p => <div className="hosted-store-product stack" key={p.sku}>
+          {p.sku === route.sku && <p className="field-hint">從商品頁選擇的商品；請確認數量與內容。</p>}
+          <h3>{p.title}</h3><p>{formatMinor(p.price_minor, store.currency)}</p><p>{p.description}</p>
+          {ready && <label className="field hosted-order-quantity"><span>{p.title}數量</span><input type="number" min={0} max={99} step={1} value={quantity[p.sku] ?? '0'} disabled={locked} onChange={e => {dirty.current = true; setQuantity(v => ({...v, [p.sku]: e.target.value}));}}/></label>}</div>)}
         {ready && <div className="actions"><button className="btn btn-primary" disabled={locked || loading}>查看預留內容</button></div>}
       </form>}
       {quote && !order && <section className="stack" aria-label="確認預留內容"><h2>{quote.store.name}</h2><Lines value={quote}/><p>內容有效至 {formatIsoLocal(quote.expires_at)}。查看內容不會預留庫存。</p>
