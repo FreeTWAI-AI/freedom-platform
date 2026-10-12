@@ -233,7 +233,7 @@ test('a chair delegates editing and preview only, then revokes access from a sta
     const publicConfig = (await publicBefore.json()).config;
     await leader.page.goto(`/#guilds/${edited}`);
     await expect(leader.page.getByRole('heading', {level: 1, name: chair.editedName})).toBeVisible();
-    await leader.page.getByLabel('成員', {exact: true}).selectOption({label: member.displayName});
+    await leader.page.getByLabel(/^成員/).selectOption({label: member.displayName});
     await leader.page.getByLabel('編輯內容', {exact: true}).check();
     await leader.page.getByLabel('預覽配置', {exact: true}).check();
     await leader.page.getByLabel('發布配置', {exact: true}).uncheck();
@@ -251,7 +251,7 @@ test('a chair delegates editing and preview only, then revokes access from a sta
     await expect(delegate.page.getByRole('button', {name: '發布', exact: true})).toHaveCount(0);
     await expect(delegate.page.getByRole('button', {name: '授權', exact: true})).toHaveCount(0);
     await expect(delegate.page.getByRole('button', {name: '撤銷', exact: true})).toHaveCount(0);
-    await expect(delegate.page.getByLabel('成員', {exact: true})).toHaveCount(0);
+    await expect(delegate.page.getByLabel(/^成員/)).toHaveCount(0);
     await delegate.page.locator('#launchpad-mission').fill(mission);
     const savedResponse = await responseFor(delegate.page, 'delegate saves draft', `${path}/launchpad-config/drafts`,
       () => delegate.page.getByRole('button', {name: '儲存草稿', exact: true}).click());
