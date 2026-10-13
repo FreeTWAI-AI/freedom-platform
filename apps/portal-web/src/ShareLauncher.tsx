@@ -2,20 +2,22 @@ import {useEffect,useId,useRef,useState} from 'react';
 import type {TabId} from './types';
 import './ShareLauncher.css';
 
-export type ShareTarget='post'|'work'|'resource'|'product'|'product-start'|'collaborate'|'cocreate';
-export const SHARE_TARGETS:Record<ShareTarget,{tab:TabId;selector:string;label:string;activate?:boolean}>={
+export type ShareTarget='post'|'work'|'resource'|'product'|'product-start'|'product-store'|'product-supply'|'collaborate'|'cocreate';
+export const SHARE_TARGETS:Record<ShareTarget,{tab:TabId;selector:string;label:string;activate?:boolean;hash?:string}>={
   post:{tab:'social',selector:'[data-guide-anchor="social:composer"] .social-write-trigger',label:'發文',activate:true},
   work:{tab:'showcase',selector:'[data-guide-anchor="showcase:title"]',label:'分享作品'},
   resource:{tab:'opensource',selector:'[data-guide-anchor="opensource:repository"]',label:'分享開源資源'},
   product:{tab:'supplier',selector:'[data-guide-anchor="supplier:import-results"] input[type="file"]',label:'上傳商品成果'},
   'product-start':{tab:'supplier',selector:'[data-guide-anchor="supplier:download-kit"] button',label:'準備商品'},
+  'product-store':{tab:'stores',hash:'#stores',selector:'[data-share-entry="stores"]',label:'在站內商店刊登'},
+  'product-supply':{tab:'stores',hash:'#stores/supply',selector:'.hosted-store > h2',label:'供貨給其他店家'},
   collaborate:{tab:'showcase',selector:'[data-share-entry="collaboration"]',label:'找人合作'},
   cocreate:{tab:'cocreation',selector:'[data-share-entry="cocreation"]',label:'發起共創邀請'},
 };
 
 // With `guided`, the same dialog also says who can see each result and what is only a draft, and adds the
 // collaboration entries. It never collects content: every option still opens the original form.
-export function ShareLauncher({onChoose,disabled=false,guided=false,onMyContent}:{onChoose:(target:ShareTarget)=>void;disabled?:boolean;guided?:boolean;onMyContent?:()=>void}){
+export function ShareLauncher({onChoose,disabled=false,guided=false,storesEnabled=false,onMyContent}:{onChoose:(target:ShareTarget)=>void;disabled?:boolean;guided?:boolean;storesEnabled?:boolean;onMyContent?:()=>void}){
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null);
   const [open,setOpen]=useState(false),[product,setProduct]=useState(false);
   useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();},[open]);
@@ -28,6 +30,10 @@ export function ShareLauncher({onChoose,disabled=false,guided=false,onMyContent}
       <header><h2 id={id}>{product?'你的商品準備好了嗎？':'你想分享什麼？'}</h2><button type="button" className="btn btn-ghost" aria-label="關閉分享選單" onClick={close}>關閉</button></header>
       <div className="share-launcher-options">
         {product?<>
+          {storesEnabled&&<>
+            <button type="button" aria-label="在站內商店刊登" onClick={()=>choose('product-store')}><strong>在站內商店刊登</strong><span>建立或進入你的商店，新增商品後預覽並發布。</span>{fact('尚未發布的內容不是公開頁；只有按「發布展示頁」才會公開 /shops/ 展示頁。')}</button>
+            <button type="button" aria-label="供貨給其他店家" onClick={()=>choose('product-supply')}><strong>供貨給其他店家</strong><span>不開零售店，也能建立供貨商品庫。</span>{fact('商品與供貨條件先儲存為私人草稿。公開供貨版本後，同社群店主才能看到。這不會發布買家可見的零售展示頁。')}</button>
+          </>}
           <button type="button" aria-label="我已有商品成果檔" onClick={()=>choose('product')}><strong>我已有商品成果檔</strong><span>上傳商品／商店檔案，預覽後確認。</span></button>
           <button type="button" aria-label="我還沒準備商品" onClick={()=>choose('product-start')}><strong>我還沒準備商品</strong><span>取得開店任務，交給自己的 AI 整理。</span></button>
           <button type="button" className="share-launcher-back" onClick={()=>setProduct(false)}>← 返回分享選單</button>

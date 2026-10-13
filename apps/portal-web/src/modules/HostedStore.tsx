@@ -64,7 +64,7 @@ function BackLink() { return <div className="actions"><a href="#stores" classNam
 function MissingStore() { return <div className="hosted-store stack"><BackLink/><p>找不到這間商店。</p></div>; }
 function StoreList({client}: {client: PortalClient}) {
   const {data, error, retry, loadMore, loadingMore, pageError} = useMyStores(client);
-  return <div className="hosted-store stack">
+  return <div className="hosted-store stack" data-share-entry="stores" tabIndex={-1}>
     {error ? <><p role="alert">暫時無法讀取你的商店。</p><div className="actions"><button type="button" className="btn btn-ghost" onClick={retry}>重試</button></div></> : !data ? <p role="status">正在確認你的商店…</p> : <>
       {data.items.length === 0 && !data.next_cursor && <><p>你還沒有商店。</p><div className="actions"><a className="btn btn-ghost" href="#guilds/guild_commerce_sales">前往電商與銷售公會建立</a><a className="btn btn-ghost" href="#guilds/guild_product_quality_supply">前往商品品質與供應公會設定供貨</a></div></>}
       {data.items.map(item => <article className="card stack" key={item.instance_id}>
