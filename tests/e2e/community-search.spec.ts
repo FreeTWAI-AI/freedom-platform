@@ -165,35 +165,43 @@ test('SEARCH-004 a long pinned repository label stays inside a 390px work card',
   const repository = `example/${'communitysearchpinnedsourcelabel'.repeat(3)}`;
   const title = `長來源${randomUUID().slice(0, 8)}`;
   const email = `search-label-card-${owner}@local.test`, name = '搜尋卡片私人會員名稱';
-  await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
-    SELECT $1,$2,$3,$4,password_hash,$5,false FROM users WHERE user_id=$6`,
-  [owner, DEMO_COMMUNITY, email, name, randomUUID(), DEMO_USERS[0].user_id]);
-  await e2eAuthPool.query(`INSERT INTO oss_projects(project_id,community_id,owner_ref,title,description,use_notes,repository_id,repository_full_name,repository_url,relationship)
-    VALUES($1,$2,$3,$4,'公開摘要','公開用法','88014402',$5,$6,'curator')`,
-  [project, DEMO_COMMUNITY, owner, title, repository, `https://github.com/${repository}`]);
-  await e2eAuthPool.query(`INSERT INTO oss_project_versions(version_id,project_id,repository_id,commit_sha,default_branch,repository_full_name,repository_url,readme_url,license_spdx,is_fork,archived,source_snapshot,source_sha256,facts_sha256,inspected_at)
-    VALUES($1,$2,'88014402',$3,'main',$4,$5,$6,'MIT',false,false,'{}',$7,$7,now())`,
-  [version, project, 'f'.repeat(40), repository, `https://github.com/${repository}`, `https://github.com/${repository}#readme`, digest]);
-  await e2eAuthPool.query('UPDATE oss_projects SET current_version_id=$2,repository_full_name=$3 WHERE project_id=$1', [project, version, 'example/current-project-name']);
-  await e2eAuthPool.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,consent_to_share,project_id,project_version_id,published_at,grant_consumed_at)
-    VALUES($1,$2,$3,'published',$4,$5,true,$6,$7,'2026-01-01T12:00:00.123Z',now())`,
-  [submission, DEMO_COMMUNITY, owner, JSON.stringify({ title, description: '長來源名稱不應把卡片撐出視窗', relationship: 'curator', share_introductions: [], use_notes: '公開用法' }), digest, project, version]);
-  await page.goto(`/#community-search?q=${encodeURIComponent(title)}`);
-  const card = results(page).locator('article').filter({ has: page.getByRole('link', { name: title, exact: true }) });
-  await expect(card.locator('p.field-hint').first()).toContainText(`${repository} · 發布 2026-01-01 12:00:00.123 UTC`);
-  await expect(card.locator('p.field-hint').first()).not.toContainText('example/current-project-name');
-  await expect(results(page)).not.toContainText(name);
-  await expect(results(page)).not.toContainText(email);
-  for (const skin of ['light', 'dark'] as const) {
-    await page.evaluate(value => {
-      localStorage.setItem('freedom-theme', value);
-      document.documentElement.dataset.theme = value;
-      document.documentElement.dataset.experienceProfile = value;
-      window.dispatchEvent(new Event('freedom-theme-changed'));
-    }, skin);
-    await page.setViewportSize({ width: 390, height: 900 });
-    await expect(card).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    expect(await card.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  try {
+    await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+      SELECT $1,$2,$3,$4,password_hash,$5,false FROM users WHERE user_id=$6`,
+    [owner, DEMO_COMMUNITY, email, name, randomUUID(), DEMO_USERS[0].user_id]);
+    await e2eAuthPool.query(`INSERT INTO oss_projects(project_id,community_id,owner_ref,title,description,use_notes,repository_id,repository_full_name,repository_url,relationship)
+      VALUES($1,$2,$3,$4,'公開摘要','公開用法','88014402',$5,$6,'curator')`,
+    [project, DEMO_COMMUNITY, owner, title, repository, `https://github.com/${repository}`]);
+    await e2eAuthPool.query(`INSERT INTO oss_project_versions(version_id,project_id,repository_id,commit_sha,default_branch,repository_full_name,repository_url,readme_url,license_spdx,is_fork,archived,source_snapshot,source_sha256,facts_sha256,inspected_at)
+      VALUES($1,$2,'88014402',$3,'main',$4,$5,$6,'MIT',false,false,'{}',$7,$7,now())`,
+    [version, project, 'f'.repeat(40), repository, `https://github.com/${repository}`, `https://github.com/${repository}#readme`, digest]);
+    await e2eAuthPool.query('UPDATE oss_projects SET current_version_id=$2,repository_full_name=$3 WHERE project_id=$1', [project, version, 'example/current-project-name']);
+    await e2eAuthPool.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,consent_to_share,project_id,project_version_id,published_at,grant_consumed_at)
+      VALUES($1,$2,$3,'published',$4,$5,true,$6,$7,'2026-01-01T12:00:00.123Z',now())`,
+    [submission, DEMO_COMMUNITY, owner, JSON.stringify({ title, description: '長來源名稱不應把卡片撐出視窗', relationship: 'curator', share_introductions: [], use_notes: '公開用法' }), digest, project, version]);
+    await page.goto(`/#community-search?q=${encodeURIComponent(title)}`);
+    const card = results(page).locator('article').filter({ has: page.getByRole('link', { name: title, exact: true }) });
+    await expect(card.locator('p.field-hint').first()).toContainText(`${repository} · 發布 2026-01-01 12:00:00.123 UTC`);
+    await expect(card.locator('p.field-hint').first()).not.toContainText('example/current-project-name');
+    await expect(results(page)).not.toContainText(name);
+    await expect(results(page)).not.toContainText(email);
+    for (const skin of ['light', 'dark'] as const) {
+      await page.evaluate(value => {
+        localStorage.setItem('freedom-theme', value);
+        document.documentElement.dataset.theme = value;
+        document.documentElement.dataset.experienceProfile = value;
+        window.dispatchEvent(new Event('freedom-theme-changed'));
+      }, skin);
+      await page.setViewportSize({ width: 390, height: 900 });
+      await expect(card).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await card.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    }
+  } finally {
+    await e2eAuthPool.query('DELETE FROM skill_submissions WHERE submission_id=$1', [submission]);
+    await e2eAuthPool.query('UPDATE oss_projects SET current_version_id=NULL WHERE project_id=$1', [project]);
+    await e2eAuthPool.query('DELETE FROM oss_project_versions WHERE project_id=$1', [project]);
+    await e2eAuthPool.query('DELETE FROM oss_projects WHERE project_id=$1', [project]);
+    await e2eAuthPool.query('DELETE FROM users WHERE user_id=$1', [owner]);
   }
 });
