@@ -69,11 +69,14 @@ export async function reportIssueClosureCandidates({fetcher = fetch, token, repo
     'User-Agent': 'Freedom-Platform-issue-reconciler',
     'X-GitHub-Api-Version': '2022-11-28',
   };
+  let repositoryId;
   const request = async (url) => {
     // Pagination cannot send the read token outside this repository.
     const target = new URL(url);
-    if (target.origin !== API || (!target.pathname.startsWith(`/repos/${repository}/`)
-      && target.pathname !== `/repos/${repository}`) || target.username || target.password) throw new Error('Invalid GitHub pagination URL');
+    const sameRepository = target.pathname.startsWith(`/repos/${repository}/`)
+      || target.pathname === `/repos/${repository}`
+      || (repositoryId !== undefined && target.pathname.startsWith(`/repositories/${repositoryId}/`));
+    if (target.origin !== API || !sameRepository || target.username || target.password) throw new Error('Invalid GitHub pagination URL');
     const response = await fetcher(url, {method: 'GET', headers, redirect: 'error'});
     if (!response.ok) throw new Error(`GitHub issue reconciliation failed: ${response.status}`);
     return response;
@@ -94,6 +97,8 @@ export async function reportIssueClosureCandidates({fetcher = fetch, token, repo
   const repoResponse = await request(`${API}/repos/${repository}`);
   const repo = await repoResponse.json();
   if (typeof repo.default_branch !== 'string' || !repo.default_branch) throw new Error('GitHub returned no default branch');
+  // GitHub may paginate by numeric ID; trust only the ID from this repository's metadata.
+  if (Number.isSafeInteger(repo.id) && repo.id > 0) repositoryId = repo.id;
 
   const [allIssues, pullRequests] = await Promise.all([
     getAll('/issues?state=open&per_page=100'),

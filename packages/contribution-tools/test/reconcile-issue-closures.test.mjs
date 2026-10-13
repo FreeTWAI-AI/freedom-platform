@@ -127,6 +127,74 @@ test('pagination is read-only, excludes PR issues, and rejects foreign token des
   await assert.rejects(reportIssueClosureCandidates({fetcher: foreign, token: 'test-token', repository}), /Invalid GitHub pagination URL/);
 });
 
+test('follows issue and pull pagination using the verified numeric repository ID', async () => {
+  const repositoryId = 1378081342;
+  const calls = [];
+  const fetcher = async (url, init) => {
+    calls.push(url);
+    assert.equal(init.method, 'GET');
+    assert.equal(init.redirect, 'error');
+    assert.equal(init.headers.Authorization, 'Bearer test-token');
+    if (url.endsWith(`/repos/${repository}`)) return Response.json({id: repositoryId, default_branch: 'main'});
+    const resource = url.includes('/issues?') ? 'issues' : 'pulls';
+    if (!url.includes('page=2')) return Response.json([], {headers: {
+      link: `<https://api.github.com/repositories/${repositoryId}/${resource}?state=all&per_page=100&page=2>; rel="next"`,
+    }});
+    return Response.json(resource === 'issues'
+      ? [{number: 12, state: 'open', updated_at: '2026-10-01T00:00:00Z'}]
+      : [{number: 40, title: 'Fixes #12', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}]);
+  };
+  const result = await reportIssueClosureCandidates({fetcher, token: 'test-token', repository});
+  assert.deepEqual(result, {scannedIssues: 1, scannedPullRequests: 1,
+    mode: 'report-only', criteriaVerified: false, candidates: [{issueNumber: 12, pullNumber: 40}]});
+  assert.equal(calls.length, 5);
+  assert.equal(calls[0], `https://api.github.com/repos/${repository}`);
+  for (const resource of ['issues', 'pulls']) {
+    assert.ok(calls.includes(`https://api.github.com/repositories/${repositoryId}/${resource}?state=all&per_page=100&page=2`));
+  }
+});
+
+test('rejects wrong repository IDs, origins and URL credentials before sending the token', async () => {
+  const repositoryId = 1378081342;
+  for (const next of [
+    `https://api.github.com/repositories/${repositoryId + 1}/pulls?page=2`,
+    `https://api.github.com/repositories/${repositoryId}0/pulls?page=2`,
+    `https://api.github.com/repos/FreeTWAI-AI/other/pulls?page=2`,
+    `https://example.invalid/repositories/${repositoryId}/pulls?page=2`,
+    `https://api.github.com.example.invalid/repositories/${repositoryId}/pulls?page=2`,
+    `http://api.github.com/repositories/${repositoryId}/pulls?page=2`,
+    `https://user@api.github.com/repositories/${repositoryId}/pulls?page=2`,
+    `https://:password@api.github.com/repositories/${repositoryId}/pulls?page=2`,
+  ]) {
+    const calls = [];
+    const fetcher = async (url, init) => {
+      calls.push(url);
+      assert.equal(init.method, 'GET');
+      assert.equal(init.redirect, 'error');
+      if (url.endsWith(`/repos/${repository}`)) return Response.json({id: repositoryId, default_branch: 'main'});
+      return Response.json([], url.includes('/pulls?') ? {headers: {link: `<${next}>; rel="next"`}} : {});
+    };
+    await assert.rejects(reportIssueClosureCandidates({fetcher, token: 'test-token', repository}), /Invalid GitHub pagination URL/);
+    assert.equal(calls.length, 3, next);
+    assert.equal(calls.includes(next), false, next);
+  }
+});
+
+test('does not authorize numeric pagination with a missing or invalid metadata ID', async () => {
+  for (const id of [undefined, null, 0, -1, 1.5, '1378081342', Number.MAX_SAFE_INTEGER + 1]) {
+    let calls = 0;
+    const fetcher = async (url) => {
+      calls++;
+      if (url.endsWith(`/repos/${repository}`)) return Response.json({id, default_branch: 'main'});
+      return Response.json([], url.includes('/pulls?') ? {headers: {
+        link: `<https://api.github.com/repositories/${id ?? 1378081342}/pulls?page=2>; rel="next"`,
+      }} : {});
+    };
+    await assert.rejects(reportIssueClosureCandidates({fetcher, token: 'test-token', repository}), /Invalid GitHub pagination URL/);
+    assert.equal(calls, 3);
+  }
+});
+
 test('workflow cannot opt into writes and existing governance discovery includes this file', async () => {
   const workflow = await readFile(new URL('../../../.github/workflows/reconcile-issue-closures.yml', import.meta.url), 'utf8');
   assert.match(workflow, /issues: read/);
