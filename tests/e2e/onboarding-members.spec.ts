@@ -440,3 +440,34 @@ for(const width of [1280,320])test(`missing primary guild has an actionable hint
   const saved=await (await page.request.get('/api/v1/me/onboarding')).json();expect(saved.completed).toBe(true);expect(saved.primary_guild_key).toBe(chosen.guild_key);
   await page.getByRole('button',{name:'進入自由工坊 →',exact:true}).click();await expect(page.getByRole('heading',{name:'會員首頁',exact:true})).toBeVisible();
 });
+
+test('a pending guild join keeps the primary card from opening a dialog',async({page})=>{
+  await register(page,'公會變更對話框');await completeOrientation(page);
+  await navigate(page,'職業公會');
+  await expect(page.locator('.guild-card').first()).toHaveClass(/primary-guild/);
+  let releaseJoin=()=>{};
+  const gate=new Promise<void>(resolve=>{releaseJoin=()=>resolve();});
+  try{
+    await page.route(/\/api\/v1\/guilds\/[^/]+\/join$/,async route=>{
+      if(route.request().method()!=='POST'){await route.continue();return;}
+      const response=await route.fetch();
+      await gate;
+      await route.fulfill({response});
+    });
+    const joinCard=page.locator('.guild-card').filter({has:page.getByRole('button',{name:/^加入/})}).first();
+    const joinButton=joinCard.getByRole('button',{name:/^加入/});
+    const guildName=await joinButton.evaluate(element=>(element.textContent??'').replace(/^加入/,'').trim());
+    await joinButton.click();
+    const primary=page.locator('.guild-card').first();
+    await expect(primary.locator('.guild-book-list').getByRole('button').first()).toBeDisabled();
+    await expect(primary.getByRole('button',{name:'查看成員',exact:true})).toBeDisabled();
+    releaseJoin();
+    await expect(page.getByRole('button',{name:`退出${guildName}`,exact:true})).toBeVisible();
+    const book=page.locator('.guild-card').first().locator('.guild-book-list').getByRole('button').first();
+    await book.click();
+    const intro=page.getByRole('dialog');
+    await expect(intro).toBeVisible();
+    await intro.getByRole('button',{name:'關閉技能書介紹',exact:true}).click();
+    await expect(intro).not.toBeVisible();
+  }finally{releaseJoin();}
+});
