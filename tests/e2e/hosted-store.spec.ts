@@ -480,6 +480,7 @@ test('published store and product links can be copied from the editor', async ({
   await open(page, ready.hash);
   const storeLink = storePage(page).getByRole('button', {name: '複製商店連結', exact: true});
   const productLinks = storePage(page).getByRole('button', {name: '複製商品連結', exact: true});
+  const publication = page.getByRole('region', {name: '預覽與發布', exact: true});
   const heldLine = '有尚未發布的變更；發布更新後才能複製商品連結。';
   await expect(storeLink).toHaveCount(0);
   await expect(productLinks).toHaveCount(0);
@@ -490,15 +491,21 @@ test('published store and product links can be copied from the editor', async ({
   await expect(productLinks).toHaveCount(2);
   await expect(page.getByText(heldLine, {exact: true})).toHaveCount(0);
   await storeLink.click();
-  await expect(storePage(page).getByRole('status')).toContainText('已複製連結');
+  await expect(publication.getByRole('status')).toHaveText('已複製連結');
+  await expect(storeLink).toBeFocused();
+  await expect(storePage(page).getByText('已複製連結', {exact: true})).toHaveCount(1);
   const storeUrl = new URL(await page.evaluate(() => navigator.clipboard.readText()));
   const origin = new URL(page.url()).origin;
   expect(storeUrl.origin).toBe(origin);
   expect(storeUrl.href).toBe(new URL(`/shops/${slug}`, page.url()).href);
   for (const title of ['手工茶杯', '麻布杯墊']) {
     const row = storePage(page).locator('.hosted-store-product').filter({has: page.getByRole('heading', {name: title, exact: true})});
-    await row.getByRole('button', {name: '複製商品連結', exact: true}).click();
-    await expect(storePage(page).getByRole('status')).toContainText('已複製連結');
+    const copyProduct = row.getByRole('button', {name: '複製商品連結', exact: true});
+    await copyProduct.click();
+    await expect(row.getByRole('status')).toHaveText('已複製連結');
+    await expect(row.getByText('已複製連結', {exact: true})).toBeVisible();
+    await expect(copyProduct).toBeFocused();
+    await expect(storePage(page).getByText('已複製連結', {exact: true})).toHaveCount(1);
     const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()));
     expect(copied.origin).toBe(origin);
     const tab = await browser.newPage();
@@ -511,7 +518,6 @@ test('published store and product links can be copied from the editor', async ({
       await expect(tab.getByRole('heading', {level: 1, name: title, exact: true})).toBeVisible();
     } finally {await tab.close();}
   }
-  const publication = page.getByRole('region', {name: '預覽與發布', exact: true});
   for (const mode of ['light', 'dark']) {
     await theme(page, mode);
     for (const width of [390, 1440]) {
@@ -520,6 +526,10 @@ test('published store and product links can be copied from the editor', async ({
       const box = await publication.getByRole('button', {name: '複製商店連結', exact: true}).boundingBox();
       expect(box!.height).toBeGreaterThanOrEqual(44);
       await publication.screenshot({path: testInfo.outputPath(`publish-copy-${mode}-${width}.png`)});
+      if (mode === 'light' && width === 390) {
+        const copiedRow = storePage(page).locator('.hosted-store-product').filter({has: page.getByRole('heading', {name: '麻布杯墊', exact: true})});
+        await copiedRow.screenshot({path: testInfo.outputPath('product-copy-light-390.png')});
+      }
     }
   }
   await page.setViewportSize({width: 1280, height: 900});
@@ -533,7 +543,8 @@ test('published store and product links can be copied from the editor', async ({
   await expect(page.getByText(heldLine, {exact: true})).toBeVisible();
   await expect(storeLink).toBeVisible();
   await storeLink.click();
-  await expect(storePage(page).getByRole('status')).toContainText('已複製連結');
+  await expect(publication.getByRole('status')).toHaveText('已複製連結');
+  await expect(storeLink).toBeFocused();
   expect(new URL(await page.evaluate(() => navigator.clipboard.readText())).href).toBe(new URL(`/shops/${slug}`, page.url()).href);
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: () => Promise.reject(new DOMException('blocked', 'NotAllowedError'))}});
@@ -549,5 +560,40 @@ test('published store and product links can be copied from the editor', async ({
   await expect(manual).toHaveValue(new URL(`/shops/${slug}`, page.url()).href);
   await expect(manual).toBeFocused();
   expect(await manual.evaluate(element => {const field = element as HTMLInputElement; return field.selectionStart === 0 && field.selectionEnd === field.value.length;})).toBe(true);
-  await expect(storePage(page).getByRole('status')).toContainText('無法自動複製，請選取並複製下方內容');
+  await expect(publication.getByRole('status')).toHaveText('無法自動複製，請選取並複製下方內容');
+  await expect(storePage(page).getByText('無法自動複製，請選取並複製下方內容', {exact: true})).toHaveCount(1);
+  await storePage(page).getByRole('button', {name: '發布更新', exact: true}).click();
+  await expect(storePage(page).locator('p[role="status"][tabindex="-1"]')).toContainText('已發布・第 2 版');
+  await expect(productLinks).toHaveCount(2);
+  await page.addInitScript(() => {
+    const pending: {resolve: () => void; reject: (error: Error) => void}[] = [];
+    Object.assign(window, {settleStoreCopy(ok: boolean) {
+      const item = pending.shift();
+      if (!item) throw new Error('no pending copy');
+      if (ok) item.resolve();
+      else item.reject(new DOMException('blocked', 'NotAllowedError'));
+    }});
+    Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: () => new Promise<void>((resolve, reject) => {pending.push({resolve, reject});})}});
+  });
+  await page.reload();
+  await open(page, ready.hash);
+  const cup = storePage(page).locator('.hosted-store-product').filter({has: page.getByRole('heading', {name: '手工茶杯改款', exact: true})});
+  const copyCup = cup.getByRole('button', {name: '複製商品連結', exact: true});
+  const editCup = cup.getByRole('button', {name: '編輯', exact: true});
+  await copyCup.click();
+  await expect(copyCup).toHaveAttribute('aria-busy', 'true');
+  await expect(editCup).toBeEnabled();
+  await editCup.click();
+  await expect(page.getByRole('form', {name: '編輯手工茶杯改款', exact: true})).toBeVisible();
+  await expect(storeLink).toHaveAttribute('aria-busy', 'true');
+  await page.evaluate(() => {
+    const settle = (window as Window & {settleStoreCopy?: (ok: boolean) => void}).settleStoreCopy;
+    if (!settle) throw new Error('missing settleStoreCopy');
+    settle(false);
+  });
+  await expect(storeLink).not.toHaveAttribute('aria-busy', 'true');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined)))));
+  await expect(storePage(page).getByText('已複製連結', {exact: true})).toHaveCount(0);
+  await expect(storePage(page).getByText('無法自動複製，請選取並複製下方內容', {exact: true})).toHaveCount(0);
+  await expect(page.getByLabel('手動複製連結', {exact: true})).toHaveCount(0);
 });
