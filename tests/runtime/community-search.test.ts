@@ -13,6 +13,7 @@ import { communityCatalog } from '../../modules/community/catalog.js';
 import { Problem } from '../../packages/shared/problem.js';
 import { lockMemberGuilds } from '../../modules/positioning/onboarding.js';
 import { createShowcase, listShowcases } from '../../modules/opportunity-project-work/business.js';
+import { communitySearchPageSchema } from '../../packages/shared/community-search.js';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) throw new Error('TEST_DATABASE_URL must name a disposable database');
@@ -87,6 +88,65 @@ test('published work search shares live consent and owner visibility and skills 
   assert.deepEqual((await searchCommunityContent(pool, member, { q: '中文作品', kinds: 'work' })).items.map(row => row.id), [ordinary.showcase_id]);
   const books = await searchCommunityContent(pool, null, { kinds: 'skill_book' });
   for (const book of books.items) assert.equal(book.path, `/development/skills/${book.id}`);
+});
+
+test('published work labels use public pinned source and UTC time while preserving distinct submissions and current visibility', async () => {
+  const owner = randomUUID(), project = randomUUID(), version = randomUUID(), digest = 'c'.repeat(64);
+  const email = `search-label-${owner}@local.test`, name = '搜尋標籤私人會員名稱';
+  const title = '同名投稿來源時間回歸', repository = 'example/search-labels';
+  const first = randomUUID(), tied = [randomUUID(), randomUUID()].sort();
+  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+    SELECT $1,$2,$3,$4,password_hash,$5,false FROM users WHERE user_id=$6`,
+  [owner, DEMO_COMMUNITY, email, name, randomUUID(), DEMO_USERS[0].user_id]);
+  await pool.query(`INSERT INTO oss_projects(project_id,community_id,owner_ref,title,description,use_notes,repository_id,repository_full_name,repository_url,relationship)
+    VALUES($1,$2,$3,$4,'公開摘要','公開用法','8801002',$5,$6,'curator')`,
+  [project, DEMO_COMMUNITY, owner, title, repository, `https://github.com/${repository}`]);
+  await pool.query(`INSERT INTO oss_project_versions(version_id,project_id,repository_id,commit_sha,default_branch,repository_full_name,repository_url,readme_url,license_spdx,is_fork,archived,source_snapshot,source_sha256,facts_sha256,inspected_at)
+    VALUES($1,$2,'8801002',$3,'main',$4,$5,$6,'MIT',false,false,'{}',$7,$7,now())`,
+  [version, project, 'd'.repeat(40), repository, `https://github.com/${repository}`, `https://github.com/${repository}#readme`, digest]);
+  await pool.query('UPDATE oss_projects SET current_version_id=$2 WHERE project_id=$1', [project, version]);
+  const payload = JSON.stringify({ title, description: '同一版本的公開摘要', relationship: 'curator', share_introductions: [], use_notes: '公開用法' });
+  for (const id of [first, ...tied]) {
+    await pool.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,consent_to_share,project_id,project_version_id,published_at,grant_consumed_at)
+      VALUES($1,$2,$3,'published',$4,$5,true,$6,$7,$8,now())`,
+    [id, DEMO_COMMUNITY, owner, payload, digest, project, version, id === first ? '2026-01-01T12:00:00.123Z' : '2026-01-01T12:00:01.456Z']);
+  }
+  // Project metadata can change; a published submission keeps its pinned source.
+  await pool.query("UPDATE oss_projects SET repository_full_name='example/current-project-name' WHERE project_id=$1", [project]);
+  const query = { q: title, kinds: 'work' };
+  const found = communitySearchPageSchema.parse(await searchCommunityContent(pool, null, query));
+  assert.deepEqual(found.items.map(row => row.id), [...tied, first]);
+  assert.deepEqual(found.items.map(row => row.label), [
+    `${repository} · 發布 2026-01-01 12:00:01.456 UTC`,
+    `${repository} · 發布 2026-01-01 12:00:01.456 UTC`,
+    `${repository} · 發布 2026-01-01 12:00:00.123 UTC`,
+  ]);
+  for (const row of found.items) {
+    assert.equal(row.path, `/development/submissions/${row.id}`);
+    assert.equal(row.author_id, null);
+  }
+  assert.equal(JSON.stringify(found).includes(name), false);
+  assert.equal(JSON.stringify(found).includes(email), false);
+  // A descriptive label is not identity: even identical labels retain both IDs.
+  const seen: string[] = []; let cursor: string | undefined;
+  do {
+    const page = await searchCommunityContent(pool, null, { ...query, limit: '1', cursor });
+    seen.push(...page.items.map(row => row.id)); cursor = page.next_cursor ?? undefined;
+    assert.ok(seen.length <= 3, 'cursor cannot repeat a submission');
+  } while (cursor);
+  assert.deepEqual(seen, [...tied, first]);
+
+  await pool.query('UPDATE oss_projects SET sharing_withdrawn_at=now() WHERE project_id=$1', [project]);
+  assert.deepEqual((await searchCommunityContent(pool, null, query)).items, []);
+  await pool.query('UPDATE oss_projects SET sharing_withdrawn_at=NULL WHERE project_id=$1', [project]);
+  await pool.query('UPDATE users SET active=false WHERE user_id=$1', [owner]);
+  assert.deepEqual((await searchCommunityContent(pool, null, query)).items, []);
+  await pool.query('UPDATE users SET active=true,onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1', [owner]);
+  assert.deepEqual((await searchCommunityContent(pool, null, query)).items, []);
+  await pool.query('UPDATE users SET onboarding_required=false WHERE user_id=$1', [owner]);
+  assert.deepEqual((await searchCommunityContent(pool, null, query)).items.map(row => row.id), [...tied, first]);
+  await pool.query("UPDATE skill_submissions SET status='revoked',revoked_at=now(),consent_to_share=false WHERE submission_id=$1", [first]);
+  assert.deepEqual((await searchCommunityContent(pool, null, query)).items.map(row => row.id), tied);
 });
 
 test('HTTP optional auth, feature flag and topic version boundaries remain enforced', async () => {

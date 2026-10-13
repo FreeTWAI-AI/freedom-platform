@@ -129,7 +129,8 @@ async function workRows(pool: SearchDatabase, actor: Actor | null, text: string,
   const title = `(${publishedWorkPayload})->>'title'`;
   const description = `(${publishedWorkPayload})->>'description'`;
   const sql = `SELECT 'work' AS kind,s.submission_id::text AS id,${title} AS title,left(${description},180) AS summary,
-    '/development/submissions/' || s.submission_id::text AS path,NULL::text AS label,
+    '/development/submissions/' || s.submission_id::text AS path,
+    v.repository_full_name || ' · 發布 ' || to_char(s.published_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.MS') || ' UTC' AS label,
     CASE WHEN u.community_id=$9::uuid THEN u.user_id::text ELSE NULL END AS author_id,
     CASE WHEN s.image_bytes IS NOT NULL OR s.storage_source='asset' THEN '/api/v1/skill-submissions/' || s.submission_id::text || '/illustration' ELSE NULL END AS media_path,
     COALESCE((SELECT tags.topics FROM community_content_topic_sets tags WHERE tags.content_kind='work' AND tags.content_id=s.submission_id::text),'{}'::text[]) AS topics,${sort} AS sort_key
