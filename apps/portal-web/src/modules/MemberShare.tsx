@@ -42,6 +42,9 @@ function featuredNames(member:PreviewMember,labels:Record<string,string>){
 export function MemberShare({client}:{client:PortalClient}){
   const [local,setLocal]=useState<Local>(blank),[ready,setReady]=useState(false),[draftLabel,setDraftLabel]=useState(''),[draftUrl,setDraftUrl]=useState(''),[editing,setEditing]=useState<DraftLink|null>(null),[importOpen,setImportOpen]=useState(false),[social,setSocial]=useState<SocialItem[]|null>(null),[socialError,setSocialError]=useState(''),[socialLoading,setSocialLoading]=useState(false),[preview,setPreview]=useState<Preview|null>(null),[loadError,setLoadError]=useState(''),[notice,setNotice]=useState(''),[headlineError,setHeadlineError]=useState(''),[status,setStatus]=useState<{kind:SaveKind;message:string}>({kind:'idle',message:''}),[actionBusy,setActionBusy]=useState(false);
   const profileGeneration=useRef(0),fetchGen=useRef(0),localRef=useRef(blank),serverRef=useRef<{enabled:boolean;version:number|null}>({enabled:false,version:null}),editGen=useRef(0),lastSavedSig=useRef(''),explicitRef=useRef<Explicit|null>(null),running=useRef(false),pumpAgain=useRef(false),refreshSerial=useRef(0),debounce=useRef(0),unsavedRef=useRef(false);
+  // The singleton client outlives this editor; queued edits must never adopt a new session.
+  const mounted=useRef(false),lifetime=useRef(0),ownerGeneration=useRef(client.sessionGeneration);
+  const current=(scope:number)=>mounted.current&&lifetime.current===scope&&client.sessionGeneration===ownerGeneration.current;
   const refreshRef=useRef<()=>void>(()=>{});
   unsavedRef.current=status.kind==='dirty'||status.kind==='saving'||status.kind==='error'||Boolean(headlineError);
   function apply(data:ShareSettings){
@@ -49,13 +52,15 @@ export function MemberShare({client}:{client:PortalClient}){
     const next:Local={includeAvatar:data.include_avatar,design:data.design??'calm',headline:data.headline??'',links:(data.links??[]).map(link=>({...link,id:crypto.randomUUID()})),showProfileLinks:data.show_profile_links??true,prefs:data.profile_link_prefs??{},profileLinks:data.profile_links??[],sharePath:data.share_path,enabled:data.enabled};
     localRef.current=next;serverRef.current={enabled:data.enabled,version:versionNum(data.aggregate_version)};lastSavedSig.current=signature(next);editGen.current+=1;setLocal(next);setHeadlineError('');setEditing(null);setReady(true);
   }
-  async function reloadConflict(){
+  async function reloadConflict(scope:number){
     const data=await client.get<ShareSettings>('/me/member-card-share');
+    if(!current(scope))return;
     apply(data);setStatus({kind:'conflict',message:'名片設定在其他地方更新了，已重新載入最新版本。'});
   }
-  const pumpRef=useRef<()=>Promise<void>>(async()=>{});
-  pumpRef.current=async()=>{
+  const pumpRef=useRef<(scope:number)=>Promise<void>>(async()=>{});
+  pumpRef.current=async(scope)=>{
     for(;;){
+      if(!current(scope))return;
       pumpAgain.current=false;
       const issue=headlineIssue(localRef.current.headline);
       if(issue){
@@ -74,6 +79,7 @@ export function MemberShare({client}:{client:PortalClient}){
           enabled:job?job.enabled:serverRef.current.enabled,include_avatar:snapshot.includeAvatar,rotate:job?job.rotate:false,design:snapshot.design,
           headline:snapshot.headline.trim()||null,links:snapshot.links.map(({label,url})=>({label,url})),show_profile_links:snapshot.showProfileLinks,profile_link_prefs:snapshot.prefs,
         },{idempotencyKey:crypto.randomUUID(),ifMatch:versionNum(serverRef.current.version)??undefined});
+        if(!current(scope))return;
         serverRef.current={enabled:result.enabled,version:versionNum(result.aggregate_version)};
         // A response never replaces text typed while it was in flight. Profile rows refreshed mid-flight stay too.
         const base={...localRef.current,enabled:result.enabled,sharePath:result.share_path};
@@ -86,8 +92,9 @@ export function MemberShare({client}:{client:PortalClient}){
           if(editGen.current===gen)setNotice(job?.rotate?'連結已更新，舊連結已失效。':job&&!job.enabled?'分享名片已關閉。':'');
         }else setStatus({kind:'dirty',message:'有變更尚未儲存'});
       }catch(cause){
+        if(!current(scope))return;
         const failed=cause instanceof ApiError?cause.status:0;
-        if(failed===412||failed===428){try{await reloadConflict();}catch(reloadError){setStatus({kind:'error',message:reloadError instanceof Error?reloadError.message:'名片設定暫時無法載入。'});}break;}
+        if(failed===412||failed===428){try{await reloadConflict(scope);}catch(reloadError){if(current(scope))setStatus({kind:'error',message:reloadError instanceof Error?reloadError.message:'名片設定暫時無法載入。'});}break;}
         setStatus({kind:'error',message:cause instanceof Error?cause.message:'名片設定暫時無法儲存。'});break;
       }
       if(job)setActionBusy(explicitRef.current!==null);
@@ -96,9 +103,10 @@ export function MemberShare({client}:{client:PortalClient}){
     }
   };
   function kick(){
+    const scope=lifetime.current;if(!current(scope))return;
     if(running.current){pumpAgain.current=true;return;}
     running.current=true;
-    void pumpRef.current().finally(()=>{running.current=false;setActionBusy(explicitRef.current!==null);if(explicitRef.current||pumpAgain.current)kick();});
+    void pumpRef.current(scope).finally(()=>{if(!current(scope))return;running.current=false;setActionBusy(explicitRef.current!==null);if(explicitRef.current||pumpAgain.current)kick();});
   }
   function assign(partial:Partial<Local>,when:'now'|'debounce'|'none'){
     const previous=localRef.current,next={...previous,...partial};
@@ -146,11 +154,11 @@ export function MemberShare({client}:{client:PortalClient}){
       const [member,labels]=await Promise.all([client.get<PreviewMember>(`/members/${account.user_id}`),client.get<{capability_categories:{options:{id:string;label:string}[]}[]}>('/assessment-definition').then(definition=>Object.fromEntries(definition.capability_categories.flatMap(group=>group.options.map(option=>[option.id,option.label])))).catch(()=>({} as Record<string,string>))]);
       if(profile!==profileGeneration.current)return;setPreview({userId:account.user_id,nickname:member.nickname||account.nickname,guild:member.primary_guild?.name??null,capabilities:featuredNames(member,labels),avatarUrl:member.avatar_url??account.avatar.avatar_url});
     }catch{if(profile===profileGeneration.current)setPreview(null);}}
-  useEffect(()=>{setLoadError('');void refreshProfile();
+  useEffect(()=>{mounted.current=true;lifetime.current++;setLoadError('');void refreshProfile();
     void loadPreview();
     const refresh=()=>{refreshRef.current();void loadPreview();};
     window.addEventListener('focus',refresh);window.addEventListener('freedom-profile-updated',refresh);window.addEventListener('freedom-social-links-updated',refresh);
-    return()=>{profileGeneration.current++;fetchGen.current++;window.clearTimeout(debounce.current);window.removeEventListener('focus',refresh);window.removeEventListener('freedom-profile-updated',refresh);window.removeEventListener('freedom-social-links-updated',refresh);};},[client]);
+    return()=>{mounted.current=false;lifetime.current++;explicitRef.current=null;pumpAgain.current=false;running.current=false;profileGeneration.current++;fetchGen.current++;window.clearTimeout(debounce.current);window.removeEventListener('focus',refresh);window.removeEventListener('freedom-profile-updated',refresh);window.removeEventListener('freedom-social-links-updated',refresh);};},[client]);
   function commit(label:string,url:string,ignore?:string){const parsed=parseCardLink(label,url);if(!parsed.ok){setNotice(parsed.message);return null;}if(localRef.current.links.some(link=>link.url===parsed.link.url&&link.id!==ignore)){setNotice('這個連結已經在名片上。');return null;}setNotice('');return parsed.link;}
   function addLink(event:FormEvent){event.preventDefault();if(localRef.current.links.length>=8){setNotice('名片連結最多 8 個。');return;}const link=commit(draftLabel,draftUrl);if(!link)return;assign({links:[...localRef.current.links,{...link,id:crypto.randomUUID()}]},'now');setDraftLabel('');setDraftUrl('');}
   function move(index:number,delta:number){const next=index+delta,links=localRef.current.links;if(next<0||next>=links.length)return;const copy=[...links];const [item]=copy.splice(index,1);copy.splice(next,0,item!);assign({links:copy},'now');}
