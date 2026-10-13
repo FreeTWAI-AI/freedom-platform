@@ -52,8 +52,13 @@ export async function confirmPasswordReset(pool:Pool,rawToken:string,password:st
     await q.query('DELETE FROM password_reset_tokens WHERE user_id=$1 AND token_hash<>$2',[token.user_id,tokenHash(rawToken)]);
     await q.query('UPDATE login_attempts SET failures=0,window_start=now() WHERE attempt_key=$1',[attemptKey]);
     const mfa = (await q.query('SELECT enabled FROM member_totp WHERE user_id=$1',[token.user_id])).rows[0];
-    if (mfa?.enabled) return {reset:true as const,totp_required:true as const,expires_after_minutes:RESET_LIFETIME_MINUTES};
-    const session=await createMemberSession(q,token);
-    return {reset:true as const,expires_after_minutes:RESET_LIFETIME_MINUTES,...session};
+    const result=mfa?.enabled
+      ? {reset:true as const,totp_required:true as const,expires_after_minutes:RESET_LIFETIME_MINUTES}
+      : {reset:true as const,expires_after_minutes:RESET_LIFETIME_MINUTES,...await createMemberSession(q,token)};
+    // Session revocation/insertion can wait after the proof lock. Recheck the
+    // deadline last so both MFA branches roll back if it expired during recovery.
+    const valid=await q.query('SELECT 1 FROM password_reset_tokens WHERE token_hash=$1 AND expires_at>clock_timestamp()',[tokenHash(rawToken)]);
+    requireCondition(valid.rowCount===1,422,'reset_link_invalid','重設連結無效或已過期，請重新申請。');
+    return result;
   });
 }

@@ -36,3 +36,19 @@ matching login's lock order and serializing competing reset links. Failures roll
 back the password, lockout reset and session together. After recovery, new failed
 password attempts may lock ordinary login again, but cannot revoke the recovered
 session; the verified member can continue using it without another login attempt.
+
+### Proof expiry during recovery (#490)
+
+Recovery rechecks the locked proof's expiry using `clock_timestamp()` after all
+password, session, competing-link and login-budget operations, immediately before
+returning from the transaction. This also covers MFA's no-session branch and
+waits during fresh session insertion; an initially valid link does not authorize
+completion after its deadline.
+
+If it expires during a database wait, confirmation returns
+`422 reset_link_invalid`. The transaction rolls back the password and mailbox
+verification, session revocations/new session, consumed proof, competing-link
+deletion and login-budget reset. Existing sessions and other still-valid reset
+links remain usable. MFA configuration and second-factor failure budget are
+unchanged. This source correction adds no schema, mail-provider or feature-flag
+changes; deployment remains a separately authorized operation.
