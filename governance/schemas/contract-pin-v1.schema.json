@@ -8,7 +8,7 @@
       "const": "freedom.contract-pin/v1"
     },
     "source_repository": {
-      "const": "FreeTWAI-AI/freedom-platform"
+      "enum": ["FreeTWAI/freedom-platform", "FreeTWAI-AI/freedom-platform"]
     },
     "source_commit": {
       "type": "string",

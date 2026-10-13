@@ -14,7 +14,7 @@
 
 ## 選擇修改的位置
 
-1. 網站畫面、中央會員、權限、資料庫與業務規則：`FreeTWAI-AI/freedom-platform`。
+1. 網站畫面、中央會員、權限、資料庫與業務規則：`FreeTWAI/freedom-platform`。
 2. 供應端 client、商店、專案介紹頁、行銷工具：該頁指引列出的模組 Repo。
 3. 技能書裡的工具或手冊：預設從該書原作 Fork，向原作提交 PR，由原作維護者決定合併。工坊既有 Issue 保留作任務協調；明確針對工坊整合的改動才送工坊 fork，另記回饋原作的 PR 或未回送原因。參見[原作、版本與貢獻歸屬](./author-owned-collaboration.md)。
 

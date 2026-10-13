@@ -15,7 +15,7 @@ const actor: AdminActor = { admin_id: randomUUID(), community_id: randomUUID(), 
 const another: AdminActor = { ...actor, admin_id: randomUUID(), email: 'another-admin@example.invalid' };
 const code = 'a'.repeat(40), secret = 'synthetic-client-secret-1234567890';
 const app = { id: 1234567, slug: 'freedom-workshop-fixture', html_url: 'https://github.com/apps/freedom-workshop-fixture', external_url: origin,
-  owner: { login: 'FreeTWAI-AI', type: 'Organization' }, permissions: { starring: 'write', metadata: 'read', issues: 'write' }, events: [],
+  owner: { login: 'FreeTWAI', type: 'Organization' }, permissions: { starring: 'write', metadata: 'read', issues: 'write' }, events: [],
   client_id: 'Iv23.synthetic-client-id', client_secret: secret, pem: 'DO-NOT-STORE-THIS-PRIVATE-KEY', webhook_secret: 'DO-NOT-STORE-WEBHOOK-SECRET', token: 'DO-NOT-STORE-TOKEN' };
 const publicResult = { configured: true, app_id: String(app.id), app_slug: app.slug, html_url: app.html_url };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -60,7 +60,7 @@ test('manifest requests starring and issues write with metadata read, fixed call
   assert.deepEqual(await githubAppSetupStatus(pool, actor), { configured: false });
   assert.equal(await readSocialConfig(pool, tokenKey), null);
   const before = Date.now(), result = await start(), manifest = JSON.parse(result.manifest), target = new URL(result.target);
-  assert.equal(target.origin + target.pathname, 'https://github.com/organizations/FreeTWAI-AI/settings/apps/new');
+  assert.equal(target.origin + target.pathname, 'https://github.com/organizations/FreeTWAI/settings/apps/new');
   assert.match(result.state, /^[A-Za-z0-9_-]{43}$/); assert.match(manifest.name, /^freedom-workshop-[a-f0-9]{12}$/);
   assert.match(manifest.description, /自由工坊/);
   assert.deepEqual({ ...manifest, name: undefined, description: undefined }, { name: undefined, description: undefined, url: origin,
@@ -188,7 +188,7 @@ const providerFailures: { name: string; response: () => Promise<Response> }[] = 
   { name: 'streamed oversized response', response: async () => Response.json({ ...app, pem: 'x'.repeat(70000) }, { status: 201 }) },
   ...Object.entries({
     'wrong organization': { owner: { login: 'another-org', type: 'Organization' } },
-    'personal owner': { owner: { login: 'FreeTWAI-AI', type: 'User' } },
+    'personal owner': { owner: { login: 'FreeTWAI', type: 'User' } },
     'wrong homepage': { external_url: 'https://unexpected.example.invalid' },
     'unsafe app URL': { html_url: 'https://github.com.evil.invalid/apps/freedom-workshop-fixture' },
     'wrong app slug URL': { html_url: 'https://github.com/apps/unrelated-app' },

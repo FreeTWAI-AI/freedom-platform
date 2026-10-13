@@ -25,7 +25,7 @@ test('member writes a private campaign, revises it and records a manual share th
   await expect(card.getByText('更新：請先閱讀使用說明，帶一個問題加入交流。',{exact:true})).toBeVisible();
   await card.getByRole('button',{name:'記錄分享連結',exact:true}).click();
   await card.getByLabel('分享渠道',{exact:true}).fill('社群討論');
-  await card.getByLabel('分享／推薦連結',{exact:true}).fill('https://github.com/FreeTWAI-AI/freedom-platform');
+  await card.getByLabel('分享／推薦連結',{exact:true}).fill('https://github.com/FreeTWAI/freedom-platform');
   await card.getByLabel('分享備註（選填）',{exact:true}).fill('這是測試用人工紀錄。');
   await card.getByRole('button',{name:'儲存分享紀錄',exact:true}).click();
   await expect(card.getByText(/自行回報，未驗證發布或成效/)).toBeVisible();

@@ -31,7 +31,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: FreeTWAI-AI/FreeTWAI-AI.github.io
+          repository: FreeTWAI/FreeTWAI.github.io
           ref: 01b18397f9c5356a14e4cc66fa46f57216f11154
           path: directory
           fetch-depth: 0

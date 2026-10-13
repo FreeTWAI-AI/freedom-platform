@@ -175,6 +175,9 @@ const FOUNDATION_NAMES = [
   '163_work_contribution_roles.sql',
   '164_hosted_supply_catalogs.sql',
   '165_oss_sharing_withdrawal.sql',
+  // Live repository coordinates only; no new API/storage shape or authority.
+  // Deployment must pair this ledger with the reviewed org-migration source.
+  '166_freetwai_repository_transfer.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

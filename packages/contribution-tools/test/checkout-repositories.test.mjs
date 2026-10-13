@@ -23,12 +23,13 @@ async function setup(t) {
   await put(canonical, 'README.md', 'Synthetic source object.\n');
   const source = commit(canonical);
   await put(canonical, 'scripts/checkout-repositories.mjs', await readFile(new URL('../../../scripts/checkout-repositories.mjs', import.meta.url)));
-  await put(canonical, 'repositories.lock.json', JSON.stringify({ consumer_library_source: { repository: 'FreeTWAI-AI/freedom-platform', commit: source }, repositories: [] }));
+  await put(canonical, 'packages/contribution-tools/repository-identity.mjs', await readFile(new URL('../repository-identity.mjs', import.meta.url)));
+  await put(canonical, 'repositories.lock.json', JSON.stringify({ consumer_library_source: { repository: 'FreeTWAI/freedom-platform', commit: source }, repositories: [] }));
   const head = commit(canonical);
   git(directory, ['clone', '--quiet', '--depth=1', '--no-local', pathToFileURL(canonical).href, candidate]);
   // Keep the real entrypoint and exact HTTPS URL; only this isolated fixture's
   // Git transport maps that URL to its synthetic local canonical repository.
-  git(candidate, ['config', 'url.' + pathToFileURL(canonical).href + '.insteadOf', 'https://github.com/FreeTWAI-AI/freedom-platform.git']);
+  git(candidate, ['config', 'url.' + pathToFileURL(canonical).href + '.insteadOf', 'https://github.com/FreeTWAI/freedom-platform.git']);
   const run = () => spawnSync(process.execPath, ['scripts/checkout-repositories.mjs'], {
     cwd: candidate, env: { ...env, FREEDOM_REPOSITORIES_ROOT: join(directory, 'consumers') }, encoding: 'utf8', timeout: 15000,
   });
@@ -44,7 +45,7 @@ test('existing checkout entrypoint fetches a missing exact source into a shallow
   assert.equal(git(candidate, ['status', '--porcelain']), '');
   // A cached exact source needs no network and must not replace local edits.
   git(candidate, ['config', '--unset', 'url.' + pathToFileURL(canonical).href + '.insteadOf']);
-  git(candidate, ['config', 'url.file:///nonexistent-canary-source.insteadOf', 'https://github.com/FreeTWAI-AI/freedom-platform.git']);
+  git(candidate, ['config', 'url.file:///nonexistent-canary-source.insteadOf', 'https://github.com/FreeTWAI/freedom-platform.git']);
   await writeFile(join(candidate, 'README.md'), 'Keep local work.\n');
   const again = run(); assert.equal(again.status, 0, again.stdout + again.stderr);
   assert.equal(await readFile(join(candidate, 'README.md'), 'utf8'), 'Keep local work.\n');
@@ -53,8 +54,8 @@ test('existing checkout entrypoint fetches a missing exact source into a shallow
 
 test('missing, mutable, or unavailable lock source fails instead of using candidate HEAD', async t => {
   const { candidate, source, run } = await setup(t);
-  for (const pin of [undefined, { repository: 'FreeTWAI-AI/freedom-platform', commit: 'main' },
-    { repository: 'other/source', commit: source }, { repository: 'FreeTWAI-AI/freedom-platform', commit: 'f'.repeat(40) }]) {
+  for (const pin of [undefined, { repository: 'FreeTWAI/freedom-platform', commit: 'main' },
+    { repository: 'other/source', commit: source }, { repository: 'FreeTWAI/freedom-platform', commit: 'f'.repeat(40) }]) {
     await writeFile(join(candidate, 'repositories.lock.json'), JSON.stringify({ consumer_library_source: pin, repositories: [] }));
     const result = run(); assert.notEqual(result.status, 0, result.stdout + result.stderr);
     assert.doesNotMatch(result.stdout, /consumer-library-source/);

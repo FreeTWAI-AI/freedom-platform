@@ -51,11 +51,11 @@ for(const [id,guide] of Object.entries(communityAuthorGuides)){
  proposals[id]=[[`改善${guide.format}的第一個案例`,guide.contribution,`${guide.first_result} 記錄實際驗證與未執行項目；以原作 Issue／PR 協調。`]];
 }
 const videoTasks:CollaborationTask[]=[
- {id:'issue-1',title:'建立可重現的剪輯測試素材',status:'github_issue',scope:'重用 examples 的合成素材能力，加入小型 fixture 產生器與清單。',acceptance:['包含直式影片、已知靜音與字幕時間點；清單列時長、尺寸、音軌及來源。','壞時長或缺音軌的案例會失敗，缺 ffmpeg 時列未執行。'],source_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/1',depends_on:[]},
- {id:'issue-2',title:'加入最小檢查指令與 JSON 結果',status:'github_issue',scope:'新增貢獻者檢查入口，重用既有 system_health 與範例。',acceptance:['--list 不執行、--run 只跑指定已知檢查，拒絕任意 shell。','結果區分 passed／failed／not_run，附退出碼、時間與原因。'],source_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/2',depends_on:[]},
- {id:'issue-3',title:'做出字幕與配樂擴充範例',status:'github_issue',scope:'約十秒的合成素材，字幕與配樂資料接現有 Editkin v4；先確認輸入輸出草圖。',acceptance:['時間超界或反轉有拒絕測試，不另做 editor runtime。','分開列 plan、contract、render 的真實驗證；沒有 editor 就列 render 未驗證。'],source_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/3',depends_on:[]},
- {id:'issue-4',title:'整理共同推廣與需求回饋',status:'github_issue',scope:'以 README 和可跑範例寫一份介紹與訪談草稿；不代人群發。',acceptance:['功能主張連回來源，回饋附日期與同意範圍。','未有真人回饋就保留空白；未有人審查就明示等待 review。'],source_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/4',depends_on:[]},
- {id:'issue-5',title:'核對 Pillow 依賴與影音相容性',status:'github_issue',scope:'對照目前鎖版及官方 advisory，在隔離環境提出最小依賴修正。',acceptance:['附版本依據和相關影像／字幕／音軌回歸。','殘留告警與未驗證平台如實列出，不以版本字串代替修復證據。'],source_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/5',depends_on:[]},
+ {id:'issue-1',title:'建立可重現的剪輯測試素材',status:'github_issue',scope:'重用 examples 的合成素材能力，加入小型 fixture 產生器與清單。',acceptance:['包含直式影片、已知靜音與字幕時間點；清單列時長、尺寸、音軌及來源。','壞時長或缺音軌的案例會失敗，缺 ffmpeg 時列未執行。'],source_url:'https://github.com/FreeTWAI/video-autopilot-kit/issues/1',depends_on:[]},
+ {id:'issue-2',title:'加入最小檢查指令與 JSON 結果',status:'github_issue',scope:'新增貢獻者檢查入口，重用既有 system_health 與範例。',acceptance:['--list 不執行、--run 只跑指定已知檢查，拒絕任意 shell。','結果區分 passed／failed／not_run，附退出碼、時間與原因。'],source_url:'https://github.com/FreeTWAI/video-autopilot-kit/issues/2',depends_on:[]},
+ {id:'issue-3',title:'做出字幕與配樂擴充範例',status:'github_issue',scope:'約十秒的合成素材，字幕與配樂資料接現有 Editkin v4；先確認輸入輸出草圖。',acceptance:['時間超界或反轉有拒絕測試，不另做 editor runtime。','分開列 plan、contract、render 的真實驗證；沒有 editor 就列 render 未驗證。'],source_url:'https://github.com/FreeTWAI/video-autopilot-kit/issues/3',depends_on:[]},
+ {id:'issue-4',title:'整理共同推廣與需求回饋',status:'github_issue',scope:'以 README 和可跑範例寫一份介紹與訪談草稿；不代人群發。',acceptance:['功能主張連回來源，回饋附日期與同意範圍。','未有真人回饋就保留空白；未有人審查就明示等待 review。'],source_url:'https://github.com/FreeTWAI/video-autopilot-kit/issues/4',depends_on:[]},
+ {id:'issue-5',title:'核對 Pillow 依賴與影音相容性',status:'github_issue',scope:'對照目前鎖版及官方 advisory，在隔離環境提出最小依賴修正。',acceptance:['附版本依據和相關影像／字幕／音軌回歸。','殘留告警與未驗證平台如實列出，不以版本字串代替修復證據。'],source_url:'https://github.com/FreeTWAI/video-autopilot-kit/issues/5',depends_on:[]},
 ];
 export function getSkillCollaboration(id:string,editorial?:SkillEditorial|null):SkillCollaboration|null{
  const book=communityCatalog.skill_books.find(value=>value.id===id);if(!book?.guide)return null;

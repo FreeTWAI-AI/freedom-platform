@@ -6,7 +6,7 @@ import {githubCoordinate} from '../opensource-marketing/github.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {rankedLeaderboards} from '../../packages/shared/github-leaderboard.js';
 import {platformRepository} from '../development/service.js';
-import repositorySet from '../../repositories.lock.json' with {type:'json'};
+import {currentArchitectureRepositories} from './repository-set.js';
 
 export type HistoryCategory = 'platform' | 'official' | 'personal';
 export type HistoryRepository = {name: string; title: string; category: HistoryCategory; url: string};
@@ -85,7 +85,7 @@ export async function historyRepositories(pool: Pool, actor: Actor): Promise<His
     if (!prior || priority[category] > priority[prior.category]) byName.set(name, {name: value, title, category, url: `https://github.com/${value}`});
   };
   add(platformRepository, '自由工坊平台', 'platform');
-  for (const entry of repositorySet.repositories) add(entry.repository, entry.repository.split('/')[1], 'platform');
+  for (const entry of currentArchitectureRepositories) add(entry.repository, entry.repository.split('/')[1], 'platform');
   for (const book of communityCatalog.skill_books) {
     const value = book.upstream_url || book.repository_url;
     try { add(githubCoordinate(value), book.title, assigned.has(book.id) ? 'official' : 'personal'); } catch { /* A catalog entry without a valid GitHub source is not queried. */ }

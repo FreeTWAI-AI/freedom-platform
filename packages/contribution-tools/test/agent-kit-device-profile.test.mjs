@@ -14,10 +14,10 @@ async function packageCheck(change) {
     readBaseline:()=>JSON.stringify(baseline),entryProfile:DEVICE_PROFILE});
 }
 test('one explicit host tuple upgrades Kit while all other consumers retain exact legacy source',()=>{
-  assert.equal(consumerHostTuple('FreeTWAI-AI/freedom-agent-kit').source,'057201218b6d4ae3e96b4ab838677f2b484b55fa');
-  assert.equal(consumerHostTuple('FreeTWAI-AI/freedom-agent-kit').library_profile,DEVICE_PROFILE);
-  for(const name of ['freedom-storefront','freedom-supplier-client','FreeTWAI-AI.github.io'])
-    assert.equal(consumerHostTuple('FreeTWAI-AI/'+name).source,'91b943ac61e132fbbce72ea066cb2301aa065600');
+  assert.equal(consumerHostTuple('FreeTWAI/freedom-agent-kit').source,'057201218b6d4ae3e96b4ab838677f2b484b55fa');
+  assert.equal(consumerHostTuple('FreeTWAI/freedom-agent-kit').library_profile,DEVICE_PROFILE);
+  for(const name of ['freedom-storefront','freedom-supplier-client','FreeTWAI.github.io'])
+    assert.equal(consumerHostTuple('FreeTWAI/'+name).source,'91b943ac61e132fbbce72ea066cb2301aa065600');
   assert.throws(()=>consumerHostTuple('candidate-choice'),{code:'unsupported_library_consumer'});
 });
 test('canonical launcher resolves the exact command and SDK, while private/unused/dead invocations fail closed',async()=>{

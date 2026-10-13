@@ -11,7 +11,7 @@ import {VERIFIER_INSTALLATION_FILES,installedVerifierDigest} from '../trusted-ci
 import {sha256} from '../io.mjs';
 import {verificationEnvironment} from '../process-env.mjs';
 import {fixtureRoot,releaseFixture,put,pretty} from './fixtures.mjs';
-const repository='FreeTWAI-AI/freedom-platform';
+const repository='FreeTWAI/freedom-platform';
 function signer(){const keys=[],privateKeys=new Map();for(const purpose of ['verifier-installation','github-candidate','runner-observations']){const pair=generateKeyPairSync('ed25519');privateKeys.set(purpose,pair.privateKey);keys.push({kid:purpose,purpose,public_jwk:pair.publicKey.export({format:'jwk'}),not_before:new Date(Date.now()-60000).toISOString(),not_after:new Date(Date.now()+60000).toISOString()});}return {trust:{publisher:'synthetic-fixed-host',keys},envelope:(purpose,payload)=>{const bytes=pretty(payload);return pretty({kid:purpose,payload:bytes.toString('base64url'),signature:sign(null,Buffer.concat([Buffer.from(`freedom.github-host/${purpose}/v1\0`),bytes]),privateKeys.get(purpose)).toString('base64url')});}};}
 async function fixture(t){
  const f=await releaseFixture(t),host=await mkdtemp(join(tmpdir(),'fp-trusted-host-')),distribution=await fixtureRoot(t),policyRoot=await fixtureRoot(t),s=signer();

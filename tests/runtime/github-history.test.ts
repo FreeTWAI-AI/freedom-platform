@@ -124,53 +124,53 @@ test('leaderboard scores stay display-only and skip automation accounts', () => 
 
 test('stored history pages keep order, stale and unavailable flags, and never call GitHub', async () => {
   const beforeCalls = calls.length;
-  await putRepo('FreeTWAI-AI/freedom-platform', {backfilled: true, synced: when});
+  await putRepo('FreeTWAI/freedom-platform', {backfilled: true, synced: when});
   const newest = '2026-09-30T00:00:00.000Z';
   for (let number = 1; number <= 101; number += 1) {
     const created = number === 80 || number === 90 ? newest : new Date(Date.parse('2026-09-01T00:00:00.000Z') + number * 1000).toISOString();
-    await putItem('FreeTWAI-AI/freedom-platform', {number, kind: 'issue', author: 'maker', created, state: number === 2 ? 'closed' : 'open', stateReason: number === 2 ? 'not_planned' : null});
+    await putItem('FreeTWAI/freedom-platform', {number, kind: 'issue', author: 'maker', created, state: number === 2 ? 'closed' : 'open', stateReason: number === 2 ? 'not_planned' : null});
   }
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 500, kind: 'pr', author: 'editor', created: '2026-09-02T00:00:00.000Z', state: 'closed', mergedAt: when});
-  const issues = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 1, Date.parse(when) + 60 * 1000);
+  await putItem('FreeTWAI/freedom-platform', {number: 500, kind: 'pr', author: 'editor', created: '2026-09-02T00:00:00.000Z', state: 'closed', mergedAt: when});
+  const issues = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 1, Date.parse(when) + 60 * 1000);
   assert.equal(issues.items.length, 100);
   assert.equal(issues.has_more, true);
   assert.equal(issues.items[0].number, 90);
   assert.equal(issues.items[1].number, 80);
-  assert.equal(issues.items[0].url, 'https://github.com/FreeTWAI-AI/freedom-platform/issues/90');
+  assert.equal(issues.items[0].url, 'https://github.com/FreeTWAI/freedom-platform/issues/90');
   assert.equal(issues.checked_at, when);
   assert.equal(issues.stale, false);
   assert.equal(issues.unavailable, undefined);
   const closed = issues.items.find(item => item.number === 2);
   assert.equal(closed?.state, 'closed');
   assert.equal(closed?.state_reason, 'not_planned');
-  const page2 = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 2, Date.parse(when) + 60 * 1000);
+  const page2 = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 2, Date.parse(when) + 60 * 1000);
   assert.equal(page2.items.length, 1);
   assert.equal(page2.has_more, false);
   assert.equal(page2.items[0].number, 1);
-  const pulls = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'pr', 1);
+  const pulls = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'pr', 1);
   assert.equal(pulls.items.length, 1);
   assert.equal(pulls.items[0].merged_at, when);
-  const stale = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 1, Date.parse(when) + 2 * 60 * 60 * 1000 + 1);
+  const stale = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 1, Date.parse(when) + 2 * 60 * 60 * 1000 + 1);
   assert.equal(stale.stale, true);
   assert.equal(stale.items.length, 100);
-  await pool.query(`UPDATE github_sync_repositories SET backfilled=false, last_synced_at=$2 WHERE repository_key=$1`, ['freetwai-ai/freedom-platform', when]);
-  const syncing = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 1, Date.parse(when) + 1000);
+  await pool.query(`UPDATE github_sync_repositories SET backfilled=false, last_synced_at=$2 WHERE repository_key=$1`, ['freetwai/freedom-platform', when]);
+  const syncing = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 1, Date.parse(when) + 1000);
   assert.equal(syncing.stale, true);
   assert.equal(syncing.unavailable, undefined);
   assert.equal(syncing.items.length, 100);
-  await pool.query(`UPDATE github_sync_repositories SET access_status='unreadable', backfilled=true, last_synced_at=$2 WHERE repository_key=$1`, ['freetwai-ai/freedom-platform', when]);
-  const blocked = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 1, Date.parse(when) + 1000);
+  await pool.query(`UPDATE github_sync_repositories SET access_status='unreadable', backfilled=true, last_synced_at=$2 WHERE repository_key=$1`, ['freetwai/freedom-platform', when]);
+  const blocked = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 1, Date.parse(when) + 1000);
   assert.equal(blocked.unavailable, 'github_unreadable');
   assert.equal(blocked.stale, false);
   assert.equal(blocked.items.length, 100);
-  await pool.query('DELETE FROM github_items WHERE repository_key=$1', ['freetwai-ai/freedom-platform']);
-  await pool.query('DELETE FROM github_sync_repositories WHERE repository_key=$1', ['freetwai-ai/freedom-platform']);
-  const pending = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 1);
+  await pool.query('DELETE FROM github_items WHERE repository_key=$1', ['freetwai/freedom-platform']);
+  await pool.query('DELETE FROM github_sync_repositories WHERE repository_key=$1', ['freetwai/freedom-platform']);
+  const pending = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 1);
   assert.equal(pending.unavailable, 'github_sync_pending');
   assert.equal(pending.stale, true);
   assert.equal(pending.items.length, 0);
   assert.equal(pending.checked_at, null);
-  await assert.rejects(githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 101), {status: 422, code: 'invalid_page'});
+  await assert.rejects(githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 101), {status: 422, code: 'invalid_page'});
   await assert.rejects(githubHistoryPage(pool, 'https://example.com/secret', 'issue', 1), {status: 422, code: 'invalid_repository'});
   assert.equal(calls.length, beforeCalls);
 });
@@ -194,7 +194,7 @@ test('leaderboard counts match the shared helpers and follow repository visibili
     {number: 9, kind: 'issue' as const, author: 'GitHub-Actions[bot]', created: '2026-09-21T00:00:03.000Z'},
     {number: 10, kind: 'issue' as const, author: null, created: '2026-09-21T00:00:04.000Z'},
   ];
-  for (const row of visible) await putItem('FreeTWAI-AI/freedom-platform', row);
+  for (const row of visible) await putItem('FreeTWAI/freedom-platform', row);
   await putItem('Example-Org/visible-tool', {number: 1, kind: 'issue', author: 'visible-maker', created: '2026-09-20T00:00:00.000Z'});
   await putItem('Example-Org/hidden-repo', {number: 1, kind: 'issue', author: 'hidden-author', created: '2026-09-20T00:00:00.000Z'});
   await putItem('Example-Org/hidden-repo', {number: 2, kind: 'pr', author: 'member-demo', created: '2026-09-20T00:00:00.000Z', state: 'closed', mergedAt: when});
@@ -219,20 +219,20 @@ test('leaderboard counts match the shared helpers and follow repository visibili
   assert.equal(boards.ideas.find(row => row.login === 'member-demo')?.count, 2);
   assert.equal(boards.edits.find(row => row.login === 'contributor-demo')?.count, 2);
   assert.equal(boards.contributions.find(row => row.login === 'contributor-demo')?.count, contributionPoints(0, 2));
-  await pool.query(`UPDATE github_sync_repositories SET access_status='unreadable' WHERE repository_key='freetwai-ai/freedom-agent-kit'`);
-  await pool.query(`UPDATE github_sync_repositories SET backfilled=false WHERE repository_key='freetwai-ai/freedom-storefront'`);
+  await pool.query(`UPDATE github_sync_repositories SET access_status='unreadable' WHERE repository_key='freetwai/freedom-agent-kit'`);
+  await pool.query(`UPDATE github_sync_repositories SET backfilled=false WHERE repository_key='freetwai/freedom-storefront'`);
   const partial = await githubHistoryLeaderboards(pool, actor);
   assert.equal(partial.complete, false);
-  assert.equal(partial.unreadable.includes('FreeTWAI-AI/freedom-agent-kit'), true);
-  assert.equal(partial.syncing.includes('FreeTWAI-AI/freedom-storefront'), true);
+  assert.equal(partial.unreadable.includes('FreeTWAI/freedom-agent-kit'), true);
+  assert.equal(partial.syncing.includes('FreeTWAI/freedom-storefront'), true);
   assert.deepEqual(partial.ideas, expected.ideas);
   const session = await signIn();
   const started = calls.length;
   const routeBoards = await request('/community/github-history/leaderboards', session);
   const routeRepos = await request('/community/github-history/repositories', session);
-  const routeItems = await request('/community/github-history/items?repository=FreeTWAI-AI%2Ffreedom-platform&kind=issue&page=1', session);
+  const routeItems = await request('/community/github-history/items?repository=FreeTWAI%2Ffreedom-platform&kind=issue&page=1', session);
   const missing = await request('/community/github-history/items?repository=Example-Org%2Fhidden-repo&kind=issue&page=1', session);
-  const tooFar = await request('/community/github-history/items?repository=FreeTWAI-AI%2Ffreedom-platform&kind=issue&page=101', session);
+  const tooFar = await request('/community/github-history/items?repository=FreeTWAI%2Ffreedom-platform&kind=issue&page=101', session);
   const anon = await request('/community/github-history/leaderboards');
   assert.equal(routeBoards.status, 200);
   assert.deepEqual((routeBoards.data as {ideas: unknown}).ideas, expected.ideas);
@@ -244,9 +244,9 @@ test('leaderboard counts match the shared helpers and follow repository visibili
   assert.equal(page.checked_at, when);
   assert.equal(page.unavailable, undefined);
   const listed = routeRepos.data as {items: {name: string; sync: {status: string}}[]};
-  assert.equal(listed.items.find(item => item.name === 'FreeTWAI-AI/freedom-agent-kit')?.sync.status, 'unreadable');
-  assert.equal(listed.items.find(item => item.name === 'FreeTWAI-AI/freedom-storefront')?.sync.status, 'syncing');
-  assert.equal(listed.items.find(item => item.name === 'FreeTWAI-AI/freedom-platform')?.sync.status, 'ok');
+  assert.equal(listed.items.find(item => item.name === 'FreeTWAI/freedom-agent-kit')?.sync.status, 'unreadable');
+  assert.equal(listed.items.find(item => item.name === 'FreeTWAI/freedom-storefront')?.sync.status, 'syncing');
+  assert.equal(listed.items.find(item => item.name === 'FreeTWAI/freedom-platform')?.sync.status, 'ok');
   assert.equal(listed.items.some(item => item.name.toLowerCase() === 'example-org/hidden-repo'), false);
   assert.equal(missing.status, 422);
   assert.equal(missing.data.code, 'invalid_repository');
@@ -277,19 +277,19 @@ test('leaderboards count bound members and page-marked platform submissions only
     ON CONFLICT (user_id) DO UPDATE SET contacts=EXCLUDED.contacts`, [profileUser, DEMO_COMMUNITY, JSON.stringify({
     discord: {value: '', audiences: []}, github: {value: 'profile-only-dev', audiences: ['public']}, line: {value: '', audiences: []}, email: {audiences: []},
   })]);
-  await putRepo('FreeTWAI-AI/freedom-platform');
+  await putRepo('FreeTWAI/freedom-platform');
   await putRepo('Example-Org/visible-tool');
   await putItem('Example-Org/visible-tool', {number: 1, kind: 'issue', author: 'outsider-oss', created: '2026-09-20T00:00:00.000Z'});
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 40, kind: 'issue', author: 'member-demo', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI/freedom-platform', {number: 40, kind: 'issue', author: 'member-demo', created: '2026-09-20T00:00:00.000Z'});
   await putItem('Example-Org/visible-tool', {number: 42, kind: 'issue', author: 'member-demo', created: '2026-09-21T00:00:00.000Z'});
   await putItem('Example-Org/visible-tool', {number: 43, kind: 'pr', author: 'member-demo', created: '2026-09-22T00:00:00.000Z'});
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 50, kind: 'issue', author: 'other-community-dev', created: '2026-09-20T00:00:00.000Z'});
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 51, kind: 'issue', author: 'inactive-member', created: '2026-09-20T00:00:00.000Z'});
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 52, kind: 'issue', author: 'profile-only-dev', created: '2026-09-20T00:00:00.000Z'});
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 21, kind: 'issue', author: 'page-guest', created: '2026-09-23T00:00:00.000Z', pageIds: ['home']});
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 22, kind: 'issue', author: 'page-guest', created: '2026-09-24T00:00:00.000Z'});
+  await putItem('FreeTWAI/freedom-platform', {number: 50, kind: 'issue', author: 'other-community-dev', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI/freedom-platform', {number: 51, kind: 'issue', author: 'inactive-member', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI/freedom-platform', {number: 52, kind: 'issue', author: 'profile-only-dev', created: '2026-09-20T00:00:00.000Z'});
+  await putItem('FreeTWAI/freedom-platform', {number: 21, kind: 'issue', author: 'page-guest', created: '2026-09-23T00:00:00.000Z', pageIds: ['home']});
+  await putItem('FreeTWAI/freedom-platform', {number: 22, kind: 'issue', author: 'page-guest', created: '2026-09-24T00:00:00.000Z'});
   await putItem('Example-Org/visible-tool', {number: 30, kind: 'issue', author: 'page-guest', created: '2026-09-25T00:00:00.000Z', pageIds: ['home']});
-  await putItem('FreeTWAI-AI/freedom-platform', {number: 60, kind: 'issue', author: 'dependabot[bot]', created: '2026-09-26T00:00:00.000Z', pageIds: ['home']});
+  await putItem('FreeTWAI/freedom-platform', {number: 60, kind: 'issue', author: 'dependabot[bot]', created: '2026-09-26T00:00:00.000Z', pageIds: ['home']});
   const stored = await pool.query<{github_login: string}>(`SELECT github_login FROM github_social_connections WHERE lower(btrim(github_login))='member-demo'`);
   assert.deepEqual(stored.rows.map(row => row.github_login), ['Member-Demo']);
   const boards = await githubHistoryLeaderboards(pool, actor);
@@ -306,7 +306,7 @@ test('leaderboards count bound members and page-marked platform submissions only
   assert.equal(boards.contributions.find(row => row.login === 'page-guest')?.count, contributionPoints(1, 0));
   const outsiderHistory = await githubHistoryPage(pool, 'Example-Org/visible-tool', 'issue', 1);
   assert.equal(outsiderHistory.items.some(item => item.author === 'outsider-oss' && item.number === 1), true);
-  const platformHistory = await githubHistoryPage(pool, 'FreeTWAI-AI/freedom-platform', 'issue', 1);
+  const platformHistory = await githubHistoryPage(pool, 'FreeTWAI/freedom-platform', 'issue', 1);
   assert.equal(platformHistory.items.some(item => item.author === 'page-guest' && item.number === 22), true);
   assert.equal(platformHistory.items.some(item => item.author === 'dependabot[bot]'), true);
   const session = await signIn();
@@ -338,12 +338,14 @@ test('the portal page cap stays equal to the exported history page cap', () => {
 
 test('repository categories prioritize platform architecture and guild assigned skill books', async () => {
   const fake = {query: async (sql: string) => ({rows: sql.includes('guild_skill_book_bindings') ? [{book_id: 'video-autopilot'}] : [
-    {repository_full_name: 'FreeTWAI-AI/freedom-platform', title: '重複平台'},
+    {repository_full_name: 'FreeTWAI/freedom-platform', title: '重複平台'},
     {repository_full_name: 'example/personal-tool', title: '個人工具'},
   ]})} as unknown as Pool;
   const repos = await historyRepositories(fake, {community_id: 'test-community'} as Actor);
-  assert.equal(repos.find(repo => repo.name === 'FreeTWAI-AI/freedom-platform')?.category, 'platform');
+  assert.equal(repos.find(repo => repo.name === 'FreeTWAI/freedom-platform')?.category, 'platform');
   assert.equal(repos.find(repo => repo.name === 'example/personal-tool')?.category, 'personal');
+  assert.equal(repos.some(repo => repo.name.startsWith('FreeTWAI-AI/')), false);
+  assert.equal(repos.find(repo => repo.name === 'FreeTWAI/FreeTWAI.github.io')?.category, 'platform');
   assert.ok(repos.some(repo => repo.category === 'official'));
   assert.equal(new Set(repos.map(repo => repo.name.toLowerCase())).size, repos.length);
 });

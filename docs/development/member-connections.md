@@ -1,6 +1,6 @@
 # 新人入口與會員交流
 
-依 [Issue #42](https://github.com/FreeTWAI-AI/freedom-platform/issues/42)（Hao0321 的 9/30 意見）與 [#43](https://github.com/FreeTWAI-AI/freedom-platform/issues/43) 設計；最初實作來自 Hao0321 的 [PR #68](https://github.com/FreeTWAI-AI/freedom-platform/pull/68)。
+依 [Issue #42](https://github.com/FreeTWAI/freedom-platform/issues/42)（Hao0321 的 9/30 意見）與 [#43](https://github.com/FreeTWAI/freedom-platform/issues/43) 設計；最初實作來自 Hao0321 的 [PR #68](https://github.com/FreeTWAI/freedom-platform/pull/68)。
 
 加入門、分享名片、好友名單與夥伴推薦的資料在 migration `063_member_connections.sql`：`users.onboarding_entry_mode`（`assessment` 或 `quick`，既有列預設 `assessment`）、`member_card_shares`、`guild_discovery_reports`。公會小問題的答案在 migration `064_member_guild_answers.sql` 的 `member_guild_answers`，每位會員每個公會一筆。
 
@@ -73,7 +73,7 @@ migration `075_member_card_profile_links.sql` 加上 `show_profile_links` 和 `p
 
 ## 認識一位工坊夥伴
 
-[#43](https://github.com/FreeTWAI-AI/freedom-platform/issues/43) 的推薦出現在會員首頁和我的名片。每次呈現一位，一定附理由，可以查看名片或送出好友邀請。
+[#43](https://github.com/FreeTWAI/freedom-platform/issues/43) 的推薦出現在會員首頁和我的名片。每次呈現一位，一定附理由，可以查看名片或送出好友邀請。
 
 排序只用雙方目前都有效的共同公會，以及已確認名片上的能力。共同公會權重較高。理由依序是「你們都加入了…」（最多兩個公會名）、「你們公開的專長有共同項目」，或「認識不同領域的工坊夥伴」。名單依台北日期輪替；「換一位」看下一位，當日名單走完回到第一位。
 
@@ -114,7 +114,7 @@ migration `075_member_card_profile_links.sql` 加上 `show_profile_links` 和 `p
 
 ## 公會申請進度
 
-[Issue #51](https://github.com/FreeTWAI-AI/freedom-platform/issues/51)：會員的 `GET/POST /api/v1/guild-applications` 只回本人看得到的欄位。送出後表單收起，職業公會頁的「我的公會申請」顯示待審核、已通過或未通過。已通過可查看公會；未通過可修改後重新申請，原紀錄留作歷史。欄位與畫面文字見 [定位、公會與技能書 API](onboarding-api.md)。管理員審核與通過／未通過通知維持原樣。
+[Issue #51](https://github.com/FreeTWAI/freedom-platform/issues/51)：會員的 `GET/POST /api/v1/guild-applications` 只回本人看得到的欄位。送出後表單收起，職業公會頁的「我的公會申請」顯示待審核、已通過或未通過。已通過可查看公會；未通過可修改後重新申請，原紀錄留作歷史。欄位與畫面文字見 [定位、公會與技能書 API](onboarding-api.md)。管理員審核與通過／未通過通知維持原樣。
 
 ## 提案截圖（Issue #42，2026-10-01）
 

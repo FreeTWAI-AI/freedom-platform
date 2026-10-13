@@ -27,7 +27,7 @@ function targetFor(capability:Capability,targetKey:string){
   }
   const page=developmentPages.find(value=>value.id===targetKey);
   requireCondition(page,404,'development_target_not_found','找不到這一頁的開發指引。');
-  return {key:targetKey,title:page.title,repository:'FreeTWAI-AI/freedom-platform',guide_url:`/development/${page.id}/SKILL.md`};
+  return {key:targetKey,title:page.title,repository:'FreeTWAI/freedom-platform',guide_url:`/development/${page.id}/SKILL.md`};
 }
 export class DevelopmentAccess {
   constructor(private pool:Pool,private social:GitHubSocial){}

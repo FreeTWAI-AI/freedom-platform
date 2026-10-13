@@ -212,7 +212,7 @@ test('community history keeps rankings while repositories are still syncing or u
   await page.route('**/api/v1/community/github-history/leaderboards',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
     ideas:[{login:'member-demo',count:2}],edits:[{login:'contributor-demo',count:2}],
     contributions:[{login:'contributor-demo',count:40},{login:'member-demo',count:30}],
-    complete:false,oldest_synced_at:synced,syncing:['FreeTWAI-AI/freedom-agent-kit'],unreadable:['FreeTWAI-AI/freedom-storefront'],
+    complete:false,oldest_synced_at:synced,syncing:['FreeTWAI/freedom-agent-kit'],unreadable:['FreeTWAI/freedom-storefront'],
   })}));
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
@@ -222,8 +222,8 @@ test('community history keeps rankings while repositories are still syncing or u
   await navigate(page,'社群任務');
   await expect(page.getByText('部分儲存庫仍在同步中，活動件數尚未完整。')).toBeVisible();
   await expect(page.getByText('沒有權限讀取這個儲存庫（可能已設為私有或已刪除）')).toBeVisible();
-  await expect(page.getByText('FreeTWAI-AI/freedom-storefront')).toBeVisible();
-  await expect(page.getByText('FreeTWAI-AI/freedom-agent-kit')).toBeVisible();
+  await expect(page.getByText('FreeTWAI/freedom-storefront')).toBeVisible();
+  await expect(page.getByText('FreeTWAI/freedom-agent-kit')).toBeVisible();
   await expect(page.getByText(/最早來源同步時間/)).toBeVisible();
   await expect(page.getByRole('heading',{name:'Issue 活動件數'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'PR 活動件數'})).toBeVisible();
@@ -234,8 +234,8 @@ test('community history keeps rankings while repositories are still syncing or u
     const response=await route.fetch();
     const body=await response.json();
     for(const item of body.items??[]){
-      if(item.name==='FreeTWAI-AI/freedom-agent-kit')item.sync={status:'syncing',last_synced_at:null};
-      if(item.name==='FreeTWAI-AI/freedom-storefront')item.sync={status:'unreadable',last_synced_at:synced};
+      if(item.name==='FreeTWAI/freedom-agent-kit')item.sync={status:'syncing',last_synced_at:null};
+      if(item.name==='FreeTWAI/freedom-storefront')item.sync={status:'unreadable',last_synced_at:synced};
     }
     await route.fulfill({response,json:body});
   });
@@ -258,8 +258,8 @@ test('community history keeps rankings while repositories are still syncing or u
 test('task board explains unavailable and stale GitHub reads without claiming there are no issues',async({page})=>{
   let stale=false;
   await page.route('**/api/v1/co-creation/projects/workshop-video-autopilot/activity',route=>route.fulfill(stale
-    ?{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',checked_at:'2026-09-27T12:00:00Z',issues:[],contributions:[],truncated:false,stale_reason:'github_rate_limited'})}
-    :{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',checked_at:'2026-09-28T00:00:00Z',issues:[],contributions:[],truncated:false,unavailable_reason:'github_sync_pending'})}));
+    ?{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI/video-autopilot-kit',checked_at:'2026-09-27T12:00:00Z',issues:[],contributions:[],truncated:false,stale_reason:'github_rate_limited'})}
+    :{status:200,contentType:'application/json',body:JSON.stringify({repository_url:'https://github.com/FreeTWAI/video-autopilot-kit',checked_at:'2026-09-28T00:00:00Z',issues:[],contributions:[],truncated:false,unavailable_reason:'github_sync_pending'})}));
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
@@ -271,7 +271,7 @@ test('task board explains unavailable and stale GitHub reads without claiming th
   await expect(page.getByText('這個專案目前沒有符合搜尋的開放 Issue。')).toHaveCount(0);
   await expect(page.locator('.game-console')).toHaveCount(0);
   const repo=page.getByRole('link',{name:'查看完整 GitHub 專案 ↗'});
-  await expect(repo).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit');
+  await expect(repo).toHaveAttribute('href','https://github.com/FreeTWAI/video-autopilot-kit');
   await page.screenshot({path:'test-results/task-board-github-rate-limit-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -280,7 +280,7 @@ test('task board explains unavailable and stale GitHub reads without claiming th
   await picker.selectOption('');
   await picker.selectOption('workshop-video-autopilot');
   await expect(page.getByRole('status').filter({hasText:'GitHub 暫時限制查詢'})).toContainText('以下是');
-  await expect(repo).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit');
+  await expect(repo).toHaveAttribute('href','https://github.com/FreeTWAI/video-autopilot-kit');
 });
 
 test('story theme keeps the workshop controls and cute artwork usable on a narrow phone',async({page})=>{

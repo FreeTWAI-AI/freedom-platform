@@ -11,11 +11,11 @@ const admin = createPool(databaseUrl);
 const pool = new Pool({connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 4});
 const originalFetch = globalThis.fetch;
 const NOW = Date.parse('2026-09-30T12:00:00.000Z');
-const PLATFORM = 'freetwai-ai/freedom-platform';
+const PLATFORM = 'freetwai/freedom-platform';
 let fetches = 0;
 
 function subject(kind: 'issues' | 'pull', number: number, extra: Record<string, unknown> = {}) {
-  return {number, title: `Task ${number}`, html_url: `https://github.com/FreeTWAI-AI/freedom-platform/${kind}/${number}`, ...extra};
+  return {number, title: `Task ${number}`, html_url: `https://github.com/FreeTWAI/freedom-platform/${kind}/${number}`, ...extra};
 }
 function event(id: string, type: string, payload: unknown, actor: {login: string} | null = {login: 'member'}) {
   return {id, type, actor, created_at: '2026-09-27T12:00:00Z', payload};
@@ -60,14 +60,14 @@ test('public events keep only verified platform actions', () => {
   const items = [
     event('1', 'IssuesEvent', {action: 'opened', issue: subject('issues', 1)}),
     event('2', 'PullRequestEvent', {action: 'opened', pull_request: subject('pull', 2)}),
-    event('3', 'PullRequestReviewEvent', {action: 'created', pull_request: subject('pull', 2), review: {state: 'approved', html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/pull/2#pullrequestreview-3'}}),
-    event('4', 'IssueCommentEvent', {action: 'created', issue: subject('issues', 1), comment: {body: `我願意接手設計\n${DESIGN_CLAIM_MARKER}`, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/1#issuecomment-4'}}),
-    event('5', 'IssueCommentEvent', {action: 'created', issue: subject('issues', 1), comment: {body: '只是看看', html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/1#issuecomment-5'}}),
-    event('6', 'IssueCommentEvent', {action: 'created', issue: {...subject('issues', 1), pull_request: {}}, comment: {body: DESIGN_CLAIM_MARKER, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/1#issuecomment-6'}}),
-    event('7', 'PullRequestReviewEvent', {action: 'dismissed', pull_request: subject('pull', 2), review: {state: 'approved', html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/pull/2#pullrequestreview-7'}}),
+    event('3', 'PullRequestReviewEvent', {action: 'created', pull_request: subject('pull', 2), review: {state: 'approved', html_url: 'https://github.com/FreeTWAI/freedom-platform/pull/2#pullrequestreview-3'}}),
+    event('4', 'IssueCommentEvent', {action: 'created', issue: subject('issues', 1), comment: {body: `我願意接手設計\n${DESIGN_CLAIM_MARKER}`, html_url: 'https://github.com/FreeTWAI/freedom-platform/issues/1#issuecomment-4'}}),
+    event('5', 'IssueCommentEvent', {action: 'created', issue: subject('issues', 1), comment: {body: '只是看看', html_url: 'https://github.com/FreeTWAI/freedom-platform/issues/1#issuecomment-5'}}),
+    event('6', 'IssueCommentEvent', {action: 'created', issue: {...subject('issues', 1), pull_request: {}}, comment: {body: DESIGN_CLAIM_MARKER, html_url: 'https://github.com/FreeTWAI/freedom-platform/issues/1#issuecomment-6'}}),
+    event('7', 'PullRequestReviewEvent', {action: 'dismissed', pull_request: subject('pull', 2), review: {state: 'approved', html_url: 'https://github.com/FreeTWAI/freedom-platform/pull/2#pullrequestreview-7'}}),
     event('8', 'PageOpenedEvent', {}),
-    event('9', 'PullRequestEvent', {action: 'opened', pull_request: {number: 9, url: 'https://api.github.com/repos/FreeTWAI-AI/freedom-platform/pulls/9'}}),
-    event('10', 'PullRequestReviewEvent', {action: 'created', pull_request: {number: 9, url: 'https://api.github.com/repos/FreeTWAI-AI/freedom-platform/pulls/9'}, review: {state: 'approved', html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/pull/9#pullrequestreview-10'}}),
+    event('9', 'PullRequestEvent', {action: 'opened', pull_request: {number: 9, url: 'https://api.github.com/repos/FreeTWAI/freedom-platform/pulls/9'}}),
+    event('10', 'PullRequestReviewEvent', {action: 'created', pull_request: {number: 9, url: 'https://api.github.com/repos/FreeTWAI/freedom-platform/pulls/9'}, review: {state: 'approved', html_url: 'https://github.com/FreeTWAI/freedom-platform/pull/9#pullrequestreview-10'}}),
     event('11', 'PullRequestEvent', {action: 'opened', pull_request: {number: 10, url: 'https://api.github.com/repos/other/repo/pulls/10'}}),
     event('12', 'IssuesEvent', {action: 'opened', issue: subject('issues', 1)}, null),
   ].map(kept).filter((item): item is PageGitHubEvent => item != null);
@@ -85,13 +85,13 @@ test('closed issues, merged and unmerged pull requests, and releases stay distin
     event('c4', 'PullRequestEvent', {action: 'closed', pull_request: subject('pull', 6, {merged: true})}),
     event('c5', 'PullRequestEvent', {action: 'closed', pull_request: subject('pull', 7, {merged: false})}),
     event('c6', 'PullRequestEvent', {action: 'reopened', pull_request: subject('pull', 7)}),
-    event('c7', 'ReleaseEvent', {action: 'published', release: {tag_name: 'v1.2.0', name: '九月更新', html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/releases/tag/v1.2.0'}}),
+    event('c7', 'ReleaseEvent', {action: 'published', release: {tag_name: 'v1.2.0', name: '九月更新', html_url: 'https://github.com/FreeTWAI/freedom-platform/releases/tag/v1.2.0'}}),
     event('c8', 'ReleaseEvent', {action: 'published', release: {tag_name: 'v9', name: '別的倉庫', html_url: 'https://github.com/other/repo/releases/tag/v9'}}),
   ].map(kept).filter((item): item is PageGitHubEvent => item != null);
   assert.deepEqual(items.map(item => item.kind), ['issue_closed', 'pr_merged', 'pr_closed', 'release_published']);
   assert.equal(items[3].number, null);
   assert.equal(items[3].title, '九月更新');
-  assert.equal(items[3].url, 'https://github.com/FreeTWAI-AI/freedom-platform/releases/tag/v1.2.0');
+  assert.equal(items[3].url, 'https://github.com/FreeTWAI/freedom-platform/releases/tag/v1.2.0');
   assert.equal(fetches, 0);
 });
 
@@ -115,7 +115,7 @@ test('page activity is read from stored rows and never calls GitHub', async () =
   await seedItem(9, 'issue', 'closed', '2026-09-25T13:00:00.000Z', ['positioning']);
   const page = await reader.read('positioning', true);
   assert.deepEqual(page.items.map(item => item.number), [7, 2]);
-  assert.equal(page.items[0].url, 'https://github.com/FreeTWAI-AI/freedom-platform/issues/7');
+  assert.equal(page.items[0].url, 'https://github.com/FreeTWAI/freedom-platform/issues/7');
   assert.equal(page.items[0].author, 'GitHub 使用者');
   assert.equal(page.items[0].kind, 'issue');
   assert.equal('partial' in page, false);
@@ -151,7 +151,7 @@ test('stored public events keep the feed clock, errors and the newest hundred', 
   assert.equal(missing.checked_at, new Date(NOW).toISOString());
   await pool.query(`INSERT INTO github_feed_state(feed_name, checked_at, next_sync_at, last_error) VALUES ('freedom_platform_events', $1, $1, NULL)`, [new Date(NOW)]);
   await pool.query(`INSERT INTO github_repository_events(event_id, kind, number, title, url, actor, created_at)
-    SELECT 'e' || lpad(i::text, 3, '0'), 'issue_opened', 1, '公告', 'https://github.com/FreeTWAI-AI/freedom-platform/issues/1', 'member', $1
+    SELECT 'e' || lpad(i::text, 3, '0'), 'issue_opened', 1, '公告', 'https://github.com/FreeTWAI/freedom-platform/issues/1', 'member', $1
     FROM generate_series(0, 100) AS g(i)`, [new Date(NOW)]);
   const fresh = await reader.read();
   assert.equal(fresh.truncated, true);
@@ -164,6 +164,6 @@ test('stored public events keep the feed clock, errors and the newest hundred', 
   await pool.query(`UPDATE github_feed_state SET checked_at=$1, last_error='github_rate_limited' WHERE feed_name='freedom_platform_events'`, [new Date(NOW)]);
   const failed = await reader.read();
   assert.equal(failed.stale, true);
-  assert.equal(failed.items[0].url, 'https://github.com/FreeTWAI-AI/freedom-platform/issues/1');
+  assert.equal(failed.items[0].url, 'https://github.com/FreeTWAI/freedom-platform/issues/1');
   assert.equal(fetches, 0);
 });

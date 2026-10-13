@@ -5,11 +5,11 @@ three actual adopted entrypoints. Run it from a reviewed, fixed host installatio
 
 ```
 node packages/contribution-tools/behavior-supervisor.mjs consumer \
-  FreeTWAI-AI/freedom-agent-kit /absolute/consumer/checkout EXACT_CANDIDATE_SHA
+  FreeTWAI/freedom-agent-kit /absolute/consumer/checkout EXACT_CANDIDATE_SHA
 ```
 
-The other fixed repository profiles are `FreeTWAI-AI/freedom-storefront` and
-`FreeTWAI-AI/freedom-supplier-client`. The host materializes immutable Git objects,
+The other fixed repository profiles are `FreeTWAI/freedom-storefront` and
+`FreeTWAI/freedom-supplier-client`. The host materializes immutable Git objects,
 then imports `/candidate/src/index.mjs` only inside the existing resource-limited,
 network-disabled, read-only candidate container. Kit uses its real
 `packages/client/index.mjs` PlatformClient. Storefront calls
@@ -89,7 +89,7 @@ The additional executable profile exercises the actual approved consumer
 
 ```
 node packages/contribution-tools/behavior-supervisor.mjs consumer-cli \
-  FreeTWAI-AI/freedom-agent-kit /absolute/consumer/checkout EXACT_CANDIDATE_SHA
+  FreeTWAI/freedom-agent-kit /absolute/consumer/checkout EXACT_CANDIDATE_SHA
 ```
 
 The host API is `runIsolatedAgentKitCliBehavior` with the same exact

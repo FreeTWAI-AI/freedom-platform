@@ -188,7 +188,7 @@ test('explicit Kit profile upgrade adds exact SDK artifact while other consumers
   await verifyConsumerLibraries(kit.root, { repository: kit.repository, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE,
     expectedSourceCommit: state.expectedSourceCommit, remote: true, fetcher: async url => {
       urls.push(url);
-      const prefix = `https://raw.githubusercontent.com/FreeTWAI-AI/freedom-platform/${state.expectedSourceCommit}/`;
+      const prefix = `https://raw.githubusercontent.com/FreeTWAI/freedom-platform/${state.expectedSourceCommit}/`;
       assert(url.startsWith(prefix));
       return new Response(await readFile(join(state.sourceRoot, url.slice(prefix.length))));
     } });

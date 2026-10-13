@@ -33,7 +33,7 @@ for (const [index, name] of names.entries()) {
     assert.equal(sourceGit(roots[index], ['rev-parse', 'HEAD']).toString().trim(), expected, name + ' must match repositories.lock.json');
     assert.equal(sourceGit(roots[index], ['status', '--porcelain']).toString().trim(), '', name + ' checkout must be clean');
   }
-  await verifyConsumerLibraries(roots[index], { repository: 'FreeTWAI-AI/' + name,
+  await verifyConsumerLibraries(roots[index], { repository: 'FreeTWAI/' + name,
     expectedSourceCommit: !repositoriesRoot && index === 2 ? process.env.FREEDOM_SUPPLIER_SOURCE_COMMIT ?? sourceCommit : sourceCommit, sourceRoot: resolve('.') });
 }
 const importConsumer = (index: number, path: string) => import(pathToFileURL(resolve(roots[index]!, path)).href);

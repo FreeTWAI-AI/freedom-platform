@@ -37,7 +37,7 @@ test('skill development offers either AI guild and nested Escape returns to the 
 });
 
 const keyId='d0000000-0000-4000-8000-000000000001',secret='fpd_'+'a'.repeat(43);
-function readyView(){return {capability:'platform',target:{key:'cocreation',title:'一起開發',repository:'FreeTWAI-AI/freedom-platform',guide_url:'/development/cocreation/SKILL.md'},eligible:true,
+function readyView(){return {capability:'platform',target:{key:'cocreation',title:'一起開發',repository:'FreeTWAI/freedom-platform',guide_url:'/development/cocreation/SKILL.md'},eligible:true,
  guilds:[{guild_key:'guild_platform_engineering',name:'平台工程公會',state:'active',aggregate_version:1}],github:{id:'42',login:'contributor'},app:{configured:true,installation_url:'https://github.com/apps/synthetic-app/installations/new'},policy_version:'development-proposal-v1',consent:true,enabled:true,
  grant:{grant_id:keyId,working_repository:'contributor/freedom-platform',expires_at:new Date(Date.now()+3600000).toISOString(),revoked_at:null},keys:[],proposals:[]};}
 
@@ -45,7 +45,7 @@ test('private Agent instruction clears before dialog close, does not enter brows
  await context.grantPermissions(['clipboard-read','clipboard-write']);
  await page.route('**/api/v1/me/development/platform/cocreation',route=>route.fulfill({json:readyView()}));
  let delayed=false,release:(()=>void)|undefined;
- await page.route('**/api/v1/me/development/platform/cocreation/keys',async route=>{if(delayed)await new Promise<void>(resolve=>{release=resolve;});await route.fulfill({json:{key_id:keyId,token:secret,expires_at:new Date(Date.now()+3600000).toISOString(),working_repository:'contributor/freedom-platform',target_repository:'FreeTWAI-AI/freedom-platform'}});});
+ await page.route('**/api/v1/me/development/platform/cocreation/keys',async route=>{if(delayed)await new Promise<void>(resolve=>{release=resolve;});await route.fulfill({json:{key_id:keyId,token:secret,expires_at:new Date(Date.now()+3600000).toISOString(),working_repository:'contributor/freedom-platform',target_repository:'FreeTWAI/freedom-platform'}});});
  await login(page);const modal=await platform(page);await modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true}).click();
  await expect(modal.getByLabel('私人開發指令',{exact:true})).toHaveValue(new RegExp(secret));
  await modal.getByRole('button',{name:'複製私人開發指令',exact:true}).click();expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(secret);

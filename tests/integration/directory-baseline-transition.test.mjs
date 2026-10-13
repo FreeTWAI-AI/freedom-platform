@@ -24,7 +24,7 @@ const git = (cwd, args) => execFileSync('/usr/bin/git', ['-c', 'core.hooksPath=/
     GIT_COMMITTER_EMAIL: 'synthetic@example.invalid' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000,
 }).trim();
 const input = (commit, root = candidateRoot, source = sourceRoot, workflow = expectedWorkflowCommit) => ({
-  repository: 'FreeTWAI-AI/FreeTWAI-AI.github.io', candidateRoot: root, candidateCommit: commit,
+  repository: 'FreeTWAI/FreeTWAI.github.io', candidateRoot: root, candidateCommit: commit,
   sourceRoot: source, expectedWorkflowCommit: workflow, expectedSourceCommit: '91b943ac61e132fbbce72ea066cb2301aa065600',
 });
 async function clone(t, root, label) {
@@ -45,7 +45,7 @@ async function changed(t, path, value) {
 test('promotion changes only the approved directory pin; old installed policy rejects the fix', async t => {
   const oldLock = JSON.parse(git(sourceRoot, ['show', installed + ':repositories.lock.json']));
   const promotedLock = JSON.parse(git(sourceRoot, ['show', expectedWorkflowCommit + ':repositories.lock.json']));
-  const entries = oldLock.repositories.filter(x => x.repository === 'FreeTWAI-AI/FreeTWAI-AI.github.io');
+  const entries = oldLock.repositories.filter(x => x.repository === 'FreeTWAI/FreeTWAI.github.io');
   assert.equal(entries.length, 1); assert.equal(entries[0].commit, oldBaseline);
   entries[0].commit = approved;
   assert.deepEqual(promotedLock, oldLock);

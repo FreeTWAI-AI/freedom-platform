@@ -1,3 +1,4 @@
+import {matchesRecordedRepository,isPlatformSourceRepository} from './repository-identity.mjs';
 import { execFileSync } from 'node:child_process';
 import { readBounded, parseJson, sha256, readRemoteBounded } from './io.mjs';
 import { requireCondition as check } from './errors.mjs';
@@ -5,12 +6,12 @@ import { verificationEnvironment } from './process-env.mjs';
 
 // This is a source distribution map. It is not ReleaseSet approval or usage evidence.
 export const CONSUMER_LIBRARIES = Object.freeze({
-  'FreeTWAI-AI/freedom-agent-kit': ['packages/sdk/member-workspace.mjs'],
-  'FreeTWAI-AI/freedom-storefront': [
+  'FreeTWAI/freedom-agent-kit': ['packages/sdk/member-workspace.mjs'],
+  'FreeTWAI/freedom-storefront': [
     'packages/client-connections/read-client.mjs',
     'packages/client-connections/storefront-workspace.mjs',
   ],
-  'FreeTWAI-AI/freedom-supplier-client': [
+  'FreeTWAI/freedom-supplier-client': [
     'packages/client-connections/read-client.mjs',
     'packages/client-connections/supplier-workspace.mjs',
   ],
@@ -31,7 +32,7 @@ export function consumerLibraryProfile(repository, expectedLibraryProfile = LEGA
   if (expectedLibraryProfile === LEGACY_LIBRARY_PROFILE) {
     return { id: LEGACY_LIBRARY_PROFILE, format: 'freedom.consumer-libraries/v1', paths: CONSUMER_LIBRARIES[repository] };
   }
-  check(repository === 'FreeTWAI-AI/freedom-agent-kit'
+  check(repository === 'FreeTWAI/freedom-agent-kit'
     && [AGENT_KIT_DEVICE_LIBRARY_PROFILE, AGENT_KIT_DEVICE_CLI_LIBRARY_PROFILE].includes(expectedLibraryProfile), 'unsupported_library_profile');
   if (expectedLibraryProfile === AGENT_KIT_DEVICE_LIBRARY_PROFILE) return { id: expectedLibraryProfile, format: 'freedom.consumer-libraries/v2', paths: deviceLibraries };
   return { id: expectedLibraryProfile, format: 'freedom.consumer-libraries/v2',
@@ -52,8 +53,8 @@ export async function verifyConsumerLibraries(root, { expectedSourceCommit, expe
   const profile = consumerLibraryProfile(repository, expectedLibraryProfile);
   check(Boolean(sourceRoot) !== remote, 'one_library_source_required');
   const lock = parseJson(await readBounded(root, LIBRARY_LOCK));
-  check(lock.source_repository === 'FreeTWAI-AI/freedom-platform'
-    && lock.source_commit === expectedSourceCommit && lock.repository === repository, 'library_source_mismatch');
+  check(isPlatformSourceRepository(lock.source_repository)
+    && lock.source_commit === expectedSourceCommit && matchesRecordedRepository(lock.repository, repository), 'library_source_mismatch');
   check(lock.format === profile.format && (profile.id === LEGACY_LIBRARY_PROFILE
     ? !Object.hasOwn(lock, 'profile') : lock.profile === profile.id), 'library_profile_mismatch');
   const expected = profile.paths;

@@ -33,7 +33,7 @@ test('a visitor without JavaScript can follow real repo links and read a complet
   await page.getByRole('link',{name:'公開開發導覽',exact:true}).click();
   await page.getByRole('link',{name:'我有東西要賣',exact:true}).click();
   await expect(page.getByRole('heading',{name:'要 Fork 哪一個 Repo？'})).toBeVisible();
-  await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI-AI/freedom-supplier-client',exact:false}).first()).toBeVisible();
+  await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI/freedom-supplier-client',exact:false}).first()).toBeVisible();
   await page.goto('/development/skills/security-scanner');
   await expect(page.locator('.public-skill-entry .public-skill-actions a').first()).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner');
   await expect(page.getByRole('link',{name:'前往作者網站 ↗',exact:true})).toHaveAttribute('href','https://teddashh.github.io/ai-security-scanner/');
@@ -44,11 +44,11 @@ test('a visitor without JavaScript can follow real repo links and read a complet
   await expect(page.getByRole('link',{name:'查看原作 PR ↗',exact:true})).toHaveAttribute('href','https://github.com/teddashh/ai-security-scanner/pulls');
   await expect(page.getByText('工坊整合與任務來源',{exact:true})).toBeVisible();
   await page.getByText('工坊整合與任務來源',{exact:true}).click();
-  await expect(page.getByRole('link',{name:'查看工坊整合版本',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner');
+  await expect(page.getByRole('link',{name:'查看工坊整合版本',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI/ai-security-scanner');
   await expect(page.getByRole('link',{name:'下載 Agent SKILL.md',exact:true}).first()).toBeVisible();
   await page.getByText('完整指南與來源',{exact:true}).click();
   await expect(page.getByRole('heading',{name:'第一個練習'})).toBeVisible();
-  await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI-AI/ai-security-scanner/fork',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('link',{name:'https://github.com/FreeTWAI/ai-security-scanner/fork',exact:true}).first()).toBeVisible();
   for(const width of [320,390]){
    await page.setViewportSize({width,height:844});
    const dimensions=await page.locator('body').evaluate(element=>({scroll:element.scrollWidth,viewport:window.innerWidth}));

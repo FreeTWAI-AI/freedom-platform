@@ -273,9 +273,13 @@ jobs:
         run: |
           test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
           test -z "$(git -C .freedom/trusted status --porcelain)"
+      - name: Verify the shared runtime partition runner once
+        if: ${{ matrix.partition == 0 }}
+        run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.runtime-sharding-integration
+        env:
+          TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
       - name: Complete this runtime partition in its owned database
         run: |
-          node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.runtime-sharding-integration
           node .freedom/trusted/scripts/runtime-full.mjs --partition-count 6 --partition-index ${{ matrix.partition }} --output .freedom/reports/runtime-partition-${{ matrix.partition }}.json
         env:
           # This job's synthetic PostgreSQL service uses loopback trust only.
@@ -594,10 +598,6 @@ jobs:
       - run: node scripts/checkout-repositories.mjs
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers
-      # The merged consumers retain these exact reviewed library bytes. Fetch
-      # their source object even when the candidate checkout is shallow.
-      - name: Fetch the immutable adopted library source
-        run: git fetch --no-tags --depth=1 origin 91b943ac61e132fbbce72ea066cb2301aa065600
       - name: Checkout the pinned runner
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -617,7 +617,6 @@ jobs:
       # runtime runner. Keep it required, outside the 60-second unit adapter.
       - name: Verify complete runtime selection union
         run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.runtime-union-integration
-      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.pinned-pytest-integration
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.consumer-repositories
         env:

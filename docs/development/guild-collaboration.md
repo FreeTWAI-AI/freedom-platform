@@ -6,9 +6,9 @@
 
 | 公會 | 範圍 | 技能 Repo |
 | --- | --- | --- |
-| 活動與空間公會 | 場地、動線、活動執行、實體讀書會 | [freedom-skill-event-space](https://github.com/FreeTWAI-AI/freedom-skill-event-space) |
-| 光影光雕公會 | 投影、場域光影、光雕作品協作 | [freedom-skill-projection-mapping](https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping) |
-| 人類圖研究所 | 讀書會、解讀框架與自我探索交流 | [freedom-skill-human-design](https://github.com/FreeTWAI-AI/freedom-skill-human-design) |
+| 活動與空間公會 | 場地、動線、活動執行、實體讀書會 | [freedom-skill-event-space](https://github.com/FreeTWAI/freedom-skill-event-space) |
+| 光影光雕公會 | 投影、場域光影、光雕作品協作 | [freedom-skill-projection-mapping](https://github.com/FreeTWAI/freedom-skill-projection-mapping) |
+| 人類圖研究所 | 讀書會、解讀框架與自我探索交流 | [freedom-skill-human-design](https://github.com/FreeTWAI/freedom-skill-human-design) |
 
 原社群經營公會保留接待與社群運作。新公會不虛構會長，由平台管理員另行任命。人類圖內容是文化與探索資料，不把解讀當作醫療、心理診斷或職業能力證明。
 

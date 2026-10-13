@@ -146,7 +146,7 @@
 
 ## 兩張公會作者任務卡
 
-兩位作者各自從 [FreeTWAI-AI/freedom-platform](https://github.com/FreeTWAI-AI/freedom-platform) 的乾淨 clone 開始，在自己的目錄改一個已經審查過的區塊。說明見 [公會呈現](../../packages/guild-presentation/README.md)、[供貨公會](../../modules/guild-supply/README.md)、[開源公會](../../modules/guild-open-source/README.md)。Node 需 `>=24`。
+兩位作者各自從 [FreeTWAI/freedom-platform](https://github.com/FreeTWAI/freedom-platform) 的乾淨 clone 開始，在自己的目錄改一個已經審查過的區塊。說明見 [公會呈現](../../packages/guild-presentation/README.md)、[供貨公會](../../modules/guild-supply/README.md)、[開源公會](../../modules/guild-open-source/README.md)。Node 需 `>=24`。
 
 在該 clone 的儲存庫根目錄：
 
@@ -188,7 +188,7 @@ npm run guild:test -- modules/guild-supply
 
 選到時的工作是：typecheck、portal-build、guild-registration、公會 runtime（五個檔）、殼層整合 browser（三個檔）、guild-preview（兩個檔）、static-worker。完整 runtime 與完整 browser 不會被選上。source-integrity、CodeQL 與審查仍會跑。
 
-歷史對照只說明路徑存在過：[#467](https://github.com/FreeTWAI-AI/freedom-platform/pull/467) 只改了 `CatalogBlock.tsx`，必要 Verify 388 秒（公會 runtime 38、殼層整合 browser 15、預覽 3，以及 static-worker）。那是 AI 協作的紀錄，不是非核心真人的結果，也不保證下一次的時間。目前組織規則安裝的 PR Verify workflow pin 是 `14f82aa2`。作者不要重寫 inventory。若工具要求去改中央殼層，停下來記入觀察；這條路徑不需要改殼層。
+歷史對照只說明路徑存在過：[#467](https://github.com/FreeTWAI/freedom-platform/pull/467) 只改了 `CatalogBlock.tsx`，必要 Verify 388 秒（公會 runtime 38、殼層整合 browser 15、預覽 3，以及 static-worker）。那是 AI 協作的紀錄，不是非核心真人的結果，也不保證下一次的時間。目前組織規則安裝的 PR Verify workflow pin 是 `14f82aa2`。作者不要重寫 inventory。若工具要求去改中央殼層，停下來記入觀察；這條路徑不需要改殼層。
 
 要記下：有沒有碰到中央殼層、inventory，或找核心作者；GitHub Actions 實際花了多久；哪一則錯誤讓人看不懂。
 

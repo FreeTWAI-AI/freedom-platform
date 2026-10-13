@@ -8,7 +8,7 @@ import { sha256 } from '../io.mjs';
 import { fixtureRoot, put } from './fixtures.mjs';
 
 const source = fileURLToPath(new URL('../../../', import.meta.url));
-async function fixture(t, repository = 'FreeTWAI-AI/freedom-project-page') {
+async function fixture(t, repository = 'FreeTWAI/freedom-project-page') {
   const root = await fixtureRoot(t), baseline = new Map(), profile = CONSUMER_SOURCE_PROFILES[repository];
   for (const path of profile.required_paths) await put(root, path, 'throw new Error("candidate code must not execute");\n');
   const manifest = JSON.parse(await readFile(join(source, 'freedom.project.yaml')));
@@ -18,7 +18,7 @@ async function fixture(t, repository = 'FreeTWAI-AI/freedom-project-page') {
   await put(root, 'package-lock.json', '{"lockfileVersion":3}');
   await put(root, '.tool-versions', 'nodejs 24\n');
   const bundleBytes = await readFile(join(source, 'contracts/preview/v1/bundle.json')), bundle = JSON.parse(bundleBytes);
-  await put(root, 'contracts.lock.json', JSON.stringify({ format: 'freedom.contract-pin/v1', source_repository: 'FreeTWAI-AI/freedom-platform',
+  await put(root, 'contracts.lock.json', JSON.stringify({ format: 'freedom.contract-pin/v1', source_repository: 'FreeTWAI/freedom-platform',
     source_commit: 'b'.repeat(40), bundle_path: 'contracts/preview/v1', protocol: bundle.protocol,
     protocol_sha256: bundle.protocol_sha256, bundle_sha256: sha256(bundleBytes) }));
   const preview = ['bundle.json', ...Object.keys(bundle.files)].map(path => 'vendor/freedom-platform/' + path);
@@ -90,7 +90,7 @@ test('candidate Python shadow modules are ignored and symlinked profile files fa
 });
 
 test('approved directory profile protects Pages automation and requires its privacy product entrypoints', async t => {
-  const state = await fixture(t, 'FreeTWAI-AI/FreeTWAI-AI.github.io');
+  const state = await fixture(t, 'FreeTWAI/FreeTWAI.github.io');
   const path = '.github/workflows/pages.yml';
   await put(state.root, path, 'name: changed deployment workflow\n');
   await assert.rejects(verifyConsumerSourceProfile(state), { code: 'consumer_verification_entry_changed' });

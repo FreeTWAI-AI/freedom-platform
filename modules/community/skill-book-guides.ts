@@ -40,18 +40,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一張本人確認的方向卡，附本週小成果與回顧日期。",
     "contribution": "補充不同職業的匿名訪談例子，或讓成果模板更好填。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide/blob/4f7f7fafec4237ba8c63986ec2c07f026e4e34a8/SKILL.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-skill-career-guide/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-skill-career-guide/blob/4f7f7fafec4237ba8c63986ec2c07f026e4e34a8/SKILL.md",
     "source_commit": "4f7f7fafec4237ba8c63986ec2c07f026e4e34a8",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "SKILL.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide/blob/4f7f7fafec4237ba8c63986ec2c07f026e4e34a8/SKILL.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-career-guide/blob/4f7f7fafec4237ba8c63986ec2c07f026e4e34a8/SKILL.md"
       },
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide/blob/4f7f7fafec4237ba8c63986ec2c07f026e4e34a8/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-career-guide/blob/4f7f7fafec4237ba8c63986ec2c07f026e4e34a8/README.md"
       }
     ],
     "beginner": {
@@ -88,18 +88,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份歡迎流程、一份活動說明與一份可交接摘要。",
     "contribution": "提供實際可用的接待話術與去識別活動回顧。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops/blob/44e14e93038caa640ce4ccc4ca22e6326757c24b/SKILL.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-skill-community-ops/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-skill-community-ops/blob/44e14e93038caa640ce4ccc4ca22e6326757c24b/SKILL.md",
     "source_commit": "44e14e93038caa640ce4ccc4ca22e6326757c24b",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "SKILL.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops/blob/44e14e93038caa640ce4ccc4ca22e6326757c24b/SKILL.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-community-ops/blob/44e14e93038caa640ce4ccc4ca22e6326757c24b/SKILL.md"
       },
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops/blob/44e14e93038caa640ce4ccc4ca22e6326757c24b/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-community-ops/blob/44e14e93038caa640ce4ccc4ca22e6326757c24b/README.md"
       }
     ],
     "beginner": {
@@ -136,18 +136,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一頁合作提案，包含受益者、範圍與雙方確認的下一步。",
     "contribution": "提交匿名需求訪談範例，改善提案的範圍與驗收欄位。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-partnership/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-partnership/blob/40bde2433e7779dd402797104a09aec72f112810/SKILL.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-skill-partnership/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-skill-partnership/blob/40bde2433e7779dd402797104a09aec72f112810/SKILL.md",
     "source_commit": "40bde2433e7779dd402797104a09aec72f112810",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "SKILL.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-partnership/blob/40bde2433e7779dd402797104a09aec72f112810/SKILL.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-partnership/blob/40bde2433e7779dd402797104a09aec72f112810/SKILL.md"
       },
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-partnership/blob/40bde2433e7779dd402797104a09aec72f112810/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-partnership/blob/40bde2433e7779dd402797104a09aec72f112810/README.md"
       }
     ],
     "beginner": {
@@ -183,18 +183,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "三筆紀錄的對照表與差異清單，逐筆區分本人回報、雙方確認、來源核實及待核實。",
     "contribution": "用虛構交易補充重複付款、退款與幣別差異的範例。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation/blob/0cb216a37f1ba5a00cfe467053130f31b710d9cf/SKILL.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-skill-reconciliation/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-skill-reconciliation/blob/0cb216a37f1ba5a00cfe467053130f31b710d9cf/SKILL.md",
     "source_commit": "0cb216a37f1ba5a00cfe467053130f31b710d9cf",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "SKILL.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation/blob/0cb216a37f1ba5a00cfe467053130f31b710d9cf/SKILL.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-reconciliation/blob/0cb216a37f1ba5a00cfe467053130f31b710d9cf/SKILL.md"
       },
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation/blob/0cb216a37f1ba5a00cfe467053130f31b710d9cf/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-reconciliation/blob/0cb216a37f1ba5a00cfe467053130f31b710d9cf/README.md"
       }
     ],
     "beginner": {
@@ -231,18 +231,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份小隊短迭代板，附實際成果、驗收回饋與下一輪待辦。",
     "contribution": "改善驗收案例與小隊容量範例，讓不同職業都能使用。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery/blob/8fef03e153463a91e9253705becef6d3a744207e/SKILL.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-skill-project-delivery/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-skill-project-delivery/blob/8fef03e153463a91e9253705becef6d3a744207e/SKILL.md",
     "source_commit": "8fef03e153463a91e9253705becef6d3a744207e",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "SKILL.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery/blob/8fef03e153463a91e9253705becef6d3a744207e/SKILL.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-project-delivery/blob/8fef03e153463a91e9253705becef6d3a744207e/SKILL.md"
       },
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery/blob/8fef03e153463a91e9253705becef6d3a744207e/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-project-delivery/blob/8fef03e153463a91e9253705becef6d3a744207e/README.md"
       }
     ],
     "beginner": {
@@ -279,18 +279,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份歌曲／MV 小企劃、段落分鏡與素材來源表；可選擇附上實作片段。",
     "contribution": "補充原創分鏡、聲畫節奏與不同工具的交付範例。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv/blob/135560530626c13ccf5d13c299e683d7bd8f132a/SKILL.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-skill-music-mv/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-skill-music-mv/blob/135560530626c13ccf5d13c299e683d7bd8f132a/SKILL.md",
     "source_commit": "135560530626c13ccf5d13c299e683d7bd8f132a",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "SKILL.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv/blob/135560530626c13ccf5d13c299e683d7bd8f132a/SKILL.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-music-mv/blob/135560530626c13ccf5d13c299e683d7bd8f132a/SKILL.md"
       },
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv/blob/135560530626c13ccf5d13c299e683d7bd8f132a/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-music-mv/blob/135560530626c13ccf5d13c299e683d7bd8f132a/README.md"
       }
     ],
     "beginner": {
@@ -327,18 +327,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份經確認的商品拍攝 brief、鏡位表與交付版本表。",
     "contribution": "提供去識別的商品 brief、鏡位圖或跨渠道交付案例。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production/blob/7c25e5e5db060950b846ac48bfe44bc5cf32f117/SKILL.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-skill-commercial-production/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-skill-commercial-production/blob/7c25e5e5db060950b846ac48bfe44bc5cf32f117/SKILL.md",
     "source_commit": "7c25e5e5db060950b846ac48bfe44bc5cf32f117",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "SKILL.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production/blob/7c25e5e5db060950b846ac48bfe44bc5cf32f117/SKILL.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-commercial-production/blob/7c25e5e5db060950b846ac48bfe44bc5cf32f117/SKILL.md"
       },
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production/blob/7c25e5e5db060950b846ac48bfe44bc5cf32f117/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-skill-commercial-production/blob/7c25e5e5db060950b846ac48bfe44bc5cf32f117/README.md"
       }
     ],
     "beginner": {
@@ -374,18 +374,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份能讀回自己商品與申請的私人供應端檢視。",
     "contribution": "改善私人商品檢視與錯誤提示；保留中央資料權限與讀取範圍。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/blob/53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534/README.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-supplier-client/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-supplier-client/blob/53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534/README.md",
     "source_commit": "53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/blob/53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-supplier-client/blob/53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534/README.md"
       },
       {
         "path": "package.json",
-        "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/blob/53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534/package.json"
+        "url": "https://github.com/FreeTWAI/freedom-supplier-client/blob/53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534/package.json"
       }
     ],
     "quickstart": {
@@ -425,18 +425,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一張可在本機開啟的商店／單品 HTML，清楚標示預覽而非可下單商店。",
     "contribution": "改善模板的易讀性與手機排版；公開結帳需求先在中央平台討論。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-storefront/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-storefront/blob/9823df79f8eee86008c269437880ed2e49bdc394/README.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-storefront/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-storefront/blob/9823df79f8eee86008c269437880ed2e49bdc394/README.md",
     "source_commit": "9823df79f8eee86008c269437880ed2e49bdc394",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-storefront/blob/9823df79f8eee86008c269437880ed2e49bdc394/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-storefront/blob/9823df79f8eee86008c269437880ed2e49bdc394/README.md"
       },
       {
         "path": "package.json",
-        "url": "https://github.com/FreeTWAI-AI/freedom-storefront/blob/9823df79f8eee86008c269437880ed2e49bdc394/package.json"
+        "url": "https://github.com/FreeTWAI/freedom-storefront/blob/9823df79f8eee86008c269437880ed2e49bdc394/package.json"
       }
     ],
     "quickstart": {
@@ -476,18 +476,18 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一個通過測試的本機狀態摘要小改動，附輸入、輸出與限制。",
     "contribution": "補充不同 CLI 的讀取範例、錯誤處理或正式授權需求。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/blob/201fdab8017e2850bafc7b2f1e8dec7e4c0d6233/README.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-agent-kit/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-agent-kit/blob/201fdab8017e2850bafc7b2f1e8dec7e4c0d6233/README.md",
     "source_commit": "201fdab8017e2850bafc7b2f1e8dec7e4c0d6233",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/blob/201fdab8017e2850bafc7b2f1e8dec7e4c0d6233/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-agent-kit/blob/201fdab8017e2850bafc7b2f1e8dec7e4c0d6233/README.md"
       },
       {
         "path": "package.json",
-        "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/blob/201fdab8017e2850bafc7b2f1e8dec7e4c0d6233/package.json"
+        "url": "https://github.com/FreeTWAI/freedom-agent-kit/blob/201fdab8017e2850bafc7b2f1e8dec7e4c0d6233/package.json"
       }
     ],
     "quickstart": {
@@ -527,22 +527,22 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一個能在自己電腦開啟、帶測試與用途說明的新專案。",
     "contribution": "改善新手初始化步驟、範例測試或首次 PR 的指引。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/freedom-project-template/issues",
-    "reading_url": "https://github.com/FreeTWAI-AI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/README.md",
+    "contribution_url": "https://github.com/FreeTWAI/freedom-project-template/issues",
+    "reading_url": "https://github.com/FreeTWAI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/README.md",
     "source_commit": "9bc7cee3f98d21da3156e5a67bfa63dc63a4615e",
     "reviewed_at": "2026-09-27",
     "source_evidence": [
       {
         "path": "README.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/README.md"
+        "url": "https://github.com/FreeTWAI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/README.md"
       },
       {
         "path": "package.json",
-        "url": "https://github.com/FreeTWAI-AI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/package.json"
+        "url": "https://github.com/FreeTWAI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/package.json"
       },
       {
         "path": "docs/initialize-project.md",
-        "url": "https://github.com/FreeTWAI-AI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/docs/initialize-project.md"
+        "url": "https://github.com/FreeTWAI/freedom-project-template/blob/9bc7cee3f98d21da3156e5a67bfa63dc63a4615e/docs/initialize-project.md"
       }
     ],
     "quickstart": {
@@ -583,7 +583,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份自己的聲線簡卡與一篇經本人修訂的貼文草稿。",
     "contribution": "提供匿名可重現案例、平台改版問題或內容品質回歸測試。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/claude-skill-social-post/issues",
+    "contribution_url": "https://github.com/FreeTWAI/claude-skill-social-post/issues",
     "reading_url": "https://github.com/Hao0321/claude-skill-social-post/blob/c2641ba5ac7d7f722f1cef54b03fbfe553502c7b/social-post/SKILL.md",
     "source_commit": "c2641ba5ac7d7f722f1cef54b03fbfe553502c7b",
     "reviewed_at": "2026-09-23",
@@ -631,7 +631,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一組五頁輪播圖與可繼續編輯的專案檔。",
     "contribution": "回報可重現的中文排版案例，或改善 vendor/app.jsx 的編輯體驗。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/typo-studio/issues",
+    "contribution_url": "https://github.com/FreeTWAI/typo-studio/issues",
     "reading_url": "https://github.com/Hao0321/typo-studio/blob/9d60be439d150af74a79dbcc5a7547c6108c726f/README.md",
     "source_commit": "9d60be439d150af74a79dbcc5a7547c6108c726f",
     "reviewed_at": "2026-09-23",
@@ -688,7 +688,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份可重跑的 Shorts 判定結果與你修改門檻的說明。",
     "contribution": "參與自由工坊的影片共創任務，補可重現素材、測試或剪輯說明。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/video-autopilot-kit/issues",
+    "contribution_url": "https://github.com/FreeTWAI/video-autopilot-kit/issues",
     "reading_url": "https://github.com/Hao0321/video-autopilot-kit/blob/b449e7a57076cbc66db77ccbf2d3978f492af7dc/README.md",
     "source_commit": "b449e7a57076cbc66db77ccbf2d3978f492af7dc",
     "reviewed_at": "2026-09-30",
@@ -744,7 +744,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "三集試播概要、角色設定與鏡頭計畫草稿；自己的製作包通過檢查後再交接。",
     "contribution": "補敘事一致性的失敗例、示範計畫或製作包驗證案例。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/ai-short-drama/issues",
+    "contribution_url": "https://github.com/FreeTWAI/ai-short-drama/issues",
     "reading_url": "https://github.com/Hao0321/ai-short-drama/blob/a1a00d3949fedd74edb6830a79d189a2c76920db/SKILL.md",
     "source_commit": "a1a00d3949fedd74edb6830a79d189a2c76920db",
     "reviewed_at": "2026-09-23",
@@ -796,7 +796,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一張網站內容地圖與使用自己素材製作的單頁練習。",
     "contribution": "針對可重現的版面、導覽或無障礙問題提出 Issue；先討論再改原站。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/Hao0321-Studio-WEB/issues",
+    "contribution_url": "https://github.com/FreeTWAI/Hao0321-Studio-WEB/issues",
     "reading_url": "https://github.com/Hao0321/Hao0321-Studio-WEB/blob/40766413d3263e80d573e7c7928e1816c9f441e0/index.html",
     "source_commit": "40766413d3263e80d573e7c7928e1816c9f441e0",
     "reviewed_at": "2026-09-23",
@@ -845,7 +845,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份含三個鏡頭的生成 brief；可附一次實際生成與修訂比較。",
     "contribution": "補平台變動證據、實測提示案例或尚未完善的操作頁。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/ai-media-generator/issues",
+    "contribution_url": "https://github.com/FreeTWAI/ai-media-generator/issues",
     "reading_url": "https://github.com/Hao0321/ai-media-generator/blob/edc8aa5227f4a58f9a3a88c7bf3e99bdda2a4361/SKILL.md",
     "source_commit": "edc8aa5227f4a58f9a3a88c7bf3e99bdda2a4361",
     "reviewed_at": "2026-09-23",
@@ -893,7 +893,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份測試銷售與退款的操作紀錄，能說明庫存與帳務的對應。",
     "contribution": "提供去識別的門市流程案例，改善測試、收銀體驗或資料權限。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/pos-pro/issues",
+    "contribution_url": "https://github.com/FreeTWAI/pos-pro/issues",
     "reading_url": "https://github.com/Hao0321/pos-pro/blob/2656945463e95d155fffca19de18014f5f0d75db/README.md",
     "source_commit": "2656945463e95d155fffca19de18014f5f0d75db",
     "reviewed_at": "2026-09-23",
@@ -945,7 +945,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份可重開的 HTML 安全報告；有待修問題時，再附一項修正前後比較。",
     "contribution": "提交去識別的重現步驟、輸出解析或報告體驗問題；敏感發現依來源安全政策處理。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/ai-security-scanner/issues",
+    "contribution_url": "https://github.com/FreeTWAI/ai-security-scanner/issues",
     "reading_url": "https://github.com/teddashh/ai-security-scanner/blob/e0e69ba01ec16367982bb28fac08c53749618250/README.zh-TW.md",
     "source_commit": "e0e69ba01ec16367982bb28fac08c53749618250",
     "reviewed_at": "2026-09-30",
@@ -993,7 +993,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份範例查詢結果與來源核對筆記；不需要上傳私人螢幕資料。",
     "contribution": "補匿名可重播的查詢案例、來源呈現或暫停狀態測試。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/AI-Sister/issues",
+    "contribution_url": "https://github.com/FreeTWAI/AI-Sister/issues",
     "reading_url": "https://github.com/teddashh/AI-Sister/blob/5e03e2bb10b2ff3f843cb029334a0e338c88cfed/README.md",
     "source_commit": "5e03e2bb10b2ff3f843cb029334a0e338c88cfed",
     "reviewed_at": "2026-09-27",
@@ -1046,7 +1046,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份多 AI 協作結果，附你採納與未採納的判斷。",
     "contribution": "在既有維護範圍內提供可重現的 provider 改版、登入或回覆擷取問題。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/multi-ai-chat-desktop/issues",
+    "contribution_url": "https://github.com/FreeTWAI/multi-ai-chat-desktop/issues",
     "reading_url": "https://github.com/teddashh/multi-ai-chat-desktop/blob/0f0d044daf6785d0485e8fec8d1c8c579ecd57ab/README.zh-TW.md",
     "source_commit": "0f0d044daf6785d0485e8fec8d1c8c579ecd57ab",
     "reviewed_at": "2026-09-27",
@@ -1094,7 +1094,7 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
     ],
     "first_result": "一份跨 AI 的回答比較與人工選擇理由。",
     "contribution": "提供瀏覽器與 provider 版本、去識別重現步驟，改善連線與回覆可靠性。",
-    "contribution_url": "https://github.com/FreeTWAI-AI/multi-ai-chat/issues",
+    "contribution_url": "https://github.com/FreeTWAI/multi-ai-chat/issues",
     "reading_url": "https://github.com/teddashh/multi-ai-chat/blob/3ebca72b35986a0f5c8772b12a74f826d4ddafe9/README.zh-TW.md",
     "source_commit": "3ebca72b35986a0f5c8772b12a74f826d4ddafe9",
     "reviewed_at": "2026-09-30",
@@ -1149,22 +1149,22 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
   ],
   "first_result": "一份可交接的讀書會企劃：場地條件、流程、分工與備援。",
   "contribution": "從 BACKLOG.md 選一項模板或合成案例改善，以 Fork／PR 附實測結果一起完成。",
-  "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/issues",
-  "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/SKILL.md",
+  "contribution_url": "https://github.com/FreeTWAI/freedom-skill-event-space/issues",
+  "reading_url": "https://github.com/FreeTWAI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/SKILL.md",
   "source_commit": "574c00b651e89248876c2846484c105623076cac",
   "reviewed_at": "2026-09-23",
   "source_evidence": [
     {
       "path": "SKILL.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/SKILL.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/SKILL.md"
     },
     {
       "path": "README.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/README.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/README.md"
     },
     {
       "path": "BACKLOG.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/BACKLOG.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-event-space/blob/574c00b651e89248876c2846484c105623076cac/BACKLOG.md"
     }
   ],
   "beginner": {
@@ -1204,22 +1204,22 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
   ],
   "first_result": "一份可交接的光雕製作提案：場勘紀錄、畫面配置與播放 cue 表。",
   "contribution": "從 BACKLOG.md 選一項模板或合成案例改善，以 Fork／PR 附實測結果一起完成。",
-  "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/issues",
-  "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/SKILL.md",
+  "contribution_url": "https://github.com/FreeTWAI/freedom-skill-projection-mapping/issues",
+  "reading_url": "https://github.com/FreeTWAI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/SKILL.md",
   "source_commit": "4d43669501aabbaf329989d32e4e404a80f1a539",
   "reviewed_at": "2026-09-23",
   "source_evidence": [
     {
       "path": "SKILL.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/SKILL.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/SKILL.md"
     },
     {
       "path": "README.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/README.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/README.md"
     },
     {
       "path": "BACKLOG.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/BACKLOG.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-projection-mapping/blob/4d43669501aabbaf329989d32e4e404a80f1a539/BACKLOG.md"
     }
   ],
   "beginner": {
@@ -1259,22 +1259,22 @@ export const skillBookGuides:Record<string,SkillBookGuide> = {
   ],
   "first_result": "一份附來源、不同觀點與匿名反思提問的共讀紀錄。",
   "contribution": "從 BACKLOG.md 選一項模板或合成案例改善，以 Fork／PR 附實測結果一起完成。",
-  "contribution_url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/issues",
-  "reading_url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/SKILL.md",
+  "contribution_url": "https://github.com/FreeTWAI/freedom-skill-human-design/issues",
+  "reading_url": "https://github.com/FreeTWAI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/SKILL.md",
   "source_commit": "74f4a7fc6e6abb2bf36a75980ee72448563385d4",
   "reviewed_at": "2026-09-23",
   "source_evidence": [
     {
       "path": "SKILL.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/SKILL.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/SKILL.md"
     },
     {
       "path": "README.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/README.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/README.md"
     },
     {
       "path": "BACKLOG.md",
-      "url": "https://github.com/FreeTWAI-AI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/BACKLOG.md"
+      "url": "https://github.com/FreeTWAI/freedom-skill-human-design/blob/74f4a7fc6e6abb2bf36a75980ee72448563385d4/BACKLOG.md"
     }
   ],
   "beginner": {

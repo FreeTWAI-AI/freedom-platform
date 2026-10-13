@@ -110,10 +110,10 @@ async function wipe(pool: Pool) {
 
 async function seed(pool: Pool) {
   const repos = [
-    { id: REPOS.own, github: '9100591', name: 'FreeTWAI-AI/e2e-guild-own', guild: 'guild_ai_vibe', open: false },
-    { id: REPOS.open, github: '9100592', name: 'FreeTWAI-AI/e2e-guild-open', guild: null, open: true },
-    { id: REPOS.other, github: '9100593', name: 'FreeTWAI-AI/e2e-guild-other', guild: 'guild_marketing', open: false },
-    { id: REPOS.admin, github: '9100594', name: 'FreeTWAI-AI/e2e-guild-admin', guild: null, open: false },
+    { id: REPOS.own, github: '9100591', name: 'FreeTWAI/e2e-guild-own', guild: 'guild_ai_vibe', open: false },
+    { id: REPOS.open, github: '9100592', name: 'FreeTWAI/e2e-guild-open', guild: null, open: true },
+    { id: REPOS.other, github: '9100593', name: 'FreeTWAI/e2e-guild-other', guild: 'guild_marketing', open: false },
+    { id: REPOS.admin, github: '9100594', name: 'FreeTWAI/e2e-guild-admin', guild: null, open: false },
   ];
   for (const repo of repos) {
     await pool.query(`INSERT INTO maintainer_repositories
@@ -237,7 +237,7 @@ test('a guild leader claims an open repository pull and releases it', async ({ p
     await expect(open.getByLabel('審完後歸到')).toBeVisible();
     await open.getByLabel('審完後歸到').selectOption({ label: '平台工程公會' });
     await expect(open).toContainText('這個儲存庫還沒有歸屬，你審完後會歸到平台工程公會。');
-    await expect(open.getByRole('link', { name: '到 GitHub 審查 ↗', exact: true })).toHaveAttribute('href', 'https://github.com/FreeTWAI-AI/e2e-guild-open/pull/22/files');
+    await expect(open.getByRole('link', { name: '到 GitHub 審查 ↗', exact: true })).toHaveAttribute('href', 'https://github.com/FreeTWAI/e2e-guild-open/pull/22/files');
 
     await page.setViewportSize({ width: 390, height: 844 });
     const claim = open.getByRole('button', { name: '我來審', exact: true });
@@ -307,13 +307,13 @@ test('a skill-book maintainer who is not a guild leader claims the book pull', a
   [REVIEWER, DEMO_COMMUNITY, BOOK_GITHUB]);
   await e2eAuthPool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, settings, guild_key, scope_kind, open_to_guilds, skill_book_id, next_sweep_at)
-    VALUES ($1,$2,'9100598','770059','FreeTWAI-AI/freedom-skill-career-guide','main','active','observe','{}'::jsonb,NULL,'skill_book',false,'career-guide','2099-01-01T00:00:00Z')`,
+    VALUES ($1,$2,'9100598','770059','FreeTWAI/freedom-skill-career-guide','main','active','observe','{}'::jsonb,NULL,'skill_book',false,'career-guide','2099-01-01T00:00:00Z')`,
   [BOOK_REPO, DEMO_COMMUNITY]);
   await e2eAuthPool.query(`INSERT INTO maintainer_pull_requests (
     pull_id, repository_id, number, github_pull_id, title, html_url, state, is_draft, author_github_id, author_login, author_type,
     author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
     github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, migration_reasons, policy_version, synced_at)
-    VALUES ($1,$2,31,'91059031','方向探索的工坊修正','https://github.com/FreeTWAI-AI/freedom-skill-career-guide/pull/31','open',false,'88005931','e2e-author','User','CONTRIBUTOR',false,$3,'main',$4,'{}',1,0,1,$5,$5,$5,'[]'::jsonb,'awaiting_review','[]'::jsonb,'[]'::jsonb,'2026-10-01.1',$5)`,
+    VALUES ($1,$2,31,'91059031','方向探索的工坊修正','https://github.com/FreeTWAI/freedom-skill-career-guide/pull/31','open',false,'88005931','e2e-author','User','CONTRIBUTOR',false,$3,'main',$4,'{}',1,0,1,$5,$5,$5,'[]'::jsonb,'awaiting_review','[]'::jsonb,'[]'::jsonb,'2026-10-01.1',$5)`,
   [BOOK_PULL, BOOK_REPO, HEAD, BASE, '2026-09-30T04:00:00Z']);
   await e2eAuthPool.query(`INSERT INTO maintainer_checks (pull_id, head_sha, source, name, app_slug, status, conclusion)
     VALUES ($1,$2,'check_run','verify','github-actions','completed','success')`, [BOOK_PULL, HEAD]);
@@ -500,11 +500,11 @@ test('a guild leader hands a pull and an issue to a local AI', async ({ page, e2
     await issue.locator('summary').click();
     const repo = issue.getByLabel('交接儲存庫');
     await expect(repo.locator('option')).toHaveCount(2);
-    await expect(repo).toContainText('FreeTWAI-AI/e2e-guild-own');
-    await expect(repo).toContainText('FreeTWAI-AI/e2e-guild-open');
+    await expect(repo).toContainText('FreeTWAI/e2e-guild-own');
+    await expect(repo).toContainText('FreeTWAI/e2e-guild-open');
     await expect(repo).not.toContainText('e2e-guild-other');
     await expect(repo).not.toContainText('e2e-guild-admin');
-    await repo.selectOption({ label: 'FreeTWAI-AI/e2e-guild-own' });
+    await repo.selectOption({ label: 'FreeTWAI/e2e-guild-own' });
     await issue.getByLabel('Issue 編號').fill('18');
     await issue.getByLabel('工具').selectOption({ label: 'grok CLI' });
     const issued = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes(`/guild-reviews/repositories/${REPOS.own}/issue-handoffs`));

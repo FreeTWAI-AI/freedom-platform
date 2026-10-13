@@ -1,6 +1,6 @@
 import {developmentPages} from '../modules/development/pages.js';
 
-const repository='FreeTWAI-AI/freedom-platform';
+const repository='FreeTWAI/freedom-platform';
 const pageIds=new Set(developmentPages.map(page=>page.id));
 const marker=/<!--\s*freedom-page:([a-z0-9-]+)\s*-->/g;
 type Issue={body?:string|null;pull_request?:unknown;labels?:Array<string|{name:string}>};
