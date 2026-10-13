@@ -16,6 +16,14 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Presence refresh has a live-session/active-member guard; authentication reads
+the current Actor after that potentially blocking update, using the database clock.
+Expiry, session revocation or member deactivation during a presence lock wait
+returns `401 session_expired`, without a user/CSRF projection or renewed cookie.
+This keeps the existing two database queries and the absolute, non-sliding
+30-day session lifetime. Existing domain-level current-session and
+authorization checks remain unchanged; presence is not an authorization grant.
+
 ## Member reporting and moderation cases
 
 This surface is default OFF. Only `FREEDOM_MEMBER_REPORTING_ENABLED=true`
