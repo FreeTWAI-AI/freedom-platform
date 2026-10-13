@@ -160,10 +160,10 @@ test('failed GitHub reads and writes preserve platform login and private state d
     if(brokenRead)return route.fulfill({status:401,json:{detail:'GitHub 連結需要重新確認。'}});
     return route.fulfill({json:{book_id:'social-post',starred,connected:true}});
   });
-  await login(page);const card=await book(page);await expect(card.getByRole('alert')).toContainText('GitHub 連結需要重新確認');await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
+  await login(page);const card=await book(page);await expect(card.getByRole('alert')).toContainText('GitHub 連結需要重新確認');await expect(card.getByRole('button',{name:'連結／重新授權 GitHub',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
   await expect(card.getByText(/上次取得的數據/)).toBeVisible();
   brokenRead=false;await card.getByRole('button',{name:'重讀 Star 狀態',exact:true}).click();await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
-  await card.getByRole('button',{name:'Star',exact:true}).click();await expect(card.getByRole('alert')).toContainText('Star 操作未確認');await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
+  await card.getByRole('button',{name:'Star',exact:true}).click();await expect(card.getByRole('alert')).toContainText('Star 操作未確認');await expect(card.getByRole('button',{name:'連結／重新授權 GitHub',exact:true})).toHaveCount(0);await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
   starred=true;await card.getByRole('button',{name:'重讀 Star 狀態',exact:true}).click();await expect(card.getByRole('button',{name:'取消 Star',exact:true})).toBeEnabled();
   await signOut(page);member='second';starred=false;await login(page,'client@local.test');const second=await book(page);await expect(second.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(second.getByRole('button',{name:'取消 Star',exact:true})).toHaveCount(0);
 });
@@ -199,6 +199,45 @@ test('a denied Star shows the permission problem without claiming an outage, ret
   await expect(card.getByRole('alert')).not.toContainText(/暫時|稍後|github_permission_required/);
   await expect(card.getByRole('button',{name:'Star',exact:true})).toHaveAttribute('aria-pressed','false');await expect(card.locator('.github-star-count')).toHaveText('127');
   expect(writes).toBe(1);await expect(card.getByRole('link',{name:'前往 GitHub Star ↗',exact:true})).toHaveAttribute('href',original);await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
+});
+
+test('a denied Star offers GitHub re-authorization once and does not retry the write',async({page})=>{
+  let writes=0;const connects:unknown[]=[];
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'synthetic-reauth',login:'synthetic-reauth'}}}));
+  await page.route('**/api/v1/github/books/*/metrics',route=>route.fulfill({json:metrics}));
+  await page.route('**/api/v1/me/github/books/*/star',route=>{
+    if(route.request().method()==='POST'){
+      writes++;return route.fulfill({status:403,json:{code:'github_permission_required',detail:'GitHub 尚未授予 Star 權限。'}});
+    }
+    return route.fulfill({json:{book_id:'social-post',connected:true,starred:false}});
+  });
+  await page.route('**/api/v1/me/github/connect',route=>{
+    connects.push(route.request().postDataJSON());
+    expect(route.request().headers()['x-csrf-token']).toBeTruthy();
+    return route.fulfill({json:{authorization_url:'https://github.com/login/oauth/authorize?client_id=synthetic-test-client&state=synthetic-test-state'}});
+  });
+  await login(page);const card=await book(page);
+  await expect(card.getByRole('button',{name:'連結／重新授權 GitHub',exact:true})).toHaveCount(0);
+  await expect(card.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
+  await card.locator('.github-star-count').click();
+  await expect(card.getByRole('alert')).toHaveText('目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。');
+  await expect(card.getByRole('link',{name:'前往 GitHub Star ↗',exact:true})).toHaveAttribute('href',original);
+  const reauth=card.getByRole('button',{name:'連結／重新授權 GitHub',exact:true});
+  await expect(reauth).toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  const box=await reauth.boundingBox();
+  expect(box!==null&&box.height>=44).toBe(true);
+  await page.route('https://github.com/**',route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>Synthetic GitHub</title>'}));
+  await reauth.click();
+  await expect(page).toHaveURL(/^https:\/\/github\.com\/login\/oauth\/authorize\?/);
+  expect(connects).toEqual([{return_to:'#skills'}]);
+  expect(writes).toBe(1);
+  await page.goto('/#skills');
+  const returned=await book(page);
+  await expect(returned.getByRole('button',{name:'Star',exact:true})).toBeEnabled();
+  await expect(returned.getByRole('button',{name:'連結／重新授權 GitHub',exact:true})).toHaveCount(0);
+  expect(writes).toBe(1);
 });
 
 

@@ -107,6 +107,7 @@ export function GitHubBookSocial({bookId,repositoryUrl,compact=false,returnTo}:{
       <a className="github-fork-link github-count-control" href={`${repositoryUrl}/fork`} target="_blank" rel="noopener noreferrer" aria-label="Fork 專案 ↗" title={`Fork 專案 · ${count(value?.forks_count)} Forks`}>{forkContents}</a>
       {(metrics.error||value?.error)&&<button className="github-retry" onClick={()=>void store.loadMetrics(bookId,true)} disabled={metrics.loading}>重讀數據</button>}
       {connected&&star.error&&<button className="github-retry" onClick={()=>void store.loadStar(bookId,true)} disabled={star.loading||star.saving}>重讀 Star 狀態</button>}
+      {star.reauthorize&&<button type="button" className="btn btn-ghost btn-small" disabled={connecting||star.loading||star.saving} onClick={()=>void connect()}>連結／重新授權 GitHub</button>}
     </div>
     {compact&&<details className="github-metrics-details"><summary aria-label="更多 GitHub 數據">更多</summary><div className="github-metrics-expanded">{source}<dl className="github-book-metrics">{secondaryMetrics}</dl>{!unknown&&!old&&metricsNote}</div></details>}
     </div>

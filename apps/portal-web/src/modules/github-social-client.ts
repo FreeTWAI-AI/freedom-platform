@@ -19,7 +19,7 @@ export class GitHubSocialStore {
   private listeners=new Set<()=>void>();
   private requests=new Map<string,Promise<void>>();
   private metrics=new Map<string,Entry<GitHubMetrics>>();
-  private stars=new Map<string,Entry<GitHubStarState>&{saving:boolean}>();
+  private stars=new Map<string,Entry<GitHubStarState>&{saving:boolean;reauthorize:boolean}>();
   private follows=new Map<string,Entry<GitHubFollowState>&{saving:boolean;reauthorize:boolean}>();
   readonly account=entry<GitHubConnection>();
   constructor(private client:PortalClient,readonly member:boolean){}
@@ -27,7 +27,7 @@ export class GitHubSocialStore {
   snapshot=()=>this.revision;
   private emit(){this.revision++;this.listeners.forEach(listener=>listener());}
   metric(bookId:string){if(!this.metrics.has(bookId))this.metrics.set(bookId,entry());return this.metrics.get(bookId)!;}
-  star(bookId:string){if(!this.stars.has(bookId))this.stars.set(bookId,{...entry<GitHubStarState>(),saving:false});return this.stars.get(bookId)!;}
+  star(bookId:string){if(!this.stars.has(bookId))this.stars.set(bookId,{...entry<GitHubStarState>(),saving:false,reauthorize:false});return this.stars.get(bookId)!;}
   follow(username:string){const key=username.toLowerCase();if(!this.follows.has(key))this.follows.set(key,{...entry<GitHubFollowState>(),saving:false,reauthorize:false});return this.follows.get(key)!;}
   loadFollow(username:string,force=false){
     if(!this.member)return Promise.resolve();
@@ -75,10 +75,15 @@ export class GitHubSocialStore {
   }
   loadStar(bookId:string,force=false){
     if(!this.member||!this.account.value?.connected)return Promise.resolve();
-    return this.read(`star:${bookId}`,this.star(bookId),`/me/github/books/${encodeURIComponent(bookId)}/star`,30_000,force,{
+    const state=this.star(bookId);
+    return this.read(`star:${bookId}`,state,`/me/github/books/${encodeURIComponent(bookId)}/star`,30_000,force,{
       message:starMessage,
-      received:value=>{if(!value.connected)return this.refreshConnection();},
+      received:value=>{
+        state.reauthorize=false;
+        if(!value.connected)return this.refreshConnection();
+      },
       failed:cause=>{
+        state.reauthorize=permissionDenied(cause);
         if(disconnected(cause))return this.refreshConnection();
         if(cause instanceof ApiError&&(cause.status===401||cause.status===403))return this.loadAccount(true);
       },
@@ -99,12 +104,12 @@ export class GitHubSocialStore {
     if(state.saving||typeof state.value?.starred!=='boolean'||!this.account.value?.connected)return;
     const connectionRevision=this.connectionRevision;
     const current=()=>connectionRevision===this.connectionRevision&&this.stars.get(bookId)===state;
-    const desired=!state.value.starred;state.saving=true;state.error='';this.emit();
+    const desired=!state.value.starred;state.saving=true;state.error='';state.reauthorize=false;this.emit();
     try{
       const result=await this.client.post<GitHubStarState>(`/me/github/books/${encodeURIComponent(bookId)}/star`,{starred:desired,confirmed:true},{skipAuthHandler:true});
       if(!current())return;
       if(!result.connected){await this.refreshConnection();return;}
-      state.value=result;state.received=Date.now();
+      state.value=result;state.received=Date.now();state.reauthorize=false;
       if(!result.connected||typeof result.starred!=='boolean')state.error='GitHub 連結已變更，請重新連結後再試。';
       // Public counters are independently cached by the server. Never add or subtract locally.
       await this.loadMetrics(bookId,true);
@@ -116,6 +121,7 @@ export class GitHubSocialStore {
       await this.loadStar(bookId,true);
       if(!current())return;
       state.error=permissionDenied(cause)?starMessage(cause):`Star 操作未確認。${message(cause)}`;
+      if(permissionDenied(cause))state.reauthorize=true;
       if(cause instanceof ApiError&&(cause.status===401||cause.status===403))await this.loadAccount(true);
     }finally{state.saving=false;this.emit();}
   }

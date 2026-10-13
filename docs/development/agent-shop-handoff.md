@@ -174,8 +174,6 @@ npm run test:e2e -- tests/e2e/agent-shops.spec.ts tests/e2e/development-guide.sp
 npm run worker:dry-run
 npm run worker:dry-run:admin-sync
 npm run test:worker
-python3 scripts/update-inventory.py
-npm run verify:inventory
 git diff --check
 ```
 
