@@ -55,7 +55,7 @@ for (const viewport of VIEWPORTS) {
     await noHorizontalOverflow(page, `${viewport.name} login`);
     const logo = page.locator('.login-story .brand-poster img');
     await expect(logo).toBeVisible();
-    expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && getComputedStyle(img).objectFit === 'contain')).toBe(true);
+    await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && getComputedStyle(img).objectFit === 'contain')).toBe(true);
     await expect(page.locator('h1')).toHaveCount(1);
     // One concrete sentence under the logo; no English eyebrow, journey list or duplicate brand subheading.
     const purpose = page.getByRole('heading', { level: 1 });
