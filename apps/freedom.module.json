@@ -26,7 +26,8 @@
     "member-reporting",
     "guild-presentation",
     "guild-supply",
-    "guild-open-source"
+    "guild-open-source",
+    "guild-events"
   ],
   "format": "freedom.module/v1",
   "instructions": [
