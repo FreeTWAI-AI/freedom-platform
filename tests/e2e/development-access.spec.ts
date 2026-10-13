@@ -66,11 +66,11 @@ test('a safe saved target resumes after reload without saving credentials or wid
 
 for(const refusal of [
  {status:403,code:'development_binding_changed',detail:'GitHub 連動已變更，請重新啟用。'},
- {status:409,code:'development_repository_relationship',detail:'工作 Repo 必須是原作或原作的 Fork。'},
+ {status:409,code:'github_connect_required',detail:'請先連結 GitHub。'},
 ]){
- test(`a refused development key refreshes revoked authority and permits explicit reactivation (${refusal.status})`,async({page})=>{
+ test(`a refused development key refreshes revoked authority and its activation prerequisites (${refusal.status})`,async({page})=>{
   let enabled=true,keyWrites=0,activations=0;
-  await page.route('**/api/v1/me/development/platform/cocreation',route=>route.fulfill({json:{...readyView(),enabled,grant:{...readyView().grant,revoked_at:enabled?null:new Date().toISOString()}}}));
+  await page.route('**/api/v1/me/development/platform/cocreation',route=>route.fulfill({json:{...readyView(),enabled,github:!enabled&&refusal.status===409?null:readyView().github,grant:{...readyView().grant,revoked_at:enabled?null:new Date().toISOString()}}}));
   await page.route('**/api/v1/me/development/platform/cocreation/keys',route=>{
    keyWrites++;
    if(keyWrites===1){enabled=false;return route.fulfill({status:refusal.status,json:refusal});}
@@ -90,8 +90,13 @@ for(const refusal of [
   await expect(modal.getByRole('alert')).toHaveText(refusal.detail);
   await expect(modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true})).toHaveCount(0);
   await expect(modal.getByText('已啟用此目標的開發提案。',{exact:false})).toHaveCount(0);
-  await expect(modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeEnabled();
   expect(keyWrites).toBe(1);expect(activations).toBe(0);
+  if(refusal.status===409){
+   await expect(modal.getByRole('button',{name:'連結 GitHub',exact:true})).toBeEnabled();
+   await expect(modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeDisabled();
+   return;
+  }
+  await expect(modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeEnabled();
   if(refusal.status===403)for(const width of [1440,768,390]){
    await page.setViewportSize({width,height:900});
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
