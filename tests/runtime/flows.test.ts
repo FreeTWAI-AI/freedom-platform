@@ -7,7 +7,7 @@ import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
-import { listWorks } from '../../modules/opportunity-project-work/work.js';
+import { dashboard,listWorks } from '../../modules/opportunity-project-work/work.js';
 import { execFileSync } from 'node:child_process';
 const pythonCommand=process.platform==='win32'?'python':'python3';
 
@@ -95,6 +95,84 @@ test('listWorks batches claims and latest submissions with legacy DTO equivalenc
   const route=(await request('/work-items',maker)).data;
   assert.deepEqual(route,{items:JSON.parse(JSON.stringify(actual,(key,value)=>key==='aggregate_version'?Number(value):value))});
   queries=0;assert.deepEqual(await listWorks(counted,{...actor,community_id:randomUUID()}),[]);assert.equal(queries,1);
+});
+
+test('dashboard batches review-queue submissions with legacy equivalence at growing cardinalities',async()=>{
+  const maker=DEMO_USERS[0],reviewer=DEMO_USERS[1],client=DEMO_USERS[2];
+  const actor=(await pool.query('SELECT * FROM users WHERE user_id=$1',[reviewer.user_id])).rows[0];
+  let queries=0,legacyQueries=0;
+  const calls:{sql:string,values:any[]}[]=[];
+  const counted={query:async(sql:string,values:any[])=>{queries++;calls.push({sql,values});return pool.query(sql,values);}} as Pool;
+  const baseline={query:async(sql:string,values:any[])=>{legacyQueries++;return pool.query(sql,values);}};
+  async function legacy() {
+    legacyQueries=0;
+    const works=await listWorks(pool,actor);
+    const reviewClaims=(await baseline.query(`SELECT c.*,u.display_name AS claimant_name FROM work_claims c JOIN work_items w USING(work_item_id)
+      JOIN work_review_routes r USING(work_item_id) JOIN users u ON u.user_id=c.claimant_ref
+      WHERE w.community_id=$1 AND w.work_mode='community_collaboration' AND r.reviewer_ref=$2 AND r.revoked_at IS NULL AND r.valid_until>now()
+      AND c.claimant_ref<>$2 AND NOT is_verification_test_account(c.claimant_ref) AND c.state IN ('submitted','in_review') ORDER BY c.created_at`,[actor.community_id,actor.user_id])).rows;
+    const queue=[];
+    for(const claim of reviewClaims) {
+      const submission=(await baseline.query('SELECT submission_id,summary,artifact_ref,sha256,revision FROM submissions WHERE claim_id=$1 ORDER BY revision DESC LIMIT 1',[claim.claim_id])).rows[0]??null;
+      queue.push({claim:{
+        claim_id:claim.claim_id,work_item_id:claim.work_item_id,claimant_ref:claim.claimant_ref,claimant_type:'user',
+        acting_profession_membership_ref:claim.acting_profession_membership_ref,state:claim.state,aggregate_version:claim.aggregate_version,
+        terms_status:'declared',participation_terms_revision:claim.terms_revision,participation_terms_sha256:claim.terms_sha256,
+        latest_submission:submission,feedback:claim.feedback},
+      work_item:works.find(item=>item.work_item_id===claim.work_item_id),claimant_name:claim.claimant_name});
+    }
+    return queue;
+  }
+  async function addClaim(label:string,createdAt:string,state:string,claimant:{user_id:string,profession_membership_ref:string},revisions:number[]|null,feedback:string|null=null,route:{until?:string,revoked?:Date|null}={}) {
+    const id=randomUUID(),claimId=randomUUID();
+    await pool.query(`INSERT INTO work_items(work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,participation_terms,
+      participation_terms_sha256,claim_window_expires_at,due_at,created_at)
+      SELECT $1,community_id,owner_ref,$2,objective,acceptance_criteria,gain,'claiming_closed',participation_terms,participation_terms_sha256,
+      claim_window_expires_at,due_at,'2026-01-01T00:00:00Z' FROM work_items WHERE work_item_id=$3`,[id,label,DEMO_WORK]);
+    await pool.query('INSERT INTO work_review_routes(work_item_id,reviewer_ref,valid_until,revoked_at) VALUES($1,$2,$3,$4)',
+      [id,reviewer.user_id,route.until??'2099-01-01T00:00:00Z',route.revoked??null]);
+    await pool.query(`INSERT INTO work_claims(claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,terms_revision,terms_sha256,terms_snapshot,feedback,created_at)
+      SELECT $1,work_item_id,$2,$3,$4,participation_terms_revision,participation_terms_sha256,participation_terms,$5,$6 FROM work_items WHERE work_item_id=$7`,
+      [claimId,claimant.user_id,claimant.profession_membership_ref,state,feedback,createdAt,id]);
+    if(revisions) for(const revision of revisions) await pool.query('INSERT INTO submissions(submission_id,claim_id,revision,summary,artifact_ref,sha256) VALUES($1,$2,$3,$4,$5,$6)',
+      [randomUUID(),claimId,revision,`${label}-r${revision}`,`artifact:${label}-${revision}`,'b'.repeat(64)]);
+    return claimId;
+  }
+  const self=await addClaim('self','2020-01-01T00:00:00Z','submitted',reviewer,[7]);
+  const expired=await addClaim('expired','2020-02-01T00:00:00Z','submitted',maker,[8],null,{until:'2000-01-01T00:00:00Z'});
+  const revoked=await addClaim('revoked','2020-03-01T00:00:00Z','submitted',maker,[9],null,{revoked:new Date('2020-03-02T00:00:00Z')});
+  const changes=await addClaim('changes','2020-04-01T00:00:00Z','changes_requested',client,[10]);
+  async function measured() {
+    queries=0;calls.length=0;
+    const view=await dashboard(counted,actor);
+    return view.review_queue;
+  }
+  assert.deepEqual(await measured(),await legacy());assert.equal(queries,5);assert.equal(legacyQueries,1);
+  const kept=await addClaim('kept','2026-02-01T00:00:00Z','submitted',maker,[2,1,3],'請看最新一版。');
+  const one=await measured();
+  assert.equal(queries,6);assert.equal(one.length,1);assert.deepEqual(one,await legacy());assert.equal(legacyQueries,2);
+  assert.equal(one[0].claim.latest_submission.revision,3);assert.equal(one[0].claim.latest_submission.summary,'kept-r3');
+  assert.equal(one[0].claim.latest_submission.claim_id,undefined);assert.equal(one[0].claim.feedback,'請看最新一版。');
+  assert.equal(one[0].claimant_name,maker.display_name);assert.equal(one[0].work_item?.title,'kept');
+  const missing=await addClaim('missing','2026-03-01T00:00:00Z','submitted',maker,null);
+  const reviewing=await addClaim('reviewing','2026-03-15T00:00:00Z','in_review',client,[1]);
+  const clientLatest=await addClaim('client-latest','2026-04-01T00:00:00Z','submitted',client,[4,1]);
+  const fifth=await addClaim('fifth','2026-05-01T00:00:00Z','in_review',maker,[1]);
+  const sixth=await addClaim('sixth','2026-06-01T00:00:00Z','submitted',client,[2]);
+  const many=await measured();
+  assert.equal(queries,6);assert.equal(many.length,6);assert.deepEqual(many,await legacy());assert.equal(legacyQueries,7);
+  assert.deepEqual(many.map(entry=>entry.claim.claim_id),[kept,missing,reviewing,clientLatest,fifth,sixth]);
+  assert.equal(many[2].claim.state,'in_review');assert.equal(many[3].claim.latest_submission.revision,4);
+  assert.equal(many[1].claim.latest_submission,null);assert.equal(many[2].claimant_name,client.display_name);
+  for(const hidden of [self,expired,revoked,changes]) assert.equal(many.some(entry=>entry.claim.claim_id===hidden),false);
+  const submissionCalls=calls.filter(call=>call.sql.includes('FROM submissions'));
+  assert.equal(submissionCalls.length,2);
+  assert.deepEqual(submissionCalls[0].values[0],[self]);
+  assert.deepEqual(submissionCalls[1].values[0],[kept,missing,reviewing,clientLatest,fifth,sixth]);
+  assert.match(submissionCalls[1].sql,/DISTINCT ON \(claim_id\)/);
+  assert.match(submissionCalls[1].sql,/claim_id=ANY\(\$1::uuid\[\]\)/);
+  assert.match(submissionCalls[1].sql,/ORDER BY claim_id,revision DESC/);
+  assert.doesNotMatch(submissionCalls[1].sql,/LIMIT 1/);
 });
 
 test('login → claim → submit → request changes → resubmit → independent acceptance → persisted gains',async()=>{
