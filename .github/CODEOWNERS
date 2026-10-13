@@ -1,0 +1,34 @@
+# GitHub Free: maintainer review of CI controls and their configuration.
+# This is review enforcement, not an immutable workflow or a test sandbox.
+/.github/CODEOWNERS @teddashh @detna-vibe-coding
+/.github/workflows/ @teddashh @detna-vibe-coding
+/.github/actions/ @teddashh @detna-vibe-coding
+/scripts/ci/ @teddashh @detna-vibe-coding
+/scripts/runtime-full.mjs @teddashh @detna-vibe-coding
+/scripts/runtime-aggregate.mjs @teddashh @detna-vibe-coding
+/scripts/generate-runtime-text.mjs @teddashh @detna-vibe-coding
+/scripts/release-source-archive.py @teddashh @detna-vibe-coding
+/scripts/run-e2e.mjs @teddashh @detna-vibe-coding
+/scripts/e2e-server.ts @teddashh @detna-vibe-coding
+/scripts/build-contract-bundle.mjs @teddashh @detna-vibe-coding
+/scripts/generate-guild-blocks.mjs @teddashh @detna-vibe-coding
+/scripts/build-skill-upload-client.mjs @teddashh @detna-vibe-coding
+/scripts/freedom.mjs @teddashh @detna-vibe-coding
+/scripts/checkout-repositories.mjs @teddashh @detna-vibe-coding
+/scripts/verify-public.mjs @teddashh @detna-vibe-coding
+/packages/contribution-tools/ @teddashh @detna-vibe-coding
+/packages/testing/ @teddashh @detna-vibe-coding
+/governance/ @teddashh @detna-vibe-coding
+/package.json @teddashh @detna-vibe-coding
+/package-lock.json @teddashh @detna-vibe-coding
+/.npmrc @teddashh @detna-vibe-coding
+/playwright.config.ts @teddashh @detna-vibe-coding
+/apps/portal-web/vite.config.ts @teddashh @detna-vibe-coding
+/apps/portal-web/guild-preview/vite.config.ts @teddashh @detna-vibe-coding
+/repositories.lock.json @teddashh @detna-vibe-coding
+/freedom.project.yaml @teddashh @detna-vibe-coding
+**/freedom.module.json @teddashh @detna-vibe-coding
+/AGENTS.md @teddashh @detna-vibe-coding
+/CONTRIBUTING.md @teddashh @detna-vibe-coding
+/README.md @teddashh @detna-vibe-coding
+/docs/platform-plan/contracts/tests/requirements*.txt @teddashh @detna-vibe-coding

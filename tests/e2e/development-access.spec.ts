@@ -67,6 +67,7 @@ test('a safe saved target resumes after reload without saving credentials or wid
 for(const refusal of [
  {status:403,code:'development_binding_changed',detail:'GitHub 連動已變更，請重新啟用。'},
  {status:409,code:'github_connect_required',detail:'請先連結 GitHub。'},
+ {status:502,code:'github_repository_unavailable',detail:'GitHub 暫時無法回應，請稍後再試。'},
 ]){
  test(`a refused development key refreshes revoked authority and its activation prerequisites (${refusal.status})`,async({page})=>{
   let enabled=true,keyWrites=0,activations=0;
@@ -111,12 +112,12 @@ for(const refusal of [
  });
 }
 
-test('a provider outage preserves development authority and only an explicit retry repeats the same key request',async({page})=>{
+for(const status of [502,503])test(`a provider ${status} outage preserves development authority and only an explicit retry repeats the same key request`,async({page})=>{
  let reads=0;const writes:string[]=[];
  await page.route('**/api/v1/me/development/platform/cocreation',route=>{reads++;return route.fulfill({json:readyView()});});
  await page.route('**/api/v1/me/development/platform/cocreation/keys',route=>{
   writes.push(route.request().headers()['idempotency-key']);
-  if(writes.length===1)return route.fulfill({status:503,json:{code:'github_unavailable',detail:'GitHub 暫時無法回覆，請稍後重新嘗試。'}});
+  if(writes.length===1)return route.fulfill({status,json:{code:'github_unavailable',detail:'GitHub 暫時無法回覆，請稍後重新嘗試。'}});
   return route.fulfill({json:{key_id:keyId,token:secret,expires_at:new Date(Date.now()+3600000).toISOString(),working_repository:'contributor/freedom-platform',target_repository:'FreeTWAI/freedom-platform'}});
  });
  await login(page);const modal=await platform(page);

@@ -88,7 +88,7 @@ function quoteEtag(version: number | string): string {
   return `"${trimmed}"`
 }
 
-const GITHUB_MEMBER_CODES = new Set(['github_rate_limited', 'github_unavailable', 'github_invalid_response', 'github_response_too_large', 'github_read_budget'])
+const GITHUB_MEMBER_CODES = new Set(['github_rate_limited', 'github_unavailable', 'github_repository_unavailable', 'github_invalid_response', 'github_response_too_large', 'github_read_budget'])
 
 function safePlatformDetail(detail: string): boolean {
   return detail.length > 0 && detail.length <= 400 && !/[<>]/.test(detail) && !/bearer|fpg_|fpk_|token|authorization/i.test(detail) && /[\u4e00-\u9fff]/.test(detail)
@@ -105,6 +105,7 @@ function githubMemberMessage(code: string, problem: ProblemDetails | null, path:
   const fallback: Record<string, string> = {
     github_rate_limited: 'GitHub 暫時限制查詢，請稍後重試。',
     github_unavailable: 'GitHub 暫時無法回覆，請稍後重新嘗試。',
+    github_repository_unavailable: 'GitHub 無法讀取這個 Repo，請確認專案與 App 存取設定。',
     github_invalid_response: 'GitHub 回應不完整，請稍後重試。',
     github_response_too_large: 'GitHub 回應過大，這次未完成。',
     github_read_budget: 'GitHub 查詢忙碌，請稍後重試。',

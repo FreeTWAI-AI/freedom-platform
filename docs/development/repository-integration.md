@@ -94,5 +94,11 @@ transaction 套166；部署同一來源的平台與 maintainer Worker，overlay 
 不要只回滾到使用舊 owner 的 binary：它會重新寫回舊鍵並失去新 history 的讀取。
 回退需保留 FreeTWAI 座標支援，或在停止新寫入後由 operator 依備份／ledger 處理；
 本 migration 不提供自動反向改名。Repo main-baseline ruleset25011111 已恢復基本 PR／
-verify／CodeQL 保護；Free plan 的 native required-workflow 替代方案仍須另審，普通
-required check 不等於舊 Enterprise 的 immutable workflow enforcement。
+verify／CodeQL 保護。Free plan 採用 CODEOWNERS＋維護者審查：CI 控制檔案與必要設定
+由 teddashh／detna-vibe-coding 負責，一位合格的非作者維護者核准即可；一般 UI 改動
+不套整倉 owner gate。先正常 CI／review 合併 CODEOWNERS 到 base，再由維護者啟用
+require_code_owner_review 並讀回確認，保留最新提交、獨立 review 與必要 checks。
+普通 required check 和審查不等於舊 Enterprise 的 immutable workflow enforcement；
+candidate 程式仍在 runner 執行，也不宣稱測試不可偽造。保證範圍見
+[governance 說明](../../governance/README.md#github-free-repository-ci-review)。
+12 份 consumer repo 保護設定仍只是另案提案，本輪中央 bootstrap 不套用它們。

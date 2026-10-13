@@ -40,7 +40,7 @@ export function DevelopmentAccessProvider({client,session,children}:{client:Port
       if(generation===epoch.current){
         // A refused operation can commit a grant revocation. Read authority
         // again without replaying the mutation or treating an outage as denial.
-        if(cause instanceof ApiError&&(cause.status===403||cause.status===409)){setView(null);await load(generation);}
+        if(cause instanceof ApiError&&(cause.status===403||cause.status===409||(cause.status===502&&cause.code==='github_repository_unavailable'))){setView(null);await load(generation);}
         if(generation===epoch.current)setError(cause instanceof Error?cause.message:'尚未確認結果，請重試。');
       }
       return null;
