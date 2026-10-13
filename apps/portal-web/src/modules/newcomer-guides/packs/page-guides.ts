@@ -1,5 +1,5 @@
 // Adapted from mars-tw’s PR #106 page-spirit guide-data.ts, commit 46a40342509a9278c3a7b8a940bce27b7f464227.
-// Original contribution: https://github.com/FreeTWAI-AI/freedom-platform/pull/106
+// Original contribution: https://github.com/FreeTWAI/freedom-platform/pull/106
 // Named anchors are declared on existing controls or regions. They may be absent
 // for the current role, data, or page state; the runner must stop safely then.
 // This pack only supplies focus/scroll/highlight guidance, never control actions.

@@ -10,7 +10,7 @@ import {
 const NOW = new Date('2026-09-30T12:00:00.000Z');
 const HEAD = 'a'.repeat(40);
 const OLD = 'b'.repeat(40);
-const settings = resolveSettings('FreeTWAI-AI/freedom-platform', {});
+const settings = resolveSettings('FreeTWAI/freedom-platform', {});
 const FORBIDDEN = /風險|擁有者|真人/;
 
 function file(path: string, status = 'modified', additions = 1, deletions = 0, previous: string | null = null): PolicyFile {
@@ -59,7 +59,7 @@ test('repository settings fill defaults and reject a retired sla_hours field', (
   assert.equal('sla_hours' in settings, false);
   assert.deepEqual(settings.hold_labels, ['hold', 'do-not-merge']);
   assert.equal(resolveSettings('Other/repo', {}).rules_profile, 'default');
-  assert.equal(resolveSettings('FreeTWAI-AI/freedom-platform', { rules_profile: 'default' }).rules_profile, 'default');
+  assert.equal(resolveSettings('FreeTWAI/freedom-platform', { rules_profile: 'default' }).rules_profile, 'default');
   assert.equal(resolveSettings('Other/repo', { claim_hours: 12, request_reviewers: true }).claim_hours, 12);
   assert.equal(settings.request_reviewers, true);
   assert.equal(resolveSettings('Other/repo', { request_reviewers: false }).request_reviewers, false);

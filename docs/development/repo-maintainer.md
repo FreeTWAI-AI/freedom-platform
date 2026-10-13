@@ -49,14 +49,14 @@ Webhook 只是提示。漏掉的投遞不會由 GitHub 重送。Worker 每 30 �
 | --- | --- | --- |
 | `HYPERDRIVE` | binding | 該環境平台 Worker 已經在用、caching disabled 的那一份。staging 與 production 不要共用 |
 | `GITHUB_MAINTAINER_APP_ID` | var | 數字，不能是 0 |
-| `GITHUB_MAINTAINER_ORG` | var | 這個檔寫 `FreeTWAI-AI`。其他帳號的 installation 只計數，不寫入 |
+| `GITHUB_MAINTAINER_ORG` | var | 這個檔寫 `FreeTWAI`。其他帳號的 installation 只計數，不寫入 |
 | `GITHUB_MAINTAINER_PRIVATE_KEY` | secret | PKCS#8（`BEGIN PRIVATE KEY`）。PKCS#1（`BEGIN RSA PRIVATE KEY`）會被拒絕 |
 
 本機 dry-run 不讀 committed 的資料庫網址。只有在隔離的本機資料庫上，才在 shell 設 `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`。不要把網址寫進 jsonc。
 
 ## GitHub App
 
-另建一個私有 App，只裝在 FreeTWAI-AI，安裝時選「Only select repositories」。不要改會員 App。
+另建一個私有 App，只裝在 FreeTWAI，安裝時選「Only select repositories」。不要改會員 App。
 
 App 建立時就包含下面的權限。Pull requests 從一開始就是 Read & write，所以之後打開請求審查者時，不必再請組織重新同意。
 

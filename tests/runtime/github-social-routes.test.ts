@@ -22,14 +22,14 @@ const fetcher:typeof fetch=async(input,init)=>{
   if(init?.method==='PUT')starred=true;else if(init?.method==='DELETE')starred=false;
   return new Response(null,{status:init?.method==='PUT'||init?.method==='DELETE'||starred?204:404});
  }
- if(u.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues'&&init?.method==='POST'){
+ if(u.pathname==='/repos/FreeTWAI/freedom-platform/issues'&&init?.method==='POST'){
   issueWrites++;issueBody=String(init.body);
   return issueStatus===201?Response.json({number:42,user:{id:901}},{status:201}):new Response(null,{status:issueStatus});
  }
- if(u.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues/42'&&(init?.method??'GET')==='GET')return Response.json({number:42,title:'讓首頁引導更清楚',state:'open',body:'首頁提案\n<!-- freedom-page:home -->',labels:[{name:'page:home'}]});
- if(u.pathname==='/repos/FreeTWAI-AI/freedom-platform/issues/42/comments'&&init?.method==='POST'){
+ if(u.pathname==='/repos/FreeTWAI/freedom-platform/issues/42'&&(init?.method??'GET')==='GET')return Response.json({number:42,title:'讓首頁引導更清楚',state:'open',body:'首頁提案\n<!-- freedom-page:home -->',labels:[{name:'page:home'}]});
+ if(u.pathname==='/repos/FreeTWAI/freedom-platform/issues/42/comments'&&init?.method==='POST'){
   commentWrites++;commentBody=String(init.body);
-  return commentStatus===201?Response.json({id:91,user:{id:901},html_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42#issuecomment-91'},{status:201}):new Response(null,{status:commentStatus});
+  return commentStatus===201?Response.json({id:91,user:{id:901},html_url:'https://github.com/FreeTWAI/freedom-platform/issues/42#issuecomment-91'},{status:201}):new Response(null,{status:commentStatus});
  }
  if(u.pathname.startsWith('/repos/'))return Response.json({private:false,stargazers_count:starred?8:7,forks_count:3,open_issues_count:2,subscribers_count:1,pushed_at:'2026-09-20T12:00:00Z',language:'TypeScript',archived:false});
  if(u.pathname.startsWith('/applications/'))return new Response(null,{status:204});
@@ -83,15 +83,15 @@ test('member issue submission uses that member’s GitHub token and keeps the pa
  const headers={'Idempotency-Key':'page-issue-test-001'};
  const first=await request('/me/github/pages/home/issues',body,member,headers);
  assert.equal(first.status,201,await first.clone().text());
- assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,issue_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'});
+ assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,issue_url:'https://github.com/FreeTWAI/freedom-platform/issues/42'});
  assert.equal(issueWrites,1);assert.match(issueBody,/<!-- freedom-page:home -->/);assert.deepEqual(JSON.parse(issueBody).labels,['page:home']);
  await pool.query("UPDATE github_page_issue_submissions SET issue_title=NULL WHERE operation_key='page-issue-test-001'");
  const own=await request('/me/github/pages/home/issues');assert.equal(own.status,200);
- assert.deepEqual((await own.json() as any).items.map((item:any)=>({key:item.operation_key,state:item.state,number:item.issue_number,title:item.title,url:item.issue_url})),[{key:'page-issue-test-001',state:'confirmed',number:42,title:body.title,url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42'}]);
+ assert.deepEqual((await own.json() as any).items.map((item:any)=>({key:item.operation_key,state:item.state,number:item.issue_number,title:item.title,url:item.issue_url})),[{key:'page-issue-test-001',state:'confirmed',number:42,title:body.title,url:'https://github.com/FreeTWAI/freedom-platform/issues/42'}]);
  assert.deepEqual((await (await request('/me/github/pages/positioning/issues')).json() as any).items,[]);
  assert.equal((await request('/me/github/pages/unknown/issues')).status,404);
  assert.equal((await app.request(origin+'/api/v1/me/github/pages/home/issues')).status,401);
- assert.ok(calls.some(call=>call.path==='/repos/FreeTWAI-AI/freedom-platform/issues'&&call.authorization==='Bearer ghu_synthetic_route_test'));
+ assert.ok(calls.some(call=>call.path==='/repos/FreeTWAI/freedom-platform/issues'&&call.authorization==='Bearer ghu_synthetic_route_test'));
  assert.equal((await request('/me/github/pages/home/issues',body,member,headers)).status,201);
  assert.equal(issueWrites,1);
  issueStatus=403;
@@ -108,13 +108,13 @@ test('design claim posts as the connected member once, preserves the marker, and
  assert.equal((await request('/me/github/pages/positioning/issues/42/design-claim',body,member,headers)).status,422);
  const first=await request(path,body,member,headers);
  assert.equal(first.status,201,await first.clone().text());
- assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42#issuecomment-91'});
+ assert.deepEqual(await first.json(),{confirmed:true,issue_number:42,comment_url:'https://github.com/FreeTWAI/freedom-platform/issues/42#issuecomment-91'});
  assert.equal(commentWrites,1);assert.match(JSON.parse(commentBody).body,/<!-- freedom-design-claim -->/);
- assert.ok(calls.some(call=>call.path==='/repos/FreeTWAI-AI/freedom-platform/issues/42/comments'&&call.authorization==='Bearer ghu_synthetic_route_test'));
+ assert.ok(calls.some(call=>call.path==='/repos/FreeTWAI/freedom-platform/issues/42/comments'&&call.authorization==='Bearer ghu_synthetic_route_test'));
  assert.equal((await request(path,body,member,headers)).status,201);assert.equal(commentWrites,1);
  assert.equal((await request(path,{...body,message:'改成另一段認領內容。'},member,headers)).status,409);
  const own=await request('/me/github/pages/home/design-claims');
- assert.deepEqual((await own.json() as any).items.map((item:any)=>({state:item.state,number:item.issue_number,url:item.comment_url})),[{state:'confirmed',number:42,url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/42#issuecomment-91'}]);
+ assert.deepEqual((await own.json() as any).items.map((item:any)=>({state:item.state,number:item.issue_number,url:item.comment_url})),[{state:'confirmed',number:42,url:'https://github.com/FreeTWAI/freedom-platform/issues/42#issuecomment-91'}]);
  assert.equal((await request('/me/github/pages/positioning/design-claims')).status,200);
  assert.equal((await request(path,body,member,{'X-CSRF-Token':'wrong',...headers})).status,403);
 });
@@ -191,10 +191,10 @@ test('admin setup is separately authorized and limits the external form destinat
  const adminRequest=(path:string,body?:unknown,csrf='admin-csrf')=>app.request(origin+'/admin/api'+path,{method:body===undefined?'GET':'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Synthetic-Admin':'valid','X-Admin-CSRF':csrf},...(body!==undefined?{body:JSON.stringify(body)}:{})});
  assert.equal((await adminRequest('/github-app/start',{},'wrong')).status,403);
  const start=await adminRequest('/github-app/start',{});assert.equal(start.status,200);const setup=await start.json() as any,manifest=JSON.parse(setup.manifest);
- assert.equal(new URL(setup.target).pathname,'/organizations/FreeTWAI-AI/settings/apps/new');assert.deepEqual(manifest.default_permissions,{starring:'write',metadata:'read',issues:'write'});assert.deepEqual(manifest.callback_urls,[origin+'/github/callback']);
+ assert.equal(new URL(setup.target).pathname,'/organizations/FreeTWAI/settings/apps/new');assert.deepEqual(manifest.default_permissions,{starring:'write',metadata:'read',issues:'write'});assert.deepEqual(manifest.callback_urls,[origin+'/github/callback']);
  assert.equal(manifest.hook_attributes.active,false);assert.ok(!JSON.stringify(setup).includes('client_secret'));
  assert.deepEqual(await (await adminRequest('/github-app')).json(),{configured:false,setup_available:true});
- for(const path of ['/admin','/admin/github/callback'])assert.match((await app.request(origin+path)).headers.get('content-security-policy')!,/form-action 'self' https:\/\/github\.com\/organizations\/FreeTWAI-AI\/settings\/apps\/new/);
+ for(const path of ['/admin','/admin/github/callback'])assert.match((await app.request(origin+path)).headers.get('content-security-policy')!,/form-action 'self' https:\/\/github\.com\/organizations\/FreeTWAI\/settings\/apps\/new/);
  assert.ok(!(await app.request(origin+'/github/callback')).headers.get('content-security-policy')!.includes('form-action \'self\' https:'));
  assert.equal(calls.length,0);
 });

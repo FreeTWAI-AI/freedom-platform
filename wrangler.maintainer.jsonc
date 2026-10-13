@@ -42,7 +42,7 @@
 //
 // Vars (configuration, not secrets; still not committed with a real App id):
 //   GITHUB_MAINTAINER_APP_ID   numeric, not 0
-//   GITHUB_MAINTAINER_ORG      FreeTWAI-AI in this file; installations for any
+//   GITHUB_MAINTAINER_ORG      FreeTWAI in this file; installations for any
 //                              other account are ignored
 //   GITHUB_MAINTAINER_WRITES   off locally. staging-next and next are
 //                              requested_reviewers. Missing or any other value
@@ -81,7 +81,7 @@
   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
   "vars": {
     "GITHUB_MAINTAINER_APP_ID": "0",
-    "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+    "GITHUB_MAINTAINER_ORG": "FreeTWAI",
     "GITHUB_MAINTAINER_WRITES": "off"
   },
   "env": {
@@ -94,7 +94,7 @@
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
       "vars": {
         "GITHUB_MAINTAINER_APP_ID": "0",
-        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+        "GITHUB_MAINTAINER_ORG": "FreeTWAI",
         "GITHUB_MAINTAINER_WRITES": "requested_reviewers"
       }
     },
@@ -107,7 +107,7 @@
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000" }],
       "vars": {
         "GITHUB_MAINTAINER_APP_ID": "0",
-        "GITHUB_MAINTAINER_ORG": "FreeTWAI-AI",
+        "GITHUB_MAINTAINER_ORG": "FreeTWAI",
         "GITHUB_MAINTAINER_WRITES": "requested_reviewers"
       }
     }

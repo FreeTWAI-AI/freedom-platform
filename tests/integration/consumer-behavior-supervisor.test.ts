@@ -26,7 +26,7 @@ const git = (cwd: string, args: string[]) => execFileSync('git', ['-c', 'core.ho
 }).toString().trim();
 
 for (const [name, , commit] of profiles) test(`actual merged ${name} entrypoint performs independently observed HTTP`, async () => {
-  const result = await runIsolatedConsumerBehavior({ repository: 'FreeTWAI-AI/' + name, candidateRepository: join(roots, name), candidateCommit: commit });
+  const result = await runIsolatedConsumerBehavior({ repository: 'FreeTWAI/' + name, candidateRepository: join(roots, name), candidateCommit: commit });
   assert.equal(result.check?.status, 'passed', JSON.stringify(result));
   assert.equal(result.candidate.commit, commit); assert.equal(result.runtime_observation, 'host_observed_http');
   assert.equal(result.library_usage, 'not_checked'); assert.equal(result.library_invocation, 'not_checked');
@@ -54,7 +54,7 @@ async function mutated(t: any, profile: string[], source: (original: string) => 
   git(candidateRepository, ['add', '.']); git(candidateRepository, ['commit', '-qm', 'Synthetic entrypoint mutation']);
   assert.equal(git(candidateRepository, ['diff', 'HEAD~', 'HEAD', '--name-only']), entry);
   assert.deepEqual(await readFile(join(candidateRepository, 'consumer-libraries.lock.json')), lock);
-  return run({ repository: 'FreeTWAI-AI/' + name, candidateRepository,
+  return run({ repository: 'FreeTWAI/' + name, candidateRepository,
     candidateCommit: git(candidateRepository, ['rev-parse', 'HEAD']) });
 }
 for (const profile of profiles) test(`correct vendor bytes do not let a stubbed ${profile[0]} entrypoint pass`, async t => {
@@ -117,7 +117,7 @@ test('consumer CLI mounts only the actual host interpreter when Node is outside 
   t.after(() => rm(directory, { recursive: true, force: true }));
   const alternateNode = join(directory, 'node'); await copyFile(process.execPath, alternateNode); await chmod(alternateNode, 0o755);
   const script = fileURLToPath(new URL('../../packages/contribution-tools/behavior-supervisor.mjs', import.meta.url));
-  const text = execFileSync(alternateNode, [script, 'consumer', 'FreeTWAI-AI/freedom-agent-kit',
+  const text = execFileSync(alternateNode, [script, 'consumer', 'FreeTWAI/freedom-agent-kit',
     join(roots, 'freedom-agent-kit'), profiles[0][2]], { env: verificationEnvironment(), encoding: 'utf8', timeout: 20000, maxBuffer: 256000 });
   const result = JSON.parse(text); assert.equal(result.check.status, 'passed', text);
   assert.equal(result.installation.node_executable, alternateNode); assert.equal(result.cleanup_verified, true);
@@ -142,14 +142,14 @@ test('consumer host executes with no npm installation or candidate dependencies'
   }
   await assert.rejects(access(join(directory, 'node_modules')));
   const script = join(directory, 'packages/contribution-tools/behavior-supervisor.mjs');
-  const text = execFileSync(process.execPath, [script, 'consumer', 'FreeTWAI-AI/freedom-agent-kit',
+  const text = execFileSync(process.execPath, [script, 'consumer', 'FreeTWAI/freedom-agent-kit',
     join(roots, 'freedom-agent-kit'), profiles[0][2]], { cwd: directory, env: verificationEnvironment(), encoding: 'utf8', timeout: 20000, maxBuffer: 256000 });
   const result = JSON.parse(text); assert.equal(result.check.status, 'passed', text); assert.equal(result.cleanup_verified, true);
 });
 
 
 test('actual kit CLI performs synthetic login, fresh workspace reads and CSRF-protected logout', async () => {
-  const result = await runIsolatedAgentKitCliBehavior({ repository: 'FreeTWAI-AI/freedom-agent-kit',
+  const result = await runIsolatedAgentKitCliBehavior({ repository: 'FreeTWAI/freedom-agent-kit',
     candidateRepository: join(roots, profiles[0][0]), candidateCommit: profiles[0][2] });
   assert.equal(result.check?.status, 'passed', JSON.stringify(result)); assert.equal(result.cleanup_verified, true);
   assert.equal(result.entry, 'src/cli.mjs#maker'); assert.equal(result.library_invocation, 'not_checked');
@@ -261,7 +261,7 @@ test('unknown Docker create acknowledgement cannot pass full supervisor cleanup 
       return original(executable, args, options);
     }) as typeof childProcess.execFileSync;
     syncBuiltinESMExports();
-    const result = await runIsolatedConsumerBehavior({ repository: 'FreeTWAI-AI/freedom-agent-kit',
+    const result = await runIsolatedConsumerBehavior({ repository: 'FreeTWAI/freedom-agent-kit',
       candidateRepository: join(roots!, profiles[0][0]), candidateCommit: profiles[0][2] });
     assert.equal(dispatches, 1, JSON.stringify(result));
     assert.equal(cleanupLabels.length, 2);

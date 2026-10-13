@@ -51,18 +51,18 @@ before(async () => {
         { type: 'ESModule', path: 'maintainer-worker.js', contents: bundle },
       ],
       compatibilityDate, compatibilityFlags: ['nodejs_compat'],
-      bindings: { GITHUB_MAINTAINER_APP_ID: APP_ID, GITHUB_MAINTAINER_ORG: 'FreeTWAI-AI', GITHUB_MAINTAINER_PRIVATE_KEY: privateKey },
+      bindings: { GITHUB_MAINTAINER_APP_ID: APP_ID, GITHUB_MAINTAINER_ORG: 'FreeTWAI', GITHUB_MAINTAINER_PRIVATE_KEY: privateKey },
       hyperdrives: { HYPERDRIVE: workerDatabase.href },
       outboundService: async (request: Request) => {
         const url = new URL(request.url);
         const body = request.method === 'POST' ? await request.json() : null;
         calls.push({ method: request.method, host: url.host, path: url.pathname, authorization: request.headers.get('authorization') ?? '', body });
         if (url.host !== 'api.github.com') return new Response('wrong host', { status: 404 });
-        if (url.pathname === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI-AI', type: 'Organization' }, suspended_at: null }]);
+        if (url.pathname === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI', type: 'Organization' }, suspended_at: null }]);
         if (/^\/app\/installations\/\d+\/repositories$/.test(url.pathname)) return new Response('missing', { status: 404 });
         if (url.pathname === '/installation/repositories') {
           if (request.headers.get('authorization') !== 'Bearer ghs_workerd_synthetic') return new Response('missing', { status: 404 });
-          return Response.json({ total_count: 1, repository_selection: 'selected', repositories: [{ id: 9001, full_name: 'FreeTWAI-AI/freedom-platform', default_branch: 'main' }] });
+          return Response.json({ total_count: 1, repository_selection: 'selected', repositories: [{ id: 9001, full_name: 'FreeTWAI/freedom-platform', default_branch: 'main' }] });
         }
         if (url.pathname === '/app/installations/77/access_tokens') return Response.json({ token: 'ghs_workerd_synthetic', permissions: (body as { permissions: unknown }).permissions }, { status: 201 });
         if (url.pathname.endsWith('/pulls')) return Response.json([]);
@@ -106,7 +106,7 @@ test('the scheduled handler signs a PKCS#8 JWT and talks only to api.github.com'
   assert.notEqual(listed?.authorization, calls.find(call => call.path === '/app/installations')?.authorization);
   assert.equal(calls.some(call => /^\/app\/installations\/\d+\/repositories$/.test(call.path)), false);
   const row = (await db.query('SELECT full_name, installation_id, mode FROM maintainer_repositories')).rows[0];
-  assert.equal(row.full_name, 'FreeTWAI-AI/freedom-platform');
+  assert.equal(row.full_name, 'FreeTWAI/freedom-platform');
   assert.equal(row.installation_id, '77');
   assert.equal(row.mode, 'observe');
   assert.equal(text.includes(privateKey.slice(40, 80)), false);

@@ -9,7 +9,7 @@ import {pageIdsForIssue, publicEvent, FREEDOM_PLATFORM_EVENTS_FEED} from '../dev
 import {catalogMetricTargets, failRepositoryMetrics, saveRepositoryMetrics} from '../github-social/service.js';
 import {GitHubProviderError, GitHubSocialProvider} from '../github-social/provider.js';
 import {parseGitHubTokenExpiration, recordGitHubMetricsCredential} from '../platform-admin/credentials.js';
-import repositorySet from '../../repositories.lock.json' with {type:'json'};
+import {currentArchitectureRepositories} from './repository-set.js';
 
 export const GITHUB_SYNC_REQUEST_BUDGET = 40;
 const SUCCESS_MS = 10 * 60 * 1000;
@@ -21,7 +21,7 @@ const MAX_RATE_MS = 60 * 60 * 1000;
 const MIN_RATE_MS = 1000;
 const METRICS_PER_RUN = 5;
 const EVENTS_KEEP = 300;
-const EVENTS_PATH = '/repos/FreeTWAI-AI/freedom-platform/events?per_page=100';
+const EVENTS_PATH = '/repos/FreeTWAI/freedom-platform/events?per_page=100';
 const MOVED_STATUSES = new Set([301, 302, 307, 308]);
 const date = z.iso.datetime({offset: true});
 const syncItemSchema = z.object({
@@ -73,8 +73,8 @@ export async function trackedGitHubRepositories(pool: Pool): Promise<{key: strin
     const key = value.toLowerCase();
     if (!byKey.has(key)) byKey.set(key, value);
   };
-  add('FreeTWAI-AI/freedom-platform');
-  for (const entry of repositorySet.repositories) add(entry.repository);
+  add('FreeTWAI/freedom-platform');
+  for (const entry of currentArchitectureRepositories) add(entry.repository);
   for (const book of communityCatalog.skill_books) {
     try { add(githubCoordinate(book.upstream_url || book.repository_url)); } catch { /* A catalog entry without a GitHub source is not synced. */ }
   }
@@ -412,7 +412,7 @@ async function syncPublicEvents(pool: Pool, run: Run) {
     [FREEDOM_PLATFORM_EVENTS_FEED, new Date(run.now() + LEASE_MS), new Date(run.now())]);
     const feed = claimed.rows[0];
     if (!feed) return;
-    const repository = 'FreeTWAI-AI/freedom-platform';
+    const repository = 'FreeTWAI/freedom-platform';
     const release = (at: number) => inTx(client, () => client.query('UPDATE github_feed_state SET next_sync_at=$2 WHERE feed_name=$1', [FREEDOM_PLATFORM_EVENTS_FEED, new Date(at)]));
     try {
       await refreshBackoff(client, run);

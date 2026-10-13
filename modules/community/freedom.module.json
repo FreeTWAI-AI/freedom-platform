@@ -11,6 +11,7 @@
     "modules/community/events.ts",
     "modules/community/github-history.ts",
     "modules/community/github-sync.ts",
+    "modules/community/repository-set.ts",
     "modules/community/guild-discovery.ts",
     "modules/community/link-preview.ts",
     "modules/community/member-service-pages.ts",

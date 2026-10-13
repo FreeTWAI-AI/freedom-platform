@@ -1,7 +1,7 @@
 // Narrow versioned launch contract, not a general JS import analyzer.
 import { requireCondition as check } from './errors.mjs';
 import { parseJson, sha256 } from './io.mjs';
-export const DEVICE_REPOSITORY = 'FreeTWAI-AI/freedom-agent-kit';
+export const DEVICE_REPOSITORY = 'FreeTWAI/freedom-agent-kit';
 export const DEVICE_PROFILE = 'agent-kit-device-cli-v1';
 export const DEVICE_ENTRY = 'src/device-cli.mjs';
 export const DEVICE_CLOSURE = Object.freeze([

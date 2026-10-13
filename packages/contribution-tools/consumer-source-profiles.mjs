@@ -1,3 +1,4 @@
+import {matchesRecordedRepository} from './repository-identity.mjs';
 // Fixed source-integrity profiles for consumers that already use preview v1.
 // Caller supplies immutable snapshots/readers from its trusted repository lock.
 // Candidate code, workflows, package scripts and manifest validators are never executed.
@@ -23,18 +24,18 @@ function profile(id, entries, scripts, extraProtected = []) {
     baseline_equal_paths: Object.freeze([...verificationPaths, ...buildAutomation, ...extraProtected]) });
 }
 export const CONSUMER_SOURCE_PROFILES = Object.freeze({
-  'FreeTWAI-AI/.github': profile('community-automation', [], ['test', 'build'], ['.github/workflows/verify-template.yml']),
-  'FreeTWAI-AI/FreeTWAI-AI.github.io': profile('source-directory',
+  'FreeTWAI/.github': profile('community-automation', [], ['test', 'build'], ['.github/workflows/verify-template.yml']),
+  'FreeTWAI/FreeTWAI.github.io': profile('source-directory',
     ['scripts/build.mjs', 'src/index.mjs', 'src/privacy.mjs', 'data/directory.json', 'data/privacy-discord-bot.json',
       'test/directory.test.mjs', 'test/privacy.test.mjs'], ['test', 'build'], ['.github/workflows/pages.yml']),
-  'FreeTWAI-AI/freedom-growth-automation': profile('campaign-preview',
+  'FreeTWAI/freedom-growth-automation': profile('campaign-preview',
     ['src/index.mjs', 'services/campaign-worker/index.mjs', 'services/publication-worker/index.mjs',
       'packages/channel-adapters/index.mjs', 'examples/preview-campaign.mjs', 'tests/growth.test.mjs'], ['test', 'preview']),
-  'FreeTWAI-AI/freedom-project-page': profile('project-page',
+  'FreeTWAI/freedom-project-page': profile('project-page',
     ['scripts/build.mjs', 'src/index.mjs', 'test/render.test.mjs'], ['test', 'build']),
-  'FreeTWAI-AI/freedom-project-template': profile('project-template',
+  'FreeTWAI/freedom-project-template': profile('project-template',
     ['scripts/build.mjs', 'src/server.mjs', 'test/preview.test.mjs'], ['test', 'build', 'dev']),
-  'FreeTWAI-AI/freedom-skill-registry': profile('skill-registry',
+  'FreeTWAI/freedom-skill-registry': profile('skill-registry',
     ['scripts/check-registry.mjs', 'src/index.mjs', 'registry/packages.yaml', 'test/registry.test.mjs'], ['test', 'build']),
 });
 
@@ -98,7 +99,7 @@ export async function verifyConsumerSourceProfile({ repository, repositoryRoot, 
   verifyPackageEntryRegistrations(candidatePackage, baselinePackage);
   const manifest = parseJson(await readBounded(repositoryRoot, 'freedom.project.yaml'));
   const baselineManifest = parseJson(await readBaseline('freedom.project.yaml'));
-  check(manifest.repository?.full_name === repository, 'consumer_manifest_repository_mismatch');
+  check(matchesRecordedRepository(manifest.repository?.full_name, repository), 'consumer_manifest_repository_mismatch');
   for (const key of ['project_id', 'repository', 'ownership', 'data_boundary', 'release', 'toolchain']) {
     check(isDeepStrictEqual(manifest[key], baselineManifest[key]), 'consumer_manifest_authority_changed');
   }

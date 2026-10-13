@@ -6,15 +6,15 @@ signed-job gateway, self-hosted runner, private key, Docker, npm install or data
 It runs only fixed central verifier code and reads candidate Git objects as data.
 It does not run or import candidate tests, scripts, workflows or libraries.
 
-The source and runtime jobs run in `FreeTWAI-AI` repositories other than
-`FreeTWAI-AI/freedom-platform`. Forks skip them because a fork's workflow commit
+The source and runtime jobs run in `FreeTWAI` repositories other than
+`FreeTWAI/freedom-platform`. Forks skip them because a fork's workflow commit
 is not in the central repository. The host's approved set decides which
 repositories pass and refuses the rest (fails closed).
 
 The fixed profiles admit **all nine consumers**. Agent-kit, storefront and
 supplier-client verify exact adopted shared-library bytes plus unchanged preview-v1
 bytes. The other six use `consumer-source-profiles.mjs`: `.github`,
-`FreeTWAI-AI.github.io`, growth-automation, project-page, project-template and
+`FreeTWAI.github.io`, growth-automation, project-page, project-template and
 skill-registry verify canonical preview bytes, the full manifest schema and
 approved manifest authority fields. They freeze build/verification automation
 against the approved baseline and require the known product entry paths to exist.

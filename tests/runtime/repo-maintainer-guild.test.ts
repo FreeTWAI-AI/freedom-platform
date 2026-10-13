@@ -89,7 +89,7 @@ async function insertRepo(over: { github?: string; guild?: string | null; open?:
   await pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, guild_key, scope_kind, open_to_guilds, skill_book_id, next_sweep_at)
     VALUES ($1,$2,$3,'77',$4,'main','active','observe',$5,$6,$7,$8,'2099-01-01T00:00:00Z')`,
-  [id, DEMO_COMMUNITY, over.github ?? String(githubSeq), over.full ?? 'FreeTWAI-AI/freedom-platform', over.guild ?? null, book ? 'skill_book' : (over.scope ?? null), over.open ?? false, book]);
+  [id, DEMO_COMMUNITY, over.github ?? String(githubSeq), over.full ?? 'FreeTWAI/freedom-platform', over.guild ?? null, book ? 'skill_book' : (over.scope ?? null), over.open ?? false, book]);
   return id;
 }
 async function insertPull(repository: string, number: number, author = '42') {
@@ -99,7 +99,7 @@ async function insertPull(repository: string, number: number, author = '42') {
     author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
     github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, policy_version, synced_at)
     VALUES ($1,$2,$3,$4,$5,$6,'open',false,$7,'octocat','User','CONTRIBUTOR',false,$8,'main',$9,'{}',1,0,1,$10,$10,$10,'[]','awaiting_review','[]','2026-10-01.1',$10)`,
-  [id, repository, number, String(8000 + number + githubSeq), `PR ${number}`, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, author, SHA, OLD, '2026-09-30T11:00:00Z']);
+  [id, repository, number, String(8000 + number + githubSeq), `PR ${number}`, `https://github.com/FreeTWAI/freedom-platform/pull/${number}`, author, SHA, OLD, '2026-09-30T11:00:00Z']);
   await pool.query(`INSERT INTO maintainer_checks (pull_id, head_sha, source, name, app_slug, status, conclusion) VALUES ($1,$2,'check_run','verify','github-actions','completed','success')`, [id, SHA]);
   return id;
 }
@@ -149,9 +149,9 @@ async function insertBookClaim(pullId: string, userId: string, githubId: string,
 
 test('the eligibility view follows admins, leaders, open repositories and a departed officer', async () => {
   const owned = await insertRepo({ guild: 'guild_ai_vibe', scope: 'module' });
-  const open = await insertRepo({ open: true, full: 'FreeTWAI-AI/open-book' });
-  const adminOnly = await insertRepo({ full: 'FreeTWAI-AI/central-core' });
-  const other = await insertRepo({ guild: 'guild_platform_engineering', scope: 'skill_book', full: 'FreeTWAI-AI/platform-book' });
+  const open = await insertRepo({ open: true, full: 'FreeTWAI/open-book' });
+  const adminOnly = await insertRepo({ full: 'FreeTWAI/central-core' });
+  const other = await insertRepo({ guild: 'guild_platform_engineering', scope: 'skill_book', full: 'FreeTWAI/platform-book' });
   const adminUser = randomUUID();
   await pool.query(`INSERT INTO users (user_id, community_id, email, display_name, password_hash, profession_membership_ref)
     SELECT $1, community_id, $2, '審核管理員', password_hash, $3 FROM users WHERE user_id=$4`,
@@ -191,25 +191,25 @@ test('settlement expires only a dated claim, releases an ineligible reviewer, an
   await link(leader, '88011', 'leader-one');
   await link(other, '88012', 'leader-two');
 
-  const quiet = await insertRepo({ open: true, full: 'FreeTWAI-AI/never-expires' });
+  const quiet = await insertRepo({ open: true, full: 'FreeTWAI/never-expires' });
   const quietPull = await insertPull(quiet, 1);
   const lasting = await insertClaim(quietPull, leader, '88011', 'leader-one', 'guild_ai_vibe', null);
-  const datedRepo = await insertRepo({ open: true, full: 'FreeTWAI-AI/does-expire' });
+  const datedRepo = await insertRepo({ open: true, full: 'FreeTWAI/does-expire' });
   const datedPull = await insertPull(datedRepo, 1);
   const dated = await insertClaim(datedPull, leader, '88011', 'leader-one', 'guild_ai_vibe', '2026-09-30T11:00:00Z');
 
-  const moved = await insertRepo({ open: true, full: 'FreeTWAI-AI/will-move' });
+  const moved = await insertRepo({ open: true, full: 'FreeTWAI/will-move' });
   const movedPull = await insertPull(moved, 1);
   const movedClaim = await insertClaim(movedPull, leader, '88011', 'leader-one', 'guild_ai_vibe', null);
   await pool.query(`UPDATE maintainer_repositories SET guild_key='guild_marketing', open_to_guilds=false WHERE repository_id=$1`, [moved]);
 
   await lead(leader, 'guild_member_operations');
-  const removed = await insertRepo({ guild: 'guild_member_operations', full: 'FreeTWAI-AI/officer-left' });
+  const removed = await insertRepo({ guild: 'guild_member_operations', full: 'FreeTWAI/officer-left' });
   const removedPull = await insertPull(removed, 1);
   const removedClaim = await insertClaim(removedPull, leader, '88011', 'leader-one', 'guild_member_operations', null);
   await pool.query(`DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key='guild_member_operations'`, [DEMO_COMMUNITY]);
 
-  const open = await insertRepo({ open: true, scope: 'skill_book', full: 'FreeTWAI-AI/adopt-me' });
+  const open = await insertRepo({ open: true, scope: 'skill_book', full: 'FreeTWAI/adopt-me' });
   await insertPull(open, 11);
   await insertPull(open, 12);
   const leftover = await insertPull(open, 13);
@@ -224,12 +224,12 @@ test('settlement expires only a dated claim, releases an ineligible reviewer, an
   await insertReview(firstId, firstLeader.github, 'APPROVED');
   await insertReview(secondId, secondLeader.github, 'APPROVED');
 
-  const owned = await insertRepo({ guild: 'guild_ai_vibe', scope: 'module', full: 'FreeTWAI-AI/already-ours' });
+  const owned = await insertRepo({ guild: 'guild_ai_vibe', scope: 'module', full: 'FreeTWAI/already-ours' });
   const ownedPull = await insertPull(owned, 1);
   await insertClaim(ownedPull, leader, '88011', 'leader-one', 'guild_ai_vibe', null);
   await insertReview(ownedPull, '88011', 'CHANGES_REQUESTED');
 
-  const adminRepo = await insertRepo({ open: true, full: 'FreeTWAI-AI/admin-finishes' });
+  const adminRepo = await insertRepo({ open: true, full: 'FreeTWAI/admin-finishes' });
   const adminPull = await insertPull(adminRepo, 1);
   const adminUser = randomUUID();
   await pool.query(`INSERT INTO users (user_id, community_id, email, display_name, password_hash, profession_membership_ref, email_verified_at)
@@ -247,11 +247,11 @@ test('settlement expires only a dated claim, releases an ineligible reviewer, an
   assert.equal(settled.adopted, 1);
   assert.equal(settled.expired, 1);
   assert.ok((await pool.query('SELECT recheck_at FROM maintainer_pull_requests WHERE pull_id=$1', [leftover])).rows[0].recheck_at);
-  const later = await insertRepo({ open: true, full: 'FreeTWAI-AI/adopt-on-tick' });
+  const later = await insertRepo({ open: true, full: 'FreeTWAI/adopt-on-tick' });
   const laterPull = await insertPull(later, 1);
   await insertClaim(laterPull, leader, '88011', 'leader-one', 'guild_ai_vibe', null);
   await insertReview(laterPull, '88011', 'APPROVED');
-  const summary = await runMaintainerTick(pool, { appId: '12345', organization: 'FreeTWAI-AI', privateKey, writes: 'off' }, {
+  const summary = await runMaintainerTick(pool, { appId: '12345', organization: 'FreeTWAI', privateKey, writes: 'off' }, {
     fetcher: async () => { throw new Error('unexpected fetch'); }, now: () => CLOCK,
   });
   assert.equal(summary.repositories_adopted, 1);
@@ -271,7 +271,7 @@ test('settlement expires only a dated claim, releases an ineligible reviewer, an
   assert.equal(history[0].changed_by_user, firstLeader.user);
   assert.equal(history[0].pull_id, firstId);
   assert.equal(history[0].open_to_guilds, false);
-  assert.match(history[0].reason, new RegExp(`審完 FreeTWAI-AI/adopt-me#${byPull.get(firstId)} 後歸到這個公會。`));
+  assert.match(history[0].reason, new RegExp(`審完 FreeTWAI/adopt-me#${byPull.get(firstId)} 後歸到這個公會。`));
   assert.equal((await pool.query('SELECT guild_key FROM maintainer_repositories WHERE repository_id=$1', [owned])).rows[0].guild_key, 'guild_ai_vibe');
   assert.equal((await pool.query('SELECT guild_key, open_to_guilds FROM maintainer_repositories WHERE repository_id=$1', [adminRepo])).rows[0].open_to_guilds, true);
   assert.equal((await pool.query(`SELECT count(*) FROM maintainer_ownership_changes WHERE source='adopted' AND repository_id=$1`, [adminRepo])).rows[0].count, '0');
@@ -280,10 +280,10 @@ test('settlement expires only a dated claim, releases an ineligible reviewer, an
 });
 
 test('a guild leader sees their own and open pulls, claims one guild, and releases only their claim', async () => {
-  const mine = await insertRepo({ guild: 'guild_ai_vibe', scope: 'module', full: 'FreeTWAI-AI/our-module' });
-  const open = await insertRepo({ open: true, full: 'FreeTWAI-AI/unclaimed-book' });
-  const foreign = await insertRepo({ guild: 'guild_platform_engineering', full: 'FreeTWAI-AI/their-module' });
-  const hidden = await insertRepo({ full: 'FreeTWAI-AI/admin-only' });
+  const mine = await insertRepo({ guild: 'guild_ai_vibe', scope: 'module', full: 'FreeTWAI/our-module' });
+  const open = await insertRepo({ open: true, full: 'FreeTWAI/unclaimed-book' });
+  const foreign = await insertRepo({ guild: 'guild_platform_engineering', full: 'FreeTWAI/their-module' });
+  const hidden = await insertRepo({ full: 'FreeTWAI/admin-only' });
   const ownPull = await insertPull(mine, 1);
   const openPull = await insertPull(open, 2);
   const foreignPull = await insertPull(foreign, 3);
@@ -348,8 +348,8 @@ test('a guild leader sees their own and open pulls, claims one guild, and releas
 
 test('a skill-book maintainer is eligible only for the appointed book, with an active account and GitHub', async () => {
   const user = DEMO_USERS[1].user_id;
-  const repository = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
-  const other = await insertRepo({ book: 'event-space', full: 'FreeTWAI-AI/freedom-skill-event-space' });
+  const repository = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI/freedom-skill-career-guide' });
+  const other = await insertRepo({ book: 'event-space', full: 'FreeTWAI/freedom-skill-event-space' });
   await appointBook(user, 'social-post');
   await link(user, '88041', 'book-reviewer');
   assert.equal((await eligible(repository)).some(row => row.user_id === user), false);
@@ -374,10 +374,10 @@ test('a skill-book maintainer is eligible only for the appointed book, with an a
 test('a skill-book maintainer who is not a guild leader lists, claims and releases the book pull', async () => {
   const user = DEMO_USERS[1].user_id;
   await appointBook(user, 'career-guide');
-  const bookRepo = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
-  const open = await insertRepo({ open: true, full: 'FreeTWAI-AI/unclaimed-book' });
-  const foreign = await insertRepo({ guild: 'guild_platform_engineering', full: 'FreeTWAI-AI/their-module' });
-  const hidden = await insertRepo({ full: 'FreeTWAI-AI/admin-only' });
+  const bookRepo = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI/freedom-skill-career-guide' });
+  const open = await insertRepo({ open: true, full: 'FreeTWAI/unclaimed-book' });
+  const foreign = await insertRepo({ guild: 'guild_platform_engineering', full: 'FreeTWAI/their-module' });
+  const hidden = await insertRepo({ full: 'FreeTWAI/admin-only' });
   const bookPull = await insertPull(bookRepo, 1);
   const openPull = await insertPull(open, 2);
   const foreignPull = await insertPull(foreign, 3);
@@ -435,7 +435,7 @@ test('a finished skill-book maintainer claim does not adopt the repository', asy
   const user = DEMO_USERS[1].user_id;
   await appointBook(user, 'career-guide');
   await link(user, '88043', 'book-reviewer');
-  const repository = await insertRepo({ book: 'career-guide', open: true, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const repository = await insertRepo({ book: 'career-guide', open: true, full: 'FreeTWAI/freedom-skill-career-guide' });
   const pull = await insertPull(repository, 1);
   const claim = await insertBookClaim(pull, user, '88043', 'book-reviewer', 'career-guide');
   await insertReview(pull, '88043', 'APPROVED');
@@ -454,7 +454,7 @@ test('revoking a skill-book appointment releases the claim on the next settlemen
   const user = DEMO_USERS[1].user_id;
   await appointBook(user, 'career-guide');
   await link(user, '88044', 'book-reviewer');
-  const repository = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const repository = await insertRepo({ book: 'career-guide', guild: 'guild_marketing', open: false, full: 'FreeTWAI/freedom-skill-career-guide' });
   const pull = await insertPull(repository, 1);
   const claim = await insertBookClaim(pull, user, '88044', 'book-reviewer', 'career-guide');
   await pool.query(`UPDATE skill_book_maintainers SET active=false WHERE book_id='career-guide' AND user_id=$1`, [user]);
@@ -470,7 +470,7 @@ test('an admin assigns a skill-book maintainer and rejects a mixed identity', as
   await appointBook(user, 'career-guide');
   await appointBook(DEMO_USERS[2].user_id, 'event-space', false);
   await link(user, '88045', 'book-reviewer');
-  const repository = await insertRepo({ book: 'career-guide', full: 'FreeTWAI-AI/freedom-skill-career-guide' });
+  const repository = await insertRepo({ book: 'career-guide', full: 'FreeTWAI/freedom-skill-career-guide' });
   const pull = await insertPull(repository, 1);
   const directory = await adminRequest('/review-center/reviewers');
   assert.equal(directory.status, 200, JSON.stringify(directory.data));

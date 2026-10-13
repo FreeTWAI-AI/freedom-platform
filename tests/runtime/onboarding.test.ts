@@ -158,7 +158,7 @@ for(const [choice,guildKey,bookId] of [['security','guild_security','security-sc
  const saved=await request('/me/onboarding/answers',member,{...body,answers:specialistAnswers});assert.equal(saved.status,200);
  const evaluated=await request('/me/onboarding/evaluate',member,{},saved.data.draft.aggregate_version);assert.equal(evaluated.data.result.recommendations[0].guild_key,guildKey);
  const complete=await request('/me/onboarding/complete',member,{guild_keys:[guildKey],primary_guild_key:guildKey,confirmed:true},evaluated.data.draft.aggregate_version);assert.equal(complete.status,200,JSON.stringify(complete.data));assert.equal(complete.data.primary_guild_key,guildKey);
- const books=(await request('/me/skill-books',member)).data.items;assert.equal(books[0].book_id,bookId);assert.match(books[0].repository_url,/^https:\/\/github\.com\/FreeTWAI-AI\//);
+ const books=(await request('/me/skill-books',member)).data.items;assert.equal(books[0].book_id,bookId);assert.match(books[0].repository_url,/^https:\/\/github\.com\/FreeTWAI\//);
  const directory=(await request('/guilds/directory',member)).data.items;assert.equal(directory.length,18);const guild=directory.find((g:any)=>g.guild_key===guildKey);assert.equal(guild.guild_master,null);assert.equal(guild.is_primary,true);
 });
 

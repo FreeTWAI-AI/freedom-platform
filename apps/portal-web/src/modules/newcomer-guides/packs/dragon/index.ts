@@ -12,7 +12,7 @@ function assetPath(logicalId:string):string {
   return `/public/guide-packs/${manifest.pack}/${manifest.version}/${asset.sha256}.webp`;
 }
 const catalog:Readonly<Record<string,GuideCharacter>>=Object.fromEntries(Object.entries(characters).map(([id,character])=>[id,{...character,portrait:assetPath(character.portrait),hero:assetPath(character.hero),frames:character.frames.map(assetPath),views:character.views.map(assetPath)}]));
-export const DRAGON_PACK:GuidePack={format:'freedom.newcomer-guide/v1',id:'dragon',version:DRAGON_RELEASE_PIN.version,engineContractVersion:1,locale:'zh-Hant',label:'龍娘',pages:DRAGON_PAGE_SUPPORT,gallery:Object.values(catalog),galleryInfo:{title:'角色六視圖',attribution:'原創角色圖來自 mars-tw 的',sourceLabel:'PR #106',sourceUrl:'https://github.com/FreeTWAI-AI/freedom-platform/pull/106'},
+export const DRAGON_PACK:GuidePack={format:'freedom.newcomer-guide/v1',id:'dragon',version:DRAGON_RELEASE_PIN.version,engineContractVersion:1,locale:'zh-Hant',label:'龍娘',pages:DRAGON_PAGE_SUPPORT,gallery:Object.values(catalog),galleryInfo:{title:'角色六視圖',attribution:'原創角色圖來自 mars-tw 的',sourceLabel:'PR #106',sourceUrl:'https://github.com/FreeTWAI/freedom-platform/pull/106'},
   async loadPage(pageId){
     if(!Object.hasOwn(DRAGON_PAGE_SUPPORT,pageId) || DRAGON_PAGE_SUPPORT[pageId as keyof typeof DRAGON_PAGE_SUPPORT].status!=='supported' || !Object.hasOwn(catalog,pageId))throw Error('Unsupported guide page');
     return {character:catalog[pageId],guides:DRAGON_GUIDES[pageId]??{},loadContent:async()=>{

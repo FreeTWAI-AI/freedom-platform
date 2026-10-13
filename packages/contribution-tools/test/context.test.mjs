@@ -68,7 +68,7 @@ test('existing scoped Agent Kit package resolves local identity without granting
   const f = await fixture(t);
   await put(f.root, 'package.json', pretty({ name: '@freetwai/agent-kit' }));
   const { context } = await buildContext(f.options);
-  assert.equal(context.repository, 'FreeTWAI-AI/freedom-agent-kit');
+  assert.equal(context.repository, 'FreeTWAI/freedom-agent-kit');
   assert.equal(context.assurance_level, 'local');
   await put(f.root, 'package.json', pretty({ name: '@unreviewed/agent-kit' }));
   await assert.rejects(buildContext(f.options), { code: 'repository_identity_required' });
@@ -106,7 +106,7 @@ test('existing scoped Storefront package resolves only the reviewed local identi
   const f = await fixture(t);
   await put(f.root, 'package.json', pretty({ name: '@freetwai/freedom-storefront' }));
   const { context } = await buildContext(f.options);
-  assert.equal(context.repository, 'FreeTWAI-AI/freedom-storefront');
+  assert.equal(context.repository, 'FreeTWAI/freedom-storefront');
   assert.equal(context.assurance_level, 'local');
   assert.equal(context.publisher_trust, 'unverified');
   for (const name of ['@unreviewed/freedom-storefront', '@freetwai/storefront', '@freetwai/freedom-storefront-extra']) {

@@ -51,7 +51,7 @@ GET 支援 `limit`（1–50）與 `offset`（0–1,000,000），回傳 `{items, 
 
 ## 協作邊界
 
-這項功能由 `FreeTWAI-AI/freedom-platform` 維護；中央 API／PostgreSQL 保存權威紀錄。外部 repo 不直接寫會員資料庫，也不把會員自填的 GitHub 連結視為 OAuth 授權。
+這項功能由 `FreeTWAI/freedom-platform` 維護；中央 API／PostgreSQL 保存權威紀錄。外部 repo 不直接寫會員資料庫，也不把會員自填的 GitHub 連結視為 OAuth 授權。
 
 程式入口：`modules/identity-membership/social-links.ts`、`apps/platform-api/src/routes/members.ts`、`apps/portal-web/src/modules/MemberSocialLinks.tsx`；資料表見 `migrations/025_member_social_links.sql`。介面沿用「我的名片」和「工坊夥伴」，公會成員列表也使用同一個有權限的名片讀取流程。
 

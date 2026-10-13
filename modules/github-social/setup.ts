@@ -8,7 +8,7 @@ import { audit, type AdminActor } from '../platform-admin/service.js';
 // GitHub's documented manifest handshake:
 // https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest
 // https://docs.github.com/en/rest/apps/apps#create-a-github-app-from-a-manifest
-const organization = 'FreeTWAI-AI', maxResponseBytes = 64 * 1024;
+const organization = 'FreeTWAI', maxResponseBytes = 64 * 1024;
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const callbackInput = z.object({ code: z.string().regex(/^[A-Za-z0-9_-]{20,200}$/), state: z.string().regex(/^[A-Za-z0-9_-]{43}$/) }).strict();
 const appResponse = z.object({

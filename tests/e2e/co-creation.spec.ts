@@ -19,7 +19,7 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await page.getByRole('button',{name:'收起指令',exact:true}).click();
   const issue=page.getByRole('article').filter({has:page.getByRole('heading',{name:'建立可重現的剪輯測試素材',exact:true})});
   await expect(issue).toBeVisible();
-  await expect(issue.getByRole('link',{name:'到任務頁參與 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/1');
+  await expect(issue.getByRole('link',{name:'到任務頁參與 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI/video-autopilot-kit/issues/1');
   await expect(page.getByText('到 GitHub 任務留言認領；完成程式、測試、設計或文件後提交 PR，交由維護者審查。')).toBeVisible();
   await issue.getByRole('button',{name:'複製工作說明',exact:true}).click();
   const brief=page.getByLabel('給協作夥伴與 AI 的工作說明',{exact:true});
@@ -30,7 +30,7 @@ test('member reads GitHub-backed co-creation tasks, copies a bounded brief, and 
   await page.getByRole('button',{name:'收起指令',exact:true}).click();
   const contribution=page.getByRole('article').filter({has:page.getByRole('heading',{name:'補上剪輯測試說明',exact:true})});
   await expect(contribution).toContainText('GitHub 作者：contributor-demo');
-  await expect(contribution.getByRole('link',{name:'查看修改與審查 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit/pull/8');
+  await expect(contribution.getByRole('link',{name:'查看修改與審查 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI/video-autopilot-kit/pull/8');
   await expect(page.getByText('以下依 GitHub 已合併的 PR 顯示，作者是 GitHub 帳號；尚未連結成平台會員的成果認證。')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await page.screenshot({path:'test-results/co-creation-desktop.png',fullPage:true});

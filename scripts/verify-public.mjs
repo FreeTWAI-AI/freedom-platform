@@ -680,7 +680,7 @@ try {
   const developmentState=await page.request.get(origin+'/api/v1/me/development/platform/cocreation');
   expect(developmentState.status()).toBe(200);
   const developmentAccess=await developmentState.json();
-  expect(developmentAccess.target.repository).toBe('FreeTWAI-AI/freedom-platform');
+  expect(developmentAccess.target.repository).toBe('FreeTWAI/freedom-platform');
   expect(developmentAccess.enabled).toBe(false);expect(developmentAccess.keys).toEqual([]);
   await expect(developmentDialog.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeDisabled();
   await page.setViewportSize({width:320,height:960});await noOverflow('Development activation mobile overflow');

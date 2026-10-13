@@ -176,7 +176,7 @@ test('existing preview bundle passes unchanged and gains no publisher/execution 
   const requested = [];
   const remote = await verifyContractPin({ repositoryRoot: f.root, remote: true, fetcher: async (url, config) => {
     requested.push(url); assert.equal(config.redirect, 'error');
-    const prefix = `https://raw.githubusercontent.com/FreeTWAI-AI/freedom-platform/${f.lock.source_commit}/contracts/preview/v1/`;
+    const prefix = `https://raw.githubusercontent.com/FreeTWAI/freedom-platform/${f.lock.source_commit}/contracts/preview/v1/`;
     assert(url.startsWith(prefix));
     return new Response(await readFile(join(f.source, url.slice(prefix.length))));
   } });

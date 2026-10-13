@@ -115,7 +115,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=EXCLUDED.user_id`, [DEMO_COMMUNITY, GUILD, USER_OTHER]);
   await e2eAuthPool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, settings, open_to_guilds, next_sweep_at)
-    VALUES ($1,$2,'910058','770058','FreeTWAI-AI/freedom-platform','main','active','observe','{"claim_hours":24}'::jsonb,true,'2099-01-01T00:00:00Z')`,
+    VALUES ($1,$2,'910058','770058','FreeTWAI/freedom-platform','main','active','observe','{"claim_hours":24}'::jsonb,true,'2099-01-01T00:00:00Z')`,
   [REPO, DEMO_COMMUNITY]);
   const pulls = [
     { id: PULL_LOW, number: 11, title: '文件修正', author: '88000011', login: 'docs-author', association: 'CONTRIBUTOR', type: 'User', fork: false, file: 'docs/guide.md', base: 'main', attention: [], queue: 'awaiting_review', queueCode: 'awaiting_review', queueMessage: '檢查已過，等公會長或管理員核准。', check: 'completed', conclusion: 'success', migration: [] },
@@ -129,7 +129,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
       author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
       github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, migration_reasons, policy_version, synced_at)
       VALUES ($1,$2,$3,$4,$5,$6,'open',false,$7,$8,$9,$10,$11,$12,$13,$14,'{}',1,0,1,now(),now(),now(),$15::jsonb,$16,$17::jsonb,$18::jsonb,'2026-10-01.1',now())`,
-    [pull.id, REPO, pull.number, String(910000 + pull.number), pull.title, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${pull.number}`,
+    [pull.id, REPO, pull.number, String(910000 + pull.number), pull.title, `https://github.com/FreeTWAI/freedom-platform/pull/${pull.number}`,
       pull.author, pull.login, pull.type, pull.association, pull.fork, HEAD, pull.base, OLD,
       JSON.stringify(pull.attention), pull.queue,
       JSON.stringify([{ code: pull.queueCode, message: pull.queueMessage }]), JSON.stringify(pull.migration)]);
@@ -155,7 +155,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(countOf(page, '待作者')).toHaveText('1');
     await expect(countOf(page, '待決定')).toHaveText('1');
     await expect(countOf(page, '已核准')).toHaveText('0');
-    await expect(page.getByRole('list', { name: '儲存庫模式' })).toContainText('FreeTWAI-AI/freedom-platform');
+    await expect(page.getByRole('list', { name: '儲存庫模式' })).toContainText('FreeTWAI/freedom-platform');
     await expect(page.getByRole('list', { name: '儲存庫模式' })).toContainText('觀察');
     const filterByGuild = async (label: string) => {
       const pending = page.waitForResponse(response => response.url().includes('/review-center/pulls') && response.ok());
@@ -179,7 +179,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(low).toContainText('無人認領');
     await expect(low).toContainText('docs-author');
     const github = low.getByRole('link', { name: /#11/ });
-    await expect(github).toHaveAttribute('href', 'https://github.com/FreeTWAI-AI/freedom-platform/pull/11');
+    await expect(github).toHaveAttribute('href', 'https://github.com/FreeTWAI/freedom-platform/pull/11');
     await expect(github).toHaveAttribute('target', '_blank');
     await expect(github).toHaveAttribute('rel', 'noopener noreferrer');
     const detailToggle = low.getByRole('button', { name: '詳情', exact: true });
@@ -195,7 +195,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     });
     expect(Math.abs(toggleBox!.x - contentLeft)).toBeLessThan(1);
     await detailToggle.click();
-    await expect(low.getByRole('link', { name: '到 GitHub 審查 ↗', exact: true })).toHaveAttribute('href', 'https://github.com/FreeTWAI-AI/freedom-platform/pull/11/files');
+    await expect(low.getByRole('link', { name: '到 GitHub 審查 ↗', exact: true })).toHaveAttribute('href', 'https://github.com/FreeTWAI/freedom-platform/pull/11/files');
     const reviewLine = low.getByRole('listitem').filter({ hasText: 'old-commenter' });
     await expect(reviewLine).toContainText('old-commenter');
     await expect(reviewLine).toContainText('核准');
@@ -319,7 +319,7 @@ test('an admin claims, assigns, pauses and reads the review center on desktop an
     await expect(owned).toContainText('AI 開發公會');
     await owned.getByRole('button', { name: '詳情', exact: true }).click();
     await owned.getByRole('button', { name: '變更歸屬…', exact: true }).click();
-    await expect(owned).toContainText('會套用到整個 FreeTWAI-AI/freedom-platform。');
+    await expect(owned).toContainText('會套用到整個 FreeTWAI/freedom-platform。');
     await owned.getByLabel('歸屬', { exact: true }).selectOption({ label: '開放公會長認領' });
     await owned.getByLabel('歸屬理由').fill('改回開放公會長認領。');
     await owned.getByRole('button', { name: '儲存歸屬', exact: true }).click();
@@ -421,7 +421,7 @@ test('an admin hands a pull and an issue to a local AI', async ({ page, e2eAuthP
   [USER_SELF, DEMO_COMMUNITY]);
   await e2eAuthPool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, settings, open_to_guilds, next_sweep_at)
-    VALUES ($1,$2,'910058','770058','FreeTWAI-AI/freedom-platform','main','active','observe','{}'::jsonb,true,'2099-01-01T00:00:00Z')`,
+    VALUES ($1,$2,'910058','770058','FreeTWAI/freedom-platform','main','active','observe','{}'::jsonb,true,'2099-01-01T00:00:00Z')`,
   [REPO, DEMO_COMMUNITY]);
   const pulls = [
     { id: PULL_LOW, number: 11, title: '文件修正', queue: 'awaiting_review', queueCode: 'awaiting_review', queueMessage: '檢查已過，等公會長或管理員核准。' },
@@ -433,7 +433,7 @@ test('an admin hands a pull and an issue to a local AI', async ({ page, e2eAuthP
       author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
       github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, migration_reasons, policy_version, synced_at)
       VALUES ($1,$2,$3,$4,$5,$6,'open',false,'88000011','docs-author','User','CONTRIBUTOR',false,$7,'main',$8,'{}',1,0,1,now(),now(),now(),'[]'::jsonb,$9,$10::jsonb,'[]'::jsonb,'2026-10-01.1',now())`,
-    [pull.id, REPO, pull.number, String(910000 + pull.number), pull.title, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${pull.number}`,
+    [pull.id, REPO, pull.number, String(910000 + pull.number), pull.title, `https://github.com/FreeTWAI/freedom-platform/pull/${pull.number}`,
       HEAD, OLD, pull.queue, JSON.stringify([{ code: pull.queueCode, message: pull.queueMessage }])]);
   }
   try {

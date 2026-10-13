@@ -46,7 +46,7 @@ test('unauthenticated crawlers get useful HTML, Markdown and JSON without JavaSc
  assert.deepEqual(await (await app.request(origin+'/.well-known/freedom-development.json')).json(),map);
  for(const page of map.pages){
   const response=await app.request(origin+page.guide_url);assert.equal(response.status,200,page.id);
-  const body=await response.text();assert.match(body,/href="https:\/\/github.com\/FreeTWAI-AI\/freedom-platform\/fork"/);
+  const body=await response.text();assert.match(body,/href="https:\/\/github.com\/FreeTWAI\/freedom-platform\/fork"/);
   assert.match(body,/AGENTS\.md/);assert.equal(body.includes('<script'),false);
   for(const repo of page.related_repositories)assert.ok(body.includes(`href="https://github.com/${repo}"`),repo);
   const markdown=await app.request(origin+page.markdown_url);assert.equal(markdown.status,200);assert.match(await markdown.text(),/^# /);

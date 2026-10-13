@@ -99,7 +99,7 @@ export type MaintainerSettings = {
 };
 
 export function defaultRulesProfile(fullName: string): MaintainerSettings['rules_profile'] {
-  return fullName.toLowerCase() === 'freetwai-ai/freedom-platform' ? 'freedom-platform' : 'default';
+  return fullName.toLowerCase() === 'freetwai/freedom-platform' ? 'freedom-platform' : 'default';
 }
 export function resolveSettings(fullName: string, raw: unknown): MaintainerSettings {
   // The request schema rejects null. Stored settings keep claim_hours: null for “never expires”.

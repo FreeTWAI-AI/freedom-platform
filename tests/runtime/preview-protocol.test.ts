@@ -47,7 +47,7 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const updated=await maker.call('reviseCampaign',{...key(),params:{id:campaign.campaign_id},version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'updated text'}});
  assert.deepEqual(updated.source_snapshot,campaign.source_snapshot);
  await assert.rejects(maker.call('reviseCampaign',{...key(),params:{id:campaign.campaign_id},version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'stale'}}),{status:412});
- const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI-AI/freedom-platform',note:'synthetic'}});
+ const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI/freedom-platform',note:'synthetic'}});
  assert.equal((shared.shares as any[])[0].verification_status,'self_reported');
  assert.equal((await seller.call('listCampaigns')).items.length,0);assert.equal((await maker.call('listCampaigns')).items.length,1);
  assert.equal((await maker.call('listProjects')).items.length,0);assert(Array.isArray((await maker.call('listWorks')).items));await maker.call('getDashboard');

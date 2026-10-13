@@ -680,7 +680,11 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.match(jobBlock(text, 'static-worker'), /--suite ci\.worker-unit/);
   assert.match(consumers, /--suite ci\.skill-client-unit/);
   assert.match(consumers, /--suite ci\.runtime-union-integration/);
-  assert.match(consumers, /--suite ci\.governance-unit/);
+  assert.doesNotMatch(consumers, /--suite ci\.governance-unit/);
+  assert.equal((text.match(/--suite ci\.governance-unit\b/g) ?? []).length, 1);
+  assert.equal((runtimeFull.match(/--suite ci\.runtime-sharding-integration\b/g) ?? []).length, 1);
+  assert.match(runtimeFull, /if: \$\{\{ matrix\.partition == 0 \}\}\n {8}run: node \.freedom\/trusted\/scripts\/ci\/run-pinned-suite\.mjs --root \. --suite ci\.runtime-sharding-integration/);
+  assert.doesNotMatch(consumers, /Fetch the immutable adopted library source/);
   assert.match(consumers, /--suite ci\.consumer-repositories/);
   assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.deploy-preflight/);
   assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.migration-postgres/);

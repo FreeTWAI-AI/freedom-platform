@@ -1,7 +1,7 @@
 # Directory build profile
 
 This candidate semantic-profile upgrade extends the existing fixed native runtime host to
-`FreeTWAI-AI/FreeTWAI-AI.github.io`. The source prerequisite still checks approved
+`FreeTWAI/FreeTWAI.github.io`. The source prerequisite still checks approved
 01b ancestry, immutable build/Pages automation, preview bytes, manifests and
 executable registrations. Directory data and product renderers are then exercised
 through the actual `scripts/build.mjs` entry, with no candidate tests or reports.

@@ -1,6 +1,6 @@
 # Existing consumer source profiles
 
-`packages/contribution-tools/consumer-source-profiles.mjs` supplies fixed source-integrity profiles for the six consumers outside the new shared-workspace exports: `.github`, `FreeTWAI-AI.github.io`, growth automation, project page, project template and skill registry. It does not modify `consumer-libraries.mjs`, the three consumer commits pinned to source91, or any preview pin.
+`packages/contribution-tools/consumer-source-profiles.mjs` supplies fixed source-integrity profiles for the six consumers outside the new shared-workspace exports: `.github`, `FreeTWAI.github.io`, growth automation, project page, project template and skill registry. It does not modify `consumer-libraries.mjs`, the three consumer commits pinned to source91, or any preview pin.
 
 The native host supplies immutable candidate files and readers backed by its approved `repositories.lock.json` baseline and independently selected canonical source commit:
 
@@ -28,7 +28,7 @@ The source-directory profile follows the independently reviewed `90f790763f4f050
 
 ## Candidate directory baseline promotion: validate before writing
 
-The candidate central lock promotes only `FreeTWAI-AI/FreeTWAI-AI.github.io`
+The candidate central lock promotes only `FreeTWAI/FreeTWAI.github.io`
 from `90f790763f4f0507d123f325d194d2cf7b9bf73f` to the reviewed fix
 `01b18397f9c5356a14e4cc66fa46f57216f11154`, published on
 `fix/validate-directory-before-write`. The fix validates both directory and privacy

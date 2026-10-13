@@ -22,7 +22,7 @@ const candidates = [
   ['freedom-storefront', '87eda4878fb761deb4f9a1c1d7e421c2701f3dcb'],
   ['freedom-supplier-client', '7e98c3733e48aa96517d53de6944e3e365108979'],
 ];
-const input = (name: string, candidateRoot: string, candidateCommit: string) => ({ repository: 'FreeTWAI-AI/' + name,
+const input = (name: string, candidateRoot: string, candidateCommit: string) => ({ repository: 'FreeTWAI/' + name,
   candidateRoot, candidateCommit, sourceRoot, expectedWorkflowCommit, expectedSourceCommit: '91b943ac61e132fbbce72ea066cb2301aa065600' });
 for (const [name, commit] of candidates) test(`combined fixed host binds source and HTTP observations for ${name}`, async () => {
   const result = await verifyNativeConsumerRuntime(input(name, join(roots, name), commit));

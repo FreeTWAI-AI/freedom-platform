@@ -27,7 +27,7 @@ function targetFor(capability:Capability,targetKey:string){
   }
   const page=developmentPages.find(value=>value.id===targetKey);
   requireCondition(page,404,'development_target_not_found','找不到這一頁的開發指引。');
-  return {key:targetKey,title:page.title,repository:'FreeTWAI-AI/freedom-platform',guide_url:`/development/${page.id}/SKILL.md`};
+  return {key:targetKey,title:page.title,repository:'FreeTWAI/freedom-platform',guide_url:`/development/${page.id}/SKILL.md`};
 }
 export class DevelopmentAccess {
   constructor(private pool:Pool,private social:GitHubSocial){}
@@ -79,7 +79,7 @@ export class DevelopmentAccess {
       const keys=(await q.query(`SELECT k.key_id,k.source_grant_id,k.scope,k.expires_at,k.revoked_at FROM development_keys k JOIN development_grants g ON g.grant_id=k.source_grant_id WHERE g.user_id=$1 AND g.community_id=$2 AND g.capability=$3 AND g.target_key=$4 ORDER BY k.created_at DESC LIMIT 20`,[actor.user_id,actor.community_id,capability,targetKey])).rows;
       const proposals=(await q.query('SELECT proposal_id,title,summary,pr_url,created_at FROM development_proposals WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND target_key=$4 ORDER BY created_at DESC LIMIT 20',[actor.user_id,actor.community_id,capability,targetKey])).rows;
       return {capability,target,guilds,eligible,intern_blocked:internBlocked,github:connection?{id:connection.github_user_id,login:connection.github_login}:null,app:this.social.developmentApp(),policy_version:DEVELOPMENT_POLICY,consent,grant,
-        enabled:Boolean(this.social.developmentApp().configured&&eligible&&consent&&connection&&grant&&grant.policy_version===DEVELOPMENT_POLICY&&!grant.revoked_at&&new Date(grant.expires_at)>new Date()),keys,proposals};
+        enabled:Boolean(this.social.developmentApp().configured&&eligible&&consent&&connection&&grant&&grant.target_repository===target.repository&&grant.policy_version===DEVELOPMENT_POLICY&&!grant.revoked_at&&new Date(grant.expires_at)>new Date()),keys,proposals};
     });
   }
   async consent(input:Command,rawKind:string,targetKey:string){

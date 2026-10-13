@@ -32,5 +32,5 @@ test('GitHub label automation creates and applies a missing page label once',asy
   assert.deepEqual(await labelIssue({fetcher,token:'synthetic',number:42}),{status:'labeled',label:'page:account'});
   assert.equal(calls.length,4);
   assert.deepEqual(JSON.parse(calls[3].body),{labels:['page:account']});
-  assert.ok(calls.every(call=>call.url.startsWith('https://api.github.com/repos/FreeTWAI-AI/freedom-platform/')));
+  assert.ok(calls.every(call=>call.url.startsWith('https://api.github.com/repos/FreeTWAI/freedom-platform/')));
 });
