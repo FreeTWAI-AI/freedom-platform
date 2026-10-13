@@ -31,7 +31,6 @@ npm test
 npm run test:e2e
 npm run test:contracts
 npm run test:repos
-npm run verify:inventory
 ```
 
 新增 runtime 覆蓋 migration 真回填、初次保存、重新定位、主要交換、清空、再入會、版本／冪等與並行退出。瀏覽器使用隔離會員或合成資料驗三區、六公會選擇、巢狀書庫對話框、解鎖互斥目錄、API 失敗與 1440／390／320px 卡片等高及完整人物。
