@@ -73,8 +73,9 @@ npm test
 npx playwright install chromium
 npm run test:e2e
 npm run test:contracts
-npm run verify:inventory
 ```
+
+日常 PR 不再重產或驗證全倉 inventory；CI 以 `scripts/ci/verify-source-boundaries.py` 檢查來源邊界，舊 inventory 只作歷史紀錄（見 [`scripts/ci/release-inventory.md`](../../scripts/ci/release-inventory.md)）。
 
 `npm run build` 之後，CI 跑 `worker:dry-run`、`worker:dry-run:admin-sync` 與 `test:worker`。dry-run 只打包，不登入 Cloudflare，步驟設 `WRANGLER_SEND_METRICS=false`。`test:worker` 用 job 已設定的 `TEST_DATABASE_URL`，在 workerd 執行 dry-run 產物。API 整合測試與瀏覽器測試各自建立暫存 PostgreSQL schema，結束後只移除該次 schema，不重設示範資料。CI 用獨立 PostgreSQL service。可用 `TEST_DATABASE_URL` 指向專用測試 DB；勿指向 production。
 
@@ -83,7 +84,7 @@ npm run verify:inventory
 - 網路回應未知時，UI 保留原 idempotency key；手動重試使用原內容，成功後重新讀取狀態。
 - 停止 API 後可再 `npm start`；資料不依賴 API process memory。
 - `/tmp` 配額不足造成 Chromium crash 時，可用有空間的 `TMPDIR` 重跑瀏覽器測試；不能把 crash 當驗收通過。
-- 修改來源後先完成測試與 release 紀錄，再執行 `python3 scripts/update-inventory.py`；`verify_revision.py` 只讀驗證，不自行改 manifest。
+- 修改來源後完成測試與 release 紀錄；`verify_revision.py` 只讀驗證，不自行改 manifest。
 
 Vite 熱更新可分別啟動 `APP_ORIGIN=http://127.0.0.1:5173 npm start` 與 `npm run dev`。一般示範建議單一 `npm run demo` 入口。
 
