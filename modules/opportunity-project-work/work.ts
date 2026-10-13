@@ -151,6 +151,10 @@ export async function dashboard(pool:Pool,actor:Actor) {
     JOIN work_review_routes r USING(work_item_id) JOIN users u ON u.user_id=c.claimant_ref
     WHERE w.community_id=$1 AND w.work_mode='community_collaboration' AND r.reviewer_ref=$2 AND r.revoked_at IS NULL AND r.valid_until>now()
     AND c.claimant_ref<>$2 AND NOT is_verification_test_account(c.claimant_ref) AND c.state IN ('submitted','in_review') ORDER BY c.created_at`,[actor.community_id,actor.user_id])).rows;
+  const submissions=reviewClaims.length?(await pool.query(`SELECT DISTINCT ON (claim_id) claim_id,submission_id,summary,artifact_ref,sha256,revision
+    FROM submissions WHERE claim_id=ANY($1::uuid[]) ORDER BY claim_id,revision DESC`,[reviewClaims.map(claim=>claim.claim_id)])).rows:[];
+  const latest=new Map(submissions.map(({claim_id,...submission})=>[claim_id,submission]));
+  const worksById=new Map(works.map(work=>[work.work_item_id,work]));
   return {now:works.filter(w=>w.my_claim && w.my_claim.state!=='accepted'),next:works.filter(w=>w.state==='open'),gained,
-    review_queue:await Promise.all(reviewClaims.map(async c=>({claim:await claimView(pool,c),work_item:works.find(w=>w.work_item_id===c.work_item_id),claimant_name:c.claimant_name}))),summary:{accepted_count:gained.length}};
+    review_queue:reviewClaims.map(c=>({claim:claimDto(c,latest.get(c.claim_id)??null),work_item:worksById.get(c.work_item_id),claimant_name:c.claimant_name})),summary:{accepted_count:gained.length}};
 }

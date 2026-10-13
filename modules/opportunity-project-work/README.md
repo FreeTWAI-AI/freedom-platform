@@ -88,10 +88,14 @@ callback. Feature extraction does not create a new authorization boundary.
 此函式，從全清單挑本人未完成認領，且待回饋項目以全清單查找工作 DTO。
 直接加 LIMIT 會讓較舊認領與待回饋工作消失；其他私人／tenant 分頁清單有自己的
 契約與呼叫流程，不能原樣套在此完整投影。這次只消除清單的 N+1 查詢，
-不宣稱回應大小或記憶體使用已受限；dashboard 自己的待回饋逐筆讀取也未改動。
+不宣稱回應大小或記憶體使用已受限。`dashboard` 的待回饋清單現在以一次
+`DISTINCT ON (claim_id)`／`revision DESC` 批次讀取最新 Submission（沒有待回饋
+認領時略過這次查詢），DTO、排序與原逐筆版本一致，Submission 的內部 `claim_id`
+不加入回應；仍**未加入分頁或上限**。
 `flows.test.ts` 用真實 PostgreSQL 比對逐筆版本與批次 DTO，涵蓋一筆／十七筆、
 無 Claim／無 Submission、多次 revision、他人 Claim、過期／撤銷 Review 與空社群；
-HTTP 包裝仍是 `{items}`。
+HTTP 包裝仍是 `{items}`。另以真實 PostgreSQL 比對 0／1／6 筆待回饋時與逐筆版本相同，
+且 1 筆與 6 筆的查詢次數相同。
 
 
 ## Tenant manual Work
