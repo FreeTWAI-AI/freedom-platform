@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL,transaction} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
@@ -12,6 +13,7 @@ import {Problem} from '../../packages/shared/problem.js';
 import type {Command} from '../../packages/db/index.js';
 import {login,type Actor} from '../../modules/identity-membership/service.js';
 
+import type {EventParticipation} from '../../modules/community/event-waitlist.js';
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_waitlist_${process.pid}_${Date.now()}`;
 const admin=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`,max:8});
@@ -200,4 +202,75 @@ test('bounded sweeps rotate past full queues instead of starving a later expired
   await processEventWaitlist(pool,noGuestMail,'https://example.test',now);
   assert.equal((await readEventParticipation(pool,actor(1),last)).waitlist?.status,'expired');
   assert.equal(await countEventSeats(pool,last,now),1);
+});
+
+async function acceptanceSnapshot(){
+  return (await pool.query<{snapshot:unknown}>(`SELECT jsonb_build_object(
+    'event',(SELECT aggregate_version FROM community_events WHERE event_id=$1),
+    'waitlist',(SELECT jsonb_agg(to_jsonb(w) ORDER BY entry_id) FROM community_event_waitlist w WHERE event_id=$1),
+    'transitions',(SELECT jsonb_agg(to_jsonb(t) ORDER BY transition_id) FROM community_event_waitlist_transitions t JOIN community_event_waitlist w USING(entry_id) WHERE w.event_id=$1),
+    'member_rsvps',(SELECT jsonb_agg(to_jsonb(r) ORDER BY rsvp_id) FROM community_event_rsvps r WHERE event_id=$1),
+    'guest_rsvps',(SELECT jsonb_agg(to_jsonb(r) ORDER BY email) FROM community_event_guest_rsvps r WHERE event_id=$1),
+    'member_receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY idempotency_key) FROM command_receipts r WHERE operation=$2),
+    'guest_receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY command_id) FROM community_event_guest_commands r WHERE event_id=$1),
+    'journal',(SELECT jsonb_agg(to_jsonb(t) ORDER BY transition_id) FROM transition_journal t WHERE aggregate_id=$1)
+  ) AS snapshot`,[eventId,`POST /events/${eventId}/waitlist`])).rows[0].snapshot;
+}
+
+for(const kind of ['member','guest'] as const)for(const phase of ['reconcile','rsvp','receipt'] as const)test(`${kind} acceptance rolls back when invitation expires during ${phase}`,async()=>{
+  const email='crossing-deadline@local.test',oldEmail='old-reservation@local.test',token=kind==='guest'?await capability(email):null;
+  if(token)await action(token,'join');
+  else{
+    const current=await readEventParticipation(pool,actor(1),eventId);
+    await mutateEventWaitlist(pool,memberCommand(1,`POST /events/${eventId}/waitlist`,{action:'join'},current.event_version),eventId);
+  }
+  await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state,created_at) VALUES($1,$2,'合成舊預留','pending',clock_timestamp()-interval '11 minutes')",[eventId,oldEmail]);
+  if(kind==='guest'&&phase==='rsvp')await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state) VALUES($1,$2,'合成取消報名','cancelled')",[eventId,email]);
+  const current=token?await readGuestEventParticipation(pool,eventId,token):await readEventParticipation(pool,actor(1),eventId);
+  const input=memberCommand(1,`POST /events/${eventId}/waitlist`,{action:'accept'},current.event_version),blocker=await pool.connect();
+  let pending:Promise<{value:EventParticipation}|{error:unknown}>|undefined;
+  try{
+    await blocker.query('BEGIN');
+    const pid=(await blocker.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    if(phase==='reconcile')await blocker.query('SELECT email FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2 FOR UPDATE',[eventId,oldEmail]);
+    if(phase==='rsvp'&&kind==='guest')await blocker.query('SELECT email FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2 FOR UPDATE',[eventId,email]);
+    if(phase==='rsvp'&&kind==='member')await blocker.query('LOCK TABLE community_event_rsvps IN SHARE MODE');
+    if(phase==='receipt')await blocker.query(`LOCK TABLE ${kind==='guest'?'community_event_guest_commands':'command_receipts'} IN SHARE MODE`);
+    await pool.query("UPDATE community_event_waitlist SET expires_at=clock_timestamp()+interval '3 seconds' WHERE event_id=$1",[eventId]);
+    const before=await acceptanceSnapshot();
+    pending=(token?mutateGuestEventParticipation(pool,eventId,token,{action:'accept',expected_version:current.event_version},input.key):mutateEventWaitlist(pool,input,eventId))
+      .then(value=>({value}),(error:unknown)=>({error}));
+    let waiting=false;
+    for(let attempt=0;attempt<100&&!waiting;attempt++){
+      waiting=(await pool.query<{waiting:boolean}>('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) AS waiting',[pid])).rows[0].waiting;
+      if(!waiting)await delay(10);
+    }
+    assert.equal(waiting,true,'acceptance reaches the owned PostgreSQL blocker');
+    await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.02) FROM community_event_waitlist WHERE event_id=$1',[eventId]);
+    await blocker.query('ROLLBACK');
+    const outcome=await pending;assert.ok('error' in outcome);
+    assert.ok(outcome.error instanceof Problem);assert.equal(outcome.error.status,409);assert.equal(outcome.error.code,'invitation_unavailable');
+    assert.deepEqual(await acceptanceSnapshot(),before);
+  }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+});
+
+for(const kind of ['member','guest'] as const)test(`${kind} accepted history remains replayable after its invitation deadline`,async()=>{
+  const token=kind==='guest'?await capability('accepted-history@local.test'):null;
+  if(token)await action(token,'join');
+  else{
+    const current=await readEventParticipation(pool,actor(1),eventId);
+    await mutateEventWaitlist(pool,memberCommand(1,`POST /events/${eventId}/waitlist`,{action:'join'},current.event_version),eventId);
+  }
+  const current=token?await readGuestEventParticipation(pool,eventId,token):await readEventParticipation(pool,actor(1),eventId);
+  const input=memberCommand(1,`POST /events/${eventId}/waitlist`,{action:'accept'},current.event_version);
+  const body={action:'accept',expected_version:current.event_version};
+  const accepted=token?await mutateGuestEventParticipation(pool,eventId,token,body,input.key):await mutateEventWaitlist(pool,input,eventId);
+  await pool.query("UPDATE community_event_waitlist SET expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1",[eventId]);
+  const before=await acceptanceSnapshot();
+  const replay=token?await mutateGuestEventParticipation(pool,eventId,token,body,input.key):await mutateEventWaitlist(pool,input,eventId);
+  assert.deepEqual(replay,accepted);assert.deepEqual(await acceptanceSnapshot(),before);
+  const unchanged=token?await readGuestEventParticipation(pool,eventId,token):await readEventParticipation(pool,actor(1),eventId);
+  const noOp=token?await mutateGuestEventParticipation(pool,eventId,token,{action:'accept',expected_version:unchanged.event_version},randomUUID())
+    :await mutateEventWaitlist(pool,memberCommand(1,input.operation,{action:'accept'},unchanged.event_version),eventId);
+  assert.deepEqual(noOp,unchanged);assert.equal(noOp.waitlist?.status,'accepted');assert.equal(noOp.rsvp_state,'going');
 });
