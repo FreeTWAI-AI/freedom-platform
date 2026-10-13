@@ -96,6 +96,16 @@ including whitespace around names or identical values, return
 `403 credential_kind_rejected`; the platform rejects them before reading a
 mutation body or creating, replacing or revoking sessions.
 
+The existing scheduled auth maintenance also prunes email-verification and
+login-email-change proofs (#494), consumed or unused, once `expires_at` is more
+than 24 hours old, matching password-reset proofs' grace period. Each table uses
+the same per-run batch limit (default 500) and `FOR UPDATE SKIP LOCKED`; live,
+recently expired and currently locked proofs stay untouched, with skipped stale
+rows eligible on a later run. This removes short-lived proof/address metadata,
+not members, sessions, account journals or business history. It adds no new cron,
+permissions, feature flag or mail provider; deployment remains separately
+authorized. Node does not acquire an automatic scheduler through this change.
+
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
 - `POST /auth/register`: `{email,password,nickname?,contacts?}`. Password 12–128
   characters, nickname up to 60. A missing or blank nickname becomes
