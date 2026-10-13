@@ -467,3 +467,87 @@ test('unknown appearance response retains the original key and selection until c
   expect(casAttempts).toHaveLength(2); expect(casAttempts[1].body).toBe(casAttempts[0].body);
   expect(casAttempts[1].version).toBe('"3"'); expect(casAttempts[1].key).toBeTruthy(); expect(casAttempts[1].key).not.toBe(casAttempts[0].key);
 });
+
+test('published store and product links can be copied from the editor', async ({page, context, browser, e2eAuthPool}, testInfo) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const member = await person(e2eAuthPool); await login(page, member.email);
+  const ready = await launchStore(page, '複製連結工作室');
+  const slug = slugFor().toLowerCase();
+  await post(page, ready.root + '/setup', {name: '小島選物', brand: 'Island Picks', description: '小島上的選物', slug, currency: 'TWD'}, 201);
+  for (const product of [{title: '手工茶杯', price_minor: 35000, stock: 5, description: '日常杯子'}, {title: '麻布杯墊', price_minor: 12050, stock: 0, description: '杯墊'}]) {
+    await post(page, ready.root + '/products', product, 201);
+  }
+  await open(page, ready.hash);
+  const storeLink = storePage(page).getByRole('button', {name: '複製商店連結', exact: true});
+  const productLinks = storePage(page).getByRole('button', {name: '複製商品連結', exact: true});
+  const heldLine = '有尚未發布的變更；發布更新後才能複製商品連結。';
+  await expect(storeLink).toHaveCount(0);
+  await expect(productLinks).toHaveCount(0);
+  await expect(page.getByText(heldLine, {exact: true})).toHaveCount(0);
+  await storePage(page).getByRole('button', {name: '發布展示頁', exact: true}).click();
+  await expect(storePage(page).getByRole('status')).toContainText('已發布・第 1 版');
+  await expect(storePage(page).getByRole('link', {name: `查看公開頁：/shops/${slug}`, exact: true})).toBeVisible();
+  await expect(productLinks).toHaveCount(2);
+  await expect(page.getByText(heldLine, {exact: true})).toHaveCount(0);
+  await storeLink.click();
+  await expect(storePage(page).getByRole('status')).toContainText('已複製連結');
+  const storeUrl = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+  const origin = new URL(page.url()).origin;
+  expect(storeUrl.origin).toBe(origin);
+  expect(storeUrl.href).toBe(new URL(`/shops/${slug}`, page.url()).href);
+  for (const title of ['手工茶杯', '麻布杯墊']) {
+    const row = storePage(page).locator('.hosted-store-product').filter({has: page.getByRole('heading', {name: title, exact: true})});
+    await row.getByRole('button', {name: '複製商品連結', exact: true}).click();
+    await expect(storePage(page).getByRole('status')).toContainText('已複製連結');
+    const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+    expect(copied.origin).toBe(origin);
+    const tab = await browser.newPage();
+    try {
+      await tab.goto(copied.href);
+      const shareHref = await tab.getByRole('link', {name: '商品分享連結', exact: true}).getAttribute('href');
+      const share = new URL(shareHref ?? '', tab.url());
+      expect(share.origin).toBe(new URL(tab.url()).origin);
+      expect(copied.href).toBe(share.href);
+      await expect(tab.getByRole('heading', {level: 1, name: title, exact: true})).toBeVisible();
+    } finally {await tab.close();}
+  }
+  const publication = page.getByRole('region', {name: '預覽與發布', exact: true});
+  for (const mode of ['light', 'dark']) {
+    await theme(page, mode);
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({width, height: width === 390 ? 844 : 900});
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const box = await publication.getByRole('button', {name: '複製商店連結', exact: true}).boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      await publication.screenshot({path: testInfo.outputPath(`publish-copy-${mode}-${width}.png`)});
+    }
+  }
+  await page.setViewportSize({width: 1280, height: 900});
+  const row = storePage(page).locator('.hosted-store-product').filter({has: page.getByRole('heading', {name: '手工茶杯', exact: true})});
+  await row.getByRole('button', {name: '編輯', exact: true}).click();
+  const edit = page.getByRole('form', {name: '編輯手工茶杯', exact: true});
+  await edit.getByLabel('商品名稱', {exact: true}).fill('手工茶杯改款');
+  await edit.getByRole('button', {name: '儲存', exact: true}).click();
+  await expect(storePage(page).getByRole('status')).toContainText('已儲存。');
+  await expect(productLinks).toHaveCount(0);
+  await expect(page.getByText(heldLine, {exact: true})).toBeVisible();
+  await expect(storeLink).toBeVisible();
+  await storeLink.click();
+  await expect(storePage(page).getByRole('status')).toContainText('已複製連結');
+  expect(new URL(await page.evaluate(() => navigator.clipboard.readText())).href).toBe(new URL(`/shops/${slug}`, page.url()).href);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: () => Promise.reject(new DOMException('blocked', 'NotAllowedError'))}});
+  });
+  await page.reload();
+  await open(page, ready.hash);
+  await expect(storeLink).toBeVisible();
+  await expect(productLinks).toHaveCount(0);
+  await storeLink.click();
+  const manual = publication.getByLabel('手動複製連結', {exact: true});
+  await expect(manual).toBeVisible();
+  await expect(manual).toHaveJSProperty('readOnly', true);
+  await expect(manual).toHaveValue(new URL(`/shops/${slug}`, page.url()).href);
+  await expect(manual).toBeFocused();
+  expect(await manual.evaluate(element => {const field = element as HTMLInputElement; return field.selectionStart === 0 && field.selectionEnd === field.value.length;})).toBe(true);
+  await expect(storePage(page).getByRole('status')).toContainText('無法自動複製，請選取並複製下方內容');
+});

@@ -1,6 +1,6 @@
 import {ProductMediaPageSchema,type ProductMediaView} from '../../../../contracts/guild-launchpad/v1/hosted-store-media';
 import {HostedStorePhoto} from './HostedStorePhoto';
-import {useEffect, useId, useRef, useState, type FormEvent} from 'react';
+import {useEffect, useId, useRef, useState, type FormEvent, type RefObject} from 'react';
 import {z} from 'zod';
 import {OpaqueId} from '../../../../contracts/common/v1/identity';
 import {
@@ -20,11 +20,22 @@ import {HostedSellerOrders, SellerOrdersLink} from './HostedSellerOrders';
 import {HostedSupplierOrders} from './HostedSupplierOrders';
 import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {sellerOrdersRoute} from './hosted-seller-order-state';
+import {useLocalAction} from '../useLocalAction';
 import {HostedSupplyCatalog, SupplyCatalogList} from './HostedSupplyCatalog';
 import {HostedReservationSetting} from './HostedReservationSetting';
 import './HostedStore.css';
 
 const NOTICE = '店鋪／商品展示已就緒，交易尚未啟用';
+// Same path as productPath in modules/agent-commerce/hosted/page.ts (not exported).
+function productSharePath(slug: string, sku: string) {
+  return `/shops/${encodeURIComponent(slug)}/products/${encodeURIComponent(sku)}`;
+}
+function absoluteUrl(path: string) {
+  return new URL(path, window.location.origin).href;
+}
+function ManualCopy({url, fieldRef}: {url: string; fieldRef: RefObject<HTMLInputElement | null>}) {
+  return <label className="field">手動複製連結<input ref={fieldRef} readOnly value={url} onFocus={event => event.currentTarget.select()}/></label>;
+}
 const LEAVE = '還有尚未儲存的內容，要離開嗎？';
 const NEXT: Record<string, string> = {
   storefront_slug_taken: '請換一個商店網址。',
@@ -114,6 +125,9 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
   const statusLine = useRef<HTMLParagraphElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [supplyEditing, setSupplyEditing] = useState<string | null>(null);
+  const [manualUrl, setManualUrl] = useState<string | null>(null);
+  const manualField = useRef<HTMLInputElement>(null);
+  const copyAction = useLocalAction([root]);
   function leaveOk() {
     if (Object.values(photoBlockRef.current).some(Boolean)) {announce('照片操作尚未確認，請先重試原照片操作。');return false;}
     if (busyRef.current || held.current) {
@@ -157,8 +171,18 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
     } finally {if (current()) setLoading(false);}
   }
   useEffect(() => {markDirty('appearance', templateChoice !== null && templateChoice !== appearance?.template_id);}, [templateChoice, appearance?.template_id]);
+  useEffect(() => {
+    if (!manualUrl) return;
+    manualField.current?.focus();
+    manualField.current?.select();
+  }, [manualUrl]);
   function markDirty(id: string, value: boolean) {setDirtyForms(old => old[id] === value ? old : {...old, [id]: value});}
   function announce(text: string) {setStatus(text); requestAnimationFrame(() => statusLine.current?.focus());}
+  async function copyLink(url: string) {
+    const result = await copyAction.run('copy', () => {setManualUrl(null); setStatus(''); return navigator.clipboard.writeText(url);});
+    if (result.status === 'done') announce('已複製連結');
+    else if (result.status === 'failed') {setStatus('無法自動複製，請選取並複製下方內容'); setManualUrl(url);}
+  }
   async function send(attempt: Attempt) {
     if (busyRef.current) return;
     held.current = attempt; busyRef.current = true; setBusy(true); setRetry(null); setError('');
@@ -194,6 +218,11 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
   const publication = view?.publication;
   const publicationText = publication?.state === 'published' ? `已發布・第 ${publication.current_revision} 版・${formatIsoLocal(publication.published_at)}`
     : publication?.state === 'unpublished' ? '已停止公開' : '尚未發布';
+  const publicPath = publication?.state === 'published' ? publication.public_path : null;
+  const storeCopyUrl = publicPath ? absoluteUrl(publicPath) : null;
+  // preview.projection is the published snapshot only while clean; a dirty preview is the saved draft.
+  const publishedSkus = publication?.state === 'published' && preview && !preview.dirty ? new Set(preview.projection.products.map(item => item.sku)) : null;
+  const productCopyUrl = (sku: string) => store && publishedSkus?.has(sku) ? absoluteUrl(productSharePath(store.slug, sku)) : null;
   return <div className="hosted-store stack">
     <BackLink/>
     <p ref={statusLine} tabIndex={-1} role="status" aria-live="polite">{loading && !view ? '正在載入商店…' : [status, store ? publicationText : ''].filter(Boolean).join(' ')}</p>
@@ -212,6 +241,7 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
             version:reservationSetting.version,schema:ReservationSettingSchema,notice:reservationSetting.reservation_enabled?'已停止接受新預留。既有預留仍可查看與取消。':'已開放 30 分鐘預留。',success:()=>{}})}/>}
         <section className="stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
           <p>{view.product_count}／{view.product_limit} 件商品</p>
+          {publication?.state === 'published' && preview?.dirty && <p>有尚未發布的變更；發布更新後才能複製商品連結。</p>}
           {!products.length && <p>{view.product_count ? '這間店目前使用合作選品；下方可管理供貨合作。' : '還沒有商品。新增第一件商品後就能發布。'}</p>}
           <div className="hosted-store-products">{products.map(product => <article className="hosted-store-product stack" key={product.product_id}>
             {supplyEditing === product.product_id && can('store:write') ? <HostedSupplyTerms client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked} onPublish={can('store:publish') ? version => command({method: 'post', path: root + '/products/' + product.product_id + '/supply-offer', body: {}, version, schema: SupplyOfferSchema, notice: '已公開供貨版本，店主可申請選用。', success: () => {setSupplyEditing(null); markDirty('supply', false);}}) : undefined} onDirty={value => markDirty('supply', value)} onCancel={() => {if (leaveOk()) {setSupplyEditing(null); markDirty('supply', false);}}} onSave={(body, version, success) => command({method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, product: true, notice: '已儲存供貨條件。', success: () => {success(); setSupplyEditing(null); markDirty('supply', false);}})}/>
@@ -220,6 +250,8 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
                 {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setSupplyEditing(null); setEditing(product.product_id); markDirty('edit', false);}}}>編輯</button>
                   <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setEditing(null); setSupplyEditing(product.product_id);}}}>供貨條件</button>
                   <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (window.confirm(`要移除「${product.title}」嗎？已發布的展示頁要重新發布後才會更新。`)) void command({method: 'post', path: root + '/products/' + product.product_id + '/remove', body: {}, version: product.version, schema: ProductRemovedSchema, product: true, notice: '已移除商品。', success: () => {}});}}>移除</button></div>}
+                {productCopyUrl(product.sku) && <div className="actions"><button type="button" className="btn btn-ghost" aria-busy={copyAction.pending !== null} disabled={copyAction.pending !== null} onClick={() => {const url = productCopyUrl(product.sku); if (url) void copyLink(url);}}>複製商品連結</button></div>}
+                {manualUrl !== null && manualUrl === productCopyUrl(product.sku) && <ManualCopy url={manualUrl} fieldRef={manualField}/>}
               </>}
             {photosEnabled&&<HostedStorePhoto client={client} userId={userId} tenantId={tenantId} instanceId={instanceId} product={product} media={media.find(item=>item.product_id===product.product_id)}
               writable={can('store:write')} uploadsEnabled={photoUploadsEnabled} locked={busy||retry!==null||(photoBlocking&&!photoBlocks[product.product_id])}
@@ -248,7 +280,8 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
           </div>}
           {can('store:publish') && hasDraft && <p className="field-hint">還有尚未儲存的內容。請先儲存商店資料與商品，再發布或停止公開。</p>}
           {can('store:publish') && !preview?.projection.products.length && <p className="field-hint">至少上架一件商品才能發布。</p>}
-          {publication?.state === 'published' && publication.public_path && <div className="actions"><a href={publication.public_path} target="_blank" rel="noopener">查看公開頁：{publication.public_path}</a></div>}
+          {publicPath && storeCopyUrl && <div className="actions"><a href={publicPath} target="_blank" rel="noopener">查看公開頁：{publicPath}</a><button type="button" className="btn btn-ghost" aria-busy={copyAction.pending !== null} disabled={copyAction.pending !== null} onClick={() => void copyLink(storeCopyUrl)}>複製商店連結</button></div>}
+          {manualUrl !== null && manualUrl === storeCopyUrl && <ManualCopy url={manualUrl} fieldRef={manualField}/>}
           {store.slug_locked && <p className="field-hint">網址已固定。</p>}
         </section>
         <section className="stack" aria-labelledby="store-settings-title"><h3 id="store-settings-title">商店資料</h3>
