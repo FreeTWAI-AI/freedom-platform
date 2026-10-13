@@ -2,7 +2,7 @@
 
 這份文件寫下邀請前要先講清楚的任務、同意與資料範圍。對象是少數自願會員，加上兩位核心團隊以外的公會作者。範圍由維護者劃定，不是對整個社群開放，也不是把 [收尾紀錄](../platform-plan/execution/unified-foundation/closeout.md) 裡尚未邀請的真人驗收當成已經做完。
 
-本文件不邀請任何人、不寄信、不建立帳號，也不改產品。還沒有真人結果。邀請前再對一次正式站與 [現行旗標快照](../platform-plan/execution/unified-foundation/current-state.json)。工程收尾（R20–R23 的供貨、商店、作品、活動）以該收尾紀錄為準，這裡只寫參加者要走的畫面。
+本文件不邀請任何人、不寄信、不建立帳號，也不改產品。還沒有真人結果。邀請前再對一次正式站與 [現行旗標快照](../platform-plan/execution/unified-foundation/current-state.json)。工程收尾（R20–R24 的供貨、商店、作品、活動，含活動草稿離開保護）以該收尾紀錄為準，這裡只寫參加者要走的畫面。
 
 付款成功的賣家案例用 [第一筆真實案例包](./first-real-case-pack.md)，不要把這次的未付款預留填進那份案例範本。介面語氣沿用 [簡約會員體驗](./calm-member-experience.md)。公會怎麼分組見 [公會圖書館版面](./guild-library-layout.md)；該頁若仍寫 `npm run verify:inventory`，那是舊門檻，這次作者不必跑。
 
@@ -10,7 +10,7 @@
 
 會員從 <https://freetwai.com> 用自己的正式帳號操作。還沒有帳號時，走站上既有的 Email 與密碼註冊。四條會員任務各自獨立，做完自己那一條即可。
 
-下列限制必須在開始前告訴參加者。旗標取自快照 `2bd62c256185f209dd936a8d811dc3c5d3b0d051`，觀察時間 2026-10-12。
+下列限制必須在開始前告訴參加者。旗標記錄於 R23 快照 `2bd62c256185f209dd936a8d811dc3c5d3b0d051`（2026-10-12）。R24 `dcb39351` 沒有改功能旗標、migration 或會員權限。
 
 必須先講、而且這次任務不會打開的能力：
 
@@ -187,7 +187,7 @@ npm run guild:test -- modules/guild-supply
 
 選到時的工作是：typecheck、portal-build、guild-registration、公會 runtime（五個檔）、殼層整合 browser（三個檔）、guild-preview（兩個檔）、static-worker。完整 runtime 與完整 browser 不會被選上。source-integrity、CodeQL 與審查仍會跑。
 
-歷史對照只說明路徑存在過：[#467](https://github.com/FreeTWAI-AI/freedom-platform/pull/467) 只改了 `CatalogBlock.tsx`，必要 Verify 388 秒（公會 runtime 38、殼層整合 browser 15、預覽 3，以及 static-worker）。那是 AI 協作的紀錄，不是非核心真人的結果，也不保證下一次的時間。README 引用的安裝前 workflow pin 是 `14f82aa2`。作者不要重寫 inventory。若工具要求去改中央殼層，停下來記入觀察；這條路徑不需要改殼層。
+歷史對照只說明路徑存在過：[#467](https://github.com/FreeTWAI-AI/freedom-platform/pull/467) 只改了 `CatalogBlock.tsx`，必要 Verify 388 秒（公會 runtime 38、殼層整合 browser 15、預覽 3，以及 static-worker）。那是 AI 協作的紀錄，不是非核心真人的結果，也不保證下一次的時間。目前組織規則安裝的 PR Verify workflow pin 是 `14f82aa2`。作者不要重寫 inventory。若工具要求去改中央殼層，停下來記入觀察；這條路徑不需要改殼層。
 
 要記下：有沒有碰到中央殼層、inventory，或找核心作者；GitHub Actions 實際花了多久；哪一則錯誤讓人看不懂。
 
