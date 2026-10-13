@@ -1,4 +1,4 @@
-import {test,expect} from './member-feature-fixture.js';
+import {test,expect,type Page} from './member-feature-fixture.js';
 import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 import {closeChat,openHomeGuide,signOut} from './navigation.js';
 
@@ -51,6 +51,43 @@ test('optional guidance persists suppression, unfinished choice and actual compl
   }
   expect(pageErrors).toEqual([]);
 });
+test('keyboard-only skip, resume and stop work at desktop and phone widths',async({page})=>{
+  const pageErrors:string[]=[];
+  page.on('pageerror',error=>pageErrors.push(error.message));
+  const email=`first-key-${crypto.randomUUID()}@example.test`,guild='guild_event_space';
+  await page.goto('/');
+  const registered=await page.request.post('/api/v1/auth/register',{headers:{Origin:new URL(page.url()).origin},data:{email,password,nickname:'合成鍵盤'}});
+  expect(registered.status()).toBe(201);
+  const auth=await registered.json();
+  const headers={Origin:new URL(page.url()).origin,'X-CSRF-Token':auth.csrf_token,'Idempotency-Key':crypto.randomUUID()};
+  const joined=await page.request.post('/api/v1/me/onboarding/quick-start',{headers,data:{guild_keys:[guild],primary_guild_key:guild,guild_answers:sampleGuildAnswers(guild),confirmed:true}});
+  expect(joined.status()).toBe(200);
+  await page.goto('/#home');await page.reload();await openHomeGuide(page);
+  const guide=page.locator('.first-participation');
+  await expect(guide.getByText('第一次參與 · 選填',{exact:true})).toBeVisible();
+  for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:320,height:844}]){
+    await page.setViewportSize(viewport);
+    await openHomeGuide(page);
+    await tabToGuideButton(page,'略過');
+    await page.keyboard.press('Enter');
+    await expect(guide).toContainText('已略過第一次參與。');
+    await expectGuideFocus(page);
+    await tabToGuideButton(page,'重新啟用參與引導');
+    await page.keyboard.press('Space');
+    await expect(guide.getByRole('button',{name:'略過',exact:true})).toBeVisible();
+    await expectGuideFocus(page);
+    await tabToGuideButton(page,'不再提示');
+    await page.keyboard.press('Enter');
+    await expect(guide).toContainText('已停止提示。');
+    await expectGuideFocus(page);
+    await tabToGuideButton(page,'重新啟用參與引導');
+    await page.keyboard.press('Enter');
+    await expect(guide.getByRole('button',{name:'略過',exact:true})).toBeVisible();
+    await expectGuideFocus(page);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  expect(pageErrors).toEqual([]);
+});
 
 });
 test.describe('default-off first participation',()=>{
@@ -64,3 +101,22 @@ test('default-off guidance stays absent and its API fails closed before authenti
 });
 
 });
+
+async function tabToGuideButton(page:Page,name:string){
+  for(let presses=0;presses<=40;presses++){
+    const matched=await page.evaluate(label=>{
+      const el=document.activeElement;
+      return el instanceof HTMLButtonElement && el.closest('.first-participation')!==null && (el.innerText||'').replace(/\s+/g,' ').trim()===label;
+    },name);
+    if(matched)return;
+    if(presses===40)break;
+    await page.keyboard.press('Tab');
+  }
+  throw new Error(`Tab did not reach ${name} within 40 presses`);
+}
+async function expectGuideFocus(page:Page){
+  await expect.poll(()=>page.evaluate(()=>{
+    const el=document.activeElement;
+    return Boolean(el && el!==document.body && el.closest('.first-participation'));
+  })).toBe(true);
+}
