@@ -31,8 +31,9 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
   const [queueError,setQueueError] = useState<string|null>(null);
   const live = useRef(false), reading = useRef(0), queueReading = useRef(0);
   const pending = useRef<Attempt|null>(null), sending = useRef(false);
-  const queueVisible = useRef(false);
+  const queueVisible = useRef(false), pendingFocus = useRef(false), statusRef = useRef<HTMLParagraphElement>(null);
   queueVisible.current = queueOpen;
+  useEffect(() => { if (!pendingFocus.current || !data) return; pendingFocus.current = false; statusRef.current?.focus({preventScroll:true, focusVisible:false}); }, [data]);
 
   const load = useCallback(async () => {
     const ticket = ++reading.current;
@@ -76,7 +77,7 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
     if (choice === 'work') onNavigate?.('showcase');
     else if (guildKey) openMemberChat('guild',guildKey);
   }
-  async function send(attempt:Attempt) {
+  async function send(attempt:Attempt, userAction=false) {
     if (sending.current || !live.current) return;
     sending.current = true; pending.current = attempt; setBusy(true); setError(null); setRetry(false);
     reading.current++; queueReading.current++; setData(null); setQueue(null);
@@ -85,6 +86,7 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
       if (!live.current) return;
       pending.current = null;
       const current = await load();
+      if (userAction && current) pendingFocus.current = true;
       if (!live.current) return;
       if (queueVisible.current) await loadQueue();
       if (live.current && attempt.open && current?.choice === attempt.open && current.state === 'chosen') open(attempt.open,current.guild_key);
@@ -95,7 +97,7 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
       setRetry(uncertain);
       setError(cause instanceof Error ? cause.message : '操作未完成，請重試。');
       // Keep the exact command/body/version/key after an unknown outcome; no different command may replace it.
-      if (!uncertain) { await load(); if (queueVisible.current) await loadQueue(); }
+      if (!uncertain) { const restored = await load(); if (userAction && restored) pendingFocus.current = true; if (queueVisible.current) await loadQueue(); }
     } finally {
       sending.current = false;
       if (live.current) setBusy(false);
@@ -103,7 +105,7 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
   }
   function action(body:Action,openAfter?:Attempt['open']) {
     if (!data || pending.current) return;
-    void send({path,body,version:data.aggregate_version,key:crypto.randomUUID(),open:openAfter});
+    void send({path,body,version:data.aggregate_version,key:crypto.randomUUID(),open:openAfter},body.action==='skip'||body.action==='dismiss'||body.action==='resume');
   }
   const disabled = busy || loading || retry;
   const quiet = data?.state === 'skipped' || data?.state === 'dismissed';
@@ -114,8 +116,8 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
     {loading && <p role="status">正在讀取真實參與進度…</p>}
     {error && <div role="alert"><p>{error}</p>{retry && <><p>結果尚未確認；保留原操作，不會另送一份內容。</p><button className="btn btn-ghost" type="button" disabled={busy} onClick={()=>{if(pending.current)void send(pending.current);}}>重試同一操作</button></>}</div>}
     {data && <>
-      {quiet ? <><p>{data.state === 'dismissed' ? '已停止提示。' : '已略過第一次參與。'}常用入口仍可照常使用。</p><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'resume'})}>重新啟用參與引導</button></> : <>
-        <p>不用補做完整定位，也不用綁定 GitHub、AI 或社群帳號。選一條路，實際送出後才會記錄成果；點開頁面不算完成。</p>
+      {quiet ? <><p ref={statusRef} tabIndex={-1}>{data.state === 'dismissed' ? '已停止提示。' : '已略過第一次參與。'}常用入口仍可照常使用。</p><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'resume'})}>重新啟用參與引導</button></> : <>
+        <p ref={statusRef} tabIndex={-1}>不用補做完整定位，也不用綁定 GitHub、AI 或社群帳號。選一條路，實際送出後才會記錄成果；點開頁面不算完成。</p>
         {data.state === 'offered' && <div className="first-participation-actions"><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'choose',choice:'work'},'work')}>選擇分享自己的作品</button><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'choose',choice:'introduction'},'introduction')}>選擇在{primaryGuild.name}介紹自己</button></div>}
         {data.state === 'chosen' && <>
           <p role="status">已選擇{data.choice === 'work' ? '分享作品' : '公會自我介紹'}，尚未確認實際發布。{data.started_at && <> 起始時間：<time dateTime={data.started_at}>{new Date(data.started_at).toLocaleString()}</time>。</>}</p>
