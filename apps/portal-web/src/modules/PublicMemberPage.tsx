@@ -15,7 +15,12 @@ export function PublicMemberPage({client,token,session,onLogin,onReturn,onEdit}:
     const data=await client.get<PublicCard>(`/public/member-cards/${token}`);if(current!==generation.current)return;setCard(data);
     if(session){const full=await client.get<MemberCardData>(`/member-cards/${token}/member`);if(current===generation.current)setMember(full);}
   }catch(cause){if(current===generation.current)setLoadError(cause instanceof Error?cause.message:'名片暫時無法開啟。');}finally{if(current===generation.current)setLoading(false);}}
-  useEffect(()=>{void load();if(session)void loadLabels(client).then(setLabels).catch(()=>{});return()=>{generation.current++;};},[client,token,session?.user.user_id]);
+  useEffect(()=>{
+    const refresh=()=>{void load();},visible=()=>{if(document.visibilityState==='visible')refresh();};
+    refresh();if(session)void loadLabels(client).then(setLabels).catch(()=>{});
+    window.addEventListener('focus',refresh);window.addEventListener('pageshow',refresh);document.addEventListener('visibilitychange',visible);
+    return()=>{generation.current++;window.removeEventListener('focus',refresh);window.removeEventListener('pageshow',refresh);document.removeEventListener('visibilitychange',visible);};
+  },[client,token,session?.user.user_id]);
   async function invite(){if(!member)return;const saved=await mutate(`/friends/${member.user_id}/request`,{},member.friendship.aggregate_version);if(saved){setNotice('好友邀請已送出。');await load();}}
   const design=card?.design??'calm';
   return <main className="public-member-page" data-design={!loading&&!loadError&&card?design:undefined}><BrandPoster compact/>
