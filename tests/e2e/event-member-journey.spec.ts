@@ -67,7 +67,29 @@ test('member previews an event, an authorized officer approves it, and participa
   const shared=await page.evaluate(()=>navigator.clipboard.readText());
   expect(new URL(shared).origin).toBe(new URL(page.url()).origin);
   const guest=await browser.newContext({timezoneId:'Asia/Taipei'});
-  try{const publicPage=await guest.newPage();await publicPage.goto(shared);await expect(publicPage.getByRole('heading',{name:title,exact:true})).toBeVisible();}
+  try{
+    const publicPage=await guest.newPage();await publicPage.goto(shared);
+    // This real local journey requires the inline-login mode, rather than the discovery join redirect.
+    const site=await publicPage.request.get(new URL('/api/v1/site',shared).href);
+    expect((await site.json()).community_discovery_enabled).toBe(false);
+    await expect(publicPage.getByRole('heading',{name:title,exact:true})).toBeVisible();
+    // /go/ replaces itself with the event page. Login has to stay on that page, query included.
+    const eventUrl=publicPage.url();
+    const eventLocation=new URL(eventUrl);
+    expect(eventLocation.origin).toBe(new URL(shared).origin);
+    expect(eventLocation.pathname).toMatch(/^\/events\/[0-9a-f-]{36}\/?$/);
+    await publicPage.getByRole('button',{name:'會員登入',exact:true}).click();
+    await expect(publicPage.getByRole('button',{name:'返回活動',exact:true})).toBeVisible();
+    await publicPage.getByLabel('電子郵件',{exact:true}).fill('client@local.test');
+    await publicPage.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+    await publicPage.getByRole('button',{name:'登入',exact:true}).click();
+    await expect(publicPage.getByRole('region',{name:'活動專頁',exact:true})).toContainText(title);
+    await expect(publicPage).toHaveURL(eventUrl);
+    expect(await publicPage.evaluate(()=>window.history.state?.freedomEventLogin)).toBeUndefined();
+    await publicPage.goBack();await publicPage.goForward();
+    await expect(publicPage.getByRole('region',{name:'活動專頁',exact:true})).toContainText(title);
+    await expect(publicPage.getByRole('button',{name:'返回活動',exact:true})).toHaveCount(0);
+  }
   finally{await guest.close();}
   await logout(page);await login(page,'client@local.test');await page.goto(shared);
   await page.getByRole('button',{name:'我要參加',exact:true}).click();await expect(page.getByRole('button',{name:'取消報名',exact:true})).toBeVisible();
