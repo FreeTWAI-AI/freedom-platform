@@ -1,6 +1,6 @@
 import {createContext,useContext,useEffect,useRef,useState,type ReactNode} from 'react';
 import {flushSync} from 'react-dom';
-import type {PortalClient} from '../api';
+import {ApiError,type PortalClient} from '../api';
 import type {SessionPayload} from '../types';
 import './DevelopmentAccess.css';
 
@@ -36,7 +36,15 @@ export function DevelopmentAccessProvider({client,session,children}:{client:Port
     if(busy)return null;setBusy(true);setError('');setNotice('');setSecret('');const generation=epoch.current;
     const request=JSON.stringify({path,body});if(pending.current?.request!==request)pending.current={request,key:crypto.randomUUID()};
     try{const result=await client.post<any>(path,body,{idempotencyKey:pending.current!.key});if(generation!==epoch.current)return null;pending.current=null;await load(generation);return generation===epoch.current?result:null;}
-    catch(cause){if(generation===epoch.current)setError(cause instanceof Error?cause.message:'尚未確認結果，請重試。');return null;}
+    catch(cause){
+      if(generation===epoch.current){
+        // A refused operation can commit a grant revocation. Read authority
+        // again without replaying the mutation or treating an outage as denial.
+        if(cause instanceof ApiError&&(cause.status===403||cause.status===409)){setView(null);await load(generation);}
+        if(generation===epoch.current)setError(cause instanceof Error?cause.message:'尚未確認結果，請重試。');
+      }
+      return null;
+    }
     finally{if(generation===epoch.current)setBusy(false);}
   }
   async function join(guild:View['guilds'][number]){

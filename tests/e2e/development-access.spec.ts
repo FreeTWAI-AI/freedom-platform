@@ -63,3 +63,125 @@ test('a safe saved target resumes after reload without saving credentials or wid
  await expect(modal.getByLabel('私人開發指令',{exact:true})).toHaveCount(0);await modal.getByRole('button',{name:'關閉開發任務',exact:true}).click();
  await page.reload();await expect(modal).not.toBeVisible();
 });
+
+for(const refusal of [
+ {status:403,code:'development_binding_changed',detail:'GitHub 連動已變更，請重新啟用。'},
+ {status:409,code:'development_repository_relationship',detail:'工作 Repo 必須是原作或原作的 Fork。'},
+]){
+ test(`a refused development key refreshes revoked authority and permits explicit reactivation (${refusal.status})`,async({page})=>{
+  let enabled=true,keyWrites=0,activations=0;
+  await page.route('**/api/v1/me/development/platform/cocreation',route=>route.fulfill({json:{...readyView(),enabled,grant:{...readyView().grant,revoked_at:enabled?null:new Date().toISOString()}}}));
+  await page.route('**/api/v1/me/development/platform/cocreation/keys',route=>{
+   keyWrites++;
+   if(keyWrites===1){enabled=false;return route.fulfill({status:refusal.status,json:refusal});}
+   return route.fulfill({json:{key_id:keyId,token:secret,expires_at:new Date(Date.now()+3600000).toISOString(),working_repository:'contributor/freedom-platform',target_repository:'FreeTWAI/freedom-platform'}});
+  });
+  await page.route('**/api/v1/me/development/platform/cocreation/activate',route=>{
+   activations++;expect(route.request().postDataJSON()).toEqual({working_repository_url:'https://github.com/contributor/freedom-platform'});
+   enabled=true;return route.fulfill({json:{grant_id:keyId}});
+  });
+  await login(page);const modal=await platform(page);
+  await expect(modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true})).toBeEnabled();
+  if(refusal.status===403)for(const width of [1440,768,390]){
+   await page.setViewportSize({width,height:900});
+   await page.screenshot({path:`test-results/development-recovery-before-${width}.png`,fullPage:true});
+  }
+  await modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true}).click();
+  await expect(modal.getByRole('alert')).toHaveText(refusal.detail);
+  await expect(modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true})).toHaveCount(0);
+  await expect(modal.getByText('已啟用此目標的開發提案。',{exact:false})).toHaveCount(0);
+  await expect(modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeEnabled();
+  expect(keyWrites).toBe(1);expect(activations).toBe(0);
+  if(refusal.status===403)for(const width of [1440,768,390]){
+   await page.setViewportSize({width,height:900});
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+   await page.screenshot({path:`test-results/development-recovery-after-${width}.png`,fullPage:true});
+  }
+  await modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true}).click();
+  await expect(modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true})).toBeEnabled();
+  await expect(modal.getByRole('alert')).toHaveCount(0);
+  await modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true}).click();
+  await expect(modal.getByLabel('私人開發指令',{exact:true})).toHaveValue(/FreeTWAI\/freedom-platform/);
+  expect(keyWrites).toBe(2);expect(activations).toBe(1);
+ });
+}
+
+test('a provider outage preserves development authority and only an explicit retry repeats the same key request',async({page})=>{
+ let reads=0;const writes:string[]=[];
+ await page.route('**/api/v1/me/development/platform/cocreation',route=>{reads++;return route.fulfill({json:readyView()});});
+ await page.route('**/api/v1/me/development/platform/cocreation/keys',route=>{
+  writes.push(route.request().headers()['idempotency-key']);
+  if(writes.length===1)return route.fulfill({status:503,json:{code:'github_unavailable',detail:'GitHub 暫時無法回覆，請稍後重新嘗試。'}});
+  return route.fulfill({json:{key_id:keyId,token:secret,expires_at:new Date(Date.now()+3600000).toISOString(),working_repository:'contributor/freedom-platform',target_repository:'FreeTWAI/freedom-platform'}});
+ });
+ await login(page);const modal=await platform(page);
+ const issue=modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true});await expect(issue).toBeEnabled();const before=reads;
+ await issue.click();await expect(modal.getByRole('alert')).toHaveText('GitHub 暫時無法回覆，請稍後重新嘗試。');
+ await expect(issue).toBeEnabled();await expect(modal.getByLabel('私人開發指令',{exact:true})).toHaveCount(0);
+ expect(writes).toHaveLength(1);expect(reads).toBe(before);
+ await issue.click();await expect(modal.getByLabel('私人開發指令',{exact:true})).toHaveValue(new RegExp(secret));
+ expect(writes).toHaveLength(2);expect(writes[0]).toBeTruthy();expect(writes[1]).toBe(writes[0]);
+});
+
+test('a failed authority refresh removes the stale enabled claim and offers a read-only recovery',async({page})=>{
+ let revoked=false,recoveryUnavailable=true,keyWrites=0;
+ await page.route('**/api/v1/me/development/platform/cocreation',route=>{
+  if(revoked&&recoveryUnavailable)return route.fulfill({status:503,json:{code:'github_unavailable'}});
+  return route.fulfill({json:{...readyView(),enabled:!revoked,grant:{...readyView().grant,revoked_at:revoked?new Date().toISOString():null}}});
+ });
+ await page.route('**/api/v1/me/development/platform/cocreation/keys',route=>{
+  keyWrites++;revoked=true;return route.fulfill({status:403,json:{code:'development_binding_changed',detail:'GitHub 連動已變更，請重新啟用。'}});
+ });
+ await login(page);const modal=await platform(page);await modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true}).click();
+ await expect(modal.getByRole('alert')).toHaveText('GitHub 連動已變更，請重新啟用。');
+ await expect(modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true})).toHaveCount(0);
+ const reload=modal.getByRole('button',{name:'重新讀取設定',exact:true});await expect(reload).toBeEnabled();
+ recoveryUnavailable=false;await reload.click();
+ await expect(modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeEnabled();
+ await expect(modal.getByRole('alert')).toHaveCount(0);expect(keyWrites).toBe(1);
+});
+
+test('closing a dialog before a denied key response prevents late authority reads or private state from returning',async({page})=>{
+ let reads=0,revoked=false,release:(()=>void)|undefined;
+ await page.route('**/api/v1/me/development/platform/cocreation',route=>{reads++;return route.fulfill({json:{...readyView(),enabled:!revoked}});});
+ await page.route('**/api/v1/me/development/platform/cocreation/keys',async route=>{
+  await new Promise<void>(resolve=>{release=resolve;});revoked=true;
+  await route.fulfill({status:403,json:{code:'development_binding_changed',detail:'GitHub 連動已變更，請重新啟用。'}});
+ });
+ await login(page);const modal=await platform(page);await modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true}).click();
+ await expect.poll(()=>Boolean(release)).toBe(true);const before=reads;
+ await page.keyboard.press('Escape');const returned=page.waitForResponse(response=>response.url().endsWith('/development/platform/cocreation/keys'));
+ release!();await returned;await expect(modal).not.toBeVisible();expect(reads).toBe(before);
+ await page.getByRole('button',{name:'啟用這一頁的開發',exact:true}).click();
+ await expect(modal.getByRole('button',{name:'驗證 Repo 並啟用開發',exact:true})).toBeEnabled();
+ await expect(modal.getByRole('alert')).toHaveCount(0);await expect(modal.getByLabel('私人開發指令',{exact:true})).toHaveCount(0);
+});
+
+test('development activation text stays readable and controls remain reachable across themes and viewports',async({page})=>{
+ await page.route('**/api/v1/me/development/platform/cocreation',route=>route.fulfill({json:readyView()}));
+ await login(page);const modal=await platform(page);
+ await expect(modal.getByRole('button',{name:'產生私人 Agent 指令',exact:true})).toBeEnabled();
+ for(const theme of ['light','dark','versefolk'])for(const width of [320,390,768,1440]){
+  await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
+  await page.setViewportSize({width,height:900});
+  const ratios=await modal.evaluate(node=>{
+   const context=document.createElement('canvas').getContext('2d')!;
+   const luminance=(color:string)=>{
+    context.fillStyle=color;context.fillRect(0,0,1,1);
+    const channels=Array.from(context.getImageData(0,0,1,1).data).slice(0,3).map(value=>{
+     const normalized=value/255;return normalized<=.04045?normalized/12.92:((normalized+.055)/1.055)**2.4;
+    });
+    return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
+   };
+   const background=luminance(getComputedStyle(node).backgroundColor);
+   return [node.querySelector('p')!,node.querySelector('.field-hint')!].map(text=>{
+    const foreground=luminance(getComputedStyle(text).color);
+    return (Math.max(background,foreground)+.05)/(Math.min(background,foreground)+.05);
+   });
+  });
+  for(const ratio of ratios)expect(ratio,`${theme} ${width}px text contrast`).toBeGreaterThanOrEqual(4.5);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const close=modal.getByRole('button',{name:'關閉開發任務',exact:true});await close.focus();await expect(close).toBeInViewport();
+  if([390,768,1440].includes(width))await page.screenshot({path:`test-results/development-theme-${theme}-${width}.png`,fullPage:true});
+ }
+});
