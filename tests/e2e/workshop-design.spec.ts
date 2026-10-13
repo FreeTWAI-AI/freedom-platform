@@ -15,7 +15,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
   await page.goto('/');
   const logo = page.locator('.login-story .brand-poster img');
   await expect(logo).toBeVisible();
-  expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && getComputedStyle(img).objectFit === 'contain')).toBe(true);
+  await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && getComputedStyle(img).objectFit === 'contain')).toBe(true);
   await page.screenshot({ path: 'test-results/design-login-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 320, height: 740 });
   await fits(page, '320px login');

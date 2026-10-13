@@ -230,7 +230,7 @@ test('joined member loads only the current hero before interaction and each perm
     await expect(launcher).toHaveAccessibleName(`${character.name}・${character.title}的當頁龍娘`);
     await expect(launcher.locator('img')).toHaveAttribute('src',character.hero);
     await expect(launcher.locator('img')).toHaveJSProperty('complete',true);
-    expect(await launcher.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth>0)).toBe(true);
+    await expect.poll(() => launcher.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
     observedNames.add(character.name);
   }
   expect(observedNames.size).toBe(24);
