@@ -120,6 +120,32 @@ test('launchpad off keeps only the two product-result options',async({page})=>{
   await expect(page.getByRole('button',{name:'下載內部商店 MD',exact:true})).toBeFocused();
 });
 
+test('a store detail load error still focuses the same-tab share list',async({page})=>{
+  await login(page);
+  const tenantId='11111111-1111-4111-8111-111111111111';
+  const instanceId='22222222-2222-4222-8222-222222222222';
+  await page.route(url=>new URL(url).pathname===`/api/v1/tenants/${tenantId}/storefronts/${instanceId}`,route=>route.request().method()==='GET'?route.fulfill({status:500,contentType:'application/json',body:'{}'}):route.fallback());
+  async function openDetail(){
+    await page.evaluate(hash=>{window.location.hash=hash;},`#stores/${tenantId}/${instanceId}`);
+    await expect(page.getByRole('alert').filter({hasText:'服務暫時無法回應'})).toBeVisible();
+  }
+  async function chooseProduct(label:string){
+    await page.getByRole('button',{name:'分享或提交',exact:true}).click();
+    await page.getByRole('dialog',{name:'你想分享什麼？',exact:true}).getByRole('button',{name:'刊登商品',exact:true}).click();
+    await page.getByRole('dialog',{name:'你的商品準備好了嗎？',exact:true}).getByRole('button',{name:label,exact:true}).click();
+  }
+  await openDetail();
+  await chooseProduct('供貨給其他店家');
+  await expect(page).toHaveURL(/#stores\/supply$/);
+  await expect(page.locator('[data-share-entry="supply"]')).toBeFocused();
+  await expect(page.getByRole('status').filter({hasText:'分享入口暫時無法載入'})).toHaveCount(0);
+  await openDetail();
+  await chooseProduct('在站內商店刊登');
+  await expect(page).toHaveURL(/#stores$/);
+  await expect(page.locator('[data-share-entry="stores"]')).toBeFocused();
+  await expect(page.getByRole('status').filter({hasText:'分享入口暫時無法載入'})).toHaveCount(0);
+});
+
 test('an unavailable share page reports failure, keeps retry and does not create content',async({page})=>{
   await login(page);let unavailable=true;
   await page.route(/\/api\/v1\/showcases(?:\?.*)?$/,route=>unavailable?route.fulfill({status:503,json:{code:'synthetic_unavailable'}}):route.fallback());
