@@ -146,6 +146,7 @@ const eventIdFromLocation=()=>{
   if(window.location.hash&&!readEventParticipationToken())return null;
   return /^\/events\/([0-9a-f-]{36})\/?$/.exec(window.location.pathname)?.[1]??null;
 }
+const eventLoginFromLocation=()=>Boolean(eventIdFromLocation()&&window.history.state?.freedomEventLogin===window.location.href)
 const memberCardFromLocation=()=>/^\/member-cards\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1]??null
 const clearResetHash=()=>window.history.replaceState(null,'',window.location.pathname+window.location.search)
 
@@ -171,7 +172,7 @@ function MemberApp() {
   const [resetToken,setResetToken]=useState(resetTokenFromHash)
   const [emailVerificationToken,setEmailVerificationToken]=useState(()=>/^#verify-email\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null);
   const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
-  const [eventLoginRequested,setEventLoginRequested]=useState(false)
+  const [eventLoginRequested,setEventLoginRequested]=useState(eventLoginFromLocation)
   const [locationHash,setLocationHash]=useState(() => window.location.hash)
   const [entryIntent,setEntryIntent]=useState<EntryIntent|null>(entryIntentFromHash)
   const [siteLoaded,setSiteLoaded]=useState(false)
@@ -183,7 +184,7 @@ function MemberApp() {
   useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
   useEffect(()=>{const changed=()=>setEmailVerificationToken(/^#verify-email\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null);window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[]);
-  useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setEntryIntent(entryIntentFromHash());setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
+  useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setEntryIntent(entryIntentFromHash());setPublicEventId(eventIdFromLocation());setEventLoginRequested(eventLoginFromLocation());setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -202,6 +203,10 @@ function MemberApp() {
   }, [session, onboarding, entryIntent])
 
   const applySession = useCallback((next: SessionPayload) => {
+    if(eventLoginFromLocation()){
+      const state={...window.history.state};delete state.freedomEventLogin
+      window.history.replaceState(Object.keys(state).length?state:null,'')
+    }
     sessionGeneration.current += 1
     client.csrfToken = next.csrf_token
     setSharingDraftAccount(next.user.user_id, client.sessionGeneration)
@@ -281,8 +286,12 @@ function MemberApp() {
       setLocationHash('');
       setPublicEventId(eventIdFromLocation());
     }
+    // Keep the public event and its referral/query intact behind the login view.
+    // A scoped history entry makes Back/Forward dismiss/reopen the same view.
+    if(!eventLoginFromLocation())window.history.pushState({...window.history.state,freedomEventLogin:window.location.href},'');
     setEventLoginRequested(true);
   };
+  const returnToEvent=()=>{if(eventLoginFromLocation())window.history.back();else setEventLoginRequested(false)};
 
   if (phase === 'boot') {
     return (
@@ -304,7 +313,7 @@ function MemberApp() {
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;
-    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} participationEnabled={site?.event_participation_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
+    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} participationEnabled={site?.event_participation_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else eventLogin()}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
     if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PageLoadBoundary label="自由工坊" resetKey={launchpadKey}><PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)} pageTools={<PageTools pageId="guilds" compact/>}/></PageLoadBoundary>;
     if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
@@ -319,6 +328,7 @@ function MemberApp() {
           onRetrySession={() => void bootstrap()}
           onLoggedIn={(next, returnNotice) => { applySession(next); setPublicReturnNotice(returnNotice ?? null) }}
           onReturnToGuild={!resetToken&&launchpadKey&&launchpadLoginRequested&&site?.guild_launchpad_enabled===true?()=>setLaunchpadLoginRequested(false):undefined}
+          onReturnToEvent={!resetToken&&publicEventId&&eventLoginRequested?returnToEvent:undefined}
           entryIntent={entryIntent}
           onChooseEntry={intent=>{setEntryIntent(intent);window.location.hash=`join/${intent}`}}
           resetToken={resetToken}
@@ -376,6 +386,7 @@ function LoginView({
   onCancelReset,
   onPasswordReset,
   onReturnToGuild,
+  onReturnToEvent,
 }: {
   site: SiteConfig | null
   notice: string | null
@@ -388,6 +399,7 @@ function LoginView({
   onCancelReset:()=>void
   onPasswordReset:(session?:SessionPayload)=>void
   onReturnToGuild?:()=>void
+  onReturnToEvent?:()=>void
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'request-reset'>('login')
   const [returnPath] = useState(() => publicDiscoveryPath(new URLSearchParams(window.location.search).get('return_to')))
@@ -523,6 +535,7 @@ function LoginView({
           </button>
         </form>}
         {onReturnToGuild&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={onReturnToGuild}>返回公會啟動台</button>}
+        {onReturnToEvent&&<button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={onReturnToEvent}>返回活動</button>}
         {!accessExpired&&<div className="login-secondary-actions">
           {site?.password_recovery_enabled&&activeMode==='login'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('request-reset');setError(null);setResetNotice('')}}>{t('auth.forgotButton')}</button>}
           {activeMode==='request-reset'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>{t('auth.backLogin')}</button>}
