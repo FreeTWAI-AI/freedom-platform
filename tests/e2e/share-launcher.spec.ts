@@ -1,4 +1,6 @@
+import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
+import {person,login as loginMember,open,post,launchStore} from './hosted-store-fixture.js';
 
 async function login(page:Page){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
@@ -144,6 +146,36 @@ test('a store detail load error still focuses the same-tab share list',async({pa
   await expect(page).toHaveURL(/#stores$/);
   await expect(page.locator('[data-share-entry="stores"]')).toBeFocused();
   await expect(page.getByRole('status').filter({hasText:'分享入口暫時無法載入'})).toHaveCount(0);
+});
+
+test('a refused leave from an unpublished store does not settle the supply share entry',async({page,e2eAuthPool})=>{
+  const member=await person(e2eAuthPool);
+  await loginMember(page,member.email);
+  const ready=await launchStore(page,'未發布分享工作室');
+  const slug=`draft${randomUUID().replaceAll('-','').slice(0,12)}`;
+  await post(page,ready.root+'/setup',{name:'原商店名稱',description:'',slug,currency:'TWD'},201);
+  await open(page,ready.hash);
+  const settings=page.getByRole('form',{name:'商店資料',exact:true});
+  const name=settings.getByLabel('商店名稱',{exact:true});
+  await name.fill('留下未發布草稿');
+  const editorHash=new URL(page.url()).hash;
+  async function chooseSupply(){
+    await page.getByRole('button',{name:'分享或提交',exact:true}).click();
+    await page.getByRole('dialog',{name:'你想分享什麼？',exact:true}).getByRole('button',{name:'刊登商品',exact:true}).click();
+    await page.getByRole('dialog',{name:'你的商品準備好了嗎？',exact:true}).getByRole('button',{name:'供貨給其他店家',exact:true}).click();
+  }
+  page.once('dialog',d=>d.dismiss());
+  await chooseSupply();
+  // Settle runs after paint. Wait out that turn so a false notice cannot be missed.
+  await page.waitForTimeout(400);
+  expect(new URL(page.url()).hash).toBe(editorHash);
+  await expect(page.getByText('分享入口暫時無法載入',{exact:false})).toHaveCount(0);
+  await expect(page.getByText('正在開啟供貨給其他店家',{exact:false})).toHaveCount(0);
+  await expect(name).toHaveValue('留下未發布草稿');
+  page.once('dialog',d=>d.accept());
+  await chooseSupply();
+  await expect(page).toHaveURL(/#stores\/supply$/);
+  await expect(page.locator('[data-share-entry="supply"]')).toBeFocused();
 });
 
 test('an unavailable share page reports failure, keeps retry and does not create content',async({page})=>{

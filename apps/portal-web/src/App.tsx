@@ -664,6 +664,8 @@ function Workspace({
     const definition=SHARE_TARGETS[target]
     const destination=target==='post'&&tab==='home'?'home':definition.tab
     setShareNotice('');setShareEntry({target,tab:destination,sequence:++shareSequence.current});selectTab(destination,definition.hash)
+    // A refused page-leave leaves the current hash, so this entry must not settle on the page that stayed.
+    if(acceptedHash.current!==(definition.hash??'#'+destination))setShareEntry(null)
   }
   useEffect(()=>{
     if(!shareEntry)return
