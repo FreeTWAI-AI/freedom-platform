@@ -45,7 +45,7 @@ async function changed(t, path, value) {
 test('promotion changes only the approved directory pin; old installed policy rejects the fix', async t => {
   const oldLock = JSON.parse(git(sourceRoot, ['show', installed + ':repositories.lock.json']));
   const promotedLock = JSON.parse(git(sourceRoot, ['show', expectedWorkflowCommit + ':repositories.lock.json']));
-  const entries = oldLock.repositories.filter(x => x.repository === 'FreeTWAI/FreeTWAI.github.io');
+  const entries = oldLock.repositories.filter(x => x.repository === 'FreeTWAI-AI/FreeTWAI-AI.github.io');
   assert.equal(entries.length, 1); assert.equal(entries[0].commit, oldBaseline);
   entries[0].commit = approved;
   assert.deepEqual(promotedLock, oldLock);

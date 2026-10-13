@@ -1,4 +1,4 @@
-import {matchesRecordedRepository,isPlatformSourceRepository} from './repository-identity.mjs';
+import {matchesRecordedRepository,isPlatformSourceRepository,repositoryTransport} from './repository-identity.mjs';
 import { execFileSync } from 'node:child_process';
 import { readBounded, parseJson, sha256, readRemoteBounded } from './io.mjs';
 import { requireCondition as check } from './errors.mjs';
@@ -69,13 +69,13 @@ export async function verifyConsumerLibraries(root, { expectedSourceCommit, expe
     check(bytes.length === file.bytes && sha256(bytes) === file.sha256, 'library_bytes_mismatch');
     const source = sourceRoot
       ? sourceGit(sourceRoot, ['show', `${expectedSourceCommit}:${path}`])
-      : await readRemoteBounded(`https://raw.githubusercontent.com/${lock.source_repository}/${expectedSourceCommit}/${path}`, fetcher);
+      : await readRemoteBounded(`https://raw.githubusercontent.com/${repositoryTransport(lock.source_repository)}/${expectedSourceCommit}/${path}`, fetcher);
     check(source.equals(bytes), 'library_source_bytes_mismatch');
   }
   for (const { source: path, target } of profile.entrypoints ?? []) {
     const bytes = await readBounded(root, target);
     const source = sourceRoot ? sourceGit(sourceRoot, ['show', `${expectedSourceCommit}:${path}`])
-      : await readRemoteBounded(`https://raw.githubusercontent.com/${lock.source_repository}/${expectedSourceCommit}/${path}`, fetcher);
+      : await readRemoteBounded(`https://raw.githubusercontent.com/${repositoryTransport(lock.source_repository)}/${expectedSourceCommit}/${path}`, fetcher);
     check(source.equals(bytes), 'library_entry_source_mismatch');
   }
   return { repository: lock.repository, source_commit: expectedSourceCommit, library_profile: profile.id, files_verified: expected.length + (profile.entrypoints?.length ?? 0),

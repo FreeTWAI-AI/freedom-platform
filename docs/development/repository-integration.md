@@ -61,6 +61,8 @@ repo 與導覽索引均改用 FreeTWAI。顯示與同步共用 architecture tran
 
 Migration166 以已轉移的 34 個名稱／ID 清單移動 live coordinates：
 
+- Pages 的舊 owner／舊名稱和搬遷中途 `FreeTWAI/FreeTWAI-AI.github.io` 都收斂到
+  `FreeTWAI/FreeTWAI.github.io`；三鍵同時存在也合併，不接受其他名稱或不同 ID。
 - Issue／PR 鍵碰撞取較新的 `updated_at`／`synced_at`，完全相同時保留新鍵；重啟
   URL 相關 backfill／ETag，既有 history 在遷移後仍可讀。
 - Metrics 保留最近有效 snapshot；Star support 合併最早確認與最近狀態，不重複計數。

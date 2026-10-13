@@ -17,7 +17,7 @@ const old='freetwai-ai/freedom-platform',current='freetwai/freedom-platform';
 async function transfer(){const q=await pool.connect();try{await q.query('BEGIN');await q.query(sql);await q.query('COMMIT');}catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}}
 before(async()=>{await admin.query(`CREATE SCHEMA ${schema}`);await migrate(pool);});
 after(async()=>{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});
-beforeEach(async()=>{await pool.query('TRUNCATE communities,github_sync_repositories,github_repository_metrics,skill_star_support,canonical_repositories,github_repository_events CASCADE');await seedLocal(pool);});
+beforeEach(async()=>{await pool.query('TRUNCATE communities,github_sync_repositories,github_repository_metrics,skill_star_support,canonical_repositories,catalog_repo_observations,github_repository_events CASCADE');await seedLocal(pool);});
 async function repository(key:string){await pool.query(`INSERT INTO github_sync_repositories(repository_key,repository,access_status,backfilled,last_error,last_synced_at)
   VALUES($1,$1,'unreadable',true,'github_moved','2026-10-12')`,[key]);}
 async function item(key:string,number:number,title:string,date:string){await pool.query(`INSERT INTO github_items(repository_key,number,kind,title,state,created_at,updated_at,synced_at,page_ids,labels,assignees,body_excerpt)
@@ -98,4 +98,49 @@ test('renamed Pages key moves while unrelated owners and untransferred names rem
   await transfer();
   assert.deepEqual((await pool.query('SELECT repository_key FROM github_items ORDER BY repository_key')).rows.map(r=>r.repository_key),
     ['fork/freedom-platform','freetwai-ai-legacy/freedom-platform','freetwai-ai/untransferred','freetwai/freetwai.github.io']);
+});
+
+for(const hasCurrent of [false,true])test(`Pages intermediate key merges all live stores, current destination ${hasCurrent?'present':'absent'}`,async()=>{
+  const original='freetwai-ai/freetwai-ai.github.io',intermediate='freetwai/freetwai-ai.github.io',destination='freetwai/freetwai.github.io';
+  await repository(original);await repository(intermediate);
+  await pool.query("UPDATE github_sync_repositories SET last_synced_at='2026-10-13' WHERE repository_key=$1",[intermediate]);
+  await item(original,1,'original-only','2026-10-01');await item(intermediate,2,'intermediate-only','2026-10-02');
+  await item(original,3,'stale-original','2026-10-01');await item(intermediate,3,'latest-intermediate','2026-10-03');
+  await item(original,4,'latest-original','2026-10-04');await item(intermediate,4,'stale-intermediate','2026-10-01');
+  await item(original,5,'original-tie','2026-10-05');await item(intermediate,5,'intermediate-tie','2026-10-05');
+  await pool.query(`INSERT INTO github_repository_metrics(repository_key,snapshot,checked_at) VALUES
+    ($1,'{"stars":3}','2026-10-03'),($2,NULL,'2026-10-05')`,[original,intermediate]);
+  await pool.query(`INSERT INTO skill_star_support VALUES
+    ('42',$1,'2026-09-01',true,'2026-10-01'),('42',$2,'2026-09-05',false,'2026-10-03')`,[original,intermediate]);
+  if(hasCurrent){
+    await repository(destination);await item(destination,5,'destination-tie','2026-10-05');
+    await pool.query("INSERT INTO github_repository_metrics(repository_key,snapshot,checked_at) VALUES($1,'{\"stars\":1}','2026-10-01')",[destination]);
+    await pool.query("INSERT INTO skill_star_support VALUES('42',$1,'2026-09-04',true,'2026-10-02')",[destination]);
+  }
+  const id=randomUUID(),unrelated=randomUUID(),fork=randomUUID();
+  await pool.query(`INSERT INTO canonical_repositories(repo_id,provider,provider_repo_id,full_name,current_url,source_repo_id,source_full_name)
+    VALUES($1,'github','1378081698','FreeTWAI/FreeTWAI-AI.github.io','https://github.com/FreeTWAI/FreeTWAI-AI.github.io',NULL,NULL),
+    ($2,'github','9999','FreeTWAI/FreeTWAI-AI.github.io','https://github.com/FreeTWAI/FreeTWAI-AI.github.io',NULL,NULL),
+    ($3,'github','777','maker/pages','https://github.com/maker/pages','1378081698','FreeTWAI/FreeTWAI-AI.github.io')`,[id,unrelated,fork]);
+  await pool.query(`INSERT INTO catalog_repo_observations(book_id,provider,provider_repo_id,requested_full_name,full_name,current_url,needs_recheck)
+    VALUES('pages','github','1378081698','FreeTWAI/FreeTWAI-AI.github.io','FreeTWAI/FreeTWAI-AI.github.io','https://github.com/FreeTWAI/FreeTWAI-AI.github.io',true)`);
+  await transfer();
+  assert.deepEqual((await pool.query('SELECT repository_key,number,title FROM github_items ORDER BY number')).rows,
+    ['original-only','intermediate-only','latest-intermediate','latest-original',hasCurrent?'destination-tie':'intermediate-tie']
+      .map((title,i)=>({repository_key:destination,number:i+1,title})));
+  const repo=(await pool.query('SELECT * FROM github_sync_repositories')).rows[0];
+  assert.equal(repo.repository,'FreeTWAI/FreeTWAI.github.io');assert.equal(repo.last_synced_at.toISOString(),'2026-10-13T00:00:00.000Z');
+  assert.equal(repo.access_status,'pending');assert.equal(repo.backfilled,false);
+  assert.deepEqual((await pool.query('SELECT repository_key,snapshot FROM github_repository_metrics')).rows,[{repository_key:destination,snapshot:{stars:3}}]);
+  const supports=(await pool.query('SELECT * FROM skill_star_support')).rows;
+  assert.equal(supports.length,1);assert.equal(supports[0].repository_key,destination);assert.equal(supports[0].active,false);
+  assert.equal(supports[0].first_confirmed_at.toISOString(),'2026-09-01T00:00:00.000Z');
+  assert.equal((await pool.query('SELECT full_name FROM canonical_repositories WHERE repo_id=$1',[id])).rows[0].full_name,'FreeTWAI/FreeTWAI.github.io');
+  assert.equal((await pool.query('SELECT full_name FROM canonical_repositories WHERE repo_id=$1',[unrelated])).rows[0].full_name,'FreeTWAI/FreeTWAI-AI.github.io');
+  const forkAfter=(await pool.query('SELECT full_name,source_full_name FROM canonical_repositories WHERE repo_id=$1',[fork])).rows[0];
+  assert.deepEqual(forkAfter,{full_name:'maker/pages',source_full_name:'FreeTWAI/FreeTWAI.github.io'});
+  const observation=(await pool.query("SELECT * FROM catalog_repo_observations WHERE book_id='pages'")).rows[0];
+  assert.equal(observation.full_name,'FreeTWAI/FreeTWAI.github.io');assert.equal(observation.requested_full_name,'FreeTWAI/FreeTWAI.github.io');
+  assert.equal(observation.current_url,'https://github.com/FreeTWAI/FreeTWAI.github.io');assert.equal(observation.needs_recheck,true);
+  const first=await snapshot();await transfer();assert.deepEqual(await snapshot(),first);
 });
