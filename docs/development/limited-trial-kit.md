@@ -152,12 +152,13 @@
 
 ```sh
 npm ci
+npx playwright install chromium
 npm run guild:preview
 npm run guild:check
 npm run guild:test -- modules/guild-supply
 ```
 
-第二位把最後一行的目錄換成 `modules/guild-open-source`。`guild:preview` 會先產生區塊再啟動 Vite，位址是 `http://127.0.0.1:4487`，資料是合成的，不連正式 API 或資料庫。檔案監控配額不夠時改跑 `GUILD_PREVIEW_POLL=1 npm run guild:preview`。預覽裡的按鈕只在本機顯示「預覽導向」或「預覽啟動」，不會對正式站建立資料。`guild:check` 是產生器 `--check` 加上 `tests/runtime/guild-blocks.test.ts`，不需要 PostgreSQL。`guild:test` 會建置預覽再跑 Playwright；`--` 後面的路徑會傳給 Playwright。
+第二位把最後一行的目錄換成 `modules/guild-open-source`。`npm ci` 不會下載 Playwright 瀏覽器；緊接著的 `npx playwright install chromium` 用這份儲存庫鎖定的 Playwright 版本安裝隨附的 Chromium。在 Linux 上，若瀏覽器因缺少系統程式庫而無法啟動，用同一個鎖定版本自己的輔助指令安裝：`npx playwright install-deps chromium`（需要系統管理員權限／sudo）；也可以一步完成：`npx playwright install --with-deps chromium`。說明見 [Playwright 瀏覽器](https://playwright.dev/docs/browsers)。`guild:preview` 會先產生區塊再啟動 Vite，位址是 `http://127.0.0.1:4487`，資料是合成的，不連正式 API 或資料庫。檔案監控配額不夠時改跑 `GUILD_PREVIEW_POLL=1 npm run guild:preview`。預覽裡的按鈕只在本機顯示「預覽導向」或「預覽啟動」，不會對正式站建立資料。跑 `guild:test` 之前必須先停止 `guild:preview`（Ctrl+C）。兩者都綁定 `127.0.0.1:4487`，公會 Playwright 設定會自己啟動伺服器，而且 `reuseExistingServer` 是 `false`，不會沿用已經在聽的預覽。`guild:check` 是產生器 `--check` 加上 `tests/runtime/guild-blocks.test.ts`，不需要 PostgreSQL。`guild:test` 會建置預覽再跑 Playwright；`--` 後面的路徑會傳給 Playwright。
 
 有用的修改，是只在那一個 tsx 裡改看得到的文案或版面，保留檔案開頭那串已凍結的 import，也不要新增 API 呼叫。不要手改產生的 registry、`freedom.module.json`、契約、SDK、spec、測試、中央殼層（`App.tsx`、`GuildLaunchpad.tsx`）、inventory，或另一位作者的檔案。公會 README 寫日常修改含元件與 spec；改 spec 會離開下面的快速 CI。這次試用要看的是快速路徑，所以只改那一個 tsx。
 
