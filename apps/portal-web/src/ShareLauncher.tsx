@@ -10,7 +10,7 @@ export const SHARE_TARGETS:Record<ShareTarget,{tab:TabId;selector:string;label:s
   product:{tab:'supplier',selector:'[data-guide-anchor="supplier:import-results"] input[type="file"]',label:'上傳商品成果'},
   'product-start':{tab:'supplier',selector:'[data-guide-anchor="supplier:download-kit"] button',label:'準備商品'},
   'product-store':{tab:'stores',hash:'#stores',selector:'[data-share-entry="stores"]',label:'在站內商店刊登'},
-  'product-supply':{tab:'stores',hash:'#stores/supply',selector:'.hosted-store > h2',label:'供貨給其他店家'},
+  'product-supply':{tab:'stores',hash:'#stores/supply',selector:'[data-share-entry="supply"]',label:'供貨給其他店家'},
   collaborate:{tab:'showcase',selector:'[data-share-entry="collaboration"]',label:'找人合作'},
   cocreate:{tab:'cocreation',selector:'[data-share-entry="cocreation"]',label:'發起共創邀請'},
 };

@@ -95,7 +95,7 @@ test('供貨給其他店家 opens the existing supply catalog',async({page})=>{
   await expect(page).toHaveURL(/#stores\/supply$/);
   await expect(page.getByRole('heading',{name:'我的供貨商品庫',level:1,exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'我的供貨商品庫',level:2,exact:true})).toBeVisible();
-  await expect(page.locator('.hosted-store > h2')).toBeFocused();
+  await expect(page.locator('[data-share-entry="supply"]')).toBeFocused();
   await expect(page.locator('.share-entry-status')).toHaveCount(0);
 });
 

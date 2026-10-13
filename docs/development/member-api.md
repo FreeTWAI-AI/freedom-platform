@@ -735,7 +735,11 @@ exposes `unified_sharing_enabled`) only extends that dialog: each option states
 who can see the result and what is merely a draft, and two entries are added,
 “找人合作” (the original bilateral work-opportunity button on a community work)
 and “發起共創邀請” (the original registered-source co-creation form). With the
-flag off the dialog is unchanged. The candidate adds no database migration,
+flag off the dialog is unchanged. When the guild launchpad is on (`/site`
+`guild_launchpad_enabled`), the 「刊登商品」 submenu first offers 「在站內商店刊登」
+(`#stores`) and 「供貨給其他店家」 (`#stores/supply`) above the two product-result
+options; both only navigate and focus, with no new route, API or flag. The
+candidate adds no database migration,
 unified publishing route or permission.
 
 Every option only navigates to the original form and moves focus to its real
