@@ -67,7 +67,7 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 `FREEDOM_SQUAD_OUTCOMES_ENABLED`、`FREEDOM_EVENT_OUTCOMES_ENABLED` 均預設關閉；活動精華必須同時啟用小隊成果，否則 runtime 拒絕不完整設定。**換入本版 source 前，即使 flags 關閉，也須套用 migrations 154、155**：既有媒體讀取仍使用 binding 表核對目前權限。關閉 flags 不會取消已存 binding 的隱私檢查；不可盲退到忽略 binding 的舊 source。匿名集錦只讀公開／推薦活動，不揭露公會或會員限定活動、圖片、封面與 metadata；目前仍有閱讀權限的會員使用受驗證媒體入口。撤下阻止後續讀取，不承諾收回已下載或外站快取的副本。API、限制與命令契約見 [member API](docs/development/member-api.md#event-highlights-and-published-squad-outcomes-257)。這不是部署、flag-on、正式 #261 政策或需求驗收證據。
 #251 檢舉與稽核案件是預設關閉的 source candidate（`FREEDOM_MEMBER_REPORTING_ENABLED`、待部署 migration 160）：會員只能檢舉當前可見內容、查看本人案件狀態；平台管理員依狀態與游標分頁，個別讀取當時的名片／私訊圖片證據，記錄處理理由與摘要。圖片收回後仍保留案件證據；撤銷管理權或 session 後拒絕讀取。#261 的規則、保存期限與申訴管道仍待核准，本候選不啟用正式檢舉。
 
-#262 參與量測是預設關閉的 source candidate（`FREEDOM_PARTICIPATION_METRICS_ENABLED`、migration 159）：只提供有權平台管理員讀取的唯讀報表，每次由權威資料重新計算，附 v2 指標定義，窗口未滿與樣本不足（少於 10）不顯示百分比；七日回訪限既有發布、留言與搜尋時間的參與代理，不讀會覆寫的 session last-seen，不宣稱涵蓋所有瀏覽。搜尋只記結果數與開啟的內容類型，不存查詢文字。目前沒有正式讀權與保存／退出政策，沒有真實 baseline；檢舉處理時間尚未串接 #251 案件流程，仍標為不可用。詳見 [會員 API](docs/development/member-api.md#participation-metrics-262)。
+#262 參與量測是預設關閉的 source candidate（`FREEDOM_PARTICIPATION_METRICS_ENABLED`、migration 159）：只提供有權平台管理員讀取的唯讀報表，每次由權威資料重新計算，附 v3 指標定義，窗口未滿與樣本不足（少於 10）不顯示百分比；七日回訪限既有發布、留言與搜尋時間的參與代理，不讀會覆寫的 session last-seen，不宣稱涵蓋所有瀏覽。搜尋只記結果數與開啟的內容類型，不存查詢文字。目前沒有正式讀權與保存／退出政策，沒有真實 baseline；檢舉處理時間由 transition journal 計算兩個觀察窗口：48 小時內首次處理，以及 7 日內結案；兩者是觀察窗口，不是志工的服務水準目標。重複濫用尚無維護者定義，仍標為不可用。詳見 [會員 API](docs/development/member-api.md#participation-metrics-262)。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
