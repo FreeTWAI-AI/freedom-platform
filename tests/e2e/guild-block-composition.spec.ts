@@ -121,6 +121,10 @@ for (const sample of [
 
   await page.getByRole('combobox', {name: '加入公會工具', exact: true}).selectOption(sample.id);
   await page.getByRole('button', {name: '新增公會區塊', exact: true}).click();
+  await expect(page.getByRole('group', {name: sample.title, exact: true})).toBeVisible();
+  await expect(page.getByRole('button', {name: `上移${sample.title}`, exact: true})).toBeVisible();
+  await expect(page.getByRole('button', {name: `移除這個區塊：${sample.title}`, exact: true})).toBeVisible();
+  await expect(page.getByRole('button', {name: '上移公會工具', exact: true})).toHaveCount(0);
   await page.getByRole('button', {name: '預覽公開', exact: true}).click();
   const preview = page.getByRole('dialog', {name: '合成預覽'});
   await expect(preview).toContainText(sample.title);
