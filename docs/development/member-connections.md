@@ -50,6 +50,8 @@ migration `075_member_card_profile_links.sql` 加上 `show_profile_links` 和 `p
 
 已登入、看的不是自己的名片時，仍會在電子名片下面看到對方平常的會員名片（`GET /api/v1/member-cards/:token/member`），聯絡方式仍依原本的好友、公會與小隊範圍。分享不會建立好友。本人打開自己的連結時只看到這張電子名片，並可回到我的名片繼續改。
 
+額外會員讀取回 `404 member_not_found`（例如其他社群的觀看者）時，不把它當成公開名片關閉。畫面重新讀取公開 endpoint，只有分享仍有效時才呈現新的公開投影，並說明會員資訊／好友邀請不可用；不保留前一次的公開欄位快照。若在讀取間關閉分享、換連結、停用會員或收回欄位公开範圍，重讀照目前條件隱藏內容。其他失敗仍顯示錯誤，不悄悄放寬私人權限。
+
 寫入是 `GET/POST /api/v1/me/member-card-share`。內容是 `{enabled, include_avatar, rotate?}`，也可以帶 `design`、`headline`、`links`、`show_profile_links`、`profile_link_prefs`。省略的欄位保留目前的值；第一筆儲存若沒帶 `show_profile_links`，新名片是打開的。`headline: null` 或空白會清掉介紹；有送 `links` 就整份取代。`profile_link_prefs` 也是整份取代，最多 64 個鍵，鍵必須是 `contact:line|github|discord|email` 或 `social:` 加小寫 uuid，值必須是布林，否則 422 `member_card_profile_links_invalid`。連結名稱 1–30 字、單行；網址必須是沒有帳號密碼的 https，最多 300 字。不接受 http、javascript、data。樣式、介紹或連結不合法回 422，說明是中文。沿用 Idempotency-Key；已有設定時要帶目前的 If-Match，沒帶回 428 `version_required`，版本不對回 412。回應帶 `design`、`headline`、`links`、`show_profile_links`、`profile_link_prefs`、`profile_links`（含隱藏項目與 `source`、`shown`）和啟用時的 `share_path`。`shown` 只看單項設定，不看總開關。日記只記開關、是否換連結、樣式、介紹字數、連結數量、`show_profile_links` 和隱藏項目的數量，不記 token、介紹本文、帳號、網址。
 
 推廣讀取用 `readPublicCards(pool, communityId, userIds)`。它不讀這些公開項目，也不寫入。它只讀、一批一查，回傳目前公開看得到的名片：`path`、`title`（「暱稱 的自由工坊名片」）、`summary`（有介紹用介紹，否則是主要公會和最多三項專長，以「・」連接，最多 120 字）、`image: null`、`generation`（分享 token 的 sha256 前 16 個十六進位字；更新連結或重新開啟才會變）。查不到的 id 不在結果裡。token 只出現在 `path`。自動儲存不換 token，所以既有的推廣連結還能計分。
