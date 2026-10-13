@@ -23,6 +23,7 @@
 /package-lock.json @teddashh @detna-vibe-coding
 /.npmrc @teddashh @detna-vibe-coding
 /playwright.config.ts @teddashh @detna-vibe-coding
+/tsconfig.json @teddashh @detna-vibe-coding
 /apps/portal-web/vite.config.ts @teddashh @detna-vibe-coding
 /apps/portal-web/guild-preview/vite.config.ts @teddashh @detna-vibe-coding
 /repositories.lock.json @teddashh @detna-vibe-coding
