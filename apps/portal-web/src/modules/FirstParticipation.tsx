@@ -105,7 +105,7 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
   }
   function action(body:Action,openAfter?:Attempt['open']) {
     if (!data || pending.current) return;
-    void send({path,body,version:data.aggregate_version,key:crypto.randomUUID(),open:openAfter},true);
+    void send({path,body,version:data.aggregate_version,key:crypto.randomUUID(),open:openAfter},body.action==='skip'||body.action==='dismiss'||body.action==='resume');
   }
   const disabled = busy || loading || retry;
   const quiet = data?.state === 'skipped' || data?.state === 'dismissed';
@@ -117,10 +117,10 @@ function ParticipationGuide({client,session,onNavigate,primaryGuild}:Props) {
     {error && <div role="alert"><p>{error}</p>{retry && <><p>結果尚未確認；保留原操作，不會另送一份內容。</p><button className="btn btn-ghost" type="button" disabled={busy} onClick={()=>{if(pending.current)void send(pending.current);}}>重試同一操作</button></>}</div>}
     {data && <>
       {quiet ? <><p ref={statusRef} tabIndex={-1}>{data.state === 'dismissed' ? '已停止提示。' : '已略過第一次參與。'}常用入口仍可照常使用。</p><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'resume'})}>重新啟用參與引導</button></> : <>
-        <p ref={data.state === 'chosen' ? undefined : statusRef} tabIndex={data.state === 'chosen' ? undefined : -1}>不用補做完整定位，也不用綁定 GitHub、AI 或社群帳號。選一條路，實際送出後才會記錄成果；點開頁面不算完成。</p>
+        <p ref={statusRef} tabIndex={-1}>不用補做完整定位，也不用綁定 GitHub、AI 或社群帳號。選一條路，實際送出後才會記錄成果；點開頁面不算完成。</p>
         {data.state === 'offered' && <div className="first-participation-actions"><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'choose',choice:'work'},'work')}>選擇分享自己的作品</button><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'choose',choice:'introduction'},'introduction')}>選擇在{primaryGuild.name}介紹自己</button></div>}
         {data.state === 'chosen' && <>
-          <p role="status" ref={statusRef} tabIndex={-1}>已選擇{data.choice === 'work' ? '分享作品' : '公會自我介紹'}，尚未確認實際發布。{data.started_at && <> 起始時間：<time dateTime={data.started_at}>{new Date(data.started_at).toLocaleString()}</time>。</>}</p>
+          <p role="status">已選擇{data.choice === 'work' ? '分享作品' : '公會自我介紹'}，尚未確認實際發布。{data.started_at && <> 起始時間：<time dateTime={data.started_at}>{new Date(data.started_at).toLocaleString()}</time>。</>}</p>
           {data.choice === 'work' ? <><p>前往原作品分享表單，填必要欄位；確認原作與分享同意後，才發布到社群作品。私人草稿不算完成。</p><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>open('work')}>回到原分享表單</button></> : <><p>內容只在所選公會原聊天室送出，由有權的公會成員閱讀。未送出的聊天文字只在目前瀏覽器記憶體，不保證重新登入後保留。</p>{chosenGuildCurrent ? <button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>open('introduction',data.guild_key)}>回到原公會聊天室</button> : <p>目前主要公會已改變；請重新選擇目前公會，不會把其他聊天室訊息算成這次參與。</p>}</>}
           {data.resume && <p><a href={data.resume.href}>回到我的內容中的原私人作品草稿</a>（尚未完成）</p>}
           <details><summary>換一條參與路徑</summary><div className="first-participation-actions"><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'choose',choice:'work'},'work')}>改選分享作品</button><button className="btn btn-ghost" type="button" disabled={disabled} onClick={()=>action({action:'choose',choice:'introduction'},'introduction')}>改選目前公會自我介紹</button></div></details>
