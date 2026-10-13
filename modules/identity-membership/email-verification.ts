@@ -44,6 +44,10 @@ export async function confirmEmailVerification(pool:Pool,rawToken:string){
     requireCondition(proof.rowCount===1,422,'email_verification_link_invalid','驗證連結無效或已過期，請回帳號頁重新寄送。');
     await q.query('UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()) WHERE user_id=$1',[candidate.user_id]);
     await q.query('UPDATE email_verification_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL',[candidate.user_id]);
+    // Both proof acquisition and consuming competing links can wait past expiry.
+    // Check last so verification and every proof consumption roll back together.
+    const valid=await q.query('SELECT 1 FROM email_verification_tokens WHERE token_hash=$1 AND expires_at>clock_timestamp()',[hash]);
+    requireCondition(valid.rowCount===1,422,'email_verification_link_invalid','驗證連結無效或已過期，請回帳號頁重新寄送。');
     return {verified:true};
   });
 }
