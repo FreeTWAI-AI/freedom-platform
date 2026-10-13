@@ -142,8 +142,9 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
       FROM member_reports r
       WHERE r.community_id=$1 AND r.created_at >= ${start} AND r.created_at < ${end}),
     first_event AS (
-      SELECT j.aggregate_id AS case_id, min(j.created_at) AS at FROM transition_journal j
-      WHERE j.community_id=$1 AND j.aggregate_type='member_report' AND j.command='transition' AND j.data->>'state'=$5
+      SELECT j.aggregate_id AS case_id, min(j.created_at) AS at
+      FROM cohort c JOIN transition_journal j ON j.aggregate_type='member_report' AND j.aggregate_id=c.case_id
+      WHERE j.community_id=$1 AND j.command='transition' AND j.data->>'state'=$5
       GROUP BY j.aggregate_id)
     SELECT
       count(*) FILTER (WHERE NOT c.synthetic AND c.created_at + ${span} <= $4::timestamptz) AS denominator,
