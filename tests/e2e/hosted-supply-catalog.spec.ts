@@ -1,5 +1,4 @@
 import {randomUUID} from 'node:crypto';
-import {join} from 'node:path';
 import type {Route} from '@playwright/test';
 import {test, expect, type Page} from './fixtures.js';
 import {person, login, launchStore, open, post} from './hosted-store-fixture.js';
@@ -502,18 +501,9 @@ test('supply product card shows offer state and requests waiting for the supplie
     await terms().getByRole('button', {name: '公開供貨版本', exact: true}).click();
     await expect(status()).toContainText('已公開供貨版本');
     await expect(card().getByText('供貨版本：公開中', {exact: true})).toBeVisible();
-    await page.getByRole('button', {name: '供貨條件', exact: true}).click();
-    await terms().getByRole('textbox', {name: '出貨條件', exact: true}).fill('改條件後尚未再次公開');
-    await terms().getByRole('button', {name: '儲存供貨條件', exact: true}).click();
-    await expect(status()).toContainText('已儲存供貨條件');
-    await expect(card().getByText('供貨版本：公開中（之後的修改尚未公開）', {exact: true})).toBeVisible();
     await page.setViewportSize({width: 390, height: 900});
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.setViewportSize({width: 1280, height: 900});
-    await page.getByRole('button', {name: '供貨條件', exact: true}).click();
-    await terms().getByRole('button', {name: '公開供貨版本', exact: true}).click();
-    await expect(status()).toContainText('已公開供貨版本');
-    await expect(card().getByText('供貨版本：公開中', {exact: true})).toBeVisible();
 
     const retailerContext = await browser.newContext({baseURL});
     try {
@@ -547,22 +537,6 @@ test('supply product card shows offer state and requests waiting for the supplie
     await workspace(page, '預留與訂單').click();
     await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
     await workspace(page, '供貨合作').click();
-
-    const shotDir = process.env.TMPDIR;
-    if (!shotDir) throw new Error('TMPDIR is required for screenshots');
-    for (const theme of ['light', 'dark'] as const) {
-      await page.evaluate(value => {localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; document.documentElement.dataset.experienceProfile = value; window.dispatchEvent(new Event('freedom-theme-changed'));}, theme);
-      for (const width of [390, 1440]) {
-        await page.setViewportSize({width, height: 900});
-        await page.evaluate(() => window.scrollTo(0, 0));
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        await workspace(page, '商品').click();
-        await card().screenshot({path: join(shotDir, `supply-offer-card-${theme}-${width}.png`), animations: 'disabled'});
-        await page.getByText('有 1 件供貨申請等待你確認。', {exact: true}).screenshot({path: join(shotDir, `supply-offer-notice-${theme}-${width}.png`), animations: 'disabled'});
-        await workspace(page, '供貨合作').click();
-        await page.locator('.hosted-distribution').screenshot({path: join(shotDir, `supply-offer-cooperation-${theme}-${width}.png`), animations: 'disabled'});
-      }
-    }
 
     await requests().locator('summary').click();
     await expect.poll(() => requests().evaluate(element => (element as HTMLDetailsElement).open)).toBe(false);

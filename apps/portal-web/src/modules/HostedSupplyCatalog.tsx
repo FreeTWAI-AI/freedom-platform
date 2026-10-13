@@ -21,13 +21,13 @@ const SHARING = '商品與供貨條件先儲存為私人草稿。公開供貨版
 function errorText(cause: unknown) {
   return cause instanceof ApiError && !cause.network ? cause.detail ?? cause.message : '暫時無法讀取供貨資料，請重新載入。';
 }
-/** source_version is this product's own-selection version frozen at publish. A difference means a later edit. */
+/** Versions are not compared: stock sits outside the frozen terms, a same-terms republish is a no-op, and this product list has no shipping or return terms. */
 function supplyOfferStateText(product: Product, snapshot: SupplyCooperationSnapshot | null) {
   if (!snapshot) return null;
   if (!snapshot.ok) return '供貨版本：狀態未完整載入';
   const offers = snapshot.offers.filter(offer => offer.product_id === product.product_id);
   if (!offers.length) return snapshot.offersTruncated ? '供貨版本：狀態未完整載入' : '供貨版本：尚未公開';
-  return offers.some(offer => offer.source_version === product.version) ? '供貨版本：公開中' : '供貨版本：公開中（之後的修改尚未公開）';
+  return '供貨版本：公開中';
 }
 function waitingNotice(snapshot: SupplyCooperationSnapshot | null) {
   if (!snapshot?.ok) return null;
