@@ -134,11 +134,11 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
   // preview.projection is the published snapshot only while clean; a dirty preview is the saved draft.
   const publishedSkus = publication?.state === 'published' && preview && !preview.dirty ? new Set(preview.projection.products.map(item => item.sku)) : null;
   const publishedSkuKey = publishedSkus ? [...publishedSkus].sort().join('\n') : null;
-  const copyAction = useLocalAction([root, storeCopyUrl, publishedSkuKey, editing, supplyEditing]);
+  const copyAction = useLocalAction([root, storeCopyUrl, publishedSkuKey, editing, supplyEditing, publication?.current_revision]);
   useLayoutEffect(() => {
     setCopyFeedback(null);
     setManualUrl(null);
-  }, [root, storeCopyUrl, publishedSkuKey, editing, supplyEditing]);
+  }, [root, storeCopyUrl, publishedSkuKey, editing, supplyEditing, publication?.current_revision]);
   function leaveOk() {
     if (Object.values(photoBlockRef.current).some(Boolean)) {announce('照片操作尚未確認，請先重試原照片操作。');return false;}
     if (busyRef.current || held.current) {
