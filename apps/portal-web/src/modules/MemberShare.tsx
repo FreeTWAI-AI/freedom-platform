@@ -87,8 +87,10 @@ export function MemberShare({client}:{client:PortalClient}){
         }else setStatus({kind:'dirty',message:'有變更尚未儲存'});
       }catch(cause){
         const failed=cause instanceof ApiError?cause.status:0;
-        if(failed===412||failed===428){try{await reloadConflict();}catch(reloadError){setStatus({kind:'error',message:reloadError instanceof Error?reloadError.message:'名片設定暫時無法載入。'});}break;}
-        setStatus({kind:'error',message:cause instanceof Error?cause.message:'名片設定暫時無法儲存。'});break;
+        if(failed===412||failed===428){try{await reloadConflict();}catch(reloadError){setStatus({kind:'error',message:reloadError instanceof Error?reloadError.message:'名片設定暫時無法載入。'});}}
+        else setStatus({kind:'error',message:cause instanceof Error?cause.message:'名片設定暫時無法儲存。'});
+        // A new member action must resume saving, not work queued before this failure.
+        window.clearTimeout(debounce.current);explicitRef.current=null;pumpAgain.current=false;break;
       }
       if(job)setActionBusy(explicitRef.current!==null);
       if(explicitRef.current||signature(localRef.current)!==lastSavedSig.current||pumpAgain.current)continue;
