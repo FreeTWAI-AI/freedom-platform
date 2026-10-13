@@ -77,7 +77,7 @@ test('expired Star mutation restores OAuth entry and never retries the write',as
   await store.loadAccount();await store.loadStar('book');await store.loadStar('other');
   await store.toggleStar('book');
   assert.deepEqual(store.account.value,unlinked);
-  assert.equal(store.star('book').saving,false);assert.equal(store.star('other').value,undefined);
+  assert.equal(store.star('book').saving,false);assert.equal(store.star('book').reauthorize,false);assert.equal(store.star('other').value,undefined);
   await store.toggleStar('book');
   assert.equal(client.posts.length,1);
   assert.deepEqual(client.posts[0],{path:starPath('book'),body:{starred:true,confirmed:true}});
@@ -124,7 +124,71 @@ test('permission denial stays visible while retaining confirmed account and neve
   assert.equal(store.star('book').error,'目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。');
   assert.doesNotMatch(store.star('book').error,/github_permission_required|原作者尚未|暫時|稍後/);
   assert.equal(store.star('book').saving,false);assert.equal(client.posts.length,1);
+  assert.equal(store.star('book').reauthorize,true);
   assert.equal(client.gets.filter(path=>path==='/me/github').length,2);
+});
+
+test('Star permission denial offers reauthorization without retrying the write and clears after reconnect',async()=>{
+  const denied=new ApiError({status:403,code:'github_permission_required',message:'GitHub 尚未授予 Star 權限。'});
+  const client=new Client(path=>path==='/me/github'?connected:star('book'),path=>{
+    if(path===starPath('book'))throw denied;
+    if(path==='/me/github/connect')return {authorization_url:'https://github.com/login/oauth/authorize?client_id=synthetic&state=synthetic'};
+    throw Error(`Unexpected POST ${path}`);
+  });
+  const store=new GitHubSocialStore(client,true);
+  await store.loadAccount();await store.loadStar('book');
+  assert.equal(store.star('book').reauthorize,false);
+  await store.toggleStar('book');
+  assert.equal(store.star('book').reauthorize,true);
+  assert.equal(store.star('book').value?.starred,false);
+  assert.equal(store.star('book').error,'目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。');
+  assert.equal(client.posts.length,1);
+  assert.deepEqual(client.posts[0],{path:starPath('book'),body:{starred:true,confirmed:true}});
+  assert.match(await store.connect('#skills'),/^https:\/\/github\.com\/login\/oauth\/authorize/);
+  assert.equal(client.posts.filter(item=>item.path===starPath('book')).length,1);
+  await store.loadStar('book',true);
+  assert.equal(store.star('book').reauthorize,false);
+  assert.equal(client.posts.filter(item=>item.path===starPath('book')).length,1);
+  await store.toggleStar('book');
+  assert.equal(store.star('book').reauthorize,true);
+  const starWrites=client.posts.filter(item=>item.path===starPath('book')).length;
+  await store.refreshConnection();
+  assert.equal(store.star('book').reauthorize,false);
+  assert.equal(store.account.value?.connected,true);
+  assert.equal(client.posts.filter(item=>item.path===starPath('book')).length,starWrites);
+});
+
+test('Star rate limits and outages do not offer reauthorization',async()=>{
+  for(const denied of [
+    new ApiError({status:429,code:'github_rate_limited',message:'GitHub 操作過於頻繁，請稍後再試。'}),
+    new ApiError({status:503,code:'github_unavailable',message:'GitHub 暫時無法回應，請稍後再試。'}),
+  ]){
+    const client=new Client(path=>path==='/me/github'?connected:star('book'),()=>{throw denied;});
+    const store=new GitHubSocialStore(client,true);
+    await store.loadAccount();await store.loadStar('book');await store.toggleStar('book');
+    assert.equal(store.star('book').reauthorize,false);
+    assert.equal(client.posts.length,1);
+  }
+});
+
+test('a permission-denied Star read offers reauthorization until a successful reload',async()=>{
+  let deny=true;
+  const client=new Client(path=>{
+    if(path==='/me/github')return connected;
+    if(deny)throw new ApiError({status:403,code:'github_permission_required',message:'GitHub 尚未授予 Star 權限。'});
+    return star('book');
+  });
+  const store=new GitHubSocialStore(client,true);
+  await store.loadAccount();
+  await store.loadStar('book');
+  assert.equal(store.star('book').reauthorize,true);
+  assert.equal(store.star('book').error,'目前無法透過平台替這個 Repo 按星，請前往原作 GitHub 操作。');
+  assert.equal(client.posts.length,0);
+  deny=false;
+  await store.loadStar('book',true);
+  assert.equal(store.star('book').reauthorize,false);
+  assert.equal(store.star('book').error,'');
+  assert.equal(store.star('book').value?.starred,false);
 });
 
 test('account refresh clears old Stars when the GitHub identity changes or disconnects',async()=>{

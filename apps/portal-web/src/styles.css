@@ -225,6 +225,12 @@ select {
   width: min(32rem, 100%);
 }
 
+.login-card > .btn {
+  margin-top: 12px;
+  max-width: 100%;
+  min-height: 44px;
+}
+
 .card {
   background: var(--bg-elev);
   border: 1px solid var(--line);
