@@ -416,15 +416,19 @@ test('T-024 exception, timeout, cancel, and deferred owner failure leave the nex
 
   let ready = () => {};
   const gate = new Promise<void>(resolve => { ready = resolve; });
-  const cancelled = isolatedTransaction(runtime, async q => {
+  // Observe rejection immediately: the backend can fail before the admin
+  // connection acknowledges cancellation. Keep that ordering in the fixture.
+  const cancelled = Promise.allSettled([isolatedTransaction(runtime, async q => {
     await bindSpace(q, people.p1, spaces.a);
     assert.equal(await backend(q), pid);
     ready();
     await q.query('SELECT pg_sleep(30)');
-  });
+  })]);
   await gate;
-  await admin.query('SELECT pg_cancel_backend($1)', [pid]);
-  await assert.rejects(cancelled, sqlCode('57014'));
+  await admin.query('SELECT pg_cancel_backend($1), pg_sleep(0.05)', [pid]);
+  const [cancellation] = await cancelled;
+  assert.ok(cancellation.status === 'rejected');
+  assert.equal(cancellation.reason.code, '57014');
   await isolatedTransaction(runtime, async q => {
     assert.equal(await backend(q), pid);
     await expectEmptyContext(q);
@@ -449,15 +453,18 @@ test('T-024 a failed rollback destroys the client and the next connection has no
   let ready = () => {};
   const gate = new Promise<void>(resolve => { ready = resolve; });
   const beforeCount = runtime.totalCount;
-  const terminated = isolatedTransaction(runtime, async q => {
+  // Backend termination and rollback failure can precede the admin response.
+  const terminated = Promise.allSettled([isolatedTransaction(runtime, async q => {
     await bindSpace(q, people.p1, spaces.a);
     assert.equal(await backend(q), pid);
     ready();
     await q.query('SELECT pg_sleep(30)');
-  });
+  })]);
   await gate;
-  await admin.query('SELECT pg_terminate_backend($1)', [pid]);
-  const error = await terminated.then(() => { throw new Error('terminate should fail the callback'); }, (caught: unknown) => caught) as { code?: string; cause?: unknown };
+  await admin.query('SELECT pg_terminate_backend($1), pg_sleep(0.05)', [pid]);
+  const [termination] = await terminated;
+  assert.ok(termination.status === 'rejected', 'terminate should fail the callback');
+  const error = termination.reason as { code?: string; cause?: unknown };
   assert.equal(error.code, '57P01');
   assert.ok(error.cause);
   assert.ok(runtime.totalCount < beforeCount || runtime.totalCount === 0);
