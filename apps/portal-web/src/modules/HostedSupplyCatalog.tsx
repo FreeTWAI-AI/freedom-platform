@@ -24,7 +24,7 @@ function errorText(cause: unknown) {
 export function SupplyCatalogList({client}: {client: PortalClient}) {
   const {data, error, retry, loadMore, loadingMore, pageError} = useMyStores(client, 'supply');
   return <div className="hosted-store stack">
-    <h2>我的供貨商品庫</h2>
+    <h2 data-share-entry="supply" tabIndex={-1}>我的供貨商品庫</h2>
     <div className="actions"><a className="btn btn-ghost" href="#guilds/guild_product_quality_supply">前往商品品質與供應公會</a></div>
     {error ? <><p role="alert">暫時無法讀取你的供貨資料。</p><div className="actions"><button type="button" className="btn btn-ghost" onClick={retry}>重試</button></div></> : !data ? <p role="status">正在確認你的供貨資料…</p> : <>
       {data.items.length === 0 && !data.next_cursor && <p>你還沒有供貨商品庫。請從商品品質與供應公會開始供貨設定。</p>}
