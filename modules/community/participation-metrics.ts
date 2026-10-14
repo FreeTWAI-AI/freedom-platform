@@ -5,7 +5,7 @@ import { communitySearchKinds } from '../../packages/shared/community-search.js'
 import type { Actor } from '../identity-membership/service.js';
 
 // Versioned so a changed definition never silently rewrites an older report.
-export const PARTICIPATION_METRICS_VERSION = 'participation-metrics/v2';
+export const PARTICIPATION_METRICS_VERSION = 'participation-metrics/v3';
 export const MIN_SAMPLE = 10;
 const TIME_ZONE = 'Asia/Taipei';
 
@@ -28,7 +28,9 @@ export const metricsDefinition = {
     first_share_return_7d: 'Participation-return proxy: members whose first share is in range and who subsequently post, comment, publish a showcase/skill or search on a later Taipei calendar day within 7 days. Uses event timestamps, never mutable session last-seen; not all visits. Removing source facts can change recomputation.',
     search_zero_result: 'Search page reads that returned no readable result, over all recorded non-test search page reads; excluded_test_accounts counts distinct excluded actors and excluded_search_reads counts excluded reads.',
     search_open: 'Search page reads with at least one result in which a result was opened, over non-test page reads with results; exclusion counts are restricted to reads with results.',
-    moderation_case_time: 'Not yet measured: reporting case processing time is not instrumented.',
+    moderation_first_handling_48h: 'Cases received in the requested Asia/Taipei range whose first transition-journal row with state in_progress is at most 48 hours after member_reports.created_at. The 48-hour span is an observation window, not a service-level target for volunteer handlers. Timings come from the transition journal. Open cases still inside the window are pending_window, not failures. Verification/test-account reporters are excluded.',
+    moderation_close_7d: 'Cases received in the requested Asia/Taipei range whose first transition-journal row with state closed is at most 7 days after member_reports.created_at. The 7-day span is an observation window, not a service-level target for volunteer handlers. Timings come from the transition journal. Open cases still inside the window are pending_window, not failures. Verification/test-account reporters are excluded.',
+    repeat_abuse: 'Not measured: repeat abuse needs a maintainer definition (#262).',
   },
 } as const;
 
@@ -132,6 +134,37 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
       count(*) FILTER (WHERE synthetic AND result_count>0) AS excluded_result_reads
     FROM scoped`, false);
 
+  // State and timestamps only. Report text stays in the row and is not selected.
+  const caseTiming = async (state: 'in_progress' | 'closed', window: '48 hours' | '7 days') => {
+    const span = `(CASE $6::text WHEN '48 hours' THEN interval '48 hours' WHEN '7 days' THEN interval '7 days' END)`;
+    const row = (await pool.query(`WITH cohort AS (
+      SELECT r.case_id, r.reporter_user_id, r.created_at, is_verification_test_account(r.reporter_user_id) AS synthetic
+      FROM member_reports r
+      WHERE r.community_id=$1 AND r.created_at >= ${start} AND r.created_at < ${end}),
+    first_event AS (
+      SELECT j.aggregate_id AS case_id, min(j.created_at) AS at
+      FROM cohort c JOIN transition_journal j ON j.aggregate_type='member_report' AND j.aggregate_id=c.case_id
+      WHERE j.community_id=$1 AND j.command='transition' AND j.data->>'state'=$5
+      GROUP BY j.aggregate_id)
+    SELECT
+      count(*) FILTER (WHERE NOT c.synthetic AND c.created_at + ${span} <= $4::timestamptz) AS denominator,
+      count(*) FILTER (WHERE NOT c.synthetic AND c.created_at + ${span} > $4::timestamptz) AS pending,
+      count(*) FILTER (WHERE NOT c.synthetic AND c.created_at + ${span} <= $4::timestamptz
+        AND e.at >= c.created_at AND e.at <= c.created_at + ${span}) AS numerator,
+      (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM (e.at - c.created_at)) / 3600.0)
+        FROM cohort c JOIN first_event e ON e.case_id=c.case_id
+        WHERE NOT c.synthetic AND c.created_at + ${span} <= $4::timestamptz
+          AND e.at >= c.created_at AND e.at <= c.created_at + ${span}) AS median_hours,
+      count(DISTINCT c.reporter_user_id) FILTER (WHERE c.synthetic) AS excluded_test_accounts
+    FROM cohort c LEFT JOIN first_event e ON e.case_id=c.case_id`, [...args, state, window])).rows[0] as Record<string, string | null>;
+    const numerator = n(row.numerator);
+    const rawMedian = row.median_hours == null ? null : Number(row.median_hours);
+    const median = numerator >= MIN_SAMPLE && rawMedian != null && Number.isFinite(rawMedian) ? Math.round(rawMedian * 100) / 100 : null;
+    return { ...rate(numerator, n(row.denominator), n(row.pending)), excluded_test_accounts: n(row.excluded_test_accounts), median_hours: median };
+  };
+  const handling = await caseTiming('in_progress', '48 hours');
+  const closed = await caseTiming('closed', '7 days');
+
   return {
     definition: metricsDefinition,
     community_id: admin.community_id,
@@ -145,7 +178,9 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
       first_share_return_7d: rate(n(returns.returned), n(returns.denominator), n(returns.pending)),
       search_zero_result: { ...rate(n(search.zero), n(search.reads), 0), excluded_test_accounts: n(search.excluded_accounts), excluded_search_reads: n(search.excluded_reads) },
       search_open: { ...rate(n(search.opened), n(search.with_results), 0), excluded_test_accounts: n(search.excluded_result_accounts), excluded_search_reads: n(search.excluded_result_reads) },
-      moderation_case_time: { status: 'not_available', reason: 'reporting case processing time is not yet instrumented' },
+      moderation_first_handling_48h: handling,
+      moderation_close_7d: closed,
+      repeat_abuse: { status: 'not_available' as const, reason: 'repeat abuse is not yet defined' },
     },
   };
 }
