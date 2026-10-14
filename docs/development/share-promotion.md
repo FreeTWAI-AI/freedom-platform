@@ -97,6 +97,12 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
 | `POST /api/v1/social-posts/:id/hide` | 平台管理員 | 隱藏 |
 
+會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
+讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
+等鎖期間到期或在 object I/O 期間撤銷，沿用縮圖讀權拒絕的 404 `not_found`，
+不回圖片。Object I/O 留在交易外，取得 bytes 後仍重新取 snapshot；匿名公開
+縮圖仍只允許有效外部連結貼文，不因此公開原生貼文。
+
 `period=week` 從週一 00:00（台北）起算，`month` 從當月 1 日 00:00 起算，`all` 的 `since` 是 null。榜上同分數並列（1、2、2、4），再以顯示名稱與 user id 排序。只計本人所屬社群的有效、已完成加入（選定主要公會）的會員；驗收測試帳號不出現在別人的榜上。每人最多看前 10 名，`me` 是自己的名次，0 分則為 null。頭像規則與會員列表相同。
 
 活動分享沿用原本的活動分享碼。尚未結束的活動，點進 `/go/` 後會到 `/events/<id>?ref=<分享者的活動碼>`。已經結束、而且有公開活動集錦的，改到 `/highlights/<id>`。報名統計多了「點擊 N・報名 M 人」。舊的 `?ref=` 連結仍可報名，只是沒有點擊分。
