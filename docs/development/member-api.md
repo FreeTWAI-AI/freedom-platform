@@ -472,7 +472,12 @@ Idempotency-Key and quoted If-Match controls:
   an explicit positive safe-integer lead time and `in_app` or `email`.
 
 The original `POST /public/events/:id/register` remains separate from the optional
-participation API. Its confirmation transaction rechecks `starts_at` against the
+participation API. After its event/reservation waits, it checks the current pending
+hold against the database wall clock immediately before provider handoff. An
+already-expired hold cannot send participation details; an existing confirmed
+registration may resend. This does not recall a message handed off while its hold
+was still valid or change the existing provider-in-flight transaction boundary.
+Its confirmation transaction rechecks `starts_at` against the
 database wall clock after provider handoff and all participation writes, before
 commit. If that wait crosses the start, it returns `409 event_closed` and rolls
 back this confirmation; the earlier pending reservation remains unconfirmed.

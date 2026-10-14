@@ -250,7 +250,7 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     requireCondition(row.visibility!=='referral'||body.referral_code,422,'share_code_required','請從會員分享的活動連結報名。');
     const referrer=await referralOwner(q,id,body.referral_code);
     if(participationEnabled)await reconcileEventWaitlist(q,id);
-    await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND state='pending' AND created_at<=now()-interval '10 minutes'",[id]);
+    await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND state='pending' AND created_at<=clock_timestamp()-interval '10 minutes'",[id]);
     let existing=(await q.query('SELECT state,registration_attempt_id FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[id,email])).rows[0];
     if(!existing||existing.state==='cancelled'){
       requireCondition(row.capacity===null||await countEventSeats(q,id)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
@@ -270,9 +270,15 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     const parts=[`你已申請參加「${event.title}」。`,`時間：${local(event.starts_at)} 至 ${local(event.ends_at)}（台灣時間）`,
       `地點：${event.location}`,event.online_url?`線上參與連結：${event.online_url}`:'',`活動頁：${origin}/events/${event.event_id}`,
       registration.capability?`私人參與管理（請勿轉寄）：${eventGuestManagementLink(origin,id,registration.capability)}`:''].filter(Boolean);
+    // Check the hold after the event/reservation waits, before handing private details to the provider.
+    // An already-confirmed registration may resend; a pending hold must still be live now.
+    requireCondition((await q.query(`SELECT 1 FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2
+      AND registration_attempt_id=$3 AND (state='going' OR (state='pending' AND created_at>clock_timestamp()-interval '10 minutes'))`,[id,email,registration.attempt_id])).rowCount===1,
+      409,'event_closed','這筆報名已取消或失效，郵件未交給提供者。');
     try{await send(email,'自由工坊：活動參與資料',parts.join('\n\n'));}
     catch{throw new Problem(503,'event_email_delivery_failed',reservation.state==='going'?'報名已確認，但這次郵件提供者尚未確認接受；請稍後重試寄信。':'郵件提供者尚未確認接受，報名未確認；請稍後重試。');}
-    const confirmed=await q.query("UPDATE community_event_guest_rsvps SET state='going',email_sent_at=now() WHERE event_id=$1 AND email=$2 AND state IN ('pending','going') AND registration_attempt_id=$3",[id,email,registration.attempt_id]);
+    // The event lock can outlast the ten-minute hold. Do not promote a pending reservation that has already expired.
+    const confirmed=await q.query("UPDATE community_event_guest_rsvps SET state='going',email_sent_at=now() WHERE event_id=$1 AND email=$2 AND registration_attempt_id=$3 AND (state='going' OR (state='pending' AND created_at>clock_timestamp()-interval '10 minutes'))",[id,email,registration.attempt_id]);
     requireCondition(confirmed.rowCount===1,409,'event_closed','報名狀態已變更，請重新確認本人狀態。');
     if(registration.capability)await markGuestCapabilityProviderAccepted(q,id,email);
     if(participationEnabled){await markEventParticipationGoing(q,id,{guest_email:email});await reconcileEventWaitlist(q,id);}
@@ -563,8 +569,9 @@ export async function setRsvp(pool:Pool,input:Command,id:string,participationEna
       requireCondition(row.visibility!=='referral'||referrer,422,'share_code_required','請從會員分享的活動連結報名。');
       const mine=(await q.query('SELECT state FROM community_event_rsvps WHERE event_id=$1 AND user_id=$2',[id,input.actor.user_id])).rows[0]?.state;
       if(mine!=='going'){
-        await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND state='pending' AND created_at<=now()-interval '10 minutes'",[id]);
-        const mineReserved=(await q.query("SELECT 1 FROM community_event_waitlist WHERE event_id=$1 AND member_ref=$2 AND status='invited' AND expires_at>now()",[id,input.actor.user_id])).rowCount===1;
+        await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND state='pending' AND created_at<=clock_timestamp()-interval '10 minutes'",[id]);
+        // The event row lock can outlast the invitation. Recheck the live clock so an expired reservation is not subtracted after another member takes the released seat.
+        const mineReserved=(await q.query("SELECT 1 FROM community_event_waitlist WHERE event_id=$1 AND member_ref=$2 AND status='invited' AND expires_at>clock_timestamp()",[id,input.actor.user_id])).rowCount===1;
         requireCondition(row.capacity===null||await countEventSeats(q,id)-(mineReserved?1:0)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
       }
     }
