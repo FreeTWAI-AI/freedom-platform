@@ -231,6 +231,78 @@ test('concurrent exclusive claims have one winner and preserve atomic facts',asy
   assert.equal((await pool.query('SELECT count(*) FROM work_claims')).rows[0].count,'1');
   assert.equal((await work(a)).state,'claiming_closed');
 });
+const windowClaim=z.object({claim_id:z.uuid(),work_item_id:z.uuid(),claimant_ref:z.uuid(),state:z.string(),aggregate_version:z.number().int()});
+const windowWork=z.object({work_item_id:z.uuid(),aggregate_version:z.number().int(),participation_terms_revision:z.number().int(),participation_terms_sha256:z.string()});
+const windowFacts=z.object({state:z.string(),version:z.string(),claims:z.string(),journal:z.string(),events:z.string(),receipts:z.string()});
+async function currentWindowFacts(id:string,key:string,userId:string) {
+  return windowFacts.parse((await pool.query(`SELECT w.state,w.aggregate_version::text AS version,
+    (SELECT count(*)::text FROM work_claims WHERE work_item_id=w.work_item_id) AS claims,
+    (SELECT count(*)::text FROM transition_journal WHERE aggregate_id=w.work_item_id OR aggregate_id IN(SELECT claim_id FROM work_claims WHERE work_item_id=w.work_item_id)) AS journal,
+    (SELECT count(*)::text FROM outbox o JOIN transition_journal j USING(transition_id) WHERE j.aggregate_id=w.work_item_id OR j.aggregate_id IN(SELECT claim_id FROM work_claims WHERE work_item_id=w.work_item_id)) AS events,
+    (SELECT count(*)::text FROM command_receipts WHERE idempotency_key=$2 AND user_id=$3) AS receipts
+    FROM work_items w WHERE work_item_id=$1`,[id,key,userId])).rows[0]);
+}
+async function claimWindowAlive(id:string) {
+  return z.object({alive:z.boolean()}).parse((await pool.query('SELECT claim_window_expires_at>clock_timestamp() AS alive FROM work_items WHERE work_item_id=$1',[id])).rows[0]).alive;
+}
+async function waitForClaimWindowCommand(pid:number,sql:string,finished:()=>boolean) {
+  const deadline=Date.now()+5000;
+  while(Date.now()<deadline) {
+    const rows=z.array(z.object({query:z.string()})).parse((await pool.query('SELECT query FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows);
+    if(rows.some(row=>row.query.includes(sql)))return;
+    assert.equal(finished(),false,'claim finished before its expected domain wait');await delay(10);
+  }
+  throw new Error(`expected claim window wait not observed: ${sql}`);
+}
+for(const kind of ['work-lock','claim-insert','receipt-insert','receipt-replay'] as const) {
+  test(`claim window after ${kind} rolls back only new claims and preserves historical receipts`,async()=>{
+    const owner=await signIn(DEMO_USERS[1].email),maker=await signIn(),user=z.object({user_id:z.uuid(),profession_membership_ref:z.uuid()}).parse(maker.user);
+    for(const expires of [true,false]) {
+      const work=windowWork.parse(await newWork(owner,{will_review:false})),key=randomUUID();
+      const body={claimant_type:'user',acting_profession_membership_ref:user.profession_membership_ref,expected_aggregate_version:work.aggregate_version,
+        terms_status:'declared',participation_terms_revision:work.participation_terms_revision,participation_terms_sha256:work.participation_terms_sha256};
+      let original:unknown;
+      if(kind==='receipt-replay') {const result=await request(`/work-items/${work.work_item_id}:claim`,maker,body,String(work.aggregate_version),key);assert.equal(result.status,201);original=result.data;}
+      const before=await currentWindowFacts(work.work_item_id,key,user.user_id);
+      assert.equal((await pool.query('UPDATE work_items SET claim_window_expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE work_item_id=$1',[work.work_item_id,expires?2:90])).rowCount,1);
+      const locker=await pool.connect();let pending:Promise<{status:number;data:unknown;response:Response}>|undefined;
+      try {
+        await locker.query('BEGIN');
+        if(kind==='work-lock')await locker.query('SELECT work_item_id FROM work_items WHERE work_item_id=$1 FOR UPDATE',[work.work_item_id]);
+        else if(kind==='claim-insert')await locker.query('LOCK TABLE work_claims IN SHARE MODE');
+        else if(kind==='receipt-insert')await locker.query('LOCK TABLE command_receipts IN SHARE MODE');
+        else await locker.query('LOCK TABLE command_receipts IN ACCESS EXCLUSIVE MODE');
+        const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+        let finished=false;pending=request(`/work-items/${work.work_item_id}:claim`,maker,body,String(work.aggregate_version),key);void pending.then(()=>{finished=true},()=>{finished=true});
+        await waitForClaimWindowCommand(pid,kind==='work-lock'?'FOR UPDATE':kind==='claim-insert'?'INSERT INTO work_claims':kind==='receipt-insert'?'INSERT INTO command_receipts':'SELECT * FROM command_receipts',()=>finished);
+        if(expires) {
+          const deadline=Date.now()+4000;
+          while(await claimWindowAlive(work.work_item_id)) {assert.ok(Date.now()<deadline,'claim window did not expire on the database clock');await delay(10);}
+        }else await delay(2100);
+        assert.equal(await claimWindowAlive(work.work_item_id),!expires);
+        assert.equal(z.object({alive:z.boolean()}).parse((await pool.query('SELECT bool_and(revoked_at IS NULL AND expires_at>clock_timestamp()) AS alive FROM sessions WHERE user_id=$1',[user.user_id])).rows[0]).alive,true);
+        await locker.query('COMMIT');const result=await pending;
+        if(expires&&kind!=='receipt-replay') {
+          assert.equal(result.status,409);assert.equal(z.object({code:z.string()}).parse(result.data).code,'claim_window_closed');
+          assert.deepEqual(await currentWindowFacts(work.work_item_id,key,user.user_id),before);
+        }else {
+          assert.equal(result.status,201);const claim=windowClaim.parse(result.data);assert.equal(claim.state,'claimed');assert.equal(claim.claimant_ref,user.user_id);
+          const after=await currentWindowFacts(work.work_item_id,key,user.user_id);assert.equal(after.claims,'1');assert.equal(after.receipts,'1');
+          if(original!==undefined) {assert.deepEqual(result.data,original);assert.deepEqual(after,before);}
+          if(expires&&kind==='receipt-replay') {
+            const started=await request(`/work-claims/${claim.claim_id}:start`,maker,{},String(claim.aggregate_version));assert.equal(started.status,200);
+            const current=windowClaim.parse(started.data);assert.equal(current.state,'in_progress');
+            const state=await currentWindowFacts(work.work_item_id,key,user.user_id);
+            const replay=await request(`/work-items/${work.work_item_id}:claim`,maker,body,String(work.aggregate_version),key);
+            assert.equal(replay.status,201);assert.deepEqual(replay.data,original);assert.deepEqual(await currentWindowFacts(work.work_item_id,key,user.user_id),state);
+            assert.deepEqual(z.object({state:z.string(),version:z.string()}).parse((await pool.query('SELECT state,aggregate_version::text AS version FROM work_claims WHERE claim_id=$1',[claim.claim_id])).rows[0]),{state:'in_progress',version:String(current.aggregate_version)});
+          }
+        }
+      }finally {await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});}
+    }
+  });
+}
+
 test('missing reviewer does not block claim; expired invitation cannot erase an established claim',async()=>{
   const owner=await signIn(DEMO_USERS[1].email),maker=await signIn();const w=await newWork(owner,{will_review:false});
   assert.equal(w.review_capacity,'waiting_reviewer_capacity');let c=await claim(maker,w.work_item_id);

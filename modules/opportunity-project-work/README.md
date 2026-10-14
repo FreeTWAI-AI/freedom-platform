@@ -152,6 +152,26 @@ showcase → 商機 → 提案 → 同意 → 交付／驗收 → 自填／對�
 私人／tenant Work、migration 與付款能力不變。Loopback HTTP、runtime 與部署
 證據分開，本節不宣稱已部署或 Foundation 整體完成。
 
+### 新認領窗口與歷史 receipt（#626）
+
+依 [五個時鐘的 invite／claim 規則](../../docs/platform-plan/03-domain-events-state-machines.md#11-model-驗收不變量)，
+窗口到期不能建立新 Claim，但不抹除已成立的 Claim。`claimWork` 在原 Work 列鎖
+取得後以 native DB `clock_timestamp()` 驗窗口，並重用既有 command 的 domain
+revalidate，在新認領的最後 receipt INSERT 等待後再驗。
+
+只有本次 request 實際進入新 domain run 才啟用最後窗口 gate；原合法 receipt
+不重新取得 availability 資格，但仍經原目前身分／Work 模式與 session 保護。
+新認領若在 Claim／receipt INSERT 等待期間過期，以既有 `409 claim_window_closed`
+拒絕，Work state／version、Claim、journal、outbox、receipt 一起 rollback。
+已成立認領仍可 start／submit；原 key 回歷史 response，不重寫目前 Claim state。
+
+`flows.test.ts` consumer regression 用原生 Work 列鎖、Claim／receipt INSERT、
+receipt SELECT 等待與資料庫期限，驗到期／有效、整組 rollback，以及過期歷史
+重播後仍可 start、再次重播不回寫已前進的 state／version。排他認領、terms
+revision／hash、版本、模式與本人／self-claim 契約不改；沒有新增窗口延長、
+policy、migration、retry 或外部 I/O。Loopback HTTP／runtime 不代表已部署，
+本節不宣稱 Foundation 整體驗收完成。
+
 ## Tenant manual Work
 
 Tenant Work is the `tenant_execution` mode of the same `work_items` table. It is not a personal draft and not a community collaboration. `tenant-work.ts` reads and `tenant-work-commands.ts` creates, replaces, and archives. The author is `owner_ref`; `owner_principal_id` and `community_id` stay null. Placement (`tenant_id`, `instance_id`, `workspace_id`, `created_by_principal_id`) is frozen. Archive is retained and terminal. HTTP is `apps/platform-api/src/routes/tenant-work.ts`, mounted only while guild launchpad is enabled. Owners and admins use the existing Work role template. Operators and viewers require active ordinary grants on the addressed instance; tenant-wide admission happens before lookup, unreadable id-addressed targets use the existing 404, and a missing requested instance key is 403. Workspace routes check their bound instance. Commands authorize before receipt lookup; Result commands also repeat target authorization after each receipt read/write and after external storage I/O.
