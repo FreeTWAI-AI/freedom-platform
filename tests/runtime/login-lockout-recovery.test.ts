@@ -1,5 +1,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
@@ -7,12 +9,13 @@ import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { tokenHash } from '../../modules/identity-membership/service.js';
+import { totpCode } from '../../modules/identity-membership/totp.js';
 
 const origin = 'http://127.0.0.1:4310', databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
 const schema = `fp_login_recovery_${process.pid}_${Date.now()}`, admin = createPool(databaseUrl);
-const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 8 });
+const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, application_name: schema, max: 8 });
 const delivered: string[] = [];
-const app = createApp(pool, origin, 'local', { passwordEmailSender: async (_to, url) => { delivered.push(url); } });
+const app = createApp(pool, origin, 'local', { passwordEmailSender: async (_to, url) => { delivered.push(url); }, totpEncryptionKey: Buffer.alloc(32, 0x74).toString('base64') });
 const secureOrigin = 'https://recovery.example.test';
 const secureApp = createApp(pool, secureOrigin, 'staging', { passwordEmailSender: async (_to, url) => { delivered.push(url); } });
 const email = DEMO_USERS[0].email, newPassword = 'synthetic-recovered-password-2026';
@@ -89,6 +92,83 @@ test('a late session failure leaves the old password, session, proof and lockout
   assert.equal((await pool.query('SELECT failures FROM login_attempts WHERE attempt_key=$1', [tokenHash(email)])).rows[0].failures, 10);
   assert.equal((await app.request(origin + '/api/v1/session', { headers: { Cookie: old.cookie } })).status, 200);
   assert.equal((await post('/auth/reset/confirm', { token, password: newPassword })).status, 200, 'the proof can be retried after rollback');
+});
+
+for (const scenario of [
+  { mfa: false, waitAt: 'session revocation' },
+  { mfa: true, waitAt: 'session revocation' },
+  { mfa: false, waitAt: 'session creation' },
+]) test(`proof expiry during ${scenario.waitAt} rolls back recovery (${scenario.mfa ? 'MFA' : 'password only'})`, async () => {
+  const old = await post('/auth/login', { email, password: DEMO_PASSWORD }); assert.ok(old.cookie);
+  const userId = DEMO_USERS[0].user_id;
+  if (scenario.mfa) {
+    const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+    const clock = (await pool.query('SELECT floor(extract(epoch FROM clock_timestamp())/30)::bigint AS counter')).rows[0].counter;
+    const enabled = await post('/me/totp/enable', { password: DEMO_PASSWORD, secret, code: totpCode(secret, Number(clock)) }, false,
+      { Cookie: old.cookie, 'X-CSRF-Token': old.data.csrf_token!, 'Idempotency-Key': randomUUID() });
+    assert.equal(enabled.status, 200);
+    await pool.query('UPDATE member_totp SET failures=3 WHERE user_id=$1', [userId]);
+  }
+  await lockAccount();
+  const other = await resetLink(), token = await resetLink(), hash = tokenHash(token);
+  await pool.query("UPDATE password_reset_tokens SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1", [hash]);
+  const priorUser = (await pool.query('SELECT password_hash,email_verified_at FROM users WHERE user_id=$1', [userId])).rows[0];
+  const priorSessions = (await pool.query('SELECT token_hash,revoked_at FROM sessions WHERE user_id=$1 ORDER BY token_hash', [userId])).rows;
+  const priorAttempt = (await pool.query('SELECT failures,window_start FROM login_attempts WHERE attempt_key=$1', [tokenHash(email)])).rows[0];
+  const priorMfa = (await pool.query('SELECT * FROM member_totp WHERE user_id=$1', [userId])).rows;
+  let pending: Promise<unknown> | undefined;
+  if (scenario.waitAt === 'session creation') {
+    // A real PostgreSQL trigger places the wait after the proof was consumed,
+    // so a check before session insertion would still accept an expired proof.
+    await pool.query(`CREATE FUNCTION wait_recovery_session() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        PERFORM pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM
+          ((SELECT min(expires_at) FROM password_reset_tokens WHERE user_id=NEW.user_id)-clock_timestamp())))+0.05);
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER wait_recovery_session BEFORE INSERT ON sessions FOR EACH ROW EXECUTE FUNCTION wait_recovery_session()`);
+    try {
+      const reply = await post('/auth/reset/confirm', { token, password: newPassword });
+      assert.equal(reply.status, 422); assert.equal(reply.data.code, 'reset_link_invalid'); assert.equal(reply.cookie, undefined);
+    } finally {
+      await pool.query('DROP TRIGGER wait_recovery_session ON sessions; DROP FUNCTION wait_recovery_session()');
+    }
+  } else {
+    const blocker = await pool.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT token_hash FROM sessions WHERE user_id=$1 FOR UPDATE', [userId]);
+      const reset = post('/auth/reset/confirm', { token, password: newPassword }); pending = reset;
+      let waiting = false;
+      for (let i = 0; i < 200; i++) {
+        const row = await admin.query(`SELECT 1 FROM pg_stat_activity WHERE application_name=$1
+          AND wait_event_type='Lock' AND query LIKE 'UPDATE sessions SET revoked_at%'`, [schema]);
+        if (row.rowCount) { waiting = true; break; }
+        await delay(10);
+      }
+      assert.ok(waiting, 'an initially valid proof must reach the session row-lock barrier');
+      await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM password_reset_tokens WHERE token_hash=$1', [hash]);
+      await blocker.query('COMMIT');
+      const reply = await reset;
+      assert.equal(reply.status, 422); assert.equal(reply.data.code, 'reset_link_invalid'); assert.equal(reply.cookie, undefined);
+    } finally {
+      await blocker.query('ROLLBACK'); blocker.release(); await pending;
+    }
+  }
+  assert.deepEqual((await pool.query('SELECT password_hash,email_verified_at FROM users WHERE user_id=$1', [userId])).rows[0], priorUser);
+  assert.deepEqual((await pool.query('SELECT token_hash,revoked_at FROM sessions WHERE user_id=$1 ORDER BY token_hash', [userId])).rows, priorSessions);
+  assert.deepEqual((await pool.query('SELECT failures,window_start FROM login_attempts WHERE attempt_key=$1', [tokenHash(email)])).rows[0], priorAttempt);
+  assert.deepEqual((await pool.query('SELECT * FROM member_totp WHERE user_id=$1', [userId])).rows, priorMfa);
+  assert.equal((await pool.query('SELECT consumed_at FROM password_reset_tokens WHERE token_hash=$1', [hash])).rows[0].consumed_at, null);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM password_reset_tokens WHERE user_id=$1 AND consumed_at IS NULL', [userId])).rows[0].n, 2);
+  assert.equal((await app.request(origin + '/api/v1/session', { headers: { Cookie: old.cookie } })).status, 200);
+  const recovered = await post('/auth/reset/confirm', { token: other, password: newPassword });
+  assert.equal(recovered.status, 200, 'the other still-valid mailbox proof remains usable');
+  assert.equal(recovered.cookie === undefined, scenario.mfa);
+  if (scenario.mfa) {
+    assert.deepEqual(recovered.raw, { reset: true, totp_required: true, expires_after_minutes: 30 });
+    assert.deepEqual((await pool.query('SELECT * FROM member_totp WHERE user_id=$1', [userId])).rows, priorMfa);
+  }
 });
 
 for (const secure of [true, false]) test(`${secure ? 'HTTPS' : 'HTTP loopback'} reset issues a fresh session view and revokes pre-reset sessions`, async () => {

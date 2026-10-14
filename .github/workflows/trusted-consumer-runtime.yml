@@ -10,16 +10,16 @@ jobs:
     # Installed on three adopted consumers. The additional directory build
     # profile needs independent review and owned-ref canaries before installation.
     # Forks skip: their job.workflow_sha is not in the central repository, so the
-    # trusted-source checkout cannot fetch it. Every FreeTWAI-AI repository runs the
+    # trusted-source checkout cannot fetch it. Every FreeTWAI repository runs the
     # job; the host refuses repositories outside its approved set (fails closed).
-    if: ${{ github.repository_owner == 'FreeTWAI-AI' && github.repository != 'FreeTWAI-AI/freedom-platform' }}
+    if: ${{ github.repository_owner == 'FreeTWAI' && github.repository != 'FreeTWAI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Source/profile tuples are fixed by the reviewed host source, per repository.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: FreeTWAI-AI/freedom-platform
+          repository: FreeTWAI/freedom-platform
           ref: ${{ job.workflow_sha }}
           path: trusted-source
           fetch-depth: 0
@@ -36,14 +36,14 @@ jobs:
           node-version: '24.21.0'
           check-latest: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        if: ${{ github.repository == 'FreeTWAI-AI/FreeTWAI-AI.github.io' }}
+        if: ${{ github.repository == 'FreeTWAI/FreeTWAI.github.io' }}
         with:
           python-version: '3.13'
       - name: Install fixed directory source manifest dependency
-        if: ${{ github.repository == 'FreeTWAI-AI/FreeTWAI-AI.github.io' }}
+        if: ${{ github.repository == 'FreeTWAI/FreeTWAI.github.io' }}
         run: python -m pip --isolated install --disable-pip-version-check --index-url https://pypi.org/simple jsonschema==4.26.0
       - name: Install fixed host-only directory HTML parser
-        if: ${{ github.repository == 'FreeTWAI-AI/FreeTWAI-AI.github.io' }}
+        if: ${{ github.repository == 'FreeTWAI/FreeTWAI.github.io' }}
         run: |
           empty_npm_config=$(mktemp)
           npm ci --prefix "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/directory-html-host" --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org --userconfig /dev/null --globalconfig "$empty_npm_config"

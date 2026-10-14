@@ -1,4 +1,4 @@
-.development-access-dialog { width: min(760px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow: auto; background: var(--surface, #14161b); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; padding: 1.25rem; }
+.development-access-dialog { width: min(760px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow: auto; background: var(--bg-elev); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; padding: 1.25rem; }
 .development-access-dialog::backdrop { background: #000b; }
 .development-access-dialog input, .development-access-dialog textarea { max-width: 100%; min-width: 0; font-size: 16px; }
 .development-access-dialog p { overflow-wrap: anywhere; }

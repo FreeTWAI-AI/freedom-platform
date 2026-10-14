@@ -62,7 +62,7 @@ for await (const line of createInterface({ input: process.stdin, crlfDelay: Infi
     if (scopedCli) {
       result = await runScopedCli(input);
     } else if (cli) {
-      if (input.repository !== 'FreeTWAI-AI/freedom-agent-kit') throw Error('unsupported_consumer');
+      if (input.repository !== 'FreeTWAI/freedom-agent-kit') throw Error('unsupported_consumer');
       // This process remains untrusted. Host HTTP traces, not this captured output,
       // decide the verdict. The real CLI receives only fixed synthetic argv.
       const logs = []; let bytes = 0;
@@ -78,14 +78,14 @@ for await (const line of createInterface({ input: process.stdin, crlfDelay: Infi
         if (process.exitCode || logs.length !== 1) throw Error('cli_failed');
         result = JSON.parse(logs[0]);
       } finally { console.log = originalLog; }
-    } else if (input.repository === 'FreeTWAI-AI/freedom-agent-kit') {
+    } else if (input.repository === 'FreeTWAI/freedom-agent-kit') {
       const { PlatformClient } = await import('/candidate/packages/client/index.mjs');
       const client = new PlatformClient({ baseUrl: origin + '/api/v1', cookie: input.credential, fetcher: fixtureFetch });
       await client.assertCompatible();
       result = await entries.loadMemberWorkspace(client);
-    } else if (input.repository === 'FreeTWAI-AI/freedom-storefront') {
+    } else if (input.repository === 'FreeTWAI/freedom-storefront') {
       result = await entries.loadConnectedStorefront({ origin, token: input.credential, fetcher: fixtureFetch });
-    } else if (input.repository === 'FreeTWAI-AI/freedom-supplier-client') {
+    } else if (input.repository === 'FreeTWAI/freedom-supplier-client') {
       result = await entries.loadSupplierWorkspace(new entries.ScopedReadClient({ origin, token: input.credential, fetcher: fixtureFetch }));
     } else throw Error('unsupported_consumer');
   } catch (error) { status = 422; result = { error: true, status: Number.isInteger(error?.status) ? error.status : null }; }

@@ -176,6 +176,15 @@ test('only co-creation activity reads turn known GitHub limits into task-specifi
   });
 });
 
+test('repository unavailable keeps its known provider code without leaking raw server details',async t=>{
+  t.mock.method(globalThis,'fetch',async()=>Response.json({code:'github_repository_unavailable',detail:'<html>private provider diagnostics</html>'},{status:502}));
+  const client=new PortalClient();client.csrfToken='synthetic-csrf';
+  await assert.rejects(client.post('/me/development/platform/cocreation/keys',{}, {idempotencyKey:'synthetic-receipt',suppressConsole:true}),(cause:unknown)=>{
+    assert.ok(cause instanceof ApiError);assert.equal(cause.status,502);assert.equal(cause.code,'github_repository_unavailable');
+    assert.equal(cause.detail,undefined);assert.doesNotMatch(cause.message,/private|diagnostics|html/);return true;
+  });
+});
+
 for(const status of [502,503,504,520,521,522,523,524]){
   test(`portal client reports HTTP ${status} in Chinese for both HTML and JSON upstream errors`,async t=>{
     for(const json of [false,true]){

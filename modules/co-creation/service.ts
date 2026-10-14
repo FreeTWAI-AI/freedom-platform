@@ -14,8 +14,8 @@ export const pilotProject={
   guild_keys:['guild_media_automation','guild_ai_vibe','guild_ai_field'],
   help_wanted:[...contributionRoles],
   contribution_notes:'先在 GitHub Issue 說明想接的範圍，由維護者確認避免撞工。保留來源授權與作者；禁止提交私人影片、金鑰或未授權素材。是否合併由 repo 維護者審查。這是自願開源共創，沒有報酬保證；收費合作另由當事人約定。',
-  repository_id:'1382968090',repository_full_name:'FreeTWAI-AI/video-autopilot-kit',
-  repository_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit',
+  repository_id:'1382968090',repository_full_name:'FreeTWAI/video-autopilot-kit',
+  repository_url:'https://github.com/FreeTWAI/video-autopilot-kit',
   upstream_url:'https://github.com/Hao0321/video-autopilot-kit',
   coordinator_ref:null,coordinator_name:'自由工坊',aggregate_version:1,source_kind:'community_pilot',
 };

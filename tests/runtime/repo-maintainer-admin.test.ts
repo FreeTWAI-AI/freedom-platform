@@ -65,7 +65,7 @@ async function insertRepo() {
   const id = randomUUID();
   await pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
-    VALUES ($1,$2,'9001','77','FreeTWAI-AI/freedom-platform','main','active','observe','2099-01-01T00:00:00Z')`, [id, DEMO_COMMUNITY]);
+    VALUES ($1,$2,'9001','77','FreeTWAI/freedom-platform','main','active','observe','2099-01-01T00:00:00Z')`, [id, DEMO_COMMUNITY]);
   return id;
 }
 async function insertPull(repository: string, number: number, queue: string, observed = '2026-09-30T00:00:00Z', state = 'open') {
@@ -75,7 +75,7 @@ async function insertPull(repository: string, number: number, queue: string, obs
     author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
     github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, policy_version, synced_at)
     VALUES ($1,$2,$3,$4,$5,$6,$7,false,'42','octocat','User','CONTRIBUTOR',false,$8,'main',$9,'{}',1,0,1,$10,$10,$11,'[]'::jsonb,$12,'[]'::jsonb,'2026-10-01.1',$10)`,
-  [id, repository, number, String(800 + number), `PR ${number}`, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, state, SHA, 'e'.repeat(40), '2026-09-30T00:00:00Z', observed, queue]);
+  [id, repository, number, String(800 + number), `PR ${number}`, `https://github.com/FreeTWAI/freedom-platform/pull/${number}`, state, SHA, 'e'.repeat(40), '2026-09-30T00:00:00Z', observed, queue]);
   await pool.query(`INSERT INTO maintainer_pull_files (pull_id, path, status, additions, deletions) VALUES ($1,'README.md','modified',1,0)`, [id]);
   await pool.query(`INSERT INTO maintainer_reviews (pull_id, github_review_id, reviewer_github_id, reviewer_login, reviewer_type, reviewer_association, state, commit_id, submitted_at)
     VALUES ($1,'91','200','reviewer-gh','User','MEMBER','APPROVED',$2,'2026-09-30T01:00:00Z')`, [id, SHA]);
@@ -142,7 +142,7 @@ test('settings writes enforce csrf, idempotency, version and the phase-1a mode l
   await assert.rejects(() => pool.query(`UPDATE maintainer_repositories SET mode=$2 WHERE repository_id=$1`, [repository, blockedMode]), (error: { code?: string }) => error.code === '23514');
   await assert.rejects(() => pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode)
-    VALUES ($1,$2,'9002','78','FreeTWAI-AI/mode-check','main','active',$3)`, [randomUUID(), DEMO_COMMUNITY, blockedMode]), (error: { code?: string }) => error.code === '23514');
+    VALUES ($1,$2,'9002','78','FreeTWAI/mode-check','main','active',$3)`, [randomUUID(), DEMO_COMMUNITY, blockedMode]), (error: { code?: string }) => error.code === '23514');
   assert.equal((await request(path, { mode: 'observe', settings: { extra: true }, reason: '多了欄位' }, 1)).status, 422);
   assert.equal((await request(path, { mode: 'observe', settings: { sla_hours: 24 }, reason: '舊的時效欄位' }, 1)).status, 422);
   assert.equal((await request(path, { mode: 'observe', settings: { claim_hours: null }, reason: '空的時效' }, 1)).status, 422);
@@ -295,7 +295,7 @@ test('ownership records a catalog skill book and rejects an unknown or taken id'
   const other = randomUUID();
   await pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
-    VALUES ($1,$2,'9002','77','FreeTWAI-AI/other-book','main','active','observe','2099-01-01T00:00:00Z')`, [other, DEMO_COMMUNITY]);
+    VALUES ($1,$2,'9002','77','FreeTWAI/other-book','main','active','observe','2099-01-01T00:00:00Z')`, [other, DEMO_COMMUNITY]);
   const path = `/review-center/repositories/${repository}/ownership`;
   const unknown = { guild_key: null, scope_kind: 'skill_book', open_to_guilds: true, skill_book_id: 'not-a-book', reason: '這本不在目錄裡。' };
   assert.equal((await request(path, unknown, 1)).data.code, 'maintainer_skill_book_invalid');

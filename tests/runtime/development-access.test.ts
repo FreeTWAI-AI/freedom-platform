@@ -68,6 +68,23 @@ test('task readiness needs one applicable guild, verified identity, consent and 
  assert.equal((await service.status(actor,'platform','skills')).eligible,false);
 });
 
+test('a historical or foreign target cannot report enabled and needs explicit reactivation',async()=>{
+ await enable('platform','skills');
+ assert.equal((await service.status(actor,'platform','skills')).enabled,true);
+ for(const repository of ['FreeTWAI-AI/freedom-platform','another-owner/freedom-platform']){
+  await pool.query('UPDATE development_grants SET target_repository=$1 WHERE user_id=$2',[repository,actor.user_id]);
+  const view=await service.status(actor,'platform','skills');
+  assert.equal(view.eligible,true);assert.equal(view.consent,true);assert.ok(view.github);
+  assert.equal(view.enabled,false);
+  await assert.rejects(()=>service.issueKey(command({},'mismatched-target-key'),'platform','skills'),code('development_grant_required'));
+ }
+ assert.equal((await pool.query('SELECT count(*) FROM development_keys')).rows[0].count,'0');
+ await service.activate(command({working_repository_url:'https://github.com/contributor/freedom-platform'},'reactivate-current-target'),'platform','skills');
+ const current=await service.status(actor,'platform','skills');
+ assert.equal(current.enabled,true);assert.equal(current.grant.target_repository,'FreeTWAI/freedom-platform');
+ assert.equal((await pool.query("SELECT count(*) FROM development_grants WHERE revoked_at IS NOT NULL AND revoke_reason='grant_replaced'")).rows[0].count,'1');
+});
+
 test('OR membership keeps the first grant, final departure revokes keys, and rejoining never revives old credentials or removes proposals',async()=>{
  await enable();await join('guild_ai_field');const key=await service.issueKey(command({},'issue'),'skill',target),bearer='Bearer '+key.token;
  const saved=await service.agent(bearer,proposal,'same-proposal-key');

@@ -12,7 +12,7 @@ import './PageTools.css';
 type Tool='idea'|'help'|'edit';
 type OwnIssue={operation_key:string;state:'pending'|'confirmed'|'denied';issue_number:number|null;title:string|null;issue_url:string|null;created_at:string};
 type OwnClaim={operation_key:string;state:'pending'|'confirmed'|'denied';issue_number:number;comment_url:string|null;created_at:string};
-const PLATFORM_REPOSITORY='https://github.com/FreeTWAI-AI/freedom-platform';
+const PLATFORM_REPOSITORY='https://github.com/FreeTWAI/freedom-platform';
 const names:Record<Tool,string>={idea:'提出想法',help:'頁面說明',edit:'參與編修'};
 const icons:Record<Tool,ReactNode>={
   idea:<><path d="M9 18h6m-5 3h4M8 14c-1.3-1.1-2-2.7-2-4.5a6 6 0 1 1 12 0c0 1.8-.7 3.4-2 4.5-.7.6-1 1.3-1 2H9c0-.7-.3-1.4-1-2Z"/></>,

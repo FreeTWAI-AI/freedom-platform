@@ -7,9 +7,9 @@ From a committed Platform checkout, prepare the independently cloned consumer ba
 ```js
 import { exportConsumerLibraries } from './packages/contribution-tools/export.mjs';
 await exportConsumerLibraries([
-  { repository: 'FreeTWAI-AI/freedom-agent-kit', root: '/absolute/agent-kit' },
-  { repository: 'FreeTWAI-AI/freedom-storefront', root: '/absolute/storefront' },
-  { repository: 'FreeTWAI-AI/freedom-supplier-client', root: '/absolute/supplier-client' },
+  { repository: 'FreeTWAI/freedom-agent-kit', root: '/absolute/agent-kit' },
+  { repository: 'FreeTWAI/freedom-storefront', root: '/absolute/storefront' },
+  { repository: 'FreeTWAI/freedom-supplier-client', root: '/absolute/supplier-client' },
 ], { expectedSourceCommit: 'EXTERNALLY_SELECTED_PLATFORM_SHA' });
 ```
 
@@ -23,7 +23,7 @@ Then make the concrete consumer source changes:
 The generated `consumer-libraries.lock.json` records exact source paths, bytes and commit. It deliberately does not claim runtime usage, publisher trust or ReleaseSet approval. A host can invoke `verifyConsumerLibraries` from its independently selected Platform source without executing consumer code. The consumer CLI is a convenience, not an independent security boundary:
 
 ```sh
-node scripts/verify-consumer-libraries.mjs FreeTWAI-AI/freedom-agent-kit EXPECTED_PLATFORM_SHA --source-root /path/to/platform
+node scripts/verify-consumer-libraries.mjs FreeTWAI/freedom-agent-kit EXPECTED_PLATFORM_SHA --source-root /path/to/platform
 ```
 
 Select the expected SHA outside the candidate lock. Local verification reads committed Git objects; `--remote` instead reads that exact public commit with bounded requests and no redirects. Before remote consumer publication, make the source commit publicly reachable or re-export from the final published Platform commit. A cherry-pick creates a different SHA; changing only a claimed source pin without matching its committed bytes is insufficient.
@@ -35,7 +35,7 @@ Do not reset an adopted consumer to its old repository-lock baseline. Commit and
 ```js
 await exportConsumerLibraries([
   {
-    repository: 'FreeTWAI-AI/freedom-agent-kit', root: '/absolute/agent-kit',
+    repository: 'FreeTWAI/freedom-agent-kit', root: '/absolute/agent-kit',
     upgradeFrom: { consumerCommit: 'REVIEWED_CURRENT_CONSUMER_SHA', sourceCommit: 'PREVIOUS_PLATFORM_SHA' },
   },
 ], { sourceRoot: '/absolute/platform', expectedSourceCommit: 'NEW_PLATFORM_SHA' });
@@ -55,7 +55,7 @@ they cannot select the Kit profile. There is no caller-defined file list.
 
 ```js
 await exportConsumerLibraries([{
-  repository: 'FreeTWAI-AI/freedom-agent-kit', root: '/absolute/agent-kit',
+  repository: 'FreeTWAI/freedom-agent-kit', root: '/absolute/agent-kit',
   expectedLibraryProfile: 'agent-kit-device-v1',
   upgradeFrom: {
     consumerCommit: 'REVIEWED_CURRENT_CONSUMER_SHA', sourceCommit: 'PREVIOUS_PLATFORM_SHA',
@@ -73,7 +73,7 @@ files. It does not silently downgrade and leave executable artifacts behind.
 Local verification likewise requires an explicit selection:
 
 ```sh
-node scripts/verify-consumer-libraries.mjs FreeTWAI-AI/freedom-agent-kit EXPECTED_PLATFORM_SHA --source-root /path/to/platform --profile agent-kit-device-v1
+node scripts/verify-consumer-libraries.mjs FreeTWAI/freedom-agent-kit EXPECTED_PLATFORM_SHA --source-root /path/to/platform --profile agent-kit-device-v1
 ```
 
 The optional `--profile` also follows `--remote`. Neither CLI input nor a changed
@@ -127,7 +127,7 @@ At the existing `repositories.lock.json` commits, the observed source paths are:
 | freedom-supplier-client | `src/index.mjs` and client CLI use copied scoped supplier read client | Import shared scoped transport and supplier workspace reader |
 | freedom-project-page | Public manifest rendering; no Platform transport operation in its product entrypoint | Unchanged baseline |
 | freedom-project-template | Project skeleton/manifest; no Platform transport operation in its product entrypoint | Unchanged baseline |
-| FreeTWAI-AI.github.io | Static project-directory generation | Unchanged baseline |
+| FreeTWAI.github.io | Static project-directory generation | Unchanged baseline |
 | .github | Community templates and workflow definitions | Unchanged baseline |
 
 Vendored files and source inspection alone are not operation evidence. The integration tests exercise the named paths, not all nine consumer surfaces or the future execution libraries. Preview compatibility, library adoption and installed governance enforcement remain separate facts.

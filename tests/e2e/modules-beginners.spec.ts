@@ -29,7 +29,7 @@ test('task discovery combines real labels and assignment, remembers filters, and
     const response = await route.fetch(), activity = await response.json();
     await route.fulfill({ response, json: { ...activity, issues: [...activity.issues, {
       number: 92, title: '整理新手操作文件', body: '補上安裝步驟與使用範例。',
-      url: 'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/92', labels: ['documentation'], assignees: ['documentation-helper'],
+      url: 'https://github.com/FreeTWAI/video-autopilot-kit/issues/92', labels: ['documentation'], assignees: ['documentation-helper'],
     }] } });
   });
   await login(page);

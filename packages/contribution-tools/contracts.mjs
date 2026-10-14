@@ -6,7 +6,7 @@ import { parseFormat, validateFormat } from './formats.mjs';
 import { artifactPath, uniquePaths, readBounded, listArtifacts, readRemoteBounded,
   parseJson, sha256, MAX_ARTIFACTS, MAX_TOTAL_BYTES } from './io.mjs';
 
-export const CANONICAL_REPOSITORY = 'FreeTWAI-AI/freedom-platform';
+export const CANONICAL_REPOSITORY = 'FreeTWAI/freedom-platform';
 const SIGNING_DOMAIN = Buffer.from('freedom.release-set-signature/v1\0', 'utf8');
 const fileDigest = { type: 'object', required: ['sha256', 'bytes'], additionalProperties: false,
   properties: { sha256: { type: 'string', pattern: '^[a-f0-9]{64}$' },

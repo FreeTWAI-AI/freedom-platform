@@ -16,7 +16,7 @@ import sys
 from jsonschema import Draft202012Validator, FormatChecker
 
 
-ORG = "FreeTWAI-AI"
+ORG = "FreeTWAI"
 MAINTAINER = "teddashh"
 STAGING_URL = "https://staging.freetwai.com/"
 REPOS = {
@@ -77,7 +77,7 @@ REPOS = {
         "capabilities": ["Produce an escaped static HTML artifact from public manifest fields", "Display provenance without claiming verified official status"],
         "limitations": ["Does not enable or publish GitHub Pages", "Private and internal manifests are excluded from the public renderer"],
     },
-    "FreeTWAI-AI.github.io": {
+    "FreeTWAI.github.io": {
         "slug": "freetwai-project-directory", "name": "FreeTWAI Project Directory", "type": "documentation",
         "vertical": "community", "runtime": "static_github_pages",
         "summary": "Static project-directory source and local build artifacts for the Freedom repositories.",

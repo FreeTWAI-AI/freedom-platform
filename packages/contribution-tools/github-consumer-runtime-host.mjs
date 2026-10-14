@@ -72,7 +72,7 @@ async function cli() {
   const [candidateRoot, sourceRoot, ...extra] = process.argv.slice(2);
   check(extra.length === 0 && process.env.GITHUB_ACTIONS === 'true', 'consumer_runtime_cli_usage');
   check(['pull_request', 'merge_group'].includes(process.env.GITHUB_EVENT_NAME), 'unsupported_host_event');
-  check(process.env.FREEDOM_WORKFLOW_REPOSITORY === 'FreeTWAI-AI/freedom-platform'
+  check(process.env.FREEDOM_WORKFLOW_REPOSITORY === 'FreeTWAI/freedom-platform'
     && process.env.FREEDOM_WORKFLOW_PATH === '.github/workflows/trusted-consumer-runtime.yml', 'host_workflow_identity_mismatch');
   // Recipe readback is derived here; no candidate or uploaded report is accepted.
   await inspectConsumerRuntime({ hosted: true });

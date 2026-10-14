@@ -10,6 +10,15 @@
 [R2／AP](source-acceptance.md) 的原文、最低證據層級及所有 168 個 ID。
 歷史 handoff／release-readiness 保留當時證據，不再維護另一份 current 狀態。
 
+## 2026-10-13 組織搬遷收尾
+
+追蹤 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)。FreeTWAI 的平台／
+GitHub／public guide 座標修正與 forward migration166 為本輪候選；資料合併、歷史 pins、
+跨倉 transport、CI 去重與 staging→production 驗證順序見
+[Repo 串接搬遷說明](../../../development/repository-integration.md#2026-10-13-freetwai-組織搬遷候選)。
+不更新以下歷史 source／rollout 收據，也不把本機測試當已部署或 Enterprise workflow
+信任來源已恢復；舊工作 queue 的 merge／deploy freeze 依 #234 現行狀態保留。
+
 ## 2026-10-11 產品就緒工作順序
 
 **最新使用回饋（Ted 於本次對話轉述）：** 詢問的十人都認為啟動台混亂、看不懂如何使用。這是使用者轉述的負面體驗證據，沒有個別訪談紀錄；不可記為十人成功採用。Ted 進一步指出問題是整個 UI 缺乏功能層次與整合，不只是主按鈕不明顯。這輪優先整理功能歸屬、重複入口、工作區與管理邊界；補提示文字或收合原清單本身不能結案。程式與合成瀏覽器驗證仍不替代改版後的真人重新驗收。

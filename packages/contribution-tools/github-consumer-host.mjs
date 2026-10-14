@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {matchesRecordedRepository} from './repository-identity.mjs';
 // Source-integrity gate only. Load from the independently pinned workflow source.
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm, realpath, lstat } from 'node:fs/promises';
@@ -13,7 +14,7 @@ import { verifyConsumerEntryCoverage } from './consumer-entry-coverage.mjs';
 import { artifactPath, parseJson, sha256 } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
-const CONSUMERS = Object.freeze(['FreeTWAI-AI/freedom-agent-kit', 'FreeTWAI-AI/freedom-storefront', 'FreeTWAI-AI/freedom-supplier-client']);
+const CONSUMERS = Object.freeze(['FreeTWAI/freedom-agent-kit', 'FreeTWAI/freedom-storefront', 'FreeTWAI/freedom-supplier-client']);
 const commit = value => check(typeof value === 'string' && /^[a-f0-9]{40}$/.test(value), 'consumer_host_commit_required');
 function git(root, args) {
   return execFileSync('/usr/bin/git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',
@@ -66,7 +67,7 @@ export async function verifyNativeConsumerSource(input) {
   const sourceFiles = tree(source, config.expectedWorkflowCommit), candidateFiles = tree(candidate, config.candidateCommit);
   const baselines = parseJson(read(source, sourceFiles, 'repositories.lock.json'));
   check(baselines.format === 'freedom.repository-set/v1' && Array.isArray(baselines.repositories), 'consumer_baseline_required');
-  const matches = baselines.repositories.filter(item => item.repository === config.repository);
+  const matches = baselines.repositories.filter(item => matchesRecordedRepository(item.repository, config.repository));
   check(matches.length === 1, 'consumer_baseline_required'); const baseline = matches[0].commit; commit(baseline);
   check(git(candidate, ['merge-base', baseline, config.candidateCommit]).toString().trim() === baseline, 'candidate_missing_approved_consumer_base');
   const baselineFiles = tree(candidate, baseline);
@@ -136,7 +137,7 @@ async function cli() {
   const [candidateRoot, sourceRoot, ...extra] = process.argv.slice(2);
   check(extra.length === 0 && process.env.GITHUB_ACTIONS === 'true', 'consumer_host_cli_usage');
   check(['pull_request', 'merge_group'].includes(process.env.GITHUB_EVENT_NAME), 'unsupported_host_event');
-  check(process.env.FREEDOM_WORKFLOW_REPOSITORY === 'FreeTWAI-AI/freedom-platform'
+  check(process.env.FREEDOM_WORKFLOW_REPOSITORY === 'FreeTWAI/freedom-platform'
     && process.env.FREEDOM_WORKFLOW_PATH === '.github/workflows/trusted-consumer-libraries.yml', 'host_workflow_identity_mismatch');
   return verifyNativeConsumerSource(await installedConsumerInput({ repository: process.env.GITHUB_REPOSITORY, candidateRoot, sourceRoot,
     candidateCommit: process.env.GITHUB_SHA, expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA }));

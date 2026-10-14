@@ -67,7 +67,7 @@ test('covers accept catalog or granted-book identities and star links stay on an
   assert.equal(skillBookCoverUrl({book_id:'social-post'}),'/art/skills/social-post.webp');
   assert.equal(skillBookCoverUrl({book_id:'../private'}),null);
   assert.equal(skillBookCoverUrl({cover_url:'https://external.invalid/tracker'}),null);
-  const source={repository_url:'https://github.com/FreeTWAI-AI/claude-skill-social-post',upstream_url:'https://github.com/Hao0321/claude-skill-social-post'};
+  const source={repository_url:'https://github.com/FreeTWAI/claude-skill-social-post',upstream_url:'https://github.com/Hao0321/claude-skill-social-post'};
   assert.equal(skillBookStarUrl(source),source.upstream_url);
   for(const upstream_url of ['https://github.com.evil.invalid/owner/repo','https://token@github.com/owner/repo','javascript:alert(1)','https://github.com/owner/repo/issues','https://github.com:8443/owner/repo'])assert.equal(skillBookStarUrl({...source,upstream_url}),null);
 });

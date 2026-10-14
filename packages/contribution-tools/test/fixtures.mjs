@@ -28,7 +28,7 @@ export async function releaseFixture(t) {
     'fixtures/vectors.json': pretty([{ accepted: false }]) };
   const manifest = {
     format: 'freedom.release-set/v1', digest_profile: 'sha256-exact-bytes/v1', release_set_id: 'fixture-20261002',
-    source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: 'a'.repeat(40), trust_profile_version: '1',
+    source_repository: 'FreeTWAI/freedom-platform', source_commit: 'a'.repeat(40), trust_profile_version: '1',
     artifacts: Object.entries(contents).map(([path, bytes]) => ({ path, bytes: bytes.length, sha256: sha256(bytes) })),
     contracts: [{ family: 'preview', version: '1', artifacts: ['contracts/example.json'] }],
     libraries: [{ library_id: 'member-client', version: '1.0.0', runtime_profiles: ['member'], artifacts: ['client/client.mjs'] }],
@@ -74,7 +74,7 @@ export async function legacyFixture(t) {
   const manifestBytes = await readFile(join(source, 'bundle.json'));
   const manifest = JSON.parse(manifestBytes);
   for (const path of ['bundle.json', ...Object.keys(manifest.files)]) await put(vendor, path, await readFile(join(source, path)));
-  const lock = { format: 'freedom.contract-pin/v1', source_repository: 'FreeTWAI-AI/freedom-platform',
+  const lock = { format: 'freedom.contract-pin/v1', source_repository: 'FreeTWAI/freedom-platform',
     source_commit: '3de70ccbd24362a7925508fb42d36aaa256a0806', bundle_path: 'contracts/preview/v1',
     protocol: manifest.protocol, protocol_sha256: manifest.protocol_sha256, bundle_sha256: sha256(manifestBytes) };
   await put(root, 'contracts.lock.json', pretty(lock));

@@ -58,7 +58,7 @@ test('three independent synthetic consumers use the exact central context librar
     const run = spawnSync(process.execPath, ['scripts/freedom.mjs', 'context', '--base-ref', 'HEAD', '--scope', 'client'], { cwd: root, encoding: 'utf8' });
     assert.equal(run.status, 0, run.stderr + run.stdout);
     const result = JSON.parse(run.stdout);
-    assert.equal(result.repository, 'FreeTWAI-AI/' + name);
+    assert.equal(result.repository, 'FreeTWAI/' + name);
     assert(result.documents.some(document => document.path === 'vendor/freedom-tooling/governance/README.md'));
     assert(result.version_inputs.some(input => input.path === 'contracts.lock.json' && JSON.parse(input.content).source_commit));
     assert.equal(result.publisher_trust, 'unverified');

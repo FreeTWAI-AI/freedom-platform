@@ -18,11 +18,11 @@ test('confirmed Issue remains visible after a lost publish response and modal re
       return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'unavailable'})});
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[
-      {operation_key:'previous',state:'confirmed',issue_number:15,title:'之前的首頁提案',issue_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/15',created_at:'2026-09-27T08:13:16Z'},
-      ...(operationKey?[{operation_key:operationKey,state:'confirmed',issue_number:17,title:'改善首頁',issue_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/17',created_at:'2026-09-27T08:18:00Z'}]:[]),
+      {operation_key:'previous',state:'confirmed',issue_number:15,title:'之前的首頁提案',issue_url:'https://github.com/FreeTWAI/freedom-platform/issues/15',created_at:'2026-09-27T08:13:16Z'},
+      ...(operationKey?[{operation_key:operationKey,state:'confirmed',issue_number:17,title:'改善首頁',issue_url:'https://github.com/FreeTWAI/freedom-platform/issues/17',created_at:'2026-09-27T08:18:00Z'}]:[]),
     ]})});
   });
-  await page.route('**/api/v1/pages/github-activity?*',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[{number:16,title:'另一位會員的首頁提案',url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/16',author:'other-member',created_at:'2026-09-27T08:16:00Z',state:'open',kind:'issue',pages:['home']}],checked_at:'2026-09-27T08:19:00Z',truncated:false})}));
+  await page.route('**/api/v1/pages/github-activity?*',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[{number:16,title:'另一位會員的首頁提案',url:'https://github.com/FreeTWAI/freedom-platform/issues/16',author:'other-member',created_at:'2026-09-27T08:16:00Z',state:'open',kind:'issue',pages:['home']}],checked_at:'2026-09-27T08:19:00Z',truncated:false})}));
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:true,github_user:{id:'901',login:'maker'}})}));
   await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
@@ -48,8 +48,8 @@ test('member can send a design claim comment from the Issue row',async({page})=>
   let posted='';
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:true,github_user:{id:'901',login:'maker'}})}));
   // Page activity now comes from the synced open issue #14 (page:home). #12 stays closed for history.
-  await page.route('**/api/v1/me/github/pages/home/design-claims',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:posted?[{operation_key:'claim-e2e',state:'confirmed',issue_number:14,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/14#issuecomment-91',created_at:new Date().toISOString()}]:[]})}));
-  await page.route('**/api/v1/me/github/pages/home/issues/14/design-claim',async route=>{posted=route.request().postData()??'';await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({confirmed:true,issue_number:14,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/14#issuecomment-91'})})});
+  await page.route('**/api/v1/me/github/pages/home/design-claims',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:posted?[{operation_key:'claim-e2e',state:'confirmed',issue_number:14,comment_url:'https://github.com/FreeTWAI/freedom-platform/issues/14#issuecomment-91',created_at:new Date().toISOString()}]:[]})}));
+  await page.route('**/api/v1/me/github/pages/home/issues/14/design-claim',async route=>{posted=route.request().postData()??'';await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({confirmed:true,issue_number:14,comment_url:'https://github.com/FreeTWAI/freedom-platform/issues/14#issuecomment-91'})})});
   await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await idea.getByRole('button',{name:'回覆這則 Issue'}).click();

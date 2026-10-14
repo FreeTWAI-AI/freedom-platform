@@ -8,7 +8,7 @@ test('all official books have internally consistent commit-pinned reading and ev
   for(const book of communityCatalog.skill_books)validateSkillBookPin(book);
 });
 
-test('drift check follows original upstream rather than a newer FreeTWAI-AI fork',async()=>{
+test('drift check follows original upstream rather than a newer FreeTWAI fork',async()=>{
   const book=communityCatalog.skill_books.find(book=>book.id==='social-post')!;
   const latest='a'.repeat(40);
   const requested:string[]=[];

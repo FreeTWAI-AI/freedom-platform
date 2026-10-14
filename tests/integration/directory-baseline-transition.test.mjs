@@ -24,7 +24,7 @@ const git = (cwd, args) => execFileSync('/usr/bin/git', ['-c', 'core.hooksPath=/
     GIT_COMMITTER_EMAIL: 'synthetic@example.invalid' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000,
 }).trim();
 const input = (commit, root = candidateRoot, source = sourceRoot, workflow = expectedWorkflowCommit) => ({
-  repository: 'FreeTWAI-AI/FreeTWAI-AI.github.io', candidateRoot: root, candidateCommit: commit,
+  repository: 'FreeTWAI/FreeTWAI.github.io', candidateRoot: root, candidateCommit: commit,
   sourceRoot: source, expectedWorkflowCommit: workflow, expectedSourceCommit: '91b943ac61e132fbbce72ea066cb2301aa065600',
 });
 async function clone(t, root, label) {

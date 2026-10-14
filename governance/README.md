@@ -124,6 +124,38 @@ The governance validator implements only the fixed schema keyword subset used he
 
 Trusted CI must run the fixed verifier against an isolated, immutable checkout with no production secrets. Filesystem checks do not make a concurrently hostile workspace a sandbox. Local candidate tests and reports cannot publish trusted CI status. No new runtime endpoints, tables or execution permissions are enabled by this package.
 
+## GitHub Free repository CI review
+
+After the repository transfer, the central repository uses maintainer review of
+CI controls. [.github/CODEOWNERS](../.github/CODEOWNERS) assigns both
+`@teddashh` and `@detna-vibe-coding` to the ownership file itself, workflows,
+local actions, selectors/runners, governance tooling, module descriptors and
+the configuration those entrypoints load. Both accounts have repository admin
+access, checked on 2026-10-13. Ordinary product UI files and product test files
+are not covered by a blanket owner rule.
+
+Bootstrap the ownership file through the existing PR, required `verify` and
+`CodeQL` checks, and independent review before enabling
+`require_code_owner_review` on `main-baseline`. GitHub uses the ownership file
+from the PR's base branch. Once enabled, one eligible non-author owner approval
+is enough; retain stale-review dismissal, approval after the latest push,
+resolved review threads, strict current checks and no bypass actors. Do not
+enable the owner requirement against a base that has no ownership file. See
+[GitHub's code owner rules](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners).
+
+This provides review enforcement for changes to CI controls. Required check
+names and the reviewed runner's `job.workflow_sha` checkout do not restore the
+old Enterprise organization rule that required a workflow from a fixed source.
+Reviewers must inspect changes to workflow/selector/runner dependencies and
+their exact-head evidence; a candidate cannot establish independent publisher
+trust by supplying a report with the right name.
+
+Candidate application and test code still execute on the test runner. This is
+not an independent sandbox, an authenticated observation publisher, or proof
+that candidate tests cannot forge results. The local GOV-C boundary and future
+publisher profiles below retain their existing limits. This central bootstrap
+does not apply the separately proposed consumer-repository rulesets.
+
 ## Host-owned verification boundary (local GOV-C increment)
 
 `packages/contribution-tools/trusted-ci.mjs` provides `verifyHostCandidate` for a

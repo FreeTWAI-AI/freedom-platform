@@ -2,7 +2,7 @@
 
 ## Scope and source
 
-This redesign adapts [mars-tw's PR #106](https://github.com/FreeTWAI-AI/freedom-platform/pull/106), exact source `46a40342509a9278c3a7b8a940bce27b7f464227`, onto main `d269a8d7605630cab1da605d7cac4d0c254e3258`. The author's character names, 26 page question packs, 364 WebP assets, dialogue and animation behavior, and original art/prompt/copy provenance are preserved. Generic behavior and the tests explicitly credit that source. AI-assisted work here restructures activation, assets, anchors and validation; it does not claim authorship of the original illustrations or independently generated art. Original author: `mars-tw <97515456+mars-tw@users.noreply.github.com>`.
+This redesign adapts [mars-tw's PR #106](https://github.com/FreeTWAI/freedom-platform/pull/106), exact source `46a40342509a9278c3a7b8a940bce27b7f464227`, onto main `d269a8d7605630cab1da605d7cac4d0c254e3258`. The author's character names, 26 page question packs, 364 WebP assets, dialogue and animation behavior, and original art/prompt/copy provenance are preserved. Generic behavior and the tests explicitly credit that source. AI-assisted work here restructures activation, assets, anchors and validation; it does not claim authorship of the original illustrations or independently generated art. Original author: `mars-tw <97515456+mars-tw@users.noreply.github.com>`.
 
 The original PR/fork is unchanged. This branch is an independent integration proposal. No merge, remote resource creation, credential creation, R2 upload, deployment or production acceptance is implied.
 

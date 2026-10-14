@@ -132,7 +132,7 @@ async function collectContext({ repositoryRoot, baseRef = 'origin/main', request
     const scopedNames = { '@freetwai/agent-kit': 'freedom-agent-kit', '@freetwai/freedom-storefront': 'freedom-storefront' };
     const name = Object.hasOwn(scopedNames, pkg.name) ? scopedNames[pkg.name] : pkg.name;
     check(typeof name === 'string' && /^freedom-[a-z-]+$/.test(name) && !/[\r\n]/.test(name), 'repository_identity_required');
-    repository = 'FreeTWAI-AI/' + name;
+    repository = 'FreeTWAI/' + name;
   }
   const baseline = await descriptorsFor(workspace, 'base'), candidate = await descriptorsFor(workspace, 'candidate');
   const impact = selectImpact({ baseline, candidate, changedPaths: workspace.changed_paths, requestedPaths, scopes });

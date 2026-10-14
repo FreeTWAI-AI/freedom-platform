@@ -340,12 +340,12 @@ test('the shelf hides a published catalog repository but a direct read still ret
   mockGitHub(t, {
     'example/visible-book': { id: 9501, full_name: 'example/visible-book' },
     'Hao0321/pos-pro': { id: 9502, full_name: 'Hao0321/POS-PRO' },
-    'FreeTWAI-AI/ai-security-scanner': { id: 9503, full_name: 'FREETWAI-AI/ai-security-scanner' },
+    'FreeTWAI/ai-security-scanner': { id: 9503, full_name: 'FREETWAI/ai-security-scanner' },
   });
   const owner = await login();
   const visible = await publishManual(owner, 'https://github.com/example/visible-book', '看得到的作品');
   const upstream = await publishManual(owner, 'https://github.com/Hao0321/pos-pro', '收銀');
-  const fork = await publishManual(owner, 'https://github.com/FreeTWAI-AI/ai-security-scanner', '掃描');
+  const fork = await publishManual(owner, 'https://github.com/FreeTWAI/ai-security-scanner', '掃描');
   await pool.query(`UPDATE skill_submissions SET published_at=now()-interval '2 hours' WHERE submission_id=$1`, [visible.submission_id]);
   await pool.query(`UPDATE skill_submissions SET published_at=now()-interval '1 hour' WHERE submission_id=$1`, [upstream.submission_id]);
   const shelf = await listPublishedSkillSubmissions(pool);
