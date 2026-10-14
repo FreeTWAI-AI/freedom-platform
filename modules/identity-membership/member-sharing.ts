@@ -180,7 +180,7 @@ const settings=(row:any,profileLinks:MemberCardProfileLink[],prefs:Record<string
   show_profile_links:row?Boolean(row.show_profile_links):true,
   profile_link_prefs:prefs,profile_links:profileLinks,
 });
-export async function memberShareSettings(pool:Pool,actor:Actor){
+export async function memberShareSettings(pool:Pick<Pool,'query'>,actor:Actor){
   const row=(await pool.query(`SELECT s.enabled,s.include_avatar,s.aggregate_version,s.share_token,s.design,s.headline,s.links,s.show_profile_links,s.profile_link_prefs,${profileColumns}
     FROM users u LEFT JOIN member_card_shares s ON s.user_id=u.user_id AND s.community_id=u.community_id
     LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id

@@ -29,6 +29,8 @@
     "tests/runtime/member-read-session-clock.test.ts",
     "tests/runtime/member-connections.test.ts",
     "docs/development/member-connections.md",
+    "tests/runtime/social-links.test.ts",
+    "tests/runtime/member-settings-session-clock.test.ts",
     "apps/portal-web/src/modules/MemberECard.tsx",
     "apps/portal-web/src/modules/MemberECard.css",
     "apps/portal-web/src/modules/Membership.tsx",

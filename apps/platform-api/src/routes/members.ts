@@ -17,7 +17,7 @@ const pagination=z.object({limit:z.coerce.number().int().min(1).max(50).default(
 export function createMemberRoutes(pool:Pool) {
   const app=new Hono<PlatformEnv>();
   app.get('/me/account',async c=>c.json(await accountView(pool,c.get('actor'))));
-  app.get('/me/member-card-share',async c=>c.json(await memberShareSettings(pool,c.get('actor'))));
+  app.get('/me/member-card-share',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>memberShareSettings(q,c.get('actor')))));
   app.post('/me/member-card-share',async c=>c.json(await saveMemberShare(pool,await moduleCommand(c))));
   app.get('/member-cards/:token/member',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>sharedMemberForViewer(q,c.get('actor'),c.req.param('token')))));
   app.get('/members/recommendations',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>memberRecommendations(q,c.get('actor'),c.req.query()))));
@@ -27,11 +27,11 @@ export function createMemberRoutes(pool:Pool) {
   app.get('/me/sessions',async c=>c.json(await listMemberSessions(pool,c.get('actor'))));
   app.post('/me/sessions/revoke-others',async c=>c.json(await revokeOtherSessions(pool,await moduleCommand(c))));
   app.post('/me/account/deactivate',async c=>c.json(await deactivateAccount(pool,await moduleCommand(c))));
-  app.get('/me/social-links',async c=>c.json(await ownSocialLinks(pool,c.get('actor'),c.req.query())));
+  app.get('/me/social-links',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>ownSocialLinks(q,c.get('actor'),c.req.query()))));
   app.post('/me/social-links',async c=>{const result=await createSocialLink(pool,await moduleCommand(c));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result,201);});
   app.post('/me/social-links/:id/edit',async c=>{const result=await editSocialLink(pool,await moduleCommand(c),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   app.post('/me/social-links/:id/delete',async c=>{const result=await deleteSocialLink(pool,await moduleCommand(c),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
-  app.get('/members/:id/social-links',async c=>c.json(await visibleSocialLinks(pool,c.get('actor'),c.req.param('id'),c.req.query())));
+  app.get('/members/:id/social-links',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>visibleSocialLinks(q,c.get('actor'),c.req.param('id'),c.req.query()))));
   app.get('/members',async c=>{const {limit,offset,...filters}=MemberDirectoryQuery.parse(c.req.query());return c.json(await readWithMemberSession(pool,c.get('actor'),q=>listMembers(q,c.get('actor'),limit,offset,filters)));});
   app.get('/members/presence',async c=>c.json(await memberPresence(pool,c.get('actor'),c.req.query('ids')??'')));
   app.get('/members/:id',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>memberCard(q,c.get('actor'),c.req.param('id')))));
