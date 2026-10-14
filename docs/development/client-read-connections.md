@@ -35,4 +35,6 @@ List responses are `{items,read_only:true,limit:200}`. The first preview has a 2
 
 `GET /api/v1/me/client-connections` returns `{items:[{connection_id,client_name,kind,scope,store_id,aggregate_version,created_at,expires_at,revoked_at,read_only:true}]}`. `POST /api/v1/me/client-connections/:id/revoke` uses `{}`, CSRF, `Idempotency-Key` and the listed `If-Match` version. Revocation invalidates reads immediately; it also prevents a pending approved client from exchanging its device secret. Only the owner can revoke. Maximum 20 active connections per member.
 
+The member list locks the current user/session and reads the projection on the same transaction client, then checks `clock_timestamp()` after the last potentially blocking query, before returning private data. If a projection wait crosses the session deadline, it returns 401 `session_expired` without `items`; valid sessions receive only their own connection metadata, never token/hash/secret fields. A bearer token cannot authenticate this member endpoint. This decision-time member-session check does not revoke the independently authenticated `/client-api/v1` bearer connection.
+
 No external client writes or delegated GitHub permissions are implemented by this protocol. Skill-book repository access and GitHub fork permissions are independent of the platform bearer token.
