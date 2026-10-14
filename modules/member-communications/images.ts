@@ -6,7 +6,6 @@ import {messageImageMemberCommand} from '../../packages/scoped-commands/index.js
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
 import {readDomainMedia} from '../../packages/media-migration/domain-bridge.js';
-import {readWithMemberSession} from '../../packages/db/member-session.js';
 import type {Actor} from '../identity-membership/service.js';
 import {MESSAGE_IMAGE_INPUT_BYTES,assertMessageImageSource,lockMessageRecipient,type MessageImageAssetService} from '../assets/message-image.js';
 import {peerId} from './service.js';
@@ -68,7 +67,7 @@ export async function uploadMessageImage(pool:Pool,raw:Command,rawPeer:string,fi
 /** Snapshot by message row: the authority is "you are the sender or the recipient
  * of this exact message, in your community, with a live session". There is no
  * public URL and no signed URL; the same query runs before and after object I/O. */
-async function imageSnapshot(pool:Pool|PoolClient,actor:Actor,peer:string,messageId:string):Promise<DomainMediaSnapshot|undefined>{
+async function imageSnapshot(pool:Pool,actor:Actor,peer:string,messageId:string):Promise<DomainMediaSnapshot|undefined>{
   const row=(await pool.query(`SELECT m.message_id,m.community_id,m.sender_ref,m.recipient_ref,t.asset_id,t.scope_id,a.representation_id,
       o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
     FROM member_direct_messages m
@@ -91,9 +90,6 @@ async function imageSnapshot(pool:Pool|PoolClient,actor:Actor,peer:string,messag
 export async function readMessageImage(pool:Pool,actor:Actor,rawPeer:string,rawMessageId:string,store?:ObjectStore):Promise<Buffer>{
   const peer=peerId(actor,rawPeer),id=rawMessageId.toLowerCase();
   requireCondition(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id),404,'message_not_found','找不到這則訊息。');
-  const snapshot=()=>readWithMemberSession(pool,actor,q=>imageSnapshot(q,actor,peer,id)).catch(error=>{
-   if(error instanceof Problem&&error.status===401&&error.code==='session_expired')return undefined;
-   throw error;
-  });
-  try{return (await readDomainMedia(snapshot,{purpose:'member.message-image',targetId:id,variant:'image'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'media_not_found','找不到這則訊息。');throw error;}
+  const media=await readDomainMedia(()=>imageSnapshot(pool,actor,peer,id),{purpose:'member.message-image',targetId:id,variant:'image'},store);
+  return media.bytes;
 }
