@@ -234,6 +234,7 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   are present in `contacts` (a string map), not concealed values or settings.
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
   return 404. No authenticated access to people until 完成加入（選定主要公會）.
+  私人名片、目錄、好友目錄與推薦在最後一個 domain query 後重驗目前 session；SQL 等待跨過 `expires_at` 時回 `401 session_expired`，不回傳私人聯絡資訊。
 - `GET /friends`: `{items:[{user_id,nickname,state,requester_ref,aggregate_version}]}`.
 - `POST /friends/:id/request|accept|remove`: `{}`. First request needs no version;
   accept/remove and renewed removed friendship need current version. Only the

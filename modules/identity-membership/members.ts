@@ -122,8 +122,7 @@ export async function memberCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string
   if(!ids.length)return [];
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
-  const [projection,positioning]=await Promise.all([
-    pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.present AS avatar_present,
+  const projection=await pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.present AS avatar_present,
       (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
       EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
         AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
@@ -132,9 +131,8 @@ export async function memberCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string
       EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$2 AND b.user_id=u.user_id AND a.state='active' AND b.state='active') AS squad
       FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
       LEFT JOIN member_avatar_presence avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
-      WHERE u.user_id=ANY($3::uuid[]) AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (u.user_id=$2 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,actor.user_id,ids]),
-    memberPositioningSummaries(pool,actor.community_id,ids),
-  ]);
+      WHERE u.user_id=ANY($3::uuid[]) AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (u.user_id=$2 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,actor.user_id,ids]);
+  const positioning=await memberPositioningSummaries(pool,actor.community_id,ids);
   const tiers=ids.includes(actor.user_id)?(await pool.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,actor.user_id])).rows:undefined;
   const cards=new Map(projection.rows.map(relation=>{
   const id=relation.user_id,isSelf=id===actor.user_id,contacts:Record<string,string>={};
@@ -158,7 +156,7 @@ export const MemberDirectoryQuery=z.object({
 type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'primary_guild_key'|'capability'|'sort'>>;
 const capabilityLabels=Object.fromEntries(capabilityCategories.flatMap(category=>category.items.map(option=>[option.id,option.label])));
 const memberSort={newest:'created_at DESC NULLS LAST,user_id',oldest:'created_at ASC NULLS LAST,user_id',nickname:'lower(display_name),display_name,user_id',positioning:'lower(positioning_title) NULLS LAST,lower(display_name),user_id',guild:'lower(primary_guild_name) NULLS LAST,lower(display_name),user_id'} as const;
-export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:number,filters:MemberDirectoryFilters={}) {
+export async function listMembers(pool:Pick<Pool,'query'>,actor:Actor,limit:number,offset:number,filters:MemberDirectoryFilters={}) {
   const input=MemberDirectoryQuery.parse({...filters,limit,offset});
   // Search only the public, last-confirmed profile. Raw assessment answers,
   // occupation, drafts and contact handles/email are never search predicates.
@@ -204,7 +202,8 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
   ) SELECT (SELECT count(*)::int FROM matched) AS total,
     ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
     [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id,switched])).rows[0];
-  const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
+  const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=[];
+  for(const id of result.user_ids as string[])items.push(await memberCard(pool,actor,id));
   if(input.guild_key&&items.length&&(await pool.query("SELECT 1 FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[actor.community_id,actor.user_id,input.guild_key])).rowCount){
     const rows=(await pool.query(`SELECT m.user_id,m.member_tier,m.aggregate_version,e.aggregate_version AS expert_aggregate_version,COALESCE(e.active,false) AS expert_active
       FROM positioning_profession_memberships m LEFT JOIN positioning_guild_experts e ON e.community_id=m.community_id AND e.guild_key=m.guild_key AND e.user_id=m.user_id

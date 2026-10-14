@@ -1,5 +1,5 @@
 import {createHash,randomBytes} from 'node:crypto';
-import type {Pool, PoolClient} from 'pg';
+import type {Pool} from 'pg';
 import {z} from 'zod';
 import {command, checkVersion, journal, type Command} from '../../packages/db/index.js';
 import {requireCondition} from '../../packages/shared/problem.js';
@@ -219,7 +219,7 @@ export async function saveMemberShare(pool:Pool,input:Command){
     return settings(row,items,nextPrefs);
   });
 }
-async function sharedRow(q:Pool|PoolClient,token:string){
+async function sharedRow(q:Pick<Pool,'query'>,token:string){
   Token.parse(token);
   // Contacts, social links and the share predicate share this one statement snapshot.
   const row=(await q.query(`SELECT u.user_id,u.community_id,u.display_name,s.include_avatar,s.design,s.headline,s.links,s.show_profile_links,s.profile_link_prefs,
@@ -265,7 +265,7 @@ export async function publicMemberAvatar(pool:Pool,token:string,store?:ObjectSto
       AND NOT is_verification_test_account(u.user_id)`,[token])).rows[0],store);
   return result.image_bytes;
 }
-export async function sharedMemberForViewer(pool:Pool,actor:Actor,token:string){
+export async function sharedMemberForViewer(pool:Pick<Pool,'query'>,actor:Actor,token:string){
   const row=await sharedRow(pool,token);
   requireCondition(row.community_id===actor.community_id,404,'member_not_found','找不到這位工坊會員。');
   return memberCard(pool,actor,row.user_id);

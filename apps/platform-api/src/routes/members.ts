@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import type { Command } from '../../../../packages/db/index.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { z } from 'zod';
 import {memberShareSettings,saveMemberShare,sharedMemberForViewer} from '../../../../modules/identity-membership/member-sharing.js';
 import {friendDirectory,memberRecommendations} from '../../../../modules/identity-membership/member-connections.js';
@@ -18,9 +19,9 @@ export function createMemberRoutes(pool:Pool) {
   app.get('/me/account',async c=>c.json(await accountView(pool,c.get('actor'))));
   app.get('/me/member-card-share',async c=>c.json(await memberShareSettings(pool,c.get('actor'))));
   app.post('/me/member-card-share',async c=>c.json(await saveMemberShare(pool,await moduleCommand(c))));
-  app.get('/member-cards/:token/member',async c=>c.json(await sharedMemberForViewer(pool,c.get('actor'),c.req.param('token'))));
-  app.get('/members/recommendations',async c=>c.json(await memberRecommendations(pool,c.get('actor'),c.req.query())));
-  app.get('/friends/directory',async c=>c.json(await friendDirectory(pool,c.get('actor'),c.req.query())));
+  app.get('/member-cards/:token/member',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>sharedMemberForViewer(q,c.get('actor'),c.req.param('token')))));
+  app.get('/members/recommendations',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>memberRecommendations(q,c.get('actor'),c.req.query()))));
+  app.get('/friends/directory',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>friendDirectory(q,c.get('actor'),c.req.query()))));
   app.post('/me/account',async c=>{const result=await saveAccount(pool,await moduleCommand(c));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   app.post('/me/password',async c=>c.json(await changePassword(pool,c.get('actor'),await c.req.json())));
   app.get('/me/sessions',async c=>c.json(await listMemberSessions(pool,c.get('actor'))));
@@ -31,9 +32,9 @@ export function createMemberRoutes(pool:Pool) {
   app.post('/me/social-links/:id/edit',async c=>{const result=await editSocialLink(pool,await moduleCommand(c),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   app.post('/me/social-links/:id/delete',async c=>{const result=await deleteSocialLink(pool,await moduleCommand(c),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   app.get('/members/:id/social-links',async c=>c.json(await visibleSocialLinks(pool,c.get('actor'),c.req.param('id'),c.req.query())));
-  app.get('/members',async c=>{const {limit,offset,...filters}=MemberDirectoryQuery.parse(c.req.query());return c.json(await listMembers(pool,c.get('actor'),limit,offset,filters));});
+  app.get('/members',async c=>{const {limit,offset,...filters}=MemberDirectoryQuery.parse(c.req.query());return c.json(await readWithMemberSession(pool,c.get('actor'),q=>listMembers(q,c.get('actor'),limit,offset,filters)));});
   app.get('/members/presence',async c=>c.json(await memberPresence(pool,c.get('actor'),c.req.query('ids')??'')));
-  app.get('/members/:id',async c=>c.json(await memberCard(pool,c.get('actor'),c.req.param('id'))));
+  app.get('/members/:id',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>memberCard(q,c.get('actor'),c.req.param('id')))));
   app.get('/friends',async c=>c.json({items:await listFriends(pool,c.get('actor'))}));
   for(const action of ['request','accept','remove'] as const)app.post(`/friends/:id/${action}`,async c=>c.json(await changeFriendship(pool,await moduleCommand(c),c.req.param('id'),action)));
   app.get('/squads',async c=>{const {limit,offset}=pagination.parse(c.req.query());return c.json(await listSquads(pool,c.get('actor'),limit,offset));});
