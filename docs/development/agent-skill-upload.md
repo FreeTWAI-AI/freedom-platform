@@ -51,7 +51,7 @@
 
 `createAgentSkillSubmissionRoutes(pool, origin, network?)`：
 
-- `POST /skill-submissions`：`Bearer fpk_…`、`Idempotency-Key`、內文 `{}`（≤ 8 KiB）→ 201 草稿＋一次性授權。以金鑰與識別碼寫入 `skill_agent_receipts`，只存中繼資料；重送 `upload_grant:null`。
+- `POST /skill-submissions`：`Bearer fpk_…`、`Idempotency-Key`、內文 `{}`（≤ 8 KiB）→ 201 草稿＋一次性授權。以金鑰與識別碼寫入 `skill_agent_receipts`，只存中繼資料；重送 `upload_grant:null`。會員草稿鎖等待之後會用 `clock_timestamp()` 重查來源金鑰，等鎖跨過到期不得建立草稿或回傳授權。
 - `POST /skill-submissions/:id`：`Bearer fpg_…`、完整內容（≤ 800 KiB）→ `{submission_id,status,grant_consumed_at,review_url}`。
 
 其他方法回 405，其他路徑回 404。cookie 與讀取連線 token（`fw_read_`）都不能驗證；金鑰不能直接上傳。
