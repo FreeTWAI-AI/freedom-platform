@@ -51,10 +51,7 @@ export async function pollClientPairing(pool:Pool,raw:unknown,network:string){
 async function pairingByCode(q:Pool|PoolClient,code:string,lock=false){
  const normalized=normalizeCode(code);requireCondition(/^[A-F0-9]{20}$/.test(normalized),404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
  const row=(await q.query(`SELECT * FROM client_pairing_requests WHERE user_code_hash=$1 AND state='pending' AND expires_at>now()${lock?' FOR UPDATE':''}`,[tokenHash(normalized)])).rows[0];
- requireCondition(row,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
- // The pairing row lock can outlast the five-minute code. Transaction now() is not a live recheck.
- if(lock)requireCondition((await q.query("SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND state='pending' AND expires_at>clock_timestamp()",[row.pairing_id])).rowCount===1,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
- return row;
+ requireCondition(row,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');return row;
 }
 export async function pairingView(pool:Pool,actor:Actor,code:string){
  await authRateLimit(pool,'client-pairing-lookup',actor.user_id,30,300);
@@ -63,11 +60,13 @@ export async function pairingView(pool:Pool,actor:Actor,code:string){
 }
 export async function approveClientPairing(pool:Pool,input:Command,code:string){
  const body=ApprovalInput.parse(input.body);
+ let pairingId:string|undefined;
  await authRateLimit(pool,'client-pairing-approve',input.actor.user_id,30,300);
  return command(pool,input,async q=>{
    requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL',[input.actor.user_id,input.actor.community_id])).rowCount===1,403,'onboarding_required','請先選擇主要公會，完成加入後再批准客戶端連線。');
  },async q=>{
    const pairing=await pairingByCode(q,code,true);
+   pairingId=pairing.pairing_id;
    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`client-connections/${input.actor.user_id}`]);
    requireCondition(Number((await q.query('SELECT count(*) FROM member_client_connections WHERE user_id=$1 AND community_id=$2 AND revoked_at IS NULL AND expires_at>now()',[input.actor.user_id,input.actor.community_id])).rows[0].count)<20,409,'connection_limit','目前最多保留二十個有效讀取連線；請先撤銷不再使用的連線。');
    if(pairing.kind==='storefront')requireCondition(body.store_id&&(await q.query('SELECT 1 FROM retail_stores WHERE store_id=$1 AND community_id=$2 AND seller_ref=$3',[body.store_id,input.actor.community_id,input.actor.user_id])).rowCount===1,404,'store_not_found','請選擇你自己建立的商店。');
@@ -76,6 +75,10 @@ export async function approveClientPairing(pool:Pool,input:Command,code:string){
    await q.query('INSERT INTO member_client_connections(connection_id,community_id,user_id,client_name,kind,scope,store_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[connectionId,input.actor.community_id,input.actor.user_id,pairing.client_name,pairing.kind,pairing.kind+':read',body.store_id??null]);
    await q.query("UPDATE client_pairing_requests SET state='approved',connection_id=$2 WHERE pairing_id=$1",[pairing.pairing_id,connectionId]);
    return {approved:true,connection_id:connectionId,scope:pairing.kind+':read',read_only:true};
+ },async q=>{
+   // The pairing, connection advisory and receipt writes can all outlast the code.
+   // Only a new approval has this locked row; replay keeps its committed receipt.
+   if(pairingId)requireCondition((await q.query('SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND expires_at>clock_timestamp()',[pairingId])).rowCount===1,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
  });
 }
 export async function listClientConnections(pool:Pool,actor:Actor){

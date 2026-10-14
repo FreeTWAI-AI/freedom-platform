@@ -181,32 +181,52 @@ test('a pending approved token exchange waits for member deactivation and never 
  assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE user_id=$1',[member.user.user_id])).rows[0].token_hash,null);
 });
 
-test('an expired pairing code cannot be approved after the pairing row lock wait',async()=>{
+for(const waitAt of ['pairing','connections','receipt'] as const)test(`an expired pairing code cannot be approved after the ${waitAt} lock wait`,async()=>{
  await ready();
  const actor=(await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD)).actor;
  const code=randomBytes(10).toString('hex').toUpperCase();
  const pairingId=randomUUID();
+ const key=randomUUID(),operation='client-pairing-approve';
  await pool.query(`INSERT INTO client_pairing_requests(pairing_id,device_secret_hash,user_code_hash,kind,client_name,expires_at)
   VALUES($1,$2,$3,'supplier','合成客戶端',clock_timestamp()+interval '1 second')`,[pairingId,tokenHash(randomUUID()),tokenHash(code)]);
  const blocker=await pool.connect();
- let pending:Promise<{error:Problem|null}>;
+ let pending:Promise<{error:Problem|null}>|undefined;
  try{
   await blocker.query('BEGIN');
-  await blocker.query('SELECT pairing_id FROM client_pairing_requests WHERE pairing_id=$1 FOR UPDATE',[pairingId]);
-  pending=approveClientPairing(pool,{actor,operation:'client-pairing-approve',key:randomUUID(),body:{confirmed:true}},code).then(()=>({error:null}),error=>{assert.ok(error instanceof Problem);return {error};});
+  const blockerPid=Number((await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+  if(waitAt==='pairing')await blocker.query('SELECT pairing_id FROM client_pairing_requests WHERE pairing_id=$1 FOR UPDATE',[pairingId]);
+  else if(waitAt==='connections')await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`client-connections/${actor.user_id}`]);
+  else await blocker.query('LOCK TABLE command_receipts IN SHARE MODE');
+  pending=approveClientPairing(pool,{actor,operation,key,body:{confirmed:true}},code).then(()=>({error:null}),error=>{assert.ok(error instanceof Problem);return {error};});
   for(let attempt=0;attempt<200;attempt++){
-   const waiting=await admin.query(`SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%client_pairing_requests%'`);
+   const waiting=await admin.query(`SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))`,[blockerPid]);
    if(waiting.rowCount)break;
    await delay(20);
-   if(attempt===199)assert.fail('approval did not wait for the pairing row');
+   if(attempt===199)assert.fail(`approval did not wait at ${waitAt}`);
   }
-  await delay(1500);
+  await blocker.query(`SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM client_pairing_requests WHERE pairing_id=$1`,[pairingId]);
+ }finally{
   await blocker.query('ROLLBACK');
- }finally{blocker.release();}
+  blocker.release();
+  if(pending)await pending;
+ }
  const result=await pending!;
  assert.equal(result.error?.status,404);
  assert.equal(result.error?.code,'pairing_not_found');
  assert.equal((await pool.query('SELECT state FROM client_pairing_requests WHERE pairing_id=$1',[pairingId])).rows[0].state,'pending');
  assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections WHERE user_id=$1',[actor.user_id])).rows[0].n,0);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[actor.user_id,operation,key])).rows[0].n,0);
+});
+
+test('a committed pairing approval remains replayable after the code expires',async()=>{
+ const member=await ready(),pairing=await start('supplier'),key=randomUUID();
+ const path=`/client-connections/${pairing.user_code}/approve`;
+ const approved=await api(path,member,{confirmed:true},undefined,key);
+ assert.equal(approved.status,200);
+ await pool.query("UPDATE client_pairing_requests SET expires_at=clock_timestamp()-interval '1 second' WHERE connection_id=$1",[approved.data.connection_id]);
+ const replay=await api(path,member,{confirmed:true},undefined,key);
+ assert.equal(replay.status,200);
+ assert.deepEqual(replay.data,approved.data);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections WHERE user_id=$1',[member.user.user_id])).rows[0].n,1);
 });
 
