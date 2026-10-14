@@ -270,6 +270,11 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     const parts=[`你已申請參加「${event.title}」。`,`時間：${local(event.starts_at)} 至 ${local(event.ends_at)}（台灣時間）`,
       `地點：${event.location}`,event.online_url?`線上參與連結：${event.online_url}`:'',`活動頁：${origin}/events/${event.event_id}`,
       registration.capability?`私人參與管理（請勿轉寄）：${eventGuestManagementLink(origin,id,registration.capability)}`:''].filter(Boolean);
+    // Check the hold after the event/reservation waits, before handing private details to the provider.
+    // An already-confirmed registration may resend; a pending hold must still be live now.
+    requireCondition((await q.query(`SELECT 1 FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2
+      AND registration_attempt_id=$3 AND (state='going' OR (state='pending' AND created_at>clock_timestamp()-interval '10 minutes'))`,[id,email,registration.attempt_id])).rowCount===1,
+      409,'event_closed','這筆報名已取消或失效，郵件未交給提供者。');
     try{await send(email,'自由工坊：活動參與資料',parts.join('\n\n'));}
     catch{throw new Problem(503,'event_email_delivery_failed',reservation.state==='going'?'報名已確認，但這次郵件提供者尚未確認接受；請稍後重試寄信。':'郵件提供者尚未確認接受，報名未確認；請稍後重試。');}
     // The event lock can outlast the ten-minute hold. Do not promote a pending reservation that has already expired.
