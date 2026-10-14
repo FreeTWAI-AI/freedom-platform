@@ -42,6 +42,39 @@ const disabled={active:false,reason:'會員要求暫停帳號。'};
 const guild='guild_marketing';
 async function join(user=DEMO_USERS[0].user_id,key=guild){await pool.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active')",[randomUUID(),DEMO_COMMUNITY,user,key]);}
 
+for(const method of ['GET','HEAD'])test(`admin ${method} refuses a member projection after a second admin commits revocation`,async()=>{
+ const valid=await request('/members');assert.equal(valid.status,200);
+ assert.ok(valid.data.items.some((item:any)=>item.email===DEMO_USERS[0].email));
+ const revokerId=randomUUID(),revokerEmail='revoker@example.invalid',revokerJwt=await sign(revokerEmail);
+ await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[revokerId,DEMO_COMMUNITY,revokerEmail,'Second verified admin']);
+ const revokerCsrf=(await verifier(new Request(origin,{headers:{'Cf-Access-Jwt-Assertion':revokerJwt}}))).csrfToken;
+ const holder=await pool.connect();let pending:Promise<Response>|undefined;
+ try{
+  await holder.query('BEGIN');await holder.query('LOCK TABLE positioning_profession_memberships IN ACCESS EXCLUSIVE MODE');
+  const holderPid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  pending=Promise.resolve(app.request(origin+'/admin/api/members',{method,headers:{'Cf-Access-Jwt-Assertion':jwt}}));
+  let waiting=false;const deadline=Date.now()+5000;
+  while(Date.now()<deadline){
+   const rows=(await database.query(`SELECT a.query FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+    WHERE l.locktype='relation' AND NOT l.granted AND l.mode='AccessShareLock' AND l.relation=$1::regclass
+    AND $2=ANY(pg_blocking_pids(a.pid))`,[`${schema}.positioning_profession_memberships`,holderPid])).rows;
+   if(rows.some((row:any)=>row.query.includes('FROM users u JOIN member_account_classification'))){waiting=true;break;}
+   await delay(10);
+  }
+  assert.equal(waiting,true,'the member projection must actually wait');
+  assert.equal((await pool.query('SELECT active FROM platform_admins WHERE admin_id=$1',[adminId])).rows[0].active,true);
+  const revoked=await request(`/admins/${adminId}/status`,{active:false,reason:'撤銷這位管理員的權限。',confirmed:true},1,randomUUID(),
+   {'Cf-Access-Jwt-Assertion':revokerJwt,'X-Admin-CSRF':revokerCsrf});
+  assert.equal(revoked.status,200,JSON.stringify(revoked.data));
+  assert.equal((await pool.query('SELECT active FROM platform_admins WHERE admin_id=$1',[adminId])).rows[0].active,false);
+  await holder.query('COMMIT');
+  const response=await pending;assert.equal(response.status,403);
+  const text=await response.text();assert.equal(text.includes(DEMO_USERS[0].email),false);
+  if(method==='GET'){const problem=JSON.parse(text);assert.equal(problem.code,'admin_required');assert.equal('items' in problem,false);}
+  assert.equal((await request('/members')).data.code,'admin_required');
+ }finally{await holder.query('ROLLBACK');holder.release();await pending?.catch(()=>{});}
+});
+
 test('platform admin reviews public events with transactional announcement and notification',async()=>{
  const session=await login();const body={title:'公開活動審核測試',description:'會員提交由平台審核。',starts_at:new Date(Date.now()+86400000).toISOString(),ends_at:new Date(Date.now()+90000000).toISOString(),mode:'online',location:'https://example.org/event',capacity:20,guild_key:null};
  const submitted=await member('/events',session.cookie,body,session.csrf);assert.equal(submitted.status,201,JSON.stringify(submitted.data));assert.equal(submitted.data.state,'pending');
