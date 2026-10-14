@@ -252,3 +252,34 @@ test('comment image lifecycle binds owner and post, survives an unknown ACK, and
  await pool.query("UPDATE community_social_posts SET state='hidden' WHERE post_id=$1",[note.post_id]);assert.equal((await upload()).status,404);
  }finally{await restricted.end();await pool.query(`DROP OWNED BY ${role}`);await admin.query(`DROP ROLE ${role}`);}
 });
+
+test('comment image read rejects a session expiring during the projection wait',async()=>{
+ const {FakeObjectStore}=await import('../../packages/asset-storage/fake-store.js');
+ const {default:sharp}=await import('sharp');
+ const store=new FakeObjectStore();
+ await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='test-social-wall',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='community.comment-image'");
+ const imageApp=createApp(pool,origin,'local',{socialThumbnailAssetStore:store});
+ const owner=await login(),note=await post(owner);
+ const bytes=await sharp({create:{width:60,height:40,channels:4,background:'#aabbcc'}}).png().toBuffer();
+ const upload=await imageApp.request(`${origin}/api/v1/social-posts/${note.post_id}/comment-images`,{method:'POST',headers:{Origin:origin,Cookie:owner.cookie,'X-CSRF-Token':owner.csrf,'Content-Type':'image/png','Idempotency-Key':randomUUID()},body:new Uint8Array(bytes)});
+ const uploadText=await upload.text();assert.equal(upload.status,201,uploadText);
+ const image=JSON.parse(uploadText) as any;
+ const comment=await request(`/social-posts/${note.post_id}/comments`,owner,{image_id:image.image_id,text:'Synthetic private comment'});
+ assert.equal(comment.status,201,JSON.stringify(comment.data));
+ await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=$1",[owner.id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof imageApp.request>|undefined;
+ try{
+  await blocker.query('BEGIN');const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE community_social_comments IN ACCESS EXCLUSIVE MODE');
+  pending=imageApp.request(origin+comment.data.image_url,{headers:{Cookie:owner.cookie}});
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.ok(waiting,'comment image projection must actually wait');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const denied=await pending!;assert.equal(denied.status,404);
+ assert.equal((await denied.json() as {code:string}).code,'not_found');
+});

@@ -6,6 +6,7 @@ import {commentImageMemberCommand} from '../../packages/scoped-commands/index.js
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
 import {readDomainMedia} from '../../packages/media-migration/domain-bridge.js';
+import {readWithMemberSession} from '../../packages/db/member-session.js';
 import type {Actor} from '../identity-membership/service.js';
 import {MESSAGE_IMAGE_INPUT_BYTES,assertMessageImageSource,lockCommentPost,type CommentImageAssetService} from '../assets/comment-image.js';
 type CommentImage={content_type:'image/webp';byte_size:number};
@@ -64,7 +65,7 @@ export async function uploadCommentImage(pool:Pool,raw:Command,rawPostId:string,
 }
 
 /** The comment and parent post are authoritative, before and after object I/O. */
-async function imageSnapshot(pool:Pool,actor:Actor,postId:string,commentId:string):Promise<DomainMediaSnapshot|undefined>{
+async function imageSnapshot(pool:Pool|PoolClient,actor:Actor,postId:string,commentId:string):Promise<DomainMediaSnapshot|undefined>{
  const row=(await pool.query(`SELECT t.asset_id,t.scope_id,a.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
  FROM community_social_comments c JOIN community_social_posts p USING(post_id)
  JOIN community_comment_image_asset_targets t ON t.comment_id=c.comment_id AND t.post_id=p.post_id
@@ -80,5 +81,9 @@ async function imageSnapshot(pool:Pool,actor:Actor,postId:string,commentId:strin
  metadata:{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}};
 }
 export async function readCommentImage(pool:Pool,actor:Actor,postId:string,commentId:string,store?:ObjectStore){
- return (await readDomainMedia(()=>imageSnapshot(pool,actor,postId,commentId),{purpose:'community.comment-image',targetId:commentId,variant:'image'},store)).bytes;
+ const snapshot=()=>readWithMemberSession(pool,actor,q=>imageSnapshot(q,actor,postId,commentId)).catch(error=>{
+  if(error instanceof Problem&&error.status===401&&error.code==='session_expired')return undefined;
+  throw error;
+ });
+ try{return (await readDomainMedia(snapshot,{purpose:'community.comment-image',targetId:commentId,variant:'image'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到這張圖片。');throw error;}
 }
