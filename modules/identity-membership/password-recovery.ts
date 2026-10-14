@@ -9,17 +9,23 @@ const RESET_LIFETIME_MINUTES=30;
 
 export async function requestPasswordReset(pool:Pool,email:string,origin:string,send:PasswordEmailSender){
   const normalized=email.trim().toLowerCase();
-  // The response is identical for registered and unregistered addresses.
-  const user=(await pool.query('SELECT user_id FROM users WHERE email=$1 AND active',[normalized])).rows[0];
-  if(!user)return;
-  const token=randomBytes(32).toString('base64url');
-  const hash=tokenHash(token);
-  await pool.query(`INSERT INTO password_reset_tokens(token_hash,user_id,expires_at)
-    VALUES($1,$2,now()+interval '30 minutes')`,[hash,user.user_id]);
-  const url=`${origin}/#reset-password/${token}`;
+  const issued=await transaction(pool,async q=>{
+    // Lock the current mailbox before inserting. INSERT's foreign-key share
+    // lock can wait behind an email switch and then bind the proof to the
+    // already-changed account; the switch's earlier DELETE cannot see it.
+    const owner=(await q.query<{user_id:string}>('SELECT user_id FROM users WHERE email=$1 AND active FOR UPDATE',[normalized])).rows[0];
+    if(!owner)return;
+    const token=randomBytes(32).toString('base64url');
+    const hash=tokenHash(token);
+    await q.query(`INSERT INTO password_reset_tokens(token_hash,user_id,expires_at)
+      VALUES($1,$2,now()+interval '30 minutes')`,[hash,owner.user_id]);
+    return {token,hash};
+  });
+  if(!issued)return;
+  const url=`${origin}/#reset-password/${issued.token}`;
   try{await send(normalized,url);}
   catch(error){
-    await pool.query('DELETE FROM password_reset_tokens WHERE token_hash=$1',[hash]).catch(()=>{});
+    await pool.query('DELETE FROM password_reset_tokens WHERE token_hash=$1',[issued.hash]).catch(()=>{});
     // Never log recipient, token, URL, provider response body, or raw error.
     const code=error&&typeof error==='object'&&'code' in error&&typeof error.code==='string'&&/^[A-Z_]{1,60}$/.test(error.code)?error.code:'unknown';
     console.error('password_reset_send_failed',code);
