@@ -110,8 +110,11 @@ async function scopedClaim(q:PoolClient,actor:Actor,id:string,review:boolean,loc
   requireCondition(claim,404,'not_found','找不到這次認領。');
   if(review) {
     requireCondition(claim.claimant_ref!==actor.user_id,403,'self_review','不能驗收自己的成果。');
-    const route=await q.query(`SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL AND valid_until>now() FOR SHARE`,[claim.work_item_id,actor.user_id]);
+    const route=await q.query(`SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL FOR SHARE`,[claim.work_item_id,actor.user_id]);
     requireCondition(route.rowCount===1,403,'review_authority_required','你沒有這件工作的有效驗收安排。');
+    // Sample the decision clock after acquiring the route lock, not before its wait.
+    const current=await q.query(`SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL AND valid_until>clock_timestamp()`,[claim.work_item_id,actor.user_id]);
+    requireCondition(current.rowCount===1,403,'review_authority_required','你沒有這件工作的有效驗收安排。');
   } else requireCondition(claim.claimant_ref===actor.user_id,403,'claim_owner_required','只能操作自己的認領。');
   return claim;
 }
@@ -146,7 +149,7 @@ export async function changeClaim(pool:Pool,input:Command,id:string,action:'star
     const updated=(await q.query('UPDATE work_claims SET state=$2,feedback=$3,aggregate_version=aggregate_version+1 WHERE claim_id=$1 RETURNING *',[id,next,feedback])).rows[0];
     await journal(q,input.actor,'work_claim',id,updated.aggregate_version,action,{state:next},event);
     return claimView(q,updated);
-  });
+  },reviewing?async q=>{await scopedClaim(q,input.actor,id,true);}:undefined);
 }
 export async function dashboard(pool:Pool,actor:Actor) {
   return readWithMemberSession(pool,actor,async q=>{
