@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {useLocalAction} from '../../useLocalAction';
-import {PlatformLogo} from '../SocialCrossPlatformShare';
+import {PlatformLogo} from '../PlatformLogo';
+import '../social-sharing.css';
 import {SHARE_PLATFORMS,SHARE_LABELS,socialShareUrl,type SharePlatform} from '../../social-share';
 
 export function ArPhotoShare({file,text,onClose}:{file:File;text:string;onClose:()=>void}){

@@ -209,6 +209,8 @@ test('AR-UI-09 storage-limit retries retain one target and known failure permits
     await page.getByRole('button',{name:/^(發布 AR 圖案|重試原發布)$/}).click();
     expect((await (await response).json()).code).toBe('ar_storage_limit');
     await expect(page.getByRole('alert').filter({hasText:'儲存空間已達上限'})).toBeVisible();
+    // The rejection is shown before the targets refresh settles; wait until the original operation unlocks.
+    await expect(page.getByRole('button',{name:'重試原發布',exact:true})).toBeEnabled();
   }
   await prepare('Synthetic quota retry');await quotaFailure();await quotaFailure();
   expect(creates,'retry must not create another retained target').toBe(1);

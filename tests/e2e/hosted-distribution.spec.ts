@@ -73,6 +73,9 @@ test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C 
     if (supplierOnly) await a.page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
     else await storeArea(a.page,'供貨合作');
     await a.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
+    // A supplier-only response auto-opens this section. Wait for this refresh
+    // before expand() reads its state, so its click cannot close a newly opened list.
+    await expect(panel(a.page).locator('summary').filter({hasText:'供貨申請'})).toContainText('供貨申請（2');
     const requests=await expand(a.page,'供貨申請');
     for(const name of ['小島選物','山城選物']) {
       const row=requests.locator('article').filter({has:a.page.getByRole('heading',{name:`共用庫存茶杯・${name}`,exact:true})});
