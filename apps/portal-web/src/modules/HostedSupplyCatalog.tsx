@@ -30,7 +30,7 @@ function supplyOfferStateText(product: Product, snapshot: SupplyCooperationSnaps
   return '供貨版本：公開中';
 }
 function waitingNotice(snapshot: SupplyCooperationSnapshot | null) {
-  if (!snapshot?.ok) return null;
+  if (!snapshot?.ok) return snapshot?.stale ? '供貨申請狀態未完整載入。' : null;
   const count = supplyRequestsWaiting(snapshot.requests);
   if (count === 0) return null;
   return snapshot.requestsTruncated ? `有至少 ${count} 件供貨申請等待你確認。` : `有 ${count} 件供貨申請等待你確認。`;
@@ -146,9 +146,14 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   }
   const command = (attempt: Omit<Attempt, 'key'>) => send({...attempt, key: crypto.randomUUID()});
   function acceptCooperation(next: SupplyCooperationSnapshot) {
-    // A failed refresh leaves the cooperation lists in place. Keep that same read
-    // so the card does not claim 尚未公開 from a missing response.
-    setCooperation(current => !next.ok && current?.ok ? current : next);
+    // The follow-up read is not the mutation receipt. A failure after a previous
+    // success must not keep that snapshot current on the product cards or the
+    // notice outside the cooperation panel. The panel may still show its lists.
+    setCooperation(current => {
+      if (next.ok) return next;
+      if (current?.ok || current?.stale) return {ok: false, stale: true};
+      return next;
+    });
   }
   const locked = busy || retry !== null || loading || readFailed;
   const can = (key: string) => view?.writable === true && view.capabilities.includes(key);
@@ -156,6 +161,7 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   const productAccess = view?.capabilities.includes('store:write');
   const activeArea = productAccess ? area : 'reservations';
   const notice = waitingNotice(cooperation);
+  const cooperationStale = cooperation?.ok === false && cooperation.stale === true;
   function closeEditor() {
     if (!leaveOk()) return;
     setAdding(false); setEditing(null); setSupplyEditing(null);
@@ -187,7 +193,7 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
           <button type="button" className="btn btn-ghost" aria-pressed={activeArea === 'cooperation'} aria-controls="supply-cooperation-panel" onClick={() => setArea('cooperation')}>供貨合作</button>
           <button type="button" className="btn btn-ghost" aria-pressed={activeArea === 'reservations'} aria-controls="supply-reservations-panel" onClick={() => setArea('reservations')}>預留與訂單</button>
         </nav>}
-        {productAccess && notice && <p className="field-hint">{notice}</p>}
+        {productAccess && notice && <p className={cooperationStale ? 'banner banner-error' : 'field-hint'} role={cooperationStale ? 'alert' : undefined}>{notice}</p>}
         {productAccess && <>
           {/* Keep work areas mounted: switching never discards a draft or releases an unknown command. */}
           <section id="supply-products-panel" className="hosted-supply-panel stack" hidden={activeArea !== 'products'} aria-labelledby="supply-products-title">

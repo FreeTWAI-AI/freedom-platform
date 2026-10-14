@@ -6,7 +6,7 @@ import {formatMinor,parseMajorToMinor} from '../format';
 
 type Command = {method:'post'|'patch';path:string;body:unknown;version?:string;schema:z.ZodType;notice:string;success:(value:unknown)=>void;targetMissingIsStore?:boolean};
 const stateWord:Record<Distribution['state'],string> = {awaiting_supply_acceptance:'等待供應商確認',sellable:'已同意，可加入展示頁',declined:'供應商未同意',changes_requested:'需要修改',revoked:'已撤回供貨'};
-export type SupplyCooperationSnapshot = {ok:true;offers:SupplyOffer[];offersTruncated:boolean;requests:Distribution[];requestsTruncated:boolean} | {ok:false};
+export type SupplyCooperationSnapshot = {ok:true;offers:SupplyOffer[];offersTruncated:boolean;requests:Distribution[];requestsTruncated:boolean} | {ok:false;stale?:boolean};
 /** Decision buttons use this same pair: still offered, and still waiting for this supplier. */
 export function supplyRequestsWaiting(requests:Distribution[]) {
   return requests.filter(request=>request.state==='awaiting_supply_acceptance'&&request.offer.state==='offered').length;
