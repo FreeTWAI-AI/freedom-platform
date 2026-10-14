@@ -37,6 +37,39 @@
 
 新表和 confirmation metadata 登記到既有資料責任 catalog；保留期限仍沿 `policy_undecided`，沒有 GC、刪除排程、匿名公開成果或事件 consumer。官方公開名片不接入此會員 reader。修改／撤回後，舊確認不作新版本的權威；命令 receipt 只回歷史 ID/state/version/hash，UI 隨後讀目前狀態。
 
+## Work 角色頁的 statement snapshot（#641、#645）
+
+`/work-items/:id/contribution-roles` 將 Work scope／header、已驗收交付者、
+角色 visibility、withdrawn／current confirmation、page selection 與
+current review availability 放在同一 SELECT snapshot。Review relation
+等待期間雙向 block 或撤回已成立時，不回較早挑出的署名文字／evidence；
+predicate 在 LIMIT 前套用，會補上合法下一項並保留 page cursor，
+不是晚到 filter 後回空頁或漏掉剩餘角色。
+
+同一 statement 也讀目前 Work state／accepted_at／accepted_member：
+驗收後才提交的新署名，不會配上驗收前的 header 或 false can_confirm。
+原先獨立 Work metadata lookup、review lookup 及較早 state 參數已移除。
+Member eligibility 仍沿既有 helper；Work 的同社群／community_collaboration
+條件在主查詢套用。LEFT JOIN LATERAL 保留空角色頁的 Work header；
+空清單或 offset 超出目前頁面不產生 null-role item、假 cursor 或 404。
+
+Review availability 以 EXISTS 及 DB `clock_timestamp()` 判定，
+未 accepted 時 CASE 不求值。Internal derived 欄位不進原 DTO。
+Pending／self／Work state 與已驗收交付者確認發起人角色的窄 counterpart
+條件不變；review 期限跨過時 can_confirm=false，有效時 true，
+counterpart 權限不被 review route 期限代替。沒有重讀 loop、retry、
+額外 table／pair lock 或第二 reader。
+
+本人仍可讀 withdrawn retained role，第三人只讀目前可見項目；
+這不是 erasure、私人交付 ref 公開、評分或付款。原 sharing／community／
+mode／verification eligibility、command／receipt／default flag 不變；
+既有 session 最終 DB 時鐘仍保留，歷史驗收事實不改寫。
+
+Consumer 回歸覆蓋雙向 block／撤回的 limit=1 refill、有效控制、
+review expiry／counterpart、驗收與新署名並行、實際確認或未驗收拒絕，
+以及空清單／exhausted offset。Issue／PR 區分各次真實 HTTP 證據，
+不等於 browser、trusted CI、merge、部署或完整 Foundation 驗收。
+
 ## 給 Ted 的審查重點
 
 - 核對「已驗收交付者確認發起人角色」的窄條件；不接受自確認、替別人填角色或旁觀者授權。
