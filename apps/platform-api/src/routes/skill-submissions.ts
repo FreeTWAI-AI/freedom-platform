@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { normalizeSubmission } from '../../../../modules/skill-submissions/payload.js';
@@ -74,7 +75,10 @@ const withEtag = (c: Context, value: { aggregate_version?: string } | undefined)
 // Mount under /api/v1 after the browser session, Origin/CSRF and onboarding middleware.
 export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToken: () => string | undefined = () => undefined,runtime?:Pick<PlatformRuntime,'skillImageAssets'|'skillImageAssetStore'>) {
   const app = new Hono<PlatformEnv>();
-  app.get('/me/skill-submissions', async c => c.json({ items: await listSubmissions(pool, c.get('actor')) }));
+  app.get('/me/skill-submissions', async c => {
+    const actor = c.get('actor');
+    return c.json({ items: await readWithMemberSession(pool, actor, q => listSubmissions(q, actor)) });
+  });
   app.post('/me/skill-submissions/manual', async c => {
     const result = await createManualSubmission(pool, await moduleCommand(c));
     withEtag(c, result);

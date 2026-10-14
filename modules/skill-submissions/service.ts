@@ -200,8 +200,8 @@ export async function prepareProjectSkillSubmission(pool: Pool, input: Command, 
 }
 
 
-export async function listSubmissions(pool: Pool, actor: Actor) {
-  return (await pool.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
+export async function listSubmissions(db: Queryable, actor: Actor) {
+  return (await db.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
     ORDER BY created_at DESC,submission_id LIMIT 100`, [actor.community_id, actor.user_id])).rows.map(submissionView);
 }
 export async function reviseManualSubmission(pool: Pool, input: Command, id: string) {

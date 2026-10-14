@@ -39,6 +39,12 @@
 - `POST /me/skill-upload-keys` `{label:1–80字, expires_in_days:1–90（預設30）}`＋`Idempotency-Key` → 201 `{key, token}`；重送 `token:null`；有效金鑰最多 10 把
 - `POST /me/skill-upload-keys/:id/revoke` `{}`＋`Idempotency-Key` → `key`
 
+`GET /me/skill-submissions` 在同一短交易鎖定目前會員與 session，透過同一
+query client 讀取本人清單，並在最後一個 SQL 完成後以 `clock_timestamp()` 重驗
+session 期限。查詢等鎖期間到期會回 401 `session_expired`，不回 `items` 或私人
+草稿；不以 middleware 入場時有效取代最後讀取授權。排序、最多 100 筆及公開
+技能清單的既有規則不變。
+
 `submission`：`submission_id, status, aggregate_version, payload|null, project_id|null, seed|null, upgrades_submission_id|null, upgrade|null, can_upgrade, catalog_book|null, can_edit, public_path|null, illustration_url|null, grant_expires_at|null, grant_consumed_at|null, grant_revoked_at|null, created_at, updated_at`。`payload` 不含 `cover_image`，圖片另存並以 `illustration_url` 提供。`grant_expires_at` 同時考慮來源金鑰的到期時間；`grant_revoked_at` 也反映來源金鑰已撤銷。一般回應不會出現授權、雜湊或圖片位元組。
 
 本人 `GET /me/skill-submissions/:id` 的所有投稿投影使用同一短交易 client，
