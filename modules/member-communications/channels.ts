@@ -1,6 +1,7 @@
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {command,type Command} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
@@ -68,7 +69,7 @@ async function snapshot<T>(pool:Pool,actor:Actor,run:(q:PoolClient)=>Promise<T>)
     try{
       await q.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
       await currentMember(q,actor,true);
-      const result=await run(q);await q.query('COMMIT');return result;
+      const result=await run(q);await assertCurrentSessionClock(q,actor);await q.query('COMMIT');return result;
     }catch(error){
       await q.query('ROLLBACK');
       if(error instanceof Problem||(error as {code?:string}).code!=='40001')throw error;
