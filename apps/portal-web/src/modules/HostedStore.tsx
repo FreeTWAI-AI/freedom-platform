@@ -24,6 +24,7 @@ import {useLocalAction} from '../useLocalAction';
 import {HostedSupplyCatalog, SupplyCatalogList} from './HostedSupplyCatalog';
 import {HostedReservationSetting} from './HostedReservationSetting';
 import './HostedStore.css';
+import {ProductSearch,productMatches} from '../../../../modules/agent-commerce/hosted-ui/CommerceTools';
 
 const NOTICE = '店鋪／商品展示已就緒，交易尚未啟用';
 // Same path as productPath in modules/agent-commerce/hosted/page.ts (not exported).
@@ -125,6 +126,8 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
   const statusLine = useRef<HTMLParagraphElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [supplyEditing, setSupplyEditing] = useState<string | null>(null);
+  const [area,setArea]=useState<'products'|'cooperation'|'publish'|'settings'>('products');
+  const [query,setQuery]=useState('');
   const [manualUrl, setManualUrl] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<{url: string; message: string} | null>(null);
   const manualField = useRef<HTMLInputElement>(null);
@@ -224,6 +227,9 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
   function command(attempt: Omit<Attempt, 'key'>) {return send({...attempt, key: crypto.randomUUID()});}
   const can = (key: string) => view?.writable === true && view.capabilities.includes(key);
   const locked = busy || retry !== null || photoBlocking;
+  const draftArea=(id:string):typeof area=>id==='settings'?'settings':id==='appearance'?'publish':id.startsWith('distribution/')?'cooperation':'products';
+  const otherDraft=Object.entries(dirtyForms).find(([id,dirty])=>dirty&&draftArea(id)!==area);
+  const areaLocked=locked||!!otherDraft;
   if (missing) return <MissingStore/>;
   const store = view?.store;
   const publicationText = publication?.state === 'published' ? `已發布・第 ${publication.current_revision} 版・${formatIsoLocal(publication.published_at)}`
@@ -242,48 +248,53 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
       {!store ? can('store:manage') ? <SettingsForm key="setup" client={client} root={root} busy={locked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'post', path: root + '/setup', body, schema: StoreViewSchema, notice: '已建立商店。', success, fieldError})}/>
         : <p>這間商店還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
         <p className="banner" role="note">{reservationSetting?.reservation_enabled && reservationSetting.admission_enabled ? '已開放 30 分鐘庫存預留；付款與出貨尚未啟用。' : NOTICE}</p>
+        <nav className="hosted-supply-nav hosted-retail-nav" aria-label="商店工作區">{([['products','商品'],['cooperation','供貨合作'],['publish','店面與發布'],['settings','商店資料']] as const).map(([key,label])=><button key={key} type="button" className="btn btn-ghost" aria-pressed={area===key} aria-controls={`store-${key}-panel`} onClick={()=>setArea(key)}>{label}</button>)}</nav>
+        {otherDraft&&<div className="hosted-store-draft-note"><p>另一個工作區有未儲存內容，先儲存或取消後就能繼續修改。</p><button type="button" className="btn btn-ghost" onClick={()=>setArea(draftArea(otherDraft[0]))}>回到未儲存的工作區</button></div>}
         {reservationSetting && <HostedReservationSetting setting={reservationSetting} writable={view.writable} locked={locked || hasDraft || loading}
           onToggle={() => void command({method:'patch',path:root+'/reservation-setting',body:{reservation_enabled:!reservationSetting.reservation_enabled},
             version:reservationSetting.version,schema:ReservationSettingSchema,notice:reservationSetting.reservation_enabled?'已停止接受新預留。既有預留仍可查看與取消。':'已開放 30 分鐘預留。',success:()=>{}})}/>}
-        <section className="stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
+        <section id="store-products-panel" hidden={area!=='products'} className="hosted-supply-panel stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
           <p>{view.product_count}／{view.product_limit} 件商品</p>
+          {!!products.length&&<ProductSearch value={query} onChange={setQuery} count={products.filter(product=>productMatches(product,query)).length} total={products.length} disabled={locked||hasDraft}/>}
+          {!!products.length&&!products.some(product=>productMatches(product,query))&&<p>沒有符合的商品，清除搜尋即可查看全部。</p>}
           {publication?.state === 'published' && preview?.dirty && <p>有尚未發布的變更；發布更新後才能複製商品連結。</p>}
           {!products.length && <p>{view.product_count ? '這間店目前使用合作選品；下方可管理供貨合作。' : '還沒有商品。新增第一件商品後就能發布。'}</p>}
-          <div className="hosted-store-products">{products.map(product => <article className="hosted-store-product stack" key={product.product_id}>
-            {supplyEditing === product.product_id && can('store:write') ? <HostedSupplyTerms client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked} onPublish={can('store:publish') ? version => command({method: 'post', path: root + '/products/' + product.product_id + '/supply-offer', body: {}, version, schema: SupplyOfferSchema, notice: '已公開供貨版本，店主可申請選用。', success: () => {setSupplyEditing(null); markDirty('supply', false);}}) : undefined} onDirty={value => markDirty('supply', value)} onCancel={() => {if (leaveOk()) {setSupplyEditing(null); markDirty('supply', false);}}} onSave={(body, version, success) => command({method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, product: true, notice: '已儲存供貨條件。', success: () => {success(); setSupplyEditing(null); markDirty('supply', false);}})}/>
-              : editing === product.product_id && can('store:write') ? <ProductForm key={product.version} product={product} currency={store.currency} busy={locked} onDirty={value => markDirty('edit', value)} onCancel={() => {if (leaveOk()) {setEditing(null); markDirty('edit', false);}}} onSave={(body, success) => command({method: 'patch', path: root + '/products/' + product.product_id, body, version: product.version, schema: ProductViewSchema, product: true, notice: '已儲存。', success: value => {success(value); setEditing(null); markDirty('edit', false);}})}/>
+          <div className="hosted-store-products">{products.map(product => <article className="hosted-store-product stack" key={product.product_id} hidden={!productMatches(product,query)}>
+            {supplyEditing === product.product_id && can('store:write') ? <HostedSupplyTerms key={product.version} client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={areaLocked} onPublish={can('store:publish') ? version => command({method: 'post', path: root + '/products/' + product.product_id + '/supply-offer', body: {}, version, schema: SupplyOfferSchema, notice: '已公開供貨版本，店主可申請選用。', success: () => {setSupplyEditing(null); markDirty('supply', false);}}) : undefined} onDirty={value => markDirty('supply', value)} onCancel={() => {if (leaveOk()) {setSupplyEditing(null); markDirty('supply', false);}}} onSave={(body, version, success) => command({method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, product: true, notice: '已儲存供貨條件。可直接確認並公開這一版。', success: () => {success(); markDirty('supply', false);}})}/>
+              : editing === product.product_id && can('store:write') ? <ProductForm key={product.version} product={product} currency={store.currency} busy={areaLocked} onDirty={value => markDirty('edit', value)} onCancel={() => {if (leaveOk()) {setEditing(null); markDirty('edit', false);}}} onSave={(body, success) => command({method: 'patch', path: root + '/products/' + product.product_id, body, version: product.version, schema: ProductViewSchema, product: true, notice: '已儲存。', success: value => {success(value); setEditing(null); markDirty('edit', false);}})}/>
               : <><h4>{product.title}</h4><p>{formatMinor(product.price_minor, product.currency)}</p><p>庫存 {product.stock}</p><p className="hosted-store-description">{product.description}</p>
-                {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setSupplyEditing(null); setEditing(product.product_id); markDirty('edit', false);}}}>編輯</button>
-                  <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setEditing(null); setSupplyEditing(product.product_id);}}}>供貨條件</button>
-                  <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (window.confirm(`要移除「${product.title}」嗎？已發布的展示頁要重新發布後才會更新。`)) void command({method: 'post', path: root + '/products/' + product.product_id + '/remove', body: {}, version: product.version, schema: ProductRemovedSchema, product: true, notice: '已移除商品。', success: () => {}});}}>移除</button></div>}
+                {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={areaLocked} onClick={() => {if (leaveOk()) {setSupplyEditing(null); setEditing(product.product_id); markDirty('edit', false);}}}>編輯</button>
+                  <button type="button" className="btn btn-ghost" disabled={areaLocked} onClick={() => {if (leaveOk()) {setEditing(null); setSupplyEditing(product.product_id);}}}>供貨條件</button>
+                  <button type="button" className="btn btn-ghost" disabled={areaLocked} onClick={() => {if (window.confirm(`要移除「${product.title}」嗎？已發布的展示頁要重新發布後才會更新。`)) void command({method: 'post', path: root + '/products/' + product.product_id + '/remove', body: {}, version: product.version, schema: ProductRemovedSchema, product: true, notice: '已移除商品。', success: () => {}});}}>移除</button></div>}
                 {productCopyUrl(product.sku) && <div className="actions"><button type="button" className="btn btn-ghost" aria-busy={copyAction.pending !== null} onClick={() => {const url = productCopyUrl(product.sku); if (url) void copyLink(url);}}>複製商品連結</button></div>}
               </>}
             {copyFeedback && copyFeedback.url === productCopyUrl(product.sku) && <p className="field-hint" role="status">{copyFeedback.message}</p>}
             {manualUrl !== null && manualUrl === productCopyUrl(product.sku) && <ManualCopy url={manualUrl} fieldRef={manualField}/>}
             {photosEnabled&&<HostedStorePhoto client={client} userId={userId} tenantId={tenantId} instanceId={instanceId} product={product} media={media.find(item=>item.product_id===product.product_id)}
-              writable={can('store:write')} uploadsEnabled={photoUploadsEnabled} locked={busy||retry!==null||(photoBlocking&&!photoBlocks[product.product_id])}
+              writable={can('store:write')} uploadsEnabled={photoUploadsEnabled} locked={areaLocked||(photoBlocking&&!photoBlocks[product.product_id])}
               onState={(dirty,blocking)=>photoState(product.product_id,dirty,blocking)} onSaved={load}/>}
           </article>)}</div>
           {can('store:write') && (view.product_count >= view.product_limit ? <p>已達 {view.product_limit} 件商品上限。</p>
-            : <ProductForm currency={store.currency} busy={locked} primary={!products.length} onDirty={value => markDirty('add', value)} onSave={(body, success) => command({method: 'post', path: root + '/products', body, schema: ProductViewSchema, notice: '已新增商品。', success})}/>)}
+            : <ProductForm currency={store.currency} busy={areaLocked} primary={!products.length} onDirty={value => markDirty('add', value)} onSave={(body, success) => command({method: 'post', path: root + '/products', body, schema: ProductViewSchema, notice: '已新增商品。', success})}/>)}
         </section>
-        {view.capabilities.includes('store:write') && <HostedDistribution client={client} root={root} refresh={distributionRefresh} busy={locked} writable={can('store:write')} onDirty={(id,value)=>markDirty('distribution/'+id,value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>}
-        <section className="stack" aria-labelledby="store-publish-title"><h3 id="store-publish-title">預覽與發布</h3>
+        <div id="store-cooperation-panel" className="hosted-supply-panel" hidden={area!=='cooperation'}>{view.capabilities.includes('store:write') ? <HostedDistribution client={client} root={root} refresh={distributionRefresh} busy={areaLocked} writable={can('store:write')} onDirty={(id,value)=>markDirty('distribution/'+id,value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>
+          : <p>你沒有供貨合作的管理權限，仍可查看商品與店面資料。</p>}</div>
+        <section id="store-publish-panel" hidden={area!=='publish'} className="hosted-supply-panel stack" aria-labelledby="store-publish-title"><h3 id="store-publish-title">預覽與發布</h3>
           <p>{publication?.state === 'published' ? `目前公開第 ${publication.current_revision} 版。` : publication?.state === 'unpublished' ? '已停止公開。' : '尚未發布。'}</p>
           {publication?.state === 'published' && preview?.dirty && <p>有尚未發布的變更。</p>}
-          {appearance && <fieldset disabled={locked || !can('store:manage')} className="hosted-store-templates">
+          {appearance && <fieldset disabled={areaLocked || !can('store:manage')} className="hosted-store-templates">
             <legend>商店版型</legend>
             {([['catalog-grid-v1', '格狀目錄', '商品並排展示，手機改為單欄。'], ['catalog-list-v1', '直列目錄', '商品逐項排列，方便閱讀較長說明。']] as const).map(([id, label, hint]) => <label key={id}>
               <input type="radio" name="store-template" value={id} checked={(templateChoice ?? appearance.template_id) === id} onChange={() => {setTemplateChoice(id); markDirty('appearance', id !== appearance.template_id);}}/>
               <span>{label}<small>{hint}</small></span>
             </label>)}
           </fieldset>}
-          {appearance && can('store:manage') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked || !templateChoice || templateChoice === appearance.template_id} onClick={() => void command({method: 'patch', path: root + '/appearance', body: {template_id: templateChoice}, version: appearance.version, schema: StoreAppearanceSchema, notice: '已儲存版型。重新發布後，公開頁才會更新。', success: () => {setTemplateChoice(null); markDirty('appearance', false);}})}>儲存版型</button></div>}
+          {appearance && can('store:manage') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={areaLocked || !templateChoice || templateChoice === appearance.template_id} onClick={() => void command({method: 'patch', path: root + '/appearance', body: {template_id: templateChoice}, version: appearance.version, schema: StoreAppearanceSchema, notice: '已儲存版型。重新發布後，公開頁才會更新。', success: () => {setTemplateChoice(null); markDirty('appearance', false);}})}>儲存版型</button></div>}
           {preview && <div className="actions"><a href={`/api/v1${root}/preview-page`} target="_blank" rel="noopener">預覽已儲存的展示頁</a></div>}
           {dirtyForms.appearance && <p className="field-hint">請先儲存版型，再開啟預覽；公開頁會保留目前發布的版本。</p>}
           {can('store:publish') && <div className="actions">
-            {(publication?.state !== 'published' || preview?.dirty) && <button type="button" className={preview?.projection.products.length ? 'btn btn-primary' : 'btn btn-ghost'} disabled={locked || hasDraft || !preview?.projection.products.length} onClick={() => void command({method: 'post', path: root + '/publish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已發布展示頁。', success: () => {}})}>{publication?.state === 'published' ? '發布更新' : '發布展示頁'}</button>}
-            {publication?.state === 'published' && <button type="button" className="btn btn-ghost" disabled={locked || hasDraft} onClick={() => {if (window.confirm(`停止公開後，/shops/${store.slug} 會顯示找不到這間商店。`)) void command({method: 'post', path: root + '/unpublish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已停止公開。', success: () => {}});}}>停止公開</button>}
+            {(publication?.state !== 'published' || preview?.dirty) && <button type="button" className={preview?.projection.products.length ? 'btn btn-primary' : 'btn btn-ghost'} disabled={areaLocked || hasDraft || !preview?.projection.products.length} onClick={() => void command({method: 'post', path: root + '/publish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已發布展示頁。', success: () => {}})}>{publication?.state === 'published' ? '發布更新' : '發布展示頁'}</button>}
+            {publication?.state === 'published' && <button type="button" className="btn btn-ghost" disabled={areaLocked || hasDraft} onClick={() => {if (window.confirm(`停止公開後，/shops/${store.slug} 會顯示找不到這間商店。`)) void command({method: 'post', path: root + '/unpublish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已停止公開。', success: () => {}});}}>停止公開</button>}
           </div>}
           {can('store:publish') && hasDraft && <p className="field-hint">還有尚未儲存的內容。請先儲存商店資料與商品，再發布或停止公開。</p>}
           {can('store:publish') && !preview?.projection.products.length && <p className="field-hint">至少上架一件商品才能發布。</p>}
@@ -292,8 +303,8 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
           {manualUrl !== null && manualUrl === storeCopyUrl && <ManualCopy url={manualUrl} fieldRef={manualField}/>}
           {store.slug_locked && <p className="field-hint">網址已固定。</p>}
         </section>
-        <section className="stack" aria-labelledby="store-settings-title"><h3 id="store-settings-title">商店資料</h3>
-          {can('store:manage') ? <SettingsForm key={view.version} client={client} root={root} store={store} busy={locked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'patch', path: root, body, version: view.version!, schema: StoreViewSchema, notice: `已儲存。${publication?.state === 'published' ? '重新發布後，公開頁才會更新。' : ''}`, success, fieldError})}/>
+        <section id="store-settings-panel" hidden={area!=='settings'} className="hosted-supply-panel stack" aria-labelledby="store-settings-title"><h3 id="store-settings-title">商店資料</h3>
+          {can('store:manage') ? <SettingsForm key={view.version} client={client} root={root} store={store} busy={areaLocked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'patch', path: root, body, version: view.version!, schema: StoreViewSchema, notice: `已儲存。${publication?.state === 'published' ? '重新發布後，公開頁才會更新。' : ''}`, success, fieldError})}/>
             : <dl className="detail-list"><div><dt>商店名稱</dt><dd>{store.name}</dd></div><div><dt>品牌</dt><dd>{store.brand ?? '未填寫'}</dd></div><div><dt>商店介紹</dt><dd>{store.description}</dd></div><div><dt>商店網址</dt><dd>/shops/{store.slug}</dd></div><div><dt>幣別</dt><dd>{currencyLabel(store.currency)}</dd></div></dl>}
         </section>
       </>}

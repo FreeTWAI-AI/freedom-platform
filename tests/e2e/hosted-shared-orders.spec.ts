@@ -4,7 +4,7 @@ import { navigate, signOut } from './navigation.js';
 import { quickJoin } from './quick-join.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
-import {person, login as fixtureLogin, launchStore, open, post} from './hosted-store-fixture.js';
+import {person, login as fixtureLogin, launchStore, open, post, storeArea} from './hosted-store-fixture.js';
 import {buyerLogin, offListener} from './hosted-order-fixture.js';
 import {SupplierReservationPageSchema} from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 
@@ -36,6 +36,7 @@ async function guildHome(page: Page) {
 
 
 async function expand(page:Page,label:string) {
+  if(await page.getByRole('navigation',{name:'商店工作區',exact:true}).count())await storeArea(page,'供貨合作');
   const section=page.locator('.hosted-distribution details').filter({has:page.locator('summary').filter({hasText:label})});
   if(await section.getAttribute('open')===null)await section.locator('summary').click();return section;
 }
@@ -103,27 +104,28 @@ test('ordinary A/B/C members open stores, agree supply, opt in, race shared stoc
     await add.getByLabel('庫存',{exact:true}).fill('10');await add.getByRole('button',{name:'新增商品',exact:true}).click();
     await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText('已新增商品');
     await a.page.getByRole('button',{name:'供貨條件',exact:true}).click();
-    let supply=a.page.getByRole('form',{name:title+'供貨條件',exact:true});
+    const supply=a.page.getByRole('form',{name:title+'供貨條件',exact:true});
     await supply.getByLabel('供貨單價（TWD）',{exact:true}).fill('4');await supply.getByLabel('每件運費（TWD）',{exact:true}).fill('0');
     await supply.getByRole('textbox',{name:'出貨條件',exact:true}).fill('另行確認出貨');await supply.getByRole('textbox',{name:'退貨條件',exact:true}).fill('另行確認退貨');
     await supply.getByRole('button',{name:'儲存供貨條件',exact:true}).click();
     await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText('已儲存供貨條件');
-    await a.page.getByRole('button',{name:'供貨條件',exact:true}).click();supply=a.page.getByRole('form',{name:title+'供貨條件',exact:true});
     await supply.getByRole('button',{name:'公開供貨版本',exact:true}).click();
     await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText('已公開供貨版本');
     for(const [store,price] of [[b,'11'],[c,'13']] as const) {
+      await storeArea(store.page,'供貨合作');
       await store.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();const catalog=(await expand(store.page,'選用其他商店')).getByRole('article').filter({has:store.page.getByRole('heading',{name:title+'・'+a.name,exact:true})});
       await catalog.getByRole('button',{name:'設定我的售價',exact:true}).click();await catalog.getByLabel('我的零售價（TWD）',{exact:true}).fill(price);
       await catalog.getByRole('button',{name:'送出供貨申請',exact:true}).click();
       await expect(store.page.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
     }
+    await storeArea(a.page,'供貨合作');
     await a.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();const requests=await expand(a.page,'供貨申請');
     for(const name of [b.name,c.name]) {
       const row=requests.locator('article').filter({has:a.page.getByRole('heading',{name:`${title}・${name}`,exact:true})});
       await row.getByRole('button',{name:'同意這一版',exact:true}).click();await expect(row).toContainText('已同意');
     }
     for(const store of [b,c]) {
-      await store.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();await store.page.getByRole('button',{name:'發布展示頁',exact:true}).click();
+      await store.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();await storeArea(store.page,'店面與發布');await store.page.getByRole('button',{name:'發布展示頁',exact:true}).click();
       await expect(store.page.locator('.hosted-store > [role="status"]')).toContainText('已發布');
     }
     const buyerB=await contexts[4].newPage(),buyerC=await contexts[5].newPage();
@@ -197,16 +199,15 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     await add.getByRole('button', {name: '新增供貨商品', exact: true}).click();
     await expect(a.locator('.hosted-store > [role="status"]')).toContainText('已新增供貨商品');
     await a.getByRole('button', {name: '供貨條件', exact: true}).click();
-    let terms = a.getByRole('form', {name: title + '供貨條件', exact: true});
+    const terms = a.getByRole('form', {name: title + '供貨條件', exact: true});
     await terms.getByLabel('每件運費（TWD）', {exact: true}).fill('0');
     await terms.getByRole('textbox', {name: '出貨條件', exact: true}).fill('另行確認出貨');
     await terms.getByRole('textbox', {name: '退貨條件', exact: true}).fill('另行確認退貨');
     await terms.getByRole('button', {name: '儲存供貨條件', exact: true}).click();
     await expect(a.locator('.hosted-store > [role="status"]')).toContainText('已儲存供貨條件');
-    await a.getByRole('button', {name: '供貨條件', exact: true}).click();
-    terms = a.getByRole('form', {name: title + '供貨條件', exact: true});
     await terms.getByRole('button', {name: '公開供貨版本', exact: true}).click();
     await expect(a.locator('.hosted-store > [role="status"]')).toContainText('已公開供貨版本');
+    await storeArea(b,'供貨合作');
     await b.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
     const offer = (await expand(b, '選用其他商店')).getByRole('article').filter({has: b.getByRole('heading', {name: title + '・純供貨 A', exact: true})});
     await offer.getByRole('button', {name: '設定我的售價', exact: true}).click();
@@ -219,6 +220,7 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     await request.getByRole('button', {name: '同意這一版', exact: true}).click();
     await expect(request).toContainText('已同意');
     await b.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    await storeArea(b,'店面與發布');
     await b.getByRole('button', {name: '發布展示頁', exact: true}).click();
     await expect(b.locator('.hosted-store > [role="status"]')).toContainText('已發布');
     // Exact-version supply consent alone must not opt A into reservations.
