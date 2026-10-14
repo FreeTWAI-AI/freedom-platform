@@ -3169,8 +3169,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/community-ar/Editor.tsx",
-      "bytes": 4888,
-      "sha256": "2b44406ac44bbe5b37bbc85c79520455298c5dcae14356402babddc6ba91f077"
+      "bytes": 5290,
+      "sha256": "bfc83ec2885943642f9116f686ce386388fbf9f8265e03faa6e6ca8abe13e3f2"
     },
     {
       "path": "apps/portal-web/src/modules/community-ar/Panel.tsx",
@@ -20669,8 +20669,8 @@
     },
     {
       "path": "tests/e2e/community-ar.spec.ts",
-      "bytes": 13500,
-      "sha256": "114748a309c547eb5c143a946cbd078a16f9148c2dc7bbe0760e9affe1af1465"
+      "bytes": 14325,
+      "sha256": "8ba64231f95fb04477c681e187e68401db852b38936ba769a4b70e20b8275de3"
     },
     {
       "path": "tests/e2e/community-erp-demo.spec.ts",
