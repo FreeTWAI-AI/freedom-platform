@@ -36,13 +36,13 @@ export class DevelopmentAccess {
       requireCondition((await q.query(`SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND ${ready} FOR SHARE`,[actor.user_id,actor.community_id])).rowCount===1,403,'development_member_required','請先完成會員定位。');
       if(browser)await this.assertBrowserSession(q,actor);
       await lockMemberGuilds(q,actor);
-      // Guild and GitHub locks can outlast the session. Recheck after both.
       if(browser)await this.assertBrowserSession(q,actor);
-      try{
-        const value=await run(q);
-        if(browser)await this.assertBrowserSession(q,actor);
-        return {value};
-      }catch(error){if(error instanceof Problem)return {error};throw error;}
+      let outcome:{value:T}|{error:Problem};
+      try{outcome={value:await run(q)};}
+      catch(error){if(error instanceof Problem)outcome={error};else throw error;}
+      // A caught Problem commits earlier writes. Session expiry must abort them.
+      if(!('error' in outcome)&&browser)await this.assertBrowserSession(q,actor);
+      return outcome;
     });
     if('error' in result)throw result.error;return result.value;
   }

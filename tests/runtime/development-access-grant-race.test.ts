@@ -186,3 +186,24 @@ test('key issuance waiting on the GitHub lock cannot mint after its grant expire
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM development_keys WHERE revoked_at IS NULL AND expires_at>clock_timestamp()")).rows[0].n,0);
   }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await issue?.catch(()=>{});}
 });
+
+test('key issuance waiting on the GitHub lock cannot mint after the browser session expires',async()=>{
+  await enable();
+  const holder=await pool.connect();
+  let issue:Promise<unknown>|undefined;
+  try{
+    await holder.query('BEGIN');
+    await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-social/${actor.user_id}`]);
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+    const holderPid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    issue=waiterService().issueKey(command({},'expired-session-github-key'),'skill',target);
+    await until('github lock',async()=>{
+      const locked=await admin.query("SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock' AND query LIKE 'SELECT pg_advisory_xact_lock%' AND $2=ANY(pg_blocking_pids(pid))",[`${schema}/waiter`,holderPid]);
+      return locked.rowCount?true:undefined;
+    });
+    await pool.query('SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[actor.session_hash]);
+    await holder.query('COMMIT');
+    await assert.rejects(issue,(error:any)=>error.code==='session_expired');
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM development_keys WHERE revoked_at IS NULL AND expires_at>clock_timestamp()")).rows[0].n,0);
+  }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await issue?.catch(()=>{});}
+});
