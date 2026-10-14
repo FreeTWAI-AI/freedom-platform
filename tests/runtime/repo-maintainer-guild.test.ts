@@ -9,6 +9,8 @@ import { seedLocal, DEMO_USERS, DEMO_COMMUNITY, DEMO_PASSWORD } from '../../pack
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
 import { login } from '../../modules/identity-membership/service.js';
+import { Problem } from '../../packages/shared/problem.js';
+import { guildReviewPull, listGuildReviews } from '../../modules/repo-maintainer/guild-reviews.js';
 import { runMaintainerTick } from '../../modules/repo-maintainer/tick.js';
 import { settleMaintainerClaims } from '../../modules/repo-maintainer/claims.js';
 
@@ -493,4 +495,39 @@ test('an admin assigns a skill-book maintainer and rejects a mixed identity', as
   assert.equal(assigned.data.claim.acting_as, 'skill_book_maintainer');
   assert.equal(assigned.data.claim.skill_book_id, 'career-guide');
   assert.equal(assigned.data.claim.guild_key, null);
+});
+
+test('guild review reads waiting on a membership lock do not return titles after the session expires', async () => {
+  const actor = (await login(pool, DEMO_USERS[0].email, DEMO_PASSWORD)).actor;
+  await lead(actor.user_id, 'guild_ai_vibe');
+  const repository = await insertRepo({ guild: 'guild_ai_vibe', full: 'FreeTWAI/private-review' });
+  const pull = await insertPull(repository, 7);
+  const secret = '未公開審查標題不應在登入到期後回傳';
+  await pool.query('UPDATE maintainer_pull_requests SET title=$2 WHERE pull_id=$1', [pull, secret]);
+  const holder = await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    await holder.query('SELECT membership_id FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE', [DEMO_COMMUNITY, actor.user_id, 'guild_ai_vibe']);
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=$1", [actor.session_hash]);
+    const listed = listGuildReviews(pool, actor, 'awaiting_review', 20, 0).then(value => ({ value, error: null as unknown }), error => ({ value: null, error }));
+    const detail = guildReviewPull(pool, actor, pull).then(value => ({ value, error: null as unknown }), error => ({ value: null, error }));
+    const deadline = Date.now() + 8000;
+    let waiting = 0;
+    while (Date.now() < deadline) {
+      waiting = Number((await database.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%positioning_guild_officers%'")).rows[0].n);
+      if (waiting >= 2) break;
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.equal(waiting, 2);
+    await database.query('SELECT pg_sleep(1.2)');
+    await holder.query('ROLLBACK');
+    const [listResult, detailResult] = await Promise.all([listed, detail]);
+    assert.equal(listResult.error instanceof Problem && listResult.error.code === 'session_expired', true);
+    assert.equal(detailResult.error instanceof Problem && detailResult.error.code === 'session_expired', true);
+    assert.equal(listResult.value, null);
+    assert.equal(detailResult.value, null);
+  } finally {
+    await holder.query('ROLLBACK').catch(() => {});
+    holder.release();
+  }
 });
