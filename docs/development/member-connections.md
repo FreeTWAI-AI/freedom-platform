@@ -35,6 +35,8 @@
 
 公開頁 `/member-cards/<token>` 呈現的就是預覽那張名片：暱稱、一句話介紹、手動連結、目前主要公會、最多三項最後確認的精選能力、**本人勾選後**的頭像，以及下面這份公開聯絡方式。樣式是清新、工坊、夜空或經典名片。尚未儲存過分享設定的會員，頭像勾選是關的。已確認名片若有精選清單就用那份，否則用已確認能力的前三項；還沒完成定位、沒有已確認名片時，這一份是空的。進行中的草稿不會出現。手動連結仍是最多 8 個，要自己加入；「從我的社群連結加入」只是把一筆抄進這 8 個，不會取代自動帶入的項目。
 
+共用 `BrandPoster` 的原始 Logo 保護放在全站預載的 `styles.css`，不依賴 lazy-loaded 會員首頁的 `HomeDesign.css`。初次直開公開名片、失效名片或加入頁，也維持原圖 16:9、`object-fit: contain` 與完整中文字標；compact 以 320px 最大寬度保留完整比例，各頁較窄的寬度規則仍優先，不裁成固定高度海報。
+
 「平台公開」的範圍除了已登入會員，在分享名片打開之後也包含拿到這條連結的人。對方不必登入。只勾好友、小隊或公會的項目不會出現。本人可以整組關掉，也可以逐項隱藏。Email 是登入帳號，預設不放上名片。
 
 自動帶入的來源有兩種，對應函式是 `mapMemberCardProfileLinks`（網址只在伺服器組，客戶端不自己拼）：
@@ -53,6 +55,8 @@ migration `075_member_card_profile_links.sql` 加上 `show_profile_links` 和 `p
 公開 JSON（`GET /api/v1/public/member-cards/:token`）有 `design`、`headline`（沒有就是 null）、`links`（`{label, url}`）和 `profile_links`（`{platform, label, handle, url}`，只有顯示中的項目）。沒有 `source`、沒有連結 id、沒有隱藏項目。聯絡方式、社群連結和分享列的條件在同一個 SQL 敘述裡讀。頭像，以及 `/member-cards/<token>` 頁面都是 `Cache-Control: no-store`，並送 `X-Robots-Tag: noindex, nofollow`。noindex 不是存取控制。打得開這張名片的，是這個 token，加上本人的開關。
 
 已登入、看的不是自己的名片時，仍會在電子名片下面看到對方平常的會員名片（`GET /api/v1/member-cards/:token/member`），聯絡方式仍依原本的好友、公會與小隊範圍。分享不會建立好友。本人打開自己的連結時只看到這張電子名片，並可回到我的名片繼續改。
+
+額外會員讀取回 `404 member_not_found`（例如其他社群的觀看者）時，不把它當成公開名片關閉。畫面重新讀取公開 endpoint，只有分享仍有效時才呈現新的公開投影，並說明會員資訊／好友邀請不可用；不保留前一次的公開欄位快照。提示和公開頁操作沿用名片模板色票，避免全站夜航文字色落在淺色名片表面。若在讀取間關閉分享、換連結、停用會員或收回欄位公开範圍，重讀照目前條件隱藏內容。其他失敗仍顯示錯誤，不悄悄放寬私人權限。
 
 寫入是 `GET/POST /api/v1/me/member-card-share`。內容是 `{enabled, include_avatar, rotate?}`，也可以帶 `design`、`headline`、`links`、`show_profile_links`、`profile_link_prefs`。省略的欄位保留目前的值；第一筆儲存若沒帶 `show_profile_links`，新名片是打開的。`headline: null` 或空白會清掉介紹；有送 `links` 就整份取代。`profile_link_prefs` 也是整份取代，最多 64 個鍵，鍵必須是 `contact:line|github|discord|email` 或 `social:` 加小寫 uuid，值必須是布林，否則 422 `member_card_profile_links_invalid`。連結名稱 1–30 字、單行；網址必須是沒有帳號密碼的 https，最多 300 字。不接受 http、javascript、data。樣式、介紹或連結不合法回 422，說明是中文。沿用 Idempotency-Key；已有設定時要帶目前的 If-Match，沒帶回 428 `version_required`，版本不對回 412。回應帶 `design`、`headline`、`links`、`show_profile_links`、`profile_link_prefs`、`profile_links`（含隱藏項目與 `source`、`shown`）和啟用時的 `share_path`。`shown` 只看單項設定，不看總開關。日記只記開關、是否換連結、樣式、介紹字數、連結數量、`show_profile_links` 和隱藏項目的數量，不記 token、介紹本文、帳號、網址。
 
