@@ -166,7 +166,7 @@ async function referralOwner(q:Pick<PoolClient,'query'>,eventId:string,raw:strin
   return row.user_id as string;
 }
 
-export async function getEventShareCode(pool:Pool,actor:Actor,id:string){
+export async function getEventShareCode(pool:Pool|PoolClient,actor:Actor,id:string){
   const row=await scopedEvent(pool,actor,id);
   requireCondition(row.state==='published'&&await canAccessGuildEvent(pool,actor,row)&&!await testHostHidden(pool,row.organizer_ref,actor.user_id),404,'not_found','找不到可分享的活動。');
   const code=randomBytes(18).toString('base64url');

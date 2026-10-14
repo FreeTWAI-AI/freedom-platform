@@ -1,5 +1,5 @@
 import {readSkillImage} from '../assets/skill-image.js';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { catalogRepositoryKeys } from './repository-match.js';
 import { publicPath } from './service.js';
@@ -81,14 +81,14 @@ export async function readPublishedUpgrade(pool: Pool, id: string): Promise<stri
 }
 
 /** Titles of submissions that still pass the published-shelf rule. Missing ids are omitted. */
-export async function readPublishedSkillTitles(pool: Pool, communityId: string, ids: string[]): Promise<Map<string, string>> {
+export async function readPublishedSkillTitles(pool: Pool|PoolClient, communityId: string, ids: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids.map(id => id.toLowerCase()))].filter(id => z.uuid().safeParse(id).success);
   if (!unique.length) return new Map();
   const rows = (await pool.query(`SELECT s.submission_id::text AS id, (${PUBLIC_PAYLOAD})->>'title' AS title ${PUBLISHED} AND s.community_id=$1 AND s.submission_id=ANY($2::uuid[])`, [communityId, unique])).rows as { id: string; title: string }[];
   return new Map(rows.map(row => [row.id, row.title]));
 }
 
-export async function readPublishedSkillSubmission(pool: Pool, id: string) {
+export async function readPublishedSkillSubmission(pool: Pool | PoolClient, id: string) {
   if (!z.uuid().safeParse(id).success) return null;
   const row = (await pool.query(`SELECT ${COLUMNS} ${PUBLISHED} AND s.submission_id=$1`, [id.toLowerCase()])).rows[0];
   if (!row) return null;

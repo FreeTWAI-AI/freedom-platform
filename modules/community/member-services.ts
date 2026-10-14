@@ -266,7 +266,7 @@ export async function publicMemberCover(pool:Pool,communityId:string|null,id:str
  return (await readDomainMedia(()=>coverSnapshot(pool,communityId!,id),{purpose:'member.service-cover',targetId:id,variant:'cover'},store)).bytes;
 }
 
-export async function readMemberServiceShare(pool: Pool, communityId: string, id: string) {
+export async function readMemberServiceShare(pool: Pool | PoolClient, communityId: string, id: string) {
   if (!z.uuid().safeParse(id).success) return null;
   const row = (await pool.query(`SELECT s.title,s.summary,u.display_name AS owner_name,c.service_id IS NOT NULL AS has_cover
     FROM member_services s JOIN users u ON u.user_id=s.owner_user_id LEFT JOIN member_service_covers c ON c.service_id=s.service_id
@@ -274,7 +274,7 @@ export async function readMemberServiceShare(pool: Pool, communityId: string, id
   return row ? { title: row.title as string, summary: row.summary as string, ownerName: row.owner_name as string, hasCover: Boolean(row.has_cover) } : null;
 }
 
-export async function readMemberServiceTitles(pool: Pool, communityId: string, ids: string[]) {
+export async function readMemberServiceTitles(pool: Pool|PoolClient, communityId: string, ids: string[]) {
   const unique = [...new Set(ids.map(id => id.toLowerCase()))].filter(id => z.uuid().safeParse(id).success);
   if (!unique.length) return new Map<string, { title: string; available: boolean }>();
   const rows = (await pool.query(`SELECT s.service_id::text AS id,s.title,(s.state='active' AND u.active AND NOT is_verification_test_account(u.user_id)) AS available

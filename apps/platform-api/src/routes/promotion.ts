@@ -88,8 +88,14 @@ export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
 
 export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runtime: PlatformRuntime) {
   app.post('/api/v1/promotion/links', async c => c.json(await createPromotionLink(pool, c.get('actor'), await c.req.json(), clock(runtime))));
-  app.get('/api/v1/promotion/links/mine', async c => c.json(await listMyPromotionLinks(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
-  app.get('/api/v1/promotion/leaderboards', async c => c.json(await promotionLeaderboards(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
+  app.get('/api/v1/promotion/links/mine', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => listMyPromotionLinks(q, actor, c.req.query('period'), clock(runtime))));
+  });
+  app.get('/api/v1/promotion/leaderboards', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => promotionLeaderboards(q, actor, c.req.query('period'), clock(runtime))));
+  });
   app.get('/api/v1/social-posts', async c => {
     const actor = c.get('actor');
     return c.json(await readWithMemberSession(pool, actor, q => listSocialPosts(q, actor, { platform: c.req.query('platform'), cursor: c.req.query('cursor'), kind: c.req.query('kind'), tag:c.req.query('tag') })));
