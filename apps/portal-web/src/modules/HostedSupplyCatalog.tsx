@@ -112,6 +112,10 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
       setReservationSetting(setting); setView(next); setProducts(items); setError(''); setRefresh(value => value + 1);
     } catch (cause) {
       if (!current()) return;
+      // This parent read is not a command receipt and does not release an unknown
+      // operation. A failure after a previous success must drop the current-looking
+      // offer state and waiting count; the receipt, alert, reload, and lock stay.
+      acceptCooperation({ok: false});
       setReadFailed(true);
       if (cause instanceof ApiError && cause.status === 404) setMissing(true);
       else setError(errorText(cause));
