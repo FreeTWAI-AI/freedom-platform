@@ -123,6 +123,47 @@ test('the last seat is atomic across the original member and public guest regist
   assert.equal(await countEventSeats(pool,eventId),1);
 });
 
+test('an expired invitation does not reserve a seat after the event lock wait',async()=>{
+  async function member(email:string,name:string){
+    const id=randomUUID();
+    await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required,onboarding_completed_at,email_verified_at)
+      SELECT $1,community_id,$2,$3,password_hash,$4,false,now(),now() FROM users WHERE user_id=$5`,[id,email,name,randomUUID(),DEMO_USERS[0].user_id]);
+    return (await login(pool,email,DEMO_PASSWORD)).actor;
+  }
+  const organizer=await member('seat-organizer@example.test','主辦');
+  const invitee=await member('seat-invitee@example.test','受邀');
+  const other=await member('seat-other@example.test','其他人');
+  const id=randomUUID();
+  await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,capacity,state,visibility)
+    VALUES($1,$2,$3,'名額鎖測試','隔離鎖等待',$4,$5,'in_person','合成場地',1,'published','open')`,[id,DEMO_COMMUNITY,organizer.user_id,start,new Date(start.getTime()+3600000)]);
+  await pool.query(`INSERT INTO community_event_waitlist(entry_id,event_id,member_ref,status,invited_at,expires_at,invitation_id)
+    VALUES($1,$2,$3,'invited',clock_timestamp(),clock_timestamp()+interval '1 second',$4)`,[randomUUID(),id,invitee.user_id,randomUUID()]);
+  const waiting=async()=>Number((await admin.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%community_events%'`)).rows[0].n);
+  const blocker=await pool.connect();
+  const settle=(pending:Promise<unknown>)=>pending.then(()=>({error:null as Problem|null}),error=>{assert.ok(error instanceof Problem);return {error};});
+  let otherPending:Promise<{error:Problem|null}>,inviteePending:Promise<{error:Problem|null}>;
+  try{
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT event_id FROM community_events WHERE event_id=$1 FOR UPDATE',[id]);
+    otherPending=settle(setRsvp(pool,{actor:other,operation:`events/${id}/rsvp`,key:randomUUID(),body:{going:true}},id));
+    for(let attempt=0;attempt<200&&await waiting()<1;attempt++)await delay(20);
+    inviteePending=settle(setRsvp(pool,{actor:invitee,operation:`events/${id}/rsvp`,key:randomUUID(),body:{going:true}},id));
+    for(let attempt=0;attempt<200&&await waiting()<2;attempt++)await delay(20);
+    if(await waiting()<2){
+      const activity=await admin.query(`SELECT pid,wait_event_type,wait_event,state,left(query,180) AS query FROM pg_stat_activity WHERE datname=current_database() AND query LIKE '%community_events%'`);
+      assert.fail(JSON.stringify(activity.rows));
+    }
+    await delay(1500);
+    await blocker.query('ROLLBACK');
+  }finally{blocker.release();}
+  const [otherResult,inviteeResult]=await Promise.all([otherPending!,inviteePending!]);
+  assert.equal(otherResult.error,null);
+  assert.equal(inviteeResult.error?.status,409);
+  assert.equal(inviteeResult.error?.code,'event_full');
+  assert.equal(await countEventSeats(pool,id),1);
+});
+
+
 for(const participationEnabled of [false,true])for(const previouslyConfirmed of [false,true])test(`guest confirmation cannot cross start during provider wait (participation=${participationEnabled}, prior=${previouslyConfirmed})`,async()=>{
   const guest={name:'合成截止訪客',email:'provider-deadline@local.test'};
   if(previouslyConfirmed)await registerPublicEvent(pool,eventId,guest,async()=>{},'https://example.test',participationEnabled);
