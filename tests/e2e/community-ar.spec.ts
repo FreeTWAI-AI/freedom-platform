@@ -72,7 +72,14 @@ test('AR-UI-04 narrow/mobile/desktop editor keeps controls reachable with all ex
     await page.getByRole('button',{name:'特效',exact:true}).click();await page.getByLabel('選擇特效').selectOption('confetti');await expect(page.getByLabel('選擇特效')).toHaveValue('confetti');
     await page.screenshot({path:`.rd/ar/editor-${theme}-${width}.png`,fullPage:true});
   }
-  await page.getByRole('button',{name:'圖片',exact:true}).click();await expect(page.getByLabel('綁定圖片',{exact:true})).toBeVisible();await page.getByRole('button',{name:'影片',exact:true}).click();await expect(page.getByLabel('綁定影片',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'圖片',exact:true}).click();await page.getByLabel('綁定圖片',{exact:true}).setInputFiles('tests/fixtures/community-ar/card.png');
+  await page.locator('.ar-media-preview img').waitFor();
+  expect(await page.locator('.ar-media-preview img').evaluate(async element=>{const image=element as HTMLImageElement;await image.decode();return image.naturalWidth;})).toBeGreaterThan(0);
+  await page.getByRole('button',{name:'影片',exact:true}).click();await page.getByLabel('綁定影片',{exact:true}).setInputFiles('tests/fixtures/community-ar/positive.webm');
+  await page.locator('.ar-media-preview video').waitFor();
+  await page.locator('.ar-media-preview video').evaluate(async element=>{const video=element as HTMLVideoElement;video.muted=true;(window as any).arPreviewVideo=video;await video.play();});
+  await expect.poll(()=>page.evaluate(()=>(window as any).arPreviewVideo.currentTime)).toBeGreaterThan(0);
+  await page.getByRole('button',{name:'文字',exact:true}).click();expect(await page.evaluate(()=>(window as any).arPreviewVideo.paused)).toBe(true);
 });
 test('AR-UI-05 actual replay camera renders a tracked overlay, captures a photo and lights selected platform logos',async({page,e2eAuthPool})=>{
   test.setTimeout(90000);await e2eAuthPool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='synthetic-e2e-ar-v1',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='member.ar-target'");await login(page);
