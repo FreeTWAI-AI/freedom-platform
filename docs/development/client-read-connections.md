@@ -14,7 +14,7 @@ Base platform defaults to `https://freetwai.com`; clients must use HTTPS outside
 
 The user code is 80 random bits and the device secret is 256 random bits. Public start and poll operations have persistent network and global rate budgets; signed-in lookup and approvals also have budgets. Approval is not implicit in receiving or knowing a code.
 
-A wait on the member row does not extend a deadline. Poll rechecks the pairing and connection with `clock_timestamp()` after that lock, before minting. Bearer reads recheck the credential the same way before returning data. An expiry that lands during the wait is `invalid_grant` or `401 client_token_invalid`, not a new token or a successful read.
+A lock or projection wait does not extend a deadline. Poll rechecks pairing and connection with `clock_timestamp()` after the member/credential locks and issuance writes. Expiry rolls back the token and `issued` state while retaining polling bookkeeping. Bearer reads recheck the locked credential after the final database projection, before returning data. Expiry during any of those waits is `invalid_grant` or `401 client_token_invalid`, not a new token or a successful read.
 
 ## Read gateway
 
