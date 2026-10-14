@@ -37,6 +37,28 @@
 
 新表和 confirmation metadata 登記到既有資料責任 catalog；保留期限仍沿 `policy_undecided`，沒有 GC、刪除排程、匿名公開成果或事件 consumer。官方公開名片不接入此會員 reader。修改／撤回後，舊確認不作新版本的權威；命令 receipt 只回歷史 ID/state/version/hash，UI 隨後讀目前狀態。
 
+## Work 角色頁的 statement snapshot（#641）
+
+`/work-items/:id/contribution-roles` 將角色 visibility、withdrawn/current
+confirmation、page selection與current review availability放在同一SELECT
+snapshot。Review relation等待期間雙向block或撤回已成立時，不再回較早挑出的
+署名文字／evidence；predicate在LIMIT前套用，會補上合法下一項並保留page cursor，
+不是晚到filter後回空頁或漏掉剩餘角色。
+
+原獨立review lookup及其舊變數已移除；review availability以EXISTS及DB
+`clock_timestamp()`判定，未accepted時CASE不求值。Internal derived欄位不進
+原DTO。Pending／self／Work state與已驗收交付者確認發起人角色的窄counterpart
+條件不變；review期限跨過時can_confirm=false，有效時true，counterpart權限不
+被review route期限代替。沒有重讀loop、retry、額外table／pair lock或第二reader。
+
+本人仍可讀withdrawn retained role，第三人只讀目前可見項目；這不是erasure、
+私人交付ref公開、評分或付款。原sharing／community／mode／verification
+eligibility及command／receipt／default flag不變；既有session最終時鐘仍保留。
+
+Consumer回歸覆蓋雙向block／撤回的limit=1 refill、有效控制、review expiry及
+counterpart authority；Issue／PR記錄同八個真實HTTP對照，不等於browser、
+trusted CI、merge、部署或完整Foundation驗收。
+
 ## 給 Ted 的審查重點
 
 - 核對「已驗收交付者確認發起人角色」的窄條件；不接受自確認、替別人填角色或旁觀者授權。

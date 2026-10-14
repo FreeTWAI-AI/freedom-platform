@@ -113,7 +113,11 @@ export async function contributionRoles(pool:Pool,actor:Actor,workId:string,quer
   workId=z.uuid().parse(workId).toLowerCase();const page=pageInput.parse(query);actor={...actor};
   return readWithMemberSession(pool,actor,async q=>{
     const source=await work(q,actor,workId);
-    const rows=(await q.query(`SELECT r.*,u.display_name AS member_name,c.confirmer_ref,c.confirmed_at,v.display_name AS confirmer_name
+    // Visibility, live confirmation and reviewer capacity must share one statement snapshot.
+    const rows=(await q.query(`SELECT r.*,u.display_name AS member_name,c.confirmer_ref,c.confirmed_at,v.display_name AS confirmer_name,
+      CASE WHEN $6::boolean THEN EXISTS(SELECT 1 FROM work_review_routes
+        WHERE work_item_id=$1 AND reviewer_ref=$3 AND revoked_at IS NULL AND valid_until>clock_timestamp())
+        ELSE false END AS review_available
       FROM work_contribution_roles r JOIN users u ON u.user_id=r.member_ref AND u.community_id=r.community_id AND u.active
       LEFT JOIN work_contribution_confirmations c ON c.role_id=r.role_id AND c.claim_version=r.aggregate_version-1 AND c.payload_sha256=r.payload_sha256 AND r.state='confirmed'
       LEFT JOIN users v ON v.user_id=c.confirmer_ref
@@ -121,13 +125,12 @@ export async function contributionRoles(pool:Pool,actor:Actor,workId:string,quer
       AND (r.member_ref=$3 OR NOT is_verification_test_account(r.member_ref))
       AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$2 AND b.state='active'
         AND ((b.owner_ref=$3 AND b.target_ref=r.member_ref) OR (b.owner_ref=r.member_ref AND b.target_ref=$3)))
-      ORDER BY r.shared_at,r.role_id LIMIT $4 OFFSET $5`,[workId,actor.community_id,actor.user_id,page.limit+1,page.offset])).rows;
-    const routes=source.state==='accepted'?(await q.query('SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL AND valid_until>clock_timestamp()',[workId,actor.user_id])).rowCount:0;
+      ORDER BY r.shared_at,r.role_id LIMIT $4 OFFSET $5`,[workId,actor.community_id,actor.user_id,page.limit+1,page.offset,source.state==='accepted'])).rows;
     const items=[];
     for(const row of rows.slice(0,page.limit)){
       let canConfirm=false;
       if(row.state==='pending'&&row.member_ref!==actor.user_id&&source.state==='accepted'){
-        canConfirm=Boolean(routes)||source.accepted_member===actor.user_id&&source.owner_ref===row.member_ref;
+        canConfirm=Boolean(row.review_available)||source.accepted_member===actor.user_id&&source.owner_ref===row.member_ref;
       }
       items.push({...receipt(row),role:row.role,member_ref:row.member_ref,member_name:row.member_name,summary:row.summary,evidence_ref:row.evidence_ref,
         is_self:row.member_ref===actor.user_id,can_confirm:canConfirm,confirmer_name:row.confirmer_name??null,confirmed_at:row.confirmed_at??null});

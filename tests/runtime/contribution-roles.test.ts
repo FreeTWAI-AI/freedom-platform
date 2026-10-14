@@ -2,11 +2,14 @@ import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
+import {setTimeout as delay} from 'node:timers/promises';
+import {z} from 'zod';
 import {createPool} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {tokenHash} from '../../modules/identity-membership/service.js';
+import {BlockStateSchema} from '../../packages/shared/member-blocking.js';
 
 const databaseUrl=process.env.TEST_DATABASE_URL;
 if(!databaseUrl||!['127.0.0.1','localhost','[::1]'].includes(new URL(databaseUrl).hostname)||!new URL(databaseUrl).pathname.startsWith('/fp_'))throw Error('Contribution tests require an explicit disposable loopback fp_* database.');
@@ -36,6 +39,40 @@ const path=(workId=DEMO_WORK)=>`/work-items/${workId}/contribution-roles`;
 async function declare(session:Session,role='proposal',workId=DEMO_WORK){const result=await request(path(workId),session,draft(role));assert.equal(result.status,201,JSON.stringify(result.data));return result.data;}
 async function confirm(session:Session,claim:any){return request(`/contribution-roles/${claim.role_id}/confirm`,session,{payload_sha256:claim.payload_sha256},claim.aggregate_version);}
 const outcomes=(session:Session,memberId?:string)=>request(memberId?`/members/${memberId}/contribution-outcomes`:'/me/contribution-outcomes',session);
+
+const roleReceipt=z.object({role_id:z.uuid(),work_item_id:z.uuid(),state:z.string(),aggregate_version:z.number().int(),payload_sha256:z.string()}).strict();
+const roleView=roleReceipt.extend({role:z.string(),member_ref:z.uuid(),member_name:z.string(),summary:z.string(),evidence_ref:z.string(),
+  is_self:z.boolean(),can_confirm:z.boolean(),confirmer_name:z.string().nullable(),confirmed_at:z.string().nullable()}).strict();
+const rolePage=z.object({work_item_id:z.uuid(),title:z.string(),work_state:z.string(),accepted_at:z.string().nullable(),
+  items:z.array(roleView),next_offset:z.number().int().nullable()}).strict();
+async function pendingRolePage(){
+  const maker=await signIn(),reviewer=await signIn(1),subject=await signIn(2);
+  const declared=await request(path(),subject,{role:'proposal',summary:'合成待展示角色的不同文字',evidence_ref:'artifact:subject-only-role-marker',share_with_community:true});
+  assert.equal(declared.status,201);const target=roleReceipt.parse(declared.data);
+  const initial=rolePage.parse((await request(path(),reviewer)).data);
+  assert.equal(initial.items.find(item=>item.role_id===target.role_id)?.can_confirm,false);
+  await accept(maker,reviewer);await declare(maker,'implementation');await declare(reviewer,'coordination');
+  return {maker,reviewer,subject,target};
+}
+async function readDuringReviewWait(reader:Session,transition:()=>Promise<void>,query=''):Promise<{status:number;data:unknown}>{
+  const locker=await pool.connect();let pending:Promise<{status:number;data:unknown}>|undefined;
+  try{
+    await locker.query('BEGIN');await locker.query('LOCK TABLE work_review_routes IN ACCESS EXCLUSIVE MODE');
+    const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+    let finished=false;pending=request(path()+query,reader);void pending.then(()=>{finished=true},()=>{finished=true});
+    const deadline=Date.now()+5000;let blocked=false;
+    while(Date.now()<deadline){
+      blocked=(await pool.query(`SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+        WHERE $1=ANY(pg_blocking_pids(a.pid)) AND NOT l.granted AND l.relation='work_review_routes'::regclass
+        AND a.wait_event_type='Lock'`,[pid])).rowCount!==0;
+      if(blocked)break;assert.equal(finished,false);await delay(10);
+    }
+    assert.equal(blocked,true,'role page must reach its native review relation wait');
+    await transition();assert.equal(finished,false);await locker.query('COMMIT');return await pending;
+  }finally{
+    await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});
+  }
+}
 
 test('three members keep separate roles, pending is explicit, and accepted outcomes deduplicate multiple roles and receipt replays',async()=>{
   const maker=await signIn(),owner=await signIn(1),proposer=await signIn(2);
@@ -176,4 +213,74 @@ test('review expiry after an observed role-lock wait rolls back confirmation; se
   assert.equal((await declaration).status,401);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM work_contribution_roles WHERE role='testing'")).rows[0].n,0);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM transition_journal WHERE aggregate_type='work_contribution_role'")).rows[0].n,1);
+});
+
+test('role visibility transitions refill the current page after review waits instead of returning hidden declarations',async()=>{
+  const {maker,reviewer,subject,target}=await pendingRolePage();
+  const reviewerBlock=await signIn(1),subjectBlock=await signIn(2),enabled=createApp(pool,origin,'local',{memberBlockingEnabled:true});
+  const subjectId=z.uuid().parse(subject.user.user_id),reviewerId=z.uuid().parse(reviewer.user.user_id),makerId=z.uuid().parse(maker.user.user_id);
+  async function changeBlock(member:Session,peer:string,active:boolean){
+    const state=await enabled.request(origin+`/api/v1/me/blocks/${peer}`,{headers:{Origin:origin,Cookie:member.cookie}});
+    assert.equal(state.status,200);const prior=BlockStateSchema.parse(await state.json());
+    if(prior.blocked_by_me===active)return;
+    const headers:Record<string,string>={Origin:origin,Cookie:member.cookie,'X-CSRF-Token':member.csrf,
+      'Content-Type':'application/json','Idempotency-Key':randomUUID()};
+    if(prior.aggregate_version!==null)headers['If-Match']=`"${prior.aggregate_version}"`;
+    const result=await enabled.request(origin+`/api/v1/me/blocks/${peer}/${active?'block':'unblock'}`,{method:'POST',headers,body:'{}'});
+    assert.equal(result.status,200);assert.equal(BlockStateSchema.parse(await result.json()).blocked_by_me,active);
+  }
+  for(const effect of ['subject_block','reviewer_block','unchanged','withdraw'] as const){
+    const original=rolePage.parse((await request(path()+'?limit=1',reviewer)).data);
+    assert.equal(original.items[0].role_id,target.role_id);assert.equal(original.items[0].can_confirm,true);
+    const result=await readDuringReviewWait(reviewer,async()=>{
+      if(effect==='subject_block')await changeBlock(subjectBlock,reviewerId,true);
+      else if(effect==='reviewer_block')await changeBlock(reviewerBlock,subjectId,true);
+      else if(effect==='withdraw'){
+        const removed=await request(`/contribution-roles/${target.role_id}/withdraw`,subject,{},target.aggregate_version);
+        assert.equal(removed.status,200);assert.equal(roleReceipt.parse(removed.data).state,'withdrawn');
+      }else await delay(50);
+    },'?limit=1');
+    assert.equal(result.status,200);const view=rolePage.parse(result.data),fresh=rolePage.parse((await request(path()+'?limit=1',reviewer)).data);
+    assert.deepEqual(view,fresh);
+    if(effect==='unchanged')assert.deepEqual(view,original);
+    else{
+      assert.equal(view.items.length,1);assert.equal(view.items[0].member_ref,makerId);assert.equal(view.next_offset,1);
+      const raw=JSON.stringify(view);
+      for(const value of [target.role_id,subjectId,'合成待展示角色的不同文字','artifact:subject-only-role-marker'])assert.equal(raw.includes(value),false);
+    }
+    const own=rolePage.parse((await request(path(),subject)).data).items.find(item=>item.role_id===target.role_id);assert.ok(own);
+    assert.equal(own.is_self,true);assert.equal(own.state,effect==='withdraw'?'withdrawn':'pending');
+    assert.equal(own.summary,'合成待展示角色的不同文字');
+    const counterpart=rolePage.parse((await request(path(),maker)).data);
+    assert.equal(counterpart.items.find(item=>item.member_ref===reviewerId)?.can_confirm,true);
+    assert.equal(JSON.stringify(view).includes('artifact:accepted-delivery'),false);
+    if(effect==='subject_block')await changeBlock(subjectBlock,reviewerId,false);
+    else if(effect==='reviewer_block')await changeBlock(reviewerBlock,subjectId,false);
+  }
+  assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'1');
+  assert.equal((await pool.query('SELECT count(*) FROM work_contribution_roles')).rows[0].count,'3');
+});
+
+test('role page preserves current reviewer expiry and accepted-deliverer counterpart authority after review waits',async()=>{
+  const {maker,reviewer,target}=await pendingRolePage();
+  const reviewerId=z.uuid().parse(reviewer.user.user_id);
+  for(const expires of [true,false]){
+    const deadline=z.object({valid_until:z.date()}).parse((await pool.query(
+      'UPDATE work_review_routes SET valid_until=clock_timestamp()+make_interval(secs=>$3) WHERE work_item_id=$1 AND reviewer_ref=$2 RETURNING valid_until',
+      [DEMO_WORK,reviewerId,expires?2:60])).rows[0]).valid_until.getTime();
+    const result=await readDuringReviewWait(reviewer,async()=>{
+      async function passed(){return z.object({passed:z.boolean()}).parse((await pool.query(
+        'SELECT clock_timestamp()>to_timestamp($1/1000.0) AS passed',[deadline])).rows[0]).passed;}
+      if(expires){
+        const expiryDeadline=Date.now()+4000;while(!await passed()){assert.ok(Date.now()<expiryDeadline);await delay(10);}
+      }else await delay(2100);
+      assert.equal(await passed(),expires);
+    });
+    assert.equal(result.status,200);const view=rolePage.parse(result.data);
+    assert.equal(view.items.find(item=>item.role_id===target.role_id)?.can_confirm,!expires);
+    assert.equal(view.items.find(item=>item.member_ref===reviewerId)?.can_confirm,false);
+    assert.deepEqual(view,rolePage.parse((await request(path(),reviewer)).data));
+    const counterpart=rolePage.parse((await request(path(),maker)).data);
+    assert.equal(counterpart.items.find(item=>item.member_ref===reviewerId)?.can_confirm,true);
+  }
 });
