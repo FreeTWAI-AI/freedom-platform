@@ -132,6 +132,65 @@ test('stale sessions and disabled users cannot read workspace facts or replay a 
  await lead(actors[1],otherGuild);await pool.query('UPDATE users SET active=false WHERE user_id=$1',[actors[1].user_id]);await assert.rejects(service.listGuildCouncil(pool,actors[1]),denied(401));
 });
 
+test('private guild reads waiting on a membership lock do not return text after the session expires',async()=>{
+ await lead();
+ const secret='這段公會內部討論不應在登入到期後回傳。';
+ await service.createGuildCouncilThread(pool,cmd(actors[0],{title:'未公開幹部討論',body:secret}));
+ await service.createGuildAnnouncement(pool,cmd(actors[0],{title:'未公開草稿',body:secret,state:'draft'}),guild);
+ const reader=racer('guild-read'),holder=await pool.connect();
+ try{
+  await holder.query('BEGIN');
+  await holder.query('SELECT membership_id FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[actors[0].community_id,actors[0].user_id,guild]);
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=$1",[actors[0].session_hash]);
+  const council=assert.rejects(service.listGuildCouncil(reader,actors[0]),code('session_expired'));
+  const drafts=assert.rejects(service.guildAnnouncements(reader,actors[0],guild),code('session_expired'));
+  const name=`${schema}_guild-read`;
+  for(let i=0;i<2000&&(await database.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'",[name])).rows[0].n<2;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal((await database.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'",[name])).rows[0].n,2);
+  await database.query('SELECT pg_sleep(1.2)');
+  await holder.query('ROLLBACK');
+  await council;await drafts;
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM guild_council_threads WHERE body=$1',[secret])).rows[0].n,1);
+ }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await reader.end().catch(()=>{});}
+});
+
+
+for(const scope of ['announcements','council-list','council-thread'] as const)test(`private guild ${scope} checks the session after the final projection wait`,async()=>{
+ await lead();
+ const secret='Synthetic private final-projection content';
+ const thread=await service.createGuildCouncilThread(pool,cmd(actors[0],{title:'Synthetic council thread',body:secret}));
+ await service.replyGuildCouncilThread(pool,cmd(actors[0],{body:secret}),thread.thread_id);
+ await service.createGuildAnnouncement(pool,cmd(actors[0],{title:'Synthetic private draft',body:secret,state:'draft'}),guild);
+ const reader=racer(`final-${scope}`);
+ const read=()=>scope==='announcements'?service.guildAnnouncements(reader,actors[0],guild):scope==='council-list'?service.listGuildCouncil(reader,actors[0]):service.getGuildCouncilThread(reader,actors[0],thread.thread_id);
+ const table=scope==='announcements'?'guild_announcements':scope==='council-list'?'guild_council_threads':'guild_council_replies';
+ try{
+  const expected=await read();assert.ok(JSON.stringify(expected).includes(secret));
+  for(const expired of [false,true]){
+   const holder=await pool.connect();let pending:Promise<PromiseSettledResult<unknown>[]>|undefined;
+   try{
+    await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[actors[0].session_hash,expired?5:300]);
+    await holder.query('BEGIN');const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query(`LOCK TABLE ${table} IN ACCESS EXCLUSIVE MODE`);
+    pending=Promise.allSettled([read()]);
+    const deadline=Date.now()+8000;let waiting=false;
+    while(Date.now()<deadline){
+     waiting=Boolean((await database.query("SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND $2=ANY(pg_blocking_pids(pid)) AND strpos(query,$3)>0",[`${schema}_final-${scope}`,pid,table])).rowCount);
+     if(waiting)break;await new Promise(resolve=>setImmediate(resolve));
+    }
+    assert.ok(waiting,'the actual final content query must reach its owned blocker');
+    assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[actors[0].session_hash])).rows[0].live,true);
+    if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[actors[0].session_hash]);
+    await holder.query('ROLLBACK');const result=(await pending)[0];
+    if(expired){assert.equal(result.status,'rejected');if(result.status==='rejected')assert.ok(code('session_expired')(result.reason));}
+    else{assert.equal(result.status,'fulfilled');if(result.status==='fulfilled')assert.deepEqual(result.value,expected);}
+   }finally{
+    let discard=false;try{await holder.query('ROLLBACK');}catch{discard=true;}finally{holder.release(discard);if(pending)await pending;}
+   }
+  }
+ }finally{await reader.end();}
+});
+
 test('HTTP workspace uses existing member Origin, CSRF and onboarding guards; admin assignment uses verified Access CSRF',async()=>{
  await lead();const origin='http://127.0.0.1:4310',access=async(request:Request)=>{assert.equal(request.headers.get('cf-access-jwt-assertion'),'verified-fixture');return {email:admin.email,subject:admin.subject,csrfToken:'fixture-admin-csrf'};};const app=createApp(pool,origin,'local',{adminVerifier:access});
  const auth=await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD),headers={Origin:origin,Cookie:`freedom_local_session=${auth.token}`,'X-CSRF-Token':auth.actor.csrf_token,'Content-Type':'application/json','Idempotency-Key':randomUUID()};
