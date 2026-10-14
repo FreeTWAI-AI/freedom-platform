@@ -1,6 +1,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
@@ -14,7 +15,7 @@ const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
 const schema = `fp_session_lifecycle_${process.pid}_${Date.now()}`;
 const admin = createPool(databaseUrl);
-const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 4 });
+const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, application_name: schema, max: 4 });
 const app = createApp(pool, origin);
 type Session = { cookie: string; csrf: string; hash: string; userId: string };
 
@@ -145,6 +146,50 @@ test('missing browser cookie and expired server session reject reads and writes 
   assert.deepEqual(await stored(session), expired, 'denial must not revive, refresh or mutate the expired session');
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_errors')).rows[0].n, 0);
 });
+
+for (const change of ['expiry', 'revocation', 'deactivation'] as const) {
+  test(`session discovery rejects ${change} during a presence update wait`, async () => {
+    const { session } = await signIn();
+    const { session: unaffected } = await signIn(undefined, DEMO_USERS[1].email);
+    await pool.query(`UPDATE sessions SET last_seen_at=clock_timestamp()-interval '2 minutes'
+      ${change === 'expiry' ? ",expires_at=clock_timestamp()+interval '2 seconds'" : ''} WHERE token_hash=$1`, [session.hash]);
+    const expiry = (await stored(session)).expires_at.getTime();
+    const blocker = await pool.connect();
+    let pending: Promise<unknown> | undefined;
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT token_hash FROM sessions WHERE token_hash=$1 FOR UPDATE', [session.hash]);
+      if (change === 'revocation') await blocker.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1', [session.hash]);
+      const response = request('/session', session);
+      pending = response;
+      const deadline = Date.now() + 5000;
+      let waiting = false;
+      while (Date.now() < deadline) {
+        waiting = (await admin.query(`SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+          WHERE application_name=$1 AND wait_event_type='Lock' AND query LIKE 'UPDATE sessions SET last_seen_at%') AS waiting`, [schema])).rows[0].waiting;
+        if (waiting) break;
+        await delay(10);
+      }
+      assert.equal(waiting, true, 'request reaches the actual PostgreSQL presence lock barrier');
+      if (change === 'expiry') await blocker.query(`SELECT pg_sleep(GREATEST(0,
+        EXTRACT(EPOCH FROM (expires_at-clock_timestamp())))+0.05) FROM sessions WHERE token_hash=$1`, [session.hash]);
+      if (change === 'deactivation') await blocker.query('UPDATE users SET active=false WHERE user_id=$1', [session.userId]);
+      await blocker.query('COMMIT');
+      const denied = await response;
+      assert.equal(denied.status, 401);
+      assert.equal(denied.data.code, 'session_expired');
+      assert.equal(denied.data.user, undefined);
+      assert.equal(denied.data.csrf_token, undefined);
+      assert.equal(denied.response.headers.get('set-cookie'), null);
+      assert.equal((await stored(session)).expires_at.getTime(), expiry, 'waiting must not extend the absolute expiry');
+      assert.equal((await request('/session', unaffected)).data.user.user_id, unaffected.userId);
+    } finally {
+      await blocker.query('ROLLBACK');
+      await pending?.catch(() => {});
+      blocker.release();
+    }
+  });
+}
 
 test('logout revokes only this device and a captured cookie cannot read, write or logout again', async () => {
   const { session } = await signIn();

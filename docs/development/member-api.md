@@ -16,6 +16,14 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Presence refresh has a live-session/active-member guard; authentication reads
+the current Actor after that potentially blocking update, using the database clock.
+Expiry, session revocation or member deactivation during a presence lock wait
+returns `401 session_expired`, without a user/CSRF projection or renewed cookie.
+This keeps the existing two database queries and the absolute, non-sliding
+30-day session lifetime. Existing domain-level current-session and
+authorization checks remain unchanged; presence is not an authorization grant.
+
 ## Member reporting and moderation cases
 
 This surface is default OFF. Only `FREEDOM_MEMBER_REPORTING_ENABLED=true`
@@ -96,6 +104,16 @@ including whitespace around names or identical values, return
 `403 credential_kind_rejected`; the platform rejects them before reading a
 mutation body or creating, replacing or revoking sessions.
 
+The existing scheduled auth maintenance also prunes email-verification and
+login-email-change proofs (#494), consumed or unused, once `expires_at` is more
+than 24 hours old, matching password-reset proofs' grace period. Each table uses
+the same per-run batch limit (default 500) and `FOR UPDATE SKIP LOCKED`; live,
+recently expired and currently locked proofs stay untouched, with skipped stale
+rows eligible on a later run. This removes short-lived proof/address metadata,
+not members, sessions, account journals or business history. It adds no new cron,
+permissions, feature flag or mail provider; deployment remains separately
+authorized. Node does not acquire an automatic scheduler through this change.
+
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
 - `POST /auth/register`: `{email,password,nickname?,contacts?}`. Password 12–128
   characters, nickname up to 60. A missing or blank nickname becomes
@@ -158,6 +176,10 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   `email_verification_link_invalid`. Successful confirmation consumes all
   outstanding verification proofs for that user, without logging in or changing
   passwords/sessions. Confirmation budgets: 30/network/hour, 500/global/hour.
+  Expiry is rechecked against the database clock after consuming outstanding
+  proofs, before the transaction returns (#492). Expiry during proof-lock or
+  competing-proof waits rolls back verification and all proof consumption;
+  another still-valid link remains usable.
   Apply migration `157_email_verification.sql` before using these routes; no
   deployment or mail-provider availability is implied by this implementation.
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
@@ -410,6 +432,15 @@ Idempotency-Key and quoted If-Match controls:
   mutation `{enabled,minutes_before_start?,channel?}`. Enabling requires Going,
   an explicit positive safe-integer lead time and `in_app` or `email`.
 
+The original `POST /public/events/:id/register` remains separate from the optional
+participation API. Its confirmation transaction rechecks `starts_at` against the
+database wall clock after provider handoff and all participation writes, before
+commit. If that wait crosses the start, it returns `409 event_closed` and rolls
+back this confirmation; the earlier pending reservation remains unconfirmed.
+An already-confirmed registration and its earlier email marker are preserved.
+The provider may already have accepted the notification, so this error does not
+mean that no email was handed off or that an existing registration was erased.
+
 Legal public guests request a mailbox management link with
 `POST /public/events/:id/participation-request` and
 `{name,email,referral_code?}`. Requesting it does not register, join the queue or
@@ -449,6 +480,15 @@ than event start. Decline/expiry advances the queue. Capacity cannot fall below
 confirmed/live pending occupancy; excess newest unaccepted offers return to
 their original queue positions. Genuine transitions retain factual history,
 not invented participant actions or attendance.
+
+A new acceptance checks PostgreSQL's current clock after reconciliation and
+eligibility reads, then again after the RSVP, queue/journal and success receipt
+writes. Waiting past the original offer deadline returns
+`409 invitation_unavailable`; crossing event start returns `409 event_closed`.
+The new command and its reconciliation, transitions, RSVP and receipt roll
+back together. Already-completed acceptances retain their factual history:
+an exact successful receipt replay or an already-accepted Going no-op does not
+become invalid merely because its historical offer deadline has passed.
 
 The existing Worker ten-minute schedule performs bounded round-robin queue
 reconciliation and reminder dispatch; affected mutations also dispatch queue
@@ -735,7 +775,11 @@ exposes `unified_sharing_enabled`) only extends that dialog: each option states
 who can see the result and what is merely a draft, and two entries are added,
 “找人合作” (the original bilateral work-opportunity button on a community work)
 and “發起共創邀請” (the original registered-source co-creation form). With the
-flag off the dialog is unchanged. The candidate adds no database migration,
+flag off the dialog is unchanged. When the guild launchpad is on (`/site`
+`guild_launchpad_enabled`), the 「刊登商品」 submenu first offers 「在站內商店刊登」
+(`#stores`) and 「供貨給其他店家」 (`#stores/supply`) above the two product-result
+options; both only navigate and focus, with no new route, API or flag. The
+candidate adds no database migration,
 unified publishing route or permission.
 
 Every option only navigates to the original form and moves focus to its real

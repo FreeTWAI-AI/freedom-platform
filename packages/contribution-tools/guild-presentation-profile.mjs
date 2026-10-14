@@ -29,5 +29,5 @@ export const GUILD_PRESENTATION_PROFILE = Object.freeze({
   runtimeSuite: 'runtime.guild-presentation',
   runtimeFiles: Object.freeze(['guild-blocks', 'guild-launchpad', 'guild-launchpad-contracts', 'guild-launchpad-profiles', 'launchpad-profile-defaults'].map(name => `tests/runtime/${name}.test.ts`)),
   integrationFiles: Object.freeze(['tests/e2e/guild-block-composition.spec.ts', 'tests/e2e/guild-launchpad.spec.ts', 'tests/e2e/guild-launchpad-profiles.spec.ts']),
-  previewFiles: Object.freeze(['modules/guild-supply/CatalogBlock.spec.ts', 'modules/guild-open-source/WorksBlock.spec.ts']),
+  previewFiles: Object.freeze(['modules/guild-supply/CatalogBlock.spec.ts', 'modules/guild-open-source/WorksBlock.spec.ts', 'modules/guild-events/EventsBlock.spec.ts']),
 });

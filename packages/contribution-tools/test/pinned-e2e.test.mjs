@@ -576,8 +576,10 @@ test('Guild integration plan covers exactly the reviewed composition, contract a
 });
 
 
-test('Guild preview requires every listed case from both approved module files', () => {
+test('Guild preview requires every listed case from all three reviewed module files', () => {
   const files=[...GUILD_PRESENTATION_PROFILE.previewFiles].sort();
+  const events='modules/guild-events/EventsBlock.spec.ts';
+  assert.ok(files.includes(events));
   const results=report(files.map(path=>suite(path.slice('modules/'.length), [['preview scenario','expected']])));
   const clean=()=>[{id:'default',exit_code:0,evidence_sha256:'a'.repeat(64),report:structuredClone(results),
     listing:structuredClone(results),listing_exit_code:0,listing_evidence_sha256:'b'.repeat(64)}];
@@ -590,5 +592,8 @@ test('Guild preview requires every listed case from both approved module files',
     passes=>{passes[0].report.config.forbidOnly=false;},
     passes=>{passes[0].report.config.projects[0].testDir='/wrong';},
   ]) {const passes=clean();mutate(passes);assert.equal(check(passes).status,'failed');}
+  assert.equal(evaluateE2ePasses(files.filter(file=>file!==events),clean(),{rootDir,configFile,profile:'guild-preview'}).status,'failed');
+  const withoutEvents=clean();withoutEvents[0].report.suites=withoutEvents[0].report.suites.filter(suite=>suite.file!=='guild-events/EventsBlock.spec.ts');
+  withoutEvents[0].report.stats.expected--;assert.equal(check(withoutEvents).status,'failed');
   assert.equal(evaluateE2ePasses([...files,'modules/other/WorksBlock.spec.ts'],clean(),{rootDir,configFile,profile:'guild-preview'}).status,'failed');
 });

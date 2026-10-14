@@ -111,6 +111,56 @@ test('password_reset_tokens prune by expires_at', async () => {
   assert.deepEqual(hashes, [liveHash]);
 });
 
+type MailboxProofTable = 'email_verification_tokens' | 'login_email_change_tokens';
+async function insertMailboxProof(table: MailboxProofTable, hash: string, age: 'stale' | 'recent' | 'live', consumed = false) {
+  // One signed unit keeps these one minute either side of the 24-hour cutoff.
+  const user = DEMO_USERS[0], expiry = {stale: '-1441 minutes', recent: '-1439 minutes', live: '30 minutes'}[age];
+  if (table === 'email_verification_tokens') {
+    await pool.query(`INSERT INTO email_verification_tokens(token_hash,user_id,email,created_at,expires_at,consumed_at)
+      VALUES($1,$2,$3,now()+$4::interval-interval '30 minutes',now()+$4::interval,
+        CASE WHEN $5 THEN now()+$4::interval-interval '10 minutes' ELSE NULL END)`,
+      [hash,user.user_id,user.email,expiry,consumed]);
+  } else {
+    await pool.query(`INSERT INTO login_email_change_tokens(token_hash,user_id,old_email,new_email,requesting_session_hash,credential_hash,created_at,expires_at,consumed_at)
+      VALUES($1,$2,$3,'new-mailbox@example.test',$6,$7,now()+$4::interval-interval '30 minutes',now()+$4::interval,
+        CASE WHEN $5 THEN now()+$4::interval-interval '10 minutes' ELSE NULL END)`,
+      [hash,user.user_id,user.email,expiry,consumed,randomBytes(32).toString('hex'),randomBytes(32).toString('hex')]);
+  }
+}
+
+for (const table of ['email_verification_tokens', 'login_email_change_tokens'] as const) {
+  test(`${table}: expired consumed and unused proofs are removed after the grace period; live and recently expired proofs stay unchanged`, async () => {
+    await insertMailboxProof(table, 'a'.repeat(64), 'stale');
+    await insertMailboxProof(table, 'b'.repeat(64), 'stale', true);
+    await insertMailboxProof(table, 'c'.repeat(64), 'recent');
+    await insertMailboxProof(table, 'd'.repeat(64), 'live');
+    const preserved = (await pool.query(`SELECT * FROM ${table} WHERE token_hash=ANY($1) ORDER BY token_hash`, [['c'.repeat(64),'d'.repeat(64)]])).rows;
+    await pruneExpiredAuthRecords(runtime);
+    assert.deepEqual((await pool.query(`SELECT * FROM ${table} ORDER BY token_hash`)).rows, preserved);
+  });
+
+  test(`${table}: maintenance bounds each batch, skips an in-flight proof and clears it on a later run`, async () => {
+    for (const character of ['a','b','c','d','e']) await insertMailboxProof(table, character.repeat(64), 'stale');
+    await insertMailboxProof(table, 'f'.repeat(64), 'live');
+    const blocker = await pool.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query(`SELECT token_hash FROM ${table} WHERE token_hash=$1 FOR UPDATE`, ['a'.repeat(64)]);
+      await runtime.query("SET lock_timeout='500ms'");
+      await pruneExpiredAuthRecords(runtime, {batch: 2});
+      assert.equal((await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE expires_at<now()-interval '1 day'`)).rows[0].n, 3);
+      assert.equal((await pool.query(`SELECT token_hash FROM ${table} WHERE token_hash=$1`, ['a'.repeat(64)])).rowCount, 1);
+      await pruneExpiredAuthRecords(runtime, {batch: 2});
+      assert.deepEqual((await pool.query(`SELECT token_hash FROM ${table} ORDER BY token_hash`)).rows.map(row => row.token_hash), ['a'.repeat(64),'f'.repeat(64)]);
+    } finally {
+      await blocker.query('ROLLBACK'); blocker.release();
+      await runtime.query('SET lock_timeout=0');
+    }
+    await pruneExpiredAuthRecords(runtime, {batch: 2});
+    assert.deepEqual((await pool.query(`SELECT token_hash FROM ${table}`)).rows.map(row => row.token_hash), ['f'.repeat(64)]);
+  });
+}
+
 test('sessions keep the newest per user but prune older expired/revoked rows', async () => {
   const u1 = DEMO_USERS[0].user_id;
   const u2 = DEMO_USERS[1].user_id;

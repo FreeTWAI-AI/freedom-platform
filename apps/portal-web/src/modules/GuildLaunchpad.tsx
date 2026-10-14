@@ -256,7 +256,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
       focusWork={focusWork} canLeave={canLeave} canNavigate={canNavigate} launchRequest={launchRequest} setLaunchRequest={setLaunchRequest}/></div>}
     {blocks.map(block => <section key={block.id} hidden={activeSection !== blockSection(block)} className="guild-launchpad-block" ref={block.kind === 'my_work' ? workSection : block.kind === 'applications' ? applicationsSection : undefined} tabIndex={block.kind === 'my_work' ? -1 : undefined}>
       {block.kind !== 'extension' && !(block.kind === 'applications' && launching) && <><h2>{block.kind === 'applications' ? '工具目錄' : BLOCK_LABEL[block.kind]}</h2>{block.title && <p>{block.title}</p>}</>}
-      {block.kind === 'extension' && <GuildBlock id={block.extension_id} heading={block.title} loaders={blockLoaders} client={client}
+      {block.kind === 'extension' && <GuildBlock id={block.extension_id} heading={block.title} loaders={blockLoaders} client={client} guildKey={guildKey}
         viewer={visitor || mode === 'public' ? 'visitor' : memberTier === 'full' ? 'member' : 'read_only'}
         navigate={path => {if (canNavigate()) window.location.hash = path;}}
         startableApplications={applications.filter(startable).map(app => app.application_key)}
@@ -649,21 +649,24 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
           }}>新增公會區塊</button></div>
           <p className="field-hint">只使用已審查的區塊，不接受貼入程式。排序、顯示與標題仍需保存、預覽及發布；區塊不會增加會員權限。</p>
         </div>}
-        <div className="stack">{draft.blocks.map((block, index) => <div key={block.id} className="guild-launchpad-block">
-          <p>{block.kind === 'extension' ? extensionTitles[block.extension_id] ?? block.title ?? '目前無法使用的公會工具' : BLOCK_LABEL[block.kind]}</p>
-          <div className="guild-launchpad-block-actions">
-            <button type="button" className="btn btn-ghost" aria-label={`上移${BLOCK_LABEL[block.kind]}`} aria-describedby={describedBy(errors, `blocks.${index}.order`, `launchpad-block-order-${index}-error`)} disabled={busy || index === 0} onClick={() => moveBlock(index, -1)}>上移</button>
-            <button type="button" className="btn btn-ghost" aria-label={`下移${BLOCK_LABEL[block.kind]}`} aria-describedby={describedBy(errors, `blocks.${index}.order`, `launchpad-block-order-${index}-error`)} disabled={busy || index === draft.blocks.length - 1} onClick={() => moveBlock(index, 1)}>下移</button>
-            {(draft.schema_version === 'guild-launchpad.config/v2' || OPTIONAL.has(block.kind)) && <label className="checkbox-row"><input type="checkbox" checked={block.enabled} aria-describedby={describedBy(errors, `blocks.${index}.enabled`, `launchpad-block-enabled-${index}-error`)} onChange={event => updateBlock(index, {enabled: event.target.checked})}/>顯示這個區塊</label>}
-            {block.kind === 'extension' && <button type="button" className="btn btn-ghost btn-small" disabled={busy || !access.edit} onClick={() => {
-              if (canLeave() && draft.schema_version === 'guild-launchpad.config/v2') setDraft({...draft, blocks: draft.blocks.filter(item => item.id !== block.id).map((item, order) => ({...item, order}))});
-            }}>移除這個區塊</button>}
-          </div>
-          <FieldNote id={`launchpad-block-order-${index}-error`} errors={errors} path={`blocks.${index}.order`}/>
-          <FieldNote id={`launchpad-block-enabled-${index}-error`} errors={errors} path={`blocks.${index}.enabled`}/>
-          <label className="field" htmlFor={`launchpad-block-title-${index}`}>區塊標題<input id={`launchpad-block-title-${index}`} aria-describedby={describedBy(errors, `blocks.${index}.title`, `launchpad-block-title-${index}-error`)} value={block.title ?? ''} maxLength={120} onChange={event => updateBlock(index, {title: event.target.value === '' ? null : event.target.value})}/></label>
-          <FieldNote id={`launchpad-block-title-${index}-error`} errors={errors} path={`blocks.${index}.title`}/>
-        </div>)}</div>
+        <div className="stack">{draft.blocks.map((block, index) => {
+          const name = block.kind === 'extension' ? extensionTitles[block.extension_id] ?? block.title ?? '目前無法使用的公會工具' : BLOCK_LABEL[block.kind];
+          return <div key={block.id} className="guild-launchpad-block" role="group" aria-labelledby={`launchpad-block-name-${index}`}>
+            <p id={`launchpad-block-name-${index}`}>{name}</p>
+            <div className="guild-launchpad-block-actions">
+              <button type="button" className="btn btn-ghost" aria-label={`上移${name}`} aria-describedby={describedBy(errors, `blocks.${index}.order`, `launchpad-block-order-${index}-error`)} disabled={busy || index === 0} onClick={() => moveBlock(index, -1)}>上移</button>
+              <button type="button" className="btn btn-ghost" aria-label={`下移${name}`} aria-describedby={describedBy(errors, `blocks.${index}.order`, `launchpad-block-order-${index}-error`)} disabled={busy || index === draft.blocks.length - 1} onClick={() => moveBlock(index, 1)}>下移</button>
+              {(draft.schema_version === 'guild-launchpad.config/v2' || OPTIONAL.has(block.kind)) && <label className="checkbox-row"><input type="checkbox" checked={block.enabled} aria-describedby={describedBy(errors, `blocks.${index}.enabled`, `launchpad-block-enabled-${index}-error`, `launchpad-block-name-${index}`)} onChange={event => updateBlock(index, {enabled: event.target.checked})}/>顯示這個區塊</label>}
+              {block.kind === 'extension' && <button type="button" className="btn btn-ghost btn-small" aria-label={`移除這個區塊：${name}`} disabled={busy || !access.edit} onClick={() => {
+                if (canLeave() && draft.schema_version === 'guild-launchpad.config/v2') setDraft({...draft, blocks: draft.blocks.filter(item => item.id !== block.id).map((item, order) => ({...item, order}))});
+              }}>移除這個區塊</button>}
+            </div>
+            <FieldNote id={`launchpad-block-order-${index}-error`} errors={errors} path={`blocks.${index}.order`}/>
+            <FieldNote id={`launchpad-block-enabled-${index}-error`} errors={errors} path={`blocks.${index}.enabled`}/>
+            <label className="field" htmlFor={`launchpad-block-title-${index}`}>區塊標題<input id={`launchpad-block-title-${index}`} aria-describedby={describedBy(errors, `blocks.${index}.title`, `launchpad-block-title-${index}-error`)} value={block.title ?? ''} maxLength={120} onChange={event => updateBlock(index, {title: event.target.value === '' ? null : event.target.value})}/></label>
+            <FieldNote id={`launchpad-block-title-${index}-error`} errors={errors} path={`blocks.${index}.title`}/>
+          </div>;
+        })}</div>
       </fieldset>
       <fieldset className="fieldset">
         <legend>推薦應用</legend>

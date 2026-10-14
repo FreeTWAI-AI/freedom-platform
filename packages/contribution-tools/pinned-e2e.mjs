@@ -65,7 +65,7 @@ export const GUIDE_COMPOSITION_PROFILE = Object.freeze({
   dependencies: Object.freeze(`agent-commerce community community-search personal-content development
 execution-runs guild-workspace member-card member-communications module-registry newcomer-guides
 positioning runtime-registration skill-submissions social-feed tenant-workspaces work member-squads
-github-social member-reporting guild-presentation guild-supply guild-open-source`.trim().split(/\s+/)),
+github-social member-reporting guild-presentation guild-supply guild-open-source guild-events`.trim().split(/\s+/)),
   files: Object.freeze(`audit-identity modules-beginners typed-line-breaks calm-experience
 member-connections-51 member-experience game-console instant-feedback member-directory
 member-settings-real member-settings member-todos mobile-install page-issue-recovery
@@ -105,7 +105,7 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 // The independent enumeration catches dropped cases inside a selected file.
 function fileRules(options) {
   return options?.profile === 'guild-preview'
-    ? {prefix: 'modules/', valid: file => ['guild-supply/CatalogBlock.spec.ts', 'guild-open-source/WorksBlock.spec.ts'].includes(file)}
+    ? {prefix: 'modules/', valid: file => ['guild-supply/CatalogBlock.spec.ts', 'guild-open-source/WorksBlock.spec.ts', 'guild-events/EventsBlock.spec.ts'].includes(file)}
     : {prefix: 'tests/e2e/', valid: file => SPEC_NAME.test(file)};
 }
 function listedCaseIdentities(report, files, options) {

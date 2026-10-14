@@ -661,8 +661,11 @@ function Workspace({
     else window.location.hash = nextHash
   }, [openMessages])
   function chooseShare(target:ShareTarget){
-    const destination=target==='post'&&tab==='home'?'home':SHARE_TARGETS[target].tab
-    setShareNotice('');setShareEntry({target,tab:destination,sequence:++shareSequence.current});selectTab(destination)
+    const definition=SHARE_TARGETS[target]
+    const destination=target==='post'&&tab==='home'?'home':definition.tab
+    setShareNotice('');setShareEntry({target,tab:destination,sequence:++shareSequence.current});selectTab(destination,definition.hash)
+    // A refused page-leave leaves the current hash, so this entry must not settle on the page that stayed.
+    if(acceptedHash.current!==(definition.hash??'#'+destination))setShareEntry(null)
   }
   useEffect(()=>{
     if(!shareEntry)return
@@ -815,7 +818,7 @@ function Workspace({
                 {launchpadOpen ? null : <h1 id="workspace-page-title">{tab === 'stores' && (locationHash === '#stores/supply' || /^#stores\/[^/]+\/[^/]+\/supply$/.test(locationHash)) ? t('stores.supplyTitle') : t(`nav.${tab}`)}</h1>}
               </div>
               <PageTools pageId={tab} client={client} compact/>
-              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)} guided={site?.unified_sharing_enabled===true} onMyContent={site?.personal_content_enabled === true ? () => selectTab('my-content') : undefined}/></div>
+              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)} guided={site?.unified_sharing_enabled===true} storesEnabled={site?.guild_launchpad_enabled===true} onMyContent={site?.personal_content_enabled === true ? () => selectTab('my-content') : undefined}/></div>
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}

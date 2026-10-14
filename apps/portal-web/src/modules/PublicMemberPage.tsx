@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import type {PortalClient} from '../api';
+import {ApiError,type PortalClient} from '../api';
 import type {SessionPayload} from '../types';
 import {BrandPoster} from './Community';
 import {MemberCardDownload} from './MemberCardDownload';
@@ -13,9 +13,23 @@ export function PublicMemberPage({client,token,session,onLogin,onReturn,onEdit}:
   const generation=useRef(0),{mutate,busy,error}=useModuleMutation(client);
   async function load(){const current=++generation.current;setLoading(true);setLoadError('');setCard(null);setMember(null);try{
     const data=await client.get<PublicCard>(`/public/member-cards/${token}`);if(current!==generation.current)return;setCard(data);
-    if(session){const full=await client.get<MemberCardData>(`/member-cards/${token}/member`);if(current===generation.current)setMember(full);}
+    if(session){
+      try{const full=await client.get<MemberCardData>(`/member-cards/${token}/member`);if(current===generation.current)setMember(full);}
+      catch(cause){
+        if(!(cause instanceof ApiError)||cause.status!==404||cause.code!=='member_not_found')throw cause;
+        if(current!==generation.current)return;
+        // Private member access is optional, but a denial must not preserve a now-withdrawn public snapshot.
+        const publicOnly=await client.get<PublicCard>(`/public/member-cards/${token}`);
+        if(current===generation.current)setCard(publicOnly);
+      }
+    }
   }catch(cause){if(current===generation.current)setLoadError(cause instanceof Error?cause.message:'名片暫時無法開啟。');}finally{if(current===generation.current)setLoading(false);}}
-  useEffect(()=>{void load();if(session)void loadLabels(client).then(setLabels).catch(()=>{});return()=>{generation.current++;};},[client,token,session?.user.user_id]);
+  useEffect(()=>{
+    const refresh=()=>{void load();},visible=()=>{if(document.visibilityState==='visible')refresh();};
+    refresh();if(session)void loadLabels(client).then(setLabels).catch(()=>{});
+    window.addEventListener('focus',refresh);window.addEventListener('pageshow',refresh);document.addEventListener('visibilitychange',visible);
+    return()=>{generation.current++;window.removeEventListener('focus',refresh);window.removeEventListener('pageshow',refresh);document.removeEventListener('visibilitychange',visible);};
+  },[client,token,session?.user.user_id]);
   async function invite(){if(!member)return;const saved=await mutate(`/friends/${member.user_id}/request`,{},member.friendship.aggregate_version);if(saved){setNotice('好友邀請已送出。');await load();}}
   const design=card?.design??'calm';
   return <main className="public-member-page" data-design={!loading&&!loadError&&card?design:undefined}><BrandPoster compact/>
@@ -25,6 +39,7 @@ export function PublicMemberPage({client,token,session,onLogin,onReturn,onEdit}:
       <MemberCardDownload shareUrl={new URL(`/member-cards/${token}`,window.location.origin).href}><MemberECard design={design} nickname={card.nickname} headline={card.headline??null} guildName={card.primary_guild?.name??null} capabilities={card.capabilities} avatarUrl={card.avatar_url} links={card.links??[]} profileLinks={card.profile_links??[]} heading="h1" shareUrl={new URL(`/member-cards/${token}`,window.location.origin).href}/></MemberCardDownload>
       {member?.is_self&&<p className="ecard-owner-note">這是你的名片，訪客看到的就是這個樣子。<button type="button" className="btn btn-ghost" onClick={onEdit}>編輯名片</button></p>}
       {member&&!member.is_self&&<MemberCard member={member} labels={labels} client={client}/>}
+      {session&&!member&&<p className="field-hint public-card-fallback-hint">這是作者目前公開的名片；會員資訊與好友邀請暫不可用。</p>}
       {session?<div className="actions">{member&&!member.is_self&&(member.friendship.state==='accepted'?<span className="badge">你們已是好友</span>:member.friendship.state==='pending'?<span>好友邀請待回覆</span>:<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>void invite()}>邀請成為好友</button>)}<button type="button" className="btn btn-ghost" onClick={onReturn}>返回會員首頁</button></div>:<section className="public-card-invite"><h2>和社群夥伴一起把想法做出來</h2><p>加入感興趣的公會、閱讀免費技能書，找到擅長不同事情的人一起學習、創作與合作。</p><button type="button" className="btn btn-primary" onClick={onLogin}>加入自由工坊／登入</button><p className="field-hint">Email、密碼即可建立帳號，名稱選填；再選一個公會就能開始。完整定位可稍後補做。</p></section>}
     </>}{error&&<p role="alert" className="banner banner-error">{error}</p>}{notice&&<p role="status" className="banner status-note">{notice}</p>}
   </main>;

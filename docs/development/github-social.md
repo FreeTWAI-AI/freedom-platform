@@ -6,6 +6,8 @@ GitHub 數據存在 `github_repository_metrics`，附核對時間；讀取失敗
 
 星星圖示與數量是同一個操作入口。尚未連結的會員點星星，到 GitHub 同意後回到工坊；連結本身不會加星。連結後按空心星星加星、實心星星取消，才使用該會員的 user access token 修改原作。Fork 圖示與數量連到原作的 Fork 入口，來源與其他數據可展開查看。收到 GitHub 204 後才顯示成功，數量由 GitHub 重新讀取，不自行加減。自填 GitHub slug 不當作身分證明，連結不修改平台登入、會員權限或聯絡方式公開範圍。
 
+Star／取消 Star 在 token refresh、原作 barrier 與實際 provider 併發佇列等待後，沿用同一會員交易的 `assertCurrentSessionClock()` 重驗工坊 session。期限已過且尚未 dispatch 時回 `401 session_expired`，不送出 GitHub 寫入；queue 名額仍釋放。已換發的加密憑證照常保存。若寫入已在有效授權下 dispatch，只是 GitHub 回應較晚，不因後續自然到期回滾憑證或否定 GitHub 已確認的結果。
+
 ## 公開介紹頁的操作入口
 
 公開 `/development/skills/:id` 的 Stars、Forks、Watch 數字都是操作入口，會員介紹視窗也保留 Fork 連結。登入且已連結 GitHub 的會員可直接在介紹頁 Star／取消 Star；尚未連結時走原有 OAuth，完成後回到同一本書，再由本人按 Star。允許的返回值只有原有工坊 hash 或目錄中精確的技能書路徑，外部網址、查詢參數、未知書目與路徑穿越都拒絕。
@@ -35,7 +37,11 @@ Fork 連到原作 `/fork`，由本人在 GitHub 選擇擁有者與確認建立�
 
 後台透過 GitHub 的 manifest flow 產生設定；回呼受 Access、管理員 CSRF、管理員綁定的短效 state 保護。Server 交換代碼，驗證擁有者、站點及權限後加密保存 client secret。PEM、webhook secret 不保留。成功 receipt 可安全重讀；提供者失敗不顯示完成。若 GitHub 已消耗代碼而設定未收到，需重新建立 App；不以另一個 App 覆蓋既有連結。
 
-OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/callback` 後由同源 POST 完成交換，因此不降低既有 Strict cookie。Token 與 refresh token 在 DB 中以 AES-256-GCM 加密，綁定 App／社群／會員。更新 token 時重驗 GitHub user ID。只有伺服器使用憑證，API／稽核不輸出秘密。
+OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/callback` 後由同源 POST 完成交換，因此不降低既有 Strict cookie。Token 與 refresh token 在 DB 中以 AES-256-GCM 加密，綁定 App／社群／會員。更新 token 時重驗 GitHub user ID。只有伺服器使用憑證，API／稽核不輸出秘密。等待會員或 state 鎖後，完成交換前以資料庫目前時間重驗 10 分鐘 nonce；期限已過就不消耗、不呼叫 GitHub。有效消耗後 provider 延遲或拒絕仍沿用既有結果提交，不以事後時間回滾 state。
+
+Nonce 消耗先取得精確 user／community／session 所屬 state 的列鎖，再在同一 transaction client 的下一個 DELETE statement 以 `clock_timestamp()` 判斷期限。`SELECT ... FOR UPDATE` 的投影與 DELETE 的條件可能在等待列鎖前就求值，不能把鎖前取得的布林值當作鎖後判斷；不使用 retry、ctid 或額外 advisory lock。
+
+瀏覽器的 GitHub 連結意圖也綁定建立該 private store 時的登入生命週期。登出、換會員或同會員重新登入後，舊 reconnect callback 不得以新 session 發起 OAuth；舊 connect 回應也不再交給入口導頁。新登入由本人重新按連結，沿用新的 store 與既有 PKCE／返回目標驗證；不把舊回應視為新會員同意。
 
 「我的名片」可解除連結。工坊立即移除本地憑證，並嘗試撤銷 GitHub token；若 GitHub 撤銷失敗，畫面會保留前往 GitHub 授權設定的入口。停用會員或撤銷 session 後，舊請求不能操作 Star。Star 不產生 XP、名聲或職務認證。
 

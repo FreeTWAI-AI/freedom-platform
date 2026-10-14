@@ -107,6 +107,8 @@
 
 公會長提名由平台負責人私下建立，bootstrap 只回傳目前管理員自己的提名。`/link-member` 會在同一交易驗證會員 session、確認信箱、加入被指定的公會、領取技能書並完成任命；既有主力公會保持不變。若任一公會已有其他公會長，整批回 `409 appointment_changed` 並回復所有修改。未註冊、未完成加入（選定主要公會）或登入不同信箱時不建立替身帳號、不自動綁定。
 
+本人確認以資料庫當下時鐘檢查會員 session；全部任命、領書、信箱驗證、稽核與成功收據寫入後，再檢查一次期限。任何鎖等待跨過 session 到期，回 `401 session_expired`，整筆新操作一併回復。相同操作重播也必須通過末端期限檢查；到期不回成功收據，但既有成功任命不會被撤銷或重做。
+
 修改會把已驗證的 Access subject 與管理員 ID、理由、前後狀態寫入獨立 audit；JWT 本身不落盤。所有權限與版本會在交易中重查，相同 idempotency 重試不重複記錄。
 
 驗證：`npx tsx --test --test-concurrency=1 tests/runtime/admin-access.test.ts tests/runtime/platform-admin.test.ts tests/runtime/admin-guild-candidates.test.ts tests/runtime/guild-experts.test.ts` 使用隔離 PostgreSQL schema 與測試用 RSA/JWKS 簽章；不使用正式 DB 或 Cloudflare 服務。`createApp` 的明確 verifier 注入僅供程式測試，正式 server 使用預設驗證器，沒有環境變數繞過登入的模式。

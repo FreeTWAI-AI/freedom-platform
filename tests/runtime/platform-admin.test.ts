@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID,randomBytes} from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {createLocalJWKSet,exportJWK,generateKeyPair,SignJWT} from 'jose';
 import {command,createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
@@ -241,9 +242,9 @@ async function waitForBlocker(pid:number){
  for(let i=0;i<100;i++){
   const rows=await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND wait_event_type='Lock'",[pid]);
   if(rows.rowCount)return;
-  await new Promise(resolve=>setTimeout(resolve,10));
+  await delay(10);
  }
- assert.fail('Expected request to reach the deliberately locked user.');
+ assert.fail('Expected request to reach the deliberately held PostgreSQL lock.');
 }
 test('ordinary mutation locks user before session, avoiding deadlock with administration revocation',async()=>{
  const logged=await login(),actor=await authenticate(pool,logged.cookie.split('=')[1]),blocker=await pool.connect();let pending:Promise<any>|undefined;
@@ -311,4 +312,39 @@ test('conflicting nominated guild master rolls back every appointment, grant and
  const linked=await request('/link-member',{},undefined,randomUUID(),{Cookie:matching.cookie});assert.equal(linked.data.code,'appointment_changed');
  assert.equal((await pool.query('SELECT count(*) FROM positioning_profession_memberships WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0].count,'0');assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants')).rows[0].count,'0');assert.equal((await request('/audit')).data.items.length,0);
  assert.equal((await pool.query('SELECT email_verified_at FROM users WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0].email_verified_at,null);assert.equal((await pool.query("SELECT count(*) FROM guild_leadership_nominations WHERE state='pending'")).rows[0].count,'2');
+});
+
+async function appointmentSnapshot(){
+ const result=await pool.query<{snapshot:unknown}>(`SELECT jsonb_build_object(
+   'nominations',(SELECT jsonb_agg(to_jsonb(n) ORDER BY guild_key) FROM guild_leadership_nominations n),
+   'memberships',(SELECT jsonb_agg(to_jsonb(m) ORDER BY membership_id) FROM positioning_profession_memberships m),
+   'grants',(SELECT jsonb_agg(to_jsonb(g) ORDER BY book_id) FROM member_skill_book_grants g),
+   'officers',(SELECT jsonb_agg(to_jsonb(o) ORDER BY guild_key) FROM positioning_guild_officers o),
+   'audits',(SELECT jsonb_agg(to_jsonb(a) ORDER BY audit_id) FROM platform_admin_audit a),
+   'receipts',(SELECT jsonb_agg(to_jsonb(r) ORDER BY idempotency_key) FROM platform_admin_receipts r),
+   'email_verified_at',(SELECT email_verified_at FROM users WHERE user_id=$1)
+ ) AS snapshot`,[DEMO_USERS[0].user_id]);
+ return result.rows[0].snapshot;
+}
+
+for(const phase of ['user','guild','receipt','replay'] as const)test(`member appointment binding rejects session expiry while waiting for ${phase}`,async()=>{
+ const matching=await matchingMember();await nominate(nominations);
+ const key=randomUUID(),headers={Cookie:matching.cookie},sessionHash=tokenHash(matching.cookie.split('=')[1]);
+ if(phase==='replay')assert.equal((await request('/link-member',{},undefined,key,headers)).status,200);
+ const before=await appointmentSnapshot(),blocker=await pool.connect();
+ let pending:ReturnType<typeof request>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  if(phase==='user')await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE',[DEMO_USERS[0].user_id]);
+  if(phase==='guild')await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-member/${DEMO_COMMUNITY}/${DEMO_USERS[0].user_id}`]);
+  if(phase==='receipt')await blocker.query('LOCK TABLE platform_admin_receipts IN SHARE MODE');
+  if(phase==='replay')await blocker.query('LOCK TABLE platform_admin_receipts IN ACCESS EXCLUSIVE MODE');
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE token_hash=$1",[sessionHash]);
+  pending=request('/link-member',{},undefined,key,headers);await waitForBlocker(pid);
+  await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.02) FROM sessions WHERE token_hash=$1',[sessionHash]);
+  await blocker.query('ROLLBACK');
+  assert.equal((await pending).status,401);
+  assert.deepEqual(await appointmentSnapshot(),before);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
 });

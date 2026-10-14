@@ -76,3 +76,39 @@ test('both page guides teach the AI handoff, private setup and payment steps on 
   await page.keyboard.press('Escape');await expect(guide).toHaveCount(0);
  }
 });
+
+for(const nextEmail of ['reviewer@local.test','maker@local.test'])test(`a file waiting for text cannot preview under a replacement login (${nextEmail})`,async({page})=>{
+ await login(page);await navigate(page,'我有東西要賣');
+ const previews:string[]=[];page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/v1/commerce/preview')previews.push(request.postData()??'');});
+ await page.evaluate(()=>{
+  const state=window as unknown as {heldFile?:{started:boolean;release:()=>void}};
+  const original=File.prototype.text;let release!:()=>void;
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  state.heldFile={started:false,release};
+  File.prototype.text=async function(){state.heldFile!.started=true;await held;return original.call(this);};
+ });
+ await upload(page,productManifest);
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {heldFile:{started:boolean}}).heldFile.started)).toBe(true);
+ await signOut(page);
+ // Keep this document alive: a page.goto() would discard the held File promise.
+ await page.getByLabel('電子郵件',{exact:true}).fill(nextEmail);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();await navigate(page,'我有東西要賣');
+ await page.evaluate(async()=>{(window as unknown as {heldFile:{release:()=>void}}).heldFile.release();await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));});
+ expect(previews).toEqual([]);await expect(page.getByRole('heading',{name:`確認這次成果：${productManifest.name}`,exact:true})).toHaveCount(0);
+ await upload(page,productManifest);await expect(page.getByRole('heading',{name:`確認這次成果：${productManifest.name}`,exact:true})).toBeVisible();
+ expect(previews).toHaveLength(1);await expect(page.getByRole('button',{name:'確認並歸檔',exact:true})).toBeVisible();
+});
+
+test('a completed kit response cannot download after its page is replaced',async({page})=>{
+ await login(page);await navigate(page,'我有東西要賣');
+ let entered!:()=>void,release!:()=>void;const started=new Promise<void>(resolve=>{entered=resolve;}),held=new Promise<void>(resolve=>{release=resolve;});
+ const downloads:string[]=[];page.on('download',download=>downloads.push(download.suggestedFilename()));
+ const path='**/api/v1/commerce/agent-kit';
+ await page.route(path,async route=>{const response=await route.fetch();expect(response.ok()).toBe(true);entered();await held;await route.fulfill({response});});
+ try{
+  await page.getByRole('button',{name:'下載內部商店 MD',exact:true}).click();await started;
+  await navigate(page,'會員首頁');const completed=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/commerce/agent-kit');release();await completed;
+  await page.evaluate(async()=>{await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));});
+  expect(downloads).toEqual([]);await page.unroute(path);
+  await navigate(page,'我有東西要賣');const current=page.waitForEvent('download');await page.getByRole('button',{name:'下載內部商店 MD',exact:true}).click();await current;expect(downloads).toHaveLength(1);
+ }finally{release();await page.unroute(path);}
+});
