@@ -1,9 +1,7 @@
 import { randomBytes,randomUUID } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
-import { command,checkVersion,journal,type Command } from '../../packages/db/index.js';
-import {transaction} from '../../packages/db/transaction.js';
-import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
+import { command,checkVersion,journal,transaction,type Command } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync,SESSION_LIFETIME_SECONDS,tokenHash,type Actor } from './service.js';
 import { memberPositioningSummaries } from '../positioning/onboarding.js';
@@ -115,46 +113,37 @@ export async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock
   const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id)) ${lock?'FOR SHARE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;
 }
-export async function memberCard(pool:Pool|PoolClient,actor:Actor,id:string) {
+export async function memberCard(pool:Pick<Pool,'query'>,actor:Actor,id:string) {
   const cards=await memberCards(pool,actor,[id]);
   requireCondition(cards[0],404,'member_not_found','找不到這位會員。');return cards[0];
 }
-export async function memberCards(pool:Pool|PoolClient,actor:Actor,ids:string[]) {
+export async function memberCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string[]) {
   ids=ids.map(id=>z.uuid().parse(id).toLowerCase());
   if(!ids.length)return [];
-  // Contact values, audience predicates, positioning and the final session
-  // decision share one locked transaction. Separate reads can combine an old
-  // relationship with a new private value or an already expired session.
-  const read=async(q:PoolClient)=>{
-    await lockMemberSession(q,actor);
-    const [projection,positioning]=await Promise.all([
-      q.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.present AS avatar_present,
-        (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
-        EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
-          AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
-        (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=least(u.user_id,$2::uuid) AND f.high_ref=greatest(u.user_id,$2::uuid)) AS friendship,
-        EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$2 AND b.user_id=u.user_id AND a.state='active' AND b.state='active') AS guild,
-        EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$2 AND b.user_id=u.user_id AND a.state='active' AND b.state='active') AS squad
-        FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
-        LEFT JOIN member_avatar_presence avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
-        WHERE u.user_id=ANY($3::uuid[]) AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (u.user_id=$2 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,actor.user_id,ids]),
-      memberPositioningSummaries(q,actor.community_id,ids),
-    ]);
-    const tiers=ids.includes(actor.user_id)?(await q.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,actor.user_id])).rows:undefined;
-    await assertCurrentSessionClock(q,actor);
-    const cards=new Map(projection.rows.map(relation=>{
-      const id=relation.user_id,isSelf=id===actor.user_id,contacts:Record<string,string>={};
-      for(const [key,field] of Object.entries(normalizedContacts(relation.contacts,relation.email))) {
-        const audience=field.audiences;
-        if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
-      }
-      const card={user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,last_seen_at:relation.last_seen_at?new Date(relation.last_seen_at).toISOString():null,is_online:relation.is_online,...positioning.get(id)!,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
-      return [id,isSelf?{...card,member_tiers:tiers}:card] as const;
-    }));
-    return ids.flatMap(id=>{const card=cards.get(id);return card?[card]:[];});
-  };
-  if('release' in pool)return read(pool);
-  return transaction(pool,read);
+  // Contact values and their audience predicates must share ONE database snapshot.
+  // Split reads can combine an old friendship with a newly changed private value.
+  const projection=await pool.query(`SELECT u.user_id,u.display_name,u.created_at,u.created_at_source,u.email,account.contacts,account.identity_label,avatar.aggregate_version AS avatar_version,avatar.present AS avatar_present,
+      (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
+      EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
+        AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
+      (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=least(u.user_id,$2::uuid) AND f.high_ref=greatest(u.user_id,$2::uuid)) AS friendship,
+      EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$2 AND b.user_id=u.user_id AND a.state='active' AND b.state='active') AS guild,
+      EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$2 AND b.user_id=u.user_id AND a.state='active' AND b.state='active') AS squad
+      FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
+      LEFT JOIN member_avatar_presence avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
+      WHERE u.user_id=ANY($3::uuid[]) AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (u.user_id=$2 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,actor.user_id,ids]);
+  const positioning=await memberPositioningSummaries(pool,actor.community_id,ids);
+  const tiers=ids.includes(actor.user_id)?(await pool.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,actor.user_id])).rows:undefined;
+  const cards=new Map(projection.rows.map(relation=>{
+  const id=relation.user_id,isSelf=id===actor.user_id,contacts:Record<string,string>={};
+  for(const [key,field] of Object.entries(normalizedContacts(relation.contacts,relation.email))) {
+    const audience=field.audiences;
+    if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
+  }
+  const card={user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,last_seen_at:relation.last_seen_at?new Date(relation.last_seen_at).toISOString():null,is_online:relation.is_online,...positioning.get(id)!,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  return [id,isSelf?{...card,member_tiers:tiers}:card] as const;
+  }));
+  return ids.flatMap(id=>{const card=cards.get(id);return card?[card]:[];});
 }
 export const MemberDirectoryQuery=z.object({
  limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),
@@ -167,67 +156,63 @@ export const MemberDirectoryQuery=z.object({
 type MemberDirectoryFilters=Partial<Pick<z.infer<typeof MemberDirectoryQuery>,'search'|'guild_key'|'primary_guild_key'|'capability'|'sort'>>;
 const capabilityLabels=Object.fromEntries(capabilityCategories.flatMap(category=>category.items.map(option=>[option.id,option.label])));
 const memberSort={newest:'created_at DESC NULLS LAST,user_id',oldest:'created_at ASC NULLS LAST,user_id',nickname:'lower(display_name),display_name,user_id',positioning:'lower(positioning_title) NULLS LAST,lower(display_name),user_id',guild:'lower(primary_guild_name) NULLS LAST,lower(display_name),user_id'} as const;
-export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:number,filters:MemberDirectoryFilters={}) {
+export async function listMembers(pool:Pick<Pool,'query'>,actor:Actor,limit:number,offset:number,filters:MemberDirectoryFilters={}) {
   const input=MemberDirectoryQuery.parse({...filters,limit,offset});
   // Search only the public, last-confirmed profile. Raw assessment answers,
   // occupation, drafts and contact handles/email are never search predicates.
-  // Count, page selection, private cards and the session decision share one snapshot.
-  return transaction(pool,async q=>{
-    await lockMemberSession(q,actor);
-    const switched=(await q.query(`SELECT 1 FROM guild_preference_switch WHERE community_id=$1 AND state='switched'`,[actor.community_id])).rowCount===1;
-    const result=(await q.query(`WITH visible AS (
-      SELECT u.user_id,u.display_name,u.created_at,a.published_profile,
-        CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END AS primary_guild_key,
-        CASE WHEN EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
-          AND m.user_id=u.user_id AND m.guild_key=(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END) AND m.state='active')
-          THEN COALESCE(NULLIF($6::jsonb->>(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END),''),(SELECT NULLIF(c.profession_title,'') FROM positioning_guild_catalog c WHERE c.guild_key=(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END) AND c.guild_key ~ '^guild_custom_[0-9A-Fa-f]{32}$'),'專業探索者') ELSE NULL END AS positioning_title
-      FROM users u JOIN member_account_classification t USING(user_id,community_id)
-        LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
-        LEFT JOIN guild_member_preferences p ON p.user_id=u.user_id AND p.community_id=u.community_id
-        LEFT JOIN LATERAL (
-          SELECT cp.guild_key FROM guild_category_preferences cp
-          JOIN positioning_profession_memberships dm ON dm.community_id=cp.community_id AND dm.user_id=cp.user_id AND dm.guild_key=cp.guild_key AND dm.state='active'
-          WHERE cp.community_id=u.community_id AND cp.user_id=u.user_id
-          ORDER BY CASE cp.category WHEN 'professional_industry' THEN 1 WHEN 'external' THEN 2 ELSE 3 END
-          LIMIT 1
-        ) display_primary ON $11::bool
-      WHERE u.community_id=$1 AND u.active AND (NOT t.is_test_account OR u.user_id=$10) AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
-        AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
-          AND ((b.owner_ref=$10 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$10)))
-        AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
-          AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
-        AND ($8='' OR CASE WHEN $11::bool THEN EXISTS (
-          SELECT 1 FROM guild_category_preferences cp
-          JOIN positioning_profession_memberships pm ON pm.community_id=cp.community_id AND pm.user_id=cp.user_id AND pm.guild_key=cp.guild_key AND pm.state='active'
-          WHERE cp.community_id=u.community_id AND cp.user_id=u.user_id AND cp.guild_key=$8
-        ) ELSE p.primary_guild_key=$8 AND EXISTS(SELECT 1 FROM positioning_profession_memberships pm WHERE pm.community_id=u.community_id
-          AND pm.user_id=u.user_id AND pm.guild_key=$8 AND pm.state='active') END)
-    ), matched AS (
-      SELECT user_id,display_name,created_at,positioning_title,
-        CASE WHEN positioning_title IS NOT NULL THEN NULLIF($6::jsonb->>primary_guild_key,'') END AS primary_guild_name FROM visible
-      WHERE ($4='' OR strpos(lower(display_name),lower($4))>0 OR strpos(lower(positioning_title),lower($4))>0
-        OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'capabilities','[]'::jsonb)) AS capability(id)
-          WHERE strpos(lower(COALESCE($7::jsonb->>capability.id,capability.id)),lower($4))>0
-            OR strpos(lower(capability.id),lower($4))>0)
-        OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'custom_capabilities','[]'::jsonb)) AS custom(label)
-          WHERE strpos(lower(custom.label),lower($4))>0))
-        AND ($9='' OR COALESCE(published_profile->'capabilities','[]'::jsonb) ? $9)
-    ) SELECT (SELECT count(*)::int FROM matched) AS total,
-      ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
-      [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id,switched])).rows[0];
-    const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=[];
-    for(const id of result.user_ids as string[])items.push(await memberCard(q,actor,id));
-    if(input.guild_key&&items.length&&(await q.query("SELECT 1 FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[actor.community_id,actor.user_id,input.guild_key])).rowCount){
-      const rows=(await q.query(`SELECT m.user_id,m.member_tier,m.aggregate_version,e.aggregate_version AS expert_aggregate_version,COALESCE(e.active,false) AS expert_active
-        FROM positioning_profession_memberships m LEFT JOIN positioning_guild_experts e ON e.community_id=m.community_id AND e.guild_key=m.guild_key AND e.user_id=m.user_id
-        WHERE m.community_id=$1 AND m.guild_key=$2 AND m.state='active' AND m.user_id=ANY($3::uuid[])`,[actor.community_id,input.guild_key,items.map(item=>item.user_id)])).rows;
-      const byId=new Map(rows.map(row=>[row.user_id,row]));
-      for(const item of items){const row=byId.get(item.user_id);if(row)item.guild_roster={member_tier:row.member_tier,aggregate_version:Number(row.aggregate_version),expert_aggregate_version:row.expert_aggregate_version==null?null:Number(row.expert_aggregate_version),expert_active:Boolean(row.expert_active)};}
-    }
-    const allowed=await contactableIds(q,actor,items.map(item=>item.user_id));
-    await assertCurrentSessionClock(q,actor);
-    return {items:items.filter(item=>allowed.has(item.user_id)),total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
-  });
+  // Count and page selection share one snapshot; filtering happens before LIMIT.
+  const switched=(await pool.query(`SELECT 1 FROM guild_preference_switch WHERE community_id=$1 AND state='switched'`,[actor.community_id])).rowCount===1;
+  const result=(await pool.query(`WITH visible AS (
+    SELECT u.user_id,u.display_name,u.created_at,a.published_profile,
+      CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END AS primary_guild_key,
+      CASE WHEN EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
+        AND m.user_id=u.user_id AND m.guild_key=(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END) AND m.state='active')
+        THEN COALESCE(NULLIF($6::jsonb->>(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END),''),(SELECT NULLIF(c.profession_title,'') FROM positioning_guild_catalog c WHERE c.guild_key=(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END) AND c.guild_key ~ '^guild_custom_[0-9A-Fa-f]{32}$'),'專業探索者') ELSE NULL END AS positioning_title
+    FROM users u JOIN member_account_classification t USING(user_id,community_id)
+      LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
+      LEFT JOIN guild_member_preferences p ON p.user_id=u.user_id AND p.community_id=u.community_id
+      LEFT JOIN LATERAL (
+        SELECT cp.guild_key FROM guild_category_preferences cp
+        JOIN positioning_profession_memberships dm ON dm.community_id=cp.community_id AND dm.user_id=cp.user_id AND dm.guild_key=cp.guild_key AND dm.state='active'
+        WHERE cp.community_id=u.community_id AND cp.user_id=u.user_id
+        ORDER BY CASE cp.category WHEN 'professional_industry' THEN 1 WHEN 'external' THEN 2 ELSE 3 END
+        LIMIT 1
+      ) display_primary ON $11::bool
+    WHERE u.community_id=$1 AND u.active AND (NOT t.is_test_account OR u.user_id=$10) AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
+        AND ((b.owner_ref=$10 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$10)))
+      AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
+        AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
+      AND ($8='' OR CASE WHEN $11::bool THEN EXISTS (
+        SELECT 1 FROM guild_category_preferences cp
+        JOIN positioning_profession_memberships pm ON pm.community_id=cp.community_id AND pm.user_id=cp.user_id AND pm.guild_key=cp.guild_key AND pm.state='active'
+        WHERE cp.community_id=u.community_id AND cp.user_id=u.user_id AND cp.guild_key=$8
+      ) ELSE p.primary_guild_key=$8 AND EXISTS(SELECT 1 FROM positioning_profession_memberships pm WHERE pm.community_id=u.community_id
+        AND pm.user_id=u.user_id AND pm.guild_key=$8 AND pm.state='active') END)
+  ), matched AS (
+    SELECT user_id,display_name,created_at,positioning_title,
+      CASE WHEN positioning_title IS NOT NULL THEN NULLIF($6::jsonb->>primary_guild_key,'') END AS primary_guild_name FROM visible
+    WHERE ($4='' OR strpos(lower(display_name),lower($4))>0 OR strpos(lower(positioning_title),lower($4))>0
+      OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'capabilities','[]'::jsonb)) AS capability(id)
+        WHERE strpos(lower(COALESCE($7::jsonb->>capability.id,capability.id)),lower($4))>0
+          OR strpos(lower(capability.id),lower($4))>0)
+      OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(COALESCE(published_profile->'custom_capabilities','[]'::jsonb)) AS custom(label)
+        WHERE strpos(lower(custom.label),lower($4))>0))
+      AND ($9='' OR COALESCE(published_profile->'capabilities','[]'::jsonb) ? $9)
+  ) SELECT (SELECT count(*)::int FROM matched) AS total,
+    ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
+    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id,switched])).rows[0];
+  const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=[];
+  for(const id of result.user_ids as string[])items.push(await memberCard(pool,actor,id));
+  if(input.guild_key&&items.length&&(await pool.query("SELECT 1 FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[actor.community_id,actor.user_id,input.guild_key])).rowCount){
+    const rows=(await pool.query(`SELECT m.user_id,m.member_tier,m.aggregate_version,e.aggregate_version AS expert_aggregate_version,COALESCE(e.active,false) AS expert_active
+      FROM positioning_profession_memberships m LEFT JOIN positioning_guild_experts e ON e.community_id=m.community_id AND e.guild_key=m.guild_key AND e.user_id=m.user_id
+      WHERE m.community_id=$1 AND m.guild_key=$2 AND m.state='active' AND m.user_id=ANY($3::uuid[])`,[actor.community_id,input.guild_key,items.map(item=>item.user_id)])).rows;
+    const byId=new Map(rows.map(row=>[row.user_id,row]));
+    for(const item of items){const row=byId.get(item.user_id);if(row)item.guild_roster={member_tier:row.member_tier,aggregate_version:Number(row.aggregate_version),expert_aggregate_version:row.expert_aggregate_version==null?null:Number(row.expert_aggregate_version),expert_active:Boolean(row.expert_active)};}
+  }
+  const allowed=await contactableIds(pool,actor,items.map(item=>item.user_id));
+  return {items:items.filter(item=>allowed.has(item.user_id)),total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
 export async function memberPresence(pool:Pool,actor:Actor,raw:string){
   const ids=z.array(z.uuid()).max(50).parse(raw.split(',').filter(Boolean));

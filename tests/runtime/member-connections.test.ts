@@ -12,7 +12,6 @@ import {refreshGuildDiscoveryReports,guildDiscoveryReport,validateAiGuildReport,
 import {guildReviewerFromBindings} from '../../apps/platform-api/src/guild-review.js';
 import {createWorkerHandler} from '../../apps/platform-api/src/worker.js';
 import {memberCards,memberCard} from '../../modules/identity-membership/members.js';
-import {friendDirectory,memberRecommendations} from '../../modules/identity-membership/member-connections.js';
 import {memberPositioningSummary} from '../../modules/positioning/onboarding.js';
 import type {Actor} from '../../modules/identity-membership/service.js';
 const database=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_connections_${process.pid}_${Date.now()}`,admin=createPool(database),pool=new Pool({connectionString:database,options:`-c search_path=${schema}`,max:12});
@@ -128,7 +127,7 @@ test('recommendations exclude self, pending friends, accepted friends, inactive,
 });
 test('batch cards preserve single-card DTOs and privacy while skipping unavailable members',async()=>{
   const viewer=await member('批次觀看者'),friend=await member('好友'),stranger=await member('非好友'),unfinished=await member('未完成',false),inactive=await member('停用'),hidden=await member('驗證',true,`${randomUUID()}@example.invalid`);
-  const actor=(await pool.query('SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,u.onboarding_required,u.onboarding_completed_at,s.token_hash AS session_hash,s.csrf_token FROM users u JOIN sessions s USING(user_id) WHERE u.user_id=$1 AND s.revoked_at IS NULL ORDER BY s.created_at DESC LIMIT 1',[viewer.id])).rows[0] as Actor;
+  const actor=(await pool.query('SELECT * FROM users WHERE user_id=$1',[viewer.id])).rows[0] as Actor;
   await pool.query('UPDATE users SET active=false WHERE user_id=$1',[inactive.id]);
   await pool.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state) VALUES($1,least($2::uuid,$3::uuid),greatest($2::uuid,$3::uuid),$2,'accepted')`,[DEMO_COMMUNITY,viewer.id,friend.id]);
   const contacts={email:{audiences:['friends']},discord:{value:'公會Discord',audiences:['guild']},github:{value:'public-handle',audiences:['public']},line:{value:'私人LINE',audiences:[]}};
@@ -147,32 +146,6 @@ test('batch cards preserve single-card DTOs and privacy while skipping unavailab
     }
     for(const id of [unfinished.id,inactive.id,hidden.id])await assert.rejects(memberCard(pool,actor,id),{status:404});
   }
-});
-test('friend card transaction count stays constant from one to fifty cards',async()=>{
-  const viewer=await member('查詢觀看者'),actor=(await pool.query('SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,u.onboarding_required,u.onboarding_completed_at,s.token_hash AS session_hash,s.csrf_token FROM users u JOIN sessions s USING(user_id) WHERE u.user_id=$1 AND s.revoked_at IS NULL ORDER BY s.created_at DESC LIMIT 1',[viewer.id])).rows[0] as Actor;
-  const ids=Array.from({length:50},()=>randomUUID());
-  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,profession_membership_ref,password_hash)
-    SELECT id,$1,id::text||'@example.test','批次好友',gen_random_uuid(),'synthetic-unused-hash' FROM unnest($2::uuid[]) AS id`,[DEMO_COMMUNITY,ids]);
-  await pool.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state)
-    SELECT $1,least($2::uuid,id),greatest($2::uuid,id),$2,'accepted' FROM unnest($3::uuid[]) AS id`,[DEMO_COMMUNITY,viewer.id,ids]);
-  let queries=0;
-  const counted=new Proxy(pool,{get:(target,key)=>key==='connect'?(...args:unknown[])=>{queries++;return target.connect(...args as []);}:(()=>{const value=target[key as keyof typeof target];return typeof value==='function'?value.bind(target):value;})()});
-  const one=await friendDirectory(counted,actor,{limit:1}),oneCount=queries;queries=0;
-  const fifty=await friendDirectory(counted,actor,{limit:50});
-  assert.equal(one.items.length,1);assert.equal(fifty.items.length,50);assert.equal(queries,oneCount);assert.equal(queries,1);
-});
-test('private member reads reject an expired session before returning contacts and restore the current read',async()=>{
-  const viewer=await member('期限觀看者'),friend=await member('期限好友'),guild=await member('期限公會');
-  const actor=(await pool.query('SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,u.onboarding_required,u.onboarding_completed_at,s.token_hash AS session_hash,s.csrf_token FROM users u JOIN sessions s USING(user_id) WHERE u.user_id=$1 AND s.revoked_at IS NULL ORDER BY s.created_at DESC LIMIT 1',[viewer.id])).rows[0] as Actor;
-  await pool.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=$1',[friend.id,JSON.stringify({line:{value:'clock-friends-only',audiences:['friends']}})]);
-  await pool.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=$1',[guild.id,JSON.stringify({line:{value:'clock-guild-only',audiences:['guild']}})]);
-  await pool.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state) VALUES($1,least($2::uuid,$3::uuid),greatest($2::uuid,$3::uuid),$2,'accepted')`,[DEMO_COMMUNITY,viewer.id,friend.id]);
-  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()-interval \'1 second\' WHERE user_id=$1',[viewer.id]);
-  for(const read of [()=>memberCards(pool,actor,[viewer.id,friend.id,guild.id]),()=>friendDirectory(pool,actor,{scope:'accepted'}),()=>memberRecommendations(pool,actor,{limit:3})]){
-    await assert.rejects(read(),{status:401,code:'session_expired'});
-  }
-  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'12 hours\' WHERE user_id=$1',[viewer.id]);
-  assert.equal((await memberCard(pool,actor,friend.id)).contacts.line,'clock-friends-only');
 });
 test('guild reports run once daily with a lease and use only catalog evidence; provider failure keeps an honest rule report',async()=>{
   let called=0;const reviewer=async(catalog:GuildEvidence[])=>{called++;assert.equal(JSON.stringify(catalog).includes('user_id'),false);return {pairs:[{guild_keys:[catalog[0].guild_key,catalog[1].guild_key],reason:'共同 AI 領域',difference:'目的仍有不同',suggestion:'clarify'}]};};

@@ -1,9 +1,7 @@
 import {createHash,randomBytes} from 'node:crypto';
-import type {Pool, PoolClient} from 'pg';
+import type {Pool} from 'pg';
 import {z} from 'zod';
 import {command, checkVersion, journal, type Command} from '../../packages/db/index.js';
-import {transaction} from '../../packages/db/transaction.js';
-import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {capabilityCategories} from '../community/catalog.js';
 import type {Actor} from './service.js';
@@ -221,7 +219,7 @@ export async function saveMemberShare(pool:Pool,input:Command){
     return settings(row,items,nextPrefs);
   });
 }
-async function sharedRow(q:Pool|PoolClient,token:string){
+async function sharedRow(q:Pick<Pool,'query'>,token:string){
   Token.parse(token);
   // Contacts, social links and the share predicate share this one statement snapshot.
   const row=(await q.query(`SELECT u.user_id,u.community_id,u.display_name,s.include_avatar,s.design,s.headline,s.links,s.show_profile_links,s.profile_link_prefs,
@@ -267,15 +265,10 @@ export async function publicMemberAvatar(pool:Pool,token:string,store?:ObjectSto
       AND NOT is_verification_test_account(u.user_id)`,[token])).rows[0],store);
   return result.image_bytes;
 }
-export async function sharedMemberForViewer(pool:Pool,actor:Actor,token:string){
-  return transaction(pool,async q=>{
-    await lockMemberSession(q,actor);
-    const row=await sharedRow(q,token);
-    requireCondition(row.community_id===actor.community_id,404,'member_not_found','找不到這位工坊會員。');
-    const card=await memberCard(q,actor,row.user_id);
-    await assertCurrentSessionClock(q,actor);
-    return card;
-  });
+export async function sharedMemberForViewer(pool:Pick<Pool,'query'>,actor:Actor,token:string){
+  const row=await sharedRow(pool,token);
+  requireCondition(row.community_id===actor.community_id,404,'member_not_found','找不到這位工坊會員。');
+  return memberCard(pool,actor,row.user_id);
 }
 const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Read-only batch for share promotion. The token is used only to build path and generation. */

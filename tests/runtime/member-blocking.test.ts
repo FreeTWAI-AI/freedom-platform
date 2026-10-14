@@ -261,7 +261,10 @@ test('recommendations and member/friend search exclude either block direction be
 
 test('recommendations recheck a block committed after candidate selection and before returning cards',async()=>{
   const [a,b]=actors;let selected=false;
-  const lateBlockPool=new Proxy(pool,{get:(target,key)=>{if(key==='connect')return async(...args:unknown[])=>{const client=await target.connect(...args as []);const query=client.query.bind(client) as typeof client.query;client.query=((text:string,values?:unknown[])=>query(text,values).then(async result=>{if(!selected&&text.includes('AS picks')){selected=true;await pool.query(`INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state) VALUES($1,$2,$3,'active')`,[a.community_id,b.user_id,a.user_id]);}return result;})) as typeof client.query;return client;};const value=target[key as keyof typeof target];return typeof value==='function'?value.bind(target):value;}});
+  const lateBlockPool=new Proxy(pool,{get(target,prop){
+    if(prop!=='query'){const value=Reflect.get(target,prop);return typeof value==='function'?value.bind(target):value;}
+    return async(...args:any[])=>{const result=await (pool.query as any)(...args);if(!selected&&String(args[0]).includes('AS picks')){selected=true;await block(b,A);}return result;};
+  }});
   const page=await memberRecommendations(lateBlockPool,a,{limit:3});assert.equal(selected,true);assert.equal(page.total,2,'count remains the candidate snapshot');
   assert.deepEqual(page.items.map(row=>row.member.user_id),[C]);
 });
