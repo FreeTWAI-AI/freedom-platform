@@ -37,6 +37,17 @@ back the password, lockout reset and session together. After recovery, new faile
 password attempts may lock ordinary login again, but cannot revoke the recovered
 session; the verified member can continue using it without another login attempt.
 
+### Current mailbox during issuance (#552)
+
+A reset request locks `users` with `SELECT … FOR UPDATE` on the normalized
+address before inserting a proof. An email switch locks that same row, changes
+the address, and deletes existing reset proofs in one transaction. Waiting on
+the foreign-key share lock of a blind insert is too late: the switch can commit
+its deletion first, and the insert then binds a proof for the old mailbox to
+the already-changed account. After the lock, a changed or inactive address
+issues nothing and sends nothing. The HTTP response remains the same for known
+and unknown addresses. No schema or sender change is required.
+
 ### Proof expiry during recovery (#490)
 
 Recovery rechecks the locked proof's expiry using `clock_timestamp()` after all

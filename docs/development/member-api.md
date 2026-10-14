@@ -142,7 +142,9 @@ authorized. Node does not acquire an automatic scheduler through this change.
   six-digit authenticator code or an unused backup code to complete login.
   Password login does not verify email or link providers; slugs confer no ownership.
 - `POST /auth/reset/request`: `{email}`; requires the configured recovery sender
-  and returns the same result for existing and unknown accounts.
+  and returns the same result for existing and unknown accounts. Issuance locks
+  the current mailbox first; a request waiting behind an email switch receives
+  neither a proof nor a message for the old address (#552).
 - `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
   changes the password and revokes old sessions atomically. Without MFA it returns
   `{reset,expires_after_minutes,user,csrf_token}` and a new session cookie.
