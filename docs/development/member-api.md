@@ -459,6 +459,15 @@ confirmed/live pending occupancy; excess newest unaccepted offers return to
 their original queue positions. Genuine transitions retain factual history,
 not invented participant actions or attendance.
 
+A new acceptance checks PostgreSQL's current clock after reconciliation and
+eligibility reads, then again after the RSVP, queue/journal and success receipt
+writes. Waiting past the original offer deadline returns
+`409 invitation_unavailable`; crossing event start returns `409 event_closed`.
+The new command and its reconciliation, transitions, RSVP and receipt roll
+back together. Already-completed acceptances retain their factual history:
+an exact successful receipt replay or an already-accepted Going no-op does not
+become invalid merely because its historical offer deadline has passed.
+
 The existing Worker ten-minute schedule performs bounded round-robin queue
 reconciliation and reminder dispatch; affected mutations also dispatch queue
 updates. There is no minute-precision SLA or automatic scheduler in Node.
