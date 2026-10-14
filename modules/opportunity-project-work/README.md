@@ -229,10 +229,11 @@ policy、migration、retry 或外部 I/O。Loopback HTTP／runtime 不代表已�
 self_reported／independent_people_verified=false／income_verified=false、
 私稿不進 journal／outbox、Work 模式與 Contribution／付款語意不變。
 
-本項保留 full affected scope。Baseline ownership 未涵蓋 benefits route／既有
-runtime test，context 的 `surface_unmapped`／not-complete 不能因 source／HTTP／
-runtime 通過而清掉；需維護者核對既有 owner 宣告及正常 CI／review。沒有自我
-批准治理 baseline、migration、retry、provider 或已部署／整體完成的宣稱。
+本項保留 full affected scope。整合候選在既有 Work descriptor 補齊 benefits
+route／runtime test 的 ownership；原 baseline 缺項仍保留 `surface_unmapped`
+與完整測試 fallback，不以 candidate 宣告反向批准 baseline。此 metadata 修正
+仍由正常 CI／維護者 review 核對；沒有 migration、retry、provider 或已部署／
+整體完成的宣稱。
 
 ## Tenant manual Work
 
