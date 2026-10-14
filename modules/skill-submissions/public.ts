@@ -88,7 +88,7 @@ export async function readPublishedSkillTitles(pool: Pool|PoolClient, communityI
   return new Map(rows.map(row => [row.id, row.title]));
 }
 
-export async function readPublishedSkillSubmission(pool: Pool, id: string) {
+export async function readPublishedSkillSubmission(pool: Pool | PoolClient, id: string) {
   if (!z.uuid().safeParse(id).success) return null;
   const row = (await pool.query(`SELECT ${COLUMNS} ${PUBLISHED} AND s.submission_id=$1`, [id.toLowerCase()])).rows[0];
   if (!row) return null;

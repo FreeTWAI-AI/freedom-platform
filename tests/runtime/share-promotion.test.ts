@@ -601,6 +601,81 @@ for (const scenario of ['replay points', 'new INSERT', 'expired owner conflict',
   });
 }
 
+for (const expires of [true, false]) {
+  test(`promotion event share-code INSERT ${expires ? 'rolls back after session expiry' : 'commits once for a live session'}`, async () => {
+    let httpApp = app;
+    const server = serve({ hostname: '127.0.0.1', port: 0, fetch: request => httpApp.fetch(request) });
+    const holder = await pool.connect();
+    let pending: Promise<Response> | undefined;
+    try {
+      if (!server.listening) await once(server, 'listening');
+      const httpOrigin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      httpApp = createApp(pool, httpOrigin, 'local', { now: () => clock });
+      const login = await fetch(`${httpOrigin}/api/v1/auth/login`, {
+        method: 'POST', headers: { Origin: httpOrigin, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_USERS[0].email, password: DEMO_PASSWORD }),
+      });
+      assert.equal(login.status, 200);
+      const { user, csrf_token: csrf } = z.object({ user: z.object({ user_id: z.uuid() }), csrf_token: z.string() }).parse(await login.json());
+      const cookie = login.headers.get('set-cookie')!.split(';')[0];
+      const hash = tokenHash(cookie.split('=')[1]);
+      const eventId = randomUUID();
+      await eventRow(eventId, user.user_id, 'open', 'Session-bound event sharing', 'Event share-code creation must roll back with its promotion link.');
+      const post = () => fetch(`${httpOrigin}/api/v1/promotion/links`, {
+        method: 'POST', headers: { Origin: httpOrigin, Cookie: cookie, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
+        body: JSON.stringify({ kind: 'event', target: eventId }),
+      });
+      await holder.query('BEGIN');
+      // SHARE allows the target reads but holds the actual share-code INSERT.
+      await holder.query('LOCK TABLE community_event_share_codes IN SHARE MODE');
+      const pid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      if (expires) await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE token_hash=$1", [hash]);
+      pending = post();
+      let waiting = false;
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        waiting = Boolean((await admin.query(`SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+          WHERE NOT l.granted AND l.locktype='relation' AND l.relation=$1::regclass
+            AND $2=ANY(pg_blocking_pids(a.pid)) AND a.query LIKE '%INSERT INTO community_event_share_codes%'`,
+        [`${schema}.community_event_share_codes`, pid])).rowCount);
+        if (waiting) break;
+        await yieldToHttp();
+      }
+      assert.ok(waiting, 'event promotion must reach the share-code INSERT behind the owned blocker');
+      assert.equal((await holder.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1', [hash])).rows[0].live, true);
+      if (expires) {
+        await holder.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1', [hash]);
+        assert.equal((await holder.query('SELECT expires_at<=clock_timestamp() AS expired FROM sessions WHERE token_hash=$1', [hash])).rows[0].expired, true);
+      }
+      await holder.query('ROLLBACK');
+      const response = await pending;
+      const data = z.record(z.string(), z.unknown()).parse(await response.json());
+      assert.equal(response.status, expires ? 401 : 200);
+      if (expires) {
+        assert.equal(data.code, 'session_expired');
+        assert.equal(Object.hasOwn(data, 'path'), false);
+        assert.equal(Object.hasOwn(data, 'points'), false);
+      } else {
+        const replay = await post();
+        assert.equal(replay.status, 200);
+        assert.equal(z.object({ code: z.string() }).parse(await replay.json()).code, data.code);
+      }
+      const persisted = (await pool.query(`SELECT
+        (SELECT count(*)::int FROM community_event_share_codes WHERE event_id=$1 AND user_id=$2) AS event_codes,
+        (SELECT count(*)::int FROM promotion_links WHERE kind='event' AND target_key=$1::text AND user_id=$2) AS promotion_links`,
+      [eventId, user.user_id])).rows[0];
+      assert.deepEqual(persisted, { event_codes: expires ? 0 : 1, promotion_links: expires ? 0 : 1 });
+    } finally {
+      let rollbackError: unknown;
+      try { await holder.query('ROLLBACK'); } catch (error) { rollbackError = error; }
+      holder.release(Boolean(rollbackError));
+      if (pending) await Promise.allSettled([pending]);
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      if (rollbackError) throw rollbackError;
+    }
+  });
+}
+
 for (const [route, relation] of [
   ['links/mine', 'promotion_links'],
   ['leaderboards', 'promotion_clicks'],

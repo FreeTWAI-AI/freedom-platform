@@ -265,7 +265,7 @@ export async function publicMemberCover(pool:Pool,communityId:string|null,id:str
  return (await readDomainMedia(()=>coverSnapshot(pool,communityId!,id),{purpose:'member.service-cover',targetId:id,variant:'cover'},store)).bytes;
 }
 
-export async function readMemberServiceShare(pool: Pool, communityId: string, id: string) {
+export async function readMemberServiceShare(pool: Pool | PoolClient, communityId: string, id: string) {
   if (!z.uuid().safeParse(id).success) return null;
   const row = (await pool.query(`SELECT s.title,s.summary,u.display_name AS owner_name,c.service_id IS NOT NULL AS has_cover
     FROM member_services s JOIN users u ON u.user_id=s.owner_user_id LEFT JOIN member_service_covers c ON c.service_id=s.service_id

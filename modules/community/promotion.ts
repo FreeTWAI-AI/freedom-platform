@@ -84,7 +84,7 @@ async function readLink(pool: Pool, code: string): Promise<LinkRow | null> {
   return row ?? null;
 }
 
-async function skillTarget(pool: Pool, target: string) {
+async function skillTarget(pool: Pool | PoolClient, target: string) {
   if (target.startsWith('book:')) {
     const id = target.slice(5);
     const book = /^[a-z0-9-]{1,64}$/.test(id) ? communityCatalog.skill_books.find(item => item.id === id) : undefined;
@@ -115,7 +115,7 @@ async function memberCardForLink(pool: Pool, link: { community_id: string; user_
   return card;
 }
 
-async function memberCardTarget(pool: Pool, actor: Actor, target: string) {
+async function memberCardTarget(pool: Pool | PoolClient, actor: Actor, target: string) {
   requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '名片目標不正確。');
   const uid = target.toLowerCase();
   requireCondition(uid === actor.user_id.toLowerCase(), 403, 'promotion_target_forbidden', '只能分享自己的名片。');
@@ -124,7 +124,7 @@ async function memberCardTarget(pool: Pool, actor: Actor, target: string) {
   return { title: card.title, key: `${uid}:${card.generation}` };
 }
 
-async function assertTarget(pool: Pool, actor: Actor, kind: PromotionKind, target: string) {
+async function assertTarget(pool: Pool | PoolClient, actor: Actor, kind: PromotionKind, target: string) {
   if (kind === 'platform') {
     requireCondition(target === 'workshop', 422, 'validation_failed', '平台分享目標不正確。');
     return { title: '自由工坊', key: target };
@@ -165,13 +165,13 @@ function linkView(row: { kind: PromotionKind; target_key: string; code: string }
 
 export async function createPromotionLink(pool: Pool, actor: Actor, raw: unknown, now = new Date()): Promise<PromotionLinkView> {
   const body = linkInput.parse(raw);
-  const { title, key } = await assertTarget(pool, actor, body.kind, body.target);
   const day = taipeiDayStart(now);
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await transaction(pool, async q => {
         await lockMemberSession(q, actor);
         await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`promo-link:${actor.user_id}:${taipeiDate(now)}`]);
+        const { title, key } = await assertTarget(q, actor, body.kind, body.target);
         const existing = (await q.query(`SELECT link_id,kind,target_key,code FROM promotion_links
           WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, key])).rows[0];
         if (existing) {
