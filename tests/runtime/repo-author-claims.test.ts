@@ -191,6 +191,38 @@ test('several verified original authors stay public while a pending maintainer a
   for (const leak of [SECRET, EVIDENCE, 'maker@local.test', email, '已驗證']) assert.equal(html.includes(leak), false, leak);
 });
 
+test('a member author claim read is denied when its projection wait outlives the owner session', async () => {
+  arm('video-autopilot', {id: 88001122, fork: true, source: {id: 42, full_name: 'someone/parent-kit'}});
+  const maker = await login(DEMO_USERS[0]);
+  await link(DEMO_USERS[0], '101', 'aaa-author');
+  const first = await submit(maker, 'video-autopilot');
+  assert.equal(first.status, 201, JSON.stringify(first.data));
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1', [DEMO_USERS[0].user_id]);
+  const blocker = await pool.connect();
+  let pending: ReturnType<typeof member> | undefined;
+  try {
+    await blocker.query('BEGIN');
+    const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await blocker.query('LOCK TABLE github_social_connections IN ACCESS EXCLUSIVE MODE');
+    pending = member('/me/skill-books/video-autopilot/author-claim', maker);
+    let waiting = false;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      waiting = Boolean((await database.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))', [pid])).rowCount);
+      if (waiting) break;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.ok(waiting, 'author claim request must actually wait for the held projection lock');
+    await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1', [DEMO_USERS[0].user_id]);
+  } finally {
+    await blocker.query('ROLLBACK');
+    blocker.release();
+    if (pending) await pending;
+  }
+  const response = await pending!;
+  assert.equal(response.status, 401);
+  assert.equal(response.data.code, 'session_expired');
+});
+
 test('a self-submitted claim stays pending and never becomes publicly verified', async () => {
   arm('video-autopilot', {id: 88001122});
   const maker = await login();
