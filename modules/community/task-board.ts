@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import type { Actor } from '../identity-membership/service.js';
 
 // A narrow discovery projection: no owner identity, claim, terms or member profile.
@@ -11,13 +12,15 @@ export async function previewTasks(pool:Pool,actor:Actor) {
 // Durable accepted-work facts. Scoring remains a separate, future policy;
 // claim, decision and acting profession references make recalculation possible.
 export async function contributionRecords(pool:Pool,actor:Actor) {
-  const entries=(await pool.query(`SELECT c.contribution_id,c.claim_id,c.work_item_id,c.decision_id,c.title,c.accepted_at,
-      wc.acting_profession_membership_ref,d.reviewer_ref
-    FROM contributions c JOIN work_claims wc ON wc.claim_id=c.claim_id
-    JOIN work_items w ON w.work_item_id=c.work_item_id AND w.work_mode='community_collaboration'
-    JOIN work_decisions d ON d.decision_id=c.decision_id
-    WHERE c.community_id=$1 AND c.user_id=$2 ORDER BY c.accepted_at DESC,c.contribution_id`,[actor.community_id,actor.user_id])).rows;
-  return {policy:'accepted_work_facts_v1',accepted_count:entries.length,entries};
+  return readWithMemberSession(pool,actor,async q=>{
+    const entries=(await q.query(`SELECT c.contribution_id,c.claim_id,c.work_item_id,c.decision_id,c.title,c.accepted_at,
+        wc.acting_profession_membership_ref,d.reviewer_ref
+      FROM contributions c JOIN work_claims wc ON wc.claim_id=c.claim_id
+      JOIN work_items w ON w.work_item_id=c.work_item_id AND w.work_mode='community_collaboration'
+      JOIN work_decisions d ON d.decision_id=c.decision_id
+      WHERE c.community_id=$1 AND c.user_id=$2 ORDER BY c.accepted_at DESC,c.contribution_id`,[actor.community_id,actor.user_id])).rows;
+    return {policy:'accepted_work_facts_v1',accepted_count:entries.length,entries};
+  });
 }
 
 export async function acceptedWorkFeed(pool:Pool,actor:Actor) {

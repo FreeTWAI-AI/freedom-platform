@@ -2,11 +2,14 @@ import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
+import { setTimeout as delay } from 'node:timers/promises';
+import { z } from 'zod';
 import { createPool,LOCAL_DATABASE_URL,digest } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
-import { hashPassword } from '../../modules/identity-membership/service.js';
+import { hashPassword,tokenHash } from '../../modules/identity-membership/service.js';
+import { readSessionCookie } from '../../apps/platform-api/src/session-cookie.js';
 import { dashboard,listWorks } from '../../modules/opportunity-project-work/work.js';
 import { execFileSync } from 'node:child_process';
 const pythonCommand=process.platform==='win32'?'python':'python3';
@@ -203,6 +206,75 @@ test('login → claim → submit → request changes → resubmit → independen
   assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'1');
   assert.equal((await pool.query('SELECT count(*) FROM work_decisions')).rows[0].count,'2');
   assert.equal((await pool.query("SELECT count(*) FROM outbox WHERE event_type='freedom.work.submission.accepted.v1'")).rows[0].count,'1');
+});
+test('personal contribution references reject expired SQL waits and preserve current owner facts',async()=>{
+  const maker=await signIn(),other=await signIn(DEMO_USERS[2].email),reviewer=await signIn(DEMO_USERS[1].email);
+  async function acceptFor(member:Session) {
+    const item=await newWork(reviewer);
+    let current=await claim(member,item.work_item_id);
+    current=await action(member,current,'start');
+    current=await action(member,current,'submit',{summary:'已完成合成驗收步驟。',artifact_ref:`artifact:owner-proof-${randomUUID()}`});
+    current=await action(reviewer,current,'begin-review');
+    return action(reviewer,current,'decide',{decision:'accept',feedback:'合成工作符合驗收條件。',submission_sha256:current.latest_submission.sha256});
+  }
+  const own=await acceptFor(maker),foreign=await acceptFor(other);
+  const entry=z.object({contribution_id:z.uuid(),claim_id:z.uuid(),work_item_id:z.uuid(),decision_id:z.uuid(),title:z.string(),
+    accepted_at:z.string(),acting_profession_membership_ref:z.uuid(),reviewer_ref:z.uuid()}).strict();
+  const records=z.object({policy:z.literal('accepted_work_facts_v1'),accepted_count:z.number().int(),entries:z.array(entry)}).strict();
+  const original=records.parse((await request('/me/contribution-records',maker)).data);
+  const otherRecords=records.parse((await request('/me/contribution-records',other)).data);
+  assert.equal(original.accepted_count,1);assert.equal(otherRecords.accepted_count,1);
+  assert.deepEqual(original.entries.map(row=>row.work_item_id),[z.uuid().parse(own.work_item_id)]);
+  assert.deepEqual(otherRecords.entries.map(row=>row.work_item_id),[z.uuid().parse(foreign.work_item_id)]);
+  assert.equal(original.entries[0].claim_id,z.uuid().parse(own.claim_id));
+  assert.equal(original.entries[0].acting_profession_membership_ref,z.uuid().parse(maker.user.profession_membership_ref));
+  assert.equal(original.entries[0].reviewer_ref,z.uuid().parse(reviewer.user.user_id));
+  assert.deepEqual(records.parse((await request('/me/contribution-records',reviewer)).data).entries,[]);
+  for(const row of otherRecords.entries)for(const value of [row.contribution_id,row.claim_id,row.work_item_id,row.decision_id,row.acting_profession_membership_ref])
+    assert.equal(JSON.stringify(original).includes(value),false);
+  for(const expires of [true,false]){
+    const reader=await signIn(),token=readSessionCookie(reader.cookie,origin);assert.ok(token);
+    const hash=tokenHash(token);
+    assert.equal((await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[hash,expires?2:60])).rowCount,1);
+    const locker=await pool.connect();
+    let pending:Promise<{status:number;data:unknown}>|undefined;
+    async function isAlive(){return z.object({alive:z.boolean()}).parse((await pool.query(
+      'SELECT revoked_at IS NULL AND expires_at>clock_timestamp() AS alive FROM sessions WHERE token_hash=$1',[hash])).rows[0]).alive;}
+    try{
+      await locker.query('BEGIN');await locker.query('LOCK TABLE work_claims IN ACCESS EXCLUSIVE MODE');
+      const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+      let finished=false;pending=request('/me/contribution-records',reader);
+      void pending.then(()=>{finished=true},()=>{finished=true});
+      const deadline=Date.now()+5000;let blocked=false;
+      while(Date.now()<deadline){
+        blocked=(await pool.query(`SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+          WHERE $1=ANY(pg_blocking_pids(a.pid)) AND NOT l.granted AND l.relation='work_claims'::regclass
+          AND a.wait_event_type='Lock'`,[pid])).rowCount!==0;
+        if(blocked)break;assert.equal(finished,false);await delay(10);
+      }
+      assert.equal(blocked,true,'contribution reader must reach its native claim relation wait');
+      if(expires){
+        const expiryDeadline=Date.now()+4000;
+        while(await isAlive()){assert.ok(Date.now()<expiryDeadline);await delay(10);}
+      }else await delay(2100);
+      assert.equal(await isAlive(),!expires);await locker.query('COMMIT');
+      const result=await pending;
+      if(expires){
+        assert.equal(result.status,401);assert.equal(z.object({code:z.string()}).parse(result.data).code,'session_expired');
+        const raw=JSON.stringify(result.data);
+        for(const row of [...original.entries,...otherRecords.entries])for(const value of
+          [row.contribution_id,row.claim_id,row.work_item_id,row.decision_id,row.acting_profession_membership_ref])assert.equal(raw.includes(value),false);
+      }else{
+        assert.equal(result.status,200);assert.deepEqual(records.parse(result.data),original);
+      }
+    }finally{
+      await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});
+    }
+  }
+  assert.deepEqual(records.parse((await request('/me/contribution-records',maker)).data),original);
+  assert.deepEqual(records.parse((await request('/me/contribution-records',other)).data),otherRecords);
+  assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'2');
+  assert.equal((await pool.query('SELECT count(*) FROM work_decisions')).rows[0].count,'2');
 });
 test('concurrent exclusive claims have one winner and preserve atomic facts',async()=>{
   const a=await signIn(),b=await signIn(DEMO_USERS[2].email),w=await work(a);
