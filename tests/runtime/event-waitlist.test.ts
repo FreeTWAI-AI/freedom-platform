@@ -143,6 +143,53 @@ async function rollbackEventBlocker(blocker:PoolClient){
   blocker.release();
 }
 
+for(const reactivated of [false,true])test(`guest admission starts its hold after the event lock wait (reactivated=${reactivated})`,async()=>{
+  const guest={name:'合成入場訪客',email:'admission-clock@local.test'};
+  const previous=reactivated?(await pool.query<{registration_attempt_id:string}>(`INSERT INTO community_event_guest_rsvps(event_id,email,name,state,created_at)
+    VALUES($1,$2,$3,'cancelled',clock_timestamp()-interval '1 hour') RETURNING registration_attempt_id`,[eventId,guest.email,guest.name])).rows[0]:null;
+  const blocker=await pool.connect();
+  let pending:Promise<{value:unknown;error:unknown}>|undefined,providerCalls=0;
+  try{
+    await blocker.query('BEGIN');await blocker.query('SELECT event_id FROM community_events WHERE event_id=$1 FOR UPDATE',[eventId]);
+    const pid=(await blocker.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    pending=registerPublicEvent(pool,eventId,guest,async()=>{providerCalls++;},'https://example.test')
+      .then(value=>({value,error:null}),error=>({value:null,error}));
+    const waiters=await waitForEventLockCount(pid,1);
+    await blocker.query('SELECT pg_sleep(0.02)');
+    const releasedAt=(await blocker.query<{at:Date}>('SELECT clock_timestamp() AS at')).rows[0].at;
+    assert.ok(waiters[0].xact_start.getTime()<releasedAt.getTime(),'admission transaction began before the owned lock was released');
+    await blocker.query('ROLLBACK');
+    const result=await pending;assert.equal(result.error,null);assert.equal(providerCalls,1);
+    const current=(await pool.query<{created_at:Date;state:string;registration_attempt_id:string}>('SELECT created_at,state,registration_attempt_id FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,guest.email])).rows[0];
+    assert.ok(current.created_at.getTime()>=releasedAt.getTime(),'a new hold starts after admission acquires the event lock');
+    assert.equal(current.state,'going');
+    if(previous)assert.notEqual(current.registration_attempt_id,previous.registration_attempt_id);
+  }finally{try{await rollbackEventBlocker(blocker);}finally{if(pending)await pending;}}
+});
+
+for(const accepted of [true,false])test(`guest provider result survives only hold expiry after authorized handoff (accepted=${accepted})`,async()=>{
+  const guest={name:'合成提供者訪客',email:'provider-hold@local.test'};
+  let providerCalls=0;
+  const result=await registerPublicEvent(pool,eventId,guest,async(_to,_subject,body)=>{
+    providerCalls++;assert.ok(body.includes('私人參與管理'));
+    // Dispatch was authorized with a live hold. Let only that hold expire while the provider waits.
+    const hold=(await pool.query<{live:boolean}>(`UPDATE community_event_guest_rsvps SET created_at=clock_timestamp()-interval '9 minutes 58 seconds'
+      WHERE event_id=$1 AND email=$2 AND state='pending' RETURNING created_at>clock_timestamp()-interval '10 minutes' AS live`,[eventId,guest.email])).rows[0];
+    assert.equal(hold.live,true);
+    await pool.query("SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM created_at+interval '10 minutes'-clock_timestamp()))+0.02) FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2",[eventId,guest.email]);
+    assert.equal((await pool.query<{expired:boolean}>("SELECT created_at<=clock_timestamp()-interval '10 minutes' AS expired FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2",[eventId,guest.email])).rows[0].expired,true);
+    if(!accepted)throw new Error('synthetic provider rejection');
+  },'https://example.test',true).then(value=>({value,error:null}),error=>({value:null,error}));
+  assert.equal(providerCalls,1);
+  if(accepted){assert.equal(result.error,null);assert.deepEqual(result.value,{registered:true,provider_status:'provider_accepted'});}
+  else{assert.ok(result.error instanceof Problem);assert.equal(result.error.status,503);assert.equal(result.error.code,'event_email_delivery_failed');}
+  const current=(await pool.query<{state:string;email_sent_at:Date|null;provider_status:string}>(`SELECT r.state,r.email_sent_at,c.provider_status
+    FROM community_event_guest_rsvps r JOIN community_event_guest_capabilities c USING(event_id,email) WHERE r.event_id=$1 AND r.email=$2`,[eventId,guest.email])).rows[0];
+  assert.equal(current.state,accepted?'going':'pending');assert.equal(current.email_sent_at!==null,accepted);
+  assert.equal(current.provider_status,accepted?'provider_accepted':'pending');assert.equal(await countEventSeats(pool,eventId),accepted?1:0);
+  assert.equal((await pool.query<{future:boolean}>('SELECT starts_at>clock_timestamp() AS future FROM community_events WHERE event_id=$1',[eventId])).rows[0].future,true);
+});
+
 test('an expired invitation does not reserve a seat after the event lock wait',async()=>{
   async function member(email:string,name:string){
     const id=randomUUID();
@@ -268,14 +315,22 @@ for(const participationEnabled of [false,true])for(const previouslyConfirmed of 
   const guest={name:'合成截止訪客',email:'provider-deadline@local.test'};
   if(previouslyConfirmed)await registerPublicEvent(pool,eventId,guest,async()=>{},'https://example.test',participationEnabled);
   const previous=(await pool.query<{state:string;email_sent_at:Date|null}>('SELECT state,email_sent_at FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,guest.email])).rows[0];
-  await pool.query("UPDATE community_events SET starts_at=clock_timestamp()+interval '3 seconds',ends_at=clock_timestamp()+interval '1 hour' WHERE event_id=$1",[eventId]);
-  let providerCalls=0,returnedAfterStart=false;
-  await assert.rejects(registerPublicEvent(pool,eventId,guest,async()=>{
+  let providerCalls=0,returnedAfterStart=false,connects=0,releases=0,providerClient:PoolClient|undefined;
+  const providerPool={async connect(){
+    const client=await pool.connect();connects++;providerClient=client;
+    return {query:client.query.bind(client),release(destroy?:boolean){providerClient=undefined;releases++;client.release(destroy);}};
+  }} as unknown as Pool;
+  await assert.rejects(registerPublicEvent(providerPool,eventId,guest,async()=>{
     providerCalls++;
-    await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM starts_at-clock_timestamp()))+0.02) FROM community_events WHERE event_id=$1',[eventId]);
-    returnedAfterStart=(await pool.query<{started:boolean}>('SELECT starts_at<=clock_timestamp() AS started FROM community_events WHERE event_id=$1',[eventId])).rows[0].started;
+    assert.ok(providerClient);
+    // Establish the real deadline only once dispatch begins, on the native client already holding the event lock.
+    // The transaction helper retains BEGIN/ROLLBACK/release; no clock or product query is replaced.
+    await providerClient.query("UPDATE community_events SET starts_at=clock_timestamp()+interval '3 seconds',ends_at=clock_timestamp()+interval '1 hour' WHERE event_id=$1",[eventId]);
+    await providerClient.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM starts_at-clock_timestamp()))+0.02) FROM community_events WHERE event_id=$1',[eventId]);
+    returnedAfterStart=(await providerClient.query<{started:boolean}>('SELECT starts_at<=clock_timestamp() AS started FROM community_events WHERE event_id=$1',[eventId])).rows[0].started;
   },'https://example.test',participationEnabled),cause=>cause instanceof Problem&&cause.status===409&&cause.code==='event_closed');
   assert.equal(providerCalls,1);assert.equal(returnedAfterStart,true);
+  assert.equal(connects,2);assert.equal(releases,2);assert.equal(providerClient,undefined);
   const current=(await pool.query<{state:string;email_sent_at:Date|null}>('SELECT state,email_sent_at FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,guest.email])).rows[0];
   assert.equal(current.state,previouslyConfirmed?'going':'pending');assert.deepEqual(current.email_sent_at,previous?.email_sent_at??null);
 });
