@@ -41,6 +41,12 @@
 
 `submission`：`submission_id, status, aggregate_version, payload|null, project_id|null, seed|null, upgrades_submission_id|null, upgrade|null, can_upgrade, catalog_book|null, can_edit, public_path|null, illustration_url|null, grant_expires_at|null, grant_consumed_at|null, grant_revoked_at|null, created_at, updated_at`。`payload` 不含 `cover_image`，圖片另存並以 `illustration_url` 提供。`grant_expires_at` 同時考慮來源金鑰的到期時間；`grant_revoked_at` 也反映來源金鑰已撤銷。一般回應不會出現授權、雜湊或圖片位元組。
 
+本人 `GET /me/skill-submissions/:id` 的所有投稿投影使用同一短交易 client，
+依序鎖 user／session，並在最後資料查詢後以 PostgreSQL `clock_timestamp()` 重驗
+期限。查詢等待跨過 session 到期時回 `401 session_expired`，不回私人 payload
+或投稿 metadata；有效本人仍取得原 DTO／ETag，其他會員仍是 404。
+公開已發布投影與 Agent bearer 上傳流程不受這個瀏覽器詳情邊界改動。
+
 簡易投稿是 `grant_hash` 與 `seed` 都是空的投稿。`can_edit` 只在尚未公開的簡易投稿為真。升級草稿帶著 `seed`（`repository_url, title, description, use_notes, demo_url, relationship`）與 `upgrades_submission_id`，不會被當成簡易投稿。`upgrade` 是這件作品最新一筆升級草稿或完整版的 `{submission_id, status}`，沒有則為 `null`。`can_upgrade` 在作品已公開、是簡易投稿、儲存庫還不是目錄技能書、而且沒有未公開或已公開的升級時為真。`catalog_book` 在儲存庫已收錄為目錄技能書時為 `{book_id, title, public_path}`。
 
 上傳到升級草稿時，`repository_url` 必須是 `seed` 的同一個儲存庫，否則回 422 `repository_mismatch`，授權不會被消耗。會員用聊天 AI 補同一份草稿時，即使舊授權已過期，網站也會先重發授權再上傳。公開升級草稿仍走原來的公開路徑；若已有另一份已公開的升級，回 409 `already_upgraded`。
