@@ -400,6 +400,28 @@ test('Follow rejects a session that expires while waiting for the GitHub member 
   }finally{await blocker.query('ROLLBACK');blocker.release();}
 });
 
+test('Star rejects a session that expires while waiting for the GitHub member lock',async()=>{
+  await connect();mock.calls=[];
+  const blocker=await pool.connect();
+  try{
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-social/${actor.user_id}`]);
+    const pending=social.star(actor,book,true);
+    const rejected=assert.rejects(pending,errorCode('session_expired'));
+    const deadline=Date.now()+1500;let waiting=false;
+    while(Date.now()<deadline){
+      waiting=(await pool.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted AND objid::bigint=(hashtextextended($1,0)&4294967295) AND classid::bigint=((hashtextextended($1,0)>>32)&4294967295)) AS waiting",[`github-social/${actor.user_id}`])).rows[0].waiting;
+      if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+    }
+    assert.equal(waiting,true,'Star must reach the member-lock barrier');
+    await blocker.query('SELECT pg_sleep(2.1)');await blocker.query('COMMIT');
+    await rejected;
+    assert.equal(mock.calls.some(call=>call.method==='PUT'),false);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM skill_star_support')).rows[0].n,0);
+  }finally{await blocker.query('ROLLBACK');blocker.release();}
+});
+
 for(const operation of ['read','follow','unfollow'] as const){
   test(`queued GitHub ${operation} rechecks the member session before sending a request`,async()=>{
     let release!:()=>void,entered!:()=>void,count=0;
