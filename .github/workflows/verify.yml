@@ -408,9 +408,9 @@ jobs:
           if-no-files-found: warn
   guild-presentation:
     runs-on: ubuntu-24.04
-    # Full candidates already require runtime-full, ui-e2e and static-worker
-    # for this same immutable candidate. Keep their unique preview coverage
-    # here; guild leaves and incomplete plans retain the full comparison lane.
+    # Full candidates already require static-worker for this same immutable
+    # candidate. Reuse its typecheck; fixed runtime/browser lanes still protect
+    # guild files that are not all in the full runners' deletion baselines.
     timeout-minutes: 25
     needs: select
     if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.guild_presentation == 'true') }}
@@ -466,14 +466,12 @@ jobs:
         run: |
           node scripts/generate-guild-blocks.mjs --check
           node node_modules/vite/bin/vite.js build --config apps/portal-web/guild-preview/vite.config.ts
-      - name: Run fixed guild runtime when the full runtime lane is not selected
-        if: ${{ needs.select.result != 'success' || needs.select.outputs.mode != 'full' || needs.select.outputs.runtime_full != 'true' || needs.select.outputs.runtime_aggregate != 'true' }}
+      - name: Run the fixed guild runtime cases
         env:
           # This job's synthetic PostgreSQL service uses loopback trust only.
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
         run: node .freedom/trusted/scripts/ci/run-guild-runtime.mjs
-      - name: Run fixed guild integration when the full browser lane is not selected
-        if: ${{ needs.select.result != 'success' || needs.select.outputs.mode != 'full' || needs.select.outputs.ui_e2e != 'true' }}
+      - name: Run the fixed guild integration cases
         env:
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
         run: node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --guild-presentation --output .freedom/reports/guild-integration.json
