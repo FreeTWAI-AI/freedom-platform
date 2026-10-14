@@ -133,6 +133,29 @@ test('upload keys: secret shown once, only SHA-256 stored, replay hides token, o
  assert.equal((await api('/me/skill-upload-keys',owner,{label:'eleventh'})).data.code,'upload_key_limit');
 });
 
+test('the skill upload key list is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await login();await newKey(owner);
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_upload_keys IN ACCESS EXCLUSIVE MODE');
+  pending=api('/me/skill-upload-keys',owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'skill key list must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
 test('agent auth: key creates draft only, cookies and other bearer kinds rejected, grant is exact and one-time',async()=>{
  const owner=await login(),key=(await newKey(owner)).token,idem=randomUUID();
  assert.equal((await agent('/skill-submissions',null,{},{'Idempotency-Key':idem,Cookie:owner.cookie,'X-CSRF-Token':owner.csrf})).status,401);

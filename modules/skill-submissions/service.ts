@@ -424,8 +424,8 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
   });
 }
 
-export async function listKeys(pool: Pool, actor: Actor) {
-  return (await pool.query(`SELECT ${KEY_COLUMNS} FROM skill_upload_keys WHERE community_id=$1 AND user_id=$2
+export async function listKeys(db: Queryable, actor: Actor) {
+  return (await db.query(`SELECT ${KEY_COLUMNS} FROM skill_upload_keys WHERE community_id=$1 AND user_id=$2
     ORDER BY created_at DESC,key_id LIMIT 100`, [actor.community_id, actor.user_id])).rows.map(keyView);
 }
 export async function createKey(pool: Pool, input: Command) {
