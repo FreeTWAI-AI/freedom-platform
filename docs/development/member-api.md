@@ -320,6 +320,27 @@ Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
 
+## Member event list session boundary
+
+`GET /api/v1/events` reads its existing member list through
+`readWithMemberSession`: active user and current session locks, list SQL on the
+same transaction client, then a `clock_timestamp()` session check after the
+projection. A database wait that crosses session expiry returns
+`401 session_expired`, without an `items` projection. Existing own-pending,
+guild membership/reviewer visibility, newcomer-safe columns, history limits
+and referral redaction are unchanged. This is a final database read decision,
+not a guarantee of session validity through commit or HTTP delivery; it does
+not cover other event routes or change background reminder reads.
+
+Standalone localhost HTTP evidence on isolated PostgreSQL 17 schemas used
+password login and normal pending-event submission: both baseline and candidate
+returned a nonempty private list control containing the owner's pending event
+and its `online_url`; a confirmed projection lock wait began while the session
+was live, and the database clock crossed expiry before release. Baseline
+`afe8b692` returned the private list with HTTP 200; candidate `8b743465` returned
+HTTP 401 without activity data. This synthetic local evidence does not establish
+deployment or independently exercise every visibility/newcomer variant.
+
 ## Event highlights and published squad outcomes (#257)
 
 This source candidate adds `154_squad_outcomes.sql` and
