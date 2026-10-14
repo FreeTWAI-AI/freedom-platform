@@ -55,7 +55,10 @@ export async function pollClientPairing(pool:Pool,raw:unknown,network:string){
 async function pairingByCode(q:Pool|PoolClient,code:string,lock=false){
  const normalized=normalizeCode(code);requireCondition(/^[A-F0-9]{20}$/.test(normalized),404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
  const row=(await q.query(`SELECT * FROM client_pairing_requests WHERE user_code_hash=$1 AND state='pending' AND expires_at>clock_timestamp()${lock?' FOR UPDATE':''}`,[tokenHash(normalized)])).rows[0];
- requireCondition(row,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');return row;
+ requireCondition(row,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
+ // The pairing row lock can outlast the five-minute code. Transaction now() is not a live recheck.
+ if(lock)requireCondition((await q.query("SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND state='pending' AND expires_at>clock_timestamp()",[row.pairing_id])).rowCount===1,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
+ return row;
 }
 export async function pairingView(pool:Pool,actor:Actor,code:string){
  await authRateLimit(pool,'client-pairing-lookup',actor.user_id,30,300);

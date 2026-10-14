@@ -6,8 +6,8 @@ import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY } from '../../packages/testing/seed.js';
-import { tokenHash } from '../../modules/identity-membership/service.js';
-import { pollClientPairing, readClientResource } from '../../modules/client-connections/service.js';
+import { login, tokenHash } from '../../modules/identity-membership/service.js';
+import { approveClientPairing, pollClientPairing, readClientResource } from '../../modules/client-connections/service.js';
 import { Problem } from '../../packages/shared/problem.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 
@@ -313,5 +313,35 @@ test('an expired client credential cannot read after the member lock wait',async
   assert.equal(result.value,null);
   assert.equal(result.error?.status,401);
   assert.equal(result.error?.code,'client_token_invalid');
+});
+
+
+test('an expired pairing code cannot be approved after the pairing row lock wait',async()=>{
+ await ready();
+ const actor=(await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD)).actor;
+ const code=randomBytes(10).toString('hex').toUpperCase();
+ const pairingId=randomUUID();
+ await pool.query(`INSERT INTO client_pairing_requests(pairing_id,device_secret_hash,user_code_hash,kind,client_name,expires_at)
+  VALUES($1,$2,$3,'supplier','合成客戶端',clock_timestamp()+interval '1 second')`,[pairingId,tokenHash(randomUUID()),tokenHash(code)]);
+ const blocker=await pool.connect();
+ let pending:Promise<{error:Problem|null}>;
+ try{
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT pairing_id FROM client_pairing_requests WHERE pairing_id=$1 FOR UPDATE',[pairingId]);
+  pending=approveClientPairing(pool,{actor,operation:'client-pairing-approve',key:randomUUID(),body:{confirmed:true}},code).then(()=>({error:null}),error=>{assert.ok(error instanceof Problem);return {error};});
+  for(let attempt=0;attempt<200;attempt++){
+   const waiting=await admin.query(`SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%client_pairing_requests%'`);
+   if(waiting.rowCount)break;
+   await delay(20);
+   if(attempt===199)assert.fail('approval did not wait for the pairing row');
+  }
+  await delay(1500);
+  await blocker.query('ROLLBACK');
+ }finally{blocker.release();}
+ const result=await pending!;
+ assert.equal(result.error?.status,404);
+ assert.equal(result.error?.code,'pairing_not_found');
+ assert.equal((await pool.query('SELECT state FROM client_pairing_requests WHERE pairing_id=$1',[pairingId])).rows[0].state,'pending');
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections WHERE user_id=$1',[actor.user_id])).rows[0].n,0);
 });
 
