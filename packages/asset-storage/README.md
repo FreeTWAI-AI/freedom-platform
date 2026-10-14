@@ -2,6 +2,13 @@
 
 Runtime-neutral, internal storage primitives for [UF-SPEC-ASSET-WORK](../../docs/platform-plan/execution/unified-foundation/03-assets-private-work.md) and [UF-SPEC-MEDIA](../../docs/platform-plan/execution/unified-foundation/05-media-migration.md), plus an explicitly injected native R2 adapter. This package does not itself enable routes, database state, a deployed bucket/binding, background deletion or publication.
 
+`browser-raster.ts` is a separate browser-only export of the existing bounded
+social photo preparation. Product photos reuse it for large local inputs;
+the original social entry re-exports its same API. Orientation, proportion and
+transparency are preserved; pixels and transient canvas/bitmap resources remain
+on the device until an owning UI explicitly uploads the resulting File.
+This export grants no media policy, server authority or storage permission.
+
 The [avatar lifecycle and read bridge](../../modules/assets/README.md) compose these primitives with durable PostgreSQL intents and fenced leases. The [existing POST facade](../../modules/assets/avatar-upload.md) preserves old receipts and responses, while default configuration remains legacy/persistence-disabled. Separate [maintenance](../../modules/assets/maintenance.md) owns deletion fences and backup pins. These local integrations do not establish production activation, cloud backup/restore or private AI execution; the evidence below remains this I/O package's own boundary.
 
 `ObjectStore` supplies immutable create-if-absent PUT, streamed GET, metadata HEAD and idempotent DELETE. Production adapters must supply atomic create-if-absent behavior, including concurrent requests; HEAD-then-unconditional-PUT is insufficient. No LIST, remote URL fetch, bucket credentials or filesystem path input is provided. Web streams, Uint8Array and Web Crypto keep the entry point runtime-neutral. Common `OpaqueId` is the single UUID validator; shared raster/container validators are reused.

@@ -6,6 +6,7 @@ import {signOut} from './navigation.js';
 
 const form = (page: Page) => page.getByRole('form', {name: '手作茶杯供貨條件'});
 async function edit(page: Page) {
+  if(await form(page).isVisible())await form(page).getByRole('button',{name:'返回商品',exact:true}).click();
   await page.locator('.hosted-store').getByRole('button', {name: '供貨條件', exact: true}).click();
   await expect(form(page).getByLabel('供貨單價（TWD）', {exact: true})).toBeVisible();
 }
@@ -42,6 +43,7 @@ test('supplier terms persist across login, keep retail separate and show the sha
   }
   await form(page).getByRole('button', {name: '儲存供貨條件', exact: true}).click();
   await expect(page.locator('.hosted-store [role="status"]').first()).toContainText('已儲存供貨條件。');
+  await form(page).getByRole('button',{name:'返回商品',exact:true}).click();
   await page.locator('.hosted-store-product').getByRole('button', {name: '編輯', exact: true}).click();
   const retail = page.getByRole('form', {name: '編輯手作茶杯'});
   await retail.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('420');
@@ -75,7 +77,8 @@ test('committed response loss retries the same supplier edit and a stale tab mus
   await expect(page.getByRole('alert')).toContainText('尚未確認原操作的結果');
   await expect(form(page).getByLabel('供貨單價（TWD）', {exact: true})).toBeDisabled();
   await page.locator('.hosted-store').getByRole('button', {name: '重試', exact: true}).click();
-  await expect(form(page)).toHaveCount(0);
+  await expect(form(page).getByLabel('供貨單價（TWD）', {exact: true})).toBeEnabled();
+  await expect(form(page).getByLabel('供貨單價（TWD）', {exact: true})).toHaveValue('180.00');
   expect(tuples).toHaveLength(2); expect(tuples[0]).toEqual(tuples[1]);
   expect((await db.query(`SELECT count(*)::int AS n FROM scoped_transition_journal WHERE aggregate_id=$1 AND operation='storefront.supply-terms.update'`, [s.product.product_id])).rows[0].n).toBe(1);
   await page.unroute('**/products/*/supply-terms');

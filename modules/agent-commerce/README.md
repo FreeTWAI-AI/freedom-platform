@@ -117,3 +117,35 @@ hold IDs and order/balance consistency guards in migration 162 as the first
 inventory-portability increment. It establishes a new hosted writer floor;
 external inventory, authority handoff and unknown network outcomes remain
 unimplemented. Existing member DTOs and admission settings are unchanged.
+
+## Supplier and retailer editing experience candidate (2026-10-14)
+
+The retailer editor has four persistent work areas: 商品, 供貨合作,
+店面與發布 and 商店資料. Switching areas keeps mounted drafts; another area's
+unsaved form disables conflicting writes and offers a return action. Main
+navigation still uses the existing leave/unknown-command guards. On small
+screens the four choices form two rows. The supplier keeps its existing three
+work areas and separate reservation controls.
+
+Both product lists search the already loaded title, SKU and description, with
+explicit loaded counts. Searching never claims a complete server-wide catalog.
+An open edit locks the search so filtering cannot conceal an unsaved form.
+Saving supply terms retains the editor at the confirmed version; publishing
+that offer remains a separate explicit action with the existing exact-version
+consent. Retail selection forms show the price difference after supply cost
+and per-item shipping, explicitly excluding tax, payment, marketing, returns
+and other costs. This is not a profit or earnings promise.
+
+Retail product photos preview locally before upload with their full aspect
+ratio. Larger phone photos use the common browser raster preparation exported
+from asset-storage; social images retain their original compatibility export.
+The backend photo limit, flags, ownership and original retry tuple are unchanged.
+This UI does not add photo authority for supplier-only catalogs, new templates,
+payments or fulfilment. It introduces no migration or deployment activation.
+
+Verification uses the existing browser fixtures for supplier A and retailers
+B/C, member registration and guild approval, drafts, exact-version retries,
+published links, themes, product photos and social image preparation. The photo
+suite must run with FREEDOM_E2E_STORE_PHOTO_FIXTURE=1, not as a skipped default
+pass. Local Chromium and PostgreSQL 17 results are source evidence; required
+PostgreSQL 18 CI and real phone/production acceptance remain separate.

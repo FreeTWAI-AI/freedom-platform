@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import type {Route} from '@playwright/test';
 import {test, expect, type Page} from './fixtures.js';
-import {person, login, launchStore, open, post} from './hosted-store-fixture.js';
+import {person, login, launchStore, open, post, storeArea} from './hosted-store-fixture.js';
 import {buyerLogin, offListener} from './hosted-order-fixture.js';
 import {signOut} from './navigation.js';
 import {ReservationSettingSchema} from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
@@ -675,6 +675,7 @@ test('supply product card shows offer state and requests waiting for the supplie
       const shop = await launchStore(retailer, '狀態選物');
       await post(retailer, shop.root + '/setup', {name: '狀態選物', slug: `state-${randomUUID().slice(0, 8)}`, currency: 'TWD'}, 201);
       await open(retailer, shop.hash);
+      await storeArea(retailer, '供貨合作');
       await retailer.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
       const catalog = retailer.locator('.hosted-distribution details').filter({has: retailer.locator('summary').filter({hasText: '選用其他商店'})});
       if (await catalog.getAttribute('open') === null) await catalog.locator('summary').click();
@@ -762,6 +763,7 @@ test('supply product card shows offer state and requests waiting for the supplie
       const shop = await launchStore(retailer, '狀態選物再申請');
       await post(retailer, shop.root + '/setup', {name: '狀態選物再申請', slug: `stateb-${randomUUID().slice(0, 8)}`, currency: 'TWD'}, 201);
       await open(retailer, shop.hash);
+      await storeArea(retailer, '供貨合作');
       await retailer.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
       const catalog = retailer.locator('.hosted-distribution details').filter({has: retailer.locator('summary').filter({hasText: '選用其他商店'})});
       if (await catalog.getAttribute('open') === null) await catalog.locator('summary').click();

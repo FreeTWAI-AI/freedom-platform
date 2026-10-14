@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
-import {person,login as loginMember,open,post,launchStore} from './hosted-store-fixture.js';
+import {person,login as loginMember,open,post,launchStore,storeArea} from './hosted-store-fixture.js';
 
 async function login(page:Page){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
@@ -155,6 +155,7 @@ test('a refused leave from an unpublished store does not settle the supply share
   const slug=`draft${randomUUID().replaceAll('-','').slice(0,12)}`;
   await post(page,ready.root+'/setup',{name:'原商店名稱',description:'',slug,currency:'TWD'},201);
   await open(page,ready.hash);
+  await storeArea(page,'商店資料');
   const settings=page.getByRole('form',{name:'商店資料',exact:true});
   const name=settings.getByLabel('商店名稱',{exact:true});
   await name.fill('留下未發布草稿');
