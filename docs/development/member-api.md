@@ -85,6 +85,21 @@ enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
 Binary uploads and signed machine transports retain their own bounded readers.
 
+Owner share settings (`GET /me/member-card-share`), the owner social-link list
+and the authenticated member social-link projection hold current user/session
+locks through the database read and recheck `clock_timestamp()` after its last
+domain query. Expiry during a SQL wait returns `401 session_expired` without
+private values. The social-link audience predicate, count and page remain in
+one statement snapshot; a projection callback alone is not an authentication API.
+
+Social-link create/edit/delete commands commit before their separate current-value
+readback. That readback has the same session fence, including tombstones and
+receipt replays. A late 401 does **not** roll back an already committed command:
+after logging in again, explicitly retry the same body/version/Idempotency-Key
+to recover its current value or tombstone, without duplication or resurrection.
+The decision is before commit, not a guarantee throughout response transport;
+anonymous public-card sharing retains its separate policy.
+
 HTTPS deployments use `__Host-freedom_session` with `Secure`, `HttpOnly`,
 `SameSite=Strict`, `Path=/` and no `Domain`. Only explicitly configured local
 HTTP loopback hosts use `freedom_local_session` without `Secure`. Cookie names

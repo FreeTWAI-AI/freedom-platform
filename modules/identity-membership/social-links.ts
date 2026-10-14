@@ -3,6 +3,7 @@ import {isIP} from 'node:net';
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {command,checkVersion,journal,type Command} from '../../packages/db/index.js';
+import {readWithMemberSession} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from './service.js';
 
@@ -47,7 +48,7 @@ function tombstone(row:any){return {link_id:row.link_id,deleted:true as const,ag
 // Actor object or a revoked cookie must not restore read access.
 const activeViewer=`SELECT u.user_id FROM users u JOIN sessions s ON s.user_id=u.user_id WHERE u.user_id=$1 AND u.community_id=$2
  AND u.active AND s.token_hash=$3 AND s.revoked_at IS NULL AND s.expires_at>now()`;
-export async function ownSocialLinks(pool:Pool,actor:Actor,raw:unknown={}){
+export async function ownSocialLinks(pool:Pick<Pool,'query'>,actor:Actor,raw:unknown={}){
  const {limit,offset}=SocialLinkPagination.parse(raw);
  const row=(await pool.query(`WITH viewer AS (${activeViewer}), links AS (
  SELECT l.${ownColumns.replaceAll(',',',l.')} FROM member_social_links l JOIN viewer v ON v.user_id=l.user_id
@@ -63,13 +64,15 @@ async function ownedRow(q:Pool|PoolClient,actor:Actor,id:string,lock=false){
  requireCondition(row,404,'social_link_not_found','找不到這個連結。');return row;
 }
 async function currentOwnEntry(pool:Pool,actor:Actor,id:string){
- const row=(await pool.query(`WITH viewer AS (${activeViewer}) SELECT l.* FROM member_social_links l JOIN viewer v ON v.user_id=l.user_id
+ return readWithMemberSession(pool,actor,async q=>{
+ const row=(await q.query(`WITH viewer AS (${activeViewer}) SELECT l.* FROM member_social_links l JOIN viewer v ON v.user_id=l.user_id
  WHERE l.link_id=$4 AND l.community_id=$2`,[actor.user_id,actor.community_id,actor.session_hash,id])).rows[0];
  requireCondition(row,404,'social_link_not_found','找不到這個連結，請重新整理。');
  if(row.deleted_at)return tombstone(row);
  // Explicitly select only fields intended for the owner, not raw DB metadata.
  const {link_id,platform,label,url,audiences,aggregate_version,created_at,updated_at}=row;
  return ownEntry({link_id,platform,label,url,audiences,aggregate_version,created_at,updated_at});
+ });
 }
 export async function createSocialLink(pool:Pool,input:Command){
  const body=validatedInput(input.body);
@@ -101,7 +104,7 @@ export async function deleteSocialLink(pool:Pool,input:Command,id:string){
  });
  return currentOwnEntry(pool,input.actor,ref.link_id);
 }
-export async function visibleSocialLinks(pool:Pool,actor:Actor,memberId:string,raw:unknown={}){
+export async function visibleSocialLinks(pool:Pick<Pool,'query'>,actor:Actor,memberId:string,raw:unknown={}){
  memberId=z.uuid().parse(memberId).toLowerCase();const {limit,offset}=VisibleSocialLinkPagination.parse(raw);
  // All link values, audience predicates, count and page are one PostgreSQL
  // statement snapshot. Hidden entries cannot influence total or pagination.
