@@ -95,11 +95,11 @@ async function shown(q: Db, actor: Actor, id: string) {
   return view((await one(q, actor.community_id, actor.user_id, id))!, actor.user_id, await canHideMemberContent(q, actor));
 }
 
-export async function listMemberServices(pool: Pool, actor: Actor, query: { category?: string; cursor?: string }) {
+export async function listMemberServices(db: Db, actor: Actor, query: { category?: string; cursor?: string }) {
   const category = categoryOf(query.category, true);
   const cursor = cursorOf(query.cursor, true);
-  const canHide = await canHideMemberContent(pool, actor);
-  const rows = (await pool.query(`${LIST}
+  const canHide = await canHideMemberContent(db, actor);
+  const rows = (await db.query(`${LIST}
     WHERE s.community_id=$1 AND s.state='active'
       AND (s.owner_user_id=$2 OR (u.active AND NOT is_verification_test_account(u.user_id)))
       AND ($3::text IS NULL OR s.category=$3)
@@ -110,9 +110,9 @@ export async function listMemberServices(pool: Pool, actor: Actor, query: { cate
   return { items: pageRows.map(row => view(row, actor.user_id, canHide)), next_cursor: rows.length > MEMBER_PAGE && last ? encodeCursor(last.updated_cursor, last.service_id) : null, can_hide: canHide };
 }
 
-export async function listMyMemberServices(pool: Pool, actor: Actor) {
-  const canHide = await canHideMemberContent(pool, actor);
-  const rows = (await pool.query(`${LIST} WHERE s.community_id=$1 AND s.owner_user_id=$2 AND s.state IN ('active','paused')
+export async function listMyMemberServices(db: Db, actor: Actor) {
+  const canHide = await canHideMemberContent(db, actor);
+  const rows = (await db.query(`${LIST} WHERE s.community_id=$1 AND s.owner_user_id=$2 AND s.state IN ('active','paused')
     ORDER BY s.updated_at DESC,s.service_id DESC`, [actor.community_id, actor.user_id])).rows as Row[];
   return { items: rows.map(row => view(row, actor.user_id, canHide)), can_hide: canHide, limit: SERVICE_LIMIT };
 }
