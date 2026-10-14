@@ -34,6 +34,8 @@
 
 公會長清單一定要排在 advisory lock **之後**。離開公會的交易是先拿 advisory lock、再 `FOR UPDATE` 更新 membership；如果讀取端先用 `managedGuilds()` 對 membership 拿了 `FOR SHARE`，再去等 advisory lock，兩邊會互等而觸發 deadlock（稽核時發現的回歸）。調整後讀取端等鎖時不持有任何 membership／officer 資料列，離開公會 commit 後才讀，看到的是已 commit 的狀態。
 
+會員私人讀取在等完公會鎖、回傳資料前，會再用 `assertCurrentSessionClock()` 以 `clock_timestamp()` 重查同一個 session。`activeMember()` 的 `expires_at>now()` 停在交易開始；鎖等待跨過登入到期後，工作區資格、公告（含草稿）、公告摘要、技能書編輯器與公會議事都回 `401 session_expired`，不回內文。寫入仍走 `command()` 既有的 session 時鐘重查。
+
 ### 測試證據
 
 `tests/runtime/guild-workspace.test.ts` 用真實 PostgreSQL 與 `pg_stat_activity` 等待事件做 barrier，不靠 sleep：

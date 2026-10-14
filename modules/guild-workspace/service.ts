@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import type {Pool,PoolClient} from 'pg';
 import {command,transaction,checkVersion,type Command} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from '../platform-admin/service.js';
@@ -41,9 +42,10 @@ export async function guildWorkspace(pool:Pool,actor:Actor){return transaction(p
  const internBlocked=appointed.length>0&&!eligible&&(await internDevelopmentGuilds(q,actor,'skill')).length>0;
  const required=(await q.query('SELECT guild_key,name FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[]) ORDER BY guild_key',[developmentGuilds.skill])).rows;
  // Appointed books stay hidden until the member has a full AI-guild membership; the counts let the UI show why.
+ await assertCurrentSessionClock(q,actor);
  return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,can_review_pulls:guilds.length>0||rows.length>0,
   skill_editor_access:{appointed_books:appointed.length,eligible,requires_development_guild:appointed.length>0&&!eligible,intern_blocked:internBlocked,active_guilds:development,required_guilds:required}};});}
-export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);return {items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};});}
+export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);await assertCurrentSessionClock(q,actor);return {items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};});}
 /** One bounded stream for the member's current guilds; drafts and former memberships stay private. */
 export async function memberGuildAnnouncementFeed(pool:Pool,actor:Actor){return transaction(pool,async q=>{
  await activeMember(q,actor);
@@ -53,6 +55,7 @@ export async function memberGuildAnnouncementFeed(pool:Pool,actor:Actor){return 
    JOIN positioning_guild_catalog g ON g.guild_key=a.guild_key
    WHERE a.community_id=$1 AND a.state='published'
    ORDER BY a.updated_at DESC,a.announcement_id DESC LIMIT 50 FOR SHARE OF m`,[actor.community_id,actor.user_id])).rows;
+ await assertCurrentSessionClock(q,actor);
  return {items:rows.map(row=>({announcement_id:row.announcement_id,title:row.title,body:row.body,guild_name:row.guild_name,updated_at:new Date(row.updated_at).toISOString()}))};
 });}
 export async function createGuildAnnouncement(pool:Pool,input:Command,key:string){const body=announcementInput.parse(input.body);requireCondition(body.state!=='archived',422,'announcement_state_invalid','新公告請選草稿或發布。');return command(pool,input,q=>leader(q,input.actor,key),async q=>{const row=(await q.query('INSERT INTO guild_announcements(announcement_id,community_id,guild_key,author_user_id,title,body,state) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[randomUUID(),input.actor.community_id,key,input.actor.user_id,body.title,body.body,body.state])).rows[0];return announcement(row);});}
@@ -73,7 +76,7 @@ function initialEditorial(bookId:string){
    milestone_id:collaboration.milestones.find(m=>m.task_ids.includes(task.id))?.id??null,status:'todo' as const})),
   updated_at:null,aggregate_version:0};
 }
-export async function skillEditor(pool:Pool,actor:Actor,bookId:string){return transaction(pool,async q=>{await activeMember(q,actor);await requireSkillBookMaintainer(q,actor,bookId);const row=(await q.query(`SELECT ${publicEditorialColumns} FROM skill_book_editorial WHERE book_id=$1 AND community_id=$2`,[bookId,actor.community_id])).rows[0];return {book_id:bookId,...(row?editorial(row):initialEditorial(bookId))};});}
+export async function skillEditor(pool:Pool,actor:Actor,bookId:string){return transaction(pool,async q=>{await activeMember(q,actor);await requireSkillBookMaintainer(q,actor,bookId);const row=(await q.query(`SELECT ${publicEditorialColumns} FROM skill_book_editorial WHERE book_id=$1 AND community_id=$2`,[bookId,actor.community_id])).rows[0];await assertCurrentSessionClock(q,actor);return {book_id:bookId,...(row?editorial(row):initialEditorial(bookId))};});}
 export async function saveSkillEditorial(pool:Pool,input:Command,bookId:string){
  const source=book(bookId),body=editorialInput.parse(input.body);
  requireCondition(Buffer.byteLength(JSON.stringify(body),'utf8')<=12000,422,'editorial_too_large','技能書摘要與待辦合計請控制在 12 KB 內。');
@@ -114,8 +117,8 @@ async function councilThread(q:PoolClient,who:CouncilIdentity,threadId:string){
 async function councilList(q:PoolClient,who:CouncilIdentity){return {items:(await q.query(`SELECT ${threadFields},(SELECT count(*)::int FROM guild_council_replies r WHERE r.thread_id=t.thread_id AND r.community_id=t.community_id) AS reply_count FROM guild_council_threads t ${threadJoins} WHERE t.community_id=$1 ORDER BY t.created_at DESC,t.thread_id LIMIT 100`,[who.community_id])).rows};}
 async function createThread(q:PoolClient,who:CouncilIdentity,body:z.infer<typeof threadInput>){const threadId=randomUUID();await q.query('INSERT INTO guild_council_threads(thread_id,community_id,author_user_id,author_admin_id,title,body) VALUES($1,$2,$3,$4,$5,$6)',[threadId,who.community_id,who.user_id??null,who.admin_id??null,body.title,body.body]);return councilThread(q,who,threadId);}
 async function createReply(q:PoolClient,who:CouncilIdentity,threadId:string,body:z.infer<typeof replyInput>){await councilThread(q,who,threadId);const row=(await q.query('INSERT INTO guild_council_replies(reply_id,community_id,thread_id,author_user_id,author_admin_id,body) VALUES($1,$2,$3,$4,$5,$6) RETURNING reply_id,body,created_at',[randomUUID(),who.community_id,threadId,who.user_id??null,who.admin_id??null,body.body])).rows[0];return row;}
-export async function listGuildCouncil(pool:Pool,actor:Actor){return transaction(pool,async q=>{await activeMember(q,actor);await leader(q,actor);return councilList(q,actor);});}
-export async function getGuildCouncilThread(pool:Pool,actor:Actor,threadId:string){return transaction(pool,async q=>{await activeMember(q,actor);await leader(q,actor);return councilThread(q,actor,threadId);});}
+export async function listGuildCouncil(pool:Pool,actor:Actor){return transaction(pool,async q=>{await activeMember(q,actor);await leader(q,actor);await assertCurrentSessionClock(q,actor);return councilList(q,actor);});}
+export async function getGuildCouncilThread(pool:Pool,actor:Actor,threadId:string){return transaction(pool,async q=>{await activeMember(q,actor);await leader(q,actor);await assertCurrentSessionClock(q,actor);return councilThread(q,actor,threadId);});}
 export async function createGuildCouncilThread(pool:Pool,input:Command){const body=threadInput.parse(input.body);return command(pool,input,q=>leader(q,input.actor),q=>createThread(q,input.actor,body));}
 export async function replyGuildCouncilThread(pool:Pool,input:Command,threadId:string){const body=replyInput.parse(input.body);return command(pool,input,q=>leader(q,input.actor),q=>createReply(q,input.actor,threadId,body));}
 export async function listAdminCouncil(pool:Pool,admin:AdminActor){return transaction(pool,async q=>{await activeAdmin(q,admin);return councilList(q,admin);});}
