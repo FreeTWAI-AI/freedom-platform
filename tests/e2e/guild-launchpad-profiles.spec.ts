@@ -185,7 +185,8 @@ test('supplier-only member publishes supply without a slug, retail page or comme
     await supply.getByRole('textbox', {name: '出貨條件', exact: true}).fill('三日內出貨');
     await supply.getByRole('textbox', {name: '退貨條件', exact: true}).fill('請先聯絡供應商');
     await supply.getByRole('button', {name: '儲存供貨條件', exact: true}).click();
-    await page.locator('.hosted-store-product').getByRole('button', {name: '供貨條件', exact: true}).click();
+    await expect(page.locator('.hosted-supply-catalog > [role="status"]')).toHaveText('已儲存供貨條件。可直接確認並公開這一版。');
+    await expect(supply.getByRole('button', {name: '公開供貨版本', exact: true})).toBeEnabled();
     await supply.getByRole('button', {name: '公開供貨版本', exact: true}).click();
     await page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
     await expect(page.locator('.hosted-distribution summary').filter({hasText: '我的供貨（1）'})).toBeVisible();
