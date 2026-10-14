@@ -80,8 +80,9 @@ callback. Feature extraction does not create a new authorization boundary.
 `listWorks` 使用明確欄位與原排序 `created_at DESC, work_item_id`；本人 Claim
 以 `work_item_id = ANY(...) AND claimant_ref = ...` 批次讀取，再以
 `DISTINCT ON (claim_id)`／`revision DESC` 讀取最新 Submission。有工作的清單最多
-三次 SQL（沒有本人 Claim 時兩次，空清單一次），DTO、回饋、條款、驗收安排
-與社群／工作模式可見性不變，Submission 的內部 `claim_id` 不加入回應。
+三次 domain SQL（沒有本人 Claim 時兩次，空清單一次）；另有 session 驗證與交易
+SQL。DTO、回饋、條款、驗收安排與社群／工作模式可見性不變，Submission 的內部
+`claim_id` 不加入回應。
 
 本次保留 `GET /api/v1/work-items` 的完整 `{items}` 契約，**未加入分頁或上限**。
 `WorkbenchPanel` 與 `TaskBoardPanel` 都將它當成完整清單；`dashboard` 也共用
@@ -92,10 +93,27 @@ callback. Feature extraction does not create a new authorization boundary.
 `DISTINCT ON (claim_id)`／`revision DESC` 批次讀取最新 Submission（沒有待回饋
 認領時略過這次查詢），DTO、排序與原逐筆版本一致，Submission 的內部 `claim_id`
 不加入回應；仍**未加入分頁或上限**。
-`flows.test.ts` 用真實 PostgreSQL 比對逐筆版本與批次 DTO，涵蓋一筆／十七筆、
-無 Claim／無 Submission、多次 revision、他人 Claim、過期／撤銷 Review 與空社群；
-HTTP 包裝仍是 `{items}`。另以真實 PostgreSQL 比對 0／1／6 筆待回饋時與逐筆版本相同，
-且 1 筆與 6 筆的查詢次數相同。
+`flows.test.ts` 以真實 PostgreSQL／HTTP 入口驗證一筆與十七筆的完整排序、本人與
+他人 Claim、無 Submission、最新 revision、回饋和內部 join key 不外洩；待回饋
+清單另覆蓋 0／1／6 筆及自己、過期／撤銷 Review、補件排除。保留 `{items}` 契約，
+不以複製舊 reader、假的 query-only Pool 或固定 SQL 次數／source 文字當驗證。
+
+### 舊版會員投影的 session lifetime（#607）
+
+`GET /api/v1/work-items` 不只有社群 Work，還有本人的 Claim／Submission；
+`GET /api/v1/dashboard` 也有 gained 及指定 reviewer 的待驗收 Submission。兩個
+server reader 都重用 `readWithMemberSession`，完整 database-only 投影使用同一
+原生 transaction client，在最後 domain SQL 後驗目前 session 決策時鐘。
+dashboard 內部共用 query-only 投影，不巢狀呼叫另一 public reader。
+
+Review 可用性／review_queue 保留原本每個 SQL statement 的時間語意：
+`statement_timestamp()` 不會像移入交易後的 `now()` 固定在整個交易起點。這不
+改 review 規則、claim／receipt、community_collaboration 篩選、私人／tenant Work
+或完整清單契約，也沒有加入 pagination、上限或外部 I/O。
+
+Consumer regression 以實際 PostgreSQL 阻塞與資料庫時鐘驗證本人最後 Submission、
+dashboard 後段的 session 到期／有效，以及有效 session 的 Review 期限在兩段 SQL
+之間到期。Runtime、loopback HTTP 與部署驗收是分開的證據，不能由 source 推定已部署。
 
 
 ## Tenant manual Work
