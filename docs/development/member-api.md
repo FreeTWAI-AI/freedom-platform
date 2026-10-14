@@ -158,6 +158,10 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   `email_verification_link_invalid`. Successful confirmation consumes all
   outstanding verification proofs for that user, without logging in or changing
   passwords/sessions. Confirmation budgets: 30/network/hour, 500/global/hour.
+  Expiry is rechecked against the database clock after consuming outstanding
+  proofs, before the transaction returns (#492). Expiry during proof-lock or
+  competing-proof waits rolls back verification and all proof consumption;
+  another still-valid link remains usable.
   Apply migration `157_email_verification.sql` before using these routes; no
   deployment or mail-provider availability is implied by this implementation.
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
