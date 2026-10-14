@@ -86,7 +86,7 @@ export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToke
     return c.json(result, 201);
   });
   app.get('/me/skill-submissions/:id', async c => {
-    const result = await readSubmission(pool, c.get('actor'), c.req.param('id'));
+    const result = await readWithMemberSession(pool, c.get('actor'), q => readSubmission(q, c.get('actor'), c.req.param('id')));
     withEtag(c, result);
     return c.json(result);
   });

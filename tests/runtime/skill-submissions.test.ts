@@ -191,6 +191,29 @@ test('agent auth: key creates draft only, cookies and other bearer kinds rejecte
  assert.equal(isAgentSkillUploadPath('POST',`/agent-api/v1/skill-submissions/${id}/publish`),false);assert.equal(isAgentSkillUploadPath('GET','/agent-api/v1/skill-submissions'),false);
 });
 
+test('the skill submission detail is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await login();const draft=await uploaded(owner);const id=draft.submission_id as string;
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_submissions IN ACCESS EXCLUSIVE MODE');
+  pending=api(`/me/skill-submissions/${id}`,owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'submission detail must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
 test('payload is strict: exactly 100 distinct single-line introductions and no consent/official/member fields',async()=>{
  const owner=await login(),key=(await newKey(owner)).token,draft=await agentDraft(key),id=draft.submission.submission_id,grant=draft.upload_grant.token;
  const bad:[string,Record<string,unknown>][]= [

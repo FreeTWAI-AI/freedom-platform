@@ -219,8 +219,8 @@ export async function reviseManualSubmission(pool: Pool, input: Command, id: str
     return submissionView(row);
   });
 }
-export async function readSubmission(pool: Pool, actor: Actor, id: string) {
-  return submissionView(await ownedSubmission(pool, actor, uuidOrNotFound(id)));
+export async function readSubmission(db: Queryable, actor: Actor, id: string) {
+  return submissionView(await ownedSubmission(db, actor, uuidOrNotFound(id)));
 }
 export async function readOwnIllustration(pool: Pool, actor: Actor, id: string,store?:import('../../packages/asset-storage/index.js').ObjectStore) {
   const bytes=await readSkillImage(pool,uuidOrNotFound(id),store,actor);requireCondition(bytes,404,'illustration_not_found','這份投稿沒有示意圖。');return bytes!;
