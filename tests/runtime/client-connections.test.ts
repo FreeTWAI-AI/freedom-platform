@@ -1,11 +1,14 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
-import { Pool } from 'pg';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
+import { Pool, type PoolClient } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
-import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
-import { tokenHash } from '../../modules/identity-membership/service.js';
+import { seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY } from '../../packages/testing/seed.js';
+import { login, tokenHash } from '../../modules/identity-membership/service.js';
+import { approveClientPairing, pollClientPairing, readClientResource } from '../../modules/client-connections/service.js';
+import { Problem } from '../../packages/shared/problem.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -176,4 +179,376 @@ test('a pending approved token exchange waits for member deactivation and never 
  const response=await deactivateWhileWaiting(member.user.user_id,()=>api('/client-connections/poll',undefined,{device_secret:pairing.device_secret}));
  assert.equal(response.status,400);assert.equal(response.data.status,'invalid_grant');
  assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE user_id=$1',[member.user.user_id])).rows[0].token_hash,null);
+});
+
+async function rollbackAndSettle(blocker: PoolClient, operation?: Promise<unknown>) {
+  try { await blocker.query('ROLLBACK'); }
+  catch (error) {
+    blocker.release(error instanceof Error ? error : true);
+    await operation;
+    throw error;
+  }
+  blocker.release();
+  await operation;
+}
+
+async function waitForMemberLock(queryPrefix: string) {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const locked = await admin.query('SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type=$1 AND query LIKE $2', ['Lock', queryPrefix + '%']);
+    if (locked.rowCount) return;
+    assert.ok(attempt < 199, 'operation must wait on the member lock');
+    await delay(10);
+  }
+}
+
+test('a poll waiting on the member lock cannot collect a token after pairing expiry', async () => {
+  const member = await ready();
+  const pairing = await start('supplier');
+  assert.equal((await api(`/client-connections/${pairing.user_code}/approve`, member, { confirmed: true })).status, 200);
+  await pool.query("UPDATE client_pairing_requests SET expires_at=clock_timestamp()+interval '2 seconds', last_polled_at=NULL");
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE', [member.user.user_id]);
+  const poll = api('/client-connections/poll', undefined, { device_secret: pairing.device_secret });
+  try {
+    await waitForMemberLock('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2');
+    await pool.query("SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM client_pairing_requests");
+    await blocker.query('COMMIT');
+    const issued = await poll;
+    assert.equal(issued.status, 400);
+    assert.equal(issued.data.status, 'invalid_grant');
+    assert.equal(issued.data.access_token, undefined);
+    assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE user_id=$1', [member.user.user_id])).rows[0].token_hash, null);
+  } finally {
+    await rollbackAndSettle(blocker,poll);
+  }
+});
+
+test('an approval waiting on the member lock cannot accept an expired pairing code', async () => {
+  const member = await ready();
+  const pairing = await start('supplier');
+  await pool.query("UPDATE client_pairing_requests SET expires_at=clock_timestamp()+interval '2 seconds'");
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE', [member.user.user_id]);
+  const approval = api(`/client-connections/${pairing.user_code}/approve`, member, { confirmed: true });
+  try {
+    await waitForMemberLock('SELECT user_id FROM users WHERE user_id=$1 AND community_id=$2 AND active');
+    await pool.query("SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM client_pairing_requests");
+    await blocker.query('COMMIT');
+    const result = await approval;
+    assert.equal(result.status, 404);
+    assert.equal(result.data.code, 'pairing_not_found');
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections')).rows[0].n, 0);
+  } finally {
+    await rollbackAndSettle(blocker,approval);
+  }
+});
+
+test('a bearer read waiting on the member lock cannot return data after connection expiry', async () => {
+  const member = await ready();
+  const connected = await connect(member, 'supplier');
+  await pool.query("UPDATE member_client_connections SET expires_at=clock_timestamp()+interval '2 seconds' WHERE connection_id=$1", [connected.connection_id]);
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE', [member.user.user_id]);
+  const read = client('/supplier/products', connected.access_token);
+  try {
+    await waitForMemberLock('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL FOR SHARE');
+    await pool.query("SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM member_client_connections WHERE connection_id=$1", [connected.connection_id]);
+    await blocker.query('COMMIT');
+    const result = await read;
+    assert.equal(result.status, 401);
+    assert.equal(result.data.code, 'client_token_invalid');
+  } finally {
+    await rollbackAndSettle(blocker,read);
+  }
+});
+
+async function waitForCredentialLock(blockerPid:number){
+  for(let attempt=0;attempt<200;attempt++){
+    const waiting=await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[blockerPid]);
+    if(waiting.rowCount)return;
+    await delay(20);
+  }
+  assert.fail('credential request did not wait for the held lock');
+}
+
+for(const waitAt of ['member','connection','write'] as const)for(const expires of ['connection','pairing'] as const)test(`an approved pairing cannot mint after ${expires} expires during the ${waitAt} lock`,async()=>{
+  const member=await ready();
+  const connectionId=randomUUID();
+  const deviceSecret=`fw_pair_${randomBytes(32).toString('base64url')}`;
+  await pool.query(`INSERT INTO member_client_connections(connection_id,community_id,user_id,client_name,kind,scope,expires_at)
+    VALUES($1,$2,$3,'合成客戶端','supplier','supplier:read',clock_timestamp()+$4::interval)`,[connectionId,DEMO_COMMUNITY,member.user.user_id,expires==='connection'?'1 second':'1 hour']);
+  await pool.query(`INSERT INTO client_pairing_requests(pairing_id,device_secret_hash,user_code_hash,kind,client_name,state,connection_id,expires_at)
+    VALUES($1,$2,$3,'supplier','合成客戶端','approved',$4,clock_timestamp()+$5::interval)`,[randomUUID(),tokenHash(deviceSecret),tokenHash(randomUUID()),connectionId,expires==='pairing'?'1 second':'1 hour']);
+ const blocker=await pool.connect();
+ let pending:ReturnType<typeof pollClientPairing>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const blockerPid=Number((await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+  if(waitAt==='member')await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE',[member.user.user_id]);
+  else if(waitAt==='connection')await blocker.query('SELECT connection_id FROM member_client_connections WHERE connection_id=$1 FOR UPDATE',[connectionId]);
+  else await blocker.query('LOCK TABLE member_client_connections IN SHARE MODE');
+  pending=pollClientPairing(pool,{device_secret:deviceSecret},'127.0.0.1');
+  await waitForCredentialLock(blockerPid);
+  await blocker.query(`SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM ${expires==='pairing'?'client_pairing_requests':'member_client_connections'} WHERE connection_id=$1`,[connectionId]);
+ }finally{
+  await rollbackAndSettle(blocker,pending);
+ }
+ const result=await pending!;
+  assert.equal(result.status,'invalid_grant');
+  assert.equal('access_token' in result,false);
+  assert.equal((await pool.query('SELECT state,token_hash FROM client_pairing_requests p LEFT JOIN member_client_connections c USING(connection_id) WHERE p.connection_id=$1',[connectionId])).rows[0].state,'approved');
+  assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE connection_id=$1',[connectionId])).rows[0].token_hash,null);
+});
+
+for(const waitAt of ['member','connection','products'] as const)test(`an expired client credential cannot read after the ${waitAt} lock wait`,async()=>{
+  const member=await ready();
+  const token=`fw_read_${randomBytes(32).toString('base64url')}`;
+  const connectionId=randomUUID();
+  await pool.query(`INSERT INTO member_client_connections(connection_id,community_id,user_id,client_name,kind,scope,token_hash,expires_at)
+    VALUES($1,$2,$3,'合成客戶端','supplier','supplier:read',$4,clock_timestamp()+interval '1 second')`,[connectionId,DEMO_COMMUNITY,member.user.user_id,tokenHash(token)]);
+ const blocker=await pool.connect();
+ let pending:Promise<{value:unknown;error:Problem|null}>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const blockerPid=Number((await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+  if(waitAt==='member')await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE',[member.user.user_id]);
+  else if(waitAt==='connection')await blocker.query('SELECT connection_id FROM member_client_connections WHERE connection_id=$1 FOR UPDATE',[connectionId]);
+  else await blocker.query('LOCK TABLE catalog_products IN ACCESS EXCLUSIVE MODE');
+  pending=readClientResource(pool,`Bearer ${token}`,waitAt==='products'?'products':'connection').then(value=>({value,error:null as Problem|null}),error=>{assert.ok(error instanceof Problem);return {value:null,error};});
+  await waitForCredentialLock(blockerPid);
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM member_client_connections WHERE connection_id=$1',[connectionId]);
+ }finally{
+  await rollbackAndSettle(blocker,pending);
+ }
+ const result=await pending!;
+  assert.equal(result.value,null);
+  assert.equal(result.error?.status,401);
+  assert.equal(result.error?.code,'client_token_invalid');
+});
+
+
+for(const waitAt of ['pairing','connections','receipt'] as const)test(`an expired pairing code cannot be approved after the ${waitAt} lock wait`,async()=>{
+ await ready();
+ const actor=(await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD)).actor;
+ const code=randomBytes(10).toString('hex').toUpperCase();
+ const pairingId=randomUUID();
+ const key=randomUUID(),operation='client-pairing-approve';
+ await pool.query(`INSERT INTO client_pairing_requests(pairing_id,device_secret_hash,user_code_hash,kind,client_name,expires_at)
+  VALUES($1,$2,$3,'supplier','合成客戶端',clock_timestamp()+interval '1 second')`,[pairingId,tokenHash(randomUUID()),tokenHash(code)]);
+ const blocker=await pool.connect();
+ let pending:Promise<{error:Problem|null}>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const blockerPid=Number((await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+  if(waitAt==='pairing')await blocker.query('SELECT pairing_id FROM client_pairing_requests WHERE pairing_id=$1 FOR UPDATE',[pairingId]);
+  else if(waitAt==='connections')await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`client-connections/${actor.user_id}`]);
+  else await blocker.query('LOCK TABLE command_receipts IN SHARE MODE');
+  pending=approveClientPairing(pool,{actor,operation,key,body:{confirmed:true}},code).then(()=>({error:null}),error=>{assert.ok(error instanceof Problem);return {error};});
+  for(let attempt=0;attempt<200;attempt++){
+   const waiting=await admin.query(`SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))`,[blockerPid]);
+   if(waiting.rowCount)break;
+   await delay(20);
+   if(attempt===199)assert.fail(`approval did not wait at ${waitAt}`);
+  }
+  await blocker.query(`SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM client_pairing_requests WHERE pairing_id=$1`,[pairingId]);
+ }finally{
+  await rollbackAndSettle(blocker,pending);
+ }
+ const result=await pending!;
+ assert.equal(result.error?.status,404);
+ assert.equal(result.error?.code,'pairing_not_found');
+ assert.equal((await pool.query('SELECT state FROM client_pairing_requests WHERE pairing_id=$1',[pairingId])).rows[0].state,'pending');
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections WHERE user_id=$1',[actor.user_id])).rows[0].n,0);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[actor.user_id,operation,key])).rows[0].n,0);
+});
+
+test('a committed pairing approval remains replayable after the code expires',async()=>{
+ const member=await ready(),pairing=await start('supplier'),key=randomUUID();
+ const path=`/client-connections/${pairing.user_code}/approve`;
+ const approved=await api(path,member,{confirmed:true},undefined,key);
+ assert.equal(approved.status,200);
+ await pool.query("UPDATE client_pairing_requests SET expires_at=clock_timestamp()-interval '1 second' WHERE connection_id=$1",[approved.data.connection_id]);
+ const replay=await api(path,member,{confirmed:true},undefined,key);
+ assert.equal(replay.status,200);
+ assert.deepEqual(replay.data,approved.data);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections WHERE user_id=$1',[member.user.user_id])).rows[0].n,1);
+});
+
+
+async function waitForOwnedBlocker(blockerPid: number, queryPattern: string) {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const waiting = await pool.query(
+      `SELECT pid FROM pg_stat_activity
+       WHERE datname=current_database() AND wait_event_type='Lock' AND $1=ANY(pg_blocking_pids(pid)) AND query LIKE $2`,
+      [blockerPid, queryPattern],
+    );
+    if (waiting.rowCount) return;
+    assert.ok(attempt < 199, 'operation must wait on the owned blocking backend');
+    await delay(10);
+  }
+}
+
+async function sleepUntilRowExpiry(table: 'client_pairing_requests' | 'member_client_connections', id: string) {
+  const column = table === 'client_pairing_requests' ? 'pairing_id' : 'connection_id';
+  await pool.query(
+    `SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM ${table} WHERE ${column}=$1`,
+    [id],
+  );
+}
+
+async function pairingRow(userCode: string) {
+  return (await pool.query(
+    'SELECT pairing_id, connection_id, state FROM client_pairing_requests WHERE user_code_hash=$1',
+    [tokenHash(userCode.replace(/-/g, ''))],
+  )).rows[0];
+}
+
+test('a poll waiting on the connection row cannot mint a token after pairing expiry', async () => {
+  const member = await ready();
+  const pairing = await start('supplier');
+  assert.equal((await api(`/client-connections/${pairing.user_code}/approve`, member, { confirmed: true })).status, 200);
+  const saved = await pairingRow(pairing.user_code);
+  await pool.query("UPDATE client_pairing_requests SET expires_at=clock_timestamp()+interval '4 seconds', last_polled_at=NULL WHERE pairing_id=$1", [saved.pairing_id]);
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  // Lock the credential row without updating it, so a stale expiry predicate is not rechecked.
+  await blocker.query('SELECT connection_id FROM member_client_connections WHERE connection_id=$1 FOR UPDATE', [saved.connection_id]);
+  const poll = api('/client-connections/poll', undefined, { device_secret: pairing.device_secret });
+  try {
+    await waitForOwnedBlocker(pid, '%member_client_connections%FOR UPDATE%');
+    await sleepUntilRowExpiry('client_pairing_requests', saved.pairing_id);
+    await blocker.query('COMMIT');
+    const issued = await poll;
+    assert.equal(issued.status, 400);
+    assert.equal(issued.data.status, 'invalid_grant');
+    assert.equal(Object.hasOwn(issued.data, 'access_token'), false);
+    assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE connection_id=$1', [saved.connection_id])).rows[0].token_hash, null);
+    assert.equal((await pool.query('SELECT state FROM client_pairing_requests WHERE pairing_id=$1', [saved.pairing_id])).rows[0].state, 'approved');
+  } finally {
+    await rollbackAndSettle(blocker,poll);
+  }
+});
+
+test('a poll waiting on the connection row cannot mint a token after connection expiry', async () => {
+  const member = await ready();
+  const pairing = await start('supplier');
+  assert.equal((await api(`/client-connections/${pairing.user_code}/approve`, member, { confirmed: true })).status, 200);
+  const saved = await pairingRow(pairing.user_code);
+  await pool.query("UPDATE member_client_connections SET expires_at=clock_timestamp()+interval '4 seconds' WHERE connection_id=$1", [saved.connection_id]);
+  await pool.query('UPDATE client_pairing_requests SET last_polled_at=NULL WHERE pairing_id=$1', [saved.pairing_id]);
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('SELECT connection_id FROM member_client_connections WHERE connection_id=$1 FOR UPDATE', [saved.connection_id]);
+  const poll = api('/client-connections/poll', undefined, { device_secret: pairing.device_secret });
+  try {
+    await waitForOwnedBlocker(pid, '%member_client_connections%FOR UPDATE%');
+    await sleepUntilRowExpiry('member_client_connections', saved.connection_id);
+    await blocker.query('COMMIT');
+    const issued = await poll;
+    assert.equal(issued.status, 400);
+    assert.equal(issued.data.status, 'invalid_grant');
+    assert.equal(Object.hasOwn(issued.data, 'access_token'), false);
+    assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE connection_id=$1', [saved.connection_id])).rows[0].token_hash, null);
+    assert.equal((await pool.query('SELECT state FROM client_pairing_requests WHERE pairing_id=$1', [saved.pairing_id])).rows[0].state, 'approved');
+  } finally {
+    await rollbackAndSettle(blocker,poll);
+  }
+});
+
+async function assertRejectedApproval(member: Session, pairingId: string, result: { status: number; data: any }) {
+  assert.equal(result.status, 404);
+  assert.equal(result.data.code, 'pairing_not_found');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections')).rows[0].n, 0);
+  assert.equal((await pool.query('SELECT state, connection_id FROM client_pairing_requests WHERE pairing_id=$1', [pairingId])).rows[0].state, 'pending');
+  assert.equal((await pool.query('SELECT connection_id FROM client_pairing_requests WHERE pairing_id=$1', [pairingId])).rows[0].connection_id, null);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts WHERE user_id=$1', [member.user.user_id])).rows[0].n, 0);
+}
+
+test('an approval waiting on the pairing row cannot accept an expired code', async () => {
+  const member = await ready();
+  const pairing = await start('supplier');
+  const saved = await pairingRow(pairing.user_code);
+  await pool.query("UPDATE client_pairing_requests SET expires_at=clock_timestamp()+interval '4 seconds' WHERE pairing_id=$1", [saved.pairing_id]);
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('SELECT pairing_id FROM client_pairing_requests WHERE pairing_id=$1 FOR UPDATE', [saved.pairing_id]);
+  const approval = api(`/client-connections/${pairing.user_code}/approve`, member, { confirmed: true });
+  try {
+    await waitForOwnedBlocker(pid, '%client_pairing_requests%FOR UPDATE%');
+    await sleepUntilRowExpiry('client_pairing_requests', saved.pairing_id);
+    await blocker.query('COMMIT');
+    await assertRejectedApproval(member, saved.pairing_id, await approval);
+  } finally {
+    await rollbackAndSettle(blocker,approval);
+  }
+});
+
+test('an approval waiting on the client-connections advisory lock cannot accept an expired code', async () => {
+  const member = await ready();
+  const pairing = await start('supplier');
+  const saved = await pairingRow(pairing.user_code);
+  await pool.query("UPDATE client_pairing_requests SET expires_at=clock_timestamp()+interval '4 seconds' WHERE pairing_id=$1", [saved.pairing_id]);
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`client-connections/${member.user.user_id}`]);
+  const approval = api(`/client-connections/${pairing.user_code}/approve`, member, { confirmed: true });
+  try {
+    await waitForOwnedBlocker(pid, '%pg_advisory_xact_lock%');
+    await sleepUntilRowExpiry('client_pairing_requests', saved.pairing_id);
+    await blocker.query('COMMIT');
+    await assertRejectedApproval(member, saved.pairing_id, await approval);
+  } finally {
+    await rollbackAndSettle(blocker,approval);
+  }
+});
+
+test('a credential-row wait that crosses expiry denies connection metadata', async () => {
+  const member = await ready();
+  const connected = await connect(member, 'supplier');
+  await pool.query("UPDATE member_client_connections SET expires_at=clock_timestamp()+interval '4 seconds' WHERE connection_id=$1", [connected.connection_id]);
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('SELECT connection_id FROM member_client_connections WHERE connection_id=$1 FOR UPDATE', [connected.connection_id]);
+  const read = client('/connection', connected.access_token);
+  try {
+    await waitForOwnedBlocker(pid, '%token_hash%FOR SHARE%');
+    await sleepUntilRowExpiry('member_client_connections', connected.connection_id);
+    await blocker.query('COMMIT');
+    const result = await read;
+    assert.equal(result.status, 401);
+    assert.equal(result.data.code, 'client_token_invalid');
+    assert.equal(result.data.connection_id, undefined);
+  } finally {
+    await rollbackAndSettle(blocker,read);
+  }
+});
+
+test('a credential-row wait that crosses expiry denies list data', async () => {
+  const member = await ready();
+  const connected = await connect(member, 'supplier');
+  await pool.query("UPDATE member_client_connections SET expires_at=clock_timestamp()+interval '4 seconds' WHERE connection_id=$1", [connected.connection_id]);
+  const blocker = await pool.connect();
+  await blocker.query('BEGIN');
+  const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('SELECT connection_id FROM member_client_connections WHERE connection_id=$1 FOR UPDATE', [connected.connection_id]);
+  const read = client('/supplier/products', connected.access_token);
+  try {
+    await waitForOwnedBlocker(pid, '%token_hash%FOR SHARE%');
+    await sleepUntilRowExpiry('member_client_connections', connected.connection_id);
+    await blocker.query('COMMIT');
+    const result = await read;
+    assert.equal(result.status, 401);
+    assert.equal(result.data.code, 'client_token_invalid');
+    assert.equal(result.data.items, undefined);
+  } finally {
+    await rollbackAndSettle(blocker,read);
+  }
 });
