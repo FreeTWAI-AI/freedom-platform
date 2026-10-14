@@ -16,13 +16,14 @@ const disconnected=(cause:unknown)=>cause instanceof ApiError&&cause.status===40
 export class GitHubSocialStore {
   private revision=0;
   private connectionRevision=0;
+  private readonly sessionGeneration:number;
   private listeners=new Set<()=>void>();
   private requests=new Map<string,Promise<void>>();
   private metrics=new Map<string,Entry<GitHubMetrics>>();
   private stars=new Map<string,Entry<GitHubStarState>&{saving:boolean;reauthorize:boolean}>();
   private follows=new Map<string,Entry<GitHubFollowState>&{saving:boolean;reauthorize:boolean}>();
   readonly account=entry<GitHubConnection>();
-  constructor(private client:PortalClient,readonly member:boolean){}
+  constructor(private client:PortalClient,readonly member:boolean){this.sessionGeneration=client.sessionGeneration;}
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
   snapshot=()=>this.revision;
   private emit(){this.revision++;this.listeners.forEach(listener=>listener());}
@@ -127,7 +128,9 @@ export class GitHubSocialStore {
   }
   async connect(returnTo:string){
     if(!this.member||!this.account.value?.configured)throw Error('GitHub 連結尚未啟用。');
+    if(this.client.sessionGeneration!==this.sessionGeneration)throw Error('登入狀態已變更，請重新連結 GitHub。');
     const value=await this.client.post<{authorization_url:string}>('/me/github/connect',{return_to:returnTo},{skipAuthHandler:true});
+    if(this.client.sessionGeneration!==this.sessionGeneration)throw Error('登入狀態已變更，請重新連結 GitHub。');
     const url=new URL(value.authorization_url);
     if(url.protocol!=='https:'||url.hostname!=='github.com'||url.pathname!=='/login/oauth/authorize'||url.username||url.password||url.port)throw Error('GitHub 連結網址無法確認，請重試。');
     return url.href;
