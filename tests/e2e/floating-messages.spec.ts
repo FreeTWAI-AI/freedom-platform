@@ -14,6 +14,30 @@ async function login(page:Page){
   await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
 
+test('chat size controls preserve drafts and fit resized desktop and mobile viewports',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});await login(page);
+  const panel=page.locator('.floating-message-panel'),bubble=page.locator('.floating-messages');
+  await bubble.click();expect((await panel.boundingBox())!.width).toBe(560);
+  await panel.getByLabel('搜尋會員',{exact:true}).fill('示範需求者');
+  await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();
+  await panel.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
+  const draft=panel.getByRole('textbox',{name:'寫給 示範需求者 的訊息'});await draft.fill('調整聊天室大小仍保留的草稿');
+  await panel.getByRole('button',{name:'調整大小',exact:true}).click();
+  const width=panel.getByRole('slider',{name:'聊天室寬度'}),height=panel.getByRole('slider',{name:'聊天室高度'});
+  await width.fill('800');await height.fill('700');
+  expect((await panel.boundingBox())!.width).toBe(800);expect((await panel.boundingBox())!.height).toBe(700);
+  await width.focus();await width.press('ArrowLeft');await expect(width).toHaveValue('780');
+  await expect(draft).toHaveValue('調整聊天室大小仍保留的草稿');
+  await bubble.click();await bubble.click();expect((await panel.boundingBox())!.width).toBe(780);
+  await page.setViewportSize({width:768,height:650});
+  const box=(await panel.boundingBox())!;expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(768);expect(box.y).toBeGreaterThanOrEqual(0);
+  await page.setViewportSize({width:390,height:844});await expect(width).toBeHidden();await height.fill('360');expect((await panel.boundingBox())!.height).toBe(360);await expect(draft).toHaveValue('調整聊天室大小仍保留的草稿');
+  await page.screenshot({path:'test-results/chat-size-controls-phone.png'});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:1440,height:900});await panel.getByRole('button',{name:'恢復預設大小'}).click();expect((await panel.boundingBox())!.width).toBe(560);
+  await page.screenshot({path:'test-results/chat-size-controls-desktop.png'});
+});
+
 test('chat launcher counts chat sources only, does not open history or mark anything read, and refreshes after confirmed inbox changes',async({page})=>{
   let unread=1,fail=false,history=0,writes=0;const counted=new Set<string>();
   page.on('request',request=>{const url=new URL(request.url());if(request.method()==='POST'&&/conversations|channels.*read/.test(url.pathname))writes++;if(/\/conversations\/[^/]+\/messages|\/channels\/[^/]+\/[^/]+\/messages/.test(url.pathname))history++;});
