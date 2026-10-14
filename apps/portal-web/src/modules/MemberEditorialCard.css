@@ -1,6 +1,6 @@
 /* The poster reference supplies structure; the palette is FreeTWAI's own. */
 html:has(.public-member-page[data-design=editorial]),.ecard[data-design=editorial],.public-member-page[data-design=editorial],.ecard-preview-stage[data-design=editorial]{--ecard-page:#f6f8fb;--ecard-surface:#fff;--ecard-ink:#08090b;--ecard-muted:#566376;--ecard-line:#dce3eb;--ecard-accent:#101500;--ecard-focus:#3044ff;--ecard-button:#fff;--ecard-button-ink:#08090b;--ecard-button-muted:#566376;--ecard-hover:#f6f8fb;--ecard-rule:#dce3eb;color-scheme:light}
-.ecard.ecard-editorial{width:min(100%,46rem);padding:0;gap:0;border:1px solid #08090b;border-radius:12px;overflow:hidden;text-align:left;box-shadow:6px 6px 0 #08090b0d;font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif}
+.ecard.ecard-editorial{container:editorial-card / inline-size;width:min(100%,46rem);padding:0;gap:0;border:1px solid #08090b;border-radius:12px;overflow:hidden;text-align:left;box-shadow:6px 6px 0 #08090b0d;font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif}
 .editorial-masthead{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 1.5rem;background:#08090b;color:#f4f6ef;font-size:1rem;font-weight:700;line-height:1.35}
 .editorial-brand-en{display:block;font-size:.65rem;font-weight:400;letter-spacing:.12em;margin-top:.2rem}
 .editorial-edition{font-size:.65rem;letter-spacing:.1em;white-space:nowrap;display:flex;align-items:center;gap:1rem}
@@ -60,6 +60,9 @@ html:has(.public-member-page[data-design=editorial]),.ecard[data-design=editoria
 .member-profile-card> :not(.ecard-editorial):not(.member-card-body){margin:1rem}
 @media(max-width:520px){
   .ecard-design-picker{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ecard:not(.ecard-editorial) .ecard-qr{width:128px}
+}
+@container editorial-card (max-width:520px){
   .editorial-masthead{padding:.85rem 1rem;gap:.4rem}.editorial-edition{font-size:.6rem;gap:.4rem}
   .editorial-hero{grid-template-columns:minmax(0,1fr) 6.5rem;min-height:12rem}
   .editorial-person{padding:1.3rem 1rem}.ecard-editorial .ecard-name{font-size:2rem;letter-spacing:-.03em}
