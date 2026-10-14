@@ -1,3 +1,4 @@
+import {storeArea} from './hosted-store-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from './fixtures.js';
 import { navigate, signOut, openGuildSection } from './navigation.js';
@@ -90,14 +91,18 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     await product.getByLabel('庫存', {exact: true}).fill('10');
     await product.getByRole('button', {name: '新增商品', exact: true}).click();
     await expect(page.locator('.hosted-store-product')).toContainText('手作茶杯');
+    await storeArea(page,'店面與發布');
     await page.getByRole('radio', {name: /^直列目錄/}).check();
+    await storeArea(page,'店面與發布');
     await page.getByRole('button', {name: '儲存版型', exact: true}).click();
     await expect(page.locator('.hosted-store').getByRole('status')).toContainText('已儲存版型');
+    await storeArea(page,'店面與發布');
     const popup = page.waitForEvent('popup'); await page.getByRole('link', {name: '預覽已儲存的展示頁', exact: true}).click();
     const preview = await popup;
     await expect(preview.locator('.shop-products-list article')).toHaveCount(1);
     const publicPage = await publicContext.newPage(); await publicPage.goto('/shops/' + slug);
     await expect(publicPage.getByRole('heading', {name: '新會員選物店', exact: true})).toHaveCount(0);
+    await storeArea(page,'店面與發布');
     await page.getByRole('button', {name: '發布展示頁', exact: true}).click();
     await expect(page.locator('.hosted-store').getByRole('status')).toContainText('已發布・第 1 版');
     await publicPage.reload(); await expect(publicPage.locator('.shop-products-list article')).toHaveCount(1);
@@ -138,7 +143,9 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     await signOut(page); await login(page, email); await guildHome(page);
     await primary.getByRole('button', {name: '進入我的商店', exact: true}).click();
     await expect(page).toHaveURL(new RegExp(storeHash + '$'));
+    await storeArea(page,'店面與發布');
     await expect(page.getByRole('radio', {name: /^直列目錄/})).toBeChecked();
+    await storeArea(page,'商品');
     await expect(page.locator('.hosted-store-product')).toContainText('手作茶杯');
     const strangerPage = await stranger.newPage(); await register(strangerPage, '另一位新會員');
     await strangerPage.goto('/' + storeHash);
