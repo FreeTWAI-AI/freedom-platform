@@ -178,6 +178,9 @@ const FOUNDATION_NAMES = [
   // Live repository coordinates only; no new API/storage shape or authority.
   // Deployment must pair this ledger with the reviewed org-migration source.
   '166_freetwai_repository_transfer.sql',
+  // Opt-in AR storage only; recognition does not enable persistence policy,
+  // camera access or supply deployment/restore approval.
+  '167_community_ar.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
