@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL,transaction} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
@@ -119,6 +120,47 @@ test('the last seat is atomic across the original member and public guest regist
   if(outcomes[0].status==='fulfilled')await setRsvp(pool,member,eventId,true);
   else await registerPublicEvent(pool,eventId,guest,async()=>{},'https://example.test',true);
   assert.equal(await countEventSeats(pool,eventId),1);
+});
+
+for(const participationEnabled of [false,true])for(const previouslyConfirmed of [false,true])test(`guest confirmation cannot cross start during provider wait (participation=${participationEnabled}, prior=${previouslyConfirmed})`,async()=>{
+  const guest={name:'合成截止訪客',email:'provider-deadline@local.test'};
+  if(previouslyConfirmed)await registerPublicEvent(pool,eventId,guest,async()=>{},'https://example.test',participationEnabled);
+  const previous=(await pool.query<{state:string;email_sent_at:Date|null}>('SELECT state,email_sent_at FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,guest.email])).rows[0];
+  await pool.query("UPDATE community_events SET starts_at=clock_timestamp()+interval '3 seconds',ends_at=clock_timestamp()+interval '1 hour' WHERE event_id=$1",[eventId]);
+  let providerCalls=0,returnedAfterStart=false;
+  await assert.rejects(registerPublicEvent(pool,eventId,guest,async()=>{
+    providerCalls++;
+    await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM starts_at-clock_timestamp()))+0.02) FROM community_events WHERE event_id=$1',[eventId]);
+    returnedAfterStart=(await pool.query<{started:boolean}>('SELECT starts_at<=clock_timestamp() AS started FROM community_events WHERE event_id=$1',[eventId])).rows[0].started;
+  },'https://example.test',participationEnabled),cause=>cause instanceof Problem&&cause.status===409&&cause.code==='event_closed');
+  assert.equal(providerCalls,1);assert.equal(returnedAfterStart,true);
+  const current=(await pool.query<{state:string;email_sent_at:Date|null}>('SELECT state,email_sent_at FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,guest.email])).rows[0];
+  assert.equal(current.state,previouslyConfirmed?'going':'pending');assert.deepEqual(current.email_sent_at,previous?.email_sent_at??null);
+});
+
+test('guest confirmation rejects start reached while provider acceptance bookkeeping waits',async()=>{
+  const guest={name:'合成鎖等待訪客',email:'bookkeeping-deadline@local.test'},blocker=await pool.connect();
+  let providerCalls=0,inTransaction=false;
+  try{
+    await blocker.query('BEGIN');inTransaction=true;
+    const pid=(await blocker.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await pool.query("UPDATE community_events SET starts_at=clock_timestamp()+interval '3 seconds',ends_at=clock_timestamp()+interval '1 hour' WHERE event_id=$1",[eventId]);
+    const confirmation=registerPublicEvent(pool,eventId,guest,async()=>{
+      providerCalls++;
+      await blocker.query('SELECT email FROM community_event_guest_capabilities WHERE event_id=$1 AND email=$2 FOR UPDATE',[eventId,guest.email]);
+    },'https://example.test',true);
+    const rejected=assert.rejects(confirmation,cause=>cause instanceof Problem&&cause.status===409&&cause.code==='event_closed');
+    let waiting=false;
+    for(let attempt=0;attempt<100&&!waiting;attempt++){
+      waiting=(await pool.query<{waiting:boolean}>('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) AS waiting',[pid])).rows[0].waiting;
+      if(!waiting)await delay(10);
+    }
+    assert.equal(waiting,true,'provider acceptance update must reach the owned row lock');
+    await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM starts_at-clock_timestamp()))+0.02) FROM community_events WHERE event_id=$1',[eventId]);
+    await blocker.query('ROLLBACK');inTransaction=false;await rejected;assert.equal(providerCalls,1);
+    const current=(await pool.query<{state:string;email_sent_at:Date|null}>('SELECT state,email_sent_at FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,guest.email])).rows[0];
+    assert.equal(current.state,'pending');assert.equal(current.email_sent_at,null);
+  }finally{if(inTransaction)await blocker.query('ROLLBACK');blocker.release();}
 });
 
 test('the original RSVP consumes its own invitation rather than allocating a second seat',async()=>{

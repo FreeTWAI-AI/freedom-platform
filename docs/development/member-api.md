@@ -410,6 +410,15 @@ Idempotency-Key and quoted If-Match controls:
   mutation `{enabled,minutes_before_start?,channel?}`. Enabling requires Going,
   an explicit positive safe-integer lead time and `in_app` or `email`.
 
+The original `POST /public/events/:id/register` remains separate from the optional
+participation API. Its confirmation transaction rechecks `starts_at` against the
+database wall clock after provider handoff and all participation writes, before
+commit. If that wait crosses the start, it returns `409 event_closed` and rolls
+back this confirmation; the earlier pending reservation remains unconfirmed.
+An already-confirmed registration and its earlier email marker are preserved.
+The provider may already have accepted the notification, so this error does not
+mean that no email was handed off or that an existing registration was erased.
+
 Legal public guests request a mailbox management link with
 `POST /public/events/:id/participation-request` and
 `{name,email,referral_code?}`. Requesting it does not register, join the queue or
