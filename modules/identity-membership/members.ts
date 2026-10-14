@@ -220,15 +220,17 @@ export async function listMembers(pool:Pick<Pool,'query'>,actor:Actor,limit:numb
 }
 export async function memberPresence(pool:Pool,actor:Actor,raw:string){
   const ids=z.array(z.uuid()).max(50).parse(raw.split(',').filter(Boolean));
+  return readWithMemberSession(pool,actor,async q=>{
   if(ids.length===0)return {items:[]};
-  const rows=(await pool.query(`SELECT u.user_id,
+  const rows=(await q.query(`SELECT u.user_id,
     (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
-    EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
-      AND s.last_seen_at>now()-interval '2 minutes') AS is_online
+    EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>statement_timestamp()
+      AND s.last_seen_at>statement_timestamp()-interval '2 minutes') AS is_online
     FROM users u WHERE u.community_id=$1 AND u.user_id=ANY($2::uuid[]) AND u.active
       AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,ids,actor.user_id])).rows;
   return {items:rows.map(row=>({user_id:row.user_id,last_seen_at:row.last_seen_at?new Date(row.last_seen_at).toISOString():null,is_online:row.is_online}))};
+  });
 }
 export async function listFriends(pool:Pool,actor:Actor) {
   return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT u.user_id,u.display_name AS nickname,f.state,f.requester_ref,f.aggregate_version FROM member_friendships f JOIN users u ON u.user_id=CASE WHEN f.low_ref=$2 THEN f.high_ref ELSE f.low_ref END WHERE f.community_id=$1 AND (f.low_ref=$2 OR f.high_ref=$2) AND f.state<>'removed' AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND NOT is_verification_test_account(u.user_id) ORDER BY f.updated_at DESC LIMIT 100`,[actor.community_id,actor.user_id])).rows);
