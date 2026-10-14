@@ -6,7 +6,6 @@ import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
 import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
-import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { normalizeSubmission } from '../../../../modules/skill-submissions/payload.js';
 import {
   agentCreateSubmission, agentUploadSubmission, createKey, findUploadGrant, findUploadKey, issueSubmission, listKeys, listSubmissions,
