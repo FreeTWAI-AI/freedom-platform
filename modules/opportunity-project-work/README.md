@@ -98,6 +98,26 @@ HTTP 包裝仍是 `{items}`。另以真實 PostgreSQL 比對 0／1／6 筆待回
 且 1 筆與 6 筆的查詢次數相同。
 
 
+### 舊版驗收命令的 reviewer 決策時鐘（#617）
+
+`begin-review`／`decide` 仍要求同社群協作 Work 的指定 reviewer，禁止自己驗收。
+`scopedClaim` 沿原順序取得 Review route 的共享鎖，鎖取得後才用資料庫
+`clock_timestamp()` 驗 `valid_until`；不以交易起點或鎖等待前的時間授權。
+兩個 reviewer 命令重用既有 command 的 domain revalidate hook，在 receipt SELECT
+等待後／重播前及最後 receipt INSERT 後重驗目前 reviewer。Session 與 reviewer
+期限是兩個不同邊界，不用其中之一代替另一個。
+
+到期回既有 `403 review_authority_required`。新命令的 Claim／Work state、version、
+Decision、Contribution、journal、outbox 與 receipt 一起 rollback；合法舊 receipt
+保留但不能在過期安排下重播。安排恢復有效後可用原 key 恢復／重播，不重複事實。
+本人 start／submit、撤銷、self-review、版本與 Submission digest 契約不改，沒有
+migration、retry、外部 I/O 或私人／tenant Work 授權擴充。
+
+`flows.test.ts` 的 consumer regression 用原生 claim／review route 列鎖、Decision INSERT、
+receipt INSERT／SELECT 等待與 DB 時鐘，涵蓋到期／有效、整組事實 rollback、
+合法歷史 receipt 保留、原 key 恢復及重播不重複。Loopback HTTP、runtime、
+source 與部署是分開證據；本節不宣稱已部署或 Foundation 整體驗收完成。
+
 ## Tenant manual Work
 
 Tenant Work is the `tenant_execution` mode of the same `work_items` table. It is not a personal draft and not a community collaboration. `tenant-work.ts` reads and `tenant-work-commands.ts` creates, replaces, and archives. The author is `owner_ref`; `owner_principal_id` and `community_id` stay null. Placement (`tenant_id`, `instance_id`, `workspace_id`, `created_by_principal_id`) is frozen. Archive is retained and terminal. HTTP is `apps/platform-api/src/routes/tenant-work.ts`, mounted only while guild launchpad is enabled. Owners and admins use the existing Work role template. Operators and viewers require active ordinary grants on the addressed instance; tenant-wide admission happens before lookup, unreadable id-addressed targets use the existing 404, and a missing requested instance key is 403. Workspace routes check their bound instance. Commands authorize before receipt lookup; Result commands also repeat target authorization after each receipt read/write and after external storage I/O.

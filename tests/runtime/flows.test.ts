@@ -1,7 +1,9 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
+import { z } from 'zod';
 import { createPool,LOCAL_DATABASE_URL,digest } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
@@ -280,6 +282,85 @@ test('localhost alias works on the configured port while other ports and remote 
     assert.equal((await request('/auth/login',undefined,credentials,undefined,randomUUID(),{Origin:origin})).status,403);
   }
 });
+const reviewClockClaim=z.object({claim_id:z.uuid(),work_item_id:z.uuid(),state:z.string(),aggregate_version:z.number().int(),
+  latest_submission:z.object({submission_id:z.uuid(),summary:z.string(),artifact_ref:z.string(),sha256:z.string(),revision:z.number().int()}).nullable().optional()});
+const reviewClockFacts=z.object({state:z.string(),version:z.string(),work_state:z.string(),work_version:z.string(),
+  decisions:z.string(),contributions:z.string(),journal:z.string(),events:z.string(),receipts:z.string()});
+async function currentReviewFacts(claim:z.infer<typeof reviewClockClaim>,key:string,userId:string) {
+  return reviewClockFacts.parse((await pool.query(`SELECT c.state,c.aggregate_version::text AS version,w.state AS work_state,w.aggregate_version::text AS work_version,
+    (SELECT count(*)::text FROM work_decisions WHERE claim_id=c.claim_id) AS decisions,
+    (SELECT count(*)::text FROM contributions WHERE claim_id=c.claim_id) AS contributions,
+    (SELECT count(*)::text FROM transition_journal WHERE aggregate_id IN(c.claim_id,c.work_item_id)) AS journal,
+    (SELECT count(*)::text FROM outbox o JOIN transition_journal j USING(transition_id) WHERE j.aggregate_id IN(c.claim_id,c.work_item_id)) AS events,
+    (SELECT count(*)::text FROM command_receipts WHERE idempotency_key=$2 AND user_id=$3) AS receipts
+    FROM work_claims c JOIN work_items w USING(work_item_id) WHERE c.claim_id=$1`,[claim.claim_id,key,userId])).rows[0]);
+}
+async function reviewAlive(workId:string,userId:string) {
+  return z.object({alive:z.boolean()}).parse((await pool.query('SELECT valid_until>clock_timestamp() AS alive FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2',[workId,userId])).rows[0]).alive;
+}
+async function waitForReviewCommand(pid:number,sql:string,finished:()=>boolean) {
+  const deadline=Date.now()+5000;
+  while(Date.now()<deadline) {
+    const rows=z.array(z.object({query:z.string()})).parse((await pool.query('SELECT query FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows);
+    if(rows.some(row=>row.query.includes(sql)))return;
+    assert.equal(finished(),false,'command completed before the expected SQL wait');await delay(10);
+  }
+  throw new Error(`expected review command wait not observed: ${sql}`);
+}
+for(const kind of ['claim-lock','route-lock','decision-insert','receipt-insert','receipt-replay'] as const) {
+  test(`review authority expires after ${kind} without committing or losing a legal receipt`,async()=>{
+    const maker=await signIn(),reviewer=await signIn(DEMO_USERS[1].email),userId=z.object({user_id:z.uuid()}).parse(reviewer.user).user_id;
+    for(const expires of [true,false]) {
+      const work=z.object({work_item_id:z.uuid()}).parse(await newWork(reviewer));
+      let c=reviewClockClaim.parse(await claim(maker,work.work_item_id));
+      c=reviewClockClaim.parse(await action(maker,c,'start'));
+      c=reviewClockClaim.parse(await action(maker,c,'submit',{summary:`review-clock-${kind}-${expires}`,artifact_ref:`artifact:review-clock-${kind}-${expires}`}));
+      const key=randomUUID();let name='begin-review';let body:unknown={};let original:unknown;let version=c.aggregate_version;
+      if(kind==='decision-insert') {
+        c=reviewClockClaim.parse(await action(reviewer,c,'begin-review'));version=c.aggregate_version;name='decide';assert.ok(c.latest_submission);
+        body={decision:'accept',feedback:'符合合成驗收條件。',submission_sha256:c.latest_submission.sha256};
+      }
+      if(kind==='receipt-replay') {const result=await request(`/work-claims/${c.claim_id}:${name}`,reviewer,body,String(version),key);assert.equal(result.status,200);original=result.data;}
+      const before=await currentReviewFacts(c,key,userId);
+      assert.equal((await pool.query('UPDATE work_review_routes SET valid_until=clock_timestamp()+make_interval(secs=>$3) WHERE work_item_id=$1 AND reviewer_ref=$2',[c.work_item_id,userId,expires?2:90])).rowCount,1);
+      const locker=await pool.connect();let pending:Promise<{status:number;data:unknown;response:Response}>|undefined;
+      try {
+        await locker.query('BEGIN');
+        if(kind==='claim-lock')await locker.query('SELECT claim_id FROM work_claims WHERE claim_id=$1 FOR UPDATE',[c.claim_id]);
+        else if(kind==='route-lock')await locker.query('SELECT work_item_id FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 FOR UPDATE',[c.work_item_id,userId]);
+        else if(kind==='decision-insert')await locker.query('LOCK TABLE work_decisions IN SHARE MODE');
+        else if(kind==='receipt-insert')await locker.query('LOCK TABLE command_receipts IN SHARE MODE');
+        else await locker.query('LOCK TABLE command_receipts IN ACCESS EXCLUSIVE MODE');
+        const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+        let finished=false;pending=request(`/work-claims/${c.claim_id}:${name}`,reviewer,body,String(version),key);void pending.then(()=>{finished=true},()=>{finished=true});
+        await waitForReviewCommand(pid,kind==='claim-lock'?'FOR UPDATE OF c':kind==='route-lock'?'FROM work_review_routes':kind==='decision-insert'?'INSERT INTO work_decisions':kind==='receipt-insert'?'INSERT INTO command_receipts':'SELECT * FROM command_receipts',()=>finished);
+        if(expires) {
+          const deadline=Date.now()+4000;
+          while(await reviewAlive(c.work_item_id,userId)) {assert.ok(Date.now()<deadline,'review authority did not expire on the database clock');await delay(10);}
+        }else await delay(2100);
+        assert.equal(await reviewAlive(c.work_item_id,userId),!expires);
+        assert.equal(z.object({alive:z.boolean()}).parse((await pool.query('SELECT bool_and(revoked_at IS NULL AND expires_at>clock_timestamp()) AS alive FROM sessions WHERE user_id=$1',[userId])).rows[0]).alive,true);
+        await locker.query('COMMIT');const result=await pending;
+        if(expires) {
+          assert.equal(result.status,403);assert.equal(z.object({code:z.string()}).parse(result.data).code,'review_authority_required');
+          assert.deepEqual(await currentReviewFacts(c,key,userId),before);
+          assert.ok(c.latest_submission);const raw=JSON.stringify(result.data);
+          for(const value of [c.claim_id,c.latest_submission.submission_id,c.latest_submission.summary,c.latest_submission.artifact_ref])assert.equal(raw.includes(value),false);
+          await pool.query("UPDATE work_review_routes SET valid_until=clock_timestamp()+interval '90 seconds' WHERE work_item_id=$1 AND reviewer_ref=$2",[c.work_item_id,userId]);
+        }else assert.equal(result.status,200);
+        const recovered=expires?await request(`/work-claims/${c.claim_id}:${name}`,reviewer,body,String(version),key):result;
+        assert.equal(recovered.status,200);
+        const value=reviewClockClaim.parse(recovered.data);assert.equal(value.state,name==='decide'?'accepted':'in_review');
+        if(original!==undefined)assert.deepEqual(recovered.data,original);
+        const after=await currentReviewFacts(c,key,userId);
+        assert.equal(after.receipts,'1');assert.equal(after.decisions,name==='decide'?'1':'0');assert.equal(after.contributions,name==='decide'?'1':'0');
+        const replay=await request(`/work-claims/${c.claim_id}:${name}`,reviewer,body,String(version),key);
+        assert.equal(replay.status,200);assert.deepEqual(replay.data,recovered.data);assert.deepEqual(await currentReviewFacts(c,key,userId),after);
+      }finally {await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});}
+    }
+  });
+}
+
 test('review route is scoped, revocable, independent, and checked again for idempotent replay',async()=>{
   const maker=await signIn(),reviewer=await signIn(DEMO_USERS[1].email),outsider=await signIn(DEMO_USERS[2].email);let c=await submitted(maker);
   for(const s of [maker,outsider])assert.equal((await request(`/work-claims/${c.claim_id}:begin-review`,s,{},c.aggregate_version)).status,403);
