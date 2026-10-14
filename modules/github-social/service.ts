@@ -160,9 +160,13 @@ export class GitHubSocial {
     requireCondition(/^[A-Za-z0-9_-]{43}$/.test(state)&&/^[A-Za-z0-9_-]{1,256}$/.test(code),422,'github_oauth_invalid','GitHub 授權資料不完整，請重新連接。');
     return this.member(actor,async q=>{
       await this.rate(q,actor,'oauth-complete',10,600);
-      const row=(await q.query(`DELETE FROM github_social_oauth_states WHERE state_hash=$1 AND user_id=$2 AND community_id=$3 AND session_hash=$4 AND expires_at>now() RETURNING *`,[hash(state),actor.user_id,actor.community_id,actor.session_hash])).rows[0];
+      const stateHash=hash(state),stateIdentity=[stateHash,actor.user_id,actor.community_id,actor.session_hash];
+      // A DELETE predicate can run before its row-lock wait. Acquire the row
+      // first, then sample the deadline in a separate statement on this client.
+      await q.query('SELECT 1 FROM github_social_oauth_states WHERE state_hash=$1 AND user_id=$2 AND community_id=$3 AND session_hash=$4 FOR UPDATE',stateIdentity);
+      const row=(await q.query('DELETE FROM github_social_oauth_states WHERE state_hash=$1 AND user_id=$2 AND community_id=$3 AND session_hash=$4 AND expires_at>clock_timestamp() RETURNING *',stateIdentity)).rows[0];
       requireCondition(row,409,'github_oauth_expired','GitHub 授權已到期或不是從這個登入工作階段發起，請重新連接。');
-      const verifier=decode<string>(this.key!,this.context(actor,`state/${hash(state)}/${actor.session_hash}`),row.encrypted_verifier);
+      const verifier=decode<string>(this.key!,this.context(actor,`state/${stateHash}/${actor.session_hash}`),row.encrypted_verifier);
       const tokens=await this.provider.exchange(config,code,verifier),identity=await this.provider.identity(tokens.access_token);
       // One GitHub user ID links to one member. Serialize every callback for this
       // ID after the actor lock; a conflict keeps both members' rows untouched and

@@ -35,7 +35,9 @@ Fork 連到原作 `/fork`，由本人在 GitHub 選擇擁有者與確認建立�
 
 後台透過 GitHub 的 manifest flow 產生設定；回呼受 Access、管理員 CSRF、管理員綁定的短效 state 保護。Server 交換代碼，驗證擁有者、站點及權限後加密保存 client secret。PEM、webhook secret 不保留。成功 receipt 可安全重讀；提供者失敗不顯示完成。若 GitHub 已消耗代碼而設定未收到，需重新建立 App；不以另一個 App 覆蓋既有連結。
 
-OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/callback` 後由同源 POST 完成交換，因此不降低既有 Strict cookie。Token 與 refresh token 在 DB 中以 AES-256-GCM 加密，綁定 App／社群／會員。更新 token 時重驗 GitHub user ID。只有伺服器使用憑證，API／稽核不輸出秘密。
+OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/callback` 後由同源 POST 完成交換，因此不降低既有 Strict cookie。Token 與 refresh token 在 DB 中以 AES-256-GCM 加密，綁定 App／社群／會員。更新 token 時重驗 GitHub user ID。只有伺服器使用憑證，API／稽核不輸出秘密。等待會員或 state 鎖後，完成交換前以資料庫目前時間重驗 10 分鐘 nonce；期限已過就不消耗、不呼叫 GitHub。有效消耗後 provider 延遲或拒絕仍沿用既有結果提交，不以事後時間回滾 state。
+
+Nonce 消耗先取得精確 user／community／session 所屬 state 的列鎖，再在同一 transaction client 的下一個 DELETE statement 以 `clock_timestamp()` 判斷期限。`SELECT ... FOR UPDATE` 的投影與 DELETE 的條件可能在等待列鎖前就求值，不能把鎖前取得的布林值當作鎖後判斷；不使用 retry、ctid 或額外 advisory lock。
 
 瀏覽器的 GitHub 連結意圖也綁定建立該 private store 時的登入生命週期。登出、換會員或同會員重新登入後，舊 reconnect callback 不得以新 session 發起 OAuth；舊 connect 回應也不再交給入口導頁。新登入由本人重新按連結，沿用新的 store 與既有 PKCE／返回目標驗證；不把舊回應視為新會員同意。
 
