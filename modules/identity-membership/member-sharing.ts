@@ -1,5 +1,5 @@
 import {createHash,randomBytes} from 'node:crypto';
-import type {Pool} from 'pg';
+import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {command, checkVersion, journal, type Command} from '../../packages/db/index.js';
 import {requireCondition} from '../../packages/shared/problem.js';

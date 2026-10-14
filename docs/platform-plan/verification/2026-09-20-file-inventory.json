@@ -18189,8 +18189,8 @@
     },
     {
       "path": "modules/identity-membership/member-sharing.ts",
-      "bytes": 23757,
-      "sha256": "aec0bf9617ff40e5a36b65b18e485d74b2e98780bb294598750370cda879cf3a"
+      "bytes": 23768,
+      "sha256": "3231516e1e1014368fbfb9cef321e438e952825b60e95404c39b7bf5fbcd3df1"
     },
     {
       "path": "modules/identity-membership/members.ts",
