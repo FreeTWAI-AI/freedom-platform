@@ -1,18 +1,3 @@
-/* Freedom's original poster remains uncropped in every entry point. */
-.brand-poster.brand-poster-original {
-  max-height: none;
-  border-color: #333943;
-  background: #000;
-}
-.brand-poster.brand-poster-original img[width] {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: none;
-  aspect-ratio: 16 / 9;
-  object-fit: contain;
-}
-
 /* One member summary, followed immediately by useful destinations. */
 .member-home.freedom-home,
 .module-panel.freedom-community { display: grid; gap: 1rem; width: 100%; max-width: 1440px; min-width: 0; }
