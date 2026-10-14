@@ -174,10 +174,10 @@ export async function getEventShareCode(pool:Pool,actor:Actor,id:string){
     ON CONFLICT(event_id,user_id) DO UPDATE SET code=community_event_share_codes.code RETURNING code`,[id,actor.user_id,code])).rows[0] as {code:string};
 }
 
-export async function eventReferralReport(pool:Pool,actor:Actor,id:string){
-  const row=await scopedEvent(pool,actor,id);
+export async function eventReferralReport(db:Pool|PoolClient,actor:Actor,id:string){
+  const row=await scopedEvent(db,actor,id);
   requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看活動分享統計。');
-  return (await pool.query(`SELECT c.user_id,u.display_name AS member_name,
+  return (await db.query(`SELECT c.user_id,u.display_name AS member_name,
     (SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=c.event_id AND r.referred_by_user_id=c.user_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
     (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=c.event_id AND g.referred_by_user_id=c.user_id AND g.state='going' AND (g.email_sent_at IS NOT NULL OR g.confirmed_at IS NOT NULL)) AS registrations,
     (SELECT count(*)::int FROM promotion_clicks pc JOIN promotion_links pl ON pl.link_id=pc.link_id WHERE pl.kind='event' AND pl.target_key=c.event_id::text AND pl.user_id=c.user_id) AS clicks
