@@ -174,7 +174,11 @@ export async function createPromotionLink(pool: Pool, actor: Actor, raw: unknown
         await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`promo-link:${actor.user_id}:${taipeiDate(now)}`]);
         const existing = (await q.query(`SELECT link_id,kind,target_key,code FROM promotion_links
           WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, key])).rows[0];
-        if (existing) { await assertCurrentSessionClock(q, actor); return linkView(existing, title, await pointsFor(q, existing.link_id, now)); }
+        if (existing) {
+          const points = await pointsFor(q, existing.link_id, now);
+          await assertCurrentSessionClock(q, actor);
+          return linkView(existing, title, points);
+        }
         const used = (await q.query('SELECT count(*)::int AS n FROM promotion_links WHERE user_id=$1 AND created_at>=$2', [actor.user_id, day])).rows[0].n as number;
         requireCondition(used < LINK_CAP, 429, 'promotion_link_limit', '今天建立的分享連結已達上限。');
         const code = randomBytes(7).toString('base64url');
@@ -185,12 +189,7 @@ export async function createPromotionLink(pool: Pool, actor: Actor, raw: unknown
       });
     } catch (error) {
       const pg = error as { code?: string; constraint?: string };
-      if (pg.code === '23505' && pg.constraint === 'promotion_links_code_key') continue;
-      if (pg.code === '23505') {
-        const existing = (await pool.query(`SELECT link_id,kind,target_key,code FROM promotion_links
-          WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, key])).rows[0];
-        if (existing) return linkView(existing, title, await pointsFor(pool, existing.link_id, now));
-      }
+      if (pg.code === '23505' && (pg.constraint === 'promotion_links_code_key' || pg.constraint === 'promotion_links_active_owner')) continue;
       throw error;
     }
   }

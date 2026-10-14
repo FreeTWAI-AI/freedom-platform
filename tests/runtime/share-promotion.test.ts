@@ -474,7 +474,7 @@ test('link creation validates each kind and stays idempotent', async () => {
   assert.equal(limited.data.code, 'promotion_link_limit');
 });
 
-test('promotion link creation rejects a session expiring during the advisory lock wait', async () => {
+test('promotion link replay rejects a session expiring during the advisory lock wait', async () => {
   const maker = await signIn();
   const first = await platformLink(maker);
   assert.ok(first.code);
@@ -504,6 +504,102 @@ test('promotion link creation rejects a session expiring during the advisory loc
   assert.equal(denied.status, 401);
   assert.equal(denied.data.code, 'session_expired');
 });
+
+for (const scenario of ['replay points', 'new INSERT', 'expired owner conflict', 'live owner conflict'] as const) {
+  test(`promotion POST preserves the session boundary after ${scenario}`, async () => {
+    let httpApp = app;
+    const server = serve({ hostname: '127.0.0.1', port: 0, fetch: request => httpApp.fetch(request) });
+    const holder = await pool.connect();
+    const conflict = scenario.endsWith('owner conflict');
+    const expires = scenario !== 'live owner conflict';
+    let pending: Promise<Response> | undefined;
+    let triggerInstalled = false;
+    try {
+      if (!server.listening) await once(server, 'listening');
+      const httpOrigin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      httpApp = createApp(pool, httpOrigin, 'local', { now: () => clock });
+      const login = await fetch(`${httpOrigin}/api/v1/auth/login`, {
+        method: 'POST', headers: { Origin: httpOrigin, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_USERS[0].email, password: DEMO_PASSWORD }),
+      });
+      assert.equal(login.status, 200);
+      const { user, csrf_token: csrf } = z.object({ user: z.object({ user_id: z.uuid() }), csrf_token: z.string() }).parse(await login.json());
+      const cookie = login.headers.get('set-cookie')!.split(';')[0];
+      const hash = tokenHash(cookie.split('=')[1]);
+      const body = scenario === 'replay points' ? { kind: 'platform', target: 'workshop' } : { kind: 'skill_book', target: `book:${communityCatalog.skill_books[0].id}` };
+      const post = () => fetch(`${httpOrigin}/api/v1/promotion/links`, {
+        method: 'POST', headers: { Origin: httpOrigin, Cookie: cookie, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
+        body: JSON.stringify(body),
+      });
+      let originalCode: string | undefined;
+      if (scenario === 'replay points') {
+        const valid = await post();
+        assert.equal(valid.status, 200);
+        originalCode = z.object({ code: z.string() }).parse(await valid.json()).code;
+      } else {
+        assert.equal((await pool.query('SELECT count(*)::int AS n FROM promotion_links WHERE user_id=$1 AND kind=$2 AND target_key=$3', [user.user_id, body.kind, body.target])).rows[0].n, 0);
+      }
+      if (scenario === 'new INSERT') {
+        // A schema-local trigger holds the actual INSERT, not just its earlier daily lock.
+        await pool.query(`CREATE FUNCTION promo_insert_wait() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_advisory_xact_lock(819212); RETURN NEW; END $$`);
+        await pool.query('CREATE TRIGGER promo_insert_wait BEFORE INSERT ON promotion_links FOR EACH ROW EXECUTE FUNCTION promo_insert_wait()');
+        triggerInstalled = true;
+      }
+      await holder.query('BEGIN');
+      if (scenario === 'replay points') await holder.query('LOCK TABLE promotion_clicks IN ACCESS EXCLUSIVE MODE');
+      if (scenario === 'new INSERT') await holder.query('SELECT pg_advisory_xact_lock(819212)');
+      if (conflict) {
+        // An uncommitted winner is invisible to SELECT but blocks the partial unique index.
+        // Different daily advisory keys around Taipei midnight can produce this same race.
+        originalCode = randomBytes(7).toString('base64url');
+        await holder.query(`INSERT INTO promotion_links(community_id,user_id,kind,target_key,code,created_at) VALUES($1,$2,$3,$4,$5,$6)`, [DEMO_COMMUNITY, user.user_id, body.kind, body.target, originalCode, clock]);
+      }
+      const pid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      if (expires) await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1", [hash]);
+      pending = post();
+      const lockKind = scenario === 'replay points' ? 'relation' : conflict ? 'transactionid' : 'advisory';
+      const query = scenario === 'replay points' ? '%FROM promotion_clicks%' : '%INSERT INTO promotion_links%';
+      let waiting = false;
+      const waitDeadline = Date.now() + 1800;
+      while (Date.now() < waitDeadline) {
+        waiting = Boolean((await admin.query(`SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+          WHERE NOT l.granted AND l.locktype=$2 AND $1=ANY(pg_blocking_pids(a.pid)) AND a.query LIKE $3`, [pid, lockKind, query])).rowCount);
+        if (waiting) break;
+        await yieldToHttp();
+      }
+      assert.ok(waiting, `${scenario} must reach its actual SQL wait`);
+      assert.equal((await holder.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1', [hash])).rows[0].live, true);
+      if (expires) {
+        await holder.query("SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1", [hash]);
+        assert.equal((await holder.query('SELECT expires_at<=clock_timestamp() AS expired FROM sessions WHERE token_hash=$1', [hash])).rows[0].expired, true);
+      }
+      await holder.query(conflict ? 'COMMIT' : 'ROLLBACK');
+      const result = await pending;
+      const data = z.record(z.string(), z.unknown()).parse(await result.json());
+      if (expires) {
+        assert.equal(result.status, 401);
+        assert.equal(data.code, 'session_expired');
+        assert.equal(Object.hasOwn(data, 'points'), false);
+        assert.equal(Object.hasOwn(data, 'path'), false);
+      } else {
+        assert.equal(result.status, 200);
+        assert.equal(data.code, originalCode);
+        assert.deepEqual(data.points, { week: 0, month: 0, all: 0 });
+      }
+      const rows = (await pool.query('SELECT code FROM promotion_links WHERE user_id=$1 AND kind=$2 AND target_key=$3 AND revoked_at IS NULL', [user.user_id, body.kind, body.target])).rows;
+      assert.deepEqual(rows, scenario === 'new INSERT' ? [] : [{ code: originalCode }]);
+    } finally {
+      await holder.query('ROLLBACK');
+      holder.release();
+      if (pending) await pending;
+      if (triggerInstalled) {
+        await pool.query('DROP TRIGGER promo_insert_wait ON promotion_links');
+        await pool.query('DROP FUNCTION promo_insert_wait()');
+      }
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+  });
+}
 
 for (const [route, relation] of [
   ['links/mine', 'promotion_links'],
@@ -571,9 +667,7 @@ for (const [route, relation] of [
       await holder.query('ROLLBACK');
       holder.release();
       if (pending) await pending;
-      const closed = Promise.withResolvers<void>();
-      server.close(error => error ? closed.reject(error) : closed.resolve());
-      await closed.promise;
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     }
   });
 }
