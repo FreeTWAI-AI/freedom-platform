@@ -16,13 +16,23 @@ async function publish(page:Page,bytes:Uint8Array,title:string){
     const result=await fetch(`/api/v1/ar/targets/${target.target_id}/publish`,{method:'POST',headers:{...headers,'If-Match':`"${uploaded.aggregate_version}"`},body:'{}'});if(result.status!==200)throw new Error('AR fixture publish '+result.status);return (await result.json()).share_path as string;
   },{bytes:Array.from(bytes),title});
 }
-test('AR-UI-01 local image compilation uses the real SDK worker under the existing CSP',async({page})=>{
-  test.setTimeout(120000);await login(page);await page.getByRole('button',{name:'製作圖案',exact:true}).click();
+test('AR-UI-01 real compile and editor publication recover a lost response without duplicating a target',async({page,e2eAuthPool})=>{
+  test.setTimeout(120000);await e2eAuthPool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='synthetic-e2e-ar-v1',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='member.ar-target'");await login(page);await page.getByRole('button',{name:'製作圖案',exact:true}).click();
   await page.getByLabel('選擇衣服或海報上的圖片').setInputFiles({name:'synthetic-card.png',mimeType:'image/png',buffer:png});
   await expect(page.getByRole('img',{name:'待辨識的完整圖案'})).toBeVisible();await page.getByRole('button',{name:'編譯圖案',exact:true}).click();
   await expect(page.getByRole('button',{name:'用相機試掃',exact:true})).toBeEnabled({timeout:60000});
   await page.getByLabel('自訂文字、特效、圖片或影片').check();await page.getByLabel('要顯示的文字').fill('這是一件會說話的衣服！');await page.getByRole('button',{name:'用相機試掃',exact:true}).click();
   await expect(page.getByRole('button',{name:'開啟相機',exact:true})).toBeEnabled();await page.screenshot({path:'.rd/ar/local-trial.png',fullPage:true});
+  await page.getByRole('button',{name:'返回',exact:true}).click();await page.getByLabel('圖案名稱',{exact:true}).fill('Synthetic compiled editor');
+  await expect(page.getByLabel('要顯示的文字')).toHaveValue('這是一件會說話的衣服！');
+  let dropped=false;await page.route('**/api/v1/ar/targets/*/publish',async route=>{if(!dropped){dropped=true;const result=await route.fetch();expect(result.status()).toBe(200);await route.abort('failed');}else await route.continue();});
+  await page.getByRole('button',{name:'發布 AR 圖案',exact:true}).click();await expect(page.getByRole('button',{name:'重試原發布',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'重試原發布',exact:true}).click();await expect(page.getByLabel('給朋友的掃描連結',{exact:true})).toBeVisible();
+  const target=await page.evaluate(async()=>{const own=await (await fetch('/api/v1/ar/targets')).json();return own.items.filter((item:{title:string})=>item.title==='Synthetic compiled editor');});
+  expect(target).toHaveLength(1);expect(target[0].state).toBe('published');
+  await page.getByRole('button',{name:'掃描圖案',exact:true}).click();await expect(page.getByText('Synthetic compiled editor',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'我的圖案',exact:true}).click();
+  await page.getByRole('link',{name:'開啟試掃',exact:true}).click();await expect(page.getByRole('button',{name:'開啟相機',exact:true})).toBeEnabled();
 });
 test('AR-UI-02 real tracker acquires positive video and rejects negative video; no injected detection events',async({page})=>{
   test.setTimeout(120000);await login(page);
