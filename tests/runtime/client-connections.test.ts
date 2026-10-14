@@ -164,6 +164,29 @@ async function deactivateWhileWaiting(userId:string,operation:()=>ReturnType<typ
  }finally{await q.query('ROLLBACK');q.release();if(pending)await pending;}
 }
 
+test('the member connection list is denied when its projection wait outlives the owner session',async()=>{
+ const member=await ready();await connect(member,'supplier');
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[member.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE member_client_connections IN ACCESS EXCLUSIVE MODE');
+  pending=api('/me/client-connections',member);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'connection list must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[member.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
 test('administrative deactivation and an in-flight bearer read use the same member-first lock order',async()=>{
  const member=await ready(),connected=await connect(member,'supplier');
  const response=await deactivateWhileWaiting(member.user.user_id,()=>client('/supplier/products',connected.access_token));
