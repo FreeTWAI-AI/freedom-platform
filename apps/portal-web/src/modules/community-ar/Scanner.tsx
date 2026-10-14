@@ -70,7 +70,7 @@ export function ArScanner({entries,local,client,onClose}:{entries:readonly ScanE
         if(cached.until<=performance.now()){
           clearOverlay();if(!local&&!refreshing.current.has(event.targetIndex)){
             refreshing.current.add(event.targetIndex);const index=event.targetIndex;
-            void currentContent(entries[index],control.signal).then(item=>{if(live(id))data.current[index]={...data.current[index],item,texture:cardTexture(item),until:performance.now()+15000};}).catch(()=>{if(live(id)){setMessage('公開內容已關閉或暫時無法讀取，請重新選擇圖案。');}}).finally(()=>{if(live(id))refreshing.current.delete(index);});
+            void currentContent(entries[index],control.signal).then(item=>{if(live(id))data.current[index]={...data.current[index],item,texture:cardTexture(item),until:performance.now()+15000};}).catch(()=>{if(live(id)){preparedPackets.current=[];stop();setPhase('error');setMessage('公開內容已關閉或暫時無法讀取，請重新載入圖案。');}}).finally(()=>{if(live(id))refreshing.current.delete(index);});
           }return;
         }
         const quad=projectTarget(event.worldMatrix,projection,dimensions[event.targetIndex],c.canvas.width,c.canvas.height);if(!quad){clearOverlay();return;}

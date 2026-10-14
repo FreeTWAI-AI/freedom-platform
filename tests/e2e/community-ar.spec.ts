@@ -142,3 +142,94 @@ test('AR-UI-07 cancelling compilation leaves the selected image usable without a
   await expect(page.getByText('圖片已留在裝置上，按「編譯圖案」繼續。',{exact:true})).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
+
+test('AR-UI-08 failed public refresh stops the camera until explicit metadata reload',async({page,e2eAuthPool},testInfo)=>{
+  test.setTimeout(90000);
+  await e2eAuthPool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='synthetic-e2e-ar-v1',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='member.ar-target'");
+  await login(page);
+  const path=await publish(page,createArExperience(pattern,{version:1,kind:'text',text:'Synthetic refresh recovery'}),'Synthetic refresh recovery');
+  let failRefresh=false,failedReads=0,metadataReads=0;
+  await page.route(`**/api/v1/public${path}`,async route=>{
+    metadataReads++;
+    if(failRefresh){failedReads++;await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'ar_pattern_unavailable'})});}
+    else await route.continue();
+  });
+  await page.route('**/_ar-test/positive.webm',route=>route.fulfill({contentType:'video/webm',body:readFileSync(new URL('../fixtures/community-ar/positive.webm',import.meta.url))}));
+  await page.addInitScript(()=>{Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{const replay=document.createElement('video');replay.src='/_ar-test/positive.webm';replay.loop=true;replay.muted=true;replay.playsInline=true;await replay.play();await new Promise<void>(resolve=>replay.requestVideoFrameCallback(()=>resolve()));(window as any).arReplay=replay;const stream=(replay as HTMLVideoElement&{captureStream:()=>MediaStream}).captureStream();(window as any).arTestStream=stream;return stream;}});});
+  try{
+    await page.goto(path);await page.getByRole('button',{name:'開啟相機',exact:true}).click();
+    await expect(page.getByRole('link',{name:'查看內容',exact:true})).toBeVisible({timeout:30000});
+    failRefresh=true;
+    await expect.poll(()=>failedReads,{timeout:20000}).toBeGreaterThan(0);
+    await page.waitForTimeout(750);
+    expect(failedReads,'tracker frames must not repeat a failed metadata refresh').toBe(1);
+    await expect.poll(()=>page.evaluate(()=>(window as any).arTestStream.getTracks().every((track:MediaStreamTrack)=>track.readyState==='ended'))).toBe(true);
+    await expect(page.getByRole('link',{name:'查看內容',exact:true})).toHaveCount(0);
+    expect(await page.locator('.ar-stage canvas').evaluate(node=>{const c=(node as HTMLCanvasElement).getContext('2d')!;return c.getImageData(0,0,c.canvas.width,c.canvas.height).data.every((v,i)=>i%4!==3||v===0);})).toBe(true);
+    await expect(page.getByRole('button',{name:'重新載入圖案',exact:true})).toBeEnabled();
+    for(const width of [390,768,1440]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`refresh-error-${width}.png`),fullPage:true});}
+    const beforeReload=metadataReads;failRefresh=false;
+    await page.getByRole('button',{name:'重新載入圖案',exact:true}).click();
+    await expect(page.getByRole('button',{name:'開啟相機',exact:true})).toBeEnabled();
+    expect(metadataReads).toBe(beforeReload+1);
+    await page.getByRole('button',{name:'開啟相機',exact:true}).click();
+    await expect(page.getByRole('link',{name:'查看內容',exact:true})).toBeVisible({timeout:30000});
+    await page.getByRole('button',{name:'暫停相機',exact:true}).click();
+  }finally{await page.evaluate(()=>{(window as any).arReplay?.pause();(window as any).arTestStream?.getTracks().forEach((track:MediaStreamTrack)=>track.stop());});}
+});
+
+test('AR-UI-09 storage-limit retries retain one target and known failure permits confirmed abandonment',async({page,e2eAuthPool},testInfo)=>{
+  test.setTimeout(120000);
+  await e2eAuthPool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='synthetic-e2e-ar-v1',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='member.ar-target'");
+  await login(page);
+  await publish(page,createArExperience(pattern,{version:1,kind:'text',text:'Synthetic quota occupant'}),'Synthetic quota occupant');
+  await page.evaluate(async()=>{
+    const session=await (await fetch('/api/v1/session')).json(),own=await (await fetch('/api/v1/ar/targets')).json();
+    const target=own.items.find((item:{title:string})=>item.title==='Synthetic quota occupant');
+    const response=await fetch(`/api/v1/ar/targets/${target.target_id}/withdraw`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf_token,'Idempotency-Key':crypto.randomUUID(),'If-Match':`"${target.aggregate_version}"`},body:'{}'});
+    if(response.status!==200)throw new Error('AR retained quota fixture withdrawal '+response.status);
+  });
+  await e2eAuthPool.query("UPDATE domain_media_storage_policy SET retained_byte_limit=20971520 WHERE purpose='member.ar-target'");
+  let creates=0;const uploads:{url:string;key:string|undefined;version:string|undefined}[]=[];
+  page.on('request',request=>{
+    const path=new URL(request.url()).pathname;
+    if(request.method()==='POST'&&path==='/api/v1/ar/targets')creates++;
+    if(request.method()==='PUT'&&/^\/api\/v1\/ar\/targets\/[^/]+\/pattern$/.test(path))uploads.push({url:path,key:request.headers()['idempotency-key'],version:request.headers()['if-match']});
+  });
+  async function prepare(title:string){
+    await page.getByRole('button',{name:'製作圖案',exact:true}).click();
+    await page.getByLabel('選擇衣服或海報上的圖片').setInputFiles({name:'synthetic-card.png',mimeType:'image/png',buffer:png});
+    await page.getByRole('button',{name:'編譯圖案',exact:true}).click();
+    await expect(page.getByRole('button',{name:'用相機試掃',exact:true})).toBeEnabled({timeout:60000});
+    await page.getByLabel('自訂文字、特效、圖片或影片').check();await page.getByLabel('要顯示的文字').fill(title);
+    await page.getByLabel('圖案名稱',{exact:true}).fill(title);
+  }
+  async function quotaFailure(){
+    const response=page.waitForResponse(response=>response.request().method()==='PUT'&&response.url().endsWith('/pattern')&&response.status()===409);
+    await page.getByRole('button',{name:/^(發布 AR 圖案|重試原發布)$/}).click();
+    expect((await (await response).json()).code).toBe('ar_storage_limit');
+    await expect(page.getByRole('alert').filter({hasText:'儲存空間已達上限'})).toBeVisible();
+  }
+  await prepare('Synthetic quota retry');await quotaFailure();await quotaFailure();
+  expect(creates,'retry must not create another retained target').toBe(1);
+  expect(uploads).toHaveLength(2);expect(uploads[1]).toEqual(uploads[0]);
+  await expect(page.getByRole('button',{name:'重試原發布',exact:true})).toBeEnabled();
+  await expect(page.getByLabel('圖案名稱',{exact:true})).toBeDisabled();await expect(page.getByLabel('更換圖案',{exact:true})).toBeDisabled();
+  await page.screenshot({path:testInfo.outputPath('storage-limit-retry.png'),fullPage:true});
+  let confirmation='';page.once('dialog',async dialog=>{confirmation=dialog.message();await dialog.dismiss();});
+  await page.getByRole('button',{name:'掃描圖案',exact:true}).click();expect(confirmation).toContain('草稿會保留');
+  await expect(page.getByRole('button',{name:'重試原發布',exact:true})).toBeVisible();
+  await e2eAuthPool.query("UPDATE domain_media_storage_policy SET retained_byte_limit=104857600 WHERE purpose='member.ar-target'");
+  await page.getByRole('button',{name:'重試原發布',exact:true}).click();await expect(page.getByLabel('給朋友的掃描連結',{exact:true})).toBeVisible();
+  expect(creates).toBe(1);expect(uploads).toHaveLength(3);expect(uploads[2]).toEqual(uploads[0]);
+  const target=await e2eAuthPool.query("SELECT state FROM community_ar_targets WHERE title='Synthetic quota retry'");expect(target.rows).toEqual([{state:'published'}]);
+  await e2eAuthPool.query("UPDATE domain_media_storage_policy SET retained_byte_limit=20971520 WHERE purpose='member.ar-target'");
+  await prepare('Synthetic quota abandonment');await quotaFailure();
+  confirmation='';page.once('dialog',async dialog=>{confirmation=dialog.message();await dialog.accept();});
+  await page.getByRole('button',{name:'掃描圖案',exact:true}).click();expect(confirmation).toContain('草稿會保留');
+  await expect(page.getByRole('heading',{name:'今天想探索什麼？',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'製作圖案',exact:true}).click();
+  await expect(page.getByRole('img',{name:'待辨識的完整圖案'})).toHaveCount(0);await expect(page.getByRole('button',{name:'重試原發布',exact:true})).toHaveCount(0);
+  const abandoned=await e2eAuthPool.query("SELECT state,asset_id FROM community_ar_targets WHERE title='Synthetic quota abandonment'");expect(abandoned.rows).toEqual([{state:'draft',asset_id:null}]);
+  expect(creates).toBe(2);
+});
