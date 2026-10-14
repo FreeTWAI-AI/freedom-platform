@@ -81,13 +81,16 @@ export async function login(pool: Pool, email: string, password: string, code?: 
 }
 export async function authenticate(pool: Pool, raw: string | undefined): Promise<Actor> {
   requireCondition(raw && /^[A-Za-z0-9_-]{43}$/.test(raw),401,'login_required','請先登入。');
+  const hash=tokenHash(raw);
+  // Presence is recent activity, not the full cookie lifetime. Read authority after this potentially blocking update.
+  await pool.query(`UPDATE sessions SET last_seen_at=now() WHERE token_hash=$1
+    AND revoked_at IS NULL AND expires_at>clock_timestamp()
+    AND (last_seen_at IS NULL OR last_seen_at<now()-interval '1 minute')
+    AND EXISTS(SELECT 1 FROM users u WHERE u.user_id=sessions.user_id AND u.active)`,[hash]);
   const result = await pool.query(`SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,u.onboarding_required,u.onboarding_completed_at,
     s.token_hash AS session_hash,s.csrf_token FROM sessions s JOIN users u USING(user_id)
-    WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active`,[tokenHash(raw)]);
+    WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND u.active`,[hash]);
   requireCondition(result.rowCount===1,401,'session_expired','登入已到期，請重新登入。');
-  // Presence is recent activity, not the full cookie lifetime.
-  await pool.query(`UPDATE sessions SET last_seen_at=now() WHERE token_hash=$1
-    AND (last_seen_at IS NULL OR last_seen_at<now()-interval '1 minute')`,[tokenHash(raw)]);
   return result.rows[0];
 }
 export function sessionView(actor: Actor) {

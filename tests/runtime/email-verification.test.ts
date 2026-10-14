@@ -1,5 +1,6 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import { createPool } from '../../packages/db/index.js';
@@ -11,7 +12,7 @@ import { tokenHash } from '../../modules/identity-membership/service.js';
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL;
 assert.ok(databaseUrl,'TEST_DATABASE_URL must target an owned disposable database');
 const schema=`fp_verification_${process.pid}_${Date.now()}`,admin=createPool(databaseUrl);
-const pool=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`});
+const pool=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,application_name:schema});
 const delivered:{to:string;text:string}[]=[];
 let failDelivery=false;
 const app=createApp(pool,origin,'local',{eventEmailSender:async(to,_subject,text)=>{if(failDelivery)throw new Error('private provider response');delivered.push({to,text});}});
@@ -83,4 +84,39 @@ test('concurrent confirmations produce exactly one successful transition',async(
   const token=await requestToken();
   const responses=await Promise.all([post('/auth/email-verification/confirm',{token}),post('/auth/email-verification/confirm',{token})]);
   assert.deepEqual(responses.map(r=>r.status).sort(),[200,422]);
+});
+
+for(const stage of ['proof lock','competing proof consumption'])test(`proof expiry during ${stage} leaves email unverified and other links usable`,async()=>{
+  const token=await requestToken(),other=await requestToken(),hash=tokenHash(token),userId=DEMO_USERS[0].user_id;
+  await pool.query("UPDATE email_verification_tokens SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[hash]);
+  const priorUser=(await pool.query('SELECT password_hash,email_verified_at FROM users WHERE user_id=$1',[userId])).rows[0];
+  const priorSessions=(await pool.query('SELECT token_hash,revoked_at FROM sessions WHERE user_id=$1 ORDER BY token_hash',[userId])).rows;
+  const blocker=await pool.connect();
+  let pending:Promise<unknown>|undefined;
+  try{
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT token_hash FROM email_verification_tokens WHERE token_hash=$1 FOR UPDATE',[stage==='proof lock'?hash:tokenHash(other)]);
+    const confirmation=post('/auth/email-verification/confirm',{token});pending=confirmation;
+    const query=stage==='proof lock'?'SELECT 1 FROM email_verification_tokens WHERE token_hash%':'UPDATE email_verification_tokens SET consumed_at%';
+    let waiting=false;
+    for(let n=0;n<200;n++){
+      const row=await admin.query("SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock' AND query LIKE $2",[schema,query]);
+      if(row.rowCount){waiting=true;break;}
+      await delay(10);
+    }
+    assert.ok(waiting,'the initially valid proof must reach the real row-lock barrier');
+    await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM email_verification_tokens WHERE token_hash=$1',[hash]);
+    await blocker.query('COMMIT');
+    const reply=await confirmation;
+    assert.equal(reply.status,422);assert.equal(reply.body.code,'email_verification_link_invalid');assert.equal(reply.cookie,null);
+  }finally{
+    await blocker.query('ROLLBACK');blocker.release();await pending;
+  }
+  assert.deepEqual((await pool.query('SELECT password_hash,email_verified_at FROM users WHERE user_id=$1',[userId])).rows[0],priorUser);
+  assert.deepEqual((await pool.query('SELECT token_hash,revoked_at FROM sessions WHERE user_id=$1 ORDER BY token_hash',[userId])).rows,priorSessions);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM email_verification_tokens WHERE user_id=$1 AND consumed_at IS NULL',[userId])).rows[0].n,2);
+  const account=await app.request(`${origin}/api/v1/me/account`,{headers:{Cookie:cookie}});
+  assert.equal(account.status,200);assert.equal(ResponseBody.parse(await account.json()).email_verified,false);
+  assert.equal((await post('/auth/email-verification/confirm',{token:other})).status,200,'another still-valid proof can verify after rollback');
+  assert.ok((await pool.query('SELECT email_verified_at FROM users WHERE user_id=$1',[userId])).rows[0].email_verified_at);
 });

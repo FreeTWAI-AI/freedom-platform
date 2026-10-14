@@ -22,6 +22,9 @@ export async function pruneExpiredAuthRecords(pool:Pool,{batch=500,sessionRefere
   const arl=(await pool.query(`DELETE FROM auth_rate_limits WHERE bucket IN (SELECT bucket FROM auth_rate_limits WHERE window_start < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED) AND window_start < now() - interval '1 day'`,[batch])).rowCount??0;
   const la=(await pool.query(`DELETE FROM login_attempts WHERE attempt_key IN (SELECT attempt_key FROM login_attempts WHERE window_start < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED) AND window_start < now() - interval '1 day'`,[batch])).rowCount??0;
   const prt=(await pool.query(`DELETE FROM password_reset_tokens WHERE token_hash IN (SELECT token_hash FROM password_reset_tokens WHERE expires_at < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,[batch])).rowCount??0;
+  // Consumed and unused mailbox proofs share reset links' post-expiry grace.
+  await pool.query(`DELETE FROM email_verification_tokens WHERE token_hash IN (SELECT token_hash FROM email_verification_tokens WHERE expires_at < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,[batch]);
+  await pool.query(`DELETE FROM login_email_change_tokens WHERE token_hash IN (SELECT token_hash FROM login_email_change_tokens WHERE expires_at < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,[batch]);
   // token_hash breaks ties (equal or missing timestamps) so exactly one newest row per user survives.
   const s=await transaction(pool,async q=>{
     const hashes=(await q.query<{token_hash:string}>(`SELECT s.token_hash FROM sessions s
