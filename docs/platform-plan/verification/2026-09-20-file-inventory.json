@@ -2474,8 +2474,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedStorePhoto.tsx",
-      "bytes": 8165,
-      "sha256": "c7d473352a14221dff04e2f71934f1c71ebae8213bef42aa8cc8d282c331ba95"
+      "bytes": 8573,
+      "sha256": "05ccaa49d24b5dba85ce28f1d8b89dc9466d99368464d82700cf79e57b95127d"
     },
     {
       "path": "apps/portal-web/src/modules/HostedSupplierOrders.tsx",
