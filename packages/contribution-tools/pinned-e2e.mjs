@@ -105,7 +105,7 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 // The independent enumeration catches dropped cases inside a selected file.
 function fileRules(options) {
   return options?.profile === 'guild-preview'
-    ? {prefix: 'modules/', valid: file => ['guild-supply/CatalogBlock.spec.ts', 'guild-open-source/WorksBlock.spec.ts'].includes(file)}
+    ? {prefix: 'modules/', valid: file => ['guild-supply/CatalogBlock.spec.ts', 'guild-open-source/WorksBlock.spec.ts', 'guild-events/EventsBlock.spec.ts'].includes(file)}
     : {prefix: 'tests/e2e/', valid: file => SPEC_NAME.test(file)};
 }
 function listedCaseIdentities(report, files, options) {
