@@ -12,7 +12,7 @@ import {createSquad,changeSquadMembership} from '../../modules/identity-membersh
 import {changeGuildMembership} from '../../modules/positioning/service.js';
 import {reviewGuildApplication,type AdminActor} from '../../modules/platform-admin/service.js';
 import {sendDirectMessage} from '../../modules/member-communications/service.js';
-import {listChannels,channelMessages,channelActivity,sendChannelMessage,markChannelRead} from '../../modules/member-communications/channels.js';
+import {listChannels,channelMessages,searchChannelMessages,channelActivity,sendChannelMessage,markChannelRead} from '../../modules/member-communications/channels.js';
 import {CHANNEL_NOT_AVAILABLE,type ChannelKind} from '../../modules/member-communications/channel-types.js';
 
 // Group channels (037): every ordinary active guild/squad member, isolated per
@@ -98,6 +98,53 @@ const blockers=async(pid:number)=>(await database.query('SELECT pg_blocking_pids
 function rejected(result:PromiseSettledResult<unknown>,status:number,code:string,label:string){
   assert.equal(result.status,'rejected',`${label}: returned data`);const error=(result as PromiseRejectedResult).reason;
   assert.ok(error instanceof Problem,`${label}: raw ${error?.code??error} escaped`);assert.deepEqual([error.status,error.code],[status,code],label);
+}
+
+const clockSecret='合成頻道時鐘私人正文';
+const clockReads=[
+  {name:'list',run:async(on:Pool,actor:Actor)=>(await listChannels(on,actor,{kind:'guild'})).unread_count,expected:1},
+  {name:'history',run:async(on:Pool,actor:Actor)=>(await channelMessages(on,actor,'guild',guild,{})).items.map(item=>item.body),expected:[clockSecret]},
+  {name:'search',run:async(on:Pool,actor:Actor)=>(await searchChannelMessages(on,actor,'guild',guild,{q:clockSecret})).items.map(item=>item.body),expected:[clockSecret]},
+  {name:'activity',run:async(on:Pool,actor:Actor)=>{
+    const {latest_sequence,unread_count}=await channelActivity(on,actor,'guild',guild);return {latest_sequence,unread_count};
+  },expected:{latest_sequence:'1',unread_count:1}},
+];
+for(const read of clockReads)for(const gate of ['membership','data'] as const){
+  test(`channel ${read.name} decision clock after ${gate} wait`,{timeout:30000},async()=>{
+    const viewer=await member('clock-reader'),sender=await member('clock-sender');
+    await changeGuild(viewer,guild,'join');await changeGuild(sender,guild,'join');await send(sender,'guild',guild,clockSecret);
+    const state=async()=>({reads:await count('member_channel_reads'),receipts:await count('command_receipts'),messages:await count('member_channel_messages')});
+    const before=await state(),role=`clock-${read.name}-${gate==='membership'?'member':'data'}`,on=racer(role);
+    try{
+      for(const scenario of ['expired','future'] as const){
+        const current=await session(viewer.email),holder=await pool.connect();let pending:Promise<PromiseSettledResult<unknown>[]>|undefined;
+        try{
+          // Keep search's existing 1.5s SQL bound; its held data query crosses a 1s session deadline first.
+          const deadlineSeconds=read.name==='search'&&gate==='data'?1:3;
+          assert.equal((await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+($2::int*interval '1 second') WHERE token_hash=$1",
+            [current.actor.session_hash,scenario==='expired'?deadlineSeconds:30])).rowCount,1);
+          await holder.query('BEGIN');
+          if(gate==='membership')await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-member/${viewer.actor.community_id}/${viewer.id}`]);
+          else await holder.query('LOCK TABLE member_channel_messages IN ACCESS EXCLUSIVE MODE');
+          const holderPid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+          pending=Promise.allSettled([read.run(on,current.actor)]);
+          await waitingOn(role,gate==='membership'?'advisory':'relation');
+          assert.ok((await blockers(await pidOf(role))).includes(holderPid));
+          assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS valid FROM sessions WHERE token_hash=$1',[current.actor.session_hash])).rows[0].valid,true);
+          if(scenario==='expired'){
+            // JS fake timers cannot advance PostgreSQL clock_timestamp(). This
+            // integration test crosses the DB deadline only after proving its lock wait.
+            await pool.query('SELECT pg_sleep(GREATEST(0,extract(epoch FROM (expires_at-clock_timestamp())))+0.05) FROM sessions WHERE token_hash=$1',[current.actor.session_hash]);
+            assert.equal((await pool.query('SELECT expires_at<=clock_timestamp() AS expired FROM sessions WHERE token_hash=$1',[current.actor.session_hash])).rows[0].expired,true);
+          }
+          await holder.query('COMMIT');const result=(await pending)[0];
+          if(scenario==='expired')rejected(result,401,'session_expired',`${read.name} ${gate} deadline`);
+          else{assert.ok(result.status==='fulfilled');assert.deepEqual(result.value,read.expected);}
+          assert.deepEqual(await state(),before,'reads neither consume the cursor nor create receipts/messages');
+        }finally{await holder.query('ROLLBACK');holder.release();if(pending)await pending;}
+      }
+    }finally{await on.end();}
+  });
 }
 
 test('ordinary guild and squad members (no officer row) read and write their own rooms; kinds and rooms stay isolated; empty GET writes nothing',async()=>{

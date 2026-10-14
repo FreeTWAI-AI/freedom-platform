@@ -65,6 +65,10 @@ number 136 is provisional if another migration lands first.
 
 讀寫鎖定順序為會員、session、成員資格、傳送者頻率限制、頻道。公會沿用 `lockMemberGuilds`，小隊沿用既有成員操作的 advisory lock；離會或退隊後，讀取、傳送、標讀與重送舊 key 都會重新檢查並回 `404 channel_not_available`。讀取使用同樣的可重試快照。傳送完成後，回應正文前再檢查資格；若離開已在兩者之間提交，合法送出的訊息仍保留，但回應拒絕讀取。
 
+session 自然到期不會修改已鎖列或觸發 `40001`，交易內的 `now()` 也不會前進。因此每個頻道讀取 snapshot（列表、歷史、搜尋、activity 與發言後 read-back）在最後領域查詢後、COMMIT 前，沿用 `assertCurrentSessionClock()` 以同一連線的 PostgreSQL `clock_timestamp()` 重驗期限。成員 barrier 或資料查詢等待跨過期限時回 `401 session_expired`，不回私人正文或 metadata；原快照、鎖順序、搜尋 timeout 與 serialization retry 不變。
+
+若合法發言與 message ID 收據已提交、只有後續 read-back 等待跨過期限，訊息與收據仍保留，回應的 `401` 不能推定「尚未送出」。API 呼叫方保留原 key／payload 時，重新登入並重新通過當下資格後，可明確以原 tuple 手動重送取得同一訊息，不重複寫入；本改動不提供 UI 跨 session 草稿持久化。
+
 公會與小隊共用每位傳送者每 60 秒 20 則的頻率限制，與私訊計量分開。內容沿用純文字、Unicode 2,000 字與冪等規則；收據只留 message ID。每個頻道在同一交易內配置並提交遞增序號，DTO 用字串保存 bigint 精度。標讀以本人指定的已載入 `through_message_id` 推進游標，不能把之後提交的訊息一併標讀；自己的發言不計未讀。
 
 離開保留歷史和已讀游標，但不保留讀寫權。重新加入後接續游標，離開期間的他人發言仍計未讀。前端先取得可用頻道列表，由本人選擇後才讀取正文，未讀提示不會預先載入頻道內容。
