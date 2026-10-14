@@ -1,0 +1,25 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "agent-commerce-portal",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/portal-web/src/modules/CommercePanels.tsx",
+    "apps/portal-web/src/modules/AgentShops.css",
+    "tests/e2e/agent-shops.spec.ts"
+  ],
+  "public_exports": [],
+  "dependencies": ["agent-commerce"],
+  "contract_families": [],
+  "client_profiles": ["member"],
+  "instructions": [
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "DESIGN.md"
+  ],
+  "invariants": [
+    "session-owned-async-actions",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": ["e2e.harness", "runtime.full"],
+  "surfaces": []
+}
