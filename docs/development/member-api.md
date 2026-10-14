@@ -309,6 +309,18 @@ network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per networ
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
 
+## Member event bulletins
+
+`GET /api/v1/events/bulletins` returns currently visible event bulletins,
+including actor names and messages containing event titles. Guild-only events
+remain limited to their organizer or current active guild members; other members
+do not receive those items. The route holds current user/session locks while the
+unchanged bulletin projection runs on the same transaction client, then checks
+the PostgreSQL wall clock after its final query. A SQL wait crossing session
+expiry returns `401 session_expired`, without an `items` projection. Visibility,
+verification-account exclusions, ordering, the 30-item limit and public readers
+are unchanged.
+
 ## Event submission budget
 
 `POST /api/v1/events` permits five newly committed submissions per member in a
