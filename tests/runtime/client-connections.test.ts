@@ -1,11 +1,14 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
-import { tokenHash } from '../../modules/identity-membership/service.js';
+import { login, tokenHash } from '../../modules/identity-membership/service.js';
+import { approveClientPairing } from '../../modules/client-connections/service.js';
+import { Problem } from '../../packages/shared/problem.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -177,3 +180,33 @@ test('a pending approved token exchange waits for member deactivation and never 
  assert.equal(response.status,400);assert.equal(response.data.status,'invalid_grant');
  assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE user_id=$1',[member.user.user_id])).rows[0].token_hash,null);
 });
+
+test('an expired pairing code cannot be approved after the pairing row lock wait',async()=>{
+ await ready();
+ const actor=(await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD)).actor;
+ const code=randomBytes(10).toString('hex').toUpperCase();
+ const pairingId=randomUUID();
+ await pool.query(`INSERT INTO client_pairing_requests(pairing_id,device_secret_hash,user_code_hash,kind,client_name,expires_at)
+  VALUES($1,$2,$3,'supplier','合成客戶端',clock_timestamp()+interval '1 second')`,[pairingId,tokenHash(randomUUID()),tokenHash(code)]);
+ const blocker=await pool.connect();
+ let pending:Promise<{error:Problem|null}>;
+ try{
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT pairing_id FROM client_pairing_requests WHERE pairing_id=$1 FOR UPDATE',[pairingId]);
+  pending=approveClientPairing(pool,{actor,operation:'client-pairing-approve',key:randomUUID(),body:{confirmed:true}},code).then(()=>({error:null}),error=>{assert.ok(error instanceof Problem);return {error};});
+  for(let attempt=0;attempt<200;attempt++){
+   const waiting=await admin.query(`SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%client_pairing_requests%'`);
+   if(waiting.rowCount)break;
+   await delay(20);
+   if(attempt===199)assert.fail('approval did not wait for the pairing row');
+  }
+  await delay(1500);
+  await blocker.query('ROLLBACK');
+ }finally{blocker.release();}
+ const result=await pending!;
+ assert.equal(result.error?.status,404);
+ assert.equal(result.error?.code,'pairing_not_found');
+ assert.equal((await pool.query('SELECT state FROM client_pairing_requests WHERE pairing_id=$1',[pairingId])).rows[0].state,'pending');
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_client_connections WHERE user_id=$1',[actor.user_id])).rows[0].n,0);
+});
+
