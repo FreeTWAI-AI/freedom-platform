@@ -15,9 +15,9 @@
 
 本 repo 的維護者負責「自由工坊的會員入口、中央資料庫與跨模組業務規則。」這個模組；公會職稱與自填 GitHub slug 不授予寫入權。
 
-程式／內容入口：[apps/portal-web/src/modules/](apps/portal-web/src/modules/)、[apps/platform-api/src/routes/](apps/platform-api/src/routes/)、[modules/](modules/)、[migrations/](migrations/)、[packages/db/](packages/db/)。協作先讀 [CONTRIBUTING.md](CONTRIBUTING.md)，讓 Agent 讀 [AGENTS.md](AGENTS.md)；從[本倉 Issues](https://github.com/FreeTWAI-AI/freedom-platform/issues)認領、[查看既有 PR](https://github.com/FreeTWAI-AI/freedom-platform/pulls)避免重工。
+程式／內容入口：[apps/portal-web/src/modules/](apps/portal-web/src/modules/)、[apps/platform-api/src/routes/](apps/platform-api/src/routes/)、[modules/](modules/)、[migrations/](migrations/)、[packages/db/](packages/db/)。協作先讀 [CONTRIBUTING.md](CONTRIBUTING.md)，讓 Agent 讀 [AGENTS.md](AGENTS.md)；從[本倉 Issues](https://github.com/FreeTWAI/freedom-platform/issues)認領、[查看既有 PR](https://github.com/FreeTWAI/freedom-platform/pulls)避免重工。
 
-會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI-AI/freedom-platform)維護。
+會員、權限、公會、商品、商店、合作和稽核的權威寫入在本 repo 的 API／PostgreSQL。外倉用版本化契約；本機、staging、public 使用分開的資料庫。GitHub Issue／PR 保存程式協作事實；Seller／bank 保存實收事實。 跨 repo 的協定由[中央平台](https://github.com/FreeTWAI/freedom-platform)維護。
 <!-- freedom-repository-guide:end -->
 
 本 workspace 保存 Freedom 大平台的完整規格，以及 **0.13.0-member-messages 自由工坊會員入口**。內建目錄為 18 個公會、41 本技能書（47 個原作 repo 指引）；管理員另可核准會員申請的自訂公會。新會員註冊後選擇主要公會並取得 Repo 技能書（定位測驗可稍後補做），再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
@@ -163,7 +163,7 @@ Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作�
 
 ## 一起開發
 
-會員可從「一起開發」找到專案缺少的角色，讀取 GitHub Issues、複製給 Agent 的任務說明，再由維護者審查 PR。詳見 [共創與貢獻紀錄](docs/development/co-creation.md)。示範 repo：[工坊 video-autopilot-kit](https://github.com/FreeTWAI-AI/video-autopilot-kit/issues)。
+會員可從「一起開發」找到專案缺少的角色，讀取 GitHub Issues、複製給 Agent 的任務說明，再由維護者審查 PR。詳見 [共創與貢獻紀錄](docs/development/co-creation.md)。示範 repo：[工坊 video-autopilot-kit](https://github.com/FreeTWAI/video-autopilot-kit/issues)。
 
 會員註冊只填一個 Email；登入信箱即聯絡信箱，公開範圍於名片多選設定。目前有 18 個內建公會，包含資安、音樂創作與 MV、廣告攝影與影片，另可加入已核准的自訂公會；公會長未任命時如實顯示待任命。
 

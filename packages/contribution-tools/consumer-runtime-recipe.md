@@ -87,8 +87,8 @@ candidate stdout nor an uploaded report can supply a verdict.
    repoint source55 or library91. The runtime workflow path is
    `.github/workflows/trusted-consumer-runtime.yml`.
 2. Read current rule24473806 and central24469536. Create owned temporary base refs
-   in **only** `FreeTWAI-AI/freedom-agent-kit`, `FreeTWAI-AI/freedom-storefront`, and
-   `FreeTWAI-AI/freedom-supplier-client`, each at its reviewed current main SHA.
+   in **only** `FreeTWAI/freedom-agent-kit`, `FreeTWAI/freedom-storefront`, and
+   `FreeTWAI/freedom-supplier-client`, each at its reviewed current main SHA.
    Record before-state and exact repository/ref IDs in a separate canary journal.
    Add one temporary native required-workflow rule restricted to those exact refs
    and repositories, with the new central workflow pinned to the reviewed full SHA,

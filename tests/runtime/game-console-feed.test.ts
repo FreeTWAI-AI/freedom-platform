@@ -41,8 +41,8 @@ test('activity feed never reads private, guild, squad or world chat bodies witho
 
 test('GitHub announcements describe approved reviews and design claim comments as distinct events',async()=>{
   const client={get:async(path:string)=>path==='/pages/github-events'?{items:[
-    {id:'101',number:7,title:'首頁導覽',url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/7#pullrequestreview-101',actor:'reviewer',created_at:'2026-09-27T12:00:00Z',kind:'pr_approved'},
-    {id:'102',number:8,title:'定位設計',url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/8#issuecomment-102',actor:'designer',created_at:'2026-09-27T12:01:00Z',kind:'design_claimed'},
+    {id:'101',number:7,title:'首頁導覽',url:'https://github.com/FreeTWAI/freedom-platform/pull/7#pullrequestreview-101',actor:'reviewer',created_at:'2026-09-27T12:00:00Z',kind:'pr_approved'},
+    {id:'102',number:8,title:'定位設計',url:'https://github.com/FreeTWAI/freedom-platform/issues/8#issuecomment-102',actor:'designer',created_at:'2026-09-27T12:01:00Z',kind:'design_claimed'},
   ]}: {items:[]}} as PortalClient
   const events=await readConsoleFeed(client,'me')
   assert.deepEqual(events.map(event=>event.id),['github:101','github:102'])
@@ -52,10 +52,10 @@ test('GitHub announcements describe approved reviews and design claim comments a
 
 test('GitHub closed, merged and release events stay on the announcement channel',async()=>{
   const client={get:async(path:string)=>path==='/pages/github-events'?{items:[
-    {id:'201',number:4,title:'首頁導覽',url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/4',actor:'member',created_at:'2026-09-27T12:02:00Z',kind:'issue_closed'},
-    {id:'202',number:13,title:'改善手機導覽',url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/13',actor:'contributor-demo',created_at:'2026-09-27T12:03:00Z',kind:'pr_merged'},
-    {id:'203',number:17,title:'關閉說明',url:'https://github.com/FreeTWAI-AI/freedom-platform/pull/17',actor:'contributor-demo',created_at:'2026-09-27T12:04:00Z',kind:'pr_closed'},
-    {id:'204',number:null,title:'v1.2.0',url:'https://github.com/FreeTWAI-AI/freedom-platform/releases/tag/v1.2.0',actor:'member',created_at:'2026-09-27T12:05:00Z',kind:'release_published'},
+    {id:'201',number:4,title:'首頁導覽',url:'https://github.com/FreeTWAI/freedom-platform/issues/4',actor:'member',created_at:'2026-09-27T12:02:00Z',kind:'issue_closed'},
+    {id:'202',number:13,title:'改善手機導覽',url:'https://github.com/FreeTWAI/freedom-platform/pull/13',actor:'contributor-demo',created_at:'2026-09-27T12:03:00Z',kind:'pr_merged'},
+    {id:'203',number:17,title:'關閉說明',url:'https://github.com/FreeTWAI/freedom-platform/pull/17',actor:'contributor-demo',created_at:'2026-09-27T12:04:00Z',kind:'pr_closed'},
+    {id:'204',number:null,title:'v1.2.0',url:'https://github.com/FreeTWAI/freedom-platform/releases/tag/v1.2.0',actor:'member',created_at:'2026-09-27T12:05:00Z',kind:'release_published'},
   ]}:{items:[]}} as PortalClient
   const events=await readConsoleFeed(client,'me')
   assert.deepEqual(events.map(event=>event.channel),['system','system','system','system'])

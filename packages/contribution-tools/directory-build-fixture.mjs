@@ -6,7 +6,7 @@ import { validateDirectory } from './directory-reference/index.mjs';
 import { validatePrivacyPage } from './directory-reference/privacy.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 
-export const DIRECTORY_REPOSITORY = 'FreeTWAI-AI/FreeTWAI-AI.github.io';
+export const DIRECTORY_REPOSITORY = 'FreeTWAI/FreeTWAI.github.io';
 export const DIRECTORY_BUILD_CASES = Object.freeze(['candidate-data', 'escaped-challenge', 'empty-directory',
   'duplicate-repository', 'invalid-directory-schema', 'invalid-privacy-section',
   'traversal-path', 'absolute-path', 'encoded-path', 'malformed-privacy-json']);

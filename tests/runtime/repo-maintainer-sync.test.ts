@@ -19,7 +19,7 @@ const database = createPool(databaseUrl);
 const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 4 });
 const community = randomUUID();
 const APP_ID = '12345';
-const ORG = 'FreeTWAI-AI';
+const ORG = 'FreeTWAI';
 const SHA = 'a'.repeat(40);
 const SHA2 = 'b'.repeat(40);
 const BASE = 'c'.repeat(40);
@@ -78,7 +78,7 @@ async function verifyAppJwt(authorization: string) {
   assert.equal(Number(payload.exp) - Number(payload.iat), 600);
   assert.equal(payload.iat, Math.floor(clock.getTime() / 1000) - 60);
 }
-async function insertRepo(id = randomUUID(), githubId = '9001', installation = '77', full = 'FreeTWAI-AI/freedom-platform', sweep = '2099-01-01T00:00:00Z') {
+async function insertRepo(id = randomUUID(), githubId = '9001', installation = '77', full = 'FreeTWAI/freedom-platform', sweep = '2099-01-01T00:00:00Z') {
   await pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
     VALUES ($1,$2,$3,$4,$5,'main','active','observe',$6)`, [id, community, githubId, installation, full, sweep]);
@@ -93,7 +93,7 @@ async function insertPull(repository: string, number: number, head = SHA, update
     author_association, is_fork, head_sha, base_ref, base_sha, mergeable, labels, additions, deletions, changed_files, github_created_at,
     github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, policy_version, synced_at)
     VALUES ($1,$2,$3,$4,$5,$6,'open',false,'42','octocat','User','CONTRIBUTOR',false,$7,'main',$8,$9,'{}',1,0,1,$10,$10,$10,'[]',$11,'[]','2026-10-01.1',$12)`,
-  [randomUUID(), repository, number, String(700 + number), title, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, head, BASE, mergeable, updated, queue, synced]);
+  [randomUUID(), repository, number, String(700 + number), title, `https://github.com/FreeTWAI/freedom-platform/pull/${number}`, head, BASE, mergeable, updated, queue, synced]);
 }
 async function insertJob(repository: string, number: number, state = 'queued', attempts = 0, runAfter: Date = clock, lease: Date | null = null) {
   const id = randomUUID();
@@ -104,7 +104,7 @@ async function insertJob(repository: string, number: number, state = 'queued', a
 }
 function pullBody(over: Record<string, unknown> = {}) {
   return {
-    id: 555, number: 8, title: 'Observe me', html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/pull/8',
+    id: 555, number: 8, title: 'Observe me', html_url: 'https://github.com/FreeTWAI/freedom-platform/pull/8',
     state: 'open', merged_at: null, closed_at: null, draft: false, user: { id: 42, login: 'octocat', type: 'User' },
     author_association: 'CONTRIBUTOR', head: { sha: SHA, repo: { id: 9001, fork: false } },
     base: { ref: 'main', sha: BASE, repo: { id: 9001 } }, mergeable: true, mergeable_state: 'clean', labels: [],
@@ -134,13 +134,13 @@ function assertHosts() {
 
 test('installation sync keeps the organization and lists its repositories with one metadata token', async () => {
   const kept = await insertRepo(randomUUID(), '9001');
-  const gone = await insertRepo(randomUUID(), '9002', '77', 'FreeTWAI-AI/old-name');
+  const gone = await insertRepo(randomUUID(), '9002', '77', 'FreeTWAI/old-name');
   await pool.query(`UPDATE maintainer_worker_state SET next_installation_sync_at=$1 WHERE singleton`, [clock]);
   respond = call => {
     if (/\/app\/installations\/\d+\/repositories$/.test(call.path)) return new Response('missing', { status: 404 });
     if (call.path === '/app/installations') return Response.json([
-      { id: 77, account: { login: 'FreeTWAI-AI', type: 'Organization' }, suspended_at: null },
-      { id: 78, account: { login: 'FreeTWAI-AI', type: 'User' }, suspended_at: null },
+      { id: 77, account: { login: 'FreeTWAI', type: 'Organization' }, suspended_at: null },
+      { id: 78, account: { login: 'FreeTWAI', type: 'User' }, suspended_at: null },
       { id: 79, account: { login: 'OtherOrg', type: 'Organization' }, suspended_at: null },
     ]);
     if (call.method === 'POST' && call.path === '/app/installations/77/access_tokens') {
@@ -148,7 +148,7 @@ test('installation sync keeps the organization and lists its repositories with o
     }
     if (call.path === '/installation/repositories') {
       if (call.authorization !== `Bearer ${TOKEN}`) return new Response('missing', { status: 404 });
-      return Response.json({ total_count: 1, repository_selection: 'selected', repositories: [{ id: 9001, full_name: 'FreeTWAI-AI/freedom-platform', default_branch: 'main' }] });
+      return Response.json({ total_count: 1, repository_selection: 'selected', repositories: [{ id: 9001, full_name: 'FreeTWAI/freedom-platform', default_branch: 'main' }] });
     }
     return new Response('unexpected', { status: 500 });
   };
@@ -188,17 +188,17 @@ test('installation sync keeps the organization and lists its repositories with o
 
 test('a truncated installation repository list does not mark a missing repository removed', async () => {
   await insertRepo(randomUUID(), '9002');
-  for (let index = 0; index < 100; index += 1) await insertRepo(randomUUID(), String(3000 + index), '77', `FreeTWAI-AI/repo${index}`);
+  for (let index = 0; index < 100; index += 1) await insertRepo(randomUUID(), String(3000 + index), '77', `FreeTWAI/repo${index}`);
   await pool.query(`UPDATE maintainer_worker_state SET next_installation_sync_at=$1 WHERE singleton`, [clock]);
   respond = call => {
     if (/\/app\/installations\/\d+\/repositories$/.test(call.path)) return new Response('missing', { status: 404 });
-    if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'freetwai-ai', type: 'Organization' }, suspended_at: null }]);
+    if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'freetwai', type: 'Organization' }, suspended_at: null }]);
     if (call.method === 'POST' && call.path === '/app/installations/77/access_tokens') {
       return Response.json({ token: TOKEN, permissions: (call.body as { permissions: Record<string, string> }).permissions }, { status: 201 });
     }
     if (call.path === '/installation/repositories') {
       if (call.authorization !== `Bearer ${TOKEN}`) return new Response('missing', { status: 404 });
-      const repos = Array.from({ length: 100 }, (_, index) => ({ id: 3000 + index, full_name: `FreeTWAI-AI/repo${index}`, default_branch: 'main' }));
+      const repos = Array.from({ length: 100 }, (_, index) => ({ id: 3000 + index, full_name: `FreeTWAI/repo${index}`, default_branch: 'main' }));
       return Response.json({ total_count: repos.length, repository_selection: 'all', repositories: repos });
     }
     return new Response('unexpected', { status: 500 });
@@ -213,7 +213,7 @@ test('a truncated installation repository list does not mark a missing repositor
 });
 
 test('a sweep enqueues new, changed and missing pulls, and leaves an unchanged pull alone', async () => {
-  const repository = await insertRepo(randomUUID(), '9001', '77', 'FreeTWAI-AI/freedom-platform', clock.toISOString());
+  const repository = await insertRepo(randomUUID(), '9001', '77', 'FreeTWAI/freedom-platform', clock.toISOString());
   await insertPull(repository, 1, SHA, '2026-09-01T00:00:00.000Z');
   await insertPull(repository, 2, SHA, '2026-09-01T00:00:00.000Z');
   await insertPull(repository, 3, SHA, '2026-09-01T00:00:00.000Z');
@@ -283,8 +283,8 @@ test('a changed base repository fails the job and asks for an installation sync'
 
 test('a request budget and a rate limit release the job without counting an attempt', async () => {
   const repository = await insertRepo();
-  const other = await insertRepo(randomUUID(), '9002', '77', 'FreeTWAI-AI/other');
-  const outsider = await insertRepo(randomUUID(), '9003', '88', 'FreeTWAI-AI/elsewhere');
+  const other = await insertRepo(randomUUID(), '9002', '77', 'FreeTWAI/other');
+  const outsider = await insertRepo(randomUUID(), '9003', '88', 'FreeTWAI/elsewhere');
   await insertJob(repository, 8);
   installRoutes([]);
   const budget = await tick(1);
@@ -384,13 +384,13 @@ test('a suspended installation mints nothing, and unsuspend brings its repositor
   const page = (suspended: string | null) => {
     respond = call => {
       if (/\/app\/installations\/\d+\/repositories$/.test(call.path)) return new Response('missing', { status: 404 });
-      if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI-AI', type: 'Organization' }, suspended_at: suspended }]);
+      if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI', type: 'Organization' }, suspended_at: suspended }]);
       if (call.method === 'POST' && call.path.endsWith('/access_tokens')) {
         return Response.json({ token: TOKEN, permissions: (call.body as { permissions: Record<string, string> }).permissions }, { status: 201 });
       }
       if (call.path === '/installation/repositories') {
         if (call.authorization !== `Bearer ${TOKEN}`) return new Response('missing', { status: 404 });
-        return Response.json({ total_count: 1, repository_selection: 'selected', repositories: [{ id: 9001, full_name: 'FreeTWAI-AI/freedom-platform', default_branch: 'main' }] });
+        return Response.json({ total_count: 1, repository_selection: 'selected', repositories: [{ id: 9001, full_name: 'FreeTWAI/freedom-platform', default_branch: 'main' }] });
       }
       return new Response('unexpected', { status: 500 });
     };
@@ -552,7 +552,7 @@ test('fork follows head repository identity, not the fork flag', async () => {
 });
 
 test('a sweep refreshes stale open pulls and caps those refreshes', async () => {
-  const repository = await insertRepo(randomUUID(), '9001', '77', 'FreeTWAI-AI/freedom-platform', clock.toISOString());
+  const repository = await insertRepo(randomUUID(), '9001', '77', 'FreeTWAI/freedom-platform', clock.toISOString());
   await insertPull(repository, 1, SHA, '2026-09-01T00:00:00.000Z', 'ci', { synced: new Date(clock.getTime() - 11 * 60_000).toISOString(), queue: 'waiting_ci' });
   await insertPull(repository, 2, SHA, '2026-09-01T00:00:00.000Z', 'fresh', { synced: new Date(clock.getTime() - 60 * 60_000).toISOString(), queue: 'awaiting_review' });
   await insertPull(repository, 3, SHA, '2026-09-01T00:00:00.000Z', 'old', { synced: new Date(clock.getTime() - 7 * 60 * 60_000).toISOString(), queue: 'awaiting_review' });
@@ -597,7 +597,7 @@ test('a new repository is open with no guild, and only an untouched unowned row 
   const fresh = randomUUID();
   await pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
-    VALUES ($1,$2,'910065','77','FreeTWAI-AI/fresh-open','main','active','observe','2099-01-01T00:00:00Z')`, [fresh, community]);
+    VALUES ($1,$2,'910065','77','FreeTWAI/fresh-open','main','active','observe','2099-01-01T00:00:00Z')`, [fresh, community]);
   const opened = (await pool.query('SELECT guild_key, open_to_guilds, aggregate_version FROM maintainer_repositories WHERE repository_id=$1', [fresh])).rows[0];
   assert.equal(opened.guild_key, null);
   assert.equal(opened.open_to_guilds, true);
@@ -628,10 +628,10 @@ test('a new repository is open with no guild, and only an untouched unowned row 
       [id, communityId, github, full, guildKey, open]);
       return id;
     }
-    const untouched = await insert('1', 'FreeTWAI-AI/untouched', null, false);
-    const already = await insert('2', 'FreeTWAI-AI/already-open', null, true);
-    const history = await insert('3', 'FreeTWAI-AI/has-history', null, false);
-    const owned = await insert('4', 'FreeTWAI-AI/guild-owned', guild, false);
+    const untouched = await insert('1', 'FreeTWAI/untouched', null, false);
+    const already = await insert('2', 'FreeTWAI/already-open', null, true);
+    const history = await insert('3', 'FreeTWAI/has-history', null, false);
+    const owned = await insert('4', 'FreeTWAI/guild-owned', guild, false);
     await prior.query(`INSERT INTO maintainer_ownership_changes
       (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
       VALUES ($1,$2,NULL,NULL,false,'admin',$3,'管理員曾把這個儲存庫留在只限管理員。')`, [randomUUID(), history, adminId]);
@@ -655,7 +655,7 @@ test('a new repository is open with no guild, and only an untouched unowned row 
     const after = randomUUID();
     await prior.query(`INSERT INTO maintainer_repositories
       (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, next_sweep_at)
-      VALUES ($1,$2,'5','77','FreeTWAI-AI/after-migration','main','active','observe','2099-01-01T00:00:00Z')`, [after, communityId]);
+      VALUES ($1,$2,'5','77','FreeTWAI/after-migration','main','active','observe','2099-01-01T00:00:00Z')`, [after, communityId]);
     const afterRow = await row(after);
     assert.equal(afterRow.guild_key, null);
     assert.equal(afterRow.open_to_guilds, true);
@@ -669,10 +669,10 @@ test('a new repository is open with no guild, and only an untouched unowned row 
 test('installation sync classifies a catalog skill-book repository and leaves an admin scope alone', async () => {
   const adminId = randomUUID();
   await pool.query('INSERT INTO platform_admins (admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [adminId, community, 'sync-scope@example.invalid', 'Sync scope']);
-  const preserved = await insertRepo(randomUUID(), '9203', '77', 'FreeTWAI-AI/freedom-supplier-client');
+  const preserved = await insertRepo(randomUUID(), '9203', '77', 'FreeTWAI/freedom-supplier-client');
   await pool.query(`UPDATE maintainer_repositories SET scope_kind='module' WHERE repository_id=$1`, [preserved]);
-  const fill = await insertRepo(randomUUID(), '9204', '77', 'FreeTWAI-AI/claude-skill-social-post');
-  const history = await insertRepo(randomUUID(), '9205', '77', 'FreeTWAI-AI/freedom-skill-event-space');
+  const fill = await insertRepo(randomUUID(), '9204', '77', 'FreeTWAI/claude-skill-social-post');
+  const history = await insertRepo(randomUUID(), '9205', '77', 'FreeTWAI/freedom-skill-event-space');
   await pool.query(`INSERT INTO maintainer_ownership_changes
     (change_id, repository_id, guild_key, scope_kind, open_to_guilds, source, changed_by_admin, reason)
     VALUES ($1,$2,NULL,NULL,true,'admin',$3,'管理員曾看過這個儲存庫，分類先留空。')`, [randomUUID(), history, adminId]);
@@ -682,18 +682,18 @@ test('installation sync classifies a catalog skill-book repository and leaves an
   await pool.query(`UPDATE maintainer_worker_state SET next_installation_sync_at=$1 WHERE singleton`, [clock]);
   respond = call => {
     if (/\/app\/installations\/\d+\/repositories$/.test(call.path)) return new Response('missing', { status: 404 });
-    if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI-AI', type: 'Organization' }, suspended_at: null }]);
+    if (call.path === '/app/installations') return Response.json([{ id: 77, account: { login: 'FreeTWAI', type: 'Organization' }, suspended_at: null }]);
     if (call.method === 'POST' && call.path === '/app/installations/77/access_tokens') {
       return Response.json({ token: TOKEN, permissions: (call.body as { permissions: Record<string, string> }).permissions }, { status: 201 });
     }
     if (call.path === '/installation/repositories') {
       return Response.json({
         total_count: 5, repository_selection: 'selected', repositories: [
-          { id: 9201, full_name: 'FreeTWAI-AI/Freedom-Skill-Career-Guide', default_branch: 'main' },
-          { id: 9202, full_name: 'FreeTWAI-AI/not-a-skill-book', default_branch: 'main' },
-          { id: 9203, full_name: 'FreeTWAI-AI/freedom-supplier-client', default_branch: 'main' },
-          { id: 9204, full_name: 'FreeTWAI-AI/claude-skill-social-post', default_branch: 'main' },
-          { id: 9205, full_name: 'FreeTWAI-AI/freedom-skill-event-space', default_branch: 'main' },
+          { id: 9201, full_name: 'FreeTWAI/Freedom-Skill-Career-Guide', default_branch: 'main' },
+          { id: 9202, full_name: 'FreeTWAI/not-a-skill-book', default_branch: 'main' },
+          { id: 9203, full_name: 'FreeTWAI/freedom-supplier-client', default_branch: 'main' },
+          { id: 9204, full_name: 'FreeTWAI/claude-skill-social-post', default_branch: 'main' },
+          { id: 9205, full_name: 'FreeTWAI/freedom-skill-event-space', default_branch: 'main' },
         ],
       });
     }

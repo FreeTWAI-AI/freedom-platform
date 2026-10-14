@@ -4,7 +4,7 @@ import {test,expect,type Page,type Route} from './fixtures.js';
 const csrf='synthetic-admin-setup-csrf',state='s'.repeat(43),code='synthetic_manifest_code_2026';
 const app={configured:true,app_id:'4242',app_slug:'synthetic-freedom-star',html_url:'https://github.com/apps/synthetic-freedom-star'};
 const manifest={name:'synthetic-freedom-star',description:'Synthetic browser setup fixture',url:e2eOrigin(),redirect_url:`${e2eOrigin()}/admin/github/callback`,callback_urls:[`${e2eOrigin()}/github/callback`],public:true,hook_attributes:{url:`${e2eOrigin()}/github/events`,active:false},default_permissions:{starring:'write',metadata:'read'}};
-const target=`https://github.com/organizations/FreeTWAI-AI/settings/apps/new?state=${state}`;
+const target=`https://github.com/organizations/FreeTWAI/settings/apps/new?state=${state}`;
 type Call={path:string;method:string;body:unknown;headers:Record<string,string>};
 async function adminFixtures(page:Page,options:{status?:()=>unknown;start?:(route:Route)=>Promise<void>;complete?:(route:Route)=>Promise<void>}={}){
   const calls:Call[]=[];
@@ -29,7 +29,7 @@ function expectAdminCommand(call:Call){expect(call.method).toBe('POST');expect(c
 test('admin setup submits the manifest through native GitHub POST with starring write and metadata read',async({page})=>{
   const calls=await adminFixtures(page,{start:route=>route.fulfill({json:{target,manifest:JSON.stringify(manifest)}})});
   const submissions:{method:string;navigation:boolean;contentType:string;fields:[string,string][]}[]=[];
-  await page.route('https://github.com/organizations/FreeTWAI-AI/settings/apps/new?*',async route=>{
+  await page.route('https://github.com/organizations/FreeTWAI/settings/apps/new?*',async route=>{
     const request=route.request();submissions.push({method:request.method(),navigation:request.isNavigationRequest(),contentType:request.headers()['content-type'],fields:[...new URLSearchParams(request.postData()??'').entries()]});
     await route.fulfill({contentType:'text/html',body:'<h1>Synthetic GitHub manifest review</h1>'});
   });
@@ -49,7 +49,7 @@ test('admin callback clears sensitive query parameters and completes once across
   await page.goto(`/admin/github/callback?code=${code}&state=${state}`);
   await expect(page).toHaveURL(/\/admin$/);await expect(page.getByRole('heading',{name:'GitHub App 已建立',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'synthetic-freedom-star ↗',exact:true})).toHaveAttribute('href',app.html_url);
-  await expect(page.getByRole('link',{name:'檢查 GitHub App 權限 ↗',exact:true})).toHaveAttribute('href','https://github.com/organizations/FreeTWAI-AI/settings/apps/synthetic-freedom-star/permissions');
+  await expect(page.getByRole('link',{name:'檢查 GitHub App 權限 ↗',exact:true})).toHaveAttribute('href','https://github.com/organizations/FreeTWAI/settings/apps/synthetic-freedom-star/permissions');
   await expect(page.getByRole('link',{name:'安裝到平台 Repo ↗',exact:true})).toHaveAttribute('href','https://github.com/apps/synthetic-freedom-star/installations/new');
   await expect(page.getByRole('button',{name:'建立 GitHub App',exact:true})).toHaveCount(0);
   await page.locator('.admin-account > summary').click();
@@ -63,7 +63,7 @@ test('admin callback clears sensitive query parameters and completes once across
 test('setup start failure remains unconfigured and an explicit retry can submit the same safe manifest',async({page})=>{
   let starts=0;
   const calls=await adminFixtures(page,{start:route=>++starts===1?route.fulfill({status:503,json:{detail:'GitHub 設定服務暫時無法使用。'}}):route.fulfill({json:{target,manifest}})});
-  await page.route('https://github.com/organizations/FreeTWAI-AI/settings/apps/new?*',route=>route.fulfill({contentType:'text/html',body:'<h1>Synthetic setup retry</h1>'}));
+  await page.route('https://github.com/organizations/FreeTWAI/settings/apps/new?*',route=>route.fulfill({contentType:'text/html',body:'<h1>Synthetic setup retry</h1>'}));
   await openSetup(page);await page.getByRole('button',{name:'建立 GitHub App',exact:true}).click();
   await expect(page.getByRole('alert')).toHaveText('GitHub 設定服務暫時無法使用。');await expect(page.getByRole('heading',{name:'GitHub App 已連結',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'建立 GitHub App',exact:true})).toBeEnabled();expect(starts).toBe(1);
@@ -84,7 +84,7 @@ test('failed callback stays unconfigured and returns to fresh setup without resu
 });
 
 test('setup blocks an unexpected external form target and never presents it as successful',async({page})=>{
-  await adminFixtures(page,{start:route=>route.fulfill({json:{target:'https://github.com.evil.invalid/organizations/FreeTWAI-AI/settings/apps/new',manifest}})});
+  await adminFixtures(page,{start:route=>route.fulfill({json:{target:'https://github.com.evil.invalid/organizations/FreeTWAI/settings/apps/new',manifest}})});
   const outbound:string[]=[];page.on('request',request=>{if(new URL(request.url()).protocol==='https:')outbound.push(request.url());});
   await openSetup(page);await page.getByRole('button',{name:'建立 GitHub App',exact:true}).click();
   await expect(page.getByRole('alert')).toHaveText('GitHub 設定網址不正確。');await expect(page).toHaveURL(/\/admin$/);expect(outbound).toEqual([]);await expect(page.getByRole('button',{name:'建立 GitHub App',exact:true})).toBeEnabled();

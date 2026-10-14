@@ -138,7 +138,7 @@ test('project prompt is available during a GitHub outage, preserves original cre
  assert.match(brief.data.text,/最多三項/);assert.match(brief.data.text,/完整 commit SHA/);
  const pilot=await request('/co-creation/projects/workshop-video-autopilot/brief',owner);
  assert.equal(pilot.status,200);assert.match(pilot.data.text,/原作 Repo：https:\/\/github.com\/Hao0321\/video-autopilot-kit/);
- assert.match(pilot.data.text,/本頁任務來源：https:\/\/github.com\/FreeTWAI-AI\/video-autopilot-kit\/issues/);
+ assert.match(pilot.data.text,/本頁任務來源：https:\/\/github.com\/FreeTWAI\/video-autopilot-kit\/issues/);
  assert.match(pilot.data.text,/未回送原因/);assert.match(pilot.data.text,/不移轉作者權利/);
  assert.equal(seen.length,before);assert.ok(!pilot.data.text.includes(owner.csrf));
 });

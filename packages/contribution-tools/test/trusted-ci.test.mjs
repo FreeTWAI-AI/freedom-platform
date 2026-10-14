@@ -34,7 +34,7 @@ async function fixture(t) {
   const head = await commit(), bare = await fixtureRoot(t);
   git(['clone', '--quiet', '--bare', '--no-hardlinks', f.root, bare]);
   const suites = ['governance.unit', 'source.approval', 'runtime.full'];
-  const policy = { format: 'freedom.trusted-ci-policy/v1', revision: 'policy-fixture-1', repository: 'FreeTWAI-AI/freedom-platform',
+  const policy = { format: 'freedom.trusted-ci-policy/v1', revision: 'policy-fixture-1', repository: 'FreeTWAI/freedom-platform',
     source: { repository: f.manifest.source_repository, commit: f.manifest.source_commit, release_set_sha256: sha256(f.manifestBytes) },
     verifier: { commit: 'b'.repeat(40), sha256: await installedVerifierDigest() },
     workflow: { identity: 'central/verify', commit: 'c'.repeat(40), publisher: 'fixture-app' },

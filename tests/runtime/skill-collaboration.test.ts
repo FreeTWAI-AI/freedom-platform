@@ -7,7 +7,7 @@ import {createDevelopmentRoutes} from '../../apps/platform-api/src/routes/develo
 import {developmentPages} from '../../modules/development/pages.js';
 
 const origin='https://freetwai.com';
-const editorial:SkillEditorial={summary:'維護者的新剪輯摘要',collaboration_intro:'共做字幕同步與分享範例',milestones:[{id:'m-one',title:'可重現範例'}],tasks:[{id:'t-one',title:'補字幕壞例',description:'修改單一 fixture',acceptance:['倒序時間必須拒絕'],issue_url:'https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/3',milestone_id:'m-one',status:'in_progress'}],updated_at:'2026-09-23T12:00:00Z',aggregate_version:2};
+const editorial:SkillEditorial={summary:'維護者的新剪輯摘要',collaboration_intro:'共做字幕同步與分享範例',milestones:[{id:'m-one',title:'可重現範例'}],tasks:[{id:'t-one',title:'補字幕壞例',description:'修改單一 fixture',acceptance:['倒序時間必須拒絕'],issue_url:'https://github.com/FreeTWAI/video-autopilot-kit/issues/3',milestone_id:'m-one',status:'in_progress'}],updated_at:'2026-09-23T12:00:00Z',aggregate_version:2};
 
 test('all books default contributions to their original source and keep workshop task provenance separate',()=>{
  const map=developmentMap();assert.equal(map.skill_books.length,41);
@@ -30,7 +30,7 @@ test('all books default contributions to their original source and keep workshop
  assert.equal(getSkillCollaboration('multi-ai-chat')?.repository.default_branch,'master');
  assert.equal(getSkillCollaboration('multi-ai-chat')?.contribution.default_branch,'master');
  assert.equal(getSkillCollaboration('multi-ai-chat')?.contribution.name,'teddashh/multi-ai-chat');
- assert.equal(getSkillCollaboration('career-guide')?.contribution.name,'FreeTWAI-AI/freedom-skill-career-guide');
+ assert.equal(getSkillCollaboration('career-guide')?.contribution.name,'FreeTWAI/freedom-skill-career-guide');
  assert.equal(getSkillCollaboration('unknown'),null);assert.equal(skillAgentMarkdown('unknown'),null);
  const video=getSkillCollaboration('video-autopilot')!;
  const videoBook=communityCatalog.skill_books.find(value=>value.id==='video-autopilot')!;
@@ -79,7 +79,7 @@ test('maintainer editorial changes cannot redirect the original fork or take own
  const data=await response.json();
  assert.equal(data.contribution.url,'https://github.com/Hao0321/video-autopilot-kit');
  assert.equal(data.contribution.fork_url,'https://github.com/Hao0321/video-autopilot-kit/fork');
- assert.equal(data.repository.url,'https://github.com/FreeTWAI-AI/video-autopilot-kit');
+ assert.equal(data.repository.url,'https://github.com/FreeTWAI/video-autopilot-kit');
  assert.equal(data.tasks[0].source_url,editorial.tasks[0].issue_url,'existing workshop Issues stay real workshop evidence');
  const markdown=await(await app.request(origin+'/development/skills/video-autopilot/SKILL.md')).text();
  assert.ok(markdown.includes('預設 PR 目標：Hao0321/video-autopilot-kit:main'));

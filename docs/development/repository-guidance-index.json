@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "platform_repository": "FreeTWAI-AI/freedom-platform",
+  "platform_repository": "FreeTWAI/freedom-platform",
   "repositories": [
     {
-      "purpose": "FreeTWAI-AI 的組織介紹、共用 Issue／PR 範本与唯讀 CI 入口。",
+      "purpose": "FreeTWAI 的組織介紹、共用 Issue／PR 範本与唯讀 CI 入口。",
       "current_scope": "已有 profile、任務表單與可供各倉用 commit SHA 固定的 reusable verification workflow。",
       "future_scope": "workflow 存在或跑綠不表示 ruleset 已強制、維護者已審核、release 已簽章或網站已部署。",
       "upstream": null,
@@ -24,8 +24,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/.github",
-      "repository": "FreeTWAI-AI/.github",
+      "contribution_target": "https://github.com/FreeTWAI/.github",
+      "repository": "FreeTWAI/.github",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -52,7 +52,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/Hao0321/ai-media-generator",
-      "repository": "FreeTWAI-AI/ai-media-generator",
+      "repository": "FreeTWAI/ai-media-generator",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -89,7 +89,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/teddashh/ai-security-scanner",
-      "repository": "FreeTWAI-AI/ai-security-scanner",
+      "repository": "FreeTWAI/ai-security-scanner",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -125,7 +125,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/Hao0321/ai-short-drama",
-      "repository": "FreeTWAI-AI/ai-short-drama",
+      "repository": "FreeTWAI/ai-short-drama",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -162,7 +162,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/teddashh/AI-Sister",
-      "repository": "FreeTWAI-AI/AI-Sister",
+      "repository": "FreeTWAI/AI-Sister",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -196,7 +196,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/Hao0321/claude-skill-social-post",
-      "repository": "FreeTWAI-AI/claude-skill-social-post",
+      "repository": "FreeTWAI/claude-skill-social-post",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -231,8 +231,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-agent-kit",
-      "repository": "FreeTWAI-AI/freedom-agent-kit",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-agent-kit",
+      "repository": "FreeTWAI/freedom-agent-kit",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -261,8 +261,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-growth-automation",
-      "repository": "FreeTWAI-AI/freedom-growth-automation",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-growth-automation",
+      "repository": "FreeTWAI/freedom-growth-automation",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -296,8 +296,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-platform",
-      "repository": "FreeTWAI-AI/freedom-platform",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-platform",
+      "repository": "FreeTWAI/freedom-platform",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -323,8 +323,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-project-page",
-      "repository": "FreeTWAI-AI/freedom-project-page",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-project-page",
+      "repository": "FreeTWAI/freedom-project-page",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -351,8 +351,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-project-template",
-      "repository": "FreeTWAI-AI/freedom-project-template",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-project-template",
+      "repository": "FreeTWAI/freedom-project-template",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -377,8 +377,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-career-guide",
-      "repository": "FreeTWAI-AI/freedom-skill-career-guide",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-career-guide",
+      "repository": "FreeTWAI/freedom-skill-career-guide",
       "default_branch": "main",
       "kind": "skill_book",
       "contribution_default_branch": "main"
@@ -404,8 +404,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-commercial-production",
-      "repository": "FreeTWAI-AI/freedom-skill-commercial-production",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-commercial-production",
+      "repository": "FreeTWAI/freedom-skill-commercial-production",
       "default_branch": "main",
       "kind": "skill_book",
       "contribution_default_branch": "main"
@@ -430,8 +430,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-community-ops",
-      "repository": "FreeTWAI-AI/freedom-skill-community-ops",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-community-ops",
+      "repository": "FreeTWAI/freedom-skill-community-ops",
       "default_branch": "main",
       "kind": "skill_book",
       "contribution_default_branch": "main"
@@ -457,8 +457,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-music-mv",
-      "repository": "FreeTWAI-AI/freedom-skill-music-mv",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-music-mv",
+      "repository": "FreeTWAI/freedom-skill-music-mv",
       "default_branch": "main",
       "kind": "skill_book",
       "contribution_default_branch": "main"
@@ -483,8 +483,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-partnership",
-      "repository": "FreeTWAI-AI/freedom-skill-partnership",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-partnership",
+      "repository": "FreeTWAI/freedom-skill-partnership",
       "default_branch": "main",
       "kind": "skill_book",
       "contribution_default_branch": "main"
@@ -509,8 +509,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-project-delivery",
-      "repository": "FreeTWAI-AI/freedom-skill-project-delivery",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-project-delivery",
+      "repository": "FreeTWAI/freedom-skill-project-delivery",
       "default_branch": "main",
       "kind": "skill_book",
       "contribution_default_branch": "main"
@@ -535,8 +535,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-reconciliation",
-      "repository": "FreeTWAI-AI/freedom-skill-reconciliation",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-reconciliation",
+      "repository": "FreeTWAI/freedom-skill-reconciliation",
       "default_branch": "main",
       "kind": "skill_book",
       "contribution_default_branch": "main"
@@ -563,8 +563,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-registry",
-      "repository": "FreeTWAI-AI/freedom-skill-registry",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-registry",
+      "repository": "FreeTWAI/freedom-skill-registry",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -593,8 +593,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-storefront",
-      "repository": "FreeTWAI-AI/freedom-storefront",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-storefront",
+      "repository": "FreeTWAI/freedom-storefront",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -621,8 +621,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-supplier-client",
-      "repository": "FreeTWAI-AI/freedom-supplier-client",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-supplier-client",
+      "repository": "FreeTWAI/freedom-supplier-client",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -648,8 +648,8 @@
         "AGENTS.md",
         "CONTRIBUTING.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io",
-      "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+      "contribution_target": "https://github.com/FreeTWAI/FreeTWAI.github.io",
+      "repository": "FreeTWAI/FreeTWAI.github.io",
       "default_branch": "main",
       "kind": "platform_module",
       "contribution_default_branch": "main"
@@ -679,7 +679,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/Hao0321/Hao0321-Studio-WEB",
-      "repository": "FreeTWAI-AI/Hao0321-Studio-WEB",
+      "repository": "FreeTWAI/Hao0321-Studio-WEB",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -715,7 +715,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/teddashh/multi-ai-chat",
-      "repository": "FreeTWAI-AI/multi-ai-chat",
+      "repository": "FreeTWAI/multi-ai-chat",
       "default_branch": "master",
       "kind": "upstream_fork",
       "contribution_default_branch": "master",
@@ -752,7 +752,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/teddashh/multi-ai-chat-desktop",
-      "repository": "FreeTWAI-AI/multi-ai-chat-desktop",
+      "repository": "FreeTWAI/multi-ai-chat-desktop",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -788,7 +788,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/Hao0321/pos-pro",
-      "repository": "FreeTWAI-AI/pos-pro",
+      "repository": "FreeTWAI/pos-pro",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -825,7 +825,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/Hao0321/typo-studio",
-      "repository": "FreeTWAI-AI/typo-studio",
+      "repository": "FreeTWAI/typo-studio",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -862,7 +862,7 @@
         "CONTRIBUTING.md"
       ],
       "contribution_target": "https://github.com/Hao0321/video-autopilot-kit",
-      "repository": "FreeTWAI-AI/video-autopilot-kit",
+      "repository": "FreeTWAI/video-autopilot-kit",
       "default_branch": "main",
       "kind": "upstream_fork",
       "contribution_default_branch": "main",
@@ -899,8 +899,8 @@
         "SKILL.md",
         "BACKLOG.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-event-space",
-      "repository": "FreeTWAI-AI/freedom-skill-event-space",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-event-space",
+      "repository": "FreeTWAI/freedom-skill-event-space",
       "default_branch": "main",
       "kind": "starter",
       "contribution_default_branch": "main"
@@ -930,8 +930,8 @@
         "SKILL.md",
         "BACKLOG.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-projection-mapping",
-      "repository": "FreeTWAI-AI/freedom-skill-projection-mapping",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-projection-mapping",
+      "repository": "FreeTWAI/freedom-skill-projection-mapping",
       "default_branch": "main",
       "kind": "starter",
       "contribution_default_branch": "main"
@@ -961,8 +961,8 @@
         "SKILL.md",
         "BACKLOG.md"
       ],
-      "contribution_target": "https://github.com/FreeTWAI-AI/freedom-skill-human-design",
-      "repository": "FreeTWAI-AI/freedom-skill-human-design",
+      "contribution_target": "https://github.com/FreeTWAI/freedom-skill-human-design",
+      "repository": "FreeTWAI/freedom-skill-human-design",
       "default_branch": "main",
       "kind": "starter",
       "contribution_default_branch": "main"

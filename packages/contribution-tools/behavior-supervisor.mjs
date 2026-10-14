@@ -382,14 +382,14 @@ export async function runIsolatedConsumerBehavior(input) { return runConsumerPro
 /** Fixed actual user-facing CLI, executed only in the candidate container. */
 export async function runIsolatedAgentKitCliBehavior(input) { return runConsumerProfile(input, 'kit-cli'); }
 export async function runIsolatedConsumerCliBehavior(input) {
-  return runConsumerProfile(input, input?.repository === 'FreeTWAI-AI/freedom-agent-kit' ? 'kit-cli' : 'scoped-cli');
+  return runConsumerProfile(input, input?.repository === 'FreeTWAI/freedom-agent-kit' ? 'kit-cli' : 'scoped-cli');
 }
 
 async function runConsumerProfile(input, profile) {
   const keys = ['repository', 'candidateRepository', 'candidateCommit'];
   if (!input || Object.keys(input).sort().join() !== keys.sort().join()
     || !Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository)
-    || (['kit-cli', 'kit-device'].includes(profile) && input.repository !== 'FreeTWAI-AI/freedom-agent-kit')) fail('consumer_profile_required');
+    || (['kit-cli', 'kit-device'].includes(profile) && input.repository !== 'FreeTWAI/freedom-agent-kit')) fail('consumer_profile_required');
   const { repository, candidateRepository, candidateCommit } = input;
   const device = profile === 'kit-device';
   const selected = device ? { entry: DEVICE_ENTRY, scenarios: DEVICE_CASES }

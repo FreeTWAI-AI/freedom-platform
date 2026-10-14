@@ -28,7 +28,7 @@ Fork 連到原作 `/fork`，由本人在 GitHub 選擇擁有者與確認建立�
 
 1. 操作端在 public／staging 的私有環境各設定 `GITHUB_SOCIAL_TOKEN_KEY`：32 bytes 隨機值的標準 base64。保留金鑰以供資料庫還原；不寫進 repo、瀏覽器或日誌。
 2. 套用 migration018、019，部署這個版本。既有 Access 後台權限不變。
-3. 管理員開 `/admin` →「GitHub 連結」→「建立 GitHub App」。以 FreeTWAI-AI 組織擁有者身分，在 GitHub 按 Create GitHub App；回到工坊完成設定。這是一次性的外部帳號操作。
+3. 管理員開 `/admin` →「GitHub 連結」→「建立 GitHub App」。以 FreeTWAI 組織擁有者身分，在 GitHub 按 Create GitHub App；回到工坊完成設定。這是一次性的外部帳號操作。
 4. App 明確申請 `starring:write` 與 `metadata:read`，並在建立完成時驗證兩項都存在。公開專案可讀不代表 Star 寫入具備所需權限；不能以隱含讀取取代 manifest 的 Metadata 權限。不申請 repository content write、Issue、PR、Email、組織或管理權限。Webhook 關閉、沒有事件訂閱；每個環境使用自己的 App 與回呼。
 5. Repo 擁有者從後台的「安裝到技能書 Repo」入口安裝 App，只選擇技能書對應的原作 Repo。原作在其他人的帳號時，要由該擁有者授予 Repo 存取；會員連結 GitHub 不等於 App 已安裝到原作。
 6. 會員在自己的名片或技能書連結 GitHub，再按 Star。不能用管理員或伺服器的 GitHub CLI token 代替會員授權。

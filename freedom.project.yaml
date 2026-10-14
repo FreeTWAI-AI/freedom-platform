@@ -31,9 +31,9 @@
     "accountable_team": null,
     "external_owner": {
       "type": "Organization",
-      "account_id": "331546855",
-      "login": "FreeTWAI-AI",
-      "html_url": "https://github.com/FreeTWAI-AI"
+      "account_id": "342048686",
+      "login": "FreeTWAI",
+      "html_url": "https://github.com/FreeTWAI"
     },
     "accountable_party_ref": "user:teddashh",
     "module_stewardship_ref": null,
@@ -50,8 +50,8 @@
     "security_contact": "https://github.com/teddashh"
   },
   "repository": {
-    "full_name": "FreeTWAI-AI/freedom-platform",
-    "html_url": "https://github.com/FreeTWAI-AI/freedom-platform",
+    "full_name": "FreeTWAI/freedom-platform",
+    "html_url": "https://github.com/FreeTWAI/freedom-platform",
     "repository_id": "1378081342",
     "default_branch": "main",
     "visibility": "public",
@@ -185,9 +185,9 @@
     ]
   },
   "links": {
-    "documentation": "https://github.com/FreeTWAI-AI/freedom-platform/blob/main/README.md",
+    "documentation": "https://github.com/FreeTWAI/freedom-platform/blob/main/README.md",
     "demo": "https://freetwai.com/",
-    "support": "https://github.com/FreeTWAI-AI/freedom-platform/issues",
-    "issues": "https://github.com/FreeTWAI-AI/freedom-platform/issues"
+    "support": "https://github.com/FreeTWAI/freedom-platform/issues",
+    "issues": "https://github.com/FreeTWAI/freedom-platform/issues"
   }
 }

@@ -144,7 +144,7 @@ export const wireVersionResponses:MiddlewareHandler=async(c,next)=>{
 export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
 /** Shared by the Worker file fast path; route-specific form destinations stay here. */
 export function platformContentSecurityPolicy(path:string,brokerFormOrigin?:string){
-  const githubSetupForm=path==='/admin'||path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
+  const githubSetupForm=path==='/admin'||path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI/settings/apps/new':'';
   return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
 }
 export function platformResponseHeaders(path:string,brokerFormOrigin?:string){

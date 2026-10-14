@@ -56,6 +56,30 @@ test('exports exact pinned consumers without changing preview and independently 
   assert(!JSON.stringify(workspace).includes('never-return'));
 });
 
+test('historical library locks fetch exact source bytes through the current transport without rewriting provenance',async t=>{
+  const state=await setup(t);
+  await exportConsumerLibraries(state.destinations,state);
+  for(const {root,repository} of state.destinations){
+    const lock=JSON.parse(await readFile(join(root,LIBRARY_LOCK)));
+    lock.source_repository='FreeTWAI-AI/freedom-platform';
+    lock.repository=repository.replace('FreeTWAI/','FreeTWAI-AI/');
+    await put(root,LIBRARY_LOCK,JSON.stringify(lock));
+    const before=await readFile(join(root,LIBRARY_LOCK)),urls=[];
+    await verifyConsumerLibraries(root,{repository,expectedSourceCommit:state.expectedSourceCommit,remote:true,fetcher:async url=>{
+      urls.push(url);
+      const prefix=`https://raw.githubusercontent.com/FreeTWAI/freedom-platform/${state.expectedSourceCommit}/`;
+      assert(url.startsWith(prefix));
+      return new Response(execFileSync('git',['show',`${state.expectedSourceCommit}:${url.slice(prefix.length)}`],{cwd:state.sourceRoot}));
+    }});
+    assert.equal(urls.length,lock.files.length);
+    assert((await readFile(join(root,LIBRARY_LOCK))).equals(before));
+    lock.source_repository='FreeTWAI-AI-Legacy/freedom-platform';
+    await put(root,LIBRARY_LOCK,JSON.stringify(lock));
+    await assert.rejects(verifyConsumerLibraries(root,{repository,expectedSourceCommit:state.expectedSourceCommit,remote:true,
+      fetcher:async()=>assert.fail('unreviewed source must be rejected before fetching')}),{code:'library_source_mismatch'});
+  }
+});
+
 test('rewriting both candidate library and lock cannot forge a match to the selected source', async t => {
   const { sourceRoot, destinations, expectedSourceCommit } = await setup(t);
   await exportConsumerLibraries(destinations, { sourceRoot, expectedSourceCommit });
@@ -188,7 +212,7 @@ test('explicit Kit profile upgrade adds exact SDK artifact while other consumers
   await verifyConsumerLibraries(kit.root, { repository: kit.repository, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE,
     expectedSourceCommit: state.expectedSourceCommit, remote: true, fetcher: async url => {
       urls.push(url);
-      const prefix = `https://raw.githubusercontent.com/FreeTWAI-AI/freedom-platform/${state.expectedSourceCommit}/`;
+      const prefix = `https://raw.githubusercontent.com/FreeTWAI/freedom-platform/${state.expectedSourceCommit}/`;
       assert(url.startsWith(prefix));
       return new Response(await readFile(join(state.sourceRoot, url.slice(prefix.length))));
     } });
@@ -269,6 +293,17 @@ test('versioned device CLI export binds the generated launcher and entire canoni
     await assert.rejects(verifyConsumerLibraries(kit.root, options), { code: 'library_entry_source_mismatch' });
   }
   await put(kit.root, 'src/device-cli.mjs', entry);
+  const oldLock=JSON.parse(await readFile(join(kit.root,LIBRARY_LOCK)));
+  oldLock.source_repository='FreeTWAI-AI/freedom-platform';oldLock.repository='FreeTWAI-AI/freedom-agent-kit';
+  await put(kit.root,LIBRARY_LOCK,JSON.stringify(oldLock));
+  const urls=[];
+  await verifyConsumerLibraries(kit.root,{...options,sourceRoot:undefined,remote:true,fetcher:async url=>{
+    urls.push(url);
+    const prefix=`https://raw.githubusercontent.com/FreeTWAI/freedom-platform/${state.expectedSourceCommit}/`;
+    assert(url.startsWith(prefix));
+    return new Response(execFileSync('git',['show',`${state.expectedSourceCommit}:${url.slice(prefix.length)}`],{cwd:state.sourceRoot}));
+  }});
+  assert.equal(urls.length,4);assert(urls.some(url=>url.endsWith('/scripts/repository-bootstrap/agent-kit-device-cli.mjs')));
   kit.upgradeFrom = { consumerCommit: commit(kit.root), sourceCommit: state.expectedSourceCommit,
     expectedLibraryProfile: AGENT_KIT_DEVICE_CLI_LIBRARY_PROFILE };
   await assert.rejects(exportConsumerLibraries([{ ...kit, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE }], state),

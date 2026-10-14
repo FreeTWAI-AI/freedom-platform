@@ -13,13 +13,13 @@ const current=process.env.FREEDOM_KIT_CANDIDATE_SHA,expectedWorkflowCommit=proce
 const previous='b2227bc36a571084f6c3d5c5ab340ed4485c6738', legacySource='91b943ac61e132fbbce72ea066cb2301aa065600';
 if(process.env.FREEDOM_RUN_KIT_DEVICE_RUNTIME!=='1'||![candidateRoot,sourceRoot].every(v=>typeof v==='string'&&isAbsolute(v))
  ||![current,expectedWorkflowCommit].every(v=>/^[a-f0-9]{40}$/.test(v)))throw Error('Explicit full clones and exact commits required');
-const repository='FreeTWAI-AI/freedom-agent-kit',identity={repository,candidateRoot,sourceRoot,expectedWorkflowCommit};
+const repository='FreeTWAI/freedom-agent-kit',identity={repository,candidateRoot,sourceRoot,expectedWorkflowCommit};
 const git=(cwd,args)=>execFileSync('/usr/bin/git',['-c','core.hooksPath=/dev/null',...args],{cwd,encoding:'utf8',timeout:30000,
  env:{...verificationEnvironment(),GIT_AUTHOR_NAME:'Synthetic',GIT_COMMITTER_NAME:'Synthetic',GIT_AUTHOR_EMAIL:'fixture@example.invalid',GIT_COMMITTER_EMAIL:'fixture@example.invalid'},stdio:['ignore','pipe','pipe']}).trim();
 const script=fileURLToPath(new URL('../../packages/contribution-tools/github-consumer-host.mjs',import.meta.url));
 function native(root,sha){return spawnSync(process.execPath,[script,root,sourceRoot],{encoding:'utf8',env:{...verificationEnvironment(),
  GITHUB_ACTIONS:'true',GITHUB_EVENT_NAME:'pull_request',GITHUB_REPOSITORY:repository,GITHUB_SHA:sha,
- FREEDOM_WORKFLOW_SHA:expectedWorkflowCommit,FREEDOM_WORKFLOW_REPOSITORY:'FreeTWAI-AI/freedom-platform',
+ FREEDOM_WORKFLOW_SHA:expectedWorkflowCommit,FREEDOM_WORKFLOW_REPOSITORY:'FreeTWAI/freedom-platform',
  FREEDOM_WORKFLOW_PATH:'.github/workflows/trusted-consumer-libraries.yml',FREEDOM_LIBRARY_SOURCE_SHA:'f'.repeat(40),FREEDOM_LIBRARY_PROFILE:'candidate-choice'}});}
 async function clone(t,sha){const root=await mkdtemp(join(tmpdir(),'fp-supported-consumer-'));t.after(()=>rm(root,{recursive:true,force:true}));
  git(root,['clone','--quiet','--no-hardlinks',candidateRoot,'.']);git(root,['checkout','--quiet',sha]);return root;}

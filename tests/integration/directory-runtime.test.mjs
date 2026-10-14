@@ -17,7 +17,7 @@ const git = (cwd, args) => execFileSync('/usr/bin/git', ['-c', 'core.hooksPath=/
   env: { ...verificationEnvironment(), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_AUTHOR_NAME: 'Synthetic', GIT_COMMITTER_NAME: 'Synthetic', GIT_AUTHOR_EMAIL: 'synthetic@example.invalid', GIT_COMMITTER_EMAIL: 'synthetic@example.invalid' },
 }).trim();
-const input = (root = candidateRoot, commit = approved) => ({ repository: 'FreeTWAI-AI/FreeTWAI-AI.github.io',
+const input = (root = candidateRoot, commit = approved) => ({ repository: 'FreeTWAI/FreeTWAI.github.io',
   candidateRoot: root, candidateCommit: commit, sourceRoot, expectedWorkflowCommit: workflow,
   expectedSourceCommit: '91b943ac61e132fbbce72ea066cb2301aa065600' });
 async function mutation(t, path, transform) {

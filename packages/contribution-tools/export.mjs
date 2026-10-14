@@ -1,3 +1,4 @@
+import {matchesRecordedRepository} from './repository-identity.mjs';
 import { mkdir, lstat, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname, relative, isAbsolute } from 'node:path';
@@ -10,7 +11,7 @@ import { CONSUMER_LIBRARIES, LEGACY_LIBRARY_PROFILE, consumerLibraryProfile, LIB
 
 export const PORTABLE_TOOL_FILES = [
   ...['errors', 'io', 'schema', 'formats', 'contracts', 'pin-cli', 'workspace', 'context', 'verify', 'cli',
-    'local-artifacts', 'process-env', 'consumer-libraries', 'test-reporter', 'test-failure-diagnostic', 'suite-runner', 'runtime-file-weights', 'pinned-suites', 'runtime-suites', 'runtime-databases'].map(name => `packages/contribution-tools/${name}.mjs`),
+    'local-artifacts', 'process-env', 'repository-identity', 'consumer-libraries', 'test-reporter', 'test-failure-diagnostic', 'suite-runner', 'runtime-file-weights', 'pinned-suites', 'runtime-suites', 'runtime-databases'].map(name => `packages/contribution-tools/${name}.mjs`),
   'governance/README.md',
   ...['release-set', 'contract-pin-v1', 'contract-pin-v2', 'release-proof', 'release-trust', 'module', 'coding-context', 'verifier-report']
     .map(name => `governance/schemas/${name}.schema.json`),
@@ -31,7 +32,7 @@ async function checkDestination(root, path) {
   }
 }
 
-export const LIBRARY_TOOL_FILES = ['errors', 'io', 'process-env', 'consumer-libraries']
+export const LIBRARY_TOOL_FILES = ['errors', 'io', 'process-env', 'repository-identity', 'consumer-libraries']
   .map(name => `packages/contribution-tools/${name}.mjs`);
 const libraryToolMappings = [
   ...LIBRARY_TOOL_FILES.map(source => ({ source, target: `vendor/freedom-tooling/${source}` })),
@@ -64,7 +65,7 @@ export async function exportConsumerLibraries(destinations, {
       check(rel && (rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || isAbsolute(rel)), 'overlapping_export_destination');
     }
     roots.push(target);
-    const pinned = repositories.find(entry => entry.repository === repository);
+    const pinned = repositories.find(entry => matchesRecordedRepository(entry.repository, repository));
     const upgrade = destination.upgradeFrom;
     if (upgrade !== undefined) check(upgrade && /^[a-f0-9]{40}$/.test(upgrade.consumerCommit ?? '')
       && /^[a-f0-9]{40}$/.test(upgrade.sourceCommit ?? ''), 'expected_library_upgrade_required');
@@ -100,7 +101,7 @@ export async function exportConsumerLibraries(destinations, {
     output.push({ path: LIBRARY_LOCK, bytes: Buffer.from(JSON.stringify({
       format: profile.format, ...(profile.id === LEGACY_LIBRARY_PROFILE ? {} : { profile: profile.id }),
       repository, consumer_base_commit: consumerCommit,
-      source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: commit, files,
+      source_repository: 'FreeTWAI/freedom-platform', source_commit: commit, files,
     }, null, 2) + '\n') });
     prepared.push({ target, repository, profile, consumerCommit, output });
   }
@@ -138,7 +139,7 @@ export async function exportPreviewBundle(destinations, {
   });
   const commit = git(['rev-parse', 'HEAD']).toString().trim();
   const bundleBytes = await readBounded(root, 'contracts/preview/v1/bundle.json'), bundle = parseJson(bundleBytes);
-  const lock = { format: 'freedom.contract-pin/v1', source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: commit,
+  const lock = { format: 'freedom.contract-pin/v1', source_repository: 'FreeTWAI/freedom-platform', source_commit: commit,
     bundle_path: 'contracts/preview/v1', protocol: bundle.protocol, protocol_sha256: bundle.protocol_sha256, bundle_sha256: sha256(bundleBytes) };
   validateFormat('lockV1', lock);
   const artifactNames = ['bundle.json', ...Object.keys(bundle.files)];

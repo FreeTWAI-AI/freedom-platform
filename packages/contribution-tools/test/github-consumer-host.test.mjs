@@ -18,9 +18,9 @@ import { DIRECTORY_REPOSITORY } from '../directory-build-fixture.mjs';
 for (const [file, job] of [
   ['trusted-consumer-libraries.yml', 'consumer-library-source'],
   ['trusted-consumer-runtime.yml', 'consumer-runtime'],
-]) test(`${file} skips forks and runs every non-central FreeTWAI-AI repository`, () => {
+]) test(`${file} skips forks and runs every non-central FreeTWAI repository`, () => {
   const lines = readFileSync(new URL('../../../.github/workflows/' + file, import.meta.url), 'utf8').split('\n');
-  const expected = "${{ github.repository_owner == 'FreeTWAI-AI' && github.repository != 'FreeTWAI-AI/freedom-platform' }}";
+  const expected = "${{ github.repository_owner == 'FreeTWAI' && github.repository != 'FreeTWAI/freedom-platform' }}";
   const conditions = lines.filter(line => /^\s{4}if:/.test(line));
   assert.equal(conditions.length, 1);
   assert.equal(conditions[0].slice('    if: '.length), expected);
@@ -29,28 +29,28 @@ for (const [file, job] of [
   const end = lines.findIndex((line, index) => index > start && /^\S|^  \S/.test(line));
   assert.ok(lines.slice(start + 1, end === -1 ? lines.length : end).includes(conditions[0]));
   for (const line of lines) {
-    const exclusion = line.indexOf("github.repository != 'FreeTWAI-AI/freedom-platform' }}");
-    if (exclusion !== -1) assert.ok(line.slice(0, exclusion).includes("github.repository_owner == 'FreeTWAI-AI' && "));
+    const exclusion = line.indexOf("github.repository != 'FreeTWAI/freedom-platform' }}");
+    if (exclusion !== -1) assert.ok(line.slice(0, exclusion).includes("github.repository_owner == 'FreeTWAI' && "));
   }
 });
 
 test('workflow owner guard includes every approved source consumer', () => {
   for (const repository of Object.keys(CONSUMER_HOST_TUPLES)) {
-    assert.ok(repository.startsWith('FreeTWAI-AI/'));
-    assert.notEqual(repository, 'FreeTWAI-AI/freedom-platform');
+    assert.ok(repository.startsWith('FreeTWAI/'));
+    assert.notEqual(repository, 'FreeTWAI/freedom-platform');
   }
 });
 
 test('workflow owner guard includes every admitted runtime consumer', () => {
   for (const repository of [...Object.keys(CONSUMER_BEHAVIOR_PROFILES), DIRECTORY_REPOSITORY]) {
-    assert.ok(repository.startsWith('FreeTWAI-AI/'));
-    assert.notEqual(repository, 'FreeTWAI-AI/freedom-platform');
+    assert.ok(repository.startsWith('FreeTWAI/'));
+    assert.notEqual(repository, 'FreeTWAI/freedom-platform');
   }
 });
 
 function git(root, args) { return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd: root, env: verificationEnvironment(), stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim(); }
 function commit(root) { git(root, ['add', '.']); git(root, ['-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Synthetic']); return git(root, ['rev-parse', 'HEAD']); }
-async function fixture(t, repository = 'FreeTWAI-AI/freedom-agent-kit', expectedLibraryProfile) {
+async function fixture(t, repository = 'FreeTWAI/freedom-agent-kit', expectedLibraryProfile) {
   const candidateRoot = await fixtureRoot(t), sourceRoot = await fixtureRoot(t);
   for (const root of [candidateRoot, sourceRoot]) git(root, ['-c', 'init.templateDir=', 'init', '-q']);
   await put(candidateRoot, 'contracts.lock.json', '{"preview":"synthetic baseline"}');
@@ -69,7 +69,7 @@ async function fixture(t, repository = 'FreeTWAI-AI/freedom-agent-kit', expected
   }
   const expectedSourceCommit = commit(sourceRoot);
   const lock = { format: profile.format, ...(profile.id === LEGACY_LIBRARY_PROFILE ? {} : { profile: profile.id }),
-    source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: expectedSourceCommit, repository, files };
+    source_repository: 'FreeTWAI/freedom-platform', source_commit: expectedSourceCommit, repository, files };
   await put(candidateRoot, 'consumer-libraries.lock.json', pretty(lock));
   await put(candidateRoot, 'scripts/verify-consumer-libraries.mjs', 'throw Error("CANDIDATE_VERIFIER_EXECUTED")');
   await put(candidateRoot, '.github/workflows/verify.yml', 'run: echo success');
@@ -112,7 +112,7 @@ test('native Actions executable binds source/candidate identity and rejects unsu
   const { input } = await fixture(t), script = fileURLToPath(new URL('../github-consumer-host.mjs', import.meta.url));
   const environment = { ...verificationEnvironment(), GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request', GITHUB_REPOSITORY: input.repository,
     GITHUB_SHA: input.candidateCommit, FREEDOM_LIBRARY_SOURCE_SHA: input.expectedSourceCommit, FREEDOM_WORKFLOW_SHA: input.expectedWorkflowCommit,
-    FREEDOM_WORKFLOW_REPOSITORY: 'FreeTWAI-AI/freedom-platform', FREEDOM_WORKFLOW_PATH: '.github/workflows/trusted-consumer-libraries.yml' };
+    FREEDOM_WORKFLOW_REPOSITORY: 'FreeTWAI/freedom-platform', FREEDOM_WORKFLOW_PATH: '.github/workflows/trusted-consumer-libraries.yml' };
   const run = env => spawnSync(process.execPath, [script, input.candidateRoot, input.sourceRoot], { env, encoding: 'utf8' });
   // An arbitrary synthetic source cannot replace the installed repository tuple.
   assert.equal((await verifyNativeConsumerSource(input)).status, 'passed');
@@ -177,7 +177,7 @@ test('ordinary source and descriptive package edits pass without claiming runtim
 });
 
 test('host-selected new profile verifies immutable canonical artifacts without claiming invocation', async t => {
-  const { input } = await fixture(t, 'FreeTWAI-AI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  const { input } = await fixture(t, 'FreeTWAI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
   const result = await verifyNativeConsumerSource(input);
   assert.equal(result.status, 'passed');
   assert.equal(result.library_profile, AGENT_KIT_DEVICE_LIBRARY_PROFILE);
@@ -192,12 +192,12 @@ test('host-selected new profile verifies immutable canonical artifacts without c
   await assert.rejects(verifyNativeConsumerRuntime(defaultHost), { code: 'consumer_library_file_set_mismatch' });
   const old = await fixture(t);
   await assert.rejects(verifyNativeConsumerSource({ ...old.input, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE }), { code: 'consumer_library_file_set_mismatch' });
-  const other = await fixture(t, 'FreeTWAI-AI/freedom-storefront');
+  const other = await fixture(t, 'FreeTWAI/freedom-storefront');
   await assert.rejects(verifyNativeConsumerSource({ ...other.input, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE }), { code: 'unsupported_library_profile' });
 });
 
 test('lock metadata, self-hashed new artifacts and alternate source cannot select host authority', async t => {
-  const { input, lock } = await fixture(t, 'FreeTWAI-AI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  const { input, lock } = await fixture(t, 'FreeTWAI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
   await assert.rejects(verifyNativeConsumerSource({ ...input, expectedLibraryProfile: '../arbitrary-profile' }), { code: 'unsupported_library_profile' });
   await assert.rejects(verifyNativeConsumerSource({ ...input, arbitraryFiles: lock.files }), { code: 'consumer_host_input_invalid' });
   lock.profile = LEGACY_LIBRARY_PROFILE;
@@ -219,11 +219,11 @@ test('lock metadata, self-hashed new artifacts and alternate source cannot selec
 });
 
 test('native source CLI ignores arbitrary environment source/profile overrides and uses its installed repo tuple', async t => {
-  const { input } = await fixture(t, 'FreeTWAI-AI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  const { input } = await fixture(t, 'FreeTWAI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
   const script = fileURLToPath(new URL('../github-consumer-host.mjs', import.meta.url));
   const env = { ...verificationEnvironment(), GITHUB_ACTIONS:'true', GITHUB_EVENT_NAME:'pull_request', GITHUB_REPOSITORY:input.repository,
     GITHUB_SHA:input.candidateCommit, FREEDOM_WORKFLOW_SHA:input.expectedWorkflowCommit,
-    FREEDOM_WORKFLOW_REPOSITORY:'FreeTWAI-AI/freedom-platform', FREEDOM_WORKFLOW_PATH:'.github/workflows/trusted-consumer-libraries.yml' };
+    FREEDOM_WORKFLOW_REPOSITORY:'FreeTWAI/freedom-platform', FREEDOM_WORKFLOW_PATH:'.github/workflows/trusted-consumer-libraries.yml' };
   for(const extras of [{}, {FREEDOM_LIBRARY_SOURCE_SHA:input.expectedSourceCommit,FREEDOM_LIBRARY_PROFILE:AGENT_KIT_DEVICE_LIBRARY_PROFILE},
     {FREEDOM_LIBRARY_SOURCE_SHA:'f'.repeat(40),FREEDOM_LIBRARY_PROFILE:'candidate-choice'}]) {
     const result=spawnSync(process.execPath,[script,input.candidateRoot,input.sourceRoot],{env:{...env,...extras},encoding:'utf8'});

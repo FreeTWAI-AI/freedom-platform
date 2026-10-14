@@ -42,8 +42,8 @@ test('guild skill book introduces a real first deliverable before external readi
   await expect(start).not.toHaveAttribute('open');await start.locator('summary').click();
   await expect(start).toContainText('Node.js 24');await expect(start.locator('pre')).toContainText('npm run read -- products');
   await expect(modal.getByRole('link',{name:'完整指南 ↗',exact:true})).toHaveAttribute('href','/development/skills/supplier-client');
-  await expect(modal.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',/github\.com\/FreeTWAI-AI\/freedom-supplier-client\/blob\/[a-f0-9]{40}\/README\.md$/);
-  await modal.getByText('作者、授權與收錄來源',{exact:true}).click();await expect(modal).toContainText('來源 GitHub 帳號：FreeTWAI-AI');await expect(modal).toContainText('未明確宣告授權條款');
+  await expect(modal.getByRole('link',{name:'閱讀技能書 ↗',exact:true})).toHaveAttribute('href',/github\.com\/FreeTWAI\/freedom-supplier-client\/blob\/[a-f0-9]{40}\/README\.md$/);
+  await modal.getByText('作者、授權與收錄來源',{exact:true}).click();await expect(modal).toContainText('來源 GitHub 帳號：FreeTWAI');await expect(modal).toContainText('未明確宣告授權條款');
   await page.setViewportSize({width:390,height:844});expect(await modal.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
   await page.screenshot({path:'test-results/skill-book-intro-phone.png'});
   await page.keyboard.press('Escape');await expect(modal).not.toBeVisible();await expect(trigger).toBeFocused();
@@ -139,7 +139,7 @@ test('book cards credit the original GitHub author and offer direct reading acti
   await expect(star).toHaveAttribute('rel',/\bnoopener\b/);
   await expect(star).toHaveAttribute('rel',/\bnoreferrer\b/);
   await card.locator('.github-metrics-details > summary').click();
-  expect(book.repository_url).toBe('https://github.com/FreeTWAI-AI/claude-skill-social-post');
+  expect(book.repository_url).toBe('https://github.com/FreeTWAI/claude-skill-social-post');
   const trigger=card.getByRole('button',{name:/^(閱讀|預覽)技能書$/});
   await trigger.click();
   const modal=page.getByRole('dialog',{name:book.title,exact:true});
@@ -230,7 +230,7 @@ test('the original repository leads member introductions and public skill pages'
   await expect(dialog.locator('.skill-intro-primary-actions > a').first()).toHaveClass(/btn-primary/);
   await expect(dialog.getByRole('link',{name:'前往作者網站 ↗',exact:true})).toHaveAttribute('href',website);
   await expect(dialog.getByRole('link',{name:'開啟原作 ↗',exact:true})).toHaveAttribute('href',original);
-  await expect(dialog.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI-AI/ai-security-scanner');
+  await expect(dialog.getByRole('link',{name:'查看工坊整合版本 ↗',exact:true})).toHaveAttribute('href','https://github.com/FreeTWAI/ai-security-scanner');
   for(const width of [1440,768,390]){
     await page.setViewportSize({width,height:900});
     expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);

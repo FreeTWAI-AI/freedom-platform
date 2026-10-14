@@ -4,10 +4,10 @@ import {developmentPages} from './pages.js';
 import {Problem} from '../../packages/shared/problem.js';
 import {postgresText} from '../community/github-history.js';
 
-export const PLATFORM_REPOSITORY='https://github.com/FreeTWAI-AI/freedom-platform';
+export const PLATFORM_REPOSITORY='https://github.com/FreeTWAI/freedom-platform';
 export const DESIGN_CLAIM_MARKER='<!-- freedom-design-claim -->';
 export const FREEDOM_PLATFORM_EVENTS_FEED='freedom_platform_events';
-const PLATFORM_KEY='freetwai-ai/freedom-platform';
+const PLATFORM_KEY='freetwai/freedom-platform';
 const STALE_MS=30*60*1000;
 export type PageGitHubItem={number:number;title:string;url:string;author:string;created_at:string;state:'open'|'closed';kind:'issue'|'pr';pages:string[]};
 export type PageGitHubActivity={items:PageGitHubItem[];checked_at:string;truncated:boolean;partial?:boolean;stale?:boolean};
@@ -34,7 +34,7 @@ const releaseSchema=z.object({action:z.literal('published'),release:z.object({ta
 function eventTitle(value:string|undefined,fallback:string){const text=postgresText((value??'').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'').trim(),300);return text||fallback;}
 function subjectUrl(kind:'issues'|'pull',subject:z.infer<typeof subjectSchema>){
   const html=`${PLATFORM_REPOSITORY}/${kind}/${subject.number}`;
-  const api=`https://api.github.com/repos/FreeTWAI-AI/freedom-platform/${kind==='pull'?'pulls':'issues'}/${subject.number}`;
+  const api=`https://api.github.com/repos/FreeTWAI/freedom-platform/${kind==='pull'?'pulls':'issues'}/${subject.number}`;
   return (subject.html_url||subject.url)&&(!subject.html_url||subject.html_url===html)&&(!subject.url||subject.url===api)?html:null;
 }
 export function publicEvent(raw:unknown):PageGitHubEvent|null{

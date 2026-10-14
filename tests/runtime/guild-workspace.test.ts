@@ -28,7 +28,7 @@ let actors:Actor[]=[];
 const cmd=(actor:Actor,body:unknown,expected?:number,key=randomUUID()):Command=>({actor,body,expected:expected?String(expected):undefined,key,operation:'test-guild-workspace'});
 const adm=(body:unknown,expected?:number,key=randomUUID(),who=admin):AdminCommand=>({admin:who,body,expected:expected?String(expected):undefined,key,operation:'test-admin-workspace'});
 const denied=(status:number)=>((error:unknown)=>error instanceof Problem&&error.status===status);
-const editorial={summary:'共讀與場地規劃技能書',collaboration_intro:'一起改善主持模板，範圍以維護者確認的 Issue 為準。',milestones:[{id:'m1',title:'主持模板'}],tasks:[{id:'task1',title:'補充讀書會提問',description:'用合成資料補兩種人數的範例。',acceptance:['主持人可照流程接手。'],issue_url:'https://github.com/FreeTWAI-AI/freedom-skill-event-space/issues/1',milestone_id:'m1',status:'todo' as const}]};
+const editorial={summary:'共讀與場地規劃技能書',collaboration_intro:'一起改善主持模板，範圍以維護者確認的 Issue 為準。',milestones:[{id:'m1',title:'主持模板'}],tasks:[{id:'task1',title:'補充讀書會提問',description:'用合成資料補兩種人數的範例。',acceptance:['主持人可照流程接手。'],issue_url:'https://github.com/FreeTWAI/freedom-skill-event-space/issues/1',milestone_id:'m1',status:'todo' as const}]};
 before(async()=>{await database.query(`CREATE SCHEMA ${schema}`);await migrate(pool);});
 after(async()=>{
   try{await pool.end();}catch{/* still drop */}
@@ -106,7 +106,7 @@ test('opening the first editor preserves visible collaboration tasks and actual 
  const initial=await service.skillEditor(pool,actors[0],video);
  assert.equal(initial.aggregate_version,0);assert.equal(initial.tasks.length,5);assert.equal(initial.milestones.length,1);
  assert.deepEqual(initial.tasks.map(task=>task.id),['issue-1','issue-2','issue-3','issue-4','issue-5']);
- assert.deepEqual(initial.tasks.map(task=>task.issue_url),[1,2,3,4,5].map(n=>`https://github.com/FreeTWAI-AI/video-autopilot-kit/issues/${n}`));
+ assert.deepEqual(initial.tasks.map(task=>task.issue_url),[1,2,3,4,5].map(n=>`https://github.com/FreeTWAI/video-autopilot-kit/issues/${n}`));
  assert.ok(initial.tasks.every(task=>task.status==='todo'&&task.milestone_id==='first-contribution'&&task.acceptance.length>0));
  assert.match(initial.collaboration_intro,/Hao/);assert.equal(await service.readSkillEditorial(pool,video),null);
  const {book_id,aggregate_version,updated_at,...fields}=initial;
@@ -116,7 +116,7 @@ test('opening the first editor preserves visible collaboration tasks and actual 
 });
 
 test('editorial rejects foreign issue targets, missing milestones, duplicate tasks and oversized UTF8 payloads',async()=>{
- await appointEditor();const task=editorial.tasks[0];for(const issue_url of ['javascript:alert(1)','https://github.com/other/repo/issues/1','https://github.com/FreeTWAI-AI/freedom-skill-event-space/issues/1?token=secret','https://github.com/FreeTWAI-AI/freedom-skill-event-space/pull/1'])await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[0],{...editorial,tasks:[{...task,issue_url}]}),book),denied(422));
+ await appointEditor();const task=editorial.tasks[0];for(const issue_url of ['javascript:alert(1)','https://github.com/other/repo/issues/1','https://github.com/FreeTWAI/freedom-skill-event-space/issues/1?token=secret','https://github.com/FreeTWAI/freedom-skill-event-space/pull/1'])await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[0],{...editorial,tasks:[{...task,issue_url}]}),book),denied(422));
  await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[0],{...editorial,milestones:[]}),book),denied(422));await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[0],{...editorial,tasks:[task,task]}),book),denied(422));
  await assert.rejects(service.saveSkillEditorial(pool,cmd(actors[0],{...editorial,collaboration_intro:'內'.repeat(3000),tasks:[{...task,description:'內'.repeat(1500)}]}),book),denied(422));assert.equal(await service.readSkillEditorial(pool,book),null);
 });
@@ -158,7 +158,7 @@ test('skill editing needs BOTH the named appointment and a current AI guild; nei
 
 test('either AI guild suffices; leaving one keeps editing, leaving the last denies GET, POST and replay; rejoining restores only the appointment',async()=>{
  await changeGuild(actors[0],aiVibe,'join');await changeGuild(actors[0],aiField,'join');await appoint();
- const grant=randomUUID(),devKey=randomUUID();await pool.query(`INSERT INTO development_grants(grant_id,community_id,user_id,capability,target_key,target_repository,target_repository_id,working_repository,working_repository_id,github_user_id,installation_id,app_id,guild_sources,policy_version) VALUES($1,$2,$3,'skill',$4,'FreeTWAI-AI/freedom-skill-event-space','1','contributor/freedom-skill-event-space','2','42','77','9',$5,'development-proposal-v1')`,[grant,actors[0].community_id,actors[0].user_id,book,[aiField,aiVibe]]);await pool.query('INSERT INTO development_keys(key_id,source_grant_id,secret_hash) VALUES($1,$2,$3)',[devKey,grant,'synthetic-'+devKey]);
+ const grant=randomUUID(),devKey=randomUUID();await pool.query(`INSERT INTO development_grants(grant_id,community_id,user_id,capability,target_key,target_repository,target_repository_id,working_repository,working_repository_id,github_user_id,installation_id,app_id,guild_sources,policy_version) VALUES($1,$2,$3,'skill',$4,'FreeTWAI/freedom-skill-event-space','1','contributor/freedom-skill-event-space','2','42','77','9',$5,'development-proposal-v1')`,[grant,actors[0].community_id,actors[0].user_id,book,[aiField,aiVibe]]);await pool.query('INSERT INTO development_keys(key_id,source_grant_id,secret_hash) VALUES($1,$2,$3)',[devKey,grant,'synthetic-'+devKey]);
  const first=cmd(actors[0],editorial),saved=await service.saveSkillEditorial(pool,first,book);assert.equal(saved.aggregate_version,1);
  await changeGuild(actors[0],aiVibe,'leave');assert.equal((await service.skillEditor(pool,actors[0],book)).aggregate_version,1);assert.deepEqual(await service.saveSkillEditorial(pool,first,book),saved);
  const second=cmd(actors[0],{...editorial,summary:'離開一個 AI 公會後仍可維護'},1);assert.equal((await service.saveSkillEditorial(pool,second,book)).aggregate_version,2);

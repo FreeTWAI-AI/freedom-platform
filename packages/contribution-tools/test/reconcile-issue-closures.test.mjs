@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {PINNED_SUITES} from '../pinned-suites.mjs';
 import {issueClosureCandidates, reportIssueClosureCandidates} from '../../../scripts/reconcile-issue-closures.mjs';
 
-const repository = 'FreeTWAI-AI/freedom-platform';
+const repository = 'FreeTWAI/freedom-platform';
 const issues = [
   {number: 12, state: 'open', updated_at: '2026-10-01T00:00:00Z'},
   {number: 13, state: 'open', updated_at: '2026-10-03T00:00:00Z'},
@@ -19,9 +19,9 @@ test('reports standalone references from default-branch merged PRs only', () => 
     {number: 40, title: 'Fixes #12', body: 'Closes #14', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
     {number: 41, title: 'Work mentions #13', body: 'Resolves #13', merged_at: null, base: {ref: 'main'}},
     {number: 42, title: 'Closes #13', merged_at: '2026-10-04T00:00:00Z', base: {ref: 'release'}},
-    {number: 43, title: 'Closes FreeTWAI-AI/other#15', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
+    {number: 43, title: 'Closes FreeTWAI/other#15', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
     {number: 44, title: 'Refs #12', body: 'Not yet complete', merged_at: '2026-10-05T00:00:00Z', base: {ref: 'main'}},
-    {number: 45, title: 'References #16', body: 'Resolves FreeTWAI-AI/freedom-platform#15', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
+    {number: 45, title: 'References #16', body: 'Resolves FreeTWAI/freedom-platform#15', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
     {number: 46, title: 'Refs #17', body: '`Closes #17`', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
     {number: 47, title: 'Code example', body: '```text\nCloses #17\n```', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
     {number: 48, title: 'Indented code example', body: '    Closes #17', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
@@ -104,7 +104,7 @@ test('does not invent references across fields, lines, negation, quotations or c
 });
 
 test('reports case-insensitive same-repo declarations without duplicate issue candidates', () => {
-  const pulls = [{number: 40, title: 'Fixes #12', body: '- Resolves FREETWAI-AI/freedom-platform#12.\nCloses #12',
+  const pulls = [{number: 40, title: 'Fixes #12', body: '- Resolves FREETWAI/freedom-platform#12.\nCloses #12',
     merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}];
   assert.deepEqual(issueClosureCandidates(issues, pulls, repository, 'main'), [{issueNumber: 12, pullNumber: 40}]);
 });
@@ -159,7 +159,7 @@ test('rejects wrong repository IDs, origins and URL credentials before sending t
   for (const next of [
     `https://api.github.com/repositories/${repositoryId + 1}/pulls?page=2`,
     `https://api.github.com/repositories/${repositoryId}0/pulls?page=2`,
-    `https://api.github.com/repos/FreeTWAI-AI/other/pulls?page=2`,
+    `https://api.github.com/repos/FreeTWAI/other/pulls?page=2`,
     `https://example.invalid/repositories/${repositoryId}/pulls?page=2`,
     `https://api.github.com.example.invalid/repositories/${repositoryId}/pulls?page=2`,
     `http://api.github.com/repositories/${repositoryId}/pulls?page=2`,

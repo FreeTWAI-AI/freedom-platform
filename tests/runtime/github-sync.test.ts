@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {Pool} from 'pg';
 import {createPool, LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
-import {GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories} from '../../modules/community/github-sync.js';
+import {GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories, trackedGitHubRepositories} from '../../modules/community/github-sync.js';
 import {cleanTitle, authorOf, postgresText} from '../../modules/community/github-history.js';
 import {publicEvent} from '../../modules/development/page-github.js';
 import {catalogMetricTargets} from '../../modules/github-social/service.js';
@@ -16,8 +16,17 @@ const pool = new Pool({connectionString: databaseUrl, options: `-c search_path=$
 const originalFetch = globalThis.fetch;
 const FAR = new Date('2099-01-01T00:00:00Z');
 const T0 = Date.parse('2026-09-30T00:00:00Z');
-const PLATFORM = 'freetwai-ai/freedom-platform';
+const PLATFORM = 'freetwai/freedom-platform';
 const SECRET = 'synthetic-metrics-token';
+
+test('architecture tracking uses current transport without recreating historical lock keys', async () => {
+  const fake = {query: async () => ({rows: [{repository_full_name: 'example/personal-tool'}]})} as unknown as Pool;
+  const repos = await trackedGitHubRepositories(fake);
+  assert.equal(repos.some(repo => repo.key.startsWith('freetwai-ai/')), false);
+  assert.ok(repos.some(repo => repo.name === 'FreeTWAI/FreeTWAI.github.io'));
+  assert.ok(repos.some(repo => repo.name === 'example/personal-tool'));
+  assert.equal(new Set(repos.map(repo => repo.key)).size, repos.length);
+});
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
   const empty = body == null || status === 304;
@@ -61,8 +70,8 @@ async function dueAt(entries: [string, number][]) {
   for (const [key, at] of entries) await pool.query('UPDATE github_sync_repositories SET next_sync_at=$1 WHERE repository_key=$2', [new Date(at), key]);
 }
 function distinctOwners() {
-  const orgs = keys.filter(key => key.startsWith('freetwai-ai/'));
-  const personal = keys.find(key => !key.startsWith('freetwai-ai/'));
+  const orgs = keys.filter(key => key.startsWith('freetwai/'));
+  const personal = keys.find(key => !key.startsWith('freetwai/'));
   assert.ok(orgs.length >= 3);
   assert.ok(personal);
   return {org: orgs[0], otherOrg: orgs[1], laterOrg: orgs[2], personal};
@@ -72,8 +81,8 @@ function metricBody(stars = 9) {
 }
 function metricBooks() {
   const targets = catalogMetricTargets();
-  const org = targets.find(target => target.key.startsWith('freetwai-ai/'));
-  const other = targets.find(target => !target.key.startsWith('freetwai-ai/'));
+  const org = targets.find(target => target.key.startsWith('freetwai/'));
+  const other = targets.find(target => !target.key.startsWith('freetwai/'));
   assert.ok(org);
   assert.ok(other);
   return {org, other};
@@ -103,7 +112,7 @@ async function quietSides() {
   await only([], T0);
 }
 function openedIssue(id: string, number = 1) {
-  return {id, type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z', payload: {action: 'opened', issue: {number, title: `任務 ${number}`, html_url: `https://github.com/FreeTWAI-AI/freedom-platform/issues/${number}`}}};
+  return {id, type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z', payload: {action: 'opened', issue: {number, title: `任務 ${number}`, html_url: `https://github.com/FreeTWAI/freedom-platform/issues/${number}`}}};
 }
 
 let keys: string[] = [];
@@ -117,7 +126,7 @@ before(async () => {
   await parkSideFeeds();
   keys = (await pool.query<{repository_key: string}>('SELECT repository_key FROM github_sync_repositories ORDER BY repository_key')).rows.map(row => row.repository_key);
   assert.ok(keys.includes(PLATFORM));
-  assert.ok(keys.includes('freetwai-ai/video-autopilot-kit'));
+  assert.ok(keys.includes('freetwai/video-autopilot-kit'));
   assert.ok(keys.length >= 2);
 });
 after(async () => {
@@ -147,11 +156,11 @@ test('postgresText drops NUL and lone surrogates and cuts on code points', () =>
   assert.equal(postgresText('a\nb\tc', 10), 'a\nb\tc');
   const event = publicEvent({
     id: 'emoji-title', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
-    payload: {action: 'opened', issue: {number: 44, title: `${'事'.repeat(299)}😀後記`, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44'}},
+    payload: {action: 'opened', issue: {number: 44, title: `${'事'.repeat(299)}😀後記`, html_url: 'https://github.com/FreeTWAI/freedom-platform/issues/44'}},
   });
   assert.equal(event?.title, `${'事'.repeat(299)}😀`);
   assert.equal(event?.actor, 'member-demo');
-  assert.equal(event?.url, 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44');
+  assert.equal(event?.url, 'https://github.com/FreeTWAI/freedom-platform/issues/44');
   assert.equal(publicEvent({
     id: 'forged', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
     payload: {action: 'opened', issue: {number: 44, title: '別的倉庫', html_url: 'https://github.com/other/repo/issues/44'}},
@@ -598,7 +607,7 @@ test('a rejected organization token is not sent to that owner while another owne
     assert.equal(warnings.length, 1);
     assert.equal(warnings.join(' ').includes(SECRET), false);
     assert.match(warnings[0], /github_sync_token_rejected/);
-    assert.match(warnings[0], /freetwai-ai/);
+    assert.match(warnings[0], /freetwai/);
     assert.equal((await repoRow(org)).access_status, 'ok');
     assert.equal((await repoRow(personal)).access_status, 'ok');
   } finally {
@@ -857,7 +866,7 @@ test('public events are stored, pruned to 300, and a 304 only refreshes the feed
   try {
     await pool.query('DELETE FROM github_repository_events');
     await pool.query(`INSERT INTO github_repository_events(event_id, kind, number, title, url, actor, created_at)
-      SELECT 'old-' || i, 'issue_opened', 1, '舊公告', 'https://github.com/FreeTWAI-AI/freedom-platform/issues/1', 'member',
+      SELECT 'old-' || i, 'issue_opened', 1, '舊公告', 'https://github.com/FreeTWAI/freedom-platform/issues/1', 'member',
         timestamptz '2020-01-01T00:00:00Z' + (i || ' seconds')::interval
       FROM generate_series(0, 299) AS g(i)`);
     await dueFeed(null);
@@ -879,7 +888,7 @@ test('public events are stored, pruned to 300, and a 304 only refreshes the feed
     assert.equal(stored.requests, 1);
     assert.equal(stored.items_upserted, 0);
     assert.equal(urls.length, 1);
-    assert.match(urls[0], /\/repos\/FreeTWAI-AI\/freedom-platform\/events\?per_page=100$/);
+    assert.match(urls[0], /\/repos\/FreeTWAI\/freedom-platform\/events\?per_page=100$/);
     assert.equal((await pool.query('SELECT count(*)::int AS n FROM github_repository_events')).rows[0].n, 300);
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id IN ('old-0','skip-me','forged')")).rows[0].n, 0);
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id='fresh-1'")).rows[0].n, 1);
@@ -891,7 +900,7 @@ test('public events are stored, pruned to 300, and a 304 only refreshes the feed
     await dueFeed('W/"keep"');
     await pool.query(`UPDATE github_feed_state SET last_error='github_unavailable', checked_at=$1 WHERE feed_name='freedom_platform_events'`, [new Date(T0 - 86_400_000)]);
     await pool.query(`INSERT INTO github_repository_events(event_id, kind, number, title, url, actor, created_at)
-      VALUES ('kept-1','issue_opened',1,'保留','https://github.com/FreeTWAI-AI/freedom-platform/issues/1','member','2026-09-01T00:00:00Z')
+      VALUES ('kept-1','issue_opened',1,'保留','https://github.com/FreeTWAI/freedom-platform/issues/1','member','2026-09-01T00:00:00Z')
       ON CONFLICT (event_id) DO NOTHING`);
     const before = (await pool.query('SELECT count(*)::int AS n FROM github_repository_events')).rows[0].n;
     const unchanged = await syncGitHubRepositories(pool, {
@@ -937,7 +946,7 @@ test('a rejected events token retries once anonymously and a 429 skips repositor
     assert.equal(rejected.requests, 2);
     assert.equal(rejected.stop_reason, 'completed');
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM github_repository_events WHERE event_id='anon-1'")).rows[0].n, 1);
-    assert.ok(warnings.some(args => args[0] === 'github_sync_token_rejected' && args[1] === 'freetwai-ai'));
+    assert.ok(warnings.some(args => args[0] === 'github_sync_token_rejected' && args[1] === 'freetwai'));
     assert.equal(JSON.stringify(warnings).includes(SECRET), false);
     await quietSides();
     await dueFeed(null);
@@ -1096,7 +1105,7 @@ test('a 403 metrics token falls back anonymously for that owner and stays in use
     const otherRow = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [other.key])).rows[0];
     assert.equal(otherRow.stars, '22');
     assert.equal(otherRow.last_error, null);
-    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai']]);
     assert.equal(JSON.stringify(errors).includes(SECRET), false);
   } finally {
     console.error = original;
@@ -1140,7 +1149,7 @@ test('an owner rejected earlier in the run is read anonymously on the first metr
     const row = (await pool.query<{stars: string | null; last_error: string | null}>('SELECT snapshot->>\'stargazers_count\' AS stars, last_error FROM github_repository_metrics WHERE repository_key=$1', [org.key])).rows[0];
     assert.equal(row.stars, '8');
     assert.equal(row.last_error, null);
-    assert.ok(warnings.some(args => args[0] === 'github_sync_token_rejected' && args[1] === 'freetwai-ai'));
+    assert.ok(warnings.some(args => args[0] === 'github_sync_token_rejected' && args[1] === 'freetwai'));
     assert.equal(errors.some(args => args[0] === 'github_metrics_token_rejected'), false);
     assert.equal(JSON.stringify(warnings).includes(SECRET), false);
     assert.equal(JSON.stringify(errors).includes(SECRET), false);
@@ -1177,7 +1186,7 @@ test('an anonymous metrics 403 stores github_permission_required and does not re
     assert.equal(row.snapshot, null);
     assert.equal(row.last_error, 'github_permission_required');
     assert.ok(new Date(row.retry_after).getTime() > T0);
-    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai']]);
     assert.equal(JSON.stringify(errors).includes(SECRET), false);
   } finally {
     console.error = original;
@@ -1217,7 +1226,7 @@ test('the anonymous metrics retry counts toward the request budget', async () =>
     assert.equal(saved.stars, '5');
     assert.equal(saved.last_error, null);
     assert.equal((await pool.query('SELECT snapshot FROM github_repository_metrics WHERE repository_key=$1', [other.key])).rows[0].snapshot, null);
-    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai']]);
     assert.equal(JSON.stringify(errors).includes(SECRET), false);
   } finally {
     console.error = original;
@@ -1231,8 +1240,8 @@ test('books skipped for an active backoff do not take metrics slots', async () =
   const original = console.error;
   console.error = (...args: unknown[]) => { errors.push(args); };
   const targets = catalogMetricTargets();
-  const orgs = targets.filter(target => target.key.startsWith('freetwai-ai/')).slice(0, 6);
-  const other = targets.find(target => !target.key.startsWith('freetwai-ai/'));
+  const orgs = targets.filter(target => target.key.startsWith('freetwai/')).slice(0, 6);
+  const other = targets.find(target => !target.key.startsWith('freetwai/'));
   assert.equal(orgs.length, 6);
   assert.ok(other);
   try {
@@ -1278,7 +1287,7 @@ test('books skipped for an active backoff do not take metrics slots', async () =
       [orgs.map(org => org.key)],
     )).rows;
     assert.deepEqual(after, seeded);
-    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai-ai']]);
+    assert.deepEqual(errors, [['github_metrics_token_rejected', 'freetwai']]);
     assert.equal(JSON.stringify(errors).includes(SECRET), false);
   } finally {
     console.error = original;
@@ -1323,7 +1332,7 @@ test('migration 057 clears issue cursors and the next run reads without since', 
 });
 
 test('NUL and an emoji on the excerpt boundary still commit, and the next repository syncs', async () => {
-  const second = 'freetwai-ai/video-autopilot-kit';
+  const second = 'freetwai/video-autopilot-kit';
   const excerpt = `${'a'.repeat(11999)}😀`;
   const issueTitle = `${'題'.repeat(299)}😀`;
   const eventTitle = `${'事'.repeat(299)}😀`;
@@ -1342,7 +1351,7 @@ test('NUL and an emoji on the excerpt boundary still commit, and the next reposi
         if (url.includes('/events?')) {
           return json([{
             id: 'emoji-title', type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z',
-            payload: {action: 'opened', issue: {number: 44, title: `${eventTitle}後記`, html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/44'}},
+            payload: {action: 'opened', issue: {number: 44, title: `${eventTitle}後記`, html_url: 'https://github.com/FreeTWAI/freedom-platform/issues/44'}},
           }]);
         }
         const key = requestedRepository(input);

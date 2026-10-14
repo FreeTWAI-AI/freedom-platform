@@ -86,7 +86,7 @@ test('the same member reconnects in place and a GitHub login rename never create
 test('after the owner disconnects, another member links with a fresh state while stars and revoked grants stay put',async()=>{
   await connect(alice);await social.star(alice,book,true);
   const grant=randomUUID(),key=randomUUID();
-  await pool.query(`INSERT INTO development_grants(grant_id,community_id,user_id,capability,target_key,target_repository,target_repository_id,working_repository,working_repository_id,github_user_id,installation_id,app_id,guild_sources,policy_version) VALUES($1,$2,$3,'skill','video-autopilot','FreeTWAI-AI/video','1','shared/video','2','111','77','9',$4,'development-proposal-v1')`,[grant,alice.community_id,alice.user_id,['guild_ai_vibe']]);
+  await pool.query(`INSERT INTO development_grants(grant_id,community_id,user_id,capability,target_key,target_repository,target_repository_id,working_repository,working_repository_id,github_user_id,installation_id,app_id,guild_sources,policy_version) VALUES($1,$2,$3,'skill','video-autopilot','FreeTWAI/video','1','shared/video','2','111','77','9',$4,'development-proposal-v1')`,[grant,alice.community_id,alice.user_id,['guild_ai_vibe']]);
   await pool.query('INSERT INTO development_keys(key_id,source_grant_id,secret_hash) VALUES($1,$2,$3)',[key,grant,'synthetic-'+key]);
   const stale=await begin(bob);await assert.rejects(()=>social.complete(bob,stale,'synthetic-code'),errorCode('github_identity_already_linked'));
   await social.disconnect(alice);

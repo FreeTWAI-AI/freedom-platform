@@ -75,7 +75,7 @@ async function insertRepo(settings: Record<string, unknown> = {}, mode = 'observ
   const id = randomUUID();
   await pool.query(`INSERT INTO maintainer_repositories
     (repository_id, community_id, github_repository_id, installation_id, full_name, default_branch, installation_state, mode, settings, next_sweep_at)
-    VALUES ($1,$2,$3,'77','FreeTWAI-AI/freedom-platform','main','active',$4,$5::jsonb,'2099-01-01T00:00:00Z')`,
+    VALUES ($1,$2,$3,'77','FreeTWAI/freedom-platform','main','active',$4,$5::jsonb,'2099-01-01T00:00:00Z')`,
   [id, DEMO_COMMUNITY, githubId, mode, JSON.stringify(settings)]);
   return id;
 }
@@ -89,7 +89,7 @@ async function insertPull(repository: string, number: number, over: { queue?: st
     author_association, is_fork, head_sha, base_ref, base_sha, labels, additions, deletions, changed_files, github_created_at,
     github_updated_at, head_observed_at, attention_reasons, queue_state, queue_reasons, migration_reasons, paused, policy_version, synced_at)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'octocat','User','CONTRIBUTOR',false,$11,'main',$12,'{}',1,0,1,$13,$13,$13,'[]'::jsonb,$14,'[]'::jsonb,$15::jsonb,$16,'2026-10-01.1',$13)`,
-  [id, repository, number, String(8000 + number), `PR ${number}`, `https://github.com/FreeTWAI-AI/freedom-platform/pull/${number}`, over.state ?? 'open', over.merged ? observed : null, over.draft ?? false, over.author ?? '42', SHA, OLD, observed, queue,
+  [id, repository, number, String(8000 + number), `PR ${number}`, `https://github.com/FreeTWAI/freedom-platform/pull/${number}`, over.state ?? 'open', over.merged ? observed : null, over.draft ?? false, over.author ?? '42', SHA, OLD, observed, queue,
     JSON.stringify(over.migration ?? []), over.paused ?? false]);
   await pool.query(`INSERT INTO maintainer_pull_files (pull_id, path, status, additions, deletions) VALUES ($1,$2,'modified',1,0)`, [id, file]);
   if (over.check !== null) {
@@ -136,7 +136,7 @@ async function insertReview(pullId: string, githubId: string, state: string, sub
     VALUES ($1,$2,$3,'ada','User','MEMBER',$4,$5,$6)`, [pullId, String(reviewSeq), githubId, state, commit, submitted]);
 }
 function tick(writes: MaintainerTickConfig['writes'], fetcher: typeof fetch = async () => { throw new Error('unexpected fetch'); }, now = () => CLOCK) {
-  return runMaintainerTick(pool, { appId: '12345', organization: 'FreeTWAI-AI', privateKey, writes }, { fetcher, now });
+  return runMaintainerTick(pool, { appId: '12345', organization: 'FreeTWAI', privateKey, writes }, { fetcher, now });
 }
 async function claimRow(id: string) {
   return (await pool.query(`SELECT state, end_reason, github_request_state, github_request_error FROM maintainer_review_claims WHERE claim_id=$1`, [id])).rows[0];

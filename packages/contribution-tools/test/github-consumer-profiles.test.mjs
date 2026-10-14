@@ -22,7 +22,7 @@ function commit(root) {
     '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Synthetic source profile']);
   return git(root, ['rev-parse', 'HEAD']);
 }
-async function fixture(t, repository = 'FreeTWAI-AI/freedom-project-page') {
+async function fixture(t, repository = 'FreeTWAI/freedom-project-page') {
   const candidateRoot = await fixtureRoot(t), sourceRoot = await fixtureRoot(t);
   for (const root of [candidateRoot, sourceRoot]) git(root, ['-c', 'init.templateDir=', 'init', '-q']);
   const profile = CONSUMER_SOURCE_PROFILES[repository];
@@ -42,7 +42,7 @@ async function fixture(t, repository = 'FreeTWAI-AI/freedom-project-page') {
   const validatorPath = 'scripts/repository-bootstrap/verify-project-manifest.py';
   await put(sourceRoot, validatorPath, await readFile(join(canonical, validatorPath)));
   await put(candidateRoot, 'contracts.lock.json', pretty({ format: 'freedom.contract-pin/v1',
-    source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: 'b'.repeat(40), bundle_path: 'contracts/preview/v1',
+    source_repository: 'FreeTWAI/freedom-platform', source_commit: 'b'.repeat(40), bundle_path: 'contracts/preview/v1',
     protocol: bundle.protocol, protocol_sha256: bundle.protocol_sha256, bundle_sha256: sha256(bundleBytes) }));
   const baseline = commit(candidateRoot);
   await put(sourceRoot, 'repositories.lock.json', pretty({ format: 'freedom.repository-set/v1', repositories: [{ repository, commit: baseline }] }));

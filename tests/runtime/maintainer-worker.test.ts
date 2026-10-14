@@ -19,7 +19,7 @@ const empty: MaintainerSummary = {
 };
 
 function env(overrides: Partial<MaintainerEnv> = {}): MaintainerEnv {
-  return { HYPERDRIVE: { connectionString: DSN }, GITHUB_MAINTAINER_APP_ID: '12345', GITHUB_MAINTAINER_ORG: 'FreeTWAI-AI', GITHUB_MAINTAINER_PRIVATE_KEY: KEY, ...overrides };
+  return { HYPERDRIVE: { connectionString: DSN }, GITHUB_MAINTAINER_APP_ID: '12345', GITHUB_MAINTAINER_ORG: 'FreeTWAI', GITHUB_MAINTAINER_PRIVATE_KEY: KEY, ...overrides };
 }
 function tick(): ScheduledContext {
   return { scheduledTime: Date.UTC(2026, 8, 30, 4, 0, 0), cron: '* * * * *' };
@@ -73,7 +73,7 @@ test('configuration names the setting, rejects the placeholder and a PKCS#1 key,
   assert.equal(converted.privateKey.includes('\n'), true);
   assert.equal(converted.privateKey.includes('\\n'), false);
   assert.equal(converted.appId, '12345');
-  assert.equal(converted.organization, 'FreeTWAI-AI');
+  assert.equal(converted.organization, 'FreeTWAI');
   assert.equal(converted.writes, 'invalid');
   assert.equal(readMaintainerConfig(env({ GITHUB_MAINTAINER_WRITES: 'off' })).writes, 'off');
   assert.equal(readMaintainerConfig(env({ GITHUB_MAINTAINER_WRITES: 'requested_reviewers' })).writes, 'requested_reviewers');
@@ -189,7 +189,7 @@ test('the maintainer wrangler file is cron-only and separate from the platform W
   assert.match(text, /"name": "freedom-maintainer-staging-next"/);
   assert.match(text, /"name": "freedom-maintainer-next"/);
   assert.equal((text.match(/"GITHUB_MAINTAINER_APP_ID": "0"/g) ?? []).length, 3);
-  assert.equal((text.match(/"GITHUB_MAINTAINER_ORG": "FreeTWAI-AI"/g) ?? []).length, 3);
+  assert.equal((text.match(/"GITHUB_MAINTAINER_ORG": "FreeTWAI"/g) ?? []).length, 3);
   assert.equal((text.match(/"GITHUB_MAINTAINER_WRITES": "off"/g) ?? []).length, 1);
   assert.equal((text.match(/"GITHUB_MAINTAINER_WRITES": "requested_reviewers"/g) ?? []).length, 2);
   assert.equal(text.includes('GITHUB_MAINTAINER_PRIVATE_KEY'), true);

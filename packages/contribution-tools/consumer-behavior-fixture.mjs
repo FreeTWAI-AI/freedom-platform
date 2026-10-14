@@ -7,17 +7,17 @@ import { protocol, protocolSha256 } from '../../contracts/preview/v1/protocol.mj
 import { parseJson } from './io.mjs';
 
 export const CONSUMER_BEHAVIOR_PROFILES = Object.freeze({
-  'FreeTWAI-AI/freedom-agent-kit': Object.freeze({ entry: 'loadMemberWorkspace', scenarios: ['authorized'] }),
-  'FreeTWAI-AI/freedom-storefront': Object.freeze({ entry: 'loadConnectedStorefront', scenarios: ['authorized', 'wrong_scope', 'revoked'] }),
-  'FreeTWAI-AI/freedom-supplier-client': Object.freeze({ entry: 'loadSupplierWorkspace', scenarios: ['authorized', 'wrong_scope', 'revoked'] }),
+  'FreeTWAI/freedom-agent-kit': Object.freeze({ entry: 'loadMemberWorkspace', scenarios: ['authorized'] }),
+  'FreeTWAI/freedom-storefront': Object.freeze({ entry: 'loadConnectedStorefront', scenarios: ['authorized', 'wrong_scope', 'revoked'] }),
+  'FreeTWAI/freedom-supplier-client': Object.freeze({ entry: 'loadSupplierWorkspace', scenarios: ['authorized', 'wrong_scope', 'revoked'] }),
 });
 export const AGENT_KIT_CLI_PROFILE = Object.freeze({ entry: 'src/cli.mjs#maker', scenarios: Object.freeze(['authorized']) });
 export const CONSUMER_CLI_PROFILES = Object.freeze({
-  'FreeTWAI-AI/freedom-agent-kit': AGENT_KIT_CLI_PROFILE,
+  'FreeTWAI/freedom-agent-kit': AGENT_KIT_CLI_PROFILE,
   ...Object.fromEntries([
     ['freedom-storefront', ['connection', 'catalog', 'stores', 'listings']],
     ['freedom-supplier-client', ['connection', 'products', 'requests']],
-  ].map(([name, resources]) => ['FreeTWAI-AI/' + name, Object.freeze({
+  ].map(([name, resources]) => ['FreeTWAI/' + name, Object.freeze({
     entry: 'scripts/run-client.mjs#read→client/cli.mjs',
     scenarios: Object.freeze([...resources.map(resource => 'authorized:' + resource), 'wrong_scope', 'revoked', 'server_error']),
   })])),
@@ -84,8 +84,8 @@ function challenge(repository, scenario, profile) {
  * Its synthetic denials test client handling, not the platform server's ACLs. */
 export async function createConsumerHttpFixture({ repository, socketPath, onViolation, profile = 'workspace' }) {
   if (!Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, repository) || !['workspace', 'kit-cli', 'scoped-cli'].includes(profile)
-    || (profile === 'kit-cli' && repository !== 'FreeTWAI-AI/freedom-agent-kit')
-    || (profile === 'scoped-cli' && repository === 'FreeTWAI-AI/freedom-agent-kit')) throw Error('consumer_profile_required');
+    || (profile === 'kit-cli' && repository !== 'FreeTWAI/freedom-agent-kit')
+    || (profile === 'scoped-cli' && repository === 'FreeTWAI/freedom-agent-kit')) throw Error('consumer_profile_required');
   let active, fault = false, count = 0;
   const server = createServer({ maxHeaderSize: 8192, requestTimeout: 2000, headersTimeout: 2000 }, (request, response) => {
     const state = active, path = request.url;

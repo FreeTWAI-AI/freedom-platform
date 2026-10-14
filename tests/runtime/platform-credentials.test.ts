@@ -28,7 +28,7 @@ const verifier = createAdminAccessVerifier({issuer, audience, csrfSecret: 'test-
 const originalFetch = globalThis.fetch;
 const FAR = new Date('2099-01-01T00:00:00Z');
 const T0 = Date.parse('2026-09-30T00:00:00Z');
-const PLATFORM = 'freetwai-ai/freedom-platform';
+const PLATFORM = 'freetwai/freedom-platform';
 const SECRET = 'synthetic-metrics-token';
 const HEADER = 'github-authentication-token-expiration';
 const EVENTS_EXPIRY = '2027-09-30 04:00:00 UTC';
@@ -63,7 +63,7 @@ function item(number: number) {
   return {number, title: `想法 ${number}`, state: 'open', state_reason: null, user: {login: 'maker'}, created_at: '2026-09-01T00:00:00.000Z', updated_at: '2026-09-02T00:00:00.000Z', closed_at: null};
 }
 function openedIssue(id: string) {
-  return {id, type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z', payload: {action: 'opened', issue: {number: 7, title: '任務 7', html_url: 'https://github.com/FreeTWAI-AI/freedom-platform/issues/7'}}};
+  return {id, type: 'IssuesEvent', actor: {login: 'member-demo'}, created_at: '2026-09-27T12:00:00Z', payload: {action: 'opened', issue: {number: 7, title: '任務 7', html_url: 'https://github.com/FreeTWAI/freedom-platform/issues/7'}}};
 }
 function metricBody() {
   return {stargazers_count: 9, forks_count: 1, open_issues_count: 2, subscribers_count: 3, pushed_at: '2026-09-23T00:00:00Z', language: 'TypeScript', archived: false, private: false};
