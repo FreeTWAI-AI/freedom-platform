@@ -3169,8 +3169,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/community-ar/Editor.tsx",
-      "bytes": 4823,
-      "sha256": "8fa6e0f795eab6b2b03981264a73715ee06ee8871c5f21a33acff2180640be7e"
+      "bytes": 4888,
+      "sha256": "2b44406ac44bbe5b37bbc85c79520455298c5dcae14356402babddc6ba91f077"
     },
     {
       "path": "apps/portal-web/src/modules/community-ar/Panel.tsx",
@@ -19184,8 +19184,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 17253,
-      "sha256": "697f0c084c13b045c731539f5c0a562c5bc460ec180d395349d35803ae1792b9"
+      "bytes": 17266,
+      "sha256": "f986001fc737bed53cc8cf0877880f9028facb819b3309129ac276e86568b48a"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
