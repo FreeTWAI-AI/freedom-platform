@@ -52,6 +52,20 @@ async function shareEvent(author:{id:string;community:string},id:string,version:
   await pool.query(`INSERT INTO transition_journal(transition_id,community_id,aggregate_type,aggregate_id,aggregate_version,command,actor_ref,data,created_at)
     VALUES($1,$2,'showcase',$3,$4,$5,$6,'{}',$7)`,[randomUUID(),author.community,id,version,command,author.id,at]);
 }
+const REPORT_TEXT = 'case-text-sentinel-9f3a';
+async function memberReport(reporter:{id:string;community:string},at:string,events:{at:string;state:'in_progress'|'closed';command?:string}[]=[]){
+  const id=randomUUID();
+  // The row state stays received so the metric has to read the journal, not this column.
+  await pool.query(`INSERT INTO member_reports(case_id,community_id,reporter_user_id,target_kind,target_id,reason,note,evidence,summary,processing_reason,state,created_at,updated_at)
+    VALUES($1,$2,$3,'member',$4,'other',$5,'{}'::jsonb,$5,$5,'received',$6,$6)`,[id,reporter.community,reporter.id,randomUUID(),REPORT_TEXT,at]);
+  let version=1;
+  for(const event of events){
+    version+=1;
+    await pool.query(`INSERT INTO transition_journal(transition_id,community_id,aggregate_type,aggregate_id,aggregate_version,command,actor_ref,data,created_at)
+      VALUES($1,$2,'member_report',$3,$4,$5,$6,$7::jsonb,$8)`,[randomUUID(),reporter.community,id,version,event.command??'transition',reporter.id,JSON.stringify({state:event.state,reason:REPORT_TEXT,summary:REPORT_TEXT}),event.at]);
+  }
+  return id;
+}
 test('republishing preserves the first showcase cohort and earlier return event while current withdrawal excludes both',async()=>{
   const author=await member({at:'2026-10-02T10:00:00+08'}),id=await showcase(author,'2026-10-03T10:00:00+08');
   await shareEvent(author,id,1,'2026-10-03T10:00:00+08');
@@ -204,7 +218,9 @@ test('search signals keep no query text, count zero-result reads and only the ow
   assert.equal(m.search_zero_result.excluded_search_reads, 2);
   assert.equal(m.search_open.excluded_search_reads, 1);
   assert.equal(m.search_zero_result.rate, null); // below the minimum sample: no fake percentage
-  assert.equal(m.moderation_case_time.status, 'not_available');
+  assert.equal('moderation_case_time' in m, false);
+  assert.deepEqual([m.moderation_first_handling_48h.status, m.moderation_first_handling_48h.median_hours, m.moderation_close_7d.status, m.moderation_close_7d.median_hours], ['insufficient_sample', null, 'insufficient_sample', null]);
+  assert.deepEqual(m.repeat_abuse, { status: 'not_available', reason: 'repeat abuse is not yet defined' });
 });
 
 test('historical synthetic searches cannot satisfy the sample floor or alter real search rates', async () => {
@@ -263,8 +279,103 @@ test('the report needs a verified platform admin, is flag-gated and only reads t
   const ok = await read(on, email);
   assert.equal(ok.status, 200); assert.equal(ok.headers.get('cache-control'), 'no-store');
   const body = await ok.json() as { community_id: string; definition: { version: string }; metrics: Record<string, { status: string }> };
-  assert.equal(body.community_id, DEMO_COMMUNITY); assert.equal(body.definition.version, 'participation-metrics/v2');
+  assert.equal(body.community_id, DEMO_COMMUNITY); assert.equal(body.definition.version, 'participation-metrics/v3');
   assert.equal(body.metrics.registration_first_share_7d!.status, 'insufficient_sample'); // no data: no percentage
   await assert.rejects(participationMetrics(pool, { community_id: DEMO_COMMUNITY }, { from: '2026-10-05', to: '2026-10-01' }));
   await assert.rejects(participationMetrics(pool, { community_id: DEMO_COMMUNITY }, { from: '2020-01-01', to: '2026-10-01' }));
+});
+
+test('moderation windows count elapsed cases from the transition journal and keep the Taipei day boundary', async () => {
+  const wide = { from: '2026-10-01', to: '2026-10-18' };
+  const handled = await member({ at: '2026-09-01T00:00:00+08' });
+  const late = await member({ at: '2026-09-01T00:00:00+08' });
+  const untouched = await member({ at: '2026-09-01T00:00:00+08' });
+  const young = await member({ at: '2026-09-01T00:00:00+08' });
+  const openWeek = await member({ at: '2026-09-01T00:00:00+08' });
+  const edge = await member({ at: '2026-09-01T00:00:00+08' });
+  const after = await member({ at: '2026-09-01T00:00:00+08' });
+  const tester = await member({ at: '2026-09-01T00:00:00+08', test: true });
+  const outsider = await member({ at: '2026-09-01T00:00:00+08', community: randomUUID() });
+  // Exactly 48h counts; a later in_progress row must not replace the first one.
+  await memberReport(handled, '2026-10-02T10:00:00+08', [
+    { at: '2026-10-04T10:00:00+08', state: 'in_progress' },
+    { at: '2026-10-04T22:00:00+08', state: 'in_progress' },
+    { at: '2026-10-04T10:00:00+08', state: 'closed' },
+  ]);
+  // A receive row is not a transition. 48h+1s and day 8 stay in the denominator only.
+  await memberReport(late, '2026-10-02T11:00:00+08', [
+    { at: '2026-10-02T12:00:00+08', state: 'in_progress', command: 'receive' },
+    { at: '2026-10-04T12:00:01+08', state: 'in_progress' },
+    { at: '2026-10-10T11:00:00+08', state: 'closed' },
+  ]);
+  await memberReport(untouched, '2026-10-02T12:00:00+08');
+  // Younger than 48h, so pending for both windows even though it was already closed.
+  await memberReport(young, '2026-10-18T20:00:00+08', [
+    { at: '2026-10-18T20:30:00+08', state: 'in_progress' },
+    { at: '2026-10-18T21:00:00+08', state: 'closed' },
+  ]);
+  // 48h has elapsed; the 7-day close window has not.
+  await memberReport(openWeek, '2026-10-16T10:00:00+08', [
+    { at: '2026-10-17T09:00:00+08', state: 'in_progress' },
+  ]);
+  await memberReport(edge, '2026-10-18T23:30:00+08');
+  await memberReport(after, '2026-10-19T00:30:00+08');
+  await memberReport(tester, '2026-10-02T13:00:00+08', [
+    { at: '2026-10-02T14:00:00+08', state: 'in_progress' },
+    { at: '2026-10-03T13:00:00+08', state: 'closed' },
+  ]);
+  await memberReport(tester, '2026-10-02T14:00:00+08', [
+    { at: '2026-10-02T15:00:00+08', state: 'in_progress' },
+    { at: '2026-10-03T14:00:00+08', state: 'closed' },
+  ]);
+  await memberReport(outsider, '2026-10-02T10:00:00+08', [
+    { at: '2026-10-02T11:00:00+08', state: 'in_progress' },
+    { at: '2026-10-03T10:00:00+08', state: 'closed' },
+  ]);
+  const full = await participationMetrics(pool, { community_id: DEMO_COMMUNITY }, wide, NOW);
+  assert.equal(JSON.stringify(full).includes(REPORT_TEXT), false);
+  const value = full.metrics;
+  assert.deepEqual([value.moderation_first_handling_48h.numerator, value.moderation_first_handling_48h.denominator, value.moderation_first_handling_48h.pending_window, value.moderation_first_handling_48h.excluded_test_accounts], [2, 4, 2, 1]);
+  assert.deepEqual([value.moderation_close_7d.numerator, value.moderation_close_7d.denominator, value.moderation_close_7d.pending_window, value.moderation_close_7d.excluded_test_accounts], [1, 3, 3, 1]);
+  assert.equal(value.moderation_first_handling_48h.rate, null);
+  assert.equal(value.moderation_close_7d.median_hours, null);
+  assert.deepEqual(value.repeat_abuse, { status: 'not_available', reason: 'repeat abuse is not yet defined' });
+  const other = await metrics(outsider.community, wide);
+  assert.deepEqual([other.moderation_first_handling_48h.numerator, other.moderation_first_handling_48h.denominator, other.moderation_first_handling_48h.pending_window, other.moderation_first_handling_48h.excluded_test_accounts], [1, 1, 0, 0]);
+  assert.deepEqual([other.moderation_close_7d.numerator, other.moderation_close_7d.denominator, other.moderation_close_7d.pending_window], [1, 1, 0]);
+});
+
+test('moderation rate and median stay null below the sample floor', async () => {
+  const people = await many(3, () => member({ at: '2026-09-01T00:00:00+08' }));
+  for (const person of people) await memberReport(person, '2026-10-02T10:00:00+08', [
+    { at: '2026-10-02T12:00:00+08', state: 'in_progress' },
+    { at: '2026-10-03T10:00:00+08', state: 'closed' },
+  ]);
+  const value = await metrics();
+  for (const metric of [value.moderation_first_handling_48h, value.moderation_close_7d]) {
+    assert.deepEqual([metric.numerator, metric.denominator, metric.pending_window, metric.rate, metric.status, metric.median_hours], [3, 3, 0, null, 'insufficient_sample', null]);
+  }
+});
+
+test('moderation rate and median are exact once the sample floor is met', async () => {
+  const people = await many(12, () => member({ at: '2026-09-01T00:00:00+08' }));
+  const receipt = '2026-10-02T10:00:00+08';
+  const plus = (hours: number) => new Date(Date.parse('2026-10-02T02:00:00Z') + hours * 3_600_000).toISOString();
+  for (let i = 0; i < people.length; i++) {
+    const events: { at: string; state: 'in_progress' | 'closed' }[] = [];
+    if (i < 10) events.push({ at: plus(i + 1), state: 'in_progress' }, { at: plus(10 + i), state: 'closed' });
+    else if (i === 10) events.push({ at: plus(49), state: 'in_progress' }, { at: plus(50), state: 'closed' });
+    await memberReport(people[i]!, receipt, events);
+  }
+  const value = await metrics();
+  const handling = value.moderation_first_handling_48h;
+  // 10 of 12 elapsed cases. Hours 1..10: percentile_cont(0.5) is halfway between 5 and 6.
+  assert.deepEqual([handling.numerator, handling.denominator, handling.pending_window, handling.excluded_test_accounts, handling.status], [10, 12, 0, 0, 'ok']);
+  assert.equal(handling.rate, 0.8333);
+  assert.equal(handling.median_hours, 5.5);
+  const closed = value.moderation_close_7d;
+  // 11 of 12. Hours 10..19 and 50: the 6th of 11 ordered values is 15.
+  assert.deepEqual([closed.numerator, closed.denominator, closed.pending_window, closed.excluded_test_accounts, closed.status], [11, 12, 0, 0, 'ok']);
+  assert.equal(closed.rate, 0.9167);
+  assert.equal(closed.median_hours, 15);
 });
