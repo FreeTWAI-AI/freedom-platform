@@ -11,7 +11,7 @@ export type SupplyCooperationSnapshot = {ok:true;offers:SupplyOffer[];offersTrun
 export function supplyRequestsWaiting(requests:Distribution[]) {
   return requests.filter(request=>request.state==='awaiting_supply_acceptance'&&request.offer.state==='offered').length;
 }
-export function HostedDistribution({client,root,refresh,busy,writable,onDirty,onCommand,onReload,onCooperation,supplierOnly=false}:{supplierOnly?:boolean;client:PortalClient;root:string;refresh:number;busy:boolean;writable:boolean;onDirty:(key:string,value:boolean)=>void;onCommand:(command:Command)=>Promise<void>;onReload:()=>Promise<void>;onCooperation?:(snapshot:SupplyCooperationSnapshot)=>void}) {
+export function HostedDistribution({client,root,refresh,busy,writable,onDirty,onCommand,onReload,onCooperation,supplierOnly=false}:{supplierOnly?:boolean;client:PortalClient;root:string;refresh:number;busy:boolean;writable:boolean;onDirty:(key:string,value:boolean)=>void;onCommand:(command:Command)=>Promise<void>;onReload:()=>Promise<void>;onCooperation?:(snapshot:SupplyCooperationSnapshot,origin:number)=>void}) {
   const [data,setData]=useState<{offers:SupplyOffer[];offersTruncated:boolean;catalog:SupplyOffer[];selections:Distribution[];requests:Distribution[];requestsTruncated:boolean;truncated:boolean}|null>(null);
   const [error,setError]=useState(''),[editing,setEditing]=useState<string|null>(null);
   const [requestsOpen,setRequestsOpen]=useState(false);
@@ -22,14 +22,16 @@ export function HostedDistribution({client,root,refresh,busy,writable,onDirty,on
   // for a summary click to shut it, and a close must stay closed on later reads.
   if(supplierOnly&&data&&!requestsTouched.current&&pending>0&&!requestsOpen)setRequestsOpen(true);
   useEffect(()=>{
-    const abort=new AbortController(); setError('');
+    // `refresh` is the parent generation that started this read. Report that
+    // origin; a later render's callback must not retarget this reply.
+    const abort=new AbortController(),origin=refresh; setError('');
     void Promise.all((supplierOnly ? ['supply-offers','supply-requests'] : ['supply-offers','supply-catalog','distribution-selections','supply-requests']).map(path=>client.get(root+'/'+path,{signal:abort.signal}))).then(raw=>{
       if(abort.signal.aborted)return;
       const offers=SupplyOffersSchema.parse(raw[0]),catalog=supplierOnly ? {items:[],truncated:false} : SupplyOffersSchema.parse(raw[1]),selections=supplierOnly ? {items:[],truncated:false} : DistributionsSchema.parse(raw[2]),requests=DistributionsSchema.parse(raw[supplierOnly ? 1 : 3]);
       const next={offers:offers.items,offersTruncated:offers.truncated,catalog:catalog.items,selections:selections.items,requests:requests.items,requestsTruncated:requests.truncated,truncated:[offers,catalog,selections,requests].some(p=>p.truncated)};
       setData(next);
-      onCooperationRef.current?.({ok:true,offers:next.offers,offersTruncated:next.offersTruncated,requests:next.requests,requestsTruncated:next.requestsTruncated});
-    }).catch(cause=>{if(!abort.signal.aborted){setError(cause instanceof ApiError ? cause.detail??'目前無法讀取供貨合作。':'暫時無法讀取供貨合作。');onCooperationRef.current?.({ok:false});}});
+      onCooperationRef.current?.({ok:true,offers:next.offers,offersTruncated:next.offersTruncated,requests:next.requests,requestsTruncated:next.requestsTruncated},origin);
+    }).catch(cause=>{if(!abort.signal.aborted){setError(cause instanceof ApiError ? cause.detail??'目前無法讀取供貨合作。':'暫時無法讀取供貨合作。');onCooperationRef.current?.({ok:false},origin);}});
     return()=>abort.abort();
   },[client,root,refresh,supplierOnly]);
   const command=(value:Command)=>onCommand({...value,targetMissingIsStore:false});

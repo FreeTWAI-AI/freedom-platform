@@ -73,6 +73,8 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   const dirtyForms = useRef<Record<string, boolean>>({});
   const held = useRef<Attempt | null>(null), busyRef = useRef(false);
   const controller = useRef(new AbortController()), generation = useRef(0);
+  // Null until the parent load that should accept child summaries publishes its ticket.
+  const admissibleEpoch = useRef<number | null>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
   const productsHeading = useRef<HTMLHeadingElement>(null);
   function markDirty(key: string, value: boolean) {dirtyForms.current[key] = value; setHasDraft(Object.values(dirtyForms.current).some(Boolean));}
@@ -95,8 +97,13 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   }, [client, root]);
   async function load() {
     const signal = controller.current.signal, ticket = ++generation.current;
+    // Older child replies, successful or failed, belong to a generation this
+    // reload has already replaced. Keep a loaded summary visibly incomplete
+    // until the child read published by this ticket fully succeeds.
+    admissibleEpoch.current = null;
     const current = () => !signal.aborted && ticket === generation.current && session.current === client.sessionGeneration;
-    setLoading(true); setReadFailed(false);
+    setLoading(true);
+    setCooperation(currentSnapshot => currentSnapshot ? {ok: false, stale: true} : currentSnapshot);
     try {
       const next = SupplyCatalogViewSchema.parse(await client.get(root + '/supply-profile', {signal}));
       // Metadata readers must never request the cost-bearing product or offer projections.
@@ -109,13 +116,16 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
         catch (cause) {if (!(cause instanceof ApiError && [403, 404].includes(cause.status))) throw cause;}
       }
       if (!current()) return;
-      setReservationSetting(setting); setView(next); setProducts(items); setError(''); setRefresh(value => value + 1);
+      admissibleEpoch.current = ticket;
+      setReservationSetting(setting); setView(next); setProducts(items); setError(''); setReadFailed(false); setRefresh(ticket);
     } catch (cause) {
       if (!current()) return;
       // This parent read is not a command receipt and does not release an unknown
       // operation. A failure after a previous success must drop the current-looking
       // offer state and waiting count; the receipt, alert, reload, and lock stay.
-      acceptCooperation({ok: false});
+      // readFailed stays set until a later load actually succeeds, so Reload cannot
+      // unmask a pre-command snapshot while this response is still in flight.
+      applyCooperation({ok: false});
       setReadFailed(true);
       if (cause instanceof ApiError && cause.status === 404) setMissing(true);
       else setError(errorText(cause));
@@ -149,23 +159,28 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
     } finally {if (current()) {busyRef.current = false; setBusy(false);}}
   }
   const command = (attempt: Omit<Attempt, 'key'>) => send({...attempt, key: crypto.randomUUID()});
-  function acceptCooperation(next: SupplyCooperationSnapshot) {
+  function applyCooperation(next: SupplyCooperationSnapshot) {
     // The follow-up read is not the mutation receipt. A failure after a previous
     // success must not keep that snapshot current on the product cards or the
     // notice outside the cooperation panel. The panel may still show its lists.
-    setCooperation(current => {
+    setCooperation(currentSnapshot => {
       if (next.ok) return next;
-      if (current?.ok || current?.stale) return {ok: false, stale: true};
+      if (currentSnapshot?.ok || currentSnapshot?.stale) return {ok: false, stale: true};
       return next;
     });
+  }
+  function acceptCooperation(next: SupplyCooperationSnapshot, origin: number) {
+    if (origin !== admissibleEpoch.current) return;
+    applyCooperation(next);
   }
   const locked = busy || retry !== null || loading || readFailed;
   const can = (key: string) => view?.writable === true && view.capabilities.includes(key);
   const catalog = view?.catalog;
   const productAccess = view?.capabilities.includes('store:write');
   const activeArea = productAccess ? area : 'reservations';
-  // A child read started before a failed parent read may still finish later.
-  // Its snapshot cannot make the parent’s incomplete read current again.
+  // Parent failure keeps the summary incomplete even when no child snapshot was stored.
+  // A successful reload clears that flag only after its own response, and the
+  // stored summary stays incomplete until the matching child read succeeds.
   const displayedCooperation: SupplyCooperationSnapshot | null = readFailed ? {ok: false, stale: true} : cooperation;
   const notice = waitingNotice(displayedCooperation);
   const cooperationStale = displayedCooperation?.ok === false && displayedCooperation.stale === true;
