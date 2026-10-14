@@ -253,6 +253,18 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   detail reload: a 404 closes the stale owner controls and returns to the list.
   No three-person minimum or commercial eligibility is implied.
 
+Squad detail and the owner-only invitation history hold the current member
+user/session locks, then a `FOR SHARE` lock on the live squad, through their
+database projections. Transfer and disband use the same user/session → squad
+ordering and cannot change that owner/active grant between metadata and private
+roster/history queries. A read serialized before cutover may return its then-legal
+projection; it must not borrow old-owner metadata to reveal a pending request
+created for the new owner, or pair active metadata with a disbanded roster.
+After cutover, the former owner has ordinary member visibility, outbound history
+requires the current owner, and disbanded detail is 404. The session clock is
+rechecked after the last query before commit; this is not a guarantee during
+response transport or a single MVCC snapshot for every roster fact.
+
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.
 Selected groups combine with **OR**: `['friends','guild']` exposes a contact to

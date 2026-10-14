@@ -2,6 +2,7 @@ import { randomBytes,randomUUID } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
 import { command,checkVersion,journal,transaction,type Command } from '../../packages/db/index.js';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync,SESSION_LIFETIME_SECONDS,tokenHash,type Actor } from './service.js';
 import { memberPositioningSummaries } from '../positioning/onboarding.js';
@@ -255,11 +256,11 @@ export async function changeFriendship(pool:Pool,input:Command,id:string,action:
 const channelName=z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請輸入頻道名稱，不要加入換行或控制字元。');
 const SQUAD_OWNER_LIMIT=10;
 const SquadInput=z.object({name:z.string().trim().min(1).max(80),kind:z.enum(SQUAD_KINDS),purpose:z.string().trim().min(1).max(800),communication_channel_name:channelName.default('')}).strict();
-async function squadExists(q:Pool|PoolClient,actor:Actor,id:string) {
+async function squadExists(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
   z.uuid().parse(id);
   const row=(await q.query(`SELECT s.* FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
     WHERE s.squad_id=$1 AND s.community_id=$2 AND s.disbanded_at IS NULL AND (NOT t.is_test_data OR s.owner_ref=$3 OR EXISTS(
-      SELECT 1 FROM member_squad_memberships m WHERE m.squad_id=s.squad_id AND m.user_id=$3 AND m.state IN ('active','pending')))`,[id,actor.community_id,actor.user_id])).rows[0];
+      SELECT 1 FROM member_squad_memberships m WHERE m.squad_id=s.squad_id AND m.user_id=$3 AND m.state IN ('active','pending')))${lock?' FOR SHARE OF s':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');return row;
 }
 export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:number) {
@@ -272,12 +273,15 @@ export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:numbe
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:SQUAD_KINDS.map(key=>({key,name:SQUAD_KIND_LABELS[key]}))};
 }
 export async function squadView(pool:Pool,actor:Actor,id:string) {
-  const squad=await squadExists(pool,actor,id);
-  const members=(await pool.query(`SELECT m.user_id,u.display_name AS nickname,m.state,m.aggregate_version FROM member_squad_memberships m JOIN users u USING(user_id)
+  return readWithMemberSession(pool,actor,async q=>{
+  // Keep the owner/active grant stable until the roster and session decision finish.
+  const squad=await squadExists(q,actor,id,true);
+  const members=(await q.query(`SELECT m.user_id,u.display_name AS nickname,m.state,m.aggregate_version FROM member_squad_memberships m JOIN users u USING(user_id)
     WHERE m.squad_id=$1 AND u.community_id=$2 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
     AND (m.state='active' OR (m.state='pending' AND ($3::uuid=$4::uuid OR m.user_id=$3::uuid)))
     AND (m.user_id=$3 OR $3::uuid=$4::uuid OR NOT is_verification_test_account(m.user_id)) ORDER BY m.updated_at,m.user_id`,[id,actor.community_id,actor.user_id,squad.owner_ref])).rows;
   return {...squad,members};
+  });
 }
 export async function createSquad(pool:Pool,input:Command) {
   const body=SquadInput.parse(input.body);

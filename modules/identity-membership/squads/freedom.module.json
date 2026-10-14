@@ -13,6 +13,8 @@
     "migrations/146_squad_management_and_kinds.sql",
     "tests/runtime/identity-member.test.ts",
     "tests/runtime/squad-management.test.ts",
+    "tests/runtime/squad-invitations.test.ts",
+    "tests/runtime/squad-read-cutover.test.ts",
     "tests/e2e/squad-invitations.spec.ts",
     "tests/e2e/squad-management.spec.ts",
     "tests/e2e/squad-types-channel.spec.ts"
