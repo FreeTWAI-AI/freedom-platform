@@ -58,6 +58,10 @@ html:has(.public-member-page[data-design]),body:has(.public-member-page[data-des
 .public-member-page[data-design]{box-sizing:border-box;width:100%;max-width:none;min-height:100vh;margin:0;background:var(--ecard-page);color:var(--ecard-ink);padding-block:clamp(.75rem,2vw,1.2rem);padding-inline:max(.75rem,calc((100% - 40rem) / 2))}
 .public-member-page[data-design] .public-card-invite h2,.public-member-page[data-design] .public-card-invite p{color:var(--ecard-ink)}
 .public-member-page[data-design] .public-card-fallback-hint,.public-member-page[data-design] .public-card-invite .field-hint{color:var(--ecard-muted)}
+:is(.public-member-page[data-design],.ecard-preview-stage[data-design]) .ecard-export-actions .btn{background:var(--ecard-button);color:var(--ecard-button-ink);box-shadow:inset 0 0 0 1px var(--ecard-line)}
+:is(.public-member-page[data-design],.ecard-preview-stage[data-design]) .ecard-export-actions .btn:hover:not(:disabled){background:var(--ecard-hover);color:var(--ecard-button-ink)}
+:is(.public-member-page[data-design],.ecard-preview-stage[data-design]) .ecard-export-actions .btn:focus-visible{outline:2px solid var(--ecard-focus);outline-offset:3px}
+:is(.public-member-page[data-design],.ecard-preview-stage[data-design]) .ecard-export-actions .field-hint{color:var(--ecard-muted)}
 .public-card-invite{display:grid;gap:.65rem;justify-items:start;text-align:left}
 .public-card-invite h2{margin:0;font-size:1.2rem}
 .ecard-design-picker{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem}
