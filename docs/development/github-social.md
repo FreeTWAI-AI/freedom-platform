@@ -37,6 +37,8 @@ Fork 連到原作 `/fork`，由本人在 GitHub 選擇擁有者與確認建立�
 
 OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/callback` 後由同源 POST 完成交換，因此不降低既有 Strict cookie。Token 與 refresh token 在 DB 中以 AES-256-GCM 加密，綁定 App／社群／會員。更新 token 時重驗 GitHub user ID。只有伺服器使用憑證，API／稽核不輸出秘密。
 
+瀏覽器的 GitHub 連結意圖也綁定建立該 private store 時的登入生命週期。登出、換會員或同會員重新登入後，舊 reconnect callback 不得以新 session 發起 OAuth；舊 connect 回應也不再交給入口導頁。新登入由本人重新按連結，沿用新的 store 與既有 PKCE／返回目標驗證；不把舊回應視為新會員同意。
+
 「我的名片」可解除連結。工坊立即移除本地憑證，並嘗試撤銷 GitHub token；若 GitHub 撤銷失敗，畫面會保留前往 GitHub 授權設定的入口。停用會員或撤銷 session 後，舊請求不能操作 Star。Star 不產生 XP、名聲或職務認證。
 
 ## API
