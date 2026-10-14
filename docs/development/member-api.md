@@ -510,6 +510,21 @@ Isolated browser download, UTC/time-zone and independent parser checks do not
 claim an actual Apple/Google Calendar import, external Email delivery, Worker
 cron deployment, attendance rate, XP, ticketing or payment completion.
 
+## Personal content inventory query compatibility (#573)
+
+`GET /api/v1/me/content` requires an active member session and the existing
+`FREEDOM_PERSONAL_CONTENT_ENABLED` flag. It reads the owner's original showcases,
+skill submissions, events and social posts, including private and closed records;
+it does not grant publication or bypass the original commands' authorization.
+
+The inventory uses one transaction client and awaits its four source queries
+sequentially, without relying on the driver's deprecated non-pipeline query queue.
+Session/user locking and a final PostgreSQL physical-clock check still surround
+the entire projection: a source lookup that waits beyond session expiry returns
+`401 session_expired` without inventory data. The existing source SQL, ordering,
+native states, visibility and actions remain unchanged. This source change is
+not deployment, a driver upgrade or Foundation acceptance evidence.
+
 ## Optional first participation (#259)
 
 This source candidate adds `152_first_participation.sql` on top of #344's
