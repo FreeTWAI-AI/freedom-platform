@@ -574,17 +574,49 @@ test('supply product card shows offer state and requests waiting for the supplie
       await expect(staleNotice()).toBeVisible();
       await expect(page.locator('#supply-cooperation-panel')).toBeHidden();
     }
-    async function recoverParentLoad() {
+    async function recoverParentLoad(holdReads = false) {
       parentFail = null;
-      const reads = ['/supply-profile', '/supply-products', '/reservation-setting', '/supply-offers'].map(parentGet);
-      await page.getByRole('button', {name: '重新載入', exact: true}).click();
-      for (const read of reads) expect((await read).status()).toBe(200);
-      await workspace(page, '商品').click();
-      await expect(card().getByText('供貨版本：公開中', {exact: true})).toBeVisible();
-      await expect(staleNotice()).toHaveCount(0);
-      await expect(page.getByRole('button', {name: '重新載入', exact: true})).toHaveCount(0);
-      await expect(page.getByRole('button', {name: '供貨條件', exact: true})).toBeEnabled();
-      await expect(page.getByRole('alert').filter({hasText: '服務暫時無法回應（503）'})).toHaveCount(0);
+      const parentStarted = deferred(), parentReleased = deferred();
+      const childStarted = deferred(), childReleased = deferred();
+      const profilePath = (url: URL) => url.pathname === `/api/v1${store.root}/supply-profile`;
+      const holdParent = async (route: Route) => {
+        const response = await route.fetch(); expect(response.status()).toBe(200);
+        parentStarted.resolve(); await parentReleased.promise;
+        await route.fulfill({response});
+      };
+      const holdChild = async (route: Route) => {
+        const response = await route.fetch(); expect(response.status()).toBe(200);
+        childStarted.resolve(); await childReleased.promise;
+        await route.fulfill({response});
+      };
+      if (holdReads) {await page.route(profilePath, holdParent); await page.route(requestsPath, holdChild);}
+      try {
+        const reads = ['/supply-profile', '/supply-products', '/reservation-setting', '/supply-offers'].map(parentGet);
+        await page.getByRole('button', {name: '重新載入', exact: true}).click();
+        if (holdReads) {
+          await parentStarted.promise;
+          await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+          await expect(staleNotice()).toBeVisible();
+          await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+          await expect(status()).toContainText('已同意這一版選品');
+          await expect(page.getByRole('button', {name: '供貨條件', exact: true})).toBeDisabled();
+          parentReleased.resolve(); await childStarted.promise;
+          await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+          await expect(staleNotice()).toBeVisible();
+          await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+          childReleased.resolve();
+        }
+        for (const read of reads) expect((await read).status()).toBe(200);
+        await workspace(page, '商品').click();
+        await expect(card().getByText('供貨版本：公開中', {exact: true})).toBeVisible();
+        await expect(staleNotice()).toHaveCount(0);
+        await expect(page.getByRole('button', {name: '重新載入', exact: true})).toHaveCount(0);
+        await expect(page.getByRole('button', {name: '供貨條件', exact: true})).toBeEnabled();
+        await expect(page.getByRole('alert').filter({hasText: '服務暫時無法回應（503）'})).toHaveCount(0);
+      } finally {
+        parentReleased.resolve(); childReleased.resolve();
+        if (holdReads) {await page.unroute(profilePath, holdParent); await page.unroute(requestsPath, holdChild);}
+      }
     }
     offersPhase = 'fail';
     const failedPublishRead = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-offers` && response.request().method() === 'GET');
@@ -767,7 +799,7 @@ test('supply product card shows offer state and requests waiting for the supplie
     await workspace(page, '商品').click();
     await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
     await expect(card()).not.toContainText('公開中');
-    await recoverParentLoad();
+    await recoverParentLoad(true);
     await workspace(page, '供貨合作').click();
     await expect(requests().locator('summary')).toHaveText('供貨申請（2）');
     await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
