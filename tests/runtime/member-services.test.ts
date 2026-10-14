@@ -88,6 +88,36 @@ function assertLogo(html: string) {
   assert.match(html, /<header class="service-top"><a href="\/"><img class="service-logo" src="\/brand\/freedom-workshop\.webp" alt="自由工坊" width="1280" height="720"><\/a><a href="\/services">社員服務<\/a><\/header>/);
 }
 
+for(const mine of [true,false]){
+ test(`${mine?'owner paused':'member browse'} service list refuses a session expiring during projection wait`,async()=>{
+  const owner=await signIn(),created=await request('/member-services',owner,draft());
+  assert.equal(created.status,201,JSON.stringify(created.data));
+  if(mine){
+   const paused=await request(`/member-services/${created.data.service_id}/pause`,owner,{},'POST',{'If-Match':'"1"'});
+   assert.equal(paused.status,200);assert.equal((await html(`/services/${created.data.service_id}`)).status,404);
+  }
+  const path=mine?'/member-services/mine':'/member-services';
+  const valid=await request(path,owner);assert.equal(valid.status,200);
+  assert.equal(valid.data.items[0].service_id,created.data.service_id);
+  assert.equal(valid.data.items[0].description,draft().description);
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=$1",[owner.user.user_id]);
+  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+  try{
+   await blocker.query('BEGIN');const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+   await blocker.query('LOCK TABLE member_services IN ACCESS EXCLUSIVE MODE');
+   pending=request(path,owner);let waiting=false;
+   for(let attempt=0;attempt<200;attempt++){
+    waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+    if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+   }
+   assert.ok(waiting,'member service projection must actually wait');
+   await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+  }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+  const denied=await pending!;assert.equal(denied.status,401);
+  assert.equal(denied.data.code,'session_expired');assert.equal(denied.data.items,undefined);
+ });
+}
+
 test('owners edit with one version, outsiders are refused, and the five-service cap holds', async () => {
   const maker = await signIn(), reviewer = await signIn(DEMO_USERS[1].email);
   const before = await counts();
