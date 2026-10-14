@@ -264,13 +264,15 @@ async function squadExists(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');return row;
 }
 export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:number) {
-  const rows=(await pool.query(`SELECT s.*,u.display_name AS owner_name,
+  return readWithMemberSession(pool,actor,async q=>{
+  const rows=(await q.query(`SELECT s.*,u.display_name AS owner_name,
     (SELECT count(*)::int FROM member_squad_memberships a JOIN users mu ON mu.user_id=a.user_id JOIN member_account_classification mt ON mt.user_id=mu.user_id AND mt.community_id=mu.community_id WHERE a.squad_id=s.squad_id AND a.state='active' AND mu.active AND mu.community_id=s.community_id AND NOT mt.is_test_account) AS member_count,
     CASE WHEN m.user_id IS NULL THEN NULL ELSE jsonb_build_object('state',m.state,'aggregate_version',m.aggregate_version) END AS membership
     FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
     JOIN users u ON u.user_id=s.owner_ref LEFT JOIN member_squad_memberships m ON m.squad_id=s.squad_id AND m.user_id=$2
     WHERE s.community_id=$1 AND s.disbanded_at IS NULL AND u.active AND (NOT t.is_test_data OR s.owner_ref=$2) ORDER BY s.created_at,s.squad_id LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:SQUAD_KINDS.map(key=>({key,name:SQUAD_KIND_LABELS[key]}))};
+  });
 }
 export async function squadView(pool:Pool,actor:Actor,id:string) {
   return readWithMemberSession(pool,actor,async q=>{
