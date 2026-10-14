@@ -8,6 +8,21 @@ mkdirSync('test-results',{recursive:true});
 const themes=[['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']] as const;
 const widths=[390,820,1280] as const;
 
+for(const trigger of ['focus','pageshow','visibilitychange'])test(`a withdrawn public card is removed on ${trigger} without a manual reload`,async({page,browser})=>{
+ const name=`重驗名片 ${trigger}`;await account(page,name);await joinGuild(page);await navigate(page,'我的名片');
+ const settings=page.getByRole('region',{name:'分享我的工坊名片'});await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
+ const link=settings.getByRole('link',{name:'開啟名片',exact:true});await expect(link).toBeVisible();
+ const guestContext=await browser.newContext(),guest=await guestContext.newPage();
+ try{
+  await guest.goto((await link.getAttribute('href'))!);await expect(guest.getByRole('heading',{name:`${name}的工坊名片`,exact:true})).toBeVisible();
+  await settings.getByRole('button',{name:'停用分享',exact:true}).click();await expect(settings.getByRole('button',{name:'建立分享連結',exact:true})).toBeVisible();
+  const reread=guest.waitForResponse(response=>new URL(response.url()).pathname.startsWith('/api/v1/public/member-cards/'));
+  await guest.evaluate(event=>{if(event==='visibilitychange'){Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'visible'});document.dispatchEvent(new Event(event));}else window.dispatchEvent(new Event(event));},trigger);
+  expect((await reread).status()).toBe(404);await expect(guest.getByRole('heading',{name:'暫時無法開啟這張名片',exact:true})).toBeVisible();
+  await expect(guest.locator('.member-card')).toHaveCount(0);await expect(guest.getByRole('button',{name:'下載名片 PNG',exact:true})).toHaveCount(0);await expect(guest.locator('.member-card-qr')).toHaveCount(0);
+ }finally{await guestContext.close();}
+});
+
 async function account(page:Page,name:string){
   const email=`connections51-${randomUUID()}@example.test`;
   await page.goto('/');
