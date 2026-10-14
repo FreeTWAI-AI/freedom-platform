@@ -1924,8 +1924,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 55347,
-      "sha256": "3e13202ac61843509fc95ff6f35f42a0a9a4ce276fe66a8a4df51523edd90558"
+      "bytes": 55767,
+      "sha256": "1746e1a4cc260f6d4a5bd4db5380237c92b02ebfef0df61af333548ebca853a0"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -2339,13 +2339,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/FloatingMessages.css",
-      "bytes": 4001,
-      "sha256": "e25f04dab4b1dc83c2b2bf37a692e8ef041fc26f5b606a9540b80de302399036"
+      "bytes": 4844,
+      "sha256": "325174970bdb1f417b0787ae5cf38bcb260ae934ee602379f842125030c500c2"
     },
     {
       "path": "apps/portal-web/src/modules/FloatingMessages.tsx",
-      "bytes": 2675,
-      "sha256": "0aa3e9cbf6a3b8d02191ef52aef219d6b492aa091e6c841ceb671374d50bbabf"
+      "bytes": 3941,
+      "sha256": "40376d8f4aaa412b52b55627997a2420ca35590466d79d940c8656ee59add9d5"
     },
     {
       "path": "apps/portal-web/src/modules/FriendsPanel.tsx",
@@ -17699,8 +17699,8 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 57788,
-      "sha256": "2594279a0fb0be31037351c466e4cf681b647b76dadfe892cc77a6051f460e3e"
+      "bytes": 57859,
+      "sha256": "9c488ba410da6ee03d2a2c3c103b2436c1159cfaaf6af242134662feb5c7e173"
     },
     {
       "path": "modules/community/first-participation.ts",
@@ -18324,8 +18324,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 41676,
-      "sha256": "35fdd30e8faaa0908b8c81a627ab4f387d6402c8d4aa3977c364e4605ec163b0"
+      "bytes": 41860,
+      "sha256": "e38429358483da929b6d84035855e9aa84218afe7400cafd4265575d37f2ae07"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -20784,8 +20784,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 12985,
-      "sha256": "05b10524687191199752434b67632d08e2c769f7cd2acc53379471344f3f8fb6"
+      "bytes": 15254,
+      "sha256": "beeb0deb1eed5f7ebca5d842210ab1ce1c1cd97c25b593d988e192ce6c44923a"
     },
     {
       "path": "tests/e2e/freedom.module.json",
@@ -20839,8 +20839,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",
-      "bytes": 33336,
-      "sha256": "c86fdf17284b55225f527b2909b73d9f0998f0ab34e5ca5209e34a5c208b30cc"
+      "bytes": 33476,
+      "sha256": "55a54fdb768c6d6e65ec462cdf223aec9fdd5da8e10c32224243fcbdba04aa4f"
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
@@ -21024,8 +21024,8 @@
     },
     {
       "path": "tests/e2e/member-reporting.spec.ts",
-      "bytes": 16520,
-      "sha256": "8b86f6c520a688a79f6b838a02e0818980b4c428b5eea1fbeded1905080f5d06"
+      "bytes": 16618,
+      "sha256": "7421abcb22b77552e96e7de618745162c13d88fc0f063d5646e5d67360280905"
     },
     {
       "path": "tests/e2e/member-services.spec.ts",
@@ -21934,8 +21934,8 @@
     },
     {
       "path": "tests/runtime/event-waitlist.test.ts",
-      "bytes": 41295,
-      "sha256": "602d22283f187535ed309adef7e861bce4b84591ceea0b7c4f4eddc60069a6c0"
+      "bytes": 46675,
+      "sha256": "2c5bc94081b814ab4dd6b4b4c4653223b143d0de6db162fab8c5fece49155e2f"
     },
     {
       "path": "tests/runtime/events-past.test.ts",
@@ -21989,8 +21989,8 @@
     },
     {
       "path": "tests/runtime/flows.test.ts",
-      "bytes": 68382,
-      "sha256": "9485808fbc339ea897c7ede836573da6a7893463ffe7315b027d155c390178fc"
+      "bytes": 68399,
+      "sha256": "cd3d3b87b08bf041b5c75a6289aead449cf94e8b19446a5cd738cb9d8f308a73"
     },
     {
       "path": "tests/runtime/freedom_env.test.ts",
@@ -22001,6 +22001,11 @@
       "path": "tests/runtime/freetwai-transfer.test.ts",
       "bytes": 15057,
       "sha256": "6799ef8df9f7bb6bce2d50c36f4a2376283b3094dd3e8b61c07ede240af8584d"
+    },
+    {
+      "path": "tests/runtime/friends-session-clock.test.ts",
+      "bytes": 6878,
+      "sha256": "7de89cac04e2bc62ff494cb769030d876dff6407d5cef8026ec728d3e460192e"
     },
     {
       "path": "tests/runtime/game-console-feed.test.ts",
@@ -22134,8 +22139,8 @@
     },
     {
       "path": "tests/runtime/guild-workspace.test.ts",
-      "bytes": 39520,
-      "sha256": "3d0bddef7d2a27cda42a0a88f5ff0ccf9eb06418e26f8211544b4cfb5d2bfd97"
+      "bytes": 39853,
+      "sha256": "1b911df30f2e66485c5eab06390f704f3eec1ab111caf46aa8e72fed1252fd73"
     },
     {
       "path": "tests/runtime/hosted-direct-orders.test.ts",
@@ -22491,6 +22496,11 @@
       "path": "tests/runtime/member-model-settings.test.ts",
       "bytes": 23506,
       "sha256": "0d303084229db6fdafed5845dcc01f3bc62bc04d75168df42336e801e18a8a28"
+    },
+    {
+      "path": "tests/runtime/member-presence-session-clock.test.ts",
+      "bytes": 9396,
+      "sha256": "6925205715a2e3aca4705689bd5be69dac8182fe02abad666f4a248643f5ec71"
     },
     {
       "path": "tests/runtime/member-read-session-clock.test.ts",
@@ -23168,6 +23178,11 @@
       "sha256": "466884baece5caf84a5052fb7cd584d6c113a33023c2fcb7425abe88cb5961e6"
     },
     {
+      "path": "tests/runtime/squad-list-session-clock.test.ts",
+      "bytes": 7703,
+      "sha256": "53ca9fe150549d08f1f2da4a3cae923c249d8f0241ab8425d8e09271178de24e"
+    },
+    {
       "path": "tests/runtime/squad-management.test.ts",
       "bytes": 18072,
       "sha256": "e00f9ad3e6a98d6ce63d27527514012579e3ee2824bd30ae0eceb587d33bafea"
@@ -23224,8 +23239,8 @@
     },
     {
       "path": "tests/runtime/tenant-data-isolation.test.ts",
-      "bytes": 40713,
-      "sha256": "6ceb4aa24f6abe48dfceaf353ce40c89336504142b7235722a487e4b991b9822"
+      "bytes": 41138,
+      "sha256": "054540c1ad7d9fe5f668cd4ad05c94df668fe02e60a547f63db57d1cfe9884ff"
     },
     {
       "path": "tests/runtime/tenant-high-risk-verification.test.ts",
