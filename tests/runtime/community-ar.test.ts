@@ -127,3 +127,19 @@ test('AR-SQL-10 event scanning requires explicit pattern opt-in and current publ
   assert.equal((await listArScene(pool,organizer,id)).items.length,0);
   await assert.rejects(createArTarget(pool,command(owner,{kind:'custom',scene_event_id:id,title:'Closed event'})),problem('ar_scene_unavailable'));
 });
+
+for(const bytes of [20971519,20971520])test(`AR-SQL-11 publishing policy agrees with the ${bytes}-byte reservation boundary`,async()=>{
+  const owner=await member();
+  await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='synthetic-ar-quota-boundary',persistence_allowed=true,retained_byte_limit=$1 WHERE purpose='member.ar-target'",[bytes]);
+  const available=bytes===20971520;
+  if(!available)await assert.rejects(createArTarget(pool,command(owner,{kind:'custom',title:'Below one reservation'})),problem('ar_unavailable'));
+  assert.equal((await listOwnArTargets(pool,owner)).publishing_enabled,available);
+  if(available){
+    const value=await uploaded(owner,undefined,'custom');
+    assert.ok(value.result.aggregate_version);
+    assert.equal((await pool.query("SELECT count(*)::int n FROM assets WHERE purpose='member.ar-target'")).rows[0].n,1);
+  }else{
+    assert.equal((await pool.query('SELECT count(*)::int n FROM community_ar_targets')).rows[0].n,0);
+    assert.equal((await pool.query("SELECT count(*)::int n FROM assets WHERE purpose='member.ar-target'")).rows[0].n,0);
+  }
+});

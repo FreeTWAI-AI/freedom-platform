@@ -14,6 +14,10 @@ card, event, Asset, storage or command systems.
    compile it on this device. Metadata is removed. Pattern-quality hints describe
    image detail, not recognition probability. Cancel removes the compilation
    iframe and its worker/WebGL lifetime. Download the normalized print image.
+   Image preparation/compilation has its own abort-controller identity; selecting
+   an image does not invalidate pending target/event/scene loads. Replaced or
+   cancelled preparation cannot clear a newer operation's progress or result.
+   All continuations also retain the mounted page and original session boundary.
 2. Try the actual image tracker with the rear camera. The trial is clearly local
    and unpublished. Do not represent a trial as another person's public card.
 3. Publish an own card, an own public (`open` / `referral`) event or explicitly
@@ -64,6 +68,8 @@ by default. A trusted `arAssetStore` / MEDIA adapter is also required. Migration
 167 adds a default-OFF domain storage policy. There is no legacy byte fallback.
 Operators must independently approve persistence revision/quota, compatible
 reader floor, backup/restore and retention before enabling publication.
+The member publishing flag uses the same minimum 20 MiB retained quota as the
+write policy's single-upload reservation; a smaller quota keeps publishing off.
 Production flags/resources are not enabled by this PR. Do not downgrade to a
 reader that cannot understand the new purpose after AR writes begin.
 

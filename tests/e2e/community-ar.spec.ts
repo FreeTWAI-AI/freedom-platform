@@ -94,3 +94,51 @@ test('AR-UI-05 actual replay camera renders a tracked overlay, captures a photo 
   await page.getByRole('button',{name:'暫停相機',exact:true}).click();await expect.poll(()=>page.evaluate(()=>(window as any).arTestStream.getTracks().every((track:MediaStreamTrack)=>track.readyState==='ended'))).toBe(true);
   await page.screenshot({path:'.rd/ar/capture-platforms.png',fullPage:true});
 });
+
+test('AR-UI-06 selecting an image preserves delayed initial targets, events and scene loads',async({page,e2eAuthPool})=>{
+  test.setTimeout(120000);
+  await e2eAuthPool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='synthetic-e2e-ar-v1',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='member.ar-target'");
+  await login(page);
+  await publish(page,createArExperience(pattern,{version:1,kind:'text',text:'Synthetic delayed load'}),'Synthetic delayed-load target');
+  await page.goto('/#skills');
+  let release!:()=>void;const held=new Promise<void>(resolve=>release=resolve),arrivals=new Set<string>();
+  const responses:Promise<void>[]=[];
+  for(const path of ['/ar/targets','/events','/ar/scene'])await page.route(`**/api/v1${path}`,async route=>{
+    if(route.request().method()!=='GET')return route.continue();
+    const response=await route.fetch();expect(response.status()).toBe(200);arrivals.add(path);
+    const sent=held.then(()=>route.fulfill({response}));responses.push(sent);await sent;
+  });
+  try{
+    await page.goto('/#ar');await expect.poll(()=>arrivals.size).toBe(3);
+    await page.getByRole('button',{name:'製作圖案',exact:true}).click();
+    await page.getByLabel('選擇衣服或海報上的圖片').setInputFiles({name:'synthetic-card.png',mimeType:'image/png',buffer:png});
+    await expect(page.getByRole('img',{name:'待辨識的完整圖案'})).toBeVisible();
+    release();await Promise.all(responses);
+    await page.getByRole('button',{name:'掃描圖案',exact:true}).click();
+    for(const width of [390,768,1440]){
+      await page.setViewportSize({width,height:900});await page.screenshot({path:`.rd/ar-review/initial-load-${width}.png`,fullPage:true});
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    }
+    await expect(page.getByText('正在找圖案…',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('Synthetic delayed-load target',{exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'製作圖案',exact:true}).click();
+    await expect(page.getByText('圖案儲存尚未啟用，可以先下載和試掃。',{exact:true})).toHaveCount(0);
+    await page.getByRole('button',{name:'編譯圖案',exact:true}).click();
+    await expect(page.getByRole('button',{name:'發布 AR 圖案',exact:true})).toBeEnabled({timeout:60000});
+  }finally{release();await Promise.allSettled(responses);}
+});
+
+test('AR-UI-07 cancelling compilation leaves the selected image usable without a late abort error',async({page})=>{
+  await login(page);await page.getByRole('button',{name:'製作圖案',exact:true}).click();
+  await page.getByLabel('選擇衣服或海報上的圖片').setInputFiles({name:'synthetic-card.png',mimeType:'image/png',buffer:png});
+  await expect(page.getByRole('img',{name:'待辨識的完整圖案'})).toBeVisible();
+  await page.getByRole('button',{name:'編譯圖案',exact:true}).click();
+  await page.getByRole('button',{name:'取消處理',exact:true}).click();
+  await expect(page.getByText('已取消處理，圖片仍保留。',{exact:true})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'編譯圖案',exact:true})).toBeEnabled();
+  await expect(page.locator('iframe[title="AR 圖案處理"]')).toHaveCount(0);
+  await page.getByLabel('更換圖案',{exact:true}).setInputFiles({name:'replacement-card.png',mimeType:'image/png',buffer:png});
+  await expect(page.getByText('圖片已留在裝置上，按「編譯圖案」繼續。',{exact:true})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});

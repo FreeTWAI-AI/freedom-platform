@@ -74,8 +74,8 @@ export async function changeArTarget(pool:Pool,input:Command,id:string,publish:b
 export async function listOwnArTargets(pool:Pool,actor:Actor){
   return withMemberScope(pool,{actor,scope:'personal'},async q=>{await complete(q,actor);},async q=>{
     const rows=(await q.query<ArTargetRow>('SELECT * FROM community_ar_targets WHERE community_id=$1 AND owner_user_id=$2 ORDER BY created_at DESC,target_id LIMIT 24',[actor.community_id,actor.user_id])).rows;
-    const policy=(await q.query("SELECT mode,persistence_allowed FROM domain_media_storage_policy WHERE purpose='member.ar-target'")).rows[0];
-    await assertCurrentSessionClock(q,actor);return {items:rows.map(ownView),publishing_enabled:!!policy&&policy.mode!=='legacy'&&policy.persistence_allowed===true};
+    const policy=(await q.query("SELECT mode,persistence_allowed,retained_byte_limit::text AS retained_byte_limit FROM domain_media_storage_policy WHERE purpose='member.ar-target'")).rows[0];
+    await assertCurrentSessionClock(q,actor);return {items:rows.map(ownView),publishing_enabled:!!policy&&policy.mode!=='legacy'&&policy.persistence_allowed===true&&BigInt(policy.retained_byte_limit??'0')>=20971520n};
   });
 }
 const visible=`t.state='published' AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND NOT is_verification_test_account(u.user_id)
