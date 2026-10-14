@@ -12,6 +12,8 @@ export type GuildBlockProps = {
   /** The existing application launcher owns eligibility, creation and leave guards. */
   startApplication?: (applicationKey: string) => void;
   startableApplications?: readonly string[];
+  /** Optional. Only a guild page that already knows its key should pass it. */
+  guildKey?: string;
 };
 export type ReadState<T> =
   | {kind: 'visitor' | 'loading' | 'denied' | 'unavailable' | 'error'}

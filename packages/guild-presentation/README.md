@@ -30,6 +30,9 @@ npm run guild:preview
 
 1. 在 `modules/<自己的模組>/` 放元件、測試與既有格式的 `freedom.module.json`。
    從上述樣板開始；元件接受 [GuildBlockProps](block.ts)，匯出 `default` 與 `title`。
+   `guildKey` 是可選字串。沒有 React context、讀取客戶端欄位或必填 prop 會帶入目前公會；
+   只有公會頁渲染區塊時傳入該頁已有的代碼。未傳時既有區塊行為不變。缺少或空白代碼時，
+   需要公會範圍的區塊要顯示明確空狀態，不可改列出其他公會的資料。
 2. 在該 descriptor 的 `surfaces` 加一個 `guild-block.<名稱>.v1` page，
    `entry` 指到自己擁有且列為 `public_exports` 的元件，`operations` 宣告既有 API
    操作，`auth_profile` 是 `member-session`。`dependencies` 包含呈現 SDK 與實際領域。

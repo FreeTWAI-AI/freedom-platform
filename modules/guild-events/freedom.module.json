@@ -1,0 +1,13 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "guild-events",
+  "owner_role": "guild-events-maintainer",
+  "owned_paths": ["modules/guild-events/**"],
+  "public_exports": ["modules/guild-events/EventsBlock.tsx"],
+  "dependencies": ["guild-presentation", "community"],
+  "contract_families": [], "client_profiles": ["member"],
+  "instructions": ["AGENTS.md", "DESIGN.md"],
+  "invariants": ["current-authority-before-replay", "no-secrets-in-artifacts"],
+  "tests": ["runtime.guild-blocks"],
+  "surfaces": [{"surface_id": "guild-block.upcoming-events.v1", "kind": "page", "entry": "modules/guild-events/EventsBlock.tsx", "operations": ["community.event.list"], "auth_profile": "member-session"}]
+}
