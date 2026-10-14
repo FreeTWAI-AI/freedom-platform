@@ -35,3 +35,51 @@ test('retail work areas preserve a draft, prevent another area overwriting it, a
     await page.screenshot({path:`.rd/commerce/retail-${theme}-${width}.png`,fullPage:true});
   }
 });
+
+test('read-only cooperation stays explicit after an active writer loses permission and after reopening',async({page,browser,baseURL,e2eAuthPool})=>{
+  test.setTimeout(90000);
+  const owner=await person(e2eAuthPool),operator=await person(e2eAuthPool);
+  await login(page,owner.email);const store=await launchStore(page,'Synthetic permission UX');
+  await post(page,store.root+'/setup',{name:'Synthetic 權限店面',slug:'permission-'+owner.id.slice(0,8),currency:'TWD'},201);
+  const [,tenant,instance]=store.hash.split('/'),context=await browser.newContext({baseURL});
+  let release!:()=>void;const held=new Promise<void>(resolve=>release=resolve);
+  let entered!:()=>void;const committed=new Promise<void>(resolve=>entered=resolve);
+  try{
+    const operatorPage=await context.newPage();await login(operatorPage,operator.email);
+    const candidate=await (await page.request.get(`/api/v1/tenants/invite-candidates?user_id=${operator.id}`)).json();
+    const invitation=await post(page,`/tenants/${tenant}/invitations`,{
+      invitee_principal_id:candidate.principal_id,role:'operator',
+      instance_capabilities:[{instance_id:instance,capabilities:['store:read','store:write']}],
+      expires_at:new Date(Date.now()+86400000).toISOString(),
+    },201);
+    await post(operatorPage,`/tenants/${tenant}/invitations/${invitation.invitation_id}/accept`,{},200,invitation.version);
+    await open(operatorPage,store.hash);
+    await operatorPage.route(`**/api/v1${store.root}/products`,async route=>{
+      if(route.request().method()!=='POST')return route.continue();
+      const response=await route.fetch();expect(response.status()).toBe(201);entered();await held;await route.fulfill({response});
+    });
+    const form=operatorPage.getByRole('form',{name:'新增商品',exact:true});
+    await form.getByLabel('商品名稱',{exact:true}).fill('已合法儲存的商品');
+    await form.getByLabel(/^價格（/).fill('350');
+    await form.getByLabel('庫存',{exact:true}).fill('2');
+    await form.getByRole('button',{name:'新增商品',exact:true}).click();await committed;
+    await storeArea(operatorPage,'供貨合作');
+    const members=await (await page.request.get(`/api/v1/tenants/${tenant}/members`)).json();
+    const membership=members.items.find((item:{principal_id:string})=>item.principal_id===candidate.principal_id);
+    await post(page,`/tenants/${tenant}/members/${candidate.principal_id}/change`,{
+      role:'operator',status:'active',instance_capabilities:[{instance_id:instance,capabilities:['store:read']}],reason:'Synthetic review of revoked editing permission',
+    },200,membership.version);
+    release();
+    await expect(operatorPage.getByText('你可以檢視這間商店，但不能修改。',{exact:true})).toBeVisible();
+    for(const width of [390,768,1440]){
+      await operatorPage.setViewportSize({width,height:900});await operatorPage.screenshot({path:`.rd/commerce-review/read-only-${width}.png`,fullPage:true});
+      expect(await operatorPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    }
+    await expect(operatorPage.locator('#store-cooperation-panel')).toContainText('你沒有供貨合作的管理權限');
+    await expect(operatorPage.locator('#store-cooperation-panel .hosted-distribution')).toHaveCount(0);
+    await storeArea(operatorPage,'商品');await expect(operatorPage.getByRole('heading',{name:'已合法儲存的商品',exact:true})).toBeVisible();
+    await operatorPage.reload();await storeArea(operatorPage,'供貨合作');
+    await expect(operatorPage.locator('#store-cooperation-panel')).toContainText('你沒有供貨合作的管理權限');
+    await open(page,store.hash);await storeArea(page,'供貨合作');await expect(page.locator('#store-cooperation-panel .hosted-distribution')).toBeVisible();
+  }finally{release();await context.close();}
+});

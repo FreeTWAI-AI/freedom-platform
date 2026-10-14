@@ -277,7 +277,8 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
           {can('store:write') && (view.product_count >= view.product_limit ? <p>已達 {view.product_limit} 件商品上限。</p>
             : <ProductForm currency={store.currency} busy={areaLocked} primary={!products.length} onDirty={value => markDirty('add', value)} onSave={(body, success) => command({method: 'post', path: root + '/products', body, schema: ProductViewSchema, notice: '已新增商品。', success})}/>)}
         </section>
-        <div id="store-cooperation-panel" className="hosted-supply-panel" hidden={area!=='cooperation'}>{view.capabilities.includes('store:write') && <HostedDistribution client={client} root={root} refresh={distributionRefresh} busy={areaLocked} writable={can('store:write')} onDirty={(id,value)=>markDirty('distribution/'+id,value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>}</div>
+        <div id="store-cooperation-panel" className="hosted-supply-panel" hidden={area!=='cooperation'}>{view.capabilities.includes('store:write') ? <HostedDistribution client={client} root={root} refresh={distributionRefresh} busy={areaLocked} writable={can('store:write')} onDirty={(id,value)=>markDirty('distribution/'+id,value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>
+          : <p>你沒有供貨合作的管理權限，仍可查看商品與店面資料。</p>}</div>
         <section id="store-publish-panel" hidden={area!=='publish'} className="hosted-supply-panel stack" aria-labelledby="store-publish-title"><h3 id="store-publish-title">預覽與發布</h3>
           <p>{publication?.state === 'published' ? `目前公開第 ${publication.current_revision} 版。` : publication?.state === 'unpublished' ? '已停止公開。' : '尚未發布。'}</p>
           {publication?.state === 'published' && preview?.dirty && <p>有尚未發布的變更。</p>}

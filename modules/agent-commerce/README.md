@@ -126,6 +126,8 @@ unsaved form disables conflicting writes and offers a return action. Main
 navigation still uses the existing leave/unknown-command guards. On small
 screens the four choices form two rows. The supplier keeps its existing three
 work areas and separate reservation controls.
+Read-only members see an explicit permission message in the cooperation area,
+including when a refreshed view revokes write access while that area is selected.
 
 Both product lists search the already loaded title, SKU and description, with
 explicit loaded counts. Searching never claims a complete server-wide catalog.
