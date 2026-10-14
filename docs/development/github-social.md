@@ -6,6 +6,8 @@ GitHub 數據存在 `github_repository_metrics`，附核對時間；讀取失敗
 
 星星圖示與數量是同一個操作入口。尚未連結的會員點星星，到 GitHub 同意後回到工坊；連結本身不會加星。連結後按空心星星加星、實心星星取消，才使用該會員的 user access token 修改原作。Fork 圖示與數量連到原作的 Fork 入口，來源與其他數據可展開查看。收到 GitHub 204 後才顯示成功，數量由 GitHub 重新讀取，不自行加減。自填 GitHub slug 不當作身分證明，連結不修改平台登入、會員權限或聯絡方式公開範圍。
 
+Star／取消 Star 在 token refresh、原作 barrier 與實際 provider 併發佇列等待後，沿用同一會員交易的 `assertCurrentSessionClock()` 重驗工坊 session。期限已過且尚未 dispatch 時回 `401 session_expired`，不送出 GitHub 寫入；queue 名額仍釋放。已換發的加密憑證照常保存。若寫入已在有效授權下 dispatch，只是 GitHub 回應較晚，不因後續自然到期回滾憑證或否定 GitHub 已確認的結果。
+
 ## 公開介紹頁的操作入口
 
 公開 `/development/skills/:id` 的 Stars、Forks、Watch 數字都是操作入口，會員介紹視窗也保留 Fork 連結。登入且已連結 GitHub 的會員可直接在介紹頁 Star／取消 Star；尚未連結時走原有 OAuth，完成後回到同一本書，再由本人按 Star。允許的返回值只有原有工坊 hash 或目錄中精確的技能書路徑，外部網址、查詢參數、未知書目與路徑穿越都拒絕。

@@ -269,7 +269,11 @@ export class GitHubSocial {
       await this.rate(q,actor,'star-write',30);
       const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連接自己的 GitHub 帳號。');
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
-      const token=await this.withToken(q,actor,connection,async token=>{await this.provider.star(book.repository,token,desired);return token;});
+      const token=await this.withToken(q,actor,connection,async token=>{
+        await assertCurrentSessionClock(q,actor);
+        await this.provider.star(book.repository,token,desired,()=>assertCurrentSessionClock(q,actor));
+        return token;
+      });
       await recordConfirmedStar(q,connection.github_user_id,book.repository,desired);
       // The star is already confirmed. Refresh public counts from GitHub itself;
       // never calculate +/-1 or turn a metrics failure into a failed star result.
@@ -329,13 +333,15 @@ export class GitHubSocial {
         const result=await this.withToken(q,actor,connection,async token=>{
           const identity=await this.provider.identity(token);
           requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
-          return this.provider.createPlatformIssue(token,cleanTitle,issueBody,`page:${pageId}`,this.config?.appId);
+          await assertCurrentSessionClock(q,actor);
+          return this.provider.createPlatformIssue(token,cleanTitle,issueBody,`page:${pageId}`,this.config?.appId,()=>assertCurrentSessionClock(q,actor));
         });
         requireCondition(result.authorId===connection.github_user_id,502,'github_issue_unconfirmed','GitHub 發布結果尚未確認，請到 GitHub 核對。');
         await q.query('UPDATE github_page_issue_submissions SET state=\'confirmed\',issue_number=$3,updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey,result.number]);
         return {confirmed:true,issue_number:result.number,issue_url:`${PLATFORM_REPOSITORY}/issues/${result.number}`};
       }catch(error){
-        if(error instanceof Problem&&['github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_page_issue_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
+        // session_expired is local pre-dispatch denial, not an ambiguous GitHub write.
+        if(error instanceof Problem&&['session_expired','github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_page_issue_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
         throw error;
       }
     });
@@ -390,14 +396,16 @@ export class GitHubSocial {
         requireCondition(issue.open&&!issue.isPull&&(issue.labels.includes(`page:${pageId}`)||issue.body.includes(marker)),422,'github_claim_issue_invalid','這則 Issue 已關閉或不屬於這個頁面，請重新同步。');
         return token;
       });
+      await assertCurrentSessionClock(q,actor);
       await q.query('INSERT INTO github_design_claim_submissions(user_id,operation_key,request_hash,page_id,issue_number,state) VALUES($1,$2,$3,$4,$5,\'pending\')',[actor.user_id,operationKey,requestHash,pageId,issueNumber]);
       try{
-        const result=await this.provider.createPlatformIssueComment(token,issueNumber,`${cleanMessage}\n\n${DESIGN_CLAIM_MARKER}`);
+        const result=await this.provider.createPlatformIssueComment(token,issueNumber,`${cleanMessage}\n\n${DESIGN_CLAIM_MARKER}`,()=>assertCurrentSessionClock(q,actor));
         requireCondition(result.authorId===connection.github_user_id,502,'github_claim_unconfirmed','GitHub 留言結果尚未確認，請到 Issue 核對。');
         await q.query('UPDATE github_design_claim_submissions SET state=\'confirmed\',comment_id=$3,updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey,result.id]);
         return {confirmed:true,issue_number:issueNumber,comment_url:result.url};
       }catch(error){
-        if(error instanceof Problem&&['github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_design_claim_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
+        // Only pre-dispatch session checks raise session_expired in this phase.
+        if(error instanceof Problem&&['session_expired','github_permission_required','github_installation_required','github_repository_unavailable','github_reconnect_required'].includes(error.code))await q.query('UPDATE github_design_claim_submissions SET state=\'denied\',updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey]);
         throw error;
       }
     });
