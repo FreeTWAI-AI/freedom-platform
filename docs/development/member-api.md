@@ -434,6 +434,15 @@ The anonymous media endpoint continues to enforce its own public policy.
 Local isolated database/browser checks are not trusted CI, deployment,
 flag-on, actual attendance, formal acceptance, XP or external delivery evidence.
 
+## Public event registration page
+
+The public `/public/events/:id/register` form owns its draft, saving state and
+feedback by event identity. SPA navigation to another event starts a blank
+form; late success or failure from the previous event cannot confirm, block
+or unlock it. Returning to the first event creates a new form lifetime.
+Same-event focus revalidation keeps unsent input. Leaving the page does not
+cancel a committed registration or recall a provider-accepted email.
+
 ## Event calendar, reminders and waitlists (#256)
 
 The candidate uses migration `153_event_participation.sql`. Apply it **before
