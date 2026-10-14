@@ -254,8 +254,8 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     let existing=(await q.query('SELECT state,registration_attempt_id FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[id,email])).rows[0];
     if(!existing||existing.state==='cancelled'){
       requireCondition(row.capacity===null||await countEventSeats(q,id)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
-      existing=(await q.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,state,referred_by_user_id) VALUES($1,$2,$3,'pending',$4)
-        ON CONFLICT(event_id,email) DO UPDATE SET state='pending',name=EXCLUDED.name,created_at=now(),registration_attempt_id=EXCLUDED.registration_attempt_id,
+      existing=(await q.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,state,referred_by_user_id,created_at) VALUES($1,$2,$3,'pending',$4,clock_timestamp())
+        ON CONFLICT(event_id,email) DO UPDATE SET state='pending',name=EXCLUDED.name,created_at=EXCLUDED.created_at,registration_attempt_id=EXCLUDED.registration_attempt_id,
           referred_by_user_id=COALESCE(community_event_guest_rsvps.referred_by_user_id,EXCLUDED.referred_by_user_id)
         RETURNING state,registration_attempt_id`,[id,email,body.name,referrer])).rows[0];
     }
@@ -277,8 +277,9 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
       409,'event_closed','這筆報名已取消或失效，郵件未交給提供者。');
     try{await send(email,'自由工坊：活動參與資料',parts.join('\n\n'));}
     catch{throw new Problem(503,'event_email_delivery_failed',reservation.state==='going'?'報名已確認，但這次郵件提供者尚未確認接受；請稍後重試寄信。':'郵件提供者尚未確認接受，報名未確認；請稍後重試。');}
-    // The event lock can outlast the ten-minute hold. Do not promote a pending reservation that has already expired.
-    const confirmed=await q.query("UPDATE community_event_guest_rsvps SET state='going',email_sent_at=now() WHERE event_id=$1 AND email=$2 AND registration_attempt_id=$3 AND (state='going' OR (state='pending' AND created_at>clock_timestamp()-interval '10 minutes'))",[id,email,registration.attempt_id]);
+    // The live hold authorized dispatch; the event lock reserves its seat through provider acceptance.
+    // Record that result even if only the hold expires, retaining the final event-start boundary below.
+    const confirmed=await q.query("UPDATE community_event_guest_rsvps SET state='going',email_sent_at=now() WHERE event_id=$1 AND email=$2 AND registration_attempt_id=$3 AND state IN ('pending','going')",[id,email,registration.attempt_id]);
     requireCondition(confirmed.rowCount===1,409,'event_closed','報名狀態已變更，請重新確認本人狀態。');
     if(registration.capability)await markGuestCapabilityProviderAccepted(q,id,email);
     if(participationEnabled){await markEventParticipationGoing(q,id,{guest_email:email});await reconcileEventWaitlist(q,id);}
