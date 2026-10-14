@@ -155,21 +155,24 @@ test('private guild reads waiting on a membership lock do not return text after 
 });
 
 
-for(const scope of ['announcements','council-list','council-thread'] as const)test(`private guild ${scope} checks the session after the final projection wait`,async()=>{
+// Feed scenario preserved from Yueyu Hoshizora's #647, source 669af1c9b12a9c253b287be1347ea2689fd97e67.
+for(const scope of ['announcements','feed','council-list','council-thread'] as const)test(`private guild ${scope} checks the session after the final projection wait`,async()=>{
  await lead();
+ const actor=scope==='feed'?actors[1]:actors[0];
+ if(scope==='feed')await join(actor);
  const secret='Synthetic private final-projection content';
  const thread=await service.createGuildCouncilThread(pool,cmd(actors[0],{title:'Synthetic council thread',body:secret}));
  await service.replyGuildCouncilThread(pool,cmd(actors[0],{body:secret}),thread.thread_id);
- await service.createGuildAnnouncement(pool,cmd(actors[0],{title:'Synthetic private draft',body:secret,state:'draft'}),guild);
+ await service.createGuildAnnouncement(pool,cmd(actors[0],{title:scope==='feed'?'Synthetic published announcement':'Synthetic private draft',body:secret,state:scope==='feed'?'published':'draft'}),guild);
  const reader=racer(`final-${scope}`);
- const read=()=>scope==='announcements'?service.guildAnnouncements(reader,actors[0],guild):scope==='council-list'?service.listGuildCouncil(reader,actors[0]):service.getGuildCouncilThread(reader,actors[0],thread.thread_id);
- const table=scope==='announcements'?'guild_announcements':scope==='council-list'?'guild_council_threads':'guild_council_replies';
+ const read=()=>scope==='feed'?service.memberGuildAnnouncementFeed(reader,actor):scope==='announcements'?service.guildAnnouncements(reader,actor,guild):scope==='council-list'?service.listGuildCouncil(reader,actor):service.getGuildCouncilThread(reader,actor,thread.thread_id);
+ const table=scope==='announcements'||scope==='feed'?'guild_announcements':scope==='council-list'?'guild_council_threads':'guild_council_replies';
  try{
   const expected=await read();assert.ok(JSON.stringify(expected).includes(secret));
   for(const expired of [false,true]){
    const holder=await pool.connect();let pending:Promise<PromiseSettledResult<unknown>[]>|undefined;
    try{
-    await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[actors[0].session_hash,expired?5:300]);
+    await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[actor.session_hash,expired?5:300]);
     await holder.query('BEGIN');const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
     await holder.query(`LOCK TABLE ${table} IN ACCESS EXCLUSIVE MODE`);
     pending=Promise.allSettled([read()]);
@@ -179,8 +182,8 @@ for(const scope of ['announcements','council-list','council-thread'] as const)te
      if(waiting)break;await new Promise(resolve=>setImmediate(resolve));
     }
     assert.ok(waiting,'the actual final content query must reach its owned blocker');
-    assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[actors[0].session_hash])).rows[0].live,true);
-    if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[actors[0].session_hash]);
+    assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[actor.session_hash])).rows[0].live,true);
+    if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[actor.session_hash]);
     await holder.query('ROLLBACK');const result=(await pending)[0];
     if(expired){assert.equal(result.status,'rejected');if(result.status==='rejected')assert.ok(code('session_expired')(result.reason));}
     else{assert.equal(result.status,'fulfilled');if(result.status==='fulfilled')assert.deepEqual(result.value,expected);}
