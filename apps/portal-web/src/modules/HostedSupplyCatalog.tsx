@@ -164,8 +164,11 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   const catalog = view?.catalog;
   const productAccess = view?.capabilities.includes('store:write');
   const activeArea = productAccess ? area : 'reservations';
-  const notice = waitingNotice(cooperation);
-  const cooperationStale = cooperation?.ok === false && cooperation.stale === true;
+  // A child read started before a failed parent read may still finish later.
+  // Its snapshot cannot make the parent’s incomplete read current again.
+  const displayedCooperation: SupplyCooperationSnapshot | null = readFailed ? {ok: false, stale: true} : cooperation;
+  const notice = waitingNotice(displayedCooperation);
+  const cooperationStale = displayedCooperation?.ok === false && displayedCooperation.stale === true;
   function closeEditor() {
     if (!leaveOk()) return;
     setAdding(false); setEditing(null); setSupplyEditing(null);
@@ -210,7 +213,7 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
               onSave={(body, success) => command({method: 'post', path: root + '/supply-products', body, schema: SupplyProductReceiptSchema, notice: '已新增供貨商品。', success: () => {success(); setAdding(false); markDirty('add', false);}})}/>}
             {!products.length && !loading && <p>還沒有商品。新增商品後可設定供貨條件。</p>}
             <div className="hosted-store-products">{products.map(product => {
-              const offerState = supplyOfferStateText(product, cooperation);
+              const offerState = supplyOfferStateText(product, displayedCooperation);
               return <article className="hosted-store-product stack" key={product.product_id}>
               {supplyEditing === product.product_id ? <HostedSupplyTerms key={product.version} supplierOnly client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked || !can('store:write')} onDirty={value => markDirty('supply', value)}
                 onCancel={closeEditor}

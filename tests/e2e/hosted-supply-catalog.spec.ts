@@ -450,6 +450,8 @@ test('supply product card shows offer state and requests waiting for the supplie
   let truncateRequests = false;
   let parentFail: keyof typeof parentSuffix | null = null;
   let parentFollowUpReads = 0;
+  const lateRequestsHeld = deferred(), lateRequestsStarted = deferred();
+  let delayRequests = false;
   await page.route(offersPath, async route => {
     if (route.request().method() !== 'GET') return route.continue();
     if (parentFail) parentFollowUpReads += 1;
@@ -467,6 +469,14 @@ test('supply product card shows offer state and requests waiting for the supplie
   await page.route(requestsPath, async route => {
     if (route.request().method() !== 'GET') return route.continue();
     if (parentFail) parentFollowUpReads += 1;
+    if (delayRequests) {
+      delayRequests = false;
+      const response = await route.fetch(), snapshot = await response.json();
+      lateRequestsStarted.resolve(); await lateRequestsHeld.promise;
+      // This visible suffix proves adoption of the delayed, pre-command child
+      // snapshot before checking that it cannot restore the parent summary.
+      return route.fulfill({response, json: {...snapshot, truncated: true}});
+    }
     if (!truncateRequests) return route.continue();
     const response = await route.fetch();
     const body = await response.json() as {truncated?: boolean};
@@ -738,7 +748,25 @@ test('supply product card shows offer state and requests waiting for the supplie
     await expect(requests().locator('summary')).toHaveText('供貨申請（2・待你確認 1）');
     await expect(requests().getByRole('button', {name: '同意這一版', exact: true})).toBeVisible();
     await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
+    delayRequests = true;
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    await lateRequestsStarted.promise;
+    await expect(requests().getByRole('button', {name: '同意這一版', exact: true})).toBeEnabled();
     await failParentRead('reservation', '已同意這一版選品', () => requests().getByRole('button', {name: '同意這一版', exact: true}).click());
+    const lateResponse = page.waitForResponse(response => requestsPath(new URL(response.url())) && response.request().method() === 'GET');
+    lateRequestsHeld.resolve(); expect((await lateResponse).status()).toBe(200);
+    await workspace(page, '供貨合作').click();
+    await expect(requests().locator('summary')).toHaveText('供貨申請（2・待你確認至少 1 件）');
+    await expect(staleNotice()).toBeVisible();
+    for (const area of ['商品', '預留與訂單']) {
+      await workspace(page, area).click();
+      await expect(staleNotice()).toBeVisible();
+      await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+      await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    }
+    await workspace(page, '商品').click();
+    await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+    await expect(card()).not.toContainText('公開中');
     await recoverParentLoad();
     await workspace(page, '供貨合作').click();
     await expect(requests().locator('summary')).toHaveText('供貨申請（2）');
@@ -746,6 +774,7 @@ test('supply product card shows offer state and requests waiting for the supplie
     await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
     await expect(staleNotice()).toHaveCount(0);
   } finally {
+    lateRequestsHeld.resolve();
     offersHeld.resolve();
     await page.unroute(offersPath);
     await page.unroute(requestsPath);
