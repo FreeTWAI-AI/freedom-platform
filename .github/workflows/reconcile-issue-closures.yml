@@ -1,7 +1,5 @@
 name: Report issue closure candidates
 on:
-  schedule:
-    - cron: '23 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
