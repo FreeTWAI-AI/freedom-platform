@@ -219,6 +219,32 @@ test('cover image: vector, mislabelled and animated input rejected; raster re-en
  assert.equal(JSON.stringify((await api('/me/skill-submissions',owner)).data).includes(jpeg.toString('base64').slice(0,40)),false);
 });
 
+test('a private legacy illustration is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await login(),raster=await png();
+ await pool.query("UPDATE domain_media_storage_policy SET mode='legacy' WHERE purpose='skill.submission-image'");
+ const draft=await uploaded(owner,{cover_image:{mime_type:'image/png',data_base64:raster.toString('base64')}});
+ await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE user_id=$1",[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_submissions IN ACCESS EXCLUSIVE MODE');
+  pending=api(`/me/skill-submissions/${draft.submission_id}/illustration`,owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'illustration request must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+ assert.equal(response.response.headers.get('Content-Type')?.includes('image/webp'),false);
+});
+
 test('key revoke/expiry, grant expiry, member disable and incomplete onboarding reject uploads even for replays',async()=>{
  const owner=await login(),k1=await newKey(owner),d1=await agentDraft(k1.token);
  await api(`/me/skill-upload-keys/${k1.key.key_id}/revoke`,owner,{});
