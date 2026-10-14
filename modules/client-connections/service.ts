@@ -35,11 +35,12 @@ export async function pollClientPairing(pool:Pool,raw:unknown,network:string){
    const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE connection_id=$1 AND revoked_at IS NULL AND expires_at>now()',[pending.connection_id])).rows[0];
    if(!owner)return {status:'invalid_grant'} as const;
    // Lock the member before a credential row, matching administrative disable.
-   // Recheck both records after any wait before minting the one-time credential.
+   // The member lock can outlast both deadlines. Transaction now() is not a live recheck.
    const member=await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL FOR SHARE',[owner.user_id,owner.community_id]);
    if(member.rowCount!==1)return {status:'invalid_grant'} as const;
+   if((await q.query("SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND state='approved' AND expires_at>clock_timestamp()",[pending.pairing_id])).rowCount!==1)return {status:'invalid_grant'} as const;
    const connection=(await q.query(`SELECT * FROM member_client_connections WHERE connection_id=$1 AND user_id=$2 AND community_id=$3
-      AND revoked_at IS NULL AND expires_at>now() FOR UPDATE`,[pending.connection_id,owner.user_id,owner.community_id])).rows[0];
+     AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE`,[pending.connection_id,owner.user_id,owner.community_id])).rows[0];
    if(!connection)return {status:'invalid_grant'} as const;
    const token='fw_read_'+randomBytes(32).toString('base64url');
    await q.query('UPDATE member_client_connections SET token_hash=$2 WHERE connection_id=$1',[connection.connection_id,tokenHash(token)]);
@@ -100,7 +101,7 @@ export async function readClientResource(pool:Pool,authorization:string|undefine
    // Member → connection is the same lock order as administrative deactivation.
    requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL FOR SHARE',[owner.user_id,owner.community_id])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
    const client=(await q.query(`SELECT connection_id,community_id,user_id,kind,scope,store_id,expires_at FROM member_client_connections
-      WHERE token_hash=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>now() FOR SHARE`,[credentialHash,owner.user_id,owner.community_id])).rows[0];
+     WHERE token_hash=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE`,[credentialHash,owner.user_id,owner.community_id])).rows[0];
    requireCondition(client,401,'client_token_invalid','讀取連線已失效，請重新配對。');
    if(resource==='connection')return {connection_id:client.connection_id,kind:client.kind,scope:client.scope,store_id:client.store_id,expires_at:client.expires_at,read_only:true};
    requireCondition((client.kind==='storefront'&&['catalog','stores','listings'].includes(resource))||(client.kind==='supplier'&&['products','requests'].includes(resource)),403,'client_scope_denied','這個讀取連線沒有此資料的權限。');
