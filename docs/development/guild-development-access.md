@@ -31,7 +31,7 @@ GitHub 暫時故障時拒絕操作，不以快取授權；已確認的權限消�
 | `POST /revoke` | `{key_id?}`；指定 key 或本目標所有現行 grant |
 | `POST /proposals` | `{title,summary,pr_url?}`；保存本人私人交接紀錄 |
 
-Agent 使用 `POST /development-agent/v1/proposals`，Bearer `fpd_…`、JSON 與 Idempotency-Key；不接受 cookie 作授權，外站 Origin 拒絕，串流上限 32 KiB，scope 固定 `development:propose`。kind、target、owner 由 key 的 source grant 決定，不接受客戶端改寫。這個 key 不能呼叫一般技能上傳 API，也不能取得其他會員的資料。
+Agent 使用 `POST /development-agent/v1/proposals`，Bearer `fpd_…`、JSON 與 Idempotency-Key；不接受 cookie 作授權，外站 Origin 拒絕，串流上限 32 KiB，scope 固定 `development:propose`。kind、target、owner 由 key 的 source grant 決定，不接受客戶端改寫。這個 key 不能呼叫一般技能上傳 API，也不能取得其他會員的資料。瀏覽器核發 key 會在公會鎖與後續 GitHub 鎖之後，用 `clock_timestamp()` 重查 session；等鎖跨過到期不得核發。Grant 與 key 的授權檢查同樣用 `clock_timestamp()`，避免交易開始時的 `now()` 在鎖等待後仍放行。
 
 會員從技能書或頁面的開發入口開始，選擇適用公會、完成 GitHub 與該操作所需的設定，直接回到原任務。在適用公會期間，平台依目前資格授權；資格失去時，平台撤銷由該資格產生的授權。每個模組使用同一套規則，避免各自維護入會檢查。
 
