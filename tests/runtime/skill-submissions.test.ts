@@ -68,6 +68,36 @@ async function uploaded(session:Session,extra:Record<string,unknown>={}){
  const r=await agent(`/skill-submissions/${draft.submission.submission_id}`,draft.upload_grant.token,payload(extra));assert.equal(r.status,200,JSON.stringify(r.data));
  return (await api(`/me/skill-submissions/${draft.submission.submission_id}`,session)).data;
 }
+test('own submission list refuses private drafts after a projection wait crosses session expiry',async()=>{
+ const owner=await login(),other=await login(DEMO_USERS[1].email);
+ const body={repository_url:'https://github.com/example/project',title:'未公開私人草稿',description:'只能由本人有效登入讀取。',relationship:'author'};
+ const saved=await api('/me/skill-submissions/manual',owner,body);
+ assert.equal(saved.status,201,JSON.stringify(saved.data));
+ const current=await api('/me/skill-submissions',owner);
+ assert.equal(current.status,200);assert.equal(current.data.items[0].submission_id,saved.data.submission_id);
+ assert.equal(current.data.items[0].payload.title,body.title);
+ assert.deepEqual((await api('/me/skill-submissions',other)).data.items,[]);
+ await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=$1",[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_submissions IN ACCESS EXCLUSIVE MODE');
+  pending=api('/me/skill-submissions',owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.ok(waiting,'request must actually wait for the private projection');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const denied=await pending!;
+ assert.equal(denied.status,401);assert.equal(denied.data.code,'session_expired');
+ assert.equal(denied.data.items,undefined);assert.equal(JSON.stringify(denied.data).includes(body.title),false);
+});
+
 test('manual form saves a private draft without credentials, then owner publishes the pinned source and one introduction',async t=>{
  const {seen,sha}=mockGitHub(t),owner=await login(),other=await login(DEMO_USERS[1].email),key=randomUUID();
  const body={repository_url:'https://github.com/example/project',title:'共同筆記',description:'把會議紀錄整理成筆記。',relationship:'curator'};
