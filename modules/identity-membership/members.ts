@@ -203,8 +203,9 @@ export async function listMembers(pool:Pick<Pool,'query'>,actor:Actor,limit:numb
   ) SELECT (SELECT count(*)::int FROM matched) AS total,
     ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
     [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id,switched])).rows[0];
-  const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=[];
-  for(const id of result.user_ids as string[])items.push(await memberCard(pool,actor,id));
+  const ids=result.user_ids as string[];
+  const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=await memberCards(pool,actor,ids);
+  requireCondition(items.length===ids.length,404,'member_not_found','找不到這位會員。');
   if(input.guild_key&&items.length&&(await pool.query("SELECT 1 FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[actor.community_id,actor.user_id,input.guild_key])).rowCount){
     const rows=(await pool.query(`SELECT m.user_id,m.member_tier,m.aggregate_version,e.aggregate_version AS expert_aggregate_version,COALESCE(e.active,false) AS expert_active
       FROM positioning_profession_memberships m LEFT JOIN positioning_guild_experts e ON e.community_id=m.community_id AND e.guild_key=m.guild_key AND e.user_id=m.user_id
