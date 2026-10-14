@@ -2,6 +2,8 @@ import {createHash,randomBytes} from 'node:crypto';
 import type {Pool, PoolClient} from 'pg';
 import {z} from 'zod';
 import {command, checkVersion, journal, type Command} from '../../packages/db/index.js';
+import {transaction} from '../../packages/db/transaction.js';
+import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {capabilityCategories} from '../community/catalog.js';
 import type {Actor} from './service.js';
@@ -266,9 +268,14 @@ export async function publicMemberAvatar(pool:Pool,token:string,store?:ObjectSto
   return result.image_bytes;
 }
 export async function sharedMemberForViewer(pool:Pool,actor:Actor,token:string){
-  const row=await sharedRow(pool,token);
-  requireCondition(row.community_id===actor.community_id,404,'member_not_found','找不到這位工坊會員。');
-  return memberCard(pool,actor,row.user_id);
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+    const row=await sharedRow(q,token);
+    requireCondition(row.community_id===actor.community_id,404,'member_not_found','找不到這位工坊會員。');
+    const card=await memberCard(q,actor,row.user_id);
+    await assertCurrentSessionClock(q,actor);
+    return card;
+  });
 }
 const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Read-only batch for share promotion. The token is used only to build path and generation. */
