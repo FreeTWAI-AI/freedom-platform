@@ -473,3 +473,28 @@ test('platform app wiring: agent POSTs work without Origin, foreign Origin is re
  const listed=await platform.request(origin+'/api/v1/me/skill-submissions',{headers:{Cookie:owner.cookie}});
  const items=(await listed.json() as any).items;assert.equal(items[0].status,'ready_for_review');assert.equal(items[0].aggregate_version,2);
 });
+
+test('an agent draft waiting on the member draft lock cannot be issued after its upload key expires',async()=>{
+ const owner=await login(),issued=await newKey(owner),holder=await pool.connect();
+ let pending:Promise<unknown>|undefined;
+ try{
+  await holder.query('BEGIN');
+  await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`skill-submissions/${owner.user.user_id}`]);
+  await pool.query("UPDATE skill_upload_keys SET expires_at=clock_timestamp()+interval '2 seconds' WHERE key_id=$1",[issued.key.key_id]);
+  pending=agent('/skill-submissions',issued.token,{},{'Idempotency-Key':randomUUID()});
+  const holderPid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  let waiting=false;
+  for(let attempt=0;attempt<200&&!waiting;attempt++){
+   waiting=Boolean((await admin.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT pg_advisory_xact_lock%' AND $1=ANY(pg_blocking_pids(pid))",[holderPid])).rowCount);
+   if(!waiting)await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.equal(waiting,true,'agent draft creation must wait on the member draft lock');
+  await pool.query('SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM skill_upload_keys WHERE key_id=$1',[issued.key.key_id]);
+  await holder.query('COMMIT');
+  const result=await pending as {status:number;data:{code?:string;upload_grant?:{token?:string}|null}};
+  assert.equal(result.status,401);
+  assert.equal(result.data.code,'upload_key_invalid');
+  assert.equal(result.data.upload_grant??null,null);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM skill_submissions WHERE owner_ref=$1',[owner.user.user_id])).rows[0].n,0);
+ }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await Promise.resolve(pending).catch(()=>{});}
+});

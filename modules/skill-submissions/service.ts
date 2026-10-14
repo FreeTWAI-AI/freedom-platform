@@ -511,6 +511,10 @@ export async function agentCreateSubmission(pool: Pool, key: Owner & { key_hash:
       return prior.response;
     }
     await requireDraftCapacity(q, key);
+    // Draft-capacity waits can outlast the transaction-start key check.
+    const live = (await q.query(`SELECT 1 FROM skill_upload_keys WHERE key_id=$1 AND user_id=$2 AND community_id=$3
+      AND revoked_at IS NULL AND expires_at>clock_timestamp()`, [current.key_id, key.user_id, key.community_id])).rowCount;
+    if (!live) throw keyInvalid();
     const token = newSecret(GRANT_PREFIX);
     const row = await insertDraft(q, key, tokenHash(token), current.key_id);
     await q.query('UPDATE skill_upload_keys SET last_used_at=now() WHERE key_id=$1', [current.key_id]);
