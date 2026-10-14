@@ -17,11 +17,15 @@ function download(filename:string,text:string){const url=URL.createObjectURL(new
 
 function ImportResult({kind,client,onImported}:{kind:Shop['kind'];client:ModulePanelProps['client'];onImported:()=>Promise<void>}){
  const [url,setUrl]=useState(''),[preview,setPreview]=useState<Preview|null>(null),[reading,setReading]=useState(false),[readError,setReadError]=useState(''),[notice,setNotice]=useState('');
- const {mutate,busy,error}=useModuleMutation(client),request=useRef(0);
+ const {mutate,busy,error}=useModuleMutation(client),request=useRef(0),session=useRef(client.sessionGeneration),mounted=useRef(false);
+ useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+ const current=()=>mounted.current&&session.current===client.sessionGeneration;
  async function inspect(body:{content:string}|{url:string}){
+  // File.text() may complete after Workspace has replaced this session's UI.
+  if(!current())return;
   const revision=++request.current;setReading(true);setPreview(null);setReadError('');setNotice('');
-  try{const result=await client.post<Preview>('/commerce/preview',body,{idempotencyKey:crypto.randomUUID()});if(revision!==request.current)return;if(result.manifest.kind!==kind)throw Error(`這是${result.manifest.kind==='internal'?'內部':'公開'}商店成果，請到另一個開店入口匯入。`);setPreview(result);}
-  catch(e){if(revision===request.current)setReadError(e instanceof Error?e.message:'無法讀取成果。');}finally{if(revision===request.current)setReading(false);}
+  try{const result=await client.post<Preview>('/commerce/preview',body,{idempotencyKey:crypto.randomUUID()});if(!current()||revision!==request.current)return;if(result.manifest.kind!==kind)throw Error(`這是${result.manifest.kind==='internal'?'內部':'公開'}商店成果，請到另一個開店入口匯入。`);setPreview(result);}
+  catch(e){if(current()&&revision===request.current)setReadError(e instanceof Error?e.message:'無法讀取成果。');}finally{if(current()&&revision===request.current)setReading(false);}
  }
  return <section className="card stack" aria-labelledby={`${kind}-import`} data-guide-anchor={kind==='internal'?'supplier:import-results':undefined}><header><p className="eyebrow">帶回成果</p><h3 id={`${kind}-import`}>AI 做好了，把成果交回來</h3><p className="muted">上傳 AI 給你的商品／商店成果檔，先預覽，再確認。不用手填商品表格。</p></header>
  <label className="field">上傳成果檔<input type="file" accept=".json,.md,application/json,text/markdown" disabled={busy||reading} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>24000){++request.current;setPreview(null);setReadError('成果檔上限 24 KB，請讓 AI 精簡文字並以網址提供圖片。');return;}await inspect({content:await file.text()});}}/></label>
@@ -63,9 +67,12 @@ function DistributionRequests({client}:{client:ModulePanelProps['client']}){
 }
 function AgentShopPanel({kind,...props}:ModulePanelProps&{kind:Shop['kind']}){
  const {client}=props,[shops,setShops]=useState<Shop[]>([]),[items,setItems]=useState<Item[]>([]),[selected,setSelected]=useState<string[]>([]),[query,setQuery]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[downloading,setDownloading]=useState(false),[notice,setNotice]=useState(''),[legacy,setLegacy]=useState(false);
+ const session=useRef(client.sessionGeneration),mounted=useRef(false);
+ useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+ const current=()=>mounted.current&&session.current===client.sessionGeneration;
  const load=useCallback(async()=>{setLoading(true);setError('');try{const [s,c]=await Promise.all([client.get<{items:Shop[]}>('/commerce/shops'),client.get<{items:Item[]}>('/commerce/catalog')]);setShops(s.items.filter(s=>s.kind===kind));setItems(c.items);setSelected(ids=>ids.filter(id=>c.items.some(i=>i.item_id===id)));}catch(e){setError(e instanceof Error?e.message:'無法取得商店資料。');}finally{setLoading(false);}},[client,kind]);
  useEffect(()=>{void load();},[load]);
- async function kit(){setDownloading(true);setError('');setNotice('');try{const r=await client.post<{filename:string;markdown:string}>('/commerce/agent-kit',{kind,item_ids:kind==='public'?selected:[]},{idempotencyKey:crypto.randomUUID()});download(r.filename,r.markdown);setNotice('MD 開店包已下載，交給你原本使用的 AI；做好後回來上傳成果。');}catch(e){setError(e instanceof Error?e.message:'下載失敗。');}finally{setDownloading(false);}}
+ async function kit(){if(!current())return;setDownloading(true);setError('');setNotice('');try{const r=await client.post<{filename:string;markdown:string}>('/commerce/agent-kit',{kind,item_ids:kind==='public'?selected:[]},{idempotencyKey:crypto.randomUUID()});if(!current())return;download(r.filename,r.markdown);setNotice('MD 開店包已下載，交給你原本使用的 AI；做好後回來上傳成果。');}catch(e){if(current())setError(e instanceof Error?e.message:'下載失敗。');}finally{if(current())setDownloading(false);}}
  const visible=items.filter(i=>[i.title,i.description,i.shop_name].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
  return <section className="agent-shops stack" aria-label={kind==='internal'?'內部商店工作區':'公開商店工作區'}><header className="shop-intro"><p className="eyebrow">{kind==='internal'?'把商品交給 AI 整理':'用你的眼光，開自己的店'}</p><h2>{kind==='internal'?'有商品，就能開始。':'挑好商品，讓 AI 幫你開店。'}</h2><p>{kind==='internal'?'下載開店包，讓 AI 整理商品、製作不公開的商店，並帶你申請自己的金流。':'挑選自己的或別人的商品，下載開店包，讓 AI 製作公開商店與你的金流後台。'}</p><p className="muted">同一個人可以同時有兩種商店。各店自己收款；工坊只轉單、記錄付款與人工出貨登記。</p></header>
  <ol className="shop-steps"><li><span>01</span><strong>{kind==='internal'?'下載 MD 開店包':'挑商品，下載 MD'}</strong><p>把任務交給你原本使用的 AI。</p></li><li><span>02</span><strong>AI 整理與製作</strong><p>商品、網站、金流申請與串接一起準備。</p></li><li><span>03</span><strong>帶回成果</strong><p>上傳檔案，預覽確認後歸檔。</p></li></ol>
