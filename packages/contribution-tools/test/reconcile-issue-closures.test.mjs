@@ -202,7 +202,7 @@ test('workflow cannot opt into writes and existing governance discovery includes
   assert.match(workflow, /persist-credentials: false/);
   assert.doesNotMatch(workflow, /: write|dry_run|DRY_RUN|inputs:/);
   assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /schedule:/);
+  assert.doesNotMatch(workflow, /schedule:|cron:/);
   const suite = PINNED_SUITES['ci.governance-unit'];
   assert.equal(suite.directory, 'packages/contribution-tools/test');
   assert.equal(suite.pattern.test('reconcile-issue-closures.test.mjs'), true);
