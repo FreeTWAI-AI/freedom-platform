@@ -136,18 +136,22 @@ export async function contributionRoles(pool:Pool,actor:Actor,workId:string,quer
   });
 }
 
+async function assertOutcomeMemberVisible(q:PoolClient,actor:Actor,memberId:string){
+  const visible=(await q.query(`SELECT 1 FROM users u WHERE u.user_id=$1 AND u.community_id=$2 AND u.active
+    AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+    AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))
+    AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$2 AND b.state='active'
+      AND ((b.owner_ref=$3 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$3)))`,[memberId,actor.community_id,actor.user_id])).rowCount;
+  requireCondition(visible===1,404,'not_found','找不到這位夥伴的成果紀錄。');
+}
+
 // A member-visible projection only. Anonymous e-cards never call this reader.
 // Count unique Work IDs: several roles, PRs or replays do not create more outcomes.
 export async function memberContributionOutcomes(pool:Pool,actor:Actor,memberId:string,query:unknown){
   memberId=z.uuid().parse(memberId).toLowerCase();actor={...actor};const page=pageInput.parse(query);
   return readWithMemberSession(pool,actor,async q=>{
     await eligible(q,actor);
-    const visible=(await q.query(`SELECT 1 FROM users u WHERE u.user_id=$1 AND u.community_id=$2 AND u.active
-      AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
-      AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))
-      AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$2 AND b.state='active'
-        AND ((b.owner_ref=$3 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$3)))`,[memberId,actor.community_id,actor.user_id])).rowCount;
-    requireCondition(visible===1,404,'not_found','找不到這位夥伴的成果紀錄。');
+    await assertOutcomeMemberVisible(q,actor,memberId);
     const result=(await q.query(`WITH outcomes AS (
       SELECT w.work_item_id,w.title,c.accepted_at,d.reviewer_ref AS accepted_by,
         CASE WHEN c.user_id=$2 AND c.user_id=$5 THEN c.artifact_ref ELSE NULL END AS delivery_ref,
@@ -164,6 +168,8 @@ export async function memberContributionOutcomes(pool:Pool,actor:Actor,memberId:
     ) SELECT (SELECT count(*)::int FROM outcomes) AS accepted_count,
       COALESCE((SELECT jsonb_agg(p) FROM (SELECT o.*,v.display_name AS accepted_by_name FROM outcomes o
         JOIN users v ON v.user_id=o.accepted_by ORDER BY accepted_at DESC,work_item_id LIMIT $3 OFFSET $4) p),'[]'::jsonb) AS entries`,[actor.community_id,memberId,page.limit,page.offset,actor.user_id])).rows[0];
+    // Session locks do not pin this pair; blocks can commit while the projection waits.
+    await assertOutcomeMemberVisible(q,actor,memberId);
     return {policy:'community_work_roles_v1',member_ref:memberId,accepted_count:result.accepted_count,entries:result.entries,
       next_offset:page.offset+page.limit<result.accepted_count?page.offset+page.limit:null};
   });
