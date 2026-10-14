@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { requireCondition } from '../../../../packages/shared/problem.js';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { startClientPairing,pollClientPairing,pairingView,approveClientPairing,listClientConnections,revokeClientConnection,readClientResource } from '../../../../modules/client-connections/service.js';
 
 // Mount under /api/v1 before browser session middleware. Same-origin JSON safety and body bounds remain global.
@@ -21,7 +22,7 @@ export function createClientConnectionRoutes(pool:Pool){
  const app=new Hono<PlatformEnv>();
  app.get('/client-connections/:code',async c=>c.json(await pairingView(pool,c.get('actor'),c.req.param('code'))));
  app.post('/client-connections/:code/approve',async c=>c.json(await approveClientPairing(pool,await moduleCommand(c),c.req.param('code'))));
- app.get('/me/client-connections',async c=>c.json({items:await listClientConnections(pool,c.get('actor'))}));
+ app.get('/me/client-connections',async c=>c.json({items:await readWithMemberSession(pool,c.get('actor'),q=>listClientConnections(q,c.get('actor')))}));
  app.post('/me/client-connections/:id/revoke',async c=>c.json(await revokeClientConnection(pool,await moduleCommand(c),c.req.param('id'))));
  return app;
 }

@@ -108,6 +108,17 @@ to recover its current value or tombstone, without duplication or resurrection.
 The decision is before commit, not a guarantee throughout response transport;
 anonymous public-card sharing retains its separate policy.
 
+Own account reads (`GET /me/account`), account-save readbacks and
+`GET /me/avatar` metadata hold the current user/session locks on the same
+database transaction through their final metadata projection, then recheck
+`clock_timestamp()` before returning private data. Expiry during a SQL wait
+returns `401 session_expired`; valid sessions retain the existing DTOs, including
+account access before guild onboarding. No image bytes or object-store I/O run
+under these metadata locks. An account update already committed before its
+readback is not rolled back by that later 401: after logging in again, replay
+the same command body, original version and idempotency key to recover the
+current account without another version increment or journal entry.
+
 HTTPS deployments use `__Host-freedom_session` with `Secure`, `HttpOnly`,
 `SameSite=Strict`, `Path=/` and no `Domain`. Only explicitly configured local
 HTTP loopback hosts use `freedom_local_session` without `Secure`. Cookie names
@@ -118,6 +129,17 @@ click attribution all use this policy. Duplicate selected session cookies,
 including whitespace around names or identical values, return
 `403 credential_kind_rejected`; the platform rejects them before reading a
 mutation body or creating, replacing or revoking sessions.
+
+The main portal Workspace keeps its original identity and CSRF lifetime (#584).
+Browser tabs share the session cookie, so the existing visible-page 60-second
+heartbeat and visibility-change check compare successful `/session` responses
+with both the Workspace's user ID and CSRF token. A different account or a new
+session for the same account ends the old local Workspace and returns to login;
+it neither silently adopts the replacement identity nor logs out the replacement
+server session. Unmounted or superseded Workspace heartbeats cannot end a later
+login. An unchanged session stays open; transient read failures retain the
+Workspace, and existing 401 handling remains in place. This does not add
+cross-tab broadcasting or change the heartbeat frequency.
 
 The existing scheduled auth maintenance also prunes email-verification and
 login-email-change proofs (#494), consumed or unused, once `expires_at` is more
@@ -339,6 +361,29 @@ network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per networ
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
 
+## Organizer event referral reports
+
+`GET /api/v1/events/:id/referrals` returns sharing members' `user_id`,
+`member_name`, registrations and clicks only to the same-community organizer;
+other members receive `403 organizer_required`. The route holds current
+user/session locks and runs the existing organizer authorization and all report
+queries on that same transaction client. After the final projection it checks
+the PostgreSQL wall clock: a SQL wait crossing session expiry returns
+`401 session_expired`, without an `items` projection. Existing statistics,
+verification-account exclusions and public event readers are unchanged.
+
+## Member event bulletins
+
+`GET /api/v1/events/bulletins` returns currently visible event bulletins,
+including actor names and messages containing event titles. Guild-only events
+remain limited to their organizer or current active guild members; other members
+do not receive those items. The route holds current user/session locks while the
+unchanged bulletin projection runs on the same transaction client, then checks
+the PostgreSQL wall clock after its final query. A SQL wait crossing session
+expiry returns `401 session_expired`, without an `items` projection. Visibility,
+verification-account exclusions, ordering, the 30-item limit and public readers
+are unchanged.
+
 ## Event submission budget
 
 `POST /api/v1/events` permits five newly committed submissions per member in a
@@ -349,6 +394,47 @@ submissions return `429 auth_rate_limited` without those side effects. Exact
 Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
+
+## Member event detail session boundary
+
+`GET /api/v1/events/:id` reads its existing authorized event DTO through
+`readWithMemberSession`: active user and current session locks, all detail
+queries on the same transaction client, then a `clock_timestamp()` session
+check after the projection. A database wait that crosses session expiry returns
+`401 session_expired`, without the event DTO or private `online_url`.
+Existing event visibility, pending-owner/reviewer and referral redaction rules
+are unchanged. This is a final database read decision, not a guarantee of
+session validity through commit or HTTP delivery; it does not cover other event
+routes. The shared `readEvent` background reminder path remains unchanged.
+
+Standalone localhost HTTP evidence on isolated PostgreSQL 17 schemas used
+password login and normal pending-event submission: both baseline and candidate
+returned a nonempty private detail control; a confirmed projection lock wait
+began while the session was live, and the database clock crossed expiry before
+release. Baseline `afe8b692` returned the private DTO with HTTP 200; candidate
+`a2230f24` returned HTTP 401 without event data. This synthetic local evidence
+does not establish deployment or global event-route coverage.
+
+## Member event list session boundary
+
+`GET /api/v1/events` reads its existing member list through
+`readWithMemberSession`: active user and current session locks, list SQL on the
+same transaction client, then a `clock_timestamp()` session check after the
+projection. A database wait that crosses session expiry returns
+`401 session_expired`, without an `items` projection. Existing own-pending,
+guild membership/reviewer visibility, newcomer-safe columns, history limits
+and referral redaction are unchanged. This is a final database read decision,
+not a guarantee of session validity through commit or HTTP delivery; it does
+not cover other event routes or change background reminder reads.
+
+Standalone localhost HTTP evidence on isolated PostgreSQL 17 schemas used
+password login and normal pending-event submission: both baseline and candidate
+returned a nonempty private list control containing the owner's pending event
+and its `online_url`; a confirmed projection lock wait began while the session
+was live, and the database clock crossed expiry before release. Baseline
+`afe8b692` returned the private list with HTTP 200; candidate `8b743465` returned
+HTTP 401 without activity data. This synthetic local evidence does not establish
+deployment or independently exercise every visibility/newcomer variant.
 
 ## Event highlights and published squad outcomes (#257)
 
@@ -554,6 +640,21 @@ Isolated browser download, UTC/time-zone and independent parser checks do not
 claim an actual Apple/Google Calendar import, external Email delivery, Worker
 cron deployment, attendance rate, XP, ticketing or payment completion.
 
+## Personal content inventory query compatibility (#573)
+
+`GET /api/v1/me/content` requires an active member session and the existing
+`FREEDOM_PERSONAL_CONTENT_ENABLED` flag. It reads the owner's original showcases,
+skill submissions, events and social posts, including private and closed records;
+it does not grant publication or bypass the original commands' authorization.
+
+The inventory uses one transaction client and awaits its four source queries
+sequentially, without relying on the driver's deprecated non-pipeline query queue.
+Session/user locking and a final PostgreSQL physical-clock check still surround
+the entire projection: a source lookup that waits beyond session expiry returns
+`401 session_expired` without inventory data. The existing source SQL, ordering,
+native states, visibility and actions remain unchanged. This source change is
+not deployment, a driver upgrade or Foundation acceptance evidence.
+
 ## Optional first participation (#259)
 
 This source candidate adds `152_first_participation.sql` on top of #344's
@@ -683,6 +784,16 @@ current callers retain authorized historical reads. Reporting remains out of sco
 
 These preferences order a member's display; they never grant membership, offices,
 private contact access, repository permission or additional skill books.
+
+Both `GET /me/guild-preferences` and the feature-gated v2 read use one short
+database transaction holding the current user/session locks through the full
+projection. This includes v2's final legacy projection and the old reader's
+optional community-switch compatibility lookup. They recheck the database
+session clock after the last query; expiry during those waits returns
+`401 session_expired`, not private preferences or a successful v2 ETag.
+Valid reads retain their existing DTO/cache/ETag behavior, and the feature-off
+v2 route and onboarding gates remain unchanged. These locks contain database
+reads only, not provider or object-store I/O.
 
 - `GET /me/guild-preferences` returns `{primary_guild_key,
   secondary_guild_keys,aggregate_version}`. `secondary_guild_keys` is an ordered

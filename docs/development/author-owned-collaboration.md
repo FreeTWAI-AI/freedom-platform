@@ -73,6 +73,10 @@ Ted 指定原作 Repo 為主站點，並希望每個 Repo 顯示原創作者「�
 
 資料契約已落地於 `migrations/053_repo_author_claims.sql`：`canonical_repositories(provider,provider_repo_id,current_url,source_repo_id,observed_at)`、`repo_credit_claims`（含角色、狀態、證據、聲明、來源快照與 `version`）、附加的審核事件。同一人、同一 Repo、同一角色只能有一筆進行中（pending／verified／disputed）申請；不禁止多位原創作者。目錄上的「來源標示的作者」仍留在技能書，不寫進認領、也不另建 `repo_credits`。公開 API 只回狀態、標籤、已核實的 GitHub 登入與公開顯示名稱，以及分開的來源署名；證據、聲明、理由、審核者、email 與會員內部資料不公開。`oss_projects.relationship_verification=self_declared` 維持不變，不能升格成已認領。
 
+本人 `GET /api/v1/me/skill-books/:id/author-claim` 在同一交易 client（`q`）鎖住目前會員與 session，完成 GitHub 連線、本人認領及公開狀態投影後，再以 PostgreSQL `clock_timestamp()` 重驗期限；等待跨過到期時間回 `401 session_expired`，不回私人聲明、證據或 GitHub 身分。
+公開 author-claim API 的欄位與可見範圍不變，他人的本人查詢仍不含這位申請者的私人認領。
+最後時鐘檢查是授權決策點，不承諾網路投遞時 session 仍有效，也不追回已合法交付的資料。
+
 認領政策（本步已定，不再開放給公會幹部）：
 
 - 審核、爭議與申訴都由既有平台管理員處理。公會幹部沒有認領審核權。

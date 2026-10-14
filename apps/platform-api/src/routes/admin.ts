@@ -35,6 +35,11 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
       requireCondition(got.length===expected.length&&timingSafeEqual(got,expected),403,'admin_csrf_rejected','管理員驗證已變更，請重新整理。');
     }
     await next();
+    if(['GET','HEAD'].includes(c.req.method)&&c.res.status<400){
+      const current=await authenticateAdmin(pool,identity);
+      requireCondition(current.admin_id===admin.admin_id&&current.community_id===admin.community_id&&current.role===admin.role,
+        403,'admin_required','管理權限已變更，請重新整理。');
+    }
   });
   app.route('/',createGuildWorkspaceAdminRoutes(pool));
   // Read-only, recomputed per request, scoped to the verified admin's own community.

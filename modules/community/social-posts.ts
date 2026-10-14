@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
 import { checkVersion,command,digest as commandDigest, type Command } from '../../packages/db/index.js';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import { socialThumbnailMemberCommand } from '../../packages/scoped-commands/index.js';
 import { AssetStorageError,type ObjectStore } from '../../packages/asset-storage/index.js';
 import { readDomainMedia,type DomainMediaSnapshot } from '../../packages/media-migration/domain-bridge.js';
@@ -84,7 +85,7 @@ function cursorOf(raw: string | undefined) {
   return { createdAt, id };
 }
 
-export async function listSocialPosts(pool: Pool, actor: Actor, query: { platform?: string; cursor?: string; kind?: string; tag?:string }) {
+export async function listSocialPosts(pool: Pool|PoolClient, actor: Actor, query: { platform?: string; cursor?: string; kind?: string; tag?:string }) {
   const tag=query.tag ? z.string().regex(/^[\p{L}\p{N}_]{1,50}$/u).parse(query.tag).toLocaleLowerCase() : null;
   const platform = query.platform ?? '';
   requireCondition(platform === '' || (SOCIAL_PLATFORMS as readonly string[]).includes(platform), 422, 'validation_failed', '平台篩選不正確。');
@@ -230,7 +231,7 @@ async function shownComment(q:Pick<Pool,'query'>,actor:Actor,postId:string,comme
  return commentView(row,actor);
 }
 
-export async function listSocialComments(pool: Pool, actor: Actor, id: string, rawCursor?: string) {
+export async function listSocialComments(pool: Pool|PoolClient, actor: Actor, id: string, rawCursor?: string) {
   await activePost(pool, actor, id);
   const cursor = cursorOf(rawCursor);
   const rows = (await pool.query(`${COMMENTS}
@@ -398,17 +399,20 @@ async function saveAssetSocialThumbnail(pool:Pool,input:Command,id:string,file:{
    result:()=>shownSocial(publicationClient,input.actor,id)});
  }catch(error){const committed=await probe();if(committed)return committed;if(error instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','內容上傳暫時無法使用。');throw error;}
 }
-async function socialThumbnailSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
+async function socialThumbnailSnapshot(pool:Pool|PoolClient,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
  const row=(await pool.query(`SELECT p.media_version,p.state,p.community_id,t.storage_source,t.image_bytes,a.asset_id,a.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
  FROM community_social_post_thumbnails t JOIN community_social_posts p USING(post_id)
  LEFT JOIN community_social_thumbnail_asset_targets a USING(post_id) LEFT JOIN asset_objects o ON o.asset_id=a.asset_id
- WHERE p.post_id=$1 AND p.state='active' AND ($5::boolean OR p.community_id=$2)
- AND (NOT $5::boolean OR p.kind='link')
- AND ($5::boolean OR t.storage_source='legacy' OR EXISTS(SELECT 1 FROM sessions s JOIN users u USING(user_id) WHERE s.token_hash=$3 AND s.user_id=$4 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND u.active AND u.community_id=p.community_id))`,[id,actor?.community_id??null,actor?.session_hash??null,actor?.user_id??null,actor===undefined])).rows[0];
+ WHERE p.post_id=$1 AND p.state='active' AND ($3::boolean OR p.community_id=$2)
+ AND (NOT $3::boolean OR p.kind='link')`,[id,actor?.community_id??null,actor===undefined])).rows[0];
  if(!row)return;return {purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail',domainVersion:row.media_version,authorizationVersion:JSON.stringify([row.state,row.community_id]),source:row.storage_source,legacyBytes:row.image_bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
 }
 export async function readSocialThumbnail(pool:Pool,actor:Actor,id:string,store?:ObjectStore){
- try{return (await readDomainMedia(()=>socialThumbnailSnapshot(pool,id,actor),{purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到縮圖。');throw error;}
+ const snapshot=()=>readWithMemberSession(pool,actor,q=>socialThumbnailSnapshot(q,id,actor)).catch(error=>{
+  if(error instanceof Problem&&error.status===401&&error.code==='session_expired')return undefined;
+  throw error;
+ });
+ try{return (await readDomainMedia(snapshot,{purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到縮圖。');throw error;}
 }
 export async function publicSocialThumbnail(pool:Pool,id:string,store?:ObjectStore){
  try{return (await readDomainMedia(()=>socialThumbnailSnapshot(pool,id),{purpose:'community.social-thumbnail',targetId:id,variant:'thumbnail'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到縮圖。');throw error;}
@@ -468,7 +472,7 @@ async function writeSocialMetadata(q:Pick<Pool,'query'>,actor:Actor,id:string,dr
  [id,draft.topic??'mood',draft.location_name??null,socialTags(draft.text),JSON.stringify(mentions)]);
 }
 
-export async function listSocialLikes(pool:Pool,actor:Actor,id:string,rawCursor?:string){
+export async function listSocialLikes(pool:Pool|PoolClient,actor:Actor,id:string,rawCursor?:string){
  await activePost(pool,actor,id);
  const cursor=cursorOf(rawCursor);
  const rows=(await pool.query(`SELECT u.user_id,u.display_name,l.created_at FROM community_social_likes l JOIN users u USING(user_id)

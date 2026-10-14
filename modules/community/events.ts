@@ -91,8 +91,8 @@ async function bulletin(q:PoolClient,row:any,kind:'submitted'|'approved'|'reject
     VALUES($1,$2,$3,$4,$5,$6)`,[randomUUID(),row.event_id,row.community_id,kind,actorName,message]);
 }
 
-export async function listEventBulletins(pool:Pool,actor:Actor){
-  return (await pool.query(`SELECT b.bulletin_id,b.event_id,b.kind,b.actor_name,b.message,b.created_at FROM community_event_bulletins b
+export async function listEventBulletins(db:Pool|PoolClient,actor:Actor){
+  return (await db.query(`SELECT b.bulletin_id,b.event_id,b.kind,b.actor_name,b.message,b.created_at FROM community_event_bulletins b
     JOIN community_events e ON e.event_id=b.event_id WHERE b.community_id=$1 AND
       (e.visibility<>'guild' OR e.organizer_ref=$2 OR EXISTS(
         SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=e.community_id
@@ -118,14 +118,14 @@ function rankedEvents(visible:string,columns:string){
   ORDER BY list_rank,CASE WHEN list_rank=0 THEN list_time END ASC,CASE WHEN list_rank=1 THEN list_time END DESC,event_id`;
 }
 
-export async function listEvents(pool:Pool,actor:Actor) {
+export async function listEvents(db:Pool|PoolClient,actor:Actor) {
   const args=[actor.community_id,actor.user_id,pastEventLimit];
   if(actor.onboarding_required&&!actor.onboarding_completed_at) {
-    return (await pool.query(rankedEvents(`SELECT event_id,title,starts_at,ends_at,mode,state,organizer_ref
+    return (await db.query(rankedEvents(`SELECT event_id,title,starts_at,ends_at,mode,state,organizer_ref
       FROM community_events WHERE community_id=$1 AND ((state='published' AND visibility<>'guild') OR organizer_ref=$2)
         AND (organizer_ref=$2 OR NOT is_verification_test_account(organizer_ref))`,'event_id,title,starts_at,ends_at,mode,state'),args)).rows;
   }
-  const rows=(await pool.query(rankedEvents(`SELECT e.*,u.display_name AS organizer_name,
+  const rows=(await db.query(rankedEvents(`SELECT e.*,u.display_name AS organizer_name,
     (CASE WHEN EXISTS(SELECT 1 FROM community_event_banners b WHERE b.event_id=e.event_id)
       THEN '/api/v1/events/'||e.event_id||'/banner?v='||e.aggregate_version ELSE NULL END) AS banner_url,
     (SELECT orientation FROM community_event_banners b WHERE b.event_id=e.event_id) AS banner_orientation,
@@ -166,7 +166,7 @@ async function referralOwner(q:Pick<PoolClient,'query'>,eventId:string,raw:strin
   return row.user_id as string;
 }
 
-export async function getEventShareCode(pool:Pool,actor:Actor,id:string){
+export async function getEventShareCode(pool:Pool|PoolClient,actor:Actor,id:string){
   const row=await scopedEvent(pool,actor,id);
   requireCondition(row.state==='published'&&await canAccessGuildEvent(pool,actor,row)&&!await testHostHidden(pool,row.organizer_ref,actor.user_id),404,'not_found','找不到可分享的活動。');
   const code=randomBytes(18).toString('base64url');
@@ -174,10 +174,10 @@ export async function getEventShareCode(pool:Pool,actor:Actor,id:string){
     ON CONFLICT(event_id,user_id) DO UPDATE SET code=community_event_share_codes.code RETURNING code`,[id,actor.user_id,code])).rows[0] as {code:string};
 }
 
-export async function eventReferralReport(pool:Pool,actor:Actor,id:string){
-  const row=await scopedEvent(pool,actor,id);
+export async function eventReferralReport(db:Pool|PoolClient,actor:Actor,id:string){
+  const row=await scopedEvent(db,actor,id);
   requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看活動分享統計。');
-  return (await pool.query(`SELECT c.user_id,u.display_name AS member_name,
+  return (await db.query(`SELECT c.user_id,u.display_name AS member_name,
     (SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=c.event_id AND r.referred_by_user_id=c.user_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
     (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=c.event_id AND g.referred_by_user_id=c.user_id AND g.state='going' AND (g.email_sent_at IS NOT NULL OR g.confirmed_at IS NOT NULL)) AS registrations,
     (SELECT count(*)::int FROM promotion_clicks pc JOIN promotion_links pl ON pl.link_id=pc.link_id WHERE pl.kind='event' AND pl.target_key=c.event_id::text AND pl.user_id=c.user_id) AS clicks
@@ -410,9 +410,13 @@ export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{b
 }
 
 async function videoSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
- let access;try{access=actor?await readEvent(pool,actor,id):await publicEvent(pool,id);}catch(error){if(error instanceof Problem&&error.status===404)return undefined;throw error;}
- const row=(await pool.query(`SELECT e.aggregate_version::text AS version,v.storage_source,CASE WHEN v.storage_source='legacy' THEN v.media_bytes END AS media_bytes,v.mime_type,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id FROM community_events e JOIN community_event_videos v USING(event_id) LEFT JOIN community_event_video_asset_targets t ON t.event_id=e.event_id AND t.linked_at_version<=e.aggregate_version LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.purpose='community.event-video' LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.event-video' WHERE e.event_id=$1`,[id])).rows[0];if(!row)return undefined;
- return {purpose:'community.event-video',targetId:id,variant:'video',domainVersion:row.version,source:row.storage_source,authorizationVersion:JSON.stringify(access),legacyBytes:row.media_bytes,legacyContentType:row.mime_type,assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.representation_id?{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}:null};
+ const read=async(db:Pool|PoolClient,access:unknown):Promise<DomainMediaSnapshot|undefined>=>{
+  const row=(await db.query(`SELECT e.aggregate_version::text AS version,v.storage_source,CASE WHEN v.storage_source='legacy' THEN v.media_bytes END AS media_bytes,v.mime_type,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id FROM community_events e JOIN community_event_videos v USING(event_id) LEFT JOIN community_event_video_asset_targets t ON t.event_id=e.event_id AND t.linked_at_version<=e.aggregate_version LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.purpose='community.event-video' LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.event-video' WHERE e.event_id=$1`,[id])).rows[0];if(!row)return undefined;
+  return {purpose:'community.event-video',targetId:id,variant:'video',domainVersion:row.version,source:row.storage_source,authorizationVersion:JSON.stringify(access),legacyBytes:row.media_bytes,legacyContentType:row.mime_type,assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.representation_id?{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}:null};
+ };
+ if(actor)return readWithMemberSession(pool,actor,q=>readEvent(q,actor,id).then(access=>read(q,access),error=>{if(error instanceof Problem&&error.status===404)return undefined;throw error;}));
+ let access;try{access=await publicEvent(pool,id);}catch(error){if(error instanceof Problem&&error.status===404)return undefined;throw error;}
+ return read(pool,access);
 }
 export async function readEventVideo(pool:Pool,actor:Actor,id:string,store?:ObjectStore){const media=await readDomainMedia(()=>videoSnapshot(pool,id,actor),{purpose:'community.event-video',targetId:id,variant:'video'},store);return {bytes:media.bytes,mime:media.contentType as 'video/mp4'|'video/webm'};}
 export async function publicEventVideo(pool:Pool,id:string,store?:ObjectStore){const media=await readDomainMedia(()=>videoSnapshot(pool,id),{purpose:'community.event-video',targetId:id,variant:'video'},store);return {bytes:media.bytes,mime:media.contentType as 'video/mp4'|'video/webm'};}

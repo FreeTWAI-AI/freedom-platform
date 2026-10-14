@@ -333,3 +333,81 @@ test('role page retains Work header with no roles and an exhausted offset withou
   const unknown=await request(path(randomUUID()),reviewer);assert.equal(unknown.status,404);
   z.object({code:z.literal('not_found')}).parse(unknown.data);
 });
+
+test('outcome projection rechecks both block directions after native wait without erasing owner facts',async()=>{
+  const maker=await signIn(),owner=await signIn(1),subject=await signIn(2),makerBlock=await signIn(),subjectBlock=await signIn(2);
+  await accept(maker,owner);
+  const enabled=createApp(pool,origin,'local',{memberBlockingEnabled:true});
+  const subjectId=z.uuid().parse(subject.user.user_id),makerId=z.uuid().parse(maker.user.user_id);
+  const roleReceipt=z.object({role_id:z.uuid(),work_item_id:z.uuid(),state:z.string(),aggregate_version:z.number().int(),payload_sha256:z.string()}).strict();
+  for(const [member,role,summary,evidence] of [
+    [maker,'implementation','合成交付者署名','artifact:maker-shared-role'],
+    [subject,'proposal','合成需求角色署名','artifact:subject-shared-role'],
+  ] as const){
+    const declared=await request(path(),member,{role,summary,evidence_ref:evidence,share_with_community:true});
+    assert.equal(declared.status,201);const confirmed=await confirm(owner,roleReceipt.parse(declared.data));
+    assert.equal(confirmed.status,200);assert.equal(roleReceipt.parse(confirmed.data).state,'confirmed');
+  }
+  const roleView=z.object({role:z.string(),summary:z.string(),evidence_ref:z.string(),confirmer_name:z.string(),confirmed_at:z.string()}).strict();
+  const outcomeView=z.object({work_item_id:z.uuid(),title:z.string(),accepted_at:z.string(),accepted_by:z.uuid(),
+    delivery_ref:z.string().nullable(),roles:z.array(roleView),accepted_by_name:z.string()}).strict();
+  const page=z.object({policy:z.literal('community_work_roles_v1'),member_ref:z.uuid(),accepted_count:z.number().int(),
+    entries:z.array(outcomeView),next_offset:z.number().int().nullable()}).strict();
+  const original=page.parse((await outcomes(maker,subjectId)).data);
+  const ownMaker=page.parse((await outcomes(maker)).data),ownSubject=page.parse((await outcomes(subject)).data);
+  assert.equal(original.accepted_count,1);assert.equal(original.entries[0].work_item_id,DEMO_WORK);
+  assert.equal(original.entries[0].roles[0].summary,'合成需求角色署名');
+  assert.equal(original.entries[0].roles[0].evidence_ref,'artifact:subject-shared-role');
+  assert.equal(original.entries[0].delivery_ref,null);
+  assert.equal(JSON.stringify(original).includes('artifact:accepted-delivery'),false);
+  assert.equal(ownMaker.entries[0].delivery_ref,'artifact:accepted-delivery');
+  async function changeBlock(member:Session,peer:string,active:boolean){
+    const stateResponse=await enabled.request(origin+`/api/v1/me/blocks/${peer}`,{headers:{Origin:origin,Cookie:member.cookie}});
+    assert.equal(stateResponse.status,200);const prior=BlockStateSchema.parse(await stateResponse.json());
+    if(prior.blocked_by_me===active)return;
+    const headers:Record<string,string>={Origin:origin,Cookie:member.cookie,'X-CSRF-Token':member.csrf,
+      'Content-Type':'application/json','Idempotency-Key':randomUUID()};
+    if(prior.aggregate_version!==null)headers['If-Match']=`"${prior.aggregate_version}"`;
+    const changed=await enabled.request(origin+`/api/v1/me/blocks/${peer}/${active?'block':'unblock'}`,{method:'POST',headers,body:'{}'});
+    assert.equal(changed.status,200);assert.equal(BlockStateSchema.parse(await changed.json()).blocked_by_me,active);
+  }
+  for(const subjectBlocks of [true,false])for(const activates of [true,false]){
+    await changeBlock(makerBlock,subjectId,false);await changeBlock(subjectBlock,makerId,false);
+    const blockActor=subjectBlocks?subjectBlock:makerBlock,peer=subjectBlocks?makerId:subjectId;
+    const locker=await pool.connect();let pending:Promise<{status:number;data:unknown}>|undefined;
+    try{
+      await locker.query('BEGIN');await locker.query('LOCK TABLE work_contribution_confirmations IN ACCESS EXCLUSIVE MODE');
+      const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+      let finished=false;pending=outcomes(maker,subjectId);void pending.then(()=>{finished=true},()=>{finished=true});
+      const deadline=Date.now()+5000;let blocked=false;
+      while(Date.now()<deadline){
+        blocked=(await pool.query(`SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+          WHERE $1=ANY(pg_blocking_pids(a.pid)) AND NOT l.granted AND l.relation='work_contribution_confirmations'::regclass
+          AND a.wait_event_type='Lock'`,[pid])).rowCount!==0;
+        if(blocked)break;assert.equal(finished,false);await delay(10);
+      }
+      assert.equal(blocked,true,'outcome read must reach its native confirmation relation wait');
+      if(activates)await changeBlock(blockActor,peer,true);else await delay(50);
+      assert.equal(finished,false,'the block response must precede completion of the waiting projection');
+      await locker.query('COMMIT');const result=await pending;
+      if(activates){
+        assert.equal(result.status,404);assert.equal(z.object({code:z.string()}).parse(result.data).code,'not_found');
+        const raw=JSON.stringify(result.data);
+        for(const value of [DEMO_WORK,subjectId,'合成需求角色署名','artifact:subject-shared-role'])assert.equal(raw.includes(value),false);
+      }else{
+        assert.equal(result.status,200);assert.deepEqual(page.parse(result.data),original);
+      }
+      assert.equal((await outcomes(maker,subjectId)).status,activates?404:200);
+      assert.deepEqual(page.parse((await outcomes(maker)).data),ownMaker);
+      assert.deepEqual(page.parse((await outcomes(subject)).data),ownSubject);
+      assert.deepEqual(page.parse((await outcomes(owner,subjectId)).data),original);
+    }finally{
+      await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});
+    }
+    await changeBlock(blockActor,peer,false);
+    assert.deepEqual(page.parse((await outcomes(maker,subjectId)).data),original);
+  }
+  assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'1');
+  assert.equal((await pool.query("SELECT count(*) FROM work_contribution_roles WHERE state='confirmed'")).rows[0].count,'2');
+  assert.equal((await pool.query('SELECT count(*) FROM work_contribution_confirmations')).rows[0].count,'2');
+});

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import { command,checkVersion,digest,journal,transaction,type Command } from '../../packages/db/index.js';
-import { lockMemberSession,assertCurrentSessionClock } from '../../packages/db/member-session.js';
+import { lockMemberSession,assertCurrentSessionClock,readWithMemberSession } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { text,opaqueRef,money,currency,isoTime } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -117,9 +117,9 @@ export async function createOpportunity(pool:Pool,input:Command) {
   });
 }
 export async function listOpportunities(pool:Pool,actor:Actor) {
-  return (await pool.query(`SELECT o.*,p.display_name AS provider_name,c.display_name AS client_name
+  return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT o.*,p.display_name AS provider_name,c.display_name AS client_name
     FROM opportunities o JOIN users p ON p.user_id=o.provider_ref JOIN users c ON c.user_id=o.client_ref
-    WHERE o.community_id=$1 AND ($2=o.provider_ref OR $2=o.client_ref) ORDER BY o.created_at DESC`,[actor.community_id,actor.user_id])).rows;
+    WHERE o.community_id=$1 AND ($2=o.provider_ref OR $2=o.client_ref) ORDER BY o.created_at DESC`,[actor.community_id,actor.user_id])).rows);
 }
 async function scopedOpportunity(q:PoolClient,actor:Actor,id:string,lock=false) {
   const row=(await q.query(`SELECT * FROM opportunities WHERE opportunity_id=$1 AND community_id=$2 AND provider_ref=$3${lock?' FOR UPDATE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
@@ -140,12 +140,12 @@ export async function proposeEngagement(pool:Pool,input:Command,id:string) {
   });
 }
 export async function listEngagements(pool:Pool,actor:Actor) {
-  return (await pool.query(`SELECT e.*,p.display_name AS provider_name,c.display_name AS client_name,
+  return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT e.*,p.display_name AS provider_name,c.display_name AS client_name,
     CASE WHEN r.receipt_id IS NULL THEN NULL ELSE jsonb_build_object('receipt_id',r.receipt_id,'amount_minor',r.amount_minor::text,'currency',r.currency,
     'evidence_ref',r.evidence_ref,'received_at',r.received_at,'verification_status',r.verification_status) END AS receipt
     FROM engagements e JOIN users p ON p.user_id=e.provider_ref JOIN users c ON c.user_id=e.client_ref
     LEFT JOIN receipt_observations r USING(engagement_id)
-    WHERE e.community_id=$1 AND ($2=e.provider_ref OR $2=e.client_ref) ORDER BY e.created_at DESC`,[actor.community_id,actor.user_id])).rows;
+    WHERE e.community_id=$1 AND ($2=e.provider_ref OR $2=e.client_ref) ORDER BY e.created_at DESC`,[actor.community_id,actor.user_id])).rows);
 }
 async function scopedEngagement(q:PoolClient,actor:Actor,id:string,role:'client'|'provider',lock=false) {
   const column=role==='client'?'client_ref':'provider_ref';
