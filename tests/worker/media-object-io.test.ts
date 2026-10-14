@@ -11,7 +11,7 @@ import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
 test('native Worker shared20MiB media preparation and verifiedI/O plus lazy conditionalrange cancellation',async()=>{
   let mf:Miniflare|undefined;
   try{
-    const bundle=await build({entryPoints:[resolve('tests/worker/media-object-fixtures/io.ts')],write:false,bundle:true,format:'esm',platform:'neutral',conditions:['workerd','worker','browser']});
+    const bundle=await build({entryPoints:[resolve('tests/worker/media-object-fixtures/io.ts')],write:false,bundle:true,format:'esm',platform:'neutral',mainFields:['browser','module','main'],conditions:['workerd','worker','browser']});
     const source=bundle.outputFiles[0].text;assert(!/from ["']node:/.test(source));
     mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'fp-worker-media-io',modules:true,script:source,compatibilityDate:'2026-09-21',r2Buckets:['MEDIA']}]}));await mf.ready;
     const response=await mf.dispatchFetch('https://media-io.test/');assert.equal(response.status,200);

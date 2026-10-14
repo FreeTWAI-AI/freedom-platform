@@ -49,7 +49,7 @@ test('native main composition verifies every private JWK before enforcing signer
   let mf:Miniflare|undefined;
   try{
     await build({entryPoints:[resolve('tests/worker/private-ai-fixtures/ingest-composition.ts')],outfile:join(directory,'worker.mjs'),bundle:true,format:'esm',
-      platform:'neutral',conditions:['workerd','worker','browser'],external:['node:*'],plugins:[{name:'no-sql-provider-test-capabilities',setup(b){
+      platform:'neutral',mainFields:['browser','module','main'],conditions:['workerd','worker','browser'],external:['node:*'],plugins:[{name:'no-sql-provider-test-capabilities',setup(b){
         b.onResolve({filter:/^pg$/},()=>({path:'pg',namespace:'forbidden-sql'}));
         b.onLoad({filter:/.*/,namespace:'forbidden-sql'},()=>({contents:"export class Pool {constructor(){throw Error('No SQL in key review');}}"}));
         b.onResolve({filter:/model-step-node-transport\.js$/},()=>({path:resolve('modules/agent-execution/model-step-worker-transport-unavailable.ts')}));
