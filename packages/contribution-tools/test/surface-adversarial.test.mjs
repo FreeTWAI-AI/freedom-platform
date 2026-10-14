@@ -26,6 +26,15 @@ const approvedParser = { version: ts.version, installationSha256: sha256(JSON.st
   [parserEntry, implementation].map(path => sha256(readFileSync(path.startsWith('file:') ? new URL(path) : path))))) };
 const ports = { parser: { api: ts, ...approvedParser }, approvedParser };
 const reader = snapshot => ({ paths: [...snapshot.keys()], read: path => snapshot.get(path) });
+function mutateAvatarRead(source, replace) {
+  const parsed = ts.createSourceFile(avatar, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const factory = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'createAvatarRoutes');
+  const route = factory?.body?.statements.find(node => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression)
+    && ts.isPropertyAccessExpression(node.expression.expression) && node.expression.expression.name.text === 'get'
+    && ts.isStringLiteral(node.expression.arguments[0]) && node.expression.arguments[0].text === '/me/avatar');
+  assert.ok(route, 'the counterexample must identify the actual avatar GET statement');
+  return source.slice(0, route.getStart(parsed)) + replace(route.getText(parsed)) + source.slice(route.end);
+}
 function audit(path, transform) {
   const candidate = new Map(files);
   if (path) {
@@ -85,8 +94,7 @@ for (const [name, change] of [
   ['operator-bearing literal path', s => s.replace("app.get('/me/avatar',", "app.get('/me/avatar;process.exit(0)',")],
   ['parameter constructor shadowing', s => s.replace('pool: Pool, store?: ObjectStore', 'pool: Pool, Hono: any, store?: ObjectStore')],
   ['type-only constructor import', s => s.replace("import { Hono }", "import type { Hono }")],
-  ['nested function registration with shadowed receiver', s => s.replace("  app.get('/me/avatar', async c => c.json(await avatarMetadata(pool, c.get('actor'))));",
-    "  function hidden(app: any) { app.get('/me/avatar', async c => c.json(await avatarMetadata(pool, c.get('actor')))); }")],
+  ['nested function registration with shadowed receiver', s => mutateAvatarRead(s, route => `function hidden(app: any) { ${route} }`)],
   ['direct early return before registrations', s => s.replace('  const uploadAvatar', '  return app;\n  const uploadAvatar')],
   ['receiver supplied to arbitrary helper', s => s.replace('  return app;', '  const leaked = mutate(app);\n  return app;')],
 ]) test(`adversarial leaf: ${name} is not covered`, () => reject(avatar, change));

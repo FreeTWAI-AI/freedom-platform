@@ -108,6 +108,17 @@ to recover its current value or tombstone, without duplication or resurrection.
 The decision is before commit, not a guarantee throughout response transport;
 anonymous public-card sharing retains its separate policy.
 
+Own account reads (`GET /me/account`), account-save readbacks and
+`GET /me/avatar` metadata hold the current user/session locks on the same
+database transaction through their final metadata projection, then recheck
+`clock_timestamp()` before returning private data. Expiry during a SQL wait
+returns `401 session_expired`; valid sessions retain the existing DTOs, including
+account access before guild onboarding. No image bytes or object-store I/O run
+under these metadata locks. An account update already committed before its
+readback is not rolled back by that later 401: after logging in again, replay
+the same command body, original version and idempotency key to recover the
+current account without another version increment or journal entry.
+
 HTTPS deployments use `__Host-freedom_session` with `Secure`, `HttpOnly`,
 `SameSite=Strict`, `Path=/` and no `Domain`. Only explicitly configured local
 HTTP loopback hosts use `freedom_local_session` without `Secure`. Cookie names

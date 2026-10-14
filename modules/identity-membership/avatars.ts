@@ -18,7 +18,7 @@ const invalidImage = () => new Problem(422, 'invalid_avatar', '圖片無法使�
 export function avatarUrl(userId: string, version: string | number, present: boolean): string | null {
   return present ? `/api/v1/members/${userId}/avatar?v=${version}` : null;
 }
-export async function avatarMetadata(pool: Pool, actor: Actor) {
+export async function avatarMetadata(pool: Pick<Pool, 'query'>, actor: Actor) {
   actor = Object.freeze({ ...actor });
   // Account settings are available before guild onboarding. Self metadata must
   // not block that page; content reads and writes keep their onboarding gates.
