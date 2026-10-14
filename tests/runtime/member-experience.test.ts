@@ -75,6 +75,33 @@ test('member event publishing, editing, RSVP capacity, cancellation and idempote
   const ownerNotices=await request('/me/notifications',owner);assert.ok(ownerNotices.data.items.some((item:any)=>item.kind==='event_approved'));
 });
 
+test('the event bulletin list is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await signIn(),master=await signIn(DEMO_USERS[1].email);
+ await guildMaster(master.user.user_id,'guild_member_operations');
+ const created=await request('/events',owner,{...draft(),guild_key:'guild_security'});assert.equal(created.status,201,JSON.stringify(created.data));
+ const id=created.data.event_id as string;
+ assert.equal((await request(`/events/${id}/review`,master,{decision:'approve',reason:'符合公會活動安排。'},1)).status,200);
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE community_event_bulletins IN ACCESS EXCLUSIVE MODE');
+  pending=request('/events/bulletins',owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'bulletin list must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
 test('contribution records do not assign an unapproved score',async()=>{
   const member=await signIn();
   const records=await request('/me/contribution-records',member);assert.equal(records.status,200);assert.equal(records.data.accepted_count,0);

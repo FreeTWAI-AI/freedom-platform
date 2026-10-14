@@ -91,8 +91,8 @@ async function bulletin(q:PoolClient,row:any,kind:'submitted'|'approved'|'reject
     VALUES($1,$2,$3,$4,$5,$6)`,[randomUUID(),row.event_id,row.community_id,kind,actorName,message]);
 }
 
-export async function listEventBulletins(pool:Pool,actor:Actor){
-  return (await pool.query(`SELECT b.bulletin_id,b.event_id,b.kind,b.actor_name,b.message,b.created_at FROM community_event_bulletins b
+export async function listEventBulletins(db:Pool|PoolClient,actor:Actor){
+  return (await db.query(`SELECT b.bulletin_id,b.event_id,b.kind,b.actor_name,b.message,b.created_at FROM community_event_bulletins b
     JOIN community_events e ON e.event_id=b.event_id WHERE b.community_id=$1 AND
       (e.visibility<>'guild' OR e.organizer_ref=$2 OR EXISTS(
         SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=e.community_id
