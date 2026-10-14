@@ -47,6 +47,19 @@
 
 `key`：`key_id, label, scope:'skill:submit', expires_at, revoked_at, created_at, last_used_at`。
 
+### 本人示意圖的 session 邊界
+
+`GET /me/skill-submissions/:id/illustration` 的 legacy 圖片先辨識儲存來源，
+再用 `readWithMemberSession` 鎖住目前會員與 session，於同一交易重新讀取
+本人／同社群的圖片快照，最後以 PostgreSQL `clock_timestamp()` 檢查 session。
+若 SQL 等待跨過 `expires_at`，回 401 `session_expired`，不回傳 WebP 位元組；
+這是回傳前的授權決策，不保證 session 在網路傳送完成前仍有效。
+
+此邊界只描述本人 legacy 示意圖，不代表金鑰清單、投稿清單或詳情讀取已採用相同流程。
+公開圖片仍依公開書架的投稿／作者／分享條件讀取，不需要 owner session；
+Asset 圖片仍保留原有 personal scope／principal 驗證、物件 I/O 前後快照與
+session clock 檢查，沒有改成 legacy 讀取方式。
+
 ## Agent API（`/agent-api/v1`，不經 cookie middleware）
 
 `createAgentSkillSubmissionRoutes(pool, origin, network?)`：
