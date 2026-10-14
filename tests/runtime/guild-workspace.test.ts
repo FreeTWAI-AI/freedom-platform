@@ -229,6 +229,28 @@ test('race: workspace GET waits on the guild lock of an AI guild officer leaving
  }finally{await holder.query('ROLLBACK').catch(()=>{});await probe.query('ROLLBACK').catch(()=>{});holder.release();probe.release();await leaver.end().catch(()=>{});await reader.end().catch(()=>{});}
 });
 
+test('announcement reads are denied when their projection wait outlives the owner session',async()=>{
+ await lead();await join(actors[1]);
+ await service.createGuildAnnouncement(pool,cmd(actors[0],{title:'跨期限公告',body:'private announcement marker',state:'published'}),guild);
+ assert.equal((await service.memberGuildAnnouncementFeed(pool,actors[1])).items[0].body,'private announcement marker');
+ assert.equal((await service.guildAnnouncements(pool,actors[1],guild)).items[0].body,'private announcement marker');
+ for(const [role,path] of [['announceFeed','feed'],['announceList','list']] as const){
+  const reader=racer(role),holder=await pool.connect();
+  try{
+   // Shorten the owner session, then make the announcement projection wait past that deadline.
+   await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE user_id=$1",[actors[1].user_id]);
+   await holder.query('BEGIN');await holder.query('LOCK TABLE guild_announcements IN ACCESS EXCLUSIVE MODE');
+   const read=path==='feed'?service.memberGuildAnnouncementFeed(reader,actors[1]):service.guildAnnouncements(reader,actors[1],guild);
+   await waitingOn(role,'relation');
+   assert.equal((await pool.query('SELECT 1 FROM sessions WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[actors[1].user_id])).rowCount,1,`${path}: the session is still live while the projection waits`);
+   await new Promise(resolve=>setTimeout(resolve,3500));
+   await holder.query('COMMIT');
+   await assert.rejects(read,code('session_expired'));
+  }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await reader.end().catch(()=>{});}
+ }
+ await assert.rejects(service.memberGuildAnnouncementFeed(pool,actors[1]),code('session_expired'));
+});
+
 test('HTTP skill editor routes enforce the AI guild requirement and expose the recovery DTO',async()=>{
  const origin='http://127.0.0.1:4310',app=createApp(pool,origin,'local');await appoint();
  const auth=await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD),headers=()=>({Origin:origin,Cookie:`freedom_local_session=${auth.token}`,'X-CSRF-Token':auth.actor.csrf_token,'Content-Type':'application/json','Idempotency-Key':randomUUID()});

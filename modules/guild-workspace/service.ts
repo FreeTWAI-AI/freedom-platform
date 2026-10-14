@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import type {Pool,PoolClient} from 'pg';
 import {command,transaction,checkVersion,type Command} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from '../platform-admin/service.js';
@@ -43,7 +44,7 @@ export async function guildWorkspace(pool:Pool,actor:Actor){return transaction(p
  // Appointed books stay hidden until the member has a full AI-guild membership; the counts let the UI show why.
  return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,can_review_pulls:guilds.length>0||rows.length>0,
   skill_editor_access:{appointed_books:appointed.length,eligible,requires_development_guild:appointed.length>0&&!eligible,intern_blocked:internBlocked,active_guilds:development,required_guilds:required}};});}
-export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);return {items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};});}
+export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);const items=(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement);await assertCurrentSessionClock(q,actor);return {items,can_publish:isLeader};});}
 /** One bounded stream for the member's current guilds; drafts and former memberships stay private. */
 export async function memberGuildAnnouncementFeed(pool:Pool,actor:Actor){return transaction(pool,async q=>{
  await activeMember(q,actor);
@@ -53,6 +54,7 @@ export async function memberGuildAnnouncementFeed(pool:Pool,actor:Actor){return 
    JOIN positioning_guild_catalog g ON g.guild_key=a.guild_key
    WHERE a.community_id=$1 AND a.state='published'
    ORDER BY a.updated_at DESC,a.announcement_id DESC LIMIT 50 FOR SHARE OF m`,[actor.community_id,actor.user_id])).rows;
+ await assertCurrentSessionClock(q,actor);
  return {items:rows.map(row=>({announcement_id:row.announcement_id,title:row.title,body:row.body,guild_name:row.guild_name,updated_at:new Date(row.updated_at).toISOString()}))};
 });}
 export async function createGuildAnnouncement(pool:Pool,input:Command,key:string){const body=announcementInput.parse(input.body);requireCondition(body.state!=='archived',422,'announcement_state_invalid','新公告請選草稿或發布。');return command(pool,input,q=>leader(q,input.actor,key),async q=>{const row=(await q.query('INSERT INTO guild_announcements(announcement_id,community_id,guild_key,author_user_id,title,body,state) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[randomUUID(),input.actor.community_id,key,input.actor.user_id,body.title,body.body,body.state])).rows[0];return announcement(row);});}
