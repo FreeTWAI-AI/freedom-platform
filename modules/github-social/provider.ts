@@ -122,8 +122,8 @@ export class GitHubSocialProvider {
   async starred(repository:string,token:string):Promise<boolean>{
     const response=await this.request(`${API}/user/starred/${repository}`,{headers:{Authorization:`Bearer ${token}`}},[204,404]);return response.status===204;
   }
-  async star(repository:string,token:string,desired:boolean):Promise<void>{
-    await this.request(`${API}/user/starred/${repository}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204]);
+  async star(repository:string,token:string,desired:boolean,beforeDispatch?:()=>Promise<void>):Promise<void>{
+    await this.request(`${API}/user/starred/${repository}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204],MAX_BODY,beforeDispatch);
   }
   async following(username:string,token:string,beforeDispatch?:()=>Promise<void>):Promise<boolean>{
     z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
@@ -139,9 +139,9 @@ export class GitHubSocialProvider {
       throw error;
     }
   }
-  async createPlatformIssue(token:string,title:string,body:string,pageLabel:string,appId?:string):Promise<{number:number;authorId:string}>{
+  async createPlatformIssue(token:string,title:string,body:string,pageLabel:string,appId?:string,beforeDispatch?:()=>Promise<void>):Promise<{number:number;authorId:string}>{
     let result:{status:number;body:unknown};
-    try{result=await this.request(`${API}/repos/FreeTWAI/freedom-platform/issues`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({title,body,labels:[pageLabel]})},[201]);}
+    try{result=await this.request(`${API}/repos/FreeTWAI/freedom-platform/issues`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({title,body,labels:[pageLabel]})},[201],MAX_BODY,beforeDispatch);}
     catch(error){
       if(error instanceof GitHubProviderError&&error.code==='github_permission_required'&&appId){
         // A registered App is not necessarily installed on this organization.
@@ -161,8 +161,8 @@ export class GitHubSocialProvider {
     if(!parsed.success||parsed.data.number!==number)throw new GitHubProviderError('github_invalid_response');
     return {title:parsed.data.title,open:parsed.data.state==='open',isPull:parsed.data.pull_request!==undefined,body:parsed.data.body??'',labels:parsed.data.labels.map(label=>typeof label==='string'?label:label.name)};
   }
-  async createPlatformIssueComment(token:string,number:number,body:string):Promise<{id:number;authorId:string;url:string}>{
-    const result=await this.request(`${API}/repos/FreeTWAI/freedom-platform/issues/${number}/comments`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({body})},[201]);
+  async createPlatformIssueComment(token:string,number:number,body:string,beforeDispatch?:()=>Promise<void>):Promise<{id:number;authorId:string;url:string}>{
+    const result=await this.request(`${API}/repos/FreeTWAI/freedom-platform/issues/${number}/comments`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({body})},[201],MAX_BODY,beforeDispatch);
     const parsed=z.object({id:z.number().int().positive().safe(),html_url:z.string().url(),user:z.object({id:z.number().int().positive().safe()})}).safeParse(result.body);
     if(!parsed.success||parsed.data.html_url!==`https://github.com/FreeTWAI/freedom-platform/issues/${number}#issuecomment-${parsed.data.id}`)throw new GitHubProviderError('github_invalid_response');
     return {id:parsed.data.id,authorId:String(parsed.data.user.id),url:parsed.data.html_url};

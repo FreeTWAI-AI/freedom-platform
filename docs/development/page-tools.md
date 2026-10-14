@@ -9,6 +9,8 @@
 - 站內發布是 `POST /api/v1/me/github/pages/:id/issues`，只能用會員本人連結的 GitHub user access token，目標 Repo 固定為 `FreeTWAI/freedom-platform`。CSRF、定位完成、輸入長度與操作鍵由 API 驗證；提交表保存操作鍵、請求摘要與確認結果，不保存正文或 token。GitHub 回應不明時保存 `pending` 並拒絕自動重送，避免重複發文。
 - 發布紀錄也保存使用者提交的標題。GitHub 公開清單尚未同步到新 Issue 時，頁面用此標題補齊；舊紀錄會嘗試向 GitHub 補回真實標題，暫時無法讀取時顯示 Issue 編號。
 - 每則開啟的頁面 Issue 可在站內展開認領回覆。`POST /api/v1/me/github/pages/:id/issues/:number/design-claim` 先確認目標是該頁仍開啟的 GitHub Issue，再以會員本人的 GitHub token 送出留言並附 `<!-- freedom-design-claim -->`。提交紀錄只保存操作鍵、摘要、Issue／留言編號與確認狀態；不保存留言正文或 token。回應不明時停止重送，會員可到 GitHub 核對；沒有站內寫入權時可複製該 Issue 的 Agent 送出指令。
+- 站內 Issue 與認領在 refresh、本人／目標 Issue 核對，以及實際 provider queue dispatch 前，以同一 held transaction 重驗 session 真實時鐘。尚未 dispatch 即到期回 `401 session_expired`、不發文／留言；已輪替憑證仍保存。本機 pre-dispatch 拒絕將已建立的提交列標為 `denied`，未建立則不新增；重新登入後由本人以新操作鍵明確再操作，不自動重送。
+- 外部寫入已 dispatch、結果仍不明時維持原 `pending` 邊界，不能把它當成明確未送出。若 dispatch 時授權有效、GitHub 延遲回覆成功，即使期間 session 自然到期，仍保存已確認的結果；不把合法外部事實撤銷。
 - 既有 GitHub App 若只有 Starring／Metadata 權限，組織擁有者還需在 GitHub 將 **Issues: write** 加入 App、核准新權限並確認 App 可存取平台 Repo。此權限未備妥時，站內發布會回傳權限錯誤，使用者仍可用 GitHub 網站表單或複製給 Agent 的指令。新增 App 的 manifest 已要求此權限。
 - 世界聊天中的 GitHub 公告來自 cron 寫入的公開事件；控制台仍輪詢 `GET /api/v1/pages/github-events`，這次讀取不再呼叫 GitHub。事件按 Issue／PR 編號去重；沒有從點擊表單或草稿推定發布成功。清單最多 100 筆，超過時 `truncated`。
 

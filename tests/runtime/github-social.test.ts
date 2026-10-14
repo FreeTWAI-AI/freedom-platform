@@ -1,8 +1,11 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
+import {setImmediate as yieldLoop} from 'node:timers/promises';
+import {z} from 'zod';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
+import {Problem} from '../../packages/shared/problem.js';
 import {migrate} from '../../scripts/database.js';
 import {GitHubSocial,type GitHubSocialConfig} from '../../modules/github-social/service.js';
 import {GitHubSocialProvider,type GitHubDenialDiagnostic} from '../../modules/github-social/provider.js';
@@ -432,5 +435,81 @@ for(const operation of ['read','follow','unfollow'] as const){
       await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 hour' WHERE token_hash=$1",[actor.session_hash]);
       assert.equal((await service.follow(actor,'source-author',true)).confirmed,true);
     }finally{release();await Promise.allSettled(blockers);if(rejected)await rejected;}
+  });
+}
+
+const dispatchWrites=[
+  {name:'star',kind:'star',run:(service:GitHubSocial,member:Actor,key:string)=>service.star(member,book,true)},
+  {name:'unstar',kind:'unstar',run:(service:GitHubSocial,member:Actor,key:string)=>service.star(member,book,false)},
+  {name:'page issue',kind:'issue',run:(service:GitHubSocial,member:Actor,key:string)=>service.createPageIssue(member,'home','合成期限提案','只供隔離的授權時鐘回歸，不會真的發布。',key)},
+  {name:'design claim',kind:'claim',run:(service:GitHubSocial,member:Actor,key:string)=>service.createDesignClaim(member,'home',42,'這是隔離回歸的合成認領，不會真的留言。',key)},
+] as const;
+for(const operation of dispatchWrites)for(const gate of ['refresh','queue'] as const){
+  test(`GitHub ${operation.name} dispatch clock after ${gate}`,{timeout:30000},async()=>{
+    let releasePreflight!:()=>void,enterPreflight!:()=>void,releaseBlockers!:()=>void,enterFull!:()=>void;
+    const preflight=new Promise<void>(resolve=>{enterPreflight=resolve;}),held=new Promise<void>(resolve=>{releasePreflight=resolve;});
+    const full=new Promise<void>(resolve=>{enterFull=resolve;}),blockerHeld=new Promise<void>(resolve=>{releaseBlockers=resolve;});
+    let armed=false,blockerCount=0,writes=0;
+    const fetcher:typeof fetch=async(input,init={})=>{
+      const url=String(input),method=init.method??'GET';
+      if(url==='https://api.github.com/repos/queue/blocker'){
+        if(++blockerCount===4)enterFull();await blockerHeld;return mock.fetch(input,init);
+      }
+      const refreshing=url==='https://github.com/login/oauth/access_token'&&new URLSearchParams(String(init.body??'')).get('grant_type')==='refresh_token';
+      const lastPreflight=operation.kind==='issue'&&url==='https://api.github.com/user'
+        ||operation.kind==='claim'&&url==='https://api.github.com/repos/FreeTWAI/freedom-platform/issues/42'&&method==='GET';
+      if(armed&&(gate==='refresh'&&refreshing||gate==='queue'&&lastPreflight)){enterPreflight();await held;}
+      if(url===`https://api.github.com/user/starred/${repository}`&&(method==='PUT'||method==='DELETE'))writes++;
+      if(url==='https://api.github.com/repos/FreeTWAI/freedom-platform/issues'&&method==='POST'){
+        writes++;return Response.json({number:42,user:{id:mock.userId}},{status:201});
+      }
+      if(url==='https://api.github.com/repos/FreeTWAI/freedom-platform/issues/42'&&method==='GET')
+        return Response.json({number:42,title:'合成首頁提案',state:'open',body:'<!-- freedom-page:home -->',labels:[{name:'page:home'}]});
+      if(url==='https://api.github.com/repos/FreeTWAI/freedom-platform/issues/42/comments'&&method==='POST'){
+        writes++;return Response.json({id:91,user:{id:mock.userId},html_url:'https://github.com/FreeTWAI/freedom-platform/issues/42#issuecomment-91'},{status:201});
+      }
+      return mock.fetch(input,init);
+    };
+    const service=new GitHubSocial(pool,config,fetcher);if(gate==='refresh')mock.expires=1;
+    await connect(service);
+    const cipher=async()=>z.string().parse((await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens);
+    const original=await cipher(),observed:unknown=Reflect.get(service,'provider');assert.ok(observed instanceof GitHubSocialProvider);
+    const queueDepth=()=>{const waiting:unknown=Reflect.get(observed,'waiting');assert.ok(Array.isArray(waiting));return waiting.length;};
+    const waitQueue=async()=>{for(let n=0;n<4000;n++){if(queueDepth()===1)return;await yieldLoop();}assert.fail('operation did not reach the provider queue');};
+    const blockers:Promise<unknown>[]=[],key=randomUUID();let pending:Promise<PromiseSettledResult<unknown>[]>|undefined;
+    try{
+      armed=true;
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE token_hash=$1",[actor.session_hash]);
+      if(gate==='queue'&&(operation.kind==='star'||operation.kind==='unstar')){
+        for(let n=0;n<4;n++)blockers.push(observed.metrics('queue/blocker'));await full;
+      }
+      pending=Promise.allSettled([operation.run(service,actor,key)]);
+      if(gate==='refresh')await preflight;
+      else{
+        if(operation.kind==='issue'||operation.kind==='claim'){
+          await preflight;for(let n=0;n<3;n++)blockers.push(observed.metrics('queue/blocker'));
+          for(let n=0;n<4000&&blockerCount!==3;n++)await yieldLoop();assert.equal(blockerCount,3);
+          blockers.push(observed.metrics('queue/blocker'));await waitQueue();releasePreflight();await full;
+        }
+        await waitQueue();
+      }
+      assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS valid FROM sessions WHERE token_hash=$1',[actor.session_hash])).rows[0].valid,true);
+      assert.equal(writes,0);
+      // JS fake timers cannot advance the real PostgreSQL decision clock.
+      // Cross its deadline only after proving the refresh/actual write-queue barrier.
+      await pool.query('SELECT pg_sleep(GREATEST(0,extract(epoch FROM (expires_at-clock_timestamp())))+0.05) FROM sessions WHERE token_hash=$1',[actor.session_hash]);
+      releasePreflight();releaseBlockers();await Promise.all(blockers);const result=(await pending)[0];
+      assert.ok(result.status==='rejected','expired authority must not dispatch a write');
+      const error:unknown=result.reason;assert.ok(error instanceof Problem);assert.deepEqual([error.status,error.code],[401,'session_expired']);assert.equal(writes,0);
+      if(gate==='refresh')assert.notEqual(await cipher(),original);else assert.equal(await cipher(),original);
+      if(operation.kind==='issue')assert.equal((await pool.query('SELECT state FROM github_page_issue_submissions WHERE user_id=$1 AND operation_key=$2',[actor.user_id,key])).rows[0].state,'denied');
+      if(operation.kind==='claim')assert.equal((await pool.query('SELECT state FROM github_design_claim_submissions WHERE user_id=$1 AND operation_key=$2',[actor.user_id,key])).rows[0]?.state,gate==='queue'?'denied':undefined);
+      // A new live session can explicitly retry with a new operation key; an
+      // undispatched denial must not poison recovery or roll back rotated tokens.
+      armed=false;const fresh:Actor={...actor,session_hash:randomBytes(32).toString('hex'),csrf_token:randomBytes(16).toString('hex')};
+      await pool.query("INSERT INTO sessions VALUES($1,$2,$3,clock_timestamp()+interval '1 hour',NULL)",[fresh.session_hash,fresh.user_id,fresh.csrf_token]);
+      assert.equal((await operation.run(service,fresh,randomUUID())).confirmed,true);assert.equal(writes,1);
+      assert.equal(mock.calls.filter(call=>new URLSearchParams(call.body).get('grant_type')==='refresh_token').length,gate==='refresh'?1:0,'rotated credential remains usable without another refresh');
+    }finally{releasePreflight();releaseBlockers();await Promise.allSettled(blockers);if(pending)await pending;}
   });
 }
