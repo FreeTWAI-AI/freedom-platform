@@ -600,6 +600,16 @@ current callers retain authorized historical reads. Reporting remains out of sco
 These preferences order a member's display; they never grant membership, offices,
 private contact access, repository permission or additional skill books.
 
+Both `GET /me/guild-preferences` and the feature-gated v2 read use one short
+database transaction holding the current user/session locks through the full
+projection. This includes v2's final legacy projection and the old reader's
+optional community-switch compatibility lookup. They recheck the database
+session clock after the last query; expiry during those waits returns
+`401 session_expired`, not private preferences or a successful v2 ETag.
+Valid reads retain their existing DTO/cache/ETag behavior, and the feature-off
+v2 route and onboarding gates remain unchanged. These locks contain database
+reads only, not provider or object-store I/O.
+
 - `GET /me/guild-preferences` returns `{primary_guild_key,
   secondary_guild_keys,aggregate_version}`. `secondary_guild_keys` is an ordered
   array of at most two currently active memberships, excluding the primary.
