@@ -685,6 +685,10 @@ input,textarea,select{background:#0c1017;border-color:#404959;color:var(--ink)}i
   border-color: #333943;
   background: #000;
 }
+.brand-poster.brand-poster-compact {
+  width: 100%;
+  max-width: 320px;
+}
 .brand-poster.brand-poster-original img[width] {
   display: block;
   width: 100%;
