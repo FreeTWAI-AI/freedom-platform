@@ -54,20 +54,20 @@ async function pendingRolePage(){
   await accept(maker,reviewer);await declare(maker,'implementation');await declare(reviewer,'coordination');
   return {maker,reviewer,subject,target};
 }
-async function readDuringReviewWait(reader:Session,transition:()=>Promise<void>,query=''):Promise<{status:number;data:unknown}>{
+async function readDuringRoleWait(reader:Session,transition:()=>Promise<void>,query='',relation:'work_review_routes'|'work_contribution_confirmations'='work_review_routes'):Promise<{status:number;data:unknown}>{
   const locker=await pool.connect();let pending:Promise<{status:number;data:unknown}>|undefined;
   try{
-    await locker.query('BEGIN');await locker.query('LOCK TABLE work_review_routes IN ACCESS EXCLUSIVE MODE');
+    await locker.query('BEGIN');await locker.query(`LOCK TABLE ${relation} IN ACCESS EXCLUSIVE MODE`);
     const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
     let finished=false;pending=request(path()+query,reader);void pending.then(()=>{finished=true},()=>{finished=true});
     const deadline=Date.now()+5000;let blocked=false;
     while(Date.now()<deadline){
       blocked=(await pool.query(`SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
-        WHERE $1=ANY(pg_blocking_pids(a.pid)) AND NOT l.granted AND l.relation='work_review_routes'::regclass
-        AND a.wait_event_type='Lock'`,[pid])).rowCount!==0;
+        WHERE $1=ANY(pg_blocking_pids(a.pid)) AND NOT l.granted AND l.relation=$2::regclass
+        AND a.wait_event_type='Lock'`,[pid,relation])).rowCount!==0;
       if(blocked)break;assert.equal(finished,false);await delay(10);
     }
-    assert.equal(blocked,true,'role page must reach its native review relation wait');
+    assert.equal(blocked,true,'role page must reach its native relation wait');
     await transition();assert.equal(finished,false);await locker.query('COMMIT');return await pending;
   }finally{
     await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});
@@ -232,7 +232,7 @@ test('role visibility transitions refill the current page after review waits ins
   for(const effect of ['subject_block','reviewer_block','unchanged','withdraw'] as const){
     const original=rolePage.parse((await request(path()+'?limit=1',reviewer)).data);
     assert.equal(original.items[0].role_id,target.role_id);assert.equal(original.items[0].can_confirm,true);
-    const result=await readDuringReviewWait(reviewer,async()=>{
+    const result=await readDuringRoleWait(reviewer,async()=>{
       if(effect==='subject_block')await changeBlock(subjectBlock,reviewerId,true);
       else if(effect==='reviewer_block')await changeBlock(reviewerBlock,subjectId,true);
       else if(effect==='withdraw'){
@@ -268,7 +268,7 @@ test('role page preserves current reviewer expiry and accepted-deliverer counter
     const deadline=z.object({valid_until:z.date()}).parse((await pool.query(
       'UPDATE work_review_routes SET valid_until=clock_timestamp()+make_interval(secs=>$3) WHERE work_item_id=$1 AND reviewer_ref=$2 RETURNING valid_until',
       [DEMO_WORK,reviewerId,expires?2:60])).rows[0]).valid_until.getTime();
-    const result=await readDuringReviewWait(reviewer,async()=>{
+    const result=await readDuringRoleWait(reviewer,async()=>{
       async function passed(){return z.object({passed:z.boolean()}).parse((await pool.query(
         'SELECT clock_timestamp()>to_timestamp($1/1000.0) AS passed',[deadline])).rows[0]).passed;}
       if(expires){
@@ -283,4 +283,53 @@ test('role page preserves current reviewer expiry and accepted-deliverer counter
     const counterpart=rolePage.parse((await request(path(),maker)).data);
     assert.equal(counterpart.items.find(item=>item.member_ref===reviewerId)?.can_confirm,true);
   }
+});
+
+test('role page keeps accepted Work metadata and confirmation authority with roles declared after acceptance',async()=>{
+  for(const viewer of ['reviewer','accepted_deliverer'] as const)for(const accepts of [true,false]){
+    await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits CASCADE');await seedLocal(pool);
+    const maker=await signIn(),reviewer=await signIn(1),subject=await signIn(2),reviewerCommand=await signIn(1);
+    const initiator=roleReceipt.parse(await declare(reviewer,'coordination'));
+    const reader=viewer==='reviewer'?reviewer:maker,initial=rolePage.parse((await request(path(),reader)).data);
+    assert.notEqual(initial.work_state,'accepted');assert.equal(initial.accepted_at,null);
+    let pendingTarget:z.infer<typeof roleReceipt>|undefined;
+    const result=await readDuringRoleWait(reader,async()=>{
+      if(accepts)await accept(maker,reviewerCommand);
+      pendingTarget=roleReceipt.parse(await declare(subject));
+    },'','work_contribution_confirmations');
+    assert.ok(pendingTarget);const target=pendingTarget;assert.equal(result.status,200);const view=rolePage.parse(result.data);
+    assert.ok(view.items.some(item=>item.role_id===target.role_id));
+    assert.deepEqual(view,rolePage.parse((await request(path(),reader)).data));
+    assert.equal(view.work_state,accepts?'accepted':initial.work_state);assert.equal(view.accepted_at!==null,accepts);
+    const relevant=viewer==='reviewer'?target:initiator;
+    assert.equal(view.items.find(item=>item.role_id===relevant.role_id)?.can_confirm,accepts);
+    assert.equal(JSON.stringify(view).includes('artifact:accepted-delivery'),false);
+    if(accepts){
+      const facts=z.object({after_accept:z.boolean(),accepted_at:z.date()}).parse((await pool.query(
+        'SELECT r.shared_at>c.accepted_at AS after_accept,c.accepted_at FROM work_contribution_roles r JOIN contributions c ON c.work_item_id=r.work_item_id WHERE r.role_id=$1',[target.role_id])).rows[0]);
+      assert.equal(facts.after_accept,true);assert.equal(view.accepted_at,facts.accepted_at.toISOString());
+      assert.equal((await confirm(reader,relevant)).status,200);
+    }else{
+      const confirmation=await confirm(reader,relevant);assert.equal(confirmation.status,409);
+      z.object({code:z.literal('work_not_accepted')}).parse(confirmation.data);
+    }
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM contributions')).rows[0].n,accepts?1:0);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM work_decisions')).rows[0].n,accepts?1:0);
+  }
+});
+
+test('role page retains Work header with no roles and an exhausted offset without null role items or a cursor',async()=>{
+  const maker=await signIn(),reviewer=await signIn(1);
+  const empty=rolePage.parse((await request(path(),reviewer)).data);
+  assert.deepEqual(empty.items,[]);assert.equal(empty.next_offset,null);assert.equal(empty.accepted_at,null);
+  await accept(maker,reviewer);
+  const accepted=rolePage.parse((await request(path(),reviewer)).data);
+  const fact=z.object({accepted_at:z.date()}).parse((await pool.query('SELECT accepted_at FROM contributions WHERE work_item_id=$1',[DEMO_WORK])).rows[0]);
+  assert.equal(accepted.work_item_id,DEMO_WORK);assert.equal(accepted.title,empty.title);assert.equal(accepted.work_state,'accepted');
+  assert.equal(accepted.accepted_at,fact.accepted_at.toISOString());assert.deepEqual(accepted.items,[]);assert.equal(accepted.next_offset,null);
+  await declare(reviewer,'coordination');
+  const exhausted=await request(path()+'?offset=10000',reviewer);assert.equal(exhausted.status,200);
+  assert.deepEqual(rolePage.parse(exhausted.data),accepted);
+  const unknown=await request(path(randomUUID()),reviewer);assert.equal(unknown.status,404);
+  z.object({code:z.literal('not_found')}).parse(unknown.data);
 });
