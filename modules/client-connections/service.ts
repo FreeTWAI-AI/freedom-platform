@@ -28,30 +28,45 @@ export async function pollClientPairing(pool:Pool,raw:unknown,network:string){
  const body=PollInput.parse(raw);
  return transaction(pool,async q=>{
    const pending=(await q.query('SELECT * FROM client_pairing_requests WHERE device_secret_hash=$1 FOR UPDATE',[tokenHash(body.device_secret)])).rows[0];
-   if(!pending||new Date(pending.expires_at).getTime()<=Date.now()||pending.state==='issued')return {status:'invalid_grant'} as const;
+   if(!pending||pending.state==='issued')return {status:'invalid_grant'} as const;
+   const pairingLive=async()=>(await q.query('SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND state=$2 AND expires_at>clock_timestamp()',[pending.pairing_id,pending.state])).rowCount===1;
+   // The member lock below can outlast the five-minute code. Transaction-start
+   // now() would still mint a bearer token for the expired pairing.
+   if(!await pairingLive())return {status:'invalid_grant'} as const;
    if(pending.last_polled_at&&Date.now()-new Date(pending.last_polled_at).getTime()<5000)return {status:'slow_down',interval:5} as const;
-   await q.query('UPDATE client_pairing_requests SET last_polled_at=now() WHERE pairing_id=$1',[pending.pairing_id]);
+   await q.query('UPDATE client_pairing_requests SET last_polled_at=clock_timestamp() WHERE pairing_id=$1',[pending.pairing_id]);
    if(pending.state==='pending')return {status:'authorization_pending',interval:5} as const;
-   const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE connection_id=$1 AND revoked_at IS NULL AND expires_at>now()',[pending.connection_id])).rows[0];
+   const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE connection_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[pending.connection_id])).rows[0];
    if(!owner)return {status:'invalid_grant'} as const;
    // Lock the member before a credential row, matching administrative disable.
    // Recheck both records after any wait before minting the one-time credential.
    const member=await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL FOR SHARE',[owner.user_id,owner.community_id]);
-   if(member.rowCount!==1)return {status:'invalid_grant'} as const;
+   if(member.rowCount!==1||!await pairingLive())return {status:'invalid_grant'} as const;
    const connection=(await q.query(`SELECT * FROM member_client_connections WHERE connection_id=$1 AND user_id=$2 AND community_id=$3
-      AND revoked_at IS NULL AND expires_at>now() FOR UPDATE`,[pending.connection_id,owner.user_id,owner.community_id])).rows[0];
-   if(!connection)return {status:'invalid_grant'} as const;
+      AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE`,[pending.connection_id,owner.user_id,owner.community_id])).rows[0];
+   // A lock-only wait does not recheck this volatile predicate. Read both
+   // deadlines again after the row lock and before minting the one-time credential.
+   if(!connection||!await pairingLive())return {status:'invalid_grant'} as const;
+   if((await q.query('SELECT 1 FROM member_client_connections WHERE connection_id=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[connection.connection_id,owner.user_id,owner.community_id])).rowCount!==1)return {status:'invalid_grant'} as const;
+   // Keep polling bookkeeping, but roll back both issuance writes if a later wait crosses expiry.
+   await q.query('SAVEPOINT client_pairing_issue');
    const token='fw_read_'+randomBytes(32).toString('base64url');
    await q.query('UPDATE member_client_connections SET token_hash=$2 WHERE connection_id=$1',[connection.connection_id,tokenHash(token)]);
    await q.query("UPDATE client_pairing_requests SET state='issued' WHERE pairing_id=$1",[pending.pairing_id]);
+   const live=await q.query(`SELECT 1 FROM client_pairing_requests p JOIN member_client_connections c USING(connection_id)
+     WHERE p.pairing_id=$1 AND p.expires_at>clock_timestamp() AND c.expires_at>clock_timestamp() AND c.revoked_at IS NULL`,[pending.pairing_id]);
+   if(live.rowCount!==1){await q.query('ROLLBACK TO SAVEPOINT client_pairing_issue');return {status:'invalid_grant'} as const;}
    return {status:'authorized',access_token:token,token_type:'Bearer',connection_id:connection.connection_id,scope:connection.scope,
      store_id:connection.store_id,expires_at:connection.expires_at,api_base_path:'/client-api/v1',read_only:true} as const;
  });
 }
 async function pairingByCode(q:Pool|PoolClient,code:string,lock=false){
  const normalized=normalizeCode(code);requireCondition(/^[A-F0-9]{20}$/.test(normalized),404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
- const row=(await q.query(`SELECT * FROM client_pairing_requests WHERE user_code_hash=$1 AND state='pending' AND expires_at>now()${lock?' FOR UPDATE':''}`,[tokenHash(normalized)])).rows[0];
- requireCondition(row,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');return row;
+ const row=(await q.query(`SELECT * FROM client_pairing_requests WHERE user_code_hash=$1 AND state='pending' AND expires_at>clock_timestamp()${lock?' FOR UPDATE':''}`,[tokenHash(normalized)])).rows[0];
+ requireCondition(row,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
+ // The pairing row lock can outlast the five-minute code. Transaction now() is not a live recheck.
+ if(lock)requireCondition((await q.query("SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND state='pending' AND expires_at>clock_timestamp()",[row.pairing_id])).rowCount===1,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
+ return row;
 }
 export async function pairingView(pool:Pool,actor:Actor,code:string){
  await authRateLimit(pool,'client-pairing-lookup',actor.user_id,30,300);
@@ -60,12 +75,17 @@ export async function pairingView(pool:Pool,actor:Actor,code:string){
 }
 export async function approveClientPairing(pool:Pool,input:Command,code:string){
  const body=ApprovalInput.parse(input.body);
+ let pairingId:string|undefined;
  await authRateLimit(pool,'client-pairing-approve',input.actor.user_id,30,300);
  return command(pool,input,async q=>{
    requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL',[input.actor.user_id,input.actor.community_id])).rowCount===1,403,'onboarding_required','請先選擇主要公會，完成加入後再批准客戶端連線。');
  },async q=>{
    const pairing=await pairingByCode(q,code,true);
+   pairingId=pairing.pairing_id;
    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`client-connections/${input.actor.user_id}`]);
+   // The pairing-row and advisory waits sit after the member lock. Recheck the
+   // code before any connection, approval or receipt is written.
+   requireCondition((await q.query("SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND state='pending' AND expires_at>clock_timestamp()",[pairing.pairing_id])).rowCount===1,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
    requireCondition(Number((await q.query('SELECT count(*) FROM member_client_connections WHERE user_id=$1 AND community_id=$2 AND revoked_at IS NULL AND expires_at>now()',[input.actor.user_id,input.actor.community_id])).rows[0].count)<20,409,'connection_limit','目前最多保留二十個有效讀取連線；請先撤銷不再使用的連線。');
    if(pairing.kind==='storefront')requireCondition(body.store_id&&(await q.query('SELECT 1 FROM retail_stores WHERE store_id=$1 AND community_id=$2 AND seller_ref=$3',[body.store_id,input.actor.community_id,input.actor.user_id])).rowCount===1,404,'store_not_found','請選擇你自己建立的商店。');
    else requireCondition(body.store_id===undefined,422,'supplier_store_not_allowed','供應端連線不需要商店識別碼。');
@@ -73,6 +93,10 @@ export async function approveClientPairing(pool:Pool,input:Command,code:string){
    await q.query('INSERT INTO member_client_connections(connection_id,community_id,user_id,client_name,kind,scope,store_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[connectionId,input.actor.community_id,input.actor.user_id,pairing.client_name,pairing.kind,pairing.kind+':read',body.store_id??null]);
    await q.query("UPDATE client_pairing_requests SET state='approved',connection_id=$2 WHERE pairing_id=$1",[pairing.pairing_id,connectionId]);
    return {approved:true,connection_id:connectionId,scope:pairing.kind+':read',read_only:true};
+ },async q=>{
+   // The pairing, connection advisory and receipt writes can all outlast the code.
+   // Only a new approval has this locked row; replay keeps its committed receipt.
+   if(pairingId)requireCondition((await q.query('SELECT 1 FROM client_pairing_requests WHERE pairing_id=$1 AND expires_at>clock_timestamp()',[pairingId])).rowCount===1,404,'pairing_not_found','找不到有效的連線要求，請由客戶端重新產生代碼。');
  });
 }
 export async function listClientConnections(pool:Pool,actor:Actor){
@@ -91,18 +115,25 @@ export async function revokeClientConnection(pool:Pool,input:Command,id:string){
 
 type ClientResource='connection'|'catalog'|'stores'|'listings'|'products'|'requests';
 // Authentication, authorization and reads share a transaction. No browser Actor/session is fabricated.
+async function assertClientConnectionClock(q:PoolClient,connectionId:string){
+ // The connection is already locked. Check after the final projection, not inside a waiting SELECT.
+ requireCondition((await q.query('SELECT 1 FROM member_client_connections WHERE connection_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[connectionId])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
+}
 export async function readClientResource(pool:Pool,authorization:string|undefined,resource:ClientResource,requestedStoreId?:string){
  requireCondition(authorization&&/^Bearer fw_read_[A-Za-z0-9_-]{43}$/.test(authorization),401,'client_token_invalid','讀取連線已失效，請重新配對。');
  return transaction(pool,async q=>{
    const credentialHash=tokenHash(authorization.slice(7));
-   const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>now()',[credentialHash])).rows[0];
+   const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[credentialHash])).rows[0];
    requireCondition(owner,401,'client_token_invalid','讀取連線已失效，請重新配對。');
    // Member → connection is the same lock order as administrative deactivation.
    requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND onboarding_completed_at IS NOT NULL FOR SHARE',[owner.user_id,owner.community_id])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
    const client=(await q.query(`SELECT connection_id,community_id,user_id,kind,scope,store_id,expires_at FROM member_client_connections
-      WHERE token_hash=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>now() FOR SHARE`,[credentialHash,owner.user_id,owner.community_id])).rows[0];
+      WHERE token_hash=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE`,[credentialHash,owner.user_id,owner.community_id])).rows[0];
    requireCondition(client,401,'client_token_invalid','讀取連線已失效，請重新配對。');
-   if(resource==='connection')return {connection_id:client.connection_id,kind:client.kind,scope:client.scope,store_id:client.store_id,expires_at:client.expires_at,read_only:true};
+   if(resource==='connection'){
+     await assertClientConnectionClock(q,client.connection_id);
+     return {connection_id:client.connection_id,kind:client.kind,scope:client.scope,store_id:client.store_id,expires_at:client.expires_at,read_only:true};
+   }
    requireCondition((client.kind==='storefront'&&['catalog','stores','listings'].includes(resource))||(client.kind==='supplier'&&['products','requests'].includes(resource)),403,'client_scope_denied','這個讀取連線沒有此資料的權限。');
    if(requestedStoreId!==undefined)requireCondition(client.kind==='storefront'&&requestedStoreId===client.store_id,404,'store_not_found','找不到這個讀取連線的商店。');
    if(client.kind==='storefront')requireCondition((await q.query('SELECT 1 FROM retail_stores WHERE store_id=$1 AND community_id=$2 AND seller_ref=$3',[client.store_id,client.community_id,client.user_id])).rowCount===1,403,'client_store_unavailable','已批准的商店不再可供這個連線讀取。');
@@ -115,6 +146,7 @@ export async function readClientResource(pool:Pool,authorization:string|undefine
      WHERE l.community_id=$1 AND l.store_id=$2 AND l.seller_ref=$3 ORDER BY l.created_at DESC,l.listing_id LIMIT 200`,[client.community_id,client.store_id,client.user_id])).rows;
    else rows=(await q.query(`SELECT a.*,l.snapshot,u.display_name AS seller_name FROM distribution_acceptances a JOIN retail_listing_revisions l USING(listing_id) JOIN users u ON u.user_id=a.seller_ref
      WHERE a.community_id=$1 AND a.supplier_ref=$2 AND NOT is_verification_test_account(a.seller_ref) ORDER BY a.created_at DESC,a.acceptance_id LIMIT 200`,[client.community_id,client.user_id])).rows;
+   await assertClientConnectionClock(q,client.connection_id);
    return {items:rows.map(row=>({...row,...limited})),read_only:true,limit:200};
  });
 }

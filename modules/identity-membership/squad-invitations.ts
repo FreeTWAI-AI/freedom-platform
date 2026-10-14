@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
 import { command,checkVersion,journal,type Command } from '../../packages/db/index.js';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { notifyMember } from '../member-communications/notifications.js';
 import type { Actor } from './service.js';
@@ -49,8 +50,8 @@ async function liveSquad(q:PoolClient,squadId:string,ownerId:string) {
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');
   requireCondition(row.owner_ref===ownerId,403,'squad_owner_required','只有小隊發起人可以邀請夥伴。');
 }
-async function communitySquad(q:Pool|PoolClient,actor:Actor,id:string) {
-  const row=(await q.query('SELECT squad_id,name,owner_ref FROM member_squads WHERE squad_id=$1 AND community_id=$2 AND disbanded_at IS NULL',[id,actor.community_id])).rows[0];
+async function communitySquad(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
+  const row=(await q.query(`SELECT squad_id,name,owner_ref FROM member_squads WHERE squad_id=$1 AND community_id=$2 AND disbanded_at IS NULL${lock?' FOR SHARE':''}`,[id,actor.community_id])).rows[0];
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');return row as {squad_id:string;name:string;owner_ref:string};
 }
 const shownName=(alias:string)=>`CASE WHEN ${alias}.community_id=i.community_id AND ${eligibleAs(alias)} THEN ${alias}.display_name ELSE '${UNAVAILABLE_MEMBER}' END`;
@@ -156,11 +157,13 @@ export async function resolveSquadInvitation(pool:Pool,input:Command,invitationI
 // eligible stays listed (anonymized) so the owner can still withdraw that pending row.
 export async function squadInvitations(pool:Pool,actor:Actor,squadId:string,raw:unknown) {
   squadId=uuid(squadId);const {limit,offset}=OwnerInvitationQuery.parse(raw);
-  await eligibleActor(pool,actor);const squad=await communitySquad(pool,actor,squadId);
+  return readWithMemberSession(pool,actor,async q=>{
+  await eligibleActor(q,actor);const squad=await communitySquad(q,actor,squadId,true);
   requireCondition(squad.owner_ref===actor.user_id,403,'squad_owner_required','只有小隊發起人可以查看送出的邀請。');
-  const rows=(await pool.query(`${projection} WHERE i.squad_id=$1 AND i.community_id=$2 AND i.owner_ref=$3 AND r.community_id=$2
+  const rows=(await q.query(`${projection} WHERE i.squad_id=$1 AND i.community_id=$2 AND i.owner_ref=$3 AND r.community_id=$2
     ORDER BY (i.state='pending') DESC,i.updated_at DESC,i.invitation_id LIMIT $4 OFFSET $5`,[squadId,actor.community_id,actor.user_id,limit+1,offset])).rows;
   return {items:rows.slice(0,limit).map(view),next_offset:rows.length>limit?offset+limit:null};
+  });
 }
 // Received invitations are visible only to the recipient; an inactive owner hides them.
 export async function receivedSquadInvitations(pool:Pool,actor:Actor,raw:unknown) {

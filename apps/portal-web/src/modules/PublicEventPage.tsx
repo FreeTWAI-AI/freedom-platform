@@ -16,7 +16,12 @@ const savedCode=(id:string)=>{
   try{return linkCode??localStorage.getItem(`freedom-event-referral:${id}`)}catch{return linkCode}
 };
 
-export function PublicEventPage({client,id,onLogin,revalidatePublic=false,participationEnabled=false}:{client:PortalClient;id:string;onLogin:()=>void;revalidatePublic?:boolean;participationEnabled?:boolean}){
+type PublicEventPageProps={client:PortalClient;id:string;onLogin:()=>void;revalidatePublic?:boolean;participationEnabled?:boolean};
+export function PublicEventPage(props:PublicEventPageProps){
+  // Drafts and pending registration responses belong to one event, not the reused route.
+  return <PublicEventContent key={props.id} {...props}/>;
+}
+function PublicEventContent({client,id,onLogin,revalidatePublic=false,participationEnabled=false}:PublicEventPageProps){
   const [event,setEvent]=useState<PublicEvent|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [name,setName]=useState(''),[email,setEmail]=useState(''),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
   const [code,setCode]=useState(()=>savedCode(id));
