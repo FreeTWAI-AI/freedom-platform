@@ -361,6 +361,26 @@ Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
 
+## Member event detail session boundary
+
+`GET /api/v1/events/:id` reads its existing authorized event DTO through
+`readWithMemberSession`: active user and current session locks, all detail
+queries on the same transaction client, then a `clock_timestamp()` session
+check after the projection. A database wait that crosses session expiry returns
+`401 session_expired`, without the event DTO or private `online_url`.
+Existing event visibility, pending-owner/reviewer and referral redaction rules
+are unchanged. This is a final database read decision, not a guarantee of
+session validity through commit or HTTP delivery; it does not cover other event
+routes. The shared `readEvent` background reminder path remains unchanged.
+
+Standalone localhost HTTP evidence on isolated PostgreSQL 17 schemas used
+password login and normal pending-event submission: both baseline and candidate
+returned a nonempty private detail control; a confirmed projection lock wait
+began while the session was live, and the database clock crossed expiry before
+release. Baseline `afe8b692` returned the private DTO with HTTP 200; candidate
+`a2230f24` returned HTTP 401 without event data. This synthetic local evidence
+does not establish deployment or global event-route coverage.
+
 ## Event highlights and published squad outcomes (#257)
 
 This source candidate adds `154_squad_outcomes.sql` and
