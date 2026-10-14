@@ -1,12 +1,15 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
+import { z } from 'zod';
 import { createPool,LOCAL_DATABASE_URL,digest } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
-import { hashPassword } from '../../modules/identity-membership/service.js';
+import { hashPassword,tokenHash } from '../../modules/identity-membership/service.js';
+import { readSessionCookie } from '../../apps/platform-api/src/session-cookie.js';
 import { dashboard,listWorks } from '../../modules/opportunity-project-work/work.js';
 import { execFileSync } from 'node:child_process';
 const pythonCommand=process.platform==='win32'?'python':'python3';
@@ -337,6 +340,76 @@ test('simple showcase generates its record, keeps legacy refs and validates opti
   const legacy=await request('/showcases',maker,{title:'舊作品',description:'保留既有紀錄',artifact_ref:'artifact:legacy-v1',consent_to_share:true});
   assert.equal(legacy.data.artifact_ref,'artifact:legacy-v1');assert.equal(legacy.data.public_url,null);
 });
+
+const businessOpportunity=z.object({opportunity_id:z.uuid(),provider_ref:z.uuid(),client_ref:z.uuid(),need:z.string(),aggregate_version:z.number().int()});
+const businessReceipt=z.object({receipt_id:z.uuid(),amount_minor:z.string(),currency:z.string(),evidence_ref:z.string(),received_at:z.string(),verification_status:z.string()});
+const businessEngagement=z.object({engagement_id:z.uuid(),opportunity_id:z.uuid(),provider_ref:z.uuid(),client_ref:z.uuid(),scope:z.string(),acceptance_criteria:z.string(),
+  amount_minor:z.string(),currency:z.string(),terms_sha256:z.string(),aggregate_version:z.number().int(),state:z.string(),delivery_ref:z.string().nullable(),receipt:businessReceipt.nullable()});
+async function privateBusinessFixture(provider:Session,client:Session,label:string) {
+  const shared=await request('/showcases',provider,{title:`business-${label}`,description:'合成公開作品',artifact_ref:`artifact:public-${label}`,consent_to_share:true});
+  assert.equal(shared.status,201);const showcase=z.object({showcase_id:z.uuid()}).parse(shared.data);
+  const proposed=await request('/opportunities',client,{showcase_id:showcase.showcase_id,need:`private-need-${label}`});
+  assert.equal(proposed.status,201);const opportunity=businessOpportunity.parse(proposed.data);
+  const quoted=await request(`/opportunities/${opportunity.opportunity_id}/engagements`,provider,{scope:`private-scope-${label}`,acceptance_criteria:`private-criteria-${label}`,amount_minor:123400,currency:'TWD'},String(opportunity.aggregate_version));
+  assert.equal(quoted.status,201);let engagement=businessEngagement.parse(quoted.data);
+  for(const [session,action,body] of [[client,'agree',{terms_sha256:engagement.terms_sha256}],[provider,'deliver',{artifact_ref:`artifact:private-delivery-${label}`}],[client,'accept',{terms_sha256:engagement.terms_sha256}]] as const) {
+    const result=await request(`/engagements/${engagement.engagement_id}:${action}`,session,body,String(engagement.aggregate_version));assert.equal(result.status,200);engagement=businessEngagement.parse(result.data);
+  }
+  const receivedAt=z.object({received_at:z.string()}).parse((await pool.query('SELECT clock_timestamp()::text AS received_at')).rows[0]).received_at;
+  const wait=Math.max(0,Date.parse(receivedAt)-Date.now());assert.ok(wait<5000);if(wait)await delay(wait+5);
+  const reported=await request(`/engagements/${engagement.engagement_id}/receipts`,provider,{amount_minor:123400,currency:'TWD',evidence_ref:`receipt:synthetic-private-${label}`,received_at:new Date(Date.parse(receivedAt)).toISOString()},String(engagement.aggregate_version));
+  assert.equal(reported.status,201);engagement=businessEngagement.parse(reported.data);
+  const confirmed=await request(`/engagements/${engagement.engagement_id}:confirm-receipt`,client,{},String(engagement.aggregate_version));
+  assert.equal(confirmed.status,200);engagement=businessEngagement.parse(confirmed.data);assert.equal(engagement.receipt?.verification_status,'counterparty_confirmed');
+  return {opportunity,engagement};
+}
+async function waitForBusinessRead(pid:number,sql:string,finished:()=>boolean) {
+  const deadline=Date.now()+5000;
+  while(Date.now()<deadline) {
+    const rows=z.array(z.object({query:z.string()})).parse((await pool.query('SELECT query FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows);
+    if(rows.some(row=>row.query.includes(sql)))return;
+    assert.equal(finished(),false,'read finished before its expected domain SQL wait');await delay(10);
+  }
+  throw new Error(`expected business read lock wait not observed: ${sql}`);
+}
+async function businessSessionAlive(hash:string) {
+  return z.object({alive:z.boolean()}).parse((await pool.query('SELECT revoked_at IS NULL AND expires_at>clock_timestamp() AS alive FROM sessions WHERE token_hash=$1',[hash])).rows[0]).alive;
+}
+for(const target of [{path:'/opportunities',table:'opportunities',role:'provider'},{path:'/engagements',table:'receipt_observations',role:'client'}] as const) {
+  test(`${target.path} private bilateral projection rejects session expiry after its domain wait`,async()=>{
+    const provider=await signIn(),client=await signIn(DEMO_USERS[2].email),foreignProvider=await signIn(DEMO_USERS[1].email);
+    const own=await privateBusinessFixture(provider,client,'own'),foreign=await privateBusinessFixture(foreignProvider,client,'foreign');
+    const page=target.path==='/opportunities'?z.object({items:z.array(businessOpportunity)}):z.object({items:z.array(businessEngagement)});
+    const providerResult=await request(target.path,provider),foreignResult=await request(target.path,foreignProvider);assert.equal(providerResult.status,200);assert.equal(foreignResult.status,200);
+    const providerRaw=JSON.stringify(providerResult.data),foreignRaw=JSON.stringify(foreignResult.data);
+    assert.ok(providerRaw.includes(target.path==='/opportunities'?own.opportunity.opportunity_id:own.engagement.engagement_id));
+    assert.ok(foreignRaw.includes(target.path==='/opportunities'?foreign.opportunity.opportunity_id:foreign.engagement.engagement_id));
+    for(const value of [foreign.opportunity.opportunity_id,foreign.opportunity.need,foreign.engagement.engagement_id,foreign.engagement.scope,foreign.engagement.receipt?.evidence_ref]) {assert.ok(value);assert.equal(providerRaw.includes(value),false);}
+    for(const value of [own.opportunity.opportunity_id,own.opportunity.need,own.engagement.engagement_id,own.engagement.scope,own.engagement.receipt?.evidence_ref]) {assert.ok(value);assert.equal(foreignRaw.includes(value),false);}
+    const expected=page.parse((await request(target.path,target.role==='provider'?provider:client)).data);
+    for(const expires of [true,false]) {
+      const reader=await signIn(target.role==='provider'?DEMO_USERS[0].email:DEMO_USERS[2].email),token=readSessionCookie(reader.cookie,origin);assert.ok(token);const hash=tokenHash(token);
+      assert.equal((await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[hash,expires?2:60])).rowCount,1);
+      const locker=await pool.connect();let pending:Promise<{status:number;data:unknown;response:Response}>|undefined;
+      try {
+        await locker.query('BEGIN');await locker.query(`LOCK TABLE ${target.table} IN ACCESS EXCLUSIVE MODE`);
+        const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+        let finished=false;pending=request(target.path,reader);void pending.then(()=>{finished=true},()=>{finished=true});
+        await waitForBusinessRead(pid,target.path==='/opportunities'?'FROM opportunities o':'FROM engagements e',()=>finished);
+        if(expires) {
+          const deadline=Date.now()+4000;
+          while(await businessSessionAlive(hash)) {assert.ok(Date.now()<deadline,'session did not expire on the database clock');await delay(10);}
+        }else await delay(2100);
+        assert.equal(await businessSessionAlive(hash),!expires);await locker.query('COMMIT');const result=await pending;
+        assert.equal(result.status,expires?401:200);
+        if(expires) {
+          assert.equal(z.object({code:z.string()}).parse(result.data).code,'session_expired');const raw=JSON.stringify(result.data);
+          for(const value of [own.opportunity.opportunity_id,own.opportunity.need,own.engagement.engagement_id,own.engagement.scope,own.engagement.acceptance_criteria,own.engagement.delivery_ref,own.engagement.receipt?.evidence_ref]) {assert.ok(value);assert.equal(raw.includes(value),false);}
+        }else assert.deepEqual(page.parse(result.data),expected);
+      }finally {await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});}
+    }
+  });
+}
 
 test('showcase → opportunity → bilateral cooperation → delivery → receipt observation is private and never moves money',async()=>{
   const maker=await signIn(),client=await signIn(DEMO_USERS[2].email),outsider=await signIn(DEMO_USERS[1].email);

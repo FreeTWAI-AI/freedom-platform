@@ -98,6 +98,22 @@ HTTP 包裝仍是 `{items}`。另以真實 PostgreSQL 比對 0／1／6 筆待回
 且 1 筆與 6 筆的查詢次數相同。
 
 
+### 雙方私人商機與合作讀取的 session lifetime（#621）
+
+`GET /api/v1/opportunities` 與 `GET /api/v1/engagements` 含雙方私人需求、
+合作條款、交付 ref 與自填／對方確認的收款觀察 evidence。兩個 reader 重用
+`readWithMemberSession`，完整 domain SELECT 使用同一原生 transaction client，
+取得投影後再以資料庫決策時鐘驗 session；SQL 等待跨過期限回 `401 session_expired`，
+不返回私人資料。有效者的 `{items}`、完整清單／排序、雙方／community 篩選、
+版本、decimal 文字與 receipt 狀態不改，沒有加入 pagination 或 limit。
+
+`flows.test.ts` 的 consumer regression 驗兩個讀面的原生 SQL 阻塞與 DB 期限、
+有效等待後的原投影、不同 provider／同 client 合作隔離；fixture 沿真實 API 完成
+showcase → 商機 → 提案 → 同意 → 交付／驗收 → 自填／對方確認收款觀察。
+這些不是 Seller／bank 實收或平台代收事實；command／receipt 契約、公開 showcase、
+私人／tenant Work、migration 與付款能力不變。Loopback HTTP、runtime 與部署
+證據分開，本節不宣稱已部署或 Foundation 整體完成。
+
 ## Tenant manual Work
 
 Tenant Work is the `tenant_execution` mode of the same `work_items` table. It is not a personal draft and not a community collaboration. `tenant-work.ts` reads and `tenant-work-commands.ts` creates, replaces, and archives. The author is `owner_ref`; `owner_principal_id` and `community_id` stay null. Placement (`tenant_id`, `instance_id`, `workspace_id`, `created_by_principal_id`) is frozen. Archive is retained and terminal. HTTP is `apps/platform-api/src/routes/tenant-work.ts`, mounted only while guild launchpad is enabled. Owners and admins use the existing Work role template. Operators and viewers require active ordinary grants on the addressed instance; tenant-wide admission happens before lookup, unreadable id-addressed targets use the existing 404, and a missing requested instance key is 403. Workspace routes check their bound instance. Commands authorize before receipt lookup; Result commands also repeat target authorization after each receipt read/write and after external storage I/O.
