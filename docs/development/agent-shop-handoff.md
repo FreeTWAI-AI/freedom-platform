@@ -202,3 +202,11 @@ git diff --check
 - 沒有賣家收款、付款人撥款、受益人收款三種 connection，沒有綠界或其他 provider 的真實扣款。
 - 沒有獨立 QC、`official` 或法律用的電子簽章供應商。這裡的接受是會員在平台對 exact digest 的決定，不是 DocuSign。
 - 沒有物流追蹤、部分退款、或跨店收件資料的信任通道。055／056 尚未套用到正式資料庫；本變更不部署。
+
+## 12. 成果檔與開店包的登入生命週期
+
+成果檔的 `File.text()` 與開店包 HTTP 回應可能在登出、同帳號重新登入或離開商店入口後才完成。`ImportResult` 與 `AgentShopPanel` 保留建立時的 `client.sessionGeneration`，並在卸載時失效；只有原元件及原登入仍有效，才可送出成果預覽、採用預覽結果或觸發 MD 下載。舊檔案不會借用新登入的 CSRF／身分送入 `/commerce/preview`。
+
+此界線不撤回已在有效登入下完成的 API 結果，也不移除本人已下載的檔案；預覽仍不是歸檔，內部開店包的通用模板也不當成含有私人 token 的證據。本人在目前入口重新選檔或點下載，仍走原有預覽、確認歸檔與下載流程。
+
+`modules/agent-commerce/portal/freedom.module.json` 映射 Commerce panel、原樣式與既有 browser journey，依賴 `agent-commerce` 並沿用 `runtime.full`／`e2e.harness`。原 domain descriptor 已滿 64 路徑，故不刪路徑、不擴大 schema 上限；context 仍需核對 baseline／candidate 及完整規則。本機通過不等於 CI、merge 或部署完成。
