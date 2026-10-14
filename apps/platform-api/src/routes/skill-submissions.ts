@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { normalizeSubmission } from '../../../../modules/skill-submissions/payload.js';
 import {
   agentCreateSubmission, agentUploadSubmission, createKey, findUploadGrant, findUploadKey, issueSubmission, listKeys, listSubmissions,
@@ -123,7 +124,7 @@ export function createSkillSubmissionRoutes(pool: Pool, origin: string, readToke
     withEtag(c, result.submission);
     return c.json(result.submission, result.created ? 201 : 200);
   });
-  app.get('/me/skill-upload-keys', async c => c.json({ items: await listKeys(pool, c.get('actor')) }));
+  app.get('/me/skill-upload-keys', async c => c.json({ items: await readWithMemberSession(pool, c.get('actor'), q => listKeys(q, c.get('actor'))) }));
   app.post('/me/skill-upload-keys', async c => c.json(await createKey(pool, await moduleCommand(c)), 201));
   app.post('/me/skill-upload-keys/:id/revoke', async c => c.json(await revokeKey(pool, await moduleCommand(c), c.req.param('id'))));
   return app;

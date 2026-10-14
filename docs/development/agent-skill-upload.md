@@ -60,6 +60,11 @@
 Asset 圖片仍保留原有 personal scope／principal 驗證、物件 I/O 前後快照與
 session clock 檢查，沒有改成 legacy 讀取方式。
 
+本人 `GET /me/skill-upload-keys` 在同一短交易依序鎖 user／session，讀完金鑰
+metadata 後以 PostgreSQL `clock_timestamp()` 重驗期限。清單查詢等待跨過 session
+到期時回 `401 session_expired`，不回 `items` 或私人 label；仍不輸出 token／hash。
+這是瀏覽器金鑰清單的讀取邊界，不更動 Agent bearer 建立與上傳流程。
+
 ## Agent API（`/agent-api/v1`，不經 cookie middleware）
 
 `createAgentSkillSubmissionRoutes(pool, origin, network?)`：
