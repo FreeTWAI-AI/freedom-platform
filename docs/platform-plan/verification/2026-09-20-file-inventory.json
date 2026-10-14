@@ -13784,8 +13784,8 @@
     },
     {
       "path": "docs/development/contribution-cooperation.md",
-      "bytes": 6080,
-      "sha256": "198e019aa86e7cb0298fbe4c9ba985897f0cda4a2805df42ed92fc42ff53bafe"
+      "bytes": 8202,
+      "sha256": "6cf92cd013b35149cee974a30cc40f3a0dbdce1f9bef63d7d5fe6b250d76fe23"
     },
     {
       "path": "docs/development/daily-recovery-backup-installation.md",
@@ -13844,8 +13844,8 @@
     },
     {
       "path": "docs/development/github-social.md",
-      "bytes": 14493,
-      "sha256": "012a8a88008a5b12be473499bd44701744e240a308d828ec42114b7ca99b0829"
+      "bytes": 14603,
+      "sha256": "b5387a931b2aa7484e6795df051cdcd918f6adc0de312ad55016e802caad3eb1"
     },
     {
       "path": "docs/development/guide-publisher-2026-10-05.md",
@@ -13899,8 +13899,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 61925,
-      "sha256": "333b3befe5edb342e3f8bbe42859e0aa89c4e3e4c1658d0ebee8a0fb55b637b4"
+      "bytes": 62307,
+      "sha256": "ad58c0c521b5cdcbf51f3f12c731cc260fa8fb3bb1575d8c2b1c913f35d73ae6"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14059,8 +14059,8 @@
     },
     {
       "path": "docs/development/skill-editor-guild-access.md",
-      "bytes": 7187,
-      "sha256": "03e4139bd4c5bb69bb7c99ff45f080f163ef40a2ea4e224c51c74d6321d1094d"
+      "bytes": 7878,
+      "sha256": "83bbbfaf1ebcdf8ff9763eacbc081303dda91baf9673ce219a35e23ae5244027"
     },
     {
       "path": "docs/development/social-account-language.md",
@@ -17604,8 +17604,8 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 56508,
-      "sha256": "3be9b1e89ca6de1df2244f0dcea369f41b111cac3bb08b834336253663a9ec09"
+      "bytes": 57478,
+      "sha256": "72dc5b0b2b48004bd3b7059d51dd4a753b52502753ea44973f57ec42986e5c5b"
     },
     {
       "path": "modules/community/first-participation.ts",
@@ -18004,8 +18004,8 @@
     },
     {
       "path": "modules/github-social/service.ts",
-      "bytes": 37104,
-      "sha256": "b5f986ac8fa5239fa4177913417070ba7fbcf4dcc51c21e9e2cefc89ccb21f44"
+      "bytes": 37564,
+      "sha256": "1f5afcff1ffeff3e3b24ac5704bdcd825e232682d0312600416802684eb78751"
     },
     {
       "path": "modules/github-social/setup.ts",
@@ -18134,8 +18134,8 @@
     },
     {
       "path": "modules/guild-workspace/service.ts",
-      "bytes": 21340,
-      "sha256": "dd0fecdcb5170733bf582733e975290273a4173dd9af0f235b3e67652dae5f38"
+      "bytes": 21760,
+      "sha256": "4e75eb3d384e7970f745500c786fe16ead6be55cb8347599e7a4cb16e86d21e1"
     },
     {
       "path": "modules/identity-membership/account-security.ts",
@@ -18454,8 +18454,8 @@
     },
     {
       "path": "modules/opportunity-project-work/contribution-roles.ts",
-      "bytes": 14807,
-      "sha256": "21cdba0b91061104b759e87a8d8de1de4cf8ec80999a644de60b8160a48daaf6"
+      "bytes": 15639,
+      "sha256": "48ca9d40a6fd4fa1c2908912e1b882917a6d81e8ef07db75b444469d7a6cb8e7"
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
@@ -21589,8 +21589,8 @@
     },
     {
       "path": "tests/runtime/contribution-roles.test.ts",
-      "bytes": 19150,
-      "sha256": "88e38660e56c3a5ff79f8edf87d70aa7feaea68582aff7bd4cf312b5610c6033"
+      "bytes": 31092,
+      "sha256": "6de254695045a158a00b59e7402d63fad53506a985544e84b9f70f180bdd0fe4"
     },
     {
       "path": "tests/runtime/credential-broker-adversarial.test.ts",
@@ -21759,8 +21759,8 @@
     },
     {
       "path": "tests/runtime/event-waitlist.test.ts",
-      "bytes": 28866,
-      "sha256": "d32afab3a2f9dc7c66d3480cc02e4a888ff3507cb38294336232a712372edaee"
+      "bytes": 41295,
+      "sha256": "602d22283f187535ed309adef7e861bce4b84591ceea0b7c4f4eddc60069a6c0"
     },
     {
       "path": "tests/runtime/events-past.test.ts",
@@ -21879,8 +21879,8 @@
     },
     {
       "path": "tests/runtime/github-social.test.ts",
-      "bytes": 47812,
-      "sha256": "d2479a4c8f614a14cbf4a38806c4ed10b0fc65dd4a29135b22e31daf0eb72158"
+      "bytes": 49266,
+      "sha256": "21a0a8c9101f9a68fdded2d8b06e4a4d910ae15e496ca1374bbcde2e54553324"
     },
     {
       "path": "tests/runtime/github-sync.test.ts",
@@ -21959,8 +21959,8 @@
     },
     {
       "path": "tests/runtime/guild-workspace.test.ts",
-      "bytes": 34753,
-      "sha256": "6b208783fc29df20feab2d21b3fe97e7d454ba14120302d129f87283e4463cc6"
+      "bytes": 39520,
+      "sha256": "3d0bddef7d2a27cda42a0a88f5ff0ccf9eb06418e26f8211544b4cfb5d2bfd97"
     },
     {
       "path": "tests/runtime/hosted-direct-orders.test.ts",
