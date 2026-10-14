@@ -775,7 +775,7 @@ on every request, so there is no stored report to go stale or leak. The default
 range is the last 28 Asia/Taipei days; the maximum is 366 days. Invalid calendar
 dates return 422 before any report query. Search rates expose distinct excluded
 test-account counts and excluded read counts for their own denominator. The response
-embeds its own definition (`participation-metrics/v2`): cohort, time zone,
+embeds its own definition (`participation-metrics/v3`): cohort, time zone,
 window, de-duplication and exclusions are part of the data, not tribal
 knowledge.
 
@@ -788,8 +788,17 @@ elapsed; the rest is `pending_window`. Fewer than 10 in a denominator returns
 `rate: null, status: insufficient_sample`. Verification/test accounts, launch-day
 backfilled joiners, authors replying to themselves, inactive or foreign
 responders and removed content are excluded and test-account counts are shown.
-Moderation case time is `not_available`: reporting cases exist, but their
-processing time has not been instrumented, so no number is invented.
+`moderation_first_handling_48h` and `moderation_close_7d` count cases received
+in the requested Asia/Taipei range. A case enters the denominator only after 48
+hours, or 7 days, from `member_reports.created_at`. The numerator is the first
+`transition` journal row whose state is `in_progress` or `closed` inside that
+window. Both spans are observation windows, not service-level targets for
+volunteer handlers; open cases still inside the window are `pending_window`,
+not failures. `median_hours` is the median receipt-to-event duration in hours
+over the numerator and is null when that numerator is below 10.
+Verification/test-account reporters are excluded and counted as
+`excluded_test_accounts`. `repeat_abuse` stays `not_available` until a
+maintainer defines it (#262).
 
 Search outcomes store only an operation id, member, time, whether it was the
 first page, a result count and one opened content kind. Query text, filters,
