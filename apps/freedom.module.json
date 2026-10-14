@@ -85,7 +85,6 @@
     "apps/portal-web/src/styles.css",
     "apps/portal-web/src/auth-messages.ts",
     "apps/platform-api/src/routes/admin.ts",
-    "tests/runtime/platform-admin.test.ts",
     "modules/platform-admin/guild-appointment-membership.ts",
     "modules/platform-admin/guild-experts.ts",
     "modules/platform-admin/leadership.ts",
