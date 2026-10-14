@@ -350,6 +350,17 @@ network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per networ
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
 
+## Organizer event referral reports
+
+`GET /api/v1/events/:id/referrals` returns sharing members' `user_id`,
+`member_name`, registrations and clicks only to the same-community organizer;
+other members receive `403 organizer_required`. The route holds current
+user/session locks and runs the existing organizer authorization and all report
+queries on that same transaction client. After the final projection it checks
+the PostgreSQL wall clock: a SQL wait crossing session expiry returns
+`401 session_expired`, without an `items` projection. Existing statistics,
+verification-account exclusions and public event readers are unchanged.
+
 ## Event submission budget
 
 `POST /api/v1/events` permits five newly committed submissions per member in a
