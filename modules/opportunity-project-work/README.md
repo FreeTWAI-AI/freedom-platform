@@ -172,6 +172,26 @@ revision／hash、版本、模式與本人／self-claim 契約不改；沒有新
 policy、migration、retry 或外部 I/O。Loopback HTTP／runtime 不代表已部署，
 本節不宣稱 Foundation 整體驗收完成。
 
+### 第一人稱效益私稿的 session lifetime（#628）
+
+`benefitView` 是社群 Work 兩位參與者的本人敘述／evidence／工時及 outcomes
+彙總，不是公開私稿、獨立收入核實或 Contribution。完整 Work → Claim →
+最新 Observation → DTO 重用 `readWithMemberSession` 的同一原生 client，
+最後 SQL 後驗資料庫 session 時鐘。到期回 `401 session_expired`，不回私稿
+或 Observation ID，也不讓原 route 發出成功 ETag；有效者保留原 DTO／ETag。
+其 query-only helpers 只接 native PoolClient，不保留裸 Pool 的舊讀取路徑。
+
+`benefits.test.ts` consumer regression 驗初始 Work／最後 Observation 的真實 SQL
+等待、到期／有效、If-None-Match、私稿及 ETag 邊界；兩參與者只見本人正文與
+彙總，第三成員仍 404。原 append-only／supersede／command receipt、缺稿 unknown、
+self_reported／independent_people_verified=false／income_verified=false、
+私稿不進 journal／outbox、Work 模式與 Contribution／付款語意不變。
+
+本項保留 full affected scope。Baseline ownership 未涵蓋 benefits route／既有
+runtime test，context 的 `surface_unmapped`／not-complete 不能因 source／HTTP／
+runtime 通過而清掉；需維護者核對既有 owner 宣告及正常 CI／review。沒有自我
+批准治理 baseline、migration、retry、provider 或已部署／整體完成的宣稱。
+
 ## Tenant manual Work
 
 Tenant Work is the `tenant_execution` mode of the same `work_items` table. It is not a personal draft and not a community collaboration. `tenant-work.ts` reads and `tenant-work-commands.ts` creates, replaces, and archives. The author is `owner_ref`; `owner_principal_id` and `community_id` stay null. Placement (`tenant_id`, `instance_id`, `workspace_id`, `created_by_principal_id`) is frozen. Archive is retained and terminal. HTTP is `apps/platform-api/src/routes/tenant-work.ts`, mounted only while guild launchpad is enabled. Owners and admins use the existing Work role template. Operators and viewers require active ordinary grants on the addressed instance; tenant-wide admission happens before lookup, unreadable id-addressed targets use the existing 404, and a missing requested instance key is 403. Workspace routes check their bound instance. Commands authorize before receipt lookup; Result commands also repeat target authorization after each receipt read/write and after external storage I/O.

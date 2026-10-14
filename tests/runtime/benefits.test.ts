@@ -1,12 +1,16 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import {execFileSync} from 'node:child_process';
 import {Pool} from 'pg';
+import {z} from 'zod';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
+import {readSessionCookie} from '../../apps/platform-api/src/session-cookie.js';
+import {tokenHash} from '../../modules/identity-membership/service.js';
 
 const pythonCommand=process.platform==='win32'?'python':'python3';
 
@@ -34,6 +38,63 @@ async function participate(maker:Session){
 async function action(member:Session,claim:any,action:string,body:unknown={}){const r=await request(`/work-claims/${claim.claim_id}:${action}`,member,body,claim.aggregate_version);assert.equal(r.status,200,JSON.stringify(r.data));return r.data;}
 async function accept(maker:Session,owner:Session,claim:any){let c=await action(maker,claim,'submit',{summary:'可重用說明已完成',artifact_ref:'artifact:benefit-test'});c=await action(owner,c,'begin-review');return action(owner,c,'decide',{decision:'accept',feedback:'符合完成條件',submission_sha256:c.latest_submission.sha256});}
 const report=(role:'beneficiary'|'contributor',claim:string|null=null)=>({work_claim_ref:claim,role,outcome:'gained',actual_gain:'私人經驗：節省重複整理時間',evidence_refs:['artifact:private-benefit-ref'],would_participate_again:true,effort_minutes:null,supersedes_observation_ref:null});
+
+const clockBenefitReport=z.object({work_claim_ref:z.uuid().nullable(),role:z.enum(['beneficiary','contributor']),outcome:z.string(),actual_gain:z.string().nullable(),
+ evidence_refs:z.array(z.string()),would_participate_again:z.boolean().nullable(),effort_minutes:z.object({platform_maintenance:z.number().nullable(),coordination_friction:z.number().nullable(),collaborative_value:z.number().nullable(),paid_delivery:z.number().nullable()}).nullable(),supersedes_observation_ref:z.uuid().nullable()});
+const clockBenefitReceipt=z.object({observation_id:z.uuid(),work_item_ref:z.uuid(),reporter_principal_ref:z.uuid(),observation_revision:z.number().int(),recorded_at:z.string(),report:clockBenefitReport});
+const clockBenefitView=z.object({work_item_ref:z.uuid(),aggregate_version:z.number().int(),role:z.enum(['beneficiary','contributor']),work_claim_ref:z.uuid().nullable(),can_report:z.boolean(),own_observation:clockBenefitReceipt.nullable(),
+ summary:z.object({participants:z.number().int(),reported:z.number().int(),outcomes:z.object({gained:z.number().int(),partly_gained:z.number().int(),not_gained:z.number().int(),unconfirmed:z.number().int(),not_reported:z.number().int()}),
+ both_participants_reported_gained:z.boolean(),evidence_level:z.literal('self_reported'),independent_people_verified:z.literal(false),income_verified:z.literal(false)})});
+async function waitForBenefitRead(pid:number,sql:string,finished:()=>boolean){
+ const deadline=Date.now()+5000;
+ while(Date.now()<deadline){
+  const rows=z.array(z.object({query:z.string()})).parse((await pool.query('SELECT query FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows);
+  if(rows.some(row=>row.query.includes(sql)))return;
+  assert.equal(finished(),false,'benefit read finished before the expected SQL wait');await delay(10);
+ }
+ throw new Error(`expected benefit read lock wait not observed: ${sql}`);
+}
+async function benefitSessionAlive(hash:string){
+ return z.object({alive:z.boolean()}).parse((await pool.query('SELECT revoked_at IS NULL AND expires_at>clock_timestamp() AS alive FROM sessions WHERE token_hash=$1',[hash])).rows[0]).alive;
+}
+for(const target of [{table:'work_items',member:1,role:'beneficiary'},{table:'work_benefit_observations',member:0,role:'contributor'}] as const){
+ test(`first-person benefit after ${target.table} wait rejects expired session without private report or ETag`,async()=>{
+  const maker=await signIn(),owner=await signIn(1),outsider=await signIn(2);
+  const claim=z.object({claim_id:z.uuid()}).parse(await participate(maker)),version=z.object({aggregate_version:z.number().int()}).parse(await work(maker)).aggregate_version;
+  const reports=new Map<'beneficiary'|'contributor',z.infer<typeof clockBenefitReceipt>>();
+  for(const [member,role] of [[owner,'beneficiary'],[maker,'contributor']] as const){
+   const input={...report(role,role==='contributor'?claim.claim_id:null),actual_gain:`private-${role}-only-benefit`,evidence_refs:[`artifact:private-${role}-only-benefit`],
+    effort_minutes:{platform_maintenance:7,coordination_friction:11,collaborative_value:13,paid_delivery:null}};
+   const result=await request(path,member,input,version);assert.equal(result.status,201);reports.set(role,clockBenefitReceipt.parse(result.data));
+  }
+  assert.equal((await request(path,outsider)).status,404);
+  for(const [member,role,other] of [[owner,'beneficiary','contributor'],[maker,'contributor','beneficiary']] as const){
+   const result=await request(path,member);assert.equal(result.status,200);const view=clockBenefitView.parse(result.data);assert.deepEqual(view.own_observation,reports.get(role));assert.equal(view.summary.both_participants_reported_gained,true);
+   const hidden=reports.get(other);assert.ok(hidden);const raw=JSON.stringify(result.data);
+   for(const value of [hidden.observation_id,hidden.report.actual_gain,...hidden.report.evidence_refs]){assert.ok(value);assert.equal(raw.includes(value),false);}
+  }
+  for(const expires of [true,false]){
+   const reader=await signIn(target.member),token=readSessionCookie(reader.cookie,origin);assert.ok(token);const hash=tokenHash(token);
+   const baseline=await request(path,reader);assert.equal(baseline.status,200);const original=clockBenefitView.parse(baseline.data),etag=baseline.response.headers.get('etag');assert.ok(etag);
+   assert.equal(original.role,target.role);
+   assert.equal((await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[hash,expires?2:60])).rowCount,1);
+   const locker=await pool.connect();let pending:Promise<{status:number;data:unknown;response:Response}>|undefined;
+   try{
+    await locker.query('BEGIN');await locker.query(`LOCK TABLE ${target.table} IN ACCESS EXCLUSIVE MODE`);
+    const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+    let finished=false;pending=request(path,reader,undefined,undefined,randomUUID(),{'If-None-Match':etag});void pending.then(()=>{finished=true},()=>{finished=true});
+    await waitForBenefitRead(pid,target.table==='work_items'?'SELECT * FROM work_items WHERE':'FROM work_benefit_observations',()=>finished);
+    if(expires){const deadline=Date.now()+4000;while(await benefitSessionAlive(hash)){assert.ok(Date.now()<deadline,'session did not expire on the database clock');await delay(10);}}
+    else await delay(2100);
+    assert.equal(await benefitSessionAlive(hash),!expires);await locker.query('COMMIT');const result=await pending;assert.equal(result.status,expires?401:200);
+    if(expires){
+     assert.equal(z.object({code:z.string()}).parse(result.data).code,'session_expired');assert.equal(result.response.headers.has('etag'),false);
+     const raw=JSON.stringify(result.data);for(const receipt of reports.values())for(const value of [receipt.observation_id,receipt.report.actual_gain,...receipt.report.evidence_refs]){assert.ok(value);assert.equal(raw.includes(value),false);}
+    }else{assert.deepEqual(clockBenefitView.parse(result.data),original);assert.equal(result.response.headers.get('etag'),etag);}
+   }finally{await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});}
+  }
+ });
+}
 
 test('optional self-reports persist across application restart, conform to canonical schema and never change accepted contribution facts',async()=>{
  const maker=await signIn(),owner=await signIn(1);let claim=await participate(maker);claim=await accept(maker,owner,claim);
