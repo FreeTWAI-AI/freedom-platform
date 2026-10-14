@@ -68,6 +68,36 @@ async function uploaded(session:Session,extra:Record<string,unknown>={}){
  const r=await agent(`/skill-submissions/${draft.submission.submission_id}`,draft.upload_grant.token,payload(extra));assert.equal(r.status,200,JSON.stringify(r.data));
  return (await api(`/me/skill-submissions/${draft.submission.submission_id}`,session)).data;
 }
+test('own submission list refuses private drafts after a projection wait crosses session expiry',async()=>{
+ const owner=await login(),other=await login(DEMO_USERS[1].email);
+ const body={repository_url:'https://github.com/example/project',title:'未公開私人草稿',description:'只能由本人有效登入讀取。',relationship:'author'};
+ const saved=await api('/me/skill-submissions/manual',owner,body);
+ assert.equal(saved.status,201,JSON.stringify(saved.data));
+ const current=await api('/me/skill-submissions',owner);
+ assert.equal(current.status,200);assert.equal(current.data.items[0].submission_id,saved.data.submission_id);
+ assert.equal(current.data.items[0].payload.title,body.title);
+ assert.deepEqual((await api('/me/skill-submissions',other)).data.items,[]);
+ await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=$1",[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_submissions IN ACCESS EXCLUSIVE MODE');
+  pending=api('/me/skill-submissions',owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.ok(waiting,'request must actually wait for the private projection');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const denied=await pending!;
+ assert.equal(denied.status,401);assert.equal(denied.data.code,'session_expired');
+ assert.equal(denied.data.items,undefined);assert.equal(JSON.stringify(denied.data).includes(body.title),false);
+});
+
 test('manual form saves a private draft without credentials, then owner publishes the pinned source and one introduction',async t=>{
  const {seen,sha}=mockGitHub(t),owner=await login(),other=await login(DEMO_USERS[1].email),key=randomUUID();
  const body={repository_url:'https://github.com/example/project',title:'共同筆記',description:'把會議紀錄整理成筆記。',relationship:'curator'};
@@ -133,6 +163,29 @@ test('upload keys: secret shown once, only SHA-256 stored, replay hides token, o
  assert.equal((await api('/me/skill-upload-keys',owner,{label:'eleventh'})).data.code,'upload_key_limit');
 });
 
+test('the skill upload key list is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await login();await newKey(owner);
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_upload_keys IN ACCESS EXCLUSIVE MODE');
+  pending=api('/me/skill-upload-keys',owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'skill key list must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
 test('agent auth: key creates draft only, cookies and other bearer kinds rejected, grant is exact and one-time',async()=>{
  const owner=await login(),key=(await newKey(owner)).token,idem=randomUUID();
  assert.equal((await agent('/skill-submissions',null,{},{'Idempotency-Key':idem,Cookie:owner.cookie,'X-CSRF-Token':owner.csrf})).status,401);
@@ -166,6 +219,29 @@ test('agent auth: key creates draft only, cookies and other bearer kinds rejecte
  assert.equal((await api(`/me/skill-submissions/${id}`,await login(DEMO_USERS[1].email))).status,404);
  assert.equal(isAgentSkillUploadPath('POST','/agent-api/v1/skill-submissions'),true);assert.equal(isAgentSkillUploadPath('POST',`/agent-api/v1/skill-submissions/${id}`),true);
  assert.equal(isAgentSkillUploadPath('POST',`/agent-api/v1/skill-submissions/${id}/publish`),false);assert.equal(isAgentSkillUploadPath('GET','/agent-api/v1/skill-submissions'),false);
+});
+
+test('the skill submission detail is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await login();const draft=await uploaded(owner);const id=draft.submission_id as string;
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_submissions IN ACCESS EXCLUSIVE MODE');
+  pending=api(`/me/skill-submissions/${id}`,owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'submission detail must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
 });
 
 test('payload is strict: exactly 100 distinct single-line introductions and no consent/official/member fields',async()=>{
@@ -217,6 +293,32 @@ test('cover image: vector, mislabelled and animated input rejected; raster re-en
  assert.equal(meta.width,1200);assert.equal(meta.height,630);
  assert.equal((await api(`/me/skill-submissions/${id}/illustration`,await login(DEMO_USERS[1].email))).status,404);
  assert.equal(JSON.stringify((await api('/me/skill-submissions',owner)).data).includes(jpeg.toString('base64').slice(0,40)),false);
+});
+
+test('a private legacy illustration is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await login(),raster=await png();
+ await pool.query("UPDATE domain_media_storage_policy SET mode='legacy' WHERE purpose='skill.submission-image'");
+ const draft=await uploaded(owner,{cover_image:{mime_type:'image/png',data_base64:raster.toString('base64')}});
+ await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE user_id=$1",[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof api>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE skill_submissions IN ACCESS EXCLUSIVE MODE');
+  pending=api(`/me/skill-submissions/${draft.submission_id}/illustration`,owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'illustration request must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+ assert.equal(response.response.headers.get('Content-Type')?.includes('image/webp'),false);
 });
 
 test('key revoke/expiry, grant expiry, member disable and incomplete onboarding reject uploads even for replays',async()=>{
@@ -472,4 +574,29 @@ test('platform app wiring: agent POSTs work without Origin, foreign Origin is re
  assert.equal((await platform.request(origin+'/api/v1/me/skill-submissions')).status,401);
  const listed=await platform.request(origin+'/api/v1/me/skill-submissions',{headers:{Cookie:owner.cookie}});
  const items=(await listed.json() as any).items;assert.equal(items[0].status,'ready_for_review');assert.equal(items[0].aggregate_version,2);
+});
+
+test('an agent draft waiting on the member draft lock cannot be issued after its upload key expires',async()=>{
+ const owner=await login(),issued=await newKey(owner),holder=await pool.connect();
+ let pending:Promise<unknown>|undefined;
+ try{
+  await holder.query('BEGIN');
+  await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`skill-submissions/${owner.user.user_id}`]);
+  await pool.query("UPDATE skill_upload_keys SET expires_at=clock_timestamp()+interval '2 seconds' WHERE key_id=$1",[issued.key.key_id]);
+  pending=agent('/skill-submissions',issued.token,{},{'Idempotency-Key':randomUUID()});
+  const holderPid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  let waiting=false;
+  for(let attempt=0;attempt<200&&!waiting;attempt++){
+   waiting=Boolean((await admin.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT pg_advisory_xact_lock%' AND $1=ANY(pg_blocking_pids(pid))",[holderPid])).rowCount);
+   if(!waiting)await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.equal(waiting,true,'agent draft creation must wait on the member draft lock');
+  await pool.query('SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM skill_upload_keys WHERE key_id=$1',[issued.key.key_id]);
+  await holder.query('COMMIT');
+  const result=await pending as {status:number;data:{code?:string;upload_grant?:{token?:string}|null}};
+  assert.equal(result.status,401);
+  assert.equal(result.data.code,'upload_key_invalid');
+  assert.equal(result.data.upload_grant??null,null);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM skill_submissions WHERE owner_ref=$1',[owner.user.user_id])).rows[0].n,0);
+ }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await Promise.resolve(pending).catch(()=>{});}
 });

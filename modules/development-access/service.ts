@@ -34,12 +34,20 @@ export class DevelopmentAccess {
   private async member<T>(actor:Actor,run:(q:PoolClient)=>Promise<T>,browser=true):Promise<T>{
     const result=await transaction(this.pool,async q=>{
       requireCondition((await q.query(`SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND ${ready} FOR SHARE`,[actor.user_id,actor.community_id])).rowCount===1,403,'development_member_required','請先完成會員定位。');
-      if(browser)requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',[actor.session_hash,actor.user_id])).rowCount===1,401,'session_expired','請重新登入。');
+      if(browser)await this.assertBrowserSession(q,actor);
       await lockMemberGuilds(q,actor);
-      // Persist definitive revocations even when an operation is refused.
-      try{return {value:await run(q)};}catch(error){if(error instanceof Problem)return {error};throw error;}
+      if(browser)await this.assertBrowserSession(q,actor);
+      let outcome:{value:T}|{error:Problem};
+      try{outcome={value:await run(q)};}
+      catch(error){if(error instanceof Problem)outcome={error};else throw error;}
+      // A caught Problem commits earlier writes. Session expiry must abort them.
+      if(!('error' in outcome)&&browser)await this.assertBrowserSession(q,actor);
+      return outcome;
     });
     if('error' in result)throw result.error;return result.value;
+  }
+  private async assertBrowserSession(q:PoolClient,actor:Actor){
+    requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE',[actor.session_hash,actor.user_id])).rowCount===1,401,'session_expired','請重新登入。');
   }
   private async sources(q:PoolClient,actor:Actor,capability:Capability){
     return (await q.query(`SELECT guild_key FROM positioning_profession_memberships WHERE user_id=$1 AND community_id=$2 AND state='active' AND member_tier='full' AND guild_key=ANY($3::text[]) ORDER BY guild_key`,[actor.user_id,actor.community_id,developmentGuilds[capability]])).rows.map(row=>row.guild_key as string);
@@ -59,7 +67,7 @@ export class DevelopmentAccess {
     const hash=digest(input.body),prior=(await q.query('SELECT * FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[input.actor.user_id,input.operation,input.key])).rows[0];
     if(prior){
       requireCondition(prior.request_sha256===hash,409,'idempotency_conflict','同一操作識別碼不可搭配不同內容。');
-      if(prior.response.grant_id)requireCondition((await q.query('SELECT 1 FROM development_grants WHERE grant_id=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now()',[prior.response.grant_id,input.actor.user_id])).rowCount,403,'development_grant_required','舊授權已撤銷，請重新啟用。');
+      if(prior.response.grant_id)requireCondition((await q.query('SELECT 1 FROM development_grants WHERE grant_id=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[prior.response.grant_id,input.actor.user_id])).rowCount,403,'development_grant_required','舊授權已撤銷，請重新啟用。');
       return prior.response;
     }
     const value=await run();
@@ -113,7 +121,7 @@ export class DevelopmentAccess {
     // Read the grant only after any in-flight reconnect/disconnect has committed
     // its revocation; a row read before this lock may already be stale.
     await lockGitHubSocialMember(q,actor.user_id);await this.prerequisites(q,actor,capability);
-    const row=(await q.query(`SELECT * FROM development_grants WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND target_key=$4 AND revoked_at IS NULL AND expires_at>now() ${grantId?'AND grant_id=$5':''}`,grantId?[actor.user_id,actor.community_id,capability,targetKey,grantId]:[actor.user_id,actor.community_id,capability,targetKey])).rows[0];
+    const row=(await q.query(`SELECT * FROM development_grants WHERE user_id=$1 AND community_id=$2 AND capability=$3 AND target_key=$4 AND revoked_at IS NULL AND expires_at>clock_timestamp() ${grantId?'AND grant_id=$5':''}`,grantId?[actor.user_id,actor.community_id,capability,targetKey,grantId]:[actor.user_id,actor.community_id,capability,targetKey])).rows[0];
     requireCondition(row&&row.policy_version===DEVELOPMENT_POLICY&&row.target_repository===target.repository,403,'development_grant_required','開發授權已失效，請重新完成設定。');
     try{
       const evidence=await this.social.developmentEvidence(q,actor,target.repository,row.working_repository);
@@ -130,7 +138,7 @@ export class DevelopmentAccess {
     const result=await this.member(input.actor,async q=>{
       const grant=await this.authorizeGrant(q,input.actor,capability,targetKey);
       return this.receipt(q,input,async()=>{
-        requireCondition(Number((await q.query('SELECT count(*) FROM development_keys WHERE source_grant_id=$1 AND revoked_at IS NULL AND expires_at>now()',[grant.grant_id])).rows[0].count)<5,409,'development_key_limit','請先撤銷不再使用的開發憑證。');
+        requireCondition(Number((await q.query('SELECT count(*) FROM development_keys WHERE source_grant_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[grant.grant_id])).rows[0].count)<5,409,'development_key_limit','請先撤銷不再使用的開發憑證。');
         secret='fpd_'+randomBytes(32).toString('base64url');
         return {...(await q.query(`INSERT INTO development_keys(key_id,source_grant_id,secret_hash,expires_at) VALUES($1,$2,$3,LEAST(now()+interval '60 minutes',$4)) RETURNING key_id,source_grant_id,scope,expires_at`,[randomUUID(),grant.grant_id,tokenHash(secret),grant.expires_at])).rows[0],working_repository:grant.working_repository,target_repository:grant.target_repository};
       });
@@ -166,7 +174,7 @@ export class DevelopmentAccess {
     const actor={user_id:stored.user_id,community_id:stored.community_id} as Actor;
     return this.member(actor,async q=>{
       await lockGitHubSocialMember(q,actor.user_id);
-      requireCondition((await q.query('SELECT 1 FROM development_keys WHERE key_id=$1 AND revoked_at IS NULL AND expires_at>now()',[stored.key_id])).rowCount,403,'development_key_revoked','開發憑證已到期或撤銷。');
+      requireCondition((await q.query('SELECT 1 FROM development_keys WHERE key_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[stored.key_id])).rowCount,403,'development_key_revoked','開發憑證已到期或撤銷。');
       const grant=await this.authorizeGrant(q,actor,stored.capability,stored.target_key,stored.grant_id);
       return this.proposal(q,{actor,operation:`agent-development/${stored.key_id}`,body,key},grant);
     },false);

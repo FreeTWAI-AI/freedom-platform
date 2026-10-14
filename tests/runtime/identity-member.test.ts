@@ -1,12 +1,16 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setImmediate } from 'node:timers/promises';
+import { z } from 'zod';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { emptyContacts } from '../../modules/identity-membership/members.js';
+import { readSessionCookie } from '../../apps/platform-api/src/session-cookie.js';
+import { tokenHash } from '../../modules/identity-membership/service.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_identity_test_${process.pid}_${Date.now()}`,admin=createPool(databaseUrl);
@@ -347,4 +351,63 @@ test('all four squad kinds keep their keys, use current names, and reject unsupp
   const list=await request('/squads',owner);
   assert.deepEqual(list.data.kinds,expected);
   assert.equal((await request('/squads',owner,{name:'不支援',kind:'unknown',purpose:'類型邊界'})).status,422);
+});
+
+test('account and avatar projections reject expiry after final SQL waits without undoing committed account changes',async()=>{
+  const marker='account-decision-clock-private',owner=await signIn(),raw=readSessionCookie(owner.cookie,origin);
+  assert.ok(raw);const hash=tokenHash(raw);
+  await account(owner,{...emptyContacts(),line:{value:marker,audiences:[]}});
+  await pool.query('INSERT INTO member_avatars(user_id,community_id) VALUES($1,$2)',[DEMO_USERS[0].user_id,DEMO_COMMUNITY]);
+  const definition=z.object({definition:z.string()}).parse((await pool.query("SELECT pg_get_viewdef('member_avatar_presence'::regclass,true) AS definition")).rows[0]).definition.replace(/;\s*$/,'');
+  // Pause the actual final metadata projection, after its session predicate has
+  // been evaluated. A table lock before SELECT would exercise a different clock.
+  await pool.query(`CREATE FUNCTION pause_account_avatar(value boolean) RETURNS boolean LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${schema}',0)); RETURN value; END $$`);
+  await pool.query(`CREATE OR REPLACE VIEW member_avatar_presence AS SELECT user_id,community_id,aggregate_version,storage_source,pause_account_avatar(present) AS present FROM (${definition}) original_presence`);
+  try{
+    for(const scenario of [{path:'/me/account',write:false,onboarded:false},{path:'/me/account',write:false,onboarded:true},{path:'/me/account',write:true,onboarded:true},{path:'/me/avatar',write:false,onboarded:true}]){
+      await pool.query('UPDATE users SET onboarding_required=$2,onboarding_completed_at=CASE WHEN $2 THEN NULL ELSE now() END WHERE user_id=$1',[DEMO_USERS[0].user_id,!scenario.onboarded]);
+      for(const expired of [true,false]){
+        const gate=await admin.connect(),key=randomUUID(),nickname=`decision-clock-${key}`;
+        const version=Number(z.object({aggregate_version:z.string()}).parse((await pool.query('SELECT aggregate_version FROM member_accounts WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0]).aggregate_version);
+        const body=scenario.write?{nickname,contacts:{...emptyContacts(),line:{value:marker,audiences:[]}}}:undefined;
+        let pending:ReturnType<typeof request>|undefined;
+        try{
+          assert.equal((await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[hash,expired?2:300])).rowCount,1);
+          await gate.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[schema]);
+          const holder=z.object({pid:z.number()}).parse((await gate.query('SELECT pg_backend_pid() AS pid')).rows[0]).pid;
+          pending=request(scenario.path,owner,body,scenario.write?version:undefined,key);
+          const deadline=Date.now()+8000;
+          for(;;){
+            const rows=z.array(z.object({query:z.string()})).parse((await admin.query('SELECT query FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[holder])).rows);
+            if(rows.length){assert.ok(rows.some(row=>row.query.includes('member_avatar_presence')));break;}
+            assert.ok(Date.now()<deadline,'request must wait inside the real metadata projection');await setImmediate();
+          }
+          if(scenario.write){
+            assert.equal(z.object({count:z.number()}).parse((await pool.query('SELECT count(*)::int AS count FROM command_receipts WHERE idempotency_key=$1',[key])).rows[0]).count,1);
+            assert.equal(z.object({display_name:z.string()}).parse((await pool.query('SELECT display_name FROM users WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0]).display_name,nickname);
+          }
+          assert.equal(z.object({active:z.boolean()}).parse((await pool.query('SELECT expires_at>clock_timestamp() AS active FROM sessions WHERE token_hash=$1',[hash])).rows[0]).active,true);
+          if(expired){
+            await pool.query('SELECT pg_sleep(greatest(0,extract(epoch FROM expires_at-clock_timestamp())::double precision)+0.04) FROM sessions WHERE token_hash=$1',[hash]);
+            assert.equal(z.object({expired:z.boolean()}).parse((await pool.query('SELECT expires_at<=clock_timestamp() AS expired FROM sessions WHERE token_hash=$1',[hash])).rows[0]).expired,true);
+          }
+          await gate.query('SELECT pg_advisory_unlock_all()');const result=await pending;
+          assert.equal(result.status,expired?401:200);
+          if(expired){assert.equal(z.object({code:z.string()}).parse(result.data).code,'session_expired');assert.equal(JSON.stringify(result.data).includes(marker),false);}
+          else if(scenario.path==='/me/account')assert.equal(z.object({contacts:z.object({line:z.object({value:z.string()})})}).parse(result.data).contacts.line.value,marker);
+          else assert.equal(z.object({avatar_url:z.null()}).parse(result.data).avatar_url,null);
+          if(scenario.write){
+            const loggedIn=await signIn(),replay=await request(scenario.path,loggedIn,body,version,key);
+            assert.equal(replay.status,200);
+            const recovered=z.object({nickname:z.string(),aggregate_version:z.number()}).parse(replay.data);
+            assert.equal(recovered.nickname,nickname);assert.equal(recovered.aggregate_version,version+1);
+            assert.equal(z.object({count:z.number()}).parse((await pool.query("SELECT count(*)::int AS count FROM transition_journal WHERE aggregate_id=$1 AND command='update_account' AND aggregate_version=$2",[DEMO_USERS[0].user_id,version+1])).rows[0]).count,1);
+          }
+        }finally{await gate.query('SELECT pg_advisory_unlock_all()');gate.release();if(pending)await pending;}
+      }
+    }
+  }finally{
+    await pool.query(`CREATE OR REPLACE VIEW member_avatar_presence AS ${definition}`);
+    await pool.query('DROP FUNCTION pause_account_avatar(boolean)');
+  }
 });

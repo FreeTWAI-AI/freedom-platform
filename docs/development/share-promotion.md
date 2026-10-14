@@ -48,6 +48,29 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 `GET /api/v1/promotion/links/mine` 只讀。週、月、累計與所選期間的分數在同一則查詢用 `count(...) FILTER` 算出，不會為了標題去建立活動分享碼，也不會一條連結再查一次分數。出現過的活動、貼文、已公開社群技能書、社員服務各最多再讀一次（`= ANY`，限本人的社群）；目錄技能書不查資料庫。已公開技能書的條件與 `PUBLISHED` 同一份。每一筆有 `available`：活動要已公開、貼文要是有效、目錄書要在架上、社群技能書要已發布、社員服務要仍公開且擁有者有效、名片要仍公開且 generation 與目前名片相同。開不了的連結在「我的推廣連結」變淡、顯示「已無法開啟」、沒有複製鈕，分數仍留著。
 
+建立分享連結時，先以 `lockMemberSession` 鎖定目前 user／session，再取得每日
+advisory lock，然後在同一個 transaction client 驗證目標。活動沿用的分享碼也在
+這個交易建立；等鎖後 session 到期時，活動分享碼和推廣連結一起回滾，不留下
+已回 401 請求的分享碼。完成 INSERT，或讀完 existing replay 的點數查詢後，才以
+`assertCurrentSessionClock` 的 DB `clock_timestamp()` 重驗期限。
+代碼或有效目標的唯一衝突沿原有五次迴圈重新進入受 session 保護的交易；
+不在 rollback 後透過獨立 Pool 直接回傳既有代碼。等鎖跨過 session 到期回 401 `session_expired`，
+不建立新連結、不回既有連結代碼。`links/mine` 與 `leaderboards` 的 GET 用
+`readWithMemberSession` 同樣在最後投影後檢查期限；到期不回 `items` 或排行榜資料。
+公開的 `/go/` 與 `clicks` 路由不受此 session 邊界影響。
+
+`share-promotion.test.ts` 的兩個 GET 回歸案例經真正 localhost HTTP server 登入，
+先驗有效 session 能讀到非空連結／排行榜，再分別持有 `promotion_links`／
+`promotion_clicks` 的 `ACCESS EXCLUSIVE` relation lock。以 `pg_locks` 與
+`pg_blocking_pids` 確認請求已卡在領域查詢，等待 DB clock 跨過 session 期限後放鎖，
+必須回 401 `session_expired`，回應沒有 `items` 或 `boards`。
+
+POST 回歸另以真正 HTTP 與 SQL barrier 覆蓋 existing replay 的最後點數查詢、
+真正新目標的 INSERT 等待及有效目標唯一衝突；到期不得回代碼或點數，新 INSERT
+必須回滾為零新增列。仍有效的唯一衝突恢復取得原 winner，不重複建立連結。
+活動目標另外以真正 HTTP 持有活動分享碼 INSERT 的 relation lock；到期後必須
+同時沒有活動分享碼與推廣連結。有效 session 的相同等待及重播只保留各一筆。
+
 ## 隱私
 
 不保存原始 IP 或 User-Agent。訪客鍵與網路鍵是當天 32-byte salt 加網路（以及匿名訪客的 User-Agent）的 SHA-256。Salt 存在 `promotion_click_salts`，第一次用到那天時建立，並順便刪掉超過 3 天的列（`click_day < 今天 - 3`）。
@@ -96,6 +119,18 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `GET /api/v1/public/social-posts/:id/thumbnail` | 公開 | 只開放外部連結貼文；原生、隱藏或刪除為 404 |
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
 | `POST /api/v1/social-posts/:id/hide` | 平台管理員 | 隱藏 |
+
+會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
+讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
+等鎖期間到期或在 object I/O 期間撤銷，沿用縮圖讀權拒絕的 404 `not_found`，
+不回圖片。Object I/O 留在交易外，取得 bytes 後仍重新取 snapshot；匿名公開
+縮圖仍只允許有效外部連結貼文，不因此公開原生貼文。
+
+會員貼文列表、留言列表與讚名單的 GET 都在同一短交易鎖定目前 user／session，
+用同一 query client 完成來源資格、投影與管理資格查詢後，再以
+`clock_timestamp()` 重驗 session 期限。最後 SQL 等鎖跨過期限回
+401 `session_expired`，不回 `items`、原生正文、留言或會員名單。原本的同社群、
+有效來源、封鎖、排序與游標規則保留；匿名公開縮圖不屬於這三個讀面。
 
 `period=week` 從週一 00:00（台北）起算，`month` 從當月 1 日 00:00 起算，`all` 的 `since` 是 null。榜上同分數並列（1、2、2、4），再以顯示名稱與 user id 排序。只計本人所屬社群的有效、已完成加入（選定主要公會）的會員；驗收測試帳號不出現在別人的榜上。每人最多看前 10 名，`me` 是自己的名次，0 分則為 null。頭像規則與會員列表相同。
 
@@ -153,6 +188,11 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `GET /api/v1/member-services/:id/cover` | 看得到的會員 | 封面，含主人的暫停服務 |
 | `PUT /api/v1/member-services/:id/cover` | 主人 | 上傳封面 |
 | `POST /api/v1/member-services/:id/cover/remove` | 主人 | 移除封面 |
+
+兩個會員清單 GET 在同一短交易鎖定目前 user／session，使用同一 query client
+完成管理資格與服務投影後，以 `clock_timestamp()` 重驗 session 期限。最後 SQL
+等鎖跨過期限會回 401 `session_expired`，不回 `items`、暫停私人服務或會員 DTO；
+排序、游標、筆數與本人／公開資格不變。匿名公開頁不套用會員 session 規則。
 
 ### 資料
 

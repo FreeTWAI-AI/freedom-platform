@@ -165,9 +165,9 @@ export async function observeCatalogRepo(q: PoolClient, book: SkillBook, fetcher
 function publicFromRows(book: SkillBook, rows: StatusRow[]): PublicAuthorClaim {
   return {book_id: book.id, ...authorClaimStatus(rows), attributed_author: book.guide?.author_name ?? null};
 }
-export async function publicAuthorClaimForBook(pool: Pool, bookId: string): Promise<PublicAuthorClaim> {
+export async function publicAuthorClaimForBook(db: Pool|PoolClient, bookId: string): Promise<PublicAuthorClaim> {
   const book = bookOrThrow(bookId);
-  const rows = (await pool.query(PUBLIC_AUTHOR_CLAIM_SQL, [book.id])).rows as StatusRow[];
+  const rows = (await db.query(PUBLIC_AUTHOR_CLAIM_SQL, [book.id])).rows as StatusRow[];
   return publicFromRows(book, rows);
 }
 export async function publicAuthorClaims(pool: Pool) {
@@ -197,15 +197,15 @@ function memberClaim(row: any) {
     repo: {provider: 'github', provider_repo_id: row.provider_repo_id, full_name: row.full_name, current_url: row.current_url},
   };
 }
-export async function memberAuthorClaim(pool: Pool, actor: Command['actor'], bookId: string) {
+export async function memberAuthorClaim(db: Pool|PoolClient, actor: Command['actor'], bookId: string) {
   const book = bookOrThrow(bookId);
-  const github = (await pool.query('SELECT github_user_id, github_login FROM github_social_connections WHERE user_id=$1 AND community_id=$2', [actor.user_id, actor.community_id])).rows[0];
-  const claims = (await pool.query(`SELECT c.*, r.provider_repo_id, r.full_name, r.current_url
+  const github = (await db.query('SELECT github_user_id, github_login FROM github_social_connections WHERE user_id=$1 AND community_id=$2', [actor.user_id, actor.community_id])).rows[0];
+  const claims = (await db.query(`SELECT c.*, r.provider_repo_id, r.full_name, r.current_url
     FROM repo_credit_claims c JOIN canonical_repositories r ON r.repo_id=c.repo_id
     WHERE c.community_id=$1 AND c.user_id=$2 AND c.source_snapshot->>'book_id'=$3
     ORDER BY c.submitted_at, c.claim_id`, [actor.community_id, actor.user_id, book.id])).rows;
   const visible = claims.length ? claims : [];
-  const status = await publicAuthorClaimForBook(pool, book.id);
+  const status = await publicAuthorClaimForBook(db, book.id);
   return {book_id: book.id, github_connected: Boolean(github), github_login: github?.github_login ?? null, public: status, claims: visible.map(memberClaim)};
 }
 

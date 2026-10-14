@@ -29,6 +29,15 @@ const run = (candidate = original, baseline = original, options = {}) => auditSu
   baseline: reader(baseline), candidate: reader(candidate), ...options,
 }, ports);
 function changed(path, transform) { const result = new Map(original); result.set(path, Buffer.from(transform(result.get(path).toString()))); return result; }
+function mutateAvatarRead(source, replace) {
+  const parsed = ts.createSourceFile(avatar, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const factory = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'createAvatarRoutes');
+  const route = factory?.body?.statements.find(node => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression)
+    && ts.isPropertyAccessExpression(node.expression.expression) && node.expression.expression.name.text === 'get'
+    && ts.isStringLiteral(node.expression.arguments[0]) && node.expression.arguments[0].text === '/me/avatar');
+  assert.ok(route, 'the counterexample must identify the actual avatar GET statement');
+  return source.slice(0, route.getStart(parsed)) + replace(route.getText(parsed)) + source.slice(route.end);
+}
 const has = (report, code, revision = 'candidate') => report.issues.some(x => x.code === code && x.revision === revision);
 const newCandidateIssue = report => report.issues.filter(x => x.revision === 'candidate').some(x =>
   report.issues.filter(y => y.revision === 'candidate' && y.code === x.code && y.entry === x.entry).length
@@ -52,7 +61,7 @@ test('actual avatar/private routes and real mounts map twelve baseline+candidate
   assert.deepEqual(report.parser, { version: ts.version, installation_sha256: parserDigest, provenance: 'host-supplied-not-authenticated-by-this-audit' });
 });
 test('omitted actual route is caught even while its descriptor/file still exists', () => {
-  const result = run(changed(avatar, s => s.replace("app.get('/me/avatar', async c => c.json(await avatarMetadata(pool, c.get('actor'))));", '')));
+  const result = run(changed(avatar, s => mutateAvatarRead(s, () => '')));
   assert(has(result, 'registration_operation_missing')); assert.equal(result.status, 'failed');
 });
 test('extra unregistered HTTP route is not approved by ownership or file existence', () => {
@@ -90,7 +99,7 @@ for (const [name, transform] of [
   ['dynamic path', s => s.replace("app.get('/me/avatar'", "app.get('/me/' + 'avatar'")],
   ['template path', s => s.replace("app.get('/me/avatar'", 'app.get(`/me/avatar`')],
   ['conditional registration', s => s.replace("  app.get('/me/avatar',", "  if (false) app.get('/me/avatar',")],
-  ['nested registration', s => s.replace("  app.get('/me/avatar',", "  function unused() { app.get('/me/avatar',").replace("avatarMetadata(pool, c.get('actor'))));", "avatarMetadata(pool, c.get('actor')))); }")],
+  ['nested registration', s => mutateAvatarRead(s, route => `function unused() { ${route} }`)],
   ['optional call', s => s.replace("app.get('/me/avatar'", "app.get?.('/me/avatar'")],
   ['constructor alias', s => s.replace("{ Hono } from 'hono'", "{ Hono as H } from 'hono'").replace('new Hono<', 'new H<')],
 ]) test(`${name} is uncovered, never treated as absent or statically approved`, () => {

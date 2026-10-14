@@ -132,6 +132,138 @@ test('member event publishing, editing, RSVP capacity, cancellation and idempote
   const ownerNotices=await request('/me/notifications',owner);assert.ok(ownerNotices.data.items.some((item:any)=>item.kind==='event_approved'));
 });
 
+test('a private event detail is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await signIn();
+ const created=await request('/events',owner,draft());assert.equal(created.status,201,JSON.stringify(created.data));
+ const id=created.data.event_id as string;
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  pending=request(`/events/${id}`,owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'event request must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
+test('the private event list is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await signIn();
+ const created=await request('/events',owner,draft());assert.equal(created.status,201,JSON.stringify(created.data));
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  pending=request('/events',owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'event list must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
+test('the organizer referral report is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await signIn(),master=await signIn(DEMO_USERS[1].email);
+ await guildMaster(master.user.user_id,'guild_member_operations');
+ const created=await request('/events',owner,{...draft(),guild_key:'guild_security'});assert.equal(created.status,201,JSON.stringify(created.data));
+ const id=created.data.event_id as string;
+ assert.equal((await request(`/events/${id}/review`,master,{decision:'approve',reason:'符合公會活動安排。'},1)).status,200);
+ assert.equal((await request(`/events/${id}/share-code`,owner,{})).status,200);
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  pending=request(`/events/${id}/referrals`,owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'referral report must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
+test('the event bulletin list is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await signIn(),master=await signIn(DEMO_USERS[1].email);
+ await guildMaster(master.user.user_id,'guild_member_operations');
+ const created=await request('/events',owner,{...draft(),guild_key:'guild_security'});assert.equal(created.status,201,JSON.stringify(created.data));
+ const id=created.data.event_id as string;
+ assert.equal((await request(`/events/${id}/review`,master,{decision:'approve',reason:'符合公會活動安排。'},1)).status,200);
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE community_event_bulletins IN ACCESS EXCLUSIVE MODE');
+  pending=request('/events/bulletins',owner);
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'bulletin list must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal(response.data.code,'session_expired');
+});
+
+test('a private event video is denied when its projection wait outlives the owner session',async()=>{
+ const owner=await signIn();
+ const created=await request('/events',owner,draft());assert.equal(created.status,201,JSON.stringify(created.data));
+ const id=created.data.event_id as string;
+ const mp4=Buffer.concat([Buffer.from([0,0,0,16]),Buffer.from('ftypisom'),Buffer.from('00000000')]);
+ const video=await app.request(`${origin}/api/v1/events/${id}/video`,{method:'POST',headers:{Origin:origin,Cookie:owner.cookie,'X-CSRF-Token':owner.csrf,'Content-Type':'video/mp4','Idempotency-Key':randomUUID(),'If-Match':'"1"'},body:new Uint8Array(mp4)});
+ assert.equal(video.status,200,await video.text());
+ await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
+ const blocker=await pool.connect();let pending:ReturnType<typeof app.request>|undefined;
+ try{
+  await blocker.query('BEGIN');
+  const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  pending=app.request(`${origin}/api/v1/events/${id}/video`,{headers:{Cookie:owner.cookie}});
+  let waiting=false;
+  for(let attempt=0;attempt<200;attempt++){
+   waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+   if(waiting)break;
+   await new Promise(resolve=>setTimeout(resolve,20));
+  }
+  assert.ok(waiting,'video request must actually wait for the held projection lock');
+  await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+ }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+ const response=await pending!;
+ assert.equal(response.status,401);
+ assert.equal((await response.json() as {code:string}).code,'session_expired');
+});
+
 test('contribution records do not assign an unapproved score',async()=>{
   const member=await signIn();
   const records=await request('/me/contribution-records',member);assert.equal(records.status,200);assert.equal(records.data.accepted_count,0);
