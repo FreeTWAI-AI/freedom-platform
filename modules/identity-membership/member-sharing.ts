@@ -1,5 +1,5 @@
 import {createHash,randomBytes} from 'node:crypto';
-import type {Pool} from 'pg';
+import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {command, checkVersion, journal, type Command} from '../../packages/db/index.js';
 import {requireCondition} from '../../packages/shared/problem.js';
@@ -272,7 +272,7 @@ export async function sharedMemberForViewer(pool:Pick<Pool,'query'>,actor:Actor,
 }
 const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Read-only batch for share promotion. The token is used only to build path and generation. */
-export async function readPublicCards(pool:Pool,communityId:string,userIds:string[]){
+export async function readPublicCards(pool:Pool|PoolClient,communityId:string,userIds:string[]){
   const ids=[...new Set(userIds.filter(id=>uuidPattern.test(id)).map(id=>id.toLowerCase()))];
   const cards=new Map<string,{path:string;title:string;summary:string;image:null;generation:string}>();
   if(!ids.length||!uuidPattern.test(communityId))return cards;

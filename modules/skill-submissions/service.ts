@@ -200,8 +200,8 @@ export async function prepareProjectSkillSubmission(pool: Pool, input: Command, 
 }
 
 
-export async function listSubmissions(pool: Pool, actor: Actor) {
-  return (await pool.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
+export async function listSubmissions(db: Queryable, actor: Actor) {
+  return (await db.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
     ORDER BY created_at DESC,submission_id LIMIT 100`, [actor.community_id, actor.user_id])).rows.map(submissionView);
 }
 export async function reviseManualSubmission(pool: Pool, input: Command, id: string) {
@@ -219,8 +219,8 @@ export async function reviseManualSubmission(pool: Pool, input: Command, id: str
     return submissionView(row);
   });
 }
-export async function readSubmission(pool: Pool, actor: Actor, id: string) {
-  return submissionView(await ownedSubmission(pool, actor, uuidOrNotFound(id)));
+export async function readSubmission(db: Queryable, actor: Actor, id: string) {
+  return submissionView(await ownedSubmission(db, actor, uuidOrNotFound(id)));
 }
 export async function readOwnIllustration(pool: Pool, actor: Actor, id: string,store?:import('../../packages/asset-storage/index.js').ObjectStore) {
   const bytes=await readSkillImage(pool,uuidOrNotFound(id),store,actor);requireCondition(bytes,404,'illustration_not_found','這份投稿沒有示意圖。');return bytes!;
@@ -424,8 +424,8 @@ export async function publishSubmission(pool: Pool, input: Command, id: string, 
   });
 }
 
-export async function listKeys(pool: Pool, actor: Actor) {
-  return (await pool.query(`SELECT ${KEY_COLUMNS} FROM skill_upload_keys WHERE community_id=$1 AND user_id=$2
+export async function listKeys(db: Queryable, actor: Actor) {
+  return (await db.query(`SELECT ${KEY_COLUMNS} FROM skill_upload_keys WHERE community_id=$1 AND user_id=$2
     ORDER BY created_at DESC,key_id LIMIT 100`, [actor.community_id, actor.user_id])).rows.map(keyView);
 }
 export async function createKey(pool: Pool, input: Command) {
@@ -511,6 +511,10 @@ export async function agentCreateSubmission(pool: Pool, key: Owner & { key_hash:
       return prior.response;
     }
     await requireDraftCapacity(q, key);
+    // Draft-capacity waits can outlast the transaction-start key check.
+    const live = (await q.query(`SELECT 1 FROM skill_upload_keys WHERE key_id=$1 AND user_id=$2 AND community_id=$3
+      AND revoked_at IS NULL AND expires_at>clock_timestamp()`, [current.key_id, key.user_id, key.community_id])).rowCount;
+    if (!live) throw keyInvalid();
     const token = newSecret(GRANT_PREFIX);
     const row = await insertDraft(q, key, tokenHash(token), current.key_id);
     await q.query('UPDATE skill_upload_keys SET last_used_at=now() WHERE key_id=$1', [current.key_id]);

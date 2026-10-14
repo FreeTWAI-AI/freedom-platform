@@ -64,6 +64,48 @@ archive 是保留型終態，不是資料刪除：title/objective 仍留 SQL，�
 
 另有中央 `OpaqueId` 驗證反例，命令 suite 合計 23 項；實跑結果由[交付紀錄](../../docs/platform-plan/execution/unified-foundation/implementation-status.md)記載，這些測試不是 production/staging 證據。[人工 Result 內部服務](../autopilot-work/README.md) 已透過[共用 Asset 引擎](../assets/engine.md)實作，084 schema／讀取／競態有獨立測試；不是模型產稿，也沒有私人 Result HTTP/UI。模型/Grant、發布確認、正式資料回填、正式 policy source、rollback floor、備份及完整 retention 仍未完成。無 feature activation wiring 的結構性封閉維持不變，不能因 read ACL 和內部命令已存在就註冊私人 HTTP 寫入。
 
+## 本人貢獻紀錄的 session lifetime（#632）
+
+`GET /api/v1/me/contribution-records` 的完整 accepted-work SELECT 與
+`accepted_work_facts_v1`／count／entries 投影，重用
+[readWithMemberSession](../../packages/db/member-session.ts)，只使用同一 native
+client。最後 domain SQL 後以 DB `clock_timestamp()` 驗目前 session；
+等 Contribution／Claim／Decision relation 跨過期限時回 `401 session_expired`，
+不回本人 Contribution／Claim／Decision／acting profession membership 引用，
+沒有裸 Pool read、舊路徑或第二個授權 facade。
+
+有效登入保留本人 accepted facts、排序與原 DTO，另一位有成果會員的引用不回；
+session 到期不刪除或改寫已成立的驗收事實。Community accepted-work 的共享摘要
+不是本人引用 reader 的替代品；discovery preview／shared feed policy、
+Work 模式 filter、command／replay、scoring 與收入規則沒有改動。
+紀錄不是 XP、報酬、銀行實收或付款證明。
+
+[flows consumer 回歸](../../tests/runtime/flows.test.ts) 以原生 Claim relation
+等待與 DB 期限覆蓋到期／有效控制、兩位有成果會員的本人隔離及事實保留。
+本機真實 HTTP／PostgreSQL 對照與選用 suite 的實跑結果列於 Issue／PR；
+不等於 trusted CI、完整 requirement 驗收、merge 或部署。
+
+## Task-board 探索窗口的決策時鐘（#637）
+
+`GET /api/v1/task-board/preview` 的 claim-window eligibility 使用 DB
+`clock_timestamp()`，不使用 statement／transaction 起始的 `now()`。
+Work relation 等待跨過窗口後，不再把已到期的 open Work列為可認領預覽。
+有效窗口保留原 safe DTO、community／collaboration mode filter、排序與
+12筆上限；未完成 onboarding的會員仍可讀這個窄探索面，沒有增加 owner、
+Claim、條款、private Work或會員資料。
+
+窗口到期不改寫 Work state／version、不抹除既有 Claim，也不能由 future
+delivery `due_at` 代替；canonical五種時間見
+[domain invariants §11](../../docs/platform-plan/03-domain-events-state-machines.md#11-model-驗收不變量)。
+這是 preview決策時鐘，不替代 Claim write／receipt邊界；沒有改 command、
+replay、UI、onboarding entry gating、scoring或付款規則。
+
+[member-experience consumer 回歸](../../tests/runtime/member-experience.test.ts)
+以原生 Work relation wait與真正DB期限涵蓋 onboarding到期／有效控制、
+safe DTO與事實保留；真實HTTP同時對照完整會員及onboarding兩種身分。
+Issue／PR列本輪實跑範圍；source／HTTP證據不等於browser視覺、trusted CI、
+merge或部署。
+
 ## Portal composition
 
 The workbench, showcase/opportunity and engagement cards/forms live in
@@ -80,8 +122,9 @@ callback. Feature extraction does not create a new authorization boundary.
 `listWorks` 使用明確欄位與原排序 `created_at DESC, work_item_id`；本人 Claim
 以 `work_item_id = ANY(...) AND claimant_ref = ...` 批次讀取，再以
 `DISTINCT ON (claim_id)`／`revision DESC` 讀取最新 Submission。有工作的清單最多
-三次 SQL（沒有本人 Claim 時兩次，空清單一次），DTO、回饋、條款、驗收安排
-與社群／工作模式可見性不變，Submission 的內部 `claim_id` 不加入回應。
+三次 domain SQL（沒有本人 Claim 時兩次，空清單一次）；另有 session 驗證與交易
+SQL。DTO、回饋、條款、驗收安排與社群／工作模式可見性不變，Submission 的內部
+`claim_id` 不加入回應。
 
 本次保留 `GET /api/v1/work-items` 的完整 `{items}` 契約，**未加入分頁或上限**。
 `WorkbenchPanel` 與 `TaskBoardPanel` 都將它當成完整清單；`dashboard` 也共用
@@ -92,11 +135,105 @@ callback. Feature extraction does not create a new authorization boundary.
 `DISTINCT ON (claim_id)`／`revision DESC` 批次讀取最新 Submission（沒有待回饋
 認領時略過這次查詢），DTO、排序與原逐筆版本一致，Submission 的內部 `claim_id`
 不加入回應；仍**未加入分頁或上限**。
-`flows.test.ts` 用真實 PostgreSQL 比對逐筆版本與批次 DTO，涵蓋一筆／十七筆、
-無 Claim／無 Submission、多次 revision、他人 Claim、過期／撤銷 Review 與空社群；
-HTTP 包裝仍是 `{items}`。另以真實 PostgreSQL 比對 0／1／6 筆待回饋時與逐筆版本相同，
-且 1 筆與 6 筆的查詢次數相同。
+`flows.test.ts` 以真實 PostgreSQL／HTTP 入口驗證一筆與十七筆的完整排序、本人與
+他人 Claim、無 Submission、最新 revision、回饋和內部 join key 不外洩；待回饋
+清單另覆蓋 0／1／6 筆及自己、過期／撤銷 Review、補件排除。保留 `{items}` 契約，
+不以複製舊 reader、假的 query-only Pool 或固定 SQL 次數／source 文字當驗證。
 
+### 舊版會員投影的 session lifetime（#607）
+
+`GET /api/v1/work-items` 不只有社群 Work，還有本人的 Claim／Submission；
+`GET /api/v1/dashboard` 也有 gained 及指定 reviewer 的待驗收 Submission。兩個
+server reader 都重用 `readWithMemberSession`，完整 database-only 投影使用同一
+原生 transaction client，在最後 domain SQL 後驗目前 session 決策時鐘。
+dashboard 內部共用 query-only 投影，不巢狀呼叫另一 public reader。
+
+Review 可用性／review_queue 保留原本每個 SQL statement 的時間語意：
+`statement_timestamp()` 不會像移入交易後的 `now()` 固定在整個交易起點。這不
+改 review 規則、claim／receipt、community_collaboration 篩選、私人／tenant Work
+或完整清單契約，也沒有加入 pagination、上限或外部 I/O。
+
+Consumer regression 以實際 PostgreSQL 阻塞與資料庫時鐘驗證本人最後 Submission、
+dashboard 後段的 session 到期／有效，以及有效 session 的 Review 期限在兩段 SQL
+之間到期。Runtime、loopback HTTP 與部署驗收是分開的證據，不能由 source 推定已部署。
+
+
+### 舊版驗收命令的 reviewer 決策時鐘（#617）
+
+`begin-review`／`decide` 仍要求同社群協作 Work 的指定 reviewer，禁止自己驗收。
+`scopedClaim` 沿原順序取得 Review route 的共享鎖，鎖取得後才用資料庫
+`clock_timestamp()` 驗 `valid_until`；不以交易起點或鎖等待前的時間授權。
+兩個 reviewer 命令重用既有 command 的 domain revalidate hook，在 receipt SELECT
+等待後／重播前及最後 receipt INSERT 後重驗目前 reviewer。Session 與 reviewer
+期限是兩個不同邊界，不用其中之一代替另一個。
+
+到期回既有 `403 review_authority_required`。新命令的 Claim／Work state、version、
+Decision、Contribution、journal、outbox 與 receipt 一起 rollback；合法舊 receipt
+保留但不能在過期安排下重播。安排恢復有效後可用原 key 恢復／重播，不重複事實。
+本人 start／submit、撤銷、self-review、版本與 Submission digest 契約不改，沒有
+migration、retry、外部 I/O 或私人／tenant Work 授權擴充。
+
+`flows.test.ts` 的 consumer regression 用原生 claim／review route 列鎖、Decision INSERT、
+receipt INSERT／SELECT 等待與 DB 時鐘，涵蓋到期／有效、整組事實 rollback、
+合法歷史 receipt 保留、原 key 恢復及重播不重複。Loopback HTTP、runtime、
+source 與部署是分開證據；本節不宣稱已部署或 Foundation 整體驗收完成。
+
+### 雙方私人商機與合作讀取的 session lifetime（#621）
+
+`GET /api/v1/opportunities` 與 `GET /api/v1/engagements` 含雙方私人需求、
+合作條款、交付 ref 與自填／對方確認的收款觀察 evidence。兩個 reader 重用
+`readWithMemberSession`，完整 domain SELECT 使用同一原生 transaction client，
+取得投影後再以資料庫決策時鐘驗 session；SQL 等待跨過期限回 `401 session_expired`，
+不返回私人資料。有效者的 `{items}`、完整清單／排序、雙方／community 篩選、
+版本、decimal 文字與 receipt 狀態不改，沒有加入 pagination 或 limit。
+
+`flows.test.ts` 的 consumer regression 驗兩個讀面的原生 SQL 阻塞與 DB 期限、
+有效等待後的原投影、不同 provider／同 client 合作隔離；fixture 沿真實 API 完成
+showcase → 商機 → 提案 → 同意 → 交付／驗收 → 自填／對方確認收款觀察。
+這些不是 Seller／bank 實收或平台代收事實；command／receipt 契約、公開 showcase、
+私人／tenant Work、migration 與付款能力不變。Loopback HTTP、runtime 與部署
+證據分開，本節不宣稱已部署或 Foundation 整體完成。
+
+### 新認領窗口與歷史 receipt（#626）
+
+依 [五個時鐘的 invite／claim 規則](../../docs/platform-plan/03-domain-events-state-machines.md#11-model-驗收不變量)，
+窗口到期不能建立新 Claim，但不抹除已成立的 Claim。`claimWork` 在原 Work 列鎖
+取得後以 native DB `clock_timestamp()` 驗窗口，並重用既有 command 的 domain
+revalidate，在新認領的最後 receipt INSERT 等待後再驗。
+
+只有本次 request 實際進入新 domain run 才啟用最後窗口 gate；原合法 receipt
+不重新取得 availability 資格，但仍經原目前身分／Work 模式與 session 保護。
+新認領若在 Claim／receipt INSERT 等待期間過期，以既有 `409 claim_window_closed`
+拒絕，Work state／version、Claim、journal、outbox、receipt 一起 rollback。
+已成立認領仍可 start／submit；原 key 回歷史 response，不重寫目前 Claim state。
+
+`flows.test.ts` consumer regression 用原生 Work 列鎖、Claim／receipt INSERT、
+receipt SELECT 等待與資料庫期限，驗到期／有效、整組 rollback，以及過期歷史
+重播後仍可 start、再次重播不回寫已前進的 state／version。排他認領、terms
+revision／hash、版本、模式與本人／self-claim 契約不改；沒有新增窗口延長、
+policy、migration、retry 或外部 I/O。Loopback HTTP／runtime 不代表已部署，
+本節不宣稱 Foundation 整體驗收完成。
+
+### 第一人稱效益私稿的 session lifetime（#628）
+
+`benefitView` 是社群 Work 兩位參與者的本人敘述／evidence／工時及 outcomes
+彙總，不是公開私稿、獨立收入核實或 Contribution。完整 Work → Claim →
+最新 Observation → DTO 重用 `readWithMemberSession` 的同一原生 client，
+最後 SQL 後驗資料庫 session 時鐘。到期回 `401 session_expired`，不回私稿
+或 Observation ID，也不讓原 route 發出成功 ETag；有效者保留原 DTO／ETag。
+其 query-only helpers 只接 native PoolClient，不保留裸 Pool 的舊讀取路徑。
+
+`benefits.test.ts` consumer regression 驗初始 Work／最後 Observation 的真實 SQL
+等待、到期／有效、If-None-Match、私稿及 ETag 邊界；兩參與者只見本人正文與
+彙總，第三成員仍 404。原 append-only／supersede／command receipt、缺稿 unknown、
+self_reported／independent_people_verified=false／income_verified=false、
+私稿不進 journal／outbox、Work 模式與 Contribution／付款語意不變。
+
+本項保留 full affected scope。整合候選在既有 Work descriptor 補齊 benefits
+route／runtime test 的 ownership；原 baseline 缺項仍保留 `surface_unmapped`
+與完整測試 fallback，不以 candidate 宣告反向批准 baseline。此 metadata 修正
+仍由正常 CI／維護者 review 核對；沒有 migration、retry、provider 或已部署／
+整體完成的宣稱。
 
 ## Tenant manual Work
 

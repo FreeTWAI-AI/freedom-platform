@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { requireCondition } from '../../../../packages/shared/problem.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import { SERVICE_COVER_INPUT_BYTES } from '../../../../modules/skill-submissions/payload.js';
 import {
@@ -71,8 +72,14 @@ export function registerPublicMemberServices(app: Hono<PlatformEnv>, pool: Pool,
 
 export function registerMemberServices(app: Hono<PlatformEnv>, pool: Pool, runtime: PlatformRuntime) {
   const id = (c: { req: { param: (name: string) => string } }) => z.uuid().parse(c.req.param('id'));
-  app.get('/api/v1/member-services/mine', async c => c.json(await listMyMemberServices(pool, c.get('actor'))));
-  app.get('/api/v1/member-services', async c => c.json(await listMemberServices(pool, c.get('actor'), { category: c.req.query('category'), cursor: c.req.query('cursor') })));
+  app.get('/api/v1/member-services/mine', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => listMyMemberServices(q, actor)));
+  });
+  app.get('/api/v1/member-services', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => listMemberServices(q, actor, { category: c.req.query('category'), cursor: c.req.query('cursor') })));
+  });
   app.post('/api/v1/member-services', async c => {
     await authRateLimit(pool, 'member-service-create', c.get('actor').user_id, 40, 3600);
     return respond(c, await createMemberService(pool, await moduleCommand(c), clock(runtime)), 201);

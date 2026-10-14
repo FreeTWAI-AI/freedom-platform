@@ -32,6 +32,36 @@ async function post(session: Session, text = '一起分享新作品\n歡迎一�
   const result = await request('/social-posts/notes', session, {text}); assert.equal(result.status, 201, JSON.stringify(result.data)); return result.data;
 }
 
+for(const collection of ['posts','comments','likes'] as const){
+ test(`${collection} collection denies a session expiring during the final projection wait`,async()=>{
+  const owner=await login(),note=await post(owner,'Synthetic member-only note');
+  const comment=await request(`/social-posts/${note.post_id}/comments`,owner,{text:'Synthetic private comment'});
+  assert.equal(comment.status,201);
+  assert.equal((await request(`/social-posts/${note.post_id}/like`,owner,{liked:true})).status,200);
+  const path=collection==='posts'?'/social-posts':`/social-posts/${note.post_id}/${collection}`;
+  const valid=await request(path,owner);assert.equal(valid.status,200);
+  if(collection==='posts')assert.equal(valid.data.items[0].note,'Synthetic member-only note');
+  else if(collection==='comments')assert.equal(valid.data.items[0].comment_id,comment.data.comment_id);
+  else assert.equal(valid.data.items[0].user_id,owner.id);
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=$1",[owner.id]);
+  const table={posts:'community_social_posts',comments:'community_social_comments',likes:'community_social_likes'}[collection];
+  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+  try{
+   await blocker.query('BEGIN');const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+   await blocker.query(`LOCK TABLE ${table} IN ACCESS EXCLUSIVE MODE`);
+   pending=request(path,owner);let waiting=false;
+   for(let attempt=0;attempt<200;attempt++){
+    waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+    if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+   }
+   assert.ok(waiting,'collection projection must actually wait');
+   await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.id]);
+  }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+  const denied=await pending!;assert.equal(denied.status,401);
+  assert.equal(denied.data.code,'session_expired');assert.equal(denied.data.items,undefined);
+ });
+}
+
 test('write a native post without a URL/title/preview, replay once and reject a changed body', async () => {
   const session = await login(), key = randomUUID(), body = {text: '  分享作品\n第二行  '};
   const first = await request('/social-posts/notes', session, body, 'POST', key);

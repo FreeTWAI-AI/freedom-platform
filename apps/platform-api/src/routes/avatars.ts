@@ -6,6 +6,7 @@ import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import { requireCondition } from '../../../../packages/shared/problem.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import { AVATAR_MAX_BYTES, AVATAR_MIME_TYPES, avatarMetadata, readAvatar, saveAvatar } from '../../../../modules/identity-membership/avatars.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 
 export function isAvatarUpload(method: string, path: string) {
   return method === 'POST' && path === '/api/v1/me/avatar';
@@ -37,7 +38,7 @@ async function boundedUpload(request: Request) {
 export function createAvatarRoutes(pool: Pool, store?: ObjectStore) {
   const app = new Hono<PlatformEnv>();
   const uploadAvatar = createAvatarUploadFacade(pool, { store, legacySave: (input, upload) => saveAvatar(pool, input, upload) });
-  app.get('/me/avatar', async c => c.json(await avatarMetadata(pool, c.get('actor'))));
+  app.get('/me/avatar', async c => c.json(await readWithMemberSession(pool, c.get('actor'), q => avatarMetadata(q, c.get('actor')))));
   app.post('/me/avatar', async c => {
     checkAvatarUploadHeaders(c.req.header('Content-Type'), c.req.header('Content-Length'));
     const version = c.req.header('If-Match');

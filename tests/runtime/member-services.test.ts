@@ -88,6 +88,36 @@ function assertLogo(html: string) {
   assert.match(html, /<header class="service-top"><a href="\/"><img class="service-logo" src="\/brand\/freedom-workshop\.webp" alt="自由工坊" width="1280" height="720"><\/a><a href="\/services">社員服務<\/a><\/header>/);
 }
 
+for(const mine of [true,false]){
+ test(`${mine?'owner paused':'member browse'} service list refuses a session expiring during projection wait`,async()=>{
+  const owner=await signIn(),created=await request('/member-services',owner,draft());
+  assert.equal(created.status,201,JSON.stringify(created.data));
+  if(mine){
+   const paused=await request(`/member-services/${created.data.service_id}/pause`,owner,{},'POST',{'If-Match':'"1"'});
+   assert.equal(paused.status,200);assert.equal((await html(`/services/${created.data.service_id}`)).status,404);
+  }
+  const path=mine?'/member-services/mine':'/member-services';
+  const valid=await request(path,owner);assert.equal(valid.status,200);
+  assert.equal(valid.data.items[0].service_id,created.data.service_id);
+  assert.equal(valid.data.items[0].description,draft().description);
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=$1",[owner.user.user_id]);
+  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+  try{
+   await blocker.query('BEGIN');const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+   await blocker.query('LOCK TABLE member_services IN ACCESS EXCLUSIVE MODE');
+   pending=request(path,owner);let waiting=false;
+   for(let attempt=0;attempt<200;attempt++){
+    waiting=Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount);
+    if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+   }
+   assert.ok(waiting,'member service projection must actually wait');
+   await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1',[owner.user.user_id]);
+  }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await pending;}
+  const denied=await pending!;assert.equal(denied.status,401);
+  assert.equal(denied.data.code,'session_expired');assert.equal(denied.data.items,undefined);
+ });
+}
+
 test('owners edit with one version, outsiders are refused, and the five-service cap holds', async () => {
   const maker = await signIn(), reviewer = await signIn(DEMO_USERS[1].email);
   const before = await counts();
@@ -300,6 +330,41 @@ test('covers normalize to 1200x675 and reject the wrong bytes', async () => {
   const deleted = await request(`/member-services/${id}`, maker, {}, 'DELETE', { 'If-Match': `"${version}"` });
   assert.equal(deleted.data.state, 'deleted');
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_service_covers WHERE service_id=$1', [id])).rows[0].n, 0);
+});
+
+test('a private legacy cover is denied when its projection wait outlives the owner session', async () => {
+  const maker = await signIn();
+  const created = await request('/member-services', maker, draft());
+  const id = created.data.service_id as string;
+  const upload = await app.request(`${origin}/api/v1/member-services/${id}/cover`, {
+    method: 'PUT', body: new Uint8Array(PNG),
+    headers: { Origin: origin, Cookie: maker.cookie, 'X-CSRF-Token': maker.csrf, 'Content-Type': 'image/png', 'Content-Length': String(PNG.length), 'Idempotency-Key': randomUUID(), 'If-Match': '"1"' },
+  });
+  assert.equal(upload.status, 200, await upload.clone().text());
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1', [maker.user.user_id]);
+  const blocker = await pool.connect();
+  let pending: ReturnType<typeof app.request> | undefined;
+  try {
+    await blocker.query('BEGIN');
+    const pid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await blocker.query('LOCK TABLE member_service_covers IN ACCESS EXCLUSIVE MODE');
+    pending = app.request(`${origin}/api/v1/member-services/${id}/cover`, { headers: { Cookie: maker.cookie } });
+    let waiting = false;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      waiting = Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))', [pid])).rowCount);
+      if (waiting) break;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.ok(waiting, 'cover request must actually wait for the held projection lock');
+    await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1', [maker.user.user_id]);
+  } finally {
+    await blocker.query('ROLLBACK');
+    blocker.release();
+    if (pending) await pending;
+  }
+  const response = await pending!;
+  assert.equal(response.status, 401);
+  assert.equal((await response.json() as { code: string }).code, 'session_expired');
 });
 
 test('paused, hidden, deleted and ineligible owners leave the public pages', async () => {
@@ -569,4 +634,33 @@ test('opted-in cover facade preserves legacy receipt, current ACL, CAS and delet
  const hidden=await call(`/member-services/${id}/hide`,'POST',{},'7');assert.equal(hidden.status,200);
  assert.equal((await call(`/member-services/${id}/cover?v=7`)).status,404);assert.equal((await installed.request(origin+`/api/v1/public/member-services/${id}/cover?v=7`)).status,404);
 
+});
+
+test('a private asset-backed cover is denied when object IO outlives the owner session', async () => {
+  const maker = await signIn();
+  const created = await request('/member-services', maker, draft());
+  const id = created.data.service_id as string;
+  const store = new FakeObjectStore();
+  const assets = createServiceCoverAssetService(pool, { store, resolvePolicy: async () => ({ revision: 'synthetic-cover-policy', platformPersistenceAllowed: true, retainedByteLimit: '10485760' }) });
+  const installed = createApp(pool, origin, 'local', { serviceCoverAssets: assets, serviceCoverAssetStore: store });
+  await pool.query("UPDATE domain_media_storage_policy SET mode='bridge',policy_revision='synthetic-cover-policy',persistence_allowed=true,retained_byte_limit=10485760 WHERE purpose='member.service-cover'");
+  const upload = await installed.request(`${origin}/api/v1/member-services/${id}/cover`, {
+    method: 'PUT', body: new Uint8Array(PNG),
+    headers: { Origin: origin, Cookie: maker.cookie, 'X-CSRF-Token': maker.csrf, 'Content-Type': 'image/png', 'Content-Length': String(PNG.length), 'Idempotency-Key': randomUUID(), 'If-Match': '"1"' },
+  });
+  assert.equal(upload.status, 200, await upload.clone().text());
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1', [maker.user.user_id]);
+  const nativeGet = store.get.bind(store);
+  store.get = async (...args) => {
+    const object = await nativeGet(...args);
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    return object;
+  };
+  try {
+    const response = await installed.request(`${origin}/api/v1/member-services/${id}/cover`, { headers: { Cookie: maker.cookie } });
+    assert.equal(response.status, 401);
+    assert.equal((await response.json() as { code: string }).code, 'session_expired');
+  } finally {
+    store.get = nativeGet;
+  }
 });

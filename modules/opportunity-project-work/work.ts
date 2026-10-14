@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import { command, checkVersion, digest, journal, type Command } from '../../packages/db/index.js';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { text, opaqueRef, isoTime } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -63,14 +64,18 @@ function claimDto(claim:any,submission:any) {
     latest_submission:submission,feedback:claim.feedback};
 }
 export async function listWorks(pool: Pool, actor: Actor) {
-  const rows=(await pool.query(`SELECT w.work_item_id,w.community_id,w.owner_ref,w.title,w.objective,w.acceptance_criteria,w.gain,w.state,w.aggregate_version,
+  return readWithMemberSession(pool,actor,q=>listWorksProjection(q,actor));
+}
+// Keep the former per-statement review clock inside the shared transaction.
+async function listWorksProjection(q: PoolClient, actor: Actor) {
+  const rows=(await q.query(`SELECT w.work_item_id,w.community_id,w.owner_ref,w.title,w.objective,w.acceptance_criteria,w.gain,w.state,w.aggregate_version,
     w.participation_terms,w.participation_terms_revision,w.participation_terms_sha256,w.claim_window_expires_at,w.due_at,w.created_at,
-    EXISTS(SELECT 1 FROM work_review_routes r WHERE r.work_item_id=w.work_item_id AND r.revoked_at IS NULL AND r.valid_until>now()) AS review_available
+    EXISTS(SELECT 1 FROM work_review_routes r WHERE r.work_item_id=w.work_item_id AND r.revoked_at IS NULL AND r.valid_until>statement_timestamp()) AS review_available
     FROM work_items w WHERE community_id=$1 AND work_mode='community_collaboration' ORDER BY created_at DESC,work_item_id`,[actor.community_id])).rows;
   if(!rows.length)return [];
-  const claims=(await pool.query(`SELECT claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,aggregate_version,terms_revision,terms_sha256,feedback
+  const claims=(await q.query(`SELECT claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,aggregate_version,terms_revision,terms_sha256,feedback
     FROM work_claims WHERE work_item_id=ANY($1::uuid[]) AND claimant_ref=$2`,[rows.map(row=>row.work_item_id),actor.user_id])).rows;
-  const submissions=claims.length?(await pool.query(`SELECT DISTINCT ON (claim_id) claim_id,submission_id,summary,artifact_ref,sha256,revision
+  const submissions=claims.length?(await q.query(`SELECT DISTINCT ON (claim_id) claim_id,submission_id,summary,artifact_ref,sha256,revision
     FROM submissions WHERE claim_id=ANY($1::uuid[]) ORDER BY claim_id,revision DESC`,[claims.map(claim=>claim.claim_id)])).rows:[];
   const latest=new Map(submissions.map(({claim_id,...submission})=>[claim_id,submission]));
   const own=new Map(claims.map(claim=>[claim.work_item_id,claimDto(claim,latest.get(claim.claim_id)??null)]));
@@ -80,16 +85,24 @@ async function scopedWork(q:PoolClient, actor:Actor,id:string,lock=false) {
   const row=(await q.query(`SELECT * FROM work_items WHERE work_item_id=$1 AND community_id=$2 AND work_mode='community_collaboration'${lock?' FOR UPDATE':''}`,[id,actor.community_id])).rows[0];
   requireCondition(row,404,'not_found','找不到這個工作。');return row;
 }
+// The caller already holds this Work's row lock on the same transaction client.
+async function assertClaimWindowClock(q:PoolClient,id:string) {
+  const current=await q.query('SELECT 1 FROM work_items WHERE work_item_id=$1 AND claim_window_expires_at>clock_timestamp()',[id]);
+  requireCondition(current.rowCount===1,409,'claim_window_closed','認領期限已過。');
+}
 export async function claimWork(pool:Pool,input:Command,id:string) {
   const body=claimInput.parse(input.body);
   requireCondition(body.acting_profession_membership_ref===input.actor.profession_membership_ref,403,'wrong_profession','只能以自己的職業身分認領。');
   requireCondition(String(body.expected_aggregate_version)===input.expected,400,'version_header_mismatch','版本欄位與 If-Match 不一致。');
+  // Historical receipts must not reacquire an availability window; only a new run does.
+  let creating=false;
   return command(pool,input,q=>scopedWork(q,input.actor,id),async q=>{
     const work=await scopedWork(q,input.actor,id,true);checkVersion(work.aggregate_version,input.expected);
     requireCondition(work.owner_ref!==input.actor.user_id,403,'self_claim','請由另一位成員協作這件工作。');
     requireCondition(work.state==='open',409,'claim_unavailable','這件工作已被認領。');
-    requireCondition(new Date(work.claim_window_expires_at).getTime()>Date.now(),409,'claim_window_closed','認領期限已過。');
+    await assertClaimWindowClock(q,id);
     requireCondition(body.participation_terms_revision===work.participation_terms_revision && body.participation_terms_sha256===work.participation_terms_sha256,409,'terms_changed','參與條款已更新，請重新閱讀。');
+    creating=true;
     const claim=(await q.query(`INSERT INTO work_claims(claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,terms_revision,terms_sha256,terms_snapshot)
       VALUES($1,$2,$3,$4,'claimed',$5,$6,$7) RETURNING *`,[randomUUID(),id,input.actor.user_id,input.actor.profession_membership_ref,work.participation_terms_revision,work.participation_terms_sha256,work.participation_terms])).rows[0];
     const version=(await q.query("UPDATE work_items SET state='claiming_closed',aggregate_version=aggregate_version+1 WHERE work_item_id=$1 RETURNING aggregate_version",[id])).rows[0].aggregate_version;
@@ -97,7 +110,7 @@ export async function claimWork(pool:Pool,input:Command,id:string) {
     await journal(q,input.actor,'work_claim',claim.claim_id,1,'claim',{work_item_id:id},'freedom.work.item.claimed.v1');
     const {latest_submission,feedback,...canonicalClaim}=(await claimView(q,claim))!;
     return canonicalClaim;
-  });
+  },async q=>{if(creating)await assertClaimWindowClock(q,id);});
 }
 async function scopedClaim(q:PoolClient,actor:Actor,id:string,review:boolean,lock=false) {
   const claim=(await q.query(`SELECT c.* FROM work_claims c JOIN work_items w USING(work_item_id)
@@ -105,8 +118,11 @@ async function scopedClaim(q:PoolClient,actor:Actor,id:string,review:boolean,loc
   requireCondition(claim,404,'not_found','找不到這次認領。');
   if(review) {
     requireCondition(claim.claimant_ref!==actor.user_id,403,'self_review','不能驗收自己的成果。');
-    const route=await q.query(`SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL AND valid_until>now() FOR SHARE`,[claim.work_item_id,actor.user_id]);
+    const route=await q.query(`SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL FOR SHARE`,[claim.work_item_id,actor.user_id]);
     requireCondition(route.rowCount===1,403,'review_authority_required','你沒有這件工作的有效驗收安排。');
+    // Sample the decision clock after acquiring the route lock, not before its wait.
+    const current=await q.query(`SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL AND valid_until>clock_timestamp()`,[claim.work_item_id,actor.user_id]);
+    requireCondition(current.rowCount===1,403,'review_authority_required','你沒有這件工作的有效驗收安排。');
   } else requireCondition(claim.claimant_ref===actor.user_id,403,'claim_owner_required','只能操作自己的認領。');
   return claim;
 }
@@ -141,20 +157,22 @@ export async function changeClaim(pool:Pool,input:Command,id:string,action:'star
     const updated=(await q.query('UPDATE work_claims SET state=$2,feedback=$3,aggregate_version=aggregate_version+1 WHERE claim_id=$1 RETURNING *',[id,next,feedback])).rows[0];
     await journal(q,input.actor,'work_claim',id,updated.aggregate_version,action,{state:next},event);
     return claimView(q,updated);
-  });
+  },reviewing?async q=>{await scopedClaim(q,input.actor,id,true);}:undefined);
 }
 export async function dashboard(pool:Pool,actor:Actor) {
-  const works=await listWorks(pool,actor);
-  const gained=(await pool.query(`SELECT c.contribution_id,c.work_item_id,c.title,c.summary,c.artifact_ref,c.accepted_at,c.official FROM contributions c
-    JOIN work_items w ON w.work_item_id=c.work_item_id WHERE c.community_id=$1 AND c.user_id=$2 AND w.work_mode='community_collaboration' ORDER BY c.accepted_at DESC`,[actor.community_id,actor.user_id])).rows;
-  const reviewClaims=(await pool.query(`SELECT c.*,u.display_name AS claimant_name FROM work_claims c JOIN work_items w USING(work_item_id)
-    JOIN work_review_routes r USING(work_item_id) JOIN users u ON u.user_id=c.claimant_ref
-    WHERE w.community_id=$1 AND w.work_mode='community_collaboration' AND r.reviewer_ref=$2 AND r.revoked_at IS NULL AND r.valid_until>now()
-    AND c.claimant_ref<>$2 AND NOT is_verification_test_account(c.claimant_ref) AND c.state IN ('submitted','in_review') ORDER BY c.created_at`,[actor.community_id,actor.user_id])).rows;
-  const submissions=reviewClaims.length?(await pool.query(`SELECT DISTINCT ON (claim_id) claim_id,submission_id,summary,artifact_ref,sha256,revision
-    FROM submissions WHERE claim_id=ANY($1::uuid[]) ORDER BY claim_id,revision DESC`,[reviewClaims.map(claim=>claim.claim_id)])).rows:[];
-  const latest=new Map(submissions.map(({claim_id,...submission})=>[claim_id,submission]));
-  const worksById=new Map(works.map(work=>[work.work_item_id,work]));
-  return {now:works.filter(w=>w.my_claim && w.my_claim.state!=='accepted'),next:works.filter(w=>w.state==='open'),gained,
-    review_queue:reviewClaims.map(c=>({claim:claimDto(c,latest.get(c.claim_id)??null),work_item:worksById.get(c.work_item_id),claimant_name:c.claimant_name})),summary:{accepted_count:gained.length}};
+  return readWithMemberSession(pool,actor,async q=>{
+    const works=await listWorksProjection(q,actor);
+    const gained=(await q.query(`SELECT c.contribution_id,c.work_item_id,c.title,c.summary,c.artifact_ref,c.accepted_at,c.official FROM contributions c
+      JOIN work_items w ON w.work_item_id=c.work_item_id WHERE c.community_id=$1 AND c.user_id=$2 AND w.work_mode='community_collaboration' ORDER BY c.accepted_at DESC`,[actor.community_id,actor.user_id])).rows;
+    const reviewClaims=(await q.query(`SELECT c.*,u.display_name AS claimant_name FROM work_claims c JOIN work_items w USING(work_item_id)
+      JOIN work_review_routes r USING(work_item_id) JOIN users u ON u.user_id=c.claimant_ref
+      WHERE w.community_id=$1 AND w.work_mode='community_collaboration' AND r.reviewer_ref=$2 AND r.revoked_at IS NULL AND r.valid_until>statement_timestamp()
+      AND c.claimant_ref<>$2 AND NOT is_verification_test_account(c.claimant_ref) AND c.state IN ('submitted','in_review') ORDER BY c.created_at`,[actor.community_id,actor.user_id])).rows;
+    const submissions=reviewClaims.length?(await q.query(`SELECT DISTINCT ON (claim_id) claim_id,submission_id,summary,artifact_ref,sha256,revision
+      FROM submissions WHERE claim_id=ANY($1::uuid[]) ORDER BY claim_id,revision DESC`,[reviewClaims.map(claim=>claim.claim_id)])).rows:[];
+    const latest=new Map(submissions.map(({claim_id,...submission})=>[claim_id,submission]));
+    const worksById=new Map(works.map(work=>[work.work_item_id,work]));
+    return {now:works.filter(w=>w.my_claim && w.my_claim.state!=='accepted'),next:works.filter(w=>w.state==='open'),gained,
+      review_queue:reviewClaims.map(c=>({claim:claimDto(c,latest.get(c.claim_id)??null),work_item:worksById.get(c.work_item_id),claimant_name:c.claimant_name})),summary:{accepted_count:gained.length}};
+  });
 }

@@ -8,6 +8,7 @@ import { AssetStorageError,snapshotBoundedBytes,type ObjectStore } from '../../p
 import { serviceCoverMemberCommand } from '../../packages/scoped-commands/index.js';
 import { serviceCoverStorageMode,type ServiceCoverAssetService } from '../assets/media-domain.js';
 import { readDomainMedia,type DomainMediaSnapshot } from '../../packages/media-migration/domain-bridge.js';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import { normalizeServiceCover } from '../skill-submissions/payload.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -95,11 +96,11 @@ async function shown(q: Db, actor: Actor, id: string) {
   return view((await one(q, actor.community_id, actor.user_id, id))!, actor.user_id, await canHideMemberContent(q, actor));
 }
 
-export async function listMemberServices(pool: Pool, actor: Actor, query: { category?: string; cursor?: string }) {
+export async function listMemberServices(db: Db, actor: Actor, query: { category?: string; cursor?: string }) {
   const category = categoryOf(query.category, true);
   const cursor = cursorOf(query.cursor, true);
-  const canHide = await canHideMemberContent(pool, actor);
-  const rows = (await pool.query(`${LIST}
+  const canHide = await canHideMemberContent(db, actor);
+  const rows = (await db.query(`${LIST}
     WHERE s.community_id=$1 AND s.state='active'
       AND (s.owner_user_id=$2 OR (u.active AND NOT is_verification_test_account(u.user_id)))
       AND ($3::text IS NULL OR s.category=$3)
@@ -110,9 +111,9 @@ export async function listMemberServices(pool: Pool, actor: Actor, query: { cate
   return { items: pageRows.map(row => view(row, actor.user_id, canHide)), next_cursor: rows.length > MEMBER_PAGE && last ? encodeCursor(last.updated_cursor, last.service_id) : null, can_hide: canHide };
 }
 
-export async function listMyMemberServices(pool: Pool, actor: Actor) {
-  const canHide = await canHideMemberContent(pool, actor);
-  const rows = (await pool.query(`${LIST} WHERE s.community_id=$1 AND s.owner_user_id=$2 AND s.state IN ('active','paused')
+export async function listMyMemberServices(db: Db, actor: Actor) {
+  const canHide = await canHideMemberContent(db, actor);
+  const rows = (await db.query(`${LIST} WHERE s.community_id=$1 AND s.owner_user_id=$2 AND s.state IN ('active','paused')
     ORDER BY s.updated_at DESC,s.service_id DESC`, [actor.community_id, actor.user_id])).rows as Row[];
   return { items: rows.map(row => view(row, actor.user_id, canHide)), can_hide: canHide, limit: SERVICE_LIMIT };
 }
@@ -235,8 +236,8 @@ export async function removeMemberServiceCover(pool: Pool, input: Command, id: s
   });
 }
 
-async function coverSnapshot(pool:Pool,communityId:string,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined> {
- const row=(await pool.query(`SELECT s.aggregate_version::text AS version,s.state,u.active,is_verification_test_account(u.user_id) AS test_account,
+async function coverSnapshot(db:Db,communityId:string,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined> {
+ const row=(await db.query(`SELECT s.aggregate_version::text AS version,s.state,u.active,is_verification_test_account(u.user_id) AS test_account,
  c.storage_source,c.image_bytes,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
  FROM member_service_covers c JOIN member_services s USING(service_id) JOIN users u ON u.user_id=s.owner_user_id
  LEFT JOIN member_service_cover_asset_targets t ON t.service_id=s.service_id AND t.linked_at_version<=s.aggregate_version
@@ -251,7 +252,7 @@ async function coverSnapshot(pool:Pool,communityId:string,id:string,actor?:Actor
  metadata:row.representation_id?{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}:null};
 }
 export async function readMemberCover(pool:Pool,actor:Actor,id:string,store?:ObjectStore) {
- return (await readDomainMedia(()=>coverSnapshot(pool,actor.community_id,id,actor),{purpose:'member.service-cover',targetId:id,variant:'cover'},store)).bytes;
+ return (await readDomainMedia(()=>readWithMemberSession(pool,actor,q=>coverSnapshot(q,actor.community_id,id,actor)),{purpose:'member.service-cover',targetId:id,variant:'cover'},store)).bytes;
 }
 
 export async function resolvePublicCommunity(pool: Pool, configured?: string) {
@@ -265,7 +266,7 @@ export async function publicMemberCover(pool:Pool,communityId:string|null,id:str
  return (await readDomainMedia(()=>coverSnapshot(pool,communityId!,id),{purpose:'member.service-cover',targetId:id,variant:'cover'},store)).bytes;
 }
 
-export async function readMemberServiceShare(pool: Pool, communityId: string, id: string) {
+export async function readMemberServiceShare(pool: Pool | PoolClient, communityId: string, id: string) {
   if (!z.uuid().safeParse(id).success) return null;
   const row = (await pool.query(`SELECT s.title,s.summary,u.display_name AS owner_name,c.service_id IS NOT NULL AS has_cover
     FROM member_services s JOIN users u ON u.user_id=s.owner_user_id LEFT JOIN member_service_covers c ON c.service_id=s.service_id
@@ -273,7 +274,7 @@ export async function readMemberServiceShare(pool: Pool, communityId: string, id
   return row ? { title: row.title as string, summary: row.summary as string, ownerName: row.owner_name as string, hasCover: Boolean(row.has_cover) } : null;
 }
 
-export async function readMemberServiceTitles(pool: Pool, communityId: string, ids: string[]) {
+export async function readMemberServiceTitles(pool: Pool|PoolClient, communityId: string, ids: string[]) {
   const unique = [...new Set(ids.map(id => id.toLowerCase()))].filter(id => z.uuid().safeParse(id).success);
   if (!unique.length) return new Map<string, { title: string; available: boolean }>();
   const rows = (await pool.query(`SELECT s.service_id::text AS id,s.title,(s.state='active' AND u.active AND NOT is_verification_test_account(u.user_id)) AS available
