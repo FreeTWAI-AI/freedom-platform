@@ -66,7 +66,7 @@ for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
       await report.press('Escape');await expect(entry).toBeFocused();await search.press('Escape');
       const back=panel.getByRole('button',{name:'← 返回對話列表',exact:true});
       if(await back.isVisible())await back.click();
-      await page.locator('.floating-message-header button').click();
+      await page.locator('.floating-message-header').getByRole('button',{name:'收合聊天室',exact:true}).click();
       // The report entry mounts before the profile cards above it. Delay real
       // profile responses, then wait for those cards before the single click.
       const profileGate=new Promise<void>(resolve=>{releaseProfile=resolve;});
@@ -86,7 +86,7 @@ for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
         await expect(mine.locator('article')).toHaveCount(20);await mine.getByRole('button',{name:'更多檢舉案件',exact:true}).click();
         await expect(mine.locator('article')).toHaveCount(22);await expect(mine.getByRole('button',{name:'更多檢舉案件',exact:true})).toHaveCount(0);
       }
-      const admin=await login(2);await admin.locator('.floating-message-header button').click();const adminPanel=admin.getByRole('region',{name:'平台檢舉案件',exact:true});await adminPanel.getByRole('button',{name:'平台檢舉案件',exact:true}).click();
+      const admin=await login(2);await admin.locator('.floating-message-header').getByRole('button',{name:'收合聊天室',exact:true}).click();const adminPanel=admin.getByRole('region',{name:'平台檢舉案件',exact:true});await adminPanel.getByRole('button',{name:'平台檢舉案件',exact:true}).click();
       if(paginated){await expect(adminPanel.locator('article')).toHaveCount(20);await adminPanel.getByRole('button',{name:'更多平台檢舉案件',exact:true}).click();await expect(adminPanel.locator('article')).toHaveCount(22);await expect(adminPanel.getByRole('button',{name:'更多平台檢舉案件',exact:true})).toHaveCount(0);}
       const item=adminPanel.locator('article').first();await expect(item).toBeVisible();await item.getByText('查看案件證據',{exact:true}).focus();await item.getByText('查看案件證據',{exact:true}).press('Enter');await expect(item.locator('.report-evidence-copy')).toContainText('合成私人檢舉證據');await bounds(admin);
       if(width>=768){expect((await item.getByRole('button',{name:'開始處理',exact:true}).boundingBox())!.width).toBeLessThan((await item.boundingBox())!.width/2);}
