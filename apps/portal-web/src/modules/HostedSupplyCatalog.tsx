@@ -11,6 +11,7 @@ import {HostedDistribution, supplyRequestsWaiting, type SupplyCooperationSnapsho
 import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {HostedReservationSetting} from './HostedReservationSetting';
 import {SupplierOrdersLink} from './HostedSupplierOrders';
+import {ProductSearch,productMatches} from '../../../../modules/agent-commerce/hosted-ui/CommerceTools';
 
 type Catalog = z.infer<typeof SupplyCatalogViewSchema>;
 type Product = z.infer<typeof SupplyProductViewSchema>;
@@ -68,6 +69,7 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
   const [editing, setEditing] = useState<string | null>(null), [supplyEditing, setSupplyEditing] = useState<string | null>(null);
   const [area, setArea] = useState<'products' | 'cooperation' | 'reservations'>('products');
   const [adding, setAdding] = useState(false);
+  const [query,setQuery]=useState('');
   const [refresh, setRefresh] = useState(0);
   const [cooperation, setCooperation] = useState<SupplyCooperationSnapshot | null>(null);
   const dirtyForms = useRef<Record<string, boolean>>({});
@@ -223,16 +225,18 @@ export function HostedSupplyCatalog({client, tenantId, instanceId, registerLeave
               {can('store:write') && !adding && !editing && !supplyEditing && view.product_count < view.product_limit && <button type="button" className="btn btn-primary" disabled={locked} onClick={() => openEditor('add')}>新增供貨商品</button>}
             </div>
             <p className="field-hint">幣別：{catalog.currency} · 共用商品容量：{view.product_count}／{view.product_limit}（含供貨商品與商店選品）</p>
+            {!!products.length&&<ProductSearch value={query} onChange={setQuery} count={products.filter(product=>productMatches(product,query)).length} total={products.length} disabled={locked||hasDraft}/>}
+            {!!products.length&&!products.some(product=>productMatches(product,query))&&<p>沒有符合的供貨商品，清除搜尋即可查看全部。</p>}
             {adding && <SupplyProductForm currency={catalog.currency} busy={locked || !can('store:write')} onDirty={value => markDirty('add', value)}
               onCancel={closeEditor}
               onSave={(body, success) => command({method: 'post', path: root + '/supply-products', body, schema: SupplyProductReceiptSchema, notice: '已新增供貨商品。', success: () => {success(); setAdding(false); markDirty('add', false);}})}/>}
             {!products.length && !loading && <p>還沒有商品。新增商品後可設定供貨條件。</p>}
             <div className="hosted-store-products">{products.map(product => {
               const offerState = supplyOfferStateText(product, displayedCooperation);
-              return <article className="hosted-store-product stack" key={product.product_id}>
+              return <article className="hosted-store-product stack" key={product.product_id} hidden={!productMatches(product,query)}>
               {supplyEditing === product.product_id ? <HostedSupplyTerms key={product.version} supplierOnly client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked || !can('store:write')} onDirty={value => markDirty('supply', value)}
                 onCancel={closeEditor}
-                onSave={(body, version, success) => command({targetMissingIsStore: false, method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, notice: '已儲存供貨條件。', success: () => {success(); setSupplyEditing(null); markDirty('supply', false);}})}
+                onSave={(body, version, success) => command({targetMissingIsStore: false, method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, notice: '已儲存供貨條件。可直接確認並公開這一版。', success: () => {success(); markDirty('supply', false);}})}
                 onPublish={can('store:publish') && can('store:write') ? version => command({targetMissingIsStore: false, method: 'post', path: root + '/products/' + product.product_id + '/supply-offer', body: {}, version, schema: SupplyOfferSchema, notice: '已公開供貨版本，同社群店主可申請選用。', success: () => {setSupplyEditing(null); markDirty('supply', false);}}) : undefined}/>
                 : editing === product.product_id ? <SupplyProductForm key={product.version} product={product} currency={catalog.currency} busy={locked || !can('store:write')} onDirty={value => markDirty('edit', value)} onCancel={closeEditor} onSave={(body, success) => command({targetMissingIsStore: false, method: 'patch', path: root + '/supply-products/' + product.product_id, body, version: product.version, schema: SupplyProductReceiptSchema, notice: '已儲存供貨商品。', success: () => {success(); setEditing(null); markDirty('edit', false);}})}/>
                 : <><h4>{product.title}</h4><p>供貨單價 {formatMinor(product.cost_minor, product.currency)}</p><p>庫存 {product.stock}</p>{offerState && <p className="field-hint">{offerState}</p>}{product.description && <p className="hosted-store-description">{product.description}</p>}

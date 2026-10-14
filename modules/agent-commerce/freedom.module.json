@@ -12,7 +12,8 @@
     "scoped-commands",
     "development",
     "module-registry",
-    "shared"
+    "shared",
+    "asset-storage"
   ],
   "format": "freedom.module/v1",
   "instructions": [
@@ -101,7 +102,8 @@
   "public_exports": [
     "modules/agent-commerce/orders.ts",
     "modules/agent-commerce/service-command.ts",
-    "modules/agent-commerce/key-exit.ts"
+    "modules/agent-commerce/key-exit.ts",
+    "modules/agent-commerce/hosted-ui/CommerceTools.tsx"
   ],
   "surfaces": [
     {

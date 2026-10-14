@@ -112,27 +112,39 @@ export async function changeContributionRole(pool:Pool,input:Command,id:string,a
 export async function contributionRoles(pool:Pool,actor:Actor,workId:string,query:unknown){
   workId=z.uuid().parse(workId).toLowerCase();const page=pageInput.parse(query);actor={...actor};
   return readWithMemberSession(pool,actor,async q=>{
-    const source=await work(q,actor,workId);
-    const rows=(await q.query(`SELECT r.*,u.display_name AS member_name,c.confirmer_ref,c.confirmed_at,v.display_name AS confirmer_name
-      FROM work_contribution_roles r JOIN users u ON u.user_id=r.member_ref AND u.community_id=r.community_id AND u.active
-      LEFT JOIN work_contribution_confirmations c ON c.role_id=r.role_id AND c.claim_version=r.aggregate_version-1 AND c.payload_sha256=r.payload_sha256 AND r.state='confirmed'
-      LEFT JOIN users v ON v.user_id=c.confirmer_ref
-      WHERE r.work_item_id=$1 AND r.community_id=$2 AND (r.state<>'withdrawn' OR r.member_ref=$3)
-      AND (r.member_ref=$3 OR NOT is_verification_test_account(r.member_ref))
-      AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$2 AND b.state='active'
-        AND ((b.owner_ref=$3 AND b.target_ref=r.member_ref) OR (b.owner_ref=r.member_ref AND b.target_ref=$3)))
-      ORDER BY r.shared_at,r.role_id LIMIT $4 OFFSET $5`,[workId,actor.community_id,actor.user_id,page.limit+1,page.offset])).rows;
-    const routes=source.state==='accepted'?(await q.query('SELECT 1 FROM work_review_routes WHERE work_item_id=$1 AND reviewer_ref=$2 AND revoked_at IS NULL AND valid_until>clock_timestamp()',[workId,actor.user_id])).rowCount:0;
-    const items=[];
-    for(const row of rows.slice(0,page.limit)){
-      let canConfirm=false;
-      if(row.state==='pending'&&row.member_ref!==actor.user_id&&source.state==='accepted'){
-        canConfirm=Boolean(routes)||source.accepted_member===actor.user_id&&source.owner_ref===row.member_ref;
+    await eligible(q,actor);
+    // Work metadata, visibility and current confirmation authority share one statement snapshot.
+    const rows=(await q.query(`SELECT w.title,w.state AS work_state,w.owner_ref,
+      accepted.user_id AS accepted_member,accepted.accepted_at,roles.*
+      FROM work_items w LEFT JOIN contributions accepted ON accepted.work_item_id=w.work_item_id
+      LEFT JOIN LATERAL(
+        SELECT r.*,u.display_name AS member_name,c.confirmer_ref,c.confirmed_at,v.display_name AS confirmer_name,
+          CASE WHEN w.state='accepted' THEN EXISTS(SELECT 1 FROM work_review_routes
+            WHERE work_item_id=w.work_item_id AND reviewer_ref=$3 AND revoked_at IS NULL AND valid_until>clock_timestamp())
+            ELSE false END AS review_available
+        FROM work_contribution_roles r JOIN users u ON u.user_id=r.member_ref AND u.community_id=r.community_id AND u.active
+        LEFT JOIN work_contribution_confirmations c ON c.role_id=r.role_id AND c.claim_version=r.aggregate_version-1 AND c.payload_sha256=r.payload_sha256 AND r.state='confirmed'
+        LEFT JOIN users v ON v.user_id=c.confirmer_ref
+        WHERE r.work_item_id=w.work_item_id AND r.community_id=$2 AND (r.state<>'withdrawn' OR r.member_ref=$3)
+        AND (r.member_ref=$3 OR NOT is_verification_test_account(r.member_ref))
+        AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$2 AND b.state='active'
+          AND ((b.owner_ref=$3 AND b.target_ref=r.member_ref) OR (b.owner_ref=r.member_ref AND b.target_ref=$3)))
+        ORDER BY r.shared_at,r.role_id LIMIT $4 OFFSET $5
+      ) roles ON true
+      WHERE w.work_item_id=$1 AND w.community_id=$2 AND w.work_mode='community_collaboration'
+      ORDER BY roles.shared_at,roles.role_id`,[workId,actor.community_id,actor.user_id,page.limit+1,page.offset])).rows;
+    const source=rows[0];requireCondition(source,404,'not_found','找不到這件社群工作。');
+    // The outer Work row survives an empty role page without becoming a null-role item.
+    const count=source.role_id===null?0:rows.length,items=[];
+    for(let index=0;index<count&&index<page.limit;index++){
+      const row=rows[index];let canConfirm=false;
+      if(row.state==='pending'&&row.member_ref!==actor.user_id&&source.work_state==='accepted'){
+        canConfirm=Boolean(row.review_available)||source.accepted_member===actor.user_id&&source.owner_ref===row.member_ref;
       }
       items.push({...receipt(row),role:row.role,member_ref:row.member_ref,member_name:row.member_name,summary:row.summary,evidence_ref:row.evidence_ref,
         is_self:row.member_ref===actor.user_id,can_confirm:canConfirm,confirmer_name:row.confirmer_name??null,confirmed_at:row.confirmed_at??null});
     }
-    return {work_item_id:workId,title:source.title,work_state:source.state,accepted_at:source.accepted_at??null,items,next_offset:rows.length>page.limit?page.offset+page.limit:null};
+    return {work_item_id:workId,title:source.title,work_state:source.work_state,accepted_at:source.accepted_at??null,items,next_offset:count>page.limit?page.offset+page.limit:null};
   });
 }
 

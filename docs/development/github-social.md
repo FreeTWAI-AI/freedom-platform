@@ -43,7 +43,7 @@ Nonce 消耗先取得精確 user／community／session 所屬 state 的列鎖，
 
 瀏覽器的 GitHub 連結意圖也綁定建立該 private store 時的登入生命週期。登出、換會員或同會員重新登入後，舊 reconnect callback 不得以新 session 發起 OAuth；舊 connect 回應也不再交給入口導頁。新登入由本人重新按連結，沿用新的 store 與既有 PKCE／返回目標驗證；不把舊回應視為新會員同意。
 
-「我的名片」可解除連結。工坊立即移除本地憑證，並嘗試撤銷 GitHub token；若 GitHub 撤銷失敗，畫面會保留前往 GitHub 授權設定的入口。停用會員或撤銷 session 後，舊請求不能操作 Star。Star 不產生 XP、名聲或職務認證。
+「我的名片」可解除連結。工坊立即移除本地憑證，並嘗試撤銷 GitHub token；若 GitHub 撤銷失敗，畫面會保留前往 GitHub 授權設定的入口。停用會員或撤銷 session 後，舊請求不能操作 Star。會員鎖或 Star 送出佇列跨過 session 到期時，也不得呼叫 GitHub 或寫入本機 Star 紀錄。Star 不產生 XP、名聲或職務認證。
 
 ## API
 

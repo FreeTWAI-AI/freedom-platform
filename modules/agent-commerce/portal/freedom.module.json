@@ -5,7 +5,8 @@
   "owned_paths": [
     "apps/portal-web/src/modules/CommercePanels.tsx",
     "apps/portal-web/src/modules/AgentShops.css",
-    "tests/e2e/agent-shops.spec.ts"
+    "tests/e2e/agent-shops.spec.ts",
+    "tests/e2e/hosted-commerce-ux.spec.ts"
   ],
   "public_exports": [],
   "dependencies": ["agent-commerce"],
