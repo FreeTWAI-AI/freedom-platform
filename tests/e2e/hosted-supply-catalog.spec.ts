@@ -432,3 +432,352 @@ test('supplier work areas preserve drafts, show one task at a time and discard o
   }
   expect((await (await page.request.get('/api/v1' + store.root + '/supply-products')).json()).items).toHaveLength(1);
 });
+
+test('supply product card shows offer state and requests waiting for the supplier', async ({page, browser, baseURL, e2eAuthPool}, info) => {
+  test.setTimeout(120000);
+  const title = '狀態茶杯';
+  const store = await readyCatalog(page, e2eAuthPool);
+  const profile = await (await page.request.get('/api/v1' + store.root + '/supply-profile')).json() as {catalog: {name: string}};
+  const catalogName = profile.catalog.name;
+  await post(page, store.root + '/supply-products', {title, description: '供貨狀態說明', cost_minor: 12000, stock: 6}, 201);
+  const offersHeld = deferred();
+  const offersStarted = deferred();
+  let offersPhase: 'hold' | 'fail' | 'truncated' | 'live' = 'hold';
+  const offersPath = (url: URL) => url.pathname === `/api/v1${store.root}/supply-offers`;
+  const requestsPath = (url: URL) => url.pathname === `/api/v1${store.root}/supply-requests`;
+  const parentSuffix = {profile: '/supply-profile', products: '/supply-products', reservation: '/reservation-setting'} as const;
+  const parentReadPath = (url: URL) => (Object.values(parentSuffix) as string[]).some(suffix => url.pathname === `/api/v1${store.root}${suffix}`);
+  let truncateRequests = false;
+  let parentFail: keyof typeof parentSuffix | null = null;
+  let parentFollowUpReads = 0;
+  const lateRequestsHeld = deferred(), lateRequestsStarted = deferred();
+  let delayRequests = false;
+  await page.route(offersPath, async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    if (parentFail) parentFollowUpReads += 1;
+    if (offersPhase === 'hold') {offersStarted.resolve(); await offersHeld.promise;}
+    if (offersPhase === 'fail') {
+      await route.fulfill({status: 503, contentType: 'application/problem+json', body: JSON.stringify({status: 503, title: '暫時無法讀取供貨', code: 'unavailable'})});
+      return;
+    }
+    if (offersPhase === 'truncated') {
+      await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({items: [], truncated: true})});
+      return;
+    }
+    await route.continue();
+  });
+  await page.route(requestsPath, async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    if (parentFail) parentFollowUpReads += 1;
+    if (delayRequests) {
+      delayRequests = false;
+      const response = await route.fetch(), snapshot = await response.json();
+      lateRequestsStarted.resolve(); await lateRequestsHeld.promise;
+      // This visible suffix proves adoption of the delayed, pre-command child
+      // snapshot before checking that it cannot restore the parent summary.
+      return route.fulfill({response, json: {...snapshot, truncated: true}});
+    }
+    if (!truncateRequests) return route.continue();
+    const response = await route.fetch();
+    const body = await response.json() as {truncated?: boolean};
+    body.truncated = true;
+    await route.fulfill({response, json: body});
+  });
+  await page.route(parentReadPath, async route => {
+    if (route.request().method() !== 'GET' || !parentFail) return route.continue();
+    const target = `/api/v1${store.root}${parentSuffix[parentFail]}`;
+    if (new URL(route.request().url()).pathname !== target) return route.continue();
+    await route.fulfill({status: 503, contentType: 'application/problem+json', body: JSON.stringify({status: 503, title: '暫時無法讀取供貨', code: 'unavailable'})});
+  });
+  const card = () => page.locator('.hosted-store-product').filter({has: page.getByRole('heading', {name: title, exact: true})});
+  const requests = () => page.locator('.hosted-distribution details').filter({has: page.locator('summary').filter({hasText: '供貨申請'})});
+  const status = () => supplySurface(page).locator(':scope > [role="status"]');
+  try {
+    await open(page, store.hash + '/supply');
+    await expect(card().getByRole('heading', {name: title, exact: true})).toBeVisible();
+    await offersStarted.promise;
+    await expect(card()).not.toContainText('供貨版本：');
+    offersPhase = 'fail';
+    offersHeld.resolve();
+    await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+    await expect(card()).not.toContainText('尚未公開');
+    offersPhase = 'truncated';
+    await workspace(page, '供貨合作').click();
+    const truncatedOffers = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-offers` && response.request().method() === 'GET');
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await truncatedOffers).status()).toBe(200);
+    await expect(page.locator('.hosted-distribution')).toContainText('目前只顯示部分供貨與申請，這份清單尚未包含全部資料。');
+    await workspace(page, '商品').click();
+    await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+    await expect(card()).not.toContainText('尚未公開');
+    offersPhase = 'live';
+    const liveOffers = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-offers` && response.request().method() === 'GET');
+    await workspace(page, '供貨合作').click();
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await liveOffers).status()).toBe(200);
+    await workspace(page, '商品').click();
+    await expect(card().getByText('供貨版本：尚未公開', {exact: true})).toBeVisible();
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({width, height: 900});
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({path: info.outputPath(`offer-before-publish-${width}.png`), fullPage: true, animations: 'disabled'});
+    }
+
+    await page.getByRole('button', {name: '供貨條件', exact: true}).click();
+    const terms = () => page.getByRole('form', {name: `${title}供貨條件`, exact: true});
+    await expect(terms().getByRole('button', {name: '公開供貨版本', exact: true})).toBeEnabled();
+    const staleNotice = () => page.getByText('供貨申請狀態未完整載入。', {exact: true});
+    const parentGet = (suffix: string) => page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}${suffix}` && response.request().method() === 'GET');
+    async function failParentRead(target: keyof typeof parentSuffix, receipt: string, action: () => Promise<void>, shots = false) {
+      parentFail = target;
+      parentFollowUpReads = 0;
+      const failed = parentGet(parentSuffix[target]);
+      const command = page.waitForResponse(response => {
+        const url = new URL(response.url());
+        return response.request().method() === 'POST' && (url.pathname.endsWith('/supply-offer') || url.pathname.endsWith('/decision'));
+      });
+      await action();
+      expect((await command).ok()).toBeTruthy();
+      expect((await failed).status()).toBe(503);
+      await expect(status()).toContainText(receipt);
+      await expect(page.getByRole('alert').filter({hasText: '服務暫時無法回應（503）。請稍後重試。'})).toBeVisible();
+      await expect(page.getByRole('button', {name: '重新載入', exact: true})).toBeEnabled();
+      await expect(page.getByRole('button', {name: '重試', exact: true})).toHaveCount(0);
+      await expect(supplySurface(page)).not.toContainText('尚未確認原操作的結果');
+      await workspace(page, '商品').click();
+      await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+      await expect(card()).not.toContainText('尚未公開');
+      await expect(card()).not.toContainText('公開中');
+      await expect(staleNotice()).toBeVisible();
+      await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+      await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+      await expect(page.getByRole('button', {name: '供貨條件', exact: true})).toBeDisabled();
+      if (shots) {
+        for (const theme of ['light', 'dark', 'versefolk']) {
+          await page.evaluate(value => {localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; document.documentElement.dataset.experienceProfile = value; window.dispatchEvent(new Event('freedom-theme-changed'));}, theme);
+          for (const width of [390, 768, 1440]) {
+            await page.setViewportSize({width, height: 900});
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+            await page.screenshot({path: info.outputPath(`offer-parent-read-${theme}-${width}.png`), fullPage: true, animations: 'disabled'});
+          }
+        }
+        await page.evaluate(() => {localStorage.setItem('freedom-theme', 'light'); document.documentElement.dataset.theme = 'light'; document.documentElement.dataset.experienceProfile = 'light'; window.dispatchEvent(new Event('freedom-theme-changed'));});
+        await page.setViewportSize({width: 1280, height: 900});
+      }
+      await workspace(page, '供貨合作').click();
+      await expect(page.locator('.hosted-distribution')).not.toContainText('目前無法讀取供貨合作');
+      await expect(page.getByRole('button', {name: '更新供貨狀態', exact: true})).toBeDisabled();
+      await expect(staleNotice()).toBeVisible();
+      if (receipt === '已同意這一版選品') await expect(requests().locator('summary')).toContainText('待你確認');
+      expect(parentFollowUpReads).toBe(0);
+      await workspace(page, '預留與訂單').click();
+      await expect(staleNotice()).toBeVisible();
+      await expect(page.locator('#supply-cooperation-panel')).toBeHidden();
+    }
+    async function recoverParentLoad() {
+      parentFail = null;
+      const reads = ['/supply-profile', '/supply-products', '/reservation-setting', '/supply-offers'].map(parentGet);
+      await page.getByRole('button', {name: '重新載入', exact: true}).click();
+      for (const read of reads) expect((await read).status()).toBe(200);
+      await workspace(page, '商品').click();
+      await expect(card().getByText('供貨版本：公開中', {exact: true})).toBeVisible();
+      await expect(staleNotice()).toHaveCount(0);
+      await expect(page.getByRole('button', {name: '重新載入', exact: true})).toHaveCount(0);
+      await expect(page.getByRole('button', {name: '供貨條件', exact: true})).toBeEnabled();
+      await expect(page.getByRole('alert').filter({hasText: '服務暫時無法回應（503）'})).toHaveCount(0);
+    }
+    offersPhase = 'fail';
+    const failedPublishRead = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-offers` && response.request().method() === 'GET');
+    await terms().getByRole('button', {name: '公開供貨版本', exact: true}).click();
+    expect((await failedPublishRead).status()).toBe(503);
+    await expect(status()).toContainText('已公開供貨版本');
+    await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+    await expect(card()).not.toContainText('尚未公開');
+    await expect(card()).not.toContainText('公開中');
+    await expect(staleNotice()).toBeVisible();
+    await expect(page.locator('#supply-cooperation-panel')).toBeHidden();
+    await workspace(page, '預留與訂單').click();
+    await expect(staleNotice()).toBeVisible();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(page.locator('#supply-cooperation-panel')).toBeHidden();
+    await workspace(page, '商品').click();
+    for (const theme of ['light', 'dark', 'versefolk']) {
+      await page.evaluate(value => {localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; document.documentElement.dataset.experienceProfile = value; window.dispatchEvent(new Event('freedom-theme-changed'));}, theme);
+      for (const width of [390, 768, 1440]) {
+        await page.setViewportSize({width, height: 900});
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({path: info.outputPath(`offer-stale-${theme}-${width}.png`), fullPage: true, animations: 'disabled'});
+      }
+    }
+    await page.evaluate(() => {localStorage.setItem('freedom-theme', 'light'); document.documentElement.dataset.theme = 'light'; document.documentElement.dataset.experienceProfile = 'light'; window.dispatchEvent(new Event('freedom-theme-changed'));});
+    offersPhase = 'live';
+    const recoveredPublish = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-offers` && response.request().method() === 'GET');
+    await workspace(page, '供貨合作').click();
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await recoveredPublish).status()).toBe(200);
+    await workspace(page, '商品').click();
+    await expect(card().getByText('供貨版本：公開中', {exact: true})).toBeVisible();
+    await expect(staleNotice()).toHaveCount(0);
+    await workspace(page, '預留與訂單').click();
+    await expect(staleNotice()).toHaveCount(0);
+    await workspace(page, '商品').click();
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({width, height: 900});
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({path: info.outputPath(`offer-recovered-${width}.png`), fullPage: true, animations: 'disabled'});
+    }
+    await page.setViewportSize({width: 1280, height: 900});
+
+    for (const target of ['profile', 'products', 'reservation'] as const) {
+      await page.getByRole('button', {name: '供貨條件', exact: true}).click();
+      await expect(terms().getByRole('button', {name: '公開供貨版本', exact: true})).toBeEnabled();
+      await failParentRead(target, '已公開供貨版本', () => terms().getByRole('button', {name: '公開供貨版本', exact: true}).click(), target === 'profile');
+      await recoverParentLoad();
+    }
+
+    const retailerContext = await browser.newContext({baseURL});
+    try {
+      const retailer = await retailerContext.newPage();
+      const member = await person(e2eAuthPool);
+      await login(retailer, member.email);
+      const shop = await launchStore(retailer, '狀態選物');
+      await post(retailer, shop.root + '/setup', {name: '狀態選物', slug: `state-${randomUUID().slice(0, 8)}`, currency: 'TWD'}, 201);
+      await open(retailer, shop.hash);
+      await retailer.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+      const catalog = retailer.locator('.hosted-distribution details').filter({has: retailer.locator('summary').filter({hasText: '選用其他商店'})});
+      if (await catalog.getAttribute('open') === null) await catalog.locator('summary').click();
+      const offer = catalog.locator('article').filter({has: retailer.getByRole('heading', {name: `${title}・${catalogName}`, exact: true})});
+      await expect(offer).toBeVisible();
+      await offer.getByRole('button', {name: '設定我的售價', exact: true}).click();
+      await offer.getByLabel('我的零售價（TWD）', {exact: true}).fill('20');
+      await offer.getByRole('button', {name: '送出供貨申請', exact: true}).click();
+      await expect(retailer.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
+    } finally {await retailerContext.close();}
+
+    await workspace(page, '供貨合作').click();
+    const loadedRequests = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-requests` && response.request().method() === 'GET');
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await loadedRequests).status()).toBe(200);
+    await expect(requests().locator('summary')).toHaveText('供貨申請（1・待你確認 1）');
+    await expect.poll(() => requests().evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
+    await expect(requests().getByRole('button', {name: '同意這一版', exact: true})).toBeVisible();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
+    await workspace(page, '商品').click();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
+    await workspace(page, '預留與訂單').click();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
+    await workspace(page, '供貨合作').click();
+
+    await requests().locator('summary').click();
+    await expect.poll(() => requests().evaluate(element => (element as HTMLDetailsElement).open)).toBe(false);
+    const refreshedClosed = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-offers` && response.request().method() === 'GET');
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await refreshedClosed).status()).toBe(200);
+    await expect.poll(() => requests().evaluate(element => (element as HTMLDetailsElement).open)).toBe(false);
+    await requests().locator('summary').click();
+    await expect(requests().getByRole('button', {name: '同意這一版', exact: true})).toBeVisible();
+
+    truncateRequests = true;
+    const truncatedRequests = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-requests` && response.request().method() === 'GET');
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await truncatedRequests).status()).toBe(200);
+    await expect(requests().locator('summary')).toHaveText('供貨申請（1・待你確認至少 1 件）');
+    await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
+    await expect(page.locator('.hosted-distribution')).toContainText('目前只顯示部分供貨與申請，這份清單尚未包含全部資料。');
+    truncateRequests = false;
+    const restoredRequests = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-requests` && response.request().method() === 'GET');
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await restoredRequests).status()).toBe(200);
+    await expect(requests().locator('summary')).toHaveText('供貨申請（1・待你確認 1）');
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
+    await expect(page.locator('.hosted-distribution')).not.toContainText('目前只顯示部分供貨與申請');
+
+    offersPhase = 'fail';
+    const failedAcceptRead = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-offers` && response.request().method() === 'GET');
+    await requests().getByRole('button', {name: '同意這一版', exact: true}).click();
+    expect((await failedAcceptRead).status()).toBe(503);
+    await expect(status()).toContainText('已同意這一版選品');
+    await workspace(page, '商品').click();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(staleNotice()).toBeVisible();
+    await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+    await expect(card()).not.toContainText('公開中');
+    await expect(page.locator('#supply-cooperation-panel')).toBeHidden();
+    await workspace(page, '預留與訂單').click();
+    await expect(staleNotice()).toBeVisible();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(page.locator('#supply-cooperation-panel')).toBeHidden();
+    offersPhase = 'live';
+    const recoveredAccept = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-requests` && response.request().method() === 'GET');
+    await workspace(page, '供貨合作').click();
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await recoveredAccept).status()).toBe(200);
+    await expect(requests().locator('summary')).toHaveText('供貨申請（1）');
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(staleNotice()).toHaveCount(0);
+    await workspace(page, '商品').click();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(staleNotice()).toHaveCount(0);
+    await expect(card().getByText('供貨版本：公開中', {exact: true})).toBeVisible();
+
+    const retailerAgain = await browser.newContext({baseURL});
+    try {
+      const retailer = await retailerAgain.newPage();
+      const member = await person(e2eAuthPool);
+      await login(retailer, member.email);
+      const shop = await launchStore(retailer, '狀態選物再申請');
+      await post(retailer, shop.root + '/setup', {name: '狀態選物再申請', slug: `stateb-${randomUUID().slice(0, 8)}`, currency: 'TWD'}, 201);
+      await open(retailer, shop.hash);
+      await retailer.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+      const catalog = retailer.locator('.hosted-distribution details').filter({has: retailer.locator('summary').filter({hasText: '選用其他商店'})});
+      if (await catalog.getAttribute('open') === null) await catalog.locator('summary').click();
+      const offer = catalog.locator('article').filter({has: retailer.getByRole('heading', {name: `${title}・${catalogName}`, exact: true})});
+      await expect(offer).toBeVisible();
+      await offer.getByRole('button', {name: '設定我的售價', exact: true}).click();
+      await offer.getByLabel('我的零售價（TWD）', {exact: true}).fill('21');
+      await offer.getByRole('button', {name: '送出供貨申請', exact: true}).click();
+      await expect(retailer.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
+    } finally {await retailerAgain.close();}
+
+    await workspace(page, '供貨合作').click();
+    const loadedAgain = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1${store.root}/supply-requests` && response.request().method() === 'GET');
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    expect((await loadedAgain).status()).toBe(200);
+    await expect(requests().locator('summary')).toHaveText('供貨申請（2・待你確認 1）');
+    await expect(requests().getByRole('button', {name: '同意這一版', exact: true})).toBeVisible();
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toBeVisible();
+    delayRequests = true;
+    await page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    await lateRequestsStarted.promise;
+    await expect(requests().getByRole('button', {name: '同意這一版', exact: true})).toBeEnabled();
+    await failParentRead('reservation', '已同意這一版選品', () => requests().getByRole('button', {name: '同意這一版', exact: true}).click());
+    const lateResponse = page.waitForResponse(response => requestsPath(new URL(response.url())) && response.request().method() === 'GET');
+    lateRequestsHeld.resolve(); expect((await lateResponse).status()).toBe(200);
+    await workspace(page, '供貨合作').click();
+    await expect(requests().locator('summary')).toHaveText('供貨申請（2・待你確認至少 1 件）');
+    await expect(staleNotice()).toBeVisible();
+    for (const area of ['商品', '預留與訂單']) {
+      await workspace(page, area).click();
+      await expect(staleNotice()).toBeVisible();
+      await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+      await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    }
+    await workspace(page, '商品').click();
+    await expect(card().getByText('供貨版本：狀態未完整載入', {exact: true})).toBeVisible();
+    await expect(card()).not.toContainText('公開中');
+    await recoverParentLoad();
+    await workspace(page, '供貨合作').click();
+    await expect(requests().locator('summary')).toHaveText('供貨申請（2）');
+    await expect(page.getByText('有 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(page.getByText('有至少 1 件供貨申請等待你確認。', {exact: true})).toHaveCount(0);
+    await expect(staleNotice()).toHaveCount(0);
+  } finally {
+    lateRequestsHeld.resolve();
+    offersHeld.resolve();
+    await page.unroute(offersPath);
+    await page.unroute(requestsPath);
+    await page.unroute(parentReadPath);
+  }
+});

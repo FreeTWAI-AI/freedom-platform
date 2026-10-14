@@ -6,16 +6,30 @@ import {formatMinor,parseMajorToMinor} from '../format';
 
 type Command = {method:'post'|'patch';path:string;body:unknown;version?:string;schema:z.ZodType;notice:string;success:(value:unknown)=>void;targetMissingIsStore?:boolean};
 const stateWord:Record<Distribution['state'],string> = {awaiting_supply_acceptance:'等待供應商確認',sellable:'已同意，可加入展示頁',declined:'供應商未同意',changes_requested:'需要修改',revoked:'已撤回供貨'};
-export function HostedDistribution({client,root,refresh,busy,writable,onDirty,onCommand,onReload,supplierOnly=false}:{supplierOnly?:boolean;client:PortalClient;root:string;refresh:number;busy:boolean;writable:boolean;onDirty:(key:string,value:boolean)=>void;onCommand:(command:Command)=>Promise<void>;onReload:()=>Promise<void>}) {
-  const [data,setData]=useState<{offers:SupplyOffer[];catalog:SupplyOffer[];selections:Distribution[];requests:Distribution[];truncated:boolean}|null>(null);
+export type SupplyCooperationSnapshot = {ok:true;offers:SupplyOffer[];offersTruncated:boolean;requests:Distribution[];requestsTruncated:boolean} | {ok:false;stale?:boolean};
+/** Decision buttons use this same pair: still offered, and still waiting for this supplier. */
+export function supplyRequestsWaiting(requests:Distribution[]) {
+  return requests.filter(request=>request.state==='awaiting_supply_acceptance'&&request.offer.state==='offered').length;
+}
+export function HostedDistribution({client,root,refresh,busy,writable,onDirty,onCommand,onReload,onCooperation,supplierOnly=false}:{supplierOnly?:boolean;client:PortalClient;root:string;refresh:number;busy:boolean;writable:boolean;onDirty:(key:string,value:boolean)=>void;onCommand:(command:Command)=>Promise<void>;onReload:()=>Promise<void>;onCooperation?:(snapshot:SupplyCooperationSnapshot)=>void}) {
+  const [data,setData]=useState<{offers:SupplyOffer[];offersTruncated:boolean;catalog:SupplyOffer[];selections:Distribution[];requests:Distribution[];requestsTruncated:boolean;truncated:boolean}|null>(null);
   const [error,setError]=useState(''),[editing,setEditing]=useState<string|null>(null);
+  const [requestsOpen,setRequestsOpen]=useState(false);
+  const requestsTouched=useRef(false),onCooperationRef=useRef(onCooperation);
+  onCooperationRef.current=onCooperation;
+  const pending=data?supplyRequestsWaiting(data.requests):0;
+  // Open before paint. A post-paint effect leaves the section closed long enough
+  // for a summary click to shut it, and a close must stay closed on later reads.
+  if(supplierOnly&&data&&!requestsTouched.current&&pending>0&&!requestsOpen)setRequestsOpen(true);
   useEffect(()=>{
     const abort=new AbortController(); setError('');
     void Promise.all((supplierOnly ? ['supply-offers','supply-requests'] : ['supply-offers','supply-catalog','distribution-selections','supply-requests']).map(path=>client.get(root+'/'+path,{signal:abort.signal}))).then(raw=>{
       if(abort.signal.aborted)return;
       const offers=SupplyOffersSchema.parse(raw[0]),catalog=supplierOnly ? {items:[],truncated:false} : SupplyOffersSchema.parse(raw[1]),selections=supplierOnly ? {items:[],truncated:false} : DistributionsSchema.parse(raw[2]),requests=DistributionsSchema.parse(raw[supplierOnly ? 1 : 3]);
-      setData({offers:offers.items,catalog:catalog.items,selections:selections.items,requests:requests.items,truncated:[offers,catalog,selections,requests].some(p=>p.truncated)});
-    }).catch(cause=>{if(!abort.signal.aborted){setError(cause instanceof ApiError ? cause.detail??'目前無法讀取供貨合作。':'暫時無法讀取供貨合作。');}});
+      const next={offers:offers.items,offersTruncated:offers.truncated,catalog:catalog.items,selections:selections.items,requests:requests.items,requestsTruncated:requests.truncated,truncated:[offers,catalog,selections,requests].some(p=>p.truncated)};
+      setData(next);
+      onCooperationRef.current?.({ok:true,offers:next.offers,offersTruncated:next.offersTruncated,requests:next.requests,requestsTruncated:next.requestsTruncated});
+    }).catch(cause=>{if(!abort.signal.aborted){setError(cause instanceof ApiError ? cause.detail??'目前無法讀取供貨合作。':'暫時無法讀取供貨合作。');onCooperationRef.current?.({ok:false});}});
     return()=>abort.abort();
   },[client,root,refresh,supplierOnly]);
   const command=(value:Command)=>onCommand({...value,targetMissingIsStore:false});
@@ -34,7 +48,7 @@ export function HostedDistribution({client,root,refresh,busy,writable,onDirty,on
           }}>撤回供貨版本</button></div>
         </article>)}
       </details>
-      <details><summary>供貨申請（{data.requests.length}）</summary>
+      <details open={supplierOnly?requestsOpen:undefined} onToggle={supplierOnly?event=>setRequestsOpen(event.currentTarget.open):undefined}><summary onClick={supplierOnly?()=>{requestsTouched.current=true;}:undefined}>供貨申請（{data.requests.length}{supplierOnly&&pending>0?`・待你確認${data.requestsTruncated?`至少 ${pending} 件`:` ${pending}`}`:''}）</summary>
         {!data.requests.length&&<p>目前沒有供貨申請。</p>}
         {data.requests.map(r=><article className="hosted-distribution-item stack" key={r.selection_id}>
           <h4>{r.offer.terms.title}・{r.seller_name}</h4><Terms offer={r.offer}/>
