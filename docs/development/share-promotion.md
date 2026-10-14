@@ -55,6 +55,12 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 `readWithMemberSession` 同樣在最後投影後檢查期限；到期不回 `items` 或排行榜資料。
 公開的 `/go/` 與 `clicks` 路由不受此 session 邊界影響。
 
+`share-promotion.test.ts` 的兩個 GET 回歸案例經真正 localhost HTTP server 登入，
+先驗有效 session 能讀到非空連結／排行榜，再分別持有 `promotion_links`／
+`promotion_clicks` 的 `ACCESS EXCLUSIVE` relation lock。以 `pg_locks` 與
+`pg_blocking_pids` 確認請求已卡在領域查詢，等待 DB clock 跨過 session 期限後放鎖，
+必須回 401 `session_expired`，回應沒有 `items` 或 `boards`。
+
 ## 隱私
 
 不保存原始 IP 或 User-Agent。訪客鍵與網路鍵是當天 32-byte salt 加網路（以及匿名訪客的 User-Agent）的 SHA-256。Salt 存在 `promotion_click_salts`，第一次用到那天時建立，並順便刪掉超過 3 天的列（`click_day < 今天 - 3`）。

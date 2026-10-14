@@ -2,6 +2,11 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
+import { serve } from '@hono/node-server';
+import type { AddressInfo } from 'node:net';
+import { once } from 'node:events';
+import { setImmediate as yieldToHttp } from 'node:timers/promises';
+import { z } from 'zod';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
@@ -499,6 +504,79 @@ test('promotion link creation rejects a session expiring during the advisory loc
   assert.equal(denied.status, 401);
   assert.equal(denied.data.code, 'session_expired');
 });
+
+for (const [route, relation] of [
+  ['links/mine', 'promotion_links'],
+  ['leaderboards', 'promotion_clicks'],
+] as const) {
+  test(`promotion ${route} rejects session expiry during a real HTTP relation lock wait`, async () => {
+    let httpApp = app;
+    const server = serve({ hostname: '127.0.0.1', port: 0, fetch: request => httpApp.fetch(request) });
+    const holder = await pool.connect();
+    let pending: Promise<Response> | undefined;
+    try {
+      if (!server.listening) await once(server, 'listening');
+      const httpOrigin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      httpApp = createApp(pool, httpOrigin, 'local', { now: () => clock, linkPreviewFetch: previewFetch });
+      const login = await fetch(`${httpOrigin}/api/v1/auth/login`, {
+        method: 'POST', headers: { Origin: httpOrigin, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_USERS[0].email, password: DEMO_PASSWORD }),
+      });
+      assert.equal(login.status, 200);
+      const { user } = z.object({ user: z.object({ user_id: z.uuid() }) }).parse(await login.json());
+      const cookie = login.headers.get('set-cookie')!.split(';')[0];
+      const link = await ownLink(user.user_id, 'platform', 'workshop');
+      await bulkClicks(link.linkId, user.user_id, 'platform', 1, clock);
+      const url = `${httpOrigin}/api/v1/promotion/${route}?period=all`;
+      const headers = { Cookie: cookie };
+      const valid = await fetch(url, { headers });
+      assert.equal(valid.status, 200);
+      const projection = await valid.json();
+      if (route === 'links/mine') {
+        const links = z.object({ items: z.array(z.object({ code: z.string() })) }).parse(projection);
+        assert.ok(links.items.some(item => item.code === link.code));
+      } else {
+        const leaderboard = z.object({ boards: z.array(z.object({ items: z.array(z.unknown()) })) }).parse(projection);
+        assert.ok(leaderboard.boards.some(board => board.items.length > 0));
+      }
+
+      await holder.query('BEGIN');
+      await holder.query(`LOCK TABLE ${relation} IN ACCESS EXCLUSIVE MODE`);
+      const pid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1", [tokenHash(cookie.split('=')[1])]);
+      pending = fetch(url, { headers });
+      let waiting = false;
+      const waitDeadline = Date.now() + 2000;
+      while (Date.now() < waitDeadline) {
+        waiting = Boolean((await admin.query(`SELECT 1 FROM pg_locks l
+          JOIN pg_stat_activity a ON a.pid=l.pid
+          WHERE NOT l.granted AND l.locktype='relation'
+            AND l.relation=$1::regclass AND $2=ANY(pg_blocking_pids(a.pid))`,
+        [`${schema}.${relation}`, pid])).rowCount);
+        if (waiting) break;
+        await yieldToHttp();
+      }
+      assert.ok(waiting, `${route} must wait on the ${relation} relation lock after authentication`);
+      // PostgreSQL's wall clock cannot be advanced by JS fake timers; wait for the stored deadline.
+      await holder.query("SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1", [tokenHash(cookie.split('=')[1])]);
+      assert.equal((await holder.query('SELECT expires_at<=clock_timestamp() AS expired FROM sessions WHERE token_hash=$1', [tokenHash(cookie.split('=')[1])])).rows[0].expired, true);
+      await holder.query('ROLLBACK');
+      const denied = await pending;
+      assert.equal(denied.status, 401);
+      const problem = z.record(z.string(), z.unknown()).parse(await denied.json());
+      assert.equal(problem.code, 'session_expired');
+      assert.equal(Object.hasOwn(problem, 'items'), false);
+      assert.equal(Object.hasOwn(problem, 'boards'), false);
+    } finally {
+      await holder.query('ROLLBACK');
+      holder.release();
+      if (pending) await pending;
+      const closed = Promise.withResolvers<void>();
+      server.close(error => error ? closed.reject(error) : closed.resolve());
+      await closed.promise;
+    }
+  });
+}
 
 test('leaderboards use Taipei periods, competition ranks and the same member visibility as the directory', async () => {
   const maker = await signIn();
