@@ -1,12 +1,14 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
-import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
+import { seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { tokenHash } from '../../modules/identity-membership/service.js';
+import { pollClientPairing, readClientResource } from '../../modules/client-connections/service.js';
+import { Problem } from '../../packages/shared/problem.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -257,3 +259,59 @@ test('a bearer read waiting on the member lock cannot return data after connecti
     await read;
   }
 });
+
+async function waitForCredentialMemberLock(){
+  for(let attempt=0;attempt<200;attempt++){
+    const waiting=await admin.query(`SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%FOR SHARE%'`);
+    if(waiting.rowCount)return;
+    await delay(20);
+  }
+  assert.fail('credential request did not wait for the member lock');
+}
+
+test('an approved pairing cannot mint after the connection expires during the member lock',async()=>{
+  const member=await ready();
+  const connectionId=randomUUID();
+  const deviceSecret=`fw_pair_${randomBytes(32).toString('base64url')}`;
+  await pool.query(`INSERT INTO member_client_connections(connection_id,community_id,user_id,client_name,kind,scope,expires_at)
+    VALUES($1,$2,$3,'合成客戶端','supplier','supplier:read',clock_timestamp()+interval '1 second')`,[connectionId,DEMO_COMMUNITY,member.user.user_id]);
+  await pool.query(`INSERT INTO client_pairing_requests(pairing_id,device_secret_hash,user_code_hash,kind,client_name,state,connection_id,expires_at)
+    VALUES($1,$2,$3,'supplier','合成客戶端','approved',$4,clock_timestamp()+interval '1 hour')`,[randomUUID(),tokenHash(deviceSecret),tokenHash(randomUUID()),connectionId]);
+ const blocker=await pool.connect();
+ let pending:Promise<Awaited<ReturnType<typeof pollClientPairing>>>;
+ try{
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE',[member.user.user_id]);
+  pending=pollClientPairing(pool,{device_secret:deviceSecret},'127.0.0.1');
+  await waitForCredentialMemberLock();
+  await delay(1500);
+  await blocker.query('ROLLBACK');
+ }finally{blocker.release();}
+ const result=await pending!;
+  assert.equal(result.status,'invalid_grant');
+  assert.equal('access_token' in result,false);
+  assert.equal((await pool.query('SELECT state,token_hash FROM client_pairing_requests p LEFT JOIN member_client_connections c USING(connection_id) WHERE p.connection_id=$1',[connectionId])).rows[0].state,'approved');
+  assert.equal((await pool.query('SELECT token_hash FROM member_client_connections WHERE connection_id=$1',[connectionId])).rows[0].token_hash,null);
+});
+
+test('an expired client credential cannot read after the member lock wait',async()=>{
+  const member=await ready();
+  const token=`fw_read_${randomBytes(32).toString('base64url')}`;
+  await pool.query(`INSERT INTO member_client_connections(connection_id,community_id,user_id,client_name,kind,scope,token_hash,expires_at)
+    VALUES($1,$2,$3,'合成客戶端','supplier','supplier:read',$4,clock_timestamp()+interval '1 second')`,[randomUUID(),DEMO_COMMUNITY,member.user.user_id,tokenHash(token)]);
+ const blocker=await pool.connect();
+ let pending:Promise<{value:unknown;error:Problem|null}>;
+ try{
+  await blocker.query('BEGIN');
+  await blocker.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE',[member.user.user_id]);
+  pending=readClientResource(pool,`Bearer ${token}`,'connection').then(value=>({value,error:null as Problem|null}),error=>{assert.ok(error instanceof Problem);return {value:null,error};});
+  await waitForCredentialMemberLock();
+  await delay(1500);
+  await blocker.query('ROLLBACK');
+ }finally{blocker.release();}
+ const result=await pending!;
+  assert.equal(result.value,null);
+  assert.equal(result.error?.status,401);
+  assert.equal(result.error?.code,'client_token_invalid');
+});
+
