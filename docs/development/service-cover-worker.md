@@ -15,6 +15,15 @@ Missing installation or policy fails closed, without old-byte fallback in an
 asset storage mode. The same environment private bucket is used for avatars,
 private assets and these domain covers; no second storage truth is introduced.
 
+Member reads at `GET /api/v1/member-services/:id/cover` take short current
+user/session-locked ACL snapshots via `readWithMemberSession`, with a database
+`clock_timestamp()` expiry check after each projection. A legacy projection
+waiting past session expiry returns `401 session_expired`, not cover bytes.
+Asset-backed reads apply the same fence before and after object I/O; object
+I/O remains outside SQL transactions. A valid owner can still read a paused
+service's cover. The anonymous `/api/v1/public/member-services/:id/cover`
+projection is unchanged: a paused service returns 404, including for its owner.
+
 `tests/worker/service-cover-assets.test.ts` loads the ordinary Wrangler platform
 bundle in native workerd with an explicitly owned restricted application SQL role,
 Hyperdrive and native ephemeral R2. IMAGES uses Miniflare's local low-fidelity

@@ -4,6 +4,7 @@ import type {Pool} from 'pg';
 import type {Actor} from '../../../../modules/identity-membership/service.js';
 import type {Command} from '../../../../packages/db/index.js';
 import {requireCondition} from '../../../../packages/shared/problem.js';
+import {readWithMemberSession} from '../../../../packages/db/member-session.js';
 import {appealAuthorClaim, memberAuthorClaim, publicAuthorClaimForBook, publicAuthorClaims, submitAuthorClaim, withdrawAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 
 const bookId = z.string().regex(/^[a-z0-9-]{1,100}$/);
@@ -25,7 +26,7 @@ export function createPublicAuthorClaimRoutes(pool: Pool) {
 }
 export function createMemberAuthorClaimRoutes(pool: Pool, fetcher: typeof fetch = globalThis.fetch, readToken: () => string | undefined = () => undefined) {
   const app = new Hono<{Variables: {actor: Actor}}>();
-  app.get('/me/skill-books/:id/author-claim', async c => c.json(await memberAuthorClaim(pool, c.get('actor'), bookId.parse(c.req.param('id')))));
+  app.get('/me/skill-books/:id/author-claim', async c => c.json(await readWithMemberSession(pool, c.get('actor'), q => memberAuthorClaim(q, c.get('actor'), bookId.parse(c.req.param('id'))))));
   app.post('/me/skill-books/:id/author-claims', async c => {
     const value = await submitAuthorClaim(pool, commandInput(c, await c.req.json()), bookId.parse(c.req.param('id')), fetcher, readToken());
     return c.json(etag(c, value), 201);

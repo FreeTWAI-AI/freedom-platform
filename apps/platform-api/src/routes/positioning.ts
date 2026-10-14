@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { positioningView,saveProfile,listTracks,listGuilds,changeGuildMembership,leaveGuildV2 } from '../../../../modules/positioning/service.js';
 import {quickStartOnboarding} from '../../../../modules/positioning/onboarding.js';
 import { communitySwitched, getPreferenceView, setCategoryPreference } from '../../../../modules/positioning/guild-categories.js';
@@ -34,13 +35,17 @@ export function createPositioningRoutes(pool:Pool,options:{guildLaunchpadEnabled
   });
   app.get('/guilds/directory',async c=>c.json({items:await guildDirectory(pool,c.get('actor'))}));
   app.get('/me/guild-preferences',async c=>{
-    const prefs=await guildPreferences(pool,c.get('actor'));
-    if(options.guildLaunchpadEnabled&&await communitySwitched(pool,c.get('actor').community_id))return c.json({...prefs,compatibility:'legacy_projection' as const});
+    const actor=c.get('actor');
+    const prefs=await readWithMemberSession(pool,actor,async q=>{
+      const prefs=await guildPreferences(q,actor);
+      if(options.guildLaunchpadEnabled&&await communitySwitched(q,actor.community_id))return {...prefs,compatibility:'legacy_projection' as const};
+      return prefs;
+    });
     return c.json(prefs);
   });
   if(options.guildLaunchpadEnabled){
     app.get('/me/guild-preferences/v2',async c=>{
-      const view=await getPreferenceView(pool,c.get('actor'));
+      const view=await readWithMemberSession(pool,c.get('actor'),q=>getPreferenceView(q,c.get('actor')));
       c.header('ETag',`"${view.aggregate_version}"`);c.header('Cache-Control','private, no-store');return c.json(view);
     });
     app.post('/me/guild-preferences/v2/set',async c=>{

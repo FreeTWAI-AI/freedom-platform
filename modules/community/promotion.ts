@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { transaction } from '../../packages/db/index.js';
+import { lockMemberSession, assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { isPreviewBot } from '../../packages/shared/promotion-bots.js';
 import { PLATFORM_LABELS, type SocialPlatform } from '../../packages/shared/share-url.js';
@@ -83,7 +84,7 @@ async function readLink(pool: Pool, code: string): Promise<LinkRow | null> {
   return row ?? null;
 }
 
-async function skillTarget(pool: Pool, target: string) {
+async function skillTarget(pool: Pool | PoolClient, target: string) {
   if (target.startsWith('book:')) {
     const id = target.slice(5);
     const book = /^[a-z0-9-]{1,64}$/.test(id) ? communityCatalog.skill_books.find(item => item.id === id) : undefined;
@@ -114,7 +115,7 @@ async function memberCardForLink(pool: Pool, link: { community_id: string; user_
   return card;
 }
 
-async function memberCardTarget(pool: Pool, actor: Actor, target: string) {
+async function memberCardTarget(pool: Pool | PoolClient, actor: Actor, target: string) {
   requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '名片目標不正確。');
   const uid = target.toLowerCase();
   requireCondition(uid === actor.user_id.toLowerCase(), 403, 'promotion_target_forbidden', '只能分享自己的名片。');
@@ -123,7 +124,7 @@ async function memberCardTarget(pool: Pool, actor: Actor, target: string) {
   return { title: card.title, key: `${uid}:${card.generation}` };
 }
 
-async function assertTarget(pool: Pool, actor: Actor, kind: PromotionKind, target: string) {
+async function assertTarget(pool: Pool | PoolClient, actor: Actor, kind: PromotionKind, target: string) {
   if (kind === 'platform') {
     requireCondition(target === 'workshop', 422, 'validation_failed', '平台分享目標不正確。');
     return { title: '自由工坊', key: target };
@@ -164,30 +165,31 @@ function linkView(row: { kind: PromotionKind; target_key: string; code: string }
 
 export async function createPromotionLink(pool: Pool, actor: Actor, raw: unknown, now = new Date()): Promise<PromotionLinkView> {
   const body = linkInput.parse(raw);
-  const { title, key } = await assertTarget(pool, actor, body.kind, body.target);
   const day = taipeiDayStart(now);
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await transaction(pool, async q => {
+        await lockMemberSession(q, actor);
         await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`promo-link:${actor.user_id}:${taipeiDate(now)}`]);
+        const { title, key } = await assertTarget(q, actor, body.kind, body.target);
         const existing = (await q.query(`SELECT link_id,kind,target_key,code FROM promotion_links
           WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, key])).rows[0];
-        if (existing) return linkView(existing, title, await pointsFor(q, existing.link_id, now));
+        if (existing) {
+          const points = await pointsFor(q, existing.link_id, now);
+          await assertCurrentSessionClock(q, actor);
+          return linkView(existing, title, points);
+        }
         const used = (await q.query('SELECT count(*)::int AS n FROM promotion_links WHERE user_id=$1 AND created_at>=$2', [actor.user_id, day])).rows[0].n as number;
         requireCondition(used < LINK_CAP, 429, 'promotion_link_limit', '今天建立的分享連結已達上限。');
         const code = randomBytes(7).toString('base64url');
         const inserted = (await q.query(`INSERT INTO promotion_links(community_id,user_id,kind,target_key,code,created_at)
           VALUES($1,$2,$3,$4,$5,$6) RETURNING link_id,kind,target_key,code`, [actor.community_id, actor.user_id, body.kind, key, code, now])).rows[0];
+        await assertCurrentSessionClock(q, actor);
         return linkView(inserted, title, { week: 0, month: 0, all: 0 });
       });
     } catch (error) {
       const pg = error as { code?: string; constraint?: string };
-      if (pg.code === '23505' && pg.constraint === 'promotion_links_code_key') continue;
-      if (pg.code === '23505') {
-        const existing = (await pool.query(`SELECT link_id,kind,target_key,code FROM promotion_links
-          WHERE community_id=$1 AND user_id=$2 AND kind=$3 AND target_key=$4 AND revoked_at IS NULL`, [actor.community_id, actor.user_id, body.kind, key])).rows[0];
-        if (existing) return linkView(existing, title, await pointsFor(pool, existing.link_id, now));
-      }
+      if (pg.code === '23505' && (pg.constraint === 'promotion_links_code_key' || pg.constraint === 'promotion_links_active_owner')) continue;
       throw error;
     }
   }
@@ -203,7 +205,7 @@ function catalogBook(target: string) {
 }
 
 // Titles are read-only and batched: one query per kind that actually appears. Catalog books need none.
-async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
+async function mineTitles(pool: Pool|PoolClient, actor: Actor, rows: MineRow[]) {
   const events = rows.filter(row => row.kind === 'event' && z.uuid().safeParse(row.target_key).success).map(row => row.target_key);
   const posts = rows.filter(row => row.kind === 'social_post' && z.uuid().safeParse(row.target_key).success).map(row => row.target_key);
   const submissions = rows.filter(row => row.kind === 'skill_book' && /^submission:[0-9a-f-]{36}$/i.test(row.target_key)).map(row => row.target_key.slice(11).toLowerCase());
@@ -249,7 +251,7 @@ async function mineTitles(pool: Pool, actor: Actor, rows: MineRow[]) {
   };
 }
 
-export async function listMyPromotionLinks(pool: Pool, actor: Actor, periodRaw: string | undefined, now = new Date()) {
+export async function listMyPromotionLinks(pool: Pool|PoolClient, actor: Actor, periodRaw: string | undefined, now = new Date()) {
   const period = periodSchema.parse(periodRaw ?? 'week');
   const since = periodStart(period, now);
   const week = periodStart('week', now);
@@ -284,7 +286,7 @@ LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=u.c
 WHERE u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
   AND (u.user_id=$3 OR NOT is_verification_test_account(u.user_id))`;
 
-export async function promotionLeaderboards(pool: Pool, actor: Actor, periodRaw: string | undefined, now = new Date()) {
+export async function promotionLeaderboards(pool: Pool|PoolClient, actor: Actor, periodRaw: string | undefined, now = new Date()) {
   const period = periodSchema.parse(periodRaw ?? 'week');
   const since = periodStart(period, now);
   const rows = (await pool.query(promotionLeaderboardSql, [actor.community_id, since, actor.user_id])).rows as { kind: PromotionKind; user_id: string; display_name: string; points: number; aggregate_version: string | null; has_avatar: boolean }[];

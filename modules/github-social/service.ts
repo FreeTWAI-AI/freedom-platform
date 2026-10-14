@@ -84,6 +84,8 @@ export class GitHubSocial {
     requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active FOR SHARE',[actor.user_id,actor.community_id])).rowCount===1,401,'session_expired','請重新登入。');
     requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',[actor.session_hash,actor.user_id])).rowCount===1,401,'session_expired','請重新登入。');
     await lockGitHubSocialMember(q,actor.user_id);
+    // The member lock can outlast the transaction-start now() check.
+    await assertCurrentSessionClock(q,actor);
   }
   private async member<T>(actor:Actor,run:(q:PoolClient)=>Promise<T>):Promise<T>{
     // Commit consumed OAuth states, attempt budgets and invalid-token removal even
@@ -168,10 +170,12 @@ export class GitHubSocial {
       requireCondition(row,409,'github_oauth_expired','GitHub 授權已到期或不是從這個登入工作階段發起，請重新連接。');
       const verifier=decode<string>(this.key!,this.context(actor,`state/${stateHash}/${actor.session_hash}`),row.encrypted_verifier);
       const tokens=await this.provider.exchange(config,code,verifier),identity=await this.provider.identity(tokens.access_token);
+      await assertCurrentSessionClock(q,actor);
       // One GitHub user ID links to one member. Serialize every callback for this
       // ID after the actor lock; a conflict keeps both members' rows untouched and
       // never revokes the provider grant, which may be the other member's token.
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-identity/${identity.id}`]);
+      await assertCurrentSessionClock(q,actor);
       const taken=(await q.query('SELECT 1 FROM github_social_connections WHERE github_user_id=$1 AND user_id<>$2',[identity.id,actor.user_id])).rowCount;
       requireCondition(!taken,409,'github_identity_already_linked',identityTaken);
       // The unique constraint is the final guard (e.g. a direct database write).
@@ -269,6 +273,7 @@ export class GitHubSocial {
       await this.rate(q,actor,'star-write',30);
       const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連接自己的 GitHub 帳號。');
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
+      await assertCurrentSessionClock(q,actor);
       const token=await this.withToken(q,actor,connection,async token=>{
         await assertCurrentSessionClock(q,actor);
         await this.provider.star(book.repository,token,desired,()=>assertCurrentSessionClock(q,actor));
@@ -331,6 +336,7 @@ export class GitHubSocial {
       await q.query('INSERT INTO github_page_issue_submissions(user_id,operation_key,request_hash,page_id,issue_title,state) VALUES($1,$2,$3,$4,$5,\'pending\')',[actor.user_id,operationKey,requestHash,pageId,cleanTitle]);
       try{
         const result=await this.withToken(q,actor,connection,async token=>{
+          await assertCurrentSessionClock(q,actor);
           const identity=await this.provider.identity(token);
           requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
           await assertCurrentSessionClock(q,actor);
@@ -390,6 +396,7 @@ export class GitHubSocial {
       const connection=await this.connection(q,actor);
       requireCondition(connection,409,'github_connect_required','請先連結自己的 GitHub 帳號。');
       const token=await this.withToken(q,actor,connection,async token=>{
+        await assertCurrentSessionClock(q,actor);
         const identity=await this.provider.identity(token);
         requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
         const issue=await this.provider.platformIssue(token,issueNumber);
@@ -399,6 +406,7 @@ export class GitHubSocial {
       await assertCurrentSessionClock(q,actor);
       await q.query('INSERT INTO github_design_claim_submissions(user_id,operation_key,request_hash,page_id,issue_number,state) VALUES($1,$2,$3,$4,$5,\'pending\')',[actor.user_id,operationKey,requestHash,pageId,issueNumber]);
       try{
+        await assertCurrentSessionClock(q,actor);
         const result=await this.provider.createPlatformIssueComment(token,issueNumber,`${cleanMessage}\n\n${DESIGN_CLAIM_MARKER}`,()=>assertCurrentSessionClock(q,actor));
         requireCondition(result.authorId===connection.github_user_id,502,'github_claim_unconfirmed','GitHub 留言結果尚未確認，請到 Issue 核對。');
         await q.query('UPDATE github_design_claim_submissions SET state=\'confirmed\',comment_id=$3,updated_at=now() WHERE user_id=$1 AND operation_key=$2',[actor.user_id,operationKey,result.id]);
@@ -421,6 +429,7 @@ export class GitHubSocial {
     return this.member(actor,async q=>{
       await this.rate(q,actor,'disconnect',10);
       const connection=await this.connection(q,actor);let providerRevoked:boolean|null=null;
+      await assertCurrentSessionClock(q,actor);
       // Local removal succeeds even if GitHub is unavailable or the key rotated.
       await q.query('DELETE FROM github_social_connections WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id]);
       await q.query('DELETE FROM github_social_oauth_states WHERE user_id=$1',[actor.user_id]);

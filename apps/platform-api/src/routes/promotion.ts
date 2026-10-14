@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { Pool } from 'pg';
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
 import { digest, type Command } from '../../../../packages/db/index.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import { authenticate } from '../../../../modules/identity-membership/service.js';
 import { previewLink } from '../../../../modules/community/link-preview.js';
@@ -87,11 +88,23 @@ export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
 
 export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runtime: PlatformRuntime) {
   app.post('/api/v1/promotion/links', async c => c.json(await createPromotionLink(pool, c.get('actor'), await c.req.json(), clock(runtime))));
-  app.get('/api/v1/promotion/links/mine', async c => c.json(await listMyPromotionLinks(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
-  app.get('/api/v1/promotion/leaderboards', async c => c.json(await promotionLeaderboards(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
-  app.get('/api/v1/social-posts', async c => c.json(await listSocialPosts(pool, c.get('actor'), { platform: c.req.query('platform'), cursor: c.req.query('cursor'), kind: c.req.query('kind'), tag:c.req.query('tag') })));
+  app.get('/api/v1/promotion/links/mine', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => listMyPromotionLinks(q, actor, c.req.query('period'), clock(runtime))));
+  });
+  app.get('/api/v1/promotion/leaderboards', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => promotionLeaderboards(q, actor, c.req.query('period'), clock(runtime))));
+  });
+  app.get('/api/v1/social-posts', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => listSocialPosts(q, actor, { platform: c.req.query('platform'), cursor: c.req.query('cursor'), kind: c.req.query('kind'), tag:c.req.query('tag') })));
+  });
   app.post('/api/v1/social-posts/notes', async c => c.json(await createNativeSocialPost(pool, await moduleCommand(c), clock(runtime), runtime.socialThumbnailAssets), 201));
-  app.get('/api/v1/social-posts/:id/likes',async c=>c.json(await listSocialLikes(pool,c.get('actor'),z.uuid().parse(c.req.param('id')),c.req.query('cursor'))));
+  app.get('/api/v1/social-posts/:id/likes', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => listSocialLikes(q, actor, z.uuid().parse(c.req.param('id')), c.req.query('cursor'))));
+  });
   app.post('/api/v1/social-posts/:id/read',async c=>c.json(await markSocialRead(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')))));
   app.post('/api/v1/social-posts/:id/comments/:commentId/like',async c=>c.json(await setSocialCommentLike(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')),z.uuid().parse(c.req.param('commentId')))));
   app.post('/api/v1/social-posts/:id/comment-images',async c=>{
@@ -106,7 +119,10 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
     return c.body(new Uint8Array(bytes));
   });
   app.post('/api/v1/social-posts/:id/like', async c => c.json(await setSocialLike(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')))));
-  app.get('/api/v1/social-posts/:id/comments', async c => c.json(await listSocialComments(pool, c.get('actor'), z.uuid().parse(c.req.param('id')), c.req.query('cursor'))));
+  app.get('/api/v1/social-posts/:id/comments', async c => {
+    const actor = c.get('actor');
+    return c.json(await readWithMemberSession(pool, actor, q => listSocialComments(q, actor, z.uuid().parse(c.req.param('id')), c.req.query('cursor'))));
+  });
   app.post('/api/v1/social-posts/:id/comments', async c => c.json(await createSocialComment(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), clock(runtime)), 201));
   app.post('/api/v1/social-posts/:id/comments/:commentId/edit', async c => {
     const result = await editSocialComment(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), z.uuid().parse(c.req.param('commentId')), clock(runtime));

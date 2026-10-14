@@ -33,7 +33,8 @@
   "dependencies": [
     "community",
     "asset-lifecycle",
-    "skill-submissions"
+    "skill-submissions",
+    "asset-storage"
   ],
   "contract_families": [],
   "client_profiles": [

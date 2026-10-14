@@ -4,6 +4,8 @@
 
 所有讀取重新驗證 Access JWT 和管理名單；所有修改還需要同源 JSON、`X-Admin-CSRF`（取自 bootstrap）與 `Idempotency-Key`（8–128 個英數、底線或連字號）。修改既有資料需要 `If-Match: "<aggregate_version>"`。缺版本回 428、版本過期 412、重用操作識別碼但內容不同 409。API 採 `Cache-Control: no-store`，失敗不回傳 JWT、SQL、密碼或 provider 原始錯誤。
 
+`/admin/api/*` 的共同 GET／HEAD 邊界在 handler 完成資料查詢及其他等待後、交出成功回應前，再以已驗證的 email 重讀有效管理名單，並核對原 admin ID、community ID 與 role。撤權已提交，或原管理身分／社群已變更，回 `403 admin_required`，不交出原成功內容；不影響既有 handler 錯誤與寫入交易鎖序。這是末端資料庫授權決策，不承諾延伸至封包傳輸完成，也不涵蓋其他前綴的管理入口。Access JWT 的驗證仍在入口執行。
+
 `/api/`、`/agent-api/`、`/client-api/` 與 `/admin/api/` 的 JSON `aggregate_version` 字串在序列化時轉為非負 safe integer；超出範圍仍回 500 `version_overflow`，其他 key 不轉換。一般 `c.json` 只序列化一次（含 `app.route` 子路由）；手動建立的 JSON Response 保留 body 讀回轉換 fallback。Status、Content-Type 與 ETag 等 headers 沿用 Hono 原有處理。
 
 | 方法與路徑（前綴 `/admin/api`） | 用途與回傳 |

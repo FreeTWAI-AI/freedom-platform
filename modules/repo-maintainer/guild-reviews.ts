@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { command, transaction, checkVersion, type Command } from '../../packages/db/index.js';
+import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
 import { rederivePull } from './derive.js';
@@ -164,6 +165,7 @@ export async function listGuildReviews(pool: Pool, actor: Actor, filter: string,
   return transaction(pool, async q => {
     await activeMember(q, actor);
     const access = await requireReviewAccess(q, actor);
+    await assertCurrentSessionClock(q, actor);
     const order = queue === 'awaiting_review' ? 'p.head_observed_at ASC, p.pull_id' : 'p.github_updated_at DESC, p.pull_id';
     const rows = await q.query(
       `SELECT ${PULL_LIST_COLUMNS} ${PULL_LIST_JOINS}
@@ -198,6 +200,7 @@ export async function guildReviewPull(pool: Pool, actor: Actor, id: string) {
   return transaction(pool, async q => {
     await activeMember(q, actor);
     const access = await requireReviewAccess(q, actor);
+    await assertCurrentSessionClock(q, actor);
     return memberDetail(q, actor, await visiblePull(q, actor, id, access), access);
   });
 }

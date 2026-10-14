@@ -3,6 +3,7 @@ import type {z} from 'zod';
 import {DistributionInputSchema,DistributionSchema,DistributionsSchema,SupplyOfferSchema,SupplyOffersSchema,type Distribution,type SupplyOffer} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {ApiError,type PortalClient} from '../api';
 import {formatMinor,parseMajorToMinor} from '../format';
+import {PriceDifference} from '../../../../modules/agent-commerce/hosted-ui/CommerceTools';
 
 type Command = {method:'post'|'patch';path:string;body:unknown;version?:string;schema:z.ZodType;notice:string;success:(value:unknown)=>void;targetMissingIsStore?:boolean};
 const stateWord:Record<Distribution['state'],string> = {awaiting_supply_acceptance:'等待供應商確認',sellable:'已同意，可加入展示頁',declined:'供應商未同意',changes_requested:'需要修改',revoked:'已撤回供貨'};
@@ -99,6 +100,7 @@ function PriceForm({offer,selection,busy,onDirty,onSubmit}:{offer:SupplyOffer;se
   }
   return <form className="hosted-store-form stack" aria-label={`${offer.terms.title}選品售價`} onSubmit={e=>void submit(e)}>
     <label className="field">我的零售價（{offer.terms.currency}）<input inputMode="decimal" required value={price} disabled={busy} onChange={e=>setPrice(e.target.value)}/></label>
+    <PriceDifference retail={price} cost={offer.terms.cost_minor} shipping={offer.terms.shipping_minor} currency={offer.terms.currency}/>
     {error&&<p role="alert">{error}</p>}
     <div className="actions"><button className="btn btn-ghost" disabled={busy||(!!selection&&price===initial&&selection.offer.offer_id===offer.offer_id&&!['revoked','declined'].includes(selection.state))}>送出供貨申請</button></div>
   </form>;

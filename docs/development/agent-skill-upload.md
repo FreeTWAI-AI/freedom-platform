@@ -39,7 +39,19 @@
 - `POST /me/skill-upload-keys` `{label:1–80字, expires_in_days:1–90（預設30）}`＋`Idempotency-Key` → 201 `{key, token}`；重送 `token:null`；有效金鑰最多 10 把
 - `POST /me/skill-upload-keys/:id/revoke` `{}`＋`Idempotency-Key` → `key`
 
+`GET /me/skill-submissions` 在同一短交易鎖定目前會員與 session，透過同一
+query client 讀取本人清單，並在最後一個 SQL 完成後以 `clock_timestamp()` 重驗
+session 期限。查詢等鎖期間到期會回 401 `session_expired`，不回 `items` 或私人
+草稿；不以 middleware 入場時有效取代最後讀取授權。排序、最多 100 筆及公開
+技能清單的既有規則不變。
+
 `submission`：`submission_id, status, aggregate_version, payload|null, project_id|null, seed|null, upgrades_submission_id|null, upgrade|null, can_upgrade, catalog_book|null, can_edit, public_path|null, illustration_url|null, grant_expires_at|null, grant_consumed_at|null, grant_revoked_at|null, created_at, updated_at`。`payload` 不含 `cover_image`，圖片另存並以 `illustration_url` 提供。`grant_expires_at` 同時考慮來源金鑰的到期時間；`grant_revoked_at` 也反映來源金鑰已撤銷。一般回應不會出現授權、雜湊或圖片位元組。
+
+本人 `GET /me/skill-submissions/:id` 的所有投稿投影使用同一短交易 client，
+依序鎖 user／session，並在最後資料查詢後以 PostgreSQL `clock_timestamp()` 重驗
+期限。查詢等待跨過 session 到期時回 `401 session_expired`，不回私人 payload
+或投稿 metadata；有效本人仍取得原 DTO／ETag，其他會員仍是 404。
+公開已發布投影與 Agent bearer 上傳流程不受這個瀏覽器詳情邊界改動。
 
 簡易投稿是 `grant_hash` 與 `seed` 都是空的投稿。`can_edit` 只在尚未公開的簡易投稿為真。升級草稿帶著 `seed`（`repository_url, title, description, use_notes, demo_url, relationship`）與 `upgrades_submission_id`，不會被當成簡易投稿。`upgrade` 是這件作品最新一筆升級草稿或完整版的 `{submission_id, status}`，沒有則為 `null`。`can_upgrade` 在作品已公開、是簡易投稿、儲存庫還不是目錄技能書、而且沒有未公開或已公開的升級時為真。`catalog_book` 在儲存庫已收錄為目錄技能書時為 `{book_id, title, public_path}`。
 
@@ -47,11 +59,29 @@
 
 `key`：`key_id, label, scope:'skill:submit', expires_at, revoked_at, created_at, last_used_at`。
 
+### 本人示意圖的 session 邊界
+
+`GET /me/skill-submissions/:id/illustration` 的 legacy 圖片先辨識儲存來源，
+再用 `readWithMemberSession` 鎖住目前會員與 session，於同一交易重新讀取
+本人／同社群的圖片快照，最後以 PostgreSQL `clock_timestamp()` 檢查 session。
+若 SQL 等待跨過 `expires_at`，回 401 `session_expired`，不回傳 WebP 位元組；
+這是回傳前的授權決策，不保證 session 在網路傳送完成前仍有效。
+
+此邊界只描述本人 legacy 示意圖，不代表金鑰清單、投稿清單或詳情讀取已採用相同流程。
+公開圖片仍依公開書架的投稿／作者／分享條件讀取，不需要 owner session；
+Asset 圖片仍保留原有 personal scope／principal 驗證、物件 I/O 前後快照與
+session clock 檢查，沒有改成 legacy 讀取方式。
+
+本人 `GET /me/skill-upload-keys` 在同一短交易依序鎖 user／session，讀完金鑰
+metadata 後以 PostgreSQL `clock_timestamp()` 重驗期限。清單查詢等待跨過 session
+到期時回 `401 session_expired`，不回 `items` 或私人 label；仍不輸出 token／hash。
+這是瀏覽器金鑰清單的讀取邊界，不更動 Agent bearer 建立與上傳流程。
+
 ## Agent API（`/agent-api/v1`，不經 cookie middleware）
 
 `createAgentSkillSubmissionRoutes(pool, origin, network?)`：
 
-- `POST /skill-submissions`：`Bearer fpk_…`、`Idempotency-Key`、內文 `{}`（≤ 8 KiB）→ 201 草稿＋一次性授權。以金鑰與識別碼寫入 `skill_agent_receipts`，只存中繼資料；重送 `upload_grant:null`。
+- `POST /skill-submissions`：`Bearer fpk_…`、`Idempotency-Key`、內文 `{}`（≤ 8 KiB）→ 201 草稿＋一次性授權。以金鑰與識別碼寫入 `skill_agent_receipts`，只存中繼資料；重送 `upload_grant:null`。會員草稿鎖等待之後會用 `clock_timestamp()` 重查來源金鑰，等鎖跨過到期不得建立草稿或回傳授權。
 - `POST /skill-submissions/:id`：`Bearer fpg_…`、完整內容（≤ 800 KiB）→ `{submission_id,status,grant_consumed_at,review_url}`。
 
 其他方法回 405，其他路徑回 404。cookie 與讀取連線 token（`fw_read_`）都不能驗證；金鑰不能直接上傳。

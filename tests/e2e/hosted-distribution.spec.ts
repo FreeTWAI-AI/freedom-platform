@@ -1,9 +1,10 @@
 import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
-import {person,login,open,post,launchStore} from './hosted-store-fixture.js';
+import {person,login,open,post,launchStore,storeArea} from './hosted-store-fixture.js';
 
 const panel=(p:Page)=>p.locator('.hosted-distribution');
 async function expand(p:Page,label:string) {
+  if(await p.getByRole('navigation',{name:'商店工作區',exact:true}).count())await storeArea(p,'供貨合作');
   const section=panel(p).locator('details').filter({has:p.locator('summary').filter({hasText:label})});
   if(await section.getAttribute('open')===null)await section.locator('summary').click(); return section;
 }
@@ -39,6 +40,7 @@ test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C 
     await supply.getByRole('textbox',{name:'退貨條件',exact:true}).fill('瑕疵品由茶坊處理');
     await supply.getByRole('button',{name:'儲存供貨條件',exact:true}).click();
     await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText('已儲存供貨條件');
+    await storeArea(b.page,'供貨合作');
     const [privateCatalog]=await Promise.all([
       b.page.waitForResponse(response=>new URL(response.url()).pathname===`/api/v1${b.root}/supply-catalog`&&response.request().method()==='GET'),
       b.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click(),
@@ -47,22 +49,29 @@ test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C 
     expect((await privateCatalog.json()).items.some((offer:{terms:{title:string}})=>offer.terms.title==='共用庫存茶杯')).toBe(false);
     // Other suppliers may already be public; this private item must remain absent.
     await expect((await expand(b.page,'選用其他商店')).getByRole('heading',{name:'共用庫存茶杯・供貨茶坊',exact:true})).toHaveCount(0);
-    await a.page.getByRole('button',{name:'供貨條件',exact:true}).click();
     supply=a.page.getByRole('form',{name:'共用庫存茶杯供貨條件',exact:true});
     await supply.getByRole('button',{name:'公開供貨版本',exact:true}).click();
     await expect(a.page.locator('.hosted-store > [role="status"]')).toContainText('已公開供貨版本');
     for(const [s,price] of [[b,'11'],[c,'13']] as const) {
+      await storeArea(s.page,'供貨合作');
       await s.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
       const catalog=await expand(s.page,'選用其他商店');
       const offer=catalog.locator('article').filter({has:s.page.getByRole('heading',{name:'共用庫存茶杯・供貨茶坊',exact:true})});
       await expect(offer).toBeVisible();
       await offer.getByRole('button',{name:'設定我的售價',exact:true}).click();
+      await offer.getByLabel('我的零售價（TWD）',{exact:true}).fill('3');
+      await expect(offer.getByText('目前售價低於供貨價加運費，送出前請確認。',{exact:true})).toBeVisible();
       await offer.getByLabel('我的零售價（TWD）',{exact:true}).fill(price);
+      await expect(offer.locator('.hosted-price-summary dl > div').filter({hasText:'每件價格差'}).locator('dd')).toHaveText(price==='11'?'$6.50':'$8.50');
+      await expect(offer.getByText('價格差還沒扣稅、金流、行銷、退貨及其他成本，並非實際利潤。',{exact:true})).toBeVisible();
+      await expect(offer.getByText('目前售價低於供貨價加運費，送出前請確認。',{exact:true})).toHaveCount(0);
       await offer.getByRole('button',{name:'送出供貨申請',exact:true}).click();
       await expect(s.page.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
+      await storeArea(s.page,'店面與發布');
       await expect(s.page.getByRole('button',{name:'發布展示頁',exact:true})).toBeDisabled();
     }
     if (supplierOnly) await a.page.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
+    else await storeArea(a.page,'供貨合作');
     await a.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
     const requests=await expand(a.page,'供貨申請');
     for(const name of ['小島選物','山城選物']) {
@@ -71,7 +80,9 @@ test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C 
       await expect(row).toContainText('已同意，可加入展示頁');
     }
     for(const s of [b,c]) {
+      await storeArea(s.page,'供貨合作');
       await s.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
+      await storeArea(s.page,'店面與發布');
       await expect(s.page.getByRole('button',{name:'發布展示頁',exact:true})).toBeEnabled();
       await s.page.getByRole('button',{name:'發布展示頁',exact:true}).click();
       await expect(s.page.locator('.hosted-store > [role="status"]')).toContainText('已發布展示頁');
@@ -107,7 +118,7 @@ test(`${supplierOnly ? 'supply-only' : 'retail'} supplier A and independent B/C 
     await expect(selected).toContainText('已撤回供貨');
     await b.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();
     await expect(await expand(b.page,'我的選品')).toContainText('已撤回供貨');
-    await expect(b.page.getByRole('button',{name:'發布更新',exact:true})).toBeDisabled();
+    await storeArea(b.page,'店面與發布');await expect(b.page.getByRole('button',{name:'發布更新',exact:true})).toBeDisabled();
     const privateAttempt=await c.page.request.get(`/api/v1${b.root}/distribution-selections`);expect(privateAttempt.status()).toBe(404);
     if (supplierOnly) {
       expect((await (await a.page.request.get('/api/v1/me/stores?pagination=cursor')).json()).items).toEqual([]);

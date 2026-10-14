@@ -602,11 +602,19 @@ function Workspace({
   },[session.user.user_id])
   useEffect(()=>{let active=true,generation=0;const refresh=()=>{const current=++generation;void client.get<MemberCardData>(`/members/${session.user.user_id}`).then(value=>{if(active&&current===generation)setHeaderMember(value)}).catch(()=>{})};refresh();window.addEventListener('freedom-profile-updated',refresh);return()=>{active=false;generation++;window.removeEventListener('freedom-profile-updated',refresh)}},[session.user.user_id])
   useEffect(()=>{
-    const heartbeat=()=>{if(document.visibilityState==='visible')void client.get('/session',{background:true}).catch(()=>{});};
+    let active=true;
+    const generation=client.sessionGeneration;
+    const heartbeat=()=>{
+      if(document.visibilityState!=='visible')return;
+      void client.get<SessionPayload>('/session',{background:true}).then(next=>{
+        // Other tabs share the cookie, not this workspace's identity or CSRF.
+        if(active&&generation===client.sessionGeneration&&(next.user.user_id!==session.user.user_id||next.csrf_token!==session.csrf_token))onSessionExpired();
+      }).catch(()=>{});
+    };
     const timer=window.setInterval(heartbeat,60_000);
     document.addEventListener('visibilitychange',heartbeat);
-    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',heartbeat)};
-  },[session.user.user_id]);
+    return()=>{active=false;window.clearInterval(timer);document.removeEventListener('visibilitychange',heartbeat)};
+  },[session.user.user_id,session.csrf_token]);
   const [tab, setTab] = useState<TabId>(() => tabFromHash(site?.guild_launchpad_enabled === true))
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
   const {canEndSession:canEndConsoleSession}=useGameConsole()
