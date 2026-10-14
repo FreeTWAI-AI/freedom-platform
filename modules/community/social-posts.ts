@@ -85,7 +85,7 @@ function cursorOf(raw: string | undefined) {
   return { createdAt, id };
 }
 
-export async function listSocialPosts(pool: Pool, actor: Actor, query: { platform?: string; cursor?: string; kind?: string; tag?:string }) {
+export async function listSocialPosts(pool: Pool|PoolClient, actor: Actor, query: { platform?: string; cursor?: string; kind?: string; tag?:string }) {
   const tag=query.tag ? z.string().regex(/^[\p{L}\p{N}_]{1,50}$/u).parse(query.tag).toLocaleLowerCase() : null;
   const platform = query.platform ?? '';
   requireCondition(platform === '' || (SOCIAL_PLATFORMS as readonly string[]).includes(platform), 422, 'validation_failed', '平台篩選不正確。');
@@ -231,7 +231,7 @@ async function shownComment(q:Pick<Pool,'query'>,actor:Actor,postId:string,comme
  return commentView(row,actor);
 }
 
-export async function listSocialComments(pool: Pool, actor: Actor, id: string, rawCursor?: string) {
+export async function listSocialComments(pool: Pool|PoolClient, actor: Actor, id: string, rawCursor?: string) {
   await activePost(pool, actor, id);
   const cursor = cursorOf(rawCursor);
   const rows = (await pool.query(`${COMMENTS}
@@ -472,7 +472,7 @@ async function writeSocialMetadata(q:Pick<Pool,'query'>,actor:Actor,id:string,dr
  [id,draft.topic??'mood',draft.location_name??null,socialTags(draft.text),JSON.stringify(mentions)]);
 }
 
-export async function listSocialLikes(pool:Pool,actor:Actor,id:string,rawCursor?:string){
+export async function listSocialLikes(pool:Pool|PoolClient,actor:Actor,id:string,rawCursor?:string){
  await activePost(pool,actor,id);
  const cursor=cursorOf(rawCursor);
  const rows=(await pool.query(`SELECT u.user_id,u.display_name,l.created_at FROM community_social_likes l JOIN users u USING(user_id)
