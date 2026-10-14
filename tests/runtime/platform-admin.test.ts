@@ -8,6 +8,8 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {authenticate,tokenHash} from '../../modules/identity-membership/service.js';
 import {communityCatalog} from '../../modules/community/catalog.js';
+import {authenticateAdmin} from '../../modules/platform-admin/service.js';
+import {linkNominatedMember} from '../../modules/platform-admin/leadership.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {createAdminAccessVerifier} from '../../modules/platform-admin/access.js';
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -311,4 +313,29 @@ test('conflicting nominated guild master rolls back every appointment, grant and
  const linked=await request('/link-member',{},undefined,randomUUID(),{Cookie:matching.cookie});assert.equal(linked.data.code,'appointment_changed');
  assert.equal((await pool.query('SELECT count(*) FROM positioning_profession_memberships WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0].count,'0');assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants')).rows[0].count,'0');assert.equal((await request('/audit')).data.items.length,0);
  assert.equal((await pool.query('SELECT email_verified_at FROM users WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0].email_verified_at,null);assert.equal((await pool.query("SELECT count(*) FROM guild_leadership_nominations WHERE state='pending'")).rows[0].count,'2');
+});
+
+test('linking an appointment waiting on the guild lock cannot write after the member session expires',async()=>{
+  const matching=await matchingMember();await nominate(['guild_security']);
+  const actor=await authenticate(pool,matching.cookie.split('=')[1]);
+  const admin=await authenticateAdmin(pool,{email,subject:'verified-human-fixture',csrfToken:csrf});
+  const holder=await pool.connect();
+  let pending:Promise<unknown>|undefined;
+  try{
+    await holder.query('BEGIN');
+    await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-member/${actor.community_id}/${actor.user_id}`]);
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+    pending=linkNominatedMember(pool,{admin,operation:'link-member',key:randomUUID(),body:{}},actor);
+    const holderPid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    let waiting=false;
+    for(let attempt=0;attempt<200&&!waiting;attempt++){
+      waiting=Boolean((await database.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT pg_advisory_xact_lock%' AND $1=ANY(pg_blocking_pids(pid))",[holderPid])).rowCount);
+      if(!waiting)await new Promise(resolve=>setTimeout(resolve,10));
+    }
+    assert.equal(waiting,true,'appointment must wait on the guild lock');
+    await pool.query('SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[actor.session_hash]);
+    await holder.query('COMMIT');
+    await assert.rejects(pending,(error:any)=>error.code==='session_expired');
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM positioning_guild_officers WHERE user_id=$1',[actor.user_id])).rows[0].n,0);
+  }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await pending?.catch(()=>{});}
 });

@@ -105,7 +105,7 @@
 
 `/admins` 的 `identity_binding` 為 `no_member_account`、`unverified_email_match` 或 `verified_email_match`。API 同時提供 `member_account_present`、`member_account_active`、`member_email_verified`；未驗證相同地址不得標示為已確認的管理員會員身分。本模組不提供公開授權管理員、email 密碼重設或自動 email 身分綁定功能。
 
-公會長提名由平台負責人私下建立，bootstrap 只回傳目前管理員自己的提名。`/link-member` 會在同一交易驗證會員 session、確認信箱、加入被指定的公會、領取技能書並完成任命；既有主力公會保持不變。若任一公會已有其他公會長，整批回 `409 appointment_changed` 並回復所有修改。未註冊、未完成加入（選定主要公會）或登入不同信箱時不建立替身帳號、不自動綁定。
+公會長提名由平台負責人私下建立，bootstrap 只回傳目前管理員自己的提名。`/link-member` 會在同一交易驗證會員 session、確認信箱、加入被指定的公會、領取技能書並完成任命；既有主力公會保持不變。公會鎖與會長鎖等待之後會用 `clock_timestamp()` 重查 session，等鎖跨過到期不得寫入任命。若任一公會已有其他公會長，整批回 `409 appointment_changed` 並回復所有修改。未註冊、未完成加入（選定主要公會）或登入不同信箱時不建立替身帳號、不自動綁定。
 
 修改會把已驗證的 Access subject 與管理員 ID、理由、前後狀態寫入獨立 audit；JWT 本身不落盤。所有權限與版本會在交易中重查，相同 idempotency 重試不重複記錄。
 

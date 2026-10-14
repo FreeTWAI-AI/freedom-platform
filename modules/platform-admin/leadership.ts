@@ -2,6 +2,7 @@ import {withBookStarChecks} from '../positioning/onboarding.js';
 import type {Pool} from 'pg';
 import {z} from 'zod';
 import {journal} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
@@ -21,15 +22,17 @@ export async function linkNominatedMember(pool:Pool,input:AdminCommand,member:Ac
     // Same lock order as membership writes, login and account suspension.
     const user=(await q.query('SELECT * FROM users WHERE user_id=$1 AND community_id=$2 FOR UPDATE',[member.user_id,member.community_id])).rows[0];
     requireCondition(user?.active&&user.email.toLowerCase()===input.admin.email,403,'member_identity_mismatch','會員身分已變更，請重新登入。');
-    requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',[member.session_hash,member.user_id])).rowCount===1,401,'session_expired','會員登入已到期，請先返回平台登入。');
+    requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE',[member.session_hash,member.user_id])).rowCount===1,401,'session_expired','會員登入已到期，請先返回平台登入。');
     requireCondition(!user.onboarding_required||user.onboarding_completed_at,409,'onboarding_required','請先完成會員定位，再回到管理介面確認任命。');
   },run),async q=>{
     await lockMemberGuilds(q,member);
+    await assertCurrentSessionClock(q,member);
     const nominations=(await q.query("SELECT n.*,g.name FROM guild_leadership_nominations n JOIN positioning_guild_catalog g USING(guild_key) WHERE n.community_id=$1 AND n.admin_id=$2 AND n.state='pending' ORDER BY n.guild_key FOR UPDATE OF n",[input.admin.community_id,input.admin.admin_id])).rows;
     const activated:{guild_key:string;name:string}[]=[];
     for(const nomination of nominations){
       const key=nomination.guild_key;
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-officer/${member.community_id}/${key}`]);
+      await assertCurrentSessionClock(q,member);
       const officer=(await q.query('SELECT user_id FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 FOR UPDATE',[member.community_id,key])).rows[0];
       requireCondition(!officer||officer.user_id===member.user_id,409,'appointment_changed','這個公會已有其他會長，請先在管理介面確認任命。');
       const written=await writeFullMembership(pool, q, member.community_id,member.user_id,key);
