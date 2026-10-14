@@ -564,7 +564,8 @@ export async function setRsvp(pool:Pool,input:Command,id:string,participationEna
       const mine=(await q.query('SELECT state FROM community_event_rsvps WHERE event_id=$1 AND user_id=$2',[id,input.actor.user_id])).rows[0]?.state;
       if(mine!=='going'){
         await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND state='pending' AND created_at<=now()-interval '10 minutes'",[id]);
-        const mineReserved=(await q.query("SELECT 1 FROM community_event_waitlist WHERE event_id=$1 AND member_ref=$2 AND status='invited' AND expires_at>now()",[id,input.actor.user_id])).rowCount===1;
+        // The event row lock can outlast the invitation. Recheck the live clock so an expired reservation is not subtracted after another member takes the released seat.
+        const mineReserved=(await q.query("SELECT 1 FROM community_event_waitlist WHERE event_id=$1 AND member_ref=$2 AND status='invited' AND expires_at>clock_timestamp()",[id,input.actor.user_id])).rowCount===1;
         requireCondition(row.capacity===null||await countEventSeats(q,id)-(mineReserved?1:0)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
       }
     }
