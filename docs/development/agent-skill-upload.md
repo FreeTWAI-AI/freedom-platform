@@ -47,6 +47,11 @@
 
 `key`：`key_id, label, scope:'skill:submit', expires_at, revoked_at, created_at, last_used_at`。
 
+本人 `GET /me/skill-upload-keys` 在同一短交易依序鎖 user／session，讀完金鑰
+metadata 後以 PostgreSQL `clock_timestamp()` 重驗期限。清單查詢等待跨過 session
+到期時回 `401 session_expired`，不回 `items` 或私人 label；仍不輸出 token／hash。
+這是瀏覽器金鑰清單的讀取邊界，不更動 Agent bearer 建立與上傳流程。
+
 ## Agent API（`/agent-api/v1`，不經 cookie middleware）
 
 `createAgentSkillSubmissionRoutes(pool, origin, network?)`：
