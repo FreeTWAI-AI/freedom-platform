@@ -37,6 +37,26 @@
 
 新表和 confirmation metadata 登記到既有資料責任 catalog；保留期限仍沿 `policy_undecided`，沒有 GC、刪除排程、匿名公開成果或事件 consumer。官方公開名片不接入此會員 reader。修改／撤回後，舊確認不作新版本的權威；命令 receipt 只回歷史 ID/state/version/hash，UI 隨後讀目前狀態。
 
+## 成果投影後的可見性決策（#639）
+
+`/me/contribution-outcomes` 與 `/members/:id/contribution-outcomes` 保留原
+member session transaction及early subject visibility gate；完整outcome／
+confirmed role SQL後，在same nativeclient重驗同一份既有predicate，才回DTO。
+Session鎖不會固定雙方的block relation；任一方向的封鎖在domain等待期間
+已成立時，回原generic `404 not_found`，不揭露封鎖方向、Work ID、署名文字
+或evidence ref。沒有兩份visibility規則、第二個reader facade或新增pair lock。
+
+有效對象保留原count／pagination／DTO，交付ref仍self-only；本人及無關第三人
+的歷史成果不變，解除封鎖可再讀原紀錄，不刪除accepted Work、Contribution、
+署名或confirmation facts。原同社群、active／onboarding、verification
+eligibility與sharing consent規則沒有新增或放寬。
+
+本機consumer回歸以真正block HTTP handler、native confirmation relation
+wait及雙向成立／有效控制驗證；read app的block管理flag OFF時，已保存設定仍
+保護成果reader。只有隔離fixture安裝既有管理flag，不改source default或部署。
+本輪真實loopback HTTP對照及相容suite結果列Issue／PR；不是browser、
+trusted CI、merge、部署、評分或付款證明。
+
 ## 給 Ted 的審查重點
 
 - 核對「已驗收交付者確認發起人角色」的窄條件；不接受自確認、替別人填角色或旁觀者授權。
