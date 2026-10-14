@@ -80,16 +80,24 @@ async function scopedWork(q:PoolClient, actor:Actor,id:string,lock=false) {
   const row=(await q.query(`SELECT * FROM work_items WHERE work_item_id=$1 AND community_id=$2 AND work_mode='community_collaboration'${lock?' FOR UPDATE':''}`,[id,actor.community_id])).rows[0];
   requireCondition(row,404,'not_found','找不到這個工作。');return row;
 }
+// The caller already holds this Work's row lock on the same transaction client.
+async function assertClaimWindowClock(q:PoolClient,id:string) {
+  const current=await q.query('SELECT 1 FROM work_items WHERE work_item_id=$1 AND claim_window_expires_at>clock_timestamp()',[id]);
+  requireCondition(current.rowCount===1,409,'claim_window_closed','認領期限已過。');
+}
 export async function claimWork(pool:Pool,input:Command,id:string) {
   const body=claimInput.parse(input.body);
   requireCondition(body.acting_profession_membership_ref===input.actor.profession_membership_ref,403,'wrong_profession','只能以自己的職業身分認領。');
   requireCondition(String(body.expected_aggregate_version)===input.expected,400,'version_header_mismatch','版本欄位與 If-Match 不一致。');
+  // Historical receipts must not reacquire an availability window; only a new run does.
+  let creating=false;
   return command(pool,input,q=>scopedWork(q,input.actor,id),async q=>{
     const work=await scopedWork(q,input.actor,id,true);checkVersion(work.aggregate_version,input.expected);
     requireCondition(work.owner_ref!==input.actor.user_id,403,'self_claim','請由另一位成員協作這件工作。');
     requireCondition(work.state==='open',409,'claim_unavailable','這件工作已被認領。');
-    requireCondition(new Date(work.claim_window_expires_at).getTime()>Date.now(),409,'claim_window_closed','認領期限已過。');
+    await assertClaimWindowClock(q,id);
     requireCondition(body.participation_terms_revision===work.participation_terms_revision && body.participation_terms_sha256===work.participation_terms_sha256,409,'terms_changed','參與條款已更新，請重新閱讀。');
+    creating=true;
     const claim=(await q.query(`INSERT INTO work_claims(claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,terms_revision,terms_sha256,terms_snapshot)
       VALUES($1,$2,$3,$4,'claimed',$5,$6,$7) RETURNING *`,[randomUUID(),id,input.actor.user_id,input.actor.profession_membership_ref,work.participation_terms_revision,work.participation_terms_sha256,work.participation_terms])).rows[0];
     const version=(await q.query("UPDATE work_items SET state='claiming_closed',aggregate_version=aggregate_version+1 WHERE work_item_id=$1 RETURNING aggregate_version",[id])).rows[0].aggregate_version;
@@ -97,7 +105,7 @@ export async function claimWork(pool:Pool,input:Command,id:string) {
     await journal(q,input.actor,'work_claim',claim.claim_id,1,'claim',{work_item_id:id},'freedom.work.item.claimed.v1');
     const {latest_submission,feedback,...canonicalClaim}=(await claimView(q,claim))!;
     return canonicalClaim;
-  });
+  },async q=>{if(creating)await assertClaimWindowClock(q,id);});
 }
 async function scopedClaim(q:PoolClient,actor:Actor,id:string,review:boolean,lock=false) {
   const claim=(await q.query(`SELECT c.* FROM work_claims c JOIN work_items w USING(work_item_id)
