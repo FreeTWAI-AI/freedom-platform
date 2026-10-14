@@ -119,6 +119,17 @@ including whitespace around names or identical values, return
 `403 credential_kind_rejected`; the platform rejects them before reading a
 mutation body or creating, replacing or revoking sessions.
 
+The main portal Workspace keeps its original identity and CSRF lifetime (#584).
+Browser tabs share the session cookie, so the existing visible-page 60-second
+heartbeat and visibility-change check compare successful `/session` responses
+with both the Workspace's user ID and CSRF token. A different account or a new
+session for the same account ends the old local Workspace and returns to login;
+it neither silently adopts the replacement identity nor logs out the replacement
+server session. Unmounted or superseded Workspace heartbeats cannot end a later
+login. An unchanged session stays open; transient read failures retain the
+Workspace, and existing 401 handling remains in place. This does not add
+cross-tab broadcasting or change the heartbeat frequency.
+
 The existing scheduled auth maintenance also prunes email-verification and
 login-email-change proofs (#494), consumed or unused, once `expires_at` is more
 than 24 hours old, matching password-reset proofs' grace period. Each table uses
