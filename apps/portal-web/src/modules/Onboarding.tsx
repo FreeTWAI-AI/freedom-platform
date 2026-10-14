@@ -32,7 +32,8 @@ export function Onboarding({ client, initial, onCompleted, onLogout, onExplore, 
   const setPrimary=(value:string)=>{guildChoicesInitialized.current=true;setPrimaryState(value);};
   const [customCapabilities,setCustomCapabilities]=useState<string[]>(initial.draft?.custom_capabilities??[]),[customEquipment,setCustomEquipment]=useState<string[]>(initial.draft?.custom_equipment??[]),[questionNotes,setQuestionNotes]=useState<Record<string,string>>(initial.draft?.question_notes??{}),[featured,setFeatured]=useState<string[]>(initial.draft?.featured_capabilities??initial.draft?.capabilities.slice(0,3)??[]);
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[retrySave,setRetrySave]=useState<PendingSave|null>(null),[versionConflict,setVersionConflict]=useState(false),[recoveryNotice,setRecoveryNotice]=useState(''),[errorInfo,setErrorInfo]=useState<ApiError|null>(null);
-  const requestLock=useRef(false);
+  const requestLock=useRef(false),session=useRef(client.sessionGeneration),mounted=useRef(false);
+  const current=()=>mounted.current&&session.current===client.sessionGeneration;
   const locked=busy||retrySave!==null;
   const primaryReady=!!primary&&selectedGuilds.includes(primary);
   const guildHint=!selectedGuilds.length?'請先勾選至少一個想加入的公會，再選擇主要公會。':!primaryReady?'還差一步：請選擇主要公會，才能完成定位。':'';
@@ -42,28 +43,31 @@ export function Onboarding({ client, initial, onCompleted, onLogout, onExplore, 
     const details=choice.closest('details');if(details)details.open=true;
     choice.scrollIntoView({block:'center'});choice.focus({preventScroll:true});
   }
-  async function load(){setLoadError('');try{const [d,g]=await Promise.all([client.get<Definition>('/assessment-definition'),client.get<{items:GuildSummary[]}>('/guilds/directory')]);setDefinition(d);setGuilds(g.items);
+  async function load(){if(!current())return;setLoadError('');try{const [d,g]=await Promise.all([client.get<Definition>('/assessment-definition'),client.get<{items:GuildSummary[]}>('/guilds/directory')]);if(!current())return;setDefinition(d);setGuilds(g.items);
     if(optional&&!guildChoicesInitialized.current){
       guildChoicesInitialized.current=true;
       const active=g.items.filter(guild=>guild.membership?.state==='active');
       setSelectedGuildsState(active.map(guild=>guild.guild_key));
       setPrimaryState(active.find(guild=>guild.is_primary)?.guild_key??active.find(guild=>guild.guild_key===initial.primary_guild_key)?.guild_key??'');
     }
-  }catch(e){setLoadError(e instanceof Error?e.message:'定位資料暫時無法讀取。');}}
-  useEffect(()=>{void load();},[client]);
+  }catch(e){if(current())setLoadError(e instanceof Error?e.message:'定位資料暫時無法讀取。');}}
+  useEffect(()=>{mounted.current=true;void load();return()=>{mounted.current=false;};},[client]);
   const toggle=(values:string[],id:string,set:(v:string[])=>void)=>set(values.includes(id)?values.filter(v=>v!==id):[...values,id]);
   function command(kind:PendingSave['kind'],body:unknown,version=view.draft?.aggregate_version):PendingSave {
     return {kind,body:structuredClone(body),version,key:crypto.randomUUID(),step};
   }
   async function runSave(initialCommand:PendingSave){
-    if(requestLock.current)return;
+    if(!current()||requestLock.current)return;
     requestLock.current=true;setBusy(true);setError(null);setErrorInfo(null);setVersionConflict(false);setRecoveryNotice('');
     let request=initialCommand;
     try {
       // The second stage is a distinct command. A lost evaluation response must
       // replay evaluation, never save the answers again with an old version.
       for(;;){
+        // A response from an unmounted/previous login must not start a new command.
+        if(!current())return;
         const result=await client.post<OnboardingView>(`/me/onboarding/${request.kind}`,request.body,{idempotencyKey:request.key,ifMatch:request.version});
+        if(!current())return;
         if(!result||!['draft','evaluated','completed'].includes(result.state)||!Number.isInteger(result.draft?.aggregate_version))throw new ApiError({message:'回應未完整收到，尚未確認結果。請重試保存。',status:200,network:true});
         setView(result);
         if(request.kind==='answers'&&request.step===3){request={kind:'evaluate',body:{},version:result.draft?.aggregate_version,key:crypto.randomUUID(),step:3};continue;}
@@ -73,12 +77,13 @@ export function Onboarding({ client, initial, onCompleted, onLogout, onExplore, 
         window.scrollTo({top:0,behavior:'instant'});break;
       }
     } catch(cause){
+      if(!current())return;
       setError(cause instanceof Error?cause.message:'保存暫時無法完成，請重試。');
       setErrorInfo(cause instanceof ApiError?cause:null);
       const unknown=cause instanceof ApiError&&cause.network;
       setRetrySave(unknown?request:null);
       setVersionConflict(!unknown&&cause instanceof ApiError&&(cause.conflict||cause.status===428));
-    } finally {requestLock.current=false;setBusy(false);}
+    } finally {requestLock.current=false;if(current())setBusy(false);}
   }
   async function next(event:FormEvent){
     event.preventDefault();if(!definition||locked||requestLock.current)return;
@@ -90,10 +95,10 @@ export function Onboarding({ client, initial, onCompleted, onLogout, onExplore, 
     await runSave(command('complete',{guild_keys:selectedGuilds,primary_guild_key:primary,confirmed:true}));
   }
   async function refreshVersion(){
-    if(requestLock.current)return;requestLock.current=true;setBusy(true);
-    try {const latest=await client.get<OnboardingView>('/me/onboarding');setView(latest);setError(null);setErrorInfo(null);setVersionConflict(false);setRecoveryNotice('已讀取最新保存版本，本頁答案仍保留。請確認後再次保存。');}
-    catch(cause){setError(cause instanceof Error?cause.message:'暫時無法讀取保存版本。');setErrorInfo(cause instanceof ApiError?cause:null);}
-    finally{requestLock.current=false;setBusy(false);}
+    if(!current()||requestLock.current)return;requestLock.current=true;setBusy(true);
+    try {const latest=await client.get<OnboardingView>('/me/onboarding');if(!current())return;setView(latest);setError(null);setErrorInfo(null);setVersionConflict(false);setRecoveryNotice('已讀取最新保存版本，本頁答案仍保留。請確認後再次保存。');}
+    catch(cause){if(current()){setError(cause instanceof Error?cause.message:'暫時無法讀取保存版本。');setErrorInfo(cause instanceof ApiError?cause:null);}}
+    finally{requestLock.current=false;if(current())setBusy(false);}
   }
   const steps=['做事偏好','能力情境','認識自己','整理裝備','選擇公會'];
   const chosenQuestions=definition?.questions.filter(q=>q.kind===(step===0?'preference':'ability'))??[];

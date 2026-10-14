@@ -8,6 +8,8 @@ The portal bounds a request, including its response body, to 20 seconds. A netwo
 
 A confirmed 412/428 permits **重讀保存版本**: fetch the latest onboarding view, retain the member's current input, and require another explicit save. This read does not overwrite the remote draft. Answers are not placed in localStorage; reloading or leaving the page can lose input that has not been confirmed saved.
 
+The assessment UI binds saves and version recovery to its mounted component and initial `client.sessionGeneration`. Recheck that owner before every command and after each awaited response, including the automatic `answers` → `evaluate` continuation. Logout, a new login for the same member, or leaving the assessment invalidates the old continuation: it must not borrow the next login's CSRF, adopt its response, or scroll the new page. This does not undo answers already committed under the original valid session. A current member can explicitly resume from the saved view; same-owner unknown outcomes retain the exact command/body/version/key and the existing manual retry behavior above.
+
 POST responses from the application include a generated `X-Freedom-Request-ID`. The error panel's folded **問題資訊** shows the HTTP status and validated request ID / Cloudflare Ray when present. An edge-generated error may have no application request ID. Operational logging records only stage, status, duration and these correlation IDs, never the assessment payload.
 
 ## Endpoints
