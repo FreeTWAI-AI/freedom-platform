@@ -469,6 +469,37 @@ test('link creation validates each kind and stays idempotent', async () => {
   assert.equal(limited.data.code, 'promotion_link_limit');
 });
 
+test('promotion link creation rejects a session expiring during the advisory lock wait', async () => {
+  const maker = await signIn();
+  const first = await platformLink(maker);
+  assert.ok(first.code);
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE user_id=$1", [maker.user.user_id]);
+  const day = taipeiDate(clock);
+  const holder = await pool.connect();
+  let pending: ReturnType<typeof request> | undefined;
+  try {
+    await holder.query('BEGIN');
+    await holder.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`promo-link:${maker.user.user_id}:${day}`]);
+    const pid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    pending = request('/promotion/links', maker, { kind: 'platform', target: 'workshop' });
+    let waiting = false;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      waiting = Boolean((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))', [pid])).rowCount);
+      if (waiting) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.ok(waiting, 'promotion link request must actually wait on the advisory lock');
+    await holder.query("SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE user_id=$1", [maker.user.user_id]);
+  } finally {
+    await holder.query('ROLLBACK');
+    holder.release();
+    if (pending) await pending;
+  }
+  const denied = await pending!;
+  assert.equal(denied.status, 401);
+  assert.equal(denied.data.code, 'session_expired');
+});
+
 test('leaderboards use Taipei periods, competition ranks and the same member visibility as the directory', async () => {
   const maker = await signIn();
   clock = new Date('2026-10-04T15:59:00.000Z');
