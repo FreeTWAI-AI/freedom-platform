@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
+import {setImmediate as yieldLoop} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
@@ -306,32 +307,32 @@ test('OAuth state is bound to current user, community and exact session, with ex
   await assert.rejects(()=>social.session({...actor,community_id:outsider.community_id}),errorCode('session_expired'));
 });
 
-test('OAuth completion rechecks nonce expiry after the state row lock',async()=>{
+for(const target of ['user','state'] as const)test(`OAuth rejects nonce expiry across the ${target} row lock`,async()=>{
   const initial=await social.start(actor),state=new URL(initial.authorization_url).searchParams.get('state')!,stateHash=createHash('sha256').update(state).digest('hex');
-  await pool.query("UPDATE github_social_oauth_states SET expires_at=clock_timestamp()-interval '1 second' WHERE state_hash=$1",[stateHash]);
-  await assert.rejects(()=>social.complete(actor,state,'synthetic-code'),errorCode('github_oauth_expired'));
-  assert.equal(mock.calls.length,0);assert.equal((await social.session(actor)).connected,false);
-  assert.equal((await pool.query('SELECT count(*) FROM github_social_oauth_states WHERE state_hash=$1',[stateHash])).rows[0].count,'1');
-});
-
-
-test('OAuth completion rejects a nonce that expires while its state row is locked',async()=>{
-  const initial=await social.start(actor),state=new URL(initial.authorization_url).searchParams.get('state')!,stateHash=createHash('sha256').update(state).digest('hex');
-  await pool.query("UPDATE github_social_oauth_states SET expires_at=clock_timestamp()+interval '2 seconds' WHERE state_hash=$1",[stateHash]);
-  const blocker=await pool.connect();
+  const blocker=await pool.connect();let pending:Promise<unknown>|undefined;
   try{
-    await blocker.query('BEGIN');await blocker.query('SELECT 1 FROM github_social_oauth_states WHERE state_hash=$1 FOR UPDATE',[stateHash]);
+    await pool.query("UPDATE github_social_oauth_states SET expires_at=clock_timestamp()+interval '3 seconds' WHERE state_hash=$1",[stateHash]);
+    await blocker.query('BEGIN');
+    if(target==='user')await blocker.query('SELECT 1 FROM users WHERE user_id=$1 FOR UPDATE',[actor.user_id]);
+    else await blocker.query('SELECT 1 FROM github_social_oauth_states WHERE state_hash=$1 FOR UPDATE',[stateHash]);
     const blockerPid=(await blocker.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
-    const pending=social.complete(actor,state,'synthetic-code');
-    const deadline=Date.now()+1500;let waiting=false;
-    while(Date.now()<deadline){waiting=(await pool.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[blockerPid])).rowCount!>0;if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));}
-    assert.equal(waiting,true);assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS future FROM github_social_oauth_states WHERE state_hash=$1',[stateHash])).rows[0].future,true);
-    await blocker.query("SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.1) FROM github_social_oauth_states WHERE state_hash=$1",[stateHash]);await blocker.query('COMMIT');
-    await assert.rejects(pending,errorCode('github_oauth_expired'));
-    assert.equal(mock.calls.length,0);assert.equal((await pool.query('SELECT count(*) FROM github_social_connections')).rows[0].count,'0');
-  }finally{await blocker.query('ROLLBACK');blocker.release();}
+    pending=social.complete(actor,state,'synthetic-code');
+    const deadline=Date.now()+2000;let waiting=false;
+    while(Date.now()<deadline){
+      waiting=(await pool.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[blockerPid])).rowCount!>0;
+      if(waiting)break;await yieldLoop();
+    }
+    assert.equal(waiting,true,'callback reached the held database lock');
+    assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS future FROM github_social_oauth_states WHERE state_hash=$1',[stateHash])).rows[0].future,true);
+    // This deliberately crosses PostgreSQL's real clock; JS fake timers cannot
+    // advance clock_timestamp() in the independently running database.
+    await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.1) FROM github_social_oauth_states WHERE state_hash=$1',[stateHash]);
+    await blocker.query('COMMIT');await assert.rejects(pending,errorCode('github_oauth_expired'));
+    assert.equal(mock.calls.length,0);
+    assert.equal((await social.session(actor)).connected,false);
+    assert.equal((await pool.query("SELECT attempts FROM github_social_rate_limits WHERE user_id=$1 AND operation='oauth-complete'",[actor.user_id])).rows[0].attempts,1);
+  }finally{await blocker.query('ROLLBACK');blocker.release();if(pending)await Promise.allSettled([pending]);}
 });
-
 
 test('failed token exchange consumes state and persistent attempt budgets survive provider errors',async()=>{
   const initial=await social.start(actor),state=new URL(initial.authorization_url).searchParams.get('state')!;mock.tokenFailure=true;
