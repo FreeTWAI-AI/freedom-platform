@@ -91,9 +91,11 @@ async function ensureAccount(q:Pool|PoolClient,actor:Actor) {
   await q.query('INSERT INTO member_accounts(user_id,community_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[actor.user_id,actor.community_id]);
 }
 export async function accountView(pool:Pool,actor:Actor) {
-  await ensureAccount(pool,actor);
-  const row=(await pool.query(`SELECT a.*,u.email,u.display_name,u.email_verified_at,u.created_at,u.created_at_source FROM member_accounts a JOIN users u USING(user_id) WHERE a.user_id=$1 AND a.community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
-  return {user_id:row.user_id,nickname:row.display_name,identity_label:row.identity_label,joined_at:row.created_at?new Date(row.created_at).toISOString():null,joined_at_source:row.created_at_source,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version,avatar:await avatarMetadata(pool,actor)};
+  return readWithMemberSession(pool,actor,async q=>{
+    await ensureAccount(q,actor);
+    const row=(await q.query(`SELECT a.*,u.email,u.display_name,u.email_verified_at,u.created_at,u.created_at_source FROM member_accounts a JOIN users u USING(user_id) WHERE a.user_id=$1 AND a.community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
+    return {user_id:row.user_id,nickname:row.display_name,identity_label:row.identity_label,joined_at:row.created_at?new Date(row.created_at).toISOString():null,joined_at_source:row.created_at_source,login_email:row.email,email_verified:Boolean(row.email_verified_at),contacts:Object.fromEntries(Object.entries(normalizedContacts(row.contacts,row.email)).map(([key,value])=>[key,{...value,verified:false}])),aggregate_version:row.aggregate_version,avatar:await avatarMetadata(q,actor)};
+  });
 }
 export async function saveAccount(pool:Pool,input:Command) {
   const body=AccountInput.parse(input.body);

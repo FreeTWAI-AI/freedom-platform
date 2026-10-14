@@ -1,6 +1,8 @@
 import {test, before, after, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {setImmediate} from 'node:timers/promises';
+import {z} from 'zod';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {Pool} from 'pg';
@@ -20,6 +22,8 @@ import {
 import {lockMemberGuilds} from '../../modules/positioning/onboarding.js';
 import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 import {guildPreferenceStatus} from '../../scripts/guild-preferences-backfill.js';
+import {readSessionCookie} from '../../apps/platform-api/src/session-cookie.js';
+import {tokenHash} from '../../modules/identity-membership/service.js';
 // @ts-expect-error Existing host-only clean environment helper is an ESM JavaScript module.
 import {verificationEnvironment} from '../../packages/contribution-tools/process-env.mjs';
 
@@ -1503,4 +1507,51 @@ test('T-010 status releases the catalog lock after a report', async () => {
 test('T-010 status releases the catalog lock after an error', async () => {
   await assert.rejects(() => guildPreferenceStatus(pool, {communityId: randomUUID()}), /No community matches --community-id/);
   await assertCatalogLockFree();
+});
+
+test('own legacy and category preference reads fence domain and final compatibility waits at session expiry',async()=>{
+  const registered=await member(flagged,'/auth/register',undefined,{email:`${randomUUID()}@example.test`,password:DEMO_PASSWORD,nickname:'Preference clock member'});
+  assert.equal(registered.status,201);const auth=z.object({csrf_token:z.string(),user:z.object({user_id:z.uuid()})}).parse(registered.data),setCookie=registered.response.headers.get('set-cookie');
+  assert.ok(setCookie);const s={cookie:setCookie.split(';')[0],csrf:auth.csrf_token,user:auth.user};
+  assert.equal((await member(flagged,'/me/guild-preferences/v2',s)).status,403);
+  assert.equal((await member(flagged,'/me/onboarding/quick-start',s,{guild_keys:['guild_ai_vibe'],primary_guild_key:'guild_ai_vibe',confirmed:true,guild_answers:sampleGuildAnswers('guild_ai_vibe')})).status,200);
+  const raw=readSessionCookie(s.cookie,origin);assert.ok(raw);const hash=tokenHash(raw);
+  async function blocked(api:ReturnType<typeof createApp>,path:string,table:string,marker:string,expired:boolean,compatibility=false){
+    const gate=await database.connect();let pending:ReturnType<typeof member>|undefined;
+    try{
+      assert.equal((await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[hash,expired?2:300])).rowCount,1);
+      await gate.query('BEGIN');await gate.query(`LOCK TABLE ${schema}.${table} IN ACCESS EXCLUSIVE MODE`);
+      const holder=z.object({pid:z.number()}).parse((await gate.query('SELECT pg_backend_pid() AS pid')).rows[0]).pid;
+      pending=member(api,path,s);const deadline=Date.now()+8000;
+      for(;;){
+        const waiting=z.array(z.object({query:z.string()})).parse((await database.query('SELECT query FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[holder])).rows);
+        if(waiting.some(row=>row.query.includes(marker)))break;
+        assert.ok(Date.now()<deadline,JSON.stringify(waiting));await setImmediate();
+      }
+      assert.equal(z.object({active:z.boolean()}).parse((await pool.query('SELECT expires_at>clock_timestamp() AS active FROM sessions WHERE token_hash=$1',[hash])).rows[0]).active,true);
+      if(expired){
+        await pool.query('SELECT pg_sleep(greatest(0,extract(epoch FROM expires_at-clock_timestamp())::double precision)+0.04) FROM sessions WHERE token_hash=$1',[hash]);
+        assert.equal(z.object({expired:z.boolean()}).parse((await pool.query('SELECT expires_at<=clock_timestamp() AS expired FROM sessions WHERE token_hash=$1',[hash])).rows[0]).expired,true);
+      }
+      await gate.query('ROLLBACK');const result=await pending;assert.equal(result.status,expired?401:200);
+      if(expired){
+        assert.equal(z.object({code:z.string()}).parse(result.data).code,'session_expired');
+        assert.equal(JSON.stringify(result.data).includes('guild_ai_vibe'),false);
+        assert.equal(result.response.headers.get('etag'),null);
+      }else if(path.endsWith('/v2')){
+        const view=z.object({aggregate_version:z.number(),legacy:z.object({primary_guild_key:z.string()})}).parse(result.data);
+        assert.equal(view.legacy.primary_guild_key,'guild_ai_vibe');assert.equal(result.response.headers.get('etag'),`"${view.aggregate_version}"`);
+        assert.equal(result.response.headers.get('cache-control'),'private, no-store');
+      }else{
+        const view=z.object({primary_guild_key:z.string(),compatibility:z.string().optional()}).parse(result.data);
+        assert.equal(view.primary_guild_key,'guild_ai_vibe');assert.equal(view.compatibility,compatibility?'legacy_projection':undefined);
+      }
+    }finally{await gate.query('ROLLBACK');gate.release();if(pending)await pending;}
+  }
+  for(const expired of [true,false])await blocked(flagOff,'/me/guild-preferences','guild_member_preferences','active_guild_keys',expired);
+  assert.equal((await member(flagOff,'/me/guild-preferences/v2',s)).status,404);
+  for(const expired of [true,false])await blocked(flagged,'/me/guild-preferences','guild_member_preferences','active_guild_keys',expired);
+  for(const expired of [true,false])await blocked(flagged,'/me/guild-preferences/v2','guild_member_preferences','legacy_version',expired);
+  await transaction(pool,q=>switchInTransaction(q,{communityId:DEMO_COMMUNITY,acceptBlocked:true,switchedBy:null}));
+  for(const expired of [true,false])await blocked(flagged,'/me/guild-preferences','guild_preference_switch',"state='switched'",expired,true);
 });

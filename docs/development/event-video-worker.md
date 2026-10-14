@@ -14,6 +14,13 @@ The reader uses canonical pinned R2 ETags and current ACL checks; whole GET veri
 SHA-256, while partial responses retain the canonical pinned-range semantics.
 Removal retires the asset and does not authorize physical object garbage collection.
 
+Authenticated video snapshots validate the current member session in a short
+transaction containing both the event ACL and the video projection. A final
+`clock_timestamp()` check rejects a session that expired while SQL was blocked;
+middleware admission alone is not sufficient. Each fresh snapshot repeats this
+boundary, including the recheck after object I/O, without holding SQL locks during
+storage access. Anonymous public-event reads retain their existing ACL.
+
 The native workerd test loads the ordinary main Worker bundle with restricted
 Hyperdrive SQL and native R2. Synthetic bounded WebM-signature bytes exercise the
 original HTTP upload DTO, replay, full GET, HEAD, 206/416 and stale If-Range, public and private
