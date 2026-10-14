@@ -57,9 +57,9 @@ test('public projection counts only currently visible entries and audiences comb
 });
 
 test('a single projection snapshot never combines an old relationship with a newer private URL',async()=>{
- const beforeUrl='https://facebook.com/visible-before-revocation',afterUrl='https://facebook.com/private-after-revocation';await create(link({url:beforeUrl,audiences:['friends']}));await friendship();let queries=0;
- const wrapped={query:async(text:string,values:unknown[])=>{queries++;const result=await pool.query(text,values);await friendship('removed');await pool.query('UPDATE member_social_links SET url=$1,aggregate_version=aggregate_version+1 WHERE user_id=$2',[afterUrl,owner.user.user_id]);return result;}} as unknown as Pool;
- const captured=await visibleSocialLinks(wrapped,viewer.actor,owner.user.user_id);assert.equal(queries,1);assert.equal(captured.total,1);assert.equal(captured.items[0].url,beforeUrl);assert.equal(JSON.stringify(captured).includes(afterUrl),false);assert.equal((await visible()).data.total,0);
+ const beforeUrl='https://facebook.com/visible-before-revocation',afterUrl='https://facebook.com/private-after-revocation';const entry=await create(link({url:beforeUrl,audiences:['friends']}));await friendship();
+ const wrapped=new Proxy(pool,{get(target,property,receiver){if(property!=='query')return Reflect.get(target,property,receiver);return async(...args:unknown[])=>{const result=await Reflect.apply(target.query,target,args);await friendship('removed');await pool.query('UPDATE member_social_links SET url=$1,aggregate_version=aggregate_version+1 WHERE user_id=$2',[afterUrl,owner.user.user_id]);return result;};}});
+ const captured=await visibleSocialLinks(wrapped,viewer.actor,owner.user.user_id);assert.deepEqual(captured,{items:[{link_id:entry.link_id,platform:'facebook',label:'粉絲專頁',url:beforeUrl,verified:false}],total:1,next_offset:null});assert.equal((await visible()).data.total,0);
 });
 
 test('inactive, unfinished and foreign members cannot expose links and stale sessions cannot read or mutate',async()=>{

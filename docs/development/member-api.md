@@ -93,6 +93,21 @@ enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
 Binary uploads and signed machine transports retain their own bounded readers.
 
+Owner share settings (`GET /me/member-card-share`), the owner social-link list
+and the authenticated member social-link projection hold current user/session
+locks through the database read and recheck `clock_timestamp()` after its last
+domain query. Expiry during a SQL wait returns `401 session_expired` without
+private values. The social-link audience predicate, count and page remain in
+one statement snapshot; a projection callback alone is not an authentication API.
+
+Social-link create/edit/delete commands commit before their separate current-value
+readback. That readback has the same session fence, including tombstones and
+receipt replays. A late 401 does **not** roll back an already committed command:
+after logging in again, explicitly retry the same body/version/Idempotency-Key
+to recover its current value or tombstone, without duplication or resurrection.
+The decision is before commit, not a guarantee throughout response transport;
+anonymous public-card sharing retains its separate policy.
+
 HTTPS deployments use `__Host-freedom_session` with `Secure`, `HttpOnly`,
 `SameSite=Strict`, `Path=/` and no `Domain`. Only explicitly configured local
 HTTP loopback hosts use `freedom_local_session` without `Secure`. Cookie names
@@ -127,7 +142,9 @@ authorized. Node does not acquire an automatic scheduler through this change.
   six-digit authenticator code or an unused backup code to complete login.
   Password login does not verify email or link providers; slugs confer no ownership.
 - `POST /auth/reset/request`: `{email}`; requires the configured recovery sender
-  and returns the same result for existing and unknown accounts.
+  and returns the same result for existing and unknown accounts. Issuance locks
+  the current mailbox first; a request waiting behind an email switch receives
+  neither a proof nor a message for the old address (#552).
 - `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
   changes the password and revokes old sessions atomically. Without MFA it returns
   `{reset,expires_after_minutes,user,csrf_token}` and a new session cookie.
@@ -234,6 +251,7 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   are present in `contacts` (a string map), not concealed values or settings.
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
   return 404. No authenticated access to people until 完成加入（選定主要公會）.
+  私人名片、目錄、好友目錄與推薦在最後一個 domain query 後重驗目前 session；SQL 等待跨過 `expires_at` 時回 `401 session_expired`，不回傳私人聯絡資訊。
 - `GET /friends`: `{items:[{user_id,nickname,state,requester_ref,aggregate_version}]}`.
 - `POST /friends/:id/request|accept|remove`: `{}`. First request needs no version;
   accept/remove and renewed removed friendship need current version. Only the
@@ -274,6 +292,18 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   channel reads also check the marker. A lost disband response is reconciled by
   detail reload: a 404 closes the stale owner controls and returns to the list.
   No three-person minimum or commercial eligibility is implied.
+
+Squad detail and the owner-only invitation history hold the current member
+user/session locks, then a `FOR SHARE` lock on the live squad, through their
+database projections. Transfer and disband use the same user/session → squad
+ordering and cannot change that owner/active grant between metadata and private
+roster/history queries. A read serialized before cutover may return its then-legal
+projection; it must not borrow old-owner metadata to reveal a pending request
+created for the new owner, or pair active metadata with a disbanded roster.
+After cutover, the former owner has ordinary member visibility, outbound history
+requires the current owner, and disbanded detail is 404. The session clock is
+rechecked after the last query before commit; this is not a guarantee during
+response transport or a single MVCC snapshot for every roster fact.
 
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.
@@ -405,6 +435,15 @@ The anonymous media endpoint continues to enforce its own public policy.
 
 Local isolated database/browser checks are not trusted CI, deployment,
 flag-on, actual attendance, formal acceptance, XP or external delivery evidence.
+
+## Public event registration page
+
+The public `/public/events/:id/register` form owns its draft, saving state and
+feedback by event identity. SPA navigation to another event starts a blank
+form; late success or failure from the previous event cannot confirm, block
+or unlock it. Returning to the first event creates a new form lifetime.
+Same-event focus revalidation keeps unsent input. Leaving the page does not
+cancel a committed registration or recall a provider-accepted email.
 
 ## Event calendar, reminders and waitlists (#256)
 

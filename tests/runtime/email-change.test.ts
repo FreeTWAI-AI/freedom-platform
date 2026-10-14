@@ -2,6 +2,7 @@ import { test,before,after } from 'node:test';
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
 import { z } from 'zod';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createPool } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
@@ -12,9 +13,13 @@ if(!databaseUrl||!new URL(databaseUrl).pathname.startsWith('/fp_'))throw new Err
 const schema=`fp_email_change_${process.pid}_${Date.now()}`,admin=createPool(databaseUrl);
 const pool=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`});
 const delivered:{to:string;subject:string;body:string}[]=[];
+const resetLinks:{to:string;url:string}[]=[];
 let mailFails=false;
 let deliveryBarrier:(()=>Promise<void>)|undefined;
-const app=createApp(pool,origin,'local',{eventEmailSender:async(to,subject,body)=>{if(mailFails)throw new Error('unavailable');delivered.push({to,subject,body});await deliveryBarrier?.();}});
+const app=createApp(pool,origin,'local',{
+  eventEmailSender:async(to,subject,body)=>{if(mailFails)throw new Error('unavailable');delivered.push({to,subject,body});await deliveryBarrier?.();},
+  passwordEmailSender:async(to,url)=>{resetLinks.push({to,url});},
+});
 before(async()=>{await admin.query(`CREATE SCHEMA ${schema}`);await migrate(pool);await seedLocal(pool);});
 after(async()=>{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});
 async function post(path:string,body:unknown,session?:{cookie:string;csrf:string}){
@@ -105,4 +110,43 @@ test('a request waiting to replace a proof cannot issue mail after its session e
     assert.equal(delivered.length,before);
     assert.equal((await pool.query('SELECT new_email FROM login_email_change_tokens WHERE user_id=$1',[userId])).rows[0].new_email,'blocked-proof@example.test');
   }finally{await blocker.query('ROLLBACK');blocker.release();await pending;}
+});
+
+test('a reset request waiting behind an email switch cannot bind a proof to the new mailbox',async()=>{
+  const userId=DEMO_USERS[1].user_id;
+  const old=(await pool.query<{email:string}>('SELECT email FROM users WHERE user_id=$1',[userId])).rows[0].email;
+  const session=await signIn(old),next='switch-reset-race@example.test';
+  assert.equal((await post('/me/account/email-change/request',{email:next,password:DEMO_PASSWORD},session)).status,200);
+  const token=latestToken();
+  let switchLocked=()=>{};
+  let release=()=>{};
+  const blockedOnSwitch=new Promise<void>(resolve=>{switchLocked=resolve;});
+  const releaseSwitch=new Promise<void>(resolve=>{release=resolve;});
+  deliveryBarrier=async()=>{if(delivered.at(-1)?.to!==old)return;switchLocked();await releaseSwitch;};
+  const beforeLinks=resetLinks.length,beforeProofs=(await pool.query<{n:number}>('SELECT count(*)::int AS n FROM password_reset_tokens WHERE user_id=$1',[userId])).rows[0].n;
+  const change=post('/auth/email-change/confirm',{token});
+  try{
+    await blockedOnSwitch;
+    const reset=post('/auth/reset/request',{email:old});
+    try{
+      let waiting=false;
+      for(let i=0;i<200;i++){
+        const locked=await admin.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT user_id FROM users WHERE email=$1 AND active FOR UPDATE%'");
+        if(locked.rowCount){waiting=true;break;}
+        assert.ok(i<199,'reset request must wait for the mailbox switch lock');
+        await delay(10);
+      }
+      assert.equal(waiting,true);
+      release();
+      assert.equal((await change).status,200);
+      const requested=await reset;
+      assert.equal(requested.status,200);
+      assert.equal(z.object({requested:z.literal(true)}).safeParse(requested.body).success,true);
+      assert.equal(resetLinks.length,beforeLinks);
+      assert.equal((await pool.query<{n:number}>('SELECT count(*)::int AS n FROM password_reset_tokens WHERE user_id=$1',[userId])).rows[0].n,beforeProofs);
+      assert.equal(await emailOf(old),undefined);
+      assert.equal((await post('/auth/login',{email:old,password:DEMO_PASSWORD})).status,401);
+      assert.equal((await post('/auth/login',{email:next,password:DEMO_PASSWORD})).status,200);
+    }finally{release();await reset;}
+  }finally{deliveryBarrier=undefined;release();await change;}
 });

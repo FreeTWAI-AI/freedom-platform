@@ -77,7 +77,9 @@ migration `075_member_card_profile_links.sql` 加上 `show_profile_links` 和 `p
 
 `GET /api/v1/friends/directory?scope=accepted|incoming|outgoing&search=&limit=&offset=` 先篩有效關係、同社群、有效會員與搜尋，再分頁。`limit` 1–50（預設 20），`offset` 0–10000。待回覆的邀請仍然看不到聯絡方式。舊的 `/friends` 通知入口保持相容。
 
-好友與推薦頁的會員名片改用批次讀取：同一頁的聯絡值、好友／公會／小隊可見條件仍在同一個 SQL snapshot 取得，定位摘要另以一個批次 statement 取得。頁面排序、DTO 與隱私規則不變；好友頁不論 1 或 50 人均使用 4 次查詢（分頁、名片、定位、封鎖複查），不再逐張占用連線。單筆會員名片沿用相同投影；本人仍另讀會員階級。
+好友與推薦頁的會員名片改用批次讀取：同一頁的聯絡值、好友／公會／小隊可見條件仍在同一個 SQL snapshot 取得，定位摘要另以一個批次 statement 取得。頁面排序、DTO 與隱私規則不變；好友頁不論 1 或 50 人均批次執行分頁、名片、定位與封鎖複查，不再逐張占用連線。單筆會員名片沿用相同投影；本人仍另讀會員階級。
+
+私人名片、會員目錄、好友目錄、推薦與分享 token 的已登入會員名片，在 HTTP 入口重用 `readWithMemberSession`：先鎖目前 user／session，再用同一個交易 client 完成投影、定位摘要及最後的關係／封鎖複查，以 `clock_timestamp()` 重驗 session 後才回傳。SQL 等待跨過 session 到期時回 `401 session_expired`，不回傳私人聯絡資訊；不是保證 response 傳輸期間 session 永遠有效。純查詢投影仍可由已授權的 command client 重用，不再開巢狀交易。匿名公開分享頁不使用這個登入讀取。
 
 計畫裡的 `MemberConnection` 與 `/me/network` 仍是後續工作，這份名單不是那份模型。
 

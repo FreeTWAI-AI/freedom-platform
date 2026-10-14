@@ -1,4 +1,6 @@
+import {randomUUID} from 'node:crypto';
 import {test,expect} from './fixtures.js';
+import {test as featureTest} from './member-feature-fixture.js';
 import {navigate} from './navigation.js';
 
 const id='10000000-0000-4000-8000-000000000001',code='abcdefghijklmnopqrstuvwx';
@@ -93,4 +95,126 @@ test('the member calendar opens a future event on its dedicated page',async({pag
   await page.getByRole('button',{name:title}).click();
   await expect(page).toHaveURL(new RegExp(`#events/${id}$`));
   await expect(page.getByRole('region',{name:'活動專頁'}).getByRole('heading',{name:title})).toBeVisible();
+});
+
+const acceptedMail:{to:string;subject:string;body:string}[]=[];
+let rejectedRecipient='';
+featureTest.describe('event-scoped public registration lifetime',()=>{
+  featureTest.use({memberFeatures:{eventEmailSender:async(to,subject,body)=>{
+    if(to===rejectedRecipient)throw new Error('local_provider_rejected');
+    acceptedMail.push({to,subject,body});
+  }}});
+
+  featureTest('same-document A -> B -> A navigation scopes public event registration state while preserving committed registrations',async({page,e2eAuthPool})=>{
+    await page.unroute('**/api/v1/site');
+    acceptedMail.length=0;
+    const eventA=randomUUID(),eventB=randomUUID();
+    const titleA=`公開活動甲 ${eventA.slice(0,8)}`,titleB=`公開活動乙 ${eventB.slice(0,8)}`;
+    const firstEmail=`guest-a1-${eventA.slice(0,8)}@example.org`,secondEmail=`guest-a2-${eventA.slice(0,8)}@example.org`,failEmailB=`guest-b-${eventB.slice(0,8)}@example.org`;
+    rejectedRecipient=failEmailB;
+    const starts=new Date(Date.now()+2*86400000).toISOString(),ends=new Date(Date.parse(starts)+3600000).toISOString();
+    let registerCallsA=0,release!:()=>void,started!:()=>void,done!:()=>void;
+    const pending=new Promise<void>(resolve=>{release=resolve;}),requested=new Promise<void>(resolve=>{started=resolve;}),settled=new Promise<void>(resolve=>{done=resolve;});
+    await e2eAuthPool.query(
+      `INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind,capacity)
+       SELECT $1::uuid,community_id,user_id,$2,'第一場公開活動說明',$5::timestamptz,$6::timestamptz,'online','線上教室甲','published','open','other',20 FROM users WHERE email='maker@local.test'
+       UNION ALL
+       SELECT $3::uuid,community_id,user_id,$4,'第二場公開活動說明',$5::timestamptz,$6::timestamptz,'online','線上教室乙','published','open','other',20 FROM users WHERE email='maker@local.test'`,
+      [eventA,titleA,eventB,titleB,starts,ends],
+    );
+    try {
+      await page.route(`**/api/v1/public/events/${eventA}/register`,async route=>{
+        registerCallsA+=1;
+        if(registerCallsA===1){
+          const committed=await route.fetch();expect(committed.status()).toBe(200);
+          expect(await committed.json()).toEqual({registered:true,provider_status:'provider_accepted'});
+          started();await pending;
+          await route.fulfill({response:committed});done();return;
+        }
+        return route.continue();
+      });
+
+      await page.goto(`/#events/${eventA}`);
+      const nameInput=page.getByLabel('你的名字',{exact:true}),emailInput=page.getByLabel('接收參與資料的 Email',{exact:true});
+      const submitButton=page.getByRole('button',{name:'報名並寄送參與資料',exact:true});
+      const confirmation=page.getByRole('status').filter({hasText:'報名已確認'});
+      await expect(page.getByRole('heading',{name:titleA,exact:true})).toBeVisible();
+      await nameInput.fill('第一位訪客');
+      await emailInput.fill(firstEmail);
+      await submitButton.click();await requested;
+      await expect(page.getByRole('button',{name:'寄送中…',exact:true})).toBeDisabled();
+      await expect(confirmation).toHaveCount(0);
+
+      await page.evaluate(nextId=>{window.location.hash=`events/${nextId}`;},eventB);
+      await expect(page.getByRole('heading',{name:titleB,exact:true})).toBeVisible();
+      await expect(nameInput).toHaveValue('');
+      await expect(emailInput).toHaveValue('');
+      await expect(submitButton).toBeEnabled();
+      await expect(confirmation).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      await nameInput.fill('活動乙暫存訪客');
+      await emailInput.fill(failEmailB);
+      const failedRegistration=page.waitForResponse(response=>new URL(response.url()).pathname===`/api/v1/public/events/${eventB}/register`&&response.request().method()==='POST');
+      await submitButton.click();
+      expect((await failedRegistration).status()).toBe(503);
+      await expect(page.getByRole('alert')).toHaveText('服務暫時無法回應（503）。尚未確認結果，請稍後重試。');
+      await expect(nameInput).toHaveValue('活動乙暫存訪客');
+      await expect(emailInput).toHaveValue(failEmailB);
+      await expect(submitButton).toBeEnabled();
+
+      await page.goBack();
+      await expect(page.getByRole('heading',{name:titleA,exact:true})).toBeVisible();
+      await expect(nameInput).toHaveValue('');
+      await expect(emailInput).toHaveValue('');
+      await expect(submitButton).toBeEnabled();
+      await expect(confirmation).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      await nameInput.fill('第二位目前訪客');
+      await emailInput.fill(secondEmail);
+
+      release();await settled;
+      await expect(nameInput).toHaveValue('第二位目前訪客');
+      await expect(emailInput).toHaveValue(secondEmail);
+      await expect(submitButton).toBeEnabled();
+      await expect(confirmation).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+
+      const firstRow=(await e2eAuthPool.query(
+        'SELECT name,state,email_sent_at IS NOT NULL AS email_accepted FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',
+        [eventA,firstEmail],
+      )).rows[0];
+      expect(firstRow).toEqual({name:'第一位訪客',state:'going',email_accepted:true});
+      expect(acceptedMail.map(item=>item.to)).toEqual([firstEmail]);
+
+      await submitButton.click();
+      await expect(confirmation).toHaveText('報名已確認；Email 服務已接受參與資訊郵件，不代表郵件已送達。請檢查收件匣。');
+      await expect(submitButton).toBeDisabled();
+      expect(registerCallsA).toBe(2);
+      expect(acceptedMail.map(item=>item.to)).toEqual([firstEmail,secondEmail]);
+
+      const committedRows=(await e2eAuthPool.query(
+        'SELECT email,name,state,email_sent_at IS NOT NULL AS email_accepted FROM community_event_guest_rsvps WHERE event_id=$1 ORDER BY email',
+        [eventA],
+      )).rows;
+      expect(committedRows).toEqual([
+        {email:firstEmail,name:'第一位訪客',state:'going',email_accepted:true},
+        {email:secondEmail,name:'第二位目前訪客',state:'going',email_accepted:true},
+      ]);
+
+      await page.goForward();
+      await expect(page.getByRole('heading',{name:titleB,exact:true})).toBeVisible();
+      await expect(nameInput).toHaveValue('');
+      await expect(emailInput).toHaveValue('');
+      await expect(submitButton).toBeEnabled();
+      await expect(confirmation).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+    } finally {
+      rejectedRecipient='';
+      release?.();
+      await page.unrouteAll({behavior:'ignoreErrors'});
+      await e2eAuthPool.query('DELETE FROM community_event_guest_rsvps WHERE event_id=ANY($1::uuid[])',[[eventA,eventB]]);
+      await e2eAuthPool.query('DELETE FROM community_events WHERE event_id=ANY($1::uuid[])',[[eventA,eventB]]);
+      await e2eAuthPool.query('DELETE FROM auth_rate_limits');
+    }
+  });
 });

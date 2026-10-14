@@ -13,12 +13,12 @@ export const RecommendationsQuery=z.object({
   limit:z.coerce.number().int().min(1).max(3).default(1),
   offset:z.coerce.number().int().min(0).max(10000).default(0),
 }).strict();
-async function visibleCards(pool:Pool,actor:Actor,ids:string[]){
+async function visibleCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string[]){
   const cards=await memberCards(pool,actor,ids);
   const allowed=await contactableIds(pool,actor,ids);
   return cards.filter(card=>allowed.has(card.user_id));
 }
-export async function friendDirectory(pool:Pool,actor:Actor,raw:unknown){
+export async function friendDirectory(pool:Pick<Pool,'query'>,actor:Actor,raw:unknown){
   const query=FriendsQuery.parse(raw);
   const page=(await pool.query(`WITH matches AS (
     SELECT u.user_id,u.display_name,f.updated_at FROM member_friendships f
@@ -38,7 +38,7 @@ export async function friendDirectory(pool:Pool,actor:Actor,raw:unknown){
   const items=(await visibleCards(pool,actor,page.ids)).filter(card=>query.scope==='accepted'?card.friendship.state==='accepted':card.friendship.state==='pending'&&(query.scope==='incoming'?card.friendship.requester_ref!==actor.user_id:card.friendship.requester_ref===actor.user_id));
   return {items,total:page.total,next_offset:query.offset+query.limit<page.total?query.offset+query.limit:null};
 }
-export async function memberRecommendations(pool:Pool,actor:Actor,raw:unknown){
+export async function memberRecommendations(pool:Pick<Pool,'query'>,actor:Actor,raw:unknown){
   const query=RecommendationsQuery.parse(raw);
   const page=(await pool.query(`WITH candidates AS (
     SELECT u.user_id,
