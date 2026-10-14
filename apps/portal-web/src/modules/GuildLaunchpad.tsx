@@ -256,7 +256,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
       focusWork={focusWork} canLeave={canLeave} canNavigate={canNavigate} launchRequest={launchRequest} setLaunchRequest={setLaunchRequest}/></div>}
     {blocks.map(block => <section key={block.id} hidden={activeSection !== blockSection(block)} className="guild-launchpad-block" ref={block.kind === 'my_work' ? workSection : block.kind === 'applications' ? applicationsSection : undefined} tabIndex={block.kind === 'my_work' ? -1 : undefined}>
       {block.kind !== 'extension' && !(block.kind === 'applications' && launching) && <><h2>{block.kind === 'applications' ? '工具目錄' : BLOCK_LABEL[block.kind]}</h2>{block.title && <p>{block.title}</p>}</>}
-      {block.kind === 'extension' && <GuildBlock id={block.extension_id} heading={block.title} loaders={blockLoaders} client={client}
+      {block.kind === 'extension' && <GuildBlock id={block.extension_id} heading={block.title} loaders={blockLoaders} client={client} guildKey={guildKey}
         viewer={visitor || mode === 'public' ? 'visitor' : memberTier === 'full' ? 'member' : 'read_only'}
         navigate={path => {if (canNavigate()) window.location.hash = path;}}
         startableApplications={applications.filter(startable).map(app => app.application_key)}
