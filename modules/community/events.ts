@@ -118,14 +118,14 @@ function rankedEvents(visible:string,columns:string){
   ORDER BY list_rank,CASE WHEN list_rank=0 THEN list_time END ASC,CASE WHEN list_rank=1 THEN list_time END DESC,event_id`;
 }
 
-export async function listEvents(pool:Pool,actor:Actor) {
+export async function listEvents(db:Pool|PoolClient,actor:Actor) {
   const args=[actor.community_id,actor.user_id,pastEventLimit];
   if(actor.onboarding_required&&!actor.onboarding_completed_at) {
-    return (await pool.query(rankedEvents(`SELECT event_id,title,starts_at,ends_at,mode,state,organizer_ref
+    return (await db.query(rankedEvents(`SELECT event_id,title,starts_at,ends_at,mode,state,organizer_ref
       FROM community_events WHERE community_id=$1 AND ((state='published' AND visibility<>'guild') OR organizer_ref=$2)
         AND (organizer_ref=$2 OR NOT is_verification_test_account(organizer_ref))`,'event_id,title,starts_at,ends_at,mode,state'),args)).rows;
   }
-  const rows=(await pool.query(rankedEvents(`SELECT e.*,u.display_name AS organizer_name,
+  const rows=(await db.query(rankedEvents(`SELECT e.*,u.display_name AS organizer_name,
     (CASE WHEN EXISTS(SELECT 1 FROM community_event_banners b WHERE b.event_id=e.event_id)
       THEN '/api/v1/events/'||e.event_id||'/banner?v='||e.aggregate_version ELSE NULL END) AS banner_url,
     (SELECT orientation FROM community_event_banners b WHERE b.event_id=e.event_id) AS banner_orientation,

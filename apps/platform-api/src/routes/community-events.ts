@@ -71,7 +71,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
     app.patch('/events/:id/waitlist-policy',async c=>{const eventId=id(c.req.param('id'));const result=await setEventWaitlistPolicy(pool,await moduleCommand(c),eventId);await dispatch(eventId);return c.json(result);});
     app.patch('/events/:id/schedule',async c=>{const eventId=id(c.req.param('id'));const result=await updateEventSchedule(pool,await moduleCommand(c),eventId);await dispatch(eventId);return c.json(result);});
   }
-  app.get('/events',async c=>c.json({items:await listEvents(pool,c.get('actor'))}));
+  app.get('/events',async c=>c.json({items:await readWithMemberSession(pool,c.get('actor'),q=>listEvents(q,c.get('actor')))}));
   app.get('/events/bulletins',async c=>c.json({items:await listEventBulletins(pool,c.get('actor'))}));
   app.get('/events/:id',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>readEvent(q,c.get('actor'),id(c.req.param('id')),runtime?.eventParticipationEnabled===true))));
   app.get('/events/:id/referrals',async c=>c.json({items:await eventReferralReport(pool,c.get('actor'),id(c.req.param('id')))}));
