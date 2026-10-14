@@ -1,0 +1,26 @@
+{
+  "package": "mind-ar",
+  "version": "1.2.5",
+  "npmIntegrity": "sha512-YsbiNYaNbI/AMSXYfL+c/vJaFD/RB8uKtAOhmMyOkGZ0vBnEM8+KPh3ee8BH35ldtVudziJpv62qqV6dns/Evw==",
+  "sourceSha256": {
+    "controller-mGt1s8dJ.js": "98a90806c01077a46fc5a3daddc6441ac9d61c5b85b3cc09d3f0b2087d228713",
+    "LICENSE": "4f3aa5215ac0346a823170c9f9677da25c3e8bdb8243693118a3711e157d7fff",
+    "mindar-image.prod.js": "a21eef9a98ed73aee589a219b35e580c50b501c6f50f88d6eed16dcef9b8dec2",
+    "ui-fBadYuor.js": "aed9538fec28fecfb0a564da48fbf053ac2549d3314746e67182d381b3a24c31"
+  },
+  "modifications": [
+    "Only A5/WY worker factories use self-hosted scripts instead of blob/data URLs.",
+    "Dependency URLs renamed to SHA-256 content filenames. Embedded license notices preserved.",
+    "Removed unused inline worker base64/Blob construction.",
+    "Minified browser controller with locked Rolldown and legal comments retained; no SDK dependency was split to bypass source limits.",
+    "Exposed the processing loop Promise for cancellation/error handling and disposal; tracker inference is unchanged."
+  ],
+  "browserAssets": {
+    "mindar-ui-aed9538f.js": "aed9538fec28fecfb0a564da48fbf053ac2549d3314746e67182d381b3a24c31",
+    "mindar-compiler-53a67c3f.js": "53a67c3f2da7047a280245d7d39c3a0750064dc7b67617ee3d341382d90a933c",
+    "mindar-tracker-6f637242.js": "6f6372429364bc7d4fe959f849bfb5ad2561f83794c6edabe6882582ed760988",
+    "mindar-controller-80f7d498.js": "80f7d4988cdef08042d0626fabc5d50b287c99f236ce1f43f1a4c2d3e1b64da0",
+    "mindar-image-6a560d3b.js": "6a560d3b89852ee54d9d1ca041929b5474d3b59919fa2669877d24528ea00f9f"
+  },
+  "minifier": "rolldown 1.2.9"
+}

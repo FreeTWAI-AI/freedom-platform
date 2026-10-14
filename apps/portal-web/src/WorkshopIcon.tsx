@@ -2,6 +2,7 @@ import type { TabId } from './types';
 
 // Interface glyphs remain vectors; the original brand artwork is never redrawn.
 const paths: Record<TabId, string> = {
+  ar:'M4 8V4h4m8 0h4v4m0 8v4h-4m-8 0H4v-4M8 8h8v8H8Z',
   'community-search':'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm6-2 5 5',
   'my-content':'M5 3h10l4 4v14H5Zm10 0v5h4M8 12h8m-8 4h6',
   'private-ai':'M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5Zm7 4v3',

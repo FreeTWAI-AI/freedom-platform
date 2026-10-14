@@ -5,6 +5,7 @@ import {useLanguage} from './language';
 import type {InterfaceMessage} from './interface-messages';
 
 export const TAB_TITLES: Record<TabId, string> = {
+  ar:'AR 圖案互動',
   'community-search': '搜尋社群內容',
   'my-content': '我的內容',
   'private-ai': '私人工作與 AI', home: '會員首頁', positioning: '我的定位', guilds: '職業公會', skills: '技能書架',
@@ -18,9 +19,9 @@ export const TAB_TITLES: Record<TabId, string> = {
 };
 
 const primary: TabId[] = ['home', 'my-content', 'guilds', 'skills'];
-const keywords:Partial<Record<TabId,string>>={messages:'聊天室 對話 私訊',members:'人才 找夥伴 媒合',skills:'學習 資源 免費',tasks:'任務 貢獻 參與','private-ai':'私人 AI 草稿 模型 執行',workbench:'工作 任務',showcase:'作品 分享 展示 需求 找人',opensource:'投稿 提交 上傳 GitHub 開源 工具 技能',supplier:'商品 商店 供應商',retail:'電商 販售 商店',account:'個人資料 設定 暱稱',friends:'朋友 好友 私訊',business:'業務 工作區 邀請',reservations:'預留 訂單 查詢 取消',stores:'商店 開店 店鋪 商品 上架 發布'};
+const keywords:Partial<Record<TabId,string>>={ar:'相機 圖案 掃描 衣服 海報 名片',messages:'聊天室 對話 私訊',members:'人才 找夥伴 媒合',skills:'學習 資源 免費',tasks:'任務 貢獻 參與','private-ai':'私人 AI 草稿 模型 執行',workbench:'工作 任務',showcase:'作品 分享 展示 需求 找人',opensource:'投稿 提交 上傳 GitHub 開源 工具 技能',supplier:'商品 商店 供應商',retail:'電商 販售 商店',account:'個人資料 設定 暱稱',friends:'朋友 好友 私訊',business:'業務 工作區 邀請',reservations:'預留 訂單 查詢 取消',stores:'商店 開店 店鋪 商品 上架 發布'};
 const groups: { label: string; pages: TabId[] }[] = [
-  { label: '社群參與', pages: ['events', 'tasks', 'highlights'] },
+  { label: '社群參與', pages: ['ar','events', 'tasks', 'highlights'] },
   { label: '認識夥伴', pages: ['members', 'friends', 'positioning', 'squads', 'cocreation'] },
   { label: '分享推廣', pages: ['services', 'promotion'] },
   { label: '創作與合作', pages: ['workbench', 'private-ai', 'opensource', 'showcase', 'engagement'] },

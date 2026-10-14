@@ -48,6 +48,8 @@ let avatarAssetFixture:Awaited<ReturnType<typeof import('../packages/testing/e2e
 // Asset fixtures run in separate passes with a local-only enabled policy row.
 let storePhotoFixture:{store:FakeObjectStore;assets:ReturnType<typeof createStorefrontProductPhotoLifecycle>}|undefined;
 let commentImageStore:FakeObjectStore|undefined;
+// Isolated harness port only. Default storage policy remains OFF until a case explicitly approves its fixture.
+const arFixtureStore=new FakeObjectStore();
 let messageImageFixture:{store:FakeObjectStore;assets:ReturnType<typeof createMessageImageAssetService>}|undefined;
 // Installed before migrate. Playwright's graceful SIGTERM must drop the schema even if startup is still running.
 // npx/tsx dies on the group SIGTERM and SIGKILLs this process at its first await, so the
@@ -180,7 +182,7 @@ try{
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
-const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
+const app=createApp(productPool??pool,origin,'local',{arEnabled:true,arAssetStore:arFixtureStore,shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
   memberReportingEnabled:process.env.FREEDOM_MEMBER_REPORTING_ENABLED==='true',
   // Explicit browser-harness option; product server/Worker release flags remain default OFF.
