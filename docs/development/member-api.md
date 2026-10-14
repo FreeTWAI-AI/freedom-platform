@@ -432,6 +432,15 @@ Idempotency-Key and quoted If-Match controls:
   mutation `{enabled,minutes_before_start?,channel?}`. Enabling requires Going,
   an explicit positive safe-integer lead time and `in_app` or `email`.
 
+The original `POST /public/events/:id/register` remains separate from the optional
+participation API. Its confirmation transaction rechecks `starts_at` against the
+database wall clock after provider handoff and all participation writes, before
+commit. If that wait crosses the start, it returns `409 event_closed` and rolls
+back this confirmation; the earlier pending reservation remains unconfirmed.
+An already-confirmed registration and its earlier email marker are preserved.
+The provider may already have accepted the notification, so this error does not
+mean that no email was handed off or that an existing registration was erased.
+
 Legal public guests request a mailbox management link with
 `POST /public/events/:id/participation-request` and
 `{name,email,referral_code?}`. Requesting it does not register, join the queue or
@@ -471,6 +480,15 @@ than event start. Decline/expiry advances the queue. Capacity cannot fall below
 confirmed/live pending occupancy; excess newest unaccepted offers return to
 their original queue positions. Genuine transitions retain factual history,
 not invented participant actions or attendance.
+
+A new acceptance checks PostgreSQL's current clock after reconciliation and
+eligibility reads, then again after the RSVP, queue/journal and success receipt
+writes. Waiting past the original offer deadline returns
+`409 invitation_unavailable`; crossing event start returns `409 event_closed`.
+The new command and its reconciliation, transitions, RSVP and receipt roll
+back together. Already-completed acceptances retain their factual history:
+an exact successful receipt replay or an already-accepted Going no-op does not
+become invalid merely because its historical offer deadline has passed.
 
 The existing Worker ten-minute schedule performs bounded round-robin queue
 reconciliation and reminder dispatch; affected mutations also dispatch queue
