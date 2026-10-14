@@ -45,7 +45,12 @@ export async function guildWorkspace(pool:Pool,actor:Actor){return transaction(p
  await assertCurrentSessionClock(q,actor);
  return {managed_guilds:guilds,managed_books:eligible?appointed:[],can_discuss:guilds.length>0,can_review_pulls:guilds.length>0||rows.length>0,
   skill_editor_access:{appointed_books:appointed.length,eligible,requires_development_guild:appointed.length>0&&!eligible,intern_blocked:internBlocked,active_guilds:development,required_guilds:required}};});}
-export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{await activeMember(q,actor);await guildMembership(q,actor,key);const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);await assertCurrentSessionClock(q,actor);return {items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};});}
+export async function guildAnnouncements(pool:Pool,actor:Actor,key:string){return transaction(pool,async q=>{
+ await activeMember(q,actor);await guildMembership(q,actor,key);
+ const isLeader=(await managedGuilds(q,actor)).some(g=>g.guild_key===key);
+ const result={items:(await q.query("SELECT * FROM guild_announcements WHERE community_id=$1 AND guild_key=$2 AND ($3 OR state='published') ORDER BY created_at DESC,announcement_id LIMIT 100",[actor.community_id,key,isLeader])).rows.map(announcement),can_publish:isLeader};
+ await assertCurrentSessionClock(q,actor);return result;
+});}
 /** One bounded stream for the member's current guilds; drafts and former memberships stay private. */
 export async function memberGuildAnnouncementFeed(pool:Pool,actor:Actor){return transaction(pool,async q=>{
  await activeMember(q,actor);
@@ -117,8 +122,14 @@ async function councilThread(q:PoolClient,who:CouncilIdentity,threadId:string){
 async function councilList(q:PoolClient,who:CouncilIdentity){return {items:(await q.query(`SELECT ${threadFields},(SELECT count(*)::int FROM guild_council_replies r WHERE r.thread_id=t.thread_id AND r.community_id=t.community_id) AS reply_count FROM guild_council_threads t ${threadJoins} WHERE t.community_id=$1 ORDER BY t.created_at DESC,t.thread_id LIMIT 100`,[who.community_id])).rows};}
 async function createThread(q:PoolClient,who:CouncilIdentity,body:z.infer<typeof threadInput>){const threadId=randomUUID();await q.query('INSERT INTO guild_council_threads(thread_id,community_id,author_user_id,author_admin_id,title,body) VALUES($1,$2,$3,$4,$5,$6)',[threadId,who.community_id,who.user_id??null,who.admin_id??null,body.title,body.body]);return councilThread(q,who,threadId);}
 async function createReply(q:PoolClient,who:CouncilIdentity,threadId:string,body:z.infer<typeof replyInput>){await councilThread(q,who,threadId);const row=(await q.query('INSERT INTO guild_council_replies(reply_id,community_id,thread_id,author_user_id,author_admin_id,body) VALUES($1,$2,$3,$4,$5,$6) RETURNING reply_id,body,created_at',[randomUUID(),who.community_id,threadId,who.user_id??null,who.admin_id??null,body.body])).rows[0];return row;}
-export async function listGuildCouncil(pool:Pool,actor:Actor){return transaction(pool,async q=>{await activeMember(q,actor);await leader(q,actor);await assertCurrentSessionClock(q,actor);return councilList(q,actor);});}
-export async function getGuildCouncilThread(pool:Pool,actor:Actor,threadId:string){return transaction(pool,async q=>{await activeMember(q,actor);await leader(q,actor);await assertCurrentSessionClock(q,actor);return councilThread(q,actor,threadId);});}
+export async function listGuildCouncil(pool:Pool,actor:Actor){return transaction(pool,async q=>{
+ await activeMember(q,actor);await leader(q,actor);const result=await councilList(q,actor);
+ await assertCurrentSessionClock(q,actor);return result;
+});}
+export async function getGuildCouncilThread(pool:Pool,actor:Actor,threadId:string){return transaction(pool,async q=>{
+ await activeMember(q,actor);await leader(q,actor);const result=await councilThread(q,actor,threadId);
+ await assertCurrentSessionClock(q,actor);return result;
+});}
 export async function createGuildCouncilThread(pool:Pool,input:Command){const body=threadInput.parse(input.body);return command(pool,input,q=>leader(q,input.actor),q=>createThread(q,input.actor,body));}
 export async function replyGuildCouncilThread(pool:Pool,input:Command,threadId:string){const body=replyInput.parse(input.body);return command(pool,input,q=>leader(q,input.actor),q=>createReply(q,input.actor,threadId,body));}
 export async function listAdminCouncil(pool:Pool,admin:AdminActor){return transaction(pool,async q=>{await activeAdmin(q,admin);return councilList(q,admin);});}
