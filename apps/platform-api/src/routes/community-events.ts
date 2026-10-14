@@ -8,6 +8,7 @@ import { planObjectHttpRequest } from '../../../../packages/asset-storage/http-r
 import { authRateLimit } from '../../../../modules/identity-membership/members.js';
 import type { EventEmailSender } from '../../../../modules/community/events.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
+import { readWithMemberSession } from '../../../../packages/db/member-session.js';
 import { eventVideoHttp, cancelEvent, createEvent, eventReferralReport,eventAttendees, getEventShareCode, listEventBulletins, listEvents, readEvent, readEventBanner, readEventVideo, reviewEventAsGuildMaster, saveEventBanner, saveEventVideo, setRsvp, updateEvent } from '../../../../modules/community/events.js';
 import {readMemberEventCalendar} from '../../../../modules/community/event-calendar.js';
 import {readEventReminder,saveEventReminder} from '../../../../modules/community/event-reminders.js';
@@ -70,7 +71,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
     app.patch('/events/:id/waitlist-policy',async c=>{const eventId=id(c.req.param('id'));const result=await setEventWaitlistPolicy(pool,await moduleCommand(c),eventId);await dispatch(eventId);return c.json(result);});
     app.patch('/events/:id/schedule',async c=>{const eventId=id(c.req.param('id'));const result=await updateEventSchedule(pool,await moduleCommand(c),eventId);await dispatch(eventId);return c.json(result);});
   }
-  app.get('/events',async c=>c.json({items:await listEvents(pool,c.get('actor'))}));
+  app.get('/events',async c=>c.json({items:await readWithMemberSession(pool,c.get('actor'),q=>listEvents(q,c.get('actor')))}));
   app.get('/events/bulletins',async c=>c.json({items:await listEventBulletins(pool,c.get('actor'))}));
   app.get('/events/:id',async c=>c.json(await readEvent(pool,c.get('actor'),id(c.req.param('id')),runtime?.eventParticipationEnabled===true)));
   app.get('/events/:id/referrals',async c=>c.json({items:await eventReferralReport(pool,c.get('actor'),id(c.req.param('id')))}));
