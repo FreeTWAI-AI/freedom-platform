@@ -199,6 +199,7 @@ export const interfaceMessages = {
   'nav.messages': ['我的訊息', 'Messages', 'メッセージ', '메시지', 'Mensajes'],
   'nav.events': ['社群活動', 'Events', 'イベント', '행사', 'Eventos'],
   'nav.tasks': ['社群任務', 'Community tasks', 'コミュニティの仕事', '커뮤니티 일감', 'Tareas de la comunidad'],
+  'nav.ar':['AR 圖案互動','AR experiences','AR 図案体験','AR 이미지 체험','Experiencias AR'],
   'nav.social': ['社群分享', 'Community feed', 'コミュニティ投稿', '커뮤니티 피드', 'Publicaciones'],
   'nav.services': ['社員服務', 'Member services', 'メンバーのサービス', '회원 서비스', 'Servicios de miembros'],
   'nav.promotion': ['推廣排行榜', 'Promotion rankings', '紹介ランキング', '홍보 순위', 'Clasificación de difusión'],

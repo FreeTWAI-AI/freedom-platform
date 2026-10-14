@@ -5,6 +5,7 @@ import { assertCompleteRaster } from '../shared/image-container.js';
 import { assertCanonicalWebp, assertCanonicalWebpWithin } from '../shared/image-webp.js';
 import type { ImageNormalizeSpec } from '../shared/image-runtime.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
+import { inspectArTarget } from './ar-target.js';
 
 export type AssetStorageErrorCode = 'invalid_identity' | 'persistence_prohibited' | 'invalid_policy'
   | 'unsupported_content_type' | 'too_large' | 'empty_content' | 'invalid_content' | 'invalid_metadata'
@@ -46,7 +47,7 @@ function persistenceSnapshot(policy: PersistencePolicy): PersistencePolicy {
 export const PRIVATE_TEXT_MAX_BYTES = 256 * 1024;
 export const AVATAR_PROFILE = Object.freeze({ inputMaxBytes: 2 * 1024 * 1024, maxDimension: 4096,
   outputMaxBytes: 128 * 1024, width: 256, height: 256, transformVersion: 'avatar.webp.v1' });
-const contentTypes = ['text/plain', 'text/markdown', 'image/webp', 'image/png', 'image/jpeg', 'video/mp4', 'video/webm'] as const;
+const contentTypes = ['text/plain', 'text/markdown', 'image/webp', 'image/png', 'image/jpeg', 'video/mp4', 'video/webm', 'application/octet-stream'] as const;
 export interface ObjectMetadata {
   readonly contentType: typeof contentTypes[number];
   readonly byteSize: number;
@@ -213,7 +214,9 @@ export async function writeVerifiedObject(store: ObjectStore, key: AssetObjectKe
   if (metadata.policyRevision !== policy.revision) fail('invalid_policy');
   const bytes = snapshotBoundedBytes(value.bytes, metadata.byteSize);
   if (bytes.byteLength !== metadata.byteSize || await sha256(bytes) !== metadata.sha256) fail('integrity_mismatch');
-  if (metadata.profileId === 'storefront.product-photo') {
+  if (metadata.profileId === 'member.ar-target') {
+    try { inspectArTarget(bytes); } catch { fail('invalid_content'); }
+  } else if (metadata.profileId === 'storefront.product-photo') {
     try { assertCanonicalWebpWithin(bytes, 1920, 1920); } catch { fail('invalid_content'); }
   } else if (metadata.profileId !== undefined) validateLegacyMediaBytes(bytes, metadata.contentType);
   else if (metadata.contentType === 'image/webp') {
@@ -244,7 +247,9 @@ export async function prepareLegacyMediaRepresentation(body: ReadableStream<Uint
   const profile = MEDIA_OBJECT_PROFILES[profileId];
   if (!(profile.contentTypes as readonly string[]).includes(contentType)) fail('unsupported_content_type');
   const bytes = await readBounded(body, profile.maxBytes);
-  if (profileId === 'storefront.product-photo') {
+  if (profileId === 'member.ar-target') {
+    try { inspectArTarget(bytes); } catch { fail('invalid_content'); }
+  } else if (profileId === 'storefront.product-photo') {
     try { assertCanonicalWebpWithin(bytes, 1920, 1920); } catch { fail('invalid_content'); }
   } else validateLegacyMediaBytes(bytes, contentType);
   return Object.freeze({bytes,metadata:Object.freeze({profileId,contentType:contentType as ObjectMetadata['contentType'],

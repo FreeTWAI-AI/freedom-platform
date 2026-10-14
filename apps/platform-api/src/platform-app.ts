@@ -1,3 +1,4 @@
+import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoutes} from './routes/community-ar.js';
 import {readWithMemberSession} from '../../../packages/db/member-session.js';
 import {createHostedStoreMediaRoutes,createPublicHostedStoreMediaRoutes,isStorePhotoUpload,checkStorePhotoHeaders,storePhotosInstalled,storePhotoUploadsInstalled} from './routes/hosted-store-media.js';
 import { createHostedOrderRoutes } from './routes/hosted-orders.js';
@@ -145,7 +146,7 @@ export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-
 /** Shared by the Worker file fast path; route-specific form destinations stay here. */
 export function platformContentSecurityPolicy(path:string,brokerFormOrigin?:string){
   const githubSetupForm=path==='/admin'||path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI/settings/apps/new':'';
-  return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
+  return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; media-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
 }
 export function platformResponseHeaders(path:string,brokerFormOrigin?:string){
   return {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':platformContentSecurityPolicy(path,brokerFormOrigin)};
@@ -236,6 +237,9 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         // The Agent route authenticates and consumes a bounded stream itself.
       } else if(maintainerWebhook) {
         // The route checks content type, the 2 MiB cap and the signature, then reads the raw body.
+      } else if(isArUpload(c.req.method,c.req.path)) {
+        requireCondition(runtime.arEnabled===true&&runtime.arAssetStore,404,'not_found','找不到這個頁面。');
+        checkArUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isAvatarUpload(c.req.method,c.req.path)) {
         // Only this route accepts binary input. Its bounded stream reader runs
         // after session, CSRF and completed-member checks, before decoding.
@@ -315,7 +319,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,ar_enabled:runtime.arEnabled===true&&!!runtime.arAssetStore,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -403,6 +407,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.json(operation_id?{...page,operation_id}:page);
   });
   app.get('/api/v1/community',c=>c.json(communityCatalog));
+  if(runtime.arEnabled===true&&runtime.arAssetStore)app.route('/api/v1',createPublicArRoutes(pool,runtime.arAssetStore));
   app.get('/api/v1/public/member-cards/:token',async c=>{
     c.header('X-Robots-Tag','noindex, nofollow');
     return c.json(await publicMemberCard(pool,c.req.param('token')));
@@ -658,6 +663,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.post(`/api/v1/engagements/:id{[0-9a-f-]+:${action}}`,async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),action)));
   }
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
+  if(runtime.arEnabled===true&&runtime.arAssetStore)app.route('/api/v1',createMemberArRoutes(pool,runtime.arAssetStore));
   app.route('/api/v1',createMemberRoutes(pool));
   if(runtime.memberReportingEnabled===true)app.route('/api/v1',createMemberReportingRoutes(pool,runtime.messageImageAssetStore));
   app.route('/api/v1',createMemberCommunicationRoutes(pool,runtime,runtime.memberBlockingEnabled===true));

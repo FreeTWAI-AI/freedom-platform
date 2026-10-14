@@ -65,7 +65,7 @@ export const GUIDE_COMPOSITION_PROFILE = Object.freeze({
   dependencies: Object.freeze(`agent-commerce community community-search personal-content development
 execution-runs guild-workspace member-card member-communications module-registry newcomer-guides
 positioning runtime-registration skill-submissions social-feed tenant-workspaces work member-squads
-github-social member-reporting guild-presentation guild-supply guild-open-source guild-events`.trim().split(/\s+/)),
+github-social member-reporting guild-presentation guild-supply guild-open-source guild-events community-ar`.trim().split(/\s+/)),
   files: Object.freeze(`audit-identity modules-beginners typed-line-breaks calm-experience
 member-connections-51 member-experience game-console instant-feedback member-directory
 member-settings-real member-settings member-todos mobile-install page-issue-recovery

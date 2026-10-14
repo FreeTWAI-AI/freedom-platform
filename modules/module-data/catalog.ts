@@ -2303,6 +2303,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "target_comment_image_id",
             "target_product_id",
             "target_instance_id",
+            "target_ar_id",
           ],
           tenant_resolution: {
             kind: "direct" as const,
@@ -2556,6 +2557,12 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             reason_code: "non_tenant_sidecar",
             reason: "Personal or community asset sidecar with no tenant column. It is listed because a foreign key reaches an asset or scope row. Row security stays off so those flows still see every row.",
           },
+        },
+        {
+          kind: "table" as const, table: "community_ar_targets",
+          columns: ["target_id","community_id","scope_id","scope_kind","owner_principal_id","owner_user_id","kind","event_id","scene_event_id","title","aggregate_version","content_config","asset_id","linked_at_version","purpose","asset_state","state","share_token","parent_token","target_sha256","created_at"],
+          tenant_resolution: {kind:"fk_chain" as const,via:["assets"]},
+          isolation: {rls:"exempt" as const,reason_code:"non_tenant_sidecar",reason:"Opt-in personal AR pattern sidecar. Current owner scope, live public parent consent and immutable Asset binding authorize reads; maintenance inventory must see all rows."},
         },
         {
           kind: "table" as const,
