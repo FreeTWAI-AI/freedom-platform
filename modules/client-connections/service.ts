@@ -48,9 +48,14 @@ export async function pollClientPairing(pool:Pool,raw:unknown,network:string){
    // deadlines again after the row lock and before minting the one-time credential.
    if(!connection||!await pairingLive())return {status:'invalid_grant'} as const;
    if((await q.query('SELECT 1 FROM member_client_connections WHERE connection_id=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[connection.connection_id,owner.user_id,owner.community_id])).rowCount!==1)return {status:'invalid_grant'} as const;
+   // Keep polling bookkeeping, but roll back both issuance writes if a later wait crosses expiry.
+   await q.query('SAVEPOINT client_pairing_issue');
    const token='fw_read_'+randomBytes(32).toString('base64url');
    await q.query('UPDATE member_client_connections SET token_hash=$2 WHERE connection_id=$1',[connection.connection_id,tokenHash(token)]);
    await q.query("UPDATE client_pairing_requests SET state='issued' WHERE pairing_id=$1",[pending.pairing_id]);
+   const live=await q.query(`SELECT 1 FROM client_pairing_requests p JOIN member_client_connections c USING(connection_id)
+     WHERE p.pairing_id=$1 AND p.expires_at>clock_timestamp() AND c.expires_at>clock_timestamp() AND c.revoked_at IS NULL`,[pending.pairing_id]);
+   if(live.rowCount!==1){await q.query('ROLLBACK TO SAVEPOINT client_pairing_issue');return {status:'invalid_grant'} as const;}
    return {status:'authorized',access_token:token,token_type:'Bearer',connection_id:connection.connection_id,scope:connection.scope,
      store_id:connection.store_id,expires_at:connection.expires_at,api_base_path:'/client-api/v1',read_only:true} as const;
  });
@@ -104,6 +109,10 @@ export async function revokeClientConnection(pool:Pool,input:Command,id:string){
 
 type ClientResource='connection'|'catalog'|'stores'|'listings'|'products'|'requests';
 // Authentication, authorization and reads share a transaction. No browser Actor/session is fabricated.
+async function assertClientConnectionClock(q:PoolClient,connectionId:string){
+ // The connection is already locked. Check after the final projection, not inside a waiting SELECT.
+ requireCondition((await q.query('SELECT 1 FROM member_client_connections WHERE connection_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[connectionId])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
+}
 export async function readClientResource(pool:Pool,authorization:string|undefined,resource:ClientResource,requestedStoreId?:string){
  requireCondition(authorization&&/^Bearer fw_read_[A-Za-z0-9_-]{43}$/.test(authorization),401,'client_token_invalid','讀取連線已失效，請重新配對。');
  return transaction(pool,async q=>{
@@ -116,9 +125,7 @@ export async function readClientResource(pool:Pool,authorization:string|undefine
       WHERE token_hash=$1 AND user_id=$2 AND community_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE`,[credentialHash,owner.user_id,owner.community_id])).rows[0];
    requireCondition(client,401,'client_token_invalid','讀取連線已失效，請重新配對。');
    if(resource==='connection'){
-     // Metadata returned before the list-query deadline check. A credential-row
-     // lock that only waits does not recheck expires_at, so read the clock again.
-     requireCondition((await q.query('SELECT 1 FROM member_client_connections WHERE connection_id=$1 AND token_hash=$2 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[client.connection_id,credentialHash])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
+     await assertClientConnectionClock(q,client.connection_id);
      return {connection_id:client.connection_id,kind:client.kind,scope:client.scope,store_id:client.store_id,expires_at:client.expires_at,read_only:true};
    }
    requireCondition((client.kind==='storefront'&&['catalog','stores','listings'].includes(resource))||(client.kind==='supplier'&&['products','requests'].includes(resource)),403,'client_scope_denied','這個讀取連線沒有此資料的權限。');
@@ -133,7 +140,7 @@ export async function readClientResource(pool:Pool,authorization:string|undefine
      WHERE l.community_id=$1 AND l.store_id=$2 AND l.seller_ref=$3 ORDER BY l.created_at DESC,l.listing_id LIMIT 200`,[client.community_id,client.store_id,client.user_id])).rows;
    else rows=(await q.query(`SELECT a.*,l.snapshot,u.display_name AS seller_name FROM distribution_acceptances a JOIN retail_listing_revisions l USING(listing_id) JOIN users u ON u.user_id=a.seller_ref
      WHERE a.community_id=$1 AND a.supplier_ref=$2 AND NOT is_verification_test_account(a.seller_ref) ORDER BY a.created_at DESC,a.acceptance_id LIMIT 200`,[client.community_id,client.user_id])).rows;
-   requireCondition((await q.query('SELECT 1 FROM member_client_connections WHERE connection_id=$1 AND token_hash=$2 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[client.connection_id,credentialHash])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
+   await assertClientConnectionClock(q,client.connection_id);
    return {items:rows.map(row=>({...row,...limited})),read_only:true,limit:200};
  });
 }
