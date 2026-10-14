@@ -134,13 +134,14 @@ the configuration those entrypoints load. Both accounts have repository admin
 access, checked on 2026-10-13. Ordinary product UI files and product test files
 are not covered by a blanket owner rule.
 
-Bootstrap the ownership file through the existing PR, required `verify` and
-`CodeQL` checks, and independent review before enabling
-`require_code_owner_review` on `main-baseline`. GitHub uses the ownership file
-from the PR's base branch. Once enabled, one eligible non-author owner approval
-is enough; retain stale-review dismissal, approval after the latest push,
-resolved review threads, strict current checks and no bypass actors. Do not
-enable the owner requirement against a base that has no ownership file. See
+The 2026-10-14 15:09 UTC readback of repository ruleset `main-baseline`
+(`25011111`) confirms `require_code_owner_review` is enabled, with at least one
+approval, stale-review dismissal, approval after the latest push, resolved review
+threads, strict App-bound `verify`/`CodeQL` checks and no bypass actors. GitHub
+uses the ownership file from the PR's base branch. The dated observation is in
+[`current-state.json`](../docs/platform-plan/execution/unified-foundation/current-state.json)
+under `governance_current`; the older organization workflow pins are historical.
+Changes to CI controls still require an eligible non-author code owner. See
 [GitHub's code owner rules](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners).
 
 This provides review enforcement for changes to CI controls. Required check
@@ -153,8 +154,8 @@ trust by supplying a report with the right name.
 Candidate application and test code still execute on the test runner. This is
 not an independent sandbox, an authenticated observation publisher, or proof
 that candidate tests cannot forge results. The local GOV-C boundary and future
-publisher profiles below retain their existing limits. This central bootstrap
-does not apply the separately proposed consumer-repository rulesets.
+publisher profiles below retain their existing limits. This central observation
+does not establish the current protection of consumer repositories.
 
 ## Host-owned verification boundary (local GOV-C increment)
 

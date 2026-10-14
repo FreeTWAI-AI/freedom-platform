@@ -35,7 +35,7 @@ GitHub／public guide 座標修正與 forward migration166 為本輪候選；資
 | 開源作者分享並返回管理（#254、#260、#457） | 原投稿與本人同意、分享連結、`#my-content` 返回本人內容 | R21 已部署穩定 ID 編輯／整件撤下、再次预覽與同意；實測公開→撤下舊連結404→重新公開新連結→再次撤下。驗收發現「我的內容」原 flag 關閉，已在兩環境啟用既有能力，驗本人／他人隔離與登出撤權。Schema165 實際部署及還原 guard 已拒絕舊 Worker。完整分頁仍屬 #349；真人作者用途待驗。 | root 領域／設定／發布完成；作者本人同意，Ted 與自願作者驗自主分享。 |
 | 活動主辦分享、報名與返回管理（#256、#257、#456） | `#events` 建立、原審核、活動頁、報名／取消與本人內容 | R21 已部署提交前預覽、IANA 時區與私人資訊分隔。staging 普通合成會員建立，由既有合成幹部經 UI 審核；匿名分享、另一會員報名／取消、重讀與主辦者返回取消活動皆通過。58 案是同 source／設定的分段實測，非一場不中斷執行。R24 再以普通合成會員在 1440 與 390 寬度核對拒絕與接受離開、hash、返回、直接活動網址、beforeunload、送出中阻擋，以及遺失回應後以同一冪等鍵重試且只留下一場活動。真人主辦者仍待驗；日曆是快照，通知未聲稱實際投遞。 | root 雲端旅程／隱私驗證；自願主辦者驗自主完成。 |
 | 會長可以獨立新增區塊（#234、#451、GOV-07） | 原草稿／預覽／發布／回復，沿用 module descriptors 與嚴格 v1 | R21 已部署版本化 v2 組裝；供應與開源兩個真 API 樣板及免 DB 預覽已交付。新區塊不需中央公會特判；v1 歷史與預設配置不被自動改寫。#467 實際只改自己的供應元件並經 detna review 合併；兩位非核心公會作者交付仍未驗，Agent 範例不替代。 | root 平台邊界；兩位非核心公會開發者驗獨立交付，尚未邀請。 |
-| 局部改動不承擔全平台日常成本（#438、#458、#466、C6／C7） | baseline／candidate descriptor 圖、反向相依、固定必要 verify | 正式 ruleset `24469536` 已只更新 workflow SHA 至 `14f82aa2`，保留 approvals、CodeQL 與禁止 bypass。該 main 的完整 15 jobs／895 browser 先通過；安裝後 #467 的必要 CI 388 秒完成，38 runtime／15 整合 browser／3 preview 及 static-worker 通過，無手改 inventory。未知、核心、descriptor、新 import 等仍廣範圍；main 整合仍產生完整來源封存及實際還原證據。 | root 平台工具／runner；公會作者負責自己的元件。已證明安裝路徑，真人貢獻體驗另驗。 |
+| 局部改動不承擔全平台日常成本（#438、#458、#466、C6／C7） | baseline／candidate descriptor 圖、反向相依、固定必要 verify | 2026-10-12 搬遷前觀察：組織 ruleset `24469536` 只更新 workflow SHA 至 `14f82aa2`，保留當時 approvals、CodeQL 與禁止 bypass。此為歷史安裝證據；目前 Free 的 repository ruleset／CODEOWNERS 審查方式見下方治理主路徑與現況快照。該 main 的完整 15 jobs／895 browser 先通過；安裝後 #467 的必要 CI 388 秒完成，38 runtime／15 整合 browser／3 preview 及 static-worker 通過，無手改 inventory。未知、核心、descriptor、新 import 等仍廣範圍；main 整合仍產生完整來源封存及實際還原證據。 | root 平台工具／runner；公會作者負責自己的元件。已證明安裝路徑，真人貢獻體驗另驗。 |
 
 可明示限制後試用：未付款的 30 分鐘預留、日曆快照、尚未啟用的 Email 摘要。不可顯示假付款／寄送／佣金成功；停止新單仍保留合法歷史讀取與釋放。#349 的分頁／呼叫端、#255 的 Email 排程與 #260 作者同意等尾巴保持原 issue，不因其他 PR 已關而消失。
 
@@ -105,13 +105,23 @@ B1 的 [隔離 PostgreSQL／native local R2 證據](social-writer-evidence-2026-
 
 ## 治理主路徑決策
 
-沿用已安裝的 GitHub 原生固定 workflow 作為 PR check 發布及合併主路徑。
+2026-10-14 15:09 UTC 讀回中央 [main-baseline `25011111`](https://github.com/FreeTWAI/freedom-platform/rules/25011111)：
+目前使用 GitHub Free 的 repository ruleset、PR 審查與 base branch 的
+[CODEOWNERS](../../../../.github/CODEOWNERS) 保護 CI 控制檔。已啟用 code-owner review，
+要求至少一份核准、最新 push 後核准、撤銷過期 review、解決討論，以及綁定來源 App 的
+嚴格 `verify`／`CodeQL` checks；禁止刪除與 force push，沒有 bypass actors。
+具日期讀回見[現況快照](current-state.json)的 `governance_current`；舊組織 pins 與
+Directory queue 僅保留原日期的歷史證據，不推定各 consumer 的當前保護。
+
+目前主路徑依賴維護者審查與必要 checks；同名 check、相同 App 與
+`job.workflow_sha` checkout 不恢復舊 Enterprise 組織固定 workflow SHA 的保證，
+也不表示 candidate 程式在獨立沙箱內執行。
 Detached check publisher 保留為尚未安裝的選配能力；沒有離線／外部執行需求時，
 不增加第二個必要 publisher 或人工批准。此決策取代舊 P2 文件「必須安裝
 detached publisher」的工作順序，不撤回 GOV-02／19 或 artifact 的來源、簽章、
 版本、撤銷與 ReleaseSet 驗收。
 
-已固定 selector／aggregate 不代表 candidate 提供的所有測試都是獨立 harness。
+受審查的 selector／aggregate 不代表 candidate 提供的所有測試都是獨立 harness。
 升級既有 workflow 時，先以可信來源的必要行為反例與合法修改正例建立邊界，
 再做 fork 隔離、supersession／新 base、偽造 check 及空測試集的真實 GitHub 驗收。
 不得把不可信 fork 程式與正式秘密放在同一有權工作中。

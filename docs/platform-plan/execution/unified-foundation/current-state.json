@@ -2269,8 +2269,55 @@
       "limitation": "These dated scheduled executions do not prove future reliability or second-operator recovery. Failed attempts are retained separately from successful replacement captures."
     }
   },
+  "governance_current": {
+    "observed_at": "2026-10-14T15:09:01.082527+00:00",
+    "repository": "FreeTWAI/freedom-platform",
+    "model": "GitHub Free repository ruleset and maintainer review of CI controls",
+    "ruleset": {
+      "id": 25011111,
+      "name": "main-baseline",
+      "source_type": "Repository",
+      "enforcement": "active",
+      "ref": "refs/heads/main"
+    },
+    "minimum_reviews": 1,
+    "require_code_owner_review": true,
+    "last_push_approval": true,
+    "dismiss_stale_reviews": true,
+    "require_review_thread_resolution": true,
+    "require_extra_approval_for_unattributed_changes": true,
+    "strict_required_checks": true,
+    "required_checks": [
+      {
+        "context": "verify",
+        "integration_id": 15368
+      },
+      {
+        "context": "CodeQL",
+        "integration_id": 57789
+      }
+    ],
+    "deletion_prohibited": true,
+    "non_fast_forward_prohibited": true,
+    "bypass_actors": [],
+    "organization_fixed_workflow_enforcement": false,
+    "codeowners": {
+      "path": ".github/CODEOWNERS",
+      "source": "0f3e82486262dab22261e15b26437d19e15f6be0",
+      "sha256": "b120d9a72f9407ca870942afa17afd5439cd07fda12cf5a59da21b8c9578577d",
+      "owners": [
+        "teddashh",
+        "detna-vibe-coding"
+      ],
+      "scope": "CI controls and their configuration; approval uses the PR base branch ownership file."
+    },
+    "evidence": "https://api.github.com/repos/FreeTWAI/freedom-platform/rulesets/25011111",
+    "limitation": "Dated central-repository ruleset readback. Check names and job.workflow_sha do not restore Enterprise fixed-workflow enforcement or provide an independent test sandbox/publisher. Consumer and Directory protection require their own current observations."
+  },
   "governance_pins": [
     {
+      "observation_scope": "historical_pre_transfer",
+      "current_status_note": "Retained dated Enterprise installation evidence; not a post-transfer enforcement claim. Current central controls are in governance_current; consumer controls require separate observations.",
       "purpose": "Central required workflow: selector/aggregate, pinned node:test/pytest/browser suite runners and native check publication",
       "ruleset": 24469536,
       "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
@@ -2288,6 +2335,8 @@
       "selection": "The exact configured SHA fixes workflow bytes; main is a mutable ref descriptor, not an immutable branch claim."
     },
     {
+      "observation_scope": "historical_pre_transfer",
+      "current_status_note": "Retained dated Enterprise installation evidence; not a post-transfer enforcement claim. Current central controls are in governance_current; consumer controls require separate observations.",
       "purpose": "Nine consumer source gates",
       "ruleset": 24473806,
       "source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
@@ -2295,6 +2344,8 @@
       "evidence": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md"
     },
     {
+      "observation_scope": "historical_pre_transfer",
+      "current_status_note": "Retained dated Enterprise installation evidence; not a post-transfer enforcement claim. Current central controls are in governance_current; consumer controls require separate observations.",
       "purpose": "Three HTTP/CLI consumer runtime gates",
       "ruleset": 24476100,
       "source": "92a58db9948c4c56a9d81d1450b9a856fb94a944",
@@ -2302,6 +2353,8 @@
       "evidence": "docs/platform-plan/verification/consumer-entry-cli-enforcement-2026-10-05.json"
     },
     {
+      "observation_scope": "historical_pre_transfer",
+      "current_status_note": "Retained dated Enterprise installation evidence; not a post-transfer enforcement claim. Current central controls are in governance_current; consumer controls require separate observations.",
       "purpose": "Directory build runtime gate",
       "ruleset": 24516222,
       "source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
@@ -2316,6 +2369,8 @@
     }
   ],
   "directory_main_queue": {
+    "observation_scope": "historical_pre_transfer",
+    "current_status_note": "The status, queue rules and Pages results below describe 2026-10-05 only; post-transfer Directory protection and Pages deployment require their own observations.",
     "status": "installed_and_exercised",
     "rule_id": 24523158,
     "installed_at": "2026-10-05T18:32:40Z",
