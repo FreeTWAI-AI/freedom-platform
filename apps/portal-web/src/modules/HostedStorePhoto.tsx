@@ -18,7 +18,12 @@ export function HostedStorePhoto({client,userId,tenantId,instanceId,product,medi
   const [preparing,setPreparing]=useState(false),[previewUrl,setPreviewUrl]=useState('');
   const preparation=useRef(0),mounted=useRef(false),session=useRef(client.sessionGeneration);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;preparation.current++;};},[]);
-  useEffect(()=>{if(!file){setPreviewUrl('');return;}const url=URL.createObjectURL(file);setPreviewUrl(url);return()=>URL.revokeObjectURL(url);},[file]);
+  useEffect(()=>{
+    setPreviewUrl('');if(!file)return;let current=true,url='';
+    // Preserve the original upload File while previewing only a fixed raster MIME.
+    void file.arrayBuffer().then(bytes=>{if(!current)return;const mime=file.type==='image/png'?'image/png':file.type==='image/webp'?'image/webp':'image/jpeg';url=URL.createObjectURL(new Blob([bytes],{type:mime}));setPreviewUrl(url);},()=>{if(current)setMessage('預覽暫時無法讀取，請重新選擇照片。');});
+    return()=>{current=false;if(url)URL.revokeObjectURL(url);};
+  },[file]);
   const stateRef=useRef(onState);stateRef.current=onState;
   useEffect(()=>{stateRef.current(Boolean(file||attempt||preparing),photoBlocksLeaving(attempt,phase==='sending'));},[file,attempt,phase,preparing]);
   useEffect(()=>()=>stateRef.current(false,false),[]);
