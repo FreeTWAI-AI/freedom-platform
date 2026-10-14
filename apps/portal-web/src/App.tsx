@@ -49,6 +49,8 @@ const EngagementPanel = lazy(() => import('./modules/EngagementPanel').then(m =>
 const SkillsPanel = lazy(() => import('./modules/SkillsPanel').then(m => ({default: m.SkillsPanel})))
 const MemberHome = lazy(() => import('./modules/MemberHome').then(m => ({default: m.MemberHome})))
 const FriendsPanel = lazy(() => import('./modules/FriendsPanel').then(m => ({default: m.FriendsPanel})))
+const CommunityArPanel=lazy(()=>import('./modules/community-ar/Panel').then(m=>({default:m.CommunityArPanel})))
+const PublicArPage=lazy(()=>import('./modules/community-ar/Panel').then(m=>({default:m.PublicArPage})))
 const PublicMemberPage = lazy(() => import('./modules/PublicMemberPage').then(m => ({default: m.PublicMemberPage})))
 const Onboarding = lazy(() => import('./modules/Onboarding').then(m => ({default: m.Onboarding})))
 const AccountPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.AccountPanel})))
@@ -91,6 +93,7 @@ const onboardingStarted=(userId:string)=>{try{return sessionStorage.getItem(`fre
 const rememberOnboarding=(userId:string,started:boolean)=>{try{if(started)sessionStorage.setItem(`freedom-onboarding-started:${userId}`,'yes');else sessionStorage.removeItem(`freedom-onboarding-started:${userId}`)}catch{/* Keep the in-memory choice. */}}
 
 const TAB_GUIDANCE: Record<TabId, string> = {
+  ar:'製作衣服或海報圖案，掃描本人公開名片與公開活動，拍照分享。',
   friends: '查看好友、待回覆邀請與可用的私訊入口。',
   home: '查看會員摘要與常用入口，從這裡繼續公會和技能書旅程。',
   positioning: '透過情境題整理你的能力與想走的方向；結果由你確認，也可以日後重新探索。',
@@ -134,7 +137,8 @@ export function App() {
     legacyConsole.searchParams.delete('game-console');legacyConsole.searchParams.delete('scope');legacyConsole.hash='messages'
     window.history.replaceState(null,'',legacyConsole)
   }
-  const page = popout&&adminRoute ? <GameConsolePopout client={client}/> : window.location.pathname==='/github/callback' ? <GitHubCallback/>
+  const arToken=/^\/ar\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1]
+  const page = arToken?<PublicArPage client={client} token={arToken}/> : popout&&adminRoute ? <GameConsolePopout client={client}/> : window.location.pathname==='/github/callback' ? <GitHubCallback/>
     : adminRoute ? <AdminConsoleShell/> : <MemberApp/>
   return <LanguageProvider><AppInstallProvider><RequestFeedback/><PageLoadBoundary label="自由工坊" resetKey={window.location.pathname}>{page}</PageLoadBoundary></AppInstallProvider></LanguageProvider>
 }
@@ -848,6 +852,7 @@ function Workspace({
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} authKey={`${session.user.user_id}:${client.sessionGeneration}`} relationsEnabled={site.community_relations_enabled === true}/> : <p>社群內容搜尋尚未開放。</p>)}
             {tab === 'my-content' && (site?.personal_content_enabled === true ? <MyContent key={`${session.user.user_id}:${client.sessionGeneration}`}/> : <p>我的內容尚未開放。</p>)}
+            {tab === 'ar' && <CommunityArPanel key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} enabled={site?.ar_enabled===true} userId={session.user.user_id} registerLeave={registerPageLeave}/>}
             {tab === 'events' && <EventsPanel key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} session={session} locationHash={locationHash} registerLeave={registerPageLeave} onList={()=>selectTab('events')} participationEnabled={site?.event_participation_enabled===true}/>}
             {tab === 'highlights' && <EventHighlights key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} outcomesEnabled={site?.event_outcomes_enabled===true}/>}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}

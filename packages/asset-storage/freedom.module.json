@@ -14,7 +14,8 @@
     "packages/asset-storage/index.ts",
     "packages/asset-storage/r2.ts",
     "packages/asset-storage/profiles.ts",
-    "packages/asset-storage/browser-raster.ts"
+    "packages/asset-storage/browser-raster.ts",
+    "packages/asset-storage/ar-target.ts"
   ],
   "dependencies": [
     "resource-scopes"

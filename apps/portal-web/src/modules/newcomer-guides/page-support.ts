@@ -3,6 +3,7 @@ import type {PageGuideSupport} from './contracts';
 export type GuidePageId = TabId | 'registration' | 'onboarding' | 'admin' | 'skillbooks';
 // Every real page must explicitly opt in or give a reason. CI also checks developmentPages.
 export const DRAGON_PAGE_SUPPORT = {
+  ar:{status:'disabled',reason:'AR 相機採用畫面內操作提示，角色導覽尚未審核'},
   'community-search': {status:'disabled',reason:'社群內容搜尋導覽尚未完成審核，沿用頁面說明'},
   'my-content': {status:'disabled',reason:'私人內容管理導覽尚未完成審核，沿用頁面說明'},
   'home': {status:'supported',characterId:'home',contentId:'home',guideIds:["home:topic-1", "home:topic-3"],anchorContractVersion:1},

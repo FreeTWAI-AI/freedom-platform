@@ -17,7 +17,7 @@ async function minimalJwk(key:CryptoKey){const {kty,crv,x,d}=await crypto.subtle
 let directory:string,mf:Miniflare;
 before(async()=>{
   directory=await mkdtemp(resolve('.wrangler/fp-worker-binding-'));
-  for(const name of ['sender','receiver','issuer'])await build({entryPoints:[resolve('tests/worker/private-ai-fixtures/'+name+'.ts')],outfile:join(directory,name+'.mjs'),bundle:true,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],external:['node:*']});
+  for(const name of ['sender','receiver','issuer'])await build({entryPoints:[resolve('tests/worker/private-ai-fixtures/'+name+'.ts')],outfile:join(directory,name+'.mjs'),bundle:true,format:'esm',platform:'neutral',mainFields:['browser','module','main'],conditions:['workerd','worker','browser'],external:['node:*']});
   mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'issuer-key-check',modules:true,scriptPath:join(directory,'issuer.mjs'),compatibilityDate:'2026-09-21'}, {name:'main-transport',modules:true,scriptPath:join(directory,'sender.mjs'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],serviceBindings:{MODEL_BROKER:'broker-transport'}},
     {name:'broker-transport',modules:true,scriptPath:join(directory,'receiver.mjs'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings:{REQUEST_PUBLIC:JSON.stringify(await minimalJwk(requestKeys.publicKey)),RESPONSE_PRIVATE:JSON.stringify(await minimalJwk(responseKeys.privateKey))}}]}));await mf.ready;
 });

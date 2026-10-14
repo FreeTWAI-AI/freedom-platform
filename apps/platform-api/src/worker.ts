@@ -81,6 +81,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_MEMBER_REPORTING_ENABLED?: string;
   FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
   FREEDOM_UNIFIED_SHARING_ENABLED?: string;
+  FREEDOM_AR_ENABLED?:string;
   FREEDOM_COMMUNITY_RELATIONS_ENABLED?: string;
   FREEDOM_PERSONAL_CONTENT_ENABLED?: string;
   FREEDOM_SQUAD_OUTCOMES_ENABLED?: string;
@@ -144,6 +145,8 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_PARTICIPATION_ENABLED))throw new ReadinessError('FREEDOM_EVENT_PARTICIPATION_ENABLED must be true or false.');
   if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true'&&typeof env.EMAIL?.send!=='function')throw new ReadinessError('EMAIL binding is required when event participation is enabled.');
   if(env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED))throw new ReadinessError('FREEDOM_NOTIFICATION_PREFERENCES_ENABLED must be true or false.');
+  if(env.FREEDOM_AR_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_AR_ENABLED))throw new ReadinessError('AR flag must be true or false.');
+  if(env.FREEDOM_AR_ENABLED==='true'&&!env.MEDIA)throw new ReadinessError('AR requires MEDIA storage.');
   if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_FIRST_PARTICIPATION_ENABLED))throw new ReadinessError('First participation flag must be true or false.');
   if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED==='true'&&env.FREEDOM_PERSONAL_CONTENT_ENABLED!=='true')throw new ReadinessError('First participation requires personal content.');
   if(env.FREEDOM_PARTICIPATION_METRICS_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PARTICIPATION_METRICS_ENABLED))throw new ReadinessError('Participation metrics flag must be true or false.');
@@ -229,6 +232,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
   try { if (env.MEDIA) avatarAssetStore = createR2ObjectStore(env.MEDIA); } catch { /* unavailable, no binding diagnostics */ }
   return {
     avatarAssetStore,
+    arEnabled:env.FREEDOM_AR_ENABLED==='true',arAssetStore:env.FREEDOM_AR_ENABLED==='true'?avatarAssetStore:undefined,
     shopKeyPolicy:env.FREEDOM_SHOP_KEY_POLICY,
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,

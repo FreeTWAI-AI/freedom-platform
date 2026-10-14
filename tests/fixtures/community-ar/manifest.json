@@ -1,0 +1,32 @@
+{
+  "format": "freedom-ar-fixtures/v1",
+  "license": "MIT (MindAR sample card); synthetic replay videos from AR_HAO, no member/camera data",
+  "files": {
+    "card.mind": {
+      "sha256": "85b6ca67a4a9b78556be69f81149abc1e5845bb548e871854e1aaea1be96ab75",
+      "bytes": 256972,
+      "source": "engine/card.mind"
+    },
+    "card.png": {
+      "sha256": "8d54def2c72c6a66e2100c94e98fd97643e396ab6776d5b11e6d8ac00ed753d7",
+      "bytes": 61689,
+      "source": "targets/card.png"
+    },
+    "positive.webm": {
+      "sha256": "fc33feacfb478bbe16e63d29d19d52afd7b95e16b6a556ad02257649b0bb7335",
+      "bytes": 88528,
+      "source": "inputs/frontal-smoke.webm"
+    },
+    "negative.webm": {
+      "sha256": "8a22e8543d036c8dda4aed4b40880ce727af2ea631c066d26c73d7b559a88afe",
+      "bytes": 534574,
+      "source": "inputs/negative-smoke.webm"
+    }
+  },
+  "thresholds": {
+    "positive_found": true,
+    "negative_false_positives": 0,
+    "lost_after_stop": true
+  },
+  "role": "regression only, not physical iPhone/cloth/outdoor evidence"
+}

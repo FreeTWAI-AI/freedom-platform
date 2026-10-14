@@ -66,6 +66,8 @@ export type InstanceSelectionCandidate = {
 
 export type RequestOptions = {
   body?: unknown
+  /** Closed AR image-target upload; the shared session/error lifetime applies. */
+  arPattern?: Blob
   idempotencyKey?: string
   ifMatch?: number | string
   /** Unquoted positive decimal version for leave-v2 when the guild is a category primary. */
@@ -215,6 +217,13 @@ export class PortalClient {
     finally { this.reads.clear() }
   }
 
+  async putArPattern<T>(id:string, bytes:Uint8Array, options:Omit<RequestOptions,'body'|'arPattern'>):Promise<T> {
+    if(!/^[0-9a-f-]{36}$/.test(id)||bytes.byteLength>20*1024*1024)throw new ApiError({message:'圖案辨識檔不完整或太大。',status:422})
+    this.reads.clear()
+    try{return await this.request<T>('PUT',`/ar/targets/${id}/pattern`,{...options,arPattern:new Blob([new Uint8Array(bytes)],{type:'application/octet-stream'})})}
+    finally{this.reads.clear()}
+  }
+
   async getSession(): Promise<SessionPayload> {
     return this.get<SessionPayload>('/session', { skipAuthHandler: true })
   }
@@ -254,6 +263,10 @@ export class PortalClient {
 
     if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json'
+    }
+    if(options.arPattern){
+      if(method!=='PUT'||!/^\/ar\/targets\/[0-9a-f-]{36}\/pattern$/.test(path)||options.body!==undefined||options.arPattern.size>20*1024*1024)throw new ApiError({message:'圖案上傳格式不正確。',status:422})
+      headers['Content-Type']='application/octet-stream'
     }
     if (needsCsrf) {
       if (!this.csrfToken) {
@@ -296,7 +309,7 @@ export class PortalClient {
       response = await accessAwareFetch(`${API_BASE}${path}`, {
         method, headers, credentials: 'same-origin', signal: controller.signal,
         ...(options.keepalive === true ? {keepalive: true} : {}),
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        body: options.arPattern ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       })
       if (await isExpiredAccessResponse(response)) {
         const status = expiredAccessStatus(response)

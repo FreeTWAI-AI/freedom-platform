@@ -1,0 +1,83 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "community-ar",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/community-ar/**",
+    "apps/platform-api/src/routes/community-ar.ts",
+    "apps/portal-web/src/modules/community-ar/**",
+    "migrations/167_community_ar.sql",
+    "tests/e2e/community-ar.spec.ts",
+    "tests/fixtures/community-ar/**",
+    "apps/portal-web/public/assets/ar-compiler-6af7cac3.js",
+    "tests/runtime/community-ar-format.test.ts",
+    "tests/runtime/community-ar.test.ts",
+    "apps/portal-web/public/assets/mindar-ui-aed9538f.js",
+    "apps/portal-web/public/assets/mindar-compiler-53a67c3f.js",
+    "apps/portal-web/public/assets/mindar-tracker-6f637242.js",
+    "apps/portal-web/public/assets/mindar-controller-80f7d498.js",
+    "apps/portal-web/public/assets/mindar-image-6a560d3b.js"
+  ],
+  "public_exports": [
+    "modules/community-ar/index.ts",
+    "modules/community-ar/assets.ts",
+    "apps/portal-web/src/modules/community-ar/Panel.tsx"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands",
+    "asset-storage",
+    "asset-lifecycle",
+    "member-card",
+    "community",
+    "assets",
+    "shared"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "client_profiles": [],
+  "instructions": [
+    "modules/community-ar/README.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "live-public-parent-consent",
+    "immutable-object-content",
+    "external-io-outside-row-locks",
+    "camera-user-gesture",
+    "local-camera-frames",
+    "source-pr-is-not-deployment"
+  ],
+  "tests": [
+    "runtime.full",
+    "ui.default"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "community-ar.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/community-ar.ts",
+      "operations": [
+        "ar.target.create",
+        "ar.target.list",
+        "ar.scene.list",
+        "ar.pattern.upload",
+        "ar.target.publish",
+        "ar.target.withdraw"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community-ar.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/community-ar.ts",
+      "operations": [
+        "ar.public.read",
+        "ar.public-pattern.read"
+      ],
+      "auth_profile": "public"
+    }
+  ]
+}

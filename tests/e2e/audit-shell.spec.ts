@@ -255,6 +255,8 @@ for (const viewport of VIEWPORTS) {
       await expect(page.locator(':focus')).toHaveText(/社群參與/);
       await page.keyboard.press('Enter');
       await page.keyboard.press('Tab');
+      await expect(nav.getByRole('button',{name:'AR 圖案互動',exact:true})).toBeFocused();
+      await page.keyboard.press('Tab');
       await expect(nav.getByRole('button',{name:'社群活動',exact:true})).toBeFocused();
       // The global header stays reachable while the page scrolls; More owns its own scroll area.
       for (const s of await nav.locator('.nav-section > summary').all()) {
