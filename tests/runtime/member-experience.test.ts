@@ -2,6 +2,8 @@ import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
+import { setTimeout as delay } from 'node:timers/promises';
+import { z } from 'zod';
 import sharp from 'sharp';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
@@ -42,6 +44,61 @@ test('new member can preview safe events and submit one for review, while RSVP s
   assert.equal((await request(`/events/${submitted.data.event_id}/rsvp`,member,{going:true})).status,403);
   assert.equal((await request('/me/contribution-records',member)).status,403);
   assert.equal((await request('/work-items',member)).status,403);
+});
+
+test('onboarding task preview decides claim-window eligibility after native Work wait',async()=>{
+  const member=await signIn(),owner=await signIn(DEMO_USERS[1].email);
+  assert.equal((await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1',
+    [z.uuid().parse(member.user.user_id)])).rowCount,1);
+  const item=z.object({work_item_id:z.uuid(),title:z.string(),objective:z.string(),gain:z.string(),
+    claim_window_expires_at:z.string(),due_at:z.string()}).strict();
+  const page=z.object({items:z.array(item)}).strict();
+  for(const expires of [true,false]){
+    const created=await request('/work-items',owner,{title:`task-preview-window-${expires}`,objective:'合成安全探索窗口',
+      acceptance_criteria:'原生等待後符合窗口與窄投影',gain:'自願公共成果',estimated_minutes:20,maximum_minutes:30,
+      claim_by:new Date(Date.now()+(expires?3000:60000)).toISOString(),finish_by:new Date(Date.now()+172800000).toISOString(),will_review:true});
+    assert.equal(created.status,201);
+    const target=z.object({work_item_id:z.uuid(),aggregate_version:z.number().int()}).parse(created.data);
+    const initial=await request('/task-board/preview',member);assert.equal(initial.status,200);
+    const original=page.parse(initial.data).items.find(row=>row.work_item_id===target.work_item_id);assert.ok(original);
+    const locker=await pool.connect();let pending:Promise<{status:number;data:unknown}>|undefined;
+    try{
+      await locker.query('BEGIN');await locker.query('LOCK TABLE work_items IN ACCESS EXCLUSIVE MODE');
+      const {pid}=z.object({pid:z.number().int()}).parse((await locker.query('SELECT pg_backend_pid() AS pid')).rows[0]);
+      let finished=false;pending=request('/task-board/preview',member);void pending.then(()=>{finished=true},()=>{finished=true});
+      const deadline=Date.now()+5000;let blocked=false;
+      while(Date.now()<deadline){
+        blocked=(await pool.query(`SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+          WHERE $1=ANY(pg_blocking_pids(a.pid)) AND NOT l.granted AND l.relation='work_items'::regclass
+          AND a.wait_event_type='Lock'`,[pid])).rowCount!==0;
+        if(blocked)break;assert.equal(finished,false);await delay(10);
+      }
+      assert.equal(blocked,true,'preview must reach its native Work relation wait');
+      const timestamp=Date.parse(original.claim_window_expires_at);
+      async function windowPassed(){return z.object({passed:z.boolean()}).parse((await pool.query(
+        'SELECT clock_timestamp()>to_timestamp($1/1000.0) AS passed',[timestamp])).rows[0]).passed;}
+      if(expires){
+        const expiryDeadline=Date.now()+5000;
+        while(!await windowPassed()){assert.ok(Date.now()<expiryDeadline);await delay(10);}
+      }else await delay(3200);
+      assert.equal(await windowPassed(),expires);await locker.query('COMMIT');
+      const result=await pending;assert.equal(result.status,200);const entries=page.parse(result.data).items;
+      assert.equal(entries.some(row=>row.work_item_id===target.work_item_id),!expires);
+      if(!expires)assert.deepEqual(entries.find(row=>row.work_item_id===target.work_item_id),original);
+      assert.ok(entries.length<=12);
+      const state=z.object({state:z.string(),version:z.string(),window_open:z.boolean(),delivery_future:z.boolean()}).parse(
+        (await pool.query(`SELECT state,aggregate_version::text AS version,claim_window_expires_at>clock_timestamp() AS window_open,
+          due_at>clock_timestamp() AS delivery_future FROM work_items WHERE work_item_id=$1`,[target.work_item_id])).rows[0]);
+      assert.deepEqual(state,{state:'open',version:String(target.aggregate_version),window_open:!expires,delivery_future:true});
+      const refreshed=await request('/task-board/preview',member);assert.equal(refreshed.status,200);
+      assert.equal(page.parse(refreshed.data).items.some(row=>row.work_item_id===target.work_item_id),!expires);
+    }finally{
+      await locker.query('ROLLBACK');locker.release();if(pending)await pending.catch(()=>{});
+    }
+  }
+  assert.equal((await request('/work-items',member)).status,403);
+  assert.equal((await pool.query('SELECT count(*) FROM work_claims')).rows[0].count,'0');
+  assert.equal((await pool.query('SELECT count(*) FROM contributions')).rows[0].count,'0');
 });
 
 test('member event publishing, editing, RSVP capacity, cancellation and idempotency are scoped',async()=>{

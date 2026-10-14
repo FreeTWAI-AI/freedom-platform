@@ -4,7 +4,7 @@ import type { Actor } from '../identity-membership/service.js';
 // A narrow discovery projection: no owner identity, claim, terms or member profile.
 export async function previewTasks(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT work_item_id,title,objective,gain,claim_window_expires_at,due_at
-    FROM work_items WHERE community_id=$1 AND work_mode='community_collaboration' AND state='open' AND claim_window_expires_at>now()
+    FROM work_items WHERE community_id=$1 AND work_mode='community_collaboration' AND state='open' AND claim_window_expires_at>clock_timestamp()
     ORDER BY created_at DESC,work_item_id LIMIT 12`,[actor.community_id])).rows;
 }
 

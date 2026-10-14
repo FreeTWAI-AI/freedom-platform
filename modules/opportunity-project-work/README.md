@@ -64,6 +64,27 @@ archive 是保留型終態，不是資料刪除：title/objective 仍留 SQL，�
 
 另有中央 `OpaqueId` 驗證反例，命令 suite 合計 23 項；實跑結果由[交付紀錄](../../docs/platform-plan/execution/unified-foundation/implementation-status.md)記載，這些測試不是 production/staging 證據。[人工 Result 內部服務](../autopilot-work/README.md) 已透過[共用 Asset 引擎](../assets/engine.md)實作，084 schema／讀取／競態有獨立測試；不是模型產稿，也沒有私人 Result HTTP/UI。模型/Grant、發布確認、正式資料回填、正式 policy source、rollback floor、備份及完整 retention 仍未完成。無 feature activation wiring 的結構性封閉維持不變，不能因 read ACL 和內部命令已存在就註冊私人 HTTP 寫入。
 
+## Task-board 探索窗口的決策時鐘（#637）
+
+`GET /api/v1/task-board/preview` 的 claim-window eligibility 使用 DB
+`clock_timestamp()`，不使用 statement／transaction 起始的 `now()`。
+Work relation 等待跨過窗口後，不再把已到期的 open Work列為可認領預覽。
+有效窗口保留原 safe DTO、community／collaboration mode filter、排序與
+12筆上限；未完成 onboarding的會員仍可讀這個窄探索面，沒有增加 owner、
+Claim、條款、private Work或會員資料。
+
+窗口到期不改寫 Work state／version、不抹除既有 Claim，也不能由 future
+delivery `due_at` 代替；canonical五種時間見
+[domain invariants §11](../../docs/platform-plan/03-domain-events-state-machines.md#11-model-驗收不變量)。
+這是 preview決策時鐘，不替代 Claim write／receipt邊界；沒有改 command、
+replay、UI、onboarding entry gating、scoring或付款規則。
+
+[member-experience consumer 回歸](../../tests/runtime/member-experience.test.ts)
+以原生 Work relation wait與真正DB期限涵蓋 onboarding到期／有效控制、
+safe DTO與事實保留；真實HTTP同時對照完整會員及onboarding兩種身分。
+Issue／PR列本輪實跑範圍；source／HTTP證據不等於browser視覺、trusted CI、
+merge或部署。
+
 ## Portal composition
 
 The workbench, showcase/opportunity and engagement cards/forms live in
