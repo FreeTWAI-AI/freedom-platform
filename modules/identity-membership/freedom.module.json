@@ -5,6 +5,7 @@
   "owned_paths": [
     "modules/identity-membership/members.ts",
     "tests/runtime/member-read-session-clock.test.ts",
+    "tests/runtime/auth-rate-limit-window.test.ts",
     "modules/identity-membership/avatars.ts",
     "modules/identity-membership/avatar-bridge.md",
     "apps/platform-api/src/routes/avatars.ts",

@@ -54,11 +54,11 @@ export async function authRateLimit(pool:Pool,scope:string,network:string,limit:
 export async function authRateLimitInTransaction(q:PoolClient,scope:string,network:string,limit:number,seconds=900) {
   const bucket=tokenHash(`${scope}/${network}`);
   // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
-  await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT(bucket) DO UPDATE SET bucket=excluded.bucket',[bucket]);
-  const row=(await q.query('SELECT * FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE',[bucket])).rows[0];
-  const expired=Date.now()-new Date(row.window_start).getTime()>=seconds*1000;
-  requireCondition(expired||row.attempts<limit,429,'auth_rate_limited','操作次數過多，請稍後再試。');
-  await q.query(`UPDATE auth_rate_limits SET attempts=$2,window_start=CASE WHEN $3 THEN now() ELSE window_start END WHERE bucket=$1`,[bucket,expired?1:row.attempts+1,expired]);
+  await q.query('INSERT INTO auth_rate_limits(bucket,window_start) VALUES($1,clock_timestamp()) ON CONFLICT(bucket) DO UPDATE SET bucket=excluded.bucket',[bucket]);
+  // The UPSERT already owns the row lock; decide expiry only after that wait.
+  const row=(await q.query('SELECT attempts,window_start<=clock_timestamp()-make_interval(secs=>$2) AS expired FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE',[bucket,seconds])).rows[0];
+  requireCondition(row.expired||row.attempts<limit,429,'auth_rate_limited','操作次數過多，請稍後再試。');
+  await q.query(`UPDATE auth_rate_limits SET attempts=$2,window_start=CASE WHEN $3 THEN clock_timestamp() ELSE window_start END WHERE bucket=$1`,[bucket,row.expired?1:row.attempts+1,row.expired]);
 }
 export async function registerMember(pool:Pool,raw:unknown,options:{communityId?:string;allowSingleCommunity:boolean;publicMode?:boolean}) {
   const body=RegistrationInput.parse(raw),email=body.email.trim().toLowerCase();
