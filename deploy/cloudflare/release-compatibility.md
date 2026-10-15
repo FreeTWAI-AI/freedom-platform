@@ -451,3 +451,12 @@ restoring schema164 cannot erase the retained capability. The capability covers
 current publication visibility and prepared-project version checks, and grants
 neither publication consent nor deployment/restore authority. Host approvals
 remain independently bound to source, artifact, environment and ledger digest.
+
+## Hosted checkout schema168 write floor
+
+`commerce.hosted-checkout.v1` is mandatory for every candidate and active binary
+when the planned schema or retained historical floor reaches migration168. A
+restore below168 does not erase that floor. The capability preserves checkout
+replay, device/link access, durable holds and the M1 writer rules even when new
+checkout admission is off or the host is quarantined. Acknowledging the capability
+grants no payment, email, invoice or deploy authority.

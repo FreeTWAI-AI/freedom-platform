@@ -12,7 +12,7 @@ import { DAG_MIGRATIONS, LEGACY_MIGRATIONS, MIGRATION_V2_GUARD } from '../../../
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const NOW = 1790899200000;
-const CAPABILITIES = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
+const CAPABILITIES = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 function fixture() {
   const scan = checkMigrations(join(ROOT, 'migrations'), loadManifest().database_defaults.migrations);
   const candidate = { source_sha: 'a'.repeat(40), artifact_sha256: 'b'.repeat(64) };
@@ -210,7 +210,7 @@ for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'roll
     const f = fixture();
     const container = source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation;
     container[source] = ['avatar.asset.v1', 'work.private-human-result.v1'];
-    f.host.release_records[0].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
+    f.host.release_records[0].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
     const result = evaluate(f);
     assert.equal(result.status, 'incompatible');
     for (const capability of ['avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1']) {
@@ -277,7 +277,7 @@ test('editorial and scoped-chat migrations preserve host approval and authority 
   assert.deepEqual(f.scan.ledger.filter(row => /^(112|113)_/.test(row.name)).map(row => row.name), ['112_member_card_editorial.sql', '113_chat_stickers_replies.sql']);
   const result = evaluate(f);
   assert.equal(result.status, 'compatible');
-  assert.deepEqual(result.required_capabilities, ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
+  assert.deepEqual(result.required_capabilities, ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
   for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
   for (const filename of ['112_member_card_editorial.sql', '113_chat_stickers_replies.sql']) {
     const renamed = fixture();
@@ -485,7 +485,7 @@ test('historical capability floor survives disabled/empty shapes for every mixed
     f.host.observation.active_releases = [other];
     f.host.release_records.push({ ...structuredClone(f.host.release_records[0]), ...other });
     f.host.rollback_floor.capabilities = ['work.server-policy.v1'];
-    f.host.release_records[missing === 'candidate' ? 0 : 1].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
+    f.host.release_records[missing === 'candidate' ? 0 : 1].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
     const result = evaluate(f); assert.equal(result.status, 'incompatible'); assert.equal(result.checked_releases, 2);
     assert.ok(result.issues.some(i => i.capability === 'work.server-policy.v1'));
   }
@@ -504,7 +504,7 @@ test('recovery comparison is exact beyond safe integers and increasing generatio
   assert.deepEqual(codes(evaluate(f)), ['historical_recovery_regression']);
   f.host.target.recovery_generation = f.host.observation.target.recovery_generation = '9007199254740994';
   f.host.rollback_floor.capabilities = ['work.server-policy.v1'];
-  f.host.release_records[0].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
+  f.host.release_records[0].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
   assert.ok(evaluate(f).issues.some(i => i.capability === 'work.server-policy.v1'));
   f.host.release_records[0].capabilities.push('work.server-policy.v1');
   assert.equal(evaluate(f).status, 'compatible'); assert.equal(evaluate(f).restore_proof, false);
@@ -886,3 +886,23 @@ for (const target of ['planned', 'observation', 'floor']) {
     for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
   });
 }
+
+test('planned schema168 refuses a binary without hosted checkout write support',()=>{
+  const f=fixture();f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='commerce.hosted-checkout.v1');
+  const result=evaluate(f);assert.equal(result.status,'incompatible');
+  assert(result.issues.some(i=>i.code==='release_capability_missing'&&i.capability==='commerce.hosted-checkout.v1'));
+});
+test('restoring below168 cannot erase the historical hosted checkout write floor',()=>{
+  const f=fixture(),retained=prefix(f.scan,168),older=prefix(f.scan,167);
+  f.host.rollback_floor.schema_ledger=retained.ledger;f.host.rollback_floor.schema_ledger_digest=retained.ledger_digest;
+  f.scan=older;f.host.observation.schema_ledger=older.ledger;f.host.observation.schema_ledger_digest=older.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests=[older.ledger_digest];
+  f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='commerce.hosted-checkout.v1');
+  const result=evaluate(f);assert.equal(result.status,'incompatible');assert(result.required_capabilities.includes('commerce.hosted-checkout.v1'));
+  assert(result.issues.some(i=>i.code==='release_capability_missing'&&i.capability==='commerce.hosted-checkout.v1'));
+});
+test('schema168 with hosted checkout support passes without granting operational authority',()=>{
+  const result=evaluate(fixture());assert.equal(result.status,'compatible',JSON.stringify(result.issues));
+  assert(result.required_capabilities.includes('commerce.hosted-checkout.v1'));
+  assert.equal(result.deployment_authority,false);assert.equal(result.restore_proof,false);
+});
