@@ -58,6 +58,10 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  assert.deepEqual(campaignFirst.items.map(item=>item.campaign_id),[newerCampaign.campaign_id]);assert.equal(campaignFirst.next_offset,1);
  const campaignLast=await maker.call('listCampaigns',{query:Object.assign(Object.create(null),{limit:1,offset:campaignFirst.next_offset})});
  assert.deepEqual(campaignLast.items.map(item=>item.campaign_id),[campaign.campaign_id]);assert.equal(campaignLast.next_offset,null);
+ let inheritedQueryReads=0;
+ const inheritedQueryOptions=Object.create({get query(){inheritedQueryReads++;return{limit:1,offset:100};}});
+ const inheritedCampaigns=await maker.call('listCampaigns',inheritedQueryOptions);
+ assert.deepEqual(inheritedCampaigns.items.map(item=>item.campaign_id),[newerCampaign.campaign_id,campaign.campaign_id]);assert.equal(inheritedQueryReads,0);
  for(const query of [null,42,'',true,[],new Date(),Object.create({offset:1})])await assert.rejects(maker.call('listCampaigns',{query}),TypeError);
  assert.equal((await maker.call('listProjects')).items.length,0);assert(Array.isArray((await maker.call('listWorks')).items));await maker.call('getDashboard');
  await maker.call('logout',{body:{}});await assert.rejects(maker.call('getSession'),{status:401});await seller.call('logout',{body:{}});
