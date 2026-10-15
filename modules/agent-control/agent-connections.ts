@@ -15,7 +15,7 @@ import { applyConsumedMachineReconciliation, lockConsumedMachineSteps } from '..
 
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const keySchema = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
-const versionSchema = ExecutionVersion.refine(value => BigInt(value) <= 9223372036854775807n);
+const versionSchema = ExecutionVersion.pipe(z.string().refine(value => BigInt(value) <= 9223372036854775807n));
 const createSchema = z.object({ key: keySchema, runtimeDeviceId: OpaqueId }).strict();
 const readSchema = z.object({ connectionId: OpaqueId }).strict();
 const revokeSchema = readSchema.extend({ key: keySchema, expectedVersion: versionSchema.optional() }).strict();

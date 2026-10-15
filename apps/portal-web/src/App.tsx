@@ -634,6 +634,7 @@ function Workspace({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
   const notificationSequence=useRef(0)
+  const [friendScope,setFriendScope]=useState<'accepted'|'incoming'>('accepted')
   const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
   const chatEntrySequence=useRef(0)
   const [messagesOpen,setMessagesOpen]=useState(()=>window.location.hash==='#messages')
@@ -665,6 +666,7 @@ function Workspace({
     const nextHash = destinationHash ?? `#${next}`
     if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current(nextHash)) return
     acceptedHash.current = nextHash
+    if(next==='friends')setFriendScope('accepted')
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
@@ -848,8 +850,8 @@ function Workspace({
             <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
             {tab === 'account' && <><AccountPanel client={client} session={session} onNavigate={selectTab} />{site?.notification_preferences_enabled===true&&<NotificationPreferencesPanel key={session.user.user_id+':'+session.csrf_token} client={client} followingEnabled={site.community_relations_enabled===true}/>}</>}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
-            {tab === 'friends' && <FriendsPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
-            {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'friends' && <FriendsPanel client={client} session={session} initialScope={friendScope} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
+            {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onIncomingFriends={()=>{selectTab('friends');setFriendScope('incoming');}} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} authKey={`${session.user.user_id}:${client.sessionGeneration}`} relationsEnabled={site.community_relations_enabled === true}/> : <p>社群內容搜尋尚未開放。</p>)}
