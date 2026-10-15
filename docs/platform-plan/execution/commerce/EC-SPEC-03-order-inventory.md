@@ -98,8 +98,9 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | 行項 | `commerce_order_lines`（`order_profile='hosted_checkout'`） | 建立後不可改；必有 `supplier_shop_id`；外部供貨行項必有 offer／acceptance／listing digest（與 shared 相同規則） |
 | 訂單生命週期與版本 | 提議 sidecar `commerce_checkout_orders` | `(order_id, order_profile)` 複合 FK；tenant／instance、customer、checkout、凍結 terms 與 `terms_sha256`、`environment`（sandbox／live）、`lifecycle_state`、`version` |
 | 買家 | 提議 `commerce_customers` | 屬於零售商店（tenant／instance），不是平台會員；可選連結會員 principal |
-| 聯絡、收件、發票資料 | 提議 `commerce_order_contacts` | 個資獨立一表，不進 journal、outbox、log 與分析；存取規則見 EC-SPEC-05／09 |
-| 結帳草稿 | 提議 `commerce_checkouts` | 見 EC-SPEC-02；一個 checkout 依序可產生多張訂單，但同時最多一張「未付款且付款結果未定」的訂單 |
+| 聯絡、收件、發票資料 | 提議 `commerce_checkout_contacts` | 個資獨立一表，以 checkout 為鍵；買家每次修改就新增一列，列不可改（只允許一次性遮罩，EC-SPEC-09）。訂單指向下單當下那一列，所以同一份資料不會複製到每張訂單。不進 journal、outbox、log 與分析；存取規則見 EC-SPEC-05／09 |
+| 結帳草稿 | 提議 `commerce_checkouts` | 見 EC-SPEC-02；凍結的 terms 不含個資，`terms_sha256` 涵蓋聯絡資料那一列的摘要。一個 checkout 依序可產生多張訂單，但同時最多一張「未付款且付款結果未定」的訂單 |
+| 付款套用紀錄 | 提議 `commerce_checkout_payment_applications` | 每個已驗證的付款事實套用到訂單一次（`payment_ref` 唯一）並記下結果（§5），重送回原結果；付款本身的權威在 EC-SPEC-04 |
 | H | 現況 `commerce_inventory_reservations` | 沿用，不改表 |
 | A | 提議 `commerce_inventory_allocations` | §2 |
 | 異動紀錄 | 提議 `commerce_inventory_movements` | append-only |
@@ -133,7 +134,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 
 | 轉換 | 誰觸發 | 守門 | 效果（同一 DB 交易） |
 | --- | --- | --- | --- |
-| place | 買家（guest 或會員）＋checkout 能力憑證 | 店家已開通交易、checkout 版本與 `terms_sha256` 相符、供貨同意與發布版本有效、配送群組可行、`available` 足夠、同 checkout 無未定付款的舊單 | 建立訂單、行項、sidecar、contacts、全部 hold、第一個 payment attempt（EC-SPEC-04）；journal；不呼叫外部服務 |
+| place | 買家（guest 或會員）＋checkout 能力憑證 | 店家已開通交易、checkout 版本與 `terms_sha256` 相符、供貨同意與發布版本有效、配送群組可行、`available` 足夠、同 checkout 無未定付款的舊單 | 建立訂單、行項、sidecar（指向當下的聯絡資料列）、全部 hold、第一個 payment attempt（EC-SPEC-04）；journal；不呼叫外部服務 |
 | buyer cancel（未付） | 買家 | `open` 且付款摘要 ∈ unpaid／pending 且無確認付款 | hold release；`cancelled(buyer_cancelled)`；未結 attempt 標記放棄並排入查詢 |
 | seller cancel（未付） | 賣家 owner／被授權者 | 同上 | `cancelled(seller_cancelled)` |
 | hold expire | 讀取、下單缺額結算、排程 | hold 仍 `held` 且 DB 時間 ≥ `expires_at` | hold release；訂單仍 `open`（付款可能晚到） |
@@ -149,7 +150,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 
 ### 4.1 下單
 
-一次交易內：鎖序 §6 → 重新計算 checkout terms 並比對 `terms_sha256` → 依缺額結算過期的 hold（沿用 `expireDirectForItems` 的有界做法，擴充到 `hosted_checkout`）→ 鎖定全部 item（UUID 排序）→ 檢查每個 item `available ≥ q` → 建立訂單、行項、sidecar、contacts、hold、attempt、journal → commit。任何一項不足，整筆回滾，回 409 並附目前可售數量的提示，不保留部分行項。
+一次交易內：鎖序 §6 → 重新計算 checkout terms 並比對 `terms_sha256` → 依缺額結算過期的 hold（沿用 `expireDirectForItems` 的有界做法，擴充到 `hosted_checkout`）→ 鎖定全部 item（UUID 排序）→ 檢查每個 item `available ≥ q` → 建立訂單、行項、sidecar、hold、attempt、journal → commit。任何一項不足，整筆回滾，回 409 並附目前可售數量的提示，不保留部分行項。
 
 ### 4.2 保留期限與付款期限
 
@@ -162,6 +163,8 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 不重新 hold 舊單（每個 (order,item) 只有一筆 hold）。checkout 保留購物車、聯絡與配送資料，買家確認目前價格與庫存後從同一 checkout 重新下單；前一張單的付款結果必須先確定（未定時顯示「前一筆付款結果確認中」並提供查詢），避免兩張單都付款。
 
 ## 5. 付款確認後的庫存處理
+
+付款模組（EC-SPEC-04）在驗證 provider 事件或查詢結果的同一個交易內呼叫庫存套用；每個付款事實以 `payment_ref` 在 `commerce_checkout_payment_applications` 記一次結果（`converted`、`allocated`、`unallocatable`、`after_cancel`、`overpaid`、`amount_mismatch`、`simulated`）。同一 `payment_ref` 重送直接回原結果，不再動庫存；不同 `payment_ref` 套到已有付款的訂單記為 `overpaid`。
 
 ### 5.1 正常（hold 仍有效）
 
@@ -205,16 +208,16 @@ community 層級序列化保留（與 #437 相同），不宣稱吞吐量提升�
 
 - `commerce_orders`：`order_profile` CHECK 加 `hosted_checkout`；`commerce_order_profile_fields` 加 `hosted_checkout` 分支（`quote_id`、`reservation_*`、`closed_*` 為 NULL，`client_order_id` 非 NULL，`buyer_payment='pending'`，`expires_at=created_at+30 分`）；`preserve_commerce_order_profile()` 對 `hosted_checkout` 整列不可改。
 - `commerce_order_lines`：profile CHECK 加 `hosted_checkout` 分支；新增 checkout 行項核對 trigger（行項必須等於 sidecar 凍結 terms 的對應 binding）。
-- 新表：`commerce_customers`、`commerce_checkouts`、`commerce_checkout_orders`、`commerce_order_contacts`、`commerce_inventory_allocations`、`commerce_inventory_movements`，含 RLS、不可刪 trigger、monotonic trigger、索引。
+- 新表：`commerce_customers`、`commerce_checkouts`、`commerce_checkout_contacts`、`commerce_checkout_orders`、`commerce_checkout_payment_applications`、`commerce_inventory_allocations`、`commerce_inventory_movements`，含 RLS（或在 `modules/module-data/catalog.ts` 明列豁免理由；個資表不豁免）、不可刪 trigger、monotonic trigger、索引。瀏覽器憑證與訂單存取 grant 的表（EC-SPEC-02 §4.2）、付款表（EC-SPEC-04）由各自的 migration 加入。
 - 以 `CREATE OR REPLACE` 更新 `check_commerce_inventory_balance`（`reserved = H + A`）與 `check_commerce_inventory_order`（加 `hosted_checkout` 分支：hold＋配置＝行項）；加配置表的 deferred constraint trigger。
 - 不開任何店的交易；店家交易設定預設關（EC-SPEC-02／10）。
 - runtime grants 需重跑（新表）；`20-runtime-grants` 與 inventory JSON 依「新增 migration 檢查清單」（WP-00）。
 
 **Backfill**：不需要。現有資料沒有配置，`reserved = H` 已成立，等於 `reserved = H + 0`；migration 結尾仍對所有 hosted item／訂單執行新的檢查，不一致就中止，不製造庫存。
 
-**Switch**：新增 release-compatibility 能力 `commerce.hosted-checkout.v1`（M1）。`deploy/cloudflare/lib/release-compatibility.mjs` 沒有 `writerFloor`／`minSchemaVersion` 這類欄位；實際要改的是：`CAPABILITIES` 白名單、`SHAPES` 加一個以 M1 為 migration 的 shape、「schema ≥ M1 時不論旗標都必須具備此能力」的強制下限（同 162 對 `commerce.hosted-inventory-reservation.v1` 的做法，`:529`）、只留能力時的 retained floor（`:550`），以及 `FOUNDATION_NAMES`。第一張 `hosted_checkout` 訂單寫入後，所有 active／candidate release 都必須具備此能力；關閉新結帳不移除這個下限。`apps/platform-api/src/readiness.ts` 不讀 migration ledger，readiness 綠燈不能證明 M1 已套用。
+**Switch**：新增 release-compatibility 能力 `commerce.hosted-checkout.v1`。`deploy/cloudflare/lib/release-compatibility.mjs` 沒有 `writerFloor`／`minSchemaVersion` 這類欄位；實際要改的是：`CAPABILITIES` 白名單、`SHAPES` 加一個 shape、「schema ≥ 該 migration 時不論旗標都必須具備此能力」的強制下限（同 162 對 `commerce.hosted-inventory-reservation.v1` 的做法，`:535`）、只留能力時的 retained floor（`:550`），以及所有列舉 `required_capabilities` 的部署測試。M1 本身沒有任何會寫入 `hosted_checkout` 訂單的路徑，所以 M1 只登錄 `FOUNDATION_NAMES`；能力與強制下限跟「第一個能寫入 `hosted_checkout` 訂單的路由」（EC-SPEC-02 §5.4 的下單 API）同一個 migration 加入，且一定早於任何店家能開通結帳。此後所有 active／candidate release 都必須具備此能力；關閉新結帳不移除這個下限。`apps/platform-api/src/readiness.ts` 不讀 migration ledger，readiness 綠燈不能證明 M1 已套用。
 
-**新增 migration 的登錄點**（以 `fe4e083a` 為範例）：`deploy/cloudflare/environments.json` 的 `migrations.last`；`FOUNDATION_NAMES`；`deploy/cloudflare/test/migration-plan.test.mjs` 的 `last` 與最後檔名；`release-compatibility.test.mjs` 中以「最後一筆是 167」為前提的兩個測試改指 `prefix(scan, 167)` 並為 M1 加同樣的一組；新表加進 `modules/module-data/catalog.ts` 的 physical locations（含 tenant 解析、RLS／豁免理由、敏感度、保留）；migration 路徑歸 `modules/agent-commerce/freedom.module.json` 擁有；套用後重跑 `deploy/cloudflare/sql/20-runtime-grants.psql`；最後才跑 `scripts/update-inventory.py`。
+**新增 migration 的登錄點**（以 `fe4e083a` 為範例）：`deploy/cloudflare/environments.json` 的 `migrations.last`；`FOUNDATION_NAMES`；`deploy/cloudflare/test/migration-plan.test.mjs` 的 `last` 與最後檔名；`release-compatibility.test.mjs` 中以「最後一筆是 167」為前提的兩個測試改指 `prefix(scan, 167)` 並為 M1 加同樣的一組；`docs/platform-plan/execution/guild-launchpad/README.md` 的 `repo_max_migration`（`validate-spec-pack.py --write-status`）；新表加進 `modules/module-data/catalog.ts` 的 physical locations（含 tenant 解析、RLS／豁免理由、敏感度、保留）。`modules/agent-commerce/freedom.module.json` 已列滿 64 個 owned path（schema 上限），所以交易核心另立 `modules/agent-commerce/checkout/freedom.module.json`（module `hosted-checkout`，相依 `agent-commerce`），由它擁有 `modules/agent-commerce/checkout/**`、M1 與新測試。套用後重跑 `deploy/cloudflare/sql/20-runtime-grants.psql`；最後才跑 `scripts/update-inventory.py`。
 
 **舊 binary**：M1 之後，不懂配置的舊 writer 對 v1 profile 仍然安全（它們只動 hold，`reserved = H + A` 仍成立；它們的 `available` 已經扣掉 A）。但舊 binary 不會處理付款通知、到期或出貨，所以有 `hosted_checkout` 訂單之後不能回退到它（停止新結帳、切相容版本或向前修補，計畫 §18.3）。T-047 限制照舊適用。
 

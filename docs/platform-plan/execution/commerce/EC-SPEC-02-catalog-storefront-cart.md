@@ -95,7 +95,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 - `commerce_customers`：tenant／instance、`customer_id`、正規化 Email（店內唯一）、`email_verified_at`、可選 `member_principal_id`、建立時間。顧客屬於這間店，不是平台會員。
 - 會員登入下單時，訂單填 `buyer_principal_id`，顧客記錄連結會員；guest 下單時兩者皆空。
 - 不自動建立會員、不加入公會。
-- 聯絡、收件、發票資料放在 EC-SPEC-03 的 `commerce_order_contacts`，不放在顧客記錄；顧客記錄只有 Email。
+- 聯絡、收件、發票資料放在 EC-SPEC-03 的 `commerce_checkout_contacts`（以 checkout 為鍵、每次修改新增一列），不放在顧客記錄；顧客記錄只有 Email。
 
 ### 4.2 訂單存取憑證
 
