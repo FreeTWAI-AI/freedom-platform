@@ -96,8 +96,21 @@ test('hosted offer schema recognition still requires exact ledger and independen
   assert.deepEqual(codes(evaluate(renamed)),['schema_unknown']);
 });
 
+// Pin every evidence input to the schema under test, rather than the newest
+// repository row. Retained floors remain explicit in each rollback assertion.
+function fixtureAt(last) {
+  const f=fixture(); f.scan=prefix(f.scan,last);
+  f.host.observation.schema_ledger=structuredClone(f.scan.ledger);
+  f.host.observation.schema_ledger_digest=f.scan.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests=[f.scan.ledger_digest];
+  const floor=prefix(f.scan,75);
+  f.host.rollback_floor.schema_ledger=structuredClone(floor.ledger);
+  f.host.rollback_floor.schema_ledger_digest=floor.ledger_digest;
+  return f;
+}
+
 test('schema167 recognition keeps schema166 approvals separate and rejects unknown AR ledger bytes', () => {
-  const f = fixture(), old = prefix(f.scan, 166);
+  const f = fixtureAt(167), old = prefix(f.scan, 166);
   assert.equal(f.scan.ledger.at(-1).name, '167_community_ar.sql');
   const current = evaluate(f);
   assert.equal(current.status, 'compatible');
@@ -107,19 +120,56 @@ test('schema167 recognition keeps schema166 approvals separate and rejects unkno
   assert(codes(evaluate(f)).includes('release_schema_unsupported'));
   f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
   assert.equal(evaluate(f).status, 'compatible', 'the exact schema166 release remains independently compatible');
-  const changed = fixture(); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
+  const changed = fixtureAt(167); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
   changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
   assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
-  const renamed = fixture(); renamed.scan.ledger.at(-1).name = '167_unreviewed.sql';
+  const renamed = fixtureAt(167); renamed.scan.ledger.at(-1).name = '167_unreviewed.sql';
   renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
   assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
-  const future = fixture(); future.scan.ledger.push({name: '168_unreviewed.sql', sha256: 'e'.repeat(64)});
+  const future = fixtureAt(167); future.scan.ledger.push({name: '168_unreviewed.sql', sha256: 'e'.repeat(64)});
   future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
   assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
 });
 
 test('retained schema167 cannot be erased by a schema166 restore or rollback plan', () => {
-  const f = fixture(), old = prefix(f.scan, 166);
+  const f = fixtureAt(167), old = prefix(f.scan, 166);
+  f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+  for (const scan of [f.scan, old]) {
+    f.scan = scan;
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    assert(codes(result).includes('historical_schema_floor_mismatch'));
+    for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  }
+});
+
+test('schema168 recognition keeps schema167 approvals separate and rejects unknown checkout ledger bytes', () => {
+  const f = fixtureAt(168), old = prefix(f.scan, 167);
+  assert.equal(f.scan.ledger.at(-1).name, '168_hosted_checkout_core.sql');
+  const current = evaluate(f);
+  assert.equal(current.status, 'compatible');
+  assert.deepEqual(current.required_shapes, []);
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(current[flag], false);
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  assert.equal(evaluate(f).status, 'compatible', 'the exact schema167 release remains independently compatible');
+  const changed = fixtureAt(168); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixtureAt(168); renamed.scan.ledger.at(-1).name = '168_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+  const future = fixtureAt(168); future.scan.ledger.push({name: '169_unreviewed.sql', sha256: 'e'.repeat(64)});
+  future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
+  assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
+});
+
+test('retained schema168 cannot be erased by a schema167 restore or rollback plan', () => {
+  const f = fixtureAt(168), old = prefix(f.scan, 167);
   f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
   f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
   f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;

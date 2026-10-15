@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-12 release.production=dcb393515dd03413862628806f17e500d0f7bc32 release.staging=dcb393515dd03413862628806f17e500d0f7bc32 flag.production=true flag.staging=true repo_max_migration=167 applied_migration.production=165 applied_migration.staging=165 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-12 release.production=dcb393515dd03413862628806f17e500d0f7bc32 release.staging=dcb393515dd03413862628806f17e500d0f7bc32 flag.production=true flag.staging=true repo_max_migration=168 applied_migration.production=165 applied_migration.staging=165 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-12 UTC R24 更新：兩環境目前為 `dcb39351`，包含 detna 審查合併的 #470。拒絕離開時保留未儲存活動草稿與媒體，明確捨棄才清除；結果不明的保存沿用原內容與冪等鍵，重試只留下一場活動。沒有 migration、既有會員授權或 feature flag 變更，仍是 schema165／164筆 ledger。
 

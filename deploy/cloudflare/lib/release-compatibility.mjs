@@ -181,6 +181,9 @@ const FOUNDATION_NAMES = [
   // Opt-in AR storage only; recognition does not enable persistence policy,
   // camera access or supply deployment/restore approval.
   '167_community_ar.sql',
+  // Expand-only hosted checkout order/inventory schema; no writer route, store
+  // admission or payment capability is enabled by this schema.
+  '168_hosted_checkout_core.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
