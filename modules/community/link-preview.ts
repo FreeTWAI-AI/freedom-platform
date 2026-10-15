@@ -1,6 +1,7 @@
 import { normalizeRemoteThumbnail } from '../skill-submissions/payload.js';
 import { normalizeShareUrl } from '../../packages/shared/share-url.js';
 import { youtubeVideoId } from '../../packages/shared/youtube-video-id.js';
+import { truncateSocialTitle } from './social-content.js';
 
 export const PREVIEW_USER_AGENT = 'FreedomWorkshopPreview/1.0 (+https://freetwai.com)';
 const HTML_LIMIT = 1024 * 1024;
@@ -9,10 +10,15 @@ const IMAGE_LIMIT = 5 * 1024 * 1024;
 export type PreviewFetch = (input: string, init?: RequestInit) => Promise<Response>;
 export type LinkPreview = { title: string | null; image: Buffer | null; source: 'youtube' | 'page' | null };
 
+function numericEntity(codePoint: number) {
+  return codePoint === 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)
+    ? '\ufffd' : String.fromCodePoint(codePoint);
+}
+
 function decodeEntities(value: string) {
   return value
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => numericEntity(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => numericEntity(Number(dec)))
     .replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&');
 }
 
@@ -34,7 +40,7 @@ function meta(html: string, key: string) {
 
 function finishTitle(value: string) {
   // Already decoded. Drop brackets before whitespace collapsing and the length cap.
-  return value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120) || null;
+  return truncateSocialTitle(value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim()) || null;
 }
 
 export function previewTitle(html: string) {
@@ -124,7 +130,7 @@ export async function previewLink(rawUrl: string, fetcher: PreviewFetch, timeout
     const oembed = await fetchChecked(fetcher, `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(normalized.url)}`, deadline, 'application/json', HTML_LIMIT);
     let title: string | null = null;
     if (oembed && (oembed.type === 'application/json' || oembed.type === 'text/json' || oembed.type.endsWith('+json'))) {
-      try { const parsed = JSON.parse(oembed.body.toString('utf8')) as { title?: unknown }; title = typeof parsed.title === 'string' ? parsed.title.replace(/\s+/g, ' ').trim().slice(0, 120) || null : null; } catch { title = null; }
+      try { const parsed = JSON.parse(oembed.body.toString('utf8')) as { title?: unknown }; title = typeof parsed.title === 'string' ? truncateSocialTitle(parsed.title.replace(/\s+/g, ' ').trim()) || null : null; } catch { title = null; }
     }
     const image = await fetchChecked(fetcher, `https://i.ytimg.com/vi/${video}/hqdefault.jpg`, deadline, 'image/jpeg,image/png,image/webp', IMAGE_LIMIT);
     const thumb = image ? await asThumbnail(image.body, image.type) : null;

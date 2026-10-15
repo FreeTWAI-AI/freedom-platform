@@ -74,6 +74,31 @@ test('preview titles contain no markup after entity decoding', () => {
   assert.equal(previewTitle('<title>平常的標題</title>'), '平常的標題');
 });
 
+test('numeric preview references replace invalid scalars and preserve valid Unicode', async () => {
+  const cases: [string, string][] = [
+    ['&#1114112;', '\ufffd'], ['&#x110000;', '\ufffd'],
+    [`&#${'9'.repeat(400)};`, '\ufffd'], [`&#x${'f'.repeat(400)};`, '\ufffd'],
+    ['&#0;', '\ufffd'], ['&#x0;', '\ufffd'],
+    ['&#55296;', '\ufffd'], ['&#57343;', '\ufffd'],
+    ['&#xD800;', '\ufffd'], ['&#xDFFF;', '\ufffd'],
+    ['&#65;&#x4e2d;&#128512;&#x1F600;', 'A中😀😀'],
+    ['&#1114111;&#x10FFFF;', '\u{10ffff}\u{10ffff}'],
+  ];
+  for (const [reference, decoded] of cases) {
+    const expected = `before${decoded}after`;
+    for (const html of [
+      `<title>before${reference}after</title>`,
+      `<title>fallback</title><meta property="og:title" content="before${reference}after">`,
+    ]) {
+      assert.equal(previewTitle(html), expected, reference);
+      assert.deepEqual(await previewLink('https://example.com/numeric', async () => htmlResponse(html)),
+        {title: expected, image: null, source: null}, reference);
+    }
+    assert.equal(previewImageUrl(`<meta name="twitter:image" content="/before${reference}after.png">`, 'https://example.com/page'),
+      new URL(`/before${decoded}after.png`, 'https://example.com').href, reference);
+  }
+});
+
 test('youtube and open-graph previews normalize a thumbnail', async () => {
   const seen: string[] = [];
   const fetcher: PreviewFetch = async input => {
@@ -199,4 +224,19 @@ test('remote thumbnails sniff the bytes and drop animation or gif', async () => 
   const wide = await normalizeRemoteThumbnail(bulky);
   assert.ok(wide.length > 16 && wide.length <= 512 * 1024);
   await assert.rejects(normalizeRemoteThumbnail(Buffer.alloc(5 * 1024 * 1024 + 1)));
+});
+
+test('preview title caps never retain half a supplementary character', async () => {
+  for (const [html, expected] of [
+    [`<title>${'a'.repeat(118)}&#1114112;&#128512;</title>`, 'a'.repeat(118) + '�'],
+    [`<title>${'a'.repeat(117)}&#1114112;&#128512;</title>`, 'a'.repeat(117) + '�😀'],
+    [`<title>${'a'.repeat(119)}&#128512;tail</title>`, 'a'.repeat(119)],
+    [`<title>${'a'.repeat(118)}&#128512;tail</title>`, 'a'.repeat(118) + '😀'],
+  ]) assert.equal(previewTitle(html), expected);
+  const title = 'a'.repeat(119) + '😀tail';
+  const youtube = await previewLink('https://www.youtube.com/watch?v=e2eDemo0001', async input =>
+    input.startsWith('https://www.youtube.com/oembed')
+      ? new Response(JSON.stringify({title}), {headers: {'content-type': 'application/json'}})
+      : new Response(null, {status: 404}));
+  assert.deepEqual(youtube, {title: 'a'.repeat(119), image: null, source: null});
 });
