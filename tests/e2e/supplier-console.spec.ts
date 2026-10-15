@@ -97,7 +97,7 @@ test('SC-E2E-01 supply-only supplier completes the S1 journey from the guild to 
     await expect(consoleRoot.getByText('請先完成商品庫設定，其他頁面暫時停用。', {exact: true})).toBeVisible();
     const nav = a.getByRole('navigation', {name: '營運中心', exact: true});
     await expect(nav.getByRole('link')).toHaveCount(0);
-    await expect(nav.locator('[aria-disabled="true"]')).toHaveCount(5);
+    await expect(nav.locator('[aria-disabled="true"]')).toHaveCount(6);
     await expect(consoleRoot.locator('form')).toHaveCount(1);
     const setupForm = a.getByRole('form', {name: '建立供貨商品庫', exact: true});
     await expect(setupForm).toBeVisible();
