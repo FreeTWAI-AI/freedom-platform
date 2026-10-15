@@ -13904,8 +13904,8 @@
     },
     {
       "path": "docs/development/event-highlights.md",
-      "bytes": 8400,
-      "sha256": "31667d2a7f03c6a6be923c4e0b7e49c4dabd39f3ce87e03a8403a40559c869c8"
+      "bytes": 8747,
+      "sha256": "16680eda582522613ba78a09c1a99e988b2a8feb12867ae81da3a5ef2a1007a1"
     },
     {
       "path": "docs/development/event-video-worker.md",
@@ -17679,8 +17679,8 @@
     },
     {
       "path": "modules/community/event-highlights.ts",
-      "bytes": 38524,
-      "sha256": "c2cdbd3a4215e7abfef53decd4a13031bfbc3c0a14296425b39c427c767e961e"
+      "bytes": 38595,
+      "sha256": "9272ed0a0d26d24096f45972bb2a2e885dd332cb03ebb907b3d72ba652b5bcd8"
     },
     {
       "path": "modules/community/event-outcomes-page.ts",
@@ -21909,8 +21909,8 @@
     },
     {
       "path": "tests/runtime/event-highlights.test.ts",
-      "bytes": 43968,
-      "sha256": "557a54f4269e2d91b084ade94fb35361e7e30da11e293e9295cc0a1a1f85fb88"
+      "bytes": 44929,
+      "sha256": "53fa0f3b0c5647b75ef660de43b1780b43a137d99ac891e3578f96e54923f849"
     },
     {
       "path": "tests/runtime/event-outcomes.test.ts",
