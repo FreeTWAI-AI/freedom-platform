@@ -35,6 +35,7 @@ const input = z.object({
 type PostRow = {
   topic:string; location_name:string|null; tags:string[]; mentions:SocialMention[]; read_count:number;
   post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; title: string; note: string | null; created_at: Date | string;
+  created_cursor: string;
   edited_at: Date | string | null; edit_revision: number;
   author_user_id: string; display_name: string; aggregate_version: string | null; has_avatar: boolean; test_account: boolean;
   has_thumbnail: boolean; total_points: number; my_points: number; like_count: number; comment_count: number; liked: boolean;
@@ -63,7 +64,7 @@ function view(row: PostRow, viewerId: string): SocialPostView {
   };
 }
 
-const LIST = `SELECT (SELECT count(*)::int FROM community_social_reads r WHERE r.post_id=p.post_id) AS read_count, p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.topic,p.location_name,p.tags,p.mentions,p.edited_at,p.edit_revision,p.author_user_id,u.display_name,
+const LIST = `SELECT to_char(p.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor, (SELECT count(*)::int FROM community_social_reads r WHERE r.post_id=p.post_id) AS read_count, p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.topic,p.location_name,p.tags,p.mentions,p.edited_at,p.edit_revision,p.author_user_id,u.display_name,
   (SELECT count(*)::int FROM community_social_likes l WHERE l.post_id=p.post_id) AS like_count,
   EXISTS(SELECT 1 FROM community_social_likes l WHERE l.post_id=p.post_id AND l.user_id=$2) AS liked,
   (SELECT count(*)::int FROM community_social_comments c WHERE c.post_id=p.post_id AND c.state='active') AS comment_count,
@@ -105,8 +106,8 @@ export async function listSocialPosts(pool: Pool|PoolClient, actor: Actor, query
       AND ($4::timestamptz IS NULL OR (p.created_at,p.post_id)<($4::timestamptz,$5::uuid))
     ORDER BY p.created_at DESC,p.post_id DESC LIMIT 25`, [actor.community_id, actor.user_id, platforms, cursor?.createdAt ?? null, cursor?.id ?? null, query.kind || null, tag])).rows as PostRow[];
   const page = rows.slice(0, 24).map(row => view(row, actor.user_id));
-  const last = page.at(-1);
-  return { items: page, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.post_id}`).toString('base64url') : null, can_hide: await canHideSocialPosts(pool, actor) };
+  const last = rows[23];
+  return { items: page, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_cursor}\n${last.post_id}`).toString('base64url') : null, can_hide: await canHideSocialPosts(pool, actor) };
 }
 
 export function socialPostDraft(raw: unknown, publicOrigin: string) {
@@ -225,7 +226,7 @@ function commentView(row: CommentRow, actor: Actor): SocialCommentView {
     revision: Number(row.edit_revision), author: {user_id: row.author_user_id, display_name: row.display_name}, mine: row.author_user_id === actor.user_id};
 }
 
-const COMMENTS=`SELECT c.comment_id,c.post_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,c.sticker_id,c.mentions,u.display_name,
+const COMMENTS=`SELECT to_char(c.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor, c.comment_id,c.post_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,c.sticker_id,c.mentions,u.display_name,
  t.image_id,(SELECT count(*)::int FROM community_social_comment_likes l WHERE l.comment_id=c.comment_id) AS like_count,
  EXISTS(SELECT 1 FROM community_social_comment_likes l WHERE l.comment_id=c.comment_id AND l.user_id=$5) AS liked
  FROM community_social_comments c JOIN users u ON u.user_id=c.author_user_id
@@ -244,8 +245,8 @@ export async function listSocialComments(pool: Pool|PoolClient, actor: Actor, id
       AND ($3::timestamptz IS NULL OR (c.created_at,c.comment_id)>($3::timestamptz,$4::uuid))
     ORDER BY c.created_at,c.comment_id LIMIT 25`, [id, actor.community_id, cursor?.createdAt ?? null, cursor?.id ?? null, actor.user_id])).rows;
   const items = rows.slice(0, 24).map(row => commentView(row, actor));
-  const last = items.at(-1);
-  return {items, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.comment_id}`).toString('base64url') : null};
+  const last = rows[23];
+  return {items, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_cursor}\n${last.comment_id}`).toString('base64url') : null};
 }
 
 export async function createSocialComment(pool: Pool, inputCommand: Command, id: string, now = new Date()) {
