@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {z} from 'zod';
 import {ApiError,type PortalClient} from '../../../../apps/portal-web/src/api';
 import {SupplyCatalogViewSchema,SupplyCatalogSetupInputSchema,SupplyProductInputSchema,SupplyProductUpdateInputSchema,type SupplyCatalogView} from '../../../../contracts/guild-launchpad/v1/hosted-supply-catalog';
-import {SupplierReservationsSchema,SupplierReservationDetailSchema,SupplierChangesSchema,SupplierOverviewSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplierRequestDetailSchema,SupplyProfileUpdateInputSchema,type SupplierProductDetail} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import {SupplierReportSchema,type SupplierReport,SupplierReservationsSchema,SupplierReservationDetailSchema,SupplierChangesSchema,SupplierOverviewSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplierRequestDetailSchema,SupplyProfileUpdateInputSchema,type SupplierProductDetail} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import {DistributionsSchema,SupplyOffersSchema} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {SupplyTermsInputSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms';
 import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
@@ -12,18 +12,23 @@ import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,type Attempt,type Att
 import {holdAttempt,markAttemptUnknown,releaseAttempt,restoreAttempt,consolePhotoTargets,rememberConsolePhoto} from './registry';
 import {editDraft,staleDrafts,discardDraft,reapplyAttempt,type Drafts,type Fields} from './drafts';
 import {leaveDecision} from './leave';
-import {supplierConsoleHref,reservationFilterParams,type ReservationFilters,type ConsoleScope,type SupplierConsoleRoute} from '../ui/route';
+import {defaultReportPeriod,type ReportPeriod,supplierConsoleHref,reservationFilterParams,type ReservationFilters,type ConsoleScope,type SupplierConsoleRoute} from '../ui/route';
 import {commandFields} from '../ui/view';
 export type ReadSlot<T>={state:'idle'|'loading'|'ready'|'failed';data:T|null;asOf:string|null;lastOkAt:string|null;error:string;status?:number};
 const empty:ReadSlot<never>={state:'idle',data:null,asOf:null,lastOkAt:null,error:''};
 export type ListPosition={search:string;filter:string;sort:string;scroll:number;lastId:string|null};
 export type RegisterLeave=(guard:((nextHash:string|null)=>boolean)|null)=>void;
+export function reportMatchesReadKey(data:SupplierReport,scope:ConsoleScope,key:string):boolean {return data.tenant_id===scope.tenantId&&data.instance_id===scope.instanceId&&key===`report:${data.period.from}:${data.period.to}`;}
 export function useSupplierConsoleController({client,userId,scope,route,registerLeave,photosEnabled}:{client:PortalClient;userId:string;scope:ConsoleScope;route:SupplierConsoleRoute;registerLeave:RegisterLeave;photosEnabled:boolean}) {
  const [reads,setReads]=useState<Record<string,ReadSlot<unknown>>>({}),[drafts,setDrafts]=useState<Drafts>({});
  const [attempt,setAttempt]=useState<Attempt|null>(()=>restoreAttempt(client,userId,scope)),[phase,setPhase]=useState<'idle'|'sending'|'held'>(()=>attempt?'held':'idle');
  const [notice,setNotice]=useState(''),[error,setError]=useState(''),[revoked,setRevoked]=useState(false),[conflicts,setConflicts]=useState<Record<string,Attempt>>({}),[rejected,setRejected]=useState<Attempt|null>(null);
  const [pendingReads,setPendingReads]=useState<string[]>([]),[sectionStatus,setSectionStatus]=useState<Record<string,string>>({});
  const [positions,setPositions]=useState<Record<string,ListPosition>>({}),[photoStates,setPhotoStates]=useState<Record<string,{dirty:boolean;blocking:boolean}>>(()=>Object.fromEntries(consolePhotoTargets(client,userId,scope).filter(id=>heldPhotoAttempt(client,userId,{...scope,productId:id})).map(id=>[id,{dirty:true,blocking:true}])));
+ const reportEntry=useRef<{page:string;binding:string;explicit:string;period:ReportPeriod}|null>(null);
+ const reportBinding=`${scope.tenantId}:${scope.instanceId}`,explicitPeriod=route.period?`${route.period.from}:${route.period.to}`:'';
+ if(!reportEntry.current||reportEntry.current.page!==route.page||reportEntry.current.binding!==reportBinding||reportEntry.current.explicit!==explicitPeriod)reportEntry.current={page:route.page,binding:reportBinding,explicit:explicitPeriod,period:route.period??defaultReportPeriod(Date.now())};
+ const reportPeriod=reportEntry.current.period,reportKey=`report:${reportPeriod.from}:${reportPeriod.to}`;
  const lastReservationFilters=useRef<ReservationFilters>({});
  if(route.page==='reservations')lastReservationFilters.current=route.reservation??{};
  const reservationFilters=lastReservationFilters.current,reservationQuery=reservationFilterParams(reservationFilters),filterKey=reservationQuery?.toString()??'invalid';
@@ -40,6 +45,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  const ownerAllowed=owner.state==='ready'&&owner.data!==null;
  const can=(capability:string)=>!revoked&&refusalMark.current===null&&profile?.writable===true&&profile.capabilities.includes(capability)===true;
  function descriptor(key:string):{path:string;schema:z.ZodType;gate?:'write'|'owner'}|null {
+  if(key.startsWith('report:')){const [,from,to]=key.split(':');return {path:'/supplier-console/report?'+new URLSearchParams({from,to}),schema:SupplierReportSchema,gate:'write'};}
   if(key.startsWith('reservation:'))return {path:'/supplier-console/reservations/'+key.slice(12),schema:SupplierReservationDetailSchema,gate:'owner'};
   if(key.startsWith('partner-reservations:'))return {path:'/supplier-console/reservations?'+new URLSearchParams({partner_id:key.slice(21),limit:'5'}),schema:SupplierReservationsSchema,gate:'owner'};
   if(key==='changes'||key.startsWith('changes:'))return {path:'/supplier-console/changes'+(key==='changes'?'':'?'+new URLSearchParams({product_id:key.slice(8)})),schema:SupplierChangesSchema,gate:'write'};
@@ -66,6 +72,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
   try {
    const result=d.schema.safeParse(await client.get(root+d.path,{signal:abort.signal}));if(!result.success)throw new Error('invalid_read');if(!current())return false;
    const data=result.data as Record<string,unknown>;
+   if(key.startsWith('report:')&&!reportMatchesReadKey(result.data as SupplierReport,scope,key))throw new Error('read_target_mismatch');
    if(key==='profile'&&(data.tenant_id!==scope.tenantId||data.instance_id!==scope.instanceId)||key.startsWith('product:')&&(data.product as {product_id:string}).product_id!==key.slice(8)||key.startsWith('partner:')&&(data.partner as {partner_id:string}).partner_id!==key.slice(8)||key.startsWith('request:')&&(data.request as {selection_id:string}).selection_id!==key.slice(8))throw new Error('read_target_mismatch');
    if(key.startsWith('reservation:')&&(data.reservation as {order_id:string}).order_id!==key.slice(12)||key.startsWith('partner-reservations:')&&(data.filter as {partner_id:string}).partner_id!==key.slice(21)||key==='changes'&&data.product_id!==null||key.startsWith('changes:')&&data.product_id!==key.slice(8))throw new Error('read_target_mismatch');
    if(key==='reservations'){
@@ -91,9 +98,9 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  useEffect(()=>{mounted.current=true;generation.current=client.sessionGeneration;refusalMark.current=null;setRevoked(false);commandAbort.current=new AbortController();void read('profile');return()=>{mounted.current=false;tickets.current.forEach(t=>t.abort.abort());commandAbort.current.abort();};},[client,root]);
  useEffect(()=>{if(profile?.setup_state==='ready')void read('owner');},[profile?.setup_state]);
  useEffect(()=>{if(profile?.setup_state!=='ready')return;
-  const keys=route.page==='overview'?['overview','changes']:route.page==='products'?['profile','products',...(photosEnabled?['media']:[])]:route.page==='product'?['product:'+route.id,'changes:'+route.id,...(photosEnabled?['media']:[])]:route.page==='partners'?['partners']:route.page==='partner'?['partner:'+route.id,'partners',...(ownerAllowed?['partner-reservations:'+route.id]:[])]:route.page==='terms'?['requests','offers','products']:route.page==='review'?['request:'+route.id]:route.page==='reservations'&&ownerAllowed?['partners','products']:route.page==='reservation'&&ownerAllowed?['reservation:'+route.id]:route.page==='settings'?['profile']:route.page==='product-new'?['profile','products']:[];
+  const keys=route.page==='overview'?['overview','changes']:route.page==='products'?['profile','products',...(photosEnabled?['media']:[])]:route.page==='product'?['product:'+route.id,'changes:'+route.id,...(photosEnabled?['media']:[])]:route.page==='partners'?['partners']:route.page==='partner'?['partner:'+route.id,'partners',...(ownerAllowed?['partner-reservations:'+route.id]:[])]:route.page==='terms'?['requests','offers','products']:route.page==='review'?['request:'+route.id]:route.page==='reservations'&&ownerAllowed?['partners','products']:route.page==='reservation'&&ownerAllowed?['reservation:'+route.id]:route.page==='reports'?[reportKey]:route.page==='settings'?['profile']:route.page==='product-new'?['profile','products']:[];
   keys.forEach(key=>void read(key));
- },[route.page,route.id,profile?.setup_state,profile?.capabilities.join(','),ownerAllowed,photosEnabled]);
+ },[route.page,route.id,reportKey,profile?.setup_state,profile?.capabilities.join(','),ownerAllowed,photosEnabled]);
  useEffect(()=>{
   if(appliedFilter.current!==filterKey){
    appliedFilter.current=filterKey;setPaging({filterKey,cursors:[undefined]});tickets.current.get('reservations')?.abort.abort();
@@ -165,7 +172,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  function reapply(name:string,current:Fields,version:string){const a=conflicts[name],d=drafts[name];if(!a||!d||locked)return;try{const next=reapplyAttempt(a,{...d,fields:commandFields(a.kind,d.fields)},commandFields(a.kind,current),version);if(!next){discard(name);setNotice('目前資料已包含你的修改。');return;}void send(next);}catch(cause){setError(cause instanceof Error?cause.message:'請檢查欄位格式。');}}
  const position=(name:string):ListPosition=>positions[name]??{search:'',filter:'',sort:'sku',scroll:0,lastId:null};
  const remember=(name:string,changes:Partial<ListPosition>)=>setPositions(old=>({...old,[name]:{...position(name),...changes}}));
- return {client,userId,scope,root,route,photosEnabled,reservationFilters,reads,slot,read,profile,owner,ownerAllowed,can,locked,refused:revoked,phase,attempt,notice,error,rejected,pendingReads,drafts,conflicts,sectionStatus,updateDraft,discard,reapply,save,command,
+ return {client,userId,scope,root,route,photosEnabled,reservationFilters,reportPeriod,reads,slot,read,profile,owner,ownerAllowed,can,locked,refused:revoked,phase,attempt,notice,error,rejected,pendingReads,drafts,conflicts,sectionStatus,updateDraft,discard,reapply,save,command,
   retry:()=>attempt&&void send(attempt),position,remember,cursors,nextPage:(next:string)=>setPaging({filterKey,cursors:[...cursors,next]}),previousPage:()=>setPaging({filterKey,cursors:cursors.length>1?cursors.slice(0,-1):cursors}),
   photoStates,photoState:(id:string,dirty:boolean,blocking:boolean)=>{const pending=!!heldPhotoAttempt(client,userId,{...scope,productId:id});rememberConsolePhoto(client,userId,scope,id,dirty||blocking||pending);photoRef.current={...photoRef.current,[id]:{dirty:dirty||pending,blocking:blocking||pending}};setPhotoStates(photoRef.current);},
   photoSaved:async(id:string)=>{setNotice('已保存照片。');setPendingReads(old=>[...new Set([...old,'product:'+id])]);await Promise.all([read('product:'+id),read('media'),read('products'),read('overview'),...loadedChanges().map(read)]);},

@@ -18,7 +18,13 @@ import {holdAttempt,retainedAttempt,restoreAttempt,releaseAttempt,markAttemptUnk
 import {changedFields,editDraft,staleDrafts,conflictRows,reapplyAttempt,discardDraft} from '../../modules/agent-commerce/supplier-console/state/drafts';
 import {leaveDecision} from '../../modules/agent-commerce/supplier-console/state/leave';
 import {filterProducts,metricText,permissionReason,todoText,partnerLabel,selectionShopLabel,priceGap,PRICE_GAP_NOTE,REVIEW_NOTE,RESERVATION_NOTE,commandFields,fieldLabels,attemptFieldText} from '../../modules/agent-commerce/supplier-console/ui/view';
-import {ApiError} from '../../apps/portal-web/src/api';
+import {Reports,reportPeriodError} from '../../modules/agent-commerce/supplier-console/ui/pages/Reports';
+import {fetchSupplierReportCsv} from '../../modules/agent-commerce/supplier-console/ui/report-download';
+import {taipeiToday,defaultReportPeriod} from '../../modules/agent-commerce/supplier-console/ui/route';
+import {reportMatchesReadKey} from '../../modules/agent-commerce/supplier-console/state/useSupplierConsoleController';
+import {MEMBER_ACCESS_EXPIRED_MESSAGE} from '../../apps/portal-web/src/access-fetch';
+import {SupplierReportSchema,type SupplierReport} from '../../contracts/guild-launchpad/v1/supplier-console';
+import {PortalClient,ApiError} from '../../apps/portal-web/src/api';
 import type {SupplierProduct} from '../../contracts/guild-launchpad/v1/supplier-console';
 import type {Distribution} from '../../contracts/guild-launchpad/v1/hosted-distribution';
 const t='11111111-1111-4111-8111-111111111111',i='22222222-2222-4222-8222-222222222222',id='33333333-3333-4333-8333-333333333333',other='44444444-4444-4444-8444-444444444444';
@@ -31,7 +37,7 @@ test('SC-UI-01 every page and detail route round-trips canonical links',()=>{
 });
 test('SC-UI-02 invalid scopes fall through and invalid inner paths stay inside the shell',()=>{
  for(const path of ['#stores/supply',`#stores/no/${i}/supply`,`#stores/${t}/no/supply`,`#stores/${t}/${i}/store`,`#stores/${t}/${i}/supply-extra`])assert.equal(parse(path),null,path);
- for(const path of ['/reports','/products/bad','/products/'+id+'/x','/partners/new','/terms/bad','/settings/x','/'])assert.equal(parse(root+path)?.page,'not-found',path);
+ for(const path of ['/reports/x','/products/bad','/products/'+id+'/x','/partners/new','/terms/bad','/settings/x','/'])assert.equal(parse(root+path)?.page,'not-found',path);
 });
 test('SC-UI-03 query whitelist is products-only and unknown input does not change scope',()=>{
  assert.deepEqual(parse(root+'/products?state=offered&sort=available&search=private'),{...scope,page:'products',titleKey:'supplierConsole.products',state:'offered',sort:'available'});
@@ -45,8 +51,8 @@ test('SC-UI-04 canonical query order and leave scope include the reservations al
 });
 test('SC-UI-05 navigation derives one list from capability and confirmed ownership',()=>{
  assert.deepEqual(consoleNavigation(['store:read'],true).map(p=>p.page),['overview','settings']);
- assert.deepEqual(consoleNavigation(['store:read','store:write'],false).map(p=>p.page),['overview','products','partners','terms','settings']);
- assert.deepEqual(consoleNavigation(['store:read','store:write'],true).map(p=>p.page),['overview','products','reservations','partners','terms','settings']);
+ assert.deepEqual(consoleNavigation(['store:read','store:write'],false).map(p=>p.page),['overview','products','partners','terms','reports','settings']);
+ assert.deepEqual(consoleNavigation(['store:read','store:write'],true).map(p=>p.page),['overview','products','reservations','partners','terms','reports','settings']);
  assert.equal(SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='product')?.parent,'products');
 });
 test('SC-UI-06 attempt is an independent deeply frozen snapshot with a stable retry tuple',()=>{
@@ -278,4 +284,133 @@ test('SC-UI-S2-11 new overview history leaves the original to-do list and exact 
  assert.equal((partner.match(/<h3>/g)??[]).length,1);assert.ok(partner.includes('相關預留'));assert.ok(partner.includes('供貨小計 $450.00'));
  const denied=renderPresentation(createElement(Partner,{c:presentationController({['partner-reservations:'+id]:readySlot(reservationData)},{route:parse(href(scope,'partner',{id})),ownerAllowed:false})}));
  assert.ok(denied.includes('只有業務空間擁有者可以查看預留'));assert.ok(!denied.includes('供貨小計'));
+});
+
+test('SC-UI-S3-01 report period links round-trip, ignore other keys and discard invalid or partial periods',()=>{
+ const period={from:'2024-02-01',to:'2024-02-29'},path=href(scope,'reports',{period});
+ assert.equal(path,root+'/reports?from=2024-02-01&to=2024-02-29');
+ assert.deepEqual(parse(path),{...scope,page:'reports',titleKey:'supplierConsole.reports',period});
+ assert.deepEqual(parse(path+'&state=offered&sort=sku&private=ignored'),parse(path));
+ for(const query of ['from=2024-02-01','to=2024-02-29','from=2024-02-30&to=2024-03-01','from=2024-03-01&to=2024-02-29','from=1999-12-31&to=2000-01-01','from=2024-01-01&to=2025-01-01'])assert.equal(parse(root+'/reports?'+query)?.period,undefined,query);
+ assert.equal(parse(root+'/products?from=2024-02-01&to=2024-02-29')?.period,undefined);
+ assert.equal(href(scope,'reports',{period:{from:'bad',to:period.to}}),root+'/reports');
+ assert.equal(href(scope,'products',{period}),root+'/products');
+ assert.equal(parse(root+'/reports/x')?.page,'not-found');
+ assert.deepEqual(parse(root+'/reports?from=2024-01-01&to=2024-12-31')?.period,{from:'2024-01-01',to:'2024-12-31'});
+});
+test('SC-UI-S3-02 management navigation and translations follow store write access',()=>{
+ for(const owner of [false,true]){
+  assert.deepEqual(consoleNavigation(['store:read'],owner).map(p=>p.page),['overview','settings']);
+  const nav=consoleNavigation(['store:write'],owner);assert.deepEqual(nav.filter(p=>p.group==='管理').map(p=>p.page),['reports','settings']);assert.equal(nav.filter(p=>p.page==='reports').length,1);
+ }
+ assert.equal(SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='reports')?.requires,'write');
+ assert.deepEqual(interfaceMessages['supplierConsole.reports'],['營運報表','Operations report','運営レポート','운영 보고서','Informe de operaciones']);
+});
+test('SC-UI-S3-03 Taipei today and the inclusive thirty-day default ignore process time zone',()=>{
+ const before=process.env.TZ;
+ try{for(const zone of ['UTC','Asia/Taipei','America/Los_Angeles','Pacific/Honolulu','Europe/Berlin']){
+  process.env.TZ=zone;
+  for(const [instant,today,from] of [
+   ['2026-10-15T15:59:59.999Z','2026-10-15','2026-09-16'],['2026-10-15T16:00:00.000Z','2026-10-16','2026-09-17'],
+   ['2024-02-28T16:00:00.000Z','2024-02-29','2024-01-31'],['2024-02-29T16:00:00.000Z','2024-03-01','2024-02-01'],
+   ['2024-12-31T15:59:59.999Z','2024-12-31','2024-12-02'],['2024-12-31T16:00:00.000Z','2025-01-01','2024-12-03'],
+  ]){assert.equal(taipeiToday(Date.parse(instant)),today,zone);assert.deepEqual(defaultReportPeriod(Date.parse(instant)),{from,to:today},zone);}
+ }}finally{if(before===undefined)delete process.env.TZ;else process.env.TZ=before;}
+});
+const reportPeriod={from:'2026-10-01',to:'2026-10-15'},reportKey='report:2026-10-01:2026-10-15';
+const reportFixture=():SupplierReport=>SupplierReportSchema.parse({profile:'freedom.supplier-console.report/v1',tenant_id:t,instance_id:i,as_of:asOf,
+ business:{name:'供貨事業',currency:'TWD'},period:{...reportPeriod,time_zone:'Asia/Taipei',start:'2026-09-30T16:00:00.000Z',end:'2026-10-15T16:00:00.000Z'},
+ products:{total:5,offered:3,not_offered:2,outdated:1,out_of_stock:2},cooperation:{totals:{awaiting:1,sellable:2,changes_requested:3,inactive:4},partner_count:1,partners:[{partner_id:id,name:'合作商店',products:5,cooperation:{awaiting:1,sellable:2,changes_requested:3,inactive:4}}]},
+ reservations:{state:'ready',reserved:{reservations:1,lines:2,quantity:3,supply_total_minor:45000},cancelled:{reservations:0,lines:0,quantity:0,supply_total_minor:0},expired:{reservations:0,lines:0,quantity:0,supply_total_minor:0}},csv_rows:8});
+test('SC-UI-S3-04 report checker rejects scope or period that differs from the read key',()=>{
+ const data=reportFixture();assert.equal(reportMatchesReadKey(data,scope,reportKey),true);
+ for(const changed of [{...data,tenant_id:other},{...data,instance_id:other},{...data,period:{...data.period,from:'2026-10-02'}},{...data,period:{...data.period,to:'2026-10-16'}}])assert.equal(reportMatchesReadKey(changed,scope,reportKey),false);
+ assert.equal(reportMatchesReadKey(data,scope,'report:2026-10-02:2026-10-15'),false);
+});
+test('SC-UI-S3-05 CSV download returns the original blob and period filename with the expected request',async ctx=>{
+ const bytes='\uFEFF"報表","供應商營運報表"\r\n',client=new PortalClient();client.csrfToken='session-a';
+ ctx.mock.method(globalThis,'fetch',async(input:RequestInfo|URL,init:RequestInit)=>{
+  assert.equal(input,`/api/v1/tenants/${t}/storefronts/${i}/supplier-console/report.csv?from=2026-10-01&to=2026-10-15`);assert.equal(init.method,'GET');assert.equal(init.credentials,'same-origin');assert.equal(init.redirect,'manual');assert.equal(new Headers(init.headers).get('Accept'),'text/csv, application/json');assert.equal(new Headers(init.headers).get('X-Requested-With'),'XMLHttpRequest');assert.ok(init.signal);
+  return new Response(bytes,{headers:{'Content-Type':'text/csv; charset=utf-8'}});
+ });
+ const result=await fetchSupplierReportCsv(client,scope,reportPeriod,new AbortController().signal);
+ assert.ok(result.blob instanceof Blob);assert.equal(result.filename,'supplier-report-2026-10-01_2026-10-15.csv');assert.deepEqual(new Uint8Array(await result.blob.arrayBuffer()),new TextEncoder().encode(bytes));
+});
+test('SC-UI-S3-06 CSV 409 preserves the problem detail and code; server failures use generic network copy',async ctx=>{
+ const message='這段期間的報表超過 10,000 列，請縮短期間。';
+ const fetch=ctx.mock.method(globalThis,'fetch',async()=>Response.json({detail:message,code:'report_too_large'},{status:409}));
+ await assert.rejects(fetchSupplierReportCsv(new PortalClient(),scope,reportPeriod,new AbortController().signal),(e:unknown)=>e instanceof ApiError&&e.status===409&&e.message===message&&e.detail===message&&e.code==='report_too_large'&&!e.network);
+ fetch.mock.mockImplementation(async()=>Response.json({detail:'private server diagnostic',code:'server_failure'},{status:500}));
+ await assert.rejects(fetchSupplierReportCsv(new PortalClient(),scope,reportPeriod,new AbortController().signal),(e:unknown)=>e instanceof ApiError&&e.status===500&&e.network&&e.message==='暫時無法產生 CSV，請稍後重試。');
+});
+test('SC-UI-S3-07 a successful non-CSV response is rejected',async ctx=>{
+ ctx.mock.method(globalThis,'fetch',async()=>Response.json({ok:true}));
+ await assert.rejects(fetchSupplierReportCsv(new PortalClient(),scope,reportPeriod,new AbortController().signal),(e:unknown)=>e instanceof ApiError&&e.message==='CSV 回應不完整，請重試。');
+});
+test('SC-UI-S3-08 non-JSON 403 marks Access expiry and clears only the dispatching session',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';let unauthorized=0;client.onUnauthorized=()=>{unauthorized++;};
+ const fetch=ctx.mock.method(globalThis,'fetch',async()=>new Response('<html>Access</html>',{status:403}));
+ await assert.rejects(fetchSupplierReportCsv(client,scope,reportPeriod,new AbortController().signal),(e:unknown)=>e instanceof ApiError&&e.accessExpired&&e.status===403&&e.message===MEMBER_ACCESS_EXPIRED_MESSAGE);
+ assert.equal(client.accessExpired,true);assert.equal(client.csrfToken,null);assert.equal(unauthorized,1);
+ client.csrfToken='session-a';client.accessExpired=false;
+ fetch.mock.mockImplementation(async()=>{client.csrfToken='session-b';return new Response('Access',{status:403});});
+ await assert.rejects(fetchSupplierReportCsv(client,scope,reportPeriod,new AbortController().signal),/登入狀態已改變，未下載 CSV。/);
+ assert.equal(client.csrfToken,'session-b');assert.equal(client.accessExpired,false);assert.equal(unauthorized,1);
+});
+test('SC-UI-S3-09 JSON 401 notifies only the dispatching session and JSON 403 preserves its detail',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';let unauthorized=0;client.onUnauthorized=()=>{unauthorized++;};
+ const fetch=ctx.mock.method(globalThis,'fetch',async()=>Response.json({detail:'登入已過期',code:'session_expired'},{status:401}));
+ await assert.rejects(fetchSupplierReportCsv(client,scope,reportPeriod,new AbortController().signal),(e:unknown)=>e instanceof ApiError&&e.status===401&&e.code==='session_expired'&&e.message==='登入已過期');assert.equal(unauthorized,1);assert.equal(client.csrfToken,null);assert.equal(client.accessExpired,false);
+ client.csrfToken='session-a';fetch.mock.mockImplementation(async()=>{client.csrfToken='session-b';return Response.json({detail:'登入已過期'},{status:401});});
+ await assert.rejects(fetchSupplierReportCsv(client,scope,reportPeriod,new AbortController().signal));assert.equal(unauthorized,1);assert.equal(client.csrfToken,'session-b');
+ fetch.mock.mockImplementation(async()=>Response.json({detail:'目前身分沒有權限',code:'capability_denied'},{status:403}));
+ await assert.rejects(fetchSupplierReportCsv(client,scope,reportPeriod,new AbortController().signal),(e:unknown)=>e instanceof ApiError&&e.status===403&&e.code==='capability_denied'&&e.message==='目前身分沒有權限');assert.equal(unauthorized,1);
+});
+test('SC-UI-S3-10 a generation change while reading CSV bytes returns no blob',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';let finish!:()=>void;
+ const response=new Response(new ReadableStream({start(controller){finish=()=>{controller.enqueue(new TextEncoder().encode('CSV'));controller.close();};}}),{headers:{'Content-Type':'text/csv'}});
+ ctx.mock.method(globalThis,'fetch',async()=>response);
+ const pending=fetchSupplierReportCsv(client,scope,reportPeriod,new AbortController().signal);
+ await new Promise(resolve=>setImmediate(resolve));client.csrfToken='session-b';finish();
+ await assert.rejects(pending,(e:unknown)=>e instanceof ApiError&&e.network&&e.message==='登入狀態已改變，未下載 CSV。');
+});
+test('SC-UI-S3-11 abort rejects even if the transport does not settle and never dispatches a pre-aborted request',async ctx=>{
+ let calls=0,requestSignal:AbortSignal|null|undefined;ctx.mock.method(globalThis,'fetch',async(_input:RequestInfo|URL,init:RequestInit)=>{calls++;requestSignal=init.signal;return new Promise<Response>(()=>{});});
+ const abort=new AbortController(),pending=fetchSupplierReportCsv(new PortalClient(),scope,reportPeriod,abort.signal);abort.abort();
+ await assert.rejects(pending,(e:unknown)=>e instanceof ApiError&&e.network&&e.code==='aborted');assert.equal(requestSignal?.aborted,true);
+ await assert.rejects(fetchSupplierReportCsv(new PortalClient(),scope,reportPeriod,abort.signal));assert.equal(calls,1);
+});
+test('SC-UI-S3-12 sixty-second deadline aborts a stalled download',async ctx=>{
+ ctx.mock.timers.enable({apis:['setTimeout']});let signal:AbortSignal|null|undefined;
+ ctx.mock.method(globalThis,'fetch',async(_input:RequestInfo|URL,init:RequestInit)=>{signal=init.signal;return new Promise<Response>(()=>{});});
+ const pending=fetchSupplierReportCsv(new PortalClient(),scope,reportPeriod,new AbortController().signal);
+ ctx.mock.timers.tick(60_000);
+ await assert.rejects(pending,(e:unknown)=>e instanceof ApiError&&e.network&&e.timedOut&&e.message==='下載等候過久，請稍後重試。');assert.equal(signal?.aborted,true);
+});
+test('SC-UI-S3-13 report period form distinguishes invalid days, reversed periods and more than 366 days',()=>{
+ for(const from of ['', '1999-12-31','2026-02-29','2026-2-01','bad'])assert.equal(reportPeriodError({from,to:'2026-10-15'}),'請輸入有效日期（2000 年以後）。');
+ assert.equal(reportPeriodError({from:'2026-10-16',to:'2026-10-15'}),'期間起不能晚於期間迄，請檢查日期。');
+ assert.equal(reportPeriodError({from:'2024-01-01',to:'2025-01-01'}),'期間最長 366 天，請縮短期間。');
+ assert.equal(reportPeriodError({from:'2024-01-01',to:'2024-12-31'}),null);assert.equal(reportPeriodError({from:'2000-02-29',to:'2000-02-29'}),null);
+});
+function reportController(slot:ReadSlot<unknown>,extra:Record<string,unknown>={}){return presentationController({[reportKey]:slot},{route:parse(root+'/reports'),reportPeriod,client:new PortalClient(),...extra});}
+test('SC-UI-S3-14 report shows no counts or download for idle, loading, failed, refused or 409 reads including stale data',()=>{
+ for(const slot of [{...failedSlot,state:'idle' as const},{...failedSlot,state:'loading' as const},failedSlot,{...failedSlot,status:403},{...failedSlot,status:409,error:'這段期間的報表超過 10,000 列，請縮短期間。'},{...failedSlot,data:reportFixture()}]){
+  const html=renderPresentation(createElement(Reports,{c:reportController(slot)}));assert.ok(!html.includes('商品總數'));assert.ok(!html.includes('合作店家 1 間'));assert.ok(!html.includes('預留筆數'));assert.ok(!html.includes('下載 CSV'));if(slot.state==='failed'){assert.ok(html.includes(slot.error));assert.ok(html.includes('重試'));}
+ }
+ const mismatch={...reportFixture(),tenant_id:other};assert.ok(!renderPresentation(createElement(Reports,{c:reportController(readySlot(mismatch))})).includes('商品總數'));
+ const oldKey=renderPresentation(createElement(Reports,{c:reportController(readySlot(reportFixture()),{reportPeriod:{from:'2026-10-02',to:'2026-10-15'}})}));assert.ok(!oldKey.includes('商品總數'));
+});
+test('SC-UI-S3-15 ready report links products, partners and reservations using the exact Taipei period',()=>{
+ const html=renderPresentation(createElement(Reports,{c:reportController(readySlot(reportFixture()))}));
+ assert.equal((html.match(/<h2/g)??[]).length,1);assert.ok(html.includes('aria-label="報表期間"'));assert.ok(html.includes('期間起（台灣時間）'));assert.ok(html.includes('回到最近 30 天'));assert.ok(html.includes('合作店家 1 間'));assert.ok(html.includes('$450.00'));
+ for(const state of ['offered','not_offered','outdated','out_of_stock'] as const)assert.ok(html.includes(href(scope,'products',{state})));assert.ok(html.includes(href(scope,'partner',{id})));
+ for(const state of ['reserved','cancelled','expired'] as const)assert.ok(html.includes(href(scope,'reservations',{reservation:{state,...reportPeriod}}).replaceAll('&','&amp;')));
+ assert.ok(html.includes('預留供貨金額是數量乘以供貨單價，不是營收、請款、付款或佣金。'));assert.ok(html.includes('本檔不是完整資料匯出，也不是備份或搬家用的資料包。'));assert.ok(html.includes('下載 CSV'));
+ assert.ok(html.indexOf('下載 CSV')>html.indexOf('預留（期間內建立）'));
+});
+test('SC-UI-S3-16 non-owner report omits all reservation rows and truncated partners explain CSV completeness',()=>{
+ const data=reportFixture();data.reservations={state:'unavailable',reason:'owner_required'};data.cooperation.partner_count=201;data.cooperation.partners=Array.from({length:200},(_,n)=>({...data.cooperation.partners[0],partner_id:`partner-${n}`}));
+ const html=renderPresentation(createElement(Reports,{c:reportController(readySlot(data))}));
+ assert.ok(html.includes('只有業務空間擁有者可以查看預留。'));assert.ok(!html.includes('預留筆數'));assert.ok(!html.includes('>查看預留</a>'));assert.ok(!html.includes('預留供貨金額是數量'));assert.ok(html.includes('畫面只列前 200 間，CSV 列出全部店家。'));assert.ok(html.includes('下載 CSV'));
 });
