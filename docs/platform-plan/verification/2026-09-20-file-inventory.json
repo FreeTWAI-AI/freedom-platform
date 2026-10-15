@@ -369,8 +369,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 61003,
-      "sha256": "d7854e2eae4e15eef1286aa922cd7e732b85490fc9ca191aab2dd69c861611d4"
+      "bytes": 61017,
+      "sha256": "e26645bf0e6a2ec0972badfb0424adf47d5fd161621b8780cfae0bfe9a5b2a07"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -3029,8 +3029,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 8380,
-      "sha256": "fab07584c634eac541baa96ca3251557817eac270632199879cda1ac59093e71"
+      "bytes": 8151,
+      "sha256": "34d406113858bbb244e0c73b5dab501dae1317b3eb6bdeb29ced141df51c8efd"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -12199,8 +12199,8 @@
     },
     {
       "path": "contracts/README.md",
-      "bytes": 2855,
-      "sha256": "2cf11abeb990618f2a93fd4f84aa7e8051af6771ca03544220fd9d4569e9504f"
+      "bytes": 3250,
+      "sha256": "bbddc3ff752397a5c18bc98e582c37bd9740c811f4629d3afce64338a62e4208"
     },
     {
       "path": "contracts/common/README.md",
@@ -13113,6 +13113,11 @@
       "sha256": "dcedfdad92fa3eec70390a43f420460ba762d520e548a49d3c69b021a176f305"
     },
     {
+      "path": "contracts/preview/freedom.module.json",
+      "bytes": 1004,
+      "sha256": "77864fe1b06d91d42a25aecb6386517a1a91847c347359b81edb20563fdd0c5e"
+    },
+    {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
       "sha256": "75923a7fa72ed48068f873827d3054388b477c0bdba793cd8dfff03e9fb3a375"
@@ -13994,8 +13999,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69268,
-      "sha256": "a25fbb2f14c08c9e7f98fb7f044f9367fb9496d764f36e88b6f9e4ced0a4c550"
+      "bytes": 70224,
+      "sha256": "cd32bf0c1395e7b7ddab8410b0e271ce6e262c863dc77fc58dfe23670f2e54a9"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -15959,8 +15964,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 26201,
-      "sha256": "3c135f4a75ceed5bd9d9e67c6443730cd4f6030067d7c56f69285ddd23fb75cd"
+      "bytes": 26869,
+      "sha256": "531fc23da789e2896a7ad61d2e132237d36ffd6bce82e8066d4fc8ae751c6c86"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -17819,8 +17824,8 @@
     },
     {
       "path": "modules/community/task-board.ts",
-      "bytes": 2093,
-      "sha256": "98088df376dfa76ca356d1ffe31eb095af56abde6a8b641d8f4eea76353c455c"
+      "bytes": 2839,
+      "sha256": "51053c4912204f8eefc641979b8994edf26cb936e4ba4f17846a1ac03530f7ed"
     },
     {
       "path": "modules/community/attendees/freedom.module.json",
@@ -18579,8 +18584,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 26143,
-      "sha256": "5ce5923e8cb5ca5788c1b00620553b97fbb859125ab76d8003c62e6a32a2890a"
+      "bytes": 26537,
+      "sha256": "fb9434fa18a4c30257369c10906b0c8515f51bc4d83646a47d6c37bb3f08449e"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -19234,8 +19239,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 9126,
-      "sha256": "8a3d541c27e88e24b9ac68254d9bb55b19136681a15c6dfe348b8de05f28eecb"
+      "bytes": 9178,
+      "sha256": "aa03ee1c910919bbc458805de2e76ba058939f8865624d447726816c00b39620"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -21994,8 +21999,8 @@
     },
     {
       "path": "tests/runtime/flows.test.ts",
-      "bytes": 68399,
-      "sha256": "cd3d3b87b08bf041b5c75a6289aead449cf94e8b19446a5cd738cb9d8f308a73"
+      "bytes": 73219,
+      "sha256": "0b3cdae193c1fb4234afbda48730c03d84acaafbdabcb268197545b22310237d"
     },
     {
       "path": "tests/runtime/freedom_env.test.ts",
@@ -22469,8 +22474,8 @@
     },
     {
       "path": "tests/runtime/member-experience.test.ts",
-      "bytes": 39617,
-      "sha256": "653bd78586e759356305be754f76024e032348144b504e7cb47902152d90e55c"
+      "bytes": 39661,
+      "sha256": "76ab445112b59e77e076ffdb22c7a8a567e18e9777bb469f397cfdaad20018f2"
     },
     {
       "path": "tests/runtime/member-model-http-adversarial.test.ts",

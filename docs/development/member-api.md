@@ -361,6 +361,23 @@ network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per networ
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
 
+## Personal contribution records
+
+`GET /api/v1/me/contribution-records?limit=20&offset=0` returns the signed-in
+member's durable community-collaboration acceptance facts. `limit` defaults to
+20 and is capped at 50; `offset` must be a non-negative integer. The response
+keeps `policy: accepted_work_facts_v1`, the exact full `accepted_count`, and the
+existing private entry fields, plus `next_offset` (`null` on the final or an
+empty trailing page). Entries are ordered by `accepted_at` descending and
+`contribution_id` descending for stable timestamp ties.
+
+The reader holds the current member session and executes the count and bounded
+page in one PostgreSQL statement on the same transaction client. A relation
+wait that crosses session expiry returns `401 session_expired` without a
+partial page. Records remain scoped to the actor and community-collaboration
+Work; the shared accepted-work feed and contribution-outcomes API are separate
+projections.
+
 ## Organizer event referral reports
 
 `GET /api/v1/events/:id/referrals` returns sharing members' `user_id`,
