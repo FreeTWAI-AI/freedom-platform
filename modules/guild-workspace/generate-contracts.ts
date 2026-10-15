@@ -183,6 +183,11 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['provider-service-state-input', commerceSetup.ProviderServiceStateInputSchema, 'input', ['fresh_auth_required']],
     ['provider-account', commerceSetup.ProviderAccountViewSchema, 'output', []],
     ['provider-account-page', commerceSetup.ProviderAccountPageSchema, 'output', []],
+    ['store-admission-create-input', commerceSetup.StoreAdmissionCreateInputSchema, 'input', ['independent_active_platform_admin']],
+    ['store-admission-revoke-input', commerceSetup.StoreAdmissionRevokeInputSchema, 'input', ['independent_active_platform_admin']],
+    ['store-admission-query', commerceSetup.StoreAdmissionQuerySchema, 'input', []],
+    ['store-admission', commerceSetup.StoreAdmissionViewSchema, 'output', []],
+    ['store-admission-page', commerceSetup.StoreAdmissionPageSchema, 'output', []],
   ]],
   ['storefront', 'Hosted store inputs, private views and allowlisted public projection. Ordering is not enabled.', [
     ['store-setup-input', storefront.StoreSetupInputSchema, 'input', ['text_trim_and_control_characters', 'slug_lowercase_reserved_unique']],

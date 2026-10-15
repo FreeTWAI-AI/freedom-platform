@@ -1,3 +1,4 @@
+import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { Context } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo';
@@ -34,7 +35,7 @@ function authNetwork(c:Context) {
 export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
-    commerceSettings:options.commerceSettings,commercePorts:options.commercePorts,commerceCredentialKeyring:options.commerceCredentialKeyring,
+    commerceSettings:options.commerceSettings,commercePorts:{admission:createStoreAdmissionPort(providerEnvironment(freedomEnv)),...options.commercePorts},commerceCredentialKeyring:options.commerceCredentialKeyring,
     publicGuideAssets:options.publicGuideAssets,
     storePhotoAssetStore:options.storePhotoAssetStore,storePhotoAssets:options.storePhotoAssets,storePhotoUploadsEnabled:options.storePhotoUploadsEnabled===true,
     shopKeyPolicy:options.shopKeyPolicy??process.env.FREEDOM_SHOP_KEY_POLICY as PlatformRuntime['shopKeyPolicy'],

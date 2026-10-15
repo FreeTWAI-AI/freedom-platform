@@ -1,3 +1,4 @@
+import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
 import {sweepDueCheckoutHolds} from '../../../modules/agent-commerce/checkout/settlement.js';
 import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
@@ -261,6 +262,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     commerceSettings:config.commerceSettings??readCommerceSettings(env),
+    commercePorts:{admission:createStoreAdmissionPort(providerEnvironment(config.freedomEnv))},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',

@@ -17,3 +17,10 @@ export const ProviderServiceViewSchema=z.object({purpose:ProviderPurposeSchema,p
 export const ProviderAccountViewSchema=z.object({account_id:OpaqueId,provider:z.literal('ecpay'),environment:ProviderEnvironmentSchema,
   merchant_id:z.string().regex(/^[0-9]{7,10}$/),version:Version,created_at:IsoTimeSchema,services:z.array(ProviderServiceViewSchema).max(3)}).strict();
 export const ProviderAccountPageSchema=z.object({items:z.array(ProviderAccountViewSchema)}).strict();
+const reason=z.string().trim().min(1).max(500).regex(/^[^\u0000-\u001f\u007f]*$/);
+export const StoreAdmissionCreateInputSchema=z.object({tenant_id:OpaqueId,instance_id:OpaqueId,reason}).strict();
+export const StoreAdmissionRevokeInputSchema=z.object({reason}).strict();
+export const StoreAdmissionQuerySchema=z.object({tenant_id:OpaqueId}).strict();
+export const StoreAdmissionViewSchema=z.object({admission_id:OpaqueId,tenant_id:OpaqueId,instance_id:OpaqueId,environment:ProviderEnvironmentSchema,
+  admitted_at:IsoTimeSchema,admitted_by:OpaqueId,reason,revoked_at:IsoTimeSchema.nullable(),revoked_by:OpaqueId.nullable(),revoke_reason:reason.nullable()}).strict();
+export const StoreAdmissionPageSchema=z.object({items:z.array(StoreAdmissionViewSchema).max(100)}).strict();

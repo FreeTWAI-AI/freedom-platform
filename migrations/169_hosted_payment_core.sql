@@ -84,6 +84,7 @@ BEGIN
     IF NOT EXISTS(SELECT 1 FROM module_release_upgrades u WHERE u.module_key=OLD.module_key
       AND u.from_release_ref=OLD.module_release_ref AND u.from_application_release_ref=OLD.application_release_ref
       AND u.to_release_ref=NEW.module_release_ref AND u.to_application_release_ref=NEW.application_release_ref)
+      -- Stored generated columns are not populated in NEW in a BEFORE trigger.
       OR (to_jsonb(NEW)-'module_release_ref'-'application_release_ref'-'version'-'created_by_principal_kind')
         IS DISTINCT FROM (to_jsonb(OLD)-'module_release_ref'-'application_release_ref'-'version'-'created_by_principal_kind')
       OR NEW.version<>OLD.version+1 THEN
@@ -122,6 +123,10 @@ CREATE INDEX commerce_control_events_store ON commerce_control_events(tenant_id,
 CREATE INDEX commerce_control_events_unjournaled ON commerce_control_events(occurred_at,event_id) WHERE journaled_at IS NULL;
 CREATE FUNCTION preserve_commerce_control_event() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.journaled_at IS NOT NULL THEN RAISE EXCEPTION 'control events start unjournaled' USING ERRCODE='23514'; END IF;
+    RETURN NEW;
+  END IF;
   IF TG_OP='DELETE' OR (to_jsonb(NEW)-'journaled_at') IS DISTINCT FROM (to_jsonb(OLD)-'journaled_at')
     OR (OLD.journaled_at IS NOT NULL AND NEW.journaled_at IS DISTINCT FROM OLD.journaled_at) THEN
     RAISE EXCEPTION 'commerce control events are append only' USING ERRCODE='23514';
@@ -129,7 +134,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-CREATE TRIGGER preserve_commerce_control_event BEFORE UPDATE OR DELETE ON commerce_control_events
+CREATE TRIGGER preserve_commerce_control_event BEFORE INSERT OR UPDATE OR DELETE ON commerce_control_events
   FOR EACH ROW EXECUTE FUNCTION preserve_commerce_control_event();
 
 CREATE TABLE commerce_provider_accounts (
@@ -246,6 +251,10 @@ CREATE TRIGGER preserve_commerce_provider_service BEFORE INSERT OR UPDATE OR DEL
   FOR EACH ROW EXECUTE FUNCTION preserve_commerce_provider_service();
 CREATE FUNCTION preserve_commerce_provider_credential() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.retired_at IS NOT NULL THEN RAISE EXCEPTION 'credentials start unretired' USING ERRCODE='23514'; END IF;
+    RETURN NEW;
+  END IF;
   IF TG_OP='DELETE' OR (to_jsonb(NEW)-ARRAY['key_id','sealed','retired_at']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['key_id','sealed','retired_at'])
     OR ((NEW.key_id IS DISTINCT FROM OLD.key_id)<>(NEW.sealed IS DISTINCT FROM OLD.sealed))
     OR (OLD.retired_at IS NOT NULL AND NEW.retired_at IS DISTINCT FROM OLD.retired_at)
@@ -256,7 +265,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-CREATE TRIGGER preserve_commerce_provider_credential BEFORE UPDATE OR DELETE ON commerce_provider_credentials
+CREATE TRIGGER preserve_commerce_provider_credential BEFORE INSERT OR UPDATE OR DELETE ON commerce_provider_credentials
   FOR EACH ROW EXECUTE FUNCTION preserve_commerce_provider_credential();
 CREATE FUNCTION require_commerce_storefront_instance() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -299,6 +308,10 @@ CREATE INDEX commerce_entry_routes_store ON commerce_entry_routes(tenant_id,inst
 CREATE INDEX commerce_entry_routes_expiry ON commerce_entry_routes(expires_at) WHERE revoked_at IS NULL AND expires_at IS NOT NULL;
 CREATE FUNCTION preserve_commerce_entry_route() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.revoked_at IS NOT NULL THEN RAISE EXCEPTION 'entry routes start unrevoked' USING ERRCODE='23514'; END IF;
+    RETURN NEW;
+  END IF;
   IF TG_OP='DELETE' OR (to_jsonb(NEW)-'revoked_at') IS DISTINCT FROM (to_jsonb(OLD)-'revoked_at')
     OR (OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at) THEN
     RAISE EXCEPTION 'commerce entry routes are retained' USING ERRCODE='23514';
@@ -306,5 +319,45 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-CREATE TRIGGER preserve_commerce_entry_route BEFORE UPDATE OR DELETE ON commerce_entry_routes
+CREATE TRIGGER preserve_commerce_entry_route BEFORE INSERT OR UPDATE OR DELETE ON commerce_entry_routes
   FOR EACH ROW EXECUTE FUNCTION preserve_commerce_entry_route();
+
+-- Independent platform admission is a non-PII control decision, read before
+-- tenant context is known on public checkout. It does not verify a payment.
+CREATE TABLE commerce_store_admissions (
+  admission_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  environment text NOT NULL CHECK(environment IN ('sandbox','live')),
+  admitted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  admitted_by uuid NOT NULL REFERENCES platform_admins(admin_id),
+  reason text NOT NULL CHECK(char_length(reason) BETWEEN 1 AND 500 AND char_length(btrim(reason))>0),
+  revoked_at timestamptz,
+  revoked_by uuid REFERENCES platform_admins(admin_id),
+  revoke_reason text CHECK(revoke_reason IS NULL OR (char_length(revoke_reason) BETWEEN 1 AND 500 AND char_length(btrim(revoke_reason))>0)),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
+  CHECK((revoked_at IS NULL AND revoked_by IS NULL AND revoke_reason IS NULL)
+    OR (revoked_at IS NOT NULL AND revoked_by IS NOT NULL AND revoke_reason IS NOT NULL AND revoked_at>=admitted_at))
+);
+CREATE UNIQUE INDEX commerce_store_admissions_one_active ON commerce_store_admissions(instance_id,environment) WHERE revoked_at IS NULL;
+CREATE INDEX commerce_store_admissions_tenant ON commerce_store_admissions(tenant_id,instance_id,admitted_at DESC,admission_id DESC);
+CREATE INDEX commerce_store_admissions_admitted_by ON commerce_store_admissions(admitted_by);
+CREATE INDEX commerce_store_admissions_revoked_by ON commerce_store_admissions(revoked_by) WHERE revoked_by IS NOT NULL;
+CREATE TRIGGER require_commerce_admission_storefront BEFORE INSERT ON commerce_store_admissions
+  FOR EACH ROW EXECUTE FUNCTION require_commerce_storefront_instance();
+CREATE FUNCTION preserve_commerce_store_admission() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.revoked_at IS NOT NULL THEN RAISE EXCEPTION 'admissions start unrevoked' USING ERRCODE='23514'; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP='DELETE' OR (to_jsonb(NEW)-ARRAY['revoked_at','revoked_by','revoke_reason'])
+    IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['revoked_at','revoked_by','revoke_reason'])
+    OR (OLD.revoked_at IS NOT NULL AND NEW IS DISTINCT FROM OLD) THEN
+    RAISE EXCEPTION 'store admissions and revocations are retained' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_store_admission BEFORE INSERT OR UPDATE OR DELETE ON commerce_store_admissions
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_store_admission();

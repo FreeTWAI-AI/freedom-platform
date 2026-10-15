@@ -40,7 +40,7 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
     WHERE c.checkout_id=$1 AND p.storefront_shop_id=$2`,[input.checkoutId,store.storefront_shop_id])).rows[0];
   requireCondition(peek,404,'checkout_not_found','找不到結帳。');
   const context=await lockStore(q,store,(peek.terms as CheckoutTerms).items.map(l=>l.sku)),p=context.profile;
-  requireCondition(await (ports.admission??defaultAdmission).allowed(p),409,'checkout_not_enabled','尚未開放線上付款。');
+  requireCondition(await (ports.admission??defaultAdmission).allowed(q,p),409,'checkout_not_enabled','尚未開放線上付款。');
   await settleDueCheckoutHolds(q,(peek.terms as CheckoutTerms).bindings.map(b=>b.item_id),{ordersPerItem:99});
   const c=(await q.query(`SELECT * FROM commerce_checkouts WHERE checkout_id=$1 AND tenant_id=$2 AND instance_id=$3 FOR UPDATE`,[input.checkoutId,p.tenant_id,p.instance_id])).rows[0];
   const hash=hashJSON({checkoutId:input.checkoutId,termsSha256:input.termsSha256,clientOrderId:input.clientOrderId,environment:input.environment});
