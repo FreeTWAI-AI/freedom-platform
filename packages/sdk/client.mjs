@@ -16,7 +16,9 @@ export class PlatformClient {
  async assertCompatible(){
   const info=await this.call('getProtocol');if(info.protocol_sha256!==protocolSha256)throw new TypeError('Platform protocol differs from the pinned contract; update deliberately');this.#compatible=true;return info;
  }
- async call(operationId,{params={},body,idempotencyKey,version}={}){
+ async call(operationId,options={}){
+  const {body,idempotencyKey,version}=options;
+  const ownParams=Object.hasOwn(options,'params')?options.params:undefined,params=ownParams===undefined?{}:ownParams;
   const op=Object.hasOwn(protocol.operations,operationId)?protocol.operations[operationId]:null;if(!op)throw new TypeError('Unknown operation');
   if(operationId==='login')throw new TypeError('Use loginDemo for loopback fixtures; browser auth stays in Platform');
   if(op.body)assertShape(body??{},protocol.schemas[op.body],protocol.schemas);else if(body!==undefined)throw new TypeError('GET operation cannot have a body');
