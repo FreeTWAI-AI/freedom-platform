@@ -53,8 +53,9 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const newerCampaign=await maker.call('createCampaign',{...key(),body:{title:'續頁草稿',audience:'test',goal:'read',draft_text:'test text',source_brief:'synthetic'}});
  const campaignFirst=await maker.call('listCampaigns',{query:{limit:1,offset:0}});
  assert.deepEqual(campaignFirst.items.map(item=>item.campaign_id),[newerCampaign.campaign_id]);assert.equal(campaignFirst.next_offset,1);
- const campaignLast=await maker.call('listCampaigns',{query:{limit:1,offset:campaignFirst.next_offset}});
+ const campaignLast=await maker.call('listCampaigns',{query:Object.assign(Object.create(null),{limit:1,offset:campaignFirst.next_offset})});
  assert.deepEqual(campaignLast.items.map(item=>item.campaign_id),[campaign.campaign_id]);assert.equal(campaignLast.next_offset,null);
+ for(const query of [null,42,'',true,[],new Date(),Object.create({offset:1})])await assert.rejects(maker.call('listCampaigns',{query}),TypeError);
  assert.equal((await maker.call('listProjects')).items.length,0);assert(Array.isArray((await maker.call('listWorks')).items));await maker.call('getDashboard');
  await maker.call('logout',{body:{}});await assert.rejects(maker.call('getSession'),{status:401});await seller.call('logout',{body:{}});
 });

@@ -23,11 +23,12 @@ export class PlatformClient {
   const expected=[...op.path.matchAll(/\{([^}]+)\}/g)].map(m=>m[1]);
   if(Object.keys(params).some(k=>!expected.includes(k)))throw new TypeError('Unknown path parameter');
   let path=op.path;for(const key of expected){const value=params[key];const pattern=key==='id'?/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i:/^[a-z][a-z0-9_]{1,100}$/;if(typeof value!=='string'||!pattern.test(value))throw new TypeError('Invalid path identifier');path=path.replace(`{${key}}`,encodeURIComponent(value));}
+  if(query!==undefined){if(query===null||typeof query!=='object')throw new TypeError('Query parameters must be a plain object');const prototype=Object.getPrototypeOf(query);if(prototype!==Object.prototype&&prototype!==null)throw new TypeError('Query parameters must be a plain object');}
   const expectedQuery=new Map((op.query??[]).map(item=>[item.name,item]));
   if(!op.query&&query!==undefined)throw new TypeError('Operation does not accept query parameters');
   if(Object.keys(query??{}).some(name=>!expectedQuery.has(name)))throw new TypeError('Unknown query parameter');
   const search=new URLSearchParams();
-  for(const [name,item]of expectedQuery){const value=query?.[name];if(value===undefined){if(item.required)throw new TypeError('Required query parameter missing');continue;}assertShape(value,item.schema,protocol.schemas);search.set(name,String(value));}
+  for(const [name,item]of expectedQuery){const value=query!==undefined&&Object.hasOwn(query,name)?query[name]:undefined;if(value===undefined){if(item.required)throw new TypeError('Required query parameter missing');continue;}assertShape(value,item.schema,protocol.schemas);search.set(name,String(value));}
   if(search.size)path+='?'+search.toString();
   if(op.idempotent&&!/^[A-Za-z0-9_-]{8,128}$/.test(idempotencyKey??''))throw new TypeError('Explicit Idempotency-Key required; reuse it only with the same request');
   if(op.concurrency==='required'&&version===undefined)throw new TypeError('Expected version required');
