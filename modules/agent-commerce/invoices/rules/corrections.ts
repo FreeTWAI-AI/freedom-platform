@@ -232,6 +232,9 @@ export function suggestInvoiceCorrection(
   };
 }
 
+// ECPay B2C VoidWithReIssue 48-hour limit [support 6906] less 2-hour platform buffer
+export const VOID_WITH_REISSUE_WINDOW_MS = 46 * 60 * 60 * 1000;
+
 /**
  * Checks whether an invoice can be corrected via VoidWithReIssue (註銷重開)
  * for incorrect buyer data with an unchanged amount.
@@ -245,6 +248,13 @@ export function canVoidWithReissue(invoice: InvoiceFacts, now: Date): boolean {
   }
   if (!(now instanceof Date) || isNaN(now.getTime())) {
     throw new InvoiceRuleError('Current time must be a valid Date object');
+  }
+
+  if (invoice.uploaded !== 'yes') {
+    return false;
+  }
+  if (now.getTime() > invoice.invoiceAt.getTime() + VOID_WITH_REISSUE_WINDOW_MS) {
+    return false;
   }
 
   const deadline = platformVoidDeadline(invoice.invoiceAt);

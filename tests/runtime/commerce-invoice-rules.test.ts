@@ -925,24 +925,38 @@ describe('5. Corrections: suggestInvoiceCorrection & canVoidWithReissue', () => 
   });
 
   it('verifies canVoidWithReissue branches', () => {
-    const now = new Date('2026-01-10T00:00:00Z');
+    const invoiceAtMs = baseInvoice.invoiceAt!.getTime();
+    const now = new Date(invoiceAtMs + 3600 * 1000); // invoiceAt + 1 h
 
     // 1. Valid case
     assert.equal(canVoidWithReissue(baseInvoice, now), true);
 
-    // 2. Past deadline
+    // 2. Uploaded conditions
+    assert.equal(canVoidWithReissue({ ...baseInvoice, uploaded: 'no' }, now), false);
+    assert.equal(canVoidWithReissue({ ...baseInvoice, uploaded: 'unknown' }, now), false);
+
+    // 3. 46-hour window boundary
+    const exactly46h = new Date(invoiceAtMs + 46 * 3600 * 1000);
+    const past46h1ms = new Date(invoiceAtMs + 46 * 3600 * 1000 + 1);
+    const past7days = new Date(invoiceAtMs + 7 * 24 * 3600 * 1000);
+    assert.equal(canVoidWithReissue(baseInvoice, exactly46h), true);
+    assert.equal(canVoidWithReissue(baseInvoice, past46h1ms), false);
+    assert.equal(canVoidWithReissue(baseInvoice, past7days), false);
+
+    // 4. Past deadline
     assert.equal(canVoidWithReissue(baseInvoice, new Date(platformDeadline.getTime() + 1000)), false);
 
-    // 3. Not ecpay_b2c
+    // 5. Not ecpay_b2c
     assert.equal(canVoidWithReissue({ ...baseInvoice, mode: 'manual_record' }, now), false);
 
-    // 4. Not issued
+    // 6. Not issued
     assert.equal(canVoidWithReissue({ ...baseInvoice, status: 'issuing' }, now), false);
 
-    // 5. Already reissuedWithVoidWithReIssue
+    // 7. Already reissuedWithVoidWithReIssue
     assert.equal(canVoidWithReissue({ ...baseInvoice, reissuedWithVoidWithReIssue: true }, now), false);
 
-    // 6. Has unvoided allowance
+    // 8. Allowances
+    // an effective allowance -> false
     assert.equal(
       canVoidWithReissue(
         {
@@ -953,13 +967,54 @@ describe('5. Corrections: suggestInvoiceCorrection & canVoidWithReissue', () => 
       ),
       false
     );
-
-    // 7. Has only voided allowance -> true
+    // pending_buyer and submitting allowances -> false
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'pending_buyer', amountMinor: 10000 }],
+        },
+        now
+      ),
+      false
+    );
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'submitting', amountMinor: 10000 }],
+        },
+        now
+      ),
+      false
+    );
+    // only a voided allowance -> true
     assert.equal(
       canVoidWithReissue(
         {
           ...baseInvoice,
           allowances: [{ status: 'voided', amountMinor: 10000 }],
+        },
+        now
+      ),
+      true
+    );
+    // expired and cancelled -> true
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'expired', amountMinor: 10000 }],
+        },
+        now
+      ),
+      true
+    );
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'cancelled', amountMinor: 10000 }],
         },
         now
       ),
