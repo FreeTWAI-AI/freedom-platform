@@ -13894,8 +13894,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 30215,
-      "sha256": "46c0c628b2f20ce443bc139656806ae77d86a2ab0adc69a7d9ea3716eacbd206"
+      "bytes": 30654,
+      "sha256": "0086b578a51acdb5979772aac8866acc9555655fbdc862ff34123acba42dde84"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -20949,8 +20949,8 @@
     },
     {
       "path": "tests/e2e/hosted-supply-catalog.spec.ts",
-      "bytes": 59133,
-      "sha256": "cf50940ec40b8e2578de661e629d007e1b63ffc5b83ae160c5dbd56966cb7da8"
+      "bytes": 59460,
+      "sha256": "0b1a4316f0313ef9e209cb8ca9dc17fbe2cc60fea3214c5b83e4ada21a9d1401"
     },
     {
       "path": "tests/e2e/hosted-supply-terms.spec.ts",
