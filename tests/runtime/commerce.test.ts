@@ -125,6 +125,62 @@ test('product and supply snapshot commit once under concurrent idempotent retrie
   assert.equal((await request('/supplier/products',supplier,{...productBody,title:'不同商品'},undefined,key)).data.code,'idempotency_conflict');
 });
 
+test('invalid UTF-8 cannot commit replacement supply terms or reserve a key; corrected text replays unchanged',async()=>{
+  const supplier=await login(),key=randomUUID(),encoder=new TextEncoder();
+  const json=JSON.stringify({...productBody,shipping_terms:'MARK'}),at=json.indexOf('MARK');
+  const prefix=encoder.encode(json.slice(0,at)),suffix=encoder.encode(json.slice(at+4));
+  const facts=async()=>(await pool.query(`SELECT (SELECT count(*)::int FROM catalog_products) products,
+    (SELECT count(*)::int FROM supplier_offer_versions) offers,(SELECT count(*)::int FROM command_receipts) receipts,
+    (SELECT count(*)::int FROM transition_journal WHERE aggregate_type='catalog_product') journal`)).rows[0];
+  const before=await facts();
+  for(const bad of [[0xc0,0xaf],[0xed,0xa0,0x80],[0xe2,0x82],[0x80]]) {
+    const body=new Uint8Array(prefix.length+bad.length+suffix.length);
+    body.set(prefix);body.set(bad,prefix.length);body.set(suffix,prefix.length+bad.length);
+    const rejected=await app.request(origin+'/api/v1/supplier/products',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:supplier.cookie,
+        'X-CSRF-Token':supplier.csrf,'Idempotency-Key':key},body,
+    });
+    assert.equal(rejected.status,400);assert.equal((await rejected.json()).code,'invalid_json');
+    assert.deepEqual(await facts(),before);
+  }
+  const corrected={...productBody,shipping_terms:'繁中😀�\n這是原本就合法的替換字元'};
+  const created=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(created.status,201,JSON.stringify(created.data));
+  assert.equal(created.data.current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  const replay=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(replay.status,201);assert.deepEqual(replay.data,created.data);
+  const listed=await request('/supplier/products',supplier);
+  assert.deepEqual(listed.data.items.map((item:any)=>item.product_id),[created.data.product_id]);
+  assert.equal(listed.data.items[0].current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  assert.deepEqual(await facts(),{products:1,offers:1,receipts:1,journal:1});
+});
+
+test('unpaired JSON surrogates cannot reserve a product command; corrected scalar text persists and replays exactly',async()=>{
+  const supplier=await login(),key=randomUUID();
+  const facts=async()=>(await pool.query(`SELECT (SELECT count(*)::int FROM catalog_products) products,
+    (SELECT count(*)::int FROM supplier_offer_versions) offers,(SELECT count(*)::int FROM command_receipts) receipts,
+    (SELECT count(*)::int FROM transition_journal WHERE aggregate_type='catalog_product') journal`)).rows[0];
+  const before=await facts();
+  for(const invalid of ['\uD800','\uDC00','\uD800x\uDC00']) {
+    const rejected=await request('/supplier/products',supplier,{...productBody,shipping_terms:'配送'+invalid},undefined,key);
+    assert.equal(rejected.status,422);assert.equal(rejected.data.code,'validation_failed');
+    assert.deepEqual(await facts(),before);
+  }
+  const corrected={...productBody,shipping_terms:'繁中😀\uD800\uDC00\uDBFF\uDFFF\n字面\\ud800\\udc00'};
+  const created=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(created.status,201,JSON.stringify(created.data));
+  assert.equal(created.data.current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  const replay=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(replay.status,201);assert.deepEqual(replay.data,created.data);
+  const persisted=await request('/supplier/products',supplier);
+  assert.deepEqual(persisted.data.items.map((item:any)=>item.product_id),[created.data.product_id]);
+  assert.equal(persisted.data.items[0].current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  assert.deepEqual(await facts(),{products:1,offers:1,receipts:1,journal:1});
+  const conflict=await request('/supplier/products',supplier,{...corrected,shipping_terms:corrected.shipping_terms+'!'},undefined,key);
+  assert.equal(conflict.status,409);assert.equal(conflict.data.code,'idempotency_conflict');
+  assert.deepEqual(await facts(),{products:1,offers:1,receipts:1,journal:1});
+});
+
 test('requests use optimistic version and exact digest; races cannot create two acceptances',async()=>{
   const supplier=await login(),seller=await login(DEMO_USERS[2].email),p=await product(supplier),st=await store(seller),l=await listing(seller,p,st),path=`/retail/listings/${l.listing_id}:request-supply`;
   assert.equal((await request(path,seller,{snapshot_sha256:l.snapshot_sha256})).status,428);
