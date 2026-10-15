@@ -17383,9 +17383,19 @@
       "sha256": "0ea1d393f926785474fe779eed95e73c5b7951bcb25008e16e25374573a779b4"
     },
     {
+      "path": "modules/agent-commerce/operations/notifications/README.md",
+      "bytes": 8027,
+      "sha256": "670c3244293d7dcf533a7f461710e6b96343f76fa29219ec804bbabbcf0df62f"
+    },
+    {
       "path": "modules/agent-commerce/operations/notifications/email-port.ts",
       "bytes": 469,
       "sha256": "8fc01bb13b6e48aa4882df51890e6e2ce7cd993d90ce83122a4d269f8e37f465"
+    },
+    {
+      "path": "modules/agent-commerce/operations/notifications/templates.ts",
+      "bytes": 18538,
+      "sha256": "722fbdd8bb6130217c93ceed89ab921b004bd0c9ba3f87e4ca22d22550fa847c"
     },
     {
       "path": "modules/agent-commerce/payments/README.md",
@@ -22376,6 +22386,11 @@
       "path": "tests/runtime/command-core.test.ts",
       "bytes": 11734,
       "sha256": "f329212d4c53396e5dd260d307a8cba3230c64f8781b2cbd374a776e758e24b3"
+    },
+    {
+      "path": "tests/runtime/commerce-email-templates.test.ts",
+      "bytes": 27177,
+      "sha256": "9f3befba061f132cbf707a740d51ad037b081bf445d3a02615265b8316438f24"
     },
     {
       "path": "tests/runtime/commerce-fulfilment-rules.test.ts",
