@@ -737,6 +737,14 @@ while that same event/Email has a live ten-minute pending registration hold.
 The durable hold also protects an explicit retry after provider rejection;
 confirmation can still finalize the offer instead of recording Going/expired.
 An expired hold grants no extension and allows the next candidate to advance.
+While the event is still published and not started, disabling its waitlist
+cancels unconsumed queue entries and offers, not a guest's admitted live hold.
+Invitation workers recheck that policy both when claiming and before handoff;
+retaining the hold must not dispatch a new offer while the waitlist is disabled.
+Capacity reductions retract the newest unconsumed invitations, skipping admitted
+holds already counted as seats instead of clearing their original invitation or
+subtracting that same occupied seat again. Started or cancelled events still
+cancel outstanding offers even when a pending hold exists.
 This does not extend the private invitation-acceptance deadline: a late
 `accept` still returns `409 invitation_unavailable`, even with a live hold.
 
