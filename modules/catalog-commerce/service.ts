@@ -6,11 +6,11 @@ import { requireCondition } from '../../packages/shared/problem.js';
 import { text, money, currency } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
 
-const photoUrl=z.url().max(2000).refine(value=>{
-  const u=new URL(value),host=u.hostname.toLowerCase();
+const photoUrl=z.url().max(2000).pipe(z.string().refine(value=>{
+  const u=new URL(value),rawHost=u.hostname.toLowerCase(),host=rawHost.endsWith('.')?rawHost.slice(0,-1):rawHost;
   const local=/^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[)/.test(host) || host.endsWith('.localhost') || host.endsWith('.local') || !host.includes('.');
   return u.protocol==='https:' && !u.username && !u.password && !local;
-},'照片請使用不含帳密的 HTTPS 網址。').nullable().default(null);
+},'照片請使用不含帳密的 HTTPS 網址。')).nullable().default(null);
 const supplyFields={net_price_minor:money,currency,availability:z.enum(['finite','manual_confirmation']),stock:z.number().int().min(0).max(100000000).nullable(),shipping_terms:text(1500),return_terms:text(1500)};
 const validStock=(b:{availability:string;stock:number|null})=>b.availability==='finite'?b.stock!==null:b.stock===null;
 export const productInput=z.object({title:text(120),photo_url:photoUrl,specifications:text(2000),...supplyFields}).strict().refine(validStock,'有限庫存須填數量；待確認供貨請保留未知數量。');

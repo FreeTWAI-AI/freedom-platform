@@ -1099,6 +1099,60 @@ test('a duplicate social post is not fetched, own-site urls are refused, and the
   assert.equal(previewFetches, beforeLast);
 });
 
+test('raw remote title NUL creates safe posts with original-key replay over HTTP', async () => {
+  let httpApp = app;
+  const server = serve({ hostname: '127.0.0.1', port: 0, fetch: request => httpApp.fetch(request) });
+  try {
+    if (!server.listening) await once(server, 'listening');
+    const httpOrigin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    let page = '', format = 'text/html';
+    httpApp = createApp(pool, httpOrigin, 'local', {
+      linkPreviewFetch: async input => String(input).startsWith('https://i.ytimg.com/')
+        ? new Response(null, { status: 404 })
+        : new Response(page, { headers: { 'Content-Type': format } }),
+    });
+    const login = await fetch(`${httpOrigin}/api/v1/auth/login`, {
+      method: 'POST', headers: { Origin: httpOrigin, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: DEMO_USERS[0].email, password: DEMO_PASSWORD }),
+    });
+    assert.equal(login.status, 200);
+    const { csrf_token: csrf } = await login.json() as { csrf_token: string };
+    const headers = {
+      Origin: httpOrigin, 'Content-Type': 'application/json',
+      Cookie: login.headers.get('set-cookie')!.split(';')[0], 'X-CSRF-Token': csrf,
+    };
+    const cases = [
+      { page: '<title>前\u0000後</title>', format: 'text/html', url: 'https://raw-title.example/html' },
+      { page: '<meta property="og:title" content="前\u0000後">', format: 'text/html', url: 'https://raw-title.example/og' },
+      { page: JSON.stringify({ title: '前\u0000後' }), format: 'application/json', url: 'https://www.youtube.com/watch?v=rawNul00001' },
+      { page: '<title>前\u0000後</title>', format: 'text/html', url: 'https://raw-title.example/explicit', title: '本人標題' },
+      { page: '<title>合法中文 😀</title>', format: 'text/html', url: 'https://raw-title.example/control', title: undefined, expected: '合法中文 😀' },
+      { page: JSON.stringify({ title: '<影片> &amp; 😀' }), format: 'application/json', url: 'https://www.youtube.com/watch?v=rawSafe0001', title: undefined, expected: '<影片> &amp; 😀' },
+      { page: '<title>保留有效標題</title><meta property="og:image" content="https://raw-title.example/\u0000.png">', format: 'text/html', url: 'https://raw-title.example/image', title: undefined, expected: '保留有效標題' },
+    ];
+    for (const entry of cases) {
+      page = entry.page; format = entry.format;
+      const body = JSON.stringify({ url: entry.url, ...(entry.title ? { title: entry.title } : {}) });
+      const key = randomUUID();
+      const send = () => fetch(`${httpOrigin}/api/v1/social-posts`, {
+        method: 'POST', headers: { ...headers, 'Idempotency-Key': key }, body,
+      });
+      const created = await send();
+      assert.equal(created.status, 201, await created.clone().text());
+      const post = await created.json() as { post_id: string; title: string };
+      const title = entry.title ?? entry.expected ?? '前\uFFFD後';
+      assert.equal(post.title, title);
+      assert.deepEqual((await pool.query('SELECT title FROM community_social_posts WHERE post_id=$1', [post.post_id])).rows, [{ title }]);
+      const replay = await send();
+      assert.equal(replay.status, 201);
+      assert.deepEqual(await replay.json(), post);
+    }
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_social_posts')).rows[0].n, cases.length);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
 // The first shareable() read still sees the target. The pause runs before openTarget reads it again.
 async function vanishBetweenReads(match: (sql: string) => boolean, pause: string, id: string, code: string) {
   const live = await app.request(`${origin}/go/${code}`);

@@ -47,6 +47,35 @@ async function setup(){
 const paid=(amount=50000,overrides:any={})=>({event_id:randomUUID(),type:'paid',provider:'synthetic',transaction_ref:randomUUID(),amount_minor:amount,currency:'TWD',mode:'test',verification:'provider_verified_by_merchant',...overrides});
 async function order(f:Awaited<ReturnType<typeof setup>>,quantity=1){const body={external_id:randomUUID(),items:[{selection_id:f.selection.selection_id,quantity,delivery_ref:'synthetic_delivery_ref'}]};const r=await req('/shop-api/v1/orders',body,undefined,f.publicKey);assert.equal(r.status,201,JSON.stringify(r.data));return {o:r.data,body};}
 
+test('shop URLs gate malformed input and private absolute DNS names while preserving public import replay',async()=>{
+ const supplier=await login(),key=randomUUID();
+ const facts=async()=>(await pool.query(`SELECT
+  (SELECT count(*)::int FROM commerce_shops) AS shops,
+  (SELECT count(*)::int FROM commerce_items) AS items,
+  (SELECT count(*)::int FROM command_receipts) AS receipts,
+  (SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+ const before=await facts();
+ for(const value of ['not a URL','/photo','https://','https://[bad]/photo','https://%00.example/photo',
+  'https://public.example.com/'+'a'.repeat(2000),'https://printer.local./photo','https://sub.localhost./photo',
+  'https://printer./photo','https://printer.local%2e/photo','https://public.example.com.:4443/photo','https://public.example.com./photo#part']){
+  const base=internal();
+  for(const manifest of [{...base,website_url:value},{...base,products:[{...base.products[0],photo_url:value}]}]){
+   const rejected=await req('/api/v1/commerce/import',{manifest,confirmed:true},supplier,undefined,key);
+   assert.equal(rejected.status,422,value);assert.equal(rejected.data.code,'validation_failed');
+  }
+ }
+ assert.deepEqual(await facts(),before);
+ const base=internal(),website_url='https://public.example.com./shop?x=1',photo_url='https://public.example.com./photo?size=2';
+ const manifest={...base,website_url,products:[{...base.products[0],photo_url}]},body={manifest,confirmed:true};
+ const created=await req('/api/v1/commerce/import',body,supplier,undefined,key);
+ assert.equal(created.status,201,JSON.stringify(created.data));
+ assert.deepEqual((await req('/api/v1/commerce/import',body,supplier,undefined,key)).data,created.data);
+ assert.deepEqual((await pool.query(`SELECT s.website_url,i.photo_url FROM commerce_shops s
+  JOIN commerce_items i USING(shop_id) WHERE s.shop_id=$1`,[created.data.shop_id])).rows,[{website_url,photo_url}]);
+ assert.equal((await req('/api/v1/commerce/import',{...body,manifest:{...manifest,name:'Changed shop'}},supplier,undefined,key)).status,409);
+ assert.deepEqual(await facts(),{shops:before.shops+1,items:before.items+1,receipts:before.receipts+1,journal:before.journal+1});
+});
+
 test('imported order UUID case preserves reads and payment projections',async()=>{
  const f=await setup(),{o}=await order(f),upper=o.order_id.toUpperCase();
  const canonical=await req(`/shop-api/v1/orders/${o.order_id}`,undefined,undefined,f.publicKey);

@@ -8,6 +8,13 @@ export const socialMetadataInput = {
   location_name: z.string().trim().min(1).max(120).refine(value => !/[\x00-\x1f\x7f]/.test(value)).optional(),
   mention_ids: z.array(z.uuid()).max(10).default([]),
 };
+/** Keep the existing 120 UTF-16-unit limit without cutting a supplementary pair. */
+export function truncateSocialTitle(value:string) {
+  if(value.length<=120)return value;
+  const last=value.charCodeAt(119),next=value.charCodeAt(120);
+  const cut=last>=0xd800&&last<=0xdbff&&next>=0xdc00&&next<=0xdfff?119:120;
+  return value.slice(0,cut);
+}
 export type SocialMention = {user_id:string; display_name:string};
 export function socialTags(text:string) {
   return [...new Set([...text.matchAll(/(?<![\p{L}\p{N}_])#([\p{L}\p{N}_]{1,50})(?![\p{L}\p{N}_])/gu)].map(match=>match[1].toLocaleLowerCase()))].slice(0,20);
