@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir, symlink, truncate } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GUILD_PRESENTATION_PROFILE } from '../guild-presentation-profile.mjs';
+import { cleanupE2ePass } from '../../../scripts/ci/run-pinned-e2e.mjs';
 import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, GUIDE_DEFAULT_FILES, GUIDE_COMPOSITION_PROFILE, planE2eSelection } from '../pinned-e2e.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -184,6 +185,35 @@ async function withFixture(fn) {
   try { await fn(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 const cli = join(repoRoot, 'scripts/ci/run-pinned-e2e.mjs');
+test('Failure diagnostics survive scratch cleanup, are bounded and never follow symlinks', async () => {
+  await withFixture(async root => {
+    const temp = join(root, 'scratch'), output = join(root, 'result.json');
+    await mkdir(join(temp, 'artifacts', 'failed-case'), { recursive: true });
+    await writeFile(join(temp, 'report.json'), '{"errors":["synthetic failure"]}');
+    await writeFile(join(temp, 'artifacts', 'failed-case', 'trace.zip'), 'synthetic trace');
+    await writeFile(join(temp, 'artifacts', 'failed-case', 'screenshot.png'), 'synthetic screenshot');
+    await writeFile(join(root, 'private.txt'), 'must not be copied');
+    await symlink(join(root, 'private.txt'), join(temp, 'artifacts', 'linked.txt'));
+    await symlink(root, join(temp, 'artifacts', 'linked-directory'));
+    await writeFile(join(temp, 'artifacts', 'oversize.zip'), '');
+    await truncate(join(temp, 'artifacts', 'oversize.zip'), 64 * 1024 * 1024 + 1);
+    await cleanupE2ePass(temp, output, 'default', true);
+    await assert.rejects(stat(temp), { code: 'ENOENT' });
+    const [run] = await readdir(output + '.failure-artifacts');
+    const saved = join(output + '.failure-artifacts', run);
+    assert.equal(await readFile(join(saved, 'artifacts', 'failed-case', 'trace.zip'), 'utf8'), 'synthetic trace');
+    assert.equal(await readFile(join(saved, 'artifacts', 'failed-case', 'screenshot.png'), 'utf8'), 'synthetic screenshot');
+    assert.deepEqual(await readdir(join(saved, 'artifacts')), ['failed-case']);
+    assert.equal(JSON.parse(await readFile(join(saved, 'report.json'), 'utf8')).errors[0], 'synthetic failure');
+    const receipt = JSON.parse(await readFile(join(saved, 'diagnostics.json'), 'utf8'));
+    assert.equal(receipt.copied, 3); assert.equal(receipt.omitted, 4); // Missing last-run, symlinks, oversized file.
+    assert.equal(receipt.admission_evidence, false);
+    await mkdir(temp);
+    await cleanupE2ePass(temp, join(root, 'success.json'), 'default', false);
+    await assert.rejects(stat(temp), { code: 'ENOENT' });
+    await assert.rejects(stat(join(root, 'success.json.failure-artifacts')), { code: 'ENOENT' });
+  });
+});
 const invoke = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...cliEnv, ...env }, timeout: 60000 });
 async function baseline(root, omit) {
   await mkdir(join(root, 'tests/e2e'), { recursive: true });

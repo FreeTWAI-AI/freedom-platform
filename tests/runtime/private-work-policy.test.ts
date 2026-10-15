@@ -35,8 +35,8 @@ class Store extends FakeObjectStore {
   gets = 0; onGet?: () => Promise<void>;
   override async get(key: AssetObjectKey) { this.gets++; await this.onGet?.(); return super.get(key); }
 }
-function service(store = new Store()) {
-  return { store, api: createPrivateResultService(pool, { store, resolvePolicy: resolvePrivateWorkPersistencePolicy, maxPendingIntents: 20 }) };
+function service(store = new Store(), resolvePolicy = resolvePrivateWorkPersistencePolicy) {
+  return { store, api: createPrivateResultService(pool, { store, resolvePolicy, maxPendingIntents: 20 }) };
 }
 async function member() {
   const id = randomUUID(), session = randomUUID();
@@ -74,9 +74,9 @@ async function blockedBy(q: PoolClient) {
   }
   assert.fail('Expected real PostgreSQL policy lock wait.');
 }
-async function expired(actor: Actor) {
+async function expired(deadline: string) {
   for (let i = 0; i < 250; i++) {
-    if ((await pool.query('SELECT expires_at<=clock_timestamp() expired FROM sessions WHERE token_hash=$1', [actor.session_hash])).rows[0].expired) return;
+    if ((await pool.query('SELECT $1::timestamptz<=clock_timestamp() expired', [deadline])).rows[0].expired) return;
     await delay(10);
   }
   assert.fail('Expected actual database clock expiry.');
@@ -160,13 +160,19 @@ test('POLICY-09 revision change during external GET denies return after fresh po
   assert.equal((await s.api.readCurrent(f.actor, { workId: f.workId }))?.text, 'SYNTHETIC_PRIVATE_TEXT');
 });
 for (const phase of ['create', 'result-read', 'result-prepare'] as const) test(`POLICY-10 ${phase} waits on policy row then rejects expired session before effect`, async () => {
-  const f = await fixture(), s = service(), lock = await pool.connect(); let pending: Promise<unknown> | undefined;
+  const f = await fixture(), lock = await pool.connect(); let pending: Promise<unknown> | undefined, deadline: string | undefined;
+  // Arm only after member admission, inside the request transaction that owns
+  // the session lock. Updating from another connection here would deadlock.
+  const resolvePolicy: typeof resolvePrivateWorkPersistencePolicy = async (q, context) => {
+    deadline = (await q.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '250 milliseconds' WHERE token_hash=$1 RETURNING expires_at::text AS deadline", [f.actor.session_hash])).rows[0].deadline;
+    return resolvePrivateWorkPersistencePolicy(q, context);
+  };
+  const s = service(new Store(), resolvePolicy), expiringCommands = createPrivateWorkCommands(pool, { resolvePolicy });
   try {
-    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '250 milliseconds' WHERE token_hash=$1", [f.actor.session_hash]);
     await lock.query('BEGIN'); await lock.query('SELECT scope_id FROM private_work_persistence_policy WHERE scope_id=$1 FOR UPDATE', [f.context.scope.scope_id]);
-    pending = phase === 'create' ? commands.create(f.actor, workInput()) : phase === 'result-read' ? s.api.readCurrent(f.actor, { workId: f.workId })
+    pending = phase === 'create' ? expiringCommands.create(f.actor, workInput()) : phase === 'result-read' ? s.api.readCurrent(f.actor, { workId: f.workId })
       : s.api.prepare(f.actor, { key: randomUUID(), targetWorkId: f.workId, expectedVersion: '1', contentType: 'text/plain', byteSize: 1, sha256: 'a'.repeat(64) });
-    void pending.catch(() => {}); await blockedBy(lock); await expired(f.actor); await lock.query('COMMIT');
+    void pending.catch(() => {}); await blockedBy(lock); assert.ok(deadline); await expired(deadline); await lock.query('COMMIT');
     await assert.rejects(pending, status(401)); assert.equal(s.store.gets, 0);
     assert.equal((await pool.query('SELECT count(*)::int n FROM assets WHERE scope_id=$1', [f.context.scope.scope_id])).rows[0].n, 0);
     assert.equal((await pool.query('SELECT count(*)::int n FROM work_items WHERE owner_ref=$1', [f.actor.user_id])).rows[0].n, 1);

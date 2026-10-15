@@ -48,6 +48,15 @@ The completeness result means that the current local artifacts contain the full 
 
 Module descriptors use exact paths or directory `/**` patterns. Impact is the union of baseline and candidate descriptors plus reverse dependencies. Deleting, renaming or shrinking a descriptor cannot subtract baseline scope/tests. Unknown non-document paths select all modules and require a full fallback; missing baseline governance, missing instructions and unmapped surfaces remain explicit blockers. Descriptor references check file existence, **not** actual route registration or ACL behavior.
 
+The CI selector also counts a descriptor's own path when it is not already
+covered. Keep that implicit entry within the existing 64-path schema bound;
+64 unrelated explicit paths plus an uncovered descriptor is invalid, not a
+reason to raise the limit or ignore the descriptor. Files wholly owned in one
+dedicated directory may use its existing `/**` form without dropping coverage.
+The member-card license directory uses that form instead of four individual
+license entries. This broadens conservative impact coverage only; it changes
+neither license bytes, runtime permissions nor baseline/candidate test unions.
+
 The descriptors do not constitute a complete runtime registration audit. The local suite adapters use fixed Node arguments, never descriptor shell commands or package hooks. `governance.unit` runs the contribution-tools tests without database credentials. Runtime adapters require operator-provisioned, disposable PostgreSQL and an **explicit** `TEST_DATABASE_URL` for the CLI, or `testDatabaseUrl` for the library; there is no database discovery or default fallback. Accepted URLs name an `fp_*` database on loopback, optionally with a single absolute Unix-socket `host` parameter. Passwords, remote hosts, duplicate/query connection overrides and non-test database names are rejected. This admission check does not establish that a server is disposable: the operator must provide an isolated test-only server, never a production service that happens to have a matching name. Runtime tests own fresh `fp_*` schemas/roles and their teardown; forced termination can leave test data to clean up on that disposable server.
 
 The fixed registry in `runtime-suites.mjs` maps these existing IDs:
@@ -62,6 +71,7 @@ The fixed registry in `runtime-suites.mjs` maps these existing IDs:
 | `runtime.work` | `flows`, `benefits`, `co-creation` |
 | `runtime.work-privacy` | `work-privacy` |
 | `runtime.personal-content` | `personal-content`, `community-relations`, `community-search`, `work-privacy` |
+| `runtime.preview-protocol` | `preview-protocol` |
 | `runtime.full` | All baseline runtime files **plus newly added** direct `tests/runtime/*.test.ts` files |
 
 `e2e.harness` is a separate fixed adapter. It is not a runtime file, so it is not a row in the table above. It runs exactly `scripts/run-e2e.test.mjs` with the same bounded Node reporter, the 60-second non-runtime budget, and no database environment. Neighboring `scripts/**/*.test.mjs` files are not discovered. Deleting that baseline is `suite_files_unavailable` (`not_run`), not a pass. An empty file, a zero-test run, or any skip, TODO, cancellation, or failure does not pass. The verifier report accepts that one `scripts/run-e2e.test.mjs` path and no other `scripts/` test path. This suite checks the Playwright orchestrator. It does not launch a browser. CI's `ui-e2e` job runs `npm run test:e2e` after `npm run build`; that job is the browser evidence, and `verify` does not substitute for it.
@@ -134,13 +144,14 @@ the configuration those entrypoints load. Both accounts have repository admin
 access, checked on 2026-10-13. Ordinary product UI files and product test files
 are not covered by a blanket owner rule.
 
-Bootstrap the ownership file through the existing PR, required `verify` and
-`CodeQL` checks, and independent review before enabling
-`require_code_owner_review` on `main-baseline`. GitHub uses the ownership file
-from the PR's base branch. Once enabled, one eligible non-author owner approval
-is enough; retain stale-review dismissal, approval after the latest push,
-resolved review threads, strict current checks and no bypass actors. Do not
-enable the owner requirement against a base that has no ownership file. See
+The 2026-10-14 15:09 UTC readback of repository ruleset `main-baseline`
+(`25011111`) confirms `require_code_owner_review` is enabled, with at least one
+approval, stale-review dismissal, approval after the latest push, resolved review
+threads, strict App-bound `verify`/`CodeQL` checks and no bypass actors. GitHub
+uses the ownership file from the PR's base branch. The dated observation is in
+[`current-state.json`](../docs/platform-plan/execution/unified-foundation/current-state.json)
+under `governance_current`; the older organization workflow pins are historical.
+Changes to CI controls still require an eligible non-author code owner. See
 [GitHub's code owner rules](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners).
 
 This provides review enforcement for changes to CI controls. Required check
@@ -153,8 +164,8 @@ trust by supplying a report with the right name.
 Candidate application and test code still execute on the test runner. This is
 not an independent sandbox, an authenticated observation publisher, or proof
 that candidate tests cannot forge results. The local GOV-C boundary and future
-publisher profiles below retain their existing limits. This central bootstrap
-does not apply the separately proposed consumer-repository rulesets.
+publisher profiles below retain their existing limits. This central observation
+does not establish the current protection of consumer repositories.
 
 ## Host-owned verification boundary (local GOV-C increment)
 

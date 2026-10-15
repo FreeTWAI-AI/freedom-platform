@@ -188,7 +188,11 @@ npm run guild:test -- modules/guild-supply
 
 選到時的工作是：typecheck、portal-build、guild-registration、公會 runtime（五個檔）、殼層整合 browser（三個檔）、guild-preview（兩個檔）、static-worker。完整 runtime 與完整 browser 不會被選上。source-integrity、CodeQL 與審查仍會跑。
 
-歷史對照只說明路徑存在過：[#467](https://github.com/FreeTWAI/freedom-platform/pull/467) 只改了 `CatalogBlock.tsx`，必要 Verify 388 秒（公會 runtime 38、殼層整合 browser 15、預覽 3，以及 static-worker）。那是 AI 協作的紀錄，不是非核心真人的結果，也不保證下一次的時間。目前組織規則安裝的 PR Verify workflow pin 是 `14f82aa2`。作者不要重寫 inventory。若工具要求去改中央殼層，停下來記入觀察；這條路徑不需要改殼層。
+歷史對照只說明路徑存在過：[#467](https://github.com/FreeTWAI/freedom-platform/pull/467) 只改了 `CatalogBlock.tsx`，必要 Verify 388 秒（公會 runtime 38、殼層整合 browser 15、預覽 3，以及 static-worker）。那是 AI 協作的紀錄，不是非核心真人的結果，也不保證下一次的時間。2026-10-12 的組織規則安裝紀錄使用 `14f82aa2`；這是搬遷前的歷史 workflow pin。
+
+2026-10-14 核對的現況：GitHub Free 的 repository ruleset `main-baseline`（`25011111`）要求綁定來源 App 的 `verify`／`CodeQL` checks 與有效 PR 核准；CI 控制檔依 PR base branch 的 [CODEOWNERS](../../.github/CODEOWNERS) 取得 code-owner review。每次 CI 從 `job.workflow_sha` 取用 runner，這不等於舊 Enterprise 組織固定 workflow SHA 的保證。詳見[目前的 CI 審查方式](../../governance/README.md#github-free-repository-ci-review)。
+
+作者不要重寫 inventory。若工具要求去改中央殼層，停下來記入觀察；這條路徑不需要改殼層。
 
 要記下：有沒有碰到中央殼層、inventory，或找核心作者；GitHub Actions 實際花了多久；哪一則錯誤讓人看不懂。
 
