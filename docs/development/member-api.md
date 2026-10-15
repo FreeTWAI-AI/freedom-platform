@@ -728,6 +728,10 @@ only the existing provider-accepted flow confirms Going and marks the offer
 accepted. Another guest's offer, or an expired offer reassigned to the next
 candidate, cannot be consumed; failure does not send participation mail or
 allocate an extra seat.
+This consumed offer is finalized even if optional participation was switched off
+after it was issued, as on the original member RSVP path. The disabled mode
+still creates no new management capability and does not reconcile the queue;
+successful registration cannot later turn its consumed offer into an expiry.
 
 A new acceptance checks PostgreSQL's current clock after reconciliation and
 eligibility reads, then again after the RSVP, queue/journal and success receipt

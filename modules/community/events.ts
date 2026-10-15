@@ -306,7 +306,7 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     const confirmed=await q.query("UPDATE community_event_guest_rsvps SET state='going',email_sent_at=now() WHERE event_id=$1 AND email=$2 AND registration_attempt_id=$3 AND state IN ('pending','going')",[id,email,registration.attempt_id]);
     requireCondition(confirmed.rowCount===1,409,'event_closed','報名狀態已變更，請重新確認本人狀態。');
     if(registration.capability)await markGuestCapabilityProviderAccepted(q,id,email);
-    if(participationEnabled){await markEventParticipationGoing(q,id,{guest_email:email});await reconcileEventWaitlist(q,id);}
+    await markEventParticipationGoing(q,id,{guest_email:email});if(participationEnabled)await reconcileEventWaitlist(q,id);
     // Provider waits and later writes can outlive the start; only this confirmation rolls back.
     requireCondition((await q.query("SELECT 1 FROM community_events WHERE event_id=$1 AND state='published' AND starts_at>clock_timestamp()",[id])).rowCount===1,409,'event_closed',
       reservation.state==='going'?'活動已開始或取消，原報名狀態未變；這次通知可能已由郵件提供者接受。':'活動已開始或取消，這次報名未確認；通知可能已由郵件提供者接受。');

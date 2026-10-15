@@ -371,17 +371,20 @@ test('the original RSVP consumes its own invitation rather than allocating a sec
   assert.equal(await countEventSeats(pool,eventId),0);
 });
 
-for(const previous of ['missing','cancelled'] as const)test(`public guest registration consumes its own invitation with a ${previous} RSVP`,async()=>{
+for(const participationEnabled of [false,true])for(const previous of ['missing','cancelled'] as const)test(`public guest registration consumes its own invitation with a ${previous} RSVP (participation=${participationEnabled})`,async()=>{
   const email='invited-public@local.test',token=await capability(email);
   if(previous==='cancelled')await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state) VALUES($1,$2,'合成訪客','cancelled')",[eventId,email]);
   assert.equal((await action(token,'join')).result.waitlist?.status,'invited');
   let sent=0;
-  const result=await registerPublicEvent(pool,eventId,{name:'合成訪客',email:email.toUpperCase()},async to=>{assert.equal(to,email);sent++;},'https://example.test',true);
+  const result=await registerPublicEvent(pool,eventId,{name:'合成訪客',email:email.toUpperCase()},async to=>{assert.equal(to,email);sent++;},'https://example.test',participationEnabled);
   assert.deepEqual(result,{registered:true,provider_status:'provider_accepted'});assert.equal(sent,1);
   const current=await readGuestEventParticipation(pool,eventId,token);
   assert.equal(current.rsvp_state,'going');assert.equal(current.waitlist?.status,'accepted');
   assert.equal(await countEventSeats(pool,eventId),1);
   assert.equal((await pool.query('SELECT count(*)::int AS count FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].count,1);
+  await pool.query("UPDATE community_event_waitlist SET invited_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1 AND guest_email=$2",[eventId,email]);
+  await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  assert.equal((await readGuestEventParticipation(pool,eventId,token)).waitlist?.status,'accepted');
 });
 
 test('public guest registration cannot consume another guest invitation or an expired offer reassigned to the next guest',async()=>{
