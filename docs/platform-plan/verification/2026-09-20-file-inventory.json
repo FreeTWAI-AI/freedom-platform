@@ -17308,6 +17308,41 @@
       "sha256": "088131978633b7f249b75a4876b966b5e91beb630acf9db1bf5e45aeb0740109"
     },
     {
+      "path": "modules/agent-commerce/payments/README.md",
+      "bytes": 8579,
+      "sha256": "3477250f034d1a34308ab39e6f44b9054831fbc0cab86063fe4d807846a663ba"
+    },
+    {
+      "path": "modules/agent-commerce/payments/freedom.module.json",
+      "bytes": 665,
+      "sha256": "0839c87f7a364acccb79c27e1bb735d11824ee79ff06b2b81ac90c2d20855ef8"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/allocation.ts",
+      "bytes": 16767,
+      "sha256": "94b9df54254e90ae37811cc0602246da2263fd27e84aa05acc7fef9c8fd45ac3"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/errors.ts",
+      "bytes": 722,
+      "sha256": "bde932baf21e1490dfd12b6be81f2d815c6ed0e8cca35a803a97446348ab415a"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/index.ts",
+      "bytes": 857,
+      "sha256": "ce2d964b433dcd5b9845b5106371b7b0540495e2e97a3f870b3653be3efe3f60"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/types.ts",
+      "bytes": 5113,
+      "sha256": "5e1b4026ffc70e2e7c3489982a4de71207fc1efb131709a3eb455c71714e0516"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/unapplied.ts",
+      "bytes": 2565,
+      "sha256": "3efe17fb0fa34ee1385390bba8990c764ecbcf73ab232a55a1ec8efc07d9b729"
+    },
+    {
       "path": "modules/agent-commerce/portal/freedom.module.json",
       "bytes": 709,
       "sha256": "1cb1ca6c46b2f10976627a2919adcb0020198712d11375d8cf9fb82821c8ffb8"
@@ -22181,6 +22216,11 @@
       "path": "tests/runtime/commerce-invoice-rules.test.ts",
       "bytes": 33004,
       "sha256": "e3a6e227cb9c910e07dd3c4db6fcbb0568c60b04cf5b7356cd1d31ae839932f4"
+    },
+    {
+      "path": "tests/runtime/commerce-refund-rules.test.ts",
+      "bytes": 49820,
+      "sha256": "409abef03456be81f901169640381bcae2560f5089a090c92a6d4f39fd806981"
     },
     {
       "path": "tests/runtime/commerce.test.ts",
