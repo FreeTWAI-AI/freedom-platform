@@ -15193,6 +15193,51 @@
       "sha256": "77dc1821b71cb110aa465632b93d0e178042d4ec76f4c3df5404a852bf573733"
     },
     {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
+      "bytes": 25317,
+      "sha256": "e78bae5bad88f8e6da7847b7eeaf370ec109c7a898b02699d380ca0a18764ec0"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
+      "bytes": 16820,
+      "sha256": "566408505abe3044e01e3d167b07950e5ef11be14e0736244a869042ebe7706e"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
+      "bytes": 28727,
+      "sha256": "173959f6a86e10a6e63814538c41e49dead7dfcb92914590de8ef7d31c1067f5"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
+      "bytes": 29850,
+      "sha256": "4aaa8843e30a166dae7e947748de360e67ac6b866438dc97782f3dda9137961d"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
+      "bytes": 53344,
+      "sha256": "8e8c9b16fcf50ae701046690326e03af93e98f5c03915c058e432844e40479ef"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
+      "bytes": 46468,
+      "sha256": "5931b0ae5f737875024631c3446da995540f354f720da84ac9d1665a82c7375e"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/README.md",
+      "bytes": 3785,
+      "sha256": "305682c1af0a6d0a0d361316bb26d994ed2511bdd6b9ac51b3c2d42818c93fbe"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/decisions.md",
+      "bytes": 5379,
+      "sha256": "cfdf9e02ff431d07d0219b583ec86637fd700d279cc812af98bf08986a4ac68e"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/pages.md",
+      "bytes": 15622,
+      "sha256": "66b25c773f767bd771eed5dd1247fa39e72393d821f3c058c1fad4925baa8a5d"
+    },
+    {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 29780,
       "sha256": "96c9a640bc11907aea39bf0d1727798f8d6858e2bdc29b5783b280248c03be58"
@@ -17056,6 +17101,51 @@
       "path": "modules/agent-commerce/hosted-ui/CommerceTools.tsx",
       "bytes": 2236,
       "sha256": "9fab292e16bff3cbedde7429b75ded6f4a543e2e4426e0d86a57e61941ac1134"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/README.md",
+      "bytes": 8091,
+      "sha256": "2ef2954f8e1858263a64e388d9aeb89c07ad0de0880922b5f55139428db562b3"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/freedom.module.json",
+      "bytes": 599,
+      "sha256": "e1c1a91bdce7a16eb3b6bda7201d5355ea77d1877c51e207c42f80db16fd2cbb"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/buyer.ts",
+      "bytes": 10544,
+      "sha256": "37559f68b430e303b4b9ded961ef896f03c6a81bd803305b8a678dd76ccc4b40"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/corrections.ts",
+      "bytes": 8494,
+      "sha256": "6f48213d04ed7a141b08434c31301e24178d998a888cec3e07cac6a25c19f57b"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/errors.ts",
+      "bytes": 731,
+      "sha256": "f341ef21684e86cc52476f1f6e46900cdf7aa4fc311e40391d635a23a2ab1d71"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/index.ts",
+      "bytes": 831,
+      "sha256": "e8c0be57ae03216948af5dbf05c7deff0fd7f0f85e1b01e833b1e523ee3a522a"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/items.ts",
+      "bytes": 9385,
+      "sha256": "f771f6cfae2b7518b73edbba8511bf4aa01792da4d12a210266ef77b85095fe9"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/period.ts",
+      "bytes": 3223,
+      "sha256": "21006824d78bae65c23dd608e84f7847394fd4991c6b55b207369a7415a3c0ae"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/ubn.ts",
+      "bytes": 1437,
+      "sha256": "088131978633b7f249b75a4876b966b5e91beb630acf9db1bf5e45aeb0740109"
     },
     {
       "path": "modules/agent-commerce/portal/freedom.module.json",
@@ -21736,6 +21826,11 @@
       "path": "tests/runtime/command-core.test.ts",
       "bytes": 11734,
       "sha256": "f329212d4c53396e5dd260d307a8cba3230c64f8781b2cbd374a776e758e24b3"
+    },
+    {
+      "path": "tests/runtime/commerce-invoice-rules.test.ts",
+      "bytes": 33004,
+      "sha256": "e3a6e227cb9c910e07dd3c4db6fcbb0568c60b04cf5b7356cd1d31ae839932f4"
     },
     {
       "path": "tests/runtime/commerce.test.ts",
