@@ -140,6 +140,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 - 輸入：`publication_revision`、`lines[{sku, quantity}]`（1–50 行、每行 1–99、SKU 不重複）、可選 `promotion_code`、可選 `delivery`（方式與地區，用來試算運費）。
 - 輸出：目前 revision；逐行 `{sku, title, options, unit_price_minor, quantity, line_total_minor, state}`，`state` ∈ `ok`／`insufficient`（附可購買上限）／`unavailable`／`revision_changed`；`merchandise_total_minor`、`discounts[]`、`shipping`（每個配送群組的運費或「需要配送資料」）、`total_minor`（運費未定時為 null）。
 - 可售量以唯讀方式計算：N − 未到期的 held − 未結配置（EC-SPEC-03 §2），不在公開 GET／報價時寫入或結算過期保留。
+- 逐行判斷：某個供貨來源不能賣（不在同一社群、停用、未設定）時，只有它的行是 `unavailable`；店本身不能賣才整張報價失敗。`merchandise_total_minor` 只加總 `ok` 與 `revision_changed` 的行；有任何一行是 `insufficient` 或 `unavailable` 時，`total_minor` 也是 null。
 - 限流：每網路每分鐘 60、每店每分鐘 600（EC-SPEC-09 §4）。
 
 ### 5.3 `POST /api/v1/public/stores/:slug/checkouts`
