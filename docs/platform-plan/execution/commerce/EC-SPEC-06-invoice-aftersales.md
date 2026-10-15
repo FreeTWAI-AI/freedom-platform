@@ -151,7 +151,7 @@
 | `donation` 捐贈 | 捐贈碼 | `Donation=1`、`LoveCode`、`CarrierType=""`、`Print=0`；不得有統編 | `^[0-9]{3,7}$` |
 | `company` 公司 | 統編、抬頭；可選手機條碼 | `CustomerIdentifier`、`CustomerName`＝抬頭；有條碼用 `CarrierType=3`，沒有用 `CarrierType=1`；`Print=0`、`Donation=0` | 8 位數字＋財政部檢查碼（依財政部現行公告實作，附來源與測試，WP-06） |
 
-- 每一種都送 `CustomerEmail`（聯絡 Email；會員載具與綠界的開立通知需要）。不送 `CustomerPhone`、`CustomerID`、`CustomerAddr`；`CustomerName` 只在 `company` 送。
+- 每一種都送 `CustomerEmail`（聯絡 Email；會員載具與綠界的開立通知需要；綠界限 80 字元、只能一個信箱 [7896]）。`CustomerID`、`CustomerAddr`、`CustomerPhone` 送空字串（官方範例每個欄位都帶；`CustomerAddr` 只在 `Print=1` 時必填，`CustomerPhone` 只在沒有 Email 時必填 [7896]）。`CustomerName` 只在 `company` 填抬頭，其他類型送空字串。
 - 紙本（`Print=1`，商家自行列印或買家到 KIOSK [7896]）與悠遊卡、一卡通載具（`CarrierType=4／5` 需要卡片隱碼 [53662]）在 C4。
 - 伺服器拒絕混填（例如捐贈又帶統編），回欄位錯誤，不默默丟掉欄位；前端切換類型時清空不適用的欄位（EC-SPEC-01 §7.3）。
 - 輔助查詢：結帳頁在欄位離開時呼叫 `POST …/invoice-checks`（§8.1），伺服器用商家的發票金鑰呼叫 `CheckBarcode` [7886]、`CheckLoveCode` [7891]、`GetCompanyNameByTaxID` [32089]。限流每個 checkout 每分鐘 10 次、每店每分鐘 30 次；超過上限或發票服務暫停（`throttled_until`）時只做本地格式檢查，回 `check_unavailable`，不擋結帳（EC-SPEC-09 §4）。結果以值的雜湊為鍵快取 24 小時，不存原值。
@@ -159,19 +159,19 @@
   - 統編查詢：`1`、`7`（查無登記但檢查碼正確）、`9000001`（財政部系統異常）繼續；`1200125`（檢查碼錯）、`2027000`（格式錯）停止，在欄位提示 [32089]。
   - 逾時（3 秒）或綠界維護：不阻擋，只提示「目前無法即時確認」。查回的公司名稱只當抬頭建議，買家可改。
 - 這些值存在 `commerce_checkout_contacts`（個資表，EC-SPEC-03 §3.1），terms 只存類型；不進分析、journal、outbox payload 與日誌（outbox 只存聯絡資料列的 ID，送出時才讀）。
-- sandbox：綠界 stage 可能真的寄出測試通知 [7896]，所以 sandbox 訂單送出的 `CustomerEmail` 一律換成部署設定的測試信箱，不送買家的真實 Email。
+- sandbox：綠界 stage 可能真的寄出測試通知 [7896]，所以 sandbox 訂單送出的 `CustomerEmail` 一律換成部署設定的測試信箱，不送買家的真實 Email；折讓的 `NotifyMail` 同樣處理。
 
 ### 3.4 開立
 
 - 時點：付款 `confirmed`（EC-SPEC-04 §5.5，伺服器查詢確認）之後，在套用付款的同一個交易內建立發票文件與 `issue` operation。瀏覽器返回、未經查詢確認的通知、模擬付款都不開立（EC-AT19）。延遲開立（`DelayIssue` [15369]）不在 C2。
 - 金額：訂單凍結的應付總額（商品淨額＋運費），等於套用的付款金額。之後的取消與退款一律走更正（§3.7），不在開立前改金額。沒有套用到訂單的付款（溢付、取消後才付）不開票。
 - 提議 `commerce_invoice_documents`：`invoice_id`、零售商 tenant／instance、`order_id`、`mode`、`account_id`（發票服務所屬帳戶）與 `environment`、`relate_number`、品項（提議 `commerce_invoice_lines`）、`sales_amount`、買家資料（指向聯絡資料列）、狀態、綠界回傳的 `InvoiceNo`／`InvoiceDate`／`RandomNumber`、上傳狀態（查詢取得）、`replaces_invoice_id`（作廢重開與註銷重開指向原票）、`version`。
-- `RelateNumber`＝`F`＋19 個 Crockford Base32 大寫字元：20 字、只有英數，自然符合「不分大小寫唯一」[7896]。在帳戶內唯一，作廢後也不重用 [7896]。一份文件一個號碼；重送同一份文件用同一個號碼。
+- `RelateNumber`＝`I`＋19 個 Crockford Base32 大寫字元：20 字、只有英數，自然符合「不分大小寫唯一」[7896]，也在較舊的「新增載具」版頁面的 30 字上限內 [53662]。前綴 `I` 與付款（`F`）、物流（`L`）的交易編號分開。在帳戶內唯一，作廢後也不重用 [7896]。一份文件一個號碼；重送同一份文件用同一個號碼。
 - 狀態：`queued → issuing → issued`；綠界明確拒絕（`TransCode=1` 但 `RtnCode≠1`）→ `failed`；逾時、連線中斷、回應無法驗證 → `unknown`（§3.6）；`issued → voided`。折讓各自一列（§3.7），不改發票的狀態。
-- 成功＝`TransCode=1` 且解密後 `RtnCode=1` [7896]。`TransCode≠1`（信封、時間戳記或解密未受理）以同一份文件退避重送；連續 5 次後暫停這個帳戶的發票送出，改顯示下面的店層級提示（多半是金鑰或設定問題）。`Timestamp` 每次送出時重產（10 分鐘有效 [7896]）。
+- 成功＝`TransCode=1` 且解密後 `RtnCode=1` [7896]。`TransCode≠1`（信封、時間戳記或解密未受理）以同一份文件退避重送；連續 5 次後暫停這個帳戶的發票送出，改顯示下面的店層級提示（多半是金鑰或設定問題）。`Timestamp` 每次送出時重產（10 分鐘有效 [7896]）。`RtnCode` 可能是數字 1 或字串 "1"，兩者都接受。HTTP 403 表示呼叫太頻繁，這個帳戶的所有發票呼叫暫停 30 分鐘 [7854]。HTTP 500 依官方說明多半是格式、金鑰或加密錯誤 [7854]，但無法排除已經開立，所以開立時照「結果不明」處理（§3.6）。
 - `failed` 之後要重開：修正資料後建立新文件（新的 `RelateNumber`），以當下尚未退款的金額開立；舊文件留作紀錄。
 - 發票服務暫停或金鑰失效：文件留在 `queued`；賣家後台概覽與發票頁顯示「發票服務無法使用，{N} 張待開立」與修正入口。這是店層級的提示，不逐張訂單開例外；修正後依建立順序續開。付款與訂單狀態不受影響（計畫 §12.1）。
-- 字軌：開通時以唯讀查詢確認商家已在綠界設定可用的字軌與剩餘號碼（§3.10）；沒有時指引商家到綠界設定（後台或 `AddInvoiceWordSetting` [7870]），平台在 C2 不代設字軌。
+- 字軌：開通時以唯讀查詢確認商家已在綠界設定可用的字軌與剩餘號碼（§3.10）；沒有時指引商家到綠界設定（後台或 `AddInvoiceWordSetting` [7870]），平台在 C2 不代設字軌。開立被拒且代碼是 `5070350` 或 `1500047`（字軌未設定、停用或用完 [7954]）時視同設定問題：暫停這個帳戶的送出並顯示店層級提示，不逐張重試。
 - `manual_record`：文件 `queued` 時在賣家頁顯示「請在站外開立後填寫」；商家填號碼與日期 → `recorded`。平台不驗證真偽，畫面標示「商家自行登錄」。
 - `not_issued`：不建立文件；訂單的發票軸顯示商家的說明。
 
@@ -179,7 +179,7 @@
 
 - 每個訂單行項變成 1～2 個品項，以整數元計算（綠界 profile 保證 L 是整數元，EC-SPEC-04 §2）：淨額 n＝L ÷ 100 元、數量 Q，`base＝⌊n ÷ Q⌋`、`r＝n－base × Q`。`r＝0` 時一項（Q 件 × base 元）；否則兩項（Q－r 件 × base 元，r 件 × (base＋1) 元）。折扣讓每件不到 1 元（`base＝0`）時改成一項「{商品名}（共Q件）」1 × n 元，不送 0 元品項。單價與小計都是整數元，`ItemAmount＝ItemPrice × ItemCount`，合計剛好等於 L，不需要小數單價或負數折扣列（綠界允許小數單價 [7896]，這個 profile 用不到）。例：L＝290 元、Q＝3 → 1 件 × 96 元、2 件 × 97 元。
 - 運費：每個配送群組一項「運費」（1 × F）；F＝0 不列。
-- `ItemName`：商品名＋選項，最多 100 字（折讓的上限 [7901]；開立與折讓用同一個名稱），超過以「…」截斷。`ItemWord` 用設定值。
+- `ItemName`：商品名＋選項，最多 100 字，超過以「…」截斷；開立與折讓用同一個名稱。目前的開立、折讓與註銷重開頁寫 String(500) [7896][49890][7901][7918]，較舊的「新增載具」版開立頁寫 String(100) [53662]，取較小的 100。官方沒有寫長度以字元還是位元組計算，也沒有寫能不能用 emoji，都在 stage 確認（§10）。`ItemWord` 用設定值（最多 6 字 [7896]）。
 - `SalesAmount`＝各品項 `ItemAmount` 的合計（整數元、> 0）[7896]。不送 `TaxAmount`，由綠界計算（自行送時與綠界計算的差距不得超過 1 元 [7896]）。
 - `InvoiceRemark`：「訂單 {顯示用編號}」，方便買家對照，不含個資。
 - 購物車最多 50 行（EC-SPEC-02 §5.2），每行最多 2 個品項，加上每個配送群組一項運費（最多 50 項），合計最多 150 項，少於註銷重開的 200 項上限 [7918]（開立上限 999 [7896]）。
@@ -189,6 +189,7 @@
 
 - `unknown` → 以 `RelateNumber` 呼叫 `GetIssue` [7923]：1、5、15、60 分鐘，之後每 6 小時，直到 24 小時。
 - 查到 → `issued`，記下號碼、日期與隨機碼。這就是同一張票，不會再開。
+- `GetIssue` 回 `RtnCode≠1`（包括查無資料；實際代碼在 stage 確認）當作「查無」；`TransCode≠1` 或 HTTP 錯誤當作這一輪查詢失敗。兩者都照排程繼續查，不因此判定開立失敗。
 - 查無 → 繼續查。60 分鐘後仍查無，可用**同一個** `RelateNumber` 重送：這個號碼在綠界必須唯一 [7896]，若第一次其實已經開成，重送會被拒絕，不會產生第二張；重送被拒時立即再查詢。
 - 綠界對重複 `RelateNumber` 的實際回應（錯誤碼與訊息）在 stage 驗證前未知（§10）。驗證之前 live 不自動重送：24 小時仍未定 → 例外 `invoice_issue_unknown`，請商家到綠界後台核對後附證據結案。
 - 付款事實不變：不重新扣款、不改訂單與付款狀態（EC-AT46、計畫 §12.1）。
@@ -199,9 +200,10 @@
 
 - 發票以兩個月為一期。上一期的發票、折讓只能在**單月 13 日 23:59:59（台灣時間）**以前作廢或註銷重開，例如 1～2 月的票在 3 月 13 日以前 [7906][7911][7918][support 6897]。
 - 已有折讓的發票不能作廢或註銷重開，要先作廢全部折讓 [7906][7918]；已註銷重開過的票不能再以 API 作廢 [7906]。
-- 折讓沒有期限 [support 6897]，但原票必須已上傳財政部（正式環境約開立後 1～2 小時；stage 立即顯示已上傳 [7849]）；一張票最多 50 張折讓、累計不超過原票金額；捐贈的票不能折讓 [7901]。
-- 紙本折讓（`Allowance`）呼叫成功即成立，但商家要印兩份請買受人簽名或蓋章留存 [7901]。線上折讓（`AllowanceByCollegiate`）寄同意連結到 Email，72 小時內買家同意才成立；待同意期間這張票不能再開新折讓，取消要用 `AllowanceInvalidByCollegiate` [15391][7913]。
-- 註銷重開（`VoidWithReIssue`）保留原發票號碼、日期與 `RelateNumber` [7918]。
+- 折讓沒有期限 [support 6897]，但原票必須已上傳財政部（正式環境約開立後 1～2 小時；stage 立即顯示已上傳 [7849]）；累計折讓不超過原票的剩餘可折讓金額 [7901]。「一張票最多 50 張折讓」與「捐贈的票不能折讓」在目前讀過的官方頁面找不到出處；平台先保守照做，並在 stage 或向綠界確認（§10）。
+- 紙本折讓（`Allowance`）呼叫成功即成立，但商家要印兩份請買受人簽名或蓋章留存 [7901]。線上折讓（`AllowanceByCollegiate`）寄同意連結到 Email，72 小時內買家同意才成立，買家點擊前可以取消，取消用 `AllowanceInvalidByCollegiate` [15391][7913][support 8519]。待同意期間平台不對同一張票開新的折讓（平台規則，避免剩餘金額不明）。兩種折讓都送 `AllowanceNotify=E`（線上折讓固定是 E），`NotifyMail`＝聯絡 Email；`CustomerName` 只在 `company` 送抬頭。綠界在隔天把折讓上傳財政部 [7901][15391]。
+- 註銷重開（`VoidWithReIssue`）保留原發票號碼、日期與 `RelateNumber` [7918][support 6897]。綠界後台的 B2C 註銷重開要求原票「已上傳且未超過48小時」[support 6906]；API 頁沒有寫這個條件，平台先照同樣的限制（已上傳、開立後 48 小時內），並在 stage 確認 API 是否同樣限制（§10）。
+- 原因欄位：作廢、作廢折讓、取消線上折讓與註銷重開的原因最多 20 字 [7906][7911][7913][7918]，紙本折讓最多 50 字 [7901]。平台只送固定的中文原因（例如「訂單取消」「退貨退款」「買受人資料更正」），不放買家或商家的自由文字。
 
 更正（提議 `commerce_invoice_corrections`；折讓另存 `commerce_invoice_allowances`＋行項）：
 
@@ -210,7 +212,7 @@
 | `void` | 全額退款 | 作廢期限前（另留 2 小時緩衝）、沒有未作廢的折讓、沒有註銷重開過 |
 | `void_and_reissue_new` | 部分退款，且商家偏好同期作廢重開，或原票是捐贈 | 同上；先作廢原票，確認後才以新的 `RelateNumber` 開立剩餘金額 |
 | `allowance` | 部分或全額退款 | 非捐贈、原票已上傳、折讓未滿 50 張、沒有待同意的線上折讓 |
-| `void_with_reissue` | 買家資料填錯（載具、統編、捐贈碼），金額不變 | 作廢期限前、沒有折讓 |
+| `void_with_reissue` | 買家資料填錯（載具、統編、捐贈碼），金額不變 | 作廢期限前、已上傳且開立後 48 小時內、沒有折讓、沒有註銷重開過 |
 | `manual` | 以上都不適用（例如捐贈票已過作廢期限） | 商家在站外處理後附證據 |
 
 建議（`suggestInvoiceCorrection`，每筆 `confirmed`／`recorded` 的退款算一次；只看期別的單一規則不夠，EC-AT47）：
@@ -230,7 +232,7 @@
 
 ### 3.8 線上折讓同意通知
 
-- `POST /api/v1/provider-callbacks/ecpay/{account_ref}/invoice-allowance`：`application/x-www-form-urlencoded`，欄位 `RtnCode`、`RtnMsg`、`IA_Allow_No`、`IA_Invoice_No`、`IA_Date`、`IIS_Remain_Allowance_Amt`、`CheckMacValue`（MD5）[15391][38242]。不含買家個資。
+- `POST /api/v1/provider-callbacks/ecpay/{account_ref}/invoice-allowance`：`application/x-www-form-urlencoded`，欄位 `RtnCode`、`RtnMsg`、`IA_Allow_No`、`IA_Invoice_No`、`IA_Date`、`IIS_Remain_Allowance_Amt`、`CheckMacValue`（MD5）[15391][38242]。不含買家個資，也不含 `MerchantID`：帳戶只由路徑上的 `account_ref` 決定。只有買家同意（`RtnCode=1`）才會通知 [15391]。
 - 驗證：依帳戶取發票金鑰驗 MD5（官方向量 [38242] 已重算）；`IA_Allow_No` 必須是這個帳戶下 `pending_buyer` 的折讓。寫入事件（提議 `commerce_invoice_events`，去重鍵 (帳戶, `IA_Allow_No`, `RtnCode`)）並把折讓改為 `effective`，交易提交後才回 `1|OK` [15391]。重送只套用一次。
 - 通知可能被擋（staging 需要 Access 排除，由 Ted 操作）或遺失，所以同時用 `GetAllowanceList` 定期查：每 6 小時，到到期後 1 小時 [7928]。
 - 不需要 CSRF；不做 IP 白名單（同 EC-SPEC-04 §9）。
@@ -245,7 +247,9 @@
 ### 3.10 開通、停用與換帳戶
 
 - 帳戶與金鑰共用 EC-SPEC-04 §1（`purpose=invoice`，金鑰與金流、物流不同 [2853]）。
-- 發票服務 `draft → active`：sandbox 以 stage 測試商家（`2000132` [7849]）完成一次開立、查詢、作廢；live 以唯讀查詢確認金鑰與字軌（`GetInvoiceWordSetting` [7881]，欄位在 WP-06 依官方頁核對），再由店主確認開票設定。不為了驗證而開一張真發票。
+- 發票服務 `draft → active`：sandbox 以 stage 測試商家（`2000132` [7849]）完成一次開立、查詢、作廢；live 以唯讀查詢確認金鑰與字軌，再由店主確認開票設定。不為了驗證而開一張真發票。
+  - 字軌查詢 `GetInvoiceWordSetting` [7881]：`InvoiceYear` 是民國年（只能查去年、今年、明年）；`InvoiceTerm` 0 是全部，1～6 是 1–2 月到 11–12 月；`UseStatus` 0 是全部，1 未啟用、2 使用中、3 已停用、4 暫停中、5 待審核、6 審核不通過；`InvoiceCategory` 固定 1（B2C）。每組字軌回傳 `InvoiceHeader`（2 碼）、`InvoiceStart`／`InvoiceEnd`（8 碼）、`InvoiceNo`（目前已使用的號碼）與 `UseStatus`。
+  - 開通條件：本期（台灣時間）有 `InvType=07`、使用中的字軌，且還有號碼（`InvoiceEnd`－`InvoiceNo` > 0；還沒用過時 `InvoiceNo` 的值待 stage 確認）。官方範例的格式有誤（陣列寫成物件、缺逗號），解析以欄位表為準，陣列與單一物件都接受。
 - `suspended`：不開新票；既有發票的查詢與更正照常（在途責任不消失，EC-R56）。
 - 換帳戶（換特店編號）：舊帳戶留在 `suspended` 並保留可用金鑰；舊票的更正一律用開立它的帳戶。商家確認舊票不再需要更正後，舊帳戶才能 `retired`。
 
@@ -445,7 +449,7 @@ Supplier Console 的 SL-05 讀取投影只能用 §5.5 的欄位。
 | 層 | 內容 | 授權 |
 | --- | --- | --- |
 | 向量與契約 | AES 2 組、MD5 1 組；品項拆分與退款分攤；作廢期限（每一期別、11～12 月跨年、台灣時區、緩衝）；更正建議矩陣；買家類型矩陣 | 不需要（不連線） |
-| stage sandbox | 測試商家 `2000132` [7849]：五種買家類型的開立、以 `RelateNumber` 查詢、作廢、紙本與線上折讓（stage 不寄信，在 stage 後台同意 [15391]）、註銷重開、捐贈票的作廢、重複 `RelateNumber` 的回應、輔助查詢 | 需要：連線綠界 stage |
+| stage sandbox | 測試商家 `2000132` [7849]：五種買家類型的開立、以 `RelateNumber` 查詢、作廢、紙本與線上折讓（stage 不寄信，在 stage 後台同意 [15391]）、註銷重開、捐贈票的作廢、重複 `RelateNumber` 的回應、輔助查詢。另外確認：`ItemName` 的長度單位與 emoji；`MerchantID` 送字串是否被接受（部分官方範例寫成數字）；`GetIssue` 查無時的代碼；字軌查詢在號碼還沒用過時的 `InvoiceNo`，以及回傳是陣列還是物件；`VoidModel`／`IssueModel` 是巢狀物件還是 JSON 字串；註銷重開的 48 小時限制；一張票的折讓張數上限與捐贈票能否折讓；HTTP 403 限速只觀察、不刻意觸發 | 需要：連線綠界 stage |
 | 正式 | 商家自己的發票帳戶：唯讀開通查詢；第一筆真實訂單的開立與一次更正由商家確認 | 需要：Ted＋該商家 |
 
 ## 11. 測試（全部 not_run）
