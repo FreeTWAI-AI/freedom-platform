@@ -77,9 +77,54 @@ test('read-only cooperation stays explicit after an active writer loses permissi
     }
     await expect(operatorPage.locator('#store-cooperation-panel')).toContainText('你沒有供貨合作的管理權限');
     await expect(operatorPage.locator('#store-cooperation-panel .hosted-distribution')).toHaveCount(0);
+    await expect(operatorPage.getByRole('link',{name:'預留訂單',exact:true})).toHaveCount(0);
+    await expect(operatorPage.getByRole('link',{name:'供貨訂單',exact:true})).toHaveCount(0);
     await storeArea(operatorPage,'商品');await expect(operatorPage.getByRole('heading',{name:'已合法儲存的商品',exact:true})).toBeVisible();
     await operatorPage.reload();await storeArea(operatorPage,'供貨合作');
     await expect(operatorPage.locator('#store-cooperation-panel')).toContainText('你沒有供貨合作的管理權限');
     await open(page,store.hash);await storeArea(page,'供貨合作');await expect(page.locator('#store-cooperation-panel .hosted-distribution')).toBeVisible();
   }finally{release();await context.close();}
+});
+
+test('late owner order-link admission keeps store navigation stable during a pointer click',async({page,e2eAuthPool},info)=>{
+  const owner=await person(e2eAuthPool);await login(page,owner.email);
+  const store=await launchStore(page,'Synthetic stable navigation');
+  await post(page,store.root+'/setup',{name:'Synthetic 導覽店面',slug:'navigation-'+owner.id.slice(0,8),currency:'TWD'},201);
+  const ordersPath=(url:URL)=>url.pathname===`/api/v1${store.root}/reservations`&&url.searchParams.get('limit')==='1';
+  for(const width of [1440,768,390]){
+    await page.setViewportSize({width,height:900});
+    let release!:()=>void,started!:()=>void;
+    const held=new Promise<void>(resolve=>release=resolve),entered=new Promise<void>(resolve=>started=resolve);
+    await page.route(ordersPath,async route=>{
+      const response=await route.fetch();expect(response.status()).toBe(200);
+      started();await held;await route.fulfill({response});
+    });
+    try{
+      if(width===1440)await open(page,store.hash);else await page.reload();
+      await entered;
+      const navigation=page.getByRole('navigation',{name:'商店工作區',exact:true});
+      const cooperation=navigation.getByRole('button',{name:'供貨合作',exact:true});
+      await cooperation.scrollIntoViewIfNeeded();
+      await expect(page.getByRole('link',{name:'預留訂單',exact:true})).toHaveCount(0);
+      await expect(page.getByRole('link',{name:'供貨訂單',exact:true})).toHaveCount(0);
+      const before=await navigation.boundingBox(),button=await cooperation.boundingBox();
+      expect(before).not.toBeNull();expect(button).not.toBeNull();
+      await page.screenshot({path:info.outputPath(`orders-pending-${width}.png`),fullPage:true,animations:'disabled'});
+      await page.mouse.move(button!.x+button!.width/2,button!.y+button!.height/2);
+      await page.mouse.down();
+      // Admit the owner-only links between pointer down/up: the navigation must
+      // stay under the original pointer instead of silently losing the click.
+      release();
+      await expect(page.getByRole('link',{name:'預留訂單',exact:true})).toBeVisible();
+      await expect(page.getByRole('link',{name:'供貨訂單',exact:true})).toBeVisible();
+      expect(await navigation.boundingBox()).toEqual(before);
+      await page.mouse.up();
+      await expect(cooperation).toHaveAttribute('aria-pressed','true');
+      await expect(page.locator('#store-cooperation-panel .hosted-distribution')).toBeVisible();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await page.screenshot({path:info.outputPath(`orders-admitted-${width}.png`),fullPage:true,animations:'disabled'});
+    }finally{
+      release();await page.mouse.up();await page.unroute(ordersPath);
+    }
+  }
 });
