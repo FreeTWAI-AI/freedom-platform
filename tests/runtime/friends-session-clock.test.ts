@@ -10,7 +10,8 @@ import {createApp} from '../../apps/platform-api/src/app.js';
 import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 import {readSessionCookie} from '../../apps/platform-api/src/session-cookie.js';
 import {authenticate,tokenHash,type Actor} from '../../modules/identity-membership/service.js';
-import {listFriends} from '../../modules/identity-membership/members.js';
+import {friendDirectory} from '../../modules/identity-membership/member-connections.js';
+import {readWithMemberSession} from '../../packages/db/member-session.js';
 import {Problem} from '../../packages/shared/problem.js';
 
 const database=z.string().min(1).parse(process.env.TEST_DATABASE_URL);
@@ -51,7 +52,7 @@ async function blockedRead(session:Session,expired:boolean){
     await expiry(session,expired?2:300);
     await gate.query('BEGIN');await gate.query(`LOCK TABLE ${schema}.member_friendships IN ACCESS EXCLUSIVE MODE`);
     const holder=z.object({pid:z.number()}).parse((await gate.query('SELECT pg_backend_pid() AS pid')).rows[0]).pid;
-    pending=request('/friends',session);
+    pending=request('/friends/directory?scope=outgoing',session);
     const deadline=Date.now()+8000;
     for(;;){
       const waiting=z.object({waiting:z.boolean()}).parse((await admin.query('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND $2=ANY(pg_blocking_pids(pid))) AS waiting',[schema,holder])).rows[0]).waiting;
@@ -66,17 +67,19 @@ async function blockedRead(session:Session,expired:boolean){
     await gate.query('ROLLBACK');return await pending;
   }finally{await gate.query('ROLLBACK');gate.release();if(pending)await pending;}
 }
-for(const populated of [true,false])test(`friends ${populated?'populated':'empty'} projection rejects expiry after a real SQL wait`,async()=>{
+for(const populated of [true,false])test(`friends directory ${populated?'populated':'empty'} projection rejects expiry after a real SQL wait`,async()=>{
   const result=await blockedRead(populated?viewer:empty,true);
   assert.equal(result.status,401);assert.equal(result.data.code,'session_expired');assert.equal('items' in result.data,false);
   assert.equal(JSON.stringify(result.data).includes('friend-clock-private-peer'),false);
   assert.equal(JSON.stringify(result.data).includes(peer.id),false);
 });
-test('valid session preserves pending friendship DTO after the same SQL wait',async()=>{
+test('valid session preserves the pending friendship card after the same SQL wait',async()=>{
   const result=await blockedRead(viewer,false);assert.equal(result.status,200);
   const saved=(await pool.query('SELECT aggregate_version FROM member_friendships WHERE requester_ref=$1',[viewer.id])).rows[0];
-  assert.deepEqual(result.data,{items:[{user_id:peer.id,nickname:'friend-clock-private-peer',state:'pending',requester_ref:viewer.id,aggregate_version:Number(saved.aggregate_version)}]});
-  await expiry(empty,300);assert.deepEqual((await request('/friends',empty)).data,{items:[]});
+  const page=z.object({items:z.array(z.object({user_id:z.uuid(),nickname:z.string(),friendship:z.object({state:z.string(),requester_ref:z.uuid(),aggregate_version:z.number()})}).passthrough()),total:z.number(),next_offset:z.number().nullable()}).parse(result.data);
+  assert.equal(page.total,1);assert.equal(page.next_offset,null);
+  assert.deepEqual(page.items.map(item=>({user_id:item.user_id,nickname:item.nickname,...item.friendship})),[{user_id:peer.id,nickname:'friend-clock-private-peer',state:'pending',requester_ref:viewer.id,aggregate_version:Number(saved.aggregate_version)}]);
+  await expiry(empty,300);assert.deepEqual((await request('/friends/directory?scope=outgoing',empty)).data,{items:[],total:0,next_offset:null});
 });
 for(const state of ['expired','revoked','inactive'] as const)test(`captured Actor cannot read friends after ${state}`,async()=>{
   await expiry(viewer,300);
@@ -84,7 +87,7 @@ for(const state of ['expired','revoked','inactive'] as const)test(`captured Acto
     if(state==='expired')await expiry(viewer,-1);
     if(state==='revoked')await pool.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[actor.session_hash]);
     if(state==='inactive')await pool.query('UPDATE users SET active=false WHERE user_id=$1',[viewer.id]);
-    await assert.rejects(listFriends(pool,actor),(error:unknown)=>error instanceof Problem&&error.status===401&&error.code==='session_expired');
+    await assert.rejects(readWithMemberSession(pool,actor,q=>friendDirectory(q,actor,{scope:'outgoing'})),(error:unknown)=>error instanceof Problem&&error.status===401&&error.code==='session_expired');
   }finally{
     await pool.query('UPDATE users SET active=true WHERE user_id=$1',[viewer.id]);
     await pool.query('UPDATE sessions SET revoked_at=NULL WHERE token_hash=$1',[actor.session_hash]);await expiry(viewer,300);

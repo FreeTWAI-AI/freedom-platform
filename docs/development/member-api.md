@@ -274,7 +274,17 @@ No deployment, remote key installation or authenticator-device acceptance is imp
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
   return 404. No authenticated access to people until 完成加入（選定主要公會）.
   私人名片、目錄、好友目錄與推薦在最後一個 domain query 後重驗目前 session；SQL 等待跨過 `expires_at` 時回 `401 session_expired`，不回傳私人聯絡資訊。
-- `GET /friends`: `{items:[{user_id,nickname,state,requester_ref,aggregate_version}]}`.
+- `GET /friends/directory?scope=accepted|incoming|outgoing&search=&limit=20&offset=0`:
+  `{items,total,next_offset}` with the same privacy-filtered member cards. Scope and
+  search are applied before the bounded 1–50 row page; blocked or no-longer-visible
+  members are rechecked before return. The member directory reads the first incoming
+  page and shows its total; a notification target outside that page is re-read through
+  `GET /members/:id` and shown only while it is still an incoming request.
+  A definitive focused-member 404 omits that target; transient lookup failures
+  instead show the invitation error and retry the same focused lookup. Successful
+  retry still rechecks incoming state and deduplicates the first-page target.
+  “查看完整好友邀請” opens the full panel in incoming scope, not accepted friends;
+  ordinary friend navigation retains its accepted-scope default.
 - `POST /friends/:id/request|accept|remove`: `{}`. First request needs no version;
   accept/remove and renewed removed friendship need current version. Only the
   recipient can accept. Pending requests grant **no** contact access. Remove
