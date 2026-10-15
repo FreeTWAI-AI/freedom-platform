@@ -182,6 +182,9 @@ function validateContactEmail(email: unknown): string | null {
   if (email.length === 0 || email.length > 254) {
     throw new CommerceEmailTemplateError();
   }
+  if (!/^[\u0021-\u007E]+$/.test(email)) {
+    throw new CommerceEmailTemplateError();
+  }
   if (/[\s\u0000-\u001F\u007F-\u009F,;<>"()[\]\\]/.test(email)) {
     throw new CommerceEmailTemplateError();
   }
@@ -353,6 +356,33 @@ function buildFooterParagraph(
   return lines.join('\n');
 }
 
+const UTF8_ENCODER = new TextEncoder();
+
+function finalizeRenderedEmail(
+  template: CommerceEmailTemplate,
+  subject: string,
+  text: string,
+  replyTo: string | null,
+): RenderedCommerceEmail {
+  if (subject.length > 200 || /[\r\n\u0085\u2028\u2029]/.test(subject)) {
+    throw new CommerceEmailTemplateError();
+  }
+  if (text.includes('\r') || text.includes('\t') || text.endsWith('\n')) {
+    throw new CommerceEmailTemplateError();
+  }
+  for (const line of text.split('\n')) {
+    if (line.endsWith(' ') || UTF8_ENCODER.encode(line).length > 998) {
+      throw new CommerceEmailTemplateError();
+    }
+  }
+  return Object.freeze({
+    template,
+    subject,
+    text,
+    replyTo,
+  });
+}
+
 export function renderOrderConfirmedEmail(
   input: Omit<OrderConfirmedEmailInput, 'template'> | OrderConfirmedEmailInput,
 ): RenderedCommerceEmail {
@@ -387,12 +417,7 @@ export function renderOrderConfirmedEmail(
   const subject = `自由工坊：「${storeName}」訂單 ${displayNumber} 已成立`;
   const text = [p1, p2, p3, p4, p5].join('\n\n');
 
-  return Object.freeze({
-    template: 'order_confirmed' as const,
-    subject,
-    text,
-    replyTo: contactEmail,
-  });
+  return finalizeRenderedEmail('order_confirmed', subject, text, contactEmail);
 }
 
 export function renderPaidUnallocatableEmail(
@@ -413,12 +438,7 @@ export function renderPaidUnallocatableEmail(
   const subject = `自由工坊：「${storeName}」訂單 ${displayNumber} 已付款，等待配貨`;
   const text = [p1, p2, p3, p4, p5].join('\n\n');
 
-  return Object.freeze({
-    template: 'paid_unallocatable' as const,
-    subject,
-    text,
-    replyTo: contactEmail,
-  });
+  return finalizeRenderedEmail('paid_unallocatable', subject, text, contactEmail);
 }
 
 export function renderOrderAccessEmail(
@@ -438,12 +458,7 @@ export function renderOrderAccessEmail(
   const subject = `自由工坊：「${storeName}」訂單 ${displayNumber} 的查看連結`;
   const text = [p1, p2, p3, p4, p5].join('\n\n');
 
-  return Object.freeze({
-    template: 'order_access' as const,
-    subject,
-    text,
-    replyTo: contactEmail,
-  });
+  return finalizeRenderedEmail('order_access', subject, text, contactEmail);
 }
 
 export function renderShipmentHandedOverEmail(
@@ -480,12 +495,7 @@ export function renderShipmentHandedOverEmail(
   const subject = `自由工坊：「${storeName}」訂單 ${displayNumber} 有包裹已交寄`;
   const text = [p1, p2, p3, p4, p5].join('\n\n');
 
-  return Object.freeze({
-    template: 'shipment_handed_over' as const,
-    subject,
-    text,
-    replyTo: contactEmail,
-  });
+  return finalizeRenderedEmail('shipment_handed_over', subject, text, contactEmail);
 }
 
 export function renderAftersaleReplyEmail(
@@ -504,12 +514,7 @@ export function renderAftersaleReplyEmail(
   const subject = `自由工坊：「${storeName}」訂單 ${displayNumber} 有新回覆`;
   const text = [p1, p2, p3, p4].join('\n\n');
 
-  return Object.freeze({
-    template: 'aftersale_reply' as const,
-    subject,
-    text,
-    replyTo: contactEmail,
-  });
+  return finalizeRenderedEmail('aftersale_reply', subject, text, contactEmail);
 }
 
 export function renderCommerceEmail(input: CommerceEmailInput): RenderedCommerceEmail {

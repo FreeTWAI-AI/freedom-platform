@@ -494,6 +494,19 @@ test('every validation rule and property-style error message leak check', () => 
     verifyInvariants(rendered, { origin, contactEmail: SHARED_COMMON.store.contactEmail, accessToken: SHARED_COMMON.accessToken });
   }
 
+  // Long origin accepted by URL parser (> 998 bytes) is rejected by the renderer output invariant check
+  const longOrigin = 'https://' + 'a'.repeat(1000) + '.test';
+  assert.equal(new URL(longOrigin).origin.length > 998, true);
+  assertThrowsWithoutLeak(
+    () =>
+      renderCommerceEmail({
+        template: 'paid_unallocatable',
+        ...SHARED_COMMON,
+        origin: longOrigin,
+      }),
+    longOrigin,
+  );
+
   // 2. Slug validation
   const invalidSlugs = ['ab', '-abc', 'abc-', '0abc', 'a_b', ' ', '', 'a'.repeat(41)];
   for (const slug of invalidSlugs) {
@@ -522,6 +535,11 @@ test('every validation rule and property-style error message leak check', () => 
     '@test.test',
     'a'.repeat(65) + '@test.test',
     'x@' + 'a'.repeat(250) + '.test',
+    '店家@example.test',
+    'shop\u202E@example.test',
+    'shop\u200B@example.test',
+    'shop\u00A0@example.test',
+    'shop\u007F@example.test',
   ];
   for (const contactEmail of invalidEmails) {
     assertThrowsWithoutLeak(
@@ -707,6 +725,90 @@ test('every validation rule and property-style error message leak check', () => 
       secret,
     );
   }
+});
+
+test('hostile seller text and maximum sizes through renderCommerceEmail', () => {
+  const hostileStoreName = 'A\r\nBcc: x@example.test\u2028\u202E示範\u200B店家' + 'x'.repeat(100);
+  const sanitisedName = sanitizeSellerText(hostileStoreName, 80);
+  assert.equal(Array.from(sanitisedName).length, 80);
+  assert.equal(sanitisedName.endsWith('…'), true);
+
+  const hostileItems = [{ title: 'T\t1\u0085x', variantLabel: '\u2066L\u2069', quantity: 1 }];
+
+  const renderedHostile = renderCommerceEmail({
+    template: 'order_confirmed',
+    ...SHARED_COMMON,
+    store: {
+      ...SHARED_COMMON.store,
+      name: hostileStoreName,
+    },
+    items: hostileItems,
+    totalMinor: 123400,
+  });
+
+  const baselineSample = renderCommerceEmail({
+    template: 'order_confirmed',
+    ...SHARED_COMMON,
+    items: hostileItems,
+    totalMinor: 123400,
+  });
+
+  // The subject is one line
+  assert.equal(renderedHostile.subject.split(/\r|\n|\u0085|\u2028|\u2029/).length, 1);
+
+  // Neither the subject nor the text contains CR, U+2028, U+202E or U+200B
+  for (const forbidden of ['\r', '\u2028', '\u202E', '\u200B']) {
+    assert.equal(renderedHostile.subject.includes(forbidden), false);
+    assert.equal(renderedHostile.text.includes(forbidden), false);
+  }
+
+  // The text's only LFs are the template's own
+  assert.equal(renderedHostile.text.split('\n').length, baselineSample.text.split('\n').length);
+
+  // Sanitised name appears verbatim in both subject and footer
+  assert.equal(renderedHostile.subject.includes(sanitisedName), true);
+  const paragraphs = renderedHostile.text.split('\n\n');
+  const footer = paragraphs[paragraphs.length - 1];
+  assert.equal(footer.includes(sanitisedName), true);
+
+  // The item line is exactly ・T 1 x（L）× 1
+  assert.equal(renderedHostile.text.split('\n').includes('・T 1 x（L）× 1'), true);
+
+  verifyInvariants(renderedHostile, {
+    origin: SHARED_COMMON.origin,
+    contactEmail: SHARED_COMMON.store.contactEmail,
+    accessToken: SHARED_COMMON.accessToken,
+  });
+  verifyInvariants(baselineSample, {
+    origin: SHARED_COMMON.origin,
+    contactEmail: SHARED_COMMON.store.contactEmail,
+    accessToken: SHARED_COMMON.accessToken,
+  });
+
+  // Maximum sizes
+  const maxItems = Array.from({ length: 100 }, () => ({
+    title: '𠀀'.repeat(120),
+    variantLabel: '🎉'.repeat(60),
+    quantity: 9999,
+  }));
+
+  const renderedMax = renderCommerceEmail({
+    template: 'order_confirmed',
+    ...SHARED_COMMON,
+    store: {
+      ...SHARED_COMMON.store,
+      name: '🎉'.repeat(80),
+    },
+    items: maxItems,
+    totalMinor: Number.MAX_SAFE_INTEGER,
+  });
+
+  verifyInvariants(renderedMax, {
+    origin: SHARED_COMMON.origin,
+    contactEmail: SHARED_COMMON.store.contactEmail,
+    accessToken: SHARED_COMMON.accessToken,
+  });
+  assert.equal(renderedMax.subject.length <= 200, true);
 });
 
 test('COMMERCE_EMAIL_TEMPLATES list matches all 5 templates', () => {
