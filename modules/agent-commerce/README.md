@@ -6,6 +6,18 @@ Order list hydration (#326) loads imported page orders, visible transfers, lines
 
 Owner imported-shop listing (#350) first selects the current community/owner's imported shops, then groups product and selection counts separately by shop before joining them. Empty shops keep numeric zero counts; all existing shop fields, key dates and descending creation-time ordering remain unchanged. The portal consumes the complete list and filters internal/public shops locally, so this change deliberately retains the unpaginated `{items}` response rather than silently hiding shops.
 
+Member catalog, own-shop, owner-order, distribution-acceptance and import-preview
+reads use the existing locked member-session transaction on one database client.
+They check the current session clock after the final domain query; expiry while
+waiting returns `401 session_expired` without private items or a preview, including
+empty lists and source-free internal previews. Catalog-backed agent-kit reads
+inherit that boundary. Preview downloads finish before this short transaction;
+no network I/O is moved under member locks. Read projections create no command
+receipt or transition journal. Ownership/community filters, grouped counts and
+batched orders remain unchanged. This is a read-decision fence, not a guarantee
+through commit or HTTP delivery; machine bearer and anonymous public-shop readers
+retain their separate authority and are not changed by the member boundary.
+
 The server resolver and schema constraints are documented in [resource-scopes](../../packages/resource-scopes/README.md). After schema 117 and 118, an upgraded issuer creates only purpose-bound v2 keys when the owner explicitly requests issuance. Its existing member receipt/digest stays unchanged and a replay still returns `token: null`. The application must receive an explicit `FREEDOM_SHOP_KEY_POLICY=legacy-compatible` or `purpose-bound-only`; absent configuration yields shop-only 503. The Worker config checker lists this as a required injection without changing deployed vars. `/api/v1/health` reports the actual selected policy and issuer profile, or `unconfigured`/null. A merged source SHA or configured example is not an installed policy observation.
 
 ## Controlled legacy exit

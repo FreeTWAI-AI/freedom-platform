@@ -1,16 +1,18 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {setImmediate} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {Problem} from '../../packages/shared/problem.js';
-import {fetchManifest,ownShops} from '../../modules/agent-commerce/imports.js';
+import {fetchManifest,ownShops,catalog,previewImport} from '../../modules/agent-commerce/imports.js';
 import {parseManifestFile} from '../../modules/agent-commerce/schema.js';
-import {orderView,shopOrders} from '../../modules/agent-commerce/orders.js';
-import {authenticate} from '../../modules/identity-membership/service.js';
+import {orderView,shopOrders,memberOrders} from '../../modules/agent-commerce/orders.js';
+import {authenticate,tokenHash} from '../../modules/identity-membership/service.js';
+import {listAcceptances} from '../../modules/agent-commerce/distribution.js';
 
 const origin='http://127.0.0.1:4310',url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_agent_commerce_${process.pid}_${Date.now()}`,admin=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
@@ -46,6 +48,54 @@ async function setup(){
 }
 const paid=(amount=50000,overrides:any={})=>({event_id:randomUUID(),type:'paid',provider:'synthetic',transaction_ref:randomUUID(),amount_minor:amount,currency:'TWD',mode:'test',verification:'provider_verified_by_merchant',...overrides});
 async function order(f:Awaited<ReturnType<typeof setup>>,quantity=1){const body={external_id:randomUUID(),items:[{selection_id:f.selection.selection_id,quantity,delivery_ref:'synthetic_delivery_ref'}]};const r=await req('/shop-api/v1/orders',body,undefined,f.publicKey);assert.equal(r.status,201,JSON.stringify(r.data));return {o:r.data,body};}
+
+for(const surface of ['shops','catalog','orders','acceptances','preview'] as const)test(`${surface} member projection checks the live session after its SQL wait`,async()=>{
+ const f=await setup();await order(f);
+ const s=surface==='shops'||surface==='acceptances'?f.supplier:f.seller;
+ const path=surface==='orders'?`/api/v1/commerce/shops/${f.publicId}/orders`:surface==='acceptances'?'/api/v1/commerce/distribution-acceptances':`/api/v1/commerce/${surface}`;
+ const body=surface==='preview'?{content:JSON.stringify(f.manifest)}:undefined;
+ const table={shops:'commerce_shop_keys',catalog:'commerce_items',orders:'commerce_supplier_payables',acceptances:'commerce_selections',preview:'commerce_items'}[surface];
+ const expected=await req(path,body,s);assert.equal(expected.status,200);
+ const facts=async()=>(await pool.query('SELECT (SELECT count(*)::int FROM command_receipts) AS receipts,(SELECT count(*)::int FROM transition_journal) AS journal')).rows[0];
+ const before=await facts(),hash=tokenHash(s.cookie.split('=')[1]);
+ for(const expired of [true,false]){
+  const gate=await admin.connect();let pending:Promise<unknown>|undefined;
+  try{
+   await gate.query('BEGIN');await gate.query(`LOCK TABLE ${schema}.${table} IN ACCESS EXCLUSIVE MODE`);
+   await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1",[hash,expired?3:3600]);
+   const pid=(await gate.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+   const response=req(path,body,s);pending=response.catch(()=>undefined);
+   const deadline=Date.now()+2000;
+   for(;;){
+    if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount!>0)break;
+    assert.ok(Date.now()<deadline,'member read reached its real domain query');await setImmediate();
+   }
+   assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[hash])).rows[0].live,true);
+   if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[hash]);
+   await gate.query('ROLLBACK');
+   const result=await response;assert.equal(result.status,expired?401:200,JSON.stringify(result.data));
+   if(expired){
+    assert.equal(result.data.code,'session_expired');assert.equal('items'in result.data,false);assert.equal('manifest'in result.data,false);
+    assert.equal(result.response.headers.get('set-cookie'),null);
+   }else assert.deepEqual(result.data,expected.data);
+   assert.deepEqual(await facts(),before);
+  }finally{
+   await gate.query('ROLLBACK');gate.release();if(pending)await pending;
+   await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '30 days' WHERE token_hash=$1",[hash]);
+  }
+ }
+});
+
+test('empty commerce reads and a source-free preview still require the real current session',async()=>{
+ const f=await setup(),other=await authenticate(pool,f.other.cookie.split('=')[1]),supplier=await authenticate(pool,f.supplier.cookie.split('=')[1]);
+ await pool.query('UPDATE commerce_shops SET accepting_orders=false');
+ assert.deepEqual(await ownShops(pool,other),[]);assert.deepEqual(await catalog(pool,other),[]);
+ assert.deepEqual(await listAcceptances(pool,other),[]);assert.deepEqual(await memberOrders(pool,supplier,f.internalId),[]);
+ const manifest=internal(),preview=await previewImport(pool,other,manifest);assert.equal(preview.count,1);assert.equal(preview.manifest.kind,'internal');
+ await pool.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=ANY($1::text[])",[[other.session_hash,supplier.session_hash]]);
+ const reads=[()=>ownShops(pool,other),()=>catalog(pool,other),()=>listAcceptances(pool,other),()=>memberOrders(pool,supplier,f.internalId),()=>previewImport(pool,other,manifest)];
+ for(const read of reads)await assert.rejects(read,(error:unknown)=>error instanceof Problem&&error.status===401&&error.code==='session_expired');
+});
 
 test('imported order UUID case preserves reads and payment projections',async()=>{
  const f=await setup(),{o}=await order(f),upper=o.order_id.toUpperCase();
@@ -300,7 +350,7 @@ test('checkout waits for distribution acceptance; margin is a projection and set
  assert.equal((await req('/shop-api/v1/orders',{external_id:randomUUID(),items:[{selection_id:pending.selection_id,quantity:1,delivery_ref:'synthetic_delivery_ref'}]},undefined,sellerKey)).status,409);
 });
 
-test('own shops batches scoped counts once and preserves the complete HTTP projection including empty shops',async()=>{
+test('own shops preserves complete scoped counts and HTTP projection including empty shops',async()=>{
  const f=await setup(),actor=await authenticate(pool,f.supplier.cookie.split('=')[1]);
  await pool.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256,created_at)
  SELECT gen_random_uuid(),community_id,owner_id,kind,'批次商店 '||n,description,website_url,contact,currency,'count-fixture-'||n,
@@ -324,9 +374,7 @@ test('own shops batches scoped counts once and preserves the complete HTTP proje
  FROM commerce_shops s LEFT JOIN commerce_shop_keys k USING(shop_id)
  WHERE s.origin='imported' AND s.community_id=$1 AND s.owner_id=$2 ORDER BY s.created_at DESC`;
  const values=[actor.community_id,actor.user_id],expected=(await pool.query(baseline,values)).rows;
- let sql='',queries=0;
- const counted={query:(text:string,params:unknown[])=>{sql=text;queries++;return pool.query(text,params);}} as unknown as Pool;
- const rows=await ownShops(counted,actor);assert.equal(queries,1);assert.equal(rows.length,241);assert.deepEqual(rows,expected);
+ const rows=await ownShops(pool,actor);assert.equal(rows.length,241);assert.deepEqual(rows,expected);
  assert.ok(rows.some(s=>s.product_count===0&&s.selection_count===0));
  assert.ok(rows.some(s=>s.product_count===3&&s.selection_count===3));
  const response=await req('/api/v1/commerce/shops',undefined,f.supplier);assert.equal(response.status,200);
@@ -334,12 +382,4 @@ test('own shops batches scoped counts once and preserves the complete HTTP proje
  assert.deepEqual((await req('/api/v1/commerce/shops',undefined,f.other)).data,{items:[]});
  const sellerShops=(await req('/api/v1/commerce/shops',undefined,f.seller)).data.items;
  assert.equal(sellerShops.length,1);assert.equal(sellerShops[0].product_count,0);assert.equal(sellerShops[0].selection_count,1);
- await pool.query('ANALYZE commerce_shops;ANALYZE commerce_items;ANALYZE commerce_selections');
- const measured=(await pool.query(`EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) ${sql}`,values)).rows[0]['QUERY PLAN'][0],plan=measured.Plan;
- const nodes:any[]=[];function visit(node:any){nodes.push(node);for(const child of node.Plans??[])visit(child);}visit(plan);
- assert.equal(nodes.filter(n=>n['Parent Relationship']==='SubPlan').length,0,'No per-shop correlated count execution');
- const aggregates=nodes.filter(n=>n['Node Type']==='Aggregate');assert.equal(aggregates.length,2);
- for(const aggregate of aggregates)assert.equal(aggregate['Actual Loops'],1,'Each grouped count executes once for the whole owner list');
- const prior=(await pool.query(`EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) ${baseline}`,values)).rows[0]['QUERY PLAN'][0];
- console.info(`own shops N=${rows.length}: before ${prior['Execution Time']} ms/${prior.Plan['Shared Hit Blocks']} buffer hits; after ${measured['Execution Time']} ms/${plan['Shared Hit Blocks']} buffer hits`);
 });

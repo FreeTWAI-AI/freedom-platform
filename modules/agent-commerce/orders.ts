@@ -2,6 +2,7 @@ import {randomBytes,randomUUID} from 'node:crypto';
 import {SHOP_KEY_PROFILE,requireShopHost,lockShopService,assertShopServiceClock,forgetShopService,type ShopContext,type ShopServiceHost} from '../../packages/resource-scopes/shop-service.js';
 import type {Pool,PoolClient,QueryResultRow} from 'pg';
 import {command,digest,transaction,journal,type Command} from '../../packages/db/index.js';
+import {readWithMemberSession} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {tokenHash,type Actor} from '../identity-membership/service.js';
 import {ownShop} from './imports.js';
@@ -132,7 +133,7 @@ export async function shopOrders(q:PoolClient,shop:any,offset=0){
  return orderViews(q,shop,rows.map(row=>row.order_id));
 }
 export async function memberOrders(pool:Pool,actor:Actor,id:string){
- return transaction(pool,async q=>shopOrders(q,await ownShop(q,actor,id)));
+ return readWithMemberSession(pool,actor,async q=>shopOrders(q,await ownShop(q,actor,id)));
 }
 export async function payment(q:PoolClient,shop:any,id:string,transferId:string|undefined,raw:unknown){
  await requireImportedShop(q,shop);
