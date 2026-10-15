@@ -1,3 +1,6 @@
+import type {CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
+import type {CheckoutPorts} from '../../../modules/agent-commerce/checkout/terms.js';
+import type {CommerceEmailPort} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
 import type { StorePhotoAssets } from '../../../modules/agent-commerce/hosted/photo-commands.js';
 import type { TenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { PublicGuideAssets } from '../../../packages/public-guide-assets/index.js';
@@ -25,6 +28,8 @@ export const SHARED_NETWORK_KEY = 'shared-server';
  * bindings, so no configuration is shared through process-wide state.
  */
 export type PlatformRuntime = {
+  commerceSettings?:CommerceSettings;
+  commercePorts?:CheckoutPorts & {email?:CommerceEmailPort};
   /** Explicit upgrade policy. Absence closes shop-key operations; never allows legacy. */
   shopKeyPolicy?: 'legacy-compatible'|'purpose-bound-only';
   /** Independently installed read-only platform-public guide release. Never MEDIA. */

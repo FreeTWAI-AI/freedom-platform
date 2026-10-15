@@ -23,15 +23,19 @@ const SYNTH_CONTRACT = {
   behavior_profile: 'freedom.synthetic/v1',
 };
 
-export async function createRegistryHarness(prefix: string, options: { synthetic?: boolean; max?: number; providers?: ModuleProviderMap } = {}) {
+export async function createRegistryHarness(prefix: string, options: { synthetic?: boolean; max?: number; publicSchema?: boolean; providers?: ModuleProviderMap } = {}) {
   const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
-  const schema = `${prefix}_${process.pid}_${Date.now()}`;
+  const schema = options.publicSchema ? 'public' : `${prefix}_${process.pid}_${Date.now()}`;
   const admin = createPool(databaseUrl);
   const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: options.max ?? 12 });
   const providers = options.providers ?? (options.synthetic ? syntheticModuleProviders(pool) : undefined);
   const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, moduleProviders: providers });
   const closed = createApp(pool, origin, 'local');
-  await admin.query(`CREATE SCHEMA ${schema}`);
+  if(options.publicSchema) {
+    if(!process.env.TEST_DATABASE_URL||!['127.0.0.1','localhost'].includes(new URL(databaseUrl).hostname)||!/^\/fp_[a-z0-9_]+$/.test(new URL(databaseUrl).pathname))throw new Error('Disposable loopback TEST_DATABASE_URL required');
+    if((await admin.query("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")).rowCount)throw new Error('Public schema fixture requires an empty disposable database');
+    await admin.query('CREATE SCHEMA IF NOT EXISTS public');
+  } else await admin.query(`CREATE SCHEMA ${schema}`);
   await migrate(pool);
   if (options.synthetic || options.providers) await ensureSyntheticModuleTables(pool);
 
@@ -196,6 +200,7 @@ export async function createRegistryHarness(prefix: string, options: { synthetic
   async function stop() {
     await pool.end();
     await admin.query(`DROP SCHEMA ${schema} CASCADE`);
+    if(options.publicSchema)await admin.query('CREATE SCHEMA public');
     await admin.end();
   }
   return {

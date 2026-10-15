@@ -1,0 +1,164 @@
+import type {Pool,PoolClient} from 'pg';
+import {OpaqueId} from '../../../contracts/guild-launchpad/v1/primitives.js';
+import * as wire from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
+import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
+import {mapPersonPrincipal} from '../../../packages/resource-scopes/index.js';
+import {Problem,requireCondition} from '../../../packages/shared/problem.js';
+import {resolvePublicStorePage} from '../hosted/public.js';
+import {lockStore} from './authority.js';
+import {freezeCheckout,hashKey,defaultAdmission,type CheckoutPorts,type CheckoutInput} from './terms.js';
+import {placeCheckoutOrder} from './orders.js';
+import {cartQuote} from './cart-quote.js';
+import {publicOrder} from './public-order.js';
+import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,createAccessLink,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
+import {commerceRateLimitInTransaction,lockOpenOrderBudgets,enforceOpenOrderLimits} from './limits.js';
+import type {CommerceSettings} from '../operations/runtime-settings.js';
+import type {CommerceEmailPort} from '../operations/notifications/email-port.js';
+export interface HostedCheckoutOptions extends CheckoutPorts {settings?:CommerceSettings;email?:CommerceEmailPort;origin:string;environment?:'sandbox'|'live'}
+export interface BrowserAccess {deviceToken?:string;sessionToken?:string;network:string}
+const defaults:CommerceSettings={checkoutEnabled:false,quarantine:false};
+export function quarantineGate(options:HostedCheckoutOptions) {requireCondition(!(options.settings??defaults).quarantine,503,'commerce_quarantined','商務服務暫停中。');}
+export function checkoutGate(options:HostedCheckoutOptions) {quarantineGate(options);requireCondition((options.settings??defaults).checkoutEnabled,409,'checkout_not_enabled','尚未開放結帳。');}
+async function resolve(q:PoolClient,slug:string,options:HostedCheckoutOptions,admit=false,order=false) {
+  const store=await resolvePublicStorePage(q,slug);
+  if(!store){if(order)orderAccessNotFound();requireCondition(false,404,'checkout_store_not_found','找不到商店。');}
+  // Public projections intentionally contain no internal shop selector.
+  const row=(await q.query<{storefront_shop_id:string}>('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE tenant_id=$1 AND instance_id=$2',[store.tenantId,store.instanceId])).rows[0];
+  if(admit)requireCondition(await (options.admission??defaultAdmission).allowed(row),409,'checkout_not_enabled','尚未開放結帳。');
+  return {...store,...row};
+}
+/** Optional member identity, without authenticate()'s session activity write.
+ * Locks serialize deactivation/revocation and a final decision-clock check
+ * closes expiry during domain lock waits. Unknown sessions remain guests. */
+async function member(q:PoolClient,token:string|undefined,create=false) {
+  if(!token)return null;
+  const sessionHash=hashKey(token);
+  const row=(await q.query<{user_id:string;principal_id:string|null}>(`SELECT u.user_id,p.principal_id FROM sessions s JOIN users u USING(user_id)
+    LEFT JOIN principals p ON p.user_ref=u.user_id AND p.kind='person' AND p.status='active'
+    WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND u.active FOR SHARE OF u,s`,[sessionHash])).rows[0];
+  if(!row)return null;
+  const principalId=row.principal_id??(create?(await mapPersonPrincipal(q,row.user_id)).principal_id:null);
+  return {principalId,sessionHash,userId:row.user_id};
+}
+async function currentMember(q:PoolClient,identity:Awaited<ReturnType<typeof member>>) {
+  if(identity&&(await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[identity.sessionHash,identity.userId])).rowCount!==1)orderAccessNotFound();
+}
+export async function quotePublicCart(pool:Pool,slug:string,input:wire.CartQuoteInput,access:BrowserAccess,options:HostedCheckoutOptions) {
+  checkoutGate(options);
+  // The quote snapshot itself is READ ONLY. Budget rows live in a separate
+  // enclosing transaction and commit only after a successful snapshot/parse.
+  return isolatedTransaction(pool,async budget=>{
+    return isolatedTransaction(pool,async q=>{
+      await q.query('SET TRANSACTION READ ONLY');
+      const store=await resolve(q,slug,options,true);
+      await commerceRateLimitInTransaction(budget,'cartNetwork',access.network);
+      await commerceRateLimitInTransaction(budget,'cartStore',store.instanceId);
+      return cartQuote(q,store,input,options);
+    });
+  });
+}
+export async function createPublicCheckout(pool:Pool,slug:string,input:CheckoutInput,key:string,access:BrowserAccess,options:HostedCheckoutOptions) {
+  checkoutGate(options);
+  return isolatedTransaction(pool,async q=>{
+    const identity=await member(q,access.sessionToken,true),store=await resolve(q,slug,options,true);
+    // Serialize the replay lookup with the core's existing lifecycle/community
+    // lock order, so concurrent requests return exactly one 201.
+    await lockStore(q,store,input.lines.map(l=>l.sku));
+    const replay=(await q.query('SELECT 1 FROM commerce_checkout_idempotency_keys WHERE instance_id=$1 AND idempotency_key_sha256=$2',[store.instanceId,hashKey(key)])).rowCount===1;
+    const saved=await freezeCheckout(q,store,{...input,idempotencyKey:key,...(identity?.principalId?{memberPrincipalId:identity.principalId}:{})},options);
+    if(!replay){await commerceRateLimitInTransaction(q,'checkoutNetwork',access.network);await commerceRateLimitInTransaction(q,'checkoutStore',store.instanceId);}
+    const ensured=await ensureDevice(q,access.deviceToken,options.origin);
+    await grantDevice(q,ensured.device.device_id,{tenant_id:store.tenantId,instance_id:store.instanceId,checkout_id:saved.checkout_id});
+    await assertDeviceLive(q,ensured.device.device_id);await currentMember(q,identity);
+    return {created:!replay,cookie:ensured.cookie,value:wire.CheckoutResponseSchema.parse({checkout_ref:saved.checkout_id,terms:saved.terms,terms_sha256:saved.terms_sha256,expires_at:saved.expires_at.toISOString()})};
+  });
+}
+export async function placePublicOrder(pool:Pool,slug:string,checkoutRef:string,input:{terms_sha256:string;client_order_id:string},access:BrowserAccess,options:HostedCheckoutOptions) {
+  checkoutGate(options);
+  return isolatedTransaction(pool,async q=>{
+    const identity=await member(q,access.sessionToken,true),store=await resolve(q,slug,options,true,true);
+    if(!OpaqueId.safeParse(checkoutRef).success)orderAccessNotFound();
+    const device=await liveDevice(q,access.deviceToken,true);
+    if(!device||!await hasDeviceGrant(q,device.device_id,checkoutRef))orderAccessNotFound();
+    const customer=(await q.query<{email_normalized:string}>(`SELECT c.email_normalized FROM commerce_checkouts ch JOIN commerce_customers c USING(customer_id)
+      WHERE ch.checkout_id=$1 AND ch.tenant_id=$2 AND ch.instance_id=$3 AND c.redacted_at IS NULL`,[checkoutRef,store.tenantId,store.instanceId])).rows[0];
+    if(!customer)orderAccessNotFound();
+    await lockOpenOrderBudgets(q,device!.device_id,customer.email_normalized);
+    const frozen=(await q.query('SELECT terms FROM commerce_checkouts WHERE checkout_id=$1 AND tenant_id=$2 AND instance_id=$3',[checkoutRef,store.tenantId,store.instanceId])).rows[0];
+    if(!frozen)orderAccessNotFound();
+    await lockStore(q,store,frozen.terms.items.map((l:{sku:string})=>l.sku));
+    const replay=(await q.query(`SELECT 1 FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
+      WHERE co.checkout_id=$1 AND o.client_order_id=$2`,[checkoutRef,input.client_order_id])).rowCount===1;
+    const saved=await placeCheckoutOrder(q,store,{checkoutId:checkoutRef,termsSha256:input.terms_sha256,clientOrderId:input.client_order_id,
+      buyerPrincipalId:identity?.principalId??null,environment:options.environment??'sandbox'},options);
+    if(!replay){
+      await enforceOpenOrderLimits(q,device!.device_id,customer.email_normalized,store.tenantId);
+      await commerceRateLimitInTransaction(q,'placementNetwork',access.network);await commerceRateLimitInTransaction(q,'placementStore',store.instanceId);
+      await commerceRateLimitInTransaction(q,'newOrderNetwork',access.network);
+    }
+    // Access may have expired while waiting on inventory/policy locks.
+    if(!await hasDeviceGrant(q,device!.device_id,checkoutRef))orderAccessNotFound();
+    await currentMember(q,identity);
+    return {created:!replay,value:wire.PlaceOrderResponseSchema.parse({order:await publicOrder(q,store,saved.order_id),payment:null})};
+  });
+}
+export async function readPublicOrder(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions) {
+  return isolatedTransaction(pool,async q=>{
+    const identity=await member(q,access.sessionToken),store=await resolve(q,slug,options,false,true);
+    if(!OpaqueId.safeParse(orderRef).success)orderAccessNotFound();
+    const row=(await q.query<{checkout_id:string;buyer_principal_id:string|null}>(`SELECT co.checkout_id,o.buyer_principal_id FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
+      WHERE co.order_id=$1 AND co.tenant_id=$2 AND co.instance_id=$3`,[orderRef,store.tenantId,store.instanceId])).rows[0];
+    if(!row)orderAccessNotFound();
+    const device=await liveDevice(q,access.deviceToken);
+    const byMember=identity?.principalId!==null&&identity?.principalId!==undefined&&identity.principalId===row.buyer_principal_id;
+    if(!byMember&&!(device&&await hasDeviceGrant(q,device.device_id,row.checkout_id,orderRef)))orderAccessNotFound();
+    const value=await publicOrder(q,store,orderRef);
+    if(byMember)await currentMember(q,identity);
+    else if(!await hasDeviceGrant(q,device!.device_id,row.checkout_id,orderRef))orderAccessNotFound();
+    return value;
+  });
+}
+export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,token:string,access:BrowserAccess,options:HostedCheckoutOptions) {
+  quarantineGate(options);
+  return isolatedTransaction(pool,async q=>{
+    const store=await resolve(q,slug,options,false,true);
+    if(!OpaqueId.safeParse(orderRef).success)orderAccessNotFound();
+    await commerceRateLimitInTransaction(q,'redemptionNetwork',access.network);
+    const redeemed=await redeemAccessLink(q,{tenant_id:store.tenantId,instance_id:store.instanceId,order_id:orderRef},token);
+    const ensured=await ensureDevice(q,access.deviceToken,options.origin);
+    await grantDevice(q,ensured.device.device_id,{tenant_id:store.tenantId,instance_id:store.instanceId,checkout_id:redeemed.checkout_id},orderRef);
+    const value=await publicOrder(q,store,orderRef);await assertDeviceLive(q,ensured.device.device_id);
+    return {cookie:ensured.cookie,value};
+  });
+}
+export async function requestPublicOrderAccess(pool:Pool,slug:string,input:{email:string;display_number:string},access:BrowserAccess,options:HostedCheckoutOptions) {
+  quarantineGate(options);
+  requireCondition(options.email,409,'order_access_email_unavailable','尚未提供訂單存取郵件。');
+  const email=input.email.trim().toLowerCase();
+  let message;
+  try {
+    message=await isolatedTransaction(pool,async q=>{
+      await commerceRateLimitInTransaction(q,'accessRequestNetwork',access.network);
+      await commerceRateLimitInTransaction(q,'accessRequestEmail',email);
+      await commerceRateLimitInTransaction(q,'accessRequestGlobal','global');
+      const store=await resolvePublicStorePage(q,slug);if(!store)return null;
+      const target=(await q.query<{tenant_id:string;instance_id:string;checkout_id:string;order_id:string}>(`SELECT co.tenant_id,co.instance_id,co.checkout_id,co.order_id
+        FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id) JOIN commerce_customers c USING(customer_id)
+        JOIN commerce_checkout_contacts contact ON contact.contact_id=co.contact_id AND contact.checkout_id=co.checkout_id
+        WHERE co.tenant_id=$1 AND co.instance_id=$2 AND co.display_number=$3 AND o.order_profile='hosted_checkout'
+          AND c.email_normalized=$4 AND c.redacted_at IS NULL AND contact.redacted_at IS NULL`,[store.tenantId,store.instanceId,input.display_number,email])).rows[0];
+      if(!target)return null;
+      const token=await createAccessLink(q,target);
+      return {to:email,displayNumber:input.display_number,accessUrl:`${options.origin}/shops/${store.projection.slug}/orders/${target.order_id}#access=${token}`};
+    });
+  } catch(error) {if(error instanceof Problem&&error.code==='commerce_rate_limited')return;throw error;}
+  if(message)try{await options.email.sendOrderAccess(message);}catch(error){
+    const name=error instanceof Error&&['Error','TypeError','RangeError'].includes(error.name)?error.name:'unknown';
+    console.error('commerce_email_failed',name);
+  }
+}
+export async function forgetPublicBrowser(pool:Pool,access:BrowserAccess,options:HostedCheckoutOptions) {
+  quarantineGate(options);
+  await isolatedTransaction(pool,q=>forgetDevice(q,access.deviceToken));
+}
+export const clearShopCookie=(options:HostedCheckoutOptions)=>shopCookie(options.origin,'',0);

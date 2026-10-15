@@ -1,3 +1,4 @@
+import * as checkout from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import * as supplyCatalog from '../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
@@ -107,6 +108,19 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 ];
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
+  ['hosted-checkout', 'Public hosted checkout M1. Shape validation grants no payment, email or deployment authority.', [
+    ['cart-quote-input', checkout.CartQuoteInputSchema, 'input', ['unique_skus_current_publication_prices']],
+    ['cart-quote', checkout.CartQuoteResponseSchema, 'output', ['read_only_availability']],
+    ['checkout-input', checkout.CheckoutInputSchema, 'input', ['exact_policy_set_structural_json_bounds']],
+    ['checkout', checkout.CheckoutResponseSchema, 'output', ['absolute_expiry']],
+    ['placement-input', checkout.PlaceOrderInputSchema, 'input', ['checkout_device_grant']],
+    ['placement', checkout.PlaceOrderResponseSchema, 'output', ['first_buyer_replay']],
+    ['order', checkout.PublicOrderSchema, 'output', ['store_and_current_access']],
+    ['redeem-input', checkout.RedeemAccessInputSchema, 'input', ['single_use_link']],
+    ['access-request-input', checkout.AccessRequestInputSchema, 'input', ['uniform_accepted_response']],
+    ['forget-input', checkout.ForgetAccessInputSchema, 'input', []],
+    ['error', checkout.CheckoutErrorSchema, 'output', []],
+  ]],
   ['hosted-supply-catalog', 'Private supplier preparation without retail activation; existing inventory and consent authority.', [
     ['setup', supplyCatalog.SupplyCatalogSetupInputSchema, 'input', []],
     ['setup-receipt', supplyCatalog.SupplyCatalogReceiptSchema, 'output', ['stable_metadata_only_command_receipt']],

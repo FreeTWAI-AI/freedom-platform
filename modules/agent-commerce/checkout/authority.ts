@@ -18,6 +18,13 @@ export async function bindStore(q: PoolClient, tenantId: string) {
 /** All lifecycle locks precede community; item provenance is discovered from
  * server selections or retained order lines, never a supplied supplier map. */
 export async function lockStore(q: PoolClient, store: CheckoutStore, skus: readonly string[] = [], orderIds: readonly string[] = [], live = true): Promise<StoreContext> {
+  return resolveCheckoutStore(q,store,skus,orderIds,live,true);
+}
+/** The cart snapshot uses the same provenance/liveness resolver without locks or writes. */
+export async function readCheckoutStore(q:PoolClient,store:CheckoutStore,skus:readonly string[]) {
+  return resolveCheckoutStore(q,store,skus,[],true,false);
+}
+async function resolveCheckoutStore(q:PoolClient,store:CheckoutStore,skus:readonly string[],orderIds:readonly string[],live:boolean,lock:boolean):Promise<StoreContext> {
   const seller = (await q.query(`SELECT p.*,s.community_id FROM commerce_storefront_profiles p JOIN commerce_shops s ON s.shop_id=p.storefront_shop_id
     WHERE p.storefront_shop_id=$1 AND s.origin='hosted'`,[store.storefront_shop_id])).rows[0];
   requireCondition(seller,404,'checkout_store_not_found','找不到商店。');
@@ -32,11 +39,11 @@ export async function lockStore(q: PoolClient, store: CheckoutStore, skus: reado
   const discovered = new Map([seller,...sources].map(s => [s.instance_id,s]));
   for (const row of [...discovered.values()].sort((a,b) => a.tenant_id.localeCompare(b.tenant_id)||a.instance_id.localeCompare(b.instance_id))) {
     await bindStore(q,row.tenant_id);
-    const scope=(await q.query("SELECT status FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1 FOR SHARE",[row.tenant_id])).rows[0];
-    const tenant=(await q.query('SELECT status FROM tenants WHERE tenant_id=$1 FOR SHARE',[row.tenant_id])).rows[0];
-    const inst=(await q.query("SELECT status,binding_id FROM module_instances WHERE tenant_id=$1 AND instance_id=$2 AND module_key='storefront' FOR NO KEY UPDATE",[row.tenant_id,row.instance_id])).rows[0];
+    const scope=(await q.query(`SELECT status FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1 ${lock?'FOR SHARE':''}`,[row.tenant_id])).rows[0];
+    const tenant=(await q.query(`SELECT status FROM tenants WHERE tenant_id=$1 ${lock?'FOR SHARE':''}`,[row.tenant_id])).rows[0];
+    const inst=(await q.query(`SELECT status,binding_id FROM module_instances WHERE tenant_id=$1 AND instance_id=$2 AND module_key='storefront' ${lock?'FOR NO KEY UPDATE':''}`,[row.tenant_id,row.instance_id])).rows[0];
     requireCondition(inst,404,'checkout_store_not_found','找不到商店。');
-    const deployment=(await q.query('SELECT state FROM deployment_bindings WHERE tenant_id=$1 AND instance_id=$2 AND binding_id=$3 FOR SHARE',[row.tenant_id,row.instance_id,inst.binding_id])).rows[0];
+    const deployment=(await q.query(`SELECT state FROM deployment_bindings WHERE tenant_id=$1 AND instance_id=$2 AND binding_id=$3 ${lock?'FOR SHARE':''}`,[row.tenant_id,row.instance_id,inst.binding_id])).rows[0];
     if (live) {
       const owner=await q.query(`SELECT 1 FROM tenant_memberships m JOIN principals p USING(principal_id) JOIN users u ON u.user_id=p.user_ref
         WHERE m.tenant_id=$1 AND m.role='owner' AND m.status='active' AND p.status='active' AND p.kind='person'
@@ -47,8 +54,8 @@ export async function lockStore(q: PoolClient, store: CheckoutStore, skus: reado
     const p=await profile(q,row.tenant_id,row.instance_id);ready(p);parties.set(p.instance_id,p);
   }
   await bindStore(q,seller.tenant_id);
-  await lockCommerceCommunity(q,seller.community_id);
-  const current=await profile(q,seller.tenant_id,seller.instance_id,true);ready(current);
+  if(lock)await lockCommerceCommunity(q,seller.community_id);
+  const current=await profile(q,seller.tenant_id,seller.instance_id,lock);ready(current);
   parties.set(current.instance_id,current);
   return {profile:current,communityId:seller.community_id,parties};
 }
