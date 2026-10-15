@@ -2,6 +2,8 @@
 
 This module provides the pure, I/O-free domain rule functions for Freedom Commerce electronic invoices (統一發票, Taiwan e-invoice), following EC-SPEC-06 §3.3, §3.5, and §3.7.
 
+The module depends on `commerce-providers` for that email rule only.
+
 ## Scope & Status
 
 ### What exists now
@@ -69,7 +71,7 @@ ECPay Developer Documentation Sources:
 - `assertMinorMoney(minor)`: Validates that an amount is a non-negative safe integer multiple of 100.
 - `isValidUbn(value)`: Validates Taiwan Unified Business Number checksum under the 2023 divisor-5 logic.
 - `normalizeInvoiceBuyer(input)`: Validates, normalises (NFKC, trimmed, uppercase codes), and strips disallowed fields for buyer invoice data.
-- `ecpayBuyerFields(buyer, customerEmail)`: Generates exact ECPay B2C issue fields (`CustomerIdentifier`, `CustomerName`, `CarrierType`, `CarrierNum`, `Print`, `Donation`, `LoveCode`, `CustomerEmail`).
+- `ecpayBuyerFields(buyer, customerEmail)`: Generates exact ECPay B2C issue fields (`CustomerIdentifier`, `CustomerName`, `CarrierType`, `CarrierNum`, `Print`, `Donation`, `LoveCode`, `CustomerEmail`), validating customer email using the shared email rule from `commerce-providers`.
 - `itemName(productName, variantLabel?, suffix?)`: Builds and truncates item names to 100 Unicode code points, keeping suffix intact.
 - `splitUnits(amountMinor, quantity)`: Splits whole NT$ line totals into unit prices with integer NT$ rounding remainder.
 - `invoiceItems(input)`: Converts order lines and shipping groups into 1–50 invoice items with whole NT$ sales totals.
@@ -77,9 +79,9 @@ ECPay Developer Documentation Sources:
 - `toEcpayItems(items, itemWord)`: Converts invoice/allowance items to ECPay row format (`ItemSeq`, `ItemName`, `ItemCount`, `ItemWord`, `ItemPrice`, `ItemAmount`).
 - `ntdFromMinor(minor)`: Converts minor units into integer NT$ for ECPay `SalesAmount`/`AllowanceAmount`.
 - `invoiceRemark(displayNumber)`: Formats standard invoice remark (`訂單 {displayNumber}`).
-- `parseEcpayDateTime(value)`: Strictly parses ECPay Taiwan local time string into a UTC `Date`.
+- `parseEcpayDateTime(value)`: Strictly parses ECPay Taiwan local time string into a UTC `Date`, requiring a single separator (`-` or `/`) and a year in the 2000–2099 range.
 - `invoicePeriod(at)`: Determines the two-month period `{ year, startMonth }` for a given timestamp in Taiwan time.
 - `voidDeadline(invoiceAt)`: Calculates statutory void deadline (23:59:59 Taiwan time on 13th of month after period).
 - `platformVoidDeadline(invoiceAt)`: Calculates platform safety deadline (`voidDeadline - 2 hours`).
 - `suggestInvoiceCorrection(invoice, refund, preference, now)`: Deterministically suggests correction action, alternatives, deadline, upload requirements, and urgency flag.
-- `canVoidWithReissue(invoice, now)`: Checks whether an issued invoice can undergo VoidWithReIssue for buyer data corrections with unchanged amount.
+- `canVoidWithReissue(invoice, now)`: Checks whether an issued invoice can undergo VoidWithReIssue for buyer data corrections with unchanged amount; requires the invoice to be uploaded and requested within 46 hours of issue (source: https://support.ecpay.com.tw/6906/).
