@@ -24,7 +24,6 @@
 | `provider` | `ecpay` |
 | `environment` | `sandbox`（綠界 stage）或 `live`；訂單的 `environment` 必須與帳戶相同（EC-SPEC-03 §3.1） |
 | `merchant_id` | 綠界特店編號（非秘密，但只給店內有權者看）；(provider, environment, merchant_id) 在同一間店內唯一 |
-| `throttled_until` | 綠界回 HTTP 403 時設定（§6.3），同帳戶所有查詢與操作都暫停到這個時間 |
 | `version`、建立／更新時間 | 每次改動 +1 |
 
 服務（`commerce_provider_account_services`）：
@@ -34,6 +33,7 @@
 | `account_id`、`purpose` | `payment`／`logistics`／`invoice` |
 | `profile` | 付款為 `ecpay.aio.credit.v1`（§2）；物流與發票見 EC-SPEC-05、06 |
 | `credential_version` | 這個用途目前使用的金鑰版本（§1.3） |
+| `throttled_until` | 綠界對這個用途回 HTTP 403 時設定（§6.3）；同帳戶、同用途的查詢與操作暫停到這個時間，其他用途不受影響（EC-SPEC-09 §4） |
 | `state` | `draft` → `active` → `suspended`／`retired`；只有 `active` 能建立新付款。同一間店、同一環境、同一 profile 同時最多一個 `active` |
 | 開通證據 | §1.4 的驗證交易參考與時間 |
 | `version` | 每次改動 +1 |
@@ -56,8 +56,8 @@
 
 ### 1.4 開通與驗證
 
-- 商家在 Seller Console「收款設定」（EC-SPEC-01 §7.5 的 payments）輸入特店編號與金鑰；儲存即封存，付款服務 `draft`。
-- 付款服務 `draft → active` 需要一次成功的已驗證交易：sandbox 以 stage 測試卡完成一筆真實 stage 付款與通知；live 以 §11 的受控小額試付。在完成之前，店家的結帳開關（EC-SPEC-02 §2.3、EC-SPEC-10）不能打開。
+- 店的 owner 或 admin 在 Seller Console「收款設定」（EC-SPEC-01 §7.5 的 payments）輸入特店編號與金鑰，並重新輸入密碼（EC-SPEC-09 §2.2）；儲存即封存，付款服務 `draft`。帳戶、金鑰與服務狀態的其他改動（換金鑰、換特店、啟用、停用、退役）同樣只限 owner／admin 並重新輸入密碼。
+- 付款服務 `draft → active` 需要一次成功的已驗證交易：sandbox 以 stage 測試卡完成一筆真實 stage 付款與通知；live 以 §11 的受控小額試付。在完成之前，店家的結帳開關（EC-SPEC-02 §2.3、EC-SPEC-10 §4.5）不能打開。
 - 付款服務 `suspended` 後：不建立新 attempt；已建立的 attempt 照常接收通知、查詢與退款（在途責任不因停用消失，EC-R56）。
 
 ## 2. 首發 profile：`ecpay.aio.credit.v1`
@@ -143,9 +143,9 @@ interface PaymentPort {
 ### 4.2 回到商店
 
 - `ClientBackURL`＝訂單頁（GET、無付款參數）[2878]。
-- `OrderResultURL`＝`/pay/ecpay/return/{account_ref}`：綠界讓瀏覽器以 POST 帶付款結果回來 [2878]。伺服器驗 CheckMacValue（失敗就當沒有資料）、為對應 attempt 排一次查詢（同 attempt 每分鐘最多一次），然後 303 轉到訂單頁。**不改任何付款狀態**：瀏覽器返回不是付款證據（計畫 §10.3、EC-AT18）。
-- 跨站 POST 不會帶 `SameSite=Lax` 的瀏覽器憑證；303 之後的同站 GET 才會帶，所以這個端點不需要也不讀買家憑證。
-- 訂單頁顯示「付款結果確認中」並輪詢付款摘要（每 5 秒、最多 2 分鐘，之後改成按鈕「重新查詢」）。
+- `OrderResultURL`＝`/pay/ecpay/return/{account_ref}`：綠界讓瀏覽器以 POST 帶付款結果回來 [2878]。伺服器驗 CheckMacValue（失敗就當沒有資料）、為對應 attempt 排一次查詢（同 attempt 每分鐘最多一次），然後 303 轉到付款返回頁（B06，`/shops/:slug/payment-return/:attempt_ref`，EC-SPEC-01 §3）。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。**不改任何付款狀態**：瀏覽器返回不是付款證據（計畫 §10.3、EC-AT18）。
+- 從綠界頁面送出的跨站 POST 不帶 `SameSite=Lax` 的買家憑證；303 之後的頂層 GET 導覽會帶它，但不帶 `SameSite=Strict` 的會員 session（EC-SPEC-09 §2.6）。所以這個端點不需要也不讀任何 cookie；返回頁的 HTML 不依身分產生，狀態由頁面內的同站 fetch 讀取。
+- 付款返回頁顯示「付款結果確認中」並輪詢付款摘要（每 5 秒、最多 2 分鐘，之後改成按鈕「重新查詢」）；確認後帶到訂單頁（B07）。
 
 ### 4.3 重新付款
 
@@ -160,7 +160,7 @@ interface PaymentPort {
 
 - `POST /api/v1/provider-callbacks/ecpay/{account_ref}/payment`。只接受這個確切路徑與方法，比照 `isMaintainerWebhookPath`（`apps/platform-api/src/routes/repo-maintainer.ts:19`）跳過 JSON、Origin、CSRF 與 session 規則；其他規則照常。
 - `account_ref` 是帳戶的不透明 ID，只用來找金鑰；帳戶的身分仍以通知內容驗證（§5.2）。
-- 公開不等於免驗證（計畫 §10.3）。staging 在 Cloudflare Access 之後：這個路徑必須在 Access 設定中排除，否則綠界會收到 302 而一直重送。這是 Ted 的基礎設施變更（EC-SPEC-10）；本機沒有公開網址，只能靠查詢。
+- 公開不等於免驗證（計畫 §10.3）。staging 在 Cloudflare Access 之後：這個路徑必須在 Access 設定中排除，否則綠界會收到 302 而一直重送。這是 Ted 的基礎設施變更（EC-SPEC-10 §4.4）；本機沒有公開網址，只能靠查詢。
 - `Content-Type` 必須是 `application/x-www-form-urlencoded` [2878]；body 上限 16 KiB；重複的參數名一律拒絕；參數名必須是 ASCII 英數與 `_`。
 
 ### 5.2 驗證順序
@@ -225,7 +225,7 @@ interface PaymentPort {
 ### 6.3 呼叫規則
 
 - 只在 operation 的租約交易提交後呼叫；結果用新交易寫回（計畫 §10.2、EC-R20）。
-- HTTP 403 → 帳戶 `throttled_until = now + 30 分`，同帳戶所有查詢延後 [2890]。
+- HTTP 403 → 同帳戶付款服務列的 `throttled_until = now + 30 分`，這個帳戶的付款查詢與操作延後；物流與發票不受影響（EC-SPEC-09 §4）[2890]。
 - 逾時或網路錯誤 → 指數退避（1、2、5、10 分），不超過確認窗後 24 小時；之後轉人工例外。
 - 查詢是唯讀，可以安全重試；退款不行（§7.4）。
 
@@ -237,11 +237,11 @@ interface PaymentPort {
 
 ### 7.2 退款紀錄（提議 `commerce_refunds`）
 
-- 欄位：`refund_id`、`order_id`、`attempt_id`（退哪一筆付款）、`amount_minor`、原因、依據（取消、RMA、例外）、申請者、核准者、`mode`（`provider_api`／`manual_record`）、狀態、provider 參考、建立時間、`version`。
+- 欄位：`refund_id`、`order_id`、`attempt_id`（退哪一筆付款）、`amount_minor`、原因、依據（取消、RMA、例外、爭議扣回；爭議扣回只能是 `manual_record`，EC-SPEC-07 §7）、申請者、核准者、`mode`（`provider_api`／`manual_record`）、狀態、provider 參考、建立時間、`version`。
 - 狀態：`requested → approved → submitted → confirmed／failed`；`submitted` 之後結果不明 → `unknown`，只能靠查詢或人工證據離開。`manual_record` 直接 `recorded`（附商家在綠界後台的退款日期、金額、參考號）。
 - 上限 trigger：同一 attempt 所有非 `failed` 退款的合計 ≤ 該 attempt 的已付款金額（EC-AT22）。
 - 每筆退款都有分攤列（`commerce_refund_lines`：`item`／`shipping`／`unapplied`，EC-SPEC-06 §2.5）；行項與運費的累計上限跨 attempt 計算，所以並行申請先鎖訂單、再鎖 attempt（EC-SPEC-03 §6）。
-- 權限：只有店的 owner 或被授權的退款角色能核准；供應商不能退他店訂單（計畫 §4.1）。
+- 權限：只有店的 owner／admin 或有 `store:refund` 的成員能建立與核准（EC-SPEC-09 §2.2）；供應商不能退他店訂單（計畫 §4.1）。
 - 已交寄的包裹不會因退款被撤回；退款也不代表商品已回庫（EC-SPEC-05、06）。
 
 ### 7.3 綠界 API 退款（只限正式環境）
@@ -290,8 +290,8 @@ interface PaymentPort {
 
 - 綠界協定純函式（CheckMacValue SHA-256／MD5、.NET URL 編碼、AES-128-CBC 信封、表單與回應解析）：提議 `modules/agent-commerce/providers/ecpay/`，新 descriptor（module `commerce-providers`，無資料庫相依）。付款、物流、發票共用。
 - 付款領域、routes 與 outbox：提議 `modules/agent-commerce/payments/`，新 descriptor（module `commerce-payments`，相依 `hosted-checkout`、`commerce-providers`）。
-- M2（付款）在 M1 之後：§3.1 的表、RLS、trigger、索引；能力 `commerce.hosted-payment.v1` 與強制下限跟 callback 路由同一個 migration 上線——之後回退到不認得 callback 的 binary 會漏接付款，所以不能回退（EC-SPEC-10）。
-- Worker 需要的設定：`COMMERCE_CREDENTIAL_KEYS` secret、callback 路徑的 Access 排除（staging）、查詢與退款 operation 的排程（cron）。都是部署設定，由 Ted 操作（EC-SPEC-10）。
+- M2（付款）在 M1 之後：§3.1 的表、RLS、trigger、索引；能力 `commerce.hosted-payment.v1` 與強制下限跟 callback 路由同一個 migration 上線——之後回退到不認得 callback 的 binary 會漏接付款，所以不能回退（EC-SPEC-10 §7）。
+- Worker 需要的設定：`COMMERCE_CREDENTIAL_KEYS` secret、callback 路徑的 Access 排除（staging）、查詢與退款 operation 的排程（cron）。都是部署設定，由 Ted 操作（EC-SPEC-10 §4.3、§4.4）。
 
 ## 11. 外部驗證的分層（需要 Ted 授權）
 
@@ -315,7 +315,7 @@ interface PaymentPort {
 | `SimulatePaid=1` 且 `RtnCode=1`：不改 attempt、不動庫存、不建立履約 | EC-AT19 |
 | 瀏覽器 `OrderResultURL` 帶有效簽章的成功資料：不改狀態，只排查詢 | EC-AT18 |
 | 提交失敗不回 `1|OK`；提交成功才回 | EC-AT17 |
-| 查詢 403 → 帳戶暫停 30 分；逾時退避；`TimeStamp` 每次重產 | EC-AT20 |
+| 查詢 403 → 同帳戶付款服務暫停 30 分、物流與發票不受影響；逾時退避；`TimeStamp` 每次重產 | EC-AT20 |
 | 通知 vs 保留到期結算、通知 vs 買家取消、兩個 attempt 都付款（overpaid） | EC-AT21、30、31 |
 | 退款累計上限、並行退款、`unknown` 不重送、人工紀錄 | EC-AT22、23 |
 | 兩間店兩個帳戶：A 店的通知不能套到 B 店；A 的金鑰解不開 B 的封存 | EC-AT13 |

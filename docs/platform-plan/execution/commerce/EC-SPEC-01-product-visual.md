@@ -191,20 +191,20 @@ B 頁是 `/shops/:slug` 之下的獨立文件，不進 portal 的 `app-frame`（
 
 路徑是 `#stores/<tenant>/<instance>/<slug>`（店的根目錄）；供應商頁面在 `…/supply/…`（SC-SPEC-07 §2）。這組 slug 是 2026-10-15 與 Supplier Console 工作階段約定的清單。賣家主控台的開關關閉時，這些 slug 回到既有的商店頁，`orders/<order_id>` 回到訂單清單；`orders` 保留 `sellerOrdersRoute` 既有的 4 段路徑行為。不認得的 query key 一律忽略；不用 `replaceState`；ID 以 `OpaqueId` 檢查。
 
-| slug | 群組 | 中文 | English | 顯示條件（能力名稱為提議） | 頁面 |
+| slug | 群組 | 中文 | English | 顯示條件（能力見 EC-SPEC-09 §2.2） | 頁面 |
 | --- | --- | --- | --- | --- | --- |
 | （店的根路徑，沒有 slug） | 營運 | 營運概覽 | Overview | `store:read` | E02 |
-| `orders`、`orders/<order_id>` | 營運 | 訂單 | Orders | `store:orders.read` | E05 |
+| `orders`、`orders/<order_id>` | 營運 | 訂單 | Orders | `store:orders:read` | E05 |
 | `fulfilment`、`fulfilment/<fulfilment_order_id>` | 營運 | 履約 | Fulfilment | `store:fulfil` | E06（EC-SPEC-05 §4） |
 | `shipments`、`shipments/<shipment_id>` | 營運 | 包裹與託運單 | Shipments | `store:fulfil` | E06（EC-SPEC-05 §5） |
-| `customers` | 營運 | 顧客 | Customers | `store:customers.read` | E07 |
-| `support`、`support/<case_id>` | 營運 | 客服與售後 | Support | `store:customers.read` | E07 |
+| `customers` | 營運 | 顧客 | Customers | `store:customers:read` | E07 |
+| `support`、`support/<case_id>` | 營運 | 客服與售後 | Support | `store:customers:read` | E07 |
 | `storefront` | 商店 | 品牌與版面 | Storefront | `store:write` | E03 |
 | `products` | 商店 | 商品 | Products | `store:write` | E04 |
 | `sourcing` | 商店 | 選品與供貨 | Sourcing | `store:write` | E04（供貨來源、代出貨同意） |
 | `promotions` | 商店 | 優惠與推廣 | Promotions | `store:write` | E08 |
-| `payments` | 帳務 | 收款與對帳 | Payments | `store:payments` | E09 |
-| `invoices` | 帳務 | 發票 | Invoices | `store:invoices` | E10 |
+| `payments` | 帳務 | 收款與對帳 | Payments | `store:finance:read` | E09 |
+| `invoices` | 帳務 | 發票 | Invoices | `store:finance:read` | E10 |
 | `reports` | 帳務 | 報表 | Reports | `store:read`（數字依各能力裁切） | E10 |
 | `settings`、`settings/<section>` | 設定 | 商店設定 | Settings | `store:manage` | E11（例如 `settings/shipping`） |
 

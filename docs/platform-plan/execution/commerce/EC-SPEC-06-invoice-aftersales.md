@@ -32,10 +32,10 @@
 ### 2.1 訂單對話（B07、E07）
 
 - 每張 `hosted_checkout` 訂單最多一個對話串（提議 `commerce_support_threads`，第一則留言時建立）；訊息只能新增（提議 `commerce_support_messages`：作者種類 `buyer`／`store`／`system`、內文 ≤ 2,000 字、時間）。
-- 買家以訂單存取憑證或會員本人讀寫（EC-SPEC-02 §4）。店內有 `store:customers.read` 的成員可讀，有 `store:orders.manage` 的成員可回覆。出貨者與供應商看不到。
-- 訊息是個資：tenant RLS（零售商），不進 journal、outbox、日誌與分析；保存期限見 EC-SPEC-09 §3。C2 不收附件：照片證據需要私有 asset 用途，WP-00 核對既有 asset 能力後再決定（§12）。
+- 買家以訂單存取憑證或會員本人讀寫（EC-SPEC-02 §4）。店內有 `store:customers:read` 的成員可讀；回覆另需 `store:orders:manage`（EC-SPEC-09 §2.2）。出貨者與供應商看不到。
+- 訊息是個資：tenant RLS（零售商），不進 journal、outbox、日誌與分析；保存期限見 EC-SPEC-09 §3。C2 不收附件：asset 的擁有者必須是會員，guest 無法上傳；私有附件用途 `commerce.evidence` 在 C4 加入（WP-00 §7）。
 - 售後申請、決定、寄回、檢驗、退款與發票更正的狀態變化，以 `system` 訊息寫進同一串，買家在一個地方看到全部進度。
-- 有新回覆時訂單頁顯示未讀。寄 Email 給買家需要寄送授權（EC-SPEC-10）；未授權前不寄。
+- 有新回覆時訂單頁顯示未讀。寄 Email 給買家需要寄送授權（EC-SPEC-10 §6.2）；未授權前不寄。
 - 購買前的詢問用店家公開的聯絡方式（§4.1），C2 不提供沒有訂單的對話。
 
 ### 2.2 售後申請（RMA）
@@ -98,8 +98,8 @@
 
 ### 2.7 權限
 
-- 建立：買家用訂單憑證或會員本人；店家開啟需要 `store:orders.manage`。
-- 決定：`store:orders.manage`；退款核准另需 `store:refund`（EC-SPEC-04 §7.2）。
+- 建立：買家用訂單憑證或會員本人；店家開啟需要 `store:orders:manage`。
+- 決定：`store:orders:manage`；退款核准另需 `store:refund`（EC-SPEC-04 §7.2）。
 - 供應商的成員在零售商的 instance 沒有任何能力；售後、退款、發票路由都以零售商的 tenant scope 檢查，供應商呼叫一律拒絕且沒有副作用（SC-LAT17）。
 - 買家撤回與店家核准同時發生：以 `version` 判定，後到的一方得到 409 與目前狀態。
 
@@ -152,7 +152,7 @@
 - 每一種都送 `CustomerEmail`（聯絡 Email；會員載具與綠界的開立通知需要）。不送 `CustomerPhone`、`CustomerID`、`CustomerAddr`；`CustomerName` 只在 `company` 送。
 - 紙本（`Print=1`，商家自行列印或買家到 KIOSK [7896]）與悠遊卡、一卡通載具（`CarrierType=4／5` 需要卡片隱碼 [53662]）在 C4。
 - 伺服器拒絕混填（例如捐贈又帶統編），回欄位錯誤，不默默丟掉欄位；前端切換類型時清空不適用的欄位（EC-SPEC-01 §7.3）。
-- 輔助查詢：結帳頁在欄位離開時呼叫 `POST …/invoice-checks`（§8.1），伺服器用商家的發票金鑰呼叫 `CheckBarcode` [7886]、`CheckLoveCode` [7891]、`GetCompanyNameByTaxID` [32089]。限流每個 checkout 每分鐘 10 次；結果以值的雜湊為鍵快取 24 小時，不存原值。
+- 輔助查詢：結帳頁在欄位離開時呼叫 `POST …/invoice-checks`（§8.1），伺服器用商家的發票金鑰呼叫 `CheckBarcode` [7886]、`CheckLoveCode` [7891]、`GetCompanyNameByTaxID` [32089]。限流每個 checkout 每分鐘 10 次、每店每分鐘 30 次；超過上限或發票服務暫停（`throttled_until`）時只做本地格式檢查，回 `check_unavailable`，不擋結帳（EC-SPEC-09 §4）。結果以值的雜湊為鍵快取 24 小時，不存原值。
   - 條碼與捐贈碼的查詢官方定位為輔助，不阻擋開立 [7886][62004]。
   - 統編查詢：`1`、`7`（查無登記但檢查碼正確）、`9000001`（財政部系統異常）繼續；`1200125`（檢查碼錯）、`2027000`（格式錯）停止，在欄位提示 [32089]。
   - 逾時（3 秒）或綠界維護：不阻擋，只提示「目前無法即時確認」。查回的公司名稱只當抬頭建議，買家可改。
@@ -237,7 +237,7 @@
 
 - 買家（B07）：發票號碼、日期、隨機碼、類型（載具號碼遮罩，例如 `/AB***9`；統編與捐贈碼照實顯示）、狀態、折讓清單（金額、日期、狀態）。待同意的線上折讓提示「請到 Email 確認折讓，{到期時間}前有效」。
 - 賣家（E05、E10）：同上，加上傳狀態、錯誤碼、建議更正與期限、操作紀錄。
-- 平台在 C2 不呼叫 `InvoiceNotify` [7938]；綠界是否寄開立通知給買家，依商家在綠界後台的通知設定。平台自己的 Email 需要寄送授權（EC-SPEC-10）。
+- 平台在 C2 不呼叫 `InvoiceNotify` [7938]；綠界是否寄開立通知給買家，依商家在綠界後台的通知設定。平台自己的 Email 需要寄送授權（EC-SPEC-10 §6.2）。
 - 不提供發票列印：`InvoicePrint` 只適用 `Print=1` 的票 [7949]，C2 不開紙本。
 
 ### 3.10 開通、停用與換帳戶
@@ -331,7 +331,7 @@
 | `issued` | 已請款，待核對 | 收款方 | 送出請款；可附交易文件參考（例如 B2B 發票號碼或收據編號），平台不開立也不驗證 |
 | `reconciled` | 已核對，待付款 | 付款方 | **已核對**：同意金額；到期日＝核對日＋付款天數 |
 | `disputed` | 有異議 | 付款方 | 逐筆註明異議；出現在收款方的待辦，收款方撤回對帳單，以 `adjustment` 更正後重開，或補充說明後請付款方重新核對（回到 `issued`） |
-| `partially_paid` | 部分付款 | 付款方 | 登錄了付款證據（日期、金額、方式、參考末碼、可選附件），合計未達總額 |
+| `partially_paid` | 部分付款 | 付款方 | 登錄了付款證據（日期、金額、方式、參考末碼；附件在 C4，WP-00 §7），合計未達總額 |
 | `paid` | 已支付 | 付款方 | 付款證據合計達到總額 |
 | `withdrawn` | 已撤回 | 收款方 | `draft`、`issued` 或 `disputed` 時撤回；帳目釋出，可放進新的對帳單。已核對或已有付款證據後不能撤回，只能以 `adjustment` 更正 |
 
@@ -382,7 +382,7 @@
 
 ## 8. 頁面與 API
 
-私有路由在 `/api/v1/tenants/:t/storefronts/:i/…` 之下，伺服器每次重新核對 tenant、instance 與能力。能力名稱為提議，在 EC-SPEC-09 §2 定案：`store:orders.manage`（售後決定、對話回覆）、`store:refund`（退款核准）、`store:invoices`（發票設定與更正）、`store:settlements`（供貨帳，付款方與收款方都用）、`store:customers.read`（讀對話）。
+私有路由在 `/api/v1/tenants/:t/storefronts/:i/…` 之下，伺服器每次重新核對 tenant、instance 與能力。能力見 EC-SPEC-09 §2.2：`store:orders:manage`（售後決定、對話回覆；回覆另需 `store:customers:read`）、`store:refund`（退款核准）、`store:invoices`（發票設定與更正）、`store:settlements`（供貨帳，付款方與收款方都用）、`store:customers:read`（讀對話）、`store:finance:read`（讀發票、退款與供貨帳）。
 
 ### 8.1 買家（B07、B08）
 
@@ -433,7 +433,7 @@ Supplier Console 的 SL-05 讀取投影只能用 §5.5 的欄位。
 - 領域：提議 `modules/agent-commerce/invoices/`（descriptor `commerce-invoices`，相依 `hosted-checkout`、`commerce-payments`、`commerce-providers`）與 `modules/agent-commerce/aftersales/`（descriptor `commerce-aftersales`：售後申請、對話、供貨帳；相依 `hosted-checkout`、`commerce-payments`、`commerce-fulfilment`）。`commerce_refund_lines` 隨 EC-SPEC-04 的 M2。
 - 契約：`contracts/guild-launchpad/v1/` 下新檔（例如 `hosted-aftersales.ts`、`hosted-invoice.ts`、`hosted-settlement.ts`），不改既有 v1 契約。
 - M4（發票與售後，在 M3 之後）：§2～§5 的表；RLS（對話與發票買家資料屬個資；帳本依兩個 tenant）；不可改與只能前進的 trigger；退款行項上限的 trigger；例外種類；`catalog.ts` 登錄與豁免理由；新增 migration 的全部登錄點（WP-00）。帳目由來源鍵決定性產生，M4 上線時可從 M3 起的交寄與檢驗事實補齊，重跑結果相同。
-- 能力 `commerce.hosted-invoice.v1` 與強制下限跟折讓通知路由同一個 migration 上線；回退限制同 EC-SPEC-04／05（EC-SPEC-10）。
+- 能力 `commerce.hosted-invoice.v1` 與強制下限跟折讓通知路由同一個 migration 上線；回退限制同 EC-SPEC-04／05（EC-SPEC-10 §7）。
 - 鎖序：EC-SPEC-03 §6 第 4 項在 `commerce_orders` 之後依序是售後申請（UUID 排序）→ payment attempt → 退款 → 發票文件，再接履約單、shipment、配置與 item。
 - Worker 設定：折讓通知路徑的 Access 排除（staging）、發票 operation 的排程、sandbox 測試信箱（§3.3），都由 Ted 操作。
 - 搬遷（C3）：發票留在開立它的特店帳戶；可攜版本接手後，舊票的更正仍用同一個帳戶（EC-SPEC-08）。
@@ -474,7 +474,7 @@ Supplier Console 的 SL-05 讀取投影只能用 §5.5 的欄位。
 | 折讓方式預設 | 線上同意（72 小時） | 買家未同意時的處理量 |
 | 免稅、零稅率、混合稅率、紙本、實體卡載具 | C4 | 對應商品與買家 |
 | 售後申請期間的下限 | 表單最小值 7 天；法定期間與合理例外由商家（必要時法律專業）確認 | 商家的退貨政策 |
-| 對話附件（照片證據） | 需要私有 asset 用途，WP-00 核對後決定 C2 或 C4 | 毀損、缺件的舉證 |
+| 對話附件（照片證據） | 預設：C2 只收文字，C4 加私有附件用途（WP-00 §7） | 毀損、缺件的舉證 |
 | 自動月結對帳單 | C2 不提供，收款方隨時建立 | 對帳頻率 |
 | 依實際物流帳單轉嫁運費 | C4；C2 用每包固定費用 | 運費差額 |
 | stage 連線授權 | 需要 Ted | sandbox 端到端；不影響向量與契約測試 |

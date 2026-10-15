@@ -97,7 +97,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | 訂單身分、幣別、應付總額、建立時間、保留期限 | `commerce_orders`（`order_profile='hosted_checkout'`） | 建立後整列不可改；`quote_id`、`reservation_*`、`closed_*` 為 NULL；`buyer_principal_id` 只在會員登入下單時填，guest 為 NULL；`external_id = chk:{checkout_id}:{client_order_id}` |
 | 行項 | `commerce_order_lines`（`order_profile='hosted_checkout'`） | 建立後不可改；必有 `supplier_shop_id`；外部供貨行項必有 offer／acceptance／listing digest（與 shared 相同規則） |
 | 訂單生命週期與版本 | 提議 sidecar `commerce_checkout_orders` | `(order_id, order_profile)` 複合 FK；tenant／instance、customer、checkout、凍結 terms 與 `terms_sha256`、`environment`（sandbox／live）、`lifecycle_state`、`version` |
-| 買家 | 提議 `commerce_customers` | 屬於零售商店（tenant／instance），不是平台會員；可選連結會員 principal |
+| 買家 | 提議 `commerce_customers` | 屬於零售商店（tenant／instance），不是平台會員；可選連結會員 principal（只依已驗證的 Email，EC-SPEC-02 §4.1）；Email 只允許一次遮罩（EC-SPEC-09 §3） |
 | 聯絡、收件、發票資料 | 提議 `commerce_checkout_contacts` | 個資獨立一表，以 checkout 為鍵；買家每次修改就新增一列，列不可改（只允許一次性遮罩，EC-SPEC-09）。訂單指向下單當下那一列，所以同一份資料不會複製到每張訂單。不進 journal、outbox、log 與分析；存取規則見 EC-SPEC-05／09 |
 | 結帳草稿 | 提議 `commerce_checkouts` | 見 EC-SPEC-02；凍結的 terms 不含個資，`terms_sha256` 涵蓋聯絡資料那一列的摘要。一個 checkout 依序可產生多張訂單，但同時最多一張「未付款且付款結果未定」的訂單 |
 | 付款套用紀錄 | 提議 `commerce_checkout_payment_applications` | 每個已驗證的付款事實套用到訂單一次（`payment_ref` 唯一）並記下結果（§5），重送回原結果；付款本身的權威在 EC-SPEC-04 |
@@ -164,7 +164,9 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 
 ## 5. 付款確認後的庫存處理
 
-付款模組（EC-SPEC-04）在驗證 provider 事件或查詢結果的同一個交易內呼叫庫存套用；每個付款事實以 `payment_ref` 在 `commerce_checkout_payment_applications` 記一次結果（`converted`、`allocated`、`unallocatable`、`after_cancel`、`overpaid`、`amount_mismatch`、`simulated`）。同一 `payment_ref` 重送直接回原結果，不再動庫存；不同 `payment_ref` 套到已有付款的訂單記為 `overpaid`。
+付款模組（EC-SPEC-04）在驗證 provider 事件或查詢結果的同一個交易內呼叫庫存套用；每個付款事實以 `payment_ref` 在 `commerce_checkout_payment_applications` 記一次結果（`converted`、`allocated`、`unallocatable`、`after_cancel`、`overpaid`、`amount_mismatch`、`simulated`）。同一 `payment_ref` 重送直接回原結果，不再動庫存；不同 `payment_ref` 套到已有確認付款的訂單記為 `overpaid`。
+
+「確認付款」只指結果為 `converted`、`allocated` 或 `unallocatable` 的套用紀錄。`simulated`、`amount_mismatch`、`after_cancel`、`overpaid` 都不算：金額不符之後買家再付正確金額，照常 convert 或 allocate；只有這些紀錄的訂單仍可依未付款取消，也仍算「付款結果未定」的舊單（§4.3）。未付款取消、已付款取消、`overpaid` 與 §4.3 的檢查都用這同一個定義。
 
 ### 5.1 正常（hold 仍有效）
 
@@ -178,7 +180,7 @@ hold 只要在決策當下仍是 `held`，代表那些件數從未釋放給別�
 
 1. 先持久記錄付款事實（EC-SPEC-04），永不因庫存不足而丟棄。
 2. 訂單 `open`：整張訂單每個 item `available ≥ q` → allocate（movement `allocate`）→ 進履約。
-3. 任一 item 不足 → 不配置任何 item（不做部分配置），建立例外 `paid_unallocatable`（EC-SPEC-05 ExceptionCase），賣家可選：補庫存後配置、或取消並退款。畫面顯示「已付款，等待配貨」，不顯示已出貨或缺貨取消。
+3. 任一 item 不足 → 不配置任何 item（不做部分配置），建立例外 `paid_unallocatable`（EC-SPEC-05 ExceptionCase），賣家可選：補庫存後配置、或取消並退款（沒有配置可釋放，直接 `cancelled(paid_cancelled)`，退款另建）。畫面顯示「已付款，等待配貨」，不顯示已出貨或缺貨取消。
 4. 訂單已 `cancelled`（買家先取消後仍完成付款）→ 例外 `paid_after_cancel`，必須退款；v1 不重新開啟已取消訂單。
 5. 同一訂單第二筆確認付款 → `overpaid` 例外，退款多付的 attempt；不悄悄忽略。
 

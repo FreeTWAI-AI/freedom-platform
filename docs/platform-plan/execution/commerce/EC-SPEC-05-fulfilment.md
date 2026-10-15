@@ -215,7 +215,7 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 
 1. 買家在 B05 選超商取貨 → `POST /api/v1/public/stores/:slug/cvs-selection-sessions`（需要 checkout 憑證）建立 session：隨機 `session_ref`、20 字元的 `extra_token`（只存雜湊）、checkout、子類型、所用帳戶、環境、15 分鐘到期。
 2. 瀏覽器前往 `/ship/ecpay/map/{token}`：極小的 HTML，表單 POST 到該環境的 `Express/map`，欄位 `MerchantID`、`LogisticsType=CVS`、`LogisticsSubType`、`IsCollection=N`、`ServerReplyURL=/ship/ecpay/map-return/{session_ref}`、`ExtraData=extra_token`、`Device`（手機 1、桌機 0）[8795]。同一個視窗開啟，不用新分頁或 iframe（iOS 會失敗；閒置超過 3 分鐘或開多個地圖分頁會出錯）[8795][62208]。這個路徑的 CSP `form-action` 只加該環境的物流主機，比照付款交接頁（EC-SPEC-04 §4.1）。
-3. 綠界把買家帶回 `POST /ship/ecpay/map-return/{session_ref}`：伺服器只檢查 session 存在、未到期、`ExtraData` 符合、`MerchantID` 與 `LogisticsSubType` 相同；把回傳的門市欄位清理後暫存在 session（`CVSStoreID` 1～6 個英數字、店名 ≤ 10 字、地址 ≤ 60 字、`CVSOutSide` 0／1 [8795][8809]），然後 303 回到結帳頁。這個跨站 POST 不帶買家憑證，所以這一步不改 checkout。
+3. 綠界把買家帶回 `POST /ship/ecpay/map-return/{session_ref}`：伺服器只檢查 session 存在、未到期、`ExtraData` 符合、`MerchantID` 與 `LogisticsSubType` 相同；把回傳的門市欄位清理後暫存在 session（`CVSStoreID` 1～6 個英數字、店名 ≤ 10 字、地址 ≤ 60 字、`CVSOutSide` 0／1 [8795][8809]），然後 303 回到結帳頁。這個跨站 POST 不帶買家憑證，所以這一步不改 checkout。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。
 4. 結帳頁（同站 GET，有憑證）呼叫 `POST …/checkouts/:ref/cvs-selection`，伺服器確認 session 屬於這個 checkout、同子類型、同環境、未用過，才把門市寫進新的聯絡資料列（EC-SPEC-02 §5.3）。跨 checkout、跨服務、跨環境一律拒絕，也不回顯門市資料（EC-AT35）。
 5. 門市名稱與地址只當文字顯示（不當 HTML），焦點回到門市欄並宣告所選門市（EC-SPEC-01 §7.3）。
 
@@ -515,7 +515,7 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 
 ## 9. 頁面與 API
 
-所有私有路由在 `/api/v1/tenants/:t/storefronts/:i/…` 之下，伺服器每次重新核對 tenant、instance、角色與出貨者（§4.1）；前端隱藏按鈕不是授權。委派給 Agent 的憑證另有限制（EC-SPEC-01 §1）。能力名稱為提議，在 EC-SPEC-09 §2 定案：`store:fulfil`（操作履約單與包裹）、`store:manage`（寄件地、出貨設定、物流帳戶、代出貨同意）、`store:write`（商品配送屬性）。
+所有私有路由在 `/api/v1/tenants/:t/storefronts/:i/…` 之下，伺服器每次重新核對 tenant、instance、角色與出貨者（§4.1）；前端隱藏按鈕不是授權。委派給 Agent 的憑證另有限制（EC-SPEC-01 §1）。能力見 EC-SPEC-09 §2.2：`store:fulfil`（操作履約單與包裹）、`store:manage`（寄件地、出貨設定、代出貨同意）、`store:write`（商品配送屬性）。物流帳戶與金鑰只有 owner／admin 能改，並要重新輸入密碼。
 
 ### 9.1 賣家（E05、E06、E11）
 
@@ -594,10 +594,10 @@ Supplier Console 實作供應商頁面與讀取投影時，欄位只能來自這
 - 領域、routes、outbox：提議 `modules/agent-commerce/fulfilment/`，新 descriptor（module `commerce-fulfilment`，相依 `hosted-checkout`、`commerce-providers`）。`ExceptionCase` 的程式在 `modules/agent-commerce/checkout/`。
 - 契約：`contracts/guild-launchpad/v1/` 下新檔（例如 `hosted-fulfilment.ts`、`hosted-shipping.ts`），不改既有 v1 契約。
 - M3（履約）：§1.3 的表；RLS（寄件地、收件投影、選店 session 屬於個資或與個資相連；物流事件只存允許欄位）；不可刪與只前進的 trigger；包裹數量的 deferred trigger；`commerce_exception_cases` 的物流種類；`catalog.ts` 登錄與豁免理由；新增 migration 的全部登錄點（WP-00）。
-- 能力 `commerce.hosted-fulfilment.v1` 與強制下限跟物流回呼路由同一個 migration 上線；之後回退到不認得回呼的 binary 會漏接貨態，所以不能回退（EC-SPEC-10）。
+- 能力 `commerce.hosted-fulfilment.v1` 與強制下限跟物流回呼路由同一個 migration 上線；之後回退到不認得回呼的 binary 會漏接貨態，所以不能回退（EC-SPEC-10 §7）。
 - Worker 需要的設定：回呼路徑的 Access 排除（staging）、查詢與 operation 的排程（cron），都由 Ted 操作。
 - 搬遷（C3）：每個 shipment 的 `ServerReplyURL` 在建單時就固定，舊網址在包裹結束前仍會收到通知；轉交方式在 EC-SPEC-08（EC-AT60）。
-- 備份與匯出：履約、包裹、事件、檢驗都屬於零售商或出貨者的業務資料，依 `catalog.ts` 的 tenant 解析匯出；匯出給供應商的資料不含零售商的顧客資料（SC-LAT22）。還原後先以查詢核對進行中的包裹，再開放新操作（EC-SPEC-10、T-047）。
+- 備份與匯出：履約、包裹、事件、檢驗都屬於零售商或出貨者的業務資料，依 `catalog.ts` 的 tenant 解析匯出；匯出給供應商的資料不含零售商的顧客資料（SC-LAT22）。還原後先以查詢核對進行中的包裹，再開放新操作（EC-SPEC-10 §8.4、T-047）。
 
 ## 11. 外部驗證的分層（需要 Ted 授權）
 
@@ -643,7 +643,7 @@ stage 的固定門市（7-ELEVEN `131386`、全家 `006598`）[8809] 只用於 s
 | 作業日（週一到週五、處理 1 天）：週一 `cutoff_time` 之前確認 → 週二 23:59:59；週五 `cutoff_time` 之後或週六確認 → 下週二 23:59:59（Asia/Taipei） | EC-AT10 |
 | 同公會賣家讀代出貨方案：沒有任何地址、電話、姓名或帳戶；同意 `accepted` 後賣家才看得到退回地址 | SC-LAT05、SC-LAT01 |
 | 建單命令帶帳戶參數 → 400；帳戶由（出貨者、環境、服務）解析；shipment 記下帳戶，之後的查詢與列印用同一個 | SC-LAT08 |
-| Agent 委派憑證呼叫收件資料、列印 session、建單、作廢與出貨設定的路由 → 403、沒有副作用、留 receipt | SC-LAT01、SC-LAT13 |
+| C2 沒有委派憑證：任何不是會員 session 的憑證（`fw_read_` token、Agent 上傳 token、`/shop-api/v1/` 金鑰）呼叫收件資料、列印 session、建單、作廢與出貨設定的路由 → 401／403、沒有副作用（EC-SPEC-09 §2.8） | SC-LAT01、SC-LAT13 |
 
 測試用隔離 PostgreSQL、barrier 與 DB 時鐘；provider 用本機的假 HTTP 伺服器回放官方格式，不連綠界。
 

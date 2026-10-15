@@ -76,7 +76,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 2. 至少一個已驗證、環境相符的收款帳戶（EC-SPEC-04）。
 3. 至少一個可用的配送設定（EC-SPEC-05）。
 4. 發票設定完成或明確標示不適用（EC-SPEC-06）。
-5. 平台的 commerce 開關與該店的准入（EC-SPEC-10）。
+5. 平台的 commerce 開關與該店的准入（EC-SPEC-10 §2.3、§2.5）。
 
 `commerce_shops` 上 hosted 列的 `accepting_orders=false`、`mode='test'` 約束不動；新的開關獨立。
 
@@ -95,7 +95,8 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 ### 4.1 顧客
 
 - `commerce_customers`：tenant／instance、`customer_id`、正規化 Email（店內唯一）、`email_verified_at`、可選 `member_principal_id`、建立時間。顧客屬於這間店，不是平台會員。
-- 會員登入下單時，訂單填 `buyer_principal_id`，顧客記錄連結會員；guest 下單時兩者皆空。
+- 會員登入下單時，訂單填 `buyer_principal_id`；guest 下單時為空。「本人的訂單」只依 `buyer_principal_id` 與存取憑證判斷（§4.2），不依顧客記錄的會員連結。
+- 顧客記錄的會員連結只是給賣家看的標示：只在這筆顧客記錄還沒連結、而且會員帳號已驗證的 Email 與顧客 Email 相同時建立。其他情況不連結，也不擋下單（例如家人共用一個 Email）。連結建立後不清除、不改連別人。只知道某個 Email 不能讓人取得任何連結。
 - 不自動建立會員、不加入公會。
 - 聯絡、收件、發票資料放在 EC-SPEC-03 的 `commerce_checkout_contacts`（以 checkout 為鍵、每次修改新增一列），不放在顧客記錄；顧客記錄只有 Email。
 
@@ -109,7 +110,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 
 - 新表 `commerce_access_devices`（瀏覽器憑證雜湊、建立／到期／撤銷）與 `commerce_order_access_grants`（device 或 link、order、到期、撤銷、最後使用時間）。
 - 讀取任何訂單都以「店家＋訂單＋有效 grant 或本人會員」判斷；查不到一律回不揭露的 404。顯示用編號與 `order_ref` 都不是憑證（EC-AT05）。
-- B10：`POST /api/v1/public/stores/:slug/order-access-requests`（Email＋顯示用編號）一律回 202；相符時寄信件連結。限流比照活動 guest：每網路每小時 10、每 Email 每小時 3、全域每小時 300。真的寄信需要寄送授權；授權前只在測試環境用 fixture sender（EC-SPEC-10）。
+- B10：`POST /api/v1/public/stores/:slug/order-access-requests`（Email＋顯示用編號）一律回 202；相符時寄信件連結。限流比照活動 guest：每網路每小時 10、每 Email 每小時 3、全域每小時 300。真的寄信需要寄送授權；授權前只在測試環境用 fixture sender（EC-SPEC-10 §6.2、§6.4）。
 - 會員可在登入狀態下把持有憑證的 guest 訂單「關聯到我的帳號」（C2 之後，選用）。
 
 ### 4.3 顯示用訂單編號
@@ -118,7 +119,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 
 ### 4.4 資料保存
 
-個資只在需要的地方出現（EC-SPEC-01 §7.5）。保存期限與遮罩時點在 EC-SPEC-09 定案（與 OPEN-07 一起）；預設：結案且售後期限過後，遮罩地址與電話，保留帳務與發票必要欄位。實際法定期限由商家與專業人士確認，不在程式寫死。
+個資只在需要的地方出現（EC-SPEC-01 §7.5）。保存期限與遮罩見 EC-SPEC-09 §3（DC12 的建議預設，待 Ted 確認）：訂單各軸線結束且售後期限屆滿後 180 天，整份聯絡、收件與發票資料一起遮罩；帳務與發票必要欄位保留。實際法定期限由商家與專業人士確認，不在程式寫死。
 
 ## 5. 購物車報價與 checkout
 
@@ -137,7 +138,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 - 輸入：`publication_revision`、`lines[{sku, quantity}]`（1–50 行、每行 1–99、SKU 不重複）、可選 `promotion_code`、可選 `delivery`（方式與地區，用來試算運費）。
 - 輸出：目前 revision；逐行 `{sku, title, options, unit_price_minor, quantity, line_total_minor, state}`，`state` ∈ `ok`／`insufficient`（附可購買上限）／`unavailable`／`revision_changed`；`merchandise_total_minor`、`discounts[]`、`shipping`（每個配送群組的運費或「需要配送資料」）、`total_minor`（運費未定時為 null）。
 - 可售量以唯讀方式計算：N − 未到期的 held − 未結配置（EC-SPEC-03 §2），不在公開 GET／報價時寫入或結算過期保留。
-- 限流：每網路每分鐘 60、每店每分鐘 600（數值在 EC-SPEC-09 定案）。
+- 限流：每網路每分鐘 60、每店每分鐘 600（EC-SPEC-09 §4）。
 
 ### 5.3 `POST /api/v1/public/stores/:slug/checkouts`
 
@@ -155,7 +156,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 
 ### 5.5 保留庫存的濫用防護
 
-匿名建立訂單會占 30 分鐘庫存。限制（提議值，EC-SPEC-09 定案）：
+匿名建立訂單會占 30 分鐘庫存。限制（EC-SPEC-09 §4，以測試與 staging 觀察校準）：
 
 - 每個瀏覽器憑證、每個 Email、每個網路，同時最多 3 張未付款的有效訂單；超過時回 429 並說明。
 - 每網路每 10 分鐘最多 10 次下單；每店全域每 10 分鐘 300 次。
