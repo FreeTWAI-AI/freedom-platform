@@ -14129,8 +14129,8 @@
     },
     {
       "path": "docs/development/repository-integration.md",
-      "bytes": 13472,
-      "sha256": "739a1f560211156fbab6f5beb32d1a6bd9d641c2317609c91ff4bb58147c3ab9"
+      "bytes": 14183,
+      "sha256": "2b0838a532a6ee056d99e92012903f474c28efa274e18dc993e3e32f83026039"
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
@@ -14149,8 +14149,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 30921,
-      "sha256": "03286c26d152d1afecc92395907494aa27ebefc1f3b01c1baa7dee576fdd7b27"
+      "bytes": 31791,
+      "sha256": "196f7f1f50ee567570c42d1887136e95d94dfabc79863f5153d614498c00b0b2"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17599,8 +17599,8 @@
     },
     {
       "path": "modules/autopilot-work/README.md",
-      "bytes": 12721,
-      "sha256": "af8a536211f31511e6b44d185209eb43173ebc1c242567e86f834b3108bd2842"
+      "bytes": 13318,
+      "sha256": "c4aee9e0644f90c7c3a0dd4a9c526f42055fe3d09ff9e597ff59bd8bdbf6dc63"
     },
     {
       "path": "modules/autopilot-work/freedom.module.json",
@@ -17824,8 +17824,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 44254,
-      "sha256": "8b5e12d1077fe71a91d7fbe50ade13eac7f599f13affed44530cbdb1ee87d20d"
+      "bytes": 44449,
+      "sha256": "633cb28be610aa9448c0e7dcb02a76fa8689184134b81d99049a0e39a1f080c1"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -21479,8 +21479,8 @@
     },
     {
       "path": "tests/integration/repositories.test.ts",
-      "bytes": 17561,
-      "sha256": "d26b19e791a9dd1c85c4ad58ff779251f9efd632def1f63e942bc884c0f2c24c"
+      "bytes": 18003,
+      "sha256": "7988a87e9d677a98f10e61a388b61d585dcd6153ccbb420f9c405ed343b2fdbf"
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
@@ -21491,6 +21491,11 @@
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
       "bytes": 11576,
       "sha256": "436651a850a09c0fa335f5d1745c7b03d594587af47e1911bd2add1d0610c66c"
+    },
+    {
+      "path": "tests/integration/helpers/request-drain.ts",
+      "bytes": 728,
+      "sha256": "43eac22ed046f05664121d8845f187d4d86ddde1d1ea51d48340bf8bdf9ae6ae"
     },
     {
       "path": "tests/integration/helpers/storefront-photo-restore-fixtures.ts",
@@ -22944,8 +22949,8 @@
     },
     {
       "path": "tests/runtime/private-work-policy.test.ts",
-      "bytes": 22060,
-      "sha256": "eebaaee2c859b9715bd98086f4ca7ee150a2473469899e32b9fd3bccf9115cb9"
+      "bytes": 22585,
+      "sha256": "ab9d1dba4b1108038647d06935b6498d13dccee16270003ada641d33c5f06218"
     },
     {
       "path": "tests/runtime/production-dossier.test.ts",
@@ -23149,8 +23154,8 @@
     },
     {
       "path": "tests/runtime/social-feed.test.ts",
-      "bytes": 26406,
-      "sha256": "0688901e010d6b9479a23176bda52b3fada5089548a2afe07a7678038f28fb02"
+      "bytes": 29827,
+      "sha256": "1ba76c0f815c49cdedc8f0f92657b2567bf16b14dab28e7f1dac8515c86f1fe8"
     },
     {
       "path": "tests/runtime/social-links.test.ts",
