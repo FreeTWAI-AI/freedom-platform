@@ -1,0 +1,42 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "preview-contract",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "contracts/preview/**",
+    "packages/sdk/client.d.mts",
+    "packages/sdk/client.mjs",
+    "packages/sdk/protocol.mjs",
+    "packages/sdk/schema.mjs",
+    "scripts/build-contract-bundle.mjs",
+    "tests/runtime/preview-protocol.test.ts"
+  ],
+  "public_exports": [
+    "contracts/preview/v1/bundle.json",
+    "contracts/preview/v1/openapi.json",
+    "contracts/preview/v1/client.d.mts",
+    "contracts/preview/v1/client.mjs",
+    "contracts/preview/v1/protocol.mjs",
+    "contracts/preview/v1/schema.mjs",
+    "packages/sdk/client.d.mts",
+    "packages/sdk/client.mjs"
+  ],
+  "dependencies": [],
+  "contract_families": [
+    "preview"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "contracts/README.md",
+    "governance/README.md"
+  ],
+  "invariants": [
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.preview-protocol"
+  ],
+  "surfaces": []
+}
