@@ -55,6 +55,15 @@ Literal `%00` text must be encoded as `%2500` and keeps the route's normal
 validation and authentication. Public HTML routes and request bodies retain
 their existing validation; this is not a universal body-text NUL validator.
 
+The generic JSON reader rejects decoded unpaired UTF-16 surrogates in string
+values or object keys with `422 validation_failed`, including nested objects and
+arrays. It does not replace or remove input characters. Valid surrogate pairs,
+ordinary Unicode, newlines and literal backslash escape text retain their exact
+values. Malformed JSON remains `400 invalid_json`; existing body limits and Origin
+checks are unchanged. Rejection happens before a domain command can reserve its
+idempotency key. Binary uploads, signed webhooks and dedicated child transports
+retain their own raw-body readers; this policy does not replace those protocols.
+
 Presence refresh has a live-session/active-member guard; authentication reads
 the current Actor after that potentially blocking update, using the database clock.
 Expiry, session revocation or member deactivation during a presence lock wait
@@ -154,6 +163,13 @@ body/version/key and prevent list replacement until the same operation resolves.
 Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
+
+The generic JSON reader decodes those bytes as strict UTF-8. Invalid sequences
+return `400 invalid_json` before authentication or a domain command, rather than
+being replaced with `U+FFFD` and saved. Valid Unicode, including an intentionally
+encoded `U+FFFD`, retains its value; multi-byte characters may span stream chunks.
+The size limit still counts the original bytes before decoding.
+
 Binary uploads and signed machine transports retain their own bounded readers.
 After valid JSON syntax is established, this general reader rejects decoded
 NUL characters in string values or object keys, including nested arrays/objects,
