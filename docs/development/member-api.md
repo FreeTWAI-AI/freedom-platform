@@ -16,6 +16,16 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Display-only external links (`public_url`, `demo_url`, marketing `share_url`,
+author-claim evidence and squad artifact links) retain the existing public HTTPS
+policy. Host checks ignore the single terminal DNS root dot: `printer.local.`
+and the absolute single-label name `printer.` are refused just like their
+non-absolute forms. A permitted public FQDN keeps its original URL, including
+the terminal dot, path, query and fragment. These hostname policy rejections return
+`422 invalid_external_url` before command facts are written; correcting the
+link may reuse the same key. These URLs are not fetched or embedded by this
+validator, and this change does not rewrite historical records or add DNS reads.
+
 Presence refresh has a live-session/active-member guard; authentication reads
 the current Actor after that potentially blocking update, using the database clock.
 Expiry, session revocation or member deactivation during a presence lock wait

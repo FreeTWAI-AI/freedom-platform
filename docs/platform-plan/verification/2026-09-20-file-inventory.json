@@ -13999,8 +13999,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 70224,
-      "sha256": "cd32bf0c1395e7b7ddab8410b0e271ce6e262c863dc77fc58dfe23670f2e54a9"
+      "bytes": 70931,
+      "sha256": "86ba1f8e3c496b5cb2ffb7db17bd1000f041dcd498e18479d1970c43d3ff2e59"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -18579,8 +18579,8 @@
     },
     {
       "path": "modules/opensource-marketing/github.ts",
-      "bytes": 12516,
-      "sha256": "cbef595a4dbb4fa966d8def3bb847e2cf530e080d7383aff590827ef3d6f6c69"
+      "bytes": 12589,
+      "sha256": "302235616922c125f5aa7f946f05681f3fe397426cc306be8779cc85ffafcf7f"
     },
     {
       "path": "modules/opensource-marketing/service.ts",
@@ -22759,8 +22759,8 @@
     },
     {
       "path": "tests/runtime/opensource-marketing.test.ts",
-      "bytes": 17797,
-      "sha256": "ec4f0b646df6762180e4a01d2907cdbd73239541d70b23327e014bf4d2f34aad"
+      "bytes": 20198,
+      "sha256": "552d8053f2f5769fbd73287dbc4016f4001932d61f054b193dab7687ba7860df"
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",
