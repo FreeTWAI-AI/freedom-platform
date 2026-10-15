@@ -5,6 +5,7 @@ import { SkillBookCard, type IntroBook } from './SkillBookIntro';
 import {SkillDiscoveryFilters,type SkillDiscoveryView} from './SkillDiscovery';
 import {useSkillDiscovery,type SkillDiscoveryBook} from './skill-discovery-client';
 import {useLanguage} from '../language';
+import {shortVideos,visibleShortVideos} from './short-videos';
 
 export type SiteConfig = { ar_enabled?:boolean; registration_enabled: boolean; password_recovery_enabled?: boolean; demo_accounts_enabled: boolean; public_mode: boolean; guild_launchpad_enabled?: boolean; hosted_store_photos_enabled?:boolean; hosted_store_photo_uploads_enabled?:boolean; community_discovery_enabled?: boolean; message_images_enabled?:boolean; member_blocking_enabled: boolean; member_reporting_enabled?: boolean; unified_sharing_enabled?: boolean; community_search_enabled?: boolean; community_relations_enabled?: boolean; personal_content_enabled?: boolean; notification_preferences_enabled?: boolean; first_participation_enabled?: boolean; squad_outcomes_enabled?: boolean; event_outcomes_enabled?: boolean; event_participation_enabled?: boolean; skill_book_star_gate_enabled?: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
@@ -16,6 +17,17 @@ export const communityLinks = [
   { label: 'LINE・Codex', url: 'https://line.me/ti/g2/qwiG-IhXAyEBMzVNt6J-I1ryqj6dKhNoyCTr2A' },
   { label: 'LINE・Grok', url: 'https://line.me/ti/g2/83dpd53WEvKWbgDROTV2t0z5hXnNSZTUTq17tg' },
 ];
+export function CommunityShortVideos() {
+  const items = visibleShortVideos(shortVideos);
+  if (!items.length) return null;
+  return <section className="stack community-short-videos" aria-labelledby="community-short-videos-title">
+    <header className="home-section-heading"><div><p className="home-eyebrow">SHORTS</p><h3 id="community-short-videos-title">短影音</h3></div></header>
+    <div className="card-grid">{items.map(item => <article className="card stack community-project" key={item.url}>
+      <h4>{item.title}</h4>{item.description && <p className="muted">{item.description}</p>}
+      <a className="btn btn-ghost" href={item.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">在 {item.platform} 觀看 ↗</a>
+    </article>)}</div>
+  </section>;
+}
 export function CommunityLinks() {
   const {t}=useLanguage();
   return <footer className="community-footer"><div><strong>自由工坊</strong><p>{t('community.tagline')}</p></div><nav aria-label={t('community.links')} data-guide-anchor="community:links">{communityLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{link.label} <span aria-hidden="true">↗</span></a>)}</nav></footer>;
@@ -96,6 +108,7 @@ export function CommunityPanel({ client, onNavigate }: { client: PortalClient; o
       <BrandPoster compact/>
     </header>
     <CommunityLinks/>
+    <CommunityShortVideos/>
     <section className="card stack community-project" aria-labelledby="community-erp-demo-title">
       <h3 id="community-erp-demo-title">ERP／CRM 產業範本試用</h3>
       <p>mars-tw 的 MIT 個人開源專案，提供零售、批發、服務、餐飲、製造、電商、專案及一般企業八種範本。每位訪客建立自己的模擬工作區，只使用測試幣與虛構商品。</p>
