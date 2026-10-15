@@ -51,6 +51,7 @@ export const schemas={
 };
 const items=name=>object({items:array(ref(name))});
 for(const name of ['Guild','Product','Store','Listing','Acceptance','Project','Campaign','Work'])schemas[name+'List']=items(name);
+schemas.CatalogPage=object({items:array(ref('Product'),50),next_offset:nullable(integer(0))});
 schemas.TrackList=object({items:array({type:'object'})});
 // Params are always identifiers, never arbitrary paths or full URLs.
 export const operations={};
@@ -66,7 +67,8 @@ op('listCareerTracks','GET','/career-tracks','TrackList');op('listGuilds','GET',
 op('joinGuild','POST','/guilds/{key}/join','Membership','Empty','optional');op('leaveGuild','POST','/guilds/{key}/leave','Membership','Empty','required');
 op('listSupplierProducts','GET','/supplier/products','ProductList');op('createSupplierProduct','POST','/supplier/products','Product','ProductInput','none',201);
 op('createSupplierOffer','POST','/supplier/products/{id}/offer-versions','Product','OfferInput','required',201);
-op('listCatalog','GET','/retail/catalog','ProductList');op('listStores','GET','/retail/stores','StoreList');op('createStore','POST','/retail/stores','Store','StoreInput','none',201);
+op('listCatalog','GET','/retail/catalog','CatalogPage');op('listStores','GET','/retail/stores','StoreList');op('createStore','POST','/retail/stores','Store','StoreInput','none',201);
+operations.listCatalog.query=[{name:'limit',required:false,schema:{...integer(1,50),default:20}},{name:'offset',required:false,schema:{...integer(0),default:0}}];
 op('listListings','GET','/retail/listings','ListingList');op('createListing','POST','/retail/listings','Listing','ListingInput','none',201);
 op('requestSupply','POST','/retail/listings/{id}:request-supply','Listing','SnapshotInput','required');
 op('listSupplyRequests','GET','/supplier/requests','AcceptanceList');op('decideSupplyRequest','POST','/supplier/requests/{id}:decide','Acceptance','DecisionInput','required');
