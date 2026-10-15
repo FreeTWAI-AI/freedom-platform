@@ -31,20 +31,29 @@ function targetFor(capability:Capability,targetKey:string){
 }
 export class DevelopmentAccess {
   constructor(private pool:Pool,private social:GitHubSocial){}
-  private async member<T>(actor:Actor,run:(q:PoolClient)=>Promise<T>,browser=true,finish?:(q:PoolClient)=>Promise<void>):Promise<T>{
+  private async member<T>(actor:Actor,run:(q:PoolClient,beginEffects:()=>Promise<void>)=>Promise<T>,browser=true,finish?:(q:PoolClient)=>Promise<void>):Promise<T>{
     const result=await transaction(this.pool,async q=>{
       requireCondition((await q.query(`SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND ${ready} FOR SHARE`,[actor.user_id,actor.community_id])).rowCount===1,403,'development_member_required','請先完成會員定位。');
       if(browser)await this.assertBrowserSession(q,actor);
       await lockMemberGuilds(q,actor);
       if(browser)await this.assertBrowserSession(q,actor);
+      let effects=false;
+      const beginEffects=async()=>{await q.query('SAVEPOINT development_effects');effects=true;};
       let outcome:{value:T}|{error:Problem};
-      try{outcome={value:await run(q)};}
+      try{outcome={value:await run(q,beginEffects)};}
       catch(error){if(error instanceof Problem)outcome={error};else throw error;}
-      // Successful local effects must abort if authority expires during a wait.
-      // Keep caught provider denials/revocations committed as before.
-      if(!('error' in outcome)){
-        if(finish)await finish(q);
-        if(browser)await this.assertBrowserSession(q,actor);
+      // Provider refresh/denial precedes the business savepoint. Preserve those
+      // facts while rolling back only new local effects on a late authority loss.
+      if('error' in outcome){
+        if(effects)await q.query('ROLLBACK TO SAVEPOINT development_effects');
+      }else{
+        try{
+          if(finish)await finish(q);
+          if(browser)await this.assertBrowserSession(q,actor);
+        }catch(error){
+          if(!effects||!(error instanceof Problem))throw error;
+          await q.query('ROLLBACK TO SAVEPOINT development_effects');outcome={error};
+        }
       }
       return outcome;
     });
@@ -152,9 +161,10 @@ export class DevelopmentAccess {
   }
   async issueKey(input:Command,rawKind:string,targetKey:string){
     empty.parse(input.body);const capability=kind.parse(rawKind);let secret:string|null=null,resultGrantId!:string;
-    const result=await this.member(input.actor,async q=>{
+    const result=await this.member(input.actor,async(q,beginEffects)=>{
       const grant=await this.authorizeGrant(q,input.actor,capability,targetKey);
       resultGrantId=grant.grant_id;
+      await beginEffects();
       return this.receipt(q,input,async()=>{
         requireCondition(Number((await q.query('SELECT count(*) FROM development_keys WHERE source_grant_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[grant.grant_id])).rows[0].count)<5,409,'development_key_limit','請先撤銷不再使用的開發憑證。');
         secret='fpd_'+randomBytes(32).toString('base64url');
@@ -182,8 +192,9 @@ export class DevelopmentAccess {
   }
   async saveProposal(input:Command,rawKind:string,targetKey:string){
     proposalInput.parse(input.body);const capability=kind.parse(rawKind);let grantId!:string;
-    return this.member(input.actor,async q=>{
+    return this.member(input.actor,async(q,beginEffects)=>{
       const grant=await this.authorizeGrant(q,input.actor,capability,targetKey);grantId=grant.grant_id;
+      await beginEffects();
       return this.proposal(q,input,grant);
     },true,q=>this.assertGrantClock(q,input.actor,grantId));
   }
@@ -193,11 +204,12 @@ export class DevelopmentAccess {
     const stored=(await this.pool.query('SELECT k.key_id,g.user_id,g.community_id,g.capability,g.target_key,g.grant_id FROM development_keys k JOIN development_grants g ON g.grant_id=k.source_grant_id WHERE k.secret_hash=$1',[tokenHash(authorization.slice(7))])).rows[0];
     requireCondition(stored,401,'development_key_required','開發憑證無效。');
     const actor={user_id:stored.user_id,community_id:stored.community_id} as Actor;
-    return this.member(actor,async q=>{
+    return this.member(actor,async(q,beginEffects)=>{
       await lockGitHubSocialMember(q,actor.user_id);
       await this.assertKeyClock(q,stored.key_id,stored.grant_id);
       const grant=await this.authorizeGrant(q,actor,stored.capability,stored.target_key,stored.grant_id);
       await this.assertKeyClock(q,stored.key_id,stored.grant_id);
+      await beginEffects();
       return this.proposal(q,{actor,operation:`agent-development/${stored.key_id}`,body,key},grant);
     },false,q=>this.assertGrantClock(q,actor,stored.grant_id,stored.key_id));
   }

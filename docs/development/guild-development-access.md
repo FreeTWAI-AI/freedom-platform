@@ -38,9 +38,14 @@ GitHub evidence／`checked_at` 等候後重驗本次精確 grant 的資料庫期
 transaction client 的成功結尾再次檢查；Agent key 與 grant 由同一 SQL 判斷。
 跨期回既有 `403 development_key_revoked` 或 `development_grant_required`，新
 effect／receipt／journal 一起回滾；舊 receipt 也不能跳過當次重新授權，歷史
-提案與已保存 receipt 不刪除。這個成功 fence 位於可提交 `Problem` 的 catch 外，
-不改已確認 GitHub 失權／binding 變更所需的永久撤銷，也不抹掉原本的 provider
-錯誤紀錄。期限不延長、不新增重試、scope 或 GitHub 寫入；仍只有私人提案權限。
+提案與已保存 receipt 不刪除。授權 evidence 完成後、新 key／提案／receipt
+開始前建立本機 effect savepoint；最後 grant／key／browser session 跨期時，
+只回滾該 savepoint 內的新業務資料，再由既有 Problem outcome 提交前段
+credential lifecycle。GitHub 已成功的 refresh rotation 及其新加密 credential
+不因 receipt 等候到期一起丟失；下一個仍有權限的請求沿用新 token，不重用
+provider 已失效的舊 refresh token。已確認失權／binding 變更的永久撤銷仍提交。
+非預期 SQL／非 Problem 失敗仍由外層交易處理，不宣稱可恢復所有 provider
+與資料庫間故障。期限不延長、不新增重試、scope 或 GitHub 寫入；仍只有私人提案權限。
 
 會員從技能書或頁面的開發入口開始，選擇適用公會、完成 GitHub 與該操作所需的設定，直接回到原任務。在適用公會期間，平台依目前資格授權；資格失去時，平台撤銷由該資格產生的授權。每個模組使用同一套規則，避免各自維護入會檢查。
 

@@ -37,12 +37,12 @@ const setupSocial=()=>new GitHubSocial(pool,config,fetcher),setup=()=>new Develo
 const reconnectSocial=()=>new GitHubSocial(reconnectPool,config,fetcher);
 const waiterService=()=>new DevelopmentAccess(waiterPool,new GitHubSocial(waiterPool,config,fetcher));
 
-async function enable(){
+async function enable(read:typeof fetch=fetcher){
  await changeGuildMembership(pool,{...command({},'join'),expected:undefined},'guild_ai_vibe','join');
  await pool.query("UPDATE positioning_profession_memberships SET member_tier='full' WHERE user_id=$1 AND guild_key='guild_ai_vibe'",[actor.user_id]);
- const social=setupSocial(),pending=await social.start(actor,'#skills');
+ const social=new GitHubSocial(pool,config,read),pending=await social.start(actor,'#skills');
  await social.complete(actor,new URL(pending.authorization_url).searchParams.get('state')!,'synthetic-code');
- const service=setup();
+ const service=new DevelopmentAccess(pool,social);
  await service.consent(command({policy_version:DEVELOPMENT_POLICY,accepted:true},'consent'),'skill',target);
  return service.activate(command({working_repository_url:working},'activate'),'skill',target);
 }
@@ -304,4 +304,63 @@ for(const authority of ['key','grant'] as const)test(`an existing Agent receipt 
   await pool.query(`UPDATE ${table} SET expires_at=clock_timestamp()+interval '5 minutes' WHERE ${idColumn}=$1`,[id]);
   assert.deepEqual(await setup().agent('Bearer '+credential.token,proposal,key),JSON.parse(JSON.stringify(original)));
  }finally{release();await pending;}
+});
+
+for(const operation of ['agent-key','agent-grant','browser-proposal','browser-session','issue-key'] as const)test(`${operation} keeps a remotely rotated credential when receipt-wait authority expires`,async()=>{
+ let refreshes=0,expectedRefresh='ghr_initial',expectedAccess='ghu_initial',short=true;
+ const rotating:typeof fetch=async(input,init={})=>{
+  if(String(input)==='https://github.com/login/oauth/access_token'){
+   const body=new URLSearchParams(String(init.body??''));
+   if(body.get('grant_type')==='refresh_token'){
+    assert.equal(body.get('refresh_token'),expectedRefresh,'invalidated refresh credentials must never be reused');
+    refreshes++;expectedRefresh=`ghr_rotated_${refreshes}`;expectedAccess=`ghu_rotated_${refreshes}`;
+   }
+   return Response.json({access_token:expectedAccess,refresh_token:expectedRefresh,token_type:'bearer',scope:'',expires_in:short?1:28800,refresh_token_expires_in:15897600});
+  }
+  if(String(input).includes('/repos/')&&!String(input).includes('/repos/contributor/'))assert.equal(new Headers(init.headers).get('authorization'),null);
+  else assert.equal(new Headers(init.headers).get('authorization'),'Bearer '+expectedAccess);
+  return fetcher(input,init);
+ };
+ await enable(rotating);
+ const service=new DevelopmentAccess(waiterPool,new GitHubSocial(waiterPool,config,rotating));
+ const credential=await service.issueKey(command({},'refresh-existing-key'),'skill',target);
+ const cipher=async()=>(await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens;
+ const facts=async()=>(await pool.query(`SELECT (SELECT count(*)::int FROM development_proposals) AS proposals,
+  (SELECT count(*)::int FROM development_keys) AS keys,(SELECT count(*)::int FROM command_receipts) AS receipts,
+  (SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+ const beforeCipher=await cipher(),before=await facts(),beforeRefreshes=refreshes,key=randomUUID(),lock=`${schema}/refresh/${key}`;
+ const table=operation==='agent-key'?'development_keys':operation==='browser-session'?'sessions':'development_grants';
+ const column=operation==='agent-key'?'key_id':operation==='browser-session'?'token_hash':'grant_id';
+ const id=operation==='agent-key'?credential.key_id:operation==='browser-session'?actor.session_hash:credential.source_grant_id;
+ const expectedCode=operation==='agent-key'?'development_key_revoked':operation==='browser-session'?'session_expired':'development_grant_required';
+ const invoke=()=>operation.startsWith('agent')?service.agent('Bearer '+credential.token,proposal,key)
+  :operation==='issue-key'?service.issueKey(command({},'refresh-issue',key),'skill',target)
+  :service.saveProposal(command(proposal,'refresh-browser-proposal',key),'skill',target);
+ const holder=await admin.connect();let pending:Promise<CommandOutcome>|undefined;
+ try{
+  await pool.query(`CREATE FUNCTION pause_rotated_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
+   BEGIN IF NEW.idempotency_key='${key}' THEN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); END IF; RETURN NEW; END $$`);
+  await pool.query('CREATE TRIGGER rotated_receipt BEFORE INSERT ON command_receipts FOR EACH ROW EXECUTE FUNCTION pause_rotated_receipt()');
+  await holder.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[lock]);
+  await pool.query(`UPDATE ${table} SET expires_at=clock_timestamp()+interval '3 seconds' WHERE ${column}=$1`,[id]);
+  short=false;pending=settle(invoke());
+  const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await until('rotated command receipt wait',async()=>(await admin.query('SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND $2=ANY(pg_blocking_pids(pid))',[`${schema}/waiter`,pid])).rowCount?true:undefined);
+  assert.equal(refreshes,beforeRefreshes+1);
+  assert.equal((await pool.query(`SELECT expires_at>clock_timestamp() AS live FROM ${table} WHERE ${column}=$1`,[id])).rows[0].live,true);
+  await pool.query(`SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM ${table} WHERE ${column}=$1`,[id]);
+  await holder.query('SELECT pg_advisory_unlock_all()');
+  const result=await pending;assert.equal(result.ok,false);assert.ok(result.error instanceof Problem);assert.equal(result.error.code,expectedCode);
+  assert.deepEqual(await facts(),before);assert.notEqual(await cipher(),beforeCipher);
+ }finally{
+  await holder.query('SELECT pg_advisory_unlock_all()');holder.release();if(pending)await pending;
+  await pool.query('DROP TRIGGER IF EXISTS rotated_receipt ON command_receipts');await pool.query('DROP FUNCTION IF EXISTS pause_rotated_receipt()');
+ }
+ // Rearm only the synthetic authority fixture, then consume the saved rotation.
+ await pool.query(`UPDATE ${table} SET expires_at=clock_timestamp()+interval '5 minutes' WHERE ${column}=$1`,[id]);
+ const committed=await invoke(),replay=await invoke();
+ assert.equal(refreshes,beforeRefreshes+1,'the persisted access token is usable without another refresh');
+ if(operation==='issue-key'){assert.equal(replay.key_id,committed.key_id);assert.equal(replay.token,null);}
+ else assert.deepEqual(replay,JSON.parse(JSON.stringify(committed)));
+ assert.deepEqual(await facts(),{proposals:before.proposals+(operation==='issue-key'?0:1),keys:before.keys+(operation==='issue-key'?1:0),receipts:before.receipts+1,journal:before.journal+(operation==='issue-key'?0:1)});
 });

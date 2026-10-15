@@ -13959,8 +13959,8 @@
     },
     {
       "path": "docs/development/guild-development-access.md",
-      "bytes": 27681,
-      "sha256": "8eab0d64df2f884dac7e520d79446ccfe0bd95dacecca2f3d4ec8d78c70c5b7c"
+      "bytes": 28145,
+      "sha256": "f5be68d54b8ce570c7a8147ca6c25b78e51670097a547688087fb79e698555aa"
     },
     {
       "path": "docs/development/guild-library-layout.md",
@@ -18134,8 +18134,8 @@
     },
     {
       "path": "modules/development-access/service.ts",
-      "bytes": 19356,
-      "sha256": "a3039420f011a0e5a6e180ffa6449d1cd0fb1c28a07d4f94f6005ad81fa229c9"
+      "bytes": 19950,
+      "sha256": "482da2072d5fd19bc7351e672fe624a031754db1c4be89d35855b82e174594c5"
     },
     {
       "path": "modules/github-social/freedom.module.json",
@@ -21839,8 +21839,8 @@
     },
     {
       "path": "tests/runtime/development-access-grant-race.test.ts",
-      "bytes": 23577,
-      "sha256": "20a6ee0bdcee65260e0c726973b27bfaa063e90803448df13700eebb0c82bd11"
+      "bytes": 29095,
+      "sha256": "60d6ec411adc8d83827f5c827f718a782c396040d858ebe36c44702ab7257aa3"
     },
     {
       "path": "tests/runtime/development-access.test.ts",
