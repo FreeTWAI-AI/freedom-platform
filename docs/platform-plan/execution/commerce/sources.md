@@ -90,7 +90,8 @@
 | 發票 CheckMacValue（MD5） | 線上折讓同意通知 [38242] | 1 | 1／1 相符 |
 
 - 金鑰用的是綠界在 [2856]、[7398]、[10197]、[7849] 公開的 stage 測試特店，只放在測試 fixture，不寫進本目錄。
-- 長期留存的版本是 `tests/worker/ecpay-fixtures/vectors.ts`，由 Node 與 workerd 兩邊的測試共用（ecpay-proto 工作，分支 `fc/ecpay-proto`，2026-10-15 尚未整合）。
+- 長期留存的版本是 `tests/worker/ecpay-fixtures/vectors.ts`，由 Node 與 workerd 兩邊的測試共用（ecpay-proto 工作，2026-10-15 併入整合分支 `931f8666`）。
+- AIO 信用卡的 7 組 golden（送出表單 4 組、查詢、DoAction、credit detail）由整合負責人在 repo 外依官方演算法 [2902][2904] 獨立重算，放在 `tests/worker/ecpay-fixtures/aio-credit-vectors.ts`（ecpay-aio 工作，整合 `d6fa9098`）。credit detail 用的 stage `CreditCheckCode` 出自 [2856]，同樣只放在 fixture。
 
 ## 4. 統一編號檢查碼
 

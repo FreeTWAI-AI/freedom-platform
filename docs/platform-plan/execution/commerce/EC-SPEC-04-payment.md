@@ -168,7 +168,7 @@ interface PaymentPort {
 1. 依 `account_ref` 找帳戶；找不到 → 404，不洩漏原因。
 2. 以帳戶的 `payment` 金鑰（依 attempt 的 `credential_version`；不知道 attempt 時依序試目前與未退役的舊版本）重算 CheckMacValue：收到的**全部**欄位（含空值、含 `NeedExtraPaidInfo=Y` 的額外欄位）除了 CheckMacValue 本身，依參數名不分大小寫排序，前後加 HashKey／HashIV，.NET 規則 URL 編碼、轉小寫、SHA-256、轉大寫 [2902][2904]。以 constant-time 比較。不得把 form 轉成 JSON 或重新排版後再算（計畫 §10.3）。
 3. `MerchantID` 等於帳戶的特店編號；`PlatformID` 為空或缺。
-4. 依 (帳戶, `MerchantTradeNo`) 找 attempt；找不到 → 記 `unmatched` 事件、建立例外、回 `1|OK`（簽章正確代表確實是這個特店的交易，重送也不會找到）。
+4. `MerchantTradeNo` 與 `TradeNo` 先轉大寫（CheckMacValue 在雜湊前整串轉小寫，大小寫不受簽章保護；我們的編號只用大寫），再依 (帳戶, `MerchantTradeNo`) 找 attempt；找不到 → 記 `unmatched` 事件、建立例外、回 `1|OK`（簽章正確代表確實是這個特店的交易，重送也不會找到）。
 5. `TradeAmt` 等於 attempt 金額（整數元）；不符 → 付款套用記 `amount_mismatch`、例外、回 `1|OK`。
 6. `SimulatePaid=1` → 記 `simulated` 事件，**不**改 attempt、不套用庫存、不建立履約；即使 `RtnCode=1` 也一樣 [2878]（EC-AT19）。
 7. `RtnCode=1` 且 `SimulatePaid=0` → attempt `paid`；`RtnCode` 為其他值 → `failed`（若 attempt 尚未付款）。`10300066`（結果待確認，勿出貨 [2878]）視為未決：attempt 維持原狀並排查詢。
@@ -181,7 +181,7 @@ interface PaymentPort {
 
 ### 5.4 去重與亂序
 
-- 事件去重鍵：(帳戶, `MerchantTradeNo`, `TradeNo`, `RtnCode`, `SimulatePaid`, `PaymentDate`)。重送命中唯一鍵 → 不重複套用，直接回 `1|OK`。
+- 事件去重鍵：(帳戶, `MerchantTradeNo`, `TradeNo`, `RtnCode`, `SimulatePaid`, `PaymentDate`)，編號用 §5.2 轉大寫後的值，改了大小寫的重送仍是同一筆。重送命中唯一鍵 → 不重複套用，直接回 `1|OK`。
 - 付款套用以 `payment_ref` 冪等（EC-SPEC-03 §5）：同一 attempt 的通知與查詢結果先後到達，只套用一次。
 - 通知與 `OrderResultURL` 沒有固定先後 [2878]；查詢與通知也可能交錯。狀態只依 §3.3 前進，不倒退（EC-AT21）。
 - 通知與保留到期結算、買家取消、另一筆通知同時發生：全部走同一組鎖，先提交者勝（EC-SPEC-03 §6；測試見 §12）。
@@ -255,7 +255,7 @@ interface PaymentPort {
 | 已關帳 | `R` | `R` |
 
 - 只有一般一次付清可以部分退刷 [2885]；本 profile 不開分期與紅利，所以都可以。
-- 每日自動關帳開啟時，20:15～20:30（Asia/Taipei）不呼叫 DoAction；自動關帳後的取消在授權隔日 06:00 之後 [2885]。
+- 每日自動關帳開啟時，20:15:00～20:30:59（Asia/Taipei）不呼叫 DoAction，20:31 再試；自動關帳後的取消在授權隔日 06:00 之後 [2885]。
 - 綠界帳戶餘額不足時退刷失敗 [2885]：結果記 `failed`，原因顯示「綠界帳戶餘額不足，請先儲值」，不自動重試。
 - 多步驟（`C`+`R`、`E`+`N`）每一步都是一個 operation，前一步確認後才做下一步。
 

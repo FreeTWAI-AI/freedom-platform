@@ -15214,8 +15214,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 31920,
-      "sha256": "feb02206f455be46d39720629f1dfe273407e59dd5591a9d2f310f7729d82728"
+      "bytes": 32177,
+      "sha256": "08d581faf5186e595e5e4f624eb30c0ad0e9f663bb600c96fa94511e12b02c12"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
@@ -15274,13 +15274,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
-      "bytes": 19127,
-      "sha256": "34e83cd03e6bceb862f98dbf352c3f9a0b644d7080b5a5e93e7c5d9a213c5458"
+      "bytes": 19477,
+      "sha256": "13276aabe50ff450562c55c119e15e7035d705ed24f7c0305ebfe636ebaaa540"
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 14685,
-      "sha256": "932a6ce2dd3abb197c7e3bae4c72e6be9853f714768b17325006795d078cec2c"
+      "bytes": 14855,
+      "sha256": "c8a0c13e09dbeec86b90c6091494ce8a1811ce445ff0f81b4cd21280d9c0fcc1"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",

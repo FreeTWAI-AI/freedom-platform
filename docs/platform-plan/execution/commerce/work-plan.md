@@ -20,7 +20,7 @@
 | EC-WP01 產品與視覺 | 角色、B／E／SL 頁、動線、狀態與文案 | EC-SPEC-01、pages.md | WP00 | C1 | 規格完成；EC 參考畫面的逐頁對照待 Ted 確認（EC-SPEC-01 §5、DC10） |
 | EC-WP02 商店與 Seller Console | 變體、照片、分類、店面內容、優惠；E02～E11 的頁 | EC-SPEC-02 §1～§3、EC-SPEC-01 §4、§7.5 | WP01；Supplier Console 的共用殼進 main（§8） | C1；各里程碑自己的 E 頁 | 未開始 |
 | EC-WP03 結帳與交易模型 | 顧客、checkout、訂單、N／H／A、付款後配置、出貨與退回的庫存效果；公開結帳路由與訂單存取 | EC-SPEC-02 §4～§5、EC-SPEC-03 | WP00 | M1 | 領域核心通過審查（`fc/wp03-core` `16caa586`），已併入整合分支；路由、主機設定、排程、能力下限由 wp03-http 進行 |
-| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫通過審查（`fc/ecpay-proto` `67d9ba2e`），已併入整合分支 |
+| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫與 AIO 信用卡協定通過審查（`fc/ecpay-proto` `67d9ba2e`、`fc/ecpay-aio` `b836419e`），已併入整合分支 |
 | EC-WP05 物流與供應商補充 | 出貨設定、配送群組、選店、託運單、標籤、貨態、例外、退回 | EC-SPEC-05；SC-SPEC-07 | WP03；WP04 的協定與排程 | M3 | 未開始 |
 | EC-WP06 發票與售後 | 發票、更正、對話、RMA、退款分攤、供貨帳 | EC-SPEC-06 | WP03～05 | M4 | 發票純規則通過審查（`fc/invoice-rules` `a9cb0ebf`），已併入整合分支 |
 | EC-WP07 營運與技能書 | 29 項技能的落點、報表與漏斗、書與站內應用的連結 | EC-SPEC-07 | WP02；PR #706 | M2 起 | 規格完成；程式未開始 |
@@ -60,7 +60,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | 切片 | 內容 | CLI | 依賴 | 狀態 |
 | --- | --- | --- | --- | --- |
 | ecpay-proto | 綠界協定函式庫 | argon | — | 完成 |
-| ecpay-aio | AIO 的送出內容、通知的驗證與解析、查詢結果對照、API 退款，全部是純函式加官方向量（EC-SPEC-04 §3.4、§5.2、§6.2、§7.3） | argon | ecpay-proto | 下一批 |
+| ecpay-aio | AIO 的送出內容、通知的驗證與解析、查詢結果對照、API 退款，全部是純函式加官方向量（EC-SPEC-04 §3.4、§5.2、§6.2、§7.3） | argon | ecpay-proto | 完成（`fc/ecpay-aio` `b836419e`，整合 `d6fa9098`） |
 | wp04-accounts | 收款帳戶與封存金鑰；重新確認身分的新用途；`storefront@1.1.0`、`hosted-store@1.1.0` 與升級；店家准入（EC-SPEC-04 §1、EC-SPEC-09 §2.2、§2.3、§2.5、EC-SPEC-10 §2.5） | Codex | wp03-http | 之後 |
 | wp04-payments | attempt、交接頁、通知入口與閘道例外、查詢與到期工作、退款、外部效果日誌、隔離模式 | Codex | wp04-accounts、ecpay-aio | 之後 |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
@@ -70,7 +70,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 
 | 切片 | 內容 | CLI | 依賴 | 狀態 |
 | --- | --- | --- | --- | --- |
-| fulfil-rules | 配送分組與拆包、運費、收件資料檢查、貨態代碼對照，全部是純函式（EC-SPEC-05 §3.2～§3.5、§6.3） | flash | — | 下一批 |
+| fulfil-rules | 配送分組與拆包、運費、收件資料檢查、貨態代碼對照，全部是純函式（EC-SPEC-05 §3.2～§3.5、§6.3、§6.4） | flash | — | 修正輪：官方貨態表、萊爾富離島、不凍結呼叫端資料 |
 | ecpay-logistics | 選店、建單、列印、貨態通知與查詢的協定 | argon | ecpay-proto | 之後 |
 | wp05-fulfilment | 出貨設定、履約單、shipment、例外、退回與檢驗；給 SL 頁的讀取投影與命令 | Codex | M2 | 之後 |
 
