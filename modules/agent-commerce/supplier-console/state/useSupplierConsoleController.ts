@@ -18,6 +18,7 @@ export type ReadSlot<T>={state:'idle'|'loading'|'ready'|'failed';data:T|null;asO
 const empty:ReadSlot<never>={state:'idle',data:null,asOf:null,lastOkAt:null,error:''};
 export type ListPosition={search:string;filter:string;sort:string;scroll:number;lastId:string|null};
 export type RegisterLeave=(guard:((nextHash:string|null)=>boolean)|null)=>void;
+export function refusalReleased({key='profile',mark,ticket,current,matched}:{key?:string;mark:number|null;ticket:number;current:boolean;matched:boolean}):boolean{return key==='profile'&&mark!==null&&ticket>mark&&current&&matched;}
 export function useSupplierConsoleController({client,userId,scope,route,registerLeave,photosEnabled}:{client:PortalClient;userId:string;scope:ConsoleScope;route:SupplierConsoleRoute;registerLeave:RegisterLeave;photosEnabled:boolean}) {
  const [reads,setReads]=useState<Record<string,ReadSlot<unknown>>>({}),[drafts,setDrafts]=useState<Drafts>({});
  const [attempt,setAttempt]=useState<Attempt|null>(()=>restoreAttempt(client,userId,scope)),[phase,setPhase]=useState<'idle'|'sending'|'held'>(()=>attempt?'held':'idle');
@@ -28,13 +29,13 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  const photoRef=useRef(photoStates);photoRef.current=photoStates;
  const readRef=useRef(reads);readRef.current=reads;const draftRef=useRef(drafts);draftRef.current=drafts;
  const attemptRef=useRef(attempt);attemptRef.current=attempt;const busyRef=useRef(false),mounted=useRef(false),generation=useRef(client.sessionGeneration);
- const tickets=useRef(new Map<string,{ticket:number;abort:AbortController}>()),serial=useRef(0),commandAbort=useRef(new AbortController());
+ const tickets=useRef(new Map<string,{ticket:number;abort:AbortController}>()),serial=useRef(0),refusalMark=useRef<number|null>(null),commandAbort=useRef(new AbortController());
  const root=`/tenants/${scope.tenantId}/storefronts/${scope.instanceId}`,binding=`${scope.tenantId}:${scope.instanceId}`;
  const slot=<T,>(key:string)=>(reads[key]??empty) as ReadSlot<T>;
  const profile=slot<SupplyCatalogView>('profile').data;
  const owner=slot<z.infer<typeof ReservationSettingSchema>>('owner');
  const ownerAllowed=owner.state==='ready'&&owner.data!==null;
- const can=(capability:string)=>!revoked&&profile?.writable===true&&profile.capabilities.includes(capability)===true;
+ const can=(capability:string)=>!revoked&&refusalMark.current===null&&profile?.writable===true&&profile.capabilities.includes(capability)===true;
  function descriptor(key:string):{path:string;schema:z.ZodType;gate?:'write'|'owner'}|null {
   if(key.startsWith('product:'))return {path:'/supplier-console/products/'+key.slice(8),schema:SupplierProductDetailSchema,gate:'write'};
   if(key.startsWith('request:'))return {path:'/supplier-console/requests/'+key.slice(8),schema:SupplierRequestDetailSchema,gate:'write'};
@@ -55,7 +56,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
    const data=result.data as Record<string,unknown>;
    if(key==='profile'&&(data.tenant_id!==scope.tenantId||data.instance_id!==scope.instanceId)||key.startsWith('product:')&&(data.product as {product_id:string}).product_id!==key.slice(8)||key.startsWith('partner:')&&(data.partner as {partner_id:string}).partner_id!==key.slice(8)||key.startsWith('request:')&&(data.request as {selection_id:string}).selection_id!==key.slice(8))throw new Error('read_target_mismatch');
    const now=new Date().toISOString(),next:ReadSlot<unknown>={state:'ready',data,asOf:typeof data.as_of==='string'?data.as_of:now,lastOkAt:now,error:''};
-   readRef.current={...readRef.current,[key]:next};setReads(old=>({...old,[key]:next}));setPendingReads(old=>old.filter(k=>k!==key));
+   readRef.current={...readRef.current,[key]:next};setReads(old=>({...old,[key]:next}));setPendingReads(old=>old.filter(k=>k!==key));if(refusalReleased({key,mark:refusalMark.current,ticket,current:current(),matched:data.tenant_id===scope.tenantId&&data.instance_id===scope.instanceId})){refusalMark.current=null;setRevoked(false);if(data.writable)setError(old=>old==='目前身分已沒有這項權限'?'':old);}
    if(key.startsWith('product:'))setDrafts(old=>staleDrafts(old,key.slice(8),(data as unknown as SupplierProductDetail).product.version));
    return true;
   } catch(cause) {
@@ -66,11 +67,12 @@ export function useSupplierConsoleController({client,userId,scope,route,register
    const status=cause instanceof ApiError?cause.status:undefined,message=cause instanceof ApiError&&!cause.network?cause.detail??cause.message:'暫時無法讀取資料，已保存的內容不會因此改變。';
    setReads(old=>{const next={...(old[key]??empty),state:'failed' as const,error:message,status,...(status===403||status===404?{data:null}:{})};readRef.current={...readRef.current,[key]:next};return {...old,[key]:next};});
    // A refusal may mean the member's access changed: reread the capabilities so pages and navigation follow them.
+   if(key==='profile'&&refusalMark.current!==null&&status!==403&&status!==404)setPendingReads(old=>old.includes('profile')?old:[...old,'profile']);
    if(status===403&&key!=='profile')void read('profile');
    return false;
   }
  }
- useEffect(()=>{mounted.current=true;generation.current=client.sessionGeneration;commandAbort.current=new AbortController();void read('profile');return()=>{mounted.current=false;tickets.current.forEach(t=>t.abort.abort());commandAbort.current.abort();};},[client,root]);
+ useEffect(()=>{mounted.current=true;generation.current=client.sessionGeneration;refusalMark.current=null;setRevoked(false);commandAbort.current=new AbortController();void read('profile');return()=>{mounted.current=false;tickets.current.forEach(t=>t.abort.abort());commandAbort.current.abort();};},[client,root]);
  useEffect(()=>{if(profile?.setup_state==='ready')void read('owner');},[profile?.setup_state]);
  useEffect(()=>{if(profile?.setup_state!=='ready')return;
   const keys=route.page==='overview'?['overview']:route.page==='products'?['profile','products',...(photosEnabled?['media']:[])]:route.page==='product'?['product:'+route.id,...(photosEnabled?['media']:[])]:route.page==='partners'?['partners']:route.page==='partner'?['partner:'+route.id,'partners']:route.page==='terms'?['requests','offers','products']:route.page==='review'?['request:'+route.id]:route.page==='reservations'&&ownerAllowed?['reservations']:route.page==='settings'?['profile']:route.page==='product-new'?['profile','products']:[];
@@ -81,7 +83,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  useEffect(()=>{setPendingReads(old=>{const next=old.filter(key=>{const d=descriptor(key);return d&&(d.gate!=='write'||profile?.capabilities.includes('store:write'))&&(d.gate!=='owner'||ownerAllowed);});return next.length===old.length?old:next;});},[profile?.capabilities.join(','),ownerAllowed]);
  const photoBlocking=Object.entries(photoStates).some(([id,s])=>s.blocking||!!heldPhotoAttempt(client,userId,{...scope,productId:id}));
  const dirty=Object.values(drafts).some(d=>Object.keys(d.fields).length>0)||Object.values(photoStates).some(s=>s.dirty);
- const locked=phase!=='idle'||photoBlocking||pendingReads.length>0||revoked||!profile?.writable||slot('profile').state!=='ready';
+ const locked=phase!=='idle'||photoBlocking||pendingReads.length>0||revoked||refusalMark.current!==null||!profile?.writable||slot('profile').state!=='ready';
  const guardRef=useRef<(next:string|null)=>boolean>(()=>true);
  guardRef.current=next=>{const result=leaveDecision(next,scope,{sending:busyRef.current,held:attemptRef.current!==null,photoBlocking,dirty});if(!result.allow){setNotice(result.message);return false;}return !result.confirm||window.confirm(result.message);};
  useEffect(()=>{registerLeave(next=>guardRef.current(next));return()=>registerLeave(null);},[registerLeave]);
@@ -117,7 +119,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
    return;
   }
   const detail=outcome.detail??'操作未完成，請核對後重試。';setSectionStatus(old=>({...old,[a.draft??a.target]:detail}));
-  if(outcome.status===403){setRevoked(true);setError('目前身分已沒有這項權限');void read('profile');}
+  if(outcome.status===403){refusalMark.current=serial.current;setRevoked(true);setError('目前身分已沒有這項權限');void read('profile');}
   else if(outcome.status===412){setError('資料剛剛被更新。你的修改還在，請確認後再套用。');if(a.draft){setDrafts(old=>old[a.draft!]?{...old,[a.draft!]:{...old[a.draft!],conflict:true}}:old);setConflicts(old=>({...old,[a.draft!]:a}));}await refreshAttempt(a);}
   else if(outcome.status===404&&a.kind.startsWith('profile.')){setReads(old=>({...old,profile:{...(old.profile??empty),state:'failed',data:null,error:'找不到這個供貨商品庫',status:404}}));}
   else {setError(outcome.status===404?'找不到這個項目，其他資料仍可查看。':outcome.status===422?'有欄位格式不符，請檢查後再送出。 '+detail:detail);if(outcome.code==='idempotency_conflict')setRejected(a);if(outcome.code==='stock_below_reserved'&&a.productId)void read('product:'+a.productId);}

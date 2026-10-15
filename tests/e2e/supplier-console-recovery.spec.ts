@@ -394,3 +394,113 @@ test('SC-E2E-29 a draft typed before a toggle keeps its version and asks before 
   await e2eAuthPool.query('UPDATE commerce_storefront_profiles SET reservation_enabled=false WHERE instance_id=$1',[instanceId]).catch(()=>{});
  }
 });
+
+async function inviteOperator(ownerPage:Page,writerPage:Page,db:Pool,s:Store,capabilities:string[]){
+ const operator=await person(db),[,tenant,instance]=s.hash.split('/');
+ await login(writerPage,operator.email);const candidate=await get(ownerPage,'/tenants/invite-candidates?user_id='+operator.id);
+ const invitation=await post(ownerPage,`/tenants/${tenant}/invitations`,{invitee_principal_id:candidate.principal_id,role:'operator',instance_capabilities:[{instance_id:instance,capabilities}],expires_at:new Date(Date.now()+86400000).toISOString()},201);
+ await post(writerPage,`/tenants/${tenant}/invitations/${invitation.invitation_id}/accept`,{},200,invitation.version);
+ return {operator,tenant,instance,principalId:candidate.principal_id as string};
+}
+async function changeOperatorCapabilities(ownerPage:Page,tenant:string,instance:string,principalId:string,capabilities:string[]){
+ const members=await get(ownerPage,`/tenants/${tenant}/members`),membership=members.items.find((item:{principal_id:string})=>item.principal_id===principalId);
+ await post(ownerPage,`/tenants/${tenant}/members/${principalId}/change`,{role:'operator',status:'active',instance_capabilities:[{instance_id:instance,capabilities}],reason:'Synthetic supplier console selective permission change'},200,membership.version);
+}
+
+test('SC-E2E-33 losing only publish keeps editing available after the refreshed profile (AT-37)',async({page,browser,baseURL,e2eAuthPool},info)=>{
+ test.setTimeout(120_000);
+ const s=await supplier(page,e2eAuthPool),p=await product(page,s),context=await browser.newContext({baseURL}),entered=barrier(),release=barrier();
+ const publishRequests:ReturnType<typeof signature>[]=[],publishStatuses:number[]=[],saveRequests:ReturnType<typeof signature>[]=[],saveStatuses:number[]=[];
+ try{
+  await patch(page,s.root+`/products/${p.product_id}/supply-terms`,{cost_minor:400,shipping_minor:0,shipping_terms:'合成確認後出貨',return_terms:'合成瑕疵退換'},p.version);
+  const writer=await context.newPage(),op=await inviteOperator(page,writer,e2eAuthPool,s,['store:read','store:write','store:publish']);
+  await go(writer,s,'/products/'+p.product_id);
+  const publishBtn=active(writer).getByRole('button',{name:'公開供貨版本',exact:true}),form=active(writer).getByRole('form',{name:'儲存內容',exact:true}),saveBtn=form.getByRole('button',{name:'儲存內容',exact:true});
+  const nextDesc=unique('合成保留編輯權限說明');
+  await expect(publishBtn).toBeEnabled();await form.getByRole('textbox',{name:'說明',exact:true}).fill(nextDesc);await expect(saveBtn).toBeEnabled();
+  await changeOperatorCapabilities(page,op.tenant,op.instance,op.principalId,['store:read','store:write']);
+  let holdProfile=true;
+  await writer.route('**/api/v1'+s.root+`/products/${p.product_id}/supply-offer`,async route=>{
+   if(route.request().method()!=='POST')return route.continue();publishRequests.push(signature(route.request()));const response=await route.fetch();publishStatuses.push(response.status());await route.fulfill({response});
+  });
+  await writer.route('**/api/v1'+s.root+'/supply-profile',async route=>{
+   if(route.request().method()!=='GET'||!holdProfile)return route.continue();holdProfile=false;
+   const response=await route.fetch();expect(response.status()).toBe(200);entered.resolve();await release.promise;await route.fulfill({response});
+  });
+  await writer.route('**/api/v1'+s.root+'/supply-products/'+p.product_id,async route=>{
+   if(route.request().method()!=='PATCH')return route.continue();saveRequests.push(signature(route.request()));const response=await route.fetch();saveStatuses.push(response.status());await route.fulfill({response});
+  });
+  const profileRefreshed=writer.waitForResponse(r=>r.request().method()==='GET'&&r.url().endsWith(s.root+'/supply-profile'));
+  await publishBtn.click();await writer.getByRole('dialog').getByRole('button',{name:'確認公開供貨版本',exact:true}).click();
+  await entered.promise;expect(publishStatuses).toEqual([403]);
+  await expect(consoleArea(writer).getByRole('alert')).toContainText('目前身分已沒有這項權限');await expect(saveBtn).toBeDisabled();
+  release.resolve();expect((await profileRefreshed).status()).toBe(200);
+  await expect(publishBtn).toBeDisabled();await expect(active(writer)).toContainText('需要公開供貨版本的權限，請聯絡業務空間擁有者。');
+  await expect(saveBtn).toBeEnabled();
+  await saveBtn.click();await expect(consoleArea(writer).locator('.sc-announcement')).toHaveText('已保存：儲存內容。');await expect(form.getByRole('status')).toHaveText('已保存：儲存內容。');
+  expect(publishRequests).toHaveLength(1);expect(publishStatuses).toEqual([403]);expect(saveRequests).toHaveLength(1);expect(saveStatuses).toEqual([200]);
+  expect((await detail(page,s,p.product_id)).product.description).toBe(nextDesc);
+  await evidence(writer,info,'selective-publish-loss-keeps-write',{publishRequests,publishStatuses,saveRequests,saveStatuses});
+ }finally{release.resolve();await context.close();}
+});
+
+test('SC-E2E-34 a failed profile refresh after a refusal keeps writes locked (AT-37)',async({page,browser,baseURL,e2eAuthPool},info)=>{
+ test.setTimeout(120_000);
+ const s=await supplier(page,e2eAuthPool),p=await product(page,s),context=await browser.newContext({baseURL});
+ const publishStatuses:number[]=[],profileReads:string[]=[];
+ try{
+  await patch(page,s.root+`/products/${p.product_id}/supply-terms`,{cost_minor:400,shipping_minor:0,shipping_terms:'合成確認後出貨',return_terms:'合成瑕疵退換'},p.version);
+  const writer=await context.newPage(),op=await inviteOperator(page,writer,e2eAuthPool,s,['store:read','store:write','store:publish']);
+  await go(writer,s,'/products/'+p.product_id);
+  const publishBtn=active(writer).getByRole('button',{name:'公開供貨版本',exact:true}),form=active(writer).getByRole('form',{name:'儲存內容',exact:true}),saveBtn=form.getByRole('button',{name:'儲存內容',exact:true});
+  const nextDesc=unique('合成重試讀取後保存說明');
+  await form.getByRole('textbox',{name:'說明',exact:true}).fill(nextDesc);await expect(saveBtn).toBeEnabled();
+  await changeOperatorCapabilities(page,op.tenant,op.instance,op.principalId,['store:read','store:write']);
+  let abortFirst=true;
+  await writer.route('**/api/v1'+s.root+`/products/${p.product_id}/supply-offer`,async route=>{
+   if(route.request().method()!=='POST')return route.continue();const response=await route.fetch();publishStatuses.push(response.status());await route.fulfill({response});
+  });
+  await writer.route('**/api/v1'+s.root+'/supply-profile',async route=>{
+   if(route.request().method()!=='GET')return route.continue();
+   if(abortFirst){abortFirst=false;profileReads.push('aborted');await route.abort('failed');return;}
+   profileReads.push('ok');await route.continue();
+  });
+  await publishBtn.click();await writer.getByRole('dialog').getByRole('button',{name:'確認公開供貨版本',exact:true}).click();
+  await expect(consoleArea(writer).getByRole('alert').filter({hasText:'未更新（最後成功'})).toBeVisible();
+  await expect(consoleArea(writer).getByRole('alert').filter({hasText:'目前身分已沒有這項權限'})).toBeVisible();
+  await expect(saveBtn).toBeDisabled();await expect(form.getByRole('textbox',{name:'說明',exact:true})).toBeDisabled();
+  const retryBtn=consoleArea(writer).getByRole('button',{name:'重試',exact:true});await expect(retryBtn).toBeEnabled();
+  expect(publishStatuses).toEqual([403]);expect(profileReads).toEqual(['aborted']);
+  await evidence(writer,info,'failed-profile-refresh-remains-locked',{publishStatuses,profileReads});
+  const retryRead=writer.waitForResponse(r=>r.request().method()==='GET'&&r.url().endsWith(s.root+'/supply-profile'));
+  await retryBtn.click();expect((await retryRead).status()).toBe(200);
+  await expect(publishBtn).toBeDisabled();await expect(saveBtn).toBeEnabled();
+  await saveBtn.click();await expect(consoleArea(writer).locator('.sc-announcement')).toHaveText('已保存：儲存內容。');
+  expect(profileReads).toEqual(['aborted','ok']);expect((await detail(page,s,p.product_id)).product.description).toBe(nextDesc);
+ }finally{await context.close();}
+});
+
+test('SC-E2E-35 losing all write access after a refusal stays read-only (AT-37)',async({page,browser,baseURL,e2eAuthPool},info)=>{
+ test.setTimeout(120_000);
+ const s=await supplier(page,e2eAuthPool),p=await product(page,s),context=await browser.newContext({baseURL});
+ const writeRequests:ReturnType<typeof signature>[]=[],writeStatuses:number[]=[];
+ try{
+  const writer=await context.newPage(),op=await inviteOperator(page,writer,e2eAuthPool,s,['store:read','store:write','store:publish']);
+  await go(writer,s,'/products/'+p.product_id);
+  const form=active(writer).getByRole('form',{name:'儲存內容',exact:true});
+  await form.getByRole('textbox',{name:'說明',exact:true}).fill(unique('合成不應保存說明'));
+  await changeOperatorCapabilities(page,op.tenant,op.instance,op.principalId,['store:read']);
+  await writer.route('**/api/v1'+s.root+'/supply-products/'+p.product_id,async route=>{
+   if(route.request().method()!=='PATCH')return route.continue();writeRequests.push(signature(route.request()));const response=await route.fetch();writeStatuses.push(response.status());await route.fulfill({response});
+  });
+  const profileRefreshed=writer.waitForResponse(r=>r.request().method()==='GET'&&r.url().endsWith(s.root+'/supply-profile'));
+  await form.getByRole('button',{name:'儲存內容',exact:true}).click();expect((await profileRefreshed).status()).toBe(200);
+  expect(writeRequests).toHaveLength(1);expect(writeStatuses).toEqual([403]);
+  await expect(consoleArea(writer).getByRole('alert')).toContainText('目前身分已沒有這項權限');
+  await expect(active(writer)).toContainText('需要商品編輯權限才能查看。供貨價與條件不會顯示，請聯絡業務空間擁有者。');
+  await expect(active(writer).getByRole('form')).toHaveCount(0);await expect(active(writer).getByRole('button')).toHaveCount(0);
+  expect((await detail(page,s,p.product_id)).product.description).toBe('合成原始說明');
+  expect(writeRequests).toHaveLength(1);
+  await evidence(writer,info,'complete-write-revocation-readonly',{writeRequests,writeStatuses});
+ }finally{await context.close();}
+});

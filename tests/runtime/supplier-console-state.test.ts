@@ -137,3 +137,13 @@ test('SC-UI-23 dirty draft keeps original baseVersion across version moves while
  assert.equal(freshDraft.baseVersion,'2');
  assert.deepEqual(freshDraft.fields,{name:'全新草稿'});
 });
+import {refusalReleased} from '../../modules/agent-commerce/supplier-console/state/useSupplierConsoleController';
+test('SC-UI-25 refusal lock releases only after a newer valid current profile read',()=>{
+ assert.equal(refusalReleased({mark:5,ticket:4,current:true,matched:true}),false);
+ assert.equal(refusalReleased({mark:5,ticket:5,current:true,matched:true}),false);
+ assert.equal(refusalReleased({mark:5,ticket:6,current:false,matched:true}),false);
+ assert.equal(refusalReleased({mark:5,ticket:6,current:true,matched:false}),false);
+ assert.equal(refusalReleased({key:'overview',mark:5,ticket:6,current:true,matched:true}),false);
+ assert.equal(refusalReleased({mark:null,ticket:6,current:true,matched:true}),false);
+ assert.equal(refusalReleased({mark:5,ticket:6,current:true,matched:true}),true);
+});
