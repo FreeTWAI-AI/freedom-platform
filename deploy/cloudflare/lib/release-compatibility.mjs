@@ -12,8 +12,9 @@ const LEGACY_FILE = /^[0-9]{3}_[a-z0-9_]+\.sql$/;
 const DAG_NAME = /^v2_(\d{8}T\d{9}Z)_([0-9a-f]{16})_([a-z][a-z0-9_]{0,63})\.sql$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['opensource.sharing-visibility.v1', 'commerce.hosted-supply-catalog.v1', 'commerce.hosted-inventory-reservation.v1', 'commerce.hosted-shared-reservation.v1', 'commerce.shop-service-authority.v1', 'execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'avatar.legacy-bytes.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1', 'media.write-effects.v1', 'media.domain-gc.v1'];
+const CAPABILITIES = ['commerce.hosted-checkout.v1', 'opensource.sharing-visibility.v1', 'commerce.hosted-supply-catalog.v1', 'commerce.hosted-inventory-reservation.v1', 'commerce.hosted-shared-reservation.v1', 'commerce.shop-service-authority.v1', 'execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'avatar.legacy-bytes.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1', 'media.write-effects.v1', 'media.domain-gc.v1'];
 const SHAPES = Object.freeze({
+  'commerce.hosted-checkout.v1': { migration: 168, capabilities: ['commerce.hosted-checkout.v1'] },
   // Old readers would redisplay withdrawn work; this floor survives every feature switch.
   'opensource.sharing-visibility.v1': { migration: 165, capabilities: ['opensource.sharing-visibility.v1'] },
   'commerce.hosted-supply-catalog.v1': { migration: 164, capabilities: ['commerce.hosted-supply-catalog.v1'] },
@@ -181,8 +182,8 @@ const FOUNDATION_NAMES = [
   // Opt-in AR storage only; recognition does not enable persistence policy,
   // camera access or supply deployment/restore approval.
   '167_community_ar.sql',
-  // Expand-only hosted checkout order/inventory schema; no writer route, store
-  // admission or payment capability is enabled by this schema.
+  // Hosted checkout writers must preserve the M1 access, hold and replay
+  // invariants. Capability acknowledgement grants no payment or deployment.
   '168_hosted_checkout_core.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
@@ -533,6 +534,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
   // off. Every active/candidate binary must preserve the durable hold ledger.
   // Nullable retail activation and unpublished supplier placeholders require
   // every reader/writer to preserve the supply-only privacy boundary.
+  if (Math.max(plannedLast, floorLast) >= 168) required.add('commerce.hosted-checkout.v1');
   if (Math.max(plannedLast, floorLast) >= 165) required.add('opensource.sharing-visibility.v1');
   if (Math.max(plannedLast, floorLast) >= 164) required.add('commerce.hosted-supply-catalog.v1');
   if (Math.max(plannedLast, floorLast) >= 162) required.add('commerce.hosted-inventory-reservation.v1');
@@ -550,7 +552,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
   // 114 requires a persisted preparation before every new ingest submission;
   // generic pre-114 ingest support cannot satisfy the changed writer contract.
   if (Math.max(plannedLast, floorLast) >= 114 && required.has('execution.model-credential-ingest.v1')) required.add('execution.model-credential-preparation.v1');
-  for (const shape of ['opensource.sharing-visibility.v1', 'commerce.hosted-supply-catalog.v1', 'commerce.hosted-inventory-reservation.v1', 'commerce.hosted-shared-reservation.v1', 'execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'avatar.legacy-bytes.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1', 'media.domain-gc.v1']) {
+  for (const shape of ['commerce.hosted-checkout.v1', 'opensource.sharing-visibility.v1', 'commerce.hosted-supply-catalog.v1', 'commerce.hosted-inventory-reservation.v1', 'commerce.hosted-shared-reservation.v1', 'execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'avatar.legacy-bytes.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1', 'media.domain-gc.v1']) {
     if (!required.has(shape)) continue;
     for (const capability of SHAPES[shape].capabilities) required.add(capability);
     if (floor.capabilities.includes(shape)) {

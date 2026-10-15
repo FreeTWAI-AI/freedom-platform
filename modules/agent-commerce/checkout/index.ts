@@ -1,5 +1,5 @@
 export {computeCheckoutTerms,ensureCustomer,freezeCheckout,canonicalJSON,hashJSON,defaultAdmission} from './terms.js';
-export type {CheckoutInput,CheckoutPorts,CheckoutTerms,ShippingQuotePort,CheckoutAdmissionPort,UnresolvedOrderPort} from './terms.js';
+export type {CheckoutInput,CheckoutPorts,CheckoutTerms,ShippingQuotePort,CheckoutAdmissionPort,CheckoutPolicyPort,UnresolvedOrderPort} from './terms.js';
 export type {CheckoutStore} from './authority.js';
 export {placeCheckoutOrder,cancelUnpaidOrder,CheckoutStockUnavailable,UnresolvedCheckoutOrder} from './orders.js';
 export {applyConfirmedPayment,retryAllocation,releaseAllocation,cancelPaidOrder,recordHandover,restockReturn} from './payments.js';

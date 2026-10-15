@@ -10,9 +10,9 @@ import {freezeCheckout,placeCheckoutOrder,cancelUnpaidOrder,type CheckoutPorts,t
 export const ok=(r:Reply,status=200)=>{assert.equal(r.status,status,JSON.stringify(r.data));return r.data;};
 export const code=(expected:string)=>(e:unknown)=>(e as {code?:string}).code===expected;
 export const ports:CheckoutPorts={admission:{allowed:()=>true},shipping:{async quote(_q,_s,input){return {groups:[...new Set(input.lines.map(l=>l.supplier_shop_id))].sort().map(s=>({group_ref:s,supplier_shop_id:s,method_ref:'synthetic-fixed',amount_minor:0}))};}}};
-export async function checkoutHarness(prefix:string) {
+export async function checkoutHarness(prefix:string,options:{publicSchema?:boolean}={}) {
   const url=process.env.TEST_DATABASE_URL;assert.ok(url&&/^\/fp_[a-z0-9_]+$/.test(new URL(url).pathname),'Explicit disposable fp_* TEST_DATABASE_URL required');
-  const h=await createRegistryHarness(prefix),role=`${prefix}_runtime_${process.pid}_${Date.now()}`;
+  const h=await createRegistryHarness(prefix,options),role=`${prefix}_runtime_${process.pid}_${Date.now()}`;
   await h.admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;
     GRANT USAGE ON SCHEMA ${h.schema} TO ${role}; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${h.schema} TO ${role};
     GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${h.schema} TO ${role}; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${h.schema} TO ${role}`);

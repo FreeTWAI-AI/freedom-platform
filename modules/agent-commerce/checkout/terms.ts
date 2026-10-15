@@ -2,6 +2,7 @@
 import {createHash,createHmac,randomBytes,randomUUID} from 'node:crypto';
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
+import {isCheckoutText} from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import {requireCondition} from '../../../packages/shared/problem.js';
 import {publicProjection} from '../hosted/publish.js';
 import {sharedLines} from '../hosted/shared-quotes.js';
@@ -10,12 +11,15 @@ import {bindStore,lockStore,type CheckoutStore,type StoreContext} from './author
 /** PostgreSQL rejects NUL and UTF-8 encoding replaces lone surrogates. Validate
  * raw keys too, before normalization/unknown-field stripping can hide them. */
 function checkoutString(value:string) {
-  requireCondition(value.isWellFormed()&&!value.includes('\u0000'),422,'invalid_checkout_json','結帳資料無效。');
+  requireCondition(isCheckoutText(value),422,'invalid_checkout_json','結帳資料無效。');
 }
 export function validateCheckoutStrings(value:unknown):void {
-  if(typeof value==='string')checkoutString(value);
-  else if(Array.isArray(value))for(const v of value)validateCheckoutStrings(v);
-  else if(value!==null&&typeof value==='object')for(const [k,v] of Object.entries(value)){checkoutString(k);validateCheckoutStrings(v);}
+  const pending=[value];
+  while(pending.length) {
+    const next=pending.pop();
+    if(typeof next==='string')checkoutString(next);
+    else if(next!==null&&typeof next==='object')for(const [key,child] of Object.entries(next)){checkoutString(key);pending.push(child);}
+  }
 }
 export function canonicalJSON(value:unknown):string {
   if(Array.isArray(value))return '['+value.map(canonicalJSON).join(',')+']';
@@ -41,14 +45,37 @@ export interface ShippingQuotePort {
 }
 export interface CheckoutAdmissionPort {allowed(store:CheckoutStore):boolean|Promise<boolean>}
 export interface UnresolvedOrderPort {find(q:PoolClient,checkoutId:string):Promise<{order_id:string}|null>}
-export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;unresolved?:UnresolvedOrderPort}
+export interface CheckoutPolicyPort {required(q:PoolClient,store:CheckoutStore):Promise<readonly {policy_kind:string;policy_version_id:string}[]>}
+export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort}
 export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};
 const defaultShipping:ShippingQuotePort={async quote(){requireCondition(false,409,'shipping_not_configured','尚未設定配送。');}};
 const shippingSchema=z.object({groups:z.array(z.object({group_ref:z.string().min(1).max(80),supplier_shop_id:z.uuid(),method_ref:z.string().min(1).max(80),amount_minor:money})).min(1).max(50)});
+export function validateShippingQuote(raw:unknown,bindings:readonly {supplier_shop_id:string}[]) {
+  const shipping=shippingSchema.parse(raw);
+  const suppliers=new Set(bindings.map(b=>b.supplier_shop_id));
+  requireCondition(new Set(shipping.groups.map(g=>g.group_ref)).size===shipping.groups.length && shipping.groups.every(g=>suppliers.has(g.supplier_shop_id))
+    && [...suppliers].every(s=>shipping.groups.some(g=>g.supplier_shop_id===s)),422,'shipping_unavailable','商品無法配送。');
+  return shipping;
+}
+/** Quote delivery and checkout delivery/invoice share exactly the same walker. */
+export function validateBuyerJSON(value:unknown,maxBytes:number) {
+  const pending:{value:unknown;depth:number}[]=[{value,depth:0}];let nodes=0;
+  while(pending.length) {
+    const next=pending.pop()!;
+    requireCondition(++nodes<=2048&&next.depth<=8,422,'invalid_checkout_json','結帳資料過深或過多。');
+    if(next.value!==null&&typeof next.value==='object')for(const [key,child] of Object.entries(next.value)) {
+      // wireVersionResponses rewrites this key at every depth in JSON replies.
+      requireCondition(key!=='aggregate_version',422,'invalid_checkout_json','結帳資料無效。');
+      checkoutString(key);pending.push({value:child,depth:next.depth+1});
+    }
+  }
+  requireCondition(Buffer.byteLength(canonicalJSON(value),'utf8')<=maxBytes,422,'checkout_contact_too_large','配送或發票資料過大。');
+}
 export function parseCheckoutInput(raw:CheckoutInput) {
   validateCheckoutStrings(raw);
   const input=inputSchema.parse(raw);
-  requireCondition(Buffer.byteLength(canonicalJSON(input.delivery),'utf8')<=8192 && (input.invoice==null||Buffer.byteLength(canonicalJSON(input.invoice),'utf8')<=4096),422,'checkout_contact_too_large','配送或發票資料過大。');
+  validateBuyerJSON(input.delivery,8192);
+  if(input.invoice!=null)validateBuyerJSON(input.invoice,4096);
   return {...input,invoice:input.invoice??null};
 }
 export const contactHash=(input:ReturnType<typeof parseCheckoutInput>,salt:string)=>hashJSON({contact:input.contact,delivery:input.delivery,invoice:input.invoice,salt});
@@ -57,16 +84,17 @@ export const contactHash=(input:ReturnType<typeof parseCheckoutInput>,salt:strin
  * supplier resolver. Lifecycle authority was acquired by lockStore beforehand. */
 export async function checkoutTerms(q:PoolClient,context:StoreContext,input:ReturnType<typeof parseCheckoutInput>,ports:CheckoutPorts,salt:string) {
   const p=context.profile,projection=publicProjection(p.projection);
+  const required=await ports.policies?.required(q,p)??[];
+  const policyKey=(v:{policy_kind:string;policy_version_id:string})=>`${v.policy_kind}/${v.policy_version_id}`;
+  const actual=input.consents.map(policyKey).sort(),expected=required.map(policyKey).sort();
+  requireCondition(new Set(actual).size===actual.length && canonicalJSON(actual)===canonicalJSON(expected),422,'consents_mismatch','同意的政策版本不符。');
   requireCondition(projection.revision===input.publication_revision,409,'terms_changed','商店公開內容已更新。');
   const resolved=await sharedLines(q,{profile:p,shared:{}},input.lines,async id=>{
     const supplier=context.parties.get(id);
     requireCondition(supplier && supplier.currency===p.currency,409,'terms_changed','供貨來源已更新。');
     return supplier;
   });
-  const shipping=shippingSchema.parse(await (ports.shipping??defaultShipping).quote(q,p,{lines:resolved.bindings,delivery:input.delivery}));
-  const suppliers=new Set(resolved.bindings.map(b=>b.supplier_shop_id));
-  requireCondition(new Set(shipping.groups.map(g=>g.group_ref)).size===shipping.groups.length && shipping.groups.every(g=>suppliers.has(g.supplier_shop_id))
-    && [...suppliers].every(s=>shipping.groups.some(g=>g.supplier_shop_id===s)),422,'shipping_unavailable','商品無法配送。');
+  const shipping=validateShippingQuote(await (ports.shipping??defaultShipping).quote(q,p,{lines:resolved.bindings,delivery:input.delivery}),resolved.bindings);
   const bindings=resolved.bindings.map(b=>({...b,unit_price_minor:resolved.lines.find(l=>l.sku===b.sku)!.unit_price_minor}));
   const items=resolved.lines.map(l=>({...l,offer_sha256:bindings.find(b=>b.sku===l.sku)!.offer_sha256}));
   const merchandise=items.reduce((n,l)=>n+l.line_total_minor,0),shippingTotal=shipping.groups.reduce((n,g)=>n+g.amount_minor,0),total=merchandise+shippingTotal;
@@ -77,6 +105,14 @@ export async function checkoutTerms(q:PoolClient,context:StoreContext,input:Retu
   return {terms,terms_sha256:hashJSON(terms)};
 }
 export type CheckoutTerms=Awaited<ReturnType<typeof checkoutTerms>>['terms'];
+/** Explicit allowlist; the retained terms and their hash remain untouched. */
+export function publicCheckoutTerms(terms:CheckoutTerms) {
+  return {publication_revision:terms.publication_revision,currency:terms.currency,
+    items:terms.items.map(({sku,title,quantity,unit_price_minor,line_total_minor})=>({sku,title,quantity,unit_price_minor,line_total_minor})),
+    merchandise_total_minor:terms.merchandise_total_minor,discount_total_minor:terms.discount_total_minor,discounts:terms.discounts,
+    shipping:{groups:terms.shipping.groups.map(({group_ref,amount_minor})=>({group_ref,amount_minor}))},
+    shipping_total_minor:terms.shipping_total_minor,tax_state:terms.tax_state,total_minor:terms.total_minor,consents:terms.consents,payment_methods:terms.payment_methods};
+}
 export async function computeCheckoutTerms(q:PoolClient,store:CheckoutStore,raw:CheckoutInput,ports:CheckoutPorts={}) {
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku));
   return checkoutTerms(q,context,input,ports,randomBytes(16).toString('hex'));
@@ -105,7 +141,7 @@ interface FrozenCheckout {checkout_id:string;terms:CheckoutTerms;terms_sha256:st
 export async function freezeCheckout(q:PoolClient,store:CheckoutStore,raw:CheckoutInput & {idempotencyKey:string;checkoutId?:string;memberPrincipalId?:string},ports:CheckoutPorts={}) {
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku)),p=context.profile;
   requireCondition(/^[A-Za-z0-9_-]{22,128}$/.test(raw.idempotencyKey),422,'invalid_idempotency_key','冪等鍵無效。');
-  const key=hashKey(raw.idempotencyKey),request=createHmac('sha256',Buffer.from(raw.idempotencyKey,'utf8')).update(canonicalJSON({input,checkout_id:raw.checkoutId??null,member_principal_id:raw.memberPrincipalId??null}),'utf8').digest('hex');
+  const key=hashKey(raw.idempotencyKey),request=createHmac('sha256',Buffer.from(raw.idempotencyKey,'utf8')).update(canonicalJSON({input,checkout_id:raw.checkoutId??null}),'utf8').digest('hex');
   const prior=(await q.query<{request_sha256:string;response:FrozenCheckout}>(`SELECT request_sha256,response FROM commerce_checkout_idempotency_keys WHERE instance_id=$1 AND idempotency_key_sha256=$2`,[p.instance_id,key])).rows[0];
   if(prior){requireCondition(prior.request_sha256===request,409,'checkout_idempotency_conflict','冪等鍵已用於其他內容。');return {...prior.response,expires_at:new Date(prior.response.expires_at)};}
   // Customer creation runs under the already held lifecycle/community locks.

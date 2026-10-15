@@ -141,3 +141,41 @@ test('customer identity, link and email verification are guarded; redaction is a
   assert.notEqual(current.customer_id,before.customer_id);assert.deepEqual((await x.h.pool.query('SELECT * FROM commerce_customers WHERE customer_id=$1',[before.customer_id])).rows[0],redacted);
   assert.equal((await x.h.pool.query('SELECT customer_id FROM commerce_checkouts WHERE checkout_id=$1',[c.checkout_id])).rows[0].customer_id,before.customer_id);
 });
+
+test('access credentials enforce absolute lifetimes, immutable identity, one-way revocation/redemption and store/checkout FKs',async()=>{
+  const {ensureDevice,grantDevice,createAccessLink}=await import('../../modules/agent-commerce/checkout/access.js');
+  const s=await x.store(),c=await x.frozen(s),o=await x.place(s,c),other=await x.frozen(s);
+  const device=await x.tx(async q=>{await lockStore(q,s);const d=await ensureDevice(q,undefined,x.h.origin);await grantDevice(q,d.device.device_id,{tenant_id:s.tenantId,instance_id:s.instanceId,checkout_id:c.checkout_id});return d.device;});
+  for(const sql of ["UPDATE commerce_access_devices SET expires_at=expires_at+interval '1 day' WHERE device_id=$1","UPDATE commerce_access_devices SET created_at=created_at-interval '1 day',expires_at=expires_at-interval '1 day' WHERE device_id=$1",'UPDATE commerce_access_devices SET token_sha256=repeat(\'a\',64) WHERE device_id=$1','DELETE FROM commerce_access_devices WHERE device_id=$1'])await reject(sql,[device.device_id]);
+  await x.tx(q=>q.query('UPDATE commerce_access_devices SET revoked_at=clock_timestamp() WHERE device_id=$1',[device.device_id]));
+  for(const sql of ['UPDATE commerce_access_devices SET revoked_at=NULL WHERE device_id=$1',"UPDATE commerce_access_devices SET revoked_at=revoked_at+interval '1 second' WHERE device_id=$1"])await reject(sql,[device.device_id]);
+  const tx=<T>(run:(q:import('pg').PoolClient)=>Promise<T>)=>x.tx(async q=>{await lockStore(q,s);return run(q);});
+  await assert.rejects(tx(q=>q.query(`INSERT INTO commerce_order_access_grants(tenant_id,instance_id,checkout_id,order_id,kind,device_id) VALUES($1,$2,$3,$4,'device',$5)`,[s.tenantId,s.instanceId,other.checkout_id,o.order_id,device.device_id])),code('23503'));
+  await assert.rejects(tx(q=>q.query(`INSERT INTO commerce_order_access_grants(tenant_id,instance_id,checkout_id,kind,device_id,expires_at) VALUES($1,$2,$3,'device',$4,clock_timestamp())`,[s.tenantId,s.instanceId,c.checkout_id,device.device_id])),code('23514'));
+  await assert.rejects(tx(q=>q.query(`INSERT INTO commerce_order_access_grants(tenant_id,instance_id,checkout_id,kind,device_id) VALUES($1,$2,$3,'device',$4)`,[s.tenantId,s.instanceId,c.checkout_id,device.device_id])),code('23505'));
+  await tx(q=>createAccessLink(q,{tenant_id:s.tenantId,instance_id:s.instanceId,checkout_id:c.checkout_id,order_id:o.order_id}));
+  const grant=(await x.h.pool.query("SELECT * FROM commerce_order_access_grants WHERE kind='link'")).rows[0];
+  for(const sql of ['DELETE FROM commerce_order_access_grants WHERE grant_id=$1','UPDATE commerce_order_access_grants SET checkout_id=$2 WHERE grant_id=$1',"UPDATE commerce_order_access_grants SET expires_at=expires_at+interval '1 second' WHERE grant_id=$1"])
+    await assert.rejects(tx(q=>q.query(sql,sql.includes('$2')?[grant.grant_id,other.checkout_id]:[grant.grant_id])),code('23514'));
+  await tx(q=>q.query('UPDATE commerce_order_access_grants SET redeemed_at=clock_timestamp(),revoked_at=clock_timestamp() WHERE grant_id=$1',[grant.grant_id]));
+  for(const column of ['redeemed_at','revoked_at'])for(const value of ['NULL',`${column}+interval '1 second'`])await assert.rejects(tx(q=>q.query(`UPDATE commerce_order_access_grants SET ${column}=${value} WHERE grant_id=$1`,[grant.grant_id])),code('23514'));
+});
+
+test('insert-time access CHECKs enforce absolute hours and grant kinds across a DST boundary',async()=>{
+  const s=await x.store(),c=await x.frozen(s),o=await x.place(s,c);
+  const insertDevice=(hours:number)=>x.tx(async q=>{
+    await q.query("SET LOCAL TimeZone='America/New_York'");
+    return q.query(`INSERT INTO commerce_access_devices(token_sha256,created_at,expires_at) SELECT $1,t,t+make_interval(hours=>$2) FROM (SELECT '2026-10-15 12:00:00-04'::timestamptz t)n RETURNING device_id`,[randomUUID().replaceAll('-','').repeat(2),hours]);
+  });
+  await assert.rejects(insertDevice(4319),code('23514'));const d=(await insertDevice(4320)).rows[0];
+  const grant=(kind:string,withOrder:boolean,token:boolean,hours:number)=>x.tx(async q=>{
+    await lockStore(q,s);await q.query("SET LOCAL TimeZone='America/New_York'");
+    return q.query(`INSERT INTO commerce_order_access_grants(tenant_id,instance_id,checkout_id,order_id,kind,device_id,link_token_sha256,created_at,expires_at)
+      SELECT $1,$2,$3,$4,$5,$6,$7,t,CASE WHEN $8::int IS NULL THEN NULL ELSE t+make_interval(hours=>$8) END
+      FROM (SELECT '2026-10-30 12:00:00-04'::timestamptz t)n RETURNING kind`,[s.tenantId,s.instanceId,c.checkout_id,withOrder?o.order_id:null,kind,kind==='device'?d.device_id:null,token?randomUUID().replaceAll('-','').repeat(2):null,kind==='device'?null:hours]);
+  });
+  await assert.rejects(grant('link',true,true,167),code('23514'));
+  await assert.rejects(grant('device',false,true,0),code('23514'));
+  await assert.rejects(grant('link',false,true,168),code('23514'));
+  assert.deepEqual((await grant('device',false,false,0)).rows,[{kind:'device'}]);assert.deepEqual((await grant('link',true,true,168)).rows,[{kind:'link'}]);
+});

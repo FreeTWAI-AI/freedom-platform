@@ -1,0 +1,21 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import type {Pool} from 'pg';
+import {createWorkerHandler,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
+for(const settings of [{},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'false'},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'},{FREEDOM_COMMERCE_QUARANTINE:'true'},{FREEDOM_COMMERCE_QUARANTINE:'synthetic-secret'}])test(`scheduler commerce settings ${JSON.stringify(settings)}`,async()=>{
+  const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
+  const pool={connect:async()=>({on(){},removeListener(){},release(){},query:async()=>({rows:[]})}),end:async()=>{calls.push('end');}} as unknown as Pool;
+  try {
+    const handler=createWorkerHandler({createPool:()=>pool,commerceSweep:async(given,options)=>{assert.equal(given,pool);assert.deepEqual(options,{limit:200});calls.push('commerce');return 0;},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
+    await handler.scheduled({},settings as WorkerEnv,{waitUntil:p=>pending.push(p)});await Promise.all(pending);
+    const skipped='FREEDOM_COMMERCE_QUARANTINE' in settings;
+    assert.deepEqual(calls,skipped?['github','end']:['commerce','github','end']);assert.deepEqual(logs,settings.FREEDOM_COMMERCE_QUARANTINE==='synthetic-secret'?['commerce_settings_invalid']:[]);
+  }finally{console.error=original;}
+});
+test('commerce sweep failure logs a fixed name, continues later jobs and ends the pool',async()=>{
+  const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
+  try {
+    const handler=createWorkerHandler({createPool:()=>({end:async()=>{calls.push('end');}} as unknown as Pool),commerceSweep:async()=>{throw Error('synthetic-secret');},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
+    await handler.scheduled({},{} as WorkerEnv,{waitUntil:p=>pending.push(p)});await Promise.all(pending);assert.deepEqual(logs,['commerce_sweep_failed']);assert.deepEqual(calls,['github','end']);
+  }finally{console.error=original;}
+});
