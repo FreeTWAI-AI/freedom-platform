@@ -20,9 +20,11 @@ export class PlatformClient {
   const op=Object.hasOwn(protocol.operations,operationId)?protocol.operations[operationId]:null;if(!op)throw new TypeError('Unknown operation');
   if(operationId==='login')throw new TypeError('Use loginDemo for loopback fixtures; browser auth stays in Platform');
   if(op.body)assertShape(body??{},protocol.schemas[op.body],protocol.schemas);else if(body!==undefined)throw new TypeError('GET operation cannot have a body');
+  if(params===null||typeof params!=='object')throw new TypeError('Path parameters must be a plain object');
+  const paramsPrototype=Object.getPrototypeOf(params);if(paramsPrototype!==Object.prototype&&paramsPrototype!==null)throw new TypeError('Path parameters must be a plain object');
   const expected=[...op.path.matchAll(/\{([^}]+)\}/g)].map(m=>m[1]);
   if(Object.keys(params).some(k=>!expected.includes(k)))throw new TypeError('Unknown path parameter');
-  let path=op.path;for(const key of expected){const value=params[key];const pattern=key==='id'?/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i:/^[a-z][a-z0-9_]{1,100}$/;if(typeof value!=='string'||!pattern.test(value))throw new TypeError('Invalid path identifier');path=path.replace(`{${key}}`,encodeURIComponent(value));}
+  let path=op.path;for(const key of expected){const value=Object.hasOwn(params,key)?params[key]:undefined;const pattern=key==='id'?/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i:/^[a-z][a-z0-9_]{1,100}$/;if(typeof value!=='string'||!pattern.test(value))throw new TypeError('Invalid path identifier');path=path.replace(`{${key}}`,encodeURIComponent(value));}
   if(op.idempotent&&!/^[A-Za-z0-9_-]{8,128}$/.test(idempotencyKey??''))throw new TypeError('Explicit Idempotency-Key required; reuse it only with the same request');
   if(op.concurrency==='required'&&version===undefined)throw new TypeError('Expected version required');
   if(version!==undefined&&(!Number.isSafeInteger(version)||version<1))throw new TypeError('Expected version must be a positive safe integer');
