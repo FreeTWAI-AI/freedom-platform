@@ -60,6 +60,17 @@ flowchart TB
 
 商品照片僅在使用者瀏覽器以 HTTPS 載入，不由 server 代抓任意網址。原始圖檔上傳、R2／quarantine、惡意檔案掃描另作實際功能，不以 URL 欄位宣稱完整資產庫已建好。
 
+供貨／零售的會員讀取（`/supplier/products`、`/retail/catalog`、
+`/retail/stores`、`/retail/listings`、`/supplier/requests`）沿用
+`readWithMemberSession`：以同一個已鎖定會員與 session 的資料庫 client
+完成原投影，最後以目前 database clock 再檢查登入期限。等 SQL 鎖期間到期
+回 `401 session_expired`，不回 `items` 或更新 cookie；空結果也不能略過檢查。
+仍保留原 owner／community／verification-test-account 過濾、最新 offer、
+不可變 snapshot 與 `{items}` 形狀，不因此新增 receipt／transition journal。
+行銷的低階 `getMarketingProductSource` 仍使用呼叫端原有 command 交易，
+不另開登入或巢狀交易。這是回傳投影前的決策檢查，不保證直到 commit 或
+HTTP 傳送完畢都尚未到期；不代表啟用 checkout、付款或跨倉契約採用。
+
 ## GitHub 與開源作品
 
 登記 public GitHub repository → 從限制的 GitHub API 讀取 metadata → 保存 stable repo ID／default-branch exact commit／該版本 license → 本人補用途 → 社群瀏覽候選作品。更新時 stable ID 必須一致，無法讀取就保留原版本並提示重試。

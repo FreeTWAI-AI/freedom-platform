@@ -1,13 +1,15 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setImmediate } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL,transaction } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
-import { hashPassword,authenticate } from '../../modules/identity-membership/service.js';
-import { getMarketingProductSource } from '../../modules/catalog-commerce/service.js';
+import { hashPassword,authenticate,tokenHash } from '../../modules/identity-membership/service.js';
+import { getMarketingProductSource,listProducts,listStores,listListings,listSupplyRequests } from '../../modules/catalog-commerce/service.js';
+import { Problem } from '../../packages/shared/problem.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_commerce_test_${process.pid}_${Date.now()}`,admin=createPool(databaseUrl);
@@ -55,6 +57,51 @@ test('catalog photo URLs gate malformed input and compare absolute DNS names wit
   assert.deepEqual((await pool.query('SELECT photo_url FROM catalog_products WHERE product_id=$1',[created.data.product_id])).rows,[{photo_url}]);
   assert.equal((await request('/supplier/products',supplier,{...body,title:'Changed product'},undefined,key)).status,409);
   assert.deepEqual(await facts(),{products:before.products+1,offers:before.offers+1,receipts:before.receipts+1,journal:before.journal+1});
+});
+
+for(const surface of [
+  {path:'/supplier/products',table:'catalog_products',supplier:true},
+  {path:'/retail/catalog',table:'catalog_products',supplier:false},
+  {path:'/retail/stores',table:'retail_stores',supplier:false},
+  {path:'/retail/listings',table:'retail_listing_revisions',supplier:false},
+  {path:'/supplier/requests',table:'distribution_acceptances',supplier:true}
+] as const)test(`${surface.path} refreshes member authority after its domain query wait`,async()=>{
+  const supplier=await login(),seller=await login(DEMO_USERS[2].email);await pending(supplier,seller);
+  const s=surface.supplier?supplier:seller,expected=await request(surface.path,s);assert.equal(expected.status,200);
+  const facts=async()=>(await pool.query('SELECT (SELECT count(*)::int FROM command_receipts) AS receipts,(SELECT count(*)::int FROM transition_journal) AS journal')).rows[0];
+  const before=await facts(),hash=tokenHash(s.cookie.split('=')[1]);
+  for(const expired of [true,false]){
+    const gate=await admin.connect();let running:Promise<unknown>|undefined;
+    try{
+      await gate.query('BEGIN');await gate.query(`LOCK TABLE ${schema}.${surface.table} IN ACCESS EXCLUSIVE MODE`);
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1",[hash,expired?3:3600]);
+      const pid=(await gate.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      const response=request(surface.path,s);running=response.catch(()=>undefined);
+      const deadline=Date.now()+2000;
+      for(;;){
+        if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount!>0)break;
+        assert.ok(Date.now()<deadline,'member read reached its real SQL gate');await setImmediate();
+      }
+      assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[hash])).rows[0].live,true);
+      if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[hash]);
+      await gate.query('ROLLBACK');
+      const result=await response;assert.equal(result.status,expired?401:200,JSON.stringify(result.data));
+      if(expired){assert.equal(result.data.code,'session_expired');assert.equal('items'in result.data,false);assert.equal(result.response.headers.get('set-cookie'),null);}
+      else assert.deepEqual(result.data,expected.data);
+      assert.deepEqual(await facts(),before);
+    }finally{
+      await gate.query('ROLLBACK');gate.release();if(running)await running;
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '30 days' WHERE token_hash=$1",[hash]);
+    }
+  }
+});
+
+test('empty catalog and retail domain reads reject an expired real actor before returning an empty projection',async()=>{
+  const s=await login(),actor=await authenticate(pool,s.cookie.split('=')[1]);
+  const reads=[()=>listProducts(pool,actor,true),()=>listProducts(pool,actor),()=>listStores(pool,actor),()=>listListings(pool,actor),()=>listSupplyRequests(pool,actor)];
+  for(const read of reads)assert.deepEqual(await read(),[]);
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1",[actor.session_hash]);
+  for(const read of reads)await assert.rejects(read,(error:unknown)=>error instanceof Problem&&error.status===401&&error.code==='session_expired');
 });
 
 test('physical supply → independent store → immutable listing → supplier decision survives application restart',async()=>{
