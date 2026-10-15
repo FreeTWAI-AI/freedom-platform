@@ -288,6 +288,157 @@ export const SupplierReportSchema = z.object({
       ? value.reservations.reserved.lines + value.reservations.cancelled.lines + value.reservations.expired.lines : 0),
     'csv_rows must count every data row.');
 
+// S3 cooperation materials (SC-09). A material is a record of this supplier business: an image, a video or a copy
+// text about one own product or about the whole brand. Versions are immutable and only move forward. A partner (a
+// seller shop) sees only the current version of an active material, and only while it holds an active grant and a
+// current sellable or awaiting cooperation on that product (any of this supplier's products for a brand material).
+// Image and video bytes are tenant Assets read through the API; no storage URL, object key or locator leaves the
+// server. public_use is the supplier's permission for partners to show that version on their own public storefront;
+// it never creates a readable file address.
+export const SUPPLY_MATERIAL_ACTIVE_LIMIT = 200;
+export const SUPPLY_MATERIAL_VERSION_LIMIT = 100;
+export const SUPPLY_MATERIAL_GRANT_LIMIT = 200;
+export const SUPPLY_MATERIAL_IMAGE_SOURCE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export const SUPPLY_MATERIAL_IMAGE_SOURCE_MAX_BYTES = 2 * 1024 * 1024;
+export const SUPPLY_MATERIAL_IMAGE_MAX_BYTES = 1024 * 1024;
+export const SUPPLY_MATERIAL_IMAGE_MAX_EDGE = 1920;
+export const SUPPLY_MATERIAL_VIDEO_TYPES = ['video/mp4', 'video/webm'] as const;
+export const SUPPLY_MATERIAL_VIDEO_MAX_BYTES = 20 * 1024 * 1024;
+/** Same rules as the storefront text fields: no control characters except newlines in multiline text; trimmed. */
+const plainText = (max: number, min: number, multiline = false) => z.string()
+  .regex(multiline ? /^[^\u0000-\u0009\u000b-\u001f\u007f]*$/ : /^[^\u0000-\u001f\u007f]*$/).trim().min(min).max(max);
+const materialTitle = plainText(80, 1);
+const materialDescription = plainText(500, 0, true);
+const copyBody = plainText(2000, 1, true);
+const bytes = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+export const SupplyMaterialKindSchema = z.enum(['image', 'video', 'copy']);
+export const SupplyMaterialAccessSchema = z.enum(['partners', 'public_use']);
+export const SupplyMaterialStateSchema = z.enum(['active', 'withdrawn']);
+/** What one immutable version holds. Images are the processed WebP, videos the uploaded file as stored. */
+export const SupplyMaterialContentSchema = z.discriminatedUnion('kind', [
+  z.object({kind: z.literal('image'), content_type: z.literal('image/webp'),
+    byte_size: z.number().int().min(1).max(SUPPLY_MATERIAL_IMAGE_MAX_BYTES),
+    width: z.number().int().min(1).max(SUPPLY_MATERIAL_IMAGE_MAX_EDGE),
+    height: z.number().int().min(1).max(SUPPLY_MATERIAL_IMAGE_MAX_EDGE)}).strict(),
+  z.object({kind: z.literal('video'), content_type: z.enum(SUPPLY_MATERIAL_VIDEO_TYPES),
+    byte_size: z.number().int().min(1).max(SUPPLY_MATERIAL_VIDEO_MAX_BYTES)}).strict(),
+  z.object({kind: z.literal('copy'), body: copyBody}).strict(),
+]);
+export const SupplyMaterialVersionSchema = z.object({
+  version_id: OpaqueId, version_no: z.number().int().min(1).max(SUPPLY_MATERIAL_VERSION_LIMIT), created_at: time,
+  content: SupplyMaterialContentSchema,
+}).strict();
+export const SupplyMaterialSubjectSchema = z.discriminatedUnion('kind', [
+  z.object({kind: z.literal('brand')}).strict(),
+  /** One own product. sku and title are null once that product was removed; partners then lose access with it. */
+  z.object({kind: z.literal('product'), product_id: OpaqueId,
+    sku: ProductViewSchema.shape.sku.nullable(), title: ProductViewSchema.shape.title.nullable()}).strict()
+    .refine(value => (value.sku === null) === (value.title === null), 'A removed product has neither SKU nor title.'),
+]);
+export const SupplyMaterialSchema = z.object({
+  material_id: OpaqueId, kind: SupplyMaterialKindSchema, subject: SupplyMaterialSubjectSchema,
+  title: materialTitle, description: materialDescription,
+  access: SupplyMaterialAccessSchema, state: SupplyMaterialStateSchema,
+  /** The material's aggregate version: the If-Match value of every command on it. */
+  version: Version,
+  created_at: time, updated_at: time, withdrawn_at: time.nullable(),
+  /** The newest version, which partners see. Null until the first file or copy text. */
+  current: SupplyMaterialVersionSchema.nullable(),
+  version_count: z.number().int().min(0).max(SUPPLY_MATERIAL_VERSION_LIMIT),
+  active_grants: z.number().int().min(0).max(SUPPLY_MATERIAL_GRANT_LIMIT),
+}).strict()
+  .refine(value => value.current === null || value.current.content.kind === value.kind, 'Content must match the material kind.')
+  .refine(value => (value.state === 'withdrawn') === (value.withdrawn_at !== null), 'Only a withdrawn material has withdrawn_at.')
+  .refine(value => value.current === null ? value.version_count === 0 : value.current.version_no === value.version_count,
+    'The current version is the newest one.');
+/** The business's shared retained space at as_of (every stored file of the business, not only materials). */
+export const SupplyMaterialCapacitySchema = z.discriminatedUnion('state', [
+  z.object({state: z.literal('ready'), limit_bytes: bytes, used_bytes: bytes, reserved_bytes: bytes, remaining_bytes: bytes}).strict()
+    .refine(value => value.remaining_bytes === Math.max(0, value.limit_bytes - value.used_bytes - value.reserved_bytes),
+      'remaining_bytes is the limit minus used and reserved bytes.'),
+  z.object({state: z.literal('unavailable')}).strict(),
+]);
+export const SupplyMaterialsSchema = z.object({
+  profile: z.literal('freedom.supplier-console.materials/v1'), tenant_id: OpaqueId, instance_id: OpaqueId, as_of: time,
+  capacity: SupplyMaterialCapacitySchema,
+  /** Active materials; at most SUPPLY_MATERIAL_ACTIVE_LIMIT. Withdrawn ones stay listed after them. */
+  active: z.number().int().min(0).max(SUPPLY_MATERIAL_ACTIVE_LIMIT), total: count,
+  /** Active first, then most recently updated; the first 200. */
+  items: z.array(SupplyMaterialSchema).max(200), truncated: z.boolean(),
+}).strict()
+  .refine(value => value.items.length === Math.min(value.total, 200) && value.truncated === (value.total > 200)
+    && value.active <= value.total, 'The list must hold the first 200 materials.');
+export const SupplyMaterialGrantSchema = z.object({
+  partner_id: OpaqueId, partner_name: z.string(), granted_at: time, revoked_at: time.nullable(),
+}).strict();
+/** A partner that may be granted now: a current sellable or awaiting cooperation on the material's product (on any
+ * product of this supplier for a brand material). */
+export const SupplyMaterialPartnerSchema = z.object({
+  partner_id: OpaqueId, name: z.string(), cooperation: z.enum(['awaiting', 'sellable']), granted: z.boolean(),
+}).strict();
+export const SupplyMaterialDetailSchema = z.object({
+  profile: z.literal('freedom.supplier-console.material/v1'), tenant_id: OpaqueId, instance_id: OpaqueId, as_of: time,
+  material: SupplyMaterialSchema,
+  /** Newest first; the newest 50. */
+  versions: z.array(SupplyMaterialVersionSchema).max(50), versions_truncated: z.boolean(),
+  /** Active grants first (by shop name), then revoked ones, newest first; the first 200. */
+  grants: z.array(SupplyMaterialGrantSchema).max(200), grants_truncated: z.boolean(),
+  partners: z.array(SupplyMaterialPartnerSchema).max(200), partners_truncated: z.boolean(),
+}).strict()
+  .refine(value => value.versions.length === Math.min(value.material.version_count, 50)
+    && value.versions_truncated === (value.material.version_count > 50), 'The newest 50 versions must be listed.')
+  .refine(value => value.material.current === null || value.versions[0]?.version_id === value.material.current.version_id,
+    'The first listed version is the current one.')
+  .refine(value => value.grants.filter(grant => grant.revoked_at === null).length === value.material.active_grants,
+    'Every active grant is listed before revoked ones.');
+const materialFields = {title: materialTitle, description: materialDescription};
+/** Creates a material. A copy material starts with its first version; an image or video one gets its first file next. */
+export const SupplyMaterialCreateInputSchema = z.discriminatedUnion('kind', [
+  z.object({kind: z.literal('image'), product_id: OpaqueId.nullable(), ...materialFields}).strict(),
+  z.object({kind: z.literal('video'), product_id: OpaqueId.nullable(), ...materialFields}).strict(),
+  z.object({kind: z.literal('copy'), product_id: OpaqueId.nullable(), ...materialFields, body: copyBody}).strict(),
+]);
+export const SupplyMaterialUpdateInputSchema = z.object(materialFields).partial().strict()
+  .refine(value => Object.keys(value).length > 0, 'At least one field is required.');
+/** A new version of a copy material. */
+export const SupplyMaterialCopyInputSchema = z.object({body: copyBody}).strict();
+/** Allowing public use needs the explicit confirmation the supplier gave in the dialog. */
+export const SupplyMaterialAccessInputSchema = z.discriminatedUnion('access', [
+  z.object({access: z.literal('partners')}).strict(),
+  z.object({access: z.literal('public_use'), confirm_public_use: z.literal(true)}).strict(),
+]);
+/** One grant row per shop, made now. Shops joining later get nothing automatically. */
+export const SupplyMaterialGrantInputSchema = z.object({
+  partner_ids: z.array(OpaqueId).min(1).max(SUPPLY_MATERIAL_GRANT_LIMIT),
+}).strict().refine(value => new Set(value.partner_ids).size === value.partner_ids.length, 'Each shop at most once.');
+/** Body of revoke and withdraw. */
+export const SupplyMaterialEmptyInputSchema = z.object({}).strict();
+/** Every material command answers with the material and its version after the original command. */
+export const SupplyMaterialReceiptSchema = z.object({material_id: OpaqueId, version: Version}).strict();
+/** A material as a partner sees it: always active, always with its current version. */
+export const PartnerMaterialSchema = z.object({
+  material_id: OpaqueId, kind: SupplyMaterialKindSchema,
+  /** The supplier's name as its supply offers show it. */
+  supplier_name: z.string(),
+  subject: z.discriminatedUnion('kind', [
+    z.object({kind: z.literal('brand')}).strict(),
+    z.object({kind: z.literal('product'), product_id: OpaqueId, title: ProductViewSchema.shape.title}).strict(),
+  ]),
+  /** This shop's current cooperation products the material applies to: the product itself, or each of this supplier's
+   * products the shop currently sells or awaits for a brand material. */
+  applies_to: z.array(OpaqueId).min(1).max(200),
+  title: materialTitle, description: materialDescription, access: SupplyMaterialAccessSchema,
+  current: SupplyMaterialVersionSchema,
+}).strict()
+  .refine(value => value.current.content.kind === value.kind, 'Content must match the material kind.')
+  .refine(value => value.subject.kind === 'brand' || (value.applies_to.length === 1 && value.applies_to[0] === value.subject.product_id),
+    'A product material applies to its product only.');
+export const PartnerMaterialsSchema = z.object({
+  profile: z.literal('freedom.partner-materials/v1'), tenant_id: OpaqueId, instance_id: OpaqueId, as_of: time,
+  /** By supplier name, brand materials before product ones, then title; the first 200. */
+  items: z.array(PartnerMaterialSchema).max(200), truncated: z.boolean(),
+}).strict();
+
 export type SupplierMetric = z.infer<typeof SupplierMetricSchema>;
 export type SupplierOverview = z.infer<typeof SupplierOverviewSchema>;
 export type SupplierProduct = z.infer<typeof SupplierProductSchema>;
@@ -308,3 +459,12 @@ export type SupplierChanges = z.infer<typeof SupplierChangesSchema>;
 export type SupplierSummary = z.infer<typeof SupplierSummarySchema>;
 export type SupplierReportQuery = z.infer<typeof SupplierReportQuerySchema>;
 export type SupplierReport = z.infer<typeof SupplierReportSchema>;
+export type SupplyMaterialContent = z.infer<typeof SupplyMaterialContentSchema>;
+export type SupplyMaterialVersion = z.infer<typeof SupplyMaterialVersionSchema>;
+export type SupplyMaterial = z.infer<typeof SupplyMaterialSchema>;
+export type SupplyMaterials = z.infer<typeof SupplyMaterialsSchema>;
+export type SupplyMaterialDetail = z.infer<typeof SupplyMaterialDetailSchema>;
+export type SupplyMaterialCreateInput = z.infer<typeof SupplyMaterialCreateInputSchema>;
+export type SupplyMaterialReceipt = z.infer<typeof SupplyMaterialReceiptSchema>;
+export type PartnerMaterial = z.infer<typeof PartnerMaterialSchema>;
+export type PartnerMaterials = z.infer<typeof PartnerMaterialsSchema>;
