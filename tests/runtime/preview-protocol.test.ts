@@ -54,7 +54,19 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI/freedom-platform',note:'synthetic'}});
  assert.equal((shared.shares as any[])[0].verification_status,'self_reported');
  assert.equal((await seller.call('listCampaigns')).items.length,0);assert.equal((await maker.call('listCampaigns')).items.length,1);
- assert.equal((await maker.call('listProjects')).items.length,0);assert(Array.isArray((await maker.call('listWorks')).items));await maker.call('getDashboard');
+ assert.equal((await maker.call('listProjects')).items.length,0);const legacyWorks=await maker.call('listWorks');assert(Array.isArray(legacyWorks.items));
+ const workPage=await maker.call('listWorksPage');assert(Array.isArray(workPage.items));assert.equal(workPage.next_cursor,null);
+ await assert.rejects(maker.call('listWorksPage',{query:{cursor:'not-base64!'}}),{code:'invalid_work_cursor',status:422});
+ const filteredWork=await maker.call('listWorksPage',{query:runInNewContext('({scope:"open",search})',{search:legacyWorks.items[0].title})});
+ assert.deepEqual(filteredWork.items.map(item=>item.work_item_id),[legacyWorks.items[0].work_item_id]);
+ let inheritedQueryReads=0;
+ const inheritedQueryOptions=Object.create({get query(){inheritedQueryReads++;return{scope:'open',search:'does-not-match-any-seeded-title'};}});
+ const inheritedWork=await maker.call('listWorksPage',inheritedQueryOptions);
+ assert.deepEqual(inheritedWork.items.map(item=>item.work_item_id),[legacyWorks.items[0].work_item_id]);assert.equal(inheritedQueryReads,0);
+ await assert.rejects(maker.call('listWorksPage',{query:{scope:'unknown'}}),TypeError);
+ for(const query of [null,42,'',true,[],new Date(),Object.create({cursor:'inherited'}),{offset:1}])await assert.rejects(maker.call('listWorksPage',{query}),TypeError);
+ for(const query of runInNewContext('[[],new Date(),new(class Query{}),Object.create({cursor:"inherited"})]'))await assert.rejects(maker.call('listWorksPage',{query}),TypeError);
+ await maker.call('getDashboard');
  await maker.call('logout',{body:{}});await assert.rejects(maker.call('getSession'),{status:401});await seller.call('logout',{body:{}});
 });
 test('SDK refuses protocol skew, redirected credentials, unsafe identifiers and implicit retries',async()=>{

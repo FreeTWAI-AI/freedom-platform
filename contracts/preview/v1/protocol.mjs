@@ -1,7 +1,7 @@
 // GENERATED. Change definition.mjs and rebuild in freedom-platform.
 export const protocol={
   "version": "freedom.preview/v1",
-  "revision": "0.3.0",
+  "revision": "0.4.0",
   "api_prefix": "/api/v1",
   "operations": {
     "getProtocol": {
@@ -313,6 +313,48 @@ export const protocol={
       "status": 200,
       "auth": true,
       "idempotent": false
+    },
+    "listWorksPage": {
+      "method": "GET",
+      "path": "/work-items/page",
+      "response": "WorkPage",
+      "body": null,
+      "concurrency": "none",
+      "status": 200,
+      "auth": true,
+      "idempotent": false,
+      "query": [
+        {
+          "name": "cursor",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        },
+        {
+          "name": "scope",
+          "required": false,
+          "schema": {
+            "enum": [
+              "all",
+              "open"
+            ],
+            "default": "all"
+          }
+        },
+        {
+          "name": "search",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 2000,
+            "default": ""
+          }
+        }
+      ]
     },
     "getDashboard": {
       "method": "GET",
@@ -1486,6 +1528,35 @@ export const protocol={
       ],
       "additionalProperties": true
     },
+    "WorkPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Work"
+          },
+          "maxItems": 24
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
     "Dashboard": {
       "type": "object"
     },
@@ -1630,4 +1701,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="fe2ee45447f4a5e92c10e22307dee3b380d028acca04bac5278d3aeca0da7b3e";
+export const protocolSha256="52d9ebb6fcaf63db1ed4327fe7c05d3eaf22f51924c5c2d9262986f459ce817c";
