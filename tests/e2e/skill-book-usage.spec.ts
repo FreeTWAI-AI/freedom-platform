@@ -1,9 +1,8 @@
-import {test, expect, type Page, type Route} from '@playwright/test';
+import {test, expect, type Page, type Route} from './fixtures.js';
 import {communityCatalog} from '../../modules/community/catalog';
 import {BLOCK_KINDS} from '../../contracts/guild-launchpad/v1/config';
 
-// All API reads are synthetic. These presentation tests require no member, DB or provider calls.
-test.use({locale: 'zh-TW'});
+// API reads are synthetic; the shared fixture still resets isolated auth counters between cases.
 const guildKey = 'guild_commerce_sales';
 const app = {
   application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0', display_name: '線上商店',

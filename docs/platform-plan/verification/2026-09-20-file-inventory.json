@@ -21269,8 +21269,8 @@
     },
     {
       "path": "tests/e2e/skill-book-usage.spec.ts",
-      "bytes": 8671,
-      "sha256": "edebc3248429e899bc569ea6f627dd8a70393ee8794b9a5413fe6900aacb577c"
+      "bytes": 8639,
+      "sha256": "ba5f2438ae1cd858658a4d28e449aadadb33fa68ed213abc53ce58b131cbf630"
     },
     {
       "path": "tests/e2e/skill-editor-guild-access.spec.ts",
