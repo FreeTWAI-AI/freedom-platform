@@ -55,8 +55,8 @@ export async function releaseAllocation(q:PoolClient,store:CheckoutStore,input:{
   for(const l of lines){const a=inv.allocations.find(a=>a.item_id===l.itemId);requireCondition(a&&Number.isSafeInteger(l.quantity)&&l.quantity>0&&l.quantity<=a.quantity-a.shipped_quantity-a.released_quantity,409,'allocation_exceeded','超過可釋放數量。');}
   requireCondition(inv.allocations.length>0,409,'allocation_release_unavailable','訂單沒有已付款配置。');
   for(const l of lines)await inv.port.releaseAllocation(l.itemId,l.quantity,input.commandRef);
-  const remaining=(await q.query('SELECT coalesce(sum(quantity-shipped_quantity-released_quantity),0)::int AS n FROM commerce_inventory_allocations WHERE order_id=$1',[input.orderId])).rows[0].n;
-  if(remaining===0 && lines.length) return (await q.query(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason='paid_cancelled',cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[input.orderId])).rows[0] as typeof order;
+  const {remaining,shipped}=(await q.query('SELECT coalesce(sum(quantity-shipped_quantity-released_quantity),0)::int AS remaining,coalesce(sum(shipped_quantity),0)::int AS shipped FROM commerce_inventory_allocations WHERE order_id=$1',[input.orderId])).rows[0];
+  if(remaining===0 && shipped===0 && lines.length) return (await q.query(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason='paid_cancelled',cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[input.orderId])).rows[0] as typeof order;
   return order;
 }
 export async function recordHandover(q:PoolClient,store:CheckoutStore,input:{shipmentRef:string;lines:readonly {orderId:string;itemId:string;quantity:number}[]}) {

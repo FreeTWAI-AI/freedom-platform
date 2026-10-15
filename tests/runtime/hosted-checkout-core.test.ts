@@ -177,3 +177,14 @@ for(const change of ['price','publication'] as const)test(`${change} changed aft
   }
   await assert.rejects(x.place(s,c),code('terms_changed'));assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n,0);
 });
+
+test('releasing the remaining 3 after shipping 2 of 5 keeps the order open with exact positions',async()=>{
+  const s=await x.store(),o=await x.place(s,await x.frozen(s));await payment(o.order_id);
+  await x.tx(q=>recordHandover(q,s,{shipmentRef:randomUUID(),lines:[{orderId:o.order_id,itemId:s.product.product_id,quantity:2}]}));
+  const released=await x.tx(q=>releaseAllocation(q,s,{orderId:o.order_id,commandRef:randomUUID()}));
+  assert.equal(released.lifecycle_state,'open');assert.equal(released.version,'1');assert.equal(released.cancel_reason,null);
+  assert.deepEqual(await position(s.product.product_id),{stock:8,held:0,allocated:0,available:8});
+  assert.deepEqual((await x.h.pool.query('SELECT quantity,shipped_quantity,released_quantity FROM commerce_inventory_allocations WHERE order_id=$1',[o.order_id])).rows,[{quantity:5,shipped_quantity:2,released_quantity:3}]);
+  assert.deepEqual((await x.h.pool.query('SELECT kind,quantity,delta_stock,delta_reserved FROM commerce_inventory_movements WHERE order_id=$1 ORDER BY created_at,movement_id',[o.order_id])).rows,[
+    {kind:'convert',quantity:5,delta_stock:0,delta_reserved:0},{kind:'ship',quantity:2,delta_stock:-2,delta_reserved:-2},{kind:'allocation_release',quantity:3,delta_stock:0,delta_reserved:-3}]);
+});
