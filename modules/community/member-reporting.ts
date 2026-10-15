@@ -97,7 +97,8 @@ export async function createMemberReport(pool:Pool,input:Command){
   });
 }
 
-const ListQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),cursor:z.string().regex(/^[1-9][0-9]{0,18}$/).refine(value=>BigInt(value)<=9223372036854775807n,'無效的案件游標。').optional(),state:z.enum(['open','all','received','in_progress','closed']).optional()}).strict();
+// Zod regex issues do not stop later refinements; bound decimal syntax before BigInt.
+const ListQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),cursor:z.string().refine(value=>/^[1-9][0-9]{0,18}$/.test(value)&&BigInt(value)<=9223372036854775807n,'無效的案件游標。').optional(),state:z.enum(['open','all','received','in_progress','closed']).optional()}).strict();
 function reportStates(state:z.infer<typeof ListQuery>['state']){return state==='open'?['received','in_progress']:!state||state==='all'?null:[state];}
 const reportColumns='case_id,case_number,target_kind,target_id,reason,state,aggregate_version,summary,created_at,updated_at';
 function pageRows(rows:ReportRow[],limit:number){const more=rows.length>limit,items=rows.slice(0,limit);return {items,next_cursor:more?String(items.at(-1)!.case_number):null};}

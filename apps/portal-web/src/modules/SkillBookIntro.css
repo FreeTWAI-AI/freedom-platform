@@ -42,9 +42,19 @@
 .skill-intro-command { padding: 18px; border: 1px solid #333d55; border-radius: 10px; background: #0b0d12; max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; line-height: 1.7; }
 .skill-intro-command code { padding: 0; background: transparent; color: #c8d0ef; }
 .skill-intro-source { padding-top: 4px; }
+.skill-book-usage { border-top: 1px solid var(--line); padding-top: 12px; min-width: 0; }
+.skill-book-usage h3, .skill-book-usage h4 { font-size: 1rem; margin: 0 0 8px; }
+.skill-book-usage p, .skill-book-references p { margin: 8px 0; }
+.skill-book-usage ul, .skill-book-references ul { padding-left: 20px; }
+.skill-book-references summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 600; }
+.skill-book-references li + li { margin-top: 16px; }
+.skill-book-references { min-width: 0; overflow-wrap: anywhere; }
 .skill-intro-source .field-hint { color: #aeb5c2; }
 .skill-intro-dialog .field-hint { font-size: .875rem; line-height: 1.6; }
 @media (max-width: 600px) {
+  .skill-book-usage li > a,
+  .skill-book-references li > a,
+  .skill-book-references .field-hint a { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; padding-block: 4px; }
   .skill-intro-dialog { padding: 18px; width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 16px; }
   .skill-intro-header { top: -18px; gap: 12px; padding-top: 10px; padding-bottom: 16px; }
   .skill-intro-header h2 { font-size: 1.3rem; }
