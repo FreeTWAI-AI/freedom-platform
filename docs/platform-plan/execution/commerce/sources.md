@@ -76,6 +76,15 @@
   - [7420] 物流狀態通知：回 `1|OK`；重送三次後改隔天再送，從貨態更新日起維持三天；測試環境不模擬貨態通知。
   - [7906] 作廢發票：單月 13 日 23:59:59 以後不能作廢前兩個月的發票；有折讓的發票要先作廢全部折讓。
   - [8795] 門市電子地圖：回傳的 `CVSStoreID` 最長 9 字；`CVSOutSide`（0 本島、1 離島）只有 7-ELEVEN（`UNIMART`、`UNIMARTC2C`）與全家（`FAMI`、`FAMIC2C`）會回傳，萊爾富不回傳；`CVSTelephone` 7-ELEVEN 不回傳；stage 不開地圖，直接回固定門市。
+- 審查 ecpay-logistics 工作時，整合負責人再讀了以下頁面（2026-10-15），作為 EC-SPEC-05 與協定程式庫 `ecpay/domestic-logistics/` 的依據：
+  - [8809] 建立店到店訂單：`ReceiverStoreID` 是 String(6)，與地圖回傳的 String(9) 不一致；EC-SPEC-05 §3.6 只收 1～6 字，超過的請買家改選，待 stage 核對。`ReturnStoreID` 只用於 7-ELEVEN 店到店；`GoodsName` 是 String(50)，7-ELEVEN 與萊爾富店到店必填。
+  - [7400] 物流介接注意事項：參數值不可含 HTML 標籤；回傳網址不支援中文，要用 punycode；只支援 TLS 1.2；呼叫太快回 HTTP 403，要等 30 分鐘；防火牆以網域放行，連出 `logistics(-stage).ecpay.com.tw`、連入 `postgate(-stage).ecpay.com.tw`，都是 TCP 443。CDN 會擋兩類輸入：單獨出現的系統指令字詞（`echo`、`tftp`、`traceroute`、`tracert`、`tclsh`、`cmd.exe`、`cmd` 加 `/c`、`cd` 後接 `/`、`\` 或 `..`、`chmod +x` 等），以及分號、`|`、反引號後接的 shell 指令（`ls`、`rm`、`id`、`ps`、`ping` 等）。頁面沒寫比對是否分大小寫、是否看字詞邊界。協定程式庫的 `findCdnBlockedTerm` 比綠界嚴：三個字元單獨出現就擋，字詞不分大小寫、也不看邊界，寧可多擋。
+  - [8795] 補讀：地圖不可放在 iframe 裡；iOS 上不要另開視窗。
+  - [7412] 取消 7-ELEVEN 店到店訂單（`Express/CancelC2COrder`）：`MerchantID`、`AllPayLogisticsID`、`CVSPaymentNo`、`CVSValidationNo` 都必填，`PlatformID` 一般特店放空值；回 `1|OK` 才算成功，沒有回應或其他內容都算失敗。
+  - [8907] 更新門市（`Express/UpdateStoreInfo`）：`AllPayLogisticsID`、`CVSPaymentNo`（15）、`CVSValidationNo`（10，7-ELEVEN 必填）、`StoreType`（`01` 取件、`02` 退貨），`ReceiverStoreID` 與 `ReturnStoreID`（6）依 `StoreType` 擇一；回 `1|OK` 才算成功。用在門市關轉，綠界以通知與 Email 告知。
+  - [7442] 物流子類型：店到店 `FAMIC2C`、`UNIMARTC2C`、`HILIFEC2C`；B2C `FAMI`、`UNIMART`、`UNIMARTFREEZE`、`HILIFE`；宅配 `TCAT`、`POST`。
+  - [7444] 訂單有效日（日曆天）：店到店 7-ELEVEN 5 天、全家 6 天、萊爾富 7 天；B2C 全家 6 天、7-ELEVEN 5 天、萊爾富 7 天，另列物流中心的收貨時間。頁面沒寫過期以後怎麼處理。
+  - [10419]、[10442] 超商與宅配的建單流程：建單完成後綠界就送一次狀態通知；包裹到店時綠界以簡訊通知買家取貨，所以收件人手機會交給綠界發簡訊。宅配頁的第 7 步沿用超商的寫法（「送達指定超商」），應是誤植。
 - 其他頁面的事實以報告逐列附的頁碼為依據，規格引用時保留頁碼。實作前（WP-04～06）要重讀當時的頁面；最終以 stage 實測確認，連線 stage 需要 Ted 授權。
 
 ### 3.1 官方範例向量

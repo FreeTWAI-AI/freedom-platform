@@ -69,7 +69,8 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 - 欄位：名稱（給自己看）、寄件人姓名、手機、市話（可選）、郵遞區號、地址、用途（寄件、收退回，可兩者皆是）。
 - 寄件人姓名依綠界規則：4～10 字元（中文算 2、英文算 1；即 2～5 個中文字或 4～10 個英文字母），不含數字、表情與符號 [8809][7414]。店到店（C2C）必須是寄件人本人的真實姓名，因為未取件退回時要在門市出示證件 [8809]，設定頁要寫明這一點。
 - 手機：`09` 開頭、10 位數字；7-ELEVEN 與萊爾富店到店必填 [8809]。
-- 地址：宅配寄件地超過 6 字、最多 60 字 [7414]。
+- 地址：宅配寄件地超過 6 字、最多 60 字 [7414]；不可含 `<`、`>`、`&` 與控制字元，前後不留空白（綠界不允許 HTML 標籤 [7400]）。
+- 姓名與地址還要通過綠界 CDN 的字詞檢查：值裡出現 `echo`、`tftp`、`tracert`、`cd/`、`;`、`|`、反引號等指令字詞或字元，整個請求會被 CDN 擋下 [7400]。我們用比綠界更嚴格的 `findCdnBlockedTerm`（commerce-providers）在設定頁儲存時就檢查，命中就請出貨者改寫（例如英文名 `Echo` 改填證件上的中文姓名）。
 - 每次修改新增一列，舊列標 `retired_at`；列本身不可改。訂單、代出貨同意與 shipment 指向建立當下那一列，所以歷史不會被改寫（計畫 Supplier v1.1 §4.2）。
 - 個資：tenant RLS，只有該事業有 `store:manage` 或 `store:fulfil` 的人看得到完整內容；不進公會區塊、公開頁、分享卡片、journal 與日誌（SC-SPEC-07 SL-01）。
 - 退回地址只在需要時揭露：代出貨同意裡給賣家看（賣家要知道退貨寄去哪），售後核准後給該買家看（EC-SPEC-06）。
@@ -205,10 +206,11 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 | 欄位 | 規則 | 來源 |
 | --- | --- | --- |
 | 收件人姓名 | 4～10 字元（中文算 2）；只能是中文字或英文字母；不含數字、符號、表情。取件時要出示相同姓名的證件，畫面提示「請填寫與證件相同的姓名」 | [8809][62208] |
-| 手機 | `^09\d{8}$`（輸入可含空白、`-`、括號或 `+886`，先正規化）；超商與宅配都必填。綠界宅配要求電話與手機擇一，C2 只收手機 | [8809][7414] |
+| 手機 | `^09\d{8}$`（輸入可含空白、`-`、括號或 `+886`，先正規化）；超商與宅配都必填。綠界宅配要求電話與手機擇一，C2 只收手機。包裹到店時綠界會用這支手機發簡訊通知取貨，結帳頁在手機欄旁說明 | [8809][7414][10419] |
 | 宅配地址 | 超過 6 字、最多 60 字；郵遞區號 3、5 或 6 碼，前 3 碼必須在中華郵政的前 3 碼一覽表內 | [7414] |
 | 中華郵政 | 只送本島；需要重量，最多 20 kg | [7414] |
 | 超商商品金額 | 每包 1～20,000 元（整數元）；超過就不提供超商 | [8809] |
+| 送綠界的文字 | 姓名與地址不可含綠界 CDN 擋下的指令字詞或字元（`findCdnBlockedTerm`，例如英文名 `Echo`）；地址另不可含 `<`、`>`、`&`、控制字元，前後不留空白 | [7400] |
 
 不合規則回 422 並指出欄位（沿用 EC-SPEC-02 §5.3）。郵遞區號前 3 碼與離島的判斷依中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用，368 個代碼；來源與離島清單見 [sources.md §7](sources.md)）；離島＝連江 209～212、澎湖 880～885、金門 890～894 與 896、琉球 929、綠島 951、蘭嶼 952、東沙 817、南沙 819、釣魚臺列嶼 290。超商的離島：選店有回傳 `CVSOutSide`（0／1）就以它為準；沒有回傳時改看門市地址，地址含「澎湖縣」「金門縣」「連江縣」或上述離島郵遞區號所屬的 19 個鄉鎮市名稱（馬公市、湖西鄉、白沙鄉、西嶼鄉、望安鄉、七美鄉、金城鎮、金湖鎮、金沙鎮、金寧鄉、烈嶼鄉、烏坵鄉、南竿鄉、北竿鄉、莒光鄉、東引鄉、琉球鄉、綠島鄉、蘭嶼鄉）就算離島。萊爾富店到店一律不回傳 `CVSOutSide`，所以都用地址判斷；7-ELEVEN 與全家店到店會回傳 [8795]（§3.6）。
 
@@ -218,7 +220,7 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 
 1. 買家在 B05 選超商取貨 → `POST /api/v1/public/stores/:slug/cvs-selection-sessions`（需要 checkout 憑證）建立 session：隨機 `session_ref`、20 字元的 `extra_token`（只存雜湊）、checkout、子類型、所用帳戶、環境、15 分鐘到期。
 2. 瀏覽器前往 `/ship/ecpay/map/{token}`：極小的 HTML，表單 POST 到該環境的 `Express/map`，欄位 `MerchantID`、`LogisticsType=CVS`、`LogisticsSubType`、`IsCollection=N`、`ServerReplyURL=/ship/ecpay/map-return/{session_ref}`、`ExtraData=extra_token`、`Device`（手機 1、桌機 0）[8795]。同一個視窗開啟，不用新分頁或 iframe（iOS 會失敗；閒置超過 3 分鐘或開多個地圖分頁會出錯）[8795][62208]。這個路徑的 CSP `form-action` 只加該環境的物流主機，比照付款交接頁（EC-SPEC-04 §4.1）。
-3. 綠界把買家帶回 `POST /ship/ecpay/map-return/{session_ref}`：伺服器只檢查 session 存在、未到期、`ExtraData` 符合、`MerchantID` 與 `LogisticsSubType` 相同；把回傳的門市欄位清理後暫存在 session（`CVSStoreID` 1～6 個英數字、店名 ≤ 10 字、地址 ≤ 60 字、`CVSOutSide` 0／1；萊爾富店到店沒有這個欄位，離島改依 §3.5 的地址規則 [8795][8809]），然後 303 回到結帳頁。這個跨站 POST 不帶買家憑證，所以這一步不改 checkout。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。
+3. 綠界把買家帶回 `POST /ship/ecpay/map-return/{session_ref}`：伺服器只檢查 session 存在、未到期、`ExtraData` 符合、`MerchantID` 與 `LogisticsSubType` 相同；把回傳的門市欄位清理後暫存在 session（`CVSStoreID` 1～6 個英數字：地圖回傳的欄位寬度是 9 [8795]，但建單的 `ReceiverStoreID` 只收 6 [8809]，超過 6 字的門市無法建單，所以在選店時就請買家改選；店到店是否真有超過 6 字的門市待 stage 核對，§11；店名 ≤ 10 字、地址 ≤ 60 字、`CVSOutSide` 0／1；萊爾富店到店沒有這個欄位，離島改依 §3.5 的地址規則 [8795][8809]），然後 303 回到結帳頁。這個跨站 POST 不帶買家憑證，所以這一步不改 checkout。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。
 4. 結帳頁（同站 GET，有憑證）呼叫 `POST …/checkouts/:ref/cvs-selection`，伺服器確認 session 屬於這個 checkout、同子類型、同環境、未用過，才把門市寫進新的聯絡資料列（EC-SPEC-02 §5.3）。跨 checkout、跨服務、跨環境一律拒絕，也不回顯門市資料（EC-AT35）。
 5. 門市名稱與地址只當文字顯示（不當 HTML），焦點回到門市欄並宣告所選門市（EC-SPEC-01 §7.3）。
 
@@ -340,14 +342,17 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 | --- | --- | --- |
 | `LogisticsType`／`LogisticsSubType` | `CVS` 或 `HOME`；子類型依服務 | [8809][7414] |
 | `GoodsAmount` | 該包裹商品金額的整數元，最少 1；超商 ≤ 20,000 | [8809] |
-| `IsCollection` | 一律 `N`（C2 不開貨到付款） | [8809] |
-| `GoodsName` | `{店名}訂購商品`，先移除禁用字元 `` ^ ' ` ! @ # % & * + \ " < > \| _ [ ] ``，再依位元組規則（中文算 2）截到 50；7-ELEVEN 與萊爾富店到店必填 | [8809] |
+| `IsCollection` | 一律 `N`（C2 不開貨到付款）；中華郵政不送這個欄位 | [8809][7414] |
+| `GoodsName` | 固定 `訂購商品`：標籤會被物流士與門市店員看到，不透露買了什麼；固定字串也不會碰到這個欄位的禁用字元 `` ^ ' ` ! @ # % & * + \ " < > \| _ [ ] ``、50 位元組上限與 CDN 字詞檢查。7-ELEVEN 與萊爾富店到店必填 | [8809] |
 | 寄件人 | 寄件地版本的姓名、手機（宅配另需郵遞區號與地址） | [8809][7414] |
 | 收件人 | 收件投影的姓名、手機；超商 `ReceiverStoreID`；宅配郵遞區號與地址 | [8809][7414] |
 | `ReturnStoreID` | 不送（只有 7-ELEVEN 店到店支援，其他退回原寄件門市） | [8809] |
-| 宅配 | `Temperature=0001`；黑貓 `Distance` 依地址、`Specification` 依包裹；中華郵政需 `GoodsWeight` | [7414] |
+| 宅配 | `Temperature=0001`。黑貓：`Distance` 依地址（同縣市 `00`、外縣市 `01`、離島 `02`）、`Specification` 依包裹（60／90／120／150 公分＝`0001`～`0004`）、`ScheduledPickupTime=4` 與 `ScheduledDeliveryTime=4`（不指定時段）。中華郵政：`GoodsWeight` 以公斤計、最多 3 位小數、≤ 20，不送 `Distance`、`Specification` 與時段 | [7414] |
 | `ServerReplyURL` | §6.1 的回呼路徑 | [8809] |
-| `ReceiverEmail`、`Remark` | 不送（資料最少化） | |
+| `ReceiverEmail`、`ReceiverPhone`、`SenderPhone`、`Remark`、`CollectionAmount` | 不送（資料最少化；不代收） | |
+| `ClientReplyURL`、`LogisticsC2CReplyURL`、`PlatformID` | 不送（背景建單；不是平台商） | [8809] |
+
+每個值在簽章前都先過 CDN 字詞檢查（`findCdnBlockedTerm`）[7400]；`MerchantTradeNo` 由 `newTradeNumber` 產生，隨機字元拼出會被擋的字（例如 `TFTP`）時就重抽，最多 16 次。這些欄位組裝、回應與通知的解析都在 `ecpay/domestic-logistics/`（§10）。
 
 回應：成功是 `1|` 後接表單字串，去掉 `1|` 再解析並以 MD5 驗證 CheckMacValue；失敗是 `0|錯誤訊息` [8809]。成功取得 `AllPayLogisticsID`（之後查詢、列印、改門市都用它），店到店另有 `CVSPaymentNo`（7-ELEVEN 另有 `CVSValidationNo`），宅配有 `BookingNote`（託運單號）；B2C 的配送編號 `ShipmentNo` 要用查詢取得 [8809][7418]。結果以新交易寫回，shipment → `created`。
 
@@ -376,12 +381,13 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
   2. 出貨者以命令記錄交寄（可填門市收據號碼或託運單號），留 receipt。綠界 stage 沒有貨態通知 [7420]，sandbox 只能用這個方式；live 也允許，但 3 天內沒有任何物流貨態就開例外 `no_tracking_progress`。
 - 第一次進入順序 ≥ 3 的狀態時（包括先收到退回貨態的情形），同一交易內呼叫 `recordHandover`（EC-SPEC-03，`shipmentRef = shipment_id`）：N 與 A 各減包裹數量；同一 shipment 重送不再扣（EC-AT28）。
 - 交寄記錄不能撤銷；記錯的情形走例外與退回檢驗。
+- 店到店建單後要在有效日內交寄（日曆天）：7-ELEVEN 5 天、全家 6 天、萊爾富 7 天 [7444]。SL-02 的待交寄清單顯示到期日。過了有效日這張單怎麼處理（能否再寄、是否要重新建單）官方沒有寫，列入 §11 核對；核對前，過期的包裹開例外，由出貨者先查詢再決定。
 - 鎖序接在 EC-SPEC-03 §6 之後：… → `commerce_orders` → payment attempt → 履約單 → shipment（UUID 排序）→ 配置 → item（UUID 排序）。
 
 ### 5.6 作廢
 
 - 只有未交寄（順序 ≤ 2）的包裹可以作廢。
-- 7-ELEVEN 店到店有取消 API（`Express/CancelC2COrder` [7412]，實作前要核對參數）；其他子類型沒有已核對的取消方式，作廢只在本地標記，並提醒出貨者綠界可能仍收運費，費用以查詢的 `HandlingCharge` 為準 [7418]。
+- 7-ELEVEN 店到店有取消 API（`Express/CancelC2COrder` [7412]：`MerchantID`、`AllPayLogisticsID`、`CVSPaymentNo`、`CVSValidationNo`，回 `1|OK`；協定程式庫已實作）；其他子類型沒有已核對的取消方式，作廢只在本地標記，並提醒出貨者綠界可能仍收運費，費用以查詢的 `HandlingCharge` 為準 [7418]。
 - 作廢後配置量回到「可再建包裹」；是否同時取消行項由賣家另外決定（§4.5）。
 
 ## 6. 貨態
@@ -508,7 +514,7 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 ### 7.3 門市關轉
 
 - B2C：綠界以貨態通知（7-ELEVEN `2037`、全家與萊爾富 `7011`）並寄 Email 給商家；必須在**收到通知後第 3 日上午 10:00 前**更新門市（例：5/26 收到，5/28 10:00 前）[7410]。更新用 `Helper/UpdateShipmentInfo`（`AllPayLogisticsID`、`ReceiverStoreID`），回 `1|OK` [7410]。
-- 店到店：綠界同樣以通知與 Email 告知；更新用 `Express/UpdateStoreInfo`（`StoreType=01` 取件門市、`ReceiverStoreID`；7-ELEVEN 另需 `CVSPaymentNo`、`CVSValidationNo`）[8907]。官方沒有寫明固定期限，C2 採用與 B2C 相同的內部期限。店到店的關轉代碼見 §6.3（7-ELEVEN 2092、2101、2103、2104；全家 7011；萊爾富 2028、2029、2037、2101、2103、2104、7011）。
+- 店到店：綠界同樣以通知與 Email 告知；更新用 `Express/UpdateStoreInfo`（`AllPayLogisticsID`、`CVSPaymentNo`、`StoreType=01` 取件門市、`ReceiverStoreID`；7-ELEVEN 另需 `CVSValidationNo`；回 `1|OK`）[8907]。我們不改退貨門市（`StoreType=02`）。官方沒有寫明固定期限，C2 採用與 B2C 相同的內部期限。店到店的關轉代碼見 §6.3（7-ELEVEN 2092、2101、2103、2104；全家 7011；萊爾富 2028、2029、2037、2101、2103、2104、7011）。
 - 流程：例外 `pickup_store_closed`（`due_at`＝官方期限前 2 小時）→ 買家在訂單頁看到「原取貨門市暫停服務，請重新選擇」→ 以綁定這個 shipment 的選店 session 重選（§3.6，`purpose=shipment_reselect`）→ 新的收件投影列 → operation `update_store` → 成功後結案。
 - 期限前買家沒有選：零售商決定聯絡買家或任其退回；系統不自動挑門市。
 - 建單時門市就已失效（EC-AT36）：shipment `create_failed`、例外 `pickup_store_invalid`，同一套重選流程，不假裝建單成功、不重複收費。
@@ -620,7 +626,7 @@ Supplier Console 實作供應商頁面與讀取投影時，欄位只能來自這
 
 ## 10. 程式位置、migration 與能力
 
-- 綠界物流的 MD5 CheckMacValue、表單與 `1|…`／`0|…` 回應解析、各端點的欄位組裝：協定程式庫 `modules/agent-commerce/providers/ecpay/`（EC-SPEC-04 §10，descriptor `commerce-providers`）。
+- 綠界物流的 MD5 CheckMacValue、表單與 `1|…`／`0|…` 回應解析：協定程式庫 `modules/agent-commerce/providers/ecpay/`（EC-SPEC-04 §10，descriptor `commerce-providers`）。各端點的欄位組裝與回應解析（建單、通知、查詢、列印表單、選店、7-ELEVEN 取消、改門市）在 `ecpay/domestic-logistics/`（profile `ecpay.logistics.domestic.v1`，已完成；README 說明每個匯出）。CDN 字詞檢查 `findCdnBlockedTerm` 由 `ecpay/index.ts` 匯出，給領域檢查使用者輸入與自產的參照。
 - 領域、routes、outbox：提議 `modules/agent-commerce/fulfilment/`，新 descriptor（module `commerce-fulfilment`，相依 `hosted-checkout`、`commerce-providers`）。`ExceptionCase` 的程式在 `modules/agent-commerce/checkout/`。
 - 契約：`contracts/guild-launchpad/v1/` 下新檔（例如 `hosted-fulfilment.ts`、`hosted-shipping.ts`），不改既有 v1 契約。
 - M3（履約）：§1.3 的表；RLS（寄件地、收件投影、選店 session 屬於個資或與個資相連；物流事件只存允許欄位）；不可刪與只前進的 trigger；包裹數量的 deferred trigger；`commerce_exception_cases` 的物流種類；`catalog.ts` 登錄與豁免理由；新增 migration 的全部登錄點（WP-00）。
@@ -634,7 +640,7 @@ Supplier Console 實作供應商頁面與讀取投影時，欄位只能來自這
 | 層 | 內容 | 授權 |
 | --- | --- | --- |
 | 向量與契約 | 官方物流 MD5 範例 [7424]、查詢範例與勘誤 [7418]、`1|`／`0|` 解析、禁用字元與位元組長度、負面案例；Node 與 workerd 結果一致 | 不需要（不連線） |
-| stage sandbox | C2C `2000933`、B2C／宅配 `2000132` [7398]；地圖回固定門市 [8795]；建單、查詢、列印；stage 沒有貨態通知 [7420]，交寄以人工紀錄驗證。順便核對三件文件沒寫清楚的事：重複 `MerchantTradeNo` 的回應、查詢回應的簽章欄位範圍（§6.2）、門市失效時的錯誤訊息 | 需要：連線綠界 stage |
+| stage sandbox | C2C `2000933`、B2C／宅配 `2000132` [7398]；地圖回固定門市 [8795]；建單、查詢、列印；stage 沒有貨態通知 [7420]，交寄以人工紀錄驗證。順便核對文件沒寫清楚的事：重複 `MerchantTradeNo` 的回應；查無訂單時 V5 查詢的回應；查詢回應的簽章欄位範圍（§6.2）與店到店 `LogisticsType` 的寫法（`CVS_UNIMARTC2C` 或 `CVS_UNIMART`）；門市失效時的錯誤訊息；地圖回傳的字元集與門市代號長度（欄位 9、建單 6，§3.6）；宅配地址長度的單位（字、UTF-16 或位元組）；呼叫太快的 HTTP 403（要等 30 分鐘 [7400]）與 CDN 擋下如何分辨；沒有 shell 字元的單獨字詞（`echo`、`tftp`）是否真的被擋；店到店過了有效日的處理（§5.5） | 需要：連線綠界 stage |
 | 正式受控試寄 | 一個真實商家帳戶：店到店與宅配各一包，從建單、列印、交寄到取件；可加一包未取退回 | 需要：Ted＋該商家；真實運費 |
 
 stage 的固定門市（7-ELEVEN `131386`、全家 `006598`）[8809] 只用於 sandbox。拿到物流單號或 HTTP 200 不代表已交寄或送達（Supplier v1.1 §9）。

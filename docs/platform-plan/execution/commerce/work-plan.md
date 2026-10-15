@@ -21,7 +21,7 @@
 | EC-WP02 商店與 Seller Console | 變體、照片、分類、店面內容、優惠；E02～E11 的頁 | EC-SPEC-02 §1～§3、EC-SPEC-01 §4、§7.5 | WP01；Supplier Console 的共用殼進 main（§8） | C1；各里程碑自己的 E 頁 | 未開始 |
 | EC-WP03 結帳與交易模型 | 顧客、checkout、訂單、N／H／A、付款後配置、出貨與退回的庫存效果；公開結帳路由與訂單存取 | EC-SPEC-02 §4～§5、EC-SPEC-03 | WP00 | M1 | 領域核心通過審查（`fc/wp03-core` `16caa586`），已併入整合分支；路由、主機設定、排程、能力下限由 wp03-http 進行 |
 | EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫與 AIO 信用卡協定通過審查（`fc/ecpay-proto` `67d9ba2e`、`fc/ecpay-aio` `b836419e`），已併入整合分支；退款分攤的純規則進行中（refund-rules） |
-| EC-WP05 物流與供應商補充 | 出貨設定、配送群組、選店、託運單、標籤、貨態、例外、退回 | EC-SPEC-05；SC-SPEC-07 | WP03；WP04 的協定與排程 | M3 | 配送純規則通過審查（`fc/fulfil-rules` `5c8d8379`），已併入整合分支；綠界物流協定進行中（ecpay-logistics） |
+| EC-WP05 物流與供應商補充 | 出貨設定、配送群組、選店、託運單、標籤、貨態、例外、退回 | EC-SPEC-05；SC-SPEC-07 | WP03；WP04 的協定與排程 | M3 | 配送純規則通過審查（`fc/fulfil-rules` `5c8d8379`）；綠界國內物流協定通過審查（`fc/ecpay-logistics` `1f99faeb`）；兩者都已併入整合分支 |
 | EC-WP06 發票與售後 | 發票、更正、對話、RMA、退款分攤、供貨帳 | EC-SPEC-06 | WP03～05 | M4 | 發票純規則通過審查（`fc/invoice-rules` `a9cb0ebf`），已併入整合分支 |
 | EC-WP07 營運與技能書 | 29 項技能的落點、報表與漏斗、書與站內應用的連結 | EC-SPEC-07 | WP02；PR #706 | M2 起 | 規格完成；程式未開始 |
 | EC-WP08 安全與整合 QA | 權限、閘道例外、限流、遮罩、canary、能力矩陣 | EC-SPEC-09 | 隨 WP02～07 | 每個里程碑 | 每個工作附自己的反例；跨領域測試隨 M2 開始 |
@@ -72,7 +72,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | 切片 | 內容 | CLI | 依賴 | 狀態 |
 | --- | --- | --- | --- | --- |
 | fulfil-rules | 配送分組與拆包、運費、收件資料檢查、貨態代碼對照，全部是純函式（EC-SPEC-05 §3.2～§3.5、§6.3、§6.4） | flash | — | 完成（`fc/fulfil-rules` `5c8d8379`，整合 `f941a48b`） |
-| ecpay-logistics | 選店、建單、列印、貨態通知與查詢的協定（EC-SPEC-05 §5、§6）；共用的 CDN 字詞檢查，AIO 一併套用 | argon | ecpay-proto、ecpay-aio | 進行中（`fc/ecpay-logistics`，從 `edb26526` 開出） |
+| ecpay-logistics | 選店、建單、列印、貨態通知與查詢、7-ELEVEN 店到店取消與改門市的協定（EC-SPEC-05 §5～§7）；共用的 CDN 字詞檢查，AIO 一併套用 | argon | ecpay-proto、ecpay-aio | 完成（`fc/ecpay-logistics` `1f99faeb`，整合 `f7711535`） |
 | wp05-fulfilment | 出貨設定、履約單、shipment、例外、退回與檢驗；給 SL 頁的讀取投影與命令 | Codex | M2 | 之後 |
 
 **M4 發票與售後（`commerce.hosted-invoice.v1`）**
@@ -97,7 +97,7 @@ C3（EC-WP09、WP10）在 DC07、DC11 有決定、M1～M4 的契約穩定後開�
 
 先把 `fc/wp03-core`、`fc/ecpay-proto`、`fc/invoice-rules` 與 main `5bee7376` 合進整合分支，跑完整驗證，再開這三個工作。
 
-第二批：ecpay-aio 合併（`d6fa9098`）後，ecpay-logistics 由 agy `gemini-4-argon-high` 從 `edb26526` 開出（`fc/ecpay-logistics`，純函式，不用資料庫）。fulfil-rules 的修正輪合併為 `f941a48b`。wp03-http 仍在跑。
+第二批：ecpay-aio 合併（`d6fa9098`）後，ecpay-logistics 由 agy `gemini-4-argon-high` 從 `edb26526` 開出（`fc/ecpay-logistics`，純函式，不用資料庫）。fulfil-rules 的修正輪合併為 `f941a48b`。ecpay-logistics 通過審查，合併為 `f7711535`：Node 與 workerd 兩邊的 golden 由整合負責人在 repo 外依官方演算法獨立重算。wp03-http 仍在跑。
 
 2026-10-15 已合併（`da4af013` main、`d3cbb286` wp03-core、`931f8666` ecpay-proto、`f250e66d` invoice-rules）。整合者在一次性資料庫重跑 `f250e66d`：typecheck、build、cloudflare、governance、契約 946、runtime 全部通過；CI 的 worker job 順序（契約、dry-run 後）worker 114/114、migration-postgres 12/12、media-restore 封存 6/6。media-restore 的 J6-R3 失敗 1 項：168 新增的兩張 RLS 表（`commerce_customers`、`commerce_checkout_contacts`）沒有列進還原演練，由 wp03-http 補上。
 
@@ -121,7 +121,7 @@ C3（EC-WP09、WP10）在 DC07、DC11 有決定、M1～M4 的契約穩定後開�
 | descriptor | 路徑 | 相依 | 狀態 |
 | --- | --- | --- | --- |
 | `hosted-checkout` | `modules/agent-commerce/checkout/**`、M1 migration、checkout 測試 | `agent-commerce` | 已登錄（wp03-core） |
-| `commerce-providers` | `modules/agent-commerce/providers/**`、協定測試與向量 | 無 | 已登錄（ecpay-proto） |
+| `commerce-providers` | `modules/agent-commerce/providers/**`、協定測試與向量 | 無 | 已登錄（ecpay-proto；ecpay-aio、ecpay-logistics 加上各自的測試與匯出） |
 | `commerce-invoices` | `modules/agent-commerce/invoices/**`、發票測試；M4 起加 migration | 目前無（純規則）；M4 加 `hosted-checkout`、`commerce-payments`、`commerce-providers` | 已登錄（invoice-rules） |
 | `commerce-operations` | `modules/agent-commerce/operations/**`：主機設定、准入、能力清單、信件、外部效果日誌、報表與漏斗（EC-SPEC-10 §10、EC-SPEC-07 §8） | `hosted-checkout` | wp03-http 建立 |
 | `commerce-payments` | `modules/agent-commerce/payments/**`、M2 migration、付款測試 | 目前無（純規則）；M2 加 `hosted-checkout`、`commerce-providers`、`commerce-operations` | refund-rules 先建；M2 補齊 |
