@@ -45,7 +45,7 @@
 - 舊的會員 `/api/v1/commerce/*` 與 bearer `/shop-api/v1/*` 路由仍然掛載、沒有開關（`apps/platform-api/src/platform-app.ts:491,687`），但它們只能操作 `origin='imported'`（`orders.ts:46,69`、`packages/resource-scopes/shop-service.ts:48`），碰不到 hosted 庫存；新設計維持這個隔離，不把 A 套到 imported。
 - 這五張表沒有 RLS（`modules/module-data/catalog.ts:2090-2111` 明列豁免與理由）；hosted 的私人存取經 `commerce_resource_tenants`（tenant 相等的 RLS，`migrations/134_hosted_storefronts.sql:22`）。報價表有 RLS：讀＝tenant 或買家，寫＝tenant 且買家（`138:26`）。
 - 交易內的身分變數是 `freedom.principal_id`、`freedom.tenant_id`、`freedom.tenant_scope_id`、`freedom.platform_admin_id`（`migrations/125_tenant_row_security.sql:36`、`packages/resource-scopes/tenant-transaction.ts:76`）。guest 與機器路徑（provider 通知、查詢、排程）沒有 principal，新表的 RLS 與 SECURITY 設計要明確處理（EC-SPEC-09 §2）。
-- 金額單位：`100 minor = 1 TWD`（也是 1 USD）；輸入最多兩位小數，超過直接拒絕、不四捨五入（`apps/portal-web/src/format.ts:46-65`、`hosted/format.ts:2`）。ECPay 的 `TotalAmount` 是整數新臺幣，換算規則在 EC-SPEC-04 §3。
+- 金額單位：`100 minor = 1 TWD`（也是 1 USD）；輸入最多兩位小數，超過直接拒絕、不四捨五入（`apps/portal-web/src/format.ts:46-65`、`hosted/format.ts:2`）。ECPay 的 `TotalAmount` 是整數新臺幣；綠界 profile 要求 terms 的每個金額都是整數元，規則在 EC-SPEC-04 §2。
 
 ## 2. 庫存不變條件（N／H／A）
 

@@ -66,7 +66,7 @@
 | --- | --- | --- |
 | 付款方式 | 全方位金流導轉、信用卡一次付清：`ChoosePayment=Credit`、`PaymentType=aio`、`EncryptType=1` | [2862][2866] |
 | 不開 | 分期（`CreditInstallment`）、圓夢分期、定期定額、紅利（`Redeem`）、記憶卡號（`BindingCard`）、ATM／超商代碼／條碼（DC05）、Apple Pay、TWQR、BNPL | DC05；這些各有退款或期限規則，另立 profile |
-| 幣別與金額 | 只收 TWD。訂單總額 `total_minor` 必須是 100 的倍數（`100 minor = 1 元`），`TotalAmount = total_minor / 100`，且 ≥ 5 元；不合就**不提供**這個付款方式（結帳時 409 `payment_profile_unavailable`，附原因），adapter 不做四捨五入或截尾 | [2862]（整數新臺幣、信用卡最低 5 元）；計畫 §9.2 |
+| 幣別與金額 | 只收 TWD。terms 裡每一個金額——行項單價、折扣分攤後的行項淨額、每個配送群組的運費、總額——都必須是整數元（100 的倍數，`100 minor = 1 元`；terms 的 `settlement_unit_minor = 100`，EC-SPEC-02 §3），總額 ≥ 5 元，`TotalAmount = total_minor / 100`。不合就**不提供**這個付款方式（結帳時 409 `payment_profile_unavailable`，原因 `amount_not_whole_twd` 或 `amount_below_minimum`），adapter 不做四捨五入或截尾。只檢查總額不夠：退刷的 `TotalAmount`、發票的 `SalesAmount` 與折讓的 `AllowanceAmount` 也都是整數元，行項或運費有零頭時，部分退款與折讓就無法精確對到行項（EC-SPEC-06 §2.5、§3.5） | [2862]（整數新臺幣、信用卡最低 5 元）[2885][7896][7901]；計畫 §9.2 |
 | 商家單筆上限 | 由綠界依合約與卡片額度決定，文件沒有固定值；超過時綠界拒絕，attempt 記 `failed` 並顯示原因 | [2862] |
 | 確認窗 | attempt 建立後 60 分鐘（§6.2）。窗內未確認付款不取消訂單 | [2887][2890] |
 | 退款 | 正式環境以 `CreditDetail/DoAction`；stage 不提供，sandbox 只能人工紀錄（§7） | [2885] |
