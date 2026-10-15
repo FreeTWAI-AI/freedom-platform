@@ -46,8 +46,9 @@ function cursorOf(raw: string | undefined): ContentSearchCursor {
   if (!raw) return null;
   let text = '';
   try { text = Buffer.from(raw, 'base64url').toString('utf8'); } catch { throw new Problem(422, 'invalid_cursor', '分頁標記不正確。'); }
-  const [sort, kind, id] = text.split('\n');
-  requireCondition(Boolean(sort && kind && id) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(sort!) && KIND.includes(kind as Kind) && id!.length <= 100, 422, 'invalid_cursor', '分頁標記不正確。');
+  const fields = text.split('\n');
+  const [sort, kind, id] = fields;
+  requireCondition(fields.length === 3 && Boolean(sort && kind && id) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(sort!) && KIND.includes(kind as Kind) && id!.length <= 100 && !/[\u0000-\u001f\u007f]/.test(id!), 422, 'invalid_cursor', '分頁標記不正確。');
   return { sort: sort!, kind: kind!, id: id! };
 }
 function after(row: Row, cursor: { sort: string; kind: string; id: string } | null) {

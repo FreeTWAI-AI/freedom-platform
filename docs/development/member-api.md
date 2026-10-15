@@ -35,6 +35,23 @@ This keeps the existing two database queries and the absolute, non-sliding
 30-day session lifetime. Existing domain-level current-session and
 authorization checks remain unchanged; presence is not an authorization grant.
 
+## Community content search cursor boundary (#716)
+
+`GET /api/v1/community-search` is available only with
+`FREEDOM_COMMUNITY_SEARCH_ENABLED=true` (default off; otherwise 404).
+Anonymous reads retain public-source visibility; a current member session adds
+only that member's authorized community content.
+
+Continue with the returned `next_cursor` unchanged. Its existing base64url tuple
+has exactly three newline-separated fields: UTC sort text with six fractional
+digits, a supported content kind, and a nonempty ID of at most 100 characters.
+IDs may be skill-book slugs, not only UUIDs. Decoded C0 controls (including NUL)
+and DEL in the ID, or any extra tuple field (even empty), return
+`422 invalid_cursor` before source queries or search-operation recording.
+Invalid cursors disclose no content or input fragments. Ordering continues to
+compare the original microsecond sort strings; it does not round through
+JavaScript dates. No feature activation or deployment is implied by this fix.
+
 ## Member reporting and moderation cases
 
 This surface is default OFF. Only `FREEDOM_MEMBER_REPORTING_ENABLED=true`
