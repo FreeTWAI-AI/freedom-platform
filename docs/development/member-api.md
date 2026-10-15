@@ -16,6 +16,14 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+The runtime-neutral API envelope rejects `%00` (an encoded NUL) in the path or
+query of `/api/v1/` requests with `422 validation_failed`, after host validation
+and before route authentication or SQL. This applies even to anonymous requests
+and otherwise unused query parameters; the error reveals no resource state.
+Literal `%00` text must be encoded as `%2500` and keeps the route's normal
+validation and authentication. Public HTML routes and request bodies retain
+their existing validation; this is not a universal body-text NUL validator.
+
 Presence refresh has a live-session/active-member guard; authentication reads
 the current Actor after that potentially blocking update, using the database clock.
 Expiry, session revocation or member deactivation during a presence lock wait
