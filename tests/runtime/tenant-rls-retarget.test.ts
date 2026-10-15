@@ -12,6 +12,7 @@ import { digest } from '../../packages/db/index.js';
 import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
+import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
@@ -497,6 +498,8 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
     'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
     'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
+    // Checkout customer/contact PII joins the same discovered A/B isolation checks.
+    'commerce_customers', 'commerce_checkout_contacts',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
@@ -546,6 +549,24 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     }
   } finally {
     await owner.query("UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='storefront.product-photo'");
+  }
+  // Create each tenant's PII through the domain in its own transaction, preserving
+  // lifecycle-before-community lock order and retaining all checkout constraints.
+  for (const data of hosted) {
+    await isolatedTransaction(runtime, async q => {
+      const published = (await q.query(`SELECT p.storefront_shop_id, publication.revision::text
+        FROM commerce_storefront_profiles p JOIN commerce_storefront_publications publication
+          ON publication.publication_id=p.current_publication_id WHERE p.instance_id=$1`, [data.instanceId])).rows[0];
+      await freezeCheckout(q, { storefront_shop_id: published.storefront_shop_id }, {
+        idempotencyKey: randomUUID(), publication_revision: published.revision,
+        lines: [{ sku: 'P0001', quantity: 1 }],
+        contact: { name: '合成買家', email: `checkout-${data.instanceId}@synthetic.test`, phone: 'synthetic-phone' },
+        delivery: { kind: 'synthetic' },
+      }, { shipping: { async quote(_q, _store, input) {
+        return { groups: [{ group_ref: 'synthetic', supplier_shop_id: input.lines[0].supplier_shop_id,
+          method_ref: 'synthetic', amount_minor: 0 }] };
+      } } });
+    });
   }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';
     update_covered: boolean; outcome: string; select?: number; own_select?: number; policies?: string[]; reason?: string }[] = [];

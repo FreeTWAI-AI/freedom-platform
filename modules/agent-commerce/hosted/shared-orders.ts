@@ -21,7 +21,7 @@ export async function submitSharedOrderOutcome(pool: Pool, actor: Actor, rawSlug
       requireCondition(quote.quote_profile === 'hosted_shared_reservation' && quote.terms_sha256 === input.terms_sha256,
         409,'quote_terms_changed','報價內容不符，請重新確認。');
       const prior = (await q.query(`SELECT order_id,request_sha256,order_profile FROM commerce_orders
-        WHERE public_shop_id=$1 AND buyer_principal_id=$2 AND client_order_id=$3 FOR UPDATE`, [p.storefront_shop_id,buyer,input.client_order_id])).rows[0];
+        WHERE public_shop_id=$1 AND buyer_principal_id=$2 AND client_order_id=$3 AND order_profile IN ('hosted_direct_reservation','hosted_shared_reservation') FOR UPDATE`, [p.storefront_shop_id,buyer,input.client_order_id])).rows[0];
       if (prior) {
         requireCondition(prior.request_sha256 === hash && prior.order_profile === 'hosted_shared_reservation',409,'order_intent_conflict','這個訂單識別碼已用於另一份內容。');
         return {id:prior.order_id};
