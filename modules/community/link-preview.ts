@@ -9,10 +9,15 @@ const IMAGE_LIMIT = 5 * 1024 * 1024;
 export type PreviewFetch = (input: string, init?: RequestInit) => Promise<Response>;
 export type LinkPreview = { title: string | null; image: Buffer | null; source: 'youtube' | 'page' | null };
 
+function numericEntity(codePoint: number) {
+  return codePoint === 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)
+    ? '\ufffd' : String.fromCodePoint(codePoint);
+}
+
 function decodeEntities(value: string) {
   return value
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => numericEntity(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => numericEntity(Number(dec)))
     .replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&');
 }
 

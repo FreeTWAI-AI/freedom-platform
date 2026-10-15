@@ -6,6 +6,8 @@ import {createPool} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
+import {serve} from '@hono/node-server';
+import {once} from 'node:events';
 
 const origin = 'http://127.0.0.1:4311';
 const url = process.env.TEST_DATABASE_URL;
@@ -72,6 +74,51 @@ test('write a native post without a URL/title/preview, replay once and reject a 
   assert.equal((await request('/social-posts?kind=note', session)).data.items[0].like_count, 0);
   assert.equal((await request('/social-posts?platform=other', session)).data.items.length, 0);
   assert.equal((await request('/promotion/links', session, {kind: 'social_post', target: first.data.post_id})).status, 404);
+});
+
+test('numeric remote HTML titles create real HTTP posts and replay without duplicates', async () => {
+  let html = '';
+  let liveApp = app;
+  const server = serve({fetch: req => liveApp.fetch(req), hostname: '127.0.0.1', port: 0});
+  try {
+    if (!server.listening) await once(server, 'listening');
+    const address = server.address(); assert.ok(address && typeof address !== 'string');
+    const liveOrigin = `http://127.0.0.1:${address.port}`;
+    liveApp = createApp(pool, liveOrigin, 'local', {linkPreviewFetch: async () =>
+      new Response(html, {headers: {'content-type': 'text/html; charset=utf-8'}})});
+    const signed = await fetch(liveOrigin + '/api/v1/auth/login', {method: 'POST',
+      headers: {Origin: liveOrigin, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID()},
+      body: JSON.stringify({email: DEMO_USERS[0].email, password: DEMO_PASSWORD})});
+    assert.equal(signed.status, 200);
+    const session = await signed.json() as {csrf_token: string};
+    const headers = {Origin: liveOrigin, Cookie: signed.headers.get('set-cookie')!.split(';')[0],
+      'X-CSRF-Token': session.csrf_token, 'Content-Type': 'application/json'};
+    const cases: [string, string, string?][] = [
+      ['<title>decimal &#1114112;</title>', 'decimal �'],
+      ['<meta property="og:title" content="hex &#x110000;">', 'hex �'],
+      ['<title>zero &#0;</title>', 'zero �'],
+      ['<meta property="og:title" content="surrogate &#xD800;">', 'surrogate �'],
+      ['<title>valid &#128512;&#x10FFFF;</title>', 'valid 😀\u{10ffff}'],
+      ['<title>invalid &#1114112;&#0;&#xD800;</title>', '投稿者標題', '投稿者標題'],
+    ];
+    for (const [index, [page, expected, title]] of cases.entries()) {
+      html = page;
+      const key = randomUUID(), body = JSON.stringify({url: `https://example.org/numeric-${index}`, ...(title ? {title} : {})});
+      const submit = () => fetch(liveOrigin + '/api/v1/social-posts', {method: 'POST',
+        headers: {...headers, 'Idempotency-Key': key}, body});
+      const first = await submit(), created = await first.json() as {post_id: string; title: string};
+      assert.equal(first.status, 201, JSON.stringify(created));
+      assert.equal(created.title, expected);
+      const replay = await submit(); assert.equal(replay.status, 201);
+      assert.deepEqual(await replay.json(), created);
+      const stored = await pool.query('SELECT title FROM community_social_posts WHERE post_id=$1', [created.post_id]);
+      assert.deepEqual(stored.rows, [{title: expected}]);
+    }
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_social_posts')).rows[0].n, cases.length);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts')).rows[0].n, cases.length);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
 });
 
 test('native content validation rejects empty, control characters, oversized and unknown fields', async () => {
