@@ -15959,8 +15959,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 26582,
-      "sha256": "bca6d803fc6f15655b7b751aa50cc477e858d2df3e1524b36a038c9b3ffb5886"
+      "bytes": 27047,
+      "sha256": "b52416077ad3f06e6071e0679186a5169f19306a81c9e0a050cc12f37944d82c"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -20464,8 +20464,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 71074,
-      "sha256": "658a7624e51c8cf0a8d282ae5d29f745e61875f728d57c9a25b7221e0fcba66f"
+      "bytes": 71308,
+      "sha256": "755a50c16ffb7fe4b0a0a50e943a915a0b36bb0f320e728125c3c1b876dbd731"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
