@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-01-ia-visual.md",
-      "bytes": 8322,
-      "sha256": "7deb99fad32f013af5ed670f32fbc16972999133299de67f40fa8f64fdfee9a4"
+      "bytes": 8893,
+      "sha256": "468542bc07b09e3312bb3c0167481880eb599dc035c4d0185bf5799731a90034"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-02-shell-session-recovery.md",
@@ -17144,8 +17144,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted-ui/ConsoleShell.css",
-      "bytes": 1133,
-      "sha256": "7711380706b8a20cda2e1bac10120c42bf4a9711381565facc2376a22afb8f83"
+      "bytes": 1135,
+      "sha256": "2263ab244721efdaa80f06ef23180ac756831b974b6baabff558572c2d2ef317"
     },
     {
       "path": "modules/agent-commerce/hosted-ui/ConsoleShell.tsx",
@@ -17194,13 +17194,13 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.css",
-      "bytes": 3322,
-      "sha256": "94f4ec7864ea0f62e24d37a97fcbb6fd2e1606e69130b45845d5fd5bd7e7cbd4"
+      "bytes": 3439,
+      "sha256": "b35ecacc92d8e908f1d7423d4c2f79212080354d7893699330a2b79af5d09e78"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.tsx",
-      "bytes": 6167,
-      "sha256": "11d057a7b841181507b35b6b2dba91a32b98ce192434c3a7317127431b64a125"
+      "bytes": 7604,
+      "sha256": "cd64fdf4062f08c37b6383f034a73c5338ceb69e8ff736a7aed694edb3fe0c23"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/route.ts",
@@ -17229,8 +17229,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/pages/Products.tsx",
-      "bytes": 5466,
-      "sha256": "ea321c8528e6d1c5be50402df6c289d23d8233aa04ba9904c3a975a533039c95"
+      "bytes": 5536,
+      "sha256": "8a5f2b072340e05123310c4e06fd91ebbbc2c79dba07d4a70bc025015f73f9c2"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/pages/Reservations.tsx",

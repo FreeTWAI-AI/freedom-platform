@@ -17,16 +17,30 @@ const NAV_GROUPS=['營運','合作','管理'] as const;
 export function SupplierConsole({client,userId,route,registerLeave,photosEnabled=false,photoUploadsEnabled=false}:{client:PortalClient;userId:string;route:SupplierConsoleRoute;registerLeave:RegisterLeave;photosEnabled?:boolean;photoUploadsEnabled?:boolean}){
  const c=useSupplierConsoleController({client,userId,scope:route,route,registerLeave,photosEnabled}),profile=c.profile,r=c.slot('profile'),ready=profile?.setup_state==='ready';
  const pages=consoleNavigation(profile?.capabilities??[],c.ownerAllowed),current=SUPPLIER_CONSOLE_PAGES.find(p=>p.page===route.page)!,selected=current.parent??current.page;
- const content=useRef<HTMLDivElement>(null),previous=useRef(route.page+':'+route.id);
+ const content=useRef<HTMLDivElement>(null),previous=useRef(route.page+':'+route.id),retry=useRef<HTMLButtonElement>(null),focused=useRef<{el:HTMLElement;section:Element|null;lost:boolean}|null>(null);
  useEffect(()=>{const key=route.page+':'+route.id;if(previous.current!==key){content.current?.querySelector<HTMLElement>('[data-sc-active="true"] h2')?.focus();previous.current=key;}},[route.page,route.id]);
+ // Keyboard focus must not fall to the page when the console disables or removes the focused control during a write or
+ // read: return to it once usable, or after the work settles go to its section heading (else the page h2), or to 重試
+ // while an outcome is unknown. Focus the member moved elsewhere is left alone.
+ useEffect(()=>{const frame=requestAnimationFrame(()=>{
+  const f=focused.current,active=document.activeElement;if(!f)return;
+  if(active&&active!==f.el&&active!==document.body){focused.current=null;return;}
+  const usable=f.el.isConnected&&!f.el.matches(':disabled')&&f.el.getClientRects().length>0;if(!usable)f.lost=true;
+  if(!f.lost||active===f.el)return;
+  if(usable){focused.current=null;f.el.focus({preventScroll:true});return;}
+  if(c.phase==='sending'||Object.values(c.reads).some(r=>r.state==='loading'))return;
+  focused.current=null;
+  const target=(c.phase==='held'?retry.current:f.section?.isConnected?f.section.querySelector<HTMLElement>('h3'):null)??content.current?.querySelector<HTMLElement>('[data-sc-active="true"] h2');
+  if(target){if(!target.hasAttribute('tabindex'))target.tabIndex=-1;target.focus();}
+ });return()=>cancelAnimationFrame(frame);});
  const href=(page:Parameters<typeof supplierConsoleHref>[1])=>supplierConsoleHref(route,page);
  const nav=pages.map(p=>({key:p.page,label:p.label,group:p.group!,href:href(p.page)}));
  const page=route.page==='overview'?<Overview c={c}/>:route.page==='products'?<Products c={c}/>:route.page==='product-new'?<NewProduct c={c}/>:route.page==='partners'?<Partners c={c}/>:route.page==='partner'?<Partner c={c}/>:route.page==='terms'?<Terms c={c}/>:route.page==='review'?<Review c={c}/>:route.page==='reservations'?<Reservations c={c}/>:route.page==='settings'?<Settings c={c}/>:route.page==='not-found'?<section className="stack"><h2 tabIndex={-1}>找不到這個頁面</h2><div className="actions"><a className="btn btn-ghost" href={href('overview')}>回到營運概覽</a></div></section>:null;
  const productIds=[...new Set([...Object.keys(c.reads).filter(k=>k.startsWith('product:')).map(k=>k.slice(8)),...(route.page==='product'?[route.id!]:[])])];
- return <div className="supplier-console stack">
+ return <div className="supplier-console stack" onFocus={e=>{const el=e.target as HTMLElement;focused.current={el,section:el.closest('.sc-section'),lost:false};}}>
   <div className="sc-business-bar"><div><strong>{profile?.catalog?.name??'尚未完成設定的商品庫'}</strong>{profile&&<span className="badge">{profile.retail_enabled?'已開零售':'純供貨'}</span>}</div><div className="actions"><a className="btn btn-ghost" href="#stores/supply">切換事業</a><a className="btn btn-ghost" href="#guilds/guild_product_quality_supply">返回公會</a>{profile?.retail_enabled&&<a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}`}>前往商店</a>}</div></div>
   <p className="sc-announcement" role="status" aria-live="polite">{c.notice}</p>{c.error&&<p className="banner banner-error" role="alert">{c.error}</p>}
-  {c.attempt&&<div className="banner stack" role="status"><p>{c.phase==='sending'?`正在確認原操作：${c.attempt.label}。`:`尚未確認原操作的結果：${c.attempt.label}。請按『重試』確認。`}</p>{c.phase==='held'&&<div className="actions"><button type="button" className="btn btn-ghost" onClick={c.retry}>重試</button></div>}</div>}
+  {c.attempt&&<div className="banner stack" role="status"><p>{c.phase==='sending'?`正在確認原操作：${c.attempt.label}。`:`尚未確認原操作的結果：${c.attempt.label}。請按『重試』確認。`}</p>{c.phase==='held'&&<div className="actions"><button ref={retry} type="button" className="btn btn-ghost" onClick={c.retry}>重試</button></div>}</div>}
   {Object.entries(c.photoStates).filter(([,s])=>s.blocking).map(([id])=><div className="banner stack" role="status" key={id}><p>尚未確認原照片操作的結果，請回到商品照片確認。</p><div className="actions"><a className="btn btn-ghost" href={supplierConsoleHref(route,'product',{id})}>回到商品照片</a></div></div>)}
   {c.rejected&&<details><summary>原操作內容（冪等鍵衝突）</summary><p>{c.rejected.label} · 版本 {c.rejected.ifMatch??'建立操作'}</p><dl className="detail-list">{Object.entries(c.rejected.body).map(([field,value])=><div key={field}><dt>{fieldLabels[field]??field}</dt><dd>{attemptFieldText(field,value,profile?.catalog?.currency??'TWD')}</dd></div>)}</dl></details>}
   {c.pendingReads.length>0&&<div className="banner stack"><p>已保存，資料仍待更新；暫停寫入，請重試讀取。</p>{c.pendingReads.map(key=><ReadStatus key={key} c={c} name={key} label="保存後的資料"/>)}</div>}
