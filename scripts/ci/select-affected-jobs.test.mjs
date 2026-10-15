@@ -658,6 +658,15 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
 
   const runtimeAggregate = jobBlock(text, 'runtime-aggregate');
   assert.match(runtimeAggregate, /node \.freedom\/trusted\/scripts\/runtime-aggregate\.mjs --partition-count 6 --input-dir/);
+  // Artifacts belong to one run attempt. A failed-only rerun cannot combine
+  // its replacement fragment with previous-attempt passes, even at one SHA.
+  assert.match(runtimeFull, /name: runtime-partition-\$\{\{ github\.run_attempt \}\}-\$\{\{ matrix\.partition \}\}/u);
+  assert.match(runtimeAggregate, /pattern: runtime-partition-\$\{\{ github\.run_attempt \}\}-\*/u);
+  assert.doesNotMatch(runtimeAggregate, /pattern: runtime-partition-\*\s/u);
+  const runtimeDownload = runtimeAggregate.slice(runtimeAggregate.indexOf('- name: Download only'),
+    runtimeAggregate.indexOf('- name: Require exact'));
+  assert.doesNotMatch(runtimeDownload, /\n\s+(?:run-id|repository):/u);
+  assert.match(runtimeAggregate, /name: runtime-full-matrix-\$\{\{ github\.run_attempt \}\}/u);
 
   const staticWorker = jobBlock(text, 'static-worker');
   assert.match(staticWorker, /git diff --exit-code -- contracts\/preview\/v1 packages\/sdk/);

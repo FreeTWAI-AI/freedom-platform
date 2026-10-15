@@ -80,6 +80,15 @@ services use the resolver, strict SQL revision/FK guards, replay/revocation,
 retained quota configuration, real policy lock/session expiry, and read-only
 runtime lock-only privileges. It is not evidence of production policy approval or rollout.
 
+The expiry fixture arms its short session deadline in the request's own SQL
+transaction, after member admission and immediately before calling the real
+policy resolver. Arming before request startup can expire during runner
+scheduling and never reach the intended policy wait. The observer waits for the
+actual PostgreSQL blocker and then compares the returned deadline against the
+DB clock; another connection cannot update the already-locked session row.
+The rejected request rolls back that test-only deadline update. No production
+clock, session lifetime, resolver or SQL timeout is changed.
+
 ## Internal methods
 
 - `prepare(actor, { key, targetWorkId, expectedVersion, contentType, byteSize, sha256 })`

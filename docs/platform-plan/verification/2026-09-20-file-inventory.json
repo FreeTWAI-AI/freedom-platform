@@ -154,8 +154,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 33675,
-      "sha256": "5799d5b1621a5ec096dc446fd7e1c49d462aea8c22f254a55d3956b5ca036414"
+      "bytes": 33918,
+      "sha256": "f49de40293a6a5c5af398e1938f243e5d0d8593b02133ba48a6d2c098104dbfb"
     },
     {
       "path": "apps/freedom.module.json",
@@ -14139,8 +14139,8 @@
     },
     {
       "path": "docs/development/repository-integration.md",
-      "bytes": 13472,
-      "sha256": "739a1f560211156fbab6f5beb32d1a6bd9d641c2317609c91ff4bb58147c3ab9"
+      "bytes": 14183,
+      "sha256": "2b0838a532a6ee056d99e92012903f474c28efa274e18dc993e3e32f83026039"
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
@@ -14159,8 +14159,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 30921,
-      "sha256": "03286c26d152d1afecc92395907494aa27ebefc1f3b01c1baa7dee576fdd7b27"
+      "bytes": 31791,
+      "sha256": "196f7f1f50ee567570c42d1887136e95d94dfabc79863f5153d614498c00b0b2"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17609,8 +17609,8 @@
     },
     {
       "path": "modules/autopilot-work/README.md",
-      "bytes": 12721,
-      "sha256": "af8a536211f31511e6b44d185209eb43173ebc1c242567e86f834b3108bd2842"
+      "bytes": 13318,
+      "sha256": "c4aee9e0644f90c7c3a0dd4a9c526f42055fe3d09ff9e597ff59bd8bdbf6dc63"
     },
     {
       "path": "modules/autopilot-work/freedom.module.json",
@@ -17834,8 +17834,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 44254,
-      "sha256": "8b5e12d1077fe71a91d7fbe50ade13eac7f599f13affed44530cbdb1ee87d20d"
+      "bytes": 44449,
+      "sha256": "633cb28be610aa9448c0e7dcb02a76fa8689184134b81d99049a0e39a1f080c1"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -19249,8 +19249,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 10150,
-      "sha256": "9a78543e7313482770b7e11222ddf78ed0c2f28729154f314be04c77a87e5366"
+      "bytes": 12461,
+      "sha256": "d9dae3ba46902895d977a5e13925eeffab7411faa42df0c12ed37d41a861e00e"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -19269,8 +19269,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 36445,
-      "sha256": "001c86c99096e0680938595db4002bab5d5033099c77b2174e35c54995a2295f"
+      "bytes": 36695,
+      "sha256": "cbc1aee2bc697fb5ddfb62663106bb4119789dce8dd8907f4149b6956e1b19f9"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -19484,8 +19484,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 14395,
-      "sha256": "34bb98f68c56f11e8d22e6859081e78fb5672648b632d7e99a924c682515c3c4"
+      "bytes": 14829,
+      "sha256": "8b1b25ae6934197d7421ebe65340a1e1c12e8d17255bee447238d8a3d535e6b5"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
@@ -20484,8 +20484,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 71074,
-      "sha256": "658a7624e51c8cf0a8d282ae5d29f745e61875f728d57c9a25b7221e0fcba66f"
+      "bytes": 71848,
+      "sha256": "6fcbf8f4ae3131154d83561592bf9f50b382ac987be290d2a9680d757246a3ec"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -21494,8 +21494,8 @@
     },
     {
       "path": "tests/integration/repositories.test.ts",
-      "bytes": 17561,
-      "sha256": "d26b19e791a9dd1c85c4ad58ff779251f9efd632def1f63e942bc884c0f2c24c"
+      "bytes": 18003,
+      "sha256": "7988a87e9d677a98f10e61a388b61d585dcd6153ccbb420f9c405ed343b2fdbf"
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
@@ -21506,6 +21506,11 @@
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
       "bytes": 11576,
       "sha256": "436651a850a09c0fa335f5d1745c7b03d594587af47e1911bd2add1d0610c66c"
+    },
+    {
+      "path": "tests/integration/helpers/request-drain.ts",
+      "bytes": 728,
+      "sha256": "43eac22ed046f05664121d8845f187d4d86ddde1d1ea51d48340bf8bdf9ae6ae"
     },
     {
       "path": "tests/integration/helpers/storefront-photo-restore-fixtures.ts",
@@ -22959,8 +22964,8 @@
     },
     {
       "path": "tests/runtime/private-work-policy.test.ts",
-      "bytes": 22060,
-      "sha256": "eebaaee2c859b9715bd98086f4ca7ee150a2473469899e32b9fd3bccf9115cb9"
+      "bytes": 22585,
+      "sha256": "ab9d1dba4b1108038647d06935b6498d13dccee16270003ada641d33c5f06218"
     },
     {
       "path": "tests/runtime/production-dossier.test.ts",
@@ -23164,8 +23169,8 @@
     },
     {
       "path": "tests/runtime/social-feed.test.ts",
-      "bytes": 26406,
-      "sha256": "0688901e010d6b9479a23176bda52b3fada5089548a2afe07a7678038f28fb02"
+      "bytes": 29827,
+      "sha256": "1ba76c0f815c49cdedc8f0f92657b2567bf16b14dab28e7f1dac8515c86f1fe8"
     },
     {
       "path": "tests/runtime/social-links.test.ts",
