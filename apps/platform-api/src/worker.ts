@@ -72,6 +72,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
+  FREEDOM_SUPPLIER_CONSOLE_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTOS_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED?: string;
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
@@ -154,6 +155,8 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
     if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
   }
+  if(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED))throw new ReadinessError('Supplier console flag must be true or false.');
+  if(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED==='true'&&env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')throw new ReadinessError('Supplier console requires guild launchpad.');
   for(const flag of [env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED,env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Store photo flags must be true or false.');
   if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&(env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Hosted store photos require guild launchpad and MEDIA.');
   if(env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true'&&(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Store photo uploads require installed photos and IMAGES.');
@@ -256,6 +259,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
+    supplierConsoleEnabled: env.FREEDOM_SUPPLIER_CONSOLE_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',
