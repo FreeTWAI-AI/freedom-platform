@@ -139,6 +139,7 @@ test('a member lists a service with a cover and one with a placeholder', async (
   await page.locator('form.service-form').getByRole('button', { name: '建立服務', exact: true }).click();
   await expect(card(page, PLACEHOLDER_TITLE).locator('.service-placeholder')).toContainText('語言教學');
   await expect(page.locator('li.service-mine-row').filter({ hasText: PLACEHOLDER_TITLE })).toBeVisible();
+  await expect(page.locator('section.service-mine h2')).toHaveText('我的服務 2／5');
   servicePath = (await card(page, COVER_TITLE).getByRole('link', { name: '服務頁 ↗' }).getAttribute('href'))!;
   for (const theme of ['light', 'versefolk'] as const) {
     await themeOf(page, theme);
@@ -148,6 +149,37 @@ test('a member lists a service with a cover and one with a placeholder', async (
       await noOverflow(page);
     }
   }
+});
+
+test('the create button says when the 5-service limit is reached, and an oversized cover is refused before upload', async ({ page }) => {
+  await login(page);
+  await page.route('**/api/v1/member-services/mine', async route => {
+    const real = await (await route.fetch()).json() as { items: { service_id: string }[]; limit: number };
+    const items = Array.from({ length: real.limit }, (_, index) => ({ ...real.items[0], service_id: `00000000-0000-4000-8000-00000000000${index}` }));
+    await route.fulfill({ json: { ...real, items } });
+  });
+  await navigate(page, '社員服務');
+  const mine = page.getByRole('region', { name: '我的服務', exact: true });
+  await expect(mine.locator('h2')).toHaveText('我的服務 5／5');
+  await expect(mine.getByRole('button', { name: '新增服務', exact: true })).toBeDisabled();
+  await expect(mine).toContainText('已達 5 項上限（含暫停中的服務）。刪除一項後才能再新增。');
+  await page.unroute('**/api/v1/member-services/mine');
+  await page.reload();
+  await navigate(page, '社員服務');
+  await expect(mine.locator('h2')).toHaveText('我的服務 2／5');
+  await mine.getByRole('button', { name: '新增服務', exact: true }).click();
+  const form = page.locator('form.service-form');
+  const cover = form.locator('input[type="file"]');
+  let uploads = 0;
+  await page.route('**/api/v1/member-services/*/cover', route => { uploads += 1; return route.continue(); });
+  await cover.setInputFiles({ name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
+  await expect(form.getByText('封面需為 4 MiB 以下，請換一張較小的圖片。')).toBeVisible();
+  await expect(cover).toHaveAttribute('aria-invalid', 'true');
+  expect(await cover.evaluate(input => (input as HTMLInputElement).files?.length ?? 0)).toBe(0);
+  await cover.setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: PNG });
+  await expect(form.getByText('封面需為 4 MiB 以下，請換一張較小的圖片。')).toHaveCount(0);
+  await form.getByRole('button', { name: '取消', exact: true }).click();
+  expect(uploads).toBe(0);
 });
 
 test('another member shares it and a signed-out visitor lands on the public page', async ({ page, browser }) => {

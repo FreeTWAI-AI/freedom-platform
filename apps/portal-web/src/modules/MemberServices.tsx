@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useState, type FormEvent} from 'react'
 import {accessAwareFetch} from '../access-fetch'
 import {ApiError, type PortalClient} from '../api'
-import {SERVICE_CATEGORIES, SERVICE_CATEGORY_LABELS, SERVICE_MODE_LABELS, SERVICE_MODES, validateMemberService, type ServiceCategory, type ServiceMode} from '../../../../packages/shared/member-service'
+import {SERVICE_CATEGORIES, SERVICE_CATEGORY_LABELS, SERVICE_COVER_INPUT_BYTES, SERVICE_LIMIT, SERVICE_MODE_LABELS, SERVICE_MODES, validateMemberService, type ServiceCategory, type ServiceMode} from '../../../../packages/shared/member-service'
 import {MemberAvatar} from './MemberAvatar'
 import {PromotionShare} from './PromotionShare'
 import './MemberServices.css'
@@ -31,6 +31,7 @@ export function MemberServices({client}: {client: PortalClient}) {
   const [category, setCategory] = useState('')
   const [items, setItems] = useState<Service[]>([])
   const [mine, setMine] = useState<Service[]>([])
+  const [limit, setLimit] = useState(SERVICE_LIMIT)
   const [cursor, setCursor] = useState<string | null>(null)
   const [canHide, setCanHide] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -48,6 +49,7 @@ export function MemberServices({client}: {client: PortalClient}) {
   const refreshMine = useCallback(async () => {
     const page = await client.get<Mine>('/member-services/mine')
     setMine(page.items)
+    setLimit(page.limit)
   }, [client])
   const load = useCallback(async (nextCategory: string, nextCursor?: string) => {
     if (nextCursor) setMore(true)
@@ -149,9 +151,10 @@ export function MemberServices({client}: {client: PortalClient}) {
     <p className="service-intro">社員的本業服務都在這裡。看到適合朋友的服務，就用你的連結分享出去；每次點擊都算你的業務推廣分數。</p>
     <section className="card service-mine" data-guide-anchor="services:mine" aria-label="我的服務">
       <div className="service-mine-head">
-        <h2>我的服務</h2>
-        <button type="button" data-guide-anchor="services:create" className={formOpen ? 'btn btn-ghost' : 'btn btn-primary'} onClick={() => { if (formOpen) { setFormOpen(false); setIssues([]); } else openCreate(); }}>{formOpen ? '關閉表單' : '新增服務'}</button>
+        <h2>我的服務 <span className="service-count">{mine.length}／{limit}</span></h2>
+        <button type="button" data-guide-anchor="services:create" className={formOpen ? 'btn btn-ghost' : 'btn btn-primary'} disabled={!formOpen && mine.length >= limit} onClick={() => { if (formOpen) { setFormOpen(false); setIssues([]); } else openCreate(); }}>{formOpen ? '關閉表單' : '新增服務'}</button>
       </div>
+      {!formOpen && mine.length >= limit && <p className="muted">已達 {limit} 項上限（含暫停中的服務）。刪除一項後才能再新增。</p>}
       {mine.length === 0 ? <p className="muted">你還沒有建立服務。</p> : <ul>
         {mine.map(service => <li className="service-mine-row" key={service.service_id}>
           <span className="service-mine-title">{service.title}</span>
@@ -187,7 +190,12 @@ export function MemberServices({client}: {client: PortalClient}) {
         {issue('contacts') && <span className="field-error">{issue('contacts')}</span>}
         <button type="button" className="btn btn-ghost" disabled={draft.contacts.length >= 3} onClick={() => patch({contacts: [...draft.contacts, {label: '', url: ''}]})}>再加一個聯絡方式</button>
       </div>
-      <label className="field">封面（選填）<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setFile(event.target.files?.[0] ?? null)}/></label>
+      <label className="field">封面（選填，JPEG／PNG／WebP，4 MiB 以下）<input type="file" accept="image/jpeg,image/png,image/webp" aria-invalid={Boolean(issue('cover'))} onChange={event => {
+        const next = event.target.files?.[0] ?? null
+        setIssues(current => current.filter(item => item.field !== 'cover'))
+        if (next && next.size > SERVICE_COVER_INPUT_BYTES) { event.target.value = ''; setFile(null); setIssues(current => [...current, {field: 'cover', message: '封面需為 4 MiB 以下，請換一張較小的圖片。'}]); return }
+        setFile(next)
+      }}/>{issue('cover') && <span className="field-error">{issue('cover')}</span>}</label>
       {editing?.cover_url && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => void act(editing, 'remove-cover')}>移除封面</button>}
       {error && <div className="banner banner-error" role="alert"><p>{error}</p></div>}
       <div className="service-form-actions">

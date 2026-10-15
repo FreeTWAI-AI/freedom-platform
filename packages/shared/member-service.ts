@@ -20,6 +20,7 @@ export const SERVICE_MODE_LABELS: Record<ServiceMode, string> = {
   online: '線上', in_person: '實體', both: '線上・實體',
 };
 export const SERVICE_LIMIT = 5;
+export const SERVICE_COVER_INPUT_BYTES = 4 * 1024 * 1024;
 
 const LINE = /[\u0000-\u001f\u007f]/;
 const TEXT = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;

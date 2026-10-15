@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { digest } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { text } from '../../packages/shared/validation.js';
+import { SERVICE_COVER_INPUT_BYTES } from '../../packages/shared/member-service.js';
 import { normalizeImage } from '../../packages/shared/image-runtime.js';
 import { externalLink, githubCoordinate } from '../opensource-marketing/github.js';
 
@@ -155,7 +156,7 @@ export async function normalizeRemoteThumbnail(bytes:Buffer):Promise<Buffer>{
   }catch(error){if(error instanceof Problem)throw error;throw invalidThumbnail();}
 }
 
-export const SERVICE_COVER_INPUT_BYTES = 4 * 1024 * 1024;
+export { SERVICE_COVER_INPUT_BYTES };
 const invalidServiceCover = () => new Problem(422, 'invalid_service_cover', '封面無法使用。請提供完整的靜態 PNG、JPEG 或 WebP，4 MiB 以下。');
 
 export async function normalizeServiceCover(mime: string, bytes: Buffer): Promise<Buffer> {
