@@ -10,14 +10,73 @@
 [R2／AP](source-acceptance.md) 的原文、最低證據層級及所有 168 個 ID。
 歷史 handoff／release-readiness 保留當時證據，不再維護另一份 current 狀態。
 
-## 2026-10-13 組織搬遷收尾
+## 2026-10-14 安全修補與組織搬遷發布現況
 
-追蹤 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)。FreeTWAI 的平台／
-GitHub／public guide 座標修正與 forward migration166 為本輪候選；資料合併、歷史 pins、
-跨倉 transport、CI 去重與 staging→production 驗證順序見
-[Repo 串接搬遷說明](../../../development/repository-integration.md#2026-10-13-freetwai-組織搬遷候選)。
-不更新以下歷史 source／rollout 收據，也不把本機測試當已部署或 Enterprise workflow
-信任來源已恢復；舊工作 queue 的 merge／deploy freeze 依 #234 現行狀態保留。
+追蹤 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)。本次選定安全發布
+`938516ee`（tree `089a3774`）已部署 staging，Worker `368a5d67`、schema166；
+本次沒有重套已存在的166。限定驗收以原非 browser 階段及 `zh-TW` locale browser
+補驗組成，HTML 與10個入口資產 bytes 相符；原 selector timeout 保留，合成帳號與
+Access 憑證已清理。部署前備份完成同一 set 的還原恢復；部署後 `e9ac7afd` 的
+遠端讀回、DB＋59個物件還原、166 floor 與清理已通過，兩次早先 capture 失敗保留。
+Staging 日常備份 dispatcher 已於10月14日20:29 UTC 切到938。
+
+10月15日既有 staging timer 的 `fc39f036` 另於04:59 UTC capture失敗；05:04 UTC
+唯讀對帳確認零殘留、兩個政策開關關閉且59個 reference pins 保留。這不改寫上述
+`e9ac7afd` 的完整還原成功；新的 staging operator 修正僅備妥，尚未執行或安裝。
+
+Production 於10月15日03:06 UTC 建立的新 before-set `87ec37e7` 已完整還原驗證，
+取代因時效需要更新的成功舊 set。03:20 UTC 已確認 migration166 COMMIT；後續
+不變表 assertion 因兩個背景 telemetry 表變動而失敗，原紀錄保留。03:28 UTC 的
+唯讀對帳確認264／266表雜湊相同，另外兩表為 GitHub feed 與 credential health metadata；
+9項政策、33張 RLS 表、唯讀權限與10項獨立記錄的座標 constraints 通過。
+沒有重跑SQL，也不宣稱所有背景 writer 已停止或266表完全未變。
+03:30 UTC 已部署相容938（Worker `24c6c843`），正式路由與原 cron 恢復。公開 health、
+protocol、5張圖片、匿名權限／Origin 拒絕、HTML 與10個入口資產 bytes 及 live floor
+驗收通過；未建立正式會員登入／browser／OAuth session，同來源 staging 證據明確沿用。
+Production after-backup `480cd1f2` 於03:41 UTC dump逾時失敗；03:44 UTC 獨立對帳
+確認該次資源已清理，原 `cleanupVerified=false` 失敗收據保留。第二次 `28c818b7`
+只把 production dump 上限改為300秒，含 Docker啟動等待的整體預算仍逾時，04:03 UTC 確認失敗；
+04:09 UTC 已獨立對帳零殘留資源。兩份原失敗保留，仍沒有成功的 production after-restore。
+04:15 UTC 已把 production dispatcher 切至原 canonical166 adapter，避免排程繼續使用
+不相容的165 operator；此為明列「after-backup待完成」的可回復設定修正，staging／timers
+與實際 backup／restore／cleanup gates 不變，不以安裝紀錄代替成功還原。
+既有 daily timer 於04:34 UTC 自行啟動 `19f7e10e`，確認選用938／原166 adapter；
+04:43 UTC 仍在 capture 失敗。180秒 dump 子程序預算包含約72秒容器準備，實際執行約109秒
+就被終止，部分輸出不能視為有效備份。04:46 UTC 唯讀對帳確認該次零殘留資源、政策關閉，
+47個物件 pins 保留；原失敗不改寫，沒有另外手動重跑。三次 production after 均未完成還原。
+
+05:06 UTC 啟動一次經審查的 production `e021ebfc`：容器準備移到 capture 前，
+實際 dump仍保留180秒、核心流程1200秒上限。6,229,149 bytes的 DB dump、47個物件
+與遠端讀回完成，但05:24 UTC 在restore階段失敗，`cleanupVerified=false`；同一set
+正在另行對帳，沒有重新capture或宣稱還原成功。這次失敗與前3份原失敗全部保留，
+修正版尚未安裝到日常 dispatcher；完整 production after-restore仍未完成。
+04:07 UTC 唯讀觀察有21筆 FreeTWAI repo、零舊座標，但沒有部署後同步紀錄。
+04:27 UTC 排程診斷確認設定與目前版本相符，provider 的 scheduled 紀錄卻停在03:20；
+04:10–04:21 的同版本觀察有295次成功 HTTP、零 scheduled 事件。這支持排程交付／傳播
+缺口，provider 根因尚未確定。04:33 UTC 僅執行一次移除後立即恢復原 cron，兩次請求均
+獲確認且版本／路由不變。04:53 UTC 的單次補驗已確認04:40:18自然 scheduled 成功，
+feed watermark 推進至04:50:21，21／21筆新座標 repo 已同步，舊座標與錯誤均為零。
+排程資料集本身沒有版本欄位；部署 binding 與另讀 traffic 均維持24c6／938。
+自然同步的限定驗收已通過，不再加跑後續觀察；整輪仍待成功 production after-backup
+與其座標 fence 還原驗證，這次同步結果不代替真人 OAuth／webhook 驗收。
+精確時間與證據雜湊見[本輪具日期發布收據](rollout-security-2026-10-14.json)。
+10月15日04:38 UTC 另讀回 Agent Kit／Storefront 的 main 已有有效 repo ruleset：
+一位有效核准、App 綁定必要 checks、禁止刪除／force push、無 bypass；兩倉未啟用
+CODEOWNERS review。這是兩倉的具日期觀察，沒有更動設定或宣稱全部 consumer 已驗收。
+
+已合併 main `efaf314d` 包含後續 #658 與 #659；#659 的4792 runtime、950個不重複
+browser案例與5個公會 preview通過，原622／657一併收斂。這些後續來源與 #680
+均不包含在本次938發布，AR167沒有部署。T-047、真實 GitHub OAuth／會員操作、
+獨立 Maintainer #72 安裝、真人試用與第二操作者恢復仍未完成。資料與歷史 pins 的處理見
+[Repo 串接搬遷說明](../../../development/repository-integration.md#2026-10-14-發布觀察)。
+
+#680 舊 head `93c6dc3f` 的第二次 Verify仍失敗：runtime分區3只完成55／62檔
+後逾時，已完成830案例零失敗且清理通過，仍不是整套成功。Browser原兩個失敗案例
+已通過，但供貨案例 `hosted-supply-catalog.spec.ts:436` 單案120秒逾時；原 trace未保留，
+不能判定是哪個操作卡住，也不能直接歸類偶發。新候選保留原作者與既有3支PR範圍，
+補上有界CI容量、去重與診斷改善，仍須 fresh review及新 head完整checks；舊結果不改綠。
+
+以下具日期的歷史 source／rollout 保留，不冒充當前環境。
 
 ## 2026-10-11 產品就緒工作順序
 
@@ -25,7 +84,7 @@ GitHub／public guide 座標修正與 forward migration166 為本輪候選；資
 
 本節依 Ted 最新派工，取代以下具日期歷史紀錄中的「下一步」排序。保留共同核心與原 168 項要求；這輪凍結新承諾擴張，以會員自主完成、公會長獨立開發為驗收。完整庫存外移與本人 CLI／BYOK 保留原範圍，排在這輪產品就緒之後；T-047 的隔離還原與當前撤權對帳持續有效。
 
-[追蹤 #234](https://github.com/FreeTWAI-AI/freedom-platform/issues/234)承接所有工作包，不另開一套需求編號。下表從 `31166e52` 的來源對帳延續，於 2026-10-12 UTC 更新工程／發布狀態；不是完整真人試用驗收。目前兩環境為 R24 `dcb39351`，拒絕離開時保留未儲存活動草稿與媒體，明確捨棄才清除，結果不明的保存以原內容與冪等鍵重試且只建立一場活動。R21 產品流程與 migration165、R22 管理草稿與核准供貨區塊、R23 供貨商品庫分區的發布紀錄保留；最新無 migration 更新見 [R24 收據](rollout-r24-2026-10-12.json)。
+[追蹤 #234](https://github.com/FreeTWAI-AI/freedom-platform/issues/234)承接所有工作包，不另開一套需求編號。下表從 `31166e52` 的來源對帳延續，保留 2026-10-12 UTC 的工程／發布觀察；不是完整真人試用驗收。當時兩環境為 R24 `dcb39351`，拒絕離開時保留未儲存活動草稿與媒體，明確捨棄才清除，結果不明的保存以原內容與冪等鍵重試且只建立一場活動。R21 產品流程與 migration165、R22 管理草稿與核准供貨區塊、R23 供貨商品庫分區及 [R24 收據](rollout-r24-2026-10-12.json)均保留；目前各環境版本以上方2026-10-14觀察為準。
 
 | 使用者承諾／來源 | 原入口與已存在能力 | 本輪實際結果與剩餘條件 | 整合責任與驗收者 |
 | --- | --- | --- | --- |

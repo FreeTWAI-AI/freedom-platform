@@ -19,7 +19,8 @@ function execute(root, cli, pass, env, signal, configFile, listing = false) {
   return new Promise(done => {
     const group = process.platform !== 'win32';
     const files = pass.files.map(file => '(?:^|/)' + file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$');
-    const child = spawn(process.execPath, [cli, 'test', '--config', configFile, '--forbid-only', listing ? '--reporter=json' : '--reporter=list,json', ...(listing ? ['--list'] : []), '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...files],
+    // Print each failure before a whole-pass timeout can prevent the final summary.
+    const child = spawn(process.execPath, [cli, 'test', '--config', configFile, '--forbid-only', listing ? '--reporter=json' : '--reporter=line,json', ...(listing ? ['--list'] : []), '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...files],
       { cwd: root, env, stdio: 'inherit', detached: group });
     let reason, escalation;
     const kill = name => {
