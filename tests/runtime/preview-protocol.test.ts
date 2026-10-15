@@ -2,6 +2,7 @@ import { test,before,after } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import { runInNewContext } from 'node:vm';
 import { Pool } from 'pg';
 import { serve } from '@hono/node-server';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
@@ -47,7 +48,7 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  await assert.rejects(maker.call('reviseCampaign',{...key(),params:Object.create({id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'inherited target must not mutate'}}),TypeError);
  const inheritedOptions=Object.assign(Object.create({params:{id:campaign.campaign_id}}),{...key(),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'inherited options must not mutate'}});
  await assert.rejects(maker.call('reviseCampaign',inheritedOptions),TypeError);
- const updated=await maker.call('reviseCampaign',Object.assign(Object.create(null),{...key(),params:Object.assign(Object.create(null),{id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'updated text'}}));
+ const updated=await maker.call('reviseCampaign',Object.assign(Object.create(null),{...key(),params:runInNewContext('({id})',{id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'updated text'}}));
  assert.deepEqual(updated.source_snapshot,campaign.source_snapshot);
  await assert.rejects(maker.call('reviseCampaign',{...key(),params:{id:campaign.campaign_id},version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'stale'}}),{status:412});
  const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI/freedom-platform',note:'synthetic'}});
@@ -63,6 +64,7 @@ test('SDK refuses protocol skew, redirected credentials, unsafe identifiers and 
  const client=new PlatformClient({baseUrl,csrfToken:'test',fetcher:async(input,options)=>{calls++;assert.equal(options?.redirect,'error');if(String(input).endsWith('/protocol'))return Response.json(metadata);throw new Error('simulated uncertain network outcome');}});
  await client.assertCompatible();calls=0;
  for(const params of [null,42,'',true,[],new Date(),Object.create({id:'10000000-0000-4000-8000-000000000001'})])await assert.rejects(client.call('getHealth',{params}),TypeError);
+ for(const params of runInNewContext('[[],new Date(),new(class Parameters{}),Object.create({id:\"10000000-0000-4000-8000-000000000001\"})]'))await assert.rejects(client.call('getHealth',{params}),TypeError);
  assert.equal(calls,0);
  await assert.rejects(client.call('reviseCampaign',{...key(),params:{id:'../../auth/logout'},version:1,body:{title:'a',audience:'b',goal:'c',draft_text:'d'}}),/identifier/);assert.equal(calls,0);
  for(const field of ['constructor','__proto__'])await assert.rejects(client.call('joinGuild',{...key(),params:{key:'guild_marketing'},body:JSON.parse('{"'+field+'":{"admin":true}}')}),/unknown field/);assert.equal(calls,0);
