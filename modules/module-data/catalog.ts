@@ -14,8 +14,8 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
     reason: "ENABLE without FORCE. The runtime role is not the table owner, so row security already applies to it. FORCE would also subject the migrator, the reviewed definer functions, and owner-run evidence.",
   },
   exemptions: [
-    { table: "commerce_access_devices", dataset_ref: "DC-12", reason_code: "platform_native",
-      reason: "A browser credential spans stores and has no tenant. Only a SHA-256 digest is stored, with absolute 180-day expiry and one-way revocation. Store-scoped grants carry tenant RLS; no public credential inventory or export exists. Retained credential history follows the undecided DC-12 deletion/restore policy." },
+    { table: "commerce_access_devices", dataset_ref: "DC-09", reason_code: "platform_native",
+      reason: "A browser credential spans stores and has no tenant. Only a SHA-256 digest is stored, with absolute 180-day expiry and one-way revocation. Store-scoped grants carry tenant RLS; no public credential inventory or export exists. Retained credential history follows the undecided commerce decision DC12 (retention; decisions.md) deletion/restore policy." },
     {
       table: "users",
       dataset_ref: "DC-01",
