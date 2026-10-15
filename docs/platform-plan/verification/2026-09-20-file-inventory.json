@@ -1764,8 +1764,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 64330,
-      "sha256": "c721515f8a2e6f3e3caf81484a41f5ec43aae40b46fd71499b91a3d7b0b87b8b"
+      "bytes": 64541,
+      "sha256": "a83c546b192cc8245cae7f1036bc46dd6d64bd77b5e0949ad1a84382de30d6f9"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -2349,8 +2349,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/FriendsPanel.tsx",
-      "bytes": 6912,
-      "sha256": "2031799702794104411517f254f97f98a47f5618ede4aacc60a53c80ecb4cb1b"
+      "bytes": 6974,
+      "sha256": "d4617b864f586f560d30347d21c1eb7c6a586556dbf59503e7146644eb01ae4a"
     },
     {
       "path": "apps/portal-web/src/modules/GitHubAuthorFollow.tsx",
@@ -2669,8 +2669,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 34318,
-      "sha256": "45cd3565951d35fd41f3ce25bf5c8f1565845b64c4bd5aab5f8f4192dac592f5"
+      "bytes": 34426,
+      "sha256": "b0fce19637c5e9fce00f9735b2cd7b33095ac332faab291a654cf983dcabdedb"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69685,
-      "sha256": "97df353710311a136bfe907e4dfcf0eb5ee768a20c8e83c67073bc155105f273"
+      "bytes": 70084,
+      "sha256": "ab67bce2d86c99dc0c08f4c875aff5b8bc3e7d6aa0093ab65d4a01fa7d68d7b8"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -21109,8 +21109,8 @@
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
-      "bytes": 5123,
-      "sha256": "97b4ac40a652c971c0ed3e3748172dcc050e97f0bfc5e0bfa961d41eb8ce4820"
+      "bytes": 6169,
+      "sha256": "562c539e46065c13d990f437c24218f70988afc70aa73ee70bdc6387670b1841"
     },
     {
       "path": "tests/e2e/notification-bell-refresh.spec.ts",

@@ -280,6 +280,11 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   members are rechecked before return. The member directory reads the first incoming
   page and shows its total; a notification target outside that page is re-read through
   `GET /members/:id` and shown only while it is still an incoming request.
+  A definitive focused-member 404 omits that target; transient lookup failures
+  instead show the invitation error and retry the same focused lookup. Successful
+  retry still rechecks incoming state and deduplicates the first-page target.
+  “查看完整好友邀請” opens the full panel in incoming scope, not accepted friends;
+  ordinary friend navigation retains its accepted-scope default.
 - `POST /friends/:id/request|accept|remove`: `{}`. First request needs no version;
   accept/remove and renewed removed friendship need current version. Only the
   recipient can accept. Pending requests grant **no** contact access. Remove

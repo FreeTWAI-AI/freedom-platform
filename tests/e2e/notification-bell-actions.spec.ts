@@ -51,6 +51,9 @@ test('clicking an older notification opens its friend response beyond the first 
   const requestNotice=popover.locator('.notification-bell-item.is-unread').filter({hasText:'示範需求者'}).first();
   await expect(requestNotice).toBeVisible();
   const readResponse=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname===`/api/v1/me/notifications/${target!.notification_id}/read`);
+  await page.route('**/api/v1/members/20000000-0000-4000-8000-000000000002',async route=>{
+    await route.fulfill({status:503,json:{status:503,code:'temporarily_unavailable',detail:'Synthetic focused lookup failure'}});
+  },{times:1});
   await requestNotice.click();
   const read=await readResponse;
   expect(read.status()).toBe(200);
@@ -63,10 +66,18 @@ test('clicking an older notification opens its friend response beyond the first 
   const after=await afterResponse.json() as typeof before;
   expect(after.unread_count).toBe(unreadBefore-1);
   expect(after.items.find(item=>item.notification_id===target!.notification_id)?.read_at).toEqual(expect.any(String));
+  await expect(page.getByRole('alert').filter({hasText:'好友邀請暫時無法載入'})).toBeVisible();
+  const retried=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/members/20000000-0000-4000-8000-000000000002'&&response.status()===200);
+  await page.getByRole('button',{name:'重讀好友邀請',exact:true}).click();await retried;
   const request=page.locator('#friend-request-20000000-0000-4000-8000-000000000002');
   await expect(request.getByRole('button',{name:'接受邀請'})).toBeFocused();
   await page.screenshot({path:'test-results/notification-action-desktop.png'});
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/notification-action-phone.png'});
+  await page.getByRole('button',{name:'查看完整好友邀請',exact:true}).click();
+  const friends=page.locator('.friends-panel');
+  await expect(friends.getByRole('button',{name:'收到的邀請',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(friends.getByRole('button',{name:'接受邀請',exact:true})).toHaveCount(20);
+  await expect(friends.getByText('共 102 位待回覆的夥伴',{exact:true})).toBeVisible();
 });
