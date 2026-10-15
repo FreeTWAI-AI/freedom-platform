@@ -422,6 +422,44 @@ test('guild and workshop previews use the brand image, and an ended event opens 
   assert.equal(await pointsOf(endedLink.data.code), 1);
 });
 
+
+test('event referral report is bounded with stable pages and an exact total', async () => {
+  const maker = await signIn(), eventId = randomUUID();
+  await eventRow(eventId, maker.user.user_id, 'open', '分頁分享統計', '驗證有界分享者頁面。');
+  const expected: { userId: string; name: string }[] = [];
+  for (let index = 0; index < 23; index++) {
+    const suffix = index.toString().padStart(12, '0');
+    const userId = `90000000-0000-4000-8000-${suffix}`;
+    const name = `report-${(index === 6 ? 5 : index).toString().padStart(2, '0')}`;
+    await addUser(`report-${index}@example.test`, name, { id: userId });
+    await pool.query('INSERT INTO community_event_share_codes(event_id,user_id,code) VALUES($1,$2,$3)', [eventId, userId, randomBytes(18).toString('base64url')]);
+    expected.push({ userId, name });
+  }
+  expected.sort((left, right) => left.name.localeCompare(right.name) || left.userId.localeCompare(right.userId));
+
+  const first = await request(`/events/${eventId}/referrals?limit=10&offset=0`, maker);
+  assert.equal(first.status, 200, JSON.stringify(first.data));
+  assert.equal(first.data.items.length, 10);
+  assert.equal(first.data.total, 23);
+  assert.equal(first.data.next_offset, 10);
+  const second = await request(`/events/${eventId}/referrals?limit=10&offset=10`, maker);
+  const final = await request(`/events/${eventId}/referrals?limit=10&offset=20`, maker);
+  assert.deepEqual([...first.data.items, ...second.data.items, ...final.data.items].map(item => item.user_id), expected.map(item => item.userId));
+  assert.equal(second.data.total, 23);
+  assert.equal(second.data.next_offset, 20);
+  assert.equal(final.data.items.length, 3);
+  assert.equal(final.data.total, 23);
+  assert.equal(final.data.next_offset, null);
+
+  const empty = await request(`/events/${eventId}/referrals?limit=10&offset=30`, maker);
+  assert.deepEqual(empty.data, { items: [], total: 23, next_offset: null });
+  for (const query of ['limit=0', 'limit=51', 'limit=1.5', 'offset=-1', 'offset=1.5', 'extra=1']) {
+    assert.equal((await request(`/events/${eventId}/referrals?${query}`, maker)).status, 422, query);
+  }
+  assert.equal((await request(`/events/${eventId}/referrals`, await signIn(DEMO_USERS[1].email))).status, 403);
+  assert.equal((await request(`/events/${eventId}/referrals?limit=0`, await signIn(DEMO_USERS[1].email))).status, 403);
+});
+
 test('link creation validates each kind and stays idempotent', async () => {
   const maker = await signIn();
   const closedCard = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });

@@ -22,6 +22,9 @@ type Guild={guild_key:string;name:string;membership?:{state:string;member_tier?:
 const INTERN_WRITE='實習成員可以閱讀公會內容、在公會聊天室聊天；請會長把你設為正式成員後再發布或編輯。';
 const internExchange=(value:{event_kind:string;guild_key:string|null},guilds:Guild[])=>value.event_kind==='guild_skill_exchange'&&guilds.some(guild=>guild.guild_key===value.guild_key&&guild.membership?.state==='active'&&guild.membership.member_tier==='intern');
 type Bulletin={bulletin_id:string;message:string;created_at:string};
+type Referral={user_id:string;member_name:string;registrations:number;clicks:number};
+type ReferralPage={items:Referral[];total:number;next_offset:number|null};
+type ReferralView=ReferralPage&{loading:boolean;error:string};
 export type EventDraft = {title:string;description:string;starts_at:string;ends_at:string;mode:CommunityEvent['mode'];event_kind:CommunityEvent['event_kind'];topic:string;location:string;online_url:string;capacity:string;guild_key:string;visibility:CommunityEvent['visibility']};
 export const blankEvent=():EventDraft=>({title:'',description:'',starts_at:hoursFromNowLocalInput(24),ends_at:hoursFromNowLocalInput(25),mode:'online',event_kind:'other',topic:'',location:'',online_url:'',capacity:'',guild_key:'',visibility:'workshop'});
 function localTime(iso:string) {
@@ -100,7 +103,8 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
   const [notice,setNotice]=useState('');
   const [shareFor,setShareFor]=useState<string|null>(null),[shareUrl,setShareUrl]=useState('');
   const [attendeesFor,setAttendeesFor]=useState<{event_id:string;title:string}|null>(null),attendeesTrigger=useRef<HTMLButtonElement|null>(null);
-  const [reports,setReports]=useState<Record<string,{user_id:string;member_name:string;registrations:number;clicks:number}[]>>({});
+  const [reports,setReports]=useState<Record<string,ReferralView>>({}),reportRequests=useRef<Record<string,number>>({});
+  useEffect(()=>{reportRequests.current={};setReports({});},[client,session.user.user_id]);
   // Only the shell's accepted location may switch the editor. A rejected hash
   // or history change must not hide an unsaved draft before the shell restores it.
   const selectedId=/^#events\/([0-9a-f-]{36})(?:\?.*)?$/.exec(locationHash)?.[1]??(!locationHash?/^\/events\/([0-9a-f-]{36})\/?$/.exec(window.location.pathname)?.[1]??null:null);
@@ -225,9 +229,18 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
       await navigator.clipboard.writeText(url);setNotice('活動專頁連結已複製，分享碼已包含在連結中。');
     }catch(cause){setNotice(cause instanceof Error?cause.message:'連結未能複製，請從下方欄位複製。');}
   }
-  async function report(item:CommunityEvent){
-    try{const result=await client.get<{items:{user_id:string;member_name:string;registrations:number;clicks:number}[]}>(`/events/${item.event_id}/referrals`);setReports(value=>({...value,[item.event_id]:result.items}));}
-    catch(cause){setNotice(cause instanceof Error?cause.message:'分享統計暫時無法讀取。');}
+  async function report(item:CommunityEvent,offset=0){
+    const id=item.event_id,token=(reportRequests.current[id]??0)+1,generation=client.sessionGeneration;
+    reportRequests.current[id]=token;
+    setReports(current=>{const previous=current[id]??{items:[],total:0,next_offset:null};return {...current,[id]:{...previous,loading:true,error:''}}});
+    try{
+      const page=await client.get<ReferralPage>(`/events/${id}/referrals?limit=20&offset=${offset}`);
+      if(reportRequests.current[id]!==token||client.sessionGeneration!==generation)return;
+      setReports(current=>{const previous=current[id]?.items??[];return {...current,[id]:{...page,items:offset?[...previous,...page.items]:page.items,loading:false,error:''}}});
+    }catch(cause){
+      if(reportRequests.current[id]!==token||client.sessionGeneration!==generation)return;
+      setReports(current=>{const previous=current[id]??{items:[],total:0,next_offset:null};return {...current,[id]:{...previous,loading:false,error:cause instanceof Error?cause.message:'分享統計暫時無法讀取。'}}});
+    }
   }
   const upcoming=items.filter(item=>item.state==='published'&&Date.parse(item.ends_at)>Date.now());
   const pending=items.filter(item=>item.state==='pending');
@@ -238,6 +251,7 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
     const started=Date.parse(item.starts_at)<=Date.now(),ended=item.state==='published'&&Date.parse(item.ends_at)<=Date.now(),mine=item.organizer_ref===session.user.user_id;
     const exchangeBlocked=internExchange(item,guilds);
     const canJoin=item.state==='published'&&!started;
+    const referral=reports[item.event_id];
     const statusLabel=item.state==='pending'?'待審核':item.state==='rejected'?'未通過審核':item.state==='cancelled'?'已取消':ended?'已結束':started?'進行中':'開放報名';
     const link=participationUrl(item.location),onlineLink=participationUrl(item.online_url??'');
     return <article className={ended?'card experience-card experience-card-ended':'card experience-card'} key={item.event_id}>
@@ -249,7 +263,7 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
       {exchangeBlocked&&<p className="field-hint">{INTERN_WRITE}</p>}
       <div className="experience-actions">{canJoin&&<button type="button" className={item.my_rsvp==='going'?'btn btn-ghost':'btn btn-primary'} disabled={busy||saving||recoveringSave||(item.my_rsvp!=='going'&&item.capacity!==null&&item.attending_count>=item.capacity)} onClick={()=>void action(item,'rsvp',item.my_rsvp!=='going')}>{item.my_rsvp==='going'?'取消報名':item.capacity!==null&&item.attending_count>=item.capacity?'名額已滿':'我要參加'}</button>}{item.state==='published'&&<a className="btn btn-ghost" href={`#events/${item.event_id}`}>活動專頁</a>}{item.state==='published'&&!ended&&<button type="button" className="btn btn-ghost" onClick={()=>void share(item)}>分享活動</button>}{mine&&item.state==='published'&&<button type="button" className="btn btn-ghost" onClick={event=>{attendeesTrigger.current=event.currentTarget;setAttendeesFor({event_id:item.event_id,title:item.title});}}>報名名單</button>}{mine&&item.state==='published'&&<button type="button" className="btn btn-ghost" onClick={()=>void report(item)}>分享報名統計</button>}{mine&&item.state==='pending'&&!started&&<button type="button" className="btn btn-ghost" disabled={busy||saving||exchangeBlocked} onClick={()=>{if(!leaveGuard.current())return;discardDrafts();setEditing(item.event_id);setEditDraft(fromEvent(item));}}>編輯草稿</button>}{mine&&(item.state==='pending'||item.state==='published')&&<button type="button" className="btn btn-ghost" disabled={busy||saving||recoveringSave||exchangeBlocked} onClick={()=>void action(item,'cancel')}>取消活動</button>}{item.can_review&&<button type="button" className="btn btn-primary" disabled={busy||saving||recoveringSave} onClick={()=>{setReviewing(item.event_id);setReviewReason('');}}>審核活動</button>}</div>
       {shareFor===item.event_id&&shareUrl&&<div className="event-share-link"><label className="field">分享連結<input readOnly value={shareUrl} onFocus={event=>event.target.select()}/><small>推薦碼已包含在連結內；訪客每天點開算 1 分（活動推廣排行榜）。</small></label><button type="button" className="btn btn-ghost" onClick={()=>void navigator.clipboard.writeText(shareUrl).then(()=>setNotice('活動專頁連結已複製。')).catch(()=>setNotice('請選取上方連結手動複製。'))}>複製連結</button></div>}
-      {reports[item.event_id]&&<div className="event-referral-report"><h4>依分享會員統計報名</h4>{reports[item.event_id].length?<ul>{reports[item.event_id].map(row=><li key={row.user_id}>{row.member_name}：點擊 {row.clicks}・報名 {row.registrations} 人</li>)}</ul>:<p>尚無分享報名紀錄。</p>}</div>}
+      {referral&&<div className="event-referral-report"><h4>依分享會員統計報名</h4>{referral.error&&<div className="banner banner-error" role="alert">{referral.error}<button type="button" className="btn btn-ghost" onClick={()=>void report(item,referral.next_offset??0)}>重試</button></div>}{referral.items.length?<ul>{referral.items.map(row=><li key={row.user_id}>{row.member_name}：點擊 {row.clicks}・報名 {row.registrations} 人</li>)}</ul>:!referral.loading&&!referral.error?<p>尚無分享報名紀錄。</p>:null}{referral.loading&&<p role="status">正在讀取分享統計…</p>}{referral.items.length>0&&<p className="field-hint">目前顯示 {referral.items.length} / {referral.total} 位分享會員。</p>}{referral.next_offset!==null&&!referral.loading&&!referral.error&&<button type="button" className="btn btn-ghost" onClick={()=>void report(item,referral.next_offset!)}>載入更多</button>}</div>}
       {participationEnabled&&selectedId===item.event_id&&<EventParticipation client={client} session={session} eventId={item.event_id} eventVersion={item.aggregate_version} rsvpState={item.my_rsvp} referralCode={referralCode(item.event_id)} onChanged={()=>void load()}/>}
       {participationEnabled&&selectedId===item.event_id&&mine&&item.state==='published'&&!started&&!exchangeBlocked&&<EventParticipationOrganizer client={client} session={session} event={item} onChanged={()=>void load()}/>}
       {editing===item.event_id&&<form className="experience-editor" onSubmit={e=>void save(e)}><EventFields value={editDraft} onChange={setEditDraft} guilds={guilds} guildLocked disabled={saving||busy||lastFailureUnknown}/>{internExchange(editDraft,guilds)&&<p className="field-hint">{INTERN_WRITE}</p>}<label className="field">活動海報（選填）<input type="file" accept="image/jpeg,image/png,image/webp" disabled={saving||busy||recoveringSave||internExchange(editDraft,guilds)} onChange={e=>void chooseBanner(e.target.files?.[0]??null,true)}/><small>直式、橫式皆可；JPEG、PNG 或 WebP，20 MB 內會自動調整大小。{editBannerFile?` 已選擇 ${editBannerFile.name}`:''}</small></label>{preparingBanner&&<p className="field-hint" role="status">正在處理圖片…</p>}<label className="field">活動影片（選填）<input type="file" accept="video/mp4,video/webm" disabled={saving||busy||recoveringSave||internExchange(editDraft,guilds)} onChange={e=>chooseVideo(e.target.files?.[0]??null,true)}/><small>MP4 或 WebM，20 MiB 以下。{editVideoFile?` 已選擇 ${editVideoFile.name}`:''}</small></label><EventDraftPreview value={editDraft} banner={editBannerFile} existingBanner={item.banner_url}/><div className="experience-actions"><button className="btn btn-primary" disabled={busy||saving||preparingBanner||Boolean(bannerError)||internExchange(editDraft,guilds)}>儲存修改</button>{bannerError&&(editBannerFile||editVideoFile)&&<button type="button" className="btn btn-ghost" onClick={()=>setBannerError('')}>重試保存</button>}{item.banner_url&&<button type="button" className="btn btn-ghost" disabled={saving||busy||recoveringSave||internExchange(editDraft,guilds)} onClick={()=>void removeBanner(item)}>移除海報</button>}{item.video_url&&<button type="button" className="btn btn-ghost" disabled={saving||busy||recoveringSave||internExchange(editDraft,guilds)} onClick={()=>void removeVideo(item)}>移除影片</button>}<button type="button" className="btn btn-ghost" disabled={saving} onClick={()=>{if(leaveGuard.current())discardDrafts();}}>返回</button></div></form>}

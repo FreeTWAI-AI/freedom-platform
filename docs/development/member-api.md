@@ -363,13 +363,20 @@ these limits across worker restarts. Password hashing uses async scrypt.
 
 ## Organizer event referral reports
 
-`GET /api/v1/events/:id/referrals` returns sharing members' `user_id`,
-`member_name`, registrations and clicks only to the same-community organizer;
-other members receive `403 organizer_required`. The route holds current
-user/session locks and runs the existing organizer authorization and all report
-queries on that same transaction client. After the final projection it checks
-the PostgreSQL wall clock: a SQL wait crossing session expiry returns
-`401 session_expired`, without an `items` projection. Existing statistics,
+`GET /api/v1/events/:id/referrals?limit=20&offset=0` returns a bounded page of
+sharing members' `user_id`, `member_name`, registrations and clicks only to the
+same-community organizer. `limit` defaults to 20 and is capped at 50; `offset`
+must be a non-negative integer. The response includes `items`, the exact
+`total`, and `next_offset` (`null` on the final or an empty trailing page).
+Rows are ordered by registrations descending, then member name and `user_id`
+for stable ties. The Portal renders the first 20 rows and explicitly loads each
+following page without discarding already-visible rows when a request fails.
+
+Other members receive `403 organizer_required`. The route holds current
+user/session locks and runs the organizer authorization and report queries on
+that same transaction client. After the final projection it checks the
+PostgreSQL wall clock: a SQL wait crossing session expiry returns
+`401 session_expired`, without a report page. Existing statistics,
 verification-account exclusions and public event readers are unchanged.
 
 ## Member event bulletins

@@ -484,8 +484,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/community-events.ts",
-      "bytes": 12831,
-      "sha256": "4e7e480da33e86234a2e178df5b9fb3dba18229749cf770816a24d0bd094386e"
+      "bytes": 12837,
+      "sha256": "c4be1d3e0d50247bee1bab15e6f940d870ea243cb7c4a97c7498ddb6191241c4"
     },
     {
       "path": "apps/platform-api/src/routes/contribution-roles.ts",
@@ -2319,8 +2319,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
-      "bytes": 38818,
-      "sha256": "2fdd7b451d138bdb1583d90f29b4813b1830bc40c85dc98bc79a407b34fde7ba"
+      "bytes": 40476,
+      "sha256": "044f22176b61a8e66976c856f5d27a6071107dce8e6a47e06dc3778b3e32e55c"
     },
     {
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69268,
-      "sha256": "a25fbb2f14c08c9e7f98fb7f044f9367fb9496d764f36e88b6f9e4ced0a4c550"
+      "bytes": 69720,
+      "sha256": "ef488f9e71290a924ef13478f2a0f6bd5dc35d9c5a6628706f8050b370c763b3"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17704,8 +17704,8 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 57859,
-      "sha256": "9c488ba410da6ee03d2a2c3c103b2436c1159cfaaf6af242134662feb5c7e173"
+      "bytes": 59401,
+      "sha256": "32162b4aeccbc5d1c2415c4a13cad45061d237472f86948093cf9baf725ff18d"
     },
     {
       "path": "modules/community/first-participation.ts",
@@ -21199,8 +21199,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 27856,
-      "sha256": "46465291b557c740a0afd9d9dc45cdb04ab9d81c15e9445727858e3a39b48e8a"
+      "bytes": 30054,
+      "sha256": "4c32b3b9ac420964557256ef9fe307e9d9350034f93a68ba9f4a9650f1744fe8"
     },
     {
       "path": "tests/e2e/shared-feedback-language.spec.ts",
@@ -23044,8 +23044,8 @@
     },
     {
       "path": "tests/runtime/share-promotion.test.ts",
-      "bytes": 87595,
-      "sha256": "06a8be348c4b603ec2d26764acdb816dc194930c981e350109c1b9ae925c65a6"
+      "bytes": 89972,
+      "sha256": "cdfcc90db8718b2fb34279aa45c94a0716a1ece7037e564600244bd45178d843"
     },
     {
       "path": "tests/runtime/sharing-authoring.test.ts",
