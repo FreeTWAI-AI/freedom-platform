@@ -15214,8 +15214,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 32177,
-      "sha256": "08d581faf5186e595e5e4f624eb30c0ad0e9f663bb600c96fa94511e12b02c12"
+      "bytes": 32442,
+      "sha256": "1ca09eda86e91dcfea845652b033815dc62eedda59d23b49bc904cde8f6c2fc9"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
@@ -15224,8 +15224,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
-      "bytes": 50225,
-      "sha256": "790f04a1439bd87c6ea611940434f85bae09beadef50eaab9b0e59d8b3d29041"
+      "bytes": 50818,
+      "sha256": "f812bb4c648dd0ded97e660d601c74025c7a3a73d1c445e271a98188d5b81952"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-07-operations-skillbooks.md",
@@ -15279,8 +15279,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 15315,
-      "sha256": "81e44bc259b6e6a6ba1ac0461e17f5ccdad29e1ad3afda58a056495c496702aa"
+      "bytes": 15792,
+      "sha256": "f863d7639dce60cea3e0e28a4116ca04806f8784d86212deb70754b043c04843"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",

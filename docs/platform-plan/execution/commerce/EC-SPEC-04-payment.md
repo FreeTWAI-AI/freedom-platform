@@ -290,6 +290,7 @@ interface PaymentPort {
 
 - 綠界協定純函式（CheckMacValue SHA-256／MD5、.NET URL 編碼、AES-128-CBC 信封、表單與回應解析）：提議 `modules/agent-commerce/providers/ecpay/`，新 descriptor（module `commerce-providers`，無資料庫相依）。付款、物流、發票共用。
 - 付款領域、routes 與 outbox：提議 `modules/agent-commerce/payments/`，新 descriptor（module `commerce-payments`，相依 `hosted-checkout`、`commerce-providers`）。
+- 退款分攤的純函式（行項上限、運費建議、分攤檢查，EC-SPEC-06 §2.5）：`modules/agent-commerce/payments/rules/`，M2 的領域與 trigger 之前先建；`commerce-payments` 的 descriptor 隨它登錄，相依在 M2 的 migration 加入。
 - M2（付款）在 M1 之後：§3.1 的表、RLS、trigger、索引；能力 `commerce.hosted-payment.v1` 與強制下限跟 callback 路由同一個 migration 上線——之後回退到不認得 callback 的 binary 會漏接付款，所以不能回退（EC-SPEC-10 §7）。
 - Worker 需要的設定：`COMMERCE_CREDENTIAL_KEYS` secret、callback 路徑的 Access 排除（staging）、查詢與退款 operation 的排程（cron）。都是部署設定，由 Ted 操作（EC-SPEC-10 §4.3、§4.4）。
 
