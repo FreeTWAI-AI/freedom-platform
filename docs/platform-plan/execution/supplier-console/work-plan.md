@@ -30,9 +30,11 @@
 | 用途 API／資料 | A | Codex `gpt-6.1-sol` | 旗標（app、runtime、server、worker、site、E2E fixture 與 E2E server）；`apps/platform-api/src/routes/hosted-supplier-console.ts`（五個讀取與 `PATCH R/supply-profile`），只在新版開啟時掛在 `platform-app.ts` 的 launchpad 區塊內；讀取服務 `modules/agent-commerce/supplier-console/reads.ts`；`updateSupplyProfile`（`supply-catalog.ts`）；從 `publishSupplyOffer` 抽出 `supplyOfferTerms`；descriptor 的 API surface；`tests/runtime/supplier-console.test.ts` 與契約正反例 |
 | 用途 API／資料 | B | agy `gemini-4-argon-high` | 純供貨照片：`photoProducts` 的 `retailOnly` 參數、四個呼叫點與 `hosted-store-media.ts`（只在新版開啟時放寬）；`tests/runtime/supplier-console-writes.test.ts` |
 | 殼層／體驗 | C | Codex `gpt-6.1-sol` | `modules/agent-commerce/supplier-console/**` 的殼層、頁面、controller 與純狀態模組；`HostedStore.tsx` 路由與關閉時的舊頁回退；`App.tsx` 的 h1 與離開檢查；頁面工具登錄；`tests/runtime/supplier-console-state.test.ts` |
-| 旅程／素材 | D | agy `gemini-3.8-flash` | 整合後的 `tests/e2e/supplier-console.spec.ts`、照片 pass 的純供貨案例、截圖 |
+| 旅程／素材 | D1 | agy `gemini-4-argon` | `tests/e2e/supplier-console.spec.ts`：旅程 1～15 連續一條、舊書籤、新版關閉時回退 |
+| 旅程／素材 | D2 | agy `gemini-3.8-flash` | `tests/e2e/supplier-console-cooperation.spec.ts`：步驟 8～11 的分支（改價、改條件、不同意／撤回、同名店、唯讀成員） |
+| 旅程／素材 | D3 | Codex `gpt-6.1-sol` | `tests/e2e/supplier-console-recovery.spec.ts`：J06；照片 pass 的純供貨案例 |
 
-A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以已提交的契約為共同邊界；D 在 A＋B＋C 整合後開始。B 的 agy 輸出只當草稿：Claude 逐項對照程式與測試後才整合。
+A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以已提交的契約為共同邊界；D1～D3 在 A＋B＋C 整合後平行開始，各寫一支 spec。agy 的輸出（B、D1、D2）只當草稿：Claude 逐項對照程式與測試後才整合。
 
 實際分工的調整：原排給 B 的 `PATCH supply-profile` 改由 A 放在新路由檔與 `supply-catalog.ts`，`store.ts` 與 `hosted-store.ts` 都不必修改；契約與 `generate-contracts.ts` 已隨 WP-01 提交。
 
@@ -53,10 +55,13 @@ A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以�
 | `modules/agent-commerce/hosted/photo-{projection,read,commands}.ts`、`publish.ts`、`apps/platform-api/src/routes/hosted-store-media.ts` | agent-commerce | B | `retailOnly`（新版開啟時才放寬） |
 | `tests/helpers/hosted-store-photo.ts` | agent-commerce | B | 測試 app 可帶 runtime 選項 |
 | `apps/portal-web/src/modules/HostedStore.tsx` | agent-commerce | C | 路由與回退 |
-| `apps/portal-web/src/App.tsx` | application-composition、work | C | h1、離開檢查帶目的地 |
-| `apps/portal-web/src/page-help.ts` | application-composition | C | `supplier-console` 說明 |
+| `apps/portal-web/src/App.tsx` | application-composition、work | C | h1、頁面工具的 `pageId`、離開檢查帶目的地 |
+| `apps/portal-web/src/Navigation.tsx` | application-composition | C | 營運中心子頁仍標示供貨商品庫 |
+| `apps/portal-web/src/interface-messages.ts`、`page-help.ts` | application-composition | C | 頁名（五種語言）與 `supplier-console` 說明 |
+| `apps/portal-web/src/modules/newcomer-guides/page-support.ts`、`ai-sister-pages.ts` | newcomer-guides | C | `supplier-console` 登錄為停用（同 `stores`） |
+| `apps/portal-web/src/modules/HostedStorePhoto.tsx` | agent-commerce | C | `product` 參數只取 ID、名稱與版本 |
 | `modules/development/pages.ts` | development | C | `supplier-console` 頁面 |
-| `tests/e2e/hosted-store-photo.spec.ts` | agent-commerce | D | 純供貨照片案例 |
+| `tests/e2e/hosted-store-photo.spec.ts` | agent-commerce | D3 | 純供貨照片案例 |
 | `docs/platform-plan/execution/spec-index.md` | 無 | Claude | 一行索引 |
 
 新檔案全部列入 `supplier-console` descriptor（SC-SPEC-05 §5），避免成為 `selectImpact` 的未知路徑。
@@ -65,7 +70,7 @@ A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以�
 
 ```
 WP-00 → WP-01（含契約）─┬→ A ─┐
-                        ├→ B ─┼→ Claude 整合 → D → WP-06（S1 證據）→ Ted 決定 PR／合併 → WP-07
+                        ├→ B ─┼→ Claude 整合 → D1～D3 → WP-06（S1 證據）→ Ted 決定 PR／合併 → WP-07
                         └→ C ─┘
 S1 合併 → S2
 S1 合併 ＋ D-05 核准 → S3

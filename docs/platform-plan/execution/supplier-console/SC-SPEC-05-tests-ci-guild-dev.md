@@ -14,7 +14,7 @@
 | 契約 | `npm run check:guild-launchpad-contracts`；`tests/runtime/guild-launchpad-contracts.test.ts` 加入新 schema 的正反例 | 無資料庫 | 實際資料與權限 |
 | 前端狀態邏輯 | `tests/runtime/supplier-console-state.test.ts`：路由解析與正規化、attempt 生命週期、草稿與 412、離開判斷。寫法同 `hosted-store-photo-state.test.ts`（直接 import 純狀態模組） | 無資料庫 | 瀏覽器行為 |
 | 隔離 PostgreSQL／HTTP | `tests/runtime/supplier-console.test.ts`（新讀取與旗標）、`tests/runtime/supplier-console-writes.test.ts`（`PATCH supply-profile`、純供貨照片，fake object store）：SC-SPEC-03 的反例 | 拋棄式資料庫（`TEST_DATABASE_URL`，資料庫名 `fp_…`），絕不連 54339 | 部署設定、真 R2 |
-| 整合瀏覽器 | `tests/e2e/supplier-console.spec.ts`：J01、J02、J03（供應端＋賣家端）、J04 供應端、J06；以 `memberFeatures: {supplierConsoleEnabled: true}` 開啟 | 本機 build 後、獨立 `FREEDOM_E2E_PORT`（不用 4310／4312） | 真人是否看得懂 |
+| 整合瀏覽器 | `tests/e2e/supplier-console.spec.ts`（J01、J02、J04 供應端連成一條，加舊書籤與新版關閉時回退）、`supplier-console-cooperation.spec.ts`（J03 供應端＋賣家端、唯讀成員）、`supplier-console-recovery.spec.ts`（J06）；每個案例以 `memberFeatures: {guildLaunchpadEnabled: true, hostedReservationsEnabled: true, supplierConsoleEnabled: true}` 開啟 | 本機 build 後、獨立 `FREEDOM_E2E_PORT`（不用 4310／4312） | 真人是否看得懂 |
 | 真儲存／staging | 照片與（S3）素材在 R2 的寫入、讀取、備份與還原 | Ted 核准後由 release wrapper 操作 | 一般會員採用 |
 | 真人與作者 | SC-SPEC-06 的試用 | Ted 安排 | 負載與完整安全稽核 |
 
@@ -103,7 +103,7 @@
 - `modules/agent-commerce/supplier-console/**`（畫面元件與純狀態模組）
 - `apps/platform-api/src/routes/hosted-supplier-console.ts`
 - `contracts/guild-launchpad/v1/supplier-console.ts` 與 `.schema.json`
-- `tests/runtime/supplier-console.test.ts`、`tests/runtime/supplier-console-writes.test.ts`、`tests/runtime/supplier-console-state.test.ts`、`tests/e2e/supplier-console.spec.ts`
+- `tests/runtime/supplier-console.test.ts`、`tests/runtime/supplier-console-writes.test.ts`、`tests/runtime/supplier-console-state.test.ts`、`tests/e2e/supplier-console.spec.ts`、`tests/e2e/supplier-console-cooperation.spec.ts`、`tests/e2e/supplier-console-recovery.spec.ts`
 
 `context.mjs` 的 `selectImpact` 把沒有擁有者的路徑當成未知，會選到全部模組；每次新增檔案後都要確認 `unknown_paths` 為空。會改到的既有共用檔案與其擁有者列在 [work-plan.md](work-plan.md#3-共用檔案)。
 

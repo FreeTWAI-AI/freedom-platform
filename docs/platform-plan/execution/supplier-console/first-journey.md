@@ -57,7 +57,9 @@ S1 的「素材」是商品照片（含純供貨商品）。給合作店家取�
 | `PATCH supply-profile`、純供貨照片 | `tests/runtime/supplier-console-writes.test.ts` | 隔離 PostgreSQL／HTTP |
 | 路由、attempt、草稿、412、離開判斷 | `tests/runtime/supplier-console-state.test.ts` | 前端狀態邏輯 |
 | 新 schema 正反例 | `tests/runtime/guild-launchpad-contracts.test.ts` | 契約 |
-| 步驟 1～15、J06 | `tests/e2e/supplier-console.spec.ts` | 整合瀏覽器 |
+| 步驟 1～15 連續一條、舊書籤、新版關閉時回退 | `tests/e2e/supplier-console.spec.ts` | 整合瀏覽器 |
+| 步驟 8～11 的分支（改價、改條件、不同意／撤回、同名店、唯讀成員） | `tests/e2e/supplier-console-cooperation.spec.ts` | 整合瀏覽器 |
+| J06 | `tests/e2e/supplier-console-recovery.spec.ts` | 整合瀏覽器 |
 | 步驟 4 的真實上傳 | `tests/e2e/hosted-store-photo.spec.ts`（照片 pass） | 整合瀏覽器 |
 | 共用庫存 6＋5、取消、到期、撤回後歷史 | 既有 `tests/runtime/hosted-shared-orders.test.ts` | 隔離 PostgreSQL／HTTP |
 | 新版關閉時舊頁不變 | 既有 hosted 系列測試（SC-SPEC-05 §2） | 全部層級 |

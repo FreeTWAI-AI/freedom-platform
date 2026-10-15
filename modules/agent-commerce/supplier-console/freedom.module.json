@@ -11,6 +11,8 @@
     "tests/runtime/supplier-console-writes.test.ts",
     "tests/runtime/supplier-console-state.test.ts",
     "tests/e2e/supplier-console.spec.ts",
+    "tests/e2e/supplier-console-cooperation.spec.ts",
+    "tests/e2e/supplier-console-recovery.spec.ts",
     "docs/platform-plan/execution/supplier-console/**"
   ],
   "public_exports": [],
@@ -54,6 +56,33 @@
         "supplier-console.partners",
         "supplier-console.partner",
         "storefront.supply-profile.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.supplier-console-page",
+      "kind": "page",
+      "entry": "modules/agent-commerce/supplier-console/ui/SupplierConsole.tsx",
+      "operations": [
+        "supplier-console.overview",
+        "supplier-console.products",
+        "supplier-console.product",
+        "supplier-console.partners",
+        "supplier-console.partner",
+        "storefront.supply-catalog.read",
+        "storefront.supply-catalog.setup",
+        "storefront.supply-profile.update",
+        "storefront.supply-product.create",
+        "storefront.supply-product.update",
+        "store.supply-terms.update",
+        "store.supply-offer.list",
+        "store.supply-offer.publish",
+        "store.supply-offer.withdraw",
+        "store.distribution.list",
+        "store.distribution.decide",
+        "storefront.reservations.read",
+        "storefront.reservations.configure",
+        "storefront.supplier.orders.list"
       ],
       "auth_profile": "member-session"
     }
