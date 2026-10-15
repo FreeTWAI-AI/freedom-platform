@@ -1,7 +1,9 @@
 export type EcpayErrorCode =
   | 'invalid_key'
+  | 'invalid_check_code'
   | 'invalid_text'
   | 'invalid_input'
+  | 'unsupported_environment'
   | 'malformed_form'
   | 'duplicate_field'
   | 'form_too_large'
@@ -13,8 +15,10 @@ export type EcpayErrorCode =
 
 const ERROR_MESSAGES: Readonly<Record<EcpayErrorCode, string>> = Object.freeze({
   invalid_key: 'Invalid ECPay HashKey or HashIV; expected a 16-character alphanumeric string.',
+  invalid_check_code: 'Invalid ECPay CreditCheckCode; expected an 8-digit numeric string.',
   invalid_text: 'Invalid text encoding; input contains malformed UTF-8 or a lone UTF-16 surrogate.',
   invalid_input: 'Invalid input parameter for ECPay protocol operation.',
+  unsupported_environment: 'ECPay operation is only supported in the live environment.',
   malformed_form: 'Malformed URL-encoded form body or field key.',
   duplicate_field: 'Duplicate form field key (case-insensitive).',
   form_too_large: 'Form body exceeds maximum byte length or field count.',
