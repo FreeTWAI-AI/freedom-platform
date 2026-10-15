@@ -513,6 +513,14 @@ test('public pages escape member text, page, and filter without echoing a bad qu
   assert.match(junk.html, /S13/);
   assert.equal(junk.html.includes('nope'), false);
   assert.equal(junk.html.includes('<script'), false);
+  for(const category of ['constructor','__proto__','toString','hasOwnProperty']){
+    const member=await request('/member-services?category='+category,maker);
+    assert.equal(member.status,422,category);assert.equal(member.data.code,'validation_failed',category);
+    const fallback=await html('/services?category='+category);
+    assert.equal(fallback.status,200,category);assert.equal(fallback.html,first.html,category);
+  }
+  const memberLanguage=await request('/member-services?category=language',maker);
+  assert.equal(memberLanguage.status,200);assert.deepEqual(memberLanguage.data.items.map((item:any)=>item.title),['S02','S01']);
   const unknown = await html(`/services/${randomUUID()}`);
   assert.equal(unknown.status, 404);
   assertLogo(unknown.html);

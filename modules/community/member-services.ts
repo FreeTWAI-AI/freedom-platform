@@ -75,7 +75,7 @@ function encodeCursor(updatedAt: string, id: string) { return Buffer.from(`${upd
 function categoryOf(raw: string | undefined, strict: boolean) {
   const value = raw ?? '';
   if (!value) return '';
-  if (value in SERVICE_CATEGORY_LABELS) return value as ServiceCategory;
+  if (Object.hasOwn(SERVICE_CATEGORY_LABELS, value)) return value as ServiceCategory;
   if (strict) throw new Problem(422, 'validation_failed', '分類篩選不正確。');
   return '';
 }
