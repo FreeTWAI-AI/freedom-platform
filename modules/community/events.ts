@@ -275,7 +275,9 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND state='pending' AND created_at<=clock_timestamp()-interval '10 minutes'",[id]);
     let existing=(await q.query('SELECT state,registration_attempt_id FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[id,email])).rows[0];
     if(!existing||existing.state==='cancelled'){
-      requireCondition(row.capacity===null||await countEventSeats(q,id)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
+      // The same normalized guest's live invitation already reserves this seat.
+      const mineReserved=(await q.query("SELECT 1 FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2 AND status='invited' AND expires_at>clock_timestamp()",[id,email])).rowCount===1;
+      requireCondition(row.capacity===null||await countEventSeats(q,id)-(mineReserved?1:0)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
       existing=(await q.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,state,referred_by_user_id,created_at) VALUES($1,$2,$3,'pending',$4,clock_timestamp())
         ON CONFLICT(event_id,email) DO UPDATE SET state='pending',name=EXCLUDED.name,created_at=EXCLUDED.created_at,registration_attempt_id=EXCLUDED.registration_attempt_id,
           referred_by_user_id=COALESCE(community_event_guest_rsvps.referred_by_user_id,EXCLUDED.referred_by_user_id)

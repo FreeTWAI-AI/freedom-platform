@@ -721,6 +721,14 @@ confirmed/live pending occupancy; excess newest unaccepted offers return to
 their original queue positions. Genuine transitions retain factual history,
 not invented participant actions or attendance.
 
+The original public guest registration endpoint also credits that same normalized
+Email's live invitation when creating or reviving its own RSVP (#767), matching
+the original member RSVP behavior. The public form remains an explicit request:
+only the existing provider-accepted flow confirms Going and marks the offer
+accepted. Another guest's offer, or an expired offer reassigned to the next
+candidate, cannot be consumed; failure does not send participation mail or
+allocate an extra seat.
+
 A new acceptance checks PostgreSQL's current clock after reconciliation and
 eligibility reads, then again after the RSVP, queue/journal and success receipt
 writes. Waiting past the original offer deadline returns
