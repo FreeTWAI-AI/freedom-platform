@@ -184,6 +184,11 @@ JavaScript Date 毫秒值重建（#728）。貼文依 `(created_at,post_id)` 降
 
 每位社員最多 5 項 `active` 或 `paused` 服務。隱藏與刪除不計入，上限在交易裡用 advisory lock 檢查，沒有資料庫 CHECK。分類是 `hair_beauty` 美髮造型・假髮、`courses` 課程・教學、`language` 語言教學、`design` 設計、`photo_video` 攝影・影音、`tech` 技術・開發、`consulting` 顧問・諮詢、`handmade` 手作・商品、`other` 其他。服務方式是 `online`、`in_person` 或 `both`。
 
+`category` 與 `service_mode` 必須是上述列舉的原始字串，不做 `String(...)`
+強制轉型（#769）。單元素或巢狀陣列、物件、null 等錯誤型別均由共享驗證器
+回傳欄位問題；建立／編輯 API 回 `422 validation_failed`，不進 command、
+不增加服務版本或占用 Idempotency-Key。修正為合法字串後可沿原 key 重試。
+
 標題 1–80 字、簡介 1–160 字、說明最多 2000 字、價格與地區各最多 60 字。聯絡方式 1–3 個，名稱 1–20 字。網址必須是 https，沒有帳密、非預設埠、本機或 IP 主機，並用 `normalizeShareUrl` 正規化後儲存。表單送出前跑同一份檢查。
 
 建立、修改、暫停、恢復與刪除只有主人能做。修改、暫停、恢復、刪除、封面與隱藏都要 `If-Match` 的 `aggregate_version`，並用 Idempotency-Key。刪除是軟刪除（`state=deleted`），同時刪掉封面。暫停只給主人在「我的服務」看見；公開頁與 `/go/` 都回到找不到。平台管理員可隱藏；公會長不行。隱藏後各處都看不到，`/go/` 回到首頁。擁有者停用或是驗收測試帳號時，其他人與公開頁都看不到，主人仍可在會員介面看見自己的有效服務。
