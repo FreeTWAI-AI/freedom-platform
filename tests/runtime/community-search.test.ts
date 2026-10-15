@@ -179,6 +179,82 @@ test('HTTP optional auth, feature flag and topic version boundaries remain enfor
   assert.equal((await createApp(pool,origin).request(query)).status,404);
 });
 
+test('HTTP cursors reject decoded controls and extra fields without content or search-operation facts', async () => {
+  const origin = 'http://127.0.0.1:4310';
+  const app = createApp(pool, origin, 'local', { communitySearchEnabled: true, participationMetricsEnabled: true });
+  const sign = await app.request(origin + '/api/v1/auth/login', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: DEMO_USERS[0].email, password: DEMO_PASSWORD }) });
+  assert.equal(sign.status, 200);
+  const cookie = sign.headers.get('set-cookie')!.split(';')[0];
+  const sort = '2026-01-01T00:00:00.000001Z';
+  const tuple = `${sort}\nevent\nnormal-id`;
+  const invalid = [
+    ...Array.from({ length: 32 }, (_, code) => `${sort}\nevent\nid${String.fromCharCode(code)}suffix`),
+    `${sort}\nevent\nid\u007fsuffix`,
+    `${tuple}\n`, `${tuple}\nextra`, `${tuple}\n\u0000`,
+    `${sort}\nevent\n`, `${sort}\nunknown\nid`, `${sort}\nevent\n${'x'.repeat(101)}`,
+    '2026-01-01T00:00:00.001Z\nevent\nid',
+  ];
+  const facts = async () => (await pool.query(`SELECT
+    (SELECT count(*)::int FROM community_search_operations) AS operations,
+    (SELECT count(*)::int FROM command_receipts) AS receipts,
+    (SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+  const before = await facts();
+  for (const headers of [new Headers(), new Headers({ Cookie: cookie })]) {
+    for (const decoded of invalid) {
+      const cursor = Buffer.from(decoded).toString('base64url');
+      const response = await app.request(origin + '/api/v1/community-search?' + new URLSearchParams({ kinds: 'event', cursor }), { headers });
+      assert.equal(response.status, 422);
+      const body: unknown = await response.json();
+      assert.ok(body && typeof body === 'object' && 'code' in body && 'detail' in body);
+      assert.equal(body.code, 'invalid_cursor');
+      assert.equal(body.detail, '分頁標記不正確。');
+      assert.equal('items' in body || 'operation_id' in body || 'next_cursor' in body, false);
+      assert.equal(JSON.stringify(body).includes('normal-id'), false);
+    }
+  }
+  assert.deepEqual(await facts(), before);
+  const off = createApp(pool, origin);
+  assert.equal((await off.request(origin + '/api/v1/community-search?cursor=' + Buffer.from(invalid[0]!).toString('base64url'))).status, 404);
+  // Skill IDs retain their existing slug format and exact 100-character bound.
+  for (const id of [communityCatalog.skill_books[0].id, 'x'.repeat(100)]) {
+    const cursor = Buffer.from(`2000-01-01T00:00:00.000000Z\nskill_book\n${id}`).toString('base64url');
+    assert.equal((await app.request(origin + '/api/v1/community-search?' + new URLSearchParams({ kinds: 'skill_book', cursor }))).status, 200);
+  }
+});
+
+test('HTTP event continuations preserve exact microseconds and public versus member scope', async () => {
+  const origin = 'http://127.0.0.1:4310';
+  const app = createApp(pool, origin, 'local', { communitySearchEnabled: true });
+  const sign = await app.request(origin + '/api/v1/auth/login', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: DEMO_USERS[0].email, password: DEMO_PASSWORD }) });
+  assert.equal(sign.status, 200);
+  const cookie = sign.headers.get('set-cookie')!.split(';')[0];
+  const tied = [randomUUID(), randomUUID()].sort(), older = randomUUID(), privateId = randomUUID();
+  for (const [id, visibility, time] of [
+    ...tied.map(id => [id, 'open', '2026-01-01T00:00:00.000002Z']),
+    [older, 'open', '2026-01-01T00:00:00.000001Z'],
+    [privateId, 'workshop', '2026-01-01T00:00:00.000003Z'],
+  ]) {
+    await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,online_url,state,visibility,event_kind,created_at)
+      VALUES($1,$2,$3,'HTTP微秒游標716','公開摘要',now()+interval '1 day',now()+interval '2 days','online','游標私人位置','https://example.com/private716','published',$4,'other',$5)`,
+    [id, DEMO_COMMUNITY, DEMO_USERS[1].user_id, visibility, time]);
+  }
+  for (const [headers, expected] of [[{}, [...tied, older]], [{ Cookie: cookie }, [privateId, ...tied, older]]] as const) {
+    const seen: string[] = []; let cursor: string | undefined;
+    do {
+      const response = await app.request(origin + '/api/v1/community-search?' + new URLSearchParams({ q: 'HTTP微秒游標716', kinds: 'event', limit: '1', ...(cursor ? { cursor } : {}) }), { headers });
+      assert.equal(response.status, 200);
+      const page = communitySearchPageSchema.parse(await response.json());
+      seen.push(...page.items.map(row => row.id));
+      assert.ok(seen.length <= expected.length, 'cursor cannot repeat an event');
+      assert.equal(JSON.stringify(page).includes('游標私人位置'), false);
+      assert.equal(JSON.stringify(page).includes('https://example.com/private716'), false);
+      cursor = page.next_cursor ?? undefined;
+      if (cursor) assert.match(Buffer.from(cursor, 'base64url').toString('utf8'), /^2026-01-01T00:00:00\.00000[23]Z\nevent\n/);
+    } while (cursor);
+    assert.deepEqual(seen, expected);
+  }
+});
+
 test('cross-community private titles and topics are absent while public events remain discoverable', async () => {
   const otherCommunity=randomUUID(),otherUser=randomUUID(),post=randomUUID(),event=randomUUID();
   await pool.query('INSERT INTO communities VALUES($1,$2)',[otherCommunity,'另一社群']);

@@ -13999,8 +13999,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 70224,
-      "sha256": "cd32bf0c1395e7b7ddab8410b0e271ce6e262c863dc77fc58dfe23670f2e54a9"
+      "bytes": 71217,
+      "sha256": "c7af32923979092cd6e6a401187221dd289bef4379fac167871b2c08fe312725"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17669,8 +17669,8 @@
     },
     {
       "path": "modules/community/content-search.ts",
-      "bytes": 21401,
-      "sha256": "c5c28018188e9770452a571180b5740b2dc4ae1a875f42eebf154481fd2e00ce"
+      "bytes": 21487,
+      "sha256": "554acec7b7f0c50514a7ab39e5076a879477d4e04137c115ae089aa5d498c1f7"
     },
     {
       "path": "modules/community/discovery.ts",
@@ -21774,8 +21774,8 @@
     },
     {
       "path": "tests/runtime/community-search.test.ts",
-      "bytes": 30930,
-      "sha256": "e24a2db11db13f83651d2f4b6fa99594535835386dd8284a131fff84466cb902"
+      "bytes": 36110,
+      "sha256": "b8f3032256a2c219f87beb085484af075502437b7e0c7d5d296e3e642a0d238e"
     },
     {
       "path": "tests/runtime/contribution-roles.test.ts",
