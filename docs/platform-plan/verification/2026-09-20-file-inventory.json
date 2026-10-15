@@ -14124,8 +14124,8 @@
     },
     {
       "path": "docs/development/repository-integration.md",
-      "bytes": 8514,
-      "sha256": "9f271e1d3e475078ca3b2a90c9e96fc252c935d5bcd30d96fb14ce22f892dceb"
+      "bytes": 9225,
+      "sha256": "268faf17eaafcb595a8552e3602678b9ef4657acbe8279f9559c99dbeb0c1174"
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
@@ -21469,8 +21469,8 @@
     },
     {
       "path": "tests/integration/repositories.test.ts",
-      "bytes": 17561,
-      "sha256": "d26b19e791a9dd1c85c4ad58ff779251f9efd632def1f63e942bc884c0f2c24c"
+      "bytes": 18003,
+      "sha256": "7988a87e9d677a98f10e61a388b61d585dcd6153ccbb420f9c405ed343b2fdbf"
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
@@ -21481,6 +21481,11 @@
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
       "bytes": 11576,
       "sha256": "436651a850a09c0fa335f5d1745c7b03d594587af47e1911bd2add1d0610c66c"
+    },
+    {
+      "path": "tests/integration/helpers/request-drain.ts",
+      "bytes": 728,
+      "sha256": "43eac22ed046f05664121d8845f187d4d86ddde1d1ea51d48340bf8bdf9ae6ae"
     },
     {
       "path": "tests/integration/helpers/storefront-photo-restore-fixtures.ts",
