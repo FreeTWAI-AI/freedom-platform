@@ -2,7 +2,7 @@
 
 ## 供應商營運中心（2026-10-15）
 
-[Supplier Console 規格](supplier-console/README.md)：現況差異、SC-01～12 頁面對照、SC-SPEC-01～06、工作包與第一條供貨旅程。進度沿用 #234，驗收全部 `not_run`；不改下列既有規格的狀態。
+[Supplier Console 規格](supplier-console/README.md)：現況差異、SC-01～12 頁面對照、SC-SPEC-01～06、工作包與第一條供貨旅程；v1.1 物流補充的 SL-01～05 頁面規格在 SC-SPEC-07（領域屬 Commerce）。進度沿用 #234，驗收全部 `not_run`；不改下列既有規格的狀態。
 
 ## 公會啟動台與可攜業務空間（2026-10-05 target）
 

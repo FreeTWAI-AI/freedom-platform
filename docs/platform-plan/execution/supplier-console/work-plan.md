@@ -27,12 +27,14 @@
 
 | 線 | S1 job | 執行者 | 內容 |
 | --- | --- | --- | --- |
-| 用途 API／資料 | A | Codex `gpt-6.1-sol` | 旗標（app、worker、site、E2E fixture）；`apps/platform-api/src/routes/hosted-supplier-console.ts` 掛在 `platform-app.ts:692-698` 的 launchpad 區塊內；讀取服務 `modules/agent-commerce/supplier-console/reads.ts`；從 `publishSupplyOffer` 抽出 `supplyOfferTerms`；契約登錄到 `generate-contracts.ts` 並產生 schema；nested descriptor；`tests/runtime/supplier-console.test.ts` |
-| 用途 API／資料 | B | agy `gemini-4-argon-high` | `PATCH R/supply-profile`（`store.ts`＋`hosted-store.ts`）；`photoProducts` 的 `retailOnly` 參數與四個呼叫點；`tests/runtime/supplier-console-writes.test.ts` |
+| 用途 API／資料 | A | Codex `gpt-6.1-sol` | 旗標（app、runtime、server、worker、site、E2E fixture 與 E2E server）；`apps/platform-api/src/routes/hosted-supplier-console.ts`（五個讀取與 `PATCH R/supply-profile`），只在新版開啟時掛在 `platform-app.ts` 的 launchpad 區塊內；讀取服務 `modules/agent-commerce/supplier-console/reads.ts`；`updateSupplyProfile`（`supply-catalog.ts`）；從 `publishSupplyOffer` 抽出 `supplyOfferTerms`；descriptor 的 API surface；`tests/runtime/supplier-console.test.ts` 與契約正反例 |
+| 用途 API／資料 | B | agy `gemini-4-argon-high` | 純供貨照片：`photoProducts` 的 `retailOnly` 參數、四個呼叫點與 `hosted-store-media.ts`（只在新版開啟時放寬）；`tests/runtime/supplier-console-writes.test.ts` |
 | 殼層／體驗 | C | Codex `gpt-6.1-sol` | `modules/agent-commerce/supplier-console/**` 的殼層、頁面、controller 與純狀態模組；`HostedStore.tsx` 路由與關閉時的舊頁回退；`App.tsx` 的 h1 與離開檢查；頁面工具登錄；`tests/runtime/supplier-console-state.test.ts` |
 | 旅程／素材 | D | agy `gemini-3.8-flash` | 整合後的 `tests/e2e/supplier-console.spec.ts`、照片 pass 的純供貨案例、截圖 |
 
 A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以已提交的契約為共同邊界；D 在 A＋B＋C 整合後開始。B 的 agy 輸出只當草稿：Claude 逐項對照程式與測試後才整合。
+
+實際分工的調整：原排給 B 的 `PATCH supply-profile` 改由 A 放在新路由檔與 `supply-catalog.ts`，`store.ts` 與 `hosted-store.ts` 都不必修改；契約與 `generate-contracts.ts` 已隨 WP-01 提交。
 
 ## 3. 共用檔案
 
@@ -40,16 +42,16 @@ A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以�
 
 | 檔案 | Descriptor 擁有者 | Job | 改動 |
 | --- | --- | --- | --- |
-| `apps/platform-api/src/app.ts` | application-composition、work | A | `supplierConsoleEnabled` 選項 |
-| `apps/platform-api/src/worker.ts` | application-composition、work | A | 讀環境變數 |
-| `apps/platform-api/src/platform-app.ts` | work | A | `site` 欄位、掛新路由 |
-| `tests/e2e/member-feature-fixture.ts` | e2e-harness | A | `Features` 加旗標 |
-| `modules/guild-workspace/generate-contracts.ts` | guild-workspace | A | 新 bundle |
+| `apps/platform-api/src/app.ts`、`runtime.ts`、`server.ts`、`worker.ts` | application-composition、work | A | `supplierConsoleEnabled` 選項與環境變數 |
+| `apps/platform-api/src/platform-app.ts` | work | A | `site` 欄位；在 launchpad 區塊內依旗標掛新路由 |
+| `apps/portal-web/src/modules/Community.tsx` | community | A | `SiteConfig` 加 `supplier_console_enabled` |
+| `tests/e2e/member-feature-fixture.ts`、`scripts/e2e-server.ts` | e2e-harness | A | `Features` 與 E2E server 加旗標 |
+| `modules/guild-workspace/generate-contracts.ts` | guild-workspace | WP-01 | 新 bundle（隨契約提交） |
 | `tests/runtime/guild-launchpad-contracts.test.ts` | guild-workspace | A | 新 schema 正反例 |
 | `modules/agent-commerce/hosted/distribution.ts` | agent-commerce、hosted-distribution | A | 抽出 `supplyOfferTerms` |
-| `modules/agent-commerce/hosted/store.ts` | agent-commerce | B | `updateSupplyProfile` |
-| `apps/platform-api/src/routes/hosted-store.ts` | agent-commerce | B | `PATCH supply-profile` |
-| `modules/agent-commerce/hosted/photo-{projection,read,commands}.ts`、`publish.ts` | agent-commerce | B | `retailOnly` |
+| `modules/agent-commerce/hosted/supply-catalog.ts` | agent-commerce | A | `updateSupplyProfile` |
+| `modules/agent-commerce/hosted/photo-{projection,read,commands}.ts`、`publish.ts`、`apps/platform-api/src/routes/hosted-store-media.ts` | agent-commerce | B | `retailOnly`（新版開啟時才放寬） |
+| `tests/helpers/hosted-store-photo.ts` | agent-commerce | B | 測試 app 可帶 runtime 選項 |
 | `apps/portal-web/src/modules/HostedStore.tsx` | agent-commerce | C | 路由與回退 |
 | `apps/portal-web/src/App.tsx` | application-composition、work | C | h1、離開檢查帶目的地 |
 | `apps/portal-web/src/page-help.ts` | application-composition | C | `supplier-console` 說明 |

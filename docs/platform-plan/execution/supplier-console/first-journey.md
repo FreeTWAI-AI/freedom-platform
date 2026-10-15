@@ -20,7 +20,7 @@ S1 的「素材」是商品照片（含純供貨商品）。給合作店家取�
 
 | 步 | 誰 | 畫面 | API | 預期 | 驗收 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | A | 公會區塊「開始供貨設定」→ `#stores/<t>/<i>/supply` | `GET R/supply-profile` → 409 未設定 → `POST R/supply-profile` | 只顯示設定表單，其餘導覽停用並說明；建立後進入概覽；沒有要求零售網址 | AT-01 |
+| 1 | A | 公會區塊「開始供貨設定」→ `#stores/<t>/<i>/supply` | `GET R/supply-profile` 回 `setup_state=setup_required` → `POST R/supply-profile` | 只顯示設定表單，其餘導覽停用並說明；建立後進入概覽；沒有要求零售網址 | AT-01 |
 | 2 | A | 概覽 | `GET R/supplier-console/overview` | 四項指標為 ready 的 0、待辦為空、第一步「新增商品」可按 | AT-39 |
 | 3 | A | `…/supply/products/new` | `POST R/supply-products` | 進入商品詳情；所有欄位讀回相同；金額標示「供貨單價」 | AT-05 |
 | 4 | A | 商品詳情「照片」 | 照片命令（純供貨商品） | 預覽、上傳、讀回；公開頁不出現 | AT-11 |

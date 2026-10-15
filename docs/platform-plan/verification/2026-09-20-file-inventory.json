@@ -15204,8 +15204,8 @@
     },
     {
       "path": "docs/platform-plan/execution/spec-index.md",
-      "bytes": 23806,
-      "sha256": "2bc6863da17b8c8fa454500039033df5b79d8460e26eea8762eb1415887cfbef"
+      "bytes": 23891,
+      "sha256": "371feee4720300c1710751bec260e6011879a8003a94cbff70fa8b67243faaee"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-01-ia-visual.md",
-      "bytes": 7925,
-      "sha256": "cfc7d6ce044b9d52b33086bf27d5601c8134e2a69797ee917b7ebe7e4813f943"
+      "bytes": 7988,
+      "sha256": "0d669edaf004336e096d5b9ae8b54a68a24b86e394157cb27d23d1a9ae376f37"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-02-shell-session-recovery.md",
@@ -15459,8 +15459,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-03-commerce-reads-writes.md",
-      "bytes": 9252,
-      "sha256": "45029e52d4a8785cd04a46546f3271ccd7148d2f02809536ce6f676fd93c610c"
+      "bytes": 10145,
+      "sha256": "74499915d471a4bfe3f17a45e6ae5de02ef82cd97f8a4d93e7ee7102f6e92615"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-04-materials-settings-reports.md",
@@ -15469,8 +15469,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 10066,
-      "sha256": "6de6ead49b5d2502be096e88b14e70196b5748d85cec584a8953ba35761ebe8a"
+      "bytes": 11580,
+      "sha256": "45501b81cb0e5fe80fdc999bcb6fd35da58c2b5844e7cd41dcc81b9b4454db5a"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -15489,13 +15489,13 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/first-journey.md",
-      "bytes": 6268,
-      "sha256": "97380528e18cd3e8fcc6230293b90ba6472bba3899f39f9898d5a70f923ed667"
+      "bytes": 6283,
+      "sha256": "3f681f03c46df38deff2e739882df50087ab390a30595d516d80d299d29dcaec"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/pages.md",
-      "bytes": 11879,
-      "sha256": "44ca695e28ff128b92e2fcede61cfb5c0967d71acc5a0a10d99b43156ba540fc"
+      "bytes": 12210,
+      "sha256": "4ca3464f1b3d2f8dfc1eb7760c052f1e4f60d7c23ac444f802c6587232ec11f0"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/refferq-adoption.md",
@@ -15509,8 +15509,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 8371,
-      "sha256": "147f720a071950157d732e55da8f579e9a421cf091351ddd3d011c77f6d4f9be"
+      "bytes": 8992,
+      "sha256": "bf74173cdea322f96fe1bb6907383eb48d1c79b15f9ba9ef0df61a39901bed45"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",

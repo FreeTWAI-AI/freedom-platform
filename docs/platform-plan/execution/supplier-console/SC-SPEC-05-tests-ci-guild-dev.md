@@ -67,6 +67,17 @@
 | AT-44 | E2E：同一資料在新版關閉時由舊頁正確顯示 |
 | AT-23～28、32、35、43 | S3（SC-SPEC-04） |
 
+新測試以前綴命名，從測試輸出可以直接對回這裡：
+
+| 前綴 | 檔案 | 涵蓋 |
+| --- | --- | --- |
+| `SC-FLAG-01`～`06` | `tests/runtime/supplier-console.test.ts` | Node 與 Worker 的開關預設關、只接受精確的 true；Worker 啟動檢查拒絕拼錯與缺 launchpad；`site` 欄位需要兩個開關 |
+| `SC-API-01`～`10` | 同上 | 新版關閉時新路由 404、舊讀取不變（AT-44）；未設定回 409；空商品庫是 ready 的 0（AT-39）；旅程計數、目前條件與同名店（AT-05、12、13、15、16、30、31）；預留只給 owner、讀取不結算（AT-22）；能力、tenant、session 與私人快取（AT-04、37）；詳情不透露他人資料；`PATCH supply-profile` 的版本檢查、權限與凍結名稱；完整清單與待辦上限；合作狀態分桶與共用容量（AT-14、30） |
+| `SC-PHOTO-01`～`06` | `tests/runtime/supplier-console-writes.test.ts` | 新版關閉時純供貨照片 404 且不寫入；開啟時清單、上傳、讀取、重播、412、移除；viewer 只見 metadata（AT-04、37）；公開與合作投影不含純供貨商品（AT-11）；容量計算與零售照片相同；關閉後照片保留（AT-44） |
+| `SC-UI-nn` | `tests/runtime/supplier-console-state.test.ts` | 路由、導覽、操作結果分類、未確認操作登錄、草稿、離開判斷、篩選定義與文案 |
+
+測試名稱裡的 AT 編號只表示對應關係；驗收狀態仍依 §1，在同一個候選 commit 記下證據後才改。
+
 純供貨照片的瀏覽器案例放進既有的照片 pass（`FREEDOM_E2E_STORE_PHOTO_FIXTURE=1`，`scripts/run-e2e.mjs`），加在 `tests/e2e/hosted-store-photo.spec.ts`，不新增 pass、不改 runner。
 
 ## 4. 效能

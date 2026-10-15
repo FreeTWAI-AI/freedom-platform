@@ -21,7 +21,7 @@
 | 預留與訂單 | `…/supply/reservations` |
 | 設定與資料 | `…/supply/settings` |
 
-- `<tenant>`、`<instance>`、`<product_id>`、`<partner_id>`、`<selection_id>` 都必須通過 `OpaqueId`；query 只接受上表的鍵與值，其餘忽略並以 `replaceState` 改寫成標準形式。
+- `<tenant>`、`<instance>`、`<product_id>`、`<partner_id>`、`<selection_id>` 都必須通過 `OpaqueId`；query 只接受上表的鍵與值，其餘一律忽略（當作沒有），不以 `replaceState` 改寫網址；畫面產生的連結一律是標準形式。
 - 先切開 path 與 query，再解析；query 永遠不會被當成 tenant 或 instance。
 - 未知頁名（例如 `…/supply/reports` 在 S3 前）顯示「找不到這個頁面」與「回到營運概覽」，不自動建立任何資料。
 - 舊入口：`#stores/<t>/<i>/supply` 就是概覽，書籤不變；新版開啟時 `#stores/<t>/<i>/supply-orders` 顯示營運中心的預留頁（同一事業）。launchpad 關閉時沿用既有歷史訂單頁。`#stores/supply`（商品庫清單）不變。
