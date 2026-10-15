@@ -8,10 +8,11 @@ import {createSharedQuote} from '../../modules/agent-commerce/hosted/shared-quot
 import {submitDirectOrder} from '../../modules/agent-commerce/hosted/direct-orders.js';
 import {submitSharedOrderOutcome} from '../../modules/agent-commerce/hosted/shared-orders.js';
 import {inventoryPositions} from '../../modules/agent-commerce/hosted/inventory.js';
-import {applyConfirmedPayment,recordHandover,restockReturn,releaseAllocation,cancelUnpaidOrder,settleDueCheckoutHolds,sweepDueCheckoutHolds,retryAllocation,freezeCheckout,placeCheckoutOrder,ensureCustomer} from '../../modules/agent-commerce/checkout/index.js';
+import {applyConfirmedPayment,recordHandover,restockReturn,releaseAllocation,cancelPaidOrder,cancelUnpaidOrder,settleDueCheckoutHolds,sweepDueCheckoutHolds,retryAllocation,freezeCheckout,placeCheckoutOrder,ensureCustomer} from '../../modules/agent-commerce/checkout/index.js';
 import {checkoutHarness,code,ok,ports,type CheckoutHarness} from './hosted-checkout-harness.js';
 let x:CheckoutHarness;
 before(async()=>{x=await checkoutHarness('fp_checkout_core');});beforeEach(async()=>x.reset());after(async()=>x?.stop());
+const stockFacts=async()=>Promise.all(['SELECT * FROM commerce_items ORDER BY item_id','SELECT * FROM commerce_inventory_allocations ORDER BY allocation_id','SELECT * FROM commerce_inventory_movements ORDER BY movement_id','SELECT * FROM commerce_checkout_orders ORDER BY order_id'].map(async sql=>(await x.h.pool.query(sql)).rows));
 const position=async(id:string)=>(await x.tx(q=>inventoryPositions(q,[id]))).get(id);
 const payment=(id:string,total=500,ref:string=randomUUID(),extra:Partial<Parameters<typeof applyConfirmedPayment>[1]>={})=>x.tx(q=>applyConfirmedPayment(q,{orderId:id,paymentRef:ref,amountMinor:total,currency:'TWD',simulated:false,...extra}));
 
@@ -207,4 +208,27 @@ test('an open order with only an amount mismatch remains unresolved on the same 
   await assert.rejects(x.place(s,c),e=>code('unresolved_order')(e)&&(e as {order_ref:string}).order_ref===o.order_id);
   assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n,1);
   assert.deepEqual(await position(s.product.product_id),{stock:10,held:5,allocated:0,available:5});
+});
+
+for(const unallocatable of [false,true])test(`paid cancellation of ${unallocatable?'an unallocatable order without allocations':'a converted order'} releases stock and replays`,async()=>{
+  const s=await x.store(),o=unallocatable?await x.due(s):await x.place(s,await x.frozen(s));
+  if(unallocatable){await x.tx(q=>settleDueCheckoutHolds(q,[s.product.product_id]));ok(await x.send(s,`/products/${s.product.product_id}`,{stock:0},'1','PATCH'));}
+  assert.equal((await payment(o.order_id)).outcome,unallocatable?'unallocatable':'converted');
+  const input={orderId:o.order_id,commandRef:randomUUID()},cancel=()=>x.tx(q=>cancelPaidOrder(q,s,input)),closed=await cancel();
+  assert.equal(closed.lifecycle_state,'cancelled');assert.equal(closed.cancel_reason,'paid_cancelled');assert.equal(closed.version,'2');
+  const facts=await stockFacts();assert.deepEqual(await cancel(),closed);assert.deepEqual(await stockFacts(),facts);
+  await assert.rejects(x.tx(q=>retryAllocation(q,s,o.order_id)),code('checkout_order_closed'));assert.deepEqual(await stockFacts(),facts);
+  assert.deepEqual(await position(s.product.product_id),{stock:unallocatable?0:10,held:0,allocated:0,available:unallocatable?0:10});
+  assert.equal((await x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[s.product.product_id])).rows[0].reserved,0);
+  assert.deepEqual((await x.h.pool.query("SELECT kind,quantity FROM commerce_inventory_movements WHERE order_id=$1 AND kind='allocation_release'",[o.order_id])).rows,unallocatable?[]:[{kind:'allocation_release',quantity:5}]);
+});
+test('paid cancellation rejects a partial handover without any effect',async()=>{
+  const s=await x.store(),o=await x.place(s,await x.frozen(s));await payment(o.order_id);
+  await x.tx(q=>recordHandover(q,s,{shipmentRef:randomUUID(),lines:[{orderId:o.order_id,itemId:s.product.product_id,quantity:2}]}));
+  const before=await stockFacts();await assert.rejects(x.tx(q=>cancelPaidOrder(q,s,{orderId:o.order_id,commandRef:randomUUID()})),code('order_partially_shipped'));assert.deepEqual(await stockFacts(),before);
+});
+for(const outcome of ['none','simulated','amount_mismatch'] as const)test(`paid cancellation rejects ${outcome} payment without any effect`,async()=>{
+  const s=await x.store(),o=await x.place(s,await x.frozen(s));
+  if(outcome!=='none')await payment(o.order_id,outcome==='simulated'?500:499,randomUUID(),{simulated:outcome==='simulated'});
+  const before=await stockFacts();await assert.rejects(x.tx(q=>cancelPaidOrder(q,s,{orderId:o.order_id,commandRef:randomUUID()})),code('payment_not_confirmed'));assert.deepEqual(await stockFacts(),before);
 });

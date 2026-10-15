@@ -60,6 +60,17 @@ export async function releaseAllocation(q:PoolClient,store:CheckoutStore,input:{
   if(remaining===0 && shipped===0 && lines.length) return (await q.query(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason='paid_cancelled',cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[input.orderId])).rows[0] as typeof order;
   return order;
 }
+/** Cancel paid stock only before any physical handover; refunds belong elsewhere. */
+export async function cancelPaidOrder(q:PoolClient,store:CheckoutStore,input:{orderId:string;commandRef:string}) {
+  await lockStore(q,store,[],[input.orderId],false);const [order]=await lockCheckoutOrders(q,[input.orderId],store);
+  if(order.lifecycle_state==='cancelled')return order;
+  requireCondition(order.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
+  requireCondition(await hasConfirmedPayment(q,input.orderId),409,'payment_not_confirmed','訂單尚未確認付款。');
+  const inv=await checkoutInventory(q,input.orderId);
+  requireCondition(inv.allocations.every(a=>a.shipped_quantity===0),409,'order_partially_shipped','訂單已有交寄商品。');
+  for(const a of inv.allocations){const remaining=a.quantity-a.shipped_quantity-a.released_quantity;if(remaining)await inv.port.releaseAllocation(a.item_id,remaining,input.commandRef);}
+  return (await q.query(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason='paid_cancelled',cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[input.orderId])).rows[0] as typeof order;
+}
 export async function recordHandover(q:PoolClient,store:CheckoutStore,input:{shipmentRef:string;lines:readonly {orderId:string;itemId:string;quantity:number}[]}) {
   requireCondition(input.lines.length>0&&input.lines.length<=10000 && new Set(input.lines.map(l=>`${l.orderId}/${l.itemId}`)).size===input.lines.length,422,'invalid_handover_lines','交寄行項無效。');
   const ids=[...new Set(input.lines.map(l=>l.orderId))].sort();await lockStore(q,store,[],ids,false);
