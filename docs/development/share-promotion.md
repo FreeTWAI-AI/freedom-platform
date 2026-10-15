@@ -120,6 +120,12 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
 | `POST /api/v1/social-posts/:id/hide` | 平台管理員 | 隱藏 |
 
+貼文、留言與按讚名單的 `cursor` 為 opaque base64url；解碼後嚴格要求 UTC ISO
+timestamp 與 UUID 兩個欄位。非 ISO 時間、不存在的日曆日期、PostgreSQL 不接受的
+year zero 或多餘欄位回 422 `invalid_cursor`，不送入 SQL cast 變成 500。
+既有三位毫秒與六位微秒時間、有效閏日均保留原文字精度；呼叫端不需解析或重建。
+驗證不改匿名 401、不可見貼文 404 的授權邊界。
+
 會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
 讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
 等鎖期間到期或在 object I/O 期間撤銷，沿用縮圖讀權拒絕的 404 `not_found`，
@@ -235,6 +241,10 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 - 文字中的 Unicode `#標籤` 最多20個，可點選以 `GET /social-posts?tag=` 篩選。`mention_ids` 最多10位，從既有會員目錄選取；發布時重新驗同社群、有效會員、驗收帳號與雙向封鎖，保留當時顯示名稱。點 `@姓名` 讀目前可見會員卡；本案不新增通知派送（見 #403／#410）。
 - 貼文／留言均支援相機按鈕與剪貼簿照片。留言另沿用既有 emoji、工坊貼圖目錄；貼圖立即傳送並保留輸入中的文字與照片。留言讚採期望狀態，重試不重複計數。
 - `GET /social-posts/:id/likes` 回最多24位目前可見的按讚者與游標；有效會員與雙向封鎖會重驗。`POST /social-posts/:id/read` 以會員／貼文唯一鍵計人數。前端在頁面可見、貼文標頭至少一半進入畫面持續1秒後回報；只顯示人數，不提供閱讀名單，也不代表使用者理解全部內容。
+  按讚名單按 `(created_at,user_id)` 升冪續頁；`next_cursor` 是 opaque
+  base64url 標記，原樣放進下一次 `cursor`，最後一頁為 `null`。時間取 PostgreSQL
+  精確 UTC 微秒字串，不經 JavaScript Date 截成毫秒，避免同毫秒的按讚者重複或游標停滯；
+  完全同時的按讚以 user ID 穩定排序。這不改可見性條件、每頁上限或顯示日期。
 - 每張貼文的分享對話框帶入原文，X／Instagram／Facebook／Threads 預設全選；照片由使用者選擇加入。沿用已存在的轉交／下載與逐平台本人確認流程，不自動冒充已在外站刊登，原生貼文與會員附圖也不因此成為公開網址。
 
 新增會員路由：`POST /social-posts/:id/comment-images`、`GET /social-posts/:id/comments/:commentId/image`、`POST /social-posts/:id/comments/:commentId/like`。寫入沿用 session／CSRF／Origin 與 Idempotency-Key。上傳圖片綁定本人與目標貼文，只能附加至一則留言；斷線後沿用原上傳與留言 key。HTTP 二進位上限512 KiB，瀏覽器先縮圖；伺服器完整解碼並正規化為最長1920px、最多1 MiB WebP。格式限定靜態 PNG／JPEG／WebP。
