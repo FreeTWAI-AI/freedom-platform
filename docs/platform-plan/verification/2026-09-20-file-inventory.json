@@ -604,8 +604,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
-      "bytes": 3847,
-      "sha256": "635995ffe4da1f37b3574cedb27f1f4a8a5addd65be84b6ceb23432e571deefe"
+      "bytes": 4213,
+      "sha256": "52bde9592c992119c3c9319a75b6661b5845cfac9aa118c27eb021b965703e1b"
     },
     {
       "path": "apps/platform-api/src/routes/positioning.ts",
@@ -13849,8 +13849,8 @@
     },
     {
       "path": "docs/development/client-read-connections.md",
-      "bytes": 6729,
-      "sha256": "82b6a71e0d6ce7341e15721127bc50fe9d4ee72e5988c5bcb7cd932171c3a3f1"
+      "bytes": 7442,
+      "sha256": "3c0c6d6e8709268b947021ba0045a0597d559f2440c1d32cf22025654ad1d38b"
     },
     {
       "path": "docs/development/cloudflare-migration-status-2026-09-24.md",
@@ -13904,8 +13904,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 30215,
-      "sha256": "46c0c628b2f20ce443bc139656806ae77d86a2ab0adc69a7d9ea3716eacbd206"
+      "bytes": 30654,
+      "sha256": "0086b578a51acdb5979772aac8866acc9555655fbdc862ff34123acba42dde84"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -13969,8 +13969,8 @@
     },
     {
       "path": "docs/development/guild-development-access.md",
-      "bytes": 26896,
-      "sha256": "17e98f4b9758a74d2a5b69285dd622a618dfd47fd70ffee030c682f2d7c6ebc9"
+      "bytes": 28145,
+      "sha256": "f5be68d54b8ce570c7a8147ca6c25b78e51670097a547688087fb79e698555aa"
     },
     {
       "path": "docs/development/guild-library-layout.md",
@@ -14009,8 +14009,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 76700,
-      "sha256": "80738a4da46e49db3f5b587051e971a8f75b91d9acdc93c53d3fb6f6270d7ce1"
+      "bytes": 77396,
+      "sha256": "a5cdce0f803ff19148de82f654b9b0c8073066fff0a4d9e1a8493d7e6d74ee1e"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14054,8 +14054,8 @@
     },
     {
       "path": "docs/development/module-expansion-design.md",
-      "bytes": 7198,
-      "sha256": "554d2c5679ea8741ce336eca23d618a0f42d41a88a85e04c92b7a16a21b7176e"
+      "bytes": 9003,
+      "sha256": "7d55b070e30b52a57b88dae4b0976175a007f4a4e040b7f7a57af9c4518a3745"
     },
     {
       "path": "docs/development/newcomer-guides.md",
@@ -16854,13 +16854,13 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 27005,
-      "sha256": "60f9d6a75237e9087cf7606ea85b5093fded1f21e487846089d9910bed3a45eb"
+      "bytes": 28794,
+      "sha256": "f19acc73e1e46682c6c7db3e1ef8a0a7cc92326593db7d87db3a86edffa2e941"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
-      "bytes": 10633,
-      "sha256": "b9f3c1782919c25acef9aac31299fccd3c8cda16d5ca9ba62dab067acdcb11a9"
+      "bytes": 10717,
+      "sha256": "660d3876d2004940b464d0d9c191a8134d6d6541eaa710689deb05b297878fc7"
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
@@ -16869,8 +16869,8 @@
     },
     {
       "path": "modules/agent-commerce/imports.ts",
-      "bytes": 7559,
-      "sha256": "14af05acd7c8a2b241af6536457256dce0e08f05b7330eafef8ee8164b264200"
+      "bytes": 7772,
+      "sha256": "ab0cc08f81b3855505c72f908dfa2c8f836d62457e3daf66c3d8a9fa2cd59dbf"
     },
     {
       "path": "modules/agent-commerce/key-exit.ts",
@@ -16884,8 +16884,8 @@
     },
     {
       "path": "modules/agent-commerce/orders.ts",
-      "bytes": 19846,
-      "sha256": "102090aeb5ad112ee46d0923d641f0f0bc81bd7c3f585573aff9fdb4f5d7df08"
+      "bytes": 20097,
+      "sha256": "beec3cb4cfc4b94833d94715133c4bb215982b9fb0438d4aea9fd3d5826cc6f1"
     },
     {
       "path": "modules/agent-commerce/schema.ts",
@@ -17638,14 +17638,24 @@
       "sha256": "6ee623b0508d6ec767e04e6d020ada80c88568aa44248f650301286a1b28f866"
     },
     {
+      "path": "modules/catalog-commerce/freedom.module.json",
+      "bytes": 1924,
+      "sha256": "a98df1f22c4c0c16084280a2b4b1189892f2565a2c11e8f2f6530429afdaf2fe"
+    },
+    {
       "path": "modules/catalog-commerce/service.ts",
-      "bytes": 14339,
-      "sha256": "6aafb213974d7ed2660297c5f4d760dcfc849c0391f88baeb522be41fcfffb5f"
+      "bytes": 14576,
+      "sha256": "da065f7de7b9b918b5d54fb1a58bd7866ee1205c3d7e0664730f3478fead1d95"
+    },
+    {
+      "path": "modules/client-connections/freedom.module.json",
+      "bytes": 2380,
+      "sha256": "d513028e8b6e1bd42cd24014ce867d3ad33ff3e10a67df23dc1d20a1d7f3f793"
     },
     {
       "path": "modules/client-connections/service.ts",
-      "bytes": 16595,
-      "sha256": "3a1626bb7854312d1ebdd5f2352675778e34ad35a660c47521a2019229678d03"
+      "bytes": 16730,
+      "sha256": "4e305f02b62a2094626a8e5f356a0996bb60cf7e50f657244e1fcc89dcc325a7"
     },
     {
       "path": "modules/co-creation/github.ts",
@@ -17714,8 +17724,8 @@
     },
     {
       "path": "modules/community/event-reminders.ts",
-      "bytes": 14819,
-      "sha256": "f7f96164021040f00e5fb5dcd918fb6e474dee000d37d6fc3d03b4b62f1de286"
+      "bytes": 15207,
+      "sha256": "ebd9036541afe4901b960bca1b9fe337471323a6e5b0b2e9a8566d986d69cb0e"
     },
     {
       "path": "modules/community/event-waitlist.ts",
@@ -17734,8 +17744,8 @@
     },
     {
       "path": "modules/community/freedom.module.json",
-      "bytes": 12322,
-      "sha256": "35c83cb8f3eb9b4ec9c1da162b62cb0d982ec0dacfd5a69d9f7f0ac34aaaf1f7"
+      "bytes": 12364,
+      "sha256": "00a2d7c9145462fb0a2e644f6ec18e9198af5a09b693f4d97c6a0eccd5ea7a2d"
     },
     {
       "path": "modules/community/github-history.ts",
@@ -18138,14 +18148,19 @@
       "sha256": "1d7a4d097da0802db221b0fc938bfd7b4e9c8ab01c3732b9a5bfea8260e022c2"
     },
     {
+      "path": "modules/development-access/freedom.module.json",
+      "bytes": 1752,
+      "sha256": "3136794791fd9ed10312c74e1fde7856dfbd56b695631b77005ac1833c512bda"
+    },
+    {
       "path": "modules/development-access/guild-eligibility.ts",
       "bytes": 2209,
       "sha256": "03b051b623b82304a502bfc51264bfa1bc1690eff55032e9390716c35d2fb17a"
     },
     {
       "path": "modules/development-access/service.ts",
-      "bytes": 17804,
-      "sha256": "dccb194233254d8290e6173a568ab44f841435dc30a52f65eb0cf215cdfc622b"
+      "bytes": 19950,
+      "sha256": "482da2072d5fd19bc7351e672fe624a031754db1c4be89d35855b82e174594c5"
     },
     {
       "path": "modules/github-social/freedom.module.json",
@@ -18594,8 +18609,8 @@
     },
     {
       "path": "modules/opensource-marketing/service.ts",
-      "bytes": 19104,
-      "sha256": "32a0d4752b7c5837cd9b35e7f063b837a0f8606ac6224484d2df4dc0c0e8901c"
+      "bytes": 19183,
+      "sha256": "3492752a5be12f8a3d3d205cf44f74810cda3092a73d7a27772de5cd102b2f6a"
     },
     {
       "path": "modules/opportunity-project-work/README.md",
@@ -18804,8 +18819,8 @@
     },
     {
       "path": "modules/skill-submissions/freedom.module.json",
-      "bytes": 5301,
-      "sha256": "d79c5585a41b788b6612874fc2735fd5e88dc623dc6bfd7877465ca7db857bf2"
+      "bytes": 5441,
+      "sha256": "d876566a1b46f0c914637b97e573a3049cdff4de25b0fdd1b99f14dee8fc4dd5"
     },
     {
       "path": "modules/skill-submissions/limits.ts",
@@ -20484,8 +20499,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 72082,
-      "sha256": "010329fd9e0a5cd37efb9db4a9e533c6d6a3324c9dd0de989edfa627c9575e0a"
+      "bytes": 77399,
+      "sha256": "e226011f277f292e03ba00721db4ce1a58ee867c792892a532e8a83c7f2e8eb3"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -20959,8 +20974,8 @@
     },
     {
       "path": "tests/e2e/hosted-supply-catalog.spec.ts",
-      "bytes": 59133,
-      "sha256": "cf50940ec40b8e2578de661e629d007e1b63ffc5b83ae160c5dbd56966cb7da8"
+      "bytes": 59460,
+      "sha256": "0b1a4316f0313ef9e209cb8ca9dc17fbe2cc60fea3214c5b83e4ada21a9d1401"
     },
     {
       "path": "tests/e2e/hosted-supply-terms.spec.ts",
@@ -21594,8 +21609,8 @@
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",
-      "bytes": 39041,
-      "sha256": "86f5f092cefeaee7cc19db3c2010ac06bff014b5cac4632a31b5faf9a7848df7"
+      "bytes": 46528,
+      "sha256": "ab1d57f50130c20b29e326cfab76d48c6099b10931ee4c4529ad4769dd5316ab"
     },
     {
       "path": "tests/runtime/agent-connections-adversarial.test.ts",
@@ -21754,8 +21769,8 @@
     },
     {
       "path": "tests/runtime/client-connections.test.ts",
-      "bytes": 43228,
-      "sha256": "7a85f6cc78f6d473928bcb1fd11eec6e64948e1416e7f3a0358ce1596a560898"
+      "bytes": 46581,
+      "sha256": "99bc7869fac50e15eb4958220e3b7ad495de3fb0117adc5c6b2da6e589096c46"
     },
     {
       "path": "tests/runtime/co-creation.test.ts",
@@ -21769,8 +21784,8 @@
     },
     {
       "path": "tests/runtime/commerce.test.ts",
-      "bytes": 15372,
-      "sha256": "45345c3ba23afa87882964e1e4d063e23fc4930a5492aa611d6af4d9dd2c5b57"
+      "bytes": 19002,
+      "sha256": "09236b20f53ff14692ca84c3dd30f387efdbb12c74e579c174c27e6f88702543"
     },
     {
       "path": "tests/runtime/community-ar-format.test.ts",
@@ -21854,8 +21869,8 @@
     },
     {
       "path": "tests/runtime/development-access-grant-race.test.ts",
-      "bytes": 16215,
-      "sha256": "d1bb0bb1b1d92570ac8df1aefca570c2ac3d1a67e01eef82c8b79f323c162a23"
+      "bytes": 29095,
+      "sha256": "60d6ec411adc8d83827f5c827f718a782c396040d858ebe36c44702ab7257aa3"
     },
     {
       "path": "tests/runtime/development-access.test.ts",
@@ -21959,8 +21974,8 @@
     },
     {
       "path": "tests/runtime/event-reminders-delivery.test.ts",
-      "bytes": 18780,
-      "sha256": "461c0fd65890ee8a9d4e7c291a26f3f98dcf24de69900e01631eaac3b64b90bd"
+      "bytes": 22906,
+      "sha256": "e68f0b8f16774b4b0129bda665976b7028b476875768103162639a609e1c4870"
     },
     {
       "path": "tests/runtime/event-video-assets.test.ts",
@@ -22779,8 +22794,8 @@
     },
     {
       "path": "tests/runtime/opensource-marketing.test.ts",
-      "bytes": 20198,
-      "sha256": "552d8053f2f5769fbd73287dbc4016f4001932d61f054b193dab7687ba7860df"
+      "bytes": 24531,
+      "sha256": "a4c6ed51c4cd2bf91ad67c4d76069ea023e00c7f6ec7b3e8085226772b7ad6f2"
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",

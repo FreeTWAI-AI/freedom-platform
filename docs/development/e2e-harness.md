@@ -332,6 +332,11 @@ required checks 分別記錄；本機編排測試通過不代表後三者已完�
 
 此增量不新增第四輪、不修改 `scripts/run-e2e.mjs` 或 trusted runner 的 pinned 計畫。`run-e2e.mjs` 是 candidate 本機編排，不是可信 host CI；候選 webServer 的可受測設定與 installed host pass/timeout/結果驗證權威分開。新 spec 和 fixture 的來源存在不代表已跑瀏覽器，實跑版本與結果另記。
 
+供貨商品的 edit recovery fixture 先等該商品的初始供貨狀態投影完成，再點編輯；
+父商品庫與按鈕可見不代表子合作讀取已完成。合作結果會在操作列上方加入狀態列，
+因此不可讓這個版面變動與 pointer click 同時發生。這是既有 recovery 情境的前置
+等待，不增加 sleep、timeout、強制 click 或寫入重試，也不代替未知結果與 receipt 驗證。
+
 ## Member feature hosts in the ordinary pass
 
 Notification preferences, first participation, event participation and authored
