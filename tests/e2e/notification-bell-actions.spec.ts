@@ -1,5 +1,7 @@
 import { test,expect,type Page } from './fixtures.js';
 import { signOut } from './navigation.js';
+import type {Pool} from 'pg';
+import {randomUUID} from 'node:crypto';
 
 async function login(page:Page,email:string){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);
@@ -16,10 +18,22 @@ async function inviteMaker(page:Page){
   });expect(status).toBe(200);
 }
 async function logout(page:Page){await signOut(page);await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();}
+async function addNewerIncomingRequests(db:Pick<Pool,'query'>,recipientId:string){
+  const nonce=randomUUID();
+  const community=(await db.query('SELECT community_id FROM users WHERE user_id=$1',[recipientId])).rows[0].community_id;
+  const requesters=(await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required,onboarding_completed_at)
+    SELECT gen_random_uuid(),u.community_id,$2||'-'||n||'@example.test','較新的邀請 '||n,u.password_hash,gen_random_uuid(),false,clock_timestamp()
+    FROM users u CROSS JOIN generate_series(1,100) n WHERE u.user_id=$1 RETURNING user_id`,[recipientId,nonce])).rows.map(row=>row.user_id);
+  await db.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state)
+    SELECT $1,least($2::uuid,requester_id),greatest($2::uuid,requester_id),requester_id,'pending'
+    FROM unnest($3::uuid[]) requester_id`,[community,recipientId,requesters]);
+}
 
-test('clicking one notification opens its friend response and closes the bell',async({page})=>{
+
+test('clicking an older notification opens its friend response beyond the first incoming page and closes the bell',async({page,e2eAuthPool})=>{
   await login(page,'reviewer@local.test');await inviteMaker(page);await logout(page);
   await login(page,'client@local.test');await inviteMaker(page);await logout(page);
+  await addNewerIncomingRequests(e2eAuthPool,'20000000-0000-4000-8000-000000000001');
   await login(page,'maker@local.test');
   await page.getByRole('button',{name:/^通知/}).click();
   const popover=page.getByRole('region',{name:'最近通知'});

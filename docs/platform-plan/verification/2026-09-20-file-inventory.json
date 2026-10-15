@@ -594,8 +594,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/members.ts",
-      "bytes": 7358,
-      "sha256": "a1eaa7bb720cbbbf70dfb035775db03eb0faca957dcc990c1e36d78ee6b775b9"
+      "bytes": 7259,
+      "sha256": "0a439cc4e5ae859e2a20f697ed34d6e75fc210eb0c35db35be8567c2682e0777"
     },
     {
       "path": "apps/platform-api/src/routes/module-registry.ts",
@@ -2669,8 +2669,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 32809,
-      "sha256": "faa3e54137a5d20e69779981ec1fe89502bc05f894683482ff4866ac3e3064ab"
+      "bytes": 34318,
+      "sha256": "45cd3565951d35fd41f3ce25bf5c8f1565845b64c4bd5aab5f8f4192dac592f5"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -3029,8 +3029,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 8380,
-      "sha256": "fab07584c634eac541baa96ca3251557817eac270632199879cda1ac59093e71"
+      "bytes": 8431,
+      "sha256": "b9bc9323a4a0ae8a7621da48257ddef49c786dbe8fca00c36ac3b6316e998310"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69268,
-      "sha256": "a25fbb2f14c08c9e7f98fb7f044f9367fb9496d764f36e88b6f9e4ced0a4c550"
+      "bytes": 69685,
+      "sha256": "97df353710311a136bfe907e4dfcf0eb5ee768a20c8e83c67073bc155105f273"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14004,8 +14004,8 @@
     },
     {
       "path": "docs/development/member-connections.md",
-      "bytes": 21218,
-      "sha256": "2356b8d1f08af52ec62da5c63ac2dd639f36671dc9b44ef74aa901edd89ef36b"
+      "bytes": 21396,
+      "sha256": "f6277b0560a689088bec3d3482842bfbf80fb43440ab2f71407f573aedaec767"
     },
     {
       "path": "docs/development/member-editorial-card.md",
@@ -18329,8 +18329,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 41860,
-      "sha256": "e38429358483da929b6d84035855e9aa84218afe7400cafd4265575d37f2ae07"
+      "bytes": 41213,
+      "sha256": "053d8a42d4f78311416d234d71c640865904dc4c77ed60d20a8470054b65a092"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -20994,8 +20994,8 @@
     },
     {
       "path": "tests/e2e/member-directory.spec.ts",
-      "bytes": 14324,
-      "sha256": "33686246481b192dcf7d0c2d09d84c487df88166c6594d25289ce6a9da619f2c"
+      "bytes": 14361,
+      "sha256": "9dcb2143de870d9904207a021d0471a02ae4d86db779e139cf504c437c33a70f"
     },
     {
       "path": "tests/e2e/member-ecard.spec.ts",
@@ -21109,8 +21109,8 @@
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
-      "bytes": 3934,
-      "sha256": "79ec5dfdde451211897d2f2c913d1777fdd664865eda574ea05c47dd810e9c6b"
+      "bytes": 5123,
+      "sha256": "97b4ac40a652c971c0ed3e3748172dcc050e97f0bfc5e0bfa961d41eb8ce4820"
     },
     {
       "path": "tests/e2e/notification-bell-refresh.spec.ts",
@@ -22009,8 +22009,8 @@
     },
     {
       "path": "tests/runtime/friends-session-clock.test.ts",
-      "bytes": 6878,
-      "sha256": "7de89cac04e2bc62ff494cb769030d876dff6407d5cef8026ec728d3e460192e"
+      "bytes": 7516,
+      "sha256": "5f75199c8ab19cbbef376bb2862ace7867567240d80a3d910a134e385c2bfe54"
     },
     {
       "path": "tests/runtime/game-console-feed.test.ts",
@@ -22389,8 +22389,8 @@
     },
     {
       "path": "tests/runtime/member-blocking.test.ts",
-      "bytes": 22814,
-      "sha256": "2fc3553c0da122e6c92bcfba3cc0104b9163aeecb8073c0fc2a00d322598c418"
+      "bytes": 23082,
+      "sha256": "947bfdf72de5b35110423cd929a2c487cdd5f274fb78e18b2359f8e455b2cda3"
     },
     {
       "path": "tests/runtime/member-card-qr.test.ts",
@@ -23344,8 +23344,8 @@
     },
     {
       "path": "tests/runtime/verification-test-data.test.ts",
-      "bytes": 23492,
-      "sha256": "d5e9adcf597a8b033b1be96711db1011cc0d190c04dc4076996e879eac9be781"
+      "bytes": 23540,
+      "sha256": "ecc3ed03ac0ff925bb0770073760b6aaa93153a4556329285b0450789454530e"
     },
     {
       "path": "tests/runtime/verify-guild-work.test.ts",
