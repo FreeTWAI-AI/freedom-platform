@@ -15,8 +15,10 @@ const asOf = `to_char(clock.at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"
 const capacity = `(SELECT count(*)::int FROM commerce_selections l
   JOIN commerce_resource_tenants m ON m.resource_kind='shop' AND m.resource_id=l.shop_id
   WHERE m.tenant_id=$1 AND m.instance_id=$2 AND m.resource_id=$4 AND m.mapping_state='confirmed') AS product_count`;
+// Availability is derived only in this column (stock minus the reserved counter), so a
+// commerce-owned availability rule can replace it here without touching the projections.
 const own = `own AS (
-  SELECT i.*,l.aggregate_version::text AS product_version,s.currency
+  SELECT i.*,i.stock-i.reserved AS available,l.aggregate_version::text AS product_version,s.currency
   FROM commerce_items i JOIN commerce_selections l ON l.item_id=i.item_id
   JOIN commerce_resource_tenants supply ON supply.resource_kind='shop' AND supply.resource_id=i.shop_id AND supply.mapping_state='confirmed'
   JOIN commerce_resource_tenants retail ON retail.resource_kind='shop' AND retail.resource_id=l.shop_id AND retail.mapping_state='confirmed'
@@ -61,7 +63,7 @@ function productView(row: Row, currency: Profile['currency']): SupplierProduct {
   const o = row.current_offer;
   return {product_id:row.item_id,sku:row.sku,title:row.title,description:row.description,currency,
     supply_price_minor:Number(row.price_minor),shipping_minor:Number(row.shipping_minor),stock:row.stock,reserved:row.reserved,
-    available:row.stock-row.reserved,version:row.product_version,cooperation:row.cooperation,
+    available:row.available,version:row.product_version,cooperation:row.cooperation,
     offer:o?{offer_id:o.offer_id,version:String(o.version),terms_sha256:o.terms_sha256,
       matches_current_terms:digest(supplyOfferTerms(row as Parameters<typeof supplyOfferTerms>[0],currency))===o.terms_sha256}:null};
 }
