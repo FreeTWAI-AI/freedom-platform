@@ -8,10 +8,20 @@
     "tests/runtime/hosted-checkout-core.test.ts",
     "tests/runtime/hosted-checkout-races.test.ts",
     "tests/runtime/hosted-checkout-schema.test.ts",
-    "tests/runtime/hosted-checkout-harness.ts"
+    "tests/runtime/hosted-checkout-harness.ts",
+    "apps/platform-api/src/routes/hosted-checkout.ts",
+    "contracts/guild-launchpad/v1/hosted-checkout.ts",
+    "contracts/guild-launchpad/v1/hosted-checkout.schema.json",
+    "tests/runtime/hosted-checkout-http.test.ts",
+    "tests/runtime/commerce-rate-limits.test.ts",
+    "tests/runtime/hosted-checkout-contracts.test.ts"
   ],
-  "public_exports": ["modules/agent-commerce/checkout/index.ts"],
-  "dependencies": ["agent-commerce"],
+  "public_exports": [
+    "modules/agent-commerce/checkout/index.ts"
+  ],
+  "dependencies": [
+    "agent-commerce"
+  ],
   "contract_families": [],
   "client_profiles": [],
   "instructions": [
@@ -19,6 +29,8 @@
     "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md"
   ],
   "invariants": [],
-  "tests": ["runtime.full"],
+  "tests": [
+    "runtime.full"
+  ],
   "surfaces": []
 }
