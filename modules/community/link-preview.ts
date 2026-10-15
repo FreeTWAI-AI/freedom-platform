@@ -46,7 +46,15 @@ function finishTitle(value: string) {
 export function previewTitle(html: string) {
   const og = meta(html, 'og:title');
   if (og) return finishTitle(og);
-  const titled = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
+  // Find each delimiter once; restarting at every unterminated <title> is quadratic.
+  const opening = /<title/i.exec(html);
+  if (!opening) return null;
+  const start = html.indexOf('>', opening.index + opening[0].length);
+  if (start < 0) return null;
+  const closing = /<\/title>/gi;
+  closing.lastIndex = start + 1;
+  const end = closing.exec(html);
+  const titled = end ? html.slice(start + 1, end.index) : '';
   return finishTitle(decodeEntities(titled));
 }
 
