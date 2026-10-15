@@ -1,6 +1,6 @@
 import type {PoolClient} from 'pg';
 import {bindTenantContext, clearTenantContext, bindPrincipalContext} from '../../../packages/resource-scopes/tenant-transaction.js';
-import {requireCondition} from '../../../packages/shared/problem.js';
+import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {lockCommerceCommunity} from '../hosted/direct-authority.js';
 import {profile, ready, type Profile} from '../hosted/store.js';
 
@@ -34,24 +34,30 @@ async function resolveCheckoutStore(q:PoolClient,store:CheckoutStore,skus:readon
       OR EXISTS(SELECT 1 FROM commerce_order_lines l JOIN commerce_checkout_orders co USING(order_id)
         WHERE l.item_id=i.item_id AND l.order_id=ANY($3::uuid[]) AND co.instance_id=$4)`,
   [seller.storefront_shop_id,skus,orderIds,seller.instance_id])).rows;
-  requireCondition(sources.every(s => s.community_id===seller.community_id),409,'supply_unavailable','供貨來源無法使用。');
+  if(lock)requireCondition(sources.every(s => s.community_id===seller.community_id),409,'supply_unavailable','供貨來源無法使用。');
   const parties = new Map<string,Profile>();
   const discovered = new Map([seller,...sources].map(s => [s.instance_id,s]));
   for (const row of [...discovered.values()].sort((a,b) => a.tenant_id.localeCompare(b.tenant_id)||a.instance_id.localeCompare(b.instance_id))) {
-    await bindStore(q,row.tenant_id);
-    const scope=(await q.query(`SELECT status FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1 ${lock?'FOR SHARE':''}`,[row.tenant_id])).rows[0];
-    const tenant=(await q.query(`SELECT status FROM tenants WHERE tenant_id=$1 ${lock?'FOR SHARE':''}`,[row.tenant_id])).rows[0];
-    const inst=(await q.query(`SELECT status,binding_id FROM module_instances WHERE tenant_id=$1 AND instance_id=$2 AND module_key='storefront' ${lock?'FOR NO KEY UPDATE':''}`,[row.tenant_id,row.instance_id])).rows[0];
-    requireCondition(inst,404,'checkout_store_not_found','找不到商店。');
-    const deployment=(await q.query(`SELECT state FROM deployment_bindings WHERE tenant_id=$1 AND instance_id=$2 AND binding_id=$3 ${lock?'FOR SHARE':''}`,[row.tenant_id,row.instance_id,inst.binding_id])).rows[0];
-    if (live) {
-      const owner=await q.query(`SELECT 1 FROM tenant_memberships m JOIN principals p USING(principal_id) JOIN users u ON u.user_id=p.user_ref
-        WHERE m.tenant_id=$1 AND m.role='owner' AND m.status='active' AND p.status='active' AND p.kind='person'
-          AND u.active AND NOT is_verification_test_account(u.user_id) LIMIT 1`,[row.tenant_id]);
-      requireCondition(scope?.status==='active' && tenant?.status==='active' && inst.status==='active' && deployment?.state==='active' && owner.rowCount===1,
-        409,'storefront_unavailable','商店目前無法接受新訂單。');
+    const optionalSupplier=!lock&&row.instance_id!==seller.instance_id;
+    if(optionalSupplier&&row.community_id!==seller.community_id)continue;
+    try {
+      await bindStore(q,row.tenant_id);
+      const scope=(await q.query(`SELECT status FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1 ${lock?'FOR SHARE':''}`,[row.tenant_id])).rows[0];
+      const tenant=(await q.query(`SELECT status FROM tenants WHERE tenant_id=$1 ${lock?'FOR SHARE':''}`,[row.tenant_id])).rows[0];
+      const inst=(await q.query(`SELECT status,binding_id FROM module_instances WHERE tenant_id=$1 AND instance_id=$2 AND module_key='storefront' ${lock?'FOR NO KEY UPDATE':''}`,[row.tenant_id,row.instance_id])).rows[0];
+      requireCondition(inst,404,'checkout_store_not_found','找不到商店。');
+      const deployment=(await q.query(`SELECT state FROM deployment_bindings WHERE tenant_id=$1 AND instance_id=$2 AND binding_id=$3 ${lock?'FOR SHARE':''}`,[row.tenant_id,row.instance_id,inst.binding_id])).rows[0];
+      if (live) {
+        const owner=await q.query(`SELECT 1 FROM tenant_memberships m JOIN principals p USING(principal_id) JOIN users u ON u.user_id=p.user_ref
+          WHERE m.tenant_id=$1 AND m.role='owner' AND m.status='active' AND p.status='active' AND p.kind='person'
+            AND u.active AND NOT is_verification_test_account(u.user_id) LIMIT 1`,[row.tenant_id]);
+        requireCondition(scope?.status==='active' && tenant?.status==='active' && inst.status==='active' && deployment?.state==='active' && owner.rowCount===1,
+          409,'storefront_unavailable','商店目前無法接受新訂單。');
+      }
+      const p=await profile(q,row.tenant_id,row.instance_id);ready(p);parties.set(p.instance_id,p);
+    } catch(error) {
+      if(!optionalSupplier||!(error instanceof Problem&&['checkout_store_not_found','storefront_unavailable','storefront_not_set_up'].includes(error.code)))throw error;
     }
-    const p=await profile(q,row.tenant_id,row.instance_id);ready(p);parties.set(p.instance_id,p);
   }
   await bindStore(q,seller.tenant_id);
   if(lock)await lockCommerceCommunity(q,seller.community_id);

@@ -3,7 +3,7 @@ import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {CartQuoteResponseSchema,type CartQuoteInput} from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import {sharedLines} from '../hosted/shared-quotes.js';
 import {readCheckoutStore,type CheckoutStore} from './authority.js';
-import type {CheckoutPorts} from './terms.js';
+import {validateShippingQuote,type CheckoutPorts} from './terms.js';
 
 /** Called only in a READ ONLY transaction. In particular, due holds are ignored
  * in availability without settling them or touching the materialized balance. */
@@ -37,12 +37,11 @@ export async function cartQuote(q:PoolClient,store:CheckoutStore,input:CartQuote
     if(!input.delivery)shipping={state:'needs_delivery_data',groups:[],total_minor:null};
     else {
       const raw=await ports.shipping.quote(q,p,{lines:bindings,delivery:input.delivery});
-      const {validateShippingQuote}=await import('./terms.js');
       const quoted=validateShippingQuote(raw,bindings);
       shipping={state:'quoted',groups:quoted.groups.map(g=>({group_ref:g.group_ref,amount_minor:g.amount_minor})),total_minor:quoted.groups.reduce((n,g)=>n+g.amount_minor,0)};
     }
   }
-  const merchandise=lines.reduce((n,l)=>n+(l.line_total_minor??0),0);
+  const merchandise=lines.reduce((n,l)=>n+(['ok','revision_changed'].includes(l.state)?l.line_total_minor??0:0),0);
   return CartQuoteResponseSchema.parse({publication_revision:publication.revision,currency:p.currency,lines,merchandise_total_minor:merchandise,discounts:[],shipping,
-    total_minor:shipping.total_minor===null?null:merchandise+shipping.total_minor});
+    total_minor:shipping.total_minor===null||lines.some(l=>l.state==='insufficient'||l.state==='unavailable')?null:merchandise+shipping.total_minor});
 }
