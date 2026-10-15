@@ -93,6 +93,7 @@ import { searchCommunityContent, assignContentTopics, listTaggableContent } from
 import { listCommunityBookmarks,changeCommunityBookmark,listCommunityFollows,changeCommunityFollow,listCommunityFollowUpdates } from '../../../modules/community/content-relations.js';
 
 const SLOW_REQUEST_THRESHOLD_MS=1000;
+const JSON_UTF8_DECODER=new TextDecoder('utf-8',{fatal:true});
 
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
@@ -283,7 +284,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
             },
           }));
           // Hono caches body promises. Preserve the host Request and its cf metadata.
-          Object.assign(c.req.bodyCache,{text:new Response(body).text()});
+          Object.assign(c.req.bodyCache,{text:new Response(body).arrayBuffer().then(bytes=>{
+            try { return JSON_UTF8_DECODER.decode(bytes); }
+            catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
+          })});
         }
         const raw=await c.req.text();
         let parsed:unknown;

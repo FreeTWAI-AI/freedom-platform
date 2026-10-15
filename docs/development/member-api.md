@@ -154,6 +154,13 @@ body/version/key and prevent list replacement until the same operation resolves.
 Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
+
+The generic JSON reader decodes those bytes as strict UTF-8. Invalid sequences
+return `400 invalid_json` before authentication or a domain command, rather than
+being replaced with `U+FFFD` and saved. Valid Unicode, including an intentionally
+encoded `U+FFFD`, retains its value; multi-byte characters may span stream chunks.
+The size limit still counts the original bytes before decoding.
+
 Binary uploads and signed machine transports retain their own bounded readers.
 After valid JSON syntax is established, this general reader rejects decoded
 NUL characters in string values or object keys, including nested arrays/objects,
