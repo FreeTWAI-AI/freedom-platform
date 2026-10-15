@@ -330,12 +330,25 @@ test('README samples equal the renderer output exactly', () => {
 
 test('money formatting and error handling', () => {
   assert.equal(formatTwd(0), 'NT$0');
+  assert.equal(formatTwd(1), 'NT$0.01');
+  assert.equal(formatTwd(99), 'NT$0.99');
   assert.equal(formatTwd(100), 'NT$1');
+  assert.equal(formatTwd(101), 'NT$1.01');
   assert.equal(formatTwd(12345), 'NT$123.45');
+  assert.equal(formatTwd(100000), 'NT$1,000');
   assert.equal(formatTwd(123400), 'NT$1,234');
   assert.equal(formatTwd(100000000), 'NT$1,000,000');
   assert.equal(formatTwd(123456), 'NT$1,234.56');
+  assert.equal(formatTwd(99999999), 'NT$999,999.99');
   assert.equal(formatTwd(Number.MAX_SAFE_INTEGER), 'NT$90,071,992,547,409.91');
+
+  for (const invalidMinor of [-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '100' as unknown as number]) {
+    assert.throws(
+      () => formatTwd(invalidMinor),
+      (err: any) => err instanceof CommerceEmailTemplateError && err.code === 'invalid_input' && err.message === 'invalid_input',
+      `Expected error for formatTwd(${String(invalidMinor)})`,
+    );
+  }
 
   // Invalid money values in order_confirmed
   const baseOrderConfirmed = {

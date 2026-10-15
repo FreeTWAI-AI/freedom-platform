@@ -281,9 +281,10 @@ function validateTrackingNumber(val: unknown): string | null {
 }
 
 export function formatTwd(minor: number): string {
-  const major = Math.floor(minor / 100);
-  const rem = minor % 100;
-  const majorStr = BigInt(major).toLocaleString('en-US');
+  const validated = validateTotalMinor(minor);
+  const major = Math.floor(validated / 100);
+  const rem = validated % 100;
+  const majorStr = String(major).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   if (rem === 0) {
     return `NT$${majorStr}`;
   }
