@@ -37,6 +37,10 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  assert.deepEqual(catalogFirst.items.map(item=>item.product_id),[newerProduct.product_id]);assert.equal(catalogFirst.next_offset,1);
  const catalogLast=await seller.call('listCatalog',{query:Object.assign(Object.create(null),{limit:1,offset:catalogFirst.next_offset})});
  assert.deepEqual(catalogLast.items.map(item=>item.product_id),[product.product_id]);assert.equal(catalogLast.next_offset,null);
+ let inheritedQueryReads=0;
+ const inheritedQueryOptions=Object.create({get query(){inheritedQueryReads++;return{limit:1,offset:100};}});
+ const inheritedCatalog=await seller.call('listCatalog',inheritedQueryOptions);
+ assert.deepEqual(inheritedCatalog.items.map(item=>item.product_id),[newerProduct.product_id,product.product_id]);assert.equal(inheritedQueryReads,0);
  for(const query of [null,42,'',true,[],new Date(),Object.create({limit:1})])await assert.rejects(seller.call('listCatalog',{query}),TypeError);
  assert.equal((await maker.call('listSupplierProducts')).items.length,2);
  const store=await seller.call('createStore',{...key(),body:{name:'協定測試店',description:'internal preview',support_contact:'test contact'}});
