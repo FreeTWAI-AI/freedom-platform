@@ -194,6 +194,11 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 等鎖跨過期限會回 401 `session_expired`，不回 `items`、暫停私人服務或會員 DTO；
 排序、游標、筆數與本人／公開資格不變。匿名公開頁不套用會員 session 規則。
 
+分類篩選只接受服務分類列舉的自有 key；`constructor`、`__proto__`、
+`toString` 等繼承名稱不是分類。會員清單對非空的無效 `category` 回
+422 `validation_failed`；公開 `/services` 忽略無效分類，保留全部分類的
+服務與分頁，選中「全部」，canonical 不包含無效分類。合法分類仍在分頁前篩選。
+
 ### 資料
 
 `migrations/067_member_services.sql`：`member_services`、`member_service_covers`。公開列表索引是 `(community_id, updated_at DESC, service_id DESC) WHERE state='active'`，主人索引含有效與暫停。封面 `ON DELETE CASCADE`，但軟刪除要另外刪封面列。點擊分仍只在 `promotion_clicks`。列表的 `total_points` 用既有的 `promotion_links_target` 索引，合計該服務全部 `member_service` 連結的點擊。

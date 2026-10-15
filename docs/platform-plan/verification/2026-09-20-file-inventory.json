@@ -14144,8 +14144,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 30921,
-      "sha256": "03286c26d152d1afecc92395907494aa27ebefc1f3b01c1baa7dee576fdd7b27"
+      "bytes": 31293,
+      "sha256": "974bbf79b6953f923cf88fa778bb3bed0c7264973f80474ba9c84cd05acfae0c"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17749,8 +17749,8 @@
     },
     {
       "path": "modules/community/member-services.ts",
-      "bytes": 24795,
-      "sha256": "e36dd3c592983b85c7a159d4e9aa1aacf4e08abe60dba354240cc413ec618385"
+      "bytes": 24808,
+      "sha256": "788dd9fcb98ec424b4c51a3721d07b6c36e985136d797676c3d2c333523b55ff"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -22524,8 +22524,8 @@
     },
     {
       "path": "tests/runtime/member-services.test.ts",
-      "bytes": 48921,
-      "sha256": "35c9ad7aa07872d364738892021f672f755bac7da732d4df0d7ec48130eee009"
+      "bytes": 49560,
+      "sha256": "86bae7eddb4161a7f12a4cfcb171d557c044e76f7d15aaf10dbf740441319f6d"
     },
     {
       "path": "tests/runtime/member-session-lifecycle.test.ts",
