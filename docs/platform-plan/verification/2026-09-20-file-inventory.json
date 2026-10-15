@@ -17589,8 +17589,8 @@
     },
     {
       "path": "modules/autopilot-work/README.md",
-      "bytes": 12721,
-      "sha256": "af8a536211f31511e6b44d185209eb43173ebc1c242567e86f834b3108bd2842"
+      "bytes": 13318,
+      "sha256": "c4aee9e0644f90c7c3a0dd4a9c526f42055fe3d09ff9e597ff59bd8bdbf6dc63"
     },
     {
       "path": "modules/autopilot-work/freedom.module.json",
@@ -22934,8 +22934,8 @@
     },
     {
       "path": "tests/runtime/private-work-policy.test.ts",
-      "bytes": 22060,
-      "sha256": "eebaaee2c859b9715bd98086f4ca7ee150a2473469899e32b9fd3bccf9115cb9"
+      "bytes": 22585,
+      "sha256": "ab9d1dba4b1108038647d06935b6498d13dccee16270003ada641d33c5f06218"
     },
     {
       "path": "tests/runtime/production-dossier.test.ts",
