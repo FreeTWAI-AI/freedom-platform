@@ -155,7 +155,7 @@
     {
       "path": ".github/workflows/verify.yml",
       "bytes": 33918,
-      "sha256": "f49de40293a6a5c5af398e1938f243e5d0d8593b02133ba48a6d2c098104dbfb"
+      "sha256": "6dcba363701b16f6ab4371a16ee7f8615d3b2b454a6274028074745106b8fc28"
     },
     {
       "path": "apps/freedom.module.json",
@@ -13904,8 +13904,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 30654,
-      "sha256": "0086b578a51acdb5979772aac8866acc9555655fbdc862ff34123acba42dde84"
+      "bytes": 33612,
+      "sha256": "2f8b980e0c3faaf278614a8d39e1eda3c872392aa752ee92968b63ff4000e66b"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -19235,7 +19235,7 @@
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
       "bytes": 17266,
-      "sha256": "f986001fc737bed53cc8cf0877880f9028facb819b3309129ac276e86568b48a"
+      "sha256": "8fe7f311c7063f99b2e7c9cf2b551cf6ddf0b5e15d55d95fc50f976709d169ad"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -19475,7 +19475,7 @@
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
       "bytes": 38888,
-      "sha256": "5a7d78a8d5ce895c27da329bb57d6b62b8261e60202cbf37ee67fda955539851"
+      "sha256": "f5f01a507cd24515d2e68aa58b610f555e84516e7caee42bc6016b734d94a9f9"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",

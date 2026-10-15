@@ -411,7 +411,7 @@ test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero chil
 
 test('host pass budgets are finite and only the default capacity increases', async () => {
   assert.deepEqual(E2E_PASS_TIMEOUT_MS, {
-    default: 50 * 60 * 1000,
+    default: 60 * 60 * 1000,
     'private-ai': 30 * 60 * 1000,
     'avatar-asset': 30 * 60 * 1000,
     'message-image': 30 * 60 * 1000,
@@ -423,7 +423,7 @@ test('host pass budgets are finite and only the default capacity increases', asy
   assert.ok(Object.values(E2E_PASS_TIMEOUT_MS).every(value => Number.isSafeInteger(value) && value > 0));
   const workflow = await readFile(join(repoRoot, '.github/workflows/verify.yml'), 'utf8');
   const ui = workflow.slice(workflow.indexOf('  ui-e2e:'), workflow.indexOf('  static-worker:'));
-  assert.match(ui, /timeout-minutes: 60\b/);
+  assert.match(ui, /timeout-minutes: 75\b/);
 });
 
 test('CLI default deadline remains failure after graceful zero exit and stops later passes', async () => {
@@ -470,7 +470,7 @@ test('CLI default deadline remains failure after graceful zero exit and stops la
     });
     assert.equal(child.status, 1, child.stdout + child.stderr);
     assert.equal(child.signal, null);
-    assert.deepEqual(JSON.parse(await readFile(observed, 'utf8')), { delay: 50 * 60 * 1000 });
+    assert.deepEqual(JSON.parse(await readFile(observed, 'utf8')), { delay: 60 * 60 * 1000 });
     assert.equal(await readFile(marker, 'utf8'), 'SIGTERM');
     assert.equal(await readFile(starts, 'utf8'), 'started\n');
     const result = JSON.parse(await readFile(output, 'utf8'));
