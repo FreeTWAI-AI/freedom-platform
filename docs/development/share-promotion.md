@@ -85,6 +85,11 @@ POST 回歸另以真正 HTTP 與 SQL barrier 覆蓋 existing replay 的最後點
 
 標題用投稿者填的；沒填就用預覽抓到的頁面標題（最多 120 字）；再沒有就用主機名。預覽失敗仍可建立貼文，只是沒有縮圖。作者可換縮圖或軟刪除。能審核活動的平台管理員可隱藏；公會長不行。隱藏或刪除後，列表看不到，分享連結回到首頁，公開縮圖 404。
 
+遠端 HTML／OG 與 YouTube oEmbed JSON 標題中的原始 U+0000，在空白整理與
+120 字長度上限之前換成 U+FFFD，避免預覽內容使正常分享寫入 PostgreSQL 失敗。
+HTML 仍移除角括號；oEmbed 仍視為純文字，不解碼其中的 HTML entities 或刪除括號。
+自填標題優先與同 key 重播語意不變；這個 #721 邊界不同於 #717 的 numeric reference 解碼。
+
 預覽抓取（`modules/community/link-preview.ts`）由 runtime 注入。YouTube 取影片 id（`watch?v=`、`youtu.be`、`/shorts/`、`/live/`、`/embed/`），再抓 `i.ytimg.com` 的 `hqdefault.jpg`，標題可選 oEmbed。其他平台讀 `og:image`、`og:image:secure_url` 或 `twitter:image`。限制是：`redirect:manual`、最多 3 次重導、每一跳都重跑網址規則、全程 6 秒、HTML 最多 1 MiB、圖片最多 5 MiB。回應只要聲明 `image/*` 就收下；格式以檔案簽名判斷，不採用對方的 Content-Type。GIF、動畫 PNG、動畫 WebP、簽名不符或超過 5 MiB 時捨棄縮圖、保留標題。靜態 png／jpeg／webp 正規化成 640×360 的 WebP（`social_thumbnail`）。處理器失敗就沒有縮圖，不讓貼文失敗。上傳的縮圖仍要聲明類型與簽名一致，且在 512 KiB 以下。User-Agent 固定為 `FreedomWorkshopPreview/1.0 (+https://freetwai.com)`。測試與 e2e 使用假的 fetcher，不連外網。
 
 Production runtime 必須提供受限的 preview transport；缺少 transport 時只建立無預覽貼文，不回退到一般 `fetch`。6 秒期限包括 DNS、TLS、headers 與 body 讀取，頁面、重導及縮圖都走相同邊界：
