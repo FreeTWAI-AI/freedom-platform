@@ -5,6 +5,9 @@ import { SkillBookCard, type IntroBook } from './SkillBookIntro';
 import {SkillDiscoveryFilters,type SkillDiscoveryView} from './SkillDiscovery';
 import {useSkillDiscovery,type SkillDiscoveryBook} from './skill-discovery-client';
 import {useLanguage} from '../language';
+import {matchesSkillSearch} from './skill-search';
+
+export {matchesSkillSearch};
 
 export type SiteConfig = { ar_enabled?:boolean; registration_enabled: boolean; password_recovery_enabled?: boolean; demo_accounts_enabled: boolean; public_mode: boolean; guild_launchpad_enabled?: boolean; hosted_store_photos_enabled?:boolean; hosted_store_photo_uploads_enabled?:boolean; community_discovery_enabled?: boolean; message_images_enabled?:boolean; member_blocking_enabled: boolean; member_reporting_enabled?: boolean; unified_sharing_enabled?: boolean; community_search_enabled?: boolean; community_relations_enabled?: boolean; personal_content_enabled?: boolean; notification_preferences_enabled?: boolean; first_participation_enabled?: boolean; squad_outcomes_enabled?: boolean; event_outcomes_enabled?: boolean; event_participation_enabled?: boolean; skill_book_star_gate_enabled?: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
@@ -39,12 +42,6 @@ export function loadCommunityCatalog(client: PortalClient) {
 export function isGuildBook(book: CatalogBook, discovery: SkillDiscoveryBook | undefined, unlocked: readonly string[] = []) {
   return Boolean(book.official_guild_keys?.length || discovery?.official_guild_keys.length) || unlocked.includes(book.id);
 }
-/** Case-insensitive match over the text a reader sees on a skill book. */
-export function matchesSkillSearch(term: string, values: (string | null | undefined)[]) {
-  const needle = term.trim().toLocaleLowerCase();
-  return !needle || values.join(' ').toLocaleLowerCase().includes(needle);
-}
-
 export function RepositoryLibrary({ client, ids, excludeIds, access, title = '社群技能書', compact = false, shelf, headingLevel }: { client: PortalClient; ids?: string[]; excludeIds?:string[]; access?:'unlocked'|'locked'; title?: string; compact?: boolean; shelf?: 'guild'; headingLevel?: 2|3|4 }) {
   const [catalog, setCatalog] = useState<CommunityCatalog | null>(null), [error, setError] = useState('');
   const [search,setSearch]=useState(''),[category,setCategory]=useState(''),[reload,setReload]=useState(0),[view,setView]=useState<SkillDiscoveryView>('all');
