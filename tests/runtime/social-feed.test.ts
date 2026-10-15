@@ -117,6 +117,30 @@ test('comment pagination is stable with identical timestamps and rejects invalid
   assert.equal((await request(path + '?cursor=broken', session)).status, 422);
 });
 
+for(const collection of ['posts','comments','likes'] as const){
+ test(`${collection} cursor rejects non-ISO dates and extra fields while retaining precise valid boundaries`,async()=>{
+  const owner=await login(),note=await post(owner);
+  const comment=await request(`/social-posts/${note.post_id}/comments`,owner,{text:'Synthetic cursor boundary'});
+  assert.equal(comment.status,201);
+  assert.equal((await request(`/social-posts/${note.post_id}/like`,owner,{liked:true})).status,200);
+  const table={posts:'community_social_posts',comments:'community_social_comments',likes:'community_social_likes'}[collection];
+  await pool.query(`UPDATE ${table} SET created_at='2026-01-01T00:00:00.123789Z' WHERE post_id=$1`,[note.post_id]);
+  const path=collection==='posts'?'/social-posts':`/social-posts/${note.post_id}/${collection}`;
+  const id=collection==='posts'?note.post_id:collection==='comments'?comment.data.comment_id:owner.id;
+  const page=(text:string)=>request(path+'?cursor='+encodeURIComponent(Buffer.from(text).toString('base64url')),owner);
+  for(const text of [`0\n${id}`,`2026-02-30T00:00:00.000Z\n${id}`,`0000-01-01T00:00:00.000Z\n${id}`,`2026-01-01T00:00:00.000Z\n${id}\nignored`]){
+   const denied=await page(text);assert.equal(denied.status,422);assert.equal(denied.data.code,'invalid_cursor');
+  }
+  const idField={posts:'post_id',comments:'comment_id',likes:'user_id'}[collection];
+  const exact=await page(`2026-01-01T00:00:00.123789Z\n${id}`);
+  assert.equal(exact.status,200);assert.deepEqual(exact.data.items.map((item:Record<string,string>)=>item[idField]),[]);
+  for(const time of ['2024-02-29T00:00:00.000Z','2024-02-29T00:00:00.000000Z']){
+   const valid=await page(`${time}\n${id}`);assert.equal(valid.status,200);
+   assert.deepEqual(valid.data.items.map((item:Record<string,string>)=>item[idField]),collection==='posts'?[]:[id]);
+  }
+ });
+}
+
 test('other communities cannot read, like, comment or remove a known post', async () => {
   const owner = await login(), note = await post(owner), community = randomUUID();
   await pool.query('INSERT INTO communities(community_id,name) VALUES($1,$2)', [community, '合成隔離社群']);

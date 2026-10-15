@@ -14144,8 +14144,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 30921,
-      "sha256": "03286c26d152d1afecc92395907494aa27ebefc1f3b01c1baa7dee576fdd7b27"
+      "bytes": 31384,
+      "sha256": "992217d9b9e978c0a478cbc8b895f0733c6bf9f224ed1678d08fa1f1bec90d44"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17814,8 +17814,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 44254,
-      "sha256": "8b5e12d1077fe71a91d7fbe50ade13eac7f599f13affed44530cbdb1ee87d20d"
+      "bytes": 44391,
+      "sha256": "4ad4327c5c446e13491ecc25ecdd3043d904423f44e825601a967b1df84c0949"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -23139,8 +23139,8 @@
     },
     {
       "path": "tests/runtime/social-feed.test.ts",
-      "bytes": 26406,
-      "sha256": "0688901e010d6b9479a23176bda52b3fada5089548a2afe07a7678038f28fb02"
+      "bytes": 28277,
+      "sha256": "083beff534da1fd120588455b4ab814f71c5713978bc6fbe8ac12a13746ec995"
     },
     {
       "path": "tests/runtime/social-links.test.ts",
