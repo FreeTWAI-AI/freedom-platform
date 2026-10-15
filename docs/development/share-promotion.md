@@ -89,6 +89,11 @@ HTML 預覽的十進位／十六進位數字字元參照會把零、超出 Unico
 
 社群標題保留既有 120 個 UTF-16 code units 的輸入／編輯上限；截斷時若邊界落在 supplementary character 的 surrogate pair 中，整個省略超出邊界的字元，不留下半個 pair 讓資料庫編碼成額外 U+FFFD。完整落在上限內的 emoji 等字元保留。HTML／oEmbed 預覽、寫入前的標題上限及原生貼文建立／編輯共用同一規則；原生貼文正文不截短。這不是把輸入合約放寬為 120 個 Unicode scalars。
 
+遠端 HTML／OG 與 YouTube oEmbed JSON 標題中的原始 U+0000，在空白整理與
+120 字長度上限之前換成 U+FFFD，避免預覽內容使正常分享寫入 PostgreSQL 失敗。
+HTML 仍移除角括號；oEmbed 仍視為純文字，不解碼其中的 HTML entities 或刪除括號。
+自填標題優先與同 key 重播語意不變；這個 #721 邊界不同於 #717 的 numeric reference 解碼。
+
 預覽抓取（`modules/community/link-preview.ts`）由 runtime 注入。YouTube 取影片 id（`watch?v=`、`youtu.be`、`/shorts/`、`/live/`、`/embed/`），再抓 `i.ytimg.com` 的 `hqdefault.jpg`，標題可選 oEmbed。其他平台讀 `og:image`、`og:image:secure_url` 或 `twitter:image`。限制是：`redirect:manual`、最多 3 次重導、每一跳都重跑網址規則、全程 6 秒、HTML 最多 1 MiB、圖片最多 5 MiB。回應只要聲明 `image/*` 就收下；格式以檔案簽名判斷，不採用對方的 Content-Type。GIF、動畫 PNG、動畫 WebP、簽名不符或超過 5 MiB 時捨棄縮圖、保留標題。靜態 png／jpeg／webp 正規化成 640×360 的 WebP（`social_thumbnail`）。處理器失敗就沒有縮圖，不讓貼文失敗。上傳的縮圖仍要聲明類型與簽名一致，且在 512 KiB 以下。User-Agent 固定為 `FreedomWorkshopPreview/1.0 (+https://freetwai.com)`。測試與 e2e 使用假的 fetcher，不連外網。
 
 Production runtime 必須提供受限的 preview transport；缺少 transport 時只建立無預覽貼文，不回退到一般 `fetch`。6 秒期限包括 DNS、TLS、headers 與 body 讀取，頁面、重導及縮圖都走相同邊界：

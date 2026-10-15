@@ -99,6 +99,24 @@ test('numeric preview references replace invalid scalars and preserve valid Unic
   }
 });
 
+test('raw NUL in HTML and OG titles becomes replacement text before the title cap', () => {
+  for (const html of [
+    '<title>  前\u0000後\t😀  </title>',
+    '<meta property="og:title" content="  前\u0000後\t😀  "><title>備用</title>',
+  ]) assert.equal(previewTitle(html), '前\uFFFD後 😀');
+  assert.equal(previewTitle(`<title>${'中'.repeat(119)}\u0000後</title>`), `${'中'.repeat(119)}\uFFFD`);
+});
+
+test('oEmbed titles replace raw NUL while preserving plain text and thumbnail behavior', async () => {
+  const fetcher: PreviewFetch = async input => String(input).startsWith('https://www.youtube.com/oembed')
+    ? new Response(JSON.stringify({ title: '  <影片>\u0000 &amp;\t😀  ' }), { headers: { 'Content-Type': 'application/json' } })
+    : imageResponse(PNG);
+  const result = await previewLink('https://www.youtube.com/watch?v=rawNul00001', fetcher, 2000);
+  assert.equal(result.title, '<影片>\uFFFD &amp; 😀');
+  assert.equal(result.source, 'youtube');
+  assert.ok(result.image);
+});
+
 test('youtube and open-graph previews normalize a thumbnail', async () => {
   const seen: string[] = [];
   const fetcher: PreviewFetch = async input => {
