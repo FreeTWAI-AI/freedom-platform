@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {z} from 'zod';
 import {ApiError,type PortalClient} from '../../../../apps/portal-web/src/api';
 import {SupplyCatalogViewSchema,SupplyCatalogSetupInputSchema,SupplyProductInputSchema,SupplyProductUpdateInputSchema,type SupplyCatalogView} from '../../../../contracts/guild-launchpad/v1/hosted-supply-catalog';
-import {SupplierOverviewSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplyProfileUpdateInputSchema,type SupplierProductDetail} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import {SupplierOverviewSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplierRequestDetailSchema,SupplyProfileUpdateInputSchema,type SupplierProductDetail} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import {DistributionsSchema,SupplyOffersSchema} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {SupplyTermsInputSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms';
 import {SupplierReservationPageSchema,ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
@@ -37,6 +37,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  const can=(capability:string)=>!revoked&&profile?.writable===true&&profile.capabilities.includes(capability)===true;
  function descriptor(key:string):{path:string;schema:z.ZodType;gate?:'write'|'owner'}|null {
   if(key.startsWith('product:'))return {path:'/supplier-console/products/'+key.slice(8),schema:SupplierProductDetailSchema,gate:'write'};
+  if(key.startsWith('request:'))return {path:'/supplier-console/requests/'+key.slice(8),schema:SupplierRequestDetailSchema,gate:'write'};
   if(key.startsWith('partner:'))return {path:'/supplier-console/partners/'+key.slice(8),schema:SupplierPartnerDetailSchema,gate:'write'};
   const table:Record<string,{path:string;schema:z.ZodType;gate?:'write'|'owner'}>={profile:{path:'/supply-profile',schema:SupplyCatalogViewSchema},owner:{path:'/reservation-setting',schema:ReservationSettingSchema},
    overview:{path:'/supplier-console/overview',schema:SupplierOverviewSchema},products:{path:'/supplier-console/products',schema:SupplierProductsSchema,gate:'write'},partners:{path:'/supplier-console/partners',schema:SupplierPartnersSchema,gate:'write'},
@@ -52,7 +53,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
   try {
    const result=d.schema.safeParse(await client.get(root+d.path,{signal:abort.signal}));if(!result.success)throw new Error('invalid_read');if(!current())return false;
    const data=result.data as Record<string,unknown>;
-   if(key==='profile'&&(data.tenant_id!==scope.tenantId||data.instance_id!==scope.instanceId)||key.startsWith('product:')&&(data.product as {product_id:string}).product_id!==key.slice(8)||key.startsWith('partner:')&&(data.partner as {partner_id:string}).partner_id!==key.slice(8))throw new Error('read_target_mismatch');
+   if(key==='profile'&&(data.tenant_id!==scope.tenantId||data.instance_id!==scope.instanceId)||key.startsWith('product:')&&(data.product as {product_id:string}).product_id!==key.slice(8)||key.startsWith('partner:')&&(data.partner as {partner_id:string}).partner_id!==key.slice(8)||key.startsWith('request:')&&(data.request as {selection_id:string}).selection_id!==key.slice(8))throw new Error('read_target_mismatch');
    const now=new Date().toISOString(),next:ReadSlot<unknown>={state:'ready',data,asOf:typeof data.as_of==='string'?data.as_of:now,lastOkAt:now,error:''};
    readRef.current={...readRef.current,[key]:next};setReads(old=>({...old,[key]:next}));setPendingReads(old=>old.filter(k=>k!==key));
    if(key.startsWith('product:'))setDrafts(old=>staleDrafts(old,key.slice(8),(data as unknown as SupplierProductDetail).product.version));
@@ -72,7 +73,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  useEffect(()=>{mounted.current=true;generation.current=client.sessionGeneration;commandAbort.current=new AbortController();void read('profile');return()=>{mounted.current=false;tickets.current.forEach(t=>t.abort.abort());commandAbort.current.abort();};},[client,root]);
  useEffect(()=>{if(profile?.setup_state==='ready')void read('owner');},[profile?.setup_state]);
  useEffect(()=>{if(profile?.setup_state!=='ready')return;
-  const keys=route.page==='overview'?['overview']:route.page==='products'?['profile','products',...(photosEnabled?['media']:[])]:route.page==='product'?['product:'+route.id,...(photosEnabled?['media']:[])]:route.page==='partners'?['partners']:route.page==='partner'?['partner:'+route.id,'partners']:route.page==='terms'?['requests','offers','products']:route.page==='review'?['requests','products']:route.page==='reservations'&&ownerAllowed?['reservations']:route.page==='settings'?['profile']:route.page==='product-new'?['profile','products']:[];
+  const keys=route.page==='overview'?['overview']:route.page==='products'?['profile','products',...(photosEnabled?['media']:[])]:route.page==='product'?['product:'+route.id,...(photosEnabled?['media']:[])]:route.page==='partners'?['partners']:route.page==='partner'?['partner:'+route.id,'partners']:route.page==='terms'?['requests','offers','products']:route.page==='review'?['request:'+route.id]:route.page==='reservations'&&ownerAllowed?['reservations']:route.page==='settings'?['profile']:route.page==='product-new'?['profile','products']:[];
   keys.forEach(key=>void read(key));
  },[route.page,route.id,profile?.setup_state,profile?.capabilities.join(','),ownerAllowed,photosEnabled]);
  useEffect(()=>{if(route.page==='reservations'&&ownerAllowed)void read('reservations');},[cursors]);
@@ -90,7 +91,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  function discard(name:string){setDrafts(old=>discardDraft(old,name));setConflicts(old=>{const next={...old};delete next[name];return next;});}
  async function refreshAttempt(a:Attempt,value?:Record<string,unknown>){
   const productId=a.kind==='product.create'?String(value?.product_id):a.productId;
-  const keys=ATTEMPT_KINDS[a.kind].reads.flatMap(key=>key==='product'?productId?['product:'+productId]:[]:key==='partner'?Object.keys(readRef.current).filter(k=>k.startsWith('partner:')):[key]);
+  const keys=ATTEMPT_KINDS[a.kind].reads.flatMap(key=>key==='request'?['request:'+a.target]:key==='product'?productId?['product:'+productId]:[]:key==='partner'?Object.keys(readRef.current).filter(k=>k.startsWith('partner:')):[key]);
   if(photosEnabled&&productId)keys.push('media');
   const admissible=keys.filter(key=>{const d=descriptor(key);return d&&(d.gate!=='write'||profile?.capabilities.includes('store:write'))&&(d.gate!=='owner'||ownerAllowed);});
   setPendingReads(old=>[...new Set([...old,...admissible.filter(k=>k!=='media')])]);await Promise.all(admissible.map(read));

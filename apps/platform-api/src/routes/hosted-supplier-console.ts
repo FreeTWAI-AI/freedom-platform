@@ -3,7 +3,7 @@ import type {Pool} from 'pg';
 import {OpaqueId} from '../../../../contracts/common/v1/identity.js';
 import {EmptyStoreInputSchema} from '../../../../contracts/guild-launchpad/v1/storefront.js';
 import {SupplyProfileUpdateInputSchema} from '../../../../contracts/guild-launchpad/v1/supplier-console.js';
-import {readSupplierOverview,listSupplierProducts,readSupplierProduct,listSupplierPartners,readSupplierPartner} from '../../../../modules/agent-commerce/supplier-console/reads.js';
+import {readSupplierOverview,listSupplierProducts,readSupplierProduct,listSupplierPartners,readSupplierPartner,readSupplierRequest} from '../../../../modules/agent-commerce/supplier-console/reads.js';
 import {updateSupplyProfile} from '../../../../modules/agent-commerce/hosted/supply-catalog.js';
 import type {PlatformEnv} from '../module-context.js';
 import {privateCache,singleQuery,commandHeaders,etag} from './tenant-http.js';
@@ -24,6 +24,10 @@ export function createHostedSupplierConsoleRoutes(pool:Pool) {
   app.get(root+'/supplier-console/products/:product_id',async c=>{
     EmptyStoreInputSchema.parse(singleQuery(c));const [t,i]=ids(c);
     return c.json(await readSupplierProduct(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('product_id'))));
+  });
+  app.get(root+'/supplier-console/requests/:selection_id',async c=>{
+    EmptyStoreInputSchema.parse(singleQuery(c));const [t,i]=ids(c);
+    return c.json(await readSupplierRequest(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('selection_id'))));
   });
   app.get(root+'/supplier-console/partners',async c=>{
     EmptyStoreInputSchema.parse(singleQuery(c));const [t,i]=ids(c);

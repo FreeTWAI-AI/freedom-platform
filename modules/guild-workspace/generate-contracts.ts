@@ -134,6 +134,7 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['overview', supplierConsole.SupplierOverviewSchema, 'output', ['single_statement_snapshot', 'store_write_required_for_counts', 'owner_required_for_reservation_lines', 'unavailable_is_not_zero']],
     ['products', supplierConsole.SupplierProductsSchema, 'output', ['complete_bounded_catalog', 'available_equals_stock_minus_reserved', 'private_cost_and_terms']],
     ['product', supplierConsole.SupplierProductDetailSchema, 'output', ['private_cost_and_terms', 'impact_preview_is_not_authority']],
+    ['request', supplierConsole.SupplierRequestDetailSchema, 'output', ['single_statement_snapshot', 'supplier_relationship_only', 'current_selection_version_and_digest']],
     ['partners', supplierConsole.SupplierPartnersSchema, 'output', ['stable_seller_shop_id', 'supplier_relationship_only']],
     ['partner', supplierConsole.SupplierPartnerDetailSchema, 'output', ['stable_seller_shop_id', 'supplier_relationship_only']],
     ['profile-update', supplierConsole.SupplyProfileUpdateInputSchema, 'input', ['at_least_one_field', 'supply_only_profile', 'profile_version_cas']],

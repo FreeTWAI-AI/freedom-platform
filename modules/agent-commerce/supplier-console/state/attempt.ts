@@ -14,7 +14,7 @@ export const ATTEMPT_KINDS={
  'terms.update':rule(SupplyTermsSchema,'product_id',['products','overview','product','offers','requests']),
  'offer.publish':rule(SupplyOfferSchema,'product_id',['products','overview','product','offers','requests','partners']),
  'offer.withdraw':rule(SupplyOfferSchema,'offer_id',['products','overview','product','offers','requests','partners']),
- 'request.decide':rule(DistributionSchema,'selection_id',['products','overview','product','offers','requests','partners','partner']),
+ 'request.decide':rule(DistributionSchema,'selection_id',['request','products','overview','product','offers','requests','partners','partner']),
  'reservation.toggle':rule(ReservationSettingSchema,null,['profile','owner','overview','reservations']),
 } as const;
 export type AttemptKind=keyof typeof ATTEMPT_KINDS;

@@ -1,6 +1,6 @@
 import type {Pool} from 'pg';
 import {SupplierOverviewSchema, SupplierProductsSchema, SupplierProductDetailSchema, SupplierPartnersSchema,
-  SupplierPartnerDetailSchema, type SupplierProduct, type SupplierTodo} from '../../../contracts/guild-launchpad/v1/supplier-console.js';
+  SupplierPartnerDetailSchema, SupplierRequestDetailSchema, type SupplierProduct, type SupplierTodo} from '../../../contracts/guild-launchpad/v1/supplier-console.js';
 import {digest} from '../../../packages/db/index.js';
 import {requireCondition} from '../../../packages/shared/problem.js';
 import type {Actor} from '../../identity-membership/service.js';
@@ -130,6 +130,20 @@ export async function readSupplierProduct(pool: Pool, actor: Actor, tenantId: st
       shipping_terms:row.product.shipping_terms,return_terms:row.product.return_terms,
       current_offer:row.product.current_offer?offerView(row.product.current_offer):null,
       selections:row.selections.slice(0,200).map((l:Record<string,any>)=>({...selectionView(l),partner_id:l.partner_id})),truncated:row.selections.length>200});
+  });
+}
+export async function readSupplierRequest(pool: Pool, actor: Actor, tenantId: string, instanceId: string, selectionId: string) {
+  return storeRead(pool,actor,tenantId,instanceId,'store:write',async q=>{
+    const p = await profile(q, tenantId, instanceId); ready(p);
+    const row=(await q.query(`/* supplier-console:request */ WITH ${productCtes} SELECT ${asOf},
+      (SELECT to_jsonb(l) FROM selections l WHERE l.selection_id=$5) AS request,
+      (SELECT to_jsonb(i) FROM products i JOIN selections l ON l.item_id=i.item_id WHERE l.selection_id=$5) AS product
+      FROM clock`,[...params(p),selectionId])).rows[0];
+    requireCondition(row.request&&row.product,404,'not_found','找不到這筆申請。');
+    const product=productView(row.product,p.currency);
+    return SupplierRequestDetailSchema.parse({profile:'freedom.supplier-console.request/v1',as_of:row.as_of,
+      request:{...selectionView(row.request),partner_id:row.request.partner_id},
+      product:{product_id:product.product_id,offer:product.offer}});
   });
 }
 export async function listSupplierPartners(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {

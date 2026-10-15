@@ -92,6 +92,16 @@ export const SupplierProductDetailSchema = z.object({
   selections: z.array(SupplierProductSelectionSchema).max(200), truncated: z.boolean(),
 }).strict();
 
+/** One seller request on this supplier's offers, read by its ID; no list cap applies. Version and listing digest
+ * are the current row's, so a decision made from this read is checked against what the supplier saw. */
+export const SupplierRequestDetailSchema = z.object({
+  profile: z.literal('freedom.supplier-console.request/v1'), as_of: time,
+  request: SupplierProductSelectionSchema,
+  /** The product's current offer at as_of, to flag terms changed after this request's version was published. */
+  product: z.object({product_id: OpaqueId, offer: SupplierProductOfferSchema.nullable()}).strict(),
+}).strict();
+export type SupplierRequestDetail = z.infer<typeof SupplierRequestDetailSchema>;
+
 export const SupplierPartnerSchema = z.object({
   /** The seller's hosted retail shop. Stable; never derived from or grouped by its display name. */
   partner_id: OpaqueId, name: z.string(),
