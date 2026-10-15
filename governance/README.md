@@ -63,7 +63,14 @@ This selects its existing `runtime.full` requirement without claiming unrelated
 runtime tests. Baseline ownership and host-required fallback evidence still
 apply to trusted checks; a local candidate mapping is not baseline approval.
 
-That additional composition-owned runtime path is outside the exact reviewed
+The Node and Worker preview egress adapters (`apps/platform-api/src/node-preview-fetch.ts`
+and `worker-preview-fetch.ts`) and their existing
+`tests/runtime/link-preview-egress.test.ts` likewise have exact composition ownership
+(#778), alongside their `app.ts` / `worker.ts` callers. Changes retain `runtime.full`;
+this mapping does not validate DNS/egress behavior, enable network access, or grant
+trusted baseline approval. Unrelated unknown paths still require the full fallback.
+
+These composition-owned runtime paths are outside the exact reviewed
 guide-browser pilot graph. Guide leaf changes therefore retain the full browser
 profile as well as full job obligations, including after both revisions adopt
 the owner. The selector's exact-set admission guard is unchanged. Positive
