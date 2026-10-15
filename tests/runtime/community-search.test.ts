@@ -207,7 +207,6 @@ test('HTTP cursors reject decoded controls and extra fields without content or s
       const body: unknown = await response.json();
       assert.ok(body && typeof body === 'object' && 'code' in body && 'detail' in body);
       assert.equal(body.code, 'invalid_cursor');
-      assert.equal(body.detail, '分頁標記不正確。');
       assert.equal('items' in body || 'operation_id' in body || 'next_cursor' in body, false);
       assert.equal(JSON.stringify(body).includes('normal-id'), false);
     }

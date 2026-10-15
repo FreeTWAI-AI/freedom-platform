@@ -21774,8 +21774,8 @@
     },
     {
       "path": "tests/runtime/community-search.test.ts",
-      "bytes": 36110,
-      "sha256": "b8f3032256a2c219f87beb085484af075502437b7e0c7d5d296e3e642a0d238e"
+      "bytes": 36049,
+      "sha256": "3be359009a986f44b47c349c46b5a9dc7c7934aa61a47ac341da72c4976751fc"
     },
     {
       "path": "tests/runtime/contribution-roles.test.ts",
