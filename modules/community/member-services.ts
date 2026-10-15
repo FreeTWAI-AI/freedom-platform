@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { checkVersion, command, digest, type Command } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
+import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { SERVICE_CATEGORY_LABELS, SERVICE_LIMIT, SERVICE_MODE_LABELS, validateMemberService, type ServiceCategory, type ServiceContact, type ServiceMode } from '../../packages/shared/member-service.js';
 import { AssetStorageError,snapshotBoundedBytes,type ObjectStore } from '../../packages/asset-storage/index.js';
 import { serviceCoverMemberCommand } from '../../packages/scoped-commands/index.js';
@@ -54,11 +55,15 @@ function view(row: Row, viewerId: string, canHide: boolean) {
     mine: row.owner_user_id === viewerId, can_hide: canHide,
   };
 }
+/** Server cursors keep PostgreSQL's six fractional digits; three-digit cursors issued before that fix must still open the next page. Impossible dates and `24:00` never reach SQL. */
+function isCursorTimestamp(value: string) {
+  return isKeysetTimestamp(/\.\d{3}Z$/.test(value) ? value.replace(/Z$/, '000Z') : value);
+}
 function cursorOf(raw: string | undefined, strict: boolean) {
   if (!raw) return null;
   try {
     const [updatedAt, id] = Buffer.from(raw, 'base64url').toString('utf8').split('\n');
-    if (!updatedAt || Number.isNaN(Date.parse(updatedAt)) || !z.uuid().safeParse(id ?? '').success) throw new Error('bad');
+    if (!updatedAt || !isCursorTimestamp(updatedAt) || !z.uuid().safeParse(id ?? '').success) throw new Error('bad');
     return { updatedAt, id: id! };
   } catch (error) {
     if (error instanceof Problem) throw error;
@@ -70,7 +75,7 @@ function encodeCursor(updatedAt: string, id: string) { return Buffer.from(`${upd
 function categoryOf(raw: string | undefined, strict: boolean) {
   const value = raw ?? '';
   if (!value) return '';
-  if (value in SERVICE_CATEGORY_LABELS) return value as ServiceCategory;
+  if (Object.hasOwn(SERVICE_CATEGORY_LABELS, value)) return value as ServiceCategory;
   if (strict) throw new Problem(422, 'validation_failed', '分類篩選不正確。');
   return '';
 }

@@ -12,6 +12,25 @@
 
 ## 2026-10-14 安全修補與組織搬遷發布現況
 
+**最新營運證據截至10月15日07:04 UTC：** 兩環境仍為 `938516ee`／schema166，
+沒有再次部署或重套 migration。Production 新 set `20c800a8` 於06:46 UTC、
+staging 新 set `8abd2a28` 於07:02 UTC 完成遠端讀回、隔離 DB＋物件還原、
+schema166 floor、捕獲期間 GC 證據及清理；舊失敗 set 的結果全部保留。
+Production 的10項還原座標約束也通過：5項採精確審查的 PG18 deparser 形式，
+其餘5項保持原定義；沒有通用正規化或修改原 SQL／floor／live verifier。
+
+07:04 UTC 已原子替換日常 dispatcher 為 `86888671`，兩個版本化 wrapper 使用上述
+完整還原所驗證的 adapter；舊 binding、wrapper、證據及 timer／service 檔案未改。
+這次安裝沒有執行備份或 provider 操作。**新 operator 的自然排程尚未觀察**，
+安裝時記錄的下一次為10月16日04:33 UTC（production）及04:46 UTC（staging）；
+不能把手動完整還原或安裝成功當作排程成功。原 service 的失敗狀態也未改綠。
+
+新收據及雜湊見[發布收據](rollout-security-2026-10-14.json)與[現況快照](current-state.json)。
+真實 GitHub OAuth／會員操作／webhook、獨立 Maintainer #72、真人與第二操作者驗收
+仍未完成；還原環境保持隔離，T-047 的現行授權／撤權對帳不因備份成功而結案。
+
+### 截至05:29 UTC的發布與失敗紀錄（保留歷史結果）
+
 追蹤 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)。本次選定安全發布
 `938516ee`（tree `089a3774`）已部署 staging，Worker `368a5d67`、schema166；
 本次沒有重套已存在的166。限定驗收以原非 browser 階段及 `zh-TW` locale browser
@@ -66,7 +85,9 @@ feed watermark 推進至04:50:21，21／21筆新座標 repo 已同步，舊座�
 一位有效核准、App 綁定必要 checks、禁止刪除／force push、無 bypass；兩倉未啟用
 CODEOWNERS review。這是兩倉的具日期觀察，沒有更動設定或宣稱全部 consumer 已驗收。
 
-已合併 main `efaf314d` 包含後續 #658 與 #659；#659 的4792 runtime、950個不重複
+### 已合併來源與未部署範圍
+
+06:47 UTC 已合併 main `1e584aa8` 包含後續 #658、#659 與 #680；#659 的4792 runtime、950個不重複
 browser案例與5個公會 preview通過，原622／657一併收斂。這些後續來源與 #680
 均不包含在本次938發布，AR167沒有部署。T-047、真實 GitHub OAuth／會員操作、
 獨立 Maintainer #72 安裝、真人試用與第二操作者恢復仍未完成。資料與歷史 pins 的處理見
@@ -75,8 +96,9 @@ browser案例與5個公會 preview通過，原622／657一併收斂。這些後�
 #680 舊 head `93c6dc3f` 的第二次 Verify仍失敗：runtime分區3只完成55／62檔
 後逾時，已完成830案例零失敗且清理通過，仍不是整套成功。Browser原兩個失敗案例
 已通過，但供貨案例 `hosted-supply-catalog.spec.ts:436` 單案120秒逾時；原 trace未保留，
-不能判定是哪個操作卡住，也不能直接歸類偶發。新候選保留原作者與既有3支PR範圍，
-補上有界CI容量、去重與診斷改善，仍須 fresh review及新 head完整checks；舊結果不改綠。
+不能判定是哪個操作卡住，也不能直接歸類偶發。後續候選保留原作者與既有3支PR範圍，
+補上有界CI容量、去重與診斷改善；最新 head 經核准及必要 checks 後合併為 `1e584aa8`，
+舊 head 的失敗結果不改綠。
 
 以下具日期的歷史 source／rollout 保留，不冒充當前環境。
 

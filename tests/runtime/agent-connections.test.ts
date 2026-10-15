@@ -3,6 +3,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { CompactSign, exportJWK, generateKeyPair } from 'jose';
 import { Pool } from 'pg';
+import { ZodError } from 'zod';
 import { migrate } from '../../scripts/database.js';
 import { createRuntimeRegistrations } from '../../modules/agent-control/runtime-registration.js';
 import { createAgentConnections } from '../../modules/agent-control/agent-connections.js';
@@ -62,6 +63,13 @@ test('CONNECTION-02 member revoke is terminal, CAS protected and exact receipt r
   await assert.rejects(api.revoke(f.actor, { key: randomUUID(), connectionId: row.connectionId } as never), status(428));
   await assert.rejects(api.revoke(f.actor, { key: randomUUID(), connectionId: row.connectionId, expectedVersion: '2' }), status(412));
   const revoke = { key: randomUUID(), connectionId: row.connectionId, expectedVersion: '1' };
+  const before = await counts();
+  for (const expectedVersion of ['oops','1.5','1e3','0','9223372036854775808','9'.repeat(100)]) {
+    await assert.rejects(api.revoke(f.actor, {...revoke, expectedVersion}), error => error instanceof ZodError && error.issues.some(issue => issue.path[0] === 'expectedVersion'));
+  }
+  assert.deepEqual(await counts(), before);
+  assert.deepEqual(await api.read(f.actor, {connectionId: row.connectionId}), row);
+  await assert.rejects(api.revoke(f.actor, {...revoke, expectedVersion: '9223372036854775807'}), status(412));
   const revoked = await api.revoke(f.actor, revoke);
   assert.equal(revoked.state, 'revoked'); assert.equal(revoked.aggregateVersion, '2');
   assert.deepEqual(await api.revoke(f.actor, revoke), revoked);

@@ -74,7 +74,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
   app.get('/events',async c=>c.json({items:await readWithMemberSession(pool,c.get('actor'),q=>listEvents(q,c.get('actor')))}));
   app.get('/events/bulletins',async c=>c.json({items:await readWithMemberSession(pool,c.get('actor'),q=>listEventBulletins(q,c.get('actor')))}));
   app.get('/events/:id',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>readEvent(q,c.get('actor'),id(c.req.param('id')),runtime?.eventParticipationEnabled===true))));
-  app.get('/events/:id/referrals',async c=>c.json({items:await readWithMemberSession(pool,c.get('actor'),q=>eventReferralReport(q,c.get('actor'),id(c.req.param('id'))))}));
+  app.get('/events/:id/referrals',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>eventReferralReport(q,c.get('actor'),id(c.req.param('id')),c.req.query()))));
   app.get('/events/:id/attendees',async c=>{c.header('Cache-Control','private, no-store');return c.json(await eventAttendees(pool,c.get('actor'),id(c.req.param('id')),c.req.query()));});
   app.post('/events/:id/share-code',async c=>c.json(await getEventShareCode(pool,c.get('actor'),id(c.req.param('id')))));
   app.get('/events/:id/banner',async c=>{
