@@ -26,7 +26,7 @@ type Referral={user_id:string;member_name:string;registrations:number;clicks:num
 type ReferralPage={items:Referral[];total:number;next_offset:number|null};
 type ReferralView=ReferralPage&{loading:boolean;error:string;request_offset:number};
 export type EventDraft = {title:string;description:string;starts_at:string;ends_at:string;mode:CommunityEvent['mode'];event_kind:CommunityEvent['event_kind'];topic:string;location:string;online_url:string;capacity:string;guild_key:string;visibility:CommunityEvent['visibility']};
-type EventPayload=Omit<EventDraft,'topic'|'online_url'|'capacity'|'guild_key'>&{topic:string|null;online_url:string|null;capacity:number|null;guild_key:string|null};
+export type EventPayload=Omit<EventDraft,'topic'|'online_url'|'capacity'|'guild_key'>&{topic:string|null;online_url:string|null;capacity:number|null;guild_key:string|null};
 export const blankEvent=():EventDraft=>({title:'',description:'',starts_at:hoursFromNowLocalInput(24),ends_at:hoursFromNowLocalInput(25),mode:'online',event_kind:'other',topic:'',location:'',online_url:'',capacity:'',guild_key:'',visibility:'workshop'});
 function localTime(iso:string) {
   const date=new Date(iso), local=new Date(date.getTime()-date.getTimezoneOffset()*60_000);
