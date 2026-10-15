@@ -32,6 +32,31 @@ async function listing(seller:Session,p:any,st:any){const r=await request('/reta
 async function pending(supplier:Session,seller:Session){const p=await product(supplier),st=await store(seller),l=await listing(seller,p,st);const r=await request(`/retail/listings/${l.listing_id}:request-supply`,seller,{snapshot_sha256:l.snapshot_sha256},l.aggregate_version);assert.equal(r.status,200,JSON.stringify(r.data));return {p,st,l:r.data,acceptance:(await request('/supplier/requests',supplier)).data.items[0]};}
 const decision=(a:any)=>({snapshot_sha256:a.snapshot_sha256,decision:'accepted',note:'已核對售價，演練確認。',acknowledge_internal_preview:true});
 
+test('catalog photo URLs gate malformed input and compare absolute DNS names without rewriting public links',async()=>{
+  const supplier=await login(),key=randomUUID();
+  const facts=async()=>(await pool.query(`SELECT
+    (SELECT count(*)::int FROM catalog_products) AS products,
+    (SELECT count(*)::int FROM supplier_offer_versions) AS offers,
+    (SELECT count(*)::int FROM command_receipts) AS receipts,
+    (SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+  const before=await facts();
+  for(const photo_url of ['not a URL','/photo','https://','https://[bad]/photo','https://%00.example/photo',
+    'https://public.example.com/'+'a'.repeat(2000),'https://printer.local./photo','https://sub.localhost./photo',
+    'https://printer./photo','https://printer.local%2e/photo']){
+    const rejected=await request('/supplier/products',supplier,{...productBody,photo_url},undefined,key);
+    assert.equal(rejected.status,422,photo_url);assert.equal(rejected.data.code,'validation_failed');
+  }
+  assert.deepEqual(await facts(),before);
+  const photo_url='https://public.example.com.:4443/photo?size=2#part',body={...productBody,photo_url};
+  const created=await request('/supplier/products',supplier,body,undefined,key);
+  assert.equal(created.status,201,JSON.stringify(created.data));
+  assert.equal(created.data.photo_url,photo_url);assert.equal(created.data.current_offer.snapshot.photo_url,photo_url);
+  assert.deepEqual((await request('/supplier/products',supplier,body,undefined,key)).data,created.data);
+  assert.deepEqual((await pool.query('SELECT photo_url FROM catalog_products WHERE product_id=$1',[created.data.product_id])).rows,[{photo_url}]);
+  assert.equal((await request('/supplier/products',supplier,{...body,title:'Changed product'},undefined,key)).status,409);
+  assert.deepEqual(await facts(),{products:before.products+1,offers:before.offers+1,receipts:before.receipts+1,journal:before.journal+1});
+});
+
 test('physical supply → independent store → immutable listing → supplier decision survives application restart',async()=>{
   const supplier=await login(),seller=await login(DEMO_USERS[2].email),{p,st,l,acceptance:a}=await pending(supplier,seller);
   assert.equal(p.qc_status,'unreviewed');assert.equal(p.official,false);assert.equal(st.seller_ref,seller.user.user_id);
