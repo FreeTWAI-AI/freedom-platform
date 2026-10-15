@@ -68,14 +68,12 @@ export {
   VALID_INCOMING_STATES,
   mapLogisticsStatus,
   applyTrackingState,
+  applyLogisticsEvent,
   type ShipmentState,
+  type TrackingExceptionKind,
   type LogisticsStatusResult,
   type TrackingStateChange,
   type ApplyTrackingResult,
+  type LogisticsEventInput,
+  type LogisticsEventOutcome,
 } from './tracking.js';
-
-export {
-  toTaipeiDateTime,
-  fromTaipeiDateTime,
-  type TaipeiDateTime,
-} from './taipei.js';

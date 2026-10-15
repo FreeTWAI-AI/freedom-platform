@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -27,6 +28,7 @@ import {
   VALID_INCOMING_STATES,
   mapLogisticsStatus,
   applyTrackingState,
+  applyLogisticsEvent,
   type DeliveryMethod,
   type DeliveryOption,
   type ItemShippingAttributes,
@@ -35,6 +37,9 @@ import {
   type QuoteLine,
   type ServiceKey,
   type ShippingProfile,
+  type LogisticsStatusResult,
+  type LogisticsEventInput,
+  type LogisticsEventOutcome,
 } from '../../modules/agent-commerce/fulfilment/rules/index.js';
 
 // --- Fixture Builders ---
@@ -1254,7 +1259,7 @@ describe('7. Recipient and postal checks', () => {
     });
   });
 
-  it('normalizeCvsStoreSelection normalizes and validates store map fields', () => {
+  it('normalizeCvsStoreSelection normalizes and validates store map fields and Hi-Life outlying address fallback', () => {
     const ok = normalizeCvsStoreSelection({
       sub_type: 'UNIMARTC2C',
       store_id: '131386',
@@ -1301,6 +1306,165 @@ describe('7. Recipient and postal checks', () => {
         { field: 'store_id', code: 'format' },
         { field: 'outside', code: 'format' },
       ],
+    });
+
+    // HILIFEC2C without outside and address 澎湖縣馬公市中正路1號 -> outlying true
+    const h1 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '萊爾富澎湖店',
+      store_address: '澎湖縣馬公市中正路1號',
+    });
+    assert.equal(h1.ok, true);
+    if (h1.ok) assert.equal(h1.store.outlying, true);
+
+    // 屏東縣琉球鄉中山路1號 -> true
+    const h2 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '屏東縣琉球鄉中山路1號',
+    });
+    assert.equal(h2.ok, true);
+    if (h2.ok) assert.equal(h2.store.outlying, true);
+
+    // 馬公市中正路1號 -> true
+    const h3 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '馬公市中正路1號',
+    });
+    assert.equal(h3.ok, true);
+    if (h3.ok) assert.equal(h3.store.outlying, true);
+
+    // 臺東縣綠島鄉南寮村1號 -> true
+    const h4 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '臺東縣綠島鄉南寮村1號',
+    });
+    assert.equal(h4.ok, true);
+    if (h4.ok) assert.equal(h4.store.outlying, true);
+
+    // 金門縣金城鎮民生路1號 -> true
+    const h5 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '金門縣金城鎮民生路1號',
+    });
+    assert.equal(h5.ok, true);
+    if (h5.ok) assert.equal(h5.store.outlying, true);
+
+    // 連江縣南竿鄉介壽村1號 -> true
+    const h6 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '連江縣南竿鄉介壽村1號',
+    });
+    assert.equal(h6.ok, true);
+    if (h6.ok) assert.equal(h6.store.outlying, true);
+
+    // 澎湖縣 馬公市中正路1號 (a space) -> true
+    const h7 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '澎湖縣 馬公市中正路1號',
+    });
+    assert.equal(h7.ok, true);
+    if (h7.ok) assert.equal(h7.store.outlying, true);
+
+    // 高雄市鼓山區琉球路1號 -> false
+    const h8 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '高雄市鼓山區琉球路1號',
+    });
+    assert.equal(h8.ok, true);
+    if (h8.ok) assert.equal(h8.store.outlying, false);
+
+    // 臺北市中正區金門街1號 -> false
+    const h9 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '臺北市中正區金門街1號',
+    });
+    assert.equal(h9.ok, true);
+    if (h9.ok) assert.equal(h9.store.outlying, false);
+
+    // HILIFEC2C with outside: '' and a mainland address -> false, no error
+    const h10 = normalizeCvsStoreSelection({
+      sub_type: 'HILIFEC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '台北市大安區新生南路一段',
+      outside: '',
+    });
+    assert.equal(h10.ok, true);
+    if (h10.ok) assert.equal(h10.store.outlying, false);
+
+    // UNIMARTC2C with outside '1' and a mainland address -> true
+    const u1 = normalizeCvsStoreSelection({
+      sub_type: 'UNIMARTC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '台北市大安區新生南路一段',
+      outside: '1',
+    });
+    assert.equal(u1.ok, true);
+    if (u1.ok) assert.equal(u1.store.outlying, true);
+
+    // UNIMARTC2C with outside '0' and 澎湖縣… -> false (the map value wins)
+    const u2 = normalizeCvsStoreSelection({
+      sub_type: 'UNIMARTC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '澎湖縣馬公市中正路1號',
+      outside: '0',
+    });
+    assert.equal(u2.ok, true);
+    if (u2.ok) assert.equal(u2.store.outlying, false);
+
+    // FAMIC2C without outside and 澎湖縣… -> true
+    const f1 = normalizeCvsStoreSelection({
+      sub_type: 'FAMIC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '澎湖縣馬公市中正路1號',
+    });
+    assert.equal(f1.ok, true);
+    if (f1.ok) assert.equal(f1.store.outlying, true);
+
+    // outside '2' -> format
+    const badOutside2 = normalizeCvsStoreSelection({
+      sub_type: 'UNIMARTC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '台北市大安區新生南路一段',
+      outside: '2',
+    });
+    assert.deepEqual(badOutside2, {
+      ok: false,
+      errors: [{ field: 'outside', code: 'format' }],
+    });
+
+    // outside 1 (a number) -> format
+    const badOutsideNum = normalizeCvsStoreSelection({
+      sub_type: 'UNIMARTC2C',
+      store_id: '9999',
+      store_name: '門市名',
+      store_address: '台北市大安區新生南路一段',
+      outside: 1,
+    });
+    assert.deepEqual(badOutsideNum, {
+      ok: false,
+      errors: [{ field: 'outside', code: 'format' }],
     });
   });
 });
@@ -1350,188 +1514,992 @@ describe('8. Ship-by calculation', () => {
   });
 });
 
-describe('9. Tracking codes and ordering', () => {
-  it('maps verified status codes and returns unmapped for empty/invalid/tcat/post', () => {
-    // 300: created for all 6 subtypes
-    for (const st of ['UNIMART', 'UNIMARTC2C', 'FAMI', 'FAMIC2C', 'HILIFE', 'HILIFEC2C']) {
-      assert.deepEqual(mapLogisticsStatus(st, '300'), { kind: 'state', state: 'created', exception: null });
+describe('9. Tracking codes, ordering and events', () => {
+  it('TSV equality: matches the official 278-row ECPay status map exactly', () => {
+    const tsvContent = readFileSync(
+      new URL('../../docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv', import.meta.url),
+      'utf8',
+    );
+    const lines = tsvContent.trim().split('\n');
+    assert.equal(lines[0], 'sub_type\tcode\tecpay_message\teffect\tstate\texception');
+
+    const dataRows = lines.slice(1).map(l => l.split('\t'));
+    assert.equal(dataRows.length, 278);
+
+    const keys = new Set<string>();
+    const effectCounts = { progress: 0, exception: 0, informational: 0, ops_review: 0 };
+
+    for (const [sub_type, code, _msg, effect, state, exception] of dataRows) {
+      const key = `${sub_type}:${code}`;
+      assert.equal(keys.has(key), false, `Duplicate key in TSV: ${key}`);
+      keys.add(key);
+
+      assert.ok(effect in effectCounts, `Unknown effect: ${effect}`);
+      effectCounts[effect as keyof typeof effectCounts]++;
+
+      const mapped = mapLogisticsStatus(sub_type, code);
+
+      let expected: LogisticsStatusResult;
+      switch (effect) {
+        case 'progress':
+          expected = {
+            kind: 'progress',
+            state: state as any,
+            exception: (exception || null) as any,
+          };
+          break;
+        case 'exception':
+          expected = {
+            kind: 'exception',
+            exception: exception as any,
+          };
+          break;
+        case 'informational':
+          expected = { kind: 'informational' };
+          break;
+        case 'ops_review':
+          expected = { kind: 'ops_review' };
+          break;
+        default:
+          throw new Error(`Unexpected effect: ${effect}`);
+      }
+
+      assert.deepEqual(mapped, expected, `Mismatch for ${key}`);
     }
 
-    // 2030: in_transit for UNIMART, UNIMARTC2C; unmapped for others
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2030'), { kind: 'state', state: 'in_transit', exception: null });
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2030'), { kind: 'state', state: 'in_transit', exception: null });
-    assert.deepEqual(mapLogisticsStatus('FAMIC2C', '2030'), { kind: 'unmapped' });
-
-    // 3024: in_transit for FAMI, FAMIC2C, HILIFE, HILIFEC2C; unmapped for UNIMART/UNIMARTC2C
-    for (const st of ['FAMI', 'FAMIC2C', 'HILIFE', 'HILIFEC2C']) {
-      assert.deepEqual(mapLogisticsStatus(st, '3024'), { kind: 'state', state: 'in_transit', exception: null });
-    }
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '3024'), { kind: 'unmapped' });
-
-    // 2063: ready_for_pickup for UNIMART
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2063'), { kind: 'state', state: 'ready_for_pickup', exception: null });
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2063'), { kind: 'unmapped' });
-
-    // 2073: ready_for_pickup for UNIMARTC2C
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2073'), { kind: 'state', state: 'ready_for_pickup', exception: null });
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2073'), { kind: 'unmapped' });
-
-    // 3018: ready_for_pickup for FAMI, FAMIC2C, HILIFE, HILIFEC2C
-    for (const st of ['FAMI', 'FAMIC2C', 'HILIFE', 'HILIFEC2C']) {
-      assert.deepEqual(mapLogisticsStatus(st, '3018'), { kind: 'state', state: 'ready_for_pickup', exception: null });
-    }
-
-    // 2067: delivered for UNIMART, UNIMARTC2C
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2067'), { kind: 'state', state: 'delivered', exception: null });
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2067'), { kind: 'state', state: 'delivered', exception: null });
-
-    // 3022: delivered for FAMI, FAMIC2C, HILIFE, HILIFEC2C
-    for (const st of ['FAMI', 'FAMIC2C', 'HILIFE', 'HILIFEC2C']) {
-      assert.deepEqual(mapLogisticsStatus(st, '3022'), { kind: 'state', state: 'delivered', exception: null });
-    }
-
-    // 2074: returning + uncollected for UNIMART, UNIMARTC2C
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2074'), { kind: 'state', state: 'returning', exception: 'uncollected' });
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2074'), { kind: 'state', state: 'returning', exception: 'uncollected' });
-
-    // 3020: returning + uncollected for FAMI, FAMIC2C, HILIFE, HILIFEC2C
-    for (const st of ['FAMI', 'FAMIC2C', 'HILIFE', 'HILIFEC2C']) {
-      assert.deepEqual(mapLogisticsStatus(st, '3020'), { kind: 'state', state: 'returning', exception: 'uncollected' });
-    }
-
-    // 2098: ready_for_pickup for UNIMART, UNIMARTC2C
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2098'), { kind: 'state', state: 'ready_for_pickup', exception: null });
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2098'), { kind: 'state', state: 'ready_for_pickup', exception: null });
-
-    // 2099: returned for UNIMARTC2C only
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2099'), { kind: 'state', state: 'returned', exception: null });
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2099'), { kind: 'unmapped' });
-
-    // 2037: exception_only pickup_store_closed for UNIMART
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '2037'), { kind: 'exception_only', exception: 'pickup_store_closed' });
-    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2037'), { kind: 'unmapped' });
-
-    // 7011: exception_only pickup_store_closed for FAMI and HILIFE only
-    assert.deepEqual(mapLogisticsStatus('FAMI', '7011'), { kind: 'exception_only', exception: 'pickup_store_closed' });
-    assert.deepEqual(mapLogisticsStatus('HILIFE', '7011'), { kind: 'exception_only', exception: 'pickup_store_closed' });
-    assert.deepEqual(mapLogisticsStatus('FAMIC2C', '7011'), { kind: 'unmapped' });
-    assert.deepEqual(mapLogisticsStatus('HILIFEC2C', '7011'), { kind: 'unmapped' });
-
-    // TCAT / POST unmapped
-    assert.deepEqual(mapLogisticsStatus('TCAT', '300'), { kind: 'unmapped' });
-    assert.deepEqual(mapLogisticsStatus('POST', '300'), { kind: 'unmapped' });
-
-    // Bad rtnCodes unmapped
-    assert.deepEqual(mapLogisticsStatus('UNIMART', '300 '), { kind: 'unmapped' });
-    assert.deepEqual(mapLogisticsStatus('UNIMART', 'abc'), { kind: 'unmapped' });
-    assert.deepEqual(mapLogisticsStatus('UNIMART', ''), { kind: 'unmapped' });
+    assert.deepEqual(effectCounts, {
+      progress: 143,
+      exception: 115,
+      informational: 9,
+      ops_review: 11,
+    });
   });
 
-  it('applies tracking state transitions according to §6.3 and §6.4 rules', () => {
-    // create_unknown -> created advance (implies_handover false)
+  it('Nothing extra: returns unmapped for codes 0..9999 not in TSV and invalid inputs', () => {
+    const tsvContent = readFileSync(
+      new URL('../../docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv', import.meta.url),
+      'utf8',
+    );
+    const dataRows = tsvContent.trim().split('\n').slice(1).map(l => l.split('\t'));
+    const tsvKeys = new Set(dataRows.map(([sub_type, code]) => `${sub_type}:${code}`));
+
+    const subtypes = ['UNIMARTC2C', 'FAMIC2C', 'HILIFEC2C', 'TCAT', 'POST'] as const;
+    for (const st of subtypes) {
+      for (let i = 0; i < 10000; i++) {
+        const code = String(i);
+        if (!tsvKeys.has(`${st}:${code}`)) {
+          assert.deepEqual(mapLogisticsStatus(st, code), { kind: 'unmapped' });
+        }
+      }
+    }
+
+    // UNIMART / FAMI / HILIFE / UNIMARTFREEZE with 300 and 2030 -> unmapped
+    for (const st of ['UNIMART', 'FAMI', 'HILIFE', 'UNIMARTFREEZE']) {
+      assert.deepEqual(mapLogisticsStatus(st, '300'), { kind: 'unmapped' });
+      assert.deepEqual(mapLogisticsStatus(st, '2030'), { kind: 'unmapped' });
+    }
+
+    // Unknown subtype
+    assert.deepEqual(mapLogisticsStatus('UNKNOWN', '300'), { kind: 'unmapped' });
+
+    // Non-string subtype/code
+    assert.deepEqual(mapLogisticsStatus(123, '300'), { kind: 'unmapped' });
+    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', null), { kind: 'unmapped' });
+    assert.deepEqual(mapLogisticsStatus(null, '300'), { kind: 'unmapped' });
+    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', 300), { kind: 'unmapped' });
+
+    // Weird codes
+    for (const badCode of ['', ' 300', '300 ', '+300', '3e2', '0300', '123456789']) {
+      assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', badCode), { kind: 'unmapped' });
+    }
+  });
+
+  it('Same code, different meaning across subtypes', () => {
+    // TCAT/5004 -> progress returning
+    assert.deepEqual(mapLogisticsStatus('TCAT', '5004'), {
+      kind: 'progress',
+      state: 'returning',
+      exception: null,
+    });
+    // HILIFEC2C/5004 -> exception carrier_attention
+    assert.deepEqual(mapLogisticsStatus('HILIFEC2C', '5004'), {
+      kind: 'exception',
+      exception: 'carrier_attention',
+    });
+    // HILIFEC2C/7003 -> exception carrier_attention
+    assert.deepEqual(mapLogisticsStatus('HILIFEC2C', '7003'), {
+      kind: 'exception',
+      exception: 'carrier_attention',
+    });
+    // TCAT/7003 -> exception recipient_address_invalid
+    assert.deepEqual(mapLogisticsStatus('TCAT', '7003'), {
+      kind: 'exception',
+      exception: 'recipient_address_invalid',
+    });
+  });
+
+  it('applyTrackingState: applies monotonicity rules and record_handover', () => {
+    // Keep existing rule tests updated for record_handover:
+    // create_unknown -> created advance (record_handover false, order 1 -> 2)
     assert.deepEqual(applyTrackingState('create_unknown', 'created'), {
       next: 'created',
       change: 'advance',
-      implies_handover: false,
+      record_handover: false,
     });
 
-    // created -> in_transit advance (implies_handover true)
+    // created -> in_transit advance (record_handover true, order 2 -> 4)
     assert.deepEqual(applyTrackingState('created', 'in_transit'), {
       next: 'in_transit',
       change: 'advance',
-      implies_handover: true,
+      record_handover: true,
     });
 
-    // handed_over -> in_transit advance (implies_handover false)
+    // handed_over -> in_transit advance (record_handover false, order 3 -> 4)
     assert.deepEqual(applyTrackingState('handed_over', 'in_transit'), {
       next: 'in_transit',
       change: 'advance',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // Example 1: ready_for_pickup -> late in_transit = ignore_older
     assert.deepEqual(applyTrackingState('ready_for_pickup', 'in_transit'), {
       next: 'ready_for_pickup',
       change: 'ignore_older',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // Example 2: ready_for_pickup -> returning = advance
     assert.deepEqual(applyTrackingState('ready_for_pickup', 'returning'), {
       next: 'returning',
       change: 'advance',
-      implies_handover: false,
+      record_handover: false,
     });
 
-    // ready_for_pickup -> returned (2099) advance
+    // ready_for_pickup -> returned advance
     assert.deepEqual(applyTrackingState('ready_for_pickup', 'returned'), {
       next: 'returned',
       change: 'advance',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // Example 3: delivered -> returning = contradiction
     assert.deepEqual(applyTrackingState('delivered', 'returning'), {
       next: 'delivered',
       change: 'contradiction',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // Example 4: returning -> delivered = contradiction
     assert.deepEqual(applyTrackingState('returning', 'delivered'), {
       next: 'returning',
       change: 'contradiction',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // returned -> ready_for_pickup ignore_older
     assert.deepEqual(applyTrackingState('returned', 'ready_for_pickup'), {
       next: 'returned',
       change: 'ignore_older',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // returned -> returning ignore_older
     assert.deepEqual(applyTrackingState('returned', 'returning'), {
       next: 'returned',
       change: 'ignore_older',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // returning -> returned advance
     assert.deepEqual(applyTrackingState('returning', 'returned'), {
       next: 'returned',
       change: 'advance',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // voided -> contradiction
     assert.deepEqual(applyTrackingState('voided', 'created'), {
       next: 'voided',
       change: 'contradiction',
-      implies_handover: false,
+      record_handover: false,
     });
 
     // incoming === current -> none
     assert.deepEqual(applyTrackingState('in_transit', 'in_transit'), {
       next: 'in_transit',
       change: 'none',
-      implies_handover: false,
+      record_handover: false,
+    });
+
+    // Additional tests specified:
+    // created + handed_over -> true
+    assert.deepEqual(applyTrackingState('created', 'handed_over'), {
+      next: 'handed_over',
+      change: 'advance',
+      record_handover: true,
+    });
+
+    // draft + returning -> true
+    assert.deepEqual(applyTrackingState('draft', 'returning'), {
+      next: 'returning',
+      change: 'advance',
+      record_handover: true,
+    });
+
+    // create_unknown + created -> false
+    assert.deepEqual(applyTrackingState('create_unknown', 'created'), {
+      next: 'created',
+      change: 'advance',
+      record_handover: false,
+    });
+
+    // handed_over + in_transit -> false
+    assert.deepEqual(applyTrackingState('handed_over', 'in_transit'), {
+      next: 'in_transit',
+      change: 'advance',
+      record_handover: false,
     });
 
     // Invalid incoming throws
+    assert.throws(() => applyTrackingState('created', 'draft' as any), FulfilmentRuleError);
+    assert.throws(() => applyTrackingState('created', 'voided' as any), FulfilmentRuleError);
+  });
+
+  it('applyLogisticsEvent: handles events per §6.4 exception rules and state machine', () => {
+    // 1. UNIMARTC2C/2074 at ready_for_pickup, nothing open -> returning, advance, open uncollected; with ['uncollected'] open -> open_exception null
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2074',
+        current: 'ready_for_pickup',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'returning', exception: 'uncollected' },
+        next: 'returning',
+        change: 'advance',
+        record_handover: false,
+        open_exception: 'uncollected',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2074',
+        current: 'ready_for_pickup',
+        open_exception_kinds: ['uncollected'],
+      }),
+      {
+        status: { kind: 'progress', state: 'returning', exception: 'uncollected' },
+        next: 'returning',
+        change: 'advance',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+
+    // 2. FAMIC2C/7016 at in_transit, nothing open -> returning, open carrier_attention; with ['pickup_store_closed'] open -> null
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '7016',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'returning', exception: null },
+        next: 'returning',
+        change: 'advance',
+        record_handover: false,
+        open_exception: 'carrier_attention',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '7016',
+        current: 'in_transit',
+        open_exception_kinds: ['pickup_store_closed'],
+      }),
+      {
+        status: { kind: 'progress', state: 'returning', exception: null },
+        next: 'returning',
+        change: 'advance',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+
+    // 3. UNIMARTC2C/2070 at returning, nothing open -> returned, advance, null (already returning)
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2070',
+        current: 'returning',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'returned', exception: null },
+        next: 'returned',
+        change: 'advance',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+
+    // 4. UNIMARTC2C/2072 at created, nothing open -> returned, record_handover true, open carrier_attention
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2072',
+        current: 'created',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'returned', exception: null },
+        next: 'returned',
+        change: 'advance',
+        record_handover: true,
+        open_exception: 'carrier_attention',
+        daily_review: false,
+      },
+    );
+
+    // 5. UNIMARTC2C/2068 at created -> handed_over, record_handover true, null
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2068',
+        current: 'created',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'handed_over', exception: null },
+        next: 'handed_over',
+        change: 'advance',
+        record_handover: true,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+
+    // 6. UNIMARTC2C/2074 at delivered -> contradiction, next delivered, open contradicting_event
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2074',
+        current: 'delivered',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'returning', exception: 'uncollected' },
+        next: 'delivered',
+        change: 'contradiction',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+
+    // 7. FAMIC2C/3022 at returning -> contradiction, open contradicting_event
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '3022',
+        current: 'returning',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'delivered', exception: null },
+        next: 'returning',
+        change: 'contradiction',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+
+    // 8. At voided: FAMIC2C/3024 -> contradicting_event; FAMIC2C/7006 -> contradicting_event; UNIMARTC2C/2062 -> nothing
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '3024',
+        current: 'voided',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'in_transit', exception: null },
+        next: 'voided',
+        change: 'contradiction',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '7006',
+        current: 'voided',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'lost' },
+        next: 'voided',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2062',
+        current: 'voided',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'informational' },
+        next: 'voided',
+        change: 'none',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+
+    // 9. UNIMARTC2C/2030 at ready_for_pickup -> ignore_older, nothing; at in_transit -> none, nothing
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2030',
+        current: 'ready_for_pickup',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'in_transit', exception: null },
+        next: 'ready_for_pickup',
+        change: 'ignore_older',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2030',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'in_transit', exception: null },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+
+    // 10. UNIMARTC2C/2092 (pickup_store_closed): opened at created, handed_over, in_transit, ready_for_pickup;
+    // nothing at draft, creating, create_unknown, create_failed, returning, returned;
+    // contradicting_event at delivered
+    for (const st of ['created', 'handed_over', 'in_transit', 'ready_for_pickup'] as const) {
+      assert.deepEqual(
+        applyLogisticsEvent({
+          sub_type: 'UNIMARTC2C',
+          rtn_code: '2092',
+          current: st,
+          open_exception_kinds: [],
+        }),
+        {
+          status: { kind: 'exception', exception: 'pickup_store_closed' },
+          next: st,
+          change: 'none',
+          record_handover: false,
+          open_exception: 'pickup_store_closed',
+          daily_review: false,
+        },
+      );
+    }
+    for (const st of [
+      'draft',
+      'creating',
+      'create_unknown',
+      'create_failed',
+      'returning',
+      'returned',
+    ] as const) {
+      assert.deepEqual(
+        applyLogisticsEvent({
+          sub_type: 'UNIMARTC2C',
+          rtn_code: '2092',
+          current: st,
+          open_exception_kinds: [],
+        }),
+        {
+          status: { kind: 'exception', exception: 'pickup_store_closed' },
+          next: st,
+          change: 'none',
+          record_handover: false,
+          open_exception: null,
+          daily_review: false,
+        },
+      );
+    }
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2092',
+        current: 'delivered',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'pickup_store_closed' },
+        next: 'delivered',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+
+    // 11. TCAT/3008 (recipient_address_invalid): the same pattern as 10
+    for (const st of ['created', 'handed_over', 'in_transit', 'ready_for_pickup'] as const) {
+      assert.deepEqual(
+        applyLogisticsEvent({
+          sub_type: 'TCAT',
+          rtn_code: '3008',
+          current: st,
+          open_exception_kinds: [],
+        }),
+        {
+          status: { kind: 'exception', exception: 'recipient_address_invalid' },
+          next: st,
+          change: 'none',
+          record_handover: false,
+          open_exception: 'recipient_address_invalid',
+          daily_review: false,
+        },
+      );
+    }
+    for (const st of [
+      'draft',
+      'creating',
+      'create_unknown',
+      'create_failed',
+      'returning',
+      'returned',
+    ] as const) {
+      assert.deepEqual(
+        applyLogisticsEvent({
+          sub_type: 'TCAT',
+          rtn_code: '3008',
+          current: st,
+          open_exception_kinds: [],
+        }),
+        {
+          status: { kind: 'exception', exception: 'recipient_address_invalid' },
+          next: st,
+          change: 'none',
+          record_handover: false,
+          open_exception: null,
+          daily_review: false,
+        },
+      );
+    }
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'TCAT',
+        rtn_code: '3008',
+        current: 'delivered',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'recipient_address_invalid' },
+        next: 'delivered',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+
+    // 12. FAMIC2C/7006 (lost): opened at in_transit and at returning; contradicting_event at delivered; null when lost is already open
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '7006',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'lost' },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'lost',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '7006',
+        current: 'returning',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'lost' },
+        next: 'returning',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'lost',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '7006',
+        current: 'delivered',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'lost' },
+        next: 'delivered',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'FAMIC2C',
+        rtn_code: '7006',
+        current: 'in_transit',
+        open_exception_kinds: ['lost'],
+      }),
+      {
+        status: { kind: 'exception', exception: 'lost' },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+
+    // 13. TCAT/3016 at in_transit -> open contradicting_event
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'TCAT',
+        rtn_code: '3016',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'contradicting_event' },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'contradicting_event',
+        daily_review: false,
+      },
+    );
+
+    // 14. TCAT/5004 at in_transit, nothing open -> returning, open carrier_attention;
+    // HILIFEC2C/5004 at in_transit -> state unchanged, open carrier_attention
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'TCAT',
+        rtn_code: '5004',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'progress', state: 'returning', exception: null },
+        next: 'returning',
+        change: 'advance',
+        record_handover: false,
+        open_exception: 'carrier_attention',
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'HILIFEC2C',
+        rtn_code: '5004',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'exception', exception: 'carrier_attention' },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: 'carrier_attention',
+        daily_review: false,
+      },
+    );
+
+    // 15. UNIMARTC2C/2062 -> informational, nothing, daily_review false;
+    // UNIMARTC2C/2069 -> daily_review true;
+    // UNIMART/2030 -> unmapped, daily_review true
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2062',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'informational' },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: null,
+        daily_review: false,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMARTC2C',
+        rtn_code: '2069',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'ops_review' },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: null,
+        daily_review: true,
+      },
+    );
+    assert.deepEqual(
+      applyLogisticsEvent({
+        sub_type: 'UNIMART',
+        rtn_code: '2030',
+        current: 'in_transit',
+        open_exception_kinds: [],
+      }),
+      {
+        status: { kind: 'unmapped' },
+        next: 'in_transit',
+        change: 'none',
+        record_handover: false,
+        open_exception: null,
+        daily_review: true,
+      },
+    );
+
+    // 16. The §6.4 chain at ready_for_pickup: UNIMARTC2C/2030 (ignore) -> UNIMARTC2C/2074 (advance to returning, open uncollected)
+    const step1 = applyLogisticsEvent({
+      sub_type: 'UNIMARTC2C',
+      rtn_code: '2030',
+      current: 'ready_for_pickup',
+      open_exception_kinds: [],
+    });
+    assert.deepEqual(step1, {
+      status: { kind: 'progress', state: 'in_transit', exception: null },
+      next: 'ready_for_pickup',
+      change: 'ignore_older',
+      record_handover: false,
+      open_exception: null,
+      daily_review: false,
+    });
+    const step2 = applyLogisticsEvent({
+      sub_type: 'UNIMARTC2C',
+      rtn_code: '2074',
+      current: step1.next,
+      open_exception_kinds: [],
+    });
+    assert.deepEqual(step2, {
+      status: { kind: 'progress', state: 'returning', exception: 'uncollected' },
+      next: 'returning',
+      change: 'advance',
+      record_handover: false,
+      open_exception: 'uncollected',
+      daily_review: false,
+    });
+
+    // 17. Throws: current: 'shipped'; open_exception_kinds not an array, [''], [1], 33 entries; a non-object input. No throw for sub_type: 5, rtn_code: null (-> unmapped).
     assert.throws(
-      () => applyTrackingState('created', 'draft' as any),
+      () =>
+        applyLogisticsEvent({
+          sub_type: 'UNIMARTC2C',
+          rtn_code: '2030',
+          current: 'shipped' as any,
+          open_exception_kinds: [],
+        }),
       FulfilmentRuleError,
     );
     assert.throws(
-      () => applyTrackingState('created', 'voided' as any),
+      () =>
+        applyLogisticsEvent({
+          sub_type: 'UNIMARTC2C',
+          rtn_code: '2030',
+          current: 'created',
+          open_exception_kinds: 'none' as any,
+        }),
       FulfilmentRuleError,
     );
+    assert.throws(
+      () =>
+        applyLogisticsEvent({
+          sub_type: 'UNIMARTC2C',
+          rtn_code: '2030',
+          current: 'created',
+          open_exception_kinds: [''],
+        }),
+      FulfilmentRuleError,
+    );
+    assert.throws(
+      () =>
+        applyLogisticsEvent({
+          sub_type: 'UNIMARTC2C',
+          rtn_code: '2030',
+          current: 'created',
+          open_exception_kinds: [1 as any],
+        }),
+      FulfilmentRuleError,
+    );
+    assert.throws(
+      () =>
+        applyLogisticsEvent({
+          sub_type: 'UNIMARTC2C',
+          rtn_code: '2030',
+          current: 'created',
+          open_exception_kinds: Array.from({ length: 33 }, (_, i) => `e${i}`),
+        }),
+      FulfilmentRuleError,
+    );
+    assert.throws(() => applyLogisticsEvent(null as any), FulfilmentRuleError);
+    assert.throws(() => applyLogisticsEvent('input' as any), FulfilmentRuleError);
+    assert.throws(() => applyLogisticsEvent([] as any), FulfilmentRuleError);
+
+    // No throw for sub_type: 5, rtn_code: null (-> unmapped)
+    const noThrow = applyLogisticsEvent({
+      sub_type: 5,
+      rtn_code: null,
+      current: 'created',
+      open_exception_kinds: [],
+    });
+    assert.deepEqual(noThrow, {
+      status: { kind: 'unmapped' },
+      next: 'created',
+      change: 'none',
+      record_handover: false,
+      open_exception: null,
+      daily_review: true,
+    });
   });
 });
 
 describe('10. Immutability / Frozen results', () => {
+  function assertNoFrozenObjects(val: unknown, seen = new Set<unknown>()): void {
+    if (val === null || typeof val !== 'object') return;
+    if (seen.has(val)) return;
+    seen.add(val);
+    assert.equal(Object.isFrozen(val), false, `Object should not be frozen: ${JSON.stringify(val)}`);
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        assertNoFrozenObjects(item, seen);
+      }
+    } else {
+      for (const value of Object.values(val)) {
+        assertNoFrozenObjects(value, seen);
+      }
+    }
+  }
+
+  it('never freezes caller inputs and avoids aliasing caller arrays', () => {
+    // 1. planDelivery & availableMethods
+    const profile = makeProfile('shop-s', [makeService()]);
+    const planInput: PlanInput = {
+      seller_shop_id: 'shop-s',
+      delivery_options: [
+        { method: 'home', fee_per_parcel_minor: 10000, free_over_minor: null, outlying: { kind: 'excluded' } },
+      ],
+      profiles: { 'shop-s': profile },
+      lines: [makeLine('l1')],
+      merchandise_net_minor: 10000,
+      destination: { outlying: false },
+    };
+
+    const planRes = planDelivery(planInput, 'home');
+    assertNoFrozenObjects(planInput);
+
+    // After planDelivery, push a day onto input working_days and assert result's working_days did not change
+    if (planRes.kind === 'plan') {
+      const initialWorkingDays = [...planRes.groups[0].working_days];
+      (profile.working_days as number[]).push(6);
+      assert.deepEqual(planRes.groups[0].working_days, initialWorkingDays);
+      assert.equal(planRes.groups[0].working_days.includes(6), false);
+    }
+
+    const availableRes = availableMethods(planInput);
+    assertNoFrozenObjects(planInput);
+
+    // 2. validateHomeRecipient
+    const homeInput = {
+      name: '王小明',
+      mobile: '0912345678',
+      postal_code: '100',
+      address: '台北市中正區重慶南路一段',
+    };
+    validateHomeRecipient(homeInput);
+    assertNoFrozenObjects(homeInput);
+
+    // 3. validateCvsRecipient
+    const cvsInput = {
+      name: '王小明',
+      mobile: '0912345678',
+    };
+    validateCvsRecipient(cvsInput);
+    assertNoFrozenObjects(cvsInput);
+
+    // 4. normalizeCvsStoreSelection
+    const storeInput = {
+      sub_type: 'UNIMARTC2C',
+      store_id: '131386',
+      store_name: '門市名稱',
+      store_address: '台北市大安區新生南路一段',
+      outside: '0',
+    };
+    normalizeCvsStoreSelection(storeInput);
+    assertNoFrozenObjects(storeInput);
+
+    // 5. computeShipBy
+    const shipByOptions = {
+      working_days: [1, 2, 3, 4, 5],
+      cutoff_time: '15:00',
+      handling_days: 2,
+    };
+    computeShipBy(1792371600000, shipByOptions);
+    assertNoFrozenObjects(shipByOptions);
+
+    // 6. applyLogisticsEvent
+    const eventInput = {
+      sub_type: 'UNIMARTC2C',
+      rtn_code: '2074',
+      current: 'ready_for_pickup' as const,
+      open_exception_kinds: ['carrier_attention'],
+    };
+    applyLogisticsEvent(eventInput);
+    assertNoFrozenObjects(eventInput);
+  });
+
   it('throws in strict mode when attempting to mutate nested result objects and arrays', () => {
     const profile = makeProfile('shop-s', [makeService()]);
     const input: PlanInput = {
@@ -1551,6 +2519,7 @@ describe('10. Immutability / Frozen results', () => {
       assert.ok(Object.isFrozen(res));
       assert.ok(Object.isFrozen(res.groups));
       assert.ok(Object.isFrozen(res.groups[0]));
+      assert.ok(Object.isFrozen(res.groups[0].working_days));
       assert.ok(Object.isFrozen(res.groups[0].parcels));
       assert.ok(Object.isFrozen(res.groups[0].parcels[0]));
       assert.ok(Object.isFrozen(res.groups[0].parcels[0].lines));
