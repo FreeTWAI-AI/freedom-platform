@@ -7,7 +7,7 @@ import {Products,NewProduct} from './pages/Products';
 import {Product} from './pages/Product';
 import {Partners,Partner} from './pages/Partners';
 import {Terms,Review} from './pages/Terms';
-import {Reservations} from './pages/Reservations';
+import {Reservations,Reservation} from './pages/Reservations';
 import {Settings,Setup} from './pages/Settings';
 import {ReadStatus,WriteAccess} from './pages/Shared';
 import {fieldLabels,attemptFieldText} from './view';
@@ -35,7 +35,7 @@ export function SupplierConsole({client,userId,route,registerLeave,photosEnabled
  });return()=>cancelAnimationFrame(frame);});
  const href=(page:Parameters<typeof supplierConsoleHref>[1])=>supplierConsoleHref(route,page);
  const nav=pages.map(p=>({key:p.page,label:p.label,group:p.group!,href:href(p.page)}));
- const page=route.page==='overview'?<Overview c={c}/>:route.page==='products'?<Products c={c}/>:route.page==='product-new'?<NewProduct c={c}/>:route.page==='partners'?<Partners c={c}/>:route.page==='partner'?<Partner c={c}/>:route.page==='terms'?<Terms c={c}/>:route.page==='review'?<Review c={c}/>:route.page==='reservations'?<Reservations c={c}/>:route.page==='settings'?<Settings c={c}/>:route.page==='not-found'?<section className="stack"><h2 tabIndex={-1}>找不到這個頁面</h2><div className="actions"><a className="btn btn-ghost" href={href('overview')}>回到營運概覽</a></div></section>:null;
+ const page=route.page==='overview'?<Overview c={c}/>:route.page==='products'?<Products c={c}/>:route.page==='product-new'?<NewProduct c={c}/>:route.page==='partners'?<Partners c={c}/>:route.page==='partner'?<Partner c={c}/>:route.page==='terms'?<Terms c={c}/>:route.page==='review'?<Review c={c}/>:route.page==='reservations'?<Reservations c={c}/>:route.page==='reservation'?<Reservation c={c}/>:route.page==='settings'?<Settings c={c}/>:route.page==='not-found'?<section className="stack"><h2 tabIndex={-1}>找不到這個頁面</h2><div className="actions"><a className="btn btn-ghost" href={href('overview')}>回到營運概覽</a></div></section>:null;
  const productIds=[...new Set([...Object.keys(c.reads).filter(k=>k.startsWith('product:')).map(k=>k.slice(8)),...(route.page==='product'?[route.id!]:[])])];
  return <div className="supplier-console stack" onFocus={e=>{const el=e.target as HTMLElement;focused.current={el,section:el.closest('.sc-section'),lost:false};}}>
   <div className="sc-business-bar"><div><strong>{profile?.catalog?.name??'尚未完成設定的商品庫'}</strong>{profile&&<span className="badge">{profile.retail_enabled?'已開零售':'純供貨'}</span>}</div><div className="actions"><a className="btn btn-ghost" href="#stores/supply">切換事業</a><a className="btn btn-ghost" href="#guilds/guild_product_quality_supply">返回公會</a>{profile?.retail_enabled&&<a className="btn btn-ghost" href={`#stores/${route.tenantId}/${route.instanceId}`}>前往商店</a>}</div></div>

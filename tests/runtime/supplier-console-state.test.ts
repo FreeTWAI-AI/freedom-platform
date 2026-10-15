@@ -1,4 +1,12 @@
 import {test} from 'node:test';
+import * as React from 'react';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {Reservations,Reservation} from '../../modules/agent-commerce/supplier-console/ui/pages/Reservations';
+import {Partner} from '../../modules/agent-commerce/supplier-console/ui/pages/Partners';
+import {Changes} from '../../modules/agent-commerce/supplier-console/ui/pages/Shared';
+import {Overview} from '../../modules/agent-commerce/supplier-console/ui/pages/Overview';
+import type {ConsoleController,ReadSlot} from '../../modules/agent-commerce/supplier-console/state/useSupplierConsoleController';
 import {reservationFilterParams,validLocalDate} from '../../modules/agent-commerce/supplier-console/ui/route';
 import {CHANGE_LABELS,changeLabel,changeSubject} from '../../modules/agent-commerce/supplier-console/ui/view';
 import {SupplierChangeOperationSchema} from '../../contracts/guild-launchpad/v1/supplier-console';
@@ -205,4 +213,70 @@ test('SC-UI-S2-05 change labels exhaust the wire enum and preserve publish versi
 test('SC-UI-S2-06 every supplier console page title is translated in every interface language',()=>{
  for(const page of SUPPLIER_CONSOLE_PAGES){assert.ok(page.titleKey in interfaceMessages,page.titleKey);const translations=interfaceMessages[page.titleKey];assert.equal(translations.length,5);assert.equal(translations[0],page.title);assert.ok(translations.every(text=>text.length>0));}
  assert.equal(interfaceMessages['supplierConsole.reservation'][1],'Reservation details');
+});
+
+// The Node test loader uses the classic JSX factory outside the portal's Vite transform.
+function renderPresentation(element:Parameters<typeof renderToStaticMarkup>[0]){
+ const previous=Object.getOwnPropertyDescriptor(globalThis,'React');Object.defineProperty(globalThis,'React',{configurable:true,value:React});
+ try{return renderToStaticMarkup(element);}finally{if(previous)Object.defineProperty(globalThis,'React',previous);else Reflect.deleteProperty(globalThis,'React');}
+}
+const asOf='2026-10-15T12:00:00.000Z';
+const readySlot=(data:unknown):ReadSlot<unknown>=>({state:'ready',data,asOf,lastOkAt:asOf,error:''});
+const failedSlot:ReadSlot<unknown>={state:'failed',data:null,asOf:null,lastOkAt:null,error:'讀取服務暫停'};
+function presentationController(slots:Record<string,ReadSlot<unknown>>,extra:Record<string,unknown>={}):ConsoleController {
+ return {scope,route:parse(root+'/reservations'),reservationFilters:{state:'reserved',partner:id},profile:{capabilities:['store:write']},ownerAllowed:true,owner:readySlot(null),locked:false,cursors:[undefined],can:()=>true,read:()=>{throw new Error('A render must not initiate reads');},slot:(key:string)=>slots[key]??{state:'idle',data:null,asOf:null,lastOkAt:null,error:''},...extra} as unknown as ConsoleController;
+}
+const reservationRow={order_id:id,version:'1',partner_id:other,store:{name:'合作店家',slug:'partner'},currency:'TWD',
+ items:[{product_id:other,offer_id:id,acceptance_id:other,sku:'P0001',title:'供貨茶杯',quantity:3,unit_supply_price_minor:15000,supply_total_minor:45000}],
+ state:'reserved',created_at:asOf,reservation_expires_at:'2026-10-15T12:30:00.000Z',closed_at:null,payment_enabled:false,fulfilment_enabled:false,money_movement_enabled:false};
+const reservationData={as_of:asOf,filter:{state:null,partner_id:null,product_id:null,from:null,to:null},totals:{reservations:1,lines:1},items:[reservationRow],next_cursor:null};
+test('SC-UI-S2-07 failed reservation reads and option reads show reasons without invented empty totals',()=>{
+ const c=presentationController({reservations:failedSlot,partners:failedSlot,products:failedSlot});
+ const html=renderPresentation(createElement(Reservations,{c}));
+ assert.ok(html.includes('讀取服務暫停'));assert.ok(html.includes('重試'));assert.ok(html.includes('店家／商品選項暫時無法讀取，仍可用連結篩選。'));
+ assert.ok(!html.includes('符合條件：'));assert.ok(!html.includes('沒有符合條件的供貨預留。'));
+ const forbidden=renderPresentation(createElement(Reservations,{c:presentationController({reservations:readySlot(reservationData)},{ownerAllowed:false})}));
+ assert.ok(forbidden.includes('只有業務空間擁有者可以查看預留'));assert.ok(!forbidden.includes('篩選預留'));assert.ok(!forbidden.includes('供貨茶杯'));
+});
+test('SC-UI-S2-08 list preserves the full order text selector while visible IDs and detail action use a suffix',()=>{
+ const html=renderPresentation(createElement(Reservations,{c:presentationController({reservations:readySlot(reservationData)})}));
+ assert.ok(html.includes('符合條件：1 筆預留、1 個供貨行項'));assert.ok(html.includes('3 × 供貨單價 $150.00 ＝ 小計 $450.00'));
+ assert.ok(html.includes(`<span class="sr-only">${id}</span>`));assert.ok(html.includes(`預留編號 …${id.slice(-8)}`));assert.ok(html.includes(href(scope,'reservation',{id})));
+ assert.ok(html.includes('上一頁'));assert.ok(html.includes('下一頁'));assert.ok(!html.includes('取消預留'));
+ const stale=renderPresentation(createElement(Reservations,{c:presentationController({reservations:{...readySlot(reservationData),state:'failed',error:'讀取服務暫停'}})}));
+ assert.ok(stale.includes('未更新'));assert.ok(stale.includes('供貨茶杯'));assert.ok(!stale.includes('符合條件：'));
+});
+test('SC-UI-S2-09 reservation detail shows own line and supply version, retains filters and handles 404',()=>{
+ const detail={as_of:asOf,reservation:reservationRow,offers:[{offer_id:id,product_id:other,terms_sha256:'a'.repeat(64),state:'withdrawn'}]};
+ const c=presentationController({['reservation:'+id]:readySlot(detail)},{route:parse(href(scope,'reservation',{id}))});
+ const html=renderPresentation(createElement(Reservation,{c}));
+ assert.ok(html.includes(href(scope,'reservations',{reservation:c.reservationFilters}).replaceAll('&','&amp;')));
+ for(const text of ['預留明細','供貨版本 …aaaaaaaa','已撤回','只顯示你供貨的行項；買家資料、其他供應商的商品與整張訂單金額不會顯示。',RESERVATION_NOTE,'查看合作店家','查看這間店的全部預留'])assert.ok(html.includes(text),text);
+ assert.ok(html.includes(href(scope,'product',{id:other})));assert.ok(!html.includes('取消預留'));assert.ok(!html.includes('聯絡'));
+ assert.ok(renderPresentation(createElement(Reservation,{c:presentationController({['reservation:'+id]:{...failedSlot,status:404}},{route:c.route})})).includes('找不到這份預留。'));
+});
+test('SC-UI-S2-10 history separates permissions, empty, failed and stale data and omits product titles in product records',()=>{
+ const item={change_id:id,at:asOf,operation:'storefront.supply-product.update',version:'2',subject:{kind:'product',product_id:other,title:'供貨茶杯'}};
+ const changes={as_of:asOf,product_id:null,items:[item],truncated:true};
+ const html=renderPresentation(createElement(Changes,{c:presentationController({changes:readySlot(changes)})}));
+ for(const text of ['近期變更','更新商品內容或庫存','供貨茶杯','版本 2','只顯示最近 20 筆。','只列出這個商品庫的操作與版本，不顯示操作者。'])assert.ok(html.includes(text),text);
+ const product=renderPresentation(createElement(Changes,{c:presentationController({['changes:'+other]:readySlot({...changes,product_id:other})}),productId:other}));
+ assert.ok(product.includes('紀錄'));assert.ok(!product.includes('供貨茶杯'));
+ const failed=renderPresentation(createElement(Changes,{c:presentationController({changes:failedSlot})}));
+ assert.ok(failed.includes('讀取服務暫停'));assert.ok(!failed.includes('目前沒有近期變更。'));
+ const empty=renderPresentation(createElement(Changes,{c:presentationController({changes:readySlot({...changes,items:[]})})}));assert.ok(empty.includes('目前沒有近期變更。'));
+ const denied=renderPresentation(createElement(Changes,{c:presentationController({changes:readySlot(changes)},{profile:{capabilities:['store:read']}})}));
+ assert.ok(denied.includes('無法取得：需要商品編輯權限才能查看'));assert.ok(!denied.includes('供貨茶杯'));assert.ok(!denied.includes('更新資料'));
+});
+test('SC-UI-S2-11 new overview history leaves the original to-do list and exact refresh action selectors intact',()=>{
+ const metric={state:'ready',count:1},todo={kind:'not_offered',product_id:other,title:'待辦商品'};
+ const overview={as_of:asOf,metrics:{offered_products:metric,pending_requests:metric,active_reservation_lines:metric,out_of_stock_products:metric},product_count:1,todos:{state:'ready',items:[todo],truncated:false}};
+ const changes={as_of:asOf,items:[{change_id:id,at:asOf,operation:'storefront.supply-product.update',version:'2',subject:{kind:'product',product_id:other,title:'待辦商品'}}],truncated:false};
+ const html=renderPresentation(createElement(Overview,{c:presentationController({overview:readySlot(overview),changes:readySlot(changes)})}));
+ assert.equal((html.match(/class="sc-list"/g)??[]).length,1);assert.equal((html.match(/>更新資料<\/button>/g)??[]).length,1);
+ assert.ok(html.includes(href(scope,'reservations',{reservation:{state:'reserved'}})));
+ const partner=renderPresentation(createElement(Partner,{c:presentationController({['partner:'+id]:readySlot({partner:{partner_id:id,name:'合作店家'},selections:[],truncated:false}),['partner-reservations:'+id]:readySlot(reservationData)},{route:parse(href(scope,'partner',{id}))})}));
+ assert.equal((partner.match(/<h3>/g)??[]).length,1);assert.ok(partner.includes('相關預留'));assert.ok(partner.includes('供貨小計 $450.00'));
+ const denied=renderPresentation(createElement(Partner,{c:presentationController({['partner-reservations:'+id]:readySlot(reservationData)},{route:parse(href(scope,'partner',{id})),ownerAllowed:false})}));
+ assert.ok(denied.includes('只有業務空間擁有者可以查看預留'));assert.ok(!denied.includes('供貨小計'));
 });
