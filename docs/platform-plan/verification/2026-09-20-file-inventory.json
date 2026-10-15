@@ -17324,8 +17324,8 @@
     },
     {
       "path": "modules/agent-commerce/invoices/README.md",
-      "bytes": 8442,
-      "sha256": "6d4c1553764a1e29190f06a1c3064607bf1872007d3e79f03440e86b040b9bc5"
+      "bytes": 8506,
+      "sha256": "4a63eb26998cac6bd341e284260fdf11f09023521cf34cb71279a307b4b1949c"
     },
     {
       "path": "modules/agent-commerce/invoices/freedom.module.json",

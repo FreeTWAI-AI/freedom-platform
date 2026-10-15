@@ -2,7 +2,7 @@
 
 This module provides the pure, I/O-free domain rule functions for Freedom Commerce electronic invoices (統一發票, Taiwan e-invoice), following EC-SPEC-06 §3.3, §3.5, and §3.7.
 
-The module depends on `commerce-providers` for that email rule only.
+The module depends on `commerce-providers` only for the shared invoice email rule (`isInvoiceEmail`), which `ecpayBuyerFields` uses.
 
 ## Scope & Status
 
