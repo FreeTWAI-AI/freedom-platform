@@ -332,6 +332,27 @@ export const protocol={
             "minLength": 1,
             "maxLength": 2048
           }
+        },
+        {
+          "name": "scope",
+          "required": false,
+          "schema": {
+            "enum": [
+              "all",
+              "open"
+            ],
+            "default": "all"
+          }
+        },
+        {
+          "name": "search",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 2000,
+            "default": ""
+          }
         }
       ]
     },
@@ -1680,4 +1701,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="69644e4d405aaab8561a2a350763a2b10785e963c4524f6d1059984f20c0ca5b";
+export const protocolSha256="52d9ebb6fcaf63db1ed4327fe7c05d3eaf22f51924c5c2d9262986f459ce817c";

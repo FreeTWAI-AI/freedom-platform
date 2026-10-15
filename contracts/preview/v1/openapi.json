@@ -1896,6 +1896,29 @@
               "minLength": 1,
               "maxLength": 2048
             }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "open"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2000,
+              "default": ""
+            }
           }
         ],
         "responses": {

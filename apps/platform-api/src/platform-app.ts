@@ -644,7 +644,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
   app.get('/api/v1/work-items/page',async c=>{
     const query=workListPageQuery.parse(singleQuery(c));
-    return c.json(await listWorksPage(pool,c.get('actor'),query.cursor));
+    return c.json(await listWorksPage(pool,c.get('actor'),query));
   });
   app.route('/api/v1',createPrivateWorkRoutes(pool));
   app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));

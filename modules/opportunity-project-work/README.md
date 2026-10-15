@@ -134,6 +134,13 @@ SQL。DTO、回饋、條款、驗收安排與社群／工作模式可見性不�
 同一毫秒內的列不會遺失或重複。格式不正確、重複或未知 query 均回 422；cursor
 不是授權，續頁仍逐次重驗目前 member session 與 community。
 
+分頁端點接受 `scope=all|open`（預設 `all`，保留 Workbench 原始範圍）與 `search`
+（trim 後最多 2,000 字）。`open` 同時要求 open state 與尚未到認領期限；
+搜尋在 title、objective、gain 的合併文字上做不分大小寫的 literal substring，
+`%`／`_` 不是 wildcard。兩個條件都在 SQL 排序／LIMIT 前套用，不只搜尋目前 24 筆。
+TaskBoard 預設明送 `open`；切換條件重新從第一頁讀取，續頁沿用同一組條件。
+搜尋輸入採 250ms debounce，新的條件／重新整理會淘汰舊讀取與續頁回應。
+
 `WorkbenchPanel` 與 `TaskBoardPanel` 顯示第一頁，並以小型次要按鈕按需載入較早工作；
 續頁失敗保留已載入內容供重試。`dashboard.now` 改用本人所有尚未 accepted 的 Claim
 專用查詢，所以較舊認領不受 catalog 頁面限制；`review_queue` 仍按目前 reviewer
@@ -145,6 +152,8 @@ SQL。DTO、回饋、條款、驗收安排與社群／工作模式可見性不�
 同毫秒六位小數排序、錯誤 cursor、較舊本人認領、dashboard 上限及分頁 session 到期；
 批次 Claim／Submission 等價案例與待回饋 0／1／6 筆反例保留。瀏覽器回歸另在桌面
 Workbench 與手機 TaskBoard 實際載入第二頁，不以 mock forwarding 代替產品行為。
+此瀏覽器回歸亦涵蓋 29 筆較新已關閉工作後的舊 open 工作、literal 搜尋、
+全部範圍的有界續頁，以及較舊搜尋回應延遲抵達時不能覆蓋目前結果。
 `preview-protocol.test.ts` 另以生成 SDK 呼叫分頁端點並驗錯誤 cursor；bundle、
 OpenAPI、SDK 型別與 runtime protocol 由同一 `definition.mjs` 重新產生。外倉仍由
 各自維護者審查並更新來源 pin，本輪不代替它們發布。

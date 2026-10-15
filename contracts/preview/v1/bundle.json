@@ -2,19 +2,19 @@
   "format": "freedom.contract-bundle/v1",
   "protocol": "freedom.preview/v1",
   "revision": "0.4.0",
-  "protocol_sha256": "69644e4d405aaab8561a2a350763a2b10785e963c4524f6d1059984f20c0ca5b",
+  "protocol_sha256": "52d9ebb6fcaf63db1ed4327fe7c05d3eaf22f51924c5c2d9262986f459ce817c",
   "files": {
     "openapi.json": {
-      "sha256": "bddcb439d75ff2eecc42f7d1557b9ef2e76b1832f5c60df45beee3dc808b854a",
-      "bytes": 82291
+      "sha256": "723a0b12f62c0a3bbae53c509c0e06f82acd40e9e7cf868f3bbc26555e700b31",
+      "bytes": 82833
     },
     "metadata.json": {
-      "sha256": "e699a67ece6fe01ed8aea4d344cdc93b579aa2f31bef011ef6fe67c937167e4f",
+      "sha256": "5631a5373d991ca895337fd58fcd5e91d469a743cf587d4273effd24882bfb1d",
       "bytes": 963
     },
     "protocol.mjs": {
-      "sha256": "878155a3b4c90e14aca3307c7a9b6b043a80b26b663b50bebe6d7917df4a2343",
-      "bytes": 37015
+      "sha256": "e50d483afb5933e4dcd301caf93fa1012f2bbc2f8841080b7198f2a396230fbd",
+      "bytes": 37461
     },
     "client.mjs": {
       "sha256": "ca66a9ca46202139a22bf5129b3e57c58e78675f571b028bcc2ec1773cda2500",

@@ -103,7 +103,7 @@ test('WORK-A rejects caller ownership/scope, duplicate filters, invalid and over
 
 test('WORK-A private rows never change any member list/dashboard/discovery/feed/contribution projection', async () => {
   const owner = await member(), peer = await member(); await communityWork(owner);
-  const paths = ['/work-items', '/work-items/page', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work'];
+  const paths = ['/work-items', '/work-items/page', '/work-items/page?scope=all&search=UNIQUE_PRIVATE_SENTINEL', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work'];
   const before = await Promise.all(paths.map(path => request(path, peer)));
   const row = await privateRow(owner, 'UNIQUE_PRIVATE_SENTINEL');
   const after = await Promise.all(paths.map(path => request(path, peer)));
@@ -126,7 +126,7 @@ test('WORK-A onboarding preview limit and member conditional/HEAD projections ca
   assert.equal(before.status, 200); assert.equal(before.data.items.length, 12);
   const row = await privateRow(owner, 'PRIVATE_PREVIEW_SENTINEL');
   assert.deepEqual((await request('/task-board/preview', peer)).data, before.data);
-  for (const path of ['/work-items', '/work-items/page', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work']) {
+  for (const path of ['/work-items', '/work-items/page', '/work-items/page?scope=all&search=PRIVATE_PREVIEW_SENTINEL', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work']) {
     for (const method of ['GET', 'HEAD']) {
       const response = await request(path, owner, { method, headers: { Range: 'bytes=0-10', 'If-None-Match': '"1"' } });
       assert.equal(response.status, 200, path + ' ' + method); assert(!response.text.includes(row.title));

@@ -136,6 +136,34 @@ test('cursor work list preserves microsecond ordering, legacy completeness and o
   ]) assert.equal((await request(path,maker)).status,422,path);
 });
 
+test('work search and open scope apply before pagination, including older literal matches',async()=>{
+  const maker=await signIn(),ids=Array.from({length:30},()=>randomUUID());
+  await pool.query(`UPDATE work_items SET title='Needle%_ older',objective='ObjectiveOnly',gain='GainOnly',
+    state='open',claim_window_expires_at='2099-01-01',created_at='2001-01-01' WHERE work_item_id=$1`,[DEMO_WORK]);
+  for(let index=0;index<ids.length;index++)await pool.query(`INSERT INTO work_items(
+    work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,participation_terms,
+    participation_terms_sha256,claim_window_expires_at,due_at,created_at)
+    SELECT $1,community_id,owner_ref,$2,objective,acceptance_criteria,gain,$3,participation_terms,
+    participation_terms_sha256,$4,due_at,'2030-01-01' FROM work_items WHERE work_item_id=$5`,
+    [ids[index],index===0?'Needle%_ closed':index===1?'Needle%_ expired':index===2?'NeedleXY closed':`closed work ${index}`,
+      index===1?'open':'claiming_closed',index===1?'2000-01-01':'2099-01-01',DEMO_WORK]);
+  const unfiltered=readCursorWorkPage.parse((await request('/work-items/page',maker)).data);
+  assert.equal(unfiltered.items.length,24);assert.equal(unfiltered.items.some(item=>item.work_item_id===DEMO_WORK),false);
+  const open=await request('/work-items/page?scope=open',maker);assert.equal(open.status,200);
+  assert.deepEqual(readCursorWorkPage.parse(open.data).items.map(item=>item.work_item_id),[DEMO_WORK]);
+  for(const search of ['needle%_','ObjectiveOnly','GainOnly']){
+    const filtered=await request('/work-items/page?scope=open&search='+encodeURIComponent(search),maker);
+    assert.equal(filtered.status,200);
+    assert.deepEqual(readCursorWorkPage.parse(filtered.data).items.map(item=>item.work_item_id),[DEMO_WORK]);
+    assert.equal(filtered.data.next_cursor,null);
+  }
+  const all=await request('/work-items/page?scope=all&search='+encodeURIComponent('needle%_'),maker);
+  assert.equal(all.status,200);
+  assert.deepEqual(readCursorWorkPage.parse(all.data).items.map(item=>item.work_item_id),[...ids.slice(0,2).sort(),DEMO_WORK]);
+  for(const query of ['scope=unknown','search='+encodeURIComponent('x'.repeat(2001)),'scope=open&scope=all'])
+    assert.equal((await request('/work-items/page?'+query,maker)).status,422);
+});
+
 test('dashboard keeps ordered eligible reviewers and latest revisions without exposing internal join keys',async()=>{
   const maker=DEMO_USERS[0],reviewer=DEMO_USERS[1],client=DEMO_USERS[2],session=await signIn(reviewer.email);
   async function addClaim(label:string,createdAt:string,state:string,claimant:{user_id:string,profession_membership_ref:string},revisions:number[]|null,feedback:string|null=null,route:{until?:string,revoked?:Date|null}={}) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {requireCursorPage,type PortalClient} from '../api';
 import type { TabId, WorkItem } from '../types';
 import { formatIsoLocal } from '../format';
@@ -16,27 +16,38 @@ export function TaskBoardPanel({client,onNavigate}:{client:PortalClient;onNaviga
   const [outcomeRevision,setOutcomeRevision]=useState(0);
   const [loading,setLoading]=useState(true),[loadingMore,setLoadingMore]=useState(false),[error,setError]=useState(''),[pageError,setPageError]=useState(''),[query,setQuery]=useState(''),[scope,setScope]=useState<'open'|'all'>('open');
   const [nextCursor,setNextCursor]=useState<string|null>(null),[selected,setSelected]=useState(''),[activity,setActivity]=useState<Activity|null>(null),[activityLoading,setActivityLoading]=useState(false),[activityError,setActivityError]=useState('');
+  const workRequests=useRef(0),search=query.trim();
   const load=useCallback(async()=>{
-    setLoading(true);setError('');setPageError('');
-    const results=await Promise.allSettled([client.get<unknown>('/work-items/page'),client.get<{items:Project[]}>('/co-creation/projects')]);
+    const sequence=++workRequests.current;
+    setLoading(true);setLoadingMore(false);setError('');setPageError('');setWorks([]);setNextCursor(null);
+    const params=new URLSearchParams({scope,search});
+    const results=await Promise.allSettled([client.get<unknown>(`/work-items/page?${params}`),client.get<{items:Project[]}>('/co-creation/projects')]);
+    if(sequence!==workRequests.current)return;
     if(results[0].status==='fulfilled'){
       try{const page=requireCursorPage<WorkItem>(results[0].value,'工作列表');setWorks(page.items);setNextCursor(page.next_cursor);}
       catch{setWorks([]);setNextCursor(null);setError('社群工作暫時無法載入。');}
     }else{setWorks([]);setNextCursor(null);setError('社群工作暫時無法載入。');}
     if(results[1].status==='fulfilled')setProjects(results[1].value.items);else setError(value=>value+' GitHub 共創專案暫時無法載入。');
     setLoading(false);
-  },[client]);
+  },[client,scope,search]);
   async function loadMore(){
     if(!nextCursor||loadingMore)return;
+    const sequence=workRequests.current;
     setLoadingMore(true);setPageError('');
     try{
-      const page=requireCursorPage<WorkItem>(await client.get<unknown>(`/work-items/page?cursor=${encodeURIComponent(nextCursor)}`),'工作列表');
+      const params=new URLSearchParams({scope,search,cursor:nextCursor});
+      const page=requireCursorPage<WorkItem>(await client.get<unknown>(`/work-items/page?${params}`),'工作列表');
+      if(sequence!==workRequests.current)return;
       setWorks(current=>{const known=new Set(current.map(item=>item.work_item_id));return [...current,...page.items.filter(item=>!known.has(item.work_item_id))];});
       setNextCursor(page.next_cursor);
-    }catch{setPageError('較早的工坊工作暫時無法載入。');}
-    finally{setLoadingMore(false);}
+    }catch{if(sequence===workRequests.current)setPageError('較早的工坊工作暫時無法載入。');}
+    finally{if(sequence===workRequests.current)setLoadingMore(false);}
   }
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{
+    setLoading(true);setLoadingMore(false);setWorks([]);setNextCursor(null);setPageError('');
+    const timer=setTimeout(()=>void load(),search?250:0);
+    return()=>{clearTimeout(timer);workRequests.current++;};
+  },[load,search]);
   useEffect(()=>{
     if(!selected){setActivity(null);return;}
     let active=true;setActivity(null);setActivityError('');setActivityLoading(true);
@@ -44,14 +55,14 @@ export function TaskBoardPanel({client,onNavigate}:{client:PortalClient;onNaviga
     return()=>{active=false;};
   },[client,selected]);
   const term=query.trim().toLocaleLowerCase();
-  const visibleWorks=works.filter(item=>(scope==='all'||(item.state==='open'&&Date.parse(item.claim_window_expires_at)>Date.now()))&&(!term||[item.title,item.objective,item.gain].join(' ').toLocaleLowerCase().includes(term)));
+  const visibleWorks=works;
   const visibleIssues=(activity?.issues??[]).filter(issue=>!term||[issue.title,...issue.labels].join(' ').toLocaleLowerCase().includes(term));
   const selectedProject=projects.find(project=>project.project_id===selected);
   const repositoryUrl=safeGitHub(selectedProject?.repository_url??'');
   return <section className="experience-panel stack" aria-label="社群任務">
     <div className="experience-intro"><div><p className="eyebrow">COMMUNITY TASKS</p><h2>從一件做得到的事開始共創。</h2><p>社群工作在工坊認領與驗收；GitHub Issue 依專案原始紀錄協作。兩種來源各自保留實際狀態。</p></div></div>
     <div className="card"><MemberContributionOutcomes client={client} revision={outcomeRevision}/></div>
-    <div className="experience-filters"><label className="field">搜尋任務<input data-guide-anchor="tasks:search" type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="例如：設計、文件、開發"/></label><label className="field">工坊工作狀態<select value={scope} onChange={e=>setScope(e.target.value as 'open'|'all')}><option value="open">可認領</option><option value="all">全部</option></select></label><button type="button" className="btn btn-ghost" onClick={()=>void load()}>重新整理</button></div>
+    <div className="experience-filters"><label className="field">搜尋任務<input data-guide-anchor="tasks:search" type="search" maxLength={2000} value={query} onChange={e=>setQuery(e.target.value)} placeholder="例如：設計、文件、開發"/></label><label className="field">工坊工作狀態<select value={scope} onChange={e=>setScope(e.target.value as 'open'|'all')}><option value="open">可認領</option><option value="all">全部</option></select></label><button type="button" className="btn btn-ghost" onClick={()=>void load()}>重新整理</button></div>
     {error&&<p role="alert" className="banner banner-error">{error}</p>}{loading&&<p role="status">正在載入任務…</p>}
     <div className="experience-heading"><h2>工坊工作</h2><span>{visibleWorks.length} 件</span></div>
     {visibleWorks.length?<div className="experience-grid">{visibleWorks.map(item=><article className="card experience-card" key={item.work_item_id}><div className="experience-card-head"><div><span className="experience-kicker">{item.state==='open'?'開放認領':item.state==='accepted'?'已驗收':'認領中'}</span><h3>{item.title}</h3></div></div><p className="multiline-text">{item.objective}</p><p><strong>參與收穫：</strong><span className="multiline-text">{item.gain}</span></p><p className="muted">認領期限：{formatIsoLocal(item.claim_window_expires_at)}</p><WorkContributionRoles client={client} workItemId={item.work_item_id} onChanged={()=>setOutcomeRevision(value=>value+1)}/><div className="experience-actions"><button className="btn btn-primary" type="button" onClick={()=>onNavigate('workbench')}>{item.state==='open'?'查看並認領':'查看工作紀錄'}</button></div></article>)}</div>:!loading&&<p className="empty">目前沒有符合條件的工坊工作。</p>}

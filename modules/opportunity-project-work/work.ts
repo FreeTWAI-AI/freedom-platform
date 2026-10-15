@@ -22,6 +22,8 @@ export const decideInput = z.object({decision:z.enum(['accept','changes_requeste
 
 export const workListPageQuery = z.object({
   cursor:z.string().min(1).max(2048).optional(),
+  scope:z.enum(['all','open']).default('all'),
+  search:z.string().trim().max(2000).default(''),
 }).strict();
 
 type WorkRow={work_item_id:string;created_at:Date|string;review_available:boolean;[key:string]:unknown};
@@ -110,14 +112,16 @@ export async function listWorks(pool: Pool, actor: Actor) {
     return hydrateWorks(q,actor,rows);
   });
 }
-export async function listWorksPage(pool: Pool, actor: Actor, cursor?:string) {
+export async function listWorksPage(pool: Pool, actor: Actor, query:z.infer<typeof workListPageQuery>) {
   return readWithMemberSession(pool,actor,async q=>{
-    const after=decodeWorkCursor(cursor);
+    const after=decodeWorkCursor(query.cursor);
     const rows=(await q.query<WorkPageRow>(`SELECT ${workPageFields} FROM work_items w
       WHERE community_id=$1 AND work_mode='community_collaboration'
       AND ($2::timestamptz IS NULL OR w.created_at<$2 OR (w.created_at=$2 AND w.work_item_id>$3::uuid))
+      AND ($5::text='all' OR (w.state='open' AND w.claim_window_expires_at>clock_timestamp()))
+      AND ($6::text='' OR strpos(lower(w.title||' '||w.objective||' '||w.gain),lower($6))>0)
       ORDER BY created_at DESC,work_item_id LIMIT $4`,
-    [actor.community_id,after?.createdAt??null,after?.id??null,WORK_LIST_PAGE_SIZE+1])).rows;
+    [actor.community_id,after?.createdAt??null,after?.id??null,WORK_LIST_PAGE_SIZE+1,query.scope,query.search])).rows;
     const page=rows.slice(0,WORK_LIST_PAGE_SIZE);
     return {items:await hydrateWorks(q,actor,page),next_cursor:rows.length>WORK_LIST_PAGE_SIZE?encodeWorkCursor(page.at(-1)!):null};
   });

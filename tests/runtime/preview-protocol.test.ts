@@ -50,9 +50,12 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI/freedom-platform',note:'synthetic'}});
  assert.equal((shared.shares as any[])[0].verification_status,'self_reported');
  assert.equal((await seller.call('listCampaigns')).items.length,0);assert.equal((await maker.call('listCampaigns')).items.length,1);
- assert.equal((await maker.call('listProjects')).items.length,0);assert(Array.isArray((await maker.call('listWorks')).items));
+ assert.equal((await maker.call('listProjects')).items.length,0);const legacyWorks=await maker.call('listWorks');assert(Array.isArray(legacyWorks.items));
  const workPage=await maker.call('listWorksPage');assert(Array.isArray(workPage.items));assert.equal(workPage.next_cursor,null);
  await assert.rejects(maker.call('listWorksPage',{query:{cursor:'not-base64!'}}),{code:'invalid_work_cursor',status:422});
+ const filteredWork=await maker.call('listWorksPage',{query:{scope:'open',search:legacyWorks.items[0].title}});
+ assert.deepEqual(filteredWork.items.map(item=>item.work_item_id),[legacyWorks.items[0].work_item_id]);
+ await assert.rejects(maker.call('listWorksPage',{query:{scope:'unknown'}}),TypeError);
  await maker.call('getDashboard');
  await maker.call('logout',{body:{}});await assert.rejects(maker.call('getSession'),{status:401});await seller.call('logout',{body:{}});
 });
