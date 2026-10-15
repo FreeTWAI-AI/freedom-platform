@@ -1,3 +1,5 @@
+import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
+import {sweepDueCheckoutHolds} from '../../../modules/agent-commerce/checkout/settlement.js';
 import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import { installWorkerGuideAssets } from '../../../packages/public-guide-assets/worker.js';
@@ -51,6 +53,8 @@ import { workerPreviewFetch } from './worker-preview-fetch.js';
  * options; process.env is never read or written here.
  */
 export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
+  FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
+  FREEDOM_COMMERCE_QUARANTINE?:string;
   /** Explicit cover composition; native MEDIA alone grants no persistence. */
   FREEDOM_SERVICE_COVER_ENABLED?: string;
   /** Explicit banner composition; canonical community policy remains required. */
@@ -117,11 +121,12 @@ export type OfficialBindingsFit = Satisfies<Hyperdrive extends WorkerEnv['HYPERD
 // workers-types declares its own ReadableStream, which never unifies with the Node lib
 // stream in this compilation, so only the Images method names are checked here.
 export type OfficialImagesFit = Satisfies<keyof ImagesBinding extends keyof OfficialImagesBinding ? true : false>;
-export type WorkerConfig = { freedomEnv: FreedomEnv; origin: string; release: string | null; trustConnectingIp: boolean };
+export type WorkerConfig = { freedomEnv: FreedomEnv; origin: string; release: string | null; trustConnectingIp: boolean;commerceSettings?:CommerceSettings };
 
 const RELEASE = /^[0-9a-f]{40}$/;
 /** Validates bindings without I/O. Errors never echo binding values. */
 export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
+  const commerceSettings=readCommerceSettings(env);
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
   try { freedomEnv = resolveFreedomEnv(env.FREEDOM_ENV); } catch { throw new ReadinessError('FREEDOM_ENV binding is invalid.'); }
@@ -162,7 +167,7 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PUBLIC_GUIDE_ENABLED))throw new ReadinessError('Guide release flag must be true or false.');
   if(env.GUIDE_STATIC&&env.GUIDE_STATIC===env.MEDIA)throw new ReadinessError('Guide assets require a separate purpose binding.');
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED==='true'&&typeof env.GUIDE_STATIC?.get!=='function')throw new ReadinessError('GUIDE_STATIC is required for public guide assets.');
-  return { freedomEnv, origin, release, trustConnectingIp };
+  return { freedomEnv, origin, release, trustConnectingIp,commerceSettings };
 }
 
 /**
@@ -255,6 +260,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
+    commerceSettings:config.commerceSettings??readCommerceSettings(env),
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
@@ -319,6 +325,7 @@ export type WorkerDependencies = {
   guildDiscovery?: typeof refreshGuildDiscoveryReports;
   /** Test seam. Production uses pruneExpiredAuthRecords. */
   authPrune?: typeof pruneExpiredAuthRecords;
+  commerceSweep?:typeof sweepDueCheckoutHolds;
 };
 
 /**
@@ -441,6 +448,11 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
               try{await processEventWaitlist(pool,send,config.origin);}catch{console.error('event_waitlist_failed');}
               try{await processEventReminders(pool,send,{enabled:true});}catch{console.error('event_reminders_failed');}
             }catch{console.error('event_participation_not_ready');}
+          }
+          let commerce:CommerceSettings|undefined;
+          try{commerce=readCommerceSettings(env);}catch{console.error('commerce_settings_invalid');}
+          if(commerce&&!commerce.quarantine){
+            try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
           }
           try{await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});}
           catch(error){const name=error instanceof Error&&/^[A-Za-z][A-Za-z0-9_]*$/.test(error.name)?error.name:'unknown';console.error('github_sync_failed',name);}
