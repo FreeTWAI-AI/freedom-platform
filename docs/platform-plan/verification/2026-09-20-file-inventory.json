@@ -17004,8 +17004,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/README.md",
-      "bytes": 19999,
-      "sha256": "8e125628c302b988ed4b55adbaae28fdfbb02b6d87075411be3c2de411af8f7e"
+      "bytes": 19996,
+      "sha256": "4d396e0367a09f19d7e3284d23d25f58447736ea3fc18319b08e81b3502b03ed"
     },
     {
       "path": "modules/agent-commerce/checkout/access.ts",

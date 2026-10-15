@@ -80,8 +80,8 @@ append-only `commerce_checkout_idempotency_keys` table retains each command's
 keyed request digest and original non-PII response, so revising a draft cannot erase an
 earlier key or silently change its replay result. Both freeze `request_sha256`
 columns contain HMAC-SHA256 keyed by the plaintext idempotency key (UTF-8) over
-`canonicalJSON({input, checkout_id})`, in lowercase hex. The
-Checkout replay ignores member identity and preserves the first customer member link. The
+`canonicalJSON({input, checkout_id})`, in lowercase hex, so a checkout replay
+ignores member identity and keeps the first customer member link. The
 plaintext key is never stored; the retained key identifier is an independent
 SHA-256 hash. Checkout identity and the
 24-hour deadline remain fixed across revisions. Changing contact email resolves
