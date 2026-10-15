@@ -22,8 +22,7 @@ for(const [name,rule] of Object.entries(COMMERCE_LIMITS)) {
       await assert.rejects(commerceRateLimitInTransaction(q,name as CommerceBucket,key),(e:unknown)=>code('commerce_rate_limited')(e)&&(e as {retryAfterSeconds:number}).retryAfterSeconds>0);
       assert.equal((await q.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',[bucket])).rows[0].attempts,rule.limit);
       await q.query('UPDATE auth_rate_limits SET window_start=clock_timestamp()-make_interval(secs=>$2) WHERE bucket=$1',[bucket,rule.seconds+1]);
-      const remaining=await commerceRateLimitInTransaction(q,name as CommerceBucket,key);
-      assert(remaining>0&&remaining<=rule.seconds);
+      assert.equal(await commerceRateLimitInTransaction(q,name as CommerceBucket,key),rule.seconds);
       assert.equal((await q.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',[bucket])).rows[0].attempts,1);
     });
   });

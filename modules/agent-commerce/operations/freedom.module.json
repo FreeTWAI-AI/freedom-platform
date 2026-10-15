@@ -7,7 +7,9 @@
     "tests/runtime/commerce-runtime-settings.test.ts",
     "tests/runtime/commerce-scheduler.test.ts",
     "deploy/cloudflare/lib/commerce-wrangler.mjs",
-    "deploy/cloudflare/test/commerce-wrangler.test.mjs"
+    "deploy/cloudflare/test/commerce-wrangler.test.mjs",
+    "deploy/cloudflare/preflight.mjs",
+    "tests/worker/github-sync-scheduled.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/operations/runtime-settings.ts"
