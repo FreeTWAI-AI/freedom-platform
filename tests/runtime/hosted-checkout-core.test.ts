@@ -337,3 +337,9 @@ test('contact digests are salted and freeze request digests are keyed without br
   const other=await x.frozen(s);assert.notEqual(other.terms.contact_sha256,c.terms.contact_sha256);
   await x.place(s,c);
 });
+
+test('paid cancellation of a closed order is refused without effects',async()=>{
+  const s=await x.store(),o=await x.place(s,await x.frozen(s));await payment(o.order_id);
+  await x.tx(q=>q.query("UPDATE commerce_checkout_orders SET lifecycle_state='closed',closed_at=clock_timestamp(),version=version+1 WHERE order_id=$1",[o.order_id]));
+  const before=await stockFacts();await assert.rejects(x.tx(q=>cancelPaidOrder(q,s,{orderId:o.order_id,commandRef:randomUUID()})),code('checkout_order_closed'));assert.deepEqual(await stockFacts(),before);
+});

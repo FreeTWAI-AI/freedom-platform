@@ -5,3 +5,4 @@ export {placeCheckoutOrder,cancelUnpaidOrder,CheckoutStockUnavailable,Unresolved
 export {applyConfirmedPayment,retryAllocation,releaseAllocation,cancelPaidOrder,recordHandover,restockReturn} from './payments.js';
 export {settleDueCheckoutHolds,sweepDueCheckoutHolds} from './settlement.js';
 export type {CheckoutInventory} from './inventory.js';
+export {CONFIRMED_PAYMENT_OUTCOMES} from './confirmed-payment.js';
