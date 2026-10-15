@@ -47,7 +47,7 @@ async function release(q:PoolClient,orderId:string){
 }
 async function expireOrders(q:PoolClient,community:string){
  const expired=(await q.query(`SELECT o.order_id FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id
-  WHERE s.origin='imported' AND s.community_id=$1 AND o.buyer_payment='pending' AND o.expires_at<=now() FOR UPDATE OF o`,[community])).rows;
+  WHERE s.origin='imported' AND s.community_id=$1 AND o.buyer_payment='pending' AND o.expires_at<=clock_timestamp() FOR UPDATE OF o`,[community])).rows;
  for(const o of expired){await release(q,o.order_id);await q.query("UPDATE commerce_orders SET buyer_payment='cancelled' WHERE order_id=$1",[o.order_id]);}
 }
 async function requireImportedShop(q:PoolClient,shop:any){

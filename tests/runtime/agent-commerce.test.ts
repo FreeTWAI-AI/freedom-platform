@@ -1,10 +1,11 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {setImmediate} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
-import {seedLocal,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
+import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {Problem} from '../../packages/shared/problem.js';
 import {fetchManifest,ownShops} from '../../modules/agent-commerce/imports.js';
@@ -114,6 +115,48 @@ test('stock reservation is serialized; cancelled and expired unpaid orders relea
  const next=await order(f,5);await pool.query("UPDATE commerce_orders SET expires_at=now()-interval '1 second' WHERE order_id=$1",[next.o.order_id]);
  assert.equal((await req(`/shop-api/v1/orders/${next.o.order_id}/payment`,paid(250000),undefined,f.publicKey)).status,409);
  assert.equal((await create()).status,201);
+});
+
+for(const expired of [true,false])test(`order creation refreshes reservation expiry after the commerce lock (expired=${expired})`,async()=>{
+ const f=await setup(),{o}=await order(f,5);
+ const body={external_id:randomUUID(),items:[{selection_id:f.selection.selection_id,quantity:5,delivery_ref:'synthetic_delivery_ref'}]};
+ const gate=await admin.connect();let pending:Promise<unknown>|undefined;
+ try{
+  await gate.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[`commerce-orders/${DEMO_COMMUNITY}`]);
+  const pid=(await gate.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  const response=req('/shop-api/v1/orders',body,undefined,f.publicKey);pending=response.catch(()=>undefined);
+  const deadline=Date.now()+8000;
+  for(;;){
+   if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount!>0)break;
+   assert.ok(Date.now()<deadline,'order request reached its actual commerce lock');await setImmediate();
+  }
+  // Set the boundary only after PostgreSQL proves the request is waiting.
+  const live=await pool.query("UPDATE commerce_orders SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE order_id=$1 RETURNING expires_at>clock_timestamp() AS live",[o.order_id,expired?0.25:3600]);
+  assert.equal(live.rows[0].live,true);
+  if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM commerce_orders WHERE order_id=$1',[o.order_id]);
+  await gate.query('SELECT pg_advisory_unlock_all()');
+  const result=await response;assert.equal(result.status,expired?201:409,JSON.stringify(result.data));
+  assert.equal((await pool.query('SELECT buyer_payment FROM commerce_orders WHERE order_id=$1',[o.order_id])).rows[0].buyer_payment,expired?'cancelled':'pending');
+  assert.deepEqual((await pool.query('SELECT stock,reserved FROM commerce_items WHERE item_id=$1',[f.items[0].item_id])).rows[0],{stock:5,reserved:5});
+  if(expired){
+   const replay=await req('/shop-api/v1/orders',body,undefined,f.publicKey);assert.equal(replay.status,201);assert.deepEqual(replay.data,result.data);
+   assert.equal((await pool.query('SELECT count(*)::int AS n FROM commerce_orders WHERE public_shop_id=$1',[f.publicId])).rows[0].n,2);
+   assert.equal((await pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[f.items[0].item_id])).rows[0].reserved,5);
+  }else{assert.equal(result.data.code,'out_of_stock');assert.equal((await pool.query('SELECT count(*)::int AS n FROM commerce_orders WHERE public_shop_id=$1',[f.publicId])).rows[0].n,1);}
+ }finally{await gate.query('SELECT pg_advisory_unlock_all()');gate.release();if(pending)await pending;}
+});
+
+test('reservation expiry never releases merchant-reported paid or refunded stock',async()=>{
+ const f=await setup(),{o}=await order(f,5),evidence=paid(250000);
+ assert.equal((await req(`/shop-api/v1/orders/${o.order_id}/payment`,evidence,undefined,f.publicKey)).status,200);
+ await pool.query("UPDATE commerce_orders SET expires_at=clock_timestamp()-interval '1 second' WHERE order_id=$1",[o.order_id]);
+ for(const state of ['reported_paid','reported_refunded']){
+  if(state==='reported_refunded')assert.equal((await req(`/shop-api/v1/orders/${o.order_id}/payment`,{...evidence,event_id:randomUUID(),type:'refunded'},undefined,f.publicKey)).status,200);
+  const denied=await req('/shop-api/v1/orders',{external_id:randomUUID(),items:[{selection_id:f.selection.selection_id,quantity:1,delivery_ref:'synthetic_delivery_ref'}]},undefined,f.publicKey);
+  assert.equal(denied.status,409);assert.equal(denied.data.code,'out_of_stock');
+  assert.equal((await pool.query('SELECT buyer_payment FROM commerce_orders WHERE order_id=$1',[o.order_id])).rows[0].buyer_payment,state);
+  assert.equal((await pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[f.items[0].item_id])).rows[0].reserved,5);
+ }
 });
 
 test('wrong merchant, amount, origin, key revocation and replay cannot claim someone else payment',async()=>{
