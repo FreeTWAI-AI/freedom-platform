@@ -48,6 +48,15 @@ The completeness result means that the current local artifacts contain the full 
 
 Module descriptors use exact paths or directory `/**` patterns. Impact is the union of baseline and candidate descriptors plus reverse dependencies. Deleting, renaming or shrinking a descriptor cannot subtract baseline scope/tests. Unknown non-document paths select all modules and require a full fallback; missing baseline governance, missing instructions and unmapped surfaces remain explicit blockers. Descriptor references check file existence, **not** actual route registration or ACL behavior.
 
+The CI selector also counts a descriptor's own path when it is not already
+covered. Keep that implicit entry within the existing 64-path schema bound;
+64 unrelated explicit paths plus an uncovered descriptor is invalid, not a
+reason to raise the limit or ignore the descriptor. Files wholly owned in one
+dedicated directory may use its existing `/**` form without dropping coverage.
+The member-card license directory uses that form instead of four individual
+license entries. This broadens conservative impact coverage only; it changes
+neither license bytes, runtime permissions nor baseline/candidate test unions.
+
 The descriptors do not constitute a complete runtime registration audit. The local suite adapters use fixed Node arguments, never descriptor shell commands or package hooks. `governance.unit` runs the contribution-tools tests without database credentials. Runtime adapters require operator-provisioned, disposable PostgreSQL and an **explicit** `TEST_DATABASE_URL` for the CLI, or `testDatabaseUrl` for the library; there is no database discovery or default fallback. Accepted URLs name an `fp_*` database on loopback, optionally with a single absolute Unix-socket `host` parameter. Passwords, remote hosts, duplicate/query connection overrides and non-test database names are rejected. This admission check does not establish that a server is disposable: the operator must provide an isolated test-only server, never a production service that happens to have a matching name. Runtime tests own fresh `fp_*` schemas/roles and their teardown; forced termination can leave test data to clean up on that disposable server.
 
 The fixed registry in `runtime-suites.mjs` maps these existing IDs:
