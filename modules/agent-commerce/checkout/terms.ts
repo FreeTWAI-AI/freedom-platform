@@ -85,7 +85,7 @@ export async function computeCheckoutTerms(q:PoolClient,store:CheckoutStore,raw:
 export async function linkCustomerMember(q:PoolClient,customerId:string,memberPrincipalId?:string) {
   if(!memberPrincipalId)return;
   await q.query(`UPDATE commerce_customers c SET member_principal_id=p.principal_id FROM principals p JOIN users u ON u.user_id=p.user_ref
-    WHERE c.customer_id=$1 AND c.member_principal_id IS NULL AND p.principal_id=$2 AND p.kind='person' AND p.status='active'
+    WHERE c.customer_id=$1 AND c.redacted_at IS NULL AND c.member_principal_id IS NULL AND p.principal_id=$2 AND p.kind='person' AND p.status='active'
       AND u.active AND u.email_verified_at IS NOT NULL AND lower(btrim(u.email))=c.email_normalized`,[customerId,memberPrincipalId]);
 }
 async function ensureCustomerLocked(q:PoolClient,context:StoreContext,email:string,memberPrincipalId?:string) {

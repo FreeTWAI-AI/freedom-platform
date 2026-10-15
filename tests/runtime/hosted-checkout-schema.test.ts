@@ -6,7 +6,7 @@ import {readMigrationSources} from '../../packages/db/migration-files.mjs';
 import {legacyMigrationProfile} from '../../packages/db/migration-plan.mjs';
 import {runMigrationPlan} from '../../packages/db/migration-runner.mjs';
 import {seedLocal,DEMO_COMMUNITY,DEMO_USERS} from '../../packages/testing/seed.js';
-import {applyConfirmedPayment,recordHandover,cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/index.js';
+import {applyConfirmedPayment,recordHandover,cancelPaidOrder,cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/index.js';
 import {lockStore} from '../../modules/agent-commerce/checkout/authority.js';
 import {checkoutHarness,code,type CheckoutHarness} from './hosted-checkout-harness.js';
 let x:CheckoutHarness;
@@ -112,8 +112,32 @@ test('migration 168 audits existing hosted balances and atomically aborts corrup
 
 test('allocation command identities are append-only under the runtime role',async()=>{
   const {s,o}=await allocated();
-  const {cancelPaidOrder}=await import('../../modules/agent-commerce/checkout/index.js');
   await x.tx(q=>cancelPaidOrder(q,s,{orderId:o.order_id,commandRef:randomUUID()}));
   await reject('UPDATE commerce_checkout_allocation_commands SET command_ref=command_ref WHERE order_id=$1',[o.order_id]);
   await reject('DELETE FROM commerce_checkout_allocation_commands WHERE order_id=$1',[o.order_id]);
+});
+
+test('customer identity, link and email verification are guarded; redaction is accepted exactly once',async()=>{
+  const s=await x.store(),c=await x.frozen(s),before=(await x.h.pool.query('SELECT * FROM commerce_customers')).rows[0];
+  const update=(sql:string,params:unknown[]=[])=>x.tx(async q=>{await lockStore(q,s);return q.query(sql,[before.customer_id,...params]);});
+  for(const sql of ["UPDATE commerce_customers SET email_normalized='changed@example.test' WHERE customer_id=$1",
+    'UPDATE commerce_customers SET customer_id=gen_random_uuid() WHERE customer_id=$1',
+    'UPDATE commerce_customers SET tenant_id=gen_random_uuid() WHERE customer_id=$1',
+    'UPDATE commerce_customers SET instance_id=gen_random_uuid() WHERE customer_id=$1',
+    "UPDATE commerce_customers SET created_at=created_at-interval '1 second' WHERE customer_id=$1"])
+    await assert.rejects(update(sql),code('23514'));
+  const {mapPersonPrincipal}=await import('../../packages/resource-scopes/index.js'),a=await x.h.person('合成買家甲'),b=await x.h.person('合成買家乙');
+  const pa=await x.tx(q=>mapPersonPrincipal(q,a.id)),pb=await x.tx(q=>mapPersonPrincipal(q,b.id));
+  await update('UPDATE commerce_customers SET member_principal_id=$2,email_verified_at=clock_timestamp() WHERE customer_id=$1',[pa.principal_id]);
+  for(const value of [pb.principal_id,null])await assert.rejects(update('UPDATE commerce_customers SET member_principal_id=$2 WHERE customer_id=$1',[value]),code('23514'));
+  await assert.rejects(update('UPDATE commerce_customers SET email_verified_at=NULL WHERE customer_id=$1'),code('23514'));
+  await assert.rejects(update("UPDATE commerce_customers SET email_verified_at=email_verified_at+interval '1 second' WHERE customer_id=$1"),code('23514'));
+  await assert.rejects(update('UPDATE commerce_customers SET redacted_at=clock_timestamp() WHERE customer_id=$1'),code('23514'));
+  await update("UPDATE commerce_customers SET email_normalized='redacted:'||customer_id::text,email_verified_at=NULL,redacted_at=clock_timestamp() WHERE customer_id=$1");
+  const redacted=(await x.h.pool.query('SELECT * FROM commerce_customers WHERE customer_id=$1',[before.customer_id])).rows[0];
+  assert.equal(redacted.email_normalized,`redacted:${before.customer_id}`);assert.equal(redacted.email_verified_at,null);assert.equal(redacted.member_principal_id,pa.principal_id);assert.ok(redacted.redacted_at>=redacted.created_at);
+  for(const sql of ['UPDATE commerce_customers SET redacted_at=clock_timestamp() WHERE customer_id=$1','UPDATE commerce_customers SET redacted_at=redacted_at WHERE customer_id=$1','UPDATE commerce_customers SET redacted_at=NULL WHERE customer_id=$1'])await assert.rejects(update(sql),code('23514'));
+  const next=await x.frozen(s),current=(await x.h.pool.query('SELECT customer_id FROM commerce_checkouts WHERE checkout_id=$1',[next.checkout_id])).rows[0];
+  assert.notEqual(current.customer_id,before.customer_id);assert.deepEqual((await x.h.pool.query('SELECT * FROM commerce_customers WHERE customer_id=$1',[before.customer_id])).rows[0],redacted);
+  assert.equal((await x.h.pool.query('SELECT customer_id FROM commerce_checkouts WHERE checkout_id=$1',[c.checkout_id])).rows[0].customer_id,before.customer_id);
 });

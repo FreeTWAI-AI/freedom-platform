@@ -70,6 +70,9 @@ CREATE TABLE commerce_customers (
   email_verified_at timestamptz,
   member_principal_id uuid REFERENCES principals(principal_id),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  redacted_at timestamptz,
+  CHECK((redacted_at IS NULL AND email_normalized NOT LIKE 'redacted:%') OR
+    (redacted_at IS NOT NULL AND redacted_at>=created_at AND email_normalized='redacted:'||customer_id::text AND email_verified_at IS NULL)),
   FOREIGN KEY(tenant_id,instance_id) REFERENCES commerce_storefront_profiles(tenant_id,instance_id),
   UNIQUE(instance_id,email_normalized), UNIQUE(customer_id,tenant_id,instance_id)
 );
@@ -264,6 +267,24 @@ CREATE TRIGGER preserve_commerce_allocation_command BEFORE UPDATE OR DELETE ON c
 CREATE TRIGGER preserve_commerce_inventory_movement BEFORE UPDATE OR DELETE ON commerce_inventory_movements FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
 CREATE TRIGGER preserve_commerce_checkout_base_delete BEFORE DELETE ON commerce_orders
   FOR EACH ROW WHEN (OLD.order_profile='hosted_checkout') EXECUTE FUNCTION preserve_commerce_checkout_history();
+
+-- Customer identity and optional labels cannot be retargeted. Redaction replaces
+-- the email once, allowing a future real-email checkout to create a new customer.
+CREATE FUNCTION preserve_commerce_customer() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE redacting boolean := OLD.redacted_at IS NULL AND NEW.redacted_at IS NOT NULL;
+BEGIN
+  IF (to_jsonb(NEW)-ARRAY['email_normalized','email_verified_at','member_principal_id','redacted_at'])
+      IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['email_normalized','email_verified_at','member_principal_id','redacted_at'])
+    OR OLD.redacted_at IS NOT NULL
+    OR (OLD.member_principal_id IS NOT NULL AND NEW.member_principal_id IS DISTINCT FROM OLD.member_principal_id)
+    OR (OLD.email_verified_at IS NOT NULL AND NEW.email_verified_at IS DISTINCT FROM OLD.email_verified_at AND NOT redacting)
+    OR (NEW.email_normalized IS DISTINCT FROM OLD.email_normalized AND NOT redacting) THEN
+    RAISE EXCEPTION 'customer identity is immutable and permits one redaction only' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_customer BEFORE UPDATE ON commerce_customers FOR EACH ROW EXECUTE FUNCTION preserve_commerce_customer();
 
 -- A contact can be erased once without rewriting the digest retained in terms.
 CREATE FUNCTION preserve_commerce_checkout_contact() RETURNS trigger LANGUAGE plpgsql AS $$
