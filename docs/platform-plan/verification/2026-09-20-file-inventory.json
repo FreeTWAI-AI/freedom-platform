@@ -17309,8 +17309,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/README.md",
-      "bytes": 8701,
-      "sha256": "fede5544546904864126bb66117ccc1fbd0c8c9646a1a3bbda848ba1ad5c6ae4"
+      "bytes": 8579,
+      "sha256": "3477250f034d1a34308ab39e6f44b9054831fbc0cab86063fe4d807846a663ba"
     },
     {
       "path": "modules/agent-commerce/payments/freedom.module.json",
@@ -17319,8 +17319,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/rules/allocation.ts",
-      "bytes": 16599,
-      "sha256": "85d68b5a422d941433faf8b5cdac6f60a69b751da0b7992e817b5f3aa8edf3b7"
+      "bytes": 16767,
+      "sha256": "94b9df54254e90ae37811cc0602246da2263fd27e84aa05acc7fef9c8fd45ac3"
     },
     {
       "path": "modules/agent-commerce/payments/rules/errors.ts",
@@ -22149,8 +22149,8 @@
     },
     {
       "path": "tests/runtime/commerce-refund-rules.test.ts",
-      "bytes": 45389,
-      "sha256": "90a0bcbbaef68f1ff37d2b9a998cb57fccbc98d4a37efb4f900d9c3fa167cffb"
+      "bytes": 49820,
+      "sha256": "409abef03456be81f901169640381bcae2560f5089a090c92a6d4f39fd806981"
     },
     {
       "path": "tests/runtime/commerce.test.ts",
