@@ -116,11 +116,13 @@ test('revising contact email preserves placed order contact/customer and origina
   const member=(await x.h.person('合成後登入買家')),principal=await x.tx(q=>mapPersonPrincipal(q,member.id));
   await x.tx(q=>cancelUnpaidOrder(q,s,o.order_id,'buyer','buyer_cancelled'));
   const next=await x.place(s,changed,randomUUID(),principal.principal_id);
-  assert.equal((await x.h.pool.query('SELECT member_principal_id FROM commerce_customers WHERE customer_id=$1',[next.customer_id])).rows[0].member_principal_id,principal.principal_id);
+  assert.equal((await x.h.pool.query('SELECT member_principal_id FROM commerce_customers WHERE customer_id=$1',[next.customer_id])).rows[0].member_principal_id,null);
 });
 test('member customer normalization, checkout creation/revision idempotency and member placement',async()=>{
   const s=await x.store(),b=await x.h.person('合成會員買家');const principal=await x.tx(q=>mapPersonPrincipal(q,b.id));
+  await x.h.pool.query("UPDATE users SET email='synthetic-member@example.test',email_verified_at=clock_timestamp() WHERE user_id=$1",[b.id]);
   const customer=await x.tx(q=>ensureCustomer(q,s,'  SYNTHETIC-MEMBER@example.test ',principal.principal_id));
+  assert.equal(customer.member_principal_id,principal.principal_id);
   assert.equal((await x.tx(q=>ensureCustomer(q,s,'synthetic-member@example.test',principal.principal_id))).customer_id,customer.customer_id);
   const input={...x.input(s.product.sku),contact:{name:'合成買家',email:'synthetic-member@example.test',phone:'0000000000'},idempotencyKey:randomUUID(),memberPrincipalId:principal.principal_id};
   const c=await x.tx(q=>freezeCheckout(q,s,input,ports));assert.deepEqual(await x.tx(q=>freezeCheckout(q,s,input,ports)),c);
@@ -231,4 +233,32 @@ for(const outcome of ['none','simulated','amount_mismatch'] as const)test(`paid 
   const s=await x.store(),o=await x.place(s,await x.frozen(s));
   if(outcome!=='none')await payment(o.order_id,outcome==='simulated'?500:499,randomUUID(),{simulated:outcome==='simulated'});
   const before=await stockFacts();await assert.rejects(x.tx(q=>cancelPaidOrder(q,s,{orderId:o.order_id,commandRef:randomUUID()})),code('payment_not_confirmed'));assert.deepEqual(await stockFacts(),before);
+});
+
+for(const stage of ['ensure','placement'] as const)for(const account of ['verified','different','unverified','inactive_user','inactive_principal'] as const)test(`${stage} customer link requires an active verified matching member (${account})`,async()=>{
+  const s=await x.store(),b=await x.h.person('合成買家'),principal=await x.tx(q=>mapPersonPrincipal(q,b.id));
+  await x.h.pool.query('UPDATE users SET email_verified_at=$2,active=$3 WHERE user_id=$1',[b.id,account==='unverified'?null:new Date(),account!=='inactive_user']);
+  if(account==='inactive_principal')await x.h.pool.query("UPDATE principals SET status='disabled' WHERE principal_id=$1",[principal.principal_id]);
+  const email=account==='different'?'different@example.test':b.email,contact={name:'合成買家',email,phone:'0000000000'};
+  let customerId:string;
+  if(stage==='ensure')customerId=(await x.tx(q=>ensureCustomer(q,s,email,principal.principal_id))).customer_id;
+  else {
+    const c=await x.frozen(s,5,{contact}),o=await x.place(s,c,randomUUID(),principal.principal_id);customerId=o.customer_id;
+    assert.equal((await x.h.pool.query('SELECT buyer_principal_id FROM commerce_orders WHERE order_id=$1',[o.order_id])).rows[0].buyer_principal_id,principal.principal_id);
+  }
+  assert.equal((await x.h.pool.query('SELECT member_principal_id FROM commerce_customers WHERE customer_id=$1',[customerId])).rows[0].member_principal_id,account==='verified'?principal.principal_id:null);
+});
+test('a second member may order with an already linked email; guests never link or unlink',async()=>{
+  const s=await x.store(),a=await x.h.person('合成買家甲'),b=await x.h.person('合成買家乙');
+  await x.h.pool.query('UPDATE users SET email_verified_at=clock_timestamp() WHERE user_id=ANY($1::uuid[])',[[a.id,b.id]]);
+  const pa=await x.tx(q=>mapPersonPrincipal(q,a.id)),pb=await x.tx(q=>mapPersonPrincipal(q,b.id));
+  const customer=await x.tx(q=>ensureCustomer(q,s,a.email,pa.principal_id));assert.equal(customer.member_principal_id,pa.principal_id);
+  assert.deepEqual(await x.tx(q=>ensureCustomer(q,s,a.email,pb.principal_id)),customer);
+  assert.deepEqual(await x.tx(q=>ensureCustomer(q,s,a.email)),customer);
+  const c=await x.frozen(s,5,{contact:{name:'合成買家',email:a.email,phone:'0000000000'}}),o=await x.place(s,c,randomUUID(),pb.principal_id);
+  assert.equal((await x.h.pool.query('SELECT buyer_principal_id FROM commerce_orders WHERE order_id=$1',[o.order_id])).rows[0].buyer_principal_id,pb.principal_id);
+  assert.deepEqual(await x.tx(q=>ensureCustomer(q,s,a.email)),customer);
+  await x.tx(q=>cancelUnpaidOrder(q,s,o.order_id,'buyer','buyer_cancelled'));await x.place(s,c);
+  assert.deepEqual(await x.tx(q=>ensureCustomer(q,s,a.email)),customer);
+  assert.equal((await x.tx(q=>ensureCustomer(q,s,b.email))).member_principal_id,null);
 });

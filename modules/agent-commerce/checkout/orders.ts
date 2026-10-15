@@ -4,7 +4,7 @@ import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {bindStore,lockStore,lockMachineOrder,type CheckoutStore} from './authority.js';
 import {checkoutInventory} from './inventory.js';
 import {confirmedPaymentSQL,hasConfirmedPayment} from './confirmed-payment.js';
-import {checkoutTerms,defaultAdmission,hashJSON,parseCheckoutInput,type CheckoutPorts,type CheckoutTerms} from './terms.js';
+import {checkoutTerms,defaultAdmission,linkCustomerMember,hashJSON,parseCheckoutInput,type CheckoutPorts,type CheckoutTerms} from './terms.js';
 import {settleDueCheckoutHolds} from './settlement.js';
 export class CheckoutStockUnavailable extends Problem {
   constructor(public items:readonly {sku:string;available:number}[]){super(409,'stock_unavailable','商品庫存不足。');}
@@ -52,13 +52,7 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
   }
   requireCondition((await q.query('SELECT 1 WHERE $1::timestamptz>clock_timestamp()',[c.expires_at])).rowCount===1,409,'checkout_expired','結帳已到期。');
   requireCondition(c.terms_sha256===input.termsSha256,409,'terms_changed','結帳內容已更新。');
-  if(input.buyerPrincipalId){
-    // The authenticated caller supplies the member identity; a guest cannot
-    // clear an earlier link, and a different member cannot take it over.
-    const linked=await q.query(`UPDATE commerce_customers SET member_principal_id=$2 WHERE customer_id=$1
-      AND (member_principal_id IS NULL OR member_principal_id=$2)`,[c.customer_id,input.buyerPrincipalId]);
-    requireCondition(linked.rowCount===1,409,'customer_member_conflict','顧客會員關聯不符。');
-  }
+  await linkCustomerMember(q,c.customer_id,input.buyerPrincipalId??undefined);
   const contact=(await q.query('SELECT * FROM commerce_checkout_contacts WHERE contact_id=$1 AND checkout_id=$2',[c.current_contact_id,c.checkout_id])).rows[0];
   requireCondition(contact && !contact.redacted_at,409,'checkout_contact_unavailable','結帳聯絡資料無法使用。');
   const saved=c.terms as CheckoutTerms;

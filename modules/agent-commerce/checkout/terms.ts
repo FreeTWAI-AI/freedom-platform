@@ -68,15 +68,24 @@ export async function computeCheckoutTerms(q:PoolClient,store:CheckoutStore,raw:
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku));
   return checkoutTerms(q,context,input,ports);
 }
+/** Seller-facing label only; knowing an email never grants order access. */
+export async function linkCustomerMember(q:PoolClient,customerId:string,memberPrincipalId?:string) {
+  if(!memberPrincipalId)return;
+  await q.query(`UPDATE commerce_customers c SET member_principal_id=p.principal_id FROM principals p JOIN users u ON u.user_id=p.user_ref
+    WHERE c.customer_id=$1 AND c.member_principal_id IS NULL AND p.principal_id=$2 AND p.kind='person' AND p.status='active'
+      AND u.active AND u.email_verified_at IS NOT NULL AND lower(btrim(u.email))=c.email_normalized`,[customerId,memberPrincipalId]);
+}
+async function ensureCustomerLocked(q:PoolClient,context:StoreContext,email:string,memberPrincipalId?:string) {
+  const p=context.profile,normalized=z.string().trim().toLowerCase().email().max(254).parse(email);
+  await q.query(`INSERT INTO commerce_customers(tenant_id,instance_id,email_normalized) VALUES($1,$2,$3)
+    ON CONFLICT(instance_id,email_normalized) DO NOTHING`,[p.tenant_id,p.instance_id,normalized]);
+  const row=(await q.query<{customer_id:string;member_principal_id:string|null}>(`SELECT customer_id,member_principal_id FROM commerce_customers
+    WHERE tenant_id=$1 AND instance_id=$2 AND email_normalized=$3`,[p.tenant_id,p.instance_id,normalized])).rows[0];
+  await linkCustomerMember(q,row.customer_id,memberPrincipalId);
+  return (await q.query<typeof row>('SELECT customer_id,member_principal_id FROM commerce_customers WHERE customer_id=$1',[row.customer_id])).rows[0];
+}
 export async function ensureCustomer(q:PoolClient,store:CheckoutStore,email:string,memberPrincipalId?:string) {
-  const context=await lockStore(q,store),p=context.profile;
-  const normalized=z.string().trim().toLowerCase().email().max(254).parse(email);
-  // A guest cannot erase an existing member link or claim it by knowing email.
-  const row=(await q.query<{customer_id:string;member_principal_id:string|null}>(`INSERT INTO commerce_customers(tenant_id,instance_id,email_normalized,member_principal_id)
-    VALUES($1,$2,$3,$4) ON CONFLICT(instance_id,email_normalized) DO UPDATE
-      SET member_principal_id=coalesce(commerce_customers.member_principal_id,EXCLUDED.member_principal_id)
-    RETURNING customer_id,member_principal_id`,[p.tenant_id,p.instance_id,normalized,memberPrincipalId??null])).rows[0];
-  requireCondition(!memberPrincipalId||row.member_principal_id===memberPrincipalId,409,'customer_member_conflict','顧客會員關聯不符。');return row;
+  return ensureCustomerLocked(q,await lockStore(q,store),email,memberPrincipalId);
 }
 interface FrozenCheckout {checkout_id:string;terms:CheckoutTerms;terms_sha256:string;expires_at:Date;version:string}
 export async function freezeCheckout(q:PoolClient,store:CheckoutStore,raw:CheckoutInput & {idempotencyKey:string;checkoutId?:string;memberPrincipalId?:string},ports:CheckoutPorts={}) {
@@ -86,7 +95,7 @@ export async function freezeCheckout(q:PoolClient,store:CheckoutStore,raw:Checko
   const prior=(await q.query<{request_sha256:string;response:FrozenCheckout}>(`SELECT request_sha256,response FROM commerce_checkout_idempotency_keys WHERE instance_id=$1 AND idempotency_key_sha256=$2`,[p.instance_id,key])).rows[0];
   if(prior){requireCondition(prior.request_sha256===request,409,'checkout_idempotency_conflict','冪等鍵已用於其他內容。');return {...prior.response,expires_at:new Date(prior.response.expires_at)};}
   // Customer creation runs under the already held lifecycle/community locks.
-  const customer=await ensureCustomer(q,store,input.contact.email,raw.memberPrincipalId);
+  const customer=await ensureCustomerLocked(q,context,input.contact.email,raw.memberPrincipalId);
   const frozen=await checkoutTerms(q,context,input,ports),contactId=randomUUID();
   let id=raw.checkoutId??randomUUID();
   if(raw.checkoutId){
