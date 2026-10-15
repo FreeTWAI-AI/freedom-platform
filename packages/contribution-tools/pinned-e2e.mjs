@@ -49,6 +49,12 @@ export const E2E_PASS_TIMEOUT_MS = Object.freeze({
   'notification-preferences': 30 * 60 * 1000,
 });
 
+// One default mode, two isolated single-worker processes under its original bound.
+export const E2E_DEFAULT_SHARDS = Object.freeze([
+  Object.freeze({ current: 1, total: 2, port: 14311 }),
+  Object.freeze({ current: 2, total: 2, port: 14312 }),
+]);
+
 export const E2E_PLAN = Object.freeze([
   { id: 'default', env: {}, files: [] },
   { id: 'private-ai', env: { FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' }, files: ['tests/e2e/private-work-ai.spec.ts'] },
@@ -113,6 +119,7 @@ function listedCaseIdentities(report, files, options) {
   if (!object(report) || report.config?.rootDir !== options.rootDir || report.config?.configFile !== options.configFile
     || report.config?.forbidOnly !== true || report.config?.projects?.length !== 1
     || report.config.projects[0]?.name !== 'chromium' || report.config.projects[0]?.testDir !== options.rootDir
+    || report.config.shard !== null
     || !Array.isArray(report.errors) || report.errors.length || !Array.isArray(report.suites)) throw Error('invalid_case_listing');
   const identities = new Set();
   const visit = (suite, file, titles) => {
@@ -162,59 +169,80 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
       ...(typeof pass?.evidence_sha256 === 'string' && /^[a-f0-9]{64}$/.test(pass.evidence_sha256)
         ? { evidence_sha256: pass.evidence_sha256 } : {}),
       ...(typeof pass?.listing_evidence_sha256 === 'string' && /^[a-f0-9]{64}$/.test(pass.listing_evidence_sha256)
-        ? { listing_evidence_sha256: pass.listing_evidence_sha256 } : {}) }));
+        ? { listing_evidence_sha256: pass.listing_evidence_sha256 } : {}),
+      ...(Array.isArray(pass?.partitions) && pass.partitions.length === E2E_DEFAULT_SHARDS.length
+        ? { partitions: pass.partitions.map(part => ({
+          current: Number.isSafeInteger(part?.current) ? part.current : null,
+          total: Number.isSafeInteger(part?.total) ? part.total : null,
+          exit_code: Number.isInteger(part?.exit_code) ? part.exit_code : null,
+          ...(typeof part?.evidence_sha256 === 'string' && /^[a-f0-9]{64}$/.test(part.evidence_sha256)
+            ? { evidence_sha256: part.evidence_sha256 } : {}),
+        })) } : {}) }));
     if (passReports.length !== requiredPlan.length || passReports.some((pass, i) => pass?.id !== requiredPlan[i].id)) {
       throw Error('invalid_pass_plan');
     }
     const expected = new Set(selected_files);
     for (const [index, pass] of passReports.entries()) {
       if (pass.exit_code !== 0) throw Error('test_process_failed');
-      const report = pass.report;
-      if (!object(report) || !object(report.config) || report.config.rootDir !== options.rootDir
-        || report.config.configFile !== options.configFile || report.config.forbidOnly !== true
-        || !Array.isArray(report.config.projects) || report.config.projects.length !== 1
-        || report.config.projects[0]?.name !== 'chromium' || report.config.projects[0]?.testDir !== options.rootDir
-        || !Array.isArray(report.errors) || !object(report.stats) || !Array.isArray(report.suites)
-        || ['expected', 'skipped', 'unexpected', 'flaky'].some(key => !Number.isSafeInteger(report.stats[key]) || report.stats[key] < 0)) {
-        throw Error('invalid_test_results');
-      }
-      if (report.errors.length || report.stats.unexpected !== 0 || report.stats.flaky !== 0) throw Error('test_not_passed');
-      const seen = new Set();
-      const caseResults = [];
-      const observedCounts = { expected: 0, skipped: 0, unexpected: 0, flaky: 0 };
-      const visit = (suite, file, titles) => {
-        if (!object(suite) || !text(suite.title) || !text(suite.file) || !valid(suite.file)
-          || suite.file !== file || !Array.isArray(suite.specs)
-          || (suite.suites !== undefined && !Array.isArray(suite.suites))) throw Error('invalid_test_results');
-        const path = prefix + file;
-        if (!expected.has(path)) throw Error('unexpected_file');
-        if (pilot && index > 0 && !requiredPlan[index].files.includes(path)) throw Error('unexpected_file_in_pass');
-        for (const spec of suite.specs) {
-          if (!object(spec) || !text(spec.file) || !valid(spec.file) || spec.file !== file
-            || !text(spec.title) || !Array.isArray(spec.tests) || !spec.tests.length) throw Error('invalid_test_results');
-          if (index > 0 && !requiredPlan[index].files.includes(path)) throw Error('unexpected_file_in_pass');
-          for (const test of spec.tests) {
-            if (!object(test) || !text(test.projectName) || !Array.isArray(test.results)) throw Error('invalid_test_results');
-            const identity = createHash('sha256').update(`${path}\0${titles.join('\0')}\0${spec.title}\0${test.projectName}`).digest('hex');
-            if (seen.has(identity)) throw Error('duplicate_test_identity');
-            seen.add(identity);
-            const passed = test.status === 'expected' && test.expectedStatus === 'passed' && test.results.length > 0
-              && test.results.every(result => object(result) && result.status === 'passed');
-            const skipped = test.status === 'skipped' && test.results.every(result => object(result) && result.status === 'skipped');
-            if (!passed && !skipped) throw Error('test_not_passed');
-            observedCounts[passed ? 'expected' : 'skipped']++;
-            if (pilot) caseResults.push({ case_sha256: identity, status: passed ? 'passed' : 'skipped' });
-            const info = identities.get(identity) ?? { file: path, expected: false, skipped: false };
-            info.expected ||= passed;
-            info.skipped ||= skipped;
-            identities.set(identity, info);
-          }
+      const partitioned = !pilot && index === 0;
+      if (partitioned && (!Array.isArray(pass.partitions) || pass.partitions.length !== E2E_DEFAULT_SHARDS.length
+        || pass.report !== undefined)) throw Error('invalid_pass_plan');
+      const fragments = partitioned ? pass.partitions : [pass];
+      const seen = new Set(), caseResults = [];
+      for (const [partIndex, part] of fragments.entries()) {
+        const bound = partitioned ? E2E_DEFAULT_SHARDS[partIndex] : null;
+        if (bound && (part?.current !== bound.current || part.total !== bound.total
+          || !/^[a-f0-9]{64}$/.test(part.evidence_sha256 ?? ''))) throw Error('invalid_pass_plan');
+        if (part.exit_code !== 0) throw Error('test_process_failed');
+        const report = part.report;
+        if (!object(report) || !object(report.config) || report.config.rootDir !== options.rootDir
+          || report.config.configFile !== options.configFile || report.config.forbidOnly !== true
+          || !Array.isArray(report.config.projects) || report.config.projects.length !== 1
+          || report.config.projects[0]?.name !== 'chromium' || report.config.projects[0]?.testDir !== options.rootDir
+          || !Array.isArray(report.errors) || !object(report.stats) || !Array.isArray(report.suites)
+          || ['expected', 'skipped', 'unexpected', 'flaky'].some(key => !Number.isSafeInteger(report.stats[key]) || report.stats[key] < 0)) {
+          throw Error('invalid_test_results');
         }
-        for (const nested of suite.suites ?? []) visit(nested, file, [...titles, nested?.title]);
-      };
-      for (const suite of report.suites) visit(suite, suite?.file, []);
-      if (pilot) {
-        if (Object.keys(observedCounts).some(key => observedCounts[key] !== report.stats[key])) throw Error('case_listing_mismatch');
+        const shard = report.config.shard;
+        if (bound ? !object(shard) || Object.keys(shard).length !== 2 || shard.current !== bound.current || shard.total !== bound.total
+          : shard !== null) throw Error('invalid_test_results');
+        if (report.errors.length || report.stats.unexpected !== 0 || report.stats.flaky !== 0) throw Error('test_not_passed');
+        const observedCounts = { expected: 0, skipped: 0, unexpected: 0, flaky: 0 };
+        const visit = (suite, file, titles) => {
+          if (!object(suite) || !text(suite.title) || !text(suite.file) || !valid(suite.file)
+            || suite.file !== file || !Array.isArray(suite.specs)
+            || (suite.suites !== undefined && !Array.isArray(suite.suites))) throw Error('invalid_test_results');
+          const path = prefix + file;
+          if (!expected.has(path)) throw Error('unexpected_file');
+          if (pilot && index > 0 && !requiredPlan[index].files.includes(path)) throw Error('unexpected_file_in_pass');
+          for (const spec of suite.specs) {
+            if (!object(spec) || !text(spec.file) || !valid(spec.file) || spec.file !== file
+              || !text(spec.title) || !Array.isArray(spec.tests) || !spec.tests.length) throw Error('invalid_test_results');
+            if (index > 0 && !requiredPlan[index].files.includes(path)) throw Error('unexpected_file_in_pass');
+            for (const test of spec.tests) {
+              if (!object(test) || !text(test.projectName) || !Array.isArray(test.results)) throw Error('invalid_test_results');
+              const identity = createHash('sha256').update(`${path}\0${titles.join('\0')}\0${spec.title}\0${test.projectName}`).digest('hex');
+              if (seen.has(identity)) throw Error('duplicate_test_identity');
+              seen.add(identity);
+              const passed = test.status === 'expected' && test.expectedStatus === 'passed' && test.results.length > 0
+                && test.results.every(result => object(result) && result.status === 'passed');
+              const skipped = test.status === 'skipped' && test.results.every(result => object(result) && result.status === 'skipped');
+              if (!passed && !skipped) throw Error('test_not_passed');
+              observedCounts[passed ? 'expected' : 'skipped']++;
+              if (pilot || partitioned) caseResults.push({ case_sha256: identity, status: passed ? 'passed' : 'skipped' });
+              const info = identities.get(identity) ?? { file: path, expected: false, skipped: false };
+              info.expected ||= passed;
+              info.skipped ||= skipped;
+              identities.set(identity, info);
+            }
+          }
+          for (const nested of suite.suites ?? []) visit(nested, file, [...titles, nested?.title]);
+        };
+        for (const suite of report.suites) visit(suite, suite?.file, []);
+        if ((pilot || partitioned) && Object.keys(observedCounts).some(key => observedCounts[key] !== report.stats[key])) throw Error('case_listing_mismatch');
+        if (partitioned && observedCounts.expected + observedCounts.skipped === 0) throw Error('missing_or_empty_file');
+      }
+      if (pilot || partitioned) {
         if (pass.listing_exit_code !== 0 || !/^[a-f0-9]{64}$/.test(pass.listing_evidence_sha256 ?? '')) throw Error('invalid_case_listing');
         const listed = listedCaseIdentities(pass.listing, index === 0 ? selected_files : requiredPlan[index].files, options);
         if (listed.size !== seen.size || [...listed].some(identity => !seen.has(identity))) throw Error('case_listing_mismatch');

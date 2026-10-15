@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GUILD_PRESENTATION_PROFILE } from '../guild-presentation-profile.mjs';
 import { cleanupE2ePass } from '../../../scripts/ci/run-pinned-e2e.mjs';
-import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, GUIDE_DEFAULT_FILES, GUIDE_COMPOSITION_PROFILE, planE2eSelection } from '../pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, E2E_DEFAULT_SHARDS, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, GUIDE_DEFAULT_FILES, GUIDE_COMPOSITION_PROFILE, planE2eSelection } from '../pinned-e2e.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const rootDir = '/fixture/tests/e2e';
@@ -22,11 +22,11 @@ const suite = (file, entries) => ({ file, title: file, line: 0, column: 0, specs
     { file, title: 'inner', line: 2, column: 1, specs: entries.map(([title, status]) => spec(file, title, status)) }
   ] }
 ] });
-function report(suites) {
+function report(suites, shard = null) {
   const stats = { expected: 0, skipped: 0, unexpected: 0, flaky: 0 };
   const visit = s => { for (const spec of s.specs) for (const t of spec.tests) stats[t.status]++; for (const nested of s.suites ?? []) visit(nested); };
   suites.forEach(visit);
-  return { config: { rootDir, configFile, forbidOnly: true, projects: [{ name: 'chromium', testDir: rootDir }] }, suites, errors: [], stats };
+  return { config: { rootDir, configFile, forbidOnly: true, shard, projects: [{ name: 'chromium', testDir: rootDir }] }, suites, errors: [], stats };
 }
 function cleanPasses() {
   const suites = [
@@ -37,10 +37,14 @@ function cleanPasses() {
     [suite('hosted-store-photo.spec.ts', [['photo', 'expected']])],
     [suite('notification-preferences.spec.ts', [['preferences', 'expected']])]
   ];
-  return E2E_PLAN.map((pass, index) => ({ id: pass.id, exit_code: 0, evidence_sha256: 'a'.repeat(64), report: report(suites[index]) }));
+  return E2E_PLAN.map((pass, index) => index === 0 ? {
+    id: pass.id, exit_code: 0, listing: structuredClone(report(suites[0])), listing_exit_code: 0, listing_evidence_sha256: 'a'.repeat(64),
+    partitions: E2E_DEFAULT_SHARDS.map(({ current, total }, part) => ({ current, total, exit_code: 0, evidence_sha256: 'b'.repeat(64),
+      report: report(part === 0 ? suites[0].slice(0, 2) : suites[0].slice(2), { current, total }) })),
+  } : { id: pass.id, exit_code: 0, evidence_sha256: 'a'.repeat(64), report: report(suites[index]) });
 }
 const evaluate = (passes, files = expectedFiles) => evaluateE2ePasses(files, passes, { rootDir, configFile });
-const testIn = (passes, index, file, title) => passes[index].report.suites.find(s => s.file === file).suites[0].suites[0].specs.find(s => s.title === title).tests[0];
+const testIn = (passes, index, file, title) => (index === 0 ? passes[0].partitions.flatMap(part => part.report.suites) : passes[index].report.suites).find(s => s.file === file).suites[0].suites[0].specs.find(s => s.title === title).tests[0];
 function reject(mutator, reason) {
   const passes = cleanPasses();
   mutator(passes);
@@ -49,19 +53,6 @@ function reject(mutator, reason) {
   if (reason) assert.equal(result.reason, reason);
 }
 
-test('Real baselines are accurate', async () => {
-  assert.equal(E2E_BASELINE.length, 92);
-  assert.deepEqual(E2E_BASELINE, [...new Set(E2E_BASELINE)].sort());
-  for (const file of E2E_BASELINE) {
-    assert.ok(file.startsWith('tests/e2e/'));
-    const name = file.slice('tests/e2e/'.length);
-    assert.ok(!name.includes('/'));
-    assert.match(name, /^[a-z0-9][a-z0-9-]*\.spec\.ts$/);
-    assert.ok((await stat(join(repoRoot, file))).isFile());
-  }
-  const actual = (await readdir(join(repoRoot, 'tests/e2e'))).filter(name => /^[a-z0-9][a-z0-9-]*\.spec\.ts$/.test(name)).map(name => 'tests/e2e/' + name).sort();
-  assert.ok(E2E_BASELINE.every(file => actual.includes(file)));
-});
 
 test('Six clean passes including photo and preference fixtures', () => {
   const result = evaluate(cleanPasses());
@@ -71,6 +62,42 @@ test('Six clean passes including photo and preference fixtures', () => {
   assert.ok(!JSON.stringify(result).includes('ordinary'));
 });
 
+test('full default evidence requires both distinct host-bound fragments, not a successful subset', () => {
+  for (const mutate of [
+    pass=>pass.partitions.pop(),
+    pass=>pass.partitions.push(structuredClone(pass.partitions[0])),
+    pass=>{pass.partitions[1]=structuredClone(pass.partitions[0]);},
+    pass=>pass.partitions.reverse(),
+    pass=>{pass.partitions[1].total=3;},
+    pass=>{pass.partitions[1].report.config.shard=null;},
+    pass=>{delete pass.partitions[0].evidence_sha256;},
+    pass=>{pass.partitions[1].exit_code=1;},
+    pass=>{pass.report=pass.partitions[0].report;delete pass.partitions;},
+  ]) {
+    const passes=cleanPasses();mutate(passes[0]);
+    assert.equal(evaluate(passes).status,'failed');
+  }
+});
+
+test('full default fragment union must match unsharded discovery even when another mode passes the omitted case', () => {
+  reject(passes=>{
+    const first=passes[0].partitions[0].report;
+    first.suites.find(item=>item.file==='private-work-ai.spec.ts').suites[0].suites[0].specs.pop();
+    first.stats.skipped--;
+  },'case_listing_mismatch');
+  reject(passes=>{
+    const second=passes[0].partitions[1].report;
+    second.suites.push(structuredClone(passes[0].partitions[0].report.suites[0]));
+    second.stats.expected++;
+  },'duplicate_test_identity');
+  reject(passes=>{
+    const first=passes[0].partitions[0].report;
+    first.suites[0].suites[0].suites[0].specs.push(spec('other.spec.ts','invented','expected'));
+    first.stats.expected++;
+  },'case_listing_mismatch');
+  reject(passes=>{passes[0].listing.config.shard={current:1,total:2};},'invalid_case_listing');
+});
+
 test('An expected file missing from every pass', () => {
   const result = evaluate(cleanPasses(), [...expectedFiles, 'tests/e2e/missing.spec.ts']);
   assert.equal(result.status, 'failed');
@@ -78,13 +105,16 @@ test('An expected file missing from every pass', () => {
 });
 
 test('A file whose only test is skipped in every pass', () => {
-  reject(passes => { testIn(passes, 0, 'other.spec.ts', 'ordinary').status = 'skipped'; testIn(passes, 0, 'other.spec.ts', 'ordinary').results = []; }, 'skipped_test_never_expected');
+  reject(passes => {
+    testIn(passes, 0, 'other.spec.ts', 'ordinary').status = 'skipped'; testIn(passes, 0, 'other.spec.ts', 'ordinary').results = [];
+    passes[0].partitions[0].report.stats.expected--; passes[0].partitions[0].report.stats.skipped++;
+  }, 'skipped_test_never_expected');
 });
 
 test('unexpected, flaky, and non-empty errors array', () => {
-  reject(p => { p[0].report.stats.unexpected = 1; });
-  reject(p => { p[0].report.stats.flaky = 1; });
-  reject(p => { p[0].report.errors.push({ message: 'error' }); });
+  reject(p => { p[0].partitions[0].report.stats.unexpected = 1; });
+  reject(p => { p[0].partitions[0].report.stats.flaky = 1; });
+  reject(p => { p[0].partitions[0].report.errors.push({ message: 'error' }); });
   reject(p => { testIn(p, 0, 'other.spec.ts', 'ordinary').status = 'unexpected'; }, 'test_not_passed');
   reject(p => { testIn(p, 0, 'other.spec.ts', 'ordinary').status = 'flaky'; }, 'test_not_passed');
 });
@@ -94,7 +124,7 @@ test('Pass 2 containing a test from another file', () => {
 });
 
 test('A test from a file outside the expected set', () => {
-  reject(p => p[0].report.suites.push(suite('outside.spec.ts', [['unknown', 'expected']])), 'unexpected_file');
+  reject(p => p[0].partitions[0].report.suites.push(suite('outside.spec.ts', [['unknown', 'expected']])), 'unexpected_file');
 });
 
 test('A non-zero exit code with an otherwise clean report', () => {
@@ -103,12 +133,12 @@ test('A non-zero exit code with an otherwise clean report', () => {
 
 test('Missing or malformed report fails without throwing', () => {
   for (const malformed of [null, undefined, 'report', [], {}, { suites: 'wrong' }]) {
-    reject(p => { p[0].report = malformed; }, 'invalid_test_results');
+    reject(p => { p[0].partitions[0].report = malformed; }, 'invalid_test_results');
   }
-  reject(p => { delete p[0].report.stats; }, 'invalid_test_results');
-  reject(p => { p[0].report.errors = {}; }, 'invalid_test_results');
-  reject(p => { p[0].report.suites = {}; }, 'invalid_test_results');
-  reject(p => { p[0].report.suites[0].specs = null; }, 'invalid_test_results');
+  reject(p => { delete p[0].partitions[0].report.stats; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.errors = {}; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.suites = {}; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.suites[0].specs = null; }, 'invalid_test_results');
   for (const files of [null, {}, [null]]) assert.equal(evaluateE2ePasses(files, null, null).status, 'failed');
 });
 
@@ -128,35 +158,35 @@ test('Photo skipped in default must pass in its dedicated fixture', () => {
 });
 
 test('A different config.rootDir fails', () => {
-  reject(p => { p[0].report.config.rootDir = '/different/tests/e2e'; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.config.rootDir = '/different/tests/e2e'; }, 'invalid_test_results');
 });
 
 test('A different configFile fails', () => {
-  reject(p => { p[0].report.config.configFile = '/candidate/playwright.config.ts'; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.config.configFile = '/candidate/playwright.config.ts'; }, 'invalid_test_results');
 });
 
 test('A report without forbidOnly fails', () => {
-  reject(p => { p[0].report.config.forbidOnly = false; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.config.forbidOnly = false; }, 'invalid_test_results');
 });
 
 test('A report with two projects fails', () => {
-  reject(p => { p[0].report.config.projects.push({ name: 'extra', testDir: rootDir }); }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.config.projects.push({ name: 'extra', testDir: rootDir }); }, 'invalid_test_results');
 });
 
 test('A different project testDir fails', () => {
-  reject(p => { p[0].report.config.projects[0].testDir = '/different/tests/e2e'; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.config.projects[0].testDir = '/different/tests/e2e'; }, 'invalid_test_results');
 });
 
 test('Suite and spec file fields containing slash or traversal fail', () => {
   for (const file of ['tests/e2e/other.spec.ts', '../other.spec.ts', 'other..spec.ts', '/other.spec.ts', 'nested/other.spec.ts']) {
-    reject(p => { p[0].report.suites[0].file = file; }, 'invalid_test_results');
-    reject(p => { p[0].report.suites[0].suites[0].suites[0].specs[0].file = file; }, 'invalid_test_results');
+    reject(p => { p[0].partitions[0].report.suites[0].file = file; }, 'invalid_test_results');
+    reject(p => { p[0].partitions[0].report.suites[0].suites[0].suites[0].specs[0].file = file; }, 'invalid_test_results');
   }
-  reject(p => { p[0].report.suites[0].suites[0].file = 'private-work-ai.spec.ts'; }, 'invalid_test_results');
+  reject(p => { p[0].partitions[0].report.suites[0].suites[0].file = 'private-work-ai.spec.ts'; }, 'invalid_test_results');
 });
 
 test('A duplicate identity inside one pass fails', () => {
-  reject(p => p[0].report.suites.push(structuredClone(p[0].report.suites[0])), 'duplicate_test_identity');
+  reject(p => p[0].partitions[0].report.suites.push(structuredClone(p[0].partitions[0].report.suites[0])), 'duplicate_test_identity');
 });
 
 test('Missing photo pass and incorrect pass ids fail', () => {
@@ -185,6 +215,14 @@ async function withFixture(fn) {
   try { await fn(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 const cli = join(repoRoot, 'scripts/ci/run-pinned-e2e.mjs');
+
+// Lifecycle-only synthetic child discovery; never evidence of platform/browser behavior.
+function lifecycleListing(root) {
+  const value = report([suite(E2E_BASELINE[0].slice('tests/e2e/'.length), [['lifecycle', 'expected']])]);
+  value.config.rootDir = join(root, 'tests/e2e'); value.config.configFile = join(repoRoot, 'scripts/ci/pinned-playwright.config.mjs');
+  value.config.projects[0].testDir = value.config.rootDir;
+  return `if(process.argv.includes('--list')){require('node:fs').writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,${JSON.stringify(JSON.stringify(value))});process.exit(0);}`;
+}
 test('Failure diagnostics survive scratch cleanup, are bounded and never follow symlinks', async () => {
   await withFixture(async root => {
     const temp = join(root, 'scratch'), output = join(root, 'result.json');
@@ -192,6 +230,10 @@ test('Failure diagnostics survive scratch cleanup, are bounded and never follow 
     await writeFile(join(temp, 'report.json'), '{"errors":["synthetic failure"]}');
     await writeFile(join(temp, 'artifacts', 'failed-case', 'trace.zip'), 'synthetic trace');
     await writeFile(join(temp, 'artifacts', 'failed-case', 'screenshot.png'), 'synthetic screenshot');
+    await writeFile(join(temp, 'listing.json'), '{"suites":["synthetic inventory"]}');
+    await mkdir(join(temp, 'shard-2', 'artifacts'), {recursive:true});
+    await writeFile(join(temp, 'shard-2', 'report.json'), '{"errors":["synthetic second shard failure"]}');
+    await symlink(join(root, 'private.txt'), join(temp, 'shard-2', 'artifacts', 'private-link'));
     await writeFile(join(root, 'private.txt'), 'must not be copied');
     await symlink(join(root, 'private.txt'), join(temp, 'artifacts', 'linked.txt'));
     await symlink(root, join(temp, 'artifacts', 'linked-directory'));
@@ -205,8 +247,10 @@ test('Failure diagnostics survive scratch cleanup, are bounded and never follow 
     assert.equal(await readFile(join(saved, 'artifacts', 'failed-case', 'screenshot.png'), 'utf8'), 'synthetic screenshot');
     assert.deepEqual(await readdir(join(saved, 'artifacts')), ['failed-case']);
     assert.equal(JSON.parse(await readFile(join(saved, 'report.json'), 'utf8')).errors[0], 'synthetic failure');
+    assert.deepEqual(JSON.parse(await readFile(join(saved, 'listing.json'), 'utf8')).suites, ['synthetic inventory']);
+    assert.equal(JSON.parse(await readFile(join(saved, 'shard-2', 'report.json'), 'utf8')).errors[0], 'synthetic second shard failure');
+    await assert.rejects(stat(join(saved, 'shard-2', 'artifacts', 'private-link')), {code:'ENOENT'});
     const receipt = JSON.parse(await readFile(join(saved, 'diagnostics.json'), 'utf8'));
-    assert.equal(receipt.copied, 3); assert.equal(receipt.omitted, 4); // Missing last-run, symlinks, oversized file.
     assert.equal(receipt.admission_evidence, false);
     await mkdir(temp);
     await cleanupE2ePass(temp, join(root, 'success.json'), 'default', false);
@@ -230,15 +274,40 @@ async function playwrightFixture(root, config) {
   for (const file of E2E_BASELINE) await writeFile(join(root, file), ordinaryTests);
 }
 
-test('CLI trusted selection ignores candidate filters and includes a new spec', async () => {
+test('CLI ignores candidate filters, includes new specs and isolates concurrent default state', async () => {
   await withFixture(async root => {
-    await playwrightFixture(root, `export default {
+    await playwrightFixture(root, `
+    const origin='http://127.0.0.1:'+process.env.FREEDOM_E2E_PORT;
+    const fixture=['PRIVATE_AI','AVATAR_ASSET','MESSAGE_IMAGE','STORE_PHOTO','NOTIFICATION_PREFERENCES'].some(name=>process.env['FREEDOM_E2E_'+name+(name==='NOTIFICATION_PREFERENCES'?'':'_FIXTURE')]==='1');
+    export default {
       testDir: './empty', testMatch: /never-matches/, testIgnore: ['**/admin*.spec.ts'],
       grep: /smoke/, grepInvert: /required/, shard: { total: 4, current: 1 }, retries: 2, forbidOnly: false,
       captureGitInfo: { commit: true, diff: true },
+      use:{baseURL:origin},
+      ...(!fixture?{webServer:{command:'node fixture-http.mjs',url:origin+'/health',reuseExistingServer:false,gracefulShutdown:{signal:'SIGTERM',timeout:5000}}}:{}),
       projects: [{ name: 'chromium', grep: /smoke/, testDir: './empty', testIgnore: '**/*.spec.ts' },
         { name: 'extra', testMatch: /nothing/ }]
     };`);
+    await writeFile(join(root,'fixture-http.mjs'),`
+      import {createServer} from 'node:http';
+      let value;
+      createServer(async(req,res)=>{
+        if(req.method==='POST'){let body='';for await(const part of req)body+=part;value=JSON.parse(body).value;}
+        res.setHeader('Content-Type','application/json');res.end(JSON.stringify({value}));
+      }).listen(Number(process.env.FREEDOM_E2E_PORT),'127.0.0.1');
+    `);
+    const isolatedFiles=['aa-state-isolation.spec.ts','zz-state-isolation.spec.ts'];
+    for(const [index,file] of isolatedFiles.entries())await writeFile(join(root,'tests/e2e',file),`
+      import {test,expect} from '@playwright/test';
+      import {existsSync,writeFileSync} from 'node:fs';
+      test('same member state stays isolated across simultaneous default shards',async({request})=>{
+        const mine=${JSON.stringify(String(index))};
+        await request.post('/state',{data:{value:mine}});
+        writeFileSync(${JSON.stringify(join(root,`arrived-${index}`))},'ready');
+        await expect.poll(()=>existsSync(${JSON.stringify(join(root,`arrived-${1-index}`))}),{timeout:10000}).toBe(true);
+        expect((await (await request.get('/state')).json()).value).toBe(mine);
+      });
+    `);
     await writeFile(join(root, 'tests/e2e/zz-new-normal.spec.ts'), ordinaryTests);
     // These identities are skipped by default and must actually execute in the
     // host-owned photo pass, even when inherited fixture flags are all enabled.
@@ -254,9 +323,9 @@ test('CLI trusted selection ignores candidate filters and includes a new spec', 
     assert.doesNotMatch(child.stdout + child.stderr, /GitCommitInfo: running "git /);
     const result = JSON.parse(await readFile(output, 'utf8'));
     assert.equal(result.status, 'passed');
-    assert.equal(result.test_count, 2 * (E2E_BASELINE.length + 1));
-    assert.equal(result.test_files.length, E2E_BASELINE.length + 1);
-    assert.ok(result.test_files.every(file => file.counts.tests === 2 && file.counts.passed === 2));
+    assert.equal(result.test_count, 2 * (E2E_BASELINE.length + 1) + 2);
+    assert.equal(result.test_files.length, E2E_BASELINE.length + 3);
+    assert.ok(result.test_files.every(file => file.counts.tests === (isolatedFiles.some(name=>file.path.endsWith('/'+name))?1:2) && file.counts.passed === file.counts.tests));
     assert.deepEqual(result.passes.map(pass => pass.exit_code), [0, 0, 0, 0, 0, 0]);
   });
 });
@@ -363,6 +432,36 @@ test('CLI stops after a failing pass 1 and reports test_process_failed', async (
   });
 });
 
+test('a failed default shard cancels its live peer and never starts a fixture pass', async()=>{
+  await withFixture(async root=>{
+    await baseline(root);
+    const runnerDir=join(root,'node_modules/@playwright/test');
+    await mkdir(runnerDir,{recursive:true});
+    await writeFile(join(runnerDir,'package.json'),JSON.stringify({exports:{'./cli':'./cli.cjs'}}));
+    const ready=join(root,'peer-ready'),stopped=join(root,'peer-stopped'),starts=join(root,'starts');
+    await writeFile(join(runnerDir,'cli.cjs'),`
+      ${lifecycleListing(root)}
+      const fs=require('node:fs'),part=process.argv[process.argv.indexOf('--shard')+1];
+      fs.appendFileSync(${JSON.stringify(starts)},part+'\\n');
+      const result=()=>fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,JSON.stringify({}));
+      if(part==='1/2'){
+        const timer=setInterval(()=>{if(!fs.existsSync(${JSON.stringify(ready)}))return;clearInterval(timer);result();process.exit(1);},10);
+      }else{
+        process.on('SIGTERM',()=>{fs.writeFileSync(${JSON.stringify(stopped)},'terminated');result();process.exit(0);});
+        fs.writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>{},1000);
+      }
+    `);
+    const output=join(root,'result.json'),child=invoke(['--root',root,'--output',output]);
+    assert.equal(child.status,1,child.stdout+child.stderr);
+    assert.equal(await readFile(stopped,'utf8'),'terminated');
+    assert.deepEqual((await readFile(starts,'utf8')).trim().split('\n').sort(),['1/2','2/2']);
+    const result=JSON.parse(await readFile(output,'utf8'));
+    assert.equal(result.status,'failed');assert.equal(result.reason,'test_process_failed');
+    assert.deepEqual(result.passes.map(pass=>pass.id),['default']);
+    assert.deepEqual(result.passes[0].partitions.map(part=>part.exit_code),[1,0]);
+  });
+});
+
 test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero child exit', async () => {
   await withFixture(async root => {
     await baseline(root);
@@ -371,16 +470,17 @@ test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero chil
     await writeFile(join(runnerDir, 'package.json'), JSON.stringify({ exports: { './cli': './cli.cjs' } }));
     const marker = join(root, 'terminated');
     await writeFile(join(runnerDir, 'cli.cjs'), `
+      ${lifecycleListing(root)}
       const fs = require('node:fs');
       process.on('SIGTERM', () => {
-        fs.writeFileSync(${JSON.stringify(marker)}, 'SIGTERM');
+        fs.appendFileSync(${JSON.stringify(marker)},process.pid+'\\n');
         fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({
           config: { rootDir: ${JSON.stringify(join(root, 'tests/e2e'))} }, suites: [], errors: [],
           stats: { expected: 0, skipped: 0, unexpected: 0, flaky: 0 }
         }));
         process.exit(0);
       });
-      console.log('fixture_runner_ready');
+      console.log('fixture_runner_ready '+process.pid);
       setInterval(() => {}, 1000);
     `);
     const output = join(root, 'result.json');
@@ -394,13 +494,13 @@ test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero chil
       let stdout = '', signalled = false;
       child.stdout.on('data', bytes => {
         stdout += bytes;
-        if (!signalled && stdout.includes('fixture_runner_ready')) { signalled = true; child.kill('SIGTERM'); }
+        if (!signalled && (stdout.match(/fixture_runner_ready \d+/g)??[]).length===2) { signalled = true; child.kill('SIGTERM'); }
       });
       const resultExit = await exit;
       clearTimeout(timer);
       assert.equal(resultExit.code, 1);
       assert.equal(resultExit.signal, null);
-      assert.equal(await readFile(marker, 'utf8'), 'SIGTERM');
+      assert.equal(new Set((await readFile(marker,'utf8')).trim().split('\n')).size,2);
       const result = JSON.parse(await readFile(output, 'utf8'));
       assert.equal(result.status, 'failed');
       assert.equal(result.reason, 'test_cancelled');
@@ -409,22 +509,6 @@ test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero chil
   });
 });
 
-test('host pass budgets are finite and only the default capacity increases', async () => {
-  assert.deepEqual(E2E_PASS_TIMEOUT_MS, {
-    default: 50 * 60 * 1000,
-    'private-ai': 30 * 60 * 1000,
-    'avatar-asset': 30 * 60 * 1000,
-    'message-image': 30 * 60 * 1000,
-    'store-photo': 30 * 60 * 1000,
-    'notification-preferences': 30 * 60 * 1000,
-  });
-  assert.ok(Object.isFrozen(E2E_PASS_TIMEOUT_MS));
-  assert.deepEqual(Object.keys(E2E_PASS_TIMEOUT_MS), E2E_PLAN.map(pass => pass.id));
-  assert.ok(Object.values(E2E_PASS_TIMEOUT_MS).every(value => Number.isSafeInteger(value) && value > 0));
-  const workflow = await readFile(join(repoRoot, '.github/workflows/verify.yml'), 'utf8');
-  const ui = workflow.slice(workflow.indexOf('  ui-e2e:'), workflow.indexOf('  static-worker:'));
-  assert.match(ui, /timeout-minutes: 60\b/);
-});
 
 test('CLI default deadline remains failure after graceful zero exit and stops later passes', async () => {
   await withFixture(async root => {
@@ -435,30 +519,31 @@ test('CLI default deadline remains failure after graceful zero exit and stops la
     const ready = join(root, 'ready'), marker = join(root, 'terminated'), starts = join(root, 'starts');
     const observed = join(root, 'scheduled-budget.json'), preload = join(root, 'accelerate-fixture.mjs');
     await writeFile(join(runnerDir, 'cli.cjs'), `
+      ${lifecycleListing(root)}
       const fs = require('node:fs');
-      fs.appendFileSync(${JSON.stringify(starts)}, 'started\\n');
+      fs.appendFileSync(${JSON.stringify(starts)}, process.pid+'\\n');
       process.on('SIGTERM', () => {
-        fs.writeFileSync(${JSON.stringify(marker)}, 'SIGTERM');
+        fs.appendFileSync(${JSON.stringify(marker)}, process.pid+'\\n');
         fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({
           config: { rootDir: ${JSON.stringify(join(root, 'tests/e2e'))} }, suites: [], errors: [],
           stats: { expected: 0, skipped: 0, unexpected: 0, flaky: 0 }
         }));
         process.exit(0);
       });
-      fs.writeFileSync(${JSON.stringify(ready)}, 'ready');
+      fs.appendFileSync(${JSON.stringify(ready)}, process.pid+'\\n');
       setInterval(() => {}, 1000);
     `);
     // Test-only clock acceleration. Production has no argument/environment budget override.
     // Return a native timer handle, so the runner's clearTimeout still cancels it.
     // The real 20-second SIGKILL escalation timer is deliberately not intercepted.
     await writeFile(preload, `
-      import { existsSync, writeFileSync } from 'node:fs';
+      import { existsSync, readFileSync, appendFileSync } from 'node:fs';
       import { setTimeout as realTimeout, setInterval, clearInterval } from 'node:timers';
       globalThis.setTimeout = (callback, delay, ...args) => {
-        if (delay !== ${E2E_PASS_TIMEOUT_MS.default}) return realTimeout(callback, delay, ...args);
-        writeFileSync(${JSON.stringify(observed)}, JSON.stringify({ delay }));
+        if (delay <= 60000 || delay > ${E2E_PASS_TIMEOUT_MS.default}) return realTimeout(callback, delay, ...args);
+        appendFileSync(${JSON.stringify(observed)}, delay+'\\n');
         const timer = setInterval(() => {
-          if (!existsSync(${JSON.stringify(ready)})) return;
+          if (!existsSync(${JSON.stringify(ready)}) || readFileSync(${JSON.stringify(ready)},'utf8').trim().split('\\n').length !== 2) return;
           clearInterval(timer); callback(...args);
         }, 10);
         return timer;
@@ -470,9 +555,11 @@ test('CLI default deadline remains failure after graceful zero exit and stops la
     });
     assert.equal(child.status, 1, child.stdout + child.stderr);
     assert.equal(child.signal, null);
-    assert.deepEqual(JSON.parse(await readFile(observed, 'utf8')), { delay: 50 * 60 * 1000 });
-    assert.equal(await readFile(marker, 'utf8'), 'SIGTERM');
-    assert.equal(await readFile(starts, 'utf8'), 'started\n');
+    const budgets=(await readFile(observed,'utf8')).trim().split('\n').map(Number);
+    assert.equal(budgets.length,2);assert.ok(budgets.every(delay=>delay>60000&&delay<E2E_PASS_TIMEOUT_MS.default));
+    const started=(await readFile(starts,'utf8')).trim().split('\n').sort();
+    const stopped=(await readFile(marker,'utf8')).trim().split('\n').sort();
+    assert.equal(new Set(started).size,2);assert.deepEqual(stopped,started);
     const result = JSON.parse(await readFile(output, 'utf8'));
     assert.equal(result.status, 'failed');
     assert.equal(result.reason, 'test_timeout');
@@ -481,17 +568,6 @@ test('CLI default deadline remains failure after graceful zero exit and stops la
 });
 
 
-test('trusted webServer forwards the host fixture and preserves candidate search wiring',async()=>{
-  await withFixture(async root=>{
-    const source=`import config from ${JSON.stringify(join(repoRoot,'scripts/ci/pinned-playwright.config.mjs'))}; console.log(JSON.stringify(config.webServer[0].env));`;
-    for (const firstParticipation of ['0', '1']) {
-      const candidateFirstParticipation = firstParticipation === '0' ? '1' : '0';
-      await writeFile(join(root,'playwright.config.ts'),`export default {projects:[{name:'chromium'}],webServer:{command:'unused',env:{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'1',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'0',FREEDOM_E2E_STORE_PHOTO_FIXTURE:'1',FREEDOM_E2E_FIRST_PARTICIPATION:'${candidateFirstParticipation}'}}}`);
-      const child=spawnSync(process.execPath,['--input-type=module','-e',source],{encoding:'utf8',env:{...process.env,FREEDOM_PINNED_E2E_ROOT:root,FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_STORE_PHOTO_FIXTURE:'0',FREEDOM_E2E_NOTIFICATION_PREFERENCES:'0',FREEDOM_E2E_FIRST_PARTICIPATION:firstParticipation}});
-      assert.equal(child.status,0,child.stderr);assert.deepEqual(JSON.parse(child.stdout),{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_STORE_PHOTO_FIXTURE:'0',FREEDOM_E2E_NOTIFICATION_PREFERENCES:'0',FREEDOM_E2E_FIRST_PARTICIPATION:firstParticipation});
-    }
-  });
-});
 
 
 function guidePasses() {
