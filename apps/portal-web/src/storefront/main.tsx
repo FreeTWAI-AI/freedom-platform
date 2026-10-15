@@ -163,6 +163,8 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   const forgetTriggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const forgottenTransitionRef = useRef<boolean>(false);
+  const redeemRejectedRef = useRef<boolean>(false);
+  const initialTitleRef = useRef<string>(document.title);
 
   const anyBusy = busy || forgetting;
 
@@ -171,10 +173,12 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   }, [container, anyBusy]);
 
   useEffect(() => {
-    if (order) {
+    if (view === 'order' && order) {
       document.title = `訂單 ${order.display_number}｜${order.store.name}｜自由工坊`;
+    } else {
+      document.title = initialTitleRef.current;
     }
-  }, [order]);
+  }, [view, order]);
 
   useEffect(() => {
     if (focusHeadingTrigger > 0) {
@@ -186,6 +190,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     setBusy(true);
     const result = await fetchPublicOrder(storeSlug, orderRef);
     if (result.kind === 'ok') {
+      redeemRejectedRef.current = false;
       tokenBox.clear();
       setOrder(result.order);
       setErrorKind(null);
@@ -195,8 +200,12 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     }
     if (result.kind === 'not_found') {
       setErrorKind(null);
+      setOrder(null);
       if (tokenBox.read() !== null) {
         setView('link_prompt');
+      } else if (redeemRejectedRef.current) {
+        redeemRejectedRef.current = false;
+        setView('invalid_link');
       } else {
         setView('not_found');
       }
@@ -218,6 +227,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     setRedeeming(true);
     const result = await postRedeemOrder(storeSlug, orderRef, token);
     if (result.kind === 'ok') {
+      redeemRejectedRef.current = false;
       tokenBox.clear();
       setOrder(result.order);
       setErrorKind(null);
@@ -229,15 +239,19 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     }
     if (result.kind === 'not_found') {
       tokenBox.clear();
+      redeemRejectedRef.current = true;
       const followUp = await fetchPublicOrder(storeSlug, orderRef);
       setRedeeming(false);
       setBusy(false);
       if (followUp.kind === 'ok') {
+        redeemRejectedRef.current = false;
         setOrder(followUp.order);
         setErrorKind(null);
         setView('order');
         setFocusHeadingTrigger( count => count + 1 );
       } else if (followUp.kind === 'not_found') {
+        redeemRejectedRef.current = false;
+        setOrder(null);
         setErrorKind(null);
         setView('invalid_link');
       } else {
@@ -260,6 +274,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       const consumed = consumeAccessHash();
       if (consumed.kind === 'none') return;
       if (consumed.kind === 'malformed') {
+        redeemRejectedRef.current = false;
         tokenBox.clear();
         setOrder(null);
         setErrorKind(null);
@@ -268,6 +283,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
         setView('invalid_link');
         return;
       }
+      redeemRejectedRef.current = false;
       tokenBox.write(consumed.token);
       setErrorKind(null);
       void runInitialOrRetryGet();
@@ -297,6 +313,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       forgottenTransitionRef.current = true;
       dialogRef.current?.close();
       setForgetting(false);
+      setErrorKind(null);
       setView('forgotten');
       setFocusHeadingTrigger(count => count + 1);
       return;
@@ -308,23 +325,22 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
 
   const activeSlug = order?.store.slug ?? storeSlug;
   const activeStoreName = order?.store.name ?? storeName;
+  const errorBlock = errorKind ? (
+    <>
+      <p role="alert" className="shop-order-alert">{ERROR_COPY[errorKind]}</p>
+      <div className="shop-order-actions">
+        <button type="button" className="shop-button shop-button-secondary" disabled={busy} onClick={handleRetry}>
+          重試
+        </button>
+      </div>
+    </>
+  ) : null;
 
   if (view === 'loading') {
     return (
       <>
         <h1 id="shop-order-title" ref={headingRef} tabIndex={-1}>訂單</h1>
-        {errorKind ? (
-          <>
-            <p role="alert" className="shop-order-alert">{ERROR_COPY[errorKind]}</p>
-            <div className="shop-order-actions">
-              <button type="button" className="shop-button shop-button-secondary" disabled={busy} onClick={handleRetry}>
-                重試
-              </button>
-            </div>
-          </>
-        ) : (
-          <p role="status">正在讀取訂單…</p>
-        )}
+        {errorBlock ?? <p role="status">正在讀取訂單…</p>}
       </>
     );
   }
@@ -334,16 +350,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       <>
         <h1 id="shop-order-title" ref={headingRef} tabIndex={-1}>開啟訂單</h1>
         <p role="status">這個訂單連結只能使用一次。開啟後，這個瀏覽器會記住這筆訂單，之後可以直接查看。</p>
-        {errorKind ? (
-          <>
-            <p role="alert" className="shop-order-alert">{ERROR_COPY[errorKind]}</p>
-            <div className="shop-order-actions">
-              <button type="button" className="shop-button shop-button-secondary" disabled={busy} onClick={handleRetry}>
-                重試
-              </button>
-            </div>
-          </>
-        ) : (
+        {errorBlock ?? (
           <div className="shop-order-actions">
             <button type="button" className="shop-button shop-button-prompt" disabled={busy} onClick={() => void runRedeem()}>
               {redeeming ? '正在開啟…' : '在這個瀏覽器開啟訂單'}
@@ -359,6 +366,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       <>
         <h1 id="shop-order-title" ref={headingRef} tabIndex={-1}>找不到這筆訂單</h1>
         <p role="status">這個瀏覽器沒有這筆訂單的查看權限，或訂單不存在。訂單只能在下單時使用的瀏覽器，或以下單時登入的會員帳號查看。</p>
+        {errorBlock}
         <div className="shop-order-actions">
           <a href={`/shops/${activeSlug}/order-access`}>找回訂單</a>
           <a href={`/shops/${activeSlug}`}>回到「{activeStoreName}」</a>
@@ -372,6 +380,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       <>
         <h1 id="shop-order-title" ref={headingRef} tabIndex={-1}>這個訂單連結無法使用</h1>
         <p role="status">連結可能已經用過、超過 7 天，或不屬於這筆訂單。每個訂單連結只能在一個瀏覽器開啟一次。</p>
+        {errorBlock}
         <div className="shop-order-actions">
           <a href={`/shops/${activeSlug}/order-access`}>找回訂單</a>
           <a href={`/shops/${activeSlug}`}>回到「{activeStoreName}」</a>
@@ -385,6 +394,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       <>
         <h1 id="shop-order-title" ref={headingRef} tabIndex={-1}>這個瀏覽器已忘記你的訂單</h1>
         <p role="status">之後在這個瀏覽器打開訂單網址，會顯示找不到訂單。</p>
+        {errorBlock}
         <div className="shop-order-actions">
           <a href={`/shops/${activeSlug}`}>回到「{activeStoreName}」</a>
         </div>
@@ -401,6 +411,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
         </p>
         <p className="shop-order-status">訂單狀態：{formatOrderLifecycle(order)}</p>
       </div>
+      {errorBlock}
 
       {order.lifecycle_state === 'open' && order.payment_state === 'unpaid' && (
         <section className="shop-order-section" aria-labelledby="shop-order-action-heading">
