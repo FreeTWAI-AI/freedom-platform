@@ -75,6 +75,16 @@
   - [2878] 付款結果通知：回純字串 `1|OK`；沒有正確回應時隔 5～15 分鐘重送，當天共四次；`SimulatePaid=1` 是模擬付款；`ReturnURL` 與 `OrderResultURL` 沒有固定先後。
   - [7420] 物流狀態通知：回 `1|OK`；重送三次後改隔天再送，從貨態更新日起維持三天；測試環境不模擬貨態通知。
   - [7906] 作廢發票：單月 13 日 23:59:59 以後不能作廢前兩個月的發票；有折讓的發票要先作廢全部折讓。
+  - [8795] 門市電子地圖：回傳的 `CVSStoreID` 最長 9 字；`CVSOutSide`（0 本島、1 離島）只有 7-ELEVEN（`UNIMART`、`UNIMARTC2C`）與全家（`FAMI`、`FAMIC2C`）會回傳，萊爾富不回傳；`CVSTelephone` 7-ELEVEN 不回傳；stage 不開地圖，直接回固定門市。
+- 審查 ecpay-logistics 工作時，整合負責人再讀了以下頁面（2026-10-15），作為 EC-SPEC-05 與協定程式庫 `ecpay/domestic-logistics/` 的依據：
+  - [8809] 建立店到店訂單：`ReceiverStoreID` 是 String(6)，與地圖回傳的 String(9) 不一致；EC-SPEC-05 §3.6 只收 1～6 字，超過的請買家改選，待 stage 核對。`ReturnStoreID` 只用於 7-ELEVEN 店到店；`GoodsName` 是 String(50)，7-ELEVEN 與萊爾富店到店必填。
+  - [7400] 物流介接注意事項：參數值不可含 HTML 標籤；回傳網址不支援中文，要用 punycode；只支援 TLS 1.2；呼叫太快回 HTTP 403，要等 30 分鐘；防火牆以網域放行，連出 `logistics(-stage).ecpay.com.tw`、連入 `postgate(-stage).ecpay.com.tw`，都是 TCP 443。CDN 會擋兩類輸入：單獨出現的系統指令字詞（`echo`、`tftp`、`traceroute`、`tracert`、`tclsh`、`cmd.exe`、`cmd` 加 `/c`、`cd` 後接 `/`、`\` 或 `..`、`chmod +x` 等），以及分號、`|`、反引號後接的 shell 指令（`ls`、`rm`、`id`、`ps`、`ping` 等）。頁面沒寫比對是否分大小寫、是否看字詞邊界。協定程式庫的 `findCdnBlockedTerm` 比綠界嚴：三個字元單獨出現就擋，字詞不分大小寫、也不看邊界，寧可多擋。
+  - [8795] 補讀：地圖不可放在 iframe 裡；iOS 上不要另開視窗。
+  - [7412] 取消 7-ELEVEN 店到店訂單（`Express/CancelC2COrder`）：`MerchantID`、`AllPayLogisticsID`、`CVSPaymentNo`、`CVSValidationNo` 都必填，`PlatformID` 一般特店放空值；回 `1|OK` 才算成功，沒有回應或其他內容都算失敗。
+  - [8907] 更新門市（`Express/UpdateStoreInfo`）：`AllPayLogisticsID`、`CVSPaymentNo`（15）、`CVSValidationNo`（10，7-ELEVEN 必填）、`StoreType`（`01` 取件、`02` 退貨），`ReceiverStoreID` 與 `ReturnStoreID`（6）依 `StoreType` 擇一；回 `1|OK` 才算成功。用在門市關轉，綠界以通知與 Email 告知。
+  - [7442] 物流子類型：店到店 `FAMIC2C`、`UNIMARTC2C`、`HILIFEC2C`；B2C `FAMI`、`UNIMART`、`UNIMARTFREEZE`、`HILIFE`；宅配 `TCAT`、`POST`。
+  - [7444] 訂單有效日（日曆天）：店到店 7-ELEVEN 5 天、全家 6 天、萊爾富 7 天；B2C 全家 6 天、7-ELEVEN 5 天、萊爾富 7 天，另列物流中心的收貨時間。頁面沒寫過期以後怎麼處理。
+  - [10419]、[10442] 超商與宅配的建單流程：建單完成後綠界就送一次狀態通知；包裹到店時綠界以簡訊通知買家取貨，所以收件人手機會交給綠界發簡訊。宅配頁的第 7 步沿用超商的寫法（「送達指定超商」），應是誤植。
 - 其他頁面的事實以報告逐列附的頁碼為依據，規格引用時保留頁碼。實作前（WP-04～06）要重讀當時的頁面；最終以 stage 實測確認，連線 stage 需要 Ted 授權。
 
 ### 3.1 官方範例向量
@@ -89,7 +99,8 @@
 | 發票 CheckMacValue（MD5） | 線上折讓同意通知 [38242] | 1 | 1／1 相符 |
 
 - 金鑰用的是綠界在 [2856]、[7398]、[10197]、[7849] 公開的 stage 測試特店，只放在測試 fixture，不寫進本目錄。
-- 長期留存的版本是 `tests/worker/ecpay-fixtures/vectors.ts`，由 Node 與 workerd 兩邊的測試共用（ecpay-proto 工作，分支 `fc/ecpay-proto`，2026-10-15 尚未整合）。
+- 長期留存的版本是 `tests/worker/ecpay-fixtures/vectors.ts`，由 Node 與 workerd 兩邊的測試共用（ecpay-proto 工作，2026-10-15 併入整合分支 `931f8666`）。
+- AIO 信用卡的 7 組 golden（送出表單 4 組、查詢、DoAction、credit detail）由整合負責人在 repo 外依官方演算法 [2902][2904] 獨立重算，放在 `tests/worker/ecpay-fixtures/aio-credit-vectors.ts`（ecpay-aio 工作，整合 `d6fa9098`）。credit detail 用的 stage `CreditCheckCode` 出自 [2856]，同樣只放在 fixture。
 
 ## 4. 統一編號檢查碼
 
@@ -162,3 +173,15 @@ WP-00 由整合負責人（Claude Opus 5.5）拆成五個唯讀工作，各在 `
 
 - EC 參考圖片：已取得並檢視（§2.1）。
 - 三個上游 repo 與任何 MCP 仍未執行；金流、物流、發票的 sandbox 與正式環境仍未操作（規劃包 limitations）。
+
+## 7. 郵遞區號
+
+- 中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用），下載頁 `https://www.post.gov.tw/post/internet/Download/index.jsp?ID=220306`。2026-10-15 由整合負責人取得（xls，SHA-256 `0b0a6672d53c174ed5db432cb9c24872edecf204fe7c060bc541dfd495486ff0`）並逐列解析：368 個前 3 碼。2020 年改用 3+3 碼時，前 3 碼沒有變。
+- 離島（EC-SPEC-05 §3.5）：連江 209 南竿、210 北竿、211 莒光、212 東引；澎湖 880～885；金門 890～894 與 896 烏坵；屏東 929 琉球；臺東 951 綠島、952 蘭嶼；南海諸島 817 東沙、819 南沙；宜蘭 290 釣魚臺列嶼。
+- 表格寫進 `modules/agent-commerce/fulfilment/rules/postal.ts`（fulfil-rules 工作）；中華郵政公布新表時要重新核對。xls 留在本機，不進 repo。
+
+## 8. 物流貨態代碼表
+
+- 綠界「物流貨態代碼表」：`https://developers.ecpay.com.tw/logistics_status/` 轉址到 xlsx 檔。2026-10-15 由整合負責人下載（`Last-Modified` 2026-06-04，SHA-256 `16bddad1c85b91ba5decd148d60dc0143b62a1d7ff693b568e9148cfdf45bef3`）並逐列解析：統一超商、全家、萊爾富、黑貓、中華郵政五頁，依子類型展開共 523 列，另有「異動歷程」頁。最近的異動：2026-06-04 因 OK 超商店到店 2026-07-01 停止服務，移除 `OKMARTC2C` 的代碼；2026-05-13 更新 `2053`、`2066`、`2062`、`2097` 的說明。
+- C2 用到的五種子類型共 278 列，對照寫在 [ecpay-logistics-status-map.tsv](ecpay-logistics-status-map.tsv)（EC-SPEC-05 §6.3）。綠界訊息照原文；判讀依訊息文字，取捨見 decisions.md。
+- 這份表可公開下載；EC-SPEC-05 先前引用的是廠商後台的「物流貨態代碼查詢」[7440]。兩者或實際通知不一致時，記入本節再改 TSV。xlsx 留在本機，不進 repo。

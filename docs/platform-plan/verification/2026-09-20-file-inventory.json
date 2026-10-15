@@ -15224,13 +15224,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
-      "bytes": 26529,
-      "sha256": "9fa1da4a6262dd381a28873815b330b412617c1bdeb91ad059cb21a9ff212693"
+      "bytes": 26649,
+      "sha256": "685bbdfb36bb4fb4189b094cc11d692241bcac6dd914c0c2ab1aa89baf996f92"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
-      "bytes": 18968,
-      "sha256": "48256431c1d2e94b2a0c804b256853acc4bb75aca0a96305b7b3e883a211be46"
+      "bytes": 19910,
+      "sha256": "71bc7459e9df0fc532cb0e082aa0f1d58708af547cd423d624a7596783652161"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
@@ -15239,18 +15239,18 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 31447,
-      "sha256": "d5e1d2c192b75ba71581f51ed1df4e05a5d89ea718d7b0b10b210c5d10c7d769"
+      "bytes": 32442,
+      "sha256": "1ca09eda86e91dcfea845652b033815dc62eedda59d23b49bc904cde8f6c2fc9"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 68077,
-      "sha256": "4c8f4a6cb233f82567a14aa47963fc4013c7563d9b13c1bc5bfd598ce69b23fb"
+      "bytes": 79912,
+      "sha256": "c222d6789c42952ba571eefd3bc128d4c7a94d9fdb10f93fe794b6377e86a370"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
-      "bytes": 49989,
-      "sha256": "9b4bc655a360eec53ab767ffc9adebe2a18aff9cdaf5939cb20a4f213f4c5501"
+      "bytes": 50818,
+      "sha256": "f812bb4c648dd0ded97e660d601c74025c7a3a73d1c445e271a98188d5b81952"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-07-operations-skillbooks.md",
@@ -15264,8 +15264,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md",
-      "bytes": 42630,
-      "sha256": "f5debe54815a18af5f96864d923973be337a087ff872bb2468143b0834bf8bab"
+      "bytes": 43117,
+      "sha256": "70120749ad96d658cee20bc417da6d0cf9b56c257069da43623039af998c3408"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
@@ -15284,8 +15284,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
-      "bytes": 13113,
-      "sha256": "0df1a11cea6c28e28a0a1f2f00081de88ba6c828c578426041a67ad112f9d42b"
+      "bytes": 13934,
+      "sha256": "b66188f873331ab00e53420e22c595bd919271bc9fbccb106e4892591bb82574"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv",
+      "bytes": 18726,
+      "sha256": "e0c1fd2767a887dc02d4b84dc09da5f05a588b688459b18cecbe4997f08e3e55"
     },
     {
       "path": "docs/platform-plan/execution/commerce/pages.md",
@@ -15294,13 +15299,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
-      "bytes": 16960,
-      "sha256": "ac82766cf2d7e1ed985356114aa3e33f28ed132c59d9b6f9b5a404b70807e80f"
+      "bytes": 22152,
+      "sha256": "803e96b179f0cc6fe432f769f652922d44bfacc74f7a9e75a3b2c9c176f45f3f"
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 14685,
-      "sha256": "932a6ce2dd3abb197c7e3bae4c72e6be9853f714768b17325006795d078cec2c"
+      "bytes": 16793,
+      "sha256": "c952d40dfccc2e89d98203ca98e6daf5308e5e46ea71d774105cd809e9879108"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -17073,6 +17078,61 @@
       "sha256": "02e7a24688629a5e590ca7fbdad1d4892863fef0bf6e7a5a64f5183445c593d4"
     },
     {
+      "path": "modules/agent-commerce/fulfilment/README.md",
+      "bytes": 20600,
+      "sha256": "08c1c616ed97ce8e5e8cf99e92f409179a4b437f0010e82db194af24443f48c8"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/freedom.module.json",
+      "bytes": 706,
+      "sha256": "86e7dedd1e82f03eb7cd50da87d5fee1283898fd89cbb471b3bea3e8dc0cc295"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/errors.ts",
+      "bytes": 693,
+      "sha256": "4d62868abb1a1b4c06ee03ccf35eb68829688102d4dba0617d7a04b049fbd59a"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/index.ts",
+      "bytes": 1699,
+      "sha256": "4178b11fc3d903c258862eefd5be7075e93a513508bcacce5398974c2226ea3e"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/plan.ts",
+      "bytes": 22898,
+      "sha256": "cd072a368dfc2d404f93aa4b588bf298aa8b05e65361ebf1d2e98f7cceb888a9"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/postal.ts",
+      "bytes": 2035,
+      "sha256": "caf792746dc72478bcdd02eeb395097d42a4b3fd84dca3cd9be94e3d4dc30e22"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/recipient.ts",
+      "bytes": 11673,
+      "sha256": "6abdbddfa653ef0c29203f66aca15c4637a4f5b7912641f1993383c4c98c8b6c"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/ship-by.ts",
+      "bytes": 2914,
+      "sha256": "b8e26d2f717318e177f347aee5c4b26b30cc7212cbd67de22504bfff9276a6cd"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/taipei.ts",
+      "bytes": 1306,
+      "sha256": "57c4b821cf40c05b596971b637c0c079c6422cd3430f5ee77d04d3df73356bce"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/tracking.ts",
+      "bytes": 39640,
+      "sha256": "477e37d50072927f016ca3a5b654e3a67db2420d17d9323880cba0e8409b594b"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/types.ts",
+      "bytes": 7017,
+      "sha256": "3e64dc5a1ab389eedc3dd8d297c98d6a873709f9c2806f66a82f36c19d332bc3"
+    },
+    {
       "path": "modules/agent-commerce/hosted/capabilities.ts",
       "bytes": 2284,
       "sha256": "d0fd0b0a2178807eb4069f199bc17b1f854c188b0c7f9ba7e992587f135690a9"
@@ -17318,19 +17378,54 @@
       "sha256": "8fc01bb13b6e48aa4882df51890e6e2ce7cd993d90ce83122a4d269f8e37f465"
     },
     {
+      "path": "modules/agent-commerce/payments/README.md",
+      "bytes": 8579,
+      "sha256": "3477250f034d1a34308ab39e6f44b9054831fbc0cab86063fe4d807846a663ba"
+    },
+    {
+      "path": "modules/agent-commerce/payments/freedom.module.json",
+      "bytes": 665,
+      "sha256": "0839c87f7a364acccb79c27e1bb735d11824ee79ff06b2b81ac90c2d20855ef8"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/allocation.ts",
+      "bytes": 16767,
+      "sha256": "94b9df54254e90ae37811cc0602246da2263fd27e84aa05acc7fef9c8fd45ac3"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/errors.ts",
+      "bytes": 722,
+      "sha256": "bde932baf21e1490dfd12b6be81f2d815c6ed0e8cca35a803a97446348ab415a"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/index.ts",
+      "bytes": 857,
+      "sha256": "ce2d964b433dcd5b9845b5106371b7b0540495e2e97a3f870b3653be3efe3f60"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/types.ts",
+      "bytes": 5113,
+      "sha256": "5e1b4026ffc70e2e7c3489982a4de71207fc1efb131709a3eb455c71714e0516"
+    },
+    {
+      "path": "modules/agent-commerce/payments/rules/unapplied.ts",
+      "bytes": 2565,
+      "sha256": "3efe17fb0fa34ee1385390bba8990c764ecbcf73ab232a55a1ec8efc07d9b729"
+    },
+    {
       "path": "modules/agent-commerce/portal/freedom.module.json",
       "bytes": 709,
       "sha256": "1cb1ca6c46b2f10976627a2919adcb0020198712d11375d8cf9fb82821c8ffb8"
     },
     {
       "path": "modules/agent-commerce/providers/README.md",
-      "bytes": 9269,
-      "sha256": "95ec54345b25c961718abb3e00495361642a5fde9b447eb3b46d699c85e271e6"
+      "bytes": 26556,
+      "sha256": "8d62db31c85e6b4cdd6ac012b3450f9ae8221e07d01fad3bd6696f896c08fcf2"
     },
     {
       "path": "modules/agent-commerce/providers/freedom.module.json",
-      "bytes": 673,
-      "sha256": "b917cd93bfd7c4c29e067be799627efeae7abad421a9496b2ecf4f1c6b300218"
+      "bytes": 1097,
+      "sha256": "5f160691f9f9000cc12bd5f6d6f19b06cb3699d18ad009d3fe4022309e6d39f1"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aes.ts",
@@ -17341,6 +17436,21 @@
       "path": "modules/agent-commerce/providers/ecpay/aio.ts",
       "bytes": 677,
       "sha256": "4d315d21c119d79a08a5cdb5773342ef78c45230bcf9c2712045c7a863f41d21"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/body-digest.ts",
+      "bytes": 306,
+      "sha256": "42b43923ac23a41585d711948765edb6a7d10e49893fa54182e5a4ec6ca70202"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/browser-form.ts",
+      "bytes": 1641,
+      "sha256": "3fd971de4a85bfc7429e2b063e12e3099f2f03afa740864a3475416d3762a9c9"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/cdn-guard.ts",
+      "bytes": 870,
+      "sha256": "50c3214dd0a0e94bb81806101437f9cfc3917a38349dc27832facc6b8cbec4eb"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/checkmac.ts",
@@ -17354,8 +17464,13 @@
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/errors.ts",
-      "bytes": 1584,
-      "sha256": "93251d4c1323790ed717fb52d3f25344ec52e1d9aa90b5ccad081697d6a1fcb4"
+      "bytes": 1820,
+      "sha256": "5ea42f81957d9b038c3d4676b224e8382faec694dc6d14ba5e46887c4807710f"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/field-rules.ts",
+      "bytes": 4117,
+      "sha256": "ab21a61f0fe6cb8af18220e89a67aa29a1578ae52049869428df50b22cc29949"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/form.ts",
@@ -17364,8 +17479,8 @@
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/index.ts",
-      "bytes": 1704,
-      "sha256": "c444d5b524711544c34dfa3faacb4b824b13e40c21637622ff7af16f497fae16"
+      "bytes": 1757,
+      "sha256": "23e79d52031056d8d13a8c5d7d8511967f393d670a890dc21e4b6ab77f23b39b"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/invoice.ts",
@@ -17383,9 +17498,104 @@
       "sha256": "2cf948d8c852d53e6cc08029611ccc9d78851ffe20e167623f48ecfcf923329a"
     },
     {
+      "path": "modules/agent-commerce/providers/ecpay/server-request.ts",
+      "bytes": 1797,
+      "sha256": "f2c657f2db782adf68a97c9e222d84dd2077954dafbd910aed329d712ac39b1c"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/taipei-time.ts",
+      "bytes": 2193,
+      "sha256": "38a1e1a2aa73840e5c52ed47cf515b64e8c2d36a5971428eb54971bb2451cf6b"
+    },
+    {
       "path": "modules/agent-commerce/providers/ecpay/trade-number.ts",
-      "bytes": 1662,
-      "sha256": "5fe78c9047550ff500c7809e6821afe6ca21efa4702fffa37ec50c5a5918c0e9"
+      "bytes": 1965,
+      "sha256": "61ec63981843fd0f6040d00d48d111bbbe6aac8e5d7a385e47838942bab3cbe2"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/checkout-form.ts",
+      "bytes": 5891,
+      "sha256": "0b019fd2782945a163ac41a18890d656eedb9f3bca8453122ae186a096fb3a4a"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/credit-detail.ts",
+      "bytes": 10793,
+      "sha256": "b417a3a5cd006b76cc57285af88059ceb7872163fdaeb2e97dbbc1ffc610426c"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/index.ts",
+      "bytes": 1921,
+      "sha256": "ce0ec1df50fee7b6858e6b91e33c895c5192e2a2a46716a169f08f040d83fbb3"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/notification.ts",
+      "bytes": 9639,
+      "sha256": "02fb72f98e791993354e97286888f2f4d5853a24ef2a19cd19c05d0d7542d999"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/profile.ts",
+      "bytes": 1889,
+      "sha256": "b53f4c6b4a44ab5d2f4949a467275aab83b7258abd7aece1fdc2b42ce5f51ce0"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/query.ts",
+      "bytes": 8457,
+      "sha256": "46f8939c89e7cf5b3068175a423e406bed4b6aa726c6377c52cebeff6a804a54"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/refund.ts",
+      "bytes": 9134,
+      "sha256": "c62abaf66a237d7af032d8bbf7713840da51b7ee735145897e9ef14f2701e900"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio-credit/time.ts",
+      "bytes": 1277,
+      "sha256": "117db863cb066f4157535b65b899eeefa513173a76e37b4717d99b3f24cf412e"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/c2c-actions.ts",
+      "bytes": 4847,
+      "sha256": "022f4adfe7ceed6421c23184b7d579e2dc53a6418557fdea9606167c863fca43"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/create-order.ts",
+      "bytes": 17528,
+      "sha256": "78c5b3dcb4d5a3f9f77bfcffce92659b06eaca76efbe5c51bc8d626b90acafa1"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/index.ts",
+      "bytes": 1997,
+      "sha256": "f2502072b460d89cb2a21ff1794ad1356c3ce8580f18ef23915977aab7cbbe9e"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/map.ts",
+      "bytes": 6972,
+      "sha256": "1d117b888e4bd07d3195de9d3a79d7278d7a43800e880c1cd8c663647d934e98"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/notification.ts",
+      "bytes": 5812,
+      "sha256": "0407bf4d15b87c35a370624e515e62aaf9bf95763dd6d340ef1bca3ffacbb327"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/party-rules.ts",
+      "bytes": 3153,
+      "sha256": "9923f7307a287a0d6596044806c2b3f241f3b81e8f4f6ef4c177d2f86109830b"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/print.ts",
+      "bytes": 3322,
+      "sha256": "0bac2d32e6eb18a456041d6f837bd6b69f14901a3f6b5f9bb12920842dbb36a1"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/profile.ts",
+      "bytes": 4335,
+      "sha256": "30177e17c54530537541107c71d40237f3446f09f67d3c4ee07cea2118797445"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/query.ts",
+      "bytes": 11540,
+      "sha256": "fd9291de7764b1c1e13f33b2840daad07bd2aaa1f30684c01f1e2f972f73eaf9"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -22068,6 +22278,11 @@
       "sha256": "f329212d4c53396e5dd260d307a8cba3230c64f8781b2cbd374a776e758e24b3"
     },
     {
+      "path": "tests/runtime/commerce-fulfilment-rules.test.ts",
+      "bytes": 93411,
+      "sha256": "cd532e59643442a40dceb9a1941e75b8b0f6a60d7e75c8a7a4f252113b68eadd"
+    },
+    {
       "path": "tests/runtime/commerce-invoice-rules.test.ts",
       "bytes": 33004,
       "sha256": "e3a6e227cb9c910e07dd3c4db6fcbb0568c60b04cf5b7356cd1d31ae839932f4"
@@ -22076,6 +22291,11 @@
       "path": "tests/runtime/commerce-rate-limits.test.ts",
       "bytes": 6500,
       "sha256": "699bdbb884731efef14cc7bfd9e7da0eca15891e79281a8a3817d47a6dd6d36b"
+    },
+    {
+      "path": "tests/runtime/commerce-refund-rules.test.ts",
+      "bytes": 49820,
+      "sha256": "409abef03456be81f901169640381bcae2560f5089a090c92a6d4f39fd806981"
     },
     {
       "path": "tests/runtime/commerce-runtime-settings.test.ts",
@@ -22228,9 +22448,19 @@
       "sha256": "e9bf8d3516d476761c55f7d9676c9927fead92304dff19466027492904835bfe"
     },
     {
+      "path": "tests/runtime/ecpay-aio-credit.test.ts",
+      "bytes": 54978,
+      "sha256": "8e81873a9f46b36a56f7972137eb8936b008fe2dc7d9caadb40cd2658bdb822f"
+    },
+    {
+      "path": "tests/runtime/ecpay-domestic-logistics.test.ts",
+      "bytes": 52084,
+      "sha256": "65682fe2db3f1b9034db6218ca86d88018c4315fa1c758845abbb435240d48a6"
+    },
+    {
       "path": "tests/runtime/ecpay-protocol.test.ts",
-      "bytes": 34500,
-      "sha256": "cb8627cf9ba3df847c18f169752200778b29cc3e9211bb26756dcd143472fcfa"
+      "bytes": 35565,
+      "sha256": "5998f444ed0956697d75236072a294b27840c67e771392421997d5e6912b53e9"
     },
     {
       "path": "tests/runtime/email-change.test.ts",
@@ -23828,6 +24058,16 @@
       "sha256": "05d34e4b2634fff00f5580ef3931535c5439f25d4825ff1ec63723aab3ab552f"
     },
     {
+      "path": "tests/worker/ecpay-aio-credit-workerd.test.ts",
+      "bytes": 8274,
+      "sha256": "22339ee545bb6afaf1f85a71d911376ecb45d964ef40ae5fe17840b73137de18"
+    },
+    {
+      "path": "tests/worker/ecpay-domestic-logistics-workerd.test.ts",
+      "bytes": 8537,
+      "sha256": "caf078adcc663511a475ce47631b762597a1a1264305a92c6d76deaf8eb4f424"
+    },
+    {
       "path": "tests/worker/ecpay-protocol-workerd.test.ts",
       "bytes": 7977,
       "sha256": "c597dfd6b2e07f40c0beb2b99d3566f1a2ee661cea60e8f9bf0b0dbcbcf96876"
@@ -24003,14 +24243,34 @@
       "sha256": "9efb184a3bacbb049dc19bce48d772df2936298d84a29f5286df3d940b4b5cc4"
     },
     {
+      "path": "tests/worker/ecpay-fixtures/aio-credit-vectors.ts",
+      "bytes": 10845,
+      "sha256": "b39a4c8336136eaff413eaca53f4525a01845f9ad11450dbf10fd28438497acd"
+    },
+    {
+      "path": "tests/worker/ecpay-fixtures/aio-credit-worker.ts",
+      "bytes": 17010,
+      "sha256": "ac41f204cd8c55845c90da739f967a04e86d916c33c4498d56c7139b0f3d9d63"
+    },
+    {
+      "path": "tests/worker/ecpay-fixtures/domestic-logistics-vectors.ts",
+      "bytes": 29417,
+      "sha256": "e06feef38ffaffaf940a805f74f5eb5faac6b8e8931d597c56585609f33447a9"
+    },
+    {
+      "path": "tests/worker/ecpay-fixtures/domestic-logistics-worker.ts",
+      "bytes": 14576,
+      "sha256": "713d1704e8a6ef4ca0d4d4fbf0399a617b8e10330e8833c3cf8089e5fe7d7773"
+    },
+    {
       "path": "tests/worker/ecpay-fixtures/protocol-worker.ts",
       "bytes": 8461,
       "sha256": "7b742a894bf5a725fd95a3e193a81e7cf3087bf0f049d4c2f22b7b46f0dad225"
     },
     {
       "path": "tests/worker/ecpay-fixtures/vectors.ts",
-      "bytes": 12086,
-      "sha256": "6198f8dc1ca796a10f2feb59c8e7a0c97bf06a9111faab08bac71a1673cc7449"
+      "bytes": 12209,
+      "sha256": "9be72b9c0ea8dad8427d47420ee64a07a579957e5aebbaa3e823cd510cb3b689"
     },
     {
       "path": "tests/worker/media-object-fixtures/io.ts",

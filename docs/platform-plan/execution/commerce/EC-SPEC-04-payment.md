@@ -126,7 +126,7 @@ interface PaymentPort {
 
 - `MerchantTradeNo`：`F` ＋ 19 個 Crockford Base32 大寫字元（95 bits 隨機），共 20 字元、只含英數字 [2862]。綠界不分大小寫判斷重複 [2862]，大寫字母表本身就避開這個問題；stage 測試帳號是公開共用的，隨機值也避免和其他開發者撞號。DB 唯一索引防自己撞號；撞到就重抽。
 - `MerchantTradeDate`：Asia/Taipei 時間 `yyyy/MM/dd HH:mm:ss`。
-- `ItemName`：`{商品名} x{數量}` 以 `#` 連接；名稱先移除 `#`、`<`、`>` 與控制字元；合計超過 200 字元時改用 `{店名}商品一批 x1`。綠界在 400 字元處截斷，截到多位元組字元會讓 CheckMacValue 失敗 [61944]，所以留足空間。
+- `ItemName`：`{商品名} x{數量}` 以 `#` 連接。名稱先把 `#`、`<`、`>`、`|`、`;`、反引號、控制字元（C0、DEL、C1）、落單的 surrogate 與看不見的格式字元（U+200B～U+200F、U+202A～U+202E、U+2060～U+206F、U+FEFF）換成空白，再把連續空白縮成一個、去掉頭尾；清完是空的就用「商品」。`|`、`;`、反引號會被綠界 CDN 的指令過濾擋下 [2858]；看不見的字元可能在綠界頁面上偽裝商品名。合計超過 200 個 UTF-16 字元時改用 `{店名}商品一批 x1`（店名同樣清理、最多 40 字；清完是空的就是 `商品一批 x1`）。綠界在 400 字元處截斷，截到多位元組字元會讓 CheckMacValue 失敗 [61944]，所以留足空間。
 - `TradeDesc`：`Freedom order {display_number}`（不含特殊字元 [2862]）。
 - `ReturnURL`、`OrderResultURL`、`ClientBackURL`：§4、§5 的固定路徑，HTTPS、網域、443，路徑不含 `&` 或 `<` [2858][61944]；由伺服器依環境組出。
 - `PlatformID`、`CustomField1～4`、`StoreID`、`Language`：不送（欄位省略）。
@@ -168,7 +168,7 @@ interface PaymentPort {
 1. 依 `account_ref` 找帳戶；找不到 → 404，不洩漏原因。
 2. 以帳戶的 `payment` 金鑰（依 attempt 的 `credential_version`；不知道 attempt 時依序試目前與未退役的舊版本）重算 CheckMacValue：收到的**全部**欄位（含空值、含 `NeedExtraPaidInfo=Y` 的額外欄位）除了 CheckMacValue 本身，依參數名不分大小寫排序，前後加 HashKey／HashIV，.NET 規則 URL 編碼、轉小寫、SHA-256、轉大寫 [2902][2904]。以 constant-time 比較。不得把 form 轉成 JSON 或重新排版後再算（計畫 §10.3）。
 3. `MerchantID` 等於帳戶的特店編號；`PlatformID` 為空或缺。
-4. 依 (帳戶, `MerchantTradeNo`) 找 attempt；找不到 → 記 `unmatched` 事件、建立例外、回 `1|OK`（簽章正確代表確實是這個特店的交易，重送也不會找到）。
+4. `MerchantTradeNo` 與 `TradeNo` 先轉大寫（CheckMacValue 在雜湊前整串轉小寫，大小寫不受簽章保護；我們的編號只用大寫），再依 (帳戶, `MerchantTradeNo`) 找 attempt；找不到 → 記 `unmatched` 事件、建立例外、回 `1|OK`（簽章正確代表確實是這個特店的交易，重送也不會找到）。
 5. `TradeAmt` 等於 attempt 金額（整數元）；不符 → 付款套用記 `amount_mismatch`、例外、回 `1|OK`。
 6. `SimulatePaid=1` → 記 `simulated` 事件，**不**改 attempt、不套用庫存、不建立履約；即使 `RtnCode=1` 也一樣 [2878]（EC-AT19）。
 7. `RtnCode=1` 且 `SimulatePaid=0` → attempt `paid`；`RtnCode` 為其他值 → `failed`（若 attempt 尚未付款）。`10300066`（結果待確認，勿出貨 [2878]）視為未決：attempt 維持原狀並排查詢。
@@ -181,7 +181,7 @@ interface PaymentPort {
 
 ### 5.4 去重與亂序
 
-- 事件去重鍵：(帳戶, `MerchantTradeNo`, `TradeNo`, `RtnCode`, `SimulatePaid`, `PaymentDate`)。重送命中唯一鍵 → 不重複套用，直接回 `1|OK`。
+- 事件去重鍵：(帳戶, `MerchantTradeNo`, `TradeNo`, `RtnCode`, `SimulatePaid`, `PaymentDate`)，編號用 §5.2 轉大寫後的值，改了大小寫的重送仍是同一筆。重送命中唯一鍵 → 不重複套用，直接回 `1|OK`。
 - 付款套用以 `payment_ref` 冪等（EC-SPEC-03 §5）：同一 attempt 的通知與查詢結果先後到達，只套用一次。
 - 通知與 `OrderResultURL` 沒有固定先後 [2878]；查詢與通知也可能交錯。狀態只依 §3.3 前進，不倒退（EC-AT21）。
 - 通知與保留到期結算、買家取消、另一筆通知同時發生：全部走同一組鎖，先提交者勝（EC-SPEC-03 §6；測試見 §12）。
@@ -255,7 +255,7 @@ interface PaymentPort {
 | 已關帳 | `R` | `R` |
 
 - 只有一般一次付清可以部分退刷 [2885]；本 profile 不開分期與紅利，所以都可以。
-- 每日自動關帳開啟時，20:15～20:30（Asia/Taipei）不呼叫 DoAction；自動關帳後的取消在授權隔日 06:00 之後 [2885]。
+- 每日自動關帳開啟時，20:15:00～20:30:59（Asia/Taipei）不呼叫 DoAction，20:31 再試；自動關帳後的取消在授權隔日 06:00 之後 [2885]。
 - 綠界帳戶餘額不足時退刷失敗 [2885]：結果記 `failed`，原因顯示「綠界帳戶餘額不足，請先儲值」，不自動重試。
 - 多步驟（`C`+`R`、`E`+`N`）每一步都是一個 operation，前一步確認後才做下一步。
 
@@ -290,6 +290,7 @@ interface PaymentPort {
 
 - 綠界協定純函式（CheckMacValue SHA-256／MD5、.NET URL 編碼、AES-128-CBC 信封、表單與回應解析）：提議 `modules/agent-commerce/providers/ecpay/`，新 descriptor（module `commerce-providers`，無資料庫相依）。付款、物流、發票共用。
 - 付款領域、routes 與 outbox：提議 `modules/agent-commerce/payments/`，新 descriptor（module `commerce-payments`，相依 `hosted-checkout`、`commerce-providers`）。
+- 退款分攤的純函式（行項上限、運費建議、分攤檢查，EC-SPEC-06 §2.5）：`modules/agent-commerce/payments/rules/`，M2 的領域與 trigger 之前先建；`commerce-payments` 的 descriptor 隨它登錄，相依在 M2 的 migration 加入。
 - M2（付款）在 M1 之後：§3.1 的表、RLS、trigger、索引；能力 `commerce.hosted-payment.v1` 與強制下限跟 callback 路由同一個 migration 上線——之後回退到不認得 callback 的 binary 會漏接付款，所以不能回退（EC-SPEC-10 §7）。
 - Worker 需要的設定：`COMMERCE_CREDENTIAL_KEYS` secret、callback 路徑的 Access 排除（staging）、查詢與退款 operation 的排程（cron）。都是部署設定，由 Ted 操作（EC-SPEC-10 §4.3、§4.4）。
 
