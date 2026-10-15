@@ -3,11 +3,11 @@ import {parseJsonc} from './wrangler.mjs';
 const flags=new Set(['FREEDOM_COMMERCE_CHECKOUT_ENABLED','FREEDOM_COMMERCE_QUARANTINE']);
 /** Local declarations only. Fixed error names never copy config values or keys. */
 export function checkCommerceWranglerConfig(path) {
-  const errors=[];
-  const report=()=>({schema:'freedom.commerce-worker-config/v1',structural:errors.length===0,errors,deployment_ready:false,provider_mutations:0});
-  let config;
+  const errors=[],blockers=[];
+  const report=()=>({schema:'freedom.commerce-worker-config/v1',structural:errors.length===0,errors,blockers,deployment_ready:false,provider_mutations:0});
+  let config,stat;
+  try {stat=lstatSync(path);}catch{blockers.push('config_unavailable');return report();}
   try {
-    const stat=lstatSync(path);
     if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size>262144)throw Error();
     config=parseJsonc(readFileSync(path,'utf8'));
     if(!config||typeof config!=='object'||Array.isArray(config))throw Error();
