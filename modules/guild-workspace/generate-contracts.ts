@@ -178,6 +178,11 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
   ['hosted-commerce-setup', 'Commerce release and account setup. No payment execution authority.', [
     ['empty-input', commerceSetup.CommerceSetupEmptyInputSchema, 'input', []],
     ['store-release', commerceSetup.StoreReleaseSchema, 'output', ['current_instance_release_and_authority']],
+    ['provider-account-create-input', commerceSetup.ProviderAccountCreateInputSchema, 'input', ['fresh_auth_required','host_provider_environment']],
+    ['provider-service-put-input', commerceSetup.ProviderServicePutInputSchema, 'input', ['purpose_profile_pair','credential_fields_never_persisted']],
+    ['provider-service-state-input', commerceSetup.ProviderServiceStateInputSchema, 'input', ['fresh_auth_required']],
+    ['provider-account', commerceSetup.ProviderAccountViewSchema, 'output', []],
+    ['provider-account-page', commerceSetup.ProviderAccountPageSchema, 'output', []],
   ]],
   ['storefront', 'Hosted store inputs, private views and allowlisted public projection. Ordering is not enabled.', [
     ['store-setup-input', storefront.StoreSetupInputSchema, 'input', ['text_trim_and_control_characters', 'slug_lowercase_reserved_unique']],

@@ -58,6 +58,8 @@ test('grants require the base read key and honor release and viewer constraints'
 });
 test('owner upgrade is atomic, versioned and replayable; preserves grants and records authority facts',async()=>{
   const s=await store(),call=(method:string,tail:string,body?:unknown,headers:Record<string,string>={})=>h.call(method,s.root+tail,s.owner,body,headers);
+  assert.equal((await h.post(s.root+'/setup',s.owner,{name:'合成商店',slug:'synthetic-upgrade',currency:'TWD'})).status,201);
+  assert.equal((await h.call('PATCH',s.root,s.owner,{name:'合成商店更新'},{'Idempotency-Key':crypto.randomUUID(),'If-Match':'"1"'})).status,200);
   const before=(await h.pool.query('SELECT authorization_revision::text FROM tenants WHERE tenant_id=$1',[s.tenantId])).rows[0].authorization_revision;
   const initial=await call('GET','/release');assert.equal(initial.status,200);assert.equal(initial.data.can_upgrade,true);
   const key=crypto.randomUUID(),headers={'Idempotency-Key':key,'If-Match':`"${s.instance.version}"`};

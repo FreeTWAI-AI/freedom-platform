@@ -39,7 +39,8 @@ export async function upgradeStoreRelease(pool:Pool,actor:Actor,tenantId:string,
     const updated=(await q.query(`UPDATE module_instances SET module_release_ref=$3,application_release_ref=$4,version=version+1
       WHERE tenant_id=$1 AND instance_id=$2 RETURNING version::text`,[tenantId,instanceId,current.upgrade.module_release_ref,current.upgrade.application_release_ref])).rows[0];
     await bumpAuthorizationRevision(q,tenantId);
-    await storeFact(q,ctx,instanceId,updated.version,'commerce.storefront.upgrade');
+    // Instance and profile versions are independent journal aggregates.
+    await storeFact(q,ctx,instanceId,updated.version,'commerce.storefront.upgrade','storefront_release');
     await recordControlEvent(q,{tenantId,instanceId,kind:'storefront.upgraded',subjectId:instanceId,
       detail:{module_release_ref:current.upgrade.module_release_ref},actorKind:'person',actorId:ctx.principal_id});
     return releaseView(q,ctx,instanceId);
