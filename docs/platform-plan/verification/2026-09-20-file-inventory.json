@@ -369,8 +369,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 62074,
-      "sha256": "09641cb1459d9968f11915311fba59cde7e24605a860ac401f59585168406af1"
+      "bytes": 62730,
+      "sha256": "afb7fcd61d2f92b5103aff42fd7dea64cbd1110324b5831449ae76a9b4829a14"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -14009,8 +14009,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 78184,
-      "sha256": "9df95436aee4ca494c193286ed7a5a74b4aa89b4e16c21265cedddd322a71717"
+      "bytes": 79217,
+      "sha256": "ae4d963cc5ba65135c79818842408906d71deb9ef0f6508165a1b15c29840674"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -21784,8 +21784,8 @@
     },
     {
       "path": "tests/runtime/commerce.test.ts",
-      "bytes": 19002,
-      "sha256": "09236b20f53ff14692ca84c3dd30f387efdbb12c74e579c174c27e6f88702543"
+      "bytes": 23272,
+      "sha256": "8836e3c90322f30a0c8ded0c4cc2c7eca10de1c2a298c881059ec53d0bfc7cb9"
     },
     {
       "path": "tests/runtime/community-ar-format.test.ts",
@@ -22169,8 +22169,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad.test.ts",
-      "bytes": 58000,
-      "sha256": "e0dea69b610dda5ab01e268470d12ed9cd1534fa4a0dd3910cb6943d24b795e2"
+      "bytes": 58142,
+      "sha256": "1728684b8d092616abf46018ed028ad1099ce9dce1f55d877cf63cacc4c894f9"
     },
     {
       "path": "tests/runtime/guild-member-tiers.test.ts",
@@ -22884,8 +22884,8 @@
     },
     {
       "path": "tests/runtime/platform-json-body.test.ts",
-      "bytes": 8724,
-      "sha256": "17c18e3bfc9dcc84956d399858632b4373f5a1dcaa0a9eaba68708c896ba0117"
+      "bytes": 12119,
+      "sha256": "409af7f113305a3be8c6a30522e9abe451eb9cabd6e0abd929961d4139ee7541"
     },
     {
       "path": "tests/runtime/portal-build-benchmark.test.ts",
