@@ -15219,13 +15219,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 69815,
-      "sha256": "f5572195b5d78e45a293fca38b93909d348225f0d45ca6307bef30e3d90b3e87"
+      "bytes": 75808,
+      "sha256": "9152b1433da3b72d464b4d8809ea0878462feec2f2d81e853e6f59a00df1e303"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
-      "bytes": 49989,
-      "sha256": "9b4bc655a360eec53ab767ffc9adebe2a18aff9cdaf5939cb20a4f213f4c5501"
+      "bytes": 50225,
+      "sha256": "790f04a1439bd87c6ea611940434f85bae09beadef50eaab9b0e59d8b3d29041"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-07-operations-skillbooks.md",
@@ -15259,8 +15259,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
-      "bytes": 13490,
-      "sha256": "b98312ed48eb62ded884715aaefd9c12a93e90518860089e393963cb6206a462"
+      "bytes": 13934,
+      "sha256": "b66188f873331ab00e53420e22c595bd919271bc9fbccb106e4892591bb82574"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv",
+      "bytes": 18726,
+      "sha256": "e0c1fd2767a887dc02d4b84dc09da5f05a588b688459b18cecbe4997f08e3e55"
     },
     {
       "path": "docs/platform-plan/execution/commerce/pages.md",
@@ -15269,8 +15274,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
-      "bytes": 17795,
-      "sha256": "df829f1e924b008c385d06453f45d6def84d89b8c9b67a77cea7718aa7a27e0a"
+      "bytes": 18827,
+      "sha256": "e38433b678e98455909ec8193697708a26b8866723725da57b365a98467c4a1e"
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",

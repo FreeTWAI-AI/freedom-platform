@@ -93,6 +93,7 @@
 | `uncollected` | 店家開啟 `return`（原因 `uncollected`），連到已自動建立的 ReturnInspection（§2.4）；退款依 `shipping` 政策 |
 | `lost` | 店家開啟 `refund_only`（`lost`） |
 | `damaged`、`partial_missing` | 買家申請 `return` 或 `refund_only`，或店家代為開啟 |
+| `carrier_attention`（EC-SPEC-05 §7.2），包裹退回或寄不出去 | 退回時店家開啟 `return`（原因 `other`），連到已自動建立的 ReturnInspection；寄不出去且店家決定不重新寄出時開啟 `cancel` |
 | `fulfiller_unable`、`fulfiller_unresponsive`，店家決定取消 | 店家開啟 `cancel` |
 | `paid_unallocatable`，店家決定不補貨 | 店家開啟 `cancel` |
 

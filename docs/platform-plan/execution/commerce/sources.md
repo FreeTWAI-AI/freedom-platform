@@ -168,3 +168,9 @@ WP-00 由整合負責人（Claude Opus 5.5）拆成五個唯讀工作，各在 `
 - 中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用），下載頁 `https://www.post.gov.tw/post/internet/Download/index.jsp?ID=220306`。2026-10-15 由整合負責人取得（xls，SHA-256 `0b0a6672d53c174ed5db432cb9c24872edecf204fe7c060bc541dfd495486ff0`）並逐列解析：368 個前 3 碼。2020 年改用 3+3 碼時，前 3 碼沒有變。
 - 離島（EC-SPEC-05 §3.5）：連江 209 南竿、210 北竿、211 莒光、212 東引；澎湖 880～885；金門 890～894 與 896 烏坵；屏東 929 琉球；臺東 951 綠島、952 蘭嶼；南海諸島 817 東沙、819 南沙；宜蘭 290 釣魚臺列嶼。
 - 表格寫進 `modules/agent-commerce/fulfilment/rules/postal.ts`（fulfil-rules 工作）；中華郵政公布新表時要重新核對。xls 留在本機，不進 repo。
+
+## 8. 物流貨態代碼表
+
+- 綠界「物流貨態代碼表」：`https://developers.ecpay.com.tw/logistics_status/` 轉址到 xlsx 檔。2026-10-15 由整合負責人下載（`Last-Modified` 2026-06-04，SHA-256 `16bddad1c85b91ba5decd148d60dc0143b62a1d7ff693b568e9148cfdf45bef3`）並逐列解析：統一超商、全家、萊爾富、黑貓、中華郵政五頁，依子類型展開共 523 列，另有「異動歷程」頁。最近的異動：2026-06-04 因 OK 超商店到店 2026-07-01 停止服務，移除 `OKMARTC2C` 的代碼；2026-05-13 更新 `2053`、`2066`、`2062`、`2097` 的說明。
+- C2 用到的五種子類型共 278 列，對照寫在 [ecpay-logistics-status-map.tsv](ecpay-logistics-status-map.tsv)（EC-SPEC-05 §6.3）。綠界訊息照原文；判讀依訊息文字，取捨見 decisions.md。
+- 這份表可公開下載；EC-SPEC-05 先前引用的是廠商後台的「物流貨態代碼查詢」[7440]。兩者或實際通知不一致時，記入本節再改 TSV。xlsx 留在本機，不進 repo。
