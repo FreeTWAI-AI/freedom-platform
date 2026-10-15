@@ -8,6 +8,7 @@ import {tokenHash,type Actor} from '../../modules/identity-membership/service.js
 import {GitHubSocial} from '../../modules/github-social/service.js';
 import {DevelopmentAccess,DEVELOPMENT_POLICY} from '../../modules/development-access/service.js';
 import {changeGuildMembership} from '../../modules/positioning/service.js';
+import {Problem} from '../../packages/shared/problem.js';
 
 // Deterministic interleaving: a holder transaction owns github-social/<user>,
 // the same-member OAuth reconnect queues behind it, then a grant-backed write
@@ -206,4 +207,101 @@ test('key issuance waiting on the GitHub lock cannot mint after the browser sess
     await assert.rejects(issue,(error:any)=>error.code==='session_expired');
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM development_keys WHERE revoked_at IS NULL AND expires_at>clock_timestamp()")).rows[0].n,0);
   }finally{await holder.query('ROLLBACK').catch(()=>{});holder.release();await issue?.catch(()=>{});}
+});
+
+type CommandOutcome={ok:true;value:unknown}|{ok:false;error:unknown};
+for(const operation of ['agent-key','agent-grant','browser-proposal','issue-key'] as const)for(const phase of ['provider','receipt'] as const){
+ test(`${operation} rejects authority expiry after ${phase} and rolls back only the new command`,async()=>{
+  await enable();
+  const credential=await setup().issueKey(command({},'late-authority-credential'),'skill',target);
+  const keyExpires=operation==='agent-key',table=keyExpires?'development_keys':'development_grants';
+  const idColumn=keyExpires?'key_id':'grant_id',id=keyExpires?credential.key_id:credential.source_grant_id;
+  const code=keyExpires?'development_key_revoked':'development_grant_required';
+  const facts=async()=>(await pool.query(`SELECT
+   (SELECT count(*)::int FROM development_proposals) AS proposals,
+   (SELECT count(*)::int FROM development_keys) AS keys,
+   (SELECT count(*)::int FROM command_receipts) AS receipts,
+   (SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+  const before=await facts();
+  const run=async(expired:boolean)=>{
+   const key=randomUUID(),lock=`${schema}/${key}`,holder=await admin.connect();
+   let enter!:()=>void,release!:()=>void;
+   const entered=new Promise<void>(resolve=>{enter=resolve;}),held=new Promise<void>(resolve=>{release=resolve;});
+   let armed=true,pending:Promise<CommandOutcome>|undefined;
+   const social=new GitHubSocial(waiterPool,config,async(input,init)=>{
+    if(phase==='provider'&&armed&&String(input).includes('/repositories?')){armed=false;enter();await held;}
+    return fetcher(input,init);
+   });
+   const service=new DevelopmentAccess(waiterPool,social);
+   try{
+    if(phase==='receipt'){
+     await pool.query(`CREATE OR REPLACE FUNCTION pause_late_authority_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.idempotency_key='${key}' THEN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); END IF; RETURN NEW; END $$`);
+     await pool.query('CREATE TRIGGER late_authority_receipt BEFORE INSERT ON command_receipts FOR EACH ROW EXECUTE FUNCTION pause_late_authority_receipt()');
+     await holder.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[lock]);
+    }
+    await pool.query(`UPDATE ${table} SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE ${idColumn}=$1`,[id,expired?3:300]);
+    pending=settle(operation.startsWith('agent')?service.agent('Bearer '+credential.token,proposal,key)
+     :operation==='browser-proposal'?service.saveProposal(command(proposal,'late-browser-proposal',key),'skill',target)
+     :service.issueKey(command({},'late-issued-key',key),'skill',target));
+    if(phase==='provider')await Promise.race([entered,pending.then(result=>{if(!result.ok)throw result.error;throw Error('command settled before provider barrier');})]);
+    else{
+     const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+     await until('new command receipt wait',async()=>(await admin.query('SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND $2=ANY(pg_blocking_pids(pid))',[`${schema}/waiter`,pid])).rowCount?true:undefined);
+    }
+    assert.equal((await pool.query(`SELECT expires_at>clock_timestamp() AS active FROM ${table} WHERE ${idColumn}=$1`,[id])).rows[0].active,true);
+    if(expired)await pool.query(`SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM ${table} WHERE ${idColumn}=$1`,[id]);
+    release();await holder.query('SELECT pg_advisory_unlock_all()');
+    const result=await pending;
+    if(expired){
+     assert.equal(result.ok,false);
+     assert.ok(result.error instanceof Problem);
+     assert.equal(result.error.status,403);assert.equal(result.error.code,code);
+    }else{
+     assert.equal(result.ok,true);
+     const value=result.value;assert.ok(value&&typeof value==='object');
+     if(operation==='issue-key'){assert.ok('source_grant_id' in value);assert.equal(value.source_grant_id,credential.source_grant_id);}
+     else{assert.ok('title' in value);assert.equal(value.title,proposal.title);}
+    }
+   }finally{
+    release();await holder.query('SELECT pg_advisory_unlock_all()');holder.release();if(pending)await pending;
+    if(phase==='receipt'){await pool.query('DROP TRIGGER IF EXISTS late_authority_receipt ON command_receipts');await pool.query('DROP FUNCTION IF EXISTS pause_late_authority_receipt()');}
+   }
+  };
+  await run(true);assert.deepEqual(await facts(),before);
+  await run(false);
+  assert.deepEqual(await facts(),{proposals:before.proposals+(operation==='issue-key'?0:1),keys:before.keys+(operation==='issue-key'?1:0),receipts:before.receipts+1,journal:before.journal+(operation==='issue-key'?0:1)});
+ });
+}
+
+for(const authority of ['key','grant'] as const)test(`an existing Agent receipt cannot bypass ${authority} expiry during provider verification`,async()=>{
+ await enable();
+ const credential=await setup().issueKey(command({},'replay-authority-key'),'skill',target),key=randomUUID();
+ const original=await setup().agent('Bearer '+credential.token,proposal,key);
+ const before=(await pool.query(`SELECT (SELECT count(*)::int FROM development_proposals) AS proposals,
+  (SELECT count(*)::int FROM command_receipts) AS receipts,(SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+ const table=authority==='key'?'development_keys':'development_grants',idColumn=authority==='key'?'key_id':'grant_id';
+ const id=authority==='key'?credential.key_id:credential.source_grant_id;
+ let enter!:()=>void,release!:()=>void;
+ const entered=new Promise<void>(resolve=>{enter=resolve;}),held=new Promise<void>(resolve=>{release=resolve;});
+ let armed=true;
+ const social=new GitHubSocial(waiterPool,config,async(input,init)=>{
+  if(armed&&String(input).includes('/repositories?')){armed=false;enter();await held;}
+  return fetcher(input,init);
+ });
+ const service=new DevelopmentAccess(waiterPool,social);
+ await pool.query(`UPDATE ${table} SET expires_at=clock_timestamp()+interval '3 seconds' WHERE ${idColumn}=$1`,[id]);
+ const pending=settle(service.agent('Bearer '+credential.token,proposal,key));
+ try{
+  await Promise.race([entered,pending.then(result=>{if(!result.ok)throw result.error;throw Error('replay settled before provider barrier');})]);
+  assert.equal((await pool.query(`SELECT expires_at>clock_timestamp() AS active FROM ${table} WHERE ${idColumn}=$1`,[id])).rows[0].active,true);
+  await pool.query(`SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM ${table} WHERE ${idColumn}=$1`,[id]);
+  release();const result=await pending;
+  assert.equal(result.ok,false);assert.ok(result.error instanceof Problem);
+  assert.equal(result.error.code,authority==='key'?'development_key_revoked':'development_grant_required');
+  assert.deepEqual((await pool.query(`SELECT (SELECT count(*)::int FROM development_proposals) AS proposals,
+   (SELECT count(*)::int FROM command_receipts) AS receipts,(SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0],before);
+  await pool.query(`UPDATE ${table} SET expires_at=clock_timestamp()+interval '5 minutes' WHERE ${idColumn}=$1`,[id]);
+  assert.deepEqual(await setup().agent('Bearer '+credential.token,proposal,key),JSON.parse(JSON.stringify(original)));
+ }finally{release();await pending;}
 });
