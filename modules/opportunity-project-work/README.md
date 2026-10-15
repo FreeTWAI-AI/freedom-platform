@@ -64,26 +64,32 @@ archive 是保留型終態，不是資料刪除：title/objective 仍留 SQL，�
 
 另有中央 `OpaqueId` 驗證反例，命令 suite 合計 23 項；實跑結果由[交付紀錄](../../docs/platform-plan/execution/unified-foundation/implementation-status.md)記載，這些測試不是 production/staging 證據。[人工 Result 內部服務](../autopilot-work/README.md) 已透過[共用 Asset 引擎](../assets/engine.md)實作，084 schema／讀取／競態有獨立測試；不是模型產稿，也沒有私人 Result HTTP/UI。模型/Grant、發布確認、正式資料回填、正式 policy source、rollback floor、備份及完整 retention 仍未完成。無 feature activation wiring 的結構性封閉維持不變，不能因 read ACL 和內部命令已存在就註冊私人 HTTP 寫入。
 
-## 本人貢獻紀錄的 session lifetime（#632）
+## 本人貢獻紀錄的 session lifetime 與分頁（#632、#667）
 
-`GET /api/v1/me/contribution-records` 的完整 accepted-work SELECT 與
-`accepted_work_facts_v1`／count／entries 投影，重用
-[readWithMemberSession](../../packages/db/member-session.ts)，只使用同一 native
-client。最後 domain SQL 後以 DB `clock_timestamp()` 驗目前 session；
-等 Contribution／Claim／Decision relation 跨過期限時回 `401 session_expired`，
-不回本人 Contribution／Claim／Decision／acting profession membership 引用，
-沒有裸 Pool read、舊路徑或第二個授權 facade。
+`GET /api/v1/me/contribution-records?limit=20&offset=0` 驗證整數 query，
+`limit` 預設 20、最高 50，`offset` 不得為負數。回應保留
+`accepted_work_facts_v1`、完整 `accepted_count` 與原 entry 欄位，並以
+`next_offset` 明示下一頁；空白尾頁仍回傳精確總數。accepted-work
+statement 先固定本人的 community collaboration facts，再以
+`accepted_at DESC, contribution_id DESC` 穩定排序，應用層不再載入完整歷史。
 
-有效登入保留本人 accepted facts、排序與原 DTO，另一位有成果會員的引用不回；
-session 到期不刪除或改寫已成立的驗收事實。Community accepted-work 的共享摘要
-不是本人引用 reader 的替代品；discovery preview／shared feed policy、
-Work 模式 filter、command／replay、scoring 與收入規則沒有改動。
-紀錄不是 XP、報酬、銀行實收或付款證明。
+Reader 重用 [readWithMemberSession](../../packages/db/member-session.ts)，只使用
+同一 native client。最後 domain SQL 後以 DB `clock_timestamp()` 驗目前
+session；等 Contribution／Claim／Decision relation 跨過期限時回
+`401 session_expired`，不回 partial page 或本人 Contribution／Claim／
+Decision／acting profession membership 引用，沒有裸 Pool read、舊路徑或
+第二個授權 facade。
 
-[flows consumer 回歸](../../tests/runtime/flows.test.ts) 以原生 Claim relation
-等待與 DB 期限覆蓋到期／有效控制、兩位有成果會員的本人隔離及事實保留。
-本機真實 HTTP／PostgreSQL 對照與選用 suite 的實跑結果列於 Issue／PR；
-不等於 trusted CI、完整 requirement 驗收、merge 或部署。
+有效登入保留本人 accepted facts，另一位有成果會員的引用不回；session 到期
+不刪除或改寫已成立的驗收事實。Community accepted-work 的共享摘要不是本人引用
+reader 的替代品；discovery preview／shared feed policy、Work 模式 filter、
+command／replay、scoring 與收入規則沒有改動。紀錄不是 XP、報酬、銀行實收或
+付款證明。
+
+[flows consumer 回歸](../../tests/runtime/flows.test.ts) 覆蓋跨頁穩定排序、
+非法 query、空白尾頁、兩位會員隔離，以及原生 Claim relation 等待與 DB
+期限的到期／有效控制。本機真實 HTTP／PostgreSQL 對照與選用 suite 的實跑結果
+列於 Issue／PR；不等於 trusted CI、完整 requirement 驗收、merge 或部署。
 
 ## Task-board 探索窗口的決策時鐘（#637）
 
