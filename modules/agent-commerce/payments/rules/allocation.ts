@@ -441,7 +441,11 @@ export function checkRefundAllocation(input: RefundAllocationInput): RefundAlloc
     if (!isPlainObject(item)) {
       throw new RefundRuleError();
     }
-    if (item.line_ref !== req.line_ref || item.quantity !== req.quantity) {
+    if (
+      item.line_ref !== req.line_ref ||
+      !isSafeIntegerNonNegativeZero(item.quantity) ||
+      item.quantity !== req.quantity
+    ) {
       throw new RefundRuleError();
     }
     if (!isSafeIntegerNonNegativeZero(item.amount_minor) || item.amount_minor < 0) {
@@ -549,11 +553,13 @@ export function checkRefundAllocation(input: RefundAllocationInput): RefundAlloc
   const effectiveReason = trimmed === null || trimmed === '' ? null : trimmed;
 
   const lines: RefundLine[] = [];
-  for (const item of input.allocation.items) {
+  for (let i = 0; i < input.allocation.items.length; i++) {
+    const item = input.allocation.items[i];
+    const req = input.request.lines[i];
     lines.push({
       kind: 'item',
       line_ref: item.line_ref,
-      quantity: item.quantity,
+      quantity: req.quantity,
       amount_minor: item.amount_minor,
     });
   }
