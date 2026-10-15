@@ -28,10 +28,10 @@ function ImportResult({kind,client,onImported}:{kind:Shop['kind'];client:ModuleP
    let input:{content:string}|{url:string};
    if(body instanceof File){
     const bytes=await body.arrayBuffer();
+    if(!current()||revision!==request.current)return;
     try{input={content:new TextDecoder('utf-8',{fatal:true}).decode(bytes)};}
     catch{throw Error('成果檔必須使用有效的 UTF-8 編碼，請重新匯出 JSON 或 MD。');}
    }else input=body;
-   if(!current()||revision!==request.current)return;
    const result=await client.post<Preview>('/commerce/preview',input,{idempotencyKey:crypto.randomUUID()});if(!current()||revision!==request.current)return;if(result.manifest.kind!==kind)throw Error(`這是${result.manifest.kind==='internal'?'內部':'公開'}商店成果，請到另一個開店入口匯入。`);setPreview(result);
   }
   catch(e){if(current()&&revision===request.current)setReadError(e instanceof Error?e.message:'無法讀取成果。');}finally{if(current()&&revision===request.current)setReading(false);}
