@@ -732,6 +732,13 @@ This consumed offer is finalized even if optional participation was switched off
 after it was issued, as on the original member RSVP path. The disabled mode
 still creates no new management capability and does not reconcile the queue;
 successful registration cannot later turn its consumed offer into an expiry.
+Between admission and confirmation, reconciliation does not expire an invitation
+while that same event/Email has a live ten-minute pending registration hold.
+The durable hold also protects an explicit retry after provider rejection;
+confirmation can still finalize the offer instead of recording Going/expired.
+An expired hold grants no extension and allows the next candidate to advance.
+This does not extend the private invitation-acceptance deadline: a late
+`accept` still returns `409 invitation_unavailable`, even with a live hold.
 
 A new acceptance checks PostgreSQL's current clock after reconciliation and
 eligibility reads, then again after the RSVP, queue/journal and success receipt

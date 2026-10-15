@@ -387,6 +387,48 @@ for(const participationEnabled of [false,true])for(const previous of ['missing',
   assert.equal((await readGuestEventParticipation(pool,eventId,token)).waitlist?.status,'accepted');
 });
 
+for(const participationEnabled of [false,true])for(const firstProviderAccepted of [false,true])test(`a live guest hold protects its credited offer across admission and confirmation (participation=${participationEnabled}, firstProviderAccepted=${firstProviderAccepted})`,async()=>{
+  const email='gap-public@local.test',token=await capability(email),next=await capability('gap-next@local.test');
+  await action(token,'join');await action(next,'join');
+  const invitation=(await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id;
+  let connects=0,sends=0,gapStatus:string|undefined;
+  const gapPool={async connect(){
+    if(++connects===2){
+      await pool.query("UPDATE community_event_waitlist SET invited_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1 AND guest_email=$2",[eventId,email]);
+      await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+      gapStatus=(await pool.query('SELECT status FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].status;
+      assert.equal((await pool.query('SELECT state FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].state,'pending');
+    }
+    return pool.connect();
+  }} as unknown as Pool;
+  const run=()=>registerPublicEvent(gapPool,eventId,{name:'合成交易間隔訪客',email},async()=>{
+    sends++;if(sends===1&&!firstProviderAccepted)throw Error('synthetic provider rejection');
+  },'https://example.test',participationEnabled);
+  if(!firstProviderAccepted){
+    await assert.rejects(run,error=>error instanceof Problem&&error.status===503&&error.code==='event_email_delivery_failed');
+    assert.equal((await pool.query('SELECT state FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].state,'pending');
+  }
+  assert.deepEqual(await run(),{registered:true,provider_status:'provider_accepted'});
+  const current=await readGuestEventParticipation(pool,eventId,token);
+  assert.equal(current.rsvp_state,'going');assert.equal(current.waitlist?.status,'accepted');
+  assert.equal(gapStatus,'invited');assert.equal(sends,firstProviderAccepted?1:2);
+  assert.equal((await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id,invitation);
+  assert.equal((await readGuestEventParticipation(pool,eventId,next)).waitlist?.status,'queued');
+  assert.equal(await countEventSeats(pool,eventId),1);
+});
+
+test('an expired guest hold cannot extend an expired offer or block the next candidate',async()=>{
+  const email='old-hold-offer@local.test',first=await capability(email),next=await capability('old-hold-next@local.test');
+  await action(first,'join');await action(next,'join');
+  await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state,created_at) VALUES($1,$2,'合成過期保留','pending',clock_timestamp()-interval '11 minutes')",[eventId,email]);
+  await pool.query("UPDATE community_event_waitlist SET invited_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1 AND guest_email=$2",[eventId,email]);
+  await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  assert.equal((await readGuestEventParticipation(pool,eventId,first)).waitlist?.status,'expired');
+  assert.equal((await pool.query('SELECT state FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].state,'cancelled');
+  assert.equal((await readGuestEventParticipation(pool,eventId,next)).waitlist?.status,'invited');
+  assert.equal(await countEventSeats(pool,eventId),1);
+});
+
 test('public guest registration cannot consume another guest invitation or an expired offer reassigned to the next guest',async()=>{
   const email='expired-public@local.test',first=await capability(email),second=await capability('next-public@local.test');
   await action(first,'join');await action(second,'join');
