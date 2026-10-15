@@ -138,3 +138,15 @@ test('entry routes regenerate CDN-blocked references, stop after sixteen attempt
   entropyCalls=0;await assert.rejects(createProviderAccountRoute(q,{tenantId:randomUUID(),instanceId:randomUUID(),accountId:randomUUID()},()=>{entropyCalls++;return bad;}),{message:'Provider account route generation failed.'});assert.equal(entropyCalls,16);
   calls=0;assert.equal(await resolveProviderAccountRoute(q,'invalid'),null);assert.equal(calls,0);assert.equal(await resolveProviderAccountRoute(q,'0'.repeat(26)),null);assert.equal(calls,1);
 });
+test('Worker configuration parses optional host keys and derives provider environment without disclosing malformed values',async()=>{
+  const {readWorkerConfig,workerRuntime}=await import('../../apps/platform-api/src/worker.js');
+  const {ReadinessError}=await import('../../apps/platform-api/src/readiness.js');
+  const raw=entry('host'),base={FREEDOM_ENV:'local',APP_ORIGIN:'http://127.0.0.1:4310',HYPERDRIVE:{connectionString:process.env.TEST_DATABASE_URL!},ASSETS:{fetch:async()=>new Response('fixture')}};
+  assert.equal(readWorkerConfig(base).commerceCredentialKeyring,null);
+  const config=readWorkerConfig({...base,COMMERCE_CREDENTIAL_KEYS:raw});assert.equal(config.commerceCredentialKeyring!.activeKeyId,'host');
+  assert.equal(workerRuntime({...base,COMMERCE_CREDENTIAL_KEYS:raw},config).commerceCredentialKeyring,config.commerceCredentialKeyring);
+  for(const [environment,expected] of [['local','sandbox'],['staging','sandbox'],['public','live']] as const){
+    assert.equal(readWorkerConfig({...base,FREEDOM_ENV:environment,APP_ORIGIN:environment==='local'?base.APP_ORIGIN:'https://fixture.example.test',FREEDOM_RELEASE_SHA:'a'.repeat(40)}).commerceProviderEnvironment,expected);
+  }
+  for(const malformed of [raw+',',raw+' ',entry('Invalid')])assert.throws(()=>readWorkerConfig({...base,COMMERCE_CREDENTIAL_KEYS:malformed}),(e:unknown)=>e instanceof ReadinessError&&e.message==='Commerce credential keyring configuration is invalid.'&&!e.message.includes(malformed));
+});

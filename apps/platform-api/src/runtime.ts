@@ -31,6 +31,7 @@ export const SHARED_NETWORK_KEY = 'shared-server';
 export type PlatformRuntime = {
   commerceSettings?:CommerceSettings;
   commerceCredentialKeyring?:CommerceCredentialKeyring|null;
+  commerceProviderEnvironment?:'sandbox'|'live';
   commercePorts?:CheckoutPorts & {email?:CommerceEmailPort};
   /** Explicit upgrade policy. Absence closes shop-key operations; never allows legacy. */
   shopKeyPolicy?: 'legacy-compatible'|'purpose-bound-only';

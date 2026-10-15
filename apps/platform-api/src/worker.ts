@@ -1,3 +1,4 @@
+import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
 import {sweepDueCheckoutHolds} from '../../../modules/agent-commerce/checkout/settlement.js';
@@ -54,6 +55,7 @@ import { workerPreviewFetch } from './worker-preview-fetch.js';
  * options; process.env is never read or written here.
  */
 export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
+  COMMERCE_CREDENTIAL_KEYS?:string;
   FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
   /** Explicit cover composition; native MEDIA alone grants no persistence. */
@@ -122,12 +124,15 @@ export type OfficialBindingsFit = Satisfies<Hyperdrive extends WorkerEnv['HYPERD
 // workers-types declares its own ReadableStream, which never unifies with the Node lib
 // stream in this compilation, so only the Images method names are checked here.
 export type OfficialImagesFit = Satisfies<keyof ImagesBinding extends keyof OfficialImagesBinding ? true : false>;
-export type WorkerConfig = { freedomEnv: FreedomEnv; origin: string; release: string | null; trustConnectingIp: boolean;commerceSettings?:CommerceSettings };
+export type WorkerConfig = { freedomEnv: FreedomEnv; origin: string; release: string | null; trustConnectingIp: boolean;commerceSettings?:CommerceSettings;commerceCredentialKeyring?:CommerceCredentialKeyring|null;commerceProviderEnvironment?:'sandbox'|'live' };
 
 const RELEASE = /^[0-9a-f]{40}$/;
 /** Validates bindings without I/O. Errors never echo binding values. */
 export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   const commerceSettings=readCommerceSettings(env);
+  let commerceCredentialKeyring:CommerceCredentialKeyring|null;
+  try{commerceCredentialKeyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);}
+  catch{throw new ReadinessError('Commerce credential keyring configuration is invalid.');}
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
   try { freedomEnv = resolveFreedomEnv(env.FREEDOM_ENV); } catch { throw new ReadinessError('FREEDOM_ENV binding is invalid.'); }
@@ -168,7 +173,7 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PUBLIC_GUIDE_ENABLED))throw new ReadinessError('Guide release flag must be true or false.');
   if(env.GUIDE_STATIC&&env.GUIDE_STATIC===env.MEDIA)throw new ReadinessError('Guide assets require a separate purpose binding.');
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED==='true'&&typeof env.GUIDE_STATIC?.get!=='function')throw new ReadinessError('GUIDE_STATIC is required for public guide assets.');
-  return { freedomEnv, origin, release, trustConnectingIp,commerceSettings };
+  return { freedomEnv, origin, release, trustConnectingIp,commerceSettings,commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv) };
 }
 
 /**
@@ -262,6 +267,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     commerceSettings:config.commerceSettings??readCommerceSettings(env),
+    commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
     commercePorts:{admission:createStoreAdmissionPort(providerEnvironment(config.freedomEnv))},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),

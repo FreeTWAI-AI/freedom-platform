@@ -108,3 +108,20 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 | `next` | `freedom-maintainer-next` | 與 `freedom-platform-next` 同一份、caching disabled 的 Hyperdrive |
 
 每個環境在私有 overlay 要替換的名稱：`HYPERDRIVE`、`GITHUB_MAINTAINER_APP_ID`（數字，不能是 0）、`GITHUB_MAINTAINER_ORG`。`GITHUB_MAINTAINER_WRITES` 在 `staging-next` 與 `next` 已提交為 `requested_reviewers`，top-level 是 `off`；要停止寫入 GitHub 時改成 `off`。其他值在 tick 摘要裡記成 `writes=invalid`，不會寫 GitHub。Secret 是 `GITHUB_MAINTAINER_PRIVATE_KEY`（PKCS#8），用 `wrangler secret put` 上傳，不要寫進 `--var`。平台 Worker 另有選填的 `GITHUB_MAINTAINER_WEBHOOK_SECRET`。排程是 `* * * * *`。失敗訊息固定，日誌只有計數。刪除的是 `freedom-maintainer-*`，不是平台 Worker。
+
+Platform commerce setup optionally uses the secret `COMMERCE_CREDENTIAL_KEYS`.
+Its format is 1–8 comma-separated `key_id:base64` entries, without whitespace;
+ids match `^[a-z0-9][a-z0-9_-]{0,31}$` and each canonical base64 value encodes
+exactly 32 random bytes. Never place values in committed config, logs or `--var`.
+The first key seals new credentials; every installed key can unseal retained rows.
+Missing/empty means credential writes are unavailable; malformed configuration
+fails Worker readiness and Node startup with a fixed, value-free error.
+
+Rotate by prepending the new key, running `resealProviderCredentials` in authorized
+transactions, confirming no retained row uses the old id, then removing the old
+online key. Keep retired keys offline for the full backup retention period
+(EC-SPEC-10 §4.3). Keyring rotation changes credential-write fingerprints, so a
+replay made across rotation receives 409 and must use a new command key after
+reading the current account version. Provider environments are fixed by
+`FREEDOM_ENV`: local/staging use sandbox, public uses live. No provider adapters
+or network calls are enabled by installing this secret.

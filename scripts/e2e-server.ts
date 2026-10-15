@@ -1,3 +1,5 @@
+import {CommerceCredentialKeyring} from '../modules/agent-commerce/payments/credentials.js';
+import {randomBytes} from 'node:crypto';
 import {readCommerceSettings} from '../modules/agent-commerce/operations/runtime-settings.js';
 import { TENANT_CURSOR_TEST_KEY } from '../tests/runtime/tenant-cursor-fixture.js';
 import { spawn } from 'node:child_process';
@@ -36,6 +38,8 @@ const linkPreviewFetch=(input:string)=>{
 // Dedicated schema; browser tests never reset the user's local demo records.
 const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
 const port=e2ePort(),origin=e2eOrigin();
+CommerceCredentialKeyring.parse(process.env.COMMERCE_CREDENTIAL_KEYS);
+const commerceCredentialKeyring=CommerceCredentialKeyring.parse('e2e:'+randomBytes(32).toString('base64'));
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const admin=createPool(url);admin.on('error',()=>{});await admin.query(`CREATE SCHEMA ${schema}`);
 // application_name is this run only, so a stuck backend can be cancelled without touching anyone else's.
@@ -183,7 +187,7 @@ try{
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
-const app=createApp(productPool??pool,origin,'local',{commerceSettings:readCommerceSettings({...process.env,FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'}),arEnabled:true,arAssetStore:arFixtureStore,shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
+const app=createApp(productPool??pool,origin,'local',{commerceCredentialKeyring,commerceSettings:readCommerceSettings({...process.env,FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'}),arEnabled:true,arAssetStore:arFixtureStore,shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
   memberReportingEnabled:process.env.FREEDOM_MEMBER_REPORTING_ENABLED==='true',
   // Explicit browser-harness option; product server/Worker release flags remain default OFF.
