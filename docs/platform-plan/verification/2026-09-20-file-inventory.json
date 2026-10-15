@@ -474,8 +474,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/commerce.ts",
-      "bytes": 1782,
-      "sha256": "69c7fa33cad3ec89b6907c3e7d4a806c938f0f345f3d059794b175ee13f359ba"
+      "bytes": 1827,
+      "sha256": "a63db1edf49c2ac9dba490518c6b7a5bb1f8d2f86767d5bf10347ca99f7f19c8"
     },
     {
       "path": "apps/platform-api/src/routes/community-ar.ts",
@@ -2529,8 +2529,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
-      "bytes": 23965,
-      "sha256": "3cce7af9225682d5b64781c05efb6a9a4decc1c866ea20b2d1b827dcaec08912"
+      "bytes": 25878,
+      "sha256": "8927f7df917a099fe962a6363cb5ccb75535b7a80c056b3eff07a2c9283ed71e"
     },
     {
       "path": "apps/portal-web/src/modules/MemberAvatar.css",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69268,
-      "sha256": "a25fbb2f14c08c9e7f98fb7f044f9367fb9496d764f36e88b6f9e4ced0a4c550"
+      "bytes": 69977,
+      "sha256": "0ed0564f0351ebcb23b89b33d055062bfe8d9ebebccd56be474d0e975db37d23"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14234,8 +14234,8 @@
     },
     {
       "path": "docs/development/supplier-retail-pricing.md",
-      "bytes": 11482,
-      "sha256": "14cb5c15b7f148e153d7fd9b397308112389430c3c182f47ce0e103f21f4f82d"
+      "bytes": 12199,
+      "sha256": "77d8facf68b55eed0168678a692039d376efd2c6f4bc8790a9676cd063206619"
     },
     {
       "path": "docs/development/tenant-capacity-policy.md",
@@ -17619,8 +17619,8 @@
     },
     {
       "path": "modules/catalog-commerce/service.ts",
-      "bytes": 14264,
-      "sha256": "e8ba36fa757209eb464c6697a42a77cfe6a9cd4e4d97e78e773a3120537eafac"
+      "bytes": 15104,
+      "sha256": "8ac83b8ad237713c24c4d31e0b206d5dc63c32f98c3a7b0e055d4e085b407057"
     },
     {
       "path": "modules/client-connections/service.ts",
@@ -21089,8 +21089,8 @@
     },
     {
       "path": "tests/e2e/modules-beginners.spec.ts",
-      "bytes": 12697,
-      "sha256": "9c4f3bfa417af27eceb47afbd4e50d10356b663423ec1b15844e9834dada968f"
+      "bytes": 13711,
+      "sha256": "e2ea15d1f580fb8f85424b5c168d07a9e26d00686edabfe4d730edbc45143f9d"
     },
     {
       "path": "tests/e2e/navigation-audit.spec.ts",
@@ -21739,8 +21739,8 @@
     },
     {
       "path": "tests/runtime/commerce.test.ts",
-      "bytes": 13428,
-      "sha256": "4ecc05299c4033f5013cbcecfe027e549b0a262ee33e1fa52f0477b407f550be"
+      "bytes": 15158,
+      "sha256": "1e1c713049e9f62015215ff0f8b33134ba2fd4dc760a754dccd5644381814b42"
     },
     {
       "path": "tests/runtime/community-ar-format.test.ts",

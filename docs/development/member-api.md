@@ -361,6 +361,20 @@ network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per networ
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
 
+## Legacy retail catalog pages
+
+`GET /api/v1/retail/catalog?limit=20&offset=0` returns the signed-in member's
+community catalog as a bounded page. `limit` defaults to 20 and is capped at 50;
+`offset` must be a non-negative integer and unknown query keys are rejected.
+The response is `{items,next_offset}`, where `next_offset` is `null` on the
+final or an empty trailing page. Ordering is stable by `created_at` descending,
+then `product_id` descending.
+
+Each item retains the latest immutable supplier offer, supplier name,
+community scope, verification-test-account exclusion, and
+`internal_preview` limits. Pagination does not turn this legacy member catalog
+into a public retail feed or enable checkout.
+
 ## Organizer event referral reports
 
 `GET /api/v1/events/:id/referrals` returns sharing members' `user_id`,

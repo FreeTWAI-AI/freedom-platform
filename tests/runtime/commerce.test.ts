@@ -44,6 +44,29 @@ test('physical supply → independent store → immutable listing → supplier d
   assert.equal((await request('/orders',seller,{})).status,404);
 });
 
+test('retail catalog returns bounded stable pages and rejects invalid pagination',async()=>{
+  const supplier=await login(),seller=await login(DEMO_USERS[2].email),created:any[]=[];
+  for(let index=0;index<23;index++){
+    const response=await request('/supplier/products',supplier,{...productBody,title:`分頁商品 ${String(index).padStart(2,'0')}`});
+    assert.equal(response.status,201,JSON.stringify(response.data));created.push(response.data);
+  }
+  await pool.query("UPDATE catalog_products SET created_at='2026-01-02T03:04:05Z'");
+  const expected=created.map(item=>item.product_id).sort((a,b)=>b.localeCompare(a));
+  const first=await request('/retail/catalog?limit=10&offset=0',seller);
+  assert.equal(first.status,200);assert.equal(first.data.items.length,10);assert.equal(first.data.next_offset,10);
+  const second=await request('/retail/catalog?limit=10&offset=10',seller);
+  const third=await request('/retail/catalog?limit=10&offset=20',seller);
+  assert.deepEqual([...first.data.items,...second.data.items,...third.data.items].map(item=>item.product_id),expected);
+  assert.equal(second.data.items.length,10);assert.equal(second.data.next_offset,20);
+  assert.equal(third.data.items.length,3);assert.equal(third.data.next_offset,null);
+  const empty=await request('/retail/catalog?limit=10&offset=30',seller);
+  assert.deepEqual(empty.data,{items:[],next_offset:null});
+  const defaultPage=await request('/retail/catalog',seller);
+  assert.equal(defaultPage.data.items.length,20);assert.equal(defaultPage.data.next_offset,20);
+  for(const query of ['limit=0','limit=51','limit=1.5','offset=-1','offset=nope','extra=1'])
+    assert.equal((await request(`/retail/catalog?${query}`,seller)).status,422,query);
+});
+
 test('product and supply snapshot commit once under concurrent idempotent retries; changed payload conflicts',async()=>{
   const supplier=await login(),key=randomUUID();
   const results=await Promise.all([request('/supplier/products',supplier,productBody,undefined,key),request('/supplier/products',supplier,productBody,undefined,key)]);
