@@ -506,7 +506,7 @@ export function renderAftersaleReplyEmail(
   const orderUrl = buildOrderLink(origin, slug, orderRef, accessToken);
   const storeUrl = buildStoreUrl(origin, slug);
 
-  const p1 = `你向「${storeName}」建立的訂單 ${displayNumber} 售後申請有新回覆或進度更新。`;
+  const p1 = `你向「${storeName}」建立的訂單 ${displayNumber} 的售後申請有新回覆或進度更新。`;
   const p2 = buildLinkParagraph(orderUrl);
   const p3 = buildLinkNoteParagraph(accessToken !== null);
   const p4 = buildFooterParagraph(storeName, contactEmail, storeUrl, false);

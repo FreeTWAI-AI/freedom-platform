@@ -9,26 +9,27 @@
 | `order_confirmed` | 付款確認且套用庫存為 `converted` 或 `allocated` | 訂單已成立、顯示用編號、店名、商品明細（最多 10 行加剩餘項數）、金額總計、一次性查看連結 | [EC-SPEC-10 §6.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#61-c2-寄出的信)、[EC-SPEC-02 §4.2](../../../../docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md#42-訂單存取憑證) |
 | `paid_unallocatable` | 付款確認但因缺貨套用為 `unallocatable` | 已付款但庫存不足暫無法出貨、店家將補庫存出貨或取消並退款、後續結果見訂單頁、聯絡方式 | [EC-SPEC-10 §6.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#61-c2-寄出的信)、[EC-SPEC-03 §5.3](../../../../docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md#53-晚到付款hold-已釋放) |
 | `order_access` | 買家於 B10 申請找回訂單且比對相符 | 收到查看連結申請、一次性查看連結、非本人申請請忽略說明 | [EC-SPEC-10 §6.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#61-c2-寄出的信)、[EC-SPEC-02 §4.2](../../../../docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md#42-訂單存取憑證) |
-| `shipment_handed_over` | 包裹狀態順序首次達到 ≥ 3（`handed_over` 已交寄） | 包裹已交寄、物流承運商名稱、包裹追蹤碼（若有）、超商取件提醒（若為超商服務）、訂單連結 | [EC-SPEC-10 §6.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#61-c2-寄出的信)、[EC-SPEC-05 §5.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md#51-狀態)、[EC-SPEC-05 §5.5](../../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md#55-交寄handover) |
+| `shipment_handed_over` | 包裹狀態順序首次達到 ≥ 3（`handed_over` 已交寄） | 包裹已交寄、物流承運商名稱、包裹追蹤碼（若有）、超商取件提醒（若為超商服務）、訂單連結 | [EC-SPEC-10 §6.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#61-c2-寄出的信)、[EC-SPEC-05 §5.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md#51-狀態)、[EC-SPEC-05 §5.5](../../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md#55-交寄與庫存) |
 | `aftersale_reply` | 店家回覆售後申請或售後狀態變更 | 售後申請有新回覆或進度更新、訂單查看連結（不含任何回覆內文或個資） | [EC-SPEC-10 §6.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#61-c2-寄出的信)、[EC-SPEC-06 §2.1](../../../../docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md#21-訂單對話b07e07) |
 
 ## 寄件人與 Reply-To
 
 - 固定寄件人：`no-reply@mail.freetwai.com`。
 - `replyTo`：若店家設定了公開聯絡 Email，則為該 Email（`store.contactEmail`）；未提供時為 `null`。
+- 聯絡 Email（`store.contactEmail`）必須僅由可列印 ASCII 字元（U+0021–U+007E）組成，因其會進入 `Reply-To` 標頭。
 - 注意：實際寄件工作負責設定此欄位；目前 Cloudflare Workers 的 `EMAIL` binding 是否支援 `Reply-To` 標頭尚未經正式環境驗證（unverified）。
 
 ## 個資保護與外發記錄（EC-SPEC-10 §6.3）
 
 - 外發信件記錄（如 `commerce_outbound_emails`）不儲存 Email 與任何個資，僅記錄來源參照（checkout、order、request）與範本代碼。
 - 寄出當下於 tenant 隔離環境內讀取收件人 Email；若買家聯絡資料已遮罩，則標記為 `suppressed` 且不寄送。
-- 信件內文不含買家姓名、電話、地址、付款卡號或供應商／出貨者隱私。
+- 信件內文不含買家姓名、地址、電話或 Email，不含付款資料（卡號、金流商、交易編號）與費用，也不含供應商或出貨者身分。店到店包裹不印追蹤碼：寄件代碼只供寄件使用（EC-SPEC-05 §9.3）。
 
 ## 寄送授權（EC-SPEC-10 §6.2）
 
 在 Ted 正式審核通過並開啟 `FREEDOM_COMMERCE_EMAIL_ENABLED` 之前：
 - 平台不得向買家寄送任何 commerce 信件。
-- 結帳與找回訂單頁面均明確提示目前不寄送 Email，買家應於原瀏覽器查看訂單或透過店家頁面聯絡。
+- 結帳完成頁顯示「這間店目前不寄確認信，請用這個瀏覽器回到訂單，或聯絡店家」；B10 顯示同樣的說明，且不收集 Email。
 
 ## 範例
 
@@ -112,7 +113,7 @@ https://example.test/shops/demo-store/orders/018d0000-0000-7000-8000-00000000000
 ```text
 主旨：自由工坊：「示範店家」訂單 261015-ABCDEF 有新回覆
 
-你向「示範店家」建立的訂單 261015-ABCDEF 售後申請有新回覆或進度更新。
+你向「示範店家」建立的訂單 261015-ABCDEF 的售後申請有新回覆或進度更新。
 
 查看訂單請開啟以下連結：
 https://example.test/shops/demo-store/orders/018d0000-0000-7000-8000-000000000001#access=abcdefghijklmnopqrstuvwxyz0123456789-_ABCDE

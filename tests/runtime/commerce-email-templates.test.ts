@@ -162,7 +162,7 @@ test('exact golden subject and text for shared synthetic samples', () => {
   ].join('\n\n');
 
   const expectedAftersaleReplyText = [
-    '你向「示範店家」建立的訂單 261015-ABCDEF 售後申請有新回覆或進度更新。',
+    '你向「示範店家」建立的訂單 261015-ABCDEF 的售後申請有新回覆或進度更新。',
     '查看訂單請開啟以下連結：\nhttps://example.test/shops/demo-store/orders/018d0000-0000-7000-8000-000000000001#access=abcdefghijklmnopqrstuvwxyz0123456789-_ABCDE',
     '此連結有效期限為 7 天，只能使用一次；使用後會在此瀏覽器開啟訂單，請勿轉寄給他人。',
     '這封信由自由工坊代「示範店家」僅就此筆訂單發送，不含任何行銷廣告。\n店家聯絡 Email：shop@example.test\n若你沒有在這間店下單，請忽略這封信。',
