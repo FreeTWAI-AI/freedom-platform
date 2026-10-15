@@ -14,6 +14,7 @@ export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.work': ['flows', 'benefits', 'co-creation'],
   'runtime.work-privacy': ['work-privacy'],
   'runtime.personal-content': ['personal-content', 'community-relations', 'community-search', 'work-privacy'],
+  'runtime.preview-protocol': ['preview-protocol'],
   'runtime.event-outcomes': ['event-outcomes', 'squad-outcomes', 'event-highlights', 'event-highlight-assets', 'worker-adapter'],
 }).map(([id, names]) => [id, Object.freeze(paths(names))])));
 
