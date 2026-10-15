@@ -1,11 +1,11 @@
 # Commerce Provider Wire-Protocol Library (`commerce-providers`)
 
-This module (`modules/agent-commerce/providers/ecpay/`) implements the shared, pure wire-protocol primitives for ECPay (綠界科技) payment (`EC-SPEC-04`), domestic logistics (`EC-SPEC-05`), and B2C e-invoice (`EC-SPEC-06`), together with the pure AIO credit-card one-time payment profile (`ecpay/aio-credit/`) and the domestic logistics profile (`ecpay/domestic-logistics/`).
+This module (`modules/agent-commerce/providers/ecpay/`) implements the shared, pure wire-protocol primitives for ECPay (綠界科技) payment (`EC-SPEC-04`), domestic logistics (`EC-SPEC-05`), and B2C e-invoice (`EC-SPEC-06`), together with the pure AIO credit-card one-time payment profile (`ecpay/aio-credit/`), the domestic logistics profile (`ecpay/domestic-logistics/`), and the B2C e-invoice profile (`ecpay/b2c-invoice/`).
 
 ## Scope: What This Library Is and Is Not
 
-- **What it is**: Deterministic, worker-safe (Node.js + Cloudflare `workerd`) pure functions for `.NET`-compatible URL encoding, URL-encoded form parsing/serialization, `CheckMacValue` signing/verification (`SHA-256` and `MD5`), `AES-128-CBC` `Data` envelope encryption/decryption, legacy pipe response parsing (`1|...` / `0|...`), 20-character Crockford Base32 trade number generation, and ECPay's CDN word-filter guard (`findCdnBlockedTerm`). `ecpay/aio-credit/` holds the `ecpay.aio.credit.v1` field assembly and result mapping, and `ecpay/domestic-logistics/` holds the `ecpay.logistics.domestic.v1` field assembly and result mapping on top of those primitives.
-- **What it is not**: It performs **no I/O** (`fetch`, sockets, database queries, timers, clock reads via `Date.now()` / `new Date()`, environment reads, or logging). The core wire library has no endpoint-specific business rules; `ecpay/aio-credit/` and `ecpay/domestic-logistics/` isolate the payment and domestic logistics protocol surfaces, while e-invoice field assembly, HTTP retry/outbox, and database state machines live in their own domain adapters.
+- **What it is**: Deterministic, worker-safe (Node.js + Cloudflare `workerd`) pure functions for `.NET`-compatible URL encoding, URL-encoded form parsing/serialization, `CheckMacValue` signing/verification (`SHA-256` and `MD5`), `AES-128-CBC` `Data` envelope encryption/decryption, legacy pipe response parsing (`1|...` / `0|...`), 20-character Crockford Base32 trade number generation, and ECPay's CDN word-filter guard (`findCdnBlockedTerm`). `ecpay/aio-credit/` holds the `ecpay.aio.credit.v1` field assembly and result mapping, `ecpay/domestic-logistics/` holds the `ecpay.logistics.domestic.v1` field assembly and result mapping, and `ecpay/b2c-invoice/` holds the `ecpay.invoice.b2c.v1` field assembly, request sealing, and allowlisted response/callback parsing on top of those primitives.
+- **What it is not**: It performs **no I/O** (`fetch`, sockets, database queries, timers, clock reads via `Date.now()` / `new Date()`, environment reads, or logging). The core wire library has no endpoint-specific business rules; `ecpay/aio-credit/`, `ecpay/domestic-logistics/`, and `ecpay/b2c-invoice/` isolate the payment, domestic logistics, and B2C e-invoice protocol surfaces, while HTTP transport, retries, outbox scheduling, and database state machines live in their own domain adapters.
 
 ## Wire Formats and Official ECPay References
 
@@ -40,6 +40,7 @@ All page numbers below refer to `https://developers.ecpay.com.tw/<page>/`:
 - **The Rule and Why Ours Is Stricter**: ECPay's CDN (page `7400`) blocks requests whose parameter values contain case-insensitive shell command words (`net localgroup`, `net.exe`, `nmap.exe`, `nc.exe`, `traceroute`, `tracert`, `telnet.exe`, `tclsh`, `tftp`, `wguest.exe`, `wsh.exe`, `rcmd.exe`, `ftp.exe`, `echo`, `cmd32.exe`, `cmd.exe`, `cmd` with `/c`, `cd` followed by `/`, `\`, or `..`, `chmod` with `+x`), or the shell characters `;`, `|`, and backtick when followed by command names, as well as HTML tags. `findCdnBlockedTerm(value)` applies a deliberately stricter stateless regular expression (`[;|`]|net\s+localgroup|cmd32\.exe|cmd\.exe|cmd\s*\/c|net\.exe|nmap\.exe|nc\.exe|telnet\.exe|wguest\.exe|wsh\.exe|rcmd\.exe|ftp\.exe|traceroute|tracert|tclsh|tftp|echo|cd\s*(?:\/|\\|\.\.)|chmod\s*\+x`, case-insensitive, without `g`/`y` flags) that blocks any of those words and rejects `;`, `|`, or `` ` `` anywhere in a value so we never depend on ECPay's exact undocumented command list.
 - **Where It Is Applied**:
   - Every request builder across `aio-credit/` and `domestic-logistics/` runs `assertCdnSafe` on every field value before signing or creating the request/form.
+  - Every request builder in `b2c-invoice/` checks the sealed JSON request body with `findCdnBlockedTerm` and re-encrypts `Data` with leading JSON whitespace after the opening `{` if the Base64 ciphertext spells a blocked term (`cd/`, `echo`, `tftp`, etc.).
   - `assertValidEcpayHttpsUrl` forbids `?` (even an empty query), restricts `pathname` to `^/[A-Za-z0-9._~/-]*$` (no `%`-escapes, non-ASCII, or `;`/`|`/`` ` ``), and runs `assertCdnSafe` on the full URL.
   - `newTradeNumber` draws up to 16 candidates and returns the first for which `findCdnBlockedTerm` is `null` (because random Base32 characters can spell `TFTP` or `TRACERT`), throwing `invalid_input` if all 16 are blocked.
   - In `aio-credit/`, `buildItemName` falls back to `{store}商品一批 x1` if the joined line items exceed 200 UTF-16 code units or match `findCdnBlockedTerm` (and further falls back to `商品一批 x1` if the sanitized store name itself matches `findCdnBlockedTerm`), and `buildCreditCheckoutForm` falls back `TradeDesc` from `'Freedom order ' + displayNumber` to `'Freedom order'` if `displayNumber` matches `findCdnBlockedTerm`.
@@ -70,7 +71,7 @@ All page numbers below refer to `https://developers.ecpay.com.tw/<page>/`:
 - `parsePipeResponse(text)` / `type PipeResponse`: Parses legacy `1|<rest>` and `0|<message>` responses, stripping control characters and truncating error messages to 200 code points.
 - `aio`: `{ sign, verify }` bound to `SHA-256` for AIO payment forms, callbacks, and trade queries.
 - `logistics`: `{ sign, verify, parseCreateResponse }` bound to `MD5` for domestic logistics forms, callbacks, queries, and `Express/Create` pipe responses.
-- `invoice`: `{ buildEnvelope, openResponse, verifyAllowanceCallback }` for e-invoice AES envelopes and MD5 allowance callbacks.
+- `invoice`: `{ buildEnvelope, openResponse, verifyAllowanceCallback }` for low-level e-invoice AES envelopes and MD5 allowance callbacks (invoice domain code must use `ecpay/b2c-invoice/` builders and parsers instead of calling `invoice.buildEnvelope` / `invoice.openResponse` directly).
 - `ECPAY_ORIGINS` / `ECPAY_ACK`: Frozen map of official `sandbox` (stage) and `live` origins for `payment`, `logistics`, and `invoice`, plus the `'1|OK'` callback acknowledgement constant.
 
 ## AIO Credit-Card Profile (`modules/agent-commerce/providers/ecpay/aio-credit/index.ts`)
@@ -141,7 +142,109 @@ All page numbers below refer to `https://developers.ecpay.com.tw/<page>/`:
   - Distinguishing HTTP `403` rate-limiting (calling too fast, wait 30 minutes) from an HTTP `403` / block page triggered by the CDN word filter.
   - Whether bare command words without shell characters (such as `echo` or `tftp` inside an ordinary name or URL) actually trip ECPay's live CDN filter.
 
+## B2C e-invoice profile (`ecpay/b2c-invoice/`, `ecpay.invoice.b2c.v1`)
+
+### Public Exports (`modules/agent-commerce/providers/ecpay/b2c-invoice/index.ts`)
+
+- `ECPAY_B2C_INVOICE_PROFILE` / `ECPAY_B2C_INVOICE_PATHS` / `type EcpayInvoiceOperation`: Profile identifier `'ecpay.invoice.b2c.v1'` and frozen map of the fifteen `/B2CInvoice/*` endpoint paths.
+- `EcpayJsonRequest` / `type RedactedJsonRequestJson`: Immutable server-to-server `POST` (`Content-Type: application/json`) request holder whose encrypted JSON body is stored in a module-private `WeakMap` and only exposed via `bodyText()` (`toJSON()`, `toString()`, and `util.inspect` redact the body).
+- `isInvoiceEmail(value)`: Validates e-mail addresses (`<= 80` ASCII characters matching our strict subset of ECPay's `[7896]` pattern, one address only).
+- `buildIssueInvoiceRequest` / `parseIssueInvoiceResponse`: Issue a B2C cloud e-invoice (`/B2CInvoice/Issue`, `[7896]`).
+- `buildVoidWithReissueRequest` / `parseVoidWithReissueResponse`: Void and reissue an invoice in one call (`/B2CInvoice/VoidWithReIssue`, `[7918]`).
+- `buildVoidInvoiceRequest` / `parseVoidInvoiceResponse`: Void an issued invoice (`/B2CInvoice/Invalid`, `[7906]`).
+- `buildAllowanceRequest` / `parseAllowanceResponse`: Issue a paper/merchant-notified allowance (`/B2CInvoice/Allowance`, `[7901]`).
+- `buildOnlineAllowanceRequest` / `parseOnlineAllowanceResponse`: Issue an online buyer-consent allowance (`/B2CInvoice/AllowanceByCollegiate`, `[15391]`).
+- `buildVoidAllowanceRequest` / `parseVoidAllowanceResponse`: Void a finalized allowance (`/B2CInvoice/AllowanceInvalid`, `[7911]`).
+- `buildCancelOnlineAllowanceRequest` / `parseCancelOnlineAllowanceResponse`: Cancel a pending or consented online allowance (`/B2CInvoice/AllowanceInvalidByCollegiate`, `[7913]`).
+- `buildGetIssueRequest` / `parseGetIssueResponse`: Query an issued invoice by `RelateNumber` or by `InvoiceNo` + `InvoiceDate` (`/B2CInvoice/GetIssue`, `[7923]`).
+- `buildGetAllowanceListRequest` / `parseGetAllowanceListResponse`: Query allowances by `AllowanceNo` (`SearchType="0"`), invoice issue date (`SearchType="1"`), or allowance date (`SearchType="2"`) (`/B2CInvoice/GetAllowanceList`, `[7928]`).
+- `buildGetInvalidRequest` / `parseGetInvalidResponse`: Query a voided invoice (`/B2CInvoice/GetInvalid`, `[7933]`).
+- `buildGetAllowanceInvalidRequest` / `parseGetAllowanceInvalidResponse`: Query a voided allowance (`/B2CInvoice/GetAllowanceInvalid`, `[7943]`).
+- `buildCheckBarcodeRequest` / `parseCheckBarcodeResponse` / `classifyBarcodeCheck`: Check mobile carrier barcode validity (`/B2CInvoice/CheckBarcode`, `[7886]`).
+- `buildCheckLoveCodeRequest` / `parseCheckLoveCodeResponse` / `classifyLoveCodeCheck`: Check donation love code validity (`/B2CInvoice/CheckLoveCode`, `[7891]`).
+- `buildCompanyNameRequest` / `parseCompanyNameResponse` / `classifyCompanyNameCheck`: Query company registration name by 8-digit UBN (`/B2CInvoice/GetCompanyNameByTaxID`, `[32089]`).
+- `buildWordSettingRequest` / `parseWordSettingResponse` / `wordTrackRemaining`: Query assigned invoice word tracks (`/B2CInvoice/GetInvoiceWordSetting`, `[7881]`) and compute remaining numbers on a track.
+- `parseAllowanceConsentCallback(body, keys, options?)`: Verify and parse the MD5 form POST callback sent to `ReturnURL` when a buyer consents to an online allowance (`[15391]`; MD5 vector `[38242]`).
+- `classifyInvoiceHttpStatus(status)`: Classify HTTP status codes (`200` → `'response'`, `403` → `'throttled'` `[7854]`, other `100..599` → `'unknown'`).
+
+### Endpoint Table
+
+Every operation is an HTTPS `POST` to `ECPAY_ORIGINS.invoice[environment] + ECPAY_B2C_INVOICE_PATHS[op]` with `Content-Type: application/json`:
+
+| Operation (`op`) | Path | `Data` JSON keys in exact order |
+| --- | --- | --- |
+| `issue` | `/B2CInvoice/Issue` | `MerchantID`, `RelateNumber`, `CustomerID` (`""`), `CustomerIdentifier`, `CustomerName`, `CustomerAddr` (`""`), `CustomerPhone` (`""`), `CustomerEmail`, `Print` (`"0"`), `Donation`, `LoveCode`, `CarrierType`, `CarrierNum`, `TaxType` (`"1"`), `SalesAmount`, `InvoiceRemark`, `InvType` (`"07"`), `vat` (`"1"`), `Items` |
+| `voidWithReissue` | `/B2CInvoice/VoidWithReIssue` | `MerchantID`, `VoidModel` (`{InvoiceNo, VoidReason}`), `IssueModel` (`{RelateNumber, InvoiceDate, CustomerID..Items}` — no `MerchantID` inside `IssueModel`) |
+| `void` | `/B2CInvoice/Invalid` | `MerchantID`, `InvoiceNo`, `InvoiceDate` (`yyyy-MM-dd`), `Reason` |
+| `allowance` | `/B2CInvoice/Allowance` | `MerchantID`, `InvoiceNo`, `InvoiceDate`, `AllowanceNotify` (`"E"`), `CustomerName`, `NotifyMail`, `NotifyPhone` (`""`), `AllowanceAmount`, `Items` |
+| `onlineAllowance` | `/B2CInvoice/AllowanceByCollegiate` | `MerchantID`, `InvoiceNo`, `InvoiceDate`, `AllowanceNotify` (`"E"`), `CustomerName`, `NotifyMail`, `AllowanceAmount`, `Items`, `ReturnURL` |
+| `voidAllowance` | `/B2CInvoice/AllowanceInvalid` | `MerchantID`, `InvoiceNo`, `AllowanceNo`, `Reason` |
+| `cancelOnlineAllowance` | `/B2CInvoice/AllowanceInvalidByCollegiate` | `MerchantID`, `InvoiceNo`, `AllowanceNo`, `Reason` |
+| `getIssue` | `/B2CInvoice/GetIssue` | `MerchantID`, `RelateNumber` — or `MerchantID`, `InvoiceNo`, `InvoiceDate` |
+| `getAllowanceList` | `/B2CInvoice/GetAllowanceList` | `MerchantID`, `SearchType` (`"0"`), `AllowanceNo` — or `MerchantID`, `SearchType` (`"1"` or `"2"`), `InvoiceNo`, `Date` (`yyyy-MM-dd`) |
+| `getInvalid` | `/B2CInvoice/GetInvalid` | `MerchantID`, `RelateNumber`, `InvoiceNo`, `InvoiceDate` |
+| `getAllowanceInvalid` | `/B2CInvoice/GetAllowanceInvalid` | `MerchantID`, `InvoiceNo`, `AllowanceNo` |
+| `checkBarcode` | `/B2CInvoice/CheckBarcode` | `MerchantID`, `BarCode` |
+| `checkLoveCode` | `/B2CInvoice/CheckLoveCode` | `MerchantID`, `LoveCode` |
+| `companyName` | `/B2CInvoice/GetCompanyNameByTaxID` | `MerchantID`, `UnifiedBusinessNo` |
+| `wordSetting` | `/B2CInvoice/GetInvoiceWordSetting` | `MerchantID`, `InvoiceYear`, `InvoiceTerm`, `UseStatus`, `InvoiceCategory` (`1`), and `InvType` only when non-null |
+
+### Protocol Rules & Design Rationale
+
+- **Domain Boundary**: Invoice domain code must always call the builders and parsers in `ecpay/b2c-invoice/` rather than calling `invoice.buildEnvelope` or `invoice.openResponse` directly.
+- **Request Body & CDN Whitespace Sealing (`sealInvoiceRequest`)**:
+  - Each request body is `{"PlatformID":"","MerchantID":"<id>","RqHeader":{"Timestamp":<unix seconds>},"Data":"<base64>"}` with keys in that exact order and `MerchantID` always formatted as a string.
+  - Because `AES-128-CBC` uses the merchant's fixed `HashIV`, the same `Data` plaintext always encrypts to the exact same Base64 ciphertext. A Base64 ciphertext can spell shell substrings blocked by ECPay's CDN (`cd/`, `echo`, `tftp`, etc., `[7400]`) by chance (~2.5% of issue requests), and a naive retry would produce the identical blocked ciphertext.
+  - `sealInvoiceRequest` checks the full JSON request body with `findCdnBlockedTerm`. On attempt `0` it encrypts the plain `JSON.stringify(data)` output (identical to `encryptData(data, keys)`). If blocked, it retries for `n = 1..15` by inserting `n` ASCII spaces immediately after the opening `{` (`'{' + ' '.repeat(n) + json.slice(1)`), which is semantically identical JSON and alters the first 16-byte plaintext block so CBC cascades a completely different ciphertext across the entire `Data` string. After 16 blocked attempts it throws `EcpayProtocolError('invalid_input')`.
+- **Result Kinds (`InvoiceCallResult<T>`) & Caller Semantics**:
+  - `ok`: `TransCode == 1`, `RtnCode == 1`, and all required response fields and echo checks succeeded.
+  - `not_accepted`: ECPay transport-level rejection (`TransCode != 1`); ECPay did not accept the request envelope.
+  - `rejected`: ECPay business rejection (`TransCode == 1` and `RtnCode != 1`); ECPay processed the request and said no.
+  - `unknown`: Unparseable JSON, merchant mismatch, Base64/AES/URL-decode failure, missing or malformed required field, or echoed identifier mismatch (`invoice_no_mismatch`, `relate_number_mismatch`, `allowance_no_mismatch`). Callers must **not** assume the operation succeeded or failed — always query first (`GetIssue`, `GetAllowanceList`, `GetInvalid`, `GetAllowanceInvalid`) before retrying.
+  - `classifyInvoiceHttpStatus(status)`: HTTP `200` carries a response body (`'response'`); HTTP `403` means throttled ("called too often, pause 30 minutes", `[7854]`, `'throttled'`); any other status in `100..599` carries no trustworthy body (`'unknown'`).
+- **Buyer Mapping (`Print` is always `"0"`)**:
+
+  | Buyer `type` | `CustomerIdentifier` | `CustomerName` | `Donation` | `LoveCode` | `CarrierType` | `CarrierNum` |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | `member_carrier` | `""` | `""` | `"0"` | `""` | `"1"` | `""` |
+  | `mobile_barcode` | `""` | `""` | `"0"` | `""` | `"3"` | barcode (`^\/[0-9A-Z+\-.]{7}$`) |
+  | `citizen_cert` | `""` | `""` | `"0"` | `""` | `"2"` | certificate (`^[A-Z]{2}[0-9]{14}$`) |
+  | `donation` | `""` | `""` | `"1"` | love code (`^[0-9]{3,7}$`) | `""` | `""` |
+  | `company` (no barcode) | ubn (`^[0-9]{8}$`) | title (`1..60` code points) | `"0"` | `""` | `"1"` | `""` |
+  | `company` (with barcode) | ubn (`^[0-9]{8}$`) | title (`1..60` code points) | `"0"` | `""` | `"3"` | barcode (`^\/[0-9A-Z+\-.]{7}$`) |
+
+- **Item Rules & Omitted Fields**:
+  - `Items` (for `issue`, `voidWithReissue`, `allowance`, and `onlineAllowance`) has 1..200 entries serialized with exact key order `{ItemSeq, ItemName, ItemCount, ItemWord, ItemPrice, ItemAmount}` where `ItemSeq` starts at `1`, `ItemCount` is `1..99`, and `ItemPrice`, `ItemAmount`, `SalesAmount`, and `AllowanceAmount` are whole-TWD JSON numbers (`minor / 100`, `amountMinor === count * priceMinor`, sum of `amountMinor` equals the total).
+  - Builders never send `ClearanceMark`, `TaxAmount`, `ItemTaxType`, `ItemRemark`, a `Reason` field on allowances, `ProductServiceId`, or `InvoiceHeader`.
+- **Void-With-Reissue (`[7918]`)**:
+  - `buildVoidWithReissueRequest` nests `VoidModel: { InvoiceNo, VoidReason }` and `IssueModel: { RelateNumber, InvoiceDate, ... }` without `MerchantID` inside `IssueModel`. `RelateNumber` and `InvoiceDate` (`yyyy-MM-dd HH:mm:ss`) are the **original** invoice's values (`[7918]`). `parseVoidWithReissueResponse` does not enforce an `InvoiceNo` echo check so the domain layer can compare whether ECPay kept the original number.
+- **Allowlisted Results, Dropped PII, & `rtnMsg`/`transMsg` Hygiene**:
+  - Response parsers copy only allowlisted status, number, timestamp, and amount fields into frozen result objects.
+  - Every buyer PII and network field returned by ECPay is dropped and never returned, stored, or logged: `GetIssue` drops `IIS_Customer_Name`, `IIS_Customer_Email`, `IIS_Customer_Addr`, `IIS_Customer_Phone`, `IIS_Identifier`, `IIS_Carrier_Num`, `IIS_Love_Code`, `IIS_IP`, item lines, and QR data; `GetAllowanceList` drops `IA_Send_Mail`, `IA_Send_Phone`, `IIS_Customer_Name`, `IA_IP`, `IA_Identifier`, and item lines (note that pending online allowances are not listed in `GetAllowanceList`, `[7928]`); `GetInvalid` and `GetAllowanceInvalid` drop `II_Buyer_Identifier` and `AI_Buyer_Identifier`; `parseAllowanceConsentCallback` drops `RtnMsg`.
+  - Because `rtnMsg` and `transMsg` are ECPay free text and may echo buyer request values (such as e-mail, carrier number, or UBN), callers must treat `rtnMsg` and `transMsg` as buyer data and **never log them**.
+- **Online Allowance Consent Callback (`[15391]`, MD5 vector `[38242]`)**:
+  - `parseAllowanceConsentCallback` verifies the MD5 `CheckMacValue` via `invoice.verifyAllowanceCallback`, requires `RtnCode === '1'` (ECPay only notifies buyer consent; any other value returns `unexpected_rtn_code`), requires `IA_Allow_No` and `IA_Invoice_No`, parses optional `IA_Date` and `IIS_Remain_Allowance_Amt` (falling back to `null` if absent or unparseable), and computes `bodySha256`.
+  - The callback payload carries no `MerchantID`; the platform identifies the merchant account from the callback URL path and replies with `1|OK` (`ECPAY_ACK`) only after committing.
+- **Lookup Classifiers & Company-Name Stop Codes (`[32089]`)**:
+  - `classifyBarcodeCheck` and `classifyLoveCodeCheck` map `ok` (`exists: true` / `false`) to `'valid'` or `'invalid'` and any other result to `'indeterminate'`.
+  - `classifyCompanyNameCheck` maps `ok` to `{ kind: 'found', companyName }`, maps `rejected` with `rtnCode` `'1200125'` (invalid UBN checksum) or `'2027000'` (invalid UBN length) to `{ kind: 'invalid_ubn' }` (hard stop), and maps every other outcome (including `'7'` "not registered but checksum valid" and `'9000001'` "MOF system error", `[32089]`) to `{ kind: 'indeterminate' }` (do not block issuance).
+- **Word Tracks (`[7881]`) & `wordTrackRemaining`**:
+  - `parseWordSettingResponse` accepts `InvoiceInfo` as either a JSON array or a single object (because the official example in `[7881]` is malformed), accepts `InvoiceTerm` and `UseStatus` (`1..6`) as JSON numbers or digit strings, and maps missing or empty `InvoiceNo` to `lastUsed: null`.
+  - `wordTrackRemaining(track)` returns `Number(end) - Number(lastUsed)` when `lastUsed` is non-null and within `start..end`, or `null` otherwise.
+- **Unverified Until ECPay Stage**:
+  - Whether ECPay accepts leading JSON whitespace inside decrypted `Data`.
+  - Whether the `einvoice` CDN filters Base64 ciphertexts inside JSON request bodies at all.
+  - Whether `MerchantID` sent as a JSON string is accepted across all fifteen endpoints.
+  - Whether empty `CustomerName` and `NotifyPhone` strings are accepted on `Allowance` and `AllowanceByCollegiate`.
+  - The exact JSON type of `MerchantID` in ECPay response envelopes.
+  - Whether `VoidWithReIssue` always retains the original `InvoiceNo`.
+  - The exact `RtnCode` returned by `GetIssue` when an invoice is not found.
+  - What `GetInvoiceWordSetting` returns in `InvoiceNo` before the first number of a track is used, and whether `InvoiceInfo` is always an array or sometimes a single object.
+  - Whether response date-times ever use `/` separators (`yyyy/MM/dd HH:mm:ss`) instead of `-` (`yyyy-MM-dd HH:mm:ss`).
+  - Whether `ItemName` length limits are enforced in Unicode code points, UTF-16 code units, or bytes, and how emoji are handled.
+  - Which request fields `RtnMsg` and `TransMsg` may echo on errors.
+
 ## Node and `workerd` Parity Verification
 
-- `tests/runtime/ecpay-protocol.test.ts`, `tests/runtime/ecpay-aio-credit.test.ts`, and `tests/runtime/ecpay-domestic-logistics.test.ts` run all official and golden test vectors from `tests/worker/ecpay-fixtures/` plus negative, boundary, key-rotation, prototype-pollution, CDN word-guard, and redaction checks under Node (`node:test`). All `aio-credit` and `domestic-logistics` golden `CheckMacValue` digests were recomputed independently outside the repository from the official SHA-256 and MD5 algorithms (pages `2902`/`2904`, `7424`, `7418`).
-- `tests/worker/ecpay-protocol-workerd.test.ts`, `tests/worker/ecpay-aio-credit-workerd.test.ts`, and `tests/worker/ecpay-domestic-logistics-workerd.test.ts` bundle `protocol-worker.ts`, `aio-credit-worker.ts`, and `domestic-logistics-worker.ts` with `esbuild` (`platform: 'neutral'`, `external: ['node:*']`), execute every vector, golden, parser outcome, refund cell, weight rule, profile descriptor, and CDN guard vector inside Cloudflare `workerd` via Miniflare (`nodejs_compat`), and assert bit-for-bit equality against both the expected vector constants and the Node results.
+- `tests/runtime/ecpay-protocol.test.ts`, `tests/runtime/ecpay-aio-credit.test.ts`, `tests/runtime/ecpay-domestic-logistics.test.ts`, and `tests/runtime/ecpay-b2c-invoice.test.ts` run all official and golden test vectors from `tests/worker/ecpay-fixtures/` plus negative, boundary, key-rotation, prototype-pollution, CDN word-guard, PII-stripping, and redaction checks under Node (`node:test`). All `aio-credit`, `domestic-logistics`, and `b2c-invoice` golden vectors were computed independently outside the repository from the official SHA-256, MD5, and AES-128-CBC rules (pages `2902`/`2904`, `7424`, `7418`, `7958`, `38406`).
+- `tests/worker/ecpay-protocol-workerd.test.ts`, `tests/worker/ecpay-aio-credit-workerd.test.ts`, `tests/worker/ecpay-domestic-logistics-workerd.test.ts`, and `tests/worker/ecpay-b2c-invoice-workerd.test.ts` bundle `protocol-worker.ts`, `aio-credit-worker.ts`, `domestic-logistics-worker.ts`, and `b2c-invoice-worker.ts` with `esbuild` (`platform: 'neutral'`, `external: ['node:*']`), execute every vector, golden, parser outcome, refund cell, weight rule, word-track helper, lookup classifier, profile descriptor, and CDN guard vector inside Cloudflare `workerd` via Miniflare (`nodejs_compat`), and assert bit-for-bit equality against both the expected vector constants and the Node results.
