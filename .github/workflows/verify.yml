@@ -399,12 +399,15 @@ jobs:
           else
             node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --event "$EVENT_NAME" --candidate "$CANDIDATE_SHA"
           fi
-      - name: Preserve sanitized browser selection and case evidence
+      - name: Preserve browser evidence and synthetic failure diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: browser-selection-${{ github.sha }}
-          path: .freedom/reports/pinned-e2e.json
+          path: |
+            .freedom/reports/pinned-e2e.json
+            .freedom/reports/pinned-e2e.json.failure-artifacts/
+          retention-days: 7
           if-no-files-found: warn
   guild-presentation:
     runs-on: ubuntu-24.04
@@ -482,7 +485,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: guild-presentation-${{ github.sha }}
-          path: .freedom/reports/guild-*.json
+          path: |
+            .freedom/reports/guild-*.json
+            .freedom/reports/guild-*.json.failure-artifacts/
+          retention-days: 7
           if-no-files-found: warn
   static-worker:
     runs-on: ubuntu-24.04
