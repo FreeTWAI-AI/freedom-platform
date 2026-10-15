@@ -454,7 +454,10 @@ const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';
 // projected full partition beyond 1,224s. Keep legacy four-partition behavior;
 // six hosts get 1,500s including the unchanged 24s cleanup reserve.
 const PARTITION_BUDGET_MS = Object.freeze({ 4: 1_200_000, 6: 1_500_000 });
-const MATRIX_WINDOW_MS = Object.freeze({ 4: 1_800_000, 6: 2_400_000 });
+// Queueing can serialize all six hosts: allow six full partition budgets plus
+// 30 minutes of bounded queue gaps. CI scopes artifacts to one run attempt;
+// this wall span does not extend any partition's execution/cleanup deadline.
+const MATRIX_WINDOW_MS = Object.freeze({ 4: 1_800_000, 6: 6 * 1_500_000 + 1_800_000 });
 const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const strictKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
