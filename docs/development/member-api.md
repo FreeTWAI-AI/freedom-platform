@@ -92,6 +92,14 @@ Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
 Binary uploads and signed machine transports retain their own bounded readers.
+After valid JSON syntax is established, this general reader rejects decoded
+NUL characters in string values or object keys, including nested arrays/objects,
+with `422 validation_failed` before routing or authentication. It never strips
+or replaces input: literal backslash-`u0000` text, normal newlines and Unicode
+retain their exact values. Malformed JSON remains `400 invalid_json`; a rejected
+body does not reserve a domain command's Idempotency-Key. This check applies
+only to the general JSON reader, not the binary, signed-webhook or dedicated
+child transports that already own their original body streams.
 
 Owner share settings (`GET /me/member-card-share`), the owner social-link list
 and the authenticated member social-link projection hold current user/session

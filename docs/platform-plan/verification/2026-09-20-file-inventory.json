@@ -369,8 +369,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 61003,
-      "sha256": "d7854e2eae4e15eef1286aa922cd7e732b85490fc9ca191aab2dd69c861611d4"
+      "bytes": 61785,
+      "sha256": "5ccfe5ad423431211f356fa4910e909750a5c61802e49c5fbad17bef77211a0c"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69268,
-      "sha256": "a25fbb2f14c08c9e7f98fb7f044f9367fb9496d764f36e88b6f9e4ced0a4c550"
+      "bytes": 69881,
+      "sha256": "3cbc86c78a1e154aea2192e463eda7a2fc595978e32f41e82828af42d57dadf4"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -22414,8 +22414,8 @@
     },
     {
       "path": "tests/runtime/member-connections.test.ts",
-      "bytes": 21479,
-      "sha256": "69213d6f5a280409d16e3d04545222ea71b3893e9a0ffd1d9dee3a929fcd012d"
+      "bytes": 22536,
+      "sha256": "a9d1da999d3c95ebcb8aafb5279e0d0aca38b12a9ef4d5a71cc7bdd1dd08c17a"
     },
     {
       "path": "tests/runtime/member-device-bootstrap-adversarial.test.ts",
@@ -22839,8 +22839,8 @@
     },
     {
       "path": "tests/runtime/platform-json-body.test.ts",
-      "bytes": 7675,
-      "sha256": "b9ebcca1ab2d4954a75c6cdcabd17ae70879b5d0db282eef7c896e96f2832fde"
+      "bytes": 8724,
+      "sha256": "17c18e3bfc9dcc84956d399858632b4373f5a1dcaa0a9eaba68708c896ba0117"
     },
     {
       "path": "tests/runtime/portal-build-benchmark.test.ts",
