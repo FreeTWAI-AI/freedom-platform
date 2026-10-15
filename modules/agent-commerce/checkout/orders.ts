@@ -3,6 +3,7 @@ import type {PoolClient} from 'pg';
 import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {bindStore,lockStore,lockMachineOrder,type CheckoutStore} from './authority.js';
 import {checkoutInventory} from './inventory.js';
+import {confirmedPaymentSQL,hasConfirmedPayment} from './confirmed-payment.js';
 import {checkoutTerms,defaultAdmission,hashJSON,parseCheckoutInput,type CheckoutPorts,type CheckoutTerms} from './terms.js';
 import {settleDueCheckoutHolds} from './settlement.js';
 export class CheckoutStockUnavailable extends Problem {
@@ -32,7 +33,7 @@ export async function lockCheckoutOrders(q:PoolClient,ids:readonly string[],stor
   return rows;
 }
 const unresolved={async find(q:PoolClient,checkoutId:string){return (await q.query<{order_id:string}>(`SELECT co.order_id FROM commerce_checkout_orders co WHERE co.checkout_id=$1 AND co.lifecycle_state='open'
-  AND NOT EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id) ORDER BY co.order_id LIMIT 1`,[checkoutId])).rows[0]??null;}};
+  AND NOT ${confirmedPaymentSQL('co.order_id')} ORDER BY co.order_id LIMIT 1`,[checkoutId])).rows[0]??null;}};
 export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:{checkoutId:string;termsSha256:string;clientOrderId:string;buyerPrincipalId:string|null;environment:'sandbox'|'live'},ports:CheckoutPorts={}) {
   const peek=(await q.query(`SELECT c.terms FROM commerce_checkouts c JOIN commerce_storefront_profiles p ON p.instance_id=c.instance_id AND p.tenant_id=c.tenant_id
     WHERE c.checkout_id=$1 AND p.storefront_shop_id=$2`,[input.checkoutId,store.storefront_shop_id])).rows[0];
@@ -101,7 +102,7 @@ export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId
   const [row]=await lockCheckoutOrders(q,[orderId],store);
   if(row.lifecycle_state==='cancelled')return row;
   requireCondition(row.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
-  requireCondition(!(await q.query('SELECT 1 FROM commerce_checkout_payment_applications WHERE order_id=$1',[orderId])).rowCount,409,'payment_already_applied','訂單已有付款紀錄。');
+  requireCondition(!await hasConfirmedPayment(q,orderId),409,'payment_already_applied','訂單已有付款紀錄。');
   await (await checkoutInventory(q,orderId)).releaseHolds();
   return (await q.query<CheckoutOrderRow>(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason=$2,cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[orderId,reason])).rows[0];
 }

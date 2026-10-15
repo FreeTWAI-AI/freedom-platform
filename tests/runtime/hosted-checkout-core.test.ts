@@ -188,3 +188,23 @@ test('releasing the remaining 3 after shipping 2 of 5 keeps the order open with 
   assert.deepEqual((await x.h.pool.query('SELECT kind,quantity,delta_stock,delta_reserved FROM commerce_inventory_movements WHERE order_id=$1 ORDER BY created_at,movement_id',[o.order_id])).rows,[
     {kind:'convert',quantity:5,delta_stock:0,delta_reserved:0},{kind:'ship',quantity:2,delta_stock:-2,delta_reserved:-2},{kind:'allocation_release',quantity:3,delta_stock:0,delta_reserved:-3}]);
 });
+
+for(const expired of [false,true])test(`amount mismatch then correct payment ${expired?'after hold expiry allocates':'while held converts'}`,async()=>{
+  const s=await x.store(),o=expired?await x.due(s):await x.place(s,await x.frozen(s));
+  assert.equal((await payment(o.order_id,499)).outcome,'amount_mismatch');
+  if(expired)await x.tx(q=>settleDueCheckoutHolds(q,[s.product.product_id]));
+  assert.equal((await payment(o.order_id)).outcome,expired?'allocated':'converted');
+  assert.deepEqual(await position(s.product.product_id),{stock:10,held:0,allocated:5,available:5});
+});
+for(const simulated of [true,false])test(`${simulated?'simulated':'amount mismatch'} payment still permits unpaid cancellation`,async()=>{
+  const s=await x.store(),o=await x.place(s,await x.frozen(s));
+  assert.equal((await payment(o.order_id,simulated?500:499,randomUUID(),{simulated})).outcome,simulated?'simulated':'amount_mismatch');
+  assert.equal((await x.tx(q=>cancelUnpaidOrder(q,s,o.order_id,'buyer','buyer_cancelled'))).lifecycle_state,'cancelled');
+  assert.deepEqual(await position(s.product.product_id),{stock:10,held:0,allocated:0,available:10});
+});
+test('an open order with only an amount mismatch remains unresolved on the same checkout',async()=>{
+  const s=await x.store(),c=await x.frozen(s),o=await x.place(s,c);await payment(o.order_id,499);
+  await assert.rejects(x.place(s,c),e=>code('unresolved_order')(e)&&(e as {order_ref:string}).order_ref===o.order_id);
+  assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n,1);
+  assert.deepEqual(await position(s.product.product_id),{stock:10,held:5,allocated:0,available:5});
+});

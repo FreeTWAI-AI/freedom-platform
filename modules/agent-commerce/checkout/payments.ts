@@ -4,6 +4,7 @@ import {requireCondition} from '../../../packages/shared/problem.js';
 import {lockMachineOrder,lockStore,type CheckoutStore} from './authority.js';
 import {lockCheckoutOrders} from './orders.js';
 import {checkoutInventory} from './inventory.js';
+import {hasConfirmedPayment} from './confirmed-payment.js';
 export type PaymentOutcome='converted'|'allocated'|'unallocatable'|'after_cancel'|'overpaid'|'amount_mismatch'|'simulated';
 export interface PaymentApplication {application_id:string;order_id:string;payment_ref:string;amount_minor:string;currency:string;outcome:PaymentOutcome}
 export async function applyConfirmedPayment(q:PoolClient,input:{orderId:string;paymentRef:string;amountMinor:number;currency:string;simulated:boolean}):Promise<PaymentApplication> {
@@ -13,7 +14,7 @@ export async function applyConfirmedPayment(q:PoolClient,input:{orderId:string;p
   const prior=(await q.query<PaymentApplication>('SELECT * FROM commerce_checkout_payment_applications WHERE payment_ref=$1',[input.paymentRef])).rows[0];
   if(prior){requireCondition(prior.order_id===input.orderId,409,'payment_ref_conflict','付款事實已用於其他訂單。');return prior;}
   const inv=await checkoutInventory(q,input.orderId);
-  const already=(await q.query("SELECT 1 FROM commerce_checkout_payment_applications WHERE order_id=$1 AND outcome<>'simulated'",[input.orderId])).rowCount!==0;
+  const already=await hasConfirmedPayment(q,input.orderId);
   let outcome:PaymentOutcome;
   if(input.simulated)outcome='simulated';
   else if(input.amountMinor!==order.terms.total_minor||input.currency!==order.terms.currency)outcome='amount_mismatch';
