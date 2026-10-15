@@ -75,7 +75,7 @@ migration `075_member_card_profile_links.sql` 加上 `show_profile_links` 和 `p
 
 好友沿用既有的 `member_friendships`。側欄「我的好友」有三個範圍：已接受（`accepted`）、收到的邀請（`incoming`）、送出的邀請（`outgoing`），可依暱稱搜尋並分頁。
 
-`GET /api/v1/friends/directory?scope=accepted|incoming|outgoing&search=&limit=&offset=` 先篩有效關係、同社群、有效會員與搜尋，再分頁。`limit` 1–50（預設 20），`offset` 0–10000。待回覆的邀請仍然看不到聯絡方式。舊的 `/friends` 通知入口保持相容。
+`GET /api/v1/friends/directory?scope=accepted|incoming|outgoing&search=&limit=&offset=` 先篩有效關係、同社群、有效會員與搜尋，再分頁。`limit` 1–50（預設 20），`offset` 0–10000。待回覆的邀請仍然看不到聯絡方式。「工坊夥伴」讀取 `incoming` 第一頁及總數；通知指定的邀請不在第一頁時，再用 `/members/:id` 重驗目前關係與可見性，不保留先混排全部關係再靜默截斷的 `/friends` 投影。
 
 好友與推薦頁的會員名片改用批次讀取：同一頁的聯絡值、好友／公會／小隊可見條件仍在同一個 SQL snapshot 取得，定位摘要另以一個批次 statement 取得。頁面排序、DTO 與隱私規則不變；好友頁不論 1 或 50 人均批次執行分頁、名片、定位與封鎖複查，不再逐張占用連線。單筆會員名片沿用相同投影；本人仍另讀會員階級。
 

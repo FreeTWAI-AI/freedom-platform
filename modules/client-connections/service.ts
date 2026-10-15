@@ -2,6 +2,7 @@ import { randomBytes,randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool,PoolClient } from 'pg';
 import { command,checkVersion,transaction,type Command } from '../../packages/db/index.js';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { tokenHash,type Actor } from '../identity-membership/service.js';
 import { authRateLimit } from '../identity-membership/members.js';
@@ -70,8 +71,10 @@ async function pairingByCode(q:Pool|PoolClient,code:string,lock=false){
 }
 export async function pairingView(pool:Pool,actor:Actor,code:string){
  await authRateLimit(pool,'client-pairing-lookup',actor.user_id,30,300);
- const row=await pairingByCode(pool,code);
- return {user_code:normalizeCode(code).match(/.{1,5}/g)!.join('-'),kind:row.kind,client_name:row.client_name,scope:row.kind+':read',expires_at:row.expires_at,state:'pending',read_only:true};
+ return readWithMemberSession(pool,actor,async q=>{
+   const row=await pairingByCode(q,code);
+   return {user_code:normalizeCode(code).match(/.{1,5}/g)!.join('-'),kind:row.kind,client_name:row.client_name,scope:row.kind+':read',expires_at:row.expires_at,state:'pending',read_only:true};
+ });
 }
 export async function approveClientPairing(pool:Pool,input:Command,code:string){
  const body=ApprovalInput.parse(input.body);

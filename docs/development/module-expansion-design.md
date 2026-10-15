@@ -60,11 +60,34 @@ flowchart TB
 
 商品照片僅在使用者瀏覽器以 HTTPS 載入，不由 server 代抓任意網址。原始圖檔上傳、R2／quarantine、惡意檔案掃描另作實際功能，不以 URL 欄位宣稱完整資產庫已建好。
 
+供貨／零售的會員讀取（`/supplier/products`、`/retail/catalog`、
+`/retail/stores`、`/retail/listings`、`/supplier/requests`）沿用
+`readWithMemberSession`：以同一個已鎖定會員與 session 的資料庫 client
+完成原投影，最後以目前 database clock 再檢查登入期限。等 SQL 鎖期間到期
+回 `401 session_expired`，不回 `items` 或更新 cookie；空結果也不能略過檢查。
+仍保留原 owner／community／verification-test-account 過濾、最新 offer、
+不可變 snapshot；商品目錄回 `{items,next_offset}` 分頁，其餘列表保留 `{items}`，
+不因此新增 receipt／transition journal。
+行銷的低階 `getMarketingProductSource` 仍使用呼叫端原有 command 交易，
+不另開登入或巢狀交易。這是回傳投影前的決策檢查，不保證直到 commit 或
+HTTP 傳送完畢都尚未到期；不代表啟用 checkout、付款或跨倉契約採用。
+
 ## GitHub 與開源作品
 
 登記 public GitHub repository → 從限制的 GitHub API 讀取 metadata → 保存 stable repo ID／default-branch exact commit／該版本 license → 本人補用途 → 社群瀏覽候選作品。更新時 stable ID 必須一致，無法讀取就保留原版本並提示重試。
 
 不任意 clone／執行上游程式，不抓私人 repo，不把提交者稱作已驗證維護者；缺少授權資訊就呈現未知，不能替 repo 補造 open-source license。Penpot 如有使用，作為後續設計稿／原型外部協作接點；不取代 GitHub 或本平台 registry。
+
+OSS 的會員 list／detail 以 `readWithMemberSession` 包住完整組合投影：
+project source 與最後的 `projectSkillBookLinks` 使用同一已鎖定的 database
+client，不能在 source 檢查後另用 pool 查 private draft。`/marketing/campaigns`
+也涵蓋本人草稿與 shares 子查詢，最後才以目前 database clock 檢查 session。
+source 或 skill-book 等 SQL 鎖期間到期回 `401 session_expired`，不回 project、
+private `skill_book`、campaign items 或更新 cookie；空清單同樣檢查。
+低階 project／campaign query ports 僅接受呼叫端的 `PoolClient`，不是獨立登入
+入口；mutation 仍用原 command 交易，不新增巢狀交易或把 GitHub I/O 放進讀取鎖。
+保留原分享／撤下／本人／test-account 條件及 skill-book 優先序；讀取不寫
+receipt／journal。此期限檢查在投影回傳前，不保證直到 commit 或 HTTP 傳送完畢。
 
 ## 行銷與外部接線
 

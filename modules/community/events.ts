@@ -174,14 +174,36 @@ export async function getEventShareCode(pool:Pool|PoolClient,actor:Actor,id:stri
     ON CONFLICT(event_id,user_id) DO UPDATE SET code=community_event_share_codes.code RETURNING code`,[id,actor.user_id,code])).rows[0] as {code:string};
 }
 
-export async function eventReferralReport(db:Pool|PoolClient,actor:Actor,id:string){
+const EventReferralQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).default(0)}).strict();
+export type EventReferral={user_id:string;member_name:string;registrations:number;clicks:number};
+export async function eventReferralReport(db:Pool|PoolClient,actor:Actor,id:string,raw:unknown):Promise<{items:EventReferral[];total:number;next_offset:number|null}>{
   const row=await scopedEvent(db,actor,id);
   requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看活動分享統計。');
-  return (await db.query(`SELECT c.user_id,u.display_name AS member_name,
-    (SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=c.event_id AND r.referred_by_user_id=c.user_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
-    (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=c.event_id AND g.referred_by_user_id=c.user_id AND g.state='going' AND (g.email_sent_at IS NOT NULL OR g.confirmed_at IS NOT NULL)) AS registrations,
-    (SELECT count(*)::int FROM promotion_clicks pc JOIN promotion_links pl ON pl.link_id=pc.link_id WHERE pl.kind='event' AND pl.target_key=c.event_id::text AND pl.user_id=c.user_id) AS clicks
-    FROM community_event_share_codes c JOIN users u ON u.user_id=c.user_id WHERE c.event_id=$1 AND (c.user_id=$2 OR NOT is_verification_test_account(c.user_id)) ORDER BY registrations DESC,u.display_name`,[id,actor.user_id])).rows;
+  const {limit,offset}=EventReferralQuery.parse(raw);
+  const rows=(await db.query(`WITH registrations AS (
+      SELECT r.referred_by_user_id AS user_id,count(*)::bigint AS registrations FROM community_event_rsvps r
+        WHERE r.event_id=$1 AND r.state='going' AND NOT is_verification_test_account(r.user_id) GROUP BY r.referred_by_user_id
+      UNION ALL
+      SELECT g.referred_by_user_id,count(*)::bigint FROM community_event_guest_rsvps g
+        WHERE g.event_id=$1 AND g.state='going' AND (g.email_sent_at IS NOT NULL OR g.confirmed_at IS NOT NULL) GROUP BY g.referred_by_user_id),
+    registration_counts AS (
+      SELECT user_id,sum(registrations)::int AS registrations FROM registrations WHERE user_id IS NOT NULL GROUP BY user_id),
+    click_counts AS (
+      SELECT pl.user_id,count(*)::int AS clicks FROM promotion_links pl JOIN promotion_clicks pc ON pc.link_id=pl.link_id
+        WHERE pl.kind='event' AND pl.target_key=$1::text GROUP BY pl.user_id),
+    report AS MATERIALIZED (
+      SELECT c.user_id,u.display_name AS member_name,COALESCE(r.registrations,0)::int AS registrations,COALESCE(pc.clicks,0)::int AS clicks
+      FROM community_event_share_codes c JOIN users u ON u.user_id=c.user_id
+      LEFT JOIN registration_counts r ON r.user_id=c.user_id LEFT JOIN click_counts pc ON pc.user_id=c.user_id
+      WHERE c.event_id=$1 AND (c.user_id=$2 OR NOT is_verification_test_account(c.user_id))),
+    page AS (
+      SELECT * FROM report ORDER BY registrations DESC,member_name,user_id LIMIT $3 OFFSET $4),
+    counted AS (SELECT count(*)::int AS total FROM report)
+    SELECT p.user_id,p.member_name,p.registrations,p.clicks,counted.total FROM counted LEFT JOIN page p ON true
+    ORDER BY p.registrations DESC,p.member_name,p.user_id`,[id,actor.user_id,limit,offset])).rows;
+  const total=Number(rows[0]?.total??0);
+  const items=rows.filter(item=>item.user_id!==null).map(item=>({user_id:String(item.user_id),member_name:String(item.member_name),registrations:Number(item.registrations),clicks:Number(item.clicks)}));
+  return {items,total,next_offset:offset+items.length<total?offset+limit:null};
 }
 
 // Keep the page bounded while allowing every advertised continuation; Zod int

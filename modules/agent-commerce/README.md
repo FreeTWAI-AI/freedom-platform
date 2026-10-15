@@ -4,7 +4,32 @@ The member commerce routes manage an existing owner's shops and opaque credentia
 
 Order list hydration (#326) loads imported page orders, visible transfers, lines and recorded payables in four batch queries after the existing shop check and page-ID query. Single-order reads share the same assembler; internal views retain only their own transfers and each payable stays attached to its transfer. Hosted seller pages retain the existing sorted order/item locks and expiry effects, but batch persisted orders and immutable quote terms. A shared post-lock clock snapshot handles live reservations with the existing final deadline fence; expired reservations still perform their per-order stock release and journal writes, so those effect queries are not constant-size.
 
+Imported order creation evaluates pending reservation expiry with
+`clock_timestamp()` after the existing community commerce lock, not the
+transaction-start `now()`. A request queued across a reservation's deadline
+can release that expired stock and reserve it for its new order atomically,
+without a spurious `out_of_stock` or a client retry. Unexpired reservations
+still block excess orders; merchant-reported paid/refunded orders retain their
+stock. External-ID replays do not reserve again. This changes neither the TTL
+nor payment reporting, and does not guarantee the clock through commit.
+New reservations also use one post-lock SQL clock snapshot for `created_at`
+and `expires_at`, preserving the full 30-minute interval rather than consuming
+it while queued. Exact external-ID replays preserve both original timestamps;
+they do not renew that interval. Existing migration defaults remain unchanged.
+
 Owner imported-shop listing (#350) first selects the current community/owner's imported shops, then groups product and selection counts separately by shop before joining them. Empty shops keep numeric zero counts; all existing shop fields, key dates and descending creation-time ordering remain unchanged. The portal consumes the complete list and filters internal/public shops locally, so this change deliberately retains the unpaginated `{items}` response rather than silently hiding shops.
+
+Member catalog, own-shop, owner-order, distribution-acceptance and import-preview
+reads use the existing locked member-session transaction on one database client.
+They check the current session clock after the final domain query; expiry while
+waiting returns `401 session_expired` without private items or a preview, including
+empty lists and source-free internal previews. Catalog-backed agent-kit reads
+inherit that boundary. Preview downloads finish before this short transaction;
+no network I/O is moved under member locks. Read projections create no command
+receipt or transition journal. Ownership/community filters, grouped counts and
+batched orders remain unchanged. This is a read-decision fence, not a guarantee
+through commit or HTTP delivery; machine bearer and anonymous public-shop readers
+retain their separate authority and are not changed by the member boundary.
 
 The server resolver and schema constraints are documented in [resource-scopes](../../packages/resource-scopes/README.md). After schema 117 and 118, an upgraded issuer creates only purpose-bound v2 keys when the owner explicitly requests issuance. Its existing member receipt/digest stays unchanged and a replay still returns `token: null`. The application must receive an explicit `FREEDOM_SHOP_KEY_POLICY=legacy-compatible` or `purpose-bound-only`; absent configuration yields shop-only 503. The Worker config checker lists this as a required injection without changing deployed vars. `/api/v1/health` reports the actual selected policy and issuer profile, or `unconfigured`/null. A merged source SHA or configured example is not an installed policy observation.
 

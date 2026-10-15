@@ -146,3 +146,27 @@ test('a millisecond cursor still opens the next service when timestamps have no 
   assert.match(html, /較舊服務/);
   assert.equal(html.includes('較新服務'), false);
 });
+
+test('impossible calendar timestamps in a service cursor are rejected before SQL, while valid leap days still page', async () => {
+  const session = await signIn();
+  const id = randomUUID();
+  await pool.query(`INSERT INTO member_services(
+      service_id,community_id,owner_user_id,title,category,summary,service_mode,contacts,state,updated_at)
+    VALUES ($1,$2,$3,'閏日服務','design','游標驗證','online',$4::jsonb,'active',timestamptz '2024-02-28 00:00:00+00')`,
+  [id, DEMO_COMMUNITY, session.userId, CONTACTS]);
+  const encode = (at: string, uuid = id) => encodeURIComponent(Buffer.from(`${at}\n${uuid}`).toString('base64url'));
+  for (const at of ['2026-02-30T00:00:00.123456Z', '0000-01-01T00:00:00.123456Z', '2026-01-01T24:00:00.000000Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00.12Z', '2026-13-01T00:00:00.123456Z']) {
+    const member = await app.request(origin + '/api/v1/member-services?cursor=' + encode(at), { headers: { Cookie: session.cookie } });
+    const body = await member.json() as { code?: string };
+    assert.equal(member.status, 422, `${at} ${JSON.stringify(body)}`);
+    assert.equal(body.code, 'invalid_cursor', at);
+    const html = await publicHtml(`/services?before=${encode(at)}`);
+    assert.match(html, /閏日服務/, at);
+  }
+  for (const at of ['2024-02-29T00:00:00.123456Z', '2024-02-29T00:00:00.123Z']) {
+    const member = await app.request(origin + '/api/v1/member-services?cursor=' + encode(at), { headers: { Cookie: session.cookie } });
+    const body = await member.json() as { items: { title: string }[] };
+    assert.equal(member.status, 200, at);
+    assert.deepEqual(body.items.map(item => item.title), ['閏日服務'], at);
+  }
+});

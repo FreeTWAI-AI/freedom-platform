@@ -14,6 +14,16 @@ Base platform defaults to `https://freetwai.com`; clients must use HTTPS outside
 
 The user code is 80 random bits and the device secret is 256 random bits. Public start and poll operations have persistent network and global rate budgets; signed-in lookup and approvals also have budgets. Approval is not implicit in receiving or knowing a code.
 
+Signed-in code review uses the existing locked member-session transaction for
+its pending-code query and projection, then refreshes the database session clock
+before returning client metadata. Session expiry during a SQL wait returns
+`401 session_expired` without `user_code`, client name, kind, scope or a renewed
+cookie; a cached Actor also cannot bypass expiry, revocation or member inactivity.
+The lookup rate budget remains outside that short transaction, so denial does
+not refund the lookup. This read creates no connection, receipt or journal.
+It does not change code expiry, approval, one-time polling or bearer authority;
+the check is before returning the projection, not through commit/HTTP delivery.
+
 ## Read gateway
 
 Send `Authorization: Bearer <access_token>` to `/client-api/v1`. Every request checks active user, completed onboarding, expiry, revocation and resource scope in the same PostgreSQL transaction as the read. Expiry uses `clock_timestamp()` after the member lock. `/connection` metadata checks it again after the credential-row lock, before any metadata is returned. List reads check it again after the data query. A credential-row wait that crosses expiry denies both. No browser session or synthetic Actor is created.
