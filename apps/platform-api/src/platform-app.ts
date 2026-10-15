@@ -93,6 +93,8 @@ import { searchCommunityContent, assignContentTopics, listTaggableContent } from
 import { listCommunityBookmarks,changeCommunityBookmark,listCommunityFollows,changeCommunityFollow,listCommunityFollowUpdates } from '../../../modules/community/content-relations.js';
 
 const SLOW_REQUEST_THRESHOLD_MS=1000;
+// Unicode mode treats a valid UTF-16 pair as one code point, outside this range.
+const UNPAIRED_JSON_SURROGATE=/[\uD800-\uDFFF]/u;
 
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
@@ -284,7 +286,18 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
           Object.assign(c.req.bodyCache,{text:new Response(body).text()});
         }
         const raw=await c.req.text();
-        try { JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
+        let parsed:unknown;
+        try { parsed=JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
+        // Validate decoded values, not literal escape text; bounded JSON may still be deeply nested.
+        const pending:unknown[]=[parsed];
+        while(pending.length) {
+          const value=pending.pop();
+          if(typeof value==='string')requireCondition(!UNPAIRED_JSON_SURROGATE.test(value),422,'validation_failed','JSON 文字必須使用有效的 Unicode 字元。');
+          else if(value!==null&&typeof value==='object')for(const key of Object.keys(value)) {
+            requireCondition(!UNPAIRED_JSON_SURROGATE.test(key),422,'validation_failed','JSON 欄位必須使用有效的 Unicode 字元。');
+            pending.push((value as Record<string,unknown>)[key]);
+          }
+        }
       }
     }
     if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
