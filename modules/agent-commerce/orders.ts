@@ -47,7 +47,7 @@ async function release(q:PoolClient,orderId:string){
 }
 async function expireOrders(q:PoolClient,community:string){
  const expired=(await q.query(`SELECT o.order_id FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id
-  WHERE s.origin='imported' AND s.community_id=$1 AND o.buyer_payment='pending' AND o.expires_at<=now() FOR UPDATE OF o`,[community])).rows;
+  WHERE s.origin='imported' AND s.community_id=$1 AND o.buyer_payment='pending' AND o.expires_at<=clock_timestamp() FOR UPDATE OF o`,[community])).rows;
  for(const o of expired){await release(q,o.order_id);await q.query("UPDATE commerce_orders SET buyer_payment='cancelled' WHERE order_id=$1",[o.order_id]);}
 }
 async function requireImportedShop(q:PoolClient,shop:any){
@@ -78,7 +78,9 @@ export async function createOrder(q:PoolClient,shop:any,raw:unknown){
  }
  requireCondition(total<=100000000000,422,'amount_overflow','訂單金額過大。');
  const id=randomUUID();
- await q.query('INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor) VALUES($1,$2,$3,$4,$5,$6)',[id,shop.shop_id,body.external_id,hash,shop.currency,total]);
+ await q.query(`WITH reservation_clock AS MATERIALIZED (SELECT clock_timestamp() AS at)
+  INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at)
+  SELECT $1,$2,$3,$4,$5,$6,at,at+interval '30 minutes' FROM reservation_clock`,[id,shop.shop_id,body.external_id,hash,shop.currency,total]);
  const groups=new Map<string,typeof lines>();
  for(const line of lines)groups.set(line.internal_shop_id,[...(groups.get(line.internal_shop_id)??[]),line]);
  for(const [internalId,group] of groups){
