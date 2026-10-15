@@ -176,3 +176,38 @@ test('invalid source combinations, unsafe share links and missing session/CSRF n
   }
   assert.equal((await pool.query('SELECT count(*) FROM marketing_share_records')).rows[0].count,'0');
 });
+
+test('external display URLs apply private-host policy to absolute DNS names without rewriting public links',async t=>{
+  const {seen}=mockGitHub(t),owner=await login(),key=randomUUID();
+  const showcase={title:'合成外部展示',description:'隔離 DNS root dot 邊界',consent_to_share:true};
+  const facts=async()=>(await pool.query(`SELECT
+    (SELECT count(*)::int FROM oss_projects) AS projects,
+    (SELECT count(*)::int FROM oss_project_versions) AS versions,
+    (SELECT count(*)::int FROM showcases) AS showcases,
+    (SELECT count(*)::int FROM command_receipts) AS receipts,
+    (SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+  const before=await facts();
+  for(const url of ['https://printer.local./secret','https://service.internal./secret','https://example.test./demo','https://example.invalid./demo','https://sub.localhost./demo','https://printer./demo','https://printer.local%2e/secret']){
+    for(const [path,body] of [
+      ['/opensource/projects',{...projectBody,demo_url:url}],
+      ['/showcases',{...showcase,public_url:url}],
+    ] as const){
+      const denied=await request(path,owner,body,undefined,key);
+      assert.equal(denied.status,422,url);assert.equal(denied.data.code,'invalid_external_url');
+      assert.equal(JSON.stringify(denied.data).includes('printer.local'),false);
+    }
+    assert.deepEqual(await facts(),before);
+  }
+  assert.equal(seen.length,0);
+  const publicUrl='https://public.example.com./demo?x=1#part';
+  const projectBodyWithLink={...projectBody,demo_url:publicUrl};
+  const project=await request('/opensource/projects',owner,projectBodyWithLink,undefined,key);
+  assert.equal(project.status,201,JSON.stringify(project.data));assert.equal(project.data.demo_url,publicUrl);
+  assert.deepEqual((await request('/opensource/projects',owner,projectBodyWithLink,undefined,key)).data,project.data);
+  assert.equal(seen.length,3);
+  const showcaseBody={...showcase,public_url:publicUrl};
+  const created=await request('/showcases',owner,showcaseBody,undefined,key);
+  assert.equal(created.status,201);assert.equal(created.data.public_url,publicUrl);
+  assert.deepEqual((await request('/showcases',owner,showcaseBody,undefined,key)).data,created.data);
+  assert.deepEqual(await facts(),{projects:before.projects+1,versions:before.versions+1,showcases:before.showcases+1,receipts:before.receipts+2,journal:before.journal+2});
+});
