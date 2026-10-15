@@ -87,12 +87,16 @@ export class GitHubSocial {
     // The member lock can outlast the transaction-start now() check.
     await assertCurrentSessionClock(q,actor);
   }
-  private async member<T>(actor:Actor,run:(q:PoolClient)=>Promise<T>):Promise<T>{
+  private async member<T>(actor:Actor,run:(q:PoolClient)=>Promise<T>,requireLiveResult=false):Promise<T>{
     // Commit consumed OAuth states, attempt budgets and invalid-token removal even
     // when GitHub rejects a request. Unexpected database failures still roll back.
     const result=await transaction(this.pool,async q=>{
       await this.actorLock(q,actor);
-      try{return {value:await run(q)};}catch(error){if(error instanceof Problem)return {error};throw error;}
+      let outcome:{value:T}|{error:Problem};
+      try{outcome={value:await run(q)};}catch(error){if(error instanceof Problem)outcome={error};else throw error;}
+      // Only pure local issuance opts in; remote outcomes must retain commit semantics.
+      if(requireLiveResult&&'value' in outcome)await assertCurrentSessionClock(q,actor);
+      return outcome;
     });
     if('error' in result)throw result.error;return result.value;
   }
@@ -159,7 +163,7 @@ export class GitHubSocial {
       const authorization=new URL('https://github.com/login/oauth/authorize');
       authorization.search=new URLSearchParams({client_id:config.clientId,redirect_uri:config.redirectUri,state,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256',prompt:'select_account'}).toString();
       return {authorization_url:authorization.href,expires_at:expires.toISOString()};
-    });
+    },true);
   }
   async complete(actor:Actor,state:string,code:string){
     const config=this.configured();

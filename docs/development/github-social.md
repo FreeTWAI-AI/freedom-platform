@@ -68,9 +68,16 @@ Nonce 消耗先取得精確 user／community／session 所屬 state 的列鎖，
 紀錄，在最後 SQL／provider 讀取與快取更新後，以同一 transaction client 的
 `assertCurrentSessionClock()` 重驗成功投影。等候跨過期限回 `401 session_expired`，
 不回 GitHub username、狀態或私人 operation keys；仍有效的相同等待保留原結果。
-這不是延長／滑動期限，也不改會員／session 撤銷鎖或新增交易。僅收緊讀投影，
-不在共用 `member()` 或外部寫入完成後加全域 fence；已 dispatch 的 GitHub 寫入
-確認、換發憑證與既有 unknown／拒絕狀態仍依原語義提交，不因讀投影規則回滾。
+這不是延長／滑動期限，也不改會員／session 撤銷鎖或新增交易。讀投影不在
+外部寫入完成後加全域 fence；已 dispatch 的 GitHub 寫入確認、換發憑證與既有
+unknown／拒絕狀態仍依原語義提交，不因讀投影規則回滾。
+
+純本機 `POST /me/github/connect` 的成功結果另明確啟用同一 q 的結尾期限檢查，
+放在 `member()` 的可提交 `Problem` catch 外。Rate／state DELETE／INSERT 等候
+後已跨期回 `401 session_expired`、不回授權連結；當次 nonce 替換與 attempt 更新
+一併回滾，保留原已提交 state。正常相同等待仍產生綁定本次 session／return_to
+的 PKCE state。此選項不套用 OAuth callback 或已 dispatch 的 provider writers；
+已消耗 callback nonce、已換發憑證及已確認外部結果的原提交規則保持。
 
 ## 領書與晉升的 Star 前置條件
 

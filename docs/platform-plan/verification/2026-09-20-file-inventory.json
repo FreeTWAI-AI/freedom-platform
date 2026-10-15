@@ -13944,8 +13944,8 @@
     },
     {
       "path": "docs/development/github-social.md",
-      "bytes": 15309,
-      "sha256": "dbbb2f06410972e4dac27c0be21e9564e7c78d28ed51bbee1ef0b9070b6b8b85"
+      "bytes": 15851,
+      "sha256": "61851bb18ee7fe0ed4579d987185ab91c6bb27cb6beaf696f3a27150a7114a6f"
     },
     {
       "path": "docs/development/guide-publisher-2026-10-05.md",
@@ -18149,8 +18149,8 @@
     },
     {
       "path": "modules/github-social/service.ts",
-      "bytes": 37898,
-      "sha256": "0ebec606b2d71caf11767d89dcb3b2c830423784044ae276f1b2eb0c7a1d81a7"
+      "bytes": 38179,
+      "sha256": "50dcfa54a41125f87281ac5c41bbb66727496d4f36435c61fa941c10410fe6af"
     },
     {
       "path": "modules/github-social/setup.ts",
@@ -22079,8 +22079,8 @@
     },
     {
       "path": "tests/runtime/github-social.test.ts",
-      "bytes": 55415,
-      "sha256": "d4886113179bde4d2025c270dfb86d593084688e77f8b86338eaf13256f5a127"
+      "bytes": 61536,
+      "sha256": "01a536cfbe8eca0314b73bffac22f86cac76a1b7a73f7abebd1c2d3da4e0449a"
     },
     {
       "path": "tests/runtime/github-sync.test.ts",

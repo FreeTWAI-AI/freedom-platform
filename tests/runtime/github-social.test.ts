@@ -77,6 +77,75 @@ test('OAuth onboarding returns reject unknown paths, external targets and encode
   assert.equal(mock.calls.length,0);assert.equal((await pool.query('SELECT count(*) FROM github_social_oauth_states')).rows[0].count,'0');
 });
 
+for(const phase of ['state-delete','state-insert'] as const)test(`OAuth start rolls back expired local issuance after ${phase} and preserves live PKCE state`,async()=>{
+  const original=await social.start(actor,'#guilds');
+  const before=(await pool.query('SELECT * FROM github_social_oauth_states WHERE user_id=$1',[actor.user_id])).rows;
+  const budget=(await pool.query("SELECT attempts FROM github_social_rate_limits WHERE user_id=$1 AND operation='oauth-start'",[actor.user_id])).rows[0].attempts;
+  const blocked=async(expired:boolean)=>{
+    const gate=await database.connect(),lock=`${schema}/start/${randomUUID()}`;
+    let pending:Promise<PromiseSettledResult<unknown>[]>|undefined;
+    try{
+      if(phase==='state-insert'){
+        await pool.query(`CREATE FUNCTION pause_oauth_start() RETURNS trigger LANGUAGE plpgsql AS $$
+          BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); RETURN NEW; END $$`);
+        await pool.query('CREATE TRIGGER pause_oauth_start BEFORE INSERT ON github_social_oauth_states FOR EACH ROW EXECUTE FUNCTION pause_oauth_start()');
+        await gate.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[lock]);
+      }else{await gate.query('BEGIN');await gate.query(`LOCK TABLE ${schema}.github_social_oauth_states IN ACCESS EXCLUSIVE MODE`);}
+      await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1',[actor.session_hash,expired?3:300]);
+      const pid=(await gate.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      pending=Promise.allSettled([social.start(actor,'#community')]);
+      const deadline=Date.now()+8000;
+      for(;;){
+        if((await database.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount!>0)break;
+        assert.ok(Date.now()<deadline,'OAuth start reached its PostgreSQL nonce barrier');await yieldLoop();
+      }
+      assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[actor.session_hash])).rows[0].live,true);
+      if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[actor.session_hash]);
+      if(phase==='state-insert')await gate.query('SELECT pg_advisory_unlock_all()');else await gate.query('ROLLBACK');
+      return (await pending)[0];
+    }finally{
+      if(phase==='state-insert')await gate.query('SELECT pg_advisory_unlock_all()');else await gate.query('ROLLBACK');
+      gate.release();if(pending)await pending;
+      if(phase==='state-insert'){await pool.query('DROP TRIGGER IF EXISTS pause_oauth_start ON github_social_oauth_states');await pool.query('DROP FUNCTION IF EXISTS pause_oauth_start()');}
+    }
+  };
+  const denied=await blocked(true);assert.equal(denied.status,'rejected');
+  assert.ok(denied.reason instanceof Problem);assert.equal(denied.reason.code,'session_expired');
+  assert.deepEqual((await pool.query('SELECT * FROM github_social_oauth_states WHERE user_id=$1',[actor.user_id])).rows,before);
+  assert.equal((await pool.query("SELECT attempts FROM github_social_rate_limits WHERE user_id=$1 AND operation='oauth-start'",[actor.user_id])).rows[0].attempts,budget);
+  const live=await blocked(false);assert.equal(live.status,'fulfilled');
+  const result=z.object({authorization_url:z.url(),expires_at:z.iso.datetime()}).parse(live.value);
+  const url=new URL(result.authorization_url),state=url.searchParams.get('state');assert.ok(state);
+  assert.equal(url.origin,'https://github.com');assert.equal(url.searchParams.get('code_challenge_method'),'S256');
+  assert.notEqual(state,new URL(original.authorization_url).searchParams.get('state'));
+  const stored=(await pool.query('SELECT * FROM github_social_oauth_states WHERE user_id=$1',[actor.user_id])).rows;
+  assert.equal(stored.length,1);assert.equal(stored[0].state_hash,createHash('sha256').update(state).digest('hex'));
+  assert.equal(stored[0].session_hash,actor.session_hash);assert.equal(stored[0].return_to,'#community');
+  assert.equal(mock.calls.length,0);
+});
+
+test('OAuth callback keeps a consumed nonce when provider response crosses session expiry',async()=>{
+  let enter!:()=>void,release!:()=>void;
+  const entered=new Promise<void>(resolve=>{enter=resolve;}),held=new Promise<void>(resolve=>{release=resolve;});
+  const service=new GitHubSocial(pool,config,async(input,init)=>{
+    if(String(input)==='https://github.com/login/oauth/access_token'){enter();await held;}
+    return mock.fetch(input,init);
+  });
+  const start=await service.start(actor),state=new URL(start.authorization_url).searchParams.get('state');assert.ok(state);
+  await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE token_hash=$1",[actor.session_hash]);
+  const pending=Promise.allSettled([service.complete(actor,state,'synthetic-code')]);
+  try{
+    await Promise.race([entered,pending.then(results=>{if(results[0].status==='rejected')throw results[0].reason;throw Error('callback settled before provider barrier');})]);
+    assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[actor.session_hash])).rows[0].live,true);
+    await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[actor.session_hash]);
+    release();const result=(await pending)[0];assert.equal(result.status,'rejected');
+    assert.ok(result.reason instanceof Problem);assert.equal(result.reason.code,'session_expired');
+    assert.equal((await pool.query('SELECT count(*)::int AS count FROM github_social_oauth_states WHERE user_id=$1',[actor.user_id])).rows[0].count,0);
+    assert.equal((await pool.query('SELECT count(*)::int AS count FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].count,0);
+    assert.equal((await pool.query("SELECT attempts FROM github_social_rate_limits WHERE user_id=$1 AND operation='oauth-complete'",[actor.user_id])).rows[0].attempts,1);
+  }finally{release();await pending;}
+});
+
 test('GitHub author follow and unfollow use member token, confirm state and remain separate from workshop support',async()=>{
   assert.deepEqual(await social.following(actor,'source-author'),{username:'source-author',connected:false,following:null});
   await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_connect_required'));
