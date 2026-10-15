@@ -2319,8 +2319,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
-      "bytes": 40476,
-      "sha256": "044f22176b61a8e66976c856f5d27a6071107dce8e6a47e06dc3778b3e32e55c"
+      "bytes": 40564,
+      "sha256": "fde5d15ae475a08510a427b69c74b51a8bdda9d0c30e5f98164161221c49240e"
     },
     {
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69720,
-      "sha256": "ef488f9e71290a924ef13478f2a0f6bd5dc35d9c5a6628706f8050b370c763b3"
+      "bytes": 70065,
+      "sha256": "7335d4aff99d72d1e0f34ec0f61e5462149edc5f6582b995ce18b83ae634ef45"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -21199,8 +21199,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 30054,
-      "sha256": "4c32b3b9ac420964557256ef9fe307e9d9350034f93a68ba9f4a9650f1744fe8"
+      "bytes": 31239,
+      "sha256": "803d32a710733d1c2c85e44ba7320328d07b7a2529846a4bf6e1c69bc14364a4"
     },
     {
       "path": "tests/e2e/shared-feedback-language.spec.ts",

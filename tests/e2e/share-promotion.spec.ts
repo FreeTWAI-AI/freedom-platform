@@ -144,6 +144,18 @@ test('an event share link lands on the public page and shows the click', async (
   await expect(report.getByRole('listitem')).toHaveCount(20);
   await expect(report).toContainText('示範創作者：點擊 1・報名 1 人');
   await expect(report).toContainText('目前顯示 20 / 22 位分享會員。');
+  await e2eAuthPool.query("UPDATE users SET display_name='分頁分享者 00（已更新）' WHERE user_id='91000000-0000-4000-8000-000000000000'");
+  await page.route(`**/api/v1/events/${eventId}/referrals?limit=20&offset=0`,route=>route.fulfill({
+    status:503,contentType:'application/problem+json',body:JSON.stringify({detail:'測試暫停第一頁刷新'}),
+  }),{times:1});
+  await card.getByRole('button',{name:'分享報名統計',exact:true}).click();
+  await expect(report.getByRole('alert')).toContainText('服務暫時無法回應（503）');
+  await expect(report.getByRole('listitem')).toHaveCount(20);
+  const refreshed=page.waitForResponse(response=>response.status()===200&&new URL(response.url()).pathname===`/api/v1/events/${eventId}/referrals`&&new URL(response.url()).searchParams.get('offset')==='0');
+  await report.getByRole('button',{name:'重試',exact:true}).click();await refreshed;
+  await expect(report.getByRole('listitem')).toHaveCount(20);
+  await expect(report).toContainText('分頁分享者 00（已更新）：點擊 0・報名 0 人');
+  await expect(report.getByText('分頁分享者 00：點擊 0・報名 0 人',{exact:true})).toHaveCount(0);
   await page.route(`**/api/v1/events/${eventId}/referrals?limit=20&offset=20`, route => route.fulfill({
     status: 503, contentType: 'application/problem+json', body: JSON.stringify({ detail: '測試暫停分享統計' }),
   }), { times: 1 });

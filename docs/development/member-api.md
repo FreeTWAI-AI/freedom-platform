@@ -371,6 +371,11 @@ must be a non-negative integer. The response includes `items`, the exact
 Rows are ordered by registrations descending, then member name and `user_id`
 for stable ties. The Portal renders the first 20 rows and explicitly loads each
 following page without discarding already-visible rows when a request fails.
+Retry retains the offset of the failed request, separately from the last page's
+`next_offset`. A failed offset-zero refresh therefore retries zero and replaces
+the visible rows on success; a failed continuation retries its own offset and
+appends only after success. Existing request/session generation fences still
+discard superseded responses.
 
 Other members receive `403 organizer_required`. The route holds current
 user/session locks and runs the organizer authorization and report queries on
