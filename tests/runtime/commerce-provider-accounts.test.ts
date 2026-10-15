@@ -119,6 +119,11 @@ test('provider setup HTTP, activation, retained credentials, entry routes and se
     a=ok(await call('GET',root)).items[0];a=ok(await call('POST',service+'/retire',{fresh_auth_verification_id:await fresh()},a.version));assert.equal(a.services[0].state,'retired');
     assert.equal((await call('PUT',service,{...putBody,fresh_auth_verification_id:await fresh()},a.version)).data.code,'provider_service_state');
     assert((await h.pool.query('SELECT 1 FROM commerce_control_events WHERE tenant_id=$1',[s.tenantId])).rowCount!>=8);
+    const event=(await h.pool.query('SELECT event_id FROM commerce_control_events WHERE tenant_id=$1 LIMIT 1',[s.tenantId])).rows[0].event_id;
+    for(const sql of ['DELETE FROM commerce_control_events WHERE event_id=$1',"UPDATE commerce_control_events SET actor_id=gen_random_uuid() WHERE event_id=$1", "UPDATE commerce_control_events SET detail='{\"unexpected\":true}'::jsonb WHERE event_id=$1"])
+      await assert.rejects(h.pool.query(sql,[event]),{code:'23514'});
+    await h.pool.query('UPDATE commerce_control_events SET journaled_at=clock_timestamp() WHERE event_id=$1',[event]);
+    await assert.rejects(h.pool.query('UPDATE commerce_control_events SET journaled_at=NULL WHERE event_id=$1',[event]),{code:'23514'});
     await scan();
   }finally{for(const method of methods)console[method]=original.get(method)!;await x.stop();}
 });
