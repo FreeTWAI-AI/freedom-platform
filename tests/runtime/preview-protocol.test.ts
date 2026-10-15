@@ -45,7 +45,9 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const {title:_,specifications:__,...offer}=productBody;
  await maker.call('createSupplierOffer',{...key(),params:{id:product.product_id},version:product.aggregate_version,body:{...offer,net_price_minor:32000}});
  await assert.rejects(maker.call('reviseCampaign',{...key(),params:Object.create({id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'inherited target must not mutate'}}),TypeError);
- const updated=await maker.call('reviseCampaign',{...key(),params:Object.assign(Object.create(null),{id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'updated text'}});
+ const inheritedOptions=Object.assign(Object.create({params:{id:campaign.campaign_id}}),{...key(),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'inherited options must not mutate'}});
+ await assert.rejects(maker.call('reviseCampaign',inheritedOptions),TypeError);
+ const updated=await maker.call('reviseCampaign',Object.assign(Object.create(null),{...key(),params:Object.assign(Object.create(null),{id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'updated text'}}));
  assert.deepEqual(updated.source_snapshot,campaign.source_snapshot);
  await assert.rejects(maker.call('reviseCampaign',{...key(),params:{id:campaign.campaign_id},version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'stale'}}),{status:412});
  const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI/freedom-platform',note:'synthetic'}});
