@@ -1,0 +1,25 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "commerce-payments",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/payments/**",
+    "tests/runtime/commerce-refund-rules.test.ts"
+  ],
+  "public_exports": [
+    "modules/agent-commerce/payments/rules/index.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "modules/agent-commerce/payments/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md"
+  ],
+  "invariants": [],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}
