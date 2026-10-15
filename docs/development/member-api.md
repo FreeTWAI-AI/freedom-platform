@@ -375,6 +375,14 @@ community scope, verification-test-account exclusion, and
 `internal_preview` limits. Pagination does not turn this legacy member catalog
 into a public retail feed or enable checkout.
 
+The generated `freedom.preview/v1` revision `0.3.1` SDK uses a separate
+`CatalogPage` response; the supplier's full `ProductList` remains unchanged.
+Call `client.call('listCatalog', {query:{limit:20,offset:0}})` and pass the
+returned `next_offset` explicitly for the next page. The canonical query schema
+also generates OpenAPI parameters and TypeScript types; unknown or out-of-range
+query values are rejected before credentialed HTTP. Consumers must deliberately
+update their exact source/bundle pins; protocol hash negotiation remains strict.
+
 ## Organizer event referral reports
 
 `GET /api/v1/events/:id/referrals` returns sharing members' `user_id`,

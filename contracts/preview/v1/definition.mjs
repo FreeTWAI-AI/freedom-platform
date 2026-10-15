@@ -50,6 +50,8 @@ export const schemas={
 };
 const items=name=>object({items:array(ref(name))});
 for(const name of ['Guild','Product','Store','Listing','Acceptance','Project','Campaign','Work'])schemas[name+'List']=items(name);
+schemas.CatalogPage=object({items:array(ref('Product'),50),next_offset:nullable(integer(0))});
+schemas.CatalogQuery=object({limit:{...integer(1,50),default:20},offset:{...integer(0),default:0}},[]);
 schemas.TrackList=object({items:array({type:'object'})});
 // Params are always identifiers, never arbitrary paths or full URLs.
 export const operations={};
@@ -65,7 +67,8 @@ op('listCareerTracks','GET','/career-tracks','TrackList');op('listGuilds','GET',
 op('joinGuild','POST','/guilds/{key}/join','Membership','Empty','optional');op('leaveGuild','POST','/guilds/{key}/leave','Membership','Empty','required');
 op('listSupplierProducts','GET','/supplier/products','ProductList');op('createSupplierProduct','POST','/supplier/products','Product','ProductInput','none',201);
 op('createSupplierOffer','POST','/supplier/products/{id}/offer-versions','Product','OfferInput','required',201);
-op('listCatalog','GET','/retail/catalog','ProductList');op('listStores','GET','/retail/stores','StoreList');op('createStore','POST','/retail/stores','Store','StoreInput','none',201);
+op('listCatalog','GET','/retail/catalog','CatalogPage');op('listStores','GET','/retail/stores','StoreList');op('createStore','POST','/retail/stores','Store','StoreInput','none',201);
+operations.listCatalog.query='CatalogQuery';
 op('listListings','GET','/retail/listings','ListingList');op('createListing','POST','/retail/listings','Listing','ListingInput','none',201);
 op('requestSupply','POST','/retail/listings/{id}:request-supply','Listing','SnapshotInput','required');
 op('listSupplyRequests','GET','/supplier/requests','AcceptanceList');op('decideSupplyRequest','POST','/supplier/requests/{id}:decide','Acceptance','DecisionInput','required');
@@ -74,4 +77,4 @@ op('refreshProject','POST','/opensource/projects/{id}:refresh','Project','Empty'
 op('listCampaigns','GET','/marketing/campaigns','CampaignList');op('createCampaign','POST','/marketing/campaigns','Campaign','CampaignInput','none',201);
 op('reviseCampaign','POST','/marketing/campaigns/{id}:revise','Campaign','CampaignMetadata','required');op('recordShare','POST','/marketing/campaigns/{id}/shares','Campaign','ShareInput','required',201);
 op('listWorks','GET','/work-items','WorkList');op('getDashboard','GET','/dashboard','Dashboard');
-export const protocol={version:'freedom.preview/v1',revision:'0.3.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};
+export const protocol={version:'freedom.preview/v1',revision:'0.3.1',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};

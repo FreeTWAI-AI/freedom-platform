@@ -13115,37 +13115,37 @@
     {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
-      "sha256": "75923a7fa72ed48068f873827d3054388b477c0bdba793cd8dfff03e9fb3a375"
+      "sha256": "5495b2e073ad8729732c862f83e0fd7158c45b46a3e90db65bdd9e18dfe3986a"
     },
     {
       "path": "contracts/preview/v1/client.d.mts",
-      "bytes": 8252,
-      "sha256": "0ad63e3bb690e60401e0a6a5b70ee2a5d807a9c05a4d907cd044f364d122c341"
+      "bytes": 8900,
+      "sha256": "b7fd379389089ebf41bbb56b4f6c3465195fcd1c6230ef158fac6da9c2076905"
     },
     {
       "path": "contracts/preview/v1/client.mjs",
-      "bytes": 6197,
-      "sha256": "37138679c14966d3c6fb79a6766e63ad20875fea4f8d11f1dfd0e522737431f6"
+      "bytes": 6554,
+      "sha256": "a683c38628ffae82c791dde1ab5b71ad8e2a0827da80f076e3be9ac0f43776a8"
     },
     {
       "path": "contracts/preview/v1/definition.mjs",
-      "bytes": 8863,
-      "sha256": "650132ab184c4fd735a33cfb3edb6a7c1d4552efd8540c53a7d0e08b49953933"
+      "bytes": 9107,
+      "sha256": "85a6d9da6ac424cea31567d066bda21774e44ec8ec240f680cb7ffc1c8a0980e"
     },
     {
       "path": "contracts/preview/v1/metadata.json",
       "bytes": 942,
-      "sha256": "465ce597d48b6e3cbce3569161706f82c9a4da8240dcd6a1a43ba7273bd158a3"
+      "sha256": "ea9c27b520d118ce1fff686c1caf1279ee6400ab0cd9e82bee2045f0b8bc37c9"
     },
     {
       "path": "contracts/preview/v1/openapi.json",
-      "bytes": 80427,
-      "sha256": "84463c2a1f45c786d6f9c90d83f46faf742520c230db49f81d01c72ac3941bbc"
+      "bytes": 82111,
+      "sha256": "fbcaebe6e985755014c19b3dc9d0f7e640a8ac882a9e95f52cac1b9457f55bde"
     },
     {
       "path": "contracts/preview/v1/protocol.mjs",
-      "bytes": 35961,
-      "sha256": "dbbf667907513ba16886de3f5c9183169aadca223cddfd7286ba10d471675c41"
+      "bytes": 37022,
+      "sha256": "51fba23043ae1334a54227727af726294367bfc50935a2503626d0979834a9b0"
     },
     {
       "path": "contracts/preview/v1/schema.mjs",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69977,
-      "sha256": "0ed0564f0351ebcb23b89b33d055062bfe8d9ebebccd56be474d0e975db37d23"
+      "bytes": 70524,
+      "sha256": "fdce183871f29affc08ceaa930d49089f528bdf0ab45a25bd752d110f2fbd490"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -19874,13 +19874,13 @@
     },
     {
       "path": "packages/sdk/client.d.mts",
-      "bytes": 8252,
-      "sha256": "0ad63e3bb690e60401e0a6a5b70ee2a5d807a9c05a4d907cd044f364d122c341"
+      "bytes": 8900,
+      "sha256": "b7fd379389089ebf41bbb56b4f6c3465195fcd1c6230ef158fac6da9c2076905"
     },
     {
       "path": "packages/sdk/client.mjs",
-      "bytes": 6197,
-      "sha256": "37138679c14966d3c6fb79a6766e63ad20875fea4f8d11f1dfd0e522737431f6"
+      "bytes": 6554,
+      "sha256": "a683c38628ffae82c791dde1ab5b71ad8e2a0827da80f076e3be9ac0f43776a8"
     },
     {
       "path": "packages/sdk/machine-device-cli.mjs",
@@ -19904,8 +19904,8 @@
     },
     {
       "path": "packages/sdk/protocol.mjs",
-      "bytes": 35961,
-      "sha256": "dbbf667907513ba16886de3f5c9183169aadca223cddfd7286ba10d471675c41"
+      "bytes": 37022,
+      "sha256": "51fba23043ae1334a54227727af726294367bfc50935a2503626d0979834a9b0"
     },
     {
       "path": "packages/sdk/schema.mjs",
@@ -20144,8 +20144,8 @@
     },
     {
       "path": "scripts/build-contract-bundle.mjs",
-      "bytes": 5863,
-      "sha256": "1f4f48a29330555f28560178e350ea23bd982e4b49b28422266b266bfef4da5f"
+      "bytes": 6118,
+      "sha256": "47a702de59228c24624d3e4148734ace57c696792ebf592d1339c4167d27d86e"
     },
     {
       "path": "scripts/build-skill-upload-client.mjs",
@@ -22879,8 +22879,8 @@
     },
     {
       "path": "tests/runtime/preview-protocol.test.ts",
-      "bytes": 8539,
-      "sha256": "fc6cc2522793f0ecb0ef2475f42811292b254f7ee5110dd8a48c1eb4e49ebf03"
+      "bytes": 9571,
+      "sha256": "7170d1d6c8ff04a2ecc4e910bd6ca2b809e356bf41ec3665ed3c14fcfac43be1"
     },
     {
       "path": "tests/runtime/private-ai-path.test.ts",

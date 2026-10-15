@@ -1,7 +1,7 @@
 // GENERATED. Change definition.mjs and rebuild in freedom-platform.
 export const protocol={
   "version": "freedom.preview/v1",
-  "revision": "0.3.0",
+  "revision": "0.3.1",
   "api_prefix": "/api/v1",
   "operations": {
     "getProtocol": {
@@ -147,12 +147,13 @@ export const protocol={
     "listCatalog": {
       "method": "GET",
       "path": "/retail/catalog",
-      "response": "ProductList",
+      "response": "CatalogPage",
       "body": null,
       "concurrency": "none",
       "status": 200,
       "auth": true,
-      "idempotent": false
+      "idempotent": false,
+      "query": "CatalogQuery"
     },
     "listStores": {
       "method": "GET",
@@ -1609,6 +1610,54 @@ export const protocol={
       ],
       "additionalProperties": false
     },
+    "CatalogPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Product"
+          },
+          "maxItems": 50
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_offset"
+      ],
+      "additionalProperties": false
+    },
+    "CatalogQuery": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "default": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
     "TrackList": {
       "type": "object",
       "properties": {
@@ -1630,4 +1679,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="fe2ee45447f4a5e92c10e22307dee3b380d028acca04bac5278d3aeca0da7b3e";
+export const protocolSha256="9a2c6c05c400ae09c11020906329871159a136c126990b8ee73ff87980fe49a2";
