@@ -309,3 +309,15 @@ for(const unallocatable of [false,true])test(`paid cancellation retains its comm
   if(unallocatable)await assert.rejects(x.tx(q=>releaseAllocation(q,s,{...input,lines:[{itemId:s.product.product_id,quantity:1}]})),code('command_ref_conflict'));
   assert.deepEqual(await stockFacts(),before);
 });
+
+for(const invalid of ['contact_nul','delivery_surrogate','delivery_key_surrogate','invoice_nested_nul','unknown_key_surrogate','idempotency_surrogate'] as const)test(`invalid checkout JSON (${invalid}) is rejected before writes`,async()=>{
+  const s=await x.store(),input={...x.input(s.product.sku),idempotencyKey:randomUUID()} as Parameters<typeof freezeCheckout>[2]&Record<string,unknown>;
+  if(invalid==='contact_nul')input.contact.name='合成\u0000買家';
+  if(invalid==='delivery_surrogate')input.delivery={nested:[{address:'\ud800'}]};
+  if(invalid==='delivery_key_surrogate')input.delivery={nested:{['\udc00']:'合成地址'}};
+  if(invalid==='invoice_nested_nul')input.invoice={nested:[{name:'合成\u0000買家'}]};
+  if(invalid==='unknown_key_surrogate')input['\ud800']='合成資料';
+  if(invalid==='idempotency_surrogate')input.idempotencyKey='\ud800';
+  const before=await stockFacts();await assert.rejects(x.tx(q=>freezeCheckout(q,s,input,ports)),code('invalid_checkout_json'));assert.deepEqual(await stockFacts(),before);
+  for(const table of ['commerce_customers','commerce_checkouts','commerce_checkout_contacts','commerce_checkout_idempotency_keys'])assert.equal((await x.h.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,0);
+});

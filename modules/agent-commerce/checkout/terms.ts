@@ -1,3 +1,4 @@
+/// <reference lib="es2024.string" />
 import {createHash,randomUUID} from 'node:crypto';
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
@@ -6,10 +7,21 @@ import {publicProjection} from '../hosted/publish.js';
 import {sharedLines} from '../hosted/shared-quotes.js';
 import {bindStore,lockStore,type CheckoutStore,type StoreContext} from './authority.js';
 
+/** PostgreSQL rejects NUL and UTF-8 encoding replaces lone surrogates. Validate
+ * raw keys too, before normalization/unknown-field stripping can hide them. */
+function checkoutString(value:string) {
+  requireCondition(value.isWellFormed()&&!value.includes('\u0000'),422,'invalid_checkout_json','結帳資料無效。');
+}
+export function validateCheckoutStrings(value:unknown):void {
+  if(typeof value==='string')checkoutString(value);
+  else if(Array.isArray(value))for(const v of value)validateCheckoutStrings(v);
+  else if(value!==null&&typeof value==='object')for(const [k,v] of Object.entries(value)){checkoutString(k);validateCheckoutStrings(v);}
+}
 export function canonicalJSON(value:unknown):string {
   if(Array.isArray(value))return '['+value.map(canonicalJSON).join(',')+']';
-  if(value!==null && typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonicalJSON((value as Record<string,unknown>)[k])).join(',')+'}';
+  if(value!==null && typeof value==='object')return '{'+Object.keys(value).sort().map(k=>{checkoutString(k);return JSON.stringify(k)+':'+canonicalJSON((value as Record<string,unknown>)[k]);}).join(',')+'}';
   requireCondition(value===null||typeof value==='string'||typeof value==='boolean'||typeof value==='number'&&Number.isSafeInteger(value),422,'invalid_checkout_json','結帳資料無效。');
+  if(typeof value==='string')checkoutString(value);
   return JSON.stringify(value);
 }
 export const hashJSON=(value:unknown)=>createHash('sha256').update(canonicalJSON(value),'utf8').digest('hex');
@@ -34,6 +46,7 @@ export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};
 const defaultShipping:ShippingQuotePort={async quote(){requireCondition(false,409,'shipping_not_configured','尚未設定配送。');}};
 const shippingSchema=z.object({groups:z.array(z.object({group_ref:z.string().min(1).max(80),supplier_shop_id:z.uuid(),method_ref:z.string().min(1).max(80),amount_minor:money})).min(1).max(50)});
 export function parseCheckoutInput(raw:CheckoutInput) {
+  validateCheckoutStrings(raw);
   const input=inputSchema.parse(raw);
   requireCondition(Buffer.byteLength(canonicalJSON(input.delivery),'utf8')<=8192 && (input.invoice==null||Buffer.byteLength(canonicalJSON(input.invoice),'utf8')<=4096),422,'checkout_contact_too_large','配送或發票資料過大。');
   return {...input,invoice:input.invoice??null};
@@ -85,6 +98,7 @@ async function ensureCustomerLocked(q:PoolClient,context:StoreContext,email:stri
   return (await q.query<typeof row>('SELECT customer_id,member_principal_id FROM commerce_customers WHERE customer_id=$1',[row.customer_id])).rows[0];
 }
 export async function ensureCustomer(q:PoolClient,store:CheckoutStore,email:string,memberPrincipalId?:string) {
+  validateCheckoutStrings({email,memberPrincipalId});
   return ensureCustomerLocked(q,await lockStore(q,store),email,memberPrincipalId);
 }
 interface FrozenCheckout {checkout_id:string;terms:CheckoutTerms;terms_sha256:string;expires_at:Date;version:string}
