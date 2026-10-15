@@ -130,7 +130,9 @@ test('upgrade backfills active and terminal holds without changing stock; incons
   // This disposable schema deliberately models the old version: remove only
   // the new ledger and its functions, keeping every original order constraint.
   await h.pool.query(`DROP FUNCTION check_commerce_inventory_change() CASCADE;
-    DROP TABLE commerce_inventory_reservations;
+    -- Schema 168 adds an allocation source FK; this v1-only fixture has no
+    -- allocations. Remove that dependency while rebuilding the pre-162 ledger.
+    DROP TABLE commerce_inventory_reservations CASCADE;
     DROP FUNCTION preserve_commerce_inventory_reservation();
     DROP FUNCTION check_commerce_inventory_balance(uuid);DROP FUNCTION check_commerce_inventory_order(uuid)`);
   await h.pool.query('UPDATE commerce_items SET reserved=4 WHERE item_id=$1',[s.product.product_id]);
