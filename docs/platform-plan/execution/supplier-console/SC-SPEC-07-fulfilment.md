@@ -2,7 +2,7 @@
 
 依據：《Freedom Supplier Console v1.1 物流、履約與售後補充計畫》（2026-10-15，隨 Commerce 規劃包提供，見 [sources.md](sources.md)）。需求：SC-L01～SC-L18。驗收：SC-LAT01～SC-LAT24。里程碑：Commerce C2。全部 planned／`not_run`。
 
-名稱已對齊 Commerce 規格 8e06c226（2026-10-15，`feat/freedom-commerce`，本機）：EC-SPEC-01 §6.3、EC-SPEC-05、EC-SPEC-06 §5、§8.3 與 Commerce 的 decisions.md。那些檔案還不在本分支，所以下文只寫章節，不放連結。路由與能力名稱仍標「提議」，能力在 EC-SPEC-09 §2 定案；程式契約提交後再核對一次（§6）。
+名稱已對齊 Commerce 規格 fd973423（2026-10-15，`feat/freedom-commerce`，本機）：EC-SPEC-01 §6.3、EC-SPEC-05、EC-SPEC-06 §5、§8.3 與 Commerce 的 decisions.md。那些檔案還不在本分支，所以下文只寫章節，不放連結。路由與能力名稱仍標「提議」，能力在 EC-SPEC-09 §2 定案；程式契約提交後再核對一次（§6）。
 
 ## 目的與非目標
 
@@ -57,13 +57,13 @@ SL 頁面放進既有的側欄資料清單（SC-SPEC-01），不另建需要重�
   - 沒有「包裝」欄位：裝箱限制由包裹限制與商品配送屬性表達，禮品包裝在 C4。
   - 物流帳戶不在設定裡：伺服器依（出貨者商店、環境、`service_key`）解析唯一可用的帳戶，畫面只唯讀顯示；命令不收帳戶參數（SC-LAT08）。只列已開通的服務；沒有時寫明「尚未開通可用的物流服務」，不提供假選項。
 - **代出貨方案**（出貨設定裡的 `drop_ship`，選填）：`offered`、`fees[]`（每個服務一筆 `{service_key, fee_per_parcel_minor}`，每個已交寄包裹的代出貨費，已包含物流費，沒有另外的運費補貼）、`return_location_id`、`liability`、`recipient_retention_days`（1～30）、`accept_within_hours`（1～72，預設 24）。同公會賣家看到的是公開投影 `DropShipOfferSchema`，不含地址、電話、寄件人姓名或物流帳戶；退回地址要等同意 `accepted` 後賣家才看得到。
-- **代出貨同意**（`GET／POST …/fulfilment-agreements`、`POST …/fulfilment-agreements/:id/decision`）：對賣家申請的確切 `terms_sha256` 接受或拒絕。畫面列出凍結的內容：
+- **代出貨同意**（`GET／POST …/fulfilment-agreements`、`POST …/fulfilment-agreements/:id/decision`、`…/revoke`）：對賣家申請的確切 `terms_sha256` 接受或拒絕，接受後也可以撤銷（記錄發起者與原因）。畫面列出凍結的內容：
   - 商品清單、服務與每包代出貨費；
   - `cancel_after_create_fee_minor`、`return_handling_fee_minor`、`unsellable_return_default`、`payment_due_days`（預設 30）；
   - 寄件地與退回地址的版本、處理天數與作業日；
   - 例外責任、收件資料用途與保留天數。
 
-  接受時要求確認「每包代出貨費取代供貨條件中按件計算的 `shipping_minor`」。狀態 `proposed → accepted／declined／withdrawn`；`accepted → revoked`（任一方）或 `superseded`。`revoked` 與 `superseded` 只擋之後的結帳，已建立的履約單照凍結的版本完成。售價同意不是代出貨同意（SC-07 的固定說明）。
+  接受時要求確認「每包代出貨費取代供貨條件中按件計算的 `shipping_minor`」。狀態 `proposed → accepted／declined／withdrawn`；`accepted → revoked`（任一方）或 `superseded`。`revoked` 與 `superseded` 只擋之後的結帳（涵蓋的商品在新結帳不能購買，賣家看得到原因），已建立的履約單照凍結的版本完成；撤銷前的確認對話框寫明這一點。供應商不想再處理已建立的單時，逐筆回報無法履約（SL-02）。售價同意不是代出貨同意（SC-07 的固定說明）。
 - **規則**：每個欄位真的保存並有版本；寫入沿用 SC-SPEC-02 的 attempt（Idempotency-Key、If-Match、未知結果用原內容重試、412 保留草稿）。欄位還沒有後端時不出現、也不在畫面暫存。
 - **權限**：見 §2。賣家、公會長與 Agent 都不能修改（SC-LAT01）。地址只在需要的頁面出現，不進公會區塊、公開頁或分享卡片。
 - **對應**：賣家端 E11（配送政策與 provider 帳戶）。
@@ -135,8 +135,9 @@ SL 頁面放進既有的側欄資料清單（SC-SPEC-01），不另建需要重�
     - `resolve_with_evidence`：用於 `shipment_create_unknown`、`no_tracking_progress`。
     - `mark_lost`：用於 `no_tracking_progress`。
     - `record_claim`：用於 `lost`，記錄向物流理賠的參考號與狀態。
-  - 其他動作走各自的命令，不在例外上重複：重新建單、查詢與請買家重新選店在包裹，回報無法履約在履約單，檢驗在退回。
-- **門市失效**：出貨者選「請買家重新選店」（例外 `pickup_store_invalid`），由買家重選、零售商負責聯絡；不假成功、不重複扣費（SC-LAT14）。延遲、遺失、未取等由例外顯示責任方與下一步，買家端不被告知已完成（SC-LAT15）。
+  - 其他動作走各自的命令，不在例外上重複：重新建單、查詢與請買家重新選店或更正地址在包裹，回報無法履約在履約單，檢驗在退回。
+- **門市或收件地址被拒**：建單時物流商拒絕門市，或拒絕宅配收件地址與郵遞區號，包裹是「建立失敗」。出貨者在包裹選「請買家重新選店」或「請買家更正地址」（`POST …/shipments/:sid/recipient-fix-requests`，`kind` 為 `pickup_store_invalid` 或 `recipient_address_invalid`，只限建立失敗的包裹）。由買家更正、零售商負責聯絡，期限 48 小時；出貨者不能自己改地址，也不聯絡買家。新地址必須留在結帳時凍結的服務與運費區，否則由零售商取消該群組並退款。更正後先以舊編號查詢，再建新單；不假成功、不重複扣費（SC-LAT14）。寄件資料或設定錯誤是另一種例外 `shipment_create_failed`，由出貨者修正後重試。交寄後才發現地址問題時，C2 不改運送中的地址，包裹依物流退回。
+- **其他例外**：延遲、遺失、未取等由例外顯示責任方與下一步，買家端不被告知已完成（SC-LAT15）。
 - **退回**（`GET …/returns?state=`、`GET …/returns/:rid`、`POST …/returns/:rid/receive`、`POST …/returns/:rid/inspection`）：
   - 狀態 `awaiting_receipt → received → inspected`。收到後先「待檢、不可售」。
   - 檢驗一次定案：可再售的數量一次回庫，不可售的只記結果，費用責任依代出貨同意（SC-LAT16）。
@@ -150,7 +151,7 @@ SL 頁面放進既有的側欄資料清單（SC-SPEC-01），不另建需要重�
 這是供貨帳的收款方畫面（EC-SPEC-06 §5、§8.3）：只記錄、不動錢，不是平台錢包；B2B 交易文件不是零售發票，平台在 C2 不開立 B2B 發票。
 
 - **讀取**：對帳單清單（`GET …/settlement-statements?role=payee`）、對帳單明細（`GET …/settlement-statements/:stid`）、還沒進對帳單的帳目（`GET …/settlement-entries?role=payee`）。
-- **帳目種類**（畫面用詞是本頁的提議，待 Commerce 確認，§7）：
+- **帳目種類**（畫面用詞與 E09 共用，唯一來源是 EC-SPEC-06 §5.3）：
 
   | 種類 | 畫面用詞 | 何時產生 |
   | --- | --- | --- |
@@ -219,14 +220,6 @@ SL 頁面沿用同一個 controller、單一 attempt、每位會員的記憶體�
 
 ## 6. 開始條件
 
-1. Commerce 已在規格 8e06c226 定下名稱，本文件已對齊。程式契約（`hosted-fulfilment.ts`、`hosted-shipping.ts` 與供貨帳）提交並告知 SHA 後，依實際名稱再核對一次（路徑、ID、能力、狀態清單）。
+1. Commerce 已在規格 fd973423 定下名稱，本文件已對齊。程式契約（`hosted-fulfilment.ts`、`hosted-shipping.ts` 與供貨帳）提交並告知 SHA 後，依實際名稱再核對一次（路徑、ID、能力、狀態清單）。
 2. 實作供應商用途的讀取投影與 SL 頁面；寫入只呼叫 Commerce 的共同命令。
 3. 物流 provider 尚未開通時只擋住該服務，不凍結 R1 的供貨功能。
-
-## 7. 待 Commerce 確認
-
-| 項目 | 建議 | 只影響 |
-| --- | --- | --- |
-| 供應商撤回已接受的代出貨同意 | EC-SPEC-05 §2.6 允許任一方撤回，但 §9.2 只列 `…/decision`；請把 `…/revoke` 也列給供應商 | SL-01 |
-| 宅配收件地址無效 | 目前只有門市失效的例外（`pickup_store_invalid`）；建議比照新增宅配地址的種類，或寫明走 `shipment_create_failed` | SL-03、SL-04 |
-| 帳目種類的畫面用詞 | 採用 §3 SL-05 表中的提議，或由 Commerce 另訂一份給 E09 與 SL-05 共用 | SL-05、E09 |
