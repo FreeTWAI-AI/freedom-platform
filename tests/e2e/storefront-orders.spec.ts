@@ -198,6 +198,7 @@ test('one-time link redemption, same-link revisit, used-link rejection, no-acces
     const forgottenHeading = page.getByRole('heading', { level: 1, name: '這個瀏覽器已忘記你的訂單' });
     await expect(forgottenHeading).toBeVisible();
     await expect(forgottenHeading).toBeFocused();
+    await expect(page).toHaveTitle('訂單｜山邊小店｜自由工坊');
     await expect(page.getByRole('status')).toHaveText('之後在這個瀏覽器打開訂單網址，會顯示找不到訂單。');
     await expect(page.getByRole('link', { name: '回到「山邊小店」', exact: true })).toHaveAttribute(
       'href',
@@ -207,12 +208,17 @@ test('one-time link redemption, same-link revisit, used-link rejection, no-acces
     const cookiesAfterForget = await firstContext.cookies();
     expect(cookiesAfterForget.find(c => c.name === 'freedom_local_shop')).toBeUndefined();
 
-    const deviceRow = (
+    const deviceRows = (
       await e2eAuthPool.query<{ revoked_at: Date | null }>(
-        'SELECT revoked_at FROM commerce_access_devices ORDER BY created_at DESC LIMIT 1',
+        `SELECT d.revoked_at
+           FROM commerce_access_devices d
+           JOIN commerce_order_access_grants g ON g.device_id = d.device_id
+          WHERE g.kind = 'device' AND g.order_id = $1`,
+        [seeded.order.order_id],
       )
-    ).rows[0];
-    expect(deviceRow?.revoked_at).not.toBeNull();
+    ).rows;
+    expect(deviceRows).toHaveLength(1);
+    expect(deviceRows[0].revoked_at).not.toBeNull();
 
     await page.reload();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('找不到這筆訂單');
@@ -440,6 +446,62 @@ test('real cancelled and paid orders plus fulfilled edge states and retry flows 
     await expect(page.getByRole('alert')).toHaveText('嘗試次數太多，請稍後再試。');
     await page.getByRole('button', { name: '重試', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(`訂單 ${baseOrder.display_number}`);
+    await page.unroute(orderApiPattern);
+    await page.unroute(`${orderApiPattern}/access`);
+
+    // Hashchange GET error while an order is shown: alert appears, order stays on screen, retry clears alert
+    let orderViewGetAttempt = 0;
+    await page.route(orderApiPattern, async route => {
+      orderViewGetAttempt += 1;
+      if (orderViewGetAttempt === 1) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify(pausedBody) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseOrder) });
+    });
+
+    await page.evaluate(() => {
+      window.location.hash = '#access=' + 'B'.repeat(43);
+    });
+    await expect(page.getByRole('alert')).toHaveText('商店服務暫停中，請稍後再試。');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(`訂單 ${baseOrder.display_number}`);
+    await expect(page.getByRole('region', { name: '商品' })).toContainText('手作茶杯');
+
+    await page.getByRole('button', { name: '重試', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(`訂單 ${baseOrder.display_number}`);
+    await page.unroute(orderApiPattern);
+
+    // Rejected link with failed follow-up GET: POST 404 -> GET 503 -> click 重試 -> GET 404 -> invalid-link view with both links
+    let rejectedFlowGetAttempt = 0;
+    await page.route(orderApiPattern, async route => {
+      rejectedFlowGetAttempt += 1;
+      if (rejectedFlowGetAttempt === 2) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify(pausedBody) });
+        return;
+      }
+      await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify(notFoundBody) });
+    });
+    await page.route(`${orderApiPattern}/access`, async route => {
+      await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify(notFoundBody) });
+    });
+
+    await page.goto(`${paidSeed.orderPath}#access=${'C'.repeat(43)}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('開啟訂單');
+    await page.getByRole('button', { name: '在這個瀏覽器開啟訂單', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('商店服務暫停中，請稍後再試。');
+    await page.getByRole('button', { name: '重試', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('這個訂單連結無法使用');
+    await expect(page.getByRole('link', { name: '找回訂單', exact: true })).toHaveAttribute(
+      'href',
+      `/shops/${store.slug}/order-access`,
+    );
+    await expect(page.getByRole('link', { name: '回到「山邊小店」', exact: true })).toHaveAttribute(
+      'href',
+      `/shops/${store.slug}`,
+    );
+    await page.unroute(orderApiPattern);
+    await page.unroute(`${orderApiPattern}/access`);
   } finally {
     await context.close();
   }

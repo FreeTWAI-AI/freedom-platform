@@ -734,8 +734,8 @@
     },
     {
       "path": "apps/portal-web/public/shops.css",
-      "bytes": 10641,
-      "sha256": "7990bc0a6e7b7428d4dd9deb2e57544dae435b076624004f1923bf6646f06497"
+      "bytes": 10738,
+      "sha256": "a0c9d5b9fa7b72e496c42367a32ef0a166f956043a13e86df5d13b8fb990eecc"
     },
     {
       "path": "apps/portal-web/public/art/versefolk-cooperation.webp",
@@ -3494,8 +3494,8 @@
     },
     {
       "path": "apps/portal-web/src/storefront/main.tsx",
-      "bytes": 20214,
-      "sha256": "71b1720764a9d19d8ef19435cbf98526df2e74c27b5287f96d4f55973e192048"
+      "bytes": 20584,
+      "sha256": "fa6df89c64bd367d485919dfb8b6d01e7c094a8d5a316486d67db1aeeebdee63"
     },
     {
       "path": "apps/private-ai-authority/README.md",
@@ -17700,7 +17700,7 @@
     {
       "path": "modules/agent-commerce/storefront/README.md",
       "bytes": 1236,
-      "sha256": "7a317844f0721c4208552b63b4a5d4429ebc733448123cc35ea0ab7699a6a618"
+      "sha256": "1390961c22f82cae68e88e3270c394f297b4baa8779c7919288685c9b9ba709a"
     },
     {
       "path": "modules/agent-commerce/storefront/freedom.module.json",
@@ -21984,8 +21984,8 @@
     },
     {
       "path": "tests/e2e/storefront-orders.spec.ts",
-      "bytes": 31272,
-      "sha256": "55924bb3ba74130182e7518aff97e191034e6fd0d535f629a594e3d399b9aa49"
+      "bytes": 34541,
+      "sha256": "a0d93050008f6cedcb1bd6efcf428d5410b869f69fac586bab170123440a2996"
     },
     {
       "path": "tests/e2e/storefront-product.spec.ts",
