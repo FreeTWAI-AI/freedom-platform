@@ -28,7 +28,7 @@ import {
 import {
   EcpayKeyPair,
   EcpayProtocolError,
-   dotnetUrlEncode,
+  dotnetUrlEncode,
   encodeForm,
   findCdnBlockedTerm,
   logistics,
