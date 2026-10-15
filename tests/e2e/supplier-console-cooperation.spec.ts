@@ -1,4 +1,6 @@
 import {randomUUID} from 'node:crypto';
+import {digest} from '../../packages/db/index.js';
+import {navigate} from './navigation.js';
 import type {Pool} from 'pg';
 import type {BrowserContext, Page} from '@playwright/test';
 import {test, expect} from './member-feature-fixture.js';
@@ -646,5 +648,152 @@ test('SC-E2E-13 a read-only member sees overview and settings without write cont
   } finally {
     await Promise.allSettled(contexts.map(ctx => ctx.close()));
     await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+  }
+});
+
+
+test('SC-E2E-14 a request outside the first 200 opens from every entry and after reload (AT-30,AT-12)', async ({browser, baseURL, e2eAuthPool}, info) => {
+  test.setTimeout(150_000);
+  const contexts: BrowserContext[] = [], supplierIds: string[] = [];
+  const suffix=randomUUID().slice(0,6),title=`清單外茶杯 ${suffix}`,shopName=`目標選物店 ${suffix}`,catalogName=`單筆審核商品庫 ${suffix}`;
+  const items=Array.from({length:101},(_,n)=>({item_id:randomUUID(),offer_id:randomUUID(),own_id:randomUUID(),sku:`P${1001+n}`}));
+  const clonedSelectionIds:string[]=[];
+  let sawCappedReview=false;
+  try {
+    const ctxA=await browser.newContext({baseURL});contexts.push(ctxA);
+    const memberA=await person(e2eAuthPool);supplierIds.push(memberA.id);
+    const pageA=await ctxA.newPage();
+    await pageA.exposeFunction('recordCappedReview',()=>{sawCappedReview=true;});
+    await pageA.addInitScript(()=>{
+      new MutationObserver(()=>{
+        if(document.body?.textContent?.includes('未在目前的部分清單中'))void (window as unknown as {recordCappedReview:()=>Promise<void>}).recordCappedReview();
+      }).observe(document,{subtree:true,childList:true,characterData:true});
+    });
+    await login(pageA,memberA.email);
+    const storeA=parseStore(await launchStore(pageA,`單筆審核供貨空間 ${suffix}`));
+    await post(pageA,storeA.root+'/supply-profile',{name:catalogName,currency:'TWD'},201);
+    const product=await post(pageA,storeA.root+'/supply-products',{title,description:'清單外申請驗收',cost_minor:400,stock:10},201);
+    const terms=await patch(pageA,storeA.root+`/products/${product.product_id}/supply-terms`,
+      {cost_minor:400,shipping_minor:50,shipping_terms:'三日內出貨',return_terms:'瑕疵請聯絡供貨方'},200,product.version);
+    const offer=await post(pageA,storeA.root+`/products/${product.product_id}/supply-offer`,{},200,terms.version);
+    const sellers=[];
+    for(let n=0;n<3;n++) {
+      const ctx=await browser.newContext({baseURL});contexts.push(ctx);
+      const member=await person(e2eAuthPool),page=await ctx.newPage();await login(page,member.email);
+      const store=parseStore(await launchStore(page,`單筆審核賣家 ${n} ${suffix}`));
+      await post(page,store.root+'/setup',{name:n===0?shopName:`批次選物店 ${n} ${suffix}`,slug:`target-${n}-${suffix}`,currency:'TWD'},201);
+      const selection=await post(page,store.root+'/distribution-selections',
+        {offer_id:offer.offer_id,terms_sha256:offer.terms_sha256,retail_price_minor:1100+n*100},201);
+      sellers.push({page,store,selection});
+    }
+    const target=sellers[0].selection;
+    const partnerId=(await e2eAuthPool.query('SELECT shop_id FROM commerce_selections WHERE selection_id=$1',[target.selection_id])).rows[0].shop_id;
+    const label=`${shopName}（店家 ID …${partnerId.slice(-6)}）`;
+    const templates=(await e2eAuthPool.query('SELECT * FROM commerce_selections WHERE selection_id=ANY($1::uuid[])',
+      [sellers.slice(1).map(s=>s.selection.selection_id)])).rows;
+    const selections=items.flatMap((item,n)=>templates.map((source,k)=>{
+      const snapshot={...source.snapshot,item_id:item.item_id,offer_id:item.offer_id,sku:item.sku};
+      return {...item,selection_id:`00000000-0000-4000-8000-${String(n*2+k+1).padStart(12,'0')}`,
+        source_id:source.selection_id,snapshot,hash:digest(snapshot)};
+    }));
+    clonedSelectionIds.push(...items.map(i=>i.own_id),...selections.map(s=>s.selection_id));
+    const data=JSON.stringify(items),shape=`jsonb_to_recordset($1) AS f(item_id uuid,offer_id uuid,own_id uuid,sku text)`;
+    const q=await e2eAuthPool.connect();
+    try {
+      await q.query('BEGIN');
+      await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,photo_url,price_minor,shipping_minor,stock,reserved,shipping_terms,return_terms)
+        SELECT f.item_id,i.shop_id,f.sku,i.title,i.description,i.photo_url,i.price_minor,i.shipping_minor,i.stock,0,i.shipping_terms,i.return_terms
+        FROM ${shape} CROSS JOIN commerce_items i WHERE i.item_id=$2`,[data,product.product_id]);
+      await q.query(`INSERT INTO commerce_hosted_supply_offers(offer_id,tenant_id,instance_id,item_id,community_id,supplier_name,source_version,terms,terms_sha256,state,version)
+        SELECT f.offer_id,o.tenant_id,o.instance_id,f.item_id,o.community_id,o.supplier_name,o.source_version,o.terms,o.terms_sha256,'withdrawn',o.version
+        FROM ${shape} CROSS JOIN commerce_hosted_supply_offers o WHERE o.offer_id=$2`,[data,offer.offer_id]);
+      await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,listing_sha256,own_retail_enabled)
+        SELECT f.own_id,l.shop_id,f.item_id,l.retail_price_minor,l.sale_terms,l.snapshot,l.listing_sha256,l.own_retail_enabled
+        FROM ${shape} CROSS JOIN commerce_selections l JOIN commerce_storefront_profiles p ON p.storefront_shop_id=l.shop_id
+        WHERE l.item_id=$2 AND p.instance_id=$3`,[data,product.product_id,storeA.instanceId]);
+      await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,listing_sha256,hosted_offer_id,hosted_sku,acceptance_state,current_acceptance_id)
+        SELECT f.selection_id,l.shop_id,f.item_id,l.retail_price_minor,l.sale_terms,f.snapshot,f.hash,f.offer_id,f.sku,'awaiting_supply_acceptance',NULL
+        FROM jsonb_to_recordset($1) AS f(selection_id uuid,source_id uuid,item_id uuid,offer_id uuid,sku text,snapshot jsonb,hash text)
+        JOIN commerce_selections l ON l.selection_id=f.source_id`,[JSON.stringify(selections)]);
+      await q.query('COMMIT');
+    }catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
+    const listResponse=await pageA.request.get('/api/v1'+storeA.root+'/supply-requests');expect(listResponse.status()).toBe(200);
+    const list=await listResponse.json();expect(list.items).toHaveLength(200);expect(list.truncated).toBe(true);
+    expect(list.items.some((s:{selection_id:string})=>s.selection_id===target.selection_id)).toBe(false);
+    const requestPath='/api/v1'+storeA.root+`/supplier-console/requests/${target.selection_id}`;
+    const reviewHash=`#${storeA.hash}/supply/terms/${target.selection_id}`;
+    const review=activePage(pageA),nav=pageA.getByRole('navigation',{name:'營運中心',exact:true});
+    const assertReview=async()=>{
+      await expect(review.getByRole('heading',{name:'審核售價申請',exact:true})).toBeVisible();
+      await expect(review.getByText(label,{exact:true})).toBeVisible();
+      await expect(review.getByText(target.sku,{exact:true})).toBeVisible();
+      await expect(review.getByText('$11.00',{exact:true})).toBeVisible();
+      await expect(review.getByRole('button',{name:'同意',exact:true})).toBeEnabled();
+      await expect(review.getByText('未在目前的部分清單中',{exact:false})).toHaveCount(0);
+      expect(new URL(pageA.url()).hash).toBe(reviewHash);
+    };
+    const openReview=async(action:()=>Promise<unknown>)=>{
+      const [response]=await Promise.all([
+        pageA.waitForResponse(r=>new URL(r.url()).pathname===requestPath&&r.request().method()==='GET'&&r.status()===200),action(),
+      ]);
+      const detail=await response.json();expect(detail.request.selection_id).toBe(target.selection_id);
+      expect(detail.request.version).toBe(target.version);expect(detail.request.listing_sha256).toBe(target.listing_sha256);
+      await assertReview();return detail;
+    };
+
+    // All list/detail entry paths are reached through visible navigation and links.
+    await navigate(pageA,'我的供貨商品庫');
+    await pageA.getByRole('article').filter({has:pageA.getByRole('heading',{name:catalogName,exact:true})})
+      .getByRole('link',{name:'查看商品與供貨',exact:true}).click();
+    const todo=activePage(pageA).getByRole('listitem').filter({hasText:label});
+    await openReview(()=>todo.getByRole('link',{name:'審核',exact:true}).click());
+    for(const width of [1440,768,390]) {
+      await pageA.setViewportSize({width,height:900});
+      expect(await pageA.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await pageA.screenshot({path:info.outputPath(`outside-list-review-${width}.png`),fullPage:true});
+    }
+    await pageA.setViewportSize({width:1440,height:900});
+    await nav.getByRole('link',{name:'商品與庫存',exact:true}).click();
+    await activePage(pageA).getByLabel('搜尋商品',{exact:true}).fill('P0001');
+    await activePage(pageA).getByRole('table').getByRole('link').click();
+    const cooperation=activePage(pageA).locator('.sc-section').filter({has:pageA.getByRole('heading',{name:'合作',exact:true})});
+    await openReview(()=>cooperation.getByRole('listitem').filter({hasText:shopName}).getByRole('link',{name:'審核',exact:true}).click());
+    await nav.getByRole('link',{name:'合作店家',exact:true}).click();
+    await activePage(pageA).getByRole('link',{name:shopName,exact:true}).click();
+    await openReview(()=>activePage(pageA).getByRole('listitem').filter({hasText:target.sku}).getByRole('link',{name:'審核',exact:true}).click());
+    await review.getByRole('link',{name:'返回供貨條件與審核',exact:true}).click();
+    await expect(activePage(pageA).getByText('只顯示部分，完整數量見營運概覽。',{exact:false})).toBeVisible();
+    await expect(activePage(pageA).getByRole('link').filter({hasText:shopName})).toHaveCount(0);
+    await openReview(()=>pageA.goBack());
+
+    await openReview(()=>pageA.reload());
+    await nav.getByRole('link',{name:'設定與資料',exact:true}).click();
+    await expect(activePage(pageA).getByRole('heading',{name:'設定與資料',exact:true})).toBeVisible();
+    await openReview(()=>pageA.goto('/'+reviewHash));
+    const decision=pageA.waitForRequest(r=>new URL(r.url()).pathname==='/api/v1'+storeA.root+`/supply-requests/${target.selection_id}/decision`&&r.method()==='POST');
+    const refreshed=pageA.waitForResponse(async r=>new URL(r.url()).pathname===requestPath&&r.request().method()==='GET'&&r.status()===200&&(await r.json()).request.state==='sellable');
+    await review.getByRole('button',{name:'同意',exact:true}).click();
+    const sent=await decision;
+    expect(sent.headers()['if-match']).toBe(`"${target.version}"`);
+    expect(sent.postDataJSON()).toEqual({decision:'accepted',listing_sha256:target.listing_sha256});
+    await refreshed;
+    await expect(pageA.locator('.sc-announcement')).toHaveText('已保存：同意售價申請。');
+    await expect(review.locator('.badge')).toHaveText('可售');
+    await expect(review.getByText('未在目前的部分清單中',{exact:false})).toHaveCount(0);
+    expect(sawCappedReview).toBe(false);
+  } finally {
+    await Promise.allSettled(contexts.map(ctx=>ctx.close()));
+    const q=await e2eAuthPool.connect();
+    try {
+      await q.query('BEGIN');
+      await q.query('DELETE FROM commerce_selections WHERE selection_id=ANY($1::uuid[])',[clonedSelectionIds]);
+      // Only synthetic withdrawn offers are removed; restore the retention trigger in this same owned-schema transaction.
+      await q.query('ALTER TABLE commerce_hosted_supply_offers DISABLE TRIGGER preserve_commerce_hosted_offer');
+      await q.query('DELETE FROM commerce_hosted_supply_offers WHERE offer_id=ANY($1::uuid[])',[items.map(i=>i.offer_id)]);
+      await q.query('ALTER TABLE commerce_hosted_supply_offers ENABLE TRIGGER preserve_commerce_hosted_offer');
+      await q.query('DELETE FROM commerce_items WHERE item_id=ANY($1::uuid[])',[items.map(i=>i.item_id)]);
+      await q.query('COMMIT');
+    }catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();await withdrawSupplierOffers(e2eAuthPool,supplierIds);}
+    expect((await e2eAuthPool.query('SELECT 1 FROM commerce_items WHERE item_id=ANY($1::uuid[])',[items.map(i=>i.item_id)])).rows).toHaveLength(0);
   }
 });

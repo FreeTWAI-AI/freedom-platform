@@ -526,4 +526,107 @@ test('SC-API-10 every cooperation state buckets once; retail capacity includes a
   assert.deepEqual(overview.todos.items.map((r:any)=>r.kind),['not_offered']);
 });
 
+
+test('SC-API-11 request detail uses the current list projection and shared product offer projection (AT-12,15,30)',async()=>{
+  const a=await supplier(),b=await retailer(),item=await supplyProduct(a),offered=await offer(a,item),selected=await propose(b,offered);
+  const detail=await checkSnapshot(a,`/requests/${selected.selection_id}`),list=ok(await get(a,'/supply-requests'));
+  const {partner_id,...request}=detail.request;
+  assert.deepEqual(request,list.items.find((r:any)=>r.selection_id===selected.selection_id));
+  assert.equal(partner_id,(await profileRow(b)).storefront_shop_id);
+  assert.equal(detail.profile,'freedom.supplier-console.request/v1');
+  assert.deepEqual(detail.product,{product_id:item.product_id,offer:ok(await consoleGet(a,'/products')).items[0].offer});
+  assert.equal(detail.product.offer.matches_current_terms,true);
+  const changed=ok(await send(a,`/products/${item.product_id}/supply-terms`,{...terms,shipping_minor:75},item.version,randomUUID(),'PATCH'));
+  const outdated=await checkSnapshot(a,`/requests/${selected.selection_id}`);
+  assert.deepEqual(outdated.product.offer,ok(await consoleGet(a,'/products')).items[0].offer);
+  assert.equal(outdated.product.offer.matches_current_terms,false);
+  const replacement=await offer(a,{...item,version:changed.version});
+  const replaced=await checkSnapshot(a,`/requests/${selected.selection_id}`);
+  assert.deepEqual(replaced.product.offer,ok(await consoleGet(a,'/products')).items[0].offer);
+  assert.equal(replaced.product.offer.offer_id,replacement.offer_id);
+  assert.equal(replaced.request.offer.state,'withdrawn');
+  ok(await send(a,`/supply-offers/${replacement.offer_id}/withdraw`,{},replacement.version));
+  assert.equal((await checkSnapshot(a,`/requests/${selected.selection_id}`)).product.offer,null);
+});
+
+test('SC-API-12 request detail reaches beyond the first 200 and supplies decision CAS (AT-12,30)',async()=>{
+  const a=await supplier(),item=await supplyProduct(a),offered=await offer(a,item);
+  const sellers=[await retailer('目標店'),await retailer('批次店 B'),await retailer('批次店 C')];
+  const selected=await propose(sellers[0],offered),sources=[];
+  for(const seller of sellers.slice(1))sources.push(await propose(seller,offered));
+  const templates=(await h.pool.query('SELECT * FROM commerce_selections WHERE selection_id=ANY($1::uuid[])',[sources.map(s=>s.selection_id)])).rows;
+  const items=Array.from({length:101},(_,n)=>({item_id:randomUUID(),offer_id:randomUUID(),own_id:randomUUID(),sku:`P${1001+n}`}));
+  const selections=items.flatMap((item,n)=>templates.map((source,k)=>{
+    const snapshot={...source.snapshot,item_id:item.item_id,offer_id:item.offer_id,sku:item.sku};
+    return {...item,selection_id:`00000000-0000-4000-8000-${String(n*2+k+1).padStart(12,'0')}`,
+      source_id:source.selection_id,snapshot,hash:digest(snapshot)};
+  }));
+  const data=JSON.stringify(items),shape=`jsonb_to_recordset($1) AS f(item_id uuid,offer_id uuid,own_id uuid,sku text)`;
+  const q=await h.pool.connect();
+  try {
+    await q.query('BEGIN');
+    await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,photo_url,price_minor,shipping_minor,stock,reserved,shipping_terms,return_terms)
+      SELECT f.item_id,i.shop_id,f.sku,i.title,i.description,i.photo_url,i.price_minor,i.shipping_minor,i.stock,0,i.shipping_terms,i.return_terms
+      FROM ${shape} CROSS JOIN commerce_items i WHERE i.item_id=$2`,[data,item.product_id]);
+    await q.query(`INSERT INTO commerce_hosted_supply_offers(offer_id,tenant_id,instance_id,item_id,community_id,supplier_name,source_version,terms,terms_sha256,state,version)
+      SELECT f.offer_id,o.tenant_id,o.instance_id,f.item_id,o.community_id,o.supplier_name,o.source_version,o.terms,o.terms_sha256,'withdrawn',o.version
+      FROM ${shape} CROSS JOIN commerce_hosted_supply_offers o WHERE o.offer_id=$2`,[data,offered.offer_id]);
+    await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,listing_sha256,own_retail_enabled)
+      SELECT f.own_id,l.shop_id,f.item_id,l.retail_price_minor,l.sale_terms,l.snapshot,l.listing_sha256,l.own_retail_enabled
+      FROM ${shape} CROSS JOIN commerce_selections l JOIN commerce_storefront_profiles p ON p.storefront_shop_id=l.shop_id
+      WHERE l.item_id=$2 AND p.instance_id=$3`,[data,item.product_id,a.instanceId]);
+    await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,listing_sha256,hosted_offer_id,hosted_sku,acceptance_state,current_acceptance_id)
+      SELECT f.selection_id,l.shop_id,f.item_id,l.retail_price_minor,l.sale_terms,f.snapshot,f.hash,f.offer_id,f.sku,'awaiting_supply_acceptance',NULL
+      FROM jsonb_to_recordset($1) AS f(selection_id uuid,source_id uuid,item_id uuid,offer_id uuid,sku text,snapshot jsonb,hash text)
+      JOIN commerce_selections l ON l.selection_id=f.source_id`,[JSON.stringify(selections)]);
+    await q.query('COMMIT');
+  }catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
+  const list=ok(await get(a,'/supply-requests'));
+  assert.equal(list.items.length,200);assert.equal(list.truncated,true);
+  assert.equal(list.items.some((s:any)=>s.selection_id===selected.selection_id),false);
+  assert.equal(ok(await consoleGet(a,'/products')).items.length,102);
+  const detail=await checkSnapshot(a,`/requests/${selected.selection_id}`);
+  assert.deepEqual(detail.request,{...selected,partner_id:(await profileRow(sellers[0])).storefront_shop_id});
+  assert.equal((await accept(a,detail.request)).state,'sellable');
+  const stale=await send(a,`/supply-requests/${selected.selection_id}/decision`,{decision:'accepted',listing_sha256:detail.request.listing_sha256},detail.request.version);
+  ok(stale,412);
+  assert.equal((await checkSnapshot(a,`/requests/${selected.selection_id}`)).request.state,'sellable');
+});
+
+test('SC-API-13 request detail enforces the partners capability and conceals foreign or missing IDs (AT-04,37)',async()=>{
+  const a=await supplier(),b=await retailer(),item=await supplyProduct(a),offered=await offer(a,item),selected=await propose(b,offered);
+  const reader=(await h.person('只讀成員')).session;await invite(a,reader,['store:read']);
+  const refused=await consoleGet(a,`/requests/${selected.selection_id}`,reader),partners=await consoleGet(a,'/partners',reader);
+  ok(refused,403);assert.deepEqual(refused.data,partners.data);privateReply(refused);
+  const leader=(await h.person('只有公會職稱')).session;await h.fullMember(leader.user.user_id,supplierGuild);
+  await h.pool.query(`INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)
+    ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=$3`,[DEMO_COMMUNITY,supplierGuild,leader.user.user_id]);
+  const titleOnly=await consoleGet(a,`/requests/${selected.selection_id}`,leader);
+  assert.equal(titleOnly.status,(await consoleGet(a,'/partners',leader)).status);assert.equal(titleOnly.status,404);
+  const other=await supplier('另一供應方'),foreign=await propose(b,await offer(other,await supplyProduct(other)));
+  for(const id of [foreign.selection_id,randomUUID()]) {
+    const missing=await consoleGet(a,`/requests/${id}`);ok(missing,404);assert.equal(missing.data.code,'not_found');
+    assert.equal(missing.data.detail,'找不到這筆申請。');privateReply(missing);
+  }
+  ok(await consoleGet(other,`/requests/${selected.selection_id}`),404);
+  const unconfigured=await open('未設定供貨庫');ok(await consoleGet(unconfigured,`/requests/${selected.selection_id}`),409);
+  ok(await consoleGet(a,`/requests/${selected.selection_id}`,a.owner,closed),404);
+  ok(await h.call('GET',a.root+`/supplier-console/requests/${selected.selection_id}`,undefined,undefined,{},app),401);
+  ok(await consoleGet(a,'/requests/not-an-id'),422);
+  for(const query of ['unknown=1','x=1&x=2'])ok(await consoleGet(a,`/requests/${selected.selection_id}?${query}`),422);
+});
+
+test('SC-API-14 request detail rereads the seller new version and listing digest (AT-13)',async()=>{
+  const a=await supplier(),b=await retailer(),item=await supplyProduct(a),offered=await offer(a,item),selected=await propose(b,offered);
+  const initial=await checkSnapshot(a,`/requests/${selected.selection_id}`);
+  const accepted=await accept(a,initial.request);
+  const reproposed=ok(await send(b,`/distribution-selections/${selected.selection_id}`,
+    {offer_id:offered.offer_id,terms_sha256:offered.terms_sha256,retail_price_minor:1500},accepted.version,randomUUID(),'PATCH'));
+  const current=await checkSnapshot(a,`/requests/${selected.selection_id}`);
+  assert.equal(current.request.version,reproposed.version);assert.equal(current.request.listing_sha256,reproposed.listing_sha256);
+  assert.notEqual(current.request.version,initial.request.version);assert.notEqual(current.request.listing_sha256,initial.request.listing_sha256);
+  assert.equal(current.request.state,'awaiting_supply_acceptance');assert.equal(current.request.retail_price_minor,1500);
+  const {partner_id,...request}=current.request;assert.deepEqual(request,ok(await get(a,'/supply-requests')).items[0]);
+});
+
 });
