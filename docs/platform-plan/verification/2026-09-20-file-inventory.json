@@ -17419,13 +17419,13 @@
     },
     {
       "path": "modules/agent-commerce/providers/README.md",
-      "bytes": 26556,
-      "sha256": "8d62db31c85e6b4cdd6ac012b3450f9ae8221e07d01fad3bd6696f896c08fcf2"
+      "bytes": 41705,
+      "sha256": "fac02c202ad98470cb71931e8d5d732c69cb42d163a21b4db6fc07fa4b033255"
     },
     {
       "path": "modules/agent-commerce/providers/freedom.module.json",
-      "bytes": 1097,
-      "sha256": "5f160691f9f9000cc12bd5f6d6f19b06cb3699d18ad009d3fe4022309e6d39f1"
+      "bytes": 1343,
+      "sha256": "91c89f99dd20a0ecda61998e66a33b3407abb3f3559cfc9cbf2177845e864f37"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aes.ts",
@@ -17486,6 +17486,11 @@
       "path": "modules/agent-commerce/providers/ecpay/invoice.ts",
       "bytes": 6974,
       "sha256": "b085de444c61a4d21a050f70124e1472fc6157f80c7fdfe8260d7b94c0fd3578"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/json-request.ts",
+      "bytes": 1738,
+      "sha256": "5902c1003237e2c50cb784ddf502b313ba38c319b2b8babc97eb0106453470ac"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/keys.ts",
@@ -17551,6 +17556,71 @@
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/time.ts",
       "bytes": 1277,
       "sha256": "117db863cb066f4157535b65b899eeefa513173a76e37b4717d99b3f24cf412e"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/allowance.ts",
+      "bytes": 9336,
+      "sha256": "29a380d0ede8da232a61b6d7382127692f25cb43ba1ea0eebc4cdec2bb493c0f"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/callback.ts",
+      "bytes": 3787,
+      "sha256": "7aba4d5522bf31247d6b1d7c774b43f58197a5bd89b730bbe369a2b82c00b25e"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/envelope.ts",
+      "bytes": 2648,
+      "sha256": "340b5db1f66a3d066d4eb64f0297a8e5d43cbd3a3715932aab130c6a87510d5e"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/fields.ts",
+      "bytes": 12782,
+      "sha256": "604d04c39f05a922ae2f9e5eb76a9df678952cedafe68f2b0a2647818cab3787"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/http-status.ts",
+      "bytes": 544,
+      "sha256": "06e1c415019cefe088613bd50c59f6dac2f37fc784d4bf2e6743e697a8eb7185"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/index.ts",
+      "bytes": 3288,
+      "sha256": "c8e7b09452e08692189a4b0d89acc6d6719f9d88b389731faabf78d5f80ed963"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/issue.ts",
+      "bytes": 5814,
+      "sha256": "66a9632e4787a62d6b65d204d335b13f1b1b73933affc1182268fc10e8be4623"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/lookup.ts",
+      "bytes": 6859,
+      "sha256": "8b931b1fdf946285e46373bf3e8a1e07b9d3db3740583bd12f84b305040ba711"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/profile.ts",
+      "bytes": 921,
+      "sha256": "fa91d0ef945b585975f33ed16778f6f0050e59de7464bbc07654bad99683af07"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/query.ts",
+      "bytes": 19379,
+      "sha256": "bace7ea4029bfd14c9e97b950173c9e871e1daea22361ceaa5cd80511324e38e"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/result.ts",
+      "bytes": 6014,
+      "sha256": "1c3efc600377173d32b97227334b0566d256a020b58e50340cab4df5ec6bd3fb"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/void.ts",
+      "bytes": 2217,
+      "sha256": "0fe7b3fa9e5ff42797a07713847d685986992f8ee9f743df3a62ceb2e5793e3b"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/b2c-invoice/word-setting.ts",
+      "bytes": 8678,
+      "sha256": "3fd1f86ef57ed7eda6d2e38a71b7ea0df1ae9edbe8bbc83be666383d20801e75"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/c2c-actions.ts",
@@ -22453,6 +22523,11 @@
       "sha256": "8e81873a9f46b36a56f7972137eb8936b008fe2dc7d9caadb40cd2658bdb822f"
     },
     {
+      "path": "tests/runtime/ecpay-b2c-invoice.test.ts",
+      "bytes": 69354,
+      "sha256": "e4ce6b17dc75fdbea0c743ecf76139367aba97058cd54d134a7a92d484c152e5"
+    },
+    {
       "path": "tests/runtime/ecpay-domestic-logistics.test.ts",
       "bytes": 52084,
       "sha256": "65682fe2db3f1b9034db6218ca86d88018c4315fa1c758845abbb435240d48a6"
@@ -24063,6 +24138,11 @@
       "sha256": "22339ee545bb6afaf1f85a71d911376ecb45d964ef40ae5fe17840b73137de18"
     },
     {
+      "path": "tests/worker/ecpay-b2c-invoice-workerd.test.ts",
+      "bytes": 4938,
+      "sha256": "c03aed6f61d4ccec155087213f854ea8b3fb2abf72aa141d0d600cee849fea14"
+    },
+    {
       "path": "tests/worker/ecpay-domestic-logistics-workerd.test.ts",
       "bytes": 8537,
       "sha256": "caf078adcc663511a475ce47631b762597a1a1264305a92c6d76deaf8eb4f424"
@@ -24251,6 +24331,16 @@
       "path": "tests/worker/ecpay-fixtures/aio-credit-worker.ts",
       "bytes": 17010,
       "sha256": "ac41f204cd8c55845c90da739f967a04e86d916c33c4498d56c7139b0f3d9d63"
+    },
+    {
+      "path": "tests/worker/ecpay-fixtures/b2c-invoice-vectors.ts",
+      "bytes": 78906,
+      "sha256": "8a37bda34e2f7339ecc64f9e579b0e8ba816fe3964277474e040b69dc5a20264"
+    },
+    {
+      "path": "tests/worker/ecpay-fixtures/b2c-invoice-worker.ts",
+      "bytes": 18115,
+      "sha256": "6ef934a7ab7612d02dd0f2c2c17dae8f6c5664cdcbd25da2c85e50e6d9a49579"
     },
     {
       "path": "tests/worker/ecpay-fixtures/domestic-logistics-vectors.ts",
