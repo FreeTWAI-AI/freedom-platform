@@ -15479,8 +15479,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-04-materials-settings-reports.md",
-      "bytes": 15212,
-      "sha256": "7642599481ef62e14e31e840b43f61a8414106a70f297893c9da76649401ea6d"
+      "bytes": 16705,
+      "sha256": "89fa3e1806142d02f8781542775c4eb471ad3693e8557eb68c57e6defd8e302a"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
@@ -15509,8 +15509,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/pages.md",
-      "bytes": 12210,
-      "sha256": "4ca3464f1b3d2f8dfc1eb7760c052f1e4f60d7c23ac444f802c6587232ec11f0"
+      "bytes": 12273,
+      "sha256": "4ce718e50b7190e0323c00a92506d34d60f7eb927f850f2fb6a12230d6f1a107"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/refferq-adoption.md",
@@ -15524,8 +15524,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 10588,
-      "sha256": "b5465cb16149d3dac180f8836f12d0edbd13e264bc91297779d9bff6baa37b51"
+      "bytes": 11179,
+      "sha256": "3c157596b9a6021fc6b3b46ae60a5e4a718c78f92aca99c1f0674534a8372572"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",

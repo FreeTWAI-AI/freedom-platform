@@ -5,8 +5,8 @@
 ## 目的與非目標
 
 - S1 讓設定頁可以真的修改事業資料，也讓純供貨商品可以有照片。這兩件事都不新增資料表，也不新增媒體種類。
-- S3 交付合作素材與營運報表。合作素材需要一種新的媒體用途（D-05），這要 Ted 核准；報表不需要。
-- 非目標：完整 DAM、影片／SVG／PDF、AI 產生素材、跨社群發文、財務報表、完整模組匯出（R2-C）、從伺服器端刪除對方已下載的檔案。
+- S3 交付合作素材與營運報表。合作素材需要新的媒體用途：圖片 D-05、影片 D-14，Ted 已於 2026-10-15 核准；報表不需要新用途。
+- 非目標：完整 DAM、影片轉檔或在瀏覽器壓縮、SVG／PDF、AI 產生素材、跨社群發文、財務報表、完整模組匯出（R2-C）、從伺服器端刪除對方已下載的檔案。
 
 ## 1. 現有媒體能力（S1 沿用、S3 仿照）
 
@@ -62,7 +62,7 @@
 
 ## 4. S3：合作素材（SC-09）
 
-S3 開始前需要 Ted 核准 D-05（新媒體用途）。核准前只做設計與合成資料的測試，不安裝 host 設定、不寫 storage policy、不開上傳。
+Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 host 設定與 storage policy 隨 S3 的 PR 一起審查；在那之前不安裝、不開上傳。
 
 ### 第一版範圍
 
@@ -70,19 +70,24 @@ S3 開始前需要 Ted 核准 D-05（新媒體用途）。核准前只做設計�
 | --- | --- | --- |
 | 圖片（商品圖、品牌圖） | 新用途 `storefront.supply-material`，沿用商品照片的處理器：2 MiB 靜態 PNG／JPEG／WebP → 1920 內、1 MiB WebP；轉換版本 `storefront.supply-material.webp.v1` | 只接受已核准的圖片格式 |
 | 文案 | sidecar 文字欄位（最多 2,000 字），不是檔案 | 純文字 |
-| 文件（PDF 等）、影片、SVG | 不接受 | 需另外的格式審核（D-05 的附帶事項） |
+| 影片（商品示範、開箱等） | 新用途 `storefront.supply-material-video`，沿用活動影片（`community.event-video`）的做法：上傳前後檢查大小與檔頭，原檔存放、不轉檔，讀取支援 range 播放 | MP4 或 WebM，最多 20 MiB；畫面建議先壓成 H.264／AAC、720p、60 秒內 |
+| 文件（PDF 等）、SVG | 不接受 | 需另外的格式審核 |
 
 每筆素材有穩定 ID、所屬事業（tenant／instance）、對象（某個自有商品，或整個品牌）、標題、說明、授權範圍、狀態與目前版本。
+
+影片由供應商自己壓縮後上傳（D-14）。平台不在瀏覽器裡壓縮，也不轉檔；超過上限或格式不符時直接說明原因與建議的壓縮設定。另一條路是 Cloudflare Media Transformations：從已存的影片產生縮圖或較小的版本（輸入最多 100 MB；輸出只快取、不另存；每月前 5,000 次免費，之後每 1,000 次 0.5 美元）。它要 Ted 在 zone 開啟，而且來源要讓 Cloudflare 讀得到；素材是私人的，需要另做有時效的簽章來源才能用。S3 第一版不做，等需要平台產生縮圖或收更大的檔案時再提。
+
+公開店面目前沒有影片欄位，所以第一版的影片只供合作店家在後台預覽與下載；D-11 的「發布時複製」只適用圖片。
 
 ### 資料表（S3 migration，編號在實作時取當時的下一號）
 
 | 表 | 主要欄位 | 規則 |
 | --- | --- | --- |
-| `supply_materials` | `material_id`、`tenant_id`、`instance_id`、`scope_id`、`kind`（image／copy）、`product_id`（null＝品牌）、`title`、`description`、`access`（`partners`／`public_use`）、`state`（active／withdrawn）、`current_version_id`、`aggregate_version`、時間 | tenant／instance 組合 FK 與 RLS（同 `commerce_items`）；`product_id` 必須是本店自有商品 |
-| `supply_material_versions` | `version_id`、`material_id`、`version_no`、`asset_id`（圖片）或 `body`（文案）、`sha256`、`created_by_principal`、`created_at` | 只能新增，不能改或刪（trigger 擋，同 publication refs） |
+| `supply_materials` | `material_id`、`tenant_id`、`instance_id`、`scope_id`、`kind`（image／video／copy）、`product_id`（null＝品牌）、`title`、`description`、`access`（`partners`／`public_use`）、`state`（active／withdrawn）、`current_version_id`、`aggregate_version`、時間 | tenant／instance 組合 FK 與 RLS（同 `commerce_items`）；`product_id` 必須是本店自有商品 |
+| `supply_material_versions` | `version_id`、`material_id`、`version_no`、`asset_id`（圖片、影片）或 `body`（文案）、`sha256`、`created_by_principal`、`created_at` | 只能新增，不能改或刪（trigger 擋，同 publication refs） |
 | `supply_material_grants` | `material_id`、`partner_shop_id`、`granted_at`、`granted_by_principal`、`revoked_at` | 每間店一列；撤銷只寫 `revoked_at`，不刪列 |
 
-上傳與照片相同：沿既有 intent／容量／媒體檢查／ObjectStore／finalize。`tenant-capacity.ts` 的用途清單要加入新用途，否則素材不會計入業務空間的容量（這是必改點，要有測試）。
+上傳與照片相同：沿既有 intent／容量／媒體檢查／ObjectStore／finalize。`tenant-capacity.ts` 的用途清單要加入兩個新用途，否則素材不會計入業務空間的容量（這是必改點，要有測試）。每個業務空間預設 100 MiB（`docs/development/tenant-capacity-policy.md`），大約只放得下五支 20 MiB 的影片；第一版沿用預設，畫面在上傳前顯示剩餘容量，要調大另外提。
 
 ### 授權規則
 
@@ -121,6 +126,7 @@ S3 開始前需要 Ted 核准 D-05（新媒體用途）。核准前只做設計�
 | 換新版本 | 已發布的店面不變；下一次發布才用新版本（AT-27） |
 | 切換帳號時檔案讀取晚到 | 舊回應被丟棄，不填進新身分的畫面，也不觸發上傳（AT-35） |
 | 新用途沒登記到容量計算 | 測試失敗（防止素材不計容量） |
+| 影片不是 MP4／WebM、檔頭不符或超過 20 MiB | 拒絕，沒有 Asset；畫面說明原因與建議的壓縮設定 |
 | 備份後還原 | SQL 列與物件都在；授權對帳完成前不公開（AT-43） |
 
 ## 5. S3：營運報表（SC-10）
