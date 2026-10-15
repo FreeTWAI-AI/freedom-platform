@@ -151,20 +151,20 @@ All page numbers below refer to `https://developers.ecpay.com.tw/<page>/`:
 - `isInvoiceEmail(value)`: Validates e-mail addresses (`<= 80` ASCII characters matching our strict subset of ECPay's `[7896]` pattern, one address only).
 - `buildIssueInvoiceRequest` / `parseIssueInvoiceResponse`: Issue a B2C cloud e-invoice (`/B2CInvoice/Issue`, `[7896]`).
 - `buildVoidWithReissueRequest` / `parseVoidWithReissueResponse`: Void and reissue an invoice in one call (`/B2CInvoice/VoidWithReIssue`, `[7918]`).
-- `buildVoidInvoiceRequest` / `parseVoidInvoiceResponse`: Void an issued invoice (`/B2CInvoice/Invalid`, `[7909]`).
-- `buildAllowanceRequest` / `parseAllowanceResponse`: Issue a paper/merchant-notified allowance (`/B2CInvoice/Allowance`, `[7911]`).
-- `buildOnlineAllowanceRequest` / `parseOnlineAllowanceResponse`: Issue an online buyer-consent allowance (`/B2CInvoice/AllowanceByCollegiate`, `[7913]`).
-- `buildVoidAllowanceRequest` / `parseVoidAllowanceResponse`: Void a finalized allowance (`/B2CInvoice/AllowanceInvalid`, `[7915]`).
-- `buildCancelOnlineAllowanceRequest` / `parseCancelOnlineAllowanceResponse`: Cancel a pending or consented online allowance (`/B2CInvoice/AllowanceInvalidByCollegiate`, `[7916]`).
-- `buildGetIssueRequest` / `parseGetIssueResponse`: Query an issued invoice by `RelateNumber` or by `InvoiceNo` + `InvoiceDate` (`/B2CInvoice/GetIssue`, `[7924]`).
+- `buildVoidInvoiceRequest` / `parseVoidInvoiceResponse`: Void an issued invoice (`/B2CInvoice/Invalid`, `[7906]`).
+- `buildAllowanceRequest` / `parseAllowanceResponse`: Issue a paper/merchant-notified allowance (`/B2CInvoice/Allowance`, `[7901]`).
+- `buildOnlineAllowanceRequest` / `parseOnlineAllowanceResponse`: Issue an online buyer-consent allowance (`/B2CInvoice/AllowanceByCollegiate`, `[15391]`).
+- `buildVoidAllowanceRequest` / `parseVoidAllowanceResponse`: Void a finalized allowance (`/B2CInvoice/AllowanceInvalid`, `[7911]`).
+- `buildCancelOnlineAllowanceRequest` / `parseCancelOnlineAllowanceResponse`: Cancel a pending or consented online allowance (`/B2CInvoice/AllowanceInvalidByCollegiate`, `[7913]`).
+- `buildGetIssueRequest` / `parseGetIssueResponse`: Query an issued invoice by `RelateNumber` or by `InvoiceNo` + `InvoiceDate` (`/B2CInvoice/GetIssue`, `[7923]`).
 - `buildGetAllowanceListRequest` / `parseGetAllowanceListResponse`: Query allowances by `AllowanceNo` (`SearchType="0"`), invoice issue date (`SearchType="1"`), or allowance date (`SearchType="2"`) (`/B2CInvoice/GetAllowanceList`, `[7928]`).
-- `buildGetInvalidRequest` / `parseGetInvalidResponse`: Query a voided invoice (`/B2CInvoice/GetInvalid`, `[7930]`).
-- `buildGetAllowanceInvalidRequest` / `parseGetAllowanceInvalidResponse`: Query a voided allowance (`/B2CInvoice/GetAllowanceInvalid`, `[7932]`).
-- `buildCheckBarcodeRequest` / `parseCheckBarcodeResponse` / `classifyBarcodeCheck`: Check mobile carrier barcode validity (`/B2CInvoice/CheckBarcode`, `[7944]`).
-- `buildCheckLoveCodeRequest` / `parseCheckLoveCodeResponse` / `classifyLoveCodeCheck`: Check donation love code validity (`/B2CInvoice/CheckLoveCode`, `[7942]`).
+- `buildGetInvalidRequest` / `parseGetInvalidResponse`: Query a voided invoice (`/B2CInvoice/GetInvalid`, `[7933]`).
+- `buildGetAllowanceInvalidRequest` / `parseGetAllowanceInvalidResponse`: Query a voided allowance (`/B2CInvoice/GetAllowanceInvalid`, `[7943]`).
+- `buildCheckBarcodeRequest` / `parseCheckBarcodeResponse` / `classifyBarcodeCheck`: Check mobile carrier barcode validity (`/B2CInvoice/CheckBarcode`, `[7886]`).
+- `buildCheckLoveCodeRequest` / `parseCheckLoveCodeResponse` / `classifyLoveCodeCheck`: Check donation love code validity (`/B2CInvoice/CheckLoveCode`, `[7891]`).
 - `buildCompanyNameRequest` / `parseCompanyNameResponse` / `classifyCompanyNameCheck`: Query company registration name by 8-digit UBN (`/B2CInvoice/GetCompanyNameByTaxID`, `[32089]`).
-- `buildWordSettingRequest` / `parseWordSettingResponse` / `wordTrackRemaining`: Query assigned invoice word tracks (`/B2CInvoice/GetInvoiceWordSetting`, `[31987]`) and compute remaining numbers on a track.
-- `parseAllowanceConsentCallback(body, keys, options?)`: Verify and parse the MD5 form POST callback sent to `ReturnURL` when a buyer consents to an online allowance (`[38242]`).
+- `buildWordSettingRequest` / `parseWordSettingResponse` / `wordTrackRemaining`: Query assigned invoice word tracks (`/B2CInvoice/GetInvoiceWordSetting`, `[7881]`) and compute remaining numbers on a track.
+- `parseAllowanceConsentCallback(body, keys, options?)`: Verify and parse the MD5 form POST callback sent to `ReturnURL` when a buyer consents to an online allowance (`[15391]`; MD5 vector `[38242]`).
 - `classifyInvoiceHttpStatus(status)`: Classify HTTP status codes (`200` → `'response'`, `403` → `'throttled'` `[7854]`, other `100..599` → `'unknown'`).
 
 ### Endpoint Table
@@ -222,14 +222,14 @@ Every operation is an HTTPS `POST` to `ECPAY_ORIGINS.invoice[environment] + ECPA
   - Response parsers copy only allowlisted status, number, timestamp, and amount fields into frozen result objects.
   - Every buyer PII and network field returned by ECPay is dropped and never returned, stored, or logged: `GetIssue` drops `IIS_Customer_Name`, `IIS_Customer_Email`, `IIS_Customer_Addr`, `IIS_Customer_Phone`, `IIS_Identifier`, `IIS_Carrier_Num`, `IIS_Love_Code`, `IIS_IP`, item lines, and QR data; `GetAllowanceList` drops `IA_Send_Mail`, `IA_Send_Phone`, `IIS_Customer_Name`, `IA_IP`, `IA_Identifier`, and item lines (note that pending online allowances are not listed in `GetAllowanceList`, `[7928]`); `GetInvalid` and `GetAllowanceInvalid` drop `II_Buyer_Identifier` and `AI_Buyer_Identifier`; `parseAllowanceConsentCallback` drops `RtnMsg`.
   - Because `rtnMsg` and `transMsg` are ECPay free text and may echo buyer request values (such as e-mail, carrier number, or UBN), callers must treat `rtnMsg` and `transMsg` as buyer data and **never log them**.
-- **Online Allowance Consent Callback (`[38242]`)**:
+- **Online Allowance Consent Callback (`[15391]`, MD5 vector `[38242]`)**:
   - `parseAllowanceConsentCallback` verifies the MD5 `CheckMacValue` via `invoice.verifyAllowanceCallback`, requires `RtnCode === '1'` (ECPay only notifies buyer consent; any other value returns `unexpected_rtn_code`), requires `IA_Allow_No` and `IA_Invoice_No`, parses optional `IA_Date` and `IIS_Remain_Allowance_Amt` (falling back to `null` if absent or unparseable), and computes `bodySha256`.
   - The callback payload carries no `MerchantID`; the platform identifies the merchant account from the callback URL path and replies with `1|OK` (`ECPAY_ACK`) only after committing.
 - **Lookup Classifiers & Company-Name Stop Codes (`[32089]`)**:
   - `classifyBarcodeCheck` and `classifyLoveCodeCheck` map `ok` (`exists: true` / `false`) to `'valid'` or `'invalid'` and any other result to `'indeterminate'`.
   - `classifyCompanyNameCheck` maps `ok` to `{ kind: 'found', companyName }`, maps `rejected` with `rtnCode` `'1200125'` (invalid UBN checksum) or `'2027000'` (invalid UBN length) to `{ kind: 'invalid_ubn' }` (hard stop), and maps every other outcome (including `'7'` "not registered but checksum valid" and `'9000001'` "MOF system error", `[32089]`) to `{ kind: 'indeterminate' }` (do not block issuance).
-- **Word Tracks (`[31987]`) & `wordTrackRemaining`**:
-  - `parseWordSettingResponse` accepts `InvoiceInfo` as either a JSON array or a single object (because the official example in `[31987]` is malformed), accepts `InvoiceTerm` and `UseStatus` (`1..6`) as JSON numbers or digit strings, and maps missing or empty `InvoiceNo` to `lastUsed: null`.
+- **Word Tracks (`[7881]`) & `wordTrackRemaining`**:
+  - `parseWordSettingResponse` accepts `InvoiceInfo` as either a JSON array or a single object (because the official example in `[7881]` is malformed), accepts `InvoiceTerm` and `UseStatus` (`1..6`) as JSON numbers or digit strings, and maps missing or empty `InvoiceNo` to `lastUsed: null`.
   - `wordTrackRemaining(track)` returns `Number(end) - Number(lastUsed)` when `lastUsed` is non-null and within `start..end`, or `null` otherwise.
 - **Unverified Until ECPay Stage**:
   - Whether ECPay accepts leading JSON whitespace inside decrypted `Data`.

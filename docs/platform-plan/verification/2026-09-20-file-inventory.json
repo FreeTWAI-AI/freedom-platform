@@ -17419,8 +17419,8 @@
     },
     {
       "path": "modules/agent-commerce/providers/README.md",
-      "bytes": 41705,
-      "sha256": "fac02c202ad98470cb71931e8d5d732c69cb42d163a21b4db6fc07fa4b033255"
+      "bytes": 41747,
+      "sha256": "89113910f2a3376a6ea99bfaf6ca7163528122a15d71b071d1614bb033febfb3"
     },
     {
       "path": "modules/agent-commerce/providers/freedom.module.json",
