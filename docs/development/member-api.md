@@ -374,6 +374,10 @@ The regenerated `freedom.preview/v1` revision `0.3.1` bundle and SDK include
 the bounded `CampaignList` response and its required nullable continuation.
 Consumers must deliberately update their exact source/bundle pins; old SDKs
 reject protocol skew rather than silently accepting a changed response.
+Call `client.call('listCampaigns', {query:{limit:20,offset:0}})` and pass the
+returned `next_offset` explicitly for the next page. The operation's declared
+query parameters generate OpenAPI and TypeScript types and are validated before
+credentialed HTTP; the SDK does not silently ignore pagination options.
 
 Pagination does not publish drafts, write to an external platform, verify a
 share, or infer reach, conversion, payment, or income.

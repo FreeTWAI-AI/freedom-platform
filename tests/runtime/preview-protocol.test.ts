@@ -50,6 +50,11 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI/freedom-platform',note:'synthetic'}});
  assert.equal((shared.shares as any[])[0].verification_status,'self_reported');
  assert.equal((await seller.call('listCampaigns')).items.length,0);assert.equal((await maker.call('listCampaigns')).items.length,1);
+ const newerCampaign=await maker.call('createCampaign',{...key(),body:{title:'續頁草稿',audience:'test',goal:'read',draft_text:'test text',source_brief:'synthetic'}});
+ const campaignFirst=await maker.call('listCampaigns',{query:{limit:1,offset:0}});
+ assert.deepEqual(campaignFirst.items.map(item=>item.campaign_id),[newerCampaign.campaign_id]);assert.equal(campaignFirst.next_offset,1);
+ const campaignLast=await maker.call('listCampaigns',{query:{limit:1,offset:campaignFirst.next_offset}});
+ assert.deepEqual(campaignLast.items.map(item=>item.campaign_id),[campaign.campaign_id]);assert.equal(campaignLast.next_offset,null);
  assert.equal((await maker.call('listProjects')).items.length,0);assert(Array.isArray((await maker.call('listWorks')).items));await maker.call('getDashboard');
  await maker.call('logout',{body:{}});await assert.rejects(maker.call('getSession'),{status:401});await seller.call('logout',{body:{}});
 });

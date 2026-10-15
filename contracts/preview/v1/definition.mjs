@@ -54,8 +54,8 @@ schemas.CampaignList=object({items:array(ref('Campaign'),50),next_offset:nullabl
 schemas.TrackList=object({items:array({type:'object'})});
 // Params are always identifiers, never arbitrary paths or full URLs.
 export const operations={};
-function op(id,method,path,response,body=null,concurrency='none',status=200,auth=true){
- operations[id]={method,path,response,body,concurrency,status,auth,idempotent:method==='POST'&&!['login','logout'].includes(id)};
+function op(id,method,path,response,body=null,concurrency='none',status=200,auth=true,query=[]){
+ operations[id]={method,path,response,body,concurrency,status,auth,idempotent:method==='POST'&&!['login','logout'].includes(id),...(query.length?{query}:{})};
 }
 op('getProtocol','GET','/protocol','Protocol',null,'none',200,false);
 op('getHealth','GET','/health','Health',null,'none',200,false);
@@ -73,6 +73,7 @@ op('listSupplyRequests','GET','/supplier/requests','AcceptanceList');op('decideS
 op('listProjects','GET','/opensource/projects','ProjectList');op('importProject','POST','/opensource/projects','Project','ProjectInput','none',201);
 op('refreshProject','POST','/opensource/projects/{id}:refresh','Project','Empty','required');op('reviseProject','POST','/opensource/projects/{id}:revise','Project','ProjectMetadata','required');
 op('listCampaigns','GET','/marketing/campaigns','CampaignList');op('createCampaign','POST','/marketing/campaigns','Campaign','CampaignInput','none',201);
+operations.listCampaigns.query=[{name:'limit',required:false,schema:{...integer(1,50),default:20}},{name:'offset',required:false,schema:{...integer(0),default:0}}];
 op('reviseCampaign','POST','/marketing/campaigns/{id}:revise','Campaign','CampaignMetadata','required');op('recordShare','POST','/marketing/campaigns/{id}/shares','Campaign','ShareInput','required',201);
 op('listWorks','GET','/work-items','WorkList');op('getDashboard','GET','/dashboard','Dashboard');
 export const protocol={version:'freedom.preview/v1',revision:'0.3.1',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};

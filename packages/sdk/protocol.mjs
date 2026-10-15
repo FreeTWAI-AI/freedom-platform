@@ -272,7 +272,29 @@ export const protocol={
       "concurrency": "none",
       "status": 200,
       "auth": true,
-      "idempotent": false
+      "idempotent": false,
+      "query": [
+        {
+          "name": "limit",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        {
+          "name": "offset",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "default": 0
+          }
+        }
+      ]
     },
     "createCampaign": {
       "method": "POST",
@@ -1644,4 +1666,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="b6b6850212dfc3cd76f64aebaecf2b7d76a875be37bd0713a424208c21629acb";
+export const protocolSha256="52c144ccfb0cdeaae7b843d3d121a84a6883fd65b67199f118dc51580cc63c56";
