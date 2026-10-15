@@ -58,6 +58,10 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  await assert.rejects(maker.call('listWorksPage',{query:{cursor:'not-base64!'}}),{code:'invalid_work_cursor',status:422});
  const filteredWork=await maker.call('listWorksPage',{query:Object.assign(Object.create(null),{scope:'open',search:legacyWorks.items[0].title})});
  assert.deepEqual(filteredWork.items.map(item=>item.work_item_id),[legacyWorks.items[0].work_item_id]);
+ let inheritedQueryReads=0;
+ const inheritedQueryOptions=Object.create({get query(){inheritedQueryReads++;return{scope:'open',search:'does-not-match-any-seeded-title'};}});
+ const inheritedWork=await maker.call('listWorksPage',inheritedQueryOptions);
+ assert.deepEqual(inheritedWork.items.map(item=>item.work_item_id),[legacyWorks.items[0].work_item_id]);assert.equal(inheritedQueryReads,0);
  await assert.rejects(maker.call('listWorksPage',{query:{scope:'unknown'}}),TypeError);
  for(const query of [null,42,'',true,[],new Date(),Object.create({cursor:'inherited'}),{offset:1}])await assert.rejects(maker.call('listWorksPage',{query}),TypeError);
  await maker.call('getDashboard');
