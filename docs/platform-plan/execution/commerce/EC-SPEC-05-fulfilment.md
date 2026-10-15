@@ -210,7 +210,7 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 | 中華郵政 | 只送本島；需要重量，最多 20 kg | [7414] |
 | 超商商品金額 | 每包 1～20,000 元（整數元）；超過就不提供超商 | [8809] |
 
-不合規則回 422 並指出欄位（沿用 EC-SPEC-02 §5.3）。郵遞區號前 3 碼與離島的判斷依中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用，368 個代碼；來源與離島清單見 [sources.md §7](sources.md)）；離島＝連江 209～212、澎湖 880～885、金門 890～894 與 896、琉球 929、綠島 951、蘭嶼 952、東沙 817、南沙 819、釣魚臺列嶼 290。超商的離島以選店回傳的 `CVSOutSide` 為準（§3.6）。
+不合規則回 422 並指出欄位（沿用 EC-SPEC-02 §5.3）。郵遞區號前 3 碼與離島的判斷依中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用，368 個代碼；來源與離島清單見 [sources.md §7](sources.md)）；離島＝連江 209～212、澎湖 880～885、金門 890～894 與 896、琉球 929、綠島 951、蘭嶼 952、東沙 817、南沙 819、釣魚臺列嶼 290。超商的離島：選店有回傳 `CVSOutSide`（0／1）就以它為準；沒有回傳時改看門市地址，地址含「澎湖縣」「金門縣」「連江縣」或上述離島郵遞區號所屬的 19 個鄉鎮市名稱（馬公市、湖西鄉、白沙鄉、西嶼鄉、望安鄉、七美鄉、金城鎮、金湖鎮、金沙鎮、金寧鄉、烈嶼鄉、烏坵鄉、南竿鄉、北竿鄉、莒光鄉、東引鄉、琉球鄉、綠島鄉、蘭嶼鄉）就算離島。萊爾富店到店一律不回傳 `CVSOutSide`，所以都用地址判斷；7-ELEVEN 與全家店到店會回傳 [8795]（§3.6）。
 
 ### 3.6 超商選店（`Express/map`）
 
@@ -218,7 +218,7 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 
 1. 買家在 B05 選超商取貨 → `POST /api/v1/public/stores/:slug/cvs-selection-sessions`（需要 checkout 憑證）建立 session：隨機 `session_ref`、20 字元的 `extra_token`（只存雜湊）、checkout、子類型、所用帳戶、環境、15 分鐘到期。
 2. 瀏覽器前往 `/ship/ecpay/map/{token}`：極小的 HTML，表單 POST 到該環境的 `Express/map`，欄位 `MerchantID`、`LogisticsType=CVS`、`LogisticsSubType`、`IsCollection=N`、`ServerReplyURL=/ship/ecpay/map-return/{session_ref}`、`ExtraData=extra_token`、`Device`（手機 1、桌機 0）[8795]。同一個視窗開啟，不用新分頁或 iframe（iOS 會失敗；閒置超過 3 分鐘或開多個地圖分頁會出錯）[8795][62208]。這個路徑的 CSP `form-action` 只加該環境的物流主機，比照付款交接頁（EC-SPEC-04 §4.1）。
-3. 綠界把買家帶回 `POST /ship/ecpay/map-return/{session_ref}`：伺服器只檢查 session 存在、未到期、`ExtraData` 符合、`MerchantID` 與 `LogisticsSubType` 相同；把回傳的門市欄位清理後暫存在 session（`CVSStoreID` 1～6 個英數字、店名 ≤ 10 字、地址 ≤ 60 字、`CVSOutSide` 0／1 [8795][8809]），然後 303 回到結帳頁。這個跨站 POST 不帶買家憑證，所以這一步不改 checkout。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。
+3. 綠界把買家帶回 `POST /ship/ecpay/map-return/{session_ref}`：伺服器只檢查 session 存在、未到期、`ExtraData` 符合、`MerchantID` 與 `LogisticsSubType` 相同；把回傳的門市欄位清理後暫存在 session（`CVSStoreID` 1～6 個英數字、店名 ≤ 10 字、地址 ≤ 60 字、`CVSOutSide` 0／1；萊爾富店到店沒有這個欄位，離島改依 §3.5 的地址規則 [8795][8809]），然後 303 回到結帳頁。這個跨站 POST 不帶買家憑證，所以這一步不改 checkout。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。
 4. 結帳頁（同站 GET，有憑證）呼叫 `POST …/checkouts/:ref/cvs-selection`，伺服器確認 session 屬於這個 checkout、同子類型、同環境、未用過，才把門市寫進新的聯絡資料列（EC-SPEC-02 §5.3）。跨 checkout、跨服務、跨環境一律拒絕，也不回顯門市資料（EC-AT35）。
 5. 門市名稱與地址只當文字顯示（不當 HTML），焦點回到門市欄並宣告所選門市（EC-SPEC-01 §7.3）。
 
@@ -646,6 +646,7 @@ stage 的固定門市（7-ELEVEN `131386`、全家 `006598`）[8809] 只用於 s
 | 同店 A 供貨直送＋B 自有：兩個群組、兩段運費、預計出貨日，付款前可見；總額可核對 | EC-AT10、SC-LAT04 |
 | A 只同意供貨價、沒有代出貨同意：A 的商品不可結帳，B 的自有商品可以；A 看不到任何地址 | EC-AT11、SC-LAT03 |
 | 冷凍或超尺寸商品、超商金額 > 20,000、離島不配送、群組沒有共同方式：收款前拒絕並說明 | EC-AT12、SC-LAT02 |
+| 超商離島：有 `CVSOutSide` 就照它；萊爾富店到店沒有，依門市地址（「屏東縣琉球鄉」是離島、「琉球路」「金門街」不是）；離島門市照 `outlying` 拒絕或加價 | EC-AT12、SC-LAT02 |
 | 未授權的賣家或其他 tenant 改供應商的寄件地與出貨設定：拒絕，舊版本保留 | EC-AT33、SC-LAT01 |
 | 一單兩包，只有 A 包送達：B 包未完成，訂單不顯示全部完成 | EC-AT34、SC-LAT12 |
 | 選店：A checkout 的 session 回傳給 B checkout、換子類型、換環境、過期、重用 → 拒絕且不回顯門市 | EC-AT35 |
