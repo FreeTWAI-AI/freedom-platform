@@ -13999,8 +13999,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 70224,
-      "sha256": "cd32bf0c1395e7b7ddab8410b0e271ce6e262c863dc77fc58dfe23670f2e54a9"
+      "bytes": 70920,
+      "sha256": "278ae88834661f58ee6fcfbbf4d89cacddc00abe80ad34544410dab89f426c31"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17704,8 +17704,8 @@
     },
     {
       "path": "modules/community/event-reminders.ts",
-      "bytes": 14819,
-      "sha256": "f7f96164021040f00e5fb5dcd918fb6e474dee000d37d6fc3d03b4b62f1de286"
+      "bytes": 15207,
+      "sha256": "ebd9036541afe4901b960bca1b9fe337471323a6e5b0b2e9a8566d986d69cb0e"
     },
     {
       "path": "modules/community/event-waitlist.ts",
@@ -21944,8 +21944,8 @@
     },
     {
       "path": "tests/runtime/event-reminders-delivery.test.ts",
-      "bytes": 18780,
-      "sha256": "461c0fd65890ee8a9d4e7c291a26f3f98dcf24de69900e01631eaac3b64b90bd"
+      "bytes": 22906,
+      "sha256": "e68f0b8f16774b4b0129bda665976b7028b476875768103162639a609e1c4870"
     },
     {
       "path": "tests/runtime/event-video-assets.test.ts",

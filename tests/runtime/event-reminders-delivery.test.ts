@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {setImmediate} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {transaction,type Command} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
@@ -52,6 +53,62 @@ async function reschedule(instant:Date){
 async function preferences(events:'instant'|'off',quiet=false){
   const current=await readNotificationPreferences(pool,actors[1],false);
   return saveNotificationPreferences(pool,command(actors[1],'me/notification-preferences',{categories:{...current.categories,events},quiet_hours:{enabled:quiet,time_zone:'UTC',start:'10:00',end:'11:30'},muted_channel_ids:[]},current.version),false);
+}
+
+for(const channel of ['in_app','email'] as const)for(const phase of ['event-lock','attempt-insert'] as const){
+  test(`${channel} reminder refreshes its dispatch clock after ${phase} while keeping live delivery at most once`,async()=>{
+    await going();
+    let sent=0;
+    const send=async()=>{sent++;};
+    for(const expired of [true,false]){
+      await pool.query(`UPDATE community_events SET starts_at=clock_timestamp()+make_interval(secs=>$2),
+        ends_at=clock_timestamp()+interval '2 hours',aggregate_version=aggregate_version+1 WHERE event_id=$1`,[eventId,expired?3:300]);
+      await optIn(channel);
+      const beforeAttempts=(await attempts()).length,beforeNotices=(await notices()).length,beforeSent=sent;
+      const gate=await admin.connect(),lock=`${schema}/dispatch/${randomUUID()}`;
+      let pending:Promise<PromiseSettledResult<{processed:number}>[]>|undefined;
+      try{
+        if(phase==='event-lock'){await gate.query('BEGIN');await gate.query(`SELECT 1 FROM ${schema}.community_events WHERE event_id=$1 FOR UPDATE`,[eventId]);}
+        else{
+          await pool.query(`CREATE FUNCTION pause_reminder_attempt() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); RETURN NEW; END $$`);
+          await pool.query('CREATE TRIGGER pause_reminder_attempt BEFORE INSERT ON community_event_reminder_attempts FOR EACH ROW EXECUTE FUNCTION pause_reminder_attempt()');
+          await gate.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[lock]);
+        }
+        const pid=(await gate.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+        // No config.now: this exercises the production clock, not a fixed fixture snapshot.
+        pending=Promise.allSettled([processEventReminders(pool,send,{enabled:true})]);
+        const deadline=Date.now()+8000;
+        for(;;){
+          if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount!>0)break;
+          assert.ok(Date.now()<deadline,'reminder worker reached its actual PostgreSQL gate');await setImmediate();
+        }
+        assert.equal((await pool.query('SELECT starts_at>clock_timestamp() AS future FROM community_events WHERE event_id=$1',[eventId])).rows[0].future,true);
+        if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM starts_at-clock_timestamp()))+0.05) FROM community_events WHERE event_id=$1',[eventId]);
+        if(phase==='event-lock')await gate.query('ROLLBACK');else await gate.query('SELECT pg_advisory_unlock_all()');
+        const result=(await pending)[0];assert.equal(result.status,'fulfilled');
+        assert.equal(result.value.processed,expired?0:1);
+      }finally{
+        if(phase==='event-lock')await gate.query('ROLLBACK');else await gate.query('SELECT pg_advisory_unlock_all()');
+        gate.release();if(pending)await pending;
+        if(phase==='attempt-insert'){await pool.query('DROP TRIGGER IF EXISTS pause_reminder_attempt ON community_event_reminder_attempts');await pool.query('DROP FUNCTION IF EXISTS pause_reminder_attempt()');}
+      }
+      const row=await reminder();
+      if(expired){
+        assert.equal(row.enabled,false);assert.equal(row.status,'cancelled');
+        assert.equal(sent,beforeSent);assert.equal((await notices()).length,beforeNotices);
+        assert.deepEqual((await attempts()).slice(beforeAttempts).map(row=>row.status),phase==='event-lock'?[]:['failed']);
+      }else{
+        assert.equal(row.status,channel==='in_app'?'recorded':'provider_accepted');
+        assert.equal(sent,beforeSent+(channel==='email'?1:0));
+        assert.equal((await notices()).length,beforeNotices+(channel==='in_app'?1:0));
+        assert.equal((await attempts()).length,beforeAttempts+1);
+        await processEventReminders(pool,send,{enabled:true});
+        assert.equal(sent,beforeSent+(channel==='email'?1:0));assert.equal((await attempts()).length,beforeAttempts+1);
+        assert.equal((await notices()).length,beforeNotices+(channel==='in_app'?1:0));
+      }
+    }
+  });
 }
 
 test('Going is required and RSVP alone never opts into a reminder',async()=>{
