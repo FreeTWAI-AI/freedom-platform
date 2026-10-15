@@ -138,8 +138,13 @@ year zero 或多餘欄位回 422 `invalid_cursor`，不送入 SQL cast 變成 50
 貼文與留言的下一頁標記也直接使用 PostgreSQL 的 UTC 微秒字串，不從顯示用的
 JavaScript Date 毫秒值重建（#728）。貼文依 `(created_at,post_id)` 降冪，留言依
 `(created_at,comment_id)` 升冪；同一毫秒內不同微秒及完全同時的 UUID 並列均能
-完整續頁、不重複，最後一頁的 `next_cursor` 為 `null`。顯示用 `created_at` DTO、
-每頁 24 筆與原三位毫秒游標的讀取相容性不變；客戶端須原樣傳回 opaque cursor。
+完整續頁、不重複，最後一頁的 `next_cursor` 為 `null`。每頁 24 筆與原三位毫秒
+游標的讀取相容性不變；客戶端須原樣傳回 opaque cursor。
+
+留言的 `created_at` DTO 亦保留 UTC 六位微秒（#771），沿同一投影提供列表、
+新建與編輯回應，避免瀏覽器合併續頁時把同毫秒內不同時間誤當 UUID 並列。
+既有成功收據中的三位毫秒時間不重寫；前端補齊小數位比較，不用 Date 截斷，
+讓歷史毫秒與新微秒回應可正確合併。畫面時間格式、貼文 DTO 與原權限不變。
 
 會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
 讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
