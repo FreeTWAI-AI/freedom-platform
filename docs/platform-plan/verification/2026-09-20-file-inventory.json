@@ -15199,8 +15199,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
-      "bytes": 26529,
-      "sha256": "9fa1da4a6262dd381a28873815b330b412617c1bdeb91ad059cb21a9ff212693"
+      "bytes": 26649,
+      "sha256": "685bbdfb36bb4fb4189b094cc11d692241bcac6dd914c0c2ab1aa89baf996f92"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
@@ -15214,13 +15214,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 31447,
-      "sha256": "d5e1d2c192b75ba71581f51ed1df4e05a5d89ea718d7b0b10b210c5d10c7d769"
+      "bytes": 31920,
+      "sha256": "feb02206f455be46d39720629f1dfe273407e59dd5591a9d2f310f7729d82728"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 68077,
-      "sha256": "4c8f4a6cb233f82567a14aa47963fc4013c7563d9b13c1bc5bfd598ce69b23fb"
+      "bytes": 69815,
+      "sha256": "f5572195b5d78e45a293fca38b93909d348225f0d45ca6307bef30e3d90b3e87"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
@@ -15259,8 +15259,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
-      "bytes": 13113,
-      "sha256": "0df1a11cea6c28e28a0a1f2f00081de88ba6c828c578426041a67ad112f9d42b"
+      "bytes": 13490,
+      "sha256": "b98312ed48eb62ded884715aaefd9c12a93e90518860089e393963cb6206a462"
     },
     {
       "path": "docs/platform-plan/execution/commerce/pages.md",
@@ -15269,8 +15269,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
-      "bytes": 16960,
-      "sha256": "ac82766cf2d7e1ed985356114aa3e33f28ed132c59d9b6f9b5a404b70807e80f"
+      "bytes": 17795,
+      "sha256": "df829f1e924b008c385d06453f45d6def84d89b8c9b67a77cea7718aa7a27e0a"
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",

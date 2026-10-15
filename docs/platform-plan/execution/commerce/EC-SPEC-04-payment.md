@@ -126,7 +126,7 @@ interface PaymentPort {
 
 - `MerchantTradeNo`：`F` ＋ 19 個 Crockford Base32 大寫字元（95 bits 隨機），共 20 字元、只含英數字 [2862]。綠界不分大小寫判斷重複 [2862]，大寫字母表本身就避開這個問題；stage 測試帳號是公開共用的，隨機值也避免和其他開發者撞號。DB 唯一索引防自己撞號；撞到就重抽。
 - `MerchantTradeDate`：Asia/Taipei 時間 `yyyy/MM/dd HH:mm:ss`。
-- `ItemName`：`{商品名} x{數量}` 以 `#` 連接；名稱先移除 `#`、`<`、`>` 與控制字元；合計超過 200 字元時改用 `{店名}商品一批 x1`。綠界在 400 字元處截斷，截到多位元組字元會讓 CheckMacValue 失敗 [61944]，所以留足空間。
+- `ItemName`：`{商品名} x{數量}` 以 `#` 連接。名稱先把 `#`、`<`、`>`、`|`、`;`、反引號、控制字元（C0、DEL、C1）、落單的 surrogate 與看不見的格式字元（U+200B～U+200F、U+202A～U+202E、U+2060～U+206F、U+FEFF）換成空白，再把連續空白縮成一個、去掉頭尾；清完是空的就用「商品」。`|`、`;`、反引號會被綠界 CDN 的指令過濾擋下 [2858]；看不見的字元可能在綠界頁面上偽裝商品名。合計超過 200 個 UTF-16 字元時改用 `{店名}商品一批 x1`（店名同樣清理、最多 40 字；清完是空的就是 `商品一批 x1`）。綠界在 400 字元處截斷，截到多位元組字元會讓 CheckMacValue 失敗 [61944]，所以留足空間。
 - `TradeDesc`：`Freedom order {display_number}`（不含特殊字元 [2862]）。
 - `ReturnURL`、`OrderResultURL`、`ClientBackURL`：§4、§5 的固定路徑，HTTPS、網域、443，路徑不含 `&` 或 `<` [2858][61944]；由伺服器依環境組出。
 - `PlatformID`、`CustomField1～4`、`StoreID`、`Language`：不送（欄位省略）。

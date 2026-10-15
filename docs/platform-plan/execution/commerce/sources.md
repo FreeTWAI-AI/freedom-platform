@@ -162,3 +162,9 @@ WP-00 由整合負責人（Claude Opus 5.5）拆成五個唯讀工作，各在 `
 
 - EC 參考圖片：已取得並檢視（§2.1）。
 - 三個上游 repo 與任何 MCP 仍未執行；金流、物流、發票的 sandbox 與正式環境仍未操作（規劃包 limitations）。
+
+## 7. 郵遞區號
+
+- 中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用），下載頁 `https://www.post.gov.tw/post/internet/Download/index.jsp?ID=220306`。2026-10-15 由整合負責人取得（xls，SHA-256 `0b0a6672d53c174ed5db432cb9c24872edecf204fe7c060bc541dfd495486ff0`）並逐列解析：368 個前 3 碼。2020 年改用 3+3 碼時，前 3 碼沒有變。
+- 離島（EC-SPEC-05 §3.5）：連江 209 南竿、210 北竿、211 莒光、212 東引；澎湖 880～885；金門 890～894 與 896 烏坵；屏東 929 琉球；臺東 951 綠島、952 蘭嶼；南海諸島 817 東沙、819 南沙；宜蘭 290 釣魚臺列嶼。
+- 表格寫進 `modules/agent-commerce/fulfilment/rules/postal.ts`（fulfil-rules 工作）；中華郵政公布新表時要重新核對。xls 留在本機，不進 repo。
