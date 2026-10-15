@@ -17029,13 +17029,13 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/README.md",
-      "bytes": 18704,
-      "sha256": "ad1a757d81686adb7f23906703ca9515cc13f9630934201e6e740830899bbb6d"
+      "bytes": 20600,
+      "sha256": "08c1c616ed97ce8e5e8cf99e92f409179a4b437f0010e82db194af24443f48c8"
     },
     {
       "path": "modules/agent-commerce/fulfilment/freedom.module.json",
-      "bytes": 678,
-      "sha256": "a5fd35e1571356f6afe49417cc0a7bddcf80770f6978018cd9e5eb555fafd629"
+      "bytes": 706,
+      "sha256": "86e7dedd1e82f03eb7cd50da87d5fee1283898fd89cbb471b3bea3e8dc0cc295"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/errors.ts",
@@ -17059,8 +17059,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/recipient.ts",
-      "bytes": 11215,
-      "sha256": "476d42ab7d78ffa9f9513754a83836f7af69e12cde45154d3b729297f58b089e"
+      "bytes": 11673,
+      "sha256": "6abdbddfa653ef0c29203f66aca15c4637a4f5b7912641f1993383c4c98c8b6c"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/ship-by.ts",
@@ -17074,8 +17074,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/tracking.ts",
-      "bytes": 39643,
-      "sha256": "0d75a7326a3f5f7c4cfceae71442991560bae744b634e6a24b6017d36d0cd922"
+      "bytes": 39640,
+      "sha256": "477e37d50072927f016ca3a5b654e3a67db2420d17d9323880cba0e8409b594b"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/types.ts",
@@ -22209,8 +22209,8 @@
     },
     {
       "path": "tests/runtime/commerce-fulfilment-rules.test.ts",
-      "bytes": 86055,
-      "sha256": "e7e96e096990d3e392573c8c8d533847cca88be6293d3127b9d6d7be5cb2aa75"
+      "bytes": 93411,
+      "sha256": "cd532e59643442a40dceb9a1941e75b8b0f6a60d7e75c8a7a4f252113b68eadd"
     },
     {
       "path": "tests/runtime/commerce-invoice-rules.test.ts",
