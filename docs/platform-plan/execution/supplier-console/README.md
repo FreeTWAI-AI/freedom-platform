@@ -21,7 +21,7 @@
 | [SC-SPEC-05](SC-SPEC-05-tests-ci-guild-dev.md) | 測試層級、沿用測試、效能、CI、公會開發 |
 | [SC-SPEC-06](SC-SPEC-06-release-rollback-pilot.md) | 功能設定、資料相容、發布順序、回退、試用、舊頁退場 |
 | [SC-SPEC-07](SC-SPEC-07-fulfilment.md) | v1.1 補充：履約與寄件設定、出貨工作台、包裹、例外與退回、費用（SL-01～05，Commerce C2） |
-| [work-plan.md](work-plan.md) | 工作包、批次、分工、共用檔案、依賴、決策 D-01～D-13 |
+| [work-plan.md](work-plan.md) | 工作包、批次、分工、共用檔案、依賴、決策 D-01～D-14 |
 | [first-journey.md](first-journey.md) | 第一條供貨旅程（S1）與測試計畫 |
 
 公開契約：`contracts/guild-launchpad/v1/supplier-console.ts`。
