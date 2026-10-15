@@ -519,10 +519,35 @@ is still pending. The refresh does not discard a newer draft or release a
 newer submission's pending protection. Ordinary unsaved input still requires
 explicit discard; a failed media save retains its unsaved files for retry.
 
+Each refresh has an invocation and session-generation fence. Only the newest
+invocation may replace events, guilds or bulletins, report a load error, or end
+the loading indicator; unmounting also invalidates its pending reads. A delayed
+older success or rejection cannot erase a later confirmed event or replace the
+newest read's feedback. These read continuations never reset editor drafts.
+
+Before starting that background refresh, saving publishes the authoritative
+event returned by the command and any completed media upload into local items.
+Reopening an edit or cancelling from detail therefore uses the confirmed
+aggregate version without waiting for the list. Partial media failure publishes
+the latest known event too, retaining the editable draft and only failed or
+not-yet-sent files; retrying does not re-upload successful media. Detail-only
+events use the same current-item fallback for their next update command.
+
 The existing event-member journey holds a real successful list response after
 an original-key retry and verifies immediate departure at 1440px and 390px,
-along with equal retry bodies/keys and one durable event. Local isolated
-Chromium/API/PostgreSQL evidence is not deployment or real-member acceptance.
+along with equal retry bodies/keys and one durable event. Additional controlled
+local Chromium/API/PostgreSQL smoke held real GET200 snapshots across two
+confirmed writes, delivered them newest-first, and retained the latest event
+and a newer draft at both widths. Desktop checks also retained loading across
+superseded success/error completions and preserved a newer real HTTP error.
+With refreshes held, immediate edits used versions 1 then 2 and cancellation
+used version 3 successfully. A completed banner plus an actual video-format
+415 retained the video/draft and retried from confirmed version 3 to version 5,
+without repeating the banner. Pending/unknown protection and original-tuple
+recovery remained intact. The unchanged focused event-member journey passed
+all seven cases after the final build and raw browser reload. This synthetic
+local evidence is not deployment, trusted CI or real-member acceptance; no new
+permanent UI test was added.
 
 ## Member event detail session boundary
 

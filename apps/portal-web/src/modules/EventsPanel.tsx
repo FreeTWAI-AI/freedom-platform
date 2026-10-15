@@ -91,6 +91,7 @@ function EventDraftPreview({value,banner,existingBanner}:{value:EventDraft;banne
 
 export function EventsPanel({client,session,locationHash,registerLeave,onList,participationEnabled=false}:{client:PortalClient;session:SessionPayload;locationHash:string;registerLeave:(guard:(()=>boolean)|null)=>void;onList:()=>void;participationEnabled?:boolean}) {
   const [items,setItems]=useState<CommunityEvent[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState('');
+  const loadRequest=useRef(0);
   const [creating,setCreating]=useState(false),[draft,setDraft]=useState<EventDraft>(blankEvent);
   const draftBaseline=useRef(draft);
   const [editing,setEditing]=useState<string|null>(null),[editDraft,setEditDraft]=useState<EventDraft>(blankEvent);
@@ -140,11 +141,18 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
     window.addEventListener('beforeunload',beforeUnload);
     return()=>{registerLeave(null);window.removeEventListener('beforeunload',beforeUnload);};
   },[registerLeave]);
-  const load=useCallback(async()=>{setLoading(true);setLoadError('');try{const [events,directory,announcements]=await Promise.all([
-    client.get<{items:CommunityEvent[]}>('/events'),client.get<{items:Guild[]}>('/guilds/directory'),client.get<{items:Bulletin[]}>('/events/bulletins')]);
-    setItems(events.items);setGuilds(directory.items);setBulletins(announcements.items);
-  }catch(cause){setLoadError(cause instanceof Error?cause.message:'活動暫時無法載入。');}finally{setLoading(false);}},[client]);
-  useEffect(()=>{void load();},[load]);
+  const load=useCallback(async()=>{
+    const token=++loadRequest.current,generation=client.sessionGeneration;
+    const current=()=>loadRequest.current===token&&client.sessionGeneration===generation;
+    setLoading(true);setLoadError('');
+    try{const [events,directory,announcements]=await Promise.all([
+      client.get<{items:CommunityEvent[]}>('/events'),client.get<{items:Guild[]}>('/guilds/directory'),client.get<{items:Bulletin[]}>('/events/bulletins')]);
+      if(!current())return;
+      setItems(events.items);setGuilds(directory.items);setBulletins(announcements.items);
+    }catch(cause){if(current())setLoadError(cause instanceof Error?cause.message:'活動暫時無法載入。');}
+    finally{if(current())setLoading(false);}
+  },[client]);
+  useEffect(()=>{void load();return()=>{loadRequest.current++;};},[load]);
   useEffect(()=>{if(!selectedId||items.some(item=>item.event_id===selectedId)){setSelectedItem(null);return;}let active=true;void client.get<CommunityEvent>(`/events/${selectedId}`).then(item=>{if(active)setSelectedItem(item)}).catch(()=>{if(active)setSelectedItem(null)});return()=>{active=false}},[client,items,selectedId]);
   useEffect(()=>{if(selectedId)referralCode(selectedId)},[selectedId]);
   const resumedEvent=useRef<string|null>(null);
@@ -176,21 +184,28 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
     event.preventDefault();if(saving||busy||preparingBanner||bannerError)return;
     if(lastFailureUnknown&&!saveAttempt.current){setNotice('尚未確認原操作的結果，請先重試原操作。');return;}
     setSaving(true);setNotice('');
-    const current=items.find(item=>item.event_id===editing);
+    const current=original;
     const attempt=saveAttempt.current??(current
       ?{path:`/events/${current.event_id}/update`,body:eventPayload(editDraft),version:current.aggregate_version,editing:true}
       :{path:'/events',body:eventPayload(draft),editing:false});
     saveAttempt.current=attempt;
     try{
-      let result=await mutate<CommunityEvent>(attempt.path,attempt.body,attempt.version);
-      if(!result)return;
+      const saved=await mutate<CommunityEvent>(attempt.path,attempt.body,attempt.version);
+      if(!saved)return;
+      let result=saved;
       saveAttempt.current=null;
       let pendingBanner=attempt.editing?editBannerFile:bannerFile,pendingVideo=attempt.editing?editVideoFile:videoFile;
       try{
         if(pendingBanner){result=await uploadEventBanner(client,result,pendingBanner);pendingBanner=null;}
         if(pendingVideo){result=await uploadEventVideo(client,result,pendingVideo);pendingVideo=null;}
-      }catch(cause){setBannerError(cause instanceof Error?cause.message:'媒體未能保存；活動已送出，請在活動卡片重試。');setCreating(false);setEditing(result.event_id);setEditDraft(fromEvent(result));setEditBannerFile(pendingBanner);setEditVideoFile(pendingVideo);void load();return;}
-      // Refresh is read-only: it must not keep a confirmed save's departure guard.
+      }catch(cause){
+        setItems(current=>current.some(item=>item.event_id===result.event_id)
+          ?current.map(item=>item.event_id===result.event_id?result:item):[result,...current]);
+        setBannerError(cause instanceof Error?cause.message:'媒體未能保存；活動已送出，請在活動卡片重試。');setCreating(false);setEditing(result.event_id);setEditDraft(fromEvent(result));setEditBannerFile(pendingBanner);setEditVideoFile(pendingVideo);void load();return;
+      }
+      // Publish the confirmed version before a read-only refresh; neither waits to release departure.
+      setItems(current=>current.some(item=>item.event_id===result.event_id)
+        ?current.map(item=>item.event_id===result.event_id?result:item):[result,...current]);
       discardDrafts();setNotice(attempt.editing?'活動已更新，仍待審核。':'活動已送出審核，核准後開放報名。');announceInboxChange();window.dispatchEvent(new Event('freedom-world-facts-updated'));void load();
     }finally{setSaving(false);}
   }
