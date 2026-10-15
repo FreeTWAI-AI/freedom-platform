@@ -89,8 +89,8 @@ test('release identity mismatch is rejected and can be retried without showing a
   await expect(catalog.getByRole('link', {name: '閱讀《我的第一間商店》原作 ↗'})).toBeVisible();
 });
 
-test('late reading metadata cannot fill another release and missing guide keeps its original source accessible', async ({page, baseURL}) => {
-  await page.context().addCookies([{name: 'public-reading-fixture', value: 'present', url: baseURL!}]);
+test('late reading metadata retains edge admission without filling another release', async ({page, baseURL}) => {
+  await page.context().addCookies([{name: 'CF_Authorization', value: 'synthetic-edge-admission', url: baseURL!, httpOnly: true, sameSite: 'Lax'}]);
   const other = {...app, application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', display_name: '另一個工具'};
   let firstRead!: () => void;
   const requested = new Promise<void>(resolve => {firstRead = resolve;});
@@ -100,7 +100,10 @@ test('late reading metadata cannot fill another release and missing guide keeps 
   const original = communityCatalog.skill_books.find(book => book.id === 'supplier-client')!;
   const catalog = await openCatalog(page, {...detail, skill_book_refs: ['storefront']}, app, async route => {
     reads++;
-    expect(route.request().headers().cookie).toBeUndefined();
+    const headers = await route.request().allHeaders();
+    expect(headers.cookie).toContain('CF_Authorization=synthetic-edge-admission');
+    expect(headers.authorization).toBeUndefined();
+    expect(headers['x-csrf-token']).toBeUndefined();
     if (reads === 1) {firstRead(); await held; return route.fulfill({json: communityCatalog});}
     if (reads === 2) return route.fulfill({status: 503, json: {}});
     return route.fulfill({json: {skill_books: [{...original, guide: undefined, source_commit: null}]}});

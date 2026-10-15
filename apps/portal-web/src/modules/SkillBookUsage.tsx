@@ -52,7 +52,8 @@ export function ApplicationSkillSources({refs}: {refs: readonly string[]}) {
     if (!refs.length) return;
     const controller = new AbortController();
     setLoaded(null);
-    void fetch('/api/v1/community', {credentials: 'omit', signal: controller.signal, headers: {Accept: 'application/json'}})
+    // The public catalog still needs same-origin edge admission on Access-protected hosts.
+    void fetch('/api/v1/community', {credentials: 'same-origin', signal: controller.signal, headers: {Accept: 'application/json'}})
       .then(async response => {
         if (!response.ok) throw new Error('catalog_unavailable');
         const data = await response.json();
