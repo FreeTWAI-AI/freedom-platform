@@ -94,6 +94,8 @@ import { listCommunityBookmarks,changeCommunityBookmark,listCommunityFollows,cha
 
 const SLOW_REQUEST_THRESHOLD_MS=1000;
 const JSON_UTF8_DECODER=new TextDecoder('utf-8',{fatal:true});
+// Unicode mode treats a valid UTF-16 pair as one code point, outside this range.
+const UNPAIRED_JSON_SURROGATE=/[\uD800-\uDFFF]/u;
 
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
@@ -293,13 +295,16 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         let parsed:unknown;
         try { parsed=JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
         // JSON permits escaped NUL, but PostgreSQL text/jsonb cannot retain it.
-        // Walk decoded values iteratively so deeply nested, bounded JSON does not consume the call stack.
+        // Validate decoded values once; bounded JSON can still be deeply nested.
         const pending:unknown[]=[parsed];
         while(pending.length) {
           const value=pending.pop();
-          if(typeof value==='string')requireCondition(!value.includes('\0'),422,'validation_failed','JSON 內容含有不允許的空字元。');
-          else if(value!==null&&typeof value==='object')for(const key of Object.keys(value)) {
+          if(typeof value==='string') {
+            requireCondition(!value.includes('\0'),422,'validation_failed','JSON 內容含有不允許的空字元。');
+            requireCondition(!UNPAIRED_JSON_SURROGATE.test(value),422,'validation_failed','JSON 文字必須使用有效的 Unicode 字元。');
+          } else if(value!==null&&typeof value==='object')for(const key of Object.keys(value)) {
             requireCondition(!key.includes('\0'),422,'validation_failed','JSON 欄位含有不允許的空字元。');
+            requireCondition(!UNPAIRED_JSON_SURROGATE.test(key),422,'validation_failed','JSON 欄位必須使用有效的 Unicode 字元。');
             pending.push((value as Record<string,unknown>)[key]);
           }
         }

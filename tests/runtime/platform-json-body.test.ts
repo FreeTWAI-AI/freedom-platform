@@ -101,6 +101,36 @@ test('valid UTF-8 split across chunks retains scalars and the exact JSON byte ce
   }
 });
 
+test('decoded unpaired surrogates in JSON values and keys are rejected without rejecting scalar pairs or literal escapes',async()=>{
+  for(const invalid of ['\uD800','\uDC00','\uD800x\uDC00']) {
+    for(const body of [invalid,{nested:['safe',{text:invalid}]},{nested:[{['key'+invalid]:null}]}]) {
+      const response=await app.request(origin+'/api/v1/auth/logout',{
+        method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body),
+      });
+      assert.equal(response.status,422);assert.equal((await response.json()).code,'validation_failed');
+    }
+  }
+  for(const body of ['繁中😀\uD800\uDC00\uDBFF\uDFFF\n下一行',{nested:['\\ud800\\udc00',{['鍵😀']:true}]},null,false,0]) {
+    const response=await app.request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body),
+    });
+    assert.equal(response.status,401);assert.equal((await response.json()).code,'login_required');
+  }
+  const malformed=await request('{"text":"\\ud800",');
+  assert.equal(malformed.status,400);assert.equal((await malformed.json()).code,'invalid_json');
+});
+
+test('bounded deeply nested JSON validates scalar strings without consuming the call stack',async()=>{
+  for(const [value,status] of [['"\\ud800"',422],['"\\ud83d\\ude00"',401]] as const) {
+    const response=await app.request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+      body:'['.repeat(12000)+value+']'.repeat(12000),
+    });
+    assert.equal(response.status,status);
+    assert.equal((await response.json()).code,status===422?'validation_failed':'login_required');
+  }
+});
+
 test('slow requests log once at the threshold using nested route patterns, without request content', async t => {
   let now = 0;
   t.mock.method(performance, 'now', () => now);
