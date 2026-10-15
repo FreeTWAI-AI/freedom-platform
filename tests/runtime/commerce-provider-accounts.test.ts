@@ -41,8 +41,10 @@ import {createProviderAccountRoute,resolveProviderAccountRoute} from '../../modu
 
 test('provider setup HTTP, activation, retained credentials, entry routes and secret hygiene under tenant RLS',async()=>{
   const x=await checkoutHarness('fp_accounts',{publicSchema:true}),h=x.h;
-  const originalError=console.error,output:string[]=[],responses:string[]=[],secrets:string[]=[];
-  console.error=(...args:unknown[])=>{output.push(args.map(String).join(' '));};
+  const methods=['error','log','warn','info','debug'] as const;
+  const original=new Map(methods.map(method=>[method,console[method]]));
+  const output:string[]=[],responses:string[]=[],secrets:string[]=[];
+  for(const method of methods)console[method]=(...args:unknown[])=>{output.push(args.map(String).join(' '));};
   try{
     await x.reset();await h.pool.query(`INSERT INTO tenant_authority_policies(revision,status,fresh_auth_ttl_seconds,transfer_ttl_seconds,recovery_approval_ttl_seconds,max_open_recovery_cases_per_tenant) VALUES(1,'active',600,86400,86400,1)`);
     const s=await x.store(),oldKey=entry('old'),ring=CommerceCredentialKeyring.parse(oldKey)!;
@@ -118,5 +120,16 @@ test('provider setup HTTP, activation, retained credentials, entry routes and se
     assert.equal((await call('PUT',service,{...putBody,fresh_auth_verification_id:await fresh()},a.version)).data.code,'provider_service_state');
     assert((await h.pool.query('SELECT 1 FROM commerce_control_events WHERE tenant_id=$1',[s.tenantId])).rowCount!>=8);
     await scan();
-  }finally{console.error=originalError;await x.stop();}
+  }finally{for(const method of methods)console[method]=original.get(method)!;await x.stop();}
+});
+test('entry routes regenerate CDN-blocked references, stop after sixteen attempts and never bind tenant context',async()=>{
+  const {createProviderAccountRoute,resolveProviderAccountRoute}=await import('../../modules/agent-commerce/payments/entry-routes.js');
+  let calls=0,inserted:string|undefined;
+  const q={query:async(sql:string,args:unknown[])=>{calls++;assert(!sql.includes('set_config'));if(sql.startsWith('INSERT')){inserted=args[0] as string;return {rowCount:1,rows:[]};}return {rowCount:0,rows:[]};}} as any;
+  const bad=Buffer.from('0000000000000000000000000000018d','hex'),good=Buffer.alloc(16);
+  let entropyCalls=0;
+  await createProviderAccountRoute(q,{tenantId:randomUUID(),instanceId:randomUUID(),accountId:randomUUID()},()=>++entropyCalls===1?bad:good);
+  assert.equal(entropyCalls,2);assert.equal(calls,1);assert.equal(inserted,'0'.repeat(26));
+  entropyCalls=0;await assert.rejects(createProviderAccountRoute(q,{tenantId:randomUUID(),instanceId:randomUUID(),accountId:randomUUID()},()=>{entropyCalls++;return bad;}),{message:'Provider account route generation failed.'});assert.equal(entropyCalls,16);
+  calls=0;assert.equal(await resolveProviderAccountRoute(q,'invalid'),null);assert.equal(calls,0);assert.equal(await resolveProviderAccountRoute(q,'0'.repeat(26)),null);assert.equal(calls,1);
 });
