@@ -232,9 +232,6 @@ export async function memberPresence(pool:Pool,actor:Actor,raw:string){
   return {items:rows.map(row=>({user_id:row.user_id,last_seen_at:row.last_seen_at?new Date(row.last_seen_at).toISOString():null,is_online:row.is_online}))};
   });
 }
-export async function listFriends(pool:Pool,actor:Actor) {
-  return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT u.user_id,u.display_name AS nickname,f.state,f.requester_ref,f.aggregate_version FROM member_friendships f JOIN users u ON u.user_id=CASE WHEN f.low_ref=$2 THEN f.high_ref ELSE f.low_ref END WHERE f.community_id=$1 AND (f.low_ref=$2 OR f.high_ref=$2) AND f.state<>'removed' AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND NOT is_verification_test_account(u.user_id) ORDER BY f.updated_at DESC LIMIT 100`,[actor.community_id,actor.user_id])).rows);
-}
 export async function changeFriendship(pool:Pool,input:Command,id:string,action:'request'|'accept'|'remove') {
   z.object({}).strict().parse(input.body);id=z.uuid().parse(id).toLowerCase();requireCondition(id!==input.actor.user_id,422,'self_friendship','不能將自己加為好友。');
   const [low,high]=pair(id,input.actor.user_id);
