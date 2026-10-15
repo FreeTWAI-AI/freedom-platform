@@ -248,6 +248,31 @@ export function validateCvsRecipient(raw: unknown): CvsRecipientResult {
   });
 }
 
+const CVS_OUTLYING_KEYWORDS: readonly string[] = Object.freeze([
+  '澎湖縣',
+  '金門縣',
+  '連江縣',
+  '馬公市',
+  '湖西鄉',
+  '白沙鄉',
+  '西嶼鄉',
+  '望安鄉',
+  '七美鄉',
+  '金城鎮',
+  '金湖鎮',
+  '金沙鎮',
+  '金寧鄉',
+  '烈嶼鄉',
+  '烏坵鄉',
+  '南竿鄉',
+  '北竿鄉',
+  '莒光鄉',
+  '東引鄉',
+  '琉球鄉',
+  '綠島鄉',
+  '蘭嶼鄉',
+]);
+
 export function normalizeCvsStoreSelection(raw: unknown): CvsStoreSelectionResult {
   const input = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   const errors: RecipientValidationError[] = [];
@@ -332,23 +357,33 @@ export function normalizeCvsStoreSelection(raw: unknown): CvsStoreSelectionResul
 
   // 5. outside
   let outside: '0' | '1' | null = null;
-  if (input.outside === undefined || input.outside === null) {
-    errors.push({ field: 'outside', code: 'required' });
-  } else if (typeof input.outside !== 'string') {
-    errors.push({ field: 'outside', code: 'format' });
-  } else {
-    const o = input.outside.normalize('NFKC').trim();
-    if (o.length === 0) {
-      errors.push({ field: 'outside', code: 'required' });
-    } else if (o === '0' || o === '1') {
-      outside = o;
-    } else {
+  let outsideProvided = false;
+  if (input.outside !== undefined && input.outside !== null) {
+    if (typeof input.outside !== 'string') {
       errors.push({ field: 'outside', code: 'format' });
+    } else {
+      const o = input.outside.normalize('NFKC').trim();
+      if (o.length > 0) {
+        if (o === '0' || o === '1') {
+          outside = o;
+          outsideProvided = true;
+        } else {
+          errors.push({ field: 'outside', code: 'format' });
+        }
+      }
     }
   }
 
   if (errors.length > 0) {
     return deepFreeze({ ok: false, errors });
+  }
+
+  let outlying: boolean;
+  if (outsideProvided) {
+    outlying = outside === '1';
+  } else {
+    const compactAddress = storeAddress!.replace(/\s+/g, '');
+    outlying = CVS_OUTLYING_KEYWORDS.some(name => compactAddress.includes(name));
   }
 
   return deepFreeze({
@@ -358,7 +393,7 @@ export function normalizeCvsStoreSelection(raw: unknown): CvsStoreSelectionResul
       store_id: storeId!,
       store_name: storeName!,
       store_address: storeAddress!,
-      outlying: outside === '1',
+      outlying,
     },
   });
 }
