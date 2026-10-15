@@ -5,11 +5,14 @@
   "owned_paths": [
     "modules/agent-commerce/providers/**",
     "tests/runtime/ecpay-protocol.test.ts",
+    "tests/runtime/ecpay-aio-credit.test.ts",
     "tests/worker/ecpay-protocol-workerd.test.ts",
+    "tests/worker/ecpay-aio-credit-workerd.test.ts",
     "tests/worker/ecpay-fixtures/**"
   ],
   "public_exports": [
-    "modules/agent-commerce/providers/ecpay/index.ts"
+    "modules/agent-commerce/providers/ecpay/index.ts",
+    "modules/agent-commerce/providers/ecpay/aio-credit/index.ts"
   ],
   "dependencies": [],
   "contract_families": [],
