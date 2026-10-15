@@ -84,4 +84,4 @@ op('listWorksPage','GET','/work-items/page','WorkPage',null,'none',200,true,[
  {name:'scope',required:false,schema:{enum:['all','open'],default:'all'}},
  {name:'search',required:false,schema:{...str(2000,0),default:''}},
 ]);op('getDashboard','GET','/dashboard','Dashboard');
-export const protocol={version:'freedom.preview/v1',revision:'0.4.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};
+export const protocol={version:'freedom.preview/v1',revision:'0.4.1',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};

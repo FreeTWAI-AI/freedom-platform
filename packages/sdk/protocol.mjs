@@ -1,7 +1,7 @@
 // GENERATED. Change definition.mjs and rebuild in freedom-platform.
 export const protocol={
   "version": "freedom.preview/v1",
-  "revision": "0.4.0",
+  "revision": "0.4.1",
   "api_prefix": "/api/v1",
   "operations": {
     "getProtocol": {
@@ -147,12 +147,34 @@ export const protocol={
     "listCatalog": {
       "method": "GET",
       "path": "/retail/catalog",
-      "response": "ProductList",
+      "response": "CatalogPage",
       "body": null,
       "concurrency": "none",
       "status": 200,
       "auth": true,
-      "idempotent": false
+      "idempotent": false,
+      "query": [
+        {
+          "name": "limit",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        {
+          "name": "offset",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "default": 0
+          }
+        }
+      ]
     },
     "listStores": {
       "method": "GET",
@@ -272,7 +294,29 @@ export const protocol={
       "concurrency": "none",
       "status": 200,
       "auth": true,
-      "idempotent": false
+      "idempotent": false,
+      "query": [
+        {
+          "name": "limit",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        {
+          "name": "offset",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "default": 0
+          }
+        }
+      ]
     },
     "createCampaign": {
       "method": "POST",
@@ -1657,11 +1701,25 @@ export const protocol={
           "type": "array",
           "items": {
             "$ref": "#/components/schemas/Campaign"
-          }
+          },
+          "maxItems": 50
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
-        "items"
+        "items",
+        "next_offset"
       ],
       "additionalProperties": false
     },
@@ -1677,6 +1735,35 @@ export const protocol={
       },
       "required": [
         "items"
+      ],
+      "additionalProperties": false
+    },
+    "CatalogPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/Product"
+          },
+          "maxItems": 50
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_offset"
       ],
       "additionalProperties": false
     },
@@ -1701,4 +1788,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="52d9ebb6fcaf63db1ed4327fe7c05d3eaf22f51924c5c2d9262986f459ce817c";
+export const protocolSha256="41378c3b723f739cefdf8c53a82238b1e5d69cc13cdbf63b33a80d8080c807b2";

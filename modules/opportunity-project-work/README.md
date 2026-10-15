@@ -133,7 +133,7 @@ SQL。DTO、回饋、條款、驗收安排與社群／工作模式可見性不�
 `claim_id` 不加入回應。
 
 `GET /api/v1/work-items` 仍回 preview v1 的完整 `{items}`，既有外部 consumer
-不會被靜默截斷。`freedom.preview/v1` revision `0.4.0` 新增
+不會被靜默截斷。`freedom.preview/v1` revision `0.4.1` 新增
 `listWorksPage`／`WorkPage`：`GET /api/v1/work-items/page` 每頁最多回 24 筆
 `{items,next_cursor}`；續頁以 `?cursor=` 原樣送回 opaque cursor。Cursor 綁定
 `created_at DESC, work_item_id ASC` 的兩個排序鍵，時間保留 PostgreSQL 六位小數，

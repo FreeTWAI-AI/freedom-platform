@@ -86,6 +86,7 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  const workInheritedQueryOptions=Object.create({get query(){workInheritedQueryReads++;return{scope:'open',search:'does-not-match-any-seeded-title'};}});
  const inheritedWork=await maker.call('listWorksPage',workInheritedQueryOptions);
  assert.deepEqual(inheritedWork.items.map(item=>item.work_item_id),[legacyWorks.items[0].work_item_id]);assert.equal(workInheritedQueryReads,0);
+ // @ts-expect-error Exercise an untyped caller against the generated scope union.
  await assert.rejects(maker.call('listWorksPage',{query:{scope:'unknown'}}),TypeError);
  for(const query of [null,42,'',true,[],new Date(),Object.create({cursor:'inherited'}),{offset:1}])await assert.rejects(maker.call('listWorksPage',{query}),TypeError);
  for(const query of runInNewContext('[[],new Date(),new(class Query{}),Object.create({cursor:"inherited"})]'))await assert.rejects(maker.call('listWorksPage',{query}),TypeError);

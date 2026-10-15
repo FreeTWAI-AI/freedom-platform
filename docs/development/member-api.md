@@ -440,7 +440,7 @@ community scope, verification-test-account exclusion, and
 `internal_preview` limits. Pagination does not turn this legacy member catalog
 into a public retail feed or enable checkout.
 
-The generated `freedom.preview/v1` revision `0.3.1` SDK uses a separate
+The generated `freedom.preview/v1` revision `0.4.1` SDK uses a separate
 `CatalogPage` response; the supplier's full `ProductList` remains unchanged.
 Call `client.call('listCatalog', {query:{limit:20,offset:0}})` and pass the
 returned `next_offset` explicitly for the next page. The canonical query schema
@@ -457,7 +457,7 @@ The response is `{items,next_offset}`, with `next_offset: null` on the final or
 an empty trailing page. Drafts use stable `created_at DESC, campaign_id DESC`
 ordering, and each item retains its pinned source snapshot and manually
 reported share records.
-The regenerated `freedom.preview/v1` revision `0.3.1` bundle and SDK include
+The regenerated `freedom.preview/v1` revision `0.4.1` bundle and SDK include
 the bounded `CampaignList` response and its required nullable continuation.
 Consumers must deliberately update their exact source/bundle pins; old SDKs
 reject protocol skew rather than silently accepting a changed response.
