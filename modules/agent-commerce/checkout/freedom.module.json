@@ -1,0 +1,24 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "hosted-checkout",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/checkout/**",
+    "migrations/168_hosted_checkout_core.sql",
+    "tests/runtime/hosted-checkout-core.test.ts",
+    "tests/runtime/hosted-checkout-races.test.ts",
+    "tests/runtime/hosted-checkout-schema.test.ts",
+    "tests/runtime/hosted-checkout-harness.ts"
+  ],
+  "public_exports": ["modules/agent-commerce/checkout/index.ts"],
+  "dependencies": ["agent-commerce"],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "modules/agent-commerce/checkout/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md"
+  ],
+  "invariants": [],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}

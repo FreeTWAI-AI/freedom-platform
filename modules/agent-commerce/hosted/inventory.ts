@@ -21,6 +21,32 @@ export interface InventoryReservation {
   released_at: Date | null;
 }
 
+export interface InventoryAllocation {
+  allocation_id:string; order_id:string; item_id:string; supplier_shop_id:string; quantity:number;
+  shipped_quantity:number; released_quantity:number; source_reservation_id:string|null; payment_application_id:string;
+}
+/** Paid-inventory sibling port. The checkout adapter derives shop authority
+ * from retained lines; callers supply item/event references, never a tenant. */
+export interface CheckoutInventory {
+  convert(itemId:string,applicationId:string):Promise<InventoryAllocation>;
+  allocate(itemId:string,applicationId:string):Promise<InventoryAllocation>;
+  releaseAllocation(itemId:string,quantity:number,commandRef:string):Promise<void>;
+  ship(itemId:string,quantity:number,shipmentRef:string):Promise<void>;
+  restock(itemId:string,quantity:number,returnRef:string):Promise<void>;
+}
+
+export interface InventoryPosition {stock:number; held:number; allocated:number; available:number}
+/** Internal read; callers authorize item access. Never supplies tenant authority.
+ * Available is the physical balance, including due holds until settlement. */
+export async function inventoryPositions(q:PoolClient,itemIds:readonly string[]):Promise<ReadonlyMap<string,InventoryPosition>> {
+  const rows=(await q.query<{item_id:string;stock:number;reserved:number;held:number;allocated:number}>(`SELECT i.item_id,i.stock,i.reserved,
+    (SELECT coalesce(sum(h.quantity),0)::int FROM commerce_inventory_reservations h WHERE h.item_id=i.item_id AND h.state='held') AS held,
+    (SELECT coalesce(sum(a.quantity-a.shipped_quantity-a.released_quantity),0)::int FROM commerce_inventory_allocations a WHERE a.item_id=i.item_id) AS allocated
+    FROM commerce_items i WHERE i.item_id=ANY($1::uuid[]) ORDER BY i.item_id`,[[...new Set(itemIds)].sort()])).rows;
+  for(const row of rows)requireCondition(row.reserved===row.held+row.allocated,409,'reservation_inconsistent','庫存紀錄不一致。');
+  return new Map(rows.map(r=>[r.item_id,{stock:r.stock,held:r.held,allocated:r.allocated,available:r.stock-r.reserved}]));
+}
+
 /** Internal transaction port. Durable holds give retries a stable identity;
  * the caller still authorizes and locks the order before sorted item locks.
  * This is not a remote protocol: network effects require a separate durable
