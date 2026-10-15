@@ -42,5 +42,20 @@
     "runtime.full",
     "e2e.harness"
   ],
-  "surfaces": []
+  "surfaces": [
+    {
+      "surface_id": "commerce.supplier-console-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-supplier-console.ts",
+      "operations": [
+        "supplier-console.overview",
+        "supplier-console.products",
+        "supplier-console.product",
+        "supplier-console.partners",
+        "supplier-console.partner",
+        "storefront.supply-profile.update"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
 }
