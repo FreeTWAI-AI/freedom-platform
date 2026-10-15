@@ -31,6 +31,8 @@
 .app-frame.social-layout .card{border-color:var(--line);background:var(--bg-elev);box-shadow:none;border-radius:14px}
 .app-frame.social-layout .freedom-home .home-layout{display:grid;grid-template-columns:minmax(0,680px) minmax(260px,320px);max-width:1040px;gap:24px;align-items:start}
 .app-frame.social-layout .freedom-home .home-main{min-width:0;display:block}
+.app-frame.social-layout .workspace-main:has(.freedom-home) .workspace-topbar{margin-bottom:0}
+.app-frame.social-layout .freedom-home .home-timeline>.social-zone{margin-top:0}
 .app-frame.social-layout .home-feed-title{font-size:.9375rem;font-weight:600;color:var(--muted);margin:0 0 12px}
 .app-frame.social-layout .home-context{display:grid;gap:16px;min-width:0}
 .app-frame.social-layout .home-support{display:grid;gap:16px}
