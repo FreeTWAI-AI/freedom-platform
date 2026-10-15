@@ -21609,8 +21609,8 @@
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",
-      "bytes": 46423,
-      "sha256": "dbc2bfcf2b1ceac5fd5cee06ffaafeca17b15059b327ad2123b61ed7329712f1"
+      "bytes": 46528,
+      "sha256": "ab1d57f50130c20b29e326cfab76d48c6099b10931ee4c4529ad4769dd5316ab"
     },
     {
       "path": "tests/runtime/agent-connections-adversarial.test.ts",
