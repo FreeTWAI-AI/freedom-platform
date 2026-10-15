@@ -37,10 +37,10 @@
 | **E03 品牌與版面** | `partial`：店名、品牌、網址、介紹、幣別；兩種版型（`catalog-grid-v1`／`catalog-list-v1`，`contracts/guild-launchpad/v1/storefront-presentation.ts:6`）；預覽、發布、停止公開（`HostedStore.tsx:282-309`） | 封面、分類、主打商品、受控主色、政策頁；草稿→預覽→發布 | 既有：`PATCH …/appearance`、`GET …/preview`、`POST …/publish`、`…/unpublish`。新增：外觀欄位與政策（EC-SPEC-02 §2） | `store:write`、`store:publish` | 草稿未存不能發布（既有）；網址發布後鎖定（既有 `slug_locked`） | C1 |
 | **E04 商品與選品** | `partial`：商品表單（名稱、價格、庫存、介紹）、一張照片、供貨條件、合作（`HostedStore.tsx:256-281`、`HostedDistribution.tsx`） | 變體、多張照片、分類、庫存來源（自有／供應）、售價、供貨授權狀態 | 既有：`…/products` CRUD、`…/products/:pid/photo`、供貨 offer／selection。新增：variant 與分類（EC-SPEC-02 §1） | `store:write` | 庫存不得低於已占用量（既有 409 `stock_below_reserved`）；供貨撤回→該商品停止接單並說明 | C1 |
 | **E05 訂單詳情** | `partial`：v1 預留清單與明細、取消（`HostedSellerOrders.tsx`、`HostedSupplierOrders.tsx`；入口先探測 `…/reservations?limit=1` 成功才顯示） | 同一頁看訂單、付款、配置、履約、發票、售後；下一個合法操作 | 新增：`GET …/orders`、`GET …/orders/:id`；v1 `…/reservations` 照舊 | 新能力 `store:orders.read`／`store:orders.manage`（提議） | 每個軸各自的未知／失敗；不以單一 paid 字樣代表全部完成 | C2 |
-| **E06 出貨與包裹** | `missing`（舊 `CommercePanels.tsx:112` 只有說明文字） | 指派自出貨或供應商代出貨、建立包裹、物流單、列印、交寄、貨態、配送例外 | 新增：FulfillmentOrder／Shipment 命令與讀取（EC-SPEC-05） | `store:fulfil`（提議） | 建單未知→先查詢；列印不等於交寄 | C2 |
+| **E06 出貨與包裹** | `missing`（舊 `CommercePanels.tsx:112` 只有說明文字） | 查看已自動指派的履約單（自有商品自出貨；供貨商品由代出貨同意的供應商出貨，EC-SPEC-05 §4.1）、處理供應商的無法履約回報（等候改期或取消退款）、自出貨時建立包裹、物流單、列印、交寄；貨態、配送例外 | 新增：履約單／Shipment 命令與讀取（EC-SPEC-05 §4～7） | `store:fulfil`（提議） | 建單未知→先查詢；列印不等於交寄 | C2 |
 | **E07 客戶與客服** | `missing` | 本店顧客、訂單聯絡紀錄、售後工單 | 新增：`GET …/customers`、`…/support-threads`、`…/aftersales-requests`（EC-SPEC-06 §2） | `store:customers.read`（提議）；回覆與售後決定另需 `store:orders.manage` | 不顯示他店顧客；地址只在需要的訂單頁出現 | C2 |
 | **E08 優惠與推廣** | `missing`（只有複製商店／商品連結，`HostedStore.tsx:195`） | 有界優惠（固定金額或百分比、期間、上限）、分享連結與預覽 | 新增：`…/promotions`（EC-SPEC-02 §3），結帳時凍結分攤 | `store:write` | 優惠不得暗改供貨價；不自動對外發文 | C2 基礎、C4 擴充 |
-| **E09 收款／退款／對帳** | `missing`（只有「店鋪／商品展示已就緒，交易尚未啟用」，`HostedStore.tsx:29`） | 收款帳戶狀態、付款 attempt、退款申請與進度、差異清單；付給供應商的帳（核對、登錄付款） | 新增：`…/provider-accounts` 的付款服務（金鑰只寫不讀，EC-SPEC-04 §1）、`…/orders/:id/refunds`、`…/reconciliation`（EC-SPEC-04 §7～8）、`…/settlements?role=payer`（EC-SPEC-06 §5） | `store:payments`（提議）；退款另需 `store:refund`、供貨帳需要 `store:settlements`（提議） | 不是平台錢包；未確認的退款不顯示完成 | C2 |
+| **E09 收款／退款／對帳** | `missing`（只有「店鋪／商品展示已就緒，交易尚未啟用」，`HostedStore.tsx:29`） | 收款帳戶狀態、付款 attempt、退款申請與進度、差異清單；付給供應商的帳（核對、登錄付款） | 新增：`…/provider-accounts` 的付款服務（金鑰只寫不讀，EC-SPEC-04 §1）、`…/orders/:id/refunds`、`…/reconciliation`（EC-SPEC-04 §7～8）、`…/settlement-statements?role=payer`（EC-SPEC-06 §5、§8.2） | `store:payments`（提議）；退款另需 `store:refund`、供貨帳需要 `store:settlements`（提議） | 不是平台錢包；未確認的退款不顯示完成 | C2 |
 | **E10 發票與報表** | `missing` | 發票設定、開立、查詢、更正（作廢、折讓、重開）；營運與配送報表 | 新增：`…/invoice-settings`、`…/invoices`、`…/invoice-corrections`（EC-SPEC-06 §3）、`…/reports`（EC-SPEC-06 §6） | `store:invoices`（提議） | 報表不跨幣別相加；不含個資 | C2 |
 | **E11 設定／團隊／帶走商店** | `partial`：商店資料（`HostedStore.tsx:316-369`）；團隊與 owner 轉移在 `TenantSettings.tsx` | 配送政策、provider 帳戶、政策頁、資料匯出、營業版下載與連回設定 | 新增：`…/shipping-profile`、`…/ship-from-locations`、`…/provider-accounts`（EC-SPEC-05 §2、EC-SPEC-04 §1）、`…/exports`（EC-SPEC-08 §4） | `store:manage` | 匯出不含秘密與他人資料 | C2（帶走商店 C3） |
 
@@ -50,11 +50,11 @@
 
 | 頁面 | Commerce 提供 | 對應賣家頁 |
 | --- | --- | --- |
-| SL-01 履約與寄件設定 | ShipFromLocation、退回地址、可用物流服務、商品配送屬性、代出貨同意（有版本）的命令與讀取（EC-SPEC-05 §2） | E11 |
-| SL-02 出貨工作台 | FulfillmentOrder 的指派、接受、無法履約回報；最小收件資料讀取（EC-SPEC-05 §4） | E05、E06 |
+| SL-01 履約與寄件設定 | ShipFromLocation、退回地址、可用物流服務、作業日、代出貨方案（`drop_ship`，公開投影不含地址）、商品配送屬性、代出貨同意（有版本）的命令與讀取（EC-SPEC-05 §2） | E11 |
+| SL-02 出貨工作台 | 七個分頁（待確認、備貨中、待印單、待交寄、例外、已回報無法履約、歷史）與同一 snapshot 的計數；SC-03 概覽的四個指標；接受、回報無法履約（原因代碼）與撤回；最小收件資料讀取（EC-SPEC-05 §4、§9.2） | E05、E06 |
 | SL-03 包裹與託運單 | Shipment 建立／查詢／重印／交寄、標籤短效讀取、貨態事件（EC-SPEC-05 §5～6） | E06 |
-| SL-04 例外與退回 | ExceptionCase、退回包裹、退件檢驗與回庫（EC-SPEC-05 §7～8；回庫對庫存的影響在 EC-SPEC-03 §2.1） | E05、E06、E09 |
-| SL-05 費用與交易文件 | 帳目、對帳單（應付／已核對／已支付）、雙方同意的調整、付款證據與「確認收到」；欄位白名單（EC-SPEC-06 §5） | E09、E10 |
+| SL-04 例外與退回 | ExceptionCase（`view=executor` 與出貨者動作）、退回包裹與詳情、退件檢驗（可再售／不可售）與回庫（EC-SPEC-05 §7～8；回庫對庫存的影響在 EC-SPEC-03 §2.1） | E05、E06、E09 |
+| SL-05 費用與交易文件 | 帳目、對帳單清單與明細（依付款天數分張；狀態與中文見 EC-SPEC-06 §5.4）、雙方同意的調整、付款證據與「確認收到」；欄位白名單（EC-SPEC-06 §5.5、§8.3） | E09、E10 |
 
 ## 現有測試要保護的介面
 

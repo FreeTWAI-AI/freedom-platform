@@ -296,11 +296,11 @@
 | 條款 | 說明 |
 | --- | --- |
 | 供貨單價 | 訂單行項凍結的 offer terms `cost_minor`（`contracts/guild-launchpad/v1/hosted-supply-terms.ts:9`），同意中不另訂 |
-| `dropship_fee_per_parcel_minor` | 每個已交寄包裹的代出貨費，包含出貨者自付的物流費。取代 offer terms 中按件計算的 `shipping_minor`（`modules/agent-commerce/distribution.ts:65` 以數量相乘），避免重複計算；供應商接受同意時確認這一點。和賣家向買家收的運費（EC-SPEC-05 §2.4 的 `fee_per_parcel_minor`）無關 |
+| `dropship_fees[]` | 每個服務一筆 `{service_key, fee_per_parcel_minor}`，來自供應商代出貨方案的 `fees[]`（EC-SPEC-05 §2.3）：每個已交寄包裹的代出貨費，**已包含**出貨者自付的物流費，沒有另外的運費補貼。一個包裹適用它所屬群組凍結的 `service_key` 那一筆。取代 offer terms 中按件計算的 `shipping_minor`（`modules/agent-commerce/distribution.ts:65` 以數量相乘），避免重複計算；供應商接受同意時確認這一點。和賣家向買家收的運費（EC-SPEC-05 §2.4 的 `fee_per_parcel_minor`）無關 |
 | `cancel_after_create_fee_minor` | 已建立託運單、因零售商取消而作廢的包裹，預設 0 |
 | `return_handling_fee_minor` | 每筆退回檢驗，預設 0 |
 | `unsellable_return_default` | 檢驗為不可售時的預設責任：`retailer`／`supplier`／`case_by_case` |
-| `payment_due_days` | 對帳單核對後幾天內付款，預設 30 |
+| `payment_due_days` | 對帳單核對後幾天內付款，1～90，預設 30。對帳單只收同一個付款天數的帳目（§5.4） |
 | 幣別 | 與 offer 相同 |
 
 ### 5.3 帳目（提議 `commerce_settlement_entries`）
@@ -310,12 +310,12 @@
 | 種類 | 何時（來源事實） | 金額 |
 | --- | --- | --- |
 | `supply_cost` | 交寄（EC-SPEC-05 §5.5 的每個 (shipment, 配置)） | 供貨單價 × 交寄數量 |
-| `parcel_fee` | 交寄（每個 shipment 一次） | `dropship_fee_per_parcel_minor` |
+| `parcel_fee` | 交寄（每個 shipment 一次） | 該包裹服務在 `dropship_fees[]` 的 `fee_per_parcel_minor` |
 | `cancelled_parcel_fee` | 已建單、因零售商取消而作廢的包裹 | `cancel_after_create_fee_minor` |
 | `return_credit` | 檢驗定案的可再售數量（EC-SPEC-05 §8.3） | －供貨單價 × 回庫數量 |
 | `return_handling_fee` | 檢驗定案 | `return_handling_fee_minor` |
 | `unsellable_credit` | 檢驗為不可售，且預設責任為 `supplier` | －供貨單價 × 不可售數量 |
-| `adjustment` | 任一方提出、另一方接受（遺失理賠、毀損、運費差額等） | 附原因的任意金額 |
+| `adjustment` | 任一方提出、另一方接受（遺失理賠、毀損、運費差額等）；必須指定一份雙方的代出貨同意，付款天數依那份同意 | 附原因的任意金額 |
 
 - 自動帳目的來源鍵唯一（例如 (`supply_cost`, shipment, 配置)），事件重送不會重複入帳。交寄後的帳目不因買家退款消失（SC-LAT18）。
 - `adjustment` 由一方提出，另一方接受才 `posted`；拒絕也留紀錄。預設責任為 `case_by_case` 的不可售檢驗，會自動開一筆待雙方處理的提議。
@@ -323,15 +323,19 @@
 
 ### 5.4 對帳單與付款證據
 
-提議 `commerce_settlement_statements`：一組 (付款方, 收款方, 幣別)、期間、包含的帳目（每筆帳目最多在一張未撤回的對帳單裡）、合計、狀態、到期日。
+提議 `commerce_settlement_statements`：一組 (付款方, 收款方, 幣別, 付款天數)、期間、包含的帳目（每筆帳目最多在一張未撤回的對帳單裡）、合計、狀態、到期日。付款天數來自帳目所屬的代出貨同意；收款方選一個期間建立對帳單時，期間內的帳目依付款天數自動分成多張，所以每張對帳單只有一個到期日。
 
-| 狀態 | 誰 | 意義 |
-| --- | --- | --- |
-| `draft` | 收款方 | 選取期間內 `posted` 的帳目 |
-| `issued` | 收款方 | 送出請款；可附交易文件參考（例如 B2B 發票號碼或收據編號），平台不開立也不驗證 |
-| `reconciled` | 付款方 | **已核對**：同意金額；到期日＝核對日＋`payment_due_days` |
-| `disputed` | 付款方 | 逐筆註明異議；出現在收款方的待辦，收款方撤回對帳單，以 `adjustment` 更正後重開，或補充說明後請付款方重新核對 |
-| `partially_paid`／`paid` | 付款方 | 登錄付款證據（日期、金額、方式、參考末碼、可選附件）；合計達到即**已支付** |
+| 狀態 | 中文 | 誰 | 意義 |
+| --- | --- | --- | --- |
+| `draft` | 草稿 | 收款方 | 選取期間內 `posted` 的帳目；付款方看不到 |
+| `issued` | 已請款，待核對 | 收款方 | 送出請款；可附交易文件參考（例如 B2B 發票號碼或收據編號），平台不開立也不驗證 |
+| `reconciled` | 已核對，待付款 | 付款方 | **已核對**：同意金額；到期日＝核對日＋付款天數 |
+| `disputed` | 有異議 | 付款方 | 逐筆註明異議；出現在收款方的待辦，收款方撤回對帳單，以 `adjustment` 更正後重開，或補充說明後請付款方重新核對（回到 `issued`） |
+| `partially_paid` | 部分付款 | 付款方 | 登錄了付款證據（日期、金額、方式、參考末碼、可選附件），合計未達總額 |
+| `paid` | 已支付 | 付款方 | 付款證據合計達到總額 |
+| `withdrawn` | 已撤回 | 收款方 | `draft`、`issued` 或 `disputed` 時撤回；帳目釋出，可放進新的對帳單。已核對或已有付款證據後不能撤回，只能以 `adjustment` 更正 |
+
+逾期不是狀態：`reconciled`／`partially_paid` 超過到期日時，雙方清單另外標示「已逾期」。
 
 - 收款方可以按「確認收到」，畫面另外標示「收款方已確認」。
 - 「已支付」只代表付款方登錄了證據。平台沒有銀行資料，畫面標示「付款方自行登錄，平台未核對銀行紀錄」（SC-LAT19）。
@@ -403,14 +407,16 @@
 | `GET …/invoices?state=`、`GET …/invoices/:id`、`POST …/invoices/:id/query` | 發票與立即查詢 |
 | `POST …/invoices/:id/manual-result` | `manual_record` 登錄號碼 |
 | `POST …/invoice-corrections/:cid/decision` | 確認建議，或改選其他可行的更正 |
-| `GET …/settlements?role=payer`、`POST …/settlement-statements/:sid/reconcile`、`…/dispute`、`…/payments` | 供貨帳（付款方） |
+| `GET …/settlement-statements?role=payer&state=&cursor=`、`GET …/settlement-statements/:stid`、`GET …/settlement-entries?role=payer&agreement=&from=&to=&cursor=` | 供貨帳（付款方）：對帳單清單、明細（含帳目列）、未進對帳單的帳目 |
+| `POST …/settlement-statements/:stid/reconcile`、`…/dispute`、`…/payments` | 核對、異議、登錄付款證據 |
 | `GET …/reports?kind=` | §6 |
 
 ### 8.3 供應商（SL-05）
 
 | 路由（提議） | 用途 |
 | --- | --- |
-| `GET …/settlements?role=payee`、`POST …/settlement-statements`、`…/:sid/issue`、`…/:sid/withdraw`、`…/:sid/confirm-receipt` | 收款方 |
+| `GET …/settlement-statements?role=payee&state=&cursor=`、`GET …/settlement-statements/:stid`、`GET …/settlement-entries?role=payee&agreement=&from=&to=&cursor=` | 收款方：對帳單清單、明細、未進對帳單的帳目 |
+| `POST …/settlement-statements`、`…/:stid/issue`、`…/:stid/withdraw`、`…/:stid/confirm-receipt` | 建立（依付款天數自動分張）、請款、撤回、確認收到 |
 | `POST …/settlement-adjustments`、`POST …/settlement-adjustments/:id/decision` | 提出或接受調整（雙方都可） |
 
 Supplier Console 的 SL-05 讀取投影只能用 §5.5 的欄位。
@@ -450,10 +456,11 @@ Supplier Console 的 SL-05 讀取投影只能用 §5.5 的欄位。
 | 五種買家類型各自的合法組合；混填被拒；切換類型清空；Email 與載具不進分析與日誌 | EC-AT45 |
 | 開立回應遺失 → 以 `RelateNumber` 查回同一張；查無時同號重送被拒、不產生第二張；付款與訂單不變 | EC-AT46 |
 | 已開票訂單部分退貨：退款、檢驗、折讓各自完成；作廢期限前後、捐贈票、已有折讓、未上傳、50 張上限、待同意的線上折讓 | EC-AT47 |
-| 品項拆分與退款分攤：L < Q、L 可整除、大數；逐件退的合計＝L | EC-AT47 |
+| 品項拆分與退款分攤（整數元）：L < Q 元（合併成一項、不送 0 元品項）、L 可整除、大數；逐件退的合計＝L；非整數元的金額被拒 | EC-AT47 |
 | 供應商呼叫退款、發票、售後決定的路由 → 拒絕且沒有副作用；零售商可以 | SC-LAT17 |
 | 退款成功但退件未檢、發票未更正 → 售後不能結案，畫面列出未完成的軸 | SC-LAT18 |
 | 帳目來源鍵去重（交寄、檢驗事件重送）；調整要另一方接受；對帳單不重複收錄帳目 | SC-LAT19 |
+| 代出貨費依包裹的服務取 `dropship_fees[]`；兩份付款天數不同的同意 → 建立對帳單時分成兩張、各有到期日；撤回的對帳單釋出帳目；已核對後不能撤回 | SC-LAT19 |
 | 折讓通知：MD5 向量、錯帳戶、未知折讓、重送只套用一次、提交後才回 `1\|OK` | EC-R19 |
 | 政策：缺 `returns` 或 `privacy` 不能開放結帳；代出貨未勾選說明不能開放；舊訂單依凍結版本判斷申請期間 | EC-SPEC-02 §2.3 |
 | 售後申請：期間邊界、送達事件缺漏、同一行項兩張申請、撤回與核准同時發生 | EC-R39 |
