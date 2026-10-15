@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Freedom implemented member module API subset",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "Member-session module API subset. Registration/onboarding and scoped read-connections have separate interface documents. Public checkout, production OAuth and leased executors are not implemented by this bundle."
   },
   "servers": [
@@ -1877,6 +1877,53 @@
         "x-concurrency": "none"
       }
     },
+    "/work-items/page": {
+      "get": {
+        "operationId": "listWorksPage",
+        "summary": "listWorksPage",
+        "security": [
+          {
+            "MemberSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Implemented preview response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured problem; conflict is never automatically retried",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-idempotent-command": false,
+        "x-concurrency": "none"
+      }
+    },
     "/dashboard": {
       "get": {
         "operationId": "getDashboard",
@@ -3075,6 +3122,35 @@
           "aggregate_version"
         ],
         "additionalProperties": true
+      },
+      "WorkPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Work"
+            },
+            "maxItems": 24
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "additionalProperties": false
       },
       "Dashboard": {
         "type": "object"

@@ -30,6 +30,7 @@ export type Campaign = { "campaign_id": string; "title": string; "aggregate_vers
 export type ShareInput = { "channel": string; "share_url": string; "note"?: string };
 export type Share = { "share_id": string; "verification_status": "self_reported"; [key: string]: unknown };
 export type Work = { "work_item_id": string; "title": string; "aggregate_version": number; [key: string]: unknown };
+export type WorkPage = { "items": Array<Work>; "next_cursor": string | null };
 export type Dashboard = { [key: string]: unknown };
 export type GuildList = { "items": Array<Guild> };
 export type ProductList = { "items": Array<Product> };
@@ -72,10 +73,11 @@ export interface Operations {
  reviseCampaign: { response: Campaign; body: CampaignMetadata };
  recordShare: { response: Campaign; body: ShareInput };
  listWorks: { response: WorkList; body: never };
+ listWorksPage: { response: WorkPage; body: never };
  getDashboard: { response: Dashboard; body: never };
 }
 export interface ClientOptions {baseUrl:string;appOrigin?:string;fetcher?:typeof fetch;cookie?:string;csrfToken?:string;timeoutMs?:number}
-export interface CallOptions<B> {params?:Record<string,string>;body?:B;idempotencyKey?:string;version?:number}
+export interface CallOptions<B> {params?:Record<string,string>;query?:Record<string,string>;body?:B;idempotencyKey?:string;version?:number}
 export class PlatformError extends Error {status:number;code:string}
 export class PlatformClient {constructor(options:ClientOptions);call<K extends keyof Operations>(operationId:K,options?:CallOptions<Operations[K]['body']>):Promise<Operations[K]['response']>;assertCompatible():Promise<Protocol>;static loginDemo(options:ClientOptions & {email:string;password:string}):Promise<PlatformClient>}
 export const protocol: {version:string;revision:string;operations:Record<string,unknown>};

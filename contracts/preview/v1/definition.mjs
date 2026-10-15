@@ -46,6 +46,7 @@ export const schemas={
  ShareInput:object({channel:str(80),share_url:str(2000),note:str(1000,0)},['channel','share_url']),
  Share:object({share_id:uuid,verification_status:{const:'self_reported'}},undefined,true),
  Work:object({work_item_id:uuid,title:str(200),aggregate_version:version},undefined,true),
+ WorkPage:object({items:array(ref('Work'),24),next_cursor:nullable(str(2048))}),
  Dashboard:{type:'object'},
 };
 const items=name=>object({items:array(ref(name))});
@@ -53,8 +54,8 @@ for(const name of ['Guild','Product','Store','Listing','Acceptance','Project','C
 schemas.TrackList=object({items:array({type:'object'})});
 // Params are always identifiers, never arbitrary paths or full URLs.
 export const operations={};
-function op(id,method,path,response,body=null,concurrency='none',status=200,auth=true){
- operations[id]={method,path,response,body,concurrency,status,auth,idempotent:method==='POST'&&!['login','logout'].includes(id)};
+function op(id,method,path,response,body=null,concurrency='none',status=200,auth=true,query=[]){
+ operations[id]={method,path,response,body,concurrency,status,auth,idempotent:method==='POST'&&!['login','logout'].includes(id),...(query.length?{query}:{})};
 }
 op('getProtocol','GET','/protocol','Protocol',null,'none',200,false);
 op('getHealth','GET','/health','Health',null,'none',200,false);
@@ -73,5 +74,6 @@ op('listProjects','GET','/opensource/projects','ProjectList');op('importProject'
 op('refreshProject','POST','/opensource/projects/{id}:refresh','Project','Empty','required');op('reviseProject','POST','/opensource/projects/{id}:revise','Project','ProjectMetadata','required');
 op('listCampaigns','GET','/marketing/campaigns','CampaignList');op('createCampaign','POST','/marketing/campaigns','Campaign','CampaignInput','none',201);
 op('reviseCampaign','POST','/marketing/campaigns/{id}:revise','Campaign','CampaignMetadata','required');op('recordShare','POST','/marketing/campaigns/{id}/shares','Campaign','ShareInput','required',201);
-op('listWorks','GET','/work-items','WorkList');op('getDashboard','GET','/dashboard','Dashboard');
-export const protocol={version:'freedom.preview/v1',revision:'0.3.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};
+op('listWorks','GET','/work-items','WorkList');
+op('listWorksPage','GET','/work-items/page','WorkPage',null,'none',200,true,[{name:'cursor',required:false,schema:str(2048)}]);op('getDashboard','GET','/dashboard','Dashboard');
+export const protocol={version:'freedom.preview/v1',revision:'0.4.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};
