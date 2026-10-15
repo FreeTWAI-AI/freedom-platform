@@ -470,11 +470,12 @@ test('SC-E2E-34 a failed profile refresh after a refusal keeps writes locked (AT
   await expect(consoleArea(writer).getByRole('alert').filter({hasText:'目前身分已沒有這項權限'})).toBeVisible();
   await expect(saveBtn).toBeDisabled();await expect(form.getByRole('textbox',{name:'說明',exact:true})).toBeDisabled();
   const retryBtn=consoleArea(writer).getByRole('button',{name:'重試',exact:true});await expect(retryBtn).toBeEnabled();
+  await expect(consoleArea(writer).getByText('確認目前權限前暫停寫入。',{exact:true})).toBeVisible();await expect(consoleArea(writer).getByText('已保存，資料仍待更新',{exact:false})).toHaveCount(0);
   expect(publishStatuses).toEqual([403]);expect(profileReads).toEqual(['aborted']);
   await evidence(writer,info,'failed-profile-refresh-remains-locked',{publishStatuses,profileReads});
   const retryRead=writer.waitForResponse(r=>r.request().method()==='GET'&&r.url().endsWith(s.root+'/supply-profile'));
   await retryBtn.click();expect((await retryRead).status()).toBe(200);
-  await expect(publishBtn).toBeDisabled();await expect(saveBtn).toBeEnabled();
+  await expect(publishBtn).toBeDisabled();await expect(saveBtn).toBeEnabled();await expect(consoleArea(writer).getByText('確認目前權限前暫停寫入。',{exact:true})).toHaveCount(0);
   await saveBtn.click();await expect(consoleArea(writer).locator('.sc-announcement')).toHaveText('已保存：儲存內容。');
   expect(profileReads).toEqual(['aborted','ok']);expect((await detail(page,s,p.product_id)).product.description).toBe(nextDesc);
  }finally{await context.close();}

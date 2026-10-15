@@ -21,6 +21,9 @@ export type AttemptKind=keyof typeof ATTEMPT_KINDS;
 export type Attempt=Readonly<{kind:AttemptKind;label:string;scope:ConsoleScope;method:'post'|'patch';path:string;body:Readonly<Record<string,unknown>>;ifMatch?:string;key:string;draft?:string;target:string;productId?:string}>;
 function freeze<T>(value:T):T {if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;}
 export function createAttempt(input:Omit<Attempt,'key'>,key:string=crypto.randomUUID()):Attempt {return freeze({...input,scope:{...input.scope},body:JSON.parse(JSON.stringify(input.body)),key});}
+/** A command refusal (403) locks writes until a profile read that started after the refusal succeeds for the same
+ * session and business; only then do the refreshed capabilities decide each action again. */
+export function refusalReleased({key='profile',mark,ticket,current,matched}:{key?:string;mark:number|null;ticket:number;current:boolean;matched:boolean}):boolean{return key==='profile'&&mark!==null&&ticket>mark&&current&&matched;}
 export type Outcome={state:'success';value:Record<string,unknown>}|{state:'unknown'}|{state:'known';status:number;code?:string;detail?:string};
 export function classifyCommandOutcome(attempt:Attempt,result:{response:unknown}|{error:unknown}):Outcome {
  if('response'in result){const rule=ATTEMPT_KINDS[attempt.kind],parsed=rule.schema.safeParse(result.response);

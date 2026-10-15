@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parseSupplierConsoleRoute as parse,supplierConsoleHref as href,sameConsoleScope,consoleNavigation,SUPPLIER_CONSOLE_PAGES} from '../../modules/agent-commerce/supplier-console/ui/route';
-import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,type Attempt} from '../../modules/agent-commerce/supplier-console/state/attempt';
+import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,refusalReleased,type Attempt} from '../../modules/agent-commerce/supplier-console/state/attempt';
 import {holdAttempt,retainedAttempt,restoreAttempt,releaseAttempt,markAttemptUnknown,consolePhotoTargets,rememberConsolePhoto} from '../../modules/agent-commerce/supplier-console/state/registry';
 import {changedFields,editDraft,staleDrafts,conflictRows,reapplyAttempt,discardDraft} from '../../modules/agent-commerce/supplier-console/state/drafts';
 import {leaveDecision} from '../../modules/agent-commerce/supplier-console/state/leave';
@@ -117,28 +117,16 @@ test('SC-UI-21 original command content uses member labels and unit-price format
  assert.equal(attemptFieldText('decision','revoked','TWD'),'撤回同意');assert.equal(attemptFieldText('reservation_enabled',false,'TWD'),'否');assert.equal(attemptFieldText('stock',12,'TWD'),'12');
 });
 test('SC-UI-22 profile and reservation commands both refresh profile and owner projections',()=>{
- const profileReads=ATTEMPT_KINDS['profile.update'].reads as readonly string[];
- const reservationReads=ATTEMPT_KINDS['reservation.toggle'].reads as readonly string[];
- assert.ok(profileReads.includes('profile'));
- assert.ok(profileReads.includes('owner'));
- assert.ok(reservationReads.includes('profile'));
- assert.ok(reservationReads.includes('owner'));
- assert.ok(!ATTEMPT_KINDS['profile.setup'].reads.includes('owner'));
+ for(const kind of ['profile.update','reservation.toggle'] as const)assert.ok(['profile','owner'].every(key=>(ATTEMPT_KINDS[kind].reads as readonly string[]).includes(key)),kind);
+ assert.ok(!(ATTEMPT_KINDS['profile.setup'].reads as readonly string[]).includes('owner'));
 });
 test('SC-UI-23 dirty draft keeps original baseVersion across version moves while new draft takes latest version',()=>{
  const base={name:'原商品庫名稱',description:'原說明'};
- let draft=editDraft(undefined,'1',base,'name','修改後的名稱');
- assert.equal(draft.baseVersion,'1');
- assert.deepEqual(draft.fields,{name:'修改後的名稱'});
- draft=editDraft(draft,'2',base,'description','新說明');
- assert.equal(draft.baseVersion,'1');
- assert.deepEqual(draft.fields,{name:'修改後的名稱',description:'新說明'});
- const freshDraft=editDraft(undefined,'2',base,'name','全新草稿');
- assert.equal(freshDraft.baseVersion,'2');
- assert.deepEqual(freshDraft.fields,{name:'全新草稿'});
+ let draft=editDraft(undefined,'1',base,'name','修改後的名稱');assert.equal(draft.baseVersion,'1');assert.deepEqual(draft.fields,{name:'修改後的名稱'});
+ draft=editDraft(draft,'2',base,'description','新說明');assert.equal(draft.baseVersion,'1');assert.deepEqual(draft.fields,{name:'修改後的名稱',description:'新說明'});
+ const fresh=editDraft(undefined,'2',base,'name','全新草稿');assert.equal(fresh.baseVersion,'2');assert.deepEqual(fresh.fields,{name:'全新草稿'});
 });
-import {refusalReleased} from '../../modules/agent-commerce/supplier-console/state/useSupplierConsoleController';
-test('SC-UI-25 refusal lock releases only after a newer valid current profile read',()=>{
+test('SC-UI-24 refusal lock releases only after a newer valid current profile read',()=>{
  assert.equal(refusalReleased({mark:5,ticket:4,current:true,matched:true}),false);
  assert.equal(refusalReleased({mark:5,ticket:5,current:true,matched:true}),false);
  assert.equal(refusalReleased({mark:5,ticket:6,current:false,matched:true}),false);

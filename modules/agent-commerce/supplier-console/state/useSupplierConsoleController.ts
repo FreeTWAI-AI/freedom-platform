@@ -8,7 +8,7 @@ import {SupplyTermsInputSchema} from '../../../../contracts/guild-launchpad/v1/h
 import {SupplierReservationPageSchema,ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {ProductMediaPageSchema} from '../../../../contracts/guild-launchpad/v1/hosted-store-media';
 import {heldPhotoAttempt} from '../../../../apps/portal-web/src/modules/hosted-store-photo-state';
-import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,type Attempt,type AttemptKind} from './attempt';
+import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,type Attempt,type AttemptKind,refusalReleased} from './attempt';
 import {holdAttempt,markAttemptUnknown,releaseAttempt,restoreAttempt,consolePhotoTargets,rememberConsolePhoto} from './registry';
 import {editDraft,staleDrafts,discardDraft,reapplyAttempt,type Drafts,type Fields} from './drafts';
 import {leaveDecision} from './leave';
@@ -18,7 +18,6 @@ export type ReadSlot<T>={state:'idle'|'loading'|'ready'|'failed';data:T|null;asO
 const empty:ReadSlot<never>={state:'idle',data:null,asOf:null,lastOkAt:null,error:''};
 export type ListPosition={search:string;filter:string;sort:string;scroll:number;lastId:string|null};
 export type RegisterLeave=(guard:((nextHash:string|null)=>boolean)|null)=>void;
-export function refusalReleased({key='profile',mark,ticket,current,matched}:{key?:string;mark:number|null;ticket:number;current:boolean;matched:boolean}):boolean{return key==='profile'&&mark!==null&&ticket>mark&&current&&matched;}
 export function useSupplierConsoleController({client,userId,scope,route,registerLeave,photosEnabled}:{client:PortalClient;userId:string;scope:ConsoleScope;route:SupplierConsoleRoute;registerLeave:RegisterLeave;photosEnabled:boolean}) {
  const [reads,setReads]=useState<Record<string,ReadSlot<unknown>>>({}),[drafts,setDrafts]=useState<Drafts>({});
  const [attempt,setAttempt]=useState<Attempt|null>(()=>restoreAttempt(client,userId,scope)),[phase,setPhase]=useState<'idle'|'sending'|'held'>(()=>attempt?'held':'idle');
@@ -67,7 +66,6 @@ export function useSupplierConsoleController({client,userId,scope,route,register
    const status=cause instanceof ApiError?cause.status:undefined,message=cause instanceof ApiError&&!cause.network?cause.detail??cause.message:'暫時無法讀取資料，已保存的內容不會因此改變。';
    setReads(old=>{const next={...(old[key]??empty),state:'failed' as const,error:message,status,...(status===403||status===404?{data:null}:{})};readRef.current={...readRef.current,[key]:next};return {...old,[key]:next};});
    // A refusal may mean the member's access changed: reread the capabilities so pages and navigation follow them.
-   if(key==='profile'&&refusalMark.current!==null&&status!==403&&status!==404)setPendingReads(old=>old.includes('profile')?old:[...old,'profile']);
    if(status===403&&key!=='profile')void read('profile');
    return false;
   }
@@ -141,7 +139,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  function reapply(name:string,current:Fields,version:string){const a=conflicts[name],d=drafts[name];if(!a||!d||locked)return;try{const next=reapplyAttempt(a,{...d,fields:commandFields(a.kind,d.fields)},commandFields(a.kind,current),version);if(!next){discard(name);setNotice('目前資料已包含你的修改。');return;}void send(next);}catch(cause){setError(cause instanceof Error?cause.message:'請檢查欄位格式。');}}
  const position=(name:string):ListPosition=>positions[name]??{search:'',filter:'',sort:'sku',scroll:0,lastId:null};
  const remember=(name:string,changes:Partial<ListPosition>)=>setPositions(old=>({...old,[name]:{...position(name),...changes}}));
- return {client,userId,scope,root,route,photosEnabled,reads,slot,read,profile,owner,ownerAllowed,can,locked,phase,attempt,notice,error,rejected,pendingReads,drafts,conflicts,sectionStatus,updateDraft,discard,reapply,save,command,
+ return {client,userId,scope,root,route,photosEnabled,reads,slot,read,profile,owner,ownerAllowed,can,locked,refused:revoked,phase,attempt,notice,error,rejected,pendingReads,drafts,conflicts,sectionStatus,updateDraft,discard,reapply,save,command,
   retry:()=>attempt&&void send(attempt),position,remember,cursors,nextPage:(cursor:string)=>setCursors(old=>[...old,cursor]),previousPage:()=>setCursors(old=>old.length>1?old.slice(0,-1):old),
   photoStates,photoState:(id:string,dirty:boolean,blocking:boolean)=>{const pending=!!heldPhotoAttempt(client,userId,{...scope,productId:id});rememberConsolePhoto(client,userId,scope,id,dirty||blocking||pending);photoRef.current={...photoRef.current,[id]:{dirty:dirty||pending,blocking:blocking||pending}};setPhotoStates(photoRef.current);},
   photoSaved:async(id:string)=>{setNotice('已保存照片。');setPendingReads(old=>[...new Set([...old,'product:'+id])]);await Promise.all([read('product:'+id),read('media'),read('products'),read('overview')]);},
