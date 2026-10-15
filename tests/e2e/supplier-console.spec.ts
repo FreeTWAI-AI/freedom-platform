@@ -1,26 +1,16 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
-import {test, expect as baseExpect, type Page} from './member-feature-fixture.js';
+import {test, expect, type Page} from './member-feature-fixture.js';
 import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
-import {person, open, post, launchStore, storeArea} from './hosted-store-fixture.js';
+import {person, login, open, post, launchStore, storeArea} from './hosted-store-fixture.js';
 import {buyerLogin, offListener} from './hosted-order-fixture.js';
 import {signOut} from './navigation.js';
 import {SupplierReservationPageSchema} from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
 
-const expect = baseExpect.configure({timeout: 15_000});
-
 test.use({memberFeatures: {guildLaunchpadEnabled: true, hostedReservationsEnabled: true, supplierConsoleEnabled: true}});
 
 const supplierGuild = 'guild_product_quality_supply';
-
-async function memberLogin(page: Page, email: string, hash = '#stores/supply') {
-  await page.goto('/' + hash);
-  await page.getByLabel('電子郵件', {exact: true}).fill(email);
-  await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
-  await page.getByRole('button', {name: '登入', exact: true}).click();
-  await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible();
-}
 
 async function supplyPerson(db: Pool) {
   const id = randomUUID(), email = `supply-${id}@example.test`;
@@ -73,7 +63,7 @@ test('SC-E2E-01 supply-only supplier completes the S1 journey from the guild to 
     const [a, b, customer] = await Promise.all(contexts.map(ctx => ctx.newPage()));
 
     // Prepare B's retail store with its own product and open 30-minute reservations in its store UI.
-    await memberLogin(b, retailer.email);
+    await login(b, retailer.email);
     const bStore = await launchStore(b, `海風零售空間 ${suffix}`);
     await post(b, bStore.root + '/setup', {name: bStoreName, slug: bSlug, currency: 'TWD'}, 201);
     await post(b, bStore.root + '/products', {title: otherTitle, price_minor: 9000, stock: 5}, 201);
@@ -82,10 +72,10 @@ test('SC-E2E-01 supply-only supplier completes the S1 journey from the guild to 
     await expect(b.getByRole('button', {name: '停止接受新預留', exact: true})).toBeEnabled();
 
     // Step 1: A starts from the supplier guild and creates the supply-only catalog in the console. (AT-01)
-    await memberLogin(a, supplier.email);
-    await a.goto(`/#guilds/${supplierGuild}`);
+    await login(a, supplier.email);
+    await open(a, `guilds/${supplierGuild}`);
     const primary = a.getByRole('region', {name: '主要動作', exact: true});
-    await expect(primary).toBeVisible({timeout: 15_000});
+    await expect(primary).toBeVisible();
     await primary.getByRole('button', {name: '開始供貨設定', exact: true}).click();
     const flow = a.getByRole('region', {name: '啟動應用', exact: true});
     await flow.getByLabel('業務空間名稱', {exact: true}).fill(`山林供應空間 ${suffix}`);
@@ -249,7 +239,8 @@ test('SC-E2E-01 supply-only supplier completes the S1 journey from the guild to 
     await expect(consoleRoot.locator('.sc-announcement')).toHaveText('已保存：開放 30 分鐘預留。');
 
     // Step 9: Buyer reserves 3 of A's supplied product (and 1 of B's own product) at B's public store.
-    await memberLogin(customer, buyer.email, `#reservations/${bSlug}`);
+    await login(customer, buyer.email);
+    await customer.goto(`/#reservations/${bSlug}`);
     await customer.getByLabel(`${productTitle}數量`, {exact: true}).fill('3');
     await customer.getByLabel(`${otherTitle}數量`, {exact: true}).fill('1');
     await customer.getByRole('button', {name: '查看預留內容', exact: true}).click();
@@ -309,7 +300,7 @@ test('SC-E2E-01 supply-only supplier completes the S1 journey from the guild to 
 
     // Step 12: A signs out and logs in again, then opens bookmark #<t/i>/supply/products?state=offered. (AT-02, AT-42)
     await signOut(a);
-    await memberLogin(a, supplier.email);
+    await login(a, supplier.email);
     await a.goto(`/#${storePrefix}/supply/products?state=offered`);
     await expect(a.getByRole('heading', {level: 1, name: '商品與庫存', exact: true})).toBeVisible();
     await expect(consoleRoot.locator('.sc-business-bar')).toContainText(catalogName);
@@ -337,9 +328,9 @@ test('SC-E2E-01 supply-only supplier completes the S1 journey from the guild to 
     await expect(a.getByRole('heading', {level: 1, name: '營運概覽', exact: true})).toBeVisible();
     await assertConsoleWording(a);
 
-    await a.goto(`/#guilds/${supplierGuild}`);
+    await open(a, `guilds/${supplierGuild}`);
     const guildActions = a.getByRole('region', {name: '主要動作', exact: true});
-    await expect(guildActions).toBeVisible({timeout: 15_000});
+    await expect(guildActions).toBeVisible();
     await guildActions.getByRole('button', {name: '查看商品與供貨', exact: true}).click();
     await expect(a).toHaveURL(new RegExp(`#${storePrefix}/supply$`));
     await expect(a.getByRole('heading', {level: 1, name: '營運概覽', exact: true})).toBeVisible();
@@ -386,7 +377,7 @@ test('SC-E2E-02 retail owner sees the same console with 已開零售 and 前往�
   const supplyProductTitle = `供貨原葉茶包 ${suffix}`;
 
   const owner = await person(e2eAuthPool);
-  await memberLogin(page, owner.email);
+  await login(page, owner.email);
 
   const store = await launchStore(page, `海島零售空間 ${suffix}`);
   await post(page, store.root + '/setup', {name: retailStoreName, slug: retailSlug, currency: 'TWD'}, 201);
