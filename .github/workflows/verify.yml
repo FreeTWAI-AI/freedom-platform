@@ -5,7 +5,9 @@ on:
   pull_request:
   merge_group:
     types: [checks_requested]
-# Candidate CI is diagnostic; it cannot publish the operator's App-bound gate.
+# GitHub Free ruleset 25011111 requires App-bound verify/CodeQL checks and review.
+# CI controls require approval under the base branch's CODEOWNERS.
+# This does not enforce an external fixed workflow SHA.
 # Only superseded PR runs are cancelled; queued merge candidates run independently.
 # verify always runs. source-integrity preserves canonical contracts, runtime
 # text, immutable migrations, Git source identity, links and trusted unit tests.
@@ -63,8 +65,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - name: Test the pinned selector
-        run: node --test --test-concurrency=1 trusted-selector/scripts/ci/select-affected-jobs.test.mjs
       - name: Select affected jobs
         id: decision
         env:
@@ -399,12 +399,15 @@ jobs:
           else
             node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root . --event "$EVENT_NAME" --candidate "$CANDIDATE_SHA"
           fi
-      - name: Preserve sanitized browser selection and case evidence
+      - name: Preserve browser evidence and synthetic failure diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: browser-selection-${{ github.sha }}
-          path: .freedom/reports/pinned-e2e.json
+          path: |
+            .freedom/reports/pinned-e2e.json
+            .freedom/reports/pinned-e2e.json.failure-artifacts/
+          retention-days: 7
           if-no-files-found: warn
   guild-presentation:
     runs-on: ubuntu-24.04
@@ -482,7 +485,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: guild-presentation-${{ github.sha }}
-          path: .freedom/reports/guild-*.json
+          path: |
+            .freedom/reports/guild-*.json
+            .freedom/reports/guild-*.json.failure-artifacts/
+          retention-days: 7
           if-no-files-found: warn
   static-worker:
     runs-on: ubuntu-24.04

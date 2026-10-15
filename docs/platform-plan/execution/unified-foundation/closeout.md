@@ -10,14 +10,75 @@
 [R2／AP](source-acceptance.md) 的原文、最低證據層級及所有 168 個 ID。
 歷史 handoff／release-readiness 保留當時證據，不再維護另一份 current 狀態。
 
-## 2026-10-13 組織搬遷收尾
+## 2026-10-14 安全修補與組織搬遷發布現況
 
-追蹤 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)。FreeTWAI 的平台／
-GitHub／public guide 座標修正與 forward migration166 為本輪候選；資料合併、歷史 pins、
-跨倉 transport、CI 去重與 staging→production 驗證順序見
-[Repo 串接搬遷說明](../../../development/repository-integration.md#2026-10-13-freetwai-組織搬遷候選)。
-不更新以下歷史 source／rollout 收據，也不把本機測試當已部署或 Enterprise workflow
-信任來源已恢復；舊工作 queue 的 merge／deploy freeze 依 #234 現行狀態保留。
+追蹤 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)。本次選定安全發布
+`938516ee`（tree `089a3774`）已部署 staging，Worker `368a5d67`、schema166；
+本次沒有重套已存在的166。限定驗收以原非 browser 階段及 `zh-TW` locale browser
+補驗組成，HTML 與10個入口資產 bytes 相符；原 selector timeout 保留，合成帳號與
+Access 憑證已清理。部署前備份完成同一 set 的還原恢復；部署後 `e9ac7afd` 的
+遠端讀回、DB＋59個物件還原、166 floor 與清理已通過，兩次早先 capture 失敗保留。
+Staging 日常備份 dispatcher 已於10月14日20:29 UTC 切到938。
+
+10月15日既有 staging timer 的 `fc39f036` 另於04:59 UTC capture失敗；05:04 UTC
+唯讀對帳確認零殘留、兩個政策開關關閉且59個 reference pins 保留。這不改寫上述
+`e9ac7afd` 的完整還原成功；新的 staging operator 修正僅備妥，尚未執行或安裝。
+
+Production 於10月15日03:06 UTC 建立的新 before-set `87ec37e7` 已完整還原驗證，
+取代因時效需要更新的成功舊 set。03:20 UTC 已確認 migration166 COMMIT；後續
+不變表 assertion 因兩個背景 telemetry 表變動而失敗，原紀錄保留。03:28 UTC 的
+唯讀對帳確認264／266表雜湊相同，另外兩表為 GitHub feed 與 credential health metadata；
+9項政策、33張 RLS 表、唯讀權限與10項獨立記錄的座標 constraints 通過。
+沒有重跑SQL，也不宣稱所有背景 writer 已停止或266表完全未變。
+03:30 UTC 已部署相容938（Worker `24c6c843`），正式路由與原 cron 恢復。公開 health、
+protocol、5張圖片、匿名權限／Origin 拒絕、HTML 與10個入口資產 bytes 及 live floor
+驗收通過；未建立正式會員登入／browser／OAuth session，同來源 staging 證據明確沿用。
+Production after-backup `480cd1f2` 於03:41 UTC dump逾時失敗；03:44 UTC 獨立對帳
+確認該次資源已清理，原 `cleanupVerified=false` 失敗收據保留。第二次 `28c818b7`
+只把 production dump 上限改為300秒，含 Docker啟動等待的整體預算仍逾時，04:03 UTC 確認失敗；
+04:09 UTC 已獨立對帳零殘留資源。兩份原失敗保留，仍沒有成功的 production after-restore。
+04:15 UTC 已把 production dispatcher 切至原 canonical166 adapter，避免排程繼續使用
+不相容的165 operator；此為明列「after-backup待完成」的可回復設定修正，staging／timers
+與實際 backup／restore／cleanup gates 不變，不以安裝紀錄代替成功還原。
+既有 daily timer 於04:34 UTC 自行啟動 `19f7e10e`，確認選用938／原166 adapter；
+04:43 UTC 仍在 capture 失敗。180秒 dump 子程序預算包含約72秒容器準備，實際執行約109秒
+就被終止，部分輸出不能視為有效備份。04:46 UTC 唯讀對帳確認該次零殘留資源、政策關閉，
+47個物件 pins 保留；原失敗不改寫，沒有另外手動重跑。三次 production after 均未完成還原。
+
+05:06 UTC 啟動一次經審查的 production `e021ebfc`：容器準備移到 capture 前，
+實際 dump仍保留180秒、核心流程1200秒上限。6,229,149 bytes的 DB dump、47個物件
+與遠端讀回完成，但05:24 UTC 在restore階段失敗，原 `cleanupVerified=false` 保留。
+05:29 UTC 獨立唯讀對帳確認該set零殘留容器／volume／DB session／dump client，
+兩個政策開關關閉且47個 reference pins保留；沒有重新capture或宣稱還原成功。
+本節營運證據截止於這次對帳；4份原失敗保留，修正版尚未安裝到日常 dispatcher，
+完整 production after-restore仍未完成。
+04:07 UTC 唯讀觀察有21筆 FreeTWAI repo、零舊座標，但沒有部署後同步紀錄。
+04:27 UTC 排程診斷確認設定與目前版本相符，provider 的 scheduled 紀錄卻停在03:20；
+04:10–04:21 的同版本觀察有295次成功 HTTP、零 scheduled 事件。這支持排程交付／傳播
+缺口，provider 根因尚未確定。04:33 UTC 僅執行一次移除後立即恢復原 cron，兩次請求均
+獲確認且版本／路由不變。04:53 UTC 的單次補驗已確認04:40:18自然 scheduled 成功，
+feed watermark 推進至04:50:21，21／21筆新座標 repo 已同步，舊座標與錯誤均為零。
+排程資料集本身沒有版本欄位；部署 binding 與另讀 traffic 均維持24c6／938。
+自然同步的限定驗收已通過，不再加跑後續觀察；整輪仍待成功 production after-backup
+與其座標 fence 還原驗證，這次同步結果不代替真人 OAuth／webhook 驗收。
+精確時間與證據雜湊見[本輪具日期發布收據](rollout-security-2026-10-14.json)。
+10月15日04:38 UTC 另讀回 Agent Kit／Storefront 的 main 已有有效 repo ruleset：
+一位有效核准、App 綁定必要 checks、禁止刪除／force push、無 bypass；兩倉未啟用
+CODEOWNERS review。這是兩倉的具日期觀察，沒有更動設定或宣稱全部 consumer 已驗收。
+
+已合併 main `efaf314d` 包含後續 #658 與 #659；#659 的4792 runtime、950個不重複
+browser案例與5個公會 preview通過，原622／657一併收斂。這些後續來源與 #680
+均不包含在本次938發布，AR167沒有部署。T-047、真實 GitHub OAuth／會員操作、
+獨立 Maintainer #72 安裝、真人試用與第二操作者恢復仍未完成。資料與歷史 pins 的處理見
+[Repo 串接搬遷說明](../../../development/repository-integration.md#2026-10-14-發布觀察)。
+
+#680 舊 head `93c6dc3f` 的第二次 Verify仍失敗：runtime分區3只完成55／62檔
+後逾時，已完成830案例零失敗且清理通過，仍不是整套成功。Browser原兩個失敗案例
+已通過，但供貨案例 `hosted-supply-catalog.spec.ts:436` 單案120秒逾時；原 trace未保留，
+不能判定是哪個操作卡住，也不能直接歸類偶發。新候選保留原作者與既有3支PR範圍，
+補上有界CI容量、去重與診斷改善，仍須 fresh review及新 head完整checks；舊結果不改綠。
+
+以下具日期的歷史 source／rollout 保留，不冒充當前環境。
 
 ## 2026-10-11 產品就緒工作順序
 
@@ -25,7 +86,7 @@ GitHub／public guide 座標修正與 forward migration166 為本輪候選；資
 
 本節依 Ted 最新派工，取代以下具日期歷史紀錄中的「下一步」排序。保留共同核心與原 168 項要求；這輪凍結新承諾擴張，以會員自主完成、公會長獨立開發為驗收。完整庫存外移與本人 CLI／BYOK 保留原範圍，排在這輪產品就緒之後；T-047 的隔離還原與當前撤權對帳持續有效。
 
-[追蹤 #234](https://github.com/FreeTWAI-AI/freedom-platform/issues/234)承接所有工作包，不另開一套需求編號。下表從 `31166e52` 的來源對帳延續，於 2026-10-12 UTC 更新工程／發布狀態；不是完整真人試用驗收。目前兩環境為 R24 `dcb39351`，拒絕離開時保留未儲存活動草稿與媒體，明確捨棄才清除，結果不明的保存以原內容與冪等鍵重試且只建立一場活動。R21 產品流程與 migration165、R22 管理草稿與核准供貨區塊、R23 供貨商品庫分區的發布紀錄保留；最新無 migration 更新見 [R24 收據](rollout-r24-2026-10-12.json)。
+[追蹤 #234](https://github.com/FreeTWAI-AI/freedom-platform/issues/234)承接所有工作包，不另開一套需求編號。下表從 `31166e52` 的來源對帳延續，保留 2026-10-12 UTC 的工程／發布觀察；不是完整真人試用驗收。當時兩環境為 R24 `dcb39351`，拒絕離開時保留未儲存活動草稿與媒體，明確捨棄才清除，結果不明的保存以原內容與冪等鍵重試且只建立一場活動。R21 產品流程與 migration165、R22 管理草稿與核准供貨區塊、R23 供貨商品庫分區及 [R24 收據](rollout-r24-2026-10-12.json)均保留；目前各環境版本以上方2026-10-14觀察為準。
 
 | 使用者承諾／來源 | 原入口與已存在能力 | 本輪實際結果與剩餘條件 | 整合責任與驗收者 |
 | --- | --- | --- | --- |
@@ -35,7 +96,7 @@ GitHub／public guide 座標修正與 forward migration166 為本輪候選；資
 | 開源作者分享並返回管理（#254、#260、#457） | 原投稿與本人同意、分享連結、`#my-content` 返回本人內容 | R21 已部署穩定 ID 編輯／整件撤下、再次预覽與同意；實測公開→撤下舊連結404→重新公開新連結→再次撤下。驗收發現「我的內容」原 flag 關閉，已在兩環境啟用既有能力，驗本人／他人隔離與登出撤權。Schema165 實際部署及還原 guard 已拒絕舊 Worker。完整分頁仍屬 #349；真人作者用途待驗。 | root 領域／設定／發布完成；作者本人同意，Ted 與自願作者驗自主分享。 |
 | 活動主辦分享、報名與返回管理（#256、#257、#456） | `#events` 建立、原審核、活動頁、報名／取消與本人內容 | R21 已部署提交前預覽、IANA 時區與私人資訊分隔。staging 普通合成會員建立，由既有合成幹部經 UI 審核；匿名分享、另一會員報名／取消、重讀與主辦者返回取消活動皆通過。58 案是同 source／設定的分段實測，非一場不中斷執行。R24 再以普通合成會員在 1440 與 390 寬度核對拒絕與接受離開、hash、返回、直接活動網址、beforeunload、送出中阻擋，以及遺失回應後以同一冪等鍵重試且只留下一場活動。真人主辦者仍待驗；日曆是快照，通知未聲稱實際投遞。 | root 雲端旅程／隱私驗證；自願主辦者驗自主完成。 |
 | 會長可以獨立新增區塊（#234、#451、GOV-07） | 原草稿／預覽／發布／回復，沿用 module descriptors 與嚴格 v1 | R21 已部署版本化 v2 組裝；供應與開源兩個真 API 樣板及免 DB 預覽已交付。新區塊不需中央公會特判；v1 歷史與預設配置不被自動改寫。#467 實際只改自己的供應元件並經 detna review 合併；兩位非核心公會作者交付仍未驗，Agent 範例不替代。 | root 平台邊界；兩位非核心公會開發者驗獨立交付，尚未邀請。 |
-| 局部改動不承擔全平台日常成本（#438、#458、#466、C6／C7） | baseline／candidate descriptor 圖、反向相依、固定必要 verify | 正式 ruleset `24469536` 已只更新 workflow SHA 至 `14f82aa2`，保留 approvals、CodeQL 與禁止 bypass。該 main 的完整 15 jobs／895 browser 先通過；安裝後 #467 的必要 CI 388 秒完成，38 runtime／15 整合 browser／3 preview 及 static-worker 通過，無手改 inventory。未知、核心、descriptor、新 import 等仍廣範圍；main 整合仍產生完整來源封存及實際還原證據。 | root 平台工具／runner；公會作者負責自己的元件。已證明安裝路徑，真人貢獻體驗另驗。 |
+| 局部改動不承擔全平台日常成本（#438、#458、#466、C6／C7） | baseline／candidate descriptor 圖、反向相依、固定必要 verify | 2026-10-12 搬遷前觀察：組織 ruleset `24469536` 只更新 workflow SHA 至 `14f82aa2`，保留當時 approvals、CodeQL 與禁止 bypass。此為歷史安裝證據；目前 Free 的 repository ruleset／CODEOWNERS 審查方式見下方治理主路徑與現況快照。該 main 的完整 15 jobs／895 browser 先通過；安裝後 #467 的必要 CI 388 秒完成，38 runtime／15 整合 browser／3 preview 及 static-worker 通過，無手改 inventory。未知、核心、descriptor、新 import 等仍廣範圍；main 整合仍產生完整來源封存及實際還原證據。 | root 平台工具／runner；公會作者負責自己的元件。已證明安裝路徑，真人貢獻體驗另驗。 |
 
 可明示限制後試用：未付款的 30 分鐘預留、日曆快照、尚未啟用的 Email 摘要。不可顯示假付款／寄送／佣金成功；停止新單仍保留合法歷史讀取與釋放。#349 的分頁／呼叫端、#255 的 Email 排程與 #260 作者同意等尾巴保持原 issue，不因其他 PR 已關而消失。
 
@@ -105,13 +166,23 @@ B1 的 [隔離 PostgreSQL／native local R2 證據](social-writer-evidence-2026-
 
 ## 治理主路徑決策
 
-沿用已安裝的 GitHub 原生固定 workflow 作為 PR check 發布及合併主路徑。
+2026-10-14 15:09 UTC 讀回中央 [main-baseline `25011111`](https://github.com/FreeTWAI/freedom-platform/rules/25011111)：
+目前使用 GitHub Free 的 repository ruleset、PR 審查與 base branch 的
+[CODEOWNERS](../../../../.github/CODEOWNERS) 保護 CI 控制檔。已啟用 code-owner review，
+要求至少一份核准、最新 push 後核准、撤銷過期 review、解決討論，以及綁定來源 App 的
+嚴格 `verify`／`CodeQL` checks；禁止刪除與 force push，沒有 bypass actors。
+具日期讀回見[現況快照](current-state.json)的 `governance_current`；舊組織 pins 與
+Directory queue 僅保留原日期的歷史證據，不推定各 consumer 的當前保護。
+
+目前主路徑依賴維護者審查與必要 checks；同名 check、相同 App 與
+`job.workflow_sha` checkout 不恢復舊 Enterprise 組織固定 workflow SHA 的保證，
+也不表示 candidate 程式在獨立沙箱內執行。
 Detached check publisher 保留為尚未安裝的選配能力；沒有離線／外部執行需求時，
 不增加第二個必要 publisher 或人工批准。此決策取代舊 P2 文件「必須安裝
 detached publisher」的工作順序，不撤回 GOV-02／19 或 artifact 的來源、簽章、
 版本、撤銷與 ReleaseSet 驗收。
 
-已固定 selector／aggregate 不代表 candidate 提供的所有測試都是獨立 harness。
+受審查的 selector／aggregate 不代表 candidate 提供的所有測試都是獨立 harness。
 升級既有 workflow 時，先以可信來源的必要行為反例與合法修改正例建立邊界，
 再做 fork 隔離、supersession／新 base、偽造 check 及空測試集的真實 GitHub 驗收。
 不得把不可信 fork 程式與正式秘密放在同一有權工作中。

@@ -2,6 +2,12 @@
 
 `preview/v1/definition.mjs` is the authoring source for the **implemented member-session preview API**. `node scripts/build-contract-bundle.mjs` generates OpenAPI 3.1.1, TypeScript response/request definitions, protocol metadata and a hashed portable SDK bundle. SDK source is in `packages/sdk`; consumers must never edit generated vendor files.
 
+The `preview-contract` module descriptor owns the preview authoring/generated
+bundle, shared SDK source/generated protocol, bundle generator and direct
+`runtime.preview-protocol` consumer test. Keeping that infrastructure out of an
+individual product module lets context and verification select its real boundary
+instead of treating every preview change as an unmapped whole-repository change.
+
 The full production planning contracts remain authored once in `docs/platform-plan/contracts/`. Three manifest/event schemas are mechanically exported with the bundle; they are not independently authored copies. Moving all historical planning tests/paths is a separate migration. Exporting an event schema does not activate event delivery or executor APIs.
 
 The local foundation [common identity references](common/README.md) have a separate Zod/TypeScript authoring source and generated JSON Schemas. They are not yet published in a ReleaseSet or preview SDK bundle; reserved service/site shapes do not enable those identities at runtime.

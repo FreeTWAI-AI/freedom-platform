@@ -450,9 +450,10 @@ export async function runPinnedSuite(root, id, options = {}) {
 
 const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';
 // Finite matrix capacity, including provisioning and verified cleanup. Hosted
-// observations on 2026-10-10 showed unchanged files running about 30% slower.
-// Keep legacy four-partition behavior; six hosts get bounded variance headroom.
-const PARTITION_BUDGET_MS = Object.freeze({ 4: 1_200_000, 6: 1_200_000 });
+// observations on 2026-10-15 put the same 55 files about 20% slower and the
+// projected full partition beyond 1,224s. Keep legacy four-partition behavior;
+// six hosts get 1,500s including the unchanged 24s cleanup reserve.
+const PARTITION_BUDGET_MS = Object.freeze({ 4: 1_200_000, 6: 1_500_000 });
 const MATRIX_WINDOW_MS = Object.freeze({ 4: 1_800_000, 6: 2_400_000 });
 const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const strictKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&

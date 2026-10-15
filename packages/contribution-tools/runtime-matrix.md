@@ -27,9 +27,47 @@ Historical October 7 cost fixtures remain unchanged; their earlier hotspot and f
 
 Each process retains the original sorted file order. Unknown files receive the same default weight and remain mandatory; file counts need not be equal. Producer, aggregate and local full runner import the same candidate implementation, not a separately installed timing registry. New selections change the manifest and must be rerun together. Untracked build output does not imply a tracked source change.
 
-## Bounded capacity proposal, 2026-10-10
+## Current bounded capacity, 2026-10-15
 
-The source now gives six partitions 1,200 seconds each and a 2,400-second aggregate window. Legacy four-partition limits remain 1,200 / 1,800 seconds; the local full-suite default is unchanged. The installed `fa2fcdef` runner still uses six-partition 900 / 1,800 seconds until a separately reviewed trusted-source rollout. This source change does not update the workflow pin, ruleset, permissions or runner hardware.
+Six-partition invocations now have a 1,500-second absolute budget, including
+provisioning and the unchanged 24-second cleanup reserve. The 40-minute CI job
+timeout and 2,400-second aggregate window remain unchanged. Four-partition
+limits stay at 1,200 / 1,800 seconds; local full-suite behavior is unchanged.
+
+PR #680 at head `93c6dc3f` used candidate and runner `79ecb76e`. In run
+`38675206937`, partition 3 first completed all 62 files and 888 cases in
+1,034.944 seconds of test progress, then failed database cleanup. Attempt 2
+completed 55 files and 830 cases before the whole-process timeout; cleanup
+passed. The same 55 file hashes took 956.817 seconds of measured file work
+in attempt 1 and 1,146.151 seconds in attempt 2, about 20% longer. Of these,
+54 files were slower. The next file previously needed 46.702 seconds but had
+only about 26.5 seconds left. This supports a capacity limit, not an observed
+individual test hang. Both original attempts remain failed.
+
+Using the faster original durations for the seven unfinished files gives a
+1,224.308-second completion projection, already above the former test budget.
+Allowing the observed 20% variance for that tail still leaves about 236 seconds
+within the new 1,476-second test allowance, before provisioning cost. This is
+finite scheduling headroom, not a completion guarantee. No files, assertions,
+case requirements, weights, cleanup checks or process termination rules change.
+
+The aggregate still rejects fragments whose earliest start to latest end is
+over 40 minutes. If a failed-only retry would exceed that window, run the full
+six-partition matrix on one immutable candidate instead. The observed mixed
+attempts spanned 86 minutes 29.418 seconds and could not pass aggregation even
+if the retried partition passed. This capacity fix requires one fresh complete
+matrix on the reviewed new candidate; its result cannot turn the original
+head's failures into success. Delayed cross-attempt reuse needs a separately
+reviewed identity and selection rule; the current v1 format does not provide it.
+
+Existing matrix regressions retain all source, union, case and cleanup
+rejections, plus the four-partition limits. Six-partition boundaries now accept
+1,500 seconds and reject one millisecond more, while the 2,400-second aggregate
+boundary and a delayed failed-only fragment remain rejected when exceeded.
+
+## Historical capacity change, 2026-10-10
+
+The October 10 source gave six partitions 1,200 seconds each and a 2,400-second aggregate window. Legacy four-partition limits remained 1,200 / 1,800 seconds; the local full-suite default was unchanged. At that time, the installed `fa2fcdef` runner still used six-partition 900 / 1,800 seconds until a separately reviewed trusted-source rollout. That source change did not update the workflow pin, ruleset, permissions or runner hardware.
 
 Evidence: [run 38043467019](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38043467019) completed all six runtime partitions with final test-progress elapsed times 813/678/866/842/859/841 seconds. [Run 38046517453](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38046517453) recorded 575/timeout/590/848/576/677 seconds. Its partition 1 completed 51 files with zero failures and verified cleanup; those same source hashes took 665 seconds previously and 865 seconds this time. The remaining tenant-policy-operator file previously completed in 6.17 seconds. These are hosted timing observations, not a passing result for the timed-out run or a throughput guarantee.
 

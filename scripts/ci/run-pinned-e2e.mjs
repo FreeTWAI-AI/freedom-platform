@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readdir, readFile, writeFile, mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir, mkdtemp, rm, stat, lstat, opendir, realpath } from 'node:fs/promises';
 import { resolve, join, dirname, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
@@ -13,13 +13,52 @@ import { readBounded } from '../../packages/contribution-tools/io.mjs';
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const defaultConfigFile = fileURLToPath(new URL('./pinned-playwright.config.mjs', import.meta.url));
 
+// Diagnostics are untrusted synthetic test output, never admission evidence.
+// Retain only the fixed Playwright outputs, with bounded traversal/bytes and
+// readBounded's regular-file/no-symlink checks. Always remove the disk scratch.
+export async function cleanupE2ePass(temp, output, passId, failed) {
+  try {
+    if (!failed) return;
+    const parent = dirname(output), target = output + '.failure-artifacts';
+    await mkdir(parent, { recursive: true });
+    if (await realpath(parent) !== resolve(parent)) throw Error('unsafe_diagnostic_parent');
+    await mkdir(target, { recursive: true });
+    if (!(await lstat(target)).isDirectory() || (await lstat(target)).isSymbolicLink()) throw Error('unsafe_diagnostic_directory');
+    const destination = await mkdtemp(join(target, passId + '-'));
+    let remaining = 128 * 1024 * 1024, entries = 0, copied = 0, omitted = 0;
+    async function copy(path, depth = 0) {
+      if (++entries > 512 || depth > 8) { omitted++; return; }
+      try {
+        const info = await lstat(join(temp, path));
+        if (info.isSymbolicLink()) { omitted++; return; }
+        if (info.isDirectory()) {
+          for await (const item of await opendir(join(temp, path))) {
+            if (entries >= 512) { omitted++; break; }
+            await copy(path + '/' + item.name, depth + 1);
+          }
+        } else if (info.isFile()) {
+          const bytes = await readBounded(temp, path, Math.min(64 * 1024 * 1024, remaining));
+          await mkdir(dirname(join(destination, path)), { recursive: true });
+          await writeFile(join(destination, path), bytes, { flag: 'wx', mode: 0o600 });
+          remaining -= bytes.length; copied++;
+        } else omitted++;
+      } catch { omitted++; }
+    }
+    for (const path of ['report.json', 'last-run.json', 'artifacts']) await copy(path);
+    await writeFile(join(destination, 'diagnostics.json'), JSON.stringify({ pass: passId, copied, omitted,
+      bytes: 128 * 1024 * 1024 - remaining, admission_evidence: false }) + '\n', { flag: 'wx', mode: 0o600 });
+  } catch { console.error('pinned_e2e_diagnostics_unavailable'); }
+  finally { await rm(temp, { recursive: true, force: true }); }
+}
+
 // SIGTERM allows Playwright's 15s webServer shutdown to drop the private schema.
 // Escalation is bounded independently of the host-owned whole-pass budget.
 function execute(root, cli, pass, env, signal, configFile, listing = false) {
   return new Promise(done => {
     const group = process.platform !== 'win32';
     const files = pass.files.map(file => '(?:^|/)' + file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$');
-    const child = spawn(process.execPath, [cli, 'test', '--config', configFile, '--forbid-only', listing ? '--reporter=json' : '--reporter=list,json', ...(listing ? ['--list'] : []), '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...files],
+    // Print each failure before a whole-pass timeout can prevent the final summary.
+    const child = spawn(process.execPath, [cli, 'test', '--config', configFile, '--forbid-only', listing ? '--reporter=json' : '--reporter=line,json', ...(listing ? ['--list'] : []), '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...files],
       { cwd: root, env, stdio: 'inherit', detached: group });
     let reason, escalation;
     const kill = name => {
@@ -138,7 +177,7 @@ async function main() {
   try {
     for (const pass of plan) {
       if (controller.signal.aborted) { executionReason = 'test_cancelled'; break; }
-      let temp;
+      let temp, passCompleted = false;
       try {
         temp = await mkdtemp(join(tmpdir(), 'fp-pinned-'));
         const reportPath = join(temp, 'report.json');
@@ -153,8 +192,8 @@ async function main() {
             const bytes = await readFile(reportPath);
             listing = JSON.parse(bytes.toString('utf8')); listing_evidence_sha256 = sha256(bytes);
           } catch { executionReason ??= 'invalid_case_listing'; }
-          await rm(reportPath, { force: true });
           if (executionReason) break;
+          await rm(reportPath, { force: true });
         }
         const ran = await execute(root, cli, pass, env, controller.signal, configFile);
         executionReason = ran.reason;
@@ -170,8 +209,9 @@ async function main() {
         if (!executionReason && ran.exit_code !== 0) executionReason = 'test_process_failed';
         if (!executionReason && !report) executionReason = 'invalid_test_results';
         if (executionReason) break;
+        passCompleted = true;
       } finally {
-        if (temp) await rm(temp, { recursive: true, force: true });
+        if (temp) await cleanupE2ePass(temp, output, pass.id, !passCompleted);
       }
     }
   } catch { executionReason ??= 'incomplete_test_results'; }
@@ -185,7 +225,7 @@ async function main() {
   await publish(result);
 }
 
-main().catch(() => {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(() => {
   console.error('pinned_e2e_output_unavailable');
   process.exitCode = 1;
 });
