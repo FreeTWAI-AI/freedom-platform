@@ -287,7 +287,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   }
 
   async function earlier(){
-    if(!history||history.next_offset===null||more.loading||!selected)return;
+    if(threadInFlight.current||!history||history.next_offset===null||more.loading||!selected)return;
     const generation=threadGeneration.current,key=selected.key,since=epoch.current;setMore({loading:true,error:''});
     try{
       const value=await client.get<History>(path(key,`messages?limit=${PAGE}&offset=${history.next_offset}`));
@@ -440,7 +440,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" aria-label="重新讀取訊息" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>{refresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
           {refresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{refresh.error}</p>}
           <div className="messages-scroll" ref={scroll} role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label={`${history.channel.name}對話紀錄`} onScroll={()=>{if(scroll.current){stick.current=scroll.current.scrollHeight-scroll.current.scrollTop-scroll.current.clientHeight<80;if(stick.current)setHasNew(false);}}}>
-          {history.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={more.loading} onClick={()=>void earlier()}>{more.loading?'正在讀取…':more.error?'重試載入較早訊息':'載入較早訊息'}</button>}
+          {history.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={more.loading||refresh.loading} onClick={()=>void earlier()}>{more.loading?'正在讀取…':more.error?'重試載入較早訊息':'載入較早訊息'}</button>}
           {more.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{more.error}</p>}
           {history.items.length===0?<p className="empty">這個頻道還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="頻道訊息">
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
