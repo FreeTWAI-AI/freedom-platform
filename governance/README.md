@@ -110,10 +110,27 @@ Default evidence requires both ordered `partitions` with host-bound current/tota
 actual exit status and raw-report SHA-256. Their disjoint case union must equal
 the unsharded inventory; a successful subset, duplicate, invented or omitted case
 cannot pass. Receipts retain inventory/case fingerprints without raw test titles.
-Failure artifacts retain the inventory and both shard outputs under the existing
-bounded diagnostic-copy policy; those artifacts are not admission evidence.
+Every actual pass is validated against the central evidence contract before its
+scratch can be discarded or the next fixture pass can start. Ordered-prefix
+validation defers only the whole-plan skipped-to-passed/file coverage obligations;
+it does not invent future pass results or admit an incomplete plan. Aggregation
+errors retain their original reason, including `case_listing_mismatch` even when
+both shards exited zero. Failure artifacts prioritize the inventory and both raw
+shard reports before optional traces under the existing 128 MiB / 512-entry,
+regular-file/no-symlink diagnostic-copy policy; they are not admission evidence.
 The reviewed central pin must adopt this source before hosted CI uses it; a local
 candidate cannot approve that pin, replace a failed run, or authorize merge/deploy.
+
+The 2026-10-16 local review smoke used the actual pinned CLI and real Playwright
+against 92 synthetic baseline cases whose titles varied with the assigned port.
+Before the fix (`efc2c3dc`), both shards exited zero, all five later fixture passes
+ran (97 executions total), and the final `case_listing_mismatch` retained no raw
+diagnostics. After the fix, the same input stopped after the default pass (92
+executions, both exits zero), preserved that reason, and retained the listing and
+both SHA-bound shard reports: six regular files totaling 183,632 bytes including
+the diagnostic receipt. This is evidence-lifecycle execution, not browser/product
+or database coverage; the earlier full-platform evidence and failed hosted runs
+are unchanged, and the unchanged full program was not rerun for this review.
 
 `runLocalSuite(root, id, {testDatabaseUrl})` remains available from `verify.mjs`; `runLocalSuites(root, ids, {testDatabaseUrl})` and the default `verifyWorkspace(options, {testDatabaseUrl})` batch overlapping runtime selections into **one** Node/tsx invocation. Each file executes once even when full and subset IDs are selected; reports project each suite's file/case evidence from that invocation. There is no persistent cache across calls or source changes. Deleting a baseline file or a fixed subset file cannot become green; consumers without these producer suites receive `suite_files_unavailable`. New direct runtime test files are discovered automatically without first adding them to the baseline list. The tsx loader comes from the installed tooling's dependency resolution; no npm script is executed.
 

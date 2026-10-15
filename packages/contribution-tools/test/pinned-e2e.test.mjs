@@ -5,9 +5,10 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir, symlink, trunca
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { GUILD_PRESENTATION_PROFILE } from '../guild-presentation-profile.mjs';
 import { cleanupE2ePass } from '../../../scripts/ci/run-pinned-e2e.mjs';
-import { E2E_BASELINE, E2E_PLAN, E2E_DEFAULT_SHARDS, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, GUIDE_DEFAULT_FILES, GUIDE_COMPOSITION_PROFILE, planE2eSelection } from '../pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, E2E_DEFAULT_SHARDS, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, evaluateE2ePassProgress, GUIDE_DEFAULT_FILES, GUIDE_COMPOSITION_PROFILE, planE2eSelection } from '../pinned-e2e.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const rootDir = '/fixture/tests/e2e';
@@ -60,6 +61,22 @@ test('Six clean passes including photo and preference fixtures', () => {
   assert.equal(result.test_count, 7);
   assert.deepEqual(result.test_files.find(f => f.path.endsWith('private-work-ai.spec.ts')).counts, { tests: 2, passed: 2 });
   assert.ok(!JSON.stringify(result).includes('ordinary'));
+});
+
+test('progress validates only a nonempty ordered prefix without granting complete-plan admission', () => {
+  const passes = cleanPasses();
+  const progress = value => evaluateE2ePassProgress(expectedFiles, value, { rootDir, configFile });
+  assert.equal(progress(passes.slice(0, 1)).status, 'passed');
+  assert.equal(evaluate(passes.slice(0, 1)).reason, 'invalid_pass_plan');
+  assert.equal(progress([]).reason, 'invalid_pass_plan');
+  assert.equal(progress(passes.slice(1, 2)).reason, 'invalid_pass_plan');
+  assert.equal(progress([...passes, passes[0]]).reason, 'invalid_pass_plan');
+  const incomplete = passes.slice(0, 1);
+  incomplete[0].partitions[0].report.suites[0].suites[0].suites[0].specs[0].title = 'conditional inventory';
+  assert.equal(progress(incomplete).reason, 'case_listing_mismatch');
+  const skipped = cleanPasses();
+  Object.assign(testIn(skipped, 4, 'hosted-store-photo.spec.ts', 'photo'), state('skipped'));
+  assert.equal(progress(skipped).reason, 'skipped_test_never_expected');
 });
 
 test('full default evidence requires both distinct host-bound fragments, not a successful subset', () => {
@@ -258,6 +275,35 @@ test('Failure diagnostics survive scratch cleanup, are bounded and never follow 
     await assert.rejects(stat(join(root, 'success.json.failure-artifacts')), { code: 'ENOENT' });
   });
 });
+
+test('diagnostic saturation preserves listing and both reports before bounded optional artifacts', async () => {
+  await withFixture(async root => {
+    const temp = join(root, 'scratch'), output = join(root, 'result.json');
+    await mkdir(join(temp, 'artifacts'), { recursive: true });
+    for (const path of ['listing.json', 'shard-1/report.json', 'shard-2/report.json']) {
+      await mkdir(join(temp, path, '..'), { recursive: true });
+      await writeFile(join(temp, path), JSON.stringify({ path }));
+    }
+    for (let index = 0; index < 3; index++) {
+      const path = join(temp, 'artifacts', `large-${index}.zip`);
+      await writeFile(path, '');
+      await truncate(path, 50 * 1024 * 1024);
+    }
+    for (let index = 0; index < 600; index++) await writeFile(join(temp, 'artifacts', `entry-${index}`), '');
+    await cleanupE2ePass(temp, output, 'default', true);
+    const [run] = await readdir(output + '.failure-artifacts');
+    const saved = join(output + '.failure-artifacts', run);
+    for (const path of ['listing.json', 'shard-1/report.json', 'shard-2/report.json']) {
+      assert.deepEqual(JSON.parse(await readFile(join(saved, path), 'utf8')), { path });
+    }
+    const receipt = JSON.parse(await readFile(join(saved, 'diagnostics.json'), 'utf8'));
+    assert.ok(receipt.bytes <= 128 * 1024 * 1024);
+    assert.ok(receipt.copied <= 512);
+    assert.ok(receipt.omitted > 0);
+    assert.ok((await readdir(join(saved, 'artifacts'))).length < 600);
+    await assert.rejects(stat(temp), { code: 'ENOENT' });
+  });
+});
 const invoke = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...cliEnv, ...env }, timeout: 60000 });
 async function baseline(root, omit) {
   await mkdir(join(root, 'tests/e2e'), { recursive: true });
@@ -327,6 +373,54 @@ test('CLI ignores candidate filters, includes new specs and isolates concurrent 
     assert.equal(result.test_files.length, E2E_BASELINE.length + 3);
     assert.ok(result.test_files.every(file => file.counts.tests === (isolatedFiles.some(name=>file.path.endsWith('/'+name))?1:2) && file.counts.passed === file.counts.tests));
     assert.deepEqual(result.passes.map(pass => pass.exit_code), [0, 0, 0, 0, 0, 0]);
+  });
+});
+
+test('zero-exit real shards with conditional inventory stop immediately and retain their actual evidence', async () => {
+  await withFixture(async root => {
+    await playwrightFixture(root, "export default { projects: [{ name: 'chromium' }] };");
+    const starts = join(root, 'executed.jsonl');
+    for (const file of E2E_BASELINE) await writeFile(join(root, file), `
+      import { test } from '@playwright/test';
+      import { appendFileSync, writeFileSync, symlinkSync, existsSync, mkdirSync } from 'node:fs';
+      import { dirname, join } from 'node:path';
+      test('conditional inventory '+(process.env.FREEDOM_E2E_PORT??'listing'), () => {
+        const mode=['PRIVATE_AI_FIXTURE','AVATAR_ASSET_FIXTURE','MESSAGE_IMAGE_FIXTURE','STORE_PHOTO_FIXTURE','NOTIFICATION_PREFERENCES']
+          .find(name=>process.env['FREEDOM_E2E_'+name]==='1')??'default';
+        appendFileSync(${JSON.stringify(starts)},JSON.stringify({mode,scratch:dirname(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE)})+'\\n');
+        const directory=dirname(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE);
+        mkdirSync(join(directory,'artifacts'),{recursive:true});
+        const link=join(directory,'artifacts','private-link');
+        if(!existsSync(link))symlinkSync(${JSON.stringify(join(root, 'private.txt'))},link);
+        writeFileSync(join(directory,'last-run.json'),'{"status":"passed"}');
+      });
+    `);
+    await writeFile(join(root, 'private.txt'), 'must not be retained');
+    const output = join(root, 'result.json'), child = invoke(['--root', root, '--output', output]);
+    assert.equal(child.status, 1, child.stdout + child.stderr);
+    const result = JSON.parse(await readFile(output, 'utf8'));
+    assert.equal(result.status, 'failed');
+    assert.equal(result.reason, 'case_listing_mismatch');
+    assert.deepEqual(result.passes.map(pass => pass.id), ['default']);
+    assert.deepEqual(result.passes[0].partitions.map(part => part.exit_code), [0, 0]);
+    const executions = (await readFile(starts, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+    assert.deepEqual([...new Set(executions.map(item => item.mode))], ['default']);
+    for (const scratch of new Set(executions.map(item => item.scratch))) await assert.rejects(stat(scratch), { code: 'ENOENT' });
+    const [run] = await readdir(output + '.failure-artifacts'), saved = join(output + '.failure-artifacts', run);
+    const listing = await readFile(join(saved, 'listing.json'));
+    assert.equal(createHash('sha256').update(listing).digest('hex'), result.passes[0].listing_evidence_sha256);
+    assert.equal(JSON.parse(listing).config.shard, null);
+    for (const part of result.passes[0].partitions) {
+      const bytes = await readFile(join(saved, `shard-${part.current}/report.json`));
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), part.evidence_sha256);
+      assert.deepEqual(JSON.parse(bytes).config.shard, { current: part.current, total: part.total });
+      await assert.rejects(stat(join(saved, `shard-${part.current}/artifacts/private-link`)), { code: 'ENOENT' });
+    }
+    const receipt = JSON.parse(await readFile(join(saved, 'diagnostics.json'), 'utf8'));
+    assert.equal(receipt.admission_evidence, false);
+    assert.ok(receipt.omitted > 0);
+    assert.ok(receipt.bytes <= 128 * 1024 * 1024);
+    assert.ok(receipt.copied <= 512);
   });
 });
 

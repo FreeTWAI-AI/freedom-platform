@@ -145,6 +145,17 @@ function listedCaseIdentities(report, files, options) {
 // Playwright 1.63 JSON: file suites are relative to config.rootDir, test.status
 // is an outcome, and results[].status is an execution state. No test.titlePath.
 export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
+  return evaluatePassReports(expectedFiles, passReports, options, true);
+}
+
+// Validate only the actual ordered prefix before its scratch is discarded.
+// A valid prefix is not complete-plan admission; cross-mode coverage is checked
+// once all required passes exist, using the same evidence contract below.
+export function evaluateE2ePassProgress(expectedFiles, passReports, options = {}) {
+  return evaluatePassReports(expectedFiles, passReports, options, false);
+}
+
+function evaluatePassReports(expectedFiles, passReports, options, complete) {
   let reason = 'tests_executed';
   const identities = new Map();
   let selected_files = [], passes = [];
@@ -178,7 +189,9 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
           ...(typeof part?.evidence_sha256 === 'string' && /^[a-f0-9]{64}$/.test(part.evidence_sha256)
             ? { evidence_sha256: part.evidence_sha256 } : {}),
         })) } : {}) }));
-    if (passReports.length !== requiredPlan.length || passReports.some((pass, i) => pass?.id !== requiredPlan[i].id)) {
+    if (!passReports.length || passReports.length > requiredPlan.length
+      || (complete && passReports.length !== requiredPlan.length)
+      || passReports.some((pass, i) => pass?.id !== requiredPlan[i].id)) {
       throw Error('invalid_pass_plan');
     }
     const expected = new Set(selected_files);
@@ -251,8 +264,10 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
         passes[index].cases = caseResults.sort((a, b) => a.case_sha256.localeCompare(b.case_sha256));
       }
     }
-    if ([...identities.values()].some(info => info.skipped && !info.expected)) throw Error('skipped_test_never_expected');
-    if (selected_files.some(file => ![...identities.values()].some(info => info.file === file && info.expected))) throw Error('missing_or_empty_file');
+    if (passReports.length === requiredPlan.length) {
+      if ([...identities.values()].some(info => info.skipped && !info.expected)) throw Error('skipped_test_never_expected');
+      if (selected_files.some(file => ![...identities.values()].some(info => info.file === file && info.expected))) throw Error('missing_or_empty_file');
+    }
   } catch (error) {
     const allowed = ['invalid_expected_files', 'empty_test_set', 'invalid_root_dir', 'invalid_pass_plan',
       'test_process_failed', 'invalid_test_results', 'test_not_passed', 'unexpected_file',

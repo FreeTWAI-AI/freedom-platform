@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { E2E_BASELINE, E2E_PLAN, E2E_DEFAULT_SHARDS, GUILD_E2E_PLAN, GUILD_PREVIEW_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, planE2eSelection } from '../../packages/contribution-tools/pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, E2E_DEFAULT_SHARDS, GUILD_E2E_PLAN, GUILD_PREVIEW_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, evaluateE2ePassProgress, planE2eSelection } from '../../packages/contribution-tools/pinned-e2e.mjs';
 import { GUILD_PRESENTATION_PROFILE } from '../../packages/contribution-tools/guild-presentation-profile.mjs';
 import { collectRepositoryE2eDecision } from './select-affected-jobs.mjs';
 import { readBounded } from '../../packages/contribution-tools/io.mjs';
@@ -44,7 +44,10 @@ export async function cleanupE2ePass(temp, output, passId, failed) {
         } else omitted++;
       } catch { omitted++; }
     }
-    for (const path of ['report.json', 'listing.json', 'last-run.json', 'artifacts', ...E2E_DEFAULT_SHARDS.map(shard => `shard-${shard.current}`)]) await copy(path);
+    // Preserve the inventory and both reports before optional traces consume
+    // the shared byte/entry bound.
+    for (const path of ['report.json', 'listing.json', ...E2E_DEFAULT_SHARDS.map(shard => `shard-${shard.current}/report.json`),
+      'last-run.json', 'artifacts', ...E2E_DEFAULT_SHARDS.flatMap(shard => [`shard-${shard.current}/last-run.json`, `shard-${shard.current}/artifacts`])]) await copy(path);
     await writeFile(join(destination, 'diagnostics.json'), JSON.stringify({ pass: passId, copied, omitted,
       bytes: 128 * 1024 * 1024 - remaining, admission_evidence: false }) + '\n', { flag: 'wx', mode: 0o600 });
   } catch { console.error('pinned_e2e_diagnostics_unavailable'); }
@@ -185,6 +188,8 @@ async function main() {
   process.on('SIGINT', onSignal);
   process.on('SIGTERM', onSignal);
   let executionReason;
+  const evidenceOptions = { rootDir: resolve(root, profile === 'guild-preview' ? 'modules' : 'tests/e2e').split(sep).join('/'), configFile, profile };
+  let progress;
   try {
     for (const pass of plan) {
       if (controller.signal.aborted) { executionReason = 'test_cancelled'; break; }
@@ -208,8 +213,7 @@ async function main() {
             passReports.push({ id: pass.id, exit_code: listed.exit_code, listing, listing_exit_code, listing_evidence_sha256 });
             break;
           }
-          if (partitioned) await rename(reportPath, join(temp, 'listing.json'));
-          else await rm(reportPath, { force: true });
+          await rename(reportPath, join(temp, 'listing.json'));
         }
         if (partitioned) {
           const peers = new AbortController();
@@ -247,6 +251,8 @@ async function main() {
         }
         // An early stop leaves fewer passes; report its cause rather than invalid_pass_plan.
         if (executionReason) break;
+        progress = evaluateE2ePassProgress(expectedFiles, passReports, evidenceOptions);
+        if (progress.status !== 'passed') { executionReason = progress.reason; break; }
         passCompleted = true;
       } finally {
         if (temp) await cleanupE2ePass(temp, output, pass.id, !passCompleted);
@@ -258,7 +264,7 @@ async function main() {
     process.removeListener('SIGTERM', onSignal);
   }
   if (controller.signal.aborted) executionReason = 'test_cancelled';
-  const result = evaluateE2ePasses(expectedFiles, passReports, { rootDir: resolve(root, profile==='guild-preview'?'modules':'tests/e2e').split(sep).join('/'), configFile, profile });
+  const result = progress?.status === 'failed' ? progress : evaluateE2ePasses(expectedFiles, passReports, evidenceOptions);
   if (executionReason) { result.status = 'failed'; result.reason = executionReason; }
   await publish(result);
 }
