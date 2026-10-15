@@ -1,4 +1,8 @@
 import {test} from 'node:test';
+import {reservationFilterParams,validLocalDate} from '../../modules/agent-commerce/supplier-console/ui/route';
+import {CHANGE_LABELS,changeLabel,changeSubject} from '../../modules/agent-commerce/supplier-console/ui/view';
+import {SupplierChangeOperationSchema} from '../../contracts/guild-launchpad/v1/supplier-console';
+import {interfaceMessages} from '../../apps/portal-web/src/interface-messages';
 import assert from 'node:assert/strict';
 import {parseSupplierConsoleRoute as parse,supplierConsoleHref as href,sameConsoleScope,consoleNavigation,SUPPLIER_CONSOLE_PAGES} from '../../modules/agent-commerce/supplier-console/ui/route';
 import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,refusalReleased,type Attempt} from '../../modules/agent-commerce/supplier-console/state/attempt';
@@ -134,4 +138,71 @@ test('SC-UI-24 refusal lock releases only after a newer valid current profile re
  assert.equal(refusalReleased({key:'overview',mark:5,ticket:6,current:true,matched:true}),false);
  assert.equal(refusalReleased({mark:null,ticket:6,current:true,matched:true}),false);
  assert.equal(refusalReleased({mark:5,ticket:6,current:true,matched:true}),true);
+});
+
+
+test('SC-UI-S2-01 reservation details round-trip with owner-only metadata and no navigation group',()=>{
+ const path=href(scope,'reservation',{id});assert.equal(path,root+'/reservations/'+id);
+ assert.deepEqual(parse(path),{...scope,page:'reservation',titleKey:'supplierConsole.reservation',id});
+ const page=SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='reservation')!;
+ assert.equal(page.title,'預留明細');assert.equal(page.requires,'owner');assert.equal(page.group,null);assert.equal(page.parent,'reservations');
+ assert.equal(parse(root+'/reservations/bad')?.page,'not-found');
+ assert.ok(!consoleNavigation(['store:write'],true).some(p=>p.page==='reservation'));
+});
+test('SC-UI-S2-02 every reservations filter round-trips in a stable canonical order',()=>{
+ const reservation={state:'reserved' as const,partner:id,product:other,from:'2026-10-01',to:'2026-10-15'};
+ const path=href(scope,'reservations',{reservation:{to:reservation.to,product:other,partner:id,state:'reserved',from:reservation.from}});
+ assert.equal(path,root+`/reservations?state=reserved&partner=${id}&product=${other}&from=2026-10-01&to=2026-10-15`);
+ assert.deepEqual(parse(path)?.reservation,reservation);
+ for(const [key,value] of Object.entries(reservation))assert.deepEqual(parse(href(scope,'reservations',{reservation:{[key]:value}}))?.reservation,{[key]:value});
+ for(const state of ['cancelled','expired'] as const)assert.equal(parse(href(scope,'reservations',{reservation:{state}}))?.reservation?.state,state);
+ assert.deepEqual(parse(`#stores/${t}/${i}/supply-orders?state=reserved&partner=${id}`)?.reservation,{state:'reserved',partner:id});
+ assert.equal(parse(`#stores/${t}/${i}/supply-orders`)?.page,'reservations');
+});
+test('SC-UI-S2-03 invalid reservations query values are dropped without affecting other filters or pages',()=>{
+ assert.deepEqual(parse(root+'/reservations?state=offered&partner=bad&product=bad&from=2026-02-30&to=2026-13-01&sort=sku&unknown=1')?.reservation,{});
+ for(const date of ['2026-2-01','2026-02-29','2026-04-31','2026-00-01','2026-01-00','0000-01-01','2026-01-01T00:00:00Z','2026-01-01\n']){
+  assert.equal(validLocalDate(date),false,date);assert.deepEqual(parse(root+'/reservations?from='+encodeURIComponent(date)+'&state=expired')?.reservation,{state:'expired'});
+ }
+ for(const date of ['2024-02-29','2000-02-29','2026-12-31','0099-01-01'])assert.equal(validLocalDate(date),true,date);
+ assert.equal(validLocalDate('1900-02-29'),false);
+ for(const page of ['overview','products','reservation','partner'] as const)assert.equal(parse(href(scope,page,{id})+`?partner=${id}&product=${other}&from=2026-01-01&to=2026-01-02&state=reserved`)?.reservation,undefined);
+ assert.equal(href(scope,'reservations',{reservation:{partner:'bad',from:'2026-02-30'}}),root+'/reservations');
+});
+test('SC-UI-S2-04 local calendar dates become ISO half-open bounds including month/year and DST transitions',()=>{
+ const before=process.env.TZ;
+ try{
+  process.env.TZ='Asia/Taipei';
+  const q=reservationFilterParams({state:'reserved',partner:id,product:other,from:'2026-10-01',to:'2026-10-15'})!;
+  assert.deepEqual(Object.fromEntries(q),{state:'reserved',partner_id:id,product_id:other,from:'2026-09-30T16:00:00.000Z',to:'2026-10-15T16:00:00.000Z'});
+  assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-12-31',to:'2026-12-31'})!),{from:'2026-12-30T16:00:00.000Z',to:'2026-12-31T16:00:00.000Z'});
+  assert.equal(reservationFilterParams({to:'2024-02-29'})?.get('to'),'2024-02-29T16:00:00.000Z');
+  assert.equal(reservationFilterParams({from:'2026-02-30'}),null);assert.equal(reservationFilterParams({to:'bad'}),null);
+  assert.equal(reservationFilterParams({from:'2026-10-16',to:'2026-10-15'}),null);
+  assert.equal(reservationFilterParams({})?.size,0);
+  process.env.TZ='America/New_York';
+  const dst=reservationFilterParams({from:'2026-03-08',to:'2026-03-08'})!;
+  assert.equal(dst.get('from'),'2026-03-08T05:00:00.000Z');assert.equal(dst.get('to'),'2026-03-09T04:00:00.000Z');
+  const fall=reservationFilterParams({from:'2026-11-01',to:'2026-11-01'})!;
+  assert.equal(fall.get('from'),'2026-11-01T04:00:00.000Z');assert.equal(fall.get('to'),'2026-11-02T05:00:00.000Z');
+ }finally{if(before===undefined)delete process.env.TZ;else process.env.TZ=before;}
+});
+test('SC-UI-S2-05 change labels exhaust the wire enum and preserve publish version semantics',()=>{
+ const expected={
+  'storefront.supply-catalog.setup':'建立供貨商品庫','storefront.supply-profile.update':'更新商品庫資料','storefront.reservations.configure':'變更預留設定',
+  'storefront.supply-product.create':'新增商品','storefront.product.create':'在商店新增商品','storefront.supply-product.update':'更新商品內容或庫存',
+  'storefront.product.update':'在商店更新商品','storefront.supply-terms.update':'更新供貨條件','storefront.product.photo.upload':'上傳商品照片',
+  'storefront.product.photo.remove':'移除商品照片','storefront.supply-offer.publish':'公開新的供貨版本','storefront.supply-offer.withdraw':'撤回供貨版本','storefront.distribution.decide':'處理售價申請',
+ };
+ assert.deepEqual(Object.keys(CHANGE_LABELS).sort(),[...SupplierChangeOperationSchema.options].sort());assert.deepEqual(CHANGE_LABELS,expected);
+ for(const operation of SupplierChangeOperationSchema.options)assert.equal(changeLabel({operation,version:'1'}),expected[operation]);
+ for(const version of ['2','9223372036854775807'])assert.equal(changeLabel({operation:'storefront.supply-offer.publish',version}),'供貨版本由新版本取代');
+ assert.equal(changeLabel({operation:'storefront.distribution.decide',version:'2'}),'處理售價申請');
+ assert.equal(changeSubject({kind:'business'}),'商品庫設定');assert.equal(changeSubject({kind:'product',product_id:id,title:'杯子'}),'杯子');
+ assert.equal(changeSubject({kind:'offer',product_id:id,offer_id:other,title:'杯子'}),'杯子');
+ assert.equal(changeSubject({kind:'request',product_id:id,selection_id:other,partner_id:other,partner_name:'店家',title:'杯子'}),'店家・杯子');
+});
+test('SC-UI-S2-06 every supplier console page title is translated in every interface language',()=>{
+ for(const page of SUPPLIER_CONSOLE_PAGES){assert.ok(page.titleKey in interfaceMessages,page.titleKey);const translations=interfaceMessages[page.titleKey];assert.equal(translations.length,5);assert.equal(translations[0],page.title);assert.ok(translations.every(text=>text.length>0));}
+ assert.equal(interfaceMessages['supplierConsole.reservation'][1],'Reservation details');
 });

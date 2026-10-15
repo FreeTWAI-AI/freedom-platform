@@ -10,6 +10,7 @@ export const interfaceMessages = {
   'supplierConsole.partner':["合作店家詳情", "Partner shop details", "提携店舗の詳細", "협력 매장 상세", "Detalles de la tienda asociada"],
   'supplierConsole.terms':["供貨條件與審核", "Supply terms and reviews", "供給条件と審査", "공급 조건 및 검토", "Condiciones de suministro y revisión"],
   'supplierConsole.review':["審核售價申請", "Review price proposal", "販売価格の申請審査", "판매가 신청 검토", "Revisar propuesta de precio"],
+  'supplierConsole.reservation':["預留明細", "Reservation details", "予約の詳細", "예약 상세", "Detalles de la reserva"],
   'supplierConsole.reservations':["預留與訂單", "Reservations and orders", "予約と注文", "예약 및 주문", "Reservas y pedidos"],
   'supplierConsole.settings':["設定與資料", "Settings and information", "設定と情報", "설정 및 정보", "Configuración e información"],
   'supplierConsole.not-found':["找不到這個頁面", "Page not found", "ページが見つかりません", "페이지를 찾을 수 없습니다", "Página no encontrada"],
