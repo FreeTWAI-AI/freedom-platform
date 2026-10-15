@@ -139,7 +139,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | seller cancel（未付） | 賣家 owner／被授權者 | 同上 | `cancelled(seller_cancelled)`；attempt 的處理同 buyer cancel |
 | hold expire | 讀取、下單缺額結算、排程 | hold 仍 `held` 且 DB 時間 ≥ `expires_at` | hold release；訂單仍 `open`（付款可能晚到） |
 | payment confirmed | 已驗證的 provider 事件或查詢結果（EC-SPEC-04） | 金額、商家、環境、交易識別相符；非模擬 | 若 hold 仍 `held` → convert；否則 → allocate 或例外；成功後建立 fulfilment orders（EC-SPEC-05） |
-| payment window end | 排程 | `open`、無確認付款、所有 attempt 已確認為未付終態 | `cancelled(payment_not_completed)`；若 attempt 仍未知，繼續查詢，不取消 |
+| payment window end | 排程 | `open`、無確認付款、所有 attempt 都是 `failed` 或 `expired_unpaid`（EC-SPEC-04 §3.3、§6.2） | `cancelled(payment_not_completed)`；若 attempt 仍未知，繼續查詢，不取消（EC-SPEC-04 §6.3） |
 | cancel paid（未出貨） | 買家申請＋賣家同意，或賣家主動（EC-SPEC-06 §2.4） | 已確認付款、該行項沒有已交寄的量 | 有配置就 allocation release（`paid_unallocatable` 沒有配置）；`cancelled(…)` 只在全部行項不出貨時；退款另建 refund，不視為已退 |
 | ship | shipment 交寄證據 | 包裹行項 ≤ 剩餘配置 | 每個 (shipment, allocation) 一筆 movement：N、A 同減 |
 | close | 賣家／排程 | §3.2 條件 | `closed` |

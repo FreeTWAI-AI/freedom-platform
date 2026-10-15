@@ -111,7 +111,7 @@ interface PaymentPort {
 
 - 不支援的能力回明確的 `Unsupported`，不假裝成功（計畫 §10.1）。
 - adapter 是純函式＋單一 HTTP client（10 秒逾時、只連該環境的官方主機、`redirect: 'manual'`）；簽章與編碼的純函式放在 provider 協定程式庫（§10），由向量測試證明在 Node 與 workerd 結果一致。
-- `QueryOutcome`、`VerifiedNotification` 都是判別聯集（paid／failed／unpaid／not_found／unknown），呼叫端不能把 `unknown` 當成其中任何一種。
+- `QueryOutcome`、`VerifiedNotification` 都是判別聯集，呼叫端不能把 `unknown` 當成其中任何一種。查詢沒有獨立的「查無此單」結果：綠界文件沒有列出它的狀態碼，解析器把它和其他無法辨識的狀態一樣回 `unknown`，並保留原始狀態碼供人工核對（§6.2）。
 
 ### 3.3 attempt 狀態
 
@@ -122,7 +122,7 @@ interface PaymentPort {
 | `confirmed` | `paid` 且伺服器對伺服器查詢也確認（§5.5） | `paid` |
 | `failed` | 已驗證的失敗通知，或查詢回 `10200095` | `issued`、`superseded` |
 | `superseded` | 買家改用新的 attempt；仍持續查詢到確認窗結束 | `issued` |
-| `expired_unpaid` | 確認窗結束時查詢仍未付 | `issued`、`superseded`、`failed` 以外的未付 |
+| `expired_unpaid` | 確認窗結束後確定沒有付款：窗結束後的查詢回 `TradeStatus=0`，或從未交接（§6.2）。結果不明的 attempt 不進這個狀態 | `issued`、`superseded` |
 
 - `paid`／`confirmed` 之後不會退回未付；之後的退款是 `commerce_refunds` 的事。
 - 已付款的 attempt 之後又來一筆矛盾的失敗通知：保留事件、不改狀態、建立例外（§5.6）。
@@ -145,6 +145,7 @@ interface PaymentPort {
 - Worker 對這個路徑回一個極小的 HTML：一個 `method="POST"` 的表單，action 是該環境的 `AioCheckOut/V5` [2862]，欄位含 CheckMacValue（這是簽章，不是金鑰）。同源的外部 script 載入後自動送出；`<noscript>` 顯示按鈕。不用 `target="_blank"`、不放 iframe（iOS 內嵌瀏覽器會擋 [2862][61944]）。
 - 這個路徑的 CSP 例外：`form-action` 只加上該環境的綠界主機（`https://payment-stage.ecpay.com.tw` 或 `https://payment.ecpay.com.tw`），沿用 `platformContentSecurityPolicy(path)` 依路徑加表單目的地的做法（`apps/platform-api/src/platform-app.ts:146`）。其他頁面不放寬。SPA 用 hash 路由，CSP 只能依 HTTP 路徑區分，所以必須是獨立路徑。
 - token 到期後再開：頁面顯示「這個付款連結已失效」，帶回訂單頁。
+- 只有訂單 `open`、hold 仍有效、attempt 仍是 `issued` 且還沒交接時才交接；`handed_off_at` 提交之後才回付款表單。條件不符就顯示對應的頁面，token 不消耗。hold 到期後不再交接，所以確認窗結束時還沒交接的 attempt 之後也不會付款（§6.2）。
 
 ### 4.2 回到商店
 
@@ -206,7 +207,7 @@ interface PaymentPort {
 
 ### 5.6 例外
 
-付款相關例外都進 EC-SPEC-05 的 ExceptionCase（同一個工作台）：`unmatched_payment`、`amount_mismatch`、`paid_unallocatable`、`paid_after_cancel`、`overpaid`、`payment_unconfirmed`、`contradicting_event`。每個例外有責任人（賣家）、下一個合法動作與期限，不只顯示「請聯絡客服」。
+付款相關例外都進 EC-SPEC-05 的 ExceptionCase（同一個工作台）：`unmatched_payment`、`amount_mismatch`、`paid_unallocatable`、`paid_after_cancel`、`overpaid`、`payment_unconfirmed`、`contradicting_event`。`payment_unconfirmed` 有兩種來源：已付款但查詢無法確認（§5.5），以及確認窗後 24 小時仍查不出結果的未付 attempt（§6.3）。每個例外有責任人（賣家）、下一個合法動作與期限，不只顯示「請聯絡客服」。
 
 ## 6. 查詢（QueryTradeInfo/V5）
 
@@ -225,19 +226,20 @@ interface PaymentPort {
 | --- | --- |
 | `TradeStatus=1`、金額與 `TradeNo` 相符 | `paid`（若尚未）→ `confirmed` |
 | `TradeStatus=1` 但金額不符 | `amount_mismatch` 例外 |
-| `TradeStatus=0`（已建立未付款） | 不變；確認窗結束時 → `expired_unpaid` |
+| `TradeStatus=0`（已建立未付款） | 不變；確認窗結束後的查詢仍是如此 → `expired_unpaid` |
 | `TradeStatus=10200095`（未完成付款、交易失敗） | `failed` |
-| 查無此單、或無法辨識的回應 | 記為 `unknown`；確認窗結束仍是如此 → `expired_unpaid` |
+| 查無此單、或無法辨識的回應 | 記為 `unknown`，attempt 不變；確認窗結束後仍是如此 → 不改狀態、不取消，依 §6.3 繼續查詢 |
 
 - 查詢回應同樣以 SHA-256 CheckMacValue 驗證 [2890]；驗證失敗當 `unknown`。
 - 請求的 `TimeStamp` 3 分鐘內有效 [2890]：送出前才產生，不重用；重試時重新簽章。
-- 確認窗結束且訂單所有 attempt 都是 `failed`／`expired_unpaid`／已到期的 `superseded` → 訂單 `cancelled(payment_not_completed)`（EC-SPEC-03 §3.3）。之後若仍有真實付款到達（例如商家在綠界後台補觸發通知 [2878]），照 EC-SPEC-03 §5.3 記 `paid_after_cancel` 並退款。
+- 從未交接的 attempt（`handed_off_at` 為空）不查詢：已簽章的付款表單只在交接時送到瀏覽器，hold 到期後也不再交接（§4.1），綠界不會有這筆交易；確認窗結束時直接 `expired_unpaid`。
+- 訂單 `open`、沒有確認付款（EC-SPEC-03 §5），而且所有 attempt 都是 `failed` 或 `expired_unpaid` → 訂單 `cancelled(payment_not_completed)`（EC-SPEC-03 §3.3）。只要還有 attempt 結果不明，就不取消。之後若仍有真實付款到達（例如商家在綠界後台補觸發通知 [2878]），照 EC-SPEC-03 §5.3 記 `paid_after_cancel` 並退款。
 
 ### 6.3 呼叫規則
 
 - 只在 operation 的租約交易提交後呼叫；結果用新交易寫回（計畫 §10.2、EC-R20）。
 - HTTP 403 → 同帳戶付款服務列的 `throttled_until = now + 30 分`，這個帳戶的付款查詢與操作延後；物流與發票不受影響（EC-SPEC-09 §4）[2890]。
-- 逾時或網路錯誤 → 指數退避（1、2、5、10 分），不超過確認窗後 24 小時；之後轉人工例外。
+- 逾時或網路錯誤 → 指數退避（1、2、5、10 分，之後每 10 分）重試；確認窗結束後結果仍是 `unknown`，也照這個間隔繼續查詢。最多查到確認窗後 24 小時；仍沒有確定結果就停止自動查詢，開例外 `payment_unconfirmed`，賣家可再查詢、到綠界後台核對這筆 `MerchantTradeNo`，或取消訂單（之後到達的真實付款照 EC-SPEC-03 §5.3 處理）。
 - 查詢是唯讀，可以安全重試；退款不行（§7.4）。
 
 ## 7. 退款
@@ -328,6 +330,7 @@ interface PaymentPort {
 | 瀏覽器 `OrderResultURL` 帶有效簽章的成功資料：不改狀態，只排查詢 | EC-AT18 |
 | 提交失敗不回 `1|OK`；提交成功才回 | EC-AT17 |
 | 查詢 403 → 同帳戶付款服務暫停 30 分、物流與發票不受影響；逾時退避；`TimeStamp` 每次重產 | EC-AT20 |
+| 確認窗結束：全部 attempt 確定未付 → 取消；有 `unknown` → 不取消、繼續查詢、24 小時後開例外；從未交接 → `expired_unpaid` 且不查詢 | EC-SPEC-03 §3.3 |
 | 通知 vs 保留到期結算、通知 vs 買家取消、兩個 attempt 都付款（overpaid） | EC-AT21、30、31 |
 | 退款累計上限、並行退款、`unknown` 不重送、人工紀錄 | EC-AT22、23 |
 | 兩間店兩個帳戶：A 店的通知不能套到 B 店；A 的金鑰解不開 B 的封存 | EC-AT13 |
@@ -342,5 +345,6 @@ interface PaymentPort {
 | DC02 首家支付 | 本 profile | 其他 provider 之後依 PaymentPort 加入 |
 | DC05 長效付款 | 不開 | ATM／超商代碼／條碼／COD |
 | 確認窗長度 | 60 分鐘 | 未付款訂單多久後取消 |
+| 查無此單的狀態碼 | stage 驗證（§11）時記下綠界對不存在的 `MerchantTradeNo` 的回應；在那之前一律當 `unknown` | 確認窗後能否把查無此單當成確定未付；現在要等確認窗後 24 小時的人工例外 |
 | API 退款開放時點 | 受控試退通過後 | 正式店的退款自動化；在此之前人工紀錄 |
 | stage 連線授權 | 需要 Ted | sandbox 端到端驗證；不影響向量與契約測試 |

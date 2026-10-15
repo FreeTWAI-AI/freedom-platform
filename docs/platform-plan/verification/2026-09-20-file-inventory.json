@@ -15244,13 +15244,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
-      "bytes": 29644,
-      "sha256": "51b8348a330f21722c074b270d22304ede355479a78e69e63ace545277ccc2c7"
+      "bytes": 29708,
+      "sha256": "9732cdca9b4512605a0912ed871fac41211e5cfe2a1db47c87f90915a77083c8"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 35883,
-      "sha256": "88e07e8aab4a441efacbd18940904ae26a53ec02c360e48b58e07b4a45eba13d"
+      "bytes": 37745,
+      "sha256": "998204d68fd778733e3b11710a06a33026542f99c340e5555dce72f0f1acaca3"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
