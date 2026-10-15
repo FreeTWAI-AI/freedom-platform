@@ -27,10 +27,10 @@ export async function changePassword(pool: Pool, actor: Actor, raw: unknown): Pr
   const outcome = await transaction(pool, async q => {
     await lockMemberSession(q, actor, true);
     // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
-    await q.query('INSERT INTO login_attempts VALUES($1,0,now()) ON CONFLICT (attempt_key) DO UPDATE SET attempt_key=excluded.attempt_key', [attemptKey]);
-    const attempt = (await q.query<{ failures: number; window_start: Date }>('SELECT failures, window_start FROM login_attempts WHERE attempt_key=$1 FOR UPDATE', [attemptKey])).rows[0];
-    if (Date.now() - new Date(attempt.window_start).getTime() > 15 * 60 * 1000) {
-      await q.query('UPDATE login_attempts SET failures=0, window_start=now() WHERE attempt_key=$1', [attemptKey]);
+    await q.query('INSERT INTO login_attempts VALUES($1,0,clock_timestamp()) ON CONFLICT (attempt_key) DO UPDATE SET attempt_key=excluded.attempt_key', [attemptKey]);
+    const attempt = (await q.query<{ failures: number; expired: boolean }>("SELECT failures, window_start<clock_timestamp()-interval '15 minutes' AS expired FROM login_attempts WHERE attempt_key=$1 FOR UPDATE", [attemptKey])).rows[0];
+    if (attempt.expired) {
+      await q.query('UPDATE login_attempts SET failures=0, window_start=clock_timestamp() WHERE attempt_key=$1', [attemptKey]);
       attempt.failures = 0;
     }
     if (attempt.failures >= 10) {

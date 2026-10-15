@@ -43,7 +43,7 @@ export async function confirmPasswordReset(pool:Pool,rawToken:string,password:st
     // Match login's attempt → user lock order; serialize all reset links before
     // locking tokens so invalidating a competing link cannot deadlock.
     const attemptKey=tokenHash(candidate.email);
-    await q.query('INSERT INTO login_attempts VALUES($1,0,now()) ON CONFLICT DO NOTHING',[attemptKey]);
+    await q.query('INSERT INTO login_attempts VALUES($1,0,clock_timestamp()) ON CONFLICT DO NOTHING',[attemptKey]);
     await q.query('SELECT 1 FROM login_attempts WHERE attempt_key=$1 FOR UPDATE',[attemptKey]);
     // Match authenticated password changes: lock the user before any proof.
     // A joined FOR UPDATE OF r,u does not specify row-lock acquisition order.
@@ -56,7 +56,7 @@ export async function confirmPasswordReset(pool:Pool,rawToken:string,password:st
     await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL',[token.user_id]);
     await q.query('UPDATE password_reset_tokens SET consumed_at=now() WHERE token_hash=$1',[tokenHash(rawToken)]);
     await q.query('DELETE FROM password_reset_tokens WHERE user_id=$1 AND token_hash<>$2',[token.user_id,tokenHash(rawToken)]);
-    await q.query('UPDATE login_attempts SET failures=0,window_start=now() WHERE attempt_key=$1',[attemptKey]);
+    await q.query('UPDATE login_attempts SET failures=0,window_start=clock_timestamp() WHERE attempt_key=$1',[attemptKey]);
     const mfa = (await q.query('SELECT enabled FROM member_totp WHERE user_id=$1',[token.user_id])).rows[0];
     const result=mfa?.enabled
       ? {reset:true as const,totp_required:true as const,expires_after_minutes:RESET_LIFETIME_MINUTES}

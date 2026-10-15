@@ -14,6 +14,7 @@
     "tests/runtime/tenant-authorization.test.ts",
     "tests/runtime/tenant-membership-identity.test.ts",
     "tests/runtime/tenant-ownership.test.ts",
+    "tests/runtime/tenant-high-risk-verification.test.ts",
     "tests/runtime/tenant-read-deadline.test.ts",
     "tests/e2e/tenant-workspaces.spec.ts",
     "migrations/131_tenant_module_permissions.sql",
