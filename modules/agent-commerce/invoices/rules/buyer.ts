@@ -1,5 +1,6 @@
 import { InvoiceRuleError } from './errors.js';
 import { isValidUbn } from './ubn.js';
+import { isInvoiceEmail } from '../../providers/ecpay/b2c-invoice/index.js';
 
 export type InvoiceBuyer =
   | { type: 'member_carrier' }
@@ -254,18 +255,7 @@ export function ecpayBuyerFields(buyer: InvoiceBuyer, customerEmail: string): Ec
     }
   }
 
-  // Validate customerEmail: 3–80 characters, exactly one '@', no whitespace or control characters
-  if (
-    typeof customerEmail !== 'string' ||
-    customerEmail.length < 3 ||
-    customerEmail.length > 80 ||
-    /\s|[\u0000-\u001F\u007F-\u009F]/.test(customerEmail)
-  ) {
-    throw new InvoiceRuleError('Invalid customer email');
-  }
-
-  const emailParts = customerEmail.split('@');
-  if (emailParts.length !== 2 || emailParts[0].length === 0 || emailParts[1].length === 0) {
+  if (!isInvoiceEmail(customerEmail)) {
     throw new InvoiceRuleError('Invalid customer email');
   }
 

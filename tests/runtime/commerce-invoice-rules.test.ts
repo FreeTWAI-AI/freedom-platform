@@ -312,14 +312,45 @@ describe('2. Buyer invoice data & ECPay fields', () => {
 
   it('validates customerEmail in ecpayBuyerFields', () => {
     const validBuyer = { type: 'member_carrier' as const };
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'ab'), InvoiceRuleError); // too short (<3)
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'a'.repeat(81) + '@test.com'), InvoiceRuleError); // too long (>80)
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer example.test'), InvoiceRuleError); // no @
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer@@example.test'), InvoiceRuleError); // two @
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer @example.test'), InvoiceRuleError); // whitespace
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer\n@example.test'), InvoiceRuleError); // control char
-    assert.throws(() => ecpayBuyerFields(validBuyer, '@example.test'), InvoiceRuleError); // empty local part
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer@'), InvoiceRuleError); // empty domain part
+    const email80 = 'a'.repeat(80 - '@example.test'.length) + '@example.test';
+    const email81 = 'a'.repeat(81 - '@example.test'.length) + '@example.test';
+
+    const accepted = [
+      'buyer@example.test',
+      'first.last+tag@sub.example.test',
+      email80,
+    ];
+    for (const email of accepted) {
+      const result = ecpayBuyerFields(validBuyer, email);
+      assert.equal(result.CustomerEmail, email);
+    }
+
+    const rejected = [
+      email81,
+      '',
+      'a@b',
+      '買家@example.test',
+      '"x"@example.test',
+      'a..b@example.test',
+      '.a@example.test',
+      'a@-b.test',
+      'a@b.test1',
+      'buyer @example.test',
+      'buyer\n@example.test',
+      'buyer@@example.test',
+      '@example.test',
+      'buyer@',
+    ];
+    for (const email of rejected) {
+      assert.throws(
+        () => ecpayBuyerFields(validBuyer, email),
+        (err: unknown) => {
+          assert.ok(err instanceof InvoiceRuleError);
+          assert.equal(err.message, 'Invalid customer email');
+          return true;
+        }
+      );
+    }
   });
 });
 
