@@ -118,8 +118,9 @@ errors retain their original reason, including `case_listing_mismatch` even when
 both shards exited zero. Failure artifacts prioritize the inventory and both raw
 shard reports before optional traces under the existing 128 MiB / 512-entry,
 regular-file/no-symlink diagnostic-copy policy; they are not admission evidence.
-The reviewed central pin must adopt this source before hosted CI uses it; a local
-candidate cannot approve that pin, replace a failed run, or authorize merge/deploy.
+Reviewed central-pin adoption remains a separate maintainer action. Local or
+hosted candidate execution does not itself approve that pin, replace a failed
+run, or authorize merge/deploy.
 
 The 2026-10-16 local review smoke used the actual pinned CLI and real Playwright
 against 92 synthetic baseline cases whose titles varied with the assigned port.
