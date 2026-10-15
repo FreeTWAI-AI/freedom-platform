@@ -505,6 +505,25 @@ Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
 
+## Event submission departure lifecycle (#790)
+
+The event editor protects departures while an event or its selected media is
+being saved, and while a submission's network outcome remains unknown. An
+unknown submission freezes its original body/version and retries the same
+Idempotency-Key; a confirmed replay does not create another event.
+
+Once the save is confirmed, the editor closes and releases its saving guard
+before the read-only event-list refresh completes. Members can immediately
+close a new untouched composer or navigate to “我的內容”, even if that refresh
+is still pending. The refresh does not discard a newer draft or release a
+newer submission's pending protection. Ordinary unsaved input still requires
+explicit discard; a failed media save retains its unsaved files for retry.
+
+The existing event-member journey holds a real successful list response after
+an original-key retry and verifies immediate departure at 1440px and 390px,
+along with equal retry bodies/keys and one durable event. Local isolated
+Chromium/API/PostgreSQL evidence is not deployment or real-member acceptance.
+
 ## Member event detail session boundary
 
 `GET /api/v1/events/:id` reads its existing authorized event DTO through

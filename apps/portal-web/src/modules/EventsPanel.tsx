@@ -26,13 +26,14 @@ type Referral={user_id:string;member_name:string;registrations:number;clicks:num
 type ReferralPage={items:Referral[];total:number;next_offset:number|null};
 type ReferralView=ReferralPage&{loading:boolean;error:string;request_offset:number};
 export type EventDraft = {title:string;description:string;starts_at:string;ends_at:string;mode:CommunityEvent['mode'];event_kind:CommunityEvent['event_kind'];topic:string;location:string;online_url:string;capacity:string;guild_key:string;visibility:CommunityEvent['visibility']};
+type EventPayload=Omit<EventDraft,'topic'|'online_url'|'capacity'|'guild_key'>&{topic:string|null;online_url:string|null;capacity:number|null;guild_key:string|null};
 export const blankEvent=():EventDraft=>({title:'',description:'',starts_at:hoursFromNowLocalInput(24),ends_at:hoursFromNowLocalInput(25),mode:'online',event_kind:'other',topic:'',location:'',online_url:'',capacity:'',guild_key:'',visibility:'workshop'});
 function localTime(iso:string) {
   const date=new Date(iso), local=new Date(date.getTime()-date.getTimezoneOffset()*60_000);
   return local.toISOString().slice(0,16);
 }
 const fromEvent=(item:CommunityEvent):EventDraft=>({title:item.title,description:item.description,starts_at:localTime(item.starts_at),ends_at:localTime(item.ends_at),mode:item.mode,event_kind:item.event_kind??'other',topic:item.topic??'',location:item.location,online_url:item.online_url??'',capacity:item.capacity===null?'':String(item.capacity),guild_key:item.guild_key??'',visibility:item.visibility??'workshop'});
-export const eventPayload=(value:EventDraft)=>({...value,starts_at:localInputToIso(value.starts_at),ends_at:localInputToIso(value.ends_at),topic:value.topic.trim()||null,online_url:value.online_url.trim()||null,capacity:value.capacity===''?null:Number(value.capacity),guild_key:value.guild_key||null});
+export const eventPayload=(value:EventDraft):EventPayload=>({...value,starts_at:localInputToIso(value.starts_at),ends_at:localInputToIso(value.ends_at),topic:value.topic.trim()||null,online_url:value.online_url.trim()||null,capacity:value.capacity===''?null:Number(value.capacity),guild_key:value.guild_key||null});
 const modeLabel:Record<CommunityEvent['mode'],string>={online:'線上',in_person:'實體',hybrid:'線上與實體'};
 const kindLabel:Record<CommunityEvent['event_kind'],string>={reading_group:'線上讀書會',meetup:'聚會',guild_skill_exchange:'公會技能交流',other:'其他活動'};
 const reviewerFor=(value:EventDraft,guilds:Guild[])=>value.event_kind==='guild_skill_exchange'
@@ -110,7 +111,7 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
   const selectedId=/^#events\/([0-9a-f-]{36})(?:\?.*)?$/.exec(locationHash)?.[1]??(!locationHash?/^\/events\/([0-9a-f-]{36})\/?$/.exec(window.location.pathname)?.[1]??null:null);
   const [selectedItem,setSelectedItem]=useState<CommunityEvent|null>(null);
   const {mutate,busy,error,lastFailureUnknown}=useModuleMutation(client);
-  const saveAttempt=useRef<{path:string;body:ReturnType<typeof eventPayload>;version?:number;editing:boolean}|null>(null);
+  const saveAttempt=useRef<{path:string;body:EventPayload;version?:number;editing:boolean}|null>(null);
   const recoveringSave=lastFailureUnknown&&saveAttempt.current!==null;
   // A lost response recovers the exact original command, including its version.
   // Known rejections allow the member to correct the draft before submitting.
@@ -188,8 +189,9 @@ export function EventsPanel({client,session,locationHash,registerLeave,onList,pa
       try{
         if(pendingBanner){result=await uploadEventBanner(client,result,pendingBanner);pendingBanner=null;}
         if(pendingVideo){result=await uploadEventVideo(client,result,pendingVideo);pendingVideo=null;}
-      }catch(cause){setBannerError(cause instanceof Error?cause.message:'媒體未能保存；活動已送出，請在活動卡片重試。');setCreating(false);setEditing(result.event_id);setEditDraft(fromEvent(result));setEditBannerFile(pendingBanner);setEditVideoFile(pendingVideo);await load();return;}
-      discardDrafts();setNotice(attempt.editing?'活動已更新，仍待審核。':'活動已送出審核，核准後開放報名。');announceInboxChange();window.dispatchEvent(new Event('freedom-world-facts-updated'));await load();
+      }catch(cause){setBannerError(cause instanceof Error?cause.message:'媒體未能保存；活動已送出，請在活動卡片重試。');setCreating(false);setEditing(result.event_id);setEditDraft(fromEvent(result));setEditBannerFile(pendingBanner);setEditVideoFile(pendingVideo);void load();return;}
+      // Refresh is read-only: it must not keep a confirmed save's departure guard.
+      discardDrafts();setNotice(attempt.editing?'活動已更新，仍待審核。':'活動已送出審核，核准後開放報名。');announceInboxChange();window.dispatchEvent(new Event('freedom-world-facts-updated'));void load();
     }finally{setSaving(false);}
   }
   async function removeBanner(item:CommunityEvent){
