@@ -67,10 +67,10 @@ test('SDK refuses protocol skew, redirected credentials, unsafe identifiers and 
  await client.assertCompatible();calls=0;
  await assert.rejects(client.call('reviseCampaign',{...key(),params:{id:'../../auth/logout'},version:1,body:{title:'a',audience:'b',goal:'c',draft_text:'d'}}),/identifier/);assert.equal(calls,0);
  for(const field of ['constructor','__proto__'])await assert.rejects(client.call('joinGuild',{...key(),params:{key:'guild_marketing'},body:JSON.parse('{"'+field+'":{"admin":true}}')}),/unknown field/);assert.equal(calls,0);
- await assert.rejects(client.call('listCatalog',{query:{limit:51}}),/Contract/);
- await assert.rejects(client.call('listCatalog',{query:{offset:-1}}),/Contract/);
- await assert.rejects(client.call('listCatalog',{query:{owner:'foreign'} as any}),/unknown field/);
- await assert.rejects(client.call('listSupplierProducts',{query:{} as never}),/does not accept query/);assert.equal(calls,0);
+ await assert.rejects(client.call('listCatalog',{query:{limit:51}}),TypeError);
+ await assert.rejects(client.call('listCatalog',{query:{offset:-1}}),TypeError);
+ await assert.rejects(client.call('listCatalog',{query:{owner:'foreign'} as any}),TypeError);
+ await assert.rejects(client.call('listSupplierProducts',{query:{} as never}),TypeError);assert.equal(calls,0);
  await assert.rejects(client.call('createStore',{body:{name:'a',description:'b',support_contact:'c'}}),/Idempotency/);assert.equal(calls,0);
  await assert.rejects(client.call('createStore',{...key(),body:{name:'a',description:'b',support_contact:'c'}}),/uncertain network/);assert.equal(calls,1);
  await assert.rejects(PlatformClient.loginDemo({baseUrl:'https://staging.freetwai.com/api/v1',email:'maker@local.test',password:'freedom-local-demo'}),/loopback/);

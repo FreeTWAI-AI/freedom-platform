@@ -40,7 +40,6 @@ export type ProjectList = { "items": Array<Project> };
 export type CampaignList = { "items": Array<Campaign> };
 export type WorkList = { "items": Array<Work> };
 export type CatalogPage = { "items": Array<Product>; "next_offset": number | null };
-export type CatalogQuery = { "limit"?: number; "offset"?: number };
 export type TrackList = { "items": Array<{ [key: string]: unknown }> };
 export interface Operations {
  getProtocol: { response: Protocol; body: never; query: never };
@@ -57,7 +56,7 @@ export interface Operations {
  listSupplierProducts: { response: ProductList; body: never; query: never };
  createSupplierProduct: { response: Product; body: ProductInput; query: never };
  createSupplierOffer: { response: Product; body: OfferInput; query: never };
- listCatalog: { response: CatalogPage; body: never; query: CatalogQuery };
+ listCatalog: { response: CatalogPage; body: never; query: { "limit"?: number; "offset"?: number } };
  listStores: { response: StoreList; body: never; query: never };
  createStore: { response: Store; body: StoreInput; query: never };
  listListings: { response: ListingList; body: never; query: never };

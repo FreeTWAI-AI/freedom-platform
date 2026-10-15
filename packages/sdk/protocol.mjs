@@ -153,7 +153,28 @@ export const protocol={
       "status": 200,
       "auth": true,
       "idempotent": false,
-      "query": "CatalogQuery"
+      "query": [
+        {
+          "name": "limit",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        {
+          "name": "offset",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "default": 0
+          }
+        }
+      ]
     },
     "listStores": {
       "method": "GET",
@@ -1639,25 +1660,6 @@ export const protocol={
       ],
       "additionalProperties": false
     },
-    "CatalogQuery": {
-      "type": "object",
-      "properties": {
-        "limit": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 50,
-          "default": 20
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991,
-          "default": 0
-        }
-      },
-      "required": [],
-      "additionalProperties": false
-    },
     "TrackList": {
       "type": "object",
       "properties": {
@@ -1679,4 +1681,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="9a2c6c05c400ae09c11020906329871159a136c126990b8ee73ff87980fe49a2";
+export const protocolSha256="8ddab207412bad24c3873496c5aa0863f6ec9e982d8d58206a183547f92e63b6";
