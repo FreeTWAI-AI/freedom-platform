@@ -296,7 +296,9 @@ test('SC-API-04 journey counts, current terms and same-name partners agree (AT-0
   assert.deepEqual(detail.product.cooperation,{awaiting:1,sellable:1,changes_requested:0,inactive:0});
   assert.deepEqual(detail.selections.map((r:any)=>r.selection_id),[pending.selection_id,accepted.selection_id]);
   const old=ok(await get(a,'/supply-requests')).items;
-  assert.deepEqual(detail.selections,[old.find((r:any)=>r.selection_id===pending.selection_id),old.find((r:any)=>r.selection_id===accepted.selection_id)]);
+  assert.deepEqual(detail.selections.map(({partner_id,...r}:any)=>r),[old.find((r:any)=>r.selection_id===pending.selection_id),old.find((r:any)=>r.selection_id===accepted.selection_id)]);
+  // Same-name sellers keep their own shop IDs, matching the partners read.
+  assert.deepEqual(detail.selections.map((r:any)=>r.partner_id),[(await profileRow(c)).storefront_shop_id,(await profileRow(b)).storefront_shop_id]);
   assert.equal(partners.items.length,2);assert.equal(new Set(partners.items.map((r:any)=>r.partner_id)).size,2);
   assert.deepEqual(partners.items.map((r:any)=>r.name),['同名合作店','同名合作店']);
   assert.equal(partners.items[0].cooperation.awaiting,1);

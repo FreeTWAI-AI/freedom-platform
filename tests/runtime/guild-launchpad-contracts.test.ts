@@ -1,4 +1,4 @@
-import {SupplierMetricSchema,SupplierTodoSchema,SupplierTodosSchema,SupplierOverviewSchema,SupplierProductSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnerSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplyProfileUpdateInputSchema,SupplyProfileReceiptSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
+import {SupplierMetricSchema,SupplierTodoSchema,SupplierTodosSchema,SupplierOverviewSchema,SupplierProductSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierProductSelectionSchema,SupplierPartnerSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplyProfileUpdateInputSchema,SupplyProfileReceiptSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -775,6 +775,11 @@ test('supplier console strict schemas accept private projections and reject inco
   const detail={profile:'freedom.supplier-console.product/v1',as_of:overview.as_of,product,shipping_terms:'出貨',return_terms:'退貨',current_offer:null,selections:[],truncated:false};
   assert.equal(SupplierProductDetailSchema.safeParse(detail).success,true);
   assert.equal(SupplierProductDetailSchema.safeParse({...detail,extra:1}).success,false);
+  const offerFixture={offer_id:id,product_id:id,supplier_name:'供貨茶坊',source_version:'1',terms:{cost_minor:400,shipping_minor:50,shipping_terms:'三天內出貨',return_terms:'瑕疵品退換',title:'茶杯',description:'',currency:'TWD'},terms_sha256:'a'.repeat(64),state:'offered',version:'1'};
+  const selection={selection_id:id,offer:offerFixture,sku:'cup-1',seller_name:'合作店',retail_price_minor:1100,state:'sellable',listing_sha256:offerFixture.terms_sha256,version:'1'};
+  assert.equal(SupplierProductSelectionSchema.safeParse({...selection,partner_id:id2}).success,true);
+  assert.equal(SupplierProductSelectionSchema.safeParse(selection).success,false);
+  assert.equal(SupplierProductDetailSchema.safeParse({...detail,selections:[{...selection,partner_id:id2}]}).success,true);
   const partner={partner_id:id2,name:'合作店',cooperation:product.cooperation,products:1};
   assert.equal(SupplierPartnerSchema.safeParse(partner).success,true);
   assert.equal(SupplierPartnerSchema.safeParse({...partner,tenant_id:id}).success,false);

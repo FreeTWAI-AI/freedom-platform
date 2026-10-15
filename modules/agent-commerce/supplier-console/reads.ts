@@ -129,7 +129,7 @@ export async function readSupplierProduct(pool: Pool, actor: Actor, tenantId: st
     return SupplierProductDetailSchema.parse({profile:'freedom.supplier-console.product/v1',as_of:row.as_of,product:productView(row.product,p.currency),
       shipping_terms:row.product.shipping_terms,return_terms:row.product.return_terms,
       current_offer:row.product.current_offer?offerView(row.product.current_offer):null,
-      selections:row.selections.slice(0,200).map(selectionView),truncated:row.selections.length>200});
+      selections:row.selections.slice(0,200).map((l:Record<string,any>)=>({...selectionView(l),partner_id:l.partner_id})),truncated:row.selections.length>200});
   });
 }
 export async function listSupplierPartners(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {

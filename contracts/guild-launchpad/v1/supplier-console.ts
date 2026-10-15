@@ -77,6 +77,11 @@ export const SupplierProductsSchema = z.object({
   items: z.array(SupplierProductSchema).max(200), limit: z.literal(200),
 }).strict();
 
+/** A seller selection on one of this product's offers, with the seller shop that made it. */
+export const SupplierProductSelectionSchema = DistributionSchema.extend({
+  /** Same stable seller shop ID as the partners read; same-name shops stay distinct. */
+  partner_id: OpaqueId,
+}).strict();
 /** One product with its private terms, current offer and the seller selections on this product's offers. */
 export const SupplierProductDetailSchema = z.object({
   profile: z.literal('freedom.supplier-console.product/v1'), as_of: time,
@@ -84,7 +89,7 @@ export const SupplierProductDetailSchema = z.object({
   shipping_terms: SupplyTermsInputSchema.shape.shipping_terms, return_terms: SupplyTermsInputSchema.shape.return_terms,
   /** The currently offered version with its frozen terms, or null when nothing is offered. */
   current_offer: SupplyOfferSchema.nullable(),
-  selections: z.array(DistributionSchema).max(200), truncated: z.boolean(),
+  selections: z.array(SupplierProductSelectionSchema).max(200), truncated: z.boolean(),
 }).strict();
 
 export const SupplierPartnerSchema = z.object({
@@ -113,6 +118,7 @@ export type SupplierOverview = z.infer<typeof SupplierOverviewSchema>;
 export type SupplierProduct = z.infer<typeof SupplierProductSchema>;
 export type SupplierProducts = z.infer<typeof SupplierProductsSchema>;
 export type SupplierTodo = z.infer<typeof SupplierTodoSchema>;
+export type SupplierProductSelection = z.infer<typeof SupplierProductSelectionSchema>;
 export type SupplierProductDetail = z.infer<typeof SupplierProductDetailSchema>;
 export type SupplierPartner = z.infer<typeof SupplierPartnerSchema>;
 export type SupplierPartners = z.infer<typeof SupplierPartnersSchema>;

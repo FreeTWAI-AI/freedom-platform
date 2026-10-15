@@ -3,12 +3,12 @@ import type {ProductMediaView} from '../../../../../contracts/guild-launchpad/v1
 import type {ConsoleController} from '../../state/useSupplierConsoleController';
 import {HostedStorePhoto} from '../../../../../apps/portal-web/src/modules/HostedStorePhoto';
 import {supplierConsoleHref,type ProductState,type ProductSort} from '../route';
-import {offerState,selectionState,selectionShopLabel} from '../view';
+import {offerState,selectionState,selectionPartnerLabel} from '../view';
 import {ReadStatus,Editor,ConfirmAction} from './Shared';
 export function Product({c,id,uploadsEnabled}:{c:ConsoleController;id:string;uploadsEnabled:boolean}){
  const r=c.slot<SupplierProductDetail>('product:'+id),d=r.data,p=d?.product,media=c.slot<{items:ProductMediaView[]}>('media');
  const current=d?.current_offer,affected=d?.selections.filter(s=>s.offer.offer_id===current?.offer_id)??[],awaiting=affected.filter(s=>s.state==='awaiting_supply_acceptance'),sellable=affected.filter(s=>s.state==='sellable');
- const preview=<><p>{d?.truncated?'目前已載入的版本選品':'目前版本'}：待確認 {awaiting.length} 筆、可售 {sellable.length} 筆。</p><ul>{[...awaiting,...sellable].map(s=><li key={s.selection_id}>{selectionShopLabel(s,affected)} · {selectionState(s)}</li>)}</ul>{d?.truncated&&<p>只顯示部分，完整數量見營運概覽。</p>}<p>重新公開或撤回會停止舊版的新預留；既有預留與歷史仍保留。</p></>;
+ const preview=<><p>{d?.truncated?'目前已載入的版本選品':'目前版本'}：待確認 {awaiting.length} 筆、可售 {sellable.length} 筆。</p><ul>{[...awaiting,...sellable].map(s=><li key={s.selection_id}>{selectionPartnerLabel(s,affected)} · {selectionState(s)}</li>)}</ul>{d?.truncated&&<p>只顯示部分，完整數量見營運概覽。</p>}<p>重新公開或撤回會停止舊版的新預留；既有預留與歷史仍保留。</p></>;
  return <section className="stack"><h2 tabIndex={-1}>商品詳情{p?`：${p.title}`:''}</h2><div className="actions"><a className="btn btn-ghost" href={supplierConsoleHref(c.scope,'products',{state:(c.position('products').filter||undefined) as ProductState|undefined,sort:c.position('products').sort as ProductSort})}>返回商品與庫存</a></div>
   <ReadStatus c={c} name={'product:'+id} label="商品詳情"/>{r.status===404&&<p>找不到這項商品。</p>}
   {d&&p&&<>
@@ -20,7 +20,7 @@ export function Product({c,id,uploadsEnabled}:{c:ConsoleController;id:string;upl
     <ConfirmAction label="公開供貨版本" title="公開供貨版本的影響" disabled={c.locked||r.state!=='ready'||!c.can('store:publish')} onConfirm={()=>c.command({kind:'offer.publish',label:'公開供貨版本',method:'post',path:c.root+`/products/${id}/supply-offer`,body:{},ifMatch:p.version,target:id,productId:id})}>{preview}</ConfirmAction>
     {current&&<ConfirmAction label="撤回供貨版本" title="撤回供貨版本的影響" disabled={c.locked||r.state!=='ready'} onConfirm={()=>c.command({kind:'offer.withdraw',label:'撤回供貨版本',method:'post',path:c.root+`/supply-offers/${current.offer_id}/withdraw`,body:{},ifMatch:current.version,target:current.offer_id,productId:id})}>{preview}</ConfirmAction>}
    </div>{!c.can('store:publish')&&<p>需要公開供貨版本的權限，請聯絡業務空間擁有者。</p>}{Object.keys(c.drafts).some(k=>k.startsWith(`product:${id}:`))&&<p className="field-hint">公開的是目前已保存的資料；未儲存的修改仍保留在各分區。</p>}{c.sectionStatus[id]&&<p role="status">{c.sectionStatus[id]}</p>}</section>
-   <section className="sc-section stack"><h3>合作</h3>{!d.selections.length&&<p>這項商品目前沒有合作申請。</p>}<ul className="sc-list">{d.selections.map(s=><li className="sc-row" key={s.selection_id}><div><strong>{selectionShopLabel(s,d.selections)}</strong><p>{s.sku} <span className="badge">{selectionState(s)}</span></p></div><div className="actions"><a className="btn btn-ghost" href={supplierConsoleHref(c.scope,'review',{id:s.selection_id})}>{s.state==='awaiting_supply_acceptance'?'審核':'查看申請'}</a></div></li>)}</ul>{d.truncated&&<p>只顯示部分，完整數量見營運概覽。</p>}</section>
+   <section className="sc-section stack"><h3>合作</h3>{!d.selections.length&&<p>這項商品目前沒有合作申請。</p>}<ul className="sc-list">{d.selections.map(s=><li className="sc-row" key={s.selection_id}><div><strong>{selectionPartnerLabel(s,d.selections)}</strong><p>{s.sku} <span className="badge">{selectionState(s)}</span></p></div><div className="actions"><a className="btn btn-ghost" href={supplierConsoleHref(c.scope,'review',{id:s.selection_id})}>{s.state==='awaiting_supply_acceptance'?'審核':'查看申請'}</a></div></li>)}</ul>{d.truncated&&<p>只顯示部分，完整數量見營運概覽。</p>}</section>
   </>}
  </section>;
 }

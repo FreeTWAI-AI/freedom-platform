@@ -1,4 +1,4 @@
-import type {SupplierMetric,SupplierProduct,SupplierPartner,SupplierTodo} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import type {SupplierMetric,SupplierProduct,SupplierPartner,SupplierProductSelection,SupplierTodo} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import type {Distribution} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {productMatches} from '../../hosted-ui/CommerceTools';
 import {parseMajorToMinor,formatMinor} from '../../../../apps/portal-web/src/format';
@@ -16,6 +16,7 @@ export function filterProducts(items:SupplierProduct[],state:ProductState|undefi
   .sort((a,b)=>sort==='available'?a.available-b.available||a.sku.localeCompare(b.sku):sort==='title'?a.title.localeCompare(b.title,'zh-TW')||a.sku.localeCompare(b.sku):a.sku.localeCompare(b.sku));
 }
 export function partnerLabel(partner:Pick<SupplierPartner,'partner_id'|'name'>,peers:Pick<SupplierPartner,'partner_id'|'name'>[]){return partner.name+(peers.some(p=>p.partner_id!==partner.partner_id&&p.name===partner.name)?`（店家 ID …${partner.partner_id.slice(-6)}）`:'');}
+export const selectionPartnerLabel=(s:SupplierProductSelection,peers:SupplierProductSelection[])=>partnerLabel({partner_id:s.partner_id,name:s.seller_name},peers.map(p=>({partner_id:p.partner_id,name:p.seller_name})));
 export function selectionShopLabel(s:Distribution,peers:Distribution[]){return s.seller_name+(peers.some(p=>p.selection_id!==s.selection_id&&p.seller_name===s.seller_name)?`（申請 ID …${s.selection_id.slice(-6)}）`:'');}
 export const selectionState=(s:Distribution)=>s.offer.state==='withdrawn'?'供貨版本已撤回':({awaiting_supply_acceptance:'待確認',sellable:'可售',declined:'未同意',changes_requested:'需修改',revoked:'停用'})[s.state];
 export const offerState=(p:SupplierProduct)=>!p.offer?'尚未公開':p.offer.matches_current_terms?'公開中':'需要重新公開';
