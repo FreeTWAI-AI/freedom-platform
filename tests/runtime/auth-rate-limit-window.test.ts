@@ -6,6 +6,8 @@ import {migrate} from '../../scripts/database.js';
 import {authRateLimit,authRateLimitInTransaction} from '../../modules/identity-membership/members.js';
 import {tokenHash} from '../../modules/identity-membership/service.js';
 import {Problem} from '../../packages/shared/problem.js';
+import {createPlatformApp} from '../../apps/platform-api/src/platform-app.js';
+import {workerRuntime,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
 
 const databaseUrl=process.env.TEST_DATABASE_URL;
 assert.ok(databaseUrl,'TEST_DATABASE_URL must explicitly select a disposable PostgreSQL database');
@@ -92,4 +94,21 @@ test('active budgets isolate scope and network and roll back with the domain tra
   await authRateLimit(pool,'active-window','network-b',1,60);
   await assert.rejects(authRateLimit(pool,'other-active-window','network-a',1,60),limited);
   await assert.rejects(authRateLimit(pool,'active-window','network-b',1,60),limited);
+});
+
+test('real Worker login budgets group IPv6 peers without consuming another prefix',async()=>{
+  const origin='https://example.invalid';
+  const runtime=workerRuntime({} as WorkerEnv,{freedomEnv:'staging',origin,release:'a'.repeat(40),trustConnectingIp:true});
+  const app=createPlatformApp(pool,origin,'staging',runtime);
+  async function attempt(address:string){
+    const request=new Request(origin+'/api/v1/auth/login',{method:'POST',headers:{Origin:origin,'CF-Connecting-IP':address,'Content-Type':'application/json'},body:'{}'});
+    Object.defineProperty(request,'cf',{value:{colo:'TEST'}});
+    return app.fetch(request);
+  }
+  for(let i=0;i<60;i++)assert.equal((await attempt(i%2?'2001:db8::1':'2001:db8::2')).status,422);
+  for(const address of ['2001:db8::1','2001:db8::3']){
+    const response=await attempt(address);assert.equal(response.status,429);
+    assert.equal((await response.json() as {code:string}).code,'auth_rate_limited');
+  }
+  assert.equal((await attempt('2001:db8:0:1::1')).status,422,'another prefix and the global budget retain capacity');
 });

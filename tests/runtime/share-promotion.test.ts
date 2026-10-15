@@ -18,6 +18,8 @@ import { PREVIEW_BOT_MARKERS, isPreviewBot } from '../../packages/shared/promoti
 import { promotionGo, promotionLeaderboardSql, taipeiDate, type PromotionKind } from '../../modules/community/promotion.js';
 import { readPublicCards } from '../../modules/identity-membership/member-sharing.js';
 import type { PreviewFetch } from '../../modules/community/link-preview.js';
+import { createPlatformApp } from '../../apps/platform-api/src/platform-app.js';
+import { workerRuntime, type WorkerEnv } from '../../apps/platform-api/src/worker.js';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -251,6 +253,34 @@ test('clicks store no raw address or user agent, and salts older than three days
   const days = (await pool.query('SELECT click_day::text AS day FROM promotion_click_salts ORDER BY 1')).rows.map(row => row.day);
   assert.deepEqual(days, ['2026-10-02', '2026-10-05']);
   assert.equal((await pool.query('SELECT octet_length(salt)::int AS n FROM promotion_click_salts')).rows.every(row => row.n === 32), true);
+});
+
+for(const grouped of [true,false])test(`real IPv6 promotion budgets preserve distinct visitor credits (grouped=${grouped})`,async()=>{
+  const maker=await signIn(),link=await platformLink(maker),edgeOrigin='https://example.invalid';
+  const runtime={...workerRuntime({} as WorkerEnv,{freedomEnv:'staging',origin:edgeOrigin,release:'a'.repeat(40),trustConnectingIp:true}),now:()=>clock};
+  if(!grouped)delete runtime.rateLimitNetwork;
+  const edge=createPlatformApp(pool,edgeOrigin,'staging',runtime);
+  async function clickFrom(address:string){
+    const request=new Request(edgeOrigin+'/api/v1/promotion/clicks',{method:'POST',headers:{Origin:edgeOrigin,'CF-Connecting-IP':address,'User-Agent':REAL,'Content-Type':'application/json'},body:JSON.stringify({code:link.code})});
+    Object.defineProperty(request,'cf',{value:{colo:'TEST'}});
+    return edge.fetch(request);
+  }
+  for(const address of ['2001:db8::1','2001:db8::2','2001:db8::1']){
+    const response=await clickFrom(address);assert.equal(response.status,200);
+    assert.deepEqual(await response.json(),{ok:true});
+  }
+  assert.equal(await pointsOf(link.code),2,'different full addresses score separately; exact repeat does not');
+  const identities=(await pool.query(`SELECT count(DISTINCT visitor_key)::int AS visitors,count(DISTINCT network_key)::int AS networks
+    FROM promotion_clicks c JOIN promotion_links l USING(link_id) WHERE l.code=$1`,[link.code])).rows[0];
+  assert.deepEqual(identities,{visitors:2,networks:2});
+  const budget=tokenHash(`promotion-click-network/${grouped?'2001:db8:0:0::/64':'2001:db8::1'}`);
+  assert.equal((await pool.query('UPDATE auth_rate_limits SET attempts=299 WHERE bucket=$1',[budget])).rowCount,1);
+  assert.equal((await clickFrom(grouped?'2001:db8::3':'2001:db8::1')).status,200);
+  const before=await pointsOf(link.code),denied=await clickFrom(grouped?'2001:db8::4':'2001:db8::1');
+  assert.equal(denied.status,429);assert.equal((await denied.json() as {code:string}).code,'auth_rate_limited');
+  assert.equal(await pointsOf(link.code),before,'a rejected budget cannot award another credit');
+  assert.equal((await clickFrom(grouped?'2001:db8:0:1::1':'2001:db8::3')).status,200);
+  assert.equal(await pointsOf(link.code),before+1,'an independent budget retains its real visitor credit');
 });
 
 test('the click route rate limit answers 429 and does not reveal a miss', async () => {
