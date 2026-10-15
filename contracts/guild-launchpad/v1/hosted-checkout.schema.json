@@ -1401,6 +1401,7 @@
             "publication_changed",
             "display_number_unavailable",
             "credential_kind_rejected",
+            "invalid_json",
             "origin_rejected",
             "host_rejected",
             "json_required",

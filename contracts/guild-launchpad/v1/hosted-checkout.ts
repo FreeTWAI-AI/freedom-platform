@@ -52,7 +52,7 @@ export const CheckoutErrorCodeSchema=z.enum(['commerce_quarantined','checkout_no
   'invalid_idempotency_key','checkout_idempotency_conflict','order_intent_conflict','consents_mismatch','terms_changed','stock_unavailable','unresolved_order','checkout_expired',
   'too_many_open_orders','commerce_rate_limited','order_access_email_unavailable','validation_failed','invalid_checkout_json','checkout_contact_too_large','checkout_contact_unavailable',
   'shipping_not_configured','shipping_unavailable','checkout_total_invalid','storefront_unavailable','storefront_not_set_up','supply_unavailable','publication_changed','display_number_unavailable','credential_kind_rejected',
-  'origin_rejected','host_rejected','json_required','body_too_large']);
+  'invalid_json','origin_rejected','host_rejected','json_required','body_too_large']);
 export const CheckoutErrorSchema=z.object({type:z.string(),title:z.string(),status:z.number().int(),code:CheckoutErrorCodeSchema,detail:z.string(),
   items:z.array(z.object({sku,available:z.number().int().nonnegative()}).strict()).optional(),order_ref:OpaqueId.optional()}).strict();
 export type PublicOrder=z.infer<typeof PublicOrderSchema>;

@@ -14,6 +14,7 @@ test('strict checkout requests reject promotions, duplicate SKU, invalid counts 
 });
 test('closed errors and the generated hosted checkout bundle cover each JSON request and response',()=>{
   assert(!c.CheckoutErrorCodeSchema.safeParse('invented').success);
+  assert(c.CheckoutErrorCodeSchema.safeParse('invalid_json').success);
   const bundle=JSON.parse(readFileSync(new URL('../../contracts/guild-launchpad/v1/hosted-checkout.schema.json',import.meta.url),'utf8'));
   const text=JSON.stringify(bundle);for(const name of ['cart-quote-input','cart-quote','checkout-input','checkout','placement-input','placement','order','redeem-input','access-request-input','forget-input','error'])assert(text.includes(name),name);
 });
