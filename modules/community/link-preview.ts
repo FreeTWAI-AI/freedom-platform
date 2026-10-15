@@ -18,14 +18,14 @@ function decodeEntities(value: string) {
 
 function attributes(tag: string) {
   const found: Record<string, string> = {};
-  for (const match of tag.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("([^"]*)"|'([^']*)')/g)) {
-    found[match[1].toLowerCase()] = decodeEntities(match[3] ?? match[4] ?? '');
+  for (const match of tag.matchAll(/(?:^|\s)([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g)) {
+    found[match[1].toLowerCase()] = decodeEntities(match[2] ?? match[3] ?? match[4] ?? '');
   }
   return found;
 }
 
 function meta(html: string, key: string) {
-  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+  for (const tag of html.match(/<meta\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi) ?? []) {
     const attrs = attributes(tag);
     if ((attrs.property || attrs.name || '').toLowerCase() === key && attrs.content?.trim()) return attrs.content.trim();
   }
