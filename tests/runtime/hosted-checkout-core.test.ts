@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {createHmac,randomUUID} from 'node:crypto';
 import {after,before,beforeEach,test} from 'node:test';
 import {mapPersonPrincipal} from '../../packages/resource-scopes/index.js';
 import {authenticate} from '../../modules/identity-membership/service.js';
@@ -8,7 +8,7 @@ import {createSharedQuote} from '../../modules/agent-commerce/hosted/shared-quot
 import {submitDirectOrder} from '../../modules/agent-commerce/hosted/direct-orders.js';
 import {submitSharedOrderOutcome} from '../../modules/agent-commerce/hosted/shared-orders.js';
 import {inventoryPositions} from '../../modules/agent-commerce/hosted/inventory.js';
-import {applyConfirmedPayment,recordHandover,restockReturn,releaseAllocation,cancelPaidOrder,cancelUnpaidOrder,settleDueCheckoutHolds,sweepDueCheckoutHolds,retryAllocation,freezeCheckout,placeCheckoutOrder,ensureCustomer} from '../../modules/agent-commerce/checkout/index.js';
+import {applyConfirmedPayment,recordHandover,restockReturn,releaseAllocation,cancelPaidOrder,cancelUnpaidOrder,settleDueCheckoutHolds,sweepDueCheckoutHolds,retryAllocation,freezeCheckout,placeCheckoutOrder,ensureCustomer,hashJSON,canonicalJSON} from '../../modules/agent-commerce/checkout/index.js';
 import {checkoutHarness,code,ok,ports,type CheckoutHarness} from './hosted-checkout-harness.js';
 let x:CheckoutHarness;
 before(async()=>{x=await checkoutHarness('fp_checkout_core');});beforeEach(async()=>x.reset());after(async()=>x?.stop());
@@ -320,4 +320,20 @@ for(const invalid of ['contact_nul','delivery_surrogate','delivery_key_surrogate
   if(invalid==='idempotency_surrogate')input.idempotencyKey='\ud800';
   const before=await stockFacts();await assert.rejects(x.tx(q=>freezeCheckout(q,s,input,ports)),code('invalid_checkout_json'));assert.deepEqual(await stockFacts(),before);
   for(const table of ['commerce_customers','commerce_checkouts','commerce_checkout_contacts','commerce_checkout_idempotency_keys'])assert.equal((await x.h.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,0);
+});
+
+test('contact digests are salted and freeze request digests are keyed without breaking replay',async()=>{
+  const s=await x.store(),input=x.input(s.product.sku),idempotencyKey=randomUUID(),request={...input,idempotencyKey};
+  const c=await x.tx(q=>freezeCheckout(q,s,request,ports)),contact=(await x.h.pool.query('SELECT * FROM commerce_checkout_contacts WHERE checkout_id=$1',[c.checkout_id])).rows[0];
+  assert.match(contact.contact_salt,/^[a-f0-9]{32}$/);
+  const pii={contact:input.contact,delivery:input.delivery,invoice:input.invoice};
+  assert.notEqual(contact.contact_sha256,hashJSON(pii));assert.equal(contact.contact_sha256,hashJSON({...pii,salt:contact.contact_salt}));
+  const canonicalRequest={input,checkout_id:null,member_principal_id:null},digest=createHmac('sha256',Buffer.from(idempotencyKey,'utf8')).update(canonicalJSON(canonicalRequest),'utf8').digest('hex');
+  const checkout=(await x.h.pool.query('SELECT * FROM commerce_checkouts WHERE checkout_id=$1',[c.checkout_id])).rows[0],key=(await x.h.pool.query('SELECT * FROM commerce_checkout_idempotency_keys WHERE checkout_id=$1',[c.checkout_id])).rows[0];
+  assert.notEqual(checkout.request_sha256,hashJSON(canonicalRequest));assert.equal(checkout.request_sha256,digest);assert.equal(key.request_sha256,digest);
+  assert.ok(!JSON.stringify([checkout,key]).includes(idempotencyKey));
+  assert.deepEqual(await x.tx(q=>freezeCheckout(q,s,request,ports)),c);
+  await assert.rejects(x.tx(q=>freezeCheckout(q,s,{...request,contact:{...input.contact,name:'另一位合成買家'}},ports)),code('checkout_idempotency_conflict'));
+  const other=await x.frozen(s);assert.notEqual(other.terms.contact_sha256,c.terms.contact_sha256);
+  await x.place(s,c);
 });

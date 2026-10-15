@@ -60,7 +60,7 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
   const raw=parseCheckoutInput({publication_revision:saved.publication_revision,lines:saved.items.map(l=>({sku:l.sku,quantity:l.quantity})),
     contact:{name:contact.contact_name,email:contact.contact_email,phone:contact.contact_phone},delivery:contact.delivery,invoice:contact.invoice,consents:saved.consents});
   try {
-    const fresh=await checkoutTerms(q,context,raw,ports);
+    const fresh=await checkoutTerms(q,context,raw,ports,contact.contact_salt);
     requireCondition(fresh.terms_sha256===input.termsSha256,409,'terms_changed','售價或供貨已更新。');
   } catch(error) {
     if(error instanceof Problem && ['publication_changed','supply_unavailable','terms_changed'].includes(error.code))throw new Problem(409,'terms_changed','售價、公開版本或供貨同意已更新。');

@@ -79,6 +79,8 @@ ALTER TABLE commerce_customers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY commerce_customers_tenant ON commerce_customers FOR ALL TO PUBLIC
   USING(tenant_id=freedom_ctx_tenant()) WITH CHECK(tenant_id=freedom_ctx_tenant());
 
+-- Freeze request_sha256 columns are HMAC-SHA256 keyed by the plaintext UTF-8
+-- idempotency key. The plaintext key is never stored.
 CREATE TABLE commerce_checkouts (
   checkout_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL,
@@ -112,18 +114,19 @@ CREATE TABLE commerce_checkout_contacts (
   contact_phone text,
   delivery jsonb,
   invoice jsonb,
+  contact_salt text,
   contact_sha256 text NOT NULL CHECK(contact_sha256 ~ '^[a-f0-9]{64}$'),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   redacted_at timestamptz,
   FOREIGN KEY(checkout_id,tenant_id,instance_id) REFERENCES commerce_checkouts(checkout_id,tenant_id,instance_id) DEFERRABLE INITIALLY DEFERRED,
   UNIQUE(contact_id,checkout_id,tenant_id,instance_id),
-  CHECK((redacted_at IS NULL AND char_length(contact_name) BETWEEN 1 AND 120 AND contact_name IS NOT NULL
+  CHECK((redacted_at IS NULL AND contact_salt IS NOT NULL AND contact_salt ~ '^[a-f0-9]{32}$' AND char_length(contact_name) BETWEEN 1 AND 120 AND contact_name IS NOT NULL
     AND char_length(contact_email) BETWEEN 3 AND 254 AND contact_email IS NOT NULL
     AND char_length(contact_phone) BETWEEN 1 AND 40 AND contact_phone IS NOT NULL
     AND delivery IS NOT NULL AND jsonb_typeof(delivery)='object' AND octet_length(delivery::text)<=8192
     AND (invoice IS NULL OR (jsonb_typeof(invoice)='object' AND octet_length(invoice::text)<=4096)))
     OR (redacted_at IS NOT NULL AND redacted_at>=created_at AND contact_name IS NULL AND contact_email IS NULL
-      AND contact_phone IS NULL AND delivery IS NULL AND invoice IS NULL))
+      AND contact_phone IS NULL AND delivery IS NULL AND invoice IS NULL AND contact_salt IS NULL))
 );
 CREATE INDEX commerce_checkout_contacts_checkout ON commerce_checkout_contacts(checkout_id,tenant_id,instance_id);
 CREATE INDEX commerce_checkout_contacts_store ON commerce_checkout_contacts(tenant_id,instance_id);
@@ -265,8 +268,8 @@ CREATE TRIGGER preserve_commerce_checkout_base_delete BEFORE DELETE ON commerce_
 -- A contact can be erased once without rewriting the digest retained in terms.
 CREATE FUNCTION preserve_commerce_checkout_contact() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF (to_jsonb(NEW)-ARRAY['contact_name','contact_email','contact_phone','delivery','invoice','redacted_at'])
-      IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['contact_name','contact_email','contact_phone','delivery','invoice','redacted_at'])
+  IF (to_jsonb(NEW)-ARRAY['contact_name','contact_email','contact_phone','delivery','invoice','contact_salt','redacted_at'])
+      IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['contact_name','contact_email','contact_phone','delivery','invoice','contact_salt','redacted_at'])
     OR OLD.redacted_at IS NOT NULL OR NEW.redacted_at IS NULL THEN
     RAISE EXCEPTION 'contact permits one redaction only' USING ERRCODE='23514';
   END IF;

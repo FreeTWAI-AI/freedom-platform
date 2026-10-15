@@ -1,5 +1,5 @@
 /// <reference lib="es2024.string" />
-import {createHash,randomUUID} from 'node:crypto';
+import {createHash,createHmac,randomBytes,randomUUID} from 'node:crypto';
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
 import {requireCondition} from '../../../packages/shared/problem.js';
@@ -51,11 +51,11 @@ export function parseCheckoutInput(raw:CheckoutInput) {
   requireCondition(Buffer.byteLength(canonicalJSON(input.delivery),'utf8')<=8192 && (input.invoice==null||Buffer.byteLength(canonicalJSON(input.invoice),'utf8')<=4096),422,'checkout_contact_too_large','配送或發票資料過大。');
   return {...input,invoice:input.invoice??null};
 }
-export const contactHash=(input:ReturnType<typeof parseCheckoutInput>)=>hashJSON({contact:input.contact,delivery:input.delivery,invoice:input.invoice});
+export const contactHash=(input:ReturnType<typeof parseCheckoutInput>,salt:string)=>hashJSON({contact:input.contact,delivery:input.delivery,invoice:input.invoice,salt});
 
 /** Reuse the exact v1 shared binding and price validation with a principal-less
  * supplier resolver. Lifecycle authority was acquired by lockStore beforehand. */
-export async function checkoutTerms(q:PoolClient,context:StoreContext,input:ReturnType<typeof parseCheckoutInput>,ports:CheckoutPorts) {
+export async function checkoutTerms(q:PoolClient,context:StoreContext,input:ReturnType<typeof parseCheckoutInput>,ports:CheckoutPorts,salt:string) {
   const p=context.profile,projection=publicProjection(p.projection);
   requireCondition(projection.revision===input.publication_revision,409,'terms_changed','商店公開內容已更新。');
   const resolved=await sharedLines(q,{profile:p,shared:{}},input.lines,async id=>{
@@ -73,13 +73,13 @@ export async function checkoutTerms(q:PoolClient,context:StoreContext,input:Retu
   requireCondition(Number.isSafeInteger(total)&&total>0,422,'checkout_total_invalid','結帳總額無效。');
   const terms={profile:'freedom.checkout-terms/v1' as const,publication_revision:projection.revision,publication_id:p.current_publication_id!,currency:p.currency,
     bindings,items,merchandise_total_minor:merchandise,discount_total_minor:0,discounts:[],shipping,shipping_total_minor:shippingTotal,
-    tax_state:'not_assessed',total_minor:total,consents:input.consents,payment_methods:['immediate_card'],contact_sha256:contactHash(input)};
+    tax_state:'not_assessed',total_minor:total,consents:input.consents,payment_methods:['immediate_card'],contact_sha256:contactHash(input,salt)};
   return {terms,terms_sha256:hashJSON(terms)};
 }
 export type CheckoutTerms=Awaited<ReturnType<typeof checkoutTerms>>['terms'];
 export async function computeCheckoutTerms(q:PoolClient,store:CheckoutStore,raw:CheckoutInput,ports:CheckoutPorts={}) {
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku));
-  return checkoutTerms(q,context,input,ports);
+  return checkoutTerms(q,context,input,ports,randomBytes(16).toString('hex'));
 }
 /** Seller-facing label only; knowing an email never grants order access. */
 export async function linkCustomerMember(q:PoolClient,customerId:string,memberPrincipalId?:string) {
@@ -105,20 +105,21 @@ interface FrozenCheckout {checkout_id:string;terms:CheckoutTerms;terms_sha256:st
 export async function freezeCheckout(q:PoolClient,store:CheckoutStore,raw:CheckoutInput & {idempotencyKey:string;checkoutId?:string;memberPrincipalId?:string},ports:CheckoutPorts={}) {
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku)),p=context.profile;
   requireCondition(/^[A-Za-z0-9_-]{22,128}$/.test(raw.idempotencyKey),422,'invalid_idempotency_key','冪等鍵無效。');
-  const key=hashKey(raw.idempotencyKey),request=hashJSON({input,checkout_id:raw.checkoutId??null,member_principal_id:raw.memberPrincipalId??null});
+  const key=hashKey(raw.idempotencyKey),request=createHmac('sha256',Buffer.from(raw.idempotencyKey,'utf8')).update(canonicalJSON({input,checkout_id:raw.checkoutId??null,member_principal_id:raw.memberPrincipalId??null}),'utf8').digest('hex');
   const prior=(await q.query<{request_sha256:string;response:FrozenCheckout}>(`SELECT request_sha256,response FROM commerce_checkout_idempotency_keys WHERE instance_id=$1 AND idempotency_key_sha256=$2`,[p.instance_id,key])).rows[0];
   if(prior){requireCondition(prior.request_sha256===request,409,'checkout_idempotency_conflict','冪等鍵已用於其他內容。');return {...prior.response,expires_at:new Date(prior.response.expires_at)};}
   // Customer creation runs under the already held lifecycle/community locks.
   const customer=await ensureCustomerLocked(q,context,input.contact.email,raw.memberPrincipalId);
-  const frozen=await checkoutTerms(q,context,input,ports),contactId=randomUUID();
+  // Destroy the contact salt on redaction; retained terms cannot test PII guesses.
+  const salt=randomBytes(16).toString('hex'),frozen=await checkoutTerms(q,context,input,ports,salt),contactId=randomUUID();
   let id=raw.checkoutId??randomUUID();
   if(raw.checkoutId){
     const old=(await q.query(`SELECT * FROM commerce_checkouts WHERE checkout_id=$1 AND tenant_id=$2 AND instance_id=$3 FOR UPDATE`,[id,p.tenant_id,p.instance_id])).rows[0];
     requireCondition(old,404,'checkout_not_found','找不到結帳。');
     requireCondition((await q.query('SELECT 1 WHERE $1::timestamptz>clock_timestamp()',[old.expires_at])).rowCount===1,409,'checkout_expired','結帳已到期。');
   }
-  await q.query(`INSERT INTO commerce_checkout_contacts(contact_id,checkout_id,tenant_id,instance_id,contact_name,contact_email,contact_phone,delivery,invoice,contact_sha256)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[contactId,id,p.tenant_id,p.instance_id,input.contact.name,input.contact.email,input.contact.phone,input.delivery,input.invoice,contactHash(input)]);
+  await q.query(`INSERT INTO commerce_checkout_contacts(contact_id,checkout_id,tenant_id,instance_id,contact_name,contact_email,contact_phone,delivery,invoice,contact_sha256,contact_salt)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[contactId,id,p.tenant_id,p.instance_id,input.contact.name,input.contact.email,input.contact.phone,input.delivery,input.invoice,contactHash(input,salt),salt]);
   const params=[id,p.tenant_id,p.instance_id,customer.customer_id,input.publication_revision,p.currency,frozen.terms,frozen.terms_sha256,contactId,key,request];
   const saved=(raw.checkoutId
     ? await q.query<FrozenCheckout>(`UPDATE commerce_checkouts SET customer_id=$4,publication_revision=$5,currency=$6,terms=$7,terms_sha256=$8,current_contact_id=$9,version=version+1

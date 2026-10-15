@@ -74,8 +74,8 @@ test('PII is tenant isolated; contacts allow only one complete redaction and ret
   assert.equal((await x.tx(q=>q.query('SELECT * FROM commerce_customers'))).rowCount,0);
   await assert.rejects(x.tx(async q=>{await lockStore(q,s);await q.query('UPDATE commerce_checkout_contacts SET contact_name=$2 WHERE checkout_id=$1',[c.checkout_id,'另一位合成買家']);}),code('23514'));
   const before=(await x.h.pool.query('SELECT contact_sha256 FROM commerce_checkout_contacts WHERE checkout_id=$1',[c.checkout_id])).rows[0];
-  await x.tx(async q=>{await lockStore(q,s);await q.query(`UPDATE commerce_checkout_contacts SET contact_name=NULL,contact_email=NULL,contact_phone=NULL,delivery=NULL,invoice=NULL,redacted_at=clock_timestamp() WHERE checkout_id=$1`,[c.checkout_id]);});
-  const contact=(await x.h.pool.query('SELECT * FROM commerce_checkout_contacts WHERE checkout_id=$1',[c.checkout_id])).rows[0];assert.equal(contact.contact_sha256,before.contact_sha256);assert.equal(contact.delivery,null);assert.ok(contact.redacted_at);
+  await x.tx(async q=>{await lockStore(q,s);await q.query(`UPDATE commerce_checkout_contacts SET contact_name=NULL,contact_email=NULL,contact_phone=NULL,delivery=NULL,invoice=NULL,contact_salt=NULL,redacted_at=clock_timestamp() WHERE checkout_id=$1`,[c.checkout_id]);});
+  const contact=(await x.h.pool.query('SELECT * FROM commerce_checkout_contacts WHERE checkout_id=$1',[c.checkout_id])).rows[0];assert.equal(contact.contact_sha256,before.contact_sha256);assert.equal(contact.delivery,null);assert.equal(contact.contact_salt,null);assert.ok(contact.redacted_at);
   await assert.rejects(x.tx(async q=>{await lockStore(q,s);await q.query('UPDATE commerce_checkout_contacts SET redacted_at=clock_timestamp() WHERE checkout_id=$1',[c.checkout_id]);}),code('23514'));
   await assert.rejects(x.tx(async q=>{await lockStore(q,s);await q.query('DELETE FROM commerce_checkout_contacts WHERE checkout_id=$1',[c.checkout_id]);}),code('23514'));
 });
