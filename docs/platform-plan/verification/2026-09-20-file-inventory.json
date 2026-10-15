@@ -16864,8 +16864,8 @@
     },
     {
       "path": "migrations/168_hosted_checkout_core.sql",
-      "bytes": 33586,
-      "sha256": "4e794564345e0d8293a914f55c7124ed64d39f952f90794fce42b8644f3c9bfe"
+      "bytes": 35904,
+      "sha256": "a37115e5e3c6413328ad663e888f1334891f3159952455ce96fa64f130c91f2c"
     },
     {
       "path": "modules/agent-commerce/README.md",
@@ -16914,13 +16914,18 @@
     },
     {
       "path": "modules/agent-commerce/checkout/README.md",
-      "bytes": 7986,
-      "sha256": "54bc8756e83a849e8c5f6ba5c94035941580c7b684717dca923b410581ef9671"
+      "bytes": 11555,
+      "sha256": "49a884aaeba6e22f9809069c62380719bf1c639fdf9e4a6a99ee674fe7a7be84"
     },
     {
       "path": "modules/agent-commerce/checkout/authority.ts",
       "bytes": 5574,
       "sha256": "bafc1e069caf80bff260697c4e159468362f7ab32939728a6d8339f6b2445ca0"
+    },
+    {
+      "path": "modules/agent-commerce/checkout/confirmed-payment.ts",
+      "bytes": 774,
+      "sha256": "ffcf0f6488b4417c9f04cfff3b9560e7ef0928348d1700d3f69da68a8930e19e"
     },
     {
       "path": "modules/agent-commerce/checkout/freedom.module.json",
@@ -16929,8 +16934,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/index.ts",
-      "bytes": 669,
-      "sha256": "20bcaf98481cc49b77c197007ba3a70641c4482f8a41ab1b2849365a2b2662c9"
+      "bytes": 752,
+      "sha256": "0ec4966d41d58603a3c9c0581980db18f78548c50f7b2c975d7c42ed71a8ab4d"
     },
     {
       "path": "modules/agent-commerce/checkout/inventory.ts",
@@ -16939,13 +16944,13 @@
     },
     {
       "path": "modules/agent-commerce/checkout/orders.ts",
-      "bytes": 10968,
-      "sha256": "8499323ea0cc25d54223e9c73a418444db05c23bba9569757fadae22e1e59058"
+      "bytes": 10596,
+      "sha256": "ad37e7555b1f43799af4fa9b3a0ab7b229b395622a53a44d60362ce168b9d649"
     },
     {
       "path": "modules/agent-commerce/checkout/payments.ts",
-      "bytes": 7997,
-      "sha256": "dd74f01775ff4e7299f68d32363d68b7185e599beff878ceb09218fa56c8f318"
+      "bytes": 12180,
+      "sha256": "2339264bb0512ae9710dc4b528b35a7a4fda819cd970f55b8e709ec7d725102f"
     },
     {
       "path": "modules/agent-commerce/checkout/settlement.ts",
@@ -16954,8 +16959,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/terms.ts",
-      "bytes": 10612,
-      "sha256": "de913eb6de82b6cbb8af6d0efafe7d481a0dee5bf7995bd903fac09bd5ea1cc9"
+      "bytes": 12575,
+      "sha256": "534536a7089809a70c27c1929d7a63257101e08cb6bb606df1a08caf32f38f62"
     },
     {
       "path": "modules/agent-commerce/hosted/capabilities.ts",
@@ -18544,8 +18549,8 @@
     },
     {
       "path": "modules/module-data/catalog.ts",
-      "bytes": 117311,
-      "sha256": "99310b5e2c6b4f35839a9086e81e3c0bb48443173480122011c9dc3466eb003d"
+      "bytes": 118047,
+      "sha256": "2479eb3dd3011a05255cfb831bcd2407687ee4b84df38259b3ed8f44543751f1"
     },
     {
       "path": "modules/module-data/freedom.module.json",
@@ -22229,8 +22234,8 @@
     },
     {
       "path": "tests/runtime/hosted-checkout-core.test.ts",
-      "bytes": 18273,
-      "sha256": "6bac02047f4a04ec81992b41a80779f8b85c3054c3145623224a1d0caeee62cc"
+      "bytes": 35506,
+      "sha256": "aa2877c2515e2af6fb68bad640252083287b7df6c6d09c092fc8d66aa6b48fd9"
     },
     {
       "path": "tests/runtime/hosted-checkout-harness.ts",
@@ -22244,8 +22249,8 @@
     },
     {
       "path": "tests/runtime/hosted-checkout-schema.test.ts",
-      "bytes": 12174,
-      "sha256": "dee1764f1126bae071b94c5241f0191c892338df480d0f9384e63fb8946deeac"
+      "bytes": 15925,
+      "sha256": "0aac03c5826fcc905e228b49ac130cb2e916e8307c36232f3322ecffe36e28d3"
     },
     {
       "path": "tests/runtime/hosted-direct-orders.test.ts",
