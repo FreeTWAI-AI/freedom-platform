@@ -2,9 +2,10 @@ import {Hono} from 'hono';
 import type {Pool} from 'pg';
 import {OpaqueId} from '../../../../contracts/common/v1/identity.js';
 import {EmptyStoreInputSchema} from '../../../../contracts/guild-launchpad/v1/storefront.js';
-import {SupplyProfileUpdateInputSchema,SupplierReservationQuerySchema,SupplierChangesQuerySchema} from '../../../../contracts/guild-launchpad/v1/supplier-console.js';
+import {SupplyProfileUpdateInputSchema,SupplierReservationQuerySchema,SupplierChangesQuerySchema,SupplierReportQuerySchema} from '../../../../contracts/guild-launchpad/v1/supplier-console.js';
 import {readSupplierOverview,readSupplierSummary,listSupplierProducts,readSupplierProduct,listSupplierPartners,readSupplierPartner,readSupplierRequest} from '../../../../modules/agent-commerce/supplier-console/reads.js';
 import {listSupplierConsoleReservations,readSupplierConsoleReservation} from '../../../../modules/agent-commerce/supplier-console/reservations.js';
+import {readSupplierReport,readSupplierReportCsv} from '../../../../modules/agent-commerce/supplier-console/report.js';
 import {readSupplierChanges} from '../../../../modules/agent-commerce/supplier-console/changes.js';
 import type {TenantListCursorCodec} from '../../../../packages/shared/tenant-list-cursor.js';
 import {requireCondition} from '../../../../packages/shared/problem.js';
@@ -30,6 +31,15 @@ export function createHostedSupplierConsoleRoutes(pool:Pool,options:{cursors?:Te
   app.get(root+'/supplier-console/changes',async c=>{
     const query=SupplierChangesQuerySchema.parse(singleQuery(c)),[t,i]=ids(c);
     return c.json(await readSupplierChanges(pool,c.get('actor'),t,i,query));
+  });
+  app.get(root+'/supplier-console/report',async c=>{
+    const query=SupplierReportQuerySchema.parse(singleQuery(c)),[t,i]=ids(c);
+    return c.json(await readSupplierReport(pool,c.get('actor'),t,i,query));
+  });
+  app.get(root+'/supplier-console/report.csv',async c=>{
+    const query=SupplierReportQuerySchema.parse(singleQuery(c)),[t,i]=ids(c);
+    const file=await readSupplierReportCsv(pool,c.get('actor'),t,i,query);
+    return c.body(file.body,200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="${file.filename}"`});
   });
   app.get(root+'/supplier-console/summary',async c=>{
     EmptyStoreInputSchema.parse(singleQuery(c));const [t,i]=ids(c);
