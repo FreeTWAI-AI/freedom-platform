@@ -21513,6 +21513,11 @@
       "sha256": "2d13b8aa2f7267737b63354bc17daeae3918f0df2b616cbf0f074c5c6fe42fdd"
     },
     {
+      "path": "tests/e2e/supplier-console.spec.ts",
+      "bytes": 28734,
+      "sha256": "b3d3bec53db6c61c320184daead9d6870edd087e8cb74e583ec8aa566259d0d0"
+    },
+    {
       "path": "tests/e2e/tenant-member-grants-role-change.spec.ts",
       "bytes": 10936,
       "sha256": "9d2493834a6eeedb13fcf957163dd5c79f91e20bea89136945c1a140bb1b89c6"
