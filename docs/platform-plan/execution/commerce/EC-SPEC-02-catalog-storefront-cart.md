@@ -109,7 +109,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 | 會員 session | 既有 | 既有 | 會員自己的訂單 |
 
 - 新表 `commerce_access_devices`（瀏覽器憑證雜湊、建立／到期／撤銷；不屬於任何店）與 `commerce_order_access_grants`（店、checkout、可選的 order；device 或 link；到期、兌換、撤銷）。不記最後使用時間：讀訂單不寫資料庫。
-- 建立或重播 checkout 時，伺服器確保這個瀏覽器有憑證（沒有或已失效就發新的，到期日固定、不延長），並建立「這個 device 可以使用這個 checkout」的 grant；這就是下單需要的 checkout 憑證。兌換信件連結時建立只限那張訂單的 device grant。
+- 建立或重播 checkout 時，伺服器確保這個瀏覽器有憑證（沒有或已失效就發新的，到期日固定、不延長），並建立「這個 device 可以使用這個 checkout」的 grant；這就是下單需要的 checkout 憑證。重播只在 checkout 未到期、也還沒有訂單時發 grant；否則回 409 `checkout_expired`，不發憑證，所以「忘記」之後，留下的冪等鍵不能把讀單權找回來。兌換信件連結時建立只限那張訂單的 device grant。
 - 「在這個瀏覽器忘記我的訂單」撤銷這個 device 並清除 cookie；之後只能用信件連結或會員身分讀單。
 - 讀取任何訂單都以「店家＋訂單＋有效 grant 或本人會員」判斷；查不到一律回不揭露的 404。顯示用編號與 `order_ref` 都不是憑證（EC-AT05）。
 - B10：`POST /api/v1/public/stores/:slug/order-access-requests`（Email＋顯示用編號）一律回 202；相符時寄信件連結。限流比照活動 guest：每網路每小時 10、每 Email 每小時 3、全域每小時 300。真的寄信需要寄送授權；授權前只在測試環境用 fixture sender（EC-SPEC-10 §6.2、§6.4）。
@@ -144,10 +144,10 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 
 ### 5.3 `POST /api/v1/public/stores/:slug/checkouts`
 
-- Header `Idempotency-Key`：至少 128 bits 的隨機值（伺服器只存雜湊）。同 key 同內容重播回同一 checkout，並對同一個瀏覽器重新設定憑證；同 key 不同內容回 409。因為 key 能取回 checkout，它被視為秘密。
+- Header `Idempotency-Key`：至少 128 bits 的隨機值（伺服器只存雜湊）。同 key 同內容重播回同一 checkout，並對同一個瀏覽器重新設定憑證（條件見 §4.2）；同 key 不同內容回 409。內容比對不含會員身分：登入或登出後重送仍是同一個 checkout，保留第一次的買家，與下單的重送相同（§5.4）。因為 key 能取回 checkout，它被視為秘密；前端在下單成功後就丟掉它。
 - 輸入：revision、lines、`contact{email, phone, name}`、`delivery`（宅配地址，或以選店 session 附上的門市，EC-SPEC-05 §3.5～3.6）、`invoice`（EC-SPEC-06）、`consents[{policy_kind, policy_version_id}]`、可選 `promotion_code`。
 - 伺服器重算並凍結 terms：行項價格、選項、來源、折扣分攤、配送群組與運費、稅務顯示、總額、政策版本、付款方式清單；`terms_sha256`。不可配送或不可售直接 422 並指出行項（EC-AT12）。
-- 回傳：`checkout_ref`、terms、`terms_sha256`、`expires_at`（checkout 本身 24 小時有效，供保留過期後重新下單用）。
+- 回傳：`checkout_ref`、terms 的公開視圖、`terms_sha256`、`expires_at`（checkout 本身 24 小時有效，供保留過期後重新下單用）。公開視圖只有行項、折扣、配送群組的運費、總額、政策版本與付款方式；不含供貨來源、選品與庫存項目等內部 ID、listing／offer 雜湊，也不含聯絡資料的摘要（EC-SPEC-09 §2.7）。`terms_sha256` 仍是完整凍結 terms 的雜湊；瀏覽器只把它原樣送回下單。
 - 店家未開放結帳時回 409 `checkout_not_enabled`（C1 的 B05 依此顯示「尚未開放線上付款」）。
 
 ### 5.4 `POST /api/v1/public/stores/:slug/checkouts/:checkout_ref/orders`
@@ -160,7 +160,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 
 匿名建立訂單會占 30 分鐘庫存。限制（EC-SPEC-09 §4，以測試與 staging 觀察校準）：
 
-- 每個瀏覽器憑證、每個 Email，同時最多 3 張未付款的有效訂單；超過時回 429 並說明。網路不寫進訂單（不保存由 IP 推導的資料），所以網路的上限用限流 bucket 近似：每網路每 30 分鐘（保留的時效）最多新建 3 張訂單。
+- 每個瀏覽器憑證、每個 Email，在同一家店同時最多 3 張未付款的有效訂單；超過時回 429 並說明，`Retry-After` 是最早到期那張的剩餘秒數。上限以店為範圍：別人用你的 Email 在其他店下單擋不住你，回應也不透露你在其他店有沒有訂單。網路不寫進訂單（不保存由 IP 推導的資料），所以網路的上限用限流 bucket 近似：每網路每 30 分鐘（保留的時效）最多新建 3 張訂單。
 - 每網路每 10 分鐘最多 10 次下單；每店全域每 10 分鐘 300 次。
 - 店家可設定單一 SKU 每單上限（≤ 99）。
 - 這些數字與實際攻擊情境（例如一個人用多個 Email）列入 EC-SPEC-09 的負面測試。

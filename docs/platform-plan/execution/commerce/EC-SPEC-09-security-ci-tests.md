@@ -186,7 +186,7 @@ guest、provider 通知與排程都沒有 principal。規則：
 
 ## 4. 限流
 
-沿用 `authRateLimitInTransaction` 的固定視窗與雜湊 bucket；命令只對新的效果計數，失敗時回滾。commerce 用的版本回傳剩餘秒數，429 帶 `Retry-After`。網路鍵用 `rateLimitNetwork`；本機與不可信的 edge 會全部落在 `shared-server`，所以限流測試要用可信 edge 的設定。數值集中在一份常數表（§8），測試讀同一份表；調整數值不改規格，記在 PR。
+沿用 `authRateLimitInTransaction` 的固定視窗與雜湊 bucket。每次嘗試都計數，包括失敗、被拒與重播：bucket 在命令之前用自己的短交易計數並提交，命令交易不持有 bucket 的列鎖，也不在交易中再借第二條連線。這樣重播和猜測都有上限，猜錯的請求同樣受限。店的 bucket 以 slug 解析出的店為鍵；找不到店時只計網路。唯一的例外是「同時未付款的有效訂單」的網路近似：它只在命令交易裡對新建的訂單計數，命令失敗時一起回滾。commerce 用的版本回傳剩餘秒數，429 帶 `Retry-After`。網路鍵用 `rateLimitNetwork`；本機與不可信的 edge 會全部落在 `shared-server`，所以限流測試要用可信 edge 的設定。數值集中在一份常數表（§8），測試讀同一份表；調整數值不改規格，記在 PR。
 
 買家（公開路由）：
 
@@ -195,7 +195,7 @@ guest、provider 通知與排程都沒有 principal。規則：
 | 購物車報價 | 網路 60／分；店 600／分 | 429 |
 | 建立 checkout | 網路 30／10 分；店 600／10 分 | 429 |
 | 下單 | 網路 10／10 分；店 300／10 分 | 429 |
-| 同時未付款的有效訂單 | 瀏覽器憑證、Email 各 3 張；網路以 bucket 近似：每 30 分新建 3 張（EC-SPEC-02 §5.5） | 429 `too_many_open_orders`，不留下保留 |
+| 同時未付款的有效訂單 | 同一家店內，瀏覽器憑證、Email 各 3 張；網路以 bucket 近似：每 30 分新建 3 張（EC-SPEC-02 §5.5） | 429 `too_many_open_orders`（帶 `Retry-After`），不留下保留 |
 | 單一 SKU 每單數量 | 店可設，≤ 99 | 422 |
 | 找回訂單（B10） | 網路 10／時；Email 3／時；全域 300／時 | 一律 202（EC-SPEC-02 §4.2） |
 | 兌換信件連結 | 網路 30／10 分 | 429 |
