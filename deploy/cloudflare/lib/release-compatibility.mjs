@@ -181,6 +181,9 @@ const FOUNDATION_NAMES = [
   // Opt-in AR storage only; recognition does not enable persistence policy,
   // camera access or supply deployment/restore approval.
   '167_community_ar.sql',
+  // Supplier cooperation materials; both media purposes start off, so
+  // recognition grants no persistence, partner visibility or public use.
+  '168_supply_materials.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

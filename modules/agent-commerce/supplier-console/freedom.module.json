@@ -5,6 +5,8 @@
   "owned_paths": [
     "modules/agent-commerce/supplier-console/**",
     "apps/platform-api/src/routes/hosted-supplier-console.ts",
+    "apps/platform-api/src/routes/hosted-supply-materials.ts",
+    "migrations/168_supply_materials.sql",
     "contracts/guild-launchpad/v1/supplier-console.ts",
     "contracts/guild-launchpad/v1/supplier-console.schema.json",
     "tests/runtime/supplier-console.test.ts",
@@ -12,6 +14,9 @@
     "tests/runtime/supplier-console-state.test.ts",
     "tests/runtime/supplier-console-queries.test.ts",
     "tests/runtime/supplier-console-report.test.ts",
+    "tests/runtime/supply-materials.test.ts",
+    "tests/runtime/supply-materials-sql.test.ts",
+    "tests/runtime/supply-material-media.test.ts",
     "tests/e2e/supplier-console.spec.ts",
     "tests/e2e/supplier-console-cooperation.spec.ts",
     "tests/e2e/supplier-console-recovery.spec.ts",
@@ -19,12 +24,14 @@
     "tests/e2e/supplier-console-visual.spec.ts",
     "tests/e2e/supplier-console-queries.spec.ts",
     "tests/e2e/supplier-console-report.spec.ts",
+    "tests/e2e/supplier-console-materials.spec.ts",
     "docs/platform-plan/execution/supplier-console/**"
   ],
   "public_exports": [],
   "dependencies": [
     "agent-commerce",
-    "hosted-distribution"
+    "hosted-distribution",
+    "asset-lifecycle"
   ],
   "contract_families": [
     "common"
@@ -38,6 +45,7 @@
     "packages/resource-scopes/README.md",
     "modules/agent-commerce/hosted/supply-terms.md",
     "modules/agent-commerce/hosted/shared-order-contract.md",
+    "modules/assets/storefront-product-photo.md",
     "DESIGN.md"
   ],
   "invariants": [

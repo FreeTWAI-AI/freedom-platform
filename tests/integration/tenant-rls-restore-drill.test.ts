@@ -140,6 +140,7 @@ const RLS_TABLES = [
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   'application_installations', 'application_module_links', 'module_dependencies', 'module_launch_plans',
   'module_launch_plan_consumptions', 'module_provision_operations', 'module_provision_steps', 'capacity_reservations', 'capacity_ledger',
+  'supply_materials', 'supply_material_versions', 'supply_material_grants',
 ];
 const sha = 'ab'.repeat(32);
 
@@ -406,6 +407,8 @@ const EXPECTED: Record<string, number> = {
   // This fixture inserts existing Work directly; no registry launch is performed.
   application_installations: 0, application_module_links: 0, module_dependencies: 0, module_launch_plans: 0,
   module_launch_plan_consumptions: 0, module_provision_operations: 0, module_provision_steps: 0, capacity_reservations: 0, capacity_ledger: 0,
+  // No supplier materials in this fixture; the tables and their tenant policies must survive empty.
+  supply_materials: 0, supply_material_versions: 0, supply_material_grants: 0,
 };
 function evidenceCount(evidence: SchemaEvidence, table: string) {
   const found = evidence.tables.find(row => row.table === table);

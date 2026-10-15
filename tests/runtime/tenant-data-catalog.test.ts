@@ -210,7 +210,7 @@ test('T-021 PostgreSQL IN tenant-purpose checks expose an unregistered asset pur
     await q.query('ALTER TABLE assets DROP CONSTRAINT asset_scope_purpose');
     await q.query(`ALTER TABLE assets ADD CONSTRAINT asset_scope_purpose ${extended}`);
     const snapshot = await liveSnapshot(q);
-    assert.deepEqual(snapshot.asset_purposes, ['storefront.product-photo', 'tenant.crm-note', 'work.tenant-result']);
+    assert.deepEqual(snapshot.asset_purposes, ['storefront.product-photo', 'storefront.supply-material', 'storefront.supply-material-video', 'tenant.crm-note', 'work.tenant-result']);
     return checkTenantCatalog(snapshot, TENANT_DATA_CATALOG);
   }), [{ code: 'unregistered_asset_purpose', subject: 'tenant.crm-note' }]);
 });
@@ -436,7 +436,7 @@ test('T-021 scope resolution requires both columns and a live CHECK admitting te
 test('T-021 asset-purpose resolution requires every declared live tenant purpose', async () => {
   await rolled(async q => {
     const definition = (await q.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='assets'::regclass AND conname='asset_scope_purpose'`)).rows[0].definition;
-    const changed = definition.replace("scope_kind = 'tenant'::text", "scope_kind <> 'tenant'::text");
+    const changed = definition.replaceAll("scope_kind = 'tenant'::text", "scope_kind <> 'tenant'::text");
     assert.notEqual(changed, definition);
     await q.query('ALTER TABLE assets DROP CONSTRAINT asset_scope_purpose');
     await q.query(`ALTER TABLE assets ADD CONSTRAINT asset_scope_purpose ${changed}`);
