@@ -1,7 +1,7 @@
 export class FulfilmentRuleError extends Error {
   readonly code: 'invalid_input' = 'invalid_input';
 
-  constructor(message = 'Invalid fulfilment rule input') {
+  constructor() {
     super('Invalid fulfilment rule input');
     this.name = 'FulfilmentRuleError';
     Object.setPrototypeOf(this, new.target.prototype);
