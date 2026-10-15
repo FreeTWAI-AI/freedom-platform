@@ -41,7 +41,7 @@ export const CHECKOUT_FORBIDDEN_FIELDS: readonly string[] = Object.freeze([
 
 export const CHECKOUT_COMMON_LINES: readonly CreditCheckoutLineItem[] = Object.freeze([
   Object.freeze({ name: '合成測試 T恤 #1 <限定>', quantity: 2 }),
-  Object.freeze({ name: '貼紙|組;`echo`', quantity: 1 }),
+  Object.freeze({ name: '貼紙|組;`set`', quantity: 1 }),
 ]);
 
 export const CHECKOUT_FALLBACK_LINES: readonly CreditCheckoutLineItem[] = Object.freeze(
@@ -69,7 +69,9 @@ export interface CheckoutGoldenVector {
     | 'checkout-golden'
     | 'checkout-midnight'
     | 'checkout-newyear'
-    | 'checkout-fallback';
+    | 'checkout-fallback'
+    | 'checkout-cdn-fallback'
+    | 'checkout-cdn-store';
   readonly input: CreditCheckoutFormInput;
   readonly expectedAction: string;
   readonly expectedMerchantTradeDate: string;
@@ -112,15 +114,15 @@ export const CHECKOUT_GOLDEN_VECTORS: readonly CheckoutGoldenVector[] = Object.f
     }),
     expectedAction: 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5',
     expectedMerchantTradeDate: '2026/10/15 09:02:03',
-    expectedItemName: '合成測試 T恤 1 限定 x2#貼紙 組 echo x1',
+    expectedItemName: '合成測試 T恤 1 限定 x2#貼紙 組 set x1',
     expectedTradeDesc: 'Freedom order 261015-7K3QPZ',
     expectedTotalAmount: '1500',
     expectedCheckMacValue:
-      '3C7BA19682433F0EEF3D6455DA2A409F2861C2C4FBE03633C4E14919501AFEA9',
+      '18995FF27E92CB85CFDB51494CE0052F2FA64AC8801D15010B0F168CF97FB785',
     expectedFields: buildExpectedCheckoutFields(
       '2026/10/15 09:02:03',
-      '合成測試 T恤 1 限定 x2#貼紙 組 echo x1',
-      '3C7BA19682433F0EEF3D6455DA2A409F2861C2C4FBE03633C4E14919501AFEA9',
+      '合成測試 T恤 1 限定 x2#貼紙 組 set x1',
+      '18995FF27E92CB85CFDB51494CE0052F2FA64AC8801D15010B0F168CF97FB785',
     ),
   }),
   Object.freeze({
@@ -131,15 +133,15 @@ export const CHECKOUT_GOLDEN_VECTORS: readonly CheckoutGoldenVector[] = Object.f
     }),
     expectedAction: 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5',
     expectedMerchantTradeDate: '2026/10/15 00:30:00',
-    expectedItemName: '合成測試 T恤 1 限定 x2#貼紙 組 echo x1',
+    expectedItemName: '合成測試 T恤 1 限定 x2#貼紙 組 set x1',
     expectedTradeDesc: 'Freedom order 261015-7K3QPZ',
     expectedTotalAmount: '1500',
     expectedCheckMacValue:
-      '222C80850909CBA041B31EF2953685AFE70EB5A194227B2473927769C8B6C53F',
+      'B39ADD231EB8922B1566CCE3DCA3219EB576D7E5379F6892AEED452308D5B284',
     expectedFields: buildExpectedCheckoutFields(
       '2026/10/15 00:30:00',
-      '合成測試 T恤 1 限定 x2#貼紙 組 echo x1',
-      '222C80850909CBA041B31EF2953685AFE70EB5A194227B2473927769C8B6C53F',
+      '合成測試 T恤 1 限定 x2#貼紙 組 set x1',
+      'B39ADD231EB8922B1566CCE3DCA3219EB576D7E5379F6892AEED452308D5B284',
     ),
   }),
   Object.freeze({
@@ -150,15 +152,15 @@ export const CHECKOUT_GOLDEN_VECTORS: readonly CheckoutGoldenVector[] = Object.f
     }),
     expectedAction: 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5',
     expectedMerchantTradeDate: '2027/01/01 00:00:00',
-    expectedItemName: '合成測試 T恤 1 限定 x2#貼紙 組 echo x1',
+    expectedItemName: '合成測試 T恤 1 限定 x2#貼紙 組 set x1',
     expectedTradeDesc: 'Freedom order 261015-7K3QPZ',
     expectedTotalAmount: '1500',
     expectedCheckMacValue:
-      '5CBC7F2C997D19A5CBCF14E6AF76840CF6BF241FE4AB2A072C7ED8D2C1FB6B14',
+      'AD33BF08C796F091876B79DC70EA4E546E74CCF5C75785D18453992E9CCE08F1',
     expectedFields: buildExpectedCheckoutFields(
       '2027/01/01 00:00:00',
-      '合成測試 T恤 1 限定 x2#貼紙 組 echo x1',
-      '5CBC7F2C997D19A5CBCF14E6AF76840CF6BF241FE4AB2A072C7ED8D2C1FB6B14',
+      '合成測試 T恤 1 限定 x2#貼紙 組 set x1',
+      'AD33BF08C796F091876B79DC70EA4E546E74CCF5C75785D18453992E9CCE08F1',
     ),
   }),
   Object.freeze({
@@ -179,6 +181,47 @@ export const CHECKOUT_GOLDEN_VECTORS: readonly CheckoutGoldenVector[] = Object.f
       '2026/10/15 09:02:03',
       '合成小舖商品一批 x1',
       '948C42F8ADC6AC87097378920EED89DF75D7426DC15ED6F1BFB281428283D1B0',
+    ),
+  }),
+  Object.freeze({
+    id: 'checkout-cdn-fallback',
+    input: Object.freeze({
+      ...CHECKOUT_COMMON_BASE,
+      createdAtEpochMs: 1791995400000,
+      lines: Object.freeze([Object.freeze({ name: '合成 Echo 喇叭', quantity: 1 })]),
+    }),
+    expectedAction: 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5',
+    expectedMerchantTradeDate: '2026/10/15 00:30:00',
+    expectedItemName: '合成小舖商品一批 x1',
+    expectedTradeDesc: 'Freedom order 261015-7K3QPZ',
+    expectedTotalAmount: '1500',
+    expectedCheckMacValue:
+      'F7FBF5FE146F107872DF722A34D531CB88896A9CD49ED7225E1E05CF703D8612',
+    expectedFields: buildExpectedCheckoutFields(
+      '2026/10/15 00:30:00',
+      '合成小舖商品一批 x1',
+      'F7FBF5FE146F107872DF722A34D531CB88896A9CD49ED7225E1E05CF703D8612',
+    ),
+  }),
+  Object.freeze({
+    id: 'checkout-cdn-store',
+    input: Object.freeze({
+      ...CHECKOUT_COMMON_BASE,
+      createdAtEpochMs: 1798732800000,
+      lines: Object.freeze([Object.freeze({ name: '合成 Echo 喇叭', quantity: 1 })]),
+      storeName: 'Echo 合成小舖',
+    }),
+    expectedAction: 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5',
+    expectedMerchantTradeDate: '2027/01/01 00:00:00',
+    expectedItemName: '商品一批 x1',
+    expectedTradeDesc: 'Freedom order 261015-7K3QPZ',
+    expectedTotalAmount: '1500',
+    expectedCheckMacValue:
+      'AF7FF988C4A75B2CB8123026050F6C44C164B2CEB5AB282C5270C1A329BA82F9',
+    expectedFields: buildExpectedCheckoutFields(
+      '2027/01/01 00:00:00',
+      '商品一批 x1',
+      'AF7FF988C4A75B2CB8123026050F6C44C164B2CEB5AB282C5270C1A329BA82F9',
     ),
   }),
 ]);

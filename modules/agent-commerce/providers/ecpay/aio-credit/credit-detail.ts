@@ -1,4 +1,5 @@
 import { aio } from '../aio.js';
+import { assertFieldsCdnSafe } from '../cdn-guard.js';
 import { sanitizeMessage } from '../encoding.js';
 import { EcpayProtocolError } from '../errors.js';
 import {
@@ -7,6 +8,7 @@ import {
   assertPositiveWholeTwdMinor,
   isPlainObject,
 } from '../field-rules.js';
+import type { FormFields } from '../form.js';
 import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
 import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
 import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
@@ -166,15 +168,15 @@ export function buildCreditDetailQuery(
 
   assertPositiveWholeTwdMinor(input.amountMinor);
 
-  const signedFields = aio.sign(
-    [
-      ['MerchantID', input.merchantId],
-      ['CreditRefundId', input.gwsr],
-      ['CreditAmount', String(input.amountMinor / MINOR_PER_TWD)],
-      ['CreditCheckCode', rawCheckCode],
-    ],
-    keys,
-  );
+  const unsignedFields: FormFields = [
+    ['MerchantID', input.merchantId],
+    ['CreditRefundId', input.gwsr],
+    ['CreditAmount', String(input.amountMinor / MINOR_PER_TWD)],
+    ['CreditCheckCode', rawCheckCode],
+  ];
+  assertFieldsCdnSafe(unsignedFields);
+
+  const signedFields = aio.sign(unsignedFields, keys);
 
   const url = `${ECPAY_ORIGINS.payment.live}/CreditDetail/QueryTrade/V2`;
   return createServerRequest(url, signedFields);

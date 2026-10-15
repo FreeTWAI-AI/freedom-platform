@@ -1,4 +1,5 @@
 import { aio } from '../aio.js';
+import { assertFieldsCdnSafe } from '../cdn-guard.js';
 import type { VerifySignedFormFailureReason } from '../checkmac.js';
 import { EcpayProtocolError } from '../errors.js';
 import {
@@ -10,6 +11,7 @@ import {
   parseOptionalFeeMinor,
   parseOptionalSanitized,
 } from '../field-rules.js';
+import type { FormFields } from '../form.js';
 import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
 import { unwrapKeyList, unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
 import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
@@ -108,14 +110,14 @@ export function buildTradeInfoQuery(
     throw new EcpayProtocolError('invalid_input');
   }
 
-  const signedFields = aio.sign(
-    [
-      ['MerchantID', input.merchantId],
-      ['MerchantTradeNo', input.merchantTradeNo],
-      ['TimeStamp', String(input.timestampSeconds)],
-    ],
-    keys,
-  );
+  const unsignedFields: FormFields = [
+    ['MerchantID', input.merchantId],
+    ['MerchantTradeNo', input.merchantTradeNo],
+    ['TimeStamp', String(input.timestampSeconds)],
+  ];
+  assertFieldsCdnSafe(unsignedFields);
+
+  const signedFields = aio.sign(unsignedFields, keys);
 
   const url = `${ECPAY_ORIGINS.payment[input.environment]}/Cashier/QueryTradeInfo/V5`;
   return createServerRequest(url, signedFields);

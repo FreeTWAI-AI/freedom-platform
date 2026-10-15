@@ -1,4 +1,5 @@
 import { aio } from '../aio.js';
+import { assertFieldsCdnSafe, findCdnBlockedTerm } from '../cdn-guard.js';
 import { EcpayProtocolError } from '../errors.js';
 import {
   MAX_ECPAY_TWD_AMOUNT,
@@ -92,7 +93,7 @@ export function buildItemName(
   }
 
   const joined = formattedLines.join('#');
-  if (joined.length <= MAX_ITEM_NAME_UTF16_UNITS) {
+  if (joined.length <= MAX_ITEM_NAME_UTF16_UNITS && findCdnBlockedTerm(joined) === null) {
     return joined;
   }
 
@@ -102,7 +103,8 @@ export function buildItemName(
     storeCodePoints.length > MAX_STORE_NAME_CODE_POINTS
       ? storeCodePoints.slice(0, MAX_STORE_NAME_CODE_POINTS).join('')
       : cleanedStore;
-  return `${truncatedStore}商品一批 x1`;
+  const safeStore = findCdnBlockedTerm(truncatedStore) === null ? truncatedStore : '';
+  return `${safeStore}商品一批 x1`;
 }
 
 export function buildCreditCheckoutForm(
@@ -154,7 +156,10 @@ export function buildCreditCheckoutForm(
   assertValidEcpayHttpsUrl(input.clientBackUrl);
 
   const totalAmount = String(input.totalMinor / MINOR_PER_TWD);
-  const tradeDesc = `Freedom order ${input.displayNumber}`;
+  const tradeDesc =
+    findCdnBlockedTerm(input.displayNumber) === null
+      ? `Freedom order ${input.displayNumber}`
+      : 'Freedom order';
 
   const unsignedFields: FormFields = [
     ['MerchantID', input.merchantId],
@@ -171,6 +176,8 @@ export function buildCreditCheckoutForm(
     ['OrderResultURL', input.orderResultUrl],
     ['NeedExtraPaidInfo', 'Y'],
   ];
+
+  assertFieldsCdnSafe(unsignedFields);
 
   const signedFields = aio.sign(unsignedFields, keys);
   const action = `${ECPAY_ORIGINS.payment[input.environment]}/Cashier/AioCheckOut/V5`;

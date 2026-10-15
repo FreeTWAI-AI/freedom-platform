@@ -1,3 +1,4 @@
+import { assertCdnSafe } from './cdn-guard.js';
 import { sanitizeMessage } from './encoding.js';
 import { EcpayProtocolError } from './errors.js';
 import { ECPAY_ORIGINS, type EcpayEnvironment } from './index.js';
@@ -12,6 +13,7 @@ const MAX_URL_LENGTH = 200;
 const FORBIDDEN_URL_SUBSTRINGS = /[&<>"'\s]|%26|%3c/i;
 const DNS_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ALL_DIGITS_PATTERN = /^[0-9]+$/;
+const URL_PATHNAME_PATTERN = /^\/[A-Za-z0-9._~/-]*$/;
 
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (
@@ -89,7 +91,8 @@ export function assertValidEcpayHttpsUrl(rawUrl: unknown): asserts rawUrl is str
     rawUrl.length === 0 ||
     rawUrl.length > MAX_URL_LENGTH ||
     FORBIDDEN_URL_SUBSTRINGS.test(rawUrl) ||
-    rawUrl.includes('#')
+    rawUrl.includes('#') ||
+    rawUrl.includes('?')
   ) {
     throw new EcpayProtocolError('invalid_input');
   }
@@ -107,7 +110,9 @@ export function assertValidEcpayHttpsUrl(rawUrl: unknown): asserts rawUrl is str
     parsed.username !== '' ||
     parsed.password !== '' ||
     parsed.port !== '' ||
-    parsed.hash !== ''
+    parsed.hash !== '' ||
+    parsed.search !== '' ||
+    !URL_PATHNAME_PATTERN.test(parsed.pathname)
   ) {
     throw new EcpayProtocolError('invalid_input');
   }
@@ -128,4 +133,6 @@ export function assertValidEcpayHttpsUrl(rawUrl: unknown): asserts rawUrl is str
   if (ALL_DIGITS_PATTERN.test(labels[labels.length - 1])) {
     throw new EcpayProtocolError('invalid_input');
   }
+
+  assertCdnSafe(rawUrl);
 }

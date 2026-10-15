@@ -24,6 +24,7 @@ export {
   decryptData,
 } from './aes.js';
 export { newTradeNumber, isTradeNumber } from './trade-number.js';
+export { findCdnBlockedTerm } from './cdn-guard.js';
 export { aio } from './aio.js';
 export {
   logistics,

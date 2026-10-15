@@ -1,4 +1,5 @@
 import { aio } from '../aio.js';
+import { assertFieldsCdnSafe } from '../cdn-guard.js';
 import { sanitizeMessage } from '../encoding.js';
 import { EcpayProtocolError } from '../errors.js';
 import {
@@ -221,16 +222,16 @@ export function buildDoActionRequest(
 
   assertPositiveWholeTwdMinor(input.amountMinor);
 
-  const signedFields = aio.sign(
-    [
-      ['MerchantID', input.merchantId],
-      ['MerchantTradeNo', input.merchantTradeNo],
-      ['TradeNo', input.tradeNo],
-      ['Action', input.action],
-      ['TotalAmount', String(input.amountMinor / MINOR_PER_TWD)],
-    ],
-    keys,
-  );
+  const unsignedFields: FormFields = [
+    ['MerchantID', input.merchantId],
+    ['MerchantTradeNo', input.merchantTradeNo],
+    ['TradeNo', input.tradeNo],
+    ['Action', input.action],
+    ['TotalAmount', String(input.amountMinor / MINOR_PER_TWD)],
+  ];
+  assertFieldsCdnSafe(unsignedFields);
+
+  const signedFields = aio.sign(unsignedFields, keys);
 
   const url = `${ECPAY_ORIGINS.payment.live}/CreditDetail/DoAction`;
   return createServerRequest(url, signedFields);
