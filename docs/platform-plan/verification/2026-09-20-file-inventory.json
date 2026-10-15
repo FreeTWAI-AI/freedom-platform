@@ -15219,8 +15219,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 76654,
-      "sha256": "db7bb30f8e263d41ff6089a5f40809bf7b30955fb03bfb6cd0e25188c4ad5849"
+      "bytes": 79912,
+      "sha256": "c222d6789c42952ba571eefd3bc128d4c7a94d9fdb10f93fe794b6377e86a370"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
@@ -15274,13 +15274,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
-      "bytes": 19477,
-      "sha256": "13276aabe50ff450562c55c119e15e7035d705ed24f7c0305ebfe636ebaaa540"
+      "bytes": 22152,
+      "sha256": "803e96b179f0cc6fe432f769f652922d44bfacc74f7a9e75a3b2c9c176f45f3f"
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 15792,
-      "sha256": "f863d7639dce60cea3e0e28a4116ca04806f8784d86212deb70754b043c04843"
+      "bytes": 16081,
+      "sha256": "296eaf0a0f55659d85286f050ab51aaa47fb526988e6b51025b152977b887baf"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -22329,8 +22329,8 @@
     },
     {
       "path": "tests/runtime/ecpay-domestic-logistics.test.ts",
-      "bytes": 52085,
-      "sha256": "5febb7879c8c6286bde43742932629989cf6c1017d1ba46f5e329f6851d01fb8"
+      "bytes": 52084,
+      "sha256": "65682fe2db3f1b9034db6218ca86d88018c4315fa1c758845abbb435240d48a6"
     },
     {
       "path": "tests/runtime/ecpay-protocol.test.ts",
