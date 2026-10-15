@@ -102,10 +102,10 @@ for(const surface of [
 });
 
 for(const surface of [
-  {path:'/opensource/projects',table:'oss_projects'},
-  {path:'/marketing/campaigns',table:'marketing_campaign_drafts'}
+  {path:'/opensource/projects',table:'oss_projects',empty:{items:[]}},
+  {path:'/marketing/campaigns',table:'marketing_campaign_drafts',empty:{items:[],next_offset:null}}
 ] as const)test(`empty ${surface.path} still checks the session after a source wait`,async()=>{
-  const owner=await login(),expected=await request(surface.path,owner);assert.equal(expected.status,200);assert.deepEqual(expected.data,{items:[]});
+  const owner=await login(),expected=await request(surface.path,owner);assert.equal(expected.status,200);assert.deepEqual(expected.data,surface.empty);
   await assertReadClock(owner,surface.path,surface.table,expected.data);
 });
 

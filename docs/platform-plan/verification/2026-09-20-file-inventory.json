@@ -22799,8 +22799,8 @@
     },
     {
       "path": "tests/runtime/opensource-marketing.test.ts",
-      "bytes": 26575,
-      "sha256": "710f18b4ad626430b360ddbb6a424eaf099adffe56db445426ce9cc4bafd0892"
+      "bytes": 26629,
+      "sha256": "f463d433099e7afb08a537a5936ba0012a9fbf29ff50bee695c1dbcc9b922af9"
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",
