@@ -92,7 +92,9 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  }
  async function send(a:Attempt){
   if(busyRef.current||attemptRef.current&&attemptRef.current.key!==a.key||generation.current!==client.sessionGeneration)return;
-  busyRef.current=true;attemptRef.current=a;holdAttempt(client,userId,a);setAttempt(a);setPhase('sending');setError('');
+  // Another attempt still owns this business: show it held instead of locking on a throw.
+  try{holdAttempt(client,userId,a);}catch{const held=restoreAttempt(client,userId,scope);if(held){attemptRef.current=held;setAttempt(held);setPhase('held');}return;}
+  busyRef.current=true;attemptRef.current=a;setAttempt(a);setPhase('sending');setError('');
   let outcome;
   try{outcome=classifyCommandOutcome(a,{response:await client[a.method](a.path,a.body,{idempotencyKey:a.key,ifMatch:a.ifMatch,signal:commandAbort.current.signal})});}
   catch(cause){outcome=classifyCommandOutcome(a,{error:cause});}
