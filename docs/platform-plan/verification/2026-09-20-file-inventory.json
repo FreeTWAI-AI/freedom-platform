@@ -554,8 +554,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-supplier-console.ts",
-      "bytes": 2597,
-      "sha256": "9cc9018311762419a0423f43b269a9b0c2207ba5d29e04480447ce41988f57df"
+      "bytes": 2875,
+      "sha256": "15db00c79bbee27594ccd704948241a0e7632d013058b0dee609e0a663ee6e06"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -13049,13 +13049,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/supplier-console.schema.json",
-      "bytes": 54168,
-      "sha256": "f7f94621b3643cc77907bcf857ffc4945d9cf1dac0f9d3040f932abeea272aee"
+      "bytes": 63914,
+      "sha256": "7c324b98550754de7353d1129404ce4220d124fb78071b0a3ff5eba73260c1af"
     },
     {
       "path": "contracts/guild-launchpad/v1/supplier-console.ts",
-      "bytes": 7670,
-      "sha256": "4452f56802827562582f6e3996f64ab6538f03e1c78166e23e62ce7683f3db08"
+      "bytes": 8368,
+      "sha256": "0ce722c094da8854fed1d92435726bd55ac6fd82de4de5c122b43ed2b264ecff"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-create-input.schema.json",
@@ -15460,7 +15460,7 @@
     {
       "path": "docs/platform-plan/execution/supplier-console/README.md",
       "bytes": 3044,
-      "sha256": "90f930bfc78f32b2e61090cda7c4fdf4671e2a436e219ef0bc1f96f3a1f3d82c"
+      "sha256": "921ffad5193131d6c895bedd9a9a4a6244c31c5a8ad880fd705891de1fdcd626"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-01-ia-visual.md",
@@ -17179,18 +17179,18 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/freedom.module.json",
-      "bytes": 2977,
-      "sha256": "c461e64ab99e5cd6032d0eb9676b6cd5586a6084aaf3eed5d07a26b5e1829bd2"
+      "bytes": 3049,
+      "sha256": "cc387fb21c7bdebe54e34ac8e5117ea122e6e8cacbb54ae12da405f7f67e9d5d"
     },
     {
       "path": "modules/agent-commerce/supplier-console/reads.ts",
-      "bytes": 12865,
-      "sha256": "a87a609060f5eb9a0a4ddaae08035b3494621208456de0b56320e7ee3a364ef1"
+      "bytes": 13928,
+      "sha256": "9b45cadd10f4802a5675ae98d7e41f87d1e9bc5f3616e9fe03258a44238c53dd"
     },
     {
       "path": "modules/agent-commerce/supplier-console/state/attempt.ts",
-      "bytes": 3226,
-      "sha256": "6a64522945a546034d7f8beda5a2082cb70a43946c1231fbfdf2b53fd59d8520"
+      "bytes": 3694,
+      "sha256": "4d8af2d8458eae6b7eabb22db95fd30aa82559ac87708d9bb20cf275e3d05662"
     },
     {
       "path": "modules/agent-commerce/supplier-console/state/drafts.ts",
@@ -17209,8 +17209,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/state/useSupplierConsoleController.ts",
-      "bytes": 18442,
-      "sha256": "efdb1bbdf1f01347e06587df5fafee78bad44e1e3df95c54ec823b460f1fe525"
+      "bytes": 19224,
+      "sha256": "06380c559033460592e991c98fe99213dd5a61370fa925fe040caa6bedce5a7d"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.css",
@@ -17219,8 +17219,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.tsx",
-      "bytes": 7604,
-      "sha256": "cd64fdf4062f08c37b6383f034a73c5338ceb69e8ff736a7aed694edb3fe0c23"
+      "bytes": 7783,
+      "sha256": "1502d7289b9f71fdb9648dbac4fcf8b8af8bc0725af90a5e524fee9beeb362aa"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/route.ts",
@@ -17269,8 +17269,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/pages/Terms.tsx",
-      "bytes": 6216,
-      "sha256": "e22885be0cba8f512c816194b88c643a4f34798fbbf834db0dd0d715bdb5f50a"
+      "bytes": 6004,
+      "sha256": "5acbd860f9d561321e13c70f20effc2d623604a04630be9fcb7d20b2bb693d12"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -18449,8 +18449,8 @@
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
-      "bytes": 19170,
-      "sha256": "132c53ac234d1a04b15e25c931dd91f7a191394b1bf788534fb0efbd37201459"
+      "bytes": 19343,
+      "sha256": "688313d47527e911e42f703994dfa658244b5bda9102c15fba02c8bc89b10fc6"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -21544,8 +21544,8 @@
     },
     {
       "path": "tests/e2e/supplier-console-cooperation.spec.ts",
-      "bytes": 35628,
-      "sha256": "e21c737588c137a9197375ab9b9cf1867fb3dd2046a926686b520de26498d1cb"
+      "bytes": 46915,
+      "sha256": "554b5330bebabe515e20d051897a68585bc6e6baa265e86f71a87f34f2f6d959"
     },
     {
       "path": "tests/e2e/supplier-console-navigation.spec.ts",
@@ -21554,8 +21554,8 @@
     },
     {
       "path": "tests/e2e/supplier-console-recovery.spec.ts",
-      "bytes": 29037,
-      "sha256": "2d13b8aa2f7267737b63354bc17daeae3918f0df2b616cbf0f074c5c6fe42fdd"
+      "bytes": 50260,
+      "sha256": "aae513a19d1e63b682e4a27a4faa022de72cd5d9b4436892b68f631102e3030e"
     },
     {
       "path": "tests/e2e/supplier-console-visual.spec.ts",
@@ -23484,8 +23484,8 @@
     },
     {
       "path": "tests/runtime/supplier-console-state.test.ts",
-      "bytes": 14666,
-      "sha256": "a0f8c79fafe0c56c79dc7c80d8989c4774a13ff5c99c47da6d5596e0e45b829f"
+      "bytes": 16437,
+      "sha256": "08396c3b202747adac2e11f76c4601113189432d78645324cfbcd23401079761"
     },
     {
       "path": "tests/runtime/supplier-console-writes.test.ts",
@@ -23494,8 +23494,8 @@
     },
     {
       "path": "tests/runtime/supplier-console.test.ts",
-      "bytes": 41851,
-      "sha256": "3dacbe648f90e30e1ddedd50b4467864026f041aef2bfe6e2f9c5e87c776bb2e"
+      "bytes": 51031,
+      "sha256": "fc547a1de196eaaa6fda9925f96d0efe482e8599af04ae1fded0fe3818cc6b98"
     },
     {
       "path": "tests/runtime/tenant-authority-policy-grants.test.ts",
