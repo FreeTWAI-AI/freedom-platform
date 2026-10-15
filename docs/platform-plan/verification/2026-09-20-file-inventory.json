@@ -15204,8 +15204,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
-      "bytes": 18968,
-      "sha256": "48256431c1d2e94b2a0c804b256853acc4bb75aca0a96305b7b3e883a211be46"
+      "bytes": 20242,
+      "sha256": "4700ad9e8d79d4a4512518481f76c8963e5f1b9b615fafcf4a9e4928d84279d8"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
@@ -15239,8 +15239,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md",
-      "bytes": 42630,
-      "sha256": "f5debe54815a18af5f96864d923973be337a087ff872bb2468143b0834bf8bab"
+      "bytes": 43117,
+      "sha256": "70120749ad96d658cee20bc417da6d0cf9b56c257069da43623039af998c3408"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
