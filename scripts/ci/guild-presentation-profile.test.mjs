@@ -6,7 +6,7 @@ import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
 import {decideGuildPresentationProfile, loadModuleDescriptors, GENERATED_INVENTORY_PATH,collectRepositoryDecision,evaluateVerifyAggregate,githubOutput,SELECTABLE_JOBS} from './select-affected-jobs.mjs';
-import {GUILD_PRESENTATION_IMPORTS,guildPresentationImportsProven} from '../../packages/contribution-tools/guild-presentation-profile.mjs';
+import {GUILD_PRESENTATION_IMPORTS,guildPresentationImportsProven,GUILD_PRESENTATION_PROFILE} from '../../packages/contribution-tools/guild-presentation-profile.mjs';
 import {isModuleDescriptorPath} from '../../packages/contribution-tools/context.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const head=execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim();
@@ -18,6 +18,9 @@ const supply='modules/guild-supply/CatalogBlock.tsx',opensource='modules/guild-o
 function input(paths=[supply]){return {event:'pull_request',diffComplete:true,descriptorsProven:true,changes:paths.map(path=>({status:'M',path})),baseline:structuredClone(graph.descriptors),candidate:structuredClone(graph.descriptors)};}
 const decide=decideGuildPresentationProfile;
 test('actual two-guild graph retains composition obligations and explains exact checks',()=>{
+  const supplyLeaf = GUILD_PRESENTATION_PROFILE.leaves.find(item => item.module === 'guild-supply');
+  assert.deepEqual(supplyLeaf.operations, ['storefront.supply-catalog.list', 'supplier-console.summary']);
+  assert.deepEqual(supplyLeaf.dependencies, ['guild-presentation', 'hosted-distribution', 'supplier-console']);
   for(const paths of [[supply],[opensource],[supply,opensource,GENERATED_INVENTORY_PATH]]){
     const result=decide(input(paths));assert.equal(result.profile,'guild-presentation');
     assert.ok(result.affected_modules.includes('application-composition'));

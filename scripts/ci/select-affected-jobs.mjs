@@ -244,7 +244,7 @@ export function decideGuildPresentationProfile(input) {
           || !sameSet(owner.public_exports, [leaf.entry]) || owner.surfaces.length !== 1) throw Error();
         const surface = owner.surfaces[0];
         if (surface.surface_id !== leaf.surface || surface.entry !== leaf.entry || surface.kind !== 'page'
-          || surface.auth_profile !== 'member-session' || !sameSet(surface.operations, [leaf.operation])) throw Error();
+          || surface.auth_profile !== 'member-session' || !sameSet(surface.operations, leaf.operations)) throw Error();
       }
       const composition = descriptors.find(item => item.module_id === GUIDE_COMPOSITION_PROFILE.module);
       if (!composition || composition.owner_role !== 'foundation'
