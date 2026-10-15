@@ -241,15 +241,27 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   async function loadThread(key:string,quiet=false){
     idlePoll.current=resetChatPoll();
     const generation=++threadGeneration.current,since=epoch.current;threadInFlight.current={key,quiet};
+    const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key;
     setMore({loading:false,error:''});if(!quiet)setReadError(readIssues.current.get(key)??'');
     if(quiet)setRefresh({loading:true,error:''});else{setStatus('loading');setError('');setRefresh({loading:false,error:''});setHistory(null);setNewerUnseen(false);setCountUnconfirmed('');}
     try{
       const value=await client.get<History>(path(key,`messages?limit=${PAGE}&offset=0`));
-      if(generation===threadGeneration.current)threadInFlight.current=null;
       // A slower answer for an earlier selection must never replace the open channel.
-      if(generation!==threadGeneration.current||current.current!==key)return;
+      if(!isCurrent())return;
+      const previous=snapshot.current.history;
+      const changed=quiet&&(value.retraction_count??'0')!==(previous?.retraction_count??'0');
+      const refreshed=changed?await refreshLoadedMessages(value,previous?.items??[],
+        offset=>client.get<History>(path(key,`messages?limit=${PAGE}&offset=${offset}`),{background:true}),isCurrent):undefined;
+      if(!isCurrent()||refreshed===null)return;
+      threadInFlight.current=null;
       gone.current.delete(key);
-      setHistory(existing=>quiet&&existing?{...value,items:newestFirst(merge(value.items,existing.items,item=>item.message_id)),next_offset:existing.next_offset===null?value.next_offset:Math.max(existing.next_offset,value.next_offset??0)+value.items.filter(item=>!existing.items.some(known=>known.message_id===item.message_id)).length}:{...value,items:newestFirst(value.items)});setStatus('ready');setRefresh({loading:false,error:''});setNewerUnseen(false);setCountUnconfirmed('');setLiveError('');
+      setHistory(existing=>{
+        if(!quiet||!existing)return {...value,items:newestFirst(value.items)};
+        const fresh=value.items.some(item=>!existing.items.some(known=>known.message_id===item.message_id));
+        // The newest page cannot measure an unseen gap. Restart behind it when new IDs appear.
+        return {...value,items:refreshed?newestFirst(refreshed):newestFirst(merge(value.items,existing.items,item=>item.message_id)),
+          next_offset:fresh?value.next_offset:existing.next_offset};
+      });setStatus('ready');setRefresh({loading:false,error:''});setNewerUnseen(false);setCountUnconfirmed('');setLiveError('');
       if(kind==='world')onUnread(value.unread_count);
       // A re-read can show newer unread messages; the tab and list totals come from the kind list, never from this channel.
       // loadList never re-reads a history, so this cannot loop. The settings total re-reads its own four sources.
