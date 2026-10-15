@@ -15314,8 +15314,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 20228,
-      "sha256": "f15fe4373d03e75a62792aabf23c6248fc2cf0ff1f7fb443cbad233b23da56b2"
+      "bytes": 21960,
+      "sha256": "df3874d1cfbd458508f7f2e06fb7dc8bf148e48093b1fa827db08670e6c17dd6"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -17676,6 +17676,16 @@
       "path": "modules/agent-commerce/providers/ecpay/domestic-logistics/query.ts",
       "bytes": 11540,
       "sha256": "fd9291de7764b1c1e13f33b2840daad07bd2aaa1f30684c01f1e2f972f73eaf9"
+    },
+    {
+      "path": "modules/agent-commerce/storefront/README.md",
+      "bytes": 967,
+      "sha256": "e524445b79d4e8078894cf0ac5a1b5fa74147d7e46cb2c201ae091c16ee2e12a"
+    },
+    {
+      "path": "modules/agent-commerce/storefront/freedom.module.json",
+      "bytes": 840,
+      "sha256": "3d8a25b44951262f4ae4c8d68eb2ae125daf2430cfca84328fba35dfc1cae828"
     },
     {
       "path": "modules/agent-control/README.md",

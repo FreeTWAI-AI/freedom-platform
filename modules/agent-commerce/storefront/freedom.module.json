@@ -1,0 +1,31 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "commerce-storefront",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/storefront/**",
+    "apps/portal-web/src/storefront/**",
+    "tests/runtime/storefront-order-pages.test.ts",
+    "tests/e2e/storefront-orders.spec.ts",
+    "tests/e2e/storefront-order-fixture.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "agent-commerce",
+    "hosted-checkout"
+  ],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "modules/agent-commerce/storefront/README.md",
+    "DESIGN.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md"
+  ],
+  "invariants": [],
+  "tests": [
+    "e2e.harness",
+    "runtime.full"
+  ],
+  "surfaces": []
+}

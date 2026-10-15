@@ -51,7 +51,9 @@
 | --- | --- | --- | --- | --- |
 | wp03-core | migration 168、`modules/agent-commerce/checkout/`、N／H／A、付款後配置、出貨與退回的庫存效果 | Codex | — | 完成 |
 | wp03-http | 公開結帳路由（EC-SPEC-02 §5.2～§5.4）；訂單存取憑證與 B10（§4.2，fixture sender）；結帳的限流（EC-SPEC-09 §4）；主機設定 `CHECKOUT`、`QUARANTINE` 與 `site` 布林（EC-SPEC-10 §2.2、§2.3）；到期預留接上排程（§5）；能力、SHAPE 與 168 的強制下限（§3）；同意版本與配送 JSON 的檢查；還原演練補上 168 的 RLS 表 | Codex | wp03-core | 完成（`fc/wp03-http` `eea0f328`，整合 `762baaf0`） |
-| 買家頁 | B03 加入購物車、B04、B05、B06（付款前）、B10 | argon | wp03-http 的契約 | 之後 |
+| buyer-orders | 店面 client bundle（固定檔名 `assets/storefront.js`）；B07 付款前的訂單頁：信件連結的兌換、在這個瀏覽器忘記；B10 在寄送授權前的說明（EC-SPEC-10 §6.2） | argon | wp03-http | 進行中（`fc/buyer-orders`） |
+| buyer-cart | B03 加入購物車、B04 | argon | buyer-orders；wp04-accounts（店家准入） | 之後 |
+| buyer-checkout | B05、B06（付款前） | 之後決定 | buyer-cart；M3 的配送資料與選店、M4 的發票欄 | 之後 |
 
 M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `hosted_checkout` 訂單；M1 的驗收是不影響 v1 預留，加上本機與 CI 的測試（EC-SPEC-10 §4.6）。
 
@@ -112,6 +114,14 @@ C3（EC-WP09、WP10）在 DC07、DC11 有決定、M1～M4 的契約穩定後開�
 
 wp03-http 的修正輪通過審查，合併為 `762baaf0`。修正輪的工作說明預期 unknown-paths 剩 2 條；實際是 0，因為新路徑都已登錄，以實跑為準。整合者另外重跑：typecheck、契約、checkout 兩組 runtime 89/89 與 191/191、cloudflare 515/515、selector 38/38。`7b841056` 的完整驗證：typecheck、build、cloudflare、governance、worker、契約都過；runtime 5155/5158。失敗的三個中，T-022 8 的 RLS 固定清單沒有 wp03-http 新增的 `commerce_order_access_grants`，worker-adapter 的設定比對沒有 wp03-http 加的 `commerceSettings`，都是 wp03-http 沒同步既有測試；整合者補上（`f87da3c2`：A、B 兩店用公開下單同一組 helper 建立瀏覽器 grant，改綁租戶被不可改觸發器擋下、跨租戶讀不到、本店讀得到；重跑 2/2、23/23）。operator-media-backfill 的「截止後才到的 PUT」在乾淨資料庫單獨重跑 11/11，是全套負載下的計時問題。worker 序列的契約、check:*、dry-run、worker、media-restore（`f250e66d` 時失敗）都過；migration-postgres 兩次都卡在測試自建 PostgreSQL 時 Docker 逾時（負載約 13），重跑時 migration-plan 6/6、runner-plan 3/3 通過，entrypoints 留待下一次完整驗證。ecpay-invoice 從 `7b841056` 開出並通過審查：程式與 27 組 golden 都對；README 有 11 個 ECPay 頁碼寫成鄰近或不存在的頁，整合者逐頁核對標題後改正（`f04b5eba`）。整合者重跑：typecheck、Node 四組 51/51、workerd 四組 13/13、selector 38/38、unknown-paths 0、stage 金鑰外洩 0、inventory。之後把 main `f8a00469` 併進整合分支（`c81451a4`，只有 inventory 衝突，重新產生），再合併 ecpay-invoice（`44985a2f`），並先登錄 wp04-accounts 與 email-templates 需要的 descriptor 路徑（兩個工作都不改 descriptor），兩個工作再從那個 commit 開出。EC-SPEC-06 的註銷重開比照作廢期限另留 2 小時緩衝（46 小時，`52941ba7`），供 invoice-rules-fix1 使用。
 
+第四批（2026-10-15）：
+
+| 工作 | CLI | 分支 | PostgreSQL | E2E |
+| --- | --- | --- | --- | --- |
+| buyer-orders | agy `gemini-4-argon-high` | `fc/buyer-orders` | 55444 | 4744 |
+
+invoice-rules-fix1 通過審查：買受人 Email 改用 `commerce-providers` 的 `isInvoiceEmail`；註銷重開限已上傳、開立後 46 小時內；ECPay 時間只收同一個分隔符與 2000～2099 年。整合者把 README 的相依說明改成指名 `isInvoiceEmail`（`24dd537f`），合併為 `18be535a`。整合者重跑：typecheck、發票規則與 B2C 協定 58/58、selector 42/42、unknown-paths 0、inventory。governance 468/472：失敗的 4 項是子行程逾時（git `spawnSync ETIMEDOUT`、exit `null`），當時負載約 31，與發票無關，負載下降後單獨重跑。buyer-orders 開出前，先登錄 `commerce-storefront`（§7）。B04 起的買家頁要等店家准入（wp04-accounts），B05 還要 M3 的配送資料與 M4 的發票欄，所以先做不依賴它們的訂單頁與 B10。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |
@@ -133,11 +143,12 @@ wp03-http 的修正輪通過審查，合併為 `762baaf0`。修正輪的工作�
 | --- | --- | --- | --- |
 | `hosted-checkout` | `modules/agent-commerce/checkout/**`、M1 migration、checkout 測試 | `agent-commerce` | 已登錄（wp03-core） |
 | `commerce-providers` | `modules/agent-commerce/providers/**`、協定測試與向量 | 無 | 已登錄（ecpay-proto；ecpay-aio、ecpay-logistics 加上各自的測試與匯出） |
-| `commerce-invoices` | `modules/agent-commerce/invoices/**`、發票測試；M4 起加 migration | 目前無（純規則）；M4 加 `hosted-checkout`、`commerce-payments`、`commerce-providers` | 已登錄（invoice-rules） |
+| `commerce-invoices` | `modules/agent-commerce/invoices/**`、發票測試；M4 起加 migration | `commerce-providers`（發票 Email 規則 `isInvoiceEmail`）；M4 加 `hosted-checkout`、`commerce-payments` | 已登錄（invoice-rules；invoice-rules-fix1 加上相依） |
 | `commerce-operations` | `modules/agent-commerce/operations/**`：主機設定、准入、能力清單、信件、外部效果日誌、報表與漏斗（EC-SPEC-10 §10、EC-SPEC-07 §8）；准入的 admin 路由與測試、信件範本的測試 | `hosted-checkout`、`commerce-fulfilment`（信件的物流名稱） | wp03-http 建立；准入與信件範本的路徑在派工前登錄 |
 | `commerce-payments` | `modules/agent-commerce/payments/**`、M2 migration（169）、`hosted-commerce-setup` 的路由與契約、帳戶與升級的測試、封存的 workerd 測試 | `hosted-checkout`、`commerce-providers`、`commerce-operations`（控制事件） | 已登錄（refund-rules）；wp04-accounts 的路徑在派工前登錄；wp04-payments 再補 |
 | `commerce-fulfilment` | `modules/agent-commerce/fulfilment/**`、官方貨態表 `ecpay-logistics-status-map.tsv`、M3 migration、履約測試 | `commerce-providers`（CDN 字詞檢查）；M3 加 `hosted-checkout` | 已登錄（fulfil-rules；fulfil-rules-fix2 加上相依） |
 | `commerce-aftersales` | `modules/agent-commerce/aftersales/**`、售後測試 | `hosted-checkout`、`commerce-payments` | M4 |
+| `commerce-storefront` | `modules/agent-commerce/storefront/**`（買家頁的 server HTML）、`apps/portal-web/src/storefront/**`（店面 client bundle）、買家頁的 runtime 與 E2E 測試 | `agent-commerce`、`hosted-checkout` | buyer-orders 派工前登錄 |
 
 ## 8. 與 Supplier Console 的接點
 
