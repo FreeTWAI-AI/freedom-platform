@@ -75,13 +75,18 @@ const LIST = `SELECT (SELECT count(*)::int FROM community_social_reads r WHERE r
   LEFT JOIN member_avatar_presence a ON a.user_id=u.user_id AND a.community_id=p.community_id
   LEFT JOIN community_social_post_thumbnails t ON t.post_id=p.post_id`;
 
+const cursorFields = z.tuple([
+  // PostgreSQL has no year zero; otherwise retain the exact UTC ISO text.
+  z.iso.datetime().refine(value => !value.startsWith('0000-')),
+  z.uuid(),
+]);
 function cursorOf(raw: string | undefined) {
   if (!raw) return null;
   let text = '';
   try { text = Buffer.from(raw, 'base64url').toString('utf8'); } catch { throw new Problem(422, 'invalid_cursor', '分頁標記不正確。'); }
-  const split = text.split('\n');
-  const createdAt = split[0] ?? '', id = split[1] ?? '';
-  requireCondition(!Number.isNaN(Date.parse(createdAt)) && z.uuid().safeParse(id).success, 422, 'invalid_cursor', '分頁標記不正確。');
+  const parsed = cursorFields.safeParse(text.split('\n'));
+  requireCondition(parsed.success, 422, 'invalid_cursor', '分頁標記不正確。');
+  const [createdAt, id] = parsed.data;
   return { createdAt, id };
 }
 

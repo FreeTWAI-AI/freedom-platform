@@ -120,6 +120,12 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
 | `POST /api/v1/social-posts/:id/hide` | 平台管理員 | 隱藏 |
 
+貼文、留言與按讚名單的 `cursor` 為 opaque base64url；解碼後嚴格要求 UTC ISO
+timestamp 與 UUID 兩個欄位。非 ISO 時間、不存在的日曆日期、PostgreSQL 不接受的
+year zero 或多餘欄位回 422 `invalid_cursor`，不送入 SQL cast 變成 500。
+既有三位毫秒與六位微秒時間、有效閏日均保留原文字精度；呼叫端不需解析或重建。
+驗證不改匿名 401、不可見貼文 404 的授權邊界。
+
 會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
 讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
 等鎖期間到期或在 object I/O 期間撤銷，沿用縮圖讀權拒絕的 404 `not_found`，
