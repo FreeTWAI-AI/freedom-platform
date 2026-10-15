@@ -47,9 +47,11 @@ Production after-backup `480cd1f2` 於03:41 UTC dump逾時失敗；03:44 UTC 獨
 
 05:06 UTC 啟動一次經審查的 production `e021ebfc`：容器準備移到 capture 前，
 實際 dump仍保留180秒、核心流程1200秒上限。6,229,149 bytes的 DB dump、47個物件
-與遠端讀回完成，但05:24 UTC 在restore階段失敗，`cleanupVerified=false`；同一set
-正在另行對帳，沒有重新capture或宣稱還原成功。這次失敗與前3份原失敗全部保留，
-修正版尚未安裝到日常 dispatcher；完整 production after-restore仍未完成。
+與遠端讀回完成，但05:24 UTC 在restore階段失敗，原 `cleanupVerified=false` 保留。
+05:29 UTC 獨立唯讀對帳確認該set零殘留容器／volume／DB session／dump client，
+兩個政策開關關閉且47個 reference pins保留；沒有重新capture或宣稱還原成功。
+本節營運證據截止於這次對帳；4份原失敗保留，修正版尚未安裝到日常 dispatcher，
+完整 production after-restore仍未完成。
 04:07 UTC 唯讀觀察有21筆 FreeTWAI repo、零舊座標，但沒有部署後同步紀錄。
 04:27 UTC 排程診斷確認設定與目前版本相符，provider 的 scheduled 紀錄卻停在03:20；
 04:10–04:21 的同版本觀察有295次成功 HTTP、零 scheduled 事件。這支持排程交付／傳播

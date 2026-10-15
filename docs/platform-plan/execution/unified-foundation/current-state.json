@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-15T05:27:55.424918+00:00",
+  "recorded_at": "2026-10-15T05:34:25.341071+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -42,7 +42,7 @@
       },
       "worker_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
       "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "limitation": "Scoped public acceptance passed; production member login/browser/OAuth and real webhook delivery were not exercised. Three production after-backups, including the existing scheduled execution, failed and were separately cleaned. The compatible canonical166 daily operator is now installed with an explicit pending-after-backup status; production after-restore and coordinate-extension restore verification remain incomplete. The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling. New prepared-container sete021ebfc captured and remotely read back the set, then failed during restore with cleanupVerified=false. Same-set reconciliation and scheduled repair installation remain pending.",
+      "limitation": "Scoped public acceptance passed; production member login/browser/OAuth and real webhook delivery were not exercised. Three production after-backups, including the existing scheduled execution, failed and were separately cleaned. The compatible canonical166 daily operator is now installed with an explicit pending-after-backup status; production after-restore and coordinate-extension restore verification remain incomplete. The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling. New prepared-container sete021ebfc captured and remotely read back the set, then failed during restore with cleanupVerified=false. Separate05:29 UTC reconciliation confirmed zero owned resources, absent owned volume and disabled policy; original failed cleanupVerified=false remains unchanged. Restore verification and scheduled repair installation remain pending.",
       "health_observation": "Exact938 public HTTP health observed after compatible deployment and normal route/cron restoration.",
       "status": "deployed_scoped_acceptance_and_natural_sync_passed_after_backup_pending",
       "schema_transition_observed_at": "2026-10-15T03:28:44.247Z",
@@ -79,12 +79,12 @@
     },
     "last_operator_rollout": {
       "source": "938516ee632287569389a37a7044ac779c18802e",
-      "at": "2026-10-15T05:27:55.424918+00:00",
+      "at": "2026-10-15T05:34:25.341071+00:00",
       "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
-      "scope": "Selected security release through protected merge #652: both environments run938/schema166 with scoped acceptance, and production natural scheduled delivery plus21/21 GitHub repository synchronization passed bounded acceptance after one same-schedule repair. The original staging release backup/restore passed; a later staging scheduled capture failed and was independently cleaned. Production after-backup remains incomplete: three earlier captures failed and were independently cleaned, then one reviewed prepared-container attempt captured and remotely read back the set but failed during restore with cleanup unverified. Scheduled operator repair and full production after-restore remain pending. Later #658, #659/AR schema167 and #680 are separate source batches.",
+      "scope": "Selected security release through protected merge #652: both environments run938/schema166 with scoped acceptance, and production natural scheduled delivery plus21/21 GitHub repository synchronization passed bounded acceptance after one same-schedule repair. The original staging release backup/restore passed; a later staging scheduled capture failed and was independently cleaned. Production after-backup remains incomplete: three earlier captures failed and were independently cleaned, then one reviewed prepared-container attempt captured and remotely read back the set but failed during restore; separate read-only reconciliation confirmed its owned resources absent. Scheduled operator repair and full production after-restore remain pending. Later #658, #659/AR schema167 and #680 are separate source batches.",
       "status": "in_progress",
       "receipt": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "receipt_sha256": "9655dfc81d2ba35dbf767bf820446c2c70c90a77e3eb864da9f872b5a9c96a4b",
+      "receipt_sha256": "b5c6ffc296a1f9f002a064fa36fd93d3efa79379e4cb212fccfe2c1f86731871",
       "database_migrations_applied": {
         "staging": [],
         "production": [
@@ -95,7 +95,8 @@
         "staging": "368a5d67-c1c1-4602-bb45-98f05801bc10",
         "production": "24c6c843-c7db-437d-a2b9-c0bcd93900c0"
       },
-      "limitation": "Both environments run938/schema166 with scoped acceptance. The earlier staging release before/after restores remain passed, but the later scheduled setfc39f036 failed and was independently cleaned. Three production after-captures failed and were independently cleaned; their original cleanupVerified=false receipts remain. New sete021ebfc captured and remotely read back its set, then failed during restore with cleanupVerified=false. Same-set reconciliation remains pending. Prepared-container repair is not yet installed as either scheduled operator. The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling."
+      "limitation": "Both environments run938/schema166 with scoped acceptance. The earlier staging release before/after restores remain passed, but the later scheduled setfc39f036 failed and was independently cleaned. Three production after-captures failed and were independently cleaned; their original cleanupVerified=false receipts remain. New sete021ebfc captured and remotely read back its set, then failed during restore with cleanupVerified=false. Separate05:29 UTC read-only reconciliation confirmed zero owned resources and disabled policy; original failed cleanupVerified=false remains unchanged. Prepared-container repair is not yet installed as either scheduled operator. The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling.",
+      "evidence_cutoff_at": "2026-10-15T05:29:39.557Z"
     },
     "last_production_rollout": {
       "same_as": "last_operator_rollout",
@@ -1883,7 +1884,12 @@
         "cleanup_verified": false,
         "original_failure_retained": true,
         "reconciliation": {
-          "status": "pending"
+          "at": "2026-10-15T05:29:39.557Z",
+          "status": "owned_resources_reconciled",
+          "resources_remaining": 0,
+          "owned_volume_absent": true,
+          "original_cleanup_verified_unchanged": false,
+          "backup_succeeded": false
         },
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
       }
@@ -2434,7 +2440,7 @@
       "Same-host isolated current-schema restore passed; a second authorized operator in a new environment is not yet accepted",
       "GC/OFF daily mode remains selected; retention executor and historical unsettled PUT remain open"
     ],
-    "operator_source_note": "Both runtimes938/schema166 passed scoped acceptance. Staging backup/restore and operator completed. Production before-set87ec and confirmed166 reconciliation remain valid. After-sets480cd/28c818 and scheduled19f7e10e failed and have separate zero-owned-resource cleanup receipts; original failures remain. At04:15 UTC production dispatcher was reversibly advanced to the original canonical166 adapter with explicit pending-after-backup status, preserving staging/timers and runtime backup/restore/cleanup checks. This configuration repair is not a successful production after-backup or restored-coordinate-fence verification. The latest existing timer run is recorded as failed; historical scheduled-run observations are retained separately. Later staging timer setfc39f036 failed capture at04:59 UTC and was separately reconciled at05:04 UTC. Production one-shot prepared-container sete021ebfc captured and remotely read back its set but failed during restore with cleanup unverified; same-set reconciliation is pending. Staging equivalent is prepared only. Neither repaired adapter is installed; original staging release restore evidence remains valid.",
+    "operator_source_note": "Both runtimes938/schema166 passed scoped acceptance. Staging backup/restore and operator completed. Production before-set87ec and confirmed166 reconciliation remain valid. After-sets480cd/28c818 and scheduled19f7e10e failed and have separate zero-owned-resource cleanup receipts; original failures remain. At04:15 UTC production dispatcher was reversibly advanced to the original canonical166 adapter with explicit pending-after-backup status, preserving staging/timers and runtime backup/restore/cleanup checks. This configuration repair is not a successful production after-backup or restored-coordinate-fence verification. The latest existing timer run is recorded as failed; historical scheduled-run observations are retained separately. Later staging timer setfc39f036 failed capture at04:59 UTC and was separately reconciled at05:04 UTC. Production one-shot prepared-container sete021ebfc captured and remotely read back its set but failed during restore; separate05:29 UTC reconciliation confirmed zero owned resources, absent owned volume, disabled policy and retained47-reference pins. Original cleanupVerified=false remains unchanged and restore is unverified. Staging equivalent is prepared only. Neither repaired adapter is installed; original staging release restore evidence remains valid.",
     "current_operator_scheduled_run": {
       "observed_at": "2026-10-15T05:04:48.356Z",
       "trigger": "existing staging systemd timer; no manual restart",

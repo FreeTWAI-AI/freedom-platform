@@ -154,8 +154,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 33477,
-      "sha256": "ddef9c3c5ccc734273775267a27b2af5a363db8865896a4aa2a27903c552250f"
+      "bytes": 33675,
+      "sha256": "5799d5b1621a5ec096dc446fd7e1c49d462aea8c22f254a55d3956b5ca036414"
     },
     {
       "path": "apps/freedom.module.json",
@@ -13894,8 +13894,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 29324,
-      "sha256": "00e89a7231eeaa0a6f573b44291ff9358e5d0fc5936fb6f96cf7fc0d2a859e60"
+      "bytes": 30215,
+      "sha256": "46c0c628b2f20ce443bc139656806ae77d86a2ab0adc69a7d9ea3716eacbd206"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -13974,8 +13974,8 @@
     },
     {
       "path": "docs/development/limited-trial-kit.md",
-      "bytes": 29185,
-      "sha256": "71e05ae6a5817fc710dc8d8c8afa45b4ad7f7979f538b151bf10b73ee2999793"
+      "bytes": 29702,
+      "sha256": "35bfa6fc2a0f6ceb9243bbcceaa1b46e8aa70ff19ca68b99a81ebbd8bd047e7c"
     },
     {
       "path": "docs/development/local-runtime.md",
@@ -14129,8 +14129,8 @@
     },
     {
       "path": "docs/development/repository-integration.md",
-      "bytes": 8514,
-      "sha256": "9f271e1d3e475078ca3b2a90c9e96fc252c935d5bcd30d96fb14ce22f892dceb"
+      "bytes": 13472,
+      "sha256": "739a1f560211156fbab6f5beb32d1a6bd9d641c2317609c91ff4bb58147c3ab9"
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
@@ -15609,8 +15609,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 82464,
-      "sha256": "ff234c3397a573f32962a8d0ab027a854be98d6dbfe919b85ddf4e2d99c583f1"
+      "bytes": 89029,
+      "sha256": "d11f726bd860657e337ea93314af341ec2e2258cdd605964a77722a96dce6cdf"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -15629,8 +15629,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 140010,
-      "sha256": "6c020d346c9e3c46eed0662829965ecdf8dd63efd5be66e687be5a5a0b2c85f3"
+      "bytes": 167770,
+      "sha256": "a88606c92a0c937f07614fee34b87c7c24c7dfa247b7a63b05a9beb044f30ef6"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -15803,6 +15803,11 @@
       "sha256": "f351b7e8b2fc06d71aaf5fb2ad5d30208e9f7ecc9a3fe8512ff287bc4d02a745"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+      "bytes": 73326,
+      "sha256": "b5c6ffc296a1f9f002a064fa36fd93d3efa79379e4cb212fccfe2c1f86731871"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json",
       "bytes": 5244,
       "sha256": "e569cf2f495ae9dc989fd45212f213208a11069a71720fe9d3bd20e6ac7fd618"
@@ -15964,8 +15969,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 26869,
-      "sha256": "531fc23da789e2896a7ad61d2e132237d36ffd6bce82e8066d4fc8ae751c6c86"
+      "bytes": 26997,
+      "sha256": "47fa8f842f2b3673ce61b7d24f87ddb2e639e99a9a270e115a89893e5dcb0826"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -19234,8 +19239,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 7713,
-      "sha256": "c66fe1db6f792127454976833c93188639973a69157273afab1f2f1e85ba0f55"
+      "bytes": 10150,
+      "sha256": "9a78543e7313482770b7e11222ddf78ed0c2f28729154f314be04c77a87e5366"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -19254,8 +19259,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 36379,
-      "sha256": "d6f6fd428024ef89ae763337070f7e1e1a148687a8533a0c0572210531fcf7a9"
+      "bytes": 36445,
+      "sha256": "001c86c99096e0680938595db4002bab5d5033099c77b2174e35c54995a2295f"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -19444,8 +19449,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 36657,
-      "sha256": "b542822f42367bb321e3067112fedaceee2943a592cfda6f40675d1af6a049be"
+      "bytes": 38888,
+      "sha256": "5a7d78a8d5ce895c27da329bb57d6b62b8261e60202cbf37ee67fda955539851"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -19469,8 +19474,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 13938,
-      "sha256": "a19d9e97b31950295f92a2a574179e3f3fd6bb02dac2f2b449c53cb1820df699"
+      "bytes": 14395,
+      "sha256": "34bb98f68c56f11e8d22e6859081e78fb5672648b632d7e99a924c682515c3c4"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
@@ -20339,8 +20344,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 70727,
-      "sha256": "75f6c3ee82e1c3febb8a630c3aa1e5abe894fd3a7fcaaa78e6143e0b37a4b202"
+      "bytes": 70761,
+      "sha256": "15c1db7eac675e586fd55d9e148df45ddfb23967ca2978a6b0dba2dbe309ee09"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
@@ -20454,8 +20459,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 10570,
-      "sha256": "840122e4d825612ef5f19cdb1a6dcfd0f1f483db6bfe6190f3997cc655b19658"
+      "bytes": 13006,
+      "sha256": "12ebb1f514e595d1fd5de8f8eda507bdd82066f7bedfa7760288291a5393540c"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",

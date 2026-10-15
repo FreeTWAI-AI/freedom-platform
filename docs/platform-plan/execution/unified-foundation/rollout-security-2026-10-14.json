@@ -1,9 +1,9 @@
 {
   "format": "freedom.operator-observed-rollout/v1",
-  "recorded_at": "2026-10-15T05:27:55.424918+00:00",
+  "recorded_at": "2026-10-15T05:34:25.341071+00:00",
   "status": "in_progress",
   "draft": false,
-  "scope": "Selected security release through protected merge #652: both environments run938/schema166 with scoped acceptance, and production natural scheduled delivery plus21/21 GitHub repository synchronization passed bounded acceptance after one same-schedule repair. The original staging release backup/restore passed; a later staging scheduled capture failed and was independently cleaned. Production after-backup remains incomplete: three earlier captures failed and were independently cleaned, then one reviewed prepared-container attempt captured and remotely read back the set but failed during restore with cleanup unverified. Scheduled operator repair and full production after-restore remain pending. Later #658, #659/AR schema167 and #680 are separate source batches.",
+  "scope": "Selected security release through protected merge #652: both environments run938/schema166 with scoped acceptance, and production natural scheduled delivery plus21/21 GitHub repository synchronization passed bounded acceptance after one same-schedule repair. The original staging release backup/restore passed; a later staging scheduled capture failed and was independently cleaned. Production after-backup remains incomplete: three earlier captures failed and were independently cleaned, then one reviewed prepared-container attempt captured and remotely read back the set but failed during restore; separate read-only reconciliation confirmed its owned resources absent. Scheduled operator repair and full production after-restore remain pending. Later #658, #659/AR schema167 and #680 are separate source batches.",
   "source": {
     "release": "938516ee632287569389a37a7044ac779c18802e",
     "tree": "089a3774e66c3f1ad4d68dc6548f125867510f09",
@@ -832,7 +832,7 @@
       }
     ],
     "production": {
-      "status": "before_passed_four_after_failures_latest_restore_and_cleanup_unverified",
+      "status": "before_passed_four_after_failures_resources_reconciled_restore_unverified",
       "before": {
         "status": "passed",
         "environment": "production",
@@ -897,7 +897,24 @@
         "completed_recovery_claimed": false,
         "originalFailureRetained": true,
         "owned_resource_reconciliation": {
-          "status": "pending"
+          "at": "2026-10-15T05:29:39.557Z",
+          "status": "reconciled",
+          "resources_remaining": 0,
+          "owned_volume_absent": true,
+          "owned_database_sessions": 0,
+          "dump_clients": 0,
+          "owned_container_lifecycles_confirmed": true,
+          "policy_enabled": false,
+          "domain_media_enabled": false,
+          "retained_reference_count": 47,
+          "backup_succeeded": false,
+          "original_cleanupVerified": false,
+          "original_failure_preserved": true,
+          "evidence": {
+            "record": "production_prepared_after_owned_resource_reconciliation",
+            "sha256": "7be962aa3537e33fd91e0e1bb8cc52bd5dc414feef1e29bfbe1eebe3fe18f62a",
+            "custody": "private_operator_original"
+          }
         },
         "scope": "Owned container preparation moved before policy enable/exported snapshot, retaining the original180-second dump budget and1200-second core bound. The candidate preserves explicit ownership acknowledgement until cleanup. This one-shot adapter is not installed as the scheduled operator.",
         "evidence": {
@@ -920,7 +937,7 @@
           "sha256": "493cc241de036e21fef3846ac06734f565c437472e0f0d49c544f75931e984d3",
           "custody": "private_operator_original"
         },
-        "limitation": "Database/object capture and remote readback passed, but restore failed and cleanupVerified remains false. Same-set resource reconciliation is pending; no recapture or completed recovery is claimed. Earlier three failures remain failures."
+        "limitation": "Database/object capture and remote readback passed, but restore failed and the original cleanupVerified=false receipt remains. Separate read-only reconciliation confirmed zero owned resources, absent owned volume, disabled policy and retained pins. Cleanup is not restore success; no recapture is claimed."
       },
       "superseded_before": {
         "status": "passed",
@@ -1145,7 +1162,24 @@
           "completed_recovery_claimed": false,
           "originalFailureRetained": true,
           "owned_resource_reconciliation": {
-            "status": "pending"
+            "at": "2026-10-15T05:29:39.557Z",
+            "status": "reconciled",
+            "resources_remaining": 0,
+            "owned_volume_absent": true,
+            "owned_database_sessions": 0,
+            "dump_clients": 0,
+            "owned_container_lifecycles_confirmed": true,
+            "policy_enabled": false,
+            "domain_media_enabled": false,
+            "retained_reference_count": 47,
+            "backup_succeeded": false,
+            "original_cleanupVerified": false,
+            "original_failure_preserved": true,
+            "evidence": {
+              "record": "production_prepared_after_owned_resource_reconciliation",
+              "sha256": "7be962aa3537e33fd91e0e1bb8cc52bd5dc414feef1e29bfbe1eebe3fe18f62a",
+              "custody": "private_operator_original"
+            }
           },
           "scope": "Owned container preparation moved before policy enable/exported snapshot, retaining the original180-second dump budget and1200-second core bound. The candidate preserves explicit ownership acknowledgement until cleanup. This one-shot adapter is not installed as the scheduled operator.",
           "evidence": {
@@ -1168,7 +1202,7 @@
             "sha256": "493cc241de036e21fef3846ac06734f565c437472e0f0d49c544f75931e984d3",
             "custody": "private_operator_original"
           },
-          "limitation": "Database/object capture and remote readback passed, but restore failed and cleanupVerified remains false. Same-set resource reconciliation is pending; no recapture or completed recovery is claimed. Earlier three failures remain failures."
+          "limitation": "Database/object capture and remote readback passed, but restore failed and the original cleanupVerified=false receipt remains. Separate read-only reconciliation confirmed zero owned resources, absent owned volume, disabled policy and retained pins. Cleanup is not restore success; no recapture is claimed."
         }
       ]
     }
@@ -1379,7 +1413,7 @@
     }
   },
   "limitations": [
-    "Both environments run938/schema166 with scoped acceptance. The earlier staging release before/after restores remain passed, but the later scheduled setfc39f036 failed and was independently cleaned. Three production after-captures failed and were independently cleaned; their original cleanupVerified=false receipts remain. New sete021ebfc captured and remotely read back its set, then failed during restore with cleanupVerified=false. Same-set reconciliation remains pending. Prepared-container repair is not yet installed as either scheduled operator.",
+    "Both environments run938/schema166 with scoped acceptance. The earlier staging release before/after restores remain passed, but the later scheduled setfc39f036 failed and was independently cleaned. Three production after-captures failed and were independently cleaned; their original cleanupVerified=false receipts remain. New sete021ebfc captured and remotely read back its set, then failed during restore with cleanupVerified=false. Separate05:29 UTC read-only reconciliation confirmed zero owned resources and disabled policy; original failed cleanupVerified=false remains unchanged. Prepared-container repair is not yet installed as either scheduled operator.",
     "Staging uses dedicated synthetic account checks, not human usability, adoption, or two independent guild authors.",
     "Critical race regressions are natural-main isolated test evidence; no cloud race reconstruction was performed.",
     "Real GitHub OAuth callbacks, member Issue/Star actions and real webhook deliveries were not exercised by this acceptance.",
@@ -1436,8 +1470,8 @@
       "custody": "private_operator_original"
     },
     "repair_candidate_observation": {
-      "observed_at": "2026-10-15T05:27:55.424918+00:00",
-      "production": "one explicit prepared-container candidate failed during restore; same-set reconciliation pending",
+      "observed_at": "2026-10-15T05:29:39.557Z",
+      "production": "one explicit prepared-container candidate failed during restore; owned resources separately reconciled, restore remains unverified",
       "staging": "prepared_not_executed",
       "new_candidate_installed": false,
       "staging_preparation_evidence": {
@@ -1518,5 +1552,6 @@
       "sha256": "7f127d83f0f0dafede5da8cfbeeb1fe72cf4543e579d937ffb5589fccfd3b827",
       "custody": "private_operator_original"
     }
-  }
+  },
+  "evidence_cutoff_at": "2026-10-15T05:29:39.557Z"
 }
