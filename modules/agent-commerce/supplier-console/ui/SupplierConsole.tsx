@@ -10,6 +10,7 @@ import {Terms,Review} from './pages/Terms';
 import {Reservations} from './pages/Reservations';
 import {Settings,Setup} from './pages/Settings';
 import {ReadStatus,WriteAccess} from './pages/Shared';
+import {fieldLabels,attemptFieldText} from './view';
 import './SupplierConsole.css';
 export function SupplierConsole({client,userId,route,registerLeave,photosEnabled=false,photoUploadsEnabled=false}:{client:PortalClient;userId:string;route:SupplierConsoleRoute;registerLeave:RegisterLeave;photosEnabled?:boolean;photoUploadsEnabled?:boolean}){
  const c=useSupplierConsoleController({client,userId,scope:route,route,registerLeave,photosEnabled}),profile=c.profile,r=c.slot('profile'),ready=profile?.setup_state==='ready';
@@ -25,7 +26,7 @@ export function SupplierConsole({client,userId,route,registerLeave,photosEnabled
   <p className="sc-announcement" role="status" aria-live="polite">{c.notice}</p>{c.error&&<p className="banner banner-error" role="alert">{c.error}</p>}
   {c.attempt&&<div className="banner stack" role="status"><p>{c.phase==='sending'?`正在確認原操作：${c.attempt.label}。`:`尚未確認原操作的結果：${c.attempt.label}。請按『重試』確認。`}</p>{c.phase==='held'&&<div className="actions"><button type="button" className="btn btn-ghost" onClick={c.retry}>重試</button></div>}</div>}
   {Object.entries(c.photoStates).filter(([,s])=>s.blocking).map(([id])=><div className="banner stack" role="status" key={id}><p>尚未確認原照片操作的結果，請回到商品照片確認。</p><div className="actions"><a className="btn btn-ghost" href={supplierConsoleHref(route,'product',{id})}>回到商品照片</a></div></div>)}
-  {c.rejected&&<details><summary>原操作內容（冪等鍵衝突）</summary><p>{c.rejected.label} · 版本 {c.rejected.ifMatch??'建立操作'}</p><pre>{JSON.stringify(c.rejected.body,null,2)}</pre></details>}
+  {c.rejected&&<details><summary>原操作內容（冪等鍵衝突）</summary><p>{c.rejected.label} · 版本 {c.rejected.ifMatch??'建立操作'}</p><dl className="detail-list">{Object.entries(c.rejected.body).map(([field,value])=><div key={field}><dt>{fieldLabels[field]??field}</dt><dd>{attemptFieldText(field,value,profile?.catalog?.currency??'TWD')}</dd></div>)}</dl></details>}
   {c.pendingReads.length>0&&<div className="banner stack"><p>已保存，資料仍待更新；暫停寫入，請重試讀取。</p>{c.pendingReads.map(key=><ReadStatus key={key} c={c} name={key} label="保存後的資料"/>)}</div>}
   {!profile?<section className="stack"><h2 tabIndex={-1}>{r.status===404?'找不到這個供貨商品庫':r.status===403?'沒有查看商品庫的權限':'供貨商品庫'}</h2><ReadStatus c={c} name="profile" label="供貨商品庫"/></section>:<>
   {c.owner.state==='failed'&&ready&&<div className="sc-owner-note"><p>暫時無法確認預留權限；只有確認為擁有者後才顯示入口。</p><div className="actions"><button className="btn btn-ghost" onClick={()=>void c.read('owner')}>重試確認預留權限</button></div></div>}

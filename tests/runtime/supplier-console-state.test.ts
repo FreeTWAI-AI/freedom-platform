@@ -5,7 +5,7 @@ import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,type Attempt} from '.
 import {holdAttempt,retainedAttempt,restoreAttempt,releaseAttempt,markAttemptUnknown,consolePhotoTargets,rememberConsolePhoto} from '../../modules/agent-commerce/supplier-console/state/registry';
 import {changedFields,editDraft,staleDrafts,conflictRows,reapplyAttempt,discardDraft} from '../../modules/agent-commerce/supplier-console/state/drafts';
 import {leaveDecision} from '../../modules/agent-commerce/supplier-console/state/leave';
-import {filterProducts,metricText,permissionReason,todoText,partnerLabel,selectionShopLabel,priceGap,PRICE_GAP_NOTE,REVIEW_NOTE,RESERVATION_NOTE,commandFields,fieldLabels} from '../../modules/agent-commerce/supplier-console/ui/view';
+import {filterProducts,metricText,permissionReason,todoText,partnerLabel,selectionShopLabel,priceGap,PRICE_GAP_NOTE,REVIEW_NOTE,RESERVATION_NOTE,commandFields,fieldLabels,attemptFieldText} from '../../modules/agent-commerce/supplier-console/ui/view';
 import {ApiError} from '../../apps/portal-web/src/api';
 import type {SupplierProduct} from '../../contracts/guild-launchpad/v1/supplier-console';
 import type {Distribution} from '../../contracts/guild-launchpad/v1/hosted-distribution';
@@ -111,4 +111,8 @@ test('SC-UI-19 presentation vocabulary keeps financial terms only in explicit ne
 
 test('SC-UI-20 photo recovery locators are scoped and contain no file or command authority',()=>{
  const client={};rememberConsolePhoto(client,'member',scope,id,true);assert.deepEqual(consolePhotoTargets(client,'member',scope),[id]);assert.deepEqual(consolePhotoTargets({},'member',scope),[]);assert.deepEqual(consolePhotoTargets(client,'other',scope),[]);assert.deepEqual(consolePhotoTargets(client,'member',{tenantId:other,instanceId:i}),[]);rememberConsolePhoto(client,'member',scope,id,false);assert.deepEqual(consolePhotoTargets(client,'member',scope),[]);
+});
+test('SC-UI-21 original command content uses member labels and unit-price formatting',()=>{
+ assert.equal(fieldLabels.cost_minor,'供貨單價');assert.equal(attemptFieldText('cost_minor',15000,'TWD'),'$150.00');assert.equal(attemptFieldText('shipping_minor',0,'TWD'),'$0.00');
+ assert.equal(attemptFieldText('decision','revoked','TWD'),'撤回同意');assert.equal(attemptFieldText('reservation_enabled',false,'TWD'),'否');assert.equal(attemptFieldText('stock',12,'TWD'),'12');
 });

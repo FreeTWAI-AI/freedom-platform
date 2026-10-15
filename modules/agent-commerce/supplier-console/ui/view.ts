@@ -23,4 +23,5 @@ export const priceGap=(s:Distribution)=>formatMinor(s.retail_price_minor-s.offer
 export function commandFields(kind:AttemptKind,fields:Fields):Fields {
  return Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,k==='cost_minor'||k==='shipping_minor'?k==='shipping_minor'&&/^0+(?:\.0{1,2})?$/.test(String(v).trim())?0:parseMajorToMinor(String(v)):k==='stock'?/^\d+$/.test(String(v))?Number(v):NaN:v]));
 }
-export const fieldLabels:Record<string,string>={title:'商品名稱',description:'說明',stock:'庫存',cost_minor:'供貨單價',shipping_minor:'每件運費',shipping_terms:'出貨條件',return_terms:'退貨條件',name:'商品庫名稱',currency:'幣別'};
+export const fieldLabels:Record<string,string>={title:'商品名稱',description:'說明',stock:'庫存',cost_minor:'供貨單價',shipping_minor:'每件運費',shipping_terms:'出貨條件',return_terms:'退貨條件',name:'商品庫名稱',currency:'幣別',decision:'決定',listing_sha256:'申請內容摘要',reservation_enabled:'開放新預留'};
+export function attemptFieldText(field:string,value:unknown,currency:string){return typeof value==='number'&&(field==='cost_minor'||field==='shipping_minor')?formatMinor(value,currency):typeof value==='boolean'?value?'是':'否':field==='decision'?(({accepted:'同意',declined:'不同意',revoked:'撤回同意'} as Record<string,string>)[String(value)]??String(value)):String(value??'（空白）');}
