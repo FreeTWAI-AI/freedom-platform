@@ -28,7 +28,7 @@ export async function ensureDevice(q:PoolClient,token:string|undefined,origin:st
   if(old)return {device:old,cookie:shopCookie(origin,token!,old.remaining)};
   const value=randomBytes(32).toString('base64url');
   const device=(await q.query<AccessDevice>(`INSERT INTO commerce_access_devices(token_sha256,created_at,expires_at)
-    SELECT $1,t,t+interval '180 days' FROM (SELECT date_trunc('milliseconds',clock_timestamp()) t) n
+    SELECT $1,t,t+interval '4320 hours' FROM (SELECT date_trunc('milliseconds',clock_timestamp()) t) n
     RETURNING device_id,expires_at,floor(extract(epoch FROM expires_at-clock_timestamp()))::int AS remaining`,[hashKey(value)])).rows[0];
   return {device,cookie:shopCookie(origin,value,device.remaining)};
 }
@@ -48,7 +48,7 @@ export async function assertDeviceLive(q:PoolClient,deviceId:string) {
 export async function createAccessLink(q:PoolClient,target:{tenant_id:string;instance_id:string;checkout_id:string;order_id:string}) {
   const token=randomBytes(32).toString('base64url');
   await q.query(`INSERT INTO commerce_order_access_grants(tenant_id,instance_id,checkout_id,order_id,kind,link_token_sha256,created_at,expires_at)
-    SELECT $1,$2,$3,$4,'link',$5,t,t+interval '7 days' FROM (SELECT date_trunc('milliseconds',clock_timestamp()) t) n`,
+    SELECT $1,$2,$3,$4,'link',$5,t,t+interval '168 hours' FROM (SELECT date_trunc('milliseconds',clock_timestamp()) t) n`,
   [target.tenant_id,target.instance_id,target.checkout_id,target.order_id,hashKey(token)]);
   return token;
 }

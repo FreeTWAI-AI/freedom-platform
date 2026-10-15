@@ -526,7 +526,7 @@ CREATE TABLE commerce_access_devices (
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   expires_at timestamptz NOT NULL,
   revoked_at timestamptz,
-  CHECK(expires_at=created_at+interval '180 days'),
+  CHECK(expires_at=created_at+interval '4320 hours'),
   CHECK(revoked_at IS NULL OR revoked_at>=created_at)
 );
 CREATE INDEX commerce_access_devices_expiry ON commerce_access_devices(expires_at) WHERE revoked_at IS NULL;
@@ -547,7 +547,7 @@ CREATE TABLE commerce_order_access_grants (
   FOREIGN KEY(checkout_id,tenant_id,instance_id) REFERENCES commerce_checkouts(checkout_id,tenant_id,instance_id),
   FOREIGN KEY(order_id,checkout_id,tenant_id,instance_id) REFERENCES commerce_checkout_orders(order_id,checkout_id,tenant_id,instance_id),
   CHECK((kind='device' AND device_id IS NOT NULL AND link_token_sha256 IS NULL AND expires_at IS NULL AND redeemed_at IS NULL)
-     OR (kind='link' AND device_id IS NULL AND order_id IS NOT NULL AND link_token_sha256 IS NOT NULL AND expires_at=created_at+interval '7 days' AND expires_at IS NOT NULL)),
+     OR (kind='link' AND device_id IS NULL AND order_id IS NOT NULL AND link_token_sha256 IS NOT NULL AND expires_at=created_at+interval '168 hours' AND expires_at IS NOT NULL)),
   CHECK(redeemed_at IS NULL OR redeemed_at>=created_at),
   CHECK(revoked_at IS NULL OR revoked_at>=created_at)
 );
