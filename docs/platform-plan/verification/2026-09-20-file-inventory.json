@@ -17203,6 +17203,51 @@
       "sha256": "9fab292e16bff3cbedde7429b75ded6f4a543e2e4426e0d86a57e61941ac1134"
     },
     {
+      "path": "modules/agent-commerce/invoices/README.md",
+      "bytes": 8091,
+      "sha256": "2ef2954f8e1858263a64e388d9aeb89c07ad0de0880922b5f55139428db562b3"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/freedom.module.json",
+      "bytes": 599,
+      "sha256": "e1c1a91bdce7a16eb3b6bda7201d5355ea77d1877c51e207c42f80db16fd2cbb"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/buyer.ts",
+      "bytes": 10544,
+      "sha256": "37559f68b430e303b4b9ded961ef896f03c6a81bd803305b8a678dd76ccc4b40"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/corrections.ts",
+      "bytes": 8494,
+      "sha256": "6f48213d04ed7a141b08434c31301e24178d998a888cec3e07cac6a25c19f57b"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/errors.ts",
+      "bytes": 731,
+      "sha256": "f341ef21684e86cc52476f1f6e46900cdf7aa4fc311e40391d635a23a2ab1d71"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/index.ts",
+      "bytes": 831,
+      "sha256": "e8c0be57ae03216948af5dbf05c7deff0fd7f0f85e1b01e833b1e523ee3a522a"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/items.ts",
+      "bytes": 9385,
+      "sha256": "f771f6cfae2b7518b73edbba8511bf4aa01792da4d12a210266ef77b85095fe9"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/period.ts",
+      "bytes": 3223,
+      "sha256": "21006824d78bae65c23dd608e84f7847394fd4991c6b55b207369a7415a3c0ae"
+    },
+    {
+      "path": "modules/agent-commerce/invoices/rules/ubn.ts",
+      "bytes": 1437,
+      "sha256": "088131978633b7f249b75a4876b966b5e91beb630acf9db1bf5e45aeb0740109"
+    },
+    {
       "path": "modules/agent-commerce/portal/freedom.module.json",
       "bytes": 709,
       "sha256": "1cb1ca6c46b2f10976627a2919adcb0020198712d11375d8cf9fb82821c8ffb8"
@@ -21951,6 +21996,11 @@
       "path": "tests/runtime/command-core.test.ts",
       "bytes": 11734,
       "sha256": "f329212d4c53396e5dd260d307a8cba3230c64f8781b2cbd374a776e758e24b3"
+    },
+    {
+      "path": "tests/runtime/commerce-invoice-rules.test.ts",
+      "bytes": 33004,
+      "sha256": "e3a6e227cb9c910e07dd3c4db6fcbb0568c60b04cf5b7356cd1d31ae839932f4"
     },
     {
       "path": "tests/runtime/commerce.test.ts",
