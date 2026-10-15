@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,writeFileSync,rmSync,symlinkSync,linkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {run} from '../preflight.mjs';
 import {checkCommerceWranglerConfig} from '../lib/commerce-wrangler.mjs';
 function check(config,setup) {
   const dir=mkdtempSync(join(tmpdir(),'commerce-wrangler-')),path=join(dir,'wrangler.jsonc');
@@ -23,5 +24,13 @@ test('unknown commerce variables and unsafe declarations fail without copying na
   for(const config of [null,[],{env:[]},{env:{next:null}},{vars:[]},{vars:null}])assert.equal(check(config).structural,false);
   assert.equal(check({},(dir,path)=>{const link=join(dir,'link');symlinkSync(path,link);return link;}).structural,false);
   assert.equal(check({},(dir,path)=>{linkSync(path,join(dir,'hard'));return path;}).structural,false);
-  assert.equal(checkCommerceWranglerConfig('/does-not-exist').structural,false);
+  const absent=checkCommerceWranglerConfig('/does-not-exist');assert.equal(absent.structural,true);assert.deepEqual(absent.errors,[]);assert.deepEqual(absent.blockers,['config_unavailable']);
+});
+
+test('missing worker config is unavailable without failing preflight run',async()=>{
+  const dir=mkdtempSync(join(tmpdir(),'commerce-missing-'));
+  try {
+    const result=await run(['wrangler','--config',join(dir,'absent.jsonc')]);assert.equal(result.code,0);
+    const report=JSON.parse(result.output);assert.equal(report.commerce_wrangler.structural,true);assert.deepEqual(report.commerce_wrangler.blockers,['config_unavailable']);
+  }finally{rmSync(dir,{recursive:true,force:true});}
 });

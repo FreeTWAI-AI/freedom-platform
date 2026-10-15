@@ -328,7 +328,7 @@ test('contact digests are salted and freeze request digests are keyed without br
   assert.match(contact.contact_salt,/^[a-f0-9]{32}$/);
   const pii={contact:input.contact,delivery:input.delivery,invoice:input.invoice};
   assert.notEqual(contact.contact_sha256,hashJSON(pii));assert.equal(contact.contact_sha256,hashJSON({...pii,salt:contact.contact_salt}));
-  const canonicalRequest={input,checkout_id:null,member_principal_id:null},digest=createHmac('sha256',Buffer.from(idempotencyKey,'utf8')).update(canonicalJSON(canonicalRequest),'utf8').digest('hex');
+  const canonicalRequest={input,checkout_id:null},digest=createHmac('sha256',Buffer.from(idempotencyKey,'utf8')).update(canonicalJSON(canonicalRequest),'utf8').digest('hex');
   const checkout=(await x.h.pool.query('SELECT * FROM commerce_checkouts WHERE checkout_id=$1',[c.checkout_id])).rows[0],key=(await x.h.pool.query('SELECT * FROM commerce_checkout_idempotency_keys WHERE checkout_id=$1',[c.checkout_id])).rows[0];
   assert.notEqual(checkout.request_sha256,hashJSON(canonicalRequest));assert.equal(checkout.request_sha256,digest);assert.equal(key.request_sha256,digest);
   assert.ok(!JSON.stringify([checkout,key]).includes(idempotencyKey));

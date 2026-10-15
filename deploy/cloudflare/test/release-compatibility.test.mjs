@@ -48,7 +48,7 @@ test('persisted historical avatar representation fences every old reader even af
  f.host.release_records.push({...structuredClone(f.host.release_records[0]),...old,evidence_id:'old-avatar-reader',capabilities:[...CAPABILITIES]});
  const result=evaluate(f);assert.equal(result.status,'incompatible');
  assert(result.issues.some(i=>i.code==='release_capability_missing'&&i.source_sha===old.source_sha&&i.capability==='avatar.legacy-bytes.v1'));
- assert.equal(result.deployment_authority,false);assert.equal(result.restore_proof,false);
+ assert.equal(result.deployment_authority,false);assert.equal(result.execution_authority,false);assert.equal(result.restore_proof,false);
 });
 
 test('retained avatar legacy capability preserves bridge dependency and schema111 without claiming written data',()=>{
@@ -904,5 +904,10 @@ test('restoring below168 cannot erase the historical hosted checkout write floor
 test('schema168 with hosted checkout support passes without granting operational authority',()=>{
   const result=evaluate(fixture());assert.equal(result.status,'compatible',JSON.stringify(result.issues));
   assert(result.required_capabilities.includes('commerce.hosted-checkout.v1'));
-  assert.equal(result.deployment_authority,false);assert.equal(result.restore_proof,false);
+  assert.equal(result.deployment_authority,false);assert.equal(result.execution_authority,false);assert.equal(result.restore_proof,false);
+});
+
+test('planned schema167 does not require the later hosted checkout capability',()=>{
+  const f=fixtureAt(167);f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='commerce.hosted-checkout.v1');
+  const result=evaluate(f);assert.equal(result.status,'compatible');assert.equal(result.required_capabilities.includes('commerce.hosted-checkout.v1'),false);
 });

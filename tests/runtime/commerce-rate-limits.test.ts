@@ -31,7 +31,7 @@ test('a failed command rolls every bucket back',async()=>{
   await assert.rejects(x.tx(async q=>{await commerceRateLimitInTransaction(q,'checkoutNetwork','rollback');await commerceRateLimitInTransaction(q,'checkoutStore','rollback');throw Error('rollback');}));
   assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM auth_rate_limits')).rows[0].n,0);
 });
-for(const budget of ['device','email','network'] as const)test(`fourth open/new order per ${budget} leaves no order, hold or counter effects; replay still works`,async()=>{
+for(const budget of ['device','email','network'] as const)test(`fourth open/new order per ${budget} leaves no order or hold; replay counts only attempt budgets`,async()=>{
   const s=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false},...ports};let browser:string|undefined;
   let first:{checkout:string;input:{terms_sha256:string;client_order_id:string};access:{deviceToken?:string;network:string};order:string}|undefined;
   for(let i=0;i<4;i++) {
@@ -40,14 +40,21 @@ for(const budget of ['device','email','network'] as const)test(`fourth open/new 
     browser=f.cookie.split(';')[0].split('=')[1];access.deviceToken=browser;
     const input={terms_sha256:f.value.terms_sha256,client_order_id:randomUUID()};
     if(i<3){const placed=await placePublicOrder(x.runtime,s.slug,f.value.checkout_ref,input,access,options);assert(placed.created);first??={checkout:f.value.checkout_ref,input,access,order:placed.value.order.order_ref};}
-    else await assert.rejects(placePublicOrder(x.runtime,s.slug,f.value.checkout_ref,input,access,options),code(budget==='network'?'commerce_rate_limited':'too_many_open_orders'));
+    else {
+      const before=(await x.h.pool.query("SELECT ceil(extract(epoch FROM min(o.expires_at)-clock_timestamp()))::int seconds FROM commerce_orders o WHERE o.order_profile='hosted_checkout'")).rows[0];
+      await assert.rejects(placePublicOrder(x.runtime,s.slug,f.value.checkout_ref,input,access,options),(e:unknown)=>{
+        assert(code(budget==='network'?'commerce_rate_limited':'too_many_open_orders')(e));
+        const retry=(e as {retryAfterSeconds:number}).retryAfterSeconds;assert(Number.isInteger(retry)&&retry>=1);
+        if(budget!=='network')assert(Math.abs(retry-before.seconds)<=2);return true;
+      });
+    }
   }
   assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_checkout_orders')).rows[0].n,3);
   assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_inventory_reservations')).rows[0].n,3);
   assert.equal((await x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[s.product.product_id])).rows[0].reserved,3);
   const before=(await x.h.pool.query("SELECT * FROM auth_rate_limits WHERE bucket LIKE 'commerce:%' ORDER BY bucket")).rows;
   const replay=await placePublicOrder(x.runtime,s.slug,first!.checkout,first!.input,first!.access,options);assert.equal(replay.created,false);assert.equal(replay.value.order.order_ref,first!.order);
-  assert.deepEqual((await x.h.pool.query("SELECT * FROM auth_rate_limits WHERE bucket LIKE 'commerce:%' ORDER BY bucket")).rows,before);
+  assert.deepEqual((await x.h.pool.query("SELECT * FROM auth_rate_limits WHERE bucket LIKE 'commerce:%' ORDER BY bucket")).rows,before.map(row=>({...row,attempts:row.attempts+(['placementNetwork','placementStore'].some(name=>row.bucket===`commerce:${name}:${hashKey(name==='placementNetwork'?first!.access.network:s.instanceId)}`)?1:0)})));
 });
 test('trusted-edge HTTP sets Retry-After on exhausted quote budgets; local and untrusted requests share a key',async()=>{
   const s=await x.store(),origin=x.h.origin;
@@ -61,4 +68,15 @@ test('trusted-edge HTTP sets Retry-After on exhausted quote budgets; local and u
   const response=await call(true);assert.equal(response.status,429);assert(Number(response.headers.get('Retry-After'))>0);assert.equal((await response.json()).code,'commerce_rate_limited');
   assert.equal((await call(false)).status,200);assert.equal((await call(false,'192.0.2.20')).status,200);
   const shared=(await x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',[`commerce:cartNetwork:${hashKey('shared-server')}`])).rows[0];assert.equal(shared.attempts,2);
+});
+
+for(const cap of ['email','device'] as const)test(`three open orders per ${cap} at store A do not consume store B slots`,async()=>{
+  const a=await x.store(50),b=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false},...ports};let deviceToken:string|undefined;
+  for(let i=0;i<4;i++) {
+    const s=i<3?a:b,access={network:`network-${i}`,deviceToken:cap==='device'?deviceToken:undefined};
+    const c=await createPublicCheckout(x.runtime,s.slug,{...x.input(s.product.sku,1),contact:{name:'測試買家甲',email:cap==='email'?'same@example.test':`buyer${i}@example.test`,phone:'0900000000'}},randomUUID(),access,options);
+    deviceToken=c.cookie.split(';')[0].split('=')[1];access.deviceToken=deviceToken;
+    const r=await placePublicOrder(x.runtime,s.slug,c.value.checkout_ref,{terms_sha256:c.value.terms_sha256,client_order_id:randomUUID()},access,options);assert.equal(r.created,true);
+  }
+  assert.deepEqual((await x.h.pool.query('SELECT instance_id,count(*)::int n FROM commerce_checkout_orders GROUP BY instance_id ORDER BY instance_id')).rows,[{instance_id:a.instanceId,n:3},{instance_id:b.instanceId,n:1}].sort((a,b)=>a.instance_id.localeCompare(b.instance_id)));
 });
