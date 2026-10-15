@@ -15474,8 +15474,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 13484,
-      "sha256": "469c44f27db30eae600a9425b7c6015755cd3dbf778e8ca8e3cc6091ebbc0f22"
+      "bytes": 13648,
+      "sha256": "06ec7eb51891dcc4b7449018eea823b418fc0cf977003d7e88e14ab1c69713b1"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -15509,13 +15509,13 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/sources.md",
-      "bytes": 5676,
-      "sha256": "1e1f4b3dada0151cb83b12a4b0ecbe9e505362948de43c97c03f7b544dfcef27"
+      "bytes": 7518,
+      "sha256": "8b18cce25315b48f391d00e6c72b47572de6fc57cfe141d5423932e3d39f52ad"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 10479,
-      "sha256": "3df451657239a0b8bda38f2e8cbd1144bde92edcbdacca54a0e4762ee402b870"
+      "bytes": 10588,
+      "sha256": "b5465cb16149d3dac180f8836f12d0edbd13e264bc91297779d9bff6baa37b51"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",

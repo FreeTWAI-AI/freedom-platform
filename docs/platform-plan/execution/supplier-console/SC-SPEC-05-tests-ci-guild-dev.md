@@ -109,7 +109,8 @@
 - `modules/agent-commerce/supplier-console/**`（畫面元件與純狀態模組）
 - `apps/platform-api/src/routes/hosted-supplier-console.ts`
 - `contracts/guild-launchpad/v1/supplier-console.ts` 與 `.schema.json`
-- `tests/runtime/supplier-console.test.ts`、`tests/runtime/supplier-console-writes.test.ts`、`tests/runtime/supplier-console-state.test.ts`、`tests/e2e/supplier-console.spec.ts`、`tests/e2e/supplier-console-cooperation.spec.ts`、`tests/e2e/supplier-console-recovery.spec.ts`
+- `tests/runtime/supplier-console.test.ts`、`tests/runtime/supplier-console-writes.test.ts`、`tests/runtime/supplier-console-state.test.ts`、`tests/e2e/supplier-console.spec.ts`、`tests/e2e/supplier-console-cooperation.spec.ts`、`tests/e2e/supplier-console-recovery.spec.ts`、`tests/e2e/supplier-console-navigation.spec.ts`、`tests/e2e/supplier-console-visual.spec.ts`
+- `docs/platform-plan/execution/supplier-console/**`（本目錄）
 
 `context.mjs` 的 `selectImpact` 把沒有擁有者的路徑當成未知，會選到全部模組；每次新增檔案後都要確認 `unknown_paths` 為空。會改到的既有共用檔案與其擁有者列在 [work-plan.md](work-plan.md#3-共用檔案)。
 

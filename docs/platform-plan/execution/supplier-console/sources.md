@@ -52,6 +52,28 @@ WP-00 由整合負責人（Claude Opus 5.5）拆成四個唯讀工作，各在 `
 
 後端盤點中經核對**屬實**並被採用的事實：純供貨商品的照片讀寫因 `photoProducts` 過濾 `l.own_retail_enabled` 而全部 404（`photo-projection.ts:33`，`photo-commands.ts:30,37`，`photo-read.ts:14,32`）；沒有 supply-profile 修改路由；`module_instances_one_storefront` 讓每個 tenant 最多一個 storefront instance（`migrations/134_hosted_storefronts.sql:6`）；業主端沒有列出邀請的 API；repo 內沒有 CSV 公式防護工具。
 
-## 開放 PR 重疊檢查（2026-10-15 04:46Z）
+## S1 實作工作
 
-沒有其他開放 PR 修改供貨相關檔案。#680 修改 `apps/platform-api/src/platform-app.ts`（本案也要在此加功能設定欄位），合併時可能有小衝突；#670 屬 catalog-commerce，無重疊。#680 描述中的部署狀態未經本案驗證。
+由整合負責人寫 brief、審查與整合；各 job 在自己的 worktree、拋棄式資料庫與 E2E port 執行，不推送、不開 PR。
+
+| 工作 | 執行者 | 結果 | 整合時的修正 |
+| --- | --- | --- | --- |
+| A0 新版開關 | Codex `gpt-6.1-sol` | `6787a6ab` | — |
+| A 讀取、事業資料修改、權限 | Codex `gpt-6.1-sol` | `b5f2a8b9`…`bb249e56` | 可售量改由同一個讀取欄位推導（`9626ce5b`） |
+| B 純供貨商品照片 | agy `gemini-4-argon-high` | `7d0df2e9`、`b62fb5da` | 整合時 rebase |
+| C 營運中心前端 | Codex `gpt-6.1-sol` | `d87081bd` | 審查修正 `93b7fb5c`、`6224927b`；以穩定的店面 ID 區分同名合作店家（`cea896f9`） |
+| P 效能樣本 | agy `gemini-4-argon-high` | 只在本機量測，不提交 | — |
+| D1 連續主線 SC-E2E-01～02 | agy `gemini-4-argon-high` | `c4f3a9ba` | 拿掉自行加長的等待時間，改用共用登入（`e64a805f`） |
+| D2 合作 SC-E2E-10～13 | agy `gemini-3.8-flash-high` | `a447fdd7` | 改用共用登入、把條件式檢查改成確定的檢查（`1a10a94d`） |
+| D3 恢復 SC-E2E-20～26 | Codex `gpt-6.1-sol` | `d41f8abf` | 測試找到權限降級後的畫面問題（AT-37），修在 `6e606f86` |
+| D4 導覽與鍵盤 SC-E2E-30～32 | Codex `gpt-6.1-sol` | `e6e0d116` | 測試找到寫入後鍵盤焦點遺失，修在 `60e9c195` |
+| D5 視覺 SC-E2E-40 | agy `gemini-3.8-flash-high` | `39fb9b13` | 測試找到側欄群組標籤只有 12.8px，修在 `60e9c195`；截圖前等該頁標題（`ea24fbf6`） |
+
+共用殼層 `ConsoleShell` 由整合負責人抽出（`863614ef`）。
+
+## 開放 PR 重疊檢查（2026-10-15 14:54Z，main `5bee7376`）
+
+27 個開放 PR 中，除了各 PR 都會改的 file inventory（合併時重新產生），與本案重疊的只有：
+
+- `apps/platform-api/src/platform-app.ts`：#660、#757、#759。本案只在這裡加一行旗標開啟時的路由與 `/api/v1/site` 的 `supplier_console_enabled` 欄位，合併時可能有小衝突。
+- `apps/portal-web/src/modules/Community.tsx`：#690（draft）。本案只在 `SiteConfig` 型別加 `supplier_console_enabled`。
