@@ -1,19 +1,20 @@
 import { aio } from '../aio.js';
+import { assertFieldsCdnSafe } from '../cdn-guard.js';
 import { sanitizeMessage } from '../encoding.js';
 import { EcpayProtocolError } from '../errors.js';
-import { parseForm, type FormFields } from '../form.js';
-import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
-import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
-import { isTradeNumber } from '../trade-number.js';
-import type { CreditSettlementStatus } from './credit-detail.js';
 import {
   MINOR_PER_TWD,
   assertMerchantId,
   assertNonNegativeSafeInteger,
   assertPositiveWholeTwdMinor,
   isPlainObject,
-} from './profile.js';
-import { createServerRequest, type EcpayServerRequest } from './request.js';
+} from '../field-rules.js';
+import { parseForm, type FormFields } from '../form.js';
+import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
+import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
+import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
+import { isTradeNumber } from '../trade-number.js';
+import type { CreditSettlementStatus } from './credit-detail.js';
 
 const ALPHANUMERIC_ID_PATTERN = /^[0-9A-Za-z]{1,20}$/;
 const RTN_CODE_PATTERN = /^-?[0-9]{1,10}$/;
@@ -221,16 +222,16 @@ export function buildDoActionRequest(
 
   assertPositiveWholeTwdMinor(input.amountMinor);
 
-  const signedFields = aio.sign(
-    [
-      ['MerchantID', input.merchantId],
-      ['MerchantTradeNo', input.merchantTradeNo],
-      ['TradeNo', input.tradeNo],
-      ['Action', input.action],
-      ['TotalAmount', String(input.amountMinor / MINOR_PER_TWD)],
-    ],
-    keys,
-  );
+  const unsignedFields: FormFields = [
+    ['MerchantID', input.merchantId],
+    ['MerchantTradeNo', input.merchantTradeNo],
+    ['TradeNo', input.tradeNo],
+    ['Action', input.action],
+    ['TotalAmount', String(input.amountMinor / MINOR_PER_TWD)],
+  ];
+  assertFieldsCdnSafe(unsignedFields);
+
+  const signedFields = aio.sign(unsignedFields, keys);
 
   const url = `${ECPAY_ORIGINS.payment.live}/CreditDetail/DoAction`;
   return createServerRequest(url, signedFields);

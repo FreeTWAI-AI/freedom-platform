@@ -6,20 +6,24 @@
     "modules/agent-commerce/providers/**",
     "tests/runtime/ecpay-protocol.test.ts",
     "tests/runtime/ecpay-aio-credit.test.ts",
+    "tests/runtime/ecpay-domestic-logistics.test.ts",
     "tests/worker/ecpay-protocol-workerd.test.ts",
     "tests/worker/ecpay-aio-credit-workerd.test.ts",
+    "tests/worker/ecpay-domestic-logistics-workerd.test.ts",
     "tests/worker/ecpay-fixtures/**"
   ],
   "public_exports": [
     "modules/agent-commerce/providers/ecpay/index.ts",
-    "modules/agent-commerce/providers/ecpay/aio-credit/index.ts"
+    "modules/agent-commerce/providers/ecpay/aio-credit/index.ts",
+    "modules/agent-commerce/providers/ecpay/domestic-logistics/index.ts"
   ],
   "dependencies": [],
   "contract_families": [],
   "client_profiles": [],
   "instructions": [
     "modules/agent-commerce/providers/README.md",
-    "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md"
+    "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md"
   ],
   "invariants": [],
   "tests": [

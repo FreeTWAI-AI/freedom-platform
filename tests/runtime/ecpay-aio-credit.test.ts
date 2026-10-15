@@ -1477,6 +1477,88 @@ describe('ECPay AIO credit-card protocol layer (ecpay.aio.credit.v1)', () => {
     });
   });
 
+  it('applies CDN word guard fallbacks and rejects blocked URLs and trade numbers', () => {
+    const validBase = {
+      ...CHECKOUT_COMMON_BASE,
+      createdAtEpochMs: CHECKOUT_GOLDEN_VECTORS[0].input.createdAtEpochMs,
+    };
+
+    // TradeDesc fallback when displayNumber contains a CDN-blocked term ('261015-TFTP7K')
+    const tftpDisplayForm = buildCreditCheckoutForm(
+      { ...validBase, displayNumber: '261015-TFTP7K' },
+      stageKeys,
+    );
+    const tradeDescEntry = tftpDisplayForm.fields.find(([k]) => k === 'TradeDesc');
+    assert.deepEqual(tradeDescEntry, ['TradeDesc', 'Freedom order']);
+    assert.equal(aio.verify(encodeForm(tftpDisplayForm.fields), stageKeys).ok, true);
+
+    // Line names containing 'cd ../x' and 'CHMOD +x' fall back to '{store}商品一批 x1'
+    assert.equal(
+      buildItemName([{ name: '套件 cd ../x 測試', quantity: 1 }], '合成小舖'),
+      '合成小舖商品一批 x1',
+    );
+    assert.equal(
+      buildItemName([{ name: '腳本 CHMOD +x 測試', quantity: 1 }], '合成小舖'),
+      '合成小舖商品一批 x1',
+    );
+
+    // Too-long line list with storeName containing a blocked term ('tftp 小舖') falls back to '商品一批 x1'
+    const longLines = Array.from({ length: 30 }, () => ({
+      name: '合成測試商品名稱很長很長',
+      quantity: 1,
+    }));
+    assert.equal(buildItemName(longLines, 'tftp 小舖'), '商品一批 x1');
+
+    // URL rejections for query string, percent-escape, ';', '|', 'cd/' path, and 'echo' host
+    const cdnBadUrls = [
+      'https://freedom.example.com/cb?a=1',
+      'https://freedom.example.com/cb?',
+      'https://freedom.example.com/cb/%41',
+      'https://freedom.example.com/cb;x',
+      'https://freedom.example.com/cb|x',
+      'https://freedom.example.com/abcd/x',
+      'https://echo.example.com/x',
+    ];
+    for (const badUrl of cdnBadUrls) {
+      expectProtocolError(
+        () => buildCreditCheckoutForm({ ...validBase, returnUrl: badUrl }, stageKeys),
+        'invalid_input',
+      );
+      expectProtocolError(
+        () => buildCreditCheckoutForm({ ...validBase, orderResultUrl: badUrl }, stageKeys),
+        'invalid_input',
+      );
+      expectProtocolError(
+        () => buildCreditCheckoutForm({ ...validBase, clientBackUrl: badUrl }, stageKeys),
+        'invalid_input',
+      );
+    }
+
+    // merchantTradeNo spelling 'TFTP' ('FTFTP000000000000000') rejected by CDN guard
+    const tftpTradeNo = 'FTFTP000000000000000';
+    expectProtocolError(
+      () =>
+        buildCreditCheckoutForm(
+          { ...validBase, merchantTradeNo: tftpTradeNo },
+          stageKeys,
+        ),
+      'invalid_input',
+    );
+    expectProtocolError(
+      () =>
+        buildTradeInfoQuery(
+          {
+            environment: 'sandbox',
+            merchantId: AIO_CREDIT_GOLDEN_MERCHANT_ID,
+            merchantTradeNo: tftpTradeNo,
+            timestampSeconds: 1792026123,
+          },
+          stageKeys,
+        ),
+      'invalid_input',
+    );
+  });
+
   it('maintains error hygiene across all thrown EcpayProtocolError instances', () => {
     assert.ok(
       collectedErrors.length >= 40,

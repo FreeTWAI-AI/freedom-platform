@@ -869,6 +869,40 @@ describe('ECPay wire-protocol library (Node runtime)', () => {
     assert.equal(isTradeNumber('f0000000000000000000'), false);
   });
 
+  it('re-rolls CDN-blocked trade numbers up to 16 attempts and preserves existing trade-number vectors', () => {
+    const tftpBytes = [0xd3, 0xf5, 0x60, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const zeroBytes = new Array<number>(12).fill(0);
+
+    let callsOnceThenZero = 0;
+    const rerolled = newTradeNumber('L', () => {
+      callsOnceThenZero += 1;
+      return new Uint8Array(callsOnceThenZero === 1 ? tftpBytes : zeroBytes);
+    });
+    assert.equal(rerolled, 'L0000000000000000000');
+    assert.equal(callsOnceThenZero, 2);
+
+    let callsAlwaysTftp = 0;
+    expectProtocolError(
+      () =>
+        newTradeNumber('L', () => {
+          callsAlwaysTftp += 1;
+          return new Uint8Array(tftpBytes);
+        }),
+      'invalid_input',
+    );
+    assert.equal(callsAlwaysTftp, 16);
+
+    for (const vec of TRADE_NUMBER_VECTORS) {
+      let calls = 0;
+      const actual = newTradeNumber(vec.prefix, () => {
+        calls += 1;
+        return new Uint8Array(vec.bytes);
+      });
+      assert.equal(actual, vec.expected);
+      assert.equal(calls, 1);
+    }
+  });
+
   it('redacts EcpayKeyPair across all serialization/inspection paths and leaks nothing in errors', () => {
     for (const [badKey, badIV] of [
       ['short', 'EkRm7iFT261dpevs'],

@@ -1,5 +1,5 @@
-import { EcpayProtocolError } from '../errors.js';
-import { encodeForm, type FormFields } from '../form.js';
+import { EcpayProtocolError } from './errors.js';
+import { encodeForm, type FormFields } from './form.js';
 
 const INSPECT_CUSTOM = Symbol.for('nodejs.util.inspect.custom');
 const PRIVATE_CONSTRUCTOR_TOKEN = Symbol('EcpayServerRequest');

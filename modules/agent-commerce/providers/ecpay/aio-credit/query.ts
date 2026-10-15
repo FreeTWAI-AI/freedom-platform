@@ -1,9 +1,7 @@
 import { aio } from '../aio.js';
+import { assertFieldsCdnSafe } from '../cdn-guard.js';
 import type { VerifySignedFormFailureReason } from '../checkmac.js';
 import { EcpayProtocolError } from '../errors.js';
-import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
-import { unwrapKeyList, unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
-import { isTradeNumber } from '../trade-number.js';
 import {
   MINOR_PER_TWD,
   assertEnvironment,
@@ -12,9 +10,13 @@ import {
   isPlainObject,
   parseOptionalFeeMinor,
   parseOptionalSanitized,
-} from './profile.js';
-import { createServerRequest, type EcpayServerRequest } from './request.js';
-import { parseTaipeiDateTime } from './time.js';
+} from '../field-rules.js';
+import type { FormFields } from '../form.js';
+import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
+import { unwrapKeyList, unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
+import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
+import { parseTaipeiDateTime } from '../taipei-time.js';
+import { isTradeNumber } from '../trade-number.js';
 
 const ALPHANUMERIC_ID_PATTERN = /^[0-9A-Za-z]{1,20}$/;
 const TRADE_AMT_PATTERN = /^[0-9]{1,9}$/;
@@ -108,14 +110,14 @@ export function buildTradeInfoQuery(
     throw new EcpayProtocolError('invalid_input');
   }
 
-  const signedFields = aio.sign(
-    [
-      ['MerchantID', input.merchantId],
-      ['MerchantTradeNo', input.merchantTradeNo],
-      ['TimeStamp', String(input.timestampSeconds)],
-    ],
-    keys,
-  );
+  const unsignedFields: FormFields = [
+    ['MerchantID', input.merchantId],
+    ['MerchantTradeNo', input.merchantTradeNo],
+    ['TimeStamp', String(input.timestampSeconds)],
+  ];
+  assertFieldsCdnSafe(unsignedFields);
+
+  const signedFields = aio.sign(unsignedFields, keys);
 
   const url = `${ECPAY_ORIGINS.payment[input.environment]}/Cashier/QueryTradeInfo/V5`;
   return createServerRequest(url, signedFields);
