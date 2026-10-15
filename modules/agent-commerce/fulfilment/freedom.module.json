@@ -1,7 +1,9 @@
 {
   "client_profiles": [],
   "contract_families": [],
-  "dependencies": [],
+  "dependencies": [
+    "commerce-providers"
+  ],
   "format": "freedom.module/v1",
   "instructions": [
     "modules/agent-commerce/fulfilment/README.md",
