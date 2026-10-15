@@ -2,6 +2,7 @@ import {test, before, after, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
+import {z} from 'zod';
 import {createPool} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packages/testing/seed.js';
@@ -163,6 +164,49 @@ test('comment pagination is stable with identical timestamps and rejects invalid
   assert.equal(first.items.length, 24); assert.equal(next.items.length, 3); assert.equal(new Set([...first.items, ...next.items].map(item => item.comment_id)).size, 27); assert.equal(next.next_cursor, null);
   assert.equal((await request(path + '?cursor=broken', session)).status, 422);
 });
+
+for (const collection of ['posts', 'comments'] as const) {
+  for (const mixedMicroseconds of [false, true]) {
+    test(`${collection} pagination preserves ${mixedMicroseconds ? 'different microseconds within one millisecond' : 'identical microsecond timestamps'} across every page`, async () => {
+      const session = await login();
+      const note = collection === 'comments' ? await post(session) : null;
+      const timestamp = `'2026-01-01T00:00:00.123789Z'::timestamptz + ${mixedMicroseconds ? '(i % 3)' : '0'} * interval '1 microsecond'`;
+      if (note) {
+        await pool.query(`INSERT INTO community_social_comments(post_id,community_id,author_user_id,body,created_at)
+          SELECT $1,$2,$3,'synthetic pagination comment',${timestamp} FROM generate_series(1,51) AS s(i)`,
+        [note.post_id, DEMO_COMMUNITY, session.id]);
+      } else {
+        await pool.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,platform,title,note,state,created_at)
+          SELECT $1,$2,'note','other','synthetic pagination','synthetic pagination','active',${timestamp} FROM generate_series(1,51) AS s(i)`,
+        [DEMO_COMMUNITY, session.id]);
+      }
+      const idField = collection === 'posts' ? 'post_id' : 'comment_id';
+      const table = collection === 'posts' ? 'community_social_posts' : 'community_social_comments';
+      const direction = collection === 'posts' ? 'DESC' : 'ASC';
+      const expected = (await pool.query<{id: string}>(`SELECT ${idField}::text AS id FROM ${table}
+        ORDER BY created_at ${direction},${idField} ${direction}`)).rows.map(row => row.id);
+      const pageSchema = z.object({
+        items: z.array(z.record(z.string(), z.unknown())),
+        next_cursor: z.string().nullable(),
+      });
+      const path = note ? `/social-posts/${note.post_id}/comments` : '/social-posts';
+      const ids: string[] = [], sizes: number[] = [];
+      let cursor: string | null = null;
+      for (let page = 0; page < 4; page++) {
+        const response = await request(path + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), session);
+        assert.equal(response.status, 200);
+        const data = pageSchema.parse(response.data);
+        sizes.push(data.items.length);
+        ids.push(...data.items.map(item => z.uuid().parse(item[idField])));
+        cursor = data.next_cursor;
+        if (!cursor) break;
+      }
+      assert.deepEqual(sizes, [24, 24, 3]);
+      assert.deepEqual(ids, expected, 'all rows appear exactly once in database order');
+      assert.equal(cursor, null, 'the last page must terminate');
+    });
+  }
+}
 
 for(const collection of ['posts','comments','likes'] as const){
  test(`${collection} cursor rejects non-ISO dates and extra fields while retaining precise valid boundaries`,async()=>{

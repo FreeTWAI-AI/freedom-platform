@@ -135,6 +135,12 @@ year zero 或多餘欄位回 422 `invalid_cursor`，不送入 SQL cast 變成 50
 既有三位毫秒與六位微秒時間、有效閏日均保留原文字精度；呼叫端不需解析或重建。
 驗證不改匿名 401、不可見貼文 404 的授權邊界。
 
+貼文與留言的下一頁標記也直接使用 PostgreSQL 的 UTC 微秒字串，不從顯示用的
+JavaScript Date 毫秒值重建（#728）。貼文依 `(created_at,post_id)` 降冪，留言依
+`(created_at,comment_id)` 升冪；同一毫秒內不同微秒及完全同時的 UUID 並列均能
+完整續頁、不重複，最後一頁的 `next_cursor` 為 `null`。顯示用 `created_at` DTO、
+每頁 24 筆與原三位毫秒游標的讀取相容性不變；客戶端須原樣傳回 opaque cursor。
+
 會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
 讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
 等鎖期間到期或在 object I/O 期間撤銷，沿用縮圖讀權拒絕的 404 `not_found`，
