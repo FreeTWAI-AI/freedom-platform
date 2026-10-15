@@ -17029,28 +17029,28 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/README.md",
-      "bytes": 14772,
-      "sha256": "48ad4c6d52146397eaf67083766e15fdbd35704a9fe84272719bb70c5e09bd3a"
+      "bytes": 18704,
+      "sha256": "ad1a757d81686adb7f23906703ca9515cc13f9630934201e6e740830899bbb6d"
     },
     {
       "path": "modules/agent-commerce/fulfilment/freedom.module.json",
-      "bytes": 602,
-      "sha256": "7040591b9fd5682a1b2f0ce065a1dc7de90f4ab2c5982e00b694e83b205bddda"
+      "bytes": 678,
+      "sha256": "a5fd35e1571356f6afe49417cc0a7bddcf80770f6978018cd9e5eb555fafd629"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/errors.ts",
-      "bytes": 734,
-      "sha256": "a55fa9dc257f60131137e04d608141e66594b561b92a4d6fffdaa9fa7f569b69"
+      "bytes": 693,
+      "sha256": "4d62868abb1a1b4c06ee03ccf35eb68829688102d4dba0617d7a04b049fbd59a"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/index.ts",
-      "bytes": 1685,
-      "sha256": "4dda88d186ba1c54f75d9c5601e9c48548eb6dba4cfe2bac4460ec324565b673"
+      "bytes": 1699,
+      "sha256": "4178b11fc3d903c258862eefd5be7075e93a513508bcacce5398974c2226ea3e"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/plan.ts",
-      "bytes": 22888,
-      "sha256": "d7416bd063a211040944020df8da831fd7951d28c79693ed411ea57e8f640472"
+      "bytes": 22898,
+      "sha256": "cd072a368dfc2d404f93aa4b588bf298aa8b05e65361ebf1d2e98f7cceb888a9"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/postal.ts",
@@ -17059,8 +17059,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/recipient.ts",
-      "bytes": 10613,
-      "sha256": "0b5882956a30ec451182b625b996de8fadabde9ed558c5c65837709541f028d3"
+      "bytes": 11215,
+      "sha256": "476d42ab7d78ffa9f9513754a83836f7af69e12cde45154d3b729297f58b089e"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/ship-by.ts",
@@ -17074,8 +17074,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/tracking.ts",
-      "bytes": 8549,
-      "sha256": "73f47279e12265eb949882612586f4cea74230d403ad18d732fe605c12fc104b"
+      "bytes": 39643,
+      "sha256": "0d75a7326a3f5f7c4cfceae71442991560bae744b634e6a24b6017d36d0cd922"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/types.ts",
@@ -22059,8 +22059,8 @@
     },
     {
       "path": "tests/runtime/commerce-fulfilment-rules.test.ts",
-      "bytes": 58616,
-      "sha256": "a823db5ffba8ca17b746c0a4968d0ebf1fa07f641c573317f1e822dcfe9963c4"
+      "bytes": 86055,
+      "sha256": "e7e96e096990d3e392573c8c8d533847cca88be6293d3127b9d6d7be5cb2aa75"
     },
     {
       "path": "tests/runtime/commerce-invoice-rules.test.ts",
