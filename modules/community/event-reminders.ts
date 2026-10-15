@@ -79,9 +79,9 @@ export async function reconcileEventReminders(q:PoolClient,id:string,now:Date=ne
     aggregate_version=aggregate_version+1,updated_at=now() WHERE event_id=$1 AND enabled AND (starts_at<>$2 OR event_version<>$3)`,[id,event.starts_at,event.aggregate_version]);
 }
 
-async function currentDispatchSource(q:PoolClient,row:any,now:Date){
+async function currentDispatchSource(q:PoolClient,row:any,clock:()=>Date){
   const event=await eventLock(q,row.event_id);
-  if(!event||event.state!=='published'||new Date(event.starts_at).getTime()<=now.getTime())return null;
+  if(!event||event.state!=='published'||new Date(event.starts_at).getTime()<=clock().getTime())return null;
   if(row.guest_email){try{const source=await resolveGuestParticipationByEmail(q,row.event_id,row.guest_email);return source.going?{event:source.event,email:source.email}:null;}catch(error){if(error instanceof Problem&&error.status===404)return null;throw error;}}
   const user=(await q.query('SELECT * FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)',[row.member_ref,event.community_id])).rows[0];
   if(!user)return null;
@@ -90,38 +90,41 @@ async function currentDispatchSource(q:PoolClient,row:any,now:Date){
 }
 /** Bounded at-most-once provider handoff. Unknown provider outcomes are failed, never delivered or retried. */
 export async function processEventReminders(pool:Pool,send:EventEmailSender,config:{enabled:boolean;now?:Date;limit?:number}){
-  if(!config.enabled)return {processed:0};const now=config.now??new Date(),limit=Math.min(100,Math.max(1,config.limit??50));
-  const candidates=(await pool.query("SELECT reminder_id,event_id FROM community_event_reminders WHERE enabled AND status='pending' AND due_at<=$1 ORDER BY due_at,reminder_id LIMIT $2",[now,limit])).rows;let processed=0;
+  if(!config.enabled)return {processed:0};const clock=()=>config.now??new Date(),limit=Math.min(100,Math.max(1,config.limit??50));
+  const candidates=(await pool.query("SELECT reminder_id,event_id FROM community_event_reminders WHERE enabled AND status='pending' AND due_at<=$1 ORDER BY due_at,reminder_id LIMIT $2",[clock(),limit])).rows;let processed=0;
   for(const candidate of candidates){
     const claim=await transaction(pool,async q=>{
       await eventLock(q,candidate.event_id);
       let row=(await q.query('SELECT * FROM community_event_reminders WHERE reminder_id=$1 FOR UPDATE',[candidate.reminder_id])).rows[0];
       if(!row?.enabled||row.status!=='pending')return null;
-      await reconcileEventReminders(q,row.event_id,now);row=(await q.query('SELECT * FROM community_event_reminders WHERE reminder_id=$1',[row.reminder_id])).rows[0];
-      if(!row.enabled||row.status!=='pending'||new Date(row.due_at).getTime()>now.getTime())return null;
-      const source=await currentDispatchSource(q,row,now);
+      await reconcileEventReminders(q,row.event_id,clock());row=(await q.query('SELECT * FROM community_event_reminders WHERE reminder_id=$1',[row.reminder_id])).rows[0];
+      if(!row.enabled||row.status!=='pending'||new Date(row.due_at).getTime()>clock().getTime())return null;
+      const source=await currentDispatchSource(q,row,clock);
       if(!source){await cancelEventReminders(q,row.event_id,row.member_ref?{member_ref:row.member_ref}:{guest_email:row.guest_email});return null;}
       if(row.channel==='in_app'){
         const prefs=(await q.query('SELECT * FROM member_notification_preferences WHERE community_id=$1 AND owner_user_id=$2',[source.event.community_id,row.member_ref])).rows[0];
         if(prefs?.events_mode==='off'){await cancelEventReminders(q,row.event_id,{member_ref:row.member_ref});return null;}
-        if(prefs&&isNotificationQuietHours({quiet_hours:{enabled:prefs.quiet_enabled,time_zone:prefs.time_zone,start:prefs.quiet_start,end:prefs.quiet_end}},now))return null;
+        if(prefs&&isNotificationQuietHours({quiet_hours:{enabled:prefs.quiet_enabled,time_zone:prefs.time_zone,start:prefs.quiet_start,end:prefs.quiet_end}},clock()))return null;
       }
       if(row.channel==='email'&&!source.email){await cancelEventReminders(q,row.event_id,{member_ref:row.member_ref});return null;}
+      if(new Date(source.event.starts_at).getTime()<=clock().getTime()){await cancelEventReminders(q,row.event_id);return null;}
       const inserted=await q.query(`INSERT INTO community_event_reminder_attempts(reminder_id,starts_at,minutes_before_start,channel,status) VALUES($1,$2,$3,$4,'failed') ON CONFLICT DO NOTHING RETURNING reminder_id`,[row.reminder_id,row.starts_at,row.minutes_before_start,row.channel]);
       if(!inserted.rowCount){await q.query("UPDATE community_event_reminders SET status=(SELECT status FROM community_event_reminder_attempts WHERE reminder_id=$1 AND starts_at=$2 AND minutes_before_start=$3 AND channel=$4) WHERE reminder_id=$1",[row.reminder_id,row.starts_at,row.minutes_before_start,row.channel]);return null;}
+      if(new Date(source.event.starts_at).getTime()<=clock().getTime()){await cancelEventReminders(q,row.event_id);return null;}
       if(row.channel==='in_app'){
         await notifyMember(q,{community_id:source.event.community_id,recipient_ref:row.member_ref,kind:'event_start_reminder',source_key:`event-reminder/${row.reminder_id}/${new Date(row.starts_at).getTime()}/${row.minutes_before_start}/in_app`,title:'活動即將開始',body:'你選擇的活動提醒時間已到；請開啟活動查看目前資訊。',action:{tab:'events',resource_id:row.event_id}});
         await record(q,row,'recorded');return {recorded:true as const};
       }
-      await q.query("UPDATE community_event_reminders SET status='failed',attempted_at=$2 WHERE reminder_id=$1",[row.reminder_id,now]);return row;
+      await q.query("UPDATE community_event_reminders SET status='failed',attempted_at=$2 WHERE reminder_id=$1",[row.reminder_id,clock()]);return row;
     });
     if(!claim)continue;if('recorded' in claim){processed++;continue;}
     await transaction(pool,async q=>{
       await eventLock(q,claim.event_id);
-      await reconcileEventReminders(q,claim.event_id,config.now??new Date());
+      await reconcileEventReminders(q,claim.event_id,clock());
       const row=(await q.query('SELECT * FROM community_event_reminders WHERE reminder_id=$1 FOR UPDATE',[claim.reminder_id])).rows[0];
       if(!row.enabled||row.channel!==claim.channel||Number(row.minutes_before_start)!==Number(claim.minutes_before_start)||new Date(row.starts_at).getTime()!==new Date(claim.starts_at).getTime())return;
-      const source=await currentDispatchSource(q,row,config.now??new Date());if(!source||!source.email){await cancelEventReminders(q,row.event_id,row.member_ref?{member_ref:row.member_ref}:{guest_email:row.guest_email});return;}
+      const source=await currentDispatchSource(q,row,clock);if(!source||!source.email){await cancelEventReminders(q,row.event_id,row.member_ref?{member_ref:row.member_ref}:{guest_email:row.guest_email});return;}
+      if(new Date(source.event.starts_at).getTime()<=clock().getTime()){await cancelEventReminders(q,row.event_id);return;}
       let status:'provider_accepted'|'failed'='provider_accepted';
       try{await send(source.email,'自由工坊：活動即將開始',`你選擇的活動提醒時間已到。\n活動：${source.event.title}\n開始時間（UTC）：${new Date(source.event.starts_at).toISOString()}\n請回到活動頁查看目前參與資訊。`);}catch{status='failed';}
       await record(q,row,status);

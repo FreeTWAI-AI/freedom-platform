@@ -422,6 +422,44 @@ test('guild and workshop previews use the brand image, and an ended event opens 
   assert.equal(await pointsOf(endedLink.data.code), 1);
 });
 
+
+test('event referral report is bounded with stable pages and an exact total', async () => {
+  const maker = await signIn(), eventId = randomUUID();
+  await eventRow(eventId, maker.user.user_id, 'open', '分頁分享統計', '驗證有界分享者頁面。');
+  const expected: { userId: string; name: string }[] = [];
+  for (let index = 0; index < 23; index++) {
+    const suffix = index.toString().padStart(12, '0');
+    const userId = `90000000-0000-4000-8000-${suffix}`;
+    const name = `report-${(index === 6 ? 5 : index).toString().padStart(2, '0')}`;
+    await addUser(`report-${index}@example.test`, name, { id: userId });
+    await pool.query('INSERT INTO community_event_share_codes(event_id,user_id,code) VALUES($1,$2,$3)', [eventId, userId, randomBytes(18).toString('base64url')]);
+    expected.push({ userId, name });
+  }
+  expected.sort((left, right) => left.name.localeCompare(right.name) || left.userId.localeCompare(right.userId));
+
+  const first = await request(`/events/${eventId}/referrals?limit=10&offset=0`, maker);
+  assert.equal(first.status, 200, JSON.stringify(first.data));
+  assert.equal(first.data.items.length, 10);
+  assert.equal(first.data.total, 23);
+  assert.equal(first.data.next_offset, 10);
+  const second = await request(`/events/${eventId}/referrals?limit=10&offset=10`, maker);
+  const final = await request(`/events/${eventId}/referrals?limit=10&offset=20`, maker);
+  assert.deepEqual([...first.data.items, ...second.data.items, ...final.data.items].map(item => item.user_id), expected.map(item => item.userId));
+  assert.equal(second.data.total, 23);
+  assert.equal(second.data.next_offset, 20);
+  assert.equal(final.data.items.length, 3);
+  assert.equal(final.data.total, 23);
+  assert.equal(final.data.next_offset, null);
+
+  const empty = await request(`/events/${eventId}/referrals?limit=10&offset=30`, maker);
+  assert.deepEqual(empty.data, { items: [], total: 23, next_offset: null });
+  for (const query of ['limit=0', 'limit=51', 'limit=1.5', 'offset=-1', 'offset=1.5', 'extra=1']) {
+    assert.equal((await request(`/events/${eventId}/referrals?${query}`, maker)).status, 422, query);
+  }
+  assert.equal((await request(`/events/${eventId}/referrals`, await signIn(DEMO_USERS[1].email))).status, 403);
+  assert.equal((await request(`/events/${eventId}/referrals?limit=0`, await signIn(DEMO_USERS[1].email))).status, 403);
+});
+
 test('link creation validates each kind and stays idempotent', async () => {
   const maker = await signIn();
   const closedCard = await request('/promotion/links', maker, { kind: 'member_card', target: maker.user.user_id });
@@ -1059,6 +1097,60 @@ test('a duplicate social post is not fetched, own-site urls are refused, and the
   assert.equal(blocked.status, 429);
   assert.equal(blocked.data.code, 'auth_rate_limited');
   assert.equal(previewFetches, beforeLast);
+});
+
+test('raw remote title NUL creates safe posts with original-key replay over HTTP', async () => {
+  let httpApp = app;
+  const server = serve({ hostname: '127.0.0.1', port: 0, fetch: request => httpApp.fetch(request) });
+  try {
+    if (!server.listening) await once(server, 'listening');
+    const httpOrigin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    let page = '', format = 'text/html';
+    httpApp = createApp(pool, httpOrigin, 'local', {
+      linkPreviewFetch: async input => String(input).startsWith('https://i.ytimg.com/')
+        ? new Response(null, { status: 404 })
+        : new Response(page, { headers: { 'Content-Type': format } }),
+    });
+    const login = await fetch(`${httpOrigin}/api/v1/auth/login`, {
+      method: 'POST', headers: { Origin: httpOrigin, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: DEMO_USERS[0].email, password: DEMO_PASSWORD }),
+    });
+    assert.equal(login.status, 200);
+    const { csrf_token: csrf } = await login.json() as { csrf_token: string };
+    const headers = {
+      Origin: httpOrigin, 'Content-Type': 'application/json',
+      Cookie: login.headers.get('set-cookie')!.split(';')[0], 'X-CSRF-Token': csrf,
+    };
+    const cases = [
+      { page: '<title>前\u0000後</title>', format: 'text/html', url: 'https://raw-title.example/html' },
+      { page: '<meta property="og:title" content="前\u0000後">', format: 'text/html', url: 'https://raw-title.example/og' },
+      { page: JSON.stringify({ title: '前\u0000後' }), format: 'application/json', url: 'https://www.youtube.com/watch?v=rawNul00001' },
+      { page: '<title>前\u0000後</title>', format: 'text/html', url: 'https://raw-title.example/explicit', title: '本人標題' },
+      { page: '<title>合法中文 😀</title>', format: 'text/html', url: 'https://raw-title.example/control', title: undefined, expected: '合法中文 😀' },
+      { page: JSON.stringify({ title: '<影片> &amp; 😀' }), format: 'application/json', url: 'https://www.youtube.com/watch?v=rawSafe0001', title: undefined, expected: '<影片> &amp; 😀' },
+      { page: '<title>保留有效標題</title><meta property="og:image" content="https://raw-title.example/\u0000.png">', format: 'text/html', url: 'https://raw-title.example/image', title: undefined, expected: '保留有效標題' },
+    ];
+    for (const entry of cases) {
+      page = entry.page; format = entry.format;
+      const body = JSON.stringify({ url: entry.url, ...(entry.title ? { title: entry.title } : {}) });
+      const key = randomUUID();
+      const send = () => fetch(`${httpOrigin}/api/v1/social-posts`, {
+        method: 'POST', headers: { ...headers, 'Idempotency-Key': key }, body,
+      });
+      const created = await send();
+      assert.equal(created.status, 201, await created.clone().text());
+      const post = await created.json() as { post_id: string; title: string };
+      const title = entry.title ?? entry.expected ?? '前\uFFFD後';
+      assert.equal(post.title, title);
+      assert.deepEqual((await pool.query('SELECT title FROM community_social_posts WHERE post_id=$1', [post.post_id])).rows, [{ title }]);
+      const replay = await send();
+      assert.equal(replay.status, 201);
+      assert.deepEqual(await replay.json(), post);
+    }
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_social_posts')).rows[0].n, cases.length);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
 });
 
 // The first shareable() read still sees the target. The pause runs before openTarget reads it again.

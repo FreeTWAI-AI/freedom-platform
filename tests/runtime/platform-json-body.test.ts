@@ -52,6 +52,25 @@ test('declared oversized JSON is rejected without pulling its source', async () 
   assert.equal(pulled, 0);
 });
 
+test('decoded JSON NUL keys and values fail before authentication, but escaped literal text and ordinary Unicode do not', async () => {
+  for (const body of ['\0', {nested: ['safe', {text: 'a\0b'}]}, {nested: [{'bad\0key': null}]}]) {
+    const response = await app.request(origin + '/api/v1/auth/logout', {
+      method: 'POST', headers: {Origin: origin, 'Content-Type': 'application/json'}, body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 422);
+    assert.equal((await response.json()).code, 'validation_failed');
+  }
+  for (const body of [{text: '\\u0000'}, {text: '繁中😀\n下一行'}, {nested: [null, false, 0]}]) {
+    const response = await app.request(origin + '/api/v1/auth/logout', {
+      method: 'POST', headers: {Origin: origin, 'Content-Type': 'application/json'}, body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 401);
+  }
+  const malformed = await request('{"text":"\\u0000",');
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).code, 'invalid_json');
+});
+
 test('slow requests log once at the threshold using nested route patterns, without request content', async t => {
   let now = 0;
   t.mock.method(performance, 'now', () => now);

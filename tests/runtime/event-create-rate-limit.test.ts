@@ -85,3 +85,34 @@ test('a failed command rolls back quota consumption along with events and notifi
   for (let i = 0; i < 5; i++) assert.equal((await create()).status, 201);
   assert.equal((await create()).status, 429);
 });
+
+test('invalid timestamp offsets are validation errors without quota or command effects; corrected keys remain replayable', async () => {
+  const snapshot = async () => ({
+    ...await effects(),
+    journal: (await pool.query('SELECT count(*)::int AS count FROM transition_journal')).rows[0].count,
+    quota: (await pool.query('SELECT to_jsonb(r) AS value FROM auth_rate_limits r ORDER BY bucket')).rows,
+  });
+  const before = await snapshot(), key = randomUUID();
+  const body = { ...details(), starts_at: '2099-01-01T00:00:00Z', ends_at: '2099-01-02T00:00:00+15:59' };
+  for (const ends_at of ['2099-01-02T00:00:00+16:00', '2099-01-02T00:00:00-16:00', '2099-01-02T00:00:00+23:00', '2099-01-02T00:00:00+1600', '2099-01-02T00:00:00-1600', '2099-01-02T00:00:00+2300', '2099-01-02T00:00:00+1559', '2099-01-02T00:00:00-1559', '0000-01-02T00:00:00Z']) {
+    const denied = await create(sessions[0], key, { ...body, ends_at });
+    assert.equal(denied.status, 422, ends_at); assert.equal(denied.data.code, 'validation_failed');
+    assert.deepEqual(await snapshot(), before);
+  }
+  const first = await create(sessions[0], key, body);
+  assert.equal(first.status, 201);
+  const saved = await snapshot(), replay = await create(sessions[0], key, body);
+  assert.equal(replay.status, 201); assert.equal(replay.data.event_id, first.data.event_id);
+  assert.deepEqual(await snapshot(), saved);
+  const boundary = (await pool.query("SELECT to_char(ends_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US') AS instant FROM community_events WHERE event_id=$1", [first.data.event_id])).rows[0];
+  assert.equal(boundary.instant, '2099-01-01 08:01:00.000000');
+  for (const [ends_at, expected] of [
+    ['2099-01-02T00:00:00.123456-15:59', '2099-01-02 15:59:00.123456'],
+    ['2099-01-02T00:00:00Z', '2099-01-02 00:00:00.000000'],
+  ] as const) {
+    const accepted = await create(sessions[0], randomUUID(), { ...body, ends_at });
+    assert.equal(accepted.status, 201, ends_at);
+    const stored = (await pool.query("SELECT to_char(ends_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US') AS instant FROM community_events WHERE event_id=$1", [accepted.data.event_id])).rows[0];
+    assert.equal(stored.instant, expected);
+  }
+});

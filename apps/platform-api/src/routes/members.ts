@@ -6,7 +6,7 @@ import { z } from 'zod';
 import {memberShareSettings,saveMemberShare,sharedMemberForViewer} from '../../../../modules/identity-membership/member-sharing.js';
 import {friendDirectory,memberRecommendations} from '../../../../modules/identity-membership/member-connections.js';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
-import { accountView,saveAccount,listMembers,memberPresence,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership,updateSquadProfile,transferSquad,disbandSquad } from '../../../../modules/identity-membership/members.js';
+import { accountView,saveAccount,listMembers,memberPresence,MemberDirectoryQuery,memberCard,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership,updateSquadProfile,transferSquad,disbandSquad } from '../../../../modules/identity-membership/members.js';
 import {inviteToSquad,resolveSquadInvitation,squadInvitations,receivedSquadInvitations} from '../../../../modules/identity-membership/squad-invitations.js';
 import {ownSocialLinks,visibleSocialLinks,createSocialLink,editSocialLink,deleteSocialLink} from '../../../../modules/identity-membership/social-links.js';
 import {changePassword,listMemberSessions,revokeOtherSessions} from '../../../../modules/identity-membership/account-security.js';
@@ -35,7 +35,6 @@ export function createMemberRoutes(pool:Pool) {
   app.get('/members',async c=>{const {limit,offset,...filters}=MemberDirectoryQuery.parse(c.req.query());return c.json(await readWithMemberSession(pool,c.get('actor'),q=>listMembers(q,c.get('actor'),limit,offset,filters)));});
   app.get('/members/presence',async c=>c.json(await memberPresence(pool,c.get('actor'),c.req.query('ids')??'')));
   app.get('/members/:id',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>memberCard(q,c.get('actor'),c.req.param('id')))));
-  app.get('/friends',async c=>c.json({items:await listFriends(pool,c.get('actor'))}));
   for(const action of ['request','accept','remove'] as const)app.post(`/friends/:id/${action}`,async c=>c.json(await changeFriendship(pool,await moduleCommand(c),c.req.param('id'),action)));
   app.get('/squads',async c=>{const {limit,offset}=pagination.parse(c.req.query());return c.json(await listSquads(pool,c.get('actor'),limit,offset));});
   app.get('/squads/:id',async c=>c.json(await squadView(pool,c.get('actor'),c.req.param('id'))));

@@ -1,0 +1,82 @@
+{
+  "format": "freedom.module/v1",
+  "owner_role": "foundation",
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/development/client-read-connections.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "module_id": "client-connections",
+  "owned_paths": [
+    "modules/client-connections/service.ts",
+    "apps/platform-api/src/routes/client-connections.ts",
+    "tests/runtime/client-connections.test.ts"
+  ],
+  "public_exports": [
+    "modules/client-connections/service.ts"
+  ],
+  "dependencies": [
+    "catalog-commerce",
+    "command-core",
+    "member-card",
+    "shared"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "client-connections.pairing-start",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/client-connections.ts",
+      "operations": [
+        "client-connections.pairing.start"
+      ],
+      "auth_profile": "public-anonymous-start"
+    },
+    {
+      "surface_id": "client-connections.pairing-poll",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/client-connections.ts",
+      "operations": [
+        "client-connections.pairing.poll"
+      ],
+      "auth_profile": "device-secret"
+    },
+    {
+      "surface_id": "client-connections.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/client-connections.ts",
+      "operations": [
+        "client-connections.pairing.read",
+        "client-connections.pairing.approve",
+        "client-connections.connections.list",
+        "client-connections.connection.revoke"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "client-connections.scoped-read-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/client-connections.ts",
+      "operations": [
+        "client-connections.connection.read",
+        "client-connections.catalog.read",
+        "client-connections.stores.read",
+        "client-connections.listings.read",
+        "client-connections.products.read",
+        "client-connections.requests.read"
+      ],
+      "auth_profile": "client-read-bearer"
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import {AccountDeactivation} from './AccountDeactivation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useModuleMutation, type ModulePanelProps } from './shared';
 import {MemberBlockingAction} from './MemberBlocking';
-import type { PortalClient } from '../api';
+import { ApiError, type PortalClient } from '../api';
 import { EmailChangePanel } from './EmailChange';
 import { ClientConnections } from './ClientConnections';
 import { ModuleBanner } from './ModuleBanner';
@@ -98,6 +98,12 @@ export function MemberCard({member,children,labels={},client}:{member:MemberCard
 type DirectoryFilters={search:string;guild_key:string;primary_guild_key:string;capability:string;sort:'newest'|'oldest'|'nickname'|'positioning'|'guild'};
 type DirectoryResponse={items:MemberCardData[];next_offset:number|null;total:number};
 type DirectoryFriend={user_id:string;nickname:string;state:string;requester_ref:string;aggregate_version:number};
+type IncomingFriendsPage={items:MemberCardData[];total:number;next_offset:number|null};
+function incomingFriend(member:MemberCardData,viewerId:string):DirectoryFriend|null{
+  const relation=member.friendship;
+  return relation.state==='pending'&&relation.requester_ref!==viewerId&&typeof relation.requester_ref==='string'&&typeof relation.aggregate_version==='number'
+    ?{user_id:member.user_id,nickname:member.nickname,state:relation.state,requester_ref:relation.requester_ref,aggregate_version:relation.aggregate_version}:null;
+}
 const defaultDirectoryFilters:DirectoryFilters={search:'',guild_key:'',primary_guild_key:'',capability:'',sort:'newest'};
 
 export function DirectoryMemberRow({member,labels,children,client}:{member:MemberCardData;labels:Record<string,string>;children?:React.ReactNode;client:PortalClient}){
@@ -117,9 +123,9 @@ export function DirectoryMemberRow({member,labels,children,client}:{member:Membe
   </article>;
 }
 
-export function MembersPanel({client,session,focusRequest,onMessage,memberBlockingEnabled=false}:ModulePanelProps&{focusRequest?:{id:string;sequence:number};onMessage:(id:string)=>void;memberBlockingEnabled?:boolean}){
+export function MembersPanel({client,session,focusRequest,onIncomingFriends,onMessage,memberBlockingEnabled=false}:ModulePanelProps&{focusRequest?:{id:string;sequence:number};onIncomingFriends:()=>void;onMessage:(id:string)=>void;memberBlockingEnabled?:boolean}){
   const [members,setMembers]=useState<MemberCardData[]>([]),[nextOffset,setNextOffset]=useState<number|null>(null),[total,setTotal]=useState<number|null>(null),[loadError,setLoadError]=useState(''),[loading,setLoading]=useState(true),[notice,setNotice]=useState(''),[labels,setLabels]=useState<Record<string,string>>({}),[skillGroups,setSkillGroups]=useState<SkillGroup[]>([]);
-  const [friends,setFriends]=useState<DirectoryFriend[]>([]),[friendError,setFriendError]=useState('');
+  const [friends,setFriends]=useState<DirectoryFriend[]>([]),[friendTotal,setFriendTotal]=useState(0),[friendError,setFriendError]=useState('');
   const [guilds,setGuilds]=useState<GuildRef[]>([]),[guildError,setGuildError]=useState(''),[search,setSearch]=useState(''),[filters,setFilters]=useState<DirectoryFilters>(defaultDirectoryFilters);
   const [pageSize,setPageSize]=useState(20),[pageOffset,setPageOffset]=useState(0);
   const [blockingTarget,setBlockingTarget]=useState<string|null>(null),[blockingTargets,setBlockingTargets]=useState<{user_id:string;nickname:string}[]>([]);
@@ -145,10 +151,19 @@ export function MembersPanel({client,session,focusRequest,onMessage,memberBlocki
     finally{if(sequence===generation.current)setLoading(false);}
   },[client,pageSize]);
   const loadFriends=useCallback(async()=>{
-    const sequence=++friendsGeneration.current;setFriendError('');
-    try{const data=await client.get<{items:DirectoryFriend[]}>('/friends');if(sequence===friendsGeneration.current)setFriends(data.items);}
-    catch(cause){if(sequence===friendsGeneration.current)setFriendError(fail(cause));}
-  },[client]);
+    const sequence=++friendsGeneration.current,focusId=focusRequest?.id;setFriendError('');
+    try{
+      const [page,focused]=await Promise.all([
+        client.get<IncomingFriendsPage>('/friends/directory?scope=incoming&limit=10&offset=0'),
+        focusId?client.get<MemberCardData>(`/members/${encodeURIComponent(focusId)}`).catch(cause=>{if(cause instanceof ApiError&&cause.status===404)return null;throw cause;}):Promise.resolve(null),
+      ]);
+      if(sequence!==friendsGeneration.current)return;
+      const items=page.items.flatMap(member=>{const friend=incomingFriend(member,session.user.user_id);return friend?[friend]:[];});
+      const target=focused?incomingFriend(focused,session.user.user_id):null;
+      setFriends(target&&!items.some(friend=>friend.user_id===target.user_id)?[target,...items]:items);
+      setFriendTotal(page.total);
+    }catch(cause){if(sequence===friendsGeneration.current){setFriends([]);setFriendTotal(0);setFriendError(fail(cause));}}
+  },[client,focusRequest?.id,focusRequest?.sequence,session.user.user_id]);
   const loadGuilds=useCallback(async()=>{
     const sequence=++guildGeneration.current;setGuildError('');
     try{const data=await client.get<{items:GuildRef[]}>('/guilds/directory');if(sequence===guildGeneration.current)setGuilds(data.items);}
@@ -180,7 +195,7 @@ export function MembersPanel({client,session,focusRequest,onMessage,memberBlocki
     <p className="hint">依專長與作品找適合的夥伴，預設按最新加入排序。沒有合作紀錄也能被找到，不需要 GitHub 帳號。</p>
     <Status error={error} notice={notice}/>
     {friendError&&<div className="banner banner-error" role="alert"><p>好友邀請暫時無法載入：{friendError}</p><button className="btn btn-ghost" onClick={()=>void loadFriends()}>重讀好友邀請</button></div>}
-    {invitations.length>0&&<section className="card stack directory-invitations"><h3>收到的好友邀請</h3>{invitations.map(friend=><div className="member-request" id={`friend-request-${friend.user_id}`} key={friend.user_id}><strong>{friend.nickname}</strong><button className="btn btn-primary" disabled={busy} onClick={()=>void act(friend.user_id,'accept',friend.aggregate_version)}>接受邀請</button><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(friend.user_id,'remove',friend.aggregate_version)}>婉拒</button></div>)}</section>}
+    {invitations.length>0&&<section className="card stack directory-invitations"><h3>收到的好友邀請</h3>{invitations.map(friend=><div className="member-request" id={`friend-request-${friend.user_id}`} key={friend.user_id}><strong>{friend.nickname}</strong><button className="btn btn-primary" disabled={busy} onClick={()=>void act(friend.user_id,'accept',friend.aggregate_version)}>接受邀請</button><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(friend.user_id,'remove',friend.aggregate_version)}>婉拒</button></div>)}{friendTotal>invitations.length&&<p className="field-hint">這裡顯示最近 {invitations.length} / {friendTotal} 則邀請。<button type="button" className="btn btn-ghost" onClick={onIncomingFriends}>查看完整好友邀請</button></p>}</section>}
     <form className="directory-filters" onSubmit={searchNow}><label className="field directory-search">搜尋夥伴<div><input type="search" aria-label="搜尋夥伴" data-guide-anchor="members:search" maxLength={100} value={search} onChange={event=>setSearch(event.target.value)} placeholder="暱稱、定位稱號或專長" autoComplete="off"/>{search&&<button type="button" className="btn btn-ghost" aria-label="清除搜尋" onClick={()=>{setSearch('');filter({search:''});}}>清除</button>}</div></label><label className="field">依專長篩選<select value={filters.capability} onChange={event=>filter({capability:event.target.value})}><option value="">全部專長</option>{skillGroups.map(group=><optgroup key={group.id} label={group.label}>{group.options.map(option=><option key={option.id} value={option.id}>{option.label}</option>)}</optgroup>)}</select></label><label className="field">依公會篩選<select value={filters.guild_key} onChange={event=>filter({guild_key:event.target.value})}><option value="">全部公會</option>{guilds.map(guild=><option value={guild.guild_key} key={guild.guild_key}>{guildLabel(guild.name,guild.alias)}</option>)}</select></label><label className="field">依主要定位篩選<select value={filters.primary_guild_key} onChange={event=>filter({primary_guild_key:event.target.value})}><option value="">全部定位</option>{guilds.map(guild=><option value={guild.guild_key} key={guild.guild_key}>{guildLabel(guild.name,guild.alias)}</option>)}</select></label><label className="field">排序方式<select value={filters.sort} onChange={event=>filter({sort:event.target.value as DirectoryFilters['sort']})}><option value="newest">最新加入</option><option value="oldest">最早加入</option><option value="nickname">暱稱排序</option><option value="positioning">定位稱號</option><option value="guild">主要公會</option></select></label><label className="field">每頁顯示<select value={pageSize} onChange={event=>{setPageOffset(0);setPageSize(Number(event.target.value));}}><option value={10}>10 位</option><option value={20}>20 位</option><option value={50}>50 位</option></select></label><div className="directory-filter-actions"><button className="btn btn-primary" type="submit">搜尋</button>{changed&&<button className="btn btn-ghost" type="button" onClick={reset}>重設篩選</button>}</div></form>
     {guildError&&<div className="directory-options-error" role="alert"><span>公會選項暫時無法載入。</span><button className="btn btn-ghost" onClick={()=>void loadGuilds()}>重讀公會選項</button></div>}
     <div className="directory-results-heading"><p className="directory-result-count" aria-live="polite">{loading&&members.length===0?'正在尋找夥伴…':total===null?'':`顯示 ${members.length?pageOffset+1:0}–${pageOffset+members.length} / ${total} 位夥伴`}</p><p className="field-hint">聯絡方式依本人設定顯示。</p></div>

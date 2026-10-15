@@ -1,12 +1,13 @@
 import { test,before,after,beforeEach,type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setImmediate } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL,digest } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
-import { hashPassword } from '../../modules/identity-membership/service.js';
+import { hashPassword,tokenHash } from '../../modules/identity-membership/service.js';
 import { githubCoordinate,inspectGitHubRepository } from '../../modules/opensource-marketing/github.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -44,6 +45,69 @@ function mockGitHub(t:TestContext,options:{sha?:string;repositoryId?:number;lice
 }
 async function importOne(session:Session){const r=await request('/opensource/projects',session,projectBody);assert.equal(r.status,201,JSON.stringify(r.data));return r.data;}
 async function createDraft(session:Session,source:Record<string,unknown>={source_brief:'社群自願分享會，無收費或收入承諾。'}){const r=await request('/marketing/campaigns',session,{...campaignBody,...source});assert.equal(r.status,201,JSON.stringify(r.data));return r.data;}
+
+async function assertReadClock(s:Session,path:string,table:'oss_projects'|'skill_submissions'|'marketing_campaign_drafts',expected:unknown){
+  const facts=async()=>(await pool.query('SELECT (SELECT count(*)::int FROM command_receipts) AS receipts,(SELECT count(*)::int FROM transition_journal) AS journal')).rows[0];
+  const before=await facts(),hash=tokenHash(s.cookie.split('=')[1]);
+  for(const expired of [true,false]){
+    const gate=await admin.connect();let running:Promise<unknown>|undefined;
+    try{
+      await gate.query('BEGIN');await gate.query(`LOCK TABLE ${schema}.${table} IN ACCESS EXCLUSIVE MODE`);
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE token_hash=$1",[hash,expired?3:3600]);
+      const pid=(await gate.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      const response=request(path,s);running=response.catch(()=>undefined);
+      const deadline=Date.now()+2000;
+      for(;;){
+        if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount!>0)break;
+        assert.ok(Date.now()<deadline,'composed read reached its real domain gate');await setImmediate();
+      }
+      assert.equal((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[hash])).rows[0].live,true);
+      if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1',[hash]);
+      await gate.query('ROLLBACK');
+      const result=await response;assert.equal(result.status,expired?401:200,JSON.stringify(result.data));
+      if(expired){
+        assert.equal(result.data.code,'session_expired');
+        for(const field of ['items','project_id','skill_book','current_version'])assert.equal(field in result.data,false);
+        assert.equal(result.response.headers.get('set-cookie'),null);
+      }else assert.deepEqual(result.data,expected);
+      assert.deepEqual(await facts(),before);
+    }finally{
+      await gate.query('ROLLBACK');gate.release();if(running)await running;
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '30 days' WHERE token_hash=$1",[hash]);
+    }
+  }
+}
+
+for(const surface of [
+  {target:'list',table:'oss_projects'},
+  {target:'detail',table:'oss_projects'},
+  {target:'list',table:'skill_submissions'},
+  {target:'detail',table:'skill_submissions'},
+  {target:'campaigns',table:'marketing_campaign_drafts'}
+] as const)test(`${surface.target} read fences the session after its ${surface.table} wait`,async t=>{
+  const {seen}=mockGitHub(t),owner=await login(),project=await importOne(owner);
+  await pool.query('UPDATE users SET email_verified_at=clock_timestamp() WHERE user_id=$1',[owner.user.user_id]);
+  const prepared=await request(`/opensource/projects/${project.project_id}/skill-submission`,owner,{},Number(project.aggregate_version));
+  assert.equal(prepared.status,201,JSON.stringify(prepared.data));
+  const campaign=await createDraft(owner),path=surface.target==='campaigns'?'/marketing/campaigns':surface.target==='detail'?`/opensource/projects/${project.project_id}`:'/opensource/projects';
+  const expected=await request(path,owner);assert.equal(expected.status,200);
+  if(surface.target==='campaigns')assert.equal(expected.data.items[0].campaign_id,campaign.campaign_id);
+  else{
+    const card=surface.target==='detail'?expected.data:expected.data.items[0];
+    assert.equal(card.project_id,project.project_id);
+    assert.deepEqual(card.skill_book,{status:'ready_for_review',submission_id:prepared.data.submission.submission_id,public_path:null,catalog_book:null,can_edit:true});
+  }
+  await assertReadClock(owner,path,surface.table,expected.data);
+  assert.equal(seen.length,3);
+});
+
+for(const surface of [
+  {path:'/opensource/projects',table:'oss_projects'},
+  {path:'/marketing/campaigns',table:'marketing_campaign_drafts'}
+] as const)test(`empty ${surface.path} still checks the session after a source wait`,async()=>{
+  const owner=await login(),expected=await request(surface.path,owner);assert.equal(expected.status,200);assert.deepEqual(expected.data,{items:[]});
+  await assertReadClock(owner,surface.path,surface.table,expected.data);
+});
 
 test('public import pins stable identity, exact commit/license and keeps relationship self-declared',async t=>{
   const {seen}=mockGitHub(t),owner=await login(),project=await importOne(owner);
@@ -175,4 +239,39 @@ test('invalid source combinations, unsafe share links and missing session/CSRF n
     assert.equal((await request(`/marketing/campaigns/${campaign.campaign_id}/shares`,owner,{channel:'web',share_url},campaign.aggregate_version)).status,422);
   }
   assert.equal((await pool.query('SELECT count(*) FROM marketing_share_records')).rows[0].count,'0');
+});
+
+test('external display URLs apply private-host policy to absolute DNS names without rewriting public links',async t=>{
+  const {seen}=mockGitHub(t),owner=await login(),key=randomUUID();
+  const showcase={title:'合成外部展示',description:'隔離 DNS root dot 邊界',consent_to_share:true};
+  const facts=async()=>(await pool.query(`SELECT
+    (SELECT count(*)::int FROM oss_projects) AS projects,
+    (SELECT count(*)::int FROM oss_project_versions) AS versions,
+    (SELECT count(*)::int FROM showcases) AS showcases,
+    (SELECT count(*)::int FROM command_receipts) AS receipts,
+    (SELECT count(*)::int FROM transition_journal) AS journal`)).rows[0];
+  const before=await facts();
+  for(const url of ['https://printer.local./secret','https://service.internal./secret','https://example.test./demo','https://example.invalid./demo','https://sub.localhost./demo','https://printer./demo','https://printer.local%2e/secret']){
+    for(const [path,body] of [
+      ['/opensource/projects',{...projectBody,demo_url:url}],
+      ['/showcases',{...showcase,public_url:url}],
+    ] as const){
+      const denied=await request(path,owner,body,undefined,key);
+      assert.equal(denied.status,422,url);assert.equal(denied.data.code,'invalid_external_url');
+      assert.equal(JSON.stringify(denied.data).includes('printer.local'),false);
+    }
+    assert.deepEqual(await facts(),before);
+  }
+  assert.equal(seen.length,0);
+  const publicUrl='https://public.example.com./demo?x=1#part';
+  const projectBodyWithLink={...projectBody,demo_url:publicUrl};
+  const project=await request('/opensource/projects',owner,projectBodyWithLink,undefined,key);
+  assert.equal(project.status,201,JSON.stringify(project.data));assert.equal(project.data.demo_url,publicUrl);
+  assert.deepEqual((await request('/opensource/projects',owner,projectBodyWithLink,undefined,key)).data,project.data);
+  assert.equal(seen.length,3);
+  const showcaseBody={...showcase,public_url:publicUrl};
+  const created=await request('/showcases',owner,showcaseBody,undefined,key);
+  assert.equal(created.status,201);assert.equal(created.data.public_url,publicUrl);
+  assert.deepEqual((await request('/showcases',owner,showcaseBody,undefined,key)).data,created.data);
+  assert.deepEqual(await facts(),{projects:before.projects+1,versions:before.versions+1,showcases:before.showcases+1,receipts:before.receipts+2,journal:before.journal+2});
 });

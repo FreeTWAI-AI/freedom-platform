@@ -200,6 +200,17 @@ test('ended events of every visibility are listed newest first and private field
   assert.ok(roomOnly.data.items.every((item: any) => item.mode !== 'online'));
   assert.equal((await call('/api/v1/event-highlights?mode=nope', maker)).status, 422);
   assert.equal((await call('/api/v1/event-highlights?cursor=%%%', maker)).data.code, 'highlight_cursor_invalid');
+  const highlightCursor = (at: string, id = online) => encodeURIComponent(Buffer.from(`${at}|${id}`).toString('base64url'));
+  for (const at of ['0', '0000-01-01T00:00:00.123456Z', '2026-02-30T00:00:00.123456Z', '2026-01-01T24:00:00.000000Z', '2026-01-01T00:00:00.123Z']) {
+    const bad = await call('/api/v1/event-highlights?cursor=' + highlightCursor(at), maker);
+    assert.equal(bad.status, 400, at);
+    assert.equal(bad.data.code, 'highlight_cursor_invalid', at);
+    const fallback = await call('/highlights?before=' + highlightCursor(at));
+    assert.equal(fallback.status, 200, at);
+    assert.match(fallback.text, /線上已結束/, at);
+  }
+  assert.equal((await call('/api/v1/event-highlights?cursor=' + highlightCursor('2026-01-01T00:00:00.123456Z', 'not-a-uuid'), maker)).data.code, 'highlight_cursor_invalid');
+  assert.equal((await call('/api/v1/event-highlights?cursor=' + highlightCursor('2024-02-29T00:00:00.123456Z'), maker)).status, 200);
   const detail = await call('/api/v1/event-highlights/' + online, maker);
   assert.equal(detail.status, 200, detail.text);
   assertPrivate(detail.data);

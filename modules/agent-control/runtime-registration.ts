@@ -15,7 +15,7 @@ import { requireCondition } from '../../packages/shared/problem.js';
 import { applyConsumedMachineReconciliation, lockConsumedMachineSteps } from '../agent-execution/model-step-service.js';
 
 const keySchema = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
-const versionSchema = ExecutionVersion.refine(v => BigInt(v) <= 9223372036854775807n);
+const versionSchema = ExecutionVersion.pipe(z.string().refine(v => BigInt(v) <= 9223372036854775807n));
 const beginSchema = z.object({ key: keySchema, publicJwk: z.unknown() }).strict();
 const confirmSchema = z.object({ key: keySchema, challengeId: OpaqueId, proof: z.string().min(1).max(RUNTIME_ENROLLMENT_LIMITS.proofBytes) }).strict();
 const readSchema = z.object({ runtimeDeviceId: OpaqueId }).strict();

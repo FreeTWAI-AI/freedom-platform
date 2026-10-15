@@ -155,6 +155,14 @@ order為0..1000整數且同list不重複；block title為null或1..120字/480 UT
 | POST `/api/v1/guilds/:guild_key/launchpad-delegations` | `{principal_id:UUID,capabilities:('guild.content.edit'\|'guild.config.preview'\|'guild.config.publish')[],expires_at:string}` | `{delegation_id:UUID,principal_id,capabilities,expires_at,status:'active',version}`；current leader，receiver必active guild member |
 | POST `/api/v1/guilds/:guild_key/launchpad-delegations/:id/revoke` | `{reason:string(3..1000)}`＋If-Match | `{delegation_id,status:'revoked',version}`；current leader；撤銷後不能重播舊draft/publish |
 
+既有 delegation 命令的 `expires_at` 接受有效 Gregorian 日期（年 0001–9999）、
+00–23 時與 00–59 分秒，須帶 `Z` 或 `±HH:mm`；位移上限為 PostgreSQL 支援的
+`±15:59`。小數秒可省略，提供時保留 1–6 位，原值直接進 SQL，避免截斷微秒。
+不存在的日期、year 0000、24:00 rollover、超界時區或精度在 SQL 前回
+422 `delegation_expiry_invalid`，不寫授權、receipt、journal 或 outbox；
+是否為未來仍沿用交易中的資料庫時間判定。修正無效輸入後可用原冪等 key
+授權，成功重播不多建；會長、有效同公會成員、撤銷與授權期限規則不變。
+
 public_entries/book_refs/public_refs/task_refs不由這裡發明新全文結構：明確引用現有公告／skill/Work公開DTO的safe projection，materialization前在canonical source列欄位allowlist。至少公會公告只含`announcement_id,title,body,published_at`，book refs只含`book_id,title,introduction_url,upstream_url`，task refs只含`work_item_id,title,state`且先依原audience驗權，public result refs只含`result_id,title,public_url`且確有公開授權。未有可公開來源時回空陣列，不能改公開scope。
 
 ### 5.3 私人Work／note／附件API：引用單一 canonical，禁止複製 DTO

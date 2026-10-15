@@ -12,7 +12,7 @@ import { requireCondition } from '../../packages/shared/problem.js';
 import { resolvePrivateWorkPersistencePolicy } from '../autopilot-work/policy.js';
 
 const maximum = 9223372036854775807n;
-const version = ExecutionVersion.refine(value => BigInt(value) <= maximum);
+const version = ExecutionVersion.pipe(z.string().refine(value => BigInt(value) <= maximum));
 const key = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
 const createSchema = z.object({ key, workId: OpaqueId, expectedWorkVersion: version.optional() }).strict();
 const controlSchema = z.object({ key, runId: OpaqueId, expectedVersion: version.optional() }).strict();

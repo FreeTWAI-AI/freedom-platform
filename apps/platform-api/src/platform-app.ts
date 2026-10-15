@@ -208,6 +208,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     for(const [name,value] of Object.entries(headers))if(name!=='Content-Security-Policy')c.header(name,value);
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
+    // PostgreSQL text cannot hold NUL; a decoded %00 in any API path segment or query value would reach SQL as a 500.
+    if(c.req.path.startsWith('/api/v1/'))requireCondition(!c.req.url.includes('%00'),422,'validation_failed','請求網址含有不允許的空字元。');
     if(c.req.path==='/api/v1/community-search'||c.req.path.startsWith('/api/v1/community-search/'))c.header('X-Robots-Tag','noindex, nofollow');
     if(c.req.path==='/api/v1/me/reports'||c.req.path.startsWith('/api/v1/me/reports/')||c.req.path==='/api/v1/admin/reports'||c.req.path.startsWith('/api/v1/admin/reports/')){
       requireCondition(runtime.memberReportingEnabled===true,404,'not_found','找不到這個頁面。');
@@ -285,7 +287,19 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
           Object.assign(c.req.bodyCache,{text:new Response(body).text()});
         }
         const raw=await c.req.text();
-        try { JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
+        let parsed:unknown;
+        try { parsed=JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
+        // JSON permits escaped NUL, but PostgreSQL text/jsonb cannot retain it.
+        // Walk decoded values iteratively so deeply nested, bounded JSON does not consume the call stack.
+        const pending:unknown[]=[parsed];
+        while(pending.length) {
+          const value=pending.pop();
+          if(typeof value==='string')requireCondition(!value.includes('\0'),422,'validation_failed','JSON 內容含有不允許的空字元。');
+          else if(value!==null&&typeof value==='object')for(const key of Object.keys(value)) {
+            requireCondition(!key.includes('\0'),422,'validation_failed','JSON 欄位含有不允許的空字元。');
+            pending.push((value as Record<string,unknown>)[key]);
+          }
+        }
       }
     }
     if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){

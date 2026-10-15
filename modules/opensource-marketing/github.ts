@@ -15,7 +15,8 @@ export function githubCoordinate(value: string): string {
 export function externalHttpsUrl(value: string): string {
   let url: URL;
   try { url=new URL(value); } catch { throw new Problem(422,'invalid_external_url','請使用完整 HTTPS 網址。'); }
-  requireCondition(url.protocol==='https:' && !url.username && !url.password && !url.port && url.hostname.includes('.') && !/^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.|\[)/i.test(url.hostname) && !/\.(localhost|local|internal|test|invalid)$/i.test(url.hostname),422,'invalid_external_url','請使用公開 HTTPS 網址，不要放私人或本機位址。');
+  const host=url.hostname,policyHost=host.endsWith('.')?host.slice(0,-1):host;
+  requireCondition(url.protocol==='https:' && !url.username && !url.password && !url.port && policyHost.includes('.') && !/^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.|\[)/i.test(policyHost) && !/\.(localhost|local|internal|test|invalid)$/i.test(policyHost),422,'invalid_external_url','請使用公開 HTTPS 網址，不要放私人或本機位址。');
   return url.href;
 }
 export const externalLink = z.string().trim().min(1).max(2000).transform(externalHttpsUrl);

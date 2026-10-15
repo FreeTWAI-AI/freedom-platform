@@ -10,7 +10,7 @@ import {createApp} from '../../apps/platform-api/src/app.js';
 import {login} from '../../modules/identity-membership/service.js';
 import type {Actor} from '../../modules/identity-membership/service.js';
 import {blockState,listBlocks,changeBlock} from '../../modules/identity-membership/blocks.js';
-import {changeFriendship,listFriends,createSquad,changeSquadMembership,listMembers} from '../../modules/identity-membership/members.js';
+import {changeFriendship,createSquad,changeSquadMembership,listMembers} from '../../modules/identity-membership/members.js';
 import {sendDirectMessage,conversationMessages,conversationActivity,listConversations,markConversationRead} from '../../modules/member-communications/service.js';
 import {sendChannelMessage,channelMessages,listChannels} from '../../modules/member-communications/channels.js';
 import {inviteToSquad,resolveSquadInvitation} from '../../modules/identity-membership/squad-invitations.js';
@@ -59,7 +59,7 @@ test('blocking removes accepted friendship silently; reciprocal sends/requests/a
   const notices=await count('member_notifications');
   assert.equal((await block(a,B)).aggregate_version,1);
   assert.equal(await count('member_notifications'),notices);
-  assert.deepEqual(await listFriends(pool,a),[]);assert.deepEqual(await listFriends(pool,b),[]);
+  assert.deepEqual(await friendDirectory(pool,a,{scope:'accepted'}),{items:[],total:0,next_offset:null});assert.deepEqual(await friendDirectory(pool,b,{scope:'accepted'}),{items:[],total:0,next_offset:null});
   for(const [actor,id] of [[a,B],[b,A]] as const){
     await assert.rejects(dm(actor,id),problem('recipient_unavailable'));
     await assert.rejects(friend(actor,id,'request'),problem('recipient_unavailable'));
@@ -72,13 +72,13 @@ test('blocking removes accepted friendship silently; reciprocal sends/requests/a
   await markConversationRead(pool,cmd(b,'read'),A);
   assert.equal((await conversationMessages(pool,a,B,{})).items[0].read_at!==null,true);
   const removed=await unblock(a,B,1);assert.equal(removed.aggregate_version,2);assert.equal('can_contact' in removed,false);
-  assert.deepEqual(await listFriends(pool,a),[]);assert.deepEqual(await listFriends(pool,b),[]);
+  assert.deepEqual(await friendDirectory(pool,a,{scope:'accepted'}),{items:[],total:0,next_offset:null});assert.deepEqual(await friendDirectory(pool,b,{scope:'accepted'}),{items:[],total:0,next_offset:null});
   await dm(b,A);assert.equal(await count('member_direct_messages'),2);
 });
 
 test('pending invitation removed without decline notice; own list private and inverse setting undisclosed',async()=>{
   const [a,b,c]=actors;await friend(b,A,'request');const notices=await count('member_notifications');await block(a,B);
-  assert.equal(await count('member_notifications'),notices);assert.deepEqual(await listFriends(pool,b),[]);
+  assert.equal(await count('member_notifications'),notices);assert.deepEqual(await friendDirectory(pool,b,{scope:'outgoing'}),{items:[],total:0,next_offset:null});
   const mine=BlockListSchema.parse(await listBlocks(pool,a,{}));assert.deepEqual(mine.items.map(row=>row.user_id),[B]);
   assert.deepEqual(await listBlocks(pool,b,{}),{items:[],next_offset:null});assert.deepEqual(await listBlocks(pool,c,{}),{items:[],next_offset:null});
   assert.deepEqual(await blockState(pool,b,A),{user_id:A,blocked_by_me:false,aggregate_version:null});

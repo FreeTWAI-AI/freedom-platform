@@ -1,4 +1,4 @@
-import {socialMetadataInput, socialTags, socialMentions, type SocialMention} from './social-content.js';
+import {socialMetadataInput, socialTags, socialMentions, truncateSocialTitle, type SocialMention} from './social-content.js';
 import {findChatSticker} from '../member-communications/stickers.js';
 import { createHash } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
@@ -35,6 +35,7 @@ const input = z.object({
 type PostRow = {
   topic:string; location_name:string|null; tags:string[]; mentions:SocialMention[]; read_count:number;
   post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; title: string; note: string | null; created_at: Date | string;
+  created_cursor: string;
   edited_at: Date | string | null; edit_revision: number;
   author_user_id: string; display_name: string; aggregate_version: string | null; has_avatar: boolean; test_account: boolean;
   has_thumbnail: boolean; total_points: number; my_points: number; like_count: number; comment_count: number; liked: boolean;
@@ -63,7 +64,7 @@ function view(row: PostRow, viewerId: string): SocialPostView {
   };
 }
 
-const LIST = `SELECT (SELECT count(*)::int FROM community_social_reads r WHERE r.post_id=p.post_id) AS read_count, p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.topic,p.location_name,p.tags,p.mentions,p.edited_at,p.edit_revision,p.author_user_id,u.display_name,
+const LIST = `SELECT to_char(p.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor, (SELECT count(*)::int FROM community_social_reads r WHERE r.post_id=p.post_id) AS read_count, p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.topic,p.location_name,p.tags,p.mentions,p.edited_at,p.edit_revision,p.author_user_id,u.display_name,
   (SELECT count(*)::int FROM community_social_likes l WHERE l.post_id=p.post_id) AS like_count,
   EXISTS(SELECT 1 FROM community_social_likes l WHERE l.post_id=p.post_id AND l.user_id=$2) AS liked,
   (SELECT count(*)::int FROM community_social_comments c WHERE c.post_id=p.post_id AND c.state='active') AS comment_count,
@@ -105,8 +106,8 @@ export async function listSocialPosts(pool: Pool|PoolClient, actor: Actor, query
       AND ($4::timestamptz IS NULL OR (p.created_at,p.post_id)<($4::timestamptz,$5::uuid))
     ORDER BY p.created_at DESC,p.post_id DESC LIMIT 25`, [actor.community_id, actor.user_id, platforms, cursor?.createdAt ?? null, cursor?.id ?? null, query.kind || null, tag])).rows as PostRow[];
   const page = rows.slice(0, 24).map(row => view(row, actor.user_id));
-  const last = page.at(-1);
-  return { items: page, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.post_id}`).toString('base64url') : null, can_hide: await canHideSocialPosts(pool, actor) };
+  const last = rows[23];
+  return { items: page, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_cursor}\n${last.post_id}`).toString('base64url') : null, can_hide: await canHideSocialPosts(pool, actor) };
 }
 
 export function socialPostDraft(raw: unknown, publicOrigin: string) {
@@ -187,7 +188,7 @@ function publishNativeNote(pool: Pool, input: Command, draft: NativeSocialDraft,
     const text=draft.text;
     await socialPostBudget(q, input.actor, now);
     const row = (await q.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at)
-      VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [input.actor.community_id, input.actor.user_id, text.split('\n')[0].slice(0, 120), text, now])).rows[0];
+      VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [input.actor.community_id, input.actor.user_id, truncateSocialTitle(text.split('\n')[0]), text, now])).rows[0];
     await writeSocialMetadata(q,input.actor,row.post_id,draft);
     if (image) await q.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source,updated_at) VALUES($1,$2,'upload',$3)", [row.post_id, image, now]);
     return shownSocial(q, input.actor, row.post_id);
@@ -225,7 +226,7 @@ function commentView(row: CommentRow, actor: Actor): SocialCommentView {
     revision: Number(row.edit_revision), author: {user_id: row.author_user_id, display_name: row.display_name}, mine: row.author_user_id === actor.user_id};
 }
 
-const COMMENTS=`SELECT c.comment_id,c.post_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,c.sticker_id,c.mentions,u.display_name,
+const COMMENTS=`SELECT to_char(c.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor, c.comment_id,c.post_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,c.sticker_id,c.mentions,u.display_name,
  t.image_id,(SELECT count(*)::int FROM community_social_comment_likes l WHERE l.comment_id=c.comment_id) AS like_count,
  EXISTS(SELECT 1 FROM community_social_comment_likes l WHERE l.comment_id=c.comment_id AND l.user_id=$5) AS liked
  FROM community_social_comments c JOIN users u ON u.user_id=c.author_user_id
@@ -244,8 +245,8 @@ export async function listSocialComments(pool: Pool|PoolClient, actor: Actor, id
       AND ($3::timestamptz IS NULL OR (c.created_at,c.comment_id)>($3::timestamptz,$4::uuid))
     ORDER BY c.created_at,c.comment_id LIMIT 25`, [id, actor.community_id, cursor?.createdAt ?? null, cursor?.id ?? null, actor.user_id])).rows;
   const items = rows.slice(0, 24).map(row => commentView(row, actor));
-  const last = items.at(-1);
-  return {items, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.comment_id}`).toString('base64url') : null};
+  const last = rows[23];
+  return {items, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_cursor}\n${last.comment_id}`).toString('base64url') : null};
 }
 
 export async function createSocialComment(pool: Pool, inputCommand: Command, id: string, now = new Date()) {
@@ -292,7 +293,7 @@ export async function removeSocialComment(pool: Pool, inputCommand: Command, pos
 
 export function preparedSocialPost(raw: unknown, preview: LinkPreview, publicOrigin: string): PreparedSocialPost {
   const draft = socialPostDraft(raw, publicOrigin);
-  const title = (draft.submitted || preview.title || draft.normalized.host).slice(0, 120);
+  const title = truncateSocialTitle(draft.submitted || preview.title || draft.normalized.host);
   requireCondition(title.length >= 1, 422, 'validation_failed', '請填寫標題。');
   return { normalized: draft.normalized, title, note: draft.note };
 }
@@ -335,7 +336,7 @@ export async function authorizeSocialCreate(q:Pick<Pool,'query'>,actor:Actor,dra
 }
 export async function publishSocialCreate(q:PoolClient,actor:Actor,id:string,draft:SocialCreationDraft,now:Date){
  await authorizeSocialCreate(q,actor,draft,now);
- if ('text' in draft) await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,'note',NULL,'other',$4,$5,'active',$6,$6)",[id,actor.community_id,actor.user_id,draft.text.split('\n')[0].slice(0,120),draft.text,now]);
+ if ('text' in draft) await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,'note',NULL,'other',$4,$5,'active',$6,$6)",[id,actor.community_id,actor.user_id,truncateSocialTitle(draft.text.split('\n')[0]),draft.text,now]);
  else await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$8)",[id,actor.community_id,actor.user_id,draft.normalized.url,draft.normalized.platform,draft.title,draft.note,now]);
  if ('text' in draft) await writeSocialMetadata(q,actor,id,draft);
 }
@@ -442,7 +443,7 @@ export async function editSocialPost(pool: Pool, inputCommand: Command, id: stri
     if (authorized!.kind === 'note') {
       const {text} = NoteEdit.parse(inputCommand.body);
       requireCondition(!CONTROL.test(text), 422, 'validation_failed', '內容含有無法使用的字元。');
-      await q.query('UPDATE community_social_posts SET title=$2,note=$3,edited_at=$4,updated_at=$4,edit_revision=edit_revision+1 WHERE post_id=$1', [id, text.split('\n')[0].slice(0, 120), text, now]);
+      await q.query('UPDATE community_social_posts SET title=$2,note=$3,edited_at=$4,updated_at=$4,edit_revision=edit_revision+1 WHERE post_id=$1', [id, truncateSocialTitle(text.split('\n')[0]), text, now]);
     } else {
       const body = LinkEdit.parse(inputCommand.body);
       requireCondition(!/[\u0000-\u001f\u007f]/.test(body.title), 422, 'validation_failed', '標題含有無法使用的字元。');

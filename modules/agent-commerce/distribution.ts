@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {command,checkVersion,digest,journal,type Command} from '../../packages/db/index.js';
+import {readWithMemberSession} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {acceptanceInput} from './schema.js';
@@ -15,8 +16,8 @@ export function listingDigest(snapshot:unknown){return digest(snapshot);}
 
 async function lockCommunity(q:PoolClient,community:string){await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce-orders/${community}`]);}
 
-export async function listAcceptances(pool:Pool,actor:{user_id:string;community_id:string}){
- return (await pool.query(`SELECT l.selection_id,l.listing_sha256,l.acceptance_state,l.aggregate_version,l.retail_price_minor,l.sale_terms,l.snapshot,
+export async function listAcceptances(pool:Pool,actor:Actor){
+ return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT l.selection_id,l.listing_sha256,l.acceptance_state,l.aggregate_version,l.retail_price_minor,l.sale_terms,l.snapshot,
   s.name AS public_shop_name,s.currency FROM commerce_selections l
   JOIN commerce_items i ON i.item_id=l.item_id JOIN commerce_shops internal ON internal.shop_id=i.shop_id
   JOIN commerce_shops s ON s.shop_id=l.shop_id
@@ -26,7 +27,7 @@ export async function listAcceptances(pool:Pool,actor:{user_id:string;community_
   retail_price_minor:row.retail_price_minor,supplier_net_minor:row.snapshot.cost_minor,shipping_minor:row.snapshot.shipping_minor,tax_minor:row.snapshot.tax_minor??0,
   currency:row.currency,sale_terms:row.sale_terms,title:row.snapshot.title,public_shop_name:row.public_shop_name,arrangement:row.snapshot.arrangement,
   acceptance_kind:'distribution_acceptance',money_movement_enabled:false,official:false
- }));
+ })));
 }
 
 const nextState:Record<string,string>={accepted:'sellable',declined:'declined',changes_requested:'changes_requested',revoked:'revoked'};
