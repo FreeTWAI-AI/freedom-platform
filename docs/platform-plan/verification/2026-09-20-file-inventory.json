@@ -15193,6 +15193,51 @@
       "sha256": "77dc1821b71cb110aa465632b93d0e178042d4ec76f4c3df5404a852bf573733"
     },
     {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
+      "bytes": 25317,
+      "sha256": "e78bae5bad88f8e6da7847b7eeaf370ec109c7a898b02699d380ca0a18764ec0"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
+      "bytes": 16820,
+      "sha256": "566408505abe3044e01e3d167b07950e5ef11be14e0736244a869042ebe7706e"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
+      "bytes": 28727,
+      "sha256": "173959f6a86e10a6e63814538c41e49dead7dfcb92914590de8ef7d31c1067f5"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
+      "bytes": 29850,
+      "sha256": "4aaa8843e30a166dae7e947748de360e67ac6b866438dc97782f3dda9137961d"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
+      "bytes": 53344,
+      "sha256": "8e8c9b16fcf50ae701046690326e03af93e98f5c03915c058e432844e40479ef"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
+      "bytes": 46468,
+      "sha256": "5931b0ae5f737875024631c3446da995540f354f720da84ac9d1665a82c7375e"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/README.md",
+      "bytes": 3785,
+      "sha256": "305682c1af0a6d0a0d361316bb26d994ed2511bdd6b9ac51b3c2d42818c93fbe"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/decisions.md",
+      "bytes": 5379,
+      "sha256": "cfdf9e02ff431d07d0219b583ec86637fd700d279cc812af98bf08986a4ac68e"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/pages.md",
+      "bytes": 15622,
+      "sha256": "66b25c773f767bd771eed5dd1247fa39e72393d821f3c058c1fad4925baa8a5d"
+    },
+    {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 29780,
       "sha256": "96c9a640bc11907aea39bf0d1727798f8d6858e2bdc29b5783b280248c03be58"
@@ -17061,6 +17106,71 @@
       "path": "modules/agent-commerce/portal/freedom.module.json",
       "bytes": 709,
       "sha256": "1cb1ca6c46b2f10976627a2919adcb0020198712d11375d8cf9fb82821c8ffb8"
+    },
+    {
+      "path": "modules/agent-commerce/providers/README.md",
+      "bytes": 9269,
+      "sha256": "95ec54345b25c961718abb3e00495361642a5fde9b447eb3b46d699c85e271e6"
+    },
+    {
+      "path": "modules/agent-commerce/providers/freedom.module.json",
+      "bytes": 673,
+      "sha256": "b917cd93bfd7c4c29e067be799627efeae7abad421a9496b2ecf4f1c6b300218"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aes.ts",
+      "bytes": 3228,
+      "sha256": "4563690d7aaea8f4d9899e513c59f3d264e05fc12105d8cb8fe9f2679531e707"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/aio.ts",
+      "bytes": 677,
+      "sha256": "4d315d21c119d79a08a5cdb5773342ef78c45230bcf9c2712045c7a863f41d21"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/checkmac.ts",
+      "bytes": 6431,
+      "sha256": "30c3f8f42165ab21813801c214c406553a3de6d1f67f93d12ea8e1478cb8f475"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/encoding.ts",
+      "bytes": 1591,
+      "sha256": "d5982c764bbd3617d7d1e5d9c6a67e7765cf7bbc1bb22e4a1f3e9479bdd6bd62"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/errors.ts",
+      "bytes": 1584,
+      "sha256": "93251d4c1323790ed717fb52d3f25344ec52e1d9aa90b5ccad081697d6a1fcb4"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/form.ts",
+      "bytes": 5714,
+      "sha256": "5ed81b8f53f64ce71106a1d1c76e0b6853bfe5d4fe00cfc6718958d9e8854bdc"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/index.ts",
+      "bytes": 1704,
+      "sha256": "c444d5b524711544c34dfa3faacb4b824b13e40c21637622ff7af16f497fae16"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/invoice.ts",
+      "bytes": 6974,
+      "sha256": "b085de444c61a4d21a050f70124e1472fc6157f80c7fdfe8260d7b94c0fd3578"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/keys.ts",
+      "bytes": 2166,
+      "sha256": "635f5ef760901db1dea786d2c7f0bf67efe1609f8d2a6911548dbddf28ae5255"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/logistics.ts",
+      "bytes": 2208,
+      "sha256": "2cf948d8c852d53e6cc08029611ccc9d78851ffe20e167623f48ecfcf923329a"
+    },
+    {
+      "path": "modules/agent-commerce/providers/ecpay/trade-number.ts",
+      "bytes": 1662,
+      "sha256": "5fe78c9047550ff500c7809e6821afe6ca21efa4702fffa37ec50c5a5918c0e9"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -21878,6 +21988,11 @@
       "sha256": "e9bf8d3516d476761c55f7d9676c9927fead92304dff19466027492904835bfe"
     },
     {
+      "path": "tests/runtime/ecpay-protocol.test.ts",
+      "bytes": 34500,
+      "sha256": "cb8627cf9ba3df847c18f169752200778b29cc3e9211bb26756dcd143472fcfa"
+    },
+    {
       "path": "tests/runtime/email-change.test.ts",
       "bytes": 11823,
       "sha256": "196775589049c93bf51ded985e1f79f9b2af4c5a2f7d0ce87ac2b2941a71154a"
@@ -23443,6 +23558,11 @@
       "sha256": "05d34e4b2634fff00f5580ef3931535c5439f25d4825ff1ec63723aab3ab552f"
     },
     {
+      "path": "tests/worker/ecpay-protocol-workerd.test.ts",
+      "bytes": 7977,
+      "sha256": "c597dfd6b2e07f40c0beb2b99d3566f1a2ee661cea60e8f9bf0b0dbcbcf96876"
+    },
+    {
       "path": "tests/worker/event-banner-assets.test.ts",
       "bytes": 12396,
       "sha256": "199400f2a7275f10c24e73360e4c535262ea545d4ee9ad1f3fe4ea215a05bce2"
@@ -23611,6 +23731,16 @@
       "path": "tests/worker/broker-fixtures/provider-client.ts",
       "bytes": 679,
       "sha256": "9efb184a3bacbb049dc19bce48d772df2936298d84a29f5286df3d940b4b5cc4"
+    },
+    {
+      "path": "tests/worker/ecpay-fixtures/protocol-worker.ts",
+      "bytes": 8461,
+      "sha256": "7b742a894bf5a725fd95a3e193a81e7cf3087bf0f049d4c2f22b7b46f0dad225"
+    },
+    {
+      "path": "tests/worker/ecpay-fixtures/vectors.ts",
+      "bytes": 12086,
+      "sha256": "6198f8dc1ca796a10f2feb59c8e7a0c97bf06a9111faab08bac71a1673cc7449"
     },
     {
       "path": "tests/worker/media-object-fixtures/io.ts",
