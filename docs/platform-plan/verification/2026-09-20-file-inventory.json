@@ -14144,8 +14144,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 30921,
-      "sha256": "03286c26d152d1afecc92395907494aa27ebefc1f3b01c1baa7dee576fdd7b27"
+      "bytes": 31274,
+      "sha256": "a0f0e55bbdc4ddb315bac9715afa1b0eeafdb33b27cc84c2fabc91a7f25b436e"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17749,8 +17749,8 @@
     },
     {
       "path": "modules/community/member-services.ts",
-      "bytes": 24795,
-      "sha256": "e36dd3c592983b85c7a159d4e9aa1aacf4e08abe60dba354240cc413ec618385"
+      "bytes": 25188,
+      "sha256": "1210f1031257880af5713f1ebfaec84c720d70b4aef68ceb612b95a53c9c351a"
     },
     {
       "path": "modules/community/member-skill-books.ts",
@@ -22519,8 +22519,8 @@
     },
     {
       "path": "tests/runtime/member-service-cursor.test.ts",
-      "bytes": 7684,
-      "sha256": "763dbd2c48212d389e369188d1761861ae6056e1c2267dfcf053bf6709185aa2"
+      "bytes": 9381,
+      "sha256": "aae7738ecd4e19bd7ed5a0c60c2531585359a50b088d13628e1b6acbc39f8a38"
     },
     {
       "path": "tests/runtime/member-services.test.ts",
