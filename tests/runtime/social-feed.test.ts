@@ -329,3 +329,26 @@ test('comment image lifecycle binds owner and post, survives an unknown ACK, and
  await pool.query("UPDATE community_social_posts SET state='hidden' WHERE post_id=$1",[note.post_id]);assert.equal((await upload()).status,404);
  }finally{await restricted.end();await pool.query(`DROP OWNED BY ${role}`);await admin.query(`DROP ROLE ${role}`);}
 });
+
+test('social titles keep complete scalar boundaries through link creation and note create/edit', async () => {
+  const session = await login();
+  const application = createApp(pool, origin, 'local', {linkPreviewFetch: async () =>
+    new Response(`<title>${'a'.repeat(118)}&#1114112;&#128512;</title>`, {headers: {'content-type': 'text/html'}})});
+  const call = async (path: string, body: unknown, revision?: number) => {
+    const response = await application.request(origin + '/api/v1' + path, {method: 'POST',
+      headers: {Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf,
+        'Content-Type': 'application/json', 'Idempotency-Key': randomUUID(),
+        ...(revision === undefined ? {} : {'If-Match': `"${revision}"`})}, body: JSON.stringify(body)});
+    return {status: response.status, data: await response.json() as {post_id: string; title: string; note: string; revision: number}};
+  };
+  const link = await call('/social-posts', {url: 'https://example.org/scalar-title'});
+  assert.equal(link.status, 201); assert.equal(link.data.title, 'a'.repeat(118) + '�');
+  const original = 'b'.repeat(119) + '😀tail\nfull original body';
+  const note = await call('/social-posts/notes', {text: original});
+  assert.equal(note.status, 201); assert.equal(note.data.title, 'b'.repeat(119)); assert.equal(note.data.note, original);
+  const text = 'c'.repeat(118) + '😀tail\nfull edited body';
+  const edited = await call(`/social-posts/${note.data.post_id}/edit`, {text}, note.data.revision);
+  assert.equal(edited.status, 200); assert.equal(edited.data.title, 'c'.repeat(118) + '😀'); assert.equal(edited.data.note, text);
+  const stored = (await pool.query('SELECT title,note FROM community_social_posts WHERE post_id=$1', [note.data.post_id])).rows;
+  assert.deepEqual(stored, [{title: 'c'.repeat(118) + '😀', note: text}]);
+});

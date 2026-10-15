@@ -14149,8 +14149,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 31291,
-      "sha256": "aebd568a2adef3c44d1496aa0e34b092fa53190f300c9acb0f0db226326f5ffd"
+      "bytes": 31776,
+      "sha256": "7ad75ad723650114245df67ad2145d595d787d9cc1c5878ba8c9be3ced890c1d"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17744,8 +17744,8 @@
     },
     {
       "path": "modules/community/link-preview.ts",
-      "bytes": 6946,
-      "sha256": "f52361a6d5a87698118021824fa7050761f209b5cc901cfcc7e9bf45c8e233cf"
+      "bytes": 7019,
+      "sha256": "4e7cef690be3a62e7978eafe9230bef409b226587ff469334c4ee20f6db1ec5a"
     },
     {
       "path": "modules/community/member-reporting.ts",
@@ -17819,13 +17819,13 @@
     },
     {
       "path": "modules/community/social-content.ts",
-      "bytes": 1671,
-      "sha256": "7e767618d895a91285289679f8da00e426962856f5ce74eab78a8d2851ba4f7b"
+      "bytes": 2015,
+      "sha256": "48493dec547de4755fb5faec0ce75ad1e6ddbd468bf5f5ccd9e681cc3e47740a"
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 44254,
-      "sha256": "8b5e12d1077fe71a91d7fbe50ade13eac7f599f13affed44530cbdb1ee87d20d"
+      "bytes": 44302,
+      "sha256": "c8c89aabfff45d0db826c56bd1d1e4fbee29b3eab2bbf78cf792805445b8e412"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -22284,8 +22284,8 @@
     },
     {
       "path": "tests/runtime/link-preview.test.ts",
-      "bytes": 13740,
-      "sha256": "1adfc3e0476dee87dddc6d4149fbba0df8f067f85d54f61837855929a7927a1d"
+      "bytes": 14667,
+      "sha256": "6babc15ec9a2920ef10d660dad857f069771603cc469abe5d974789761b09b08"
     },
     {
       "path": "tests/runtime/login-lockout-recovery.test.ts",
@@ -23149,8 +23149,8 @@
     },
     {
       "path": "tests/runtime/social-feed.test.ts",
-      "bytes": 29393,
-      "sha256": "e789b9cec2cab56b0851be3b6c193ccd6cc0c6ddb9a792e34a1804640ceae65a"
+      "bytes": 31258,
+      "sha256": "2e13f6cdf90c5c840aeb1126447479fa52aa9684d4b80869f7e45e69393a587e"
     },
     {
       "path": "tests/runtime/social-links.test.ts",

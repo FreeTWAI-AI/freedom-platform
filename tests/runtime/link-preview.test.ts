@@ -225,3 +225,18 @@ test('remote thumbnails sniff the bytes and drop animation or gif', async () => 
   assert.ok(wide.length > 16 && wide.length <= 512 * 1024);
   await assert.rejects(normalizeRemoteThumbnail(Buffer.alloc(5 * 1024 * 1024 + 1)));
 });
+
+test('preview title caps never retain half a supplementary character', async () => {
+  for (const [html, expected] of [
+    [`<title>${'a'.repeat(118)}&#1114112;&#128512;</title>`, 'a'.repeat(118) + '�'],
+    [`<title>${'a'.repeat(117)}&#1114112;&#128512;</title>`, 'a'.repeat(117) + '�😀'],
+    [`<title>${'a'.repeat(119)}&#128512;tail</title>`, 'a'.repeat(119)],
+    [`<title>${'a'.repeat(118)}&#128512;tail</title>`, 'a'.repeat(118) + '😀'],
+  ]) assert.equal(previewTitle(html), expected);
+  const title = 'a'.repeat(119) + '😀tail';
+  const youtube = await previewLink('https://www.youtube.com/watch?v=e2eDemo0001', async input =>
+    input.startsWith('https://www.youtube.com/oembed')
+      ? new Response(JSON.stringify({title}), {headers: {'content-type': 'application/json'}})
+      : new Response(null, {status: 404}));
+  assert.deepEqual(youtube, {title: 'a'.repeat(119), image: null, source: null});
+});

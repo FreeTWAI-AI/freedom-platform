@@ -1,4 +1,4 @@
-import {socialMetadataInput, socialTags, socialMentions, type SocialMention} from './social-content.js';
+import {socialMetadataInput, socialTags, socialMentions, truncateSocialTitle, type SocialMention} from './social-content.js';
 import {findChatSticker} from '../member-communications/stickers.js';
 import { createHash } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
@@ -182,7 +182,7 @@ function publishNativeNote(pool: Pool, input: Command, draft: NativeSocialDraft,
     const text=draft.text;
     await socialPostBudget(q, input.actor, now);
     const row = (await q.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at)
-      VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [input.actor.community_id, input.actor.user_id, text.split('\n')[0].slice(0, 120), text, now])).rows[0];
+      VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [input.actor.community_id, input.actor.user_id, truncateSocialTitle(text.split('\n')[0]), text, now])).rows[0];
     await writeSocialMetadata(q,input.actor,row.post_id,draft);
     if (image) await q.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source,updated_at) VALUES($1,$2,'upload',$3)", [row.post_id, image, now]);
     return shownSocial(q, input.actor, row.post_id);
@@ -287,7 +287,7 @@ export async function removeSocialComment(pool: Pool, inputCommand: Command, pos
 
 export function preparedSocialPost(raw: unknown, preview: LinkPreview, publicOrigin: string): PreparedSocialPost {
   const draft = socialPostDraft(raw, publicOrigin);
-  const title = (draft.submitted || preview.title || draft.normalized.host).slice(0, 120);
+  const title = truncateSocialTitle(draft.submitted || preview.title || draft.normalized.host);
   requireCondition(title.length >= 1, 422, 'validation_failed', '請填寫標題。');
   return { normalized: draft.normalized, title, note: draft.note };
 }
@@ -330,7 +330,7 @@ export async function authorizeSocialCreate(q:Pick<Pool,'query'>,actor:Actor,dra
 }
 export async function publishSocialCreate(q:PoolClient,actor:Actor,id:string,draft:SocialCreationDraft,now:Date){
  await authorizeSocialCreate(q,actor,draft,now);
- if ('text' in draft) await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,'note',NULL,'other',$4,$5,'active',$6,$6)",[id,actor.community_id,actor.user_id,draft.text.split('\n')[0].slice(0,120),draft.text,now]);
+ if ('text' in draft) await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,'note',NULL,'other',$4,$5,'active',$6,$6)",[id,actor.community_id,actor.user_id,truncateSocialTitle(draft.text.split('\n')[0]),draft.text,now]);
  else await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$8)",[id,actor.community_id,actor.user_id,draft.normalized.url,draft.normalized.platform,draft.title,draft.note,now]);
  if ('text' in draft) await writeSocialMetadata(q,actor,id,draft);
 }
@@ -437,7 +437,7 @@ export async function editSocialPost(pool: Pool, inputCommand: Command, id: stri
     if (authorized!.kind === 'note') {
       const {text} = NoteEdit.parse(inputCommand.body);
       requireCondition(!CONTROL.test(text), 422, 'validation_failed', '內容含有無法使用的字元。');
-      await q.query('UPDATE community_social_posts SET title=$2,note=$3,edited_at=$4,updated_at=$4,edit_revision=edit_revision+1 WHERE post_id=$1', [id, text.split('\n')[0].slice(0, 120), text, now]);
+      await q.query('UPDATE community_social_posts SET title=$2,note=$3,edited_at=$4,updated_at=$4,edit_revision=edit_revision+1 WHERE post_id=$1', [id, truncateSocialTitle(text.split('\n')[0]), text, now]);
     } else {
       const body = LinkEdit.parse(inputCommand.body);
       requireCondition(!/[\u0000-\u001f\u007f]/.test(body.title), 422, 'validation_failed', '標題含有無法使用的字元。');
