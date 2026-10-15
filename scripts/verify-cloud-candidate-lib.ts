@@ -820,8 +820,8 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   if (!synthetic && !account) throw new CheckFailed('account_required');
   // messages-mobile uses a phone viewport. The account browser phase stays at the desktop size.
   const context = await options.browser!.newContext(synthetic
-    ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }
-    : { viewport: { width: 1280, height: 900 } });
+    ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'zh-TW' }
+    : { viewport: { width: 1280, height: 900 }, locale: 'zh-TW' });
   let blocked = 0, inboxBlocked = 0, inboxResponses = 0, pageErrors = 0, closing = false, loggedOut = false;
   let sessionCookie: string | null = null;
   // Route failures are kept as `stage:ErrorClass` counts only: never messages, URLs, headers or bodies.

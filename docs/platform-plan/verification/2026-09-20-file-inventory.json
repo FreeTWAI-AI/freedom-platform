@@ -154,8 +154,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 33477,
-      "sha256": "ddef9c3c5ccc734273775267a27b2af5a363db8865896a4aa2a27903c552250f"
+      "bytes": 33675,
+      "sha256": "5799d5b1621a5ec096dc446fd7e1c49d462aea8c22f254a55d3956b5ca036414"
     },
     {
       "path": "apps/freedom.module.json",
@@ -369,8 +369,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 61003,
-      "sha256": "d7854e2eae4e15eef1286aa922cd7e732b85490fc9ca191aab2dd69c861611d4"
+      "bytes": 61017,
+      "sha256": "e26645bf0e6a2ec0972badfb0424adf47d5fd161621b8780cfae0bfe9a5b2a07"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -3029,8 +3029,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 8380,
-      "sha256": "fab07584c634eac541baa96ca3251557817eac270632199879cda1ac59093e71"
+      "bytes": 8151,
+      "sha256": "34d406113858bbb244e0c73b5dab501dae1317b3eb6bdeb29ced141df51c8efd"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -12199,8 +12199,8 @@
     },
     {
       "path": "contracts/README.md",
-      "bytes": 2855,
-      "sha256": "2cf11abeb990618f2a93fd4f84aa7e8051af6771ca03544220fd9d4569e9504f"
+      "bytes": 3250,
+      "sha256": "bbddc3ff752397a5c18bc98e582c37bd9740c811f4629d3afce64338a62e4208"
     },
     {
       "path": "contracts/common/README.md",
@@ -13113,6 +13113,11 @@
       "sha256": "dcedfdad92fa3eec70390a43f420460ba762d520e548a49d3c69b021a176f305"
     },
     {
+      "path": "contracts/preview/freedom.module.json",
+      "bytes": 1004,
+      "sha256": "77864fe1b06d91d42a25aecb6386517a1a91847c347359b81edb20563fdd0c5e"
+    },
+    {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
       "sha256": "75923a7fa72ed48068f873827d3054388b477c0bdba793cd8dfff03e9fb3a375"
@@ -13889,8 +13894,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 29324,
-      "sha256": "00e89a7231eeaa0a6f573b44291ff9358e5d0fc5936fb6f96cf7fc0d2a859e60"
+      "bytes": 30215,
+      "sha256": "46c0c628b2f20ce443bc139656806ae77d86a2ab0adc69a7d9ea3716eacbd206"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -13969,8 +13974,8 @@
     },
     {
       "path": "docs/development/limited-trial-kit.md",
-      "bytes": 29185,
-      "sha256": "71e05ae6a5817fc710dc8d8c8afa45b4ad7f7979f538b151bf10b73ee2999793"
+      "bytes": 29702,
+      "sha256": "35bfa6fc2a0f6ceb9243bbcceaa1b46e8aa70ff19ca68b99a81ebbd8bd047e7c"
     },
     {
       "path": "docs/development/local-runtime.md",
@@ -13994,8 +13999,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69268,
-      "sha256": "a25fbb2f14c08c9e7f98fb7f044f9367fb9496d764f36e88b6f9e4ced0a4c550"
+      "bytes": 70224,
+      "sha256": "cd32bf0c1395e7b7ddab8410b0e271ce6e262c863dc77fc58dfe23670f2e54a9"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14124,8 +14129,8 @@
     },
     {
       "path": "docs/development/repository-integration.md",
-      "bytes": 8514,
-      "sha256": "9f271e1d3e475078ca3b2a90c9e96fc252c935d5bcd30d96fb14ce22f892dceb"
+      "bytes": 13472,
+      "sha256": "739a1f560211156fbab6f5beb32d1a6bd9d641c2317609c91ff4bb58147c3ab9"
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
@@ -15194,8 +15199,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 29780,
-      "sha256": "96c9a640bc11907aea39bf0d1727798f8d6858e2bdc29b5783b280248c03be58"
+      "bytes": 30813,
+      "sha256": "50f3985c098686e3edc2cdb57c201413dd3b8b48765a0f090f4d452da22c5b10"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15604,8 +15609,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 82464,
-      "sha256": "ff234c3397a573f32962a8d0ab027a854be98d6dbfe919b85ddf4e2d99c583f1"
+      "bytes": 89029,
+      "sha256": "d11f726bd860657e337ea93314af341ec2e2258cdd605964a77722a96dce6cdf"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -15624,8 +15629,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 140010,
-      "sha256": "6c020d346c9e3c46eed0662829965ecdf8dd63efd5be66e687be5a5a0b2c85f3"
+      "bytes": 167770,
+      "sha256": "a88606c92a0c937f07614fee34b87c7c24c7dfa247b7a63b05a9beb044f30ef6"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -15798,6 +15803,11 @@
       "sha256": "f351b7e8b2fc06d71aaf5fb2ad5d30208e9f7ecc9a3fe8512ff287bc4d02a745"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+      "bytes": 73326,
+      "sha256": "b5c6ffc296a1f9f002a064fa36fd93d3efa79379e4cb212fccfe2c1f86731871"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json",
       "bytes": 5244,
       "sha256": "e569cf2f495ae9dc989fd45212f213208a11069a71720fe9d3bd20e6ac7fd618"
@@ -15959,8 +15969,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 26201,
-      "sha256": "3c135f4a75ceed5bd9d9e67c6443730cd4f6030067d7c56f69285ddd23fb75cd"
+      "bytes": 26997,
+      "sha256": "47fa8f842f2b3673ce61b7d24f87ddb2e639e99a9a270e115a89893e5dcb0826"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -17819,8 +17829,8 @@
     },
     {
       "path": "modules/community/task-board.ts",
-      "bytes": 2093,
-      "sha256": "98088df376dfa76ca356d1ffe31eb095af56abde6a8b641d8f4eea76353c455c"
+      "bytes": 2839,
+      "sha256": "51053c4912204f8eefc641979b8994edf26cb936e4ba4f17846a1ac03530f7ed"
     },
     {
       "path": "modules/community/attendees/freedom.module.json",
@@ -18579,8 +18589,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 26143,
-      "sha256": "5ce5923e8cb5ca5788c1b00620553b97fbb859125ab76d8003c62e6a32a2890a"
+      "bytes": 26537,
+      "sha256": "fb9434fa18a4c30257369c10906b0c8515f51bc4d83646a47d6c37bb3f08449e"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -19229,13 +19239,13 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 7713,
-      "sha256": "c66fe1db6f792127454976833c93188639973a69157273afab1f2f1e85ba0f55"
+      "bytes": 10150,
+      "sha256": "9a78543e7313482770b7e11222ddf78ed0c2f28729154f314be04c77a87e5366"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 9126,
-      "sha256": "8a3d541c27e88e24b9ac68254d9bb55b19136681a15c6dfe348b8de05f28eecb"
+      "bytes": 9178,
+      "sha256": "aa03ee1c910919bbc458805de2e76ba058939f8865624d447726816c00b39620"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -19249,8 +19259,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 36379,
-      "sha256": "d6f6fd428024ef89ae763337070f7e1e1a148687a8533a0c0572210531fcf7a9"
+      "bytes": 36445,
+      "sha256": "001c86c99096e0680938595db4002bab5d5033099c77b2174e35c54995a2295f"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -19439,8 +19449,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 36657,
-      "sha256": "b542822f42367bb321e3067112fedaceee2943a592cfda6f40675d1af6a049be"
+      "bytes": 38888,
+      "sha256": "5a7d78a8d5ce895c27da329bb57d6b62b8261e60202cbf37ee67fda955539851"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -19464,8 +19474,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 13938,
-      "sha256": "a19d9e97b31950295f92a2a574179e3f3fd6bb02dac2f2b449c53cb1820df699"
+      "bytes": 14395,
+      "sha256": "34bb98f68c56f11e8d22e6859081e78fb5672648b632d7e99a924c682515c3c4"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
@@ -20334,8 +20344,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 70727,
-      "sha256": "75f6c3ee82e1c3febb8a630c3aa1e5abe894fd3a7fcaaa78e6143e0b37a4b202"
+      "bytes": 70761,
+      "sha256": "15c1db7eac675e586fd55d9e148df45ddfb23967ca2978a6b0dba2dbe309ee09"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
@@ -20449,8 +20459,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 10570,
-      "sha256": "840122e4d825612ef5f19cdb1a6dcfd0f1f483db6bfe6190f3997cc655b19658"
+      "bytes": 13006,
+      "sha256": "12ebb1f514e595d1fd5de8f8eda507bdd82066f7bedfa7760288291a5393540c"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -21994,8 +22004,8 @@
     },
     {
       "path": "tests/runtime/flows.test.ts",
-      "bytes": 68399,
-      "sha256": "cd3d3b87b08bf041b5c75a6289aead449cf94e8b19446a5cd738cb9d8f308a73"
+      "bytes": 73219,
+      "sha256": "0b3cdae193c1fb4234afbda48730c03d84acaafbdabcb268197545b22310237d"
     },
     {
       "path": "tests/runtime/freedom_env.test.ts",
@@ -22469,8 +22479,8 @@
     },
     {
       "path": "tests/runtime/member-experience.test.ts",
-      "bytes": 39617,
-      "sha256": "653bd78586e759356305be754f76024e032348144b504e7cb47902152d90e55c"
+      "bytes": 39661,
+      "sha256": "76ab445112b59e77e076ffdb22c7a8a567e18e9777bb469f397cfdaad20018f2"
     },
     {
       "path": "tests/runtime/member-model-http-adversarial.test.ts",

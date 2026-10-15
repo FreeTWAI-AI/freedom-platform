@@ -130,12 +130,12 @@ test('six-partition cases', async t => {
   assert.equal((await aggregateRuntimePartitions(root, fragments, { foo: 1 })).reason, 'runtime_partition_options_invalid');
   assert.equal((await aggregateRuntimePartitions(root, fragments, { partitionCount: 5 })).reason, 'runtime_partition_options_invalid');
 
-  // Six partitions permit 1200 seconds exactly, never an unbounded fragment.
+  // Six partitions permit 1500 seconds exactly, never an unbounded fragment.
   const full = structuredClone(fragments);
-  full[0].ended_at = '2026-10-03T00:20:00.000Z';
+  full[0].ended_at = '2026-10-03T00:25:00.000Z';
   assert.equal((await aggregateRuntimePartitions(root, full, { partitionCount: 6 })).status, 'passed');
   const long = structuredClone(fragments);
-  long[0].ended_at = '2026-10-03T00:20:00.001Z';
+  long[0].ended_at = '2026-10-03T00:25:00.001Z';
   assert.equal((await aggregateRuntimePartitions(root, long, { partitionCount: 6 })).reason, 'runtime_partition_window_exceeded');
 
   // Valid individual fragments must still belong to one finite coherent run.
@@ -147,6 +147,13 @@ test('six-partition cases', async t => {
   wide[5].started_at = '2026-10-03T00:20:00.001Z';
   wide[5].ended_at = '2026-10-03T00:40:00.001Z';
   assert.equal((await aggregateRuntimePartitions(root, wide, { partitionCount: 6 })).reason, 'runtime_full_window_exceeded');
+
+  // A delayed failed-only retry cannot reuse earlier passes beyond the 40m
+  // window, even when the retry itself is complete and inside its own budget.
+  const delayedRetry = structuredClone(fragments);
+  delayedRetry[3].started_at = '2026-10-03T01:06:48.000Z';
+  delayedRetry[3].ended_at = '2026-10-03T01:26:29.418Z';
+  assert.equal((await aggregateRuntimePartitions(root, delayedRetry, { partitionCount: 6 })).reason, 'runtime_full_window_exceeded');
 
   await assert.rejects(runRuntimePartition(root, { partitionCount: 6, partitionIndex: 6 }), /invalid_runtime_partition/);
   await assert.rejects(runRuntimePartition(root, { partitionCount: 5, partitionIndex: 0 }), /invalid_runtime_partition/);
