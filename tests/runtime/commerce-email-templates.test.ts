@@ -259,6 +259,27 @@ test('exact golden subject and text for second samples (12 items & CVS no token)
   assert.equal(cvsShipment.text, expectedCvsShipmentText);
   assert.equal(cvsShipment.replyTo, 'shop@example.test');
   verifyInvariants(cvsShipment, { origin: SHARED_COMMON.origin, contactEmail: 'shop@example.test', accessToken: null });
+
+  // Home services with trackingNumber: null render carrier line, no tracking number line and no pickup sentence
+  for (const [serviceKey, label] of [
+    ['ecpay.logistics.home.tcat', '黑貓宅急便'],
+    ['ecpay.logistics.home.post', '中華郵政'],
+  ] as const) {
+    const homeNoTracking = renderCommerceEmail({
+      template: 'shipment_handed_over',
+      ...SHARED_COMMON,
+      serviceKey,
+      trackingNumber: null,
+    });
+    assert.equal(homeNoTracking.text.includes(`物流方式：${label}\n\n查看訂單`), true);
+    assert.equal(homeNoTracking.text.includes('包裹追蹤碼'), false);
+    assert.equal(homeNoTracking.text.includes('超商將發送取件簡訊通知'), false);
+    verifyInvariants(homeNoTracking, {
+      origin: SHARED_COMMON.origin,
+      contactEmail: SHARED_COMMON.store.contactEmail,
+      accessToken: SHARED_COMMON.accessToken,
+    });
+  }
 });
 
 test('README samples equal the renderer output exactly', () => {
@@ -638,6 +659,24 @@ test('every validation rule and property-style error message leak check', () => 
           trackingNumber,
         }),
       trackingNumber,
+    );
+  }
+
+  // CVS keys with non-null trackingNumber throw invalid_input (never leak CVSPaymentNo)
+  for (const serviceKey of [
+    'ecpay.logistics.cvs.unimartc2c',
+    'ecpay.logistics.cvs.famic2c',
+    'ecpay.logistics.cvs.hilifec2c',
+  ] as const) {
+    assertThrowsWithoutLeak(
+      () =>
+        renderCommerceEmail({
+          template: 'shipment_handed_over',
+          ...SHARED_COMMON,
+          serviceKey,
+          trackingNumber: 'TCAT-1',
+        }),
+      'TCAT-1',
     );
   }
 

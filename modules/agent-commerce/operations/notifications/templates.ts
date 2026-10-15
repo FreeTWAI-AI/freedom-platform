@@ -1,5 +1,5 @@
 import { StoreSlugSchema } from '../../../../contracts/guild-launchpad/v1/storefront.js';
-import { SERVICE_KEYS, type ServiceKey } from '../../fulfilment/rules/index.js';
+import { SERVICE_KEYS, methodOfService, type ServiceKey } from '../../fulfilment/rules/index.js';
 
 export const COMMERCE_EMAIL_TEMPLATES = [
   'order_confirmed',
@@ -451,6 +451,10 @@ export function renderShipmentHandedOverEmail(
   const { origin, slug, storeName, contactEmail, displayNumber, orderRef, accessToken } = validateCommon(input, false);
   const serviceKey = validateServiceKey((input as Record<string, unknown>).serviceKey);
   const trackingNumber = validateTrackingNumber((input as Record<string, unknown>).trackingNumber);
+  const isCvs = methodOfService(serviceKey) !== 'home';
+  if (isCvs && trackingNumber !== null) {
+    throw new CommerceEmailTemplateError();
+  }
 
   const orderUrl = buildOrderLink(origin, slug, orderRef, accessToken);
   const storeUrl = buildStoreUrl(origin, slug);
@@ -461,7 +465,7 @@ export function renderShipmentHandedOverEmail(
   if (trackingNumber !== null) {
     logisticsLines.push(`包裹追蹤碼：${trackingNumber}`);
   }
-  if (serviceKey.startsWith('ecpay.logistics.cvs.')) {
+  if (isCvs) {
     logisticsLines.push(
       '包裹送達門市時，超商將發送取件簡訊通知，你也可以在訂單頁面查看取件門市與包裹狀態。',
     );
