@@ -93,6 +93,8 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 - Workers（`apps/platform-api/src/worker-preview-fetch.ts`）不宣稱 DNS pinning：[原生 `https.request`](https://developers.cloudflare.com/workers/runtime-apis/nodejs/https/) 仍是 fetch 包裝。改採維護者選定的可信 DNS namespace allowlist：`youtube.com`、`youtu.be`、`instagram.com`、`facebook.com`、`fb.watch`、`threads.net`、`threads.com`、`tiktok.com`、`x.com`、`twitter.com`（各自可加 `www.`）；資產只允許 `ytimg.com`、`fbcdn.net`、`cdninstagram.com`、`tiktokcdn.com`、`twimg.com` 及其子網域。每一跳與縮圖 URL 都重新檢查，不自動跟隨重導。
 - 其他 HTTPS 連結在 Workers 仍可分享，但不抓取標題或縮圖，作者可自填標題與上傳縮圖。這是明確的相容性取捨，不是 SSRF 已在正式環境可利用的證明；allowlist 信任列出的第三方 DNS 管理者，不保護第三方自身遭入侵。
 
+HTML 與 YouTube oEmbed 的遠端標題共用純文字正規化：literal U+0000 轉成 U+FFFD（�），再沿用空白合併與 120 字上限，避免可選預覽把有效貼文推成 SQL 500。HTML 仍移除角括號；oEmbed 保留原來的文字語意。其他 Unicode、投稿者自填標題優先順序、同 key 重送及抓取／縮圖政策不變。這不是一般會員 JSON request 的 NUL guard，也不取代 numeric HTML reference 的 code-point 驗證。
+
 ## API
 
 會員路由沿用 session、CSRF、Origin，並須已完成加入（選定主要公會）。點擊與公開縮圖在 session middleware 之前。

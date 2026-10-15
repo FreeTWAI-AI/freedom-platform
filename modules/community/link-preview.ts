@@ -32,9 +32,14 @@ function meta(html: string, key: string) {
   return null;
 }
 
+function plainTitle(value: string) {
+  // Remote HTML and JSON may contain NUL, which PostgreSQL text cannot store.
+  return value.replaceAll('\0', '\ufffd').replace(/\s+/g, ' ').trim().slice(0, 120) || null;
+}
+
 function finishTitle(value: string) {
   // Already decoded. Drop brackets before whitespace collapsing and the length cap.
-  return value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120) || null;
+  return plainTitle(value.replace(/[<>]/g, ''));
 }
 
 export function previewTitle(html: string) {
@@ -124,7 +129,7 @@ export async function previewLink(rawUrl: string, fetcher: PreviewFetch, timeout
     const oembed = await fetchChecked(fetcher, `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(normalized.url)}`, deadline, 'application/json', HTML_LIMIT);
     let title: string | null = null;
     if (oembed && (oembed.type === 'application/json' || oembed.type === 'text/json' || oembed.type.endsWith('+json'))) {
-      try { const parsed = JSON.parse(oembed.body.toString('utf8')) as { title?: unknown }; title = typeof parsed.title === 'string' ? parsed.title.replace(/\s+/g, ' ').trim().slice(0, 120) || null : null; } catch { title = null; }
+      try { const parsed = JSON.parse(oembed.body.toString('utf8')) as { title?: unknown }; title = typeof parsed.title === 'string' ? plainTitle(parsed.title) : null; } catch { title = null; }
     }
     const image = await fetchChecked(fetcher, `https://i.ytimg.com/vi/${video}/hqdefault.jpg`, deadline, 'image/jpeg,image/png,image/webp', IMAGE_LIMIT);
     const thumb = image ? await asThumbnail(image.body, image.type) : null;

@@ -14149,8 +14149,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 30921,
-      "sha256": "03286c26d152d1afecc92395907494aa27ebefc1f3b01c1baa7dee576fdd7b27"
+      "bytes": 31394,
+      "sha256": "9a9a504fd76f6161bf6588893d7faed0425afbdd636530f208fc0d0ac994aaf3"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17744,8 +17744,8 @@
     },
     {
       "path": "modules/community/link-preview.ts",
-      "bytes": 6766,
-      "sha256": "bb593ad16e87786b1de23ff094c2c80baaba9396adb085dde5320e5703a5b4da"
+      "bytes": 6902,
+      "sha256": "df58633eeec8ecf86e5c23d45b8ef7fd0e09ec45ff42fe4991d63de6629c4aae"
     },
     {
       "path": "modules/community/member-reporting.ts",
@@ -22284,8 +22284,8 @@
     },
     {
       "path": "tests/runtime/link-preview.test.ts",
-      "bytes": 12471,
-      "sha256": "aadd7882e2a588a8ddde532d09c6ef255a8041b7d129ab3ee4ad1720983265fd"
+      "bytes": 13647,
+      "sha256": "aaecc32271b238a5aebee72765c21f022c4d634271b171693da14fdedd3004f8"
     },
     {
       "path": "tests/runtime/login-lockout-recovery.test.ts",
@@ -23149,8 +23149,8 @@
     },
     {
       "path": "tests/runtime/social-feed.test.ts",
-      "bytes": 26406,
-      "sha256": "0688901e010d6b9479a23176bda52b3fada5089548a2afe07a7678038f28fb02"
+      "bytes": 28553,
+      "sha256": "5b5188f33073d3717c025b003faa643defd17d86ed1b134ecc63ef9011e1f6d5"
     },
     {
       "path": "tests/runtime/social-links.test.ts",

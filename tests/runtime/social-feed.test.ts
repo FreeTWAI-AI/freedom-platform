@@ -282,3 +282,30 @@ test('comment image lifecycle binds owner and post, survives an unknown ACK, and
  await pool.query("UPDATE community_social_posts SET state='hidden' WHERE post_id=$1",[note.post_id]);assert.equal((await upload()).status,404);
  }finally{await restricted.end();await pool.query(`DROP OWNED BY ${role}`);await admin.query(`DROP ROLE ${role}`);}
 });
+
+test('literal remote preview NUL titles stay SQL-safe and preserve submitted titles on replay', async () => {
+  const session = await login(), remoteTitle = ' before\0<中😀>\0after \n';
+  const application = createApp(pool, origin, 'local', {linkPreviewFetch: async input =>
+    input.startsWith('https://www.youtube.com/oembed')
+      ? new Response(JSON.stringify({title: remoteTitle}), {headers: {'content-type': 'application/json'}})
+      : input.startsWith('https://i.ytimg.com/') || input.startsWith('https://example.org/image')
+        ? new Response(null, {status: 404})
+        : new Response(`<title>${remoteTitle}</title><meta property="og:image" content="/image\0.png">`, {headers: {'content-type': 'text/html'}})});
+  const cases = [
+    {url: 'https://example.org/literal-nul', expected: 'before�中😀�after'},
+    {url: 'https://www.youtube.com/watch?v=e2eDemo0001', expected: 'before�<中😀>�after'},
+    {url: 'https://www.youtube.com/watch?v=e2eDemo0002', expected: '投稿者標題', title: '投稿者標題'},
+  ];
+  for (const {url, expected, title} of cases) {
+    const key = randomUUID(), body = JSON.stringify({url, ...(title ? {title} : {})});
+    const submit = () => application.request(origin + '/api/v1/social-posts', {method: 'POST',
+      headers: {Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf,
+        'Content-Type': 'application/json', 'Idempotency-Key': key}, body});
+    const first = await submit(), created = await first.json() as {post_id: string; title: string};
+    assert.equal(first.status, 201, JSON.stringify(created)); assert.equal(created.title, expected);
+    const replay = await submit(); assert.equal(replay.status, 201); assert.deepEqual(await replay.json(), created);
+    assert.deepEqual((await pool.query('SELECT title FROM community_social_posts WHERE post_id=$1', [created.post_id])).rows, [{title: expected}]);
+  }
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_social_posts')).rows[0].n, cases.length);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts')).rows[0].n, cases.length);
+});
