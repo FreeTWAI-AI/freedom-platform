@@ -107,7 +107,7 @@ All text fields are normalized using Unicode NFKC.
 
 Validates callback parameters returned by ECPay's electronic store map:
 - `sub_type`: Must be one of `UNIMARTC2C`, `FAMIC2C`, `HILIFEC2C`.
-- `store_id`: 1–6 alphanumeric characters.
+- `store_id`: 1–6 alphanumeric characters (`^[0-9A-Za-z]{1,6}$`) are accepted. If the cleaned ID is 7–9 alphanumeric characters (`^[0-9A-Za-z]{7,9}$`), validation returns `too_long` (because the electronic map allows a `CVSStoreID` of up to 9 characters [8795], but the logistics create call only accepts 6 [8809]; this allows the UI to instruct the buyer to choose another store). Any other value that is not 1–6 alphanumerics returns `format`. Store name and address originate from ECPay's map and are not submitted back to ECPay, so they receive no CDN check.
 - `store_name`: Up to 10 Unicode code points.
 - `store_address`: Up to 60 Unicode code points.
 - `outside` and Outlying Detection:

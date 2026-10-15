@@ -320,6 +320,8 @@ export function normalizeCvsStoreSelection(raw: unknown): CvsStoreSelectionResul
       errors.push({ field: 'store_id', code: 'required' });
     } else if (/^[0-9A-Za-z]{1,6}$/.test(sid)) {
       storeId = sid;
+    } else if (/^[0-9A-Za-z]{7,9}$/.test(sid)) {
+      errors.push({ field: 'store_id', code: 'too_long' });
     } else {
       errors.push({ field: 'store_id', code: 'format' });
     }
