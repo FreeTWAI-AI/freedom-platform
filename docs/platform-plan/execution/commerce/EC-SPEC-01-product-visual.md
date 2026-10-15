@@ -147,8 +147,8 @@ B 頁是 `/shops/:slug` 之下的獨立文件，不進 portal 的 `app-frame`（
 |  | `unallocated` | 已付款，店家確認庫存中 | 已收款但缺貨，需處理 |
 |  | 其他 | 不顯示 | 已配貨、部分出貨、已出貨、已釋出 |
 | 包裹 | （EC-SPEC-05） | 準備出貨／已建立託運單／已交寄／運送中／已到店待取／已取件或送達／配送異常／退回中／已退回 | 同左，另有「待指派」「供應商已接受」「供應商無法履約」 |
-| 發票 | （EC-SPEC-06） | 開立中／已開立／已作廢／已折讓 | 另有「開立失敗，需處理」「結果確認中」 |
-| 售後 | （EC-SPEC-06） | 申請中／已同意，請寄回／已收到退貨／檢驗中／已完成／未同意（原因） | 同左 |
+| 發票 | （EC-SPEC-06 §3） | 開立中／已開立／已作廢／已折讓／折讓待你在 Email 確認；店家不開立時顯示店家的說明 | 另有「開立失敗，需處理」「結果確認中」「待更正」 |
+| 售後 | （EC-SPEC-06 §2.3） | 申請中／未同意（原因）／已撤回／已同意，請寄回（地址與期限）／已收到退貨，檢驗中／退款處理中／已完成 | 同左；未完成時列出卡住的軸（實物、錢、發票） |
 
 「已建立託運單」不等於「已交寄」（EC-AT39）；退款完成不等於商品已回庫（計畫 §11.4）。顯示用訂單編號短且好唸，但不能拿來讀單（EC-SPEC-02 §4）。
 
@@ -172,7 +172,7 @@ B 頁是 `/shops/:slug` 之下的獨立文件，不進 portal 的 `app-frame`（
 | --- | --- | --- |
 | 1 收件與配送 | Email、手機、姓名；宅配（縣市、鄉鎮市區選單→郵遞區號自動帶入、地址）或超商取貨（開啟 provider 門市地圖，返回後顯示門市名稱與地址，可更換） | 從門市地圖返回時焦點回到門市欄並宣告所選門市（EC-AT66） |
 | 2 包裹與運費 | 每個包裹的商品、預計出貨時間、運費；不可配送的商品在這一步說明並給替代方式或移除 | 不在付款後才說不能寄（EC-AT12） |
-| 3 付款與發票 | C2 首發付款方式（DC02）；發票類型依店家設定（雲端載具、捐贈、公司統編，EC-SPEC-06） | 依所選類型驗證，切換類型清空不適用的欄位（EC-AT45） |
+| 3 付款與發票 | C2 首發付款方式（DC02）；發票類型依店家設定（會員載具、手機條碼、自然人憑證、捐贈、公司統編，EC-SPEC-06 §3.3）；店家不開立時只顯示店家的說明 | 依所選類型驗證，切換類型清空不適用的欄位（EC-AT45）；條碼、捐贈碼與統編的線上查詢只提示、不阻擋 |
 | 4 確認 | 商品、折扣、每個包裹的運費、總額；店家政策連結與必要同意 | 「確認並付款」只有店家已開通收款時出現（§2） |
 
 - 每一步推入 history state，瀏覽器上一頁回到前一步。進入新步驟時焦點移到該步驟標題；步驟列用 `<ol>` 與 `aria-current="step"`。
@@ -182,24 +182,30 @@ B 頁是 `/shops/:slug` 之下的獨立文件，不進 portal 的 `app-frame`（
 
 ### 7.4 B07 訂單
 
-頁首：顯示用編號、下單時間、店名、訂單狀態。下面依序是「需要你處理」（例如付款期限）、付款、包裹（每個包裹一張卡：商品、物流、追蹤碼、事件時間線）、發票、售後。收件資料只在這頁出現。操作只出現合法的：取消（未付款或店家允許時）、申請退貨（期限內）、聯絡店家。
+頁首：顯示用編號、下單時間、店名、訂單狀態。下面依序是「需要你處理」（例如付款期限）、付款、包裹（每個包裹一張卡：商品、物流、追蹤碼、事件時間線）、發票、售後。收件資料只在這頁出現。操作只出現合法的：取消（未付款；已付款未出貨時是申請取消）、申請退貨或退款（期限內）、聯絡店家（訂單對話，EC-SPEC-06 §2.1）。
 
 ### 7.5 Seller Console（E 頁）
 
 殼由 Supplier Console 提供（SC-SPEC-01：桌面 12rem 側欄、窄螢幕 `<select>`、頁名 h1 由 `App.tsx:830` 工具列提供；`HostedStore()` 路由分派與離頁保護由該工作階段負責）。Commerce 提供以下項目：
 
-| pageId | 群組 | 中文 | English | 顯示條件（能力名稱為提議） | 頁面 |
+路徑是 `#stores/<tenant>/<instance>/<slug>`（店的根目錄）；供應商頁面在 `…/supply/…`（SC-SPEC-07 §2）。這組 slug 是 2026-10-15 與 Supplier Console 工作階段約定的清單。賣家主控台的開關關閉時，這些 slug 回到既有的商店頁，`orders/<order_id>` 回到訂單清單；`orders` 保留 `sellerOrdersRoute` 既有的 4 段路徑行為。不認得的 query key 一律忽略；不用 `replaceState`；ID 以 `OpaqueId` 檢查。
+
+| slug | 群組 | 中文 | English | 顯示條件（能力名稱為提議） | 頁面 |
 | --- | --- | --- | --- | --- | --- |
-| `overview` | 營運 | 營運概覽 | Overview | `store:read` | E02 |
+| （店的根路徑，沒有 slug） | 營運 | 營運概覽 | Overview | `store:read` | E02 |
 | `orders`、`orders/<order_id>` | 營運 | 訂單 | Orders | `store:orders.read` | E05 |
-| `shipments`、`shipments/<shipment_id>` | 營運 | 出貨與包裹 | Shipments | `store:fulfil` | E06 |
-| `customers`、`support/<case_id>` | 營運 | 顧客與客服 | Customers | `store:customers.read` | E07 |
+| `fulfilment`、`fulfilment/<fulfilment_order_id>` | 營運 | 履約與指派 | Fulfilment | `store:fulfil` | E06（EC-SPEC-05 §4） |
+| `shipments`、`shipments/<shipment_id>` | 營運 | 包裹與託運單 | Shipments | `store:fulfil` | E06（EC-SPEC-05 §5） |
+| `customers` | 營運 | 顧客 | Customers | `store:customers.read` | E07 |
+| `support`、`support/<case_id>` | 營運 | 客服與售後 | Support | `store:customers.read` | E07 |
 | `storefront` | 商店 | 品牌與版面 | Storefront | `store:write` | E03 |
-| `products` | 商店 | 商品與選品 | Products | `store:write` | E04 |
+| `products` | 商店 | 商品 | Products | `store:write` | E04 |
+| `sourcing` | 商店 | 選品與供貨 | Sourcing | `store:write` | E04（供貨來源、代出貨同意） |
 | `promotions` | 商店 | 優惠與推廣 | Promotions | `store:write` | E08 |
 | `payments` | 帳務 | 收款與對帳 | Payments | `store:payments` | E09 |
-| `invoices` | 帳務 | 發票與報表 | Invoices | `store:invoices` | E10 |
-| `settings` | 設定 | 商店設定 | Settings | `store:manage` | E11 |
+| `invoices` | 帳務 | 發票 | Invoices | `store:invoices` | E10 |
+| `reports` | 帳務 | 報表 | Reports | `store:read`（數字依各能力裁切） | E10 |
+| `settings`、`settings/<section>` | 設定 | 商店設定 | Settings | `store:manage` | E11（例如 `settings/shipping`） |
 
 日文、韓文、西班牙文標題在實作時加入 `interface-messages.ts`（portal 介面有五種語言，`language.tsx:4`）。項目只依能力顯示；伺服器仍逐一檢查。
 

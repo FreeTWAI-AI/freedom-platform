@@ -1,0 +1,563 @@
+# EC-SPEC-05 履約與物流：出貨責任、配送群組、選店、Shipment、標籤、貨態、例外與退回
+
+需求：EC-R03、R04、R12、R14、R15、R19、R20、R26、R28、R31～R40、R53；Supplier v1.1 的 SC-L01～L18。驗收：EC-AT10～12、27、28、33～44、60、68；SC-LAT01～24（頁面部分見 SC-SPEC-07）。
+
+本文件是 C2 履約與物流的設計，基準 `efaf314d`。綠界物流的協定事實取自官方開發者文件，經本機重算官方範例向量與逐頁抽查（方法與更正見 [sources.md](sources.md)）；文中以 `[頁碼]` 標示 `https://developers.ecpay.com.tw/<頁碼>/`。標「提議」的表、路由與函式尚未存在。本設計不呼叫任何物流服務；連線 stage 或正式環境都要 Ted 另外授權（§11）。
+
+供應商端頁面 SL-01～05 與供應商用途的讀取投影由 Supplier Console 負責（`SC-SPEC-07-fulfilment.md`）；本文件定義它們使用的領域資料、命令、權限與欄位白名單（§9.2）。
+
+## 1. 責任與名詞
+
+### 1.1 履約方式
+
+| 方式 | 誰出貨 | 何時可用 |
+| --- | --- | --- |
+| 賣家自出貨 | 零售商（賣家）用自己的寄件地與物流帳戶 | 賣家自有商品（`commerce_items` 屬於賣家的店）。賣家向供應商批發進貨後，貨在自己手上，也是自有商品 |
+| 供應商直送 | 供應商用自己的寄件地與物流帳戶，寄給賣家的買家 | 供貨商品（共享供應商的實體庫存，EC-SPEC-03 §2），且該商品有已接受的代出貨同意（§2.6） |
+| 第三方倉 | 委外倉儲 | C4，不在本版 |
+
+供貨商品的實體庫存 N 是供應商手上的貨（EC-SPEC-03 §2），只有供應商能把它交寄。所以：
+
+- 供貨商品沒有有效的代出貨同意時，**不能**透過新結帳（`hosted_checkout`）購買；購物車報價顯示「目前無法配送」（`fulfilment_not_agreed`）。v1 的預留流程不受影響（SC-LAT03、EC-AT11）。
+- 同一張購物車裡賣家的自有商品照常可買、可自出貨（EC-AT11 的「適用自出貨可繼續」）。
+- 只同意供貨價（distribution acceptance，`migrations/056_commerce_distribution.sql:2`）不代表同意代出貨，也不會讓供應商取得任何買家資料（計畫 §11.1）。
+
+### 1.2 誰負責什麼
+
+| 角色 | 負責 | 不會自動取得 |
+| --- | --- | --- |
+| 零售商（賣家事業） | 對買家的配送承諾與運費、出貨者的決定（凍結在結帳）、取消與退款、例外的最終決定、買家溝通 | 修改供應商的庫存或已接受的條件；使用供應商的物流帳戶 |
+| 出貨者（自出貨時是賣家，直送時是供應商） | 接受任務、揀貨包裝、用**自己的**物流帳戶建立物流單、列印、交寄、退回收件與檢驗 | 整張訂單、其他包裹、付款資訊、退款與發票（SC-LAT17） |
+| 物流帳戶 | 屬於出貨者的事業；向綠界付運費的是帳戶主人 | 任何其他事業的帳戶（SC-LAT08） |
+| 平台 | 驗證、保存、去重 provider 事件；執行 outbox；顯示狀態 | 自己的物流帳戶、代收、代付 |
+
+賣家與供應商之間的每包費用（代出貨費、運費補貼）依代出貨同意記成應付紀錄（EC-SPEC-06 §5），不經過買家付款。
+
+C2 不支援「出貨者使用別人的物流帳戶」。之後若要支援，必須是帳戶主人對特定事業的明確授權，另立規格。
+
+### 1.3 領域名稱與提議的表
+
+SC-SPEC-07 使用的領域名稱對到以下的表。能沿用既有模型的就沿用（計畫 Supplier v1.1 §4.1）：
+
+| 領域名稱 | 提議的表 | 說明 |
+| --- | --- | --- |
+| ShipFromLocation | `commerce_ship_from_locations` | 寄件地與退回地址；有個資，§2.1 |
+| 物流帳戶 | 沿用 EC-SPEC-04 §1 的 `commerce_provider_accounts`＋`commerce_provider_account_services` | 金鑰封存方式相同，§2.2 |
+| ShippingProfile、DeliveryOption | `commerce_shipping_profile_versions` | 每個商店一份、每次修改一個不可改的新版本，§2.3、§2.4 |
+| ProductShippingAttributes | `commerce_item_shipping_attributes` | 屬於實體商品的擁有者，§2.5 |
+| FulfillmentAgreement | `commerce_fulfilment_agreements`＋`commerce_fulfilment_agreement_items` | 代出貨同意，§2.6 |
+| FulfillmentOrder | `commerce_fulfilment_orders` | 每張訂單每個配送群組一筆；行項由配置推得，不另存，§4 |
+| 收件投影 | `commerce_fulfilment_recipients` | 出貨者能讀的最少收件資料，§4.4 |
+| 選店 session | `commerce_cvs_selection_sessions` | §3.6 |
+| Shipment | `commerce_shipments`＋`commerce_shipment_lines` | 一個實際包裹一筆，§5 |
+| ShipmentAttempt | `commerce_logistics_operations` | 對外呼叫的 outbox（建單、查詢、改門市、作廢），§5.2 |
+| TrackingEvent | `commerce_logistics_events` | 已驗證的貨態通知與查詢結果（inbox），§6 |
+| ExceptionCase | `commerce_exception_cases` | 付款、庫存與物流共用，§7 |
+| ReturnInspection | `commerce_return_inspections`＋`commerce_return_inspection_lines` | §8 |
+| 費用紀錄 | EC-SPEC-06 §5 | 應付、已核對、已支付 |
+
+FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的履約投影與行為，不是第二套訂單。
+
+## 2. 設定（SL-01、E11）
+
+所有設定寫入沿用既有的 tenant command（Idempotency-Key、If-Match、未知結果用原 key 重試），沿用 `storeCommand` 的鎖序與目前授權檢查。
+
+### 2.1 寄件地與退回地址（ShipFromLocation）
+
+- 欄位：名稱（給自己看）、寄件人姓名、手機、市話（可選）、郵遞區號、地址、用途（寄件、收退回，可兩者皆是）。
+- 寄件人姓名依綠界規則：4～10 字元（中文算 2、英文算 1；即 2～5 個中文字或 4～10 個英文字母），不含數字、表情與符號 [8809][7414]。店到店（C2C）必須是寄件人本人的真實姓名，因為未取件退回時要在門市出示證件 [8809]，設定頁要寫明這一點。
+- 手機：`09` 開頭、10 位數字；7-ELEVEN 與萊爾富店到店必填 [8809]。
+- 地址：宅配寄件地超過 6 字、最多 60 字 [7414]。
+- 每次修改新增一列，舊列標 `retired_at`；列本身不可改。訂單、代出貨同意與 shipment 指向建立當下那一列，所以歷史不會被改寫（計畫 Supplier v1.1 §4.2）。
+- 個資：tenant RLS，只有該事業有 `store:manage` 或 `store:fulfil` 的人看得到完整內容；不進公會區塊、公開頁、分享卡片、journal 與日誌（SC-SPEC-07 SL-01）。
+- 退回地址只在需要時揭露：代出貨同意裡給賣家看（賣家要知道退貨寄去哪），售後核准後給該買家看（EC-SPEC-06）。
+
+### 2.2 物流帳戶
+
+沿用 EC-SPEC-04 §1 的帳戶與金鑰封存：帳戶屬於一個事業與環境（`sandbox`／`live`），金鑰以 `purpose=logistics` 封存、只寫不讀。
+
+- 帳戶下的每一個物流子類型是一個服務列（`commerce_provider_account_services`）：`ecpay.logistics.home.tcat`、`ecpay.logistics.home.post`、`ecpay.logistics.cvs.unimartc2c`、`ecpay.logistics.cvs.famic2c`、`ecpay.logistics.cvs.hilifec2c`；B2C 的 `…cvs.unimart`、`…cvs.fami`、`…cvs.hilife`、`…cvs.unimartfreeze` 在 C4。
+- 服務狀態 `draft → active → suspended／retired`。`active` 的條件：
+  - sandbox：用該環境帳戶完成一次建單＋查詢。綠界 stage 的 B2C／宅配與 C2C 是不同的測試特店（`2000132`、`2000933`，金鑰見 [7398]），所以 sandbox 會有兩個帳戶。
+  - live：一筆真實建單與查詢成功（§11 的受控試寄）。
+  - B2C 超商另需測標通過：每個子類型都要先以 `Express/CreateTestData` 產生測試標籤、雷射印表機列印、郵寄到物流中心驗收，通過後綠界才允許建 B2C 單 [7402]。結果只在綠界後台看得到，所以由商家填入通過日期，第一次 live 建單成功才算驗證。
+- OK 超商店到店（`OKMARTC2C`）已於 2026/07/01 終止 [36099]，不提供。
+- 服務 `suspended` 後不能建立新物流單；既有 shipment 照常接收通知、查詢與列印（在途責任不因停用消失，EC-R56）。
+- 未開通的服務不出現在任何選單裡，不顯示「即將推出」（EC-AT68、SC-LAT02）。
+
+### 2.3 出貨設定（ShippingProfile，出貨者的能力）
+
+每個商店（賣家或供應商）一份文件 `freedom.shipping-profile/v1`，每次儲存產生新版本（`commerce_shipping_profile_versions`：instance、`version`、`document`、`document_sha256`、建立者、時間；不可改）。目前版本＝最大版本號。
+
+`services[]`（我能怎麼寄）：
+
+| 欄位 | 規則 |
+| --- | --- |
+| `service_key` | §2.2 的服務之一，且本事業的該服務是 `active` |
+| `account_id` | 本事業自己的帳戶（不能填別人的特店編號，SC-LAT08） |
+| `ship_from_location_id` | 本事業的寄件地 |
+| `temperature` | C2 只有 `ambient`（常溫）；冷藏、冷凍在 C4（計畫 §11.5） |
+| `handling_days` | 1～14，付款確認後幾天內出貨 |
+| `cutoff_time` | Asia/Taipei `HH:mm`；之後確認的訂單從隔天起算 |
+| 包裹限制 | 最大重量、最長邊、三邊和；由出貨者依自己的物流合約填入，平台不寫死未核對的數字 |
+| `outlying_islands` | `allowed`／`excluded`。中華郵政宅配只送本島 [7414] |
+
+`drop_ship`（只有供應商需要，選填）：是否提供代出貨、各服務每包向賣家收的費用、退回地址、例外責任說明（遺失、破損由誰向物流理賠、誰向買家負責）、收件資料保留天數（≤ 30）、接受任務期限（1～72 小時，預設 24）。這是供應商公開給同公會賣家的「代出貨方案」，賣家申請時凍結進代出貨同意（§2.6）。
+
+### 2.4 買家配送方式與運費（DeliveryOption，賣家）
+
+同一份文件的 `delivery_options[]`，只有零售商需要。買家看到與付的運費只來自這裡（計畫 §11.2：不由各 adapter 自行加費）：
+
+| 欄位 | 規則 |
+| --- | --- |
+| `method` | `home`（宅配）或 `cvs:<LogisticsSubType>`（例如 `cvs:UNIMARTC2C`） |
+| `fee_per_parcel_minor` | 每個包裹的運費（TWD 最小單位，100 的倍數） |
+| `free_over_minor` | 可選；訂單商品金額（折扣後）達到就全部包裹免運，由賣家吸收 |
+| `outlying` | `excluded` 或離島加價 |
+| 顯示名稱 | 例如「7-ELEVEN 取貨」 |
+
+- 開放結帳的條件之一是至少一個配送方式，而且店家已發布 `shipping` 政策（EC-SPEC-02 §2.3）。
+- 修改運費只影響之後的報價；已凍結的 checkout 與訂單不變。
+
+### 2.5 商品配送屬性（ProductShippingAttributes）
+
+- 屬於實體商品（`commerce_items`）的擁有者：自有商品是賣家，供貨商品是供應商。賣家不能改供應商商品的屬性。
+- 欄位：重量（g）、長寬高（mm）、溫層（常溫／冷藏／冷凍）、可否超商取貨、需單獨成箱、每箱最多件數、限制標記（液體、電池等，只作檢查用）。
+- 每次修改新增一列（append-only），目前值＝最新一列。結帳時把當時的值凍結進 terms。
+- 不是個資，不需要 RLS；寫入只經擁有者的命令（`store:write`），在 `catalog.ts` 註明豁免理由。
+- 沒有填屬性的商品不能進新結帳（`shipping_attributes_missing`），避免付款後才發現寄不出去（EC-AT12）。商品詳情的「配送」分區在這個表上線後才出現（SC-SPEC-07 §4）。
+
+### 2.6 代出貨同意（FulfillmentAgreement）
+
+和既有的供貨同意分開，是另一份有版本的同意（SC-L03）：
+
+1. 供應商在出貨設定公開 `drop_ship` 方案（§2.3）。
+2. 賣家從已可售的供貨商品（selection `acceptance_state='sellable'`）中挑選商品，向供應商提出申請。申請凍結：商品清單（≤ 200）、供應商出貨設定的版本與服務、每包費用與其他金額條款（取消、退回處理、不可售責任、付款天數，EC-SPEC-06 §5.2）、寄件地與退回地址的版本、處理天數、例外責任、收件資料用途與保留天數；`terms_sha256`。
+3. 供應商對**這個確切版本**接受或拒絕；接受時記錄簽署者與 `signed_digest = terms_sha256`（比照 `056` 的 acceptance）。
+4. 狀態：`proposed → accepted／declined／withdrawn`；`accepted → revoked`（任一方）或 `superseded`（同商品的新版本被接受）。條款不可改；要改就提新版本。
+5. 同一賣家商店、同一商品，同時最多一個 `accepted`（子表 `commerce_fulfilment_agreement_items` 的部分唯一索引）。
+6. 撤回只影響之後的結帳；已付款的履約單照凍結的版本繼續，供應商若做不到就回報無法履約（§4.5）。
+7. 權限：提出、接受、撤回需要該商店的 `store:manage`（綁定地址揭露與費用的商業承諾）。兩方都能讀自己參與的同意；RLS 依兩個 tenant。
+
+## 3. 結帳：配送群組與凍結報價
+
+`computeCheckoutTerms` 的 `ShippingQuotePort`（EC-SPEC-03、wp03-core 已留介面）由本模組實作。購物車報價（EC-SPEC-02 §5.2）以同一個函式試算，不寫入任何東西。
+
+### 3.1 決定出貨者
+
+每個行項：
+
+- 自有商品 → 賣家自出貨。
+- 供貨商品 → 有 `accepted` 代出貨同意涵蓋此商品 → 供應商直送；否則行項 `unavailable(fulfilment_not_agreed)`。
+- 出貨者目前的出貨設定與同意凍結的服務取交集；交集為空 → `unavailable(method_unsupported)`。
+
+### 3.2 分組與拆包
+
+- 群組鍵＝(出貨者商店, 寄件地, 溫層)。不同出貨者、不同寄件地、不同溫層一定分開（計畫 §11.2）。
+- 每個群組再依限制拆成包裹：需單獨成箱的商品自成一包；超過每箱件數、重量上限或超商商品金額上限（`GoodsAmount` 1～20,000 元 [8809]）就拆。C2 不做立體裝箱計算：每件商品本身必須符合服務的尺寸上限，否則該服務不可用。
+- 出貨者實際出貨時可以拆成更多包，但多出來的運費不向買家收。
+
+### 3.3 配送方式
+
+- 一次結帳只有一個收件目的地（一個聯絡資料列）。買家可選的方式＝每個群組都支援的方式的交集。
+- 超商取貨要求所有群組使用**同一個** `LogisticsSubType`，因為門市是在該子類型的電子地圖上選的 [8795]。
+- 交集為空時，不收款：在 B05 第 2 步說明哪些商品不能一起配送，提供可用的方式或請買家分開下單（計畫 Supplier v1.1 §3.2、EC-AT12）。
+- 不可用原因（逐行回傳）：`fulfilment_not_agreed`、`shipping_attributes_missing`、`method_unsupported`、`temperature_unsupported`、`too_large`、`cvs_value_limit`、`outlying_unsupported`。
+
+### 3.4 運費
+
+- 每個包裹的運費＝賣家該配送方式的 `fee_per_parcel_minor`；達到 `free_over_minor` 時全部為 0（賣家吸收）。離島依 `outlying` 規則。
+- 供應商向賣家收的每包費用不影響買家運費，只記成賣家的應付（EC-SPEC-06 §5）。
+- 運費、各包裹、預計出貨日都進凍結 terms；總額＝商品－折扣＋運費（EC-AT09、10）。
+
+### 3.5 收件資料檢查（在凍結時就驗）
+
+綠界在建單時才會拒絕的欄位，結帳時就先擋下，避免收款後寄不出去：
+
+| 欄位 | 規則 | 來源 |
+| --- | --- | --- |
+| 收件人姓名 | 4～10 字元（中文算 2）；只能是中文字或英文字母；不含數字、符號、表情。取件時要出示相同姓名的證件，畫面提示「請填寫與證件相同的姓名」 | [8809][62208] |
+| 手機 | `^09\d{8}$`；超商必填 | [8809] |
+| 宅配地址 | 超過 6 字、最多 60 字；郵遞區號 3～6 碼 | [7414] |
+| 中華郵政 | 只送本島；需要重量，最多 20 kg | [7414] |
+| 超商商品金額 | 每包 1～20,000 元（整數元）；超過就不提供超商 | [8809] |
+
+不合規則回 422 並指出欄位（沿用 EC-SPEC-02 §5.3）。離島郵遞區號表在實作時依中華郵政公開資料建立，註明來源與日期。
+
+### 3.6 超商選店（`Express/map`）
+
+綠界電子地圖是瀏覽器 POST，請求與回傳**都沒有** CheckMacValue；回傳是綠界讓瀏覽器 POST 到我們指定的網址，內容不可信 [8795]。所以：
+
+1. 買家在 B05 選超商取貨 → `POST /api/v1/public/stores/:slug/cvs-selection-sessions`（需要 checkout 憑證）建立 session：隨機 `session_ref`、20 字元的 `extra_token`（只存雜湊）、checkout、子類型、所用帳戶、環境、15 分鐘到期。
+2. 瀏覽器前往 `/ship/ecpay/map/{token}`：極小的 HTML，表單 POST 到該環境的 `Express/map`，欄位 `MerchantID`、`LogisticsType=CVS`、`LogisticsSubType`、`IsCollection=N`、`ServerReplyURL=/ship/ecpay/map-return/{session_ref}`、`ExtraData=extra_token`、`Device`（手機 1、桌機 0）[8795]。同一個視窗開啟，不用新分頁或 iframe（iOS 會失敗；閒置超過 3 分鐘或開多個地圖分頁會出錯）[8795][62208]。這個路徑的 CSP `form-action` 只加該環境的物流主機，比照付款交接頁（EC-SPEC-04 §4.1）。
+3. 綠界把買家帶回 `POST /ship/ecpay/map-return/{session_ref}`：伺服器只檢查 session 存在、未到期、`ExtraData` 符合、`MerchantID` 與 `LogisticsSubType` 相同；把回傳的門市欄位清理後暫存在 session（`CVSStoreID` 1～6 個英數字、店名 ≤ 10 字、地址 ≤ 60 字、`CVSOutSide` 0／1 [8795][8809]），然後 303 回到結帳頁。這個跨站 POST 不帶買家憑證，所以這一步不改 checkout。
+4. 結帳頁（同站 GET，有憑證）呼叫 `POST …/checkouts/:ref/cvs-selection`，伺服器確認 session 屬於這個 checkout、同子類型、同環境、未用過，才把門市寫進新的聯絡資料列（EC-SPEC-02 §5.3）。跨 checkout、跨服務、跨環境一律拒絕，也不回顯門市資料（EC-AT35）。
+5. 門市名稱與地址只當文字顯示（不當 HTML），焦點回到門市欄並宣告所選門市（EC-SPEC-01 §7.3）。
+
+- 綠界 stage 的地圖不開互動頁面，直接回固定門市 [8795]；sandbox 的選店測試以此為準。
+- 地圖用的 `MerchantID`：優先用零售商自己有此子類型的帳戶；沒有就用其中一個出貨者的帳戶（特店編號不是秘密，物流標籤上也會出現）。門市代號是該連鎖的門市編號，不屬於特定帳戶。
+- 門市是否仍可用，以建單結果為準（§5.3）；`Helper/GetStoreList` 的每日門市清單 [47496] 可在之後加作預檢，C2 不依賴。
+
+### 3.7 凍結內容
+
+每個群組：出貨者商店、方式（自出貨／直送）、代出貨同意的 ID 與版本、出貨設定版本與 `service_key`、寄件地版本、溫層、包裹規劃（行項與數量）、每包運費、處理天數。全部進 `freedom.checkout-terms/v1` 並計入 `terms_sha256`；收件資料在聯絡資料列，terms 只含它的摘要（EC-SPEC-03 §3.1）。下單時重算，任何一項改變（同意被撤回、設定改版、屬性改變）→ `terms_changed`，請買家重新確認。
+
+## 4. 履約單（FulfillmentOrder）
+
+### 4.1 建立
+
+- `ensureFulfilmentOrders(q, orderId)`：依凍結的群組，每群組一筆，`UNIQUE(order_id, group_key)`，重複呼叫不會多建。
+- 呼叫時機：付款套用結果是 `converted` 或 `allocated` 的同一交易內（EC-SPEC-03 §3.3）；`retryAllocation` 成功後；以及排程補建（防止中間版本漏建）。
+- 行項不另存：一筆履約單的行項＝該群組行項對應的配置（EC-SPEC-03 §2）。剩餘可出貨量＝配置量 − 已出貨 − 已釋放 − 未作廢且未交寄的包裹量。
+- 自出貨建立為 `accepted`；直送建立為 `awaiting_acceptance`，`accept_by` 依同意的接受期限。
+- `ship_by`＝付款確認日（過了 `cutoff_time` 算隔天）＋處理天數，只是承諾，不是自動動作。
+
+### 4.2 狀態
+
+| 狀態 | 意義 | 下一步 |
+| --- | --- | --- |
+| `awaiting_acceptance` | 等供應商接受 | 接受；回報無法履約；逾期 → 例外 `fulfiller_unresponsive`（賣家處理） |
+| `accepted` | 出貨者已接受 | 建包裹、建單、列印、交寄；回報無法履約 |
+| `unable_reported` | 出貨者回報做不到（附原因） | 出貨者撤回回報（改期）；賣家取消行項並退款 |
+| `fulfilled` | 全部剩餘量都已交寄或取消 | — |
+| `cancelled` | 賣家取消整個群組 | — |
+
+SL-02 的分頁：待確認＝`awaiting_acceptance`；備貨中＝`accepted` 且還有未建單的量；待印單＝有 `created` 且未列印過的包裹；待交寄＝有 `created` 且已列印的包裹；例外＝責任在本事業的未結例外（§7）。
+
+### 4.3 付款確認門檻
+
+付款 attempt `paid` 就會配置庫存並建立履約單；但**建立物流單、列印、交寄**都要求付款已 `confirmed`（伺服器對伺服器查詢確認，EC-SPEC-04 §5.5）。每次命令執行時讀目前狀態，不用快取。未確認時畫面顯示「付款確認中，請先不要出貨」；出貨者仍可接受任務與備貨。
+
+### 4.4 收件資料的最小揭露
+
+賣家的買家聯絡資料表只對賣家事業開放（tenant RLS，EC-SPEC-03 §3.1）。出貨者讀的是另一份最小投影：
+
+- `commerce_fulfilment_recipients`：每筆履約單一列（改門市時新增一列），內容只有收件人姓名、手機、配送方式、門市（代號、名稱、地址、是否離島）或宅配（郵遞區號、地址）。不含 Email、發票、其他群組、訂單金額、顧客歷史。
+- 擁有者是零售商事業；出貨者的 RLS 讀取條件：自己是這筆履約單的出貨者，且履約單 `accepted`、付款 `confirmed`、未超過 `access_until`、未遮罩。
+- 存取期限：包裹送達或退回完成後再加同意裡的保留天數（自出貨依賣家政策，直送 ≤ 30 天）；履約單取消時立即結束。期限後的讀取回 403「收件資料已到期」，列內容遮罩。
+- 每次讀取與每次列印都經命令並留 receipt（比照 `modules/agent-commerce/hosted/supplier-orders.ts:16` 的讀取命令），記錄誰、哪一筆、用途；不記內容。
+- 撤回指派、撤銷權限或撤回同意後，新的讀取與列印一律拒絕，也不會帶出別的包裹（SC-LAT13）。
+
+### 4.5 無法履約、取消與改派
+
+- 供應商回報無法履約：履約單 `unable_reported`，建立例外 `fulfiller_unable` 給賣家；供應商畫面沒有取消訂單或退款的按鈕（SC-LAT06、17）。
+- 賣家決定：等供應商改期（供應商撤回回報）、或取消這些行項——`releaseAllocation`（EC-SPEC-03）、未交寄的包裹作廢（§5.6）、另建退款（EC-SPEC-04 §7）。賣家不能把供貨商品改成自己出貨（貨不在賣家手上，§1.1）。
+- 賣家取消已付款未出貨的群組：同上；若出貨者已建單並產生運費，依同意記成賣家的應付（EC-SPEC-06 §5）。
+- 已交寄的包裹不能取消，只能走售後（§8、EC-SPEC-06）。
+
+## 5. Shipment：建單、標籤、交寄
+
+### 5.1 狀態
+
+一個實際包裹一筆 shipment（SC-L06）。
+
+| 狀態 | 順序 | 買家看到 | 出貨者看到 |
+| --- | --- | --- | --- |
+| `draft` | 0 | 準備出貨 | 包裹草稿 |
+| `creating`／`create_unknown`／`create_failed` | 1 | 準備出貨 | 建立託運單中／結果確認中／建立失敗（原因） |
+| `created` | 2 | 已建立託運單 | 待列印／待交寄 |
+| `handed_over` | 3 | 已交寄 | 已交寄 |
+| `in_transit` | 4 | 運送中 | 運送中 |
+| `ready_for_pickup` | 5 | 已到店待取 | 已到店待取 |
+| `delivered` | 6 | 已取件或送達 | 已送達 |
+| `returning` | 7 | 退回中 | 退回中 |
+| `returned` | 8 | 已退回 | 已退回，待收件／待檢驗 |
+| `voided` | — | 不顯示 | 已作廢 |
+
+- 正向只前進（2→6）；退回分支可從 3～5 進入 7→8。`delivered` 之後不再改變；之後的退貨是售後的另一件事（§8.2）。
+- 「配送異常」不是狀態，是這個包裹有未結例外時的顯示（EC-SPEC-01 §6）。
+- 包裹行項（`commerce_shipment_lines`：配置、數量）：所有未作廢包裹的數量合計 ≤ 配置量 − 已釋放量，以 deferred trigger 檢查。
+
+### 5.2 建單（`Express/Create`）
+
+C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用全方位物流（AES-JSON、先建暫存單）[7380][10075]：舊版可以在我們自己的結帳頁選店、伺服器背景直接建單，也能用 `MerchantTradeNo` 查回結果 [8809][7418]。全方位物流之後可以另做 adapter。
+
+1. 出貨者在履約單建立包裹（選行項與數量，預設全部剩餘量）→ `draft`。
+2. 按「建立託運單」：一個交易內檢查門檻（§4.3、帳戶服務 `active`、出貨者權限、收件投影可讀），產生 `MerchantTradeNo`（`L`＋19 個 Crockford Base32 大寫字元，共 20 字元 [8809]），寫入 operation（`kind=create`），shipment → `creating`，commit。
+3. outbox 執行者在租約交易提交後呼叫 `Express/Create`（背景建單：`ClientReplyURL` 留空 [8809]），10 秒逾時，只連該環境的官方主機。
+
+送出欄位重點：
+
+| 欄位 | 值 | 來源 |
+| --- | --- | --- |
+| `LogisticsType`／`LogisticsSubType` | `CVS` 或 `HOME`；子類型依服務 | [8809][7414] |
+| `GoodsAmount` | 該包裹商品金額的整數元，最少 1；超商 ≤ 20,000 | [8809] |
+| `IsCollection` | 一律 `N`（C2 不開貨到付款） | [8809] |
+| `GoodsName` | `{店名}訂購商品`，先移除禁用字元 `` ^ ' ` ! @ # % & * + \ " < > \| _ [ ] ``，再依位元組規則（中文算 2）截到 50；7-ELEVEN 與萊爾富店到店必填 | [8809] |
+| 寄件人 | 寄件地版本的姓名、手機（宅配另需郵遞區號與地址） | [8809][7414] |
+| 收件人 | 收件投影的姓名、手機；超商 `ReceiverStoreID`；宅配郵遞區號與地址 | [8809][7414] |
+| `ReturnStoreID` | 不送（只有 7-ELEVEN 店到店支援，其他退回原寄件門市） | [8809] |
+| 宅配 | `Temperature=0001`；黑貓 `Distance` 依地址、`Specification` 依包裹；中華郵政需 `GoodsWeight` | [7414] |
+| `ServerReplyURL` | §6.1 的回呼路徑 | [8809] |
+| `ReceiverEmail`、`Remark` | 不送（資料最少化） | |
+
+回應：成功是 `1|` 後接表單字串，去掉 `1|` 再解析並以 MD5 驗證 CheckMacValue；失敗是 `0|錯誤訊息` [8809]。成功取得 `AllPayLogisticsID`（之後查詢、列印、改門市都用它），店到店另有 `CVSPaymentNo`（7-ELEVEN 另有 `CVSValidationNo`），宅配有 `BookingNote`（託運單號）；B2C 的配送編號 `ShipmentNo` 要用查詢取得 [8809][7418]。結果以新交易寫回，shipment → `created`。
+
+### 5.3 結果不明與失敗
+
+- 逾時、連線錯誤、無法解析或簽章不符 → `create_unknown`。**不換號、不盲目重送**：以同一個 `MerchantTradeNo` 呼叫 `QueryLogisticsTradeInfo/V5` [7418]（1、5、15、60 分鐘後，之後每 6 小時，最多 24 小時）。
+  - 查到 → 採用查到的單號與狀態，`created`；不會出現第二個實體包裹或第二筆運費（EC-AT37、SC-LAT07）。
+  - 查無時不自動重建。連續查無、且距最後一次送出超過 30 分鐘後，出貨者可以按「重新建立」，沿用**同一個** `MerchantTradeNo` 送出。綠界要求廠商交易編號不可重複使用 [8809]；若綠界以編號重複拒絕，代表第一次其實已建立，回到查詢。綠界對重複編號的實際回應要在 stage 核對（§11）；核對之前，正式環境的「重新建立」要求出貨者先在綠界後台確認沒有這張單。
+  - 24 小時仍無法判定 → 例外 `shipment_create_unknown`：出貨者到綠界後台用 `MerchantTradeNo` 核對，以證據結案。
+- `0|錯誤` 是明確失敗 → `create_failed`，顯示綠界訊息（清理、截到 200 字）。已知的：`10500040` 商品金額錯誤、`10500036` 姓名長度錯誤 [62208]；`找不到加密金鑰…` 表示特店與子類型不符或環境錯置 [62208]。門市失效時，出貨者選「請買家重新選店」→ 例外 `pickup_store_invalid`（§7.3）。修正後重試：先以舊編號查詢確認沒有建立，再產生新編號。
+- 這一套不在 SQL 交易中等外部回應（EC-R20）；查詢是唯讀可安全重試，建單不是。
+
+### 5.4 標籤列印與重印
+
+- 綠界列印端點必須由**瀏覽器**以表單 POST 開啟，伺服器端呼叫只會停在中繼頁；不能放 iframe [62208][7406][8875]。端點依子類型：7-ELEVEN 店到店 `PrintUniMartC2COrderInfo`（需要 `CVSPaymentNo`、`CVSValidationNo`）[7406]、全家店到店 `PrintFAMIC2COrderInfo` [8848]、萊爾富店到店 `PrintHILIFEC2COrderInfo` [8858]、B2C 與宅配 `helper/printTradeDocument` [8875]。
+- 流程：`POST …/shipments/:sid/print-sessions`（檢查 §4.3、§4.4 的條件）→ 回傳 `/ship/ecpay/print/{token}`：一次性、5 分鐘、綁定目前的會員 session。該頁產生已簽章的表單並自動送出到綠界；CSP `form-action` 只加物流主機。
+- 重印＝同一個 `AllPayLogisticsID` 再開一次，不建新單、不重新付費（EC-AT38、SC-LAT09）。每次列印留紀錄（誰、何時）；列印次數決定 SL-02 的「待印單／待交寄」。
+- 列印頁的簽章欄位一旦外流就能重複開啟綠界頁面，這是綠界端的限制。我們的對策是只在授權當下產生、不保存、不寫日誌。
+- 平台不保存標籤檔案（由綠界產生），所以沒有公開網址，也沒有需要另外備份的標籤檔。
+- 列印或下載標籤不等於交寄，不改庫存（EC-AT39、SC-LAT10）。
+
+### 5.5 交寄與庫存
+
+- `handed_over` 的證據：
+  1. 綠界貨態屬於「已交寄」或之後的階段（§6.3）；或
+  2. 出貨者以命令記錄交寄（可填門市收據號碼或託運單號），留 receipt。綠界 stage 沒有貨態通知 [7420]，sandbox 只能用這個方式；live 也允許，但 3 天內沒有任何物流貨態就開例外 `no_tracking_progress`。
+- 第一次進入順序 ≥ 3 的狀態時（包括先收到退回貨態的情形），同一交易內呼叫 `recordHandover`（EC-SPEC-03，`shipmentRef = shipment_id`）：N 與 A 各減包裹數量；同一 shipment 重送不再扣（EC-AT28）。
+- 交寄記錄不能撤銷；記錯的情形走例外與退回檢驗。
+- 鎖序接在 EC-SPEC-03 §6 之後：… → `commerce_orders` → payment attempt → 履約單 → shipment（UUID 排序）→ 配置 → item（UUID 排序）。
+
+### 5.6 作廢
+
+- 只有未交寄（順序 ≤ 2）的包裹可以作廢。
+- 7-ELEVEN 店到店有取消 API（`Express/CancelC2COrder` [7412]，實作前要核對參數）；其他子類型沒有已核對的取消方式，作廢只在本地標記，並提醒出貨者綠界可能仍收運費，費用以查詢的 `HandlingCharge` 為準 [7418]。
+- 作廢後配置量回到「可再建包裹」；是否同時取消行項由賣家另外決定（§4.5）。
+
+## 6. 貨態
+
+### 6.1 通知端點
+
+- `POST /api/v1/provider-callbacks/ecpay/{account_ref}/logistics`，規則與付款通知相同（EC-SPEC-04 §5.1）：確切路徑、表單格式、16 KiB 上限、重複參數拒絕；staging 需要 Access 排除（Ted 的基礎設施變更）。
+- 綠界以網域 `postgate.ecpay.com.tw`（stage 為 `postgate-stage.ecpay.com.tw`）公布通知來源 [7400]。Worker 不做 IP 白名單，簽章驗證才是依據。
+- 驗證：
+  1. 依 `account_ref` 找帳戶；找不到 → 404。
+  2. 以 `logistics` 金鑰重算 MD5 CheckMacValue：收到的全部欄位（除 CheckMacValue）依參數名不分大小寫排序，前後加 HashKey／HashIV，.NET 規則 URL 編碼、轉小寫、MD5、轉大寫 [7424][7446]。constant-time 比較。
+  3. `MerchantID` 相符；依 (帳戶, `AllPayLogisticsID`) 找 shipment，找不到再用 `MerchantTradeNo`；仍找不到 → `unmatched` 事件，回 `1|OK`。
+  4. 子類型與 `GoodsAmount` 與 shipment 一致；不一致 → `contradicting_event` 例外。
+  5. 依 §6.3 對照、§6.4 規則更新。
+- 一個交易內寫入事件（去重）→ 更新 shipment →（需要時）`recordHandover` → commit；**提交成功後**才回純文字 `1|OK`。沒有正確回應時，綠界重送 3 次，之後每天一次、從貨態更新日起維持 3 天 [7420]。
+- 通知會回傳收件人姓名、電話、Email、地址 [7420]：只用於簽章驗證，**不保存**、不寫日誌。事件只存帳戶、`AllPayLogisticsID`、`MerchantTradeNo`、`RtnCode`、`RtnMsg`（清理後）、`UpdateStatusDate`、子類型、原始 body 的 SHA-256。
+- 去重鍵：(帳戶, `AllPayLogisticsID`, `RtnCode`, `UpdateStatusDate`)。
+- 金鑰外洩時可以偽造貨態。影響是訂單顯示錯誤，不會動到錢；對策是 §6.2 的定期查詢核對，訂單結案（`closed`）前以查詢確認最後狀態。
+
+### 6.2 查詢（`QueryLogisticsTradeInfo/V5`）
+
+- 依 `AllPayLogisticsID` 或 `MerchantTradeNo` 查詢近 5 年的物流單；`TimeStamp` 3 分鐘內有效，送出前才產生；回應以 MD5 驗證 [7418]。
+- 用途：未知建單（§5.3）、B2C 的 `ShipmentNo`、貨態補漏（綠界 stage 沒有貨態通知 [7420]，正式環境的通知也可能遺失）、費用（`HandlingCharge`、`ShipChargeDate`）。
+- 排程：建單後立即一次；之後每 6 小時查進行中的包裹；交寄超過 3 天改每天一次；送達或退回完成後 7 天停止。使用者按「重新查詢」：同包裹每分鐘 1 次。
+- 回應含寄件人姓名與電話（V5 新增）[7418]：不保存。
+- 官方範例回應的 CheckMacValue 只在去掉 V5 新增欄位時才算得出來（範例沒有跟著更新，見 sources.md）。實作以「全部回傳欄位」驗證，並在 stage 以真實回應確認；未確認前不把查詢結果當成交寄證據以外的唯一依據。
+
+### 6.3 狀態碼對照
+
+已核對的代碼如下。完整代碼表在綠界廠商後台的「物流貨態代碼查詢」[7440]，實作時由有帳號的商家取得、補齊並註明日期；未列入的代碼只保存，不猜。
+
+| 事件 | 7-ELEVEN B2C | 7-ELEVEN 店到店 | 全家 B2C／店到店、萊爾富 B2C／店到店 | 對應 |
+| --- | --- | --- | --- | --- |
+| 訂單處理中（已收到訂單資料） | 300 | 300 | 300 | `created` |
+| 商品已送至物流中心 | 2030 | 2030 | 3024 | `in_transit` |
+| 商品已送達門市 | 2063 | 2073 | 3018 | `ready_for_pickup` |
+| 消費者成功取件 | 2067 | 2067 | 3022 | `delivered` |
+| 消費者七天未取件 | 2074 | 2074 | 3020 | `returning`＋例外 `uncollected` |
+| 二次進店（重新配達取件門市） | 2098 | 2098 | — | `ready_for_pickup` |
+| 重新配達寄件門市 | — | 2099 | — | `returned`（待寄件人取回） |
+| 門市關轉 | 2037 | 見 §7.3 | 7011（全家、萊爾富 B2C） | 例外 `pickup_store_closed`，狀態不變 |
+
+來源：[7420][7418][7410][10127][62208]。宅配（黑貓、中華郵政）的代碼不在已核對範圍，實作時從代碼頁補入；補齊前宅配以查詢與出貨者的交寄紀錄為準。
+
+- 交寄類代碼（寄件門市收件、物流收件）也在完整代碼表中，補入後對應 `handed_over`。順序 ≥ 4 的任何代碼都隱含已交寄（§5.5）。
+- 無法對應的代碼：存成事件、狀態不變、進每日「未對應代碼」清單給平台維運，不對使用者開例外。
+
+### 6.4 亂序與矛盾
+
+- 事件依 §5.1 的順序套用：比目前低的事件只保存、不倒退（EC-AT40、SC-LAT11）。
+- 已到店待取之後收到較舊的「運送中」→ 保存，不改；之後收到七天未取 → 允許進入 `returning`（有證據的退回流程）。
+- `delivered` 之後收到退回類貨態、或 `returning` 之後收到取件成功 → 不改狀態，開例外 `contradicting_event`，由賣家依證據決定。
+- 同一包裹的事件永不刪除；一張訂單多包時逐包計算，不因一包送達就說整單完成（EC-AT34、SC-LAT12）。
+
+## 7. 例外（ExceptionCase）
+
+### 7.1 共用表
+
+`commerce_exception_cases` 是付款、庫存與物流共用的待辦（EC-SPEC-04 §5.6、EC-SPEC-03 §5.3）：
+
+- 欄位：`case_id`、零售商 tenant／instance、`order_id`、種類、關聯對象（attempt、refund、履約單、shipment、return；EC-SPEC-06 §7 另加售後申請、發票文件、更正與折讓）、責任方（`retailer`／`executor`／`buyer`）、出貨者 tenant（可空）、狀態 `open → resolved／dismissed`、`due_at`、結案代碼與說明、開立者（系統或成員）、結案者、`version`。
+- 同一 (種類, 對象) 同時最多一個 `open`，重送事件不會開出重複例外。
+- 表屬於交易核心（`hosted-checkout` 模組），隨付款的 migration（M2）建立；本文件的物流種類在 M3 加入。
+- 出貨者只看到關聯到自己履約單或包裹的例外，且看不到賣家的內部說明。
+- 每個例外都有責任方、下一個合法動作與期限，不只顯示「請聯絡客服」（計畫 §11.4）。
+
+### 7.2 物流相關種類
+
+| 種類 | 來源 | 責任方 | 下一個合法動作 | 期限 |
+| --- | --- | --- | --- | --- |
+| `fulfiller_unresponsive` | 直送履約單超過 `accept_by` | 零售商 | 聯絡供應商；取消行項並退款 | 立即 |
+| `fulfiller_unable` | 出貨者回報（§4.5） | 零售商 | 等改期；取消行項並退款 | 24 小時內回覆買家 |
+| `ship_by_overdue` | 超過 `ship_by` 未交寄 | 出貨者（零售商可見） | 出貨；回報無法履約；零售商通知買家延遲 | — |
+| `shipment_create_failed` | `0|錯誤` | 出貨者 | 修正寄件資料後重試；請買家重新選店 | — |
+| `shipment_create_unknown` | 24 小時無法判定（§5.3） | 出貨者 | 到綠界後台核對後附證據結案 | — |
+| `pickup_store_invalid` | 建單時門市不可用 | 買家（零售商負責聯絡） | 買家重新選店 | 48 小時 |
+| `pickup_store_closed` | 門市關轉（§7.3） | 買家（零售商負責聯絡） | 買家重新選店；期限前未選 → 零售商聯絡買家或讓包裹退回 | 第 3 日 10:00 前 |
+| `no_tracking_progress` | 交寄後 3 天無新貨態 | 出貨者 | 查詢；向物流查件；轉 `lost` | — |
+| `uncollected` | 七天未取（2074／3020） | 零售商 | 等退回；聯絡買家；依政策退款 | — |
+| `lost` | 出貨者或物流確認遺失 | 出貨者向物流理賠；零售商對買家 | 退款（EC-SPEC-04 §7）；重寄在 C4 | — |
+| `damaged`、`partial_missing` | 買家回報 | 零售商（必要時加出貨者） | 售後（EC-SPEC-06）；退款 | — |
+| `contradicting_event` | §6.1、§6.4 | 零售商 | 依證據人工決定 | — |
+| `return_inspection_due` | 退回已收件、未檢驗 | 收件的出貨者 | 檢驗（§8.3） | 7 天 |
+
+### 7.3 門市關轉
+
+- B2C：綠界以貨態通知（7-ELEVEN `2037`、全家與萊爾富 `7011`）並寄 Email 給商家；必須在**收到通知後第 3 日上午 10:00 前**更新門市（例：5/26 收到，5/28 10:00 前）[7410]。更新用 `Helper/UpdateShipmentInfo`（`AllPayLogisticsID`、`ReceiverStoreID`），回 `1|OK` [7410]。
+- 店到店：綠界同樣以通知與 Email 告知；更新用 `Express/UpdateStoreInfo`（`StoreType=01` 取件門市、`ReceiverStoreID`；7-ELEVEN 另需 `CVSPaymentNo`、`CVSValidationNo`）[8907]。官方沒有寫明固定期限，C2 採用與 B2C 相同的內部期限。
+- 流程：例外 `pickup_store_closed`（`due_at`＝官方期限前 2 小時）→ 買家在訂單頁看到「原取貨門市暫停服務，請重新選擇」→ 以綁定這個 shipment 的選店 session 重選（§3.6，`purpose=shipment_reselect`）→ 新的收件投影列 → operation `update_store` → 成功後結案。
+- 期限前買家沒有選：零售商決定聯絡買家或任其退回；系統不自動挑門市。
+- 建單時門市就已失效（EC-AT36）：shipment `create_failed`、例外 `pickup_store_invalid`，同一套重選流程，不假裝建單成功、不重複收費。
+
+## 8. 退回與檢驗
+
+### 8.1 未取件退回
+
+- 七天未取（2074／3020）→ `returning`；店到店退回原寄件門市（7-ELEVEN 店到店可另設退貨門市）[8809]，寄件人憑證件取回（所以寄件人姓名必須是本人，§2.1）。
+- 包裹到寄件門市（7-ELEVEN 店到店 `2099`）或出貨者記錄已取回 → `returned`，自動建立 ReturnInspection（`awaiting_receipt` 或 `received`）。
+- 零售商決定買家的處理：依政策退款（可扣運費，政策寫在 `shipping` 政策中）。C2 不提供同訂單重寄（§13）。
+
+### 8.2 售後退貨（RMA）
+
+- 是否接受退貨、退款金額由零售商在 EC-SPEC-06 決定。核准後買家才看到退回地址（出貨者的退回地址，§2.1）。
+- C2 的退貨寄送由買家自行寄回並填寄件編號；綠界 B2C 逆物流 API（`ReturnUniMartCVS`、`ReturnCVS`、`ReturnHilifeCVS`、`ReturnHome`）[7408][8894][8896][7416] 在 C4。
+- 退貨包裹到達 → ReturnInspection。
+
+### 8.3 檢驗與回庫（ReturnInspection）
+
+- `commerce_return_inspections`（ID 即 SL-04 路徑的 `return_id`）：來源（未取退回的 shipment，或 EC-SPEC-06 的 RMA）、收件的出貨者、零售商、狀態 `awaiting_receipt → received → inspected`、收件時間、檢驗者、說明。
+- 行項（`commerce_return_inspection_lines`）：配置、收到數量、可再售數量、不可售數量；可再售＋不可售＝收到數量；收到數量 ≤ 該配置已出貨量 − 已回庫量。
+- `received`：實物到了，先「待檢、不可售」，不動 N（EC-SPEC-03 §2.1）。
+- `inspected`：一次定案，之後不可改；可再售的數量以 `restockReturn(returnRef = return_id)` 回庫，每個 (return_id, 配置) 只會加一次（EC-AT42、SC-LAT16）。不可售的只記結果，費用責任依同意（EC-SPEC-06 §5）。
+- 檢驗者是收件的出貨者（直送時是供應商）；零售商看得到結果，據以決定退款。退款成功不會自動回庫，回庫也不代表已退款（計畫 §11.4、SC-LAT18）。
+- 收件超過 7 天未檢驗 → 例外 `return_inspection_due`。
+
+## 9. 頁面與 API
+
+所有私有路由在 `/api/v1/tenants/:t/storefronts/:i/…` 之下，伺服器每次重新核對 tenant、instance、角色與指派；前端隱藏按鈕不是授權。能力名稱為提議，在 EC-SPEC-09 §2 定案：`store:fulfil`（操作履約單與包裹）、`store:manage`（寄件地、出貨設定、物流帳戶、代出貨同意）、`store:write`（商品配送屬性）。
+
+### 9.1 賣家（E05、E06、E11）
+
+| 路由（提議） | 用途 |
+| --- | --- |
+| `GET …/fulfilment-orders?view=retailer&state=&cursor=` | 本店訂單的履約單；`fulfilment` 頁 |
+| `GET …/fulfilment-orders/:fo` | 履約單、包裹、例外；賣家看得到出貨者是誰與包裹狀態，看不到供應商的帳戶與運費成本以外的資料 |
+| `POST …/fulfilment-orders/:fo/cancel` | 取消群組（§4.5） |
+| `GET …/shipments?view=retailer`、`GET …/shipments/:sid` | `shipments` 頁 |
+| `GET／PUT …/shipping-profile`、`GET／POST …/ship-from-locations`、`POST …/ship-from-locations/:id/retire` | `settings/shipping` |
+| `GET／POST …/fulfilment-agreements`、`POST …/fulfilment-agreements/:id/withdraw`、`…/revoke` | 代出貨同意（賣家側） |
+| `GET …/exception-cases?view=retailer`、`POST …/exception-cases/:id/actions/:action` | 例外處理 |
+
+自出貨時，賣家同時是出貨者，使用 §9.2 的出貨者路由（`view=executor`）。
+
+### 9.2 出貨者／供應商（SL-01～04）
+
+| 路由（提議） | 用途 |
+| --- | --- |
+| `GET …/fulfilment-orders?view=executor&state=&cursor=`、`GET …/fulfilment-orders/:fo` | SL-02 |
+| `POST …/fulfilment-orders/:fo/accept`、`…/unable`、`…/unable/withdraw` | 接受、回報無法履約、撤回回報 |
+| `GET …/fulfilment-orders/:fo/recipient` | 收件資料（§4.4，每次留 receipt） |
+| `POST …/fulfilment-orders/:fo/shipments` | 建立包裹草稿 |
+| `POST …/shipments/:sid/provider-order`、`…/query`、`…/print-sessions`、`…/handover`、`…/void` | SL-03 |
+| `GET／POST …/fulfilment-agreements`、`POST …/fulfilment-agreements/:id/decision` | 代出貨同意（供應商側：接受確切的 `terms_sha256` 或拒絕） |
+| `GET …/returns`、`POST …/returns/:rid/receive`、`POST …/returns/:rid/inspection` | SL-04 |
+| `GET／PUT …/products/:pid/shipping-attributes` | SC-05 的「配送」分區 |
+
+Supplier Console 實作供應商頁面與讀取投影時，欄位只能來自這份白名單：
+
+- 履約單：ID、零售商店名、訂單顯示編號、狀態、`accept_by`、`ship_by`、行項（SKU、名稱、選項、數量）、供貨單價（來自 offer）、服務、寄件地、同意版本、包裹。**不含**零售價、折扣、買家付款金額、其他群組、付款資訊。
+- 收件資料：只能透過 `GET …/recipient`（Commerce 的閘門與 receipt），不得直接查表。
+- 包裹：單號、子類型、狀態與事件時間線（正規化後）、列印次數、本事業的實際運費。
+- 例外：關聯到本事業履約單或包裹的例外，不含零售商的內部說明。
+
+### 9.3 買家（B05、B07）
+
+| 路由（提議） | 用途 |
+| --- | --- |
+| `POST /api/v1/public/stores/:slug/cvs-selection-sessions` | 建立選店 session（checkout 憑證或訂單憑證） |
+| `POST …/checkouts/:ref/cvs-selection` | 結帳時附上門市（§3.6） |
+| `POST …/orders/:ref/shipments/:sid/cvs-selection` | 門市關轉後重選（§7.3） |
+| `GET …/orders/:ref` | EC-SPEC-02 的訂單讀取，加上每個包裹：狀態、物流公司、門市名稱與地址、宅配託運單號、事件時間線 |
+
+買家看不到出貨者是誰、店到店的寄件代碼（`CVSPaymentNo` 是寄件用，不是追蹤用）與任何費用成本。
+
+### 9.4 伺服器頁與機器路徑
+
+| 路徑 | 說明 |
+| --- | --- |
+| `GET /ship/ecpay/map/{token}` | 自動送出到 `Express/map`；CSP `form-action` 只加物流主機 |
+| `POST /ship/ecpay/map-return/{session_ref}` | 綠界讓瀏覽器帶回門市（未簽章）；只暫存、303 回原頁 |
+| `GET /ship/ecpay/print/{token}` | 自動送出到列印端點；一次性、綁 session |
+| `POST /api/v1/provider-callbacks/ecpay/{account_ref}/logistics` | 貨態通知（§6.1） |
+
+`/ship/` 下是伺服器產生的 HTML，不是 SPA 的 hash 路由；CSP 只能依 HTTP 路徑區分，所以要有獨立路徑（同 EC-SPEC-04 §4.1）。
+
+## 10. 程式位置、migration 與能力
+
+- 綠界物流的 MD5 CheckMacValue、表單與 `1|…`／`0|…` 回應解析、各端點的欄位組裝：協定程式庫 `modules/agent-commerce/providers/ecpay/`（EC-SPEC-04 §10，descriptor `commerce-providers`）。
+- 領域、routes、outbox：提議 `modules/agent-commerce/fulfilment/`，新 descriptor（module `commerce-fulfilment`，相依 `hosted-checkout`、`commerce-providers`）。`ExceptionCase` 的程式在 `modules/agent-commerce/checkout/`。
+- 契約：`contracts/guild-launchpad/v1/` 下新檔（例如 `hosted-fulfilment.ts`、`hosted-shipping.ts`），不改既有 v1 契約。
+- M3（履約）：§1.3 的表；RLS（寄件地、收件投影、選店 session 屬於個資或與個資相連；物流事件只存允許欄位）；不可刪與只前進的 trigger；包裹數量的 deferred trigger；`commerce_exception_cases` 的物流種類；`catalog.ts` 登錄與豁免理由；新增 migration 的全部登錄點（WP-00）。
+- 能力 `commerce.hosted-fulfilment.v1` 與強制下限跟物流回呼路由同一個 migration 上線；之後回退到不認得回呼的 binary 會漏接貨態，所以不能回退（EC-SPEC-10）。
+- Worker 需要的設定：回呼路徑的 Access 排除（staging）、查詢與 operation 的排程（cron），都由 Ted 操作。
+- 搬遷（C3）：每個 shipment 的 `ServerReplyURL` 在建單時就固定，舊網址在包裹結束前仍會收到通知；轉交方式在 EC-SPEC-08（EC-AT60）。
+- 備份與匯出：履約、包裹、事件、檢驗都屬於零售商或出貨者的業務資料，依 `catalog.ts` 的 tenant 解析匯出；匯出給供應商的資料不含零售商的顧客資料（SC-LAT22）。還原後先以查詢核對進行中的包裹，再開放新操作（EC-SPEC-10、T-047）。
+
+## 11. 外部驗證的分層（需要 Ted 授權）
+
+| 層 | 內容 | 授權 |
+| --- | --- | --- |
+| 向量與契約 | 官方物流 MD5 範例 [7424]、查詢範例與勘誤 [7418]、`1|`／`0|` 解析、禁用字元與位元組長度、負面案例；Node 與 workerd 結果一致 | 不需要（不連線） |
+| stage sandbox | C2C `2000933`、B2C／宅配 `2000132` [7398]；地圖回固定門市 [8795]；建單、查詢、列印；stage 沒有貨態通知 [7420]，交寄以人工紀錄驗證。順便核對三件文件沒寫清楚的事：重複 `MerchantTradeNo` 的回應、查詢回應的簽章欄位範圍（§6.2）、門市失效時的錯誤訊息 | 需要：連線綠界 stage |
+| 正式受控試寄 | 一個真實商家帳戶：店到店與宅配各一包，從建單、列印、交寄到取件；可加一包未取退回 | 需要：Ted＋該商家；真實運費 |
+
+stage 的固定門市（7-ELEVEN `131386`、全家 `006598`）[8809] 只用於 sandbox。拿到物流單號或 HTTP 200 不代表已交寄或送達（Supplier v1.1 §9）。
+
+## 12. 測試（全部 not_run）
+
+| 案例 | 驗收 |
+| --- | --- |
+| 同店 A 供貨直送＋B 自有：兩個群組、兩段運費、預計出貨日，付款前可見；總額可核對 | EC-AT10、SC-LAT04 |
+| A 只同意供貨價、沒有代出貨同意：A 的商品不可結帳，B 的自有商品可以；A 看不到任何地址 | EC-AT11、SC-LAT03 |
+| 冷凍或超尺寸商品、超商金額 > 20,000、離島不配送、群組沒有共同方式：收款前拒絕並說明 | EC-AT12、SC-LAT02 |
+| 未授權的賣家或其他 tenant 改供應商的寄件地與出貨設定：拒絕，舊版本保留 | EC-AT33、SC-LAT01 |
+| 一單兩包，只有 A 包送達：B 包未完成，訂單不顯示全部完成 | EC-AT34、SC-LAT12 |
+| 選店：A checkout 的 session 回傳給 B checkout、換子類型、換環境、過期、重用 → 拒絕且不回顯門市 | EC-AT35 |
+| 建單時門市失效（`0|`）：`create_failed`＋重選，不假成功、不重複收費 | EC-AT36、SC-LAT14 |
+| 建單逾時：查詢找到原單、不建第二張；查無時不自動重建，人工重建沿用同一編號；SQL 鎖不等外部 | EC-AT37、SC-LAT07 |
+| 重印同一單號、無新 operation；無權者、撤權後、期限後都拒絕；不產生公開網址 | EC-AT38、SC-LAT09、13 |
+| 只列印不交寄：N、A 不變；交寄後才扣 | EC-AT39、SC-LAT10 |
+| 已到店 → 晚到的運送中 → 七天未取：不倒退，進入退回；三筆事件都保存 | EC-AT40、SC-LAT11 |
+| 兩包其中一包遺失：例外有責任方、下一步、期限；賣家與供應商畫面一致 | EC-AT41、SC-LAT15 |
+| 退回到達先不可售；檢驗合格 1 件只回庫一次；退款不回庫 | EC-AT42、SC-LAT16 |
+| A、B 兩個供應商各一包：A 只讀得到自己那包的收件資料與行項 | EC-AT43、SC-LAT05 |
+| 任何地方都選不到貨到付款 | EC-AT44、SC-LAT21 |
+| 已付款超過 30 分鐘：配置不被釋放；交寄扣一次 | EC-AT27、28、SC-LAT20 |
+| 物流通知：MD5 正確才處理；重送三次只套用一次；提交失敗不回 `1|OK`；收件人欄位不進資料庫與日誌 | EC-AT40、SC-LAT11 |
+| 供應商指向別人的帳戶建單：拒絕，任務不標成功 | SC-LAT08 |
+| 供應商回報無法履約：賣家拿到可處理的例外；供應商不能取消或退款 | SC-LAT06、17 |
+| 付款未 `confirmed`：不能建單、列印、交寄 | EC-AT27（與 EC-SPEC-04） |
+| 服務未開通、B2C 未測標：不出現在選項，也不能建單 | EC-AT68 |
+| 既有 offer、selection、acceptance 的 ID 不變；沒有第二套訂單或庫存 | SC-LAT23 |
+
+測試用隔離 PostgreSQL、barrier 與 DB 時鐘；provider 用本機的假 HTTP 伺服器回放官方格式，不連綠界。
+
+## 13. 仍待決
+
+| 項目 | 建議 | 只影響 |
+| --- | --- | --- |
+| DC03 首發配送 | 黑貓宅配常溫＋一條店到店（依第一位商家已開通的連鎖） | 其他子類型；B2C 需要測標 |
+| 同訂單重寄（未取、遺失後） | C2 不提供；改為退款，買家可重新下單 | 重寄需要「不扣庫存的包裹行項」，C4 另立 |
+| 供應商收件資料保留 | 送達或退回後 14 天（同意可設 ≤ 30） | 隱私承諾（DC12） |
+| 直送接受期限 | 24 小時 | 例外 `fulfiller_unresponsive` 的時間點 |
+| 離島 | 預設不配送；店家可開並加價 | 離島買家 |
+| live 人工交寄 | 允許，3 天無貨態開例外 | 交寄證據的強度 |
+| 逆物流 API、COD、冷鏈 | C4 | 對應的 profile |
+| stage 連線授權 | 需要 Ted | sandbox 端到端驗證；不影響向量與契約測試 |

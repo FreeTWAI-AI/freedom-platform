@@ -126,7 +126,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | 庫存 | holds＋allocations | `held`、`hold_expired`、`allocated`、`partially_shipped`、`shipped`、`released`、`unallocated`（已付但無貨） |
 | 履約 | fulfilment orders／shipments（EC-SPEC-05） | 每個 fulfilment order、每個包裹各自狀態 |
 | 發票 | invoice documents（EC-SPEC-06） | 每張發票與折讓各自狀態 |
-| 退貨 | return cases（EC-SPEC-06） | 每個 RMA 各自狀態 |
+| 售後 | 售後申請（EC-SPEC-06 §2） | 每張申請的決定，加上實物、錢、發票各軸的進度 |
 
 需要高效查詢的待辦（例如「已過保留期且付款未定」）以這些表的索引查詢，不另存第二份狀態。若之後加摘要欄位，只能由同一個領域函式在同一交易內更新，並有測試比對。
 
@@ -140,7 +140,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | hold expire | 讀取、下單缺額結算、排程 | hold 仍 `held` 且 DB 時間 ≥ `expires_at` | hold release；訂單仍 `open`（付款可能晚到） |
 | payment confirmed | 已驗證的 provider 事件或查詢結果（EC-SPEC-04） | 金額、商家、環境、交易識別相符；非模擬 | 若 hold 仍 `held` → convert；否則 → allocate 或例外；成功後建立 fulfilment orders（EC-SPEC-05） |
 | payment window end | 排程 | `open`、無確認付款、所有 attempt 已確認為未付終態 | `cancelled(payment_not_completed)`；若 attempt 仍未知，繼續查詢，不取消 |
-| cancel paid（未出貨） | 買家申請＋賣家同意，或賣家主動 | 有剩餘配置、未交寄 | allocation release；`cancelled(…)` 只在全部行項不出貨時；退款另建 refund，不視為已退 |
+| cancel paid（未出貨） | 買家申請＋賣家同意，或賣家主動（EC-SPEC-06 §2.4） | 已確認付款、該行項沒有已交寄的量 | 有配置就 allocation release（`paid_unallocatable` 沒有配置）；`cancelled(…)` 只在全部行項不出貨時；退款另建 refund，不視為已退 |
 | ship | shipment 交寄證據 | 包裹行項 ≤ 剩餘配置 | 每個 (shipment, allocation) 一筆 movement：N、A 同減 |
 | close | 賣家／排程 | §3.2 條件 | `closed` |
 
@@ -193,7 +193,7 @@ hold 只要在決策當下仍是 `held`，代表那些件數從未釋放給別�
 1. 呼叫者：會員 session／scope、guest 的 checkout 或訂單存取憑證、賣家 tenant scope；機器路徑（provider callback、查詢、排程）沒有會員身分。
 2. 賣家（及所有供貨方）tenant／instance／deployment 生命週期鎖，依 (tenant_id, instance_id) 排序，全部在 community 鎖**之前**取得（同 `shared-authority.ts:20-68`）。機器路徑只處理既有訂單，不新增商務關係，可略過生命週期鎖，但不得在 community 鎖之後再取任何 instance 鎖。
 3. `commerce-orders/{community_id}` advisory lock。
-4. profile → checkout／sidecar → `commerce_orders` → payment attempt → hold／allocation 列 → item（UUID 排序）。
+4. profile → checkout／sidecar → `commerce_orders` → 售後申請（UUID 排序）→ payment attempt → 退款 → 發票文件 → 履約單 → shipment（UUID 排序）→ hold／allocation 列 → item（UUID 排序）。退款在 M2、履約單與 shipment 在 M3（EC-SPEC-05 §5.5）、售後申請與發票文件在 M4（EC-SPEC-06 §9）才出現；較早的程式沒有這幾層，順序不受影響。
 5. 外部 I/O 一律在交易提交之後（outbox／durable attempt，EC-SPEC-04／05）。
 
 必測競態：同一 hold 的付款確認與到期結算；買家取消與付款確認；兩個重複的 provider 通知；交寄事件重送；兩個賣家同時下單同一供貨商品（10 件、6＋5）；人工改庫存與下單；退件驗收重送。
@@ -244,7 +244,7 @@ community 層級序列化保留（與 #437 相同），不宣稱吞吐量提升�
 
 測試用隔離 PostgreSQL 與 barrier／DB 時鐘，不用 sleep；不用假的 provider 成功事件代替 EC-SPEC-04 的已驗證通知。
 
-要延伸、不可弄壞的既有測試：`tests/runtime/hosted-direct-orders.test.ts`（含第 205 行「10 件、同時 6＋5」、162 backfill 與不一致中止、未追蹤 writer 被 deferred 檢查拒絕）、`hosted-shared-orders.test.ts`（第 86 行 A／B／C 並行 6＋5）、`hosted-seller-orders.test.ts`、`hosted-order-http.test.ts`、`hosted-order-contracts.test.ts`（拒絕 paid／shipped、拒絕買家身分欄位）、`agent-commerce.test.ts`（imported 舊流程）、`hosted-store.test.ts`（庫存下限）、`tenant-data-catalog.test.ts`（新表必須登錄）、`deploy/cloudflare/test/release-shared-reservations.test.mjs`（加 M1 的 retained floor 反例）；瀏覽器端 `tests/e2e/hosted-shared-orders.spec.ts:136`（同時點擊 6＋5）。這些既有 6＋5 測試只證明 v1 hold，不證明配置、交寄或還原安全，新案例另寫。
+要延伸、不可弄壞的既有測試：`tests/runtime/hosted-direct-orders.test.ts`（含第 205 行「10 件、同時 6＋5」、162 backfill 與不一致中止、未追蹤 writer 被 deferred 檢查拒絕）、`hosted-shared-orders.test.ts`（第 86 行 A／B／C 並行 6＋5）、`hosted-seller-orders.test.ts`、`hosted-order-http.test.ts`、`hosted-order-contracts.test.ts`（拒絕 paid／shipped、拒絕買家身分欄位）、`agent-commerce.test.ts`（imported 舊流程）、`hosted-store.test.ts`（庫存下限）、`tenant-data-catalog.test.ts`（新表必須登錄）、`deploy/cloudflare/test/release-shared-reservations.test.mjs`（在加入能力 `commerce.hosted-checkout.v1` 的那個 migration——第一個能寫入 `hosted_checkout` 訂單的路由，§7——加 retained floor 反例；M1 本身不加能力）；瀏覽器端 `tests/e2e/hosted-shared-orders.spec.ts:136`（同時點擊 6＋5）。這些既有 6＋5 測試只證明 v1 hold，不證明配置、交寄或還原安全，新案例另寫。
 
 ## 10. 仍待決與影響範圍
 

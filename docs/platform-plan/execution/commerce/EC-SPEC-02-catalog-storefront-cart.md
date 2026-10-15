@@ -85,7 +85,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 - 種類：訂單金額折抵固定金額、訂單百分比（最多 2 位小數的 bps）、指定 group 的固定金額或百分比。
 - 條件：期間、最低消費、總使用次數上限；以代碼或自動套用。C2 每單最多一個優惠，不疊加。
 - 分攤：折扣依行項金額比例分到各行，最大餘數法在最小單位上決定性分配，結果凍結在 checkout terms（退款、發票、供應商對帳都用這份）。
-- 供貨價不變：折扣由賣家吸收，不改 offer 的 cost（EC-SPEC-06 §3）。
+- 供貨價不變：折扣由賣家吸收，不改 offer 的 cost（EC-SPEC-06 §5）。
 - 不能把任何行項折到 0 以下；免運優惠留到 C4。
 
 ## 4. 顧客、guest 與訂單存取（DC08）
@@ -139,7 +139,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 ### 5.3 `POST /api/v1/public/stores/:slug/checkouts`
 
 - Header `Idempotency-Key`：至少 128 bits 的隨機值（伺服器只存雜湊）。同 key 同內容重播回同一 checkout，並對同一個瀏覽器重新設定憑證；同 key 不同內容回 409。因為 key 能取回 checkout，它被視為秘密。
-- 輸入：revision、lines、`contact{email, phone, name}`、`delivery`（宅配地址或門市，EC-SPEC-05）、`invoice`（EC-SPEC-06）、`consents[{policy_kind, policy_version_id}]`、可選 `promotion_code`。
+- 輸入：revision、lines、`contact{email, phone, name}`、`delivery`（宅配地址，或以選店 session 附上的門市，EC-SPEC-05 §3.5～3.6）、`invoice`（EC-SPEC-06）、`consents[{policy_kind, policy_version_id}]`、可選 `promotion_code`。
 - 伺服器重算並凍結 terms：行項價格、選項、來源、折扣分攤、配送群組與運費、稅務顯示、總額、政策版本、付款方式清單；`terms_sha256`。不可配送或不可售直接 422 並指出行項（EC-AT12）。
 - 回傳：`checkout_ref`、terms、`terms_sha256`、`expires_at`（checkout 本身 24 小時有效，供保留過期後重新下單用）。
 - 店家未開放結帳時回 409 `checkout_not_enabled`（C1 的 B05 依此顯示「尚未開放線上付款」）。
@@ -147,7 +147,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 ### 5.4 `POST /api/v1/public/stores/:slug/checkouts/:checkout_ref/orders`
 
 - 需要該 checkout 的瀏覽器憑證或本人會員；輸入 `terms_sha256`、`client_order_id`；Idempotency-Key 同上。
-- 依 EC-SPEC-03 §4.1 在一個交易內建立訂單、行項、聯絡資料、全部保留與第一個付款 attempt；回傳訂單投影與付款交接資訊。
+- 依 EC-SPEC-03 §4.1 在一個交易內建立訂單、行項、sidecar（指向 checkout 目前的聯絡資料列，不另外複製聯絡資料）、全部保留與第一個付款 attempt；回傳訂單投影與付款交接資訊。
 - 同一 checkout 已有未付款且付款結果未定的訂單時回 409，附該訂單的 `order_ref`（EC-SPEC-03 §4.3）。
 
 ### 5.5 保留庫存的濫用防護
