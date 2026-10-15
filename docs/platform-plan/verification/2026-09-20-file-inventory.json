@@ -15219,8 +15219,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-03-all-guild-launchpad.md",
-      "bytes": 32762,
-      "sha256": "7d313ed96be286bb3e11df923b64ca3816139b66a1ec9a8b19bbe7fc2c81c9ed"
+      "bytes": 33430,
+      "sha256": "027e87a6b6c9753f3b3b4b5ae58fa5f8d11f3886e42b5446f9c48cd1fb99d5ba"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-04-applications-instances.md",
@@ -18239,8 +18239,8 @@
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
-      "bytes": 37289,
-      "sha256": "f50f2e8b6951b50d30e2889133a9b752a177e12b61d75719fae75622bca01016"
+      "bytes": 37530,
+      "sha256": "4821f52fdf26f686655b98d95290421d882883501d0b336018c79d3bfec94feb"
     },
     {
       "path": "modules/guild-workspace/launchpad-layout-guards.ts",
@@ -22134,8 +22134,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad.test.ts",
-      "bytes": 55151,
-      "sha256": "1b0dbf99a0f1ff5f955517c35b01eb3cf1f368afdb0daf5dd3b12dd8b083cb9c"
+      "bytes": 58000,
+      "sha256": "e0dea69b610dda5ab01e268470d12ed9cd1534fa4a0dd3910cb6943d24b795e2"
     },
     {
       "path": "tests/runtime/guild-member-tiers.test.ts",

@@ -57,6 +57,9 @@ function starterCopy(guildKey: string): Config['starter'] {
 }
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EXPIRY_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+// Keep the original precision while rejecting calendar rollover and PostgreSQL-invalid offsets.
+const expiryInput = z.iso.datetime({offset: true}).regex(EXPIRY_PATTERN).refine(value =>
+  !value.startsWith('0000') && (value.endsWith('Z') || Number(value.slice(-5, -3)) < 16));
 
 export type CatalogGuild = {guild_key: string; name: string; purpose: string};
 export type ConfigProblem = {code: 'config_schema_unsupported'; revision: string} | null;
@@ -389,7 +392,7 @@ function reasonIssue(value: string) {
 export async function grantDelegation(pool: Pool, input: Command, guildKey: string) {
   const body = parseInput(grantInput, input.body);
   if (new Set(body.capabilities).size !== body.capabilities.length) throw new ConfigValidationError([{code: 'capability_duplicate', path: 'capabilities'}]);
-  requireCondition(EXPIRY_PATTERN.test(body.expires_at) && !Number.isNaN(Date.parse(body.expires_at)), 422, 'delegation_expiry_invalid', '授權到期時間必須是未來的時間。');
+  requireCondition(expiryInput.safeParse(body.expires_at).success, 422, 'delegation_expiry_invalid', '授權到期時間必須是未來的時間。');
   let grantor = '';
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
