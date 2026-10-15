@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Freedom implemented member module API subset",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "Member-session module API subset. Registration/onboarding and scoped read-connections have separate interface documents. Public checkout, production OAuth and leased executors are not implemented by this bundle."
   },
   "servers": [
@@ -3176,11 +3176,25 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Campaign"
-            }
+            },
+            "maxItems": 50
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
-          "items"
+          "items",
+          "next_offset"
         ],
         "additionalProperties": false
       },

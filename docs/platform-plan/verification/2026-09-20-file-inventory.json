@@ -604,8 +604,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
-      "bytes": 3847,
-      "sha256": "635995ffe4da1f37b3574cedb27f1f4a8a5addd65be84b6ceb23432e571deefe"
+      "bytes": 3853,
+      "sha256": "da438d3b3ccdd66872a0ab654c9c016a8b1a467b09bbcb46f17287b546bed574"
     },
     {
       "path": "apps/platform-api/src/routes/positioning.ts",
@@ -2734,8 +2734,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 25389,
-      "sha256": "e3c7671ef3f34c272414bfb6986a86314324b12e707853fe707a5956f9c7d8ac"
+      "bytes": 27259,
+      "sha256": "c9d7e27f571fdc08d3d25a48df7fe027f07f69a907ebc23650af6e8c5a168dd4"
     },
     {
       "path": "apps/portal-web/src/modules/PlatformLogo.tsx",
@@ -13115,12 +13115,12 @@
     {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
-      "sha256": "75923a7fa72ed48068f873827d3054388b477c0bdba793cd8dfff03e9fb3a375"
+      "sha256": "82575c6a74359b55ee3040c9f4220404004ac61f534aa8d016e902bc04240274"
     },
     {
       "path": "contracts/preview/v1/client.d.mts",
-      "bytes": 8252,
-      "sha256": "0ad63e3bb690e60401e0a6a5b70ee2a5d807a9c05a4d907cd044f364d122c341"
+      "bytes": 8282,
+      "sha256": "96d67ebf9ea73da7debbc41f37d8f6f46ad9f74b76c3ad3f4181df3a6d5d9ac2"
     },
     {
       "path": "contracts/preview/v1/client.mjs",
@@ -13129,23 +13129,23 @@
     },
     {
       "path": "contracts/preview/v1/definition.mjs",
-      "bytes": 8863,
-      "sha256": "650132ab184c4fd735a33cfb3edb6a7c1d4552efd8540c53a7d0e08b49953933"
+      "bytes": 8960,
+      "sha256": "a24ab775f0d40111cc2513875b63ec0f31cb1c0e047ea373123a90722c319542"
     },
     {
       "path": "contracts/preview/v1/metadata.json",
       "bytes": 942,
-      "sha256": "465ce597d48b6e3cbce3569161706f82c9a4da8240dcd6a1a43ba7273bd158a3"
+      "sha256": "7cd9e037871033b791e494e40b79645b49828bae5b6aeabce7fbac3cf9935a93"
     },
     {
       "path": "contracts/preview/v1/openapi.json",
-      "bytes": 80427,
-      "sha256": "84463c2a1f45c786d6f9c90d83f46faf742520c230db49f81d01c72ac3941bbc"
+      "bytes": 80762,
+      "sha256": "668a3f5fac4563df3f9793a08dfa8c72efceefeb6b4fb7bc72abdc48ab5c12a2"
     },
     {
       "path": "contracts/preview/v1/protocol.mjs",
-      "bytes": 35961,
-      "sha256": "dbbf667907513ba16886de3f5c9183169aadca223cddfd7286ba10d471675c41"
+      "bytes": 36268,
+      "sha256": "952832211083fe3fdfa02b499ee966cd991bd587460fb0512fbc042888ada826"
     },
     {
       "path": "contracts/preview/v1/schema.mjs",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 69268,
-      "sha256": "a25fbb2f14c08c9e7f98fb7f044f9367fb9496d764f36e88b6f9e4ced0a4c550"
+      "bytes": 70227,
+      "sha256": "dcf6e6677f84f564291acdcd1378d1b3ca0b0649f6d2730719d5a887ce80b8e1"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14149,8 +14149,8 @@
     },
     {
       "path": "docs/development/simple-work-sharing.md",
-      "bytes": 10693,
-      "sha256": "ab9627385867b6d833d6e59b77518a71037087081f13b5be04bc7f980ec66d6d"
+      "bytes": 11089,
+      "sha256": "a92da2dc8ac865af2b787bbca43d71e14921e7cf1ca432f4313adb9eb8a96664"
     },
     {
       "path": "docs/development/skill-editor-guild-access.md",
@@ -18574,8 +18574,8 @@
     },
     {
       "path": "modules/opensource-marketing/service.ts",
-      "bytes": 19104,
-      "sha256": "32a0d4752b7c5837cd9b35e7f063b837a0f8606ac6224484d2df4dc0c0e8901c"
+      "bytes": 19480,
+      "sha256": "0868b86bb40303a871d46b6cedc8518601644734ad9378a9d860e6210fa400a0"
     },
     {
       "path": "modules/opportunity-project-work/README.md",
@@ -19874,8 +19874,8 @@
     },
     {
       "path": "packages/sdk/client.d.mts",
-      "bytes": 8252,
-      "sha256": "0ad63e3bb690e60401e0a6a5b70ee2a5d807a9c05a4d907cd044f364d122c341"
+      "bytes": 8282,
+      "sha256": "96d67ebf9ea73da7debbc41f37d8f6f46ad9f74b76c3ad3f4181df3a6d5d9ac2"
     },
     {
       "path": "packages/sdk/client.mjs",
@@ -19904,8 +19904,8 @@
     },
     {
       "path": "packages/sdk/protocol.mjs",
-      "bytes": 35961,
-      "sha256": "dbbf667907513ba16886de3f5c9183169aadca223cddfd7286ba10d471675c41"
+      "bytes": 36268,
+      "sha256": "952832211083fe3fdfa02b499ee966cd991bd587460fb0512fbc042888ada826"
     },
     {
       "path": "packages/sdk/schema.mjs",
@@ -21134,8 +21134,8 @@
     },
     {
       "path": "tests/e2e/opensource-modules.spec.ts",
-      "bytes": 4672,
-      "sha256": "dcc5ab5df6f7554af2ca7d08ee191e75ab29138e144aa74abe37f701594e68ff"
+      "bytes": 7075,
+      "sha256": "362c86537d732ed194cfe2d8917b382a4fef2c22a8627f3c83c96a1c475f8a3d"
     },
     {
       "path": "tests/e2e/page-issue-recovery.spec.ts",
@@ -22749,8 +22749,8 @@
     },
     {
       "path": "tests/runtime/opensource-marketing.test.ts",
-      "bytes": 17797,
-      "sha256": "ec4f0b646df6762180e4a01d2907cdbd73239541d70b23327e014bf4d2f34aad"
+      "bytes": 19841,
+      "sha256": "a8240e23f57f470d24bc6e0604b34feb21832ea07b7acbfeb0524669556a0f6c"
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",

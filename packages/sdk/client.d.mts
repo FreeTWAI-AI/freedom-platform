@@ -37,7 +37,7 @@ export type StoreList = { "items": Array<Store> };
 export type ListingList = { "items": Array<Listing> };
 export type AcceptanceList = { "items": Array<Acceptance> };
 export type ProjectList = { "items": Array<Project> };
-export type CampaignList = { "items": Array<Campaign> };
+export type CampaignList = { "items": Array<Campaign>; "next_offset": number | null };
 export type WorkList = { "items": Array<Work> };
 export type TrackList = { "items": Array<{ [key: string]: unknown }> };
 export interface Operations {

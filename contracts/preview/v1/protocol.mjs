@@ -1,7 +1,7 @@
 // GENERATED. Change definition.mjs and rebuild in freedom-platform.
 export const protocol={
   "version": "freedom.preview/v1",
-  "revision": "0.3.0",
+  "revision": "0.3.1",
   "api_prefix": "/api/v1",
   "operations": {
     "getProtocol": {
@@ -1586,11 +1586,25 @@ export const protocol={
           "type": "array",
           "items": {
             "$ref": "#/components/schemas/Campaign"
-          }
+          },
+          "maxItems": 50
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
-        "items"
+        "items",
+        "next_offset"
       ],
       "additionalProperties": false
     },
@@ -1630,4 +1644,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="fe2ee45447f4a5e92c10e22307dee3b380d028acca04bac5278d3aeca0da7b3e";
+export const protocolSha256="b6b6850212dfc3cd76f64aebaecf2b7d76a875be37bd0713a424208c21629acb";

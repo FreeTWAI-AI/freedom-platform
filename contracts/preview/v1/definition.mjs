@@ -50,6 +50,7 @@ export const schemas={
 };
 const items=name=>object({items:array(ref(name))});
 for(const name of ['Guild','Product','Store','Listing','Acceptance','Project','Campaign','Work'])schemas[name+'List']=items(name);
+schemas.CampaignList=object({items:array(ref('Campaign'),50),next_offset:nullable(integer(0))});
 schemas.TrackList=object({items:array({type:'object'})});
 // Params are always identifiers, never arbitrary paths or full URLs.
 export const operations={};
@@ -74,4 +75,4 @@ op('refreshProject','POST','/opensource/projects/{id}:refresh','Project','Empty'
 op('listCampaigns','GET','/marketing/campaigns','CampaignList');op('createCampaign','POST','/marketing/campaigns','Campaign','CampaignInput','none',201);
 op('reviseCampaign','POST','/marketing/campaigns/{id}:revise','Campaign','CampaignMetadata','required');op('recordShare','POST','/marketing/campaigns/{id}/shares','Campaign','ShareInput','required',201);
 op('listWorks','GET','/work-items','WorkList');op('getDashboard','GET','/dashboard','Dashboard');
-export const protocol={version:'freedom.preview/v1',revision:'0.3.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};
+export const protocol={version:'freedom.preview/v1',revision:'0.3.1',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { e2eOrigin } from '../../packages/testing/e2e-origin.js';
 import { navigate, signOut } from './navigation.js';
 import { test,expect,type Page } from './fixtures.js';
 
@@ -37,6 +39,40 @@ test('member writes a private campaign, revises it and records a manual share th
   await login(page,'client@local.test');
   await navigate(page, '行銷工作室');await expect(page.getByRole('heading',{name:'我的行銷草稿',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:title,exact:true})).toHaveCount(0);
+});
+
+test('campaign drafts load older pages and preserve them across retry and revision',async({page})=>{
+  const prefix=`分頁草稿 ${Date.now()}`;
+  await login(page);
+  const session=await (await page.request.get('/api/v1/session')).json();
+  for(let index=0;index<23;index++){
+    const response=await page.request.post('/api/v1/marketing/campaigns',{
+      headers:{Origin:e2eOrigin(),'X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},
+      data:{title:`${prefix} ${String(index).padStart(2,'0')}`,audience:'新會員',goal:'閱讀內容',draft_text:'合成分頁草稿。',source_brief:'合成活動來源。'},
+    });
+    expect(response.status()).toBe(201);
+  }
+  await navigate(page,'行銷工作室');
+  const drafts=page.getByRole('region',{name:'我的行銷草稿',exact:true});
+  const fixtureCards=drafts.locator(`article[aria-label^="行銷活動：${prefix}"]`);
+  await expect(fixtureCards).toHaveCount(20);
+  const more=drafts.getByRole('button',{name:'載入更多行銷草稿',exact:true});
+  await page.route('**/api/v1/marketing/campaigns?limit=20&offset=20',route=>route.fulfill({status:503,json:{status:503,code:'campaign_page_unavailable',detail:'暫時無法載入後續草稿。'}}),{times:1});
+  await more.click();
+  await expect(drafts.getByRole('alert')).toContainText('服務暫時無法回應（503）。請稍後重試。');
+  await expect(fixtureCards).toHaveCount(20);
+  await expect(more).toBeEnabled();
+  await more.click();
+  await expect(fixtureCards).toHaveCount(23);
+  const older=drafts.getByRole('article',{name:`行銷活動：${prefix} 00`,exact:true});
+  await older.getByRole('button',{name:'編輯草稿',exact:true}).click();
+  await older.getByRole('textbox',{name:'文案草稿',exact:true}).fill('較舊草稿更新後仍保留完整已載入頁。');
+  await older.getByRole('button',{name:'儲存草稿修改',exact:true}).click();
+  await expect(older.getByText('較舊草稿更新後仍保留完整已載入頁。',{exact:true})).toBeVisible();
+  await expect(fixtureCards).toHaveCount(23);
+  await page.setViewportSize({width:320,height:844});
+  const width=await page.evaluate(()=>({viewport:innerWidth,document:document.documentElement.scrollWidth}));
+  expect(width.document).toBeLessThanOrEqual(width.viewport);
 });
 
 test('open-source entry clearly collects GitHub/use/license context and rejects arbitrary fetch targets',async({page})=>{
