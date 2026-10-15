@@ -67,7 +67,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | refund-rules | 退款分攤的純規則：行項上限、運費建議、分攤與調低的檢查、未套用付款的退款（EC-SPEC-06 §2.5、EC-SPEC-04 §7.2） | flash | — | 完成（`fc/refund-rules` `4376e471`，整合 `69067716`） |
 | wp04-payments | attempt、交接頁、通知入口與閘道例外、查詢與到期工作、退款、外部效果日誌、隔離模式 | Codex | wp04-accounts、ecpay-aio、refund-rules | 之後 |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
-| 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash | — | 進行中（`fc/email-templates`） |
+| 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
 | 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-payments | 之後 |
 
 **M3 履約（`commerce.hosted-fulfilment.v1`）**
@@ -120,7 +120,7 @@ wp03-http 的修正輪通過審查，合併為 `762baaf0`。修正輪的工作�
 | --- | --- | --- | --- | --- |
 | buyer-orders | agy `gemini-4-argon-high` | `fc/buyer-orders` | 55444 | 4744 |
 
-invoice-rules-fix1 通過審查：買受人 Email 改用 `commerce-providers` 的 `isInvoiceEmail`；註銷重開限已上傳、開立後 46 小時內；ECPay 時間只收同一個分隔符與 2000～2099 年。整合者把 README 的相依說明改成指名 `isInvoiceEmail`（`24dd537f`），合併為 `18be535a`。整合者重跑：typecheck、發票規則與 B2C 協定 58/58、selector 42/42、unknown-paths 0、inventory。governance 468/472：失敗的 4 項是子行程逾時（git `spawnSync ETIMEDOUT`、exit `null`），當時負載約 31，與發票無關，負載下降後單獨重跑。buyer-orders 開出前，先登錄 `commerce-storefront`（§7）。B04 起的買家頁要等店家准入（wp04-accounts），B05 還要 M3 的配送資料與 M4 的發票欄，所以先做不依賴它們的訂單頁與 B10。
+invoice-rules-fix1 通過審查：買受人 Email 改用 `commerce-providers` 的 `isInvoiceEmail`；註銷重開限已上傳、開立後 46 小時內；ECPay 時間只收同一個分隔符與 2000～2099 年。整合者把 README 的相依說明改成指名 `isInvoiceEmail`（`24dd537f`），合併為 `18be535a`。整合者重跑：typecheck、發票規則與 B2C 協定 58/58、selector 42/42、unknown-paths 0、inventory。governance 468/472：失敗的 4 項是子行程逾時（git `spawnSync ETIMEDOUT`、exit `null`），當時負載約 31，與發票無關，負載下降後單獨重跑。email-templates 的修正輪由 argon 做，通過審查，合併為 `0bc97559`：店到店包裹帶追蹤碼時拒絕產生信件（EC-SPEC-05 §9.3）；`formatTwd` 不用語系資料並檢查輸入；五個範本共用最後一道檢查（主旨單行、200 個 UTF-16 單位內；內文每行 998 位元組內、沒有 CR、tab 與行尾空白）；店家聯絡 Email 只收可列印的 ASCII；README 的錨點與個資、寄送授權的文字改正。整合者重跑：typecheck、範本 9/9、selector 42/42、unknown-paths 0、inventory；合併後範本與發票規則 55/55。buyer-orders 開出前，先登錄 `commerce-storefront`（§7）。B04 起的買家頁要等店家准入（wp04-accounts），B05 還要 M3 的配送資料與 M4 的發票欄，所以先做不依賴它們的訂單頁與 B10。
 
 ## 6. 共用檔案
 
