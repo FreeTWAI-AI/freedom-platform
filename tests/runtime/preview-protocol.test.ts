@@ -53,9 +53,10 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  assert.equal((await maker.call('listProjects')).items.length,0);const legacyWorks=await maker.call('listWorks');assert(Array.isArray(legacyWorks.items));
  const workPage=await maker.call('listWorksPage');assert(Array.isArray(workPage.items));assert.equal(workPage.next_cursor,null);
  await assert.rejects(maker.call('listWorksPage',{query:{cursor:'not-base64!'}}),{code:'invalid_work_cursor',status:422});
- const filteredWork=await maker.call('listWorksPage',{query:{scope:'open',search:legacyWorks.items[0].title}});
+ const filteredWork=await maker.call('listWorksPage',{query:Object.assign(Object.create(null),{scope:'open',search:legacyWorks.items[0].title})});
  assert.deepEqual(filteredWork.items.map(item=>item.work_item_id),[legacyWorks.items[0].work_item_id]);
  await assert.rejects(maker.call('listWorksPage',{query:{scope:'unknown'}}),TypeError);
+ for(const query of [null,42,'',true,[],new Date(),Object.create({cursor:'inherited'}),{offset:1}])await assert.rejects(maker.call('listWorksPage',{query}),TypeError);
  await maker.call('getDashboard');
  await maker.call('logout',{body:{}});await assert.rejects(maker.call('getSession'),{status:401});await seller.call('logout',{body:{}});
 });
@@ -65,7 +66,6 @@ test('SDK refuses protocol skew, redirected credentials, unsafe identifiers and 
  await assert.rejects(skew.call('createStore',{...key(),body:{name:'a',description:'b',support_contact:'c'}}),/differs from the pinned contract/);assert.equal(calls,1);
  const client=new PlatformClient({baseUrl,csrfToken:'test',fetcher:async(input,options)=>{calls++;assert.equal(options?.redirect,'error');if(String(input).endsWith('/protocol'))return Response.json(metadata);throw new Error('simulated uncertain network outcome');}});
  await client.assertCompatible();calls=0;
- await assert.rejects(client.call('getHealth',{query:{cursor:'unexpected'}}),/Unknown query parameter/);assert.equal(calls,0);
  await assert.rejects(client.call('reviseCampaign',{...key(),params:{id:'../../auth/logout'},version:1,body:{title:'a',audience:'b',goal:'c',draft_text:'d'}}),/identifier/);assert.equal(calls,0);
  for(const field of ['constructor','__proto__'])await assert.rejects(client.call('joinGuild',{...key(),params:{key:'guild_marketing'},body:JSON.parse('{"'+field+'":{"admin":true}}')}),/unknown field/);assert.equal(calls,0);
  await assert.rejects(client.call('createStore',{body:{name:'a',description:'b',support_contact:'c'}}),/Idempotency/);assert.equal(calls,0);
