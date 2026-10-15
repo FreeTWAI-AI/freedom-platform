@@ -14044,8 +14044,8 @@
     },
     {
       "path": "docs/development/module-expansion-design.md",
-      "bytes": 7198,
-      "sha256": "554d2c5679ea8741ce336eca23d618a0f42d41a88a85e04c92b7a16a21b7176e"
+      "bytes": 8077,
+      "sha256": "afb7bf0a7c36a7640a7043a25f18d3dc2aad701dd27fc3009c6183ca9a184319"
     },
     {
       "path": "docs/development/newcomer-guides.md",
@@ -17629,8 +17629,8 @@
     },
     {
       "path": "modules/catalog-commerce/service.ts",
-      "bytes": 14264,
-      "sha256": "e8ba36fa757209eb464c6697a42a77cfe6a9cd4e4d97e78e773a3120537eafac"
+      "bytes": 14501,
+      "sha256": "b083631868ad290d227a9ad4d2f3e05495d58268bd4e42e9aef066e6d452145e"
     },
     {
       "path": "modules/client-connections/service.ts",
@@ -21754,8 +21754,8 @@
     },
     {
       "path": "tests/runtime/commerce.test.ts",
-      "bytes": 13428,
-      "sha256": "4ecc05299c4033f5013cbcecfe027e549b0a262ee33e1fa52f0477b407f550be"
+      "bytes": 17058,
+      "sha256": "8533a922cc816a6bd033c70c4c77310ac5427016476b296d05e8342d940aaa4e"
     },
     {
       "path": "tests/runtime/community-ar-format.test.ts",
