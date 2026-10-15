@@ -15199,8 +15199,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
-      "bytes": 26529,
-      "sha256": "9fa1da4a6262dd381a28873815b330b412617c1bdeb91ad059cb21a9ff212693"
+      "bytes": 26649,
+      "sha256": "685bbdfb36bb4fb4189b094cc11d692241bcac6dd914c0c2ab1aa89baf996f92"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
@@ -15214,18 +15214,18 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 31447,
-      "sha256": "d5e1d2c192b75ba71581f51ed1df4e05a5d89ea718d7b0b10b210c5d10c7d769"
+      "bytes": 31920,
+      "sha256": "feb02206f455be46d39720629f1dfe273407e59dd5591a9d2f310f7729d82728"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 68077,
-      "sha256": "4c8f4a6cb233f82567a14aa47963fc4013c7563d9b13c1bc5bfd598ce69b23fb"
+      "bytes": 76654,
+      "sha256": "db7bb30f8e263d41ff6089a5f40809bf7b30955fb03bfb6cd0e25188c4ad5849"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
-      "bytes": 49989,
-      "sha256": "9b4bc655a360eec53ab767ffc9adebe2a18aff9cdaf5939cb20a4f213f4c5501"
+      "bytes": 50225,
+      "sha256": "790f04a1439bd87c6ea611940434f85bae09beadef50eaab9b0e59d8b3d29041"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-07-operations-skillbooks.md",
@@ -15259,8 +15259,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
-      "bytes": 13113,
-      "sha256": "0df1a11cea6c28e28a0a1f2f00081de88ba6c828c578426041a67ad112f9d42b"
+      "bytes": 13934,
+      "sha256": "b66188f873331ab00e53420e22c595bd919271bc9fbccb106e4892591bb82574"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv",
+      "bytes": 18726,
+      "sha256": "e0c1fd2767a887dc02d4b84dc09da5f05a588b688459b18cecbe4997f08e3e55"
     },
     {
       "path": "docs/platform-plan/execution/commerce/pages.md",
@@ -15269,8 +15274,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
-      "bytes": 16960,
-      "sha256": "ac82766cf2d7e1ed985356114aa3e33f28ed132c59d9b6f9b5a404b70807e80f"
+      "bytes": 19127,
+      "sha256": "34e83cd03e6bceb862f98dbf352c3f9a0b644d7080b5a5e93e7c5d9a213c5458"
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",

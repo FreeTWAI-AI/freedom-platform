@@ -45,7 +45,7 @@ B 頁是 `/shops/:slug` 之下的獨立文件，不進 portal 的 `app-frame`（
 | B03 商品詳情 | `/shops/:slug/products/:sku`（既有）；變體選擇的表示法見 EC-SPEC-02 §1 | server HTML＋加入購物車的小程式 |
 | B04 購物車 | `/shops/:slug/cart` | 店面 client bundle |
 | B05 結帳 | `/shops/:slug/checkout`，步驟反映在 history state | 同上；與 B04 同一份 bundle，切換不遺失記憶體內的草稿 |
-| 付款交接頁 | `/shops/:slug/pay/:attempt_ref` | server HTML；provider 表單在這頁送出 |
+| 付款交接頁 | `/pay/ecpay/{handoff_token}`（EC-SPEC-04 §4.1：一次性 token、15 分鐘到期；固定前綴讓 CSP 的 `form-action` 例外只對這個路徑） | server HTML；provider 表單在這頁送出 |
 | B06 付款返回 | `/shops/:slug/payment-return/:attempt_ref`，只用 GET | server HTML＋輪詢查詢 |
 | B07／B08 訂單 | `/shops/:slug/orders/:order_ref`；退貨申請 `…/return` | 店面 client bundle |
 | B09 品牌與政策 | `/shops/:slug/about`、`/shops/:slug/policies/:kind` | server HTML |
