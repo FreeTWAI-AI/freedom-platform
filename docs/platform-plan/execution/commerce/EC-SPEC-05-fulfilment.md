@@ -161,8 +161,8 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 3. 供應商對**這個確切版本**接受或拒絕；接受時記錄簽署者與 `signed_digest = terms_sha256`（比照 `056` 的 acceptance）。
 4. 狀態：`proposed → accepted／declined／withdrawn`；`accepted → revoked`（任一方）或 `superseded`（同商品的新版本被接受）。條款不可改；要改就提新版本。
 5. 同一賣家商店、同一商品，同時最多一個 `accepted`（子表 `commerce_fulfilment_agreement_items` 的部分唯一索引）。
-6. `withdrawn`（賣家在供應商決定前撤回申請）、`revoked`、`superseded` 只影響之後的結帳。已建立的履約單照凍結的同意版本繼續到完成或取消：出貨者仍可讀收件資料、建單、列印、交寄與處理退回（§4.4 的條件不包含同意狀態）。供應商不想再做時，逐筆回報無法履約（§4.5）；賣家不想再讓供應商處理時，取消那些履約單並退款。
-7. 權限：提出、接受、撤回需要該商店的 `store:manage`（綁定地址揭露與費用的商業承諾）。兩方都能讀自己參與的同意；RLS 依兩個 tenant。
+6. `withdrawn`（賣家在供應商決定前撤回申請）、`revoked`、`superseded` 只影響之後的結帳：涵蓋的商品在新結帳回 `unavailable(fulfilment_not_agreed)`（§3.1），賣家在同意清單與商品頁看到原因。已建立的履約單照凍結的同意版本繼續到完成或取消：出貨者仍可讀收件資料、建單、列印、交寄與處理退回（§4.4 的條件不包含同意狀態）。供應商不想再做時，逐筆回報無法履約（§4.5）；賣家不想再讓供應商處理時，取消那些履約單並退款。
+7. 權限：提出、接受、撤回、撤銷需要該商店的 `store:manage`（綁定地址揭露與費用的商業承諾）。撤銷可由任一方發起（賣家 §9.1、供應商 §9.2），記錄發起者與原因。兩方都能讀自己參與的同意；RLS 依兩個 tenant。
 
 ## 3. 結帳：配送群組與凍結報價
 
@@ -270,7 +270,7 @@ SL-02 的分頁（`tab` 參數；每一列是什麼、條件為何；出貨者�
 
 賣家的買家聯絡資料表只對賣家事業開放（tenant RLS，EC-SPEC-03 §3.1）。出貨者讀的是另一份最小投影：
 
-- `commerce_fulfilment_recipients`：每筆履約單一列（改門市時新增一列），內容只有收件人姓名、手機、配送方式、門市（代號、名稱、地址、是否離島）或宅配（郵遞區號、地址）。不含 Email、發票、其他群組、訂單金額、顧客歷史。
+- `commerce_fulfilment_recipients`：每筆履約單一列（改門市或更正宅配地址時新增一列），內容只有收件人姓名、手機、配送方式、門市（代號、名稱、地址、是否離島）或宅配（郵遞區號、地址）。不含 Email、發票、其他群組、訂單金額、顧客歷史。
 - 擁有者是零售商事業；出貨者的 RLS 讀取條件：自己是這筆履約單的出貨者，且履約單 `accepted`、付款 `confirmed`、未超過 `access_until`、未遮罩。
 - 存取期限：包裹送達或退回完成後再加同意裡的保留天數（自出貨依賣家政策，直送 ≤ 30 天）；履約單取消時立即結束。期限後的讀取回 403「收件資料已到期」，列內容遮罩。
 - 每次讀取與每次列印都經命令並留 receipt（比照 `modules/agent-commerce/hosted/supplier-orders.ts:16` 的讀取命令），記錄誰、哪一筆、用途；不記內容。
@@ -354,7 +354,7 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
   - 查到 → 採用查到的單號與狀態，`created`；不會出現第二個實體包裹或第二筆運費（EC-AT37、SC-LAT07）。
   - 查無時不自動重建。連續查無、且距最後一次送出超過 30 分鐘後，出貨者可以按「重新建立」，沿用**同一個** `MerchantTradeNo` 送出。綠界要求廠商交易編號不可重複使用 [8809]；若綠界以編號重複拒絕，代表第一次其實已建立，回到查詢。綠界對重複編號的實際回應要在 stage 核對（§11）；核對之前，正式環境的「重新建立」要求出貨者先在綠界後台確認沒有這張單。
   - 24 小時仍無法判定 → 例外 `shipment_create_unknown`：出貨者到綠界後台用 `MerchantTradeNo` 核對，以證據結案。
-- `0|錯誤` 是明確失敗 → `create_failed`，顯示綠界訊息（清理、截到 200 字）。已知的：`10500040` 商品金額錯誤、`10500036` 姓名長度錯誤 [62208]；`找不到加密金鑰…` 表示特店與子類型不符或環境錯置 [62208]。門市失效時，出貨者選「請買家重新選店」→ 例外 `pickup_store_invalid`（§7.3）。修正後重試：先以舊編號查詢確認沒有建立，再產生新編號。
+- `0|錯誤` 是明確失敗 → `create_failed`，顯示綠界訊息（清理、截到 200 字）。已知的：`10500040` 商品金額錯誤、`10500036` 姓名長度錯誤 [62208]；`找不到加密金鑰…` 表示特店與子類型不符或環境錯置 [62208]。門市失效時，出貨者選「請買家重新選店」→ 例外 `pickup_store_invalid`（§7.3）；綠界拒絕宅配收件地址或郵遞區號時，選「請買家更正地址」→ 例外 `recipient_address_invalid`（§7.4）。兩者都是 `POST …/shipments/:sid/recipient-fix-requests`（§9.2），只限 `create_failed` 的包裹。修正後重試：先以舊編號查詢確認沒有建立，再產生新編號。
 - 這一套不在 SQL 交易中等外部回應（EC-R20）；查詢是唯讀可安全重試，建單不是。
 
 ### 5.4 標籤列印與重印
@@ -452,9 +452,10 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 | `fulfiller_unresponsive` | 直送履約單超過 `accept_by` | 零售商 | 聯絡供應商；取消行項並退款 | 立即 |
 | `fulfiller_unable` | 出貨者回報（§4.5） | 零售商 | `wait`（等候改期）；`cancel_lines`（取消行項並退款） | 24 小時內回覆買家 |
 | `ship_by_overdue` | 超過 `ship_by` 未交寄 | 出貨者（零售商可見） | 出貨；回報無法履約；零售商通知買家延遲 | — |
-| `shipment_create_failed` | `0|錯誤` | 出貨者 | 修正寄件資料後重試；請買家重新選店 | — |
+| `shipment_create_failed` | `0|錯誤`，且不是門市或收件地址問題 | 出貨者 | 修正寄件資料或設定後重試 | — |
 | `shipment_create_unknown` | 24 小時無法判定（§5.3） | 出貨者 | 到綠界後台核對後附證據結案 | — |
 | `pickup_store_invalid` | 建單時門市不可用 | 買家（零售商負責聯絡） | 買家重新選店 | 48 小時 |
+| `recipient_address_invalid` | 建單時綠界拒絕宅配收件地址或郵遞區號（§7.4） | 買家（零售商負責聯絡） | 買家更正地址；超出原服務或運費區 → 零售商取消群組並退款 | 48 小時 |
 | `pickup_store_closed` | 門市關轉（§7.3） | 買家（零售商負責聯絡） | 買家重新選店；期限前未選 → 零售商聯絡買家或讓包裹退回 | 第 3 日 10:00 前 |
 | `no_tracking_progress` | 交寄後 3 天無新貨態 | 出貨者 | 查詢；向物流查件；轉 `lost` | — |
 | `uncollected` | 七天未取（2074／3020） | 零售商 | 等退回；聯絡買家；依政策退款 | — |
@@ -472,7 +473,7 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 | `no_tracking_progress` | `mark_lost` | 確認遺失：結案並開 `lost` |
 | `lost` | `record_claim` | 記錄向物流理賠的參考號與狀態；買家端的退款仍由零售商決定 |
 
-其他動作走各自的命令，不在例外上重複：重新建單、查詢、請買家重新選店在包裹（§5、§7.3）；回報無法履約在履約單（§4.5）；檢驗在退回（§8.3）。零售商的動作是上表各種類的「下一個合法動作」，由 E 頁呼叫同一個路由。
+其他動作走各自的命令，不在例外上重複：重新建單、查詢、請買家重新選店或更正地址在包裹（§5、§7.3、§7.4）；回報無法履約在履約單（§4.5）；檢驗在退回（§8.3）。零售商的動作是上表各種類的「下一個合法動作」，由 E 頁呼叫同一個路由。
 
 ### 7.3 門市關轉
 
@@ -481,6 +482,13 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 - 流程：例外 `pickup_store_closed`（`due_at`＝官方期限前 2 小時）→ 買家在訂單頁看到「原取貨門市暫停服務，請重新選擇」→ 以綁定這個 shipment 的選店 session 重選（§3.6，`purpose=shipment_reselect`）→ 新的收件投影列 → operation `update_store` → 成功後結案。
 - 期限前買家沒有選：零售商決定聯絡買家或任其退回；系統不自動挑門市。
 - 建單時門市就已失效（EC-AT36）：shipment `create_failed`、例外 `pickup_store_invalid`，同一套重選流程，不假裝建單成功、不重複收費。
+
+### 7.4 宅配地址無法使用
+
+- 建單時綠界以 `0|錯誤` 拒絕收件地址或郵遞區號：shipment `create_failed`，出貨者選「請買家更正地址」→ 例外 `recipient_address_invalid`（`due_at` 48 小時）。出貨者不能自己改地址，也不聯絡買家。
+- 買家在訂單頁看到「宅配地址無法使用，請更正」，送出新地址（`POST …/orders/:ref/shipments/:sid/address-correction`，§9.3）。檢查同 §3.5，而且必須留在原凍結的服務與運費區（本島／離島；中華郵政只送本島）；不合就不能更正，只能由零售商取消該群組並退款（§4.5）。
+- 更正成功 → 新的收件投影列 → 出貨者依 §5.3 重試（先以舊編號查詢確認沒有建立，再用新編號建單）→ 例外結案。
+- 交寄後物流才發現地址有問題：C2 不更改運送中的宅配地址（已核對的官方文件沒有這個 API），包裹依物流退回，走 §8.1。宅配貨態代碼補入後（§6.3），代表地址問題的代碼也開這個例外，讓零售商先聯絡買家。
 
 ## 8. 退回與檢驗
 
@@ -534,10 +542,11 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 | `GET …/fulfilment-orders/:fo/recipient` | 收件資料（§4.4，每次留 receipt） |
 | `POST …/fulfilment-orders/:fo/shipments` | 建立包裹草稿 |
 | `POST …/shipments/:sid/provider-order`、`…/query`、`…/print-sessions`、`…/handover`、`…/void` | SL-03 |
+| `POST …/shipments/:sid/recipient-fix-requests` | `kind` 為 `pickup_store_invalid` 或 `recipient_address_invalid`；只限 `create_failed` 的包裹；開對應例外，請買家重新選店或更正地址（§7.3、§7.4） |
 | `GET …/exception-cases?view=executor&state=open\|closed&cursor=`、`GET …/exception-cases/:id`、`POST …/exception-cases/:id/actions/:action` | SL-04 的例外；動作見 §7.2 的出貨者動作表 |
 | `GET …/returns?state=&cursor=`、`GET …/returns/:rid`、`POST …/returns/:rid/receive`、`POST …/returns/:rid/inspection` | SL-04 的退回與檢驗 |
 | `GET／PUT …/shipping-profile`、`GET／POST …/ship-from-locations`、`POST …/ship-from-locations/:id/retire` | SL-01（同 §9.1；路由不分賣家或供應商，依呼叫者自己的店） |
-| `GET／POST …/fulfilment-agreements`、`POST …/fulfilment-agreements/:id/decision` | 代出貨同意（供應商側：接受確切的 `terms_sha256` 或拒絕） |
+| `GET／POST …/fulfilment-agreements`、`POST …/fulfilment-agreements/:id/decision`、`…/revoke` | 代出貨同意（供應商側：接受確切的 `terms_sha256` 或拒絕；已接受後撤銷，只影響之後的結帳，§2.6） |
 | `GET／PUT …/products/:pid/shipping-attributes` | SC-05 的「配送」分區 |
 
 `GET …/fulfilment-counts?view=executor`：一個唯讀交易（`REPEATABLE READ`）內算完，回 `{status:'ready', as_of, tabs:{awaiting_acceptance, preparing, to_print, to_hand_over, exceptions, unable_reported}, overview:{to_process, ship_by_overdue, delivery_exceptions, returns_to_inspect}}`；超過 2 秒或失敗回 `{status:'unavailable', reason}`，畫面顯示「無法取得」，不顯示 0（同 E02）。概覽指標的定義：
@@ -562,7 +571,8 @@ Supplier Console 實作供應商頁面與讀取投影時，欄位只能來自這
 | --- | --- |
 | `POST /api/v1/public/stores/:slug/cvs-selection-sessions` | 建立選店 session（checkout 憑證或訂單憑證） |
 | `POST …/checkouts/:ref/cvs-selection` | 結帳時附上門市（§3.6） |
-| `POST …/orders/:ref/shipments/:sid/cvs-selection` | 門市關轉後重選（§7.3） |
+| `POST …/orders/:ref/shipments/:sid/cvs-selection` | 門市失效或關轉後重選（§7.3） |
+| `POST …/orders/:ref/shipments/:sid/address-correction` | 更正宅配地址（§7.4）；只在該包裹有 `open` 的 `recipient_address_invalid` 時接受 |
 | `GET …/orders/:ref` | EC-SPEC-02 的訂單讀取，加上每個包裹：狀態、物流公司、門市名稱與地址、宅配託運單號、事件時間線 |
 
 買家看不到出貨者是誰、店到店的寄件代碼（`CVSPaymentNo` 是寄件用，不是追蹤用）與任何費用成本。
@@ -610,6 +620,8 @@ stage 的固定門市（7-ELEVEN `131386`、全家 `006598`）[8809] 只用於 s
 | 一單兩包，只有 A 包送達：B 包未完成，訂單不顯示全部完成 | EC-AT34、SC-LAT12 |
 | 選店：A checkout 的 session 回傳給 B checkout、換子類型、換環境、過期、重用 → 拒絕且不回顯門市 | EC-AT35 |
 | 建單時門市失效（`0|`）：`create_failed`＋重選，不假成功、不重複收費 | EC-AT36、SC-LAT14 |
+| 建單時宅配地址被拒：`create_failed`＋請買家更正；更正超出原服務或運費區被拒；更正後先查舊編號再建單，不出現第二張託運單；出貨者不能直接改地址 | EC-AT41、SC-LAT14 |
+| 供應商撤銷已接受的代出貨同意：之後的結帳回 `fulfilment_not_agreed`；已建立的履約單照常出貨、讀收件資料與處理退回 | EC-AT11、SC-LAT03 |
 | 建單逾時：查詢找到原單、不建第二張；查無時不自動重建，人工重建沿用同一編號；SQL 鎖不等外部 | EC-AT37、SC-LAT07 |
 | 重印同一單號、無新 operation；無權者、撤權後、期限後都拒絕；不產生公開網址 | EC-AT38、SC-LAT09、13 |
 | 只列印不交寄：N、A 不變；交寄後才扣 | EC-AT39、SC-LAT10 |

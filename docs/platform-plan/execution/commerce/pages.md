@@ -23,7 +23,7 @@
 | **B04 購物車** | `partial`：只有登入後的 30 分鐘預留「查看預留內容」（`HostedOrder.tsx:177-187`） | 同一店的購物車：修改、移除、回到商品；小計、折扣、運費、總額各有來源 | 新增：瀏覽器端購物車（每店一份，只存 SKU、數量、發布版本）；`POST /api/v1/public/stores/:slug/cart-quotes` 由 server 計價、不保存、不占庫存 | 匿名 | 價格或可售量變動→逐行標示並要求確認；商品下架→移出並說明 | C1（運費、折扣顯示 C2） |
 | **B05 結帳** | `missing`：只有「確認預留 30 分鐘」按鈕 | 聯絡人與收件、宅配地址或超商門市、配送群組與運費、付款方式、發票資料、必要同意、最終確認 | 新增：`POST /api/v1/public/stores/:slug/checkouts`（Idempotency-Key）凍結報價；`POST …/checkouts/:id/orders` 建立 `hosted_checkout` 訂單與預留（EC-SPEC-03 §4） | 匿名（guest）或會員；結帳後以私有存取憑證操作 | 欄位錯誤在欄位旁保留輸入；配送不可行→收款前擋下（EC-AT12）；報價過期→重新確認 | C2 |
 | **B06 待付款／付款返回** | `missing`：只有 v1 預留的「結果不確定」恢復（`HostedOrder.tsx:120,157-158`） | 依 server 狀態顯示待付款、已確認、失敗、未知；未知時查詢；確定失敗才可續付 | 新增：`POST …/orders/:id/payment-attempts` 回傳導轉表單；返回頁 `/shops/:slug/payment-return/:attempt_ref` 只觸發查詢；`GET …/orders/:id` | 訂單存取憑證或會員本人 | 返回頁永遠不直接顯示「付款成功」，直到 server 確認（EC-AT18）；未知不允許新 attempt（J04） | C2 |
-| **B07 訂單與包裹** | `partial`：只有 v1 預留清單與明細（`#reservations`、`#reservations/order/:id`） | 每筆訂單的付款、每個包裹、發票各自顯示 | 新增：`GET …/orders/:id`（付款、庫存、履約、發票、售後各一個軸）；會員另有 `GET /api/v1/me/orders` | 同 B06 | 部分出貨→逐包顯示，不說成全部完成（EC-AT34） | C2 |
+| **B07 訂單與包裹** | `partial`：只有 v1 預留清單與明細（`#reservations`、`#reservations/order/:id`） | 每筆訂單的付款、每個包裹、發票各自顯示；包裹需要時重新選店或更正宅配地址 | 新增：`GET …/orders/:id`（付款、庫存、履約、發票、售後各一個軸）；會員另有 `GET /api/v1/me/orders`；`…/shipments/:sid/cvs-selection`、`…/address-correction`（EC-SPEC-05 §7.3～7.4、§9.3） | 同 B06 | 部分出貨→逐包顯示，不說成全部完成（EC-AT34） | C2 |
 | **B08 取消／退貨／退款** | `missing`：只有未付款預留的「取消預留」 | 未付款取消；已付款申請取消、退貨或只退款（行項、數量、理由）；核准後看到退回地址並填寄回單號；查看各軸進度；與店家對話 | 新增：`POST …/orders/:id/cancel`（未付款）、`POST …/orders/:id/aftersales-requests`、`…/return-shipment`、`GET／POST …/orders/:id/messages`；退款金額由賣家決定（EC-SPEC-06 §2） | 同 B06 | 畫面不自行宣稱「已退款」；顯示仍在處理的軸 | C2 |
 | **B09 品牌／政策／聯絡** | `partial`：只有品牌、介紹與平台說明 | 賣方身分與聯絡方式、配送、退換貨、隱私等政策頁；結帳保存當時版本 | 新增：店家政策（有版本、隨發布凍結）與賣方揭露欄位（EC-SPEC-02 §2、EC-SPEC-06 §4） | 匿名 | 政策未填→該店不能開放結帳（C2 啟用條件） | C1 顯示、C2 必填 |
 | **B10 顧客安全返回** | `missing`：查詢預留要登入且只能查自己的 | guest 用訂單連結回到訂單；遺失連結時以 Email＋訂單編號重寄；可選擇關聯到會員帳號 | 新增：訂單存取憑證（高熵、雜湊保存、可撤銷）；`POST /api/v1/public/stores/:slug/order-access-requests` 一律回 202（EC-SPEC-02 §4） | 匿名＋憑證 | 猜訂單編號讀不到（EC-AT05）；不自動建立會員 | C2（寄信需要寄送授權） |
@@ -52,7 +52,7 @@
 | --- | --- | --- |
 | SL-01 履約與寄件設定 | ShipFromLocation、退回地址、可用物流服務、作業日、代出貨方案（`drop_ship`，公開投影不含地址）、商品配送屬性、代出貨同意（有版本）的命令與讀取（EC-SPEC-05 §2） | E11 |
 | SL-02 出貨工作台 | 七個分頁（待確認、備貨中、待印單、待交寄、例外、已回報無法履約、歷史）與同一 snapshot 的計數；SC-03 概覽的四個指標；接受、回報無法履約（原因代碼）與撤回；最小收件資料讀取（EC-SPEC-05 §4、§9.2） | E05、E06 |
-| SL-03 包裹與託運單 | Shipment 建立／查詢／重印／交寄、標籤短效讀取、貨態事件（EC-SPEC-05 §5～6） | E06 |
+| SL-03 包裹與託運單 | Shipment 建立／查詢／重印／交寄、標籤短效讀取、貨態事件（EC-SPEC-05 §5～6）；建單被拒時請買家重新選店或更正地址（§7.3～7.4） | E06 |
 | SL-04 例外與退回 | ExceptionCase（`view=executor` 與出貨者動作）、退回包裹與詳情、退件檢驗（可再售／不可售）與回庫（EC-SPEC-05 §7～8；回庫對庫存的影響在 EC-SPEC-03 §2.1） | E05、E06、E09 |
 | SL-05 費用與交易文件 | 帳目、對帳單清單與明細（依付款天數分張；狀態與中文見 EC-SPEC-06 §5.4）、雙方同意的調整、付款證據與「確認收到」；欄位白名單（EC-SPEC-06 §5.5、§8.3） | E09、E10 |
 

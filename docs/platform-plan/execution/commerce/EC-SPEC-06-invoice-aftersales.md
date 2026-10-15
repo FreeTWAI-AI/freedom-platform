@@ -307,15 +307,15 @@
 
 欄位：`entry_id`、付款方與收款方 tenant／instance、`agreement_id`、零售商的 `order_id`、種類、來源鍵（唯一）、金額（正數＝付款方欠收款方；負數＝收款方退回）、幣別、狀態（自動帳目直接 `posted`；調整為 `proposed → posted／rejected`）、建立者、時間。只能新增；更正是另一筆帳目。
 
-| 種類 | 何時（來源事實） | 金額 |
-| --- | --- | --- |
-| `supply_cost` | 交寄（EC-SPEC-05 §5.5 的每個 (shipment, 配置)） | 供貨單價 × 交寄數量 |
-| `parcel_fee` | 交寄（每個 shipment 一次） | 該包裹服務在 `dropship_fees[]` 的 `fee_per_parcel_minor` |
-| `cancelled_parcel_fee` | 已建單、因零售商取消而作廢的包裹 | `cancel_after_create_fee_minor` |
-| `return_credit` | 檢驗定案的可再售數量（EC-SPEC-05 §8.3） | －供貨單價 × 回庫數量 |
-| `return_handling_fee` | 檢驗定案 | `return_handling_fee_minor` |
-| `unsellable_credit` | 檢驗為不可售，且預設責任為 `supplier` | －供貨單價 × 不可售數量 |
-| `adjustment` | 任一方提出、另一方接受（遺失理賠、毀損、運費差額等）；必須指定一份雙方的代出貨同意，付款天數依那份同意 | 附原因的任意金額 |
+| 種類 | 畫面用詞（E09、SL-05 共用） | 何時（來源事實） | 金額 |
+| --- | --- | --- | --- |
+| `supply_cost` | 供貨款 | 交寄（EC-SPEC-05 §5.5 的每個 (shipment, 配置)） | 供貨單價 × 交寄數量 |
+| `parcel_fee` | 代出貨費 | 交寄（每個 shipment 一次） | 該包裹服務在 `dropship_fees[]` 的 `fee_per_parcel_minor` |
+| `cancelled_parcel_fee` | 已建單作廢費 | 已建單、因零售商取消而作廢的包裹 | `cancel_after_create_fee_minor` |
+| `return_credit` | 退回回庫扣抵 | 檢驗定案的可再售數量（EC-SPEC-05 §8.3） | －供貨單價 × 回庫數量 |
+| `return_handling_fee` | 退回處理費 | 檢驗定案 | `return_handling_fee_minor` |
+| `unsellable_credit` | 不可售扣抵 | 檢驗為不可售，且預設責任為 `supplier` | －供貨單價 × 不可售數量 |
+| `adjustment` | 調整 | 任一方提出、另一方接受（遺失理賠、毀損、運費差額等）；必須指定一份雙方的代出貨同意，付款天數依那份同意 | 附原因的任意金額 |
 
 - 自動帳目的來源鍵唯一（例如 (`supply_cost`, shipment, 配置)），事件重送不會重複入帳。交寄後的帳目不因買家退款消失（SC-LAT18）。
 - `adjustment` 由一方提出，另一方接受才 `posted`；拒絕也留紀錄。預設責任為 `case_by_case` 的不可售檢驗，會自動開一筆待雙方處理的提議。
