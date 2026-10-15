@@ -22,7 +22,7 @@
 | J01 開店與發布 | E01 → E03 → E04 → 預覽 → 發布 → B01 | launch plan／installation（既有）、appearance、products、publish | C1 | AT03、AT06 |
 | J02 購物與結帳 | B01／B02 → B03 → B04 → B05 | cart-quotes → checkouts → orders | C1 準備、C2 送出 | AT04、AT10、AT12 |
 | J03 付款成功 | B05 → 付款交接頁 → provider → B06 → B07 | 建立 attempt；只認 server callback／查詢 | C2 | AT18 |
-| J04 付款失敗或未知 | B06 → 查詢 → 續付或回到 checkout | 前一 attempt 確定失敗／取消才建新 attempt | C2 | AT18、AT20 |
+| J04 付款失敗或未知 | B06 → 查詢 → 續付或回到 checkout | 前一 attempt 確定沒有付款（失敗，或當場查詢顯示未付）才建新 attempt；結果不明不建（EC-SPEC-04 §4.3） | C2 | AT18、AT20 |
 | J05 賣家自出貨 | E05 → E06 | fulfilment order、shipment、交寄證據 | C2 | AT38、AT39 |
 | J06 供應商代出貨 | E05 → E06（已自動指派給供應商）→ SL-02 → SL-03 → B07 | 付款後依代出貨同意建立履約單（出貨者＝供應商）、接受、最小收件資料、shipment | C2 | AT11、AT43 |
 | J07 多來源拆包 | B05 顯示包裹與運費 → E06／SL | 結帳前算出配送群組並凍結 | C2 | AT10、AT34 |

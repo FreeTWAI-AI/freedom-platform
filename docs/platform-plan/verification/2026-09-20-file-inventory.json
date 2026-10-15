@@ -15234,8 +15234,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
-      "bytes": 26649,
-      "sha256": "685bbdfb36bb4fb4189b094cc11d692241bcac6dd914c0c2ab1aa89baf996f92"
+      "bytes": 26731,
+      "sha256": "1f19389ad18c5e9912ec6efd177d317a8ee720fa6f3c813a0f87ecb2aba412fe"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
@@ -15244,13 +15244,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
-      "bytes": 29418,
-      "sha256": "ef62007e1b05270a4e3366b91ea3df3180565d78c2b7e833c3c58fd861b15f76"
+      "bytes": 29644,
+      "sha256": "51b8348a330f21722c074b270d22304ede355479a78e69e63ace545277ccc2c7"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 34369,
-      "sha256": "c9d7e3a2115e099fd8a1c696dec603808915e51115d0d2a53c94b2384b1809de"
+      "bytes": 35788,
+      "sha256": "89eb3aab4c0aed6344f1578e30862ae15472350ceb2146a31e7b8984174a715b"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
@@ -15304,8 +15304,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/pages.md",
-      "bytes": 16732,
-      "sha256": "0a531a6b9f40da9488b6fee51658b74d0f186fc10e43ca4702bb1aa1615e46d3"
+      "bytes": 16953,
+      "sha256": "482912be4bc4f0e7dda85f1dea1b46cd80fcc8a263ded66cdf03d75024cc94e5"
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
@@ -17374,8 +17374,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/freedom.module.json",
-      "bytes": 991,
-      "sha256": "19e9db6c351c9fe0d7ded3e5e3e37d1da24b86446b07bf7af43109dcd3f56334"
+      "bytes": 1044,
+      "sha256": "d53eb8a64a4158b5144c6266e2b7e408eb413ffc2aa9f46546234e65a95ed043"
     },
     {
       "path": "modules/agent-commerce/operations/runtime-settings.ts",
@@ -17404,8 +17404,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/freedom.module.json",
-      "bytes": 1209,
-      "sha256": "1b9e7f5e43e751efcd4d2d138cac62a052b5cd9319846980998ba6da6d538c2f"
+      "bytes": 1595,
+      "sha256": "5e57486e881162163ac25afc8d97cd909fd31d7b688f7fb74f4496360bd447cd"
     },
     {
       "path": "modules/agent-commerce/payments/rules/allocation.ts",

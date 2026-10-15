@@ -12,7 +12,15 @@
     "tests/runtime/hosted-commerce-setup-contracts.test.ts",
     "tests/runtime/hosted-store-upgrade.test.ts",
     "tests/runtime/commerce-provider-accounts.test.ts",
-    "tests/worker/commerce-credential-seal-workerd.test.ts"
+    "tests/worker/commerce-credential-seal-workerd.test.ts",
+    "apps/platform-api/src/routes/hosted-payments.ts",
+    "scripts/e2e-ecpay-fixture.ts",
+    "tests/runtime/hosted-payment-schema.test.ts",
+    "tests/runtime/hosted-payment-handoff.test.ts",
+    "tests/runtime/hosted-payment-notifications.test.ts",
+    "tests/runtime/hosted-payment-canary.test.ts",
+    "tests/e2e/hosted-payment.spec.ts",
+    "tests/e2e/hosted-payment-fixture.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/payments/rules/index.ts"

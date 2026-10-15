@@ -135,8 +135,8 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | 轉換 | 誰觸發 | 守門 | 效果（同一 DB 交易） |
 | --- | --- | --- | --- |
 | place | 買家（guest 或會員）＋checkout 能力憑證 | 店家已開通交易、checkout 版本與 `terms_sha256` 相符、供貨同意與發布版本有效、配送群組可行、`available` 足夠、同 checkout 無未定付款的舊單 | 建立訂單、行項、sidecar（指向當下的聯絡資料列）、全部 hold、第一個 payment attempt（EC-SPEC-04）；journal；不呼叫外部服務 |
-| buyer cancel（未付） | 買家 | `open` 且付款摘要 ∈ unpaid／pending 且無確認付款 | hold release；`cancelled(buyer_cancelled)`；未結 attempt 標記放棄並排入查詢 |
-| seller cancel（未付） | 賣家 owner／被授權者 | 同上 | `cancelled(seller_cancelled)` |
+| buyer cancel（未付） | 買家 | `open` 且付款摘要 ∈ unpaid／pending 且無確認付款 | hold release；`cancelled(buyer_cancelled)`；撤銷還沒用掉的交接連結，已交接且仍未結的 attempt 排入查詢（晚到的付款照 §5.3 記 `paid_after_cancel`） |
+| seller cancel（未付） | 賣家 owner／被授權者 | 同上 | `cancelled(seller_cancelled)`；attempt 的處理同 buyer cancel |
 | hold expire | 讀取、下單缺額結算、排程 | hold 仍 `held` 且 DB 時間 ≥ `expires_at` | hold release；訂單仍 `open`（付款可能晚到） |
 | payment confirmed | 已驗證的 provider 事件或查詢結果（EC-SPEC-04） | 金額、商家、環境、交易識別相符；非模擬 | 若 hold 仍 `held` → convert；否則 → allocate 或例外；成功後建立 fulfilment orders（EC-SPEC-05） |
 | payment window end | 排程 | `open`、無確認付款、所有 attempt 已確認為未付終態 | `cancelled(payment_not_completed)`；若 attempt 仍未知，繼續查詢，不取消 |
@@ -154,7 +154,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 
 ### 4.2 保留期限與付款期限
 
-- hold 30 分鐘（現況 CHECK）。保留期間內的再付款沿用同一訂單、同一 hold，只有前一 attempt 已確定失敗／取消才建立新 attempt（EC-SPEC-04）。
+- hold 30 分鐘（現況 CHECK）。保留期間內的再付款沿用同一訂單、同一 hold，只有前一 attempt 確定沒有付款（已驗證的失敗，或交接 60 秒後當場查詢顯示未付）才建立新 attempt；結果不明時不建立（EC-SPEC-04 §4.3）。
 - 每個付款 profile 宣告 `confirmation_window`（provider 可能在多久之後才確認付款）。保留期過後、付款期限結束前，訂單 `open`、沒有庫存；之後查詢確認未付才取消。
 - ATM／超商代碼／COD 這類長效付款不使用 30 分鐘 hold；在定義長效配置與取消政策之前不開放（DC05）。
 

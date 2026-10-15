@@ -148,15 +148,20 @@ interface PaymentPort {
 
 ### 4.2 回到商店
 
-- `ClientBackURL`＝訂單頁（GET、無付款參數）[2878]。
+- `ClientBackURL`＝`/pay/ecpay/back/{attempt_id}`（GET、無付款參數）[2878]：伺服器找到 attempt 後 303 到訂單頁（`/shops/:slug/orders/:order_ref`），沒有其他效果。送給綠界的網址不放商店 slug 與訂單編號：slug 接上路徑可能組出綠界 CDN 的擋字（例如以 `cd` 結尾的 slug 加上 `/` 成為 `cd/`，或含 `echo`），表單產生器會拒絕整張表單（§3.4）。
 - `OrderResultURL`＝`/pay/ecpay/return/{account_ref}`：綠界讓瀏覽器以 POST 帶付款結果回來 [2878]。伺服器驗 CheckMacValue（失敗就當沒有資料）、為對應 attempt 排一次查詢（同 attempt 每分鐘最多一次），然後 303 轉到付款返回頁（B06，`/shops/:slug/payment-return/:attempt_ref`，EC-SPEC-01 §3）。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。**不改任何付款狀態**：瀏覽器返回不是付款證據（計畫 §10.3、EC-AT18）。
 - 從綠界頁面送出的跨站 POST 不帶 `SameSite=Lax` 的買家憑證；303 之後的頂層 GET 導覽會帶它，但不帶 `SameSite=Strict` 的會員 session（EC-SPEC-09 §2.6）。所以這個端點不需要也不讀任何 cookie；返回頁的 HTML 不依身分產生，狀態由頁面內的同站 fetch 讀取。
 - 付款返回頁顯示「付款結果確認中」並輪詢付款摘要（每 5 秒、最多 2 分鐘，之後改成按鈕「重新查詢」）；確認後帶到訂單頁（B07）。
 
 ### 4.3 重新付款
 
-- 條件：訂單 `open`、沒有 `paid` 的 attempt、目前的 attempt 不是剛建立（≥ 60 秒）、hold 仍有效（EC-SPEC-03 §4.2）。
-- 新 attempt 建立時，前一個 `issued` 改 `superseded`，仍持續查詢到它的確認窗結束；若它後來付款成功，照常套用（另一個也付了就是 `overpaid`）。這樣不用等待前一筆「確定失敗」才讓買家換卡，又不會丟掉任何一筆真實付款（計畫 §10.2）。
+- 綠界不接受重複的 `MerchantTradeNo`，所以一個 attempt 只交接一次（`handed_off_at`）。交接前，同一個 attempt 可以重發交接連結（下單重送、訂單頁的「前往付款」）；交接後要再付款就需要新的 attempt。
+- 建立新 attempt 的條件全部成立才行：訂單 `open`、hold 仍有效（EC-SPEC-03 §4.2）、沒有 `paid`／`confirmed` 的 attempt、未滿 5 個 attempt，而且最新的 attempt 確定沒有付款：
+  - 它是 `failed`（已驗證的失敗通知，或查詢回 `10200095`）；或
+  - 交接已滿 60 秒，這次請求當場做的伺服器查詢（§6）回未付或查無交易，而且沒有尚未套用的已付事件、也沒有 `10300066`。
+- 結果不明（查詢失敗或逾時、`10300066`、已驗證但尚未套用的付款事件）時不建立新 attempt：畫面顯示「付款結果確認中」，買家稍後再查詢（EC-SPEC-01 J04、pages B06）。
+- 新 attempt 建立時，前一個 `issued` 改 `superseded`，仍持續查詢到它的確認窗結束；若它後來付款成功，照常套用（另一個也付了就是 `overpaid`）。查詢顯示未付只代表當下，買家可能還停在綠界頁面上送出；`superseded` 讓這種晚到的付款不會遺失，買家也不用等到前一筆的確認窗結束才能換卡（計畫 §10.2）。
+- 實作順序：M2 的第一個工作（wp04-payments）只建立第 1 個 attempt 與重發交接連結；需要當場查詢的重新付款由 wp04-queries 加上。
 - 每張訂單最多 5 個 attempt；超過回 409，請買家聯絡商家。
 - hold 已過期：不在舊單上重新付款，回到 checkout 重新下單（EC-SPEC-03 §4.3）。
 

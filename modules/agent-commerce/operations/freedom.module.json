@@ -10,7 +10,8 @@
     "deploy/cloudflare/test/commerce-wrangler.test.mjs",
     "apps/platform-api/src/routes/commerce-admissions.ts",
     "tests/runtime/commerce-store-admissions.test.ts",
-    "tests/runtime/commerce-email-templates.test.ts"
+    "tests/runtime/commerce-email-templates.test.ts",
+    "tests/runtime/commerce-effect-journal.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/operations/runtime-settings.ts"
