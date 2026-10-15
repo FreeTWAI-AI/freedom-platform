@@ -104,7 +104,11 @@ export class GitHubSocial {
   }
   private async connection(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>):Promise<Connection|null>{return (await q.query('SELECT * FROM github_social_connections WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0]??null;}
   private view(connection:Connection|null):GitHubSession{return {configured:!!this.config,connected:!!this.config&&!!connection,github_user:this.config&&connection?{id:connection.github_user_id,login:connection.github_login}:null};}
-  async session(actor:Actor):Promise<GitHubSession>{return this.member(actor,async q=>this.view(await this.connection(q,actor)));}
+  async session(actor:Actor):Promise<GitHubSession>{return this.member(actor,async q=>{
+    const connection=await this.connection(q,actor);
+    await assertCurrentSessionClock(q,actor);
+    return this.view(connection);
+  });}
   developmentApp(){
     const configured=Boolean(this.config?.appId&&this.config?.appSlug);
     return {configured,installation_url:configured?`https://github.com/apps/${this.config!.appSlug}/installations/new`:null};
@@ -259,11 +263,13 @@ export class GitHubSocial {
   async starred(actor:Actor,bookId:string){
     const book=upstream(bookId);
     return this.member(actor,async q=>{
-      const connection=await this.connection(q,actor);if(!this.config||!connection)return {book_id:bookId,connected:false,starred:null};
+      const connection=await this.connection(q,actor);
+      if(!this.config||!connection){await assertCurrentSessionClock(q,actor);return {book_id:bookId,connected:false,starred:null};}
       await this.rate(q,actor,'star-read',90);
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
       const starred=await this.withToken(q,actor,connection,token=>this.provider.starred(book.repository,token));
       await reconcileConfirmedStar(q,connection.github_user_id,book.repository,starred);
+      await assertCurrentSessionClock(q,actor);
       return {book_id:bookId,connected:true,starred};
     });
   }
@@ -296,7 +302,7 @@ export class GitHubSocial {
     z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
     return this.member(actor,async q=>{
       const connection=await this.connection(q,actor);
-      if(!this.config||!connection)return {username,connected:false,following:null};
+      if(!this.config||!connection){await assertCurrentSessionClock(q,actor);return {username,connected:false,following:null};}
       await this.rate(q,actor,'follow-read',90);
       const following=await this.withToken(q,actor,connection,async token=>{await assertCurrentSessionClock(q,actor);return this.provider.following(username,token,()=>assertCurrentSessionClock(q,actor));});
       await assertCurrentSessionClock(q,actor);
@@ -375,6 +381,7 @@ export class GitHubSocial {
           }catch{/* A missing or expired GitHub connection cannot hide prior submissions. */}
         }
       }
+      await assertCurrentSessionClock(q,actor);
       return {items:rows.map(row=>({operation_key:row.operation_key,state:row.state,issue_number:row.issue_number,title:row.issue_title,issue_url:row.state==='confirmed'?`${PLATFORM_REPOSITORY}/issues/${row.issue_number}`:null,created_at:row.created_at}))};
     });
   }
@@ -422,6 +429,7 @@ export class GitHubSocial {
     issuePageMarker(pageId);
     return this.member(actor,async q=>{
       const rows=(await q.query(`SELECT operation_key,state,issue_number,comment_id,created_at FROM github_design_claim_submissions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50`,[actor.user_id])).rows;
+      await assertCurrentSessionClock(q,actor);
       return {items:rows.map(row=>({operation_key:row.operation_key,state:row.state,issue_number:row.issue_number,comment_url:row.state==='confirmed'?`${PLATFORM_REPOSITORY}/issues/${row.issue_number}#issuecomment-${row.comment_id}`:null,created_at:row.created_at}))};
     });
   }

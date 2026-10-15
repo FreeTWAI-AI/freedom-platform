@@ -64,6 +64,14 @@ Nonce 消耗先取得精確 user／community／session 所屬 state 的列鎖，
 
 所有會員操作須既有 session；寫入另須同源與 CSRF。讀取連結、OAuth 連結／完成及技能書 Star 讀寫允許尚未選擇主要公會的新會員，讓本人能在領書前完成前置條件；其他既有會員操作仍要求完成加入。GitHub API 僅使用固定 host／路徑、timeout、回應大小上限與併發限制；公開數據依原作座標共用快取。失敗不推定為未加星或零人氣。
 
+會員連線、Star／Follow 狀態（包括尚未連線的早退）及本人頁面 Issue／認領
+紀錄，在最後 SQL／provider 讀取與快取更新後，以同一 transaction client 的
+`assertCurrentSessionClock()` 重驗成功投影。等候跨過期限回 `401 session_expired`，
+不回 GitHub username、狀態或私人 operation keys；仍有效的相同等待保留原結果。
+這不是延長／滑動期限，也不改會員／session 撤銷鎖或新增交易。僅收緊讀投影，
+不在共用 `member()` 或外部寫入完成後加全域 fence；已 dispatch 的 GitHub 寫入
+確認、換發憑證與既有 unknown／拒絕狀態仍依原語義提交，不因讀投影規則回滾。
+
 ## 領書與晉升的 Star 前置條件
 
 Node 與 Worker 可設定 `FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED=true`，預設未設定／false 維持既有領書與晉升流程，不要求 GitHub 連結。`/api/v1/site` 的 `skill_book_star_gate_enabled` 供入口顯示提示；快速加入、定位測驗選擇與公會技能書提供既有 GitHub 連結及本人一鍵 Star 控制，不自動加星。
