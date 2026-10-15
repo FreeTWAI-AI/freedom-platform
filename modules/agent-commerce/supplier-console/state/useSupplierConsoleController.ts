@@ -63,7 +63,10 @@ export function useSupplierConsoleController({client,userId,scope,route,register
     const next:ReadSlot<unknown>={state:'ready',data:null,asOf:null,lastOkAt:new Date().toISOString(),error:'只有業務空間擁有者可以查看預留',status:cause.status};readRef.current={...readRef.current,[key]:next};setReads(old=>({...old,[key]:next}));setPendingReads(old=>old.filter(k=>k!==key));return true;
    }
    const status=cause instanceof ApiError?cause.status:undefined,message=cause instanceof ApiError&&!cause.network?cause.detail??cause.message:'暫時無法讀取資料，已保存的內容不會因此改變。';
-   setReads(old=>{const next={...(old[key]??empty),state:'failed' as const,error:message,status,...(status===403||status===404?{data:null}:{})};readRef.current={...readRef.current,[key]:next};return {...old,[key]:next};});return false;
+   setReads(old=>{const next={...(old[key]??empty),state:'failed' as const,error:message,status,...(status===403||status===404?{data:null}:{})};readRef.current={...readRef.current,[key]:next};return {...old,[key]:next};});
+   // A refusal may mean the member's access changed: reread the capabilities so pages and navigation follow them.
+   if(status===403&&key!=='profile')void read('profile');
+   return false;
   }
  }
  useEffect(()=>{mounted.current=true;generation.current=client.sessionGeneration;commandAbort.current=new AbortController();void read('profile');return()=>{mounted.current=false;tickets.current.forEach(t=>t.abort.abort());commandAbort.current.abort();};},[client,root]);
@@ -73,6 +76,8 @@ export function useSupplierConsoleController({client,userId,scope,route,register
   keys.forEach(key=>void read(key));
  },[route.page,route.id,profile?.setup_state,profile?.capabilities.join(','),ownerAllowed,photosEnabled]);
  useEffect(()=>{if(route.page==='reservations'&&ownerAllowed)void read('reservations');},[cursors]);
+ // Reads the member may no longer make cannot keep writes paused as pending.
+ useEffect(()=>{setPendingReads(old=>{const next=old.filter(key=>{const d=descriptor(key);return d&&(d.gate!=='write'||profile?.capabilities.includes('store:write'))&&(d.gate!=='owner'||ownerAllowed);});return next.length===old.length?old:next;});},[profile?.capabilities.join(','),ownerAllowed]);
  const photoBlocking=Object.entries(photoStates).some(([id,s])=>s.blocking||!!heldPhotoAttempt(client,userId,{...scope,productId:id}));
  const dirty=Object.values(drafts).some(d=>Object.keys(d.fields).length>0)||Object.values(photoStates).some(s=>s.dirty);
  const locked=phase!=='idle'||photoBlocking||pendingReads.length>0||revoked||!profile?.writable||slot('profile').state!=='ready';
@@ -111,7 +116,7 @@ export function useSupplierConsoleController({client,userId,scope,route,register
    return;
   }
   const detail=outcome.detail??'操作未完成，請核對後重試。';setSectionStatus(old=>({...old,[a.draft??a.target]:detail}));
-  if(outcome.status===403){setRevoked(true);setError('目前身分已沒有這項權限');}
+  if(outcome.status===403){setRevoked(true);setError('目前身分已沒有這項權限');void read('profile');}
   else if(outcome.status===412){setError('資料剛剛被更新。你的修改還在，請確認後再套用。');if(a.draft){setDrafts(old=>old[a.draft!]?{...old,[a.draft!]:{...old[a.draft!],conflict:true}}:old);setConflicts(old=>({...old,[a.draft!]:a}));}await refreshAttempt(a);}
   else if(outcome.status===404&&a.kind.startsWith('profile.')){setReads(old=>({...old,profile:{...(old.profile??empty),state:'failed',data:null,error:'找不到這個供貨商品庫',status:404}}));}
   else {setError(outcome.status===404?'找不到這個項目，其他資料仍可查看。':outcome.status===422?'有欄位格式不符，請檢查後再送出。 '+detail:detail);if(outcome.code==='idempotency_conflict')setRejected(a);if(outcome.code==='stock_below_reserved'&&a.productId)void read('product:'+a.productId);}

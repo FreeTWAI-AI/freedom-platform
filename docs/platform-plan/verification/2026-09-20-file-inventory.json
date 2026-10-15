@@ -15469,8 +15469,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 11902,
-      "sha256": "600d1f5823cf71e1b48eefb14d3049f86591ba588f3e6887ee7031e655c7354d"
+      "bytes": 12196,
+      "sha256": "756cb04292827f3942dd89c866574b6c54dffa60b12d96b27d0629f207ba940a"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -15489,8 +15489,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/first-journey.md",
-      "bytes": 6569,
-      "sha256": "a1c31fdb27824d51860e0e3815ed0b0c37099a924e9b10711315024932200006"
+      "bytes": 6626,
+      "sha256": "d593c398c16a4c9709c26b7b2b5aaa38ca418ee18942213fd90f8ad56c692c2c"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/pages.md",
@@ -17189,8 +17189,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/state/useSupplierConsoleController.ts",
-      "bytes": 17868,
-      "sha256": "e514e8902ebaaa9ae684eb947b2f6fb7b06f1e1e675d7c00f35c94d7b97d8d91"
+      "bytes": 18442,
+      "sha256": "efdb1bbdf1f01347e06587df5fafee78bad44e1e3df95c54ec823b460f1fe525"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.css",
