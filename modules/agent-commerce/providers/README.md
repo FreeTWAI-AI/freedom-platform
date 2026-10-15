@@ -1,11 +1,11 @@
 # Commerce Provider Wire-Protocol Library (`commerce-providers`)
 
-This module (`modules/agent-commerce/providers/ecpay/`) implements the shared, pure wire-protocol primitives for ECPay (綠界科技) payment (`EC-SPEC-04`), domestic logistics (`EC-SPEC-05`), and B2C e-invoice (`EC-SPEC-06`).
+This module (`modules/agent-commerce/providers/ecpay/`) implements the shared, pure wire-protocol primitives for ECPay (綠界科技) payment (`EC-SPEC-04`), domestic logistics (`EC-SPEC-05`), and B2C e-invoice (`EC-SPEC-06`), together with the pure AIO credit-card one-time payment profile (`ecpay/aio-credit/`).
 
 ## Scope: What This Library Is and Is Not
 
-- **What it is**: Deterministic, worker-safe (Node.js + Cloudflare `workerd`) pure functions for `.NET`-compatible URL encoding, URL-encoded form parsing/serialization, `CheckMacValue` signing/verification (`SHA-256` and `MD5`), `AES-128-CBC` `Data` envelope encryption/decryption, legacy pipe response parsing (`1|...` / `0|...`), and 20-character Crockford Base32 trade number generation.
-- **What it is not**: It performs **no I/O** (`fetch`, sockets, database queries, timers, clock reads via `Date.now()` / `new Date()`, environment reads, or logging) and contains **no endpoint-specific business field assembly** (`ItemName` sanitization, invoice line-item tax rules, or HTTP retry/outbox logic). Those belong to the payment, logistics, and e-invoice adapters that sit on top of this module.
+- **What it is**: Deterministic, worker-safe (Node.js + Cloudflare `workerd`) pure functions for `.NET`-compatible URL encoding, URL-encoded form parsing/serialization, `CheckMacValue` signing/verification (`SHA-256` and `MD5`), `AES-128-CBC` `Data` envelope encryption/decryption, legacy pipe response parsing (`1|...` / `0|...`), and 20-character Crockford Base32 trade number generation. `ecpay/aio-credit/` holds the `ecpay.aio.credit.v1` field assembly and result mapping on top of those primitives.
+- **What it is not**: It performs **no I/O** (`fetch`, sockets, database queries, timers, clock reads via `Date.now()` / `new Date()`, environment reads, or logging). The core wire library still has no endpoint-specific business rules, while `ecpay/aio-credit/` isolates the AIO credit-card protocol surface (logistics and e-invoice field assembly, plus HTTP retry/outbox and database state machines, live in their own adapters).
 
 ## Wire Formats and Official ECPay References
 
@@ -37,9 +37,9 @@ All page numbers below refer to `https://developers.ecpay.com.tw/<page>/`:
 
 ## Key-Handling Rules
 
-- Callers decrypt sealed account credentials (`EC-SPEC-04` §1.3) at the adapter boundary and pass them into this library exclusively via `EcpayKeyPair.of(hashKey, hashIV)`.
-- Both `hashKey` and `hashIV` must match `^[A-Za-z0-9]{16}$`.
-- Raw key material is stored in a module-private `WeakMap` and is never exposed on public properties; `toString()`, `toJSON()`, and `nodejs.util.inspect.custom` all return redacted placeholders (`[redacted]` / `EcpayKeyPair [redacted]`).
+- Callers decrypt sealed account credentials (`EC-SPEC-04` §1.3) at the adapter boundary and pass them into this library exclusively via `EcpayKeyPair.of(hashKey, hashIV)` and `EcpayCreditCheckCode.of(checkCode)`.
+- Both `hashKey` and `hashIV` must match `^[A-Za-z0-9]{16}$`; `CreditCheckCode` must match `^[0-9]{8}$`.
+- Raw secret material is stored in module-private `WeakMap`s and is never exposed on public properties; `toString()`, `toJSON()`, and `nodejs.util.inspect.custom` all return redacted placeholders (`[redacted]` / `EcpayKeyPair [redacted]` / `EcpayCreditCheckCode [redacted]`).
 - `EcpayProtocolError` uses a closed set of error codes with fixed English messages and never embeds keys, inputs, plaintexts, ciphertexts, or `cause`.
 
 ## Public Exports (`modules/agent-commerce/providers/ecpay/index.ts`)
@@ -62,7 +62,41 @@ All page numbers below refer to `https://developers.ecpay.com.tw/<page>/`:
 - `invoice`: `{ buildEnvelope, openResponse, verifyAllowanceCallback }` for e-invoice AES envelopes and MD5 allowance callbacks.
 - `ECPAY_ORIGINS` / `ECPAY_ACK`: Frozen map of official `sandbox` (stage) and `live` origins for `payment`, `logistics`, and `invoice`, plus the `'1|OK'` callback acknowledgement constant.
 
+## AIO Credit-Card Profile (`modules/agent-commerce/providers/ecpay/aio-credit/index.ts`)
+
+### Public Exports
+
+- `ECPAY_AIO_CREDIT_PROFILE`: Profile identifier constant `'ecpay.aio.credit.v1'`.
+- `checkCreditAvailability(input)`: Pure gate checking `currency === 'TWD'`, whole-TWD minor units (`% 100 === 0` across `totalMinor` and all `amountsMinor`), and minimum total (`>= 500` minor units = NT$5) without rounding or truncation.
+- `formatTaipeiDateTime(epochMs)` / `parseTaipeiDateTime(text)`: Formats and strictly parses `yyyy/MM/dd HH:mm:ss` timestamps in `Asia/Taipei` (`UTC+8`, no DST) using integer/UTC calendar arithmetic.
+- `doActionWindow(epochMs)` / `nextDayCancelEarliest(authorisedAtEpochMs)`: Enforces ECPay's daily auto-capture maintenance window (`[20:15:00.000, 20:31:00.000)` Taipei blocked, retry at `20:31:00.000`) and next-day `06:00:00.000` Taipei cancellation boundary (page `2885`).
+- `buildItemName(lines, storeName)` / `buildCreditCheckoutForm(input, keys)`: Sanitizes line items into ECPay's `#`-separated `ItemName` and builds the signed `/Cashier/AioCheckOut/V5` form with a fixed 14-field order.
+- `parsePaymentNotification(body, keys, options)` / `parsePaymentBrowserReturn(body, keys, options)`: Verifies and parses `ReturnURL` server notifications (allowlist-only, stripping card PAN fragments and `auth_code`) and `OrderResultURL` browser returns.
+- `buildTradeInfoQuery(input, keys)` / `parseTradeInfoResponse(body, keys, options)`: Builds signed `/Cashier/QueryTradeInfo/V5` requests and maps signed responses into `paid`, `unpaid`, `failed`, `amount_mismatch`, `trade_no_mismatch`, or `unknown`.
+- `EcpayCreditCheckCode` / `buildCreditDetailQuery(input, keys, checkCode)` / `parseCreditDetailResponse(text, options)`: Redacted 8-digit merchant check-code wrapper, signed `/CreditDetail/QueryTrade/V2` request builder, and unsigned JSON response parser.
+- `planCreditRefund(input)`: Pure refund decision table mapping current credit-detail status and amounts to a sequence of `DoAction` steps (`C`, `R`, `E`, `N`) or a typed `not_refundable` reason.
+- `buildDoActionRequest(input, keys)` / `parseDoActionResponse(text, options)`: Builds signed `/CreditDetail/DoAction` requests and parses unsigned form responses after verifying echoed `MerchantID`, `MerchantTradeNo`, and `TradeNo`.
+- `EcpayServerRequest`: Immutable server-to-server `POST` descriptor whose URL-encoded body is stored in a module-private `WeakMap` and redacted in `toJSON()`, `toString()`, and `util.inspect`.
+
+### Protocol Rules & Design Rationale
+
+- **`ItemName` Sanitisation & Fallback**: Each line name replaces `#` (ECPay item delimiter), `<` / `>` (HTML injection), `|` / `;` / `` ` `` (which trip ECPay's CDN command-injection filter), C0/DEL/C1 controls, lone UTF-16 surrogates, and zero-width/bidi formatting characters (`U+200B–U+200F`, `U+202A–U+202E`, `U+2060–U+206F`, `U+FEFF`) with spaces, collapses whitespace runs to a single ASCII space, and substitutes `商品` when empty. If the joined `{name} x{quantity}` string exceeds 200 UTF-16 code units, `buildItemName` falls back to `{store}商品一批 x1` (with `storeName` sanitized and cut at 40 code points without splitting surrogate pairs, or `商品一批 x1` if empty) so ECPay never truncates a multi-byte character at its 400-character limit and breaks the MAC.
+- **Checkout Callback URL Rules**: `returnUrl`, `orderResultUrl`, and `clientBackUrl` must be canonical (`new URL(u).href === u`), `https:`, credential-free, default port (`443` omitted), fragment-free, `<= 200` characters, hosted on a multi-label lowercase DNS name (non-numeric TLD, no IPv4/IPv6 literals), and free of `&`, `<`, `>`, `"`, `'`, space, `%26`, `%3C`, and `%3c`.
+- **Browser Returns Carry No Outcome**: `parsePaymentBrowserReturn` verifies the MAC and returns only `{ kind: 'return', merchantTradeNo, keyIndex }`. Browser posts to `OrderResultURL` are never payment evidence (`EC-SPEC-04` §4.2, `EC-AT18`); the caller only uses the return to trigger a server-side query.
+- **Upper-Cased Identifiers**: Because `CheckMacValue` lower-cases the URL-encoded string before hashing, letter case is not authenticated by the MAC, and ECPay treats `MerchantTradeNo` case-insensitively. `parsePaymentNotification`, `parsePaymentBrowserReturn`, `parseTradeInfoResponse`, and `parseDoActionResponse` normalize `MerchantTradeNo` and `TradeNo` to uppercase so a case-altered replay maps to the same payment attempt and dedupe key.
+- **Resilient Fee Parsing**: `chargeFeeMinor` (`PaymentTypeChargeFee`) and `handlingChargeMinor` (`HandlingCharge`) accept `^[0-9]{1,9}(\.[0-9]{1,2})?$` via string arithmetic (`10.5` → `1050` minor units) and fall back to `null` on any other format so a fee-format change at ECPay never rejects a valid paid notification or query.
+- **Production-Only Endpoints & `EcpayServerRequest` Redaction**: `CreditDetail/QueryTrade/V2` and `CreditDetail/DoAction` exist only in production (`https://payment.ecpay.com.tw/CreditDetail/...`); calling their builders with `environment: 'sandbox'` throws `unsupported_environment`. Because `CreditDetail/QueryTrade/V2` embeds `CreditCheckCode` in the signed form body, all server-to-server builders return `EcpayServerRequest`, which hides the form body behind `bodyText()` and redacts `toJSON()`, `toString()`, and `util.inspect`.
+- **Refund Decision Table (`planCreditRefund`) & `DoAction` Unknown Handling**: After rejecting `unauthorized` (`not_authorised`), `voided` (`already_voided`), and `refundedMinor + requestedMinor > paidMinor` (`exceeds_paid`), `planCreditRefund` plans:
+
+  | `status` | Full (`refundedMinor === 0 && requestedMinor === paidMinor`) | Partial / Subsequent |
+  | --- | --- | --- |
+  | `authorized`, `capture_cancelled` | `[N paid]` | `refundedMinor === 0` → `[C paid, R requested]`; `refundedMinor > 0` → `state_inconsistent` |
+  | `capture_pending` | `[E paid, N paid]` | `[R requested]` |
+  | `captured` | `[R requested]` | `[R requested]` |
+
+  In `parseDoActionResponse`, `{ kind: 'unknown', reason }` means **"result unknown — never resend, query `QueryTrade/V2` first"** (`EC-SPEC-04` §7.4).
+
 ## Node and `workerd` Parity Verification
 
-- `tests/runtime/ecpay-protocol.test.ts` runs all official test vectors from `tests/worker/ecpay-fixtures/vectors.ts` plus negative, boundary, key-rotation, prototype-pollution, and redaction checks under Node (`node:test`).
-- `tests/worker/ecpay-protocol-workerd.test.ts` bundles `tests/worker/ecpay-fixtures/protocol-worker.ts` with `esbuild` (`platform: 'neutral'`, `external: ['node:*']`), executes every vector and round-trip inside Cloudflare `workerd` via Miniflare (`nodejs_compat`), and asserts bit-for-bit equality against both the expected vector constants and the Node results.
+- `tests/runtime/ecpay-protocol.test.ts` and `tests/runtime/ecpay-aio-credit.test.ts` run all official and golden test vectors from `tests/worker/ecpay-fixtures/` plus negative, boundary, key-rotation, prototype-pollution, and redaction checks under Node (`node:test`). All `aio-credit` golden `CheckMacValue` digests were recomputed independently outside the repository from the official algorithm (pages `2902`/`2904`).
+- `tests/worker/ecpay-protocol-workerd.test.ts` and `tests/worker/ecpay-aio-credit-workerd.test.ts` bundle `protocol-worker.ts` and `aio-credit-worker.ts` with `esbuild` (`platform: 'neutral'`, `external: ['node:*']`), execute every vector, golden, parser outcome, refund cell, and time helper inside Cloudflare `workerd` via Miniflare (`nodejs_compat`), and assert bit-for-bit equality against both the expected vector constants and the Node results.
