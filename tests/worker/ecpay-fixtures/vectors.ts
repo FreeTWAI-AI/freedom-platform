@@ -3,7 +3,7 @@
  *
  * All credentials in this file are ECPay's published public stage/sandbox test keys
  * from official developer documentation (`https://developers.ecpay.com.tw/<page>/`):
- * - AIO Payment (3002607): pages 2902, 2878
+ * - AIO Payment (3002607): pages 2856, 2902, 2878
  * - AIO CVS / Domestic Logistics B2C & Omni (2000132): pages 2881, 7418, 10205
  * - Domestic Logistics C2C (2000933): page 7424
  * - B2C E-Invoice (2000132): pages 7958, 38242
@@ -15,6 +15,7 @@ export interface StageKeySpec {
   readonly merchantId: string;
   readonly hashKey: string;
   readonly hashIV: string;
+  readonly creditCheckCode?: string;
   readonly sourcePages: readonly number[];
 }
 
@@ -23,7 +24,8 @@ export const STAGE_KEYS = Object.freeze({
     merchantId: '3002607',
     hashKey: 'pwFHCqoQZGmho4w6',
     hashIV: 'EkRm7iFT261dpevs',
-    sourcePages: Object.freeze([2902, 2878]),
+    creditCheckCode: '79470253',
+    sourcePages: Object.freeze([2856, 2902, 2878]),
   }),
   shared2000132: Object.freeze({
     merchantId: '2000132',
@@ -54,6 +56,7 @@ export const ALL_STAGE_KEY_STRINGS: readonly string[] = Object.freeze([
   STAGE_KEYS.logisticsC2c2000933.hashIV,
   STAGE_KEYS.invoice2000132.hashKey,
   STAGE_KEYS.invoice2000132.hashIV,
+  STAGE_KEYS.aio3002607.creditCheckCode,
 ]);
 
 export interface CheckMacVector {
