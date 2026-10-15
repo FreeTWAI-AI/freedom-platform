@@ -504,8 +504,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/event-highlights.ts",
-      "bytes": 8629,
-      "sha256": "1c1c6d02892eca90092e915c4f3c8098242991d3be50fd7f5b3753762ec0f2ca"
+      "bytes": 9012,
+      "sha256": "6aa00aec8221eb4cd6ec62bce9602963022eb152fc29f9ecbf829a1be963c85a"
     },
     {
       "path": "apps/platform-api/src/routes/event-outcomes.ts",
@@ -14009,8 +14009,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 73561,
-      "sha256": "20677e04fc4bc612c3fffc9aa0c304c91a2d7f3b5c92a3898b91a2b1d39695d7"
+      "bytes": 74134,
+      "sha256": "f3e01454c31a0bf692e6aa278ad9b4d00f23805e895a304df1129435411764e4"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17699,8 +17699,8 @@
     },
     {
       "path": "modules/community/event-highlights.ts",
-      "bytes": 38595,
-      "sha256": "9272ed0a0d26d24096f45972bb2a2e885dd332cb03ebb907b3d72ba652b5bcd8"
+      "bytes": 38625,
+      "sha256": "b44a723740fecc5f7b26bd1d1b809b7e362c211ecd1ef3c6f36b4bf6aeadd074"
     },
     {
       "path": "modules/community/event-outcomes-page.ts",
@@ -21939,8 +21939,8 @@
     },
     {
       "path": "tests/runtime/event-highlights.test.ts",
-      "bytes": 44929,
-      "sha256": "53fa0f3b0c5647b75ef660de43b1780b43a137d99ac891e3578f96e54923f849"
+      "bytes": 47659,
+      "sha256": "cdfb8bbbfb33f20d1e4f420e6178a70c77c8de5f5e099b0e915f13b44719f146"
     },
     {
       "path": "tests/runtime/event-outcomes.test.ts",
