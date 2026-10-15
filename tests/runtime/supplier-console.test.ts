@@ -526,7 +526,6 @@ test('SC-API-10 every cooperation state buckets once; retail capacity includes a
   assert.deepEqual(overview.todos.items.map((r:any)=>r.kind),['not_offered']);
 });
 
-
 test('SC-API-11 request detail uses the current list projection and shared product offer projection (AT-12,15,30)',async()=>{
   const a=await supplier(),b=await retailer(),item=await supplyProduct(a),offered=await offer(a,item),selected=await propose(b,offered);
   const detail=await checkSnapshot(a,`/requests/${selected.selection_id}`),list=ok(await get(a,'/supply-requests'));

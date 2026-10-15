@@ -55,6 +55,7 @@
         "supplier-console.overview",
         "supplier-console.products",
         "supplier-console.product",
+        "supplier-console.request",
         "supplier-console.partners",
         "supplier-console.partner",
         "storefront.supply-profile.update"
@@ -69,6 +70,7 @@
         "supplier-console.overview",
         "supplier-console.products",
         "supplier-console.product",
+        "supplier-console.request",
         "supplier-console.partners",
         "supplier-console.partner",
         "storefront.supply-catalog.read",

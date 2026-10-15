@@ -651,7 +651,6 @@ test('SC-E2E-13 a read-only member sees overview and settings without write cont
   }
 });
 
-
 test('SC-E2E-14 a request outside the first 200 opens from every entry and after reload (AT-30,AT-12)', async ({browser, baseURL, e2eAuthPool}, info) => {
   test.setTimeout(150_000);
   const contexts: BrowserContext[] = [], supplierIds: string[] = [];
@@ -696,7 +695,7 @@ test('SC-E2E-14 a request outside the first 200 opens from every entry and after
       return {...item,selection_id:`00000000-0000-4000-8000-${String(n*2+k+1).padStart(12,'0')}`,
         source_id:source.selection_id,snapshot,hash:digest(snapshot)};
     }));
-    clonedSelectionIds.push(...items.map(i=>i.own_id),...selections.map(s=>s.selection_id));
+    clonedSelectionIds.push(...selections.map(s=>s.selection_id));
     const data=JSON.stringify(items),shape=`jsonb_to_recordset($1) AS f(item_id uuid,offer_id uuid,own_id uuid,sku text)`;
     const q=await e2eAuthPool.connect();
     try {
@@ -783,17 +782,9 @@ test('SC-E2E-14 a request outside the first 200 opens from every entry and after
     expect(sawCappedReview).toBe(false);
   } finally {
     await Promise.allSettled(contexts.map(ctx=>ctx.close()));
-    const q=await e2eAuthPool.connect();
-    try {
-      await q.query('BEGIN');
-      await q.query('DELETE FROM commerce_selections WHERE selection_id=ANY($1::uuid[])',[clonedSelectionIds]);
-      // Only synthetic withdrawn offers are removed; restore the retention trigger in this same owned-schema transaction.
-      await q.query('ALTER TABLE commerce_hosted_supply_offers DISABLE TRIGGER preserve_commerce_hosted_offer');
-      await q.query('DELETE FROM commerce_hosted_supply_offers WHERE offer_id=ANY($1::uuid[])',[items.map(i=>i.offer_id)]);
-      await q.query('ALTER TABLE commerce_hosted_supply_offers ENABLE TRIGGER preserve_commerce_hosted_offer');
-      await q.query('DELETE FROM commerce_items WHERE item_id=ANY($1::uuid[])',[items.map(i=>i.item_id)]);
-      await q.query('COMMIT');
-    }catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();await withdrawSupplierOffers(e2eAuthPool,supplierIds);}
-    expect((await e2eAuthPool.query('SELECT 1 FROM commerce_items WHERE item_id=ANY($1::uuid[])',[items.map(i=>i.item_id)])).rows).toHaveLength(0);
+    // Offers are retained by design, so the cloned products stay in this synthetic business with withdrawn offers;
+    // only the cloned seller requests are removed.
+    try {await e2eAuthPool.query('DELETE FROM commerce_selections WHERE selection_id=ANY($1::uuid[])',[clonedSelectionIds]);}
+    finally {await withdrawSupplierOffers(e2eAuthPool,supplierIds);}
   }
 });
