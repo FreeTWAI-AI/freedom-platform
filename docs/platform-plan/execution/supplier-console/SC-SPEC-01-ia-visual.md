@@ -46,6 +46,7 @@
 ```
 
 - 側欄沿用公會啟動台已上線的做法（`apps/portal-web/src/modules/GuildLaunchpad.css:36,47`）：桌面固定欄 `12rem` 加 `minmax(0,1fr)`；窄螢幕改成同一份項目產生的 `<select>`（標籤「營運中心頁面」）。只有一份項目資料，兩種呈現。
+- 側欄、窄螢幕選單與內容欄由共用元件 `modules/agent-commerce/hosted-ui/ConsoleShell.tsx` 產生（項目：key、名稱、分組、hash 連結；設定未完成時整組停用並說明原因）。賣家後台用同一元件，不另做第二套；路由、讀取、命令與離開保護仍由各自的頁面負責。
 - `<nav aria-label="營運中心">`，目前項 `aria-current="page"`，以粗體加底線表示，不只靠顏色。
 - h1 由平台頂部提供（`App.tsx:830` 改為依解析後的頁面取名）；事業名稱在事業列，不另放第二個 h1。換頁時焦點移到內容區的第一個 h2。
 - 預留與訂單只在 owner 讀取成功後出現；只有 `store:read` 時側欄只剩概覽與設定，並在概覽說明原因。

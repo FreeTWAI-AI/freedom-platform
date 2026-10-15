@@ -11,14 +11,16 @@ import {Reservations} from './pages/Reservations';
 import {Settings,Setup} from './pages/Settings';
 import {ReadStatus,WriteAccess} from './pages/Shared';
 import {fieldLabels,attemptFieldText} from './view';
+import {ConsoleShell} from '../../hosted-ui/ConsoleShell';
 import './SupplierConsole.css';
+const NAV_GROUPS=['營運','合作','管理'] as const;
 export function SupplierConsole({client,userId,route,registerLeave,photosEnabled=false,photoUploadsEnabled=false}:{client:PortalClient;userId:string;route:SupplierConsoleRoute;registerLeave:RegisterLeave;photosEnabled?:boolean;photoUploadsEnabled?:boolean}){
  const c=useSupplierConsoleController({client,userId,scope:route,route,registerLeave,photosEnabled}),profile=c.profile,r=c.slot('profile'),ready=profile?.setup_state==='ready';
  const pages=consoleNavigation(profile?.capabilities??[],c.ownerAllowed),current=SUPPLIER_CONSOLE_PAGES.find(p=>p.page===route.page)!,selected=current.parent??current.page;
  const content=useRef<HTMLDivElement>(null),previous=useRef(route.page+':'+route.id);
  useEffect(()=>{const key=route.page+':'+route.id;if(previous.current!==key){content.current?.querySelector<HTMLElement>('[data-sc-active="true"] h2')?.focus();previous.current=key;}},[route.page,route.id]);
  const href=(page:Parameters<typeof supplierConsoleHref>[1])=>supplierConsoleHref(route,page);
- const nav=pages.map(p=>({...p,href:href(p.page)}));
+ const nav=pages.map(p=>({key:p.page,label:p.label,group:p.group!,href:href(p.page)}));
  const page=route.page==='overview'?<Overview c={c}/>:route.page==='products'?<Products c={c}/>:route.page==='product-new'?<NewProduct c={c}/>:route.page==='partners'?<Partners c={c}/>:route.page==='partner'?<Partner c={c}/>:route.page==='terms'?<Terms c={c}/>:route.page==='review'?<Review c={c}/>:route.page==='reservations'?<Reservations c={c}/>:route.page==='settings'?<Settings c={c}/>:route.page==='not-found'?<section className="stack"><h2 tabIndex={-1}>找不到這個頁面</h2><div className="actions"><a className="btn btn-ghost" href={href('overview')}>回到營運概覽</a></div></section>:null;
  const productIds=[...new Set([...Object.keys(c.reads).filter(k=>k.startsWith('product:')).map(k=>k.slice(8)),...(route.page==='product'?[route.id!]:[])])];
  return <div className="supplier-console stack">
@@ -31,10 +33,9 @@ export function SupplierConsole({client,userId,route,registerLeave,photosEnabled
   {!profile?<section className="stack"><h2 tabIndex={-1}>{r.status===404?'找不到這個供貨商品庫':r.status===403?'沒有查看商品庫的權限':'供貨商品庫'}</h2><ReadStatus c={c} name="profile" label="供貨商品庫"/></section>:<>
   {c.owner.state==='failed'&&ready&&<div className="sc-owner-note"><p>暫時無法確認預留權限；只有確認為擁有者後才顯示入口。</p><div className="actions"><button className="btn btn-ghost" onClick={()=>void c.read('owner')}>重試確認預留權限</button></div></div>}
   {!ready&&<p>請先完成商品庫設定，其他頁面暫時停用。</p>}
-  <div className="sc-layout"><nav className="sc-nav" aria-label="營運中心">{(['營運','合作','管理'] as const).map(group=><div className="sc-nav-group" key={group}><p>{group}</p>{nav.filter(p=>p.group===group).map(p=>ready?<a key={p.page} href={p.href} aria-current={selected===p.page?'page':undefined}>{p.label}</a>:<span key={p.page} aria-disabled="true" title="請先完成商品庫設定">{p.label}</span>)}</div>)}</nav>
-  <label className="sc-mobile-nav field">營運中心頁面<select disabled={!ready} value={nav.find(p=>p.page===selected)?.href??''} onChange={e=>{window.location.hash=e.target.value;}}>{!nav.some(p=>p.page===selected)&&<option value="" disabled>{current.title}</option>}{(['營運','合作','管理'] as const).map(group=><optgroup key={group} label={group}>{nav.filter(p=>p.group===group).map(p=><option key={p.page} value={p.href}>{p.label}</option>)}</optgroup>)}</select></label>
+  <ConsoleShell label="營運中心" selectLabel="營運中心頁面" groups={NAV_GROUPS} items={nav} current={{key:selected,title:current.title}} enabled={ready} disabledReason="請先完成商品庫設定">
   <div className="sc-content stack" ref={content}>{!ready?<div data-sc-active="true"><Setup c={c}/></div>:<><div data-sc-active={route.page!=='product'}>{current.requires==='write'?<WriteAccess c={c}>{page}</WriteAccess>:page}</div>
    {productIds.map(id=><div key={id} hidden={route.page!=='product'||route.id!==id} data-sc-active={route.page==='product'&&route.id===id}><WriteAccess c={c}><Product c={c} id={id} uploadsEnabled={photoUploadsEnabled}/></WriteAccess></div>)}
-  </>}</div></div></>}
+  </>}</div></ConsoleShell></>}
  </div>;
 }

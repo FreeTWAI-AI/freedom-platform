@@ -60,6 +60,7 @@ A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以�
 | `apps/portal-web/src/interface-messages.ts`、`page-help.ts` | application-composition | C | 頁名（五種語言）與 `supplier-console` 說明 |
 | `apps/portal-web/src/modules/newcomer-guides/page-support.ts`、`ai-sister-pages.ts` | newcomer-guides | C | `supplier-console` 登錄為停用（同 `stores`） |
 | `apps/portal-web/src/modules/HostedStorePhoto.tsx` | agent-commerce | C | `product` 參數只取 ID、名稱與版本 |
+| `modules/agent-commerce/hosted-ui/ConsoleShell.{tsx,css}`（新檔） | agent-commerce | Claude | 營運中心與賣家後台共用的側欄殼層 |
 | `modules/development/pages.ts` | development | C | `supplier-console` 頁面 |
 | `tests/e2e/hosted-store-photo.spec.ts` | agent-commerce | D3 | 純供貨照片案例 |
 | `docs/platform-plan/execution/spec-index.md` | 無 | Claude | 一行索引 |

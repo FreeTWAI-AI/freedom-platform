@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-01-ia-visual.md",
-      "bytes": 7988,
-      "sha256": "0d669edaf004336e096d5b9ae8b54a68a24b86e394157cb27d23d1a9ae376f37"
+      "bytes": 8322,
+      "sha256": "7deb99fad32f013af5ed670f32fbc16972999133299de67f40fa8f64fdfee9a4"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-02-shell-session-recovery.md",
@@ -15509,8 +15509,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 9872,
-      "sha256": "ad2d28fd6cb17426529bde083df91d7036c666cb75fb119794307ea4af3ae382"
+      "bytes": 10023,
+      "sha256": "11d3403ace89d345648f630887fb1882b50be3085b0a325f5772e31ee28d2ae9"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",
@@ -17143,6 +17143,16 @@
       "sha256": "9fab292e16bff3cbedde7429b75ded6f4a543e2e4426e0d86a57e61941ac1134"
     },
     {
+      "path": "modules/agent-commerce/hosted-ui/ConsoleShell.css",
+      "bytes": 1133,
+      "sha256": "7711380706b8a20cda2e1bac10120c42bf4a9711381565facc2376a22afb8f83"
+    },
+    {
+      "path": "modules/agent-commerce/hosted-ui/ConsoleShell.tsx",
+      "bytes": 2121,
+      "sha256": "d77163ef83ab9e3879a3d8f3f61f94b49ceb3fb6f48c37b889700350352cc5f9"
+    },
+    {
       "path": "modules/agent-commerce/portal/freedom.module.json",
       "bytes": 709,
       "sha256": "1cb1ca6c46b2f10976627a2919adcb0020198712d11375d8cf9fb82821c8ffb8"
@@ -17184,13 +17194,13 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.css",
-      "bytes": 4152,
-      "sha256": "fc963a6da79c34c2f968395ee4cf5e204fb19df053aebf1e46861ffd3066b61a"
+      "bytes": 3309,
+      "sha256": "33adabeb30e2fe142272abb8d28d7f6c8044d26155198494da066d8244ef4208"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.tsx",
-      "bytes": 6720,
-      "sha256": "576954762a87eaa41a1a3d2b4ee648d12577d8e7bf121fa9ef8362038a0c9a4e"
+      "bytes": 6167,
+      "sha256": "11d057a7b841181507b35b6b2dba91a32b98ce192434c3a7317127431b64a125"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/route.ts",
