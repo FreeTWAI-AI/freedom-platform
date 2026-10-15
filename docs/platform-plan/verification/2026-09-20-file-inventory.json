@@ -15469,8 +15469,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 12196,
-      "sha256": "756cb04292827f3942dd89c866574b6c54dffa60b12d96b27d0629f207ba940a"
+      "bytes": 12353,
+      "sha256": "8bb53f72ebe32e5b1c0d626f096204fdfa5dea3d19577919c50b1238b30aac7d"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -15489,8 +15489,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/first-journey.md",
-      "bytes": 6626,
-      "sha256": "d593c398c16a4c9709c26b7b2b5aaa38ca418ee18942213fd90f8ad56c692c2c"
+      "bytes": 6871,
+      "sha256": "28179322e61266cfcfad6f16de57268f8afd0b3423b10142c787e8641dd9606e"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/pages.md",
@@ -15509,8 +15509,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 10023,
-      "sha256": "11d3403ace89d345648f630887fb1882b50be3085b0a325f5772e31ee28d2ae9"
+      "bytes": 10479,
+      "sha256": "3df451657239a0b8bda38f2e8cbd1144bde92edcbdacca54a0e4762ee402b870"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",
@@ -21519,8 +21519,8 @@
     },
     {
       "path": "tests/e2e/supplier-console-visual.spec.ts",
-      "bytes": 26527,
-      "sha256": "ab07d589356ed85e97d1276e734f1c8d3fc3ea97f28c7d6eaaf13224361f30c3"
+      "bytes": 27160,
+      "sha256": "0e5c4527a79fff591b59d330c8d3f2eb635c15820da60b701ade6c7c7b61b1ab"
     },
     {
       "path": "tests/e2e/supplier-console.spec.ts",

@@ -33,8 +33,10 @@
 | 旅程／素材 | D1 | agy `gemini-4-argon` | `tests/e2e/supplier-console.spec.ts`：旅程 1～15 連續一條、舊書籤、新版關閉時回退 |
 | 旅程／素材 | D2 | agy `gemini-3.8-flash` | `tests/e2e/supplier-console-cooperation.spec.ts`：步驟 8～11 的分支（改價、改條件、不同意／撤回、同名店、唯讀成員） |
 | 旅程／素材 | D3 | Codex `gpt-6.1-sol` | `tests/e2e/supplier-console-recovery.spec.ts`：J06；照片 pass 的純供貨案例 |
+| 旅程／素材 | D4 | Codex `gpt-6.1-sol` | `tests/e2e/supplier-console-navigation.spec.ts`：事業切換時晚到的讀取（AT-03）、200 件商品的清單與返回位置（AT-09、10、30）、鍵盤與焦點（AT-41） |
+| 旅程／素材 | D5 | agy `gemini-3.8-flash` | `tests/e2e/supplier-console-visual.spec.ts`：五種寬度與五種外觀的視覺驗收（AT-40） |
 
-A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以已提交的契約為共同邊界；D1～D3 在 A＋B＋C 整合後平行開始，各寫一支 spec。agy 的輸出（B、D1、D2）只當草稿：Claude 逐項對照程式與測試後才整合。
+A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以已提交的契約為共同邊界；D1～D3 在 A＋B＋C 整合後平行開始，各寫一支 spec；D4、D5 是整合後補上的瀏覽器缺口，同樣各寫一支。agy 的輸出（B、D1、D2、D5）只當草稿：Claude 逐項對照程式與測試後才整合。
 
 實際分工的調整：原排給 B 的 `PATCH supply-profile` 改由 A 放在新路由檔與 `supply-catalog.ts`，`store.ts` 與 `hosted-store.ts` 都不必修改；契約與 `generate-contracts.ts` 已隨 WP-01 提交。
 
@@ -71,7 +73,7 @@ A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以�
 
 ```
 WP-00 → WP-01（含契約）─┬→ A ─┐
-                        ├→ B ─┼→ Claude 整合 → D1～D3 → WP-06（S1 證據）→ Ted 決定 PR／合併 → WP-07
+                        ├→ B ─┼→ Claude 整合 → D1～D5 → WP-06（S1 證據）→ Ted 決定 PR／合併 → WP-07
                         └→ C ─┘
 S1 合併 → S2
 S1 合併 ＋ D-05 核准 → S3

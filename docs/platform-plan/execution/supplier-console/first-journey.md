@@ -60,6 +60,8 @@ S1 的「素材」是商品照片（含純供貨商品）。給合作店家取�
 | 步驟 1～15 連續一條、舊書籤、新版關閉時回退 | `tests/e2e/supplier-console.spec.ts` | 整合瀏覽器 |
 | 步驟 8～11 的分支（改價、改條件、不同意／撤回、同名店、唯讀成員） | `tests/e2e/supplier-console-cooperation.spec.ts` | 整合瀏覽器 |
 | J06 | `tests/e2e/supplier-console-recovery.spec.ts` | 整合瀏覽器 |
+| 事業切換、200 件商品的清單與返回位置、鍵盤操作 | `tests/e2e/supplier-console-navigation.spec.ts` | 整合瀏覽器 |
+| 核心頁的寬度與外觀 | `tests/e2e/supplier-console-visual.spec.ts` | 整合瀏覽器＋截圖 |
 | 步驟 4 的真實上傳 | `tests/e2e/hosted-store-photo.spec.ts`（照片 pass） | 整合瀏覽器 |
 | 共用庫存 6＋5、取消、到期、撤回後歷史 | 既有 `tests/runtime/hosted-shared-orders.test.ts` | 隔離 PostgreSQL／HTTP |
 | 新版關閉時舊頁不變 | 既有 hosted 系列測試（SC-SPEC-05 §2） | 全部層級 |

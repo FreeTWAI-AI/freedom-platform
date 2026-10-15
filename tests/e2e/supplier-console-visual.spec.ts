@@ -64,13 +64,15 @@ async function navigateTo(page: Page, hash: string) {
   await page.evaluate(h => { window.location.hash = h; }, target);
 }
 
-async function waitForPageReady(page: Page, isConsole: boolean) {
+// The heading is the page's own, so a screenshot never catches the page the hash change is leaving.
+async function waitForPageReady(page: Page, isConsole: boolean, heading: string) {
   if (isConsole) {
     await expect(page.locator('.supplier-console')).toBeVisible();
+    await expect(page.locator('.sc-content [data-sc-active="true"] h2').first()).toHaveText(heading);
     await expect(page.locator('.supplier-console')).not.toContainText('正在讀取');
-    await expect(page.locator('.sc-content [data-sc-active="true"] h2').first()).toBeVisible();
   } else {
-    await expect(page.locator('.guild-launchpad-content')).toBeVisible();
+    await expect(page.locator('.guild-launchpad-heading h1')).toHaveText(heading);
+    await expect(page.locator('.guild-launchpad-status')).not.toContainText('正在載入');
     await expect(page.locator('.guild-launchpad-content h2').first()).toBeVisible();
   }
   await page.evaluate(() => { window.scrollTo(0, 0); });
@@ -217,13 +219,23 @@ test('SC-E2E-40 core console pages hold their layout across widths and themes (A
       'guild-supply': 'guilds/guild_product_quality_supply',
       'guild-sales': 'guilds/guild_commerce_sales',
     };
+    const headings: Record<keyof typeof pages, string> = {
+      overview: '營運概覽',
+      products: '商品與庫存',
+      product: `商品詳情：${longTitle}`,
+      review: '審核售價申請',
+      reservations: '預留與訂單',
+      settings: '設定與資料',
+      'guild-supply': '商品品質與供應公會',
+      'guild-sales': '電商與銷售公會',
+    };
 
     // Measurement & assertion helper for each screenshot
     async function captureAndAssert(pageKey: keyof typeof pages, width: number, theme: string) {
       const id = `${pageKey}-${width}-${theme}`;
       const isConsole = !pageKey.startsWith('guild-');
       await pageA.setViewportSize({width, height: 900});
-      await waitForPageReady(pageA, isConsole);
+      await waitForPageReady(pageA, isConsole, headings[pageKey]);
       await pageA.screenshot({path: testInfo.outputPath(`${id}.png`), fullPage: true});
 
       // 1. Horizontal overflow
