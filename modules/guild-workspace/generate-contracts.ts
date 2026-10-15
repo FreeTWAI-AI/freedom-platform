@@ -1,3 +1,4 @@
+import * as commerceSetup from '../../contracts/guild-launchpad/v1/hosted-commerce-setup.js';
 import * as checkout from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import * as supplyCatalog from '../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -173,6 +174,10 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['intent-lookup-query', hostedOrder.IntentLookupQuerySchema, 'input', ['exact_buyer_shop_intent']],
     ['order-page-query', hostedOrder.OrderPageQuerySchema, 'input', ['unique_query_keys', 'signed_cursor']],
     ['order-page', hostedOrder.OrderPageSchema, 'output', ['current_party_filter', 'signed_cursor', 'order_semantics']],
+  ]],
+  ['hosted-commerce-setup', 'Commerce release and account setup. No payment execution authority.', [
+    ['empty-input', commerceSetup.CommerceSetupEmptyInputSchema, 'input', []],
+    ['store-release', commerceSetup.StoreReleaseSchema, 'output', ['current_instance_release_and_authority']],
   ]],
   ['storefront', 'Hosted store inputs, private views and allowlisted public projection. Ordering is not enabled.', [
     ['store-setup-input', storefront.StoreSetupInputSchema, 'input', ['text_trim_and_control_characters', 'slug_lowercase_reserved_unique']],

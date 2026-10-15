@@ -56,3 +56,28 @@ test('grants require the base read key and honor release and viewer constraints'
   }finally{q.release();}
   const old=await store(),oldq=await h.pool.connect();try{await assert.rejects(validateInstanceGrants(oldq,old.tenantId,'operator',[{instance_id:old.instance.instance_id,capabilities:['store:read','store:refund']}]),{status:422});}finally{oldq.release();}
 });
+test('owner upgrade is atomic, versioned and replayable; preserves grants and records authority facts',async()=>{
+  const s=await store(),call=(method:string,tail:string,body?:unknown,headers:Record<string,string>={})=>h.call(method,s.root+tail,s.owner,body,headers);
+  const before=(await h.pool.query('SELECT authorization_revision::text FROM tenants WHERE tenant_id=$1',[s.tenantId])).rows[0].authorization_revision;
+  const initial=await call('GET','/release');assert.equal(initial.status,200);assert.equal(initial.data.can_upgrade,true);
+  const key=crypto.randomUUID(),headers={'Idempotency-Key':key,'If-Match':`"${s.instance.version}"`};
+  const result=await call('POST','/upgrade',{},headers);assert.equal(result.status,200,JSON.stringify(result.data));
+  assert.equal(result.data.module_release_ref,'storefront@1.1.0');assert.equal(result.data.application_release_ref,'hosted-store@1.1.0');
+  assert.equal(result.data.version,String(BigInt(s.instance.version)+1n));assert.equal(result.data.can_upgrade,false);assert.equal(result.data.upgrade,null);
+  assert.deepEqual(result.data.capabilities,keys);assert.equal(result.response.headers.get('etag'),`"${result.data.version}"`);
+  assert.equal(result.response.headers.get('cache-control'),'private, no-store');
+  assert.deepEqual((await call('POST','/upgrade',{},headers)).data,result.data);
+  assert.equal((await call('POST','/upgrade',{}, {'Idempotency-Key':crypto.randomUUID()})).status,428);
+  assert.equal((await call('POST','/upgrade',{}, {...headers,'Idempotency-Key':crypto.randomUUID()})).status,412);
+  const current=await call('POST','/upgrade',{}, {'Idempotency-Key':crypto.randomUUID(),'If-Match':`"${result.data.version}"`});assert.equal(current.status,409);assert.equal(current.data.code,'store_upgrade_unavailable');
+  assert.equal((await h.pool.query('SELECT authorization_revision::text FROM tenants WHERE tenant_id=$1',[s.tenantId])).rows[0].authorization_revision,String(BigInt(before)+1n));
+  assert.equal((await h.pool.query("SELECT * FROM scoped_transition_journal WHERE aggregate_id=$1 AND operation='commerce.storefront.upgrade'",[s.instance.instance_id])).rowCount,1);
+  assert.equal((await h.pool.query("SELECT * FROM commerce_control_events WHERE instance_id=$1 AND kind='storefront.upgraded'",[s.instance.instance_id])).rowCount,1);
+});
+test('identity trigger rejects partial, unregistered and mixed changes and downgrades',async()=>{
+  const s=await store();
+  for(const set of ["module_release_ref='storefront@1.1.0'","application_release_ref='hosted-store@1.1.0'","module_release_ref='storefront@1.1.0',application_release_ref='hosted-store@1.1.0',status='suspended',version=version+1"])
+    await assert.rejects(h.pool.query(`UPDATE module_instances SET ${set} WHERE instance_id=$1`,[s.instance.instance_id]),{code:'23514'});
+  await h.pool.query("UPDATE module_instances SET module_release_ref='storefront@1.1.0',application_release_ref='hosted-store@1.1.0',version=version+1 WHERE instance_id=$1",[s.instance.instance_id]);
+  await assert.rejects(h.pool.query("UPDATE module_instances SET module_release_ref='storefront@1.0.0',application_release_ref='hosted-store@1.0.0',version=version+1 WHERE instance_id=$1",[s.instance.instance_id]),{code:'23514'});
+});

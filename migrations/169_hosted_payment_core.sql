@@ -84,8 +84,8 @@ BEGIN
     IF NOT EXISTS(SELECT 1 FROM module_release_upgrades u WHERE u.module_key=OLD.module_key
       AND u.from_release_ref=OLD.module_release_ref AND u.from_application_release_ref=OLD.application_release_ref
       AND u.to_release_ref=NEW.module_release_ref AND u.to_application_release_ref=NEW.application_release_ref)
-      OR (to_jsonb(NEW)-'module_release_ref'-'application_release_ref'-'version')
-        IS DISTINCT FROM (to_jsonb(OLD)-'module_release_ref'-'application_release_ref'-'version')
+      OR (to_jsonb(NEW)-'module_release_ref'-'application_release_ref'-'version'-'created_by_principal_kind')
+        IS DISTINCT FROM (to_jsonb(OLD)-'module_release_ref'-'application_release_ref'-'version'-'created_by_principal_kind')
       OR NEW.version<>OLD.version+1 THEN
       RAISE EXCEPTION 'Module release changes require a registered paired upgrade' USING ERRCODE='23514';
     END IF;
@@ -99,3 +99,35 @@ ALTER TABLE tenant_high_risk_verifications DROP CONSTRAINT tenant_high_risk_veri
   ADD CONSTRAINT tenant_high_risk_verifications_purpose_check CHECK(purpose IN
     ('tenant.ownership.propose','tenant.ownership.accept','tenant.recovery.accept',
      'commerce.provider_account.write','commerce.store_export.create'));
+
+-- Non-PII platform control facts must be available before tenant context is
+-- bound (admin admission and machine repair). Domain authorization is required.
+CREATE TABLE commerce_control_events (
+  event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(tenant_id),
+  instance_id uuid,
+  kind text NOT NULL CHECK(kind IN ('storefront.upgraded','provider_account.created','provider_service.created',
+    'provider_service.state_changed','provider_credential.rotated','provider_credential.retired','provider_credential.resealed',
+    'store_admission.admitted','store_admission.revoked')),
+  subject_id uuid NOT NULL,
+  detail jsonb NOT NULL CHECK(jsonb_typeof(detail)='object' AND octet_length(detail::text)<=1024
+    AND detail-ARRAY['purpose','profile','environment','from_state','to_state','credential_version','module_release_ref']='{}'::jsonb),
+  actor_kind text NOT NULL CHECK(actor_kind IN ('person','platform_admin','system')),
+  actor_id uuid NOT NULL,
+  occurred_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  journaled_at timestamptz CHECK(journaled_at IS NULL OR journaled_at>=occurred_at),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id)
+);
+CREATE INDEX commerce_control_events_store ON commerce_control_events(tenant_id,instance_id,occurred_at,event_id);
+CREATE INDEX commerce_control_events_unjournaled ON commerce_control_events(occurred_at,event_id) WHERE journaled_at IS NULL;
+CREATE FUNCTION preserve_commerce_control_event() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP='DELETE' OR (to_jsonb(NEW)-'journaled_at') IS DISTINCT FROM (to_jsonb(OLD)-'journaled_at')
+    OR (OLD.journaled_at IS NOT NULL AND NEW.journaled_at IS DISTINCT FROM OLD.journaled_at) THEN
+    RAISE EXCEPTION 'commerce control events are append only' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_control_event BEFORE UPDATE OR DELETE ON commerce_control_events
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_control_event();
