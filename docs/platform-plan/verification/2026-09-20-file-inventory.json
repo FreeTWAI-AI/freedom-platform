@@ -2409,8 +2409,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadApplications.tsx",
-      "bytes": 62471,
-      "sha256": "7d3d33d1ec1908ed581daf32078133b7cba306288dcf58acce0d5b3658ef87d0"
+      "bytes": 63293,
+      "sha256": "54e828a7c85cbb7b3b479ac5445d7497256483de02ee65fc97c576ad1e38b4bb"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
@@ -2839,13 +2839,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.css",
-      "bytes": 7613,
-      "sha256": "35aa715355df3a4134d5a1fd02f221aa5f6e9fa03a8f6db9876e3d9d6ee9be9d"
+      "bytes": 8347,
+      "sha256": "3de8a41fcfe7593940da9eeaa2df76f101e9f98cd3d40a8580fa7c737a5aac21"
     },
     {
       "path": "apps/portal-web/src/modules/SkillBookIntro.tsx",
-      "bytes": 12277,
-      "sha256": "6ffab6ae88295c568c4f9feb30b179b4bce29c1e954beb737f621b097a43d8cc"
+      "bytes": 12799,
+      "sha256": "9bc924589b95ef89cbde13c8083defbe459a3d819c9da36f4e25ebf340367706"
+    },
+    {
+      "path": "apps/portal-web/src/modules/SkillBookUsage.tsx",
+      "bytes": 5746,
+      "sha256": "4fb39b3866bdb3ab697f2f93f846f14c294bcc9f4962a2e927bba512ef427fcf"
     },
     {
       "path": "apps/portal-web/src/modules/SkillDiscovery.css",
@@ -3121,6 +3126,11 @@
       "path": "apps/portal-web/src/modules/showcase-drafts.ts",
       "bytes": 5577,
       "sha256": "7e34123d71aafa27eb157719f11e23c76e4b2fec9942968113fcc8c3e90c3ed6"
+    },
+    {
+      "path": "apps/portal-web/src/modules/skill-book-commerce-references.ts",
+      "bytes": 1865,
+      "sha256": "ece00bfaa323850be1c427c4aac20b7b4902dd77236a51b85b94c2c28eeca771"
     },
     {
       "path": "apps/portal-web/src/modules/skill-discovery-client.ts",
@@ -21256,6 +21266,11 @@
       "path": "tests/e2e/skill-book-upgrade.spec.ts",
       "bytes": 56321,
       "sha256": "61361fb671f484f22aa731f163583aac6d998bf086b49f20b04ec4ec52833a75"
+    },
+    {
+      "path": "tests/e2e/skill-book-usage.spec.ts",
+      "bytes": 8671,
+      "sha256": "edebc3248429e899bc569ea6f627dd8a70393ee8794b9a5413fe6900aacb577c"
     },
     {
       "path": "tests/e2e/skill-editor-guild-access.spec.ts",
