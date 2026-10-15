@@ -14,6 +14,21 @@ export function formatIsoLocal(iso: string | null | undefined): string {
   }).format(date)
 }
 
+/** Facebook-style post time: posted today reads "剛剛" / "N 分鐘前" / "N 小時前"; any other day (or a timestamp in the future) keeps the full date and time. */
+export function formatPostTime(iso: string | null | undefined, now: number = Date.now()): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  const elapsed = now - date.getTime()
+  const today = new Date(now)
+  const sameDay = date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate()
+  if (elapsed < 0 || !sameDay) return formatIsoLocal(iso)
+  const minutes = Math.floor(elapsed / 60000)
+  if (minutes < 1) return '剛剛'
+  if (minutes < 60) return `${minutes} 分鐘前`
+  return `${Math.floor(minutes / 60)} 小時前`
+}
+
 export function toLocalInput(isoOrDate: string | Date): string {
   const date = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate
   if (Number.isNaN(date.getTime())) return ''

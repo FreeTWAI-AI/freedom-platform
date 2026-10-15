@@ -2,7 +2,7 @@ import {SocialIcon,SocialTextTools,SocialRichText,SOCIAL_TOPICS,type Mention} fr
 import {Component,lazy,Suspense,useCallback, useEffect, useId, useRef, useState,useSyncExternalStore, type FormEvent,type ReactNode} from 'react';
 import {accessAwareFetch} from '../access-fetch';
 import {ApiError, type PortalClient} from '../api';
-import {formatIsoLocal} from '../format';
+import {formatIsoLocal,formatPostTime} from '../format';
 import {PLATFORM_LABELS, type SocialPlatform} from '../../../../packages/shared/share-url';
 import {MemberAvatar} from './MemberAvatar';
 import {PromotionShare} from './PromotionShare';
@@ -400,7 +400,7 @@ export function SocialZone({client, canReview = false, viewer, focusPost}: {clie
     <div className="social-grid">
       {items.map(post => <article className="card social-card" key={post.post_id} id={`social-post-${post.post_id}`} tabIndex={-1}>
         <div className="social-card-body">
-          <div className="social-post-header"><p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> {post.edited_at ? <small className="social-byline-meta"><time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time><small className="social-edited" title={formatIsoLocal(post.edited_at)}>已編輯</small></small> : <time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time>}</p>
+          <div className="social-post-header"><p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> {post.edited_at ? <small className="social-byline-meta"><time dateTime={post.created_at} title={formatIsoLocal(post.created_at)}>{formatPostTime(post.created_at)}</time><small className="social-edited" title={formatIsoLocal(post.edited_at)}>已編輯</small></small> : <time dateTime={post.created_at} title={formatIsoLocal(post.created_at)}>{formatPostTime(post.created_at)}</time>}</p>
             {(post.mine||canHide)&&<details className="social-post-menu" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}}>
               <summary aria-label="貼文選項">⋯</summary><div className="social-post-menu-actions">
                 {post.mine && post.kind !== 'note' && <label className="btn btn-ghost social-file">換縮圖<input aria-label="更換縮圖" type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} onChange={event=>{const next=event.target.files?.[0];if(next)void uploadLinkThumb(post,next);event.target.value='';}}/></label>}
