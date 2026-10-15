@@ -66,6 +66,34 @@ test('preview title prefers og:title and resolves a relative og:image', () => {
   assert.equal(previewImageUrl('<meta name="twitter:image" content="https://127.0.0.1/x.png">', 'https://cdn.example/p'), null);
 });
 
+test('legal unquoted meta attributes retain OG title and relative image metadata', () => {
+  const page = '<title>Fallback</title><META CONTENT=Correct PROPERTY=og:title><meta content=/images/a.png name=og:image>';
+  assert.equal(previewTitle(page), 'Correct');
+  assert.equal(previewImageUrl(page, 'https://cdn.example/posts/1'), 'https://cdn.example/images/a.png');
+});
+
+test('greater-than signs inside either quote style do not terminate metadata', () => {
+  const page = `<title>Fallback</title><meta data-note='x > y' content="A > B &amp; C" property="og:title"><meta data-note="x > y" name='og:image' content='/images/a.png'>`;
+  assert.equal(previewTitle(page), 'A B & C');
+  assert.equal(previewImageUrl(page, 'https://cdn.example/posts/1'), 'https://cdn.example/images/a.png');
+});
+
+test('legal unquoted metadata reaches thumbnail normalization without relaxing image URL admission', async () => {
+  const pageUrl = 'https://cdn.example/posts/unquoted';
+  const fetcher: PreviewFetch = async input => input === pageUrl
+    ? htmlResponse('<title>Fallback</title><meta property=og:title content="正確預覽"><meta property=og:image content=/images/a.png>')
+    : input === 'https://cdn.example/images/a.png' ? imageResponse(PNG) : new Response(null, {status: 404});
+  const result = await previewLink(pageUrl, fetcher);
+  assert.equal(result.title, '正確預覽');
+  assert.equal(result.source, 'page');
+  assert.ok(result.image);
+  const image = await sharp(result.image).metadata();
+  assert.equal(image.format, 'webp');
+  assert.equal(image.width, 640);
+  assert.equal(image.height, 360);
+  assert.equal(previewImageUrl('<meta property=og:image content=https://127.0.0.1/private>', pageUrl), null);
+});
+
 test('preview titles contain no markup after entity decoding', () => {
   const script = previewTitle('<title>&lt;script&gt;alert(1)&lt;/script&gt; 好物分享</title>');
   assert.ok(script && !script.includes('<') && !script.includes('>') && script.includes('好物分享'), script ?? 'null');
