@@ -12864,13 +12864,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-checkout.schema.json",
-      "bytes": 45725,
-      "sha256": "0054e79b5d10f790c48c25b233e2ebb873d7447278fd0d5217a7d133b681b1ab"
+      "bytes": 45753,
+      "sha256": "f5e397ba70f317e37542f1dee91ec132881296859440e15c6fca35da4e851c1e"
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-checkout.ts",
-      "bytes": 6675,
-      "sha256": "7ac7ddaa8c485023856cb7bcf5e1b46ff3664e0a3600a8f46ee1c6026691e933"
+      "bytes": 6690,
+      "sha256": "9e0d0d157f3ef56708e337f4ad4aa138545701bee01c65eaa3bea5ad1221de17"
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-distribution.schema.json",
@@ -22504,8 +22504,8 @@
     },
     {
       "path": "tests/runtime/hosted-checkout-contracts.test.ts",
-      "bytes": 1697,
-      "sha256": "724f073aad5b1ab64cf8770edeab0d54a2d0e06d66b5821442665e2a97204631"
+      "bytes": 1768,
+      "sha256": "69a2486611a61f2ee97d341d02cc9e9ba5baa77089d50b7880de1bbdfa08a7fc"
     },
     {
       "path": "tests/runtime/hosted-checkout-core.test.ts",
