@@ -6,12 +6,12 @@ import {mapPersonPrincipal} from '../../../packages/resource-scopes/index.js';
 import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {resolvePublicStorePage} from '../hosted/public.js';
 import {lockStore} from './authority.js';
-import {freezeCheckout,hashKey,defaultAdmission,type CheckoutPorts,type CheckoutInput} from './terms.js';
+import {freezeCheckout,hashKey,publicCheckoutTerms,validateBuyerJSON,defaultAdmission,type CheckoutPorts,type CheckoutInput} from './terms.js';
 import {placeCheckoutOrder} from './orders.js';
 import {cartQuote} from './cart-quote.js';
 import {publicOrder} from './public-order.js';
 import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,createAccessLink,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
-import {commerceRateLimitInTransaction,lockOpenOrderBudgets,enforceOpenOrderLimits} from './limits.js';
+import {chargeCommerceBudgets,commerceRateLimitInTransaction,lockOpenOrderBudgets,enforceOpenOrderLimits} from './limits.js';
 import type {CommerceSettings} from '../operations/runtime-settings.js';
 import type {CommerceEmailPort} from '../operations/notifications/email-port.js';
 export interface HostedCheckoutOptions extends CheckoutPorts {settings?:CommerceSettings;email?:CommerceEmailPort;origin:string;environment?:'sandbox'|'live'}
@@ -35,9 +35,10 @@ async function member(q:PoolClient,token:string|undefined,create=false) {
   const sessionHash=hashKey(token);
   const row=(await q.query<{user_id:string;principal_id:string|null}>(`SELECT u.user_id,p.principal_id FROM sessions s JOIN users u USING(user_id)
     LEFT JOIN principals p ON p.user_ref=u.user_id AND p.kind='person' AND p.status='active'
-    WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND u.active FOR SHARE OF u,s`,[sessionHash])).rows[0];
+    WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND u.active ${create?'FOR SHARE OF u,s':''}`,[sessionHash])).rows[0];
   if(!row)return null;
-  const principalId=row.principal_id??(create?(await mapPersonPrincipal(q,row.user_id)).principal_id:null);
+  const mapped=!row.principal_id&&create?await mapPersonPrincipal(q,row.user_id):null;
+  const principalId=row.principal_id??(mapped?.status==='active'&&mapped.kind==='person'?mapped.principal_id:null);
   return {principalId,sessionHash,userId:row.user_id};
 }
 async function currentMember(q:PoolClient,identity:Awaited<ReturnType<typeof member>>) {
@@ -45,20 +46,18 @@ async function currentMember(q:PoolClient,identity:Awaited<ReturnType<typeof mem
 }
 export async function quotePublicCart(pool:Pool,slug:string,input:wire.CartQuoteInput,access:BrowserAccess,options:HostedCheckoutOptions) {
   checkoutGate(options);
-  // The quote snapshot itself is READ ONLY. Budget rows live in a separate
-  // enclosing transaction and commit only after a successful snapshot/parse.
-  return isolatedTransaction(pool,async budget=>{
-    return isolatedTransaction(pool,async q=>{
-      await q.query('SET TRANSACTION READ ONLY');
-      const store=await resolve(q,slug,options,true);
-      await commerceRateLimitInTransaction(budget,'cartNetwork',access.network);
-      await commerceRateLimitInTransaction(budget,'cartStore',store.instanceId);
-      return cartQuote(q,store,input,options);
-    });
+  if(input.delivery!==undefined)validateBuyerJSON(input.delivery,8192);
+  await chargeCommerceBudgets(pool,access.network,{network:'cartNetwork',store:'cartStore',slug});
+  return isolatedTransaction(pool,async q=>{
+    await q.query('SET TRANSACTION READ ONLY');
+    const store=await resolve(q,slug,options,true);
+    return cartQuote(q,store,input,options);
   });
 }
+
 export async function createPublicCheckout(pool:Pool,slug:string,input:CheckoutInput,key:string,access:BrowserAccess,options:HostedCheckoutOptions) {
   checkoutGate(options);
+  await chargeCommerceBudgets(pool,access.network,{network:'checkoutNetwork',store:'checkoutStore',slug});
   return isolatedTransaction(pool,async q=>{
     const identity=await member(q,access.sessionToken,true),store=await resolve(q,slug,options,true);
     // Serialize the replay lookup with the core's existing lifecycle/community
@@ -66,15 +65,17 @@ export async function createPublicCheckout(pool:Pool,slug:string,input:CheckoutI
     await lockStore(q,store,input.lines.map(l=>l.sku));
     const replay=(await q.query('SELECT 1 FROM commerce_checkout_idempotency_keys WHERE instance_id=$1 AND idempotency_key_sha256=$2',[store.instanceId,hashKey(key)])).rowCount===1;
     const saved=await freezeCheckout(q,store,{...input,idempotencyKey:key,...(identity?.principalId?{memberPrincipalId:identity.principalId}:{})},options);
-    if(!replay){await commerceRateLimitInTransaction(q,'checkoutNetwork',access.network);await commerceRateLimitInTransaction(q,'checkoutStore',store.instanceId);}
+    if(replay)requireCondition((await q.query(`SELECT 1 FROM commerce_checkouts ch WHERE ch.checkout_id=$1 AND ch.expires_at>clock_timestamp()
+      AND NOT EXISTS(SELECT 1 FROM commerce_checkout_orders co WHERE co.checkout_id=ch.checkout_id)`,[saved.checkout_id])).rowCount===1,409,'checkout_expired','結帳已到期。');
     const ensured=await ensureDevice(q,access.deviceToken,options.origin);
     await grantDevice(q,ensured.device.device_id,{tenant_id:store.tenantId,instance_id:store.instanceId,checkout_id:saved.checkout_id});
     await assertDeviceLive(q,ensured.device.device_id);await currentMember(q,identity);
-    return {created:!replay,cookie:ensured.cookie,value:wire.CheckoutResponseSchema.parse({checkout_ref:saved.checkout_id,terms:saved.terms,terms_sha256:saved.terms_sha256,expires_at:saved.expires_at.toISOString()})};
+    return {created:!replay,cookie:ensured.cookie,value:wire.CheckoutResponseSchema.parse({checkout_ref:saved.checkout_id,terms:publicCheckoutTerms(saved.terms),terms_sha256:saved.terms_sha256,expires_at:saved.expires_at.toISOString()})};
   });
 }
 export async function placePublicOrder(pool:Pool,slug:string,checkoutRef:string,input:{terms_sha256:string;client_order_id:string},access:BrowserAccess,options:HostedCheckoutOptions) {
   checkoutGate(options);
+  await chargeCommerceBudgets(pool,access.network,{network:'placementNetwork',store:'placementStore',slug});
   return isolatedTransaction(pool,async q=>{
     const identity=await member(q,access.sessionToken,true),store=await resolve(q,slug,options,true,true);
     if(!OpaqueId.safeParse(checkoutRef).success)orderAccessNotFound();
@@ -83,7 +84,7 @@ export async function placePublicOrder(pool:Pool,slug:string,checkoutRef:string,
     const customer=(await q.query<{email_normalized:string}>(`SELECT c.email_normalized FROM commerce_checkouts ch JOIN commerce_customers c USING(customer_id)
       WHERE ch.checkout_id=$1 AND ch.tenant_id=$2 AND ch.instance_id=$3 AND c.redacted_at IS NULL`,[checkoutRef,store.tenantId,store.instanceId])).rows[0];
     if(!customer)orderAccessNotFound();
-    await lockOpenOrderBudgets(q,device!.device_id,customer.email_normalized);
+    await lockOpenOrderBudgets(q,device!.device_id,customer.email_normalized,store.instanceId);
     const frozen=(await q.query('SELECT terms FROM commerce_checkouts WHERE checkout_id=$1 AND tenant_id=$2 AND instance_id=$3',[checkoutRef,store.tenantId,store.instanceId])).rows[0];
     if(!frozen)orderAccessNotFound();
     await lockStore(q,store,frozen.terms.items.map((l:{sku:string})=>l.sku));
@@ -92,8 +93,7 @@ export async function placePublicOrder(pool:Pool,slug:string,checkoutRef:string,
     const saved=await placeCheckoutOrder(q,store,{checkoutId:checkoutRef,termsSha256:input.terms_sha256,clientOrderId:input.client_order_id,
       buyerPrincipalId:identity?.principalId??null,environment:options.environment??'sandbox'},options);
     if(!replay){
-      await enforceOpenOrderLimits(q,device!.device_id,customer.email_normalized,store.tenantId);
-      await commerceRateLimitInTransaction(q,'placementNetwork',access.network);await commerceRateLimitInTransaction(q,'placementStore',store.instanceId);
+      await enforceOpenOrderLimits(q,device!.device_id,customer.email_normalized,store,saved.order_id);
       await commerceRateLimitInTransaction(q,'newOrderNetwork',access.network);
     }
     // Access may have expired while waiting on inventory/policy locks.
@@ -120,10 +120,10 @@ export async function readPublicOrder(pool:Pool,slug:string,orderRef:string,acce
 }
 export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,token:string,access:BrowserAccess,options:HostedCheckoutOptions) {
   quarantineGate(options);
+  await chargeCommerceBudgets(pool,access.network,{network:'redemptionNetwork'});
   return isolatedTransaction(pool,async q=>{
     const store=await resolve(q,slug,options,false,true);
     if(!OpaqueId.safeParse(orderRef).success)orderAccessNotFound();
-    await commerceRateLimitInTransaction(q,'redemptionNetwork',access.network);
     const redeemed=await redeemAccessLink(q,{tenant_id:store.tenantId,instance_id:store.instanceId,order_id:orderRef},token);
     const ensured=await ensureDevice(q,access.deviceToken,options.origin);
     await grantDevice(q,ensured.device.device_id,{tenant_id:store.tenantId,instance_id:store.instanceId,checkout_id:redeemed.checkout_id},orderRef);

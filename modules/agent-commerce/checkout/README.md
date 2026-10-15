@@ -80,7 +80,8 @@ append-only `commerce_checkout_idempotency_keys` table retains each command's
 keyed request digest and original non-PII response, so revising a draft cannot erase an
 earlier key or silently change its replay result. Both freeze `request_sha256`
 columns contain HMAC-SHA256 keyed by the plaintext idempotency key (UTF-8) over
-`canonicalJSON({input, checkout_id, member_principal_id})`, in lowercase hex. The
+`canonicalJSON({input, checkout_id})`, in lowercase hex. The
+Checkout replay ignores member identity and preserves the first customer member link. The
 plaintext key is never stored; the retained key identifier is an independent
 SHA-256 hash. Checkout identity and the
 24-hour deadline remain fixed across revisions. Changing contact email resolves
@@ -176,16 +177,21 @@ off, the host is quarantined or store admission is withdrawn.
 | `terms_changed`, `checkout_expired` | 409 | Recompute or checkout deadline prevents placement |
 | `stock_unavailable` | 409 | Per-SKU available quantities accompany the error |
 | `unresolved_order` | 409 | Existing unpaid order reference accompanies the error |
-| `too_many_open_orders` | 429 | Device or normalized email already has three open orders |
+| `too_many_open_orders` | 429 | Device or normalized email has three open orders at this store; database-clock Retry-After |
 | `commerce_rate_limited` | 429 | Bucket exhausted; `Retry-After` uses the database clock |
 | `order_access_email_unavailable` | 409 | No email adapter; rejected before SQL access |
 | `validation_failed`, `invalid_checkout_json`, `checkout_contact_too_large` | 422 | Invalid structural request or bounded JSON |
+| `internal_error` | 500 | Internal codes including `reservation_inconsistent`, `version_overflow` and `tenant_context_unavailable`, response validation and unexpected errors; fixed detail and code-only log |
 | `shipping_not_configured`, `shipping_unavailable` | 409 / 422 | No current structural shipping quote |
 
 The other closed contract error codes cover unavailable publication/supply,
 contact, store readiness, invalid totals and the platform request gate. Delivery
 and invoice contents are structural only: objects, UTF-8 byte limits, depth at
-most eight and at most 2048 nodes each. Required consents are an exact set from
+most eight and at most 2048 nodes each. The quote's optional delivery uses the
+same walker and byte limit. All input text must be well-formed Unicode without
+U+0000, including SKU, contact, B10, redemption and nested buyer JSON strings/keys.
+Delivery/invoice reject `aggregate_version` at every depth with
+`invalid_checkout_json`, because `wireVersionResponses` rewrites that reserved key. Required consents are an exact set from
 the injected policy port, empty by default; placement recomputes them too.
 
 The browser cookie is `__Host-freedom_shop` on HTTPS, `freedom_local_shop` on HTTP:
@@ -194,6 +200,22 @@ HttpOnly, SameSite=Lax, Path=/, Secure on HTTPS, no Domain, remaining absolute
 A device spans stores; its grants are tenant-scoped and immutable except one-way
 revocation and link redemption. Checkout grants cover that checkout; redeemed
 links grant only one order. Session membership alone never authorizes placement.
+Checkout replay grants access only before its absolute expiry and before any
+order exists; otherwise it returns `checkout_expired` without a device, grant or
+cookie. Its fingerprint ignores login/logout/member switches and keeps the first
+customer member link. Checkout responses, including replays, allowlist only the
+public terms fields: revision, currency, priced items, discounts, group references
+and shipping amounts, tax state, totals, consents and payment methods. They omit
+internal publication, supplier, selection, binding and contact digests. The returned
+`terms_sha256` still hashes the full retained terms and placement checks it.
+
+A quote classifies supplier failures per line as `unavailable`; seller liveness
+still fails the whole request and the checkout/placement lock path stays strict.
+Merchandise totals sum only `ok` and `revision_changed` lines; total is null when
+shipping is unquoted or any line is insufficient/unavailable.
+
+Only active person principals are recorded on create; disabled principals are
+guests. Order reads take no session/user row locks and make no writes.
 The first placement records its optional member buyer; retries never link a new
 buyer. Reads neither refresh devices nor write grant/session activity.
 
@@ -210,12 +232,21 @@ which is never installed by Worker, Node or E2E hosts.
 `COMMERCE_LIMITS` is the single constants table: cart network 60/min and store
 600/min; checkout network 30/10 min and store 600/10 min; placement network
 10/10 min and store 300/10 min; three open unpaid unexpired orders per device and
-normalized email across stores; three new orders per network/30 min; B10 network
+normalized email at the same store; three new orders per network/30 min; B10 network
 10/hour, hashed normalized email 3/hour and global 300/hour; redemption network
 30/10 min. Commerce buckets share `auth_rate_limits` under a `commerce:` prefix.
-New effects alone count; replay is free and failed commands roll back counters.
-The cart snapshot is a READ ONLY transaction with no settlement or holds; its
-separate enclosing budget transaction commits only on a successful quote.
+Every attempt that passes the limiter is counted, including failures, unknown
+slugs, conflicts and replays. Attempt budgets commit in a short transaction before
+the command; limiter rejections roll that budget transaction back. Store buckets
+use the public slug resolution without admission or locks; unknown slugs count
+only the network. The cart then runs its separate READ ONLY transaction with no
+settlement, holds or bucket locks. Checkout and placement similarly start after
+their attempt budgets commit; failed/expired/used-token redemptions remain counted.
+B10 still commits budgets with its lookup and answers 202 on exhaustion.
+Only the new-order network approximation stays in the placement transaction,
+counts new orders and rolls back on failure. Open-order counts and advisory locks
+are scoped to the store tenant and instance; their 429 includes Retry-After from
+the database clock until the earliest counted prior open order expires (at least 1).
 
 Host checkout and quarantine settings default off. Checkout currently requires
 the launchpad setting. No production store-admission, shipping, policy or email
@@ -223,6 +254,12 @@ port is installed. The scheduler sweeps up to 200 due holds before GitHub sync
 whenever quarantine is off, including when checkout creation is disabled.
 `commerce.hosted-checkout.v1` is a mandatory write floor from planned or retained
 schema168, independently of feature flags. It grants no payment or deploy authority.
+
+Known residuals: someone who knows a buyer's email can still fill that buyer's
+three open-order slots at one store. B10 email buckets use the same unsalted hash
+as the platform auth limiter; the database already holds plaintext email in the
+customer row. A valid cookie makes reads of a real order ref in that store take
+two more queries than a random ref.
 
 ## Deliberately outside this slice
 

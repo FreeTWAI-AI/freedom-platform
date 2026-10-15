@@ -2,6 +2,7 @@
 import {createHash,createHmac,randomBytes,randomUUID} from 'node:crypto';
 import type {PoolClient} from 'pg';
 import {z} from 'zod';
+import {isCheckoutText} from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import {requireCondition} from '../../../packages/shared/problem.js';
 import {publicProjection} from '../hosted/publish.js';
 import {sharedLines} from '../hosted/shared-quotes.js';
@@ -10,7 +11,7 @@ import {bindStore,lockStore,type CheckoutStore,type StoreContext} from './author
 /** PostgreSQL rejects NUL and UTF-8 encoding replaces lone surrogates. Validate
  * raw keys too, before normalization/unknown-field stripping can hide them. */
 function checkoutString(value:string) {
-  requireCondition(value.isWellFormed()&&!value.includes('\u0000'),422,'invalid_checkout_json','結帳資料無效。');
+  requireCondition(isCheckoutText(value),422,'invalid_checkout_json','結帳資料無效。');
 }
 export function validateCheckoutStrings(value:unknown):void {
   const pending=[value];
@@ -56,18 +57,25 @@ export function validateShippingQuote(raw:unknown,bindings:readonly {supplier_sh
     && [...suppliers].every(s=>shipping.groups.some(g=>g.supplier_shop_id===s)),422,'shipping_unavailable','商品無法配送。');
   return shipping;
 }
+/** Quote delivery and checkout delivery/invoice share exactly the same walker. */
+export function validateBuyerJSON(value:unknown,maxBytes:number) {
+  const pending:{value:unknown;depth:number}[]=[{value,depth:0}];let nodes=0;
+  while(pending.length) {
+    const next=pending.pop()!;
+    requireCondition(++nodes<=2048&&next.depth<=8,422,'invalid_checkout_json','結帳資料過深或過多。');
+    if(next.value!==null&&typeof next.value==='object')for(const [key,child] of Object.entries(next.value)) {
+      // wireVersionResponses rewrites this key at every depth in JSON replies.
+      requireCondition(key!=='aggregate_version',422,'invalid_checkout_json','結帳資料無效。');
+      checkoutString(key);pending.push({value:child,depth:next.depth+1});
+    }
+  }
+  requireCondition(Buffer.byteLength(canonicalJSON(value),'utf8')<=maxBytes,422,'checkout_contact_too_large','配送或發票資料過大。');
+}
 export function parseCheckoutInput(raw:CheckoutInput) {
   validateCheckoutStrings(raw);
   const input=inputSchema.parse(raw);
-  for(const value of [input.delivery,input.invoice]) {
-    const pending:{value:unknown;depth:number}[]=[{value,depth:0}];let nodes=0;
-    while(pending.length) {
-      const next=pending.pop()!;
-      requireCondition(++nodes<=2048 && next.depth<=8,422,'invalid_checkout_json','結帳資料過深或過多。');
-      if(next.value!==null&&typeof next.value==='object')for(const child of Object.values(next.value))pending.push({value:child,depth:next.depth+1});
-    }
-  }
-  requireCondition(Buffer.byteLength(canonicalJSON(input.delivery),'utf8')<=8192 && (input.invoice==null||Buffer.byteLength(canonicalJSON(input.invoice),'utf8')<=4096),422,'checkout_contact_too_large','配送或發票資料過大。');
+  validateBuyerJSON(input.delivery,8192);
+  if(input.invoice!=null)validateBuyerJSON(input.invoice,4096);
   return {...input,invoice:input.invoice??null};
 }
 export const contactHash=(input:ReturnType<typeof parseCheckoutInput>,salt:string)=>hashJSON({contact:input.contact,delivery:input.delivery,invoice:input.invoice,salt});
@@ -97,6 +105,14 @@ export async function checkoutTerms(q:PoolClient,context:StoreContext,input:Retu
   return {terms,terms_sha256:hashJSON(terms)};
 }
 export type CheckoutTerms=Awaited<ReturnType<typeof checkoutTerms>>['terms'];
+/** Explicit allowlist; the retained terms and their hash remain untouched. */
+export function publicCheckoutTerms(terms:CheckoutTerms) {
+  return {publication_revision:terms.publication_revision,currency:terms.currency,
+    items:terms.items.map(({sku,title,quantity,unit_price_minor,line_total_minor})=>({sku,title,quantity,unit_price_minor,line_total_minor})),
+    merchandise_total_minor:terms.merchandise_total_minor,discount_total_minor:terms.discount_total_minor,discounts:terms.discounts,
+    shipping:{groups:terms.shipping.groups.map(({group_ref,amount_minor})=>({group_ref,amount_minor}))},
+    shipping_total_minor:terms.shipping_total_minor,tax_state:terms.tax_state,total_minor:terms.total_minor,consents:terms.consents,payment_methods:terms.payment_methods};
+}
 export async function computeCheckoutTerms(q:PoolClient,store:CheckoutStore,raw:CheckoutInput,ports:CheckoutPorts={}) {
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku));
   return checkoutTerms(q,context,input,ports,randomBytes(16).toString('hex'));
@@ -125,7 +141,7 @@ interface FrozenCheckout {checkout_id:string;terms:CheckoutTerms;terms_sha256:st
 export async function freezeCheckout(q:PoolClient,store:CheckoutStore,raw:CheckoutInput & {idempotencyKey:string;checkoutId?:string;memberPrincipalId?:string},ports:CheckoutPorts={}) {
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku)),p=context.profile;
   requireCondition(/^[A-Za-z0-9_-]{22,128}$/.test(raw.idempotencyKey),422,'invalid_idempotency_key','冪等鍵無效。');
-  const key=hashKey(raw.idempotencyKey),request=createHmac('sha256',Buffer.from(raw.idempotencyKey,'utf8')).update(canonicalJSON({input,checkout_id:raw.checkoutId??null,member_principal_id:raw.memberPrincipalId??null}),'utf8').digest('hex');
+  const key=hashKey(raw.idempotencyKey),request=createHmac('sha256',Buffer.from(raw.idempotencyKey,'utf8')).update(canonicalJSON({input,checkout_id:raw.checkoutId??null}),'utf8').digest('hex');
   const prior=(await q.query<{request_sha256:string;response:FrozenCheckout}>(`SELECT request_sha256,response FROM commerce_checkout_idempotency_keys WHERE instance_id=$1 AND idempotency_key_sha256=$2`,[p.instance_id,key])).rows[0];
   if(prior){requireCondition(prior.request_sha256===request,409,'checkout_idempotency_conflict','冪等鍵已用於其他內容。');return {...prior.response,expires_at:new Date(prior.response.expires_at)};}
   // Customer creation runs under the already held lifecycle/community locks.

@@ -21,7 +21,8 @@
               "sku": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "quantity": {
                 "type": "integer",
@@ -54,7 +55,8 @@
         "delivery": {
           "type": "object",
           "propertyNames": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
           },
           "additionalProperties": {}
         }
@@ -91,7 +93,8 @@
               "sku": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "title": {
                 "type": [
@@ -302,7 +305,8 @@
               "sku": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "quantity": {
                 "type": "integer",
@@ -338,17 +342,20 @@
             "name": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 120
+              "maxLength": 120,
+              "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
             },
             "email": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 254
+              "maxLength": 254,
+              "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
             },
             "phone": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 40
+              "maxLength": 40,
+              "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
             }
           },
           "required": [
@@ -361,7 +368,8 @@
         "delivery": {
           "type": "object",
           "propertyNames": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
           },
           "additionalProperties": {}
         },
@@ -370,7 +378,8 @@
             {
               "type": "object",
               "propertyNames": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "additionalProperties": {}
             },
@@ -425,20 +434,10 @@
         "terms": {
           "type": "object",
           "properties": {
-            "profile": {
-              "type": "string",
-              "const": "freedom.checkout-terms/v1"
-            },
             "publication_revision": {
               "type": "string",
               "maxLength": 19,
               "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
-            },
-            "publication_id": {
-              "type": "string",
-              "minLength": 36,
-              "maxLength": 36,
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
             },
             "currency": {
               "type": "string",
@@ -446,123 +445,6 @@
                 "TWD",
                 "USD"
               ]
-            },
-            "bindings": {
-              "minItems": 1,
-              "maxItems": 50,
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "selection_id": {
-                    "type": "string",
-                    "minLength": 36,
-                    "maxLength": 36,
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  },
-                  "item_id": {
-                    "type": "string",
-                    "minLength": 36,
-                    "maxLength": 36,
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  },
-                  "version": {
-                    "type": "string",
-                    "maxLength": 19,
-                    "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
-                  },
-                  "sku": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 32
-                  },
-                  "quantity": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 99
-                  },
-                  "supplier_shop_id": {
-                    "type": "string",
-                    "minLength": 36,
-                    "maxLength": 36,
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  },
-                  "supplier_instance_id": {
-                    "type": "string",
-                    "minLength": 36,
-                    "maxLength": 36,
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  },
-                  "offer_id": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "minLength": 36,
-                        "maxLength": 36,
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "offer_sha256": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "acceptance_id": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "minLength": 36,
-                        "maxLength": 36,
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "listing_sha256": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "unit_price_minor": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
-                  }
-                },
-                "required": [
-                  "selection_id",
-                  "item_id",
-                  "version",
-                  "sku",
-                  "quantity",
-                  "supplier_shop_id",
-                  "supplier_instance_id",
-                  "offer_id",
-                  "offer_sha256",
-                  "acceptance_id",
-                  "listing_sha256",
-                  "unit_price_minor"
-                ],
-                "additionalProperties": false
-              }
             },
             "items": {
               "minItems": 1,
@@ -574,7 +456,8 @@
                   "sku": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                   },
                   "title": {
                     "type": "string",
@@ -595,17 +478,6 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
-                  },
-                  "offer_sha256": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
                   }
                 },
                 "required": [
@@ -613,8 +485,7 @@
                   "title",
                   "quantity",
                   "unit_price_minor",
-                  "line_total_minor",
-                  "offer_sha256"
+                  "line_total_minor"
                 ],
                 "additionalProperties": false
               }
@@ -648,18 +519,8 @@
                       "group_ref": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 80
-                      },
-                      "supplier_shop_id": {
-                        "type": "string",
-                        "minLength": 36,
-                        "maxLength": 36,
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                      },
-                      "method_ref": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 80
+                        "maxLength": 80,
+                        "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                       },
                       "amount_minor": {
                         "type": "integer",
@@ -669,8 +530,6 @@
                     },
                     "required": [
                       "group_ref",
-                      "supplier_shop_id",
-                      "method_ref",
                       "amount_minor"
                     ],
                     "additionalProperties": false
@@ -728,18 +587,11 @@
                 "type": "string",
                 "const": "immediate_card"
               }
-            },
-            "contact_sha256": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
             }
           },
           "required": [
-            "profile",
             "publication_revision",
-            "publication_id",
             "currency",
-            "bindings",
             "items",
             "merchandise_total_minor",
             "discount_total_minor",
@@ -749,8 +601,7 @@
             "tax_state",
             "total_minor",
             "consents",
-            "payment_methods",
-            "contact_sha256"
+            "payment_methods"
           ],
           "additionalProperties": false
         },
@@ -854,7 +705,8 @@
                   "enum": [
                     "buyer_cancelled",
                     "seller_cancelled",
-                    "payment_not_completed"
+                    "payment_not_completed",
+                    "paid_cancelled"
                   ]
                 },
                 {
@@ -879,7 +731,8 @@
                   "sku": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                   },
                   "title": {
                     "type": "string",
@@ -967,17 +820,20 @@
                     "name": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 120
+                      "maxLength": 120,
+                      "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                     },
                     "email": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 254
+                      "maxLength": 254,
+                      "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                     },
                     "phone": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 40
+                      "maxLength": 40,
+                      "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                     }
                   },
                   "required": [
@@ -997,7 +853,8 @@
                 {
                   "type": "object",
                   "propertyNames": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                   },
                   "additionalProperties": {}
                 },
@@ -1011,7 +868,8 @@
                 {
                   "type": "object",
                   "propertyNames": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                   },
                   "additionalProperties": {}
                 },
@@ -1116,7 +974,8 @@
               "enum": [
                 "buyer_cancelled",
                 "seller_cancelled",
-                "payment_not_completed"
+                "payment_not_completed",
+                "paid_cancelled"
               ]
             },
             {
@@ -1141,7 +1000,8 @@
               "sku": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "title": {
                 "type": "string",
@@ -1229,17 +1089,20 @@
                 "name": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 120
+                  "maxLength": 120,
+                  "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                 },
                 "email": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 254
+                  "maxLength": 254,
+                  "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                 },
                 "phone": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 40
+                  "maxLength": 40,
+                  "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
                 }
               },
               "required": [
@@ -1259,7 +1122,8 @@
             {
               "type": "object",
               "propertyNames": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "additionalProperties": {}
             },
@@ -1273,7 +1137,8 @@
             {
               "type": "object",
               "propertyNames": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "additionalProperties": {}
             },
@@ -1315,7 +1180,8 @@
       "properties": {
         "token": {
           "type": "string",
-          "maxLength": 256
+          "maxLength": 256,
+          "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
         }
       },
       "required": [
@@ -1330,11 +1196,13 @@
         "email": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 512
+          "maxLength": 512,
+          "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
         },
         "display_number": {
           "type": "string",
-          "maxLength": 80
+          "maxLength": 80,
+          "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
         }
       },
       "required": [
@@ -1396,6 +1264,7 @@
             "publication_changed",
             "display_number_unavailable",
             "credential_kind_rejected",
+            "internal_error",
             "invalid_json",
             "origin_rejected",
             "host_rejected",
@@ -1414,7 +1283,8 @@
               "sku": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
               },
               "available": {
                 "type": "integer",

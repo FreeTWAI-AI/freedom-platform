@@ -1,5 +1,7 @@
-import type {PoolClient} from 'pg';
+import type {Pool,PoolClient} from 'pg';
 import {Problem} from '../../../packages/shared/problem.js';
+import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
+import {resolvePublicStorePage} from '../hosted/public.js';
 import {bindStore} from './authority.js';
 import {confirmedPaymentSQL} from './confirmed-payment.js';
 import {hashKey} from './terms.js';
@@ -16,7 +18,8 @@ export const COMMERCE_LIMITS={
 export type CommerceBucket=Exclude<keyof typeof COMMERCE_LIMITS,'openOrdersDevice'|'openOrdersEmail'>;
 export async function commerceRateLimitInTransaction(q:PoolClient,name:CommerceBucket,key:string) {
   const rule=COMMERCE_LIMITS[name],bucket=`commerce:${name}:${hashKey(key)}`;
-  await q.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),0) ON CONFLICT DO NOTHING',[bucket]);
+  // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
+  await q.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),0) ON CONFLICT(bucket) DO UPDATE SET bucket=excluded.bucket',[bucket]);
   await q.query('SELECT bucket FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE',[bucket]);
   const row=(await q.query<{allowed:boolean;remaining:number}>(`WITH decision AS MATERIALIZED (
     SELECT bucket,window_start+make_interval(secs=>$2)<=clock_timestamp() AS expired,
@@ -30,27 +33,34 @@ export async function commerceRateLimitInTransaction(q:PoolClient,name:CommerceB
   if(!row.allowed)throw new Problem(429,'commerce_rate_limited','請稍後再試。',row.remaining);
   return row.remaining;
 }
-/** Cross-store limits acquire hashed device/email locks before lifecycle locks.
- * Counts remain SQL-derived from the canonical grants and customers under each
- * exact stored tenant context, without a definer or another PII copy. */
-export async function lockOpenOrderBudgets(q:PoolClient,deviceId:string,email:string) {
-  for(const key of [`device/${deviceId}`,`email/${hashKey(email)}`].sort())await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce:open:${key}`]);
+/** Commit attempt budgets before starting the command; rejected budgets roll back together.
+ * Store resolution is a plain public read, without admission or lifecycle locks. */
+export async function chargeCommerceBudgets(pool:Pool,network:string,charges:{network:CommerceBucket;store?:CommerceBucket;slug?:string}) {
+  await isolatedTransaction(pool,async q=>{
+    await commerceRateLimitInTransaction(q,charges.network,network);
+    if(charges.store&&charges.slug!==undefined) {
+      const store=await resolvePublicStorePage(q,charges.slug);
+      if(store)await commerceRateLimitInTransaction(q,charges.store,store.instanceId);
+    }
+  });
 }
-export async function enforceOpenOrderLimits(q:PoolClient,deviceId:string,email:string,returnTenant:string) {
-  const tenants=(await q.query<{tenant_id:string}>(`SELECT DISTINCT co.tenant_id FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
-    WHERE co.lifecycle_state='open' AND o.expires_at>clock_timestamp() AND NOT ${confirmedPaymentSQL('co.order_id')}`)).rows;
-  let devices=0,emails=0;
-  for(const tenant of tenants) {
-    await bindStore(q,tenant.tenant_id);
-    const row=(await q.query<{devices:number;emails:number}>(`SELECT
-      count(*) FILTER(WHERE EXISTS(SELECT 1 FROM commerce_order_access_grants g JOIN commerce_access_devices d USING(device_id)
+/** Store-local device/email locks precede lifecycle locks. */
+export async function lockOpenOrderBudgets(q:PoolClient,deviceId:string,email:string,instanceId:string) {
+  for(const key of [`device/${deviceId}`,`email/${hashKey(email)}`].sort())await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce:open:${instanceId}:${key}`]);
+}
+export async function enforceOpenOrderLimits(q:PoolClient,deviceId:string,email:string,store:{tenantId:string;instanceId:string},placedOrderId:string) {
+  await bindStore(q,store.tenantId);
+  const row=(await q.query<{devices:number;emails:number;retry_after:number}>(`WITH decision AS MATERIALIZED (SELECT clock_timestamp() AS t), counted AS MATERIALIZED (
+    SELECT o.order_id,o.expires_at,
+      EXISTS(SELECT 1 FROM commerce_order_access_grants g JOIN commerce_access_devices d USING(device_id)
         WHERE g.device_id=$1 AND g.checkout_id=co.checkout_id AND (g.order_id IS NULL OR g.order_id=co.order_id)
-          AND g.kind='device' AND g.revoked_at IS NULL AND d.revoked_at IS NULL AND d.expires_at>clock_timestamp()))::int AS devices,
-      count(*) FILTER(WHERE c.email_normalized=$2 AND c.redacted_at IS NULL)::int AS emails
-      FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id) JOIN commerce_customers c ON c.customer_id=co.customer_id
-      WHERE co.tenant_id=$3 AND co.lifecycle_state='open' AND o.expires_at>clock_timestamp() AND NOT ${confirmedPaymentSQL('co.order_id')}`,[deviceId,email,tenant.tenant_id])).rows[0];
-    devices+=row.devices;emails+=row.emails;
-  }
-  await bindStore(q,returnTenant);
-  if(devices>COMMERCE_LIMITS.openOrdersDevice||emails>COMMERCE_LIMITS.openOrdersEmail)throw new Problem(429,'too_many_open_orders','尚有未完成的訂單。');
+          AND g.kind='device' AND g.revoked_at IS NULL AND d.revoked_at IS NULL AND d.expires_at>decision.t) AS device,
+      c.email_normalized=$2 AND c.redacted_at IS NULL AS email
+    FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id) JOIN commerce_customers c ON c.customer_id=co.customer_id CROSS JOIN decision
+    WHERE co.tenant_id=$3 AND co.instance_id=$4 AND o.order_profile='hosted_checkout' AND co.lifecycle_state='open'
+      AND o.expires_at>decision.t AND NOT ${confirmedPaymentSQL('co.order_id')}
+  ) SELECT count(*) FILTER(WHERE device)::int AS devices,count(*) FILTER(WHERE email)::int AS emails,
+    greatest(1,ceil(extract(epoch FROM min(expires_at) FILTER(WHERE order_id<>$5 AND (device OR email))-(SELECT t FROM decision))))::int AS retry_after
+    FROM counted`,[deviceId,email,store.tenantId,store.instanceId,placedOrderId])).rows[0];
+  if(row.devices>COMMERCE_LIMITS.openOrdersDevice||row.emails>COMMERCE_LIMITS.openOrdersEmail)throw new Problem(429,'too_many_open_orders','尚有未完成的訂單。',row.retry_after);
 }
