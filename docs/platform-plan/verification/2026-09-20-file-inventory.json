@@ -17194,8 +17194,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.css",
-      "bytes": 3309,
-      "sha256": "33adabeb30e2fe142272abb8d28d7f6c8044d26155198494da066d8244ef4208"
+      "bytes": 3322,
+      "sha256": "94f4ec7864ea0f62e24d37a97fcbb6fd2e1606e69130b45845d5fd5bd7e7cbd4"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/SupplierConsole.tsx",
@@ -17224,8 +17224,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/pages/Product.tsx",
-      "bytes": 6157,
-      "sha256": "9aa93deafb55df00fd42fdeb59213a3955d28d47f3f0534e6ed422eba948a052"
+      "bytes": 6389,
+      "sha256": "660ff45899e39e6c43a76a678a63c92917fcd46b5b423a7ae945c9664aaa66d6"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/pages/Products.tsx",
