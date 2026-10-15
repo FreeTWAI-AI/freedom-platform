@@ -16,6 +16,37 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Event `starts_at`/`ends_at` (create, edit and schedule), Work
+`claim_by`/`finish_by`, and receipt `received_at` share the existing ISO datetime
+syntax with `Z` or a numeric offset (`±HH:MM`). Years must be AD 0001–9999 and
+offset hours must be below 16 (including valid ±15:59 boundaries). The existing
+ISO grammar rejects compact offsets such as `+1600` and `+1559`; this fix does
+not enable a new format. Invalid values
+return `422 validation_failed` before business writes or command/quota effects;
+the same idempotency key can then submit a corrected value. Valid input keeps
+its raw fractional precision through SQL binding; existing ordering, future-time,
+receipt-time, ownership and version checks still apply.
+
+Display-only external links (`public_url`, `demo_url`, marketing `share_url`,
+author-claim evidence and squad artifact links) retain the existing public HTTPS
+policy. Host checks ignore the single terminal DNS root dot: `printer.local.`
+and the absolute single-label name `printer.` are refused just like their
+non-absolute forms. A permitted public FQDN keeps its `URL.href` serialization, including
+the terminal dot, path, query and fragment. These hostname policy rejections return
+`422 invalid_external_url` before command facts are written; correcting the
+link may reuse the same key. These URLs are not fetched or embedded by this
+validator, and this change does not rewrite historical records or add DNS reads.
+
+Catalog product `photo_url` and imported-shop `website_url`, product `photo_url`
+and payment URLs use their own existing HTTPS policies, with the same terminal
+DNS root-dot comparison. URL syntax and length checks must succeed before their
+URL-dependent refinements run. Malformed values and private-host rejections
+return `422 validation_failed`, not a URL-constructor error; rejected commands
+write no business facts and can be corrected using the same key. Catalog photos
+still permit otherwise-allowed public non-default ports and fragments; shop
+URLs still refuse both. Permitted catalog/shop strings retain their spelling.
+These guards add no DNS/network reads and do not rewrite historical URLs.
+
 The runtime-neutral API envelope rejects `%00` (an encoded NUL) in the path or
 query of `/api/v1/` requests with `422 validation_failed`, after host validation
 and before route authentication or SQL. This applies even to anonymous requests
@@ -31,6 +62,23 @@ returns `401 session_expired`, without a user/CSRF projection or renewed cookie.
 This keeps the existing two database queries and the absolute, non-sliding
 30-day session lifetime. Existing domain-level current-session and
 authorization checks remain unchanged; presence is not an authorization grant.
+
+## Community content search cursor boundary (#716)
+
+`GET /api/v1/community-search` is available only with
+`FREEDOM_COMMUNITY_SEARCH_ENABLED=true` (default off; otherwise 404).
+Anonymous reads retain public-source visibility; a current member session adds
+only that member's authorized community content.
+
+Continue with the returned `next_cursor` unchanged. Its existing base64url tuple
+has exactly three newline-separated fields: UTC sort text with six fractional
+digits, a supported content kind, and a nonempty ID of at most 100 characters.
+IDs may be skill-book slugs, not only UUIDs. Decoded C0 controls (including NUL)
+and DEL in the ID, or any extra tuple field (even empty), return
+`422 invalid_cursor` before source queries or search-operation recording.
+Invalid cursors disclose no content or input fragments. Ordering continues to
+compare the original microsecond sort strings; it does not round through
+JavaScript dates. No feature activation or deployment is implied by this fix.
 
 ## Member reporting and moderation cases
 
@@ -693,6 +741,16 @@ means only sender acceptance, `recorded` means a station notification was
 recorded, and `pending|cancelled|failed` are not delivery claims. In-app starts
 respect current notification preferences and quiet hours; essential invitation,
 schedule and cancellation notices retain their transactional classification.
+
+The candidate cutoff is bounded, but dispatch does not reuse a batch-start
+timestamp after event/source/preference locks. Without an explicit fixture
+`now`, the worker refreshes its clock for reconciliation, quiet-hour decisions
+and the final notification/email handoff decision. An event already started
+at that decision cancels unsent reminders, without a new notification or email.
+If an attempt insert itself waited across the start, its durable `failed`
+reservation remains while the reminder becomes `cancelled`; it is not delivery
+evidence and is not retried. A fixed fixture `now` stays fixed. This does not
+promise commit before event start or undo an email already handed to a sender.
 
 ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellation
 STATUS and RFC text escaping/octet folding. It does not turn private locations

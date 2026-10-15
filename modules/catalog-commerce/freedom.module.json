@@ -1,0 +1,67 @@
+{
+  "format": "freedom.module/v1",
+  "owner_role": "foundation",
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "DESIGN.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "module_id": "catalog-commerce",
+  "owned_paths": [
+    "modules/catalog-commerce/service.ts",
+    "apps/platform-api/src/routes/commerce.ts",
+    "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
+    "tests/runtime/commerce.test.ts"
+  ],
+  "public_exports": [
+    "modules/catalog-commerce/service.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "member-card",
+    "shared"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "catalog-commerce.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/commerce.ts",
+      "operations": [
+        "catalog-commerce.products.list",
+        "catalog-commerce.product.create",
+        "catalog-commerce.offer-version.create",
+        "catalog-commerce.catalog.read",
+        "catalog-commerce.stores.list",
+        "catalog-commerce.store.create",
+        "catalog-commerce.listings.list",
+        "catalog-commerce.listing.create",
+        "catalog-commerce.supply-request.create",
+        "catalog-commerce.supply-requests.list",
+        "catalog-commerce.supply-request.decide"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "catalog-commerce.member-panels",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
+      "operations": [
+        "catalog-commerce.supplier-panel.view",
+        "catalog-commerce.retail-panel.view"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

@@ -29,7 +29,10 @@
     "tests/e2e/skill-book-upgrade.spec.ts",
     "modules/opensource-marketing/service.ts",
     "migrations/165_oss_sharing_withdrawal.sql",
-    "modules/skill-submissions/sharing-lifecycle.md"
+    "modules/skill-submissions/sharing-lifecycle.md",
+    "modules/opensource-marketing/github.ts",
+    "tests/runtime/opensource-marketing.test.ts",
+    "tests/e2e/opensource-modules.spec.ts"
   ],
   "public_exports": [
     "modules/skill-submissions/limits.ts",

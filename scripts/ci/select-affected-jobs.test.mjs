@@ -5,7 +5,7 @@ import { copyFile, mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateDescriptor, ROOT_INSTRUCTIONS, selectImpact } from '../../packages/contribution-tools/context.mjs';
+import { validateDescriptor, ROOT_INSTRUCTIONS, selectImpact, owns } from '../../packages/contribution-tools/context.mjs';
 import {
   ALWAYS_ON_INTEGRITY_COMMANDS, DOCS_ALLOWLIST_PREFIXES, GENERATED_INVENTORY_PATH, JOB_OUTPUT_KEYS, SELECTABLE_JOBS, FRONTEND_LEAF_PROFILES, FRONTEND_LEAF_JOBS,
   changesFromTrees, collectRepositoryDecision, collectRepositoryE2eDecision, decideE2eProfile, decideAffectedJobs, evaluateVerifyAggregate, githubOutput,
@@ -377,6 +377,91 @@ test('real checkout descriptors parse without freezing live document ownership',
   assert.ok(loaded.descriptors.every(descriptor => validateDescriptor(descriptor)));
   // Ownership/union/shrink assertions use controlled fixtures above. A valid
   // future module claiming an existing doc may legitimately select full CI.
+});
+
+const knownDomainPaths = [
+  ['modules/catalog-commerce/service.ts', 'catalog-commerce'],
+  ['apps/platform-api/src/routes/commerce.ts', 'catalog-commerce'],
+  ['apps/portal-web/src/modules/LegacyCommercePanels.tsx', 'catalog-commerce'],
+  ['tests/runtime/commerce.test.ts', 'catalog-commerce'],
+  ['modules/client-connections/service.ts', 'client-connections'],
+  ['apps/platform-api/src/routes/client-connections.ts', 'client-connections'],
+  ['tests/runtime/client-connections.test.ts', 'client-connections'],
+  ['modules/development-access/service.ts', 'development-access'],
+  ['apps/platform-api/src/routes/development-access.ts', 'development-access'],
+  ['tests/runtime/development-access-grant-race.test.ts', 'development-access'],
+  ['modules/opensource-marketing/github.ts', 'skill-submissions'],
+  ['tests/runtime/opensource-marketing.test.ts', 'skill-submissions'],
+  ['tests/e2e/opensource-modules.spec.ts', 'skill-submissions'],
+  ['tests/runtime/link-preview.test.ts', 'community'],
+];
+function knownDomainGraph() {
+  // Match the existing real-checkout tests: CI tests the committed candidate.
+  const graph = loadModuleDescriptors(root, 'HEAD');
+  assert.equal(graph.ok, true, 'including implicit descriptor ownership within the 64-path bound');
+  return graph.descriptors;
+}
+
+test('known legacy domain and regression paths select their actual owner without dropping runtime obligations', () => {
+  const graph = knownDomainGraph();
+  for (const [path, owner] of knownDomainPaths) {
+    assert.deepEqual(graph.filter(module => owns(module, path)).map(module => module.module_id), [owner], path);
+    const impact = selectImpact({baseline: graph, candidate: graph, changedPaths: [path]});
+    assert.deepEqual(impact.unknown_paths, [], path);
+    assert.ok(impact.module_ids.includes(owner), path);
+    assert.ok(impact.tests.includes('runtime.full'), path);
+  }
+  const catalog = selectImpact({baseline: graph, candidate: graph, changedPaths: ['modules/catalog-commerce/service.ts']});
+  assert.ok(catalog.module_ids.includes('client-connections'), 'scoped client reads depend on catalog data semantics');
+  const github = selectImpact({baseline: graph, candidate: graph, changedPaths: ['modules/github-social/service.ts']});
+  assert.ok(github.module_ids.includes('development-access'), 'development grants depend on current GitHub evidence');
+  const profile = (id, name) => graph.find(module => module.module_id === id).surfaces.find(surface => surface.surface_id === name).auth_profile;
+  assert.equal(profile('client-connections', 'client-connections.member-api'), 'member-session');
+  assert.equal(profile('client-connections', 'client-connections.scoped-read-api'), 'client-read-bearer');
+  assert.equal(profile('client-connections', 'client-connections.pairing-poll'), 'device-secret');
+  assert.equal(profile('development-access', 'development-access.agent-api'), 'development-key');
+});
+
+test('unmapped roots and new domain paths still select every module and full CI', () => {
+  const graph = knownDomainGraph();
+  for (const path of ['repositories.lock.json', 'tests/integration/repositories.test.ts',
+    'tests/integration/consumer-libraries.test.ts', 'modules/catalog-commerce/future-unreviewed.ts']) {
+    const impact = selectImpact({baseline: graph, candidate: graph, changedPaths: [path]});
+    assert.deepEqual(impact.unknown_paths, [path]);
+    assert.deepEqual(impact.module_ids, graph.map(module => module.module_id).sort());
+    assert.ok(impact.tests.includes('runtime.full'));
+    const selection = pull([edited(path)], {baseline: graph, candidate: graph});
+    assert.equal(selection.mode, 'full');
+    assert.ok(Object.values(selection.jobs).every(Boolean));
+  }
+});
+
+test('candidate ownership, dependency and test shrink cannot subtract known baseline domain impact', () => {
+  const baseline = knownDomainGraph(), candidate = structuredClone(baseline);
+  const catalog = candidate.find(module => module.module_id === 'catalog-commerce');
+  catalog.owned_paths = catalog.owned_paths.filter(path => path !== 'modules/catalog-commerce/service.ts');
+  catalog.tests = ['governance.unit'];
+  const client = candidate.find(module => module.module_id === 'client-connections');
+  client.dependencies = client.dependencies.filter(id => id !== 'catalog-commerce');
+  client.tests = ['governance.unit'];
+  const impact = selectImpact({baseline, candidate, changedPaths: ['modules/catalog-commerce/service.ts']});
+  assert.deepEqual(impact.unknown_paths, []);
+  assert.ok(impact.module_ids.includes('catalog-commerce'));
+  assert.ok(impact.module_ids.includes('client-connections'));
+  assert.ok(impact.tests.includes('runtime.full'));
+  assert.ok(impact.tests.includes('governance.unit'));
+});
+
+test('known domain ownership does not grant a narrower browser or CI profile', () => {
+  const graph = knownDomainGraph();
+  for (const [path] of knownDomainPaths) {
+    const input = {event: 'pull_request', diffComplete: true, changes: [edited(path)], baseline: graph, candidate: graph};
+    const selection = decideAffectedJobs(input);
+    assert.equal(selection.mode, 'full', path);
+    assert.equal(selection.jobs['runtime-full'], true, path);
+    assert.equal(selection.jobs['ui-e2e'], true, path);
+    assert.equal(decideE2eProfile(input).profile, 'full', path);
+  }
 });
 
 test('descriptor self-ownership respects the path bound and fails closed when no slot remains', async t => {

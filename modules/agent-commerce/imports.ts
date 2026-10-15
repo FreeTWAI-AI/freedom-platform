@@ -1,18 +1,19 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {command,digest,journal,type Command} from '../../packages/db/index.js';
+import {readWithMemberSession} from '../../packages/db/member-session.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {importInput,manifestInput,parseManifestFile,type ShopManifest} from './schema.js';
 import {listingDigest,resellerArrangement} from './distribution.js';
 
 export async function catalog(pool:Pool,actor:Actor){
- return (await pool.query(`SELECT i.*,s.name AS shop_name,s.currency,s.mode,s.shop_id FROM commerce_items i JOIN commerce_shops s USING(shop_id)
- JOIN users u ON u.user_id=s.owner_id WHERE s.origin='imported' AND s.community_id=$1 AND s.accepting_orders AND u.active ORDER BY i.title,i.item_id`,[actor.community_id])).rows;
+ return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT i.*,s.name AS shop_name,s.currency,s.mode,s.shop_id FROM commerce_items i JOIN commerce_shops s USING(shop_id)
+ JOIN users u ON u.user_id=s.owner_id WHERE s.origin='imported' AND s.community_id=$1 AND s.accepting_orders AND u.active ORDER BY i.title,i.item_id`,[actor.community_id])).rows);
 }
 export async function ownShops(pool:Pool,actor:Actor){
  // Materialize grouped counts so nested-loop plans cannot repeat aggregation for each shop.
- return (await pool.query(`WITH owned AS MATERIALIZED (
+ return readWithMemberSession(pool,actor,async q=>(await q.query(`WITH owned AS MATERIALIZED (
  SELECT * FROM commerce_shops WHERE origin='imported' AND community_id=$1 AND owner_id=$2
  ), products AS MATERIALIZED (
  SELECT i.shop_id,count(*)::int AS product_count FROM commerce_items i JOIN owned s USING(shop_id) GROUP BY i.shop_id
@@ -22,7 +23,7 @@ export async function ownShops(pool:Pool,actor:Actor){
  SELECT s.*,k.expires_at AS key_expires_at,k.revoked_at AS key_revoked_at,
  COALESCE(p.product_count,0) AS product_count,COALESCE(l.selection_count,0) AS selection_count
  FROM owned s LEFT JOIN commerce_shop_keys k USING(shop_id)
- LEFT JOIN products p USING(shop_id) LEFT JOIN selections l USING(shop_id) ORDER BY s.created_at DESC`,[actor.community_id,actor.user_id])).rows;
+ LEFT JOIN products p USING(shop_id) LEFT JOIN selections l USING(shop_id) ORDER BY s.created_at DESC`,[actor.community_id,actor.user_id])).rows);
 }
 export async function ownShop(q:Pool|PoolClient,actor:Pick<Actor,'user_id'|'community_id'>,id:string){
  const shop=(await q.query("SELECT * FROM commerce_shops WHERE origin='imported' AND shop_id=$1 AND community_id=$2 AND owner_id=$3",[id,actor.community_id,actor.user_id])).rows[0];
@@ -42,8 +43,11 @@ async function checkedSelections(q:Pool|PoolClient,actor:Actor,m:ShopManifest){
  return result;
 }
 export async function previewImport(pool:Pool,actor:Actor,raw:unknown){
- const manifest=manifestInput.parse(raw);await checkedSelections(pool,actor,manifest);
- return {manifest,sha256:digest(manifest),count:manifest.kind==='internal'?manifest.products.length:manifest.selections.length};
+ const manifest=manifestInput.parse(raw);
+ return readWithMemberSession(pool,actor,async q=>{
+  await checkedSelections(q,actor,manifest);
+  return {manifest,sha256:digest(manifest),count:manifest.kind==='internal'?manifest.products.length:manifest.selections.length};
+ });
 }
 export async function importShop(pool:Pool,input:Command){
  const {manifest:m}=importInput.parse(input.body);

@@ -1,0 +1,65 @@
+{
+  "format": "freedom.module/v1",
+  "owner_role": "foundation",
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "docs/development/guild-development-access.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "module_id": "development-access",
+  "owned_paths": [
+    "modules/development-access/service.ts",
+    "apps/platform-api/src/routes/development-access.ts",
+    "tests/runtime/development-access-grant-race.test.ts"
+  ],
+  "public_exports": [
+    "modules/development-access/service.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "community",
+    "development",
+    "github-social",
+    "member-card",
+    "positioning",
+    "shared",
+    "skill-submissions"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "development-access.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/development-access.ts",
+      "operations": [
+        "development-access.status.read",
+        "development-access.consent",
+        "development-access.activate",
+        "development-access.key.issue",
+        "development-access.revoke",
+        "development-access.proposal.save"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "development-access.agent-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/development-access.ts",
+      "operations": [
+        "development-access.agent-proposal.save"
+      ],
+      "auth_profile": "development-key"
+    }
+  ]
+}
