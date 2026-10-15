@@ -1,15 +1,15 @@
 import { aio } from '../aio.js';
 import { sanitizeMessage } from '../encoding.js';
 import { EcpayProtocolError } from '../errors.js';
-import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
-import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
 import {
   MINOR_PER_TWD,
   assertMerchantId,
   assertPositiveWholeTwdMinor,
   isPlainObject,
-} from './profile.js';
-import { createServerRequest, type EcpayServerRequest } from './request.js';
+} from '../field-rules.js';
+import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
+import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
+import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
 
 const CHECK_CODE_PATTERN = /^[0-9]{8}$/;
 const GWSR_PATTERN = /^[0-9]{1,20}$/;

@@ -1,18 +1,19 @@
 import { aio } from '../aio.js';
 import { EcpayProtocolError } from '../errors.js';
-import type { FormFields } from '../form.js';
-import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
-import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
-import { isTradeNumber } from '../trade-number.js';
 import {
   MAX_ECPAY_TWD_AMOUNT,
-  MIN_CREDIT_TOTAL_MINOR,
   MINOR_PER_TWD,
   assertEnvironment,
   assertMerchantId,
+  assertValidEcpayHttpsUrl,
   isPlainObject,
-} from './profile.js';
-import { formatTaipeiDateTime } from './time.js';
+} from '../field-rules.js';
+import type { FormFields } from '../form.js';
+import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
+import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
+import { formatTaipeiDateTime } from '../taipei-time.js';
+import { isTradeNumber } from '../trade-number.js';
+import { MIN_CREDIT_TOTAL_MINOR } from './profile.js';
 
 const LONE_SURROGATE_GLOBAL =
   /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
@@ -27,10 +28,6 @@ const MAX_ITEM_NAME_UTF16_UNITS = 200;
 const MAX_STORE_NAME_CODE_POINTS = 40;
 
 const DISPLAY_NUMBER_PATTERN = /^[0-9]{6}-[0-9A-HJKMNP-TV-Z]{6}$/;
-const MAX_URL_LENGTH = 200;
-const FORBIDDEN_URL_SUBSTRINGS = /[&<>"'\s]|%26|%3c/i;
-const DNS_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
-const ALL_DIGITS_PATTERN = /^[0-9]+$/;
 
 export interface CreditCheckoutLineItem {
   readonly name: string;
@@ -63,53 +60,6 @@ function sanitizeItemFragment(raw: string): string {
     .replace(FORBIDDEN_ITEM_CHARS, ' ')
     .replace(WHITESPACE_RUN, ' ')
     .trim();
-}
-
-function assertValidEcpayHttpsUrl(rawUrl: unknown): asserts rawUrl is string {
-  if (
-    typeof rawUrl !== 'string' ||
-    rawUrl.length === 0 ||
-    rawUrl.length > MAX_URL_LENGTH ||
-    FORBIDDEN_URL_SUBSTRINGS.test(rawUrl) ||
-    rawUrl.includes('#')
-  ) {
-    throw new EcpayProtocolError('invalid_input');
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    throw new EcpayProtocolError('invalid_input');
-  }
-
-  if (
-    parsed.href !== rawUrl ||
-    parsed.protocol !== 'https:' ||
-    parsed.username !== '' ||
-    parsed.password !== '' ||
-    parsed.port !== '' ||
-    parsed.hash !== ''
-  ) {
-    throw new EcpayProtocolError('invalid_input');
-  }
-
-  const host = parsed.hostname;
-  if (host.length === 0 || host.startsWith('.') || host.endsWith('.')) {
-    throw new EcpayProtocolError('invalid_input');
-  }
-  const labels = host.split('.');
-  if (labels.length < 2) {
-    throw new EcpayProtocolError('invalid_input');
-  }
-  for (const label of labels) {
-    if (!DNS_LABEL_PATTERN.test(label)) {
-      throw new EcpayProtocolError('invalid_input');
-    }
-  }
-  if (ALL_DIGITS_PATTERN.test(labels[labels.length - 1])) {
-    throw new EcpayProtocolError('invalid_input');
-  }
 }
 
 export function buildItemName(

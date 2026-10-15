@@ -1,18 +1,17 @@
-import { Buffer } from 'node:buffer';
-import { createHash } from 'node:crypto';
 import { aio } from '../aio.js';
+import { bodySha256Hex } from '../body-digest.js';
 import type { VerifySignedFormFailureReason } from '../checkmac.js';
 import { sanitizeMessage } from '../encoding.js';
 import { EcpayProtocolError } from '../errors.js';
-import { unwrapKeyList, type EcpayKeyPair } from '../keys.js';
 import {
   MINOR_PER_TWD,
   assertMerchantId,
   isPlainObject,
   parseOptionalFeeMinor,
   parseOptionalSanitized,
-} from './profile.js';
-import { parseTaipeiDateTime } from './time.js';
+} from '../field-rules.js';
+import { unwrapKeyList, type EcpayKeyPair } from '../keys.js';
+import { parseTaipeiDateTime } from '../taipei-time.js';
 
 const ALPHANUMERIC_ID_PATTERN = /^[0-9A-Za-z]{1,20}$/;
 const RTN_CODE_PATTERN = /^-?[0-9]{1,10}$/;
@@ -274,8 +273,7 @@ export function parsePaymentNotification(
     paymentDate: paymentDate ?? '',
   });
 
-  const rawBytes = typeof body === 'string' ? Buffer.from(body, 'utf8') : body;
-  const bodySha256 = createHash('sha256').update(rawBytes).digest('hex').toLowerCase();
+  const bodySha256 = bodySha256Hex(body);
 
   return Object.freeze({
     kind: 'notification' as const,

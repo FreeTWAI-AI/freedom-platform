@@ -1,9 +1,6 @@
 import { aio } from '../aio.js';
 import type { VerifySignedFormFailureReason } from '../checkmac.js';
 import { EcpayProtocolError } from '../errors.js';
-import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
-import { unwrapKeyList, unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
-import { isTradeNumber } from '../trade-number.js';
 import {
   MINOR_PER_TWD,
   assertEnvironment,
@@ -12,9 +9,12 @@ import {
   isPlainObject,
   parseOptionalFeeMinor,
   parseOptionalSanitized,
-} from './profile.js';
-import { createServerRequest, type EcpayServerRequest } from './request.js';
-import { parseTaipeiDateTime } from './time.js';
+} from '../field-rules.js';
+import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
+import { unwrapKeyList, unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
+import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
+import { parseTaipeiDateTime } from '../taipei-time.js';
+import { isTradeNumber } from '../trade-number.js';
 
 const ALPHANUMERIC_ID_PATTERN = /^[0-9A-Za-z]{1,20}$/;
 const TRADE_AMT_PATTERN = /^[0-9]{1,9}$/;
