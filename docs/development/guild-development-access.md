@@ -33,6 +33,20 @@ GitHub 暫時故障時拒絕操作，不以快取授權；已確認的權限消�
 
 Agent 使用 `POST /development-agent/v1/proposals`，Bearer `fpd_…`、JSON 與 Idempotency-Key；不接受 cookie 作授權，外站 Origin 拒絕，串流上限 32 KiB，scope 固定 `development:propose`。kind、target、owner 由 key 的 source grant 決定，不接受客戶端改寫。這個 key 不能呼叫一般技能上傳 API，也不能取得其他會員的資料。瀏覽器核發 key 會在公會鎖與後續 GitHub 鎖之後，用 `clock_timestamp()` 重查 session；等鎖跨過到期不得核發。Grant 與 key 的授權檢查同樣用 `clock_timestamp()`，避免交易開始時的 `now()` 在鎖等待後仍放行。
 
+GitHub evidence／`checked_at` 等候後重驗本次精確 grant 的資料庫期限，Agent 另重驗
+精確 `key_id`／`source_grant_id`。本機新 key、私人提案及 receipt 完成後，在原
+transaction client 的成功結尾再次檢查；Agent key 與 grant 由同一 SQL 判斷。
+跨期回既有 `403 development_key_revoked` 或 `development_grant_required`，新
+effect／receipt／journal 一起回滾；舊 receipt 也不能跳過當次重新授權，歷史
+提案與已保存 receipt 不刪除。授權 evidence 完成後、新 key／提案／receipt
+開始前建立本機 effect savepoint；最後 grant／key／browser session 跨期時，
+只回滾該 savepoint 內的新業務資料，再由既有 Problem outcome 提交前段
+credential lifecycle。GitHub 已成功的 refresh rotation 及其新加密 credential
+不因 receipt 等候到期一起丟失；下一個仍有權限的請求沿用新 token，不重用
+provider 已失效的舊 refresh token。已確認失權／binding 變更的永久撤銷仍提交。
+非預期 SQL／非 Problem 失敗仍由外層交易處理，不宣稱可恢復所有 provider
+與資料庫間故障。期限不延長、不新增重試、scope 或 GitHub 寫入；仍只有私人提案權限。
+
 會員從技能書或頁面的開發入口開始，選擇適用公會、完成 GitHub 與該操作所需的設定，直接回到原任務。在適用公會期間，平台依目前資格授權；資格失去時，平台撤銷由該資格產生的授權。每個模組使用同一套規則，避免各自維護入會檢查。
 
 ## 資格與授權範圍

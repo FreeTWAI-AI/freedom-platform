@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
 import { command, checkVersion, digest, journal, type Command } from '../../packages/db/index.js';
+import { readWithMemberSession } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { text, money, currency } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -60,9 +61,9 @@ export async function createOfferVersion(pool:Pool,input:Command,id:string){
   });
 }
 export async function listProducts(pool:Pool,actor:Actor,owned=false){
-  return (await pool.query(`SELECT p.*,u.display_name AS supplier_name,to_jsonb(o) AS current_offer FROM catalog_products p
+  return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT p.*,u.display_name AS supplier_name,to_jsonb(o) AS current_offer FROM catalog_products p
     JOIN users u ON u.user_id=p.supplier_ref JOIN LATERAL (SELECT * FROM supplier_offer_versions o WHERE o.product_id=p.product_id ORDER BY revision DESC LIMIT 1) o ON true
-    WHERE p.community_id=$1 AND (p.supplier_ref=$2 OR NOT is_verification_test_account(p.supplier_ref))${owned?' AND p.supplier_ref=$2':''} ORDER BY p.created_at DESC,p.product_id`,[actor.community_id,actor.user_id])).rows.map(limited);
+    WHERE p.community_id=$1 AND (p.supplier_ref=$2 OR NOT is_verification_test_account(p.supplier_ref))${owned?' AND p.supplier_ref=$2':''} ORDER BY p.created_at DESC,p.product_id`,[actor.community_id,actor.user_id])).rows.map(limited));
 }
 // Read-only application port. Marketing stores this exact snapshot; it never
 // updates catalog tables or treats a supplier's declaration as verified QC.
@@ -83,7 +84,7 @@ export async function createStore(pool:Pool,input:Command){
   });
 }
 export async function listStores(pool:Pool,actor:Actor){
-  return (await pool.query('SELECT * FROM retail_stores WHERE community_id=$1 AND seller_ref=$2 ORDER BY created_at DESC',[actor.community_id,actor.user_id])).rows.map(limited);
+  return readWithMemberSession(pool,actor,async q=>(await q.query('SELECT * FROM retail_stores WHERE community_id=$1 AND seller_ref=$2 ORDER BY created_at DESC',[actor.community_id,actor.user_id])).rows.map(limited));
 }
 async function ownStore(q:PoolClient,actor:Actor,id:string){
   const row=(await q.query('SELECT * FROM retail_stores WHERE store_id=$1 AND community_id=$2 AND seller_ref=$3',[id,actor.community_id,actor.user_id])).rows[0];
@@ -106,8 +107,8 @@ export async function createListing(pool:Pool,input:Command){
   });
 }
 export async function listListings(pool:Pool,actor:Actor){
-  return (await pool.query(`SELECT l.*,a.acceptance_id,a.state AS acceptance_state,a.decision_note FROM retail_listing_revisions l
-    LEFT JOIN distribution_acceptances a USING(listing_id) WHERE l.community_id=$1 AND l.seller_ref=$2 ORDER BY l.created_at DESC`,[actor.community_id,actor.user_id])).rows.map(limited);
+  return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT l.*,a.acceptance_id,a.state AS acceptance_state,a.decision_note FROM retail_listing_revisions l
+    LEFT JOIN distribution_acceptances a USING(listing_id) WHERE l.community_id=$1 AND l.seller_ref=$2 ORDER BY l.created_at DESC`,[actor.community_id,actor.user_id])).rows.map(limited));
 }
 async function ownListing(q:PoolClient,actor:Actor,id:string,lock=false){
   const row=(await q.query(`SELECT * FROM retail_listing_revisions WHERE listing_id=$1 AND community_id=$2 AND seller_ref=$3${lock?' FOR UPDATE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
@@ -127,9 +128,9 @@ export async function requestSupply(pool:Pool,input:Command,id:string){
   });
 }
 export async function listSupplyRequests(pool:Pool,actor:Actor){
-  return (await pool.query(`SELECT a.*,l.snapshot,u.display_name AS seller_name FROM distribution_acceptances a
+  return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT a.*,l.snapshot,u.display_name AS seller_name FROM distribution_acceptances a
     JOIN retail_listing_revisions l USING(listing_id) JOIN users u ON u.user_id=a.seller_ref
-    WHERE a.community_id=$1 AND a.supplier_ref=$2 AND NOT is_verification_test_account(a.seller_ref) ORDER BY a.created_at DESC`,[actor.community_id,actor.user_id])).rows.map(limited);
+    WHERE a.community_id=$1 AND a.supplier_ref=$2 AND NOT is_verification_test_account(a.seller_ref) ORDER BY a.created_at DESC`,[actor.community_id,actor.user_id])).rows.map(limited));
 }
 async function ownRequest(q:PoolClient,actor:Actor,id:string,lock=false){
   const row=(await q.query(`SELECT * FROM distribution_acceptances WHERE acceptance_id=$1 AND community_id=$2 AND supplier_ref=$3${lock?' FOR UPDATE':''}`,[id,actor.community_id,actor.user_id])).rows[0];

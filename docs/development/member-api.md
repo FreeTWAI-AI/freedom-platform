@@ -742,6 +742,16 @@ recorded, and `pending|cancelled|failed` are not delivery claims. In-app starts
 respect current notification preferences and quiet hours; essential invitation,
 schedule and cancellation notices retain their transactional classification.
 
+The candidate cutoff is bounded, but dispatch does not reuse a batch-start
+timestamp after event/source/preference locks. Without an explicit fixture
+`now`, the worker refreshes its clock for reconciliation, quiet-hour decisions
+and the final notification/email handoff decision. An event already started
+at that decision cancels unsent reminders, without a new notification or email.
+If an attempt insert itself waited across the start, its durable `failed`
+reservation remains while the reminder becomes `cancelled`; it is not delivery
+evidence and is not retried. A fixed fixture `now` stays fixed. This does not
+promise commit before event start or undo an email already handed to a sender.
+
 ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellation
 STATUS and RFC text escaping/octet folding. It does not turn private locations
 or joining links into a public calendar feed. Import is a manual snapshot:
