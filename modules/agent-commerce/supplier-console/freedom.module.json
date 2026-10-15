@@ -11,12 +11,14 @@
     "tests/runtime/supplier-console-writes.test.ts",
     "tests/runtime/supplier-console-state.test.ts",
     "tests/runtime/supplier-console-queries.test.ts",
+    "tests/runtime/supplier-console-report.test.ts",
     "tests/e2e/supplier-console.spec.ts",
     "tests/e2e/supplier-console-cooperation.spec.ts",
     "tests/e2e/supplier-console-recovery.spec.ts",
     "tests/e2e/supplier-console-navigation.spec.ts",
     "tests/e2e/supplier-console-visual.spec.ts",
     "tests/e2e/supplier-console-queries.spec.ts",
+    "tests/e2e/supplier-console-report.spec.ts",
     "docs/platform-plan/execution/supplier-console/**"
   ],
   "public_exports": [],
@@ -64,6 +66,8 @@
         "supplier-console.reservation",
         "supplier-console.changes",
         "supplier-console.summary",
+        "supplier-console.report",
+        "supplier-console.report-csv",
         "storefront.supply-profile.update"
       ],
       "auth_profile": "member-session"
@@ -82,6 +86,8 @@
         "supplier-console.reservations",
         "supplier-console.reservation",
         "supplier-console.changes",
+        "supplier-console.report",
+        "supplier-console.report-csv",
         "storefront.supply-catalog.read",
         "storefront.supply-catalog.setup",
         "storefront.supply-profile.update",

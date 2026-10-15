@@ -13049,13 +13049,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/supplier-console.schema.json",
-      "bytes": 97796,
-      "sha256": "5c341dd87c31928cb79834f1d21fbe4f81fe1a29c7a4484ce7a89ea7d1755b5f"
+      "bytes": 110707,
+      "sha256": "62e809e99cf65f75c9e4cda9fbda9ddd053de264c61d2b58fe314e49376dd1ac"
     },
     {
       "path": "contracts/guild-launchpad/v1/supplier-console.ts",
-      "bytes": 16418,
-      "sha256": "15660f49c7aaebb1d5019547f275123691e0a5c8553fc7227579fdb6e587d43f"
+      "bytes": 21319,
+      "sha256": "4cf73280e63bbb1e5164fdacd4c57be55c0cffe38434401a0ec027ac52cdd670"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-create-input.schema.json",
@@ -17184,8 +17184,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/freedom.module.json",
-      "bytes": 3373,
-      "sha256": "c5e2785bb29cf6988457b91fbaa4cc1ddf3baa04adfdc4e15581cf346321558c"
+      "bytes": 3673,
+      "sha256": "7e4284a1903297b9dc77eaf7ab3f3a350c5c165feef49bf684654de04a75fe27"
     },
     {
       "path": "modules/agent-commerce/supplier-console/reads.ts",
@@ -18459,8 +18459,8 @@
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
-      "bytes": 20210,
-      "sha256": "2d71bd8d934a934698171f22f8d0de4a228afae4c6e6740afe0e69420afed68f"
+      "bytes": 20562,
+      "sha256": "ba8d5c80b47315112b6e7b0103c8194cdaf35dea7aa5f12d93924668e83308cb"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",

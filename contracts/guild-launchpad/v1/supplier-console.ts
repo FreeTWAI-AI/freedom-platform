@@ -226,6 +226,68 @@ export const SupplierSummarySchema = z.object({
   ]),
 }).strict();
 
+// S3 operations report (SC-10). One statement decides every number at as_of. Products and cooperation are their state
+// at as_of; only the reservation part depends on the period: reservations created on the given Asia/Taipei calendar
+// days (both included) that hold lines of this supplier, each in its state at as_of as the reservations read decides
+// it. Supply amounts are what the supplier would be owed for the units; they are not revenue, an invoice, a payment or
+// a commission. A report whose CSV would have more than SUPPLIER_REPORT_MAX_ROWS data rows is refused, never cut short.
+export const SUPPLIER_REPORT_MAX_DAYS = 366;
+export const SUPPLIER_REPORT_MAX_ROWS = 10000;
+const reportDay = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/).refine(value => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return year >= 2000 && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}, 'Invalid calendar date.');
+const dayNumber = (value: string) => Date.parse(`${value}T00:00:00Z`) / 86400000;
+/** Taiwan has kept UTC+8 without daylight saving since 1979, so a Taipei calendar day starts at 00:00+08:00. */
+const taipeiMidnight = (value: string) => Date.parse(`${value}T00:00:00+08:00`);
+/** Both days are Asia/Taipei calendar days and both are included: at most SUPPLIER_REPORT_MAX_DAYS days. */
+export const SupplierReportQuerySchema = z.object({from: reportDay, to: reportDay}).strict()
+  .refine(value => dayNumber(value.from) <= dayNumber(value.to), {message: 'from must not be after to.', path: ['to']})
+  .refine(value => dayNumber(value.to) - dayNumber(value.from) < SUPPLIER_REPORT_MAX_DAYS,
+    {message: 'The period is at most 366 days.', path: ['to']});
+const amount = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+/** This supplier's lines in the period's reservations that are in one state at as_of. */
+export const SupplierReportReservationsSchema = z.object({
+  reservations: count, lines: count, quantity: amount,
+  /** Sum of quantity × unit supply price (cost_minor of the reserved offer version), in the business currency. */
+  supply_total_minor: amount,
+}).strict();
+export const SupplierReportSchema = z.object({
+  profile: z.literal('freedom.supplier-console.report/v1'), tenant_id: OpaqueId, instance_id: OpaqueId, as_of: time,
+  business: z.object({name: z.string(), currency: CurrencySchema}).strict(),
+  period: z.object({from: reportDay, to: reportDay, time_zone: z.literal('Asia/Taipei'),
+    /** The same period as instants, [start, end): Taipei midnight of from and of the day after to. */
+    start: time, end: time}).strict(),
+  /** At as_of, by the products list filters' definitions; one product can count in several. */
+  products: z.object({total: count.max(200), offered: count, not_offered: count, outdated: count, out_of_stock: count}).strict(),
+  /** At as_of: seller selections on this supplier's offers, in total and per seller shop. */
+  cooperation: z.object({
+    totals: SupplierCooperationCountsSchema, partner_count: count,
+    /** Ordered like the partners read; the first 200 only. The CSV lists every shop. */
+    partners: z.array(SupplierPartnerSchema).max(200),
+  }).strict(),
+  /** Owner only, like every reservation read. */
+  reservations: z.discriminatedUnion('state', [
+    z.object({state: z.literal('ready'), reserved: SupplierReportReservationsSchema,
+      cancelled: SupplierReportReservationsSchema, expired: SupplierReportReservationsSchema}).strict(),
+    z.object({state: z.literal('unavailable'), reason: z.literal('owner_required')}).strict(),
+  ]),
+  /** Data rows in this report's CSV: one per product, per seller shop and (owner only) per reservation line. */
+  csv_rows: count.max(SUPPLIER_REPORT_MAX_ROWS),
+}).strict()
+  .refine(value => Date.parse(value.period.start) === taipeiMidnight(value.period.from)
+    && Date.parse(value.period.end) === taipeiMidnight(value.period.to) + 86400000, 'The period instants must match its days.')
+  .refine(value => value.products.offered + value.products.not_offered === value.products.total
+    && value.products.outdated <= value.products.offered && value.products.out_of_stock <= value.products.total,
+    'Product counts do not add up.')
+  .refine(value => value.cooperation.partners.length === Math.min(value.cooperation.partner_count, 200),
+    'The partner list must hold the first 200 shops.')
+  .refine(value => value.csv_rows === value.products.total + value.cooperation.partner_count
+    + (value.reservations.state === 'ready'
+      ? value.reservations.reserved.lines + value.reservations.cancelled.lines + value.reservations.expired.lines : 0),
+    'csv_rows must count every data row.');
+
 export type SupplierMetric = z.infer<typeof SupplierMetricSchema>;
 export type SupplierOverview = z.infer<typeof SupplierOverviewSchema>;
 export type SupplierProduct = z.infer<typeof SupplierProductSchema>;
@@ -244,3 +306,5 @@ export type SupplierReservationDetail = z.infer<typeof SupplierReservationDetail
 export type SupplierChange = z.infer<typeof SupplierChangeSchema>;
 export type SupplierChanges = z.infer<typeof SupplierChangesSchema>;
 export type SupplierSummary = z.infer<typeof SupplierSummarySchema>;
+export type SupplierReportQuery = z.infer<typeof SupplierReportQuerySchema>;
+export type SupplierReport = z.infer<typeof SupplierReportSchema>;

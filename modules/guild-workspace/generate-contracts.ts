@@ -145,6 +145,8 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['changes-query', supplierConsole.SupplierChangesQuerySchema, 'input', []],
     ['changes', supplierConsole.SupplierChangesSchema, 'output', ['own_tenant_journal_only', 'ids_and_versions_only', 'bounded_newest_first']],
     ['summary', supplierConsole.SupplierSummarySchema, 'output', ['one_business_per_read', 'store_write_required_for_counts', 'unavailable_is_not_zero']],
+    ['report-query', supplierConsole.SupplierReportQuerySchema, 'input', ['taipei_calendar_days', 'inclusive_max_366_days']],
+    ['report', supplierConsole.SupplierReportSchema, 'output', ['one_statement_at_as_of', 'store_write_required', 'reservations_owner_only', 'supply_amount_is_not_revenue', 'refused_above_max_csv_rows', 'not_a_data_export']],
   ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
   ['hosted-store-media', 'Independent hosted store media candidate. No upload or read route is installed; Asset identity and current authorization stay server-only.', [
