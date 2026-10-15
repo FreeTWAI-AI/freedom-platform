@@ -13999,8 +13999,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 70224,
-      "sha256": "cd32bf0c1395e7b7ddab8410b0e271ce6e262c863dc77fc58dfe23670f2e54a9"
+      "bytes": 70818,
+      "sha256": "84966989613e2cab437b0a6529b67be65187e1e3c800076b024759c77c0996cc"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -20034,8 +20034,8 @@
     },
     {
       "path": "packages/shared/validation.ts",
-      "bytes": 472,
-      "sha256": "19b8c98e770e92785b0351e06623feb62827968edc314743f704beeb5c847bed"
+      "bytes": 729,
+      "sha256": "32b7bdfd934abbc02e81e3aa264cad2cb22d655f6f8d5453ca160da4569ddf15"
     },
     {
       "path": "packages/shared/youtube-video-id.ts",
@@ -21909,8 +21909,8 @@
     },
     {
       "path": "tests/runtime/event-create-rate-limit.test.ts",
-      "bytes": 5698,
-      "sha256": "cdb712f34869a8e252a9d36e6e6ed27451d60bd09a16582738c1165caf3bfe38"
+      "bytes": 7747,
+      "sha256": "dbab57351794e5329bfb06ce2c0063f48891cd860fad55d6531bba26f082e125"
     },
     {
       "path": "tests/runtime/event-highlight-assets.test.ts",

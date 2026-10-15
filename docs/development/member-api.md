@@ -16,6 +16,15 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Event `starts_at`/`ends_at` (create, edit and schedule), Work
+`claim_by`/`finish_by`, and receipt `received_at` share the existing ISO datetime
+syntax with `Z` or a numeric offset. Years must be AD 0001–9999 and offset
+hours must be below 16 (including valid ±15:59 boundaries). Invalid values
+return `422 validation_failed` before business writes or command/quota effects;
+the same idempotency key can then submit a corrected value. Valid input keeps
+its raw fractional precision through SQL binding; existing ordering, future-time,
+receipt-time, ownership and version checks still apply.
+
 Presence refresh has a live-session/active-member guard; authentication reads
 the current Actor after that potentially blocking update, using the database clock.
 Expiry, session revocation or member deactivation during a presence lock wait
