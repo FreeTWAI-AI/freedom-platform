@@ -533,7 +533,7 @@ export function planDelivery(input: PlanInput, method: DeliveryMethod): PlanDeli
         agreement_version: el.agreement_version,
         profile_version: executorProfile.version,
         service,
-        working_days: executorProfile.working_days,
+        working_days: [...executorProfile.working_days],
         lines: [],
       };
       groupsByKey.set(groupKey, grp);
@@ -649,7 +649,7 @@ export function planDelivery(input: PlanInput, method: DeliveryMethod): PlanDeli
       temperature: 'ambient',
       handling_days: service.handling_days,
       cutoff_time: service.cutoff_time,
-      working_days: grp.working_days,
+      working_days: [...grp.working_days],
       parcels: deliveryParcels,
       fee_per_parcel_minor: baseFeePerParcel,
       outlying_surcharge_per_parcel_minor: outlyingSurchargePerParcel,
