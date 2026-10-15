@@ -87,6 +87,28 @@ pin 更新，才對 pinned PR gate 生效。舊 run 保留真實失敗，不靠�
 
 行程正常結束時，`stop()` 會 `DROP SCHEMA IF EXISTS` 這個 schema，並在有建立時卸下 `${schema}_app` role。SIGTERM／SIGINT／SIGHUP 會先走 `releaseOwnedResources()`。那個緊急路徑在連線字串含 `:54339` 時不另開卸下行程；54339 是本機預設開發庫的埠，避免在行程被 SIGKILL 的競態裡對那個庫多跑一次卸下。非 54339 的緊急路徑只卸下符合 `fp_e2e_[a-f0-9]{32}` 的 schema。若行程在 `stop()` 的 await 之前被 SIGKILL，54339 上的這一輪 schema 可能留下，需事後清掉；這不是寫入 `public`。
 
+## 功能 journey 與版型掃描
+
+功能 spec 不把整組 viewport 截圖掃描塞在同一個商業 journey 的總期限裡。
+例如 [商店規格](../../tests/e2e/agent-shops.spec.ts) 的 handoff 情境保留 MD 下載、
+私有網址不公開、跨會員選品／本人接受、opaque key、訂單、合成付款回報和出貨讀回；
+只在原 viewport sweep 結束的位置明確切到 320px，保留後段原本的手機操作。
+登出已回到可見登入表單時，直接使用該表單執行新的真實認證，不為每次換帳號
+重新載入整頁；初次頁面仍正常導覽，原匯入後的明確 reload／保存讀回驗證也保留。
+付款／物流仍是合成回報，不是銀行實收或真實配送驗收。
+
+內部／公開商店另各有自足的版型 case，以正常檔案匯入與真 API 建立自己的合成
+商店／選品，不借用另一 case 先建立的資料。各自涵蓋 1920、1280、820、390、
+320px：檢查沒有水平溢出、商品／控制項仍在可見容器內、標籤不裁切，並依
+[DESIGN](../../DESIGN.md) 保留可操作的觸控範圍。幾何讀取以同一批 DOM snapshot
+取得；每個 viewport 從頁首保留一張完整截圖，不重複寫相同內容的 action crop，
+也不讓捲動中的 sticky header 造成誤導性的整頁證據。
+
+不重釘 inset、等寬／同列或固定步驟數等 implementation 細節，也不以零散的中文
+詞彙代替 consumer 斷言。保留下載的 protocol marker／選品與私有資料投影、
+導覽對話框開關與不裁切等實際行為。這不增加單一案例的原 45 秒預算，不改
+worker、retries、case 選取或上方 pinned 整輪預算；本文件也不是某次執行的通過證據。
+
 ## 程式守住的條件
 
 descriptor 的 invariants 是下面這些 slug。沒有寫進去的，就是這份程式沒有強制。
