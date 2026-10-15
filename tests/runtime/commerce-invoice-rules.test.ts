@@ -561,6 +561,15 @@ describe('4. Period & Void Deadline', () => {
     // 2026-10-31 23:59:59 → 2026-11-13T15:59:59.000Z
     const d6 = parseEcpayDateTime('2026-10-31 23:59:59');
     assert.equal(voidDeadline(d6).toISOString(), '2026-11-13T15:59:59.000Z');
+
+    // 2000-01-01 00:00:00 → 1999-12-31T16:00:00.000Z
+    assert.equal(parseEcpayDateTime('2000-01-01 00:00:00').toISOString(), '1999-12-31T16:00:00.000Z');
+
+    // 2000/02/29 12:00:00 → 2000-02-29T04:00:00.000Z
+    assert.equal(parseEcpayDateTime('2000/02/29 12:00:00').toISOString(), '2000-02-29T04:00:00.000Z');
+
+    // 2099-12-31 23:59:59 → 2099-12-31T15:59:59.000Z
+    assert.equal(parseEcpayDateTime('2099-12-31 23:59:59').toISOString(), '2099-12-31T15:59:59.000Z');
   });
 
   it('rejects invalid date formats and impossible dates', () => {
@@ -568,6 +577,11 @@ describe('4. Period & Void Deadline', () => {
     assert.throws(() => parseEcpayDateTime('2026-1-5 10:00:00'), InvoiceRuleError);
     assert.throws(() => parseEcpayDateTime('2026-01-05T10:00:00'), InvoiceRuleError);
     assert.throws(() => parseEcpayDateTime('2026-01-05 24:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('2026-01/05 10:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('2026/01-05 10:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('0026-01-05 10:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('1999-12-31 23:59:59'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('2100-01-01 00:00:00'), InvoiceRuleError);
   });
 
   it('verifies invoicePeriod calculation', () => {
