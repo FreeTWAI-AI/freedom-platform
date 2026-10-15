@@ -35,6 +35,13 @@ does not expire a runtime. Read/revoke deliberately remain available to the
 current owner after runtime revocation or connection expiry. Matching revoke
 receipt replay is safe; missing/stale versions retain 428/412 semantics.
 
+Revoke validates the complete `ExecutionVersion` format/length through a pipeline
+before comparing the PostgreSQL bigint bound. Invalid versions produce
+`ZodError` issues for `expectedVersion` without changing the connection or
+receipt/facts; correcting the same key still permits one revoke and its replay.
+Versions remain decimal strings through `9223372036854775807`, not JavaScript
+numbers. This is a server-factory input fix, not new HTTP or machine authority.
+
 Lock order matches runtime enrollment: user, session, person, personal scope,
 scoped command advisory, enrollment owner/environment advisory, enrollment key
 advisory, challenge, runtime, connection. Reads omit the command advisory.

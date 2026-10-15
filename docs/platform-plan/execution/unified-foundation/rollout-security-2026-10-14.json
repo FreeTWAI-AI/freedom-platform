@@ -1,9 +1,9 @@
 {
   "format": "freedom.operator-observed-rollout/v1",
-  "recorded_at": "2026-10-15T05:34:25.341071+00:00",
-  "status": "in_progress",
+  "recorded_at": "2026-10-15T08:18:23.201214+00:00",
+  "status": "scoped_rollout_and_after_recovery_passed_scheduled_observation_pending",
   "draft": false,
-  "scope": "Selected security release through protected merge #652: both environments run938/schema166 with scoped acceptance, and production natural scheduled delivery plus21/21 GitHub repository synchronization passed bounded acceptance after one same-schedule repair. The original staging release backup/restore passed; a later staging scheduled capture failed and was independently cleaned. Production after-backup remains incomplete: three earlier captures failed and were independently cleaned, then one reviewed prepared-container attempt captured and remotely read back the set but failed during restore; separate read-only reconciliation confirmed its owned resources absent. Scheduled operator repair and full production after-restore remain pending. Later #658, #659/AR schema167 and #680 are separate source batches.",
+  "scope": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938.",
   "source": {
     "release": "938516ee632287569389a37a7044ac779c18802e",
     "tree": "089a3774e66c3f1ad4d68dc6548f125867510f09",
@@ -163,7 +163,7 @@
   },
   "environments": {
     "staging": {
-      "status": "deployed_scoped_acceptance_and_prior_restore_passed_latest_scheduled_backup_failed",
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed",
       "observed_at": "2026-10-14T19:10:57.380360+00:00",
       "worker_version": "368a5d67-c1c1-4602-bb45-98f05801bc10",
       "health": {
@@ -223,12 +223,26 @@
         "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
         "status": "failed_owned_resources_reconciled",
         "observed_at": "2026-10-15T05:04:48.356Z",
-        "repair_status": "prepared_not_executed",
+        "repair_status": "full_manual_repair_passed_operator_installed_natural_schedule_unobserved",
         "previous_release_after_restore_preserved": true
+      },
+      "backup_repair_completed_at": "2026-10-15T07:02:30.842489+00:00",
+      "backup_operator": {
+        "status": "installed_after_full_restore_natural_schedule_unobserved",
+        "at": "2026-10-15T07:04:34.799429+00:00",
+        "source": "938516ee632287569389a37a7044ac779c18802e",
+        "adapter_sha256": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a",
+        "after_backup_passed": true,
+        "backup_executed_by_install": false,
+        "evidence": {
+          "record": "daily_operator_restored_fence_install_completed",
+          "sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
+          "custody": "private_operator_original"
+        }
       }
     },
     "production": {
-      "status": "deployed_scoped_acceptance_and_natural_sync_passed_after_backup_pending",
+      "status": "deployed_scoped_acceptance_natural_sync_restore_and_operator_passed",
       "selected_release_not_yet_deployed": false,
       "last_observation": {
         "at": "2026-10-15T03:03:01.563Z",
@@ -245,7 +259,7 @@
         "scope": "Pre-migration runtime/schema165 baseline, not current public route or a post-migration health observation."
       },
       "required_next": [
-        "complete production after-backup with remote readback, isolated database/object restore, schema166 coordinate-extension verification and cleanup"
+        "Observe the next natural scheduled operator run; real OAuth/member/webhook and restore-authority acceptance remain separate."
       ],
       "new_release_health": {
         "http": 200,
@@ -524,16 +538,15 @@
         }
       },
       "backup_operator": {
-        "status": "installed_pending_production_after_backup",
-        "at": "2026-10-15T04:15:10.512577+00:00",
+        "status": "installed_after_full_restore_natural_schedule_unobserved",
+        "at": "2026-10-15T07:04:34.799429+00:00",
         "source": "938516ee632287569389a37a7044ac779c18802e",
-        "original_canonical_adapter_sha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
-        "production_after_backup_passed": false,
-        "runtime_backup_restore_cleanup_gates_unchanged": true,
+        "adapter_sha256": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+        "after_backup_passed": true,
         "backup_executed_by_install": false,
         "evidence": {
-          "record": "production_daily_operator_installed_pending_after_backup",
-          "sha256": "06049ce9a024b9f213c88b94599832305f40013742f26b41bf4cf851155892fe",
+          "record": "daily_operator_restored_fence_install_completed",
+          "sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
           "custody": "private_operator_original"
         }
       },
@@ -642,7 +655,8 @@
             "custody": "private_operator_original"
           }
         }
-      ]
+      ],
+      "backup_repair_completed_at": "2026-10-15T06:46:10.722374+00:00"
     }
   },
   "backups": {
@@ -829,10 +843,55 @@
           }
         },
         "limitation": "This later scheduled capture failed. Its separate cleanup reconciliation does not change the earlier successful staging release after-restore or establish future scheduled reliability."
+      },
+      {
+        "status": "passed",
+        "environment": "staging",
+        "setId": "8abd2a28-584e-49fc-b8ca-38a1bfd61f7a",
+        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+        "createdAt": "2026-10-15T06:49:18.200Z",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "diskRestore": true,
+        "restoredSchema166Floor": {
+          "status": "passed",
+          "schema": 166,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "label": "fresh complete after-backup with restored-fence and capture-window verification",
+        "completed_at": "2026-10-15T07:02:30.842489+00:00",
+        "adapterSha256": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a",
+        "restoredOperatorCoordinateFence": {
+          "status": "not_applicable",
+          "target": "staging"
+        },
+        "sourceProtection": "disabled_window_checked",
+        "durableCaptureWindow": {
+          "status": "passed",
+          "gcWindow": "superset_window_safe",
+          "constraints": 0,
+          "coordinateExtension": "not_applicable"
+        },
+        "evidence": {
+          "record": "staging_restored_fence_full_backup_completed",
+          "sha256": "1ed87c944767b0109f71c588f87a006f983a9608801b3fa6d6c4918920b38b5b",
+          "custody": "private_operator_original"
+        },
+        "executionEvidence": {
+          "record": "staging_restored_fence_full_backup_terminal",
+          "sha256": "a8f1a9d6ca7ca017b95f263b07776a1496594bc3f32d2417b1157a9aaf1fec13",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Explicit complete backup/restore, not a natural scheduled run or permission to admit restored data. Original failures remain failed."
       }
     ],
     "production": {
-      "status": "before_passed_four_after_failures_resources_reconciled_restore_unverified",
+      "status": "before_and_fresh_after_passed_original_failed_attempts_retained",
       "before": {
         "status": "passed",
         "environment": "production",
@@ -870,74 +929,53 @@
         }
       },
       "after": {
-        "label": "after-rollout; reviewed container preparation correction, one explicit attempt",
-        "status": "failed",
-        "stage": "restore",
-        "code": "daily_backup_cleanup_failed",
+        "status": "passed",
         "environment": "production",
-        "setId": "e021ebfc-39a0-45c8-bfe4-3662e980c04f",
-        "createdAt": "2026-10-15T05:06:51.861Z",
-        "failure_observed_at": "2026-10-15T05:24:52.876058+00:00",
+        "setId": "20c800a8-b0a8-4dc0-9d59-7392b2883370",
         "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
         "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
-        "adapterSha256": "9f685606e0c011c859af9623b11d029a9991b7a7387189395338db4e2113f540",
-        "dump": {
-          "sha256": "4642b2e13828f1abfcba776ace34f59688f83e75d4018b203e9dfc3e5e20a8fb",
-          "byteSize": 6229149
-        },
-        "objects": {
-          "count": 47,
-          "bytes": 627676
-        },
-        "manifestSha256": "6ae92e23aa39a4f7ad71a9ece4f677c232c1923f1e8fe2c65295d34c030b770f",
-        "snapshotEvidence": "captured",
-        "restore": "not_verified",
+        "createdAt": "2026-10-15T06:29:20.613Z",
+        "restore": "database_and_objects_restored",
         "remoteReadback": "verified",
-        "cleanupVerified": false,
-        "completed_recovery_claimed": false,
-        "originalFailureRetained": true,
-        "owned_resource_reconciliation": {
-          "at": "2026-10-15T05:29:39.557Z",
-          "status": "reconciled",
-          "resources_remaining": 0,
-          "owned_volume_absent": true,
-          "owned_database_sessions": 0,
-          "dump_clients": 0,
-          "owned_container_lifecycles_confirmed": true,
-          "policy_enabled": false,
-          "domain_media_enabled": false,
-          "retained_reference_count": 47,
-          "backup_succeeded": false,
-          "original_cleanupVerified": false,
-          "original_failure_preserved": true,
-          "evidence": {
-            "record": "production_prepared_after_owned_resource_reconciliation",
-            "sha256": "7be962aa3537e33fd91e0e1bb8cc52bd5dc414feef1e29bfbe1eebe3fe18f62a",
-            "custody": "private_operator_original"
-          }
+        "cleanupVerified": true,
+        "diskRestore": true,
+        "restoredSchema166Floor": {
+          "status": "passed",
+          "schema": 166,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
         },
-        "scope": "Owned container preparation moved before policy enable/exported snapshot, retaining the original180-second dump budget and1200-second core bound. The candidate preserves explicit ownership acknowledgement until cleanup. This one-shot adapter is not installed as the scheduled operator.",
+        "label": "fresh complete after-backup with restored-fence and capture-window verification",
+        "completed_at": "2026-10-15T06:46:10.722374+00:00",
+        "adapterSha256": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+        "restoredOperatorCoordinateFence": {
+          "status": "verified",
+          "target": "production",
+          "constraints": 10,
+          "comparison": "exact_reviewed_pg18_definition_variants",
+          "canonicalSavedFloorVerified": true,
+          "inventoryReceiptSha256": "341926cbc10953d421c738e1f5ac8e41b3660233f15c169aadaadae0d254c32b"
+        },
+        "sourceProtection": "disabled_window_checked",
+        "durableCaptureWindow": {
+          "status": "passed",
+          "gcWindow": "superset_window_safe",
+          "constraints": 10,
+          "reviewedDefinitionVariants": 5
+        },
         "evidence": {
-          "record": "production_after_prepared_dump_restore_failure",
-          "sha256": "2b947e74c057a145235fd1d819786e3d2995f7f271c5cdcadf71ee3e0010ce9e",
+          "record": "production_restored_fence_full_backup_completed",
+          "sha256": "eb5194e791f17b614800c65c5e439d13cdcfd10dfc3590231475e8949ce24301",
           "custody": "private_operator_original"
         },
         "executionEvidence": {
-          "record": "production_after_prepared_dump_execution_stopped",
-          "sha256": "0622e82c6c7178a42bd0d653f178e42d2d834fbf348bb0f2d71f0d6d5ef4d3b5",
+          "record": "production_restored_fence_full_backup_terminal",
+          "sha256": "c33e3c60f386fb6d9838071c6cfc73324c237a9b0a8d4d790335c987a4bd3b31",
           "custody": "private_operator_original"
         },
-        "observationEvidence": {
-          "record": "production_after_prepared_dump_progress_snapshot",
-          "sha256": "35d79421f7dc3607187336eabef27cd80c91e1cf03d16aa6464a693cfcec8347",
-          "custody": "private_operator_original"
-        },
-        "reviewEvidence": {
-          "record": "production_after_prepared_dump_execution_review",
-          "sha256": "493cc241de036e21fef3846ac06734f565c437472e0f0d49c544f75931e984d3",
-          "custody": "private_operator_original"
-        },
-        "limitation": "Database/object capture and remote readback passed, but restore failed and the original cleanupVerified=false receipt remains. Separate read-only reconciliation confirmed zero owned resources, absent owned volume, disabled policy and retained pins. Cleanup is not restore success; no recapture is claimed."
+        "limitation": "Explicit complete backup/restore, not a natural scheduled run or permission to admit restored data. Original failures remain failed."
       },
       "superseded_before": {
         "status": "passed",
@@ -1364,7 +1402,7 @@
     "next_approved_batch": {
       "pr": 680,
       "included_in_release": false,
-      "scope": "Three original reviewed source PRs662/668/675 plus bounded CI and current-state corrections; new candidate requires fresh approval and complete current-head checks. No new product scope or deployment is inferred.",
+      "scope": "Three source PRs662/668/675 plus bounded CI and dated-state corrections; merged as1e584aa8 after current-head review and required checks. No product deployment is implied.",
       "previous_head_evidence": {
         "head": "93c6dc3fb7a452287026dc2ed01ccf2b36ca593d",
         "candidate": "79ecb76e26d85f4a33399003abe36e8628eb6e18",
@@ -1409,11 +1447,23 @@
             "custody": "private_operator_original"
           }
         ]
+      },
+      "source_observation": {
+        "head": "a5255601e996c1ec9f03984eaba16de0b6e0c717",
+        "merge_sha": "1e584aa8734addfe251c7f081cf51cc84a52567f",
+        "merged_at": "2026-10-15T06:47:14Z",
+        "review_at": "2026-10-15T05:58:47Z",
+        "verify_run": 38689181933,
+        "verify_status": "success",
+        "codeql_run": 38689176515,
+        "runtime_aggregate": "success",
+        "ui": "success",
+        "included_in_deployed938": false
       }
     }
   },
   "limitations": [
-    "Both environments run938/schema166 with scoped acceptance. The earlier staging release before/after restores remain passed, but the later scheduled setfc39f036 failed and was independently cleaned. Three production after-captures failed and were independently cleaned; their original cleanupVerified=false receipts remain. New sete021ebfc captured and remotely read back its set, then failed during restore with cleanupVerified=false. Separate05:29 UTC read-only reconciliation confirmed zero owned resources and disabled policy; original failed cleanupVerified=false remains unchanged. Prepared-container repair is not yet installed as either scheduled operator.",
+    "Full manual after-backup/restore passed for both environments and the repaired operator is installed. This does not establish a successful natural scheduled run of the new operator, real GitHub OAuth/member/webhook acceptance, current-authority reconciliation after restore (T-047), human usability or second-operator recovery. All original failed backup receipts remain unchanged.",
     "Staging uses dedicated synthetic account checks, not human usability, adoption, or two independent guild authors.",
     "Critical race regressions are natural-main isolated test evidence; no cloud race reconstruction was performed.",
     "Real GitHub OAuth callbacks, member Issue/Star actions and real webhook deliveries were not exercised by this acceptance.",
@@ -1425,62 +1475,72 @@
     "The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling."
   ],
   "pending_completion_inputs": [
-    "successful production after-backup including restored schema166/operator coordinate extension and cleanup",
-    "staging prepared-container repair execution with full remote restore and cleanup, followed by reviewed scheduled-operator installation",
-    "reviewed production prepared-container scheduled-operator installation after successful recovery evidence",
+    "next naturally scheduled execution of the installed operator; no such run observed at this cutoff",
+    "real GitHub OAuth/member/webhook and Maintainer #72 acceptance remain separate work",
+    "T-047 current-authority reconciliation, human trials and second-operator recovery remain open",
     "GitHub deployment records only if actually created"
   ],
   "merged_source_observation": {
     "repository": "FreeTWAI/freedom-platform",
-    "sha": "efaf314d7397e288c6ac094c5d90ffdcc1094f14",
-    "tree": "36ffbce203e30fab284ecddd52f0ecbebef361b7",
-    "observed_at": "2026-10-15T03:05:33.528431+00:00",
+    "sha": "1e584aa8734addfe251c7f081cf51cc84a52567f",
+    "tree": "8f2bda1846d983f0bc3671578ba6fc16b24364f5",
+    "observed_at": "2026-10-15T06:47:14Z",
     "not_the_selected_runtime_release": true,
+    "scope": "Protected merge #680 after current-head review and required checks; #658/#659 remain merged but outside deployed938.",
     "product_pr_659": "Merged, including original sources622/657, with latest-head checks; not included in selected938 runtime."
   },
   "installed_backup_operator_observation": {
-    "observed_at": "2026-10-15T04:15:10.512577+00:00",
+    "observed_at": "2026-10-15T07:04:34.799429+00:00",
+    "status": "installed_after_both_full_restores",
     "staging_source": "938516ee632287569389a37a7044ac779c18802e",
     "production_source": "938516ee632287569389a37a7044ac779c18802e",
-    "dispatcher_sha256": "7d503ea03ce78692c39068ba5eba9bce364b9a80093f521c5315f8c9d15b6d23",
-    "staging_wrapper_sha256": "c5f847422a1694698ea4332d7dfafa6f524f03cb3e3b7d5b91d8c53870ffad2b",
+    "dispatcher_sha256": "868886717771c6f9e99640d3231382ede73fd2c2aca42a50ffb9cdc7db006316",
+    "previous_dispatcher_sha256": "7d503ea03ce78692c39068ba5eba9bce364b9a80093f521c5315f8c9d15b6d23",
+    "production_wrapper_sha256": "9d346b1a53af5a40922ac4b5b159e8fccc210f26ba6f8ff666b47e85f5e0d6f0",
+    "staging_wrapper_sha256": "59c060fde4ab99764335c5a82de77a66c6951c7eece814cb816f033fd3a641bb",
+    "adapter_sha256_by_environment": {
+      "production": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+      "staging": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a"
+    },
     "selected_release_dispatcher_installed": true,
     "selected_release_dispatcher_installed_by_environment": {
       "staging": true,
       "production": true
     },
+    "accepted_full_backup_sets": {
+      "production": "20c800a8-b0a8-4dc0-9d59-7392b2883370",
+      "staging": "8abd2a28-584e-49fc-b8ca-38a1bfd61f7a"
+    },
     "atomic_replace": true,
     "backup_timers_unchanged": true,
+    "old_wrappers_binding_and_evidence_preserved": true,
+    "backup_executed_by_install": false,
+    "scheduled_run_of_new_operator_observed": false,
+    "existing_service_state_at_install": {
+      "freedom-next-backup": "failed",
+      "freedom-staging-next-backup": "failed"
+    },
+    "next_natural_runs_at_install": {
+      "production": "2026-10-16T04:33:18+00:00",
+      "staging": "2026-10-16T04:46:20+00:00"
+    },
+    "scheduled_budgets": {
+      "core_abort_seconds": 1200,
+      "dump_preparation_milliseconds": 180000,
+      "dump_milliseconds": 180000,
+      "systemd_start_seconds": 1800,
+      "systemd_stop_seconds": 120,
+      "one_shot_outer_bound_claimed": false
+    },
+    "production_after_backup_passed": true,
+    "staging_after_backup_passed": true,
     "evidence": {
-      "record": "staging_daily_operator_installed",
-      "sha256": "177de68ecfd21c3e78dc88d99e79d15136b24119c452df8469d5a4ed9c1e79ef",
+      "record": "daily_operator_restored_fence_install_completed",
+      "sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
       "custody": "private_operator_original"
     },
-    "limitation": "Production configuration was explicitly advanced to the original canonical166 adapter to avoid retaining a schema165-incompatible scheduled operator. This was a reversible configuration repair; it did not run a backup, fabricate a completed after-set or waive runtime backup/restore/cleanup checks. Production restore of the coordinate extension remains unverified.",
-    "production_wrapper_sha256": "e0cbcbd70a42175900f06eb836475be15a65ed8d4512c5f55df4bf80b0b44461",
-    "adapter_sha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
-    "production_status": "installed_pending_production_after_backup",
-    "production_after_backup_passed": false,
-    "deployment_fully_closed": false,
-    "staging_branch_byte_exact": true,
-    "runtime_backup_restore_cleanup_gates_unchanged": true,
-    "production_evidence": {
-      "record": "production_daily_operator_installed_pending_after_backup",
-      "sha256": "06049ce9a024b9f213c88b94599832305f40013742f26b41bf4cf851155892fe",
-      "custody": "private_operator_original"
-    },
-    "repair_candidate_observation": {
-      "observed_at": "2026-10-15T05:29:39.557Z",
-      "production": "one explicit prepared-container candidate failed during restore; owned resources separately reconciled, restore remains unverified",
-      "staging": "prepared_not_executed",
-      "new_candidate_installed": false,
-      "staging_preparation_evidence": {
-        "record": "staging_operator_repair_prepared_not_executed",
-        "sha256": "7a433855854792bc9a272583eb007f0496780eb8110fd24c081d6710b0efeb1a",
-        "custody": "private_operator_original"
-      },
-      "limitation": "Prepared runner gates describe required future results, not completed execution. Current canonical dispatcher installation is retained as dated above; no repaired scheduled operator is claimed."
-    }
+    "limitation": "Versioned wrappers and exact adapters were installed after both complete manual runs. Existing failed service states were not relabelled. No subsequent natural run is observed; no backup/provider operation occurred during installation. Rollback remains explicit at the same938/schema166 source and preserves its known startup-budget limitation.",
+    "deployment_fully_closed": false
   },
   "consumer_protection_observation": {
     "observed_at": "2026-10-15T04:38:34.720629+00:00",
@@ -1553,5 +1613,51 @@
       "custody": "private_operator_original"
     }
   },
-  "evidence_cutoff_at": "2026-10-15T05:29:39.557Z"
+  "evidence_cutoff_at": "2026-10-15T07:04:34.799429+00:00",
+  "previous_installed_backup_operator_observations": [
+    {
+      "observed_at": "2026-10-15T04:15:10.512577+00:00",
+      "staging_source": "938516ee632287569389a37a7044ac779c18802e",
+      "production_source": "938516ee632287569389a37a7044ac779c18802e",
+      "dispatcher_sha256": "7d503ea03ce78692c39068ba5eba9bce364b9a80093f521c5315f8c9d15b6d23",
+      "staging_wrapper_sha256": "c5f847422a1694698ea4332d7dfafa6f524f03cb3e3b7d5b91d8c53870ffad2b",
+      "selected_release_dispatcher_installed": true,
+      "selected_release_dispatcher_installed_by_environment": {
+        "staging": true,
+        "production": true
+      },
+      "atomic_replace": true,
+      "backup_timers_unchanged": true,
+      "evidence": {
+        "record": "staging_daily_operator_installed",
+        "sha256": "177de68ecfd21c3e78dc88d99e79d15136b24119c452df8469d5a4ed9c1e79ef",
+        "custody": "private_operator_original"
+      },
+      "limitation": "Production configuration was explicitly advanced to the original canonical166 adapter to avoid retaining a schema165-incompatible scheduled operator. This was a reversible configuration repair; it did not run a backup, fabricate a completed after-set or waive runtime backup/restore/cleanup checks. Production restore of the coordinate extension remains unverified.",
+      "production_wrapper_sha256": "e0cbcbd70a42175900f06eb836475be15a65ed8d4512c5f55df4bf80b0b44461",
+      "adapter_sha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
+      "production_status": "installed_pending_production_after_backup",
+      "production_after_backup_passed": false,
+      "deployment_fully_closed": false,
+      "staging_branch_byte_exact": true,
+      "runtime_backup_restore_cleanup_gates_unchanged": true,
+      "production_evidence": {
+        "record": "production_daily_operator_installed_pending_after_backup",
+        "sha256": "06049ce9a024b9f213c88b94599832305f40013742f26b41bf4cf851155892fe",
+        "custody": "private_operator_original"
+      },
+      "repair_candidate_observation": {
+        "observed_at": "2026-10-15T05:29:39.557Z",
+        "production": "one explicit prepared-container candidate failed during restore; owned resources separately reconciled, restore remains unverified",
+        "staging": "prepared_not_executed",
+        "new_candidate_installed": false,
+        "staging_preparation_evidence": {
+          "record": "staging_operator_repair_prepared_not_executed",
+          "sha256": "7a433855854792bc9a272583eb007f0496780eb8110fd24c081d6710b0efeb1a",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Prepared runner gates describe required future results, not completed execution. Current canonical dispatcher installation is retained as dated above; no repaired scheduled operator is claimed."
+      }
+    }
+  ]
 }

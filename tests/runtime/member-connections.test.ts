@@ -113,6 +113,29 @@ test('friends directory handles both invitation directions and current accepted 
   const version=accepted.items[0].friendship.aggregate_version;await request('/friends/'+b.id+'/remove',a,{},version);
   assert.equal((await request('/friends/directory',a)).data.total,0);assert.deepEqual((await request('/members/'+b.id,a)).data.contacts,{});
 });
+test('a NUL byte in an API path or query is a 422 before SQL, while a literal %00 text still searches',async()=>{
+  const session=await member('空字元');
+  for(const path of ['/friends/directory?search=%00','/friends/directory?search=a%00b','/me/private-work?q=%00','/me/private-work?q=a%00b','/guilds/a%00b/announcements','/health?unused=%00']){
+    const result=await request(path,session);
+    assert.equal(result.status,422,path);assert.equal(result.data.code,'validation_failed',path);
+  }
+  for(const path of ['/friends/directory?search=%2500','/me/private-work?q=%2500','/guilds/directory'])assert.equal((await request(path,session)).status,200,path);
+  assert.equal((await request('/friends/directory?search=%00')).status,422);
+  assert.equal((await request('/friends/directory?search=%2500')).status,401);
+  assert.equal((await request('/health?unused=%2500')).data.status,'ok');
+});
+test('a rejected JSON NUL does not reserve a command key or create a squad; literal escape text persists exactly',async()=>{
+  const session=await member('本文邊界'),key=randomUUID(),body={name:'不支援\0小隊',kind:'project',purpose:'synthetic'};
+  const rejected=await request('/squads',session,body,undefined,key);
+  assert.equal(rejected.status,422);assert.equal(rejected.data.code,'validation_failed');
+  const corrected={...body,name:'字面\\u0000小隊😀',purpose:'第一行\n第二行'};
+  const created=await request('/squads',session,corrected,undefined,key);
+  assert.equal(created.status,201,JSON.stringify(created.data));assert.equal(created.data.name,corrected.name);assert.equal(created.data.purpose,corrected.purpose);
+  const replay=await request('/squads',session,corrected,undefined,key);
+  assert.equal(replay.status,201);assert.equal(replay.data.squad_id,created.data.squad_id);
+  const listed=await request('/squads',session);
+  assert.deepEqual(listed.data.items.map((item:any)=>item.squad_id),[created.data.squad_id]);
+});
 test('recommendations exclude self, pending friends, accepted friends, inactive, unfinished and test members',async()=>{
   const viewer=await member('推薦觀看者'),candidate=await member('同公會夥伴'),unfinished=await member('未完成夥伴',false),hidden=await member('驗證夥伴',true,`${randomUUID()}@example.invalid`);
   let result=await request('/members/recommendations?limit=3',viewer);assert.equal(result.status,200,JSON.stringify(result.data));assert.ok(result.data.items.some((item:any)=>item.member.user_id===candidate.id));assert.ok(result.data.items.find((item:any)=>item.member.user_id===candidate.id).reason.includes('AI 開發公會'));

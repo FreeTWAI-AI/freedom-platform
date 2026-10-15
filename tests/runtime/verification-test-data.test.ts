@@ -77,8 +77,8 @@ test('test accounts stay usable and disappear from other members lists and count
   assert.equal((await request('/members/'+host,real)).status,404);
   assert.equal((await request('/members/'+host,self)).status,200);
   await pool.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state) VALUES($1,LEAST($2::uuid,$3::uuid),GREATEST($2::uuid,$3::uuid),$2,'accepted')`,[DEMO_COMMUNITY,real.user.user_id,host]);
-  assert.ok(!ids( (await request('/friends',real)).data.items ).includes(host));
-  assert.ok(ids((await request('/friends',self)).data.items).includes(real.user.user_id));
+  assert.ok(!ids((await request('/friends/directory?scope=accepted',real)).data.items).includes(host));
+  assert.ok(ids((await request('/friends/directory?scope=accepted',self)).data.items).includes(real.user.user_id));
   await pool.query(`INSERT INTO member_social_links(link_id,community_id,user_id,platform,label,url,audiences) VALUES($1,$2,$3,'website','作品','https://example.com',ARRAY['public'])`,[randomUUID(),DEMO_COMMUNITY,host]);
   assert.equal((await request('/members/'+host+'/social-links',real)).status,404);
   assert.equal((await request('/members/'+host+'/social-links',self)).data.total,1);

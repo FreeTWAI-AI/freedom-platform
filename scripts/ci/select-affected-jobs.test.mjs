@@ -1164,11 +1164,14 @@ test('guide pilot binds clean integration checkout, ordered parents and host eve
 });
 
 
-test('actual repository guide graph includes composition and selects its complete browser obligation', () => {
-  const graph=loadModuleDescriptors(root,'HEAD');assert.equal(graph.ok,true);
-  for (const path of FRONTEND_LEAF_PROFILES.find(p=>p.module==='newcomer-guides').paths) {
-    const input={event:'pull_request',diffComplete:true,changes:[edited(path)],baseline:graph.descriptors,candidate:graph.descriptors};
-    assert.equal(decideAffectedJobs(input).mode,'full','job obligations are not narrowed');
-    assert.equal(decideE2eProfile(input).profile,'newcomer-guides');
+test('additional composition runtime ownership keeps the guide browser obligation full across adoption', () => {
+  const baseline=guideDescriptors(),expanded=guideDescriptors();
+  expanded.find(descriptor=>descriptor.module_id==='application-composition').owned_paths.push('tests/runtime/platform-json-body.test.ts');
+  for (const [before,after] of [[baseline,expanded],[expanded,expanded]]) {
+    for (const path of FRONTEND_LEAF_PROFILES.find(profile=>profile.module==='newcomer-guides').paths) {
+      const input={event:'pull_request',diffComplete:true,changes:[edited(path)],baseline:before,candidate:after};
+      assert.equal(decideAffectedJobs(input).mode,'full','job obligations are not narrowed');
+      assert.deepEqual(decideE2eProfile(input),{profile:'full',reason:'guide_impact_unproven'});
+    }
   }
 });

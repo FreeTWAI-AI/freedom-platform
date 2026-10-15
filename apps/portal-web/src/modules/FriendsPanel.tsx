@@ -6,8 +6,8 @@ import {BlockedMembers,MemberBlockingAction} from './MemberBlocking';
 import './MemberConnections.css';
 type Scope='accepted'|'incoming'|'outgoing'|'blocked';
 type Page={items:MemberCardData[];total:number;next_offset:number|null};
-export function FriendsPanel({client,onNavigate,onMessage,memberBlockingEnabled=false}:ModulePanelProps&{onMessage:(id:string)=>void;memberBlockingEnabled?:boolean}){
-  const [scope,setScope]=useState<Scope>('accepted'),[search,setSearch]=useState(''),[page,setPage]=useState<Page|null>(null),[offset,setOffset]=useState(0),[labels,setLabels]=useState<Record<string,string>>({}),[loadError,setLoadError]=useState(''),[loading,setLoading]=useState(true),[notice,setNotice]=useState('');
+export function FriendsPanel({client,onNavigate,onMessage,initialScope='accepted',memberBlockingEnabled=false}:ModulePanelProps&{onMessage:(id:string)=>void;initialScope?:'accepted'|'incoming';memberBlockingEnabled?:boolean}){
+  const [scope,setScope]=useState<Scope>(initialScope),[search,setSearch]=useState(''),[page,setPage]=useState<Page|null>(null),[offset,setOffset]=useState(0),[labels,setLabels]=useState<Record<string,string>>({}),[loadError,setLoadError]=useState(''),[loading,setLoading]=useState(true),[notice,setNotice]=useState('');
   const [blockingTarget,setBlockingTarget]=useState<string|null>(null),[blockingTargets,setBlockingTargets]=useState<{user_id:string;nickname:string}[]>([]);
   const [visitedBlocked,setVisitedBlocked]=useState(false);
   useEffect(()=>{if(scope==='blocked')setVisitedBlocked(true);},[scope]);
