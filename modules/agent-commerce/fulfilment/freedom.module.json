@@ -1,0 +1,24 @@
+{
+  "client_profiles": [],
+  "contract_families": [],
+  "dependencies": [],
+  "format": "freedom.module/v1",
+  "instructions": [
+    "modules/agent-commerce/fulfilment/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md"
+  ],
+  "invariants": [],
+  "module_id": "commerce-fulfilment",
+  "owned_paths": [
+    "modules/agent-commerce/fulfilment/**",
+    "tests/runtime/commerce-fulfilment-rules.test.ts"
+  ],
+  "owner_role": "foundation",
+  "public_exports": [
+    "modules/agent-commerce/fulfilment/rules/index.ts"
+  ],
+  "surfaces": [],
+  "tests": [
+    "runtime.full"
+  ]
+}

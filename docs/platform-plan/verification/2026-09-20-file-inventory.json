@@ -17023,6 +17023,61 @@
       "sha256": "534536a7089809a70c27c1929d7a63257101e08cb6bb606df1a08caf32f38f62"
     },
     {
+      "path": "modules/agent-commerce/fulfilment/README.md",
+      "bytes": 14772,
+      "sha256": "48ad4c6d52146397eaf67083766e15fdbd35704a9fe84272719bb70c5e09bd3a"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/freedom.module.json",
+      "bytes": 602,
+      "sha256": "7040591b9fd5682a1b2f0ce065a1dc7de90f4ab2c5982e00b694e83b205bddda"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/errors.ts",
+      "bytes": 734,
+      "sha256": "a55fa9dc257f60131137e04d608141e66594b561b92a4d6fffdaa9fa7f569b69"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/index.ts",
+      "bytes": 1685,
+      "sha256": "4dda88d186ba1c54f75d9c5601e9c48548eb6dba4cfe2bac4460ec324565b673"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/plan.ts",
+      "bytes": 22888,
+      "sha256": "d7416bd063a211040944020df8da831fd7951d28c79693ed411ea57e8f640472"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/postal.ts",
+      "bytes": 2035,
+      "sha256": "caf792746dc72478bcdd02eeb395097d42a4b3fd84dca3cd9be94e3d4dc30e22"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/recipient.ts",
+      "bytes": 10613,
+      "sha256": "0b5882956a30ec451182b625b996de8fadabde9ed558c5c65837709541f028d3"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/ship-by.ts",
+      "bytes": 2914,
+      "sha256": "b8e26d2f717318e177f347aee5c4b26b30cc7212cbd67de22504bfff9276a6cd"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/taipei.ts",
+      "bytes": 1306,
+      "sha256": "57c4b821cf40c05b596971b637c0c079c6422cd3430f5ee77d04d3df73356bce"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/tracking.ts",
+      "bytes": 8549,
+      "sha256": "73f47279e12265eb949882612586f4cea74230d403ad18d732fe605c12fc104b"
+    },
+    {
+      "path": "modules/agent-commerce/fulfilment/rules/types.ts",
+      "bytes": 7017,
+      "sha256": "3e64dc5a1ab389eedc3dd8d297c98d6a873709f9c2806f66a82f36c19d332bc3"
+    },
+    {
       "path": "modules/agent-commerce/hosted/capabilities.ts",
       "bytes": 2284,
       "sha256": "d0fd0b0a2178807eb4069f199bc17b1f854c188b0c7f9ba7e992587f135690a9"
@@ -21996,6 +22051,11 @@
       "path": "tests/runtime/command-core.test.ts",
       "bytes": 11734,
       "sha256": "f329212d4c53396e5dd260d307a8cba3230c64f8781b2cbd374a776e758e24b3"
+    },
+    {
+      "path": "tests/runtime/commerce-fulfilment-rules.test.ts",
+      "bytes": 58616,
+      "sha256": "a823db5ffba8ca17b746c0a4968d0ebf1fa07f641c573317f1e822dcfe9963c4"
     },
     {
       "path": "tests/runtime/commerce-invoice-rules.test.ts",
