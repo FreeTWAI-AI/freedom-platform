@@ -20,7 +20,8 @@ export const campaignInput=campaignContent.extend({source_project_id:z.uuid().nu
 const shareInput=z.object({channel:text(80),share_url:externalLink,note:z.string().trim().max(1000).default('')}).strict();
 type ProjectSource=Awaited<ReturnType<typeof inspectGitHubRepository>>;
 
-export async function projectView(q:Pool|PoolClient,actor:Actor,id:string) {
+/** Projection only: use the caller's command or locked member-read transaction. */
+export async function projectView(q:PoolClient,actor:Actor,id:string) {
   const row=(await q.query(`SELECT p.*,u.display_name AS owner_name,to_jsonb(v) AS current_version
     FROM oss_projects p JOIN users u ON u.user_id=p.owner_ref
     JOIN oss_project_versions v ON v.version_id=p.current_version_id AND v.project_id=p.project_id
@@ -53,8 +54,8 @@ async function insertVersion(q:PoolClient,projectId:string,source:ProjectSource)
     source.repository_full_name,source.repository_url,source.readme_url,source.license_spdx,source.license_evidence_url,source.is_fork,source.archived,JSON.stringify(source),digest(source),source.inspected_at,sourceDigest])).rows[0];
   return inserted?.version_id??(await q.query('SELECT version_id FROM oss_project_versions WHERE project_id=$1 AND facts_sha256=$2',[projectId,sourceDigest])).rows[0].version_id;
 }
-export async function listProjects(pool:Pool,actor:Actor) {
-  return (await pool.query(`SELECT p.*,u.display_name AS owner_name,to_jsonb(v) AS current_version
+export async function listProjects(q:PoolClient,actor:Actor) {
+  return (await q.query(`SELECT p.*,u.display_name AS owner_name,to_jsonb(v) AS current_version
     FROM oss_projects p JOIN users u ON u.user_id=p.owner_ref JOIN oss_project_versions v ON v.version_id=p.current_version_id AND v.project_id=p.project_id
     WHERE p.community_id=$1 AND (p.owner_ref=$2 OR (p.sharing_withdrawn_at IS NULL AND NOT is_verification_test_account(p.owner_ref))) ORDER BY p.created_at DESC,p.project_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
 }
@@ -150,8 +151,8 @@ async function campaignView(q:Pool|PoolClient,actor:Actor,id:string) {
   const shares=(await q.query('SELECT * FROM marketing_share_records WHERE campaign_id=$1 ORDER BY created_at DESC,share_id',[id])).rows;
   return {...row,shares};
 }
-export async function listCampaigns(pool:Pool,actor:Actor) {
-  return (await pool.query(`SELECT c.*,COALESCE((SELECT jsonb_agg(s ORDER BY s.created_at DESC) FROM marketing_share_records s WHERE s.campaign_id=c.campaign_id),'[]'::jsonb) AS shares
+export async function listCampaigns(q:PoolClient,actor:Actor) {
+  return (await q.query(`SELECT c.*,COALESCE((SELECT jsonb_agg(s ORDER BY s.created_at DESC) FROM marketing_share_records s WHERE s.campaign_id=c.campaign_id),'[]'::jsonb) AS shares
     FROM marketing_campaign_drafts c WHERE c.community_id=$1 AND c.owner_ref=$2 ORDER BY c.created_at DESC,c.campaign_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
 }
 export async function createCampaign(pool:Pool,input:Command) {
