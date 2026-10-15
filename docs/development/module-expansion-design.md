@@ -66,6 +66,17 @@ flowchart TB
 
 不任意 clone／執行上游程式，不抓私人 repo，不把提交者稱作已驗證維護者；缺少授權資訊就呈現未知，不能替 repo 補造 open-source license。Penpot 如有使用，作為後續設計稿／原型外部協作接點；不取代 GitHub 或本平台 registry。
 
+OSS 的會員 list／detail 以 `readWithMemberSession` 包住完整組合投影：
+project source 與最後的 `projectSkillBookLinks` 使用同一已鎖定的 database
+client，不能在 source 檢查後另用 pool 查 private draft。`/marketing/campaigns`
+也涵蓋本人草稿與 shares 子查詢，最後才以目前 database clock 檢查 session。
+source 或 skill-book 等 SQL 鎖期間到期回 `401 session_expired`，不回 project、
+private `skill_book`、campaign items 或更新 cookie；空清單同樣檢查。
+低階 project／campaign query ports 僅接受呼叫端的 `PoolClient`，不是獨立登入
+入口；mutation 仍用原 command 交易，不新增巢狀交易或把 GitHub I/O 放進讀取鎖。
+保留原分享／撤下／本人／test-account 條件及 skill-book 優先序；讀取不寫
+receipt／journal。此期限檢查在投影回傳前，不保證直到 commit 或 HTTP 傳送完畢。
+
 ## 行銷與外部接線
 
 RefRef／Refferq 的 referral attribution、partner journey 是參考重點。平台 Campaign 起點應有來源作品或商品的 exact facts，人工分享與外部 provider confirmed publication 分開。沒有真實 click／conversion／payment evidence 時不顯示虛構轉換數、獎勵或已結算。

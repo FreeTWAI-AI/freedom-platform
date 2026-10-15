@@ -604,8 +604,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
-      "bytes": 3847,
-      "sha256": "635995ffe4da1f37b3574cedb27f1f4a8a5addd65be84b6ceb23432e571deefe"
+      "bytes": 4213,
+      "sha256": "52bde9592c992119c3c9319a75b6661b5845cfac9aa118c27eb021b965703e1b"
     },
     {
       "path": "apps/platform-api/src/routes/positioning.ts",
@@ -14044,8 +14044,8 @@
     },
     {
       "path": "docs/development/module-expansion-design.md",
-      "bytes": 7198,
-      "sha256": "554d2c5679ea8741ce336eca23d618a0f42d41a88a85e04c92b7a16a21b7176e"
+      "bytes": 8124,
+      "sha256": "5664814c23a479555c6fffa4695060eac5b2e98fb858bc603eb22dd616e4459a"
     },
     {
       "path": "docs/development/newcomer-guides.md",
@@ -18584,8 +18584,8 @@
     },
     {
       "path": "modules/opensource-marketing/service.ts",
-      "bytes": 19104,
-      "sha256": "32a0d4752b7c5837cd9b35e7f063b837a0f8606ac6224484d2df4dc0c0e8901c"
+      "bytes": 19183,
+      "sha256": "3492752a5be12f8a3d3d205cf44f74810cda3092a73d7a27772de5cd102b2f6a"
     },
     {
       "path": "modules/opportunity-project-work/README.md",
@@ -22764,8 +22764,8 @@
     },
     {
       "path": "tests/runtime/opensource-marketing.test.ts",
-      "bytes": 17797,
-      "sha256": "ec4f0b646df6762180e4a01d2907cdbd73239541d70b23327e014bf4d2f34aad"
+      "bytes": 22130,
+      "sha256": "a9668b4def06911fe473ce48d8e1ff39f54dae74f8d70a13d295444fb0fe0f2c"
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",
