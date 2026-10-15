@@ -35,7 +35,10 @@ export type ServiceIssue = { field: string; code: string; message: string };
 const chars = (value: string) => [...value].length;
 
 function line(value: unknown, max: number, field: string, label: string, required: boolean, issues: ServiceIssue[]) {
-  if (typeof value !== 'string') { if (required) issues.push({ field, code: 'validation_failed', message: `請填寫${label}。` }); return null; }
+  if (typeof value !== 'string') {
+    if (required || value != null) issues.push({ field, code: 'validation_failed', message: required ? `請填寫${label}。` : `${label}格式不正確。` });
+    return null;
+  }
   if (LINE.test(value)) { issues.push({ field, code: 'validation_failed', message: `${label}含有無法使用的字元。` }); return null; }
   const trimmed = value.trim();
   if (!trimmed) { if (required) issues.push({ field, code: 'validation_failed', message: `請填寫${label}。` }); return null; }
