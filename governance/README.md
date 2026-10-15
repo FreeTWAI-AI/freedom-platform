@@ -87,11 +87,33 @@ The fixed registry in `runtime-suites.mjs` maps these existing IDs:
 | `runtime.preview-protocol` | `preview-protocol` |
 | `runtime.full` | All baseline runtime files **plus newly added** direct `tests/runtime/*.test.ts` files |
 
-`e2e.harness` is a separate fixed adapter. It is not a runtime file, so it is not a row in the table above. It runs exactly `scripts/run-e2e.test.mjs` with the same bounded Node reporter, the 60-second non-runtime budget, and no database environment. Neighboring `scripts/**/*.test.mjs` files are not discovered. Deleting that baseline is `suite_files_unavailable` (`not_run`), not a pass. An empty file, a zero-test run, or any skip, TODO, cancellation, or failure does not pass. The verifier report accepts that one `scripts/run-e2e.test.mjs` path and no other `scripts/` test path. This suite checks the Playwright orchestrator. It does not launch a browser. CI's `ui-e2e` job runs `npm run test:e2e` after `npm run build`; that job is the browser evidence, and `verify` does not substitute for it.
+`e2e.harness` is a separate fixed adapter. It is not a runtime file, so it is not a row in the table above. It runs exactly `scripts/run-e2e.test.mjs` with the same bounded Node reporter, the 60-second non-runtime budget, and no database environment. Neighboring `scripts/**/*.test.mjs` files are not discovered. Deleting that baseline is `suite_files_unavailable` (`not_run`), not a pass. An empty file, a zero-test run, or any skip, TODO, cancellation, or failure does not pass. The verifier report accepts that one `scripts/run-e2e.test.mjs` path and no other `scripts/` test path. This suite checks the local Playwright orchestrator, not a browser. CI's `ui-e2e` job runs the trusted `scripts/ci/run-pinned-e2e.mjs` after `npm run build`; `npm run test:e2e` remains the local mode runner. The pinned browser job is the browser evidence, and `verify` does not substitute for it.
 
 | Suite | Fixed baseline | Budget |
 | --- | --- | --- |
 | `e2e.harness` | `scripts/run-e2e.test.mjs` only | 60 seconds, no database |
+
+
+The full pinned browser plan keeps its six mode passes. Its default mode (#784)
+first enumerates all cases without sharding, then runs exactly two concurrent
+native Playwright shards, each still `workers: 1` / `fullyParallel: false`.
+The host assigns separate generated `fp_e2e_*` schemas and localhost ports
+14311/14312; run only one full pinned plan per host. Existing dedicated fixture
+passes and narrow guide/guild plans remain unsharded and retain their obligations.
+No candidate CLI profile, file list, shard count or timeout override is accepted.
+
+The original 50-minute default-mode budget includes discovery and both concurrent
+processes; discovery keeps its independent 60-second maximum. A failed shard
+cancels its peer, with the existing bounded SIGTERM/SIGKILL cleanup. Timeout or
+cancellation remains failed even if every interrupted child exits zero.
+Default evidence requires both ordered `partitions` with host-bound current/total,
+actual exit status and raw-report SHA-256. Their disjoint case union must equal
+the unsharded inventory; a successful subset, duplicate, invented or omitted case
+cannot pass. Receipts retain inventory/case fingerprints without raw test titles.
+Failure artifacts retain the inventory and both shard outputs under the existing
+bounded diagnostic-copy policy; those artifacts are not admission evidence.
+The reviewed central pin must adopt this source before hosted CI uses it; a local
+candidate cannot approve that pin, replace a failed run, or authorize merge/deploy.
 
 `runLocalSuite(root, id, {testDatabaseUrl})` remains available from `verify.mjs`; `runLocalSuites(root, ids, {testDatabaseUrl})` and the default `verifyWorkspace(options, {testDatabaseUrl})` batch overlapping runtime selections into **one** Node/tsx invocation. Each file executes once even when full and subset IDs are selected; reports project each suite's file/case evidence from that invocation. There is no persistent cache across calls or source changes. Deleting a baseline file or a fixed subset file cannot become green; consumers without these producer suites receive `suite_files_unavailable`. New direct runtime test files are discovered automatically without first adding them to the baseline list. The tsx loader comes from the installed tooling's dependency resolution; no npm script is executed.
 
