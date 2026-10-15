@@ -21119,8 +21119,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 18220,
-      "sha256": "00622422ce02fdbd7a050bc08e263e636ba23db4a672bcb2a8df8122739dbf2e"
+      "bytes": 21103,
+      "sha256": "036e95e7048066117f39ff974b2fb505ed4ba77a904184338ed784b767e65f89"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
@@ -21501,6 +21501,16 @@
       "path": "tests/e2e/storefront-product.spec.ts",
       "bytes": 7605,
       "sha256": "35e03599fe2da66bce806e7a09a4234604642372b3d4245e4729f79eb1272dd4"
+    },
+    {
+      "path": "tests/e2e/supplier-console-cooperation.spec.ts",
+      "bytes": 35628,
+      "sha256": "e21c737588c137a9197375ab9b9cf1867fb3dd2046a926686b520de26498d1cb"
+    },
+    {
+      "path": "tests/e2e/supplier-console-recovery.spec.ts",
+      "bytes": 29037,
+      "sha256": "2d13b8aa2f7267737b63354bc17daeae3918f0df2b616cbf0f074c5c6fe42fdd"
     },
     {
       "path": "tests/e2e/tenant-member-grants-role-change.spec.ts",

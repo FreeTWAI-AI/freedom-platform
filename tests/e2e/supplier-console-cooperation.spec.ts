@@ -1,9 +1,8 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import type {BrowserContext, Page} from '@playwright/test';
-import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {test, expect} from './member-feature-fixture.js';
-import {person, post, launchStore, storeArea} from './hosted-store-fixture.js';
+import {person, login, post, launchStore, storeArea} from './hosted-store-fixture.js';
 
 test.use({
   memberFeatures: {
@@ -12,20 +11,6 @@ test.use({
     supplierConsoleEnabled: true,
   },
 });
-
-async function login(page: Page, email: string) {
-  await page.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
-  await page.goto('/');
-  await page.getByLabel('電子郵件', {exact: true}).fill(email);
-  await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
-  const loginRes = page.waitForResponse(
-    response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST',
-    {timeout: 25_000},
-  );
-  await page.getByRole('button', {name: '登入', exact: true}).click();
-  expect((await loginRes).status()).toBe(200);
-  await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible({timeout: 25_000});
-}
 
 function parseStore(store: {root: string; hash: string}) {
   const [, , tenantId, , instanceId] = store.root.split('/');
@@ -235,7 +220,7 @@ test('SC-E2E-10 same-name shops stay separate; accept one, decline the other wit
     await declineBtn.click();
     await expect(declineDialog).toBeVisible();
     await declineDialog.getByRole('button', {name: '確認不同意', exact: true}).click();
-    await expect(pageA.locator('.sc-announcement')).toContainText('已保存：不同意售價申請', {timeout: 15_000});
+    await expect(pageA.locator('.sc-announcement')).toContainText('已保存：不同意售價申請');
     await expect(activePage(pageA).locator('.badge').filter({hasText: '未同意'})).toBeVisible();
 
     // 8. The terms page still shows C under its history list
@@ -345,16 +330,17 @@ test('SC-E2E-11 a reprice needs new consent; withdrawing consent keeps history (
     await expect(pageA.locator('.sc-metrics').getByText('待確認售價申請').locator('..').locator('.sc-metric-value')).toHaveText('1');
 
     await openSupplyPage(pageA, `${storeA.hash}/supply/terms`, '供貨條件與審核');
-    const pendingItem = activePage(pageA).locator('.sc-row').filter({hasText: '$15.00'});
-    await expect(pendingItem).toBeVisible();
-    await expect(pendingItem.locator('.badge')).toHaveText('待確認');
-
-    // Earlier acceptance is not presented as covering P2:
-    // P2 is strictly in awaiting_supply_acceptance, not in sellable
-    const otherSection = activePage(pageA).locator('section').filter({has: activePage(pageA).getByRole('heading', {name: '其他申請紀錄', exact: true})});
-    if (await otherSection.count()) {
-      await expect(otherSection.locator('.sc-row').filter({hasText: '$15.00'})).toHaveCount(0);
-    }
+    // Earlier acceptance is not presented as covering P2: once the refreshed list shows P2, the one selection is a
+    // single pending row, the history list is empty, and nothing on the page still shows it as sellable.
+    const rowsB = activePage(pageA).locator('.sc-row').filter({has: pageA.locator(`[data-sc-item="${propB.selection_id}"]`)});
+    const pendingRows = activePage(pageA).locator('h3:text-is("待確認申請") + ul.sc-list > .sc-row');
+    await expect(pendingRows.filter({hasText: '$15.00'})).toHaveCount(1);
+    await expect(rowsB).toHaveCount(1);
+    await expect(pendingRows).toHaveCount(1);
+    await expect(rowsB).not.toContainText('$11.00');
+    await expect(rowsB.locator('.badge')).toHaveText('待確認');
+    await expect(activePage(pageA).locator('h3:text-is("其他申請紀錄") + p')).toHaveText('目前沒有申請。');
+    await expect(activePage(pageA).locator('.sc-row .badge').filter({hasText: '可售'})).toHaveCount(0);
 
     // 6. A accepts P2 on review page
     await openSupplyPage(pageA, `${storeA.hash}/supply/terms/${selBeforeReprice.selection_id}`, '審核售價申請');
@@ -584,15 +570,11 @@ test('SC-E2E-13 a read-only member sees overview and settings without write cont
     expect(profileA2.capabilities).toEqual(['store:read']);
 
     // 3. Record every request A2's page sends
-    const a2Requests: {method: string; url: string; status?: number}[] = [];
+    const a2Requests: {method: string; url: string; body?: unknown}[] = [];
     pageA2.on('request', req => {
       if (req.url().includes('/api/v1/')) {
-        a2Requests.push({method: req.method(), url: req.url()});
+        a2Requests.push({method: req.method(), url: req.url(), body: new URL(req.url()).pathname === '/api/v1/me/client-errors' ? req.postDataJSON() : undefined});
       }
-    });
-    pageA2.on('response', res => {
-      const match = a2Requests.slice().reverse().find(r => r.url === res.url() && r.method === res.request().method() && r.status === undefined);
-      if (match) match.status = res.status();
     });
 
     // 4. A2 opens overview (#stores/<t>/<i>/supply)
@@ -651,21 +633,16 @@ test('SC-E2E-13 a read-only member sees overview and settings without write cont
     await expect(activePage(pageA2).getByRole('button', {name: '儲存商品庫資料', exact: true})).toHaveCount(0);
     await expect(activePage(pageA2).getByRole('button', {name: '開放 30 分鐘預留', exact: true})).toHaveCount(0);
 
-    // 8. Assert recorded requests of A2's page
-    // No POST/PATCH at all
-    const writeRequests = a2Requests.filter(r => !r.url.endsWith('/client-errors') && ['POST', 'PATCH', 'PUT', 'DELETE'].includes(r.method));
+    // 8. Assert recorded requests of A2's page.
+    // The only POST allowed is the client's own error report for the owner probe a non-owner is refused.
+    const reports = a2Requests.filter(r => new URL(r.url).pathname === '/api/v1/me/client-errors');
+    for (const report of reports) expect(report.body).toMatchObject({action: 'GET /tenants/:id/storefronts/:id/reservation-setting', http_status: 403});
+    const writeRequests = a2Requests.filter(r => !reports.includes(r) && ['POST', 'PATCH', 'PUT', 'DELETE'].includes(r.method));
     expect(writeRequests).toEqual([]);
 
-    // No successful read of products, requests or reservations
-    const sensitiveSuccessReads = a2Requests.filter(r => {
-      const path = new URL(r.url).pathname;
-      const isSensitive = path.includes('/supplier-console/products') ||
-        path.includes('/supply-products') ||
-        path.includes('/supply-requests') ||
-        path.includes('/supply-reservations');
-      return isSensitive && r.status === 200;
-    });
-    expect(sensitiveSuccessReads).toEqual([]);
+    // Reads that need product editing or the owner are not even requested.
+    const gated = ['/supplier-console/products', '/supplier-console/partners', '/supply-requests', '/supply-offers', '/supply-reservations', '/product-media'];
+    expect(a2Requests.filter(r => gated.some(path => new URL(r.url).pathname.includes(path)))).toEqual([]);
   } finally {
     await Promise.allSettled(contexts.map(ctx => ctx.close()));
     await withdrawSupplierOffers(e2eAuthPool, supplierIds);

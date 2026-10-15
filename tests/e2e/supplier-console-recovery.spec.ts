@@ -233,7 +233,7 @@ test('SC-E2E-26 a writer who loses permission keeps the saved data and gets clea
   expect((await e2eAuthPool.query('SELECT stock,reserved FROM commerce_items WHERE item_id=$1',[p.product_id])).rows).toEqual([{stock:7,reserved:0}]);
   const members=await get(page,`/tenants/${tenant}/members`),membership=members.items.find((item:{principal_id:string})=>item.principal_id===candidate.principal_id);
   await post(page,`/tenants/${tenant}/members/${candidate.principal_id}/change`,{role:'operator',status:'active',instance_capabilities:[{instance_id:instance,capabilities:['store:read']}],reason:'Synthetic supplier console permission recovery'},200,membership.version);release.resolve();
-  await expect(consoleArea(writer).locator('.sc-announcement')).toHaveText('已保存：儲存庫存。');await expect.soft(active(writer)).toContainText('需要商品編輯權限才能查看');await expect(active(writer).getByRole('form')).toHaveCount(0);expect(requests).toHaveLength(1);expect(statuses).toEqual([200]);
+  await expect(consoleArea(writer).locator('.sc-announcement')).toHaveText('已保存：儲存庫存。');await expect(active(writer)).toContainText('需要商品編輯權限才能查看');await expect(active(writer).getByRole('form')).toHaveCount(0);expect(requests).toHaveLength(1);expect(statuses).toEqual([200]);
   expect((await detail(page,s,p.product_id)).product).toMatchObject({stock:7,version:String(Number(p.version)+1)});
   await evidence(writer,info,'committed-save-after-write-revocation',{requests,statuses});
   for(const suffix of ['/products','/products/'+p.product_id,'/products/new','/partners','/terms']){await go(writer,s,suffix);await expect(active(writer)).toContainText('需要商品編輯權限才能查看');await expect(active(writer).getByRole('form')).toHaveCount(0);}
