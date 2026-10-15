@@ -3029,8 +3029,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 8380,
-      "sha256": "fab07584c634eac541baa96ca3251557817eac270632199879cda1ac59093e71"
+      "bytes": 8151,
+      "sha256": "34d406113858bbb244e0c73b5dab501dae1317b3eb6bdeb29ced141df51c8efd"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -15964,8 +15964,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 26253,
-      "sha256": "aad9c776383ea4ddacff064bbb5ebbad1e35a4ef35c238b6818a81155e4472fb"
+      "bytes": 26869,
+      "sha256": "531fc23da789e2896a7ad61d2e132237d36ffd6bce82e8066d4fc8ae751c6c86"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
