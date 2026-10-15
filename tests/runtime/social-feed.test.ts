@@ -242,6 +242,25 @@ test('like names respect current membership and blocks; comment likes deduplicat
  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[other.id]);assert.equal((await request(`${path}/likes`,owner)).data.items.length,0);
 });
 
+test('like pagination preserves microseconds and UUID ties without repeating or skipping members',async()=>{
+ const owner=await login(),note=await post(owner),prefix=randomUUID();
+ const users=(await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+  SELECT gen_random_uuid(),$1,$2||'-'||n||'@local.test','Synthetic like '||n,password_hash,gen_random_uuid()
+  FROM users CROSS JOIN generate_series(1,51) n WHERE user_id=$3 RETURNING user_id`,[DEMO_COMMUNITY,prefix,owner.id])).rows;
+ const ids=users.map(row=>row.user_id);
+ await pool.query(`INSERT INTO community_social_likes(post_id,community_id,user_id,created_at)
+  SELECT $1,$2,id,CASE WHEN n<=30 THEN '2026-01-01T00:00:00.123456Z'::timestamptz ELSE '2026-01-01T00:00:00.123789Z'::timestamptz END
+  FROM unnest($3::uuid[]) WITH ORDINALITY AS fixture(id,n)`,[note.post_id,DEMO_COMMUNITY,ids]);
+ const expected=(await pool.query('SELECT user_id FROM community_social_likes WHERE post_id=$1 ORDER BY created_at,user_id',[note.post_id])).rows.map(row=>row.user_id);
+ let cursor:string|null=null;const actual:string[]=[];
+ for(const size of [24,24,3]){
+  const result=await request(`/social-posts/${note.post_id}/likes${cursor?'?cursor='+encodeURIComponent(cursor):''}`,owner);
+  assert.equal(result.status,200);assert.equal(result.data.items.length,size);
+  actual.push(...result.data.items.map((item:{user_id:string})=>item.user_id));cursor=result.data.next_cursor;
+ }
+ assert.deepEqual(actual,expected);assert.equal(cursor,null);
+});
+
 test('comment image lifecycle binds owner and post, survives an unknown ACK, and denies hidden content',async()=>{
  const {FakeObjectStore}=await import('../../packages/asset-storage/fake-store.js');
  const {default:sharp}=await import('sharp');

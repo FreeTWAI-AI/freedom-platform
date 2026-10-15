@@ -475,14 +475,14 @@ async function writeSocialMetadata(q:Pick<Pool,'query'>,actor:Actor,id:string,dr
 export async function listSocialLikes(pool:Pool|PoolClient,actor:Actor,id:string,rawCursor?:string){
  await activePost(pool,actor,id);
  const cursor=cursorOf(rawCursor);
- const rows=(await pool.query(`SELECT u.user_id,u.display_name,l.created_at FROM community_social_likes l JOIN users u USING(user_id)
+ const rows=(await pool.query(`SELECT u.user_id,u.display_name,to_char(l.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_cursor FROM community_social_likes l JOIN users u USING(user_id)
  JOIN community_social_posts p USING(post_id) WHERE l.post_id=$1 AND p.community_id=$2 AND p.state='active' AND u.community_id=$2 AND u.active
  AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (NOT is_verification_test_account(u.user_id) OR u.user_id=$3)
  AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$2 AND b.state='active' AND ((b.owner_ref=$3 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$3)))
  AND ($4::timestamptz IS NULL OR (l.created_at,l.user_id)>($4::timestamptz,$5::uuid)) ORDER BY l.created_at,l.user_id LIMIT 25`,
  [id,actor.community_id,actor.user_id,cursor?.createdAt??null,cursor?.id??null])).rows;
  const last=rows[23];
- return {items:rows.slice(0,24).map(row=>({user_id:row.user_id,display_name:row.display_name})),next_cursor:rows.length>24?Buffer.from(`${new Date(last.created_at).toISOString()}\n${last.user_id}`).toString('base64url'):null};
+ return {items:rows.slice(0,24).map(row=>({user_id:row.user_id,display_name:row.display_name})),next_cursor:rows.length>24?Buffer.from(`${last.created_cursor}\n${last.user_id}`).toString('base64url'):null};
 }
 export async function markSocialRead(pool:Pool,input:Command,id:string){
  z.object({}).strict().parse(input.body??{});
