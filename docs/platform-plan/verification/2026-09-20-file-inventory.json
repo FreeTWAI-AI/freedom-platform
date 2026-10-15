@@ -15469,8 +15469,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 12353,
-      "sha256": "8bb53f72ebe32e5b1c0d626f096204fdfa5dea3d19577919c50b1238b30aac7d"
+      "bytes": 13484,
+      "sha256": "469c44f27db30eae600a9425b7c6015755cd3dbf778e8ca8e3cc6091ebbc0f22"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -15479,8 +15479,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-07-fulfilment.md",
-      "bytes": 23842,
-      "sha256": "75f9a2f586f7a2ba96805d7609438548c6f21ff4d9e6f4a3de38499eb16c0abe"
+      "bytes": 25232,
+      "sha256": "b129ceacbb46efab3a1ecde525ff4a1d59b4a4e7b7b9b7d6427cc9407b322b4a"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/WP-00-baseline.md",

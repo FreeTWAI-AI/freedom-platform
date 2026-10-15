@@ -14,7 +14,7 @@
 | 契約 | `npm run check:guild-launchpad-contracts`；`tests/runtime/guild-launchpad-contracts.test.ts` 加入新 schema 的正反例 | 無資料庫 | 實際資料與權限 |
 | 前端狀態邏輯 | `tests/runtime/supplier-console-state.test.ts`：路由解析與正規化、attempt 生命週期、草稿與 412、離開判斷。寫法同 `hosted-store-photo-state.test.ts`（直接 import 純狀態模組） | 無資料庫 | 瀏覽器行為 |
 | 隔離 PostgreSQL／HTTP | `tests/runtime/supplier-console.test.ts`（新讀取與旗標）、`tests/runtime/supplier-console-writes.test.ts`（`PATCH supply-profile`、純供貨照片，fake object store）：SC-SPEC-03 的反例 | 拋棄式資料庫（`TEST_DATABASE_URL`，資料庫名 `fp_…`），絕不連 54339 | 部署設定、真 R2 |
-| 整合瀏覽器 | `tests/e2e/supplier-console.spec.ts`（J01、J02、J04 供應端連成一條，加舊書籤與新版關閉時回退）、`supplier-console-cooperation.spec.ts`（J03 供應端＋賣家端、唯讀成員）、`supplier-console-recovery.spec.ts`（J06）；每個案例以 `memberFeatures: {guildLaunchpadEnabled: true, hostedReservationsEnabled: true, supplierConsoleEnabled: true}` 開啟 | 本機 build 後、獨立 `FREEDOM_E2E_PORT`（不用 4310／4312） | 真人是否看得懂 |
+| 整合瀏覽器 | `tests/e2e/supplier-console.spec.ts`（J01、J02、J04 供應端連成一條，加舊書籤與新版關閉時回退）、`supplier-console-cooperation.spec.ts`（J03 供應端＋賣家端、唯讀成員）、`supplier-console-recovery.spec.ts`（J06）、`supplier-console-navigation.spec.ts`（事業切換、200 件商品、鍵盤與焦點）、`supplier-console-visual.spec.ts`（寬度與外觀的截圖）；每個案例以 `memberFeatures: {guildLaunchpadEnabled: true, hostedReservationsEnabled: true, supplierConsoleEnabled: true}` 開啟 | 本機 build 後、獨立 `FREEDOM_E2E_PORT`（不用 4310／4312） | 真人是否看得懂 |
 | 真儲存／staging | 照片與（S3）素材在 R2 的寫入、讀取、備份與還原 | Ted 核准後由 release wrapper 操作 | 一般會員採用 |
 | 真人與作者 | SC-SPEC-06 的試用 | Ted 安排 | 負載與完整安全稽核 |
 
@@ -76,6 +76,11 @@
 | `SC-API-01`～`10` | 同上 | 新版關閉時新路由 404、舊讀取不變（AT-44）；未設定回 409；空商品庫是 ready 的 0（AT-39）；旅程計數、目前條件與同名店（AT-05、12、13、15、16、30、31）；預留只給 owner、讀取不結算（AT-22）；能力、tenant、session 與私人快取（AT-04、37）；詳情不透露他人資料；`PATCH supply-profile` 的版本檢查、權限與凍結名稱；完整清單與待辦上限；合作狀態分桶與共用容量（AT-14、30） |
 | `SC-PHOTO-01`～`06` | `tests/runtime/supplier-console-writes.test.ts` | 新版關閉時純供貨照片 404 且不寫入；開啟時清單、上傳、讀取、重播、412、移除；viewer 只見 metadata（AT-04、37）；公開與合作投影不含純供貨商品（AT-11）；容量計算與零售照片相同；關閉後照片保留（AT-44） |
 | `SC-UI-nn` | `tests/runtime/supplier-console-state.test.ts` | 路由、導覽、操作結果分類、未確認操作登錄、草稿、離開判斷、篩選定義與文案 |
+| `SC-E2E-01`～`02` | `tests/e2e/supplier-console.spec.ts` | 純供貨從公會到重新登入的連續旅程；已開零售的同一個營運中心（AT-01、02、05、12、22、31、39、42） |
+| `SC-E2E-10`～`13` | `tests/e2e/supplier-console-cooperation.spec.ts` | 同名店、同意與不同意、改價與撤回同意、改條件後重新公開、唯讀成員（AT-04、12～16、33） |
+| `SC-E2E-20`～`26` | `tests/e2e/supplier-console-recovery.spec.ts` | 回應遺失後重試、未確認時離開、兩個分頁的 412、庫存低於預留、概覽讀取失敗、登出後晚到、權限撤回（AT-06、07、08、29、34、36、37） |
+| `SC-E2E-30`～`32` | `tests/e2e/supplier-console-navigation.spec.ts` | 事業切換時晚到的讀取、200 件商品的清單與返回位置、鍵盤與焦點（AT-03、09、10、30、41） |
+| `SC-E2E-40` | `tests/e2e/supplier-console-visual.spec.ts` | 五種寬度與五種外觀的版面檢查與截圖（AT-40） |
 
 測試名稱裡的 AT 編號只表示對應關係；驗收狀態仍依 §1，在同一個候選 commit 記下證據後才改。
 

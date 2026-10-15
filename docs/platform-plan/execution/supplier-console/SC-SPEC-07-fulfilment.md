@@ -18,7 +18,7 @@
 
 | 範圍 | 負責 | 說明 |
 | --- | --- | --- |
-| EC-SPEC03 訂單與庫存 | Commerce | 已付款配置（paid allocation）與「available = 實體量 − 短期預留 − 已付款未出貨配置」由唯一庫存服務處理。`supplier-console/reads.ts` 的可用量只在 `own` CTE 的 `available` 一欄計算；v1 DTO 的 `reserved` 仍代表全部占用量時不需修改，規則改變時由 Commerce 一併更新這一欄。 |
+| EC-SPEC03 訂單與庫存 | Commerce | 已付款配置（paid allocation）與「available = 實體量 − 短期預留 − 已付款未出貨配置」由唯一庫存服務處理。`supplier-console/reads.ts` 的可用量只在 `own` CTE 的 `available` 一欄計算；v1 DTO 的 `reserved` 仍代表全部占用量時不需修改，規則改變時由 Commerce 一併更新這一欄。Commerce 的讀取 `inventoryPositions(q, itemIds)`（`modules/agent-commerce/hosted/inventory.ts`，已在 Commerce `fc/wp03-core` 的 16caa586 核對，2026-10-15，本機）回每件商品的 `stock`、`held`（短期預留）、`allocated`（已付款未出貨的配置）與 `available`；`reserved` 等於 `held` 加 `allocated`，不一致時回 409 `reservation_inconsistent`。這個讀取不授權也不綁 tenant，呼叫端要先確認商品屬於自己的事業；`available` 仍算入已逾期但尚未結算的預留。 |
 | EC-SPEC05 物流與履約 | Commerce | 領域服務、資料表、狀態轉移命令與授權檢查（tenant／instance／出貨者）、provider adapter、callback 與 Shipment 生命週期；SL-01 的寄件地與退回地址、出貨設定、商品配送屬性與代出貨同意的資料結構也在這裡。 |
 | EC-SPEC06 發票與售後 | Commerce | 退貨決策、退款、發票更正與供貨帳（帳目、對帳單、調整）。 |
 | SL-01～05 頁面、供應商用途的讀取投影與路由 | Supplier Console | 放在 `modules/agent-commerce/supplier-console/`。投影欄位只用 EC-SPEC-05 §9.2 與 EC-SPEC-06 §5.5 的白名單；收件資料只經 Commerce 的授權讀取取得，不進投影。在 Commerce 的程式契約 commit 之前只寫規格；不建立 FulfilmentOrder、Shipment 或付款相關的型別、表或 migration。 |
@@ -194,6 +194,7 @@ SL 頁面放進既有的側欄資料清單（SC-SPEC-01），不另建需要重�
 | R1 頁面 | v1.1 的變化 | 何時 |
 | --- | --- | --- |
 | SC-03 營運概覽 | 加入待處理出貨（`to_process`）、逾期備貨（`ship_by_overdue`）、配送例外（`delivery_exceptions`）、退件待檢（`returns_to_inspect`）四個指標，取自 `fulfilment-counts` 的 `overview`。它和 R1 概覽是不同的 snapshot，所以自成一組並顯示自己的資料時間；`unavailable` 時顯示無法取得與原因，不顯示 0，也不用總單數充數 | SL-02／04 上線時 |
+| SC-04 商品清單 | 「庫存／已預留／可用」的「已預留」改成「已占用」，並以 `inventoryPositions` 分列預留中（`held`）與已付款待出貨（`allocated`）。v1 DTO 的 `reserved` 仍是兩者合計，`available` 不變；預留中的數量仍不是成交 | Commerce 的 M2 付款版本（能力 `commerce.hosted-payment.v1`）同時或更早；只有確認付款才會產生配置，之前 `allocated` 一定是 0 |
 | SC-05 商品詳情 | 新增「配送」分區：重量（g）、長寬高（mm）、溫層、可否超商取貨、需單獨成箱、每箱最多件數、限制標記（`GET／PUT …/products/:pid/shipping-attributes`，`store:write`，契約 `ItemShippingAttributesSchema`）。沒有配送屬性的商品不能進新結帳，代出貨的商品缺屬性時明確提示 | EC-SPEC05 欄位上線後；之前不出現 |
 | SC-07 審核頁 | R1 起固定說明「同意的是這個售價與供貨版本；不代表同意代出貨，也不會取得買家收件資料。」代出貨條件（SC-L03）是另一份有版本的同意（SL-01），不併入售價同意 | 說明：R1；代出貨同意：C2 |
 | SC-08 預留與訂單 | 預留頁不變（預留不是成交）；付款後的履約單在 SL-02 | — |
@@ -220,6 +221,6 @@ SL 頁面沿用同一個 controller、單一 attempt、每位會員的記憶體�
 
 ## 6. 開始條件
 
-1. Commerce 已在規格 fd973423 定下名稱，本文件已對齊。程式契約（`hosted-fulfilment.ts`、`hosted-shipping.ts` 與供貨帳）提交並告知 SHA 後，依實際名稱再核對一次（路徑、ID、能力、狀態清單）。
+1. Commerce 已在規格 fd973423 定下名稱，本文件已對齊。程式契約（`hosted-fulfilment.ts`、`hosted-shipping.ts` 與供貨帳）提交並告知 SHA 後，依實際名稱再核對一次（路徑、ID、能力、狀態清單）。checkout core（`fc/wp03-core` 16caa586，本機）已核對：庫存讀取 `inventoryPositions`；記錄交寄 `recordHandover` 以同一 `shipmentRef` 冪等，品項或數量不同時回 409 `shipment_ref_conflict` 且不生效；`cancelPaidOrder` 在有任何已交寄時回 409 `order_partially_shipped`，也不建立退款。這些和本文件一致，合併前依當時的 SHA 再核對一次。
 2. 實作供應商用途的讀取投影與 SL 頁面；寫入只呼叫 Commerce 的共同命令。
 3. 物流 provider 尚未開通時只擋住該服務，不凍結 R1 的供貨功能。
