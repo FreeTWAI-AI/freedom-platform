@@ -177,22 +177,21 @@ test('SC-UI-S2-03 invalid reservations query values are dropped without affectin
  for(const page of ['overview','products','reservation','partner'] as const)assert.equal(parse(href(scope,page,{id})+`?partner=${id}&product=${other}&from=2026-01-01&to=2026-01-02&state=reserved`)?.reservation,undefined);
  assert.equal(href(scope,'reservations',{reservation:{partner:'bad',from:'2026-02-30'}}),root+'/reservations');
 });
-test('SC-UI-S2-04 local calendar dates become ISO half-open bounds including month/year and DST transitions',()=>{
+test('SC-UI-S2-04 dates are Taipei calendar days with half-open ISO bounds in every browser zone',()=>{
  const before=process.env.TZ;
  try{
-  process.env.TZ='Asia/Taipei';
-  const q=reservationFilterParams({state:'reserved',partner:id,product:other,from:'2026-10-01',to:'2026-10-15'})!;
-  assert.deepEqual(Object.fromEntries(q),{state:'reserved',partner_id:id,product_id:other,from:'2026-09-30T16:00:00.000Z',to:'2026-10-15T16:00:00.000Z'});
-  assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-12-31',to:'2026-12-31'})!),{from:'2026-12-30T16:00:00.000Z',to:'2026-12-31T16:00:00.000Z'});
-  assert.equal(reservationFilterParams({to:'2024-02-29'})?.get('to'),'2024-02-29T16:00:00.000Z');
-  assert.equal(reservationFilterParams({from:'2026-02-30'}),null);assert.equal(reservationFilterParams({to:'bad'}),null);
-  assert.equal(reservationFilterParams({from:'2026-10-16',to:'2026-10-15'}),null);
-  assert.equal(reservationFilterParams({})?.size,0);
-  process.env.TZ='America/New_York';
-  const dst=reservationFilterParams({from:'2026-03-08',to:'2026-03-08'})!;
-  assert.equal(dst.get('from'),'2026-03-08T05:00:00.000Z');assert.equal(dst.get('to'),'2026-03-09T04:00:00.000Z');
-  const fall=reservationFilterParams({from:'2026-11-01',to:'2026-11-01'})!;
-  assert.equal(fall.get('from'),'2026-11-01T04:00:00.000Z');assert.equal(fall.get('to'),'2026-11-02T05:00:00.000Z');
+  for(const zone of ['Asia/Taipei','UTC','America/New_York','Pacific/Kiritimati','Pacific/Pago_Pago']){
+   process.env.TZ=zone;
+   const q=reservationFilterParams({state:'reserved',partner:id,product:other,from:'2026-10-01',to:'2026-10-15'})!;
+   assert.deepEqual(Object.fromEntries(q),{state:'reserved',partner_id:id,product_id:other,from:'2026-09-30T16:00:00.000Z',to:'2026-10-15T16:00:00.000Z'},zone);
+   assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-12-31',to:'2026-12-31'})!),{from:'2026-12-30T16:00:00.000Z',to:'2026-12-31T16:00:00.000Z'},zone);
+   assert.equal(reservationFilterParams({to:'2024-02-29'})?.get('to'),'2024-02-29T16:00:00.000Z',zone);
+   assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-03-08',to:'2026-03-08'})!),{from:'2026-03-07T16:00:00.000Z',to:'2026-03-08T16:00:00.000Z'},zone);
+   assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-11-01',to:'2026-11-01'})!),{from:'2026-10-31T16:00:00.000Z',to:'2026-11-01T16:00:00.000Z'},zone);
+   assert.equal(reservationFilterParams({from:'2026-02-30'}),null);assert.equal(reservationFilterParams({to:'bad'}),null);
+   assert.equal(reservationFilterParams({from:'2026-10-16',to:'2026-10-15'}),null);
+   assert.equal(reservationFilterParams({})?.size,0);
+  }
  }finally{if(before===undefined)delete process.env.TZ;else process.env.TZ=before;}
 });
 test('SC-UI-S2-05 change labels exhaust the wire enum and preserve publish version semantics',()=>{

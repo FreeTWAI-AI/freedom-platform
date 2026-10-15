@@ -16,9 +16,8 @@ function cleanReservationFilters(input:ReservationFilters):ReservationFilters {
 export function reservationFilterParams(filters:ReservationFilters):URLSearchParams|null {
  if(filters.from&&!validLocalDate(filters.from)||filters.to&&!validLocalDate(filters.to)||filters.from&&filters.to&&filters.from>filters.to)return null;
  const q=new URLSearchParams();if(filters.state)q.set('state',filters.state);if(filters.partner)q.set('partner_id',filters.partner);if(filters.product)q.set('product_id',filters.product);
- for(const field of ['from','to'] as const)if(filters[field]){
-  const [year,month,day]=filters[field]!.split('-').map(Number),date=new Date(0);date.setFullYear(year,month-1,day+(field==='to'?1:0));date.setHours(0,0,0,0);q.set(field,date.toISOString());
- }
+ // Asia/Taipei days (UTC+8, no DST) in any browser zone; `to` is the next day's exclusive midnight.
+ for(const field of ['from','to'] as const)if(filters[field])q.set(field,new Date(Date.parse(`${filters[field]}T00:00:00+08:00`)+(field==='to'?86_400_000:0)).toISOString());
  return q;
 }
 const pages=[
