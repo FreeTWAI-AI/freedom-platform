@@ -159,8 +159,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 3936,
-      "sha256": "05d38cb47500fb6c898a977ae66e698ff2d213a55305f7c33aee95dc5acaeb84"
+      "bytes": 3984,
+      "sha256": "8a29601f94acf6d8be76880a47a1fd09e4f0064ab5f901a8849e812e6bede441"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -15959,8 +15959,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 26201,
-      "sha256": "3c135f4a75ceed5bd9d9e67c6443730cd4f6030067d7c56f69285ddd23fb75cd"
+      "bytes": 26582,
+      "sha256": "bca6d803fc6f15655b7b751aa50cc477e858d2df3e1524b36a038c9b3ffb5886"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
