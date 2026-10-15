@@ -7,4 +7,10 @@ export const currency = z.enum(['TWD','USD']);
 // ISO syntax alone permits year zero and offsets outside PostgreSQL's range.
 // Preserve the original text and fractional precision; only bound those fields.
 export const isoTime = z.iso.datetime({offset:true})
-  .refine(value=>!value.startsWith('0000')&&(value.endsWith('Z')||Number(value.slice(-5,-3))<16));
+  .refine(value=>{
+    if(value.startsWith('0000'))return false;
+    if(value.endsWith('Z'))return true;
+    // Zod checks the digits; read the hour in either ±HH:MM or ±HHMM.
+    const hourStart=value.length-(value.at(-3)===':'?5:4);
+    return (value.charCodeAt(hourStart)-48)*10+(value.charCodeAt(hourStart+1)-48)<16;
+  });

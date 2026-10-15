@@ -18,8 +18,10 @@ uses persisted rate limits instead. IDs are UUIDs.
 
 Event `starts_at`/`ends_at` (create, edit and schedule), Work
 `claim_by`/`finish_by`, and receipt `received_at` share the existing ISO datetime
-syntax with `Z` or a numeric offset. Years must be AD 0001–9999 and offset
-hours must be below 16 (including valid ±15:59 boundaries). Invalid values
+syntax with `Z` or a numeric offset (`±HH:MM`). Years must be AD 0001–9999 and
+offset hours must be below 16 (including valid ±15:59 boundaries). The existing
+ISO grammar rejects compact offsets such as `+1600` and `+1559`; this fix does
+not enable a new format. Invalid values
 return `422 validation_failed` before business writes or command/quota effects;
 the same idempotency key can then submit a corrected value. Valid input keeps
 its raw fractional precision through SQL binding; existing ordering, future-time,

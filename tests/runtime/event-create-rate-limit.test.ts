@@ -94,7 +94,7 @@ test('invalid timestamp offsets are validation errors without quota or command e
   });
   const before = await snapshot(), key = randomUUID();
   const body = { ...details(), starts_at: '2099-01-01T00:00:00Z', ends_at: '2099-01-02T00:00:00+15:59' };
-  for (const ends_at of ['2099-01-02T00:00:00+16:00', '2099-01-02T00:00:00-16:00', '2099-01-02T00:00:00+23:00', '0000-01-02T00:00:00Z']) {
+  for (const ends_at of ['2099-01-02T00:00:00+16:00', '2099-01-02T00:00:00-16:00', '2099-01-02T00:00:00+23:00', '2099-01-02T00:00:00+1600', '2099-01-02T00:00:00-1600', '2099-01-02T00:00:00+2300', '2099-01-02T00:00:00+1559', '2099-01-02T00:00:00-1559', '0000-01-02T00:00:00Z']) {
     const denied = await create(sessions[0], key, { ...body, ends_at });
     assert.equal(denied.status, 422, ends_at); assert.equal(denied.data.code, 'validation_failed');
     assert.deepEqual(await snapshot(), before);
@@ -106,10 +106,13 @@ test('invalid timestamp offsets are validation errors without quota or command e
   assert.deepEqual(await snapshot(), saved);
   const boundary = (await pool.query("SELECT to_char(ends_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US') AS instant FROM community_events WHERE event_id=$1", [first.data.event_id])).rows[0];
   assert.equal(boundary.instant, '2099-01-01 08:01:00.000000');
-  for (const ends_at of ['2099-01-02T00:00:00.123456-15:59', '2099-01-02T00:00:00Z']) {
+  for (const [ends_at, expected] of [
+    ['2099-01-02T00:00:00.123456-15:59', '2099-01-02 15:59:00.123456'],
+    ['2099-01-02T00:00:00Z', '2099-01-02 00:00:00.000000'],
+  ] as const) {
     const accepted = await create(sessions[0], randomUUID(), { ...body, ends_at });
     assert.equal(accepted.status, 201, ends_at);
     const stored = (await pool.query("SELECT to_char(ends_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS.US') AS instant FROM community_events WHERE event_id=$1", [accepted.data.event_id])).rows[0];
-    assert.equal(stored.instant, ends_at.endsWith('Z') ? '2099-01-02 00:00:00.000000' : '2099-01-02 15:59:00.123456');
+    assert.equal(stored.instant, expected);
   }
 });
