@@ -52,6 +52,36 @@ test('declared oversized JSON is rejected without pulling its source', async () 
   assert.equal(pulled, 0);
 });
 
+test('malformed UTF-8 in JSON values and keys is rejected before authentication instead of replaced',async()=>{
+  const encoder=new TextEncoder();
+  for(const bad of [[0xc0,0xaf],[0xed,0xa0,0x80],[0xe2,0x82],[0x80]]) {
+    for(const json of ['"MARK"','{"MARK":true}','{"nested":[{"text":"MARK"}]}']) {
+      const at=json.indexOf('MARK'),prefix=encoder.encode(json.slice(0,at)),suffix=encoder.encode(json.slice(at+4));
+      const bytes=new Uint8Array(prefix.length+bad.length+suffix.length);
+      bytes.set(prefix);bytes.set(bad,prefix.length);bytes.set(suffix,prefix.length+bad.length);
+      const response=await app.request(origin+'/api/v1/auth/logout',{
+        method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:bytes,
+      });
+      assert.equal(response.status,400);assert.equal((await response.json()).code,'invalid_json');
+    }
+  }
+});
+
+test('valid UTF-8 split across chunks retains scalars and the exact JSON byte ceiling',async()=>{
+  const bytes=new TextEncoder().encode(JSON.stringify({text:'繁中😀�'}));
+  for(const size of [32768,32769]) {
+    const body=new ReadableStream<Uint8Array>({start(controller){
+      for(const byte of bytes)controller.enqueue(Uint8Array.of(byte));
+      controller.enqueue(new Uint8Array(size-bytes.length).fill(32));controller.close();
+    }});
+    const response=await app.request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body,duplex:'half',
+    } as RequestInit);
+    assert.equal(response.status,size===32768?401:413);
+    assert.equal((await response.json()).code,size===32768?'login_required':'body_too_large');
+  }
+});
+
 test('slow requests log once at the threshold using nested route patterns, without request content', async t => {
   let now = 0;
   t.mock.method(performance, 'now', () => now);
