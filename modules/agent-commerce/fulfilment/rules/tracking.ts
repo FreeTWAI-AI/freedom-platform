@@ -99,7 +99,7 @@ export interface RawStatusEntry {
   readonly exception: TrackingExceptionKind | null;
 }
 
-export const ECPAY_LOGISTICS_STATUS_TABLE: readonly RawStatusEntry[] = Object.freeze([
+export const ECPAY_LOGISTICS_STATUS_TABLE: readonly RawStatusEntry[] = deepFreeze([
   { sub_type: 'UNIMARTC2C', code: '300', effect: 'progress', state: 'created', exception: null },
   { sub_type: 'UNIMARTC2C', code: '2030', effect: 'progress', state: 'in_transit', exception: null },
   { sub_type: 'UNIMARTC2C', code: '2041', effect: 'progress', state: 'in_transit', exception: null },

@@ -10,6 +10,9 @@ This module provides the pure, I/O-free domain rule functions for Freedom Commer
 - 100% pure execution: no database access, no network calls, no system clock reads, no locale-sensitive formatters, no environment access, no console logging, no side-effects. All times are passed as epoch milliseconds.
 - All returned objects and nested arrays are deeply frozen with `Object.freeze`. Caller input objects and arrays are never mutated, aliased, or frozen.
 
+### Dependencies
+- `commerce-providers`: Imports the public export `findCdnBlockedTerm` from `ecpay/index.ts` for CDN blocked term checks on recipient names and addresses.
+
 ### What does not yet exist (deferred to future fulfilment domain milestone)
 - Database tables and migrations (e.g. `commerce_ship_from_locations`, `commerce_shipping_profile_versions`, `commerce_item_shipping_attributes`, `commerce_fulfilment_agreements`, `commerce_fulfilment_orders`, `commerce_fulfilment_recipients`, `commerce_cvs_selection_sessions`, `commerce_shipments`, `commerce_logistics_operations`, `commerce_logistics_events`).
 - HTTP routes and provider callbacks (carrier callbacks, store checkout CVS map selection, printing endpoints).
@@ -93,17 +96,18 @@ Within each delivery group, lines are expanded into individual units (in line in
 ## Recipient Validation and Convenience Store Selection
 
 All text fields are normalized using Unicode NFKC.
-- Names must contain only Han ideographs and Latin alphabet characters (no digits, spaces, symbols, emoji, or dots). Han characters count as weight 2 (per code point, including surrogate pairs like `𠮷`), ASCII letters count as weight 1. Valid total weight is 4 to 10.
+- Names: Must contain only Han ideographs and Latin alphabet characters (no digits, spaces, symbols, emoji, or dots). Han characters count as weight 2 (per code point, including surrogate pairs like `𠮷`), ASCII letters count as weight 1. Valid total weight is 4 to 10. After length and weight checks pass, names are checked against ECPay's CDN blocked terms (`findCdnBlockedTerm`); if matched (e.g. `Echo`, `ECHO`, `Tftp`), validation returns `blocked_term` so the buyer can provide an acceptable name (e.g. Chinese real name on ID card) before the request is rejected by ECPay's CDN. Order of checks: required -> format -> too_short/too_long -> blocked_term.
 - Mobile numbers: Must be a valid Taiwan mobile number matching `^09[0-9]{8}$`. Numbers in international format `+8869xxxxxxxx` are normalized to `09xxxxxxxx`.
 - **C2 Mobile Rule**: Convenience store pickup strictly requires a mobile number for SMS pickup notifications [8809]. Home delivery in C2 also strictly requires a mobile number so couriers can coordinate delivery.
-- Addresses: Stripped of control characters (C0, DEL, C1) and whitespace runs collapsed. Must be 7 to 60 Unicode code points (<= 6 is `too_short`, > 60 is `too_long` per [7414]).
+- Addresses: Stripped of control characters (C0, DEL, C1) and whitespace runs collapsed. Checked for HTML characters: if the cleaned text contains `<`, `>`, or `&`, validation returns `format` (ECPay strictly forbids HTML in values; full-width `＆` normalizes to `&` under NFKC and is also rejected as `format`; format check precedes length checks). Must be 7 to 60 Unicode code points (<= 6 is `too_short`, > 60 is `too_long` per [7414]). After length checks pass, the cleaned address is checked against ECPay's CDN blocked terms (`findCdnBlockedTerm`; e.g. `cd/`, `echo`, `tftp`, `;`), returning `blocked_term` if any blocked term is found. Order of checks: required -> format (`<>&`) -> too_short/too_long -> blocked_term.
 - Postal prefixes: Must be 3, 5, or 6 digits, with the first 3 digits matching an official Taiwan postal prefix.
+- `blocked_term`: Added to `RecipientValidationCode`. Indicates the cleaned name or home address contains a command word or character blocked by ECPay's CDN. The buyer must rewrite it (for example, the English name `Echo` to the Chinese name on the ID card).
 
 ### Electronic Map Store Selection (`normalizeCvsStoreSelection`)
 
 Validates callback parameters returned by ECPay's electronic store map:
 - `sub_type`: Must be one of `UNIMARTC2C`, `FAMIC2C`, `HILIFEC2C`.
-- `store_id`: 1–6 alphanumeric characters.
+- `store_id`: 1–6 alphanumeric characters (`^[0-9A-Za-z]{1,6}$`) are accepted. If the cleaned ID is 7–9 alphanumeric characters (`^[0-9A-Za-z]{7,9}$`), validation returns `too_long` (because the electronic map allows a `CVSStoreID` of up to 9 characters [8795], but the logistics create call only accepts 6 [8809]; this allows the UI to instruct the buyer to choose another store). Any other value that is not 1–6 alphanumerics returns `format`. Store name and address originate from ECPay's map and are not submitted back to ECPay, so they receive no CDN check.
 - `store_name`: Up to 10 Unicode code points.
 - `store_address`: Up to 60 Unicode code points.
 - `outside` and Outlying Detection:

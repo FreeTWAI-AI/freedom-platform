@@ -1,12 +1,14 @@
 import { deepFreeze } from './errors.js';
 import { isKnownPostalPrefix, isOutlyingPostalPrefix } from './postal.js';
+import { findCdnBlockedTerm } from '../../providers/ecpay/index.js';
 
 export type RecipientValidationCode =
   | 'required'
   | 'format'
   | 'too_short'
   | 'too_long'
-  | 'unknown_postal_code';
+  | 'unknown_postal_code'
+  | 'blocked_term';
 
 export interface RecipientValidationError {
   readonly field: string;
@@ -92,6 +94,10 @@ export function validateRecipientName(raw: unknown): FieldValidationResult<strin
     return { ok: false, code: 'too_long' };
   }
 
+  if (findCdnBlockedTerm(name) !== null) {
+    return { ok: false, code: 'blocked_term' };
+  }
+
   return { ok: true, value: name };
 }
 
@@ -143,12 +149,20 @@ function cleanAddressText(raw: unknown): FieldValidationResult<string> {
     return { ok: false, code: 'required' };
   }
 
+  if (/[<>&]/.test(s)) {
+    return { ok: false, code: 'format' };
+  }
+
   const codePointCount = [...s].length;
   if (codePointCount <= 6) {
     return { ok: false, code: 'too_short' };
   }
   if (codePointCount > 60) {
     return { ok: false, code: 'too_long' };
+  }
+
+  if (findCdnBlockedTerm(s) !== null) {
+    return { ok: false, code: 'blocked_term' };
   }
 
   return { ok: true, value: s };
@@ -306,6 +320,8 @@ export function normalizeCvsStoreSelection(raw: unknown): CvsStoreSelectionResul
       errors.push({ field: 'store_id', code: 'required' });
     } else if (/^[0-9A-Za-z]{1,6}$/.test(sid)) {
       storeId = sid;
+    } else if (/^[0-9A-Za-z]{7,9}$/.test(sid)) {
+      errors.push({ field: 'store_id', code: 'too_long' });
     } else {
       errors.push({ field: 'store_id', code: 'format' });
     }

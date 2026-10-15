@@ -41,6 +41,7 @@ import {
   type LogisticsEventInput,
   type LogisticsEventOutcome,
 } from '../../modules/agent-commerce/fulfilment/rules/index.js';
+import { ECPAY_LOGISTICS_STATUS_TABLE } from '../../modules/agent-commerce/fulfilment/rules/tracking.js';
 
 // --- Fixture Builders ---
 
@@ -1107,6 +1108,17 @@ describe('7. Recipient and postal checks', () => {
     assert.deepEqual(validateRecipientName(''), { ok: false, code: 'required' });
     assert.deepEqual(validateRecipientName(null), { ok: false, code: 'required' });
     assert.deepEqual(validateRecipientName(12345), { ok: false, code: 'format' });
+
+    // CDN blocked terms and order of checks
+    assert.deepEqual(validateRecipientName('Echo'), { ok: false, code: 'blocked_term' });
+    assert.deepEqual(validateRecipientName('ECHO'), { ok: false, code: 'blocked_term' });
+    assert.deepEqual(validateRecipientName('echo王'), { ok: false, code: 'blocked_term' });
+    assert.deepEqual(validateRecipientName('王小echo'), { ok: false, code: 'blocked_term' });
+    assert.deepEqual(validateRecipientName('Tftp'), { ok: false, code: 'blocked_term' });
+    assert.deepEqual(validateRecipientName('EcoLin'), { ok: true, value: 'EcoLin' });
+    assert.deepEqual(validateRecipientName('Chen'), { ok: true, value: 'Chen' });
+    assert.deepEqual(validateRecipientName('王小明Echo王小明'), { ok: false, code: 'too_long' });
+    assert.deepEqual(validateRecipientName('EchoEchoEcho'), { ok: false, code: 'too_long' });
   });
 
   it('normalizes mobile vectors from §4', () => {
@@ -1210,6 +1222,120 @@ describe('7. Recipient and postal checks', () => {
     if (resCtrl.ok) {
       assert.equal(resCtrl.recipient.address, '一二三四五六七');
     }
+
+    // Home address CDN blocked terms and HTML forbidden characters (<>&)
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '台北市信義區A&B大樓1號',
+      }),
+      {
+        ok: false,
+        errors: [{ field: 'address', code: 'format' }],
+      },
+    );
+
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '台北市信義區Ａ＆Ｂ大樓1號',
+      }),
+      {
+        ok: false,
+        errors: [{ field: 'address', code: 'format' }],
+      },
+    );
+
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '<b>台北市信義區市府路1號</b>',
+      }),
+      {
+        ok: false,
+        errors: [{ field: 'address', code: 'format' }],
+      },
+    );
+
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '台北市中正區echo路1號',
+      }),
+      {
+        ok: false,
+        errors: [{ field: 'address', code: 'blocked_term' }],
+      },
+    );
+
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '台北市中正區cd/路1號',
+      }),
+      {
+        ok: false,
+        errors: [{ field: 'address', code: 'blocked_term' }],
+      },
+    );
+
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '台北市中正區某路1號;',
+      }),
+      {
+        ok: false,
+        errors: [{ field: 'address', code: 'blocked_term' }],
+      },
+    );
+
+    // 6-character address containing & -> format (format wins over too_short)
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '台北&大樓1',
+      }),
+      {
+        ok: false,
+        errors: [{ field: 'address', code: 'format' }],
+      },
+    );
+
+    // Normal address -> ok and unchanged
+    assert.deepEqual(
+      validateHomeRecipient({
+        name: '王小明',
+        mobile: '0912345678',
+        postal_code: '100',
+        address: '台北市中正區重慶南路一段122號',
+      }),
+      {
+        ok: true,
+        recipient: {
+          name: '王小明',
+          mobile: '0912345678',
+          postal_code: '100',
+          address: '台北市中正區重慶南路一段122號',
+          postal_prefix: '100',
+          outlying: false,
+        },
+      },
+    );
   });
 
   it('validateHomeRecipient reports all errors in field order', () => {
@@ -1257,6 +1383,12 @@ describe('7. Recipient and postal checks', () => {
         { field: 'mobile', code: 'format' },
       ],
     });
+
+    const blockedCvsRes = validateCvsRecipient({ name: 'Echo', mobile: '0912345678' });
+    assert.deepEqual(blockedCvsRes, {
+      ok: false,
+      errors: [{ field: 'name', code: 'blocked_term' }],
+    });
   });
 
   it('normalizeCvsStoreSelection normalizes and validates store map fields and Hi-Life outlying address fallback', () => {
@@ -1291,7 +1423,7 @@ describe('7. Recipient and postal checks', () => {
       errors: [{ field: 'store_name', code: 'too_long' }],
     });
 
-    // store_id 1234567 (7 chars -> format), outside '2' (format), sub_type UNIMART (B2C -> format)
+    // store_id 1234567 (7 chars -> too_long), outside '2' (format), sub_type UNIMART (B2C -> format)
     const badMisc = normalizeCvsStoreSelection({
       sub_type: 'UNIMART',
       store_id: '1234567',
@@ -1303,10 +1435,86 @@ describe('7. Recipient and postal checks', () => {
       ok: false,
       errors: [
         { field: 'sub_type', code: 'format' },
-        { field: 'store_id', code: 'format' },
+        { field: 'store_id', code: 'too_long' },
         { field: 'outside', code: 'format' },
       ],
     });
+
+    // store_id width checks: 1-6 ok; 7, 8, 9 too_long; 10 format; 12-456 format; full-width digits ok as 123456
+    const baseStore = {
+      sub_type: 'UNIMARTC2C' as const,
+      store_name: '示範門市',
+      store_address: '台北市大安區新生南路一段',
+      outside: '0',
+    };
+
+    assert.deepEqual(
+      normalizeCvsStoreSelection({ ...baseStore, store_id: '123456' }),
+      {
+        ok: true,
+        store: {
+          sub_type: 'UNIMARTC2C',
+          store_id: '123456',
+          store_name: '示範門市',
+          store_address: '台北市大安區新生南路一段',
+          outlying: false,
+        },
+      },
+    );
+
+    assert.deepEqual(
+      normalizeCvsStoreSelection({ ...baseStore, store_id: '1234567' }),
+      {
+        ok: false,
+        errors: [{ field: 'store_id', code: 'too_long' }],
+      },
+    );
+
+    assert.deepEqual(
+      normalizeCvsStoreSelection({ ...baseStore, store_id: '12345678' }),
+      {
+        ok: false,
+        errors: [{ field: 'store_id', code: 'too_long' }],
+      },
+    );
+
+    assert.deepEqual(
+      normalizeCvsStoreSelection({ ...baseStore, store_id: '123456789' }),
+      {
+        ok: false,
+        errors: [{ field: 'store_id', code: 'too_long' }],
+      },
+    );
+
+    assert.deepEqual(
+      normalizeCvsStoreSelection({ ...baseStore, store_id: '1234567890' }),
+      {
+        ok: false,
+        errors: [{ field: 'store_id', code: 'format' }],
+      },
+    );
+
+    assert.deepEqual(
+      normalizeCvsStoreSelection({ ...baseStore, store_id: '12-456' }),
+      {
+        ok: false,
+        errors: [{ field: 'store_id', code: 'format' }],
+      },
+    );
+
+    assert.deepEqual(
+      normalizeCvsStoreSelection({ ...baseStore, store_id: '１２３４５６' }),
+      {
+        ok: true,
+        store: {
+          sub_type: 'UNIMARTC2C',
+          store_id: '123456',
+          store_name: '示範門市',
+          store_address: '台北市大安區新生南路一段',
+          outlying: false,
+        },
+      },
+    );
 
     // HILIFEC2C without outside and address 澎湖縣馬公市中正路1號 -> outlying true
     const h1 = normalizeCvsStoreSelection({
@@ -2548,5 +2756,45 @@ describe('10. Immutability / Frozen results', () => {
         (recipient.recipient as any).name = '王大明';
       }, TypeError);
     }
+  });
+
+  it('freezes ECPAY_LOGISTICS_STATUS_TABLE and every entry, preserving mapLogisticsStatus behavior', () => {
+    assert.equal(Object.isFrozen(ECPAY_LOGISTICS_STATUS_TABLE), true);
+    assert.ok(ECPAY_LOGISTICS_STATUS_TABLE.length > 0);
+    for (const entry of ECPAY_LOGISTICS_STATUS_TABLE) {
+      assert.equal(Object.isFrozen(entry), true);
+    }
+
+    assert.throws(() => {
+      (ECPAY_LOGISTICS_STATUS_TABLE[0] as any).state = 'delivered';
+    }, TypeError);
+
+    // mapLogisticsStatus results for existing codes are unchanged
+    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '300'), {
+      kind: 'progress',
+      state: 'created',
+      exception: null,
+    });
+    assert.deepEqual(mapLogisticsStatus('TCAT', '5004'), {
+      kind: 'progress',
+      state: 'returning',
+      exception: null,
+    });
+    assert.deepEqual(mapLogisticsStatus('HILIFEC2C', '5004'), {
+      kind: 'exception',
+      exception: 'carrier_attention',
+    });
+    assert.deepEqual(mapLogisticsStatus('HILIFEC2C', '7003'), {
+      kind: 'exception',
+      exception: 'carrier_attention',
+    });
+    assert.deepEqual(mapLogisticsStatus('TCAT', '7003'), {
+      kind: 'exception',
+      exception: 'recipient_address_invalid',
+    });
+    assert.deepEqual(mapLogisticsStatus('UNIMARTC2C', '2042'), {
+      kind: 'exception',
+      exception: 'lost',
+    });
   });
 });
