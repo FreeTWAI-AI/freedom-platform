@@ -15,6 +15,7 @@ import { Pool, Client, type PoolClient } from 'pg';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { migrate } from '../../scripts/database.js';
 import { digest } from '../../packages/db/index.js';
+import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
 import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
@@ -134,6 +135,7 @@ function copyCounts(dump: Buffer): Record<string, number> {
 
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
+  'commerce_customers', 'commerce_checkout_contacts',
   'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
@@ -154,6 +156,7 @@ interface Space {
   transitionId: string; eventId: string; policyId: string;
   object?: ResultObject;
   hosted?: Awaited<ReturnType<typeof insertHostedQuote>>;
+  checkout?: Awaited<ReturnType<typeof freezeCheckout>>;
 }
 const people: { p1: Person; p2: Person; p3: Person } = {
   p1: { userId: '', principalId: '', personalScopeId: '' },
@@ -317,6 +320,14 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     [space.workId, space.scopeId, author.userId, `note-${space.tenantId}`, space.tenantId, space.instanceId, space.workspaceId, author.principalId]);
     await publishResult(q, space, author);
     space.hosted = await insertHostedQuote(q, { ...space, principalId: author.principalId });
+    const store = (await q.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [space.hosted.instanceId])).rows[0];
+    space.checkout = await freezeCheckout(q, store, {
+      publication_revision: '1', lines: [{ sku: 'P0001', quantity: 1 }],
+      contact: { name: '測試買家甲', email: `restore-${space.tenantId}@example.test`, phone: '0900000000' },
+      delivery: { address: '合成測試地址' }, invoice: null, consents: [], idempotencyKey: randomUUID(),
+    }, { shipping: { async quote(_q, _store, input) {
+      return { groups: input.lines.map(line => ({ group_ref: 'synthetic-group', supplier_shop_id: line.supplier_shop_id, method_ref: 'synthetic', amount_minor: 0 })) };
+    } } });
     await q.query(`INSERT INTO tenant_invitations(invitation_id,tenant_id,invitee_principal_id,role,instance_capabilities,expires_at,state,created_by_principal_id)
       VALUES($1,$2,$3,'viewer','[]'::jsonb,clock_timestamp()+interval '3 days','pending',$4)`,
     [space.invitationId, space.tenantId, invitee.principalId, author.principalId]);
@@ -397,6 +408,7 @@ const EXPECTED: Record<string, number> = {
   tenant_authority_audit: 2, module_instances: 4, deployment_bindings: 4, workspace_module_bindings: 2,
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
   // This fixture has no explicit instance grants; verify the new table survives empty.
+  commerce_customers: 2, commerce_checkout_contacts: 2,
   tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2, commerce_hosted_supply_offers: 2,
   // Photo-bearing restore is exercised by media-backup-restore; this fixture
   // must still preserve both empty tables and their tenant policies.
@@ -697,6 +709,13 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
+  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id']] as const) {
+    const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
+    const restored = await rows(restoredPool);
+    assert.equal(restored.length, 2);
+    assert.deepEqual(restored, (await rows(owner)).filter(row => row.tenant_id !== spaces.c.tenantId));
+    assert.equal((await restoredPool.query(`SELECT 1 FROM ${table} WHERE tenant_id=$1`, [spaces.c.tenantId])).rowCount, 0);
+  }
   const restoredKeys = await foreignKeys(restoredPool);
   assert(restoredKeys.length > 0); assert.deepEqual(restoredKeys, await foreignKeys(owner));
   for (const key of restoredKeys) assert.equal(key.convalidated, true);
@@ -754,6 +773,25 @@ test('J6-R4 lockdown precedes grants; one restored runtime connection cycles A, 
       assert.deepEqual(await visible(q), space ? tenantSlice(space) : personalOnly());
     });
   }
+});
+
+test('J6-R4 restored checkout PII requires the exact tenant context and disappears without context', async () => {
+  for (const space of [spaces.a, spaces.b]) {
+    await isolatedTransaction(runtimePool, async q => {
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+      await bindPrincipalContext(q, space === spaces.a ? people.p1.principalId : people.p2.principalId);
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+      await bindTenantContext(q, { tenantId: space.tenantId, tenantScopeId: space.scopeId });
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts']) {
+        const rows = (await q.query(`SELECT * FROM ${table}`)).rows;
+        assert.equal(rows.length, 1);
+        assert.deepEqual(rows, (await restoredPool.query(`SELECT * FROM ${table} WHERE tenant_id=$1`, [space.tenantId])).rows);
+      }
+    });
+  }
+  await isolatedTransaction(runtimePool, async q => {
+    for (const table of ['commerce_customers', 'commerce_checkout_contacts']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+  });
 });
 
 test('J6-R4 restored supply offers require context and retain same-community member visibility', async () => {
