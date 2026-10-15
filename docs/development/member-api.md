@@ -46,6 +46,13 @@ permissions are unchanged.
   `state=all` or omitted state preserves the unfiltered list contract.
   `next_cursor` is null after the final page; new cases do
   not shift older pages. Lists never select private notes or evidence.
+  Cursors retain the PostgreSQL bigint range `1`–`9223372036854775807` as
+  strings, not JavaScript numbers. Bounded decimal-format validation short-circuits
+  before `BigInt` conversion: text, fractions, exponent notation and out-of-range
+  values return `422 validation_failed`, not an uncaught conversion error.
+  Invalid list queries remain `no-store`, return no items/private evidence and
+  create no report, receipt, journal or outbox entry. The existing anonymous
+  `401`, non-admin `403` for valid queries and feature-OFF `404` boundaries remain unchanged.
 - `GET /admin/reports/:id`: separately authorized case detail, including private
   notes and the immutable server snapshot. Member evidence retains the card
   content visible to the reporter, including only contacts they could see;

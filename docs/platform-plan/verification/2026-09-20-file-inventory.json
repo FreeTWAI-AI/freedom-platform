@@ -13999,8 +13999,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 70224,
-      "sha256": "cd32bf0c1395e7b7ddab8410b0e271ce6e262c863dc77fc58dfe23670f2e54a9"
+      "bytes": 70791,
+      "sha256": "d017ecee565bec9dcbde64cd3d4d5686b766cee704709769fdc3c11b2bfd6c6c"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17749,8 +17749,8 @@
     },
     {
       "path": "modules/community/member-reporting.ts",
-      "bytes": 14527,
-      "sha256": "57ecc43a26a7cf728d36dcf055ecef7358dc344f337b7dc0af577d3b3e7833eb"
+      "bytes": 14620,
+      "sha256": "c15f8b2c26f99f52ebd34a031fab5d1728bffabc0948a2265ae7c18e49512385"
     },
     {
       "path": "modules/community/member-service-pages.ts",
@@ -22524,8 +22524,8 @@
     },
     {
       "path": "tests/runtime/member-reporting.test.ts",
-      "bytes": 29191,
-      "sha256": "1ae862d834441269fa2675e4be43bbba1e8fbbf1dda32e22faa4ea5e3420adf2"
+      "bytes": 31755,
+      "sha256": "32334faa9a39954b44a004574486fc7eff062c7ca704af11ca5a260ce275ecbe"
     },
     {
       "path": "tests/runtime/member-service-cursor.test.ts",
