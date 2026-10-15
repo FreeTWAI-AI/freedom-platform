@@ -64,6 +64,44 @@ test('bad or wrong-role manifests never create a shop; form stays simple',async(
  await page.getByText('我有成果檔網址',{exact:true}).click();await page.getByLabel('成果檔網址',{exact:true}).fill('https://127.0.0.1/secrets.json');await page.getByRole('button',{name:'讀取成果',exact:true}).click();await expect(page.getByRole('alert')).toContainText('原始 JSON');
 });
 
+test('result files reject malformed UTF-8, clear stale previews and preserve valid Unicode at the byte limit',async({page})=>{
+ await login(page);await navigate(page,'我有東西要賣');await page.setViewportSize({width:320,height:900});
+ // Literal U+FFFD is valid input; only malformed source bytes must fail.
+ const value={...productManifest,mode:'test',name:'UTF-8 合成茶店 🫖 �',products:[{...productManifest.products[0],sku:'UTF8-ROUNDTRIP',title:'茶葉 🫖 �'}]};
+ const json=Buffer.from(JSON.stringify(value)),bom=Buffer.from([0xef,0xbb,0xbf]);
+ const atLimit=Buffer.concat([bom,json,Buffer.alloc(24000-bom.length-json.length,0x20)]);
+ const invalidSource=Buffer.from(JSON.stringify({...value,products:[{...value.products[0],title:'BROKEN'}]})),offset=invalidSource.indexOf('BROKEN');
+ const invalid=Buffer.concat([invalidSource.subarray(0,offset),Buffer.from([0xc3,0x28]),invalidSource.subarray(offset+'BROKEN'.length)]);
+ let previews=0,imports=0;
+ page.on('request',request=>{if(request.method()!=='POST')return;const path=new URL(request.url()).pathname;if(path==='/api/v1/commerce/preview')previews++;if(path==='/api/v1/commerce/import')imports++;});
+ const input=page.getByLabel('上傳成果檔',{exact:true});
+ const firstPreview=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/commerce/preview');
+ await input.setInputFiles({name:'freedom-shop.json',mimeType:'application/json',buffer:atLimit});
+ expect((await firstPreview).status()).toBe(200);
+ await expect(page.locator('.shop-import-preview')).toContainText(value.products[0].title);
+ await input.setInputFiles({name:'invalid-utf8.json',mimeType:'application/json',buffer:invalid});
+ await expect(page.getByRole('alert')).toContainText('有效的 UTF-8 編碼');
+ await expect(page.getByRole('button',{name:'確認並歸檔',exact:true})).toHaveCount(0);
+ expect(previews).toBe(1);expect(imports).toBe(0);await expect(input).toBeEnabled();
+ await input.setInputFiles({name:'too-large.json',mimeType:'application/json',buffer:Buffer.concat([atLimit,Buffer.from(' ')])});
+ await expect(page.getByRole('alert')).toContainText('24 KB');
+ expect(previews).toBe(1);expect(imports).toBe(0);
+ const markdown=Buffer.concat([bom,Buffer.from('# 合成成果\n\n```json\n'+JSON.stringify(value)+'\n```\n')]);
+ const secondPreview=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/commerce/preview');
+ await input.setInputFiles({name:'freedom-shop.md',mimeType:'text/markdown',buffer:markdown});
+ expect((await secondPreview).status()).toBe(200);
+ await expect(page.locator('.shop-import-preview')).toContainText(value.products[0].title);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const imported=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/commerce/import');
+ await page.getByRole('button',{name:'確認並歸檔',exact:true}).click();
+ const response=await imported;expect(response.status()).toBe(201);const receipt=await response.json();
+ await expect(page.getByText('成果已歸檔，可在我的商店查看。',{exact:true})).toBeVisible();
+ const catalog=await page.request.get('/api/v1/commerce/catalog');expect(catalog.status()).toBe(200);
+ const item=(await catalog.json()).items.find((row:any)=>row.shop_id===receipt.shop_id);
+ expect(item).toMatchObject({title:value.products[0].title,shop_name:value.name});
+ expect(previews).toBe(2);expect(imports).toBe(1);
+});
+
 test('both page guides teach the AI handoff, private setup and payment steps on phone',async({page})=>{
  await login(page);await page.setViewportSize({width:320,height:900});
  for(const title of ['我有東西要賣','我可以賣東西']){
@@ -77,15 +115,15 @@ test('both page guides teach the AI handoff, private setup and payment steps on 
  }
 });
 
-for(const nextEmail of ['reviewer@local.test','maker@local.test'])test(`a file waiting for text cannot preview under a replacement login (${nextEmail})`,async({page})=>{
+for(const nextEmail of ['reviewer@local.test','maker@local.test'])test(`a pending file read cannot preview under a replacement login (${nextEmail})`,async({page})=>{
  await login(page);await navigate(page,'我有東西要賣');
  const previews:string[]=[];page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/v1/commerce/preview')previews.push(request.postData()??'');});
  await page.evaluate(()=>{
   const state=window as unknown as {heldFile?:{started:boolean;release:()=>void}};
-  const original=File.prototype.text;let release!:()=>void;
+  const original=File.prototype.arrayBuffer;let release!:()=>void;
   const held=new Promise<void>(resolve=>{release=resolve;});
   state.heldFile={started:false,release};
-  File.prototype.text=async function(){state.heldFile!.started=true;await held;return original.call(this);};
+  File.prototype.arrayBuffer=async function(){state.heldFile!.started=true;await held;return original.call(this);};
  });
  await upload(page,productManifest);
  await expect.poll(()=>page.evaluate(()=>(window as unknown as {heldFile:{started:boolean}}).heldFile.started)).toBe(true);
