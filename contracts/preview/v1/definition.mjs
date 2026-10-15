@@ -52,6 +52,7 @@ export const schemas={
 const items=name=>object({items:array(ref(name))});
 for(const name of ['Guild','Product','Store','Listing','Acceptance','Project','Campaign','Work'])schemas[name+'List']=items(name);
 schemas.CatalogPage=object({items:array(ref('Product'),50),next_offset:nullable(integer(0))});
+schemas.CampaignList=object({items:array(ref('Campaign'),50),next_offset:nullable(integer(0))});
 schemas.TrackList=object({items:array({type:'object'})});
 // Params are always identifiers, never arbitrary paths or full URLs.
 export const operations={};
@@ -75,6 +76,7 @@ op('listSupplyRequests','GET','/supplier/requests','AcceptanceList');op('decideS
 op('listProjects','GET','/opensource/projects','ProjectList');op('importProject','POST','/opensource/projects','Project','ProjectInput','none',201);
 op('refreshProject','POST','/opensource/projects/{id}:refresh','Project','Empty','required');op('reviseProject','POST','/opensource/projects/{id}:revise','Project','ProjectMetadata','required');
 op('listCampaigns','GET','/marketing/campaigns','CampaignList');op('createCampaign','POST','/marketing/campaigns','Campaign','CampaignInput','none',201);
+operations.listCampaigns.query=[{name:'limit',required:false,schema:{...integer(1,50),default:20}},{name:'offset',required:false,schema:{...integer(0),default:0}}];
 op('reviseCampaign','POST','/marketing/campaigns/{id}:revise','Campaign','CampaignMetadata','required');op('recordShare','POST','/marketing/campaigns/{id}/shares','Campaign','ShareInput','required',201);
 op('listWorks','GET','/work-items','WorkList');
 op('listWorksPage','GET','/work-items/page','WorkPage',null,'none',200,true,[

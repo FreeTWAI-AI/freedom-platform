@@ -40,7 +40,7 @@ export function createOpenSourceRoutes(pool:Pool, readToken:()=>string|undefined
     const result=await reviseProject(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id').split(':')[0]),manager);
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
   });
-  app.get('/marketing/campaigns',async c=>c.json({items:await listCampaigns(pool,c.get('actor'))}));
+  app.get('/marketing/campaigns',async c=>c.json(await listCampaigns(pool,c.get('actor'),c.req.query())));
   app.post('/marketing/campaigns',async c=>c.json(await createCampaign(pool,await moduleCommand(c)),201));
   app.post('/marketing/campaigns/:id{[0-9a-f-]+:revise}',async c=>{
     const result=await reviseCampaign(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id').split(':')[0]));
