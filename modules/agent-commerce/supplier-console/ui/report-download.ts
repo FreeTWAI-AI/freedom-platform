@@ -38,7 +38,9 @@ export async function fetchSupplierReportCsv(client:PortalClient,scope:ConsoleSc
   const blob=await response.blob();check();
   return {blob,filename:`supplier-report-${period.from}_${period.to}.csv`};
  };
- try{return await Promise.race([operation(),interrupted]);}
+ // After a timeout or abort wins the race, the fetch still settles; keep that late rejection handled.
+ const pending=operation();pending.catch(()=>{});
+ try{return await Promise.race([pending,interrupted]);}
  catch(cause){if(cause instanceof ApiError)throw cause;check();throw new ApiError({message:'無法下載 CSV，請確認網路後重試。',network:true});}
  finally{clearTimeout(timer);signal.removeEventListener('abort',onAbort);}
 }
