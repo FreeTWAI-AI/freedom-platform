@@ -687,6 +687,108 @@
       ],
       "additionalProperties": false,
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "error-code": {
+      "type": "string",
+      "enum": [
+        "store_upgrade_unavailable",
+        "commerce_credentials_unavailable",
+        "provider_environment_not_allowed",
+        "provider_account_exists",
+        "provider_account_not_found",
+        "provider_profile_invalid",
+        "provider_service_state",
+        "provider_service_conflict",
+        "admission_not_independent",
+        "admission_revoked",
+        "store_admission_exists",
+        "store_admission_unavailable",
+        "store_admission_not_found",
+        "validation_failed",
+        "fresh_auth_required",
+        "capability_denied",
+        "not_found",
+        "tenant_not_found",
+        "tenant_capability_denied",
+        "storefront_unavailable",
+        "idempotency_required",
+        "idempotency_conflict",
+        "version_required",
+        "invalid_version",
+        "version_conflict",
+        "session_expired",
+        "principal_disabled",
+        "scope_disabled",
+        "admin_required",
+        "admin_csrf_rejected",
+        "internal_error"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "about:blank"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "store_upgrade_unavailable",
+            "commerce_credentials_unavailable",
+            "provider_environment_not_allowed",
+            "provider_account_exists",
+            "provider_account_not_found",
+            "provider_profile_invalid",
+            "provider_service_state",
+            "provider_service_conflict",
+            "admission_not_independent",
+            "admission_revoked",
+            "store_admission_exists",
+            "store_admission_unavailable",
+            "store_admission_not_found",
+            "validation_failed",
+            "fresh_auth_required",
+            "capability_denied",
+            "not_found",
+            "tenant_not_found",
+            "tenant_capability_denied",
+            "storefront_unavailable",
+            "idempotency_required",
+            "idempotency_conflict",
+            "version_required",
+            "invalid_version",
+            "version_conflict",
+            "session_expired",
+            "principal_disabled",
+            "scope_disabled",
+            "admin_required",
+            "admin_csrf_rejected",
+            "internal_error"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
     }
   }
 }

@@ -24,3 +24,12 @@ export const StoreAdmissionQuerySchema=z.object({tenant_id:OpaqueId}).strict();
 export const StoreAdmissionViewSchema=z.object({admission_id:OpaqueId,tenant_id:OpaqueId,instance_id:OpaqueId,environment:ProviderEnvironmentSchema,
   admitted_at:IsoTimeSchema,admitted_by:OpaqueId,reason,revoked_at:IsoTimeSchema.nullable(),revoked_by:OpaqueId.nullable(),revoke_reason:reason.nullable()}).strict();
 export const StoreAdmissionPageSchema=z.object({items:z.array(StoreAdmissionViewSchema).max(100)}).strict();
+export const CommerceSetupErrorCodeSchema=z.enum([
+  'store_upgrade_unavailable','commerce_credentials_unavailable','provider_environment_not_allowed','provider_account_exists',
+  'provider_account_not_found','provider_profile_invalid','provider_service_state','provider_service_conflict',
+  'admission_not_independent','admission_revoked','store_admission_exists','store_admission_unavailable','store_admission_not_found',
+  'validation_failed','fresh_auth_required','capability_denied','not_found','tenant_not_found','tenant_capability_denied',
+  'storefront_unavailable','idempotency_required','idempotency_conflict','version_required','invalid_version','version_conflict',
+  'session_expired','principal_disabled','scope_disabled','admin_required','admin_csrf_rejected','internal_error',
+]);
+export const CommerceSetupErrorSchema=z.object({type:z.literal('about:blank'),title:z.string(),status:z.number().int().min(400).max(599),code:CommerceSetupErrorCodeSchema,detail:z.string()}).strict();

@@ -188,6 +188,8 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['store-admission-query', commerceSetup.StoreAdmissionQuerySchema, 'input', []],
     ['store-admission', commerceSetup.StoreAdmissionViewSchema, 'output', []],
     ['store-admission-page', commerceSetup.StoreAdmissionPageSchema, 'output', []],
+    ['error-code', commerceSetup.CommerceSetupErrorCodeSchema, 'output', []],
+    ['error', commerceSetup.CommerceSetupErrorSchema, 'output', []],
   ]],
   ['storefront', 'Hosted store inputs, private views and allowlisted public projection. Ordering is not enabled.', [
     ['store-setup-input', storefront.StoreSetupInputSchema, 'input', ['text_trim_and_control_characters', 'slug_lowercase_reserved_unique']],
