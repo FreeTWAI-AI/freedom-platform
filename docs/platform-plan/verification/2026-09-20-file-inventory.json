@@ -15259,8 +15259,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
-      "bytes": 56463,
-      "sha256": "05b42117c8d90ddc473930222a92cba1fc676687983de599310ff38709dafee0"
+      "bytes": 56548,
+      "sha256": "f005789e6f946a3e14ee52fe19bb26bda690c44ed51a98953bf660677ddac014"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-07-operations-skillbooks.md",
