@@ -17074,18 +17074,18 @@
     },
     {
       "path": "modules/agent-control/README.md",
-      "bytes": 8574,
-      "sha256": "740cd1c93e491c469efe966cd35231c27b420f495edf3557d6db8f4785f28c3b"
+      "bytes": 9060,
+      "sha256": "fb985f857a60d742614fbfd34e7225ef5c63b855972ae268badf5980b74bb29a"
     },
     {
       "path": "modules/agent-control/agent-connections.md",
-      "bytes": 4148,
-      "sha256": "ca392a9f7525d567fcaaedf9807c4ff44bb3ecdbf4d7237636960ef49ce884c1"
+      "bytes": 4615,
+      "sha256": "b0b81fdece1856b305bf8fc5d27fe4167f8c6f2814d23bd0e020e06937a6817a"
     },
     {
       "path": "modules/agent-control/agent-connections.ts",
-      "bytes": 12759,
-      "sha256": "c9c596fba4f8e859fcc02f8787f09b7b22948ca51ffebeb8ecd27924ce953668"
+      "bytes": 12776,
+      "sha256": "97fb6acafea2f8e757527dbcc3cdefdddb2f54d7ab93f7a2a7c77e0f5a76a66b"
     },
     {
       "path": "modules/agent-control/bootstrap-access-crypto.ts",
@@ -17244,8 +17244,8 @@
     },
     {
       "path": "modules/agent-control/runtime-registration.ts",
-      "bytes": 16386,
-      "sha256": "dae40a38da88435312628e33413287d48ee8a291955079e8128bf2870581e986"
+      "bytes": 16403,
+      "sha256": "2eba1050412a89211d842eee297d5745febf03cfc106920ec59eef694590c4a4"
     },
     {
       "path": "modules/agent-control/strict-jose-json.ts",
@@ -17254,8 +17254,8 @@
     },
     {
       "path": "modules/agent-execution/README.md",
-      "bytes": 15807,
-      "sha256": "0e0b4a0f223c7ccb2721bb0fded5940c48772d10b6ec912addc445d80e82d087"
+      "bytes": 16430,
+      "sha256": "1a4d9f6bae0dbe9762505448fc6c51fd4d6af8d279398ad729ba27b4b439d8ef"
     },
     {
       "path": "modules/agent-execution/export-policy.ts",
@@ -17379,8 +17379,8 @@
     },
     {
       "path": "modules/agent-execution/runs.ts",
-      "bytes": 9501,
-      "sha256": "31cddd2207b7b1b48d6681b64aec93120af065b6558015474b07d84e32004146"
+      "bytes": 9518,
+      "sha256": "8a885410ef894dd050c0ed1b0202d47177cc1dd6f96fccd7ee4404c5d0ef75eb"
     },
     {
       "path": "modules/agent-execution/adapters/byok.ts",
@@ -21584,8 +21584,8 @@
     },
     {
       "path": "tests/runtime/agent-connections.test.ts",
-      "bytes": 15148,
-      "sha256": "d8dea5c7ff3ae29588d985dc5100e156f5d63bf4f880bf36988433b734ce74f9"
+      "bytes": 15734,
+      "sha256": "3eae9766fdc47c2e0454448851896278af93cad5bbfb9f61e9bc374251f26c6f"
     },
     {
       "path": "tests/runtime/ai-sister-guides.test.ts",
@@ -21979,8 +21979,8 @@
     },
     {
       "path": "tests/runtime/execution-runs.test.ts",
-      "bytes": 22622,
-      "sha256": "912eda83fbc6f2cb292e4852ff528572c04955c57764e95cf1c81c4f5be4863b"
+      "bytes": 24634,
+      "sha256": "93ef2e4420f0faa4154b9bd8b244cb91924c3d1362c70ad251d3a20a459b844a"
     },
     {
       "path": "tests/runtime/execution-state-adversarial.test.ts",
@@ -23024,8 +23024,8 @@
     },
     {
       "path": "tests/runtime/runtime-registration.test.ts",
-      "bytes": 15605,
-      "sha256": "e3fdc10f9a3250a5eb39b5dcd1879375902f471e1269a90c8f0ef885583ce7fc"
+      "bytes": 16928,
+      "sha256": "d88f7c6d8841151b17828ae99d924a3d02dae99e1e62d6f7e5a60aa73827db8c"
     },
     {
       "path": "tests/runtime/scoped-command-context.test.ts",

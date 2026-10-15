@@ -27,6 +27,16 @@ allows its absence through to the shared `checkVersion`, which returns the
 existing 428 `version_required` before any new-effect INSERT/UPDATE. Malformed
 versions are schema errors; stale versions are 412. SQL NOT NULL constraints
 are an additional direct-DML guard, not the service's missing-version handler.
+
+Create and control version validation pipes the complete `ExecutionVersion`
+format/length into the PostgreSQL bigint bound check. Invalid syntax, zero or
+oversized values produce `ZodError` issues on `expectedWorkVersion` (create) or
+`expectedVersion` (pause/stop), rather than an uncaught `BigInt` `SyntaxError`.
+Rejected inputs leave Run metadata, receipts and scoped facts unchanged; a
+corrected command can reuse its key and replay its exact result. The valid
+signed-64-bit range, missing-version 428, stale-version 412 and closed states do
+not change. This does not install an HTTP transport or authorize execution.
+
 The member Actor must come from the existing trusted member authentication path;
 the service still revalidates current user/session/principal/personal scope.
 An Actor-shaped object or the returned DTO is not standalone authentication.
