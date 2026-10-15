@@ -43,6 +43,12 @@ test('PHOTO-STATE-03 strict ACK binds original completion and allows a newer cur
   assert.ok(photoAcknowledgement({...ack,completed_version:'7',changed:false},{...attempt,action:'remove',file:null}));
 });
 
+test('PHOTO-STATE-09 malformed completion or current versions are unconfirmed ACKs, not conversion exceptions', () => {
+  assert.deepEqual(photoAcknowledgement(ack, attempt), ack);
+  assert.equal(photoAcknowledgement({ ...ack, completed_version: 'abc' }, attempt), null);
+  assert.equal(photoAcknowledgement({ ...ack, current: { ...ack.current, version: 'abc' } }, attempt), null);
+});
+
 
 test('PHOTO-STATE-04 pending original File survives same-client re-login but cannot cross member or product placement',()=>{
   const client={},otherClient={};holdPhotoAttempt(client,'member-a',attempt);

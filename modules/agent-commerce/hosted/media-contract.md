@@ -29,6 +29,16 @@ media, which may be newer than the completed operation. An empty remove still
 requires current authorization/CAS and a receipt; it does not increment version.
 Removal works with persistence disabled and never deletes retained assets.
 
+The ACK's completion/current ordering compares the length and lexical order of
+the existing bounded canonical decimal `Version` strings. Invalid child fields
+therefore remain ordinary `safeParse` failures even when Zod runs the enclosing
+cross-field refinement; they are never converted with `BigInt` there (#725).
+The positive signed-bigint range and `completed_version <= current.version`
+rule are unchanged, including equal versions and decimal-width transitions.
+The photo client treats malformed ACK versions as an unconfirmed network result,
+retains the original File/key/CAS tuple and requires its explicit retry; it does
+not accept an arbitrary 2xx as completion or silently replace that operation.
+
 `photo-projection.ts` reads actual product fields, selection version and typed
 ready photo metadata in one statement. Preview uses this same rowset for text
 and photos. Publish compares the original content digest, template and separate
