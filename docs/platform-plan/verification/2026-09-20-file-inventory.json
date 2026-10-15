@@ -309,8 +309,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 8558,
-      "sha256": "7477dc27a96896cbe48d463c8c9f02afb8a00f136ebe9cc3102a1407a53ad2cb"
+      "bytes": 8656,
+      "sha256": "4c8a64397307c9e7b7f0ba562e6b7ca33b912b36fd04b8ba665203941da76a16"
     },
     {
       "path": "apps/platform-api/src/credential-ingest-client.ts",
@@ -369,8 +369,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 61003,
-      "sha256": "d7854e2eae4e15eef1286aa922cd7e732b85490fc9ca191aab2dd69c861611d4"
+      "bytes": 61298,
+      "sha256": "db2f5260314fa62c14a913de992cee1b511dee77d007d3cae95eb9b552cc8c05"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -389,13 +389,13 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 7740,
-      "sha256": "06fbe8cd88ef889584e7e3376bf7dde9bcc55e80709b8685133993116d3dbd97"
+      "bytes": 7906,
+      "sha256": "9c5e689153e8b8f72a6caac34223b57a4a76a0fae2ec5cdf034523d09ac518dc"
     },
     {
       "path": "apps/platform-api/src/server.ts",
-      "bytes": 3849,
-      "sha256": "da5bcc6e2ef22a5faff564695a51a9157d6203381c740214e88dc54424c7b570"
+      "bytes": 3926,
+      "sha256": "11f62a622b9045cea027ba7c93610279690e8eae4eeed9cf351b7ac6d7626467"
     },
     {
       "path": "apps/platform-api/src/session-cookie.ts",
@@ -429,8 +429,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 34544,
-      "sha256": "105edee41997e55fb814bea952cbee3e3cff413536977a149bb46a670e639984"
+      "bytes": 35029,
+      "sha256": "e3dd893a7cb94b65f22601953f0bdbd9b9f47e0ee41252a443b8d01242d6ba38"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -544,13 +544,18 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store-media.ts",
-      "bytes": 6261,
-      "sha256": "0f3568ee0f29dc50f1f085afecacc795f37ddf7ccbc3520a4c626f0a5d7e3534"
+      "bytes": 6367,
+      "sha256": "874133aaa0db3edb24a75f468e2453b2401b25c6e8d66667d0e8aa3f6caed6f4"
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store.ts",
       "bytes": 10578,
       "sha256": "4875c1dc133cc50843d75471f92075a6da75e9d1f568c9bd8852d12ec6b5bdbc"
+    },
+    {
+      "path": "apps/platform-api/src/routes/hosted-supplier-console.ts",
+      "bytes": 2597,
+      "sha256": "9cc9018311762419a0423f43b269a9b0c2207ba5d29e04480447ce41988f57df"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -2194,8 +2199,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
-      "bytes": 12307,
-      "sha256": "a0964150781ecdb99753bb569e4d804fc53bc2fe1f79b06854479076d4b9f715"
+      "bytes": 12343,
+      "sha256": "4839b486040ea5e845dd55245219361265ef65e1ba9277124860d36bdf1ddaad"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.css",
@@ -15439,8 +15444,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/README.md",
-      "bytes": 2567,
-      "sha256": "58fc38acc39a87bfc346b00e0d979544e8edce8eb5827331b7908fc33d37fb2c"
+      "bytes": 3044,
+      "sha256": "90f930bfc78f32b2e61090cda7c4fdf4671e2a436e219ef0bc1f96f3a1f3d82c"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-01-ia-visual.md",
@@ -15473,6 +15478,11 @@
       "sha256": "9a2e6a521f2162bcf12c7c0f763ad49570c26103da31362e7912149216f51c93"
     },
     {
+      "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-07-fulfilment.md",
+      "bytes": 11214,
+      "sha256": "b99daa27ffd601064bf31419f1ace4c38816ea5191983fdf339cfe68e72b540b"
+    },
+    {
       "path": "docs/platform-plan/execution/supplier-console/WP-00-baseline.md",
       "bytes": 10494,
       "sha256": "c4b2953384548babb96dc64b36dc1e423474bb8fe9b1b3df05758b0a42ca74bd"
@@ -15494,8 +15504,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/sources.md",
-      "bytes": 5162,
-      "sha256": "6a93632eaa8739f9cefd3d5f8360489434f4d7e8932ea8f0fd77b03a6b209da8"
+      "bytes": 5676,
+      "sha256": "1e1f4b3dada0151cb83b12a4b0ecbe9e505362948de43c97c03f7b544dfcef27"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
@@ -16989,8 +16999,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/distribution.ts",
-      "bytes": 15136,
-      "sha256": "77aa04ea2287723f1857cd046ea8f046d394d9b5752db41d326f6e3594b47cbb"
+      "bytes": 15394,
+      "sha256": "42df5d563aab7b0e1dbd27923e493dd27e907368fbcb6fc6deff841716c0b57e"
     },
     {
       "path": "modules/agent-commerce/hosted/format.ts",
@@ -17034,18 +17044,18 @@
     },
     {
       "path": "modules/agent-commerce/hosted/photo-commands.ts",
-      "bytes": 8355,
-      "sha256": "b068540b407b759e86a31f053c1c0162b1ce2993d3bdb126d00fcd1b84a4ed41"
+      "bytes": 8502,
+      "sha256": "ce07a191b7303f683bbff5c79fa8e35eda3d2c91424fac7d847619f45cd45575"
     },
     {
       "path": "modules/agent-commerce/hosted/photo-projection.ts",
-      "bytes": 6718,
-      "sha256": "e131b48fe3352f6c12f6d159de361ba54e2aade2153b5301a0abbf975d5a9d48"
+      "bytes": 6792,
+      "sha256": "ff49f89ce56da36e9f7c42fdbfea0d53741c5c94b0950c94fcebdcb495745784"
     },
     {
       "path": "modules/agent-commerce/hosted/photo-read.ts",
-      "bytes": 3643,
-      "sha256": "dc28e6582cbf161b94c36f5bb6f63d685f4705936ee932f267b282f75daa3ac1"
+      "bytes": 3755,
+      "sha256": "ab1e89fd56604e974410e62fff332fd23af09ed1c3d0986bea139a5d5e282da6"
     },
     {
       "path": "modules/agent-commerce/hosted/photo-target.ts",
@@ -17069,8 +17079,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/publish.ts",
-      "bytes": 6528,
-      "sha256": "cef99a54bb54469d9f55452c128534310463a67ba4061a60c3e7945ea7339545"
+      "bytes": 6550,
+      "sha256": "850c391806615d2be76616fbc9ff3235fef4a52c0c10f3f83e72b4ed3d10cc9d"
     },
     {
       "path": "modules/agent-commerce/hosted/seller-orders.ts",
@@ -17109,8 +17119,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/supply-catalog.ts",
-      "bytes": 6746,
-      "sha256": "80d54658a96517aef440126666b548c92b968ea1790b1da8ae25b336bd118245"
+      "bytes": 8324,
+      "sha256": "e1805fcba2bb2fc5966d52c05023bd8f65fedf03b347677e34829f8eb2ee94ec"
     },
     {
       "path": "modules/agent-commerce/hosted/supply-terms.md",
@@ -17139,8 +17149,13 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/freedom.module.json",
-      "bytes": 1322,
-      "sha256": "e428a71b251127077e5d16fd7e063153b53dbecaba11cb132c0666d0393d6fa6"
+      "bytes": 1782,
+      "sha256": "889b0631a5d72c52ca77d0a987af016a2bdacf84351df27711eb2202ae0b661e"
+    },
+    {
+      "path": "modules/agent-commerce/supplier-console/reads.ts",
+      "bytes": 12807,
+      "sha256": "3dedc4dc7d6a04d782a76d8437249de4bf03762d17f42280853d3b76966c3214"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -20254,8 +20269,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 16184,
-      "sha256": "99dedc5b32a7ae21e8010a39e1328c7077c59b0eb03e238deb29cac39ed09ac7"
+      "bytes": 16446,
+      "sha256": "626ab7416fb1fdf0aed0f9e92fa69febb5dbe99a6bb4c96267ab22590dff957b"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -21094,8 +21109,8 @@
     },
     {
       "path": "tests/e2e/member-feature-fixture.ts",
-      "bytes": 2310,
-      "sha256": "c578e7993c308ed5771c99d09d85f7f851f15dba6d3e6f14adb94daae9431f30"
+      "bytes": 2387,
+      "sha256": "876206ccd056635d6360bdd373696310baefc4d3093b5ba6373833a170ac77b3"
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
@@ -21459,8 +21474,8 @@
     },
     {
       "path": "tests/helpers/hosted-store-photo.ts",
-      "bytes": 6119,
-      "sha256": "fa4e763bb8c319333fff2d30bd1ae18f361ebc3f924cacf28a078328b9d67e1e"
+      "bytes": 6182,
+      "sha256": "f9c386a5b1d300e95668edee097b470b57629436a1a1ff257b0c502159e90706"
     },
     {
       "path": "tests/integration/agent-kit-device-runtime.test.mjs",
@@ -22184,8 +22199,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
-      "bytes": 51397,
-      "sha256": "e5f685e0b8347058ae8d45b3da337414a50a6bc395db6c3a69ef079543daaf97"
+      "bytes": 55693,
+      "sha256": "582d354a10193e903c4c191fa3d9adcecbb14465a0eedc682f0c8722cc3f25da"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
@@ -23301,6 +23316,16 @@
       "path": "tests/runtime/storefront-product-photo-sql.test.ts",
       "bytes": 22399,
       "sha256": "e825d5f2f5c60b2a81e3205ccde072dec8409969fd2cacb93a1f53c2418c51cc"
+    },
+    {
+      "path": "tests/runtime/supplier-console-writes.test.ts",
+      "bytes": 20199,
+      "sha256": "8c2ce767e1c3ed52cc2b4e01f988b4eccb63627584866e21478838449f04a817"
+    },
+    {
+      "path": "tests/runtime/supplier-console.test.ts",
+      "bytes": 41593,
+      "sha256": "31aa75f0f5b9352c595d68e9d5afa22b30550598f021dd363e862a8464683494"
     },
     {
       "path": "tests/runtime/tenant-authority-policy-grants.test.ts",

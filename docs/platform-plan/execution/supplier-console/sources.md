@@ -9,6 +9,7 @@
 | 計畫主稿 | `Supplier-Console-Project-Plan-v1.0.md` SHA256 `7c13f82e4d1066f86fd97a1b0edfcfe9158985f4fdc01ef399758387cc11baf0` |
 | 驗收 JSON | `requirements-and-acceptance.json` SHA256 `b87925ff9edcd0b957c32366128798a52176294ef95af28452d96f9b4018d5a1`（SC-R01～R40、AT-01～48 全部 `not_run`） |
 | 其他包內檔 | `AGENT-START-HERE.md` `472873fa…eeaac`；`README.md` `0e343b75…36b06`；`.docx` `16c2c212…4ce62`；`source-index.json` `0c1d35e3…3ba17d` |
+| v1.1 補充 | Ted 於 2026-10-15 提供的 `Freedom-Commerce-Project-Planning-Pack-v1.0` ZIP（SHA256 `b87179ef…bb81`）內 `Supplier-Console-v1.1-Logistics-Addendum.md` SHA256 `a3560eba88fe6f74a2d35562d4cba52134c758b47c45c83c703af5b32425ad3b`（`.docx` `dc66ac8b…3973b`）；該包 `requirements-and-acceptance.json` `5642daab…60b2` 的 `supplier_addendum`（SC-L01～18、SC-LAT01～24 全部 planned／`not_run`）；包內 `baseline/Supplier-Console-Project-Plan-v1.0.md` 與上列主稿雜湊相同 |
 | Refferq | `Refferq/Refferq@25df6596a15cf1e9d26021752137d66c22dd8e34`（MIT），只做靜態閱讀，見 [refferq-adoption.md](refferq-adoption.md) |
 | 最大 migration | `migrations/167_community_ar.sql` |
 
