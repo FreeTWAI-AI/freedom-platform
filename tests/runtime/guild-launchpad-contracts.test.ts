@@ -1,3 +1,4 @@
+import {SupplierMetricSchema,SupplierTodoSchema,SupplierTodosSchema,SupplierOverviewSchema,SupplierProductSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnerSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplyProfileUpdateInputSchema,SupplyProfileReceiptSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -748,4 +749,44 @@ print('looser')`;
       assert.equal(result.status, 0, `${profile.name} ${row.rule}\n${result.stdout}${result.stderr}`);
     }
   }
+});
+
+
+test('supplier console strict schemas accept private projections and reject inconsistent or unknown input',()=>{
+  const ready={state:'ready',count:0},unavailable={state:'unavailable',reason:'store_write_required'};
+  const overview={profile:'freedom.supplier-console.overview/v1',tenant_id:id,instance_id:id2,as_of:'2026-10-15T00:00:00.123Z',
+    metrics:{offered_products:ready,pending_requests:unavailable,active_reservation_lines:{state:'unavailable',reason:'owner_required'},out_of_stock_products:ready},
+    todos:{state:'ready',items:[],truncated:false},product_count:0,product_limit:200};
+  assert.equal(SupplierOverviewSchema.safeParse(overview).success,true);
+  assert.equal(SupplierOverviewSchema.safeParse({...overview,metrics:Object.fromEntries(Object.keys(overview.metrics).map(key=>[key,unavailable])),todos:unavailable}).success,true);
+  assert.equal(SupplierOverviewSchema.safeParse({...overview,extra:true}).success,false);
+  for(const value of [{state:'ready'},{state:'unavailable',reason:'unknown'},{...ready,extra:1}])assert.equal(SupplierMetricSchema.safeParse(value).success,false);
+  const todo={kind:'not_offered',product_id:id,title:'商品'};
+  assert.equal(SupplierTodoSchema.safeParse(todo).success,true);
+  assert.equal(SupplierTodoSchema.safeParse({...todo,extra:1}).success,false);
+  assert.equal(SupplierTodosSchema.safeParse({state:'ready',items:Array(21).fill(todo),truncated:true}).success,false);
+  const product={product_id:id,sku:'P0001',title:'商品',description:'介紹',currency:'TWD',supply_price_minor:400,shipping_minor:50,
+    stock:10,reserved:3,available:7,version:'1',offer:null,cooperation:{awaiting:0,sellable:0,changes_requested:0,inactive:0}};
+  assert.equal(SupplierProductSchema.safeParse(product).success,true);
+  for(const value of [{...product,available:8},{...product,sku:'bad sku'},{...product,cost_minor:400}])assert.equal(SupplierProductSchema.safeParse(value).success,false);
+  const products={profile:'freedom.supplier-console.products/v1',as_of:overview.as_of,items:[product],limit:200};
+  assert.equal(SupplierProductsSchema.safeParse(products).success,true);
+  assert.equal(SupplierProductsSchema.safeParse({...products,extra:1}).success,false);
+  const detail={profile:'freedom.supplier-console.product/v1',as_of:overview.as_of,product,shipping_terms:'出貨',return_terms:'退貨',current_offer:null,selections:[],truncated:false};
+  assert.equal(SupplierProductDetailSchema.safeParse(detail).success,true);
+  assert.equal(SupplierProductDetailSchema.safeParse({...detail,extra:1}).success,false);
+  const partner={partner_id:id2,name:'合作店',cooperation:product.cooperation,products:1};
+  assert.equal(SupplierPartnerSchema.safeParse(partner).success,true);
+  assert.equal(SupplierPartnerSchema.safeParse({...partner,tenant_id:id}).success,false);
+  const partners={profile:'freedom.supplier-console.partners/v1',as_of:overview.as_of,items:[partner],truncated:false};
+  assert.equal(SupplierPartnersSchema.safeParse(partners).success,true);
+  assert.equal(SupplierPartnersSchema.safeParse({...partners,extra:1}).success,false);
+  const partnerDetail={profile:'freedom.supplier-console.partner/v1',as_of:overview.as_of,partner,selections:[],truncated:false};
+  assert.equal(SupplierPartnerDetailSchema.safeParse(partnerDetail).success,true);
+  assert.equal(SupplierPartnerDetailSchema.safeParse({...partnerDetail,extra:1}).success,false);
+  assert.equal(SupplyProfileUpdateInputSchema.safeParse({name:'供貨事業'}).success,true);
+  assert.equal(SupplyProfileUpdateInputSchema.safeParse({description:''}).success,true);
+  for(const input of [{},{currency:'USD'}])assert.equal(SupplyProfileUpdateInputSchema.safeParse(input).success,false);
+  assert.equal(SupplyProfileReceiptSchema.safeParse({instance_id:id,version:'2'}).success,true);
+  assert.equal(SupplyProfileReceiptSchema.safeParse({instance_id:id,version:'2',name:'不應回傳'}).success,false);
 });
