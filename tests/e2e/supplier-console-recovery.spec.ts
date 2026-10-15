@@ -240,3 +240,157 @@ test('SC-E2E-26 a writer who loses permission keeps the saved data and gets clea
   expect(requests).toHaveLength(1);expect((await e2eAuthPool.query('SELECT stock,reserved FROM commerce_items WHERE item_id=$1',[p.product_id])).rows).toEqual([{stock:7,reserved:0}]);
  }finally{release.resolve();await context.close();}
 });
+
+function recordPatches(page:Page,root:string){
+ const patches:{sig:ReturnType<typeof signature>;status:number}[]=[];
+ page.on('response',response=>{
+  const req=response.request(),path=new URL(req.url()).pathname;
+  if(req.method()==='PATCH'&&(path.endsWith(root+'/supply-profile')||path.endsWith(root+'/reservation-setting'))){
+   patches.push({sig:signature(req),status:response.status()});
+  }
+ });
+ return patches;
+}
+
+test('SC-E2E-27 toggling reservations then editing the business details saves without a conflict (AT-33)',async({page,e2eAuthPool},info)=>{
+ test.setTimeout(90_000);
+ const s=await supplier(page,e2eAuthPool),patches=recordPatches(page,s.root);
+ try{
+  await go(page,s,'/settings');await expect(page.locator('#workspace-page-title')).toHaveText('設定與資料');
+  const profileRefreshed=page.waitForResponse(r=>r.request().method()==='GET'&&new URL(r.url()).pathname.endsWith(s.root+'/supply-profile'));
+  const ownerRefreshed=page.waitForResponse(r=>r.request().method()==='GET'&&new URL(r.url()).pathname.endsWith(s.root+'/reservation-setting'));
+  await active(page).getByRole('button',{name:'開放 30 分鐘預留',exact:true}).click();
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：開放 30 分鐘預留。');
+  expect((await profileRefreshed).status()).toBe(200);expect((await ownerRefreshed).status()).toBe(200);
+
+  const form=active(page).getByRole('form',{name:'儲存商品庫資料',exact:true});
+  await expect(form.getByLabel('商品庫名稱',{exact:true})).toBeEnabled();
+  const newName=unique('合成開放後更新名稱');await form.getByLabel('商品庫名稱',{exact:true}).fill(newName);
+
+  const profileSaveResponse=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname.endsWith(s.root+'/supply-profile'));
+  await form.getByRole('button',{name:'儲存商品庫資料',exact:true}).click();
+  const saveRes=await profileSaveResponse;expect(saveRes.status()).toBe(200);
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：儲存商品庫資料。');
+  await expect(form.locator('.banner')).toHaveCount(0);
+
+  expect(patches).toHaveLength(2);
+  expect(patches[0].sig.path).toMatch(/\/reservation-setting$/);expect(patches[0].status).toBe(200);
+  expect(patches[1].sig.path).toMatch(/\/supply-profile$/);expect(patches[1].status).toBe(200);
+  const toggleVersion=JSON.parse(patches[0].sig.version!);
+  expect(patches[1].sig.version).toBe(`"${String(BigInt(toggleVersion)+1n)}"`);
+
+  const saved=await get(page,s.root+'/supply-profile');expect(saved.catalog.name).toBe(newName);
+
+  const disableBtn=active(page).getByRole('button',{name:'停止接受新預留',exact:true});
+  await disableBtn.click();
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：停止接受新預留。');
+  expect(patches).toHaveLength(3);expect(patches[2].status).toBe(200);
+  await evidence(page,info,'toggle-then-edit-saves-clean',patches);
+ }finally{
+  const instanceId=s.root.split('/').pop()!;
+  await e2eAuthPool.query('UPDATE commerce_storefront_profiles SET reservation_enabled=false WHERE instance_id=$1',[instanceId]).catch(()=>{});
+ }
+});
+
+test('SC-E2E-28 saving the business details then toggling reservations needs no reload (AT-33)',async({page,e2eAuthPool},info)=>{
+ test.setTimeout(90_000);
+ const s=await supplier(page,e2eAuthPool),patches=recordPatches(page,s.root);
+ try{
+  await go(page,s,'/settings');await expect(page.locator('#workspace-page-title')).toHaveText('設定與資料');
+  const form=active(page).getByRole('form',{name:'儲存商品庫資料',exact:true}),newName=unique('合成先存資料商品庫');
+  await form.getByLabel('商品庫名稱',{exact:true}).fill(newName);
+
+  const profileRefreshed=page.waitForResponse(r=>r.request().method()==='GET'&&new URL(r.url()).pathname.endsWith(s.root+'/supply-profile'));
+  const ownerRefreshed=page.waitForResponse(r=>r.request().method()==='GET'&&new URL(r.url()).pathname.endsWith(s.root+'/reservation-setting'));
+  const profileSaveResponse=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname.endsWith(s.root+'/supply-profile'));
+  await form.getByRole('button',{name:'儲存商品庫資料',exact:true}).click();
+  expect((await profileSaveResponse).status()).toBe(200);
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：儲存商品庫資料。');
+  expect((await profileRefreshed).status()).toBe(200);expect((await ownerRefreshed).status()).toBe(200);
+
+  const toggleOnBtn=active(page).getByRole('button',{name:'開放 30 分鐘預留',exact:true});await expect(toggleOnBtn).toBeEnabled();
+  const toggleOnResponse=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname.endsWith(s.root+'/reservation-setting'));
+  await toggleOnBtn.click();expect((await toggleOnResponse).status()).toBe(200);
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：開放 30 分鐘預留。');
+
+  const toggleOffBtn=active(page).getByRole('button',{name:'停止接受新預留',exact:true});await expect(toggleOffBtn).toBeVisible();
+  const toggleOffResponse=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname.endsWith(s.root+'/reservation-setting'));
+  await toggleOffBtn.click();expect((await toggleOffResponse).status()).toBe(200);
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：停止接受新預留。');
+  await expect(active(page).getByRole('button',{name:'開放 30 分鐘預留',exact:true})).toBeVisible();
+
+  expect(patches).toHaveLength(3);
+  expect(patches[0].sig.path).toMatch(/\/supply-profile$/);expect(patches[0].status).toBe(200);
+  expect(patches[1].sig.path).toMatch(/\/reservation-setting$/);expect(patches[1].status).toBe(200);
+  const profileSaveVersion=JSON.parse(patches[0].sig.version!);
+  expect(patches[1].sig.version).toBe(`"${String(BigInt(profileSaveVersion)+1n)}"`);
+  expect(patches[2].sig.path).toMatch(/\/reservation-setting$/);expect(patches[2].status).toBe(200);
+  expect(patches[2].sig.version).toBe(`"${String(BigInt(profileSaveVersion)+2n)}"`);
+
+  await evidence(page,info,'save-then-toggle-needs-no-reload',patches);
+ }finally{
+  const instanceId=s.root.split('/').pop()!;
+  await e2eAuthPool.query('UPDATE commerce_storefront_profiles SET reservation_enabled=false WHERE instance_id=$1',[instanceId]).catch(()=>{});
+ }
+});
+
+test('SC-E2E-29 a draft typed before a toggle keeps its version and asks before reapplying (AT-07,AT-33)',async({page,e2eAuthPool},info)=>{
+ test.setTimeout(90_000);
+ const s=await supplier(page,e2eAuthPool),patches=recordPatches(page,s.root);
+ try{
+  await go(page,s,'/settings');await expect(page.locator('#workspace-page-title')).toHaveText('設定與資料');
+  const form=active(page).getByRole('form',{name:'儲存商品庫資料',exact:true}),nameInput=form.getByLabel('商品庫名稱',{exact:true});
+  const newName=unique('合成草稿保留名稱');await nameInput.fill(newName);
+
+  const profileRefreshed=page.waitForResponse(r=>r.request().method()==='GET'&&new URL(r.url()).pathname.endsWith(s.root+'/supply-profile'));
+  const ownerRefreshed=page.waitForResponse(r=>r.request().method()==='GET'&&new URL(r.url()).pathname.endsWith(s.root+'/reservation-setting'));
+  const toggleResponse=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname.endsWith(s.root+'/reservation-setting'));
+  await active(page).getByRole('button',{name:'開放 30 分鐘預留',exact:true}).click();
+  expect((await toggleResponse).status()).toBe(200);
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：開放 30 分鐘預留。');
+  expect((await profileRefreshed).status()).toBe(200);expect((await ownerRefreshed).status()).toBe(200);
+
+  const saveButton=form.getByRole('button',{name:'儲存商品庫資料',exact:true});await expect(saveButton).toBeEnabled();
+  const conflictPatchResponse=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname.endsWith(s.root+'/supply-profile'));
+  await saveButton.click();
+  const conflictRes=await conflictPatchResponse;expect(conflictRes.status()).toBe(412);
+
+  await expect(nameInput).toHaveValue(newName);
+  const banner=form.locator('.banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('資料剛剛被更新。你的修改還在，請確認後再套用。');
+  await expect(banner).toContainText(`你的修改：${newName}`);
+
+  await expect(saveButton).toBeDisabled();await expect(nameInput).toBeDisabled();
+
+  const reapplyPatchResponse=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname.endsWith(s.root+'/supply-profile'));
+  await banner.getByRole('button',{name:'以最新版本重新套用',exact:true}).click();
+  const reapplyRes=await reapplyPatchResponse;expect(reapplyRes.status()).toBe(200);
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：儲存商品庫資料。');
+  await expect(banner).toHaveCount(0);
+
+  const profileData=await get(page,s.root+'/supply-profile');expect(profileData.catalog.name).toBe(newName);
+
+  expect(patches).toHaveLength(3);
+  expect(patches[0].sig.path).toMatch(/\/reservation-setting$/);expect(patches[0].status).toBe(200);
+  const origVersion=patches[0].sig.version;
+
+  expect(patches[1].sig.path).toMatch(/\/supply-profile$/);expect(patches[1].status).toBe(412);
+  expect(patches[1].sig.version).toBe(origVersion);
+
+  expect(patches[2].sig.path).toMatch(/\/supply-profile$/);expect(patches[2].status).toBe(200);
+  const currentVersion=`"${String(BigInt(JSON.parse(origVersion!))+1n)}"`;
+  expect(patches[2].sig.version).toBe(currentVersion);
+  expect(patches[2].sig.key).toBeTruthy();expect(patches[2].sig.key).not.toBe(patches[1].sig.key);
+
+  const disableButton=active(page).getByRole('button',{name:'停止接受新預留',exact:true});
+  await disableButton.click();
+  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：停止接受新預留。');
+  expect(patches).toHaveLength(4);expect(patches[3].status).toBe(200);
+
+  await evidence(page,info,'draft-typed-before-toggle-conflicts-and-reapplies',patches);
+ }finally{
+  const instanceId=s.root.split('/').pop()!;
+  await e2eAuthPool.query('UPDATE commerce_storefront_profiles SET reservation_enabled=false WHERE instance_id=$1',[instanceId]).catch(()=>{});
+ }
+});

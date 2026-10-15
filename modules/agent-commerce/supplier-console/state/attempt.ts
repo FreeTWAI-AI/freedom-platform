@@ -8,14 +8,14 @@ import type {ConsoleScope} from '../ui/route';
 const rule=(schema:{safeParse:(raw:unknown)=>{success:boolean;data?:unknown}},ack:string|null,reads:string[])=>({schema,ack,reads});
 export const ATTEMPT_KINDS={
  'profile.setup':rule(SupplyCatalogReceiptSchema,'instance_id',['profile','overview']),
- 'profile.update':rule(SupplyProfileReceiptSchema,'instance_id',['profile','overview']),
+ 'profile.update':rule(SupplyProfileReceiptSchema,'instance_id',['profile','owner','overview']),
  'product.create':rule(SupplyProductReceiptSchema,null,['profile','products','overview','product']),
  'product.update':rule(SupplyProductReceiptSchema,'product_id',['products','overview','product']),
  'terms.update':rule(SupplyTermsSchema,'product_id',['products','overview','product','offers','requests']),
  'offer.publish':rule(SupplyOfferSchema,'product_id',['products','overview','product','offers','requests','partners']),
  'offer.withdraw':rule(SupplyOfferSchema,'offer_id',['products','overview','product','offers','requests','partners']),
  'request.decide':rule(DistributionSchema,'selection_id',['products','overview','product','offers','requests','partners','partner']),
- 'reservation.toggle':rule(ReservationSettingSchema,null,['owner','overview','reservations']),
+ 'reservation.toggle':rule(ReservationSettingSchema,null,['profile','owner','overview','reservations']),
 } as const;
 export type AttemptKind=keyof typeof ATTEMPT_KINDS;
 export type Attempt=Readonly<{kind:AttemptKind;label:string;scope:ConsoleScope;method:'post'|'patch';path:string;body:Readonly<Record<string,unknown>>;ifMatch?:string;key:string;draft?:string;target:string;productId?:string}>;

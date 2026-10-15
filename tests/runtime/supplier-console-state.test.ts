@@ -116,3 +116,24 @@ test('SC-UI-21 original command content uses member labels and unit-price format
  assert.equal(fieldLabels.cost_minor,'供貨單價');assert.equal(attemptFieldText('cost_minor',15000,'TWD'),'$150.00');assert.equal(attemptFieldText('shipping_minor',0,'TWD'),'$0.00');
  assert.equal(attemptFieldText('decision','revoked','TWD'),'撤回同意');assert.equal(attemptFieldText('reservation_enabled',false,'TWD'),'否');assert.equal(attemptFieldText('stock',12,'TWD'),'12');
 });
+test('SC-UI-22 profile and reservation commands both refresh profile and owner projections',()=>{
+ const profileReads=ATTEMPT_KINDS['profile.update'].reads as readonly string[];
+ const reservationReads=ATTEMPT_KINDS['reservation.toggle'].reads as readonly string[];
+ assert.ok(profileReads.includes('profile'));
+ assert.ok(profileReads.includes('owner'));
+ assert.ok(reservationReads.includes('profile'));
+ assert.ok(reservationReads.includes('owner'));
+ assert.ok(!ATTEMPT_KINDS['profile.setup'].reads.includes('owner'));
+});
+test('SC-UI-23 dirty draft keeps original baseVersion across version moves while new draft takes latest version',()=>{
+ const base={name:'原商品庫名稱',description:'原說明'};
+ let draft=editDraft(undefined,'1',base,'name','修改後的名稱');
+ assert.equal(draft.baseVersion,'1');
+ assert.deepEqual(draft.fields,{name:'修改後的名稱'});
+ draft=editDraft(draft,'2',base,'description','新說明');
+ assert.equal(draft.baseVersion,'1');
+ assert.deepEqual(draft.fields,{name:'修改後的名稱',description:'新說明'});
+ const freshDraft=editDraft(undefined,'2',base,'name','全新草稿');
+ assert.equal(freshDraft.baseVersion,'2');
+ assert.deepEqual(freshDraft.fields,{name:'全新草稿'});
+});
