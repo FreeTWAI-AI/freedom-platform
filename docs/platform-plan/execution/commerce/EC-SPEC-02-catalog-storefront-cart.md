@@ -108,7 +108,9 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 | 信件連結 | `/shops/:slug/orders/:order_ref#access=<token>`；fragment 不送到伺服器，頁面以 POST 兌換成瀏覽器憑證後清除網址 | 7 天、只能兌換一次 | 換裝置、遺失 cookie |
 | 會員 session | 既有 | 既有 | 會員自己的訂單 |
 
-- 新表 `commerce_access_devices`（瀏覽器憑證雜湊、建立／到期／撤銷）與 `commerce_order_access_grants`（device 或 link、order、到期、撤銷、最後使用時間）。
+- 新表 `commerce_access_devices`（瀏覽器憑證雜湊、建立／到期／撤銷；不屬於任何店）與 `commerce_order_access_grants`（店、checkout、可選的 order；device 或 link；到期、兌換、撤銷）。不記最後使用時間：讀訂單不寫資料庫。
+- 建立或重播 checkout 時，伺服器確保這個瀏覽器有憑證（沒有或已失效就發新的，到期日固定、不延長），並建立「這個 device 可以使用這個 checkout」的 grant；這就是下單需要的 checkout 憑證。兌換信件連結時建立只限那張訂單的 device grant。
+- 「在這個瀏覽器忘記我的訂單」撤銷這個 device 並清除 cookie；之後只能用信件連結或會員身分讀單。
 - 讀取任何訂單都以「店家＋訂單＋有效 grant 或本人會員」判斷；查不到一律回不揭露的 404。顯示用編號與 `order_ref` 都不是憑證（EC-AT05）。
 - B10：`POST /api/v1/public/stores/:slug/order-access-requests`（Email＋顯示用編號）一律回 202；相符時寄信件連結。限流比照活動 guest：每網路每小時 10、每 Email 每小時 3、全域每小時 300。真的寄信需要寄送授權；授權前只在測試環境用 fixture sender（EC-SPEC-10 §6.2、§6.4）。
 - 會員可在登入狀態下把持有憑證的 guest 訂單「關聯到我的帳號」（C2 之後，選用）。
@@ -150,7 +152,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 
 ### 5.4 `POST /api/v1/public/stores/:slug/checkouts/:checkout_ref/orders`
 
-- 需要該 checkout 的瀏覽器憑證或本人會員；輸入 `terms_sha256`、`client_order_id`；Idempotency-Key 同上。
+- 需要該 checkout 的 device grant（§4.2）。checkout 不記錄建立者，所以會員 session 本身不能代替 grant；下單時若有會員 session，訂單記下 `buyer_principal_id`。輸入 `terms_sha256`、`client_order_id`（UUID）；同一 checkout 內 `client_order_id` 就是冪等鍵，重送回同一張訂單。
 - 依 EC-SPEC-03 §4.1 在一個交易內建立訂單、行項、sidecar（指向 checkout 目前的聯絡資料列，不另外複製聯絡資料）、全部保留與第一個付款 attempt；回傳訂單投影與付款交接資訊。
 - 同一 checkout 已有未付款且付款結果未定的訂單時回 409，附該訂單的 `order_ref`（EC-SPEC-03 §4.3）。
 
@@ -158,7 +160,7 @@ E04 提供 CSV 匯出與匯入：先驗證並顯示差異（新增／修改／�
 
 匿名建立訂單會占 30 分鐘庫存。限制（EC-SPEC-09 §4，以測試與 staging 觀察校準）：
 
-- 每個瀏覽器憑證、每個 Email、每個網路，同時最多 3 張未付款的有效訂單；超過時回 429 並說明。
+- 每個瀏覽器憑證、每個 Email，同時最多 3 張未付款的有效訂單；超過時回 429 並說明。網路不寫進訂單（不保存由 IP 推導的資料），所以網路的上限用限流 bucket 近似：每網路每 30 分鐘（保留的時效）最多新建 3 張訂單。
 - 每網路每 10 分鐘最多 10 次下單；每店全域每 10 分鐘 300 次。
 - 店家可設定單一 SKU 每單上限（≤ 99）。
 - 這些數字與實際攻擊情境（例如一個人用多個 Email）列入 EC-SPEC-09 的負面測試。

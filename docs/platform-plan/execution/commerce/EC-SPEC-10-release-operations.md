@@ -61,12 +61,14 @@
 - 安裝檢查（比照 `media-wrangler.mjs`）加相同的組合規則，部署前就擋下。
 - 正式與 staging 的值由 Ted 經 release wrapper 設定。每次變更都記在 receipt：環境、時間、前後值。
 - 新設定對設定生效後的請求才有作用；處理中的請求以開始時讀到的設定完成。每個命令是單一交易，所以不會停在一半。
+- M1 只有 `CHECKOUT` 與 `QUARANTINE`。`CONSOLE` 依賴的 `FREEDOM_SUPPLIER_CONSOLE_ENABLED` 還沒進 main（work-plan §8），所以 M1 的 `CHECKOUT` 依賴 launchpad；`CONSOLE` 加入時改依賴 console。
 
 ### 2.3 `site` 欄位與頁面
 
 - `/api/v1/site` 新增兩個欄位：
   - `commerce_console_enabled`：console、supplier console 與 launchpad 三者的 AND；
   - `commerce_checkout_enabled`：checkout 與 console 都開，而且不在隔離模式。
+  - M1 只加 `commerce_checkout_enabled`（checkout 開而且不在隔離模式）；`commerce_console_enabled` 與 `CONSOLE` 一起加入。
 - 不公開 profile 清單、金鑰狀態或隔離原因。
 - B01～B03 是否出現購物車，由伺服器依該店的三層條件決定（§2.1），不只看 `site`。這幾頁的 HTML 由伺服器產生（EC-SPEC-02 §6）。
 - `/api/v1/health` 不加 commerce 欄位。設定錯誤本來就讓全站回 503，所以部署驗收的 health 階段就會發現。
@@ -175,7 +177,7 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
 
 | 里程碑 | 特別事項 |
 | --- | --- |
-| M1 | 正式環境的 checkout 旗標保持關閉：沒有收款就沒有可營業的結帳。M1 在 staging 用 fixture 與合成資料驗證預留、到期與 v1 相容 |
+| M1 | 正式環境的 checkout 旗標保持關閉：沒有收款就沒有可營業的結帳。M1 沒有店家准入表（§2.5 在 M2），所以 staging 也不能成立 `hosted_checkout` 訂單；staging 只驗證 v1 相容與排程（§4.6） |
 | M2 | 同一個 migration 登錄 `storefront@1.1.0`、`hosted-store@1.1.0` 與升級列（EC-SPEC-09 §2.3）。第一次需要 `COMMERCE_CREDENTIAL_KEYS`、`COMMERCE_JOURNAL`、staging 的 Access 排除與 cron 工作（§5） |
 | M3 | 物流通知與選店返回加入 Access 排除；物流 profile 依 §4.5 逐一准入 |
 | M4 | 折讓通知加入 Access 排除；發票 profile 依 §4.5 准入 |
@@ -232,7 +234,7 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
 
 | 里程碑 | 驗收 |
 | --- | --- |
-| M1 | v1 的直接與 shared 預留照常；`hosted_checkout` 的預留、到期釋放與 10 件 6＋5（fixture 付款）；舊頁面不變 |
+| M1 | v1 的直接與 shared 預留照常；舊頁面不變；到期預留的排程有執行（日誌只有工作名稱）；新的公開結帳路由回 409 `checkout_not_enabled`。`hosted_checkout` 的預留、到期釋放、10 件 6＋5 與付款後配置由本機與 CI 的測試證明（fixture 准入與 fixture 付款），不在 staging 成立訂單 |
 | M2 | J02～J04：stage 測試卡付款、通知、查詢、失敗與結果不明；升級到 1.1.0；Access 排除的驗證；隔離模式開關一次 |
 | M3 | J05～J07：宅配與店到店的建單、列印、貨態通知、選店返回；SL 頁面（與 Supplier Console 一起） |
 | M4 | J08、J09：售後、退款、發票開立與作廢、折讓通知；對帳單 |

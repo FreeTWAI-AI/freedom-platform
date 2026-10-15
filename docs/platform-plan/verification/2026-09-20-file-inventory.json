@@ -15204,8 +15204,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
-      "bytes": 18055,
-      "sha256": "118571b377568b5ab0e0453ea1c5ab0b39d7a84ea752bed658a3de1ad6e8a7fc"
+      "bytes": 18968,
+      "sha256": "48256431c1d2e94b2a0c804b256853acc4bb75aca0a96305b7b3e883a211be46"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
@@ -15214,8 +15214,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 31321,
-      "sha256": "59d7c3595b3cce960f9ad82f27bd43c9aa297d26b7f92be7d1c40e7cd0f8ebb4"
+      "bytes": 31447,
+      "sha256": "d5e1d2c192b75ba71581f51ed1df4e05a5d89ea718d7b0b10b210c5d10c7d769"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
@@ -15239,13 +15239,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md",
-      "bytes": 42485,
-      "sha256": "0cad9eb8b08cf360eebe16007a83836ba2ec6bf7a0d1eebfb450031fe374e9ae"
+      "bytes": 42630,
+      "sha256": "f5debe54815a18af5f96864d923973be337a087ff872bb2468143b0834bf8bab"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
-      "bytes": 39370,
-      "sha256": "0f3508a911bd6e8eddc5e07cc4033d905c654dad40a543fd53b0363fae559996"
+      "bytes": 40021,
+      "sha256": "0381b8676df78b824bfed55883ce4bb12da3bee6860169baf5d4b7d02b5d3bf4"
     },
     {
       "path": "docs/platform-plan/execution/commerce/README.md",
@@ -15254,8 +15254,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/WP-00-baseline.md",
-      "bytes": 23862,
-      "sha256": "3d87c13218270d8c990b44e8d6e03cf392a7a36cd31190fa9097ae3b1d1b11c1"
+      "bytes": 23994,
+      "sha256": "e1e560efce7aa6a46216785988d176bdbb663637d6e5097a8e158d79521d0066"
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
@@ -15274,8 +15274,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 13976,
-      "sha256": "0dd72a333f8cb28421a5584a65555a3651e088f11a999f000e08b1df08f62646"
+      "bytes": 14685,
+      "sha256": "932a6ce2dd3abb197c7e3bae4c72e6be9853f714768b17325006795d078cec2c"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",

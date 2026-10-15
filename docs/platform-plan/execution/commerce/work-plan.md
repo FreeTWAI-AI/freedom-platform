@@ -19,10 +19,10 @@
 | EC-WP00 基準與權利 | 差異、可沿用的程式、缺口、來源權利 | WP-00、sources.md | — | C0 | 完成（文件） |
 | EC-WP01 產品與視覺 | 角色、B／E／SL 頁、動線、狀態與文案 | EC-SPEC-01、pages.md | WP00 | C1 | 規格完成；EC 參考畫面的逐頁對照待 Ted 確認（EC-SPEC-01 §5、DC10） |
 | EC-WP02 商店與 Seller Console | 變體、照片、分類、店面內容、優惠；E02～E11 的頁 | EC-SPEC-02 §1～§3、EC-SPEC-01 §4、§7.5 | WP01；Supplier Console 的共用殼進 main（§8） | C1；各里程碑自己的 E 頁 | 未開始 |
-| EC-WP03 結帳與交易模型 | 顧客、checkout、訂單、N／H／A、付款後配置、出貨與退回的庫存效果；公開結帳路由與訂單存取 | EC-SPEC-02 §4～§5、EC-SPEC-03 | WP00 | M1 | 領域核心通過審查（`fc/wp03-core` `16caa586`）；路由、主機設定、排程、能力下限未開始 |
-| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫通過審查（`fc/ecpay-proto` `67d9ba2e`） |
+| EC-WP03 結帳與交易模型 | 顧客、checkout、訂單、N／H／A、付款後配置、出貨與退回的庫存效果；公開結帳路由與訂單存取 | EC-SPEC-02 §4～§5、EC-SPEC-03 | WP00 | M1 | 領域核心通過審查（`fc/wp03-core` `16caa586`），已併入整合分支；路由、主機設定、排程、能力下限由 wp03-http 進行 |
+| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫通過審查（`fc/ecpay-proto` `67d9ba2e`），已併入整合分支 |
 | EC-WP05 物流與供應商補充 | 出貨設定、配送群組、選店、託運單、標籤、貨態、例外、退回 | EC-SPEC-05；SC-SPEC-07 | WP03；WP04 的協定與排程 | M3 | 未開始 |
-| EC-WP06 發票與售後 | 發票、更正、對話、RMA、退款分攤、供貨帳 | EC-SPEC-06 | WP03～05 | M4 | 發票純規則通過審查（`fc/invoice-rules` `a9cb0ebf`） |
+| EC-WP06 發票與售後 | 發票、更正、對話、RMA、退款分攤、供貨帳 | EC-SPEC-06 | WP03～05 | M4 | 發票純規則通過審查（`fc/invoice-rules` `a9cb0ebf`），已併入整合分支 |
 | EC-WP07 營運與技能書 | 29 項技能的落點、報表與漏斗、書與站內應用的連結 | EC-SPEC-07 | WP02；PR #706 | M2 起 | 規格完成；程式未開始 |
 | EC-WP08 安全與整合 QA | 權限、閘道例外、限流、遮罩、canary、能力矩陣 | EC-SPEC-09 | 隨 WP02～07 | 每個里程碑 | 每個工作附自己的反例；跨領域測試隨 M2 開始 |
 | EC-WP09 可攜營業發行 | 授權子集、發行清單、官方 profile、安裝與升級 | EC-SPEC-08 §2、§3 | WP00；WP03～06 的契約；DC07、DC11 | C3 | 未開始 |
@@ -50,7 +50,7 @@
 | 切片 | 內容 | CLI | 依賴 | 狀態 |
 | --- | --- | --- | --- | --- |
 | wp03-core | migration 168、`modules/agent-commerce/checkout/`、N／H／A、付款後配置、出貨與退回的庫存效果 | Codex | — | 完成 |
-| wp03-http | 公開結帳路由（EC-SPEC-02 §5.2～§5.4）；訂單存取憑證與 B10（§4.2，fixture sender）；結帳的限流（EC-SPEC-09 §4）；主機設定 `CHECKOUT`、`QUARANTINE` 與 `site` 布林（EC-SPEC-10 §2.2、§2.3）；到期預留接上排程（§5）；能力、SHAPE 與 168 的強制下限（§3）；同意版本與配送 JSON 的檢查 | Codex | wp03-core | 下一批 |
+| wp03-http | 公開結帳路由（EC-SPEC-02 §5.2～§5.4）；訂單存取憑證與 B10（§4.2，fixture sender）；結帳的限流（EC-SPEC-09 §4）；主機設定 `CHECKOUT`、`QUARANTINE` 與 `site` 布林（EC-SPEC-10 §2.2、§2.3）；到期預留接上排程（§5）；能力、SHAPE 與 168 的強制下限（§3）；同意版本與配送 JSON 的檢查；還原演練補上 168 的 RLS 表 | Codex | wp03-core | 下一批 |
 | 買家頁 | B03 加入購物車、B04、B05、B06（付款前）、B10 | argon | wp03-http 的契約 | 之後 |
 
 M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `hosted_checkout` 訂單；M1 的驗收是不影響 v1 預留，加上本機與 CI 的測試（EC-SPEC-10 §4.6）。
@@ -96,6 +96,8 @@ C3（EC-WP09、WP10）在 DC07、DC11 有決定、M1～M4 的契約穩定後開�
 
 先把 `fc/wp03-core`、`fc/ecpay-proto`、`fc/invoice-rules` 與 main `5bee7376` 合進整合分支，跑完整驗證，再開這三個工作。
 
+2026-10-15 已合併（`da4af013` main、`d3cbb286` wp03-core、`931f8666` ecpay-proto、`f250e66d` invoice-rules）。整合者在一次性資料庫重跑 `f250e66d`：typecheck、build、cloudflare、governance、契約 946、runtime 全部通過；CI 的 worker job 順序（契約、dry-run 後）worker 114/114、migration-postgres 12/12、media-restore 封存 6/6。media-restore 的 J6-R3 失敗 1 項：168 新增的兩張 RLS 表（`commerce_customers`、`commerce_checkout_contacts`）沒有列進還原演練，由 wp03-http 補上。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |
@@ -129,7 +131,7 @@ C3（EC-WP09、WP10）在 DC07、DC11 有決定、M1～M4 的契約穩定後開�
 
 | 項目 | 方向 | 內容 | 狀態 |
 | --- | --- | --- | --- |
-| 訂單與庫存核心 | Commerce → Supplier | `fc/wp03-core` `16caa586`：`recordHandover`、`restockReturn`、`cancelPaidOrder`、確認付款的定義、`reserved = H + A` | 2026-10-15 已通知 SHA；尚未合併 |
+| 訂單與庫存核心 | Commerce → Supplier | `fc/wp03-core` `16caa586`：`recordHandover`、`restockReturn`、`cancelPaidOrder`、確認付款的定義、`reserved = H + A` | 2026-10-15 已通知 SHA；已併入整合分支（`d3cbb286`），尚未進 main |
 | 共用 console 殼 | Supplier → Commerce | `863614ef` 抽出的共用殼；E 頁沿用同一個殼與導覽樣式（`ea24fbf6` 的導覽字級 .875rem） | 在 `feat/supplier-console-r1`，尚未進 main |
 | `FREEDOM_SUPPLIER_CONSOLE_ENABLED` | Supplier → Commerce | commerce 的 `CONSOLE` 開關依賴它（EC-SPEC-10 §2.2）；它進 main 之前，commerce 不加 `CONSOLE` | 在 `feat/supplier-console-r1` 的 `worker.ts` |
 | 「已占用」的文字 | Supplier | `stock − reserved` 的說明改成含已付款未出貨，跟 M2 同一次發布 | 依 M2 |

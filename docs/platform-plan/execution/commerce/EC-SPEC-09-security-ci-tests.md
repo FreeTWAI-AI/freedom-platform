@@ -195,7 +195,7 @@ guest、provider 通知與排程都沒有 principal。規則：
 | 購物車報價 | 網路 60／分；店 600／分 | 429 |
 | 建立 checkout | 網路 30／10 分；店 600／10 分 | 429 |
 | 下單 | 網路 10／10 分；店 300／10 分 | 429 |
-| 同時未付款的有效訂單 | 瀏覽器憑證、Email、網路各 3 張 | 429 `too_many_open_orders`，不留下保留 |
+| 同時未付款的有效訂單 | 瀏覽器憑證、Email 各 3 張；網路以 bucket 近似：每 30 分新建 3 張（EC-SPEC-02 §5.5） | 429 `too_many_open_orders`，不留下保留 |
 | 單一 SKU 每單數量 | 店可設，≤ 99 | 422 |
 | 找回訂單（B10） | 網路 10／時；Email 3／時；全域 300／時 | 一律 202（EC-SPEC-02 §4.2） |
 | 兌換信件連結 | 網路 30／10 分 | 429 |
@@ -306,7 +306,7 @@ provider 入口：
   5. `npm run build` 產生的 `dist/`（含 source map）；
   6. 匯出檔（C3 加入）。
 - 任何一處出現 canary 的明文、Base64、URL 編碼或 hex 就失敗；報出位置，不印出值。
-- 原始碼檢查：綠界 stage 金鑰的字串只能在 `tests/fixtures/ecpay/` 之下，出現在 `docs/`、`modules/`、`apps/` 就失敗。
+- 原始碼檢查：綠界 stage 金鑰的字串只能在 `tests/worker/ecpay-fixtures/` 與重算官方向量的協定測試（`tests/runtime/ecpay-*.test.ts`）之下，出現在 `docs/`、`modules/`、`apps/` 就失敗。
 - 這是自動化的回歸檢查，不取代人工的安全審查；AT25 兩者都要。
 
 ### 5.4 沒有模型金鑰也能營業（EC-R43）

@@ -9,7 +9,7 @@
 ### 1.1 誰收款
 
 - 一間店一個零售責任主體＝經營該店的事業（tenant）。收款用這個事業**自己的**綠界特店帳號；平台不代收、不分帳、不設錢包（計畫 §4.1）。
-- 送給綠界的 `PlatformID` 一律為空字串：平台不是綠界的「特約合作平台商」，不替會員建單 [2862]。
+- 送給綠界的內容不帶 `PlatformID`（整個欄位省略，不送空字串）：平台不是綠界的「特約合作平台商」，不替會員建單 [2862]。通知裡的 `PlatformID` 必須為空或缺（§5.2）。
 - 供應商的貨款、運費與理賠是賣家與供應商之間的應付帳款（EC-SPEC-06 §5），不經過買家付款流程。
 
 ### 1.2 帳戶紀錄（提議 `commerce_provider_accounts`＋`commerce_provider_account_services`）
@@ -129,7 +129,7 @@ interface PaymentPort {
 - `ItemName`：`{商品名} x{數量}` 以 `#` 連接；名稱先移除 `#`、`<`、`>` 與控制字元；合計超過 200 字元時改用 `{店名}商品一批 x1`。綠界在 400 字元處截斷，截到多位元組字元會讓 CheckMacValue 失敗 [61944]，所以留足空間。
 - `TradeDesc`：`Freedom order {display_number}`（不含特殊字元 [2862]）。
 - `ReturnURL`、`OrderResultURL`、`ClientBackURL`：§4、§5 的固定路徑，HTTPS、網域、443，路徑不含 `&` 或 `<` [2858][61944]；由伺服器依環境組出。
-- `CustomField1～4`、`StoreID`、`Language`：不送。
+- `PlatformID`、`CustomField1～4`、`StoreID`、`Language`：不送（欄位省略）。
 
 ## 4. 買家交接（瀏覽器）
 

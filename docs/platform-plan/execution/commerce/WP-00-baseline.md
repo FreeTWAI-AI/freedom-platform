@@ -42,9 +42,9 @@
 | Email | `EMAIL` send_email binding，只在 staging／next，寄件人 `no-reply@mail.freetwai.com`（`wrangler.jsonc:88`、`:107`） | 訂單連結與通知（需寄送授權，EC-SPEC-10 §6.2） | 不是 outbox；活動提醒是在交易外直接寄，不能當可靠寄送的範本 |
 | 物件與私有讀取 | `assets`／`asset_objects`／`asset_upload_intents`＋各領域的 target 表；R2 adapter 只建立不覆寫、app 端不能刪（`packages/asset-storage/r2.ts:50-127`）；私有內容由領域路由授權後讀出（`apps/platform-api/src/routes/tenant-work.ts:174`、`member-communications.ts:76`） | 商品照片（141）、封面與店標的新用途（EC-SPEC-02 §2）；匯出檔（EC-SPEC-08 §4） | MIME 白名單沒有 PDF、CSV、ZIP（`packages/asset-storage/index.ts:50`）；沒有通用的授權表或簽名網址；asset 一定要有會員 owner（`migrations/079_asset_upload_lifecycle.sql:6-7`），guest 不能上傳 |
 | 備份與還原 | `packages/media-migration/`：PostgreSQL snapshot＋物件的一致備份與封存還原；演練 `tests/integration/tenant-rls-restore-drill.test.ts`、`recovery-generation-restore.test.ts` | 還原後的對帳流程（EC-SPEC-10 §8.4） | 只有整個平台的備份，沒有單一商店的匯出 |
-| 綠界協定（本案新增） | `modules/agent-commerce/providers/ecpay/`（分支 `fc/ecpay-proto`）：CheckMacValue（SHA-256／MD5）、AES-128-CBC、.NET URL 編碼、表單解析上限、交易編號 | EC-SPEC-04～06 的 adapter 共用 | 已審查、未併入；workerd 向量 5/5、runtime 13/13 |
-| 發票規則（本案新增） | `modules/agent-commerce/invoices/rules/`（分支 `fc/invoice-rules`）：統編、買受人欄位、品項拆分、期別與作廢期限、更正建議 | EC-SPEC-06 | 已審查、未併入；46/46 |
-| 結帳核心（本案新增） | `modules/agent-commerce/checkout/`＋`migrations/168_hosted_checkout_core.sql`（分支 `fc/wp03-core`） | EC-SPEC-03 | 已審查（`16caa586`，含一輪修正）、未併入；checkout 72/72 |
+| 綠界協定（本案新增） | `modules/agent-commerce/providers/ecpay/`（分支 `fc/ecpay-proto`）：CheckMacValue（SHA-256／MD5）、AES-128-CBC、.NET URL 編碼、表單解析上限、交易編號 | EC-SPEC-04～06 的 adapter 共用 | 已審查，2026-10-15 併入整合分支 `feat/freedom-commerce`（`931f8666`）；workerd 向量 5/5、runtime 13/13 |
+| 發票規則（本案新增） | `modules/agent-commerce/invoices/rules/`（分支 `fc/invoice-rules`）：統編、買受人欄位、品項拆分、期別與作廢期限、更正建議 | EC-SPEC-06 | 已審查，2026-10-15 併入整合分支（`f250e66d`）；46/46 |
+| 結帳核心（本案新增） | `modules/agent-commerce/checkout/`＋`migrations/168_hosted_checkout_core.sql`（分支 `fc/wp03-core`） | EC-SPEC-03 | 已審查（`16caa586`，含一輪修正），2026-10-15 併入整合分支（`d3cbb286`）；checkout 72/72 |
 | 前端 | `PortalClient`、`ApiError`、`formatMinor`、`HostedStore.tsx`、`GuildLaunchpadApplications.tsx`；Supplier Console 的 `ConsoleShell`（`863614ef`） | Seller Console 沿用同一個 shell，不改 props；要加 props 先問 Supplier 工作階段 | 盤點細節見 pages.md |
 
 ## 3. 缺口
