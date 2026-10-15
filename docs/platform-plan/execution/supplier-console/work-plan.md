@@ -1,0 +1,100 @@
+# 工作包、批次、依賴與決策
+
+整體進度追蹤沿用 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)，這裡只記錄工作怎麼切、誰改哪些檔案、彼此依賴與待決事項，不另開進度系統。
+
+## 1. 工作包與批次
+
+| 工作包 | 本案內容 | 批次 | 直接依賴 |
+| --- | --- | --- | --- |
+| WP-00 現況與差異 | [WP-00-baseline.md](WP-00-baseline.md)、[sources.md](sources.md)、[refferq-adoption.md](refferq-adoption.md) | — | 無 |
+| WP-01 產品設計與 Spec | [pages.md](pages.md)、SC-SPEC-01～06、契約 `contracts/guild-launchpad/v1/supplier-console.ts` | — | WP-00 |
+| WP-02 殼層與路由 | 營運中心殼層、路由、controller、離開保護、舊入口 | S1 | WP-01 契約 |
+| WP-03 用途查詢與資料 | 五個新讀取、`PATCH supply-profile`、純供貨照片、旗標 | S1；S2 補查詢 | WP-01 契約 |
+| WP-04 供貨旅程整合 | 各頁接上真 API，J01～J04、J06 在新版走通 | S1 | WP-02、WP-03 |
+| WP-05 素材與管理完整度 | 合作素材、營運報表、CSV | S3 | WP-02、WP-03、D-05 |
+| WP-06 整合與驗證 | 同一候選的 runtime／E2E／視覺／效能證據 | 每批 | WP-04（S1）、WP-05（S3） |
+| WP-07 發布、試用與退場 | staging、正式開啟、試用、舊頁退場 | 每批 | WP-06 |
+
+批次內容：
+
+- **S1 第一條供貨旅程**（本輪實作）：殼層、概覽、商品清單／新增／詳情（含照片）、供貨條件與審核、合作店家清單／詳情、預留、設定與資料。詳見 [first-journey.md](first-journey.md)。
+- **S2 補齊查詢**：預留的伺服器篩選與單筆詳情（G-07）、近期變更（G-09）、公會區塊的本人待辦（G-14）。S1 合併後開始。
+- **S3 素材與報表**：SC-09、SC-10（SC-SPEC-04 §4、§5）。D-05 核准後開始。
+
+## 2. 三條實作線與 S1 分工
+
+每條線只有一個寫入者；Claude（Opus 5.5）負責設計、寫 brief、整合與驗證，不和實作者同時改同一個檔案。
+
+| 線 | S1 job | 執行者 | 內容 |
+| --- | --- | --- | --- |
+| 用途 API／資料 | A | Codex `gpt-6.1-sol` | 旗標（app、worker、site、E2E fixture）；`apps/platform-api/src/routes/hosted-supplier-console.ts` 掛在 `platform-app.ts:692-698` 的 launchpad 區塊內；讀取服務 `modules/agent-commerce/supplier-console/reads.ts`；從 `publishSupplyOffer` 抽出 `supplyOfferTerms`；契約登錄到 `generate-contracts.ts` 並產生 schema；nested descriptor；`tests/runtime/supplier-console.test.ts` |
+| 用途 API／資料 | B | agy `gemini-4-argon-high` | `PATCH R/supply-profile`（`store.ts`＋`hosted-store.ts`）；`photoProducts` 的 `retailOnly` 參數與四個呼叫點；`tests/runtime/supplier-console-writes.test.ts` |
+| 殼層／體驗 | C | Codex `gpt-6.1-sol` | `modules/agent-commerce/supplier-console/**` 的殼層、頁面、controller 與純狀態模組；`HostedStore.tsx` 路由與關閉時的舊頁回退；`App.tsx` 的 h1 與離開檢查；頁面工具登錄；`tests/runtime/supplier-console-state.test.ts` |
+| 旅程／素材 | D | agy `gemini-3.8-flash` | 整合後的 `tests/e2e/supplier-console.spec.ts`、照片 pass 的純供貨案例、截圖 |
+
+A、B、C 平行（各自的 worktree、拋棄式資料庫與 E2E port），以已提交的契約為共同邊界；D 在 A＋B＋C 整合後開始。B 的 agy 輸出只當草稿：Claude 逐項對照程式與測試後才整合。
+
+## 3. 共用檔案
+
+擁有者以各 `freedom.module.json` 的 `owned_paths` 解析（`packages/contribution-tools/context.mjs` 的 `owns`）。
+
+| 檔案 | Descriptor 擁有者 | Job | 改動 |
+| --- | --- | --- | --- |
+| `apps/platform-api/src/app.ts` | application-composition、work | A | `supplierConsoleEnabled` 選項 |
+| `apps/platform-api/src/worker.ts` | application-composition、work | A | 讀環境變數 |
+| `apps/platform-api/src/platform-app.ts` | work | A | `site` 欄位、掛新路由 |
+| `tests/e2e/member-feature-fixture.ts` | e2e-harness | A | `Features` 加旗標 |
+| `modules/guild-workspace/generate-contracts.ts` | guild-workspace | A | 新 bundle |
+| `tests/runtime/guild-launchpad-contracts.test.ts` | guild-workspace | A | 新 schema 正反例 |
+| `modules/agent-commerce/hosted/distribution.ts` | agent-commerce、hosted-distribution | A | 抽出 `supplyOfferTerms` |
+| `modules/agent-commerce/hosted/store.ts` | agent-commerce | B | `updateSupplyProfile` |
+| `apps/platform-api/src/routes/hosted-store.ts` | agent-commerce | B | `PATCH supply-profile` |
+| `modules/agent-commerce/hosted/photo-{projection,read,commands}.ts`、`publish.ts` | agent-commerce | B | `retailOnly` |
+| `apps/portal-web/src/modules/HostedStore.tsx` | agent-commerce | C | 路由與回退 |
+| `apps/portal-web/src/App.tsx` | application-composition、work | C | h1、離開檢查帶目的地 |
+| `apps/portal-web/src/page-help.ts` | application-composition | C | `supplier-console` 說明 |
+| `modules/development/pages.ts` | development | C | `supplier-console` 頁面 |
+| `tests/e2e/hosted-store-photo.spec.ts` | agent-commerce | D | 純供貨照片案例 |
+| `docs/platform-plan/execution/spec-index.md` | 無 | Claude | 一行索引 |
+
+新檔案全部列入 `supplier-console` descriptor（SC-SPEC-05 §5），避免成為 `selectImpact` 的未知路徑。
+
+## 4. 依賴順序
+
+```
+WP-00 → WP-01（含契約）─┬→ A ─┐
+                        ├→ B ─┼→ Claude 整合 → D → WP-06（S1 證據）→ Ted 決定 PR／合併 → WP-07
+                        └→ C ─┘
+S1 合併 → S2
+S1 合併 ＋ D-05 核准 → S3
+```
+
+只有兩件事會擋路：S3 等 D-05；任何 PR、合併、部署、開旗標與試用都等 Ted。其餘依上圖往下做。
+
+## 5. 決策
+
+「採用」表示依建議直接進行（屬工程預設，沒有改變產品承諾）；「需 Ted」表示會影響成本、對外行為或權限，要 Ted 決定。
+
+| 編號 | 決策 | 建議 | 狀態 | 只影響 |
+| --- | --- | --- | --- | --- |
+| D-01 | 路由放哪裡 | `#stores/<t>/<i>/supply/...`，不新增全站分頁 | 採用 | WP-02 |
+| D-02 | 新版開關 | `FREEDOM_SUPPLIER_CONSOLE_ENABLED`，預設關，需 launchpad 同時開 | 採用 | WP-02、03、06、07 |
+| D-03 | 程式位置 | `modules/agent-commerce/supplier-console/`＋nested descriptor `supplier-console` | 採用 | WP-02、03 |
+| D-04 | 合作店家用什麼 ID | 賣家店面 shop ID（`commerce_selections.shop_id`），不用名稱或 tenant | 採用 | WP-03 |
+| D-05 | 素材用哪種媒體用途 | 新用途 `storefront.supply-material`，只收靜態圖片並沿用商品照片處理器；文案存文字；PDF／影片／SVG 不收 | **需 Ted** | WP-05 |
+| D-06 | 草稿存哪裡 | 只在記憶體；未確認操作在同一會員重新登入後恢復，不跨重新整理 | 採用 | WP-02 |
+| D-07 | 事業資料的修改範圍 | 只限純供貨事業；已開零售的在商店資料頁修改 | 採用 | WP-03、05 |
+| D-08 | 純供貨商品照片的讀取權限 | 與零售商品照片相同（`store:read`，只回 ID、版本與照片 metadata） | 採用 | WP-03、04 |
+| D-09 | 離開檢查 | App 的檢查接收目的地 hash，營運中心內換頁不打斷 | 採用 | WP-02 |
+| D-10 | 頁面工具與新手引導 | 頁面工具用 `supplier-console`；引導沿用 `stores` 的停用 | 採用 | WP-02 |
+| D-11 | 合作店家如何在公開店面使用素材 | 發布時複製成賣家 tenant 的 Asset（佔賣家容量） | **需 Ted** | WP-05 |
+| D-12 | PR 怎麼包 | 文件＋S1 一支 PR，一次完整 CI、同一候選的證據 | **需 Ted** | WP-06、07 |
+| D-13 | 正式環境怎麼開 | 沿用 host 設定一次開，不做逐事業灰度 | **需 Ted** | WP-07 |
+
+計畫 16.2 已列的預設（沿用品牌與 token、對外名稱「供應商營運中心」、商品容量 200、供貨價可見範圍沿用現有角色、素材預設只給明確授權的合作方、撤回後禁止新取用但保留歷史、R2 交易責任另定）全部照建議採用，不影響本輪工作。
+
+## 6. 成本與資源
+
+- 不新增付費服務、第二套資料庫、常駐服務或追蹤 SaaS。
+- 每個候選一次完整 CI；本機驗證用拋棄式 PostgreSQL（`postgres:18-alpine`，tmpfs），不碰開發資料庫 54339。
+- 各 job 的實際投入與返工原因記在 [sources.md](sources.md) 的方法表。

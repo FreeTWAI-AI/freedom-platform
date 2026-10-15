@@ -1,0 +1,46 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "supplier-console",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/supplier-console/**",
+    "apps/platform-api/src/routes/hosted-supplier-console.ts",
+    "contracts/guild-launchpad/v1/supplier-console.ts",
+    "contracts/guild-launchpad/v1/supplier-console.schema.json",
+    "tests/runtime/supplier-console.test.ts",
+    "tests/runtime/supplier-console-writes.test.ts",
+    "tests/runtime/supplier-console-state.test.ts",
+    "tests/e2e/supplier-console.spec.ts",
+    "docs/platform-plan/execution/supplier-console/**"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "agent-commerce",
+    "hosted-distribution"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "docs/platform-plan/execution/supplier-console/README.md",
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "modules/agent-commerce/hosted/supply-terms.md",
+    "modules/agent-commerce/hosted/shared-order-contract.md",
+    "DESIGN.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "session-owned-async-actions",
+    "explicit-readonly-target",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full",
+    "e2e.harness"
+  ],
+  "surfaces": []
+}
