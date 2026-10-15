@@ -343,3 +343,21 @@ test('paid cancellation of a closed order is refused without effects',async()=>{
   await x.tx(q=>q.query("UPDATE commerce_checkout_orders SET lifecycle_state='closed',closed_at=clock_timestamp(),version=version+1 WHERE order_id=$1",[o.order_id]));
   const before=await stockFacts();await assert.rejects(x.tx(q=>cancelPaidOrder(q,s,{orderId:o.order_id,commandRef:randomUUID()})),code('checkout_order_closed'));assert.deepEqual(await stockFacts(),before);
 });
+
+for (const transition of ['guest to member', 'member to guest', 'member A to member B'] as const) {
+  test(`placement replay preserves the original buyer: ${transition}`, async () => {
+    const s = await x.store(), c = await x.frozen(s), intent = randomUUID();
+    const a = await x.h.person('測試買家甲'), b = await x.h.person('測試買家乙');
+    const principalA = await x.tx(q => mapPersonPrincipal(q, a.id));
+    const principalB = await x.tx(q => mapPersonPrincipal(q, b.id));
+    const firstBuyer = transition === 'guest to member' ? null : principalA.principal_id;
+    const nextBuyer = transition === 'member to guest' ? null : principalB.principal_id;
+    const first = await x.place(s, c, intent, firstBuyer);
+    const before = await stockFacts();
+    assert.deepEqual(await x.place(s, c, intent, nextBuyer), first);
+    assert.equal((await x.h.pool.query('SELECT buyer_principal_id FROM commerce_orders WHERE order_id=$1', [first.order_id])).rows[0].buyer_principal_id, firstBuyer);
+    assert.deepEqual(await stockFacts(), before);
+    await assert.rejects(x.place(s, { ...c, terms_sha256: 'f'.repeat(64) }, intent, nextBuyer), code('order_intent_conflict'));
+    assert.deepEqual(await stockFacts(), before);
+  });
+}

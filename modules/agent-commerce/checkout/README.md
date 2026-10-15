@@ -86,7 +86,7 @@ SHA-256 hash. Checkout identity and the
 24-hour deadline remain fixed across revisions. Changing contact email resolves
 the corresponding store customer; placed orders retain their original customer
 and contact references. Placement is idempotent within
-(checkout, client order ID), independently of member identity.
+(checkout, client order ID), independently of member identity; a replay keeps the first placement's buyer.
 
 ## Function contracts
 

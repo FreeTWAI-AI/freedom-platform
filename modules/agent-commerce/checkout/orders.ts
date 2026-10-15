@@ -43,7 +43,7 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
   requireCondition(await (ports.admission??defaultAdmission).allowed(p),409,'checkout_not_enabled','尚未開放線上付款。');
   await settleDueCheckoutHolds(q,(peek.terms as CheckoutTerms).bindings.map(b=>b.item_id),{ordersPerItem:99});
   const c=(await q.query(`SELECT * FROM commerce_checkouts WHERE checkout_id=$1 AND tenant_id=$2 AND instance_id=$3 FOR UPDATE`,[input.checkoutId,p.tenant_id,p.instance_id])).rows[0];
-  const hash=hashJSON(input);
+  const hash=hashJSON({checkoutId:input.checkoutId,termsSha256:input.termsSha256,clientOrderId:input.clientOrderId,environment:input.environment});
   const prior=(await q.query(`SELECT co.*,co.version::text,o.request_sha256 FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
     WHERE co.checkout_id=$1 AND o.client_order_id=$2 FOR UPDATE OF co,o`,[c.checkout_id,input.clientOrderId])).rows[0];
   if(prior){
