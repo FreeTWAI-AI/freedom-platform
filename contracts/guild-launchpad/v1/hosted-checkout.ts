@@ -3,7 +3,7 @@ import {OpaqueId,Version} from './primitives.js';
 import {CurrencySchema,StoreSlugSchema} from './storefront.js';
 const money=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const sha=z.string().regex(/^[a-f0-9]{64}$(?![\s\S])/);
-const time=z.iso.datetime({precision:3});
+const time=z.string().regex(new RegExp(z.regexes.datetime({precision:3}).source.replace(/\\d/g,'[0-9]')+'(?![\\s\\S])'));
 const sku=z.string().min(1).max(32);
 const quantity=z.number().int().min(1).max(99);
 const object=z.record(z.string(),z.unknown());

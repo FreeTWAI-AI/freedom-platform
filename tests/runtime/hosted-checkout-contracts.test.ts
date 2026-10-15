@@ -18,3 +18,8 @@ test('closed errors and the generated hosted checkout bundle cover each JSON req
   const bundle=JSON.parse(readFileSync(new URL('../../contracts/guild-launchpad/v1/hosted-checkout.schema.json',import.meta.url),'utf8'));
   const text=JSON.stringify(bundle);for(const name of ['cart-quote-input','cart-quote','checkout-input','checkout','placement-input','placement','order','redeem-input','access-request-input','forget-input','error'])assert(text.includes(name),name);
 });
+test('checkout timestamps require ASCII UTC milliseconds and reject trailing content',()=>{
+  const timestamp=c.CheckoutResponseSchema.shape.expires_at;
+  assert(timestamp.safeParse('2028-02-29T12:34:56.789Z').success);
+  for(const value of ['2027-02-29T12:34:56.789Z','2028-02-29T12:34:56.789Z\n','２０２８-02-29T12:34:56.789Z','2028-02-29T12:34:56.789+00:00'])assert(!timestamp.safeParse(value).success,value);
+});
