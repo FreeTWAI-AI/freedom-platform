@@ -18,7 +18,7 @@ const schema = `e1cat_${process.pid}_${Date.now()}`;
 const admin = new Pool({ connectionString });
 const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 2 });
 const ENABLED = [
-  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_customers', 'commerce_checkout_contacts',
+  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants',
   'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
   'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
   'module_provision_operations', 'module_provision_steps',
@@ -27,7 +27,7 @@ const ENABLED = [
   'tenant_ownership_transfers', 'tenant_recovery_cases',
   'tenant_work_result_targets', 'tenant_work_results', 'tenants', 'work_items', 'workspace_module_bindings', 'workspaces',
 ];
-const EXEMPT = ['assets', 'asset_upload_intents', 'asset_objects', 'resource_scopes', 'users', 'sessions', 'principals'];
+const EXEMPT = ['commerce_access_devices', 'assets', 'asset_upload_intents', 'asset_objects', 'resource_scopes', 'users', 'sessions', 'principals'];
 
 async function walk(dir: string, match: (name: string) => boolean): Promise<{ path: string; source: string }[]> {
   const found: { path: string; source: string }[] = [];

@@ -1,3 +1,4 @@
+import {ensureDevice,grantDevice} from '../../modules/agent-commerce/checkout/access.js';
 // Real coordinator -> sealed archive -> quarantine restore proves complete tenant
 // rows, references, bytes and restored runtime isolation after migration 125.
 // Synthetic local data only; production backup role grants are not verified.
@@ -135,7 +136,7 @@ function copyCounts(dump: Buffer): Record<string, number> {
 
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
-  'commerce_customers', 'commerce_checkout_contacts',
+  'commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants',
   'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
@@ -328,6 +329,8 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     }, { shipping: { async quote(_q, _store, input) {
       return { groups: input.lines.map(line => ({ group_ref: 'synthetic-group', supplier_shop_id: line.supplier_shop_id, method_ref: 'synthetic', amount_minor: 0 })) };
     } } });
+    const {device}=await ensureDevice(q,undefined,'https://example.test');
+    await grantDevice(q,device.device_id,{tenant_id:space.tenantId,instance_id:space.hosted.instanceId,checkout_id:space.checkout.checkout_id});
     await q.query(`INSERT INTO tenant_invitations(invitation_id,tenant_id,invitee_principal_id,role,instance_capabilities,expires_at,state,created_by_principal_id)
       VALUES($1,$2,$3,'viewer','[]'::jsonb,clock_timestamp()+interval '3 days','pending',$4)`,
     [space.invitationId, space.tenantId, invitee.principalId, author.principalId]);
@@ -408,7 +411,7 @@ const EXPECTED: Record<string, number> = {
   tenant_authority_audit: 2, module_instances: 4, deployment_bindings: 4, workspace_module_bindings: 2,
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
   // This fixture has no explicit instance grants; verify the new table survives empty.
-  commerce_customers: 2, commerce_checkout_contacts: 2,
+  commerce_customers: 2, commerce_checkout_contacts: 2, commerce_order_access_grants: 2,
   tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2, commerce_hosted_supply_offers: 2,
   // Photo-bearing restore is exercised by media-backup-restore; this fixture
   // must still preserve both empty tables and their tenant policies.
@@ -709,7 +712,7 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
-  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id']] as const) {
+  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_order_access_grants', 'grant_id']] as const) {
     const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
     const restored = await rows(restoredPool);
     assert.equal(restored.length, 2);
@@ -778,11 +781,11 @@ test('J6-R4 lockdown precedes grants; one restored runtime connection cycles A, 
 test('J6-R4 restored checkout PII requires the exact tenant context and disappears without context', async () => {
   for (const space of [spaces.a, spaces.b]) {
     await isolatedTransaction(runtimePool, async q => {
-      for (const table of ['commerce_customers', 'commerce_checkout_contacts']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
       await bindPrincipalContext(q, space === spaces.a ? people.p1.principalId : people.p2.principalId);
-      for (const table of ['commerce_customers', 'commerce_checkout_contacts']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
       await bindTenantContext(q, { tenantId: space.tenantId, tenantScopeId: space.scopeId });
-      for (const table of ['commerce_customers', 'commerce_checkout_contacts']) {
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) {
         const rows = (await q.query(`SELECT * FROM ${table}`)).rows;
         assert.equal(rows.length, 1);
         assert.deepEqual(rows, (await restoredPool.query(`SELECT * FROM ${table} WHERE tenant_id=$1`, [space.tenantId])).rows);
@@ -790,7 +793,7 @@ test('J6-R4 restored checkout PII requires the exact tenant context and disappea
     });
   }
   await isolatedTransaction(runtimePool, async q => {
-    for (const table of ['commerce_customers', 'commerce_checkout_contacts']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+    for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
   });
 });
 

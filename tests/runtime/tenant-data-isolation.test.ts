@@ -40,7 +40,7 @@ const DEFINERS = [
   'publish_media_backfill_skill', 'publish_media_backfill_social', 'publish_media_backfill_video',
 ].sort();
 const RLS_TABLES = [
-  'commerce_customers', 'commerce_checkout_contacts',
+  'commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants',
   'commerce_resource_tenants',
   'tenants', 'tenant_memberships', 'tenant_module_permissions', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',

@@ -517,3 +517,65 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- A browser credential is platform-wide, not a tenant resource. Only its digest
+-- is retained; absolute expiry is never refreshed by checkout creation or reads.
+CREATE TABLE commerce_access_devices (
+  device_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_sha256 text NOT NULL UNIQUE CHECK(token_sha256 ~ '^[a-f0-9]{64}$'),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  expires_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  CHECK(expires_at=created_at+interval '180 days'),
+  CHECK(revoked_at IS NULL OR revoked_at>=created_at)
+);
+CREATE INDEX commerce_access_devices_expiry ON commerce_access_devices(expires_at) WHERE revoked_at IS NULL;
+ALTER TABLE commerce_checkout_orders ADD CONSTRAINT commerce_checkout_order_access_target UNIQUE(order_id,checkout_id,tenant_id,instance_id);
+CREATE TABLE commerce_order_access_grants (
+  grant_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  checkout_id uuid NOT NULL,
+  order_id uuid,
+  kind text NOT NULL CHECK(kind IN ('device','link')),
+  device_id uuid REFERENCES commerce_access_devices(device_id),
+  link_token_sha256 text UNIQUE CHECK(link_token_sha256 ~ '^[a-f0-9]{64}$'),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  expires_at timestamptz,
+  redeemed_at timestamptz,
+  revoked_at timestamptz,
+  FOREIGN KEY(checkout_id,tenant_id,instance_id) REFERENCES commerce_checkouts(checkout_id,tenant_id,instance_id),
+  FOREIGN KEY(order_id,checkout_id,tenant_id,instance_id) REFERENCES commerce_checkout_orders(order_id,checkout_id,tenant_id,instance_id),
+  CHECK((kind='device' AND device_id IS NOT NULL AND link_token_sha256 IS NULL AND expires_at IS NULL AND redeemed_at IS NULL)
+     OR (kind='link' AND device_id IS NULL AND order_id IS NOT NULL AND link_token_sha256 IS NOT NULL AND expires_at=created_at+interval '7 days' AND expires_at IS NOT NULL)),
+  CHECK(redeemed_at IS NULL OR redeemed_at>=created_at),
+  CHECK(revoked_at IS NULL OR revoked_at>=created_at)
+);
+CREATE UNIQUE INDEX commerce_access_device_checkout ON commerce_order_access_grants(device_id,checkout_id) WHERE kind='device' AND order_id IS NULL;
+CREATE UNIQUE INDEX commerce_access_device_order ON commerce_order_access_grants(device_id,order_id) WHERE kind='device' AND order_id IS NOT NULL;
+CREATE INDEX commerce_access_grants_checkout ON commerce_order_access_grants(checkout_id,tenant_id,instance_id);
+CREATE INDEX commerce_access_grants_order ON commerce_order_access_grants(order_id,checkout_id,tenant_id,instance_id);
+CREATE INDEX commerce_access_grants_store ON commerce_order_access_grants(tenant_id,instance_id);
+CREATE INDEX commerce_access_grants_device ON commerce_order_access_grants(device_id) WHERE device_id IS NOT NULL;
+CREATE INDEX commerce_access_links_expiry ON commerce_order_access_grants(expires_at) WHERE kind='link' AND redeemed_at IS NULL AND revoked_at IS NULL;
+ALTER TABLE commerce_order_access_grants ENABLE ROW LEVEL SECURITY;
+CREATE POLICY commerce_order_access_grants_tenant ON commerce_order_access_grants FOR ALL TO PUBLIC
+  USING(tenant_id=freedom_ctx_tenant()) WITH CHECK(tenant_id=freedom_ctx_tenant());
+
+-- Revocation and link redemption are one-way. Grants cannot be retargeted or
+-- renewed, and retaining revoked rows prevents accidental credential revival.
+CREATE FUNCTION preserve_commerce_access_credential() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF (to_jsonb(NEW)-'revoked_at'-'redeemed_at') IS DISTINCT FROM (to_jsonb(OLD)-'revoked_at'-'redeemed_at')
+    OR (OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at)
+    OR (TG_TABLE_NAME='commerce_order_access_grants' AND to_jsonb(OLD)->>'redeemed_at' IS NOT NULL
+      AND to_jsonb(NEW)->>'redeemed_at' IS DISTINCT FROM to_jsonb(OLD)->>'redeemed_at') THEN
+    RAISE EXCEPTION 'access credentials cannot be retargeted or renewed' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_access_device BEFORE UPDATE ON commerce_access_devices FOR EACH ROW EXECUTE FUNCTION preserve_commerce_access_credential();
+CREATE TRIGGER preserve_commerce_access_grant BEFORE UPDATE ON commerce_order_access_grants FOR EACH ROW EXECUTE FUNCTION preserve_commerce_access_credential();
+CREATE TRIGGER preserve_commerce_access_device_delete BEFORE DELETE ON commerce_access_devices FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
+CREATE TRIGGER preserve_commerce_access_grant_delete BEFORE DELETE ON commerce_order_access_grants FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
