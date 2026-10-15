@@ -4,12 +4,24 @@
   "owner_role": "foundation",
   "owned_paths": [
     "modules/agent-commerce/payments/**",
-    "tests/runtime/commerce-refund-rules.test.ts"
+    "tests/runtime/commerce-refund-rules.test.ts",
+    "migrations/169_hosted_payment_core.sql",
+    "apps/platform-api/src/routes/hosted-commerce-setup.ts",
+    "contracts/guild-launchpad/v1/hosted-commerce-setup.ts",
+    "contracts/guild-launchpad/v1/hosted-commerce-setup.schema.json",
+    "tests/runtime/hosted-commerce-setup-contracts.test.ts",
+    "tests/runtime/hosted-store-upgrade.test.ts",
+    "tests/runtime/commerce-provider-accounts.test.ts",
+    "tests/worker/commerce-credential-seal-workerd.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/payments/rules/index.ts"
   ],
-  "dependencies": [],
+  "dependencies": [
+    "hosted-checkout",
+    "commerce-providers",
+    "commerce-operations"
+  ],
   "contract_families": [],
   "client_profiles": [],
   "instructions": [

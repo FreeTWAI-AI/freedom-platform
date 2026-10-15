@@ -77,12 +77,12 @@
 
 | 平台環境 | 允許的 provider 環境 | 說明 |
 | --- | --- | --- |
-| local、CI、E2E | 無 | 只用 fixture adapter 與本機假 provider；adapter 的主機白名單在測試中指向本機 |
+| local、CI、E2E | 只有 `sandbox` | 欄位值是 `sandbox`，但只用 fixture adapter 與本機假 provider：adapter 的主機白名單在這些環境只有本機，連不到任何綠界主機 |
 | staging（`staging-next`） | 只有 `sandbox` | 綠界 stage 主機、公開測試特店與測試卡；需要 §4.4 的 Access 排除 |
 | 正式（`next`） | 只有 `live` | 沒有測試模式；商家要試做，就用真實小額交易再退款（§4.5） |
 | 自架（C3） | 安裝時選一種，之後不改 | 一個安裝只用一種 provider 環境（EC-SPEC-08） |
 
-- 建立帳戶時，若環境不在上表允許的範圍，回 422 `provider_environment_not_allowed`。這是依 `FREEDOM_ENV` 的程式規則，不是可調的設定。
+- 建立帳戶時，若環境不在上表允許的範圍，回 422 `provider_environment_not_allowed`。這是依 `FREEDOM_ENV` 的程式規則，不是可調的設定：`local` → `sandbox`、`staging` → `sandbox`、`public` → `live`，每個平台環境只對應一個值。店家准入（§2.5）的環境也用同一個對應，請求內容不指定。
 - 理由：
   - 正式站允許 sandbox 帳戶時，買家會在正式網址看到不扣款的「訂單」，報表與對帳都要多一層排除；
   - staging 允許 live 帳戶時，測試站會產生真實扣款。
@@ -96,11 +96,13 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
   - 列不可改；撤銷只能前進。
   - 不含個資，所以豁免 RLS；catalog 登錄豁免理由。
 - 命令：`POST /admin/api/commerce/store-admissions` 與 `…/:admission_id/revoke`。
-  - 只有平台管理員能執行（既有 `/admin` 的 Access 身分與 `platform_admins`）。
+  - 只有平台管理員能執行（既有 `/admin` 的 Access 身分與 `platform_admins`），而且必須獨立於這間店：管理員的 Email 若是該事業任一在職成員（不分角色），回 403 `admission_not_independent`。不另加管理員能力表；只限 Ted 本人是另一個決定（decisions.md）。
+  - 准入的環境依 §2.4 從 `FREEDOM_ENV` 推出；事業或實例不是 `active` 時不能准入，撤銷不受限制。
   - 要 `Idempotency-Key`；稽核寫 `platform_admin_audit`。
   - Agent 與商家都不能為自己的店准入。
 - 准入只是 EC-SPEC-02 §2.3 的第 5 項，其他條件照樣要成立。撤銷立即停止該店新的 checkout；已成立的訂單照常完成。
-- local 與 E2E 的准入由 seed 建立。
+- M2 的准入檢查（`CheckoutAdmissionPort`）＝該店在目前 provider 環境有未撤銷的准入，而且實例登錄的能力包含 1.1.0 的 12 個鍵；EC-SPEC-02 §2.3 的其他條件由之後的工作加入。
+- seed 不建立商店，所以也不建准入；runtime 測試與 E2E 經同一個准入函式建立。
 - 擴大使用（計畫 §18.2 的第三步）要改成「符合條件即可開」，是另一個決定（§12）。在那之前不加自動准入。
 
 ### 2.6 能力清單（提議 `modules/agent-commerce/operations/commerce-capabilities.json`）
@@ -109,7 +111,7 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
 
 | 欄位 | 內容 |
 | --- | --- |
-| `id` | 例如 `ecpay.aio.credit.v1`、`ecpay.logistics.home.tcat`、`ecpay.logistics.cvs.unimartc2c`、`ecpay.einvoice.b2c.v1`、`commerce.checkout.guest` |
+| `id` | 例如 `ecpay.aio.credit.v1`、`ecpay.logistics.home.tcat`、`ecpay.logistics.cvs.unimartc2c`、`ecpay.invoice.b2c.v1`、`commerce.checkout.guest` |
 | `kind` | `payment`、`logistics`、`invoice`、`feature` |
 | `stage` | C1～C4（計畫 §5） |
 | `status` | `planned` → `implemented` → `sandbox_verified` → `production_verified`，只能前進 |
@@ -186,7 +188,7 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
 
 | 項目 | 何時 | 內容 |
 | --- | --- | --- |
-| `COMMERCE_CREDENTIAL_KEYS` | M2 | 每個環境各自一組 keyring，以 Worker secret 設定；不進 repo、不進 receipt |
+| `COMMERCE_CREDENTIAL_KEYS` | M2 | 每個環境各自一組 keyring，以 Worker secret 設定；不進 repo、不進 receipt。格式見 EC-SPEC-04 §1.3：`<key_id>:<base64>` 以逗號分隔，第一把封存新資料。換金鑰：把新的一把放在最前面、部署、執行重新封存、確認沒有舊 `key_id` 的列，再移除舊的一把 |
 | 退役的 keyring 金鑰 | 每次換金鑰 | 換掉的金鑰另外離線保存，期限至少等於最長的備份保存期限。否則還原出來、以舊金鑰封存的列無法解封（§8.4） |
 | R2 bucket `COMMERCE_JOURNAL` | M2 | 每個環境一個，不放進媒體備份集合；設定 bucket lock，保存期內不能刪除或覆寫；保存期限見 §8.2 |
 | Access 排除 | M2 起，staging | §4.4 |
@@ -358,6 +360,7 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
   - 對外效果：操作列先提交到資料庫，寫入日誌，**之後**才連線。所以一筆日誌代表「可能發生過」，沒有日誌就一定沒有連線。
   - 設定變更：先提交，再寫日誌。
   - 寫日誌失敗時，對外操作不執行（下次重試）；設定變更已經生效，由到期工作補寫。需要寫日誌的列有 `journaled_at`；對外呼叫要求它不是 NULL。
+  - 設定變更先寫進資料庫的 `commerce_control_events`（只增不改、豁免 RLS、不含個資與金鑰；種類是封閉清單，`detail` 只允許固定的鍵），與變更同一個交易；日誌寫入成功後才設 `journaled_at`，只能設一次。
 - 保存期限：至少等於最長的備份保存期限再加 30 天。依 OPEN-07 備份 30 天，所以是 60 天。
 
 ### 8.3 隔離模式

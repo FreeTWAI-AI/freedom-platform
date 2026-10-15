@@ -139,6 +139,8 @@
 | `queryAllowances(invoice)` | 已生效的折讓清單（待同意的不會列出 [7928]） |
 | `checkBuyerData(type, value)` | `valid`／`invalid`／`indeterminate`（輔助，§3.3） |
 
+協定層（§9）每次呼叫回傳四種結果：`ok`；`rejected`（`RtnCode≠1`，綠界處理後拒絕）；`not_accepted`（`TransCode≠1`，綠界沒有收下請求）；`unknown`（回應解不開、特店代號不符、必要欄位缺漏或與請求不符）。`not_accepted` 的開立可用同一個 `RelateNumber` 重送（號碼唯一，不會開出第二張）；折讓沒有冪等鍵，先以 `GetAllowanceList` 查詢再決定。HTTP 200 以外沒有可信的回應內容：403 是呼叫太頻繁，暫停 30 分鐘 [7854]；其他狀態與 `unknown` 一樣先查詢（§3.6）。
+
 `manual_record` 模式走同一組領域命令，「執行」改成商家輸入結果與證據。
 
 ### 3.3 買家發票資料（結帳，EC-AT45）
@@ -435,7 +437,7 @@ Supplier Console 的 SL-05 讀取投影只能用 §5.5 的欄位。
 
 ## 9. 程式位置、migration 與能力
 
-- 協定：`modules/agent-commerce/providers/ecpay/`（EC-SPEC-04 §10）加上發票的 AES 信封（JSON → .NET 規則 URL 編碼 → AES-128-CBC＋PKCS7 → Base64，解密反向 [7958][38406]）、MD5 CheckMacValue（同物流 [38242]）、各端點的 `Data` 組裝與回應解析。官方向量：AES 兩組（大寫與小寫 URL 編碼）[7958]、折讓通知 MD5 一組 [38242]。
+- 協定：`modules/agent-commerce/providers/ecpay/`（EC-SPEC-04 §10）。發票 profile `ecpay.invoice.b2c.v1` 在 `ecpay/b2c-invoice/`（ecpay-invoice 工作）：15 個端點的請求組裝與回應解析、線上折讓同意通知（MD5 CheckMacValue，同物流 [38242]）、三種輔助查詢的判讀、字軌剩餘號碼與 HTTP 狀態判讀。AES 信封是 JSON → .NET 規則 URL 編碼 → AES-128-CBC＋PKCS7 → Base64，解密反向 [7958][38406]。IV 固定，同一份 `Data` 每次加密結果都一樣，所以整個請求內容碰到 CDN 字詞時，在 JSON 開頭 `{` 後加 1～15 個空白重新加密（仍是同一個 JSON 值），16 次都碰到就不送。結果只帶白名單欄位，綠界回傳的買家資料一律丟棄；`RtnMsg`／`TransMsg` 可能帶回請求內容，視同買家資料，不寫日誌。領域程式只呼叫這一層，不直接用 `invoice.buildEnvelope`／`invoice.openResponse`。官方向量：AES 兩組（大寫與小寫 URL 編碼）[7958]、折讓通知 MD5 一組 [38242]；另有在 repo 外以公開 stage 金鑰獨立算出的 27 組請求 golden，Node 與 workerd 都要相同。
 - 領域：提議 `modules/agent-commerce/invoices/`（descriptor `commerce-invoices`，相依 `hosted-checkout`、`commerce-payments`、`commerce-providers`）與 `modules/agent-commerce/aftersales/`（descriptor `commerce-aftersales`：售後申請、對話、供貨帳；相依 `hosted-checkout`、`commerce-payments`、`commerce-fulfilment`）。`commerce_refund_lines` 隨 EC-SPEC-04 的 M2。
 - 契約：`contracts/guild-launchpad/v1/` 下新檔（例如 `hosted-aftersales.ts`、`hosted-invoice.ts`、`hosted-settlement.ts`），不改既有 v1 契約。
 - M4（發票與售後，在 M3 之後）：§2～§5 的表；RLS（對話與發票買家資料屬個資；帳本依兩個 tenant）；不可改與只能前進的 trigger；退款行項上限的 trigger；例外種類；`catalog.ts` 登錄與豁免理由；新增 migration 的全部登錄點（WP-00）。帳目由來源鍵決定性產生，M4 上線時可從 M3 起的交寄與檢驗事實補齊，重跑結果相同。
@@ -449,7 +451,7 @@ Supplier Console 的 SL-05 讀取投影只能用 §5.5 的欄位。
 | 層 | 內容 | 授權 |
 | --- | --- | --- |
 | 向量與契約 | AES 2 組、MD5 1 組；品項拆分與退款分攤；作廢期限（每一期別、11～12 月跨年、台灣時區、緩衝）；更正建議矩陣；買家類型矩陣 | 不需要（不連線） |
-| stage sandbox | 測試商家 `2000132` [7849]：五種買家類型的開立、以 `RelateNumber` 查詢、作廢、紙本與線上折讓（stage 不寄信，在 stage 後台同意 [15391]）、註銷重開、捐贈票的作廢、重複 `RelateNumber` 的回應、輔助查詢。另外確認：`ItemName` 的長度單位與 emoji；`MerchantID` 送字串是否被接受（部分官方範例寫成數字）；`GetIssue` 查無時的代碼；字軌查詢在號碼還沒用過時的 `InvoiceNo`，以及回傳是陣列還是物件；`VoidModel`／`IssueModel` 是巢狀物件還是 JSON 字串；註銷重開的 48 小時限制；一張票的折讓張數上限與捐贈票能否折讓；HTTP 403 限速只觀察、不刻意觸發 | 需要：連線綠界 stage |
+| stage sandbox | 測試商家 `2000132` [7849]：五種買家類型的開立、以 `RelateNumber` 查詢、作廢、紙本與線上折讓（stage 不寄信，在 stage 後台同意 [15391]）、註銷重開、捐贈票的作廢、重複 `RelateNumber` 的回應、輔助查詢。另外確認：`ItemName` 的長度單位與 emoji；`MerchantID` 送字串是否被接受（部分官方範例寫成數字）；`GetIssue` 查無時的代碼；字軌查詢在號碼還沒用過時的 `InvoiceNo`，以及回傳是陣列還是物件；`VoidModel`／`IssueModel` 是巢狀物件還是 JSON 字串；註銷重開的 48 小時限制；一張票的折讓張數上限與捐贈票能否折讓；加密前的 `Data` JSON 在開頭 `{` 後多出空白（避開 CDN 字詞的變體）是否照常解析，以及發票主機的 CDN 是否也檢查請求內容；回應的 `MerchantID` 是字串還是數字；折讓的 `CustomerName`、`NotifyPhone` 留空是否被接受；註銷重開後發票號碼是否不變（沿用原 `RelateNumber` 與 `InvoiceDate`）；回應日期用 `-` 還是 `/`；`RtnMsg` 會不會帶回請求的內容（決定能否寫進日誌）；HTTP 403 限速只觀察、不刻意觸發 | 需要：連線綠界 stage |
 | 正式 | 商家自己的發票帳戶：唯讀開通查詢；第一筆真實訂單的開立與一次更正由商家確認 | 需要：Ted＋該商家 |
 
 ## 11. 測試（全部 not_run）

@@ -15249,18 +15249,18 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 32442,
-      "sha256": "1ca09eda86e91dcfea845652b033815dc62eedda59d23b49bc904cde8f6c2fc9"
+      "bytes": 34369,
+      "sha256": "c9d7e3a2115e099fd8a1c696dec603808915e51115d0d2a53c94b2384b1809de"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 79912,
-      "sha256": "c222d6789c42952ba571eefd3bc128d4c7a94d9fdb10f93fe794b6377e86a370"
+      "bytes": 80255,
+      "sha256": "7c6a256aaf975f395d1c0eea0dbb1df9cc78cf9ddceee25fdc43ad397f3fd852"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
-      "bytes": 54633,
-      "sha256": "efe0483a60a4299d0a70ef214e13c46fb8dab67859646e7d89a26c076719f939"
+      "bytes": 56463,
+      "sha256": "05b42117c8d90ddc473930222a92cba1fc676687983de599310ff38709dafee0"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-07-operations-skillbooks.md",
@@ -15274,13 +15274,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md",
-      "bytes": 43117,
-      "sha256": "70120749ad96d658cee20bc417da6d0cf9b56c257069da43623039af998c3408"
+      "bytes": 43610,
+      "sha256": "fe7ba0a08bc0e36f944a7b18d01216a13417b9cbbc9fde1a215cd113cb4a32f1"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
-      "bytes": 40021,
-      "sha256": "0381b8676df78b824bfed55883ce4bb12da3bee6860169baf5d4b7d02b5d3bf4"
+      "bytes": 41422,
+      "sha256": "87e5121cacaccfb384a3d5b8293ea8a202a891bb816b0ac7e8cfd3ac0e13854c"
     },
     {
       "path": "docs/platform-plan/execution/commerce/README.md",
@@ -15294,8 +15294,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
-      "bytes": 13934,
-      "sha256": "b66188f873331ab00e53420e22c595bd919271bc9fbccb106e4892591bb82574"
+      "bytes": 14566,
+      "sha256": "ab457c1d0c59924ca7b6df0a0a28acc494e76e6d83e0c343433b5dba69ffab77"
     },
     {
       "path": "docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv",
@@ -17374,8 +17374,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/freedom.module.json",
-      "bytes": 796,
-      "sha256": "06c6134c3dae76c1f734c86f225e1a6d8a0a97cce1431acab997623a87d257a2"
+      "bytes": 991,
+      "sha256": "19e9db6c351c9fe0d7ded3e5e3e37d1da24b86446b07bf7af43109dcd3f56334"
     },
     {
       "path": "modules/agent-commerce/operations/runtime-settings.ts",
@@ -17394,8 +17394,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/freedom.module.json",
-      "bytes": 665,
-      "sha256": "0839c87f7a364acccb79c27e1bb735d11824ee79ff06b2b81ac90c2d20855ef8"
+      "bytes": 1209,
+      "sha256": "1b9e7f5e43e751efcd4d2d138cac62a052b5cd9319846980998ba6da6d538c2f"
     },
     {
       "path": "modules/agent-commerce/payments/rules/allocation.ts",

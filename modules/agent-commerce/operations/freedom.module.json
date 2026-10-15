@@ -7,13 +7,17 @@
     "tests/runtime/commerce-runtime-settings.test.ts",
     "tests/runtime/commerce-scheduler.test.ts",
     "deploy/cloudflare/lib/commerce-wrangler.mjs",
-    "deploy/cloudflare/test/commerce-wrangler.test.mjs"
+    "deploy/cloudflare/test/commerce-wrangler.test.mjs",
+    "apps/platform-api/src/routes/commerce-admissions.ts",
+    "tests/runtime/commerce-store-admissions.test.ts",
+    "tests/runtime/commerce-email-templates.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/operations/runtime-settings.ts"
   ],
   "dependencies": [
-    "hosted-checkout"
+    "hosted-checkout",
+    "commerce-fulfilment"
   ],
   "contract_families": [],
   "client_profiles": [],

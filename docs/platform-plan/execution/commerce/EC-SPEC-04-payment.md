@@ -44,12 +44,16 @@
 
 綠界要求 HashKey／HashIV 不得出現在前端 [2858]；計畫要求也不進 Git、模型上下文、技能書與日誌。做法沿用平台既有的封存方式（`modules/identity-membership/totp.ts:44`、`modules/github-social/service.ts:58`：Worker secret 裡的 32-byte 金鑰＋AES-256-GCM＋AAD）：
 
-- 新 Worker secret `COMMERCE_CREDENTIAL_KEYS`：`key_id → 32-byte 金鑰` 的小型 keyring（每個環境各自一組，由 Ted 建立；本機開發用 `.env`，不進 Git）。
+- 新 Worker secret `COMMERCE_CREDENTIAL_KEYS`：`key_id → 32-byte 金鑰` 的小型 keyring（每個環境各自一組，由 Ted 建立；本機開發用 `.env`，不進 Git；E2E server 每次啟動時隨機產生）。
+  - 格式：`<key_id>:<base64>` 以逗號分隔，不含空白；`key_id` 符合 `^[a-z0-9][a-z0-9_-]{0,31}$`；每把是剛好 32 bytes 的標準 base64（重新編碼必須得到同一字串）；1～8 把、ID 不重複。
+  - 第一把封存新資料，每一把都能解封。
+  - 沒有設定或是空字串：帳戶與金鑰的寫入回 503 `commerce_credentials_unavailable`，讀取照常。有值但格式錯誤：就緒失敗，錯誤訊息不含值的任何部分。
 - 每列：`account_id`、`purpose`（`payment`／`logistics`／`invoice`，綠界三種服務各有自己的金鑰 [2853]）、`credential_version`、`key_id`、`sealed`（nonce‖tag‖ciphertext，內容是 `{hash_key, hash_iv, credit_check_code?}`）、建立時間、`retired_at`。
 - AAD＝`freedom.commerce-provider-credential.v1:{account_id}:{purpose}:{environment}:{credential_version}`，換帳戶、換用途或換環境都無法解密。
 - 只有 provider adapter 在需要簽章的當下解密，明文只留在記憶體；任何 DTO、journal、outbox、錯誤訊息、日誌都不含明文或可逆片段。設定頁只顯示「已設定（更新於…）」，不回顯任何字元。
 - 換金鑰＝新增一個 `credential_version`；舊版本保留到使用它建立的 attempt、退款與查詢全部結束才 `retired`（綠界在換金鑰之前建立的交易，通知仍用舊金鑰簽章）。
-- 換 Worker 金鑰（key rotation）＝新 `key_id` 重新封存所有列，再移除舊 key；有測試證明兩把 key 並存期間都能解。
+- 換 Worker 金鑰（key rotation）＝新 `key_id` 重新封存所有列，再移除舊 key；有測試證明兩把 key 並存期間都能解。重新封存只回數量；被換下的 key 離線保管到最後一份用到它的備份到期（EC-SPEC-10 §4.3）。
+- 帳戶與金鑰命令的冪等紀錄（`scoped_command_receipts` 存請求內容的雜湊）不能含金鑰。命令交給 receipt 的內容以 `credential_fingerprint` 代替 `hash_key`、`hash_iv`、`credit_check_code`：以 keyring 第一把衍生的 HMAC 金鑰（`HMAC-SHA256(key, "freedom.commerce-credential-fingerprint.v1")`）對 `[account_id, purpose, profile, hash_key, hash_iv, credit_check_code 或 null]` 的 JSON 計算 HMAC-SHA256。同一個 `Idempotency-Key` 與同一組金鑰重送回原結果；金鑰不同回 409。兩次請求之間換了 keyring 第一把，重送也回 409。
 - sandbox 用綠界公開的 stage 測試帳號（AIO `3002607` [2856]）時，一樣走這條封存路徑，不設特殊程式分支。
 
 `credit_check_code`（信用卡商家檢查碼 [2856]）只有 API 退款需要（§7.3）；商家沒填時退款只能走人工紀錄。
@@ -59,6 +63,8 @@
 - 店的 owner 或 admin 在 Seller Console「收款設定」（EC-SPEC-01 §7.5 的 payments）輸入特店編號與金鑰，並重新輸入密碼（EC-SPEC-09 §2.2）；儲存即封存，付款服務 `draft`。帳戶、金鑰與服務狀態的其他改動（換金鑰、換特店、啟用、停用、退役）同樣只限 owner／admin 並重新輸入密碼。
 - 付款服務 `draft → active` 需要一次成功的已驗證交易：sandbox 以 stage 測試卡完成一筆真實 stage 付款與通知；live 以 §11 的受控小額試付。在完成之前，店家的結帳開關（EC-SPEC-02 §2.3、EC-SPEC-10 §4.5）不能打開。
 - 付款服務 `suspended` 後：不建立新 attempt；已建立的 attempt 照常接收通知、查詢與退款（在途責任不因停用消失，EC-R56）。
+- `draft → active` 不是 HTTP 命令：付款工作在驗證交易成立後，於同一個交易呼叫內部的啟用函式（記下啟用時間與證據參考）。同一間店、同一環境、同一 profile 同時只能有一個 `active` 服務。
+- 換金鑰不改服務狀態，新的 `credential_version` 立即生效。填錯的金鑰要到下一次簽章才發現（通知與查詢驗證失敗）；儲存時是否先以伺服器對伺服器的查詢驗證新金鑰，由 wp04-payments 提出（work-plan §4）。
 
 ## 2. 首發 profile：`ecpay.aio.credit.v1`
 
@@ -159,7 +165,7 @@ interface PaymentPort {
 ### 5.1 路徑與入口規則
 
 - `POST /api/v1/provider-callbacks/ecpay/{account_ref}/payment`。只接受這個確切路徑與方法，比照 `isMaintainerWebhookPath`（`apps/platform-api/src/routes/repo-maintainer.ts:19`）跳過 JSON、Origin、CSRF 與 session 規則；其他規則照常。
-- `account_ref` 是帳戶的不透明 ID，只用來找金鑰；帳戶的身分仍以通知內容驗證（§5.2）。
+- `account_ref` 是帳戶的不透明 ID，只用來找金鑰；帳戶的身分仍以通知內容驗證（§5.2）。格式是 26 個小寫 Crockford Base32 字元（128 bits 隨機），存在 `commerce_entry_routes`（EC-SPEC-09 §2.4），建立帳戶時一起產生。
 - 公開不等於免驗證（計畫 §10.3）。staging 在 Cloudflare Access 之後：這個路徑必須在 Access 設定中排除，否則綠界會收到 302 而一直重送。這是 Ted 的基礎設施變更（EC-SPEC-10 §4.4）；本機沒有公開網址，只能靠查詢。
 - `Content-Type` 必須是 `application/x-www-form-urlencoded` [2878]；body 上限 16 KiB；重複的參數名一律拒絕；參數名必須是 ASCII 英數與 `_`。
 

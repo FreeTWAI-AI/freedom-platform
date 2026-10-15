@@ -76,7 +76,7 @@
 1. M2 的 migration 登錄 `storefront@1.1.0`（§2.2 的 12 個鍵）與 `hosted-store@1.1.0`（`skill_book_refs` 見 EC-SPEC-07 §3）。1.0.0 的列不動。1.1.0 沿用 1.0.0 的 `data_schema_version`：commerce 的新表都是加法，不改 1.0.0 會讀的欄位，所以升級只動兩個 release 欄位。
 2. 同一個 migration 新增不可改的 `module_release_upgrades`（提議）：`module_key`、`from_release_ref`、`to_release_ref`、`from_application_release_ref`、`to_application_release_ref`。insert 時 trigger 檢查新版本的能力是舊版本的超集，不是就拒絕。只登錄 `storefront@1.0.0 → 1.1.0` 一列。
 3. 以 `CREATE OR REPLACE` 放寬 `preserve_module_instance_identity()`（`131:39-50`）：其他身分欄位照舊不可改；`module_release_ref` 與 `application_release_ref` 只能一起、依 `module_release_upgrades` 的一列前進。不能降級。
-4. 命令 `POST /api/v1/tenants/:t/storefronts/:i/upgrade`（提議）：只有 owner；要 `If-Match`（實例版本）與 `Idempotency-Key`。交易內鎖事業列，檢查事業與實例都是 `active`、升級列存在，然後改實例的版本、`bumpAuthorizationRevision`、寫稽核。既有授權列不變（舊鍵在新版本仍然存在）。
+4. 命令 `POST /api/v1/tenants/:t/storefronts/:i/upgrade`（提議）：只有 owner；要 `If-Match`（實例版本）與 `Idempotency-Key`。交易內鎖事業列，檢查事業與實例都是 `active`、升級列存在，然後改實例的版本、`bumpAuthorizationRevision`、寫稽核與一筆控制事件（`commerce_control_events`，EC-SPEC-10 §8.2）。既有授權列不變（舊鍵在新版本仍然存在）。讀取 `GET …/storefronts/:i/release`（`store:read`）回目前版本、呼叫者的有效能力、登錄的升級目標與 `can_upgrade`，給第 6 點的升級提示用。
 5. M2 之後新建的商店直接用 `hosted-store@1.1.0`：`HOSTED_STORE_RELEASE`、`STOREFRONT_MODULE_RELEASE`（`definitions.ts:73-74`）改成新版本，`packages/testing/seed.ts:51-54` 一起改。
 6. 開放結帳的條件（EC-SPEC-02 §2.3）加一項：實例是 1.1.0。1.0.0 的店在 E01／E02 顯示「升級商店以啟用訂單與收款」，只有 owner 看得到按鈕。
 7. 舊 binary 讀到 1.1.0 的實例只會少掉新能力（常數過濾後只剩四個鍵），不會出錯。不能回退的原因是 callback 路由（EC-SPEC-10 §7），不是這次升級。
@@ -89,7 +89,7 @@ guest、provider 通知與排程都沒有 principal。規則：
 2. 不含個資的交易與帳本表可以豁免 RLS，catalog 記 `reason_code: commerce_profile_participant_acl` 與理由（`168` 的 checkout、訂單 sidecar、付款套用、配置與異動都這樣登錄）。授權由程式依儲存的關聯判斷；豁免不代表有任何 HTTP 讀取者。
 3. 沒有 principal 的路徑，先從**已儲存、不含個資**的列解析出 tenant 與實例，再 `bindTenantContext`，然後才碰個資表。tenant 永遠不從請求內容取得（EC-SPEC-04 §9）。
 4. 解析用的兩張表（提議，M2）：
-   - `commerce_entry_routes`：`(route_kind, route_key) → tenant_id, instance_id, target_id, expires_at, revoked_at`。`route_kind` 是 `provider_account`（`account_ref`，出現在 callback 網址，不是秘密）、`payment_handoff`、`cvs_map`、`cvs_map_return`、`label_print`；後四種只存 token 的 SHA-256。豁免 RLS、不含個資；只寫一次，撤銷與到期只能前進。以店的 slug 進來的公開路徑不需要這張表（`readPublicStorePage` 的解析方式）。
+   - `commerce_entry_routes`：`(route_kind, route_key) → tenant_id, instance_id, target_id, expires_at, revoked_at`。`route_kind` 是 `provider_account`（`account_ref`，出現在 callback 網址，不是秘密）、`payment_handoff`、`cvs_map`、`cvs_map_return`、`label_print`；後四種只存 token 的 SHA-256。豁免 RLS、不含個資；只寫一次，撤銷與到期只能前進。`account_ref` 是 26 個小寫 Crockford Base32 字元（128 bits 隨機）；組成 §2.6 的四條 `account_ref` 路徑後，任一條含綠界 CDN 擋字（`findCdnBlockedTerm`，例如結尾 `cd` 會組成 `cd/`）就重抽，最多 16 次。以店的 slug 進來的公開路徑不需要這張表（`readPublicStorePage` 的解析方式）。
    - `commerce_due_work`：`(tenant_id, instance_id, kind, target_id, due_at, lease_until, attempts)`。排程以一個跨 tenant 的查詢取出到期列（`FOR UPDATE SKIP LOCKED`、每次有上限），每一列在自己的交易裡 `bindTenantContext` 後處理。不逐一掃描每個 tenant scope（`operations.ts:529` 的做法在店數變多時，10 分鐘一次的 cron 跑不完）。豁免 RLS、不含個資。
 5. 同一時間只綁一個 tenant。需要另一方的資料時，照 shared 訂單的做法先 `clearTenantContext` 再明確綁定下一方（`hosted/shared-authority.ts:13-17`），不靠 `bindTenantContext` 直接切換。個資只在綁定該 tenant 時讀寫，讀到的個資不帶進下一方的綁定。效果跨兩個事業時（例如供應商帳戶收到的貨態要更新零售商的訂單軸線），跨過去的部分只能寫不含個資的豁免表，或排一筆到期工作由另一個交易處理。
 6. 不用 `SECURITY DEFINER`（部署工具拒絕未審查的 definer，`deploy/cloudflare/lib/migrations.mjs:7-23`）。
