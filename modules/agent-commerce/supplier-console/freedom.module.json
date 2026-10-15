@@ -59,6 +59,10 @@
         "supplier-console.request",
         "supplier-console.partners",
         "supplier-console.partner",
+        "supplier-console.reservations",
+        "supplier-console.reservation",
+        "supplier-console.changes",
+        "supplier-console.summary",
         "storefront.supply-profile.update"
       ],
       "auth_profile": "member-session"
@@ -74,6 +78,9 @@
         "supplier-console.request",
         "supplier-console.partners",
         "supplier-console.partner",
+        "supplier-console.reservations",
+        "supplier-console.reservation",
+        "supplier-console.changes",
         "storefront.supply-catalog.read",
         "storefront.supply-catalog.setup",
         "storefront.supply-profile.update",
