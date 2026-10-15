@@ -237,6 +237,14 @@ CREATE INDEX commerce_inventory_movement_order ON commerce_inventory_movements(o
 CREATE INDEX commerce_inventory_movement_allocation ON commerce_inventory_movements(allocation_id,order_id,item_id);
 CREATE INDEX commerce_inventory_movement_source ON commerce_inventory_movements(source_ref,kind);
 
+-- Even an unallocatable paid cancellation has a durable command identity.
+CREATE TABLE commerce_checkout_allocation_commands (
+  command_ref text PRIMARY KEY,
+  order_id uuid NOT NULL REFERENCES commerce_checkout_orders(order_id),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+CREATE INDEX commerce_checkout_allocation_command_order ON commerce_checkout_allocation_commands(order_id);
+
 CREATE FUNCTION preserve_commerce_checkout_history() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   RAISE EXCEPTION 'checkout history is retained and append-only' USING ERRCODE='23514';
@@ -249,6 +257,7 @@ CREATE TRIGGER preserve_commerce_checkout_orders_delete BEFORE DELETE ON commerc
 CREATE TRIGGER preserve_commerce_allocations_delete BEFORE DELETE ON commerce_inventory_allocations FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
 CREATE TRIGGER preserve_commerce_payment_application BEFORE UPDATE OR DELETE ON commerce_checkout_payment_applications FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
 CREATE TRIGGER preserve_commerce_checkout_idempotency BEFORE UPDATE OR DELETE ON commerce_checkout_idempotency_keys FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
+CREATE TRIGGER preserve_commerce_allocation_command BEFORE UPDATE OR DELETE ON commerce_checkout_allocation_commands FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
 CREATE TRIGGER preserve_commerce_inventory_movement BEFORE UPDATE OR DELETE ON commerce_inventory_movements FOR EACH ROW EXECUTE FUNCTION preserve_commerce_checkout_history();
 CREATE TRIGGER preserve_commerce_checkout_base_delete BEFORE DELETE ON commerce_orders
   FOR EACH ROW WHEN (OLD.order_profile='hosted_checkout') EXECUTE FUNCTION preserve_commerce_checkout_history();

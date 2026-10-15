@@ -12,7 +12,7 @@ import {applyConfirmedPayment,recordHandover,restockReturn,releaseAllocation,can
 import {checkoutHarness,code,ok,ports,type CheckoutHarness} from './hosted-checkout-harness.js';
 let x:CheckoutHarness;
 before(async()=>{x=await checkoutHarness('fp_checkout_core');});beforeEach(async()=>x.reset());after(async()=>x?.stop());
-const stockFacts=async()=>Promise.all(['SELECT * FROM commerce_items ORDER BY item_id','SELECT * FROM commerce_inventory_allocations ORDER BY allocation_id','SELECT * FROM commerce_inventory_movements ORDER BY movement_id','SELECT * FROM commerce_checkout_orders ORDER BY order_id'].map(async sql=>(await x.h.pool.query(sql)).rows));
+const stockFacts=async()=>Promise.all(['SELECT * FROM commerce_items ORDER BY item_id','SELECT * FROM commerce_inventory_allocations ORDER BY allocation_id','SELECT * FROM commerce_inventory_movements ORDER BY movement_id','SELECT * FROM commerce_checkout_orders ORDER BY order_id','SELECT * FROM commerce_checkout_allocation_commands ORDER BY command_ref'].map(async sql=>(await x.h.pool.query(sql)).rows));
 const position=async(id:string)=>(await x.tx(q=>inventoryPositions(q,[id]))).get(id);
 const payment=(id:string,total=500,ref:string=randomUUID(),extra:Partial<Parameters<typeof applyConfirmedPayment>[1]>={})=>x.tx(q=>applyConfirmedPayment(q,{orderId:id,paymentRef:ref,amountMinor:total,currency:'TWD',simulated:false,...extra}));
 
@@ -261,4 +261,51 @@ test('a second member may order with an already linked email; guests never link 
   await x.tx(q=>cancelUnpaidOrder(q,s,o.order_id,'buyer','buyer_cancelled'));await x.place(s,c);
   assert.deepEqual(await x.tx(q=>ensureCustomer(q,s,a.email)),customer);
   assert.equal((await x.tx(q=>ensureCustomer(q,s,b.email))).member_principal_id,null);
+});
+
+async function twoPaidOrders(){
+  const s=await x.store(20),second=ok(await x.send(s,'/products',{title:'第二項合成商品',price_minor:100,stock:20}),201);await x.publish(s);
+  const extra={publication_revision:'2',lines:[{sku:s.product.sku,quantity:5},{sku:second.sku,quantity:5}]};
+  const a=await x.place(s,await x.frozen(s,5,extra)),b=await x.place(s,await x.frozen(s,5,extra));await payment(a.order_id,1000);await payment(b.order_id,1000);
+  return {s,a,b,ids:[s.product.product_id,second.product_id] as string[]};
+}
+test('shipment reference compares the complete multiset; reordered replay and content conflicts have no effects',async()=>{
+  const {s,a,b,ids}=await twoPaidOrders(),input={shipmentRef:randomUUID(),lines:ids.map(itemId=>({orderId:a.order_id,itemId,quantity:2}))};
+  await x.tx(q=>recordHandover(q,s,input));const before=await stockFacts();
+  await x.tx(q=>recordHandover(q,s,{...input,lines:[...input.lines].reverse()}));assert.deepEqual(await stockFacts(),before);
+  for(const lines of [[{...input.lines[0],quantity:1},input.lines[1]],[{...input.lines[0],orderId:b.order_id},input.lines[1]],input.lines.slice(0,1),[input.lines[0],input.lines[0]]]){
+    await assert.rejects(x.tx(q=>recordHandover(q,s,{...input,lines})),code('shipment_ref_conflict'));assert.deepEqual(await stockFacts(),before);
+  }
+});
+test('return reference compares order, item, allocation and quantity before any effects',async()=>{
+  const {s,a,b,ids}=await twoPaidOrders();await x.tx(q=>recordHandover(q,s,{shipmentRef:randomUUID(),lines:[a,b].flatMap(o=>ids.map(itemId=>({orderId:o.order_id,itemId,quantity:2})))}));
+  const input={returnRef:randomUUID(),orderId:a.order_id,itemId:ids[0],quantity:1};await x.tx(q=>restockReturn(q,s,input));const before=await stockFacts();
+  await x.tx(q=>restockReturn(q,s,input));assert.deepEqual(await stockFacts(),before);
+  for(const change of [{quantity:2},{itemId:ids[1]},{orderId:b.order_id}]){
+    await assert.rejects(x.tx(q=>restockReturn(q,s,{...input,...change})),code('return_ref_conflict'));assert.deepEqual(await stockFacts(),before);
+  }
+});
+test('release command reference compares explicit lines as a set and rejects another order across both APIs',async()=>{
+  const {s,a,b,ids}=await twoPaidOrders(),input={orderId:a.order_id,commandRef:randomUUID(),lines:ids.map((itemId,i)=>({itemId,quantity:i+1}))};
+  const row=await x.tx(q=>releaseAllocation(q,s,input)),before=await stockFacts();
+  assert.deepEqual(await x.tx(q=>releaseAllocation(q,s,{...input,lines:[...input.lines].reverse()})),row);
+  assert.deepEqual(await x.tx(q=>releaseAllocation(q,s,{orderId:a.order_id,commandRef:input.commandRef})),row);assert.deepEqual(await stockFacts(),before);
+  for(const lines of [[{...input.lines[0],quantity:2},input.lines[1]],input.lines.slice(0,1),[input.lines[0],input.lines[0]]]){
+    await assert.rejects(x.tx(q=>releaseAllocation(q,s,{...input,lines})),code('command_ref_conflict'));assert.deepEqual(await stockFacts(),before);
+  }
+  await assert.rejects(x.tx(q=>releaseAllocation(q,s,{...input,orderId:b.order_id})),code('command_ref_conflict'));
+  await assert.rejects(x.tx(q=>cancelPaidOrder(q,s,{...input,orderId:b.order_id})),code('command_ref_conflict'));assert.deepEqual(await stockFacts(),before);
+});
+for(const unallocatable of [false,true])test(`paid cancellation retains its command even ${unallocatable?'without allocations':'after releasing all allocations'}`,async()=>{
+  const s=await x.store(20),a=unallocatable?await x.due(s):await x.place(s,await x.frozen(s));
+  if(unallocatable){await x.tx(q=>settleDueCheckoutHolds(q,[s.product.product_id]));ok(await x.send(s,`/products/${s.product.product_id}`,{stock:0},'1','PATCH'));}
+  assert.equal((await payment(a.order_id)).outcome,unallocatable?'unallocatable':'converted');
+  if(unallocatable)ok(await x.send(s,`/products/${s.product.product_id}`,{stock:20},'2','PATCH'));
+  const b=await x.place(s,await x.frozen(s));await payment(b.order_id);
+  const input={orderId:a.order_id,commandRef:randomUUID()},row=await x.tx(q=>cancelPaidOrder(q,s,input)),before=await stockFacts();
+  assert.deepEqual(await x.tx(q=>cancelPaidOrder(q,s,input)),row);
+  assert.deepEqual(await x.tx(q=>cancelPaidOrder(q,s,{...input,commandRef:randomUUID()})),row);
+  for(const cancel of [cancelPaidOrder,releaseAllocation])await assert.rejects(x.tx(q=>cancel(q,s,{...input,orderId:b.order_id})),code('command_ref_conflict'));
+  if(unallocatable)await assert.rejects(x.tx(q=>releaseAllocation(q,s,{...input,lines:[{itemId:s.product.product_id,quantity:1}]})),code('command_ref_conflict'));
+  assert.deepEqual(await stockFacts(),before);
 });

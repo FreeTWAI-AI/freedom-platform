@@ -109,3 +109,11 @@ test('migration 168 audits existing hosted balances and atomically aborts corrup
     assert.equal((await pool.query('SELECT count(*)::int n FROM commerce_inventory_allocations')).rows[0].n,0);
   }finally{await pool.end();await x.h.admin.query(`DROP SCHEMA ${schema} CASCADE`);}
 });
+
+test('allocation command identities are append-only under the runtime role',async()=>{
+  const {s,o}=await allocated();
+  const {cancelPaidOrder}=await import('../../modules/agent-commerce/checkout/index.js');
+  await x.tx(q=>cancelPaidOrder(q,s,{orderId:o.order_id,commandRef:randomUUID()}));
+  await reject('UPDATE commerce_checkout_allocation_commands SET command_ref=command_ref WHERE order_id=$1',[o.order_id]);
+  await reject('DELETE FROM commerce_checkout_allocation_commands WHERE order_id=$1',[o.order_id]);
+});

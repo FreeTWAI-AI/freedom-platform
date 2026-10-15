@@ -46,9 +46,27 @@ export async function retryAllocation(q:PoolClient,store:CheckoutStore,orderId:s
   requireCondition(inv.lines.every(l=>(inv.balances.find(b=>b.item_id===l.item_id)?.available??-1)>=l.quantity),409,'stock_unavailable','商品庫存不足。');
   for(const l of inv.lines)await inv.port.allocate(l.item_id,app.application_id);return {outcome:'allocated' as const};
 }
+/** Global reference serialization also covers commands on different communities.
+ * Content is compared before inventory guards so replays survive later events. */
+async function lockEventReference(q:PoolClient,kind:string,ref:string) {
+  await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`checkout-event/${kind}/${ref}`]);
+}
+const multiset=(rows:readonly (readonly unknown[])[])=>JSON.stringify(rows.map(row=>JSON.stringify(row)).sort());
+async function allocationCommandReplay(q:PoolClient,input:{orderId:string;commandRef:string;lines?:readonly {itemId:string;quantity:number}[]}) {
+  await lockEventReference(q,'allocation_release',input.commandRef);
+  const command=(await q.query<{order_id:string}>('SELECT order_id FROM commerce_checkout_allocation_commands WHERE command_ref=$1',[input.commandRef])).rows[0];
+  const movements=(await q.query<{order_id:string;item_id:string;quantity:number}>("SELECT order_id,item_id,quantity FROM commerce_inventory_movements WHERE kind='allocation_release' AND source_ref=$1",[input.commandRef])).rows;
+  if(!command&&!movements.length)return false;
+  requireCondition((!command||command.order_id===input.orderId)&&movements.every(m=>m.order_id===input.orderId)
+    && (input.lines===undefined||multiset(movements.map(m=>[m.item_id,m.quantity]))===multiset(input.lines.map(l=>[l.itemId,l.quantity]))),409,'command_ref_conflict','釋放指令識別碼已用於其他內容。');
+  return true;
+}
+async function retainAllocationCommand(q:PoolClient,input:{orderId:string;commandRef:string}) {
+  await q.query('INSERT INTO commerce_checkout_allocation_commands(command_ref,order_id) VALUES($1,$2)',[input.commandRef,input.orderId]);
+}
 export async function releaseAllocation(q:PoolClient,store:CheckoutStore,input:{orderId:string;commandRef:string;lines?:readonly {itemId:string;quantity:number}[]}) {
   await lockStore(q,store,[],[input.orderId],false);const [order]=await lockCheckoutOrders(q,[input.orderId],store);
-  if((await q.query("SELECT 1 FROM commerce_inventory_movements WHERE order_id=$1 AND kind='allocation_release' AND source_ref=$2",[input.orderId,input.commandRef])).rowCount)return order;
+  if(await allocationCommandReplay(q,input))return order;
   requireCondition(order.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
   const inv=await checkoutInventory(q,input.orderId);
   const lines=input.lines??inv.allocations.map(a=>({itemId:a.item_id,quantity:a.quantity-a.shipped_quantity-a.released_quantity})).filter(l=>l.quantity>0);
@@ -56,6 +74,7 @@ export async function releaseAllocation(q:PoolClient,store:CheckoutStore,input:{
   for(const l of lines){const a=inv.allocations.find(a=>a.item_id===l.itemId);requireCondition(a&&Number.isSafeInteger(l.quantity)&&l.quantity>0&&l.quantity<=a.quantity-a.shipped_quantity-a.released_quantity,409,'allocation_exceeded','超過可釋放數量。');}
   requireCondition(inv.allocations.length>0,409,'allocation_release_unavailable','訂單沒有已付款配置。');
   for(const l of lines)await inv.port.releaseAllocation(l.itemId,l.quantity,input.commandRef);
+  await retainAllocationCommand(q,input);
   const {remaining,shipped}=(await q.query('SELECT coalesce(sum(quantity-shipped_quantity-released_quantity),0)::int AS remaining,coalesce(sum(shipped_quantity),0)::int AS shipped FROM commerce_inventory_allocations WHERE order_id=$1',[input.orderId])).rows[0];
   if(remaining===0 && shipped===0 && lines.length) return (await q.query(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason='paid_cancelled',cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[input.orderId])).rows[0] as typeof order;
   return order;
@@ -63,19 +82,26 @@ export async function releaseAllocation(q:PoolClient,store:CheckoutStore,input:{
 /** Cancel paid stock only before any physical handover; refunds belong elsewhere. */
 export async function cancelPaidOrder(q:PoolClient,store:CheckoutStore,input:{orderId:string;commandRef:string}) {
   await lockStore(q,store,[],[input.orderId],false);const [order]=await lockCheckoutOrders(q,[input.orderId],store);
+  if(await allocationCommandReplay(q,input))return order;
   if(order.lifecycle_state==='cancelled')return order;
   requireCondition(order.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
   requireCondition(await hasConfirmedPayment(q,input.orderId),409,'payment_not_confirmed','訂單尚未確認付款。');
   const inv=await checkoutInventory(q,input.orderId);
   requireCondition(inv.allocations.every(a=>a.shipped_quantity===0),409,'order_partially_shipped','訂單已有交寄商品。');
   for(const a of inv.allocations){const remaining=a.quantity-a.shipped_quantity-a.released_quantity;if(remaining)await inv.port.releaseAllocation(a.item_id,remaining,input.commandRef);}
+  await retainAllocationCommand(q,input);
   return (await q.query(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason='paid_cancelled',cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[input.orderId])).rows[0] as typeof order;
 }
 export async function recordHandover(q:PoolClient,store:CheckoutStore,input:{shipmentRef:string;lines:readonly {orderId:string;itemId:string;quantity:number}[]}) {
-  requireCondition(input.lines.length>0&&input.lines.length<=10000 && new Set(input.lines.map(l=>`${l.orderId}/${l.itemId}`)).size===input.lines.length,422,'invalid_handover_lines','交寄行項無效。');
+  requireCondition(input.lines.length>0&&input.lines.length<=10000,422,'invalid_handover_lines','交寄行項無效。');
   const ids=[...new Set(input.lines.map(l=>l.orderId))].sort();await lockStore(q,store,[],ids,false);
   const orders=await lockCheckoutOrders(q,ids,store);
-  if((await q.query("SELECT 1 FROM commerce_inventory_movements WHERE kind='ship' AND source_ref=$1 LIMIT 1",[input.shipmentRef])).rowCount)return;
+  await lockEventReference(q,'ship',input.shipmentRef);
+  const prior=(await q.query<{order_id:string;item_id:string;quantity:number}>("SELECT order_id,item_id,quantity FROM commerce_inventory_movements WHERE kind='ship' AND source_ref=$1",[input.shipmentRef])).rows;
+  if(prior.length){
+    requireCondition(multiset(prior.map(m=>[m.order_id,m.item_id,m.quantity]))===multiset(input.lines.map(l=>[l.orderId,l.itemId,l.quantity])),409,'shipment_ref_conflict','交寄識別碼已用於其他內容。');return;
+  }
+  requireCondition(new Set(input.lines.map(l=>`${l.orderId}/${l.itemId}`)).size===input.lines.length,422,'invalid_handover_lines','交寄行項無效。');
   requireCondition(orders.every(o=>o.lifecycle_state==='open'),409,'checkout_order_closed','訂單已結束。');
   const inventories=new Map<string,Awaited<ReturnType<typeof checkoutInventory>>>();
   for(const id of ids)inventories.set(id,await checkoutInventory(q,id));
@@ -84,5 +110,11 @@ export async function recordHandover(q:PoolClient,store:CheckoutStore,input:{shi
 }
 export async function restockReturn(q:PoolClient,store:CheckoutStore,input:{returnRef:string;orderId:string;itemId:string;quantity:number}) {
   await lockStore(q,store,[],[input.orderId],false);await lockCheckoutOrders(q,[input.orderId],store);
+  await lockEventReference(q,'restock',input.returnRef);
+  const prior=(await q.query<{order_id:string;item_id:string;allocation_id:string;quantity:number}>("SELECT order_id,item_id,allocation_id,quantity FROM commerce_inventory_movements WHERE kind='restock' AND source_ref=$1",[input.returnRef])).rows;
+  if(prior.length){
+    const a=(await q.query<{allocation_id:string}>('SELECT allocation_id FROM commerce_inventory_allocations WHERE order_id=$1 AND item_id=$2',[input.orderId,input.itemId])).rows[0];
+    requireCondition(prior.length===1&&prior[0].order_id===input.orderId&&prior[0].item_id===input.itemId&&prior[0].allocation_id===a?.allocation_id&&prior[0].quantity===input.quantity,409,'return_ref_conflict','退貨識別碼已用於其他內容。');return;
+  }
   await (await checkoutInventory(q,input.orderId)).port.restock(input.itemId,input.quantity,input.returnRef);
 }
