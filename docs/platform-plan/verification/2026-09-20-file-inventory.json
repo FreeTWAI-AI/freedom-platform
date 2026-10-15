@@ -17159,8 +17159,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/freedom.module.json",
-      "bytes": 2928,
-      "sha256": "cd3a8de742974df7e02cacd5118b73302a3c5cd3788090bcc72394791b66250a"
+      "bytes": 2977,
+      "sha256": "c461e64ab99e5cd6032d0eb9676b6cd5586a6084aaf3eed5d07a26b5e1829bd2"
     },
     {
       "path": "modules/agent-commerce/supplier-console/reads.ts",
@@ -21516,6 +21516,11 @@
       "path": "tests/e2e/supplier-console-recovery.spec.ts",
       "bytes": 29037,
       "sha256": "2d13b8aa2f7267737b63354bc17daeae3918f0df2b616cbf0f074c5c6fe42fdd"
+    },
+    {
+      "path": "tests/e2e/supplier-console-visual.spec.ts",
+      "bytes": 26527,
+      "sha256": "ab07d589356ed85e97d1276e734f1c8d3fc3ea97f28c7d6eaaf13224361f30c3"
     },
     {
       "path": "tests/e2e/supplier-console.spec.ts",
