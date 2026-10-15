@@ -312,14 +312,45 @@ describe('2. Buyer invoice data & ECPay fields', () => {
 
   it('validates customerEmail in ecpayBuyerFields', () => {
     const validBuyer = { type: 'member_carrier' as const };
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'ab'), InvoiceRuleError); // too short (<3)
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'a'.repeat(81) + '@test.com'), InvoiceRuleError); // too long (>80)
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer example.test'), InvoiceRuleError); // no @
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer@@example.test'), InvoiceRuleError); // two @
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer @example.test'), InvoiceRuleError); // whitespace
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer\n@example.test'), InvoiceRuleError); // control char
-    assert.throws(() => ecpayBuyerFields(validBuyer, '@example.test'), InvoiceRuleError); // empty local part
-    assert.throws(() => ecpayBuyerFields(validBuyer, 'buyer@'), InvoiceRuleError); // empty domain part
+    const email80 = 'a'.repeat(80 - '@example.test'.length) + '@example.test';
+    const email81 = 'a'.repeat(81 - '@example.test'.length) + '@example.test';
+
+    const accepted = [
+      'buyer@example.test',
+      'first.last+tag@sub.example.test',
+      email80,
+    ];
+    for (const email of accepted) {
+      const result = ecpayBuyerFields(validBuyer, email);
+      assert.equal(result.CustomerEmail, email);
+    }
+
+    const rejected = [
+      email81,
+      '',
+      'a@b',
+      '買家@example.test',
+      '"x"@example.test',
+      'a..b@example.test',
+      '.a@example.test',
+      'a@-b.test',
+      'a@b.test1',
+      'buyer @example.test',
+      'buyer\n@example.test',
+      'buyer@@example.test',
+      '@example.test',
+      'buyer@',
+    ];
+    for (const email of rejected) {
+      assert.throws(
+        () => ecpayBuyerFields(validBuyer, email),
+        (err: unknown) => {
+          assert.ok(err instanceof InvoiceRuleError);
+          assert.equal(err.message, 'Invalid customer email');
+          return true;
+        }
+      );
+    }
   });
 });
 
@@ -530,6 +561,15 @@ describe('4. Period & Void Deadline', () => {
     // 2026-10-31 23:59:59 → 2026-11-13T15:59:59.000Z
     const d6 = parseEcpayDateTime('2026-10-31 23:59:59');
     assert.equal(voidDeadline(d6).toISOString(), '2026-11-13T15:59:59.000Z');
+
+    // 2000-01-01 00:00:00 → 1999-12-31T16:00:00.000Z
+    assert.equal(parseEcpayDateTime('2000-01-01 00:00:00').toISOString(), '1999-12-31T16:00:00.000Z');
+
+    // 2000/02/29 12:00:00 → 2000-02-29T04:00:00.000Z
+    assert.equal(parseEcpayDateTime('2000/02/29 12:00:00').toISOString(), '2000-02-29T04:00:00.000Z');
+
+    // 2099-12-31 23:59:59 → 2099-12-31T15:59:59.000Z
+    assert.equal(parseEcpayDateTime('2099-12-31 23:59:59').toISOString(), '2099-12-31T15:59:59.000Z');
   });
 
   it('rejects invalid date formats and impossible dates', () => {
@@ -537,6 +577,11 @@ describe('4. Period & Void Deadline', () => {
     assert.throws(() => parseEcpayDateTime('2026-1-5 10:00:00'), InvoiceRuleError);
     assert.throws(() => parseEcpayDateTime('2026-01-05T10:00:00'), InvoiceRuleError);
     assert.throws(() => parseEcpayDateTime('2026-01-05 24:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('2026-01/05 10:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('2026/01-05 10:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('0026-01-05 10:00:00'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('1999-12-31 23:59:59'), InvoiceRuleError);
+    assert.throws(() => parseEcpayDateTime('2100-01-01 00:00:00'), InvoiceRuleError);
   });
 
   it('verifies invoicePeriod calculation', () => {
@@ -894,24 +939,38 @@ describe('5. Corrections: suggestInvoiceCorrection & canVoidWithReissue', () => 
   });
 
   it('verifies canVoidWithReissue branches', () => {
-    const now = new Date('2026-01-10T00:00:00Z');
+    const invoiceAtMs = baseInvoice.invoiceAt!.getTime();
+    const now = new Date(invoiceAtMs + 3600 * 1000); // invoiceAt + 1 h
 
     // 1. Valid case
     assert.equal(canVoidWithReissue(baseInvoice, now), true);
 
-    // 2. Past deadline
+    // 2. Uploaded conditions
+    assert.equal(canVoidWithReissue({ ...baseInvoice, uploaded: 'no' }, now), false);
+    assert.equal(canVoidWithReissue({ ...baseInvoice, uploaded: 'unknown' }, now), false);
+
+    // 3. 46-hour window boundary
+    const exactly46h = new Date(invoiceAtMs + 46 * 3600 * 1000);
+    const past46h1ms = new Date(invoiceAtMs + 46 * 3600 * 1000 + 1);
+    const past7days = new Date(invoiceAtMs + 7 * 24 * 3600 * 1000);
+    assert.equal(canVoidWithReissue(baseInvoice, exactly46h), true);
+    assert.equal(canVoidWithReissue(baseInvoice, past46h1ms), false);
+    assert.equal(canVoidWithReissue(baseInvoice, past7days), false);
+
+    // 4. Past deadline
     assert.equal(canVoidWithReissue(baseInvoice, new Date(platformDeadline.getTime() + 1000)), false);
 
-    // 3. Not ecpay_b2c
+    // 5. Not ecpay_b2c
     assert.equal(canVoidWithReissue({ ...baseInvoice, mode: 'manual_record' }, now), false);
 
-    // 4. Not issued
+    // 6. Not issued
     assert.equal(canVoidWithReissue({ ...baseInvoice, status: 'issuing' }, now), false);
 
-    // 5. Already reissuedWithVoidWithReIssue
+    // 7. Already reissuedWithVoidWithReIssue
     assert.equal(canVoidWithReissue({ ...baseInvoice, reissuedWithVoidWithReIssue: true }, now), false);
 
-    // 6. Has unvoided allowance
+    // 8. Allowances
+    // an effective allowance -> false
     assert.equal(
       canVoidWithReissue(
         {
@@ -922,13 +981,54 @@ describe('5. Corrections: suggestInvoiceCorrection & canVoidWithReissue', () => 
       ),
       false
     );
-
-    // 7. Has only voided allowance -> true
+    // pending_buyer and submitting allowances -> false
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'pending_buyer', amountMinor: 10000 }],
+        },
+        now
+      ),
+      false
+    );
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'submitting', amountMinor: 10000 }],
+        },
+        now
+      ),
+      false
+    );
+    // only a voided allowance -> true
     assert.equal(
       canVoidWithReissue(
         {
           ...baseInvoice,
           allowances: [{ status: 'voided', amountMinor: 10000 }],
+        },
+        now
+      ),
+      true
+    );
+    // expired and cancelled -> true
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'expired', amountMinor: 10000 }],
+        },
+        now
+      ),
+      true
+    );
+    assert.equal(
+      canVoidWithReissue(
+        {
+          ...baseInvoice,
+          allowances: [{ status: 'cancelled', amountMinor: 10000 }],
         },
         now
       ),

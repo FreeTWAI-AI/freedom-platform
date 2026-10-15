@@ -23,17 +23,21 @@ export function parseEcpayDateTime(value: string): Date {
     throw new InvoiceRuleError('Date time value must be a string');
   }
 
-  const match = /^(\d{4})[-/](\d{2})[-/](\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value);
+  const match = /^(\d{4})([-/])(\d{2})\2(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value);
   if (!match) {
     throw new InvoiceRuleError('Date time format must be yyyy-MM-dd HH:mm:ss or yyyy/MM/dd HH:mm:ss');
   }
 
   const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const min = Number(match[5]);
-  const sec = Number(match[6]);
+  if (year < 2000 || year > 2099) {
+    throw new InvoiceRuleError('Year must be between 2000 and 2099');
+  }
+
+  const month = Number(match[3]);
+  const day = Number(match[4]);
+  const hour = Number(match[5]);
+  const min = Number(match[6]);
+  const sec = Number(match[7]);
 
   if (month < 1 || month > 12) {
     throw new InvoiceRuleError('Invalid month');

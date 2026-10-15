@@ -17324,23 +17324,23 @@
     },
     {
       "path": "modules/agent-commerce/invoices/README.md",
-      "bytes": 8091,
-      "sha256": "2ef2954f8e1858263a64e388d9aeb89c07ad0de0880922b5f55139428db562b3"
+      "bytes": 8506,
+      "sha256": "4a63eb26998cac6bd341e284260fdf11f09023521cf34cb71279a307b4b1949c"
     },
     {
       "path": "modules/agent-commerce/invoices/freedom.module.json",
-      "bytes": 599,
-      "sha256": "e1c1a91bdce7a16eb3b6bda7201d5355ea77d1877c51e207c42f80db16fd2cbb"
+      "bytes": 627,
+      "sha256": "386579ebd28642f0bb42b995f7e760c619b28bec152b888c9129756ffc7ae58d"
     },
     {
       "path": "modules/agent-commerce/invoices/rules/buyer.ts",
-      "bytes": 10544,
-      "sha256": "37559f68b430e303b4b9ded961ef896f03c6a81bd803305b8a678dd76ccc4b40"
+      "bytes": 10180,
+      "sha256": "568e408d14ebbe647dba64ad27098062cc29ca60122eafa8365d9abeb32a8fc3"
     },
     {
       "path": "modules/agent-commerce/invoices/rules/corrections.ts",
-      "bytes": 8494,
-      "sha256": "6f48213d04ed7a141b08434c31301e24178d998a888cec3e07cac6a25c19f57b"
+      "bytes": 8809,
+      "sha256": "94c460cde3b4f6469156151e0909f21f4afd69792dc2b585d24432ac0b468507"
     },
     {
       "path": "modules/agent-commerce/invoices/rules/errors.ts",
@@ -17359,8 +17359,8 @@
     },
     {
       "path": "modules/agent-commerce/invoices/rules/period.ts",
-      "bytes": 3223,
-      "sha256": "21006824d78bae65c23dd608e84f7847394fd4991c6b55b207369a7415a3c0ae"
+      "bytes": 3334,
+      "sha256": "acd8a8b433d4cc6611347d5e78ba7ea6eea05a1d5e3a65266575363b33a7532d"
     },
     {
       "path": "modules/agent-commerce/invoices/rules/ubn.ts",
@@ -22384,8 +22384,8 @@
     },
     {
       "path": "tests/runtime/commerce-invoice-rules.test.ts",
-      "bytes": 33004,
-      "sha256": "e3a6e227cb9c910e07dd3c4db6fcbb0568c60b04cf5b7356cd1d31ae839932f4"
+      "bytes": 35763,
+      "sha256": "0ba4a0a94ad2484ec2e609ab256ef83c10437a94ddaf0dd3b0842a9935209b06"
     },
     {
       "path": "tests/runtime/commerce-rate-limits.test.ts",
