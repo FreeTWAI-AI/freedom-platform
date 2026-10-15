@@ -452,9 +452,12 @@ test('astral titles round-trip and a lone surrogate is rejected', async () => {
   assert.equal(seen.starter.objective_hint, astral);
   assert.equal(seen.starter.note_hint, astral);
   assert.equal(Buffer.from(JSON.stringify(seen.mission_override)).equals(Buffer.from(JSON.stringify(astral))), true);
+  const beforeLone = await counts();
   const lone = await request(`/guilds/${guild}/launchpad-config/drafts`, leader, {body: {...config, blocks: config.blocks.map(block => block.kind === 'announcements' ? {...block, title: '題\uD800'} : block)}}, published.data.pointer_version);
   assert.equal(lone.status, 422, JSON.stringify(lone.data));
-  hasError(lone.data, 'lone_surrogate');
+  assert.equal(lone.data.code, 'validation_failed');
+  assert.equal(lone.data.errors, undefined);
+  assert.deepEqual(await counts(), beforeLone);
   const reverted = await request(`/guilds/${guild}/launchpad-config/revert`, leader, {to_revision: published.data.revision, reason: `回復 ${astral}`}, published.data.pointer_version);
   assert.equal(reverted.status, 200, JSON.stringify(reverted.data));
   assert.equal(reverted.data.body.mission_override, astral);
@@ -479,6 +482,48 @@ test('delegation refuses a non-member and a service principal', async () => {
     assert.equal(denied.data.code, 'delegation_recipient_invalid');
   }
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM guild_launchpad_delegations')).rows[0].n, 0);
+});
+
+test('delegation expiry rejects invalid dates without receipts and preserves offset microseconds on replay', async () => {
+  const leader = await signIn(), member = await signIn(DEMO_USERS[1].email);
+  await lead(leader.user.user_id); await join(member.user.user_id, guild);
+  await pool.query('INSERT INTO principals(user_ref) VALUES($1) ON CONFLICT (user_ref) DO NOTHING', [member.user.user_id]);
+  const principal = (await pool.query('SELECT principal_id FROM principals WHERE user_ref=$1', [member.user.user_id])).rows[0].principal_id as string;
+  const path = `/guilds/${guild}/launchpad-delegations`, key = randomUUID();
+  const before = await counts();
+  for (const expires_at of [
+    '2099-02-30T00:00:00Z', '2100-02-29T00:00:00.123456+08:00',
+    '0000-01-01T00:00:00Z', '2099-03-01T24:00:00Z',
+    '2099-03-01T00:00:00+16:00', '2099-03-01T00:00:00-16:00',
+    '2099-03-01T00:00:00.1234567Z', '2000-02-29T01:02:03Z',
+  ]) {
+    const denied = await request(path, leader, {principal_id: principal, capabilities: ['guild.content.edit'], expires_at}, undefined, key);
+    assert.equal(denied.status, 422, expires_at);
+    assert.equal(denied.data.code, 'delegation_expiry_invalid', expires_at);
+  }
+  assert.deepEqual(await counts(), before);
+  const valid = [
+    ['2096-02-29T01:02:03.123456+08:00', '2096-02-28T17:02:03.123456Z'],
+    ['2099-03-01T00:00:00Z', '2099-03-01T00:00:00.000000Z'],
+    ['2099-03-01T00:00:00.1Z', '2099-03-01T00:00:00.100000Z'],
+    ['2099-03-01T00:00:00.123Z', '2099-03-01T00:00:00.123000Z'],
+    ['2099-03-01T00:00:00.123456+15:59', '2099-02-28T08:01:00.123456Z'],
+    ['2099-03-01T00:00:00.123456-15:59', '2099-03-01T15:59:00.123456Z'],
+  ];
+  for (const [index, [expires_at, storedAt]] of valid.entries()) {
+    const body = {principal_id: principal, capabilities: ['guild.content.edit'], expires_at};
+    const grantKey = index === 0 ? key : randomUUID();
+    const granted = await request(path, leader, body, undefined, grantKey);
+    assert.equal(granted.status, 201, JSON.stringify(granted.data));
+    const replay = await request(path, leader, body, undefined, grantKey);
+    assert.equal(replay.status, 201); assert.deepEqual(replay.data, granted.data);
+    const stored = (await pool.query(`SELECT to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS expires_at
+      FROM guild_launchpad_delegations WHERE delegation_id=$1`, [granted.data.delegation_id])).rows[0];
+    assert.equal(stored.expires_at, storedAt);
+    const revoked = await request(`${path}/${granted.data.delegation_id}/revoke`, leader, {reason: '合成期限測試完成'}, granted.data.version);
+    assert.equal(revoked.status, 200); assert.equal(revoked.data.status, 'revoked');
+  }
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM guild_launchpad_delegations')).rows[0].n, valid.length);
 });
 
 function canonicalSize(value: unknown) {

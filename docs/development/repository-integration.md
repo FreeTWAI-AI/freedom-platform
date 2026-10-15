@@ -40,6 +40,15 @@ FREEDOM_REPOSITORIES_ROOT=/absolute/path/to/consumer-checkouts npm run test:repo
 
 `repositories.lock.json` 記錄跨倉實測的 exact commits；CI 下載固定 commits，不能偷偷測各倉最新 main。Consumer `contracts.lock.json` 反向 pin 中央協定的確切 commit/hash；支援程式與事件 schema 都只有一處 authoring source。
 
+跨倉 workspace helper 的 `Promise.all` 可以先因一個 request 失敗而 reject，
+其他 SDK operations 仍在執行。Integration harness 以
+`tests/integration/helpers/request-drain.ts` 追蹤完整 SDK call（包含送出前與 body parse）
+及真正 server handler，在 case 結束、下一次 `TRUNCATE` 前與 suite teardown 時等到
+兩端都清空。只等 fetch headers 或只看當下 server handlers 都不足以隔離：
+caller abort 後 SQL 可能還沒結束，另一個 call 也可能尚未 dispatch。
+清空用的 settlement 不會改變原 caller 的錯誤或把失敗 case 轉成成功；
+不以 sleep、deadlock retry、改產品 auth lock 或更新 consumer pins 代替隔離。
+
 ## Auth 與副作用邊界
 
 32-operation preview SDK 仍使用會員 session；Node demo login 只接受 HTTP loopback 及已播種的三個假帳號，CLI 不輸出 session cookie／CSRF。2026-09-23 另已加入 [外部客戶端讀取接線](client-read-connections.md)：商店／供應端經本人在平台批准取得七天、可撤銷的 scoped bearer，只讀核准資源，不可寫入、讀會員聯絡或當 browser session。這兩種接線要分清楚。瀏覽器仍沿用同源 Portal，不放寬 CORS。完整 Store purpose token、Agent ExecutionGrant 與 growth leased Job API 仍待開發，不能拿會員 demo session 當 production service account。

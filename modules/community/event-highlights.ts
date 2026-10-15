@@ -1,5 +1,6 @@
 import {createHash, randomUUID} from 'node:crypto';
 import type {Pool, PoolClient} from 'pg';
+import {isKeysetTimestamp} from '../../packages/shared/keyset-timestamp.js';
 import {z} from 'zod';
 import {command, journal, type Command} from '../../packages/db/index.js';
 import type {Actor} from '../identity-membership/service.js';
@@ -161,7 +162,7 @@ export function decodeHighlightCursor(raw: string): {endsAt: string; eventId: st
     const split = text.lastIndexOf('|');
     if (split < 1) return null;
     const endsAt = text.slice(0, split), eventId = text.slice(split + 1);
-    if (!z.uuid().safeParse(eventId).success || Number.isNaN(Date.parse(endsAt))) return null;
+    if (!z.uuid().safeParse(eventId).success || !isKeysetTimestamp(endsAt)) return null;
     return {endsAt, eventId};
   } catch { return null; }
 }

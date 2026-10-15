@@ -138,22 +138,31 @@ test('six-partition cases', async t => {
   long[0].ended_at = '2026-10-03T00:25:00.001Z';
   assert.equal((await aggregateRuntimePartitions(root, long, { partitionCount: 6 })).reason, 'runtime_partition_window_exceeded');
 
-  // Valid individual fragments must still belong to one finite coherent run.
+  // Capacity contention may serialize all six bounded partitions.
+  const sequential = structuredClone(fragments);
+  sequential.forEach((fragment, index) => {
+    const start = Date.parse('2026-10-03T00:00:00.000Z') + index * 1_500_000;
+    fragment.started_at = new Date(start).toISOString();
+    fragment.ended_at = new Date(start + 1_500_000).toISOString();
+  });
+  assert.equal((await aggregateRuntimePartitions(root, sequential, { partitionCount: 6 })).status, 'passed');
+
+  // Six complete budgets plus 30 minutes of queue gaps is a finite 180m span.
   const exactWindow = structuredClone(fragments);
-  exactWindow[5].started_at = '2026-10-03T00:20:00.000Z';
-  exactWindow[5].ended_at = '2026-10-03T00:40:00.000Z';
+  exactWindow[5].started_at = '2026-10-03T02:35:00.000Z';
+  exactWindow[5].ended_at = '2026-10-03T03:00:00.000Z';
   assert.equal((await aggregateRuntimePartitions(root, exactWindow, { partitionCount: 6 })).status, 'passed');
   const wide = structuredClone(exactWindow);
-  wide[5].started_at = '2026-10-03T00:20:00.001Z';
-  wide[5].ended_at = '2026-10-03T00:40:00.001Z';
+  wide[5].started_at = '2026-10-03T02:35:00.001Z';
+  wide[5].ended_at = '2026-10-03T03:00:00.001Z';
   assert.equal((await aggregateRuntimePartitions(root, wide, { partitionCount: 6 })).reason, 'runtime_full_window_exceeded');
 
-  // A delayed failed-only retry cannot reuse earlier passes beyond the 40m
-  // window, even when the retry itself is complete and inside its own budget.
-  const delayedRetry = structuredClone(fragments);
-  delayedRetry[3].started_at = '2026-10-03T01:06:48.000Z';
-  delayedRetry[3].ended_at = '2026-10-03T01:26:29.418Z';
-  assert.equal((await aggregateRuntimePartitions(root, delayedRetry, { partitionCount: 6 })).reason, 'runtime_full_window_exceeded');
+  // A queued partition may start beyond the former 40m span. CI separately
+  // refuses cross-attempt artifact reuse; these local reports are diagnostic.
+  const queued = structuredClone(fragments);
+  queued[3].started_at = '2026-10-03T01:06:48.000Z';
+  queued[3].ended_at = '2026-10-03T01:26:29.418Z';
+  assert.equal((await aggregateRuntimePartitions(root, queued, { partitionCount: 6 })).status, 'passed');
 
   await assert.rejects(runRuntimePartition(root, { partitionCount: 6, partitionIndex: 6 }), /invalid_runtime_partition/);
   await assert.rejects(runRuntimePartition(root, { partitionCount: 5, partitionIndex: 0 }), /invalid_runtime_partition/);

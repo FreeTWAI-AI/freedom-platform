@@ -3,6 +3,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Pool, type PoolClient } from 'pg';
+import { ZodError } from 'zod';
 import { migrate } from '../../scripts/database.js';
 import { createExecutionRuns, type CreateExecutionRunInput, type ControlExecutionRunInput } from '../../modules/agent-execution/runs.js';
 import { createPrivateWorkCommands } from '../../modules/opportunity-project-work/private-commands.js';
@@ -95,6 +96,28 @@ test('RUN-03 create replay retains original input snapshot after human edit, but
   await assert.rejects(runs.create(f.actor, { ...input, expectedWorkVersion: '2' }), status(409));
   await policyOff(f); await assert.rejects(runs.create(f.actor, input), status(503));
   assert.equal((await runs.read(f.actor, { runId: first.runId })).inputWorkVersion, '1');
+});
+test('RUN version syntax rejects without facts and corrected create/control keys remain usable', async () => {
+  const f = await fixture(), input = createInput(f);
+  const tables = ['execution_runs','scoped_command_receipts','scoped_transition_journal','scoped_outbox'];
+  const before = await Promise.all(tables.map(count));
+  const invalid = ['oops','1.5','1e3','0','9223372036854775808','9'.repeat(100)];
+  for (const expectedWorkVersion of invalid) await assert.rejects(runs.create(f.actor, {...input, expectedWorkVersion}), error => error instanceof ZodError && error.issues.some(issue => issue.path[0] === 'expectedWorkVersion'));
+  assert.deepEqual(await Promise.all(tables.map(count)), before);
+  await assert.rejects(runs.create(f.actor, {...input, expectedWorkVersion: '9223372036854775807'}), status(412));
+  const row = await runs.create(f.actor, input);
+  assert.equal(row.workId, f.workId); assert.deepEqual(await runs.create(f.actor, input), row);
+  for (const action of ['pause','stop'] as const) {
+    const current = await runs.read(f.actor, {runId: row.runId}), control = controlInput(row.runId, current.aggregateVersion);
+    const facts = await Promise.all(tables.map(count));
+    for (const expectedVersion of invalid) await assert.rejects(runs[action](f.actor, {...control, expectedVersion}), error => error instanceof ZodError && error.issues.some(issue => issue.path[0] === 'expectedVersion'));
+    assert.deepEqual(await Promise.all(tables.map(count)), facts);
+    assert.deepEqual(await runs.read(f.actor, {runId: row.runId}), current);
+    await assert.rejects(runs[action](f.actor, {...control, expectedVersion: '9223372036854775807'}), status(412));
+    const result = await runs[action](f.actor, control);
+    assert.equal(result.runId, row.runId); assert.equal(result.state, action === 'pause' ? 'paused' : 'cancelled'); assert.equal(result.operational_authority, false);
+    assert.deepEqual(await runs[action](f.actor, control), result);
+  }
 });
 test('RUN-04 pause and stop fence independent epochs; historical receipt cannot resurrect stopped state', async () => {
   const f = await fixture(), value = await stored(f), pause = controlInput(value.runId);

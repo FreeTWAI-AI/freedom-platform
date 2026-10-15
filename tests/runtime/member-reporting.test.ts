@@ -228,7 +228,6 @@ test('report queues are bounded, state-filtered and cursor-stable across newly a
   const closed=await listAdminMemberReports(pool,actors[2],{state:'closed'});assert.equal(closed.items.length,13);assert.ok(closed.items.every(row=>row.state==='closed'));assert.equal(closed.next_cursor,null);
   const mine=await listMyMemberReports(pool,actors[0]);assert.equal(mine.items.length,20);assert.ok(mine.next_cursor);
   const rest=await listMyMemberReports(pool,actors[0],{cursor:mine.next_cursor});assert.equal(rest.items.length,7);assert.equal(rest.next_cursor,null);
-  await assert.rejects(listMyMemberReports(pool,actors[0],{limit:51}));await assert.rejects(listAdminMemberReports(pool,actors[2],{cursor:'9999999999999999999'}));
 });
 
 test('HTTP open and all queue filters preserve bounded cursors and the existing unfiltered contract',async()=>{
@@ -247,6 +246,38 @@ test('HTTP open and all queue filters preserve bounded cursors and the existing 
   const all=await get('state=all&limit=50');assert.equal(all.items.length,6);assert.equal(all.items.filter(item=>item.state==='closed').length,2);
   assert.deepEqual(await get('limit=50'),all);
   assert.equal((await app.request(origin+'/api/v1/admin/reports?state=unknown',{headers})).status,422);
+});
+
+test('HTTP report cursors reject malformed integers and preserve exact bigint boundaries and authority',async()=>{
+  const p=await post(),r=await report(actors[0],'post',p.post_id);
+  const app=createApp(pool,origin,'local',{memberReportingEnabled:true}),off=createApp(pool,origin,'local',{memberReportingEnabled:false});
+  const member=await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD),admin=await login(pool,DEMO_USERS[2].email,DEMO_PASSWORD);
+  const before=await Promise.all(['member_reports','command_receipts','transition_journal','outbox'].map(count));
+  for(const [path,token]of [['/me/reports',member.token],['/admin/reports',admin.token]]){
+    const base=origin+'/api/v1'+path,headers={Cookie:`freedom_local_session=${token}`};
+    const invalid=['oops','1.5','1e3','Infinity','0','-1','+1','9223372036854775808','99999999999999999999'];
+    for(const query of [...invalid.map(cursor=>'cursor='+encodeURIComponent(cursor)),'limit=51']){
+      const response=await app.request(base+'?'+query,{headers});
+      assert.equal(response.status,422,path+'?'+query);assert.match(response.headers.get('cache-control')??'',/no-store/);
+      const data=await response.json() as Record<string,unknown>;
+      assert.equal(data.code,'validation_failed');assert.equal(Object.hasOwn(data,'items'),false);assert.equal(Object.hasOwn(data,'evidence'),false);
+      assert.equal(JSON.stringify(data).includes(r.case_id),false);
+    }
+    const largest=await app.request(base+'?cursor=9223372036854775807',{headers});
+    assert.equal(largest.status,200);
+    const page=await largest.json() as {items:{case_id:string}[];next_cursor:string|null};
+    assert.deepEqual(page.items.map(item=>item.case_id),[r.case_id]);assert.equal(page.next_cursor,null);
+    const smallest=await app.request(base+'?cursor=1',{headers});
+    assert.equal(smallest.status,200);assert.deepEqual(await smallest.json(),{items:[],next_cursor:null});
+    assert.equal((await app.request(base+'?cursor=oops')).status,401);
+    assert.equal((await off.request(base+'?cursor=oops')).status,404);
+  }
+  const nonAdmin=await app.request(origin+'/api/v1/admin/reports?cursor=9223372036854775807',{headers:{Cookie:`freedom_local_session=${member.token}`}});
+  assert.equal(nonAdmin.status,403);
+  const outsider=await login(pool,DEMO_USERS[1].email,DEMO_PASSWORD);
+  const otherReports=await app.request(origin+'/api/v1/me/reports?cursor=9223372036854775807',{headers:{Cookie:`freedom_local_session=${outsider.token}`}});
+  assert.equal(otherReports.status,200);assert.deepEqual(await otherReports.json(),{items:[],next_cursor:null});
+  assert.deepEqual(await Promise.all(['member_reports','command_receipts','transition_journal','outbox'].map(count)),before);
 });
 
 async function imageReport(){

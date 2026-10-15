@@ -11,6 +11,8 @@ import {formatIsoLocal} from '../format';
 import {ApiError, type PortalClient} from '../api';
 import {recommendedApplications, type ApplicationRef} from '../../../../contracts/guild-launchpad/v1/config';
 import './GuildLaunchpadApplications.css';
+import {ApplicationSkillSources, CommerceReadingReferences, PortableBusinessStatus} from './SkillBookUsage';
+import './SkillBookIntro.css';
 
 export const REASONS: Record<string, string> = {
   guild_full_member_required: '需要這個公會的正式會員身分，請在聊天室聯絡會長。',
@@ -155,6 +157,9 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
     try {
       const detail = details[key] ?? ApplicationReleaseViewSchema.parse(await client.get(`/applications/${encodeURIComponent(app.application_key)}/releases/${encodeURIComponent(app.release_ref)}`, {signal: controller.current?.signal, skipAuthHandler: publicMode}));
       if (ticket !== generation.current) return;
+      if (detail.application_key !== app.application_key || detail.release_ref !== app.release_ref) {
+        throw new ApiError({message: '版本資料與所選應用不一致，請重新讀取。', code: 'application_release_mismatch'});
+      }
       setDetails(old => ({...old, [key]: detail})); setOpenDetail(key);
     } catch (error) {
       if (ticket === generation.current && !(error instanceof ApiError && error.code === 'aborted')) { setProblem(problemText(error)); setFailedAction({kind: 'release', app}); }
@@ -182,12 +187,14 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
         {!publicMode && app.eligibility?.reason_codes.map(code => <p key={code} className="field-hint">{visitor && code === 'guild_full_member_required' ? '先加入這個公會，才能啟動應用。' : REASONS[code]}</p>)}
         {!publicMode && app.eligibility?.reason_codes.includes('tenant_manage_required') && <div className="application-actions"><a className="btn btn-ghost" href="#business" onClick={event => { if (!canLeave()) event.preventDefault(); }}>建立或選擇業務空間</a></div>}
         {openDetail === key && detail && <section className="stack" aria-label={`${displayName}版本資料`}>
-          <p>版本：{app.release_ref} · 授權：{LICENSE[app.license_state]}</p>
+          <p>{detail.runtime_profiles.includes('hosted-reviewed') ? '站內應用版本' : '應用版本'}：{detail.release_ref} · 授權：{LICENSE[detail.license_state]}</p>
+          {detail.runtime_profiles.includes('hosted-reviewed') && <p className="field-hint">此版本使用本站會員、業務空間與資料；原作的功能或安裝說明不直接代表本站功能。啟動仍依目前資格辦理。</p>}
           <p className="field-hint">來源以固定提交與成品摘要核對。</p>
           <p>來源提交：<code>{detail.source_commit.slice(0, 12)}</code></p>
           <p>成品摘要：<code>{detail.artifact_digest.value.slice(0, 12)}</code></p>
           <p>授權審查：{LICENSE[detail.license_state]} · {detail.license_review_ref ?? '尚無審查參照'}</p>
-          <p>技能書參照：{detail.skill_book_refs.join('、') || '未列出'}</p>
+          <ApplicationSkillSources refs={detail.skill_book_refs}/>
+          {detail.application_key === 'hosted-store' && <><PortableBusinessStatus/><CommerceReadingReferences/></>}
           <ul>{detail.module_requirements.map(requirement => <li key={requirement.requirement_key}>{supply && requirement.module_key === 'storefront' ? '供貨商品庫' : moduleWord(requirement.module_key)}：{requirement.required ? '必要' : '選用'}，{requirement.allow_reuse ? '允許共用既有實例' : '須建立獨立空白實例'}</li>)}</ul>
         </section>}
       </article>;

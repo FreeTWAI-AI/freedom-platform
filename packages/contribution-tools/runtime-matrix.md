@@ -27,7 +27,42 @@ Historical October 7 cost fixtures remain unchanged; their earlier hotspot and f
 
 Each process retains the original sorted file order. Unknown files receive the same default weight and remain mandatory; file counts need not be equal. Producer, aggregate and local full runner import the same candidate implementation, not a separately installed timing registry. New selections change the manifest and must be rerun together. Untracked build output does not imply a tracked source change.
 
-## Current bounded capacity, 2026-10-15
+## Current queue capacity and attempt isolation, 2026-10-15
+
+Six-partition aggregation now permits a 10,800-second (180-minute) wall span:
+six existing 1,500-second partition budgets plus 1,800 seconds of queue gaps.
+The partitions may therefore run sequentially when hosted capacity is busy.
+Each partition still has its 1,500-second absolute execution/provisioning budget
+and 24-second cleanup reserve; each Actions job still times out at 40 minutes.
+The four-partition 1,200 / 1,800-second limits and local full-suite runner are
+unchanged. Queue allowance never grants an individual test process more time.
+
+Run `38695036914`, attempt 1, demonstrated the previous scheduling assumption
+was invalid: partition 3's runtime step began at 07:08:57 UTC, partition 5
+finished at 07:54:49, and partition 0 did not begin until 07:59:29. This already
+exceeded the old aggregate window despite successful individual partitions.
+These are job-step observations, not a passing full-suite result. The original
+run retains its original checks and cannot be repaired by changing this source.
+
+CI uploads `runtime-partition-<run_attempt>-<index>` and downloads only
+`runtime-partition-<current_run_attempt>-*` from the current workflow run.
+The six inner JSON filenames remain unchanged. A failed-only retry cannot
+borrow earlier-attempt passes; missing current-attempt fragments fail closed.
+After a runtime or aggregate failure, rerun all six partitions together (the
+complete workflow), never splice artifacts across attempts. Aggregate diagnostic
+artifacts also include the attempt, preserving previous failures without name
+conflicts. All six fragments still require the exact candidate and source
+manifest, complete file/case union, individual deadlines and verified cleanup.
+
+The v1 JSON remains diagnostic, candidate-controlled evidence: it does not
+authenticate a GitHub attempt. Same-run/attempt isolation belongs to the CI
+artifact transport above. Synthetic regressions check sequential 150-minute
+capacity, the 180-minute boundary and one millisecond over, alongside unchanged
+partition/four-partition rejections; workflow regressions require attempt-scoped
+uploads/downloads without cross-run overrides. Hosted verification remains
+required, and a queue exceeding the finite allowance still fails.
+
+## Earlier partition capacity increase, 2026-10-15
 
 Six-partition invocations now have a 1,500-second absolute budget, including
 provisioning and the unchanged 24-second cleanup reserve. The 40-minute CI job

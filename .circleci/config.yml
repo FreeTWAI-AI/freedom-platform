@@ -33,7 +33,7 @@ jobs:
       DO_NOT_TRACK: "1"
     steps:
       - run:
-          name: Fetch the exact public candidate and reviewed suite runner
+          name: Fetch the exact public candidate
           command: |
             [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
             [[ "$RUNNER_SHA" =~ ^[0-9a-f]{40}$ ]]
@@ -42,22 +42,6 @@ jobs:
             git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
             git checkout --detach FETCH_HEAD
             test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-            git init .freedom/trusted
-            git -C .freedom/trusted remote add origin https://github.com/FreeTWAI/freedom-platform.git
-            git -C .freedom/trusted fetch --no-tags --depth=1 origin "$RUNNER_SHA"
-            git -C .freedom/trusted checkout --detach FETCH_HEAD
-            test "$(git -C .freedom/trusted rev-parse HEAD)" = "$RUNNER_SHA"
-            test -z "$(git -C .freedom/trusted status --porcelain)"
-            mkdir -p .freedom/reports
-            node --input-type=module -e '
-            import { writeFileSync } from "node:fs";
-            writeFileSync(".freedom/reports/circleci-worker-source.json", JSON.stringify({
-              candidate_sha: process.env.CANDIDATE_SHA,
-              runner_sha: process.env.RUNNER_SHA,
-              suite: "ci.worker-unit",
-              node: process.version
-            }, null, 2) + "\n");
-            '
       - run: npm ci
       - run:
           name: Wait for the disposable PostgreSQL service
@@ -89,7 +73,25 @@ jobs:
       - run:
           name: Run the existing complete worker unit suite
           no_output_timeout: 20m
-          command: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.worker-unit
+          command: |
+            rm -rf .freedom/trusted
+            git init .freedom/trusted
+            git -C .freedom/trusted remote add origin https://github.com/FreeTWAI/freedom-platform.git
+            git -C .freedom/trusted fetch --no-tags --depth=1 origin "$RUNNER_SHA"
+            git -C .freedom/trusted checkout --detach FETCH_HEAD
+            mkdir -p .freedom/reports
+            node --input-type=module -e '
+            import { writeFileSync } from "node:fs";
+            writeFileSync(".freedom/reports/circleci-worker-source.json", JSON.stringify({
+              candidate_sha: process.env.CANDIDATE_SHA,
+              runner_sha: process.env.RUNNER_SHA,
+              suite: "ci.worker-unit",
+              node: process.version
+            }, null, 2) + "\n");
+            '
+            test "$(git -C .freedom/trusted rev-parse HEAD)" = "$RUNNER_SHA"
+            test -z "$(git -C .freedom/trusted status --porcelain)"
+            node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.worker-unit
       - store_artifacts:
           path: .freedom/reports/pinned-ci.worker-unit.json
           destination: worker-unit-evidence.json

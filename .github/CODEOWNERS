@@ -3,6 +3,7 @@
 /.github/CODEOWNERS @teddashh @detna-vibe-coding
 /.github/workflows/ @teddashh @detna-vibe-coding
 /.github/actions/ @teddashh @detna-vibe-coding
+/.circleci/ @teddashh @detna-vibe-coding
 /scripts/ci/ @teddashh @detna-vibe-coding
 /scripts/runtime-full.mjs @teddashh @detna-vibe-coding
 /scripts/runtime-aggregate.mjs @teddashh @detna-vibe-coding
