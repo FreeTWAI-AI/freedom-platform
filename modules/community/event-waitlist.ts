@@ -192,9 +192,14 @@ for(const candidate of candidates){
   await transaction(pool,async q=>{
     const event=await eventRow(q,claim.event_id,true);
     const entry=(await q.query("SELECT * FROM community_event_waitlist WHERE entry_id=$1 AND invitation_id=$2 AND status='invited' AND delivery_status='unknown'",[claim.entry_id,claim.invitation_id])).rows[0];
-    if(!entry||!event.waitlist_enabled||event.state!=='published'||instant(event.starts_at)<=clock().getTime()||instant(entry.expires_at)<=clock().getTime()||!await eligible(q,event,entry))return;
+    if(!entry||event.state!=='published'||instant(event.starts_at)<=clock().getTime()||instant(entry.expires_at)<=clock().getTime()||!await eligible(q,event,entry))return;
     const cap=(await q.query('SELECT token_secret FROM community_event_guest_capabilities WHERE event_id=$1 AND email=$2',[event.event_id,entry.guest_email])).rows[0];
     if(!cap||instant(entry.expires_at)<=clock().getTime())return;
+    if(!event.waitlist_enabled){
+      // This exact claim has not reached send; other unknown handoffs stay fenced.
+      await q.query("UPDATE community_event_waitlist SET delivery_status='pending' WHERE entry_id=$1 AND invitation_id=$2 AND status='invited' AND delivery_status='unknown'",[claim.entry_id,claim.invitation_id]);
+      return;
+    }
     let status='provider_accepted';
     try{
       await send(entry.guest_email,'自由工坊：候補名額可回覆',`你候補的活動有保留名額。請在 ${new Date(entry.expires_at).toISOString()}（UTC）前選擇是否參加。\n${eventGuestManagementLink(origin,entry.event_id,cap.token_secret)}`);

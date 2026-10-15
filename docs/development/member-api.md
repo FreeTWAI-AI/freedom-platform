@@ -741,12 +741,30 @@ While the event is still published and not started, disabling its waitlist
 cancels unconsumed queue entries and offers, not a guest's admitted live hold.
 Invitation workers recheck that policy both when claiming and before handoff;
 retaining the hold must not dispatch a new offer while the waitlist is disabled.
+If policy alone blocks the final handoff, the worker returns only that exact
+current, still-live invitation claim from `unknown` to `pending`, before calling
+the sender. Re-enabling can then deliver it once, including after a rejected
+public-registration provider call left the admitted hold alive. Expired, closed,
+ineligible or replaced claims are not reset. A possibly-sent `unknown` remains
+fenced; a policy round trip is not permission to replay it.
 Capacity reductions retract the newest unconsumed invitations, skipping admitted
 holds already counted as seats instead of clearing their original invitation or
 subtracting that same occupied seat again. Started or cancelled events still
 cancel outstanding offers even when a pending hold exists.
 This does not extend the private invitation-acceptance deadline: a late
 `accept` still returns `409 invitation_unavailable`, even with a live hold.
+
+Local PostgreSQL 18 smoke exercised the production Worker `fetch` and `scheduled`
+handlers in Node 24 with native request pools, a timing-only claim/handoff barrier,
+real organizer policy PATCHes and synthetic `EMAIL.send`. Before this repair,
+public-provider rejection plus disable/re-enable stranded the live offer at
+`unknown` with zero invitation sends. Afterward it became `pending` while disabled,
+then `provider_accepted` on re-enable, with exactly one invitation send and no
+duplicate on the next sweep. The original invitation and one occupied seat stayed
+intact. An accepted send followed by a real database bookkeeping failure stayed
+`unknown` through disable/re-enable and another sweep, without replay. No disabled
+invitation sends or external mail occurred; both owned schemas were removed.
+This is local adapter/source evidence, not a deployed Worker or workerd result.
 
 A new acceptance checks PostgreSQL's current clock after reconciliation and
 eligibility reads, then again after the RSVP, queue/journal and success receipt
