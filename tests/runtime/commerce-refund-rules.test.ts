@@ -38,6 +38,18 @@ function assertDeepFrozen(val: unknown): void {
   }
 }
 
+function assertThrowsRuleError(fn: () => unknown): void {
+  try {
+    fn();
+    assert.fail('Expected RefundRuleError to be thrown');
+  } catch (err: any) {
+    assert(err instanceof RefundRuleError);
+    assert.equal(err.code, 'invalid_input');
+    assert.equal(err.name, 'RefundRuleError');
+    assert.equal(err.message, 'Invalid refund rule input');
+  }
+}
+
 // --- Fixture Builders ---
 
 function makeBaseOrder() {
@@ -642,7 +654,16 @@ describe('commerce-refund-rules', () => {
 
       // 500 chars ok
       const r500 = checkRefundAllocation({ ...inputLowered, adjustment_reason: '字'.repeat(500) });
-      assert.equal(r500.ok, true);
+      assert.deepEqual(r500, {
+        ok: true,
+        total_minor: 48000,
+        adjustment_reason: '字'.repeat(500),
+        lines: [
+          { kind: 'item', line_ref: 'a', quantity: 1, amount_minor: 20000 },
+          { kind: 'item', line_ref: 'c', quantity: 1, amount_minor: 20000 },
+          { kind: 'shipping', group_ref: 'g2', amount_minor: 8000 },
+        ],
+      });
 
       // 501 chars too long
       const r501 = checkRefundAllocation({ ...inputLowered, adjustment_reason: '字'.repeat(501) });
@@ -695,150 +716,126 @@ describe('commerce-refund-rules', () => {
       const input = makeS11Input();
 
       // items in swapped order
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              items: [input.allocation.items[1], input.allocation.items[0]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            items: [input.allocation.items[1], input.allocation.items[0]],
+          },
+        }),
       );
 
       // c missing
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              items: [input.allocation.items[0]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            items: [input.allocation.items[0]],
+          },
+        }),
       );
 
       // a with quantity 2
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              items: [{ line_ref: 'a', quantity: 2, amount_minor: 25000 }, input.allocation.items[1]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            items: [{ line_ref: 'a', quantity: 2, amount_minor: 25000 }, input.allocation.items[1]],
+          },
+        }),
       );
 
       // shipping missing g1
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              shipping: [input.allocation.shipping[1]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            shipping: [input.allocation.shipping[1]],
+          },
+        }),
       );
 
       // shipping in swapped order
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              shipping: [input.allocation.shipping[1], input.allocation.shipping[0]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            shipping: [input.allocation.shipping[1], input.allocation.shipping[0]],
+          },
+        }),
       );
 
       // amount −100
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              items: [{ line_ref: 'a', quantity: 1, amount_minor: -100 }, input.allocation.items[1]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            items: [{ line_ref: 'a', quantity: 1, amount_minor: -100 }, input.allocation.items[1]],
+          },
+        }),
       );
 
       // amount 1.5
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              items: [{ line_ref: 'a', quantity: 1, amount_minor: 1.5 }, input.allocation.items[1]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            items: [{ line_ref: 'a', quantity: 1, amount_minor: 1.5 }, input.allocation.items[1]],
+          },
+        }),
       );
 
       // amount '100'
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              items: [{ line_ref: 'a', quantity: 1, amount_minor: '100' as any }, input.allocation.items[1]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            items: [{ line_ref: 'a', quantity: 1, amount_minor: '100' as any }, input.allocation.items[1]],
+          },
+        }),
       );
 
       // amount -0
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            allocation: {
-              ...input.allocation,
-              items: [{ line_ref: 'a', quantity: 1, amount_minor: -0 }, input.allocation.items[1]],
-            },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          allocation: {
+            ...input.allocation,
+            items: [{ line_ref: 'a', quantity: 1, amount_minor: -0 }, input.allocation.items[1]],
+          },
+        }),
       );
 
       // reason 5
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            adjustment_reason: 5 as any,
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          adjustment_reason: 5 as any,
+        }),
       );
 
       // attempt refunded > paid
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            attempt: { paid_minor: 1000, refunded_minor: 2000 },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          attempt: { paid_minor: 1000, refunded_minor: 2000 },
+        }),
       );
 
       // attempt paid 150
-      assert.throws(
-        () =>
-          checkRefundAllocation({
-            ...input,
-            attempt: { paid_minor: 150, refunded_minor: 0 },
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          ...input,
+          attempt: { paid_minor: 150, refunded_minor: 0 },
+        }),
       );
     });
   });
@@ -922,58 +919,38 @@ describe('commerce-refund-rules', () => {
 
     it('throws on invalid inputs', () => {
       // unapplied 150050 (not multiple)
-      assert.throws(
-        () =>
-          checkUnappliedRefund({
-            settlement_unit_minor: 100,
-            unapplied_minor: 150050,
-            refunded_minor: 0,
-            amount_minor: 10000,
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkUnappliedRefund({
+          settlement_unit_minor: 100,
+          unapplied_minor: 150050,
+          refunded_minor: 0,
+          amount_minor: 10000,
+        }),
       );
 
       // refunded > unapplied
-      assert.throws(
-        () =>
-          checkUnappliedRefund({
-            settlement_unit_minor: 100,
-            unapplied_minor: 100000,
-            refunded_minor: 100100,
-            amount_minor: 10000,
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkUnappliedRefund({
+          settlement_unit_minor: 100,
+          unapplied_minor: 100000,
+          refunded_minor: 100100,
+          amount_minor: 10000,
+        }),
       );
 
       // u = 10
-      assert.throws(
-        () =>
-          checkUnappliedRefund({
-            settlement_unit_minor: 10 as any,
-            unapplied_minor: 100000,
-            refunded_minor: 0,
-            amount_minor: 10000,
-          }),
-        RefundRuleError,
+      assertThrowsRuleError(() =>
+        checkUnappliedRefund({
+          settlement_unit_minor: 10 as any,
+          unapplied_minor: 100000,
+          refunded_minor: 0,
+          amount_minor: 10000,
+        }),
       );
     });
   });
 
   describe('6. Input validation (throws RefundRuleError)', () => {
-    function assertThrowsRuleError(fn: () => unknown, inputDesc?: unknown): void {
-      try {
-        fn();
-        assert.fail('Expected RefundRuleError to be thrown');
-      } catch (err: any) {
-        assert(err instanceof RefundRuleError);
-        assert.equal(err.code, 'invalid_input');
-        assert.equal(err.name, 'RefundRuleError');
-        if (inputDesc !== undefined && typeof inputDesc === 'string' && inputDesc.length > 0) {
-          assert(!err.message.includes(inputDesc), 'Error message must never contain input values');
-        }
-      }
-    }
-
     it('u 10 and "100"', () => {
       const base = makeBaseOrder();
       assertThrowsRuleError(() => planRefund({ ...base, settlement_unit_minor: 10 as any, request: { kind: 'cancel', reason: 'changed_mind', lines: [{ line_ref: 'a', quantity: 1 }] } }));
@@ -1152,6 +1129,152 @@ describe('commerce-refund-rules', () => {
       assertThrowsRuleError(() => checkUnappliedRefund({ settlement_unit_minor: 100, unapplied_minor: -0, refunded_minor: 0, amount_minor: 100 }));
       assertThrowsRuleError(() => checkUnappliedRefund({ settlement_unit_minor: 100, unapplied_minor: 100, refunded_minor: -0, amount_minor: 100 }));
       assertThrowsRuleError(() => checkUnappliedRefund({ settlement_unit_minor: 100, unapplied_minor: 100, refunded_minor: 0, amount_minor: -0 }));
+      // checkRefundAllocation item quantity: -0 (reproduction)
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          settlement_unit_minor: 100,
+          groups: [{ group_ref: 'g2', fee_minor: 8000, refunded_minor: 0 }],
+          lines: [
+            {
+              line_ref: 'c',
+              group_ref: 'g2',
+              quantity: 1,
+              net_minor: 20000,
+              refunded_quantity: 0,
+              refunded_minor: 0,
+              covered_quantity: 0,
+            },
+          ],
+          request: {
+            kind: 'refund_only',
+            reason: 'not_as_described',
+            lines: [{ line_ref: 'c', quantity: 0 }],
+          },
+          attempt: { paid_minor: 100000, refunded_minor: 0 },
+          allocation: {
+            items: [{ line_ref: 'c', quantity: -0, amount_minor: 20000 }],
+            shipping: [{ group_ref: 'g2', amount_minor: 0 }],
+          },
+          adjustment_reason: null,
+        }),
+      );
+      // checkRefundAllocation shipping amount_minor: -0
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          settlement_unit_minor: 100,
+          groups: [{ group_ref: 'g2', fee_minor: 8000, refunded_minor: 0 }],
+          lines: [
+            {
+              line_ref: 'c',
+              group_ref: 'g2',
+              quantity: 1,
+              net_minor: 20000,
+              refunded_quantity: 0,
+              refunded_minor: 0,
+              covered_quantity: 0,
+            },
+          ],
+          request: {
+            kind: 'refund_only',
+            reason: 'not_as_described',
+            lines: [{ line_ref: 'c', quantity: 0 }],
+          },
+          attempt: { paid_minor: 100000, refunded_minor: 0 },
+          allocation: {
+            items: [{ line_ref: 'c', quantity: 0, amount_minor: 20000 }],
+            shipping: [{ group_ref: 'g2', amount_minor: -0 }],
+          },
+          adjustment_reason: null,
+        }),
+      );
+      // checkRefundAllocation attempt paid_minor: -0
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          settlement_unit_minor: 100,
+          groups: [{ group_ref: 'g2', fee_minor: 8000, refunded_minor: 0 }],
+          lines: [
+            {
+              line_ref: 'c',
+              group_ref: 'g2',
+              quantity: 1,
+              net_minor: 20000,
+              refunded_quantity: 0,
+              refunded_minor: 0,
+              covered_quantity: 0,
+            },
+          ],
+          request: {
+            kind: 'refund_only',
+            reason: 'not_as_described',
+            lines: [{ line_ref: 'c', quantity: 0 }],
+          },
+          attempt: { paid_minor: -0, refunded_minor: 0 },
+          allocation: {
+            items: [{ line_ref: 'c', quantity: 0, amount_minor: 20000 }],
+            shipping: [{ group_ref: 'g2', amount_minor: 0 }],
+          },
+          adjustment_reason: null,
+        }),
+      );
+      // checkRefundAllocation attempt refunded_minor: -0
+      assertThrowsRuleError(() =>
+        checkRefundAllocation({
+          settlement_unit_minor: 100,
+          groups: [{ group_ref: 'g2', fee_minor: 8000, refunded_minor: 0 }],
+          lines: [
+            {
+              line_ref: 'c',
+              group_ref: 'g2',
+              quantity: 1,
+              net_minor: 20000,
+              refunded_quantity: 0,
+              refunded_minor: 0,
+              covered_quantity: 0,
+            },
+          ],
+          request: {
+            kind: 'refund_only',
+            reason: 'not_as_described',
+            lines: [{ line_ref: 'c', quantity: 0 }],
+          },
+          attempt: { paid_minor: 100000, refunded_minor: -0 },
+          allocation: {
+            items: [{ line_ref: 'c', quantity: 0, amount_minor: 20000 }],
+            shipping: [{ group_ref: 'g2', amount_minor: 0 }],
+          },
+          adjustment_reason: null,
+        }),
+      );
+      // refundNetForQuantity units: -0
+      assertThrowsRuleError(() =>
+        refundNetForQuantity({
+          settlement_unit_minor: 100,
+          quantity: 3,
+          net_minor: 29000,
+          units: -0,
+        }),
+      );
+      // itemRefundCap units: -0 and refunded_quantity: -0
+      assertThrowsRuleError(() =>
+        itemRefundCap({
+          settlement_unit_minor: 100,
+          quantity: 3,
+          net_minor: 29000,
+          refunded_quantity: 0,
+          refunded_minor: 0,
+          units: -0,
+        }),
+      );
+      assertThrowsRuleError(() =>
+        itemRefundCap({
+          settlement_unit_minor: 100,
+          quantity: 3,
+          net_minor: 29000,
+          refunded_quantity: -0,
+          refunded_minor: 0,
+          units: 1,
+        }),
+      );
     });
   });
 
@@ -1230,6 +1353,12 @@ describe('commerce-refund-rules', () => {
         assert.throws(() => {
           (result.line as any).amount_minor = 999;
         });
+      }
+
+      // Modifying input after call does not alter result
+      input.amount_minor = 0;
+      if (result.ok) {
+        assert.equal(result.line.amount_minor, 10000);
       }
     });
   });
