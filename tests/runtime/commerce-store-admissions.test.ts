@@ -34,6 +34,11 @@ test('independent admin admissions gate new checkouts without stopping retained 
     await h.pool.query("INSERT INTO communities VALUES($1,'合成其他社群')",[otherCommunity]);
     await h.pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[randomUUID(),otherCommunity,otherEmail,'合成其他管理員']);
     assert.equal((await admin('GET','?tenant_id='+s.tenantId,undefined,randomUUID(),otherEmail)).status,404);
+    assert.equal((await admin('POST','',body,randomUUID(),otherEmail)).status,404);
+    assert.equal((await admin('POST','/'+admitted.admission_id+'/revoke',{reason:'合成跨社群拒絕'},randomUUID(),otherEmail)).status,404);
+    const viewer=(await h.person('合成兼任唯讀管理員')).session,viewerPrincipal=await h.candidate(s.owner,viewer.user.user_id),invitation=await h.invite(s.owner,s.tenantId,viewerPrincipal,'viewer');await h.accept(viewer,s.tenantId,invitation);
+    await h.pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[randomUUID(),DEMO_COMMUNITY,viewer.user.email,'合成唯讀管理員']);
+    assert.equal((await admin('POST','',body,randomUUID(),viewer.user.email)).data.code,'admission_not_independent');
     const publicRoot=`/api/v1/public/stores/${s.slug}`;
     const buyer=async(method:string,path:string,input?:unknown,cookie?:string)=>{
       const response=await app.request(h.origin+publicRoot+path,{method,headers:{Origin:h.origin,'Content-Type':'application/json','Idempotency-Key':randomUUID(),...(cookie?{Cookie:cookie}:{})},body:input===undefined?undefined:JSON.stringify(input)});

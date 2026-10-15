@@ -8,7 +8,7 @@ export async function recordControlEvent(q:PoolClient,input:{tenantId:string;ins
   const allowed=['purpose','profile','environment','from_state','to_state','credential_version','module_release_ref'];
   let detail:string;
   try {
-    if(!CONTROL_EVENT_KINDS.includes(input.kind)||!input.detail||Array.isArray(input.detail)||Object.entries(input.detail).some(([key,value])=>
+    if(!CONTROL_EVENT_KINDS.includes(input.kind)||!input.detail||typeof input.detail!=='object'||Array.isArray(input.detail)||Object.entries(input.detail).some(([key,value])=>
       !allowed.includes(key)||(typeof value!=='string'&&!(typeof value==='number'&&Number.isSafeInteger(value)&&value>=1))))throw new Error();
     detail=JSON.stringify(input.detail);if(Buffer.byteLength(detail)>1024)throw new Error();
   } catch {throw new Error('Invalid commerce control event.');}

@@ -11,17 +11,17 @@ const production = 'guild_commercial_production';
 let h: RegistryHarness;
 before(async () => {
   h = await createRegistryHarness('fp_store_offer');
-  assert.equal((await platformOffer()).length, 1, 'Migration installs the offering before any seed reset');
+  assert.deepEqual((await platformOffer()).map(row=>[row.release_ref,row.status]), [['hosted-store@1.0.0','withdrawn'],['hosted-store@1.1.0','offered']], 'Migration preserves the withdrawn release and offers its successor');
 });
 after(async () => {await h.stop();});
 beforeEach(async () => {await h.reset();});
 async function platformOffer() {
   return (await h.pool.query(`SELECT community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version::text AS version
-    FROM guild_application_offerings WHERE community_id IS NULL AND guild_key IS NULL AND application_key='hosted-store'`)).rows;
+    FROM guild_application_offerings WHERE community_id IS NULL AND guild_key IS NULL AND application_key='hosted-store' ORDER BY release_ref`)).rows;
 }
 test('migration and seed keep exactly one platform hosted-store offering with the definition policy', async () => {
-  const policy = (await h.pool.query("SELECT launch_policy_ref FROM application_definitions WHERE release_ref='hosted-store@1.0.0'")).rows[0].launch_policy_ref;
-  assert.deepEqual(await platformOffer(), [{community_id: null, guild_key: null, application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0', status: 'offered', display_order: 10, launch_policy_ref: policy, version: '1'}]);
+  const policy = (await h.pool.query("SELECT launch_policy_ref FROM application_definitions WHERE release_ref='hosted-store@1.1.0'")).rows[0].launch_policy_ref;
+  assert.deepEqual(await platformOffer(), [{community_id: null, guild_key: null, application_key: 'hosted-store', release_ref: 'hosted-store@1.1.0', status: 'offered', display_order: 10, launch_policy_ref: policy, version: '1'}]);
   assert.deepEqual(policy, {policy_key: 'hosted-store.launch', version: '1'});
 });
 test('seedLocal restores the hosted offering after community truncation and stays idempotent', async () => {
@@ -80,7 +80,7 @@ for (const guild of [commerce, supplier]) test(`full ${guild} members can start 
 test('withdrawn hosted offering makes the commerce default fall back to manual-workspace', async () => {
   const session = (await h.person('商店撤回會員')).session;
   await h.fullMember(session.user.user_id, commerce);
-  await h.pool.query("UPDATE guild_application_offerings SET status='withdrawn',version=version+1 WHERE community_id IS NULL AND guild_key IS NULL AND release_ref='hosted-store@1.0.0'");
+  await h.pool.query("UPDATE guild_application_offerings SET status='withdrawn',version=version+1 WHERE community_id IS NULL AND guild_key IS NULL AND release_ref='hosted-store@1.1.0'");
   const result = await h.call('GET', `/guilds/${commerce}/launchpad`, session);
   assert.equal(result.status, 200);
   assert.deepEqual(result.data.config.body.application_refs, [{application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 0}]);

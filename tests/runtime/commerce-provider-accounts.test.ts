@@ -50,7 +50,7 @@ test('provider setup HTTP, activation, retained credentials, entry routes and se
     const s=await x.store(),oldKey=entry('old'),ring=CommerceCredentialKeyring.parse(oldKey)!;
     const instanceVersion=(await h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[s.instanceId])).rows[0].version;
     ok(await x.send(s,'/upgrade',{},instanceVersion));
-    const app=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true,commerceCredentialKeyring:ring});
+    let app=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true,commerceCredentialKeyring:ring});
     const noKeys=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true});
     const call=async(method:string,path:string,body?:unknown,version?:string,key=randomUUID(),session=s.owner,target=app)=>{
       const result=await h.call(method,path,session,body,method==='GET'?{}:{'Idempotency-Key':key,...(version?{'If-Match':`"${version}"`}:{})},target);
@@ -75,16 +75,24 @@ test('provider setup HTTP, activation, retained credentials, entry routes and se
     assert.equal((await call('POST',root,{...input,fresh_auth_verification_id:await fresh()},undefined,randomUUID(),s.owner,noKeys)).status,503);
     assert.equal((await call('GET',root,undefined,undefined,randomUUID(),s.owner,noKeys)).status,200);
     const service=root+'/'+a.account_id+'/services/payment';
+    for(const merchant_id of ['123456','12345678901','abcdefg'])assert.equal((await call('POST',root,{...input,merchant_id,fresh_auth_verification_id:await fresh()})).data.code,'validation_failed');
+    const expired=randomUUID();await h.pool.query(`INSERT INTO tenant_high_risk_verifications(verification_id,user_id,principal_id,session_hash,tenant_id,purpose,verified_at,expires_at)
+      SELECT $1,$2,p.principal_id,se.token_hash,$3,'commerce.provider_account.write',clock_timestamp()-interval '20 minutes',clock_timestamp()-interval '10 minutes'
+      FROM principals p JOIN sessions se ON se.user_id=p.user_ref WHERE p.user_ref=$2 ORDER BY se.created_at DESC LIMIT 1`,[expired,s.owner.user.user_id,s.tenantId]);
+    assert.equal((await call('POST',root,{...input,merchant_id:'1234568',fresh_auth_verification_id:expired})).data.code,'fresh_auth_required');
     let currentMaterial=randomMaterial();secrets.push(...Object.values(currentMaterial));
     const putBody={profile:'ecpay.aio.credit.v1',...currentMaterial,fresh_auth_verification_id:await fresh()};
     const putKey=randomUUID(),beforeVersion=a.version;a=ok(await call('PUT',service,putBody,beforeVersion,putKey));
-    assert.equal(a.services[0].state,'draft');assert.equal(a.services[0].credential_version,1);
+    assert.equal(a.services[0].state,'draft');
+    for(const invalid of [{hash_key:'short'},{hash_iv:'!'.repeat(16)},{credit_check_code:'bad'}])assert.equal((await call('PUT',service,{...putBody,...invalid,fresh_auth_verification_id:await fresh()},a.version)).data.code,'validation_failed');
+    assert.equal((await call('PUT',service,{...putBody,profile:'ecpay.invoice.b2c.v1',fresh_auth_verification_id:await fresh()},a.version)).data.code,'provider_profile_invalid');
+    assert.equal((await call('PUT',service.replace('/payment','/invoice'),{...putBody,profile:'ecpay.invoice.b2c.v1',fresh_auth_verification_id:await fresh()},a.version)).data.code,'validation_failed');assert.equal(a.services[0].credential_version,1);
     assert.deepEqual(ok(await call('PUT',service,putBody,beforeVersion,putKey)),a);
     const changed=randomMaterial();secrets.push(...Object.values(changed));assert.equal((await call('PUT',service,{...putBody,...changed},beforeVersion,putKey)).data.code,'idempotency_conflict');
     assert.equal((await call('PUT',service,{...putBody,fresh_auth_verification_id:await fresh('tenant.ownership.propose')},a.version)).data.code,'fresh_auth_required');
     const missing={...putBody} as Record<string,unknown>;delete missing.fresh_auth_verification_id;assert.equal((await call('PUT',service,missing,a.version)).status,403);
     assert.equal((await call('POST',service+'/suspend',{fresh_auth_verification_id:await fresh()},a.version)).data.code,'provider_service_state');
-    const machine=<T>(run:(q:import('pg').PoolClient)=>Promise<T>)=>x.tx(async q=>{await bindTenantScope(q,s.tenantId);return run(q);});
+    const machine=async<T>(run:(q:import('pg').PoolClient)=>Promise<T>)=>{const result=await x.tx(async q=>{await bindTenantScope(q,s.tenantId);return run(q);});await scan();return result;};
     await machine(q=>activateProviderService(q,{accountId:a.account_id,purpose:'payment',activationRef:randomUUID()}));
     a=ok(await call('GET',root)).items[0];assert.equal(a.services[0].state,'active');
     for(const [action,state] of [['suspend','suspended'],['resume','active']] as const){a=ok(await call('POST',service+'/'+action,{fresh_auth_verification_id:await fresh()},a.version));assert.equal(a.services[0].state,state);}
@@ -97,11 +105,27 @@ test('provider setup HTTP, activation, retained credentials, entry routes and se
     assert.deepEqual(await machine(q=>listUsableCredentialVersions(q,{accountId:a.account_id,purpose:'payment'})),[2]);
     const next=CommerceCredentialKeyring.parse(entry('new')+','+oldKey)!;assert.deepEqual(await machine(q=>resealProviderCredentials(q,next,{limit:100})),{resealed:2});
     assert.equal((await machine(q=>loadServiceCredentials(q,next,{accountId:a.account_id,purpose:'payment'}))).credentialVersion,2);
+    app=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true,commerceCredentialKeyring:next});
+    assert.equal((await call('PUT',service,putBody,beforeVersion,putKey)).data.code,'idempotency_conflict');
+    let second=ok(await call('POST',root,{...input,merchant_id:'1234568',fresh_auth_verification_id:await fresh()}),201);
+    const secondPath=root+'/'+second.account_id+'/services/payment';
+    second=ok(await call('PUT',secondPath,{...putBody,fresh_auth_verification_id:await fresh()},second.version));
+    await assert.rejects(machine(q=>activateProviderService(q,{accountId:second.account_id,purpose:'payment',activationRef:randomUUID()})),{code:'provider_service_conflict'});
+    a=ok(await call('GET',root)).items[0];a=ok(await call('POST',service+'/suspend',{fresh_auth_verification_id:await fresh()},a.version));
+    await machine(q=>activateProviderService(q,{accountId:second.account_id,purpose:'payment',activationRef:randomUUID()}));
+    assert.equal((await call('POST',service+'/resume',{fresh_auth_verification_id:await fresh()},a.version)).data.code,'provider_service_conflict');
+    second=ok(await call('GET',root)).items.find((item:any)=>item.account_id===second.account_id);
+    ok(await call('POST',secondPath+'/retire',{fresh_auth_verification_id:await fresh()},second.version));
+    a=ok(await call('POST',service+'/resume',{fresh_auth_verification_id:await fresh()},a.version));
+    for(const [table,set] of [['commerce_provider_accounts',"merchant_id='9999999'"],['commerce_provider_account_services',"profile='ecpay.invoice.b2c.v1'"],['commerce_provider_credentials',"credential_version=42"]]){
+      await assert.rejects(h.pool.query(`UPDATE ${table} SET ${set} WHERE account_id=$1`,[a.account_id]),{code:'23514'});
+      await assert.rejects(h.pool.query(`DELETE FROM ${table} WHERE account_id=$1`,[a.account_id]),{code:'23514'});
+    }
     const route=(await h.pool.query('SELECT route_key FROM commerce_entry_routes WHERE target_id=$1',[a.account_id])).rows[0].route_key;assert.match(route,/^[0-9a-hjkmnp-tv-z]{26}$/);
     const resolved=await x.tx(q=>resolveProviderAccountRoute(q,route));assert.deepEqual(resolved,{tenant_id:s.tenantId,instance_id:s.instanceId,account_id:a.account_id});
     const refTarget=randomUUID(),entropy=[Buffer.from('0000000000000000000000000000018d','hex'),randomBytes(16)];
     await machine(q=>createProviderAccountRoute(q,{tenantId:s.tenantId,instanceId:s.instanceId,accountId:refTarget},()=>entropy.shift()!));assert.equal(entropy.length,0);
-    const other=await x.store();assert.equal((await call('GET',root,undefined,undefined,randomUUID(),other.owner)).status,404);
+    const other=await x.store();assert.equal((await call('POST',root,{...input,merchant_id:'1234569',fresh_auth_verification_id:await fresh('commerce.provider_account.write',other.owner,other.tenantId)})).data.code,'fresh_auth_required');assert.equal((await call('GET',root,undefined,undefined,randomUUID(),other.owner)).status,404);
     await x.tx(async q=>{await bindTenantScope(q,other.tenantId);assert.deepEqual(await listUsableCredentialVersions(q,{accountId:a.account_id,purpose:'payment'}),[]);await assert.rejects(loadServiceCredentials(q,next,{accountId:a.account_id,purpose:'payment'}),{code:'provider_account_not_found'});});
     for(const role of ['admin','operator','viewer'] as const){
       const member=(await h.person('合成帳戶管理測試')).session,principal=await h.candidate(s.owner,member.user.user_id);
@@ -116,6 +140,11 @@ test('provider setup HTTP, activation, retained credentials, entry routes and se
       assert.equal(result.status,role==='admin'?201:403);if(role!=='admin')assert.equal(result.data.code,'capability_denied');
     }
     assert(await fresh('commerce.store_export.create'));
+    const reader=(await h.person('合成基本讀者')).session,readerId=await h.candidate(s.owner,reader.user.user_id),readerInvite=await h.invite(s.owner,s.tenantId,readerId,'operator');await h.accept(reader,s.tenantId,readerInvite);
+    await h.pool.query(`INSERT INTO tenant_module_permissions(tenant_id,principal_id,instance_id,capabilities,status,granted_by_principal_id) SELECT $1,$2,$3,ARRAY['store:read'],'active',principal_id FROM principals WHERE user_ref=$4`,[s.tenantId,readerId,s.instanceId,s.owner.user.user_id]);
+    assert.equal((await call('GET',root,undefined,undefined,randomUUID(),reader)).status,403);
+    await h.pool.query("UPDATE tenant_module_permissions SET capabilities=ARRAY['store:read','store:manage'],version=version+1 WHERE tenant_id=$1 AND principal_id=$2",[s.tenantId,readerId]);
+    assert.equal((await call('GET',root,undefined,undefined,randomUUID(),reader)).status,200);
     a=ok(await call('GET',root)).items[0];a=ok(await call('POST',service+'/retire',{fresh_auth_verification_id:await fresh()},a.version));assert.equal(a.services[0].state,'retired');
     assert.equal((await call('PUT',service,{...putBody,fresh_auth_verification_id:await fresh()},a.version)).data.code,'provider_service_state');
     assert((await h.pool.query('SELECT 1 FROM commerce_control_events WHERE tenant_id=$1',[s.tenantId])).rowCount!>=8);

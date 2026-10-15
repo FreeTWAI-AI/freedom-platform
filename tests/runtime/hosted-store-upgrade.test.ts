@@ -83,3 +83,44 @@ test('identity trigger rejects partial, unregistered and mixed changes and downg
   await h.pool.query("UPDATE module_instances SET module_release_ref='storefront@1.1.0',application_release_ref='hosted-store@1.1.0',version=version+1 WHERE instance_id=$1",[s.instance.instance_id]);
   await assert.rejects(h.pool.query("UPDATE module_instances SET module_release_ref='storefront@1.0.0',application_release_ref='hosted-store@1.0.0',version=version+1 WHERE instance_id=$1",[s.instance.instance_id]),{code:'23514'});
 });
+test('upgrade authority, suspended lifecycle and concurrent requests preserve the existing grants',async()=>{
+  const {effectiveStoreCapabilities}=await import('../../modules/agent-commerce/hosted/capabilities.js');
+  const s=await store();
+  for(const role of ['admin','operator','viewer'] as const){
+    const member=(await h.person('合成升級權限')).session,principal=await h.candidate(s.owner,member.user.user_id);
+    const invitation=await h.invite(s.owner,s.tenantId,principal,role);assert.equal(invitation.status,201);await h.accept(member,s.tenantId,invitation);
+    if(role!=='admin')await h.pool.query(`INSERT INTO tenant_module_permissions(tenant_id,principal_id,instance_id,capabilities,status,granted_by_principal_id)
+      VALUES($1,$2,$3,$4,'active',$5)`,[s.tenantId,principal,s.instance.instance_id,['store:read'],s.principal]);
+    const read=await h.call('GET',s.root+'/release',member);assert.equal(read.status,200);assert.equal(read.data.can_upgrade,false);
+    const denied=await h.post(s.root+'/upgrade',member,{},`"${s.instance.version}"`);assert.equal(denied.status,403);assert.equal(denied.data.code,'capability_denied');
+    const q=await h.pool.connect();try{assert.deepEqual(await effectiveStoreCapabilities(q,{tenant_id:s.tenantId,principal_id:principal,role} as any,s.instance.instance_id),role==='admin'?keys.slice(0,4):['store:read']);}finally{q.release();}
+  }
+  const outsider=(await h.person('合成外部會員')).session;assert.equal((await h.post(s.root+'/upgrade',outsider,{},`"${s.instance.version}"`)).status,404);
+  assert.equal((await h.call('POST',s.root+'/upgrade',s.owner,{}, {'If-Match':`"${s.instance.version}"`})).status,400);
+  for(const table of ['tenants','module_instances']){
+    const column=table==='tenants'?'tenant_id':'instance_id',id=table==='tenants'?s.tenantId:s.instance.instance_id;
+    await h.pool.query(`UPDATE ${table} SET status='suspended',version=version+1 WHERE ${column}=$1`,[id]);
+    const version=(await h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[s.instance.instance_id])).rows[0].version;
+    const denied=await h.post(s.root+'/upgrade',s.owner,{},`"${version}"`);assert.equal(denied.status,409);assert.equal(denied.data.code,'store_upgrade_unavailable');
+    assert.equal((await h.call('GET',s.root+'/release',s.owner)).data.can_upgrade,false);
+    await h.pool.query(`UPDATE ${table} SET status='active',version=version+1 WHERE ${column}=$1`,[id]);
+  }
+  const grants=(await h.pool.query('SELECT * FROM tenant_module_permissions WHERE tenant_id=$1 ORDER BY principal_id',[s.tenantId])).rows;
+  const version=(await h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[s.instance.instance_id])).rows[0].version;
+  const results=await Promise.all([h.post(s.root+'/upgrade',s.owner,{},`"${version}"`),h.post(s.root+'/upgrade',s.owner,{},`"${version}"`)]);
+  assert.deepEqual(results.map(r=>r.status).sort(),[200,412]);
+  assert.deepEqual((await h.pool.query('SELECT * FROM tenant_module_permissions WHERE tenant_id=$1 ORDER BY principal_id',[s.tenantId])).rows,grants);
+  assert.equal((await h.pool.query("SELECT 1 FROM commerce_control_events WHERE instance_id=$1 AND kind='storefront.upgraded'",[s.instance.instance_id])).rowCount,1);
+});
+test('manual-work still requires work:read and keeps ordinary operator and viewer grants',async()=>{
+  const {validateInstanceGrants}=await import('../../modules/tenant-workspaces/instance-grants.js');
+  const s=await store('1.1.0');
+  const workspaceId=(await h.pool.query('SELECT workspace_id FROM workspaces WHERE tenant_id=$1 LIMIT 1',[s.tenantId])).rows[0].workspace_id;
+  const planned=await h.plan(s.owner,s.tenantId,h.planBody('guild_commerce_sales',workspaceId));assert.equal(planned.status,201,JSON.stringify(planned.data));
+  assert.equal((await h.launch(s.owner,s.tenantId,planned)).data.state,'succeeded');
+  const manual=(await h.pool.query("SELECT instance_id FROM module_instances WHERE tenant_id=$1 AND module_key='work'",[s.tenantId])).rows[0].instance_id;
+  const q=await h.pool.connect();try{
+    for(const role of ['viewer','operator'] as const)assert.deepEqual(await validateInstanceGrants(q,s.tenantId,role,[{instance_id:manual,capabilities:['work:read']}]),[{instance_id:manual,capabilities:['work:read']}]);
+    await assert.rejects(validateInstanceGrants(q,s.tenantId,'operator',[{instance_id:manual,capabilities:['work:write']}]),{status:422});
+  }finally{q.release();}
+});

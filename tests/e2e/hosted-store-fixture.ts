@@ -43,7 +43,7 @@ export async function launchStore(page: Page, name: string) {
   const space = CreateResultSchema.parse(await post(page, '/tenants', {display_name: name}, 201));
   const tenant = space.tenant.tenant_id;
   const plan = LaunchPlanSchema.parse(await post(page, `/tenants/${tenant}/application-launch-plans`, {
-    guild_key: commerce, workspace_id: space.workspace.workspace_id, application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0',
+    guild_key: commerce, workspace_id: space.workspace.workspace_id, application_key: 'hosted-store', release_ref: 'hosted-store@1.1.0',
     installation_choice: 'create_new', dependencies: [{requirement_key: 'storefront', choice: 'create', configuration: {}}], configuration: {},
   }, 201));
   const operation = RegistryOperationSchema.parse(await post(page, `/tenants/${tenant}/application-installations`, {
