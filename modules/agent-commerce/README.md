@@ -12,6 +12,10 @@ without a spurious `out_of_stock` or a client retry. Unexpired reservations
 still block excess orders; merchant-reported paid/refunded orders retain their
 stock. External-ID replays do not reserve again. This changes neither the TTL
 nor payment reporting, and does not guarantee the clock through commit.
+New reservations also use one post-lock SQL clock snapshot for `created_at`
+and `expires_at`, preserving the full 30-minute interval rather than consuming
+it while queued. Exact external-ID replays preserve both original timestamps;
+they do not renew that interval. Existing migration defaults remain unchanged.
 
 Owner imported-shop listing (#350) first selects the current community/owner's imported shops, then groups product and selection counts separately by shop before joining them. Empty shops keep numeric zero counts; all existing shop fields, key dates and descending creation-time ordering remain unchanged. The portal consumes the complete list and filters internal/public shops locally, so this change deliberately retains the unpaginated `{items}` response rather than silently hiding shops.
 

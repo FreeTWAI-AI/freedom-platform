@@ -134,12 +134,17 @@ for(const expired of [true,false])test(`order creation refreshes reservation exp
   const live=await pool.query("UPDATE commerce_orders SET expires_at=clock_timestamp()+make_interval(secs=>$2) WHERE order_id=$1 RETURNING expires_at>clock_timestamp() AS live",[o.order_id,expired?0.25:3600]);
   assert.equal(live.rows[0].live,true);
   if(expired)await pool.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM commerce_orders WHERE order_id=$1',[o.order_id]);
+  const afterWait=(await pool.query('SELECT clock_timestamp()::text AS at')).rows[0].at;
   await gate.query('SELECT pg_advisory_unlock_all()');
   const result=await response;assert.equal(result.status,expired?201:409,JSON.stringify(result.data));
   assert.equal((await pool.query('SELECT buyer_payment FROM commerce_orders WHERE order_id=$1',[o.order_id])).rows[0].buyer_payment,expired?'cancelled':'pending');
   assert.deepEqual((await pool.query('SELECT stock,reserved FROM commerce_items WHERE item_id=$1',[f.items[0].item_id])).rows[0],{stock:5,reserved:5});
   if(expired){
+   const timesSql="SELECT created_at::text,expires_at::text,created_at>=$2::timestamptz AS after_wait,expires_at-created_at=interval '30 minutes' AS full_ttl FROM commerce_orders WHERE order_id=$1";
+   const times=(await pool.query(timesSql,[result.data.order_id,afterWait])).rows[0];
+   assert.equal(times.after_wait,true);assert.equal(times.full_ttl,true);
    const replay=await req('/shop-api/v1/orders',body,undefined,f.publicKey);assert.equal(replay.status,201);assert.deepEqual(replay.data,result.data);
+   assert.deepEqual((await pool.query(timesSql,[result.data.order_id,afterWait])).rows[0],times);
    assert.equal((await pool.query('SELECT count(*)::int AS n FROM commerce_orders WHERE public_shop_id=$1',[f.publicId])).rows[0].n,2);
    assert.equal((await pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[f.items[0].item_id])).rows[0].reserved,5);
   }else{assert.equal(result.data.code,'out_of_stock');assert.equal((await pool.query('SELECT count(*)::int AS n FROM commerce_orders WHERE public_shop_id=$1',[f.publicId])).rows[0].n,1);}
