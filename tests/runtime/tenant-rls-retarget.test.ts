@@ -13,6 +13,7 @@ import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchp
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
 import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
+import { ensureDevice, grantDevice } from '../../modules/agent-commerce/checkout/access.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
@@ -500,6 +501,8 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
     // Checkout customer/contact PII joins the same discovered A/B isolation checks.
     'commerce_customers', 'commerce_checkout_contacts',
+    // So does each tenant's browser order access grant.
+    'commerce_order_access_grants',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
@@ -552,12 +555,13 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
   }
   // Create each tenant's PII through the domain in its own transaction, preserving
   // lifecycle-before-community lock order and retaining all checkout constraints.
+  // The browser grant follows the public checkout command's order after the freeze.
   for (const data of hosted) {
     await isolatedTransaction(runtime, async q => {
       const published = (await q.query(`SELECT p.storefront_shop_id, publication.revision::text
         FROM commerce_storefront_profiles p JOIN commerce_storefront_publications publication
           ON publication.publication_id=p.current_publication_id WHERE p.instance_id=$1`, [data.instanceId])).rows[0];
-      await freezeCheckout(q, { storefront_shop_id: published.storefront_shop_id }, {
+      const saved = await freezeCheckout(q, { storefront_shop_id: published.storefront_shop_id }, {
         idempotencyKey: randomUUID(), publication_revision: published.revision,
         lines: [{ sku: 'P0001', quantity: 1 }],
         contact: { name: '合成買家', email: `checkout-${data.instanceId}@synthetic.test`, phone: 'synthetic-phone' },
@@ -566,6 +570,8 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
         return { groups: [{ group_ref: 'synthetic', supplier_shop_id: input.lines[0].supplier_shop_id,
           method_ref: 'synthetic', amount_minor: 0 }] };
       } } });
+      const { device } = await ensureDevice(q, undefined, origin);
+      await grantDevice(q, device.device_id, { tenant_id: data.tenantId, instance_id: data.instanceId, checkout_id: saved.checkout_id });
     });
   }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';

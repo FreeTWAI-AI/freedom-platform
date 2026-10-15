@@ -24019,8 +24019,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-retarget.test.ts",
-      "bytes": 54570,
-      "sha256": "8d2f499b8dcc23246da6b42168695e64c9668b27e8a882fabcc76dd93d5a64eb"
+      "bytes": 55060,
+      "sha256": "5f2d8c4f24ab7447f218fff4501625f16df4ed994a45082c88b6a50b58e952a7"
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",
@@ -24084,8 +24084,8 @@
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",
-      "bytes": 39495,
-      "sha256": "fcbaa0d6d498503b22db188aa8f1d3264456309a16e75894b6f2aafad1cdbac8"
+      "bytes": 39564,
+      "sha256": "14aeae3cc3e673dd1fcb76b650ea3c56c58abc198fd538c87a43587f25e1b078"
     },
     {
       "path": "tests/runtime/worker-private-ai-ingest.test.ts",
