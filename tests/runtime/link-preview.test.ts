@@ -200,3 +200,41 @@ test('remote thumbnails sniff the bytes and drop animation or gif', async () => 
   assert.ok(wide.length > 16 && wide.length <= 512 * 1024);
   await assert.rejects(normalizeRemoteThumbnail(Buffer.alloc(5 * 1024 * 1024 + 1)));
 });
+
+for (const fixture of [
+  {
+    label: 'windows-1252',
+    contentType: 'text/html; note="x; charset=bogus"; CHARSET="windows-1252"',
+    html: Buffer.from('<title>Caf\xe9 \x80</title>', 'latin1'),
+    title: 'Café €',
+  },
+  {
+    label: 'big5',
+    contentType: 'text/html; charset=Big5',
+    html: Buffer.concat([Buffer.from('<title>'), Buffer.from([0xA4, 0xA4, 0xA4, 0xE5]), Buffer.from('</title>')]),
+    title: '中文',
+  },
+]) {
+  test(`declared HTML charset decodes ${fixture.label} before title parsing`, async () => {
+    const result = await previewLink('https://cdn.example/charset', async () =>
+      new Response(new Uint8Array(fixture.html), {headers: {'content-type': fixture.contentType}}));
+    assert.equal(result.title, fixture.title);
+    assert.equal(result.image, null);
+  });
+}
+
+test('absent, unsupported and malformed HTML charset labels retain UTF-8 fallback', async () => {
+  for (const contentType of ['text/html', 'text/html; charset=x-unsupported', 'text/html; charset=""', 'text/html; charset="unfinished']) {
+    const result = await previewLink('https://cdn.example/utf8', async () => htmlResponse('<title>工坊 Café</title>', 200, {'content-type': contentType}));
+    assert.equal(result.title, '工坊 Café', contentType);
+  }
+});
+
+test('oEmbed JSON remains UTF-8 even if an unrelated charset is declared', async () => {
+  const result = await previewLink('https://www.youtube.com/watch?v=e2eDemo0001', async input =>
+    input.startsWith('https://www.youtube.com/oembed')
+      ? new Response(JSON.stringify({title: '工坊 Café'}), {headers: {'content-type': 'application/json; charset=windows-1252'}})
+      : new Response(null, {status: 404}));
+  assert.equal(result.title, '工坊 Café');
+  assert.equal(result.image, null);
+});

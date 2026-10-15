@@ -100,7 +100,8 @@ async function fetchChecked(fetcher: PreviewFetch, start: string, deadline: numb
       if (response.status !== 200) { await response.body?.cancel().catch(() => {}); return null; }
       const body = await readBounded(response, max);
       if (!body) return null;
-      return { url: current, type: (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), body };
+      const contentType = response.headers.get('content-type') ?? '';
+      return { url: current, type: contentType.split(';')[0].trim().toLowerCase(), contentType, body };
     } catch { return null; }
     finally { clearTimeout(timer); controller.abort(); }
   }
@@ -111,6 +112,16 @@ async function asThumbnail(bytes: Buffer, type: string) {
   // Any declared image/* is accepted. The format comes from the bytes, never from Content-Type.
   if (!type.startsWith('image/')) return null;
   try { return await normalizeRemoteThumbnail(bytes); } catch { return null; }
+}
+
+function htmlText(body: Buffer, contentType: string) {
+  for (const match of contentType.matchAll(/;\s*([^;=\s]+)\s*=\s*(?:"((?:\\.|[^"\\])*)"|([^;"\s]+))/g)) {
+    if (match[1].toLowerCase() !== 'charset') continue;
+    const label = (match[2] ?? match[3]).replace(/\\(.)/g, '$1');
+    try { return new TextDecoder(label).decode(body); }
+    catch { break; } // Unsupported labels retain the original best-effort UTF-8 decoding.
+  }
+  return body.toString('utf8');
 }
 
 /** Best-effort title and 640×360 thumbnail. Failures return nulls; they never throw. */
@@ -132,7 +143,7 @@ export async function previewLink(rawUrl: string, fetcher: PreviewFetch, timeout
   }
   const page = await fetchChecked(fetcher, normalized.url, deadline, 'text/html', HTML_LIMIT);
   if (!page || page.type.startsWith('image/')) return empty;
-  const html = page.body.toString('utf8');
+  const html = htmlText(page.body, page.contentType);
   const title = previewTitle(html);
   const imageUrl = previewImageUrl(html, page.url);
   if (!imageUrl) return { title, image: null, source: null };
