@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-15T05:34:25.341071+00:00",
+  "recorded_at": "2026-10-15T08:18:23.201214+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -14,9 +14,9 @@
   },
   "merged_source": {
     "repository": "FreeTWAI/freedom-platform",
-    "sha": "efaf314d7397e288c6ac094c5d90ffdcc1094f14",
-    "tree": "36ffbce203e30fab284ecddd52f0ecbebef361b7",
-    "observed_at": "2026-10-15T03:05:33.528431+00:00",
+    "sha": "1e584aa8734addfe251c7f081cf51cc84a52567f",
+    "tree": "8f2bda1846d983f0bc3671578ba6fc16b24364f5",
+    "observed_at": "2026-10-15T06:47:14Z",
     "runtime_release_source": "938516ee632287569389a37a7044ac779c18802e",
     "release_source_verify": {
       "conclusion": "success",
@@ -25,7 +25,7 @@
       "natural_main_codeql_run": 38604729887,
       "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
     },
-    "limitation": "Merged main efaf314d includes #658 and #659, separately from selected938 now deployed to both environments with scoped acceptance. Production after-backup/operator installation remain pending. AR167 and later680 source are not included in deployed938."
+    "limitation": "Main1e584aa8 includes #658, #659 and #680, separately from deployed938/schema166. Both complete after-restores and repaired operator installation passed; the new operator natural schedule, real OAuth/webhook, T-047 and human/second-operator acceptance remain unverified. AR167 and later source are not deployed."
   },
   "deployment": {
     "production": {
@@ -42,15 +42,16 @@
       },
       "worker_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
       "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "limitation": "Scoped public acceptance passed; production member login/browser/OAuth and real webhook delivery were not exercised. Three production after-backups, including the existing scheduled execution, failed and were separately cleaned. The compatible canonical166 daily operator is now installed with an explicit pending-after-backup status; production after-restore and coordinate-extension restore verification remain incomplete. The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling. New prepared-container sete021ebfc captured and remotely read back the set, then failed during restore with cleanupVerified=false. Separate05:29 UTC reconciliation confirmed zero owned resources, absent owned volume and disabled policy; original failed cleanupVerified=false remains unchanged. Restore verification and scheduled repair installation remain pending.",
+      "limitation": "Scoped public acceptance and the04:53 UTC natural-sync acceptance passed. Fresh20c800a8 passed full database/object restore, ten restored coordinate constraints, capture-window checks and cleanup; repaired operator installed07:04 UTC. Original failed after-sets remain failed. No new natural operator run, production member login/browser/OAuth or real webhook acceptance is claimed; the original cron provider cause remains unconfirmed.",
       "health_observation": "Exact938 public HTTP health observed after compatible deployment and normal route/cron restoration.",
-      "status": "deployed_scoped_acceptance_and_natural_sync_passed_after_backup_pending",
+      "status": "deployed_scoped_acceptance_natural_sync_restore_and_operator_passed",
       "schema_transition_observed_at": "2026-10-15T03:28:44.247Z",
       "last_operator_release_sha": "938516ee632287569389a37a7044ac779c18802e",
       "natural_background_sync_status": "passed_natural_provider_event_and_database_sync",
       "cron_diagnosis_observed_at": "2026-10-15T04:27:51.343197+00:00",
       "same_schedule_repair_observed_at": "2026-10-15T04:33:01.506Z",
-      "natural_background_sync_observed_at": "2026-10-15T04:53:06.090Z"
+      "natural_background_sync_observed_at": "2026-10-15T04:53:06.090Z",
+      "backup_repair_completed_at": "2026-10-15T06:46:10.722374+00:00"
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
@@ -66,25 +67,26 @@
       },
       "worker_version": "368a5d67-c1c1-4602-bb45-98f05801bc10",
       "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "limitation": "Scoped synthetic acceptance, before/after backup restoration and daily-operator installation passed. Original browser failure and two failed after-captures retained; owned fixtures and Access credentials removed. No human, real OAuth or full cloud-race acceptance. Later natural timer setfc39f036 failed capture on2026-10-15 and was independently cleaned at05:04 UTC. Its prepared-container repair has not executed; the earlier release restore PASS is retained.",
+      "limitation": "Scoped synthetic acceptance and earlier release restores remain passed. Fresh8abd2a28 passed complete backup/restore, schema166 floor, capture-window checks and cleanup; repaired operator installed07:04 UTC. Original capture/browser failures, including scheduledfc39f036, remain preserved. No new natural operator run, human, real OAuth or full cloud-race acceptance is claimed.",
       "last_operator_release_sha": "938516ee632287569389a37a7044ac779c18802e",
-      "status": "deployed_scoped_acceptance_and_prior_restore_passed_latest_scheduled_backup_failed",
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed",
       "later_scheduled_backup": {
         "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
         "status": "failed_owned_resources_reconciled",
         "observed_at": "2026-10-15T05:04:48.356Z",
-        "repair_status": "prepared_not_executed",
+        "repair_status": "full_manual_repair_passed_operator_installed_natural_schedule_unobserved",
         "previous_release_after_restore_preserved": true
-      }
+      },
+      "backup_repair_completed_at": "2026-10-15T07:02:30.842489+00:00"
     },
     "last_operator_rollout": {
       "source": "938516ee632287569389a37a7044ac779c18802e",
-      "at": "2026-10-15T05:34:25.341071+00:00",
+      "at": "2026-10-15T08:18:23.201214+00:00",
       "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
-      "scope": "Selected security release through protected merge #652: both environments run938/schema166 with scoped acceptance, and production natural scheduled delivery plus21/21 GitHub repository synchronization passed bounded acceptance after one same-schedule repair. The original staging release backup/restore passed; a later staging scheduled capture failed and was independently cleaned. Production after-backup remains incomplete: three earlier captures failed and were independently cleaned, then one reviewed prepared-container attempt captured and remotely read back the set but failed during restore; separate read-only reconciliation confirmed its owned resources absent. Scheduled operator repair and full production after-restore remain pending. Later #658, #659/AR schema167 and #680 are separate source batches.",
-      "status": "in_progress",
+      "scope": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938.",
+      "status": "scoped_rollout_and_after_recovery_passed_scheduled_observation_pending",
       "receipt": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "receipt_sha256": "b5c6ffc296a1f9f002a064fa36fd93d3efa79379e4cb212fccfe2c1f86731871",
+      "receipt_sha256": "91de5a2e52a634a3da870bf01913c91fe3765faf52ce1d42242db4753380c391",
       "database_migrations_applied": {
         "staging": [],
         "production": [
@@ -95,21 +97,21 @@
         "staging": "368a5d67-c1c1-4602-bb45-98f05801bc10",
         "production": "24c6c843-c7db-437d-a2b9-c0bcd93900c0"
       },
-      "limitation": "Both environments run938/schema166 with scoped acceptance. The earlier staging release before/after restores remain passed, but the later scheduled setfc39f036 failed and was independently cleaned. Three production after-captures failed and were independently cleaned; their original cleanupVerified=false receipts remain. New sete021ebfc captured and remotely read back its set, then failed during restore with cleanupVerified=false. Separate05:29 UTC read-only reconciliation confirmed zero owned resources and disabled policy; original failed cleanupVerified=false remains unchanged. Prepared-container repair is not yet installed as either scheduled operator. The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling.",
-      "evidence_cutoff_at": "2026-10-15T05:29:39.557Z"
+      "limitation": "Full manual after-backup/restore passed for both environments and the repaired operator is installed. This does not establish a successful natural scheduled run of the new operator, real GitHub OAuth/member/webhook acceptance, current-authority reconciliation after restore (T-047), human usability or second-operator recovery. All original failed backup receipts remain unchanged.",
+      "evidence_cutoff_at": "2026-10-15T07:04:34.799429+00:00"
     },
     "last_production_rollout": {
       "same_as": "last_operator_rollout",
       "source": "938516ee632287569389a37a7044ac779c18802e",
       "at": "2026-10-15T03:31:43.661560+00:00",
-      "status": "deployed_scoped_acceptance_and_natural_sync_passed_after_backup_pending",
+      "status": "deployed_scoped_acceptance_natural_sync_restore_and_operator_passed",
       "scope": "Production public read-only acceptance; no production member browser/login session."
     },
     "last_staging_rollout": {
       "same_as": "last_operator_rollout",
       "source": "938516ee632287569389a37a7044ac779c18802e",
       "at": "2026-10-14T20:29:36.437007+00:00",
-      "status": "deployed_scoped_acceptance_backup_and_operator_passed"
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed"
     },
     "previous_production_rollout": {
       "source": "2bd62c256185f209dd936a8d811dc3c5d3b0d051",
@@ -1281,12 +1283,13 @@
     "last_rollout_backup_release_pins": {
       "staging": "938516ee632287569389a37a7044ac779c18802e",
       "production": "938516ee632287569389a37a7044ac779c18802e",
-      "wrapper_sha256": "7d503ea03ce78692c39068ba5eba9bce364b9a80093f521c5315f8c9d15b6d23",
-      "staging_wrapper_sha256": "c5f847422a1694698ea4332d7dfafa6f524f03cb3e3b7d5b91d8c53870ffad2b",
-      "at": "2026-10-15T04:15:10.512577+00:00",
+      "wrapper_sha256": "868886717771c6f9e99640d3231382ede73fd2c2aca42a50ffb9cdc7db006316",
+      "staging_wrapper_sha256": "59c060fde4ab99764335c5a82de77a66c6951c7eece814cb816f033fd3a641bb",
+      "production_wrapper_sha256": "9d346b1a53af5a40922ac4b5b159e8fccc210f26ba6f8ff666b47e85f5e0d6f0",
+      "at": "2026-10-15T07:04:34.799429+00:00",
       "operator_source": {
-        "staging": "938516ee632287569389a37a7044ac779c18802e",
-        "production": "938516ee632287569389a37a7044ac779c18802e"
+        "production": "938516ee632287569389a37a7044ac779c18802e",
+        "staging": "938516ee632287569389a37a7044ac779c18802e"
       },
       "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
       "selected_release_dispatcher_installed": true,
@@ -1294,10 +1297,15 @@
         "staging": true,
         "production": true
       },
-      "production_wrapper_sha256": "e0cbcbd70a42175900f06eb836475be15a65ed8d4512c5f55df4bf80b0b44461",
-      "adapter_sha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
-      "production_status": "installed_pending_production_after_backup",
-      "production_after_backup_passed": false
+      "adapter_sha256_by_environment": {
+        "production": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+        "staging": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a"
+      },
+      "production_status": "installed_after_full_restore_natural_schedule_unobserved",
+      "production_after_backup_passed": true,
+      "staging_after_backup_passed": true,
+      "installation_receipt_sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
+      "scheduled_run_of_new_operator_observed": false
     },
     "production_rollout_backups": [
       {
@@ -1892,6 +1900,24 @@
           "backup_succeeded": false
         },
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+      },
+      {
+        "label": "fresh complete after-backup with restored-fence and capture-window verification",
+        "set": "20c800a8-b0a8-4dc0-9d59-7392b2883370",
+        "status": "passed",
+        "source_release": "938516ee632287569389a37a7044ac779c18802e",
+        "operator_source": "938516ee632287569389a37a7044ac779c18802e",
+        "created_at": "2026-10-15T06:29:20.613Z",
+        "completed_at": "2026-10-15T06:46:10.722374+00:00",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "restored_schema166_floor": "passed",
+        "restored_coordinate_extension": "verified",
+        "durable_capture_window": "superset_window_safe",
+        "completion_receipt_sha256": "eb5194e791f17b614800c65c5e439d13cdcfd10dfc3590231475e8949ce24301",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
       }
     ],
     "staging_rollout_backups": [
@@ -2428,6 +2454,24 @@
           "backup_succeeded": false
         },
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+      },
+      {
+        "label": "fresh complete after-backup with restored-fence and capture-window verification",
+        "set": "8abd2a28-584e-49fc-b8ca-38a1bfd61f7a",
+        "status": "passed",
+        "source_release": "938516ee632287569389a37a7044ac779c18802e",
+        "operator_source": "938516ee632287569389a37a7044ac779c18802e",
+        "created_at": "2026-10-15T06:49:18.200Z",
+        "completed_at": "2026-10-15T07:02:30.842489+00:00",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "restored_schema166_floor": "passed",
+        "restored_coordinate_extension": "not_applicable",
+        "durable_capture_window": "superset_window_safe",
+        "completion_receipt_sha256": "1ed87c944767b0109f71c588f87a006f983a9608801b3fa6d6c4918920b38b5b",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
       }
     ],
     "scheduled_drill_source": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
@@ -2440,7 +2484,7 @@
       "Same-host isolated current-schema restore passed; a second authorized operator in a new environment is not yet accepted",
       "GC/OFF daily mode remains selected; retention executor and historical unsettled PUT remain open"
     ],
-    "operator_source_note": "Both runtimes938/schema166 passed scoped acceptance. Staging backup/restore and operator completed. Production before-set87ec and confirmed166 reconciliation remain valid. After-sets480cd/28c818 and scheduled19f7e10e failed and have separate zero-owned-resource cleanup receipts; original failures remain. At04:15 UTC production dispatcher was reversibly advanced to the original canonical166 adapter with explicit pending-after-backup status, preserving staging/timers and runtime backup/restore/cleanup checks. This configuration repair is not a successful production after-backup or restored-coordinate-fence verification. The latest existing timer run is recorded as failed; historical scheduled-run observations are retained separately. Later staging timer setfc39f036 failed capture at04:59 UTC and was separately reconciled at05:04 UTC. Production one-shot prepared-container sete021ebfc captured and remotely read back its set but failed during restore; separate05:29 UTC reconciliation confirmed zero owned resources, absent owned volume, disabled policy and retained47-reference pins. Original cleanupVerified=false remains unchanged and restore is unverified. Staging equivalent is prepared only. Neither repaired adapter is installed; original staging release restore evidence remains valid.",
+    "operator_source_note": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938. Both restored environments retain quarantine and reject pre166 rollback. Successful restore does not close T-047. Production uses five exact reviewed PG18 deparser variants plus five unchanged definitions; original SQL/floor/live checks are preserved, without generic normalization.",
     "current_operator_scheduled_run": {
       "observed_at": "2026-10-15T05:04:48.356Z",
       "trigger": "existing staging systemd timer; no manual restart",
@@ -2466,7 +2510,7 @@
         "backup_succeeded": false
       },
       "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "limitation": "Latest scheduled capture failed. Cleanup is independently reconciled; earlier staging release restore remains passed. Production one-shot repair attempt and prepared staging repair are tracked separately and do not establish scheduled reliability."
+      "limitation": "This is the latest observed scheduled run of the prior dispatcher, and its capture failure remains unchanged. Fresh manual production20c800a8 and staging8abd2a28 passed; the repaired dispatcher was installed07:04 UTC. Its next natural scheduled run is not yet observed; installation is not scheduled reliability evidence."
     },
     "rollback": {
       "current_schema": {

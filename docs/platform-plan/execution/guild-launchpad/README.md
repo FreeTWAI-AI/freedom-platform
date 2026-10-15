@@ -8,7 +8,7 @@
 
 <!-- glp-status: as_of=2026-10-12 release.production=938516ee632287569389a37a7044ac779c18802e release.staging=938516ee632287569389a37a7044ac779c18802e flag.production=true flag.staging=true repo_max_migration=167 applied_migration.production=166 applied_migration.staging=166 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-截至 2026-10-15 05:29:39.557 UTC，staging 與 production 均已部署 `938516ee`，schema166／165 筆 ledger。公開入口檢查與 production 自然排程的 21 個 FreeTWAI repository 同步已通過；未執行真人會員登入、GitHub OAuth 或 webhook 驗收。staging 先前發布後備份已完整還原通過，但其後排程擷取失敗；production 最新發布後備份已完成擷取及遠端讀回，還原仍未驗證。兩次後續失敗的原收據均保留，自有資源另經唯讀對帳確認清除。詳見[本輪發布收據](../unified-foundation/rollout-security-2026-10-14.json)與[現況快照](../unified-foundation/current-state.json)。
+截至 2026-10-15 07:04:34.799 UTC，staging 與 production 仍為 `938516ee`，schema166／165 筆 ledger。公開入口檢查與 production 自然排程的 21 個 FreeTWAI repository 同步已通過；未執行真人會員登入、GitHub OAuth 或 webhook 驗收。production 新備份 `20c800a8` 與 staging 新備份 `8abd2a28` 已完成遠端讀回、隔離 DB＋物件還原、schema166 floor、捕獲期間 GC 證據及清理；production 的10項還原座標約束也已核對通過。07:04 UTC 已安裝修正後的日常 dispatcher `86888671`，timer／service 未改，但新 operator 的自然排程尚未觀察。先前失敗備份及另行清理的原收據均保留，不以這次成功覆寫。詳見[本輪發布收據](../unified-foundation/rollout-security-2026-10-14.json)與[現況快照](../unified-foundation/current-state.json)。
 
 狀態行的 `as_of=2026-10-12` 保留公會功能、flag 與政策列的原觀察日期，沒有以本輪部署日期替代功能驗收。repository 的 migration167 尚未部署；M1／完整計畫仍未接受，真人易用性、非核心公會作者、T-047 與第二還原操作者仍待驗。以下各輪為歷史發布紀錄。
 
