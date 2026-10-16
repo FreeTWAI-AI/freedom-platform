@@ -68,6 +68,41 @@ async function uploaded(session:Session,extra:Record<string,unknown>={}){
  const r=await agent(`/skill-submissions/${draft.submission.submission_id}`,draft.upload_grant.token,payload(extra));assert.equal(r.status,200,JSON.stringify(r.data));
  return (await api(`/me/skill-submissions/${draft.submission.submission_id}`,session)).data;
 }
+
+for(const kind of ['key','grant'] as const)test(`agent ${kind} accepts case-insensitive Bearer schemes without changing credential bytes`,async()=>{
+ const owner=await login(),issued=await newKey(owner),idem=randomUUID();
+ // Fixed mixed-case credentials make accidental token lowercasing deterministic.
+ const key='fpk_'+Buffer.alloc(32,0x5a).toString('base64url'),grant='fpg_'+Buffer.alloc(32,0x3c).toString('base64url');
+ await pool.query('UPDATE skill_upload_keys SET token_hash=$2 WHERE key_id=$1',[issued.key.key_id,tokenHash(key)]);
+ let id:string|undefined,path='/skill-submissions',token=key;
+ const content=payload({title:'HTTP scheme 與原始憑證位元組'}),body=kind==='grant'?content:{};
+ if(kind==='grant'){
+  const draft=await agentDraft(key,idem);id=draft.submission.submission_id;path+=`/${id}`;token=grant;
+  await pool.query('UPDATE skill_submissions SET grant_hash=$2 WHERE submission_id=$1',[id,tokenHash(grant)]);
+ }
+ const forms=['bEaReR   ','bearer ','BEARER ','Bearer '];
+ for(const [index,scheme] of forms.entries()){
+  const result=await agent(path,null,body,{'Idempotency-Key':idem,Authorization:scheme+token});
+  assert.equal(result.status,kind==='key'?201:200,`${kind} scheme variant ${index}`);
+  if(kind==='key'){
+   const returned=result.data.submission.submission_id;
+   if(id===undefined)id=returned;else assert.equal(returned,id);
+   assert.equal(result.data.submission.status,'awaiting_upload');
+   if(index>0)assert.equal(result.data.upload_grant===null,true,'same command cannot disclose another grant');
+  }else{assert.equal(result.data.submission_id,id);assert.equal(result.data.status,'ready_for_review');}
+ }
+ const invalid=['Basic '+token,'BearerX '+token,'Bearer\t'+token,'Bearer'+token,'Bearer\u00a0'+token,'Bearer '+token.toLowerCase(),'Bearer '+token.slice(0,4).toUpperCase()+token.slice(4)];
+ for(const header of invalid){
+  const denied=await agent(path,null,body,{'Idempotency-Key':idem,Authorization:header});
+  assert.equal(denied.status,401);assert.equal(denied.data.code,kind==='key'?'upload_key_invalid':'upload_grant_invalid');
+ }
+ if(kind==='grant')assert.equal((await agent(`/skill-submissions/${randomUUID()}`,null,content,{Authorization:'bearer '+grant})).status,401);
+ const stored=(await pool.query('SELECT status,aggregate_version,payload FROM skill_submissions WHERE submission_id=$1 AND owner_ref=$2',[id,owner.user.user_id])).rows[0];
+ assert.equal(stored.status,kind==='key'?'awaiting_upload':'ready_for_review');assert.equal(Number(stored.aggregate_version),kind==='key'?1:2);
+ if(kind==='grant')assert.equal(stored.payload.title,content.title);else assert.equal(stored.payload,null);
+ assert.deepEqual((await pool.query('SELECT (SELECT count(*)::int FROM skill_submissions) AS drafts,(SELECT count(*)::int FROM skill_agent_receipts) AS receipts')).rows[0],{drafts:1,receipts:1});
+ await secretsAbsent(issued.token,key,grant);
+});
 test('own submission list refuses private drafts after a projection wait crosses session expiry',async()=>{
  const owner=await login(),other=await login(DEMO_USERS[1].email);
  const body={repository_url:'https://github.com/example/project',title:'未公開私人草稿',description:'只能由本人有效登入讀取。',relationship:'author'};
