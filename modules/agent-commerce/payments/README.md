@@ -71,7 +71,8 @@ for handed-off issued/superseded attempts in the cancellation transaction.
 
 `POST /pay/ecpay/return/{account_ref}` verifies independently and redirects to the
 stored order's payment-return URL. It records a browser hint and schedules a
-query, at most once per attempt per minute; it never changes an attempt, order or
+query, at most once per attempt per minute; a partial unique index retains only
+one browser hint per attempt even when the signed return is replayed; it never changes an attempt, order or
 inventory. The network limit still verifies and redirects but suppresses writes.
 Quarantine also suppresses writes. `GET /pay/ecpay/back/{attempt_id}` reads the
 stored store slug and redirects to its order without effects. Buyer summaries

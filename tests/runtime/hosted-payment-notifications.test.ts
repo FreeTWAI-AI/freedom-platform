@@ -500,13 +500,13 @@ for (const variant of ['member', 'buyer', 'foreign_origin', 'no_origin'] as cons
     assert.equal((await f.x.h.pool.query("SELECT due_at<=clock_timestamp() AS immediate FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1", [p.payment.attempt_ref])).rows[0].immediate, true);
     assert.equal((await f.x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [p.s.product.product_id])).rows[0].reserved, 5);
   });
-test('return query budget permits one schedule per attempt per minute and still records later hints', async () => {
+test('return query budget permits one schedule per attempt per minute and retains one hint', async () => {
   const p = await f.placed(), value = await body(p);
   assert.equal((await post(returnPath(p), value)).status, 303);
   const first = (await f.x.h.pool.query("SELECT updated_at::text,due_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1", [p.payment.attempt_ref])).rows[0];
   assert.equal((await post(returnPath(p), value)).status, 303);
   assert.deepEqual((await f.x.h.pool.query("SELECT updated_at::text,due_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1", [p.payment.attempt_ref])).rows[0], first);
-  assert.equal(await count('commerce_hosted_payment_events'), 2);
+  assert.equal(await count('commerce_hosted_payment_events'), 1);
   await f.x.h.pool.query("UPDATE auth_rate_limits SET window_start=clock_timestamp()-interval '61 seconds' WHERE bucket=$1", ['commerce:paymentReturnQuery:' + hashKey(p.payment.attempt_ref)]);
   assert.equal((await post(returnPath(p), value)).status, 303);
   assert.notEqual((await f.x.h.pool.query("SELECT updated_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1", [p.payment.attempt_ref])).rows[0].updated_at, first.updated_at);
@@ -881,4 +881,15 @@ test('review 10: notification locks its account before the credential and inbox 
   assert(account >= 0, 'account KEY SHARE must precede the credential lock');
   assert(credential > account, 'credential lock must follow the account lock');
   assert(inbox > credential, 'inbox FK must follow both account and credential locks');
+});
+
+
+test('review 11: replayed verified browser returns retain one hint and the same redirect', async () => {
+  const p = await f.placed(), value = await body(p);
+  const first = await post(returnPath(p), value), second = await post(returnPath(p), value);
+  for (const result of [first, second]) {
+    assert.equal(result.status, 303);
+    assert.equal(result.response.headers.get('Location'), `/shops/${p.s.slug}/payment-return/${p.payment.attempt_ref}`);
+  }
+  assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_hosted_payment_events WHERE attempt_id=$1 AND source='browser_return'", [p.payment.attempt_ref])).rows[0].n, 1);
 });

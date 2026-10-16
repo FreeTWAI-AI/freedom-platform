@@ -514,6 +514,8 @@ $$;
 CREATE TRIGGER check_commerce_hosted_payment_events_account BEFORE INSERT ON commerce_hosted_payment_events
   FOR EACH ROW EXECUTE FUNCTION check_commerce_hosted_payment_events_account();
 CREATE UNIQUE INDEX commerce_hosted_payment_events_dedupe ON commerce_hosted_payment_events(account_id,dedupe_key) WHERE dedupe_key IS NOT NULL;
+-- A browser return is only an existence hint, retained once per attempt.
+CREATE UNIQUE INDEX commerce_hosted_payment_events_browser_return ON commerce_hosted_payment_events(attempt_id) WHERE source='browser_return';
 CREATE INDEX commerce_hosted_payment_events_account ON commerce_hosted_payment_events(account_id,received_at,event_id);
 CREATE INDEX commerce_hosted_payment_events_attempt ON commerce_hosted_payment_events(attempt_id,received_at,event_id);
 CREATE INDEX commerce_hosted_payment_events_store ON commerce_hosted_payment_events(tenant_id,instance_id);

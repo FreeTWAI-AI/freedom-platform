@@ -31,7 +31,8 @@ export function recordPaymentBrowserReturn(pool: Pool, input: {
     // deferred inbox FK must not acquire this lock for the first time at commit.
     await q.query('SELECT 1 FROM commerce_payment_attempts WHERE attempt_id=$1 FOR KEY SHARE', [input.attemptId]);
     await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,merchant_trade_no,credential_version,body_sha256,received_at,applied_at)
-      SELECT $1,$2,$3,$4,'browser_return','returned',$5,$6,$7,t,t FROM (SELECT clock_timestamp() t) n`, [a.tenant_id, a.instance_id, a.account_id, input.attemptId, input.merchantTradeNo, input.credentialVersion, createHash('sha256').update(input.body).digest('hex')]);
+      SELECT $1,$2,$3,$4,'browser_return','returned',$5,$6,$7,t,t FROM (SELECT clock_timestamp() t) n
+      ON CONFLICT(attempt_id) WHERE source='browser_return' DO NOTHING`, [a.tenant_id, a.instance_id, a.account_id, input.attemptId, input.merchantTradeNo, input.credentialVersion, createHash('sha256').update(input.body).digest('hex')]);
     if (input.scheduleQuery)
       await scheduleDueWork(q, { tenantId: a.tenant_id, instanceId: a.instance_id, kind: 'payment_query', targetId: input.attemptId, dueAt: (await q.query('SELECT clock_timestamp()::text AS t')).rows[0].t });
   });
