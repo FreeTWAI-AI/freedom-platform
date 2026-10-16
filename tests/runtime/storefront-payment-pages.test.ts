@@ -743,3 +743,27 @@ test('store name with HTML characters is escaped in title, header and data attri
 
   assert.deepEqual(await tableCounts(), before);
 });
+
+import {
+  orderEmailNote,
+  type PaymentView,
+} from '../../apps/portal-web/src/storefront/payment-view.js';
+
+test('orderEmailNote returns the off copy for every PaymentView and the pre-payment copy only for allowlisted views when on', () => {
+  const offCopy = '這間店目前不寄確認信，請用這個瀏覽器回到訂單，或聯絡店家。';
+  const onCopy = '付款確認後，訂單成立信會寄到你填寫的 Email。';
+  const prePaymentViews: readonly PaymentView[] = ['ready', 'awaiting', 'checking', 'failed', 'expired'];
+  const postOrTerminalViews: readonly PaymentView[] = ['paid', 'review', 'closed'];
+
+  for (const view of [...prePaymentViews, ...postOrTerminalViews]) {
+    assert.equal(orderEmailNote(view, false), offCopy, `expected off copy for ${view}`);
+  }
+  for (const view of prePaymentViews) {
+    assert.equal(orderEmailNote(view, true), onCopy, `expected on copy for ${view}`);
+  }
+  for (const view of postOrTerminalViews) {
+    assert.equal(orderEmailNote(view, true), null, `expected null for ${view} when on`);
+  }
+  assert.equal(orderEmailNote('refunded' as unknown as PaymentView, false), offCopy);
+  assert.equal(orderEmailNote('refunded' as unknown as PaymentView, true), null);
+});

@@ -542,3 +542,28 @@ test('Worker retains its injected query transport and awaits all after-response 
   });
   assert(logged.includes('commerce_after_response_failed'));assert(!logged.some(line=>line.includes('private_query_material')));
 });
+
+test('Worker commerce email requires EMAIL and COMMERCE_JOURNAL before opening a pool and installs sender/journal/outbox only when enabled', async () => {
+  const EMAIL = { send: async () => { throw new Error('unexpected I/O'); } };
+  const COMMERCE_JOURNAL = { put() { throw new Error('unexpected I/O'); }, get() { throw new Error('unexpected I/O'); } };
+  for (const invalid of [
+    env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', COMMERCE_JOURNAL } as any),
+    env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', EMAIL } as any),
+    env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'invalid', EMAIL, COMMERCE_JOURNAL } as any),
+  ]) {
+    const h = harness();
+    const { result } = await quietly(() => h.fetch('http://127.0.0.1:8787/api/v1/health', invalid));
+    assert.equal(result.status, 503);
+    assert.equal(h.pools.length, 0);
+  }
+  const offEnv = env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'false', EMAIL, COMMERCE_JOURNAL } as any);
+  const offRuntime = workerRuntime(offEnv, readWorkerConfig(offEnv));
+  assert.equal(offRuntime.commerceEmailSender, undefined);
+  assert.equal(offRuntime.commercePorts?.email, undefined);
+
+  const onEnv = env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', EMAIL, COMMERCE_JOURNAL } as any);
+  const onRuntime = workerRuntime(onEnv, readWorkerConfig(onEnv));
+  assert.equal(typeof onRuntime.commerceEmailSender?.send, 'function');
+  assert.equal(typeof onRuntime.commerceJournal?.append, 'function');
+  assert.equal(typeof onRuntime.commercePorts?.email?.queue, 'function');
+});

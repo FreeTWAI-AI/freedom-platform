@@ -252,3 +252,45 @@ test('review 9: a poison control event does not block the next journal row', asy
     } finally { console.error = original; }
   } finally { await x.stop(); }
 });
+
+test('email_send journal records encode order_id and template purpose without personal data', () => {
+  const id = randomUUID(), tenantId = randomUUID(), instanceId = randomUUID(), orderId = randomUUID();
+  for (const purpose of ['order_confirmed', 'paid_unallocatable', 'order_access'] as const) {
+    const r: EffectRecord = {
+      environment: 'local',
+      kind: 'email_send',
+      id,
+      occurred_at: '2026-10-16T08:00:00.000Z',
+      tenant_id: tenantId,
+      instance_id: instanceId,
+      detail: { order_id: orderId, purpose },
+    };
+    const encoded = encodeEffectRecord(r, 'local');
+    assert.equal(encoded.key, `local/2026/10/16/email_send/${id}`);
+    assert.deepEqual(JSON.parse(encoded.body), {
+      detail: { order_id: orderId, purpose },
+      environment: 'local',
+      id,
+      instance_id: instanceId,
+      kind: 'email_send',
+      occurred_at: '2026-10-16T08:00:00.000Z',
+      tenant_id: tenantId,
+    });
+  }
+  assert.throws(
+    () =>
+      encodeEffectRecord(
+        {
+          environment: 'local',
+          kind: 'email_send',
+          id,
+          occurred_at: '2026-10-16T08:00:00.000Z',
+          tenant_id: tenantId,
+          instance_id: instanceId,
+          detail: { order_id: orderId, purpose: 'order_confirmed', to: 'buyer@example.test' } as any,
+        },
+        'local',
+      ),
+    { message: 'journal_unavailable' },
+  );
+});
