@@ -36,6 +36,17 @@ before(async () => {
 beforeEach(async () => { q = await x.h.pool.connect(); await q.query('BEGIN'); });
 afterEach(async () => { await q.query('ROLLBACK'); q.release(); });
 after(async () => x?.stop());
+test('payment table foreign keys have nonpartial lookup indexes', async () => {
+  const missing = await q.query(`SELECT conrelid::regclass::text AS table_name, conname
+    FROM pg_constraint c
+    WHERE contype='f' AND conrelid=ANY(ARRAY[
+      'commerce_payment_attempts'::regclass, 'commerce_hosted_payment_events'::regclass,
+      'commerce_due_work'::regclass, 'commerce_exception_cases'::regclass])
+      AND NOT EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid=c.conrelid
+        AND i.indisvalid AND i.indpred IS NULL AND i.indkey[0]=c.conkey[1])
+    ORDER BY table_name, conname`);
+  assert.deepEqual(missing.rows, []);
+});
 async function insert(table: string, row: Record<string, unknown>) {
   const names = Object.keys(row);
   return (await q.query(`INSERT INTO ${table}(${names.join(',')}) VALUES(${names.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING *`, Object.values(row))).rows[0];
