@@ -12,7 +12,9 @@
     "apps/platform-api/src/routes/commerce-admissions.ts",
     "tests/runtime/commerce-store-admissions.test.ts",
     "tests/runtime/commerce-email-templates.test.ts",
-    "tests/runtime/commerce-effect-journal.test.ts"
+    "tests/runtime/commerce-effect-journal.test.ts",
+    "tests/runtime/commerce-email-outbox.test.ts",
+    "tests/runtime/commerce-email-delivery.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/operations/runtime-settings.ts"
