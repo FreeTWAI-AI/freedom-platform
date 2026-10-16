@@ -26,6 +26,8 @@ test('AI-first shops download complete MD, preview/import files, select catalog 
  await expect(page.getByLabel('商品名稱',{exact:true})).toHaveCount(0);
  const waiting=page.waitForEvent('download');await page.getByRole('button',{name:'下載內部商店 MD',exact:true}).click();const d=await waiting;
  const md=await readFile((await d.path())!,'utf8');for(const marker of ['freedom-shop/v1','shop-api/v1','delivery_ref'])expect(md).toContain(marker);
+ const internalInstructions=(await readFile(new URL('../../packages/shop-agent/internal.md',import.meta.url),'utf8')).trim();
+ expect(internalInstructions).not.toBe('');expect(md).toContain(internalInstructions);
  await upload(page,productManifest);await expect(page.getByRole('heading',{name:'確認這次成果：AI 整理的內部茶店',exact:true})).toBeVisible();
  await expect(page.getByRole('region',{name:'我的內部商店',exact:true}).getByRole('article')).toHaveCount(0);
  await page.getByRole('button',{name:'確認並歸檔',exact:true}).click();const privateShop=page.getByRole('region',{name:'我的內部商店',exact:true}).getByRole('article').filter({has:page.getByRole('heading',{name:productManifest.name,exact:true})});await expect(privateShop).toBeVisible();
@@ -40,6 +42,8 @@ test('AI-first shops download complete MD, preview/import files, select catalog 
  await page.getByRole('region',{name:'挑選這次想賣的商品',exact:true}).getByLabel('搜尋商品',{exact:true}).fill('AI 茶葉目錄');
  await page.getByLabel('選入「AI 茶葉目錄」',{exact:true}).check();
  const publicDownload=page.waitForEvent('download');await page.getByRole('button',{name:'下載公開商店 MD',exact:true}).click();const pd=await publicDownload,publicMd=await readFile((await pd.path())!,'utf8');expect(publicMd).toContain('AI 茶葉目錄');expect(publicMd).not.toContain('https://private.example.com');
+ const publicInstructions=(await readFile(new URL('../../packages/shop-agent/public.md',import.meta.url),'utf8')).trim();
+ expect(publicInstructions).not.toBe('');expect(publicMd).toContain(publicInstructions);
  const catalog=await page.request.get('/api/v1/commerce/catalog'),item=(await catalog.json()).items.find((i:any)=>i.title==='AI 茶葉目錄');
  const manifest={schema:'freedom-shop/v1',kind:'public',name:'AI 公開選物店',description:'合成測試商店',website_url:'https://public.example.com',contact:'合成客服',currency:'TWD',selections:[{item_id:item.item_id,retail_price_minor:50000,sale_terms:'含運售價'}]};
  await upload(page,manifest);await page.getByRole('button',{name:'取消',exact:true}).click();await expect(page.getByRole('heading',{name:'AI 公開選物店',exact:true})).toHaveCount(0);
@@ -89,9 +93,11 @@ for(const kind of ['internal','public'] as const)test(`${kind} shop layout keeps
   if(selection){await expect(selection).toBeVisible();await expect(selection).toBeEnabled();}
   const layout=await card.evaluate(el=>{
    const main=document.querySelector('.workspace-main')!.getBoundingClientRect(),panel=document.querySelector('.agent-shops')!.getBoundingClientRect(),card=el.getBoundingClientRect();
+   const measure=(control:HTMLElement)=>{const rect=control.getBoundingClientRect();return {left:rect.left,right:rect.right,width:rect.width,height:rect.height,clipped:control.scrollWidth>control.clientWidth+1};};
    return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,main:{left:main.left,right:main.right},panel:{left:panel.left,right:panel.right},card:{left:card.left,right:card.right},
     products:Array.from(document.querySelectorAll('.shop-catalog .shop-product'),product=>{const rect=product.getBoundingClientRect();return {left:rect.left,right:rect.right};}),
-    controls:Array.from(el.querySelectorAll<HTMLElement>('.shop-card-actions > .btn'),control=>{const rect=control.getBoundingClientRect();return {left:rect.left,right:rect.right,width:rect.width,height:rect.height,clipped:control.scrollWidth>control.clientWidth+1};})};
+    controls:Array.from(el.querySelectorAll<HTMLElement>('.shop-card-actions > .btn'),measure),
+    selectionControls:Array.from(document.querySelectorAll<HTMLInputElement>('.shop-catalog input[type="checkbox"]'),input=>input.labels?.[0]?measure(input.labels[0]):null)};
   });
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewport);
   expect(layout.panel.left).toBeGreaterThanOrEqual(layout.main.left);expect(layout.panel.right).toBeLessThanOrEqual(layout.main.right);
@@ -100,6 +106,12 @@ for(const kind of ['internal','public'] as const)test(`${kind} shop layout keeps
   for(const control of layout.controls){
    expect(control.left).toBeGreaterThanOrEqual(layout.card.left);expect(control.right).toBeLessThanOrEqual(layout.card.right);
    expect(control.width).toBeGreaterThanOrEqual(44);expect(control.height).toBeGreaterThanOrEqual(44);expect(control.clipped).toBe(false);
+  }
+  if(selection)expect(layout.selectionControls.length).toBeGreaterThan(0);
+  for(const control of layout.selectionControls){
+   expect(control,'each product selector has an associated click target').not.toBeNull();
+   expect(control!.left).toBeGreaterThanOrEqual(layout.panel.left);expect(control!.right).toBeLessThanOrEqual(layout.panel.right);
+   expect(control!.width).toBeGreaterThanOrEqual(44);expect(control!.height).toBeGreaterThanOrEqual(44);expect(control!.clipped).toBe(false);
   }
   await page.evaluate(()=>window.scrollTo({top:0,left:0,behavior:'instant'}));
   await page.screenshot({path:`test-results/agent-layout-${kind}-${width}.png`,fullPage:true});
@@ -157,6 +169,9 @@ test('both shop page guides open and close without clipping on phone',async({pag
   await navigate(page,title);await openPageTools(page); await page.getByRole('button',{name:'頁面說明',exact:true}).click();
   const guide=page.getByRole('dialog',{name:`${title}：頁面說明`,exact:true});
   await expect(guide).toBeVisible();
+  const summary=guide.locator('.page-tools-lead'),steps=guide.locator('.page-tools-help-steps li');
+  await expect(summary).toBeVisible();await expect(summary).toHaveText(/\S/);await expect(steps.first()).toBeVisible();
+  for(const step of await steps.all()){await expect(step).toBeVisible();await expect(step).toHaveText(/\S/);}
   expect(await guide.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
   await page.screenshot({path:`test-results/agent-guide-${title}.png`,fullPage:true});
   await page.keyboard.press('Escape');await expect(guide).toHaveCount(0);
