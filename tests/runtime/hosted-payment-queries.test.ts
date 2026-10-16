@@ -223,12 +223,24 @@ describe('payment query engine',()=>{
   });
   test('HTTP 403 throttles payment queries on that account without advancing failure count',async()=>{
     const p=await handed(await f.placed()),now=new Date();
+    await f.x.tx(async q=>{
+      await bindStore(q,p.s.tenantId);
+      for(const [purpose,profile] of [['logistics','ecpay.logistics.domestic.v1'],['invoice','ecpay.invoice.b2c.v1']] as const){
+        const sealed=sealCredential(f.ring,{account_id:p.provider.accountId,purpose,environment:'sandbox',credential_version:1},{hash_key:randomBytes(8).toString('hex'),hash_iv:randomBytes(8).toString('hex')});
+        await q.query(`INSERT INTO commerce_provider_account_services(account_id,purpose,tenant_id,instance_id,environment,profile,credential_version)
+          SELECT account_id,$2,tenant_id,instance_id,environment,$3,1 FROM commerce_provider_accounts WHERE account_id=$1`,[p.provider.accountId,purpose,profile]);
+        await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
+          SELECT account_id,$2,1,tenant_id,instance_id,environment,$3,$4,created_by_principal_id FROM commerce_provider_accounts WHERE account_id=$1`,[p.provider.accountId,purpose,sealed.key_id,sealed.sealed]);
+      }
+    });
+    const untouched=(await f.x.h.pool.query("SELECT * FROM commerce_provider_account_services WHERE account_id=$1 AND purpose<>'payment' ORDER BY purpose",[p.provider.accountId])).rows;
     await f.x.h.pool.query("UPDATE commerce_due_work SET failure_count=2 WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref]);
     const d=deps(async()=>({kind:'response',status:403,body:''}),{now:()=>now});
     assert.equal((await queryAttempt(f.x.runtime,p.payment.attempt_ref,d,'buyer')).status,'http_403');
     let a=await facts(p);assert.equal(a.due.failure_count,2);assert.equal(a.due.due_at.getTime(),now.getTime()+30*60_000);
     assert.equal((await queryAttempt(f.x.runtime,p.payment.attempt_ref,d,'buyer')).status,'throttled');
     a=await facts(p);assert.equal(a.due.failure_count,2);assert.equal(a.due.last_error,'throttled');assert.equal(a.events.length,0);
+    assert.deepEqual((await f.x.h.pool.query("SELECT * FROM commerce_provider_account_services WHERE account_id=$1 AND purpose<>'payment' ORDER BY purpose",[p.provider.accountId])).rows,untouched);
     const other=await handed(await f.placed());assert.equal((await run(other,{TradeStatus:'0'})).status,'unpaid');
   });
   for(const refusal of ['unhanded','keyring','environment','inactive','quarantine'] as const)test(`${refusal} makes no provider call`,async()=>{
@@ -237,6 +249,26 @@ describe('payment query engine',()=>{
     let calls=0;const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{calls++;throw Error('must not call');},
       refusal==='keyring'?{keyring:null}:refusal==='environment'?{freedomEnv:'public'}:refusal==='quarantine'?{quarantine:true}:{}),'buyer');
     assert.equal(calls,0);assert.equal(result.externalCalls,0);assert.equal(result.status,refusal==='keyring'?'keyring_unavailable':refusal==='environment'?'environment_mismatch':refusal==='inactive'?'tenant_inactive':'skipped');
+  });
+  test('an unhanded scheduled run increments runs without a provider timestamp or failure',async()=>{
+    const p=await f.placed(),a=(await facts(p)).attempt;
+    const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{throw Error('must_not_call');},{now:()=>new Date(a.created_at.getTime()+600_000)}),'schedule');
+    assert.equal(result.externalCalls,0);const current=await facts(p);assert.equal(current.due.attempts,1);assert.equal(current.due.failure_count,0);assert.equal(current.due.last_query_at,null);assert.equal(current.due.due_at.getTime(),a.created_at.getTime()+1200_000);
+  });
+  test('an unusable host keyring backs off without a query or retained key material',async()=>{
+    const p=await handed(await f.placed());let calls=0;
+    const {CommerceCredentialKeyring}=await import('../../modules/agent-commerce/payments/credentials.js');
+    const ring=CommerceCredentialKeyring.parse('wrong:'+randomBytes(32).toString('base64'))!;
+    const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{calls++;throw Error('must_not_call');},{keyring:ring}),'buyer');
+    assert.equal(result.status,'credential_unavailable');assert.equal(calls,0);const current=await facts(p);assert.equal(current.due.failure_count,1);assert.equal(current.due.last_error,'credential_unavailable');assert.equal(current.events.length,0);
+  });
+  test('an inactive instance refuses machine queries without an HTTP error or external call',async()=>{
+    const p=await handed(await f.placed());await f.x.h.pool.query("UPDATE module_instances SET status='suspended' WHERE instance_id=$1",[p.s.instanceId]);
+    const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{throw Error('must_not_call');}),'schedule');assert.equal(result.status,'tenant_inactive');assert.equal(result.externalCalls,0);assert.equal((await facts(p)).due.last_error,'tenant_inactive');
+  });
+  for(const state of ['suspended','retired'] as const)test(`queries reconcile a ${state} service and an unlisted profile`,async()=>{
+    const p=await handed(await f.placed());await f.x.h.pool.query("UPDATE commerce_provider_account_services SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'",[p.provider.accountId,state]);f.settings.providerProfiles=[];
+    assert.equal((await run(p)).status,'paid');assert.equal((await facts(p)).attempt.state,'confirmed');
   });
   async function setState(p:Placed,state:string){
     if(state==='issued')return;

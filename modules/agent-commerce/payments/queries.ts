@@ -57,7 +57,10 @@ export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryD
       return {run:{status:'query_in_progress',externalCalls:0} as PaymentQueryRun};
     const due=await paymentQueryDueAt(q,a,now,row?.failure_count??0);
     if(!due || !a.handed_off_at) {
-      if(row)await updateSchedule(q,a,row,now,null,row.failure_count);
+      if(row){
+        if(due&&!a.handed_off_at)await q.query('UPDATE commerce_due_work SET attempts=attempts+1 WHERE due_work_id=$1',[row.due_work_id]);
+        await updateSchedule(q,a,row,now,null,row.failure_count);
+      }
       return {run:{status:'skipped',externalCalls:0} as PaymentQueryRun};
     }
     if(!row)row=(await q.query<DueRow>(`INSERT INTO commerce_due_work(tenant_id,instance_id,kind,target_id,due_at)

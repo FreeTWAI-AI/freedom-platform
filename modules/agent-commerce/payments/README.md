@@ -306,4 +306,3 @@ Unapplied refunds never alter order invoice documents.
 
 ### Database Trigger Invariant
 These pure rules form the application-level validator. In M2, the PostgreSQL database trigger on `commerce_refund_lines` strictly repeats these hard invariants (multiples of `u`, sum matches refund amount, line amount ≤ `L`, line quantity ≤ `Q`, group shipping ≤ `F`, attempt balance not exceeded) under transaction row locks.
-

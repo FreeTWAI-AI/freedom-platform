@@ -41,7 +41,8 @@ Their immutable detail excludes credential fields, fingerprints, routing refs
 and request bodies. `flushControlEvents(pool, journal, {eventIds?, limit})`
 appends control.<kind> outside a database transaction, then fills journaled_at
 once. Account and admission routes try it after commit, preserving the command
-response on failure and logging only a fixed name. The scheduler backfills
+response on failure and logging only a fixed name. Activation-payment routes do
+not flush; their confirmation control event waits for the scheduled pass. The scheduler backfills
 unjournaled rows independently. Each failed row logs only its event ID and a fixed
 reason, then later rows continue. Flush returns written/failed counts; a poison
 record remains available for a later retry without blocking unrelated controls. Payment handoff requires its own journal append

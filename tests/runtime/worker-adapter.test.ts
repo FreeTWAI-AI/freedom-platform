@@ -525,3 +525,20 @@ test('real database: default Worker scope sends avatar uploads through this requ
   assert.equal(meta.format, 'webp'); assert.equal(meta.width, 256); assert.equal(meta.height, 256);
   await Promise.all(pending); await Promise.all(pools.map(p => p.end().catch(() => undefined)));
 });
+test('Worker retains its injected query transport and awaits all after-response tasks before ending the pool',async()=>{
+  const {createFixtureQueryTransport}=await import('../../modules/agent-commerce/payments/query-transport.js');
+  const transport=createFixtureQueryTransport(async()=>{throw Error('must_not_call');},'local'),pool=fakePool(),pending:Promise<unknown>[]=[];
+  let release!:()=>void;const unfinished=new Promise<void>(resolve=>{release=resolve;});
+  const handler=createWorkerHandler({createPool:()=>pool as unknown as Pool,commerceQueryTransport:transport,createApp:((_pool,_origin,_environment,runtime)=>{
+    const app=new Hono<import('../../apps/platform-api/src/module-context.js').PlatformEnv>();app.get('/background',c=>{
+      assert.equal(runtime.commerceQueryTransport,transport);
+      runtime.afterResponse!(async()=>{throw Error('private_query_material');});runtime.afterResponse!(async()=>{await unfinished;});return c.text('committed');
+    });return app;
+  }) as NonNullable<Parameters<typeof createWorkerHandler>[0]>['createApp']});
+  const {logged}=await quietly(async()=>{
+    const response=await handler.fetch(new Request('http://127.0.0.1:8787/background'),env(),{waitUntil:work=>{pending.push(work);}});
+    assert.equal(response.status,200);assert.equal(await response.text(),'committed');await Promise.resolve();assert.equal(pool.state.ended,0);
+    release();await Promise.all(pending);assert.equal(pool.state.ended,1);
+  });
+  assert(logged.includes('commerce_after_response_failed'));assert(!logged.some(line=>line.includes('private_query_material')));
+});
