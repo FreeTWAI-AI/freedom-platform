@@ -51,10 +51,13 @@ key using `freedom.commerce-credential-fingerprint.v1`; the fingerprint binds
 account, purpose, profile and all supplied credential fields. Replaying with
 changed secrets **or after a keyring rotation** returns 409 idempotency conflict.
 
-Rotate by prepending a new key, running `resealProviderCredentials` inside a
-caller-owned transaction with tenant context, then removing old online keys when
-all retained credentials have been resealed. Keep retired keys offline through
-the backup retention period so historical backups remain recoverable.
+A new sealing key can be prepended while retaining every installed key.
+`resealProviderCredentials` is an internal function; no operator route, CLI or
+job exists yet. Under the runtime role, one call reseals at most `limit` rows of
+the tenant bound in the caller-owned transaction only. Until an operator
+procedure exists, do not remove any online key: rows still sealed with it would
+become unreadable. Keep retired keys offline through the backup retention period
+so historical backups remain recoverable.
 
 Machine entry routes are non-PII routing records without tenant RLS: callbacks
 must resolve the tenant before binding its context. Provider account refs encode

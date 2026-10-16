@@ -119,8 +119,10 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 未設定或空字串時，憑證寫入回 503，讀取仍可用。格式錯誤會使 Worker 就緒檢查與 Node 啟動失敗，
 錯誤訊息固定且不含設定值。Secret 不可寫進已提交的設定、日誌或 `--var`。
 
-輪替時把新金鑰放在第一組，在已授權交易中執行 `resealProviderCredentials`，確認所有保留紀錄
-都不再使用舊 id 後，才移除舊線上金鑰。退役金鑰仍須離線保留至備份保存期結束，見
+可把新金鑰放在第一組供新憑證使用，但須保留所有已安裝金鑰。`resealProviderCredentials`
+目前是內部函式，尚無供操作者使用的 route、CLI 或排程入口。在 runtime 角色下，一次呼叫只會
+重新封存呼叫者交易所綁定 tenant 的紀錄，最多 `limit` 列。操作者程序完成前，不可移除任何線上金鑰，
+否則仍以該金鑰封存的紀錄將無法讀取。退役金鑰仍須離線保留至備份保存期結束，見
 [EC-SPEC-10 §4.3](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#43-部署設定ted-操作)。
 金鑰環輪替會改變憑證寫入指紋，跨輪替重送會回 409；讀取目前帳戶版本後須使用新的命令識別碼。
 `FREEDOM_ENV` 決定 provider 環境：`local`／`staging` 使用 `sandbox`，`public` 使用 `live`。
