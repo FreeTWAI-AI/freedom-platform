@@ -63,11 +63,11 @@ function errorText(error: unknown) {
 type Preview = z.infer<typeof StorePreviewSchema>;
 const SupplierConsole = lazy(() => import('../../../../modules/agent-commerce/supplier-console/ui/SupplierConsole').then(m => ({default:m.SupplierConsole})));
 type RegisterLeave = (guard: ((nextHash:string|null) => boolean) | null) => void;
-export function HostedStore({client, enabled, locationHash, userId, registerLeave, photosEnabled=false, photoUploadsEnabled=false, consoleEnabled=false}: {consoleEnabled?:boolean;client: PortalClient; photosEnabled?:boolean;photoUploadsEnabled?:boolean;enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
+export function HostedStore({client, enabled, locationHash, userId, registerLeave, photosEnabled=false, photoUploadsEnabled=false, materialMediaEnabled=false, materialUploadsEnabled=false, consoleEnabled=false}: {materialMediaEnabled?:boolean;materialUploadsEnabled?:boolean;consoleEnabled?:boolean;client: PortalClient; photosEnabled?:boolean;photoUploadsEnabled?:boolean;enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
   const consoleRoute = parseSupplierConsoleRoute(locationHash);
   if (consoleEnabled && enabled && consoleRoute) {
     const key = `${userId}:${client.sessionGeneration}:${consoleRoute.tenantId}:${consoleRoute.instanceId}`;
-    return <PageLoadBoundary label="供應商營運中心" resetKey={key}><SupplierConsole key={key} client={client} userId={userId} route={consoleRoute} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/></PageLoadBoundary>;
+    return <PageLoadBoundary label="供應商營運中心" resetKey={key}><SupplierConsole key={key} client={client} userId={userId} route={consoleRoute} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled} materialMediaEnabled={materialMediaEnabled} materialUploadsEnabled={materialUploadsEnabled}/></PageLoadBoundary>;
   }
   const retained = sellerOrdersRoute(locationHash) ?? (!enabled ? sellerOrdersRoute(locationHash + '/orders') : null);
   if (retained?.supplier) return <HostedSupplierOrders key={`${userId}:${client.sessionGeneration}:${retained.tenantId}:${retained.instanceId}`} client={client} route={retained}/>;

@@ -414,3 +414,153 @@ test('SC-UI-S3-16 non-owner report omits all reservation rows and truncated part
  const html=renderPresentation(createElement(Reports,{c:reportController(readySlot(data))}));
  assert.ok(html.includes('只有業務空間擁有者可以查看預留。'));assert.ok(!html.includes('預留筆數'));assert.ok(!html.includes('>查看預留</a>'));assert.ok(!html.includes('預留供貨金額是數量'));assert.ok(html.includes('畫面只列前 200 間，CSV 列出全部店家。'));assert.ok(html.includes('下載 CSV'));
 });
+
+import {holdMaterialUpload,heldMaterialUpload,restoreMaterialUpload,releaseMaterialUpload,forgetRefusedMaterialUpload,materialAcknowledgement,materialUploadTargets,materialUploadBlocksLeaving,type MaterialUploadAttempt} from '../../modules/agent-commerce/supplier-console/state/material-upload';
+import {materialCapacityText,materialCapacityProblem,materialVersionSummary,materialTime,materialSubject,materialContentPath,sellableMaterialPartners} from '../../modules/agent-commerce/supplier-console/ui/view';
+import {materialFileProblem,sendMaterialUpload,MATERIAL_VIDEO_PROBLEM,MATERIAL_UPLOAD_UNKNOWN} from '../../modules/agent-commerce/supplier-console/ui/material-client';
+import {SupplyMaterialReceiptSchema,SupplyMaterialSchema,SupplyMaterialsSchema,SupplyMaterialDetailSchema,SupplyMaterialCreateInputSchema,type SupplyMaterialVersion,type SupplyMaterialDetail} from '../../contracts/guild-launchpad/v1/supplier-console';
+import {Materials} from '../../modules/agent-commerce/supplier-console/ui/pages/Materials';
+import {MaterialNew} from '../../modules/agent-commerce/supplier-console/ui/pages/MaterialNew';
+import {Material} from '../../modules/agent-commerce/supplier-console/ui/pages/Material';
+const uploadAttempt=(changes:Partial<MaterialUploadAttempt>={}):MaterialUploadAttempt=>Object.freeze({...scope,materialId:id,key:'material-original-key',expected:'9',file:new File(['original'],'image.png',{type:'image/png'}),hadUnknown:false,...changes});
+const materialReceipt={material_id:id,version:'10'};
+const materialVersion:SupplyMaterialVersion={version_id:other,version_no:1,created_at:asOf,content:{kind:'copy',body:'第一行\n第二行 <script>不要執行</script>'}};
+const materialFixture=()=>SupplyMaterialSchema.parse({material_id:id,kind:'copy',subject:{kind:'brand'},title:'品牌介紹',description:'合作素材',access:'partners',state:'active',version:'9',created_at:asOf,updated_at:asOf,withdrawn_at:null,current:materialVersion,version_count:1,active_grants:0});
+const capacityReady={state:'ready' as const,limit_bytes:100*1048576,used_bytes:24*1048576,reserved_bytes:1048576,remaining_bytes:75*1048576};
+const materialListFixture=()=>SupplyMaterialsSchema.parse({profile:'freedom.supplier-console.materials/v1',tenant_id:t,instance_id:i,as_of:asOf,capacity:capacityReady,active:1,total:1,items:[materialFixture()],truncated:false});
+const materialDetailFixture=():SupplyMaterialDetail=>SupplyMaterialDetailSchema.parse({profile:'freedom.supplier-console.material/v1',tenant_id:t,instance_id:i,as_of:asOf,material:materialFixture(),versions:[materialVersion],versions_truncated:false,grants:[],grants_truncated:false,partners:[],partners_truncated:false});
+function materialController(slots:Record<string,ReadSlot<unknown>>={},extra:Record<string,unknown>={}){return presentationController(slots,{client:new PortalClient(),userId:'member',root:`/tenants/${t}/storefronts/${i}`,route:parse(root+'/materials'),drafts:{},conflicts:{},materialStates:{},sectionStatus:{},phase:'idle',position:()=>({search:'',filter:'',sort:'sku',scroll:0,lastId:null}),...extra});}
+
+test('SC-UI-M3-01 materials list, create and detail routes round-trip and invalid forms stay not-found',()=>{
+ for(const [page,suffix] of [['materials','/materials'],['material-new','/materials/new'],['material','/materials/'+id]] as const){const path=href(scope,page,{id});assert.equal(path,root+suffix);assert.equal(parse(path)?.page,page);assert.equal(parse(path)?.titleKey,'supplierConsole.'+page);}
+ for(const suffix of ['/materials/bad','/materials/%2e%2e','/materials/'+id+'/content','/materials/new/extra','/materials/','/materials/'+id+'/'])assert.equal(parse(root+suffix)?.page,'not-found',suffix);
+ for(const page of ['material','material-new'] as const)assert.equal(SUPPLIER_CONSOLE_PAGES.find(p=>p.page===page)?.parent,'materials');
+});
+test('SC-UI-M3-02 materials navigation precedes reports and is hidden without store:write',()=>{
+ for(const owner of [true,false]){const pages=consoleNavigation(['store:read','store:write'],owner).map(p=>p.page);assert.equal(pages.indexOf('materials')+1,pages.indexOf('reports'));assert.ok(!consoleNavigation(['store:read'],owner).some(p=>p.page==='materials'));}
+ assert.equal(SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='materials')?.requires,'write');assert.equal(SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='materials')?.group,'管理');
+});
+test('SC-UI-M3-03 each material JSON attempt validates receipts, target acknowledgement and refresh reads',()=>{
+ for(const kind of ['material.create','material.update','material.copy','material.access','material.grant','material.revoke','material.withdraw'] as const){
+  const rule=ATTEMPT_KINDS[kind],a=attempt({kind,target:id});assert.equal(rule.schema,SupplyMaterialReceiptSchema);assert.equal(rule.ack,kind==='material.create'?null:'material_id');assert.deepEqual(rule.reads,['materials','material']);assert.equal(classifyCommandOutcome(a,{response:materialReceipt}).state,'success');
+  for(const response of [{material_id:id},{material_id:id,version:10},{...materialReceipt,unexpected:true}])assert.equal(classifyCommandOutcome(a,{response}).state,'unknown');
+  assert.equal(classifyCommandOutcome(a,{response:{material_id:other,version:'10'}}).state,kind==='material.create'?'success':'unknown');
+  const c={};holdAttempt(c,'member',a);markAttemptUnknown(c,'member',a);assert.equal(restoreAttempt(c,'member',scope),a);assert.equal(a.key,'test-key');assert.equal(a.ifMatch,'1');releaseAttempt(c,'member',a);
+ }
+});
+test('SC-UI-M3-04 binary registry isolates client, member, business and material and preserves the exact File',()=>{
+ const client={},a=uploadAttempt();holdMaterialUpload(client,'member',a);assert.equal(heldMaterialUpload(client,'member',a)?.file,a.file);
+ for(const [c,member,target] of [[{},'member',a],[client,'another',a],[client,'member',{...a,materialId:other}],[client,'member',{...a,tenantId:other}],[client,'member',{...a,instanceId:other}]] as const)assert.equal(heldMaterialUpload(c,member,target),null);
+ const b=uploadAttempt({materialId:other});holdMaterialUpload(client,'member',b);assert.deepEqual(materialUploadTargets(client,'member',scope),[id,other]);
+ assert.equal(releaseMaterialUpload(client,'member',{...a,key:'wrong'}),false);assert.equal(releaseMaterialUpload(client,'member',{...a,expected:'10'}),false);assert.equal(releaseMaterialUpload(client,'member',{...a,file:new File(['original'],'image.png',{type:'image/png'})}),false);
+ const restored=restoreMaterialUpload(client,'member',a)!;assert.equal(restored.hadUnknown,true);assert.equal(restored.file,a.file);assert.equal(restored.key,a.key);assert.equal(restored.expected,a.expected);
+ holdMaterialUpload(client,'member',a);assert.equal(heldMaterialUpload(client,'member',a)?.hadUnknown,true);assert.throws(()=>holdMaterialUpload(client,'member',{...a,key:'replacement'}));
+ assert.equal(forgetRefusedMaterialUpload(client,'member',a),false);assert.ok(heldMaterialUpload(client,'member',a));assert.equal(releaseMaterialUpload(client,'member',a),true);assert.equal(heldMaterialUpload(client,'member',a),null);assert.equal(forgetRefusedMaterialUpload(client,'member',b),true);assert.equal(materialUploadTargets(client,'member',scope).length,0);
+});
+test('SC-UI-M3-05 a held or restored material upload blocks leaving but allows internal console navigation',()=>{
+ const state={sending:false,held:false,photoBlocking:false,materialBlocking:true,dirty:true};
+ assert.equal(leaveDecision(root+'/materials/'+id,scope,state).allow,true);
+ for(const next of [null,'#home',href({tenantId:other,instanceId:i},'overview')]){const blocked=leaveDecision(next,scope,state);assert.equal(blocked.allow,false);assert.equal(blocked.confirm,false);assert.equal(blocked.message,'尚未確認原操作的結果，請按「重試」確認後再離開。');}
+ assert.equal(materialUploadBlocksLeaving(uploadAttempt()),true);assert.equal(materialUploadBlocksLeaving(uploadAttempt({hadUnknown:true})),true);assert.equal(materialUploadBlocksLeaving(null),false);
+});
+test('SC-UI-M3-06 beforeunload protects held files and releases its listener after the last matching release',()=>{
+ const previous=Object.getOwnPropertyDescriptor(globalThis,'window'),target=new EventTarget(),client={},a=uploadAttempt();
+ Object.defineProperty(globalThis,'window',{configurable:true,value:target});
+ try{holdMaterialUpload(client,'member',a);let event=new Event('beforeunload',{cancelable:true});target.dispatchEvent(event);assert.equal(event.defaultPrevented,true);releaseMaterialUpload(client,'member',a);event=new Event('beforeunload',{cancelable:true});target.dispatchEvent(event);assert.equal(event.defaultPrevented,false);}
+ finally{releaseMaterialUpload(client,'member',a);if(previous)Object.defineProperty(globalThis,'window',previous);else Reflect.deleteProperty(globalThis,'window');}
+});
+test('SC-UI-M3-07 upload receipt must name the exact material and expected+1 bigint version',()=>{
+ const a=uploadAttempt();assert.deepEqual(materialAcknowledgement(materialReceipt,a),materialReceipt);
+ for(const value of [{material_id:other,version:'10'},{material_id:id,version:'9'},{material_id:id,version:'11'},{material_id:id,version:10},{...materialReceipt,extra:true}])assert.equal(materialAcknowledgement(value,a),null);
+ assert.ok(materialAcknowledgement({material_id:id,version:'9007199254740994'},uploadAttempt({expected:'9007199254740993'})));
+});
+test('SC-UI-M3-08 upload sends the same raw File, key, CAS and CSRF and accepts only exact acknowledgement',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';const a=uploadAttempt();let calls=0;
+ const fetch=ctx.mock.method(globalThis,'fetch',async(input:RequestInfo|URL,init:RequestInit)=>{calls++;assert.equal(input,`/api/v1/tenants/${t}/storefronts/${i}/supply-materials/${id}/content`);assert.equal(init.body,a.file);assert.equal(init.method,'POST');assert.equal(init.credentials,'same-origin');assert.equal(init.redirect,'manual');const h=new Headers(init.headers);for(const [key,value] of [['Content-Type',a.file.type],['Idempotency-Key',a.key],['If-Match','"9"'],['X-CSRF-Token','session-a'],['X-Requested-With','XMLHttpRequest']])assert.equal(h.get(key),value);return Response.json(materialReceipt);});
+ assert.deepEqual(await sendMaterialUpload(client,a),materialReceipt);assert.deepEqual(await sendMaterialUpload(client,a),materialReceipt);assert.equal(calls,2);
+ for(const body of [{material_id:other,version:'10'},{material_id:id,version:'11'}]){fetch.mock.mockImplementation(async()=>Response.json(body));await assert.rejects(sendMaterialUpload(client,a),(e:unknown)=>e instanceof ApiError&&e.network&&e.message===MATERIAL_UPLOAD_UNKNOWN);}
+});
+test('SC-UI-M3-09 coded refusals keep server messages; malformed refusals and server errors are unknown',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';const a=uploadAttempt();const fetch=ctx.mock.method(globalThis,'fetch',async()=>Response.json({detail:'素材檔案上傳目前無法使用。',code:'material_upload_unavailable'},{status:503}));
+ await assert.rejects(sendMaterialUpload(client,a),(e:unknown)=>e instanceof ApiError&&e.network);
+ for(const [status,code,detail] of [[412,'version_conflict','素材已更新'],[415,'material_format','圖片請選擇 PNG、JPEG 或 WebP；影片請選擇 MP4 或 WebM。'],[429,'quota_exceeded','已達到這個業務空間的容量上限。']] as const){fetch.mock.mockImplementation(async()=>Response.json({detail,code},{status}));await assert.rejects(sendMaterialUpload(client,a),(e:unknown)=>e instanceof ApiError&&!e.network&&e.status===status&&e.code===code&&e.message===detail);}
+ fetch.mock.mockImplementation(async()=>Response.json({detail:'不完整拒絕'},{status:409}));await assert.rejects(sendMaterialUpload(client,a),(e:unknown)=>e instanceof ApiError&&e.network);
+});
+test('SC-UI-M3-10 session changes at fetch or response-body completion cannot update credentials or accept an upload',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';let unauthorized=0;client.onUnauthorized=()=>{unauthorized++;};
+ const fetch=ctx.mock.method(globalThis,'fetch',async()=>{client.csrfToken='session-b';return new Response('Access',{status:403});});
+ await assert.rejects(sendMaterialUpload(client,uploadAttempt()),(e:unknown)=>e instanceof ApiError&&e.network);assert.equal(client.csrfToken,'session-b');assert.equal(unauthorized,0);
+ let finish!:()=>void;const response=new Response(new ReadableStream({start(controller){finish=()=>{controller.enqueue(new TextEncoder().encode(JSON.stringify(materialReceipt)));controller.close();};}}),{headers:{'Content-Type':'application/json'}});
+ fetch.mock.mockImplementation(async()=>response);const pending=sendMaterialUpload(client,uploadAttempt());await new Promise(resolve=>setImmediate(resolve));client.csrfToken='session-c';finish();await assert.rejects(pending,(e:unknown)=>e instanceof ApiError&&e.network);assert.equal(unauthorized,0);
+});
+test('SC-UI-M3-11 Access expiry and JSON 401 preserve unknown outcomes and notify the current session',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';let unauthorized=0;client.onUnauthorized=()=>{unauthorized++;};
+ const fetch=ctx.mock.method(globalThis,'fetch',async()=>new Response('Access',{status:403}));await assert.rejects(sendMaterialUpload(client,uploadAttempt()),(e:unknown)=>e instanceof ApiError&&e.accessExpired);assert.equal(client.csrfToken,null);assert.equal(unauthorized,1);
+ client.csrfToken='session-b';fetch.mock.mockImplementation(async()=>Response.json({detail:'expired',code:'session_expired'},{status:401}));await assert.rejects(sendMaterialUpload(client,uploadAttempt()),(e:unknown)=>e instanceof ApiError&&e.status===401);assert.equal(client.csrfToken,null);assert.equal(unauthorized,2);
+});
+test('SC-UI-M3-12 stalled uploads time out as unknown and abort the transport',async ctx=>{
+ ctx.mock.timers.enable({apis:['setTimeout']});const client=new PortalClient();client.csrfToken='session-a';let signal:AbortSignal|null|undefined;
+ ctx.mock.method(globalThis,'fetch',async(_input:RequestInfo|URL,init:RequestInit)=>{signal=init.signal;return new Promise<Response>(()=>{});});const pending=sendMaterialUpload(client,uploadAttempt());ctx.mock.timers.tick(60_000);await assert.rejects(pending,(e:unknown)=>e instanceof ApiError&&e.network&&e.timedOut);assert.equal(signal?.aborted,true);
+});
+test('SC-UI-M3-13 shared capacity formats binary MB with one decimal and unavailable never means zero',()=>{
+ assert.equal(materialCapacityText(capacityReady),'業務空間已用 24.0 MB，處理中 1.0 MB，上限 100.0 MB，還可使用 75.0 MB。');
+ for(const c of [undefined,{state:'unavailable' as const}]){assert.equal(materialCapacityText(c),'目前無法讀取業務空間容量。');assert.ok(!materialCapacityText(c).includes('0'));assert.equal(materialCapacityProblem(c,'video'),null);}
+ assert.equal(materialCapacityProblem({...capacityReady,remaining_bytes:1048576},'image'),null);assert.match(materialCapacityProblem({...capacityReady,remaining_bytes:1048575},'image')!,/預留 1 MB/);assert.match(materialCapacityProblem({...capacityReady,remaining_bytes:20*1048576-1},'video')!,/預留 20 MB/);
+});
+test('SC-UI-M3-14 version summaries, subject labels, private paths and Taiwan times',()=>{
+ assert.equal(materialVersionSummary({...materialVersion,content:{kind:'image',width:1920,height:960,byte_size:1048576,content_type:'image/webp'}}),'1920×960・1.0 MB');assert.equal(materialVersionSummary({...materialVersion,content:{kind:'video',byte_size:20*1048576,content_type:'video/mp4'}}),'video/mp4・20.0 MB');
+ assert.equal(materialVersionSummary({...materialVersion,content:{kind:'copy',body:'字'.repeat(61)}}),'字'.repeat(60));assert.equal(materialVersionSummary(materialVersion),materialVersion.content.kind==='copy'?materialVersion.content.body:'');
+ assert.equal(materialSubject({kind:'brand'}),'品牌素材');assert.equal(materialSubject({kind:'product',product_id:other,sku:null,title:null}),'商品已移除');assert.equal(materialSubject({kind:'product',product_id:other,sku:'P0001',title:'茶杯'}),'商品 P0001・茶杯');assert.equal(materialContentPath(scope,id,other),`/api/v1/tenants/${t}/storefronts/${i}/supply-materials/${id}/versions/${other}/content`);assert.match(materialTime('2026-10-15T16:00:00Z'),/2026\/10\/16\s00:00:00/);
+});
+test('SC-UI-M3-15 bulk grant selection includes only ungranted sellable shops',()=>{
+ const partners=[{partner_id:id,name:'可售',cooperation:'sellable' as const,granted:false},{partner_id:other,name:'待確認',cooperation:'awaiting' as const,granted:false},{partner_id:t,name:'已授權',cooperation:'sellable' as const,granted:true}];assert.deepEqual(sellableMaterialPartners(partners),[id]);assert.deepEqual(sellableMaterialPartners([]),[]);assert.equal(partners[1].granted,false);
+});
+test('SC-UI-M3-16 image and video prechecks enforce exact source MIME, nonempty bytes and boundaries',()=>{
+ for(const type of ['video/mp4','video/webm']){assert.equal(materialFileProblem('video',{type,size:20*1048576}),null);for(const size of [0,20*1048576+1])assert.equal(materialFileProblem('video',{type,size}),MATERIAL_VIDEO_PROBLEM);}
+ for(const type of ['video/quicktime','image/png','application/octet-stream','VIDEO/MP4'])assert.equal(materialFileProblem('video',{type,size:10}),MATERIAL_VIDEO_PROBLEM);
+ for(const type of ['image/png','image/jpeg','image/webp']){assert.equal(materialFileProblem('image',{type,size:2*1048576}),null);assert.ok(materialFileProblem('image',{type,size:2*1048576+1}));assert.ok(materialFileProblem('image',{type,size:0}));}
+ for(const type of ['image/svg+xml','image/gif','video/mp4'])assert.ok(materialFileProblem('image',{type,size:10}));
+});
+test('SC-UI-M3-17 create validation trims and rejects controls, missing text, excessive lengths and foreign-shaped subjects',()=>{
+ const base={kind:'copy',product_id:null,title:' 標題 ',description:' 說明\n第二行 ',body:' 文案 '};assert.deepEqual(SupplyMaterialCreateInputSchema.parse(base),{...base,title:'標題',description:'說明\n第二行',body:'文案'});
+ for(const bad of [{title:''},{title:'字'.repeat(81)},{title:'標\n題'},{description:'\t'},{description:'字'.repeat(501)},{body:'字'.repeat(2001)},{body:' '},{body:'\u007f'},{product_id:'bad'}])assert.equal(SupplyMaterialCreateInputSchema.safeParse({...base,...bad}).success,false);
+});
+test('SC-UI-M3-18 list states preserve failures, capacity unavailability, active ordering and ready empty guidance',()=>{
+ for(const slot of [{...failedSlot,state:'idle' as const},{...failedSlot,state:'loading' as const},failedSlot,{...failedSlot,status:403}]){const html=renderPresentation(createElement(Materials,{c:materialController({materials:slot})}));assert.ok(!html.includes('使用中 0'));assert.ok(html.includes('目前無法讀取業務空間容量。'));if(slot.state==='failed'){assert.ok(html.includes('讀取服務暫停'));assert.ok(html.includes('重試'));}}
+ const data=materialListFixture();const html=renderPresentation(createElement(Materials,{c:materialController({materials:readySlot(data)})}));for(const text of ['使用中 1／200','品牌介紹','品牌素材','文案','僅授權的合作店家','第 1 版','已授權 0 間店','新增素材'])assert.ok(html.includes(text),text);
+ const empty={...data,items:[],active:0,total:0};assert.ok(renderPresentation(createElement(Materials,{c:materialController({materials:readySlot(empty)})})).includes('還沒有行銷素材'));
+ const stale=renderPresentation(createElement(Materials,{c:materialController({materials:{...failedSlot,data}})}));assert.ok(stale.includes('目前無法讀取業務空間容量。'));assert.ok(!stale.includes('還可使用 75.0'));
+});
+test('SC-UI-M3-19 detail escapes copy, shows 404 recovery, confirmations and withdrawn read-only data',()=>{
+ const detail=materialDetailFixture(),c=materialController({['material:'+id]:readySlot(detail)}),html=renderPresentation(createElement(Material,{c,id,mediaEnabled:false,uploadsEnabled:false,active:true}));
+ for(const text of ['素材詳情','複製文字','儲存為新版本','合作店家可以把這個版本用在他們的公開店面。','確認開放','已被下載的副本無法收回。撤回後不能復原。','之後新加入的合作店家不會自動取得授權。'])assert.ok(html.includes(text),text);assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));
+ const missing=renderPresentation(createElement(Material,{c:materialController({['material:'+id]:{...failedSlot,status:404}}),id,mediaEnabled:false,uploadsEnabled:false,active:true}));assert.ok(missing.includes('找不到這個素材。'));assert.ok(missing.includes(href(scope,'materials')));
+ const withdrawn={...detail,material:{...detail.material,state:'withdrawn' as const,withdrawn_at:asOf}};const readOnly=renderPresentation(createElement(Material,{c:materialController({['material:'+id]:readySlot(withdrawn)}),id,mediaEnabled:false,uploadsEnabled:false,active:true}));assert.ok(readOnly.includes('已撤回'));for(const text of ['儲存為新版本','確認撤回素材','確認開放','授權選取的店家','編輯標題與說明'])assert.ok(!readOnly.includes(text),text);
+});
+test('SC-UI-M3-20 image and video content respect flags and all version links use the private API path',()=>{
+ for(const kind of ['image','video'] as const){const content=kind==='image'?{kind,content_type:'image/webp' as const,byte_size:1024,width:100,height:50}:{kind,content_type:'video/mp4' as const,byte_size:1024};const v={...materialVersion,content},d={...materialDetailFixture(),material:{...materialFixture(),kind,current:v},versions:[v]};
+  const c=materialController({['material:'+id]:readySlot(d),materials:readySlot(materialListFixture())});const off=renderPresentation(createElement(Material,{c,id,mediaEnabled:false,uploadsEnabled:false,active:true}));assert.ok(off.includes('這個環境未開放素材檔案。'));assert.ok(off.includes('這個環境未開放素材檔案上傳。'));assert.ok(!off.includes('/versions/'));
+  const on=renderPresentation(createElement(Material,{c,id,mediaEnabled:true,uploadsEnabled:true,active:true}));assert.ok(on.includes(materialContentPath(scope,id,v.version_id)));assert.ok(on.includes(kind==='image'?'width="100" height="50"':'preload="metadata"'));assert.ok(on.includes('選擇'+(kind==='image'?'圖片':'影片')));
+ }
+});
+test('SC-UI-M3-21 new material form reuses retained drafts, own product options and live counters',()=>{
+ const c=materialController({products:readySlot({items:[{...products[0],product_id:other}]})},{drafts:{'material:new':{baseVersion:'',fields:{kind:'copy',title:'文案標題',body:'待儲存文案'}}}});const html=renderPresentation(createElement(MaterialNew,{c}));for(const text of ['新增素材','品牌素材','P0001・商品 1','文案內容','文案標題','待儲存文案','4／80','5／2000','建立素材'])assert.ok(html.includes(text),text);assert.ok(!html.includes('即將推出'));
+});
+import {materialMatchesReadKey} from '../../modules/agent-commerce/supplier-console/state/useSupplierConsoleController';
+test('SC-UI-M3-22 material reads reject a different business or detail target before publishing data',()=>{
+ const data=materialDetailFixture();assert.equal(materialMatchesReadKey(data,scope,'material:'+id),true);assert.equal(materialMatchesReadKey(materialListFixture(),scope,'materials'),true);
+ for(const value of [{...data,tenant_id:other},{...data,instance_id:other},{...data,material:{...data.material,material_id:other}}])assert.equal(materialMatchesReadKey(value,scope,'material:'+id),false);
+ assert.equal(materialMatchesReadKey(data,scope,'material:'+other),false);assert.equal(materialMatchesReadKey(data,scope,'unrecognized'),false);
+});
+test('SC-UI-M3-23 a retry after an uncertain response cannot forget or replace the original upload tuple',async ctx=>{
+ const client=new PortalClient();client.csrfToken='session-a';const a=uploadAttempt(),bodies:unknown[]=[],keys:(string|null)[]=[],versions:(string|null)[]=[];let calls=0;
+ ctx.mock.method(globalThis,'fetch',async(_input:RequestInfo|URL,init:RequestInit)=>{bodies.push(init.body);keys.push(new Headers(init.headers).get('Idempotency-Key'));versions.push(new Headers(init.headers).get('If-Match'));if(++calls===1)throw new Error('lost response');return Response.json(materialReceipt);});
+ holdMaterialUpload(client,'member',a);
+ await assert.rejects(sendMaterialUpload(client,a),(e:unknown)=>e instanceof ApiError&&e.network);const original=restoreMaterialUpload(client,'member',a)!;assert.equal(original.hadUnknown,true);assert.equal(forgetRefusedMaterialUpload(client,'member',a),false);
+ assert.throws(()=>holdMaterialUpload(client,'member',{...a,expected:'10',key:'new-key'}));const receipt=await sendMaterialUpload(client,original);assert.equal(receipt.material_id,id);assert.equal(releaseMaterialUpload(client,'member',original),true);assert.equal(heldMaterialUpload(client,'member',a),null);assert.deepEqual(bodies,[a.file,a.file]);assert.deepEqual(keys,[a.key,a.key]);assert.deepEqual(versions,['"9"','"9"']);
+});
+import {markMaterialUploadUnknown} from '../../modules/agent-commerce/supplier-console/state/material-upload';
+test('SC-UI-M3-24 a late unknown response cannot resurrect a completed upload or disturb a newer tuple',()=>{
+ const client={},a=uploadAttempt();holdMaterialUpload(client,'member',a);assert.equal(markMaterialUploadUnknown(client,'member',a),true);assert.equal(heldMaterialUpload(client,'member',a)?.hadUnknown,true);releaseMaterialUpload(client,'member',a);assert.equal(markMaterialUploadUnknown(client,'member',a),false);assert.equal(heldMaterialUpload(client,'member',a),null);
+ const b=uploadAttempt({key:'new-key'});holdMaterialUpload(client,'member',b);assert.equal(markMaterialUploadUnknown(client,'member',a),false);assert.equal(heldMaterialUpload(client,'member',b)?.key,b.key);assert.equal(heldMaterialUpload(client,'member',b)?.hadUnknown,false);releaseMaterialUpload(client,'member',b);
+});

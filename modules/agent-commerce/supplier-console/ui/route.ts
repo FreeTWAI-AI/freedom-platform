@@ -26,7 +26,8 @@ export function reservationFilterParams(filters:ReservationFilters):URLSearchPar
 }
 const pages=[
  ['overview','營運概覽','營運','read'],['products','商品與庫存','營運','write'],['reservations','預留與訂單','營運','owner'],
- ['partners','合作店家','合作','write'],['terms','供貨條件與審核','合作','write'],['reports','營運報表','管理','write'],['settings','設定與資料','管理','read'],
+ ['partners','合作店家','合作','write'],['terms','供貨條件與審核','合作','write'],['materials','行銷素材','管理','write'],['reports','營運報表','管理','write'],['settings','設定與資料','管理','read'],
+ ['material-new','新增素材',null,'write','materials'],['material','素材詳情',null,'write','materials'],
  ['product-new','新增商品',null,'write','products'],['product','商品詳情',null,'write','products'],
  ['reservation','預留明細',null,'owner','reservations'],['partner','合作店家詳情',null,'write','partners'],['review','審核售價申請',null,'write','terms'],['not-found','找不到這個頁面',null,'read'],
 ] as const;
@@ -40,7 +41,9 @@ export function parseSupplierConsoleRoute(hash:string):SupplierConsoleRoute|null
  const rest=parts.slice(4);let page:ConsolePage='not-found',id:string|undefined;
  if(parts[3]==='supply-orders'){if(!rest.length)page='reservations';}
  else if(!rest.length)page='overview';
- else if(rest.length===1&&['products','partners','terms','reservations','reports','settings'].includes(rest[0]))page=rest[0] as ConsolePage;
+ else if(rest.length===1&&['products','partners','terms','reservations','materials','reports','settings'].includes(rest[0]))page=rest[0] as ConsolePage;
+ else if(rest.length===2&&rest[0]==='materials'&&rest[1]==='new')page='material-new';
+ else if(rest.length===2&&rest[0]==='materials'&&OpaqueId.safeParse(rest[1]).success){page='material';id=rest[1];}
  else if(rest.length===2&&rest[0]==='products'&&rest[1]==='new')page='product-new';
  else if(rest.length===2&&OpaqueId.safeParse(rest[1]).success&&['products','partners','terms','reservations'].includes(rest[0])){page=rest[0]==='products'?'product':rest[0]==='partners'?'partner':rest[0]==='reservations'?'reservation':'review';id=rest[1];}
  const state=query.get('state'),sort=query.get('sort'),period=SupplierReportQuerySchema.safeParse({from:query.get('from'),to:query.get('to')});
@@ -51,7 +54,7 @@ export function parseSupplierConsoleRoute(hash:string):SupplierConsoleRoute|null
  ...(page==='products'&&['sku','title','available'].includes(sort??'')?{sort:sort as ProductSort}:{})};
 }
 export function supplierConsoleHref(scope:ConsoleScope,page:ConsolePage,extra:{id?:string;state?:ProductState;sort?:ProductSort;reservation?:ReservationFilters;period?:ReportPeriod}={}) {
- const suffix=page==='overview'?'':page==='product-new'?'/products/new':page==='product'?`/products/${extra.id}`:page==='reservation'?`/reservations/${extra.id}`:page==='partner'?`/partners/${extra.id}`:page==='review'?`/terms/${extra.id}`:page==='not-found'?'/missing':`/${page}`;
+ const suffix=page==='overview'?'':page==='material-new'?'/materials/new':page==='material'?`/materials/${extra.id}`:page==='product-new'?'/products/new':page==='product'?`/products/${extra.id}`:page==='reservation'?`/reservations/${extra.id}`:page==='partner'?`/partners/${extra.id}`:page==='review'?`/terms/${extra.id}`:page==='not-found'?'/missing':`/${page}`;
  const q=new URLSearchParams();if(page==='products'){if(extra.state)q.set('state',extra.state);if(extra.sort)q.set('sort',extra.sort);}
  if(page==='reports'){const period=SupplierReportQuerySchema.safeParse(extra.period);if(period.success){q.set('from',period.data.from);q.set('to',period.data.to);}}
  if(page==='reservations'){const filters=cleanReservationFilters(extra.reservation??{});for(const key of ['state','partner','product','from','to'] as const)if(filters[key])q.set(key,filters[key]!);}
