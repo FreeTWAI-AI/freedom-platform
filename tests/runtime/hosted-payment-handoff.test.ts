@@ -524,8 +524,8 @@ for (const state of ['failed', 'expired_unpaid', 'paid', 'confirmed'] as const)
   test(`buyer summary maps ${state} to the closed buyer state vocabulary`, async () => {
     const p = await f.placed();
     if (state === 'confirmed')
-      await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1", [p.payment.attempt_ref]);
-    await f.x.h.pool.query(`UPDATE commerce_payment_attempts SET state=$2,${state === 'expired_unpaid' ? 'expired' : state}_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1`, [p.payment.attempt_ref, state]);
+      await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),trade_no='SYNTHETIC',payment_date=clock_timestamp(),version=version+1 WHERE attempt_id=$1", [p.payment.attempt_ref]);
+    await f.x.h.pool.query(`UPDATE commerce_payment_attempts SET state=$2,${state === 'expired_unpaid' ? 'expired' : state}_at=clock_timestamp(),${state === 'paid' ? "trade_no='SYNTHETIC',payment_date=clock_timestamp()," : ''}version=version+1 WHERE attempt_id=$1`, [p.payment.attempt_ref, state]);
     const value = expect(await buyerOrder(p), 200);
     assert.equal(value.latest_payment_attempt.state, state === 'expired_unpaid' ? 'expired' : state === 'confirmed' ? 'paid' : state);
     assert.equal(value.payment_state, 'unpaid');

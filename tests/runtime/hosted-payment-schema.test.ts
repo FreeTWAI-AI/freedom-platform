@@ -53,7 +53,7 @@ async function insert(table: string, row: Record<string, unknown>) {
 }
 const attemptInput = () => ({ tenant_id: s.tenantId, instance_id: s.instanceId, kind: 'order', order_id: orderId, sequence: 1, account_id: accountId, purpose: 'payment', environment: 'sandbox', merchant_id: '1234567', credential_version: 1, provider: 'ecpay', profile: 'ecpay.aio.credit.v1', merchant_trade_no: newTradeNumber('F'), amount_minor: 500, currency: 'TWD' });
 const attempt = (changes: Record<string, unknown> = {}) => insert('commerce_payment_attempts', { ...attemptInput(), ...changes });
-const eventInput = () => ({ tenant_id: s.tenantId, instance_id: s.instanceId, account_id: accountId, source: 'notification', outcome: 'paid', dedupe_key: randomBytes(32).toString('hex') });
+const eventInput = () => ({ tenant_id: s.tenantId, instance_id: s.instanceId, account_id: accountId, source: 'notification', outcome: 'paid', trade_no: 'SYNTHETIC', payment_date: new Date(), trade_amt_minor: 500, dedupe_key: randomBytes(32).toString('hex') });
 const event = (changes: Record<string, unknown> = {}) => insert('commerce_hosted_payment_events', { ...eventInput(), ...changes });
 async function rejects(run: () => Promise<unknown>, code = '23514') {
   await q.query('SAVEPOINT invalid_write');
@@ -62,7 +62,7 @@ async function rejects(run: () => Promise<unknown>, code = '23514') {
 }
 const stateTime: Record<string, string> = { paid: 'paid_at', confirmed: 'confirmed_at', failed: 'failed_at', superseded: 'superseded_at', expired_unpaid: 'expired_at' };
 const states = ['issued', 'paid', 'confirmed', 'failed', 'superseded', 'expired_unpaid'];
-async function transition(id: string, to: string) { return q.query(`UPDATE commerce_payment_attempts SET state=$2,${stateTime[to] ?? 'paid_at'}=clock_timestamp(),version=version+1 WHERE attempt_id=$1`, [id, to]); }
+async function transition(id: string, to: string) { return q.query(`UPDATE commerce_payment_attempts SET state=$2,${stateTime[to] ?? 'paid_at'}=clock_timestamp(),${to === 'paid' ? "trade_no=coalesce(trade_no,'SYNTHETIC'),payment_date=coalesce(payment_date,clock_timestamp())," : ''}version=version+1 WHERE attempt_id=$1`, [id, to]); }
 async function inState(state: string) {
   const a = await attempt(); if (state === 'confirmed') {
     await transition(a.attempt_id, 'paid');
@@ -276,4 +276,16 @@ for (const field of ['tenant_id', 'instance_id', 'case_id', 'executor_tenant_id'
   test(`exception identity ${field} is immutable`, async () => {
     const a = await insert('commerce_exception_cases', caseInput());
     await rejects(() => q.query(`UPDATE commerce_exception_cases SET ${field}=$2,status='resolved',resolution_code='closed',resolution_note='',resolved_by_principal_id=$3,updated_at=clock_timestamp(),version=version+1 WHERE case_id=$1`, [a.case_id, field === 'created_at' ? new Date(0) : randomUUID(), principalId]));
+  });
+
+
+for (const missing of ['trade_no', 'payment_date'] as const)
+  test(`review 12: a paid attempt requires ${missing}`, async () => {
+    const a = await attempt();
+    await rejects(() => q.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),trade_no=$2,payment_date=$3,version=version+1 WHERE attempt_id=$1",
+      [a.attempt_id, missing === 'trade_no' ? null : 'SYNTHETIC', missing === 'payment_date' ? null : new Date()]));
+  });
+for (const missing of ['trade_no', 'payment_date', 'trade_amt_minor'] as const)
+  test(`review 12: a paid event requires ${missing}`, async () => {
+    await rejects(() => event({ trade_no: 'SYNTHETIC', payment_date: new Date(), trade_amt_minor: 500, [missing]: null }));
   });

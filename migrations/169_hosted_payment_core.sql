@@ -401,6 +401,7 @@ CREATE TABLE commerce_payment_attempts (
   charge_fee_minor bigint CHECK(charge_fee_minor>=0),
   gwsr text CHECK(gwsr ~ '^[0-9]{1,20}$'),
   version bigint NOT NULL DEFAULT 1 CHECK(version>0),
+  CHECK(state NOT IN ('paid','confirmed') OR (trade_no IS NOT NULL AND payment_date IS NOT NULL)),
   CHECK((kind='order' AND order_id IS NOT NULL AND sequence<=5) OR (kind='service_activation' AND order_id IS NULL)),
   FOREIGN KEY(account_id,tenant_id,instance_id,environment,merchant_id)
     REFERENCES commerce_provider_accounts(account_id,tenant_id,instance_id,environment,merchant_id),
@@ -488,6 +489,7 @@ CREATE TABLE commerce_hosted_payment_events (
   dedupe_key text CHECK(dedupe_key ~ '^[a-f0-9]{64}$'),
   received_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   applied_at timestamptz CHECK(applied_at IS NULL OR applied_at>=received_at),
+  CHECK(outcome<>'paid' OR (trade_no IS NOT NULL AND payment_date IS NOT NULL AND trade_amt_minor IS NOT NULL)),
   CHECK((source='notification' AND outcome IN ('paid','failed','pending_confirmation','simulated') AND dedupe_key IS NOT NULL)
     OR (source='browser_return' AND outcome='returned' AND dedupe_key IS NULL)),
   FOREIGN KEY(account_id) REFERENCES commerce_provider_accounts(account_id),
