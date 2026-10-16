@@ -1,3 +1,4 @@
+import {CommerceCredentialKeyring} from '../../modules/agent-commerce/payments/credentials.js';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {test,before,after,beforeEach} from 'node:test';
@@ -10,6 +11,10 @@ import {COMMERCE_LIMITS} from '../../modules/agent-commerce/checkout/limits.js';
 import {createStoreAdmissionPort} from '../../modules/agent-commerce/operations/admissions.js';
 import {creditUnavailableMessage} from '../../modules/agent-commerce/payments/availability.js';
 import type {CreditUnavailableReason} from '../../modules/agent-commerce/providers/ecpay/aio-credit/index.js';
+import {runInNewContext} from 'node:vm';
+import {HANDOFF_SCRIPT,handoffFormPage} from '../../modules/agent-commerce/payments/handoff-page.js';
+import {cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/orders.js';
+import {platformContentSecurityPolicy} from '../../apps/platform-api/src/platform-app.js';
 const origin='https://payments.freedom.test',localOrigin='http://127.0.0.1:4745';
 const fixtureInput=()=>({freedomEnv:'local' as const,environment:'sandbox' as const,publicBaseUrl:'https://e2e-payments.freedom.test',checkoutAction:localOrigin+'/__e2e/ecpay/aio-checkout',localOrigin});
 for(const environment of ['sandbox','live'] as const)test(`gateway URLs and action equal the public form builder for ${environment}`,()=>{
@@ -165,4 +170,109 @@ test('availability checks each shipping group even when their sum and the order 
 });
 test('the availability reason list is closed at runtime',()=>{
   assert.throws(()=>creditUnavailableMessage('future_reason' as CreditUnavailableReason),{message:'payment_availability_reason_unknown'});
+});
+async function page(path:string,method='GET'){
+  const request=new Request(f.origin+path,{method,headers:{'CF-Connecting-IP':'192.0.2.1'}});Object.defineProperty(request,'cf',{value:{colo:'TEST'}});
+  const response=await f.app.fetch(request);return {response,status:response.status,html:await response.text()};
+}
+async function unused(attemptId:string){
+  const a=(await f.x.h.pool.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1',[attemptId])).rows[0];
+  assert.equal(a.handed_off_at,null);
+  const row=(await f.x.h.pool.query("SELECT * FROM commerce_entry_routes WHERE route_kind='payment_handoff' AND target_id=$1 ORDER BY created_at DESC LIMIT 1",[attemptId])).rows[0];assert.equal(row.revoked_at,null);
+}
+test('handoff page signs stored data, journals outside transactions, then consumes the token once',async()=>{
+  const p=await f.placed();let appends=0;
+  const journal={environment:'local' as const,async append(record:import('../../modules/agent-commerce/operations/journal/journal.js').EffectRecord){
+    appends++;assert.equal((await f.x.runtime.query("SELECT count(*)::int n FROM pg_stat_activity WHERE usename=current_user AND state='idle in transaction'")).rows[0].n,0);
+    assert.equal((await f.x.h.pool.query('SELECT journaled_at FROM commerce_payment_attempts WHERE attempt_id=$1',[p.payment.attempt_ref])).rows[0].journaled_at,null);await f.journal.append(record);
+  }};
+  f.install({commercePayments:{gateway:f.gateway,journal,profiles:f.settings.providerProfiles}});
+  const result=await page(p.payment.handoff_url);assert.equal(result.status,200,result.html);assert.equal(appends,1);
+  assert.match(result.html,/<html lang="zh-Hant">/);assert.match(result.html,/<title>前往付款｜自由工坊<\/title>/);assert.match(result.html,/正在前往綠界付款頁…/);assert.match(result.html,/<noscript><button type="submit">前往付款<\/button><\/noscript>/);
+  assert.match(result.html,new RegExp('<form method="post" action="'+f.origin+'/__e2e/ecpay/aio-checkout">'));assert(!/\btarget=|<iframe|<style|<script(?! src=)/.test(result.html));
+  const fields=Object.fromEntries([...result.html.matchAll(/<input type="hidden" name="([^"]*)" value="([^"]*)">/g)].map(m=>[m[1],m[2].replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&')]));
+  const a=(await f.x.h.pool.query('SELECT *,journaled_at<=handed_off_at AS ordered FROM commerce_payment_attempts WHERE attempt_id=$1',[p.payment.attempt_ref])).rows[0];
+  assert(a.journaled_at instanceof Date);assert(a.handed_off_at instanceof Date);assert(a.ordered);assert.equal(a.version,'3');
+  const keys=EcpayKeyPair.of(p.provider.material.hash_key,p.provider.material.hash_iv),urls=paymentGatewayUrls(f.gateway,{accountRef:p.provider.accountRef,attemptId:a.attempt_id});
+  const expected=buildCreditCheckoutForm({environment:'sandbox',merchantId:'1234567',merchantTradeNo:a.merchant_trade_no,createdAtEpochMs:a.created_at.getTime(),currency:'TWD',totalMinor:500,lines:[{name:'合成商品',quantity:5}],storeName:'合成商店',displayNumber:p.order.display_number,...urls},keys);
+  assert.deepEqual(fields,Object.fromEntries(expected.fields));
+  const [key,body]=[...f.journal.objects].find(([key])=>key.endsWith('/payment_handoff/'+a.attempt_id))!;
+  assert.equal(key,`local/${a.created_at.toISOString().slice(0,10).replaceAll('-','/')}/payment_handoff/${a.attempt_id}`);
+  assert.deepEqual(JSON.parse(body),{environment:'local',kind:'payment_handoff',id:a.attempt_id,occurred_at:a.created_at.toISOString(),tenant_id:p.s.tenantId,instance_id:p.s.instanceId,detail:{account_ref:p.provider.accountRef,merchant_trade_no:a.merchant_trade_no,amount_minor:500,currency:'TWD',order_id:p.order.order_ref}});
+  for(const header of ['Cache-Control','Referrer-Policy','X-Robots-Tag'])assert.equal(result.response.headers.get(header),{'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex'}[header]);
+  assert.equal((await page(p.payment.handoff_url)).status,410);
+});
+test('concurrent GETs return exactly one form and one consumed-link page',async()=>{
+  const p=await f.placed(),results=await Promise.all([page(p.payment.handoff_url),page(p.payment.handoff_url)]);
+  assert.deepEqual(results.map(r=>r.status).sort(),[200,410]);assert.equal(results.filter(r=>r.html.includes('<form ')).length,1);
+});
+test('a journal outage does not consume a token and an identical retry can succeed',async()=>{
+  const p=await f.placed();f.install({commercePayments:{gateway:f.gateway,profiles:f.settings.providerProfiles,journal:{environment:'local',append:async()=>{throw Error('synthetic-private');}}}});
+  const result=await page(p.payment.handoff_url);assert.equal(result.status,503);assert(!result.html.includes('synthetic-private'));await unused(p.payment.attempt_ref);
+  assert.equal((await f.x.h.pool.query('SELECT journaled_at FROM commerce_payment_attempts WHERE attempt_id=$1',[p.payment.attempt_ref])).rows[0].journaled_at,null);
+  f.install();assert.equal((await page(p.payment.handoff_url)).status,200);
+});
+for(const reason of ['quarantine','checkout_off','unlisted_profile','missing_gateway','missing_keyring','unseal_failure'] as const)test(`handoff ${reason} gate returns 503 without consuming the token`,async()=>{
+  const p=await f.placed();
+  if(reason==='quarantine')f.settings.quarantine=true;
+  if(reason==='checkout_off')f.settings.checkoutEnabled=false;
+  if(reason==='unlisted_profile')f.install({commercePayments:{gateway:f.gateway,journal:f.journal,profiles:[]}});
+  if(reason==='missing_gateway')f.install({commercePayments:{journal:f.journal,profiles:f.settings.providerProfiles}});
+  if(reason==='missing_keyring')f.install({commerceCredentialKeyring:null});
+  if(reason==='unseal_failure')f.install({commerceCredentialKeyring:CommerceCredentialKeyring.parse('different:'+randomBytes(32).toString('base64'))});
+  const result=await page(p.payment.handoff_url);assert.equal(result.status,503,result.html);assert(!result.html.includes('<form '));await unused(p.payment.attempt_ref);
+});
+test('HEAD and invalid/unknown tokens never consume an attempt or reveal its reference',async()=>{
+  const p=await f.placed();assert.equal((await page(p.payment.handoff_url,'HEAD')).status,404);await unused(p.payment.attempt_ref);
+  for(const token of ['invalid',randomBytes(32).toString('base64url')]){const r=await page('/pay/ecpay/'+token);assert.equal(r.status,404);assert.match(r.html,/href="\/"/);assert(!r.html.includes(p.payment.attempt_ref));}
+});
+test('revoked and expired links use the invalid-link text with an order back link',async()=>{
+  const p=await f.placed();expect(await resume(p),201);
+  let result=await page(p.payment.handoff_url);assert.equal(result.status,410);assert.match(result.html,/付款連結已失效或不存在。/);assert(result.html.includes('/pay/ecpay/back/'+p.payment.attempt_ref));
+  const token=randomBytes(32).toString('base64url');await f.x.h.pool.query(`INSERT INTO commerce_entry_routes(route_kind,route_key,tenant_id,instance_id,target_id,created_at,expires_at)
+    VALUES('payment_handoff',$1,$2,$3,$4,clock_timestamp()-interval '16 minutes',clock_timestamp()-interval '1 minute')`,[hashKey(token),p.s.tenantId,p.s.instanceId,p.payment.attempt_ref]);
+  result=await page('/pay/ecpay/'+token);assert.equal(result.status,410);assert(result.html.includes('/pay/ecpay/back/'+p.payment.attempt_ref));
+});
+test('handoff rate limit returns a 429 HTML page with Retry-After before resolving the token',async()=>{
+  const p=await f.placed();await f.x.h.pool.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),$2)',['commerce:handoffPageNetwork:'+hashKey('192.0.2.1'),COMMERCE_LIMITS.handoffPageNetwork.limit]);
+  const r=await page(p.payment.handoff_url);assert.equal(r.status,429);assert.match(r.response.headers.get('Content-Type')!,/text\/html/);assert(Number(r.response.headers.get('Retry-After'))>0);await unused(p.payment.attempt_ref);
+});
+test('HTML escapes every signed name/value and the form action',()=>{
+  const html=handoffFormPage({action:'https://unused.test',fields:[['a"<&\'','b"<&\'>']]},'https://safe.test/?x="<&\'');
+  assert(html.includes('name="a&quot;&lt;&amp;&#39;" value="b&quot;&lt;&amp;&#39;&gt;"'));assert(html.includes('action="https://safe.test/?x=&quot;&lt;&amp;&#39;"'));
+});
+test('handoff CSP permits the configured destination on token paths alone',async()=>{
+  const p=await f.placed(),policy=platformContentSecurityPolicy(p.payment.handoff_url,undefined,'https://payment-stage.ecpay.com.tw');
+  assert(policy.endsWith("form-action 'self' https://payment-stage.ecpay.com.tw"));assert(!policy.includes('unsafe-inline'));
+  for(const path of ['/','/api/v1/site','/shops/synthetic-shop','/pay/ecpay/handoff.js','/pay/ecpay/handoff.css','/pay/ecpay/back/'+p.payment.attempt_ref,'/pay/ecpay/return/'+p.provider.accountRef])assert.equal(platformContentSecurityPolicy(path,undefined,'https://payment-stage.ecpay.com.tw'),platformContentSecurityPolicy(path));
+  const r=await page(p.payment.handoff_url);assert(r.response.headers.get('Content-Security-Policy')!.endsWith("form-action 'self' "+f.origin));
+});
+test('handoff script submits once on load, exposes the timed fallback and refuses a BFCache resubmission',async()=>{
+  const handlers=new Map<string,Function>(),timers:Function[]=[];let submissions=0;
+  const form={hidden:false},status={textContent:''},manual={hidden:true,disabled:false};
+  const context={document:{querySelector:()=>form,getElementById:(id:string)=>id==='handoff-status'?status:manual},window:{addEventListener:(name:string,fn:Function)=>handlers.set(name,fn)},HTMLFormElement:{prototype:{submit(){submissions++;}}},setTimeout:(fn:Function,ms:number)=>{assert.equal(ms,3000);timers.push(fn);return 1;},clearTimeout(){}};
+  runInNewContext(HANDOFF_SCRIPT,context);handlers.get('load')!();handlers.get('load')!();assert.equal(submissions,1);assert(manual.hidden);timers[0]();assert(!manual.hidden);
+  handlers.get('pageshow')!({persisted:true});assert(form.hidden&&manual.hidden&&manual.disabled);assert.equal(status.textContent,'已前往付款頁。要重新付款，請回到訂單頁。');handlers.get('load')!();assert.equal(submissions,1);
+  const asset=await page('/pay/ecpay/handoff.js');assert.equal(asset.status,200);assert.equal(asset.html,HANDOFF_SCRIPT);assert.match(asset.response.headers.get('Content-Type')!,/javascript/);
+});
+
+for(const reason of ['tenant_inactive','instance_inactive','service_inactive','admission_revoked','order_cancelled','holds_released','attempt_failed'] as const)test(`handoff ${reason} gate leaves the token unconsumed`,async()=>{
+  const p=await f.placed();
+  if(reason==='tenant_inactive')await f.x.h.pool.query("UPDATE tenants SET status='suspended' WHERE tenant_id=$1",[p.s.tenantId]);
+  if(reason==='instance_inactive')await f.x.h.pool.query("UPDATE module_instances SET status='suspended' WHERE instance_id=$1",[p.s.instanceId]);
+  if(reason==='service_inactive')await f.x.tx(async q=>{await f.runtime.commercePorts!.admission!.allowed(q,p.s);await q.query("UPDATE commerce_provider_account_services SET state='suspended',version=version+1,updated_at=clock_timestamp() WHERE account_id=$1",[p.provider.accountId]);});
+  if(reason==='admission_revoked')await f.x.h.pool.query("UPDATE commerce_store_admissions SET revoked_at=clock_timestamp(),revoked_by=(SELECT admin_id FROM platform_admins LIMIT 1),revoke_reason='合成撤銷' WHERE admission_id=$1",[p.provider.admissionId]);
+  if(reason==='order_cancelled')await f.x.tx(q=>cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled'));
+  if(reason==='holds_released')await f.x.tx(async q=>{await q.query("UPDATE commerce_inventory_reservations SET state='released',released_at=clock_timestamp() WHERE order_id=$1",[p.order.order_ref]);await q.query('UPDATE commerce_items SET reserved=reserved-5 WHERE item_id=$1',[p.s.product.product_id]);});
+  if(reason==='attempt_failed')await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='failed',failed_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[p.payment.attempt_ref]);
+  const r=await page(p.payment.handoff_url);assert.equal(r.status,reason==='attempt_failed'?410:409,r.html);await unused(p.payment.attempt_ref);
+  if(reason==='holds_released')assert.match(r.html,/保留時間已結束/);
+  assert(!r.html.includes('<form '));assert.equal([...f.journal.objects.keys()].filter(k=>k.endsWith('/payment_handoff/'+p.payment.attempt_ref)).length,0);
+});
+test('expired retained holds refuse handoff before journaling and leave the token usable for the back link',async()=>{
+  const s=await f.x.store(100);await f.setup(s);const due=await f.x.due(s);
+  await f.x.tx(q=>f.runtime.commercePorts!.payment!.createOrderAttempt(q,{store:s,orderId:due.order_id,amountMinor:500,currency:'TWD',environment:'sandbox'}));
+  const a=(await f.x.h.pool.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=$1',[due.order_id])).rows[0],token=randomBytes(32).toString('base64url');
+  await f.x.h.pool.query("INSERT INTO commerce_entry_routes(route_kind,route_key,tenant_id,instance_id,target_id,expires_at) VALUES('payment_handoff',$1,$2,$3,$4,clock_timestamp()+interval '15 minutes')",[hashKey(token),s.tenantId,s.instanceId,a.attempt_id]);
+  const r=await page('/pay/ecpay/'+token);assert.equal(r.status,409);assert.match(r.html,/保留時間已結束/);assert(r.html.includes('/pay/ecpay/back/'+a.attempt_id));await unused(a.attempt_id);
 });

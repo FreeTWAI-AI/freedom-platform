@@ -24,8 +24,11 @@ export async function lockCheckoutOrders(q:PoolClient,ids:readonly string[],stor
   await q.query('SELECT order_id FROM commerce_orders WHERE order_id=ANY($1::uuid[]) ORDER BY order_id FOR UPDATE',[sorted]);
   if(paymentRef){
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`checkout-payment/${paymentRef}`]);
-    if((await q.query('SELECT 1 FROM commerce_checkout_payment_applications WHERE payment_ref=$1',[paymentRef])).rowCount)return rows;
   }
+  // Attempt rows belong immediately after base orders / payment-reference locks,
+  // before applications and inventory. Handoff, callback and expiry share this order.
+  await q.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=ANY($1::uuid[]) ORDER BY order_id,attempt_id FOR UPDATE',[sorted]);
+  if(paymentRef&&(await q.query('SELECT 1 FROM commerce_checkout_payment_applications WHERE payment_ref=$1',[paymentRef])).rowCount)return rows;
   await q.query('SELECT application_id FROM commerce_checkout_payment_applications WHERE order_id=ANY($1::uuid[]) ORDER BY application_id FOR UPDATE',[sorted]);
   await q.query('SELECT reservation_id FROM commerce_inventory_reservations WHERE order_id=ANY($1::uuid[]) ORDER BY item_id,order_id FOR UPDATE',[sorted]);
   await q.query('SELECT allocation_id FROM commerce_inventory_allocations WHERE order_id=ANY($1::uuid[]) ORDER BY item_id,order_id FOR UPDATE',[sorted]);

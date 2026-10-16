@@ -1,5 +1,7 @@
 import {createHostedCommerceSetupRoutes} from './routes/hosted-commerce-setup.js';
 import {assertPaymentGatewayInstallation} from '../../../modules/agent-commerce/payments/gateway.js';
+import {isPaymentHandoffPath} from '../../../modules/agent-commerce/payments/handoff.js';
+import {createHostedPaymentRoutes} from './routes/hosted-payments.js';
 import {providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {createHostedCheckoutRoutes,hostedCheckoutOptions} from './routes/hosted-checkout.js';
 import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoutes} from './routes/community-ar.js';
@@ -151,12 +153,13 @@ export const wireVersionResponses:MiddlewareHandler=async(c,next)=>{
 /** Browser page for a share token. The JSON and avatar routes set the same tag themselves. */
 export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
 /** Shared by the Worker file fast path; route-specific form destinations stay here. */
-export function platformContentSecurityPolicy(path:string,brokerFormOrigin?:string){
+export function platformContentSecurityPolicy(path:string,brokerFormOrigin?:string,paymentFormOrigin?:string){
   const githubSetupForm=path==='/admin'||path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI/settings/apps/new':'';
-  return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; media-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
+  const destinations=isPaymentHandoffPath(path)?(paymentFormOrigin?' '+paymentFormOrigin:''):githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
+  return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; media-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+destinations;
 }
-export function platformResponseHeaders(path:string,brokerFormOrigin?:string){
-  return {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':platformContentSecurityPolicy(path,brokerFormOrigin)};
+export function platformResponseHeaders(path:string,brokerFormOrigin?:string,paymentFormOrigin?:string){
+  return {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':platformContentSecurityPolicy(path,brokerFormOrigin,paymentFormOrigin)};
 }
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
@@ -167,6 +170,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
   const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
+  const paymentFormOrigin=runtime.commercePayments?.gateway?new URL(runtime.commercePayments.gateway.checkoutAction).origin:undefined;
   if(brokerFormOrigin!==undefined){
     const setup=new URL(brokerFormOrigin),main=new URL(origin);
     if(setup.protocol!=='https:'||setup.origin!==brokerFormOrigin||setup.username||setup.password
@@ -211,7 +215,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.use('/api/v1/me/onboarding/*',onboardingDiagnostics());
   app.use('*',async(c,next)=>{
-    const headers=platformResponseHeaders(c.req.path,brokerFormOrigin);
+    const headers=platformResponseHeaders(c.req.path,brokerFormOrigin,paymentFormOrigin);
     for(const [name,value] of Object.entries(headers))if(name!=='Content-Security-Policy')c.header(name,value);
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
@@ -588,6 +592,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
   app.route('/',createHostedCheckoutRoutes(pool,origin,runtime,freedomEnv));
+  app.route('/',createHostedPaymentRoutes(pool,runtime,freedomEnv));
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
   app.post('/api/v1/me/account/email-verification/request',async c=>{
     requireCondition(runtime.eventEmailSender,503,'email_verification_unavailable','驗證信郵件服務尚未設定完成。');

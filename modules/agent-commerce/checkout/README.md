@@ -39,7 +39,9 @@ opaque reference, email or catalog entry never confers read authority.
 
 Participant paths lock seller and supplier lifecycle rows in tenant/instance
 order, then the community advisory lock, profile, checkout/sidecar, base order,
-payment application, holds/allocations, and items in UUID order. Existing-order
+payment-reference advisory lock, payment attempts, payment applications,
+holds/allocations, and items in UUID order. Attempt rows are locked immediately
+after base orders and the optional payment-reference lock. Existing-order
 machine payment/expiry/system cancellation paths omit lifecycle locks and never
 acquire instance locks after acquiring the community lock. Community serialization
 makes payment versus expiry or cancellation deterministic: the first commit wins.
