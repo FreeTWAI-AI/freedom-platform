@@ -21219,8 +21219,8 @@
     },
     {
       "path": "tests/e2e/hosted-shared-orders.spec.ts",
-      "bytes": 25322,
-      "sha256": "f5eb6bf6cfce2cdb3961e544dd47e480d831703ace817d5d45e1686d12c4b066"
+      "bytes": 25617,
+      "sha256": "2eb1b8655bb62eb12e5e218dae69281ed8c48569a5b66f0136f48e014aca7eb4"
     },
     {
       "path": "tests/e2e/hosted-store-fixture.ts",
