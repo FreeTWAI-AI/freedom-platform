@@ -109,13 +109,15 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 ];
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
-  ['hosted-checkout', 'Public hosted checkout M1. Shape validation grants no payment, email or deployment authority.', [
+  ['hosted-checkout', 'Public hosted checkout and payment handoff. Shape validation grants no payment, email or deployment authority.', [
     ['cart-quote-input', checkout.CartQuoteInputSchema, 'input', ['unique_skus_current_publication_prices']],
     ['cart-quote', checkout.CartQuoteResponseSchema, 'output', ['read_only_availability']],
     ['checkout-input', checkout.CheckoutInputSchema, 'input', ['exact_policy_set_structural_json_bounds']],
     ['checkout', checkout.CheckoutResponseSchema, 'output', ['absolute_expiry']],
     ['placement-input', checkout.PlaceOrderInputSchema, 'input', ['checkout_device_grant']],
     ['placement', checkout.PlaceOrderResponseSchema, 'output', ['first_buyer_replay']],
+    ['payment-handoff-input', checkout.PaymentHandoffInputSchema, 'input', ['current_buyer_access']],
+    ['payment-handoff', checkout.PaymentHandoffResponseSchema, 'output', ['single_use_handoff_token']],
     ['order', checkout.PublicOrderSchema, 'output', ['store_and_current_access']],
     ['redeem-input', checkout.RedeemAccessInputSchema, 'input', ['single_use_link']],
     ['access-request-input', checkout.AccessRequestInputSchema, 'input', ['uniform_accepted_response']],

@@ -24,6 +24,7 @@ test('closed errors and the generated hosted checkout bundle cover each JSON req
     ['cart-quote-input',input],['cart-quote',{publication_revision:'1',currency:'TWD',lines:[{...item,options:[],state:'ok'}],merchandise_total_minor:100,discounts:[],shipping:{state:'quoted',groups:[{group_ref:'group',amount_minor:0}],total_minor:0},total_minor:100}],
     ['checkout-input',{...input,contact:order.contact,delivery:{}}],['checkout',{checkout_ref:id,terms,terms_sha256:hash,expires_at:time}],
     ['placement-input',{terms_sha256:hash,client_order_id:id}],['placement',{order,payment:null}],['order',order],['redeem-input',{token:'synthetic'}],
+    ['payment-handoff-input',{}],['payment-handoff',{handoff_url:'/pay/ecpay/'+'A'.repeat(43),attempt_ref:id,expires_at:time}],
     ['access-request-input',{email:'buyer@example.test',display_number:'280229-ABCDEF'}],['forget-input',{}],['error',{type:'about:blank',title:'internal_error',status:500,code:'internal_error',detail:'結帳服務暫時無法使用。'}],
   ];
   assert.deepEqual(Object.keys(bundle.$defs).sort(),samples.map(([name])=>name).sort());
@@ -37,7 +38,7 @@ for c in x['cases']:
  Draft202012Validator.check_schema(s)
  assert Draft202012Validator(s,format_checker=FormatChecker()).is_valid(c['value']) == c['valid'],c
 print(len(x['cases']))`],{input:JSON.stringify({bundle,cases}),encoding:'utf8',timeout:15000});
-  assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),33);
+  assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),39);
 });
 test('checkout timestamps require ASCII UTC milliseconds and reject trailing content',()=>{
   const timestamp=c.CheckoutResponseSchema.shape.expires_at;

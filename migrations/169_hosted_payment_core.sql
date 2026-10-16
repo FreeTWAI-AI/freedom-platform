@@ -306,6 +306,7 @@ CREATE TABLE commerce_entry_routes (
 CREATE UNIQUE INDEX commerce_entry_provider_target ON commerce_entry_routes(route_kind,target_id) WHERE route_kind='provider_account';
 CREATE INDEX commerce_entry_routes_store ON commerce_entry_routes(tenant_id,instance_id);
 CREATE INDEX commerce_entry_routes_expiry ON commerce_entry_routes(expires_at) WHERE revoked_at IS NULL AND expires_at IS NOT NULL;
+CREATE INDEX commerce_entry_payment_handoff_target ON commerce_entry_routes(target_id,created_at) WHERE route_kind='payment_handoff';
 CREATE FUNCTION preserve_commerce_entry_route() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP='INSERT' THEN

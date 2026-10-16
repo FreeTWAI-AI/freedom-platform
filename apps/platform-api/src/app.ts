@@ -1,3 +1,4 @@
+import {createCheckoutPaymentPort} from '../../../modules/agent-commerce/payments/attempts.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { Context } from 'hono';
@@ -33,9 +34,11 @@ function authNetwork(c:Context) {
 
 /** Node runtime: settings are read from process configuration when used, as before. */
 export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
+  const environment=providerEnvironment(freedomEnv),admission=options.commercePorts?.admission??createStoreAdmissionPort(environment);
+  const payment=options.commercePayments?createCheckoutPaymentPort({environment,admission,settings:options.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:options.commercePayments.profiles,gateway:options.commercePayments.gateway,keyring:options.commerceCredentialKeyring??null}):undefined;
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
-    commercePayments:options.commercePayments,commerceSettings:options.commerceSettings,commercePorts:{admission:createStoreAdmissionPort(providerEnvironment(freedomEnv)),...options.commercePorts},commerceCredentialKeyring:options.commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv),
+    commercePayments:options.commercePayments,commerceSettings:options.commerceSettings,commercePorts:{admission,payment,...options.commercePorts},commerceCredentialKeyring:options.commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv),
     publicGuideAssets:options.publicGuideAssets,
     storePhotoAssetStore:options.storePhotoAssetStore,storePhotoAssets:options.storePhotoAssets,storePhotoUploadsEnabled:options.storePhotoUploadsEnabled===true,
     shopKeyPolicy:options.shopKeyPolicy??process.env.FREEDOM_SHOP_KEY_POLICY as PlatformRuntime['shopKeyPolicy'],

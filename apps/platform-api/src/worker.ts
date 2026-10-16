@@ -1,3 +1,4 @@
+import {createCheckoutPaymentPort} from '../../../modules/agent-commerce/payments/attempts.js';
 import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/journal/r2.js';
 import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
@@ -242,6 +243,8 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 }
 
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
+  const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment);
+  const payments=settings.providerProfiles.length?{gateway:createEcpayPaymentGateway(environment,config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:settings.providerProfiles}:undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
@@ -274,10 +277,9 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
-    commercePayments:config.commerceSettings?.providerProfiles.length?{gateway:createEcpayPaymentGateway(providerEnvironment(config.freedomEnv),config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:config.commerceSettings.providerProfiles}:undefined,
-    commerceSettings:config.commerceSettings??readCommerceSettings(env),
+    commercePayments:payments,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
-    commercePorts:{admission:createStoreAdmissionPort(providerEnvironment(config.freedomEnv))},
+    commercePorts:{admission,payment:payments?createCheckoutPaymentPort({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null}):undefined},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',

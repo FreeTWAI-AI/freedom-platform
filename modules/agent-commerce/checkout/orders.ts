@@ -88,6 +88,7 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
     VALUES($1,$2,$3,$4,$5,'hosted_checkout',$6,$7,$8,$9)`,[id,b.selection_id,b.item_id,b.quantity,saved.items.find(l=>l.sku===b.sku),b.supplier_shop_id,b.offer_id,b.acceptance_id,b.listing_sha256]);
   await (await checkoutInventory(q,id)).hold();
   await bindStore(q,p.tenant_id);
+  await ports.payment?.createOrderAttempt(q,{store:p,orderId:id,amountMinor:saved.total_minor,currency:c.currency,environment:input.environment});
   return (await q.query<CheckoutOrderRow>('SELECT *,version::text FROM commerce_checkout_orders WHERE order_id=$1',[id])).rows[0];
 }
 export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId:string,actor:'buyer'|'seller'|'system',reason:'buyer_cancelled'|'seller_cancelled'|'payment_not_completed') {

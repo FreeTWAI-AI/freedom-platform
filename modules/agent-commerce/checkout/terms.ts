@@ -46,7 +46,20 @@ export interface ShippingQuotePort {
 export interface CheckoutAdmissionPort {allowed(q:PoolClient,store:CheckoutStore):boolean|Promise<boolean>}
 export interface UnresolvedOrderPort {find(q:PoolClient,checkoutId:string):Promise<{order_id:string}|null>}
 export interface CheckoutPolicyPort {required(q:PoolClient,store:CheckoutStore):Promise<readonly {policy_kind:string;policy_version_id:string}[]>}
-export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort}
+export interface CheckoutPaymentHandoff {handoff_url:string;attempt_ref:string;expires_at:string}
+export interface CheckoutPaymentSummary {
+  payment_state:'unpaid'|'pending'|'simulated'|'confirmed';
+  latest_payment_attempt:null|{attempt_ref:string;state:'ready'|'awaiting_result'|'paid'|'failed'|'expired';created_at:string};
+  can_resume_payment:boolean;
+}
+/** SQL-local inbound payment operations. Implementations must not call a provider. */
+export interface CheckoutPaymentPort {
+  createOrderAttempt(q:PoolClient,input:{store:CheckoutStore;orderId:string;amountMinor:number;currency:string;environment:'sandbox'|'live'}):Promise<void>;
+  issueHandoff(q:PoolClient,input:{store:CheckoutStore;orderId:string}):Promise<CheckoutPaymentHandoff|null>;
+  onOrdersCancelled(q:PoolClient,orderIds:readonly string[]):Promise<void>;
+  summarize(q:PoolClient,orderIds:readonly string[]):Promise<ReadonlyMap<string,CheckoutPaymentSummary>>;
+}
+export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort}
 export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};
 const defaultShipping:ShippingQuotePort={async quote(){requireCondition(false,409,'shipping_not_configured','尚未設定配送。');}};
 const shippingSchema=z.object({groups:z.array(z.object({group_ref:z.string().min(1).max(80),supplier_shop_id:z.uuid(),method_ref:z.string().min(1).max(80),amount_minor:money})).min(1).max(50)});
