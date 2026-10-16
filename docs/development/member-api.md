@@ -832,6 +832,12 @@ not presented as active. Stopping removes the request. No email/contact/private
 draft is exposed. Claims do not send messages, add friends or certify identity,
 quality or response. Guild reply counts include other-author replies only;
 own work counts private opportunities and volunteers receive null.
+Claim and release validate then normalize the target UUID to lowercase before
+self checks, the per-requester advisory lock and database access. Equivalent
+UUID spellings share one CAS decision: two volunteers using the same version
+receive one success and one `412`, never two acknowledged claimants. The member
+cannot claim or release their own request through alternate UUID casing; both
+return `403 self_claim_forbidden`. Existing receipt identities remain unchanged.
 
 Local verification is synthetic source evidence only. Consented real-human
 newcomer trial, operational receptionist handoff, native #193 paths,
