@@ -1,11 +1,13 @@
 import { PrivateProductPhotoSchema, PublicProductPhotoSchema, ProductPhotoSkuSchema } from '../../../contracts/guild-launchpad/v1/hosted-store-media.js';
+import { DistributionPhotoItemSchema } from '../../../contracts/guild-launchpad/v1/supplier-console.js';
 import type { PublicStoreProjection } from '../../../contracts/guild-launchpad/v1/storefront.js';
 import { StoreTemplateSchema, type StoreTemplate } from '../../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import { escapeHtml as escape } from '../../../packages/shared/html.js';
 import { formatMinor } from './format.js';
 
 type Media = readonly {sku: string; photo: unknown | null}[];
-type Photo = ReturnType<typeof PrivateProductPhotoSchema.parse> | ReturnType<typeof PublicProductPhotoSchema.parse>;
+const DistributionPhotoSchema = DistributionPhotoItemSchema.shape.photo.unwrap();
+type Photo = ReturnType<typeof PrivateProductPhotoSchema.parse> | ReturnType<typeof PublicProductPhotoSchema.parse> | ReturnType<typeof DistributionPhotoSchema.parse>;
 /** Only the public route supplies its configured origin; private preview never does. */
 type PublicShare = {publicOrigin: string};
 type PageOptions = PublicShare | {preview: true};
@@ -16,7 +18,7 @@ function paragraphs(text: string) {
 }
 function summary(text: string) {return [...text.replace(/\s+/g, ' ').trim()].slice(0, 180).join('');}
 function photosFor(store: PublicStoreProjection, media: Media, share?: PublicShare) {
-  const photos = new Map(media.map(item => [item.sku, item.photo === null ? null : PrivateProductPhotoSchema.or(PublicProductPhotoSchema).parse(item.photo)]));
+  const photos = new Map(media.map(item => [item.sku, item.photo === null ? null : PrivateProductPhotoSchema.or(PublicProductPhotoSchema).or(DistributionPhotoSchema).parse(item.photo)]));
   if (photos.size !== media.length || media.some(item => !store.products.some(product => product.sku === item.sku))) throw new Error('storefront_photo_product_mismatch');
   if (share && [...photos].some(([sku, photo]) => photo && (!PublicProductPhotoSchema.safeParse(photo).success || photo.read_path !== `/shops/${store.slug}/media/${store.revision}/${sku}`))) throw new Error('storefront_public_photo_required');
   return photos;

@@ -219,3 +219,30 @@ test('DP-13 flag off keeps published snapshots and drops an invalid source at th
  assert.deepEqual((await f.h.pool.query('SELECT asset_id FROM commerce_distribution_photo_copies WHERE tenant_id=$1 ORDER BY asset_id',[b.tenantId])).rows,copies);
  assert.equal(await usage(b),used);
 });
+
+test('DP-14 the saved-draft preview shows a partner photo to the owner',async()=>{
+ const {a,b,o,m}=await journey();
+ const upload=await app.request(f.h.origin+'/api/v1'+b.root+`/products/${b.productId}/photo`,{method:'POST',headers:{Origin:f.h.origin,Cookie:b.owner.cookie,'X-CSRF-Token':b.owner.csrf,'Content-Type':'image/png','Idempotency-Key':randomUUID(),'If-Match':'"1"'},body:new Uint8Array(photoSourcePng)});
+ assert.equal(upload.status,200);
+ const own=f.ok(await call(b,'/product-media')).items.find((item:any)=>item.product_id===b.productId).photo.read_path;
+ assert.match(own,new RegExp(`/products/${b.productId}/photo/`));
+ const ack=f.ok(await use(b,o,m)),partner=ack.current.photo.read_path;
+ assert.equal(partner,`/api/v1${b.root}/distribution-photos/${o.product_id}/photo/${ack.version}`);
+ const preview=await call(b,'/preview-page');assert.equal(preview.status,200);assert.match(preview.response.headers.get('Content-Type')!,/^text\/html/);
+ const html=await preview.response.text();assert(html.includes(`src="${partner}"`));assert(html.includes(`src="${own}"`));
+ const {storeHtml}=await import('../../modules/agent-commerce/hosted/page.js'),draft=f.ok(await call(b,'/preview')).projection;
+ const sku=(await f.h.pool.query('SELECT hosted_sku FROM commerce_selections WHERE shop_id=$1 AND item_id=$2',[await shop(b),o.product_id])).rows[0].hosted_sku;
+ assert.throws(()=>storeHtml(draft,'catalog-grid-v1',[{sku,photo:ack.current.photo}],{publicOrigin:f.h.origin}),/storefront_public_photo_required/);
+ const copy=(await f.h.pool.query('SELECT o.content_sha256,o.byte_size FROM commerce_distribution_photo_copies c JOIN asset_objects o USING(asset_id) WHERE c.tenant_id=$1 AND c.product_id=$2',[b.tenantId,o.product_id])).rows[0];
+ const read=await app.request(f.h.origin+partner,{headers:{Cookie:b.owner.cookie}});assert.equal(read.status,200);
+ const bytes=Buffer.from(await read.arrayBuffer()),{createHash}=await import('node:crypto');
+ assert.equal(bytes.byteLength,Number(copy.byte_size));assert.equal(createHash('sha256').update(bytes).digest('hex'),copy.content_sha256);
+ assert.equal((await app.request(f.h.origin+partner)).status,401);
+ assert.equal((await app.request(f.h.origin+partner,{headers:{Cookie:a.owner.cookie}})).status,404);
+ assert.equal((await app.request(f.h.origin+own,{headers:{Cookie:b.owner.cookie}})).status,200);
+ const off=application({distributionPhotosEnabled:false}),offPreview=await call(b,'/preview-page',b.owner,off);
+ assert.equal(offPreview.status,200);assert.match(offPreview.response.headers.get('Content-Type')!,/^text\/html/);
+ const offHtml=await offPreview.response.text();assert(offHtml.includes(`src="${partner}"`));assert(offHtml.includes(`src="${own}"`));
+ assert.equal((await off.request(f.h.origin+partner,{headers:{Cookie:b.owner.cookie}})).status,404);
+ assert.equal((await off.request(f.h.origin+own,{headers:{Cookie:b.owner.cookie}})).status,200);
+});
