@@ -22,6 +22,13 @@ DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；
 
 上表通知與私訊 POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Match`；封鎖設定另使用版本 CAS（見下節）。同一個 key 搭配不同內容回 `409 idempotency_conflict`；重送會先重新檢查目前資格，再讀取原收據。
 
+單則通知第一次標已讀時，先在目前會員與 command receipt 鎖之後鎖定本人通知列，
+再以 `clock_timestamp()` 記錄實際 mutation 時間，不使用交易開始時固定的 `now()`。
+因此 session／收據／通知列等待不會倒填第一次已讀時間；等待期間才建立的通知也不會
+出現 `read_at < created_at`。先取得通知列鎖是必要的：單改 UPDATE 裡的時鐘，
+PostgreSQL 仍可能在等待該列之前就算好 expression。`COALESCE` 保留原本已讀時間；
+新 key 再標或原 key 重送都不刷新它，會員／社群過濾及既有撤權守門不變。
+
 通知偏好啟用時，常駐訊息泡泡以未讀私訊加上偏好篩選後的頻道提醒計數，遵守頻道靜音與安靜時段；訊息面板內的歷史與原始未讀游標不變。通知鈴讀取完整歷史後仍以偏好提醒數為準。旗標尚未取得時不先顯示未篩選數字，關閉時沿用既有入口。
 
 通知鈴的「全部標為已讀」傳 `{scope:"notifications"}`，在同一筆既有會員命令交易中只更新本人通知，不取得聊天室 cursor 或私訊已讀。原 `{}` 呼叫仍保留全部 inbox 行為。scope 納入既有 command body digest，舊 key 不可換 scope。它是一個明確的 POST 操作；開啟通知、切換頁面和 GET 不會自動消耗未讀。既有內容與歷史不刪除，也不改其他會員的未讀狀態。聊天室只更新本人目前成員資格允許的頻道；沿用既有成員鎖、channel sequence 鎖及單調 cursor。這些寫入與 command receipt 在同一個交易，任一失敗全部回滾。收到 ACK 後重新讀取各分區的真實未讀數；失敗顯示錯誤，同一 key 重試只回第一次結果，之後的新通知和聊天仍是未讀。
