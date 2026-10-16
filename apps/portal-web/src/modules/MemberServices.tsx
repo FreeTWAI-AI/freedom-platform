@@ -43,7 +43,7 @@ export function MemberServices({client}: {client: PortalClient}) {
   const [draft, setDraft] = useState<Draft>(BLANK)
   const [file, setFile] = useState<File | null>(null)
   const [issues, setIssues] = useState<Issue[]>([])
-  const [confirming, setConfirming] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState<{serviceId: string; action: 'delete' | 'hide'} | null>(null)
   const issue = (field: string) => issues.find(item => item.field === field)?.message ?? ''
   const refreshMine = useCallback(async () => {
     const page = await client.get<Mine>('/member-services/mine')
@@ -131,18 +131,24 @@ export function MemberServices({client}: {client: PortalClient}) {
   }
   function actions(service: Service) {
     const paused = service.state === 'paused'
+    const confirmation = confirming?.serviceId === service.service_id ? confirming.action : null
     return <div className="service-actions">
       {!paused && <a className="btn btn-ghost" href={service.public_path} target="_blank" rel="noopener noreferrer">服務頁 ↗</a>}
       {!paused && <PromotionShare client={client} kind="member_service" target={service.service_id} title={service.title} text={`${service.title}｜${service.owner.display_name}：${service.summary}`} label="分享"/>}
       {service.mine && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => openEdit(service)}>編輯</button>}
       {service.mine && !paused && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => void act(service, 'pause')}>暫停</button>}
       {service.mine && paused && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => void act(service, 'resume')}>恢復</button>}
-      {service.mine && confirming !== service.service_id && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => setConfirming(service.service_id)}>刪除</button>}
-      {service.mine && confirming === service.service_id && <>
+      {service.mine && confirmation !== 'delete' && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => setConfirming({serviceId: service.service_id, action: 'delete'})}>刪除</button>}
+      {service.mine && confirmation === 'delete' && <>
         <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void act(service, 'delete')}>確定刪除</button>
         <button type="button" className="btn btn-ghost" onClick={() => setConfirming(null)}>取消</button>
       </>}
-      {canHide && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => void act(service, 'hide')}>隱藏</button>}
+      {canHide && confirmation !== 'hide' && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => setConfirming({serviceId: service.service_id, action: 'hide'})}>隱藏</button>}
+      {canHide && confirmation === 'hide' && <>
+        <p className="field-hint service-confirmation-note">隱藏後服務主人也看不到、無法編輯，分享連結會失效，且目前無法復原。</p>
+        <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => void act(service, 'hide')}>確定隱藏</button>
+        <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => setConfirming(null)}>取消</button>
+      </>}
     </div>
   }
   return <section className="service-zone stack" aria-label="社員服務分享區">

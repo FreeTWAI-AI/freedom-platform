@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { navigate, signOut } from './navigation.js';
 import { test, expect, type Browser, type Page } from './fixtures.js';
+import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 
 const GUEST_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 const SHOTS = process.env.AUDIT_EVIDENCE_DIR ?? 'test-results/member-services';
@@ -354,4 +356,55 @@ test('the owner can pause, resume and delete a service', async ({ page, browser 
   await expect(card(page, PLACEHOLDER_TITLE)).toHaveCount(0);
   await expect(page.locator('li.service-mine-row').filter({ hasText: PLACEHOLDER_TITLE })).toHaveCount(0);
   await signOut(page);
+});
+
+test('admin hide requires confirmation and cancelling never changes the service', async ({ page, e2eAuthPool: db }) => {
+  const userId = randomUUID(), adminId = randomUUID(), ids = [randomUUID(), randomUUID()];
+  const email = `service-admin-${userId}@example.test`;
+  const titles = ids.map((id, index) => `E2E 確認隱藏 ${index} ${id}`);
+  const writes: string[] = [];
+  page.on('request', request => {
+    if (request.method() !== 'GET' && ids.some(id => new URL(request.url()).pathname.startsWith(`/api/v1/member-services/${id}`))) writes.push(request.url());
+  });
+  try {
+    await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required,email_verified_at)
+      SELECT $1,$2,$3,'合成服務管理員',password_hash,$4,false,now() FROM users WHERE user_id=$5`,
+    [userId, DEMO_COMMUNITY, email, randomUUID(), DEMO_USERS[0].user_id]);
+    await db.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,'guild_ai_vibe','active')", [randomUUID(), DEMO_COMMUNITY, userId]);
+    await db.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)', [adminId, DEMO_COMMUNITY, email, '合成服務管理員']);
+    for (const [index, id] of ids.entries()) await db.query(`INSERT INTO member_services(service_id,community_id,owner_user_id,title,category,summary,service_mode,contacts,state,created_at,updated_at)
+      VALUES($1,$2,$3,$4,'other','確認前仍公開的合成服務','online','[{"label":"網站","url":"https://example.com/"}]'::jsonb,'active',now(),now())`,
+    [id, DEMO_COMMUNITY, index === 0 ? DEMO_USERS[0].user_id : userId, titles[index]]);
+    await login(page, email);
+    await navigate(page, '社員服務');
+    for (const [index, id] of ids.entries()) {
+      const target = card(page, titles[index]);
+      await target.getByRole('button', { name: '隱藏', exact: true }).click();
+      await expect(target.getByRole('button', { name: '確定隱藏', exact: true })).toBeVisible();
+      await target.getByRole('button', { name: '取消', exact: true }).click();
+      await expect(target.getByRole('button', { name: '確定隱藏', exact: true })).toHaveCount(0);
+      expect(writes).toEqual(ids.slice(0, index).map(previous => `${new URL(page.url()).origin}/api/v1/member-services/${previous}/hide`));
+      expect((await db.query('SELECT state,aggregate_version::text AS version FROM member_services WHERE service_id=$1', [id])).rows).toEqual([{ state: 'active', version: '1' }]);
+      expect((await page.request.get(`/services/${id}`)).status()).toBe(200);
+      if (index === 1) {
+        await target.getByRole('button', { name: '刪除', exact: true }).click();
+        await expect(target.getByRole('button', { name: '確定刪除', exact: true })).toBeVisible();
+      }
+      await target.getByRole('button', { name: '隱藏', exact: true }).click();
+      await expect(target.getByRole('button', { name: '確定刪除', exact: true })).toHaveCount(0);
+      const hidden = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1/member-services/${id}/hide` && response.request().method() === 'POST');
+      await target.getByRole('button', { name: '確定隱藏', exact: true }).click();
+      expect((await hidden).status()).toBe(200);
+      await expect(target).toHaveCount(0);
+      await expect(page.locator('li.service-mine-row').filter({ hasText: titles[index] })).toHaveCount(0);
+      expect((await db.query('SELECT state,aggregate_version::text AS version FROM member_services WHERE service_id=$1', [id])).rows).toEqual([{ state: 'hidden', version: '2' }]);
+      expect((await page.request.get(`/services/${id}`)).status()).toBe(404);
+    }
+    expect(writes).toEqual(ids.map(id => `${new URL(page.url()).origin}/api/v1/member-services/${id}/hide`));
+  } finally {
+    await db.query('DELETE FROM member_services WHERE service_id=ANY($1::uuid[])', [ids]);
+    await db.query('DELETE FROM platform_admins WHERE admin_id=$1', [adminId]);
+    for (const table of ['positioning_profession_memberships', 'member_accounts', 'sessions', 'member_client_errors', 'command_receipts']) await db.query(`DELETE FROM ${table} WHERE user_id=$1`, [userId]);
+    await db.query('DELETE FROM users WHERE user_id=$1', [userId]);
+  }
 });
