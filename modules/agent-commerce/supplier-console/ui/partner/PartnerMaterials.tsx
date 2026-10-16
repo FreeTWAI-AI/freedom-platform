@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {useDistributionPhotos,type DistributionPhotoSender} from './distribution-photos';
 import type { PortalClient } from '../../../../../apps/portal-web/src/api';
 import {
   PartnerMaterialsSchema,
@@ -29,6 +30,8 @@ export interface PartnerMaterialsViewProps {
   mediaEnabled?: boolean;
   onReload?: () => void;
   onRetry?: () => void;
+  distributionContent?:ReactNode;
+  renderDistribution?:(material:PartnerMaterial)=>ReactNode;
 }
 
 export function PartnerMaterialsView({
@@ -38,6 +41,8 @@ export function PartnerMaterialsView({
   mediaEnabled = false,
   onReload,
   onRetry,
+  distributionContent,
+  renderDistribution,
 }: PartnerMaterialsViewProps) {
   const [copyStatus, setCopyStatus] = useState<Record<string, string>>({});
   const [failedMedia, setFailedMedia] = useState<Record<string, boolean>>({});
@@ -169,6 +174,7 @@ export function PartnerMaterialsView({
             )}
           </>
         )}
+        {renderDistribution?.(item)}
       </article>
     );
   };
@@ -211,6 +217,8 @@ export function PartnerMaterialsView({
     <section className="partner-materials stack" aria-labelledby="partner-materials-title">
       <h3 id="partner-materials-title">合作素材</h3>
       <p>供應商授權給這間店的行銷素材。只會顯示你目前仍在販售或等待確認的合作。</p>
+
+      {distributionContent}
 
       {state.kind === 'loading' && (
         <p role="status">正在讀取合作素材…</p>
@@ -280,6 +288,10 @@ export interface PartnerMaterialsProps {
   active: boolean;
   refresh: number;
   mediaEnabled?: boolean;
+  distributionPhotosEnabled?:boolean;
+  writable?:boolean;
+  busy?:boolean;
+  onCommand?:DistributionPhotoSender;
 }
 
 export function PartnerMaterials({
@@ -290,7 +302,9 @@ export function PartnerMaterials({
   active,
   refresh,
   mediaEnabled = false,
+  distributionPhotosEnabled=false,writable=false,busy=false,onCommand,
 }: PartnerMaterialsProps) {
+  const distribution=useDistributionPhotos({client,userId,tenantId,instanceId,active,refresh,enabled:distributionPhotosEnabled,writable,busy,onCommand});
   const [state, setState] = useState<PartnerMaterialsViewState>({ kind: 'loading' });
   const dataRef = useRef<PartnerMaterialsData | null>(null);
   const ticketRef = useRef(0);
@@ -379,8 +393,10 @@ export function PartnerMaterials({
       tenantId={tenantId}
       instanceId={instanceId}
       mediaEnabled={mediaEnabled}
-      onReload={() => void load()}
-      onRetry={() => void load()}
+      distributionContent={distribution.above}
+      renderDistribution={distribution.renderMaterial}
+      onReload={() => {void load();void distribution.reload();}}
+      onRetry={() => {void load();void distribution.reload();}}
     />
   );
 }

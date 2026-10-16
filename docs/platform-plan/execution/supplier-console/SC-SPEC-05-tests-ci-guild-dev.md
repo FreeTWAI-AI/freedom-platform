@@ -65,7 +65,7 @@
 | AT-40、41 | E2E 截圖（`SC-E2E-40`，SC-SPEC-01 的視覺驗收）與鍵盤操作（`SC-E2E-32`） |
 | AT-42 | E2E：舊書籤 `#stores/<t>/<i>/supply`、`…/supply-orders` 打開正確頁面 |
 | AT-44 | E2E：同一資料在新版關閉時由舊頁正確顯示 |
-| AT-23～28、43 | S3 素材（SC-SPEC-04 §4）：SQL、HTTP 與狀態邏輯見下方 `SC-09`、`MATERIAL-*`、`SC-API-M1C-*`、`SC-UI-M3-*`、`M2-*`；瀏覽器見 `SC-E2E-60`～`68`。真 R2 的寫入與讀取、備份與還原（AT-43）要在 staging 由 Ted 核准後做，在那之前記 not_run。AT-27 的「已發布店面不變」要等 D-11 |
+| AT-23～28、43 | S3 素材（SC-SPEC-04 §4）：SQL、HTTP 與狀態邏輯見下方 `SC-09`、`MATERIAL-*`、`SC-API-M1C-*`、`SC-UI-M3-*`、`M2-*`；瀏覽器見 `SC-E2E-60`～`68`。真 R2 的寫入與讀取、備份與還原（AT-43）要在 staging 由 Ted 核准後做，在那之前記 not_run。AT-27 的「已發布店面不變」由 D-11 的 DP-02～04 覆蓋（本機 runtime，瀏覽器 not_run） |
 | AT-29、30、31、32（報表） | S3 報表（SC-SPEC-04 §5）：HTTP `SC-API-25`～`36`（含 CSV 防公式注入 AT-32；幣別不符時整份報表失敗，不跨幣相加）、狀態邏輯 `SC-UI-S3-01`～`16`；報表頁的瀏覽器案例仍 not_run |
 | AT-35 | S1 的商品照片沿用 `HostedStorePhoto` 的晚到保護：會話世代與處理序號都相符、元件也仍掛載時，才把讀好的檔案放進預覽和待上傳內容。目前沒有不靠等待時間就能重現的自動測試，S1 記為 not_run。S3 素材上傳另有狀態邏輯測試（`SC-UI-M3-10`、`23`、`24`）：會話在送出或讀完回應時改變，不會更新憑證或接受上傳；晚到的結果不會覆蓋較新的上傳。這不是瀏覽器證據，瀏覽器層仍記 not_run |
 
@@ -99,6 +99,26 @@
 測試名稱裡的 AT 編號只表示對應關係；驗收狀態仍依 §1，在同一個候選 commit 記下證據後才改。
 
 純供貨照片的瀏覽器案例放進既有的照片 pass（`FREEDOM_E2E_STORE_PHOTO_FIXTURE=1`，`scripts/run-e2e.mjs`），加在 `tests/e2e/hosted-store-photo.spec.ts`，不新增 pass、不改 runner。S3 的素材上傳案例也放在這個 pass；不需要真檔案的素材案例放一般 pass。
+
+### D-11 店面使用合作素材（本機候選）
+
+`distribution-photos.test.ts` 與 `distribution-photos-sql.test.ts` 已登記 runtime suites；使用受限角色、真 PostgreSQL schema 與 FakeObjectStore，不宣稱真 R2 或已部署。所有瀏覽器案例本輪 `not_run`，後續 job 補。
+
+| 案例 | 驗證 | 對應 |
+| --- | --- | --- |
+| DP-01 | 賣家 ready Asset、來源版本、獨立指標、容量與私人讀取 | AT-24、25、27 |
+| DP-02 | publication 同 tenant Asset 與公開媒體位元組 | AT-27 |
+| DP-03 | 來源 v2 不改 v1；再次發布仍 v1；明確改用再發布才 v2；保留來源歷史 | AT-27、SC-R29 |
+| DP-04 | 撤回、撤銷、改回 partners、合作撤銷：既有發布不變，下次發布移除照片 | AT-26、27 |
+| DP-05 | 精確拒絕、非圖片、非目前版本、不適用、他店與隨機 ID、唯讀、匿名私人快取 | AT-25、32、33 |
+| DP-06 | 同 key 回原收據、不同 body 拒絕、寫入後中斷以同 intent 恢復 | AT-24、35 |
+| DP-07 | 賣家容量拒絕，供應商用量不變 | AT-24 |
+| DP-08 | 讀來源期間或 finalize 前撤銷授權，沒有新指標 | AT-26 |
+| DP-09 | 停止使用只清指標，複本繼續計容量 | AT-27 |
+| DP-10 | 旗標關閉：路由 404、site false；既有有效指標仍可發布 | AT-42 |
+| DP-11 | 選用／停止使用不改供貨同意 CAS | AT-27 |
+| DP-12 | 自有商品照片 JSON、預覽與發布維持原行為 | AT-27 |
+| DP-SQL-01～05 | 不可刪改來源事實、指標 identity／版本、同 tenant／instance／product 的 copy FK、ready／object FK、fence guards、intent shape／0 版本限制、tenant RLS | AT-24、32、33、43（非還原演練） |
 
 ## 4. 效能
 
