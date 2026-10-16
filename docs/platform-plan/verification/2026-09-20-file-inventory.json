@@ -15269,8 +15269,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
-      "bytes": 26731,
-      "sha256": "1f19389ad18c5e9912ec6efd177d317a8ee720fa6f3c813a0f87ecb2aba412fe"
+      "bytes": 28192,
+      "sha256": "9d5ce66f9801d041613b41dd6dd6b8d23d65ee3fdb0f471c73b84a63502014b8"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
@@ -17769,8 +17769,8 @@
     },
     {
       "path": "modules/agent-commerce/storefront/freedom.module.json",
-      "bytes": 976,
-      "sha256": "00caf9108cfa27258a61612b855557e7ce784213ec34ce419e5acdb0814f6076"
+      "bytes": 1121,
+      "sha256": "70e602834d337649bd1cce8b89ca72b00f891604b87adcd591fa2ca644a73ce5"
     },
     {
       "path": "modules/agent-commerce/storefront/pages.ts",

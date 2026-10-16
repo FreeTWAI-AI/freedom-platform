@@ -10,7 +10,10 @@
     "tests/e2e/storefront-order-fixture.ts",
     "tests/runtime/storefront-cart-pages.test.ts",
     "tests/e2e/storefront-cart.spec.ts",
-    "tests/e2e/storefront-cart-fixture.ts"
+    "tests/e2e/storefront-cart-fixture.ts",
+    "tests/runtime/storefront-payment-pages.test.ts",
+    "tests/e2e/storefront-payment.spec.ts",
+    "tests/e2e/storefront-payment-fixture.ts"
   ],
   "public_exports": [],
   "dependencies": [
