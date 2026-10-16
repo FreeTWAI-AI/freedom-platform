@@ -35,7 +35,7 @@ export async function shippingSettingsCommand<T>(pool:Pool,actor:SettingsActor,t
   try{
     await scopedTenantCommand(pool,{actor,tenantId,tenantLock:'share',capabilitiesForRole:storeCapabilities,operation,target,body,key,expected},authorize,
       q=>run(q,context),authorize,undefined,(source,command)=>isolatedTransaction(source,async q=>{
-        const reference=await command(q) as {id:string};output=await project(q,context,reference.id);
+        const reference=await command(q);output=await project(q,context,(reference as {id:string}).id);
         await authorize(q,context.tenant);await assertCurrentSessionClock(q,actor);return reference;
       }));
     return output;
