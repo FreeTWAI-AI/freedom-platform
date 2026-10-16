@@ -63,7 +63,7 @@ type CategoryBoard={view:PreferenceView;catalog:CategoryCatalog};
 type PreferenceDraft={category:CategoryName;guild_key:string|null;catalog_revision:string;guildName:string;actionGuild:string};
 const CATEGORY_ORDER=['internal','external','professional_industry'] as const;
 
-export function GuildsPanel({client,session,onNavigate,site,locationHash,registerPendingLeave,blockLoaders}:ModulePanelProps&{blockLoaders?:GuildBlockLoaders;site?:{guild_launchpad_enabled?:boolean}|null;locationHash:string;registerPendingLeave:(guard:(()=>boolean)|null)=>void}) {
+export function GuildsPanel({client,session,onNavigate,site,locationHash,registerPendingLeave,blockLoaders}:ModulePanelProps&{blockLoaders?:GuildBlockLoaders;site?:{guild_launchpad_enabled?:boolean;supplier_console_enabled?:boolean}|null;locationHash:string;registerPendingLeave:(guard:(()=>boolean)|null)=>void}) {
   const [query,setQuery]=useState(''),[scope,setScope]=useState<'all'|'joined'>('all'),[topic,setTopic]=useState<GuildTopic|''>('');
   const [guilds,setGuilds]=useState<GuildSummary[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState(''),[answerGuild,setAnswerGuild]=useState('');
   const [preferences,setPreferences]=useState<GuildPreferences|null>(null),[editing,setEditing]=useState(false),[secondaryDraft,setSecondaryDraft]=useState<string[]>([]);
@@ -226,7 +226,7 @@ export function GuildsPanel({client,session,onNavigate,site,locationHash,registe
     const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version??undefined);
     if(result){setEditing(false);announce(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
-  if(launchpadKey)return <GuildLaunchpad blockLoaders={blockLoaders} key={launchpadKey} client={client} guildKey={launchpadKey} mode="member" userId={session.user.user_id} registerPendingLeave={registerPendingLeave} onBack={()=>{window.location.hash='guilds';}}/>;
+  if(launchpadKey)return <GuildLaunchpad blockLoaders={blockLoaders} key={launchpadKey} client={client} guildKey={launchpadKey} mode="member" supplierConsoleEnabled={site?.supplier_console_enabled===true} userId={session.user.user_id} registerPendingLeave={registerPendingLeave} onBack={()=>{window.location.hash='guilds';}}/>;
   return <section className="module-panel guilds-panel" aria-label="公會目錄">
     <header className="guild-hub-heading">
       {!loading&&!loadError&&<p className="guild-overview" aria-label="我的公會概況"><span>已加入 <strong>{joinedCount}</strong> 個公會</span><span>共 {guilds.length} 個公會</span></p>}

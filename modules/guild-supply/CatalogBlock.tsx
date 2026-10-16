@@ -53,7 +53,7 @@ function CatalogSummaryItem({client, viewer, item}: {
   return <SupplySummaryView state={state} name={item.name ?? '尚未命名的供貨商品庫'} tenantId={item.tenant_id} instanceId={item.instance_id} retry={retry} />;
 }
 
-export default function CatalogBlock({client, viewer, navigate, startApplication, startableApplications = []}: GuildBlockProps) {
+export default function CatalogBlock({client, viewer, navigate, startApplication, startableApplications = [], supplierConsoleEnabled}: GuildBlockProps) {
   const {state, retry} = useGuildRead(client, viewer, '/me/supply-catalogs?pagination=cursor', parse);
   return <div className="stack">
     <p>管理商品、供貨價與合作條件，再決定是否公開供貨版本。不必先建立零售店。</p>
@@ -62,7 +62,7 @@ export default function CatalogBlock({client, viewer, navigate, startApplication
       {state.data.items.length ? <ul className="stack">{state.data.items.slice(0, 3).map(item => <li key={item.instance_id}>
         <button type="button" className={`btn ${state.data.items.length === 1 && !state.data.next_cursor ? 'btn-primary' : 'btn-ghost'} btn-small`} onClick={() => navigate(`#stores/${item.tenant_id}/${item.instance_id}/supply`)}>{item.name ?? '尚未命名的供貨商品庫'}</button>
         <p className="field-hint">{item.setup_state === 'setup_required' ? '待設定供貨資料' : '供貨資料已就緒'}；是否可編輯由商品庫目前授權決定。</p>
-        {item.setup_state === 'ready' && <CatalogSummaryItem client={client} viewer={viewer} item={item} />}
+        {supplierConsoleEnabled === true && item.setup_state === 'ready' && <CatalogSummaryItem client={client} viewer={viewer} item={item} />}
       </li>)}</ul> : <p>目前沒有可讀取的供貨商品庫。</p>}
       <div className="actions">
         {(state.data.items.length > 3 || state.data.next_cursor) && <button type="button" className="btn btn-ghost btn-small" onClick={() => navigate('#stores/supply')}>查看全部供貨商品庫</button>}
