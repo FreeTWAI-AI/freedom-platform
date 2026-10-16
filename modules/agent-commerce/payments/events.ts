@@ -8,6 +8,7 @@ import { openException, type PaymentExceptionKind } from '../checkout/exceptions
 import { applyQueryResult } from './queries.js';
 import { hasDefinitePaymentMismatch,settleOrderPayments,PAYMENT_WINDOW_MS } from './window.js';
 import { scheduleDueWork } from '../operations/due-work.js';
+import { queuePaymentOutcomeEmail, type CommerceEmailOutbox } from '../operations/notifications/outbox.js';
 import type { PaymentNotification } from '../providers/ecpay/aio-credit/index.js';
 import type { PaymentAccount } from './provider-input.js';
 export class InvalidPaymentCredential extends Error {
@@ -25,6 +26,7 @@ export function receivePaymentNotification(pool: Pool, input: {
   message: PaymentNotification;
   credentialVersion: number;
   quarantine: boolean;
+  email?: CommerceEmailOutbox;
 }) {
   return isolatedTransaction(pool, async (q) => {
     const { account: a, message: m } = input;
@@ -43,13 +45,13 @@ export function receivePaymentNotification(pool: Pool, input: {
     if (!event)
       return null;
     if (!attempt || !input.quarantine)
-      await applyPaymentEvent(q, event.event_id);
+      await applyPaymentEvent(q, event.event_id, { email: input.email });
     return attempt && !input.quarantine && (await q.query("SELECT 1 FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1 AND due_at<=clock_timestamp()",[attempt.attempt_id])).rowCount ? attempt.attempt_id as string : null;
   });
 }
 /** Shared by synchronous receipt and deferred replay. Machine account provenance
  * binds the tenant; no member principal participates. */
-export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise<boolean> {
+export async function applyPaymentEvent(q: PoolClient, eventId: string, options: { email?: CommerceEmailOutbox } = {}): Promise<boolean> {
   let event = (await q.query("SELECT * FROM commerce_hosted_payment_events WHERE event_id=$1 AND source='notification'", [eventId])).rows[0];
   if (!event || event.applied_at)
     return false;
@@ -84,7 +86,12 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
     if (!['confirmed','failed','expired_unpaid'].includes(attempt!.state) && !await hasDefinitePaymentMismatch(q,attempt))
       await scheduleDueWork(q, { tenantId: event.tenant_id, instanceId: event.instance_id, kind: 'payment_query', targetId: attempt!.attempt_id, dueAt: (await q.query('SELECT clock_timestamp()::text AS t')).rows[0].t });
   };
-  const apply = async (simulated: boolean) => attempt!.order_id ? applyConfirmedPayment(q, { orderId: attempt!.order_id, paymentRef, amountMinor: Number(event.trade_amt_minor), currency: attempt!.currency, simulated }) : null;
+  const apply = async (simulated: boolean) => {
+    if (!attempt!.order_id) return null;
+    const application = await applyConfirmedPayment(q, { orderId: attempt!.order_id, paymentRef, amountMinor: Number(event.trade_amt_minor), currency: attempt!.currency, simulated });
+    await queuePaymentOutcomeEmail(q, options.email, { tenantId: event.tenant_id, instanceId: event.instance_id, application });
+    return application;
+  };
   if (!attempt)
     await exception('unmatched_payment', 'payment_event');
   else if (event.outcome === 'simulated')
@@ -120,8 +127,9 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
 }
 /** Each verified event commits separately, in receipt order. The host skips this
  * worker while commerce is quarantined; no provider query is executed here. */
-export async function applyDeferredPaymentEvents(pool: Pool, { limit = 200 }: {
+export async function applyDeferredPaymentEvents(pool: Pool, { limit = 200, email }: {
   limit?: number;
+  email?: CommerceEmailOutbox;
 } = {}): Promise<{ applied: number; failed: number; skipped: number }> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 200)
     throw Error('payment_deferred_limit_invalid');
@@ -133,7 +141,7 @@ export async function applyDeferredPaymentEvents(pool: Pool, { limit = 200 }: {
       continue;
     }
     try {
-      if (await isolatedTransaction(pool, q => event.source==='query'?applyQueryResult(q,event.event_id,{updateDueWork:true}):applyPaymentEvent(q, event.event_id)))
+      if (await isolatedTransaction(pool, q => event.source==='query'?applyQueryResult(q,event.event_id,{updateDueWork:true,email}):applyPaymentEvent(q, event.event_id, {email})))
         counts.applied++;
       else
         counts.skipped++;

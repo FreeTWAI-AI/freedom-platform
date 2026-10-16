@@ -11,6 +11,7 @@ import {activateProviderService,listUsableCredentialVersions,loadServiceCredenti
 import type {CommerceCredentialKeyring} from './credentials.js';
 import type {PaymentQueryTransport,QueryTransportResult} from './query-transport.js';
 import {lockMachinePaymentAttempt,paymentQueryDueAt,hasDefinitePaymentMismatch,settleOrderPayments,PAYMENT_WINDOW_MS,type MachinePaymentAttempt} from './window.js';
+import {queuePaymentOutcomeEmail,type CommerceEmailOutbox} from '../operations/notifications/outbox.js';
 
 export type PaymentQueryTrigger='schedule'|'window_end'|'notification'|'browser_return'|'buyer'|'repay'|'activation';
 export type PaymentQueryError='timeout'|'network'|'response_too_large'|'http_status'|'http_403'|'verify_failed'
@@ -20,6 +21,7 @@ export interface PaymentQueryDependencies {
   transport:PaymentQueryTransport; keyring:CommerceCredentialKeyring|null;
   /** Host environment is explicit; providerEnvironment is its sole mapping. */
   freedomEnv:'local'|'staging'|'public'; now?:()=>Date; quarantine?:boolean; signal?:AbortSignal;
+  email?:CommerceEmailOutbox;
 }
 export interface PaymentQueryRun {
   status:TradeInfoResponseResult['kind']|PaymentQueryError|'query_in_progress'|'payment_result_pending'|'skipped';
@@ -144,7 +146,7 @@ export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryD
           r.kind==='unknown'?r.tradeStatus??null:r.kind==='unpaid'?'0':r.kind==='failed'?'10200095':'1',
           paid?.handlingChargeMinor??null,r.kind==='unknown'?r.reason:null,r.kind==='unknown'?r.field??null:null,trigger,
           'keyIndex' in r?lease.verification[r.keyIndex].credentialVersion:null,createHash('sha256').update(response.body).digest('hex')])).rows[0];
-        eventId=inserted.event_id;applied=await applyQueryResult(q,eventId,{now:()=>now});
+        eventId=inserted.event_id;applied=await applyQueryResult(q,eventId,{now:()=>now,email:deps.email});
         a=(await q.query<MachinePaymentAttempt>('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1',[attemptId])).rows[0];
       }
     }
@@ -175,7 +177,7 @@ export class PaymentQueryExecutionError extends Error {
 }
 
 /** Event application is shared by phase three and ordered deferred replay. */
-export async function applyQueryResult(q:PoolClient,eventId:string,options:{now?:()=>Date;updateDueWork?:boolean}={}):Promise<boolean> {
+export async function applyQueryResult(q:PoolClient,eventId:string,options:{now?:()=>Date;updateDueWork?:boolean;email?:CommerceEmailOutbox}={}):Promise<boolean> {
   let e=(await q.query("SELECT * FROM commerce_hosted_payment_events WHERE event_id=$1 AND source='query'",[eventId])).rows[0];
   if(!e || e.applied_at)return false;
   const a=await lockMachinePaymentAttempt(q,e.attempt_id);if(!a)throw Error('payment_attempt_missing');
@@ -188,7 +190,12 @@ export async function applyQueryResult(q:PoolClient,eventId:string,options:{now?
     if(once && (await q.query('SELECT 1 FROM commerce_exception_cases WHERE kind=$1 AND subject_kind=\'payment_attempt\' AND subject_id=$2 LIMIT 1',[kind,a.attempt_id])).rowCount)return;
     await openException(q,{tenantId:a.tenant_id,instanceId:a.instance_id,orderId:a.order_id,kind,subjectKind:'payment_attempt',subjectId:a.attempt_id});
   };
-  const apply=()=>a.order_id?applyConfirmedPayment(q,{orderId:a.order_id,paymentRef:a.attempt_id,amountMinor:Number(e.trade_amt_minor),currency:a.currency,simulated:false}):null;
+  const apply=async()=>{
+    if(!a.order_id)return null;
+    const application=await applyConfirmedPayment(q,{orderId:a.order_id,paymentRef:a.attempt_id,amountMinor:Number(e.trade_amt_minor),currency:a.currency,simulated:false});
+    await queuePaymentOutcomeEmail(q,options.email,{tenantId:a.tenant_id,instanceId:a.instance_id,application});
+    return application;
+  };
   if(e.outcome==='paid') {
     // Recheck against facts recorded during an overlapping notification.
     if(a.trade_no && a.trade_no!==e.trade_no)await exception('contradicting_event',true);

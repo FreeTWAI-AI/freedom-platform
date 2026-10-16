@@ -3,7 +3,7 @@ import type {Pool,PoolClient} from 'pg';
 import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
 import {queryAttempt,PaymentQueryExecutionError,type PaymentQueryDependencies,type PaymentQueryTrigger} from '../payments/queries.js';
 import {endPaymentWindow,lockMachinePaymentAttempt,paymentQueryDueAt} from '../payments/window.js';
-export type CommerceDueWorkKind = 'payment_query' | 'payment_window_end';
+export type CommerceDueWorkKind = 'payment_query' | 'payment_window_end' | 'email';
 /** Scheduling never postpones existing work and never changes its tenant. The
  * caller owns the transaction; this helper performs no external operation. */
 export async function scheduleDueWork(q: PoolClient, input: {
