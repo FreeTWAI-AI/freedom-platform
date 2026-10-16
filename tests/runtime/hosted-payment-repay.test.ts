@@ -20,7 +20,7 @@ const view=async(p:Placed)=>{const r=await f.http('GET',url(p),undefined,p.cooki
  * never rewritten to advance a clock after creation. */
 async function oldAttempt(){
   const ready=await f.readyCheckout();
-  const order=await f.x.tx(q=>placeCheckoutOrder(q,ready.s,{checkoutId:ready.checkout.checkout_ref,termsSha256:ready.checkout.terms_sha256,clientOrderId:randomUUID(),environment:'sandbox'},ports));
+  const order=await f.x.tx(q=>placeCheckoutOrder(q,ready.s,{checkoutId:ready.checkout.checkout_ref,termsSha256:ready.checkout.terms_sha256,clientOrderId:randomUUID(),buyerPrincipalId:null,environment:'sandbox'},ports));
   const a=(await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency,created_at)
     VALUES($1,$2,'order',$3,1,$4,'sandbox','1234567',1,$5,500,'TWD',clock_timestamp()-interval '61 seconds') RETURNING *`,[ready.s.tenantId,ready.s.instanceId,order.order_id,ready.provider.accountId,newTradeNumber('F')])).rows[0];
   await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=created_at,handed_off_at=created_at,version=version+1 WHERE attempt_id=$1',[a.attempt_id]);

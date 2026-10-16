@@ -3,6 +3,7 @@ import {randomBytes} from 'node:crypto';
 import {test,describe,before,beforeEach,after} from 'node:test';
 import type {Pool} from 'pg';
 import {Hono} from 'hono';
+import type {PlatformEnv} from '../../apps/platform-api/src/module-context.js';
 import {hostedPaymentHarness} from '../e2e/hosted-payment-fixture.js';
 import {runDueCommerceWork,runAfterResponseWork,detachAfterResponse} from '../../modules/agent-commerce/operations/due-work.js';
 import {createFixtureQueryTransport} from '../../modules/agent-commerce/payments/query-transport.js';
@@ -37,7 +38,7 @@ test('Worker keeps the pool open until every collected work item settles',async(
   const calls:string[]=[],pending:Promise<unknown>[]=[];let release!:()=>void;const waiting=new Promise<void>(r=>{release=r;});
   const pool={end:async()=>{calls.push('end');}} as unknown as Pool;
   const handler=createWorkerHandler({createPool:()=>pool,createApp:((_p,_o,_e,runtime)=>{
-    const app=new Hono();app.get('/test',c=>{runtime.afterResponse!(async()=>{calls.push('work');await waiting;calls.push('done');});return c.text('ok');});return app;
+    const app=new Hono<PlatformEnv>();app.get('/test',c=>{runtime.afterResponse!(async()=>{calls.push('work');await waiting;calls.push('done');});return c.text('ok');});return app;
   }) as NonNullable<Parameters<typeof createWorkerHandler>[0]>['createApp']});
   const response=await handler.fetch(new Request('http://127.0.0.1:8787/test'),{FREEDOM_ENV:'local',APP_ORIGIN:'http://127.0.0.1:8787',HYPERDRIVE:{connectionString:'synthetic'},ASSETS:{fetch:async()=>new Response('missing',{status:404})}} as WorkerEnv,{waitUntil:p=>{pending.push(p);}});
   assert.equal(response.status,200);assert.deepEqual(calls,['work']);release();await Promise.all(pending);assert.deepEqual(calls,['work','done','end']);
