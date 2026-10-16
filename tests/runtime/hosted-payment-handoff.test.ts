@@ -309,3 +309,20 @@ for(const gate of ['quarantine','checkout_off','service_suspended','admission_re
   if(gate==='admission_revoked')await f.x.h.pool.query("UPDATE commerce_store_admissions SET revoked_at=clock_timestamp(),revoked_by=(SELECT admin_id FROM platform_admins LIMIT 1),revoke_reason='合成撤銷' WHERE admission_id=$1",[p.provider.admissionId]);
   const value=expect(await buyerOrder(p),200);assert.equal(value.can_resume_payment,false);assert.notEqual((await resume(p)).status,201);
 });
+test('the E2E provider fixture refuses non-local installation',async()=>{
+  const {createE2eEcpayFixture}=await import('../../scripts/e2e-ecpay-fixture.js');
+  for(const freedomEnv of ['staging','public'] as const)assert.throws(()=>createE2eEcpayFixture({freedomEnv,origin:f.origin,pool:f.x.runtime,keyring:f.ring,forward:request=>Promise.resolve(f.app.fetch(request))}),{message:'payment_fixture_requires_local'});
+});
+for(const mode of ['paid','failed','pending','simulated','delayed'] as const)test(`the local provider verifies the handoff and delivers ${mode} without a network client`,async()=>{
+  const {createE2eEcpayFixture}=await import('../../scripts/e2e-ecpay-fixture.js'),p=await f.placed(),delivered:string[]=[];
+  const fixture=createE2eEcpayFixture({freedomEnv:'local',origin:f.origin,pool:f.x.runtime,keyring:f.ring,forward:request=>{delivered.push(request.url);assert(request.url.startsWith(f.origin+'/api/v1/provider-callbacks/ecpay/'));return Promise.resolve(f.app.fetch(request));}});
+  const handoff=await page(p.payment.handoff_url);assert.equal(handoff.status,200);
+  const fields=[...handoff.html.matchAll(/<input type="hidden" name="([^"]*)" value="([^"]*)">/g)].map(m=>[m[1],m[2].replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&')] as const);
+  const postFixture=(path:string,body:string)=>fixture.routes.fetch(new Request(f.origin+path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}));
+  const invalid=fields.map(([key,value])=>[key,key==='CheckMacValue'?'0'.repeat(64):value] as const);assert.equal((await postFixture('/__e2e/ecpay/aio-checkout',encodeForm(invalid))).status,400);
+  const checkout=await postFixture('/__e2e/ecpay/aio-checkout',encodeForm(fields));assert.equal(checkout.status,200);const html=await checkout.text();for(const label of ['付款成功','付款失敗','結果待確認','模擬付款','付款成功但通知延後','返回商店'])assert(html.includes(label));
+  const session=html.match(/name="session" value="([^"]+)"/)![1],result=await postFixture('/__e2e/ecpay/result',encodeForm({session,mode}));assert.equal(result.status,200);assert((await result.text()).includes('/pay/ecpay/return/'+p.provider.accountRef));
+  if(mode==='delayed'){assert.equal(delivered.length,0);const flush=await postFixture('/__e2e/ecpay/deliver-pending','');assert.deepEqual(await flush.json(),{delivered:1});}
+  assert.equal(delivered.length,1);const event=(await f.x.h.pool.query('SELECT * FROM commerce_hosted_payment_events')).rows[0];assert.equal(event.outcome,mode==='delayed'?'paid':mode==='pending'?'pending_confirmation':mode);
+  const a=(await f.x.h.pool.query('SELECT state FROM commerce_payment_attempts WHERE attempt_id=$1',[p.payment.attempt_ref])).rows[0];assert.equal(a.state,mode==='paid'||mode==='delayed'?'paid':mode==='failed'?'failed':'issued');
+});
