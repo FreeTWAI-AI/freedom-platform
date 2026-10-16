@@ -15319,8 +15319,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md",
-      "bytes": 46098,
-      "sha256": "758568a24cd4566ce0babe421a779d24bcc58cc9b5858e8f17577b1c372ee70a"
+      "bytes": 46457,
+      "sha256": "8b0f4e0884f90aeeb2fb654f20f20095de2608f5fcda29381a1665c0a1c0453d"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
