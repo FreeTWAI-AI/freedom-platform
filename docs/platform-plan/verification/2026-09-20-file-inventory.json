@@ -15374,8 +15374,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-11-offline-payment.md",
-      "bytes": 21075,
-      "sha256": "1b8a416105f1d1e0e6efd6308ad7ee3bfd5315e4b0e9607edeeec90bc4b44bfd"
+      "bytes": 22687,
+      "sha256": "59da087cee30076d38b756b545844d8006b407de1dca66220dadba9fdb06b900"
     },
     {
       "path": "docs/platform-plan/execution/commerce/README.md",
@@ -17694,8 +17694,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/freedom.module.json",
-      "bytes": 1993,
-      "sha256": "038b8beded64305f32cf7712479390cc8fb375ccf68678431c5672f738784af1"
+      "bytes": 2503,
+      "sha256": "21502bb02e934bd66851d676c6ba2da775e0fce8bc0d1dc2b1915eaf50565666"
     },
     {
       "path": "modules/agent-commerce/payments/gateway.ts",

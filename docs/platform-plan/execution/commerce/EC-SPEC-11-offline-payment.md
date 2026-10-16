@@ -129,6 +129,7 @@
 | 第一個 payment attempt | 建立 | 不建立；線下方式沒有 attempt |
 | 到期工作 | `payment_query`、`payment_window_end`（以 attempt 為對象） | 一列 `offline_payment_window_end`（提議，以訂單為對象），`due_at` 是保留期限加 72 小時 |
 | 下單後到 | 付款交接頁 | B07 訂單頁（§6.2） |
+| 同一個 checkout 的舊單 | EC-SPEC-03 §3.3 的「同 checkout 無未定付款的舊單」 | 還在付款期限內、沒有確認付款的線下訂單也算舊單：回 409 `unresolved_order`，附那張訂單 |
 
 資料庫檢查要放寬：
 
@@ -152,8 +153,9 @@
   - 店家只提供線下方式時，guest 在 B05 看到「登入會員後才能選擇匯款或面交」。
   - 這是 2026-10-16 的預設，Ted 可以改。
 - EC-SPEC-02 §5.5 的上限照舊：每個瀏覽器憑證、每個 Email，在同一家店同時最多 3 張未付款的有效訂單，超過時回 429。
-- 線下訂單另以會員計算：每位會員（`buyer_principal_id`）在同一家店同時最多 3 張未付款的線下訂單，回應同上。
-- 每間店同時最多 50 張未付款的線下訂單。超過時回 409 `offline_order_limit`，訊息是：「這間店目前待付款的訂單較多，請稍後再試或選擇其他付款方式。」
+- 線下訂單另以會員計算：每位會員（`buyer_principal_id`）在同一家店同時最多 3 張未付款、還在付款期限內的線下訂單，回應同上。
+- 每間店同時最多 50 張未付款、還在付款期限內的線下訂單。超過時回 409 `offline_order_limit`，訊息是：「這間店目前待付款的訂單較多，請稍後再試或選擇其他付款方式。」
+- 「還在付款期限內」與上一項的「有效」相同：`commerce_orders.expires_at` 還沒到。寬限期內的訂單已經釋出庫存，不計入。
 - 店家隨時可以取消未付款的訂單（EC-SPEC-03 §3.3 的 seller cancel），庫存立即釋出。
 
 ## 4. 店家確認收款
@@ -188,8 +190,8 @@
 2. 呼叫既有的付款套用（EC-SPEC-03 §5，`checkout/payments.ts`），`payment_ref` 是這筆線下付款的 uuid。綠界付款的 `payment_ref` 則是 attempt。
    - hold 仍有效 → `converted`。
    - hold 已釋放而庫存足夠 → `allocated`。
-   - 庫存不足 → `unallocatable`，並開例外 `paid_unallocatable`。
-3. 套用結果是 `converted` 或 `allocated` 時，建立履約單（EC-SPEC-05 §4.1）。
+   - 庫存不足 → `unallocatable`，並開例外 `paid_unallocatable`。例外的對象是這筆線下付款：`commerce_exception_cases.subject_kind` 新增 `offline_payment`。之後的處理照舊：重新配貨，或由店家在平台外退款。
+3. 套用結果是 `converted` 或 `allocated` 時，建立履約單（EC-SPEC-05 §4.1）。履約單由 M3 的履約單工作建立，它要涵蓋綠界付款與線下付款兩種來源；在那之前，這一步沒有東西可建。
 4. 寫 journal。
 
 其他規則：
@@ -216,11 +218,18 @@
      - 履約單變成 `fulfilled`。
 - 套用結果是 `unallocatable` 時，整個命令回 409 `meetup_stock_unavailable`，什麼都不寫。沒有貨就不能交貨。
 
-**以其他方式付款、但選面交取貨的訂單**（信用卡或匯款已確認）：提議 `POST …/fulfilment-orders/:id/meetup-handover`。
+**以其他方式付款、但選面交取貨的訂單**（信用卡或匯款已確認）：提議 `POST …/checkout-orders/:order_id/meetup-handover`。
 
-- 能力：`store:fulfil`，而且呼叫者必須是這張履約單的出貨者。
-- 條件：付款已經 `confirmed`。
-- 效果：只記交貨，做法同上面第 4 步。
+- 以訂單為對象，因為面交一次交完整張訂單，而且只有賣家自出貨的群組能面交（§2.2），出貨者一定是這間店。
+- 能力：`store:fulfil`。
+- 輸入：`completed_on`。Header 同 §4.1。
+- 條件：
+  - 訂單是 `open`，付款已經 `confirmed`；
+  - 所有配送群組都是面交；
+  - 還有沒交出的配置量。
+- 效果：只記交貨，做法同上面第 4 步（沿用 `checkout/payments.ts` 的交寄函式，`shipment_ref` 是面交紀錄）。
+
+每張訂單最多一筆面交紀錄，一次交完所有剩餘的量。
 
 面交的履約單不會有物流的包裹，也不能建物流單。
 
@@ -233,6 +242,8 @@
   - 這一步不需要任何外部查詢。
   - 意義同 EC-SPEC-03 §3.3 的 payment window end；線下訂單沒有 attempt，所以只看「有沒有確認付款」。
 - 買家與店家取消未付款訂單的規則不變，隨時都可以取消。
+  - 店家用既有的 `POST …/checkout-orders/:order_id/cancel`。
+  - 買家用 B07 的「取消訂單」，提議 `POST /api/v1/public/stores/:slug/orders/:order_ref/cancel`。它適用於所有付款方式，就是 EC-SPEC-03 §3.3 的 buyer cancel，存取規則同訂單頁。M2 還沒有這個端點，隨線下付款一起補上。
 - 有確認付款的訂單不會被到期工作取消。
 - 面交付款的買家沒出現時，由店家取消未付款訂單。信用卡或匯款已付、買家卻沒來面交時，等 M4 的已付款取消。
 
@@ -265,6 +276,7 @@
 - 買家的訂單 DTO 新增：
   - `payment_method`。
   - `offline_instructions`：只有匯款訂單有，內容是凍結版本的快照。
+  - `payment_grace_until`：線下訂單的寬限期限（保留期限加 72 小時）；信用卡訂單是 `null`。
 - 線下訂單的 `can_resume_payment` 一律是 false，`latest_payment_attempt` 一律是 null。
 - `payment_state` 在確認前是 `unpaid`，確認後是 `confirmed`。
 - 賣家看到的付款狀態是「已收款（店家確認）」（EC-SPEC-01 §6.3）。
