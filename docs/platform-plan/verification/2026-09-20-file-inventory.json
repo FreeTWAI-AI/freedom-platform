@@ -19323,6 +19323,16 @@
       "sha256": "c4893deb3910bb88fad4d5ea7a32d30af9bffa741d6d7ad5c91b4a6a5304830d"
     },
     {
+      "path": "packages/contribution-tools/worker-unit-routing.md",
+      "bytes": 9884,
+      "sha256": "69ba33119057bca4addba4f6e393cc1392f399a1c548ee6c382eeda1ddbdc69b"
+    },
+    {
+      "path": "packages/contribution-tools/worker-unit-routing.mjs",
+      "bytes": 10652,
+      "sha256": "7670ee91f4df1a258ea839638d0f455c6c1d69deff323e24f996357bc429423d"
+    },
+    {
       "path": "packages/contribution-tools/workspace.mjs",
       "bytes": 4109,
       "sha256": "d33f1abc6db45d371b958c573459ad364fff3bbf62738036edcf976aa890cd35"
@@ -19541,6 +19551,11 @@
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
       "bytes": 16245,
       "sha256": "86bb8bec0c94f86298ff7b182e8eab88b90657de9082b3aebdfa42a9f87ed261"
+    },
+    {
+      "path": "packages/contribution-tools/test/worker-unit-routing.test.mjs",
+      "bytes": 10079,
+      "sha256": "cde37554d5bf80cb00a909a0b78cb25f260c7f92977484f1e9bb5410599626a3"
     },
     {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json",
