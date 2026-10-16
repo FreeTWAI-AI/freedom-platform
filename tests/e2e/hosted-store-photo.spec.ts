@@ -1,10 +1,11 @@
 import {storeArea} from './hosted-store-fixture.js';
 import {LIVE_PUBLIC_ORIGIN} from '../../apps/platform-api/src/routes/published-skills.js';
 import {createHash,randomUUID} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
 import sharp from 'sharp';
 import {test,expect,type Page,type Request} from './fixtures.js';
 import {person,login,open,post,launchStore} from './hosted-store-fixture.js';
-import {signOut} from './navigation.js';
+import {navigate,signOut} from './navigation.js';
 import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {ProductViewSchema} from '../../contracts/guild-launchpad/v1/storefront.js';
 import {ProductMediaCommandSchema,PublicStoreMediaSchema} from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
@@ -939,7 +940,6 @@ test('SC-E2E-70 a new version, a revoke and a withdrawal close the old paths (AT
 });
 
 test('SC-E2E-78 a material upload answered after a business or account switch changes nothing there; the original attempt recovers to one version (AT-35)', async ({page, e2eAuthPool}, info) => {
-  const {navigate} = await import('./navigation.js');
   const suffix = randomUUID().slice(0, 6);
   const a = await setupMaterialSupplier(page, e2eAuthPool, `A1-${suffix}`);
   const a2Store = await launchStore(page, `合成素材空間 A2-${suffix}`);
@@ -1170,6 +1170,6 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   expect(requests.filter(r => r.method() === 'POST' && new URL(r.url()).pathname === path(m2))).toHaveLength(0);
   observed.counterexamples = [{status: stale.status(), code: staleProblem.code}, {status: changed.status(), code: changedProblem.code}];
   const evidence = info.outputPath('material-switch-evidence.json');
-  await (await import('node:fs/promises')).writeFile(evidence, JSON.stringify({observed, signatures: [sig1, sig2], before, after1, after2}, null, 2));
+  await writeFile(evidence, JSON.stringify({observed, signatures: [sig1, sig2], before, after1, after2}, null, 2));
   await info.attach('material-switch-evidence', {path: evidence, contentType: 'application/json'});
 });
