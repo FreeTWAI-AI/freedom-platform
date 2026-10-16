@@ -22,20 +22,24 @@ describe('shipping locations',()=>{
     assert.equal(r.data.mobile,input.mobile);assert.equal(r.data.postal_code,input.postal_code);assert.equal(r.data.label,input.label);
     const cases:[string,string,string][]=[['sender_name',' ','required'],['sender_name','星','too_short'],['sender_name','星'.repeat(6),'too_long'],['sender_name','A1','format'],['sender_name','Echo','blocked_term'],['mobile',' ','required'],['mobile','123','format'],['postal_code',' ','required'],['postal_code','12','format'],['postal_code','000','unknown_postal_code'],['address',' ','required'],['address','星禾路','too_short'],['address','星'.repeat(61),'too_long'],['address','合成星禾路<一號','format'],['address','合成Echo路一百號','blocked_term'],['label',' ','required'],['label','倉'.repeat(41),'too_long'],['label','星\u0001禾','format'],['label','\t合成倉','format'],['label','星\u001f禾','format'],['label','星\u007f禾','format'],['address','合成星\u0001禾路一號','format'],['address','合成星\u001f禾路一號','format'],['address','合成星\u007f禾路一號','format'],['address','合成星\t禾路一號','format']];
     for(const [path,value,code] of cases){const e=await create(s,{...input,[path]:value},422);ShippingErrorSchema.parse(e.data);assert(e.data.fields.some((f:{path:string;code:string})=>f.path===path&&f.code===code),JSON.stringify(e.data));}
-    const counts=async()=> (await h.f.x.h.pool.query(`SELECT
-      (SELECT count(*)::int FROM commerce_ship_from_locations WHERE instance_id=$1) AS locations,
-      (SELECT count(*)::int FROM commerce_shipping_profile_versions WHERE instance_id=$1) AS profiles`,[s.instanceId])).rows[0];
-    const before=await counts();
-    for(const path of ['label','sender_name','address'])for(const invalid of ['\u0000','\ud800']){
-      const rejected=await create(s,{...input,[path]:input[path as keyof typeof input]+invalid},400);
-      assert.equal(rejected.data.code,'invalid_command_json');ShippingErrorSchema.parse(rejected.data);
-      assert.deepEqual(await counts(),before,`raw command rejection changed rows for ${path}`);
-    }
     const errors=await create(s,{...input,label:' ',sender_name:'X',mobile:'1',postal_code:'000',address:'短',ships:false,receives_returns:false},422);assert.equal(errors.data.fields.length,6);
     await retire(s,r.data.location_id);await receipts();
     const elsewhere=JSON.stringify({logs,events:(await h.f.x.h.pool.query('SELECT detail FROM commerce_control_events')).rows,journal:[...h.f.journal.objects.values()]});
     for(const value of [input.label,input.sender_name,input.mobile,input.address])assert.equal(elsewhere.includes(value),false);
     assert.equal((await h.f.x.h.pool.query("SELECT count(*)::int n FROM commerce_ship_from_locations WHERE instance_id=$1",[s.instanceId])).rows[0].n,1);
+  });
+  test('raw NUL and lone surrogates in each sender text field reject before location or profile writes',async()=>{
+    const s=await h.store(),input=h.locationInput(),results:{path:string;character:string;status:number;code:string}[]=[];
+    const counts=async()=> (await h.f.x.h.pool.query(`SELECT
+      (SELECT count(*)::int FROM commerce_ship_from_locations WHERE instance_id=$1) AS locations,
+      (SELECT count(*)::int FROM commerce_shipping_profile_versions WHERE instance_id=$1) AS profiles`,[s.instanceId])).rows[0];
+    const before=await counts();
+    for(const path of ['label','sender_name','address'])for(const invalid of ['\u0000','\ud800']){
+      const rejected=await h.request(s,'POST','/ship-from-locations',{...input,[path]:input[path as keyof typeof input]+invalid});
+      await receipts();results.push({path,character:invalid==='\u0000'?'NUL':'lone surrogate',status:rejected.status,code:rejected.data.code});
+      assert.deepEqual(await counts(),before,`raw command rejection changed rows for ${path}`);
+    }
+    assert.deepEqual(results,results.map(({path,character})=>({path,character,status:400,code:'invalid_command_json'})));
   });
   test('twenty-row limit permits replacement; replay reprojects retirement and rejects changed bodies',async()=>{
     const s=await h.store(),input=h.locationInput(),key=randomUUID(),first=(await create(s,input,201,key)).data;
