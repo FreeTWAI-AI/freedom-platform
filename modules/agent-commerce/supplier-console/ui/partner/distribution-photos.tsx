@@ -62,7 +62,7 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
    const row=rows.find(item=>item.product_id===id);
    if(!row)return <p className="field-hint" key={id}>{error||loading?'店面照片狀態尚未確認。':'供貨確認後才能用在公開店面。'}</p>;
    const same=row.source?.material_id===material.material_id;
-   return <div className="stack" key={id}><strong>{row.title}</strong>
+   return <div className="stack" key={id}><p>店面照片・<strong>{row.title}</strong></p>
     {same&&row.state==='in_use'&&<span className="badge">店面使用中（第 {row.source!.version_no} 版）</span>}
     {same&&row.state==='update_available'&&<p>供應商已更新為第 {row.latest!.version_no} 版，店面仍用第 {row.source!.version_no} 版</p>}
     {!same&&row.state!=='none'&&<p>這個商品目前使用另一個素材</p>}
