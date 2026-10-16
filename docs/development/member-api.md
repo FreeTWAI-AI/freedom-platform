@@ -164,6 +164,15 @@ Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
 
+The generic reader recognizes `application/json` type/subtype tokens
+case-insensitively and accepts ASCII SP/HTAB optional whitespace before
+semicolon-delimited parameters, as specified by
+[RFC 9110 §8.3.1](https://www.rfc-editor.org/rfc/rfc9110.html#section-8.3.1)
+and [§5.6.6](https://www.rfc-editor.org/rfc/rfc9110.html#section-5.6.6).
+Prefix lookalikes (`application/jsonp`), other media types and non-HTTP
+whitespace do not match. This changes neither parameter/charset handling nor
+the body, Origin, session or CSRF guards; JSON bytes still use strict UTF-8.
+
 The generic JSON reader decodes those bytes as strict UTF-8. Invalid sequences
 return `400 invalid_json` before authentication or a domain command, rather than
 being replaced with `U+FFFD` and saved. Valid Unicode, including an intentionally
