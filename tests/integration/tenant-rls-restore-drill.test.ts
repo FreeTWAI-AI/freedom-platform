@@ -356,6 +356,16 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     }, { shipping: { async quote(_q, _store, input) {
       return { groups: input.lines.map(line => ({ group_ref: 'synthetic-group', supplier_shop_id: line.supplier_shop_id, method_ref: 'synthetic', amount_minor: 0 })) };
     } } });
+    const orderId = randomUUID();
+    await q.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,order_profile,client_order_id)
+      SELECT $1,$2,$3,$4,'TWD',100,t,t+interval '30 minutes','hosted_checkout',$5 FROM (SELECT date_trunc('milliseconds',clock_timestamp()) t) n`,
+    [orderId, store.storefront_shop_id, `chk:${space.checkout.checkout_id}:${orderId}`, space.checkout.terms_sha256, orderId]);
+    await q.query(`INSERT INTO commerce_checkout_orders(order_id,tenant_id,instance_id,checkout_id,customer_id,contact_id,display_number,terms,terms_sha256,environment)
+      SELECT $1,tenant_id,instance_id,checkout_id,customer_id,current_contact_id,'261015-'||upper(substr(replace($1::text,'-',''),1,6)),terms,terms_sha256,'sandbox'
+      FROM commerce_checkouts WHERE checkout_id=$2`, [orderId, space.checkout.checkout_id]);
+    await q.query(`INSERT INTO commerce_outbound_emails(tenant_id,instance_id,order_id,template,access_request_id,created_at,expires_at)
+      SELECT $1,$2,$3,'order_access',$4,t,t+interval '7 days' FROM (SELECT clock_timestamp() t) n`,
+    [space.tenantId, space.hosted.instanceId, orderId, randomUUID()]);
     await q.query(`INSERT INTO commerce_exception_cases(tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind) VALUES($1,$2,'unmatched_payment','payment_event',$3,'retailer',clock_timestamp()+interval '72 hours','system')`,[space.tenantId,space.hosted.instanceId,randomUUID()]);
     const {device}=await ensureDevice(q,undefined,'https://example.test');
     await grantDevice(q,device.device_id,{tenant_id:space.tenantId,instance_id:space.hosted.instanceId,checkout_id:space.checkout.checkout_id});
@@ -678,7 +688,7 @@ test('J6-R2 owner and backup counts and full-row fingerprints agree at the same 
   assert.doesNotThrow(() => compareEvidence(backup.evidence!, ownerEvidence));
   assert.deepEqual(Object.keys(EXPECTED).sort(), [...RLS_TABLES].sort());
   for (const table of RLS_TABLES) assert.equal(evidenceCount(backup.evidence, table), EXPECTED[table], table);
-  for (const table of ['commerce_payment_attempts','commerce_hosted_payment_events','commerce_due_work']) {
+  for (const table of ['commerce_payment_attempts','commerce_hosted_payment_events','commerce_due_work','commerce_outbound_emails']) {
     assert.equal(evidenceCount(backup.evidence, table), 2, table);
   }
   assert.equal(snapshotAssets, 2);
@@ -744,7 +754,7 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
-  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id']] as const) {
+  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id'], ['commerce_outbound_emails','email_id']] as const) {
     const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
     const restored = await rows(restoredPool);
     assert.equal(restored.length, 2);

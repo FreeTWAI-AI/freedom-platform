@@ -41,7 +41,7 @@ test('payment table foreign keys have nonpartial lookup indexes', async () => {
     FROM pg_constraint c
     WHERE contype='f' AND conrelid=ANY(ARRAY[
       'commerce_payment_attempts'::regclass, 'commerce_hosted_payment_events'::regclass,
-      'commerce_due_work'::regclass, 'commerce_exception_cases'::regclass])
+      'commerce_due_work'::regclass, 'commerce_outbound_emails'::regclass, 'commerce_exception_cases'::regclass])
       AND NOT EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid=c.conrelid
         AND i.indisvalid AND i.indpred IS NULL AND i.indkey[0]=c.conkey[1])
     ORDER BY table_name, conname`);
@@ -254,6 +254,7 @@ test('due work enforces its primary key, store FK and both kinds', async () => {
   await rejects(() => insert('commerce_due_work', { ...row, target_id: randomUUID(), due_work_id: a.due_work_id }), '23505');
   await rejects(() => insert('commerce_due_work', { ...row, target_id: randomUUID(), tenant_id: other.tenantId }), '23503');
   await insert('commerce_due_work', { ...row, kind: 'payment_window_end' });
+  await insert('commerce_due_work', { ...row, kind: 'email' });
   await rejects(() => insert('commerce_due_work', row), '23505');
 });
 const caseInput = () => ({ tenant_id: s.tenantId, instance_id: s.instanceId, order_id: orderId, kind: 'overpaid', subject_kind: 'payment_attempt', subject_id: randomUUID(), responsible_party: 'retailer', due_at: new Date(), opened_by_kind: 'system' });

@@ -628,7 +628,7 @@ test('browser commerce access devices belong to order/transaction dataset DC-09'
 
 
 test('hosted payment machine tables retain individual participant-ACL catalog rationales', async () => {
-  const tables = ['commerce_payment_attempts', 'commerce_hosted_payment_events', 'commerce_due_work'];
+  const tables = ['commerce_payment_attempts', 'commerce_hosted_payment_events', 'commerce_due_work', 'commerce_outbound_emails'];
   for (const table of tables) {
     const location = TENANT_DATA_CATALOG.datasets.flatMap(dataset => dataset.physical_locations)
       .find((entry): entry is TableLocation => entry.kind === 'table' && entry.table === table);

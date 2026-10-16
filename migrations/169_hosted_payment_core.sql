@@ -559,7 +559,7 @@ CREATE TABLE commerce_due_work (
   due_work_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL,
   instance_id uuid NOT NULL,
-  kind text NOT NULL CHECK(kind IN ('payment_query','payment_window_end')),
+  kind text NOT NULL CHECK(kind IN ('payment_query','payment_window_end','email')),
   target_id uuid NOT NULL,
   due_at timestamptz NOT NULL,
   lease_until timestamptz,
@@ -577,6 +577,68 @@ CREATE TABLE commerce_due_work (
 );
 CREATE INDEX commerce_due_work_claim ON commerce_due_work(due_at,due_work_id);
 CREATE INDEX commerce_due_work_store ON commerce_due_work(tenant_id,instance_id);
+
+CREATE TABLE commerce_outbound_emails (
+  email_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  order_id uuid NOT NULL REFERENCES commerce_checkout_orders(order_id),
+  template text NOT NULL CHECK(template IN ('order_confirmed','paid_unallocatable','order_access')),
+  application_id uuid REFERENCES commerce_checkout_payment_applications(application_id),
+  access_request_id uuid,
+  state text NOT NULL DEFAULT 'queued' CHECK(state IN ('queued','sent','suppressed','expired','failed')),
+  attempts integer NOT NULL DEFAULT 0 CHECK(attempts>=0),
+  last_error text CHECK(last_error ~ '^[a-z0-9_]{1,64}$'),
+  journaled_at timestamptz,
+  sent_at timestamptz,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
+  UNIQUE(application_id,template),
+  UNIQUE(access_request_id),
+  CHECK((template IN ('order_confirmed','paid_unallocatable') AND application_id IS NOT NULL AND access_request_id IS NULL)
+    OR (template='order_access' AND application_id IS NULL AND access_request_id IS NOT NULL)),
+  CHECK(expires_at=created_at+interval '7 days'),
+  CHECK((state='sent')=(sent_at IS NOT NULL)),
+  CHECK(state<>'sent' OR journaled_at IS NOT NULL)
+);
+CREATE INDEX commerce_outbound_emails_store ON commerce_outbound_emails(tenant_id,instance_id);
+CREATE INDEX commerce_outbound_emails_order ON commerce_outbound_emails(order_id);
+CREATE INDEX commerce_outbound_emails_retention ON commerce_outbound_emails(state,updated_at);
+CREATE FUNCTION preserve_commerce_outbound_email() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.state<>'queued' OR NEW.attempts<>0 OR NEW.journaled_at IS NOT NULL OR NEW.sent_at IS NOT NULL OR NEW.last_error IS NOT NULL THEN
+      RAISE EXCEPTION 'outbound emails start queued without delivery facts' USING ERRCODE='23514';
+    END IF;
+    IF NOT EXISTS(SELECT 1 FROM commerce_checkout_orders o WHERE o.order_id=NEW.order_id
+      AND o.tenant_id=NEW.tenant_id AND o.instance_id=NEW.instance_id) THEN
+      RAISE EXCEPTION 'outbound email order binding is invalid' USING ERRCODE='23514';
+    END IF;
+    IF NEW.application_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM commerce_checkout_payment_applications a
+      WHERE a.application_id=NEW.application_id AND a.order_id=NEW.order_id) THEN
+      RAISE EXCEPTION 'outbound email application binding is invalid' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP='UPDATE' THEN
+    IF OLD.state<>'queued'
+      OR (to_jsonb(NEW)-ARRAY['state','attempts','last_error','journaled_at','sent_at','updated_at'])
+        IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','attempts','last_error','journaled_at','sent_at','updated_at'])
+      OR (OLD.journaled_at IS NOT NULL AND NEW.journaled_at IS DISTINCT FROM OLD.journaled_at) THEN
+      RAISE EXCEPTION 'outbound email identity and closed state are immutable' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF OLD.state='queued' OR OLD.updated_at>clock_timestamp()-interval '45 days' THEN
+    RAISE EXCEPTION 'outbound emails are retained until 45 days after closure' USING ERRCODE='23514';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_outbound_email BEFORE INSERT OR UPDATE OR DELETE ON commerce_outbound_emails
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_outbound_email();
 
 CREATE TABLE commerce_exception_cases (
   case_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
