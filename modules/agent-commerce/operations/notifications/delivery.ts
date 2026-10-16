@@ -345,6 +345,16 @@ export async function deliverCommerceEmail(
       checkout_id: row.checkout_id,
       order_id: email.order_id,
     });
+    const leased = (
+      await q.query<{token: string}>(
+        `UPDATE commerce_due_work
+         SET lease_until = $2::timestamptz + interval '60 seconds',
+             updated_at = clock_timestamp()
+         WHERE due_work_id = $1
+         RETURNING lease_until::text AS token`,
+        [work.due_work_id, now],
+      )
+    ).rows[0];
     return {
       email,
       recipient: row.contact_email,
@@ -353,6 +363,7 @@ export async function deliverCommerceEmail(
       displayNumber: row.display_number,
       terms: row.terms,
       accessToken,
+      sendLeaseToken: leased.token,
     };
   });
 
@@ -414,22 +425,17 @@ export async function deliverCommerceEmail(
       const now = await timestamp(q, deps);
       const work = await lockDueWork(q, claim.dueWorkId, emailId);
       const email = await lockOutboundEmail(q, emailId);
-      if (!email || email.state !== 'queued') {
-        if (isLeaseOurs(work, claim.leaseToken, now)) {
-          await deleteDueWork(q, claim.dueWorkId);
-        }
-        return;
+      if (email && email.state === 'queued') {
+        await q.query(
+          `UPDATE commerce_outbound_emails
+           SET state = 'sent', sent_at = $2, last_error = NULL, updated_at = $2
+           WHERE email_id = $1 AND state = 'queued'`,
+          [emailId, now],
+        );
       }
-      if (!isLeaseOurs(work, claim.leaseToken, now)) {
-        return;
+      if (work && work.token === prepared.sendLeaseToken) {
+        await deleteDueWork(q, claim.dueWorkId);
       }
-      await q.query(
-        `UPDATE commerce_outbound_emails
-         SET state = 'sent', sent_at = $2, last_error = NULL, updated_at = $2
-         WHERE email_id = $1 AND state = 'queued'`,
-        [emailId, now],
-      );
-      await deleteDueWork(q, claim.dueWorkId);
     });
     return {externalCalls: 1};
   }
@@ -448,7 +454,7 @@ export async function deliverCommerceEmail(
     const now = await timestamp(q, deps);
     const work = await lockDueWork(q, claim.dueWorkId, emailId);
     const email = await lockOutboundEmail(q, emailId);
-    if (!isLeaseOurs(work, claim.leaseToken, now) || !email || email.state !== 'queued') {
+    if (!isLeaseOurs(work, prepared.sendLeaseToken, now) || !email || email.state !== 'queued') {
       return;
     }
     if (isPermanentCommerceEmailError(code)) {

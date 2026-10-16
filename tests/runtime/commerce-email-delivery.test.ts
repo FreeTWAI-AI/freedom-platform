@@ -614,9 +614,124 @@ describe('commerce email delivery, executor integration, sweep and worker sender
     ).rows[0];
     assert.equal(afterLost.state, 'queued');
     assert(afterLost.journaled_at instanceof Date);
+
+    // 3. The lease expires during a successful send -> email still ends sent, due_work row is deleted, second run sends nothing
+    const emailId3 = await queueTemplate(p, 'order_access');
+    let clock3 = new Date();
+    const dueRow3 = (
+      await f.x.h.pool.query(
+        "UPDATE commerce_due_work SET lease_until = $2::timestamptz + interval '2 minutes' WHERE kind = 'email' AND target_id = $1 RETURNING due_work_id, lease_until::text AS token",
+        [emailId3, clock3],
+      )
+    ).rows[0];
+    let sentCalls3 = 0;
+    const slowSuccessSender = {
+      async send() {
+        sentCalls3 += 1;
+        // Advance clock past the 60-second send lease set at the end of Prepare
+        clock3 = new Date(clock3.getTime() + 90_000);
+      },
+    };
+    const rSlow = await deliverCommerceEmail(
+      f.x.runtime,
+      emailId3,
+      { sender: slowSuccessSender, journal, origin: f.origin, now: () => clock3 },
+      { dueWorkId: dueRow3.due_work_id, leaseToken: dueRow3.token, tenantId: p.s.tenantId },
+    );
+    assert.equal(rSlow.externalCalls, 1);
+    assert.equal(sentCalls3, 1);
+    const afterSlow = (
+      await f.x.h.pool.query('SELECT state, sent_at FROM commerce_outbound_emails WHERE email_id = $1', [emailId3])
+    ).rows[0];
+    assert.equal(afterSlow.state, 'sent');
+    assert(afterSlow.sent_at instanceof Date);
+    assert.equal(
+      (await f.x.h.pool.query('SELECT count(*)::int n FROM commerce_due_work WHERE target_id = $1', [emailId3])).rows[0]
+        .n,
+      0,
+    );
+    const secondRun3 = await runDueCommerceWork(f.x.runtime, {
+      freedomEnv: 'local',
+      emailEnabled: true,
+      emailSender: slowSuccessSender,
+      journal,
+      origin: f.origin,
+      now: () => clock3,
+    });
+    assert.equal(secondRun3.externalCalls, 0);
+    assert.equal(sentCalls3, 1);
+
+    // 4. Another run takes the lease during a successful send -> email ends sent, due_work stays with other token, later run sends nothing and deletes due_work
+    const emailId4 = await queueTemplate(p, 'order_access');
+    let clock4 = new Date();
+    const dueRow4 = (
+      await f.x.h.pool.query(
+        "UPDATE commerce_due_work SET lease_until = $2::timestamptz + interval '2 minutes' WHERE kind = 'email' AND target_id = $1 RETURNING due_work_id, lease_until::text AS token",
+        [emailId4, clock4],
+      )
+    ).rows[0];
+    let sentCalls4 = 0;
+    let otherToken4 = '';
+    const takeoverSender = {
+      async send() {
+        sentCalls4 += 1;
+        clock4 = new Date(clock4.getTime() + 90_000);
+        const taken = (
+          await f.x.h.pool.query(
+            "UPDATE commerce_due_work SET lease_until = $2::timestamptz + interval '2 minutes', updated_at = clock_timestamp() WHERE due_work_id = $1 RETURNING lease_until::text AS token",
+            [dueRow4.due_work_id, clock4],
+          )
+        ).rows[0];
+        otherToken4 = taken.token as string;
+      },
+    };
+    const rTakeover = await deliverCommerceEmail(
+      f.x.runtime,
+      emailId4,
+      { sender: takeoverSender, journal, origin: f.origin, now: () => clock4 },
+      { dueWorkId: dueRow4.due_work_id, leaseToken: dueRow4.token, tenantId: p.s.tenantId },
+    );
+    assert.equal(rTakeover.externalCalls, 1);
+    assert.equal(sentCalls4, 1);
+    const afterTakeover = (
+      await f.x.h.pool.query('SELECT state, sent_at FROM commerce_outbound_emails WHERE email_id = $1', [emailId4])
+    ).rows[0];
+    assert.equal(afterTakeover.state, 'sent');
+    assert(afterTakeover.sent_at instanceof Date);
+    const remainingDue4 = (
+      await f.x.h.pool.query('SELECT lease_until::text AS token FROM commerce_due_work WHERE target_id = $1', [emailId4])
+    ).rows;
+    assert.equal(remainingDue4.length, 1);
+    assert.equal(remainingDue4[0].token, otherToken4);
+
+    // Run after the other lease expires: sends nothing and deletes the due_work row
+    await f.x.h.pool.query(
+      "UPDATE commerce_due_work SET lease_until = clock_timestamp() - interval '1 second' WHERE due_work_id = $1",
+      [dueRow4.due_work_id],
+    );
+    const afterOtherLease = new Date(clock4.getTime() + 150_000);
+    const cleanupRun4 = await runDueCommerceWork(
+      f.x.runtime,
+      {
+        freedomEnv: 'local',
+        emailEnabled: true,
+        emailSender: takeoverSender,
+        journal,
+        origin: f.origin,
+        now: () => afterOtherLease,
+      },
+      { targets: [emailId4] },
+    );
+    assert.equal(cleanupRun4.externalCalls, 0);
+    assert.equal(sentCalls4, 1);
+    assert.equal(
+      (await f.x.h.pool.query('SELECT count(*)::int n FROM commerce_due_work WHERE target_id = $1', [emailId4])).rows[0]
+        .n,
+      0,
+    );
   });
 
-  test('claim skips email rows when flag is off or no sender is installed, while payment queries still run', async () => {
+  test('claim skips email rows when flag is off, no sender is installed, or origin is omitted, while payment queries still run', async () => {
     const p = await freshPlaced();
     await f.x.h.pool.query(
       'UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',
@@ -685,6 +800,28 @@ describe('commerce email delivery, executor integration, sweep and worker sender
     });
     assert.equal(queryCalls, 2);
     assert.equal(rNoSender.externalCalls, 1);
+    emailDue = (
+      await f.x.h.pool.query("SELECT * FROM commerce_due_work WHERE kind = 'email' AND target_id = $1", [emailId])
+    ).rows[0];
+    assert.equal(emailDue.attempts, 0);
+    assert.equal(emailDue.lease_until, null);
+
+    // 3. No origin provided -> payment_query runs, email row is not claimed
+    await f.x.h.pool.query(
+      "UPDATE commerce_due_work SET due_at=clock_timestamp()-interval '1 second' WHERE kind='payment_query' AND target_id=$1",
+      [p.payment.attempt_ref],
+    );
+    const rNoOrigin = await runDueCommerceWork(f.x.runtime, {
+      transport,
+      keyring: f.ring,
+      freedomEnv: 'local',
+      emailEnabled: true,
+      emailSender: sender,
+      journal,
+    });
+    assert.equal(queryCalls, 3);
+    assert.equal(rNoOrigin.externalCalls, 1);
+    assert.equal(sender.messages.length, 0);
     emailDue = (
       await f.x.h.pool.query("SELECT * FROM commerce_due_work WHERE kind = 'email' AND target_id = $1", [emailId])
     ).rows[0];

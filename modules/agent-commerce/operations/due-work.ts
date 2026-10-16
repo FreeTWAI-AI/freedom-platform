@@ -67,9 +67,8 @@ export async function runDueCommerceWork(pool:Pool,deps:DueCommerceWorkDependenc
     handlers.payment_query=row=>queryAttempt(pool,row.target_id,paymentDeps,options.trigger??'schedule',{leaseToken:row.token,tenantId:row.tenant_id});
     handlers.payment_window_end=async row=>{await endPaymentWindow(pool,row.target_id,{now:deps.now,leaseToken:row.token,tenantId:row.tenant_id,signal});return {externalCalls:0};};
   }
-  const emailOrigin=deps.origin??(deps.freedomEnv==='local'?'http://127.0.0.1:4310':undefined);
-  if(deps.emailEnabled&&deps.emailSender&&deps.journal&&emailOrigin){
-    const emailDeps={sender:deps.emailSender,journal:deps.journal,origin:emailOrigin,now:deps.now,quarantine:deps.quarantine,signal};
+  if(deps.emailEnabled&&deps.emailSender&&deps.journal&&deps.origin){
+    const emailDeps={sender:deps.emailSender,journal:deps.journal,origin:deps.origin,now:deps.now,quarantine:deps.quarantine,signal};
     handlers.email=row=>deliverCommerceEmail(pool,row.target_id,emailDeps,{dueWorkId:row.due_work_id,leaseToken:row.token,tenantId:row.tenant_id});
   }
   const kinds=Object.keys(handlers);
