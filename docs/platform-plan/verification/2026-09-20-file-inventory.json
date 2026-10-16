@@ -17009,8 +17009,8 @@
     },
     {
       "path": "migrations/169_hosted_payment_core.sql",
-      "bytes": 40166,
-      "sha256": "70f6d2cf1e47dae4262d5311bf7d1e50fde1e23c60d95f2b2954d17c685991fb"
+      "bytes": 42471,
+      "sha256": "4865299b510d77e33fe0bbe09a2196202b56e3b4324228ff0210fb143ef8adc8"
     },
     {
       "path": "modules/agent-commerce/README.md",
@@ -17556,6 +17556,11 @@
       "path": "modules/agent-commerce/payments/provider-input.ts",
       "bytes": 2924,
       "sha256": "ea8328a0a12ff04f73dd6100bef7553181fce52ca83a50daefc9e03c0d98808d"
+    },
+    {
+      "path": "modules/agent-commerce/payments/query-transport.ts",
+      "bytes": 3850,
+      "sha256": "1ff034c57887a7377a761fef54a41b5b9b71eebbcdb2751dcada58097781e347"
     },
     {
       "path": "modules/agent-commerce/payments/rules/allocation.ts",
@@ -19269,8 +19274,8 @@
     },
     {
       "path": "modules/module-data/catalog.ts",
-      "bytes": 126007,
-      "sha256": "c3daacc7a27456050312b5fad901fe696045d071a506f58a56520b935395e2dc"
+      "bytes": 126134,
+      "sha256": "544d58e671b10e3077fd3f50b1fa340f0f27ed33cd5328a13f2d5b1b03a7dcfd"
     },
     {
       "path": "modules/module-data/freedom.module.json",
@@ -22319,8 +22324,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 66110,
-      "sha256": "c705ad9da12bb248c209d54792f7b765d26682d218b68da70c28cb6871cee643"
+      "bytes": 67813,
+      "sha256": "13bcec9e1a1daa9db4652500d0d67c488bbd962ed0096b0a251e3f8a92a4f572"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
@@ -23154,13 +23159,18 @@
     },
     {
       "path": "tests/runtime/hosted-payment-notifications.test.ts",
-      "bytes": 59130,
-      "sha256": "25fc3115da029b857ad995ae534337edf92860976d29cd0db5c4c6f1a8dbb578"
+      "bytes": 59535,
+      "sha256": "43a0fc7172ab8f6fc30d644631dcf7b59362219c303c254256d11b23cdd1df55"
+    },
+    {
+      "path": "tests/runtime/hosted-payment-queries.test.ts",
+      "bytes": 7270,
+      "sha256": "f1f844799230198334da970c6776dcb73cfb7adf33f7e3cca10686133f8f231a"
     },
     {
       "path": "tests/runtime/hosted-payment-schema.test.ts",
-      "bytes": 27572,
-      "sha256": "732a9f278c561e90a6e5e8d01a70b86adda6e6a7ecb8ab2defc3de782a98389a"
+      "bytes": 34195,
+      "sha256": "57a9635f299c3f99f488810c9121dff28e64c47bb1739eb7721c37a295e4a12f"
     },
     {
       "path": "tests/runtime/hosted-seller-order-ui.test.ts",
@@ -24234,8 +24244,8 @@
     },
     {
       "path": "tests/runtime/tenant-data-catalog.test.ts",
-      "bytes": 38602,
-      "sha256": "23dbb9fdbb7c59ffb3a227cc91ff0c7a36ab063076b8718f6699f1f5b0b70b7f"
+      "bytes": 38946,
+      "sha256": "7de63731f5e53dedeacce837bb8323087d626014e4abf5bafb11a142bef1f865"
     },
     {
       "path": "tests/runtime/tenant-data-isolation.test.ts",
