@@ -294,7 +294,7 @@ test('handoff page signs stored data, journals outside transactions, then consum
   assert.match(result.html, /<html lang="zh-Hant">/);
   assert.match(result.html, /<title>前往付款｜自由工坊<\/title>/);
   assert.match(result.html, /正在前往綠界付款頁…/);
-  assert.match(result.html, /<noscript><button type="submit">前往付款<\/button><\/noscript>/);
+  assert.match(result.html, /<noscript><button type="submit">前往綠界付款<\/button><\/noscript>/);
   assert.match(result.html, new RegExp('<form method="post" action="' + f.origin + '/__e2e/ecpay/aio-checkout">'));
   assert(!/\btarget=|<iframe|<style|<script(?! src=)/.test(result.html));
   const fields = Object.fromEntries([...result.html.matchAll(/<input type="hidden" name="([^"]*)" value="([^"]*)">/g)].map(m => [m[1], m[2].replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&')]));
