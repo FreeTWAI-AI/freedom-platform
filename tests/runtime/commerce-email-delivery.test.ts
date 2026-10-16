@@ -22,7 +22,7 @@ import {
 import { renderCommerceEmail } from '../../modules/agent-commerce/operations/notifications/templates.js';
 import { runDueCommerceWork } from '../../modules/agent-commerce/operations/due-work.js';
 import { MemoryEffectJournal } from '../../modules/agent-commerce/operations/journal/memory.js';
-import type { EffectJournalPort, EffectJournalRecord } from '../../modules/agent-commerce/operations/journal/journal.js';
+import type { EffectJournalPort, EffectRecord } from '../../modules/agent-commerce/operations/journal/journal.js';
 
 describe('commerce email delivery, executor integration, sweep and worker sender', () => {
   let f: Awaited<ReturnType<typeof hostedPaymentHarness>>;
@@ -99,7 +99,7 @@ describe('commerce email delivery, executor integration, sweep and worker sender
 
       const checkedJournal: EffectJournalPort = {
         environment: 'local',
-        async append(record: EffectJournalRecord) {
+        async append(record: EffectRecord) {
           assert.equal(
             f.x.runtime.totalCount,
             f.x.runtime.idleCount,
