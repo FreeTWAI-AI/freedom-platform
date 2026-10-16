@@ -30,6 +30,7 @@
     "docs/platform-plan/execution/unified-foundation/**",
     ".github/workflows/verify.yml",
     ".gitignore",
+    "LICENSE",
     "package.json",
     "package-lock.json",
     "contracts/README.md",
