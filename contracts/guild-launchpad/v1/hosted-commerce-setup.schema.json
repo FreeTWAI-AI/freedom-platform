@@ -149,6 +149,33 @@
       "additionalProperties": false,
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: purpose_profile_pair, credential_fields_never_persisted."
     },
+    "logistics-service-create-input": {
+      "type": "object",
+      "properties": {
+        "service_key": {
+          "type": "string",
+          "enum": [
+            "ecpay.logistics.home.tcat",
+            "ecpay.logistics.home.post",
+            "ecpay.logistics.cvs.unimartc2c",
+            "ecpay.logistics.cvs.famic2c",
+            "ecpay.logistics.cvs.hilifec2c"
+          ]
+        },
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "service_key",
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_required, account_version_cas."
+    },
     "provider-service-state-input": {
       "type": "object",
       "properties": {
@@ -312,6 +339,55 @@
             }
           ]
         },
+        "logistics_services": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "service_key": {
+                "type": "string",
+                "enum": [
+                  "ecpay.logistics.home.tcat",
+                  "ecpay.logistics.home.post",
+                  "ecpay.logistics.cvs.unimartc2c",
+                  "ecpay.logistics.cvs.famic2c",
+                  "ecpay.logistics.cvs.hilifec2c"
+                ]
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "active",
+                  "suspended"
+                ]
+              },
+              "activated_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+              }
+            },
+            "required": [
+              "service_key",
+              "state",
+              "activated_at",
+              "created_at"
+            ],
+            "additionalProperties": false
+          }
+        },
         "services": {
           "maxItems": 3,
           "type": "array",
@@ -396,6 +472,7 @@
         "version",
         "created_at",
         "payment_activation",
+        "logistics_services",
         "services"
       ],
       "additionalProperties": false,
@@ -477,6 +554,55 @@
                     "type": "null"
                   }
                 ]
+              },
+              "logistics_services": {
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "service_key": {
+                      "type": "string",
+                      "enum": [
+                        "ecpay.logistics.home.tcat",
+                        "ecpay.logistics.home.post",
+                        "ecpay.logistics.cvs.unimartc2c",
+                        "ecpay.logistics.cvs.famic2c",
+                        "ecpay.logistics.cvs.hilifec2c"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "active",
+                        "suspended"
+                      ]
+                    },
+                    "activated_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                    }
+                  },
+                  "required": [
+                    "service_key",
+                    "state",
+                    "activated_at",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
+                }
               },
               "services": {
                 "maxItems": 3,
@@ -562,6 +688,7 @@
               "version",
               "created_at",
               "payment_activation",
+              "logistics_services",
               "services"
             ],
             "additionalProperties": false
@@ -846,6 +973,11 @@
     "error-code": {
       "type": "string",
       "enum": [
+        "logistics_credentials_required",
+        "logistics_service_exists",
+        "logistics_service_not_found",
+        "logistics_service_state",
+        "logistics_service_conflict",
         "store_upgrade_unavailable",
         "commerce_credentials_unavailable",
         "provider_environment_not_allowed",
@@ -901,6 +1033,11 @@
         "code": {
           "type": "string",
           "enum": [
+            "logistics_credentials_required",
+            "logistics_service_exists",
+            "logistics_service_not_found",
+            "logistics_service_state",
+            "logistics_service_conflict",
             "store_upgrade_unavailable",
             "commerce_credentials_unavailable",
             "provider_environment_not_allowed",
