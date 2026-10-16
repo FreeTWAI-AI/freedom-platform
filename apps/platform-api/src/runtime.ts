@@ -107,6 +107,8 @@ export type PlatformRuntime = {
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */
   guildLaunchpadEnabled?: boolean;
   hostedReservationsEnabled?: boolean;
+  /** Supplier console reads, profile update and console-scope photos; default OFF, effective only with guildLaunchpadEnabled. */
+  supplierConsoleEnabled?: boolean;
   /** Independent installed read port and new-upload admission; both absent by default. */
   storePhotoAssetStore?: ObjectStore;
   storePhotoAssets?: StorePhotoAssets;

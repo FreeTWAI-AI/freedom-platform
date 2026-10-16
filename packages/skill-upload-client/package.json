@@ -2,7 +2,7 @@
   "name": "@freetwai/skill-upload",
   "version": "0.1.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "Upload a private skill draft to 自由工坊 (freetwai.com) with a member-issued upload key. Drafts are never published without the member's approval on the site.",
   "type": "module",
   "bin": {

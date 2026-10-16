@@ -1,6 +1,7 @@
 import type {Pool,PoolClient} from 'pg';
 import {SupplyCatalogSetupInputSchema,SupplyCatalogViewSchema,SupplyProductInputSchema,SupplyProductUpdateInputSchema,
   SupplyProductPageSchema,SupplyProductViewSchema,SupplyCatalogReceiptSchema,SupplyProductReceiptSchema} from '../../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
+import {SupplyProfileUpdateInputSchema,SupplyProfileReceiptSchema} from '../../../contracts/guild-launchpad/v1/supplier-console.js';
 import {checkVersion} from '../../../packages/db/index.js';
 import {requireCondition} from '../../../packages/shared/problem.js';
 import type {TenantScopeContext} from '../../../packages/resource-scopes/index.js';
@@ -75,4 +76,22 @@ export async function updateSupplyProduct(pool:Pool,actor:Actor,tenantId:string,
     await storeFact(q,context,productId,next.version,'storefront.supply-product.update','storefront_product');
     return SupplyProductReceiptSchema.parse({product_id:productId,version:next.version});
   },productId);
+}
+
+export async function updateSupplyProfile(pool:Pool,actor:Actor,tenantId:string,instanceId:string,raw:unknown,key:string,expected:string) {
+  const input=SupplyProfileUpdateInputSchema.parse(raw);
+  return storeCommand(pool,actor,tenantId,instanceId,'store:manage','storefront.supply-profile.update',input,key,expected,async(q,context)=>{
+    const p=await profile(q,tenantId,instanceId,true);ready(p);
+    requireCondition(p.slug===null,409,'retail_profile_settings','這個商品庫已開零售商店，請在商店資料修改名稱與說明。');
+    checkVersion(p.version,expected);
+    await q.query(`UPDATE commerce_shops s SET name=$3,description=$4 FROM commerce_resource_tenants m
+      WHERE m.resource_kind='shop' AND m.resource_id=s.shop_id AND m.tenant_id=$1 AND m.instance_id=$2 AND m.mapping_state='confirmed' AND s.origin='hosted'`,
+    [tenantId,instanceId,input.name??p.name,input.description??p.description]);
+    await q.query(`UPDATE commerce_storefront_profiles p SET version=p.version+1,updated_at=clock_timestamp()
+      FROM commerce_resource_tenants m WHERE m.resource_id=p.storefront_shop_id AND m.tenant_id=$1 AND m.instance_id=$2 AND p.instance_id=m.instance_id`,
+    [tenantId,instanceId]);
+    const version=String(BigInt(p.version)+1n);
+    await storeFact(q,context,instanceId,version,'storefront.supply-profile.update');
+    return SupplyProfileReceiptSchema.parse({instance_id:instanceId,version});
+  });
 }

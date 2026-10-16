@@ -1,6 +1,7 @@
 {
   "name": "@freetwai/directory-html-host",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "entities": "8.0.0",
