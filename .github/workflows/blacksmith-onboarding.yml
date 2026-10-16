@@ -63,16 +63,22 @@ jobs:
           test -z "$(git -C .freedom/trusted status --porcelain)"
           mkdir -p .freedom/reports
           node --input-type=module <<'NODE'
-          import { writeFileSync } from 'node:fs';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { availableParallelism, cpus, release } from 'node:os';
           import { PINNED_SUITES } from './.freedom/trusted/packages/contribution-tools/pinned-suites.mjs';
           const suite = PINNED_SUITES['ci.governance-unit'];
           if (suite.database !== false || suite.timeoutMs !== 300000) throw new Error('unexpected_suite_policy');
           const e = process.env;
+          const cpu = cpus();
           writeFileSync('.freedom/reports/blacksmith-source.json', JSON.stringify({
             source_sha: e.SOURCE_SHA, runner_sha: e.RUNNER_SHA,
             workflow_sha: e.WORKFLOW_SHA, suite: 'ci.governance-unit',
             runner_label: 'blacksmith-4vcpu-ubuntu-2404', runner_name: e.RUNNER_NAME,
             runner_os: e.RUNNER_OS, runner_arch: e.RUNNER_ARCH, node: process.version,
+            cpu_logical_count: cpu.length, cpu_available_parallelism: availableParallelism(),
+            cpu_models: [...new Set(cpu.map(core => core.model))],
+            os_release: readFileSync('/etc/os-release', 'utf8'), kernel_release: release(),
+            runner_image_os: e.ImageOS ?? null, runner_image_version: e.ImageVersion ?? null,
             run_id: e.GITHUB_RUN_ID, run_attempt: e.GITHUB_RUN_ATTEMPT,
             started_at: new Date().toISOString(), purpose: 'onboarding-only'
           }, null, 2) + '\n');

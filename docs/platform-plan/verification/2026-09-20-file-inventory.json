@@ -139,8 +139,8 @@
     },
     {
       "path": ".github/workflows/blacksmith-onboarding.yml",
-      "bytes": 4622,
-      "sha256": "a76c68f505b65589937c9647a85831669cebf8b4139fb043462ee8d3c9344629"
+      "bytes": 5086,
+      "sha256": "89ec4dd66a31d3a34052b4fef11770e6a651f9e7280644f32332b328e9fd1a96"
     },
     {
       "path": ".github/workflows/directory-runtime-profile.yml",
@@ -13874,8 +13874,8 @@
     },
     {
       "path": "docs/development/blacksmith-onboarding.md",
-      "bytes": 5410,
-      "sha256": "906869d8bcae7419d53b1bdc1c2cd7200b6e0427e9cf53776a2046536d65ac4e"
+      "bytes": 6147,
+      "sha256": "8d0f24ab6f85317e8be00416a9afedd54f65742f22839a3537ab8add6e741948"
     },
     {
       "path": "docs/development/broker-worker-bindings.md",

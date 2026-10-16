@@ -30,9 +30,11 @@ existing code-owner review remains essential.
 - The existing pinned `ci.governance-unit` suite remains `database: false`,
   `timeoutMs: 300000`; no custom runner or suite replacement is introduced.
 - Four explicitly named JSON evidence files retain source/runner/workflow SHA,
-  runner label/identity, actual Node version, install/test elapsed seconds and
-  exit codes, plus the existing per-case suite result. GitHub artifacts expire
-  after one day. Check free artifact allowance before admission; no storage
+  runner label/identity, actual Node version, observed logical CPU count, available
+  parallelism, CPU model(s), `/etc/os-release`, kernel and runner image identifiers
+  (explicitly null when the provider does not expose `ImageOS`/`ImageVersion`),
+  install/test elapsed seconds and exit codes, plus the existing per-case suite
+  result. GitHub artifacts expire after one day. Check free artifact allowance before admission; no storage
   purchase is authorized. A timeout, cancellation or setup failure can prevent
   final artifacts: retain the failed run/logs and never count it as a pass.
 
@@ -48,13 +50,20 @@ existing code-owner review remains essential.
    and GitHub artifact allowance remain. Do not alter App permissions, billing,
    secrets, required checks, deployments or provider settings for this pilot.
    If those confirmations require changes, stop and seek separate authorization.
-3. Review the source, runner and action pins, approve a separate activation PR,
+3. Resolve the **unresolved full local rehearsal/300-second timeout** before
+   activation. The original exact-pinned-source suite failed and timed out;
+   diagnosing its cancellation case and passing that one case under a local
+   subreaper does not establish full-suite success. Preserve the original failure,
+   require a complete successful rehearsal within the unchanged 300-second suite
+   limit, and record its source, runner, environment and result. Do not extend the
+   budget, omit tests or combine partial runs into a pass.
+4. Review the source, runner and action pins, approve a separate activation PR,
    and name one maintainer responsible for admission. Keep the first trial to
    **at most ten manually admitted runs**. Before each dispatch, record an ordinal,
    approver, UTC time, source/workflow SHA and remaining quota in the tracking
    issue; after it settles, add the run URL, result and provider-metered usage.
    Failed/cancelled runs count toward the ten. Do not queue runs or rerun jobs.
-4. Admit the next run only after the previous run finishes and its provider usage
+5. Admit the next run only after the previous run finishes and its provider usage
    settles. Stop on unexpected charges, missing metering, failure, exhausted
    headroom or uncertain behavior. Restore the literal `false` by reviewed change
    when the trial ends; maintainers can disable the workflow to stop admission.
