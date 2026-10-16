@@ -1,6 +1,6 @@
 import {retainedHostedOrder} from '../helpers/hosted-inventory-history.js';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes,randomUUID } from 'node:crypto';
 import { after, before, beforeEach, test } from 'node:test';
 import { serve } from '@hono/node-server';
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
@@ -229,12 +229,14 @@ test('seller page physically expires retained history and exact cancel keeps exp
 // the direct-reservation seller tests above.
 import {describe} from 'node:test';
 import {hostedPaymentHarness} from '../e2e/hosted-payment-fixture.js';
+import {createTenantListCursorCodec} from '../../packages/shared/tenant-list-cursor.js';
 import {sellerCheckoutCommand} from '../../modules/agent-commerce/checkout/seller-command.js';
+import {sellerCustomer,readSellerCheckoutOrder,listSellerCheckoutOrders,readSellerOrderContact} from '../../modules/agent-commerce/checkout/seller-orders.js';
 import {cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/orders.js';
 describe('hosted checkout seller commands',()=>{
   let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
   before(async()=>{f=await hostedPaymentHarness('fp_checkout_seller');});
-  beforeEach(async()=>{await f.reset();});
+  beforeEach(async()=>{await f.reset();f.install({tenantListCursors:createTenantListCursorCodec(randomBytes(32).toString('base64url'),{environment:'local',origin:f.origin})});});
   after(async()=>f?.stop());
   test('store binding preserves the scoped principal, tenant and scope through cancellation and receipt replay',async()=>{
     const p=await f.placed(),a=await authenticate(f.x.runtime,p.s.owner.cookie.split('=')[1].split(';')[0]),key=randomUUID();
@@ -254,4 +256,32 @@ describe('hosted checkout seller commands',()=>{
     assert.equal(runs,1);assert.equal(projections,2);
     assert.deepEqual((await f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation='commerce.checkout_order.cancel'")).rows.map(r=>r.response),[{id:p.order.order_ref}]);
   });
+  test('checkout projections mask Unicode names, isolate contact and finance, and preserve expired holds',async()=>{
+    const s=await f.x.store(100);await f.setup(s);
+    const due=await f.x.due(s),a=await authenticate(f.x.runtime,s.owner.cookie.split('=')[1].split(';')[0]);
+    const before=async()=>({holds:(await f.x.h.pool.query('SELECT * FROM commerce_inventory_reservations ORDER BY reservation_id')).rows,orders:(await f.x.h.pool.query('SELECT * FROM commerce_checkout_orders ORDER BY order_id')).rows,items:(await f.x.h.pool.query('SELECT * FROM commerce_items ORDER BY item_id')).rows});
+    const saved=await before();
+    const read=()=>readSellerCheckoutOrder(f.x.runtime,a,s.tenantId,s.instanceId,due.order_id,{payment:f.runtime.commercePorts?.payment,settings:f.settings});
+    const result=await read();assert.equal(result.inventory_state,'hold_expired');assert.equal(result.customer.name_masked,'合○○');assert.equal(result.lines[0].inventory.held,5);
+    assert.deepEqual(await before(),saved);
+    const contact=await readSellerOrderContact(f.x.runtime,a,s.tenantId,s.instanceId,due.order_id);
+    assert.equal(contact.contact?.name,'合成買家');
+    const json=JSON.stringify(result);for(const value of ['合成買家','synthetic-buyer@example.test','0000000000','合成測試地址'])assert.equal(json.includes(value),false,value);
+    for(const [name,masked] of [[' Alice ','A○○'],[' 王小明 ','王○○'],[' 😀 buyer ','😀○○'],['   ','○○']])assert.deepEqual(sellerCustomer(name,false),{name_masked:masked,contact_redacted:false});
+    const removed=await f.x.h.pool.query(`UPDATE commerce_checkout_contacts SET contact_name=NULL,contact_email=NULL,contact_phone=NULL,delivery=NULL,invoice=NULL,contact_salt=NULL,redacted_at=clock_timestamp() WHERE contact_id=(SELECT contact_id FROM commerce_checkout_orders WHERE order_id=$1)`,[due.order_id]);assert.equal(removed.rowCount,1);
+    assert.deepEqual((await read()).customer,{name_masked:null,contact_redacted:true});
+    const redacted=await readSellerOrderContact(f.x.runtime,a,s.tenantId,s.instanceId,due.order_id);assert.equal(redacted.contact_redacted,true);assert.equal(redacted.contact,null);assert.equal(redacted.delivery,null);assert.equal(redacted.invoice,null);
+  });
+  test('checkout list uses exact filters and signed instance/principal/filter-bound cursors',async()=>{
+    const s=await f.x.store(100);await f.setup(s);const a=await authenticate(f.x.runtime,s.owner.cookie.split('=')[1].split(';')[0]),options={cursors:f.runtime.tenantListCursors};
+    const ids=[];for(let i=0;i<3;i++){const c=await f.x.frozen(s,1,{contact:{name:'合成'+randomUUID(),email:randomUUID()+'@example.test',phone:randomUUID().slice(0,8)}});ids.push((await f.x.place(s,c)).order_id);}
+    const list=(query:unknown)=>listSellerCheckoutOrders(f.x.runtime,a,s.tenantId,s.instanceId,query,options);
+    const first=await list({limit:'2'}),second=await list({limit:'2',cursor:first.next_cursor});
+    assert.deepEqual([...first.items,...second.items].map(r=>r.order_ref),ids.reverse());assert.equal(second.next_cursor,null);
+    assert.equal((await list({display_number:first.items[0].display_number})).items.length,1);
+    assert.equal((await list({needs_action:'true'})).items.length,0);
+    for(const query of [{limit:'0'},{limit:'51'},{unknown:'x'},{needs_action:'false'},{display_number:'x'},{lifecycle:'bad'}])await assert.rejects(list(query));
+    await assert.rejects(list({lifecycle:'open',cursor:first.next_cursor}),code('invalid_cursor'));
+  });
+
 });
