@@ -322,7 +322,8 @@ test('local harness: supplier acceptance and same-origin ON → OFF → ON bookm
       for(const id of JSON.stringify(saved).match(/[0-9a-f-]{36}/g)??[])known.add(id);known.add(saved.seller.slug);
       swap(false);const off=await run(['supplier-recheck'],'off');expect(phase(off,'supplier-recheck')).toMatchObject({status:'pass',metrics:{console_routes_404:true,bookmark:'old_page',legacy_reads_matched:true,bookmark_values_matched:true}});
       swap(true);const on=await run(['supplier-recheck'],'on');expect(phase(on,'supplier-recheck')).toMatchObject({status:'pass',metrics:{bookmark:'console_page',legacy_reads_matched:true,console_reads_matched:true,bookmark_values_matched:true}});
-      expect(JSON.parse(await readFile(file,'utf8'))).toEqual(saved);await writeFile('test-results/wp07rv-public-fields.json',JSON.stringify([...publicFields].sort()));
+      expect(JSON.parse(await readFile(file,'utf8'))).toEqual(saved);
+      expect([...publicFields]).toEqual(expect.arrayContaining(['products','photos']));expect([...publicFields].filter(key=>['cost_minor','supply_price_minor','product_id','read_path','photo','shipping_minor','shipping_terms','return_terms'].includes(key))).toEqual([]);
       for(const report of [initial,off,on]){cleanReport(report,logs,known);expect(report).toMatchObject({harness:'local_harness',cloud_proof:false});}
       expect((await e2eAuthPool.query('SELECT count(*)::int n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
     }finally{if('closeAllConnections' in listener)listener.closeAllConnections();await new Promise<void>((resolve,reject)=>listener.close(error=>error?reject(error):resolve()));}
