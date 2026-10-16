@@ -65,7 +65,10 @@
 - 店的 owner 或 admin 在 Seller Console「收款設定」（EC-SPEC-01 §7.5 的 payments）輸入特店編號與金鑰，並重新輸入密碼（EC-SPEC-09 §2.2）；儲存即封存，付款服務 `draft`。帳戶、金鑰與服務狀態的其他改動（換金鑰、換特店、啟用、停用、退役）同樣只限 owner／admin 並重新輸入密碼。
 - 付款服務 `draft → active` 需要一筆成功的驗證付款。owner 或 admin 在「收款設定」發起（同樣重新輸入密碼），平台建立一個種類 `service_activation` 的 attempt：固定 10 元（一個常數，可調整），經同一個交接頁（§4.1）送到綠界，款項付進商家自己的特店帳戶。平台不退這筆款，商家可在綠界後台自行退刷。sandbox 用 stage 測試卡付（§11 的 stage 層）；live 是 §11 的受控小額試付，每次由 Ted 授權。啟用的證據是伺服器對伺服器查詢確認這筆付款（§5.5）；只有已驗證的通知不會啟用。同一個帳戶同時只能有一筆進行中的驗證付款（已交接且在確認窗內，或已付款待確認）。在完成之前，店家的結帳開關（EC-SPEC-02 §2.3、EC-SPEC-10 §4.5）不能打開。
 - 付款服務 `suspended` 後：不建立新 attempt；已建立的 attempt 照常接收通知、查詢與退款（在途責任不因停用消失，EC-R56）。
-- `draft → active` 不是 HTTP 命令：驗證付款的 attempt 成為 `confirmed` 時，付款工作在同一個交易呼叫內部的啟用函式（記下啟用時間，證據參考是該 attempt）。服務那時已不是 `draft`（例如已被退役），就只確認付款、不啟用。同一間店、同一環境、同一 profile 同時只能有一個 `active` 服務。
+- `draft → active` 不是 HTTP 命令：驗證付款的 attempt 成為 `confirmed` 時，付款工作在同一個交易呼叫內部的啟用函式（記下啟用時間，證據參考是該 attempt）。同一間店、同一環境、同一 profile 同時只能有一個 `active` 服務：
+  - 發起驗證付款時，同店、同環境、同 profile 已有別的帳戶的 `active` 服務，回 409 `provider_service_conflict`（「商店已有相同設定檔的啟用服務。」）。換特店＝先停用（或退役）舊服務，再驗證新帳戶；停用期間不建立新付款，商家宜選離峰時間。平台不會自動停用任何服務（2026-10-16 定案，見 decisions.md）。
+  - 確認時服務已不是 `draft`（例如已被退役），或同組已有別的 `active` 服務（在發起之後才恢復或啟用），就只確認付款、不啟用：付款事實與 `confirmed` 照常保存，服務留在 `draft`。商家停用另一個服務之後，再做一次驗證付款。
+  - 啟用函式在 savepoint 內執行。它因上面兩種情況回 409（`provider_service_state`、`provider_service_conflict`）時，只退回到 savepoint，付款事實不跟著回滾；其他錯誤照常讓整個交易失敗。
 - 換金鑰不改服務狀態，新的 `credential_version` 立即生效。填錯的金鑰要到下一次簽章才發現：綠界拒絕用它簽出的付款表單，通知與查詢也驗證失敗。
 - 儲存金鑰時不以伺服器對伺服器的查詢驗證（2026-10-16 依 wp04-payments 的建議定案）：只檢查格式並封存；在本機算出簽章也不算驗證。首次的金鑰由上面的驗證交易證明。換金鑰後，一個版本是否已驗證，只看有沒有由它驗證成功的付款事件（`commerce_hosted_payment_events.credential_version`）；還沒有的版本，Seller Console 標示「尚未經綠界驗證」。
 
