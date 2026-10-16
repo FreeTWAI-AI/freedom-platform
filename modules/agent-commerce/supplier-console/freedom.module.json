@@ -83,6 +83,24 @@
       "auth_profile": "member-session"
     },
     {
+      "surface_id": "commerce.supply-materials-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-supply-materials.ts",
+      "operations": [
+        "supplier-console.materials",
+        "supplier-console.material",
+        "storefront.supply-material.create",
+        "storefront.supply-material.update",
+        "storefront.supply-material.copy",
+        "storefront.supply-material.access",
+        "storefront.supply-material.grant",
+        "storefront.supply-material.revoke",
+        "storefront.supply-material.withdraw",
+        "storefront.partner-materials.read"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
       "surface_id": "commerce.supplier-console-page",
       "kind": "page",
       "entry": "modules/agent-commerce/supplier-console/ui/SupplierConsole.tsx",
