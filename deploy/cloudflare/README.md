@@ -149,7 +149,6 @@ bucket 尚未建立，因此本次不在 `wrangler.jsonc` 加入變數或 bindin
 staging Access 僅對 `/api/v1/provider-callbacks/ecpay/*` 與
 `/pay/ecpay/return/*` 設定 bypass，供綠界通知與瀏覽器 POST 返回；應用仍只接受
 精確的 POST 路徑、Host、表單限制與簽章。其他付款路徑不需額外 bypass 或設定。
-本次沒有 server-to-server ECPay 呼叫，也不需要額外對外請求權限。
 Worker 的付款確認查詢會從伺服器向 `payment-stage.ecpay.com.tw`（sandbox）或
 `payment.ecpay.com.tw`（live）送出 QueryTradeInfo/V5。這是向外的請求，staging
 不需新增 Access bypass。正式 transport 只接受對應環境的精確 origin 與查詢路徑，
