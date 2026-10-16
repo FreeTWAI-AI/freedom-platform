@@ -937,3 +937,239 @@ test('SC-E2E-70 a new version, a revoke and a withdrawal close the old paths (AT
     await Promise.all(extraContexts.map(c => c.close()));
   }
 });
+
+test('SC-E2E-78 a material upload answered after a business or account switch changes nothing there; the original attempt recovers to one version (AT-35)', async ({page, e2eAuthPool}, info) => {
+  const {navigate} = await import('./navigation.js');
+  const suffix = randomUUID().slice(0, 6);
+  const a = await setupMaterialSupplier(page, e2eAuthPool, `A1-${suffix}`);
+  const a2Store = await launchStore(page, `合成素材空間 A2-${suffix}`);
+  await post(page, `${a2Store.root}/supply-profile`, {name: `合成素材商品庫 A2-${suffix}`, currency: 'TWD'}, 201);
+  const initial = await source(`initial-${suffix}.png`, '#325747');
+  const first = await source(`business-original-${suffix}.png`, '#856342');
+  const second = await source(`account-original-${suffix}.png`, '#764b85');
+  const different = await source(`different-${suffix}.png`, '#457a96');
+  type Store = {root: string; hash: string};
+  async function seedMaterial(store: Store, title: string) {
+    // Only the pre-existing materials are setup; both attempts below use the member controls.
+    const material = await post(page, `${store.root}/supply-materials`, {kind: 'image', product_id: null, title, description: ''}, 201);
+    const session = await (await page.request.get('/api/v1/session')).json();
+    const response = await page.request.post(`/api/v1${store.root}/supply-materials/${material.material_id}/content`, {
+      data: initial.buffer, headers: {Origin: new URL(page.url()).origin, 'X-CSRF-Token': session.csrf_token,
+        'Content-Type': initial.mimeType, 'Idempotency-Key': randomUUID(), 'If-Match': `"${material.version}"`},
+    });
+    expect(response.status()).toBe(200);
+    return {store, title, id: material.material_id as string, version: (await response.json()).version as string};
+  }
+  const m1 = await seedMaterial(a.store, `A1 素材 ${suffix}`);
+  const m2 = await seedMaterial(a2Store, `A2 素材 ${suffix}`);
+  await signOut(page);
+  const z = await setupMaterialSupplier(page, e2eAuthPool, `Z1-${suffix}`);
+  const mz = await seedMaterial(z.store, `Z1 素材 ${suffix}`);
+  const section = (name: string) => materialActive(page).locator('.sc-section').filter({has: page.getByRole('heading', {level: 3, name, exact: true})});
+  const upload = () => section('新版本');
+  const uploadStatus = () => upload().locator('p.field-hint[role="status"]');
+  const path = (m: typeof m1) => `/api/v1${m.store.root}/supply-materials/${m.id}/content`;
+  async function enter(m: typeof m1, switchBusiness = false) {
+    if (switchBusiness) await materialConsole(page).getByRole('link', {name: '切換事業', exact: true}).click();
+    else await navigate(page, '我的供貨商品庫');
+    await page.locator('.hosted-store article').filter({has: page.getByRole('heading', {level: 3, name: `合成素材商品庫 ${m === m1 ? 'A1' : m === m2 ? 'A2' : 'Z1'}-${suffix}`, exact: true})})
+      .getByRole('link', {name: '查看商品與供貨', exact: true}).click();
+    await materialConsole(page).getByRole('navigation', {name: '營運中心', exact: true}).getByRole('link', {name: '行銷素材', exact: true}).click();
+    await materialActive(page).getByRole('link', {name: m.title, exact: true}).click();
+    await expect(materialActive(page).getByRole('heading', {name: `素材詳情：${m.title}`, exact: true})).toBeVisible();
+  }
+  async function facts(m: typeof m1) {
+    const tenant = m.store.hash.split('/')[1];
+    const material = (await e2eAuthPool.query('SELECT aggregate_version::text AS version,current_version_id FROM supply_materials WHERE material_id=$1', [m.id])).rows[0];
+    const versions = (await e2eAuthPool.query('SELECT version_id,version_no,asset_id FROM supply_material_versions WHERE material_id=$1 ORDER BY version_no', [m.id])).rows;
+    const receipts = (await e2eAuthPool.query("SELECT idempotency_key,response FROM scoped_command_receipts WHERE target_id=$1 AND operation='storefront.supply-material.upload' ORDER BY idempotency_key", [m.id])).rows;
+    const intents = (await e2eAuthPool.query('SELECT intent_id,asset_id,state,source_sha256,expected_version::text AS expected FROM asset_upload_intents WHERE target_material_id=$1 ORDER BY intent_id', [m.id])).rows;
+    const assets = (await e2eAuthPool.query('SELECT a.asset_id,a.state,o.byte_size FROM assets a JOIN asset_upload_intents i USING(asset_id) LEFT JOIN asset_objects o USING(asset_id) WHERE i.target_material_id=$1 ORDER BY a.asset_id', [m.id])).rows;
+    const effects = (await e2eAuthPool.query('SELECT e.effect_id,e.asset_id FROM asset_object_write_effects e JOIN asset_upload_intents i USING(asset_id) WHERE i.target_material_id=$1 ORDER BY e.effect_id', [m.id])).rows;
+    // Same accounting as tenant capacity: old versions remain charged, unfinished images reserve 1 MiB.
+    const capacity = (await e2eAuthPool.query(`SELECT COALESCE(sum(o.byte_size),0)::text AS used,
+      COALESCE(sum(CASE WHEN o.asset_id IS NULL THEN COALESCE(i.reserved_bytes,CASE a.purpose
+        WHEN 'storefront.product-photo' THEN 1048576 WHEN 'storefront.supply-material' THEN 1048576
+        WHEN 'storefront.supply-material-video' THEN 20971520 ELSE 262144 END) ELSE 0 END),0)::text AS reserved
+      FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id)
+      WHERE a.tenant_ref=$1 AND a.purpose IN ('work.tenant-result','storefront.product-photo','storefront.supply-material','storefront.supply-material-video')`, [tenant])).rows[0];
+    const orphan = (await e2eAuthPool.query(`SELECT count(*)::int AS n FROM assets a JOIN asset_upload_intents i USING(asset_id)
+      WHERE i.target_material_id=$1 AND a.state='ready' AND NOT EXISTS (SELECT 1 FROM supply_material_versions v WHERE v.asset_id=a.asset_id)`, [m.id])).rows[0].n;
+    return {material, versions, receipts, intents, assets, effects, capacity, orphan};
+  }
+  const before = {a1: await facts(m1), a2: await facts(m2), z1: await facts(mz)};
+  for (const [m, f] of [[m1, before.a1], [m2, before.a2], [mz, before.z1]] as const) {
+    expect(f.material.version).toBe(m.version); expect(f.versions).toHaveLength(1);
+  }
+  const requests: Request[] = [];
+  const failures: string[] = [];
+  const delivery = new Map<string, string>();
+  const requestKey = (request: Request) => request.headers()['idempotency-key'];
+  page.on('response', response => delivery.set(requestKey(response.request()), `response ${response.status()}`));
+  page.on('requestfailed', request => delivery.set(requestKey(request), `failed: ${request.failure()?.errorText}`));
+  const observed: Record<string, unknown> = {initialVersions: [m1.version, m2.version, mz.version]};
+  page.on('request', request => requests.push(request));
+  async function hold() {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => {release = resolve;});
+    let ready!: (value: {request: Request; response: import('@playwright/test').APIResponse}) => void;
+    const committed = new Promise<{request: Request; response: import('@playwright/test').APIResponse}>(resolve => {ready = resolve;});
+    let done!: () => void;
+    const delivered = new Promise<void>(resolve => {done = resolve;});
+    const handler = async (route: import('@playwright/test').Route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const response = await route.fetch();
+      ready({request: route.request(), response});
+      await gate;
+      try {await route.fulfill({response});} catch (error) {failures.push(String(error));} finally {done();}
+    };
+    await page.route(`**${path(m1)}`, handler);
+    return {committed, async deliver() {release(); await delivered; await page.unroute(`**${path(m1)}`, handler);}};
+  }
+  async function cleanScope(m: typeof m1) {
+    await expect(materialActive(page).locator('.detail-list')).toContainText('第 1 版');
+    await expect(section('版本紀錄').getByRole('listitem')).toHaveCount(1);
+    await expect(uploadStatus()).toHaveCount(0);
+    await expect(materialConsole(page).getByRole('button', {name: '重試原操作', exact: true})).toHaveCount(0);
+    for (const file of [first, second]) await expect(materialConsole(page)).not.toContainText(file.name);
+    await expect(materialConsole(page)).not.toContainText('已上傳新版本。');
+    await expect(materialConsole(page)).not.toContainText('尚未確認上傳結果');
+    await expect(materialConsole(page).locator('.sc-business-bar strong')).toHaveText(`合成素材商品庫 ${m === m2 ? 'A2' : 'Z1'}-${suffix}`);
+  }
+  async function screenshot(name: string) {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({path: info.outputPath(name), fullPage: true});
+  }
+  const refusal = '尚未確認原操作的結果，請按「重試」確認後再離開。';
+  await signOut(page); await loginHere(page, a.member.email); await enter(m1);
+  const one = await hold();
+  await upload().getByLabel('選擇圖片', {exact: true}).setInputFiles(first);
+  await upload().getByRole('button', {name: '上傳新版本', exact: true}).click();
+  const answer1 = await one.committed;
+  const sig1 = signature(answer1.request);
+  expect(answer1.response.status()).toBe(200); expect(sig1.version).toBe(`"${m1.version}"`);
+  expect(sig1.key).toBeTruthy(); expect(sig1.mime).toBe(first.mimeType); expect(sig1.sha256).toBe(digest(first.buffer));
+  await expect(uploadStatus()).toHaveText('正在上傳新版本…');
+  const urlA1 = page.url(), requestMark = requests.length;
+  await materialConsole(page).getByRole('link', {name: '切換事業', exact: true}).click();
+  // Material uploads currently use the material-blocking notice even in their sending phase.
+  await expect(materialConsole(page).locator('.sc-announcement')).toHaveText(refusal);
+  await expect(page).toHaveURL(urlA1);
+  await expect(materialConsole(page).locator('.sc-business-bar strong')).toHaveText(`合成素材商品庫 A1-${suffix}`);
+  expect(requests.slice(requestMark).filter(r => new URL(r.url()).pathname.startsWith(`/api/v1${a2Store.root}`))).toHaveLength(0);
+  observed.businessRefusal = await materialConsole(page).locator('.sc-announcement').innerText();
+  await screenshot('material-business-switch-refused.png');
+  await one.deliver();
+  await expect(uploadStatus()).toHaveText('已上傳新版本。');
+  await expect(section('版本紀錄').getByRole('listitem')).toHaveCount(2);
+  await expect(materialActive(page).locator('.detail-list')).toContainText('第 2 版');
+  const after1 = await facts(m1);
+  await enter(m2, true); await cleanScope(m2); expect(await facts(m2)).toEqual(before.a2);
+  await screenshot('material-a2-unaffected.png');
+
+  await enter(m1, true);
+  const staleVersion = (await facts(m1)).material.version;
+  const two = await hold();
+  await upload().getByLabel('選擇圖片', {exact: true}).setInputFiles(second);
+  await upload().getByRole('button', {name: '上傳新版本', exact: true}).click();
+  const answer2 = await two.committed;
+  const sig2 = signature(answer2.request), body2 = answer2.request.postDataBuffer()!;
+  expect(answer2.response.status()).toBe(200); expect(sig2.version).toBe(`"${staleVersion}"`);
+  expect(sig2.key).toBeTruthy(); expect(sig2.key).not.toBe(sig1.key);
+  expect(sig2.mime).toBe(second.mimeType); expect(sig2.sha256).toBe(digest(second.buffer));
+  await expect(uploadStatus()).toHaveText('正在上傳新版本…');
+  const dialogs: string[] = [];
+  const accept = async (dialog: import('@playwright/test').Dialog) => {dialogs.push(dialog.message()); await dialog.accept();};
+  page.on('dialog', accept);
+  const settings = page.getByRole('button', {name: '設定', exact: true});
+  await settings.click();
+  await page.getByRole('menu', {name: '個人檔案', exact: true}).getByRole('menuitem', {name: '登出', exact: true}).click();
+  const loginHeading = page.getByRole('heading', {name: '登入', exact: true});
+  if (!await loginHeading.isVisible()) {
+    await expect(materialConsole(page).locator('.sc-announcement')).toHaveText(refusal);
+    await expect(page).toHaveURL(urlA1);
+    observed.signOut = {possibleWhileSending: false, refusal: await materialConsole(page).locator('.sc-announcement').innerText(), dialogs};
+    await screenshot('material-signout-refused.png');
+    const expired = await e2eAuthPool.query("UPDATE sessions SET expires_at=now()-interval '1 second' WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>now()", [a.member.id]);
+    expect(expired.rowCount).toBe(1);
+    const unauthorized = page.waitForResponse(r => r.status() === 401 && new URL(r.url()).pathname === path(m1).replace(/\/content$/, ''));
+    await materialActive(page).locator('.sc-read-status').first().getByRole('button', {name: '更新資料', exact: true}).click();
+    expect((await unauthorized).status()).toBe(401);
+  } else observed.signOut = {possibleWhileSending: true, dialogs};
+  page.off('dialog', accept);
+  await expect(loginHeading).toBeVisible(); await expect(materialConsole(page)).toHaveCount(0);
+  await loginHere(page, z.member.email); await enter(mz);
+  await cleanScope(mz);
+  const zURL = page.url();
+  // Response delivery is correlated with the captured original operation, including an earlier browser failure.
+  const lateFinished = delivery.has(sig2.key) ? Promise.resolve(delivery.get(sig2.key)) : Promise.race([
+    page.waitForResponse(r => requestKey(r.request()) === sig2.key).then(r => `response ${r.status()}`),
+    page.waitForEvent('requestfailed', {predicate: r => requestKey(r) === sig2.key}).then(r => `failed: ${r.failure()?.errorText}`),
+  ]);
+  await two.deliver();
+  observed.lateAnswer = {network: failures.length ? 'fulfill threw; late answer could not reach the page' : await lateFinished, fulfillErrors: failures};
+  await expect(page).toHaveURL(zURL); await cleanScope(mz);
+  expect(requests.filter(r => r.method() === 'POST' && new URL(r.url()).pathname === path(mz))).toHaveLength(0);
+  expect(await facts(mz)).toEqual(before.z1); expect(await facts(m2)).toEqual(before.a2);
+  await screenshot('material-z1-after-late-answer.png');
+
+  await signOut(page); await loginHere(page, a.member.email); await enter(m1);
+  const retry = upload().getByRole('button', {name: '重試原操作', exact: true});
+  const receipt2 = await answer2.response.json();
+  if (await retry.isVisible()) {
+    observed.recovery = '重試原操作';
+    await expect(upload()).toContainText(second.name);
+    const replayRequest = page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === path(m1));
+    const replayAnswer = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === path(m1));
+    await retry.click();
+    expect(signature(await replayRequest)).toEqual(sig2);
+    const response = await replayAnswer;
+    expect(response.status()).toBe(answer2.response.status()); expect(await response.json()).toEqual(receipt2);
+    await expect(uploadStatus()).toHaveText('已上傳新版本。');
+  } else {
+    observed.recovery = 'captured replay';
+    await expect(section('版本紀錄').getByRole('listitem')).toHaveCount(3);
+    const session = await (await page.request.get('/api/v1/session')).json();
+    const replay = await page.request.post(path(m1), {data: body2, headers: {Origin: new URL(page.url()).origin,
+      'X-CSRF-Token': session.csrf_token, 'Content-Type': sig2.mime, 'Idempotency-Key': sig2.key, 'If-Match': sig2.version}});
+    expect(replay.status()).toBe(answer2.response.status()); expect(await replay.json()).toEqual(receipt2);
+  }
+  await expect(section('版本紀錄').getByRole('listitem')).toHaveCount(3);
+  await expect(materialActive(page).locator('.detail-list')).toContainText('第 3 版');
+  await screenshot('material-original-attempt-recovered.png');
+  const after2 = await facts(m1);
+  for (const [prior, current, sig, receipt] of [
+    [before.a1, after1, sig1, await answer1.response.json()], [after1, after2, sig2, receipt2],
+  ] as const) {
+    expect(current.versions).toHaveLength(prior.versions.length + 1);
+    const added = current.versions.filter(v => !prior.versions.some(p => p.version_id === v.version_id));
+    expect(added).toHaveLength(1);
+    const asset = added[0].asset_id;
+    expect(current.receipts.filter(r => r.idempotency_key === sig.key)).toEqual([{idempotency_key: sig.key, response: receipt}]);
+    expect(current.receipts).toHaveLength(prior.receipts.length + 1);
+    expect(current.intents).toHaveLength(prior.intents.length + 1);
+    expect(current.intents.filter(i => i.asset_id === asset)).toEqual([expect.objectContaining({state: 'finalized', source_sha256: sig.sha256, expected: sig.version.replaceAll('"', '')})]);
+    expect(current.effects).toHaveLength(prior.effects.length + 1);
+    expect(current.effects.filter(e => e.asset_id === asset)).toHaveLength(1);
+    expect(current.assets).toHaveLength(prior.assets.length + 1); expect(current.orphan).toBe(0);
+    const addedAsset = current.assets.find(a => a.asset_id === asset)!;
+    expect(addedAsset.state).toBe('ready');
+    expect(BigInt(current.capacity.used) - BigInt(prior.capacity.used)).toBe(BigInt(addedAsset.byte_size));
+    expect(current.capacity.reserved).toBe('0');
+  }
+  const session = await (await page.request.get('/api/v1/session')).json();
+  const headers = {Origin: new URL(page.url()).origin, 'X-CSRF-Token': session.csrf_token,
+    'Content-Type': sig2.mime, 'If-Match': sig2.version};
+  const stale = await page.request.post(path(m1), {data: body2, headers: {...headers, 'Idempotency-Key': randomUUID()}});
+  const staleProblem = await stale.json();
+  expect(stale.status()).toBe(412); expect(staleProblem.code).toBe('version_conflict');
+  const changed = await page.request.post(path(m1), {data: different.buffer, headers: {...headers, 'Idempotency-Key': sig2.key}});
+  const changedProblem = await changed.json();
+  expect(changed.status()).toBe(409); expect(changedProblem.code).toBe('idempotency_conflict');
+  expect(await facts(m1)).toEqual(after2); expect(await facts(m2)).toEqual(before.a2); expect(await facts(mz)).toEqual(before.z1);
+  expect(requests.filter(r => r.method() === 'POST' && new URL(r.url()).pathname === path(m2))).toHaveLength(0);
+  observed.counterexamples = [{status: stale.status(), code: staleProblem.code}, {status: changed.status(), code: changedProblem.code}];
+  const evidence = info.outputPath('material-switch-evidence.json');
+  await (await import('node:fs/promises')).writeFile(evidence, JSON.stringify({observed, signatures: [sig1, sig2], before, after1, after2}, null, 2));
+  await info.attach('material-switch-evidence', {path: evidence, contentType: 'application/json'});
+});
