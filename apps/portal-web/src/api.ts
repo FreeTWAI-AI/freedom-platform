@@ -216,6 +216,11 @@ export class PortalClient {
     try { return await this.request<T>('PATCH', path, { ...options, body }) }
     finally { this.reads.clear() }
   }
+  async put<T>(path: string, body: unknown, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
+    this.reads.clear()
+    try { return await this.request<T>('PUT', path, { ...options, body }) }
+    finally { this.reads.clear() }
+  }
 
   async putArPattern<T>(id:string, bytes:Uint8Array, options:Omit<RequestOptions,'body'|'arPattern'>):Promise<T> {
     if(!/^[0-9a-f-]{36}$/.test(id)||bytes.byteLength>20*1024*1024)throw new ApiError({message:'圖案辨識檔不完整或太大。',status:422})
