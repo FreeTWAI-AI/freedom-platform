@@ -36,6 +36,20 @@ async function listing(member:Session,storeId:string,offerId:string){const r=awa
 async function connect(member:Session,kind:'storefront'|'supplier',storeId?:string){const pairing=await start(kind);const approved=await api(`/client-connections/${pairing.user_code}/approve`,member,{confirmed:true,...(storeId?{store_id:storeId}:{})});assert.equal(approved.status,200,JSON.stringify(approved.data));const issued=await api('/client-connections/poll',undefined,{device_secret:pairing.device_secret});assert.equal(issued.status,200,JSON.stringify(issued.data));assert.equal(issued.data.status,'authorized');return {...issued.data,pairing};}
 const client=(path:string,token:string,body?:unknown)=>request('/client-api/v1'+path,undefined,body,undefined,undefined,{Authorization:'Bearer '+token});
 
+test('bearer auth scheme casing and SP are flexible but opaque credential casing is not',async()=>{
+ const member=await ready(),created=await product(member),issued=await connect(member,'supplier');
+ // A deterministic mixed-case credential isolates token identity from scheme syntax.
+ const token='fw_read_'+ 'Ab'.repeat(21)+'C',path='/client-api/v1/supplier/products';
+ await pool.query('UPDATE member_client_connections SET token_hash=$2 WHERE connection_id=$1',[issued.connection_id,tokenHash(token)]);
+ const authorized=await request(path,undefined,undefined,undefined,undefined,{Authorization:'bEaReR   '+token});
+ assert.equal(authorized.status,200,JSON.stringify(authorized.data));
+ assert.ok(authorized.data.items.some((item:{product_id:string})=>item.product_id===created.product_id));
+ const folded=await request(path,undefined,undefined,undefined,undefined,{Authorization:'bEaReR   '+'fw_read_'+token.slice(8).toLowerCase()});
+ assert.equal(folded.status,401);assert.equal(folded.data.code,'client_token_invalid');
+ const tab=await request(path,undefined,undefined,undefined,undefined,{Authorization:'Bearer\t'+token});
+ assert.equal(tab.status,401);assert.equal(tab.data.code,'client_token_invalid');
+});
+
 test('pairing review refreshes the member session after its pending-code query wait',async()=>{
  const member=await ready(),pairing=await start('supplier'),path=`/client-connections/${pairing.user_code}`;
  const expected=await api(path,member);assert.equal(expected.status,200);
