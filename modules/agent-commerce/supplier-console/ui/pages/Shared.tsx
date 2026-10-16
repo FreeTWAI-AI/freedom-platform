@@ -3,13 +3,16 @@ import type {ConsoleController,ReadSlot} from '../../state/useSupplierConsoleCon
 import type {Fields} from '../../state/drafts';
 import type {AttemptKind} from '../../state/attempt';
 import {conflictRows} from '../../state/drafts';
-import {fieldLabels} from '../view';
+import {fieldLabels,changeLabel,changeSubject} from '../view';
+import type {SupplierChanges} from '../../../../../contracts/guild-launchpad/v1/supplier-console';
+import {formatIsoLocal} from '../../../../../apps/portal-web/src/format';
+import {supplierConsoleHref} from '../route';
 export function dataTime(time:string|null,seconds=true){return time?new Date(time).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',...(seconds?{second:'2-digit'}:{})}):'尚未取得';}
-export function ReadStatus<T>({c,name,label}:{c:ConsoleController;name:string;label:string}) {
+export function ReadStatus<T>({c,name,label,scopedAction=false}:{c:ConsoleController;name:string;label:string;scopedAction?:boolean}) {
  const r=c.slot<T>(name);
  return <div className="sc-read-status stack">
   <p role={r.state==='failed'?'alert':'status'}>{r.state==='idle'||r.state==='loading'&&!r.data?`正在讀取${label}…`:r.state==='loading'?`更新中（資料時間 ${dataTime(r.asOf)}）`:r.state==='failed'?`${r.data?`未更新（最後成功 ${dataTime(r.lastOkAt,false)}）`:`暫時無法讀取${label}`}。${r.error}`:`資料時間 ${dataTime(r.asOf)}`}</p>
-  <div className="actions"><button type="button" className="btn btn-ghost" disabled={r.state==='loading'} onClick={()=>void c.read(name)}>{r.state==='failed'?'重試':'更新資料'}</button></div>
+  <div className="actions"><button type="button" className="btn btn-ghost" disabled={r.state==='loading'} onClick={()=>void c.read(name)}>{r.state==='failed'?'重試':'更新資料'}{scopedAction&&<span className="sr-only">：{label}</span>}</button></div>
  </div>;
 }
 export function WriteAccess({c,children}:{c:ConsoleController;children:ReactNode}) {return c.profile?.capabilities.includes('store:write')?<>{children}</>:<div className="stack"><h2 tabIndex={-1}>{c.route.page==='product'?'商品詳情':c.route.page==='partner'?'合作店家詳情':c.route.page==='review'?'審核售價申請':c.route.page==='product-new'?'新增商品':c.route.page==='partners'?'合作店家':c.route.page==='terms'?'供貨條件與審核':'商品與庫存'}</h2><p>需要商品編輯權限才能查看。供貨價與條件不會顯示，請聯絡業務空間擁有者。</p></div>;}
@@ -41,4 +44,17 @@ export function useListRestore(c:ConsoleController,name:string,slot:ReadSlot<unk
  const heading=useRef<HTMLHeadingElement>(null);
  useEffect(()=>{if(slot.state!=='ready')return;const p=c.position(name);if(!p.lastId)return;const frame=requestAnimationFrame(()=>{const link=Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-sc-item]')).find(el=>el.dataset.scItem===p.lastId);(link??heading.current)?.focus({preventScroll:true});window.scrollTo(0,p.scroll);});return()=>cancelAnimationFrame(frame);},[slot.state]);
  return {heading,open:(id:string)=>c.remember(name,{lastId:id,scroll:window.scrollY})};
+}
+export function Changes({c,productId}:{c:ConsoleController;productId?:string}){
+ const name=productId?'changes:'+productId:'changes',r=c.slot<SupplierChanges>(name),d=r.data;
+ return <section className="sc-section stack"><h3>{productId?'紀錄':'近期變更'}</h3>
+  {!c.profile?.capabilities.includes('store:write')?<p>無法取得：需要商品編輯權限才能查看</p>:<><ReadStatus c={c} name={name} label={productId?'商品紀錄':'近期變更'} scopedAction/>{d&&<>
+   {!d.items.length&&<p>{productId?'這項商品目前沒有紀錄。':'目前沒有近期變更。'}</p>}
+   <ol className="sc-history">{[...d.items].sort((a,b)=>b.at.localeCompare(a.at)).map(change=>{const s=change.subject,subject=productId?s.kind==='request'?s.partner_name:s.kind==='business'?'商品庫設定':'':changeSubject(s);
+    return <li className="sc-row" key={change.change_id}><div><strong>{changeLabel(change)}</strong>{subject&&<p>{subject}</p>}<p><time dateTime={change.at}>{formatIsoLocal(change.at)}</time> · 版本 {change.version}</p></div>
+     {(s.kind==='business'||s.kind==='request'||!productId)&&<div className="actions"><a className="btn btn-ghost btn-small" href={s.kind==='business'?supplierConsoleHref(c.scope,'settings'):s.kind==='request'?supplierConsoleHref(c.scope,'review',{id:s.selection_id}):supplierConsoleHref(c.scope,'product',{id:s.product_id})}>{s.kind==='business'?'查看設定':s.kind==='request'?'查看申請':'查看商品'}</a></div>}
+    </li>;})}</ol>{d.truncated&&<p>只顯示最近 20 筆。</p>}
+  </>}</>}
+  <p className="field-hint">只列出這個商品庫的操作與版本，不顯示操作者。</p>
+ </section>;
 }

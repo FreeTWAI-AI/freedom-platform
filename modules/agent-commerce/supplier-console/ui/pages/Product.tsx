@@ -4,7 +4,7 @@ import type {ConsoleController} from '../../state/useSupplierConsoleController';
 import {HostedStorePhoto} from '../../../../../apps/portal-web/src/modules/HostedStorePhoto';
 import {supplierConsoleHref,type ProductState,type ProductSort} from '../route';
 import {offerState,selectionState,selectionPartnerLabel} from '../view';
-import {ReadStatus,Editor,ConfirmAction} from './Shared';
+import {ReadStatus,Editor,ConfirmAction,Changes} from './Shared';
 export function Product({c,id,uploadsEnabled}:{c:ConsoleController;id:string;uploadsEnabled:boolean}){
  const r=c.slot<SupplierProductDetail>('product:'+id),d=r.data,p=d?.product,media=c.slot<{items:ProductMediaView[]}>('media');
  const current=d?.current_offer,affected=d?.selections.filter(s=>s.offer.offer_id===current?.offer_id)??[],awaiting=affected.filter(s=>s.state==='awaiting_supply_acceptance'),sellable=affected.filter(s=>s.state==='sellable');
@@ -21,6 +21,7 @@ export function Product({c,id,uploadsEnabled}:{c:ConsoleController;id:string;upl
     {current&&<ConfirmAction label="撤回供貨版本" title="撤回供貨版本的影響" disabled={c.locked||r.state!=='ready'} onConfirm={()=>c.command({kind:'offer.withdraw',label:'撤回供貨版本',method:'post',path:c.root+`/supply-offers/${current.offer_id}/withdraw`,body:{},ifMatch:current.version,target:current.offer_id,productId:id})}>{preview}</ConfirmAction>}
    </div>{!c.can('store:publish')&&<p>需要公開供貨版本的權限，請聯絡業務空間擁有者。</p>}{c.can('store:publish')&&p?.offer?.matches_current_terms&&<p className="field-hint">公開中的版本已是目前保存的條件；保存新的內容或供貨條件後才需要重新公開。</p>}{Object.keys(c.drafts).some(k=>k.startsWith(`product:${id}:`))&&<p className="field-hint">公開的是目前已保存的資料；未儲存的修改仍保留在各分區。</p>}{c.sectionStatus[id]&&<p role="status">{c.sectionStatus[id]}</p>}</section>
    <section className="sc-section stack"><h3>合作</h3>{!d.selections.length&&<p>這項商品目前沒有合作申請。</p>}<ul className="sc-list">{d.selections.map(s=><li className="sc-row" key={s.selection_id}><div><strong>{selectionPartnerLabel(s,d.selections)}</strong><p>{s.sku} <span className="badge">{selectionState(s)}</span></p></div><div className="actions"><a className="btn btn-ghost" href={supplierConsoleHref(c.scope,'review',{id:s.selection_id})}>{s.state==='awaiting_supply_acceptance'?'審核':'查看申請'}</a></div></li>)}</ul>{d.truncated&&<p>只顯示部分，完整數量見營運概覽。</p>}</section>
+   <Changes c={c} productId={id}/>
   </>}
  </section>;
 }

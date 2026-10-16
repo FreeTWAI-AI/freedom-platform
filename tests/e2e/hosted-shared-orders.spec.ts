@@ -216,6 +216,9 @@ test('supplier-only A accepts B, explicitly opens reservations, reads only its o
     await expect(b.locator('.hosted-store > [role="status"]')).toContainText('已送出選品');
     await a.getByRole('navigation', {name: '供貨工作區'}).getByRole('button', {name: '供貨合作', exact: true}).click();
     await a.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    // A supplier-only response auto-opens this section. Wait for this refresh
+    // before expand() reads its state, so its click cannot close a newly opened list.
+    await expect(a.locator('.hosted-distribution summary').filter({hasText: '供貨申請'})).toContainText('供貨申請（1');
     const request = (await expand(a, '供貨申請')).getByRole('article').filter({has: a.getByRole('heading', {name: title + '・零售 B', exact: true})});
     await request.getByRole('button', {name: '同意這一版', exact: true}).click();
     await expect(request).toContainText('已同意');

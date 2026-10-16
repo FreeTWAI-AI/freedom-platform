@@ -175,7 +175,7 @@ function launchpadSections(guildKey: string, config: Config, applications: Launc
   return sections;
 }
 
-function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, registerPendingLeave, canLeave, canNavigate, onLogin, blockLoaders, activeSection, selectSection}: {
+function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, registerPendingLeave, canLeave, canNavigate, onLogin, blockLoaders, supplierConsoleEnabled, activeSection, selectSection}: {
   activeSection: string;
   selectSection: (section: string) => void;
   guild: {name: string; purpose: string};
@@ -187,6 +187,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   onLogin?: () => void;
   blockLoaders: GuildBlockLoaders;
   memberTier?: string;
+  supplierConsoleEnabled?: boolean;
   mode: 'public' | 'member';
   client: PortalClient;
   guildKey: string;
@@ -260,6 +261,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
         viewer={visitor || mode === 'public' ? 'visitor' : memberTier === 'full' ? 'member' : 'read_only'}
         navigate={path => {if (canNavigate()) window.location.hash = path;}}
         startableApplications={applications.filter(startable).map(app => app.application_key)}
+        supplierConsoleEnabled={supplierConsoleEnabled === true}
         startApplication={memberTier === 'full' && blocks.some(item => item.kind === 'applications') ? key => {
           const app = applications.find(item => item.application_key === key);
           if (app && startable(app) && canLeave()) setLaunchRequest({application_key: app.application_key, release_ref: app.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1});
@@ -298,10 +300,11 @@ export function PublicGuildLaunchpad({client, guildKey, onLogin, pageTools, bloc
   </div>;
 }
 
-export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId, registerPendingLeave, blockLoaders = EMPTY_BLOCK_LOADERS}: {
+export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId, registerPendingLeave, supplierConsoleEnabled, blockLoaders = EMPTY_BLOCK_LOADERS}: {
   client: PortalClient; guildKey: string; mode: 'public' | 'member'; onBack?: () => void; onLogin?: () => void; userId?: string;
   registerPendingLeave?: (guard: (() => boolean) | null) => void;
   blockLoaders?: GuildBlockLoaders;
+  supplierConsoleEnabled?: boolean;
 }) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const selectSection = useCallback((id: string) => setSelectedSection(id), []);
@@ -623,7 +626,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
       </select></label>
     </>}
     <div className="guild-launchpad-content">
-    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} registerPendingLeave={registerLaunchLeave} canLeave={canLeave} canNavigate={canNavigate} onLogin={onLogin} blockLoaders={blockLoaders} activeSection={activeSection} selectSection={selectSection}/>}
+    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} registerPendingLeave={registerLaunchLeave} canLeave={canLeave} canNavigate={canNavigate} onLogin={onLogin} blockLoaders={blockLoaders} supplierConsoleEnabled={supplierConsoleEnabled} activeSection={activeSection} selectSection={selectSection}/>}
     {showEditor && draft && <form hidden={activeSection !== 'management'} className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
       {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}

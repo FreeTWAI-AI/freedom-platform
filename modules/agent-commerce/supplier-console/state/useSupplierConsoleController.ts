@@ -2,17 +2,17 @@ import {useEffect,useRef,useState} from 'react';
 import type {z} from 'zod';
 import {ApiError,type PortalClient} from '../../../../apps/portal-web/src/api';
 import {SupplyCatalogViewSchema,SupplyCatalogSetupInputSchema,SupplyProductInputSchema,SupplyProductUpdateInputSchema,type SupplyCatalogView} from '../../../../contracts/guild-launchpad/v1/hosted-supply-catalog';
-import {SupplierOverviewSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplierRequestDetailSchema,SupplyProfileUpdateInputSchema,type SupplierProductDetail} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import {SupplierReservationsSchema,SupplierReservationDetailSchema,SupplierChangesSchema,SupplierOverviewSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplierRequestDetailSchema,SupplyProfileUpdateInputSchema,type SupplierProductDetail} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import {DistributionsSchema,SupplyOffersSchema} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {SupplyTermsInputSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms';
-import {SupplierReservationPageSchema,ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
+import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
 import {ProductMediaPageSchema} from '../../../../contracts/guild-launchpad/v1/hosted-store-media';
 import {heldPhotoAttempt} from '../../../../apps/portal-web/src/modules/hosted-store-photo-state';
 import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,type Attempt,type AttemptKind,refusalReleased} from './attempt';
 import {holdAttempt,markAttemptUnknown,releaseAttempt,restoreAttempt,consolePhotoTargets,rememberConsolePhoto} from './registry';
 import {editDraft,staleDrafts,discardDraft,reapplyAttempt,type Drafts,type Fields} from './drafts';
 import {leaveDecision} from './leave';
-import {supplierConsoleHref,type ConsoleScope,type SupplierConsoleRoute} from '../ui/route';
+import {supplierConsoleHref,reservationFilterParams,type ReservationFilters,type ConsoleScope,type SupplierConsoleRoute} from '../ui/route';
 import {commandFields} from '../ui/view';
 export type ReadSlot<T>={state:'idle'|'loading'|'ready'|'failed';data:T|null;asOf:string|null;lastOkAt:string|null;error:string;status?:number};
 const empty:ReadSlot<never>={state:'idle',data:null,asOf:null,lastOkAt:null,error:''};
@@ -24,7 +24,11 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  const [notice,setNotice]=useState(''),[error,setError]=useState(''),[revoked,setRevoked]=useState(false),[conflicts,setConflicts]=useState<Record<string,Attempt>>({}),[rejected,setRejected]=useState<Attempt|null>(null);
  const [pendingReads,setPendingReads]=useState<string[]>([]),[sectionStatus,setSectionStatus]=useState<Record<string,string>>({});
  const [positions,setPositions]=useState<Record<string,ListPosition>>({}),[photoStates,setPhotoStates]=useState<Record<string,{dirty:boolean;blocking:boolean}>>(()=>Object.fromEntries(consolePhotoTargets(client,userId,scope).filter(id=>heldPhotoAttempt(client,userId,{...scope,productId:id})).map(id=>[id,{dirty:true,blocking:true}])));
- const [cursors,setCursors]=useState<(string|undefined)[]>([undefined]);
+ const lastReservationFilters=useRef<ReservationFilters>({});
+ if(route.page==='reservations')lastReservationFilters.current=route.reservation??{};
+ const reservationFilters=lastReservationFilters.current,reservationQuery=reservationFilterParams(reservationFilters),filterKey=reservationQuery?.toString()??'invalid';
+ const [paging,setPaging]=useState<{filterKey:string;cursors:(string|undefined)[]}>({filterKey,cursors:[undefined]});
+ const cursors=paging.filterKey===filterKey?paging.cursors:[undefined],cursor=cursors.at(-1),appliedFilter=useRef(filterKey);
  const photoRef=useRef(photoStates);photoRef.current=photoStates;
  const readRef=useRef(reads);readRef.current=reads;const draftRef=useRef(drafts);draftRef.current=drafts;
  const attemptRef=useRef(attempt);attemptRef.current=attempt;const busyRef=useRef(false),mounted=useRef(false),generation=useRef(client.sessionGeneration);
@@ -36,16 +40,25 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  const ownerAllowed=owner.state==='ready'&&owner.data!==null;
  const can=(capability:string)=>!revoked&&refusalMark.current===null&&profile?.writable===true&&profile.capabilities.includes(capability)===true;
  function descriptor(key:string):{path:string;schema:z.ZodType;gate?:'write'|'owner'}|null {
+  if(key.startsWith('reservation:'))return {path:'/supplier-console/reservations/'+key.slice(12),schema:SupplierReservationDetailSchema,gate:'owner'};
+  if(key.startsWith('partner-reservations:'))return {path:'/supplier-console/reservations?'+new URLSearchParams({partner_id:key.slice(21),limit:'5'}),schema:SupplierReservationsSchema,gate:'owner'};
+  if(key==='changes'||key.startsWith('changes:'))return {path:'/supplier-console/changes'+(key==='changes'?'':'?'+new URLSearchParams({product_id:key.slice(8)})),schema:SupplierChangesSchema,gate:'write'};
+  if(key==='reservations'){
+   if(!reservationQuery)return null;
+   const query=new URLSearchParams(reservationQuery);query.set('limit','20');if(cursor)query.set('cursor',cursor);
+   return {path:'/supplier-console/reservations?'+query,schema:SupplierReservationsSchema,gate:'owner'};
+  }
   if(key.startsWith('product:'))return {path:'/supplier-console/products/'+key.slice(8),schema:SupplierProductDetailSchema,gate:'write'};
   if(key.startsWith('request:'))return {path:'/supplier-console/requests/'+key.slice(8),schema:SupplierRequestDetailSchema,gate:'write'};
   if(key.startsWith('partner:'))return {path:'/supplier-console/partners/'+key.slice(8),schema:SupplierPartnerDetailSchema,gate:'write'};
   const table:Record<string,{path:string;schema:z.ZodType;gate?:'write'|'owner'}>={profile:{path:'/supply-profile',schema:SupplyCatalogViewSchema},owner:{path:'/reservation-setting',schema:ReservationSettingSchema},
    overview:{path:'/supplier-console/overview',schema:SupplierOverviewSchema},products:{path:'/supplier-console/products',schema:SupplierProductsSchema,gate:'write'},partners:{path:'/supplier-console/partners',schema:SupplierPartnersSchema,gate:'write'},
-   requests:{path:'/supply-requests',schema:DistributionsSchema,gate:'write'},offers:{path:'/supply-offers',schema:SupplyOffersSchema,gate:'write'},reservations:{path:'/supply-reservations?limit=20'+(cursors.at(-1)?'&cursor='+encodeURIComponent(cursors.at(-1)!):''),schema:SupplierReservationPageSchema,gate:'owner'},media:{path:'/product-media',schema:ProductMediaPageSchema,gate:'write'}};
+   requests:{path:'/supply-requests',schema:DistributionsSchema,gate:'write'},offers:{path:'/supply-offers',schema:SupplyOffersSchema,gate:'write'},media:{path:'/product-media',schema:ProductMediaPageSchema,gate:'write'}};
   return table[key]??null;
  }
+ const descriptorRef=useRef(descriptor);descriptorRef.current=descriptor;
  async function read(key:string):Promise<boolean> {
-  const d=descriptor(key),p=readRef.current.profile?.data as SupplyCatalogView|undefined;
+  const d=descriptorRef.current(key),p=readRef.current.profile?.data as SupplyCatalogView|undefined;
   if(!d||d.gate==='write'&&!p?.capabilities.includes('store:write')||d.gate==='owner'&&!(readRef.current.owner?.state==='ready'&&readRef.current.owner.data)||key==='media'&&!photosEnabled)return false;
   tickets.current.get(key)?.abort.abort();const abort=new AbortController(),ticket=++serial.current,session=client.sessionGeneration; tickets.current.set(key,{abort,ticket});
   const current=()=>mounted.current&&!abort.signal.aborted&&tickets.current.get(key)?.ticket===ticket&&generation.current===session&&session===client.sessionGeneration&&binding===`${scope.tenantId}:${scope.instanceId}`;
@@ -54,6 +67,11 @@ export function useSupplierConsoleController({client,userId,scope,route,register
    const result=d.schema.safeParse(await client.get(root+d.path,{signal:abort.signal}));if(!result.success)throw new Error('invalid_read');if(!current())return false;
    const data=result.data as Record<string,unknown>;
    if(key==='profile'&&(data.tenant_id!==scope.tenantId||data.instance_id!==scope.instanceId)||key.startsWith('product:')&&(data.product as {product_id:string}).product_id!==key.slice(8)||key.startsWith('partner:')&&(data.partner as {partner_id:string}).partner_id!==key.slice(8)||key.startsWith('request:')&&(data.request as {selection_id:string}).selection_id!==key.slice(8))throw new Error('read_target_mismatch');
+   if(key.startsWith('reservation:')&&(data.reservation as {order_id:string}).order_id!==key.slice(12)||key.startsWith('partner-reservations:')&&(data.filter as {partner_id:string}).partner_id!==key.slice(21)||key==='changes'&&data.product_id!==null||key.startsWith('changes:')&&data.product_id!==key.slice(8))throw new Error('read_target_mismatch');
+   if(key==='reservations'){
+    const query=new URLSearchParams(d.path.split('?')[1]),filter=data.filter as Record<string,string|null>;
+    if(['state','partner_id','product_id','from','to'].some(field=>filter[field]!==query.get(field)))throw new Error('read_target_mismatch');
+   }
    const now=new Date().toISOString(),next:ReadSlot<unknown>={state:'ready',data,asOf:typeof data.as_of==='string'?data.as_of:now,lastOkAt:now,error:''};
    readRef.current={...readRef.current,[key]:next};setReads(old=>({...old,[key]:next}));setPendingReads(old=>old.filter(k=>k!==key));if(refusalReleased({key,mark:refusalMark.current,ticket,current:current(),matched:data.tenant_id===scope.tenantId&&data.instance_id===scope.instanceId})){refusalMark.current=null;setRevoked(false);if(data.writable)setError(old=>old==='目前身分已沒有這項權限'?'':old);}
    if(key.startsWith('product:'))setDrafts(old=>staleDrafts(old,key.slice(8),(data as unknown as SupplierProductDetail).product.version));
@@ -73,12 +91,18 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  useEffect(()=>{mounted.current=true;generation.current=client.sessionGeneration;refusalMark.current=null;setRevoked(false);commandAbort.current=new AbortController();void read('profile');return()=>{mounted.current=false;tickets.current.forEach(t=>t.abort.abort());commandAbort.current.abort();};},[client,root]);
  useEffect(()=>{if(profile?.setup_state==='ready')void read('owner');},[profile?.setup_state]);
  useEffect(()=>{if(profile?.setup_state!=='ready')return;
-  const keys=route.page==='overview'?['overview']:route.page==='products'?['profile','products',...(photosEnabled?['media']:[])]:route.page==='product'?['product:'+route.id,...(photosEnabled?['media']:[])]:route.page==='partners'?['partners']:route.page==='partner'?['partner:'+route.id,'partners']:route.page==='terms'?['requests','offers','products']:route.page==='review'?['request:'+route.id]:route.page==='reservations'&&ownerAllowed?['reservations']:route.page==='settings'?['profile']:route.page==='product-new'?['profile','products']:[];
+  const keys=route.page==='overview'?['overview','changes']:route.page==='products'?['profile','products',...(photosEnabled?['media']:[])]:route.page==='product'?['product:'+route.id,'changes:'+route.id,...(photosEnabled?['media']:[])]:route.page==='partners'?['partners']:route.page==='partner'?['partner:'+route.id,'partners',...(ownerAllowed?['partner-reservations:'+route.id]:[])]:route.page==='terms'?['requests','offers','products']:route.page==='review'?['request:'+route.id]:route.page==='reservations'&&ownerAllowed?['partners','products']:route.page==='reservation'&&ownerAllowed?['reservation:'+route.id]:route.page==='settings'?['profile']:route.page==='product-new'?['profile','products']:[];
   keys.forEach(key=>void read(key));
  },[route.page,route.id,profile?.setup_state,profile?.capabilities.join(','),ownerAllowed,photosEnabled]);
- useEffect(()=>{if(route.page==='reservations'&&ownerAllowed)void read('reservations');},[cursors]);
+ useEffect(()=>{
+  if(appliedFilter.current!==filterKey){
+   appliedFilter.current=filterKey;setPaging({filterKey,cursors:[undefined]});tickets.current.get('reservations')?.abort.abort();
+   readRef.current={...readRef.current,reservations:empty};setReads(old=>({...old,reservations:empty}));
+  }
+  if(route.page==='reservations'&&ownerAllowed&&profile?.setup_state==='ready')void read('reservations');
+ },[route.page,ownerAllowed,profile?.setup_state,filterKey,cursor]);
  // Reads the member may no longer make cannot keep writes paused as pending.
- useEffect(()=>{setPendingReads(old=>{const next=old.filter(key=>{const d=descriptor(key);return d&&(d.gate!=='write'||profile?.capabilities.includes('store:write'))&&(d.gate!=='owner'||ownerAllowed);});return next.length===old.length?old:next;});},[profile?.capabilities.join(','),ownerAllowed]);
+ useEffect(()=>{setPendingReads(old=>{const next=old.filter(key=>{const d=descriptorRef.current(key);return d&&(d.gate!=='write'||profile?.capabilities.includes('store:write'))&&(d.gate!=='owner'||ownerAllowed);});return next.length===old.length?old:next;});},[profile?.capabilities.join(','),ownerAllowed,filterKey]);
  const photoBlocking=Object.entries(photoStates).some(([id,s])=>s.blocking||!!heldPhotoAttempt(client,userId,{...scope,productId:id}));
  const dirty=Object.values(drafts).some(d=>Object.keys(d.fields).length>0)||Object.values(photoStates).some(s=>s.dirty);
  const locked=phase!=='idle'||photoBlocking||pendingReads.length>0||revoked||refusalMark.current!==null||!profile?.writable||slot('profile').state!=='ready';
@@ -89,12 +113,14 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  useEffect(()=>{const unload=(e:BeforeUnloadEvent)=>{if(unloadRef.current){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',unload);return()=>window.removeEventListener('beforeunload',unload);},[]);
  function updateDraft(name:string,baseVersion:string,base:Fields,key:string,value:string|number|boolean){setDrafts(old=>{const next=editDraft(old[name],baseVersion,base,key,value);return Object.keys(next.fields).length?{...old,[name]:next}:discardDraft(old,name);});}
  function discard(name:string){setDrafts(old=>discardDraft(old,name));setConflicts(old=>{const next={...old};delete next[name];return next;});}
+ const loadedChanges=()=>Object.keys(readRef.current).filter(key=>key==='changes'||key.startsWith('changes:'));
  async function refreshAttempt(a:Attempt,value?:Record<string,unknown>){
   const productId=a.kind==='product.create'?String(value?.product_id):a.productId;
   const keys=ATTEMPT_KINDS[a.kind].reads.flatMap(key=>key==='request'?['request:'+a.target]:key==='product'?productId?['product:'+productId]:[]:key==='partner'?Object.keys(readRef.current).filter(k=>k.startsWith('partner:')):[key]);
   if(photosEnabled&&productId)keys.push('media');
-  const admissible=keys.filter(key=>{const d=descriptor(key);return d&&(d.gate!=='write'||profile?.capabilities.includes('store:write'))&&(d.gate!=='owner'||ownerAllowed);});
-  setPendingReads(old=>[...new Set([...old,...admissible.filter(k=>k!=='media')])]);await Promise.all(admissible.map(read));
+  if(value)keys.push(...loadedChanges());
+  const admissible=keys.filter(key=>{const d=descriptorRef.current(key);return d&&(d.gate!=='write'||profile?.capabilities.includes('store:write'))&&(d.gate!=='owner'||ownerAllowed);});
+  setPendingReads(old=>[...new Set([...old,...admissible.filter(k=>k!=='media'&&k!=='changes'&&!k.startsWith('changes:'))])]);await Promise.all(admissible.map(read));
  }
  async function send(a:Attempt){
   if(busyRef.current||attemptRef.current&&attemptRef.current.key!==a.key||generation.current!==client.sessionGeneration)return;
@@ -139,10 +165,10 @@ export function useSupplierConsoleController({client,userId,scope,route,register
  function reapply(name:string,current:Fields,version:string){const a=conflicts[name],d=drafts[name];if(!a||!d||locked)return;try{const next=reapplyAttempt(a,{...d,fields:commandFields(a.kind,d.fields)},commandFields(a.kind,current),version);if(!next){discard(name);setNotice('目前資料已包含你的修改。');return;}void send(next);}catch(cause){setError(cause instanceof Error?cause.message:'請檢查欄位格式。');}}
  const position=(name:string):ListPosition=>positions[name]??{search:'',filter:'',sort:'sku',scroll:0,lastId:null};
  const remember=(name:string,changes:Partial<ListPosition>)=>setPositions(old=>({...old,[name]:{...position(name),...changes}}));
- return {client,userId,scope,root,route,photosEnabled,reads,slot,read,profile,owner,ownerAllowed,can,locked,refused:revoked,phase,attempt,notice,error,rejected,pendingReads,drafts,conflicts,sectionStatus,updateDraft,discard,reapply,save,command,
-  retry:()=>attempt&&void send(attempt),position,remember,cursors,nextPage:(cursor:string)=>setCursors(old=>[...old,cursor]),previousPage:()=>setCursors(old=>old.length>1?old.slice(0,-1):old),
+ return {client,userId,scope,root,route,photosEnabled,reservationFilters,reads,slot,read,profile,owner,ownerAllowed,can,locked,refused:revoked,phase,attempt,notice,error,rejected,pendingReads,drafts,conflicts,sectionStatus,updateDraft,discard,reapply,save,command,
+  retry:()=>attempt&&void send(attempt),position,remember,cursors,nextPage:(next:string)=>setPaging({filterKey,cursors:[...cursors,next]}),previousPage:()=>setPaging({filterKey,cursors:cursors.length>1?cursors.slice(0,-1):cursors}),
   photoStates,photoState:(id:string,dirty:boolean,blocking:boolean)=>{const pending=!!heldPhotoAttempt(client,userId,{...scope,productId:id});rememberConsolePhoto(client,userId,scope,id,dirty||blocking||pending);photoRef.current={...photoRef.current,[id]:{dirty:dirty||pending,blocking:blocking||pending}};setPhotoStates(photoRef.current);},
-  photoSaved:async(id:string)=>{setNotice('已保存照片。');setPendingReads(old=>[...new Set([...old,'product:'+id])]);await Promise.all([read('product:'+id),read('media'),read('products'),read('overview')]);},
+  photoSaved:async(id:string)=>{setNotice('已保存照片。');setPendingReads(old=>[...new Set([...old,'product:'+id])]);await Promise.all([read('product:'+id),read('media'),read('products'),read('overview'),...loadedChanges().map(read)]);},
  };
 }
 export type ConsoleController=ReturnType<typeof useSupplierConsoleController>;
