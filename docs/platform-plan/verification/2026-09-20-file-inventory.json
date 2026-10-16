@@ -15509,8 +15509,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 19213,
-      "sha256": "b872cc022ba3b0d5eb86c01ef3576bd01f1e79da9a9a2c1d04bcab5a882edf9f"
+      "bytes": 19898,
+      "sha256": "0f3a2ba1995194d0557c281b2e67556681ac2a145ce7715c22cc662428d9d7f7"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -15544,8 +15544,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/sources.md",
-      "bytes": 11254,
-      "sha256": "e87ebfb9b77d87ab1bec8b0fe327856cff1bc6a78622d1938b1946a5a15572f9"
+      "bytes": 11442,
+      "sha256": "2885ae4373705dd6528f27e3e42315d90d3b3c104c4f0611a430e1afb255b91c"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
@@ -21324,8 +21324,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 57071,
-      "sha256": "60020a6f08d8ee9bdc98a1bf50a4e11d9b4d4e2d78ce25629f2b9c4927db1b7c"
+      "bytes": 75705,
+      "sha256": "eff430cb8572b836c19f8ccd4643a069db6f9c7c468e5927cc553229526f5b46"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
