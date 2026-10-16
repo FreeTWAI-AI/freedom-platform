@@ -102,7 +102,9 @@ export const CASE_RESOLUTION_CODES:Readonly<Record<PaymentExceptionKind,readonly
   amount_mismatch:['refunded'],paid_after_cancel:['refunded'],overpaid:['refunded'],paid_unallocatable:[],payment_unconfirmed:['confirmed','checked_with_provider'],unmatched_payment:['checked_with_provider'],contradicting_event:['checked_with_provider'],
 };
 export async function sellerExceptionRows(q:PoolClient,context:SellerCheckoutContext,where:string,values:unknown[]=[]) {
-  return (await q.query(`SELECT e.*,e.version::text,o.display_number FROM commerce_exception_cases e
+  return (await q.query(`SELECT e.*,e.version::text,o.display_number,
+    to_char(e.due_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_due_at,
+    to_char(e.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_updated_at FROM commerce_exception_cases e
     LEFT JOIN commerce_checkout_orders o ON o.order_id=e.order_id AND o.tenant_id=e.tenant_id AND o.instance_id=e.instance_id
     WHERE e.tenant_id=$1 AND e.instance_id=$2 AND ${where}`,[context.tenant.tenant_id,context.profile.instance_id,...values])).rows;
 }
