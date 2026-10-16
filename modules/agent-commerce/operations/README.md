@@ -67,7 +67,10 @@ Quarantine stops new commerce effects, the hold sweep, deferred payment
 application and control-event backfill. Verified callbacks still retain their
 inbox facts for ordered replay. When quarantine is off, the Worker runs deferred
 payment application before the hold sweep, then the journal flush, with independent
-fixed-name error handlers. Settlement also retains holds protected by unapplied
+fixed-name error handlers. A failing deferred event logs only its ID and skips
+later events of that attempt in the run while other attempts continue. The result
+reports applied/failed/skipped counts; partial failures receive a fixed Worker log.
+Settlement also retains holds protected by unapplied
 verified paid notifications, so placements cannot release them before recovery. Due-work execution belongs to wp04-queries.
 
 Release capabilities commerce.hosted-checkout.v1 (168) and

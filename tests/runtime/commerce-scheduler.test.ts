@@ -6,7 +6,7 @@ for(const settings of [{},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'false'},{FREEDOM_C
   const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
   const pool={connect:async()=>({on(){},removeListener(){},release(){},query:async()=>({rows:[]})}),end:async()=>{calls.push('end');}} as unknown as Pool;
   try {
-    const handler=createWorkerHandler({createPool:()=>pool,commerceApplyDeferred:async(given,options)=>{assert.equal(given,pool);assert.deepEqual(options,{limit:200});calls.push('payments');return 0;},commerceSweep:async(given,options)=>{assert.equal(given,pool);assert.deepEqual(options,{limit:200});calls.push('commerce');return 0;},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
+    const handler=createWorkerHandler({createPool:()=>pool,commerceApplyDeferred:async(given,options)=>{assert.equal(given,pool);assert.deepEqual(options,{limit:200});calls.push('payments');return {applied:0,failed:0,skipped:0};},commerceSweep:async(given,options)=>{assert.equal(given,pool);assert.deepEqual(options,{limit:200});calls.push('commerce');return 0;},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
     await handler.scheduled({},settings as WorkerEnv,{waitUntil:p=>pending.push(p)});await Promise.all(pending);
     const skipped='FREEDOM_COMMERCE_QUARANTINE' in settings;
     assert.deepEqual(calls,skipped?['github','end']:['payments','commerce','github','end']);assert.deepEqual(logs,settings.FREEDOM_COMMERCE_QUARANTINE==='synthetic-secret'?['commerce_settings_invalid']:[]);
@@ -15,7 +15,7 @@ for(const settings of [{},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'false'},{FREEDOM_C
 test('commerce sweep failure logs a fixed name, continues later jobs and ends the pool',async()=>{
   const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
   try {
-    const handler=createWorkerHandler({createPool:()=>({end:async()=>{calls.push('end');}} as unknown as Pool),commerceApplyDeferred:async()=>0,commerceSweep:async()=>{throw Error('synthetic-secret');},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
+    const handler=createWorkerHandler({createPool:()=>({end:async()=>{calls.push('end');}} as unknown as Pool),commerceApplyDeferred:async()=>({applied:0,failed:0,skipped:0}),commerceSweep:async()=>{throw Error('synthetic-secret');},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
     await handler.scheduled({},{} as WorkerEnv,{waitUntil:p=>pending.push(p)});await Promise.all(pending);assert.deepEqual(logs,['commerce_sweep_failed']);assert.deepEqual(calls,['github','end']);
   }finally{console.error=original;}
 });
@@ -38,7 +38,7 @@ test('review 3: quarantine recovery applies verified payments before sweeping ho
   const calls: string[] = [], pending: Promise<unknown>[] = [];
   const handler = createWorkerHandler({
     createPool: () => ({ end: async () => {} }) as unknown as Pool,
-    commerceApplyDeferred: async () => { calls.push('payments'); return 0; },
+    commerceApplyDeferred: async () => { calls.push('payments'); return { applied: 0, failed: 0, skipped: 0 }; },
     commerceSweep: async () => { calls.push('holds'); return 0; },
     syncGitHub: async () => ({ requests: 0, repositories: 0, items_upserted: 0, not_modified: 0, stop_reason: 'completed' }),
     authPrune: async () => ({ sessions: 0, login_attempts: 0, auth_rate_limits: 0, password_reset_tokens: 0 })
@@ -46,4 +46,21 @@ test('review 3: quarantine recovery applies verified payments before sweeping ho
   await handler.scheduled({}, {} as WorkerEnv, { waitUntil: p => pending.push(p) });
   await Promise.all(pending);
   assert.deepEqual(calls, ['payments', 'holds']);
+});
+
+
+test('review 8: deferred partial failure logs only its fixed name and counts before later jobs', async () => {
+  const logs: unknown[][] = [], original = console.error, pending: Promise<unknown>[] = [];
+  console.error = (...args: unknown[]) => { logs.push(args); };
+  try {
+    const handler = createWorkerHandler({
+      createPool: () => ({ end: async () => {} }) as unknown as Pool,
+      commerceApplyDeferred: async () => ({ applied: 1, failed: 1, skipped: 1 }), commerceSweep: async () => 0,
+      syncGitHub: async () => ({ requests: 0, repositories: 0, items_upserted: 0, not_modified: 0, stop_reason: 'completed' }),
+      authPrune: async () => ({ sessions: 0, login_attempts: 0, auth_rate_limits: 0, password_reset_tokens: 0 })
+    });
+    await handler.scheduled({}, {} as WorkerEnv, { waitUntil: p => pending.push(p) });
+    await Promise.all(pending);
+    assert.deepEqual(logs, [['commerce_payment_deferred_partial', { applied: 1, failed: 1, skipped: 1 }]]);
+  } finally { console.error = original; }
 });

@@ -646,19 +646,19 @@ test('quarantined notifications replay in receipt order, once per transaction an
   assert(actual.events.every(e => e.applied_at === null));
   assert.equal(actual.attempt.state, 'issued');
   f.settings.quarantine = false;
-  assert.equal(await applyDeferredPaymentEvents(f.x.runtime, { limit: 1 }), 1);
+  assert.deepEqual(await applyDeferredPaymentEvents(f.x.runtime, { limit: 1 }), { applied: 1, failed: 0, skipped: 0 });
   actual = await facts(p);
   assert.equal(actual.attempt.state, 'failed');
   assert(actual.events[0].applied_at);
   assert.equal(actual.events[1].applied_at, null);
-  assert.equal(await applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), 2);
+  assert.deepEqual(await applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), { applied: 2, failed: 0, skipped: 0 });
   actual = await facts(p);
   assert.equal(actual.attempt.state, 'paid');
   assert(actual.events.every(e => e.applied_at));
   assert.equal(actual.applications.length, 1);
   assert.equal(actual.cases.length, 0);
   assert.equal((await buyerView(p)).payment_state, 'confirmed');
-  assert.equal(await applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), 0);
+  assert.deepEqual(await applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), { applied: 0, failed: 0, skipped: 0 });
   for (const limit of [0, 201, 1.5])
     await assert.rejects(applyDeferredPaymentEvents(f.x.runtime, { limit }), { message: 'payment_deferred_limit_invalid' });
 });
@@ -668,7 +668,7 @@ test('concurrent deferred replays apply a verified paid event once', async () =>
   await ack(await post(path(p), await body(p)));
   f.settings.quarantine = false;
   const counts = await Promise.all([applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), applyDeferredPaymentEvents(f.x.runtime, { limit: 200 })]);
-  assert.equal(counts.reduce((a, b) => a + b), 1);
+  assert.equal(counts.reduce((a, b) => a + b.applied, 0), 1);
   assert.equal((await facts(p)).applications.length, 1);
 });
 
@@ -831,4 +831,36 @@ test('review 3: a new paid notification waits for the same attempt older deferre
   assert(actual.events[0].applied_at <= actual.events[1].applied_at);
   assert.equal(actual.attempt.state, 'paid');
   assert.equal(actual.cases.length, 0);
+});
+
+
+test('review 8: one poison event skips its attempt siblings and does not block another attempt', async () => {
+  const a = await f.placed(), b = await f.placed();
+  f.settings.quarantine = true;
+  await ack(await post(path(a), await body(a, { RtnCode: '0' })));
+  await ack(await post(path(a), await body(a)));
+  await ack(await post(path(b), await body(b)));
+  const events = (await f.x.h.pool.query('SELECT event_id,attempt_id FROM commerce_hosted_payment_events ORDER BY received_at,event_id')).rows;
+  const poison = events[0].event_id, original = console.error, logs: unknown[][] = [];
+  f.settings.quarantine = false;
+  const pool = { query: f.x.runtime.query.bind(f.x.runtime), connect: async () => {
+    const q = await f.x.runtime.connect(), query = q.query, release = q.release;
+    q.query = (async (...args: unknown[]) => {
+      if (String(args[0]).includes('FROM commerce_hosted_payment_events WHERE event_id=$1') && String(args[0]).includes('FOR UPDATE') && (args[1] as string[])[0] === poison)
+        throw Error('synthetic_poison_fact');
+      return (query as Function).apply(q, args);
+    }) as typeof q.query;
+    q.release = (error?: Error | boolean) => { q.query = query; q.release = release; release.call(q, error); };
+    return q;
+  } } as unknown as import('pg').Pool;
+  console.error = (...args: unknown[]) => { logs.push(args); };
+  try {
+    assert.deepEqual(await applyDeferredPaymentEvents(pool), { applied: 1, failed: 1, skipped: 1 });
+    assert.deepEqual(logs, [['commerce_payment_event_apply_failed', poison]]);
+    const rows = (await f.x.h.pool.query('SELECT event_id,applied_at FROM commerce_hosted_payment_events ORDER BY received_at,event_id')).rows;
+    assert.equal(rows[0].applied_at, null);
+    assert.equal(rows[1].applied_at, null);
+    assert(rows[2].applied_at);
+    assert.equal((await facts(b)).attempt.state, 'paid');
+  } finally { console.error = original; }
 });

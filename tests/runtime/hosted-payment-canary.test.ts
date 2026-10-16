@@ -66,7 +66,7 @@ test('payment keys and ignored card fields never reach responses, public databas
     assert.equal(await response.text(), '1|OK');
     assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_hosted_payment_events WHERE applied_at IS NULL")).rows[0].n, 1);
     f.settings.quarantine = false;
-    assert.equal(await applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), 1);
+    assert.deepEqual(await applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), { applied: 1, failed: 0, skipped: 0 });
     const read = await f.http('GET', f.root(p.s) + '/orders/' + p.order.order_ref, undefined, p.cookie);
     assert.equal(read.status, 200);
     assert.equal(read.data.payment_state, 'confirmed');

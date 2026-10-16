@@ -112,13 +112,28 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
  * worker while commerce is quarantined; no provider query is executed here. */
 export async function applyDeferredPaymentEvents(pool: Pool, { limit = 200 }: {
   limit?: number;
-} = {}): Promise<number> {
+} = {}): Promise<{ applied: number; failed: number; skipped: number }> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 200)
     throw Error('payment_deferred_limit_invalid');
-  const events = (await pool.query("SELECT event_id FROM commerce_hosted_payment_events WHERE source='notification' AND applied_at IS NULL ORDER BY received_at,event_id LIMIT $1", [limit])).rows;
-  let applied = 0;
-  for (const event of events)
-    if (await isolatedTransaction(pool, q => applyPaymentEvent(q, event.event_id)))
-      applied++;
-  return applied;
+  const events = (await pool.query("SELECT event_id,attempt_id FROM commerce_hosted_payment_events WHERE source='notification' AND applied_at IS NULL ORDER BY received_at,event_id LIMIT $1", [limit])).rows;
+  const counts = { applied: 0, failed: 0, skipped: 0 }, failedAttempts = new Set<string>();
+  for (const event of events) {
+    if (event.attempt_id && failedAttempts.has(event.attempt_id)) {
+      counts.skipped++;
+      continue;
+    }
+    try {
+      if (await isolatedTransaction(pool, q => applyPaymentEvent(q, event.event_id)))
+        counts.applied++;
+      else
+        counts.skipped++;
+    }
+    catch {
+      console.error('commerce_payment_event_apply_failed', event.event_id);
+      counts.failed++;
+      if (event.attempt_id)
+        failedAttempts.add(event.attempt_id);
+    }
+  }
+  return counts;
 }
