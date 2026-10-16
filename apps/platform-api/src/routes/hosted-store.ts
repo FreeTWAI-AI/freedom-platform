@@ -123,8 +123,14 @@ export function createHostedStoreRoutes(pool: Pool) {
   return app;
 }
 /** `checkout` is the checkout API's own configuration (see `hostedCheckoutOptions`). */
-export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string, checkout?: HostedCheckoutOptions) {
+export function createPublicHostedStoreRoutes(
+  pool: Pool,
+  publicOrigin?: string,
+  checkout?: HostedCheckoutOptions,
+  options?: { emailEnabled?: boolean },
+) {
   const app = new Hono<PlatformEnv>();
+  const emailEnabled = options?.emailEnabled ?? Boolean(checkout?.email);
   app.get('/api/v1/public/stores/:slug', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStore(pool, c.req.param('slug'));
@@ -159,13 +165,13 @@ export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string,
     if (!store) return c.html(storeMissingHtml(), 404);
     const orderRef = c.req.param('order_ref');
     if (!OpaqueId.safeParse(orderRef).success) return c.html(orderMissingHtml(store.projection), 404);
-    return c.html(orderPageHtml(store.projection, orderRef));
+    return c.html(orderPageHtml(store.projection, orderRef, { emailEnabled }));
   });
   app.get('/shops/:slug/order-access', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStorePage(pool, c.req.param('slug'));
     if (!store) return c.html(storeMissingHtml(), 404);
-    return c.html(orderAccessPageHtml(store.projection));
+    return c.html(orderAccessPageHtml(store.projection, { emailEnabled }));
   });
   app.get('/shops/:slug/payment-return/:attempt_ref', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');

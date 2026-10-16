@@ -253,3 +253,22 @@ export function orderPaymentSectionCopy(view: PaymentView): OrderPaymentSectionC
       return { label: '尚未付款', description: null, canQueryWhenOpen: false };
   }
 }
+
+const PRE_PAYMENT_EMAIL_NOTE_VIEWS = new Set<PaymentView>([
+  'ready',
+  'awaiting',
+  'checking',
+  'failed',
+  'expired',
+]);
+
+export function orderEmailNote(view: PaymentView, emailEnabled: boolean): string | null {
+  if (!emailEnabled) {
+    return '這間店目前不寄確認信，請用這個瀏覽器回到訂單，或聯絡店家。';
+  }
+  if (PRE_PAYMENT_EMAIL_NOTE_VIEWS.has(view)) {
+    return '付款確認後，訂單成立信會寄到你填寫的 Email。';
+  }
+  return null;
+}
+
