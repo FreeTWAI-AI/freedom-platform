@@ -77,7 +77,7 @@ export function encodeEffectRecord(record: EffectRecord, environment: JournalEnv
 export async function flushControlEvents(pool: Pool, journal: EffectJournalPort, options: {
   eventIds?: readonly string[];
   limit: number;
-}): Promise<number> {
+}): Promise<{ written: number; failed: number }> {
   try {
     return await flush(pool, journal, options);
   }
@@ -88,20 +88,27 @@ export async function flushControlEvents(pool: Pool, journal: EffectJournalPort,
 async function flush(pool: Pool, journal: EffectJournalPort, options: {
   eventIds?: readonly string[];
   limit: number;
-}): Promise<number> {
+}): Promise<{ written: number; failed: number }> {
   if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 200)
     throw Error('journal_unavailable');
   const rows = (await pool.query(`SELECT event_id,tenant_id,instance_id,kind,detail,occurred_at FROM commerce_control_events
     WHERE journaled_at IS NULL AND ($1::uuid[] IS NULL OR event_id=ANY($1)) ORDER BY occurred_at,event_id LIMIT $2`, [options.eventIds ?? null, options.limit])).rows;
-  let written = 0;
+  let written = 0, failed = 0;
   for (const row of rows) {
-    // Provider environment lives in the SQL control fact. The journal namespace is the host environment.
-    const detail = Object.fromEntries(Object.entries(row.detail).filter(([key]) => detailKeys.includes(key))) as EffectDetail;
-    await journal.append({ environment: journal.environment, kind: 'control.' + row.kind, id: row.event_id, occurred_at: row.occurred_at.toISOString(), tenant_id: row.tenant_id, instance_id: row.instance_id, detail });
-    const result = await pool.query('UPDATE commerce_control_events SET journaled_at=clock_timestamp() WHERE event_id=$1 AND journaled_at IS NULL', [row.event_id]);
-    written += result.rowCount ?? 0;
+    try {
+      // Provider environment lives in the SQL fact; the namespace is the host environment.
+      const detail = Object.fromEntries(Object.entries(row.detail).filter(([key]) => detailKeys.includes(key))) as EffectDetail;
+      await journal.append({ environment: journal.environment, kind: 'control.' + row.kind, id: row.event_id, occurred_at: row.occurred_at.toISOString(), tenant_id: row.tenant_id, instance_id: row.instance_id, detail });
+      const result = await pool.query('UPDATE commerce_control_events SET journaled_at=clock_timestamp() WHERE event_id=$1 AND journaled_at IS NULL', [row.event_id]);
+      written += result.rowCount ?? 0;
+    }
+    catch (error) {
+      console.error('commerce_control_journal_row_failed', row.event_id,
+        error instanceof Error && error.message === 'journal_conflict' ? 'journal_conflict' : 'journal_unavailable');
+      failed++;
+    }
   }
-  return written;
+  return { written, failed };
 }
 /** Domain changes have already committed. A journal outage must preserve their response. */
 export async function flushControlEventsBestEffort(pool: Pool, journal: EffectJournalPort | undefined): Promise<void> {

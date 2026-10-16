@@ -136,10 +136,10 @@ test('control events append only after commit and journaled_at is filled only af
           await journal.append(r);
         }
       };
-      assert.equal(await flushControlEvents(x.runtime, observing, { eventIds: [e.event_id], limit: 200 }), 1);
+      assert.deepEqual(await flushControlEvents(x.runtime, observing, { eventIds: [e.event_id], limit: 200 }), { written: 1, failed: 0 });
       const marked = (await x.h.pool.query('SELECT journaled_at FROM commerce_control_events WHERE event_id=$1', [e.event_id])).rows[0].journaled_at;
       assert(marked instanceof Date);
-      assert.equal(await flushControlEvents(x.runtime, observing, { eventIds: [e.event_id], limit: 200 }), 0);
+      assert.deepEqual(await flushControlEvents(x.runtime, observing, { eventIds: [e.event_id], limit: 200 }), { written: 0, failed: 0 });
       assert.equal(appendCount, 1);
       const [key, body] = [...journal.objects].find(([key]) => key.endsWith('/' + e.event_id))!;
       assert(key.includes('/control.provider_service.created/'));
@@ -147,23 +147,23 @@ test('control events append only after commit and journaled_at is filled only af
     });
     await t.test('failure leaves the event eligible for a later backfill', async () => {
       const e = await event(), broken = { environment: 'local' as const, append: async () => { throw Error('synthetic-private'); } };
-      await assert.rejects(() => flushControlEvents(x.runtime, broken, { eventIds: [e.event_id], limit: 200 }), { message: 'journal_unavailable' });
+      assert.deepEqual(await flushControlEvents(x.runtime, broken, { eventIds: [e.event_id], limit: 200 }), { written: 0, failed: 1 });
       assert.equal((await x.h.pool.query('SELECT journaled_at FROM commerce_control_events WHERE event_id=$1', [e.event_id])).rows[0].journaled_at, null);
-      assert.equal(await flushControlEvents(x.runtime, journal, { limit: 200 }), 1);
+      assert.deepEqual(await flushControlEvents(x.runtime, journal, { limit: 200 }), { written: 1, failed: 0 });
     });
     await t.test('concurrent backfills produce one immutable object and mark the row once', async () => {
       const e = await event(), before = journal.objects.size;
       const counts = await Promise.all([flushControlEvents(x.runtime, journal, { eventIds: [e.event_id], limit: 1 }), flushControlEvents(x.runtime, journal, { eventIds: [e.event_id], limit: 1 })]);
-      assert.equal(counts.reduce((a, b) => a + b), 1);
+      assert.equal(counts.reduce((a, b) => a + b.written, 0), 1);
       assert.equal(journal.objects.size, before + 1);
     });
-    await t.test('best effort logs only a fixed name and never propagates an adapter failure', async () => {
-      await event();
+    await t.test('best effort logs only a fixed name, event id and reason without propagating adapter failure', async () => {
+      const e = await event();
       const logs: unknown[][] = [], original = console.error;
       console.error = (...args) => { logs.push(args); };
       try {
         await flushControlEventsBestEffort(x.runtime, { environment: 'local', append: async () => { throw Error('synthetic-private'); } });
-        assert.deepEqual(logs, [['commerce_control_journal_failed']]);
+        assert.deepEqual(logs, [['commerce_control_journal_row_failed', e.event_id, 'journal_unavailable']]);
       }
       finally {
         console.error = original;
@@ -188,7 +188,8 @@ test('control events append only after commit and journaled_at is filled only af
       let retained;
       try {
         retained = ok(await call(s.root + '/provider-accounts', { provider: 'ecpay', environment: 'sandbox', merchant_id: '1234568', fresh_auth_verification_id: await fresh() }, undefined, broken), 201);
-        assert.deepEqual(logs, [['commerce_control_journal_failed']]);
+        const id = (await x.h.pool.query('SELECT event_id FROM commerce_control_events WHERE subject_id=$1', [retained.account_id])).rows[0].event_id;
+        assert.deepEqual(logs, [['commerce_control_journal_row_failed', id, 'journal_unavailable']]);
       }
       finally {
         console.error = original;
@@ -224,4 +225,30 @@ test('the scheduled commerce block backfills retained control events into its R2
   finally {
     await x.stop();
   }
+});
+
+
+test('review 9: a poison control event does not block the next journal row', async () => {
+  const x = await checkoutHarness('fp_effect_poison');
+  try {
+    await x.reset();
+    const s = await x.store(), journal = new MemoryEffectJournal('local');
+    for (let i = 0; i < 2; i++)
+      await x.tx(q => recordControlEvent(q, { tenantId: s.tenantId, instanceId: s.instanceId, kind: 'provider_account.created', subjectId: randomUUID(), detail: { environment: 'sandbox' }, actorKind: 'system', actorId: randomUUID() }));
+    const rows = (await x.h.pool.query('SELECT event_id FROM commerce_control_events ORDER BY occurred_at,event_id')).rows;
+    const logs: unknown[][] = [], original = console.error;
+    console.error = (...args: unknown[]) => { logs.push(args); };
+    try {
+      const result = await flushControlEvents(x.runtime, { environment: 'local', append: async r => {
+        if (r.id === rows[0].event_id) throw Error('journal_conflict');
+        await journal.append(r);
+      } }, { limit: 200 });
+      assert.deepEqual(result, { written: 1, failed: 1 });
+      assert.deepEqual(logs, [['commerce_control_journal_row_failed', rows[0].event_id, 'journal_conflict']]);
+      const retained = (await x.h.pool.query('SELECT event_id,journaled_at FROM commerce_control_events ORDER BY occurred_at,event_id')).rows;
+      assert.equal(retained[0].journaled_at, null);
+      assert(retained[1].journaled_at);
+      assert.equal(journal.objects.size, 1);
+    } finally { console.error = original; }
+  } finally { await x.stop(); }
 });
