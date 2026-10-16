@@ -119,8 +119,8 @@
     },
     {
       "path": ".circleci/README.md",
-      "bytes": 6186,
-      "sha256": "17c3688c16488cd543f0bd846bfade7dd042fa3a7f0e607502ea5638b9fd65cf"
+      "bytes": 7095,
+      "sha256": "28a74cf7288853b0d17484656361eac50f4b851c27b7c20ea6fbb080222fb063"
     },
     {
       "path": ".circleci/config.yml",
@@ -164,8 +164,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 33918,
-      "sha256": "f49de40293a6a5c5af398e1938f243e5d0d8593b02133ba48a6d2c098104dbfb"
+      "bytes": 34746,
+      "sha256": "61756f3e19db09d78f11824709c95957121894d46109202fb24c527713003ff3"
     },
     {
       "path": "apps/freedom.module.json",
@@ -19053,6 +19053,11 @@
       "sha256": "247cc8ef3a88ef9035523d3719d8ca7b9c97b6032bab8c1905b1d5774aca650c"
     },
     {
+      "path": "packages/contribution-tools/circleci-worker-status.mjs",
+      "bytes": 5401,
+      "sha256": "7b744a3731f47ebd4c65d8895635f0427fe0b1be4638ff5f684b300069950759"
+    },
+    {
       "path": "packages/contribution-tools/cli.mjs",
       "bytes": 4492,
       "sha256": "d3b3eab1b5ebc7d313770c7daa58d01f22ea4a0a14da51ad6f0b170025e1833d"
@@ -19333,11 +19338,6 @@
       "sha256": "c4893deb3910bb88fad4d5ea7a32d30af9bffa741d6d7ad5c91b4a6a5304830d"
     },
     {
-      "path": "packages/contribution-tools/worker-unit-adoption.patch",
-      "bytes": 577,
-      "sha256": "50b80677c1c1b13a594ef7c0cd593f22284b4c86ed79da47091b914dcde3f2f5"
-    },
-    {
       "path": "packages/contribution-tools/worker-unit-dispatch.mjs",
       "bytes": 10378,
       "sha256": "8b91e9a1ef878b5a48055941efe67f8ae8a8d370abf5c911a0bf9d2578fb88c4"
@@ -19421,6 +19421,11 @@
       "path": "packages/contribution-tools/test/circleci-config.test.mjs",
       "bytes": 2729,
       "sha256": "0c5de2a13d2220f9627593b550fa444cab170923dfe8cd48cde5ef342f7b896c"
+    },
+    {
+      "path": "packages/contribution-tools/test/circleci-worker-status.test.mjs",
+      "bytes": 5897,
+      "sha256": "1a6ebaafe09f3b9cd752ed6ade82a6ac959022b6ecd2a48881953f559ef1b2de"
     },
     {
       "path": "packages/contribution-tools/test/consumer-entry-coverage.test.mjs",

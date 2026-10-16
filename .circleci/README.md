@@ -3,7 +3,7 @@
 `worker-tests` runs one `worker-unit` job for every pipeline delivered by the
 existing native GitHub integration. There is no opt-in flag, historical candidate
 parameter, controller, ledger writer, API dispatcher or automatic fallback.
-Existing GitHub worker coverage remains until coordinated adoption below.
+GitHub worker execution is substituted only by the guarded policy below.
 
 The candidate is `pipeline.git.revision`, checked against `CIRCLE_SHA1` and verified after checkout. The OAuth integration
 does not provide `pipeline.config.sha` (pipeline 9 compiled it as null). Public anonymous
@@ -44,31 +44,41 @@ job. No provider permission, trigger setting or GitHub ruleset is changed here.
    result; absence must block rather than pass. No current successful readback
    or required-status binding is claimed by this code change.
 
-## Separate coordinated adoption (NOT applied)
+## Guarded Verify substitution (approved 2026-10-16 01:51 UTC)
 
-The prepared `packages/contribution-tools/worker-unit-adoption.patch` removes
-only the three-line worker suite invocation/environment from GitHub Verify.
-It leaves static-worker's builds, typechecks, contracts, broker checks and both
-media restore tests intact. It is a review artifact, not an applied change:
+Verify's static-worker job receives only `contents: read` and `statuses: read`.
+Before candidate checkout/package execution, it checks out the status guard from
+`job.workflow_sha` and runs it with the existing GitHub token scoped to that step.
+No CircleCI token, ledger, dispatch service or ruleset change is required.
 
-```sh
-git apply --check packages/contribution-tools/worker-unit-adoption.patch
-```
+Only a same-repository PR whose exact head and integration commits have identical
+Git tree IDs may substitute CircleCI. Forks, different trees, main pushes and
+merge groups still run the existing GitHub worker suite. Every other static-worker
+command (including contracts, builds, typechecks, broker checks and media restore)
+is retained. The old unconditional three-line removal patch was withdrawn.
 
-Before applying it, explicitly approve the live ruleset change adding the
-**observed** CircleCI context and publisher App binding while retaining existing
-`verify` and `CodeQL` requirements. Verify protection on a current PR and required
-failure/pending outcomes. Then review/apply the patch in a separate adoption PR.
-No skip status or GitHub success stub substitutes for CircleCI's worker result.
+For eligible PRs, the guard reads statuses for the exact event head SHA and
+selects the newest `ci/circleci: worker-unit` entry before evaluating success.
+It pins the observed legacy OAuth publisher login `teddashh`, numeric user ID
+`233386770`, status commit URL, and canonical CircleCI repository/job URL.
+This is a trusted OAuth-user status, NOT an App-attested check: the same account
+can publish statuses manually. Its avatar and target URL alone do not authenticate
+CircleCI execution. This accepted trust limit does not change the live ruleset.
+Historical provider artifacts establish the existing job's full suite behavior;
+the guard itself consumes the native status, not those artifacts or a new report
+collector. CI controls retain code-owner review and existing Verify trust limits.
 
-GitHub Verify currently runs `github.sha` (PR integration/merge-group candidate).
-A native push typically tests the branch head instead. Those are NOT equivalent
-commits. Adoption therefore also requires an explicit maintainer decision:
-retain GitHub worker validation for integration/merge-group commits, or configure
-and verify native CircleCI execution/status for those exact required candidates.
-Do not remove coverage based solely on a head-commit success. Forks and merge
-queues remain unverified until demonstrated through the existing integration.
-The patch is deliberately not applied while that binding is unresolved.
+A newer failure/error, wrong identity, wrong commit, malformed metadata or API
+outage fails Verify. Missing/pending statuses wait at most 15 minutes, then fail;
+no older green status or rerun on GitHub hides the outcome. Reads have 15-second
+request deadlines, 2 MB bodies and at most five 100-status pages per poll. The
+existing 40-minute job deadline remains an additional bound. Cancellation cannot
+make an absent/pending result pass. Statuses can change after the final read; this
+is a point-in-time gate, not a new independently bound required CircleCI check.
+
+The current candidate SHA and identical integration tree are logged on success.
+A fresh head requires its own status. Separately approved live check/ruleset
+adoption and broader fork/merge-queue substitution are outside this change.
 
 ## Local checks and limits
 
