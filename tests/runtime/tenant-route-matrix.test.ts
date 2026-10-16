@@ -43,6 +43,8 @@ const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-mat
   csrfSecret: 'synthetic-matrix-admin-csrf-secret-123456789', keySet: createLocalJWKSet({ keys: [] }) });
 const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier });
 
+const distributionApp=createApp(runtime,origin,'local',{guildLaunchpadEnabled:true,supplierConsoleEnabled:true,distributionPhotosEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,storePhotoAssetStore:store,supplyMaterialAssetStore:store});
+
 let created = false;
 let runtimeConnection: { current_user: string; session_user: string; rolsuper: boolean; rolbypassrls: boolean; pg_backend_pid: number };
 const requestEvidence: { method: string; path: string; pid: number; settings: Record<string, string | null> }[] = [];
@@ -72,7 +74,8 @@ async function call(method: string, path: string, session?: Session, body?: stri
   const sent: Record<string, string> = { Origin: origin, ...headers };
   if (session) { sent.Cookie = session.cookie; sent['X-CSRF-Token'] = session.csrf; }
   const payload = typeof body === 'string' ? Buffer.from(body, 'utf8') : body;
-  const response = await app.request(origin + (path.startsWith('/admin/') ? path : '/api/v1' + path), { method, headers: sent, body: payload as any });
+  const target=path.includes('/distribution-photos')?distributionApp:app;
+  const response = await target.request(origin + (path.startsWith('/admin/') ? path : '/api/v1' + path), { method, headers: sent, body: payload as any });
   const bytes = new Uint8Array(await response.arrayBuffer());
   const type = response.headers.get('content-type') ?? '';
   const data = type.includes('application/json') && bytes.byteLength ? JSON.parse(Buffer.from(bytes).toString('utf8')) : null;
@@ -203,6 +206,14 @@ async function installSyntheticCatalog() {
 
 const routeTable: Record<string, string> = {
   // Cache middleware is inventoried separately, never sent as a synthetic ALL request.
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/*': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version': 'middleware',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/use': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/detach': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version': 'tenant',
+  'HEAD /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version': 'tenant',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/content': 'middleware',
@@ -533,13 +544,13 @@ test('T-022 1. Route inventory guard', () => {
   for (const suffix of ['', '/reconcile', '/cancel']) {
     assert.equal(relevantPaths.test(`/api/v1/tenants/:tenant_id/operations/:operation_id${suffix}`), true);
   }
-  const selectedRoutes = app.routes.filter(r => relevantPaths.test(r.path));
+  const selectedRoutes = [...app.routes.filter(r => relevantPaths.test(r.path)),...distributionApp.routes.filter(r=>r.method!=='ALL'&&r.path.includes('/distribution-photos'))];
   const counts = Object.values(routeTable).reduce<Record<string, number>>((all, kind) => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 85, middleware: 5 });
-  assert.equal(selectedRoutes.length, 118);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 90, middleware: 8 });
+  assert.equal(selectedRoutes.length, 126);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -577,6 +588,11 @@ function assertSameAsRandom(route: string, actor: string, real: Reply, random: R
 
 type Route = { method: string; path: string; body?: any; version?: string; isRaw?: boolean };
 const routes: Route[] = [
+  {method:'GET',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos'},
+  {method:'POST',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/use', body:{material_id:'00000000-0000-4000-8000-000000000001',version_id:'00000000-0000-4000-8000-000000000002'}, version:'"0"'},
+  {method:'POST',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/detach', body:{},version:'"0"'},
+  {method:'GET',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version'},
+  {method:'HEAD',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version'},
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel', body: {}, version: '"1"' },
@@ -678,7 +694,7 @@ const isSellerOrderRoute = (path: string) => /\/storefronts\/[^/]+\/(?:orders|re
 type TenantData = Awaited<ReturnType<typeof buildFixture>>['A'];
 function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
-    upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
+    version:'1',upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
     principal_id: data.principalId, product_id: data.workId, order_id: data.workId, offer_id: data.workId, selection_id: data.workId,
     instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
     plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
@@ -769,7 +785,7 @@ test('T-022 3b. Own tenant in path, other tenant resource', async () => {
     for (const position of positions) {
       for (const name of ['P', 'O'] as const) {
         const realIds = { ...ids(fixture.A, route), [position]: ids(fixture.B, route)[position] };
-        const replies = await pair(route, fixture.people[name], realIds, { ...realIds, [position]: randomUUID() });
+        const replies = await pair(route, fixture.people[name], realIds, { ...realIds, [position]: position==='version'?'2':randomUUID() });
         assertSameAsRandom(`${route.method} ${route.path} position=${position}`, name, ...replies);
         for (const reply of replies) {
           assert.ok([403, 404, 405].includes(reply.status), JSON.stringify(describe(reply)));
@@ -795,7 +811,7 @@ test('T-022 3c. P as viewer of B', async () => {
         assert.equal(reply.data.items[0].role, 'viewer');
       } else assert.ok(JSON.stringify(reply.data).includes(fixture.B.tenantId));
     } else if (route.method === 'HEAD') {
-      assert.equal(reply.status, 405, JSON.stringify(describe(reply)));
+      assert.equal(reply.status, route.path.includes('/distribution-photos/')?404:405, JSON.stringify(describe(reply)));
     } else if (/\/ownership-transfers\/:id|\/invitations\/:id\/revoke/.test(route.path) || route.method === 'GET' && route.path.endsWith('/ownership-transfers')) {
       assert.equal(reply.status, 404, `${route.method} ${route.path}: ${JSON.stringify(describe(reply))}`);
       const randomIds = Object.fromEntries(Object.entries(realIds).map(([key, value]) =>

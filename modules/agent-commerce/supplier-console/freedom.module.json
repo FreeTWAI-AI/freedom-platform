@@ -148,6 +148,18 @@
         "supplier-console.material-content",
         "storefront.partner-materials.content"
       ]
+    },
+    {
+      "surface_id": "commerce.distribution-photos-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-distribution-photos.ts",
+      "auth_profile": "member-session",
+      "operations": [
+        "storefront.distribution-photos.read",
+        "storefront.distribution-photo.use",
+        "storefront.distribution-photo.detach",
+        "storefront.distribution-photo.content"
+      ]
     }
   ]
 }

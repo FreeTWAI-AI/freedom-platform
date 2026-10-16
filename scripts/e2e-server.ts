@@ -198,6 +198,7 @@ const app=createApp(productPool??pool,origin,'local',{arEnabled:true,arAssetStor
   hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
   // The separately scheduled photo pass also proves supply-only product photos through the console; the default browser pass keeps the console OFF so legacy supply specs run unchanged.
   supplierConsoleEnabled:process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1',
+  distributionPhotosEnabled:process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1',
   eventParticipationEnabled:process.env.FREEDOM_E2E_EVENT_PARTICIPATION==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),

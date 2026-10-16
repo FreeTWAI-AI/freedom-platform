@@ -98,7 +98,7 @@ test('hosted offer schema recognition still requires exact ledger and independen
 
 test('schema168 recognition keeps schema167 approvals separate and rejects unknown material ledger bytes', () => {
   const f = fixture(), old = prefix(f.scan, 167);
-  assert.equal(f.scan.ledger.at(-1).name, '168_supply_materials.sql');
+  assert.equal(f.scan.ledger.at(-1).name, '169_distribution_photos.sql');
   const current = evaluate(f);
   assert.equal(current.status, 'compatible');
   assert.deepEqual(current.required_shapes, []);
@@ -110,7 +110,7 @@ test('schema168 recognition keeps schema167 approvals separate and rejects unkno
   const changed = fixture(); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
   changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
   assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
-  const renamed = fixture(); renamed.scan.ledger.at(-1).name = '168_unreviewed.sql';
+  const renamed = fixture(); renamed.scan.ledger.at(-1).name = '169_unreviewed.sql';
   renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
   assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
   const future = fixture(); future.scan.ledger.push({name: '169_unreviewed.sql', sha256: 'e'.repeat(64)});
@@ -836,3 +836,11 @@ for (const target of ['planned', 'observation', 'floor']) {
     for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
   });
 }
+
+test('distribution copies retain a schema169 reader capability after the flag is off',()=>{
+ const f=fixture();f.host.observation.written_shapes=['media.distribution-photo.asset.v1'];
+ assert(evaluate(f).issues.some(i=>i.code==='release_capability_missing'&&i.capability==='media.distribution-photo.asset.v1'));
+ f.host.release_records[0].capabilities.push('media.distribution-photo.asset.v1','media.server-policy.v1');assert.equal(evaluate(f).status,'compatible');
+ f.host.observation.schema_ledger=prefix(f.scan,168).ledger;f.host.observation.schema_ledger_digest=compatibilityLedgerDigest(f.host.observation.schema_ledger);
+ assert(evaluate(f).issues.some(i=>i.code==='observed_shape_schema_missing'&&i.shape==='media.distribution-photo.asset.v1'));
+});

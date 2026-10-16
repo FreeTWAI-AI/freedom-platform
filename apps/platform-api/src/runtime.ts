@@ -96,6 +96,7 @@ export type PlatformRuntime = {
   hostedReservationsEnabled?: boolean;
   /** Supplier console reads, profile update and console-scope photos; default OFF, effective only with guildLaunchpadEnabled. */
   supplierConsoleEnabled?: boolean;
+  distributionPhotosEnabled?: boolean;
   /** Independent installed read port and new-upload admission; both absent by default. */
   storePhotoAssetStore?: ObjectStore;
   storePhotoAssets?: StorePhotoAssets;

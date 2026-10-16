@@ -58,3 +58,9 @@ test('policy prohibition committed while publication waits is observed before re
 test('fresh additive migration leaves canonical cover persistence prohibited with no invented settings',()=>{assert.deepEqual(initialPolicy,{mode:'legacy',policy_revision:null,persistence_allowed:false,retained_byte_limit:null});});
 
 test('canonical installed resolver still rejects an intent pinned to a changed database revision',async()=>{const original=await setup(),s={...original,api:createServiceCoverAssetService(pool,{store:original.store,resolvePolicy:resolveServiceCoverUploadPolicy})},u=await upload(s);await pool.query("UPDATE domain_media_storage_policy SET policy_revision='synthetic-v2' WHERE purpose='member.service-cover'");await assert.rejects(s.api.finalize(s.owner,{key:randomUUID(),...u.lease}),code('asset_policy_changed'));});
+
+test('distribution photos reuse the product-photo policy and do not add a weaker purpose',async()=>{
+ const policy=(await pool.query("SELECT purpose FROM domain_media_storage_policy WHERE purpose LIKE '%distribution%'")).rows;assert.deepEqual(policy,[]);
+ const tables=(await pool.query("SELECT tgrelid::regclass::text AS table_name FROM pg_trigger WHERE tgname='reject_fenced_asset_reference' AND tgrelid IN ('commerce_distribution_photo_copies'::regclass,'commerce_distribution_photo_targets'::regclass) ORDER BY table_name")).rows;
+ assert.deepEqual(tables.map(row=>row.table_name),['commerce_distribution_photo_copies','commerce_distribution_photo_targets']);
+});
