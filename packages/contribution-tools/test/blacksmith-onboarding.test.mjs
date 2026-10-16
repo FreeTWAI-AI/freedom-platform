@@ -38,17 +38,17 @@ test('pilot stays manual, default off, fixed source and bounded without replacin
   assert.match(workflow, /retention-days: 1/);
 });
 
-test('actual gate rejects untrusted refs and reruns even after hypothetical reviewed activation', () => {
+test('actual gate permits only the admitted first run and rejects untrusted refs and reruns', () => {
   const expression = workflow.match(/    if: >-\n([\s\S]+?)\n    runs-on:/)[1].trim().slice(3, -2).trim();
-  assert.match(expression, /^false &&/);
-  for (const enabled of [false, true]) for (const event of ['workflow_dispatch', 'push', 'pull_request'])
+  assert.match(expression, /^vars\.BLACKSMITH_PILOT_ADMISSION == 'first-run-approved' &&/);
+  for (const admission of ['', 'off', 'true', 'first-run-approved']) for (const number of [1, 2, 10]) for (const event of ['workflow_dispatch', 'push', 'pull_request'])
     for (const repository of ['FreeTWAI/freedom-platform', 'attacker/fork'])
       for (const ref of ['refs/heads/main', 'refs/heads/topic', 'refs/tags/main', 'refs/pull/1/merge'])
         for (const trustedWorkflow of [false, true]) for (const attempt of [1, 2]) {
-          const github = { event_name: event, repository, ref, run_attempt: attempt,
+          const github = { event_name: event, repository, ref, run_attempt: attempt, run_number: number,
             workflow_ref: trustedWorkflow ? 'FreeTWAI/freedom-platform/.github/workflows/blacksmith-onboarding.yml@refs/heads/main' : 'attacker/fork/workflow.yml@refs/heads/main' };
-          const actual = runInNewContext(expression.replace(/^false/, String(enabled)), { github });
-          assert.equal(actual, enabled && event === 'workflow_dispatch' && repository === 'FreeTWAI/freedom-platform'
+          const actual = runInNewContext(expression, { github, vars: { BLACKSMITH_PILOT_ADMISSION: admission } });
+          assert.equal(actual, admission === 'first-run-approved' && number === 1 && event === 'workflow_dispatch' && repository === 'FreeTWAI/freedom-platform'
             && ref === 'refs/heads/main' && trustedWorkflow && attempt === 1);
         }
 });

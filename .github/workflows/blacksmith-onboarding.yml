@@ -1,4 +1,4 @@
-name: Blacksmith onboarding pilot (disabled)
+name: Blacksmith onboarding pilot (single admission)
 
 on:
   workflow_dispatch:
@@ -13,10 +13,11 @@ concurrency:
 
 jobs:
   onboarding:
-    # Deliberately false BEFORE runner allocation. Activation requires a reviewed
-    # change after the runbook checklist; no dispatch input can enable this job.
+    # Unset admission variable is OFF before runner allocation. The maintainer
+    # may admit only workflow run 1, attempt 1 after the runbook checklist.
     if: >-
-      ${{ false &&
+      ${{ vars.BLACKSMITH_PILOT_ADMISSION == 'first-run-approved' &&
+          github.run_number == 1 &&
           github.event_name == 'workflow_dispatch' &&
           github.repository == 'FreeTWAI/freedom-platform' &&
           github.ref == 'refs/heads/main' &&
@@ -68,7 +69,7 @@ jobs:
             cpu_models: [...new Set(cpu.map(core => core.model))],
             os_release: readFileSync('/etc/os-release', 'utf8'), kernel_release: release(),
             runner_image_os: e.ImageOS ?? null, runner_image_version: e.ImageVersion ?? null,
-            run_id: e.GITHUB_RUN_ID, run_attempt: e.GITHUB_RUN_ATTEMPT,
+            run_id: e.GITHUB_RUN_ID, run_number: e.GITHUB_RUN_NUMBER, run_attempt: e.GITHUB_RUN_ATTEMPT,
             started_at: new Date().toISOString(), purpose: 'onboarding-only'
           }, null, 2) + '\n');
           NODE

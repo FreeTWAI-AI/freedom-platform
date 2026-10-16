@@ -139,8 +139,8 @@
     },
     {
       "path": ".github/workflows/blacksmith-onboarding.yml",
-      "bytes": 5530,
-      "sha256": "aa77d0435e0253270ee1620fb029599a911f5a0432b4a3491e1069f3237a8ee5"
+      "bytes": 5649,
+      "sha256": "b2ea9cf508adf391789245df2f56f03a6f17add706a895e4a434d8e13f76e2b3"
     },
     {
       "path": ".github/workflows/directory-runtime-profile.yml",
@@ -13874,8 +13874,8 @@
     },
     {
       "path": "docs/development/blacksmith-onboarding.md",
-      "bytes": 8494,
-      "sha256": "bef312883ade89f283c0387c2579b8df0cc7f453b3244d9cba5ac9566432c8bc"
+      "bytes": 10466,
+      "sha256": "92e910bef6daa0f6084a418809393d07e93f7254fd5b47e2c90a92b83c2a4055"
     },
     {
       "path": "docs/development/broker-worker-bindings.md",
@@ -19629,8 +19629,8 @@
     },
     {
       "path": "packages/contribution-tools/test/blacksmith-onboarding.test.mjs",
-      "bytes": 6424,
-      "sha256": "d32442721520d668882162d74eb3696a5093123130e498efb2d75fb999855aa8"
+      "bytes": 6611,
+      "sha256": "5916799c2763e537fcc25380155a87179a63a74e3f8f09a4b8260cb2caa4c18c"
     },
     {
       "path": "packages/contribution-tools/test/checkout-repositories.test.mjs",
