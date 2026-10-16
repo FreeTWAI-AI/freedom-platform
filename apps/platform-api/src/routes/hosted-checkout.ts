@@ -10,10 +10,13 @@ import {readSessionCookie} from '../session-cookie.js';
 import type {PlatformRuntime} from '../runtime.js';
 import type {FreedomEnv} from '../env.js';
 import {providerEnvironment} from '../../../../modules/agent-commerce/operations/admissions.js';
+import {runDueCommerceWork} from '../../../../modules/agent-commerce/operations/due-work.js';
+import {commerceEmailOutbox} from '../../../../modules/agent-commerce/operations/notifications/outbox.js';
 
 /** The one checkout configuration shared by the checkout API and the public store pages. */
 export function hostedCheckoutOptions(origin:string,runtime:PlatformRuntime,environment:FreedomEnv):commands.HostedCheckoutOptions {
-  return {origin,settings:runtime.commerceSettings,environment:providerEnvironment(environment),...runtime.commercePorts};
+  const email=runtime.commerceSettings?.emailEnabled?(runtime.commercePorts?.email??commerceEmailOutbox):undefined;
+  return {origin,settings:runtime.commerceSettings,environment:providerEnvironment(environment),...runtime.commercePorts,email};
 }
 
 /** Parsing and response mapping only. Store resolution, access and effects live
@@ -78,7 +81,13 @@ export function createHostedCheckoutRoutes(pool:Pool,origin:string,runtime:Platf
   });
   app.post(root+'/order-access-requests',async c=>{
     commands.quarantineGate(options);noQuery(c.req.url);const input=parse(wire.AccessRequestInputSchema,await c.req.json());
-    await commands.requestPublicOrderAccess(pool,c.req.param('slug')!,input,access(c),options);wire.EmptyResponseSchema.parse(undefined);return c.body(null,202);
+    const queued=await commands.requestPublicOrderAccess(pool,c.req.param('slug')!,input,access(c),options);
+    const journal=runtime.commercePayments?.journal??runtime.commerceJournal;
+    if(queued&&runtime.afterResponse&&!runtime.commerceSettings?.quarantine&&runtime.commerceSettings?.emailEnabled&&runtime.commerceEmailSender&&journal){
+      try{runtime.afterResponse(async()=>{await runDueCommerceWork(pool,{transport:runtime.commerceQueryTransport,keyring:runtime.commerceCredentialKeyring??null,freedomEnv:environment,email:options.email,emailEnabled:true,emailSender:runtime.commerceEmailSender,journal,origin},{targets:[queued.emailId],limit:1});});}
+      catch{console.error('commerce_after_response_failed');}
+    }
+    wire.EmptyResponseSchema.parse(undefined);return c.body(null,202);
   });
   app.post('/api/v1/public/order-access/forget',async c=>{
     c.header('Set-Cookie',commands.clearShopCookie(options));noQuery(c.req.url);parse(wire.ForgetAccessInputSchema,await c.req.json());

@@ -10,15 +10,17 @@ import {createPlatformApp} from '../../apps/platform-api/src/platform-app.js';
 import {nodeRuntime} from '../../apps/platform-api/src/app.js';
 import {cloudflareRateLimitNetwork} from '../../apps/platform-api/src/worker.js';
 import {FixtureEmailSender} from '../../modules/agent-commerce/operations/notifications/email-port.js';
+import {runDueCommerceWork} from '../../modules/agent-commerce/operations/due-work.js';
+import {MemoryEffectJournal} from '../../modules/agent-commerce/operations/journal/memory.js';
 import {canonicalJSON,parseCheckoutInput,hashKey} from '../../modules/agent-commerce/checkout/terms.js';
 import {shopCookieName} from '../../modules/agent-commerce/checkout/access.js';
 import {checkoutHarness,ports,ok,type CheckoutHarness} from './hosted-checkout-harness.js';
 import type {CommerceSettings} from '../../modules/agent-commerce/operations/runtime-settings.js';
 import type {CheckoutPorts} from '../../modules/agent-commerce/checkout/terms.js';
-let x:CheckoutHarness,app:ReturnType<typeof createPlatformApp>,email:FixtureEmailSender,origin:string,policies:{policy_kind:string;policy_version_id:string}[];
-function install(settings:CommerceSettings={checkoutEnabled:true,quarantine:false,providerProfiles:[]},extra:CheckoutPorts & {email?:FixtureEmailSender}={}) {
+let x:CheckoutHarness,app:ReturnType<typeof createPlatformApp>,email:FixtureEmailSender,journal:MemoryEffectJournal,origin:string,policies:{policy_kind:string;policy_version_id:string}[];
+function install(settings:CommerceSettings={checkoutEnabled:true,quarantine:false,providerProfiles:[],emailEnabled:true},extra:CheckoutPorts={}) {
   const mode=origin.startsWith('https:')?'public':'local';
-  const runtime=nodeRuntime(mode,origin,{guildLaunchpadEnabled:true,commerceSettings:settings,commercePorts:{...ports,policies:{required:async()=>policies},email,...extra}});
+  const runtime=nodeRuntime(mode,origin,{guildLaunchpadEnabled:true,commerceSettings:settings,commercePorts:{...ports,policies:{required:async()=>policies},...extra}});
   runtime.rateLimitNetwork=cloudflareRateLimitNetwork(true);app=createPlatformApp(x.runtime,origin,mode,runtime);
 }
 async function http(method:string,path:string,body?:unknown,cookie?:string,headers:Record<string,string>={}) {
@@ -78,10 +80,15 @@ async function placed(extra:Record<string,unknown>={},browser?:string) {
   const r=await http('POST',root(s)+`/checkouts/${f.c.checkout_ref}/orders`,intent,f.browser);expect(r,201);return {s,...f,intent,order:r.data.order};
 }
 async function requestLink(f:Awaited<ReturnType<typeof placed>>,address='buyer@example.test') {
-  const r=await http('POST',root(f.s)+'/order-access-requests',{email:address,display_number:f.order.display_number});expect(r,202);assert.equal(r.data,null);return new URL(email.messages.at(-1)!.accessUrl).hash.slice('#access='.length);
+  const before=(await x.h.pool.query("SELECT count(*)::int n FROM commerce_outbound_emails WHERE order_id=$1 AND template='order_access' AND state='queued'",[f.order.order_ref])).rows[0].n;
+  const r=await http('POST',root(f.s)+'/order-access-requests',{email:address,display_number:f.order.display_number});expect(r,202);assert.equal(r.data,null);
+  assert.equal((await x.h.pool.query("SELECT count(*)::int n FROM commerce_outbound_emails WHERE order_id=$1 AND template='order_access' AND state='queued'",[f.order.order_ref])).rows[0].n,before+1);
+  assert.equal((await runDueCommerceWork(x.runtime,{freedomEnv:origin.startsWith('https:')?'public':'local',origin,emailEnabled:true,emailSender:email,journal})).completed,1);
+  const url=email.messages.at(-1)!.text.match(/https?:\/\/[^\s]+/)![0];
+  return new URL(url).hash.slice('#access='.length);
 }
 before(async()=>{x=await checkoutHarness('fc_http',{publicSchema:true});origin=x.h.origin;});
-beforeEach(async()=>{await x.reset();origin=x.h.origin;email=new FixtureEmailSender();policies=[];install();});
+beforeEach(async()=>{await x.reset();origin=x.h.origin;email=new FixtureEmailSender();journal=new MemoryEffectJournal('local');policies=[];install();});
 after(async()=>{await x?.stop();});
 
 test('cart quotes use current publication prices, classify every line and never settle or hold',async()=>{
@@ -195,7 +202,8 @@ test('B10 remains empty 202 on unmatched/redacted and no port refuses before SQL
   expect(await http('GET',root(f.s)+'/orders/'+f.order.order_ref,undefined,f.browser));
   const r=await http('GET',root(f.s)+'/orders/'+f.order.order_ref,undefined,f.browser);assert.equal(r.data.redacted,true);assert.equal(r.data.contact,null);
   expect(await http('POST',root(f.s)+'/order-access-requests',{email:'buyer@example.test',display_number:f.order.display_number}),202);assert.equal(email.messages.length,0);
-  install(undefined,{email:undefined});const original=x.runtime.connect;x.runtime.connect=(()=>{throw Error('B10 must not access SQL without an email port');}) as typeof x.runtime.connect;
+  assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_outbound_emails')).rows[0].n,0);
+  install({checkoutEnabled:true,quarantine:false,providerProfiles:[],emailEnabled:false});const original=x.runtime.connect;x.runtime.connect=(()=>{throw Error('B10 must not access SQL without an email port');}) as typeof x.runtime.connect;
   try{expect(await http('POST',root(f.s)+'/order-access-requests',{email:'buyer@example.test',display_number:f.order.display_number}),409,'order_access_email_unavailable');}finally{x.runtime.connect=original;}
 });
 test('host gates keep order recovery readable and forget clears its cookie in quarantine',async()=>{
@@ -275,13 +283,18 @@ test('B10 exhaustion of each budget stays empty 202 and creates no mail or link'
     const r=await http('POST',root(f.s)+'/order-access-requests',{email:' BuYeR@Example.Test ',display_number:f.order.display_number});expect(r,202);assert.equal(r.data,null);assert.equal(email.messages.length,0);
   }
   assert.equal((await x.h.pool.query("SELECT count(*)::int n FROM commerce_order_access_grants WHERE kind='link'")).rows[0].n,0);
+  assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_outbound_emails')).rows[0].n,0);
 });
 test('email failure happens after commit, returns 202 and logs only a fixed marker and error name',async()=>{
   const f=await placed(),logs:string[]=[],previous=console.error;
-  const failing=new FixtureEmailSender();failing.sendOrderAccess=async()=>{assert.equal((await x.h.pool.query("SELECT count(*)::int n FROM commerce_order_access_grants WHERE kind='link'")).rows[0].n,1);throw new TypeError('buyer@example.test synthetic-secret');};install(undefined,{email:failing});
+  const failing=new FixtureEmailSender();failing.send=async()=>{assert.equal((await x.h.pool.query("SELECT count(*)::int n FROM commerce_order_access_grants WHERE kind='link'")).rows[0].n,1);throw new TypeError('buyer@example.test synthetic-secret');};
   console.error=(...args)=>logs.push(args.join(' '));
-  try{expect(await http('POST',root(f.s)+'/order-access-requests',{email:'buyer@example.test',display_number:f.order.display_number}),202);}finally{console.error=previous;}
-  assert.deepEqual(logs,['commerce_email_failed TypeError']);
+  try{
+    expect(await http('POST',root(f.s)+'/order-access-requests',{email:'buyer@example.test',display_number:f.order.display_number}),202);
+    assert.equal((await x.h.pool.query("SELECT count(*)::int n FROM commerce_order_access_grants WHERE kind='link'")).rows[0].n,0);
+    await runDueCommerceWork(x.runtime,{freedomEnv:'local',origin,emailEnabled:true,emailSender:failing,journal});
+  }finally{console.error=previous;}
+  assert.deepEqual(logs,[JSON.stringify({event:'commerce_email_failed',template:'order_access',code:'send_failed'})]);
 });
 
 for(const [name,route,keyKind] of [

@@ -127,10 +127,10 @@ async function rescheduleTransientFailure(
   );
   await q.query(
     `UPDATE commerce_due_work
-     SET due_at = $2, lease_until = NULL, last_error = $3,
-         attempts = attempts + 1, failure_count = failure_count + 1, updated_at = $4
+     SET due_at = $2, lease_until = NULL,
+         attempts = attempts + 1, failure_count = failure_count + 1, updated_at = $3
      WHERE due_work_id = $1`,
-    [work.due_work_id, dueAt, code, now],
+    [work.due_work_id, dueAt, now],
   );
 }
 

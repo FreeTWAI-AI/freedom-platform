@@ -73,10 +73,58 @@ export function isPermanentCommerceEmailError(code: CommerceEmailErrorCode): boo
     code === 'sender_not_verified'
   );
 }
-/** The M1 runtime installs no email adapter. Never send inside a SQL transaction. */
-export interface CommerceAccessEmail {to:string;accessUrl:string;displayNumber:string}
-export interface CommerceEmailPort {sendOrderAccess(message:CommerceAccessEmail):Promise<void>}
-export class FixtureEmailSender implements CommerceEmailPort {
-  readonly messages:CommerceAccessEmail[]=[];
-  async sendOrderAccess(message:CommerceAccessEmail) {this.messages.push({...message});}
+export interface WorkerEmailBinding {
+  send(message: {
+    to: string;
+    from: string;
+    subject: string;
+    text: string;
+    replyTo?: string;
+  }): Promise<unknown>;
+}
+export function createWorkerEmailSender(binding: WorkerEmailBinding): CommerceEmailSender {
+  return {
+    async send({to, subject, text, replyTo}) {
+      try {
+        await binding.send({
+          to,
+          from: 'no-reply@mail.freetwai.com',
+          subject,
+          text,
+          ...(replyTo ? {replyTo} : {}),
+        });
+      } catch (error) {
+        throw new CommerceEmailSendError(mapCommerceEmailErrorCode(error));
+      }
+    },
+  };
+}
+/** Never touches the network. Can be configured to fail the next N sends with a given code. */
+export class FixtureEmailSender implements CommerceEmailSender {
+  readonly messages: CommerceEmailMessage[] = [];
+  private remainingFailures = 0;
+  private failureCode: CommerceEmailErrorCode = 'send_failed';
+
+  failNext(
+    countOrCode: number | CommerceEmailErrorCode | CloudflareEmailErrorCode = 1,
+    codeOrCount: CommerceEmailErrorCode | CloudflareEmailErrorCode | number = 'send_failed',
+  ): void {
+    if (typeof countOrCode === 'string') {
+      const count = typeof codeOrCount === 'number' ? codeOrCount : 1;
+      this.remainingFailures = Math.max(0, Math.trunc(count));
+      this.failureCode = mapCommerceEmailErrorCode({code: countOrCode});
+      return;
+    }
+    this.remainingFailures = Math.max(0, Math.trunc(countOrCode));
+    const code = typeof codeOrCount === 'string' ? codeOrCount : 'send_failed';
+    this.failureCode = mapCommerceEmailErrorCode({code});
+  }
+
+  async send(message: CommerceEmailMessage): Promise<void> {
+    if (this.remainingFailures > 0) {
+      this.remainingFailures -= 1;
+      throw new CommerceEmailSendError(this.failureCode);
+    }
+    this.messages.push({...message});
+  }
 }

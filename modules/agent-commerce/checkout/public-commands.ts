@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {OpaqueId} from '../../../contracts/guild-launchpad/v1/primitives.js';
 import * as wire from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
@@ -10,11 +11,11 @@ import {freezeCheckout,hashKey,publicCheckoutTerms,validateBuyerJSON,defaultAdmi
 import {placeCheckoutOrder} from './orders.js';
 import {cartQuote} from './cart-quote.js';
 import {publicOrder} from './public-order.js';
-import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,createAccessLink,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
+import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
 import {chargePaymentQueryOrderBudgets,chargeCommerceBudgets,commerceRateLimitInTransaction,lockOpenOrderBudgets,enforceOpenOrderLimits} from './limits.js';
 import type {CommerceSettings} from '../operations/runtime-settings.js';
-import type {CommerceEmailPort} from '../operations/notifications/email-port.js';
-export interface HostedCheckoutOptions extends CheckoutPorts {settings?:CommerceSettings;email?:CommerceEmailPort;origin:string;environment?:'sandbox'|'live'}
+import type {CommerceEmailOutbox} from '../operations/notifications/email-port.js';
+export interface HostedCheckoutOptions extends CheckoutPorts {settings?:CommerceSettings;email?:CommerceEmailOutbox;origin:string;environment?:'sandbox'|'live'}
 export interface BrowserAccess {deviceToken?:string;sessionToken?:string;network:string}
 const defaults:CommerceSettings={checkoutEnabled:false,quarantine:false,providerProfiles:[]};
 export function quarantineGate(options:HostedCheckoutOptions) {requireCondition(!(options.settings??defaults).quarantine,503,'commerce_quarantined','商務服務暫停中。');}
@@ -181,13 +182,12 @@ export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,to
     return {cookie:ensured.cookie,value};
   });
 }
-export async function requestPublicOrderAccess(pool:Pool,slug:string,input:{email:string;display_number:string},access:BrowserAccess,options:HostedCheckoutOptions) {
+export async function requestPublicOrderAccess(pool:Pool,slug:string,input:{email:string;display_number:string},access:BrowserAccess,options:HostedCheckoutOptions):Promise<{emailId:string}|null> {
   quarantineGate(options);
   requireCondition(options.email,409,'order_access_email_unavailable','尚未提供訂單存取郵件。');
-  const email=input.email.trim().toLowerCase();
-  let message;
+  const outbox=options.email,email=input.email.trim().toLowerCase();
   try {
-    message=await isolatedTransaction(pool,async q=>{
+    return await isolatedTransaction(pool,async q=>{
       await commerceRateLimitInTransaction(q,'accessRequestNetwork',access.network);
       await commerceRateLimitInTransaction(q,'accessRequestEmail',email);
       await commerceRateLimitInTransaction(q,'accessRequestGlobal','global');
@@ -198,14 +198,9 @@ export async function requestPublicOrderAccess(pool:Pool,slug:string,input:{emai
         WHERE co.tenant_id=$1 AND co.instance_id=$2 AND co.display_number=$3 AND o.order_profile='hosted_checkout'
           AND c.email_normalized=$4 AND c.redacted_at IS NULL AND contact.redacted_at IS NULL`,[store.tenantId,store.instanceId,input.display_number,email])).rows[0];
       if(!target)return null;
-      const token=await createAccessLink(q,target);
-      return {to:email,displayNumber:input.display_number,accessUrl:`${options.origin}/shops/${store.projection.slug}/orders/${target.order_id}#access=${token}`};
+      return outbox.queue(q,{template:'order_access',tenantId:target.tenant_id,instanceId:target.instance_id,orderId:target.order_id,accessRequestId:randomUUID()});
     });
-  } catch(error) {if(error instanceof Problem&&error.code==='commerce_rate_limited')return;throw error;}
-  if(message)try{await options.email.sendOrderAccess(message);}catch(error){
-    const name=error instanceof Error&&['Error','TypeError','RangeError'].includes(error.name)?error.name:'unknown';
-    console.error('commerce_email_failed',name);
-  }
+  } catch(error) {if(error instanceof Problem&&error.code==='commerce_rate_limited')return null;throw error;}
 }
 export async function forgetPublicBrowser(pool:Pool,access:BrowserAccess,options:HostedCheckoutOptions) {
   quarantineGate(options);
