@@ -15539,8 +15539,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 11179,
-      "sha256": "3c157596b9a6021fc6b3b46ae60a5e4a718c78f92aca99c1f0674534a8372572"
+      "bytes": 11652,
+      "sha256": "bf2be4c55f9f615b5fd84b49683fc7310ed8ba9c2f36055ed05ade6286cc5bf2"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",
