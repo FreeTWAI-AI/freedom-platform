@@ -17079,8 +17079,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/README.md",
-      "bytes": 30283,
-      "sha256": "81d8283a5ab046b41c31022118a96d40a6650af3920e7b6a2ae6cfc559f23c79"
+      "bytes": 30282,
+      "sha256": "485f0c00e53e388a915d5d1515dd25e3d5b2f35cd628582305c567adc8e8830a"
     },
     {
       "path": "modules/agent-commerce/checkout/access.ts",
@@ -17159,8 +17159,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/seller-orders.ts",
-      "bytes": 22422,
-      "sha256": "73d52e936aee0967c07402839f54abc8dc20e0ba05e51b039677d5dcaa80e4e9"
+      "bytes": 21824,
+      "sha256": "ffccd1c02d5317c9500b79280c17ffeefc3f13b6bf28b68dfeaa9ff3d78b102d"
     },
     {
       "path": "modules/agent-commerce/checkout/settlement.ts",
@@ -17169,8 +17169,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/terms.ts",
-      "bytes": 16823,
-      "sha256": "d5e9a4176d74210f264d7656c250ac8df63b231d1bd7b0df02770c24159f6b64"
+      "bytes": 16883,
+      "sha256": "b5cb8fe529e10ea5a154e35138631cbda0cb82f07c4fde7cec70233f6d51bf36"
     },
     {
       "path": "modules/agent-commerce/fulfilment/README.md",
@@ -17529,13 +17529,13 @@
     },
     {
       "path": "modules/agent-commerce/payments/accounts.ts",
-      "bytes": 23363,
-      "sha256": "9fa6cbc7e7bd9b05716fc1b7e7a096b7e8218b7c71b4a5d3687cff3ea467af39"
+      "bytes": 24334,
+      "sha256": "32d5768e26642cdbed1c264124b540a6bf640d49eab980bb4afac24e7d5fd279"
     },
     {
       "path": "modules/agent-commerce/payments/attempts.ts",
-      "bytes": 25764,
-      "sha256": "bed812a5eaac5bb553fd80370cc92ca720be9e3d5257956ee94f519520380354"
+      "bytes": 26066,
+      "sha256": "649ad2bf1dbc9d6c781ec336392c84e845d9d046ea1fdd99f631a949bf57bc08"
     },
     {
       "path": "modules/agent-commerce/payments/availability.ts",
@@ -22219,8 +22219,8 @@
     },
     {
       "path": "tests/e2e/storefront-payment.spec.ts",
-      "bytes": 53245,
-      "sha256": "bb4cf0e66794f535de1c32609b12564e484dcd70ca5a360f3c440215e69553b5"
+      "bytes": 53421,
+      "sha256": "5fc0e1494dba90b3f7e562952f90a47cc9b8ebe4000ffd91130bb607c43f200b"
     },
     {
       "path": "tests/e2e/storefront-product.spec.ts",
@@ -22389,8 +22389,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 69698,
-      "sha256": "2119174c0fdec7b21b7a71ce0c6dbd5ccdf1cfc3dcda35079bd8870e5f8498f0"
+      "bytes": 70514,
+      "sha256": "5e3bfb0e3847232b6ea6d2f62e29dbc4210907aa01603d8b96fdf96becb0c45e"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
@@ -23219,8 +23219,8 @@
     },
     {
       "path": "tests/runtime/hosted-payment-activation.test.ts",
-      "bytes": 20340,
-      "sha256": "fd7c97cef6274f4ff0473872627e299520903f7a2d81daec6d76b58dd18a29a8"
+      "bytes": 21632,
+      "sha256": "d04a5aa3b983a407731d2dcf36c410e441f894db4e4b495a7da8997800dcd529"
     },
     {
       "path": "tests/runtime/hosted-payment-canary.test.ts",
@@ -23258,6 +23258,11 @@
       "sha256": "57a9635f299c3f99f488810c9121dff28e64c47bb1739eb7721c37a295e4a12f"
     },
     {
+      "path": "tests/runtime/hosted-seller-checkout-orders.test.ts",
+      "bytes": 29631,
+      "sha256": "11ff40b98760eb172d040cdd8e47749e92e744199270849b16e8f5b3729e1389"
+    },
+    {
       "path": "tests/runtime/hosted-seller-contracts.test.ts",
       "bytes": 9548,
       "sha256": "420cec9b42df956a6632e953cd4c1622c17b754fa24a5ba18655b8d95608b236"
@@ -23274,13 +23279,13 @@
     },
     {
       "path": "tests/runtime/hosted-seller-orders.test.ts",
-      "bytes": 49404,
-      "sha256": "c520cdfd6577c48f54dd90d613020acf600359c52721bc7dc432c851cea146fc"
+      "bytes": 20039,
+      "sha256": "dbc31df4cc253ca34b9fd987d76aaf290eba368308cf54c2c1db7b635b8b102e"
     },
     {
       "path": "tests/runtime/hosted-seller-payment-queries.test.ts",
-      "bytes": 11874,
-      "sha256": "0c117910a35d44a8562d8b391f5717d2b44d1a1d1950a55b89bf817e328b3e18"
+      "bytes": 12334,
+      "sha256": "1733fa160d505810873bbcafcd999b5f813681c7386e1c5230fcbdb71de379d9"
     },
     {
       "path": "tests/runtime/hosted-shared-orders.test.ts",
@@ -24419,8 +24424,8 @@
     },
     {
       "path": "tests/runtime/tenant-route-matrix.test.ts",
-      "bytes": 119502,
-      "sha256": "f9048baef55508b570b9841a41064677112153588d844a3f3f8e178774d7b2c4"
+      "bytes": 122330,
+      "sha256": "67c3a5e82f4ee924c13c1de7caa23397c71bcb6b19c7c96dcc33a835860a8159"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
