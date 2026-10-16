@@ -3,6 +3,7 @@ import type { PublicOrder } from '../../../../contracts/guild-launchpad/v1/hoste
 export type PaymentView =
   | 'review'
   | 'paid'
+  | 'refunded'
   | 'checking'
   | 'closed'
   | 'awaiting'
@@ -18,6 +19,7 @@ export type PaymentOrderInput = Pick<
 export function paymentView(order: PaymentOrderInput): PaymentView {
   if (order.payment_state === 'overpaid') return 'review';
   if (order.payment_state === 'confirmed') return 'paid';
+  if (order.payment_state === 'refunded') return 'refunded';
   if (order.payment_state === 'pending') return 'checking';
   if (order.lifecycle_state !== 'open') return 'closed';
   const attemptState = order.latest_payment_attempt?.state;
@@ -223,6 +225,12 @@ export function orderPaymentSectionCopy(view: PaymentView): OrderPaymentSectionC
   switch (view) {
     case 'paid':
       return { label: '已付款', description: null, canQueryWhenOpen: false };
+    case 'refunded':
+      return {
+        label: '已退款',
+        description: '店家已登記退回這筆訂單收到的全部款項。入帳時間依發卡銀行而定，沒有收到時請聯絡店家。',
+        canQueryWhenOpen: false,
+      };
     case 'review':
       return {
         label: '付款金額待店家確認',

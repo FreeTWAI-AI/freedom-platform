@@ -48,7 +48,7 @@ export interface UnresolvedOrderPort {find(q:PoolClient,checkoutId:string):Promi
 export interface CheckoutPolicyPort {required(q:PoolClient,store:CheckoutStore):Promise<readonly {policy_kind:string;policy_version_id:string}[]>}
 export interface CheckoutPaymentHandoff {handoff_url:string;attempt_ref:string;expires_at:string}
 export interface CheckoutPaymentSummary {
-  payment_state:'unpaid'|'pending'|'simulated'|'confirmed'|'overpaid';
+  payment_state:'unpaid'|'pending'|'simulated'|'confirmed'|'overpaid'|'refunded';
   latest_payment_attempt:null|{attempt_ref:string;state:'ready'|'awaiting_result'|'paid'|'failed'|'expired';created_at:string};
   can_resume_payment:boolean;
 }

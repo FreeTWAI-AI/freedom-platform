@@ -67,11 +67,11 @@ async function receipts(){for(const r of (await f.x.h.pool.query("SELECT respons
 test('manual partial/full records cap the unapplied amount, reproject replay, and close the matching case once',async()=>{
   const v=await payment(),c=await caseFor(v),key=randomUUID(),first=await record(v,100,{provider_reference:'F_'+randomUUID().replaceAll('-','')},key);assert.equal(first.status,201,JSON.stringify(first.data));const refund=SellerRefundSchema.parse(first.data);assert.equal(refund.recorded_without_provider,true);assert.equal(first.response.headers.get('ETag'),null);await receipts();
   const replay=await record(v,100,{provider_reference:refund.provider_reference},key);assert.deepEqual(replay.data,first.data);await receipts();
-  let order=SellerCheckoutOrderSchema.parse((await f.x.h.call('GET',route(v),v.p.s.owner,undefined,{},f.app)).data);assert.equal(order.payment_detail?.applications[0].refundable_minor,500);assert.equal(order.exceptions[0].status,'open');
+  let order=SellerCheckoutOrderSchema.parse((await f.x.h.call('GET',route(v),v.p.s.owner,undefined,{},f.app)).data);assert.equal(order.payment_state,'overpaid');assert.equal(order.payment_detail?.applications[0].refundable_minor,500);assert.equal(order.exceptions[0].status,'open');
   const full=await record(v,500);assert.equal(full.status,201,JSON.stringify(full.data));await receipts();
   const row=(await f.x.h.pool.query('SELECT * FROM commerce_exception_cases WHERE case_id=$1',[c.case_id])).rows[0];assert.equal(row.status,'resolved');assert.equal(row.resolution_code,'refunded');assert.equal(row.resolution_note,'店家已登記全額退款。');assert.equal(row.resolved_by_principal_id,v.principal);assert.equal(row.version,'2');
   const list=await f.x.h.call('GET',route(v)+'/refunds',v.p.s.owner,undefined,{},f.app);const items=SellerRefundListSchema.parse(list.data).items;assert.equal(items.length,2);assert.deepEqual(items.map(r=>r.amount_minor),[100,500]);
-  order=SellerCheckoutOrderSchema.parse((await f.x.h.call('GET',route(v),v.p.s.owner,undefined,{},f.app)).data);assert.equal(order.payment_detail?.applications[0].refundable_minor,0);assert.equal(order.actions.record_refund,false);
+  order=SellerCheckoutOrderSchema.parse((await f.x.h.call('GET',route(v),v.p.s.owner,undefined,{},f.app)).data);assert.equal(order.payment_state,'refunded');assert.equal(order.payment_detail?.applications[0].refundable_minor,0);assert.equal(order.actions.record_refund,false);
   assert.equal((await record(v,100)).data.code,'refund_exceeds_payment');
 });
 test('manual refund inputs reject foreign, confirmed and simulated applications, invalid unit/zero/cap/date/reference and version headers',async()=>{
@@ -103,5 +103,27 @@ test('recording and listing refunds require independent refund and finance capab
     await f.x.h.pool.query(`INSERT INTO tenant_module_permissions(tenant_id,principal_id,instance_id,capabilities,status,granted_by_principal_id) VALUES($1,$2,$3,$4,'active',$5)`,[v.p.s.tenantId,principal,v.p.s.instanceId,['store:read',cap],v.principal]);
     assert.equal((await f.x.h.call('GET',route(v)+'/refunds',m.session,undefined,{},f.app)).status,cap==='store:finance:read'?200:403);
     assert.equal((await record(v,100,{},randomUUID(),m.session)).status,cap==='store:refund'?201:403);await receipts();
+  }
+});
+
+test('buyer and seller payment axes move from overpaid to refunded or confirmed while re-pay stays disabled',async()=>{
+  for(const confirmed of [false,true]){
+    const p=await placed();
+    if(confirmed)await f.x.tx(q=>applyConfirmedPayment(q,{orderId:p.order.order_ref,paymentRef:p.payment.attempt_ref,amountMinor:500,currency:'TWD',simulated:false}));
+    let attempt=p.payment.attempt_ref;
+    if(confirmed){
+      await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='paid',trade_no='T1',paid_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[attempt]);
+      await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='confirmed',confirmed_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[attempt]);
+      const {newTradeNumber}=await import('../../modules/agent-commerce/providers/ecpay/index.js');
+      attempt=(await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,purpose,environment,merchant_id,credential_version,provider,profile,merchant_trade_no,amount_minor,currency)
+        SELECT tenant_id,instance_id,kind,order_id,sequence+1,account_id,purpose,environment,merchant_id,credential_version,provider,profile,$2,amount_minor,currency FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING attempt_id`,[attempt,newTradeNumber('F')])).rows[0].attempt_id;
+    }
+    const a=await f.x.tx(q=>applyConfirmedPayment(q,{orderId:p.order.order_ref,paymentRef:attempt,amountMinor:confirmed?500:600,currency:'TWD',simulated:false}));
+    const principal=(await f.x.h.pool.query('SELECT principal_id FROM principals WHERE user_ref=$1',[p.s.owner.user.user_id])).rows[0].principal_id,v={p,a,principal};
+    const buyer=()=>f.http('GET',f.root(p.s)+'/orders/'+p.order.order_ref,undefined,p.cookie);
+    let before=(await buyer()).data;assert.equal(before.payment_state,'overpaid');assert.equal(before.can_resume_payment,false);
+    assert.equal((await record(v,confirmed?500:600)).status,201);await receipts();
+    const after=(await buyer()).data;assert.equal(after.payment_state,confirmed?'confirmed':'refunded');assert.equal(after.can_resume_payment,false);
+    const seller=SellerCheckoutOrderSchema.parse((await f.x.h.call('GET',route(v),p.s.owner,undefined,{},f.app)).data);assert.equal(seller.payment_state,after.payment_state);assert.equal(seller.payment_detail?.applications.find(r=>r.application_ref===a.application_id)?.refundable_minor,0);
   }
 });

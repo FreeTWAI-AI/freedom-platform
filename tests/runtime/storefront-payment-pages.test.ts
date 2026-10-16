@@ -317,7 +317,7 @@ test('paymentView maps every §1 table row, simulated fallthroughs, and priority
   );
 
   // Section copy helper covers every view without mentioning simulation
-  for (const view of ['paid', 'review', 'checking', 'awaiting', 'failed', 'ready', 'expired', 'closed'] as const) {
+  for (const view of ['paid', 'refunded', 'review', 'checking', 'awaiting', 'failed', 'ready', 'expired', 'closed'] as const) {
     const copy = orderPaymentSectionCopy(view);
     assert.equal(/模擬|測試/.test(copy.label), false);
     assert.equal(/模擬|測試/.test(copy.description ?? ''), false);
@@ -742,4 +742,12 @@ test('store name with HTML characters is escaped in title, header and data attri
   assert.equal(/\bon[a-z]+\s*=/i.test(missing.html.replaceAll(escapedName, '')), false);
 
   assert.deepEqual(await tableCounts(), before);
+});
+
+test('refunded is final after overpaid and confirmed, ahead of every lifecycle and attempt fallback',()=>{
+  for(const lifecycle_state of ['open','cancelled','closed'] as const)for(const state of ['ready','awaiting_result','paid','failed','expired'] as const)for(const reservation_expired of [false,true]){
+    const refunded=makeOrder({payment_state:'refunded',lifecycle_state,reservation_expired,latest_payment_attempt:makeAttempt(state),can_resume_payment:true});
+    assert.equal(paymentView(refunded),'refunded');assert.equal(paymentView({...refunded,payment_state:'overpaid'}),'review');assert.equal(paymentView({...refunded,payment_state:'confirmed'}),'paid');
+  }
+  assert.deepEqual(orderPaymentSectionCopy('refunded'),{label:'已退款',description:'店家已登記退回這筆訂單收到的全部款項。入帳時間依發卡銀行而定，沒有收到時請聯絡店家。',canQueryWhenOpen:false});
 });

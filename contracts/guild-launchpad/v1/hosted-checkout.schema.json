@@ -812,7 +812,8 @@
                 "pending",
                 "simulated",
                 "confirmed",
-                "overpaid"
+                "overpaid",
+                "refunded"
               ]
             },
             "latest_payment_attempt": {
@@ -1194,7 +1195,8 @@
             "pending",
             "simulated",
             "confirmed",
-            "overpaid"
+            "overpaid",
+            "refunded"
           ]
         },
         "latest_payment_attempt": {
@@ -1499,7 +1501,8 @@
             "pending",
             "simulated",
             "confirmed",
-            "overpaid"
+            "overpaid",
+            "refunded"
           ]
         },
         "latest_payment_attempt": {
