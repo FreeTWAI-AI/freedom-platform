@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://freetwai.com/contracts/guild-launchpad/v1/hosted-commerce-setup",
-  "description": "Commerce release and account setup. No payment execution authority.",
+  "description": "Commerce release, account setup and controlled payment service verification. Shape validation grants no authority.",
   "$defs": {
     "empty-input": {
       "type": "object",
@@ -165,6 +165,81 @@
       "additionalProperties": false,
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_required."
     },
+    "payment-activation": {
+      "type": "object",
+      "properties": {
+        "attempt_ref": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "awaiting_result",
+            "paid",
+            "confirmed",
+            "failed",
+            "expired"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "attempt_ref",
+        "state",
+        "created_at"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "provider-activation-payment-input": {
+      "type": "object",
+      "properties": {
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_required, account_version_cas."
+    },
+    "provider-activation-payment": {
+      "type": "object",
+      "properties": {
+        "handoff_url": {
+          "type": "string",
+          "pattern": "^\\/pay\\/ecpay\\/[A-Za-z0-9_-]{43}$(?![\\s\\S])"
+        },
+        "attempt_ref": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "handoff_url",
+        "attempt_ref",
+        "expires_at"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: bearer_token_excluded_from_command_receipt."
+    },
     "provider-account": {
       "type": "object",
       "properties": {
@@ -197,6 +272,45 @@
         "created_at": {
           "type": "string",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        },
+        "payment_activation": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "attempt_ref": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "ready",
+                    "awaiting_result",
+                    "paid",
+                    "confirmed",
+                    "failed",
+                    "expired"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                }
+              },
+              "required": [
+                "attempt_ref",
+                "state",
+                "created_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "services": {
           "maxItems": 3,
@@ -281,6 +395,7 @@
         "merchant_id",
         "version",
         "created_at",
+        "payment_activation",
         "services"
       ],
       "additionalProperties": false,
@@ -323,6 +438,45 @@
               "created_at": {
                 "type": "string",
                 "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+              },
+              "payment_activation": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "attempt_ref": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "ready",
+                          "awaiting_result",
+                          "paid",
+                          "confirmed",
+                          "failed",
+                          "expired"
+                        ]
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                      }
+                    },
+                    "required": [
+                      "attempt_ref",
+                      "state",
+                      "created_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "services": {
                 "maxItems": 3,
@@ -407,6 +561,7 @@
               "merchant_id",
               "version",
               "created_at",
+              "payment_activation",
               "services"
             ],
             "additionalProperties": false
@@ -699,6 +854,9 @@
         "provider_profile_invalid",
         "provider_service_state",
         "provider_service_conflict",
+        "provider_activation_pending",
+        "commerce_quarantined",
+        "commerce_rate_limited",
         "admission_not_independent",
         "admission_revoked",
         "store_admission_exists",
@@ -751,6 +909,9 @@
             "provider_profile_invalid",
             "provider_service_state",
             "provider_service_conflict",
+            "provider_activation_pending",
+            "commerce_quarantined",
+            "commerce_rate_limited",
             "admission_not_independent",
             "admission_revoked",
             "store_admission_exists",

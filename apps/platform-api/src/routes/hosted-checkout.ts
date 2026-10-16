@@ -67,8 +67,8 @@ export function createHostedCheckoutRoutes(pool:Pool,origin:string,runtime:Platf
     return c.json(wire.PaymentHandoffResponseSchema.parse(await commands.resumePublicPayment(pool,c.req.param('slug')!,c.req.param('order_ref')!,access(c),options)),201);
   });
   app.post(root+'/orders/:order_ref/payment-queries',async c=>{
-    commands.checkoutGate(options);noQuery(c.req.url);parse(wire.PaymentHandoffInputSchema,await c.req.json());
-    return c.json(wire.PublicOrderSchema.parse(await commands.queryPublicPayment(pool,c.req.param('slug')!,c.req.param('order_ref')!,access(c),options)));
+    commands.checkoutGate(options);noQuery(c.req.url);parse(wire.PaymentQueryInputSchema,await c.req.json());
+    return c.json(wire.PaymentQueryResponseSchema.parse(await commands.queryPublicPayment(pool,c.req.param('slug')!,c.req.param('order_ref')!,access(c),options)));
   });
   app.post(root+'/orders/:order_ref/access',async c=>{
     noQuery(c.req.url);commands.quarantineGate(options);
