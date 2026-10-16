@@ -2734,8 +2734,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/OpenSourcePanels.tsx",
-      "bytes": 27259,
-      "sha256": "c9d7e27f571fdc08d3d25a48df7fe027f07f69a907ebc23650af6e8c5a168dd4"
+      "bytes": 27757,
+      "sha256": "57d5a0e94e7ba2b9b9f0462dc6becabeb0a47910294e7a09d830235619286544"
     },
     {
       "path": "apps/portal-web/src/modules/PlatformLogo.tsx",
@@ -21169,8 +21169,8 @@
     },
     {
       "path": "tests/e2e/opensource-modules.spec.ts",
-      "bytes": 7075,
-      "sha256": "362c86537d732ed194cfe2d8917b382a4fef2c22a8627f3c83c96a1c475f8a3d"
+      "bytes": 10931,
+      "sha256": "ad87f723d58f43253f0111d6067cb6300fb1f8ca636f4f646ebb5ab2a7f4dbff"
     },
     {
       "path": "tests/e2e/page-issue-recovery.spec.ts",

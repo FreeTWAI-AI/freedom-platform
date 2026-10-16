@@ -115,6 +115,8 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
   const [products,setProducts]=useState<SupplierProduct[]>([]);
   const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState<string|null>(null);
   const [campaignNextOffset,setCampaignNextOffset]=useState<number|null>(null),[campaignLoadingMore,setCampaignLoadingMore]=useState(false),[campaignPageError,setCampaignPageError]=useState<string|null>(null);
+  // Creation shifts the offset, so it must not overlap a continuation request.
+  const campaignOperationPending=useRef(false);
   const {mutate,busy,error}=useModuleMutation(client);
   const refresh=useCallback(async()=>{
     setLoading(true);setLoadError(null);setCampaignPageError(null);
@@ -134,15 +136,25 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
     setCampaigns(current=>current.map(campaign=>campaign.campaign_id===saved.campaign_id?saved:campaign));
   },[]);
   const loadMoreCampaigns=useCallback(async()=>{
-    if(campaignNextOffset===null)return;
+    if(loading||campaignNextOffset===null||campaignOperationPending.current)return;
+    campaignOperationPending.current=true;
     setCampaignLoadingMore(true);setCampaignPageError(null);
     try{
       const page=await client.get<CampaignPage>(`/marketing/campaigns?limit=20&offset=${campaignNextOffset}`);
       setCampaigns(current=>{const seen=new Set(current.map(campaign=>campaign.campaign_id));return [...current,...page.items.filter(campaign=>!seen.has(campaign.campaign_id))];});
       setCampaignNextOffset(page.next_offset);
-    }catch(cause){setCampaignPageError(cause instanceof Error?cause.message:'無法載入更多行銷草稿。');}finally{setCampaignLoadingMore(false);}
-  },[campaignNextOffset,client]);
-  async function create(event:FormEvent){event.preventDefault();setNotice(null);const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');const saved=await mutate<Campaign>('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});if(saved){setDraft({...blankCampaign});setCampaigns(current=>[saved,...current.filter(campaign=>campaign.campaign_id!==saved.campaign_id)]);setCampaignNextOffset(current=>current===null?null:current+1);setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');}}
+    }catch(cause){setCampaignPageError(cause instanceof Error?cause.message:'無法載入更多行銷草稿。');}finally{campaignOperationPending.current=false;setCampaignLoadingMore(false);}
+  },[campaignNextOffset,client,loading]);
+  async function create(event:FormEvent){
+    event.preventDefault();
+    if(loading||campaignOperationPending.current)return;
+    campaignOperationPending.current=true;setNotice(null);
+    try{
+      const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');
+      const saved=await mutate<Campaign>('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});
+      if(saved){setDraft({...blankCampaign});setCampaigns(current=>[saved,...current.filter(campaign=>campaign.campaign_id!==saved.campaign_id)]);setCampaignNextOffset(current=>current===null?null:current+1);setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');}
+    }finally{campaignOperationPending.current=false;}
+  }
   return <div className="stack">
     {notice&&<p className="banner banner-info" role="status">{notice}</p>}{error&&<p className="banner banner-error" role="alert">{error}</p>}<LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid"><section className="card stack"><div className="section-head"><h2>建立行銷草稿</h2><p>先寫文案，再到你選擇的平台自行發布。</p></div>
@@ -153,9 +165,9 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
         <label className="field">想分享給誰<input required maxLength={1000} value={draft.audience} onChange={e=>setDraft({...draft,audience:e.target.value})}/></label>
         <label className="field">希望對方下一步做什麼<input required maxLength={1000} value={draft.goal} onChange={e=>setDraft({...draft,goal:e.target.value})}/></label>
         <label className="field">文案草稿<textarea required rows={6} maxLength={6000} value={draft.draft_text} onChange={e=>setDraft({...draft,draft_text:e.target.value})}/></label>
-        <button className="btn btn-primary" disabled={busy}>儲存私人草稿</button>
+        <button className="btn btn-primary" disabled={busy||campaignLoadingMore||loading}>儲存私人草稿</button>
       </form></section>
-      <section className="stack" aria-label="我的行銷草稿" data-guide-anchor="marketing:drafts"><div className="section-head"><h2>我的行銷草稿</h2><p>已載入 {campaigns.length} 份 · 來源版本會保留下來，方便日後核對。</p></div>{loading&&<p role="status">正在載入草稿…</p>}{!loading&&!loadError&&campaigns.length===0&&<div className="card empty"><h3>把第一個想法寫下來</h3><p>從你的一件作品或活動開始，先準備一段能讓人理解的介紹。</p></div>}{campaigns.map(campaign=><CampaignCard key={campaign.campaign_id} campaign={campaign} client={client} onSaved={saveCampaign}/>)}{campaignPageError&&<p className="banner banner-error" role="alert">{campaignPageError}</p>}{campaignNextOffset!==null&&<div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={campaignLoadingMore} onClick={()=>void loadMoreCampaigns()}>{campaignLoadingMore?'載入中…':'載入更多行銷草稿'}</button></div>}</section>
+      <section className="stack" aria-label="我的行銷草稿" data-guide-anchor="marketing:drafts"><div className="section-head"><h2>我的行銷草稿</h2><p>已載入 {campaigns.length} 份 · 來源版本會保留下來，方便日後核對。</p></div>{loading&&<p role="status">正在載入草稿…</p>}{!loading&&!loadError&&campaigns.length===0&&<div className="card empty"><h3>把第一個想法寫下來</h3><p>從你的一件作品或活動開始，先準備一段能讓人理解的介紹。</p></div>}{campaigns.map(campaign=><CampaignCard key={campaign.campaign_id} campaign={campaign} client={client} onSaved={saveCampaign}/>)}{campaignPageError&&<p className="banner banner-error" role="alert">{campaignPageError}</p>}{campaignNextOffset!==null&&<div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={campaignLoadingMore||busy||loading} onClick={()=>void loadMoreCampaigns()}>{campaignLoadingMore?'載入中…':'載入更多行銷草稿'}</button></div>}</section>
     </div>
     <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','media-generator']} title="Hao 的行銷與影音技能書"/></details>
   </div>;
