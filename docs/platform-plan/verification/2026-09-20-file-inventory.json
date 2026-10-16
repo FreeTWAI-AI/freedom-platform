@@ -17499,8 +17499,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/accounts.ts",
-      "bytes": 23363,
-      "sha256": "9fa6cbc7e7bd9b05716fc1b7e7a096b7e8218b7c71b4a5d3687cff3ea467af39"
+      "bytes": 24334,
+      "sha256": "32d5768e26642cdbed1c264124b540a6bf640d49eab980bb4afac24e7d5fd279"
     },
     {
       "path": "modules/agent-commerce/payments/attempts.ts",
@@ -23184,8 +23184,8 @@
     },
     {
       "path": "tests/runtime/hosted-payment-activation.test.ts",
-      "bytes": 20340,
-      "sha256": "fd7c97cef6274f4ff0473872627e299520903f7a2d81daec6d76b58dd18a29a8"
+      "bytes": 21632,
+      "sha256": "d04a5aa3b983a407731d2dcf36c410e441f894db4e4b495a7da8997800dcd529"
     },
     {
       "path": "tests/runtime/hosted-payment-canary.test.ts",
@@ -24364,8 +24364,8 @@
     },
     {
       "path": "tests/runtime/tenant-route-matrix.test.ts",
-      "bytes": 119502,
-      "sha256": "f9048baef55508b570b9841a41064677112153588d844a3f3f8e178774d7b2c4"
+      "bytes": 119852,
+      "sha256": "683f21dddd01fd7708732aaf09f33a362d9fcb4ef50bb7352b353108321b308a"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
