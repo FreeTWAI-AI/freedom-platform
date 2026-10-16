@@ -66,14 +66,15 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | wp04-accounts | 收款帳戶與封存金鑰；重新確認身分的新用途；`storefront@1.1.0`、`hosted-store@1.1.0` 與升級；入口路由；店家准入；設定變更的控制事件（EC-SPEC-04 §1、EC-SPEC-09 §2.2～§2.5、EC-SPEC-10 §2.5、§8.2） | Codex | wp03-http | 完成（`fc/wp04-accounts` `bfab7559`；整合 `21e46a73`、`4b83fe1c`，修正輪 `38e8db3b`） |
 | refund-rules | 退款分攤的純規則：行項上限、運費建議、分攤與調低的檢查、未套用付款的退款（EC-SPEC-06 §2.5、EC-SPEC-04 §7.2） | flash | — | 完成（`fc/refund-rules` `4376e471`，整合 `69067716`） |
 | wp04-payments | attempt 與一次性交接頁、付款通知與瀏覽器返回（含閘道例外）、外部效果日誌、到期工作與例外的表、買家的付款摘要、隔離模式的付款閘門、能力 `commerce.hosted-payment.v1` 與強制下限；不呼叫綠界（EC-SPEC-04 §3～§5、EC-SPEC-09 §2.6、EC-SPEC-10 §3） | Codex | wp04-accounts、ecpay-aio | 完成（`fc/wp04-payments` `c8044968`，整合 `f852b742`） |
-| wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 進行中（`fc/wp04-queries`） |
-| wp04-seller | 賣家端的 M2 後端：`FREEDOM_COMMERCE_CONSOLE_ENABLED`（EC-SPEC-10 §2.2）、訂單讀取與聯絡卡（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 之後 |
+| wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 完成（`fc/wp04-queries` `d87650fa`，整合 `4f7b683b`） |
+| wp04-seller | 賣家端的 M2 後端：`FREEDOM_COMMERCE_CONSOLE_ENABLED`（EC-SPEC-10 §2.2）、訂單讀取與聯絡卡（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 進行中（`fc/wp04-seller`） |
 | wp04-refund-api | API 退款：operations outbox、QueryTrade/V2 與 DoAction、結果不明、每日關帳時段（EC-SPEC-04 §7.3～7.4）；正式環境預設關閉 | Codex | wp04-seller | C2 受控試用排定時 |
 | buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 完成（`fc/buyer-pay` `296e02e7`，整合 `9703443b`） |
-| emails | 交易信件的寄送：`FREEDOM_COMMERCE_EMAIL_ENABLED`、不含個資的信件佇列 `commerce_outbound_emails`、到期工作的 `email`、寄出前寫日誌、Worker 的 `EMAIL` binding 與 fixture sender、寄送打開時的 B10 表單與訂單頁的寄信說明（EC-SPEC-10 §2.2、§6，EC-SPEC-02 §4.2）；打開寄信仍由 Ted 決定 | argon | wp04-queries、buyer-pay、信件範本 | 之後 |
+| b07-live | B07、B06 接真的查詢與重新付款端點的 E2E（buyer-pay 當時只能用 `page.route` 回應） | flash | wp04-queries、buyer-pay | 進行中（`fc/b07-live`） |
+| emails | 交易信件的寄送：`FREEDOM_COMMERCE_EMAIL_ENABLED`、不含個資的信件佇列 `commerce_outbound_emails`、到期工作的 `email`、寄出前寫日誌、Worker 的 `EMAIL` binding 與 fixture sender、寄送打開時的 B10 表單與訂單頁的寄信說明（EC-SPEC-10 §2.2、§6，EC-SPEC-02 §4.2）；打開寄信仍由 Ted 決定 | argon | wp04-queries、buyer-pay、信件範本 | 進行中（`fc/emails`） |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
 | 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
-| 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-queries（到期工作的執行） | 之後 |
+| 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-queries（到期工作的執行） | 併入 emails |
 
 M2 的 staging 驗收（EC-SPEC-10 §4.6 的 J02～J04）要先能成立訂單。正式的 Worker 只接上店家准入與付款兩個 port，沒有運費報價（`ShippingQuotePort`），所以 staging 與正式環境成立訂單會回 409 `shipping_not_configured`；只有 E2E 伺服器接上 fixture 運費。運費報價由 M3 的履約模組實作（EC-SPEC-05 §3），B05 結帳頁（buyer-checkout）也排在 M3 的配送資料之後。所以 M2 的程式照常依旗標併入，staging 驗收和 M3 一起做，除非 Ted 決定提早做最小的 B05 與運費設定。
 
@@ -241,6 +242,25 @@ return locks its attempt…」在完整測試、wp04-queries 與 Supplier 同時
 `FREEDOM_COMMERCE_EMAIL_ENABLED` 打開時建立，所以第一次打開不會寄出之前訂單的信；信件佇列不含個資、豁免 RLS、結束後
 45 天刪除；寄出前寫日誌，訂單連結在寄出時才建立；店家還沒有公開聯絡 Email 時不設 Reply-To（EC-SPEC-10 §2.2、§6，
 EC-SPEC-09 §2.4、§3）。工作與測試只用 fixture sender，不寄真的信。
+
+wp04-queries 通過審查，合併為 `4f7b683b`（`fc/wp04-queries` `d87650fa`），合併後 typecheck 通過。審查找到五項，一輪修正
+（`d641f427`～`d87650fa`）：到期工作只領取有處理程式的種類，新種類留給新版程式；重新付款不再被已有後續結果的「待確認」
+擋住；交接發不出去時回它本身的 503，不再變成 1 秒後重試的「確認中」；import 移到檔頭；刪掉 Cloudflare README 過時的一句。
+Codex 另外修了一個併發問題（`05295d2a`：兩個查詢同時遇到 403 時保留較長的暫停）。驗證付款的命令沿用帳戶命令既有的包裝：
+店家停用回 403 `capability_denied`，商店實例停用回 409 `storefront_unavailable`，比上面的紀錄多一種；EC-SPEC-04 §1.2 已同步。
+查到金額或交易號碼不符算確定結果，之後不再查詢（EC-SPEC-04 §6.2、decisions.md）。Codex 收尾的完整測試在修正輪前由整合者
+中止，因為修正會改程式；合併後的整合驗證（含重跑 buyer-pay 的 E2E）與完整測試和第七批同時跑，結果記在下一次更新。
+
+第七批（2026-10-16）：
+
+| 工作 | CLI | 分支 | PostgreSQL | E2E |
+| --- | --- | --- | --- | --- |
+| wp04-seller | Codex `gpt-6.1-sol` xhigh | `fc/wp04-seller` | 55441 | 4741 |
+| emails | agy `gemini-4-argon-high` | `fc/emails` | 55442 | 4742 |
+| b07-live | agy `gemini-3.8-flash-high` | `fc/b07-live` | 55443 | 4743 |
+
+三個工作從同一個 SHA 開出。emails 的新測試路徑先登記（`0090248d`）。b07-live 只加 E2E：B07 與 B06 不模擬任何 API，
+用真的端點跑查詢付款結果、重新付款與同一訂單的查詢限額。
 
 ## 6. 共用檔案
 

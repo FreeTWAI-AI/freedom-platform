@@ -26,7 +26,7 @@
 | `merchant_id` | 綠界特店編號（非秘密，但只給店內有權者看）；(provider, environment, merchant_id) 在同一間店內唯一 |
 | `version`、建立／更新時間 | 每次改動 +1 |
 
-帳戶本身沒有狀態：啟用、停用與退役都記在服務列上。需要「這個帳戶可用」的地方（例如 §1.4 的驗證付款與它的交接頁）檢查的是 tenant 與 instance 為 `active`、帳戶屬於這間店，以及該用途的服務狀態。HTTP 命令沿用帳戶命令既有的檢查（403 `capability_denied`），交接頁與訂單交接相同（409 `payment_handoff_unavailable`）；機器路徑的到期工作不呼叫綠界，記 `tenant_inactive`（EC-SPEC-09 §2.5）。
+帳戶本身沒有狀態：啟用、停用與退役都記在服務列上。需要「這個帳戶可用」的地方（例如 §1.4 的驗證付款與它的交接頁）檢查的是 tenant 與 instance 為 `active`、帳戶屬於這間店，以及該用途的服務狀態。HTTP 命令沿用帳戶命令既有的檢查（tenant 不是 `active` 回 403 `capability_denied`，instance 不是 `active` 回 409 `storefront_unavailable`），交接頁與訂單交接相同（409 `payment_handoff_unavailable`）；機器路徑的到期工作不呼叫綠界，記 `tenant_inactive`（EC-SPEC-09 §2.5）。
 
 服務（`commerce_provider_account_services`）：
 
@@ -247,19 +247,21 @@ M2 的處理（wp04-seller）：賣家在 `GET …/exception-cases?view=retailer
 | 瀏覽器返回 | 立即（同上） | 同 attempt 每分鐘 1 次 |
 | 買家或賣家按「查詢付款結果」 | 請求當場 | 同訂單每分鐘 1 次、每小時 10 次 |
 | 重新付款（§4.3） | 請求當場 | 與「查詢付款結果」共用同訂單的限額 |
-| 排程 | attempt 建立後 10、20、40、60 分鐘 | 只查已交接的 attempt；結果確定（`confirmed`、`failed`、`expired_unpaid`）後停止。綠界建議付款 10 分鐘後查、或建立 40 分鐘後查 [2887][2890] |
-| 確認窗結束 | attempt 建立後 60 分鐘 | 已交接的 attempt 立即查詢；從未交接的不查詢，直接 `expired_unpaid`（§6.2） |
+| 排程 | attempt 建立後 10、20、40、60 分鐘 | 只查已交接的 attempt；結果確定（`confirmed`、`failed`、`expired_unpaid`，或 §6.2 的金額不符與 `TradeNo` 不符）後停止。綠界建議付款 10 分鐘後查、或建立 40 分鐘後查 [2887][2890] |
+| 確認窗結束 | attempt 建立後 60 分鐘 | 已交接的 attempt 立即查詢；從未交接的不查詢，直接 `expired_unpaid`（§6.2）；已有金額或 `TradeNo` 不符的 attempt 不查詢，狀態也不變 |
 
 ### 6.2 結果對應
 
 | 查詢結果 | 處理 |
 | --- | --- |
 | `TradeStatus=1`、金額與 `TradeNo` 相符 | `paid`（若尚未）→ `confirmed` |
-| `TradeStatus=1` 但金額不符 | `amount_mismatch` 例外 |
+| `TradeStatus=1` 但金額不符 | 和通知相同（§5.2 第 5 點）：以實付金額記付款套用 `amount_mismatch`，開 `amount_mismatch` 例外；attempt 狀態不變。驗證付款（§1.4）沒有訂單，只開例外 |
+| `TradeStatus=1` 但 `TradeNo` 和這個 attempt 已記下的不同 | `contradicting_event` 例外，不記付款套用（不知道錢屬於哪一筆交易） |
 | `TradeStatus=0`（已建立未付款） | 不變；確認窗結束後的查詢仍是如此 → `expired_unpaid` |
 | `TradeStatus=10200095`（未完成付款、交易失敗） | `failed` |
 | 查無此單、或無法辨識的回應 | 記為 `unknown`，attempt 不變；確認窗結束後仍是如此 → 不改狀態、不取消，依 §6.3 繼續查詢 |
 
+- 查詢到的金額不符或 `TradeNo` 不符，以及付款通知的金額不符，都是確定的結果：之後不再排查詢，確認窗結束時不查詢、也不改成 `expired_unpaid`，例外結案後也不重開。訂單沒有確認付款時不會自己結束，由賣家用未付款取消並登錄退款（§5.6）。
 - 查詢回應同樣以 SHA-256 CheckMacValue 驗證 [2890]；驗證失敗當 `unknown`。
 - 請求的 `TimeStamp` 3 分鐘內有效 [2890]：送出前才產生，不重用；重試時重新簽章。
 - 從未交接的 attempt（`handed_off_at` 為空）不查詢：已簽章的付款表單只在交接時送到瀏覽器，hold 到期後也不再交接（§4.1），綠界不會有這筆交易；確認窗結束時直接 `expired_unpaid`。
@@ -332,7 +334,7 @@ M2 的範圍（wp04-seller）：
 
 ## 8. 對帳與報表（EC-R23）
 
-- 每個 attempt 保存：綠界 `TradeNo`、`PaymentDate`、`PaymentType`、手續費（通知的 `PaymentTypeChargeFee`、查詢的 `HandlingCharge` [2878][2890]）。
+- 每個 attempt 保存：綠界 `TradeNo`、`PaymentDate`、`PaymentType`、手續費（通知的 `PaymentTypeChargeFee`、查詢的 `HandlingCharge` [2878][2890]）。查詢結果可能沒有付款時間，所以只由查詢確認的 attempt 可以沒有 `PaymentDate`；付款通知一定要有。
 - 收款報表（Seller Console 的 payments／reports）：已確認收款、退款（分 API 確認與人工紀錄）、手續費、待確認、例外。明示「綠界撥款到銀行」不在本系統範圍，報表不顯示「已入帳」（計畫 §10.2）。
 - 每日對帳差異清單：`paid` 但未 `confirmed` 超過 1 小時、`unknown` 退款、`unmatched` 事件、付款套用為例外但無人處理。
 - 批次下載對帳媒體（`TradeNoAio` [2896]）與撥款對帳（`FundingReconDetail`，只限正式 [2898]）列為 C4；C2 以逐筆查詢與上表為準。

@@ -15294,8 +15294,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 51217,
-      "sha256": "d1be9f648a3db25302b46699c8a5c4684c4ed37354d1eb4461b32381b398cdcf"
+      "bytes": 52219,
+      "sha256": "45f367657c11be06fcbaef299a75e94a8c41c78da4204441870229c206bf0e19"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
@@ -15339,8 +15339,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
-      "bytes": 15644,
-      "sha256": "d13e8208c98117df808f4fa8522d205beb5a3191a2a12de29b56d567cc5afd48"
+      "bytes": 16124,
+      "sha256": "b8b91b2b6823c707b98fb9792a5e7659a3816ae30ddf33f051475f3ed5096157"
     },
     {
       "path": "docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv",
@@ -15359,8 +15359,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 43134,
-      "sha256": "9a13359b156d76ff614db66d996a3fe73fc72c2ca1b1acf0a698b08d9735e1e1"
+      "bytes": 45096,
+      "sha256": "220d9aa1473831a56da6568d915be6521b04bc6c5267eab149669acf95bf1f53"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
