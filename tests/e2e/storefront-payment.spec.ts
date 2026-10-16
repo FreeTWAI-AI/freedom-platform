@@ -14,10 +14,9 @@ import {
   placeAdditionalPaymentOrder,
   readOrderDtoWithPageCookies,
 } from './storefront-payment-fixture.js';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import type { Pool } from 'pg';
 import { formatRetryAfterTaipeiTime, formatTaipeiTime } from '../../apps/portal-web/src/storefront/format.js';
-import { PublicOrderSchema } from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
 
 test('1 & 10. Pay flow and B06 privacy: B07 starts payment -> fixture checkout -> 付款成功 -> B06 已收到付款 (status only, no PII/lines/amounts) -> B07 已付款', async ({
   page,
@@ -1207,11 +1206,6 @@ test('15. Responsive layout and full-page screenshots across 1440, 1280, 768, 39
 
 const row = async (db: Pool, id: string) =>
   (await db.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1', [id])).rows[0];
-const read = async (request: APIRequestContext, slug: string, id: string) => {
-  const r = await request.get(`/api/v1/public/stores/${slug}/orders/${id}`);
-  expect(r.status()).toBe(200);
-  return PublicOrderSchema.parse(await r.json());
-};
 async function enter(page: Page, url: string) {
   await page.goto(url);
   await expect(page.getByRole('heading', { name: '本機付款測試', exact: true })).toBeVisible();
