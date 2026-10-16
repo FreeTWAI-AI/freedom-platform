@@ -213,6 +213,7 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/suspend': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/resume': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/retire': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/payment/activation-payments': 'tenant',
   'POST /admin/api/commerce/store-admissions': 'admin',
   'GET /admin/api/commerce/store-admissions': 'admin',
   'POST /admin/api/commerce/store-admissions/:admission_id/revoke': 'admin',
@@ -549,8 +550,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 93, middleware: 2 });
-  assert.equal(selectedRoutes.length, 126);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 94, middleware: 2 });
+  assert.equal(selectedRoutes.length, 127);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -596,6 +597,7 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/suspend', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/resume', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/retire', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/payment/activation-payments', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel', body: {}, version: '"1"' },
