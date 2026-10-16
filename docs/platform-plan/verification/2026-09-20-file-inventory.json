@@ -17304,8 +17304,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/pages/Material.tsx",
-      "bytes": 21192,
-      "sha256": "213d877779f41c66beb8e981385b6fea4ae65f1943448acf8cc044a5b54ae2b4"
+      "bytes": 21651,
+      "sha256": "3d79be8a02445ae9ac1695151d7e6c62b8e26fdf2d824f6d58393d42e068593e"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/pages/MaterialNew.tsx",
