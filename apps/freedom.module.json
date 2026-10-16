@@ -50,6 +50,7 @@
     "apps/platform-api/src/runtime.ts",
     "apps/platform-api/src/server.ts",
     "apps/platform-api/src/worker.ts",
+    "apps/platform-api/src/generated/runtime-text.ts",
     "apps/portal-web/src/App.tsx",
     "apps/portal-web/src/Navigation.tsx",
     "apps/portal-web/src/ShareLauncher.tsx",

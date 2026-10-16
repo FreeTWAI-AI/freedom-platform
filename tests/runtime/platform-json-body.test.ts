@@ -15,6 +15,30 @@ function request(body: BodyInit, extra: Record<string, string> = {}) {
   } as RequestInit));
 }
 
+test('JSON media type tokens ignore case and permit SP or HTAB before parameters without bypassing body guards',async()=>{
+  for(const contentType of ['Application/JSON','APPLICATION/JSON; charset=UTF-8','application/json ; charset=UTF-8','application/Json\t;\tcharset="UTF-8"']){
+    const send=(body:BodyInit)=>app.request(new Request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':contentType},body,
+    }));
+    for(const [body,status,code] of [
+      ['{}',401,'login_required'],['{',400,'invalid_json'],['"\\u0000"',422,'validation_failed'],['"\\ud800"',422,'validation_failed'],[' '.repeat(32769),413,'body_too_large'],
+    ] as const){
+      const response=await send(body);
+      assert.equal(response.status,status,contentType);
+      assert.equal((await response.json()).code,code,contentType);
+    }
+    const invalidUtf8=await send(Uint8Array.of(0x22,0xc3,0x28,0x22));
+    assert.equal(invalidUtf8.status,400);assert.equal((await invalidUtf8.json()).code,'invalid_json');
+  }
+});
+
+test('JSON media type recognition rejects prefix lookalikes, other types and non-HTTP whitespace',async()=>{
+  for(const contentType of ['application/jsonp','application/json-seq','application/problem+json','text/plain','text/json','application/json\u00a0; charset=UTF-8']){
+    const response=await request('{}',{'Content-Type':contentType});
+    assert.equal(response.status,415,contentType);assert.equal((await response.json()).code,'json_required');
+  }
+});
+
 test('oversized JSON without Content-Length is cancelled before draining the source', async () => {
   let pulled = 0, cancelled = false;
   const body = new ReadableStream<Uint8Array>({

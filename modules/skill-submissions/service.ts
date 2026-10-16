@@ -465,7 +465,7 @@ export async function revokeKey(pool: Pool, input: Command, id: string) {
 // ---------- Agent (bearer credentials, no cookies) ----------
 
 function bearerHash(header: string | undefined, prefix: string, code: string, message: string) {
-  const match = header?.match(/^Bearer ((?:fpk|fpg)_[A-Za-z0-9_-]{43})$/);
+  const match = header?.match(/^[Bb][Ee][Aa][Rr][Ee][Rr] +((?:fpk|fpg)_[A-Za-z0-9_-]{43})$/);
   requireCondition(match && match[1].startsWith(prefix), 401, code, message);
   return tokenHash(match[1]);
 }
