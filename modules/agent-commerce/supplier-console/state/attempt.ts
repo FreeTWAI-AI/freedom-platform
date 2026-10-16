@@ -1,5 +1,5 @@
 import {SupplyCatalogReceiptSchema,SupplyProductReceiptSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-catalog';
-import {SupplyProfileReceiptSchema} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import {SupplyMaterialReceiptSchema,SupplyProfileReceiptSchema} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import {SupplyTermsSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms';
 import {SupplyOfferSchema,DistributionSchema} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {ReservationSettingSchema} from '../../../../contracts/guild-launchpad/v1/hosted-shared-order';
@@ -7,6 +7,13 @@ import {ApiError} from '../../../../apps/portal-web/src/api';
 import type {ConsoleScope} from '../ui/route';
 const rule=(schema:{safeParse:(raw:unknown)=>{success:boolean;data?:unknown}},ack:string|null,reads:string[])=>({schema,ack,reads});
 export const ATTEMPT_KINDS={
+ 'material.create':rule(SupplyMaterialReceiptSchema,null,['materials','material']),
+ 'material.update':rule(SupplyMaterialReceiptSchema,'material_id',['materials','material']),
+ 'material.copy':rule(SupplyMaterialReceiptSchema,'material_id',['materials','material']),
+ 'material.access':rule(SupplyMaterialReceiptSchema,'material_id',['materials','material']),
+ 'material.grant':rule(SupplyMaterialReceiptSchema,'material_id',['materials','material']),
+ 'material.revoke':rule(SupplyMaterialReceiptSchema,'material_id',['materials','material']),
+ 'material.withdraw':rule(SupplyMaterialReceiptSchema,'material_id',['materials','material']),
  'profile.setup':rule(SupplyCatalogReceiptSchema,'instance_id',['profile','overview']),
  'profile.update':rule(SupplyProfileReceiptSchema,'instance_id',['profile','owner','overview']),
  'product.create':rule(SupplyProductReceiptSchema,null,['profile','products','overview','product']),
