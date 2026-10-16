@@ -10,7 +10,7 @@ function check(config,setup) {
   try{writeFileSync(path,JSON.stringify(config));return checkCommerceWranglerConfig(setup?.(dir,path)??path);}finally{rmSync(dir,{recursive:true,force:true});}
 }
 test('commerce declarations default off in every environment',()=>{assert.equal(check({env:{next:{},'staging-next':{vars:{FREEDOM_COMMERCE_QUARANTINE:'false'}}}}).structural,true);});
-for(const flag of ['FREEDOM_COMMERCE_CHECKOUT_ENABLED','FREEDOM_COMMERCE_QUARANTINE'])for(const value of [true,false,'TRUE',' true','false ',1,null]) {
+for(const flag of ['FREEDOM_COMMERCE_CHECKOUT_ENABLED','FREEDOM_COMMERCE_QUARANTINE','FREEDOM_COMMERCE_EMAIL_ENABLED'])for(const value of [true,false,'TRUE',' true','false ',1,null]) {
   test(`${flag} rejects invalid flag type/value ${JSON.stringify(value)}`,()=>{
     const result=check({env:{next:{vars:{[flag]:value}}}});assert.equal(result.structural,false);assert(result.errors.includes('commerce_flag_invalid'));
   });
@@ -48,6 +48,17 @@ test('each environment with provider profiles must declare its own journal bindi
   for(const declaration of [{vars},{vars,r2_buckets:[]},{vars,r2_buckets:[{binding:'MEDIA'}]},{vars,r2_buckets:{}},{r2_buckets,env:{next:{vars}}}])assert(check(declaration).errors.includes('commerce_journal_binding_required'));
   assert.equal(check({env:{next:{vars,r2_buckets}}}).structural,true);
 });
+test('each environment with commerce email enabled must declare its own EMAIL send_email and COMMERCE_JOURNAL bindings',()=>{
+  const vars={FREEDOM_COMMERCE_EMAIL_ENABLED:'true'},send_email=[{name:'EMAIL'}],r2_buckets=[{binding:'COMMERCE_JOURNAL',bucket_name:'synthetic-journal'}];
+  assert.equal(check({vars,send_email,r2_buckets}).structural,true);
+  assert.equal(check({env:{next:{vars,send_email,r2_buckets}}}).structural,true);
+  for(const declaration of [{vars,r2_buckets},{vars,send_email:[],r2_buckets},{vars,send_email:[{name:'OTHER'}],r2_buckets},{vars,send_email:{},r2_buckets},{send_email,r2_buckets,env:{next:{vars,r2_buckets}}}]){
+    const result=check(declaration);assert.equal(result.structural,false);assert(result.errors.includes('commerce_email_binding_required'));
+  }
+  for(const declaration of [{vars,send_email},{vars,send_email,r2_buckets:[]},{r2_buckets,env:{next:{vars,send_email}}}]){
+    const result=check(declaration);assert.equal(result.structural,false);assert(result.errors.includes('commerce_journal_binding_required'));
+  }
+});
 
 
 const paymentBlock = bucket => ({ vars: { FREEDOM_COMMERCE_PROVIDER_PROFILES: 'ecpay.aio.credit.v1' }, r2_buckets: [{ binding: 'COMMERCE_JOURNAL', bucket_name: bucket }] });
@@ -80,3 +91,4 @@ test('review 15: distinct journal buckets and media buckets pass across environm
   config.env.public.r2_buckets.push({ binding: 'MEDIA', bucket_name: 'synthetic-public-media' });
   assert.deepEqual(check(config).errors, []);
 });
+

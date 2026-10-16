@@ -64,6 +64,7 @@ import { workerPreviewFetch } from './worker-preview-fetch.js';
 export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   COMMERCE_CREDENTIAL_KEYS?:string;
   FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
+  FREEDOM_COMMERCE_EMAIL_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
   FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
   COMMERCE_JOURNAL?:Pick<R2Bucket,'put'|'get'>;
@@ -84,7 +85,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   /** Separate private-origin bucket, read-only purpose-specific public asset path. */
   GUIDE_STATIC?: GuideR2Binding;
   FREEDOM_PUBLIC_GUIDE_ENABLED?: string;
-  EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
+  EMAIL?: {send(message:{to:string;from:string;subject:string;text:string;replyTo?:string}):Promise<{messageId:string}>};
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
@@ -145,6 +146,10 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if(commerceSettings.providerProfiles.length){
     if(!commerceCredentialKeyring)throw new ReadinessError('commerce_profiles_require_keyring');
     if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_profiles_require_journal');
+  }
+  if(commerceSettings.emailEnabled){
+    if(typeof env.EMAIL?.send!=='function')throw new ReadinessError('commerce_email_binding_required');
+    if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_journal_binding_required');
   }
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
