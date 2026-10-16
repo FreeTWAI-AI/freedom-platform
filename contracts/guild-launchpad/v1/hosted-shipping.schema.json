@@ -20,7 +20,248 @@
         "home",
         "cvs:UNIMARTC2C",
         "cvs:FAMIC2C",
+        "cvs:HILIFEC2C",
+        "meetup"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "logistics-delivery-method": {
+      "type": "string",
+      "enum": [
+        "home",
+        "cvs:UNIMARTC2C",
+        "cvs:FAMIC2C",
         "cvs:HILIFEC2C"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "meetup-delivery-option": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "const": "meetup"
+        },
+        "note": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+            },
+            {
+              "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+            }
+          ]
+        }
+      },
+      "required": [
+        "method",
+        "note"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "checkout-delivery-input": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "home"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "postal_code": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "address": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "required": [
+            "method",
+            "name",
+            "mobile",
+            "postal_code",
+            "address"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "cvs:UNIMARTC2C"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "cvs:FAMIC2C"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "cvs:HILIFEC2C"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "meetup"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "cart-delivery-input": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "home"
+            },
+            "postal_code": {
+              "type": "string",
+              "maxLength": 10
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "cvs:UNIMARTC2C"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "cvs:FAMIC2C"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "cvs:HILIFEC2C"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "meetup"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        }
       ],
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
     },
@@ -386,81 +627,110 @@
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
     },
     "delivery-option": {
-      "type": "object",
-      "properties": {
-        "method": {
-          "type": "string",
-          "enum": [
-            "home",
-            "cvs:UNIMARTC2C",
-            "cvs:FAMIC2C",
-            "cvs:HILIFEC2C"
-          ]
-        },
-        "fee_per_parcel_minor": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000,
-          "multipleOf": 100
-        },
-        "free_over_minor": {
-          "anyOf": [
-            {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "home",
+                "cvs:UNIMARTC2C",
+                "cvs:FAMIC2C",
+                "cvs:HILIFEC2C"
+              ]
+            },
+            "fee_per_parcel_minor": {
               "type": "integer",
-              "minimum": 100,
-              "maximum": 1000000000,
+              "minimum": 0,
+              "maximum": 1000000,
               "multipleOf": 100
             },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "outlying": {
-          "oneOf": [
-            {
-              "type": "object",
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "excluded"
-                }
-              },
-              "required": [
-                "kind"
-              ],
-              "additionalProperties": false
-            },
-            {
-              "type": "object",
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "surcharge"
-                },
-                "surcharge_per_parcel_minor": {
+            "free_over_minor": {
+              "anyOf": [
+                {
                   "type": "integer",
-                  "minimum": 0,
-                  "maximum": 1000000,
+                  "minimum": 100,
+                  "maximum": 1000000000,
                   "multipleOf": 100
+                },
+                {
+                  "type": "null"
                 }
-              },
-              "required": [
-                "kind",
-                "surcharge_per_parcel_minor"
-              ],
-              "additionalProperties": false
+              ]
+            },
+            "outlying": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "excluded"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "surcharge"
+                    },
+                    "surcharge_per_parcel_minor": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000,
+                      "multipleOf": 100
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "surcharge_per_parcel_minor"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
             }
-          ]
+          },
+          "required": [
+            "method",
+            "fee_per_parcel_minor",
+            "free_over_minor",
+            "outlying"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "meetup"
+            },
+            "note": {
+              "type": "string",
+              "allOf": [
+                {
+                  "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                },
+                {
+                  "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                }
+              ]
+            }
+          },
+          "required": [
+            "method",
+            "note"
+          ],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "method",
-        "fee_per_parcel_minor",
-        "free_over_minor",
-        "outlying"
       ],
-      "additionalProperties": false,
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
     },
     "drop-ship-fee": {
@@ -664,84 +934,113 @@
           }
         },
         "delivery_options": {
-          "maxItems": 4,
+          "maxItems": 5,
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "method": {
-                "type": "string",
-                "enum": [
-                  "home",
-                  "cvs:UNIMARTC2C",
-                  "cvs:FAMIC2C",
-                  "cvs:HILIFEC2C"
-                ]
-              },
-              "fee_per_parcel_minor": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 1000000,
-                "multipleOf": 100
-              },
-              "free_over_minor": {
-                "anyOf": [
-                  {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "home",
+                      "cvs:UNIMARTC2C",
+                      "cvs:FAMIC2C",
+                      "cvs:HILIFEC2C"
+                    ]
+                  },
+                  "fee_per_parcel_minor": {
                     "type": "integer",
-                    "minimum": 100,
-                    "maximum": 1000000000,
+                    "minimum": 0,
+                    "maximum": 1000000,
                     "multipleOf": 100
                   },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "outlying": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "const": "excluded"
-                      }
-                    },
-                    "required": [
-                      "kind"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "const": "surcharge"
-                      },
-                      "surcharge_per_parcel_minor": {
+                  "free_over_minor": {
+                    "anyOf": [
+                      {
                         "type": "integer",
-                        "minimum": 0,
-                        "maximum": 1000000,
+                        "minimum": 100,
+                        "maximum": 1000000000,
                         "multipleOf": 100
+                      },
+                      {
+                        "type": "null"
                       }
-                    },
-                    "required": [
-                      "kind",
-                      "surcharge_per_parcel_minor"
-                    ],
-                    "additionalProperties": false
+                    ]
+                  },
+                  "outlying": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "excluded"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "surcharge"
+                          },
+                          "surcharge_per_parcel_minor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000,
+                            "multipleOf": 100
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "surcharge_per_parcel_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
                   }
-                ]
+                },
+                "required": [
+                  "method",
+                  "fee_per_parcel_minor",
+                  "free_over_minor",
+                  "outlying"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "const": "meetup"
+                  },
+                  "note": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                      },
+                      {
+                        "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "method",
+                  "note"
+                ],
+                "additionalProperties": false
               }
-            },
-            "required": [
-              "method",
-              "fee_per_parcel_minor",
-              "free_over_minor",
-              "outlying"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "drop_ship": {
@@ -935,84 +1234,113 @@
           }
         },
         "delivery_options": {
-          "maxItems": 4,
+          "maxItems": 5,
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "method": {
-                "type": "string",
-                "enum": [
-                  "home",
-                  "cvs:UNIMARTC2C",
-                  "cvs:FAMIC2C",
-                  "cvs:HILIFEC2C"
-                ]
-              },
-              "fee_per_parcel_minor": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 1000000,
-                "multipleOf": 100
-              },
-              "free_over_minor": {
-                "anyOf": [
-                  {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "home",
+                      "cvs:UNIMARTC2C",
+                      "cvs:FAMIC2C",
+                      "cvs:HILIFEC2C"
+                    ]
+                  },
+                  "fee_per_parcel_minor": {
                     "type": "integer",
-                    "minimum": 100,
-                    "maximum": 1000000000,
+                    "minimum": 0,
+                    "maximum": 1000000,
                     "multipleOf": 100
                   },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "outlying": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "const": "excluded"
-                      }
-                    },
-                    "required": [
-                      "kind"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "const": "surcharge"
-                      },
-                      "surcharge_per_parcel_minor": {
+                  "free_over_minor": {
+                    "anyOf": [
+                      {
                         "type": "integer",
-                        "minimum": 0,
-                        "maximum": 1000000,
+                        "minimum": 100,
+                        "maximum": 1000000000,
                         "multipleOf": 100
+                      },
+                      {
+                        "type": "null"
                       }
-                    },
-                    "required": [
-                      "kind",
-                      "surcharge_per_parcel_minor"
-                    ],
-                    "additionalProperties": false
+                    ]
+                  },
+                  "outlying": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "excluded"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "surcharge"
+                          },
+                          "surcharge_per_parcel_minor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000,
+                            "multipleOf": 100
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "surcharge_per_parcel_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
                   }
-                ]
+                },
+                "required": [
+                  "method",
+                  "fee_per_parcel_minor",
+                  "free_over_minor",
+                  "outlying"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "const": "meetup"
+                  },
+                  "note": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                      },
+                      {
+                        "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "method",
+                  "note"
+                ],
+                "additionalProperties": false
               }
-            },
-            "required": [
-              "method",
-              "fee_per_parcel_minor",
-              "free_over_minor",
-              "outlying"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "drop_ship": {
@@ -1253,84 +1581,113 @@
                   }
                 },
                 "delivery_options": {
-                  "maxItems": 4,
+                  "maxItems": 5,
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "method": {
-                        "type": "string",
-                        "enum": [
-                          "home",
-                          "cvs:UNIMARTC2C",
-                          "cvs:FAMIC2C",
-                          "cvs:HILIFEC2C"
-                        ]
-                      },
-                      "fee_per_parcel_minor": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 1000000,
-                        "multipleOf": 100
-                      },
-                      "free_over_minor": {
-                        "anyOf": [
-                          {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "method": {
+                            "type": "string",
+                            "enum": [
+                              "home",
+                              "cvs:UNIMARTC2C",
+                              "cvs:FAMIC2C",
+                              "cvs:HILIFEC2C"
+                            ]
+                          },
+                          "fee_per_parcel_minor": {
                             "type": "integer",
-                            "minimum": 100,
-                            "maximum": 1000000000,
+                            "minimum": 0,
+                            "maximum": 1000000,
                             "multipleOf": 100
                           },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "outlying": {
-                        "oneOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "kind": {
-                                "type": "string",
-                                "const": "excluded"
-                              }
-                            },
-                            "required": [
-                              "kind"
-                            ],
-                            "additionalProperties": false
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "kind": {
-                                "type": "string",
-                                "const": "surcharge"
-                              },
-                              "surcharge_per_parcel_minor": {
+                          "free_over_minor": {
+                            "anyOf": [
+                              {
                                 "type": "integer",
-                                "minimum": 0,
-                                "maximum": 1000000,
+                                "minimum": 100,
+                                "maximum": 1000000000,
                                 "multipleOf": 100
+                              },
+                              {
+                                "type": "null"
                               }
-                            },
-                            "required": [
-                              "kind",
-                              "surcharge_per_parcel_minor"
-                            ],
-                            "additionalProperties": false
+                            ]
+                          },
+                          "outlying": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "excluded"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "surcharge"
+                                  },
+                                  "surcharge_per_parcel_minor": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000,
+                                    "multipleOf": 100
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "surcharge_per_parcel_minor"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
                           }
-                        ]
+                        },
+                        "required": [
+                          "method",
+                          "fee_per_parcel_minor",
+                          "free_over_minor",
+                          "outlying"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "method": {
+                            "type": "string",
+                            "const": "meetup"
+                          },
+                          "note": {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                              },
+                              {
+                                "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "method",
+                          "note"
+                        ],
+                        "additionalProperties": false
                       }
-                    },
-                    "required": [
-                      "method",
-                      "fee_per_parcel_minor",
-                      "free_over_minor",
-                      "outlying"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "drop_ship": {
