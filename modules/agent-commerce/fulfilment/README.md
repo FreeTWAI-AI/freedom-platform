@@ -224,7 +224,10 @@ retires the previous row and, if referenced, appends one profile version replaci
 all sender/return references in the same transaction. Used roles must be preserved.
 A referenced location cannot retire independently. Twenty unretired locations are
 allowed per store. Sender validation uses `validateHomeRecipient` and retains its
-normalized fields. Command receipts contain only `{ id }`; fresh commands and
+normalized fields. The shared command boundary rejects raw NUL and lone UTF-16
+surrogates anywhere in a body with 400 `invalid_command_json`, before authorization
+or domain validation; other control characters in labels and addresses produce
+422 `shipping_input_invalid` field errors. Command receipts contain only `{ id }`; fresh commands and
 replays project current rows within the same authorized transaction. No location
 personal data belongs in a receipt, log, Problem detail, control event or journal.
 

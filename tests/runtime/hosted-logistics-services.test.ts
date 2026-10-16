@@ -76,7 +76,7 @@ describe('logistics sub-types',()=>{
     a=await activate(s,a.account_id);a=h.expect(await state(s,a,'suspend'));await flushControlEvents(h.f.x.runtime,h.f.journal,{limit:200});
     const rows=(await h.f.x.h.pool.query("SELECT * FROM commerce_control_events WHERE kind LIKE 'logistics_service.%' ORDER BY occurred_at")).rows;assert.equal(rows.length,5);
     for(const row of rows){assert(SERVICE_KEYS.includes(row.detail.service_key));assert.deepEqual(Object.keys(row.detail).sort(),(row.kind==='logistics_service.created'?['environment','service_key']:['from_state','service_key','to_state']).sort());assert(row.journaled_at);}
-    const journal=[...h.f.journal.objects.values()].map(bytes=>JSON.parse(bytes)).filter(r=>r.kind.startsWith('control.logistics_service.'));assert.equal(journal.length,5);for(const row of journal){assert(SERVICE_KEYS.includes(row.detail.service_key));assert(Object.keys(row.detail).every(key=>['service_key','from_state','to_state'].includes(key)));}
+    const journal=[...h.f.journal.objects.values()].map(bytes=>JSON.parse(bytes)).filter(r=>r.tenant_id===s.tenantId&&r.kind.startsWith('control.logistics_service.'));assert.equal(journal.length,5);for(const row of journal){assert(SERVICE_KEYS.includes(row.detail.service_key));assert(Object.keys(row.detail).every(key=>['service_key','from_state','to_state'].includes(key)));}
     const retired=h.expect(await state(s,a,'retire'));assert.equal(retired.logistics_services.length,2);
   });
 });

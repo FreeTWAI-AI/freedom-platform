@@ -30,8 +30,9 @@ export function createShipFromLocation(pool:Pool,actor:SettingsActor,tenantId:st
     const fields:ShippingFieldError[]=[],label=input.label.trim();
     if(!label)fields.push({path:'label',code:'required'});
     if([...label].length>40)fields.push({path:'label',code:'too_long'});
-    if(/[\u0000-\u001F\u007F-\u009F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(label))fields.push({path:'label',code:'format'});
+    if(/[\u0000-\u001F\u007F-\u009F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(input.label))fields.push({path:'label',code:'format'});
     const validated=validateHomeRecipient({name:input.sender_name,mobile:input.mobile,postal_code:input.postal_code,address:input.address});
+    if(/[\u0001-\u001F\u007F-\u009F]/.test(input.address))fields.push({path:'address',code:'format'});
     if(!validated.ok)fields.push(...validated.errors.map(e=>({path:e.field==='name'?'sender_name':e.field,code:e.code})));
     if(!input.ships&&!input.receives_returns)fields.push({path:'ships',code:'required'});
     if(fields.length)throw new ShippingSettingsProblem(422,'shipping_input_invalid',fields);

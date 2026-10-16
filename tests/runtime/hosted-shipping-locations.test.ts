@@ -9,7 +9,7 @@ describe('shipping locations',()=>{
   let h:ShippingSettingsHarness;
   before(async()=>{h=await shippingSettingsHarness('fp_ship_locations');});beforeEach(async()=>h.reset());after(async()=>h?.stop());
   async function receipts(){for(const row of (await h.f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation LIKE 'commerce.ship_from_location.%'")).rows){assert.deepEqual(Object.keys(row.response),['id']);assert.match(row.response.id,/^[0-9a-f-]{36}$/);}}
-  async function create(s:ShippingTestStore,input=h.locationInput(),status=201,key=randomUUID()){
+  async function create(s:ShippingTestStore,input:ReturnType<ShippingSettingsHarness['locationInput']>&{replaces_location_id?:string}=h.locationInput(),status=201,key=randomUUID()){
     const r=await h.request(s,'POST','/ship-from-locations',input,undefined,s.owner,key);assert.equal(r.status,status,JSON.stringify(r.data));await receipts();if(status===201)ShipFromLocationSchema.parse(r.data);return r;
   }
   async function retire(s:ShippingTestStore,id:string,status=200){const r=await h.request(s,'POST',`/ship-from-locations/${id}/retire`,{});assert.equal(r.status,status,JSON.stringify(r.data));await receipts();return r;}
@@ -20,8 +20,17 @@ describe('shipping locations',()=>{
     const full=(s:string)=>s.replace(/[0-9]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0xfee0));
     const r=await create(s,{...input,label:' '+input.label+' ',mobile:full('+886'+input.mobile.slice(1)),postal_code:full(input.postal_code)});
     assert.equal(r.data.mobile,input.mobile);assert.equal(r.data.postal_code,input.postal_code);assert.equal(r.data.label,input.label);
-    const cases:[string,string,string][]=[['sender_name',' ','required'],['sender_name','星','too_short'],['sender_name','星'.repeat(6),'too_long'],['sender_name','A1','format'],['sender_name','Echo','blocked_term'],['mobile',' ','required'],['mobile','123','format'],['postal_code',' ','required'],['postal_code','12','format'],['postal_code','000','unknown_postal_code'],['address',' ','required'],['address','星禾路','too_short'],['address','星'.repeat(61),'too_long'],['address','合成星禾路<一號','format'],['address','合成Echo路一百號','blocked_term'],['address','合成星禾路\ud800一號','format'],['label',' ','required'],['label','倉'.repeat(41),'too_long'],['label','星\u0001禾','format']];
+    const cases:[string,string,string][]=[['sender_name',' ','required'],['sender_name','星','too_short'],['sender_name','星'.repeat(6),'too_long'],['sender_name','A1','format'],['sender_name','Echo','blocked_term'],['mobile',' ','required'],['mobile','123','format'],['postal_code',' ','required'],['postal_code','12','format'],['postal_code','000','unknown_postal_code'],['address',' ','required'],['address','星禾路','too_short'],['address','星'.repeat(61),'too_long'],['address','合成星禾路<一號','format'],['address','合成Echo路一百號','blocked_term'],['label',' ','required'],['label','倉'.repeat(41),'too_long'],['label','星\u0001禾','format'],['label','\t合成倉','format'],['label','星\u001f禾','format'],['label','星\u007f禾','format'],['address','合成星\u0001禾路一號','format'],['address','合成星\u001f禾路一號','format'],['address','合成星\u007f禾路一號','format'],['address','合成星\t禾路一號','format']];
     for(const [path,value,code] of cases){const e=await create(s,{...input,[path]:value},422);ShippingErrorSchema.parse(e.data);assert(e.data.fields.some((f:{path:string;code:string})=>f.path===path&&f.code===code),JSON.stringify(e.data));}
+    const counts=async()=> (await h.f.x.h.pool.query(`SELECT
+      (SELECT count(*)::int FROM commerce_ship_from_locations WHERE instance_id=$1) AS locations,
+      (SELECT count(*)::int FROM commerce_shipping_profile_versions WHERE instance_id=$1) AS profiles`,[s.instanceId])).rows[0];
+    const before=await counts();
+    for(const path of ['label','sender_name','address'])for(const invalid of ['\u0000','\ud800']){
+      const rejected=await create(s,{...input,[path]:input[path as keyof typeof input]+invalid},400);
+      assert.equal(rejected.data.code,'invalid_command_json');ShippingErrorSchema.parse(rejected.data);
+      assert.deepEqual(await counts(),before,`raw command rejection changed rows for ${path}`);
+    }
     const errors=await create(s,{...input,label:' ',sender_name:'X',mobile:'1',postal_code:'000',address:'短',ships:false,receives_returns:false},422);assert.equal(errors.data.fields.length,6);
     await retire(s,r.data.location_id);await receipts();
     const elsewhere=JSON.stringify({logs,events:(await h.f.x.h.pool.query('SELECT detail FROM commerce_control_events')).rows,journal:[...h.f.journal.objects.values()]});
