@@ -28,8 +28,9 @@ eligibility and revokes the route while filling `handed_off_at`. One attempt can
 be handed off once. A concurrent loser receives 410.
 
 The minimal Traditional Chinese page has escaped hidden fields, external script
-and stylesheet, a noscript submit, delayed manual fallback and a back-forward
-cache guard. Only valid token paths extend CSP `form-action` to the configured
+and stylesheet, an immediate noscript submit, a 10-second manual fallback with
+a one-use click handler, and a back-forward cache guard that reveals the stored
+order back link without resubmitting. Both buttons read 前往綠界付款. Only valid token paths extend CSP `form-action` to the configured
 gateway action origin. Every payment page uses no-store, no-referrer and noindex.
 
 `gateway.ts` is the only constructor of provider callback/return/back URLs.

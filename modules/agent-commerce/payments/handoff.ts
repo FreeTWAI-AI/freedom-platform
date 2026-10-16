@@ -97,5 +97,5 @@ export async function servePaymentHandoff(pool: Pool, token: string, network: st
     return invalid(410, route.target_id);
   if (consumed.failure)
     return { status: consumed.failure.status, html: handoffErrorPage(consumed.failure.message, back) };
-  return { status: 200, html: handoffFormPage(form, context.gateway.checkoutAction) };
+  return { status: 200, html: handoffFormPage(form, context.gateway.checkoutAction, context.attempt.attempt_id) };
 }

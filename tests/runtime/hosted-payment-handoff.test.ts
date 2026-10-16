@@ -384,7 +384,7 @@ test('handoff rate limit returns a 429 HTML page with Retry-After before resolvi
   await unused(p.payment.attempt_ref);
 });
 test('HTML escapes every signed name/value and the form action', () => {
-  const html = handoffFormPage({ action: 'https://unused.test', fields: [['a"<&\'', 'b"<&\'>']] }, 'https://safe.test/?x="<&\'');
+  const html = handoffFormPage({ action: 'https://unused.test', fields: [['a"<&\'', 'b"<&\'>']] }, 'https://safe.test/?x="<&\'', randomUUID());
   assert(html.includes('name="a&quot;&lt;&amp;&#39;" value="b&quot;&lt;&amp;&#39;&gt;"'));
   assert(html.includes('action="https://safe.test/?x=&quot;&lt;&amp;&#39;"'));
 });
@@ -397,27 +397,45 @@ test('handoff CSP permits the configured destination on token paths alone', asyn
   const r = await page(p.payment.handoff_url);
   assert(r.response.headers.get('Content-Security-Policy')!.endsWith("form-action 'self' " + f.origin));
 });
-test('handoff script submits once on load, exposes the timed fallback and refuses a BFCache resubmission', async () => {
-  const handlers = new Map<string, Function>(), timers: Function[] = [];
-  let submissions = 0;
-  const form = { hidden: false }, status = { textContent: '' }, manual = { hidden: true, disabled: false };
-  const context = { document: { querySelector: () => form, getElementById: (id: string) => id === 'handoff-status' ? status : manual }, window: { addEventListener: (name: string, fn: Function) => handlers.set(name, fn) }, HTMLFormElement: { prototype: { submit() { submissions++; } } }, setTimeout: (fn: Function, ms: number) => { assert.equal(ms, 3000); timers.push(fn); return 1; }, clearTimeout() { } };
+test('review 7: handoff fallback waits ten seconds and submits at most once per deliberate tap', async () => {
+  const handlers = new Map<string, Function>(), clicks = new Map<string, Function>(), timers: Function[] = [];
+  let submissions = 0, prevented = 0;
+  const form = { hidden: false }, status = { textContent: '' }, help = { hidden: true }, back = { hidden: true };
+  const manual = { hidden: true, disabled: false, addEventListener: (name: string, fn: Function) => clicks.set(name, fn) };
+  const elements = { 'handoff-status': status, 'handoff-manual': manual, 'handoff-help': help, 'handoff-back': back };
+  const context = { document: { querySelector: () => form, getElementById: (id: keyof typeof elements) => elements[id] }, window: { addEventListener: (name: string, fn: Function) => handlers.set(name, fn) }, HTMLFormElement: { prototype: { submit() { assert.equal(this, form); submissions++; } } }, setTimeout: (fn: Function, ms: number) => { assert.equal(ms, 10000); timers.push(fn); return 1; }, clearTimeout() {} };
   runInNewContext(HANDOFF_SCRIPT, context);
   handlers.get('load')!();
   handlers.get('load')!();
   assert.equal(submissions, 1);
-  assert(manual.hidden);
+  assert(manual.hidden && help.hidden);
   timers[0]();
-  assert(!manual.hidden);
+  assert(!manual.hidden && !help.hidden);
+  const click = () => clicks.get('click')!({ preventDefault() { prevented++; } });
+  click();
+  assert(manual.disabled);
+  assert.equal(submissions, 2);
+  click();
+  assert.equal(submissions, 2);
+  assert.equal(prevented, 2);
   handlers.get('pageshow')!({ persisted: true });
-  assert(form.hidden && manual.hidden && manual.disabled);
+  assert(form.hidden && manual.hidden && manual.disabled && help.hidden);
+  assert(!back.hidden);
   assert.equal(status.textContent, '已前往付款頁。要重新付款，請回到訂單頁。');
   handlers.get('load')!();
-  assert.equal(submissions, 1);
+  timers[0]();
+  click();
+  assert.equal(submissions, 2);
   const asset = await page('/pay/ecpay/handoff.js');
   assert.equal(asset.status, 200);
   assert.equal(asset.html, HANDOFF_SCRIPT);
   assert.match(asset.response.headers.get('Content-Type')!, /javascript/);
+});
+test('review 7: restored handoff markup retains a hidden order back link and consistent buttons', async () => {
+  const p = await f.placed(), result = await page(p.payment.handoff_url);
+  assert.match(result.html, new RegExp('id="handoff-back" href="/pay/ecpay/back/' + p.payment.attempt_ref + '" hidden>返回訂單</a>'));
+  assert.equal((result.html.match(/>前往綠界付款<\/button>/g) ?? []).length, 2);
+  assert.match(result.html, /id="handoff-help" hidden>如果畫面一直沒有變化，請按「前往綠界付款」。/);
 });
 for (const reason of ['tenant_inactive', 'instance_inactive', 'service_inactive', 'admission_revoked', 'order_cancelled', 'holds_released', 'attempt_failed'] as const)
   test(`handoff ${reason} gate leaves the token unconsumed`, async () => {
@@ -440,11 +458,11 @@ for (const reason of ['tenant_inactive', 'instance_inactive', 'service_inactive'
     assert.equal(r.status, reason === 'attempt_failed' ? 410 : 409, r.html);
     await unused(p.payment.attempt_ref);
     if (reason === 'holds_released')
-      assert.match(r.html, /保留時間已結束/);
+      assert.match(r.html, /付款期限已過，保留的商品已釋出。/);
     assert(!r.html.includes('<form '));
     assert.equal([...f.journal.objects.keys()].filter(k => k.endsWith('/payment_handoff/' + p.payment.attempt_ref)).length, 0);
   });
-test('expired retained holds refuse handoff before journaling and leave the token usable for the back link', async () => {
+test('review 7: expired retained holds refuse handoff before journaling and leave the token usable for the back link', async () => {
   const s = await f.x.store(100);
   await f.setup(s);
   const due = await f.x.due(s);
@@ -453,7 +471,7 @@ test('expired retained holds refuse handoff before journaling and leave the toke
   await f.x.h.pool.query("INSERT INTO commerce_entry_routes(route_kind,route_key,tenant_id,instance_id,target_id,expires_at) VALUES('payment_handoff',$1,$2,$3,$4,clock_timestamp()+interval '15 minutes')", [hashKey(token), s.tenantId, s.instanceId, a.attempt_id]);
   const r = await page('/pay/ecpay/' + token);
   assert.equal(r.status, 409);
-  assert.match(r.html, /保留時間已結束/);
+  assert.match(r.html, /付款期限已過，保留的商品已釋出。/);
   assert(r.html.includes('/pay/ecpay/back/' + a.attempt_id));
   await unused(a.attempt_id);
 });

@@ -57,7 +57,7 @@ export async function inspectOrderHandoffGate(q: PoolClient, attemptId: string, 
   const holds = (await q.query(`SELECT count(*)::int AS total,bool_and(state='held' AND expires_at>clock_timestamp()) AS live
     FROM commerce_inventory_reservations WHERE order_id=$1`, [attempt.order_id])).rows[0];
   if (!holds.total || !holds.live)
-    return { failure: gate(409, 'payment_handoff_unavailable', '保留時間已結束') } as const;
+    return { failure: gate(409, 'payment_handoff_unavailable', '付款期限已過，保留的商品已釋出。') } as const;
   if (attempt.state !== 'issued' || attempt.handed_off_at)
     return { failure: gate(410, 'payment_handoff_unavailable', '已前往付款頁。要重新付款，請回到訂單頁。') } as const;
   if (!options.keyring)

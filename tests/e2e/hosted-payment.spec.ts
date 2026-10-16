@@ -47,14 +47,14 @@ test('JavaScript-disabled handoff uses the noscript submit button and fits narro
   try {
     const p = await createE2ePaymentOrder(e2eAuthPool, browser, baseURL!, context), page = await context.newPage(), response = await page.goto(p.payment.handoff_url);
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole('button', { name: '前往付款', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: '若沒有自動前往，請按這裡', exact: true })).toBeHidden();
+    await expect(page.getByRole('button', { name: '前往綠界付款', exact: true })).toBeVisible();
+    await expect(page.locator('#handoff-manual')).toBeHidden();
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`handoff-${width}.png`) });
     }
-    await page.getByRole('button', { name: '前往付款', exact: true }).click();
+    await page.getByRole('button', { name: '前往綠界付款', exact: true }).click();
     await expect(page.getByRole('heading', { name: '本機付款測試', exact: true })).toBeVisible();
     await page.getByRole('button', { name: '付款成功', exact: true }).click();
     await page.getByRole('button', { name: '返回商店查看結果', exact: true }).click();
