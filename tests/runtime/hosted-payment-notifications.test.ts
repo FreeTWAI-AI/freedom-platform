@@ -172,7 +172,8 @@ for (const outcome of ['failed', 'pending_confirmation', 'simulated', 'amount_mi
     assert.deepEqual(r.applications.map(a => a.outcome), outcome === 'simulated' ? ['simulated'] : outcome === 'amount_mismatch' ? ['amount_mismatch'] : []);
     assert.deepEqual(r.cases.map(c => c.kind), outcome === 'amount_mismatch' ? ['amount_mismatch'] : []);
     const due = (await f.x.h.pool.query("SELECT w.due_at<=clock_timestamp() AS immediate FROM commerce_due_work w WHERE kind='payment_query' AND target_id=$1", [p.payment.attempt_ref])).rows[0];
-    assert.equal(due.immediate, outcome === 'pending_confirmation');
+    if(outcome==='amount_mismatch')assert.equal(due,undefined);
+    else assert.equal(due.immediate, outcome === 'pending_confirmation');
     assert.equal((await f.x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [p.s.product.product_id])).rows[0].reserved, 5);
   });
 test('notification dedupe is sequential, concurrent and insensitive to trade-number case', async () => {

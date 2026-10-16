@@ -5,6 +5,8 @@ import { bindStore, lockMachineOrder } from '../checkout/authority.js';
 import { lockCheckoutOrders } from '../checkout/orders.js';
 import { applyConfirmedPayment } from '../checkout/payments.js';
 import { openException, type PaymentExceptionKind } from '../checkout/exceptions.js';
+import { applyQueryResult } from './queries.js';
+import { hasDefinitePaymentMismatch,settleOrderPayments,PAYMENT_WINDOW_MS } from './window.js';
 import { scheduleDueWork } from '../operations/due-work.js';
 import type { PaymentNotification } from '../providers/ecpay/aio-credit/index.js';
 import type { PaymentAccount } from './provider-input.js';
@@ -68,7 +70,7 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
   // The order/attempt locks serialize application; browser hints never block
   // verified notifications, and unmatched events are independent.
   if (attempt && (await q.query(`SELECT 1 FROM commerce_hosted_payment_events
-    WHERE attempt_id=$1 AND source='notification' AND applied_at IS NULL
+    WHERE attempt_id=$1 AND source IN ('notification','query') AND applied_at IS NULL
     AND (received_at,event_id)<($2::timestamptz,$3::uuid) LIMIT 1`,
     [attempt.attempt_id, event.received_at_order, event.event_id])).rowCount)
     return false;
@@ -77,7 +79,10 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
   const exception = (kind: PaymentExceptionKind, subjectKind: 'payment_attempt' | 'payment_event' = 'payment_attempt') => openException(q, {
     tenantId: event.tenant_id, instanceId: event.instance_id, orderId: attempt?.order_id ?? null, kind, subjectKind, subjectId: subjectKind === 'payment_event' ? eventId : attempt!.attempt_id
   });
-  const schedule = async () => scheduleDueWork(q, { tenantId: event.tenant_id, instanceId: event.instance_id, kind: 'payment_query', targetId: attempt!.attempt_id, dueAt: (await q.query('SELECT clock_timestamp()::text AS t')).rows[0].t });
+  const schedule = async () => {
+    if (!['confirmed','failed','expired_unpaid'].includes(attempt!.state) && !await hasDefinitePaymentMismatch(q,attempt))
+      await scheduleDueWork(q, { tenantId: event.tenant_id, instanceId: event.instance_id, kind: 'payment_query', targetId: attempt!.attempt_id, dueAt: (await q.query('SELECT clock_timestamp()::text AS t')).rows[0].t });
+  };
   const apply = async (simulated: boolean) => attempt!.order_id ? applyConfirmedPayment(q, { orderId: attempt!.order_id, paymentRef, amountMinor: Number(event.trade_amt_minor), currency: attempt!.currency, simulated }) : null;
   if (!attempt)
     await exception('unmatched_payment', 'payment_event');
@@ -87,6 +92,7 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
     if (Number(event.trade_amt_minor) !== Number(attempt.amount_minor)) {
       await apply(false);
       await exception('amount_mismatch');
+      await q.query("DELETE FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[attempt.attempt_id]);
     }
     else {
       if (attempt.state !== 'paid' && attempt.state !== 'confirmed')
@@ -108,6 +114,7 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
   else if (event.outcome === 'pending_confirmation')
     await schedule();
   await q.query('UPDATE commerce_hosted_payment_events SET applied_at=clock_timestamp() WHERE event_id=$1 AND applied_at IS NULL', [eventId]);
+  if(attempt?.order_id && Date.now()>=attempt.created_at.getTime()+PAYMENT_WINDOW_MS)await settleOrderPayments(q,attempt.order_id);
   return true;
 }
 /** Each verified event commits separately, in receipt order. The host skips this
@@ -117,7 +124,7 @@ export async function applyDeferredPaymentEvents(pool: Pool, { limit = 200 }: {
 } = {}): Promise<{ applied: number; failed: number; skipped: number }> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 200)
     throw Error('payment_deferred_limit_invalid');
-  const events = (await pool.query("SELECT event_id,attempt_id FROM commerce_hosted_payment_events WHERE source='notification' AND applied_at IS NULL ORDER BY received_at,event_id LIMIT $1", [limit])).rows;
+  const events = (await pool.query("SELECT event_id,attempt_id,source FROM commerce_hosted_payment_events WHERE source IN ('notification','query') AND applied_at IS NULL ORDER BY received_at,event_id LIMIT $1", [limit])).rows;
   const counts = { applied: 0, failed: 0, skipped: 0 }, failedAttempts = new Set<string>();
   for (const event of events) {
     if (event.attempt_id && failedAttempts.has(event.attempt_id)) {
@@ -125,7 +132,7 @@ export async function applyDeferredPaymentEvents(pool: Pool, { limit = 200 }: {
       continue;
     }
     try {
-      if (await isolatedTransaction(pool, q => applyPaymentEvent(q, event.event_id)))
+      if (await isolatedTransaction(pool, q => event.source==='query'?applyQueryResult(q,event.event_id,{updateDueWork:true}):applyPaymentEvent(q, event.event_id)))
         counts.applied++;
       else
         counts.skipped++;

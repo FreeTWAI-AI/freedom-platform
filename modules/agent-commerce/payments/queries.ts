@@ -10,7 +10,7 @@ import {buildTradeInfoQuery,parseTradeInfoResponse,type TradeInfoResponseResult}
 import {activateProviderService,listUsableCredentialVersions,loadServiceCredentials} from './accounts.js';
 import type {CommerceCredentialKeyring} from './credentials.js';
 import type {PaymentQueryTransport,QueryTransportResult} from './query-transport.js';
-import {lockMachinePaymentAttempt,paymentQueryDueAt,settleOrderPayments,PAYMENT_WINDOW_MS,type MachinePaymentAttempt} from './window.js';
+import {lockMachinePaymentAttempt,paymentQueryDueAt,hasDefinitePaymentMismatch,settleOrderPayments,PAYMENT_WINDOW_MS,type MachinePaymentAttempt} from './window.js';
 
 export type PaymentQueryTrigger='schedule'|'window_end'|'notification'|'browser_return'|'buyer'|'repay'|'activation';
 export type PaymentQueryError='timeout'|'network'|'response_too_large'|'http_status'|'http_403'|'verify_failed'
@@ -154,7 +154,7 @@ export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryD
 }
 
 /** Event application is shared by phase three and ordered deferred replay. */
-export async function applyQueryResult(q:PoolClient,eventId:string,options:{now?:()=>Date}={}):Promise<boolean> {
+export async function applyQueryResult(q:PoolClient,eventId:string,options:{now?:()=>Date;updateDueWork?:boolean}={}):Promise<boolean> {
   let e=(await q.query("SELECT * FROM commerce_hosted_payment_events WHERE event_id=$1 AND source='query'",[eventId])).rows[0];
   if(!e || e.applied_at)return false;
   const a=await lockMachinePaymentAttempt(q,e.attempt_id);if(!a)throw Error('payment_attempt_missing');
@@ -201,5 +201,10 @@ export async function applyQueryResult(q:PoolClient,eventId:string,options:{now?
   }
   await q.query('UPDATE commerce_hosted_payment_events SET applied_at=GREATEST(clock_timestamp(),received_at) WHERE event_id=$1',[eventId]);
   if(a.order_id && now.getTime()>=a.created_at.getTime()+PAYMENT_WINDOW_MS)await settleOrderPayments(q,a.order_id);
+  if(options.updateDueWork){
+    const current=(await q.query<MachinePaymentAttempt>('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1',[a.attempt_id])).rows[0];
+    if(['confirmed','failed','expired_unpaid'].includes(current.state)||await hasDefinitePaymentMismatch(q,current))
+      await q.query("DELETE FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[a.attempt_id]);
+  }
   return true;
 }

@@ -111,9 +111,13 @@ test('fixture query transport requires an explicit local environment at construc
 import {describe,before,beforeEach,after} from 'node:test';
 import {hostedPaymentHarness} from '../e2e/hosted-payment-fixture.js';
 import {encodeForm,signFields,aio} from '../../modules/agent-commerce/providers/ecpay/index.js';
+import {applyDeferredPaymentEvents} from '../../modules/agent-commerce/payments/events.js';
+import {lockMachinePaymentAttempt,endPaymentWindow,paymentQueryDueAt,settleOrderPayments} from '../../modules/agent-commerce/payments/window.js';
+import {cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/orders.js';
+import {sweepDueCheckoutHolds} from '../../modules/agent-commerce/checkout/settlement.js';
 import {sealCredential} from '../../modules/agent-commerce/payments/credentials.js';
 import {bindStore} from '../../modules/agent-commerce/checkout/authority.js';
-import {queryAttempt,type PaymentQueryDependencies} from '../../modules/agent-commerce/payments/queries.js';
+import {queryAttempt,applyQueryResult,type PaymentQueryDependencies} from '../../modules/agent-commerce/payments/queries.js';
 
 describe('payment query engine',()=>{
   let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
@@ -234,4 +238,135 @@ describe('payment query engine',()=>{
       refusal==='keyring'?{keyring:null}:refusal==='environment'?{freedomEnv:'public'}:refusal==='quarantine'?{quarantine:true}:{}),'buyer');
     assert.equal(calls,0);assert.equal(result.externalCalls,0);assert.equal(result.status,refusal==='keyring'?'keyring_unavailable':refusal==='environment'?'environment_mismatch':refusal==='inactive'?'tenant_inactive':'skipped');
   });
+  async function setState(p:Placed,state:string){
+    if(state==='issued')return;
+    if(state==='confirmed'){await run(p);return;}
+    await f.x.h.pool.query(`UPDATE commerce_payment_attempts SET state=$2,version=version+1,
+      paid_at=CASE WHEN $2='paid' THEN clock_timestamp() ELSE paid_at END,
+      trade_no=CASE WHEN $2='paid' THEN 'T1234567' ELSE trade_no END,
+      failed_at=CASE WHEN $2='failed' THEN clock_timestamp() ELSE failed_at END,
+      superseded_at=CASE WHEN $2='superseded' THEN clock_timestamp() ELSE superseded_at END,
+      expired_at=CASE WHEN $2='expired_unpaid' THEN clock_timestamp() ELSE expired_at END WHERE attempt_id=$1`,[p.payment.attempt_ref,state]);
+  }
+  async function event(p:Placed,outcome:string,now?:Date,apply=true){
+    return f.x.tx(async q=>{
+      await lockMachinePaymentAttempt(q,p.payment.attempt_ref);
+      const e=(await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,
+        merchant_trade_no,trade_no,trade_amt_minor,credential_version,body_sha256,query_trigger,unknown_reason,trade_status)
+        SELECT tenant_id,instance_id,account_id,attempt_id,'query',$2,merchant_trade_no,
+        CASE WHEN $2 IN ('paid','amount_mismatch','trade_no_mismatch') THEN CASE WHEN $2='trade_no_mismatch' THEN 'TOTHER' ELSE 'T1234567' END END,
+        CASE WHEN $2='paid' THEN amount_minor WHEN $2='amount_mismatch' THEN amount_minor+100 END,
+        CASE WHEN $2<>'unknown' THEN credential_version END,repeat('a',64),'schedule',
+        CASE WHEN $2='unknown' THEN 'unrecognized_status' END,CASE WHEN $2='unknown' THEN '777' END
+        FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING event_id`,[p.payment.attempt_ref,outcome])).rows[0];
+      if(apply)assert(await applyQueryResult(q,e.event_id,{...(now?{now:()=>now}:{}),updateDueWork:true}));return e.event_id as string;
+    });
+  }
+  for(const state of ['issued','superseded','paid','confirmed','failed','expired_unpaid'])
+    for(const outcome of ['paid','amount_mismatch','trade_no_mismatch','unpaid','failed','unknown'])
+      test(`result table: ${state} receives ${outcome}`,async()=>{
+        const p=await handed(await f.placed());await setState(p,state);await event(p,outcome);
+        const a=await facts(p),expected=outcome==='paid'?'confirmed':outcome==='failed'&&['issued','superseded'].includes(state)?'failed':state;
+        assert.equal(a.attempt.state,expected);
+        const expectedCase=outcome==='amount_mismatch'?'amount_mismatch':outcome==='trade_no_mismatch'?'contradicting_event':state==='paid'&&['unpaid','failed'].includes(outcome)?'payment_unconfirmed':null;
+        assert.deepEqual(a.cases.map(c=>c.kind),expectedCase?[expectedCase]:[]);
+        if(outcome==='paid')assert.equal(a.applications.length,1);
+        else if(outcome==='trade_no_mismatch')assert.equal(a.applications.length,state==='confirmed'?1:0);
+        else if(outcome==='amount_mismatch'){assert.equal(a.applications.length,1);assert.equal(a.applications[0].outcome,state==='confirmed'?'converted':'amount_mismatch');}
+      });
+  for(const minute of [0,9,10,19,20,39,40,59])test(`slot schedule at minute ${minute}`,async()=>{
+    const p=await handed(await f.placed()),a=(await facts(p)).attempt,now=new Date(a.created_at.getTime()+minute*60_000);
+    await run(p,{TradeStatus:'0'},{now:()=>now});const due=(await facts(p)).due;
+    assert.equal(due.due_at.getTime(),a.created_at.getTime()+[10,20,40,60].find(m=>m>minute)!*60_000);
+  });
+  test('transport backoff follows 1/2/5/10 minutes, caps at slots, and resets on a definite result',async()=>{
+    const p=await handed(await f.placed()),a=(await facts(p)).attempt;let now=new Date(a.created_at.getTime()+60*60_000);
+    for(const minutes of [1,2,5,10,10]){
+      const d=deps(async()=>({kind:'error',code:'timeout'}),{now:()=>now});await queryAttempt(f.x.runtime,p.payment.attempt_ref,d,'schedule');
+      const due=(await facts(p)).due;assert.equal(due.due_at.getTime(),now.getTime()+minutes*60_000);now=due.due_at;
+    }
+    // A pre-window definite response keeps the attempt queryable and resets failures.
+    now=new Date(a.created_at.getTime()+9*60_000+59_000);
+    await run(p,{TradeStatus:'0'},{now:()=>now});const due=(await facts(p)).due;
+    assert.equal(due.failure_count,0);assert.equal(due.due_at.getTime(),a.created_at.getTime()+10*60_000);
+  });
+  test('verified unknown after the window uses ten minutes and stops at 24 hours with an exception',async()=>{
+    const p=await handed(await f.placed()),a=(await facts(p)).attempt,window=a.created_at.getTime()+60*60_000;
+    await run(p,{TradeStatus:'777'},{now:()=>new Date(window)});assert.equal((await facts(p)).due.due_at.getTime(),window+10*60_000);
+    let calls=0;const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{calls++;throw Error();},{now:()=>new Date(window+24*60*60_000)}),'schedule');
+    assert.equal(calls,0);assert.equal(result.status,'skipped');const actual=await facts(p);assert.equal(actual.due,undefined);assert.deepEqual(actual.cases.map(c=>c.kind),['payment_unconfirmed']);
+  });
+  test('paid-but-unconfirmed opens its 60-minute case and stops after 24 hours',async()=>{
+    const p=await handed(await f.placed());await setState(p,'paid');const a=(await facts(p)).attempt;
+    await run(p,{TradeStatus:'777'},{now:()=>new Date(a.paid_at.getTime()+60*60_000)});
+    assert.deepEqual((await facts(p)).cases.map(c=>c.kind),['payment_unconfirmed']);assert((await facts(p)).due);
+    assert.equal((await run(p,{TradeStatus:'777'},{now:()=>new Date(a.paid_at.getTime()+24*60*60_000)})).externalCalls,0);assert.equal((await facts(p)).due,undefined);
+  });
+  for(const handedOff of [false,true])for(const state of ['issued','superseded','paid','confirmed','failed','expired_unpaid'])
+    test(`window end: ${state}, handed off ${handedOff}`,async()=>{
+      const p=await f.placed();if(handedOff||state==='confirmed')await handed(p);await setState(p,state);
+      const a=(await facts(p)).attempt,now=new Date(a.created_at.getTime()+60*60_000);
+      assert.equal(await endPaymentWindow(f.x.runtime,p.payment.attempt_ref,{now:()=>now}),'completed');
+      const actual=await facts(p);assert.equal(actual.attempt.state,!handedOff&&['issued','superseded'].includes(state)?'expired_unpaid':state);
+      assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_due_work WHERE target_id=$1 AND kind='payment_window_end'",[p.payment.attempt_ref])).rows[0].n,0);
+      const order=(await f.x.h.pool.query('SELECT lifecycle_state FROM commerce_checkout_orders WHERE order_id=$1',[p.order.order_ref])).rows[0];
+      assert.equal(order.lifecycle_state,!handedOff&&['issued','superseded'].includes(state)?'cancelled':'open');
+    });
+  test('unpaid at window end expires and cancels; a late paid fact applies after_cancel',async()=>{
+    const p=await handed(await f.placed()),a=(await facts(p)).attempt,now=new Date(a.created_at.getTime()+60*60_000);
+    await run(p,{TradeStatus:'0'},{now:()=>now});assert.equal((await facts(p)).attempt.state,'expired_unpaid');
+    assert.equal((await f.x.h.pool.query('SELECT cancel_reason FROM commerce_checkout_orders WHERE order_id=$1',[p.order.order_ref])).rows[0].cancel_reason,'payment_not_completed');
+    await event(p,'paid',now);const actual=await facts(p);assert.equal(actual.attempt.state,'confirmed');assert.equal(actual.applications[0].outcome,'after_cancel');assert.equal(actual.cases[0].kind,'paid_after_cancel');
+    // Cancellation replay has no inventory, token or due-work side effects.
+    await f.x.tx(async q=>{await lockMachinePaymentAttempt(q,p.payment.attempt_ref);assert.equal(await settleOrderPayments(q,p.order.order_ref),false);});
+  });
+  test('a deferred failed notification precedes a paid query without a contradicting case',async()=>{
+    const p=await handed(await f.placed()),a=(await facts(p)).attempt;
+    await f.x.h.pool.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,merchant_trade_no,rtn_code,simulate_paid,credential_version,body_sha256,dedupe_key)
+      VALUES($1,$2,$3,$4,'notification','failed',$5,0,false,1,repeat('a',64),repeat('b',64))`,[a.tenant_id,a.instance_id,a.account_id,a.attempt_id,a.merchant_trade_no]);
+    assert.equal((await run(p)).status,'payment_result_pending');let actual=await facts(p);assert(actual.events.every(e=>!e.applied_at));assert.equal(actual.applications.length,0);
+    assert.deepEqual(await applyDeferredPaymentEvents(f.x.runtime),{applied:2,failed:0,skipped:0});actual=await facts(p);
+    assert.equal(actual.attempt.state,'confirmed');assert.equal(actual.applications.length,1);assert.equal(actual.cases.length,0);assert(actual.events[0].applied_at<=actual.events[1].applied_at);
+  });
+  test('mismatch cases remain closed and neither window end nor another query cancels or reopens them',async()=>{
+    const p=await handed(await f.placed());assert.equal((await run(p,{TradeAmt:'6'})).status,'amount_mismatch');let a=await facts(p);
+    assert.equal(a.due,undefined);assert.equal(a.applications[0].outcome,'amount_mismatch');assert.equal(a.applications[0].amount_minor,'600');
+    // Case closure is a seller operation; its durable payment marker remains.
+    await f.x.h.pool.query("UPDATE commerce_exception_cases SET status='resolved',resolution_code='checked',resolution_note='synthetic checked',resolved_by_principal_id=(SELECT principal_id FROM principals WHERE user_ref=$2),updated_at=clock_timestamp(),version=version+1 WHERE case_id=$1",[a.cases[0].case_id,p.s.owner.user.user_id]);
+    assert.equal((await run(p)).externalCalls,0);
+    await endPaymentWindow(f.x.runtime,p.payment.attempt_ref,{now:()=>new Date(a.attempt.created_at.getTime()+60*60_000)});
+    a=await facts(p);assert.equal(a.attempt.state,'issued');assert.equal(a.cases.length,1);assert.equal(a.cases[0].status,'resolved');
+    assert.equal((await f.x.h.pool.query('SELECT lifecycle_state FROM commerce_checkout_orders WHERE order_id=$1',[p.order.order_ref])).rows[0].lifecycle_state,'open');
+  });
+
+  test('unapplied query paid protects expired holds and prevents cancellation until deferred application',async()=>{
+    const s=await f.x.store(5),provider=await f.setup(s),due=await f.x.due(s,5);
+    await f.x.tx(q=>f.runtime.commercePorts!.payment!.createOrderAttempt(q,{store:s,orderId:due.order_id,amountMinor:500,currency:'TWD',environment:'sandbox'}));
+    const attempt=(await f.x.h.pool.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=$1',[due.order_id])).rows[0];
+    const p={s,provider,order:{order_ref:due.order_id},payment:{attempt_ref:attempt.attempt_id}} as Placed;
+    await event(p,'paid',undefined,false);await setState(p,'failed');
+    assert.equal(await sweepDueCheckoutHolds(f.x.runtime),0);
+    await f.x.tx(async q=>{await lockMachinePaymentAttempt(q,attempt.attempt_id);assert.equal(await settleOrderPayments(q,due.order_id),false);});
+    assert.equal((await f.x.h.pool.query('SELECT state FROM commerce_inventory_reservations WHERE order_id=$1',[due.order_id])).rows[0].state,'held');
+    assert.deepEqual(await applyDeferredPaymentEvents(f.x.runtime),{applied:1,failed:0,skipped:0});
+    const actual=await facts(p);assert.equal(actual.attempt.state,'confirmed');assert.equal(actual.applications[0].outcome,'converted');assert.equal(actual.cases.length,0);
+  });
+  for(const order of ['notification_first','query_first'])test(`notification and query racing: ${order}, one application`,async()=>{
+    const p=await handed(await f.placed()),a=(await facts(p)).attempt,body=await response(p);
+    const notify=async()=>{
+      const raw=encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:a.merchant_trade_no,TradeNo:'T1234567',TradeAmt:'5',RtnCode:'1',SimulatePaid:'0',PaymentDate:'2026/10/15 10:20:30',PaymentType:'Credit_CreditCard'},EcpayKeyPair.of(p.provider.material.hash_key,p.provider.material.hash_iv),'sha256'));
+      const r=await f.app.fetch(new Request(f.origin+'/api/v1/provider-callbacks/ecpay/'+p.provider.accountRef+'/payment',{method:'POST',body:raw,headers:{'Content-Type':'application/x-www-form-urlencoded'}}));assert.equal(r.status,200);assert.equal(await r.text(),'1|OK');
+    };
+    await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{if(order==='notification_first')await notify();return {kind:'response',status:200,body};}),'buyer');
+    if(order==='query_first')await notify();const actual=await facts(p);assert.equal(actual.attempt.state,'confirmed');assert.equal(actual.applications.length,1);assert.equal(actual.cases.length,0);
+  });
+  test('query facts, exceptions, scheduling and logs never retain provider canaries or key material',async()=>{
+    const p=await handed(await f.placed()),canary=randomBytes(16).toString('hex'),logs:unknown[][]=[],original=console.error;
+    const body=await response(p,{TradeStatus:'777',card4no:canary,auth_code:canary,RtnMsg:canary});console.error=(...args)=>{logs.push(args);};
+    try{await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>({kind:'response',status:200,body})),'buyer');}finally{console.error=original;}
+    const a=await facts(p),text=JSON.stringify({events:a.events,cases:a.cases,due:a.due,attempt:a.attempt,applications:a.applications,logs,journal:f.journal});
+    for(const secret of [canary,p.provider.material.hash_key,p.provider.material.hash_iv,p.provider.material.credit_check_code])assert(!text.includes(secret));
+    assert(!text.includes('CheckMacValue'));
+  });
+
 });
