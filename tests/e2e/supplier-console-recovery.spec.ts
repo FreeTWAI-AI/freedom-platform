@@ -11,6 +11,8 @@ import {SupplyOfferSchema,DistributionSchema} from '../../contracts/guild-launch
 test.use({memberFeatures:{guildLaunchpadEnabled:true,hostedReservationsEnabled:true,supplierConsoleEnabled:true}});
 const consoleArea=(page:Page)=>page.locator('.supplier-console');
 const active=(page:Page)=>page.locator('.sc-content > [data-sc-active="true"]');
+// The overview's own read status comes before the 近期變更 section, which has its own status.
+const overviewStatus=(page:Page)=>active(page).getByRole('status').first();
 const held=(page:Page)=>consoleArea(page).getByRole('status').filter({hasText:'尚未確認原操作的結果：新增商品。'});
 const leaveNotice='尚未確認原操作的結果，請按「重試」確認後再離開。';
 const draftNotice='還有尚未儲存的內容，要離開嗎？';
@@ -175,10 +177,10 @@ test('SC-E2E-24 a failed overview read is shown as unavailable, never as zero (A
  await go(page,s);await expect(active(page).getByRole('alert')).toContainText('暫時無法讀取營運概覽');await expect(active(page).getByRole('button',{name:'重試',exact:true})).toBeEnabled();
  await expect(consoleArea(page).locator('.sc-metric-value')).toHaveCount(0);await expect(consoleArea(page).locator('.sc-metrics')).toHaveCount(0);expect(failures.length).toBeGreaterThan(0);expect(failures.every(Boolean)).toBe(true);
  await evidence(page,info,'overview-first-read-unavailable');fail=false;await active(page).getByRole('button',{name:'重試',exact:true}).click();
- await expect(consoleArea(page).locator('.sc-metric-value')).toHaveCount(4);await expect(active(page).getByRole('status')).toContainText('資料時間');const values=await consoleArea(page).locator('.sc-metric-value').allTextContents();
+ await expect(consoleArea(page).locator('.sc-metric-value')).toHaveCount(4);await expect(overviewStatus(page)).toContainText('資料時間');const values=await consoleArea(page).locator('.sc-metric-value').allTextContents();
  await nav(page,'商品與庫存');await active(page).getByRole('link',{name:new RegExp(p.title)}).click();const form=active(page).getByRole('form',{name:'儲存庫存',exact:true});
  await form.getByLabel('庫存',{exact:true}).fill('9');await form.getByRole('button',{name:'儲存庫存',exact:true}).click();await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：儲存庫存。');
- await nav(page,'營運概覽');await expect(active(page).getByRole('status')).toContainText('資料時間');await expect(consoleArea(page).locator('.sc-metric-value')).toHaveText(values);
+ await nav(page,'營運概覽');await expect(overviewStatus(page)).toContainText('資料時間');await expect(consoleArea(page).locator('.sc-metric-value')).toHaveText(values);
  fail=true;await active(page).getByRole('button',{name:'更新資料',exact:true}).click();await expect(active(page).getByRole('alert')).toContainText('未更新（最後成功');
  await expect(consoleArea(page).locator('.sc-metric-value')).toHaveText(values);for(const card of await consoleArea(page).locator('.sc-metrics article').all()){await expect(card.getByRole('paragraph').filter({hasText:/^(資料時間|更新中|未更新) /})).toHaveText(/^未更新 /);}
  await expect(consoleArea(page).locator('.sc-announcement')).toHaveText('已保存：儲存庫存。');expect((await detail(page,s,p.product_id)).product.stock).toBe(9);await evidence(page,info,'overview-refresh-keeps-facts',{values,failures});

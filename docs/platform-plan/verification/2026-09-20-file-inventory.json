@@ -15494,8 +15494,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 18657,
-      "sha256": "0b13d67b81104de6679e8a7d197b9aff49d6fb4372d08a19a2581a8bc7909b9a"
+      "bytes": 19213,
+      "sha256": "b872cc022ba3b0d5eb86c01ef3576bd01f1e79da9a9a2c1d04bcab5a882edf9f"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -21249,8 +21249,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 21103,
-      "sha256": "036e95e7048066117f39ff974b2fb505ed4ba77a904184338ed784b767e65f89"
+      "bytes": 57071,
+      "sha256": "60020a6f08d8ee9bdc98a1bf50a4e11d9b4d4e2d78ce25629f2b9c4927db1b7c"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
@@ -21639,8 +21639,13 @@
     },
     {
       "path": "tests/e2e/supplier-console-cooperation.spec.ts",
-      "bytes": 46915,
-      "sha256": "554b5330bebabe515e20d051897a68585bc6e6baa265e86f71a87f34f2f6d959"
+      "bytes": 47236,
+      "sha256": "c7d21aa0575ebab7b33562dba49ea034abcef821fdc0c7393b0a1af3774acdd6"
+    },
+    {
+      "path": "tests/e2e/supplier-console-materials.spec.ts",
+      "bytes": 67920,
+      "sha256": "d8c4be53ed7ff79cc387acd6b99fbac7d86d763cf66ee41873e5310a0d8f8672"
     },
     {
       "path": "tests/e2e/supplier-console-navigation.spec.ts",
@@ -21654,8 +21659,8 @@
     },
     {
       "path": "tests/e2e/supplier-console-recovery.spec.ts",
-      "bytes": 50260,
-      "sha256": "aae513a19d1e63b682e4a27a4faa022de72cd5d9b4436892b68f631102e3030e"
+      "bytes": 50411,
+      "sha256": "93390e49be78e19a72a3280adca9dc89d186985a35ef534c2eb7185c98e8c8ef"
     },
     {
       "path": "tests/e2e/supplier-console-visual.spec.ts",
@@ -21664,8 +21669,8 @@
     },
     {
       "path": "tests/e2e/supplier-console.spec.ts",
-      "bytes": 28217,
-      "sha256": "327e27ce378285e781f628d69e85466249e6b14fcb8bfdd721ac7c1de2a685fb"
+      "bytes": 28527,
+      "sha256": "f8685513cfb9ac158f8e531bed494c957ec8d8499ae09f72053d7add78f66886"
     },
     {
       "path": "tests/e2e/tenant-member-grants-role-change.spec.ts",
@@ -22444,8 +22449,8 @@
     },
     {
       "path": "tests/runtime/guild-blocks.test.ts",
-      "bytes": 13303,
-      "sha256": "92690e62f6c283b2520e7f2b80a37124e685f90be98e2ae0faa9658361b39ec8"
+      "bytes": 13302,
+      "sha256": "e14d869296088e4c36cc0ce820d4196b122f26584b8a9694adff24d7f1cf1560"
     },
     {
       "path": "tests/runtime/guild-category-preferences.test.ts",

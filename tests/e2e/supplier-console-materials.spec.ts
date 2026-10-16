@@ -1,0 +1,1390 @@
+import {randomUUID} from 'node:crypto';
+import type {Pool} from 'pg';
+import type {BrowserContext, Page, Request} from '@playwright/test';
+import {test, expect as baseExpect} from './member-feature-fixture.js';
+import {person, post, launchStore, storeArea} from './hosted-store-fixture.js';
+import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
+import {FakeObjectStore} from '../../packages/asset-storage/fake-store.js';
+import {createSupplyMaterialLifecycle} from '../../modules/assets/supply-material.js';
+import {uploadSupplyMaterialFile} from '../../modules/agent-commerce/supplier-console/material-media.js';
+import type {Actor} from '../../modules/identity-membership/service.js';
+import {photoSourcePng} from '../helpers/hosted-store-photo.js';
+
+const expect = baseExpect.configure({timeout: 20_000});
+
+test.use({
+  memberFeatures: {
+    guildLaunchpadEnabled: true,
+    hostedReservationsEnabled: true,
+    supplierConsoleEnabled: true,
+  },
+});
+
+const consoleRoot = (page: Page) => page.locator('.supplier-console');
+const activePage = (page: Page) => page.locator('.sc-content > [data-sc-active="true"]');
+const navLink = (page: Page, name: string) =>
+  page.getByRole('navigation', {name: '營運中心', exact: true}).getByRole('link', {name, exact: true});
+const partnerMaterials = (page: Page) => page.locator('.partner-materials');
+
+const EMPTY_PARTNER_MATERIALS_TEXT =
+  '目前沒有供應商授權給這間店的素材。供應商授權後會出現在這裡；你停止販售或對方撤回後，素材會從這裡移除。';
+
+function parseStore(store: {root: string; hash: string}) {
+  const [, , tenantId, , instanceId] = store.root.split('/');
+  return {root: store.root, hash: store.hash, tenantId, instanceId};
+}
+
+function barrier() {
+  let resolve!: () => void;
+  const promise = new Promise<void>(done => {
+    resolve = done;
+  });
+  return {promise, resolve};
+}
+
+function signature(request: Request) {
+  return {
+    method: request.method(),
+    path: new URL(request.url()).pathname,
+    body: request.postData(),
+    key: request.headers()['idempotency-key'],
+    version: request.headers()['if-match'] ?? null,
+  };
+}
+
+async function login(page: Page, email: string) {
+  await page.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
+  await page.goto('/');
+  await page.getByLabel('電子郵件', {exact: true}).fill(email);
+  await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
+  await page.getByRole('button', {name: '登入', exact: true}).click();
+  await expect(page.getByRole('button', {name: '設定', exact: true})).toBeVisible({timeout: 15_000});
+}
+
+async function getJson(page: Page, path: string, expectedStatus = 200) {
+  const response = await page.request.get(`/api/v1${path}`);
+  const body = await response.json();
+  expect(response.status(), JSON.stringify(body)).toBe(expectedStatus);
+  return body;
+}
+
+async function patchJson(page: Page, path: string, data: unknown, expectedStatus = 200, version?: string) {
+  const session = await getJson(page, '/session');
+  const response = await page.request.patch(`/api/v1${path}`, {
+    data,
+    headers: {
+      Origin: new URL(page.url()).origin,
+      'X-CSRF-Token': session.csrf_token,
+      'Idempotency-Key': randomUUID(),
+      ...(version ? {'If-Match': `"${version}"`} : {}),
+    },
+  });
+  const body = await response.json();
+  expect(response.status(), JSON.stringify(body)).toBe(expectedStatus);
+  return body;
+}
+
+async function openSupplyPage(page: Page, hash: string, expectedHeading?: string) {
+  const targetHash = hash.startsWith('#') ? hash : `#${hash}`;
+  await page.evaluate(h => {
+    window.location.hash = h;
+  }, targetHash);
+  await expect(consoleRoot(page)).toBeVisible();
+  if (expectedHeading) {
+    await expect(activePage(page).locator('h2').first()).toHaveText(expectedHeading, {timeout: 15_000});
+  }
+}
+
+async function openSellerCooperation(page: Page, storeHash: string) {
+  const targetHash = storeHash.startsWith('#') ? storeHash : `#${storeHash}`;
+  await page.evaluate(h => {
+    window.location.hash = h;
+  }, targetHash);
+  await expect(page.locator('.hosted-store')).toBeVisible();
+  await storeArea(page, '供貨合作');
+  await expect(partnerMaterials(page).getByRole('heading', {level: 3, name: '合作素材', exact: true})).toBeVisible();
+}
+
+async function withdrawSupplierOffers(db: Pool, supplierUserIds: string[]) {
+  if (!supplierUserIds.length) return;
+  await db.query(
+    `UPDATE commerce_hosted_supply_offers o
+     SET state='withdrawn',version=o.version+1
+     FROM commerce_storefront_profiles p JOIN commerce_shops s ON s.shop_id=p.supply_shop_id
+     WHERE o.instance_id=p.instance_id AND o.tenant_id=p.tenant_id
+       AND s.owner_id=ANY($1::uuid[]) AND o.state='offered'`,
+    [supplierUserIds],
+  );
+}
+
+async function setupSupplierWithProductAndOffer(
+  page: Page,
+  db: Pool,
+  suffix: string,
+  productTitle = `供貨茶杯 ${suffix}`,
+) {
+  const member = await person(db);
+  await login(page, member.email);
+  const rawStore = await launchStore(page, `供貨空間 ${suffix}`);
+  const store = parseStore(rawStore);
+  const supplierName = `供貨目錄 ${suffix}`;
+  await post(page, `${store.root}/supply-profile`, {name: supplierName, currency: 'TWD'}, 201);
+  const created = await post(
+    page,
+    `${store.root}/supply-products`,
+    {
+      title: productTitle,
+      description: '經授權的商品介紹',
+      cost_minor: 400,
+      stock: 20,
+    },
+    201,
+  );
+  const list = await getJson(page, `${store.root}/supply-products`);
+  const item = list.items.find((r: {product_id: string}) => r.product_id === created.product_id);
+  const terms = await patchJson(
+    page,
+    `${store.root}/products/${created.product_id}/supply-terms`,
+    {
+      cost_minor: 400,
+      shipping_minor: 50,
+      shipping_terms: '確認後三天內出貨',
+      return_terms: '瑕疵由供貨方處理',
+    },
+    200,
+    created.version,
+  );
+  const offer = await post(page, `${store.root}/products/${created.product_id}/supply-offer`, {}, 200, terms.version);
+  return {
+    member,
+    store,
+    supplierName,
+    product: {
+      productId: created.product_id as string,
+      sku: item.sku as string,
+      title: productTitle,
+    },
+    offer,
+  };
+}
+
+async function setupSellerStore(
+  browser: {newContext: (opts: {baseURL?: string}) => Promise<BrowserContext>},
+  baseURL: string | undefined,
+  db: Pool,
+  contexts: BrowserContext[],
+  label: string,
+  slug: string,
+) {
+  const ctx = await browser.newContext({baseURL});
+  contexts.push(ctx);
+  const member = await person(db);
+  const page = await ctx.newPage();
+  await login(page, member.email);
+  const rawStore = await launchStore(page, `${label}空間`);
+  const store = parseStore(rawStore);
+  await post(page, `${store.root}/setup`, {name: label, slug, currency: 'TWD'}, 201);
+  return {ctx, member, page, store, name: label};
+}
+
+async function inviteMember(
+  ownerPage: Page,
+  memberPage: Page,
+  db: Pool,
+  store: {tenantId: string; instanceId: string},
+  capabilities: string[],
+  role: 'operator' | 'admin' | 'viewer' = 'operator',
+) {
+  const member = await person(db);
+  await login(memberPage, member.email);
+  const candidate = await getJson(ownerPage, `/tenants/invite-candidates?user_id=${member.id}`);
+  const invitation = await post(
+    ownerPage,
+    `/tenants/${store.tenantId}/invitations`,
+    {
+      invitee_principal_id: candidate.principal_id,
+      role,
+      instance_capabilities: capabilities.length ? [{instance_id: store.instanceId, capabilities}] : [],
+      expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+    },
+    201,
+  );
+  await post(
+    memberPage,
+    `/tenants/${store.tenantId}/invitations/${invitation.invitation_id}/accept`,
+    {},
+    200,
+    invitation.version,
+  );
+  return {member, principalId: candidate.principal_id as string};
+}
+
+async function createCopyMaterialInUi(
+  page: Page,
+  store: {hash: string},
+  input: {title: string; description: string; body: string; productId?: string},
+) {
+  await openSupplyPage(page, `${store.hash}/supply/materials/new`, '新增素材');
+  const form = activePage(page).getByRole('form', {name: '新增素材', exact: true});
+  await form.getByLabel('種類').selectOption('copy');
+  if (input.productId) {
+    await form.getByLabel('素材對象').selectOption(input.productId);
+  } else {
+    await form.getByLabel('素材對象').selectOption('');
+  }
+  await form.getByLabel('標題').fill(input.title);
+  await form.getByLabel('說明').fill(input.description);
+  await form.getByLabel('文案內容').fill(input.body);
+  await form.getByRole('button', {name: '建立素材', exact: true}).click();
+  await expect(activePage(page).getByRole('heading', {level: 2, name: `素材詳情：${input.title}`, exact: true})).toBeVisible();
+  const match = new URL(page.url()).hash.match(/\/supply\/materials\/([0-9a-f-]{36})$/);
+  expect(match).not.toBeNull();
+  return match![1];
+}
+
+test('SC-E2E-60 copy material from creation to partner use, revoke and withdraw (AT-25,26)', async ({
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  test.setTimeout(120_000);
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+
+  try {
+    const ctxA = await browser.newContext({baseURL});
+    contexts.push(ctxA);
+    const pageA = await ctxA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(pageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerB = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `賣家 B ${suffix}`, `seller-b-${suffix}`);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1100},
+      201,
+    );
+    await post(
+      pageA,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const sellerC = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `賣家 C ${suffix}`, `seller-c-${suffix}`);
+    await post(
+      sellerC.page,
+      `${sellerC.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1250},
+      201,
+    );
+
+    const sellerD = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `賣家 D ${suffix}`, `seller-d-${suffix}`);
+
+    // Console: 行銷素材 shows empty state
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials`, '行銷素材');
+    await expect(activePage(pageA).getByRole('heading', {level: 3, name: '還沒有行銷素材', exact: true})).toBeVisible();
+    await expect(activePage(pageA)).toContainText('使用中 0／200');
+
+    // 新增素材 → 文案, 品牌素材, title/description/body → 建立素材 → detail page
+    await activePage(pageA).getByRole('link', {name: '新增素材', exact: true}).click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '新增素材', exact: true})).toBeVisible();
+
+    const title = `春季品牌故事 ${suffix}`;
+    const description = `授權店家品牌介紹 ${suffix}`;
+    const bodyV1 = `第一版品牌文案：職人手作茶器 ${suffix}`;
+    const bodyV2 = `第二版正式文案：嚴選台灣陶土燒製 ${suffix}`;
+
+    const newForm = activePage(pageA).getByRole('form', {name: '新增素材', exact: true});
+    await newForm.getByLabel('種類').selectOption('copy');
+    await newForm.getByLabel('素材對象').selectOption('');
+    await newForm.getByLabel('標題').fill(title);
+    await newForm.getByLabel('說明').fill(description);
+    await newForm.getByLabel('文案內容').fill(bodyV1);
+    await newForm.getByRole('button', {name: '建立素材', exact: true}).click();
+
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: `素材詳情：${title}`, exact: true})).toBeVisible();
+    await expect(pageA).toHaveURL(new RegExp(`#${sup.store.hash}/supply/materials/[0-9a-f-]{36}$`));
+    const materialId = new URL(pageA.url()).hash.split('/').pop()!;
+
+    // 內容 shows bodyV1
+    const contentSection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '內容', exact: true})});
+    await expect(contentSection.locator('.sc-material-copy')).toHaveText(bodyV1);
+
+    // 新版本 → change text → 儲存為新版本 → 版本紀錄 shows 第 2 版 with 目前版本 and 第 1 版 without it
+    const newVersionForm = activePage(pageA).getByRole('form', {name: '儲存為新版本', exact: true});
+    await newVersionForm.getByLabel('文案內容').fill(bodyV2);
+    await newVersionForm.getByRole('button', {name: '儲存為新版本', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：儲存為新版本。');
+    await expect(contentSection.locator('.sc-material-copy')).toHaveText(bodyV2);
+
+    const historySection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '版本紀錄', exact: true})});
+    const v2Row = historySection.locator('li.sc-row').filter({hasText: '第 2 版'});
+    const v1Row = historySection.locator('li.sc-row').filter({hasText: '第 1 版'});
+    await expect(v2Row.locator('.badge')).toHaveText('目前版本');
+    await expect(v2Row).toContainText(bodyV2);
+    await expect(v1Row).toBeVisible();
+    await expect(v1Row.locator('.badge')).toHaveCount(0);
+    await expect(v1Row).toContainText(bodyV1);
+
+    // 店家授權 lists B (可售) and C (待確認), not D
+    const grantSection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '店家授權', exact: true})});
+    const partnerFieldset = grantSection.locator('fieldset');
+    await expect(partnerFieldset).toContainText(`${sellerB.name} · 可售`);
+    await expect(partnerFieldset).toContainText(`${sellerC.name} · 待確認`);
+    await expect(partnerFieldset).not.toContainText(sellerD.name);
+
+    const checkboxB = partnerFieldset.getByLabel(`${sellerB.name} · 可售`, {exact: true});
+    const checkboxC = partnerFieldset.getByLabel(`${sellerC.name} · 待確認`, {exact: true});
+    await partnerFieldset.getByRole('button', {name: '授權給目前所有可售的合作店家（1 間）', exact: true}).click();
+    await expect(checkboxB).toBeChecked();
+    await expect(checkboxC).not.toBeChecked();
+
+    await partnerFieldset.getByRole('button', {name: '授權選取的店家', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。');
+    await expect(partnerFieldset).toContainText(`${sellerB.name} · 可售 · 已授權`);
+    await expect(grantSection.locator('ul.sc-list li.sc-row').filter({hasText: sellerB.name})).toContainText('已授權');
+
+    // Material list row shows 已授權 1 間店
+    await navLink(pageA, '行銷素材').click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '行銷素材', exact: true})).toBeVisible();
+    const listRow = activePage(pageA).locator('ul.sc-list li.sc-row').filter({hasText: title});
+    await expect(listRow).toContainText('已授權 1 間店');
+    await expect(listRow).toContainText('僅授權的合作店家 · 使用中');
+
+    // Seller B opens 供貨合作: 合作素材 shows supplier group, title, current text (version 2 only), 複製文字 works
+    await sellerB.ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await openSellerCooperation(sellerB.page, sellerB.store.hash);
+    const panelB = partnerMaterials(sellerB.page);
+    await expect(panelB.getByRole('heading', {level: 4, name: sup.supplierName, exact: true})).toBeVisible();
+    await expect(panelB.locator('strong').filter({hasText: title})).toBeVisible();
+    await expect(panelB.locator('.partner-material-copy')).toHaveText(bodyV2);
+    await expect(panelB).not.toContainText(bodyV1);
+
+    await panelB.getByRole('button', {name: '複製文字', exact: true}).click();
+    await expect(panelB.getByRole('status')).toHaveText('已複製。');
+    expect(await sellerB.page.evaluate(() => navigator.clipboard.readText())).toBe(bodyV2);
+
+    // Seller C and seller D see the empty text and never the title
+    for (const other of [sellerC, sellerD]) {
+      await openSellerCooperation(other.page, other.store.hash);
+      const otherPanel = partnerMaterials(other.page);
+      await expect(otherPanel).toContainText(EMPTY_PARTNER_MATERIALS_TEXT);
+      await expect(otherPanel).not.toContainText(title);
+      await expect(otherPanel).not.toContainText(bodyV2);
+    }
+
+    // Supplier revokes B (dialog) → B after 重新整理 no longer sees the material
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials/${materialId}`, `素材詳情：${title}`);
+    const grantRowB = grantSection.locator('ul.sc-list li.sc-row').filter({hasText: sellerB.name});
+    await grantRowB.getByRole('button', {name: '撤銷', exact: true}).click();
+    const revokeDialog = pageA.getByRole('dialog', {name: '撤銷店家授權', exact: true});
+    await expect(revokeDialog).toBeVisible();
+    await revokeDialog.getByRole('button', {name: '確認撤銷', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：撤銷授權。');
+    await expect(grantRowB).toContainText('已撤銷');
+
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(panelB).toContainText(EMPTY_PARTNER_MATERIALS_TEXT);
+    await expect(panelB).not.toContainText(title);
+
+    // Create a second active material so we can verify withdrawn rows sort last
+    const activeTitle = `常駐品牌簡介 ${suffix}`;
+    await createCopyMaterialInUi(pageA, sup.store, {
+      title: activeTitle,
+      description: '保持使用中的素材',
+      body: `常駐品牌文案 ${suffix}`,
+    });
+
+    // Grant B again on the first material, then 撤回素材 (dialog)
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials/${materialId}`, `素材詳情：${title}`);
+    await partnerFieldset.getByRole('button', {name: '授權給目前所有可售的合作店家（1 間）', exact: true}).click();
+    await partnerFieldset.getByRole('button', {name: '授權選取的店家', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。');
+
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(panelB.locator('strong').filter({hasText: title})).toBeVisible();
+
+    const withdrawSection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '撤回素材', exact: true})});
+    await withdrawSection.getByRole('button', {name: '撤回素材', exact: true}).click();
+    const withdrawDialog = pageA.getByRole('dialog', {name: '永久撤回這個素材', exact: true});
+    await expect(withdrawDialog).toBeVisible();
+    await withdrawDialog.getByRole('button', {name: '確認撤回素材', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：撤回素材。');
+
+    // Detail shows 已撤回 and no edit/upload/grant controls
+    await expect(activePage(pageA).locator('.detail-list')).toContainText('已撤回');
+    await expect(activePage(pageA).getByRole('button', {name: '編輯標題與說明', exact: true})).toHaveCount(0);
+    await expect(activePage(pageA).getByRole('form', {name: '儲存為新版本', exact: true})).toHaveCount(0);
+    await expect(activePage(pageA).getByRole('button', {name: '授權選取的店家', exact: true})).toHaveCount(0);
+    await expect(activePage(pageA).getByRole('button', {name: '撤銷', exact: true})).toHaveCount(0);
+    await expect(activePage(pageA).getByRole('button', {name: '撤回素材', exact: true})).toHaveCount(0);
+
+    // List shows it last with 已撤回
+    await navLink(pageA, '行銷素材').click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '行銷素材', exact: true})).toBeVisible();
+    const rows = activePage(pageA).locator('ul.sc-list > li.sc-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.first()).toContainText(activeTitle);
+    await expect(rows.first()).toContainText('使用中');
+    await expect(rows.last()).toContainText(title);
+    await expect(rows.last()).toContainText('已撤回');
+    await expect(rows.last()).toHaveClass(/sc-material-withdrawn/);
+
+    // Seller B no longer sees it
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(panelB).toContainText(EMPTY_PARTNER_MATERIALS_TEXT);
+    await expect(panelB).not.toContainText(title);
+  } finally {
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-61 file materials say plainly that files are not available here', async ({
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  test.setTimeout(120_000);
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+  type PolicyRow = {
+    purpose: string;
+    mode: string;
+    persistence_allowed: boolean;
+    policy_revision: string | null;
+    retained_byte_limit: string | null;
+  };
+  let initialPolicyRows: PolicyRow[] | null = null;
+
+  try {
+    const ctxA = await browser.newContext({baseURL});
+    contexts.push(ctxA);
+    const pageA = await ctxA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(pageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerB = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `賣家檔案面板 ${suffix}`, `seller-file-${suffix}`);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1100},
+      201,
+    );
+    await post(
+      pageA,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const imgTitle = `商品主圖 ${suffix}`;
+    const vidTitle = `商品短片 ${suffix}`;
+    const createdIds: {image: string; video: string} = {image: '', video: ''};
+
+    for (const [kind, title] of [
+      ['image', imgTitle],
+      ['video', vidTitle],
+    ] as const) {
+      await openSupplyPage(pageA, `${sup.store.hash}/supply/materials/new`, '新增素材');
+      const form = activePage(pageA).getByRole('form', {name: '新增素材', exact: true});
+      await form.getByLabel('種類').selectOption(kind);
+      await form.getByLabel('素材對象').selectOption(sup.product.productId);
+      await form.getByLabel('標題').fill(title);
+      await form.getByLabel('說明').fill(`商品素材說明 ${title}`);
+      await form.getByRole('button', {name: '建立素材', exact: true}).click();
+
+      await expect(activePage(pageA).getByRole('heading', {level: 2, name: `素材詳情：${title}`, exact: true})).toBeVisible();
+      await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('素材已建立，請上傳第一個檔案。');
+      const id = new URL(pageA.url()).hash.split('/').pop()!;
+      createdIds[kind] = id;
+
+      await expect(activePage(pageA)).toContainText('這個環境未開放素材檔案上傳。');
+      await expect(activePage(pageA)).toContainText('尚未上傳檔案');
+      await expect(activePage(pageA)).toContainText(
+        '業務空間已用 0.0 MB，處理中 0.0 MB，上限 100.0 MB，還可使用 100.0 MB。',
+      );
+      await expect(activePage(pageA).locator('.detail-list')).toContainText(
+        `商品 ${sup.product.sku}・${sup.product.title}`,
+      );
+    }
+
+    // Capacity card on 行銷素材 list shows real capacity text, and never 0 when the read failed
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials`, '行銷素材');
+    const capacityCard = activePage(pageA)
+      .locator('section.card')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '業務空間容量', exact: true})});
+    await expect(capacityCard).toContainText(
+      '業務空間已用 0.0 MB，處理中 0.0 MB，上限 100.0 MB，還可使用 100.0 MB。',
+    );
+
+    let failMaterialsRead = true;
+    await pageA.route(`**/api/v1${sup.store.root}/supply-materials`, async route => {
+      if (route.request().method() === 'GET' && failMaterialsRead) {
+        failMaterialsRead = false;
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({code: 'internal_error', detail: '素材資料目前無法讀取。'}),
+        });
+        return;
+      }
+      await route.continue();
+    });
+    await activePage(pageA).getByRole('button', {name: '更新資料', exact: true}).click();
+    await expect(capacityCard).toContainText('目前無法讀取業務空間容量。');
+    expect(await capacityCard.textContent()).not.toContain('0');
+    await pageA.unroute(`**/api/v1${sup.store.root}/supply-materials`);
+    await activePage(pageA).getByRole('button', {name: '重試', exact: true}).click();
+    await expect(capacityCard).toContainText(
+      '業務空間已用 0.0 MB，處理中 0.0 MB，上限 100.0 MB，還可使用 100.0 MB。',
+    );
+
+    // Seed version 1 for both file materials so they can be projected to the granted seller panel in this media-disabled host
+    const actor = (
+      await e2eAuthPool.query<Actor>(
+        `SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,u.onboarding_required,u.onboarding_completed_at,
+                 s.token_hash AS session_hash,s.csrf_token
+          FROM sessions s JOIN users u USING(user_id)
+          WHERE u.user_id=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()
+          LIMIT 1`,
+        [sup.member.id],
+      )
+    ).rows[0];
+    expect(actor).toBeTruthy();
+    const fakeStore = new FakeObjectStore();
+    const assets = createSupplyMaterialLifecycle(e2eAuthPool, {store: fakeStore});
+    const videoStub = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom'), Buffer.alloc(244)]);
+
+    initialPolicyRows = (
+      await e2eAuthPool.query<PolicyRow>(
+        `SELECT purpose, mode, persistence_allowed, policy_revision, retained_byte_limit::text AS retained_byte_limit
+         FROM domain_media_storage_policy
+         WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')
+         ORDER BY purpose`,
+      )
+    ).rows;
+    expect(initialPolicyRows).toHaveLength(2);
+    await e2eAuthPool.query(
+      `UPDATE domain_media_storage_policy
+       SET mode='r2_only',persistence_allowed=true,policy_revision='e2e-supply-material-policy',retained_byte_limit=104857600
+       WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')`,
+    );
+    await uploadSupplyMaterialFile(
+      e2eAuthPool,
+      actor,
+      sup.store.tenantId,
+      sup.store.instanceId,
+      createdIds.image,
+      randomUUID(),
+      '1',
+      {bytes: photoSourcePng, mime: 'image/png'},
+      assets,
+      true,
+    );
+    await uploadSupplyMaterialFile(
+      e2eAuthPool,
+      actor,
+      sup.store.tenantId,
+      sup.store.instanceId,
+      createdIds.video,
+      randomUUID(),
+      '1',
+      {bytes: videoStub, mime: 'video/mp4'},
+      assets,
+      true,
+    );
+
+    // Grant seller B on both file materials via the console UI
+    for (const [kind, title] of [
+      ['image', imgTitle],
+      ['video', vidTitle],
+    ] as const) {
+      await openSupplyPage(pageA, `${sup.store.hash}/supply/materials/${createdIds[kind]}`, `素材詳情：${title}`);
+      await activePage(pageA).getByRole('button', {name: '更新資料', exact: true}).first().click();
+      await expect(activePage(pageA)).toContainText('這個環境未開放素材檔案。');
+      await expect(activePage(pageA)).toContainText('這個環境未開放素材檔案上傳。');
+      const grantSection = activePage(pageA)
+        .locator('.sc-section')
+        .filter({has: pageA.getByRole('heading', {level: 3, name: '店家授權', exact: true})});
+      await grantSection.getByRole('button', {name: '授權給目前所有可售的合作店家（1 間）', exact: true}).click();
+      await grantSection.getByRole('button', {name: '授權選取的店家', exact: true}).click();
+      await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。');
+    }
+
+    // Seller panel shows both titles with 這個環境尚未開放素材檔案。 and no <img>/<video> element
+    await openSellerCooperation(sellerB.page, sellerB.store.hash);
+    const panelB = partnerMaterials(sellerB.page);
+    const imgCard = panelB.locator('article.card').filter({hasText: imgTitle});
+    const vidCard = panelB.locator('article.card').filter({hasText: vidTitle});
+    await expect(imgCard).toBeVisible();
+    await expect(imgCard).toContainText('這個環境尚未開放素材檔案。');
+    await expect(vidCard).toBeVisible();
+    await expect(vidCard).toContainText('這個環境尚未開放素材檔案。');
+    await expect(panelB.locator('img, video')).toHaveCount(0);
+  } finally {
+    if (initialPolicyRows) {
+      const client = await e2eAuthPool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('ALTER TABLE domain_media_storage_policy DISABLE TRIGGER preserve_domain_media_floor');
+        for (const row of initialPolicyRows) {
+          await client.query(
+            `UPDATE domain_media_storage_policy
+             SET mode=$2, persistence_allowed=$3, policy_revision=$4, retained_byte_limit=$5::bigint
+             WHERE purpose=$1`,
+            [row.purpose, row.mode, row.persistence_allowed, row.policy_revision, row.retained_byte_limit],
+          );
+        }
+        await client.query('ALTER TABLE domain_media_storage_policy ENABLE TRIGGER preserve_domain_media_floor');
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+      const restoredPolicyRows = (
+        await e2eAuthPool.query<PolicyRow>(
+          `SELECT purpose, mode, persistence_allowed, policy_revision, retained_byte_limit::text AS retained_byte_limit
+           FROM domain_media_storage_policy
+           WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')
+           ORDER BY purpose`,
+        )
+      ).rows;
+      expect(restoredPolicyRows).toEqual(initialPolicyRows);
+    }
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-62 an unknown material command result is retried with the same key (AT-24 UI)', async ({
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  test.setTimeout(120_000);
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+
+  try {
+    const ctxA = await browser.newContext({baseURL});
+    contexts.push(ctxA);
+    const pageA = await ctxA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(pageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerB = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `賣家重試 ${suffix}`, `seller-retry-${suffix}`);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1100},
+      201,
+    );
+    await post(
+      pageA,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const title = `重試素材 ${suffix}`;
+    const materialId = await createCopyMaterialInUi(pageA, sup.store, {
+      title,
+      description: '測試未知結果重試',
+      body: `重試文案內容 ${suffix}`,
+    });
+
+    // 1. Lose the answer of 授權選取的店家
+    const grantRequests: ReturnType<typeof signature>[] = [];
+    const grantStatuses: number[] = [];
+    await pageA.route(`**/api/v1${sup.store.root}/supply-materials/${materialId}/grants`, async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      grantRequests.push(signature(route.request()));
+      const response = await route.fetch();
+      grantStatuses.push(response.status());
+      if (grantRequests.length === 1) {
+        expect(response.status()).toBe(200);
+        await route.abort('failed');
+      } else {
+        await route.fulfill({response});
+      }
+    });
+
+    const grantSection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '店家授權', exact: true})});
+    await grantSection.getByRole('button', {name: '授權給目前所有可售的合作店家（1 間）', exact: true}).click();
+    await grantSection.getByRole('button', {name: '授權選取的店家', exact: true}).click();
+
+    const grantHeldBanner = consoleRoot(pageA)
+      .getByRole('status')
+      .filter({hasText: '尚未確認原操作的結果：授權選取的店家。請按『重試』確認。'});
+    await expect(grantHeldBanner).toBeVisible();
+    expect(grantRequests).toHaveLength(1);
+
+    await grantHeldBanner.getByRole('button', {name: '重試', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。');
+    await expect(grantHeldBanner).toHaveCount(0);
+
+    expect(grantStatuses).toEqual([200, 200]);
+    expect(grantRequests).toHaveLength(2);
+    expect(grantRequests[0].key).toBeTruthy();
+    expect(grantRequests[0].version).toBe('"2"');
+    expect(grantRequests[1]).toEqual(grantRequests[0]);
+
+    const activeGrantsAfterGrant = (
+      await e2eAuthPool.query<{n: number}>(
+        'SELECT count(*)::int AS n FROM supply_material_grants WHERE material_id=$1 AND revoked_at IS NULL',
+        [materialId],
+      )
+    ).rows[0].n;
+    expect(activeGrantsAfterGrant).toBe(1);
+
+    // 2. Repeat once with 撤回素材
+    const withdrawRequests: ReturnType<typeof signature>[] = [];
+    const withdrawStatuses: number[] = [];
+    await pageA.route(`**/api/v1${sup.store.root}/supply-materials/${materialId}/withdraw`, async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      withdrawRequests.push(signature(route.request()));
+      const response = await route.fetch();
+      withdrawStatuses.push(response.status());
+      if (withdrawRequests.length === 1) {
+        expect(response.status()).toBe(200);
+        await route.abort('failed');
+      } else {
+        await route.fulfill({response});
+      }
+    });
+
+    const withdrawSection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '撤回素材', exact: true})});
+    await withdrawSection.getByRole('button', {name: '撤回素材', exact: true}).click();
+    const withdrawDialog = pageA.getByRole('dialog', {name: '永久撤回這個素材', exact: true});
+    await expect(withdrawDialog).toBeVisible();
+    await withdrawDialog.getByRole('button', {name: '確認撤回素材', exact: true}).click();
+
+    const withdrawHeldBanner = consoleRoot(pageA)
+      .getByRole('status')
+      .filter({hasText: '尚未確認原操作的結果：撤回素材。請按『重試』確認。'});
+    await expect(withdrawHeldBanner).toBeVisible();
+    expect(withdrawRequests).toHaveLength(1);
+
+    await withdrawHeldBanner.getByRole('button', {name: '重試', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：撤回素材。');
+    await expect(withdrawHeldBanner).toHaveCount(0);
+    await expect(activePage(pageA).locator('.detail-list')).toContainText('已撤回');
+
+    expect(withdrawStatuses).toEqual([200, 200]);
+    expect(withdrawRequests).toHaveLength(2);
+    expect(withdrawRequests[0].key).toBeTruthy();
+    expect(withdrawRequests[0].version).toBe('"3"');
+    expect(withdrawRequests[1]).toEqual(withdrawRequests[0]);
+
+    const stateAfterWithdraw = (
+      await e2eAuthPool.query<{state: string; active_grants: number}>(
+        `SELECT state,
+                (SELECT count(*)::int FROM supply_material_grants WHERE material_id=$1 AND revoked_at IS NULL) AS active_grants
+         FROM supply_materials WHERE material_id=$1`,
+        [materialId],
+      )
+    ).rows[0];
+    expect(stateAfterWithdraw).toEqual({state: 'withdrawn', active_grants: 0});
+  } finally {
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-63 permissions: viewer and admin in the supplier business, viewer in the seller business', async ({
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  test.setTimeout(120_000);
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+
+  try {
+    const ctxOwnerA = await browser.newContext({baseURL});
+    contexts.push(ctxOwnerA);
+    const ownerPageA = await ctxOwnerA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(ownerPageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerB = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `賣家權限 ${suffix}`, `seller-perm-${suffix}`);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1100},
+      201,
+    );
+    await post(
+      ownerPageA,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    // Admin in the supplier business (with store:write) can access 行銷素材, create and grant material
+    const ctxAdminA = await browser.newContext({baseURL});
+    contexts.push(ctxAdminA);
+    const adminPageA = await ctxAdminA.newPage();
+    await inviteMember(ownerPageA, adminPageA, e2eAuthPool, sup.store, [], 'admin');
+
+    await openSupplyPage(adminPageA, `${sup.store.hash}/supply`, '營運概覽');
+    await expect(navLink(adminPageA, '行銷素材')).toBeVisible();
+
+    const secretTitle = `內部授權素材 ${suffix}`;
+    const secretBody = `僅限授權賣家讀取的文案內容 ${suffix}`;
+    const materialId = await createCopyMaterialInUi(adminPageA, sup.store, {
+      title: secretTitle,
+      description: '供應商管理員建立的文案',
+      body: secretBody,
+    });
+    const grantSection = activePage(adminPageA)
+      .locator('.sc-section')
+      .filter({has: adminPageA.getByRole('heading', {level: 3, name: '店家授權', exact: true})});
+    await grantSection.getByRole('button', {name: '授權給目前所有可售的合作店家（1 間）', exact: true}).click();
+    await grantSection.getByRole('button', {name: '授權選取的店家', exact: true}).click();
+    await expect(consoleRoot(adminPageA).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。');
+
+    // Viewer (store:read) in the supplier business: no 行銷素材 nav item; direct links explain 需要商品編輯權限才能查看 and show no material data
+    const ctxViewerA = await browser.newContext({baseURL});
+    contexts.push(ctxViewerA);
+    const viewerPageA = await ctxViewerA.newPage();
+    await inviteMember(ownerPageA, viewerPageA, e2eAuthPool, sup.store, ['store:read'], 'operator');
+
+    await openSupplyPage(viewerPageA, `${sup.store.hash}/supply`, '營運概覽');
+    await expect(navLink(viewerPageA, '行銷素材')).toHaveCount(0);
+
+    await openSupplyPage(viewerPageA, `${sup.store.hash}/supply/materials`, '行銷素材');
+    await expect(activePage(viewerPageA)).toContainText('需要商品編輯權限才能查看');
+    await expect(activePage(viewerPageA)).not.toContainText(secretTitle);
+    await expect(activePage(viewerPageA)).not.toContainText(secretBody);
+
+    await openSupplyPage(viewerPageA, `${sup.store.hash}/supply/materials/${materialId}`, '素材詳情');
+    await expect(activePage(viewerPageA)).toContainText('需要商品編輯權限才能查看');
+    await expect(activePage(viewerPageA)).not.toContainText(secretTitle);
+    await expect(activePage(viewerPageA)).not.toContainText(secretBody);
+
+    // Viewer (store:read) in seller B's business sees B's 合作素材 (reads allowed) but no supplier controls
+    const ctxViewerB = await browser.newContext({baseURL});
+    contexts.push(ctxViewerB);
+    const viewerPageB = await ctxViewerB.newPage();
+    await inviteMember(sellerB.page, viewerPageB, e2eAuthPool, sellerB.store, ['store:read'], 'operator');
+
+    await openSellerCooperation(viewerPageB, sellerB.store.hash);
+    const panelViewerB = partnerMaterials(viewerPageB);
+    await expect(panelViewerB.getByRole('heading', {level: 4, name: sup.supplierName, exact: true})).toBeVisible();
+    await expect(panelViewerB.locator('strong').filter({hasText: secretTitle})).toBeVisible();
+    await expect(panelViewerB.locator('.partner-material-copy')).toHaveText(secretBody);
+
+    await expect(viewerPageB.getByRole('navigation', {name: '營運中心', exact: true})).toHaveCount(0);
+    await expect(viewerPageB.getByRole('button', {name: '新增素材', exact: true})).toHaveCount(0);
+    await expect(viewerPageB.getByRole('button', {name: '編輯標題與說明', exact: true})).toHaveCount(0);
+    await expect(viewerPageB.getByRole('button', {name: '儲存為新版本', exact: true})).toHaveCount(0);
+    await expect(viewerPageB.getByRole('button', {name: '授權選取的店家', exact: true})).toHaveCount(0);
+    await expect(viewerPageB.getByRole('button', {name: '撤銷', exact: true})).toHaveCount(0);
+    await expect(viewerPageB.getByRole('button', {name: '撤回素材', exact: true})).toHaveCount(0);
+  } finally {
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-64 leaving with an unsaved material draft asks first', async ({browser, baseURL, e2eAuthPool}) => {
+  test.setTimeout(120_000);
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+
+  try {
+    const ctxA = await browser.newContext({baseURL});
+    contexts.push(ctxA);
+    const pageA = await ctxA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(pageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    // 1. Type into 新增素材, then click console leave link (切換事業)
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials/new`, '新增素材');
+    const newForm = activePage(pageA).getByRole('form', {name: '新增素材', exact: true});
+    const draftTitle = `未儲存素材標題 ${suffix}`;
+    await newForm.getByLabel('標題').fill(draftTitle);
+
+    const dismissNew = barrier();
+    pageA.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toBe('還有尚未儲存的內容，要離開嗎？');
+      await dialog.dismiss();
+      dismissNew.resolve();
+    });
+    await consoleRoot(pageA).getByRole('link', {name: '切換事業', exact: true}).click();
+    await dismissNew.promise;
+    await expect(pageA).toHaveURL(new RegExp(`#${sup.store.hash}/supply/materials/new$`));
+    await expect(newForm.getByLabel('標題')).toHaveValue(draftTitle);
+
+    const acceptNew = barrier();
+    pageA.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toBe('還有尚未儲存的內容，要離開嗎？');
+      await dialog.accept();
+      acceptNew.resolve();
+    });
+    await consoleRoot(pageA).getByRole('link', {name: '切換事業', exact: true}).click();
+    await acceptNew.promise;
+    await expect(pageA).toHaveURL(/#stores\/supply$/);
+
+    // 2. Same for an unsaved 儲存為新版本 text on the detail page
+    const savedTitle = `正式素材 ${suffix}`;
+    const savedBody = `第一版正式文案 ${suffix}`;
+    const materialId = await createCopyMaterialInUi(pageA, sup.store, {
+      title: savedTitle,
+      description: '測試新版本草稿離開確認',
+      body: savedBody,
+    });
+
+    const copyForm = activePage(pageA).getByRole('form', {name: '儲存為新版本', exact: true});
+    const unsavedBody = `尚未儲存的第二版草稿 ${suffix}`;
+    await copyForm.getByLabel('文案內容').fill(unsavedBody);
+
+    const dismissDetail = barrier();
+    pageA.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toBe('還有尚未儲存的內容，要離開嗎？');
+      await dialog.dismiss();
+      dismissDetail.resolve();
+    });
+    await consoleRoot(pageA).getByRole('link', {name: '切換事業', exact: true}).click();
+    await dismissDetail.promise;
+    await expect(pageA).toHaveURL(new RegExp(`#${sup.store.hash}/supply/materials/${materialId}$`));
+    await expect(copyForm.getByLabel('文案內容')).toHaveValue(unsavedBody);
+
+    const acceptDetail = barrier();
+    pageA.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toBe('還有尚未儲存的內容，要離開嗎？');
+      await dialog.accept();
+      acceptDetail.resolve();
+    });
+    await consoleRoot(pageA).getByRole('link', {name: '切換事業', exact: true}).click();
+    await acceptDetail.promise;
+    await expect(pageA).toHaveURL(/#stores\/supply$/);
+  } finally {
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-65 material pages fit narrow and wide screens', async ({browser, baseURL, e2eAuthPool}, info) => {
+  test.setTimeout(120_000);
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+
+  async function assertControlsFontAt390(page: Page, rootSelector: string) {
+    const fonts = await page.locator(`${rootSelector} input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), ${rootSelector} select, ${rootSelector} textarea`).evaluateAll(
+      elements =>
+        elements
+          .filter(el => (el as HTMLElement).offsetParent !== null)
+          .map(el => parseFloat(getComputedStyle(el).fontSize)),
+    );
+    expect(fonts.length).toBeGreaterThan(0);
+    for (const size of fonts) {
+      expect(size).toBeGreaterThanOrEqual(16);
+    }
+  }
+
+  async function assertSmallButtonsOnDesktop(page: Page, rootSelector: string) {
+    const violations = await page.locator(`${rootSelector} .btn-small`).evaluateAll(elements =>
+      elements
+        .filter(el => (el as HTMLElement).offsetParent !== null)
+        .flatMap(el => {
+          const btnRect = el.getBoundingClientRect();
+          const row = el.closest('.sc-row, .sc-section, .card, .partner-materials') ?? el.parentElement!;
+          const rowRect = row.getBoundingClientRect();
+          return btnRect.width > rowRect.width || btnRect.width >= rowRect.width * 0.9 ? [{text: el.textContent, btnWidth: btnRect.width, rowWidth: rowRect.width}] : [];
+        }),
+    );
+    expect(violations).toEqual([]);
+  }
+
+  try {
+    const ctxA = await browser.newContext({baseURL});
+    contexts.push(ctxA);
+    const pageA = await ctxA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(pageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerB = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `賣家版面 ${suffix}`, `seller-layout-${suffix}`);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1100},
+      201,
+    );
+    await post(
+      pageA,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const title1 = `版面檢視素材一 ${suffix}`;
+    const material1Id = await createCopyMaterialInUi(pageA, sup.store, {
+      title: title1,
+      description: '包含店家授權與公開店面範圍對話框的素材詳情測試',
+      body: `第一筆素材文案內容，確認窄螢幕與寬螢幕排版正常 ${suffix}`,
+    });
+
+    const grantSection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '店家授權', exact: true})});
+    await grantSection.getByRole('button', {name: '授權給目前所有可售的合作店家（1 間）', exact: true}).click();
+    await grantSection.getByRole('button', {name: '授權選取的店家', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。');
+
+    await createCopyMaterialInUi(pageA, sup.store, {
+      title: `版面檢視素材二 ${suffix}`,
+      description: '商品專屬素材列表列顯示測試',
+      body: `第二筆商品素材文案內容 ${suffix}`,
+      productId: sup.product.productId,
+    });
+
+    // 1. 行銷素材 (with rows)
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials`, '行銷素材');
+    await expect(activePage(pageA).locator('ul.sc-list > li.sc-row')).toHaveCount(2);
+
+    await pageA.setViewportSize({width: 390, height: 844});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await pageA.screenshot({path: info.outputPath('materials-list-390.png'), fullPage: true});
+
+    await pageA.setViewportSize({width: 1440, height: 900});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await assertSmallButtonsOnDesktop(pageA, '.supplier-console');
+    await pageA.screenshot({path: info.outputPath('materials-list-1440.png'), fullPage: true});
+
+    // 2. 新增素材
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials/new`, '新增素材');
+    await activePage(pageA).getByRole('form', {name: '新增素材', exact: true}).getByLabel('種類').selectOption('copy');
+
+    await pageA.setViewportSize({width: 390, height: 844});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await assertControlsFontAt390(pageA, '.supplier-console');
+    await pageA.screenshot({path: info.outputPath('materials-new-390.png'), fullPage: true});
+
+    await pageA.setViewportSize({width: 1440, height: 900});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await pageA.screenshot({path: info.outputPath('materials-new-1440.png'), fullPage: true});
+
+    // 3. 素材詳情 (with grants and the public-use dialog open)
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/materials/${material1Id}`, `素材詳情：${title1}`);
+    const accessSection = activePage(pageA)
+      .locator('.sc-section')
+      .filter({has: pageA.getByRole('heading', {level: 3, name: '授權範圍', exact: true})});
+    await accessSection.getByLabel('使用範圍').selectOption('public_use');
+    const publicDialog = pageA.getByRole('dialog', {name: '可用於合作店家的公開店面', exact: true});
+    await expect(publicDialog).toBeVisible();
+
+    await pageA.setViewportSize({width: 390, height: 844});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await assertControlsFontAt390(pageA, '.supplier-console');
+    const dialogFits390 = await publicDialog.evaluate(el => {
+      const r = el.getBoundingClientRect();
+      return r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight && r.width > 0;
+    });
+    expect(dialogFits390).toBe(true);
+    await pageA.screenshot({path: info.outputPath('materials-detail-390.png'), fullPage: true});
+
+    await pageA.setViewportSize({width: 1440, height: 900});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await assertSmallButtonsOnDesktop(pageA, '.supplier-console');
+    await pageA.screenshot({path: info.outputPath('materials-detail-1440.png'), fullPage: true});
+    await publicDialog.getByRole('button', {name: '取消', exact: true}).click();
+
+    // 4. Seller's 合作素材 panel
+    await openSellerCooperation(sellerB.page, sellerB.store.hash);
+    await expect(partnerMaterials(sellerB.page).locator('strong').filter({hasText: title1})).toBeVisible();
+
+    await sellerB.page.setViewportSize({width: 390, height: 844});
+    expect(await sellerB.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await sellerB.page.screenshot({path: info.outputPath('partner-materials-390.png'), fullPage: true});
+
+    await sellerB.page.setViewportSize({width: 1440, height: 900});
+    expect(await sellerB.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await assertSmallButtonsOnDesktop(sellerB.page, '.partner-materials');
+    await sellerB.page.screenshot({path: info.outputPath('partner-materials-1440.png'), fullPage: true});
+  } finally {
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-71 the report page shows the period, links to the lists and downloads a CSV (AT-29,30,32)', async ({
+  browser,
+  baseURL,
+  e2eAuthPool,
+}, info) => {
+  test.setTimeout(120_000);
+  const {readFile} = await import('node:fs/promises');
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+
+  try {
+    const ctxA = await browser.newContext({baseURL});
+    contexts.push(ctxA);
+    const pageA = await ctxA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(pageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    // Create second product (not published) via the console UI form with title '=SUM(1,1)'
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/products/new`, '新增商品');
+    const newProductForm = activePage(pageA).getByRole('form', {name: '新增商品', exact: true});
+    await newProductForm.getByLabel('商品名稱', {exact: true}).fill('=SUM(1,1)');
+    await newProductForm.getByRole('textbox', {name: '說明', exact: true}).fill('尚未公開的試算表公式防護測試商品');
+    await newProductForm.getByLabel('供貨單價', {exact: true}).fill('5');
+    await newProductForm.getByLabel('庫存', {exact: true}).fill('8');
+    await newProductForm.getByRole('button', {name: '新增商品', exact: true}).click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '商品詳情：=SUM(1,1)', exact: true})).toBeVisible();
+    const product2Id = new URL(pageA.url()).hash.split('/').pop()!;
+    const productsList = await getJson(pageA, `${sup.store.root}/supply-products`);
+    const product2 = productsList.items.find((p: {product_id: string}) => p.product_id === product2Id);
+    expect(product2).toBeTruthy();
+
+    await navLink(pageA, '設定與資料').click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '設定與資料', exact: true})).toBeVisible();
+    await activePage(pageA).getByRole('button', {name: '開放 30 分鐘預留', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：開放 30 分鐘預留。');
+
+    // Seller B sellable + published storefront + 1 buyer reservation created via public API
+    const sellerSlug = `seller-report-${suffix}`;
+    const sellerB = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `報表賣家 ${suffix}`, sellerSlug);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1100},
+      201,
+    );
+    await post(
+      pageA,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+    const sellerView = await getJson(sellerB.page, sellerB.store.root);
+    await post(sellerB.page, `${sellerB.store.root}/publish`, {}, 200, sellerView.version);
+    const sellerSetting = await getJson(sellerB.page, `${sellerB.store.root}/reservation-setting`);
+    if (!sellerSetting.reservation_enabled) {
+      await patchJson(sellerB.page, `${sellerB.store.root}/reservation-setting`, {reservation_enabled: true}, 200, sellerSetting.version);
+    }
+
+    const buyer = await person(e2eAuthPool);
+    const ctxBuyer = await browser.newContext({baseURL});
+    contexts.push(ctxBuyer);
+    const buyerPage = await ctxBuyer.newPage();
+    await login(buyerPage, buyer.email);
+    const publicStore = await getJson(buyerPage, `/public/stores/${sellerSlug}`);
+    const quote = await post(
+      buyerPage,
+      `/hosted-stores/${sellerSlug}/reservation-quotes`,
+      {publication_revision: publicStore.revision, items: [{sku: propB.sku, quantity: 2}]},
+      201,
+    );
+    await post(
+      buyerPage,
+      `/hosted-stores/${sellerSlug}/reservation-orders`,
+      {quote_id: quote.quote_id, terms_sha256: quote.terms_sha256, client_order_id: randomUUID()},
+      201,
+    );
+
+    // Compute expected last 30 Taipei days with Asia/Taipei
+    const taipeiDate = (ms: number) =>
+      new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Taipei'}).format(new Date(ms));
+    const nowMs = Date.now();
+    const expectedFrom = taipeiDate(nowMs - 29 * 86_400_000);
+    const expectedTo = taipeiDate(nowMs);
+
+    // Open 營運報表 with no query
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    const fromInput = activePage(pageA).getByLabel('期間起（台灣時間）');
+    const toInput = activePage(pageA).getByLabel('期間迄（台灣時間）');
+    await expect(fromInput).toHaveValue(expectedFrom);
+    await expect(toInput).toHaveValue(expectedTo);
+
+    // Verify product count links have matching state filter and follow one link
+    const expectedProductLinks: Array<[string, string]> = [
+      ['商品總數：查看清單', `#${sup.store.hash}/supply/products`],
+      ['公開中：查看清單', `#${sup.store.hash}/supply/products?state=offered`],
+      ['尚未公開：查看清單', `#${sup.store.hash}/supply/products?state=not_offered`],
+      ['需更新版本：查看清單', `#${sup.store.hash}/supply/products?state=outdated`],
+      ['缺貨：查看清單', `#${sup.store.hash}/supply/products?state=out_of_stock`],
+    ];
+    for (const [linkName, expectedHref] of expectedProductLinks) {
+      await expect(activePage(pageA).getByRole('link', {name: linkName, exact: true})).toHaveAttribute(
+        'href',
+        expectedHref,
+      );
+    }
+
+    await activePage(pageA).getByRole('link', {name: '公開中：查看清單', exact: true}).click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '商品與庫存', exact: true})).toBeVisible();
+    await expect(pageA).toHaveURL(new RegExp(`#${sup.store.hash}/supply/products\\?state=offered$`));
+
+    // Back to 營運報表 and follow partner row link to B's detail
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    const partnerLink = activePage(pageA).getByRole('link', {name: sellerB.name, exact: true});
+    await expect(partnerLink).toHaveAttribute(
+      'href',
+      new RegExp(`^#${sup.store.hash}/supply/partners/[0-9a-f-]{36}$`),
+    );
+    const partnerHref = (await partnerLink.getAttribute('href'))!;
+    await partnerLink.click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '合作店家詳情', exact: true})).toBeVisible();
+    await expect(pageA).toHaveURL(new RegExp(`${partnerHref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+
+    // Back to 營運報表 and follow reservation row link with the same period
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    const expectedReservationLinks: Array<[string, string]> = [
+      ['預留中：查看預留', `#${sup.store.hash}/supply/reservations?state=reserved&from=${expectedFrom}&to=${expectedTo}`],
+      ['已取消：查看預留', `#${sup.store.hash}/supply/reservations?state=cancelled&from=${expectedFrom}&to=${expectedTo}`],
+      ['已到期：查看預留', `#${sup.store.hash}/supply/reservations?state=expired&from=${expectedFrom}&to=${expectedTo}`],
+    ];
+    for (const [linkName, expectedHref] of expectedReservationLinks) {
+      await expect(activePage(pageA).getByRole('link', {name: linkName, exact: true})).toHaveAttribute(
+        'href',
+        expectedHref,
+      );
+    }
+
+    await activePage(pageA).getByRole('link', {name: '預留中：查看預留', exact: true}).click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '預留與訂單', exact: true})).toBeVisible();
+    await expect(pageA).toHaveURL(
+      new RegExp(`#${sup.store.hash}/supply/reservations\\?state=reserved&from=${expectedFrom}&to=${expectedTo}$`),
+    );
+
+    // Back to 營運報表 for invalid period checks
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    await expect(fromInput).toHaveValue(expectedFrom);
+    const reportUrlBeforeInvalid = pageA.url();
+    const reportRequestsDuringInvalid: string[] = [];
+    const onReportReq = (req: Request) => {
+      if (req.url().includes(`${sup.store.root}/supplier-console/report`)) {
+        reportRequestsDuringInvalid.push(req.url());
+      }
+    };
+    pageA.on('request', onReportReq);
+    try {
+      // 1) from after to
+      await fromInput.fill(expectedTo);
+      await toInput.fill(expectedFrom);
+      await expect(activePage(pageA).getByRole('alert')).toHaveText('期間起不能晚於期間迄，請檢查日期。');
+      await expect(activePage(pageA).getByRole('button', {name: '套用期間', exact: true})).toBeDisabled();
+      await expect(activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true})).toBeDisabled();
+      expect(pageA.url()).toBe(reportUrlBeforeInvalid);
+      expect(reportRequestsDuringInvalid).toHaveLength(0);
+
+      // 2) more than 366 days
+      await fromInput.fill('2024-01-01');
+      await toInput.fill('2025-06-01');
+      await expect(activePage(pageA).getByRole('alert')).toHaveText('期間最長 366 天，請縮短期間。');
+      await expect(activePage(pageA).getByRole('button', {name: '套用期間', exact: true})).toBeDisabled();
+      await expect(activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true})).toBeDisabled();
+      expect(pageA.url()).toBe(reportUrlBeforeInvalid);
+      expect(reportRequestsDuringInvalid).toHaveLength(0);
+    } finally {
+      pageA.off('request', onReportReq);
+    }
+
+    // Restore valid period via 回到最近 30 天
+    await activePage(pageA).getByRole('button', {name: '回到最近 30 天', exact: true}).click();
+    await expect(fromInput).toHaveValue(expectedFrom);
+    await expect(toInput).toHaveValue(expectedTo);
+    await expect(activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true})).toBeEnabled();
+
+    // Download CSV as owner
+    const ownerDownloadPromise = pageA.waitForEvent('download');
+    await activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true}).click();
+    const ownerDownload = await ownerDownloadPromise;
+    expect(ownerDownload.suggestedFilename()).toBe(`supplier-report-${expectedFrom}_${expectedTo}.csv`);
+    const ownerCsvPath = await ownerDownload.path();
+    expect(ownerCsvPath).toBeTruthy();
+    const ownerCsvBytes = await readFile(ownerCsvPath!);
+    expect(ownerCsvBytes[0]).toBe(0xef);
+    expect(ownerCsvBytes[1]).toBe(0xbb);
+    expect(ownerCsvBytes[2]).toBe(0xbf);
+    const ownerCsvText = ownerCsvBytes.toString('utf8');
+    expect(ownerCsvText.startsWith('\uFEFF')).toBe(true);
+    const ownerHeaderRows = ownerCsvText.slice(1).split('\r\n').slice(0, 12).join('\n');
+    expect(ownerHeaderRows).toContain('供應商營運報表');
+    expect(ownerHeaderRows).toContain('本檔不是完整資料匯出');
+    expect(ownerCsvText).toContain(sup.product.sku);
+    expect(ownerCsvText).toContain(product2.sku);
+    expect(ownerCsvText).toContain('"\'=SUM(1,1)"');
+
+    // Non-owner store:write member sees 只有業務空間擁有者可以查看預留。 and no reservation counts or links; their CSV says 本檔不含預留資料
+    const ctxWriter = await browser.newContext({baseURL});
+    contexts.push(ctxWriter);
+    const writerPage = await ctxWriter.newPage();
+    await inviteMember(pageA, writerPage, e2eAuthPool, sup.store, ['store:read', 'store:write'], 'operator');
+
+    await openSupplyPage(writerPage, `${sup.store.hash}/supply/reports`, '營運報表');
+    await expect(activePage(writerPage)).toContainText('只有業務空間擁有者可以查看預留。');
+    await expect(activePage(writerPage).getByRole('link', {name: /查看預留/})).toHaveCount(0);
+    await expect(activePage(writerPage).getByRole('columnheader', {name: '預留筆數', exact: true})).toHaveCount(0);
+
+    const writerDownloadPromise = writerPage.waitForEvent('download');
+    await activePage(writerPage).getByRole('button', {name: '下載 CSV', exact: true}).click();
+    const writerDownload = await writerDownloadPromise;
+    const writerCsvPath = await writerDownload.path();
+    expect(writerCsvPath).toBeTruthy();
+    const writerCsvText = (await readFile(writerCsvPath!)).toString('utf8');
+    expect(writerCsvText).toContain('本檔不含預留資料');
+    expect(writerCsvText).not.toContain('預留行項');
+
+    // Viewport checks at 390×844 and 1440×900
+    await pageA.setViewportSize({width: 390, height: 844});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const controlFonts390 = await pageA
+      .locator('.supplier-console input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), .supplier-console select, .supplier-console textarea')
+      .evaluateAll(elements =>
+        elements
+          .filter(el => (el as HTMLElement).offsetParent !== null)
+          .map(el => parseFloat(getComputedStyle(el).fontSize)),
+      );
+    expect(controlFonts390.length).toBeGreaterThan(0);
+    for (const size of controlFonts390) {
+      expect(size).toBeGreaterThanOrEqual(16);
+    }
+    await pageA.screenshot({path: info.outputPath('reports-390.png'), fullPage: true});
+
+    await pageA.setViewportSize({width: 1440, height: 900});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await pageA.screenshot({path: info.outputPath('reports-1440.png'), fullPage: true});
+  } finally {
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
