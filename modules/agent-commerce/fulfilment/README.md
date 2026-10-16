@@ -188,3 +188,59 @@ Applies untrusted carrier callbacks against the shipment's current state and act
   - `informational`: state unchanged, `change: 'none'`, `record_handover: false`, no exception, `daily_review: false`.
   - `ops_review` / `unmapped`: state unchanged, `change: 'none'`, `record_handover: false`, no exception, `daily_review: true`.
 - Immutability guarantee: Caller input `open_exception_kinds` is never frozen, modified, or retained in return structures.
+
+## Hosted shipping settings (M3)
+
+The settings layer implements [EC-SPEC-05 §2](../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md)
+and the independent [store capabilities](../../../docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md).
+It performs no provider call, quote, logistics-order creation or email delivery.
+Migration 170 adds tenant-RLS `commerce_ship_from_locations` (personal data) and
+`commerce_logistics_services`, plus non-PII, participant-ACL exempt
+`commerce_shipping_profile_versions` and `commerce_item_shipping_attributes`.
+
+The console flag mounts these routes below `/api/v1/tenants/:tenant_id/storefronts/:instance_id`:
+
+| Routes | Capability in addition to `store:read` |
+| --- | --- |
+| GET `/ship-from-locations`, GET `/ship-from-locations/:location_id`, GET `/shipping-profile` | `store:manage` or `store:fulfil` |
+| POST `/ship-from-locations`, POST `/ship-from-locations/:location_id/retire`, PUT `/shipping-profile` | `store:manage` |
+| GET `/products/:product_id/shipping-attributes` | `store:read` |
+| PUT `/products/:product_id/shipping-attributes` | `store:write` |
+
+Writes require a live store and serialize on its instance row. They do not acquire
+an order advisory lock, spend a budget or stop in commerce quarantine. An item's
+attributes belong exclusively to its supply shop's confirmed tenant/instance;
+a retailer's selection of a supplied item grants no settings access.
+
+Every profile save appends the next integer version of `freedom.shipping-profile/v1`.
+Every attribute save appends the next version per item. The highest version is current.
+The first save permits absent `If-Match`; subsequent saves require the current quoted
+version. Missing versions answer 428; stale or premature versions answer 412.
+Responses carry the current version in `ETag`. Profile working days are sorted and
+its SHA-256 covers `canonicalJSON(document)`; service order retains preference order.
+
+Locations never change. Replacement creates a row linked by `replaces_location_id`,
+retires the previous row and, if referenced, appends one profile version replacing
+all sender/return references in the same transaction. Used roles must be preserved.
+A referenced location cannot retire independently. Twenty unretired locations are
+allowed per store. Sender validation uses `validateHomeRecipient` and retains its
+normalized fields. Command receipts contain only `{ id }`; fresh commands and
+replays project current rows within the same authorized transaction. No location
+personal data belongs in a receipt, log, Problem detail, control event or journal.
+
+Later quote work can rely on the current profile version and these functions:
+
+- `logisticsAvailability(q, { instanceId, environment })` supplies five states in
+  `SERVICE_KEYS` order and `profileServiceKeys`, the activated retained sub-types a
+  profile may list under a non-retired purpose row. Suspended services may remain configured.
+- `resolveLogisticsService(q, { instanceId, environment, serviceKey })` resolves an
+  account, sub-type and current purpose credential version only when both states
+  are active. This is the sole resolution policy; callers must not duplicate it.
+- `currentItemShippingAttributes(q, itemIds)` returns a map of latest rule-library
+  attributes, omitting items with no saved attributes.
+
+The route option fixes sandbox/live environment; requests cannot choose it.
+Fulfilment settings and the shipping route must never import payments or operations.
+They read provider tables with SQL and import only fulfilment rules, hosted/checkout,
+providers, packages, tenant HTTP helpers and contracts. Payments may import fulfilment;
+contracts never import module code. This preserves the descriptor dependency graph.
