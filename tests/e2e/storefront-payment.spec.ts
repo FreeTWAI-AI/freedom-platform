@@ -14,6 +14,9 @@ import {
   placeAdditionalPaymentOrder,
   readOrderDtoWithPageCookies,
 } from './storefront-payment-fixture.js';
+import type { Page } from '@playwright/test';
+import type { Pool } from 'pg';
+import { formatRetryAfterTaipeiTime, formatTaipeiTime } from '../../apps/portal-web/src/storefront/format.js';
 
 test('1 & 10. Pay flow and B06 privacy: B07 starts payment -> fixture checkout -> 付款成功 -> B06 已收到付款 (status only, no PII/lines/amounts) -> B07 已付款', async ({
   page,
@@ -1199,4 +1202,180 @@ test('15. Responsive layout and full-page screenshots across 1440, 1280, 768, 39
   await page.goto(returnPath);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('尚未付款');
   await assertResponsiveLayout(page, RESPONSIVE_WIDTHS, w => info.outputPath(`b06-long-store-name-${w}.png`));
+});
+
+const row = async (db: Pool, id: string) =>
+  (await db.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1', [id])).rows[0];
+async function enter(page: Page, url: string) {
+  await page.goto(url);
+  await expect(page.getByRole('heading', { name: '本機付款測試', exact: true })).toBeVisible();
+}
+
+test('16. Live query: paid without notification, then 查詢付款結果 → 已付款', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  await page.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
+  const p = await createE2ePaymentOrder(e2eAuthPool, browser, baseURL!, page.context());
+  const orderPath = `/shops/${p.store.slug}/orders/${p.order.order_ref}`;
+
+  await enter(page, p.payment.handoff_url);
+  await page.getByRole('button', { name: '付款成功但不通知', exact: true }).click();
+  await expect(page.getByText('結果已送出。', { exact: true })).toBeVisible();
+
+  await page.goto(orderPath);
+  const paymentSection = page.getByRole('region', { name: '付款' });
+  await expect(paymentSection).toContainText('付款確認中');
+  await expect(paymentSection).toContainText('還沒收到這次付款的結果。');
+
+  const queryButton = paymentSection.getByRole('button', { name: '查詢付款結果', exact: true });
+  await expect(queryButton).toBeEnabled();
+
+  await queryButton.click();
+  await expect(paymentSection).toContainText('已付款');
+  await expect(paymentSection.getByRole('button', { name: '查詢付款結果', exact: true })).toHaveCount(0);
+
+  const events = (await e2eAuthPool.query(
+    'SELECT source, query_trigger, outcome FROM commerce_hosted_payment_events WHERE attempt_id=$1',
+    [p.payment.attempt_ref],
+  )).rows;
+  expect(events).toEqual([
+    { source: 'query', query_trigger: 'buyer', outcome: 'paid' },
+  ]);
+  expect((await row(e2eAuthPool, p.payment.attempt_ref)).state).toBe('confirmed');
+});
+
+test('17. Live re-pay: 付款失敗 → 重新付款 → attempt 2 → 付款成功 → 已付款', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  await page.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
+  const p = await createE2ePaymentOrder(e2eAuthPool, browser, baseURL!, page.context());
+  const orderPath = `/shops/${p.store.slug}/orders/${p.order.order_ref}`;
+
+  await enter(page, p.payment.handoff_url);
+  await page.getByRole('button', { name: '付款失敗', exact: true }).click();
+  await expect(page.getByText('結果已送出。', { exact: true })).toBeVisible();
+
+  await page.goto(orderPath);
+  const paymentSection = page.getByRole('region', { name: '付款' });
+  await expect(paymentSection).toContainText('付款未完成');
+  await expect(paymentSection).toContainText('這次付款沒有完成，沒有扣款。');
+
+  const dto = await readOrderDtoWithPageCookies(page, p.store.slug, p.order.order_ref);
+  expect(dto.can_resume_payment).toBe(true);
+
+  await page.getByRole('button', { name: '重新付款', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '本機付款測試', exact: true })).toBeVisible();
+
+  const attempts = (await e2eAuthPool.query(
+    'SELECT attempt_id, sequence, state, handed_off_at FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence ASC',
+    [p.order.order_ref],
+  )).rows;
+  expect(attempts).toHaveLength(2);
+  expect(attempts[0].sequence).toBe(1);
+  expect(attempts[0].state).toBe('failed');
+  expect(attempts[1].sequence).toBe(2);
+  expect(attempts[1].state).toBe('issued');
+  expect(attempts[1].handed_off_at).not.toBeNull();
+
+  const queryEvents = (await e2eAuthPool.query(
+    "SELECT 1 FROM commerce_hosted_payment_events e JOIN commerce_payment_attempts a USING(attempt_id) WHERE a.order_id=$1 AND e.source='query'",
+    [p.order.order_ref],
+  )).rows;
+  expect(queryEvents).toHaveLength(0);
+
+  await page.getByRole('button', { name: '付款成功', exact: true }).click();
+  await page.getByRole('button', { name: '返回商店查看結果', exact: true }).click();
+
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('已收到付款');
+  const viewOrderLink = page.getByRole('link', { name: '查看訂單', exact: true });
+  await viewOrderLink.click();
+
+  await expect(page).toHaveURL(`${baseURL}${orderPath}`);
+  const paymentSectionAfter = page.getByRole('region', { name: '付款' });
+  await expect(paymentSectionAfter).toContainText('已付款');
+
+  expect((await row(e2eAuthPool, attempts[1].attempt_id)).state).toBe('confirmed');
+});
+
+test('18. Live order budget: an unpaid handoff queried twice → 操作太頻繁', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  await page.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
+  const p = await createE2ePaymentOrder(e2eAuthPool, browser, baseURL!, page.context());
+  const orderPath = `/shops/${p.store.slug}/orders/${p.order.order_ref}`;
+
+  await enter(page, p.payment.handoff_url);
+  await page.goto(orderPath);
+
+  const paymentSection = page.getByRole('region', { name: '付款' });
+  await expect(paymentSection).toContainText('付款確認中');
+  const queryButton = paymentSection.getByRole('button', { name: '查詢付款結果', exact: true });
+  await expect(queryButton).toBeEnabled();
+
+  const firstQueryPromise = page.waitForResponse(
+    res => res.url().includes('/payment-queries') && res.request().method() === 'POST',
+  );
+  await queryButton.click();
+  const firstQueryRes = await firstQueryPromise;
+  expect(firstQueryRes.status()).toBe(200);
+
+  await expect(paymentSection).toContainText('付款確認中');
+  await expect(queryButton).toBeEnabled();
+
+  const events1 = (await e2eAuthPool.query(
+    'SELECT source, query_trigger, outcome FROM commerce_hosted_payment_events WHERE attempt_id=$1',
+    [p.payment.attempt_ref],
+  )).rows;
+  expect(events1).toEqual([
+    { source: 'query', query_trigger: 'buyer', outcome: 'unpaid' },
+  ]);
+  expect((await row(e2eAuthPool, p.payment.attempt_ref)).state).toBe('issued');
+
+  const secondQueryPromise = page.waitForResponse(
+    res => res.url().includes('/payment-queries') && res.request().method() === 'POST',
+  );
+  const testNowBefore = Date.now();
+  await queryButton.click();
+  const secondQueryRes = await secondQueryPromise;
+  const testNowAfter = Date.now();
+
+  expect(secondQueryRes.status()).toBe(429);
+  const retryAfterHeader = secondQueryRes.headers()['retry-after'];
+  expect(retryAfterHeader).toBeDefined();
+  const retryAfter = Number(retryAfterHeader);
+  expect(Number.isFinite(retryAfter)).toBe(true);
+  expect(retryAfter).toBeGreaterThan(0);
+
+  const alert = paymentSection.getByRole('alert');
+  await expect(alert).toHaveText(/^操作太頻繁，請在 \d{2}:\d{2} 後再試。$/);
+  const alertText = await alert.innerText();
+  const match = alertText.match(/^操作太頻繁，請在 (\d{2}:\d{2}) 後再試。$/);
+  expect(match).not.toBeNull();
+  const displayedTime = match![1];
+
+  const candidateTimes = new Set<string>([
+    formatRetryAfterTaipeiTime(retryAfter, testNowBefore),
+    formatRetryAfterTaipeiTime(retryAfter, testNowAfter),
+    formatTaipeiTime(Math.ceil((testNowBefore + retryAfter * 1000) / 60_000) * 60_000 + 60_000),
+    formatTaipeiTime(Math.ceil((testNowAfter + retryAfter * 1000) / 60_000) * 60_000 + 60_000),
+  ]);
+  expect(candidateTimes.has(displayedTime)).toBe(true);
+
+  await expect(queryButton).toBeDisabled();
+
+  const events2 = (await e2eAuthPool.query(
+    'SELECT source, query_trigger, outcome FROM commerce_hosted_payment_events WHERE attempt_id=$1',
+    [p.payment.attempt_ref],
+  )).rows;
+  expect(events2).toHaveLength(1);
+  expect(events2[0]).toEqual({ source: 'query', query_trigger: 'buyer', outcome: 'unpaid' });
 });
