@@ -15494,8 +15494,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-04-materials-settings-reports.md",
-      "bytes": 26708,
-      "sha256": "6ef87ea1b443ef071262d89abc45c4730b4e0a951031faa135b8e4fd538ac505"
+      "bytes": 26719,
+      "sha256": "6dfe96114c03ce30288d9f0e8f5845e27c1341f4547b9263466962eb6c02bc9c"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
@@ -15539,8 +15539,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 11531,
-      "sha256": "4f99d9470e920bb86ad312b93e2a123e3c89c3965f355a0a0025634deb836445"
+      "bytes": 11544,
+      "sha256": "bf97310e81dd3c8bd6fcb07b4fd1ff6899fab2bf04d6037f8d87c6ddfe505b6e"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",

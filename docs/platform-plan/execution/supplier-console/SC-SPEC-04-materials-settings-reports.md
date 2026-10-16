@@ -155,7 +155,7 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 
 - 新版本只改 `current_version_id`；舊版本保留，合作店家之後讀到的是新版本。
 - 撤回（素材 `withdrawn` 或撤銷某店授權）後：新的讀取不能再用它；已被下載的副本無法收回，畫面直說。
-- D-11 本機候選：合作賣家選「用於公開店面」並確認後，伺服器當次把供應商的目前版本複製成**賣家自己 tenant** 的普通 `storefront.product-photo` Asset，記下來源素材、版本及內容摘要。這個複製時機尚待 Ted 確認；發布仍是純 SQL 交易，不做物件 I/O。
+- D-11 本機候選：合作賣家選「用於公開店面」並確認後，伺服器當次把供應商的目前版本複製成**賣家自己 tenant** 的普通 `storefront.product-photo` Asset，記下來源素材、版本及內容摘要。Ted 已在 2026-10-16 確認這個複製時機；發布仍是純 SQL 交易，不做物件 I/O。
 - 複本先經商品照片 WebP 正規化，使用商品照片 profile／transform version；最多 1 MiB，計入賣家共用容量及商品照片保留額度，供應商容量不增加。替換、停止使用與來源失效都不刪複本、不釋放容量。`commerce_distribution_photo_copies` 保留不可改刪的來源事實；`commerce_distribution_photo_targets` 保存可改的指標與獨立版本，初始為 `0`；不改 `commerce_selections.aggregate_version`。
 - 只能用 `image`、`public_use`、active、授權給**這間 storefront shop** 的目前版本，而且本商品須有 offered 供貨與相符的 accepted 同意。商品素材必須對應這件選品；品牌素材必須屬於供應商本身。影片與文案不能用。沿用 `readPartnerMaterial` 的可見規則，沒有第二套授權。
 - 新版本不改舊複本。`in_use` 表示來源仍可用且等於目前版本；`update_available` 顯示「供應商已更新為第 M 版，店面仍用第 N 版」，由賣家按「改用新版本」再複製。未改用就再次發布，仍用原複本。
