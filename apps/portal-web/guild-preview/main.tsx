@@ -50,7 +50,7 @@ function Preview() {
         <label className="field">外觀<select defaultValue="dark" onChange={event => {document.documentElement.dataset.theme = event.target.value;}}><option value="dark">夜航</option><option value="light">明亮</option><option value="versefolk">敘生</option></select></label>
       </div>
     </section>
-    <section className="card stack" aria-label="區塊畫面"><GuildBlock key={selected} id={selected} loaders={guildBlockLoaders} viewer={viewer} client={client} guildKey={scenario === 'missing-key' ? undefined : PREVIEW_GUILD_KEY} navigate={path => setAction(`預覽導向：${path}`)} startableApplications={['hosted-store']} startApplication={viewer === 'member' ? key => setAction(`預覽啟動：${key}；實際建立仍由既有應用流程驗權。`) : undefined}/></section>
+    <section className="card stack" aria-label="區塊畫面"><GuildBlock key={selected} id={selected} loaders={guildBlockLoaders} viewer={viewer} client={client} guildKey={scenario === 'missing-key' ? undefined : PREVIEW_GUILD_KEY} navigate={path => setAction(`預覽導向：${path}`)} startableApplications={['hosted-store']} supplierConsoleEnabled startApplication={viewer === 'member' ? key => setAction(`預覽啟動：${key}；實際建立仍由既有應用流程驗權。`) : undefined}/></section>
     <p role="status" className="field-hint">{action}</p>
   </main>;
 }

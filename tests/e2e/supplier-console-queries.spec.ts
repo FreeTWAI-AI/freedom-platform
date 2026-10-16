@@ -963,6 +963,117 @@ test('SC-E2E-53 guild block to-do summary per catalog, permission and failure (A
   }
 });
 
+async function withReadyGuildCatalog(page: Page, db: Pool, check: (store: ReturnType<typeof parseStore>, catalogName: string) => Promise<void>) {
+  const guildKey = 'guild_product_quality_supply';
+  const previousOfficer = (await db.query(
+    'SELECT user_id FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2',
+    [DEMO_COMMUNITY, guildKey],
+  )).rows[0]?.user_id as string | undefined;
+  let ownerId: string | null = null;
+  let originalConfigBody: unknown = null;
+  try {
+    const owner = await person(db);
+    ownerId = owner.id;
+    await login(page, owner.email);
+    await db.query(
+      `INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+       VALUES($1,$2,$3,$4,'active','full') ON CONFLICT DO NOTHING`,
+      [randomUUID(), DEMO_COMMUNITY, owner.id, guildKey],
+    );
+    await db.query(
+      `INSERT INTO positioning_guild_officers(community_id,guild_key,user_id)
+       VALUES($1,$2,$3) ON CONFLICT(community_id,guild_key) DO UPDATE SET user_id=$3`,
+      [DEMO_COMMUNITY, guildKey, owner.id],
+    );
+    const currentConfig = await getJson(page, `/guilds/${guildKey}/launchpad-config`);
+    originalConfigBody = currentConfig.body;
+    const draft = await post(page, `/guilds/${guildKey}/launchpad-config/drafts`, {body: {
+      ...convertV1(currentConfig.body),
+      blocks: [
+        {id: 'supply', kind: 'extension', extension_id: 'guild-block.supply-catalog.v1', order: 0, enabled: true, title: null, settings: {}},
+        ...currentConfig.body.blocks.map((block: {id: string; kind: string; enabled: boolean; title: string | null}, index: number) => ({...block, order: index + 1})),
+      ],
+    }}, 201, currentConfig.pointer_version);
+    await post(page, `/guilds/${guildKey}/launchpad-config/${draft.config_id}/publish`,
+      {expected_body_sha256: draft.body_sha256}, 200, draft.pointer_version);
+
+    const suffix = randomUUID().slice(0, 6);
+    const store = parseStore(await launchStore(page, `旗標供貨空間 ${suffix}`));
+    const catalogName = `旗標供貨商品庫 ${suffix}`;
+    await post(page, `${store.root}/supply-profile`, {name: catalogName, currency: 'TWD'}, 201);
+    const catalogs = await getJson(page, '/me/supply-catalogs?pagination=cursor');
+    expect(catalogs.items).toHaveLength(1);
+    expect(catalogs.items[0]).toMatchObject({tenant_id: store.tenantId, instance_id: store.instanceId, setup_state: 'ready'});
+    await page.evaluate(key => {window.location.hash = `guilds/${key}`;}, guildKey);
+    await check(store, catalogName);
+  } finally {
+    try {
+      if (originalConfigBody) {
+        const latest = await getJson(page, `/guilds/${guildKey}/launchpad-config`);
+        const restoredDraft = await post(page, `/guilds/${guildKey}/launchpad-config/drafts`,
+          {body: originalConfigBody}, 201, latest.pointer_version);
+        await post(page, `/guilds/${guildKey}/launchpad-config/${restoredDraft.config_id}/publish`,
+          {expected_body_sha256: restoredDraft.body_sha256}, 200, restoredDraft.pointer_version);
+      }
+    } finally {
+      if (previousOfficer) {
+        await db.query('UPDATE positioning_guild_officers SET user_id=$3 WHERE community_id=$1 AND guild_key=$2',
+          [DEMO_COMMUNITY, guildKey, previousOfficer]);
+      } else if (ownerId) {
+        await db.query('DELETE FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 AND user_id=$3',
+          [DEMO_COMMUNITY, guildKey, ownerId]);
+      }
+    }
+  }
+}
+
+test.describe('supplier console off', () => {
+  test.use({memberFeatures: {guildLaunchpadEnabled: true, hostedReservationsEnabled: true}});
+
+  test('SC-E2E-55 guild block sends no to-do read when the supplier console is off (AT-44)', async ({page, e2eAuthPool}) => {
+    const summaries: string[] = [];
+    page.on('request', request => {
+      const path = new URL(request.url()).pathname;
+      if (path.endsWith('/supplier-console/summary')) summaries.push(path);
+    });
+    await withReadyGuildCatalog(page, e2eAuthPool, async (_store, catalogName) => {
+      expect((await getJson(page, '/site')).supplier_console_enabled).toBe(false);
+      const item = page.locator('section.guild-launchpad-block li').filter({has: page.getByRole('button', {name: catalogName, exact: true})});
+      await expect(item).toBeVisible();
+      await expect(item).toContainText('供貨資料已就緒');
+      await page.evaluate(async () => {
+        await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+        await fetch('/api/v1/site', {credentials: 'same-origin'});
+      });
+      expect(summaries).toEqual([]);
+      await expect(item).not.toContainText('正在讀取待辦…');
+      await expect(item).not.toContainText('待辦');
+      await expect(item.getByRole('button', {name: catalogName, exact: true})).toBeEnabled();
+      await expect(page.getByRole('button', {name: '開始供貨設定', exact: true})).toBeVisible();
+    });
+  });
+});
+
+test('SC-E2E-56 guild block reads the to-do summary once per ready catalog when the console is on (AT-04,39)', async ({page, e2eAuthPool}) => {
+  const summaries: string[] = [];
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith('/supplier-console/summary')) summaries.push(path);
+  });
+  await withReadyGuildCatalog(page, e2eAuthPool, async (store, catalogName) => {
+    expect((await getJson(page, '/site')).supplier_console_enabled).toBe(true);
+    const item = page.locator('section.guild-launchpad-block li').filter({has: page.getByRole('button', {name: catalogName, exact: true})});
+    await expect(item).toBeVisible();
+    await expect(item).toContainText('供貨資料已就緒');
+    await page.evaluate(async () => {
+      await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+      await fetch('/api/v1/site', {credentials: 'same-origin'});
+    });
+    expect(summaries).toEqual([`/api/v1${store.root}/supplier-console/summary`]);
+    await expect(item.getByText('目前沒有待辦。', {exact: true})).toBeVisible();
+  });
+});
+
 async function assertS2LayoutAtViewports(
   page: Page,
   info: TestInfo,
