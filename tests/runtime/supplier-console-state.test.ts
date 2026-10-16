@@ -51,8 +51,8 @@ test('SC-UI-04 canonical query order and leave scope include the reservations al
 });
 test('SC-UI-05 navigation derives one list from capability and confirmed ownership',()=>{
  assert.deepEqual(consoleNavigation(['store:read'],true).map(p=>p.page),['overview','settings']);
- assert.deepEqual(consoleNavigation(['store:read','store:write'],false).map(p=>p.page),['overview','products','partners','terms','reports','settings']);
- assert.deepEqual(consoleNavigation(['store:read','store:write'],true).map(p=>p.page),['overview','products','reservations','partners','terms','reports','settings']);
+ assert.deepEqual(consoleNavigation(['store:read','store:write'],false).map(p=>p.page),['overview','products','partners','terms','materials','reports','settings']);
+ assert.deepEqual(consoleNavigation(['store:read','store:write'],true).map(p=>p.page),['overview','products','reservations','partners','terms','materials','reports','settings']);
  assert.equal(SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='product')?.parent,'products');
 });
 test('SC-UI-06 attempt is an independent deeply frozen snapshot with a stable retry tuple',()=>{
@@ -64,7 +64,7 @@ test('SC-UI-07 matching receipt succeeds; incomplete schema and wrong target rem
  const a=attempt();assert.equal(classifyCommandOutcome(a,{response:{product_id:id,version:'2'}}).state,'success');
  for(const response of [{product_id:id},{product_id:other,version:'2'},{product_id:id,version:'2',unexpected:1}])assert.equal(classifyCommandOutcome(a,{response}).state,'unknown');
  const setup=attempt({kind:'profile.setup',target:i});assert.equal(classifyCommandOutcome(setup,{response:{instance_id:i,version:'1',created:true}}).state,'success');
- assert.deepEqual(Object.keys(ATTEMPT_KINDS).sort(),['offer.publish','offer.withdraw','product.create','product.update','profile.setup','profile.update','request.decide','reservation.toggle','terms.update'].sort());
+ assert.deepEqual(Object.keys(ATTEMPT_KINDS).sort(),['material.access','material.copy','material.create','material.grant','material.revoke','material.update','material.withdraw','offer.publish','offer.withdraw','product.create','product.update','profile.setup','profile.update','request.decide','reservation.toggle','terms.update'].sort());
 });
 for(const [name,error] of [
  ['non-API',new Error('lost')],['network',new ApiError({message:'lost',network:true})],['timeout',new ApiError({message:'late',status:408,timedOut:true})],['500',new ApiError({message:'server',status:500})],['401',new ApiError({message:'expired',status:401})],['accessExpired',new ApiError({message:'access',status:403,accessExpired:true})],['missing status',new ApiError({message:'unknown'})],
@@ -301,7 +301,7 @@ test('SC-UI-S3-01 report period links round-trip, ignore other keys and discard 
 test('SC-UI-S3-02 management navigation and translations follow store write access',()=>{
  for(const owner of [false,true]){
   assert.deepEqual(consoleNavigation(['store:read'],owner).map(p=>p.page),['overview','settings']);
-  const nav=consoleNavigation(['store:write'],owner);assert.deepEqual(nav.filter(p=>p.group==='管理').map(p=>p.page),['reports','settings']);assert.equal(nav.filter(p=>p.page==='reports').length,1);
+  const nav=consoleNavigation(['store:write'],owner);assert.deepEqual(nav.filter(p=>p.group==='管理').map(p=>p.page),['materials','reports','settings']);assert.equal(nav.filter(p=>p.page==='reports').length,1);
  }
  assert.equal(SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='reports')?.requires,'write');
  assert.deepEqual(interfaceMessages['supplierConsole.reports'],['營運報表','Operations report','運営レポート','운영 보고서','Informe de operaciones']);
