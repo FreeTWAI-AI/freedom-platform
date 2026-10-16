@@ -279,12 +279,10 @@ for (const field of ['tenant_id', 'instance_id', 'case_id', 'executor_tenant_id'
   });
 
 
-for (const missing of ['trade_no', 'payment_date'] as const)
-  test(`review 12: a paid attempt requires ${missing}`, async () => {
-    const a = await attempt();
-    await rejects(() => q.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),trade_no=$2,payment_date=$3,version=version+1 WHERE attempt_id=$1",
-      [a.attempt_id, missing === 'trade_no' ? null : 'SYNTHETIC', missing === 'payment_date' ? null : new Date()]));
-  });
+test('review 12: a paid attempt requires trade_no', async () => {
+  const a = await attempt();
+  await rejects(() => q.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),payment_date=clock_timestamp(),version=version+1 WHERE attempt_id=$1", [a.attempt_id]));
+});
 for (const missing of ['trade_no', 'payment_date', 'trade_amt_minor'] as const)
   test(`review 12: a paid event requires ${missing}`, async () => {
     await rejects(() => event({ trade_no: 'SYNTHETIC', payment_date: new Date(), trade_amt_minor: 500, [missing]: null }));
@@ -305,4 +303,70 @@ test('review 14: unused attempt journal and handoff partial indexes are absent',
   const unused = await q.query(`SELECT indexname FROM pg_indexes WHERE schemaname=current_schema()
     AND indexname=ANY($1::text[]) ORDER BY indexname`, [['commerce_payment_attempt_unjournaled', 'commerce_payment_attempt_unhanded']]);
   assert.deepEqual(unused.rows, []);
+});
+
+test('only one order attempt is issued; superseding it permits the next sequence', async () => {
+  const first = await attempt();
+  await rejects(() => attempt({ sequence: 2 }), '23505');
+  await transition(first.attempt_id, 'superseded');
+  await attempt({ sequence: 2 });
+  await rejects(() => attempt({ sequence: 3 }), '23505');
+});
+test('query paid facts allow an absent PaymentDate while notification paid facts require it', async () => {
+  const a = await attempt();
+  await q.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),trade_no='SYNTHETIC',version=version+1 WHERE attempt_id=$1", [a.attempt_id]);
+  await transition(a.attempt_id, 'confirmed');
+  assert.equal((await q.query('SELECT payment_date FROM commerce_payment_attempts WHERE attempt_id=$1', [a.attempt_id])).rows[0].payment_date, null);
+  const result = await event({ source: 'query', query_trigger: 'schedule', credential_version: 1, dedupe_key: null, payment_date: null });
+  assert.equal(result.payment_date, null);
+  await rejects(() => event({ payment_date: null }));
+  for (const missing of ['trade_no', 'trade_amt_minor'])
+    await rejects(() => event({ source: 'query', query_trigger: 'schedule', credential_version: 1, dedupe_key: null, [missing]: null }));
+});
+const queryEvent = (changes: Record<string, unknown> = {}) => event({ source: 'query', outcome: 'unpaid', query_trigger: 'schedule', dedupe_key: null, credential_version: 1, ...changes });
+test('query outcome, trigger, unknown and verification facts are source-bound closed values', async () => {
+  for (const outcome of ['paid', 'unpaid', 'failed', 'amount_mismatch', 'trade_no_mismatch'])
+    await queryEvent({ outcome });
+  for (const query_trigger of ['schedule', 'window_end', 'notification', 'browser_return', 'buyer', 'repay', 'activation'])
+    await queryEvent({ query_trigger });
+  for (const unknown_reason of ['missing_field', 'invalid_field', 'unrecognized_status'])
+    await queryEvent({ outcome: 'unknown', unknown_reason, credential_version: null,
+      unknown_field: unknown_reason === 'unrecognized_status' ? null : 'TradeAmt', trade_status: '999', handling_charge_minor: 0 });
+  // Every verified query is retained, even when its response bytes are identical.
+  const one = await queryEvent({ body_sha256: 'a'.repeat(64) });
+  const two = await queryEvent({ body_sha256: one.body_sha256 });
+  assert.notEqual(one.event_id, two.event_id);
+  for (const changes of [
+    { outcome: 'pending_confirmation' }, { outcome: 'returned' }, { outcome: 'simulated' },
+    { dedupe_key: 'a'.repeat(64) }, { query_trigger: null }, { query_trigger: 'other' },
+    { trade_status: '' }, { trade_status: 'a' }, { trade_status: '1'.repeat(11) },
+    { handling_charge_minor: -1 }, { unknown_reason: 'missing_field' }, { unknown_field: 'TradeAmt' },
+    { outcome: 'unknown', credential_version: null },
+    { outcome: 'unknown', unknown_reason: 'mac_mismatch', credential_version: null },
+    { outcome: 'unknown', unknown_reason: 'missing_field' },
+    { outcome: 'unknown', unknown_reason: 'unrecognized_status', credential_version: null, unknown_field: 'TradeAmt' },
+    { outcome: 'unknown', unknown_reason: 'invalid_field', credential_version: null, unknown_field: 'Trade_Amt' },
+    { outcome: 'unknown', unknown_reason: 'invalid_field', credential_version: null, unknown_field: 'a'.repeat(41) },
+    { credential_version: null },
+  ]) await rejects(() => queryEvent(changes));
+  for (const fields of [{ trade_status: '0' }, { handling_charge_minor: 0 }, { unknown_reason: 'missing_field' }, { unknown_field: 'TradeAmt' }, { query_trigger: 'buyer' }]) {
+    await rejects(() => event(fields));
+    await rejects(() => event({ source: 'browser_return', outcome: 'returned', dedupe_key: null, ...fields }));
+  }
+});
+test('due work separates consecutive failures from runs and limits errors to fixed codes', async () => {
+  const input = { tenantId: s.tenantId, instanceId: s.instanceId, kind: 'payment_query' as const, targetId: randomUUID(), dueAt: new Date() };
+  await scheduleDueWork(q, input);
+  const row = (await q.query('SELECT failure_count,last_query_at FROM commerce_due_work WHERE target_id=$1', [input.targetId])).rows[0];
+  assert.deepEqual(row, { failure_count: 0, last_query_at: null });
+  await rejects(() => q.query('UPDATE commerce_due_work SET failure_count=-1 WHERE target_id=$1', [input.targetId]));
+  await rejects(() => q.query("UPDATE commerce_due_work SET last_error='provider_secret' WHERE target_id=$1", [input.targetId]));
+  for (const code of ['timeout', 'network', 'response_too_large', 'http_status', 'http_403', 'verify_failed', 'merchant_mismatch', 'merchant_trade_no_mismatch', 'platform_mismatch', 'keyring_unavailable', 'credential_unavailable', 'throttled', 'tenant_inactive', 'environment_mismatch', 'internal'])
+    await q.query('UPDATE commerce_due_work SET last_error=$2,failure_count=2,attempts=5,last_query_at=clock_timestamp() WHERE target_id=$1', [input.targetId, code]);
+});
+test('trade number mismatches can retain a contradicting-event case on a payment attempt', async () => {
+  const a = await attempt();
+  const result = await openException(q, { tenantId: s.tenantId, instanceId: s.instanceId, orderId,
+    kind: 'contradicting_event', subjectKind: 'payment_attempt', subjectId: a.attempt_id });
+  assert.equal(result.subject_id, a.attempt_id);
 });

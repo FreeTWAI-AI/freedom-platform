@@ -258,6 +258,8 @@ async function rotate(p: Placed) {
   return material;
 }
 async function anotherAttempt(p: Placed, credentialVersion = 1, kind: 'order' | 'service_activation' = 'order') {
+  if (kind === 'order')
+    await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1 AND state='issued'", [p.payment.attempt_ref]);
   const a = (await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency)
     SELECT tenant_id,instance_id,$2,CASE WHEN $2='order' THEN order_id ELSE NULL END,2,account_id,environment,merchant_id,$3,$4,amount_minor,currency FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING attempt_id`, [p.payment.attempt_ref, kind, credentialVersion, newTradeNumber('F')])).rows[0];
   return { ...p, payment: { ...p.payment, attempt_ref: a.attempt_id } } as Placed;
@@ -654,6 +656,7 @@ test('pending confirmation on the latest attempt ends on a later failure', async
 });
 test('a browser hint beyond the latest attempt confirmation window is not pending', async () => {
   const p = await f.placed();
+  await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1", [p.payment.attempt_ref]);
   const a = (await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency,created_at)
     SELECT tenant_id,instance_id,kind,order_id,2,account_id,environment,merchant_id,credential_version,$2,amount_minor,currency,clock_timestamp()-interval '61 minutes' FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING attempt_id`, [p.payment.attempt_ref, newTradeNumber('F')])).rows[0];
   const latest = { ...p, payment: { ...p.payment, attempt_ref: a.attempt_id } };

@@ -637,6 +637,9 @@ test('hosted payment machine tables retain individual participant-ACL catalog ra
     if (location.isolation.rls !== 'exempt') throw Error('Expected machine-table exemption');
     assert.equal(location.isolation.reason_code, 'commerce_profile_participant_acl');
     assert(location.isolation.reason.length > 80);
+    const columns = (await pool.query<{column_name:string}>(`SELECT column_name FROM information_schema.columns
+      WHERE table_schema=$1 AND table_name=$2 ORDER BY ordinal_position`, [schema, table])).rows.map(row => row.column_name);
+    assert.deepEqual(location.columns, columns, `${table} catalog includes every retained payment fact`);
     const flags = (await pool.query(`SELECT relrowsecurity,relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relname=$2`, [schema, table])).rows[0];
     assert.deepEqual(flags, {relrowsecurity:false,relforcerowsecurity:false});
   }
