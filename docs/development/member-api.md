@@ -394,6 +394,14 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   first active member. The portal opens member search immediately after creation;
   the owner can also use the directory card's 邀請夥伴 action. Invitations retain
   recipient consent and grant no membership or contact access before acceptance.
+- `GET /me/squad-invitations`: recipient-only `{items,next_offset}` with
+  `state=pending|all`, `limit` 1–50 and bounded `offset`. Like the outgoing
+  owner-only invitation list, it reads through `readWithMemberSession`:
+  active user and current session locks, onboarding and domain queries on
+  the same transaction client, then a final SQL wall-clock session check.
+  A domain wait crossing session expiry returns `401 session_expired`,
+  without private invitation rows or an empty-list success. Existing owner
+  eligibility, community filters, visibility and pagination remain unchanged.
 - `GET /squads/:id`: squad plus `members` with `user_id,nickname,state,
   aggregate_version`. Pending members visible only to themselves and owner.
 - `POST /squads/:id/request`: `{}` requests admission; no immediate group access.
