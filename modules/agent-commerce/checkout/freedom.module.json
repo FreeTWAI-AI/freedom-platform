@@ -19,7 +19,7 @@
     "apps/platform-api/src/routes/hosted-seller-checkout.ts",
     "contracts/guild-launchpad/v1/hosted-seller-checkout.ts",
     "contracts/guild-launchpad/v1/hosted-seller-checkout.schema.json",
-    "tests/runtime/hosted-seller-orders.test.ts",
+    "tests/runtime/hosted-seller-checkout-orders.test.ts",
     "tests/runtime/hosted-seller-exceptions.test.ts",
     "tests/runtime/hosted-seller-contracts.test.ts"
   ],

@@ -17109,8 +17109,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/freedom.module.json",
-      "bytes": 1549,
-      "sha256": "071118d315ce31979d7889aaa96b9f5b4176ed101d6bb7e6952a39689e2e3bd1"
+      "bytes": 1558,
+      "sha256": "431eec313aba63111ce10852c1917a6897bc24b1c3dcbd40f8493d9e2e40e34c"
     },
     {
       "path": "modules/agent-commerce/checkout/index.ts",
