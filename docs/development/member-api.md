@@ -361,6 +361,13 @@ No deployment, remote key installation or authenticator-device acceptance is imp
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
   return 404. No authenticated access to people until 完成加入（選定主要公會）.
   私人名片、目錄、好友目錄與推薦在最後一個 domain query 後重驗目前 session；SQL 等待跨過 `expires_at` 時回 `401 session_expired`，不回傳私人聯絡資訊。
+  `memberCards` 也在投影前（包括零筆結果）沿用 `assertInteractionMember` 重驗觀看者
+  目前的 active／加入資格，不信任入站 middleware 留下的 ready Actor。user row 鎖等待
+  期間若已提交加入資格重設，名片、目錄、好友與推薦均回 `403 onboarding_required`，
+  不回 contacts、items 或 total；原 session 期限檢查仍獨立存在。原本不要求 onboarding
+  的會員仍依既有 predicate 可讀；允許未完成加入者使用的帳號／加入流程未改。
+  原生 HTTP 回歸用真 user row lock 覆蓋各 consumer 的非空／空結果與有效控制；
+  這不是把加入限制塞進通用 `readWithMemberSession`，公開 opt-in 名片也未改。
 - `GET /friends/directory?scope=accepted|incoming|outgoing&search=&limit=20&offset=0`:
   `{items,total,next_offset}` with the same privacy-filtered member cards. Scope and
   search are applied before the bounded 1–50 row page; blocked or no-longer-visible

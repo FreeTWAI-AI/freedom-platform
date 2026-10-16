@@ -27,6 +27,7 @@
     "modules/identity-membership/social-links.ts",
     "modules/identity-membership/member-connections.ts",
     "tests/runtime/member-connections.test.ts",
+    "tests/runtime/member-directory.test.ts",
     "docs/development/member-connections.md",
     "tests/runtime/social-links.test.ts",
     "tests/runtime/member-settings-session-clock.test.ts",
