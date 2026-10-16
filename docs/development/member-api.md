@@ -383,6 +383,8 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   accept/remove and renewed removed friendship need current version. Only the
   recipient can accept. Pending requests grant **no** contact access. Remove
   revokes access immediately. Repeat requests do not accept another's invitation.
+- `GET /members/presence?ids=<comma-separated UUIDs>`: up to 50 IDs;
+  `{items:[{user_id,last_seen_at,is_online}]}`, with a nullable last-seen timestamp.
 - `GET /squads?limit=20&offset=0`: `{items,next_offset,kinds}`. Items include
   `squad_id,name,kind,purpose,owner_ref,owner_name,member_count,membership`.
   Membership is null or `{state,aggregate_version}` for the current user.
@@ -430,6 +432,15 @@ After cutover, the former owner has ordinary member visibility, outbound history
 requires the current owner, and disbanded detail is 404. The session clock is
 rechecked after the last query before commit; this is not a guarantee during
 response transport or a single MVCC snapshot for every roster fact.
+
+Private presence, squad lists and squad detail recheck the viewer's current
+active/onboarding qualification with `assertInteractionMember` inside that
+member-session transaction, before any projection or empty-result return. If a
+user-row wait ends after an onboarding reset commits, they return
+`403 onboarding_required` without presence, squad, roster, items or kinds.
+Legacy members with `onboarding_required=false` retain their existing access.
+This does not add onboarding restrictions to the generic session helper or
+the account/onboarding flows that intentionally allow unfinished membership.
 
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.
