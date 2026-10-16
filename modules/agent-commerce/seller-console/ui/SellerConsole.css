@@ -1,0 +1,27 @@
+.seller-console { min-width: 0; padding-bottom: 5rem; }
+.seller-console [hidden] { display: none !important; }
+.seller-console .seller-business-bar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-bottom: 1px solid var(--line); padding-block: .75rem; flex-wrap: wrap; }
+.seller-console .seller-announcement:empty { display: none; }
+.seller-console .seller-axis { min-width: 0; padding: 1rem; }
+.seller-console .seller-facts { margin: 0; display: grid; gap: .75rem; }
+.seller-console .seller-facts > div { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: space-between; }
+.seller-console dd { margin: 0; }
+.seller-console p,.seller-console dd,.seller-console a,.seller-console strong { overflow-wrap: anywhere; }
+.seller-console .actions { flex-wrap: wrap; }
+.seller-console .actions > .btn,.seller-console .seller-business-bar > .btn { flex: 0 1 auto; width: auto; min-height: 44px; max-width: 100%; }
+.seller-console .btn { min-height: 44px; white-space: normal; }
+.seller-console input,.seller-console select,.seller-console fieldset { min-width: 0; max-width: 100%; }
+.seller-console fieldset { margin: 0; padding: 0; border: 0; }
+.seller-console dialog { color: var(--ink); background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius); width: min(30rem,calc(100% - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; padding: 1rem; }
+.module-panel .seller-console .badge { color: var(--ink); background: var(--bg); border: 1px solid var(--line); white-space: normal; }
+.seller-console h2,.seller-console h3,.seller-console h4 { margin-block: 0; }
+.seller-console h2:focus,.seller-console h3:focus { outline: 2px solid var(--focus); outline-offset: 4px; }
+
+.seller-console .seller-list { list-style: none; margin: 0; padding: 0; }
+.seller-console .seller-row { padding-block: 1rem; border-bottom: 1px solid var(--line); }
+.seller-console .seller-row-head,.seller-console .seller-badges,.seller-console .seller-filters { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.seller-console .seller-row-head { justify-content: space-between; }
+.seller-console .seller-row a { display: inline-flex; align-items: center; min-height: 44px; }
+.seller-console .seller-filters > .field { flex: 1 1 10rem; min-width: 0; }
+.seller-console input:not([type=checkbox]),.seller-console select { width: 100%; }
+@media(max-width:720px) { .seller-console input,.seller-console select { font-size: 16px; } }
