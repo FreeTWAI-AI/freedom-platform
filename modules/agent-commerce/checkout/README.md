@@ -309,9 +309,8 @@ amounts or total cause payment_profile_unavailable with fixed Chinese text.
 Placement and replay return a fresh token only while the attempt is issued and
 has not been handed off. The buyer resume endpoint uses the same stored gates.
 
-`publicOrder` uses the payment summary port. Confirmed applications take priority
-over unapplied paid/pending-confirmation/browser-return hints, then simulated,
-then unpaid. The latest attempt exposes only a coarse state and creation time;
+`publicOrder` uses the payment summary port. Outstanding unapplied payments take priority, followed by confirmed applications,
+fully refunded unapplied payments, pending hints, simulated applications and unpaid. The latest attempt exposes only a coarse state and creation time;
 can_resume_payment runs the same eligibility checks as resume. Provider/account
 facts and exception cases never enter the buyer DTO. Resume and order replies
 use no-store and no-referrer; the 30-per-10-minute resume network budget commits
@@ -319,10 +318,90 @@ before the command.
 
 `exceptions.ts` owns the shared payment exception policy and `openException`.
 All seven payment kinds are the retailer's responsibility, with an adjustable
-72-hour due interval and a fixed future-console next_action. The partial open
+72-hour due interval and a policy-owned next_action. The partial open
 identity index makes event replay idempotent; closing requires status, resolution
-code/note and resolver together and cannot be revised. Free-text resolution notes
-are protected by the exact tenant RLS policy used by checkout contacts. There is
-no exception HTTP route in this slice. See
+code/note and resolver together and cannot be revised. Resolution notes use fixed server templates and are protected by the exact
+tenant RLS policy used by checkout contacts. Seller routes below handle cases. See
 [EC-SPEC-05 §7.1](../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md)
 and [EC-SPEC-04](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md).
+
+
+## Seller checkout HTTP
+
+The console flag mounts these routes under
+`/api/v1/tenants/:tenant_id/storefronts/:instance_id`. All replies are
+`private, no-store`; every route first requires the instance's `store:read` gate.
+The installed storefront 1.1.0 release must contain each requested capability;
+owners/admins on 1.0.0 receive 403. These are independent of v1's `/orders` routes.
+
+| Method | Suffix | Additional capability | Headers / budget |
+| --- | --- | --- | --- |
+| GET | `/checkout-orders` | `store:orders:read` | Signed cursor; limit 1–50, default 20 |
+| GET | `/checkout-orders/:order_id` | `store:orders:read` | Order-version ETag |
+| GET | `/checkout-orders/:order_id/contact` | `store:customers:read` | No ETag; 300 attempts/principal/hour, including denials |
+| POST | `/checkout-orders/:order_id/cancel` | `store:orders:manage` | Idempotency-Key + order If-Match; `{}` |
+| POST | `/checkout-orders/:order_id/payment-queries` | `store:orders:read` or `store:finance:read` | No command headers; `{}`; shared 1/order/minute and 10/order/hour |
+| GET | `/checkout-orders/:order_id/refunds` | `store:finance:read` | Oldest first, at most 100 |
+| POST | `/checkout-orders/:order_id/refunds` | `store:refund` | Idempotency-Key; no If-Match; 201 |
+| GET | `/exception-cases?view=retailer` | `store:orders:read` | `state=open|closed`, signed cursor, limit 1–50 |
+| GET | `/exception-cases/:case_id` | `store:orders:read` | Case-version ETag |
+| POST | `/exception-cases/:case_id/actions/:action` | `store:orders:manage` | Idempotency-Key + case If-Match |
+
+Order lists accept only lifecycle, needs_action=true, an exact uppercase stored
+display_number, cursor and limit. Display numbers are authorized filters, never
+credentials. Cursors bind purpose, principal, tenant/scope, instance and canonical
+filters; decode follows authorization. Orders sort newest first. Open cases sort
+by due date then ID; closed cases sort by updated date then ID descending. Cases
+without orders, including activation and unmatched payments, remain visible.
+
+Order DTOs include only the first trimmed Unicode code point plus ○○, or null
+with contact_redacted=true. The separate delayed contact read rechecks current
+capability/redaction after spending only the caller's own principal allowance.
+Contact, delivery and invoice fields never enter order or command DTOs. Finance
+attempt/application/refund details and case payment facts require finance read.
+
+Read-time axes remain independent: lifecycle is retained; payment uses the payment
+port (confirmed/unpaid fallback without it); inventory prioritizes unallocated
+payments, then allocation remaining/shipped counters, then held/hold_expired and
+released. Reads never settle holds, lock commerce rows or invoke checkoutInventory.
+A past-due retained held row reads hold_expired without changing the row. Detail
+actions reflect current capabilities, tenant state, payment/inventory facts and
+quarantine; every command repeats its own authority checks.
+
+`sellerCheckoutCommand` uses scopedTenantCommand with a shared tenant lock and
+instance capability checks, without requiring an active selling deployment.
+The tenant must remain active and the instance cannot be archived/failed.
+Cancelling, refund recording and case handling continue on paused stores and
+when checkout is off. Quarantine returns 503 for writes and seller queries;
+reads remain available. The runner stores only `{ id }` in command receipts,
+then projects current rows in that same transaction; receipt replays re-project
+and revalidate authority. No personal or masked contact value is retained there.
+
+Cancellation checks the locked order version, calls cancelUnpaidOrder with the
+stored profile selector and payment hook, and returns the new ETag. Missing/stale
+If-Match gives 428/412; confirmed payments or closed orders give 409. Cancellation
+replay preserves the row and handed-off attempts receive scheduled queries.
+
+Cases lock last, after attempt or allocation locks. resolve_with_evidence permits
+refunded for mismatch/after-cancel/overpaid, confirmed or checked_with_provider
+for unconfirmed payment, and checked_with_provider for unmatched/contradicting
+events. confirmed requires a confirmed subject attempt under FOR SHARE.
+retry_allocation is exclusive to paid_unallocatable and closes in the same
+transaction as allocation; failures leave both unchanged. Dates use the database's
+Asia/Taipei day, real calendar validation, and a restricted reference. There is
+no free-text input or dismiss action. Fixed resolution notes are:
+
+| Code / action | Note |
+| --- | --- |
+| refunded evidence | 店家已在綠界後台退款（{provider_date}，參考號 {provider_reference}）。 |
+| checked_with_provider | 店家已在綠界後台核對（{provider_date}，參考號 {provider_reference}）。 |
+| confirmed | 付款已向綠界確認。 |
+| allocated retry | 補貨後已重新配貨。 |
+| fully recorded refund | 店家已登記全額退款。 |
+
+See [security §2.2–§2.5 and §4](../../../docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md),
+[payment exceptions/refunds](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md),
+[order axes](../../../docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md)
+and [release obligations/quarantine](../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md).
+E05/E09 pages await the Supplier Console shell; this module supplies their DTOs,
+capabilities and actions without adding seller pages.

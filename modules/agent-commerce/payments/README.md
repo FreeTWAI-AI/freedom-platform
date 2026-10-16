@@ -3,7 +3,7 @@
 Hosted ECPay credit payments use immutable attempts, a verified inbox and a
 read-only QueryTradeInfo/V5 confirmation query. The browser sends the checkout
 form; the server transport sends only the confirmation query. Pure refund and
-allocation rules remain under `rules/`; refund execution belongs to wp04-refunds.
+allocation rules remain under `rules/`; provider refund execution belongs to wp04-refund-api.
 
 ## Attempts, handoff and buyer reads
 
@@ -24,10 +24,12 @@ returns 410. Callback, browser-return and back URLs come only from `gateway.ts`.
 The page uses no-store, no-referrer, noindex, escaped fields and a bounded CSP.
 
 Buyer order reads expose only a coarse latest attempt and
-`overpaid|confirmed|pending|simulated|unpaid`. Here `confirmed` retains checkout's
+`overpaid|confirmed|refunded|pending|simulated|unpaid`. Here `confirmed` retains checkout's
 application definition; it does not itself assert server-query confirmation.
-Overpaid, after-cancel or amount-mismatch applications produce `overpaid` and
-turn resume off. `can_resume_payment` reads the resume and re-pay gates without
+Overpaid, after-cancel or amount-mismatch applications produce `overpaid` while
+any such amount remains unrefunded. After all are refunded, confirmed applications
+still win; otherwise the state is `refunded`. Any unapplied application keeps
+resume off permanently, before and after its refund. `can_resume_payment` reads the resume and re-pay gates without
 calling ECPay, charging budgets, unsealing credentials or reading provider routes.
 A summary batch belongs to one tenant and instance.
 
@@ -140,7 +142,7 @@ access as order reads and uses the resume quarantine/checkout gates. It selects
 the newest handed-off issued/superseded/paid attempt without a definite mismatch.
 It returns the current parsed public order after one query, or 409 pending for a
 busy lease; no candidate means no call. Network budget is 30/10 minutes. The
-order budgets, shared with re-pay and future seller queries, are 1/minute and
+order budgets, shared with re-pay and seller queries, are 1/minute and
 10/hour. Budgets commit in their own short transaction before any provider call;
 429 includes Retry-After. Reads never spend them.
 
@@ -186,8 +188,9 @@ with ready/awaiting_result/paid/confirmed/failed/expired and no sensitive facts.
 
 The platform never refunds activation payments. A merchant may refund in ECPay's
 back office. This module never voids authorizations, creates logistics orders or
-issues invoices. wp04-refunds adds durable refund outbox/execution, credit-detail
-queries and DoAction; buyer-pay adds buyer pages on these APIs.
+issues invoices. wp04-refund-api adds provider refund execution, its durable outbox and credit-detail
+queries/DoAction. M4 adds refunds of confirmed order payments; buyer payment pages
+already consume the coarse payment axes.
 
 ## Provider setup and credential storage
 
@@ -305,4 +308,48 @@ When validating seller-submitted allocations in `checkRefundAllocation`, errors 
 Unapplied refunds never alter order invoice documents.
 
 ### Database Trigger Invariant
-These pure rules form the application-level validator. In M2, the PostgreSQL database trigger on `commerce_refund_lines` strictly repeats these hard invariants (multiples of `u`, sum matches refund amount, line amount ≤ `L`, line quantity ≤ `Q`, group shipping ≤ `F`, attempt balance not exceeded) under transaction row locks.
+These pure rules form the application-level validator. M2 database triggers bind manual unapplied refunds to their payment application,
+serialize its cumulative cap, preserve append-only rows and defer exact nonempty
+line balancing until commit. The route applies settlement-unit/date rules. M4
+will add order-item/quantity and delivery-group refund ledger constraints when
+confirmed-payment refunds become available.
+
+
+## Manual unapplied refunds and seller queries
+
+`refunds.ts` records a merchant's external manual refund, without calling ECPay,
+voiding an authorization or sending mail. Only unapplied overpaid, after_cancel
+and amount_mismatch applications qualify; confirmed and simulated money cannot
+be refunded here. The request uses store:refund and Idempotency-Key, without
+If-Match. It locks the store, order, attempts and every application/inventory row
+before inserting one refund and one unapplied line. checkUnappliedRefund enforces
+positive whole-currency units (TWD 100 minor units) and the remaining application
+cap. PostgreSQL serializes concurrent inserts on that application and rejects an
+over-cap sum. Both non-PII ledgers are RLS-exempt with explicit participant ACL
+catalog entries, like checkout payment applications.
+
+refunded_on must lie between the Taipei payment date and the database's Taipei
+today: attempt payment_date, else earliest paid/mismatch event date, else
+application creation. References contain only 1–64 ASCII letters/digits/_/-.
+A full application refund closes its matching open case once, with resolver and
+fixed note 店家已登記全額退款。; partial records leave it open, and an already
+human-closed case does not prevent recording. A reference-only scoped receipt
+re-projects the refund after the command in the same transaction. Finance read
+lists at most 100 records oldest first. Every manual_record returns
+recorded_without_provider=true, displayed as 商家自行退款（平台未經綠界確認）.
+
+Seller payment-queries use the existing CheckoutPaymentActions.query with
+trigger=seller (buyer remains the default). Store read plus either order-read or
+finance-read authority and the order's stored store binding are checked before
+spending the shared order budgets. There is no seller network/principal budget
+or command receipt. Attempt-choice rechecks authority, then queryAttempt commits
+the lease and releases the client before transport. No candidate makes no call;
+a busy lease gives 409 payment_result_pending; success re-reads the current seller
+DTO. Console gates mounting, checkout-off does not block servicing, and quarantine
+blocks querying. Queries, notifications and the scheduler never close cases.
+
+The buyer's refunded state is final: 已退款 with the recorded-full-refund copy,
+no polling or payment/query action, even if a DTO incorrectly permits resume.
+See [seller routes](../checkout/README.md),
+[EC-SPEC-04 §7.2/§7.5](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md)
+and [EC-SPEC-03 §3.2](../../../docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md).
