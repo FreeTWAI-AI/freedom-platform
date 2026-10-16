@@ -1175,12 +1175,12 @@ function CartPage({ container, storeSlug, storeName }: CartPageProps) {
     totalDisplay = '無法取得';
   } else if (quote) {
     merchandiseDisplay = formatMinor(quote.merchandise_total_minor, quote.currency);
-    if (quote.shipping.state === 'needs_delivery_data') {
-      shippingDisplay = '於下一步依配送方式計算';
+    if (quote.shipping.state === 'quoted') {
+      shippingDisplay = formatMinor(quote.shipping.total_minor, quote.currency);
     } else if (quote.shipping.state === 'not_configured') {
       shippingDisplay = '這間店尚未設定配送方式';
     } else {
-      shippingDisplay = formatMinor(quote.shipping.total_minor, quote.currency);
+      shippingDisplay = '於下一步依配送方式計算';
     }
 
     if (quote.total_minor !== null) {
