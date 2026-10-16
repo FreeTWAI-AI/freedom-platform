@@ -15,7 +15,11 @@ type Comment = {image_url?:string|null;sticker_id?:string|null;mentions?:Mention
 type Comments = {items: Comment[]; next_cursor: string | null};
 function mergeComments(current: Comment[], incoming: Comment[]) {
   const all = new Map([...current, ...incoming].map(item => [item.comment_id, item]));
-  return [...all.values()].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.comment_id.localeCompare(b.comment_id));
+  return [...all.values()].sort((a, b) => {
+    // Historical receipts use milliseconds; pad rather than truncate precise SQL timestamps.
+    const left = a.created_at.slice(0, -1).padEnd(26, '0'), right = b.created_at.slice(0, -1).padEnd(26, '0');
+    return left.localeCompare(right) || a.comment_id.localeCompare(b.comment_id);
+  });
 }
 
 export function SocialInteractions({client, post, canHide, onUpdate,onTag}: {onTag?:(tag:string)=>void;client: PortalClient; post: SocialPost; canHide: boolean; onUpdate: (value: Partial<SocialPost>) => void}) {
