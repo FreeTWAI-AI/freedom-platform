@@ -212,3 +212,47 @@ for(const competitor of ['cancellation','expiry'] as const)test(`a concurrent no
     const r=await facts(p);assert.equal(r.applications[0].outcome,competitor==='cancellation'?'after_cancel':'allocated');assert.deepEqual(r.cases.map(c=>c.kind),competitor==='cancellation'?['paid_after_cancel']:[]);
   }finally{releaseFirst.resolve();f.x.runtime.connect=connect;}
 });
+const returnPath=(p:Placed)=>'/pay/ecpay/return/'+p.provider.accountRef;
+for(const variant of ['member','buyer','foreign_origin','no_origin'] as const)test(`browser return ignores ${variant}, records a hint and redirects without changing payment or inventory`,async()=>{
+  const p=await f.placed(),before=(await facts(p)).attempt,headers:Record<string,string>={};if(variant==='member')headers.Cookie=p.s.owner.cookie;if(variant==='buyer')headers.Cookie=p.cookie;if(variant==='foreign_origin')headers.Origin='https://foreign.test';
+  const r=await post(returnPath(p),await body(p),headers);assert.equal(r.status,303,r.text);assert.equal(r.response.headers.get('Location'),`/shops/${p.s.slug}/payment-return/${p.payment.attempt_ref}`);assert.equal(r.response.headers.get('Set-Cookie'),null);assert.equal(r.response.headers.get('Cache-Control'),'no-store');assert.equal(r.response.headers.get('Referrer-Policy'),'no-referrer');
+  const actual=await facts(p);assert.deepEqual(actual.attempt,before);assert.equal(actual.applications.length,0);assert.equal(actual.cases.length,0);assert.equal(actual.events[0].source,'browser_return');assert.equal(actual.events[0].outcome,'returned');assert(actual.events[0].applied_at);assert.equal(actual.events[0].dedupe_key,null);assert.match(actual.events[0].body_sha256,/^[a-f0-9]{64}$/);
+  assert.equal((await f.x.h.pool.query("SELECT due_at<=clock_timestamp() AS immediate FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0].immediate,true);assert.equal((await f.x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[p.s.product.product_id])).rows[0].reserved,5);
+});
+test('return query budget permits one schedule per attempt per minute and still records later hints',async()=>{
+  const p=await f.placed(),value=await body(p);assert.equal((await post(returnPath(p),value)).status,303);
+  const first=(await f.x.h.pool.query("SELECT updated_at::text,due_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0];
+  assert.equal((await post(returnPath(p),value)).status,303);assert.deepEqual((await f.x.h.pool.query("SELECT updated_at::text,due_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0],first);assert.equal(await count('commerce_hosted_payment_events'),2);
+  await f.x.h.pool.query("UPDATE auth_rate_limits SET window_start=clock_timestamp()-interval '61 seconds' WHERE bucket=$1",['commerce:paymentReturnQuery:'+hashKey(p.payment.attempt_ref)]);
+  assert.equal((await post(returnPath(p),value)).status,303);assert.notEqual((await f.x.h.pool.query("SELECT updated_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0].updated_at,first.updated_at);
+});
+for(const reason of ['unknown_account','unknown_trade','invalid_signature','wrong_merchant','platform'] as const)test(`browser return ${reason} redirects to the root with no data`,async()=>{
+  const p=await f.placed();let url=returnPath(p),value=await body(p);
+  if(reason==='unknown_account')url='/pay/ecpay/return/'+'0'.repeat(26);
+  if(reason==='unknown_trade')value=await body(p,{MerchantTradeNo:newTradeNumber('F')});
+  if(reason==='invalid_signature')value=value.replace(/CheckMacValue=[A-Fa-f0-9]+/,'CheckMacValue='+'0'.repeat(64));
+  if(reason==='wrong_merchant')value=await body(p,{MerchantID:'7654321'});
+  if(reason==='platform')value=await body(p,{PlatformID:'1234567'});
+  const r=await post(url,value);assert.equal(r.status,303);assert.equal(r.response.headers.get('Location'),'/');assert.equal(await count('commerce_hosted_payment_events'),0);assert.equal(await count('commerce_checkout_payment_applications'),0);
+});
+test('over-budget browser returns still verify and redirect but write no event or query',async()=>{
+  const p=await f.placed();await f.x.h.pool.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),60)',['commerce:paymentReturnNetwork:'+hashKey('192.0.2.1')]);
+  const value=await body(p);let r=await post(returnPath(p),value);assert.equal(r.status,303);assert.equal(r.response.headers.get('Location'),`/shops/${p.s.slug}/payment-return/${p.payment.attempt_ref}`);
+  r=await post(returnPath(p),value.replace(/CheckMacValue=[A-Fa-f0-9]+/,'CheckMacValue='+'0'.repeat(64)));assert.equal(r.status,303);assert.equal(r.response.headers.get('Location'),'/');assert.equal(await count('commerce_hosted_payment_events'),0);
+  assert.equal((await f.x.h.pool.query("SELECT due_at>clock_timestamp() AS later FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0].later,true);assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM auth_rate_limits WHERE bucket LIKE 'commerce:paymentReturnQuery:%'")).rows[0].n,0);
+});
+test('quarantine return verifies and redirects while leaving the inbox, order and due work untouched',async()=>{
+  const p=await f.placed(),before=await facts(p),due=(await f.x.h.pool.query('SELECT * FROM commerce_due_work ORDER BY kind')).rows;f.settings.quarantine=true;const r=await post(returnPath(p),await body(p));assert.equal(r.status,303);assert.equal(r.response.headers.get('Location'),`/shops/${p.s.slug}/payment-return/${p.payment.attempt_ref}`);assert.deepEqual(await facts(p),before);assert.deepEqual((await f.x.h.pool.query('SELECT * FROM commerce_due_work ORDER BY kind')).rows,due);
+});
+test('return body rules share the streamed cap and parser; malformed forms remain 400',async()=>{
+  const p=await f.placed(),value=await body(p);
+  for(const invalid of [value+'&MerchantID=1234567',value+'&bad-name=x','x='+'a'.repeat(16384)]){const r=await post(returnPath(p),invalid);assert.equal(r.status,400);assert.equal(r.text,'0|invalid');}
+  assert.equal((await post(returnPath(p),value,{'Content-Type':'application/json'})).status,400);assert.equal(await count('commerce_hosted_payment_events'),0);
+});
+test('activation return redirects to root and does not activate its service',async()=>{
+  const p=await f.placed(),activation=await anotherAttempt(p,1,'service_activation'),r=await post(returnPath(p),await body(activation));assert.equal(r.status,303);assert.equal(r.response.headers.get('Location'),'/');assert.equal((await facts(activation)).attempt.state,'issued');assert.equal(await count('commerce_checkout_payment_applications'),0);
+});
+test('back links resolve only retained order attempts and have no payment side effects',async()=>{
+  const p=await f.placed(),before=await facts(p),r=await post('/pay/ecpay/back/'+p.payment.attempt_ref,'',{},'GET');assert.equal(r.status,303);assert.equal(r.response.headers.get('Location'),`/shops/${p.s.slug}/orders/${p.order.order_ref}`);assert.deepEqual(await facts(p),before);
+  const activation=await anotherAttempt(p,1,'service_activation');for(const id of [activation.payment.attempt_ref,randomUUID(),'invalid']){const missing=await post('/pay/ecpay/back/'+id,'',{},'GET');assert.equal(missing.status,404);assert.match(missing.response.headers.get('Content-Type')!,/text\/html/);}
+});

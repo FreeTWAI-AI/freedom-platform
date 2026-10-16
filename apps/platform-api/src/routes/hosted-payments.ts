@@ -1,9 +1,11 @@
+import {OpaqueId} from '../../../../contracts/guild-launchpad/v1/primitives.js';
+import {resolveReturnedAttempt,recordPaymentBrowserReturn,paymentBackLocation} from '../../../../modules/agent-commerce/payments/browser-return.js';
 import {Problem} from '../../../../packages/shared/problem.js';
 import {readProviderForm,resolvePaymentAccount,paymentVerificationKeys} from '../../../../modules/agent-commerce/payments/provider-input.js';
-import {parsePaymentNotification} from '../../../../modules/agent-commerce/providers/ecpay/aio-credit/index.js';
+import {parsePaymentNotification,parsePaymentBrowserReturn} from '../../../../modules/agent-commerce/providers/ecpay/aio-credit/index.js';
 import {ECPAY_ACK} from '../../../../modules/agent-commerce/providers/ecpay/index.js';
 import {receivePaymentNotification,InvalidPaymentCredential} from '../../../../modules/agent-commerce/payments/events.js';
-import {chargeCommerceBudgets} from '../../../../modules/agent-commerce/checkout/limits.js';
+import {chargeCommerceBudgets,tryChargeCommerceBudget} from '../../../../modules/agent-commerce/checkout/limits.js';
 import {Hono} from 'hono';
 import type {Pool} from 'pg';
 import type {PlatformRuntime} from '../runtime.js';
@@ -19,6 +21,7 @@ export function createHostedPaymentRoutes(pool:Pool,runtime:PlatformRuntime,envi
       if(error instanceof Problem&&error.status===429){c.header('Retry-After',String(error.retryAfterSeconds));return c.text('0|limited',429);}
       console.error('commerce_payment_notification_failed');return c.text('0|error',500);
     }
+    if(c.req.path.startsWith('/pay/ecpay/return/')){console.error('commerce_payment_return_failed');return c.text('0|error',500);}
     console.error('commerce_handoff_failed');return c.html(handoffErrorPage('付款服務暫時無法使用。'),503);
   });
   app.use('/api/v1/provider-callbacks/ecpay/*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
@@ -36,6 +39,23 @@ export function createHostedPaymentRoutes(pool:Pool,runtime:PlatformRuntime,envi
     return c.text(ECPAY_ACK,200);
   });
   app.use('/pay/ecpay/*',async(c,next)=>{c.header('Cache-Control','no-store');c.header('Referrer-Policy','no-referrer');c.header('X-Robots-Tag','noindex');await next();});
+  app.post('/pay/ecpay/return/:account_ref',async c=>{
+    const body=await readProviderForm(c.req.raw);if(!body)return c.text('0|invalid',400);
+    const allowed=await tryChargeCommerceBudget(pool,'paymentReturnNetwork',(runtime.rateLimitNetwork??runtime.sourceNetwork)(c));
+    const account=await resolvePaymentAccount(pool,c.req.param('account_ref'));if(!account)return c.redirect('/',303);
+    let credentials;try{credentials=await paymentVerificationKeys(pool,account,runtime.commerceCredentialKeyring??null);}catch{return c.text('0|unavailable',503);}
+    const message=parsePaymentBrowserReturn(body,credentials.map(c=>c.keys),{merchantId:account.merchant_id});if(message.kind==='invalid')return c.redirect('/',303);
+    const version=credentials[message.keyIndex].credentialVersion,attempt=await resolveReturnedAttempt(pool,account,message.merchantTradeNo,version);if(!attempt)return c.redirect('/',303);
+    if(allowed&&!runtime.commerceSettings?.quarantine){
+      const scheduleQuery=await tryChargeCommerceBudget(pool,'paymentReturnQuery',attempt.attempt_id);
+      await recordPaymentBrowserReturn(pool,{account,attemptId:attempt.attempt_id,merchantTradeNo:message.merchantTradeNo,credentialVersion:version,body,scheduleQuery});
+    }
+    return c.redirect(attempt.kind==='order'?`/shops/${attempt.slug}/payment-return/${attempt.attempt_id}`:'/',303);
+  });
+  app.get('/pay/ecpay/back/:attempt_id',async c=>{
+    if(c.req.method!=='GET'||!OpaqueId.safeParse(c.req.param('attempt_id')).success)return c.html(handoffErrorPage('找不到這筆訂單。'),404);
+    const location=await paymentBackLocation(pool,c.req.param('attempt_id'));return location?c.redirect(location,303):c.html(handoffErrorPage('找不到這筆訂單。'),404);
+  });
   app.get('/pay/ecpay/handoff.js',c=>c.body(HANDOFF_SCRIPT,200,{'Content-Type':'text/javascript; charset=utf-8'}));
   app.get('/pay/ecpay/handoff.css',c=>c.body(HANDOFF_CSS,200,{'Content-Type':'text/css; charset=utf-8'}));
   app.get('/pay/ecpay/:token',async c=>{

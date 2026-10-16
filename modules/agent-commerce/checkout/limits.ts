@@ -11,6 +11,7 @@ export const COMMERCE_LIMITS={
   cartNetwork:{limit:60,seconds:60},cartStore:{limit:600,seconds:60},
   checkoutNetwork:{limit:30,seconds:600},checkoutStore:{limit:600,seconds:600},
   placementNetwork:{limit:10,seconds:600},placementStore:{limit:300,seconds:600},
+  paymentReturnNetwork:{limit:60,seconds:60},paymentReturnQuery:{limit:1,seconds:60},
   providerAccount:{limit:600,seconds:60},providerUnknownNetwork:{limit:120,seconds:60},
   handoffNetwork:{limit:30,seconds:600},
   handoffPageNetwork:{limit:60,seconds:600},
@@ -66,4 +67,11 @@ export async function enforceOpenOrderLimits(q:PoolClient,deviceId:string,email:
     greatest(1,ceil(extract(epoch FROM min(expires_at) FILTER(WHERE order_id<>$5 AND (device OR email))-(SELECT t FROM decision))))::int AS retry_after
     FROM counted`,[deviceId,email,store.tenantId,store.instanceId,placedOrderId])).rows[0];
   if(row.devices>COMMERCE_LIMITS.openOrdersDevice||row.emails>COMMERCE_LIMITS.openOrdersEmail)throw new Problem(429,'too_many_open_orders','尚有未完成的訂單。',row.retry_after);
+}
+
+/** Redirect hints still verify over budget. Only a rate rejection becomes false;
+ * infrastructure failures retain their normal retry behavior. */
+export async function tryChargeCommerceBudget(pool:Pool,name:CommerceBucket,key:string):Promise<boolean>{
+  try{await chargeCommerceBudgets(pool,key,{network:name});return true;}
+  catch(error){if(error instanceof Problem&&error.status===429&&error.code==='commerce_rate_limited')return false;throw error;}
 }
