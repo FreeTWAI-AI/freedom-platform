@@ -1,5 +1,5 @@
--- Expand-only commerce setup. This schema enables no payment writer/callback
--- capability or release floor; payment processing arrives separately.
+-- Expand-only hosted payment schema. The release gate requires a binary that
+-- retains the inbound payment writer before applying or restoring this schema.
 INSERT INTO module_definitions(module_key,release_ref,data_schema_version,data_catalog_ref,contract_ref,
   portable_profile_ref,runtime_profiles,capabilities,config_schema_ref,supported_upgrade_paths,
   license_review_ref,license_state,release_status,version)
@@ -361,3 +361,245 @@ END;
 $$;
 CREATE TRIGGER preserve_commerce_store_admission BEFORE INSERT OR UPDATE OR DELETE ON commerce_store_admissions
   FOR EACH ROW EXECUTE FUNCTION preserve_commerce_store_admission();
+
+-- Composite targets retain merchant and order provenance even for machine
+-- callers, which resolve these non-PII rows before binding tenant RLS.
+ALTER TABLE commerce_provider_accounts ADD CONSTRAINT commerce_provider_account_payment_identity
+  UNIQUE(account_id,tenant_id,instance_id,environment,merchant_id);
+ALTER TABLE commerce_checkout_orders ADD CONSTRAINT commerce_checkout_order_payment_identity
+  UNIQUE(order_id,tenant_id,instance_id,environment);
+CREATE TABLE commerce_payment_attempts (
+  attempt_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  kind text NOT NULL CHECK(kind IN ('order','service_activation')),
+  order_id uuid,
+  sequence integer NOT NULL CHECK(sequence>=1),
+  account_id uuid NOT NULL,
+  purpose text NOT NULL DEFAULT 'payment' CHECK(purpose='payment'),
+  environment text NOT NULL CHECK(environment IN ('sandbox','live')),
+  merchant_id text NOT NULL,
+  credential_version integer NOT NULL,
+  provider text NOT NULL DEFAULT 'ecpay' CHECK(provider='ecpay'),
+  profile text NOT NULL DEFAULT 'ecpay.aio.credit.v1' CHECK(profile='ecpay.aio.credit.v1'),
+  merchant_trade_no text NOT NULL CHECK(merchant_trade_no ~ '^F[0-9A-HJKMNP-TV-Z]{19}$'),
+  amount_minor bigint NOT NULL CHECK(amount_minor>=500 AND amount_minor%100=0),
+  currency text NOT NULL CHECK(currency='TWD'),
+  state text NOT NULL DEFAULT 'issued' CHECK(state IN ('issued','paid','confirmed','failed','superseded','expired_unpaid')),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  journaled_at timestamptz CHECK(journaled_at IS NULL OR journaled_at>=created_at),
+  handed_off_at timestamptz CHECK(handed_off_at IS NULL OR (journaled_at IS NOT NULL AND handed_off_at>=journaled_at)),
+  paid_at timestamptz CHECK(paid_at IS NULL OR paid_at>=created_at),
+  confirmed_at timestamptz CHECK(confirmed_at IS NULL OR (paid_at IS NOT NULL AND confirmed_at>=paid_at)),
+  failed_at timestamptz CHECK(failed_at IS NULL OR failed_at>=created_at),
+  superseded_at timestamptz CHECK(superseded_at IS NULL OR superseded_at>=created_at),
+  expired_at timestamptz CHECK(expired_at IS NULL OR expired_at>=created_at),
+  trade_no text CHECK(trade_no ~ '^[0-9A-Z]{1,20}$'),
+  payment_date timestamptz,
+  payment_type text CHECK(payment_type ~ '^[A-Za-z0-9_]{1,40}$'),
+  charge_fee_minor bigint CHECK(charge_fee_minor>=0),
+  gwsr text CHECK(gwsr ~ '^[0-9]{1,20}$'),
+  version bigint NOT NULL DEFAULT 1 CHECK(version>0),
+  CHECK((kind='order' AND order_id IS NOT NULL AND sequence<=5) OR (kind='service_activation' AND order_id IS NULL)),
+  FOREIGN KEY(account_id,tenant_id,instance_id,environment,merchant_id)
+    REFERENCES commerce_provider_accounts(account_id,tenant_id,instance_id,environment,merchant_id),
+  FOREIGN KEY(account_id,purpose,credential_version)
+    REFERENCES commerce_provider_credentials(account_id,purpose,credential_version),
+  FOREIGN KEY(order_id,tenant_id,instance_id,environment)
+    REFERENCES commerce_checkout_orders(order_id,tenant_id,instance_id,environment),
+  UNIQUE(order_id,sequence),
+  UNIQUE(provider,environment,merchant_id,merchant_trade_no),
+  UNIQUE(attempt_id,account_id,tenant_id,instance_id)
+);
+CREATE UNIQUE INDEX commerce_payment_activation_sequence ON commerce_payment_attempts(account_id,sequence) WHERE kind='service_activation';
+CREATE INDEX commerce_payment_attempt_account_trade ON commerce_payment_attempts(account_id,merchant_trade_no);
+CREATE INDEX commerce_payment_attempt_account_identity ON commerce_payment_attempts(account_id,tenant_id,instance_id,environment,merchant_id);
+CREATE INDEX commerce_payment_attempt_credential ON commerce_payment_attempts(account_id,purpose,credential_version);
+CREATE INDEX commerce_payment_attempt_store ON commerce_payment_attempts(tenant_id,instance_id);
+CREATE INDEX commerce_payment_attempt_unjournaled ON commerce_payment_attempts(created_at,attempt_id) WHERE journaled_at IS NULL;
+CREATE INDEX commerce_payment_attempt_unhanded ON commerce_payment_attempts(order_id,sequence) WHERE state='issued' AND handed_off_at IS NULL;
+CREATE FUNCTION preserve_commerce_payment_attempt() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE field text; transition_field text;
+BEGIN
+  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'payment attempts are retained' USING ERRCODE='23514'; END IF;
+  IF TG_OP='INSERT' THEN
+    IF NEW.state<>'issued' OR NEW.version<>1 OR NEW.journaled_at IS NOT NULL OR NEW.handed_off_at IS NOT NULL
+      OR NEW.paid_at IS NOT NULL OR NEW.confirmed_at IS NOT NULL OR NEW.failed_at IS NOT NULL
+      OR NEW.superseded_at IS NOT NULL OR NEW.expired_at IS NOT NULL OR NEW.trade_no IS NOT NULL
+      OR NEW.payment_date IS NOT NULL OR NEW.payment_type IS NOT NULL OR NEW.charge_fee_minor IS NOT NULL OR NEW.gwsr IS NOT NULL THEN
+      RAISE EXCEPTION 'payment attempts start issued without provider facts' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF (to_jsonb(NEW)-ARRAY['state','journaled_at','handed_off_at','paid_at','confirmed_at','failed_at','superseded_at','expired_at',
+      'trade_no','payment_date','payment_type','charge_fee_minor','gwsr','version'])
+    IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','journaled_at','handed_off_at','paid_at','confirmed_at','failed_at','superseded_at','expired_at',
+      'trade_no','payment_date','payment_type','charge_fee_minor','gwsr','version']) OR NEW.version<>OLD.version+1 THEN
+    RAISE EXCEPTION 'payment attempt identity is immutable' USING ERRCODE='23514';
+  END IF;
+  IF NEW.state IS DISTINCT FROM OLD.state THEN
+    IF NOT ((OLD.state='issued' AND NEW.state IN ('paid','failed','superseded','expired_unpaid'))
+      OR (OLD.state='superseded' AND NEW.state IN ('paid','failed','expired_unpaid'))
+      OR (OLD.state IN ('failed','expired_unpaid') AND NEW.state='paid') OR (OLD.state='paid' AND NEW.state='confirmed')) THEN
+      RAISE EXCEPTION 'invalid payment attempt transition' USING ERRCODE='23514';
+    END IF;
+    transition_field=CASE NEW.state WHEN 'expired_unpaid' THEN 'expired_at' ELSE NEW.state||'_at' END;
+    IF to_jsonb(NEW)->>transition_field IS NULL THEN
+      RAISE EXCEPTION 'payment transition requires its timestamp' USING ERRCODE='23514';
+    END IF;
+  END IF;
+  FOREACH field IN ARRAY ARRAY['journaled_at','handed_off_at','paid_at','confirmed_at','failed_at','superseded_at','expired_at',
+      'trade_no','payment_date','payment_type','charge_fee_minor','gwsr'] LOOP
+    IF to_jsonb(OLD)->>field IS NOT NULL AND (to_jsonb(NEW)->field) IS DISTINCT FROM (to_jsonb(OLD)->field) THEN
+      RAISE EXCEPTION 'payment facts are set once' USING ERRCODE='23514';
+    END IF;
+    IF field IN ('paid_at','confirmed_at','failed_at','superseded_at','expired_at')
+      AND (to_jsonb(NEW)->field) IS DISTINCT FROM (to_jsonb(OLD)->field) AND field IS DISTINCT FROM transition_field THEN
+      RAISE EXCEPTION 'payment timestamp requires its transition' USING ERRCODE='23514';
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_payment_attempt BEFORE INSERT OR UPDATE OR DELETE ON commerce_payment_attempts
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_payment_attempt();
+
+CREATE TABLE commerce_hosted_payment_events (
+  event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  attempt_id uuid,
+  source text NOT NULL CHECK(source IN ('notification','browser_return')),
+  outcome text NOT NULL,
+  merchant_trade_no text CHECK(merchant_trade_no ~ '^[0-9A-Z]{1,20}$'),
+  trade_no text CHECK(trade_no ~ '^[0-9A-Z]{1,20}$'),
+  -- The protocol accepts signed 10-digit integers, beyond PostgreSQL int4.
+  rtn_code bigint,
+  simulate_paid boolean,
+  payment_date timestamptz,
+  payment_type text CHECK(payment_type ~ '^[A-Za-z0-9_]{1,40}$'),
+  trade_amt_minor bigint CHECK(trade_amt_minor>=0),
+  charge_fee_minor bigint CHECK(charge_fee_minor>=0),
+  gwsr text CHECK(gwsr ~ '^[0-9]{1,20}$'),
+  credential_version integer,
+  body_sha256 text CHECK(body_sha256 ~ '^[a-f0-9]{64}$'),
+  dedupe_key text CHECK(dedupe_key ~ '^[a-f0-9]{64}$'),
+  received_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  applied_at timestamptz CHECK(applied_at IS NULL OR applied_at>=received_at),
+  CHECK((source='notification' AND outcome IN ('paid','failed','pending_confirmation','simulated') AND dedupe_key IS NOT NULL)
+    OR (source='browser_return' AND outcome='returned' AND dedupe_key IS NULL)),
+  FOREIGN KEY(account_id) REFERENCES commerce_provider_accounts(account_id),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
+  -- Inbox insertion precedes order/attempt locks. Deferring this FK avoids
+  -- taking an attempt KEY SHARE lock before that documented lock position.
+  FOREIGN KEY(attempt_id,account_id,tenant_id,instance_id)
+    REFERENCES commerce_payment_attempts(attempt_id,account_id,tenant_id,instance_id) DEFERRABLE INITIALLY DEFERRED
+);
+-- Account provenance is also enforced for unmatched events, which have no attempt.
+CREATE FUNCTION check_commerce_hosted_payment_events_account() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM commerce_provider_accounts a WHERE a.account_id=NEW.account_id
+    AND a.tenant_id=NEW.tenant_id AND a.instance_id=NEW.instance_id) THEN
+    RAISE EXCEPTION 'payment event account binding is invalid' USING ERRCODE='23514';
+  END IF;
+  IF NEW.credential_version IS NOT NULL AND NOT EXISTS(SELECT 1 FROM commerce_provider_credentials c
+    WHERE c.account_id=NEW.account_id AND c.purpose='payment' AND c.credential_version=NEW.credential_version) THEN
+    RAISE EXCEPTION 'payment event credential binding is invalid' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER check_commerce_hosted_payment_events_account BEFORE INSERT ON commerce_hosted_payment_events
+  FOR EACH ROW EXECUTE FUNCTION check_commerce_hosted_payment_events_account();
+CREATE UNIQUE INDEX commerce_hosted_payment_events_dedupe ON commerce_hosted_payment_events(account_id,dedupe_key) WHERE dedupe_key IS NOT NULL;
+CREATE INDEX commerce_hosted_payment_events_attempt ON commerce_hosted_payment_events(attempt_id,received_at,event_id);
+CREATE INDEX commerce_hosted_payment_events_store ON commerce_hosted_payment_events(tenant_id,instance_id);
+CREATE INDEX commerce_hosted_payment_events_unapplied ON commerce_hosted_payment_events(received_at,event_id) WHERE source='notification' AND applied_at IS NULL;
+CREATE FUNCTION preserve_commerce_hosted_payment_events() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP='DELETE' OR (to_jsonb(NEW)-'applied_at') IS DISTINCT FROM (to_jsonb(OLD)-'applied_at')
+    OR (OLD.applied_at IS NOT NULL AND NEW.applied_at IS DISTINCT FROM OLD.applied_at) THEN
+    RAISE EXCEPTION 'payment events are append only' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_hosted_payment_events BEFORE UPDATE OR DELETE ON commerce_hosted_payment_events
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_hosted_payment_events();
+
+-- Non-PII cross-tenant scheduling index. Executors lease/delete completed rows;
+-- kind and target identify work, not authority to perform a provider operation.
+CREATE TABLE commerce_due_work (
+  due_work_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  kind text NOT NULL CHECK(kind IN ('payment_query','payment_window_end')),
+  target_id uuid NOT NULL,
+  due_at timestamptz NOT NULL,
+  lease_until timestamptz,
+  attempts integer NOT NULL DEFAULT 0 CHECK(attempts>=0),
+  last_error text CHECK(last_error ~ '^[a-z0-9_]{1,64}$'),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
+  UNIQUE(kind,target_id)
+);
+CREATE INDEX commerce_due_work_claim ON commerce_due_work(due_at,due_work_id);
+CREATE INDEX commerce_due_work_store ON commerce_due_work(tenant_id,instance_id);
+
+CREATE TABLE commerce_exception_cases (
+  case_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  order_id uuid REFERENCES commerce_checkout_orders(order_id),
+  kind text NOT NULL CHECK(kind IN ('unmatched_payment','amount_mismatch','paid_unallocatable','paid_after_cancel','overpaid','payment_unconfirmed','contradicting_event')),
+  subject_kind text NOT NULL CHECK(subject_kind IN ('payment_attempt','payment_event')),
+  subject_id uuid NOT NULL,
+  responsible_party text NOT NULL CHECK(responsible_party IN ('retailer','executor','buyer')),
+  executor_tenant_id uuid REFERENCES tenants(tenant_id),
+  status text NOT NULL DEFAULT 'open' CHECK(status IN ('open','resolved','dismissed')),
+  due_at timestamptz NOT NULL,
+  resolution_code text CHECK(resolution_code ~ '^[a-z0-9_]{1,64}$'),
+  resolution_note text CHECK(char_length(resolution_note)<=1000),
+  opened_by_kind text NOT NULL CHECK(opened_by_kind IN ('system','person')),
+  opened_by_principal_id uuid REFERENCES principals(principal_id),
+  resolved_by_principal_id uuid REFERENCES principals(principal_id),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  version bigint NOT NULL DEFAULT 1 CHECK(version>0),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
+  CHECK((opened_by_kind='system' AND opened_by_principal_id IS NULL) OR (opened_by_kind='person' AND opened_by_principal_id IS NOT NULL)),
+  CHECK((status='open' AND resolution_code IS NULL AND resolution_note IS NULL AND resolved_by_principal_id IS NULL)
+    OR (status IN ('resolved','dismissed') AND resolution_code IS NOT NULL AND resolution_note IS NOT NULL AND resolved_by_principal_id IS NOT NULL))
+);
+CREATE UNIQUE INDEX commerce_exception_case_open ON commerce_exception_cases(kind,subject_kind,subject_id) WHERE status='open';
+CREATE INDEX commerce_exception_case_store ON commerce_exception_cases(tenant_id,instance_id,status,due_at,case_id);
+CREATE INDEX commerce_exception_case_order ON commerce_exception_cases(order_id);
+CREATE INDEX commerce_exception_case_executor ON commerce_exception_cases(executor_tenant_id);
+CREATE INDEX commerce_exception_case_opener ON commerce_exception_cases(opened_by_principal_id);
+CREATE INDEX commerce_exception_case_resolver ON commerce_exception_cases(resolved_by_principal_id);
+CREATE FUNCTION preserve_commerce_exception_case() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.status<>'open' OR NEW.version<>1 THEN RAISE EXCEPTION 'exception cases start open' USING ERRCODE='23514'; END IF;
+    IF NEW.order_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM commerce_checkout_orders o WHERE o.order_id=NEW.order_id
+      AND o.tenant_id=NEW.tenant_id AND o.instance_id=NEW.instance_id) THEN
+      RAISE EXCEPTION 'exception case order binding is invalid' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP='DELETE' OR OLD.status<>'open' OR NEW.status NOT IN ('resolved','dismissed')
+    OR (to_jsonb(NEW)-ARRAY['status','resolution_code','resolution_note','resolved_by_principal_id','updated_at','version'])
+      IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['status','resolution_code','resolution_note','resolved_by_principal_id','updated_at','version'])
+    OR NEW.version<>OLD.version+1 OR NEW.updated_at<OLD.updated_at THEN
+    RAISE EXCEPTION 'exception case identity and closing are retained' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_exception_case BEFORE INSERT OR UPDATE OR DELETE ON commerce_exception_cases
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_exception_case();
+ALTER TABLE commerce_exception_cases ENABLE ROW LEVEL SECURITY;
+CREATE POLICY commerce_exception_cases_tenant ON commerce_exception_cases FOR ALL TO PUBLIC
+  USING(tenant_id=freedom_ctx_tenant()) WITH CHECK(tenant_id=freedom_ctx_tenant());
