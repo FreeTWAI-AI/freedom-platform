@@ -19,11 +19,12 @@ export const MEDIA_WORKER_FEATURES = Object.freeze([
   // The installed social MEDIA port also serves post-bound comment images.
   feature('community.comment-image', 'FREEDOM_SOCIAL_THUMBNAIL_ENABLED', ['media.comment-image.asset.v1', 'media.server-policy.v1']),
   feature('community.event-highlight', 'FREEDOM_EVENT_HIGHLIGHT_ENABLED', ['media.event-highlight.asset.v1', 'media.server-policy.v1']),
+  feature('storefront.supply-material', 'FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED', ['media.supply-material.asset.v1', 'media.server-policy.v1'], false),
   feature('storefront.product-photo', 'FREEDOM_HOSTED_STORE_PHOTOS_ENABLED', ['media.storefront-product-photo.asset.v1', 'media.server-policy.v1'], false),
   feature('member.message-image', 'FREEDOM_MESSAGE_IMAGE_ENABLED', ['media.message-image.asset.v1', 'media.server-policy.v1']),
 ]);
-const knownFlags = new Set([...MEDIA_WORKER_FEATURES.map(feature => feature.flag).filter(Boolean), 'FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED']);
-const mediaFlag = /^FREEDOM_.*(?:MEDIA|AVATAR|ASSET|COVER|BANNER|VIDEO|HIGHLIGHT|THUMBNAIL|SKILL_IMAGE|MESSAGE_IMAGE|STORE_PHOTO).*_ENABLED$/;
+const knownFlags = new Set([...MEDIA_WORKER_FEATURES.map(feature => feature.flag).filter(Boolean), 'FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED', 'FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED']);
+const mediaFlag = /^FREEDOM_.*(?:MEDIA|AVATAR|ASSET|COVER|BANNER|VIDEO|HIGHLIGHT|THUMBNAIL|SKILL_IMAGE|MESSAGE_IMAGE|STORE_PHOTO|SUPPLY_MATERIAL).*_ENABLED$/;
 const environments = ['staging-next', 'next'];
 const remaining = Object.freeze([
   'provider_binding_identity_and_private_bucket', 'hyperdrive_cache_disabled',
@@ -73,6 +74,11 @@ export function checkMediaWranglerConfig(path, manifest) {
     if(vars.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true'){
       if(vars.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED!=='true')blockers.push(`${label}:storefront.product-photo:read_installation_required`);
       if(block.images?.binding!=='IMAGES')blockers.push(`${label}:storefront.product-photo:images_binding_missing`);
+    }
+    if(vars.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED==='true'&&vars.FREEDOM_SUPPLIER_CONSOLE_ENABLED!=='true')blockers.push(`${label}:storefront.supply-material:supplier_console_required`);
+    if(vars.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED==='true'){
+      if(vars.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED!=='true')blockers.push(`${label}:storefront.supply-material:read_installation_required`);
+      if(block.images?.binding!=='IMAGES')blockers.push(`${label}:storefront.supply-material:images_binding_missing`);
     }
     const canonical = manifest.environments[label];
     const bucket = [purposeBuckets(canonical).MEDIA];

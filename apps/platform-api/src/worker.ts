@@ -1,3 +1,4 @@
+import {createSupplyMaterialLifecycle} from '../../../modules/assets/supply-material.js';
 import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import { installWorkerGuideAssets } from '../../../packages/public-guide-assets/worker.js';
@@ -73,6 +74,8 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
   FREEDOM_SUPPLIER_CONSOLE_ENABLED?: string;
+  FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED?: string;
+  FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTOS_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED?: string;
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
@@ -160,6 +163,9 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   for(const flag of [env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED,env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Store photo flags must be true or false.');
   if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&(env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Hosted store photos require guild launchpad and MEDIA.');
   if(env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true'&&(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Store photo uploads require installed photos and IMAGES.');
+  for(const flag of [env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED,env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Supply material flags must be true or false.');
+  if(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED==='true'&&(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Supply material media requires supplier console and MEDIA.');
+  if(env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED==='true'&&(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Supply material uploads require installed media and IMAGES.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PUBLIC_GUIDE_ENABLED))throw new ReadinessError('Guide release flag must be true or false.');
@@ -408,6 +414,11 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           runtime.storePhotoUploadsEnabled=env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true';
           // Keep the closed service installed for retained original receipts; admission remains separate.
           runtime.storePhotoAssets=createStorefrontProductPhotoLifecycle(pool,{store:runtime.avatarAssetStore});
+        }
+        if(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.supplyMaterialAssetStore=runtime.avatarAssetStore;
+          runtime.supplyMaterialUploadsEnabled=env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED==='true';
+          runtime.supplyMaterialAssets=createSupplyMaterialLifecycle(pool,{store:runtime.avatarAssetStore});
         }
         if(env.FREEDOM_MESSAGE_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.messageImageAssetStore=runtime.avatarAssetStore;

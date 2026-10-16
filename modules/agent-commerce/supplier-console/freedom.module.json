@@ -132,6 +132,16 @@
         "storefront.supplier.orders.list"
       ],
       "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.supply-material-media-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-supply-material-media.ts",
+      "auth_profile": "member-session",
+      "operations": [
+        "storefront.supply-material.upload",
+        "supplier-console.material-content"
+      ]
     }
   ]
 }

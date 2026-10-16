@@ -1,3 +1,4 @@
+import type { SupplyMaterialAssets } from '../../../modules/agent-commerce/supplier-console/material-media.js';
 import type { StorePhotoAssets } from '../../../modules/agent-commerce/hosted/photo-commands.js';
 import type { TenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { PublicGuideAssets } from '../../../packages/public-guide-assets/index.js';
@@ -99,6 +100,9 @@ export type PlatformRuntime = {
   storePhotoAssetStore?: ObjectStore;
   storePhotoAssets?: StorePhotoAssets;
   storePhotoUploadsEnabled?: boolean;
+  supplyMaterialAssetStore?: ObjectStore;
+  supplyMaterialAssets?: SupplyMaterialAssets;
+  supplyMaterialUploadsEnabled?: boolean;
   communityDiscoveryEnabled?: boolean;
   /** Management surface only; saved blocks continue protecting contact when false. */
   memberBlockingEnabled?: boolean;
