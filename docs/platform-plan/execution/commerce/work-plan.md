@@ -52,7 +52,7 @@
 | wp03-core | migration 168、`modules/agent-commerce/checkout/`、N／H／A、付款後配置、出貨與退回的庫存效果 | Codex | — | 完成 |
 | wp03-http | 公開結帳路由（EC-SPEC-02 §5.2～§5.4）；訂單存取憑證與 B10（§4.2，fixture sender）；結帳的限流（EC-SPEC-09 §4）；主機設定 `CHECKOUT`、`QUARANTINE` 與 `site` 布林（EC-SPEC-10 §2.2、§2.3）；到期預留接上排程（§5）；能力、SHAPE 與 168 的強制下限（§3）；同意版本與配送 JSON 的檢查；還原演練補上 168 的 RLS 表 | Codex | wp03-core | 完成（`fc/wp03-http` `eea0f328`，整合 `762baaf0`） |
 | buyer-orders | 店面 client bundle（固定檔名 `assets/storefront.js`）；B07 付款前的訂單頁：信件連結的兌換、在這個瀏覽器忘記；B10 在寄送授權前的說明（EC-SPEC-10 §6.2） | argon | wp03-http | 完成（`fc/buyer-orders` `1d4744cc`，整合 `1a9955eb`） |
-| buyer-cart | B01／B03 開放結帳時的購物車連結與件數、B03 加入購物車與購物車面板、B04 依伺服器報價的購物車；未開放時 v1 頁面逐位元不變 | argon | buyer-orders；wp04-accounts（店家准入） | 進行中（`fc/buyer-cart`） |
+| buyer-cart | B01／B03 開放結帳時的購物車連結與件數、B03 加入購物車與購物車面板、B04 依伺服器報價的購物車；未開放時 v1 頁面逐位元不變 | argon | buyer-orders；wp04-accounts（店家准入） | 完成（`fc/buyer-cart` `5d226d71`，整合 `942df112`） |
 | buyer-checkout | B05、B06（付款前） | 之後決定 | buyer-cart；M3 的配送資料與選店、M4 的發票欄 | 之後 |
 
 M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `hosted_checkout` 訂單；M1 的驗收是不影響 v1 預留，加上本機與 CI 的測試（EC-SPEC-10 §4.6）。
@@ -145,6 +145,12 @@ M2 的付款拆成四個工作（§4）：wp04-payments 不呼叫綠界，「排
 wp04-accounts 的修正輪 6 項通過審查，合併為 `38e8db3b`。整合者重跑：typecheck、相關的 runtime 32/32、cloudflare 517/517、inventory。
 
 wp04-payments 第一次執行在寫程式之前就依矛盾規則停下：綠界信用卡 profile 的三處金額範圍不一致。可用性檢查沒有上限，付款表單收到 2,147,483,647 元，付款通知的 `TradeAmt` 卻只讀 9 位數；表單送得出 10 位數的金額，綠界簽章正確的通知反而被拒。整合者把函式庫統一成 5～999,999,999 元（`08f5bea4`）：可用性多一個原因 `amount_above_maximum`；表單、交易查詢與授權明細的預期金額、退款計畫與 DoAction 都拒絕更大的金額。EC-SPEC-04 §2 記下這個範圍，並和商家的單筆額度分開。新的回歸測試放到舊的函式庫上有 4 個失敗。整合者重跑 typecheck、綠界協定測試 52/52 與 inventory。wp04-payments 改以 `08f5bea4` 為基準，01:06Z 續跑同一個 Codex session（資料庫在 55445 重建）。它對 §1.4 的建議也採用：儲存金鑰時不以伺服器查詢驗證。
+
+wp04-payments 續跑後在第 1 項又停下一次：工作說明給收件匣的表名 `commerce_payment_events` 已被 migration 055 用掉。那張表存匯入商店的店家後台付款回報，寫入者是 `orders.ts`，migration 138 限定只收匯入的訂單。整合者決定新表叫 `commerce_hosted_payment_events`，舊表與它的 catalog、測試都不動，兩種模型也不合併；新表的 constraint、index、trigger 與 function 都以新表命名，並加一個回歸測試確認 169 之後舊表的欄位與限制不變（`101441de`，EC-SPEC-04 §1.4、§3.1 一起改名）。同一批重產 guild-launchpad README 的狀態列（`6956f5f6`）：`08f5bea4` 上的 contracts 因為那一行少了 169 有 7 個失敗。wp04-payments 改以 `101441de` 為基準，01:29Z 續跑。
+
+buyer-cart 的審查逐行讀過五個 commit，從基準的 renderer 重算 12 個 v1 位元組 pin，全部相符，沒有阻擋的缺陷。修正輪 6 項（`5d226d71`）：購買狀態只由第五個參數傳入，預覽一律不開放；路由先用 `publicProduct()` 確認 SKU 合法且在商店裡，才查購買狀態，否則回 404、不設 cookie；`aria-busy` 只在 effect 裡設定；新加的樣式只套在有 `<main id="main">` 的開放頁面，關閉商店的 v1 頁面維持原樣；最後一行商品不再重複底線；B04 加上長店名與長商品名在五種寬度的截圖；fixture 的「手拉坯青瓷茶海」改正。整合者在 `5d226d71` 重跑：typecheck、build、runtime 10/10 與 77/77、E2E 購物車 8、訂單頁 5、商店 15、selector 42/42、unknown-paths 0、inventory，看過 70 張截圖；合併為 `942df112`，合併後同一組檢查與契約 946/946 都過。
+
+`a3045598` 的完整驗證：typecheck、build、cloudflare、governance、worker 都過；契約 7 個失敗是 guild-launchpad README 的狀態列還寫 168，`6956f5f6` 已修正（`942df112` 上 946/946）；runtime 5290/5292，失敗的兩個（`identity-member` 的隱私投影、`model-broker-bridge-adversarial` 的到期回滾）在審查用的資料庫單獨重跑 23/23 與 8/8 通過，是全套負載下的計時問題。worker 序列的契約、check:*、dry-run、worker、media-restore、`--archive-only` 與 migration-postgres 都過。
 
 ## 6. 共用檔案
 
