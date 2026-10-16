@@ -54,6 +54,7 @@ const readSubmission=z.object({submission_id:z.uuid(),summary:z.string(),artifac
 const readClaim=z.object({claim_id:z.uuid(),claimant_ref:z.uuid(),state:z.string(),latest_submission:readSubmission.nullable(),feedback:z.string().nullable()});
 const readWork=z.object({work_item_id:z.uuid(),title:z.string(),review_capacity:z.enum(['available','waiting_reviewer_capacity']),my_claim:readClaim.nullable()});
 const readWorkPage=z.object({items:z.array(readWork)});
+const readCursorWorkPage=readWorkPage.extend({next_cursor:z.string().nullable()}).strict();
 const readDashboard=z.object({now:z.array(readWork),next:z.array(readWork),gained:z.array(z.unknown()),review_queue:z.array(z.object({claim:readClaim,work_item:readWork,claimant_name:z.string()}))});
 const readMember=z.object({user_id:z.uuid(),profession_membership_ref:z.uuid()});
 
@@ -103,6 +104,72 @@ test('work list keeps complete ordering, own claims and latest submission revisi
       }
     }
   }
+});
+
+test('cursor work list preserves microsecond ordering, legacy completeness and older personal projections',async()=>{
+  const maker=await signIn(),ownClaim=await claim(maker);
+  assert.equal(ownClaim.work_item_id,DEMO_WORK);
+  await pool.query("UPDATE work_items SET created_at='2001-02-01T00:00:00Z' WHERE work_item_id=$1",[DEMO_WORK]);
+  const expected:string[]=[];
+  for(let index=0;index<30;index++) {
+    const id=randomUUID(),fraction=`123${String(index).padStart(3,'0')}`;
+    await pool.query(`INSERT INTO work_items(work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,participation_terms,
+      participation_terms_sha256,claim_window_expires_at,due_at,created_at)
+      SELECT $1,community_id,owner_ref,$2,objective,acceptance_criteria,gain,'open',participation_terms,participation_terms_sha256,
+      claim_window_expires_at,due_at,$3::timestamptz FROM work_items WHERE work_item_id=$4`,
+    [id,`cursor-${String(index).padStart(2,'0')}`,`2030-01-01T00:00:00.${fraction}Z`,DEMO_WORK]);
+    expected.unshift(id);
+  }
+  const legacy=readWorkPage.parse((await request('/work-items',maker)).data);
+  assert.deepEqual(legacy.items.map(item=>item.work_item_id),[...expected,DEMO_WORK]);
+  const pages:typeof legacy.items=[];let cursor:string|null=null;let pageCount=0;
+  do {
+    const path=`/work-items/page${cursor?`?cursor=${encodeURIComponent(cursor)}`:''}`;
+    const result=await request(path,maker);assert.equal(result.status,200,JSON.stringify(result.data));
+    const page=readCursorWorkPage.parse(result.data);assert.ok(page.items.length<=24);
+    if(pageCount===0){assert.equal(page.items.length,24);assert.ok(page.next_cursor);}
+    pages.push(...page.items);cursor=page.next_cursor;pageCount++;
+    assert.ok(pageCount<10,'cursor pagination did not terminate');
+  }while(cursor);
+  assert.deepEqual(pages.map(item=>item.work_item_id),legacy.items.map(item=>item.work_item_id));
+  assert.equal(new Set(pages.map(item=>item.work_item_id)).size,pages.length);
+  const dashboard=readDashboard.parse((await request('/dashboard',maker)).data);
+  assert.equal(dashboard.now.some(item=>item.work_item_id===DEMO_WORK),true);
+  assert.equal(dashboard.next.length,24);
+  const first=readCursorWorkPage.parse((await request('/work-items/page',maker)).data);
+  for(const path of [
+    '/work-items/page?cursor=not-base64!',
+    '/work-items/page?pagination=cursor',
+    `/work-items/page?cursor=${encodeURIComponent(first.next_cursor!)}&cursor=${encodeURIComponent(first.next_cursor!)}`,
+  ]) assert.equal((await request(path,maker)).status,422,path);
+});
+
+test('work search and open scope apply before pagination, including older literal matches',async()=>{
+  const maker=await signIn(),ids=Array.from({length:30},()=>randomUUID());
+  await pool.query(`UPDATE work_items SET title='Needle%_ older',objective='ObjectiveOnly',gain='GainOnly',
+    state='open',claim_window_expires_at='2099-01-01',created_at='2001-01-01' WHERE work_item_id=$1`,[DEMO_WORK]);
+  for(let index=0;index<ids.length;index++)await pool.query(`INSERT INTO work_items(
+    work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,participation_terms,
+    participation_terms_sha256,claim_window_expires_at,due_at,created_at)
+    SELECT $1,community_id,owner_ref,$2,objective,acceptance_criteria,gain,$3,participation_terms,
+    participation_terms_sha256,$4,due_at,'2030-01-01' FROM work_items WHERE work_item_id=$5`,
+    [ids[index],index===0?'Needle%_ closed':index===1?'Needle%_ expired':index===2?'NeedleXY closed':`closed work ${index}`,
+      index===1?'open':'claiming_closed',index===1?'2000-01-01':'2099-01-01',DEMO_WORK]);
+  const unfiltered=readCursorWorkPage.parse((await request('/work-items/page',maker)).data);
+  assert.equal(unfiltered.items.length,24);assert.equal(unfiltered.items.some(item=>item.work_item_id===DEMO_WORK),false);
+  const open=await request('/work-items/page?scope=open',maker);assert.equal(open.status,200);
+  assert.deepEqual(readCursorWorkPage.parse(open.data).items.map(item=>item.work_item_id),[DEMO_WORK]);
+  for(const search of ['needle%_','ObjectiveOnly','GainOnly']){
+    const filtered=await request('/work-items/page?scope=open&search='+encodeURIComponent(search),maker);
+    assert.equal(filtered.status,200);
+    assert.deepEqual(readCursorWorkPage.parse(filtered.data).items.map(item=>item.work_item_id),[DEMO_WORK]);
+    assert.equal(filtered.data.next_cursor,null);
+  }
+  const all=await request('/work-items/page?scope=all&search='+encodeURIComponent('needle%_'),maker);
+  assert.equal(all.status,200);
+  assert.deepEqual(readCursorWorkPage.parse(all.data).items.map(item=>item.work_item_id),[...ids.slice(0,2).sort(),DEMO_WORK]);
+  for(const query of ['scope=unknown','search='+encodeURIComponent('x'.repeat(2001)),'scope=open&scope=all'])
+    assert.equal((await request('/work-items/page?'+query,maker)).status,422);
 });
 
 test('dashboard keeps ordered eligible reviewers and latest revisions without exposing internal join keys',async()=>{
@@ -156,7 +223,7 @@ async function waitForReadLock(pid:number,table:string,finished:()=>boolean) {
 async function sessionAlive(hash:string) {
   return z.object({alive:z.boolean()}).parse((await pool.query('SELECT revoked_at IS NULL AND expires_at>clock_timestamp() AS alive FROM sessions WHERE token_hash=$1',[hash])).rows[0]).alive;
 }
-for(const target of [{path:'/work-items',table:'submissions'},{path:'/dashboard',table:'contributions'}] as const) {
+for(const target of [{path:'/work-items',table:'submissions'},{path:'/work-items/page',table:'submissions'},{path:'/dashboard',table:'contributions'}] as const) {
   test(`${target.path} rejects session expiry after its final own submission or post-list wait`,async()=>{
     const maker=await signIn(),claim=readClaim.parse(await submitted(maker));assert.ok(claim.latest_submission);
     for(const expires of [true,false]) {
@@ -178,7 +245,7 @@ for(const target of [{path:'/work-items',table:'submissions'},{path:'/dashboard'
           assert.equal(z.object({code:z.string()}).parse(result.data).code,'session_expired');
           const raw=JSON.stringify(result.data);for(const value of [claim.claim_id,claim.latest_submission.submission_id,claim.latest_submission.summary,claim.latest_submission.artifact_ref])assert.equal(raw.includes(value),false);
         }else {
-          const item=target.path==='/work-items'?readWorkPage.parse(result.data).items.find(row=>row.work_item_id===DEMO_WORK)
+          const item=target.path.startsWith('/work-items')?readWorkPage.parse(result.data).items.find(row=>row.work_item_id===DEMO_WORK)
             :readDashboard.parse(result.data).now.find(row=>row.work_item_id===DEMO_WORK);
           assert.equal(item?.my_claim?.claim_id,claim.claim_id);assert.deepEqual(item?.my_claim?.latest_submission,claim.latest_submission);
         }
@@ -610,6 +677,7 @@ test('cross-community users cannot enumerate or mutate another community work',a
   await pool.query('INSERT INTO users VALUES($1,$2,$3,$4,$5,$6,true)',[user,community,'other@local.test','Other',hashPassword(DEMO_PASSWORD),profession]);
   const other=await signIn('other@local.test'),maker=await signIn(),w=await work(maker);
   assert.deepEqual((await request('/work-items',other)).data.items,[]);
+  assert.deepEqual((await request('/work-items/page',other)).data,{items:[],next_cursor:null});
   assert.equal((await request(`/work-items/${DEMO_WORK}:claim`,other,claimBody(other,w),w.aggregate_version)).status,404);
 });
 test('simple showcase generates its record, keeps legacy refs and validates optional public links',async()=>{
