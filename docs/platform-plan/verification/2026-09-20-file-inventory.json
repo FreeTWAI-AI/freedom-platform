@@ -164,8 +164,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 34746,
-      "sha256": "61756f3e19db09d78f11824709c95957121894d46109202fb24c527713003ff3"
+      "bytes": 34783,
+      "sha256": "0de56864648b8a1a35b6826e9b8ba3f4ff3960666e2b2ce2fd8f3bbe5659c735"
     },
     {
       "path": "apps/freedom.module.json",
@@ -19424,8 +19424,8 @@
     },
     {
       "path": "packages/contribution-tools/test/circleci-worker-status.test.mjs",
-      "bytes": 5897,
-      "sha256": "1a6ebaafe09f3b9cd752ed6ade82a6ac959022b6ecd2a48881953f559ef1b2de"
+      "bytes": 6990,
+      "sha256": "fa0abebc6f4b800670cb428bc8c37387fd509c89e3c4d4990f1b21c9ba7c7d66"
     },
     {
       "path": "packages/contribution-tools/test/consumer-entry-coverage.test.mjs",

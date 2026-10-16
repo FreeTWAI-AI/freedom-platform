@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { REPOSITORY, CONTEXT, workerStatusDecision, newestWorkerStatus, githubReader } from '../circleci-worker-status.mjs';
 const head = 'a'.repeat(40), integration = 'b'.repeat(40), tree = 'c'.repeat(40);
@@ -72,4 +73,21 @@ test('HTTP reader uses fixed GET with token, rejects redirects/errors without re
   await assert.rejects(get('https://evil.invalid'), /unavailable/); assert.equal(calls, 1);
   const bad = githubReader('synthetic-token', async () => { throw Error('synthetic-token'); });
   await assert.rejects(bad(`/git/commits/${head}`), e => e.message === 'worker_status_unavailable');
+});
+
+
+test('all static-worker checkouts disable persistence and only guard receives status token', () => {
+  const workflow = readFileSync(new URL('../../../.github/workflows/verify.yml', import.meta.url), 'utf8');
+  const job = workflow.match(/^  static-worker:\n([\s\S]*?)(?=^  [a-z][a-z-]*:)/m)?.[1];
+  assert.ok(job, 'static-worker job must exist');
+  const [preamble, ...steps] = job.split(/^      - /m);
+  assert.ok(!preamble.includes('GH_STATUS_TOKEN'));
+  const checkouts = steps.filter(s => /^uses: actions\/checkout@/m.test(s) || /^        uses: actions\/checkout@/m.test(s));
+  assert.equal(checkouts.length, 3);
+  for (const step of checkouts) assert.match(step, /^          persist-credentials: false$/m);
+  const tokenSteps = steps.filter(s => s.includes('GH_STATUS_TOKEN'));
+  assert.equal(tokenSteps.length, 1);
+  assert.match(tokenSteps[0], /^        id: worker-provider$/m);
+  assert.match(tokenSteps[0], /^          GH_STATUS_TOKEN: \$\{\{ github.token \}\}$/m);
+  assert.equal((workflow.match(/GH_STATUS_TOKEN:/g) || []).length, 1);
 });
