@@ -638,6 +638,19 @@ including a fence after object I/O. Media is `no-store`; disabling features
 does not restore withdrawn bytes or detach bindings. Withdrawal cannot recall
 previously downloaded or third-party-cached copies.
 
+Member JSON reads `GET /event-highlights` and `GET /event-highlights/:id` run
+their whole composed projection (events, items, bound-outcome authorization,
+admin flag and quota) on one locked member session and recheck the database
+clock after the last query. Expiry during a SQL wait returns
+`401 session_expired` with no event list, detail, item or quota data,
+including an otherwise empty page. Revocation or deactivation committed
+before the corresponding user/session lock is acquired is rejected.
+Writers queued behind the read's `FOR SHARE` locks wait for that read
+transaction to finish; a still-valid read may therefore return 200.
+Valid sessions keep the same DTOs, ordering,
+cursor, visibility and 404 behavior; anonymous public HTML keeps its separate,
+session-free contract.
+
 Private outcome JSON and authenticated skill backlink HTML hold current
 user/session locks through their database projection and recheck expiry with
 the database clock after its last query. Member media takes separate short
