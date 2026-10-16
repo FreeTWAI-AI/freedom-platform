@@ -49,8 +49,8 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
   {!enabled&&<p className="field-hint">這個環境尚未開放合作素材店面照片。</p>}
   {enabled&&loading&&<p role="status">正在讀取店面照片…</p>}
   {enabled&&error&&<div className="stack"><p role="alert" className="banner banner-error">目前無法讀取店面照片。{error}</p><div className="actions"><button type="button" className="btn btn-ghost btn-small" onClick={()=>void load()}>重試</button></div></div>}
-  {rows.filter(row=>row.state==='source_unavailable').map(row=><div key={row.product_id} className="stack"><p>「{row.title}」的店面照片來源已撤回或不再開放公開使用，下次發布時不會顯示。</p><div className="actions">{stop(row)}</div>{row.photo&&<img src={row.photo.read_path} alt={`${row.title}的店面草稿照片`} loading="lazy" width={96} style={{maxWidth:'100%',height:'auto'}}/>}</div>)}
-  <dialog style={{width:'min(40rem, calc(100vw - 1.5rem))',maxHeight:'80vh',overflow:'auto',margin:'auto',padding:'1rem',border:'1px solid var(--line)',borderRadius:'var(--radius)',background:'var(--bg-elev)',color:'var(--ink)'}} ref={dialog} aria-labelledby="distribution-photo-confirm-title" onCancel={event=>{event.preventDefault();close();}} onClose={close}>
+  {rows.filter(row=>row.state==='source_unavailable').map(row=><div key={row.product_id} className="stack"><p>「{row.title}」的店面照片來源已撤回或不再開放公開使用，下次發布時不會顯示。</p><div className="actions">{stop(row)}</div>{row.photo&&<img src={row.photo.read_path} alt={`${row.title}的店面草稿照片`} loading="lazy" width={96} className="distribution-photo-thumb"/>}</div>)}
+  <dialog className="distribution-photo-dialog" ref={dialog} aria-labelledby="distribution-photo-confirm-title" onCancel={event=>{event.preventDefault();close();}} onClose={close}>
    {choice&&choice.scope===scope&&<div className="stack"><h3 id="distribution-photo-confirm-title">把這張素材用在公開店面？</h3><p>會把第 {choice.material.current.version_no} 版複製到你的業務空間，作為「{choice.product.title}」的店面商品圖，計入業務空間容量。供應商之後更新或撤回素材，不會改寫已發布的店面；你重新發布店面後才會生效。</p><div className="actions"><button type="button" className="btn btn-primary btn-small" disabled={!allowed} onClick={()=>{send(choice.product,choice.material);close();}}>複製並使用</button><button type="button" className="btn btn-ghost btn-small" autoFocus onClick={close}>取消</button></div></div>}
   </dialog>
  </>;
@@ -65,7 +65,7 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
     {same&&row.state==='update_available'&&<p>供應商已更新為第 {row.latest!.version_no} 版，店面仍用第 {row.source!.version_no} 版</p>}
     {!same&&row.state!=='none'&&<p>這個商品目前使用另一個素材</p>}
     <div className="actions">{enabled&&writable&&(!same||row.state==='update_available'||row.state==='none')&&<button type="button" className="btn btn-ghost btn-small" disabled={!allowed} aria-haspopup="dialog" onClick={event=>choose(material,row,event)}>{row.state==='none'?'用於公開店面':same?'改用新版本':'改用這個素材'}</button>}{same&&row.state!=='none'&&stop(row)}</div>
-    {row.photo&&<img src={row.photo.read_path} alt={`${row.title}的店面草稿照片`} loading="lazy" width={96} style={{maxWidth:'100%',height:'auto'}}/>}
+    {row.photo&&<img src={row.photo.read_path} alt={`${row.title}的店面草稿照片`} loading="lazy" width={96} className="distribution-photo-thumb"/>}
    </div>;
   })}</div>;
  };

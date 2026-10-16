@@ -157,6 +157,9 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['material-empty', supplierConsole.SupplyMaterialEmptyInputSchema, 'input', ['material_version_cas']],
     ['material-receipt', supplierConsole.SupplyMaterialReceiptSchema, 'output', ['stable_metadata_only_command_receipt']],
     ['partner-materials', supplierConsole.PartnerMaterialsSchema, 'output', ['own_storefront_store_read', 'active_grant_and_current_cooperation', 'current_version_only', 'no_storage_locator']],
+    ['distribution-photos', supplierConsole.DistributionPhotosSchema, 'output', ['seller_owned_copy', 'source_usability_shared_with_publish']],
+    ['distribution-photo-use', supplierConsole.DistributionPhotoUseInputSchema, 'input', ['current_public_use_image', 'exact_storefront_grant', 'pointer_version_cas']],
+    ['distribution-photo-command', supplierConsole.DistributionPhotoCommandSchema, 'output', ['stable_receipt', 'seller_owned_copy']],
   ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
   ['hosted-store-media', 'Independent hosted store media candidate. No upload or read route is installed; Asset identity and current authorization stay server-only.', [
