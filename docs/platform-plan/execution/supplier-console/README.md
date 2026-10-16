@@ -4,7 +4,7 @@
 
 2026-10-15 收到 v1.1 物流、履約與售後補充（隨 Commerce 規劃包）：原 R1 範圍與編號不變、照原計畫交付；新增的 SC-L01～18／SC-LAT01～24 屬 Commerce C2，頁面規格見 [SC-SPEC-07](SC-SPEC-07-fulfilment.md)，領域與資料由 Commerce 的 EC-SPEC03／05／06 負責。
 
-本目錄是規格與工作切分，不是進度系統：整體進度沿用 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)，實作與驗收結果以 PR、commit 與測試證據為準。所有驗收案例目前都是 `not_run`。
+本目錄是規格與工作切分，不是進度系統：整體進度沿用 [#234](https://github.com/FreeTWAI/freedom-platform/issues/234)，實作與驗收結果以 PR、commit 與測試證據為準；發布與驗收的現況見 [WP-07](WP-07-release-evidence.md)，沒有實跑的驗收保持 `not_run`。
 
 ## 文件
 
