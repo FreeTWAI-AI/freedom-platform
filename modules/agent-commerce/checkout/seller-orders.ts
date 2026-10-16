@@ -1,6 +1,7 @@
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {OpaqueId} from '../../../contracts/guild-launchpad/v1/primitives.js';
+import {checkVersion} from '../../../packages/db/index.js';
 import {assertCurrentSessionClock,lockMemberSession} from '../../../packages/db/member-session.js';
 import {mapPersonPrincipal} from '../../../packages/resource-scopes/index.js';
 import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
@@ -13,7 +14,10 @@ import type {CommerceSettings} from '../operations/runtime-settings.js';
 import {confirmedPaymentSQL} from './confirmed-payment.js';
 import {PAYMENT_EXCEPTION_POLICIES,type PaymentExceptionKind} from './exceptions.js';
 import {commerceRateLimitInTransaction} from './limits.js';
-import type {SellerCheckoutContext} from './seller-command.js';
+import {sellerCheckoutCommand,type SellerCheckoutContext} from './seller-command.js';
+import {quarantineGate} from './public-commands.js';
+import {lockStore} from './authority.js';
+import {cancelUnpaidOrder,lockCheckoutOrders} from './orders.js';
 import {canonicalJSON,type CheckoutPaymentPort,type CheckoutPaymentSummary,type CheckoutTerms} from './terms.js';
 
 export interface SellerCheckoutReadOptions {settings?:CommerceSettings;payment?:CheckoutPaymentPort;cursors?:TenantListCursorCodec}
@@ -161,4 +165,17 @@ export async function readSellerOrderContact(pool:Pool,actor:Actor,tenantId:stri
       WHERE contact_id=$1 AND checkout_id=$2 AND tenant_id=$3 AND instance_id=$4`,[order.contact_id,order.checkout_id,tenantId,instanceId])).rows[0],redacted=r.redacted_at!==null;
     return {order_ref:id,contact_redacted:redacted,contact:redacted?null:{name:r.contact_name,email:r.contact_email,phone:r.contact_phone},delivery:redacted?null:r.delivery,invoice:redacted?null:r.invoice};
   });
+}
+
+export async function cancelSellerCheckoutOrder(pool:Pool,actor:Actor,tenantId:string,instanceId:string,id:string,key:string,expected:string,options:SellerCheckoutReadOptions={}) {
+  quarantineGate(options);
+  return sellerCheckoutCommand(pool,actor,tenantId,instanceId,'store:orders:manage','commerce.checkout_order.cancel',{kind:'hosted_checkout_order',id},{},key,expected,
+    async(q,context)=>{
+      await sellerCheckoutOrderRow(q,context,id);
+      const store={storefront_shop_id:context.profile.storefront_shop_id};
+      // Check the version under the same domain locks as cancellation. Its
+      // repeated locks are reentrant; a pre-lock version read would race payment.
+      await lockStore(q,store,[],[id],false);const [order]=await lockCheckoutOrders(q,[id],store);checkVersion(order.version,expected);
+      await cancelUnpaidOrder(q,store,id,'seller','seller_cancelled',{payment:options.payment});return {id};
+    },(q,context,ref)=>projectSellerCheckoutOrder(q,context,ref,options));
 }

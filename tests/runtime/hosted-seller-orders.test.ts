@@ -231,7 +231,7 @@ import {describe} from 'node:test';
 import {hostedPaymentHarness} from '../e2e/hosted-payment-fixture.js';
 import {createTenantListCursorCodec} from '../../packages/shared/tenant-list-cursor.js';
 import {sellerCheckoutCommand} from '../../modules/agent-commerce/checkout/seller-command.js';
-import {sellerCustomer,readSellerCheckoutOrder,listSellerCheckoutOrders,readSellerOrderContact} from '../../modules/agent-commerce/checkout/seller-orders.js';
+import {cancelSellerCheckoutOrder,sellerCustomer,readSellerCheckoutOrder,listSellerCheckoutOrders,readSellerOrderContact} from '../../modules/agent-commerce/checkout/seller-orders.js';
 import {cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/orders.js';
 describe('hosted checkout seller commands',()=>{
   let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
@@ -282,6 +282,19 @@ describe('hosted checkout seller commands',()=>{
     assert.equal((await list({needs_action:'true'})).items.length,0);
     for(const query of [{limit:'0'},{limit:'51'},{unknown:'x'},{needs_action:'false'},{display_number:'x'},{lifecycle:'bad'}])await assert.rejects(list(query));
     await assert.rejects(list({lifecycle:'open',cursor:first.next_cursor}),code('invalid_cursor'));
+  });
+
+  test('seller unpaid cancel checks the locked version, projects replays and schedules handed-off attempts',async()=>{
+    const p=await f.placed(),a=await authenticate(f.x.runtime,p.s.owner.cookie.split('=')[1].split(';')[0]),options={settings:f.settings,payment:f.runtime.commercePorts?.payment},key=randomUUID();
+    await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p.payment.attempt_ref]);
+    const cancel=(version:string,k=key)=>cancelSellerCheckoutOrder(f.x.runtime,a,p.s.tenantId,p.s.instanceId,p.order.order_ref,k,version,options);
+    await assert.rejects(cancel('2'),code('version_conflict'));
+    const result=await cancel('1');assert.equal(result.version,'2');assert.equal(result.lifecycle_state,'cancelled');assert.equal(result.cancel_reason,'seller_cancelled');
+    assert.equal((await cancel('1')).version,'2');assert.equal((await cancel('2',randomUUID())).version,'2');
+    const due=(await f.x.h.pool.query("SELECT due_at<=clock_timestamp() AS ready FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0];assert.equal(due.ready,true);
+    f.settings.quarantine=true;await assert.rejects(cancel('2',randomUUID()),code('commerce_quarantined'));
+    assert.equal((await readSellerCheckoutOrder(f.x.runtime,a,p.s.tenantId,p.s.instanceId,p.order.order_ref,options)).actions.cancel,false);
+    const receipts=(await f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation='commerce.checkout_order.cancel'")).rows;assert.equal(receipts.length,2);for(const r of receipts)assert.deepEqual(r.response,{id:p.order.order_ref});
   });
 
 });
