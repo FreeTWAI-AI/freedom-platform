@@ -34,3 +34,17 @@ test('missing worker config is unavailable without failing preflight run',async(
     const report=JSON.parse(result.output);assert.equal(report.commerce_wrangler.structural,true);assert.deepEqual(report.commerce_wrangler.blockers,['config_unavailable']);
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+for(const value of [undefined,''])test(`provider profiles disabled with ${String(value)}`,()=>{
+  assert.equal(check({vars:{FREEDOM_COMMERCE_PROVIDER_PROFILES:value}}).structural,true);
+});
+for(const value of [true,null,1,' ', 'ecpay.aio.credit.v1,',',ecpay.aio.credit.v1','ecpay.aio.credit.v1,ecpay.aio.credit.v1','ecpay.aio.credit.v1,unknown','ecpay.aio.credit.v1\n','unknown'])test(`provider profiles reject ${JSON.stringify(value)} without echoing`,()=>{
+  const result=check({vars:{FREEDOM_COMMERCE_PROVIDER_PROFILES:value}});assert.equal(result.structural,false);assert(result.errors.includes('commerce_provider_profiles_invalid'));
+  if(typeof value==='string'&&value.length>2)assert(!JSON.stringify(result).includes(value));
+});
+test('each environment with provider profiles must declare its own journal binding',()=>{
+  const vars={FREEDOM_COMMERCE_PROVIDER_PROFILES:'ecpay.aio.credit.v1'},r2_buckets=[{binding:'COMMERCE_JOURNAL',bucket_name:'synthetic-journal'}];
+  assert.equal(check({vars,r2_buckets}).structural,true);
+  for(const declaration of [{vars},{vars,r2_buckets:[]},{vars,r2_buckets:[{binding:'MEDIA'}]},{vars,r2_buckets:{}},{r2_buckets,env:{next:{vars}}}])assert(check(declaration).errors.includes('commerce_journal_binding_required'));
+  assert.equal(check({env:{next:{vars,r2_buckets}}}).structural,true);
+});

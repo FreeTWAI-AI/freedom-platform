@@ -9,7 +9,7 @@ import type { GuideR2Binding } from '../../../packages/public-guide-assets/r2.js
 import {createEventHighlightAssetService,resolveEventHighlightUploadPolicy} from '../../../modules/assets/event-highlight.js';
 import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../../modules/assets/social-thumbnail.js';
 import {createSkillImageAssetService} from '../../../modules/assets/skill-image.js';
-import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding } from '@cloudflare/workers-types';
+import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding, R2Bucket } from '@cloudflare/workers-types';
 import type { Context, Hono } from 'hono';
 import { isIP } from 'node:net';
 import type { Pool } from 'pg';
@@ -58,6 +58,8 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   COMMERCE_CREDENTIAL_KEYS?:string;
   FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
+  FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
+  COMMERCE_JOURNAL?:Pick<R2Bucket,'put'|'get'>;
   /** Explicit cover composition; native MEDIA alone grants no persistence. */
   FREEDOM_SERVICE_COVER_ENABLED?: string;
   /** Explicit banner composition; canonical community policy remains required. */
@@ -132,7 +134,11 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   const commerceSettings=readCommerceSettings(env);
   let commerceCredentialKeyring:CommerceCredentialKeyring|null;
   try{commerceCredentialKeyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);}
-  catch{throw new ReadinessError('Commerce credential keyring configuration is invalid.');}
+  catch{throw new ReadinessError(commerceSettings.providerProfiles.length?'commerce_profiles_require_keyring':'Commerce credential keyring configuration is invalid.');}
+  if(commerceSettings.providerProfiles.length){
+    if(!commerceCredentialKeyring)throw new ReadinessError('commerce_profiles_require_keyring');
+    if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_profiles_require_journal');
+  }
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
   try { freedomEnv = resolveFreedomEnv(env.FREEDOM_ENV); } catch { throw new ReadinessError('FREEDOM_ENV binding is invalid.'); }

@@ -16,7 +16,7 @@ import type {CommerceSettings} from '../operations/runtime-settings.js';
 import type {CommerceEmailPort} from '../operations/notifications/email-port.js';
 export interface HostedCheckoutOptions extends CheckoutPorts {settings?:CommerceSettings;email?:CommerceEmailPort;origin:string;environment?:'sandbox'|'live'}
 export interface BrowserAccess {deviceToken?:string;sessionToken?:string;network:string}
-const defaults:CommerceSettings={checkoutEnabled:false,quarantine:false};
+const defaults:CommerceSettings={checkoutEnabled:false,quarantine:false,providerProfiles:[]};
 export function quarantineGate(options:HostedCheckoutOptions) {requireCondition(!(options.settings??defaults).quarantine,503,'commerce_quarantined','商務服務暫停中。');}
 export function checkoutGate(options:HostedCheckoutOptions) {quarantineGate(options);requireCondition((options.settings??defaults).checkoutEnabled,409,'checkout_not_enabled','尚未開放結帳。');}
 async function resolve(q:PoolClient,slug:string,options:HostedCheckoutOptions,admit=false,order=false) {

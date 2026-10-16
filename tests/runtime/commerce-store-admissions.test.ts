@@ -13,7 +13,7 @@ test('independent admin admissions gate new checkouts without stopping retained 
     const email=request.headers.get('X-Fixture-Admin');if(!email)throw new Problem(403,'admin_required','需要管理員。');
     return {email,subject:'synthetic-admission-admin',csrfToken:csrf};
   };
-  const app=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true,adminVerifier:verifier,commerceSettings:{checkoutEnabled:true,quarantine:false},commercePorts:{shipping:ports.shipping}});
+  const app=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true,adminVerifier:verifier,commerceSettings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},commercePorts:{shipping:ports.shipping}});
   const admin=async(method:string,path:string,body?:unknown,key=randomUUID(),email=adminEmail)=>{
     const response=await app.request(h.origin+'/admin/api/commerce/store-admissions'+path,{method,headers:{Origin:h.origin,'X-Fixture-Admin':email,'X-Admin-CSRF':csrf,'Content-Type':'application/json','Idempotency-Key':key},body:body===undefined?undefined:JSON.stringify(body)});
     return {response,status:response.status,data:await response.json()} as any;

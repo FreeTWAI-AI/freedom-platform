@@ -19,7 +19,13 @@ export function checkCommerceWranglerConfig(path) {
     if(block.vars!==undefined&&(!block.vars||typeof block.vars!=='object'||Array.isArray(block.vars))){errors.push('vars_invalid');continue;}
     const vars=block.vars??{};
     for(const flag of flags)if(vars[flag]!==undefined&&!['true','false'].includes(vars[flag]))errors.push('commerce_flag_invalid');
-    if(Object.keys(vars).some(k=>k.startsWith('FREEDOM_COMMERCE_')&&!flags.has(k)))errors.push('commerce_flag_unknown');
+    if(Object.keys(vars).some(k=>k.startsWith('FREEDOM_COMMERCE_')&&!flags.has(k)&&k!=='FREEDOM_COMMERCE_PROVIDER_PROFILES'))errors.push('commerce_flag_unknown');
+    const rawProfiles=vars.FREEDOM_COMMERCE_PROVIDER_PROFILES;
+    if(rawProfiles!==undefined&&rawProfiles!==''){
+      const profiles=typeof rawProfiles==='string'?rawProfiles.split(','):[];
+      if(typeof rawProfiles!=='string'||/\s/.test(rawProfiles)||!profiles.length||new Set(profiles).size!==profiles.length||profiles.some(p=>p!=='ecpay.aio.credit.v1'))errors.push('commerce_provider_profiles_invalid');
+      else if(!Array.isArray(block.r2_buckets)||!block.r2_buckets.some(b=>b&&typeof b==='object'&&b.binding==='COMMERCE_JOURNAL'))errors.push('commerce_journal_binding_required');
+    }
     if(vars.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&vars.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')errors.push('commerce_launchpad_required');
   }
   return report();
