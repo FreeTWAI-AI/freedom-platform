@@ -499,8 +499,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/community-events.ts",
-      "bytes": 12837,
-      "sha256": "c4be1d3e0d50247bee1bab15e6f940d870ea243cb7c4a97c7498ddb6191241c4"
+      "bytes": 12880,
+      "sha256": "8c06bf486a71bc9789a89861cd77d959e8a3789bb677cd2222d889d32e135efb"
     },
     {
       "path": "apps/platform-api/src/routes/contribution-roles.ts",
@@ -14049,8 +14049,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 83823,
-      "sha256": "5f98d9737c218da76dad582a5432c235d97965b02d45d5341d07fb88ceb68a7d"
+      "bytes": 84344,
+      "sha256": "f651151074ef55ca03f5f20885ea179e5cc53a55af7c65bb08b89450e70b5f61"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14199,8 +14199,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 35445,
-      "sha256": "77bd4cdca50d90dc7a2e963bd03d3ce0138a4d0f61a56c0c7b91dd564392164c"
+      "bytes": 35993,
+      "sha256": "abb5e6efc75a91b56b762335081438c4c7e5a27afa54d1a910905e03b36330b9"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17999,8 +17999,8 @@
     },
     {
       "path": "modules/community/event-calendar.ts",
-      "bytes": 3059,
-      "sha256": "f33cef501599ed4c1a5e8ca44e0e32a3158841b176783928dc103df9754a1b7b"
+      "bytes": 3282,
+      "sha256": "53ae723221fe19a76203559ed4599cf8b67ce77aa5842cc094690d0740a58c87"
     },
     {
       "path": "modules/community/event-highlights-page.ts",
@@ -22364,8 +22364,8 @@
     },
     {
       "path": "tests/runtime/event-participation-api.test.ts",
-      "bytes": 24920,
-      "sha256": "662a1e59ed2a92d2801e82819e2469c2a5a53ff91f122a076d4163ec4852c362"
+      "bytes": 27606,
+      "sha256": "61916cea3d6d8f894077e559ef16979983b26617c3641138bdf6a7bcc8cda6c7"
     },
     {
       "path": "tests/runtime/event-participation-reminders.test.ts",
@@ -22914,8 +22914,8 @@
     },
     {
       "path": "tests/runtime/member-experience.test.ts",
-      "bytes": 39661,
-      "sha256": "76ab445112b59e77e076ffdb22c7a8a567e18e9777bb469f397cfdaad20018f2"
+      "bytes": 39666,
+      "sha256": "05a1ffa4ed996256a23c2b03081c4d2f85d70e13f01dcce9972eb9a1856393aa"
     },
     {
       "path": "tests/runtime/member-model-http-adversarial.test.ts",
@@ -23499,8 +23499,8 @@
     },
     {
       "path": "tests/runtime/share-promotion.test.ts",
-      "bytes": 93516,
-      "sha256": "bf2983f709ff65ba4ded56be7cb04d884b968fe61006b02dab1957e97401868c"
+      "bytes": 94533,
+      "sha256": "b6ff2aef2c6b5ee33cff6a4e9fd54697683e442cd4b4c0fb22ba630103928dcd"
     },
     {
       "path": "tests/runtime/sharing-authoring.test.ts",
