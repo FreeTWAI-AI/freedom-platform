@@ -96,15 +96,30 @@ and contact references. Placement is idempotent within
 
 ## Function contracts
 
-All `q` arguments are caller-owned `PoolClient` transactions; only the sweep takes
-a pool. Store admission defaults to false and shipping defaults to
+All `q` arguments are caller-owned `PoolClient` transactions. Sweeps and public
+commands take a pool; the separate payment action port orchestrates committed
+lease/call/result phases outside checkout transactions. Store admission defaults to false and shipping defaults to
 `shipping_not_configured`. Ports run within the transaction and must not call a
 provider. A confirmed payment is exactly an application whose outcome is in
 `CONFIRMED_PAYMENT_OUTCOMES = {converted, allocated, unallocatable}`. Simulated,
 amount-mismatch, after-cancel and overpaid outcomes do not confirm payment. The
 shared SQL helper applies this definition to payment application, both cancellation
 paths and unresolved-order detection. An open order without a confirmed payment
-blocks a new placement on that checkout with its reference in `unresolved_order`.
+blocks a new placement on that checkout with its reference in `unresolved_order`
+by default. Payments injects `UnresolvedOrderPort` alongside admission: it blocks
+only while an attempt is paid, issued/superseded and handed off, or issued and
+unhanded with every hold still held and unexpired. Definite unpaid attempts and
+unhanded attempts whose holds are gone do not block; their window can cancel the
+old order later. Without the port M1 retains its original behavior.
+
+Payments' 60-minute confirmation window calls `settleOrderPayments` after attempt
+changes at/after that deadline. It cancels through `cancelUnpaidOrder` only when
+all attempts are failed/expired, no confirmed application exists and no payment
+event awaits application. The same cancellation path releases holds and invokes
+the payment hook to revoke tokens; a cancellation replay makes no effects.
+Unknown, issued, superseded and paid attempts keep the order open. A later paid
+fact still applies as `after_cancel`. See [payments](../payments/README.md) and
+[EC-SPEC-03](../../../docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md).
 
 A customer/member link is a seller-facing label, independent of order read access.
 Both customer upsert and placement fill it only when currently NULL and the member
@@ -164,7 +179,8 @@ Under `/api/v1/public/stores/:slug`:
 | POST | `/checkouts` | 201 new / 200 replay | same gates; secret Idempotency-Key; ensures checkout device grant |
 | POST | `/checkouts/:checkout_ref/orders` | 201 new / 200 replay | same gates and live checkout device grant |
 | GET | `/orders/:order_ref` | 200 | live device grant or original member buyer |
-| POST | `/orders/:order_ref/payment-handoffs` | 201 | same buyer read access; live issued attempt, admission and payment gates; 409 when unavailable |
+| POST | `/orders/:order_ref/payment-handoffs` | 201 | same buyer read access; resume or verified-unpaid re-pay with admission/payment/hold gates; 409 pending includes Retry-After during the initial delay |
+| POST | `/orders/:order_ref/payment-queries` | 200 public order | same buyer read access, quarantine/checkout gates; 30/network/10 min and shared 1/order/min + 10/order/hour; 409 busy lease, 429 with Retry-After |
 | POST | `/orders/:order_ref/access` | 200 | not quarantined, matching single-use live link |
 | POST | `/order-access-requests` | empty 202 | not quarantined; an installed email port is required |
 

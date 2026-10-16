@@ -150,5 +150,18 @@ staging Access 僅對 `/api/v1/provider-callbacks/ecpay/*` 與
 `/pay/ecpay/return/*` 設定 bypass，供綠界通知與瀏覽器 POST 返回；應用仍只接受
 精確的 POST 路徑、Host、表單限制與簽章。其他付款路徑不需額外 bypass 或設定。
 本次沒有 server-to-server ECPay 呼叫，也不需要額外對外請求權限。
+Worker 的付款確認查詢會從伺服器向 `payment-stage.ecpay.com.tw`（sandbox）或
+`payment.ecpay.com.tw`（live）送出 QueryTradeInfo/V5。這是向外的請求，staging
+不需新增 Access bypass。正式 transport 只接受對應環境的精確 origin 與查詢路徑，
+不跟隨重新導向；單次逾時 10 秒，回應上限 64 KiB。本機及瀏覽器測試只安裝 fixture
+transport，不會連到綠界。
+
+每十分鐘的 commerce cron 先重放未套用的付款事件，再清理保留、執行 due work、
+補寫控制事件日誌。due work 每次最多認領 200 列、呼叫提供者 50 次、執行 5 分鐘；
+未開始的租約會釋出。通知及瀏覽器返回提交後也會透過 `waitUntil` 立即執行該筆工作，
+每項最多 25 秒，完成後才關閉連線池；逾時由租約到期與 cron 接手。
+隔離模式不執行這些工作。查詢是唯讀，不寫外部效果日誌；啟用收款服務的控制事件仍由
+既有 flush 補寫。403 只暫停同一帳戶的付款查詢 30 分鐘，不影響物流或發票服務。
+
 見 [EC-SPEC-04](../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md)、
 [EC-SPEC-10 §2.2、§4.4、§8.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md)。
