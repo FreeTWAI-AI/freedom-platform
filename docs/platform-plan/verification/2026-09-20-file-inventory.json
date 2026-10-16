@@ -118,9 +118,19 @@
       "sha256": "e087c647400cfc2090251cb60d28303858e764bd1ad7bb0ed042405dec07d775"
     },
     {
+      "path": ".circleci/README.md",
+      "bytes": 6159,
+      "sha256": "e855200158746db0faa3c27a2f99251d2cf3c9163fdedd9b835ee1bb21e0b3fc"
+    },
+    {
+      "path": ".circleci/config.yml",
+      "bytes": 4417,
+      "sha256": "f8af286f824d8e5f60fdfb1a17028cd4beb7c44aa6459c5e08f8c9d40596ee0c"
+    },
+    {
       "path": ".github/CODEOWNERS",
-      "bytes": 1919,
-      "sha256": "b120d9a72f9407ca870942afa17afd5439cd07fda12cf5a59da21b8c9578577d"
+      "bytes": 1960,
+      "sha256": "373b6ec37a43b145c1ac3db5c68ab2cc812c62e520d8953964c45ed4f4c0b6b0"
     },
     {
       "path": ".github/workflows/directory-runtime-profile.yml",
@@ -19159,8 +19169,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 4638,
-      "sha256": "a348e0881b385d87544e8d310dcdcd5c0e408d8c927568c0c029aa0b55236716"
+      "bytes": 4684,
+      "sha256": "0b8efcb56bc5b65e247819d315e7461efa4fffe307f5f1ebd342cdd542299686"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
