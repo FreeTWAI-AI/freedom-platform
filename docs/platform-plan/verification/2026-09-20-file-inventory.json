@@ -17899,8 +17899,8 @@
     },
     {
       "path": "modules/assets/storefront-product-photo.md",
-      "bytes": 4537,
-      "sha256": "f8dce44cd667061ae7ef3bdf4a91d23905c4a4247d88463b824ee92150f18dc5"
+      "bytes": 4548,
+      "sha256": "af57e216b54d3f4bbda261c0e40f8fccfa82e2b3d791efc2920429516df1fec4"
     },
     {
       "path": "modules/assets/storefront-product-photo.ts",
@@ -17909,8 +17909,8 @@
     },
     {
       "path": "modules/assets/supply-material.md",
-      "bytes": 4727,
-      "sha256": "d48701834d9ca628b0ef705440d2702192ae1672249bc3c25aa9e40476eecdaa"
+      "bytes": 4744,
+      "sha256": "612d8c12b10419587c940994aa9c6440f5e285cd6e72c5785c27aa9b463506cc"
     },
     {
       "path": "modules/assets/supply-material.ts",
