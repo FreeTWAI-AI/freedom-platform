@@ -370,7 +370,7 @@ for(const scenario of ['issued_held','issued_released','issued_handed','supersed
     const {createCheckoutPaymentPorts}=await import('../../modules/agent-commerce/payments/attempts.js');
     const {bindStore}=await import('../../modules/agent-commerce/checkout/authority.js');
     const s=await x.store(100),c=await x.frozen(s);await seedAdmissionPaymentService(x,s);
-    const paymentPorts={...ports,...createCheckoutPaymentPorts({settings:{checkoutEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},profiles:['ecpay.aio.credit.v1'],environment:'sandbox',admission:ports.admission!,keyring:null})};
+    const paymentPorts={...ports,...createCheckoutPaymentPorts({settings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},profiles:['ecpay.aio.credit.v1'],environment:'sandbox',admission:ports.admission!,keyring:null})};
     const place=()=>x.tx(q=>placeCheckoutOrder(q,s,{checkoutId:c.checkout_id,termsSha256:c.terms_sha256,clientOrderId:randomUUID(),buyerPrincipalId:null,environment:'sandbox'},paymentPorts));
     const o=await place(),a=(await x.h.pool.query('SELECT * FROM commerce_payment_attempts WHERE order_id=$1',[o.order_id])).rows[0];
     await x.tx(async q=>{
@@ -394,7 +394,7 @@ test('payment unresolved port ignores expired unhanded holds and considers every
   const {createCheckoutPaymentPorts,createOrderPaymentAttempt}=await import('../../modules/agent-commerce/payments/attempts.js');
   const {bindStore}=await import('../../modules/agent-commerce/checkout/authority.js');
   const s=await x.store(100),due=await x.due(s,5);await seedAdmissionPaymentService(x,s);
-  const options={settings:{checkoutEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},profiles:['ecpay.aio.credit.v1'],environment:'sandbox' as const,admission:ports.admission!,keyring:null},p=createCheckoutPaymentPorts(options);
+  const options={settings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},profiles:['ecpay.aio.credit.v1'],environment:'sandbox' as const,admission:ports.admission!,keyring:null},p=createCheckoutPaymentPorts(options);
   await x.tx(async q=>{
     await bindStore(q,s.tenantId);
     await p.payment.createOrderAttempt(q,{store:s,orderId:due.order_id,amountMinor:500,currency:'TWD',environment:'sandbox'});

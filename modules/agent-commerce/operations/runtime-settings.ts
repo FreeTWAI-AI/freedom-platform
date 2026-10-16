@@ -1,8 +1,9 @@
 import {ReadinessError} from '../../../apps/platform-api/src/readiness.js';
 
-export interface CommerceSettings {checkoutEnabled:boolean;quarantine:boolean;providerProfiles:readonly string[]}
+export interface CommerceSettings {checkoutEnabled:boolean;consoleEnabled?:boolean;quarantine:boolean;providerProfiles:readonly string[]}
 export interface CommerceEnvironment {
   FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
+  FREEDOM_COMMERCE_CONSOLE_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?:string;
   FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
@@ -22,10 +23,10 @@ export function readNodeCommerceSettings(env:CommerceEnvironment):CommerceSettin
   return settings;
 }
 export function readCommerceSettings(env:CommerceEnvironment):CommerceSettings {
-  for(const flag of [env.FREEDOM_COMMERCE_CHECKOUT_ENABLED,env.FREEDOM_COMMERCE_QUARANTINE]) {
+  for(const flag of [env.FREEDOM_COMMERCE_CHECKOUT_ENABLED,env.FREEDOM_COMMERCE_CONSOLE_ENABLED,env.FREEDOM_COMMERCE_QUARANTINE]) {
     if(flag!==undefined&&flag!=='true'&&flag!=='false')throw new ReadinessError('Commerce flags must be true or false.');
   }
-  // M1 dependency: the commerce console flag replaces launchpad when it exists.
-  if(env.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')throw new ReadinessError('Commerce checkout requires guild launchpad.');
-  return {checkoutEnabled:env.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true',quarantine:env.FREEDOM_COMMERCE_QUARANTINE==='true',providerProfiles:readProviderProfiles(env.FREEDOM_COMMERCE_PROVIDER_PROFILES)};
+  if(env.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true'&&env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')throw new ReadinessError('commerce_launchpad_required');
+  if(env.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&env.FREEDOM_COMMERCE_CONSOLE_ENABLED!=='true')throw new ReadinessError('commerce_console_required');
+  return {consoleEnabled:env.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true',checkoutEnabled:env.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true',quarantine:env.FREEDOM_COMMERCE_QUARANTINE==='true',providerProfiles:readProviderProfiles(env.FREEDOM_COMMERCE_PROVIDER_PROFILES)};
 }

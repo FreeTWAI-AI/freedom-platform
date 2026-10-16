@@ -19,7 +19,7 @@ export async function hostedPaymentHarness(prefix: string, options: {
   const x = await checkoutHarness(prefix, options), origin = x.h.origin, adminEmail = `admin-${randomUUID()}@example.test`, csrf = randomUUID();
   const ring = CommerceCredentialKeyring.parse('test:' + randomBytes(32).toString('base64'))!, journal = new MemoryEffectJournal('local');
   const gateway = createFixturePaymentGateway({ freedomEnv: 'local', environment: 'sandbox', publicBaseUrl: 'https://e2e-payments.freedom.test', checkoutAction: origin + '/__e2e/ecpay/aio-checkout', localOrigin: origin });
-  const settings: CommerceSettings = { checkoutEnabled: true, quarantine: false, providerProfiles: ['ecpay.aio.credit.v1'] };
+  const settings: CommerceSettings = { checkoutEnabled: true, consoleEnabled: true, quarantine: false, providerProfiles: ['ecpay.aio.credit.v1'] };
   let runtime: PlatformRuntime, app: ReturnType<typeof createPlatformApp>;
   function install(overrides: Partial<PlatformRuntime> = {}) {
     const configured = nodeRuntime('local', origin, {

@@ -178,8 +178,8 @@ test('B01 and B03 serve open variants only when checkout is open, and keep v1 by
   const s = await x.store(5);
   const soldOut = await x.store(0);
   const openApp = makeApp({ checkoutEnabled: true });
-  const quarantinedApp = makeApp({ checkoutEnabled: true, quarantine: true });
-  const unadmittedApp = makeApp({ checkoutEnabled: true, admitted: false });
+  const quarantinedApp = makeApp({ checkoutEnabled: true, consoleEnabled: true, quarantine: true });
+  const unadmittedApp = makeApp({ checkoutEnabled: true, consoleEnabled: true, admitted: false });
   const before = await tableCounts();
 
   const closedStoreHtml = await (await x.app.request(`${x.h.origin}/shops/${s.slug}`)).text();

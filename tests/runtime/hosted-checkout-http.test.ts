@@ -16,7 +16,7 @@ import {checkoutHarness,ports,ok,type CheckoutHarness} from './hosted-checkout-h
 import type {CommerceSettings} from '../../modules/agent-commerce/operations/runtime-settings.js';
 import type {CheckoutPorts} from '../../modules/agent-commerce/checkout/terms.js';
 let x:CheckoutHarness,app:ReturnType<typeof createPlatformApp>,email:FixtureEmailSender,origin:string,policies:{policy_kind:string;policy_version_id:string}[];
-function install(settings:CommerceSettings={checkoutEnabled:true,quarantine:false,providerProfiles:[]},extra:CheckoutPorts & {email?:FixtureEmailSender}={}) {
+function install(settings:CommerceSettings={checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:[]},extra:CheckoutPorts & {email?:FixtureEmailSender}={}) {
   const mode=origin.startsWith('https:')?'public':'local';
   const runtime=nodeRuntime(mode,origin,{guildLaunchpadEnabled:true,commerceSettings:settings,commercePorts:{...ports,policies:{required:async()=>policies},email,...extra}});
   runtime.rateLimitNetwork=cloudflareRateLimitNetwork(true);app=createPlatformApp(x.runtime,origin,mode,runtime);
@@ -201,8 +201,8 @@ test('B10 remains empty 202 on unmatched/redacted and no port refuses before SQL
 test('host gates keep order recovery readable and forget clears its cookie in quarantine',async()=>{
   const f=await placed(),body=x.input(f.s.product.sku,1);
   for(const [settings,extra,status,code] of [
-    [{checkoutEnabled:true,quarantine:true,providerProfiles:[]},{},503,'commerce_quarantined'],[{checkoutEnabled:false,quarantine:false,providerProfiles:[]},{},409,'checkout_not_enabled'],
-    [{checkoutEnabled:true,quarantine:false,providerProfiles:[]},{admission:{allowed:()=>false}},409,'checkout_not_enabled'],
+    [{checkoutEnabled:true,consoleEnabled:true,quarantine:true,providerProfiles:[]},{},503,'commerce_quarantined'],[{checkoutEnabled:false,quarantine:false,providerProfiles:[]},{},409,'checkout_not_enabled'],
+    [{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:[]},{admission:{allowed:()=>false}},409,'checkout_not_enabled'],
   ] as const) {
     install(settings,extra);for(const [path,input] of [[root(f.s)+'/cart-quotes',{publication_revision:'1',lines:body.lines}],[root(f.s)+'/checkouts',body],[root(f.s)+`/checkouts/${f.c.checkout_ref}/orders`,f.intent]] as const)expect(await http('POST',path,input,f.browser,{'Idempotency-Key':randomUUID()}),status,code);
     expect(await http('GET',root(f.s)+'/orders/'+f.order.order_ref,undefined,f.browser));
@@ -439,7 +439,7 @@ test('paid cancellation through core commands reads the public paid_cancelled re
   const r=await http('GET',root(f.s)+'/orders/'+f.order.order_ref,undefined,f.browser);expect(r);assert.equal(r.data.cancel_reason,'paid_cancelled');assert.equal(r.data.lifecycle_state,'cancelled');
 });
 test('quarantine rejects redemption and B10 before database access but forget still clears its cookie',async()=>{
-  const f=await placed();install({checkoutEnabled:true,quarantine:true,providerProfiles:[]});
+  const f=await placed();install({checkoutEnabled:true,consoleEnabled:true,quarantine:true,providerProfiles:[]});
   const before=(await x.h.pool.query('SELECT bucket,attempts FROM auth_rate_limits ORDER BY bucket')).rows;
   for(const [path,body] of [[root(f.s)+`/orders/${f.order.order_ref}/access`,{token:'wrong'}],[root(f.s)+'/order-access-requests',{email:'buyer@example.test',display_number:f.order.display_number}]] as const)expect(await http('POST',path,body),503,'commerce_quarantined');
   assert.deepEqual((await x.h.pool.query('SELECT bucket,attempts FROM auth_rate_limits ORDER BY bucket')).rows,before);
