@@ -13239,8 +13239,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 20346,
-      "sha256": "27d1f0bdf8e229b1af597854500a9569647d531044476fe4c766f1dd66e415d4"
+      "bytes": 20261,
+      "sha256": "d094f0a510ff8676a3975e2913d9f1bdd1b7e844f60596e473e88ca2f46f8ad8"
     },
     {
       "path": "deploy/cloudflare/broker-preflight.mjs",
@@ -17424,8 +17424,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/README.md",
-      "bytes": 7176,
-      "sha256": "0c188b7414221595263ecd7ac27630d24125ea779fe97dee55fe66a8c6e60741"
+      "bytes": 7199,
+      "sha256": "d46afc42356661642b956ce3274606b56d081108b6ea7c05dd9e4c9b4edd1c24"
     },
     {
       "path": "modules/agent-commerce/operations/admissions.ts",
@@ -17439,8 +17439,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/due-work.ts",
-      "bytes": 6685,
-      "sha256": "b9cb564a70ef0437a0ca78f11d9e44846a785f7fef2001e6a5579a873e874691"
+      "bytes": 6704,
+      "sha256": "16dbb7932a133107efaa19d376f359ecd662c481fb75a24223501c0a9ca0d65e"
     },
     {
       "path": "modules/agent-commerce/operations/freedom.module.json",
@@ -17499,8 +17499,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/attempts.ts",
-      "bytes": 24263,
-      "sha256": "73ee35f400cf2490f64ccbc714c33bc1c1d630f5fbd4c263ad8ede92d2e3d8cc"
+      "bytes": 25356,
+      "sha256": "2db4680f443b9b186002d01725a1099e4ea0530d4428d516afa62174ea6ed0c9"
     },
     {
       "path": "modules/agent-commerce/payments/availability.ts",
@@ -22609,8 +22609,8 @@
     },
     {
       "path": "tests/runtime/commerce-due-work.test.ts",
-      "bytes": 8671,
-      "sha256": "dd33aa826be956ce178f4410decd612fa6becefd3ce0cd0f51537b766a02c9ab"
+      "bytes": 9076,
+      "sha256": "341db7bbad6920895fb5b62522c5dff9c5ce0857318732cff55c849045724eb5"
     },
     {
       "path": "tests/runtime/commerce-effect-journal.test.ts",
@@ -23194,8 +23194,8 @@
     },
     {
       "path": "tests/runtime/hosted-payment-repay.test.ts",
-      "bytes": 14900,
-      "sha256": "df515893bd2d2cf69ea5ceb4d2b9dd468b419e2c8e0d55254a6f7f977227840e"
+      "bytes": 21926,
+      "sha256": "ac59d99c1779d6899ea594e37857e24f25c3a15636e03d5978e69b77a3d9b24e"
     },
     {
       "path": "tests/runtime/hosted-payment-schema.test.ts",
