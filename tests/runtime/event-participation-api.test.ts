@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {scheduler} from 'node:timers/promises';
 import {Pool} from 'pg';
 import type {Hono} from 'hono';
 import {z} from 'zod';
@@ -8,7 +9,7 @@ import {authenticate,type Actor} from '../../modules/identity-membership/service
 import {Problem} from '../../packages/shared/problem.js';
 import {readEventParticipation} from '../../modules/community/event-waitlist.js';
 import {readEventReminder} from '../../modules/community/event-reminders.js';
-import {readMemberEventCalendar} from '../../modules/community/event-calendar.js';
+import {readMemberEventCalendar,readGuestEventCalendar} from '../../modules/community/event-calendar.js';
 import {createPool} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
@@ -248,6 +249,49 @@ test('cancelled actual own participation remains accessible with stable calendar
   const request=await call(path(eventId,'participation-request'),{method:'POST',body:{email:other.email,name:'合成取消列'}});
   assert.equal(request.status,404,'a cancelled row without confirmation is not proof of previous participation');assert.equal(mail.length,mailCount);
 });
+
+for(const change of ['event_cancelled','rsvp_cancelled','no_history'] as const){
+  test(`guest calendar uses current participation after a blocked ${change} transaction`,async()=>{
+    const g=await guest(eventId,`${change}@local.test`,change!=='no_history');
+    const applicationName=`fp_calendar_${randomUUID()}`;
+    const reader=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema} -c statement_timeout=10000`,application_name:applicationName,max:1});
+    const locker=await pool.connect();
+    let pending:Promise<{value:{calendar:string;filename:string}}|{error:unknown}>|undefined;
+    try{
+      await locker.query('BEGIN');
+      const pid=(await locker.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      await locker.query('SELECT 1 FROM community_events WHERE event_id=$1 FOR UPDATE',[eventId]);
+      if(change==='rsvp_cancelled'){
+        await locker.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND email=$2",[eventId,g.email]);
+      }else{
+        await locker.query("UPDATE community_events SET state='cancelled',aggregate_version=aggregate_version+1 WHERE event_id=$1",[eventId]);
+      }
+      await locker.query('SELECT 1 FROM community_event_guest_capabilities WHERE event_id=$1 AND email=$2 FOR UPDATE',[eventId,g.email]);
+      pending=readGuestEventCalendar(reader,eventId,g.token).then(value=>({value}),error=>({error}));
+      let waiting=false;
+      for(let attempt=0;attempt<1000;attempt++){
+        waiting=(await admin.query('SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND $2=ANY(pg_blocking_pids(pid))',[applicationName,pid])).rowCount===1;
+        if(waiting)break;
+        await scheduler.yield();
+      }
+      assert.ok(waiting,'calendar must wait on the concurrent participation transaction');
+      await locker.query('COMMIT');
+      const outcome=await pending;
+      if(change==='no_history'){
+        assert.ok('error' in outcome&&outcome.error instanceof Problem&&outcome.error.status===404);
+      }else{
+        assert.ok('value' in outcome);
+        assert.equal(calendarProperty(outcome.value.calendar,'STATUS'),change==='event_cancelled'?'CANCELLED':'CONFIRMED');
+        assert.equal(calendarProperty(outcome.value.calendar,'LOCATION'),undefined);
+        assert.equal(calendarProperty(outcome.value.calendar,'X-FREETWAI-ONLINE'),undefined);
+        assert.equal(calendarProperty(outcome.value.calendar,'UID'),`${eventId}@freetwai.com`);
+      }
+    }finally{
+      await locker.query('ROLLBACK');locker.release();
+      await pending;await reader.end();
+    }
+  });
+}
 
 
 // Exercise the domain reads directly: HTTP authentication must not be their only fence.

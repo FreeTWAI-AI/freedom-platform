@@ -55,6 +55,8 @@ npm run dev
 
 The local Node adapter reads the same allowlisted manifest and verifies the same full image bytes as the Worker route. That fixture switch is rejected outside local. The Playwright test server installs it only under its explicit `FREEDOM_E2E_GUIDE_FIXTURE=1` flag; it is never a production bypass.
 
+The guide's browser business-write guard does not attribute every page-level POST to the guide. `SocialInteractions` independently records a read after a foreground post header stays at least half visible for one second, even when the guide has never opened. Exclude only POST to `/api/v1/social-posts/<canonical UUID>/read`; keep all other API command writes observable. Do not disable read tracking, ignore all POSTs, or add sleeps to make the guide assertion pass. A real passive read with the guide closed and a real like command provide negative and positive controls for this boundary.
+
 ```sh
 npm run typecheck
 npm run build

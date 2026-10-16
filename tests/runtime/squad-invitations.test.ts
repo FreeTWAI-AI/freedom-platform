@@ -1,6 +1,7 @@
 import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { setImmediate } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
@@ -253,6 +254,48 @@ test('direct reads reject an actor whose session was revoked by logout',async()=
   // A fresh login reads the same invitation again.
   assert.equal((await receivedSquadInvitations(pool,actorOf(await signIn(DEMO_USERS[1].email)),{})).items.length,1);
 });
+
+for(const populated of [false,true])for(const expires of [false,true]){
+ test(`received invitation final read fence: ${populated?'private rows':'empty list'}, ${expires?'expires during domain wait':'live session'}`,async()=>{
+  const {owner,recipient}=await parties(),actor=actorOf(recipient);
+  let expectedIds:string[]=[];
+  if(populated){
+   const squadId=await squad(owner);
+   expectedIds=[(await invite(owner,squadId,recipient.user.user_id)).data.invitation_id];
+  }
+  const blocker=await pool.connect();
+  let pending:ReturnType<typeof receivedSquadInvitations>|undefined;
+  try{
+   const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+   await blocker.query('BEGIN');
+   await blocker.query('LOCK TABLE member_squad_invitations IN ACCESS EXCLUSIVE MODE');
+   if(expires)await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+   pending=receivedSquadInvitations(pool,actor,{});
+   const settled=Promise.allSettled([pending]);
+   let blocked=false;
+   for(let attempt=0;attempt<1000;attempt++){
+    blocked=(await pool.query('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) AS blocked',[pid])).rows[0].blocked;
+    if(blocked)break;
+    await setImmediate();
+   }
+   assert.equal(blocked,true,'the real final domain query must wait');
+   // Expiry belongs to PostgreSQL's real clock; JS fake timers cannot advance it.
+   if(expires)await pool.query(`SELECT pg_sleep(GREATEST(0,extract(epoch FROM(expires_at-clock_timestamp())))::double precision+0.01)
+     FROM sessions WHERE token_hash=$1`,[actor.session_hash]);
+   await blocker.query('COMMIT');
+   const [result]=await settled;
+   if(expires){
+    assert.equal(result.status,'rejected','expired session must not disclose even an empty private result');
+    if(result.status==='rejected'){assert.equal(result.reason.status,401);assert.equal(result.reason.code,'session_expired');}
+   }else{
+    assert.equal(result.status,'fulfilled');
+    if(result.status==='fulfilled'){assert.deepEqual(result.value.items.map(item=>item.invitation_id),expectedIds);assert.equal(result.value.next_offset,null);}
+   }
+  }finally{
+   await blocker.query('ROLLBACK').catch(()=>{});blocker.release();await pending?.catch(()=>{});
+  }
+ });
+}
 
 test('the 50 pending-invitation limit holds when different recipients are invited at the same time',async()=>{
   const {owner}=await parties();

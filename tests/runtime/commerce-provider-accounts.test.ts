@@ -59,10 +59,14 @@ test('provider setup HTTP, activation, retained credentials, entry routes and se
     async function scan(){
       const columns=(await h.pool.query(`SELECT table_name,column_name FROM information_schema.columns c JOIN information_schema.tables t USING(table_catalog,table_schema,table_name)
         WHERE c.table_schema='public' AND t.table_type='BASE TABLE' AND c.data_type IN ('text','character varying','jsonb','json')`)).rows;
-      for(const secret of secrets){
-        for(const col of columns){const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';const found=await h.pool.query(`SELECT 1 FROM public.${quote(col.table_name)} WHERE position($1 in ${quote(col.column_name)}::text)>0 LIMIT 1`,[secret]);assert.equal(found.rowCount,0,`plaintext in ${col.table_name}.${col.column_name}`);}
-        assert(!responses.some(r=>r.includes(secret)),'response contains credential');assert(!output.some(r=>r.includes(secret)),'log contains credential');
+      // One statement per scan checks every stored column for every secret; a query per secret and column made this file the slowest runtime test.
+      if(secrets.length){
+        const quote=(s:string)=>'"'+s.replaceAll('"','""')+'"';
+        const probes=columns.map((col,i)=>`SELECT ${i} AS i WHERE EXISTS(SELECT 1 FROM public.${quote(col.table_name)} r,unnest($1::text[]) s(secret) WHERE position(s.secret in r.${quote(col.column_name)}::text)>0)`);
+        const found=(await h.pool.query<{i:number}>(probes.join(' UNION ALL '),[secrets])).rows.map(r=>`${columns[r.i].table_name}.${columns[r.i].column_name}`);
+        assert.deepEqual(found,[],'plaintext credential in a stored column');
       }
+      for(const secret of secrets){assert(!responses.some(r=>r.includes(secret)),'response contains credential');assert(!output.some(r=>r.includes(secret)),'log contains credential');}
     }
     const fresh=async(purpose='commerce.provider_account.write',session=s.owner,tenant=s.tenantId)=>ok(await call('POST','/me/high-risk-verifications',{tenant_id:tenant,purpose,password:DEMO_PASSWORD},undefined,randomUUID(),session),201).verification_id as string;
     const root=s.root+'/provider-accounts';

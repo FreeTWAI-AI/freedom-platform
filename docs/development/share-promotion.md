@@ -71,6 +71,13 @@ POST 回歸另以真正 HTTP 與 SQL barrier 覆蓋 existing replay 的最後點
 活動目標另外以真正 HTTP 持有活動分享碼 INSERT 的 relation lock；到期後必須
 同時沒有活動分享碼與推廣連結。有效 session 的相同等待及重播只保留各一筆。
 
+直接 `POST /api/v1/events/:id/share-code` 也用 `readWithMemberSession` 的同一
+transaction client 執行原 helper，並在最後 SQL 後重驗 session 的 DB clock，
+不是只保護 `/promotion/links`。INSERT 等待跨到期時回 401 `session_expired`，
+新碼回滾為零列；既有碼也不回傳，原列／值保留。有效 session 仍回原有
+`{code}` 並可穩定重取，direct 路徑不建立 promotion link。永久原生 HTTP matrix
+同時覆蓋兩個入口，以及 direct 的新碼／既有碼與有效 session 控制。
+
 ## 隱私
 
 不保存原始 IP 或 User-Agent。訪客鍵與網路鍵是當天 32-byte salt 加網路（以及匿名訪客的 User-Agent）的 SHA-256。Salt 存在 `promotion_click_salts`，第一次用到那天時建立，並順便刪掉超過 3 天的列（`click_day < 今天 - 3`）。
