@@ -223,7 +223,9 @@ export async function shippingSettingsHarness(prefix:string){
   const f=await hostedPaymentHarness(prefix,{randomContact:true});
   type Store=Awaited<ReturnType<typeof f.x.store>>;
   async function request(s:Store,method:string,path:string,body?:unknown,version?:string,session=s.owner,key=randomUUID()){
-    return f.x.h.call(method,s.root+path,session,body,{'Idempotency-Key':key,...(version===undefined?{}:{'If-Match':`"${version}"`})},f.app);
+    const reply=await f.x.h.call(method,s.root+path,session,body,{'Idempotency-Key':key,...(version===undefined?{}:{'If-Match':`"${version}"`})},f.app);
+    if(method==='POST'&&path.startsWith('/ship-from-locations'))for(const row of (await f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation LIKE 'commerce.ship_from_location.%'")).rows){if(Object.keys(row.response).join(',')!=='id'||typeof row.response.id!=='string')throw Error('Location receipt must contain only its reference.');}
+    return reply;
   }
   const expect=(r:Reply,status=200)=>{if(r.status!==status)throw Error(JSON.stringify({status:r.status,data:r.data}));return r.data;};
   async function store(){const s=await f.x.store();const v=(await f.x.h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[s.instanceId])).rows[0].version;expect(await request(s,'POST','/upgrade',{},v));return s;}
@@ -247,7 +249,7 @@ export async function shippingSettingsHarness(prefix:string){
     return account;
   }
   function locationInput(){const digits=String(randomBytes(4).readUInt32BE()).padStart(10,'0'),syllables=['星','禾','青','羽','松','月'];const pick=()=>syllables[randomBytes(1)[0]%syllables.length];return {label:'合成倉'+digits,sender_name:'合成'+pick()+pick(),mobile:'09'+digits.slice(-8),postal_code:'100',address:'合成'+pick()+pick()+'路'+digits+'號',ships:true,receives_returns:true};}
-  const document=()=>({schema:'freedom.shipping-profile/v1' as const,working_days:[1,2,3,4,5],services:[] as import('../../modules/agent-commerce/fulfilment/settings/profile.js').ShippingDocument['services'],delivery_options:[],drop_ship:null as import('../../modules/agent-commerce/fulfilment/settings/profile.js').ShippingDocument['drop_ship']});
+  const document=():import('../../modules/agent-commerce/fulfilment/settings/profile.js').ShippingDocument=>({schema:'freedom.shipping-profile/v1' as const,working_days:[1,2,3,4,5],services:[] as import('../../modules/agent-commerce/fulfilment/settings/profile.js').ShippingDocument['services'],delivery_options:[],drop_ship:null as import('../../modules/agent-commerce/fulfilment/settings/profile.js').ShippingDocument['drop_ship']});
   const attributes=()=>({weight_g:100,length_mm:100,width_mm:100,height_mm:100,temperature:'ambient' as const,cvs_allowed:true,ship_alone:false,max_per_parcel:null as number|null});
   return {f,request,expect,store,fresh,actor,member,provider,locationInput,document,attributes,reset:()=>f.reset(),stop:()=>f.stop()};
 }

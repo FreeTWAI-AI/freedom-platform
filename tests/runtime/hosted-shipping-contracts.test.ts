@@ -14,7 +14,7 @@ test('shipping literals and fixed delivery labels match the rules in preference 
 test('shipping bundle goldens agree with strict Zod shapes and JSON Schema',()=>{
   const id=randomUUID(),time='2028-02-29T12:34:56.789Z';
   const digits=randomBytes(4).readUInt32BE().toString().padStart(10,'0');
-  const location={label:'合成倉'+digits,sender_name:'合成星禾',mobile:'09'+digits.slice(-8),postal_code:'100',address:'合成星禾路'+digits+'號',ships:true,receives_returns:true};
+  const location={label:'合成倉'+digits,sender_name:'合成'+['星禾','青羽','松月'][Number(digits.slice(-1))%3],mobile:'09'+digits.slice(-8),postal_code:'100',address:'合成星禾路'+digits+'號',ships:true,receives_returns:true};
   const limits={max_weight_g:10000,max_longest_side_mm:600,max_dimension_sum_mm:1500};
   const service={service_key:SERVICE_KEYS[0],ship_from_location_id:id,temperature:'ambient',handling_days:1,cutoff_time:'17:00',limits,outlying_islands:'excluded'};
   const delivery={method:'home',fee_per_parcel_minor:10000,free_over_minor:null,outlying:{kind:'excluded'}};

@@ -598,7 +598,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
         VALUES($1,'ecpay.logistics.home.tcat',$2,$3,'sandbox',$4)`,[accountId,data.tenantId,data.instanceId,data.principalId]);
       const digits=String(randomBytes(4).readUInt32BE()).padStart(10,'0');
       await q.query(`INSERT INTO commerce_ship_from_locations(tenant_id,instance_id,label,sender_name,mobile,postal_code,address,ships,receives_returns,created_by_principal_id)
-        VALUES($1,$2,$3,'合成星禾',$4,'100',$5,true,true,$6)`,[data.tenantId,data.instanceId,'合成倉'+digits,'09'+digits.slice(-8),'合成星禾路'+digits+'號',data.principalId]);
+        VALUES($1,$2,$3,$7,$4,'100',$5,true,true,$6)`,[data.tenantId,data.instanceId,'合成倉'+digits,'09'+digits.slice(-8),'合成星禾路'+digits+'號',data.principalId,'合成'+['星禾','青羽','松月'][Number(digits.slice(-1))%3]]);
       await q.query(`INSERT INTO commerce_exception_cases(tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind)
         VALUES($1,$2,'unmatched_payment','payment_event',$3,'retailer',clock_timestamp()+interval '72 hours','system')`,
       [data.tenantId,data.instanceId,randomUUID()]);

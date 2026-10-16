@@ -347,7 +347,7 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
       VALUES($1,'ecpay.logistics.home.tcat',$2,$3,'sandbox',$4)`,[accountId,space.tenantId,space.hosted.instanceId,author.principalId]);
     const digits=String(randomBytes(4).readUInt32BE()).padStart(10,'0');
     await q.query(`INSERT INTO commerce_ship_from_locations(tenant_id,instance_id,label,sender_name,mobile,postal_code,address,ships,receives_returns,created_by_principal_id)
-      VALUES($1,$2,$3,'合成星禾',$4,'100',$5,true,true,$6)`,[space.tenantId,space.hosted.instanceId,'合成倉'+digits,'09'+digits.slice(-8),'合成星禾路'+digits+'號',author.principalId]);
+      VALUES($1,$2,$3,$7,$4,'100',$5,true,true,$6)`,[space.tenantId,space.hosted.instanceId,'合成倉'+digits,'09'+digits.slice(-8),'合成星禾路'+digits+'號',author.principalId,'合成'+['星禾','青羽','松月'][Number(digits.slice(-1))%3]]);
     const document={schema:'freedom.shipping-profile/v1',working_days:[1],services:[],delivery_options:[],drop_ship:null};
     await q.query(`INSERT INTO commerce_shipping_profile_versions(tenant_id,instance_id,version,document,document_sha256,created_by_principal_id)
       VALUES($1,$2,1,$3,$4,$5)`,[space.tenantId,space.hosted.instanceId,document,digest(document),author.principalId]);
