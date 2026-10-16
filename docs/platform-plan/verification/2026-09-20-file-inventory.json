@@ -569,8 +569,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store.ts",
-      "bytes": 12477,
-      "sha256": "ebe41a0d291190acd2ed2c86e57139176451d1c267f5d86ba01636fd918307ce"
+      "bytes": 13338,
+      "sha256": "4447668dec27cbc7167910379a1b51951b507d4db320c963b0dbc230ad373ed7"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -749,8 +749,8 @@
     },
     {
       "path": "apps/portal-web/public/shops.css",
-      "bytes": 17261,
-      "sha256": "7f918e0f4293866adb1b61e2260dfb540e6a2c8a4b51f8905b174df8cf7de319"
+      "bytes": 18825,
+      "sha256": "8d340d6f75b6946543a484da42b6ce4cf4960eeaa3e10e03d581e65f517e0a9c"
     },
     {
       "path": "apps/portal-web/public/art/versefolk-cooperation.webp",
@@ -3509,13 +3509,18 @@
     },
     {
       "path": "apps/portal-web/src/storefront/format.ts",
-      "bytes": 746,
-      "sha256": "4509a676bdf41d63a0178e6b0058813558949dbf1fa0046d3edff114662de0f4"
+      "bytes": 1600,
+      "sha256": "c881b0e9d77930cd69266b09772ed985464e8331530d439c964997e30077a2ee"
     },
     {
       "path": "apps/portal-web/src/storefront/main.tsx",
-      "bytes": 55449,
-      "sha256": "9393ba4a0faccded6584a0d318dcaf2c48b16d51246bc75f4da58abacd9aa698"
+      "bytes": 92716,
+      "sha256": "95d7810a06319df2c4101cba4b15a413c851788f27fefbd3b28f35baa7a4ad25"
+    },
+    {
+      "path": "apps/portal-web/src/storefront/payment-view.ts",
+      "bytes": 8621,
+      "sha256": "8e85688ff1f9ee31bcb65c1146df4a3d6ddf58cb75bf013febaabb434e6baad1"
     },
     {
       "path": "apps/private-ai-authority/README.md",
@@ -17839,8 +17844,8 @@
     },
     {
       "path": "modules/agent-commerce/storefront/README.md",
-      "bytes": 1534,
-      "sha256": "2be0b93ff30d634cbe718bd176eb5ed103e60325e64d9a754db16f8c2ad4d36c"
+      "bytes": 1999,
+      "sha256": "7b7bc1a6c41d57b349e14fa1ea51979b12afb21672a0138983ac606ac8317ff9"
     },
     {
       "path": "modules/agent-commerce/storefront/freedom.module.json",
@@ -17849,8 +17854,8 @@
     },
     {
       "path": "modules/agent-commerce/storefront/pages.ts",
-      "bytes": 3608,
-      "sha256": "baa9d16ec809ae06f7ef0a1b5b3d548656fffc74f340930c6a54f5fc09406f14"
+      "bytes": 5058,
+      "sha256": "71dcf57d1d26528dc5870d811f080a92909915faf3f79153a54e2727e25cd561"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -22153,6 +22158,16 @@
       "sha256": "a0d93050008f6cedcb1bd6efcf428d5410b869f69fac586bab170123440a2996"
     },
     {
+      "path": "tests/e2e/storefront-payment-fixture.ts",
+      "bytes": 4208,
+      "sha256": "a89b1531d0af2ab72e583859d2fa5a3485077c775145668987aa7c7d26d90fa1"
+    },
+    {
+      "path": "tests/e2e/storefront-payment.spec.ts",
+      "bytes": 50942,
+      "sha256": "bba9a140379b3a5050d9cc1c3e39b21b0bd0bd59386b9abc6be95f1af3a3cd28"
+    },
+    {
       "path": "tests/e2e/storefront-product.spec.ts",
       "bytes": 7605,
       "sha256": "35e03599fe2da66bce806e7a09a4234604642372b3d4245e4729f79eb1272dd4"
@@ -24196,6 +24211,11 @@
       "path": "tests/runtime/storefront-order-pages.test.ts",
       "bytes": 8273,
       "sha256": "bce56a291599c87de044a40121d6982220d63a6da8e9e36b2d2a853318e36450"
+    },
+    {
+      "path": "tests/runtime/storefront-payment-pages.test.ts",
+      "bytes": 24742,
+      "sha256": "7e889e13b6a4ffdcb7d46bcf41602e7fdff69ef45d238f906ce5ccd65c5375a4"
     },
     {
       "path": "tests/runtime/storefront-presentation-contracts.test.ts",
