@@ -12,6 +12,28 @@ import type {FreedomEnv} from '../env.js';
 import {providerEnvironment} from '../../../../modules/agent-commerce/operations/admissions.js';
 import {runDueCommerceWork} from '../../../../modules/agent-commerce/operations/due-work.js';
 import {commerceEmailOutbox} from '../../../../modules/agent-commerce/operations/notifications/outbox.js';
+import type {PaymentQueryTransport} from '../../../../modules/agent-commerce/payments/query-transport.js';
+import type {PaymentQueryDependencies} from '../../../../modules/agent-commerce/payments/queries.js';
+import type {CommerceCredentialKeyring} from '../../../../modules/agent-commerce/payments/credentials.js';
+import type {CommerceEmailOutbox} from '../../../../modules/agent-commerce/operations/notifications/email-port.js';
+
+export function commerceCheckoutQueryDeps(input: {
+  transport: PaymentQueryTransport;
+  keyring: CommerceCredentialKeyring | null;
+  freedomEnv: 'local' | 'staging' | 'public';
+  quarantine?: boolean;
+  emailEnabled?: boolean;
+  email?: CommerceEmailOutbox;
+}): PaymentQueryDependencies {
+  const email = input.emailEnabled ? (input.email ?? commerceEmailOutbox) : undefined;
+  return {
+    transport: input.transport,
+    keyring: input.keyring,
+    freedomEnv: input.freedomEnv,
+    quarantine: input.quarantine,
+    ...(email ? { email } : {}),
+  };
+}
 
 /** The one checkout configuration shared by the checkout API and the public store pages. */
 export function hostedCheckoutOptions(origin:string,runtime:PlatformRuntime,environment:FreedomEnv):commands.HostedCheckoutOptions {

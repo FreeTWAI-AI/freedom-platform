@@ -13,6 +13,7 @@ import { createPlatformApp } from './platform-app.js';
 import { LIVE_PUBLIC_ORIGIN } from './routes/published-skills.js';
 import type { GitHubSocialOptions } from './routes/github-social.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
+import { commerceCheckoutQueryDeps } from './routes/hosted-checkout.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
 import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type PrivateAiProductTransport } from './private-ai-product.js';
@@ -38,7 +39,7 @@ function authNetwork(c:Context) {
 export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
   const environment=providerEnvironment(freedomEnv),admission=options.commercePorts?.admission??createStoreAdmissionPort(environment,options.commerceSettings?.providerProfiles??[]);
   const email=options.commerceSettings?.emailEnabled?(options.commercePorts?.email??commerceEmailOutbox):undefined;
-  const payments=options.commercePayments?createCheckoutPaymentPorts({environment,admission,settings:options.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:options.commercePayments.profiles,gateway:options.commercePayments.gateway,keyring:options.commerceCredentialKeyring??null},options.commerceQueryTransport?{transport:options.commerceQueryTransport,keyring:options.commerceCredentialKeyring??null,freedomEnv,quarantine:options.commerceSettings?.quarantine,...(email?{email}:{})}:undefined):undefined;
+  const payments=options.commercePayments?createCheckoutPaymentPorts({environment,admission,settings:options.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:options.commercePayments.profiles,gateway:options.commercePayments.gateway,keyring:options.commerceCredentialKeyring??null},options.commerceQueryTransport?commerceCheckoutQueryDeps({transport:options.commerceQueryTransport,keyring:options.commerceCredentialKeyring??null,freedomEnv,quarantine:options.commerceSettings?.quarantine,emailEnabled:options.commerceSettings?.emailEnabled,email:options.commercePorts?.email}):undefined):undefined;
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
     afterResponse:options.afterResponse??detachAfterResponse,commerceQueryTransport:options.commerceQueryTransport,
