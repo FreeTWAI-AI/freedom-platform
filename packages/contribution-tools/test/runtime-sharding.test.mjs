@@ -61,7 +61,7 @@ test('measured weights keep hosted run 37567098443 under the four-partition budg
   }
 });
 
-test('measured disk costs balance six partitions inside the unchanged runtime budget', () => {
+test('October 9 disk costs stay inside the six-partition bounds under the current weights', () => {
   const observation = JSON.parse(readFileSync(new URL('./fixtures/runtime-hosted-costs-disk-20261009.json', import.meta.url)));
   const files = Object.keys(observation.milliseconds).map(name => 'tests/runtime/' + name).sort();
   const cost = path => observation.milliseconds[path.split('/').at(-1)] ?? 0;
@@ -74,9 +74,9 @@ test('measured disk costs balance six partitions inside the unchanged runtime bu
   assert.equal(new Set(partitions6.flat()).size, files.length);
   assert(partitions6.every(shard => JSON.stringify(shard) === JSON.stringify([...shard].sort())));
 
+  // The current weights come from later runs, so these costs are no longer their own balance measure.
   const totals6 = partitions6.map(total);
   assert(Math.max(...totals6) < 760_000, 'measured estimates leave room inside the existing 900-second six-partition budget');
-  assert(Math.max(...totals6) - Math.min(...totals6) < 15_000);
 
   const partitions4 = partitionRuntimeFiles(files, 4);
   const totals4 = partitions4.map(total);
@@ -89,5 +89,34 @@ test('measured disk costs balance six partitions inside the unchanged runtime bu
     assert.equal(new Set(shards.flat()).size, expanded.length);
     const withExtra = shard => shard.reduce((sum, path) => sum + (path === extra ? 15_000 : cost(path)), 0);
     assert(Math.max(...shards.map(withExtra)) < 770_000);
+  }
+});
+
+test('October 16 measured costs balance six partitions inside the six-host budget', () => {
+  const observation = JSON.parse(readFileSync(new URL('./fixtures/runtime-hosted-costs-20261016.json', import.meta.url)));
+  const files = Object.keys(observation.milliseconds).map(name => 'tests/runtime/' + name).sort();
+  const cost = path => observation.milliseconds[path.split('/').at(-1)] ?? 0;
+  const total = shard => shard.reduce((sum, path) => sum + cost(path), 0);
+
+  assert.equal(files.length, 395);
+
+  const partitions6 = partitionRuntimeFiles(files, 6);
+  assert.deepEqual(partitions6.flat().sort(), files);
+  assert.equal(new Set(partitions6.flat()).size, files.length);
+  assert(partitions6.every(shard => JSON.stringify(shard) === JSON.stringify([...shard].sort())));
+
+  // Per-file minima understate a single hosted run; the observed run that produced most of
+  // them was about a fifth slower, which this bound still leaves inside 1,500s minus the 24s reserve.
+  const totals6 = partitions6.map(total);
+  assert(Math.max(...totals6) < 1_100_000);
+  assert(Math.max(...totals6) - Math.min(...totals6) < 10_000);
+
+  for (const extra of ['tests/runtime/aaa-unmeasured.test.ts', 'tests/runtime/zzz-unmeasured.test.ts']) {
+    const expanded = [...files, extra].sort();
+    const shards = partitionRuntimeFiles(expanded, 6);
+    assert.deepEqual(shards.flat().sort(), expanded);
+    assert.equal(new Set(shards.flat()).size, expanded.length);
+    const withExtra = shard => shard.reduce((sum, path) => sum + (path === extra ? 15_000 : cost(path)), 0);
+    assert(Math.max(...shards.map(withExtra)) < 1_110_000);
   }
 });

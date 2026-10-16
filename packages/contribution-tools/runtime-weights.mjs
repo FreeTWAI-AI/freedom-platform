@@ -1,4 +1,10 @@
-export function parseProgressLog(text) {
+import { PROGRESS_MAX_ELAPSED_MS } from './test-reporter.mjs';
+
+// A timed-out partition's final segment still holds exact durations for the
+// files it completed; only callers that name such a log pass `partial`. The
+// reporter clamps elapsed_ms at PROGRESS_MAX_ELAPSED_MS, so a file that starts
+// or completes at that value has no measured duration and is left out.
+export function parseProgressLog(text, { partial = false } = {}) {
   const lines = text.split('\n');
   const records = [];
   for (const line of lines) {
@@ -28,9 +34,14 @@ export function parseProgressLog(text) {
   }
 
   const lastSummary = records[lastSummaryIndex];
-  if (lastSummary.incomplete !== false ||
-      lastSummary.selected_count !== lastSummary.started_count ||
-      lastSummary.selected_count !== lastSummary.completed_count) {
+  const complete = lastSummary.incomplete === false &&
+    lastSummary.selected_count === lastSummary.started_count &&
+    lastSummary.selected_count === lastSummary.completed_count;
+  const timedOut = partial && lastSummary.incomplete === true &&
+    Number.isSafeInteger(lastSummary.completed_count) && lastSummary.completed_count >= 0 &&
+    [lastSummary.completed_count, lastSummary.completed_count + 1].includes(lastSummary.started_count) &&
+    Number.isSafeInteger(lastSummary.selected_count) && lastSummary.started_count <= lastSummary.selected_count;
+  if (!complete && !timedOut) {
     throw new Error('incomplete_progress_log');
   }
 
@@ -54,7 +65,7 @@ export function parseProgressLog(text) {
     }
   }
 
-  if (completed.size !== lastSummary.completed_count || started.size !== completed.size) {
+  if (completed.size !== lastSummary.completed_count || started.size !== lastSummary.started_count) {
     throw new Error('inconsistent_progress_log');
   }
 
@@ -67,6 +78,7 @@ export function parseProgressLog(text) {
     if (!Number.isSafeInteger(duration) || duration < 0) {
       throw new Error('inconsistent_progress_log');
     }
+    if (compRecord.elapsed_ms >= PROGRESS_MAX_ELAPSED_MS) continue;
     result.set(path, duration);
   }
 
