@@ -67,7 +67,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | refund-rules | 退款分攤的純規則：行項上限、運費建議、分攤與調低的檢查、未套用付款的退款（EC-SPEC-06 §2.5、EC-SPEC-04 §7.2） | flash | — | 完成（`fc/refund-rules` `4376e471`，整合 `69067716`） |
 | wp04-payments | attempt 與一次性交接頁、付款通知與瀏覽器返回（含閘道例外）、外部效果日誌、到期工作與例外的表、買家的付款摘要、隔離模式的付款閘門、能力 `commerce.hosted-payment.v1` 與強制下限；不呼叫綠界（EC-SPEC-04 §3～§5、EC-SPEC-09 §2.6、EC-SPEC-10 §3） | Codex | wp04-accounts、ecpay-aio | 完成（`fc/wp04-payments` `c8044968`，整合 `f852b742`） |
 | wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 進行中（`fc/wp04-queries`） |
-| wp04-seller | 賣家端的 M2 後端：訂單讀取（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 之後 |
+| wp04-seller | 賣家端的 M2 後端：`FREEDOM_COMMERCE_CONSOLE_ENABLED`（EC-SPEC-10 §2.2）、訂單讀取與聯絡卡（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 之後 |
 | wp04-refund-api | API 退款：operations outbox、QueryTrade/V2 與 DoAction、結果不明、每日關帳時段（EC-SPEC-04 §7.3～7.4）；正式環境預設關閉 | Codex | wp04-seller | C2 受控試用排定時 |
 | buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 進行中（`fc/buyer-pay`） |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
@@ -265,7 +265,7 @@ E05 的路徑改成 `…/checkout-orders`。
 | --- | --- | --- | --- |
 | 訂單與庫存核心 | Commerce → Supplier | `fc/wp03-core` `16caa586`：`recordHandover`、`restockReturn`、`cancelPaidOrder`、確認付款的定義、`reserved = H + A` | 2026-10-15 已通知 SHA；已併入整合分支（`d3cbb286`），尚未進 main |
 | 共用 console 殼 | Supplier → Commerce | `863614ef` 抽出的共用殼；E 頁沿用同一個殼與導覽樣式（`ea24fbf6` 的導覽字級 .875rem） | 在 `feat/supplier-console-r1`，尚未進 main |
-| `FREEDOM_SUPPLIER_CONSOLE_ENABLED` | Supplier → Commerce | commerce 的 `CONSOLE` 開關依賴它（EC-SPEC-10 §2.2）；它進 main 之前，commerce 不加 `CONSOLE` | 在 `feat/supplier-console-r1` 的 `worker.ts` |
+| `FREEDOM_SUPPLIER_CONSOLE_ENABLED` | Supplier → Commerce | commerce 的 `CONSOLE` 開關依賴它（EC-SPEC-10 §2.2）。它進 main 之前，wp04-seller 加的 `CONSOLE` 只依賴 launchpad，只開賣家的新路由、沒有 E 頁；進 main 後加上對它的依賴 | 在 `feat/supplier-console-r1` 的 `worker.ts` |
 | 「已占用」的文字 | Supplier | `stock − reserved` 的說明改成含已付款未出貨，跟 M2 同一次發布 | 依 M2 |
 | 履約契約與 SL 頁 | Commerce → Supplier | M3 的 `contracts/guild-launchpad/v1/` 新檔與讀取投影；SL 頁等 Commerce 交 SHA 才開始 | 依 M3 |
 | migration 編號 | 雙方 | Commerce 的 M1～M4 與 Supplier 的 S3 依合併順序取號 | 整合時決定 |

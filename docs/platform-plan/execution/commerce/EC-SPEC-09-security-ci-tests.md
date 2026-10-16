@@ -87,7 +87,7 @@
 guest、provider 通知與排程都沒有 principal。規則：
 
 1. 個資表一律 tenant RLS（`tenant_id = freedom_ctx_tenant()`，比照 `134:22-25`）：顧客、聯絡資料、出貨者的收件投影、選店 session、訂單對話、發票的買家資料。`168` 的 `commerce_customers` 與 `commerce_checkout_contacts` 已是如此。
-2. 不含個資的交易與帳本表可以豁免 RLS，catalog 記 `reason_code: commerce_profile_participant_acl` 與理由（`168` 的 checkout、訂單 sidecar、付款套用、配置與異動都這樣登錄）。授權由程式依儲存的關聯判斷；豁免不代表有任何 HTTP 讀取者。
+2. 不含個資的交易與帳本表可以豁免 RLS，catalog 記 `reason_code: commerce_profile_participant_acl` 與理由（`168` 的 checkout、訂單 sidecar、付款套用、配置與異動，以及 `169` 的退款紀錄 `commerce_refunds`、`commerce_refund_lines` 都這樣登錄）。授權由程式依儲存的關聯判斷；豁免不代表有任何 HTTP 讀取者。
 3. 沒有 principal 的路徑，先從**已儲存、不含個資**的列解析出 tenant 與實例，再 `bindTenantContext`，然後才碰個資表。tenant 永遠不從請求內容取得（EC-SPEC-04 §9）。
 4. 解析用的兩張表（M2，`169` 已建立）：
    - `commerce_entry_routes`：`(route_kind, route_key) → tenant_id, instance_id, target_id, expires_at, revoked_at`。`route_kind` 是 `provider_account`（`account_ref`，出現在 callback 網址，不是秘密）、`payment_handoff`、`cvs_map`、`cvs_map_return`、`label_print`；後四種只存 token 的 SHA-256。豁免 RLS、不含個資；只寫一次，撤銷與到期只能前進。`account_ref` 是 26 個小寫 Crockford Base32 字元（128 bits 隨機）；組成 §2.6 的四條 `account_ref` 路徑後，任一條含綠界 CDN 擋字（`findCdnBlockedTerm`，例如結尾 `cd` 會組成 `cd/`）就重抽，最多 16 次。以店的 slug 進來的公開路徑不需要這張表（`readPublicStorePage` 的解析方式）。
@@ -223,8 +223,8 @@ provider 入口：
 
 | 操作 | 鍵與上限 | 超過時 |
 | --- | --- | --- |
-| 立即查詢（付款、物流、發票） | 每筆 1／分 | 429 |
-| 讀收件資料 | principal 300／時 | 429，SL-02 顯示「讀取次數過多，請稍後再試」 |
+| 立即查詢（付款、物流、發票） | 每筆 1／分。付款查詢與買家共用訂單的 1／分、10／時，不另設 principal 或網路額度；授權通過後才計數，別人無法耗盡訂單的額度 | 429（帶 `Retry-After`） |
+| 讀收件資料（SL-02）與聯絡卡（E05） | principal 300／時，兩者合計；在能力檢查之前計數，被拒的讀取也算 | 429，畫面顯示「讀取次數過多，請稍後再試」 |
 | 開列印 session | 包裹 10／時 | 429 |
 | provider 帳戶寫入 | 店 10／時 | 429 |
 | 匯出 | 店同時 1 份、每日 3 份 | 409 或 429 |

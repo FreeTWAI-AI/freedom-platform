@@ -96,8 +96,8 @@
 | `commerce_hosted_payment_events` | 已驗證的 provider 通知、查詢結果與瀏覽器返回（inbox） | append-only；去重鍵唯一（§5.4）；不存卡號片段與原始 body，只存允許欄位與原始 body 的 SHA-256。名稱避開既有的 `commerce_payment_events`（migration 055）：那是匯入商店由商家後台回報的付款紀錄，兩者不共用 |
 | `commerce_due_work` | 到期工作（EC-SPEC-09 §2.4）：付款查詢、確認窗結束；之後的里程碑加入其他種類 | 每個目標每種一列；`due_at`、租約（`lease_until`）、次數、連續未確定次數、封閉錯誤碼。查詢唯讀、可以重試（§6.3），所以不經 outbox：取得租約的交易提交後才呼叫，結果用新交易寫回，只有已驗證的回應寫成事件 |
 | `commerce_payment_operations` | 有外部效果、結果不明時不能重送的工作（outbox）：API 退款的步驟（§7.3）；人工紀錄不用 | `pending → in_flight → done／failed／unknown`；`not_before`、租約（`lease_until`）、嘗試次數、錯誤碼；外部呼叫只在租約交易提交後進行 |
-| `commerce_refunds` | 退款 | §7；累計上限由 trigger 檢查；M2 只有人工紀錄（§7.2） |
-| `commerce_refund_lines` | 每筆退款分到哪些行項與運費（EC-SPEC-06 §2.5） | 各列合計＝退款金額。M2 只有 `unapplied` 列；`item`、`shipping` 與同一行項、同一配送群組的累計上限 trigger 隨 M4 的售後加入 |
+| `commerce_refunds` | 退款 | §7；豁免 RLS（`commerce_profile_participant_acl`）：不含個資，只有金額、日期、格式受限的參考號、principal 與付款 ID，日後的機器路徑（API 退款）綁定 tenant 前也能讀；append-only；累計上限由 trigger 依套用紀錄檢查。M2 只有人工紀錄（§7.2）：`basis='unapplied_payment'`、`mode='manual_record'`、`state='recorded'`，M4 再放寬 |
+| `commerce_refund_lines` | 每筆退款分到哪些行項與運費（EC-SPEC-06 §2.5） | 豁免 RLS、append-only；提交時檢查每筆退款至少一列、各列合計＝退款金額（deferred trigger）。M2 只有 `unapplied` 列；`item`、`shipping` 與同一行項、同一配送群組的累計上限 trigger 隨 M4 的售後加入 |
 
 訂單的付款摘要（EC-SPEC-03 §3.2：`unpaid`、`pending`、`paid`、`partially_refunded`、`refunded`、`overpaid`、`simulated`）由這些表讀取時計算，不另存。`overpaid` 的定義和優先順序也在 EC-SPEC-03 §3.2。
 
@@ -235,7 +235,7 @@ M2 的處理（wp04-seller）：賣家在 `GET …/exception-cases?view=retailer
 | `payment_unconfirmed` | 立即查詢；到綠界後台核對 | `resolve_with_evidence`：`confirmed`（attempt 已 `confirmed`）或 `checked_with_provider` |
 | `unmatched_payment`、`contradicting_event` | 到綠界後台核對 | `resolve_with_evidence`（`checked_with_provider`） |
 
-`resolve_with_evidence` 只收結案代碼、綠界後台的日期（Asia/Taipei，不晚於今天）與參考號（`^[A-Za-z0-9_-]{1,64}$`），不收自由文字；`resolution_note` 由伺服器用固定格式組成。代碼 `confirmed` 不需要日期與參考號，由伺服器確認 attempt 已 `confirmed`。付款其實沒有完成、訂單卻已確認付款時的取消，隨 M4 的已付款取消。
+`resolve_with_evidence` 只收結案代碼、綠界後台的日期（Asia/Taipei，不晚於今天）與參考號（`^[A-Za-z0-9_-]{1,64}$`），不收自由文字；`resolution_note` 由伺服器用固定格式組成：`refunded` 是「店家已在綠界後台退款（{日期}，參考號 {參考號}）。」，`checked_with_provider` 是「店家已在綠界後台核對（{日期}，參考號 {參考號}）。」，`confirmed` 是「付款已向綠界確認。」；`retry_allocation` 成功時是「補貨後已重新配貨。」，登錄退款的自動結案是「店家已登記全額退款。」（§7.2）。代碼 `confirmed` 不需要日期與參考號，由伺服器確認 attempt 已 `confirmed`。案件一律最後鎖（訂單、attempt、套用紀錄之後）：付款路徑持有 attempt 時會開例外，`INSERT … ON CONFLICT` 要等正在結案同一主體的交易，順序相反就會死結。付款其實沒有完成、訂單卻已確認付款時的取消，隨 M4 的已付款取消。
 
 ## 6. 查詢（QueryTradeInfo/V5）
 
