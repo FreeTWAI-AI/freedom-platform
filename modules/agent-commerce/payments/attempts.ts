@@ -137,6 +137,7 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
     async summarize(q, orderIds) {
       const rows = (await q.query(`SELECT co.order_id,co.tenant_id,co.instance_id,${confirmedPaymentSQL('co.order_id')} AS confirmed,
         EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome='simulated') AS simulated,
+        EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome IN ('overpaid','after_cancel','amount_mismatch')) AS overpaid,
         EXISTS(SELECT 1 FROM commerce_hosted_payment_events e JOIN commerce_payment_attempts a USING(attempt_id) WHERE a.order_id=co.order_id AND e.source='notification' AND e.outcome='paid' AND e.applied_at IS NULL) AS unapplied_paid,
         a.attempt_id,a.state,a.created_at,a.handed_off_at,
         EXISTS(SELECT 1 FROM commerce_hosted_payment_events e WHERE e.attempt_id=a.attempt_id AND e.outcome='pending_confirmation'
@@ -149,9 +150,10 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
       const summaries = new Map<string, CheckoutPaymentSummary>();
       for (const row of rows) {
         await bindStore(q, row.tenant_id);
-        const payment_state = row.confirmed ? 'confirmed' : row.unapplied_paid || row.pending_confirmation || row.returned ? 'pending' : row.simulated ? 'simulated' : 'unpaid';
+        // Money that does not match the order outranks every state; the store must refund it.
+        const payment_state = row.overpaid ? 'overpaid' : row.confirmed ? 'confirmed' : row.unapplied_paid || row.pending_confirmation || row.returned ? 'pending' : row.simulated ? 'simulated' : 'unpaid';
         const state = row.state === 'issued' ? (row.handed_off_at ? 'awaiting_result' : 'ready') : ['paid', 'confirmed'].includes(row.state) ? 'paid' : row.state === 'failed' ? 'failed' : 'expired';
-        const canResume = Boolean(row.attempt_id && !(await inspectOrderHandoffGate(q, row.attempt_id, options)).failure);
+        const canResume = Boolean(row.attempt_id && !row.overpaid && !(await inspectOrderHandoffGate(q, row.attempt_id, options)).failure);
         summaries.set(row.order_id, { payment_state, latest_payment_attempt: row.attempt_id ? { attempt_ref: row.attempt_id, state, created_at: row.created_at.toISOString() } : null, can_resume_payment: canResume });
       }
       return summaries;

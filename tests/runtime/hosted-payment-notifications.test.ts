@@ -608,6 +608,32 @@ test('buyer payment state orders confirmed above pending above simulated above u
   assert.equal(view.latest_payment_attempt.state, 'paid');
   assert.equal(view.can_resume_payment, false);
 });
+for (const outcome of ['amount_mismatch', 'after_cancel', 'overpaid'] as const)
+  test(`buyer payment state shows ${outcome} money as overpaid above confirmed and offers no payment`, async () => {
+    const p = await f.placed();
+    if (outcome === 'amount_mismatch') {
+      await ack(await post(path(p), await body(p, { TradeAmt: '6' })));
+      const view = await buyerView(p);
+      assert.equal(view.payment_state, 'overpaid');
+      assert.equal(view.latest_payment_attempt.state, 'ready');
+      assert.equal(view.can_resume_payment, false);
+      const second = await anotherAttempt(p);
+      await ack(await post(path(p), await body(second)));
+    }
+    else if (outcome === 'after_cancel') {
+      await f.x.tx(q => cancelUnpaidOrder(q, p.s, p.order.order_ref, 'buyer', 'buyer_cancelled', f.runtime.commercePorts));
+      await ack(await post(path(p), await body(p)));
+    }
+    else {
+      const second = await anotherAttempt(p);
+      await ack(await post(path(p), await body(p)));
+      await ack(await post(path(p), await body(second)));
+    }
+    assert.deepEqual((await facts(p)).applications.map(a => a.outcome), { amount_mismatch: ['amount_mismatch', 'converted'], after_cancel: ['after_cancel'], overpaid: ['converted', 'overpaid'] }[outcome]);
+    const view = await buyerView(p);
+    assert.equal(view.payment_state, 'overpaid');
+    assert.equal(view.can_resume_payment, false);
+  });
 test('a quarantined verified paid event projects pending before application', async () => {
   const p = await f.placed();
   f.settings.quarantine = true;
