@@ -66,6 +66,18 @@ test('preview title prefers og:title and resolves a relative og:image', () => {
   assert.equal(previewImageUrl('<meta name="twitter:image" content="https://127.0.0.1/x.png">', 'https://cdn.example/p'), null);
 });
 
+test('unterminated title delimiters stay bounded at the HTML input limit', async () => {
+  for (const fragment of ['<title>', '<title']) {
+    const html = fragment.repeat(Math.floor(1024 * 1024 / fragment.length));
+    const started = performance.now();
+    assert.deepEqual(await previewLink('https://example.com/unterminated', async () => htmlResponse(html)),
+      { title: null, image: null, source: null });
+    assert.ok(performance.now() - started < 2000, 'malformed title parsing exceeded two seconds');
+  }
+  assert.equal(previewTitle('<TITLE class="heading">First &amp; 😀<title>nested</TITLE><title>Later</title>'),
+    'First & 😀titlenested');
+});
+
 test('preview titles contain no markup after entity decoding', () => {
   const script = previewTitle('<title>&lt;script&gt;alert(1)&lt;/script&gt; 好物分享</title>');
   assert.ok(script && !script.includes('<') && !script.includes('>') && script.includes('好物分享'), script ?? 'null');

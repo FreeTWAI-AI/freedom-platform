@@ -336,9 +336,9 @@ jobs:
           if-no-files-found: warn
   ui-e2e:
     runs-on: ubuntu-24.04
-    # Setup + the measured full default pass + four fixture passes + cleanup.
+    # Setup + the measured full default pass + five fixture passes + cleanup.
     # This remains a total bound, not the sum of all individual worst-case caps.
-    timeout-minutes: 60
+    timeout-minutes: 75
     needs: select
     if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.ui_e2e == 'true') }}
     services:

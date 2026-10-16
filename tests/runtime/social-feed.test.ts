@@ -191,6 +191,7 @@ for (const collection of ['posts', 'comments'] as const) {
       });
       const path = note ? `/social-posts/${note.post_id}/comments` : '/social-posts';
       const ids: string[] = [], sizes: number[] = [];
+      const comments: {comment_id: string; created_at: string}[] = [];
       let cursor: string | null = null;
       for (let page = 0; page < 4; page++) {
         const response = await request(path + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), session);
@@ -198,11 +199,16 @@ for (const collection of ['posts', 'comments'] as const) {
         const data = pageSchema.parse(response.data);
         sizes.push(data.items.length);
         ids.push(...data.items.map(item => z.uuid().parse(item[idField])));
+        if (note) comments.push(...z.array(z.object({comment_id: z.uuid(), created_at: z.string()})).parse(data.items));
         cursor = data.next_cursor;
         if (!cursor) break;
       }
       assert.deepEqual(sizes, [24, 24, 3]);
       assert.deepEqual(ids, expected, 'all rows appear exactly once in database order');
+      if (note) {
+        comments.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.comment_id.localeCompare(b.comment_id));
+        assert.deepEqual(comments.map(item => item.comment_id), expected, 'comment timestamps preserve enough precision for consumer reconciliation');
+      }
       assert.equal(cursor, null, 'the last page must terminate');
     });
   }
