@@ -243,6 +243,36 @@ test('field checks reject every unsafe contact URL and keep the normalized one',
   assert.equal(badCursor.data.code, 'invalid_cursor');
 });
 
+test('enum JSON types reject atomically and corrected service commands can reuse their keys', async () => {
+  const maker = await signIn(), createKey = randomUUID(), editKey = randomUUID();
+  const created = await request('/member-services', maker, draft());
+  assert.equal(created.status, 201);
+  const id = created.data.service_id, version = created.data.aggregate_version;
+  const before = (await pool.query('SELECT * FROM member_services ORDER BY service_id')).rows;
+  const receipts = (await pool.query('SELECT count(*)::int AS count FROM command_receipts')).rows[0].count;
+  const journal = await counts();
+  for (const [field, valid] of [['category', 'design'], ['service_mode', 'online']] as const) {
+    for (const invalid of [[valid], [[valid]], {toString: null}, {toString: valid}]) {
+      for (const method of ['POST', 'PUT']) {
+        const rejected = await request(`/member-services${method === 'PUT' ? '/' + id : ''}`, maker, draft({[field]: invalid}), method,
+          method === 'PUT' ? {'If-Match': `"${version}"`} : {}, method === 'PUT' ? editKey : createKey);
+        assert.equal(rejected.status, 422, JSON.stringify({field, invalid, method, data: rejected.data}));
+        assert.equal(rejected.data.code, 'validation_failed');
+      }
+    }
+  }
+  assert.deepEqual((await pool.query('SELECT * FROM member_services ORDER BY service_id')).rows, before);
+  assert.equal((await pool.query('SELECT count(*)::int AS count FROM command_receipts')).rows[0].count, receipts);
+  assert.deepEqual(await counts(), journal);
+  const newService = await request('/member-services', maker, draft({category: 'tech', service_mode: 'both'}), 'POST', {}, createKey);
+  assert.equal(newService.status, 201);
+  assert.equal(newService.data.category, 'tech'); assert.equal(newService.data.service_mode, 'both');
+  const edited = await request(`/member-services/${id}`, maker, draft({category: 'courses', service_mode: 'in_person'}), 'PUT', {'If-Match': `"${version}"`}, editKey);
+  assert.equal(edited.status, 200);
+  assert.equal(edited.data.category, 'courses'); assert.equal(edited.data.service_mode, 'in_person');
+  assert.equal(edited.data.aggregate_version, version + 1);
+});
+
 test('covers normalize to 1200x675 and reject the wrong bytes', async () => {
   const maker = await signIn(), reviewer = await signIn(DEMO_USERS[1].email);
   const created = await request('/member-services', maker, draft());

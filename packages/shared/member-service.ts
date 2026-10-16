@@ -61,9 +61,9 @@ export function validateMemberService(raw: unknown): { ok: true; value: ServiceD
       if (chars(description) > 2000) issues.push({ field: 'description', code: 'validation_failed', message: '說明請在 2000 字以內。' });
     }
   } else if (body.description != null && body.description !== '') issues.push({ field: 'description', code: 'validation_failed', message: '說明格式不正確。' });
-  const category = (SERVICE_CATEGORIES as readonly string[]).includes(String(body.category)) ? body.category as ServiceCategory : null;
+  const category = typeof body.category === 'string' && (SERVICE_CATEGORIES as readonly string[]).includes(body.category) ? body.category as ServiceCategory : null;
   if (!category) issues.push({ field: 'category', code: 'validation_failed', message: '請選擇分類。' });
-  const serviceMode = (SERVICE_MODES as readonly string[]).includes(String(body.service_mode)) ? body.service_mode as ServiceMode : null;
+  const serviceMode = typeof body.service_mode === 'string' && (SERVICE_MODES as readonly string[]).includes(body.service_mode) ? body.service_mode as ServiceMode : null;
   if (!serviceMode) issues.push({ field: 'service_mode', code: 'validation_failed', message: '請選擇服務方式。' });
   const contacts: ServiceContact[] = [];
   if (!Array.isArray(body.contacts) || body.contacts.length < 1) issues.push({ field: 'contacts', code: 'validation_failed', message: '請至少留下一個聯絡方式。' });

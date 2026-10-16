@@ -591,6 +591,41 @@ test('anonymous HTML, metadata and media never expose member or guild event cont
   assert.equal((await call('/api/v1/event-highlights/'+ids.guild,organizer)).status,200);
 });
 
+test('member highlight list and detail recheck the session after a real SQL lock wait and return no private DTO',async()=>{
+  const organizer=MAKER,priv=`session-fence-${randomUUID().slice(0,8)}`;
+  const eventId=await ended({title:`private-workshop-${priv}`,visibility:'workshop'});
+  await pool.query(`INSERT INTO community_event_highlights(media_id,event_id,community_id,uploader_user_id,kind,title,url,platform,state)
+    VALUES ($1,$2,$3,$4,'link','private-link',$5,'other','active')`,[randomUUID(),eventId,DEMO_COMMUNITY,organizer,`https://example.com/${priv}`]);
+  const member=await login(DEMO_USERS[1].email);
+  assert.equal((await call('/highlights/'+eventId)).status,404);
+  for(const path of ['/api/v1/event-highlights/'+eventId,'/api/v1/event-highlights?mode=all']){
+    const valid=await call(path,member);assert.equal(valid.status,200,valid.text);assert.equal(valid.text.includes(priv),true);
+  }
+  for(const path of ['/api/v1/event-highlights/'+eventId,'/api/v1/event-highlights?mode=all']){
+    const session=await login(DEMO_USERS[1].email);
+    await pool.query(`UPDATE sessions SET expires_at=now()+interval '3 seconds' WHERE user_id=$1`,[DEMO_USERS[1].user_id]);
+    const expiry=(await pool.query('SELECT max(expires_at) AS at FROM sessions WHERE user_id=$1',[DEMO_USERS[1].user_id])).rows[0].at as Date;
+    const holder=await pool.connect();let pending:Promise<Awaited<ReturnType<typeof call>>>|undefined;
+    try{
+      await holder.query('BEGIN');await holder.query('LOCK TABLE community_event_highlights IN ACCESS EXCLUSIVE MODE');
+      const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      pending=call(path,session);
+      // Real PostgreSQL clock and lock wait are the condition under test; fake JS timers cannot expire a SQL session.
+      let blocked=false;
+      for(let attempt=0;attempt<250&&!blocked;attempt++){
+        blocked=(await admin.query('SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows[0].n>0;
+        if(!blocked)await admin.query('SELECT pg_sleep(0.01)');
+      }
+      assert(blocked,'Actual SQL wait was not observed');
+      assert.equal((await admin.query('SELECT clock_timestamp()<$1 AS live',[expiry])).rows[0].live,true,'The wait must start before session expiry');
+      await admin.query('SELECT pg_sleep(greatest(0,extract(epoch FROM $1::timestamptz-clock_timestamp()))+0.05)',[expiry]);
+    }finally{await holder.query('COMMIT');holder.release();}
+    const result=await pending!;
+    assert.equal(result.status,401,result.text);assert.equal(result.data.code,'session_expired');
+    assert.equal(result.text.includes(priv),false);assert.equal(result.text.includes('quota'),false);
+  }
+});
+
 test('one public detail render does not select highlight or banner image bytes', async () => {
   const maker = await login();
   const eventId = await ended({title: '預覽不讀位元組'});
