@@ -85,6 +85,7 @@ function makeApp(options: {
     commerceSettings: {
       checkoutEnabled: options.checkoutEnabled,
       quarantine: options.quarantine ?? false,
+      providerProfiles: [],
     },
     commercePorts: {
       admission: { allowed: () => options.admitted ?? true },
