@@ -43,7 +43,14 @@ export async function admitStore(pool:Pool,input:AdminCommand,environment:Commer
 }
 export async function revokeStoreAdmission(pool:Pool,input:AdminCommand,admissionId:string){
   const body=wire.StoreAdmissionRevokeInputSchema.parse(input.body);
-  const authorize=async(q:PoolClient)=>{const row=await load(q,admissionId);await bindStore(q,input.admin,row.tenant_id,row.instance_id);};
+  const authorize=async(q:PoolClient)=>{
+    const row=await load(q,admissionId);
+    try{await bindStore(q,input.admin,row.tenant_id,row.instance_id);}
+    catch(error){
+      if(error instanceof Problem&&error.status===404&&error.code==='tenant_not_found')throw new Problem(404,'store_admission_not_found','找不到商店准入紀錄。');
+      throw error;
+    }
+  };
   return adminCommand(pool,{...input,body},authorize,async q=>{
     const row=await load(q,admissionId);requireCondition(row.revoked_at===null,409,'admission_revoked','這份商店准入已撤銷。');
     const result=view((await q.query(`UPDATE commerce_store_admissions SET revoked_at=clock_timestamp(),revoked_by=$2,revoke_reason=$3 WHERE admission_id=$1 RETURNING *`,[admissionId,input.admin.admin_id,body.reason])).rows[0]);

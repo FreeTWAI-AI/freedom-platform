@@ -35,7 +35,12 @@ test('independent admin admissions gate new checkouts without stopping retained 
     await h.pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[randomUUID(),otherCommunity,otherEmail,'合成其他管理員']);
     assert.equal((await admin('GET','?tenant_id='+s.tenantId,undefined,randomUUID(),otherEmail)).status,404);
     assert.equal((await admin('POST','',body,randomUUID(),otherEmail)).status,404);
-    assert.equal((await admin('POST','/'+admitted.admission_id+'/revoke',{reason:'合成跨社群拒絕'},randomUUID(),otherEmail)).status,404);
+    const foreignRevoke=await admin('POST','/'+admitted.admission_id+'/revoke',{reason:'合成跨社群拒絕'},randomUUID(),otherEmail);
+    assert.equal(foreignRevoke.status,404);assert.equal(foreignRevoke.data.code,'store_admission_not_found');
+    const missingRevoke=await admin('POST','/'+randomUUID()+'/revoke',{reason:'合成跨社群拒絕'},randomUUID(),otherEmail);
+    assert.equal(missingRevoke.status,foreignRevoke.status);assert.equal(missingRevoke.data.code,foreignRevoke.data.code);
+    const memberRevoke=await admin('POST','/'+admitted.admission_id+'/revoke',{reason:'合成獨立性拒絕'},randomUUID(),s.owner.user.email);
+    assert.equal(memberRevoke.status,403);assert.equal(memberRevoke.data.code,'admission_not_independent');
     const viewer=(await h.person('合成兼任唯讀管理員')).session,viewerPrincipal=await h.candidate(s.owner,viewer.user.user_id),invitation=await h.invite(s.owner,s.tenantId,viewerPrincipal,'viewer');await h.accept(viewer,s.tenantId,invitation);
     await h.pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',[randomUUID(),DEMO_COMMUNITY,viewer.user.email,'合成唯讀管理員']);
     assert.equal((await admin('POST','',body,randomUUID(),viewer.user.email)).data.code,'admission_not_independent');
