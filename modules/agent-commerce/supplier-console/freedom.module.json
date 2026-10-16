@@ -16,6 +16,7 @@
     "tests/e2e/supplier-console-recovery.spec.ts",
     "tests/e2e/supplier-console-navigation.spec.ts",
     "tests/e2e/supplier-console-visual.spec.ts",
+    "tests/e2e/supplier-console-queries.spec.ts",
     "docs/platform-plan/execution/supplier-console/**"
   ],
   "public_exports": [],
