@@ -1,3 +1,4 @@
+import {SERVICE_KEYS} from '../fulfilment/rules/types.js';
 import type {PaymentAttemptOptions} from './attempts.js';
 import {scheduleDueWork} from '../operations/due-work.js';
 import {chargeCommerceBudgets} from '../checkout/limits.js';
@@ -26,23 +27,25 @@ const profiles={payment:'ecpay.aio.credit.v1',logistics:'ecpay.logistics.domesti
 function keyringOf(options:ProviderAccountOptions):CommerceCredentialKeyring{
   requireCondition(options.keyring,503,'commerce_credentials_unavailable','商務憑證服務尚未設定。');return options.keyring;
 }
-function parseInput<T>(schema:z.ZodType<T>,raw:unknown):T{
+export function parseInput<T>(schema:z.ZodType<T>,raw:unknown):T{
   if(raw&&typeof raw==='object'&&!('fresh_auth_verification_id' in raw))throw new Problem(403,'fresh_auth_required','請重新驗證身分。');
   const result=schema.safeParse(raw);requireCondition(result.success,422,'validation_failed','輸入資料無效。');return result.data;
 }
-async function account(q:PoolClient,accountId:string,tenantId?:string,instanceId?:string,lock=false){
+export async function account(q:PoolClient,accountId:string,tenantId?:string,instanceId?:string,lock=false){
   const row=(await q.query(`SELECT *,version::text FROM commerce_provider_accounts WHERE account_id=$1
     AND ($2::uuid IS NULL OR tenant_id=$2) AND ($3::uuid IS NULL OR instance_id=$3)${lock?' FOR UPDATE':''}`,[accountId,tenantId??null,instanceId??null])).rows[0];
   requireCondition(row,404,'provider_account_not_found','找不到供應商帳戶。');return row;
 }
-async function accountView(q:PoolClient,id:string){
+export async function accountView(q:PoolClient,id:string){
   const a=await account(q,id);
   const services=(await q.query(`SELECT s.purpose,s.profile,s.state,s.credential_version,c.created_at AS credential_updated_at,s.activated_at,s.throttled_until
     FROM commerce_provider_account_services s JOIN commerce_provider_credentials c ON c.account_id=s.account_id AND c.purpose=s.purpose AND c.credential_version=s.credential_version
     WHERE s.account_id=$1 ORDER BY s.purpose`,[id])).rows.map(s=>({...s,credential_updated_at:s.credential_updated_at.toISOString(),activated_at:s.activated_at?.toISOString()??null,throttled_until:s.throttled_until?.toISOString()??null}));
   const activation=(await q.query("SELECT attempt_id,state,handed_off_at,created_at FROM commerce_payment_attempts WHERE account_id=$1 AND kind='service_activation' ORDER BY sequence DESC LIMIT 1",[id])).rows[0];
   const payment_activation=activation?{attempt_ref:activation.attempt_id,state:activation.state==='issued'?(activation.handed_off_at?'awaiting_result':'ready'):activation.state==='expired_unpaid'||activation.state==='superseded'?'expired':activation.state,created_at:activation.created_at.toISOString()}:null;
-  return wire.ProviderAccountViewSchema.parse({payment_activation,account_id:a.account_id,provider:a.provider,environment:a.environment,merchant_id:a.merchant_id,version:a.version,created_at:a.created_at.toISOString(),services});
+  const logistics_services=(await q.query("SELECT service_key,state,activated_at,created_at FROM commerce_logistics_services WHERE account_id=$1 AND state<>'retired'",[id])).rows
+    .sort((a,b)=>SERVICE_KEYS.indexOf(a.service_key)-SERVICE_KEYS.indexOf(b.service_key)).map(row=>({...row,activated_at:row.activated_at?.toISOString()??null,created_at:row.created_at.toISOString()}));
+  return wire.ProviderAccountViewSchema.parse({logistics_services,payment_activation,account_id:a.account_id,provider:a.provider,environment:a.environment,merchant_id:a.merchant_id,version:a.version,created_at:a.created_at.toISOString(),services});
 }
 export function listProviderAccounts(pool:Pool,actor:Actor,tenantId:string,instanceId:string){
   return storeRead(pool,actor,tenantId,instanceId,'store:read',async(q,ctx)=>{
@@ -52,7 +55,7 @@ export function listProviderAccounts(pool:Pool,actor:Actor,tenantId:string,insta
     const items=[];for(const row of rows)items.push(await accountView(q,row.account_id));return wire.ProviderAccountPageSchema.parse({items});
   });
 }
-async function command<T extends object>(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string|undefined,operation:string,body:{fresh_auth_verification_id:string},key:string,expected:string|undefined,run:(q:PoolClient,ctx:TenantScopeContext)=>Promise<T>){
+export async function command<T extends object>(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string|undefined,operation:string,body:{fresh_auth_verification_id:string},key:string,expected:string|undefined,run:(q:PoolClient,ctx:TenantScopeContext)=>Promise<T>){
   const namespace=(ctx:TenantScopeContext)=>receiptNamespaceDigest('freedom.scoped-tenant-command/v1',[ctx.principal_id,ctx.authn_kind,ctx.scope.scope_id,operation,key]);
   const authorize=async(q:PoolClient,ctx:TenantScopeContext)=>{
     await instance(q,tenantId,instanceId,false,true);
@@ -90,7 +93,7 @@ export async function createProviderAccount(pool:Pool,actor:Actor,tenantId:strin
     return accountView(q,id);
   });
 }
-async function bumpAccount(q:PoolClient,id:string){
+export async function bumpAccount(q:PoolClient,id:string){
   await q.query('UPDATE commerce_provider_accounts SET version=version+1,updated_at=clock_timestamp() WHERE account_id=$1',[id]);
 }
 export async function putProviderService(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string,purpose:ProviderPurpose,raw:unknown,key:string,expected:string,options:ProviderAccountOptions){
@@ -130,7 +133,7 @@ export async function changeProviderServiceState(pool:Pool,actor:Actor,tenantId:
     return accountView(q,accountId);
   });
 }
-async function updateServiceState(q:PoolClient,id:string,purpose:ProviderPurpose,state:string,activationRef?:string){
+export async function updateServiceState(q:PoolClient,id:string,purpose:ProviderPurpose,state:string,activationRef?:string){
   try{await q.query(`UPDATE commerce_provider_account_services SET state=$3,version=version+1,updated_at=clock_timestamp(),
     activated_at=CASE WHEN $4::text IS NOT NULL THEN clock_timestamp() ELSE activated_at END,
     activation_ref=coalesce($4,activation_ref) WHERE account_id=$1 AND purpose=$2`,[id,purpose,state,activationRef??null]);}
@@ -142,7 +145,7 @@ async function updateServiceState(q:PoolClient,id:string,purpose:ProviderPurpose
 export async function lockMachineAccount(q:PoolClient,id:string){
   const peek=await account(q,id);await q.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE',[peek.tenant_id]);return account(q,id,undefined,undefined,true);
 }
-async function machineFact(q:PoolClient,a:Record<string,any>,kind:Parameters<typeof recordControlEvent>[1]['kind'],detail:Parameters<typeof recordControlEvent>[1]['detail']){
+export async function machineFact(q:PoolClient,a:Record<string,any>,kind:Parameters<typeof recordControlEvent>[1]['kind'],detail:Parameters<typeof recordControlEvent>[1]['detail']){
   await bumpAuthorizationRevision(q,a.tenant_id);
   await recordControlEvent(q,{tenantId:a.tenant_id,instanceId:a.instance_id,kind,subjectId:a.account_id,detail,actorKind:'system',actorId:a.account_id});
 }

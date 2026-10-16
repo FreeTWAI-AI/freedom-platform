@@ -8,6 +8,7 @@ export type EffectDetail = Partial<{
   currency: string;
   attempt_id: string;
   order_id: string;
+  service_key: string;
   purpose: string;
   profile: string;
   from_state: string;
@@ -30,7 +31,7 @@ export interface EffectJournalPort {
   append(record: EffectRecord): Promise<void>;
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const detailKeys = ['account_ref', 'merchant_trade_no', 'amount_minor', 'currency', 'attempt_id', 'order_id', 'purpose', 'profile', 'from_state', 'to_state', 'credential_version', 'module_release_ref'];
+const detailKeys = ['service_key', 'account_ref', 'merchant_trade_no', 'amount_minor', 'currency', 'attempt_id', 'order_id', 'purpose', 'profile', 'from_state', 'to_state', 'credential_version', 'module_release_ref'];
 const recordKeys = ['environment', 'kind', 'id', 'occurred_at', 'tenant_id', 'instance_id', 'detail'];
 function sorted(value: Record<string, unknown>): Record<string, unknown> { return Object.fromEntries(Object.keys(value).sort().map(key => [key, value[key]])); }
 /** A deliberately small wire format. Unknown fields fail before reaching storage. */
