@@ -122,6 +122,7 @@ export async function memberCard(pool:Pick<Pool,'query'>,actor:Actor,id:string) 
 }
 export async function memberCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string[]) {
   ids=ids.map(id=>z.uuid().parse(id).toLowerCase());
+  await assertInteractionMember(pool,actor);
   if(!ids.length)return [];
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
