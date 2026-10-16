@@ -12,6 +12,10 @@
 - 伺服器只保存 SHA-256 雜湊。遺失的金鑰或授權無法找回，只能重新建立。
 - 金鑰被撤銷或到期時，由它建立、尚未完成的上傳授權也一併失效。
 - 瀏覽器 cookie 不會被接受；請只用 `Authorization: Bearer …`。
+- `Bearer` scheme 的 ASCII 大小寫不敏感，scheme 與憑證之間接受一個以上 ASCII SP，
+  依 [RFC 9110 §11.1](https://www.rfc-editor.org/rfc/rfc9110.html#section-11.1)
+  與 [§11.4](https://www.rfc-editor.org/rfc/rfc9110.html#section-11.4)；兩者間不接受 HTAB 或 NBSP。
+  `fpk_`／`fpg_` 前綴與完整憑證仍區分大小寫，hash 使用原始位元組，不會 trim 或轉小寫。
 - 不要把金鑰或授權放進命令列參數、repo、log、截圖或公開聊天。一次性私人指令只交給會員選擇的 Agent；長期金鑰留在私人設定中。
 
 ## 1. 建立草稿

@@ -10,6 +10,7 @@
     "modules/skill-submissions/repository-match.ts",
     "modules/skill-submissions/service.ts",
     "modules/skill-submissions/upload-authority.ts",
+    "packages/skill-upload-client/protocol.md",
     "apps/platform-api/src/routes/skill-submissions.ts",
     "apps/platform-api/src/routes/published-skills.ts",
     "apps/platform-api/src/routes/opensource.ts",

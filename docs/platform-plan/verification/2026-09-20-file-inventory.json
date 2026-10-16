@@ -174,8 +174,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 4034,
-      "sha256": "454fd7317f32eec5b534a1bfd8c50cfd7fe4b2bc4bcdb60b3bfe5c0a960e0fb3"
+      "bytes": 4089,
+      "sha256": "d1850a76c07d175eb9f044e7121307f3f3648833190ca01b8d8ad4ce4e8a9d6b"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -384,8 +384,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 66183,
-      "sha256": "cf2087c65a2d02e2aaf0fd3ad81843ce7c7dd95969fdaed2a3f4053e9f0fca47"
+      "bytes": 66192,
+      "sha256": "4ac8200b1a201e53a577a64df5006c564bdbcec463098f68115944241f875fb9"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -449,8 +449,8 @@
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
-      "bytes": 30545,
-      "sha256": "8f650cd34c0f8e4ec118cd5ef10c671038a94724109796753a9438da2665b010"
+      "bytes": 30961,
+      "sha256": "d39e48820e72f5297001398783e0be4d8cfa7305e53f2ed1127436e21608f77d"
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
@@ -14124,8 +14124,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 84344,
-      "sha256": "f651151074ef55ca03f5f20885ea179e5cc53a55af7c65bb08b89450e70b5f61"
+      "bytes": 84912,
+      "sha256": "60d1c88c2b9e1415cabeb3fcc72e2d4a4ddda759d0a78a87eaa4b62a2428b19d"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14179,8 +14179,8 @@
     },
     {
       "path": "docs/development/onboarding-api.md",
-      "bytes": 20899,
-      "sha256": "4782f7a513780efb3f6409d373ffa8f98d51226a49af7ebb1eb540d48deccb9e"
+      "bytes": 21282,
+      "sha256": "5cc89e9cf4c8beca00758e212bd7878cc1d79448e3fd0aefa50b5991a09f771a"
     },
     {
       "path": "docs/development/openrouter-byok.md",
@@ -16249,8 +16249,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 31109,
-      "sha256": "29406d06e85bd82e624ca4476642527e937fcef554200f8d685ae3b1af2cb135"
+      "bytes": 31710,
+      "sha256": "dad2cfbca4141e19beadfe6810971c33e9b86624e92401feed0f8bcd5e260983"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -19364,8 +19364,8 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 5050,
-      "sha256": "9670a2d3669e8df9a0ddc1e9bebaa22c7a4425ce1ad088027979af6f70bd33d3"
+      "bytes": 5105,
+      "sha256": "78b32b182abde80c2ced6a65ba2603538ab53e65ea01321984da0fe6f62d3cf7"
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
@@ -19829,8 +19829,8 @@
     },
     {
       "path": "modules/positioning/freedom.module.json",
-      "bytes": 1169,
-      "sha256": "ae70cb496908f677f2582a6074bbeed5edccd7f9d3423bc171817b9dbcd7a014"
+      "bytes": 1217,
+      "sha256": "4fcf0c6c2b1b7b3d8d6b2bae56d233677611e7c2b7e8837571b6f99810e6b843"
     },
     {
       "path": "modules/positioning/guild-categories.ts",
@@ -19844,8 +19844,8 @@
     },
     {
       "path": "modules/positioning/member-tier.ts",
-      "bytes": 9172,
-      "sha256": "56be9442e97a2f2c2715f88034bba15963d2d4c1c048ea6578e7d7797d89265f"
+      "bytes": 9231,
+      "sha256": "f933f601c9b5ee2e9926ce451ec5f45e8e54845c92238a2d37f507f4fea0fd76"
     },
     {
       "path": "modules/positioning/onboarding.ts",
@@ -19929,8 +19929,8 @@
     },
     {
       "path": "modules/skill-submissions/freedom.module.json",
-      "bytes": 5634,
-      "sha256": "dd0dac1932dd8defc70122fbd5e54eecb521874f5fec4b5b30db4037a284fdc9"
+      "bytes": 5682,
+      "sha256": "22d1bbb144ecb2a5d593cc456e95fbf34a0a0142cb5825e846d0c14a299e4868"
     },
     {
       "path": "modules/skill-submissions/limits.ts",
@@ -19959,8 +19959,8 @@
     },
     {
       "path": "modules/skill-submissions/service.ts",
-      "bytes": 41495,
-      "sha256": "4bfdb3036265e7c6950e4ed9ea6068c378d69393a7f42f2901345d660d4c1fcf"
+      "bytes": 41514,
+      "sha256": "256f582cb18a75abb8d3333ae53d427cb6d5e67bf4e8856a2bd7567813a98d4a"
     },
     {
       "path": "modules/skill-submissions/sharing-lifecycle.md",
@@ -21274,8 +21274,8 @@
     },
     {
       "path": "packages/skill-upload-client/protocol.md",
-      "bytes": 4775,
-      "sha256": "56b7bc2590c00da1abbfea4a1943b9eb32b42d1c8502271e86c7549fa55756ea"
+      "bytes": 5187,
+      "sha256": "16dc87390b719b6463ca874ae6d3f323bd5c28cfb2f229f745edfce044a87dd8"
     },
     {
       "path": "packages/skill-upload-client/bin/freedom-skill-upload.mjs",
@@ -23544,8 +23544,8 @@
     },
     {
       "path": "tests/runtime/guild-member-tiers.test.ts",
-      "bytes": 19960,
-      "sha256": "851e8f20aa58cb9a022b32420572e9f95c57295a604c3003a2a027fc4ccce133"
+      "bytes": 22529,
+      "sha256": "81e063e0bef5b40b588d529017d85a123e3b1822fcde6ea8eb86924548a8203a"
     },
     {
       "path": "tests/runtime/guild-preferences.test.ts",
@@ -24359,8 +24359,8 @@
     },
     {
       "path": "tests/runtime/platform-json-body.test.ts",
-      "bytes": 12119,
-      "sha256": "409af7f113305a3be8c6a30522e9abe451eb9cabd6e0abd929961d4139ee7541"
+      "bytes": 13618,
+      "sha256": "c6794ef25b93849db263549bf19d7b8a544aef8a5483981313d40d0386013afa"
     },
     {
       "path": "tests/runtime/portal-build-benchmark.test.ts",
@@ -24654,8 +24654,8 @@
     },
     {
       "path": "tests/runtime/skill-submissions.test.ts",
-      "bytes": 55520,
-      "sha256": "ee31192b6300c024f7cbf193ef459f08debfadf024da04be33b2ae5703be2a0e"
+      "bytes": 58425,
+      "sha256": "36091a96db5c9af4ca9cab30ddb0d51a3c963329c9518745a596602b0bd3d77c"
     },
     {
       "path": "tests/runtime/skill-upload-chat.test.ts",
