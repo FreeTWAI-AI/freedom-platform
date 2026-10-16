@@ -103,7 +103,7 @@ test('cancellation request is not a terminal observation; confirmed cancellation
 });
 test('only reconciled infrastructure/non-dispatch yields a fallback proposal, never execution authority', () => {
   for (const state of ['infra_failure', 'not_dispatched']) {
-    const l = reconcile(proposeRoute(input()).ledger, observation(state, { pipeline: state === 'not_dispatched' ? null : 'pipeline-1', job: state === 'not_dispatched' ? null : 'job-1' }));
+    const l = reconcile(proposeRoute(input()).ledger, observation(state, { pipeline: state === 'not_dispatched' ? null : 'pipeline-1', job: state === 'not_dispatched' ? null : 'job-1', testCount: state === 'not_dispatched' ? 0 : 109, complete: state !== 'not_dispatched' }));
     const r = proposeRoute({ ...input(), ledger: l });
     assert.equal(r.action, 'fallback_proposal'); assert.equal(r.executionAuthorized, false);
     assert.equal(l.entries[0].reservedCredits, 1000);

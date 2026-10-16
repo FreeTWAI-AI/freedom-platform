@@ -19323,14 +19323,19 @@
       "sha256": "c4893deb3910bb88fad4d5ea7a32d30af9bffa741d6d7ad5c91b4a6a5304830d"
     },
     {
+      "path": "packages/contribution-tools/worker-unit-dispatch.mjs",
+      "bytes": 10319,
+      "sha256": "8c65e410a90122bafc00715f8d71e38136d9e2dc8e66200dc0e1a6df731ac714"
+    },
+    {
       "path": "packages/contribution-tools/worker-unit-routing.md",
-      "bytes": 9884,
-      "sha256": "69ba33119057bca4addba4f6e393cc1392f399a1c548ee6c382eeda1ddbdc69b"
+      "bytes": 16434,
+      "sha256": "4b043f8c981aa2f645ab16e4d48cc8c316a2e924149a533785e6b3ae8dc6567b"
     },
     {
       "path": "packages/contribution-tools/worker-unit-routing.mjs",
-      "bytes": 10652,
-      "sha256": "7670ee91f4df1a258ea839638d0f455c6c1d69deff323e24f996357bc429423d"
+      "bytes": 10699,
+      "sha256": "7edea7537358e094c4473134ffa57a99a85f1c74095e200b5eb5fc818d6511d4"
     },
     {
       "path": "packages/contribution-tools/workspace.mjs",
@@ -19553,9 +19558,14 @@
       "sha256": "86bb8bec0c94f86298ff7b182e8eab88b90657de9082b3aebdfa42a9f87ed261"
     },
     {
+      "path": "packages/contribution-tools/test/worker-unit-dispatch.test.mjs",
+      "bytes": 13297,
+      "sha256": "33787df3b48f993b1ad9b73bcf5fa917cff33a2c3eb884bb0757797b14c72bd3"
+    },
+    {
       "path": "packages/contribution-tools/test/worker-unit-routing.test.mjs",
-      "bytes": 10079,
-      "sha256": "cde37554d5bf80cb00a909a0b78cb25f260c7f92977484f1e9bb5410599626a3"
+      "bytes": 10166,
+      "sha256": "b1503edf0e3a09602b05a1a20375278443c68de140828fdf543f57a767217ac3"
     },
     {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json",

@@ -1,11 +1,11 @@
 # Disabled worker-unit routing proposal
 
-This is a small **offline proposal model**, not an installed CI controller.
+This is a small **proposal model and transport-injected adapter**, not an installed CI controller.
 `worker-unit-routing.mjs` is not imported by a workflow, CLI or consumer export.
-Its `enabled` argument defaults to false; even `true` only produces data marked
+The model's `enabled` argument defaults to false; even `true` only produces data marked
 `executionAuthorized: false`. It cannot read credentials, call providers, publish
 checks, update refs or run candidate code. All current GitHub checks and provider
-permissions remain unchanged. No CircleCI run is requested by this increment.
+permissions remain unchanged. No live CircleCI run is requested by this increment. The adapter invokes only local fixture transports during verification; its separate switch also defaults off.
 
 Scope is only the existing complete `ci.worker-unit` suite. The existing
 `static-worker` lane still owns contracts, checks, builds, dry runs and media
@@ -31,7 +31,7 @@ only before any CircleCI reservation. There is no automatic cycle rollover,
 credit refund, reservation expiry, or pruning. At 1,000 entries the model holds;
 operators must reconcile/retain history before a separately designed rollover.
 Never replace a ledger with `createLedger()` to recover capacity or erase an
-unknown dispatch. Cross-cycle deduplication/carry-forward is an activation gap.
+unknown dispatch. The adapter retains bounded cycle history for cross-cycle ownership, described below. Automatic rollover, pruning and billing settlement remain activation gaps.
 
 One source/suite has one provider choice; a repeated or altered attempt does not
 allocate again. A CircleCI proposal starts in `dispatch_unknown`, with the full
@@ -54,9 +54,7 @@ cancelled cases cannot pass. Failure overrides a claimed infrastructure outcome.
 Terminal results cannot be overwritten by a later success. Confirmed cancellation
 remains cancelled, with no automatic fallback. Only independently reconciled
 infrastructure failure or confirmed non-dispatch yields `fallback_proposal`.
-That is **not a dispatch instruction**: a future adapter must atomically record
-and deduplicate a separate GitHub fallback attempt before executing it; that
-adapter is intentionally absent. Never classify an ordinary failed/timeout suite
+That is **not a dispatch instruction** from the model. The transport-injected adapter now atomically records and deduplicates a separate GitHub fallback attempt before calling its dispatch port. No live GitHub dispatch transport is installed. Never classify an ordinary failed/timeout suite
 as infrastructure failure to get a green rerun. Reserved cost remains held even
 after reconciliation; billing settlement is outside this bounded increment.
 
@@ -73,7 +71,7 @@ are siblings; after one wins, the other's update is non-fast-forward and fails.
 The loser must reread/recompute admission, never merge stale reservations or
 force an update. Every transition, including reconciliation/fallback, needs the
 same serialization. Ref reads and commit ancestry must be independently checked.
-No network adapter or writer is installed here.
+The injected adapter supplies this protocol to a storage port; no network transport or writer is installed here.
 
 A timed-out ref PATCH is ambiguous. Read the ref and its retained immutable
 history to establish whether this exact proposal committed; neither a timeout
@@ -116,9 +114,10 @@ cannot enforce a trustworthy hard budget. Force-false alone is not authorization
    admission budget is not a hard organization-wide bill cap against other repos,
    manual reruns, uncapped jobs or noncompute charges. If no enforceable maximum
    and authoritative lower bound exist, leave routing disabled/on GitHub.
-4. Implement/test bounded authenticated ref/dispatch/reconciliation adapters,
-   lost acknowledgements, cross-cycle carry-forward/deduplication, terminal
-   evidence provenance, and atomic fallback-attempt ownership. Do not promote
+4. Implement and verify authenticated HTTP transports for the bounded adapter.
+   Local fixtures now cover lost acknowledgements, retained cross-cycle ownership
+   and atomic fallback ownership. Live terminal evidence provenance, cycle
+   creation/retention and crash recovery still require verification. Do not promote
    synthetic fixtures into provider evidence. Prove candidate isolation from the
    writer, runner installation and observation publisher; #718's runner refetch
    is not an independent sandbox against malicious candidate code.
@@ -133,7 +132,7 @@ cannot enforce a trustworthy hard budget. Force-false alone is not authorization
 Run from the repository root with Node 24 and Git:
 
 ```sh
-node --test packages/contribution-tools/test/worker-unit-routing.test.mjs
+node --test packages/contribution-tools/test/worker-unit-routing.test.mjs packages/contribution-tools/test/worker-unit-dispatch.test.mjs
 python3 scripts/update-inventory.py
 npm run verify:inventory
 git diff --check
@@ -152,3 +151,88 @@ The delegated historical CircleCI pipeline 2 observation was 38 files/109 tests,
 `1e584aa8734addfe251c7f081cf51cc84a52567f`. It is not #718 head evidence or this
 branch's evidence; it was not rerun here. That pilot omits `resource_class`;
 the observed Docker Large default is not a stable cost contract.
+
+
+## Executable adapter slice (disabled, local transports only)
+
+`worker-unit-dispatch.mjs` exports `workerUnitAdapter(ports, {enabled:false})`
+and `createDispatchState(cycles)`. There is no CLI or ambient feature flag. With
+its default switch, dispatch/reconcile/fallback return disabled without reading
+or calling any port. Opting in permits calls to explicitly supplied trusted
+ports. This is executable protocol logic tested with local storage/provider
+fixtures, **not verified live routing or an installed HTTP integration**.
+
+The fixed ports are:
+
+| Port | Request / obligation |
+| --- | --- |
+| `read` | Read the fixed operational ref, return exact `head` and parsed `state`; bounded strict JSON acquisition must happen in the installed port. |
+| `commit` | Receive fixed ref/path, complete bytes/digest, sole parent and `force:false`; create immutable objects and confirm that exact ref update with `status:committed`, matching `sha256`, and resulting commit `head`. Rejection/unknown never grants ownership. |
+| `dispatch` | Receive only provider, exact worker binding and reviewed cost contract; call one fixed reviewed provider workflow/pipeline, propagate attempt identity, return acknowledged pipeline/run ID. No candidate command, URL, config branch or credential input is accepted by the adapter. |
+| `observe` | Receive provider, expected binding/cost contract and known pipeline/job. Fetch authenticated provider and complete runner evidence; return a bound model observation, or `state:unknown`. A no-match search alone is not proof of non-dispatch. |
+
+Every call receives an AbortSignal and a bounded deadline (default 5 seconds,
+maximum 30 seconds). No transport call is automatically retried. A timeout can
+mean that a remote write/POST completed; ports must honor cancellation where
+possible, but an abort never proves non-execution. Exceptions return stable
+reasons without echoing potentially credential-bearing transport messages.
+
+Storage contains up to 12 ordered non-overlapping cycle ledgers plus a separate
+GitHub fallback ledger, with at most 1,000 total attempts and 2 MiB serialized
+state. Every primary source/suite has exactly one owner across **all** retained
+cycles. Fallback has a deterministic distinct attempt ID, the same exact
+source/runner/suite, and at most one GitHub owner. State validation rejects
+fallback without its retained, reconciled CircleCI infrastructure/non-dispatch
+parent. No automatic deletion or cycle creation is implemented. A new cycle
+must retain all previous ownership, and unresolved CircleCI reservations in a
+previous cycle block new admission rather than silently resetting the budget.
+These retained ledgers do not establish billing settlement or an unlimited
+archive: stop at the bounds and separately review rollover/retention.
+
+`dispatch(input)` computes the existing route and atomically stores the
+reservation/ownership before its single POST. Only the invocation receiving the
+matching successful commit acknowledgement can POST; rejected or unknown commits
+hold. Known provider pipeline IDs are persisted with a second atomic update.
+A lost second update still cannot permit redispatch. Fork/merge-group events
+return `github_native` without any port calls; existing GitHub workflows retain
+responsibility for those unsupported events.
+
+`reconcile(binding)` fetches evidence through `observe` and atomically persists
+only the exact owned binding. Running observations bind the exact job. Unknown,
+stale or malformed evidence does not release ownership. Terminal failures cannot
+be overwritten by later success. Both CircleCI and GitHub outcomes use the same
+failure classification; fallback test failure is not a successful recovery.
+
+`fallback(binding)` requires the retained primary CircleCI state to be
+`infra_failure` or `not_dispatched`. It atomically claims the deterministic
+GitHub attempt, then sends once. Concurrent callers, lost commit or POST
+acknowledgements, subsequent cycles and restarts cannot create a second fallback.
+Cancellation alone never qualifies. An interrupted owner can strand an unknown
+attempt; reconciliation is required, never a timer-based takeover. The adapter
+does not request remote cancellation: cancellation evidence is reconciled through
+the observation port, and cancelling the controller preserves unknown ownership.
+
+### Exact live prerequisites requiring separate approval
+
+- A distinct installed GitHub writer with repository **Contents read/write** for
+  immutable blob/tree/commit creation and the operational-ref update. This is a
+  repository-wide grant: separately approved ref rules must exclude unrelated
+  candidate workflows, force updates/deletion and unintended bypass. No general
+  Actions identity allowlist is sufficient evidence of that isolation.
+- GitHub **Actions write** for the one reviewed fallback `workflow_dispatch`,
+  plus run/job/artifact read access for reconciliation. Its fixed workflow must
+  accept exact candidate/runner/suite/attempt data and execute without controller
+  credentials. This PR does not add that workflow or request Checks write.
+- A separately provisioned CircleCI v2 personal credential whose actual scoped
+  UI/API permits the required pipeline trigger and pipeline/workflow/job/artifact
+  reads with the minimum proven Read/Write scope. Admin is not assumed. Verify
+  project/pipeline IDs and no attached candidate-visible provider secrets.
+- An independently reviewed immutable controller installation, authenticated
+  evidence acquisition and secret-free candidate execution, enforced whole-job
+  resource/cost bound and fresh conservative quota source. The fixture switches
+  and `assurance:transport-fixture-unverified` outputs do not grant these powers.
+
+No credentials were created or stored, no security policy changed, and no live
+provider operation was tested. The local tests verify the protocol under the
+stated port contracts; they do not prove those contracts are enforced by GitHub,
+CircleCI, an operating system or an external evidence publisher.

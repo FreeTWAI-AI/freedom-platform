@@ -44,10 +44,10 @@ function validateLedger(l) {
       validatePolicy(e.costContract);
       requireValue(e.costContract.maxJobCredits === e.reservedCredits && matches(digest, e.quotaEvidence) &&
         e.costContract.runnerSha === e.binding.runnerSha && e.costContract.suiteDigest === e.binding.suiteDigest);
-      if (e.state === 'dispatch_unknown') requireValue(e.pipeline === null && e.job === null && e.evidence === null);
-      else requireValue(matches(digest, e.evidence) && (e.state === 'not_dispatched' ? e.pipeline === null && e.job === null : matches(id, e.pipeline) && matches(id, e.job)));
-    } else requireValue(e.reservedCredits === 0 && e.costContract === null && e.quotaEvidence === null &&
-      e.state === 'not_dispatched' && e.pipeline === null && e.job === null && e.evidence === null);
+
+    } else requireValue(e.reservedCredits === 0 && e.costContract === null && e.quotaEvidence === null);
+    if (e.state === 'dispatch_unknown') requireValue(e.job === null && e.evidence === null);
+    else requireValue(matches(digest, e.evidence) && (e.state === 'not_dispatched' ? e.pipeline === null && e.job === null : matches(id, e.pipeline) && matches(id, e.job)));
   }
   requireValue(l.entries.reduce((n, e) => n + e.reservedCredits, 0) <= LIMITS.admissionCredits);
 }
@@ -109,7 +109,7 @@ export function proposeRoute({ ledger, request, now, enabled = false, policy = n
   } else if (enabled) reason = 'unsupported_event_or_fork';
   const next = structuredClone(ledger);
   next.entries.push({ binding: { ...request.binding }, provider: 'github', reservedCredits: 0,
-    state: 'not_dispatched', pipeline: null, job: null, evidence: null, costContract: null, quotaEvidence: null });
+    state: 'dispatch_unknown', pipeline: null, job: null, evidence: null, costContract: null, quotaEvidence: null });
   return result('github_proposal', reason, next);
 }
 
@@ -124,10 +124,11 @@ export function reconcile(ledger, observation) {
     typeof observation.complete === 'boolean' && ['testCount', 'failed', 'skipped', 'cancelled'].every(k => integer(observation[k])));
   const next = structuredClone(ledger);
   const e = next.entries.find(e => same(e.binding, observation.binding));
-  requireValue(e && e.provider === 'circleci' && ['dispatch_unknown', 'running'].includes(e.state));
+  requireValue(e && ['dispatch_unknown', 'running'].includes(e.state));
   requireValue(e.pipeline === null || e.pipeline === observation.pipeline);
   requireValue(e.job === null || e.job === observation.job);
   requireValue(observation.state === 'not_dispatched' ? e.pipeline === null && observation.pipeline === null && observation.job === null : observation.pipeline !== null && observation.job !== null);
+  if (observation.state === 'not_dispatched') requireValue(!observation.complete && observation.testCount === 0 && observation.failed === 0 && observation.skipped === 0 && observation.cancelled === 0);
   // Actual assertion failures override every purported infrastructure outcome.
   let state = observation.state;
   if (observation.failed > 0 || observation.skipped > 0 || observation.cancelled > 0 ||
