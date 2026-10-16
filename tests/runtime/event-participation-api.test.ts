@@ -253,7 +253,7 @@ test('cancelled actual own participation remains accessible with stable calendar
 for(const change of ['event_cancelled','rsvp_cancelled','no_history'] as const){
   test(`guest calendar uses current participation after a blocked ${change} transaction`,async()=>{
     const g=await guest(eventId,`${change}@local.test`,change!=='no_history');
-    const applicationName=`${schema}_guest_${change}`;
+    const applicationName=`fp_calendar_${randomUUID()}`;
     const reader=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema} -c statement_timeout=10000`,application_name:applicationName,max:1});
     const locker=await pool.connect();
     let pending:Promise<{value:{calendar:string;filename:string}}|{error:unknown}>|undefined;

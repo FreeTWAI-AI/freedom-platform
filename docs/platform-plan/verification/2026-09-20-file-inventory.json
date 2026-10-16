@@ -22274,8 +22274,8 @@
     },
     {
       "path": "tests/runtime/event-participation-api.test.ts",
-      "bytes": 27604,
-      "sha256": "c99181011bda9e8121d0993e6487d1b615df5985e1d5a786d5d95eaaa5ff3024"
+      "bytes": 27606,
+      "sha256": "61916cea3d6d8f894077e559ef16979983b26617c3641138bdf6a7bcc8cda6c7"
     },
     {
       "path": "tests/runtime/event-participation-reminders.test.ts",
@@ -22824,8 +22824,8 @@
     },
     {
       "path": "tests/runtime/member-experience.test.ts",
-      "bytes": 39661,
-      "sha256": "76ab445112b59e77e076ffdb22c7a8a567e18e9777bb469f397cfdaad20018f2"
+      "bytes": 39666,
+      "sha256": "05a1ffa4ed996256a23c2b03081c4d2f85d70e13f01dcce9972eb9a1856393aa"
     },
     {
       "path": "tests/runtime/member-model-http-adversarial.test.ts",
