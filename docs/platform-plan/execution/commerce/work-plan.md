@@ -70,7 +70,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | wp04-seller | 賣家端的 M2 後端：`FREEDOM_COMMERCE_CONSOLE_ENABLED`（EC-SPEC-10 §2.2）、訂單讀取與聯絡卡（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 進行中（`fc/wp04-seller`） |
 | wp04-refund-api | API 退款：operations outbox、QueryTrade/V2 與 DoAction、結果不明、每日關帳時段（EC-SPEC-04 §7.3～7.4）；正式環境預設關閉 | Codex | wp04-seller | C2 受控試用排定時 |
 | buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 完成（`fc/buyer-pay` `296e02e7`，整合 `9703443b`） |
-| b07-live | B07、B06 接真的查詢與重新付款端點的 E2E（buyer-pay 當時只能用 `page.route` 回應） | flash | wp04-queries、buyer-pay | 進行中（`fc/b07-live`） |
+| b07-live | B07、B06 接真的查詢與重新付款端點的 E2E（buyer-pay 當時只能用 `page.route` 回應） | flash | wp04-queries、buyer-pay | 完成（`fc/b07-live` `dce5c604`，整合 `2586d796`） |
 | emails | 交易信件的寄送：`FREEDOM_COMMERCE_EMAIL_ENABLED`、不含個資的信件佇列 `commerce_outbound_emails`、到期工作的 `email`、寄出前寫日誌、Worker 的 `EMAIL` binding 與 fixture sender、寄送打開時的 B10 表單與訂單頁的寄信說明（EC-SPEC-10 §2.2、§6，EC-SPEC-02 §4.2）；打開寄信仍由 Ted 決定 | argon | wp04-queries、buyer-pay、信件範本 | 進行中（`fc/emails`） |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
 | 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
@@ -261,6 +261,23 @@ Codex 另外修了一個併發問題（`05295d2a`：兩個查詢同時遇到 403
 
 三個工作從同一個 SHA 開出。emails 的新測試路徑先登記（`0090248d`）。b07-live 只加 E2E：B07 與 B06 不模擬任何 API，
 用真的端點跑查詢付款結果、重新付款與同一訂單的查詢限額。
+
+`151c0ba0` 的整合驗證：
+- 都過：typecheck、契約、build、付款 runtime 573/573、checkout 258/258、商店 45/45、cloudflare 543/543、
+  selector 42/42、未登記路徑 0、worker 123/123、E2E（查詢 14/14、付款 18/18、店面 15/15）、inventory。
+- 完整 runtime（10:08Z～11:42Z）共 5906 項：5895 過、10 失敗、1 取消。
+  - 路由矩陣的計數失敗：wp04-queries 新增的驗證付款路由沒有分類，`5dc52a16` 補上。
+  - 其餘 9 個檔案的失敗都是全套負載下的 statement timeout、連線逾時與測試逾時。單獨重跑 223/223 通過，不是回歸。
+
+路由矩陣補上這條路由後，非成員的請求回 429，不是 404。原因是帳戶的驗證付款額度（每小時 10 次）在授權之前就扣：
+- 沒有權限的人可以用光店家的額度；
+- 從 429 與 404 的差別可以知道帳戶存在。
+
+`160417fe` 改成先做命令本身的授權（商店實例、`store:read`、owner／admin、帳戶查找）再扣額度，並加上回歸測試。
+EC-SPEC-09 §4 同步（`b0a1c3b8`）。驗證：付款開通 32/32、路由矩陣 72/72、typecheck 通過。
+
+b07-live 通過審查，合併為 `2586d796`。審查時刪掉一個沒用到的讀取函式。驗證：店面付款 E2E 11/11，三個新測試各重跑三次
+9/9。`feat/freedom-commerce` 快轉到 `151c0ba0`。
 
 ## 6. 共用檔案
 
