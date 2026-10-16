@@ -30,7 +30,7 @@ export async function createHostedStorePhotoHarness(){
   const runtimeUrl=new URL(url);runtimeUrl.username=role;runtimeUrl.password='';
   const runtime=new Pool({connectionString:runtimeUrl.toString(),options:`-c search_path=${h.schema} -c statement_timeout=20000`,max:12});
   const store=new ObservedPhotoStore(),assets=createStorefrontProductPhotoLifecycle(runtime,{store});
-  const application=(uploads=true)=>createApp(runtime,h.origin,'local',{guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,storePhotoAssetStore:store,storePhotoAssets:assets,storePhotoUploadsEnabled:uploads});
+  const application=(uploads=true,extra:NonNullable<Parameters<typeof createApp>[3]>={})=>createApp(runtime,h.origin,'local',{guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,storePhotoAssetStore:store,storePhotoAssets:assets,storePhotoUploadsEnabled:uploads,...extra});
   const app=application();
   const ok=(reply:Reply,status=200)=>{assert.equal(reply.status,status,JSON.stringify(reply.data));return reply.data;};
   const call=(method:string,path:string,session?:Session,body?:unknown,headers:Record<string,string>={})=>h.call(method,path,session,body,headers,app);

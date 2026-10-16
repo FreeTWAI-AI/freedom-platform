@@ -1,6 +1,8 @@
+import {parseSupplierConsoleRoute} from '../../../../modules/agent-commerce/supplier-console/ui/route';
+import {PageLoadBoundary} from '../LazyPage';
 import {ProductMediaPageSchema,type ProductMediaView} from '../../../../contracts/guild-launchpad/v1/hosted-store-media';
 import {HostedStorePhoto} from './HostedStorePhoto';
-import {useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type RefObject} from 'react';
+import {lazy, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type RefObject} from 'react';
 import {z} from 'zod';
 import {OpaqueId} from '../../../../contracts/common/v1/identity';
 import {
@@ -59,12 +61,19 @@ function errorText(error: unknown) {
   return '暫時無法確認回應。請重新載入後再試一次。';
 }
 type Preview = z.infer<typeof StorePreviewSchema>;
-type RegisterLeave = (guard: (() => boolean) | null) => void;
-export function HostedStore({client, enabled, locationHash, userId, registerLeave, photosEnabled=false, photoUploadsEnabled=false}: {client: PortalClient; photosEnabled?:boolean;photoUploadsEnabled?:boolean;enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
+const SupplierConsole = lazy(() => import('../../../../modules/agent-commerce/supplier-console/ui/SupplierConsole').then(m => ({default:m.SupplierConsole})));
+type RegisterLeave = (guard: ((nextHash:string|null) => boolean) | null) => void;
+export function HostedStore({client, enabled, locationHash, userId, registerLeave, photosEnabled=false, photoUploadsEnabled=false, consoleEnabled=false}: {consoleEnabled?:boolean;client: PortalClient; photosEnabled?:boolean;photoUploadsEnabled?:boolean;enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
+  const consoleRoute = parseSupplierConsoleRoute(locationHash);
+  if (consoleEnabled && enabled && consoleRoute) {
+    const key = `${userId}:${client.sessionGeneration}:${consoleRoute.tenantId}:${consoleRoute.instanceId}`;
+    return <PageLoadBoundary label="供應商營運中心" resetKey={key}><SupplierConsole key={key} client={client} userId={userId} route={consoleRoute} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/></PageLoadBoundary>;
+  }
   const retained = sellerOrdersRoute(locationHash) ?? (!enabled ? sellerOrdersRoute(locationHash + '/orders') : null);
   if (retained?.supplier) return <HostedSupplierOrders key={`${userId}:${client.sessionGeneration}:${retained.tenantId}:${retained.instanceId}`} client={client} route={retained}/>;
   if (retained) return <HostedSellerOrders key={`${userId}:${client.sessionGeneration}:${retained.tenantId}:${retained.instanceId}`} client={client} route={retained} registerLeave={registerLeave}/>;
   if (!enabled) return <p className="banner" role="status">目前不開放商店設定。若要查看或取消既有預留，請開啟你保存的店主管理連結；登入後會重新確認目前權限。</p>;
+  if (consoleRoute && locationHash.split('?')[0].split('/')[3] === 'supply') return <HostedSupplyCatalog key={`${userId}:${client.sessionGeneration}:${consoleRoute.tenantId}:${consoleRoute.instanceId}`} client={client} tenantId={consoleRoute.tenantId} instanceId={consoleRoute.instanceId} registerLeave={registerLeave}/>;
   const path = locationHash.replace(/^#/, '').split('/');
   if (path.length === 1 && path[0] === 'stores') return <StoreList key={userId} client={client}/>;
   if (path.length === 2 && path[0] === 'stores' && path[1] === 'supply') return <SupplyCatalogList key={`${userId}:${client.sessionGeneration}`} client={client}/>;

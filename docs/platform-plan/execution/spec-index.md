@@ -1,5 +1,9 @@
 # Execution spec index
 
+## 供應商營運中心（2026-10-15）
+
+[Supplier Console 規格](supplier-console/README.md)：現況差異、SC-01～12 頁面對照、SC-SPEC-01～06、工作包與第一條供貨旅程；v1.1 物流補充的 SL-01～05 頁面規格在 SC-SPEC-07（領域屬 Commerce）。進度沿用 #234，驗收全部 `not_run`；不改下列既有規格的狀態。
+
 ## 公會啟動台與可攜業務空間（2026-10-05 target）
 
 新增 [SP-00–SP-12 規格索引](guild-launchpad/README.md)，22決策、64需求及60待執行案例按原提供JSON追蹤。這組位於獨立目錄，未改下面既有package規格/里程碑與完成狀態；現行原碼、目標及未決政策分開記錄。
