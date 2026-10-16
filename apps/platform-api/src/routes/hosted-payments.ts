@@ -22,15 +22,22 @@ export function hostedPaymentOptions(runtime:PlatformRuntime,environment:Freedom
 }
 export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, environment: FreedomEnv, origin = runtime.publicOrigin) {
   const app = new Hono();
-  const { email } = hostedCheckoutOptions(origin, runtime, environment);
   const journal = runtime.commercePayments?.journal ?? runtime.commerceJournal;
-  const afterResponse=(scheduled:{attemptId:string;orderId:string|null}|null,trigger:'notification'|'browser_return')=>{
+  const afterResponse=(scheduled:{attemptId:string|null;orderId:string|null}|null,trigger:'notification'|'browser_return')=>{
+    if(!scheduled||!runtime.afterResponse||runtime.commerceSettings?.quarantine)return;
     const transport=runtime.commerceQueryTransport,keyring=runtime.commerceCredentialKeyring;
-    if(!scheduled||!transport||!keyring||!runtime.afterResponse||runtime.commerceSettings?.quarantine)return;
+    const emailEnabled=runtime.commerceSettings?.emailEnabled===true,emailSender=runtime.commerceEmailSender;
+    const canQuery=Boolean(scheduled.attemptId&&transport&&keyring);
+    const canEmail=Boolean(scheduled.orderId&&emailEnabled&&emailSender&&journal&&origin);
+    if(!canQuery&&!canEmail)return;
     try{runtime.afterResponse(async()=>{
-      const emails=scheduled.orderId?(await pool.query<{email_id:string}>("SELECT email_id FROM commerce_outbound_emails WHERE order_id=$1 AND state='queued'",[scheduled.orderId])).rows.map(r=>r.email_id):[];
-      const targets=[scheduled.attemptId,...emails];
-      await runDueCommerceWork(pool,{transport,keyring,freedomEnv:environment,email,emailEnabled:runtime.commerceSettings?.emailEnabled===true,emailSender:runtime.commerceEmailSender,journal,origin},{targets,limit:Math.max(2,targets.length),trigger});
+      const {email}=hostedCheckoutOptions(origin,runtime,environment);
+      if(scheduled.attemptId&&transport&&keyring)
+        await runDueCommerceWork(pool,{transport,keyring,freedomEnv:environment,email},{targets:[scheduled.attemptId],limit:1,trigger});
+      if(scheduled.orderId&&runtime.commerceSettings?.emailEnabled&&runtime.commerceEmailSender&&journal&&origin){
+        const emails=(await pool.query<{email_id:string}>("SELECT email_id FROM commerce_outbound_emails WHERE order_id=$1 AND state='queued' ORDER BY created_at LIMIT 10",[scheduled.orderId])).rows.map(r=>r.email_id);
+        if(emails.length)await runDueCommerceWork(pool,{freedomEnv:environment,emailEnabled:true,emailSender:runtime.commerceEmailSender,journal,origin},{targets:emails,limit:emails.length,trigger});
+      }
     });}
     catch{console.error('commerce_after_response_failed');}
   };
@@ -74,6 +81,7 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (message.kind === 'invalid')
       return invalid(message.reason);
     try {
+      const { email } = hostedCheckoutOptions(origin, runtime, environment);
       const scheduledAttempt=await receivePaymentNotification(pool, { account, message, credentialVersion: credentials[message.keyIndex].credentialVersion, quarantine: runtime.commerceSettings?.quarantine ?? false, ...(email?{email}:{}) });
       afterResponse(scheduledAttempt,'notification');
     }

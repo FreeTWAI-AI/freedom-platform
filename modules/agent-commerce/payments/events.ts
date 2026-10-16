@@ -46,7 +46,12 @@ export function receivePaymentNotification(pool: Pool, input: {
       return null;
     if (!attempt || !input.quarantine)
       await applyPaymentEvent(q, event.event_id, { email: input.email });
-    return attempt && !input.quarantine && (await q.query("SELECT 1 FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1 AND due_at<=clock_timestamp()",[attempt.attempt_id])).rowCount ? {attemptId:attempt.attempt_id as string,orderId:(attempt.order_id??null) as string|null} : null;
+    if (!attempt || input.quarantine)
+      return null;
+    const queryDue = Boolean((await q.query("SELECT 1 FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1 AND due_at<=clock_timestamp()", [attempt.attempt_id])).rowCount);
+    const attemptId = queryDue ? (attempt.attempt_id as string) : null;
+    const orderId = (attempt.order_id ?? null) as string | null;
+    return attemptId || orderId ? { attemptId, orderId } : null;
   });
 }
 /** Shared by synchronous receipt and deferred replay. Machine account provenance
