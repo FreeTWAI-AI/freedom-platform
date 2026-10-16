@@ -46,6 +46,7 @@ print(len(x['cases']))`],{input:JSON.stringify({bundle,cases}),encoding:'utf8',t
   assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),66);
 });
 test('shipping contracts enforce bounds, money granularity, paths and liability code points',()=>{
+  for(const code of ['invalid_command_json','origin_rejected','host_rejected','json_required','body_too_large','login_required','csrf_rejected','onboarding_required','scope_kind_unavailable','foundation_mapping_unavailable','tenant_context_unavailable'])assert.equal(wire.ShippingErrorCodeSchema.parse(code),code);
   for(const code of ['not_found','role_required','not_activated','blocked_term'])assert(wire.ShippingFieldErrorSchema.safeParse({path:'services.0.ship_from_location_id',code}).success);
   for(const path of ['services.100.x','services.-1.x','services.0.x\n','a'.repeat(81)])assert(!wire.ShippingFieldErrorSchema.safeParse({path,code:'format'}).success);
   const base={offered:false,fees:[],return_location_id:randomUUID(),liability:'😀'.repeat(1000),recipient_retention_days:1,accept_within_hours:1};
