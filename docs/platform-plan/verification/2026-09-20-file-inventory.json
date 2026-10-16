@@ -17374,8 +17374,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/partner/distribution-photos.tsx",
-      "bytes": 7262,
-      "sha256": "476c6ebcad39e73e57df3afff209dfca93da45a91e5859b31f1aee3eda638002"
+      "bytes": 7377,
+      "sha256": "28e566ba85c70412bf9cd0be9b9f3f41c9c4e3f195e0f1a00f2e7441d22481c1"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/partner/partner-materials.ts",

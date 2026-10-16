@@ -46,7 +46,6 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
  };
  const stop=(product:DistributionPhotoItem)=>enabled&&writable&&<button type="button" className="btn btn-ghost btn-small" disabled={!allowed} onClick={()=>send(product)}>停止使用</button>;
  const above:ReactNode=<>
-  {!enabled&&<p className="field-hint">這個環境尚未開放合作素材店面照片。</p>}
   {enabled&&loading&&<p role="status">正在讀取店面照片…</p>}
   {enabled&&error&&<div className="stack"><p role="alert" className="banner banner-error">目前無法讀取店面照片。{error}</p><div className="actions"><button type="button" className="btn btn-ghost btn-small" onClick={()=>void load()}>重試</button></div></div>}
   {rows.filter(row=>row.state==='source_unavailable').map(row=><div key={row.product_id} className="stack"><p>「{row.title}」的店面照片來源已撤回或不再開放公開使用，下次發布時不會顯示。</p><div className="actions">{stop(row)}</div>{row.photo&&<img src={row.photo.read_path} alt={`${row.title}的店面草稿照片`} loading="lazy" width={96} className="distribution-photo-thumb"/>}</div>)}
@@ -56,9 +55,11 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
  </>;
  const renderMaterial=(material:PartnerMaterial):ReactNode=>{
   if(material.kind!=='image'||material.access!=='public_use')return null;
+  // Off here means the environment, not this product: one line per usable image, like the material-file hint.
+  if(!enabled)return <p className="field-hint">這個環境尚未開放把素材用在公開店面。</p>;
   return <div className="stack">{material.applies_to.map(id=>{
    const row=rows.find(item=>item.product_id===id);
-   if(!row)return <p className="field-hint" key={id}>{error||loading||!enabled?'店面照片狀態尚未確認。':'供貨確認後才能用在公開店面'}</p>;
+   if(!row)return <p className="field-hint" key={id}>{error||loading?'店面照片狀態尚未確認。':'供貨確認後才能用在公開店面。'}</p>;
    const same=row.source?.material_id===material.material_id;
    return <div className="stack" key={id}><strong>{row.title}</strong>
     {same&&row.state==='in_use'&&<span className="badge">店面使用中（第 {row.source!.version_no} 版）</span>}
