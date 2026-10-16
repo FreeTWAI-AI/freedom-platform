@@ -113,7 +113,7 @@ test('schema168 recognition keeps schema167 approvals separate and rejects unkno
   const renamed = fixture(); renamed.scan.ledger.at(-1).name = '169_unreviewed.sql';
   renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
   assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
-  const future = fixture(); future.scan.ledger.push({name: '169_unreviewed.sql', sha256: 'e'.repeat(64)});
+  const future = fixture(); future.scan.ledger.push({name: '170_unreviewed.sql', sha256: 'e'.repeat(64)});
   future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
   assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
 });
