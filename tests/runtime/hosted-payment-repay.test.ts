@@ -35,6 +35,27 @@ function install(p:Placed,status='0',error?:'timeout'|'network'){
 }
 async function failed(p:Placed){await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='failed',failed_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[p.payment.attempt_ref]);}
 async function expectFailure(p:Placed,code:string){const r=await resume(p);assert.equal(r.status,409,JSON.stringify(r.data));assert.equal(r.data.code,code);return r;}
+async function notify(p:Placed,rtnCode:string){
+  const attempt=(await attempts(p))[0],body=encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:attempt.merchant_trade_no,
+    TradeNo:'T1234567',RtnCode:rtnCode,RtnMsg:'合成付款結果',TradeAmt:'5',SimulatePaid:'0',PaymentDate:'2026/10/15 10:20:30',PaymentType:'Credit_CreditCard'},
+    EcpayKeyPair.of(p.provider.material.hash_key,p.provider.material.hash_iv),'sha256'));
+  const request=new Request(f.origin+'/api/v1/provider-callbacks/ecpay/'+p.provider.accountRef+'/payment',
+    {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','CF-Connecting-IP':'192.0.2.1'},body});
+  Object.defineProperty(request,'cf',{value:{colo:'TEST'}});
+  const response=await f.app.fetch(request);assert.equal(response.status,200);assert.equal(await response.text(),'1|OK');
+}
+test('a pending confirmation followed by a failed notification permits re-pay and its DTO',async()=>{
+  const p=await oldAttempt();await notify(p,'10300066');await notify(p,'0');const t=install(p);
+  assert.equal((await attempts(p))[0].state,'failed');
+  const dto=await view(p);assert.equal(dto.payment_state,'unpaid');assert.equal(dto.can_resume_payment,true);
+  const result=await resume(p);assert.equal(result.status,201,JSON.stringify(result.data));
+  const rows=await attempts(p);assert.equal(rows.length,2);assert.equal(rows[1].sequence,2);assert.equal(result.data.attempt_ref,rows[1].attempt_id);assert.equal(t.calls,0);
+});
+test('an unresolved pending confirmation still blocks re-pay and its DTO',async()=>{
+  const p=await oldAttempt();await notify(p,'10300066');const t=install(p);
+  const dto=await view(p);assert.equal(dto.payment_state,'pending');assert.equal(dto.can_resume_payment,false);
+  await expectFailure(p,'payment_result_pending');assert.equal((await attempts(p)).length,1);assert.equal(t.calls,0);
+});
 test('an unconsumed attempt resumes with one new token and no new attempt',async()=>{
   const p=await f.placed(),t=install(p);assert.equal((await view(p)).can_resume_payment,true);
   const r=await resume(p);assert.equal(r.status,201,JSON.stringify(r.data));assert.equal(r.data.attempt_ref,p.payment.attempt_ref);assert.notEqual(r.data.handoff_url,p.payment.handoff_url);assert.equal((await attempts(p)).length,1);assert.equal(t.calls,0);assert.equal(r.response.headers.get('Cache-Control'),'no-store');assert.equal(r.response.headers.get('Referrer-Policy'),'no-referrer');

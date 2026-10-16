@@ -130,6 +130,10 @@ export async function createOrderPaymentAttempt(q:PoolClient,input:{store:Checko
       }
       throw Error('payment_trade_number_unavailable');
 }
+const unresolvedPendingConfirmationSQL=(attemptIdSQL:string)=>`EXISTS(SELECT 1 FROM commerce_hosted_payment_events e
+  WHERE e.attempt_id=${attemptIdSQL} AND e.outcome='pending_confirmation'
+    AND NOT EXISTS(SELECT 1 FROM commerce_hosted_payment_events later WHERE later.attempt_id=e.attempt_id
+      AND later.outcome IN ('paid','failed') AND (later.received_at,later.event_id)>(e.received_at,e.event_id)))`;
 export function createCheckoutPaymentPort(options: PaymentAttemptOptions): CheckoutPaymentPort {
   return {
     assertTermsAvailable: assertCreditPaymentAvailable,
@@ -152,8 +156,7 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
         EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome IN ('overpaid','after_cancel','amount_mismatch')) AS overpaid,
         EXISTS(SELECT 1 FROM commerce_hosted_payment_events e JOIN commerce_payment_attempts a USING(attempt_id) WHERE a.order_id=co.order_id AND e.source IN ('notification','query') AND e.outcome='paid' AND e.applied_at IS NULL) AS unapplied_paid,
         a.attempt_id,a.state,a.created_at,a.handed_off_at,
-        EXISTS(SELECT 1 FROM commerce_hosted_payment_events e WHERE e.attempt_id=a.attempt_id AND e.outcome='pending_confirmation'
-          AND NOT EXISTS(SELECT 1 FROM commerce_hosted_payment_events later WHERE later.attempt_id=a.attempt_id AND later.outcome IN ('paid','failed') AND (later.received_at,later.event_id)>(e.received_at,e.event_id))) AS pending_confirmation,
+        ${unresolvedPendingConfirmationSQL('a.attempt_id')} AS pending_confirmation,
         (a.state='issued' AND a.created_at+interval '60 minutes'>clock_timestamp() AND EXISTS(SELECT 1 FROM commerce_hosted_payment_events e WHERE e.attempt_id=a.attempt_id AND e.source='browser_return')) AS returned
         FROM commerce_checkout_orders co LEFT JOIN LATERAL (SELECT * FROM commerce_payment_attempts WHERE order_id=co.order_id ORDER BY sequence DESC LIMIT 1) a ON true
         WHERE co.order_id=ANY($1::uuid[]) ORDER BY co.order_id`, [orderIds])).rows;
@@ -187,8 +190,9 @@ export async function inspectRepay(q:PoolClient,orderId:string,options:PaymentAt
     (SELECT count(*)::int FROM commerce_payment_attempts WHERE order_id=$1) AS attempts,
     ($2::timestamptz IS NOT NULL AND $2::timestamptz+interval '60 seconds'<=clock_timestamp()) AS old_enough,
     greatest(1,ceil(extract(epoch FROM $2::timestamptz+interval '60 seconds'-clock_timestamp())))::int AS retry_after,
-    EXISTS(SELECT 1 FROM commerce_hosted_payment_events WHERE attempt_id=$3 AND
-      ((source IN ('notification','query') AND outcome='paid' AND applied_at IS NULL) OR outcome='pending_confirmation')) AS pending`,[orderId,attempt.handed_off_at,attempt.attempt_id])).rows[0];
+    (EXISTS(SELECT 1 FROM commerce_hosted_payment_events WHERE attempt_id=$3
+      AND source IN ('notification','query') AND outcome='paid' AND applied_at IS NULL)
+      OR ${unresolvedPendingConfirmationSQL('$3')}) AS pending`,[orderId,attempt.handed_off_at,attempt.attempt_id])).rows[0];
   let failure:HandoffGate|null=null;
   if(facts.paid||facts.confirmed||facts.overpaid)failure=gate(409,'payment_already_applied','訂單已有付款紀錄。');
   else if(facts.attempts>=5)failure=gate(409,'payment_attempts_exhausted','付款次數已達上限，請聯絡店家。');
