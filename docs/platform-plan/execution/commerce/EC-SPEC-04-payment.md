@@ -26,6 +26,8 @@
 | `merchant_id` | 綠界特店編號（非秘密，但只給店內有權者看）；(provider, environment, merchant_id) 在同一間店內唯一 |
 | `version`、建立／更新時間 | 每次改動 +1 |
 
+帳戶本身沒有狀態：啟用、停用與退役都記在服務列上。需要「這個帳戶可用」的地方（例如 §1.4 的驗證付款與它的交接頁）檢查的是 tenant 與 instance 為 `active`、帳戶屬於這間店，以及該用途的服務狀態。HTTP 命令沿用帳戶命令既有的檢查（403 `capability_denied`），交接頁與訂單交接相同（409 `payment_handoff_unavailable`）；機器路徑的到期工作不呼叫綠界，記 `tenant_inactive`（EC-SPEC-09 §2.5）。
+
 服務（`commerce_provider_account_services`）：
 
 | 欄位 | 說明 |
