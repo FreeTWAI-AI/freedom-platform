@@ -128,7 +128,9 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | 發票 | invoice documents（EC-SPEC-06） | 每張發票與折讓各自狀態 |
 | 售後 | 售後申請（EC-SPEC-06 §2） | 每張申請的決定，加上實物、錢、發票各軸的進度 |
 
-付款摘要的 `overpaid`：這筆訂單有任何一筆結果為 `overpaid`、`after_cancel` 或 `amount_mismatch` 的付款套用紀錄（§5），表示收到的錢和訂單不符，店家必須核對並退款。它優先於其他付款摘要值，包括已確認付款。買家看到「付款金額待店家確認」，不再有付款或重新付款（EC-SPEC-01 §6.2）；之後才到的正確付款仍照 §5 套用。買家 DTO 的 `payment_state` 依序取第一個成立的：`overpaid`、`confirmed`（即上表的 `paid`）、`pending`、`simulated`、`unpaid`。退款後的 `partially_refunded`／`refunded` 隨退款（EC-SPEC-04 §7）一起定義。
+付款摘要的 `overpaid`：這筆訂單有一筆結果為 `overpaid`、`after_cancel` 或 `amount_mismatch` 的付款套用紀錄（§5，以下稱未套用的付款），而且還沒退完：完成的退款（`confirmed` 或 `recorded`，EC-SPEC-04 §7.2）合計小於那筆紀錄的金額。表示收到的錢和訂單不符，店家必須核對並退款。它優先於其他付款摘要值，包括已確認付款。買家看到「付款金額待店家確認」（EC-SPEC-01 §6.2）；之後才到的正確付款仍照 §5 套用。
+
+未套用的付款全部退完後就不是 `overpaid`：有確認付款時是 `confirmed`；沒有確認付款、但有完成的退款時是 `refunded`。買家 DTO 的 `payment_state` 依序取第一個成立的：`overpaid`、`confirmed`（即上表的 `paid`）、`refunded`、`pending`、`simulated`、`unpaid`。訂單只要有任何一筆未套用的付款，不論退完與否，就不再提供付款或重新付款（`can_resume_payment` 為假）：那筆 attempt 已經收過錢，重新付款前的查詢不會得到「確定未付」（EC-SPEC-04 §4.3）。確認付款的退款與 `partially_refunded` 隨 M4 的售後退款定義（EC-SPEC-06 §2）。
 
 需要高效查詢的待辦（例如「已過保留期且付款未定」）以這些表的索引查詢，不另存第二份狀態。若之後加摘要欄位，只能由同一個領域函式在同一交易內更新，並有測試比對。
 

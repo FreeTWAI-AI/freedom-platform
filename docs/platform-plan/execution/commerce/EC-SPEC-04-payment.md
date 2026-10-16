@@ -83,7 +83,7 @@
 
 ## 3. 資料模型與 PaymentPort
 
-### 3.1 表（M2；`169` 已建立前五列，退款的三張表由 wp04-refunds 加入；M1 是 EC-SPEC-03 的交易核心）
+### 3.1 表（M2；`169` 已建立前五列；`commerce_refunds`、`commerce_refund_lines` 由 wp04-seller 加入，`commerce_payment_operations` 由 wp04-refund-api 加入；M1 是 EC-SPEC-03 的交易核心）
 
 | 表 | 用途 | 規則 |
 | --- | --- | --- |
@@ -92,9 +92,9 @@
 | `commerce_payment_attempts` | 一次交給 provider 的付款 | 每張訂單可有多個；收款服務的驗證付款（§1.4）也是 attempt：種類 `service_activation`、沒有訂單、每個帳戶各自編號；`merchant_trade_no` 在 (provider, environment, merchant_id) 內不分大小寫唯一；金額、幣別、帳戶、`credential_version` 建立後不可改；狀態只能依 §3.3 前進 |
 | `commerce_hosted_payment_events` | 已驗證的 provider 通知、查詢結果與瀏覽器返回（inbox） | append-only；去重鍵唯一（§5.4）；不存卡號片段與原始 body，只存允許欄位與原始 body 的 SHA-256。名稱避開既有的 `commerce_payment_events`（migration 055）：那是匯入商店由商家後台回報的付款紀錄，兩者不共用 |
 | `commerce_due_work` | 到期工作（EC-SPEC-09 §2.4）：付款查詢、確認窗結束；之後的里程碑加入其他種類 | 每個目標每種一列；`due_at`、租約（`lease_until`）、次數、連續未確定次數、封閉錯誤碼。查詢唯讀、可以重試（§6.3），所以不經 outbox：取得租約的交易提交後才呼叫，結果用新交易寫回，只有已驗證的回應寫成事件 |
-| `commerce_payment_operations` | 有外部效果、結果不明時不能重送的工作（outbox）：退款步驟（§7） | `pending → in_flight → done／failed／unknown`；`not_before`、租約（`lease_until`）、嘗試次數、錯誤碼；外部呼叫只在租約交易提交後進行 |
-| `commerce_refunds` | 退款 | §7；累計上限由 trigger 檢查 |
-| `commerce_refund_lines` | 每筆退款分到哪些行項與運費（EC-SPEC-06 §2.5） | 各列合計＝退款金額；同一行項、同一配送群組的累計上限由 trigger 檢查 |
+| `commerce_payment_operations` | 有外部效果、結果不明時不能重送的工作（outbox）：API 退款的步驟（§7.3）；人工紀錄不用 | `pending → in_flight → done／failed／unknown`；`not_before`、租約（`lease_until`）、嘗試次數、錯誤碼；外部呼叫只在租約交易提交後進行 |
+| `commerce_refunds` | 退款 | §7；累計上限由 trigger 檢查；M2 只有人工紀錄（§7.2） |
+| `commerce_refund_lines` | 每筆退款分到哪些行項與運費（EC-SPEC-06 §2.5） | 各列合計＝退款金額。M2 只有 `unapplied` 列；`item`、`shipping` 與同一行項、同一配送群組的累計上限 trigger 隨 M4 的售後加入 |
 
 訂單的付款摘要（EC-SPEC-03 §3.2：`unpaid`、`pending`、`paid`、`partially_refunded`、`refunded`、`overpaid`、`simulated`）由這些表讀取時計算，不另存。`overpaid` 的定義和優先順序也在 EC-SPEC-03 §3.2。
 
@@ -267,16 +267,31 @@ interface PaymentPort {
 
 賣家同意的已付款取消（EC-SPEC-03 §3.3）、`paid_after_cancel`、`overpaid`、`paid_unallocatable` 決定不補貨、售後（EC-SPEC-06）。退款金額連到原行項、折扣分攤與運費（計畫 §9.2、§10.4；分攤規則在 EC-SPEC-06 §2.5）。
 
+M2 只處理沒有套用到訂單的付款（以下稱未套用的付款）：套用結果是 `overpaid`、`after_cancel`（例外 `paid_after_cancel`）或 `amount_mismatch` 的付款（EC-SPEC-03 §5）。這些錢不屬於訂單的任何行項，要整筆退回。已付款取消、`paid_unallocatable` 決定不補貨與售後的退款，隨 M4 的售後申請建立（EC-SPEC-06 §2.4、§2.6）。
+
 ### 7.2 退款紀錄（提議 `commerce_refunds`）
 
 - 欄位：`refund_id`、`order_id`、`attempt_id`（退哪一筆付款）、`amount_minor`、原因、依據（取消、RMA、例外、爭議扣回；爭議扣回只能是 `manual_record`，EC-SPEC-07 §7）、申請者、核准者、`mode`（`provider_api`／`manual_record`）、狀態、provider 參考、建立時間、`version`。
 - 狀態：`requested → approved → submitted → confirmed／failed`；`submitted` 之後結果不明 → `unknown`，只能靠查詢或人工證據離開。`manual_record` 直接 `recorded`（附商家在綠界後台的退款日期、金額、參考號）。
 - 上限 trigger：同一 attempt 所有非 `failed` 退款的合計 ≤ 該 attempt 的已付款金額（EC-AT22）。
 - 每筆退款都有分攤列（`commerce_refund_lines`：`item`／`shipping`／`unapplied`，EC-SPEC-06 §2.5）；行項與運費的累計上限跨 attempt 計算，所以並行申請先鎖訂單、再鎖 attempt（EC-SPEC-03 §6）。
+
+M2 的範圍（wp04-seller）：
+
+- 只有 `manual_record`，直接 `recorded`；記錄後不能改（記錯時的更正方式見 §13）。
+- 每筆退款連到一筆未套用的付款：`commerce_checkout_payment_applications` 的一列（`payment_ref` 是 attempt），以及它開出的例外（`overpaid`、`paid_after_cancel`、`amount_mismatch`）。確認付款（`converted`、`allocated`、`unallocatable`）與 `simulated` 不能在 M2 退款。
+- 上限：同一筆套用紀錄所有未失敗退款的合計 ≤ 該紀錄的金額，由 trigger 檢查。`amount_mismatch` 的 attempt 狀態不變，它的 `amount_minor` 是應付而不是實付，所以上限一律用套用紀錄的金額，也就是已驗證的實付金額。
+- 分攤列只有一列 `unapplied`，金額等於退款金額；檢查用 `checkUnappliedRefund`（`payments/rules/unapplied.ts`）。
+- 人工紀錄附綠界後台的退款日期（Asia/Taipei，不早於付款日期、不晚於今天）與選填的參考號；不收自由文字，避免個資。
+- 合計等於套用紀錄的金額時，同一個交易把那筆例外結案：`resolved`、`resolution_code='refunded'`，結案者是記錄的人；`resolution_note` 用固定文字「店家已登記全額退款。」（`169` 的 CHECK 要求結案時附說明）。
+- 記錄需要 `store:refund`（owner／admin 本來就有），讀取需要 `store:finance:read`。隔離模式時回 503 `commerce_quarantined`（EC-SPEC-10 §8.3）。
+- sandbox 的人工紀錄在畫面標示「商家自行退款（平台未經綠界確認）」（§7.5）。
 - 權限：只有店的 owner／admin 或有 `store:refund` 的成員能建立與核准（EC-SPEC-09 §2.2）；供應商不能退他店訂單（計畫 §4.1）。
 - 已交寄的包裹不會因退款被撤回；退款也不代表商品已回庫（EC-SPEC-05、06）。
 
 ### 7.3 綠界 API 退款（只限正式環境）
+
+§7.3～§7.4 由 wp04-refund-api 實作，在 C2 受控試用排定時開始；在那之前只有人工紀錄（§7.5）。
 
 `CreditDetail/DoAction` 在 stage 不可用 [2885]。正式環境依目前清算狀態選擇動作；狀態先以 `CreditDetail/QueryTrade/V2`（需要 `gwsr`、金額與商家檢查碼）讀取 [2894]：
 
@@ -368,4 +383,5 @@ interface PaymentPort {
 | 確認窗長度 | 60 分鐘 | 未付款訂單多久後取消 |
 | 查無此單的狀態碼 | stage 驗證（§11）時記下綠界對不存在的 `MerchantTradeNo` 的回應；在那之前一律當 `unknown` | 確認窗後能否把查無此單當成確定未付；現在要等確認窗後 24 小時的人工例外 |
 | API 退款開放時點 | 受控試退通過後 | 正式店的退款自動化；在此之前人工紀錄 |
+| 人工退款記錯 | M2 不能改；之後加「作廢這筆紀錄」的命令（owner／admin，保留原列與作廢者） | 記錯的金額會讓例外無法自動結案，只能由店家手動結案 |
 | stage 連線授權 | 需要 Ted | sandbox 端到端驗證；不影響向量與契約測試 |
