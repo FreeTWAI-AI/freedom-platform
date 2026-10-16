@@ -61,9 +61,9 @@
 ### 1.4 開通與驗證
 
 - 店的 owner 或 admin 在 Seller Console「收款設定」（EC-SPEC-01 §7.5 的 payments）輸入特店編號與金鑰，並重新輸入密碼（EC-SPEC-09 §2.2）；儲存即封存，付款服務 `draft`。帳戶、金鑰與服務狀態的其他改動（換金鑰、換特店、啟用、停用、退役）同樣只限 owner／admin 並重新輸入密碼。
-- 付款服務 `draft → active` 需要一次成功的已驗證交易：sandbox 以 stage 測試卡完成一筆真實 stage 付款與通知；live 以 §11 的受控小額試付。在完成之前，店家的結帳開關（EC-SPEC-02 §2.3、EC-SPEC-10 §4.5）不能打開。
+- 付款服務 `draft → active` 需要一筆成功的驗證付款。owner 或 admin 在「收款設定」發起（同樣重新輸入密碼），平台建立一個種類 `service_activation` 的 attempt：固定 10 元（一個常數，可調整），經同一個交接頁（§4.1）送到綠界，款項付進商家自己的特店帳戶。平台不退這筆款，商家可在綠界後台自行退刷。sandbox 用 stage 測試卡付（§11 的 stage 層）；live 是 §11 的受控小額試付，每次由 Ted 授權。啟用的證據是伺服器對伺服器查詢確認這筆付款（§5.5）；只有已驗證的通知不會啟用。同一個帳戶同時只能有一筆進行中的驗證付款（已交接且在確認窗內，或已付款待確認）。在完成之前，店家的結帳開關（EC-SPEC-02 §2.3、EC-SPEC-10 §4.5）不能打開。
 - 付款服務 `suspended` 後：不建立新 attempt；已建立的 attempt 照常接收通知、查詢與退款（在途責任不因停用消失，EC-R56）。
-- `draft → active` 不是 HTTP 命令：付款工作在驗證交易成立後，於同一個交易呼叫內部的啟用函式（記下啟用時間與證據參考）。同一間店、同一環境、同一 profile 同時只能有一個 `active` 服務。
+- `draft → active` 不是 HTTP 命令：驗證付款的 attempt 成為 `confirmed` 時，付款工作在同一個交易呼叫內部的啟用函式（記下啟用時間，證據參考是該 attempt）。服務那時已不是 `draft`（例如已被退役），就只確認付款、不啟用。同一間店、同一環境、同一 profile 同時只能有一個 `active` 服務。
 - 換金鑰不改服務狀態，新的 `credential_version` 立即生效。填錯的金鑰要到下一次簽章才發現：綠界拒絕用它簽出的付款表單，通知與查詢也驗證失敗。
 - 儲存金鑰時不以伺服器對伺服器的查詢驗證（2026-10-16 依 wp04-payments 的建議定案）：只檢查格式並封存；在本機算出簽章也不算驗證。首次的金鑰由上面的驗證交易證明。換金鑰後，一個版本是否已驗證，只看有沒有由它驗證成功的付款事件（`commerce_hosted_payment_events.credential_version`）；還沒有的版本，Seller Console 標示「尚未經綠界驗證」。
 
@@ -87,9 +87,10 @@
 | --- | --- | --- |
 | `commerce_provider_accounts`、`commerce_provider_account_services` | §1.2 | tenant RLS；物流與發票共用 |
 | `commerce_provider_credentials` | §1.3 | tenant RLS；只有 adapter 讀；不可刪（只能 `retired`） |
-| `commerce_payment_attempts` | 一次交給 provider 的付款 | 每張訂單可有多個；`merchant_trade_no` 在 (provider, environment, merchant_id) 內不分大小寫唯一；金額、幣別、帳戶、`credential_version` 建立後不可改；狀態只能依 §3.3 前進 |
+| `commerce_payment_attempts` | 一次交給 provider 的付款 | 每張訂單可有多個；收款服務的驗證付款（§1.4）也是 attempt：種類 `service_activation`、沒有訂單、每個帳戶各自編號；`merchant_trade_no` 在 (provider, environment, merchant_id) 內不分大小寫唯一；金額、幣別、帳戶、`credential_version` 建立後不可改；狀態只能依 §3.3 前進 |
 | `commerce_hosted_payment_events` | 已驗證的 provider 通知、查詢結果與瀏覽器返回（inbox） | append-only；去重鍵唯一（§5.4）；不存卡號片段與原始 body，只存允許欄位與原始 body 的 SHA-256。名稱避開既有的 `commerce_payment_events`（migration 055）：那是匯入商店由商家後台回報的付款紀錄，兩者不共用 |
-| `commerce_payment_operations` | 需要對外呼叫的工作（outbox）：查詢、退款步驟 | `pending → in_flight → done／failed／unknown`；`not_before`、租約（`lease_until`）、嘗試次數、錯誤碼；外部呼叫只在租約交易提交後進行 |
+| `commerce_due_work` | 到期工作（EC-SPEC-09 §2.4）：付款查詢、確認窗結束；之後的里程碑加入其他種類 | 每個目標每種一列；`due_at`、租約（`lease_until`）、次數、連續未確定次數、封閉錯誤碼。查詢唯讀、可以重試（§6.3），所以不經 outbox：取得租約的交易提交後才呼叫，結果用新交易寫回，只有已驗證的回應寫成事件 |
+| `commerce_payment_operations` | 有外部效果、結果不明時不能重送的工作（outbox）：退款步驟（§7） | `pending → in_flight → done／failed／unknown`；`not_before`、租約（`lease_until`）、嘗試次數、錯誤碼；外部呼叫只在租約交易提交後進行 |
 | `commerce_refunds` | 退款 | §7；累計上限由 trigger 檢查 |
 | `commerce_refund_lines` | 每筆退款分到哪些行項與運費（EC-SPEC-06 §2.5） | 各列合計＝退款金額；同一行項、同一配送群組的累計上限由 trigger 檢查 |
 
@@ -163,7 +164,7 @@ interface PaymentPort {
   - 交接已滿 60 秒，這次請求當場做的伺服器查詢（§6）回 `TradeStatus=0`（已建立未付款），而且沒有尚未套用的已付事件、也沒有 `10300066`。
 - 結果不明時不建立新 attempt：查詢失敗或逾時、驗證失敗、查無此單或無法辨識的狀態（§6.2 的 `unknown`）、`10300066`、已驗證但尚未套用的付款事件。畫面顯示「付款結果確認中」，買家稍後再查詢（EC-SPEC-01 J04、pages B06）。
 - 新 attempt 建立時，前一個 `issued` 改 `superseded`，仍持續查詢到它的確認窗結束；若它後來付款成功，照常套用（另一個也付了就是 `overpaid`）。查詢顯示未付只代表當下，買家可能還停在綠界頁面上送出；`superseded` 讓這種晚到的付款不會遺失，買家也不用等到前一筆的確認窗結束才能換卡（計畫 §10.2）。
-- 實作順序：M2 的第一個工作（wp04-payments）只建立第 1 個 attempt 與重發交接連結；需要當場查詢的重新付款由 wp04-queries 加上。
+- 實作順序：M2 的第一個工作（wp04-payments）只建立第 1 個 attempt 與重發交接連結。wp04-queries 讓同一個「前往付款」端點（`POST …/orders/:order_ref/payment-handoffs`）在最新 attempt 不能再交接時判斷重新付款，需要時當場查詢；頁面不必分辨兩者。不能建立新 attempt 時回 409：`payment_result_pending`（交接未滿 60 秒時帶 `Retry-After`）、`payment_attempts_exhausted`、`payment_already_applied` 或 `checkout_hold_expired`。
 - 每張訂單最多 5 個 attempt；超過回 409，請買家聯絡商家。
 - hold 已過期：不在舊單上重新付款，回到 checkout 重新下單（EC-SPEC-03 §4.3）。
 
@@ -216,10 +217,12 @@ interface PaymentPort {
 
 | 觸發 | 時間 | 限制 |
 | --- | --- | --- |
-| 通知之後的確認查詢 | 立即 | §5.5 |
-| 瀏覽器返回 | 立即 | 同 attempt 每分鐘 1 次 |
-| 買家或賣家按「查詢付款結果」 | 立即 | 同訂單每分鐘 1 次、每小時 10 次 |
-| 排程 | attempt 建立後 10、20、40、60 分鐘 | 綠界建議付款 10 分鐘後查、或建立 40 分鐘後查 [2887][2890] |
+| 通知之後的確認查詢 | 立即：回應送出後，在同一個請求的背景執行；排程是後備 | §5.5 |
+| 瀏覽器返回 | 立即（同上） | 同 attempt 每分鐘 1 次 |
+| 買家或賣家按「查詢付款結果」 | 請求當場 | 同訂單每分鐘 1 次、每小時 10 次 |
+| 重新付款（§4.3） | 請求當場 | 與「查詢付款結果」共用同訂單的限額 |
+| 排程 | attempt 建立後 10、20、40、60 分鐘 | 只查已交接的 attempt；結果確定（`confirmed`、`failed`、`expired_unpaid`）後停止。綠界建議付款 10 分鐘後查、或建立 40 分鐘後查 [2887][2890] |
+| 確認窗結束 | attempt 建立後 60 分鐘 | 已交接的 attempt 立即查詢；從未交接的不查詢，直接 `expired_unpaid`（§6.2） |
 
 ### 6.2 結果對應
 
@@ -238,9 +241,12 @@ interface PaymentPort {
 
 ### 6.3 呼叫規則
 
-- 只在 operation 的租約交易提交後呼叫；結果用新交易寫回（計畫 §10.2、EC-R20）。
+- 只在取得到期工作（`commerce_due_work`）租約的交易提交後呼叫；結果用新交易寫回（計畫 §10.2、EC-R20）。等待綠界時不持有交易或列鎖。傳輸失敗、非 200、回應超過 64 KiB 或驗證失敗都不寫事件，只在到期工作列記封閉錯誤碼並退避。
+- 請求用目前的金鑰版本簽章；回應用所有未退役的版本驗證，事件記下驗證成功的版本。查詢不寫外部效果日誌：EC-SPEC-10 §8.2 只記對外效果，查詢不改變綠界的任何狀態。
+- 查詢不要求付款服務 `active`，也不要求 profile 在清單內（EC-SPEC-09 §2.5、EC-SPEC-10 §5.1）；隔離模式時不查詢（EC-SPEC-10 §8.3）。
 - HTTP 403 → 同帳戶付款服務列的 `throttled_until = now + 30 分`，這個帳戶的付款查詢與操作延後；物流與發票不受影響（EC-SPEC-09 §4）[2890]。
 - 逾時或網路錯誤 → 指數退避（1、2、5、10 分，之後每 10 分）重試；確認窗結束後結果仍是 `unknown`，也照這個間隔繼續查詢。最多查到確認窗後 24 小時；仍沒有確定結果就停止自動查詢，開例外 `payment_unconfirmed`，賣家可再查詢、到綠界後台核對這筆 `MerchantTradeNo`，或取消訂單（之後到達的真實付款照 EC-SPEC-03 §5.3 處理）。
+- 已付款但還沒 `confirmed` 的 attempt 依同樣的退避持續查詢，到付款後 24 小時為止；付款後 60 分鐘仍未確認，就開 `payment_unconfirmed`（§5.5）。
 - 查詢是唯讀，可以安全重試；退款不行（§7.4）。
 
 ## 7. 退款
@@ -306,7 +312,7 @@ interface PaymentPort {
 - 付款領域、routes 與 outbox：提議 `modules/agent-commerce/payments/`，新 descriptor（module `commerce-payments`，相依 `hosted-checkout`、`commerce-providers`）。
 - 退款分攤的純函式（行項上限、運費建議、分攤檢查，EC-SPEC-06 §2.5）：`modules/agent-commerce/payments/rules/`，M2 的領域與 trigger 之前先建；`commerce-payments` 的 descriptor 隨它登錄，相依在 M2 的 migration 加入。
 - M2（付款）在 M1 之後：§3.1 的表、RLS、trigger、索引；能力 `commerce.hosted-payment.v1` 與強制下限跟 callback 路由同一個 migration 上線——之後回退到不認得 callback 的 binary 會漏接付款，所以不能回退（EC-SPEC-10 §7）。
-- Worker 需要的設定：`COMMERCE_CREDENTIAL_KEYS` secret、callback 路徑的 Access 排除（staging）、查詢與退款 operation 的排程（cron）。都是部署設定，由 Ted 操作（EC-SPEC-10 §4.3、§4.4）。
+- Worker 需要的設定：`COMMERCE_CREDENTIAL_KEYS` secret、callback 路徑的 Access 排除（staging）、到期工作與退款 operation 的排程（cron）。都是部署設定，由 Ted 操作（EC-SPEC-10 §4.3、§4.4）。
 
 ## 11. 外部驗證的分層（需要 Ted 授權）
 
@@ -324,7 +330,7 @@ interface PaymentPort {
 | --- | --- |
 | CheckMacValue：3 組官方向量；參數名大小寫、空值、`+`／空白、`~`、`'`、中文、額外欄位；重複參數名被拒 | EC-AT15 |
 | 同一組向量在 Node 與 workerd（`nodejs_compat`）結果相同 | EC-AT15 |
-| 金額：`total_minor` 非 100 倍數、< 5 元、非 TWD → 不提供本 profile；`TotalAmount` 永遠是整數 | EC-AT08、09 |
+| 金額：`total_minor` 非 100 倍數、< 5 元、> 999,999,999 元、非 TWD → 不提供本 profile；`TotalAmount` 永遠是整數 | EC-AT08、09 |
 | 錯商家、錯金額、錯環境、錯帳戶、未知 `MerchantTradeNo` | EC-AT16 |
 | 通知重送（含並行兩筆相同通知）只套用一次；先失敗後成功、先成功後失敗、查詢與通知交錯 | EC-AT17、21 |
 | `SimulatePaid=1` 且 `RtnCode=1`：不改 attempt、不動庫存、不建立履約 | EC-AT19 |
@@ -332,6 +338,8 @@ interface PaymentPort {
 | 提交失敗不回 `1|OK`；提交成功才回 | EC-AT17 |
 | 查詢 403 → 同帳戶付款服務暫停 30 分、物流與發票不受影響；逾時退避；`TimeStamp` 每次重產 | EC-AT20 |
 | 確認窗結束：全部 attempt 確定未付 → 取消；有 `unknown` → 不取消、繼續查詢、24 小時後開例外；從未交接 → `expired_unpaid` 且不查詢 | EC-SPEC-03 §3.3 |
+| 重新付款：當場查詢回未付才建立新 attempt；結果不明、交接未滿 60 秒、已有付款、滿 5 個、hold 過期各回對應的 409；並行兩次只建一個；被取代的 attempt 晚到的付款照常套用 | EC-SPEC-04 §4.3 |
+| 收款服務的驗證付款：查詢確認才啟用，只有通知不啟用；服務已不是 `draft` 時只確認付款 | EC-SPEC-04 §1.4 |
 | 通知 vs 保留到期結算、通知 vs 買家取消、兩個 attempt 都付款（overpaid） | EC-AT21、30、31 |
 | 退款累計上限、並行退款、`unknown` 不重送、人工紀錄 | EC-AT22、23 |
 | 兩間店兩個帳戶：A 店的通知不能套到 B 店；A 的金鑰解不開 B 的封存 | EC-AT13 |

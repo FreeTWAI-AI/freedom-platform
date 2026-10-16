@@ -66,7 +66,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | wp04-accounts | 收款帳戶與封存金鑰；重新確認身分的新用途；`storefront@1.1.0`、`hosted-store@1.1.0` 與升級；入口路由；店家准入；設定變更的控制事件（EC-SPEC-04 §1、EC-SPEC-09 §2.2～§2.5、EC-SPEC-10 §2.5、§8.2） | Codex | wp03-http | 完成（`fc/wp04-accounts` `bfab7559`；整合 `21e46a73`、`4b83fe1c`，修正輪 `38e8db3b`） |
 | refund-rules | 退款分攤的純規則：行項上限、運費建議、分攤與調低的檢查、未套用付款的退款（EC-SPEC-06 §2.5、EC-SPEC-04 §7.2） | flash | — | 完成（`fc/refund-rules` `4376e471`，整合 `69067716`） |
 | wp04-payments | attempt 與一次性交接頁、付款通知與瀏覽器返回（含閘道例外）、外部效果日誌、到期工作與例外的表、買家的付款摘要、隔離模式的付款閘門、能力 `commerce.hosted-payment.v1` 與強制下限；不呼叫綠界（EC-SPEC-04 §3～§5、EC-SPEC-09 §2.6、EC-SPEC-10 §3） | Codex | wp04-accounts、ecpay-aio | 進行中（`fc/wp04-payments`） |
-| wp04-queries | 查詢的 outbox 與執行、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 之後 |
+| wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 之後 |
 | wp04-refunds | 退款紀錄、API 退款與人工紀錄、結果不明的退款（EC-SPEC-04 §7、EC-SPEC-06 §2.5） | Codex | wp04-queries、refund-rules | 之後 |
 | buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 之後 |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
