@@ -21414,8 +21414,8 @@
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
-      "bytes": 70798,
-      "sha256": "f073031cb6b3ead5c79b1c82cf3973e884ce463929509540e60fd464a9f6784b"
+      "bytes": 70845,
+      "sha256": "324847666e7ba7bbbf9a480225ddaabe01a84b4b1575504478ee346e3243b4aa"
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",

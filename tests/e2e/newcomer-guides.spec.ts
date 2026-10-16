@@ -603,8 +603,10 @@ test('a tall real calendar guide shows its beginning and stops scrolling when di
   await registerJoined(page); await navigate(page,'社群活動');
   await openSpirit(page); await useInstantText(page); await page.setViewportSize({width:320,height:420});
   const topic=events.topics.find(item=>item.id==='events:topic-2')!,definition=getSpiritGuide('events',topic.id)!;
+  const target=page.locator(definition.steps[0].selector);
+  await expect(target).toBeVisible();
   await ask(page,topic.label); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
-  const target=page.locator(definition.steps[0].selector),guideRegion=guide(page);
+  const guideRegion=guide(page);
   await expect(guideRegion).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
   await expectReservedCompanionSpace(page);
   expect((await target.boundingBox())!.height).toBeGreaterThan(210);
