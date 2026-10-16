@@ -621,3 +621,33 @@ test('review 6: a cancelled-order replay leaves due-work timestamps and entry ro
   assert.deepEqual(await cancel(), cancelled);
   assert.deepEqual(await snapshot(), before);
 });
+for(const mode of ['query_unpaid','query_unknown_status','query_amount_mismatch','query_403','query_timeout','query_invalid_signature'] as const)
+  test(`local query fixture answers ${mode} without network access`,async()=>{
+    const {createE2eEcpayFixture}=await import('../../scripts/e2e-ecpay-fixture.js');
+    const {buildTradeInfoQuery,parseTradeInfoResponse}=await import('../../modules/agent-commerce/providers/ecpay/aio-credit/index.js');
+    const p=await f.placed(),a=(await f.x.h.pool.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1',[p.payment.attempt_ref])).rows[0],keys=EcpayKeyPair.of(p.provider.material.hash_key,p.provider.material.hash_iv);
+    const fixture=createE2eEcpayFixture({freedomEnv:'local',origin:f.origin,pool:f.x.runtime,keyring:f.ring,forward:()=>{throw Error('query_must_not_notify');}});
+    const configured=await fixture.routes.fetch(new Request(f.origin+'/__e2e/ecpay/query-mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_ref:a.attempt_id,mode})}));assert.equal(configured.status,200);
+    const request=buildTradeInfoQuery({environment:'sandbox',merchantId:a.merchant_id,merchantTradeNo:a.merchant_trade_no,timestampSeconds:Math.floor(Date.now()/1000)},keys),response=await fixture.transport.send(request,'sandbox');
+    if(mode==='query_timeout')assert.deepEqual(response,{kind:'error',code:'timeout'});
+    else {assert.equal(response.kind,'response');if(response.kind!=='response')throw Error('response_missing');assert.equal(response.status,mode==='query_403'?403:200);
+      if(response.status===200){const result=parseTradeInfoResponse(response.body,keys,{merchantId:a.merchant_id,merchantTradeNo:a.merchant_trade_no,expectedAmountMinor:Number(a.amount_minor)});assert.equal(result.kind,mode==='query_unpaid'?'unpaid':mode==='query_amount_mismatch'?'amount_mismatch':'unknown');if(result.kind==='unknown')assert.equal(result.reason,mode==='query_invalid_signature'?'mac_mismatch':'unrecognized_status');}
+    }
+    assert.equal((await f.x.h.pool.query('SELECT count(*)::int n FROM commerce_hosted_payment_events')).rows[0].n,0);
+    const unsigned=buildTradeInfoQuery({environment:'sandbox',merchantId:a.merchant_id,merchantTradeNo:a.merchant_trade_no,timestampSeconds:Math.floor(Date.now()/1000)-181},keys);
+    assert.deepEqual(await fixture.transport.send(unsigned,'sandbox'),{kind:'response',status:403,body:''});
+    const wrong=buildTradeInfoQuery({environment:'sandbox',merchantId:a.merchant_id,merchantTradeNo:a.merchant_trade_no,timestampSeconds:Math.floor(Date.now()/1000)},EcpayKeyPair.of(randomBytes(8).toString('hex'),randomBytes(8).toString('hex')));
+    assert.deepEqual(await fixture.transport.send(wrong,'sandbox'),{kind:'response',status:403,body:''});
+  });
+test('paid without notification is discovered only through the local query transport',async()=>{
+  const {createE2eEcpayFixture}=await import('../../scripts/e2e-ecpay-fixture.js');
+  const {queryAttempt}=await import('../../modules/agent-commerce/payments/queries.js');
+  const p=await f.placed(),fixture=createE2eEcpayFixture({freedomEnv:'local',origin:f.origin,pool:f.x.runtime,keyring:f.ring,forward:()=>{throw Error('must_not_notify');}}),handoff=await page(p.payment.handoff_url);
+  const fields=[...handoff.html.matchAll(/<input type="hidden" name="([^"]*)" value="([^"]*)">/g)].map(m=>[m[1],m[2].replaceAll('&quot;','"').replaceAll('&#39;',"'").replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&')] as const);
+  const post=(path:string,body:string)=>fixture.routes.fetch(new Request(f.origin+path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}));
+  const checkout=await post('/__e2e/ecpay/aio-checkout',encodeForm(fields)),session=(await checkout.text()).match(/name="session" value="([^"]+)"/)![1];
+  const result=await post('/__e2e/ecpay/result',encodeForm({session,mode:'paid_no_notify'}));assert.equal(result.status,200);
+  assert.equal((await f.x.h.pool.query('SELECT count(*)::int n FROM commerce_hosted_payment_events')).rows[0].n,0);
+  assert.equal((await queryAttempt(f.x.runtime,p.payment.attempt_ref,{transport:fixture.transport,keyring:f.ring,freedomEnv:'local'},'buyer')).status,'paid');
+  assert.equal((await f.x.h.pool.query('SELECT state FROM commerce_payment_attempts WHERE attempt_id=$1',[p.payment.attempt_ref])).rows[0].state,'confirmed');
+});

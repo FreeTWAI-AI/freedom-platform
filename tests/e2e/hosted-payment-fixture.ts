@@ -116,7 +116,7 @@ export async function setupE2ePayment(db: import('pg').Pool, browser: import('@p
   tenant: string;
   instance: string;
   root: string;
-}) {
+}, options:{activationOnly?:boolean}={}) {
   const { apiLogin, ownedSchema } = await import('./hosted-order-fixture.js');
   const { E2E_AUTHOR_CLAIM_ADMIN_TOKEN, E2E_AUTHOR_CLAIM_ADMIN_EMAIL } = await import('../../packages/testing/e2e-admin.js');
   await ownedSchema(db);
@@ -132,6 +132,7 @@ export async function setupE2ePayment(db: import('pg').Pool, browser: import('@p
     let account = await command('POST', store.root + '/provider-accounts', { provider: 'ecpay', environment: 'sandbox', merchant_id: '1234567', fresh_auth_verification_id: await fresh() }, 201);
     const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomBytes(4).readUInt32BE() % 100000000).padStart(8, '0') };
     account = await command('PUT', store.root + `/provider-accounts/${account.account_id}/services/payment`, { profile: 'ecpay.aio.credit.v1', ...material, fresh_auth_verification_id: await fresh() }, 200, account.version);
+    if(options.activationOnly)return {accountId:account.account_id as string,material,version:account.version as string};
     const { isolatedTransaction } = await import('../../packages/resource-scopes/tenant-transaction.js');
     await isolatedTransaction(db, async (q) => { await bindStore(q, store.tenant); await activateProviderService(q, { accountId: account.account_id, purpose: 'payment', activationRef: randomUUID() }); });
     await db.query(`INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,'合成付款准入管理員') ON CONFLICT(email) DO UPDATE SET active=true`, [randomUUID(), DEMO_COMMUNITY, E2E_AUTHOR_CLAIM_ADMIN_EMAIL]);
@@ -139,7 +140,7 @@ export async function setupE2ePayment(db: import('pg').Pool, browser: import('@p
     assert.equal(bootstrap.status(), 200);
     const response = await context.request.post('/admin/api/commerce/store-admissions', { data: { tenant_id: store.tenant, instance_id: store.instance, reason: '本機付款測試准入' }, headers: { Origin: origin, ...adminHeaders, 'X-Admin-CSRF': (await bootstrap.json()).csrf_token, 'Idempotency-Key': randomUUID() } });
     assert.equal(response.status(), 201, 'payment fixture admission failed');
-    return { accountId: account.account_id as string, material };
+    return { accountId: account.account_id as string, material,version:account.version as string };
   }
   finally {
     await context.close();
