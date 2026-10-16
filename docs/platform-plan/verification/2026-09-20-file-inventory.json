@@ -14089,8 +14089,8 @@
     },
     {
       "path": "docs/development/newcomer-guides.md",
-      "bytes": 9889,
-      "sha256": "4b0a53ca4d825756d9d7e9bf95dc5c557ce912ec81ac19f2902d577e69a64e4b"
+      "bytes": 10482,
+      "sha256": "fc94f5f2fe411bc0e97038b6325840d2b3401896663c95b8e1ea15f979020281"
     },
     {
       "path": "docs/development/onboarding-api.md",
@@ -16079,8 +16079,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 27843,
-      "sha256": "d2b6828689b6bfef9a398dd53c72779991c55f1dacc4e23ab8119843657f670e"
+      "bytes": 30760,
+      "sha256": "d45744aff5743ef3b453ede8fca03974920a987f5c52b351397a6d2e659cf109"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -19454,8 +19454,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 17266,
-      "sha256": "8fe7f311c7063f99b2e7c9cf2b551cf6ddf0b5e15d55d95fc50f976709d169ad"
+      "bytes": 20017,
+      "sha256": "3e31eb0e4199c7749620382d7989e49aaf653d4ad52dd528a6eabb0e69d5658e"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -19729,8 +19729,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 38888,
-      "sha256": "f5f01a507cd24515d2e68aa58b610f555e84516e7caee42bc6016b734d94a9f9"
+      "bytes": 50427,
+      "sha256": "b2f3c263a3826f74ca4dc13cd2e9ca8174c8ec115442adf68bc266066cd1019a"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -20599,8 +20599,8 @@
     },
     {
       "path": "scripts/run-e2e.test.mjs",
-      "bytes": 11628,
-      "sha256": "9360cc0f10231b3353de3e15d4485d047e89c384e65a9dcc9198bacf489b0902"
+      "bytes": 11334,
+      "sha256": "e8bd9db5ac360412619504b4dce2e17c79958d504123cc2f8e8cbe2e7f85aa09"
     },
     {
       "path": "scripts/run-media-restore-test.mjs",
@@ -20759,8 +20759,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 13006,
-      "sha256": "12ebb1f514e595d1fd5de8f8eda507bdd82066f7bedfa7760288291a5393540c"
+      "bytes": 16221,
+      "sha256": "b049486b2ab22c28a0bcc6ba193a3f26263d3a7c611b66c744ae5af6df64736d"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -21414,8 +21414,8 @@
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
-      "bytes": 70696,
-      "sha256": "4647f2c686e3306f0b6f95d9224f4d3bee050f4ca68071fa3b3a1e2d8c3e7d89"
+      "bytes": 70798,
+      "sha256": "f073031cb6b3ead5c79b1c82cf3973e884ce463929509540e60fd464a9f6784b"
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
