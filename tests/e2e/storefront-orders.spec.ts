@@ -521,11 +521,9 @@ test('B10 page, keyboard navigation, noscript fallback and asset isolation', asy
     const page = await context.newPage();
     await page.goto(`/shops/${store.slug}/order-access`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('找回訂單');
-    await expect(page.locator('#main')).toContainText(
-      '這間店目前不寄確認信，請用這個瀏覽器回到訂單，或聯絡店家。',
-    );
-    await expect(page.getByRole('textbox')).toHaveCount(0);
-    await expect(page.locator('form, input')).toHaveCount(0);
+    await expect(page.getByLabel('Email', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('訂單編號', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '寄送查看連結', exact: true })).toBeVisible();
     const backLink = page.getByRole('link', { name: '回到「山邊小店」', exact: true });
     await expect(backLink).toHaveAttribute('href', `/shops/${store.slug}`);
 

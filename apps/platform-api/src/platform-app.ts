@@ -601,7 +601,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
   app.route('/',createHostedCheckoutRoutes(pool,origin,runtime,freedomEnv));
-  app.route('/',createHostedPaymentRoutes(pool,runtime,freedomEnv));
+  app.route('/',createHostedPaymentRoutes(pool,runtime,freedomEnv,origin));
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
   app.post('/api/v1/me/account/email-verification/request',async c=>{
     requireCondition(runtime.eventEmailSender,503,'email_verification_unavailable','驗證信郵件服務尚未設定完成。');

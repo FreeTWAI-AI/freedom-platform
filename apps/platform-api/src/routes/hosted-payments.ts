@@ -15,16 +15,30 @@ import { providerEnvironment } from '../../../../modules/agent-commerce/operatio
 import type { FreedomEnv } from '../env.js';
 import { servePaymentHandoff } from '../../../../modules/agent-commerce/payments/handoff.js';
 import { HANDOFF_SCRIPT, HANDOFF_CSS, handoffErrorPage } from '../../../../modules/agent-commerce/payments/handoff-page.js';
+import { hostedCheckoutOptions } from './hosted-checkout.js';
 export function hostedPaymentOptions(runtime:PlatformRuntime,environment:FreedomEnv):PaymentAttemptOptions{
   return {settings:runtime.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:runtime.commercePayments?.profiles??[],environment:providerEnvironment(environment),
     admission:runtime.commercePorts?.admission??{allowed:()=>false},gateway:runtime.commercePayments?.gateway,keyring:runtime.commerceCredentialKeyring??null};
 }
-export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, environment: FreedomEnv) {
+export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, environment: FreedomEnv, origin = runtime.publicOrigin) {
   const app = new Hono();
-  const afterResponse=(attemptId:string|null,trigger:'notification'|'browser_return')=>{
+  const journal = runtime.commercePayments?.journal ?? runtime.commerceJournal;
+  const afterResponse=(scheduled:{attemptId:string|null;orderId:string|null}|null,trigger:'notification'|'browser_return')=>{
+    if(!scheduled||!runtime.afterResponse||runtime.commerceSettings?.quarantine)return;
     const transport=runtime.commerceQueryTransport,keyring=runtime.commerceCredentialKeyring;
-    if(!attemptId||!transport||!keyring||!runtime.afterResponse||runtime.commerceSettings?.quarantine)return;
-    try{runtime.afterResponse(async()=>{await runDueCommerceWork(pool,{transport,keyring,freedomEnv:environment},{targets:[attemptId],limit:2,trigger});});}
+    const emailEnabled=runtime.commerceSettings?.emailEnabled===true,emailSender=runtime.commerceEmailSender;
+    const canQuery=Boolean(scheduled.attemptId&&transport&&keyring);
+    const canEmail=Boolean(scheduled.orderId&&emailEnabled&&emailSender&&journal&&origin);
+    if(!canQuery&&!canEmail)return;
+    try{runtime.afterResponse(async()=>{
+      const {email}=hostedCheckoutOptions(origin,runtime,environment);
+      if(scheduled.attemptId&&transport&&keyring)
+        await runDueCommerceWork(pool,{transport,keyring,freedomEnv:environment,email},{targets:[scheduled.attemptId],limit:1,trigger});
+      if(scheduled.orderId&&runtime.commerceSettings?.emailEnabled&&runtime.commerceEmailSender&&journal&&origin){
+        const emails=(await pool.query<{email_id:string}>("SELECT email_id FROM commerce_outbound_emails WHERE order_id=$1 AND state='queued' ORDER BY created_at LIMIT 10",[scheduled.orderId])).rows.map(r=>r.email_id);
+        if(emails.length)await runDueCommerceWork(pool,{freedomEnv:environment,emailEnabled:true,emailSender:runtime.commerceEmailSender,journal,origin},{targets:emails,limit:emails.length,trigger});
+      }
+    });}
     catch{console.error('commerce_after_response_failed');}
   };
   const returnUnavailable = '暫時無法確認付款結果，請稍後到訂單頁查看。';
@@ -67,7 +81,8 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (message.kind === 'invalid')
       return invalid(message.reason);
     try {
-      const scheduledAttempt=await receivePaymentNotification(pool, { account, message, credentialVersion: credentials[message.keyIndex].credentialVersion, quarantine: runtime.commerceSettings?.quarantine ?? false });
+      const { email } = hostedCheckoutOptions(origin, runtime, environment);
+      const scheduledAttempt=await receivePaymentNotification(pool, { account, message, credentialVersion: credentials[message.keyIndex].credentialVersion, quarantine: runtime.commerceSettings?.quarantine ?? false, ...(email?{email}:{}) });
       afterResponse(scheduledAttempt,'notification');
     }
     catch (error) {
@@ -103,7 +118,7 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
       try {
         const scheduleQuery = await tryChargeCommerceBudget(pool, 'paymentReturnQuery', attempt.attempt_id);
         const recorded=await recordPaymentBrowserReturn(pool, { account, attemptId: attempt.attempt_id, merchantTradeNo: message.merchantTradeNo, credentialVersion: version, body, scheduleQuery });
-        if(recorded)afterResponse(attempt.attempt_id,'browser_return');
+        if(recorded)afterResponse({attemptId:attempt.attempt_id,orderId:attempt.order_id??null},'browser_return');
       } catch {
         console.error('payment_browser_return_record_failed');
       }

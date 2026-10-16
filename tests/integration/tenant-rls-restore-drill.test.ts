@@ -369,6 +369,9 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     const refund=(await q.query(`INSERT INTO commerce_refunds(tenant_id,instance_id,order_id,application_id,attempt_id,basis,mode,state,amount_minor,currency,refunded_on,recorded_by_principal_id)
       VALUES($1,$2,$3,$4,$5,'unapplied_payment','manual_record','recorded',100,'TWD',(clock_timestamp() AT TIME ZONE 'Asia/Taipei')::date,$6) RETURNING refund_id`,[space.tenantId,space.hosted.instanceId,checkoutOrder.order_id,application.application_id,orderAttemptId,author.principalId])).rows[0];
     await q.query("INSERT INTO commerce_refund_lines(refund_id,line_no,kind,amount_minor) VALUES($1,1,'unapplied',100)",[refund.refund_id]);
+    await q.query(`INSERT INTO commerce_outbound_emails(tenant_id,instance_id,order_id,template,access_request_id,created_at,expires_at)
+      SELECT $1,$2,$3,'order_access',$4,t,t+interval '7 days' FROM (SELECT clock_timestamp() t) n`,
+    [space.tenantId, space.hosted.instanceId, checkoutOrder.order_id, randomUUID()]);
     await q.query(`INSERT INTO commerce_exception_cases(tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind) VALUES($1,$2,'unmatched_payment','payment_event',$3,'retailer',clock_timestamp()+interval '72 hours','system')`,[space.tenantId,space.hosted.instanceId,randomUUID()]);
     const {device}=await ensureDevice(q,undefined,'https://example.test');
     await grantDevice(q,device.device_id,{tenant_id:space.tenantId,instance_id:space.hosted.instanceId,checkout_id:space.checkout.checkout_id});
@@ -691,7 +694,7 @@ test('J6-R2 owner and backup counts and full-row fingerprints agree at the same 
   assert.doesNotThrow(() => compareEvidence(backup.evidence!, ownerEvidence));
   assert.deepEqual(Object.keys(EXPECTED).sort(), [...RLS_TABLES].sort());
   for (const table of RLS_TABLES) assert.equal(evidenceCount(backup.evidence, table), EXPECTED[table], table);
-  for (const table of ['commerce_payment_attempts','commerce_hosted_payment_events','commerce_due_work','commerce_refunds','commerce_refund_lines']) {
+  for (const table of ['commerce_payment_attempts','commerce_hosted_payment_events','commerce_due_work','commerce_refunds','commerce_refund_lines','commerce_outbound_emails']) {
     assert.equal(evidenceCount(backup.evidence, table), table === 'commerce_payment_attempts' ? 4 : 2, table);
   }
   assert.equal(snapshotAssets, 2);
@@ -757,7 +760,7 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
-  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id'],['commerce_refunds','refund_id']] as const) {
+  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id'],['commerce_refunds','refund_id'], ['commerce_outbound_emails','email_id']] as const) {
     const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
     const restored = await rows(restoredPool);
     assert.equal(restored.length, table === 'commerce_payment_attempts' ? 4 : 2);

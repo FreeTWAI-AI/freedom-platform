@@ -935,6 +935,7 @@ test('review 11: replayed verified browser returns retain one hint and the same 
 });
 
 import {createFixtureQueryTransport} from '../../modules/agent-commerce/payments/query-transport.js';
+import {FixtureEmailSender} from '../../modules/agent-commerce/operations/notifications/email-port.js';
 test('notification commits and acknowledges before its collected confirmation query runs',async()=>{
   const p=await f.placed(),value=await body(p),fields=new URLSearchParams(value),pending:(()=>Promise<void>)[]=[];
   await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p.payment.attempt_ref]);
@@ -953,4 +954,96 @@ test('browser return queues only a committed new hint that scheduled a query',as
   assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
   assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
   f.settings.quarantine=true;assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
+});
+test('after-response work delivers payment emails right after browser-return query, late payment notification, and common notification when email is on, and queues/sends nothing when off',async()=>{
+  try {
+    // 1. Browser return first (email on): query runs first in afterResponse, applies payment & queues order_confirmed, then step 2 delivers it
+    f.settings.emailEnabled=true;
+    const p1=await f.placed(),value1=await body(p1),fields1=new URLSearchParams(value1),pending1:(()=>Promise<void>)[]=[],sender1=new FixtureEmailSender();
+    await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p1.payment.attempt_ref]);
+    f.install({
+      afterResponse:work=>{pending1.push(work);},
+      commerceEmailSender:sender1,
+      commerceQueryTransport:createFixtureQueryTransport(async()=>({
+        kind:'response',
+        status:200,
+        body:encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:fields1.get('MerchantTradeNo')!,TradeNo:fields1.get('TradeNo')!,TradeAmt:'5',TradeStatus:'1'},EcpayKeyPair.of(p1.provider.material.hash_key,p1.provider.material.hash_iv),'sha256'))
+      }),'local')
+    });
+    assert.equal((await post(returnPath(p1),value1)).status,303);
+    assert.equal(pending1.length,1);
+    assert.equal(sender1.messages.length,0);
+    await pending1[0]();
+    assert.equal(sender1.messages.length,1);
+    assert(sender1.messages[0].subject.includes(p1.order.display_number));
+    assert(sender1.messages[0].subject.includes('已成立'));
+    const row1=(await f.x.h.pool.query('SELECT template,state,sent_at FROM commerce_outbound_emails WHERE order_id=$1',[p1.order.order_ref])).rows;
+    assert.equal(row1.length,1);assert.equal(row1[0].template,'order_confirmed');assert.equal(row1[0].state,'sent');assert(row1[0].sent_at instanceof Date);
+
+    // 2. Late payment (email on): notification arrives for an expired_unpaid attempt (no payment_query due), afterResponse still delivers the queued email
+    const p2=await f.placed(),value2=await body(p2),pending2:(()=>Promise<void>)[]=[],sender2=new FixtureEmailSender();
+    await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='expired_unpaid',expired_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[p2.payment.attempt_ref]);
+    await f.x.h.pool.query("DELETE FROM commerce_due_work WHERE target_id=$1",[p2.payment.attempt_ref]);
+    f.install({afterResponse:work=>{pending2.push(work);},commerceEmailSender:sender2});
+    await ack(await post(path(p2),value2));
+    assert.equal(pending2.length,1);
+    assert.equal(sender2.messages.length,0);
+    await pending2[0]();
+    assert.equal(sender2.messages.length,1);
+    assert(sender2.messages[0].subject.includes(p2.order.display_number));
+    const row2=(await f.x.h.pool.query('SELECT template,state,sent_at FROM commerce_outbound_emails WHERE order_id=$1',[p2.order.order_ref])).rows;
+    assert.equal(row2.length,1);assert.equal(row2[0].template,'order_confirmed');assert.equal(row2[0].state,'sent');assert(row2[0].sent_at instanceof Date);
+
+    // 3. Common case (email on): paid notification sends order_confirmed from the captured afterResponse work and leaves the row sent
+    const p3=await f.placed(),value3=await body(p3),fields3=new URLSearchParams(value3),pending3:(()=>Promise<void>)[]=[],sender3=new FixtureEmailSender();
+    await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p3.payment.attempt_ref]);
+    f.install({
+      afterResponse:work=>{pending3.push(work);},
+      commerceEmailSender:sender3,
+      commerceQueryTransport:createFixtureQueryTransport(async()=>({
+        kind:'response',
+        status:200,
+        body:encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:fields3.get('MerchantTradeNo')!,TradeNo:fields3.get('TradeNo')!,TradeAmt:'5',TradeStatus:'1'},EcpayKeyPair.of(p3.provider.material.hash_key,p3.provider.material.hash_iv),'sha256'))
+      }),'local')
+    });
+    await ack(await post(path(p3),value3));
+    assert.equal(pending3.length,1);
+    assert.equal(sender3.messages.length,0);
+    await pending3[0]();
+    assert.equal(sender3.messages.length,1);
+    assert(sender3.messages[0].subject.includes(p3.order.display_number));
+    const row3=(await f.x.h.pool.query('SELECT template,state,sent_at FROM commerce_outbound_emails WHERE order_id=$1',[p3.order.order_ref])).rows;
+    assert.equal(row3.length,1);assert.equal(row3[0].template,'order_confirmed');assert.equal(row3[0].state,'sent');assert(row3[0].sent_at instanceof Date);
+  } finally {
+    f.settings.emailEnabled=false;
+  }
+});
+test('when email is off, browser-return query, late payment notification, and common notification queue nothing and send nothing',async()=>{
+  f.settings.emailEnabled=false;
+  const pOff1=await f.placed(),valOff1=await body(pOff1),fOff1=new URLSearchParams(valOff1);
+  const pOff2=await f.placed(),valOff2=await body(pOff2);
+  const pOff3=await f.placed(),valOff3=await body(pOff3);
+  const pendingOff:(()=>Promise<void>)[]=[],senderOff=new FixtureEmailSender();
+  await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[pOff1.payment.attempt_ref]);
+  await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='expired_unpaid',expired_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[pOff2.payment.attempt_ref]);
+  await f.x.h.pool.query("DELETE FROM commerce_due_work WHERE target_id=$1",[pOff2.payment.attempt_ref]);
+  await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[pOff3.payment.attempt_ref]);
+  f.install({
+    afterResponse:work=>{pendingOff.push(work);},
+    commerceEmailSender:senderOff,
+    commerceQueryTransport:createFixtureQueryTransport(async()=>({
+      kind:'response',
+      status:200,
+      body:encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:fOff1.get('MerchantTradeNo')!,TradeNo:fOff1.get('TradeNo')!,TradeAmt:'5',TradeStatus:'1'},EcpayKeyPair.of(pOff1.provider.material.hash_key,pOff1.provider.material.hash_iv),'sha256'))
+    }),'local')
+  });
+  assert.equal((await post(returnPath(pOff1),valOff1)).status,303);
+  await ack(await post(path(pOff2),valOff2));
+  await ack(await post(path(pOff3),valOff3));
+  for(const work of pendingOff) await work();
+  assert.equal(senderOff.messages.length,0);
+  assert.equal(
+    (await f.x.h.pool.query('SELECT count(*)::int n FROM commerce_outbound_emails WHERE order_id = ANY($1::uuid[])',[[pOff1.order.order_ref,pOff2.order.order_ref,pOff3.order.order_ref]])).rows[0].n,
+    0
+  );
 });

@@ -20,9 +20,11 @@ import {
   classifyQueryPaymentResponse,
   classifyStartPaymentResponse,
   isHandoffUrl,
+  orderEmailNote,
   orderPaymentSectionCopy,
   parseRetryAfter,
   paymentView,
+  type PaymentView,
   type StartPaymentRefusedCode,
 } from '../../apps/portal-web/src/storefront/payment-view.js';
 import { ok } from './hosted-checkout-harness.js';
@@ -750,4 +752,21 @@ test('refunded is final after overpaid and confirmed, ahead of every lifecycle a
     assert.equal(paymentView(refunded),'refunded');assert.equal(paymentView({...refunded,payment_state:'overpaid'}),'review');assert.equal(paymentView({...refunded,payment_state:'confirmed'}),'paid');
   }
   assert.deepEqual(orderPaymentSectionCopy('refunded'),{label:'已退款',description:'店家已登記退回這筆訂單收到的全部款項。入帳時間依發卡銀行而定，沒有收到時請聯絡店家。',canQueryWhenOpen:false});
+});
+
+test('orderEmailNote returns the off copy for every PaymentView and the pre-payment copy only for allowlisted views when on', () => {
+  const offCopy = '這間店目前不寄確認信，請用這個瀏覽器回到訂單，或聯絡店家。';
+  const onCopy = '付款確認後，訂單成立信會寄到你填寫的 Email。';
+  const prePaymentViews: readonly PaymentView[] = ['ready', 'awaiting', 'checking', 'failed', 'expired'];
+  const postOrTerminalViews: readonly PaymentView[] = ['paid', 'refunded', 'review', 'closed'];
+
+  for (const view of [...prePaymentViews, ...postOrTerminalViews]) {
+    assert.equal(orderEmailNote(view, false), offCopy, `expected off copy for ${view}`);
+  }
+  for (const view of prePaymentViews) {
+    assert.equal(orderEmailNote(view, true), onCopy, `expected on copy for ${view}`);
+  }
+  for (const view of postOrTerminalViews) {
+    assert.equal(orderEmailNote(view, true), null, `expected null for ${view} when on`);
+  }
 });

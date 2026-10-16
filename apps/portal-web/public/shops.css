@@ -221,3 +221,7 @@ p { margin: 0 0 .65rem; }
 @media (prefers-reduced-motion: reduce) {
   .shop-pay-return, .shop-pay-primary { transition: none; animation: none; }
 }
+
+.shop-order-access-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.shop-text-input { width: 100%; max-width: 480px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-family: inherit; font-size: 1rem; line-height: 1.4; }
+.shop-text-input:focus-visible { outline: 3px solid #537300; outline-offset: 2px; }

@@ -1,6 +1,6 @@
 import {lstatSync,readFileSync} from 'node:fs';
 import {parseJsonc} from './wrangler.mjs';
-const flags=new Set(['FREEDOM_COMMERCE_CHECKOUT_ENABLED','FREEDOM_COMMERCE_CONSOLE_ENABLED','FREEDOM_COMMERCE_QUARANTINE']);
+const flags=new Set(['FREEDOM_COMMERCE_CHECKOUT_ENABLED','FREEDOM_COMMERCE_CONSOLE_ENABLED','FREEDOM_COMMERCE_EMAIL_ENABLED','FREEDOM_COMMERCE_QUARANTINE']);
 /** Local declarations only. Fixed error names never copy config values or keys. */
 export function checkCommerceWranglerConfig(path) {
   const errors=[],blockers=[];
@@ -25,6 +25,10 @@ export function checkCommerceWranglerConfig(path) {
       const profiles=typeof rawProfiles==='string'?rawProfiles.split(','):[];
       if(typeof rawProfiles!=='string'||/\s/.test(rawProfiles)||!profiles.length||new Set(profiles).size!==profiles.length||profiles.some(p=>p!=='ecpay.aio.credit.v1'))errors.push('commerce_provider_profiles_invalid');
       else if(!Array.isArray(block.r2_buckets)||!block.r2_buckets.some(b=>b&&typeof b==='object'&&b.binding==='COMMERCE_JOURNAL'))errors.push('commerce_journal_binding_required');
+    }
+    if(vars.FREEDOM_COMMERCE_EMAIL_ENABLED==='true'){
+      if(!Array.isArray(block.send_email)||!block.send_email.some(e=>e&&typeof e==='object'&&e.name==='EMAIL'))errors.push('commerce_email_binding_required');
+      if(!Array.isArray(block.r2_buckets)||!block.r2_buckets.some(b=>b&&typeof b==='object'&&b.binding==='COMMERCE_JOURNAL'))errors.push('commerce_journal_binding_required');
     }
     if(vars.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true'&&vars.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')errors.push('commerce_launchpad_required');
     if(vars.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&vars.FREEDOM_COMMERCE_CONSOLE_ENABLED!=='true')errors.push('commerce_console_required');

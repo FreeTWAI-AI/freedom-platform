@@ -23,14 +23,19 @@ export function cartPageHtml(store: StorefrontStoreHeading): string {
   );
 }
 
-export function orderPageHtml(store: StorefrontStoreHeading, orderRef: string): string {
+export function orderPageHtml(
+  store: StorefrontStoreHeading,
+  orderRef: string,
+  options: { emailEnabled?: boolean } = {},
+): string {
   const slug = escapeHtml(store.slug);
   const name = escapeHtml(store.name);
   const ref = escapeHtml(orderRef);
+  const emailEnabled = options.emailEnabled === true ? 'true' : 'false';
   return storefrontShell(
     store,
     `訂單｜${store.name}｜自由工坊`,
-    `<section class="shop-order" id="shop-order" data-store-slug="${slug}" data-store-name="${name}" data-order-ref="${ref}" aria-labelledby="shop-order-title" aria-busy="true"><h1 id="shop-order-title">訂單</h1><p role="status">正在讀取訂單…</p><noscript><p>查看訂單需要開啟瀏覽器的 JavaScript。</p></noscript></section>`,
+    `<section class="shop-order" id="shop-order" data-store-slug="${slug}" data-store-name="${name}" data-order-ref="${ref}" data-email-enabled="${emailEnabled}" aria-labelledby="shop-order-title" aria-busy="true"><h1 id="shop-order-title">訂單</h1><p role="status">正在讀取訂單…</p><noscript><p>查看訂單需要開啟瀏覽器的 JavaScript。</p></noscript></section>`,
     true,
   );
 }
@@ -45,9 +50,20 @@ export function orderMissingHtml(store: StorefrontStoreHeading): string {
   );
 }
 
-export function orderAccessPageHtml(store: StorefrontStoreHeading): string {
+export function orderAccessPageHtml(
+  store: StorefrontStoreHeading,
+  options: { emailEnabled?: boolean } = {},
+): string {
   const slug = escapeHtml(store.slug);
   const name = escapeHtml(store.name);
+  if (options.emailEnabled === true) {
+    return storefrontShell(
+      store,
+      `找回訂單｜${store.name}｜自由工坊`,
+      `<section class="shop-order" id="shop-order-access" data-store-slug="${slug}" data-store-name="${name}" aria-labelledby="shop-order-access-title" aria-busy="false"><h1 id="shop-order-access-title" tabindex="-1">找回訂單</h1><p>輸入下單時填寫的 Email 與訂單編號（例如 261015-ABCDEF），我們會把一次性查看連結寄到你的信箱。</p><form class="shop-order-section" method="post" novalidate><div class="shop-order-access-field"><label class="shop-add-label" for="shop-order-access-email">Email</label><input id="shop-order-access-email" class="shop-text-input" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required></div><div class="shop-order-access-field"><label class="shop-add-label" for="shop-order-access-display-number">訂單編號</label><input id="shop-order-access-display-number" class="shop-text-input" name="display_number" type="text" autocomplete="off" maxlength="80" placeholder="261015-ABCDEF" required></div><div class="shop-order-actions"><button type="submit" class="shop-button shop-pay-primary" disabled>寄送查看連結</button><a href="/shops/${slug}">回到「${name}」</a></div></form><noscript><p>寄送查看連結需要開啟瀏覽器的 JavaScript。</p></noscript></section>`,
+      true,
+    );
+  }
   return storefrontShell(
     store,
     `找回訂單｜${store.name}｜自由工坊`,

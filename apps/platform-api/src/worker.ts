@@ -8,6 +8,9 @@ import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payment
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
+import {sweepCommerceOutboundEmails} from '../../../modules/agent-commerce/operations/notifications/delivery.js';
+import {createWorkerEmailSender} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
+import {commerceEmailOutbox} from '../../../modules/agent-commerce/operations/notifications/outbox.js';
 import {sweepDueCheckoutHolds} from '../../../modules/agent-commerce/checkout/settlement.js';
 import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
@@ -32,6 +35,7 @@ import { readSessionCookie } from './session-cookie.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { IMMUTABLE_ASSET_CACHE_CONTROL, isFastPathBuildAsset, isHashedBuildAsset } from './static-assets.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
+import { commerceCheckoutQueryDeps } from './routes/hosted-checkout.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
 import {pruneExpiredAuthRecords} from '../../../modules/identity-membership/auth-pruning.js';
@@ -65,6 +69,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   COMMERCE_CREDENTIAL_KEYS?:string;
   FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
   FREEDOM_COMMERCE_CONSOLE_ENABLED?:string;
+  FREEDOM_COMMERCE_EMAIL_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
   FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
   COMMERCE_JOURNAL?:Pick<R2Bucket,'put'|'get'>;
@@ -85,7 +90,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   /** Separate private-origin bucket, read-only purpose-specific public asset path. */
   GUIDE_STATIC?: GuideR2Binding;
   FREEDOM_PUBLIC_GUIDE_ENABLED?: string;
-  EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
+  EMAIL?: {send(message:{to:string;from:string;subject:string;text:string;replyTo?:string}):Promise<{messageId:string}>};
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
@@ -147,6 +152,10 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if(commerceSettings.providerProfiles.length){
     if(!commerceCredentialKeyring)throw new ReadinessError('commerce_profiles_require_keyring');
     if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_profiles_require_journal');
+  }
+  if(commerceSettings.emailEnabled){
+    if(typeof env.EMAIL?.send!=='function')throw new ReadinessError('commerce_email_binding_required');
+    if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_journal_binding_required');
   }
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
@@ -253,7 +262,9 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{queryTransport?:PaymentQueryTransport}={}): PlatformRuntime {
   const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment,settings.providerProfiles);
   const queryTransport=options.queryTransport??createEcpayQueryTransport();
-  const payments=settings.providerProfiles.length?{gateway:createEcpayPaymentGateway(environment,config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:settings.providerProfiles}:undefined;
+  const journal=(settings.providerProfiles.length||settings.emailEnabled)&&env.COMMERCE_JOURNAL?createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL):undefined;
+  const payments=settings.providerProfiles.length&&journal?{gateway:createEcpayPaymentGateway(environment,config.origin),journal,profiles:settings.providerProfiles}:undefined;
+  const emailSender=settings.emailEnabled&&env.EMAIL?createWorkerEmailSender(env.EMAIL):undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
@@ -286,9 +297,9 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{quer
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
-    commerceQueryTransport:queryTransport,commercePayments:payments,commerceSettings:settings,
+    commerceQueryTransport:queryTransport,commercePayments:payments,commerceJournal:journal,commerceEmailSender:emailSender,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
-    commercePorts:{admission,...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},{transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine}):{})},
+    commercePorts:{admission,...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},commerceCheckoutQueryDeps({transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine,emailEnabled:settings.emailEnabled})):{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     supplierConsoleEnabled: env.FREEDOM_SUPPLIER_CONSOLE_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
@@ -357,6 +368,7 @@ export type WorkerDependencies = {
   commerceDueWork?:typeof runDueCommerceWork;
   commerceQueryTransport?:PaymentQueryTransport;
   commerceSweep?:typeof sweepDueCheckoutHolds;
+  commerceEmailSweep?:typeof sweepCommerceOutboundEmails;
   commerceApplyDeferred?:typeof applyDeferredPaymentEvents;
   commerceFlushJournal?:typeof flushControlEvents;
 };
@@ -491,12 +503,24 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           let commerce:CommerceSettings|undefined;
           try{commerce=readCommerceSettings(env);}catch{console.error('commerce_settings_invalid');}
           if(commerce&&!commerce.quarantine){
-            try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
+            const email=commerce.emailEnabled?commerceEmailOutbox:undefined;
+            try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200,...(email?{email}:{})});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
             try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
-            if(env.COMMERCE_CREDENTIAL_KEYS)try{
-              const keyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);
-              if(keyring)await (deps.commerceDueWork??runDueCommerceWork)(pool,{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring,freedomEnv:resolveFreedomEnv(env.FREEDOM_ENV)});
+            if(env.COMMERCE_CREDENTIAL_KEYS||commerce.emailEnabled)try{
+              let emailDeps:{email:typeof commerceEmailOutbox;emailEnabled:true;emailSender:ReturnType<typeof createWorkerEmailSender>;journal:ReturnType<typeof createR2EffectJournal>;origin:string}|undefined;
+              if(commerce.emailEnabled)try{
+                const config=readWorkerConfig(env);
+                emailDeps={email:commerceEmailOutbox,emailEnabled:true,emailSender:createWorkerEmailSender(env.EMAIL!),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),origin:config.origin};
+              }catch{console.error('commerce_email_not_ready');}
+              const keyring=env.COMMERCE_CREDENTIAL_KEYS?CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS):null;
+              if(keyring||emailDeps){
+                const freedomEnv=resolveFreedomEnv(env.FREEDOM_ENV);
+                await (deps.commerceDueWork??runDueCommerceWork)(pool,{...(keyring?{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring}:{}),freedomEnv,...(email?{email}:{}),...emailDeps});
+              }
             }catch{console.error('commerce_due_work_failed');}
+            try{
+              await (deps.commerceEmailSweep??sweepCommerceOutboundEmails)(pool,{limit:500});
+            }catch{console.error('commerce_email_sweep_failed');}
             if(commerce.providerProfiles.length&&env.COMMERCE_JOURNAL)try{
               await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
             }catch{console.error('commerce_control_journal_failed');}

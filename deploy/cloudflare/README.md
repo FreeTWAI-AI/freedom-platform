@@ -162,8 +162,10 @@ transport，不會連到綠界。
 隔離模式不執行這些工作。查詢是唯讀，不寫外部效果日誌；啟用收款服務的控制事件仍由
 既有 flush 補寫。403 只暫停同一帳戶的付款查詢 30 分鐘，不影響物流或發票服務。
 
+`FREEDOM_COMMERCE_EMAIL_ENABLED` 預設關閉，只接受 `'true'`／`'false'`。開啟時，同一環境區塊須宣告名稱為 `EMAIL` 的 `send_email` binding（缺少時回報 `commerce_email_binding_required`）以及 `COMMERCE_JOURNAL` R2 binding（缺少時回報 `commerce_journal_binding_required`），Worker 就緒檢查也會驗證 `EMAIL.send` 與 `COMMERCE_JOURNAL`。Node server 沒有 `EMAIL` binding 與外部效果日誌，設為 `'true'` 時以 `commerce_email_requires_worker` 拒絕啟動；只有本機測試與 E2E server 安裝記憶體 fixture sender 與記憶體日誌。是否於已部署環境開啟此旗標由 Ted 依 [EC-SPEC-10 §6.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md) 授權決定，不在 repo 預設啟用。
+
 見 [EC-SPEC-04](../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md)、
-[EC-SPEC-10 §2.2、§4.4、§8.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md)。
+[EC-SPEC-10 §2.2、§4.4、§6.2、§8.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md)。
 
 ## 商務主控台與結帳開關
 

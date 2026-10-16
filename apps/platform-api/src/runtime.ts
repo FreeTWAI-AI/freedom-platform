@@ -4,7 +4,7 @@ import type {EcpayPaymentGateway} from '../../../modules/agent-commerce/payments
 import type {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import type {CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
 import type {CheckoutPorts} from '../../../modules/agent-commerce/checkout/terms.js';
-import type {CommerceEmailPort} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
+import type {CommerceEmailOutbox,CommerceEmailSender} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
 import type { StorePhotoAssets } from '../../../modules/agent-commerce/hosted/photo-commands.js';
 import type { TenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { PublicGuideAssets } from '../../../packages/public-guide-assets/index.js';
@@ -35,10 +35,12 @@ export type PlatformRuntime = {
   afterResponse?:(work:()=>Promise<void>)=>void;
   commerceQueryTransport?:PaymentQueryTransport;
   commercePayments?:{gateway?:EcpayPaymentGateway;journal:EffectJournalPort;profiles:readonly string[]};
+  commerceJournal?:EffectJournalPort;
+  commerceEmailSender?:CommerceEmailSender;
   commerceSettings?:CommerceSettings;
   commerceCredentialKeyring?:CommerceCredentialKeyring|null;
   commerceProviderEnvironment?:'sandbox'|'live';
-  commercePorts?:CheckoutPorts & {email?:CommerceEmailPort};
+  commercePorts?:CheckoutPorts & {email?:CommerceEmailOutbox};
   /** Explicit upgrade policy. Absence closes shop-key operations; never allows legacy. */
   shopKeyPolicy?: 'legacy-compatible'|'purpose-bound-only';
   /** Independently installed read-only platform-public guide release. Never MEDIA. */
