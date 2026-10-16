@@ -23,7 +23,10 @@
     "tests/runtime/hosted-shipping-locations.test.ts",
     "tests/runtime/hosted-shipping-profile.test.ts",
     "tests/runtime/hosted-shipping-attributes.test.ts",
-    "tests/runtime/hosted-shipping-contracts.test.ts"
+    "tests/runtime/hosted-shipping-contracts.test.ts",
+    "scripts/synthetic-shipping-quote.ts",
+    "tests/runtime/hosted-shipping-quote.test.ts",
+    "tests/runtime/hosted-shipping-quote-checkout.test.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [

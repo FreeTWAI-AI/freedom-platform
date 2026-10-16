@@ -17284,8 +17284,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/freedom.module.json",
-      "bytes": 1166,
-      "sha256": "a42d330b96f597eb6bd77986ce45815d778337c138bfbd6b7b3eeaa85bab6348"
+      "bytes": 1320,
+      "sha256": "3f04b239f881c86146f76b8923b44ef7fd48ed9843687bc8ba71040ebcff0ee7"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/errors.ts",
