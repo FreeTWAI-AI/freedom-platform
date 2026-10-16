@@ -1,3 +1,4 @@
+import {createHostedShippingRoutes} from './routes/hosted-shipping.js';
 import {assertQueryTransportInstallation} from '../../../modules/agent-commerce/payments/query-transport.js';
 import {isCommerceProviderEntry,isCommerceProviderEntryPath} from '../../../modules/agent-commerce/operations/provider-entry-paths.js';
 import {createHostedSellerCheckoutRoutes} from './routes/hosted-seller-checkout.js';
@@ -742,6 +743,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore,runtime.tenantListCursors));
     app.route('/api/v1',createHostedStoreRoutes(pool));
     app.route('/api/v1',createHostedCommerceSetupRoutes(pool,{keyring:runtime.commerceCredentialKeyring??null,journal:runtime.commercePayments?.journal,activation:hostedPaymentOptions(runtime,freedomEnv),environment:runtime.commerceProviderEnvironment??providerEnvironment(freedomEnv)}));
+    if(runtime.commerceSettings?.consoleEnabled===true)app.route('/api/v1',createHostedShippingRoutes(pool,{environment:runtime.commerceProviderEnvironment??providerEnvironment(freedomEnv)}));
     if(runtime.commerceSettings?.consoleEnabled===true)app.route('/api/v1',createHostedSellerCheckoutRoutes(pool,{settings:runtime.commerceSettings,payment:runtime.commercePorts?.payment,paymentActions:runtime.commercePorts?.paymentActions,cursors:runtime.tenantListCursors,network:runtime.rateLimitNetwork??runtime.sourceNetwork}));
     if(runtime.supplierConsoleEnabled===true)app.route('/api/v1',createHostedSupplierConsoleRoutes(pool));
     if(storePhotosInstalled(runtime))app.route('/api/v1',createHostedStoreMediaRoutes(pool,runtime));

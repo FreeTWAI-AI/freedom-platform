@@ -1,3 +1,5 @@
+import {createLogisticsService,changeLogisticsServiceState} from '../../../../modules/agent-commerce/payments/logistics-services.js';
+import {LogisticsServiceKeySchema} from '../../../../contracts/guild-launchpad/v1/hosted-shipping.js';
 import {issueActivationHandoff,type PaymentAttemptOptions} from '../../../../modules/agent-commerce/payments/attempts.js';
 import {requireCondition} from '../../../../packages/shared/problem.js';
 import {flushControlEventsBestEffort,type EffectJournalPort} from '../../../../modules/agent-commerce/operations/journal/journal.js';
@@ -30,6 +32,8 @@ export function createHostedCommerceSetupRoutes(pool:Pool,options:ProviderAccoun
   app.post(accounts,async c=>{const h=commandHeaders(c,false),[t,i]=ids(c);const view=wire.ProviderAccountViewSchema.parse(await createProviderAccount(pool,c.get('actor'),t,i,await c.req.json(),h.key,options));etag(c,view.version);return c.json(view,201);});
   app.put(accounts+'/:account_id/services/:purpose',async c=>{const h=commandHeaders(c,true),[t,i]=ids(c);const view=wire.ProviderAccountViewSchema.parse(await putProviderService(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('account_id')),wire.ProviderPurposeSchema.parse(c.req.param('purpose')),await c.req.json(),h.key,h.expected!,options));etag(c,view.version);return c.json(view);});
   for(const action of ['suspend','resume','retire'] as const)app.post(accounts+'/:account_id/services/:purpose/'+action,async c=>{const h=commandHeaders(c,true),[t,i]=ids(c);const view=wire.ProviderAccountViewSchema.parse(await changeProviderServiceState(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('account_id')),wire.ProviderPurposeSchema.parse(c.req.param('purpose')),action,await c.req.json(),h.key,h.expected!,options));etag(c,view.version);return c.json(view);});
+  app.post(accounts+'/:account_id/logistics-services',async c=>{wire.CommerceSetupEmptyInputSchema.parse(singleQuery(c));const h=commandHeaders(c,true),[t,i]=ids(c);const view=wire.ProviderAccountViewSchema.parse(await createLogisticsService(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('account_id')),await c.req.json(),h.key,h.expected!));etag(c,view.version);return c.json(view,201);});
+  for(const action of ['suspend','resume','retire'] as const)app.post(accounts+'/:account_id/logistics-services/:service_key/'+action,async c=>{wire.CommerceSetupEmptyInputSchema.parse(singleQuery(c));const h=commandHeaders(c,true),[t,i]=ids(c);const view=wire.ProviderAccountViewSchema.parse(await changeLogisticsServiceState(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('account_id')),LogisticsServiceKeySchema.parse(c.req.param('service_key')),action,await c.req.json(),h.key,h.expected!));etag(c,view.version);return c.json(view);});
   app.post(accounts+'/:account_id/services/payment/activation-payments',async c=>{
     const h=commandHeaders(c,true),[t,i]=ids(c);
     requireCondition(options.activation,409,'provider_service_state','供應商服務狀態不允許這個操作。');

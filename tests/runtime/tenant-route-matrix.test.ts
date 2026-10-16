@@ -218,6 +218,18 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id/actions/:action': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/release': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/upgrade': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/suspend': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/resume': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/retire': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts': 'tenant',
   'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose': 'tenant',
@@ -561,8 +573,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 104, middleware: 2 });
-  assert.equal(selectedRoutes.length, 137);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 116, middleware: 2 });
+  assert.equal(selectedRoutes.length, 149);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -612,6 +624,18 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id/actions/:action', body: { code: 'confirmed' }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/release' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/upgrade', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations', body: {label:'合成倉'+randomUUID().slice(0,8),sender_name:'合成星禾',mobile:'09'+String(randomBytes(4).readUInt32BE()).padStart(10,'0').slice(-8),postal_code:'100',address:'合成星禾路'+randomUUID().slice(0,8)+'號',ships:true,receives_returns:true} },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire', body: {} },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/shipping-profile' },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/shipping-profile', body: {schema:'freedom.shipping-profile/v1',working_days:[1],services:[],delivery_options:[],drop_ship:null}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes' },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes', body: {weight_g:100,length_mm:100,width_mm:100,height_mm:100,temperature:'ambient',cvs_allowed:true,ship_alone:false,max_per_parcel:null}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services', body: {service_key:'ecpay.logistics.home.tcat',fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/suspend', body: {fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/resume', body: {fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/retire', body: {fresh_auth_verification_id:randomUUID()}, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts', body: { provider: 'ecpay', environment: 'sandbox', merchant_id: '1234567', fresh_auth_verification_id: randomUUID() } },
   { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose', body: { profile: 'ecpay.aio.credit.v1', ...providerMaterial, fresh_auth_verification_id: randomUUID() }, version: '"1"' },
@@ -722,7 +746,7 @@ function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
     principal_id: data.principalId, product_id: data.workId, order_id: data.workId, offer_id: data.workId, selection_id: data.workId,
-    account_id: data.workId, admission_id: data.invitationId, case_id: data.workId, purpose: 'payment', action: 'resolve_with_evidence',
+    location_id: data.workId, service_key: 'ecpay.logistics.home.tcat', account_id: data.workId, admission_id: data.invitationId, case_id: data.workId, purpose: 'payment', action: 'resolve_with_evidence',
     instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
     plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
@@ -815,7 +839,7 @@ test('T-022 3b. Own tenant in path, other tenant resource', async () => {
       assert.equal(invalid.data.code, 'validation_failed');
       scanForLeaks(invalid, `3b invalid service purpose ${route.path}`, fixture.B);
     }
-    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id' && key !== 'purpose' && key !== 'action');
+    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id' && key !== 'purpose' && key !== 'service_key' && key !== 'action');
     for (const position of positions) {
       for (const name of ['P', 'O'] as const) {
         const realIds = { ...ids(fixture.A, route), [position]: ids(fixture.B, route)[position] };
