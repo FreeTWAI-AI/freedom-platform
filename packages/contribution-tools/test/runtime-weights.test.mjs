@@ -145,7 +145,7 @@ test('CLI tests', (t) => {
   });
 });
 
-test('Committed module and fixture agree', async () => {
+test('Committed module matches historical measurements plus new material scheduling estimates', async () => {
   const fixturePath = fileURLToPath(new URL('./fixtures/runtime-hosted-costs-disk-20261009.json', import.meta.url));
   const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
   const m = await import('../runtime-file-weights.mjs');
@@ -153,8 +153,13 @@ test('Committed module and fixture agree', async () => {
   for (const [key, ms] of Object.entries(fixture.milliseconds)) {
     generatedWeights[`tests/runtime/${key}`] = Math.max(1, Math.ceil(ms / 1000));
   }
+  // Keep the dated measurements intact; these new purposes have planning weights.
+  Object.assign(generatedWeights, {
+    'tests/runtime/supply-material-assets.test.ts': 19,
+    'tests/runtime/supply-material-media.test.ts': 25
+  });
   assert.deepEqual(m.RUNTIME_FILE_WEIGHTS, generatedWeights);
   const keys1 = Object.keys(m.RUNTIME_FILE_WEIGHTS);
-  const keys2 = Object.keys(generatedWeights);
+  const keys2 = Object.keys(generatedWeights).sort();
   assert.deepEqual(keys1, keys2);
 });
