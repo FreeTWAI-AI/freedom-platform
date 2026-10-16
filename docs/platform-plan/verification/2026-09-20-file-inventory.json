@@ -564,8 +564,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store.ts",
-      "bytes": 11744,
-      "sha256": "ef62940b8be3fb3dfc8f6248304cee81ed185dfb435d20dc37a83b7c3a94458e"
+      "bytes": 12477,
+      "sha256": "ebe41a0d291190acd2ed2c86e57139176451d1c267f5d86ba01636fd918307ce"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -744,8 +744,8 @@
     },
     {
       "path": "apps/portal-web/public/shops.css",
-      "bytes": 10738,
-      "sha256": "a0c9d5b9fa7b72e496c42367a32ef0a166f956043a13e86df5d13b8fb990eecc"
+      "bytes": 17261,
+      "sha256": "7f918e0f4293866adb1b61e2260dfb540e6a2c8a4b51f8905b174df8cf7de319"
     },
     {
       "path": "apps/portal-web/public/art/versefolk-cooperation.webp",
@@ -3498,14 +3498,19 @@
       "sha256": "e1e77b8499f08236d18d6bf6f4e3bd0c1f74c97374d555170f738141506b1307"
     },
     {
+      "path": "apps/portal-web/src/storefront/cart-store.ts",
+      "bytes": 4638,
+      "sha256": "5a58ad03d0a984f3a1f55ca22e8d2b0a1c8491f4bc140337932fff00309a1261"
+    },
+    {
       "path": "apps/portal-web/src/storefront/format.ts",
       "bytes": 746,
       "sha256": "4509a676bdf41d63a0178e6b0058813558949dbf1fa0046d3edff114662de0f4"
     },
     {
       "path": "apps/portal-web/src/storefront/main.tsx",
-      "bytes": 20584,
-      "sha256": "fa6df89c64bd367d485919dfb8b6d01e7c094a8d5a316486d67db1aeeebdee63"
+      "bytes": 55449,
+      "sha256": "9393ba4a0faccded6584a0d318dcaf2c48b16d51246bc75f4da58abacd9aa698"
     },
     {
       "path": "apps/private-ai-authority/README.md",
@@ -17249,8 +17254,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/page.ts",
-      "bytes": 9381,
-      "sha256": "e54e5520acfe2bb8db9d4caec9ad52cee4266da6f6330ebc69fd591f840d14f3"
+      "bytes": 11041,
+      "sha256": "c8fa0b03c75dcbbd74ea22bee69e9650ad9685e0274d45e1bf3bc952df988956"
     },
     {
       "path": "modules/agent-commerce/hosted/photo-authority.ts",
@@ -17759,8 +17764,8 @@
     },
     {
       "path": "modules/agent-commerce/storefront/README.md",
-      "bytes": 1236,
-      "sha256": "1390961c22f82cae68e88e3270c394f297b4baa8779c7919288685c9b9ba709a"
+      "bytes": 1534,
+      "sha256": "2be0b93ff30d634cbe718bd176eb5ed103e60325e64d9a754db16f8c2ad4d36c"
     },
     {
       "path": "modules/agent-commerce/storefront/freedom.module.json",
@@ -17769,8 +17774,8 @@
     },
     {
       "path": "modules/agent-commerce/storefront/pages.ts",
-      "bytes": 3015,
-      "sha256": "789e4fb3833d428f0d3b78ad3c4b0594dddd28ebee7736826a3a2b192ba55cca"
+      "bytes": 3608,
+      "sha256": "baa9d16ec809ae06f7ef0a1b5b3d548656fffc74f340930c6a54f5fc09406f14"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -22038,6 +22043,16 @@
       "sha256": "86007896ccf262addab37c5f83cce73c2fd1995aff2bd8aa9efbd88b82decef9"
     },
     {
+      "path": "tests/e2e/storefront-cart-fixture.ts",
+      "bytes": 13890,
+      "sha256": "b9ab0da20e332a69866aa76ec01f982e33712637f006a142654a75fcb38692fa"
+    },
+    {
+      "path": "tests/e2e/storefront-cart.spec.ts",
+      "bytes": 54605,
+      "sha256": "b24f8a3fec44198568122385409ed31f4efb6f0e81fd0c3eb8da2f519c731450"
+    },
+    {
       "path": "tests/e2e/storefront-order-fixture.ts",
       "bytes": 9040,
       "sha256": "3734358cfa2bb9c9a0d4cf25764ab2dae9c9cc083e081f085a9a895e58b0a6ab"
@@ -24056,6 +24071,11 @@
       "path": "tests/runtime/squad-read-cutover.test.ts",
       "bytes": 10706,
       "sha256": "a57615c69db0f60ccf2352a55c36c56edf9265793501ba45db846e8dd8d5593f"
+    },
+    {
+      "path": "tests/runtime/storefront-cart-pages.test.ts",
+      "bytes": 17139,
+      "sha256": "eb0fa81e62aaa1411b191a9d340d58f765d26f2e1931389853837dd970236009"
     },
     {
       "path": "tests/runtime/storefront-order-pages.test.ts",

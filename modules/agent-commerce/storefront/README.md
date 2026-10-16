@@ -15,8 +15,12 @@ client bundle they share (EC-SPEC-01 §3, EC-SPEC-02 §4.2 and §6).
 - Before Ted authorises `FREEDOM_COMMERCE_EMAIL_ENABLED`, B10 shows the
   EC-SPEC-10 §6.2 explanation and collects no Email.
 
-Status: `pages.ts` renders the B07 order shell (`orderPageHtml`), the 404
-order-missing page (`orderMissingHtml`) and the B10 order-access guidance
-page (`orderAccessPageHtml`); `apps/portal-web/src/storefront/main.tsx`
-mounts `#shop-order` to redeem one-time links, display
-pre-payment/paid/cancelled orders and forget browser device access.
+Status: `pages.ts` renders the B04 cart shell (`cartPageHtml`), the B07 order
+shell (`orderPageHtml`), the 404 order-missing page (`orderMissingHtml`) and
+the B10 order-access guidance page (`orderAccessPageHtml`);
+`apps/portal-web/src/storefront/main.tsx` and `cart-store.ts` persist per-store
+browser carts, sync the B01/B03 header cart count and live announcer, mount
+`#shop-add-to-cart` with the B03 modal cart sheet, mount `#shop-cart` to price
+the B04 cart via `POST /api/v1/public/stores/:slug/cart-quotes`, and mount
+`#shop-order` to redeem one-time links, display pre-payment/paid/cancelled
+orders and forget browser device access.
