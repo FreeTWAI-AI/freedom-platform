@@ -9,6 +9,8 @@ import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payment
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
 import {sweepCommerceOutboundEmails} from '../../../modules/agent-commerce/operations/notifications/delivery.js';
+import {createWorkerEmailSender} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
+import {commerceEmailOutbox} from '../../../modules/agent-commerce/operations/notifications/outbox.js';
 import {sweepDueCheckoutHolds} from '../../../modules/agent-commerce/checkout/settlement.js';
 import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
@@ -255,7 +257,9 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{queryTransport?:PaymentQueryTransport}={}): PlatformRuntime {
   const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment,settings.providerProfiles);
   const queryTransport=options.queryTransport??createEcpayQueryTransport();
-  const payments=settings.providerProfiles.length?{gateway:createEcpayPaymentGateway(environment,config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:settings.providerProfiles}:undefined;
+  const journal=(settings.providerProfiles.length||settings.emailEnabled)&&env.COMMERCE_JOURNAL?createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL):undefined;
+  const payments=settings.providerProfiles.length&&journal?{gateway:createEcpayPaymentGateway(environment,config.origin),journal,profiles:settings.providerProfiles}:undefined;
+  const emailSender=settings.emailEnabled&&env.EMAIL?createWorkerEmailSender(env.EMAIL):undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
@@ -288,9 +292,9 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{quer
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
-    commerceQueryTransport:queryTransport,commercePayments:payments,commerceSettings:settings,
+    commerceQueryTransport:queryTransport,commercePayments:payments,commerceJournal:journal,commerceEmailSender:emailSender,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
-    commercePorts:{admission,...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},{transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine}):{})},
+    commercePorts:{admission,...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},{transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine}):{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
@@ -493,11 +497,14 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           let commerce:CommerceSettings|undefined;
           try{commerce=readCommerceSettings(env);}catch{console.error('commerce_settings_invalid');}
           if(commerce&&!commerce.quarantine){
-            try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
+            const email=commerce.emailEnabled?commerceEmailOutbox:undefined;
+            try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200,...(email?{email}:{})});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
             try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
-            if(env.COMMERCE_CREDENTIAL_KEYS)try{
-              const keyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);
-              if(keyring)await (deps.commerceDueWork??runDueCommerceWork)(pool,{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring,freedomEnv:resolveFreedomEnv(env.FREEDOM_ENV)});
+            if(env.COMMERCE_CREDENTIAL_KEYS||commerce.emailEnabled)try{
+              const keyring=env.COMMERCE_CREDENTIAL_KEYS?CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS):null;
+              const freedomEnv=resolveFreedomEnv(env.FREEDOM_ENV);
+              const emailDeps=commerce.emailEnabled&&env.EMAIL&&env.COMMERCE_JOURNAL?{email:commerceEmailOutbox,emailEnabled:true,emailSender:createWorkerEmailSender(env.EMAIL),journal:createR2EffectJournal(freedomEnv,env.COMMERCE_JOURNAL),origin:env.APP_ORIGIN}:undefined;
+              if(keyring||emailDeps)await (deps.commerceDueWork??runDueCommerceWork)(pool,{...(keyring?{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring}:{}),freedomEnv,...emailDeps});
             }catch{console.error('commerce_due_work_failed');}
             if(deps.commerceEmailSweep||typeof pool.connect==='function')try{
               await (deps.commerceEmailSweep??sweepCommerceOutboundEmails)(pool,{limit:500});
