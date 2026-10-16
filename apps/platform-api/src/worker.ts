@@ -475,8 +475,8 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           let commerce:CommerceSettings|undefined;
           try{commerce=readCommerceSettings(env);}catch{console.error('commerce_settings_invalid');}
           if(commerce&&!commerce.quarantine){
-            try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
             try{await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200});}catch{console.error('commerce_payment_deferred_failed');}
+            try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
             if(commerce.providerProfiles.length&&env.COMMERCE_JOURNAL)try{
               await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
             }catch{console.error('commerce_control_journal_failed');}

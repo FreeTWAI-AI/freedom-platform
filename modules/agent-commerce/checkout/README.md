@@ -16,6 +16,9 @@ Deferred constraints enforce the balance and exact frozen line/hold/allocation
 bindings at commit, including writes made outside this module. Every order line
 retains one hold forever; expiry releases it without cancelling the order.
 Conversion releases the hold and creates A atomically without changing reserved.
+An unapplied verified paid notification protects the order’s held units from both
+placement settlement and the scheduled sweep, including after expiry. Deferred
+application after quarantine therefore converts those holds before releasing stock.
 Late payment allocates the entire order or records `unallocatable` without any A.
 Shipment handover reduces N and A; inspected return restocking increases N only.
 Allocation counters increase monotonically and must match immutable movements.

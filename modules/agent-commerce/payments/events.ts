@@ -60,8 +60,15 @@ export async function applyPaymentEvent(q: PoolClient, eventId: string): Promise
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`checkout-payment/${paymentRef}`]);
     await q.query('SELECT attempt_id FROM commerce_payment_attempts WHERE attempt_id=$1 FOR UPDATE', [attempt.attempt_id]);
   }
-  event = (await q.query('SELECT * FROM commerce_hosted_payment_events WHERE event_id=$1 FOR UPDATE', [eventId])).rows[0];
+  event = (await q.query('SELECT *,received_at::text AS received_at_order FROM commerce_hosted_payment_events WHERE event_id=$1 FOR UPDATE', [eventId])).rows[0];
   if (event.applied_at)
+    return false;
+  // The order/attempt locks serialize application; browser hints never block
+  // verified notifications, and unmatched events are independent.
+  if (attempt && (await q.query(`SELECT 1 FROM commerce_hosted_payment_events
+    WHERE attempt_id=$1 AND source='notification' AND applied_at IS NULL
+    AND (received_at,event_id)<($2::timestamptz,$3::uuid) LIMIT 1`,
+    [attempt.attempt_id, event.received_at_order, event.event_id])).rowCount)
     return false;
   if (attempt)
     attempt = (await q.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1', [attempt.attempt_id])).rows[0];

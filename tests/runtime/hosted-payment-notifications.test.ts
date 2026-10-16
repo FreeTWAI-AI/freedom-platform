@@ -9,7 +9,9 @@ import { sealCredential } from '../../modules/agent-commerce/payments/credential
 import { bindStore, lockMachineOrder } from '../../modules/agent-commerce/checkout/authority.js';
 import { cancelUnpaidOrder, lockCheckoutOrders } from '../../modules/agent-commerce/checkout/orders.js';
 import { scheduleDueWork } from '../../modules/agent-commerce/operations/due-work.js';
-import { settleDueCheckoutHolds } from '../../modules/agent-commerce/checkout/settlement.js';
+import { publicOrder } from '../../modules/agent-commerce/checkout/public-order.js';
+import { formatTaipeiDateTime } from '../../modules/agent-commerce/providers/ecpay/aio-credit/index.js';
+import { settleDueCheckoutHolds, sweepDueCheckoutHolds } from '../../modules/agent-commerce/checkout/settlement.js';
 import { isCommerceProviderEntry } from '../../modules/agent-commerce/operations/provider-entry-paths.js';
 import { COMMERCE_LIMITS } from '../../modules/agent-commerce/checkout/limits.js';
 import { hashKey } from '../../modules/agent-commerce/checkout/terms.js';
@@ -782,4 +784,51 @@ test('review 2: unsigned traffic exhausts only its account and network budget', 
     assert.equal(actual.attempt.state, 'paid');
     assert.equal(actual.applications[0].outcome, 'converted');
   } finally { console.warn = warn; }
+});
+
+
+test('review 3: deferred paid facts protect expired holds from placement and sweep until conversion', async () => {
+  const s = await f.x.store(5), provider = await f.setup(s);
+  const checkout = await f.http('POST', f.root(s) + '/checkouts', f.x.input(s.product.sku, 5), undefined, { 'Idempotency-Key': randomUUID() });
+  assert.equal(checkout.status, 201);
+  const cookie = checkout.response.headers.get('Set-Cookie')!.split(';')[0], due = await f.x.due(s, 5);
+  await f.x.tx(q => f.runtime.commercePorts!.payment!.createOrderAttempt(q, { store: s, orderId: due.order_id, amountMinor: 500, currency: 'TWD', environment: 'sandbox' }));
+  const attempt = (await f.x.h.pool.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=$1', [due.order_id])).rows[0];
+  const p = { s, provider, order: { order_ref: due.order_id }, payment: { attempt_ref: attempt.attempt_id } } as Placed;
+  // The frozen-clock fixture retains expired holds; the provider paid inside their original window.
+  const paidAt = (await f.x.h.pool.query("SELECT created_at+interval '1 minute' AS paid FROM commerce_orders WHERE order_id=$1", [due.order_id])).rows[0].paid;
+  f.settings.quarantine = true;
+  await ack(await post(path(p), await body(p, { PaymentDate: formatTaipeiDateTime(paidAt.getTime()) })));
+  f.settings.quarantine = false;
+  const view = await f.x.tx(async q => {
+    await bindStore(q, s.tenantId);
+    return publicOrder(q, { ...s, projection: { slug: s.slug, name: '合成商店' } }, due.order_id, f.runtime.commercePorts!.payment);
+  });
+  assert.equal(view.payment_state, 'pending');
+  const competing = await f.http('POST', f.root(s) + `/checkouts/${checkout.data.checkout_ref}/orders`, { terms_sha256: checkout.data.terms_sha256, client_order_id: randomUUID() }, cookie);
+  assert.equal(competing.status, 409, JSON.stringify(competing.data));
+  assert.equal(competing.data.code, 'stock_unavailable');
+  assert.equal(await sweepDueCheckoutHolds(f.x.runtime), 0);
+  assert.equal((await f.x.h.pool.query('SELECT state FROM commerce_inventory_reservations WHERE order_id=$1', [due.order_id])).rows[0].state, 'held');
+  await applyDeferredPaymentEvents(f.x.runtime);
+  const actual = await facts(p);
+  assert.equal(actual.applications[0].outcome, 'converted');
+  assert.equal(actual.cases.length, 0);
+});
+
+test('review 3: a new paid notification waits for the same attempt older deferred failure', async () => {
+  const p = await f.placed();
+  f.settings.quarantine = true;
+  await ack(await post(path(p), await body(p, { RtnCode: '0' })));
+  f.settings.quarantine = false;
+  await ack(await post(path(p), await body(p)));
+  let actual = await facts(p);
+  assert(actual.events.every(e => e.applied_at === null));
+  assert.equal(actual.attempt.state, 'issued');
+  await applyDeferredPaymentEvents(f.x.runtime);
+  actual = await facts(p);
+  assert(actual.events.every(e => e.applied_at));
+  assert(actual.events[0].applied_at <= actual.events[1].applied_at);
+  assert.equal(actual.attempt.state, 'paid');
+  assert.equal(actual.cases.length, 0);
 });

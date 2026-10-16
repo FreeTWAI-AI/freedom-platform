@@ -54,7 +54,10 @@ codes or provider messages. A deduped replay acknowledges without applying twice
 The acknowledgement is exactly `1|OK`, sent only after transaction commit.
 Quarantine acknowledges and retains known events unapplied. Scheduler recovery
 applies them in received-time/event-ID order, each with the same order/attempt
-locks in its own transaction.
+locks in its own transaction. Synchronous application checks for older unapplied
+notifications of the same attempt after those locks and the event lock, leaving
+later events deferred until the earlier facts commit. Browser hints do not block.
+Retained paid facts protect still-held inventory until application.
 
 Paid notifications set the attempt once, apply the verified order payment and
 schedule confirmation queries. Simulations have no inventory effect; amount

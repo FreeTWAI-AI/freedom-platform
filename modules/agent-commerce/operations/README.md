@@ -60,13 +60,15 @@ retains Host checks while skipping Origin, JSON and cookie/session processing
 for those two machine entries. Other methods under their prefixes return 404.
 Budgets live in checkout's constants table and commit in separate short
 transactions; browser-return exhaustion suppresses writes while preserving the
-verified redirect. No provider source-IP allowlist is assumed.
+verified redirect. The pre-verification notification allowance is keyed by
+account and network, so one network cannot exhaust another sender’s budget. No provider source-IP allowlist is assumed.
 
 Quarantine stops new commerce effects, the hold sweep, deferred payment
 application and control-event backfill. Verified callbacks still retain their
-inbox facts for ordered replay. When quarantine is off, the Worker runs the hold
-sweep, deferred application and journal flush with independent fixed-name error
-handlers. Due-work execution belongs to wp04-queries.
+inbox facts for ordered replay. When quarantine is off, the Worker runs deferred
+payment application before the hold sweep, then the journal flush, with independent
+fixed-name error handlers. Settlement also retains holds protected by unapplied
+verified paid notifications, so placements cannot release them before recovery. Due-work execution belongs to wp04-queries.
 
 Release capabilities commerce.hosted-checkout.v1 (168) and
 commerce.hosted-payment.v1 (169) are mandatory for planned or retained schema
