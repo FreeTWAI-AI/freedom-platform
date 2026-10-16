@@ -78,3 +78,27 @@ test('allocation retry and case closing commit together; stock or post-allocatio
   const v=await retry();assert.equal(v.resolution?.code,'allocated');assert.equal(v.resolution?.note,'補貨後已重新配貨。');assert.equal(v.version,'2');
   assert.equal((await f.x.h.pool.query('SELECT quantity FROM commerce_inventory_allocations WHERE order_id=$1',[due.order_id])).rows[0].quantity,5);
 });
+
+test('exception HTTP enforces case versions, current grants, tenant isolation and finance-only attempt/event facts',async()=>{
+  const p=await fixture(),c=await open(p,'payment_unconfirmed');
+  const event=(await f.x.h.pool.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,merchant_trade_no,trade_no,trade_amt_minor,payment_date,payment_type,query_trigger,credential_version)
+    SELECT tenant_id,instance_id,account_id,attempt_id,'query','amount_mismatch',merchant_trade_no,'T1',600,'2026-01-01T23:30:00Z','Credit_CreditCard','seller',1 FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING event_id`,[p.payment.attempt_ref])).rows[0];
+  const eventCase=await f.x.tx(async q=>{await bindStore(q,p.s.tenantId);return openException(q,{tenantId:p.s.tenantId,instanceId:p.s.instanceId,kind:'unmatched_payment',subjectKind:'payment_event',subjectId:event.event_id});});
+  const m=await f.x.h.person('合成案件成員'+randomUUID()),principal=await f.x.h.candidate(p.s.owner,m.id);await f.x.h.accept(m.session,p.s.tenantId,await f.x.h.invite(p.s.owner,p.s.tenantId,principal,'viewer'));
+  const by=(await f.x.h.pool.query('SELECT principal_id FROM principals WHERE user_ref=$1',[p.s.owner.user.user_id])).rows[0].principal_id;
+  await f.x.h.pool.query("INSERT INTO tenant_module_permissions(tenant_id,instance_id,principal_id,capabilities,status,granted_by_principal_id) VALUES($1,$2,$3,ARRAY['store:read','store:orders:read'],'active',$4)",[p.s.tenantId,p.s.instanceId,principal,by]);
+  const root=p.s.root+'/exception-cases',get=(id:string,session=p.s.owner)=>f.x.h.call('GET',root+'/'+id,session,undefined,{},f.app);
+  const publicView=await get(c.case_id,m.session);assert.equal(publicView.status,200);assert.deepEqual(publicView.data.allowed_actions,[]);assert.deepEqual(publicView.data.resolution_codes,[]);assert.equal(publicView.data.payment_facts,null);assert.equal(publicView.response.headers.get('ETag'),'"1"');
+  const owner=await get(c.case_id);assert.equal(owner.data.payment_facts.expected_amount_minor,500);assert.equal(owner.data.payment_facts.paid_amount_minor,600);assert.equal(owner.data.payment_facts.trade_no,'T1');assert.equal(owner.data.payment_facts.payment_date,'2026-01-01T23:30:00.000Z');
+  const eventView=await get(eventCase.case_id);assert.equal(eventView.data.order,null);assert.equal(eventView.data.payment_facts.expected_amount_minor,null);assert.equal(eventView.data.payment_facts.paid_amount_minor,600);
+  const evidence={code:'checked_with_provider',provider_date:await today(),provider_reference:'F1'},headers={'Idempotency-Key':randomUUID(),'If-Match':'"1"'};
+  for(const action of ['resolve_with_evidence','retry_allocation'])assert.equal((await f.x.h.call('POST',root+'/'+c.case_id+'/actions/'+action,m.session,action==='retry_allocation'?{}:evidence,headers,f.app)).status,403);
+  assert.equal((await f.x.h.call('POST',root+'/'+c.case_id+'/actions/dismiss',p.s.owner,{},headers,f.app)).status,404);
+  const command=(h:Record<string,string>)=>f.x.h.call('POST',root+'/'+c.case_id+'/actions/resolve_with_evidence',p.s.owner,evidence,h,f.app);
+  assert.equal((await command({'Idempotency-Key':randomUUID()})).status,428);const stale=await command({'Idempotency-Key':randomUUID(),'If-Match':'"2"'});assert.equal(stale.status,412);assert.equal(stale.data.code,'version_conflict');
+  f.settings.quarantine=true;assert.equal((await get(c.case_id)).status,200);assert.equal((await command(headers)).status,503);f.settings.quarantine=false;
+  const resolved=await command(headers);assert.equal(resolved.status,200,JSON.stringify(resolved.data));assert.equal(resolved.response.headers.get('ETag'),'"2"');assert.equal(resolved.data.resolution.resolved_by,by);assert.equal(resolved.data.resolution.note,`店家已在綠界後台核對（${evidence.provider_date}，參考號 F1）。`);
+  const foreign=await f.x.store();await f.setup(foreign);const hidden=await f.x.h.call('GET',foreign.root+'/exception-cases/'+c.case_id,foreign.owner,undefined,{},f.app);assert.equal(hidden.status,404);assert.equal(hidden.data.code,'exception_case_not_found');
+  for(const path of ['', '?view=executor','?view=retailer&extra=x','?view=retailer&limit=0','?view=retailer&limit=51'])assert.equal((await f.x.h.call('GET',root+path,p.s.owner,undefined,{},f.app)).status,422);
+  const receipts=(await f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation LIKE 'commerce.exception_case.%'")).rows;assert.equal(receipts.length,1);assert.deepEqual(receipts[0].response,{id:c.case_id});
+});
