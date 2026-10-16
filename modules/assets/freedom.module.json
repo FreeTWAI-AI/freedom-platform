@@ -32,7 +32,8 @@
     "modules/assets/avatar-upload.ts",
     "modules/assets/avatar-policy.ts",
     "modules/assets/maintenance.ts",
-    "modules/assets/storefront-product-photo.ts"
+    "modules/assets/storefront-product-photo.ts",
+    "modules/assets/supply-material.ts"
   ],
   "dependencies": [
     "command-core",
@@ -53,7 +54,8 @@
     "modules/assets/maintenance.md",
     "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
     "docs/platform-plan/execution/unified-foundation/05-media-migration.md",
-    "modules/assets/storefront-product-photo.md"
+    "modules/assets/storefront-product-photo.md",
+    "modules/assets/supply-material.md"
   ],
   "invariants": [
     "current-authority-before-replay",

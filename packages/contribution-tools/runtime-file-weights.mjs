@@ -297,6 +297,8 @@ export const RUNTIME_FILE_WEIGHTS = Object.freeze({
   'tests/runtime/storefront-presentation-contracts.test.ts': 1,
   'tests/runtime/storefront-product-photo-core.test.ts': 1,
   'tests/runtime/storefront-product-photo-sql.test.ts': 19,
+  'tests/runtime/supply-material-assets.test.ts': 19,
+  'tests/runtime/supply-material-media.test.ts': 25,
   'tests/runtime/tenant-authority-policy-grants.test.ts': 5,
   'tests/runtime/tenant-authorization.test.ts': 12,
   'tests/runtime/tenant-data-catalog.test.ts': 16,

@@ -1,3 +1,4 @@
+import {createHostedSupplyMaterialMediaRoutes,isSupplyMaterialUpload,checkSupplyMaterialHeaders,supplyMaterialMediaInstalled,supplyMaterialUploadsInstalled} from './routes/hosted-supply-material-media.js';
 import {createHostedSupplierConsoleRoutes} from './routes/hosted-supplier-console.js';
 import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoutes} from './routes/community-ar.js';
 import {readWithMemberSession} from '../../../packages/db/member-session.js';
@@ -259,6 +260,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       } else if(isStorePhotoUpload(c.req.method,c.req.path)) {
         requireCondition(runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),404,'not_found','找不到這個頁面。');
         checkStorePhotoHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
+      } else if(isSupplyMaterialUpload(c.req.method,c.req.path)) {
+        c.header('Cache-Control','private, no-store');c.header('Vary','Cookie');
+        requireCondition(runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true&&supplyMaterialMediaInstalled(runtime),404,'not_found','找不到這個頁面。');
+        checkSupplyMaterialHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isMessageImageUpload(c.req.method,c.req.path)) {
         // Binary body only when the feature is installed; otherwise the route does not exist.
         requireCondition(messageImagesInstalled(runtime),404,'not_found','找不到這個頁面。');
@@ -343,7 +348,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,ar_enabled:runtime.arEnabled===true&&!!runtime.arAssetStore,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime),supplier_console_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,ar_enabled:runtime.arEnabled===true&&!!runtime.arAssetStore,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime),supply_material_media_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true&&supplyMaterialMediaInstalled(runtime),supply_material_uploads_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true&&supplyMaterialUploadsInstalled(runtime),supplier_console_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -580,7 +585,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/',createPublicHostedStoreRoutes(pool,runtime.publicOrigin));
     if(storePhotosInstalled(runtime))app.route('/',createPublicHostedStoreMediaRoutes(pool,runtime));
   }
-  for (const path of ['/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {
+  for (const path of ['/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/content', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/versions/:version_id/content', '/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
@@ -720,6 +725,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/api/v1',createHostedStoreRoutes(pool));
     if(runtime.supplierConsoleEnabled===true)app.route('/api/v1',createHostedSupplierConsoleRoutes(pool,{cursors:runtime.tenantListCursors}));
     if(storePhotosInstalled(runtime))app.route('/api/v1',createHostedStoreMediaRoutes(pool,runtime));
+    if(runtime.supplierConsoleEnabled===true&&supplyMaterialMediaInstalled(runtime))app.route('/api/v1',createHostedSupplyMaterialMediaRoutes(pool,runtime));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
   for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*','/shop-api/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
