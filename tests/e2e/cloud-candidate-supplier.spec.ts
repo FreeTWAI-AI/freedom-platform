@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {chmod,mkdtemp,readFile,rm,stat,writeFile} from 'node:fs/promises';
+import {chmod,mkdir,mkdtemp,readFile,rm,stat,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {serve} from '@hono/node-server';
@@ -8,6 +8,7 @@ import {test,expect} from './fixtures.js';
 import {ownedSchema} from './hosted-order-fixture.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {DEMO_COMMUNITY} from '../../packages/testing/seed.js';
+import {FakeObjectStore} from '../../packages/asset-storage/fake-store.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
 import {TENANT_CURSOR_TEST_KEY} from '../runtime/tenant-cursor-fixture.js';
 import metadata from '../../contracts/preview/v1/metadata.json' with {type:'json'};
@@ -40,20 +41,22 @@ function handle(origin=target.origin){return {candidate_origin:origin,run_tag:'a
 async function save(path:string,value:unknown){await writeFile(path,JSON.stringify(value),{mode:0o600});}
 function cleanReport(report:Report,logs:string[],secrets:Iterable<string>){const text=JSON.stringify(report)+'\n'+logs.join('\n');expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);for(const secret of secrets)if(secret.length>=6)expect(text).not.toContain(secret);expect(report.redaction_applied,JSON.stringify(report).match(/.{0,80}\[REDACTED\].{0,80}/g)?.join('\n')).toBe(false);}
 
-function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boolean;publicPhoto?:boolean;admission?:boolean;replayDifferent?:boolean;staleAccepted?:boolean;siteOff?:boolean;legacyChanged?:boolean;consoleOff?:boolean;consoleStillOn?:boolean;ineligible?:boolean}={},existing=handle()){
-  const h=existing,known=new Set<string>([password,...Object.values(accounts).map(a=>a.email),'wp07-csrf-value']),sessions=new Set<string>();
+function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boolean;publicPhoto?:boolean;admission?:boolean;replayDifferent?:boolean;staleAccepted?:boolean;siteOff?:boolean;legacyChanged?:boolean;consoleOff?:boolean;consoleStillOn?:boolean;ineligible?:boolean;offFailure?:'500'|'throw';logoutFailure?:'500'|'throw';uploadFailure?:boolean;stockAccepted?:boolean;decisionFailure?:boolean;beforeHandle?:()=>Promise<void>;mixedPublic?:boolean;publicLeak?:'photo'|'read_path'|'private_path'|'product_id'|'cost_minor'}={},existing=handle()){
+  const h=existing,known=new Set<string>([password,...Object.values(accounts).map(a=>a.email),'wp07-csrf-value']),sessions=new Set<string>(),roles=new Map<string,string>();
+  const settings={supplier:{reservation_enabled:false,admission_enabled:knobs.admission!==false,version:'1'},seller:{reservation_enabled:false,admission_enabled:knobs.admission!==false,version:'1'}};
+  let published=false,order:any=null,cancelBody:string|undefined,cancelHeaders:Record<string,string>|undefined;const publicStatuses:number[]=[];
   const readPath=`/api/v1/tenants/${h.supplier.tenant_id}/storefronts/${h.supplier.instance_id}/products/${h.supplier.product_id}/photo/3`,photoBytes=Buffer.alloc(30);
   photoBytes.write('RIFF');photoBytes.writeUInt32LE(22,4);photoBytes.write('WEBPVP8X',8);photoBytes.writeUInt32LE(10,16);photoBytes.writeUIntLE(319,24,3);photoBytes.writeUIntLE(239,27,3);
   const image={content_type:'image/webp',byte_size:photoBytes.length,width:320,height:240,read_path:readPath};
   let product:any=null,terms:any=null,offer:any=null,selection:any=null,created=0,login=0,termsWritten=false;
   const seed=()=>{const e=h.expected;product={product_id:h.supplier.product_id,title:e.product_name,description:e.description,cost_minor:e.cost_minor,stock:e.stock,reserved:0,available:e.stock,version:'2',sku:'P0001'};terms={...e,product_id:product.product_id,stock:e.stock,reserved:0,available:e.stock,version:e.terms_version};offer={offer_id:h.supplier.offer_id,product_id:product.product_id,state:'offered',terms:{...terms,title:e.product_name,description:e.description},terms_sha256:'a'.repeat(64),source_version:'2',version:'1'};selection={selection_id:h.seller.selection_id,offer,retail_price_minor:e.retail_price_minor,seller_name:e.seller_name,state:e.decision_state,sku:'P0001',listing_sha256:'b'.repeat(64),version:'2'};};
-  const server=mock(request=>{
+  const server=mock(async request=>{
     const path=new URL(request.url).pathname,body=typeof request.body==='string'?JSON.parse(request.body):{},method=request.method;
     const ok=(json:unknown,status=200):Wire=>({status,json});
     if(path==='/api/v1/health')return ok(health());
     if(path==='/api/v1/site')return ok({supplier_console_enabled:!knobs.disabled&&!knobs.siteOff,hosted_store_photo_uploads_enabled:knobs.photo===true});
-    if(path==='/api/v1/auth/login'){const cookie=`wp07-cookie-${++login}`.padEnd(43,'x');sessions.add(cookie);known.add(cookie);return {...ok({user:{user_id:randomUUID(),email:body.email},csrf_token:'wp07-csrf-value'}),cookies:[`__Host-freedom_session=${cookie}; Path=/; Secure; HttpOnly; SameSite=Strict`]};}
-    if(path==='/api/v1/auth/logout'){sessions.delete((request.headers.Cookie??'').split('=')[1]);return {...ok({}),cookies:['__Host-freedom_session=; Path=/; Secure; Max-Age=0']};}
+    if(path==='/api/v1/auth/login'){const cookie=`wp07-cookie-${++login}`.padEnd(43,'x');sessions.add(cookie);roles.set(cookie,body.email);known.add(cookie);return {...ok({user:{user_id:randomUUID(),email:body.email},csrf_token:'wp07-csrf-value'}),cookies:[`__Host-freedom_session=${cookie}; Path=/; Secure; HttpOnly; SameSite=Strict`]};}
+    if(path==='/api/v1/auth/logout'){if(knobs.logoutFailure&&roles.get((request.headers.Cookie??'').split('=')[1])===accounts.seller.email){if(knobs.logoutFailure==='throw')throw new TypeError('synthetic transport');return ok({},500);}sessions.delete((request.headers.Cookie??'').split('=')[1]);return {...ok({}),cookies:['__Host-freedom_session=; Path=/; Secure; Max-Age=0']};}
     if(path==='/api/v1/tenants'){const seller=body.display_name.includes('選物');h.expected[seller?'seller_name':'supplier_name']=body.display_name;return ok({tenant:{tenant_id:seller?h.seller.tenant_id:h.supplier.tenant_id},workspace:{workspace_id:randomUUID()}},201);}
     if(path.endsWith('/application-launch-plans'))return knobs.ineligible?{status:403,json:{code:'guild_full_member_required'}}:ok({plan_id:randomUUID(),version:'1',configuration_digest:{algorithm:'sha256',value:'c'.repeat(64)}},201);
     if(path.endsWith('/application-installations'))return ok({operation_id:randomUUID(),state:'succeeded'});
@@ -62,11 +65,20 @@ function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boo
     if(path.endsWith('/setup')){h.seller.slug=body.slug;return ok({},201);}
     if(knobs.photoProtocol){
       if(path.endsWith('/product-media'))return ok({items:[{product_id:h.supplier.product_id,version:'2',photo:null}]});
-      if(path.endsWith('/photo')){expect(method).toBe('POST');expect(request.headers['Content-Type']).toBe('image/png');expect(request.headers['If-Match']).toBe('"2"');expect(request.headers['X-CSRF-Token']).toBe('wp07-csrf-value');expect(request.headers.Origin).toBe(target.origin);expect(request.headers['Idempotency-Key']).toBeTruthy();expect(Buffer.from(request.body!).subarray(0,8)).toEqual(Buffer.from([137,80,78,71,13,10,26,10]));product.version=terms.version='3';return ok({product_id:h.supplier.product_id,completed_version:'3',changed:true,current:{version:'3',photo:image}});}
+      if(path.endsWith('/photo')){if(knobs.uploadFailure)return ok({},500);expect(method).toBe('POST');expect(request.headers['Content-Type']).toBe('image/png');expect(request.headers['If-Match']).toBe('"2"');expect(request.headers['X-CSRF-Token']).toBe('wp07-csrf-value');expect(request.headers.Origin).toBe(target.origin);expect(request.headers['Idempotency-Key']).toBeTruthy();expect(Buffer.from(request.body!).subarray(0,8)).toEqual(Buffer.from([137,80,78,71,13,10,26,10]));product.version=terms.version='3';return ok({product_id:h.supplier.product_id,completed_version:'3',changed:true,current:{version:'3',photo:image}});}
       if(path===readPath)return {status:200,body:photoBytes,headers:{'content-type':'image/webp'}};
-      if(path===`/api/v1/public/stores/${h.seller.slug}/media`)return ok({photos:knobs.publicPhoto?[{sku:'P0001',photo:{content_type:'image/webp',read_path:`/shops/${h.seller.slug}/media/1/P0001`}}]:[]});
-      if(path===`/api/v1/public/stores/${h.seller.slug}`)return ok({name:h.expected.seller_name});
     }
+    if(path.startsWith('/api/v1/public/stores/')){const media=path.endsWith('/media'),status=published||knobs.mixedPublic&&media?200:404;publicStatuses.push(status);if(status===404)return ok({code:'not_found'},404);
+      const leak=knobs.publicLeak,photo=knobs.publicPhoto||leak==='photo',item:any={sku:'P0001',title:h.expected.product_name,photo:photo?{read_path:'/shops/'+h.seller.slug+'/media/1/P0001'}:null};
+      if(leak==='read_path')item.read_path='/shops/'+h.seller.slug+'/media/1/P0001';if(leak==='private_path')item.description=readPath;if(leak==='product_id')item.product_id=h.supplier.product_id;if(leak==='cost_minor')item.cost_minor=h.expected.cost_minor;
+      return ok(media?{photos:photo?[item]:[]}:{name:h.expected.seller_name,products:[item]});}
+    if(path.endsWith('/publish')){published=true;return ok({});}
+    if(path===`/api/v1/tenants/${h.seller.tenant_id}/storefronts/${h.seller.instance_id}`)return ok({version:'1',publication:{current_revision:published?'1':null}});
+    if(path.endsWith('/reservation-quotes'))return ok({quote_id:randomUUID(),terms_sha256:'d'.repeat(64)},201);
+    if(path.endsWith('/reservation-orders')){expect(settings.supplier.reservation_enabled&&settings.seller.reservation_enabled&&published).toBe(true);order={order_id:randomUUID(),state:'reserved',version:'1'};product.reserved=1;product.available=9;return ok(order,201);}
+    if(path.endsWith('/supply-reservations'))return ok({items:order?[{...order,items:[{product_id:h.supplier.product_id,quantity:1}]}]:[]});
+    if(path.endsWith('/cancel')){if(cancelBody!==undefined){expect(request.body).toBe(cancelBody);expect(request.headers['Idempotency-Key']).toBe(cancelHeaders!['Idempotency-Key']);expect(request.headers['If-Match']).toBe(cancelHeaders!['If-Match']);}else{cancelBody=request.body as string;cancelHeaders=request.headers;}order={...order,state:'cancelled',version:'2'};product.reserved=0;product.available=10;return ok(order);}
+    if(path.includes('/supply-products/')&&method==='PATCH')return ok({},knobs.stockAccepted?200:409);
     if(path.endsWith('/supply-products')&&method==='POST'){
       if(!created++){h.expected.product_name=body.title;h.expected.description=body.description;seed();product.version='1';}
       return ok({product_id:knobs.replayDifferent&&created>1?randomUUID():product.product_id,version:'1'},201);
@@ -78,9 +90,9 @@ function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boo
     if(path.endsWith('/supply-offer')){offer={offer_id:h.supplier.offer_id,product_id:product.product_id,state:'offered',terms:{...terms,title:product.title,description:product.description},terms_sha256:'a'.repeat(64),source_version:'2',version:'1'};return ok(offer);}
     if(path.endsWith('/supply-catalog')||path.endsWith('/supply-offers')){if(!product)seed();return ok({items:[offer]});}
     if(path.endsWith('/distribution-selections')&&method==='POST'){selection={...body,selection_id:h.seller.selection_id,offer,seller_name:h.expected.seller_name,state:'awaiting_supply_acceptance',sku:'P0001',listing_sha256:'b'.repeat(64),version:'1'};return ok(selection,201);}
-    if(path.endsWith('/decision')){selection.state='sellable';selection.version='2';return ok(selection);}
+    if(path.endsWith('/decision')){if(knobs.decisionFailure)return ok({},500);await knobs.beforeHandle?.();selection.state='sellable';selection.version='2';return ok(selection);}
     if(path.endsWith('/distribution-selections')){if(!product)seed();return ok({items:[selection]});}
-    if(path.endsWith('/reservation-setting'))return ok({reservation_enabled:false,admission_enabled:knobs.admission!==false,version:'1'});
+    if(path.endsWith('/reservation-setting')){const role=path.includes(h.seller.tenant_id)?'seller':'supplier',setting=settings[role];if(method==='PATCH'){expect(request.headers['If-Match']).toBe('"'+setting.version+'"');if(role==='seller'&&body.reservation_enabled===false&&knobs.offFailure){if(knobs.offFailure==='throw')throw new TypeError('synthetic transport');return ok({},500);}setting.reservation_enabled=body.reservation_enabled;setting.version=String(Number(setting.version)+1);}return ok(setting);}
     if(path.includes('/supplier-console/')){
       if(knobs.consoleOff&&!knobs.consoleStillOn)return ok({},404);
       if(path.endsWith('/overview'))return ok({tenant_id:h.supplier.tenant_id,instance_id:h.supplier.instance_id,metrics:Object.fromEntries(['offered_products','pending_requests','active_reservation_lines','out_of_stock_products'].map(key=>[key,{state:'ready',count:key==='offered_products'&&offer?1:0}])),todos:{state:'ready',items:selection?.state==='awaiting_supply_acceptance'?[{kind:'request_pending',selection_id:selection.selection_id,product_id:h.supplier.product_id}]:[]}});
@@ -90,7 +102,7 @@ function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boo
     if(path.endsWith('/supply-products')){if(!product)seed();return ok({items:[{...product,cost_minor:knobs.legacyChanged?1:product.cost_minor}]});}
     return ok({},404);
   });
-  return {...server,h,known,sessions,seed,readPath};
+  return {...server,h,known,sessions,seed,readPath,settings,publicStatuses,order:()=>order};
 }
 
 test('supplier plan is offline and includes the four ordered write descriptions without the ordinary account',async()=>{
@@ -118,9 +130,12 @@ test('public guards precede dependencies, missing files and browser startup, inc
 });
 
 test('console disabled sends only health and site reads',async()=>temporary(async file=>{
-  const server=supplierMock({disabled:true}),report=await runCandidate({...base(['supplier-journey'],file),transport:server.transport});
+  const server=supplierMock({disabled:true}),report=await runCandidate({...base(supplierPhases,file),transport:server.transport,expectSupplierConsole:'on'});
   expect(phase(report,'supplier-journey')).toMatchObject({status:'not_run',reason:'supplier_console_disabled'});
+  for(const id of supplierPhases.slice(1))expect(phase(report,id).status).toBe('blocked');
+  expect(report.overall).not.toBe('pass');expect(report.cloud_proof).toBe(false);expect(await stat(file).catch(()=>null)).toBeNull();cleanReport(report,[],server.known);
   expect(paths(server.calls)).toEqual(['GET /api/v1/health','GET /api/v1/site']);
+  const direct=supplierMock({disabled:true}),again=await runCandidate({...base(['supplier-journey','supplier-recheck'],file),transport:direct.transport,expectSupplierConsole:'on'});expect(phase(again,'supplier-recheck').status).toBe('blocked');expect(paths(direct.calls)).toEqual(['GET /api/v1/health','GET /api/v1/site']);cleanReport(again,[],direct.known);
 }));
 
 test('supplier preflight refuses missing roles, duplicate identities and unsafe handle paths before any request',async()=>temporary(async(file,directory)=>{
@@ -175,7 +190,8 @@ test('store ineligibility is a precondition and photo/admission guards do not is
 test('photo uses the private product protocol and rejects public photo aliases without leaking identifiers',async()=>{
   for(const publicPhoto of [false,true])await temporary(async file=>{
     const server=supplierMock({photo:true,photoProtocol:true,publicPhoto}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-photo'],file),transport:server.transport,log:line=>logs.push(line)});
-    expect(phase(report,'supplier-journey').status).toBe('pass');expect(phase(report,'supplier-photo')).toMatchObject(publicPhoto?{status:'fail',reason:'supplier_public_photo_absent'}:{status:'pass',metrics:{private_photo_verified:true,public_projection_private:true}});
+    expect(phase(report,'supplier-journey').status).toBe('pass');expect(phase(report,'supplier-photo')).toMatchObject({status:'pass',metrics:{private_photo_verified:true,public_projection:'not_covered_unpublished',public_projection_private:null}});
+    expect(server.publicStatuses).toEqual([404,404]);expect(paths(server.calls).some(p=>p.endsWith('/publish'))).toBe(false);
     const h=JSON.parse(await readFile(file,'utf8'));expect(h.photo).toEqual({read_path:server.readPath,version:'3'});expect((await stat(file)).mode&0o777).toBe(0o600);
     expect(paths(server.calls).slice(paths(server.calls).lastIndexOf('GET /api/v1/site'))).toEqual(['GET /api/v1/site',`GET /api/v1/tenants/${h.supplier.tenant_id}/storefronts/${h.supplier.instance_id}/product-media`,`POST /api/v1/tenants/${h.supplier.tenant_id}/storefronts/${h.supplier.instance_id}/products/${h.supplier.product_id}/photo`,`GET ${server.readPath}`,`GET /api/v1/public/stores/${h.seller.slug}`,`GET /api/v1/public/stores/${h.seller.slug}/media`,'POST /api/v1/auth/logout','POST /api/v1/auth/logout']);
     expect(server.sessions.size).toBe(0);cleanReport(report,logs,[...server.known,server.readPath,h.seller.slug]);
@@ -190,6 +206,87 @@ test('recheck detects host, legacy and console OFF regressions and requires a br
   });
 });
 
+test('published reservation baseline restores settings and sessions with operator cleanup still required',async()=>temporary(async file=>{
+  const server=supplierMock(),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
+  expect(phase(report,'supplier-reservations').status).toBe('pass');expect(report).toMatchObject({overall:'pass',cloud_proof:true,cleanup:{required:true,restore_failed:false}});
+  expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);expect(server.order().state).toBe('cancelled');expect(server.publicStatuses).toEqual([200,200]);cleanReport(report,logs,server.known);
+}));
+
+test('failed seller OFF restores the supplier setting and revokes all sessions before failing the phase and run',async()=>{
+  for(const offFailure of ['500','throw'] as const)await temporary(async file=>{
+    const server=supplierMock({offFailure}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
+    expect(server.settings.supplier.reservation_enabled).toBe(false);expect(server.settings.seller.reservation_enabled).toBe(true);expect(server.sessions.size).toBe(0);expect(server.order().state).toBe('cancelled');
+    const tail=server.calls.filter(c=>new URL(c.url).pathname.endsWith('/reservation-setting')).slice(-4);expect(paths(tail)).toEqual(['GET','PATCH','GET','PATCH'].map((m,i)=>`${m} /api/v1/tenants/${i<2?server.h.seller.tenant_id:server.h.supplier.tenant_id}/storefronts/${i<2?server.h.seller.instance_id:server.h.supplier.instance_id}/reservation-setting`));
+    expect(report.cleanup.items).toEqual(expect.arrayContaining([{phase:'supplier-reservations',item:'seller reservation setting',state:'restore_failed'},{phase:'supplier-reservations',item:'supplier reservation setting',state:'restored'}]));
+    expect(phase(report,'supplier-reservations')).toMatchObject({status:'fail',reason:'cleanup_restore_failed',checks:expect.arrayContaining([{id:'cleanup_restored',status:'fail'}])});expect(report).toMatchObject({overall:'fail',cloud_proof:false,cleanup:{restore_failed:true}});expect(logs).toContain('supplier-reservations: fail (cleanup_restore_failed)');cleanReport(report,logs,server.known);
+  });
+});
+
+test('last supplier logout failure still logs out every other role and fails the final status',async()=>{
+  for(const logoutFailure of ['500','throw'] as const)await temporary(async file=>{
+    const server=supplierMock({logoutFailure}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
+    expect(server.sessions.size).toBe(1);expect(paths(server.calls).slice(-3)).toEqual(Array(3).fill('POST /api/v1/auth/logout'));
+    for(const role of ['supplier','buyer'])expect(report.cleanup.items).toContainEqual({phase:'supplier-reservations',item:`${role} synthetic account session`,state:'restored'});
+    expect(phase(report,'supplier-reservations')).toMatchObject({status:'fail',reason:'cleanup_restore_failed'});expect(report).toMatchObject({overall:'fail',cloud_proof:false,cleanup:{restore_failed:true}});expect(logs).toContain('supplier-reservations: fail (cleanup_restore_failed)');cleanReport(report,logs,server.known);
+  });
+});
+
+test('CLI returns 1 for a restore failure using private role files and the same mock',async()=>temporary(async(file,directory)=>{
+  const server=supplierMock({offFailure:'500'}),env:NodeJS.ProcessEnv={FREEDOM_CANDIDATE_SUPPLIER_HANDLE_FILE:file};
+  for(const [role,account] of Object.entries(accounts)){const path=join(directory,role+'.json');await save(path,{...account,candidate_origin:target.origin,synthetic:true});env[`FREEDOM_CANDIDATE_${role.toUpperCase()}_ACCOUNT_FILE`]=path;}
+  const original=globalThis.fetch,out=process.stdout.write,err=process.stderr.write;let output='';const logs:string[]=[];
+  globalThis.fetch=async(input,init)=>{const request={url:String(input),method:init!.method!,headers:init!.headers as Record<string,string>,body:init!.body as string,timeoutMs:10000},reply=await server.transport(request);return new Response(new Uint8Array(reply.body),{status:reply.status,headers:reply.headers});};
+  process.stdout.write=((chunk:any)=>{output+=String(chunk);return true;}) as typeof out;process.stderr.write=((chunk:any)=>{logs.push(String(chunk).trim());return true;}) as typeof err;
+  let code:number;try{code=await main(['execute','--target','staging','--expected-release-sha',sha,'--expected-version','1.2.3','--phases','supplier-journey,supplier-reservations'],env);}finally{globalThis.fetch=original;process.stdout.write=out;process.stderr.write=err;}
+  expect(code!).toBe(1);const report=JSON.parse(output);expect(report).toMatchObject({overall:'fail',cloud_proof:false,cleanup:{restore_failed:true}});expect(server.sessions.size).toBe(0);cleanReport(report,logs,server.known);
+}));
+
+test('published photo projections are verified and leaks appearing only after publish fail with cleanup',async()=>{
+  for(const publicLeak of [undefined,'photo','read_path','private_path','product_id','cost_minor'] as const)await temporary(async file=>{
+    const server=supplierMock({photo:true,photoProtocol:true,publicLeak}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-photo','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
+    expect(phase(report,'supplier-photo')).toMatchObject({status:'pass',metrics:{public_projection:'not_covered_unpublished',public_projection_private:null}});
+    expect(phase(report,'supplier-reservations')).toMatchObject(publicLeak?{status:'fail',reason:['photo','read_path'].includes(publicLeak)?'supplier_public_photo_absent':'supplier_private_fields_not_public'}:{status:'pass',metrics:{public_projection_private:true,public_photo_checked:true}});
+    expect(server.publicStatuses.slice(0,2)).toEqual([404,404]);expect(server.publicStatuses.slice(2)).toEqual([200,200]);expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);cleanReport(report,logs,[...server.known,server.readPath,server.h.seller.slug]);
+  });
+});
+
+test('mixed unpublished public statuses fail with a fixed check',async()=>temporary(async file=>{
+  const server=supplierMock({photo:true,photoProtocol:true,mixedPublic:true}),report=await runCandidate({...base(['supplier-journey','supplier-photo'],file),transport:server.transport});
+  expect(phase(report,'supplier-photo')).toMatchObject({status:'fail',reason:'supplier_public_read_status'});expect(server.publicStatuses).toEqual([404,200]);expect(server.sessions.size).toBe(0);cleanReport(report,[],server.known);
+}));
+
+test('photo upload and reservation stock failures revoke sessions and preserve the original fixed reason',async()=>{
+  for(const selected of ['supplier-photo','supplier-reservations'] as const)await temporary(async file=>{
+    const server=supplierMock({photo:true,photoProtocol:true,uploadFailure:selected==='supplier-photo',stockAccepted:selected==='supplier-reservations',offFailure:selected==='supplier-reservations'?'throw':undefined}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey',selected],file),transport:server.transport,log:line=>logs.push(line)});
+    expect(phase(report,selected)).toMatchObject({status:'fail',reason:selected==='supplier-photo'?'supplier_photo_uploaded':'supplier_stock_below_reserved_409'});expect(server.sessions.size).toBe(0);
+    if(selected==='supplier-reservations'){expect(server.order().state).toBe('cancelled');expect(server.settings.supplier.reservation_enabled).toBe(false);expect(report.cleanup.items).toContainEqual({phase:selected,item:'seller reservation setting',state:'restore_failed'});expect(report.cleanup.items.some(i=>i.state==='residual_expected'&&i.item.includes('reservation'))).toBe(true);}
+    expect(report.overall).toBe('fail');expect(report.cloud_proof).toBe(false);cleanReport(report,logs,server.known);
+  });
+});
+
+test('stock failure cancels and turns both settings off before revoking every session',async()=>temporary(async file=>{
+  const server=supplierMock({stockAccepted:true}),report=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport});
+  expect(phase(report,'supplier-reservations')).toMatchObject({status:'fail',reason:'supplier_stock_below_reserved_409'});expect(server.order().state).toBe('cancelled');expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);
+  for(const role of ['supplier','seller'])expect(report.cleanup.items).toContainEqual({phase:'supplier-reservations',item:`${role} reservation setting`,state:'restored'});cleanReport(report,[],server.known);
+}));
+
+for(const writeFailure of [false,true])test(`cleanup names account labels, time window and prefixes when ${writeFailure?'handle write':'decision'} fails`,async()=>{
+  await temporary(async(file,directory)=>{
+    const parent=join(directory,'private');await mkdir(parent);const path=join(parent,'handle.json');
+    const server=supplierMock({decisionFailure:!writeFailure,beforeHandle:writeFailure?()=>rm(parent,{recursive:true}):undefined}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey'],path),transport:server.transport,log:line=>logs.push(line)});
+    expect(phase(report,'supplier-journey')).toMatchObject({status:'fail',reason:writeFailure?'supplier_handle_written':'supplier_request_accepted'});expect(await stat(path).catch(()=>null)).toBeNull();expect(server.calls.filter(c=>new URL(c.url).pathname==='/api/v1/tenants')).toHaveLength(2);expect(server.sessions.size).toBe(0);
+    const cleanup=report.cleanup.items.filter(i=>i.state==='cleanup_required').map(i=>i.item).join('\n');for(const text of ['wp07-supplier','wp07-seller','created at or after started_at','WP07 合成供貨','WP07 合成選物'])expect(cleanup).toContain(text);
+    cleanReport(report,logs,[...server.known,server.h.seller.slug,server.h.expected.supplier_name.split(' ').at(-1)!]);
+  });
+});
+
+test('restore failure fails the run while the last supplier phase remains not_run or blocked',async()=>{
+  for(const blocked of [false,true])await temporary(async file=>{
+    const server=supplierMock({logoutFailure:'500',staleAccepted:blocked}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-photo'],file),transport:server.transport,log:line=>logs.push(line)});
+    expect(phase(report,'supplier-photo')).toMatchObject(blocked?{status:'blocked'}:{status:'not_run',reason:'photo_uploads_disabled'});expect(report).toMatchObject({overall:'fail',cloud_proof:false,cleanup:{restore_failed:true}});expect(server.sessions.size).toBe(1);cleanReport(report,logs,server.known);
+  });
+});
+
 test('local harness: supplier acceptance and same-origin ON → OFF → ON bookmarks retain the exact synthetic data',async({browser,e2eAuthPool})=>{
   test.setTimeout(240000);await ownedSchema(e2eAuthPool);
   await temporary(async file=>{
@@ -201,30 +298,31 @@ test('local harness: supplier acceptance and same-origin ON → OFF → ON bookm
       await e2eAuthPool.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)',[DEMO_COMMUNITY,id,guild]);
       identities[role]={email,password,label:`wp07-${role}`};
     }
-    let app:ReturnType<typeof createApp>|undefined;
+    const publicFields=new Set<string>(),storePhotoAssetStore=new FakeObjectStore();let app:ReturnType<typeof createApp>|undefined;
     const listener=serve({hostname:'127.0.0.1',port:0,fetch:request=>app?app.fetch(request):new Response(null,{status:503})});
     try{
       if(!listener.listening)await new Promise<void>((resolve,reject)=>{listener.once('listening',resolve);listener.once('error',reject);});
       const address=listener.address();if(!address||typeof address==='string')throw Error('Owned listener unavailable');
       const origin=`http://127.0.0.1:${address.port}`,local=localHarnessTarget(origin);
-      const swap=(on:boolean)=>{app=createApp(e2eAuthPool,origin,'local',{guildLaunchpadEnabled:true,hostedReservationsEnabled:true,...(on?{supplierConsoleEnabled:true}:{}),tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY});app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));};
+      const swap=(on:boolean)=>{app=createApp(e2eAuthPool,origin,'local',{guildLaunchpadEnabled:true,hostedReservationsEnabled:true,storePhotoAssetStore,...(on?{supplierConsoleEnabled:true}:{}),tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY});app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));};
       const transport:Transport=async request=>{
         expect(new URL(request.url).origin).toBe(origin);
         for(const [key,value] of Object.entries(request.headers))if(/cookie|csrf|idempotency/i.test(key))known.add(value);
         const reply=await fetchTransport(request);for(const cookie of reply.headers.getSetCookie())known.add(cookie.split(';')[0].split('=')[1]);
-        try{const text=Buffer.from(reply.body).toString();for(const id of text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)??[])known.add(id);const json=JSON.parse(text);if(json.csrf_token)known.add(json.csrf_token);}catch{/* binary response */}return reply;
+        try{const text=Buffer.from(reply.body).toString();for(const id of text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)??[])known.add(id);const json=JSON.parse(text);if(new URL(request.url).pathname.startsWith('/api/v1/public/stores/')){const keys=(v:any):void=>{if(v&&typeof v==='object'){for(const [key,item] of Object.entries(v)){if(!Array.isArray(v))publicFields.add(key);keys(item);}}};keys(json);}if(json.csrf_token)known.add(json.csrf_token);}catch{/* binary response */}return reply;
       };
       const run=(selected:readonly string[],state:'on'|'off')=>runCandidate({...base(selected,file),target:local,expectedVersion:packageMetadata.version,expectedReleaseSha:null,supplierAccounts:identities,transport,browser,expectSupplierConsole:state,log:line=>logs.push(line)});
       swap(true);const initial=await run(supplierPhases,'on');
       expect(initial.phases.filter(p=>p.status==='fail').map(p=>({phase:p.id,reason:p.reason,checks:p.checks.filter(c=>c.status==='fail')}))).toEqual([]);
       for(const id of ['supplier-journey','supplier-reservations','supplier-recheck'])expect(phase(initial,id).status,id).toBe('pass');
       expect(phase(initial,'supplier-photo')).toMatchObject({status:'not_run',reason:'photo_uploads_disabled'});
+      expect(phase(initial,'supplier-reservations').metrics).toMatchObject({public_projection_private:true});
       expect(initial).toMatchObject({harness:'local_harness',cloud_proof:false});
       expect((await stat(file)).mode&0o777).toBe(0o600);const saved=JSON.parse(await readFile(file,'utf8'));expect(saved.reservation.state).toBe('cancelled');
       for(const id of JSON.stringify(saved).match(/[0-9a-f-]{36}/g)??[])known.add(id);known.add(saved.seller.slug);
-      swap(false);const off=await run(['supplier-recheck'],'off');expect(phase(off,'supplier-recheck')).toMatchObject({status:'pass',metrics:{console_routes_404:true,bookmark:'old_page',legacy_reads_matched:true}});
-      swap(true);const on=await run(['supplier-recheck'],'on');expect(phase(on,'supplier-recheck')).toMatchObject({status:'pass',metrics:{bookmark:'console_page',legacy_reads_matched:true,console_reads_matched:true}});
-      expect(JSON.parse(await readFile(file,'utf8'))).toEqual(saved);
+      swap(false);const off=await run(['supplier-recheck'],'off');expect(phase(off,'supplier-recheck')).toMatchObject({status:'pass',metrics:{console_routes_404:true,bookmark:'old_page',legacy_reads_matched:true,bookmark_values_matched:true}});
+      swap(true);const on=await run(['supplier-recheck'],'on');expect(phase(on,'supplier-recheck')).toMatchObject({status:'pass',metrics:{bookmark:'console_page',legacy_reads_matched:true,console_reads_matched:true,bookmark_values_matched:true}});
+      expect(JSON.parse(await readFile(file,'utf8'))).toEqual(saved);await writeFile('test-results/wp07rv-public-fields.json',JSON.stringify([...publicFields].sort()));
       for(const report of [initial,off,on]){cleanReport(report,logs,known);expect(report).toMatchObject({harness:'local_harness',cloud_proof:false});}
       expect((await e2eAuthPool.query('SELECT count(*)::int n FROM sessions WHERE user_id=ANY($1::uuid[]) AND revoked_at IS NULL',[ids])).rows[0].n).toBe(0);
     }finally{if('closeAllConnections' in listener)listener.closeAllConnections();await new Promise<void>((resolve,reject)=>listener.close(error=>error?reject(error):resolve()));}

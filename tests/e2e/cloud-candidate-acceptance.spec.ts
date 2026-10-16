@@ -971,3 +971,13 @@ test('registration phases do not require an account file',async()=>{
   expect(requests).toBe(1);
   expect(report.account_label).toBeNull();
 });
+
+test('run-wide restore failure fails an otherwise passed guild-cache phase before its status line',async()=>{
+  const server=guildCandidate(),logs:string[]=[];let finished=false;
+  const transport:Transport=async request=>{const path=new URL(request.url).pathname;if(finished&&path==='/api/v1/guilds')return {status:500,headers:new Headers({'content-type':'application/json'}),body:Buffer.from('{}')};const reply=await server.transport(request);if(path==='/api/v1/me/development/skill/video-autopilot'&&!request.headers.Cookie)finished=true;return reply;};
+  const report=await runCandidate({...base(['guild-cache']),transport,account,log:line=>logs.push(line)});
+  expect(report.cleanup.items).toContainEqual({phase:'guild-cache',item:'test guild membership guild_ai_vibe',state:'restore_failed'});
+  expect(report).toMatchObject({overall:'fail',cloud_proof:false,cleanup:{restore_failed:true}});
+  expect(report.phases.find(p=>p.id==='guild-cache')).toMatchObject({status:'fail',reason:'cleanup_restore_failed',checks:expect.arrayContaining([{id:'cleanup_restored',status:'fail'}])});expect(logs).toContain('guild-cache: fail (cleanup_restore_failed)');
+  const cleanReport=()=>{const text=JSON.stringify(report)+'\n'+logs.join('\n');for(const secret of [account.email,account.password])expect(text).not.toContain(secret);expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);expect(report.redaction_applied).toBe(false);};cleanReport();
+});
