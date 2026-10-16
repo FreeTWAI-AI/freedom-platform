@@ -14044,8 +14044,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 29386,
-      "sha256": "f3ad40cb1f841e226a415900bd29dbc3257ddc3bd4bc8cfb646920d073771064"
+      "bytes": 31264,
+      "sha256": "82f29a587fbe5f6022430ccbec695d4998199b602227b3353326cf2f92a11549"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -18684,8 +18684,8 @@
     },
     {
       "path": "modules/member-communications/service.ts",
-      "bytes": 25727,
-      "sha256": "f685dc0c8d76ed51bb9614ea296543b758ad6680529098008e6c3b7fd823f8f3"
+      "bytes": 26517,
+      "sha256": "419447e5823378d59806c741e4cbec521d424c9cd87042fbdebc0615a24daee9"
     },
     {
       "path": "modules/member-communications/stickers.ts",
@@ -22764,8 +22764,8 @@
     },
     {
       "path": "tests/runtime/member-communications.test.ts",
-      "bytes": 44534,
-      "sha256": "59f32a901b00d05422d526ce849b1838ecdb271cd0dc7e38bf548854521bb4f4"
+      "bytes": 54268,
+      "sha256": "27df04053fb6f7298c19a03d43199fbc7124cded5e2c04a88406ce5dca110984"
     },
     {
       "path": "tests/runtime/member-connections.test.ts",
