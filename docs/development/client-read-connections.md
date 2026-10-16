@@ -51,6 +51,13 @@ restrictions do not change.
 
 List responses are `{items,read_only:true,limit:200}`. The first preview has a 200-item cap and does not yet support pagination. Other paths return 404; write methods return 405; unsupported query parameters return 422. Storefront cannot read supplier-only resources or another store, even another store owned by the same person. Storefront catalog access may contain the supply price and terms the approving member can already read; it is not a public retail feed.
 
+Store-specific path IDs are validated UUIDs, and the approved-store scope compares
+their lowercase UUID identity with PostgreSQL's stored value. Uppercase UUID
+spelling therefore reads the same approved store or its listings; another store
+is still 404, including another one owned by the same member. Response IDs keep
+their PostgreSQL spelling. This comparison does not fold bearer credentials or
+expand ownership, resource scope, or write permissions.
+
 ## Review and revoke
 
 `GET /api/v1/me/client-connections` returns `{items:[{connection_id,client_name,kind,scope,store_id,aggregate_version,created_at,expires_at,revoked_at,read_only:true}]}`. `POST /api/v1/me/client-connections/:id/revoke` uses `{}`, CSRF, `Idempotency-Key` and the listed `If-Match` version. Revocation invalidates reads immediately; it also prevents a pending approved client from exchanging its device secret. Only the owner can revoke. Maximum 20 active connections per member.

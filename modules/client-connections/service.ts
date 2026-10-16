@@ -139,7 +139,7 @@ export async function readClientResource(pool:Pool,authorization:string|undefine
      return {connection_id:client.connection_id,kind:client.kind,scope:client.scope,store_id:client.store_id,expires_at:client.expires_at,read_only:true};
    }
    requireCondition((client.kind==='storefront'&&['catalog','stores','listings'].includes(resource))||(client.kind==='supplier'&&['products','requests'].includes(resource)),403,'client_scope_denied','這個讀取連線沒有此資料的權限。');
-   if(requestedStoreId!==undefined)requireCondition(client.kind==='storefront'&&requestedStoreId===client.store_id,404,'store_not_found','找不到這個讀取連線的商店。');
+   if(requestedStoreId!==undefined)requireCondition(client.kind==='storefront'&&requestedStoreId.toLowerCase()===client.store_id,404,'store_not_found','找不到這個讀取連線的商店。');
    if(client.kind==='storefront')requireCondition((await q.query('SELECT 1 FROM retail_stores WHERE store_id=$1 AND community_id=$2 AND seller_ref=$3',[client.store_id,client.community_id,client.user_id])).rowCount===1,403,'client_store_unavailable','已批准的商店不再可供這個連線讀取。');
    let rows:any[];
    if(resource==='catalog'||resource==='products')rows=(await q.query(`SELECT p.*,u.display_name AS supplier_name,to_jsonb(o) AS current_offer FROM catalog_products p
