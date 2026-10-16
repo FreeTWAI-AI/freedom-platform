@@ -54,7 +54,7 @@ async function requireCurrentMaster(q:PoolClient,communityId:string,userId:strin
 
 const TierInput=z.object({member_tier:z.enum(['intern','full'])}).strict();
 export async function setMemberTier(pool:Pool,input:Command,key:string,userId:string){
-  guildKey.parse(key);z.uuid().parse(userId);
+  guildKey.parse(key);userId=z.uuid().parse(userId).toLowerCase();
   const body=TierInput.parse(input.body);
   return withBookStarChecks(pool,run=>command(pool,input,async q=>{
     await requireCurrentMaster(q,input.actor.community_id,input.actor.user_id,key);
@@ -81,7 +81,7 @@ export async function setMemberTier(pool:Pool,input:Command,key:string,userId:st
   });
 }
 
-const MasterExpertInput=z.object({user_id:z.uuid(),active:z.boolean(),reason:z.string().trim().max(1000).optional()}).strict();
+const MasterExpertInput=z.object({user_id:z.uuid().transform(value=>value.toLowerCase()),active:z.boolean(),reason:z.string().trim().max(1000).optional()}).strict();
 export async function setGuildExpertByMaster(pool:Pool,input:Command,key:string){
   guildKey.parse(key);
   const body=MasterExpertInput.parse(input.body);

@@ -31,9 +31,9 @@
 | S2 | 無 migration；只新增預留、變更紀錄與公會摘要的讀取 | 無 | — | 不變 |
 | S3 | `168_supply_materials.sql`：素材、版本、授權三張表；兩個新用途 `storefront.supply-material`（圖片）與 `storefront.supply-material-video`（影片）及其 storage policy；容量計算加入兩個用途 | 素材、版本、授權、物件 | 舊 runtime 不認識新表，不會寫；但舊的容量計算不含新用途，所以不能讓舊 runtime 在有素材物件時繼續收上傳 | release-compatibility shape `media.supply-material.asset.v1`（migration 下限 168）；備份／還原含新表與物件（AT-43，not_run） |
 
-D-11 本機 migration `169_distribution_photos.sql`（整合時由 lead 重編）：兩張 seller tenant RLS 表、intent 新目標欄位及 shape。沿用商品照片用途與容量；release floor 加 `media.distribution-photo.asset.v1`，下限 169。舊 reader／engine 不認識新 target kind，重新發布可能漏掉指標，不能作為有新資料後的回退 reader；維運捕捉本來涵蓋所有未 fenced 物件，GC 仍禁止商品照片用途。
+D-11 本機 migration `169_distribution_photos.sql`（合併前的暫定編號；本輪不重編、不改已寫的 SQL）：兩張 seller tenant RLS 表、intent 新目標欄位及 shape。沿用商品照片用途與容量；release floor 加 `media.distribution-photo.asset.v1`，下限 169。舊 reader／engine 不認識新 target kind，重新發布可能漏掉指標，不能作為有新資料後的回退 reader；維運捕捉本來涵蓋所有未 fenced 物件，GC 仍禁止商品照片用途。
 
-已套用的 migration 不改 bytes；migration 編號在實作時取當時的下一號（基準時最大為 `167_community_ar.sql`）。S3 的 168 是合併前的暫定編號；Commerce 的 migration 若先合併，S3 改到下一個空號（≥170），並同步 `FOUNDATION_NAMES`、migration-plan 測試的最後名稱與上表的下限（SC-SPEC-04 §4）。
+已套用的 migration 不改 bytes。root 讀回時，main 已套用的最大號仍是 `167_community_ar.sql`。S3 的 168 與 D-11 的 169 都是合併前的暫定編號；這次整合不改號、不改 SQL。Commerce PR 863 仍開放（`e6058a05`），目前也使用 168／169，不是 168–170。只有 Commerce 先落地並佔用這兩個號時，才把尚未落地的 S3／D-11 改到當時的下一個空號（≥170），並同步 `FOUNDATION_NAMES`、migration-plan 測試的最後名稱與上表的下限（SC-SPEC-04 §4）。
 
 ## 3. 固定候選的發布順序
 
@@ -56,7 +56,7 @@ D-11 本機 migration `169_distribution_photos.sql`（整合時由 lead 重編�
 | 照片上傳中 | intent 自然到期；finalize 有冪等 key | 不會留下可讀的半成品 |
 | 預留 | 營運中心不建立或改動預留，只讀與設定開關 | 不受影響 |
 | 程式回退到 S1 之前 | S1 沒有 schema 變更，前一版 runtime 可直接用 | 純供貨商品照片暫時看不到，roll forward 後恢復；不刪任何資料 |
-| D-11 回退 | 關 `FREEDOM_DISTRIBUTION_PHOTOS_ENABLED`，不做 down migration、不刪複本或指標 | 停止新複製及新路由（404），site false。既有公開快照不變；既有指標仍由發布讀取：來源有效用原複本，失效則下次發布不放照片。複本仍佔容量。需要重新管理時開回旗標；程式回退必須保留 `media.distribution-photo.asset.v1` |
+| D-11 回退 | 關 `FREEDOM_DISTRIBUTION_PHOTOS_ENABLED`，不做 down migration、不刪複本或指標 | 停止新複製及新路由（404），site false。既有公開快照仍可讀，不會讓所有既有合作照片消失；既有指標仍由發布讀取：來源有效用原複本，失效則下次發布不放照片。複本仍佔容量。已儲存預覽不再整頁 422；旗標關閉時預覽仍可能含私人合作路徑，但該路徑 404，因為路由沒有掛載。賣家自己的商品照片路徑仍可讀。這是關閉時的限制，不是另一套預覽功能。需要重新管理時開回旗標；程式回退必須保留 `media.distribution-photo.asset.v1` |
 | S3 回退 | 先關 `FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED`；需要時再關 `FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED`。素材用途在某次發布中啟用或寫入後，回退下限就包含 `media.supply-material.asset.v1`，release wrapper 不會讓不宣告這個能力的 runtime 上線。不做 down migration、不刪歷史 | 只關上傳：已有素材照常讀取。再關檔案讀取：素材的文案與授權照常，檔案路由 404、畫面不顯示檔案，重開後恢復 |
 
 不以整庫還原作為改版回退。庫存相關仍遵守 pre-162 writer 不能回退與 T-047 的還原隔離（`modules/agent-commerce/hosted/inventory-reservations.md`）。
