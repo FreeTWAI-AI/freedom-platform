@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PortalClient } from '../../../../../apps/portal-web/src/api';
-import { ApiError } from '../../../../../apps/portal-web/src/api';
 import {
   PartnerMaterialsSchema,
   type PartnerMaterial,
@@ -15,12 +14,13 @@ import {
   materialKindLabel,
   materialVersionText,
   partnerMaterialPath,
+  partnerMaterialsErrorText,
 } from './partner-materials';
 
 export type PartnerMaterialsViewState =
   | { kind: 'loading' }
   | { kind: 'failed'; error?: string; staleData?: PartnerMaterialsData }
-  | { kind: 'ready'; data: PartnerMaterialsData };
+  | { kind: 'ready'; data: PartnerMaterialsData; refreshing?: boolean };
 
 export interface PartnerMaterialsViewProps {
   state: PartnerMaterialsViewState;
@@ -179,8 +179,8 @@ export function PartnerMaterialsView({
     return (
       <>
         {truncated && <p className="field-hint">只顯示前 200 筆素材。</p>}
-        {groups.map(group => (
-          <div className="partner-materials-supplier stack" key={group.supplier}>
+        {groups.map((group, index) => (
+          <div className="partner-materials-supplier stack" key={`${index}:${group.supplier}`}>
             <h4>{group.supplier}</h4>
             {group.brand.length > 0 && (
               <div className="partner-materials-brand-group stack">
@@ -247,7 +247,17 @@ export function PartnerMaterialsView({
         <>
           <div className="actions">
             <span>資料時間 {formatTaipeiTime(state.data.as_of)}</span>
-            <button type="button" className="btn btn-ghost btn-small" onClick={onReload}>
+            {state.refreshing && (
+              <span role="status" className="field-hint">
+                正在更新…
+              </span>
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              onClick={onReload}
+              disabled={state.refreshing}
+            >
               重新整理
             </button>
           </div>
@@ -290,15 +300,19 @@ export function PartnerMaterials({
   const tenantRef = useRef(tenantId);
   const instanceRef = useRef(instanceId);
 
+  // Keep refs updated on every render to track current props
+  userRef.current = userId;
+  tenantRef.current = tenantId;
+  instanceRef.current = instanceId;
+
   // Clear stale data if user, tenant, or instance changes
+  const prevScopeRef = useRef({ userId, tenantId, instanceId });
   if (
-    userRef.current !== userId ||
-    tenantRef.current !== tenantId ||
-    instanceRef.current !== instanceId
+    prevScopeRef.current.userId !== userId ||
+    prevScopeRef.current.tenantId !== tenantId ||
+    prevScopeRef.current.instanceId !== instanceId
   ) {
-    userRef.current = userId;
-    tenantRef.current = tenantId;
-    instanceRef.current = instanceId;
+    prevScopeRef.current = { userId, tenantId, instanceId };
     dataRef.current = null;
   }
 
@@ -312,41 +326,31 @@ export function PartnerMaterials({
     const startTenantId = tenantId;
     const startInstanceId = instanceId;
 
-    if (!dataRef.current) {
+    const isStale = () =>
+      !mountedRef.current ||
+      ticketRef.current !== currentTicket ||
+      controller.signal.aborted ||
+      client.sessionGeneration !== startGeneration ||
+      userRef.current !== startUserId ||
+      tenantRef.current !== startTenantId ||
+      instanceRef.current !== startInstanceId;
+
+    if (dataRef.current) {
+      setState({ kind: 'ready', data: dataRef.current, refreshing: true });
+    } else {
       setState({ kind: 'loading' });
     }
 
     const path = `/tenants/${encodeURIComponent(tenantId)}/storefronts/${encodeURIComponent(instanceId)}/partner-materials`;
     try {
       const raw = await client.get(path, { signal: controller.signal });
-      if (
-        !mountedRef.current ||
-        ticketRef.current !== currentTicket ||
-        controller.signal.aborted ||
-        client.sessionGeneration !== startGeneration ||
-        userId !== startUserId ||
-        tenantId !== startTenantId ||
-        instanceId !== startInstanceId
-      ) {
-        return;
-      }
+      if (isStale()) return;
       const parsed = PartnerMaterialsSchema.parse(raw);
       dataRef.current = parsed;
       setState({ kind: 'ready', data: parsed });
     } catch (err) {
-      if (
-        !mountedRef.current ||
-        ticketRef.current !== currentTicket ||
-        controller.signal.aborted ||
-        client.sessionGeneration !== startGeneration ||
-        userId !== startUserId ||
-        tenantId !== startTenantId ||
-        instanceId !== startInstanceId
-      ) {
-        return;
-      }
-      const message =
-        err instanceof ApiError ? (err.detail || err.message) : err instanceof Error ? err.message : '';
+      if (isStale()) return;
+      const message = partnerMaterialsErrorText(err);
       setState({
         kind: 'failed',
         error: message,

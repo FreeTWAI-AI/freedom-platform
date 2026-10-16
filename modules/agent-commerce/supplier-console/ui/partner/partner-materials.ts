@@ -2,6 +2,7 @@ import type {
   PartnerMaterial,
   SupplyMaterialContent,
 } from '../../../../../contracts/guild-launchpad/v1/supplier-console';
+import { ApiError } from '../../../../../apps/portal-web/src/api';
 
 export interface PartnerMaterialProductGroup {
   productId: string;
@@ -139,4 +140,15 @@ export function materialContentSummary(content: SupplyMaterialContent): string {
     return content.body;
   }
   return chars.slice(0, 60).join('') + '…';
+}
+
+/**
+ * Returns trimmed detail or message for ApiError, or empty string for other errors.
+ */
+export function partnerMaterialsErrorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    const raw = error.detail ?? error.message;
+    return typeof raw === 'string' ? raw.trim() : '';
+  }
+  return '';
 }

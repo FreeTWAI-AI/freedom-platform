@@ -17,10 +17,12 @@ import {
   materialKindLabel,
   materialVersionText,
   partnerMaterialPath,
+  partnerMaterialsErrorText,
 } from '../../modules/agent-commerce/supplier-console/ui/partner/partner-materials';
 import {
   PartnerMaterialsView,
 } from '../../modules/agent-commerce/supplier-console/ui/partner/PartnerMaterials';
+import { ApiError } from '../../apps/portal-web/src/api';
 
 function renderPresentation(element: Parameters<typeof renderToStaticMarkup>[0]): string {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'React');
@@ -554,4 +556,164 @@ test('M2-13 view state: truncated shows notice', () => {
   assert.ok(!html.includes('r2'));
   assert.ok(!html.includes('bucket'));
   assert.ok(!html.includes('signed'));
+});
+
+test('M2-14 error text helper: partnerMaterialsErrorText sanitizes ApiError and hides non-API errors', () => {
+  // ApiError with detail
+  const errWithDetail = new ApiError({
+    message: '伺服器錯誤',
+    detail: '資料庫維護中，請稍後重試',
+    status: 503,
+  });
+  assert.equal(partnerMaterialsErrorText(errWithDetail), '資料庫維護中，請稍後重試');
+
+  // ApiError without detail
+  const errWithoutDetail = new ApiError({
+    message: '找不到資源',
+    status: 404,
+  });
+  assert.equal(partnerMaterialsErrorText(errWithoutDetail), '找不到資源');
+
+  // ApiError with whitespace
+  const errWhitespace = new ApiError({
+    message: '   訊息前後有空格   ',
+    detail: '   詳細說明前後有空格   ',
+  });
+  assert.equal(partnerMaterialsErrorText(errWhitespace), '詳細說明前後有空格');
+
+  // ApiError with empty message and no detail
+  const errEmpty = new ApiError({
+    message: '   ',
+  });
+  assert.equal(partnerMaterialsErrorText(errEmpty), '');
+
+  // ZodError from schema parse mismatch returns empty string
+  const zodResult = PartnerMaterialsSchema.safeParse({});
+  assert.ok(!zodResult.success);
+  assert.equal(partnerMaterialsErrorText(zodResult.error), '');
+
+  // Plain TypeError returns empty string
+  assert.equal(partnerMaterialsErrorText(new TypeError('Cannot read properties of undefined')), '');
+
+  // Plain Error returns empty string
+  assert.equal(partnerMaterialsErrorText(new Error('Generic failure')), '');
+
+  // Other types
+  assert.equal(partnerMaterialsErrorText('string error'), '');
+  assert.equal(partnerMaterialsErrorText(null), '');
+  assert.equal(partnerMaterialsErrorText(undefined), '');
+  assert.equal(partnerMaterialsErrorText({ detail: 'fake' }), '');
+});
+
+test('M2-15 duplicate React keys: non-consecutive same-name groups render both <h4> and trigger no console.error', () => {
+  const nonConsecutiveItems: PartnerMaterial[] = [
+    matCopy, // 大地之寶 (brand)
+    matVideo, // 山嵐製菓 (product)
+    {
+      ...matCopy,
+      material_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      title: '第二次的大地之寶素材',
+    }, // 大地之寶 again (non-consecutive)
+  ];
+
+  const data: PartnerMaterials = {
+    profile: 'freedom.partner-materials/v1',
+    tenant_id: tenantId,
+    instance_id: instanceId,
+    as_of: '2026-10-15T15:30:00.000Z',
+    items: nonConsecutiveItems,
+    truncated: false,
+  };
+
+  const capturedErrors: any[] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    capturedErrors.push(args);
+    originalConsoleError(...args);
+  };
+
+  let html = '';
+  try {
+    html = renderPresentation(
+      createElement(PartnerMaterialsView, {
+        state: { kind: 'ready', data },
+        tenantId,
+        instanceId,
+        mediaEnabled: true,
+      }),
+    );
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  // Assert no React console.error warnings (e.g. duplicate key warnings)
+  assert.equal(
+    capturedErrors.length,
+    0,
+    `Expected no console.error calls during render, but got: ${JSON.stringify(capturedErrors)}`,
+  );
+
+  // Assert both groups rendered with their <h4> headers
+  const matchDadi = html.match(/<h4>大地之寶<\/h4>/g);
+  assert.ok(matchDadi, 'Should find <h4>大地之寶</h4> in html');
+  assert.equal(matchDadi.length, 2, 'Should render exactly two <h4>大地之寶</h4> headers for non-consecutive groups');
+
+  const matchShan = html.match(/<h4>山嵐製菓<\/h4>/g);
+  assert.ok(matchShan, 'Should find <h4>山嵐製菓</h4> in html');
+  assert.equal(matchShan.length, 1);
+});
+
+test('M2-16 refresh state: refreshing=true shows 正在更新… status, disables 重新整理 button, and keeps data visible', () => {
+  const html = renderPresentation(
+    createElement(PartnerMaterialsView, {
+      state: { kind: 'ready', data: fixtureData, refreshing: true },
+      tenantId,
+      instanceId,
+      mediaEnabled: true,
+    }),
+  );
+
+  // Status indicator
+  assert.ok(html.includes('正在更新…'));
+  assert.ok(html.includes('role="status"'));
+  assert.ok(html.includes('資料時間 23:30'));
+
+  // Button is disabled
+  assert.ok(html.includes('disabled=""') || html.includes('disabled'));
+  assert.ok(html.includes('重新整理'));
+
+  // Existing data is still visible
+  assert.ok(html.includes('大地之寶'));
+  assert.ok(html.includes('春季茶葉文案'));
+  assert.ok(html.includes('特選烏龍茶正面商品照'));
+  assert.ok(html.includes('山嵐製菓'));
+});
+
+test('M2-17 refresh state: refreshing=false or omitted keeps 重新整理 button enabled without 正在更新…', () => {
+  const htmlNotRefreshing = renderPresentation(
+    createElement(PartnerMaterialsView, {
+      state: { kind: 'ready', data: fixtureData, refreshing: false },
+      tenantId,
+      instanceId,
+      mediaEnabled: true,
+    }),
+  );
+
+  assert.ok(!htmlNotRefreshing.includes('正在更新…'));
+  assert.ok(htmlNotRefreshing.includes('資料時間 23:30'));
+  // Button is NOT disabled
+  assert.ok(!htmlNotRefreshing.includes('disabled'));
+  assert.ok(htmlNotRefreshing.includes('重新整理'));
+
+  const htmlOmitted = renderPresentation(
+    createElement(PartnerMaterialsView, {
+      state: { kind: 'ready', data: fixtureData },
+      tenantId,
+      instanceId,
+      mediaEnabled: true,
+    }),
+  );
+
+  assert.ok(!htmlOmitted.includes('正在更新…'));
+  assert.ok(!htmlOmitted.includes('disabled'));
 });
