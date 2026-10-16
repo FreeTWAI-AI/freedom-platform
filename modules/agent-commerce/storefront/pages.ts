@@ -12,6 +12,17 @@ function storefrontShell(store: StorefrontStoreHeading, title: string, content: 
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="color-scheme" content="light"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="/shops.css">${script}</head><body><a class="shop-skip-link" href="#main">跳到主要內容</a><header class="shop-top"><a href="/" aria-label="返回自由工坊"><img class="shop-logo" src="/brand/freedom-workshop.webp" alt="自由工坊" width="1280" height="720"></a><a class="shop-top-store" href="/shops/${slug}">${name}</a></header><main id="main" tabindex="-1">${content}</main><footer class="shop-footer"><p>這間店使用自由工坊開店。</p></footer></body></html>`;
 }
 
+export function cartPageHtml(store: StorefrontStoreHeading): string {
+  const slug = escapeHtml(store.slug);
+  const name = escapeHtml(store.name);
+  return storefrontShell(
+    store,
+    `購物車｜${store.name}｜自由工坊`,
+    `<section class="shop-cart" id="shop-cart" data-store-slug="${slug}" data-store-name="${name}" aria-labelledby="shop-cart-title" aria-busy="true"><h1 id="shop-cart-title" tabindex="-1">購物車</h1><p role="status">正在讀取購物車…</p><noscript><p>使用購物車需要開啟瀏覽器的 JavaScript。</p></noscript></section>`,
+    true,
+  );
+}
+
 export function orderPageHtml(store: StorefrontStoreHeading, orderRef: string): string {
   const slug = escapeHtml(store.slug);
   const name = escapeHtml(store.name);
