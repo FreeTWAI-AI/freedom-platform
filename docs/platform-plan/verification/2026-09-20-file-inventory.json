@@ -15279,8 +15279,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 38600,
-      "sha256": "38be68c6200892431248e37991a10a10c034b4e8cf0518fe48704cc43fec139a"
+      "bytes": 38758,
+      "sha256": "247092c1b43b288c06bd49e111d1c9652ee49e0417e6bc290fdee2820353c257"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",

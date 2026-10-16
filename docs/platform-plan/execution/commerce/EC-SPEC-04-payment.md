@@ -65,7 +65,7 @@
 - 付款服務 `suspended` 後：不建立新 attempt；已建立的 attempt 照常接收通知、查詢與退款（在途責任不因停用消失，EC-R56）。
 - `draft → active` 不是 HTTP 命令：付款工作在驗證交易成立後，於同一個交易呼叫內部的啟用函式（記下啟用時間與證據參考）。同一間店、同一環境、同一 profile 同時只能有一個 `active` 服務。
 - 換金鑰不改服務狀態，新的 `credential_version` 立即生效。填錯的金鑰要到下一次簽章才發現：綠界拒絕用它簽出的付款表單，通知與查詢也驗證失敗。
-- 儲存金鑰時不以伺服器對伺服器的查詢驗證（2026-10-16 依 wp04-payments 的建議定案）：只檢查格式並封存；在本機算出簽章也不算驗證。首次的金鑰由上面的驗證交易證明。換金鑰後，一個版本是否已驗證，只看有沒有由它驗證成功的付款事件（`commerce_payment_events.credential_version`）；還沒有的版本，Seller Console 標示「尚未經綠界驗證」。
+- 儲存金鑰時不以伺服器對伺服器的查詢驗證（2026-10-16 依 wp04-payments 的建議定案）：只檢查格式並封存；在本機算出簽章也不算驗證。首次的金鑰由上面的驗證交易證明。換金鑰後，一個版本是否已驗證，只看有沒有由它驗證成功的付款事件（`commerce_hosted_payment_events.credential_version`）；還沒有的版本，Seller Console 標示「尚未經綠界驗證」。
 
 ## 2. 首發 profile：`ecpay.aio.credit.v1`
 
@@ -88,7 +88,7 @@
 | `commerce_provider_accounts`、`commerce_provider_account_services` | §1.2 | tenant RLS；物流與發票共用 |
 | `commerce_provider_credentials` | §1.3 | tenant RLS；只有 adapter 讀；不可刪（只能 `retired`） |
 | `commerce_payment_attempts` | 一次交給 provider 的付款 | 每張訂單可有多個；`merchant_trade_no` 在 (provider, environment, merchant_id) 內不分大小寫唯一；金額、幣別、帳戶、`credential_version` 建立後不可改；狀態只能依 §3.3 前進 |
-| `commerce_payment_events` | 已驗證的 provider 通知、查詢結果與瀏覽器返回（inbox） | append-only；去重鍵唯一（§5.4）；不存卡號片段與原始 body，只存允許欄位與原始 body 的 SHA-256 |
+| `commerce_hosted_payment_events` | 已驗證的 provider 通知、查詢結果與瀏覽器返回（inbox） | append-only；去重鍵唯一（§5.4）；不存卡號片段與原始 body，只存允許欄位與原始 body 的 SHA-256。名稱避開既有的 `commerce_payment_events`（migration 055）：那是匯入商店由商家後台回報的付款紀錄，兩者不共用 |
 | `commerce_payment_operations` | 需要對外呼叫的工作（outbox）：查詢、退款步驟 | `pending → in_flight → done／failed／unknown`；`not_before`、租約（`lease_until`）、嘗試次數、錯誤碼；外部呼叫只在租約交易提交後進行 |
 | `commerce_refunds` | 退款 | §7；累計上限由 trigger 檢查 |
 | `commerce_refund_lines` | 每筆退款分到哪些行項與運費（EC-SPEC-06 §2.5） | 各列合計＝退款金額；同一行項、同一配送群組的累計上限由 trigger 檢查 |
