@@ -69,7 +69,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 進行中（`fc/wp04-queries`） |
 | wp04-seller | 賣家端的 M2 後端：`FREEDOM_COMMERCE_CONSOLE_ENABLED`（EC-SPEC-10 §2.2）、訂單讀取與聯絡卡（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 之後 |
 | wp04-refund-api | API 退款：operations outbox、QueryTrade/V2 與 DoAction、結果不明、每日關帳時段（EC-SPEC-04 §7.3～7.4）；正式環境預設關閉 | Codex | wp04-seller | C2 受控試用排定時 |
-| buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 進行中（`fc/buyer-pay`） |
+| buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 完成（`fc/buyer-pay` `296e02e7`，整合 `9703443b`） |
 | emails | 交易信件的寄送：`FREEDOM_COMMERCE_EMAIL_ENABLED`、不含個資的信件佇列 `commerce_outbound_emails`、到期工作的 `email`、寄出前寫日誌、Worker 的 `EMAIL` binding 與 fixture sender、寄送打開時的 B10 表單與訂單頁的寄信說明（EC-SPEC-10 §2.2、§6，EC-SPEC-02 §4.2）；打開寄信仍由 Ted 決定 | argon | wp04-queries、buyer-pay、信件範本 | 之後 |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
 | 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
@@ -229,6 +229,13 @@ wp04-seller 做賣家端的 M2 後端與未套用付款的人工退款紀錄；w
 規格先改（`6a61d053`）：M2 的退款只有人工紀錄，每筆連到一筆未套用的付款，上限是那筆套用紀錄的金額（已驗證的實付），
 全額退完時自動結案那筆例外；買家的付款摘要加上 `refunded`，畫面寫「店家已登記退回」，因為平台沒有向綠界確認；
 E05 的路徑改成 `…/checkout-orders`。
+
+buyer-pay 通過審查，合併為 `9703443b`。argon 沒有 `ui-design-system` 與 `huashu-design`，依 DESIGN.md 與 `shops.css`
+做；整合者看過 1440、768、390、320 的截圖。合併後整合者重跑：typecheck、build、店面 runtime 14/14、E2E 付款 8、訂單與
+購物車 13、商店 20、selector 42/42、unknown-paths 0、inventory 都過。付款與結帳 runtime 249/250：「review 1: browser
+return locks its attempt…」在完整測試、wp04-queries 與 Supplier 同時執行時，被擋住的 `FOR KEY SHARE` 超過測試連線的
+20 秒 statement timeout；單獨重跑 84/84（這項 0.66 秒），合併沒有改付款程式，所以是負載造成的逾時。「查詢付款結果」
+在 buyer-pay 的 E2E 用 `page.route`，wp04-queries 合併後再用真的端點重跑。
 
 寄信（emails）等 wp04-queries 的到期工作執行器與 buyer-pay 的頁面合併後開出。規格先改：信件列只在
 `FREEDOM_COMMERCE_EMAIL_ENABLED` 打開時建立，所以第一次打開不會寄出之前訂單的信；信件佇列不含個資、豁免 RLS、結束後
