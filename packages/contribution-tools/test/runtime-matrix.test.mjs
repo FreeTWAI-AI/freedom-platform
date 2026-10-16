@@ -182,19 +182,38 @@ test('six-partition cases', async t => {
   assert.equal(spawnSync(process.execPath, ['scripts/runtime-full.mjs', '--partition-count', '5', '--partition-index', '0', '--output', output], { cwd: root }).status, 2);
 });
 
-test('tracked production/source edits invalidate identity while untracked build output is harmless',async t=>{
+test('runtime commit binding rejects untracked source and tracked edits but permits ignored artifacts',async t=>{
   const {mkdir}=await import('node:fs/promises');
   const {FULL_RUNTIME_BASELINE}=await import('../runtime-suites.mjs');
   const dir=await mkdtemp(resolve(tmpdir(),'fp-runtime-source-'));t.after(()=>rm(dir,{recursive:true,force:true}));
   for(const path of [...FULL_RUNTIME_BASELINE,'apps/production.ts']){
     await mkdir(dirname(resolve(dir,path)),{recursive:true});await writeFile(resolve(dir,path),'// synthetic source\n');
   }
-  for(const args of [['init','--quiet'],['add','.'],['-c','user.name=Synthetic','-c','user.email=synthetic@example.invalid','commit','--quiet','-m','synthetic']]){
-    assert.equal(spawnSync('git',args,{cwd:dir}).status,0);
+  // A tracked test may import a source module absent from the claimed commit.
+  await writeFile(resolve(dir,FULL_RUNTIME_BASELINE[0]),'import "../../apps/untracked-helper.mjs";\n');
+  await writeFile(resolve(dir,'.gitignore'),'build-output.txt\n.freedom/\n');
+  const git=args=>spawnSync('git',args,{cwd:dir,encoding:'utf8'});
+  for(const args of [['-c','init.templateDir=','init','--quiet'],['add','.'],['-c','user.name=Synthetic','-c','user.email=synthetic@example.invalid','-c','commit.gpgsign=false','commit','--quiet','-m','synthetic']]){
+    assert.equal(git(args).status,0);
   }
-  assert.ok((await runtimeSourceManifest(dir)).candidate_commit);
-  await writeFile(resolve(dir,'build-output.txt'),'untracked synthetic');
-  assert.ok((await runtimeSourceManifest(dir)).candidate_commit);
+  const source=await runtimeSourceManifest(dir);
+  await writeFile(resolve(dir,'build-output.txt'),'ignored synthetic');
+  await mkdir(resolve(dir,'.freedom/context'),{recursive:true});
+  await writeFile(resolve(dir,'.freedom/context/fixture.json'),'{}');
+  assert.deepEqual(await runtimeSourceManifest(dir),source);
+  // A user's display setting must not suppress the admission check.
+  assert.equal(git(['config','status.showUntrackedFiles','no']).status,0);
+  await writeFile(resolve(dir,'apps/untracked-helper.mjs'),'export const synthetic = true;\n');
+  assert.equal(git(['diff','--quiet','HEAD','--']).status,0);
+  await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
+  assert.equal(git(['add','apps/untracked-helper.mjs']).status,0);
+  await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
+  assert.equal(git(['reset','--quiet','HEAD','--','apps/untracked-helper.mjs']).status,0);
+  await rm(resolve(dir,'apps/untracked-helper.mjs'));
   await writeFile(resolve(dir,'apps/production.ts'),'// changed production\n');
+  await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
+  assert.equal(git(['checkout','--','apps/production.ts']).status,0);
+  assert.deepEqual(await runtimeSourceManifest(dir),source);
+  await writeFile(resolve(dir,'.git/index'),'invalid synthetic index');
   await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
 });

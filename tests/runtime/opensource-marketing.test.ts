@@ -102,10 +102,10 @@ for(const surface of [
 });
 
 for(const surface of [
-  {path:'/opensource/projects',table:'oss_projects'},
-  {path:'/marketing/campaigns',table:'marketing_campaign_drafts'}
+  {path:'/opensource/projects',table:'oss_projects',empty:{items:[]}},
+  {path:'/marketing/campaigns',table:'marketing_campaign_drafts',empty:{items:[],next_offset:null}}
 ] as const)test(`empty ${surface.path} still checks the session after a source wait`,async()=>{
-  const owner=await login(),expected=await request(surface.path,owner);assert.equal(expected.status,200);assert.deepEqual(expected.data,{items:[]});
+  const owner=await login(),expected=await request(surface.path,owner);assert.equal(expected.status,200);assert.deepEqual(expected.data,surface.empty);
   await assertReadClock(owner,surface.path,surface.table,expected.data);
 });
 
@@ -201,6 +201,28 @@ test('same-commit metadata changes create a fresh observation without rewriting 
   const again=await request(`/opensource/projects/${project.project_id}:refresh`,owner,{},refreshed.data.aggregate_version);assert.equal(again.status,200);
   assert.equal(again.data.current_version.version_id,refreshed.data.current_version.version_id);
   assert.equal((await pool.query('SELECT count(*) FROM oss_project_versions')).rows[0].count,'2');
+});
+test('private campaign drafts return bounded stable pages beyond the legacy cap',async()=>{
+  const owner=await login(),other=await login(DEMO_USERS[1].email);
+  await pool.query(`INSERT INTO marketing_campaign_drafts(
+      campaign_id,community_id,owner_ref,title,audience,goal,draft_text,source_snapshot,source_sha256,content_sha256,created_at
+    ) SELECT ('96000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,(SELECT community_id FROM users WHERE user_id=$1),$1,'分頁草稿 '||n,'會員','閱讀內容','合成分頁內容',
+      jsonb_build_object('kind','manual_brief','brief','合成來源','provided_by',$1::uuid,'evidence','self_declared'),
+      repeat('a',64),repeat('b',64),'2026-01-02T03:04:05Z'::timestamptz
+    FROM generate_series(0,102) AS n`,[owner.user.user_id]);
+  const expected=Array.from({length:103},(_,index)=>`96000000-0000-4000-8000-${String(index).padStart(12,'0')}`).reverse();
+  const bounded=await request('/marketing/campaigns?limit=10&offset=0',owner);
+  assert.equal(bounded.status,200);assert.equal(bounded.data.items.length,10);assert.equal(bounded.data.next_offset,10);
+  const first=await request('/marketing/campaigns?limit=50&offset=0',owner);
+  const second=await request('/marketing/campaigns?limit=50&offset=50',owner);
+  const tail=await request('/marketing/campaigns?limit=50&offset=100',owner);
+  assert.deepEqual([...first.data.items,...second.data.items,...tail.data.items].map(item=>item.campaign_id),expected);
+  assert.equal(first.data.next_offset,50);assert.equal(second.data.next_offset,100);
+  assert.equal(tail.data.items.length,3);assert.equal(tail.data.next_offset,null);
+  assert.deepEqual((await request('/marketing/campaigns?limit=20&offset=120',owner)).data,{items:[],next_offset:null});
+  assert.deepEqual((await request('/marketing/campaigns',other)).data,{items:[],next_offset:null});
+  for(const query of ['limit=0','limit=51','limit=1.5','offset=-1','offset=nope','extra=1'])
+    assert.equal((await request(`/marketing/campaigns?${query}`,owner)).status,422,query);
 });
 test('campaign edits and manual shares are private, versioned, replayable and never claim publication',async()=>{
   const owner=await login(),other=await login(DEMO_USERS[1].email);let campaign=await createDraft(owner);
