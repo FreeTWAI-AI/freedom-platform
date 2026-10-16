@@ -15324,28 +15324,28 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
-      "bytes": 29039,
-      "sha256": "df8baf00b5b8794f54b58991604f951bbc7dd762c8e8ee049c6d35dd9c1280a3"
+      "bytes": 29185,
+      "sha256": "00dbce07e8ef5473f6dd8a5914ffe4f2fee583aac32d618563052b86373c3a22"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
-      "bytes": 20242,
-      "sha256": "4700ad9e8d79d4a4512518481f76c8963e5f1b9b615fafcf4a9e4928d84279d8"
+      "bytes": 20471,
+      "sha256": "94be1efc88b9bd7c5cd6a902b2362b17e2811ec8afe75492dbd192f9b0cb4a6f"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
-      "bytes": 31415,
-      "sha256": "25f2e8778941e3fa81653981c4c29c47b80c7ed02cee3a71607b26ae9c8afeda"
+      "bytes": 31535,
+      "sha256": "f529049fcf98384662bee337a991272375c7321c36a3b5e3a4ee8a5423e23275"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 52337,
-      "sha256": "0d1957161909f9c977310a216fd6281f50ebd0f5ff82bf095521a57d2d63c8c1"
+      "bytes": 52475,
+      "sha256": "94fc3ff964b9171afd824faf9a86b973287fc95708d5bf45a5e65fcdf43c5653"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 85720,
-      "sha256": "e3240f3e2be5b234ce94e6f4d76f4787a5bec48793496406a7dcbe65ea0f50fe"
+      "bytes": 86223,
+      "sha256": "2e0a87a6cf185910cfc52753ed744fa031ae587bfa5e10cc5bd8ad7819f858a8"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
@@ -15369,13 +15369,18 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
-      "bytes": 43527,
-      "sha256": "7ab8528f977587159ff44fa16dd58766a42dd849bfcb0716e282fd193653ebae"
+      "bytes": 43594,
+      "sha256": "e54a69c794d5cbe336051c55a52eac96ae8bfe19639e955ca17c24f31b896e91"
+    },
+    {
+      "path": "docs/platform-plan/execution/commerce/EC-SPEC-11-offline-payment.md",
+      "bytes": 21075,
+      "sha256": "1b8a416105f1d1e0e6efd6308ad7ee3bfd5315e4b0e9607edeeec90bc4b44bfd"
     },
     {
       "path": "docs/platform-plan/execution/commerce/README.md",
-      "bytes": 3785,
-      "sha256": "305682c1af0a6d0a0d361316bb26d994ed2511bdd6b9ac51b3c2d42818c93fbe"
+      "bytes": 3917,
+      "sha256": "573bcfcd22a471a41d76ba8edf44a70e17adc593c265cc7a0e114ebb37aefaa3"
     },
     {
       "path": "docs/platform-plan/execution/commerce/WP-00-baseline.md",
@@ -15384,8 +15389,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/decisions.md",
-      "bytes": 16611,
-      "sha256": "3f73e4b7bbea00d9eb658d0e7d6926b3e12d4666d566fba57b414a52ba2e9f42"
+      "bytes": 17348,
+      "sha256": "17a2851c3931913591860502a7d88d9113857c697171709bfd8218b7f7970d63"
     },
     {
       "path": "docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv",
@@ -15404,8 +15409,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 46490,
-      "sha256": "7e2d1ee16d216c02f1d30ecba96b076495f2a44fd412354cfc2c233935060738"
+      "bytes": 46865,
+      "sha256": "c63236afbc29afe28b5235c20a5bae948f0ee790e02d993769ea8e54c68493aa"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",

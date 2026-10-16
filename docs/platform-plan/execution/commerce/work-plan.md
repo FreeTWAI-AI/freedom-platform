@@ -53,7 +53,7 @@
 | wp03-http | 公開結帳路由（EC-SPEC-02 §5.2～§5.4）；訂單存取憑證與 B10（§4.2，fixture sender）；結帳的限流（EC-SPEC-09 §4）；主機設定 `CHECKOUT`、`QUARANTINE` 與 `site` 布林（EC-SPEC-10 §2.2、§2.3）；到期預留接上排程（§5）；能力、SHAPE 與 168 的強制下限（§3）；同意版本與配送 JSON 的檢查；還原演練補上 168 的 RLS 表 | Codex | wp03-core | 完成（`fc/wp03-http` `eea0f328`，整合 `762baaf0`） |
 | buyer-orders | 店面 client bundle（固定檔名 `assets/storefront.js`）；B07 付款前的訂單頁：信件連結的兌換、在這個瀏覽器忘記；B10 在寄送授權前的說明（EC-SPEC-10 §6.2） | argon | wp03-http | 完成（`fc/buyer-orders` `1d4744cc`，整合 `1a9955eb`） |
 | buyer-cart | B01／B03 開放結帳時的購物車連結與件數、B03 加入購物車與購物車面板、B04 依伺服器報價的購物車；未開放時 v1 頁面逐位元不變 | argon | buyer-orders；wp04-accounts（店家准入） | 完成（`fc/buyer-cart` `5d226d71`，整合 `942df112`） |
-| buyer-checkout | B05、B06（付款前） | 之後決定 | buyer-cart；M3 的配送資料與選店、M4 的發票欄 | 之後 |
+| buyer-checkout | B05、B06（付款前）；線下付款的選項與 B07 的匯款說明（EC-SPEC-11 §6） | 之後決定 | buyer-cart；M3 的配送資料與選店、M4 的發票欄；offline-core | 之後 |
 
 M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `hosted_checkout` 訂單；M1 的驗收是不影響 v1 預留，加上本機與 CI 的測試（EC-SPEC-10 §4.6）。
 
@@ -84,6 +84,7 @@ M2 的 staging 驗收（EC-SPEC-10 §4.6 的 J02～J04）要先能成立訂單�
 | --- | --- | --- | --- | --- |
 | fulfil-rules | 配送分組與拆包、運費、收件資料檢查、貨態代碼對照，全部是純函式（EC-SPEC-05 §3.2～§3.5、§6.3、§6.4） | flash | — | 完成（`fc/fulfil-rules` `5c8d8379`，整合 `f941a48b`；CDN 修正輪 `d44f1d1d`，整合 `f38b9a08`） |
 | ecpay-logistics | 選店、建單、列印、貨態通知與查詢、7-ELEVEN 店到店取消與改門市的協定（EC-SPEC-05 §5～§7）；共用的 CDN 字詞檢查，AIO 一併套用 | argon | ecpay-proto、ecpay-aio | 完成（`fc/ecpay-logistics` `1f99faeb`，整合 `f7711535`） |
+| offline-core | 線下收款設定、sidecar 的 `payment_method`、terms 與下單的線下方式、長效保留與到期、確認收款、面交完成與交貨、主機設定的線下 profile（EC-SPEC-11 §2～§5、§8） | Codex | M2；wp05-settings（`delivery_options[]`） | 之後 |
 | wp05-fulfilment | 出貨設定、履約單、shipment、例外、退回與檢驗；給 SL 頁的讀取投影與命令 | Codex | M2 | 之後 |
 
 **M4 發票與售後（`commerce.hosted-invoice.v1`）**

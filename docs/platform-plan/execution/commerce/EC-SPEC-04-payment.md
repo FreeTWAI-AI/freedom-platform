@@ -84,6 +84,8 @@
 | 退款 | 正式環境以 `CreditDetail/DoAction`；stage 不提供，sandbox 只能人工紀錄（§7） | [2885] |
 | 需要額外付款資訊 | `NeedExtraPaidInfo=Y`，為了取得授權單號 `gwsr`（退款前查詢清算狀態要用） | [5675][2894] |
 
+銀行匯款與面交付款不是 PaymentPort 的 provider：沒有 attempt、通知與查詢，由店家確認收款（EC-SPEC-11）。
+
 ## 3. 資料模型與 PaymentPort
 
 ### 3.1 表（M2；`169` 已建立前五列；`commerce_refunds`、`commerce_refund_lines` 由 wp04-seller 加入，`commerce_payment_operations` 由 wp04-refund-api 加入；M1 是 EC-SPEC-03 的交易核心）

@@ -74,6 +74,7 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 - 每次修改新增一列，舊列標 `retired_at`；列本身不可改。訂單、代出貨同意與 shipment 指向建立當下那一列，所以歷史不會被改寫（計畫 Supplier v1.1 §4.2）。
 - 修改就是「取代」：新列記下 `replaces_location_id`，舊列在同一個命令退役。目前的出貨設定（§2.3）引用舊列時，同一個命令產生新的出貨設定版本，把引用換成新列；新列要保有被引用的用途（被服務引用要能寄件，被當成退回地址要能收退回），否則整個命令不生效。目前出貨設定仍引用的寄件地不能單獨退役。每間店未退役的寄件地最多 20 個。
 - 儲存前用規則庫的 `validateHomeRecipient` 檢查並正規化（NFKC、`+886` 手機改成 `09` 開頭、郵遞區號前三碼要在已知清單裡），存正規化後的值。
+- 命令本文含 NUL 或單獨的 surrogate 時，共用命令邊界（`packages/scoped-commands`）在授權與領域之前回 400 `invalid_command_json`，什麼都不寫；這是全平台規則。其他控制字元與欄位錯誤合併成一個 422 `shipping_input_invalid`。`validateHomeRecipient` 本身清除 NUL、拒絕單獨 surrogate 的行為不變，由規則庫的測試涵蓋。
 - 寫入命令的 receipt 只存寄件地 ID，回應在命令之後重新讀取；寄件地的值不進 receipt、控制事件與日誌。
 - 個資：tenant RLS，只有該事業有 `store:manage` 或 `store:fulfil` 的人看得到完整內容（寫入只限 `store:manage`）；不進公會區塊、公開頁、分享卡片、journal 與日誌（SC-SPEC-07 SL-01）。
 - 退回地址只在需要時揭露：代出貨同意裡給賣家看（賣家要知道退貨寄去哪），售後核准後給該買家看（EC-SPEC-06）。
@@ -146,7 +147,7 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 
 | 欄位 | 規則 |
 | --- | --- |
-| `method` | `home`（宅配）或 `cvs:<LogisticsSubType>`（例如 `cvs:UNIMARTC2C`） |
+| `method` | `home`（宅配）、`cvs:<LogisticsSubType>`（例如 `cvs:UNIMARTC2C`），或 `meetup`（面交取貨：只限賣家自出貨、不收運費、附面交說明，EC-SPEC-11 §2.2） |
 | `fee_per_parcel_minor` | 每個包裹的運費（TWD 最小單位，100 的倍數） |
 | `free_over_minor` | 可選；訂單商品金額（折扣後）達到就全部包裹免運，由賣家吸收；離島加價照收（§3.4） |
 | `outlying` | `excluded`，或每包離島加價（TWD 最小單位，100 的倍數） |

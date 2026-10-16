@@ -22,6 +22,7 @@
 | [EC-SPEC-08](EC-SPEC-08-portable-migration.md) | 可攜營業版本：模式 H／C／S／X、授權子集、安裝與遷移 |
 | [EC-SPEC-09](EC-SPEC-09-security-ci-tests.md) | 安全、隱私、CI 範圍與測試層級 |
 | [EC-SPEC-10](EC-SPEC-10-release-operations.md) | 能力開關、writer floor、發布順序、回退與試用 |
+| [EC-SPEC-11](EC-SPEC-11-offline-payment.md) | 線下付款：銀行匯款、面交付款與面交取貨，由店家確認收款 |
 | [work-plan.md](work-plan.md) | 工作包、依賴、CLI 分工、共用檔案與 Supplier Console 的接點 |
 
 ## 分工

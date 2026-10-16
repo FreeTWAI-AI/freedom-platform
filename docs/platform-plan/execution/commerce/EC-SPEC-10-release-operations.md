@@ -48,7 +48,7 @@
 | --- | --- | --- | --- | --- |
 | `FREEDOM_COMMERCE_CONSOLE_ENABLED` | 關 | launchpad；`FREEDOM_SUPPLIER_CONSOLE_ENABLED`（殼） | E02～E11 的新頁面與新的讀寫路由（EC-SPEC-01 §7.5）。M2 只有賣家的訂單、付款例外、退款紀錄與立即查詢路由，還沒有 E 頁 | 新路由回 404；E 頁的 slug 回到既有頁面；資料不動 |
 | `FREEDOM_COMMERCE_CHECKOUT_ENABLED` | 關 | console | 新的 checkout、`hosted_checkout` 訂單與付款交接（B04、B05） | 購物車與結帳按鈕隱藏，B03 顯示「目前暫停接單」。已成立訂單的付款通知、查詢、到期釋放、出貨、售後與退款照常 |
-| `FREEDOM_COMMERCE_PROVIDER_PROFILES` | 空 | 每個 ID 都必須是這個 binary 實作的 profile；非空時必須有 `COMMERCE_CREDENTIAL_KEYS` 與 `COMMERCE_JOURNAL` | 只有列出的 profile 能啟用新服務、出現在結帳選項、發起新的對外操作（付款交接、建單、開票、API 退款） | 不在清單的 profile 照常接收通知與查詢；尚未執行的操作留在佇列，重新列入後繼續，不丟棄 |
+| `FREEDOM_COMMERCE_PROVIDER_PROFILES` | 空 | 每個 ID 都必須是這個 binary 實作的 profile；列有 `ecpay.*` 時必須有 `COMMERCE_CREDENTIAL_KEYS` 與 `COMMERCE_JOURNAL`；只列線下 profile 時不需要（EC-SPEC-11 §8） | 只有列出的 profile 能啟用新服務、出現在結帳選項、發起新的對外操作（付款交接、建單、開票、API 退款） | 不在清單的 profile 照常接收通知與查詢；尚未執行的操作留在佇列，重新列入後繼續，不丟棄 |
 | `FREEDOM_COMMERCE_EMAIL_ENABLED` | 關 | Worker 的 `EMAIL` binding 與 `COMMERCE_JOURNAL`；Node server 打開時就緒失敗 | §6 的交易信件；只有打開期間發生的事實會建立信件列 | 不寄信，也不建立新的信件列，關閉期間的事實事後不補寄；打開時已建立、還沒寄出的列留在佇列，重新打開後在到期前寄出（§6.3） |
 | `FREEDOM_COMMERCE_QUARANTINE` | 關 | — | 隔離模式（§8.3） | 正常 |
 | secret `COMMERCE_CREDENTIAL_KEYS` | 無 | 有值但格式錯誤時就緒失敗 | 解封商家金鑰（EC-SPEC-04 §1.3） | provider 入口回 503（綠界會重送）；帳戶寫入回 503；其他頁面正常 |

@@ -160,7 +160,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 
 - hold 30 分鐘（現況 CHECK）。保留期間內的再付款沿用同一訂單、同一 hold，只有前一 attempt 確定沒有付款（已驗證的失敗，或交接 60 秒後當場查詢顯示未付）才建立新 attempt；結果不明時不建立（EC-SPEC-04 §4.3）。
 - 每個付款 profile 宣告 `confirmation_window`（provider 可能在多久之後才確認付款）。保留期過後、付款期限結束前，訂單 `open`、沒有庫存；之後查詢確認未付才取消。
-- ATM／超商代碼／COD 這類長效付款不使用 30 分鐘 hold；在定義長效配置與取消政策之前不開放（DC05）。
+- ATM／超商代碼／COD 這類長效付款不使用 30 分鐘 hold；在定義長效配置與取消政策之前不開放（DC05）。銀行匯款與面交付款的長效保留、晚付與取消見 EC-SPEC-11 §3.2、§5；它們沒有 payment attempt。
 
 ### 4.3 保留期過後要再付款
 
