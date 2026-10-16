@@ -1,4 +1,16 @@
 import {test} from 'node:test';
+import * as React from 'react';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {Reservations,Reservation} from '../../modules/agent-commerce/supplier-console/ui/pages/Reservations';
+import {Partner} from '../../modules/agent-commerce/supplier-console/ui/pages/Partners';
+import {Changes} from '../../modules/agent-commerce/supplier-console/ui/pages/Shared';
+import {Overview} from '../../modules/agent-commerce/supplier-console/ui/pages/Overview';
+import type {ConsoleController,ReadSlot} from '../../modules/agent-commerce/supplier-console/state/useSupplierConsoleController';
+import {reservationFilterParams,validLocalDate} from '../../modules/agent-commerce/supplier-console/ui/route';
+import {CHANGE_LABELS,changeLabel,changeSubject} from '../../modules/agent-commerce/supplier-console/ui/view';
+import {SupplierChangeOperationSchema} from '../../contracts/guild-launchpad/v1/supplier-console';
+import {interfaceMessages} from '../../apps/portal-web/src/interface-messages';
 import assert from 'node:assert/strict';
 import {parseSupplierConsoleRoute as parse,supplierConsoleHref as href,sameConsoleScope,consoleNavigation,SUPPLIER_CONSOLE_PAGES} from '../../modules/agent-commerce/supplier-console/ui/route';
 import {createAttempt,classifyCommandOutcome,ATTEMPT_KINDS,refusalReleased,type Attempt} from '../../modules/agent-commerce/supplier-console/state/attempt';
@@ -134,4 +146,136 @@ test('SC-UI-24 refusal lock releases only after a newer valid current profile re
  assert.equal(refusalReleased({key:'overview',mark:5,ticket:6,current:true,matched:true}),false);
  assert.equal(refusalReleased({mark:null,ticket:6,current:true,matched:true}),false);
  assert.equal(refusalReleased({mark:5,ticket:6,current:true,matched:true}),true);
+});
+
+
+test('SC-UI-S2-01 reservation details round-trip with owner-only metadata and no navigation group',()=>{
+ const path=href(scope,'reservation',{id});assert.equal(path,root+'/reservations/'+id);
+ assert.deepEqual(parse(path),{...scope,page:'reservation',titleKey:'supplierConsole.reservation',id});
+ const page=SUPPLIER_CONSOLE_PAGES.find(p=>p.page==='reservation')!;
+ assert.equal(page.title,'預留明細');assert.equal(page.requires,'owner');assert.equal(page.group,null);assert.equal(page.parent,'reservations');
+ assert.equal(parse(root+'/reservations/bad')?.page,'not-found');
+ assert.ok(!consoleNavigation(['store:write'],true).some(p=>p.page==='reservation'));
+});
+test('SC-UI-S2-02 every reservations filter round-trips in a stable canonical order',()=>{
+ const reservation={state:'reserved' as const,partner:id,product:other,from:'2026-10-01',to:'2026-10-15'};
+ const path=href(scope,'reservations',{reservation:{to:reservation.to,product:other,partner:id,state:'reserved',from:reservation.from}});
+ assert.equal(path,root+`/reservations?state=reserved&partner=${id}&product=${other}&from=2026-10-01&to=2026-10-15`);
+ assert.deepEqual(parse(path)?.reservation,reservation);
+ for(const [key,value] of Object.entries(reservation))assert.deepEqual(parse(href(scope,'reservations',{reservation:{[key]:value}}))?.reservation,{[key]:value});
+ for(const state of ['cancelled','expired'] as const)assert.equal(parse(href(scope,'reservations',{reservation:{state}}))?.reservation?.state,state);
+ assert.deepEqual(parse(`#stores/${t}/${i}/supply-orders?state=reserved&partner=${id}`)?.reservation,{state:'reserved',partner:id});
+ assert.equal(parse(`#stores/${t}/${i}/supply-orders`)?.page,'reservations');
+});
+test('SC-UI-S2-03 invalid reservations query values are dropped without affecting other filters or pages',()=>{
+ assert.deepEqual(parse(root+'/reservations?state=offered&partner=bad&product=bad&from=2026-02-30&to=2026-13-01&sort=sku&unknown=1')?.reservation,{});
+ for(const date of ['2026-2-01','2026-02-29','2026-04-31','2026-00-01','2026-01-00','0000-01-01','2026-01-01T00:00:00Z','2026-01-01\n']){
+  assert.equal(validLocalDate(date),false,date);assert.deepEqual(parse(root+'/reservations?from='+encodeURIComponent(date)+'&state=expired')?.reservation,{state:'expired'});
+ }
+ for(const date of ['2024-02-29','2000-02-29','2026-12-31','0099-01-01'])assert.equal(validLocalDate(date),true,date);
+ assert.equal(validLocalDate('1900-02-29'),false);
+ for(const page of ['overview','products','reservation','partner'] as const)assert.equal(parse(href(scope,page,{id})+`?partner=${id}&product=${other}&from=2026-01-01&to=2026-01-02&state=reserved`)?.reservation,undefined);
+ assert.equal(href(scope,'reservations',{reservation:{partner:'bad',from:'2026-02-30'}}),root+'/reservations');
+});
+test('SC-UI-S2-04 dates are Taipei calendar days with half-open ISO bounds in every browser zone',()=>{
+ const before=process.env.TZ;
+ try{
+  for(const zone of ['Asia/Taipei','UTC','America/New_York','Pacific/Kiritimati','Pacific/Pago_Pago']){
+   process.env.TZ=zone;
+   const q=reservationFilterParams({state:'reserved',partner:id,product:other,from:'2026-10-01',to:'2026-10-15'})!;
+   assert.deepEqual(Object.fromEntries(q),{state:'reserved',partner_id:id,product_id:other,from:'2026-09-30T16:00:00.000Z',to:'2026-10-15T16:00:00.000Z'},zone);
+   assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-12-31',to:'2026-12-31'})!),{from:'2026-12-30T16:00:00.000Z',to:'2026-12-31T16:00:00.000Z'},zone);
+   assert.equal(reservationFilterParams({to:'2024-02-29'})?.get('to'),'2024-02-29T16:00:00.000Z',zone);
+   assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-03-08',to:'2026-03-08'})!),{from:'2026-03-07T16:00:00.000Z',to:'2026-03-08T16:00:00.000Z'},zone);
+   assert.deepEqual(Object.fromEntries(reservationFilterParams({from:'2026-11-01',to:'2026-11-01'})!),{from:'2026-10-31T16:00:00.000Z',to:'2026-11-01T16:00:00.000Z'},zone);
+   assert.equal(reservationFilterParams({from:'2026-02-30'}),null);assert.equal(reservationFilterParams({to:'bad'}),null);
+   assert.equal(reservationFilterParams({from:'2026-10-16',to:'2026-10-15'}),null);
+   assert.equal(reservationFilterParams({})?.size,0);
+  }
+ }finally{if(before===undefined)delete process.env.TZ;else process.env.TZ=before;}
+});
+test('SC-UI-S2-05 change labels exhaust the wire enum and preserve publish version semantics',()=>{
+ const expected={
+  'storefront.supply-catalog.setup':'建立供貨商品庫','storefront.supply-profile.update':'更新商品庫資料','storefront.reservations.configure':'變更預留設定',
+  'storefront.supply-product.create':'新增商品','storefront.product.create':'在商店新增商品','storefront.supply-product.update':'更新商品內容或庫存',
+  'storefront.product.update':'在商店更新商品','storefront.supply-terms.update':'更新供貨條件','storefront.product.photo.upload':'上傳商品照片',
+  'storefront.product.photo.remove':'移除商品照片','storefront.supply-offer.publish':'公開新的供貨版本','storefront.supply-offer.withdraw':'撤回供貨版本','storefront.distribution.decide':'處理售價申請',
+ };
+ assert.deepEqual(Object.keys(CHANGE_LABELS).sort(),[...SupplierChangeOperationSchema.options].sort());assert.deepEqual(CHANGE_LABELS,expected);
+ for(const operation of SupplierChangeOperationSchema.options)assert.equal(changeLabel({operation,version:'1'}),expected[operation]);
+ for(const version of ['2','9223372036854775807'])assert.equal(changeLabel({operation:'storefront.supply-offer.publish',version}),'供貨版本由新版本取代');
+ assert.equal(changeLabel({operation:'storefront.distribution.decide',version:'2'}),'處理售價申請');
+ assert.equal(changeSubject({kind:'business'}),'商品庫設定');assert.equal(changeSubject({kind:'product',product_id:id,title:'杯子'}),'杯子');
+ assert.equal(changeSubject({kind:'offer',product_id:id,offer_id:other,title:'杯子'}),'杯子');
+ assert.equal(changeSubject({kind:'request',product_id:id,selection_id:other,partner_id:other,partner_name:'店家',title:'杯子'}),'店家・杯子');
+});
+test('SC-UI-S2-06 every supplier console page title is translated in every interface language',()=>{
+ for(const page of SUPPLIER_CONSOLE_PAGES){assert.ok(page.titleKey in interfaceMessages,page.titleKey);const translations=interfaceMessages[page.titleKey];assert.equal(translations.length,5);assert.equal(translations[0],page.title);assert.ok(translations.every(text=>text.length>0));}
+ assert.equal(interfaceMessages['supplierConsole.reservation'][1],'Reservation details');
+});
+
+// The Node test loader uses the classic JSX factory outside the portal's Vite transform.
+function renderPresentation(element:Parameters<typeof renderToStaticMarkup>[0]){
+ const previous=Object.getOwnPropertyDescriptor(globalThis,'React');Object.defineProperty(globalThis,'React',{configurable:true,value:React});
+ try{return renderToStaticMarkup(element);}finally{if(previous)Object.defineProperty(globalThis,'React',previous);else Reflect.deleteProperty(globalThis,'React');}
+}
+const asOf='2026-10-15T12:00:00.000Z';
+const readySlot=(data:unknown):ReadSlot<unknown>=>({state:'ready',data,asOf,lastOkAt:asOf,error:''});
+const failedSlot:ReadSlot<unknown>={state:'failed',data:null,asOf:null,lastOkAt:null,error:'讀取服務暫停'};
+function presentationController(slots:Record<string,ReadSlot<unknown>>,extra:Record<string,unknown>={}):ConsoleController {
+ return {scope,route:parse(root+'/reservations'),reservationFilters:{state:'reserved',partner:id},profile:{capabilities:['store:write']},ownerAllowed:true,owner:readySlot(null),locked:false,cursors:[undefined],can:()=>true,read:()=>{throw new Error('A render must not initiate reads');},slot:(key:string)=>slots[key]??{state:'idle',data:null,asOf:null,lastOkAt:null,error:''},...extra} as unknown as ConsoleController;
+}
+const reservationRow={order_id:id,version:'1',partner_id:other,store:{name:'合作店家',slug:'partner'},currency:'TWD',
+ items:[{product_id:other,offer_id:id,acceptance_id:other,sku:'P0001',title:'供貨茶杯',quantity:3,unit_supply_price_minor:15000,supply_total_minor:45000}],
+ state:'reserved',created_at:asOf,reservation_expires_at:'2026-10-15T12:30:00.000Z',closed_at:null,payment_enabled:false,fulfilment_enabled:false,money_movement_enabled:false};
+const reservationData={as_of:asOf,filter:{state:null,partner_id:null,product_id:null,from:null,to:null},totals:{reservations:1,lines:1},items:[reservationRow],next_cursor:null};
+test('SC-UI-S2-07 failed reservation reads and option reads show reasons without invented empty totals',()=>{
+ const c=presentationController({reservations:failedSlot,partners:failedSlot,products:failedSlot});
+ const html=renderPresentation(createElement(Reservations,{c}));
+ assert.ok(html.includes('讀取服務暫停'));assert.ok(html.includes('重試'));assert.ok(html.includes('店家／商品選項暫時無法讀取，仍可用連結篩選。'));
+ assert.ok(!html.includes('符合條件：'));assert.ok(!html.includes('沒有符合條件的供貨預留。'));
+ const forbidden=renderPresentation(createElement(Reservations,{c:presentationController({reservations:readySlot(reservationData)},{ownerAllowed:false})}));
+ assert.ok(forbidden.includes('只有業務空間擁有者可以查看預留'));assert.ok(!forbidden.includes('篩選預留'));assert.ok(!forbidden.includes('供貨茶杯'));
+});
+test('SC-UI-S2-08 list preserves the full order text selector while visible IDs and detail action use a suffix',()=>{
+ const html=renderPresentation(createElement(Reservations,{c:presentationController({reservations:readySlot(reservationData)})}));
+ assert.ok(html.includes('符合條件：1 筆預留、1 個供貨行項'));assert.ok(html.includes('3 × 供貨單價 $150.00 ＝ 小計 $450.00'));
+ assert.ok(html.includes(`<span class="sr-only">${id}</span>`));assert.ok(html.includes(`預留編號 …${id.slice(-8)}`));assert.ok(html.includes(href(scope,'reservation',{id})));
+ assert.ok(html.includes('上一頁'));assert.ok(html.includes('下一頁'));assert.ok(!html.includes('取消預留'));
+ const stale=renderPresentation(createElement(Reservations,{c:presentationController({reservations:{...readySlot(reservationData),state:'failed',error:'讀取服務暫停'}})}));
+ assert.ok(stale.includes('未更新'));assert.ok(stale.includes('供貨茶杯'));assert.ok(!stale.includes('符合條件：'));
+});
+test('SC-UI-S2-09 reservation detail shows own line and supply version, retains filters and handles 404',()=>{
+ const detail={as_of:asOf,reservation:reservationRow,offers:[{offer_id:id,product_id:other,terms_sha256:'a'.repeat(64),state:'withdrawn'}]};
+ const c=presentationController({['reservation:'+id]:readySlot(detail)},{route:parse(href(scope,'reservation',{id}))});
+ const html=renderPresentation(createElement(Reservation,{c}));
+ assert.ok(html.includes(href(scope,'reservations',{reservation:c.reservationFilters}).replaceAll('&','&amp;')));
+ for(const text of ['預留明細','供貨版本 …aaaaaaaa','已撤回','只顯示你供貨的行項；買家資料、其他供應商的商品與整張訂單金額不會顯示。',RESERVATION_NOTE,'查看合作店家','查看這間店的全部預留'])assert.ok(html.includes(text),text);
+ assert.ok(html.includes(href(scope,'product',{id:other})));assert.ok(!html.includes('取消預留'));assert.ok(!html.includes('聯絡'));
+ assert.ok(renderPresentation(createElement(Reservation,{c:presentationController({['reservation:'+id]:{...failedSlot,status:404}},{route:c.route})})).includes('找不到這份預留。'));
+});
+test('SC-UI-S2-10 history separates permissions, empty, failed and stale data and omits product titles in product records',()=>{
+ const item={change_id:id,at:asOf,operation:'storefront.supply-product.update',version:'2',subject:{kind:'product',product_id:other,title:'供貨茶杯'}};
+ const changes={as_of:asOf,product_id:null,items:[item],truncated:true};
+ const html=renderPresentation(createElement(Changes,{c:presentationController({changes:readySlot(changes)})}));
+ for(const text of ['近期變更','更新商品內容或庫存','供貨茶杯','版本 2','只顯示最近 20 筆。','只列出這個商品庫的操作與版本，不顯示操作者。'])assert.ok(html.includes(text),text);
+ const product=renderPresentation(createElement(Changes,{c:presentationController({['changes:'+other]:readySlot({...changes,product_id:other})}),productId:other}));
+ assert.ok(product.includes('紀錄'));assert.ok(!product.includes('供貨茶杯'));
+ const failed=renderPresentation(createElement(Changes,{c:presentationController({changes:failedSlot})}));
+ assert.ok(failed.includes('讀取服務暫停'));assert.ok(!failed.includes('目前沒有近期變更。'));
+ const empty=renderPresentation(createElement(Changes,{c:presentationController({changes:readySlot({...changes,items:[]})})}));assert.ok(empty.includes('目前沒有近期變更。'));
+ const denied=renderPresentation(createElement(Changes,{c:presentationController({changes:readySlot(changes)},{profile:{capabilities:['store:read']}})}));
+ assert.ok(denied.includes('無法取得：需要商品編輯權限才能查看'));assert.ok(!denied.includes('供貨茶杯'));assert.ok(!denied.includes('更新資料'));
+});
+test('SC-UI-S2-11 new overview history leaves the original to-do list and exact refresh action selectors intact',()=>{
+ const metric={state:'ready',count:1},todo={kind:'not_offered',product_id:other,title:'待辦商品'};
+ const overview={as_of:asOf,metrics:{offered_products:metric,pending_requests:metric,active_reservation_lines:metric,out_of_stock_products:metric},product_count:1,todos:{state:'ready',items:[todo],truncated:false}};
+ const changes={as_of:asOf,items:[{change_id:id,at:asOf,operation:'storefront.supply-product.update',version:'2',subject:{kind:'product',product_id:other,title:'待辦商品'}}],truncated:false};
+ const html=renderPresentation(createElement(Overview,{c:presentationController({overview:readySlot(overview),changes:readySlot(changes)})}));
+ assert.equal((html.match(/class="sc-list"/g)??[]).length,1);assert.equal((html.match(/>更新資料<\/button>/g)??[]).length,1);
+ assert.ok(html.includes(href(scope,'reservations',{reservation:{state:'reserved'}})));
+ const partner=renderPresentation(createElement(Partner,{c:presentationController({['partner:'+id]:readySlot({partner:{partner_id:id,name:'合作店家'},selections:[],truncated:false}),['partner-reservations:'+id]:readySlot(reservationData)},{route:parse(href(scope,'partner',{id}))})}));
+ assert.equal((partner.match(/<h3>/g)??[]).length,1);assert.ok(partner.includes('相關預留'));assert.ok(partner.includes('供貨小計 $450.00'));
+ const denied=renderPresentation(createElement(Partner,{c:presentationController({['partner-reservations:'+id]:readySlot(reservationData)},{route:parse(href(scope,'partner',{id})),ownerAllowed:false})}));
+ assert.ok(denied.includes('只有業務空間擁有者可以查看預留'));assert.ok(!denied.includes('供貨小計'));
 });

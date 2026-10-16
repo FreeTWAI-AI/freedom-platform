@@ -62,6 +62,38 @@
 - 權限 `store:write`；該店沒有任何選品在本供應商的 offer 上 → 404 `not_found`（不透露該店是否存在）。
 - `partner` 的計數涵蓋全部關係；`selections` 最多 200，`truncated`。
 
+## S2 新讀取（G-07、G-09、G-14）
+
+同一個路由檔、同一個開關與 `privateCache`。預留清單與詳情沿用舊供應端清單的 `sellerCommand` 包裝（同一個 seller 授權、tenant 共享鎖與固定 receipt key），會結算本頁已到期的訂單並釋放保留；近期變更與待辦摘要是純讀取，經 `storeRead`。
+
+### `GET R/supplier-console/reservations` → `SupplierReservationsSchema`（G-07）
+
+- 權限與舊 `GET R/supply-reservations` 相同：`storefront.supplier.orders.list` 的 seller 授權（tenant owner、active 且非測試帳號、`store:manage`、部署綁定）。其他人 403；開關關閉 404。
+- Query 全部選填，未知或重複 key 422：`state`（`reserved`／`cancelled`／`expired`）、`partner_id`（賣家店面 shop ID）、`product_id`、`from`／`to`（ISO 時間，篩 `created_at ∈ [from, to)`，`from` 必須早於 `to`）、`limit`（1–50，預設 20）、`cursor`。
+- 狀態在 `as_of`（`clock_timestamp()` 取到毫秒）判定：`reserved` 且 `expires_at ≤ as_of` 視為 `expired`。分類、篩選、`totals` 與分頁同一個 statement；之後只結算本頁到期的訂單（沿用 `closeDirectOrder`，先鎖訂單再鎖商品）。結算結果與分類不同時回 409 `reservation_clock_changed`，畫面請使用者重讀，不回混合狀態。
+- `totals` 是符合篩選的全部預留（跨頁）及其中本供應商的行項數。依商品篩選時選出含該商品的預留，同一預留裡本供應商的其他行項仍計入。
+- 每筆只含本供應商的行項（`unit_supply_price_minor`＝`cost_minor`，小計＝單價×數量）、賣家店面 ID 與目前店名；不含買家身分、聯絡資料、意向、報價摘要、整張訂單金額或其他供應商的行項。`payment/fulfilment/money_movement` 都是 false。
+- 游標沿用簽章 tenant-list cursor，綁 principal、tenant、scope、instance 與完整篩選；位置只接受 `{at: 微秒 UTC 字串, id: UUID}`。缺金鑰 503 `tenant_cursor_unavailable`；竄改、換篩選或換身分 422 `invalid_cursor`。排序 `created_at DESC, order_id DESC`。
+- 畫面的日期篩選是台灣日曆日（UTC+8，沒有日光節約）：起日送當日 00:00，迄日送次日 00:00（不含），與瀏覽器時區無關；欄位標示「（台灣時間）」。
+
+### `GET R/supplier-console/reservations/:order_id` → `SupplierReservationDetailSchema`
+
+- 權限同清單。不是 shared reservation 或沒有本供應商的行項 → 404 `hosted_order_not_found`，與不存在同一個回應；檢查在結算之前，不替別人的訂單結算。
+- 回傳同清單投影的單筆，加上每個行項的供貨版本（`offer_id`、商品、凍結條款雜湊、目前 offer 狀態），每個 offer 恰好一次。
+
+### `GET R/supplier-console/changes` → `SupplierChangesSchema`（G-09）
+
+- 權限 `store:write`；Query 只有選填 `product_id`。
+- 來源是本事業 tenant scope 的 transition journal，只取 13 種操作：商品庫設定與資料、預留設定、商品新增與內容／庫存（含零售商品）、供貨條件、照片、供貨版本公開與撤回、售價申請決定。先把 subject 解析成本 instance 目前仍存在的事業、商品、offer 或選品，再取最新 20 筆，`truncated` 表示還有更多。
+- journal 只存 ID 與版本，所以商品名稱與店名是目前值，不顯示操作者或決定結果；零售商店設定、賣家端命令與已移除的商品不在這個讀取。版本 1 的公開是新版本，更高版本的公開是被它取代的舊版本。
+- 給 `product_id` 時只回這項商品、它的 offer 與 offer 上的申請（商品詳情的「紀錄」）。
+
+### `GET R/supplier-console/summary` → `SupplierSummarySchema`（G-14）
+
+- 權限 `store:read`；未設定 profile → 409 `storefront_not_set_up`。沒有 `store:write` 時 `todos` 回 `unavailable`／`store_write_required`，只取時鐘，不執行價格、條件或選品查詢。
+- 定義與概覽相同：待確認售價申請、需重新公開的供貨版本（`matches_current_terms=false`）、缺貨商品。不含任何預留或訂單資料。
+- 一次讀一個商品庫，回應帶 `tenant_id`、`instance_id`。公會區塊只為前三筆已就緒的商品庫各讀一次，不跨商品庫或事業加總；公會職稱不增加讀取權。
+
 ## 新命令：`PATCH R/supply-profile`
 
 | 項目 | 規格 |
@@ -96,7 +128,7 @@
 | 撤回版本 | `POST R/supply-offers/:offer_id/withdraw` `{}` | offer 版本 | 已撤回時回同一投影 |
 | 同意／不同意／撤回同意 | `POST R/supply-requests/:id/decision` | selection 版本 | 先 412，再 409 `snapshot_changed`、`invalid_state` |
 | 預留開關 | `PATCH R/reservation-setting` | profile 版本 | owner 限定；host 關閉時只能停止 |
-| 預留清單 | `GET R/supply-reservations?limit=20&cursor=` | — | owner 限定；讀取會結算到期訂單 |
+| 預留清單 | `GET R/supply-reservations?limit=20&cursor=` | — | owner 限定；讀取會結算到期訂單。新版改用 S2 的 `supplier-console/reservations`，舊頁照舊使用這條 |
 
 ## 反例（runtime 測試要涵蓋）
 
@@ -114,3 +146,9 @@
 | 純供貨商品上傳照片後發布零售店 | 公開投影不含該商品與照片 |
 | 新版關閉時對純供貨商品上傳、移除或讀取照片 | 404，不寫入；零售商品照片不受影響 |
 | 新版設定關閉 | 新路由 404；既有路由行為完全不變 |
+| 預留剛過期限、尚未有人結算 | 清單與詳情都顯示 `expired`，並由本次讀取結算一次 |
+| 一張訂單含兩個供應商的行項 | 兩邊的清單、詳情與 `totals` 都只含自己的行項與金額；無關供應商讀詳情 404，回應與不存在相同 |
+| 換了篩選或換了 owner 後沿用舊游標 | 422 `invalid_cursor` |
+| admin、有 `store:manage` 的 operator 或 viewer 讀預留清單或詳情 | 403 `seller_owner_required`，與舊清單相同；非成員或他事業 owner 404 `tenant_not_found` |
+| 商品被移除後讀近期變更 | 該商品的紀錄不出現；零售商店設定與賣家提出的申請也不出現；viewer 讀取 403 `capability_denied` |
+| viewer 讀待辦摘要 | 200，`todos` 為 `unavailable`／`store_write_required`，不出現 0 |

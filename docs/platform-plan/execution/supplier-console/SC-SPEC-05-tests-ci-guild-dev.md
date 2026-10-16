@@ -75,7 +75,9 @@
 | `SC-FLAG-01`～`06` | `tests/runtime/supplier-console.test.ts` | Node 與 Worker 的開關預設關、只接受精確的 true；Worker 啟動檢查拒絕拼錯與缺 launchpad；`site` 欄位需要兩個開關 |
 | `SC-API-01`～`10` | 同上 | 新版關閉時新路由 404、舊讀取不變（AT-44）；未設定回 409；空商品庫是 ready 的 0（AT-39）；旅程計數、目前條件與同名店（AT-05、12、13、15、16、30、31）；預留只給 owner、讀取不結算（AT-22）；能力、tenant、session 與私人快取（AT-04、37）；詳情不透露他人資料；`PATCH supply-profile` 的版本檢查、權限與凍結名稱；完整清單與待辦上限；合作狀態分桶與共用容量（AT-14、30） |
 | `SC-PHOTO-01`～`06` | `tests/runtime/supplier-console-writes.test.ts` | 新版關閉時純供貨照片 404 且不寫入；開啟時清單、上傳、讀取、重播、412、移除；viewer 只見 metadata（AT-04、37）；公開與合作投影不含純供貨商品（AT-11）；容量計算與零售照片相同；關閉後照片保留（AT-44） |
-| `SC-UI-nn` | `tests/runtime/supplier-console-state.test.ts` | 路由、導覽、操作結果分類、未確認操作登錄、草稿、離開判斷、篩選定義與文案 |
+| `SC-API-15`～`24` | `tests/runtime/supplier-console-queries.test.ts` | S2：預留篩選、跨頁總數與游標（AT-22、30、31）；到期分類與只結算一次（AT-19、20）；同一訂單兩個供應商的行項與金額隔離；嚴格 query、owner 限定與開關關閉（AT-04、44）；換 owner 不能沿用游標（AT-37）；近期變更的對象、版本語意、零售與已移除商品、先解析再取 20 筆（AT-15、30）；待辦摘要沿用概覽定義（AT-39）；游標位置格式 |
+| `SC-UI-nn` | `tests/runtime/supplier-console-state.test.ts` | 路由、導覽、操作結果分類、未確認操作登錄、草稿、離開判斷、篩選定義與文案；`SC-UI-S2-nn` 另含預留篩選（台灣日界、與瀏覽器時區無關）、變更文案、讀取失敗與明細 |
+| 公會區塊 | `tests/runtime/guild-blocks.test.ts`、`modules/guild-supply/CatalogBlock.spec.ts` | S2 待辦摘要各狀態的 SSR 標記（無權限、失敗與 ID 不符時沒有數字）與凍結 import |
 | `SC-E2E-01`～`02` | `tests/e2e/supplier-console.spec.ts` | 純供貨從公會到重新登入的連續旅程；已開零售的同一個營運中心（AT-01、02、05、12、22、31、39、42） |
 | `SC-E2E-10`～`13` | `tests/e2e/supplier-console-cooperation.spec.ts` | 同名店、同意與不同意、改價與撤回同意、改條件後重新公開、唯讀成員（AT-04、12～16、33） |
 | `SC-E2E-20`～`26` | `tests/e2e/supplier-console-recovery.spec.ts` | 回應遺失後重試、未確認時離開、兩個分頁的 412、庫存低於預留、概覽讀取失敗、登出後晚到、權限撤回（AT-06、07、08、29、34、36、37） |
@@ -128,10 +130,10 @@
 
 ## 6. 公會開發（SC-R35、AT-45）
 
-- 公會入口是 `modules/guild-supply/CatalogBlock.tsx`（module `guild-supply`），它的連結 `#stores/<t>/<i>/supply` 就是營運中心入口。R1 不改這個區塊，也不改 `packages/contribution-tools/guild-presentation-profile.mjs` 的凍結 import。
+- 公會入口是 `modules/guild-supply/CatalogBlock.tsx`（module `guild-supply`），它的連結 `#stores/<t>/<i>/supply` 就是營運中心入口。R1 不改這個區塊，也不改 `packages/contribution-tools/guild-presentation-profile.mjs` 的凍結 import。S2 為 G-14 加入 `SupplierSummarySchema` import 與 `supplier-console.summary` 操作，凍結清單同步更新（核心審查）。
 - 公會作者的流程不變：`npm run guild:preview`（`127.0.0.1:4487`，合成資料）、`npm run guild:check`、`npm run guild:test -- modules/guild-supply`。只改那一個 tsx 時 CI 走公會呈現路徑，不是完整 CI（`docs/development/limited-trial-kit.md` 的作者任務卡）。
 - 作者可以做的有用擴充：區塊的文案與版面（例如把入口說明改成「進入營運中心」）。不能做的：讀營運中心資料、加 API 呼叫、改中央殼層。
-- G-14（公會區塊顯示本人待辦摘要）需要新的讀取與凍結 import 變更，屬核心工作（S2），不交給作者。
+- G-14（公會區塊顯示本人待辦摘要）需要新的讀取與凍結 import 變更，屬核心工作，已在 S2 實作，不交給作者。
 - AT-45 需要兩位非核心作者實際完成，由 Ted 安排；Agent 不聯絡會員。
 
 ## 7. 未決與影響
