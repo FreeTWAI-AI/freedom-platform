@@ -1,10 +1,10 @@
 import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
 import {queryAttempt,type PaymentQueryDependencies} from './queries.js';
-import {hasDefinitePaymentMismatch} from './window.js';
+import {hasDefinitePaymentMismatch,lockMachinePaymentAttempt} from './window.js';
 import {chargePaymentQueryOrderBudgets} from '../checkout/limits.js';
 import type {CheckoutPaymentActions} from '../checkout/terms.js';
 import { randomBytes } from 'node:crypto';
-import type { PoolClient } from 'pg';
+import type { Pool,PoolClient } from 'pg';
 import {Problem, requireCondition } from '../../../packages/shared/problem.js';
 import { bindStore, lockStore, type CheckoutStore } from '../checkout/authority.js';
 import { lockCheckoutOrders } from '../checkout/orders.js';
@@ -59,16 +59,21 @@ export async function inspectOrderHandoffGate(q: PoolClient, attemptId: string, 
     WHERE p.tenant_id=$1 AND p.instance_id=$2`, [attempt.tenant_id, attempt.instance_id])).rows[0];
   if (options.settings.quarantine)
     return { failure: gate(503, 'commerce_quarantined', '商店系統維護中，訂單資料核對中。') } as const;
-  if (!options.settings.checkoutEnabled)
+  if (attempt.kind==='order' && !options.settings.checkoutEnabled)
     return { failure: gate(503, 'checkout_not_enabled', '商店目前暫停接單。') } as const;
   if (!options.gateway || options.gateway.environment !== attempt.environment || !options.profiles.includes(attempt.profile))
     return { failure: gate(503, 'payment_handoff_unavailable', '付款服務暫時無法使用。') } as const;
   if (!store || store.tenant_status !== 'active' || store.instance_status !== 'active')
     return { failure: gate(409, 'payment_handoff_unavailable', '商店目前無法接受付款。') } as const;
-  const service = (await q.query(`SELECT 1 FROM commerce_provider_account_services WHERE account_id=$1 AND purpose='payment' AND state='active'
-    AND tenant_id=$2 AND instance_id=$3 AND environment=$4 AND profile=$5`, [attempt.account_id, attempt.tenant_id, attempt.instance_id, attempt.environment, attempt.profile])).rowCount;
+  const service = (await q.query(`SELECT 1 FROM commerce_provider_account_services WHERE account_id=$1 AND purpose='payment' AND state=$6
+    AND tenant_id=$2 AND instance_id=$3 AND environment=$4 AND profile=$5`, [attempt.account_id, attempt.tenant_id, attempt.instance_id, attempt.environment, attempt.profile,attempt.kind==='service_activation'?'draft':'active'])).rowCount;
   if (service !== 1)
     return { failure: gate(409, 'payment_handoff_unavailable', '商店目前無法接受付款。') } as const;
+  if(attempt.kind==='service_activation'){
+    if(attempt.state!=='issued'||attempt.handed_off_at)return {failure:gate(410,'payment_handoff_unavailable','已前往付款頁。要重新付款，請回到訂單頁。')} as const;
+    if(!options.keyring)return {failure:gate(503,'payment_handoff_unavailable','付款服務暫時無法使用。')} as const;
+    return {attempt,order:null,store,gateway:options.gateway,keyring:options.keyring,failure:null} as const;
+  }
   if (!await options.admission.allowed(q, store))
     return { failure: gate(409, 'checkout_not_enabled', '商店目前無法接受付款。') } as const;
   const order = (await q.query(`SELECT co.*,o.currency,o.total_minor FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
@@ -138,16 +143,7 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
       const context = await inspectOrderHandoff(q, attempt.attempt_id, options);
       if (context.failure)
         return null;
-      await q.query(`UPDATE commerce_entry_routes SET revoked_at=clock_timestamp() WHERE route_kind='payment_handoff' AND target_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()`, [attempt.attempt_id]);
-      for (let i = 0;i < 16;i++) {
-        const token = randomBytes(32).toString('base64url');
-        const route = (await q.query(`INSERT INTO commerce_entry_routes(route_kind,route_key,tenant_id,instance_id,target_id,created_at,expires_at)
-          SELECT 'payment_handoff',$1,$2,$3,$4,t,t+interval '15 minutes' FROM (SELECT clock_timestamp() t) n
-          ON CONFLICT(route_kind,route_key) DO NOTHING RETURNING expires_at`, [hashKey(token), context.attempt.tenant_id, context.attempt.instance_id, attempt.attempt_id])).rows[0];
-        if (route)
-          return { handoff_url: '/pay/ecpay/' + token, attempt_ref: attempt.attempt_id, expires_at: route.expires_at.toISOString() };
-      }
-      throw Error('payment_handoff_token_unavailable');
+      return mintAttemptHandoff(q,context.attempt);
     },
     onOrdersCancelled: onPaymentOrdersCancelled,
     async summarize(q, orderIds) {
@@ -256,4 +252,28 @@ export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queri
 
 export function createCheckoutPaymentPorts(options:PaymentAttemptOptions,queries?:PaymentQueryDependencies){
   return {payment:createCheckoutPaymentPort(options),paymentActions:createCheckoutPaymentActions(options,queries)};
+}
+
+/** Call only after the attempt gate and its domain locks. Raw bearer material
+ * is returned to the caller and only its hash enters the routing table. */
+export async function mintAttemptHandoff(q:PoolClient,attempt:{attempt_id:string;tenant_id:string;instance_id:string}){
+      await q.query(`UPDATE commerce_entry_routes SET revoked_at=clock_timestamp() WHERE route_kind='payment_handoff' AND target_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()`, [attempt.attempt_id]);
+      for (let i = 0;i < 16;i++) {
+        const token = randomBytes(32).toString('base64url');
+        const route = (await q.query(`INSERT INTO commerce_entry_routes(route_kind,route_key,tenant_id,instance_id,target_id,created_at,expires_at)
+          SELECT 'payment_handoff',$1,$2,$3,$4,t,t+interval '15 minutes' FROM (SELECT clock_timestamp() t) n
+          ON CONFLICT(route_kind,route_key) DO NOTHING RETURNING expires_at`, [hashKey(token), attempt.tenant_id, attempt.instance_id, attempt.attempt_id])).rows[0];
+        if (route)
+          return { handoff_url: '/pay/ecpay/' + token, attempt_ref: attempt.attempt_id, expires_at: route.expires_at.toISOString() };
+      }
+      throw Error('payment_handoff_token_unavailable');
+}
+export function issueActivationHandoff(pool:Pool,attemptId:string,options:PaymentAttemptOptions){
+  return isolatedTransaction(pool,async q=>{
+    const a=await lockMachinePaymentAttempt(q,attemptId);
+    requireCondition(a?.kind==='service_activation'&&a.state==='issued'&&!a.handed_off_at,409,'provider_activation_pending','收款服務驗證結果確認中，請稍後再試。');
+    const context=await inspectOrderHandoff(q,attemptId,options);
+    if(context.failure)throw new Problem(context.failure.status,context.failure.code==='commerce_quarantined'?'commerce_quarantined':context.failure.status===503?'commerce_credentials_unavailable':'provider_service_state',context.failure.message);
+    return mintAttemptHandoff(q,a);
+  });
 }

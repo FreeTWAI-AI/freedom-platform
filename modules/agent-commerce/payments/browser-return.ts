@@ -53,6 +53,7 @@ function orderAttemptStore(pool: Pool, attemptId: string): Promise<{ slug: strin
   });
 }
 export async function paymentBackLocation(pool: Pool, attemptId: string): Promise<string | null> {
+  if((await pool.query("SELECT 1 FROM commerce_payment_attempts WHERE attempt_id=$1 AND kind='service_activation'",[attemptId])).rowCount)return '/';
   const found = await orderAttemptStore(pool, attemptId);
   return found ? `/shops/${found.slug}/orders/${found.orderId}` : null;
 }

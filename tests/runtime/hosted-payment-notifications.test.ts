@@ -581,7 +581,9 @@ test('back links resolve only retained order attempts and have no payment side e
   assert.equal(r.response.headers.get('Location'), `/shops/${p.s.slug}/orders/${p.order.order_ref}`);
   assert.deepEqual(await facts(p), before);
   const activation = await anotherAttempt(p, 1, 'service_activation');
-  for (const id of [activation.payment.attempt_ref, randomUUID(), 'invalid']) {
+  const activationBack=await post('/pay/ecpay/back/'+activation.payment.attempt_ref,'',{},'GET');
+  assert.equal(activationBack.status,303);assert.equal(activationBack.response.headers.get('Location'),'/');
+  for (const id of [randomUUID(), 'invalid']) {
     const missing = await post('/pay/ecpay/back/' + id, '', {}, 'GET');
     assert.equal(missing.status, 404);
     assert.match(missing.response.headers.get('Content-Type')!, /text\/html/);

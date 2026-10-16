@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {lockMachinePaymentAttempt} from './window.js';
 import type { Pool } from 'pg';
 import { isolatedTransaction } from '../../../packages/resource-scopes/tenant-transaction.js';
 import { Problem } from '../../../packages/shared/problem.js';
@@ -6,9 +8,14 @@ import { lockCheckoutOrders } from '../checkout/orders.js';
 import { hashKey } from '../checkout/terms.js';
 import { chargeCommerceBudgets } from '../checkout/limits.js';
 import type { EffectJournalPort } from '../operations/journal/journal.js';
-import { buildCreditCheckoutForm } from '../providers/ecpay/aio-credit/index.js';
+import { buildCreditCheckoutForm,formatTaipeiDateTime } from '../providers/ecpay/aio-credit/index.js';
 import { inspectOrderHandoff, inspectOrderHandoffGate, type PaymentAttemptOptions } from './attempts.js';
 import { handoffErrorPage, handoffFormPage } from './handoff-page.js';
+/** First thirty SHA-256 bits in Crockford base32, with the Taipei creation day. */
+export function activationDisplayNumber(attemptId:string,createdAt:Date):string{
+  const alphabet='0123456789ABCDEFGHJKMNPQRSTVWXYZ',prefix=createHash('sha256').update(attemptId).digest().readUInt32BE(0);
+  return formatTaipeiDateTime(createdAt.getTime()).slice(2,10).replaceAll('/','')+'-'+Array.from({length:6},(_,i)=>alphabet[(prefix>>>(27-i*5))&31]).join('');
+}
 export const HANDOFF_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 export const isPaymentHandoffPath = (path: string) => /^\/pay\/ecpay\/[A-Za-z0-9_-]{43}$/.test(path);
 const invalidText = '付款連結已失效或不存在。';
@@ -49,7 +56,7 @@ export async function servePaymentHandoff(pool: Pool, token: string, network: st
       const form = buildCreditCheckoutForm({
         environment: context.attempt.environment, merchantId: context.attempt.merchant_id, merchantTradeNo: context.attempt.merchant_trade_no,
         createdAtEpochMs: context.attempt.created_at.getTime(), currency: context.attempt.currency, totalMinor: Number(context.attempt.amount_minor),
-        lines: lines.map(l => ({ name: l.snapshot.title, quantity: l.quantity })), storeName: context.store.name, displayNumber: context.order.display_number, ...context.urls
+        lines: context.attempt.kind==='service_activation'?[{name:'收款服務驗證',quantity:1}]:lines.map(l => ({ name: l.snapshot.title, quantity: l.quantity })), storeName: context.store.name, displayNumber: context.order?.display_number??activationDisplayNumber(context.attempt.attempt_id,context.attempt.created_at), ...context.urls
       }, context.credentials.keys);
       return { context, form, failure: null } as const;
     }
@@ -69,7 +76,7 @@ export async function servePaymentHandoff(pool: Pool, token: string, network: st
         throw Error();
       await options.journal.append({
         environment: options.journal.environment, kind: 'payment_handoff', id: context.attempt.attempt_id, occurred_at: context.attempt.created_at.toISOString(),
-        tenant_id: route.tenant_id, instance_id: route.instance_id, detail: { account_ref: context.accountRef, merchant_trade_no: context.attempt.merchant_trade_no, amount_minor: Number(context.attempt.amount_minor), currency: context.attempt.currency, order_id: context.attempt.order_id }
+        tenant_id: route.tenant_id, instance_id: route.instance_id, detail: { account_ref: context.accountRef, merchant_trade_no: context.attempt.merchant_trade_no, amount_minor: Number(context.attempt.amount_minor), currency: context.attempt.currency, ...(context.attempt.order_id?{order_id:context.attempt.order_id}:{}) }
       });
       await isolatedTransaction(pool, q => q.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1 AND journaled_at IS NULL', [route.target_id]));
     }
@@ -80,8 +87,9 @@ export async function servePaymentHandoff(pool: Pool, token: string, network: st
   }
   const consumed = await isolatedTransaction(pool, async (q) => {
     await bindStore(q, route.tenant_id);
-    await lockStore(q, context.store, [], [context.attempt.order_id], false);
-    await lockCheckoutOrders(q, [context.attempt.order_id], context.store, context.attempt.attempt_id);
+    if(context.attempt.kind==='service_activation')await lockMachinePaymentAttempt(q,context.attempt.attempt_id);
+    else {await lockStore(q, context.store, [], [context.attempt.order_id], false);
+      await lockCheckoutOrders(q, [context.attempt.order_id], context.store, context.attempt.attempt_id);}
     const attempt = (await q.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1 FOR UPDATE', [route.target_id])).rows[0];
     const current = (await q.query(`SELECT *,expires_at>clock_timestamp() AS live FROM commerce_entry_routes WHERE route_kind='payment_handoff' AND route_key=$1 FOR UPDATE`, [route.route_key])).rows[0];
     if (!current || current.revoked_at || !current.live || attempt.state !== 'issued' || attempt.handed_off_at || !attempt.journaled_at)
