@@ -87,11 +87,11 @@
 guest、provider 通知與排程都沒有 principal。規則：
 
 1. 個資表一律 tenant RLS（`tenant_id = freedom_ctx_tenant()`，比照 `134:22-25`）：顧客、聯絡資料、出貨者的收件投影、選店 session、訂單對話、發票的買家資料。`168` 的 `commerce_customers` 與 `commerce_checkout_contacts` 已是如此。
-2. 不含個資的交易與帳本表可以豁免 RLS，catalog 記 `reason_code: commerce_profile_participant_acl` 與理由（`168` 的 checkout、訂單 sidecar、付款套用、配置與異動，以及 `169` 的退款紀錄 `commerce_refunds`、`commerce_refund_lines` 都這樣登錄）。授權由程式依儲存的關聯判斷；豁免不代表有任何 HTTP 讀取者。
+2. 不含個資的交易與帳本表可以豁免 RLS，catalog 記 `reason_code: commerce_profile_participant_acl` 與理由（`168` 的 checkout、訂單 sidecar、付款套用、配置與異動，以及 `169` 的退款紀錄 `commerce_refunds`、`commerce_refund_lines` 與信件佇列 `commerce_outbound_emails` 都這樣登錄）。授權由程式依儲存的關聯判斷；豁免不代表有任何 HTTP 讀取者。
 3. 沒有 principal 的路徑，先從**已儲存、不含個資**的列解析出 tenant 與實例，再 `bindTenantContext`，然後才碰個資表。tenant 永遠不從請求內容取得（EC-SPEC-04 §9）。
 4. 解析用的兩張表（M2，`169` 已建立）：
    - `commerce_entry_routes`：`(route_kind, route_key) → tenant_id, instance_id, target_id, expires_at, revoked_at`。`route_kind` 是 `provider_account`（`account_ref`，出現在 callback 網址，不是秘密）、`payment_handoff`、`cvs_map`、`cvs_map_return`、`label_print`；後四種只存 token 的 SHA-256。豁免 RLS、不含個資；只寫一次，撤銷與到期只能前進。`account_ref` 是 26 個小寫 Crockford Base32 字元（128 bits 隨機）；組成 §2.6 的四條 `account_ref` 路徑後，任一條含綠界 CDN 擋字（`findCdnBlockedTerm`，例如結尾 `cd` 會組成 `cd/`）就重抽，最多 16 次。以店的 slug 進來的公開路徑不需要這張表（`readPublicStorePage` 的解析方式）。
-   - `commerce_due_work`：`(tenant_id, instance_id, kind, target_id, due_at, lease_until, attempts, last_error)`，每個 `(kind, target_id)` 只有一列。`169` 的種類是 `payment_query` 與 `payment_window_end`，下單建立 attempt 時一起建立；執行器由 wp04-queries 加入。排程以一個跨 tenant 的查詢取出到期列（`FOR UPDATE SKIP LOCKED`、每次有上限），每一列在自己的交易裡 `bindTenantContext` 後處理。不逐一掃描每個 tenant scope（`operations.ts:529` 的做法在店數變多時，10 分鐘一次的 cron 跑不完）。豁免 RLS、不含個資。
+   - `commerce_due_work`：`(tenant_id, instance_id, kind, target_id, due_at, lease_until, attempts, last_error)`，每個 `(kind, target_id)` 只有一列。`169` 的種類是 `payment_query` 與 `payment_window_end`，下單建立 attempt 時一起建立；執行器由 wp04-queries 加入。寄信加入 `email`（EC-SPEC-10 §6.3）。排程以一個跨 tenant 的查詢取出到期列（`FOR UPDATE SKIP LOCKED`、每次有上限），每一列在自己的交易裡 `bindTenantContext` 後處理。不逐一掃描每個 tenant scope（`operations.ts:529` 的做法在店數變多時，10 分鐘一次的 cron 跑不完）。豁免 RLS、不含個資。
 5. 同一時間只綁一個 tenant。需要另一方的資料時，照 shared 訂單的做法先 `clearTenantContext` 再明確綁定下一方（`hosted/shared-authority.ts:13-17`），不靠 `bindTenantContext` 直接切換。個資只在綁定該 tenant 時讀寫，讀到的個資不帶進下一方的綁定。效果跨兩個事業時（例如供應商帳戶收到的貨態要更新零售商的訂單軸線），跨過去的部分只能寫不含個資的豁免表，或排一筆到期工作由另一個交易處理。
 6. 不用 `SECURITY DEFINER`（部署工具拒絕未審查的 definer，`deploy/cloudflare/lib/migrations.mjs:7-23`）。
 7. 機器路徑寫的事件標明來源（`provider` 或 `scheduler`）與帳戶，不冒用任何會員 principal。`scoped_command_receipts` 只收 `person`（`migrations/078_scoped_member_commands.sql:4`），所以機器路徑用各領域的事件表去重（EC-SPEC-04 §5.4）。
@@ -172,6 +172,7 @@ guest、provider 通知與排程都沒有 principal。規則：
 | 收件資料讀取與列印的紀錄（誰、哪一筆、用途，不含內容） | receipt | 1 年 | 刪除 |
 | 買家瀏覽器憑證 | `commerce_access_devices` | 最後使用後 180 天 | 刪除，grant 一起失效 |
 | 訂單存取 grant 與信件連結 | `commerce_order_access_grants` | 到期或撤銷後 45 天（比 30 天的備份長，OPEN-07） | 刪除 |
+| 寄信佇列（只有參照與狀態，不含 Email） | `commerce_outbound_emails` | 結束（`sent`、`suppressed`、`expired`、`failed`）後 45 天 | 刪除 |
 | 店的匯出檔 | 物件儲存 | 下載入口 7 天（OPEN-07） | 刪除檔案（EC-SPEC-08 §4.3） |
 | 限流 bucket | `auth_rate_limits` | 既有：視窗過期後清除 | — |
 | 備份 | 平台備份 | 30 天（OPEN-07） | 不改寫備份；還原後先重跑遮罩（下面） |

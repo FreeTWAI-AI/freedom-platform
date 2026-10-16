@@ -70,6 +70,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | wp04-seller | 賣家端的 M2 後端：`FREEDOM_COMMERCE_CONSOLE_ENABLED`（EC-SPEC-10 §2.2）、訂單讀取與聯絡卡（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 之後 |
 | wp04-refund-api | API 退款：operations outbox、QueryTrade/V2 與 DoAction、結果不明、每日關帳時段（EC-SPEC-04 §7.3～7.4）；正式環境預設關閉 | Codex | wp04-seller | C2 受控試用排定時 |
 | buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 進行中（`fc/buyer-pay`） |
+| emails | 交易信件的寄送：`FREEDOM_COMMERCE_EMAIL_ENABLED`、不含個資的信件佇列 `commerce_outbound_emails`、到期工作的 `email`、寄出前寫日誌、Worker 的 `EMAIL` binding 與 fixture sender、寄送打開時的 B10 表單與訂單頁的寄信說明（EC-SPEC-10 §2.2、§6，EC-SPEC-02 §4.2）；打開寄信仍由 Ted 決定 | argon | wp04-queries、buyer-pay、信件範本 | 之後 |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
 | 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
 | 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-queries（到期工作的執行） | 之後 |
@@ -228,6 +229,11 @@ wp04-seller 做賣家端的 M2 後端與未套用付款的人工退款紀錄；w
 規格先改（`6a61d053`）：M2 的退款只有人工紀錄，每筆連到一筆未套用的付款，上限是那筆套用紀錄的金額（已驗證的實付），
 全額退完時自動結案那筆例外；買家的付款摘要加上 `refunded`，畫面寫「店家已登記退回」，因為平台沒有向綠界確認；
 E05 的路徑改成 `…/checkout-orders`。
+
+寄信（emails）等 wp04-queries 的到期工作執行器與 buyer-pay 的頁面合併後開出。規格先改：信件列只在
+`FREEDOM_COMMERCE_EMAIL_ENABLED` 打開時建立，所以第一次打開不會寄出之前訂單的信；信件佇列不含個資、豁免 RLS、結束後
+45 天刪除；寄出前寫日誌，訂單連結在寄出時才建立；店家還沒有公開聯絡 Email 時不設 Reply-To（EC-SPEC-10 §2.2、§6，
+EC-SPEC-09 §2.4、§3）。工作與測試只用 fixture sender，不寄真的信。
 
 ## 6. 共用檔案
 

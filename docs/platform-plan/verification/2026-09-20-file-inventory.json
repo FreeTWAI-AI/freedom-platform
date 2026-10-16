@@ -15314,13 +15314,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md",
-      "bytes": 45844,
-      "sha256": "7b8dd7a72a2cea5ebd7d4973eb02b5ade2ba4fb8a4c54df73f740f6e5ad0560b"
+      "bytes": 46098,
+      "sha256": "758568a24cd4566ce0babe421a779d24bcc58cc9b5858e8f17577b1c372ee70a"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
-      "bytes": 42429,
-      "sha256": "b464a774a70a30d3331ddb81294c935e6e24b52ed5f15f1098ef283ab64f274a"
+      "bytes": 43446,
+      "sha256": "09ee579071645d8d47b62ccdf2fa4bf1ec61b376569e65ef63579ea27f8ee6e8"
     },
     {
       "path": "docs/platform-plan/execution/commerce/README.md",
@@ -15354,8 +15354,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 41349,
-      "sha256": "869a3a1575c2de17a7add7292b9d9e976b890400646943b3dd60e9e995d8a70e"
+      "bytes": 42294,
+      "sha256": "86d611a8a9c064e743dfefb6a3c41fcedae0c10acaf715b470cbc502363a6e4a"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",

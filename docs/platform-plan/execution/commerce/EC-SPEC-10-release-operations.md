@@ -49,7 +49,7 @@
 | `FREEDOM_COMMERCE_CONSOLE_ENABLED` | 關 | launchpad；`FREEDOM_SUPPLIER_CONSOLE_ENABLED`（殼）進 main 後也依賴它 | E02～E11 的新頁面與新的讀寫路由（EC-SPEC-01 §7.5）。M2 只有賣家的訂單、付款例外、退款紀錄與立即查詢路由，還沒有 E 頁 | 新路由回 404；E 頁的 slug 回到既有頁面；資料不動 |
 | `FREEDOM_COMMERCE_CHECKOUT_ENABLED` | 關 | console | 新的 checkout、`hosted_checkout` 訂單與付款交接（B04、B05） | 購物車與結帳按鈕隱藏，B03 顯示「目前暫停接單」。已成立訂單的付款通知、查詢、到期釋放、出貨、售後與退款照常 |
 | `FREEDOM_COMMERCE_PROVIDER_PROFILES` | 空 | 每個 ID 都必須是這個 binary 實作的 profile；非空時必須有 `COMMERCE_CREDENTIAL_KEYS` 與 `COMMERCE_JOURNAL` | 只有列出的 profile 能啟用新服務、出現在結帳選項、發起新的對外操作（付款交接、建單、開票、API 退款） | 不在清單的 profile 照常接收通知與查詢；尚未執行的操作留在佇列，重新列入後繼續，不丟棄 |
-| `FREEDOM_COMMERCE_EMAIL_ENABLED` | 關 | `EMAIL` binding | §6 的交易信件 | 不寄信；信件列留在佇列直到過期（§6.3） |
+| `FREEDOM_COMMERCE_EMAIL_ENABLED` | 關 | Worker 的 `EMAIL` binding 與 `COMMERCE_JOURNAL`；Node server 打開時就緒失敗 | §6 的交易信件；只有打開期間發生的事實會建立信件列 | 不寄信，也不建立新的信件列，關閉期間的事實事後不補寄；打開時已建立、還沒寄出的列留在佇列，重新打開後在到期前寄出（§6.3） |
 | `FREEDOM_COMMERCE_QUARANTINE` | 關 | — | 隔離模式（§8.3） | 正常 |
 | secret `COMMERCE_CREDENTIAL_KEYS` | 無 | 有值但格式錯誤時就緒失敗 | 解封商家金鑰（EC-SPEC-04 §1.3） | provider 入口回 503（綠界會重送）；帳戶寫入回 503；其他頁面正常 |
 | R2 binding `COMMERCE_JOURNAL` | 無 | — | 外部效果日誌（§8.2） | 不發起任何新的對外操作 |
@@ -282,7 +282,7 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
 | 出貨通知 | 包裹交寄 | 物流、追蹤碼、訂單連結 | EC-SPEC-05 §6 |
 | 售後有新回覆 | 店家回覆或售後狀態改變 | 「有新回覆」與訂單連結，不含回覆內文 | EC-SPEC-06 §2.1 |
 
-- 寄件人沿用 `no-reply@mail.freetwai.com`，Reply-To 是店家公開的聯絡 Email（EC-SPEC-02 §2.1）。
+- 寄件人沿用 `no-reply@mail.freetwai.com`，Reply-To 是店家公開的聯絡 Email（EC-SPEC-02 §2.1）。店家還沒有公開的聯絡 Email 時（M2 還沒有賣方揭露）不設 Reply-To，信裡改附商店頁。
 - 信件不含行銷內容，所以沒有退訂連結。行銷信需要另外的同意，不在 C2。
 - 綠界自己寄的信（例如折讓同意）依商家在綠界後台的設定，不是平台的信（EC-SPEC-06 §3.8）。
 
@@ -303,10 +303,11 @@ C2 是受控營業（計畫 §5）。staging 與正式環境的店都要經 Ted 
 
 ### 6.3 可靠寄送與個資
 
-- 觸發寄信的事實與信件列在同一個交易寫入（提議 `commerce_outbound_emails`）。每個（範本、來源事實）只有一列，所以重送的通知不會產生第二封。
-- 信件列不存 Email 與個資（EC-SPEC-09 §3），只存來源的參照（checkout、order、request）與範本代號。寄出當下，在該 tenant 的綁定裡讀出收件人；聯絡資料已遮罩時，這一列改成 `suppressed`，不寄。
-- 寄送由到期工作執行：取得租約、寫日誌、寄出、標成 `sent`。回應遺失時可能重寄一次，這是已知限制；連結 token 只能兌換一次，所以重寄不會擴大權限。
-- 信件列 7 天未寄出就標成 `expired`（訂單連結本身也是 7 天）。
+- 觸發寄信的事實與信件列在同一個交易寫入（提議 `commerce_outbound_emails`）。每個（範本、來源事實）只有一列，所以重送的通知不會產生第二封。信件列只在 `FREEDOM_COMMERCE_EMAIL_ENABLED` 打開時建立，所以第一次打開不會寄出之前訂單的信。
+- 信件列不存 Email 與個資（EC-SPEC-09 §3），只存來源的參照（訂單、付款套用、找回訂單的申請）與範本代號，所以豁免 RLS（EC-SPEC-09 §2.4 規則 2），由跨 tenant 的到期工作讀取。寄出當下，在該 tenant 的綁定裡讀出收件人；聯絡資料已遮罩時，這一列改成 `suppressed`，不寄。
+- 寄送由到期工作執行：取得租約、寫日誌（`email_send`，寫入成功才寄，§8.2）、建立這封信的訂單連結（只存 token 的雜湊）、在交易之外寄出、標成 `sent`。回應遺失時可能重寄一次，這是已知限制；連結 token 只能兌換一次，所以重寄不會擴大權限。
+- 寄送服務拒絕的信（格式、收件人、寄件人未驗證）標成 `failed`，不重試；限流與暫時錯誤在 1、5、15、60 分鐘後重試，不超過到期時間。
+- 信件列 7 天未寄出就標成 `expired`（訂單連結本身也是 7 天）。結束的信件列（`sent`、`suppressed`、`expired`、`failed`）在最後更新 45 天後刪除（EC-SPEC-09 §3）。
 
 ### 6.4 測試用寄件
 
