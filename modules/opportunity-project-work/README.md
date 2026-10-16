@@ -132,19 +132,37 @@ callback. Feature extraction does not create a new authorization boundary.
 SQL。DTO、回饋、條款、驗收安排與社群／工作模式可見性不變，Submission 的內部
 `claim_id` 不加入回應。
 
-本次保留 `GET /api/v1/work-items` 的完整 `{items}` 契約，**未加入分頁或上限**。
-`WorkbenchPanel` 與 `TaskBoardPanel` 都將它當成完整清單；`dashboard` 也共用
-此函式，從全清單挑本人未完成認領，且待回饋項目以全清單查找工作 DTO。
-直接加 LIMIT 會讓較舊認領與待回饋工作消失；其他私人／tenant 分頁清單有自己的
-契約與呼叫流程，不能原樣套在此完整投影。這次只消除清單的 N+1 查詢，
-不宣稱回應大小或記憶體使用已受限。`dashboard` 的待回饋清單現在以一次
-`DISTINCT ON (claim_id)`／`revision DESC` 批次讀取最新 Submission（沒有待回饋
-認領時略過這次查詢），DTO、排序與原逐筆版本一致，Submission 的內部 `claim_id`
-不加入回應；仍**未加入分頁或上限**。
-`flows.test.ts` 以真實 PostgreSQL／HTTP 入口驗證一筆與十七筆的完整排序、本人與
-他人 Claim、無 Submission、最新 revision、回饋和內部 join key 不外洩；待回饋
-清單另覆蓋 0／1／6 筆及自己、過期／撤銷 Review、補件排除。保留 `{items}` 契約，
-不以複製舊 reader、假的 query-only Pool 或固定 SQL 次數／source 文字當驗證。
+`GET /api/v1/work-items` 仍回 preview v1 的完整 `{items}`，既有外部 consumer
+不會被靜默截斷。`freedom.preview/v1` revision `0.4.1` 新增
+`listWorksPage`／`WorkPage`：`GET /api/v1/work-items/page` 每頁最多回 24 筆
+`{items,next_cursor}`；續頁以 `?cursor=` 原樣送回 opaque cursor。Cursor 綁定
+`created_at DESC, work_item_id ASC` 的兩個排序鍵，時間保留 PostgreSQL 六位小數，
+同一毫秒內的列不會遺失或重複。格式不正確、重複或未知 query 均回 422；cursor
+不是授權，續頁仍逐次重驗目前 member session 與 community。
+
+分頁端點接受 `scope=all|open`（預設 `all`，保留 Workbench 原始範圍）與 `search`
+（trim 後最多 2,000 字）。`open` 同時要求 open state 與尚未到認領期限；
+搜尋在 title、objective、gain 的合併文字上做不分大小寫的 literal substring，
+`%`／`_` 不是 wildcard。兩個條件都在 SQL 排序／LIMIT 前套用，不只搜尋目前 24 筆。
+TaskBoard 預設明送 `open`；切換條件重新從第一頁讀取，續頁沿用同一組條件。
+搜尋輸入採 250ms debounce，新的條件／重新整理會淘汰舊讀取與續頁回應。
+
+`WorkbenchPanel` 與 `TaskBoardPanel` 顯示第一頁，並以小型次要按鈕按需載入較早工作；
+續頁失敗保留已載入內容供重試。`dashboard.now` 改用本人所有尚未 accepted 的 Claim
+專用查詢，所以較舊認領不受 catalog 頁面限制；`review_queue` 仍按目前 reviewer
+安排直接取完整目標 Work 與最新 Submission。`dashboard.next` 只投影最新 24 筆 open
+工作，不再為這個建議區讀完整 catalog。DTO、回饋、條款、驗收安排及社群／工作模式
+可見性不變，Submission 的內部 `claim_id` 不加入回應。
+
+`flows.test.ts` 以真實 PostgreSQL／HTTP 驗證 legacy 完整清單、24 筆邊界、多頁不漏不重、
+同毫秒六位小數排序、錯誤 cursor、較舊本人認領、dashboard 上限及分頁 session 到期；
+批次 Claim／Submission 等價案例與待回饋 0／1／6 筆反例保留。瀏覽器回歸另在桌面
+Workbench 與手機 TaskBoard 實際載入第二頁，不以 mock forwarding 代替產品行為。
+此瀏覽器回歸亦涵蓋 29 筆較新已關閉工作後的舊 open 工作、literal 搜尋、
+全部範圍的有界續頁，以及較舊搜尋回應延遲抵達時不能覆蓋目前結果。
+`preview-protocol.test.ts` 另以生成 SDK 呼叫分頁端點並驗錯誤 cursor；bundle、
+OpenAPI、SDK 型別與 runtime protocol 由同一 `definition.mjs` 重新產生。外倉仍由
+各自維護者審查並更新來源 pin，本輪不代替它們發布。
 
 ### 舊版會員投影的 session lifetime（#607）
 

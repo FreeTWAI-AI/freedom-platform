@@ -475,6 +475,49 @@ partial page. Records remain scoped to the actor and community-collaboration
 Work; the shared accepted-work feed and contribution-outcomes API are separate
 projections.
 
+## Legacy retail catalog pages
+
+`GET /api/v1/retail/catalog?limit=20&offset=0` returns the signed-in member's
+community catalog as a bounded page. `limit` defaults to 20 and is capped at 50;
+`offset` must be a non-negative integer and unknown query keys are rejected.
+The response is `{items,next_offset}`, where `next_offset` is `null` on the
+final or an empty trailing page. Ordering is stable by `created_at` descending,
+then `product_id` descending.
+
+Each item retains the latest immutable supplier offer, supplier name,
+community scope, verification-test-account exclusion, and
+`internal_preview` limits. Pagination does not turn this legacy member catalog
+into a public retail feed or enable checkout.
+
+The generated `freedom.preview/v1` revision `0.4.1` SDK uses a separate
+`CatalogPage` response; the supplier's full `ProductList` remains unchanged.
+Call `client.call('listCatalog', {query:{limit:20,offset:0}})` and pass the
+returned `next_offset` explicitly for the next page. The canonical query schema
+also generates OpenAPI parameters and TypeScript types; unknown or out-of-range
+query values are rejected before credentialed HTTP. Consumers must deliberately
+update their exact source/bundle pins; protocol hash negotiation remains strict.
+
+## Private marketing campaign pages
+
+`GET /api/v1/marketing/campaigns?limit=20&offset=0` returns only the signed-in
+member's private campaign drafts. `limit` defaults to 20 and is capped at 50;
+`offset` must be a non-negative integer and unknown query keys are rejected.
+The response is `{items,next_offset}`, with `next_offset: null` on the final or
+an empty trailing page. Drafts use stable `created_at DESC, campaign_id DESC`
+ordering, and each item retains its pinned source snapshot and manually
+reported share records.
+The regenerated `freedom.preview/v1` revision `0.4.1` bundle and SDK include
+the bounded `CampaignList` response and its required nullable continuation.
+Consumers must deliberately update their exact source/bundle pins; old SDKs
+reject protocol skew rather than silently accepting a changed response.
+Call `client.call('listCampaigns', {query:{limit:20,offset:0}})` and pass the
+returned `next_offset` explicitly for the next page. The operation's declared
+query parameters generate OpenAPI and TypeScript types and are validated before
+credentialed HTTP; the SDK does not silently ignore pagination options.
+
+Pagination does not publish drafts, write to an external platform, verify a
+share, or infer reach, conversion, payment, or income.
+
 ## Organizer event referral reports
 
 `GET /api/v1/events/:id/referrals?limit=20&offset=0` returns a bounded page of

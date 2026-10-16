@@ -435,6 +435,14 @@ export function requireItems<T>(payload: unknown, label: string): T[] {
   return (payload as { items: T[] }).items
 }
 
+export function requireCursorPage<T>(payload: unknown, label: string): {items:T[];next_cursor:string|null} {
+  const items=requireItems<T>(payload,label)
+  if(!payload||typeof payload!=='object'||!('next_cursor' in payload))throw new ApiError({message:`${label} 回應缺少分頁游標`})
+  const cursor=payload.next_cursor
+  if(cursor!==null&&typeof cursor!=='string')throw new ApiError({message:`${label} 分頁游標格式不正確`})
+  return {items,next_cursor:cursor}
+}
+
 export function requireDashboard<T extends { now: unknown; next: unknown; gained: unknown; review_queue: unknown; summary: unknown }>(
   payload: unknown,
 ): T {

@@ -19,6 +19,10 @@ export const offerInput=z.object(supplyFields).strict().refine(validStock,'åº«å­
 export const storeInput=z.object({name:text(120),description:text(1500),support_contact:text(250)}).strict();
 export const listingInput=z.object({store_id:z.uuid(),offer_version_id:z.uuid(),retail_price_minor:money,sale_terms:text(1500)}).strict();
 const snapshotInput=z.object({snapshot_sha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
+const catalogPage=z.object({
+  limit:z.coerce.number().int().min(1).max(50).default(20),
+  offset:z.coerce.number().int().min(0).default(0),
+}).strict();
 const decisionInput=snapshotInput.extend({decision:z.enum(['accepted','declined']),note:text(1000),acknowledge_internal_preview:z.literal(true)}).strict();
 
 const commerceLimits={checkout_enabled:false,money_movement_enabled:false,official:false,confirmation_kind:'internal_preview'} as const;
@@ -60,10 +64,21 @@ export async function createOfferVersion(pool:Pool,input:Command,id:string){
     return limited({...updated,current_offer:offer,supplier_name:input.actor.display_name});
   });
 }
-export async function listProducts(pool:Pool,actor:Actor,owned=false){
+export async function listSupplierProducts(pool:Pool,actor:Actor){
   return readWithMemberSession(pool,actor,async q=>(await q.query(`SELECT p.*,u.display_name AS supplier_name,to_jsonb(o) AS current_offer FROM catalog_products p
     JOIN users u ON u.user_id=p.supplier_ref JOIN LATERAL (SELECT * FROM supplier_offer_versions o WHERE o.product_id=p.product_id ORDER BY revision DESC LIMIT 1) o ON true
-    WHERE p.community_id=$1 AND (p.supplier_ref=$2 OR NOT is_verification_test_account(p.supplier_ref))${owned?' AND p.supplier_ref=$2':''} ORDER BY p.created_at DESC,p.product_id`,[actor.community_id,actor.user_id])).rows.map(limited));
+    WHERE p.community_id=$1 AND p.supplier_ref=$2 ORDER BY p.created_at DESC,p.product_id`,[actor.community_id,actor.user_id])).rows.map(limited));
+}
+export async function listCatalogProducts(pool:Pool,actor:Actor,raw:unknown={}){
+  const {limit,offset}=catalogPage.parse(raw);
+  return readWithMemberSession(pool,actor,async q=>{
+    const rows=(await q.query(`SELECT p.*,u.display_name AS supplier_name,to_jsonb(o) AS current_offer FROM catalog_products p
+      JOIN users u ON u.user_id=p.supplier_ref JOIN LATERAL (SELECT * FROM supplier_offer_versions o WHERE o.product_id=p.product_id ORDER BY revision DESC LIMIT 1) o ON true
+      WHERE p.community_id=$1 AND (p.supplier_ref=$2 OR NOT is_verification_test_account(p.supplier_ref))
+      ORDER BY p.created_at DESC,p.product_id DESC LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
+    const more=rows.length>limit;
+    return {items:rows.slice(0,limit).map(limited),next_offset:more?offset+limit:null};
+  });
 }
 // Read-only application port. Marketing stores this exact snapshot; it never
 // updates catalog tables or treats a supplier's declaration as verified QC.

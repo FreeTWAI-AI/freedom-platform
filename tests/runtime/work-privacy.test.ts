@@ -101,9 +101,9 @@ test('WORK-A rejects caller ownership/scope, duplicate filters, invalid and over
   assert.equal((await request('/me/private-work/' + row.work_item_id + '?scope_id=' + row.scope_id, owner)).status, 422);
 });
 
-test('WORK-A private rows never change any legacy list/dashboard/discovery/feed/contribution projection', async () => {
+test('WORK-A private rows never change any member list/dashboard/discovery/feed/contribution projection', async () => {
   const owner = await member(), peer = await member(); await communityWork(owner);
-  const paths = ['/work-items', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work'];
+  const paths = ['/work-items', '/work-items/page', '/work-items/page?scope=all&search=UNIQUE_PRIVATE_SENTINEL', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work'];
   const before = await Promise.all(paths.map(path => request(path, peer)));
   const row = await privateRow(owner, 'UNIQUE_PRIVATE_SENTINEL');
   const after = await Promise.all(paths.map(path => request(path, peer)));
@@ -118,7 +118,7 @@ test('WORK-A private rows never change any legacy list/dashboard/discovery/feed/
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM outbox WHERE payload::text LIKE '%UNIQUE_PRIVATE_SENTINEL%'")).rows[0].n, 0);
 });
 
-test('WORK-A onboarding preview limit and legacy conditional/HEAD projections cannot reveal or displace private rows', async () => {
+test('WORK-A onboarding preview limit and member conditional/HEAD projections cannot reveal or displace private rows', async () => {
   const owner = await member(), peer = await member();
   for (let index = 0; index < 13; index++) await communityWork(owner);
   await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1', [peer.user_id]);
@@ -126,7 +126,7 @@ test('WORK-A onboarding preview limit and legacy conditional/HEAD projections ca
   assert.equal(before.status, 200); assert.equal(before.data.items.length, 12);
   const row = await privateRow(owner, 'PRIVATE_PREVIEW_SENTINEL');
   assert.deepEqual((await request('/task-board/preview', peer)).data, before.data);
-  for (const path of ['/work-items', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work']) {
+  for (const path of ['/work-items', '/work-items/page', '/work-items/page?scope=all&search=PRIVATE_PREVIEW_SENTINEL', '/dashboard', '/task-board/preview', '/me/contribution-records', '/community/accepted-work']) {
     for (const method of ['GET', 'HEAD']) {
       const response = await request(path, owner, { method, headers: { Range: 'bytes=0-10', 'If-None-Match': '"1"' } });
       assert.equal(response.status, 200, path + ' ' + method); assert(!response.text.includes(row.title));
