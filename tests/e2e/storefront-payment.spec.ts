@@ -1202,22 +1202,39 @@ test('15. Responsive layout and full-page screenshots across 1440, 1280, 768, 39
   await assertResponsiveLayout(page, RESPONSIVE_WIDTHS, w => info.outputPath(`b06-long-store-name-${w}.png`));
 });
 
-test('16. Refunded B06 and B07 are final, with only order navigation and no payment actions at mobile and desktop widths',async({page,browser,baseURL,e2eAuthPool},info)=>{
-  const p=await createE2ePaymentOrder(e2eAuthPool,browser,baseURL!,page.context(),{randomContact:true});
-  await page.clock.install({time:new Date('2026-10-16T02:00:00.000Z')});
-  const base=await readOrderDtoWithPageCookies(page,p.store.slug,p.order.order_ref);
-  const dto=PublicOrderSchema.parse({...base,payment_state:'refunded',can_resume_payment:true,latest_payment_attempt:{attempt_ref:p.payment.attempt_ref,state:'paid',created_at:base.created_at}});
-  const api=`**/api/v1/public/stores/${p.store.slug}/orders/${p.order.order_ref}`;let reads=0;
-  await page.route(api,async route=>{expect(route.request().method()).toBe('GET');reads++;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(dto)});});
-  const copy='店家已登記退回這筆訂單收到的全部款項。入帳時間依發卡銀行而定，沒有收到時請聯絡店家。';
+test('16. Refunded B06 and B07 are final, with only order navigation and no payment actions at mobile and desktop widths', async ({ page, browser, baseURL, e2eAuthPool }, info) => {
+  const p = await createE2ePaymentOrder(e2eAuthPool, browser, baseURL!, page.context(), { randomContact: true });
+  await page.clock.install({ time: new Date('2026-10-16T02:00:00.000Z') });
+  const base = await readOrderDtoWithPageCookies(page, p.store.slug, p.order.order_ref);
+  const dto = PublicOrderSchema.parse({
+    ...base,
+    payment_state: 'refunded',
+    can_resume_payment: true,
+    latest_payment_attempt: { attempt_ref: p.payment.attempt_ref, state: 'paid', created_at: base.created_at },
+  });
+  const api = `**/api/v1/public/stores/${p.store.slug}/orders/${p.order.order_ref}`;
+  let reads = 0;
+  await page.route(api, async route => {
+    expect(route.request().method()).toBe('GET');
+    reads++;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dto) });
+  });
+  const copy = '店家已登記退回這筆訂單收到的全部款項。入帳時間依發卡銀行而定，沒有收到時請聯絡店家。';
   await page.goto(`/shops/${p.store.slug}/payment-return/${p.payment.attempt_ref}`);
-  await expect(page.getByRole('heading',{level:1})).toHaveText('已退款');await expect(page.locator('#shop-pay-return')).toContainText(copy);
-  await expect(page.locator('#shop-pay-return .shop-order-actions').getByRole('link')).toHaveText(['查看訂單']);await expect(page.locator('#shop-pay-return').getByRole('button')).toHaveCount(0);
-  const initialReads=reads;await page.clock.runFor(20000);expect(reads).toBe(initialReads);
-  await assertResponsiveLayout(page,[390,768,1440],w=>info.outputPath(`b06-refunded-${w}.png`));
-  await page.getByRole('link',{name:'查看訂單',exact:true}).click();
-  await expect(page.getByRole('region',{name:'付款',exact:true})).toContainText('已退款');await expect(page.getByRole('region',{name:'付款',exact:true})).toContainText(copy);
-  await expect(page.getByRole('heading',{name:'需要你處理',exact:true})).toHaveCount(0);
-  for(const name of ['前往付款','重新付款','查詢付款結果','重新查詢'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
-  await assertResponsiveLayout(page,[390,768,1440],w=>info.outputPath(`b07-refunded-${w}.png`));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('已退款');
+  await expect(page.locator('#shop-pay-return')).toContainText(copy);
+  await expect(page.locator('#shop-pay-return .shop-order-actions').getByRole('link')).toHaveText(['查看訂單']);
+  await expect(page.locator('#shop-pay-return').getByRole('button')).toHaveCount(0);
+  const initialReads = reads;
+  await page.clock.runFor(20000);
+  expect(reads).toBe(initialReads);
+  await assertResponsiveLayout(page, [390, 768, 1440], w => info.outputPath(`b06-refunded-${w}.png`));
+  await page.getByRole('link', { name: '查看訂單', exact: true }).click();
+  await expect(page.getByRole('region', { name: '付款', exact: true })).toContainText('已退款');
+  await expect(page.getByRole('region', { name: '付款', exact: true })).toContainText(copy);
+  await expect(page.getByRole('heading', { name: '需要你處理', exact: true })).toHaveCount(0);
+  for (const name of ['前往付款', '重新付款', '查詢付款結果', '重新查詢']) {
+    await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+  }
+  await assertResponsiveLayout(page, [390, 768, 1440], w => info.outputPath(`b07-refunded-${w}.png`));
 });
