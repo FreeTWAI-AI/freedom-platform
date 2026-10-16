@@ -15494,13 +15494,13 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-04-materials-settings-reports.md",
-      "bytes": 26402,
-      "sha256": "b8d96e0de38dfee41707706e5fb286d68bb1d555ac0fae979f3b87f7942b1271"
+      "bytes": 26708,
+      "sha256": "6ef87ea1b443ef071262d89abc45c4730b4e0a951031faa135b8e4fd538ac505"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 20976,
-      "sha256": "473b9e286318eaaebde2bbf9e634636284c2e17023002302aa42e21b6b828c6f"
+      "bytes": 22035,
+      "sha256": "9da5536a4800e5e69918608ae4c592d4f32169a502678465df098109bb3f857e"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -15534,13 +15534,13 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/sources.md",
-      "bytes": 11199,
-      "sha256": "1e3c6b69f4ae07a55508b950573f9e229196119013c36826a75d8f250eb7a55f"
+      "bytes": 11872,
+      "sha256": "ae1bf876c0404cd8b02139a94ca8f04c704e6067b61ef0cb6cddd8c5a0415368"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/work-plan.md",
-      "bytes": 11512,
-      "sha256": "a3c7137f8b8c491f9564bd0e6d3e38c1f1900332fde4fad5a1ae3120d3e32afd"
+      "bytes": 11531,
+      "sha256": "4f99d9470e920bb86ad312b93e2a123e3c89c3965f355a0a0025634deb836445"
     },
     {
       "path": "docs/platform-plan/execution/tools/check_package_dag.py",
@@ -17374,8 +17374,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/partner/distribution-photos.tsx",
-      "bytes": 7377,
-      "sha256": "28e566ba85c70412bf9cd0be9b9f3f41c9c4e3f195e0f1a00f2e7441d22481c1"
+      "bytes": 7485,
+      "sha256": "6ee635b27b6b0694799f6340c3bbc1e94a57aebd68394265d675757ea4ef61ee"
     },
     {
       "path": "modules/agent-commerce/supplier-console/ui/partner/partner-materials.ts",
@@ -21279,8 +21279,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 57071,
-      "sha256": "60020a6f08d8ee9bdc98a1bf50a4e11d9b4d4e2d78ce25629f2b9c4927db1b7c"
+      "bytes": 95578,
+      "sha256": "e3c116916a3d1777986fccb3280afb36c1cf3057702671e717f8655e477974cf"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
