@@ -18,12 +18,23 @@ test('quarantine and missing keyring skip before claiming any row',async()=>{
   const pool={connect:()=>{throw Error('must not connect');}} as unknown as Pool;
   for(const extra of [{quarantine:true,keyring:ring()},{keyring:null}])assert.equal((await runDueCommerceWork(pool,{transport,freedomEnv:'local',...extra})).claimed,0);
 });
-test('unknown kind is leased once and left unchanged for a newer binary',async()=>{
-  const sql:string[]=[],warnings:unknown[][]=[],original=console.warn;
-  const row={due_work_id:'a',tenant_id:'b',target_id:'c',kind:'future_work',token:'2026-10-16 00:00:00+00'};
-  const pool={connect:async()=>({on(){},removeListener(){},release(){},query:async(s:string)=>{sql.push(s);return {rows:s.startsWith('SELECT w.')||s.startsWith('UPDATE commerce_due_work SET lease_until=')?[row]:[]};}})} as unknown as Pool;
-  console.warn=(...args)=>{warnings.push(args);};
-  try{const r=await runDueCommerceWork(pool,{transport,keyring:ring(),freedomEnv:'local'});assert.equal(r.unknown,1);assert.equal(r.completed,0);assert.deepEqual(warnings,[['commerce_due_work_unknown_kind','future_work']]);assert.equal(sql.filter(s=>s.startsWith('UPDATE')).length,1);assert(sql.some(s=>s.includes('FOR UPDATE SKIP LOCKED')));}finally{console.warn=original;}
+test('claim filters exactly the handler kinds and leases only the returned rows',async()=>{
+  const rows=[{due_work_id:'a',tenant_id:'b',target_id:'c',kind:'payment_query',token:'2026-10-16 00:00:00+00'},
+    {due_work_id:'d',tenant_id:'e',target_id:'f',kind:'payment_window_end',token:'2026-10-16 00:00:00+00'}];
+  let claims=0,leases=0;
+  const pool={connect:async()=>({on(){},removeListener(){},release(){},query:async(sql:string,values:unknown[])=>{
+    if(sql.startsWith('SELECT w.')){
+      claims++;assert(sql.includes('FOR UPDATE SKIP LOCKED'));
+      const filter=sql.match(/\bkind\s*=\s*ANY\(\$(\d+)::text\[\]\)/);assert(filter,'claim must exclude kinds without a handler');
+      assert.deepEqual(values[Number(filter[1])-1],['payment_query','payment_window_end']);return {rows};
+    }
+    if(sql.startsWith('UPDATE commerce_due_work SET lease_until=')){
+      leases++;assert(sql.includes('WHERE due_work_id=ANY($1::uuid[])'));assert.deepEqual(values[0],['a','d']);return {rows};
+    }
+    return {rows:[]};
+  }}),query:async()=>({rowCount:1})} as unknown as Pool;
+  const result=await runDueCommerceWork(pool,{transport,keyring:ring(),freedomEnv:'local'},{maxExternalCalls:0});
+  assert.equal(claims,1);assert.equal(leases,1);assert.equal(result.claimed,2);assert.equal(result.released,2);assert.equal(result.unknown,0);
 });
 test('Node after-response work runs detached and logs only a fixed error',async()=>{
   let release!:()=>void,started=false;const waiting=new Promise<void>(r=>{release=r;}),logs:unknown[][]=[],original=console.error;

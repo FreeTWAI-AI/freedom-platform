@@ -1,4 +1,8 @@
-import type { PoolClient } from 'pg';
+import {AsyncLocalStorage} from 'node:async_hooks';
+import type {Pool,PoolClient} from 'pg';
+import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
+import {queryAttempt,PaymentQueryExecutionError,type PaymentQueryDependencies,type PaymentQueryTrigger} from '../payments/queries.js';
+import {endPaymentWindow,lockMachinePaymentAttempt,paymentQueryDueAt} from '../payments/window.js';
 export type CommerceDueWorkKind = 'payment_query' | 'payment_window_end';
 /** Scheduling never postpones existing work and never changes its tenant. The
  * caller owns the transaction; this helper performs no external operation. */
@@ -16,12 +20,6 @@ export async function scheduleDueWork(q: PoolClient, input: {
   if (result.rowCount !== 1)
     throw new Error('due_work_binding_invalid');
 }
-
-import {AsyncLocalStorage} from 'node:async_hooks';
-import type {Pool} from 'pg';
-import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
-import {queryAttempt,PaymentQueryExecutionError,type PaymentQueryDependencies,type PaymentQueryTrigger} from '../payments/queries.js';
-import {endPaymentWindow,lockMachinePaymentAttempt,paymentQueryDueAt} from '../payments/window.js';
 
 interface ClaimedWork {due_work_id:string;tenant_id:string;kind:string;target_id:string;token:string}
 export interface DueCommerceWorkOptions {limit?:number;maxExternalCalls?:number;deadlineMs?:number;targets?:readonly string[];signal?:AbortSignal;trigger?:PaymentQueryTrigger}
@@ -48,11 +46,15 @@ export async function runDueCommerceWork(pool:Pool,deps:PaymentQueryDependencies
   if(deps.quarantine||!deps.keyring)return counts;
   const signal=options.signal??afterResponseSignal.getStore(),started=Date.now();
   if(signal?.aborted||deadlineMs===0)return counts;
+  const handlers:Record<string,(row:ClaimedWork)=>Promise<{externalCalls:number}>>={
+    payment_query:row=>queryAttempt(pool,row.target_id,{...deps,signal},options.trigger??'schedule',{leaseToken:row.token,tenantId:row.tenant_id}),
+    payment_window_end:async row=>{await endPaymentWindow(pool,row.target_id,{now:deps.now,leaseToken:row.token,tenantId:row.tenant_id,signal});return {externalCalls:0};},
+  };
   const rows=await isolatedTransaction(pool,async q=>{
     const now=deps.now?.()??null;
     const claimed=(await q.query<ClaimedWork>(`SELECT w.* FROM commerce_due_work w
       WHERE due_at<=coalesce($2::timestamptz,now()) AND (lease_until IS NULL OR lease_until<coalesce($2::timestamptz,now()))
-      AND ($3::uuid[] IS NULL OR target_id=ANY($3::uuid[])) ORDER BY due_at,due_work_id FOR UPDATE SKIP LOCKED LIMIT $1`,[limit,now,targets??null])).rows;
+      AND ($3::uuid[] IS NULL OR target_id=ANY($3::uuid[])) AND kind=ANY($4::text[]) ORDER BY due_at,due_work_id FOR UPDATE SKIP LOCKED LIMIT $1`,[limit,now,targets??null,Object.keys(handlers)])).rows;
     if(!claimed.length)return [];
     return (await q.query<ClaimedWork>(`UPDATE commerce_due_work SET lease_until=coalesce($2::timestamptz,clock_timestamp())+interval '2 minutes',
       updated_at=clock_timestamp() WHERE due_work_id=ANY($1::uuid[]) RETURNING *,lease_until::text AS token`,[claimed.map(r=>r.due_work_id),now])).rows
@@ -62,10 +64,6 @@ export async function runDueCommerceWork(pool:Pool,deps:PaymentQueryDependencies
   const release=async(remaining:ClaimedWork[])=>{
     for(const r of remaining)counts.released+=(await pool.query(`UPDATE commerce_due_work SET lease_until=NULL,updated_at=clock_timestamp()
       WHERE due_work_id=$1 AND lease_until=$2::timestamptz`,[r.due_work_id,r.token])).rowCount??0;
-  };
-  const handlers:Record<string,(row:ClaimedWork)=>Promise<{externalCalls:number}>>={
-    payment_query:row=>queryAttempt(pool,row.target_id,{...deps,signal},options.trigger??'schedule',{leaseToken:row.token,tenantId:row.tenant_id}),
-    payment_window_end:async row=>{await endPaymentWindow(pool,row.target_id,{now:deps.now,leaseToken:row.token,tenantId:row.tenant_id,signal});return {externalCalls:0};},
   };
   for(let i=0;i<rows.length;i++){
     if(counts.externalCalls>=maxExternalCalls||Date.now()-started>=deadlineMs||signal?.aborted){await release(rows.slice(i));break;}

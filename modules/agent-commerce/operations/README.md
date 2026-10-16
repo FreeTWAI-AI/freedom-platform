@@ -57,8 +57,8 @@ LEAST, so an earlier request wins and a retry never postpones work. `runDueComme
 `FOR UPDATE SKIP LOCKED`, gives them two-minute leases and commits before dispatch.
 Each handler binds and validates its own tenant in separate transactions; queries
 extend their attempt lease to 60 seconds and make the external call only after
-commit. The exact lease timestamp is the ownership token. Unknown kinds keep their
-lease until it expires, waiting for a newer binary. The executor stops after 50
+commit. The exact lease timestamp is the ownership token. The claim filters to the
+handler table’s kinds, leaving other kinds available for a newer binary. The executor stops after 50
 external calls or five minutes and releases unstarted claims. Errors log only
 kind and a fixed code. Finished rows are deleted; `failure_count` tracks consecutive
 indefinite results separately from total runs and `last_query_at` tracks calls.
