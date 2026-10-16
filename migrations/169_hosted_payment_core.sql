@@ -88,7 +88,7 @@ BEGIN
       OR (to_jsonb(NEW)-'module_release_ref'-'application_release_ref'-'version'-'created_by_principal_kind')
         IS DISTINCT FROM (to_jsonb(OLD)-'module_release_ref'-'application_release_ref'-'version'-'created_by_principal_kind')
       OR NEW.version<>OLD.version+1 THEN
-      RAISE EXCEPTION 'Module release changes require a registered paired upgrade' USING ERRCODE='23514';
+      RAISE EXCEPTION 'Module instance identity is immutable' USING ERRCODE='23514';
     END IF;
   END IF;
   RETURN NEW;
