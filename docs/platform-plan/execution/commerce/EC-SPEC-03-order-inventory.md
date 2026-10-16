@@ -137,7 +137,7 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | 轉換 | 誰觸發 | 守門 | 效果（同一 DB 交易） |
 | --- | --- | --- | --- |
 | place | 買家（guest 或會員）＋checkout 能力憑證 | 店家已開通交易、checkout 版本與 `terms_sha256` 相符、供貨同意與發布版本有效、配送群組可行、`available` 足夠、同 checkout 無未定付款的舊單 | 建立訂單、行項、sidecar（指向當下的聯絡資料列）、全部 hold、第一個 payment attempt（EC-SPEC-04）；journal；不呼叫外部服務 |
-| buyer cancel（未付） | 買家 | `open` 且付款摘要 ∈ unpaid／pending 且無確認付款 | hold release；`cancelled(buyer_cancelled)`；撤銷還沒用掉的交接連結，已交接且仍未結的 attempt 排入查詢（晚到的付款照 §5.3 記 `paid_after_cancel`） |
+| buyer cancel（未付） | 買家 | `open` 且無確認付款（§5 的定義；`simulated`、`amount_mismatch` 等紀錄不算確認付款，所以付款摘要是 `simulated` 或只因這些紀錄成為 `overpaid` 時仍可取消） | hold release；`cancelled(buyer_cancelled)`；撤銷還沒用掉的交接連結，已交接且仍未結的 attempt 排入查詢（晚到的付款照 §5.3 記 `paid_after_cancel`） |
 | seller cancel（未付） | 賣家 owner／被授權者 | 同上 | `cancelled(seller_cancelled)`；attempt 的處理同 buyer cancel |
 | hold expire | 讀取、下單缺額結算、排程 | hold 仍 `held` 且 DB 時間 ≥ `expires_at` | hold release；訂單仍 `open`（付款可能晚到） |
 | payment confirmed | 已驗證的 provider 事件或查詢結果（EC-SPEC-04） | 金額、商家、環境、交易識別相符；非模擬 | 若 hold 仍 `held` → convert；否則 → allocate 或例外；成功後建立 fulfilment orders（EC-SPEC-05） |
