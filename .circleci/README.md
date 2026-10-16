@@ -1,105 +1,85 @@
-# Manual worker test pilot
+# Native CircleCI worker suite candidate
 
-This optional CircleCI job runs the existing complete `ci.worker-unit` suite.
-Its workflow is disabled unless `run-worker-pilot=true` is explicitly supplied.
-The default candidate and reviewed runner are both
-`1e584aa8734addfe251c7f081cf51cc84a52567f`; `candidate-sha` accepts an exact
-40-character commit reachable from the public FreeTWAI/freedom-platform repository.
-The job records both SHAs and retains the existing sanitized suite report.
+`worker-tests` runs one `worker-unit` job for every pipeline delivered by the
+existing native GitHub integration. There is no opt-in flag, historical candidate
+parameter, controller, ledger writer, API dispatcher or automatic fallback.
+Existing GitHub worker coverage remains until coordinated adoption below.
 
-The job uses Node 24.21.0, the same pinned PostgreSQL 18 image and disposable
-fixture settings as the existing GitHub static-worker lane, and the existing
-build/dry-run prerequisites. The suite retains its 900-second execution budget,
-baseline plus file discovery, complete case accounting, and failure semantics.
-The job has no CircleCI contexts or provider credentials; this file defines no trigger,
-runtime partitions, browser suite, deployment, or change to GitHub required checks.
-Use a project with no attached secrets; public HTTPS fetches need no checkout key.
-The temporary PostgreSQL service belongs to the job and is discarded afterward.
+The candidate is `pipeline.git.revision`, checked against `CIRCLE_SHA1` and the
+GitHub App config source `pipeline.config.sha`. A mismatched config/checkout
+mapping fails instead of testing an unrelated historical commit. Public anonymous
+Git fetches materialize that exact commit. The reviewed runner is pinned to main
+`3c1ff74476d4072f5a1b8b179a1bb0faecefc461`; worker runner/definition behavior is
+unchanged from the successful #718 pilot (the intervening runner edit concerns
+runtime partition aggregation only). The resource class is explicitly `medium`.
+Node 24.21.0, pinned PostgreSQL and build/dry-run prerequisites reuse #718.
 
-## Run one pilot
+The existing complete `ci.worker-unit` runner discovers the candidate worker
+files and validates complete case accounting. Its exit code controls the job:
+failure, timeout and not-run remain failures. Artifacts retain the complete
+`worker-unit-evidence.json` report and `worker-unit-source.json` containing exact
+candidate/config/runner SHA, pipeline/workflow/job IDs, resource class and Node
+version. No-workflow is never worker success. Cancellation or missing artifacts
+is not acceptance. This retains existing candidate-test trust, not independent
+attestation against malicious test code.
 
-After CircleCI authentication and the actual organization, integration and project
-have been verified, use an existing project/pipeline or create the single intended
-pipeline definition with this config path. Keep event/schedule triggers absent.
-GitHub App projects use their verified CircleCI organization/project IDs; do not
-infer an OAuth `gh/FreeTWAI/freedom-platform` slug from the repository name.
+The project must remain free of attached provider secrets/contexts. No checkout
+key or controller token is needed by these commands. Native CircleCI GitHub
+status/check publication uses the existing integration, not credentials in this
+job. No provider permission, trigger setting or GitHub ruleset is changed here.
 
-Manually trigger the config branch with boolean `run-worker-pilot=true` and an
-explicit string `candidate-sha` for the candidate being compared. With current
-CircleCI CLI v1, the equivalent command is:
+## Validate this branch before adoption
 
-```sh
-circleci pipeline run --project <verified-project-slug> \
-  --definition-id <verified-pipeline-id> --branch <branch-containing-this-config> \
-  --param run-worker-pilot=true --param candidate-sha=<exact-40-character-sha>
-```
+1. Read back the existing pipeline definition: config and checkout must both use
+   this repository and the pushed candidate ref, config path `.circleci/config.yml`.
+   Use the existing native push trigger; do not add an overlapping PR trigger
+   that runs the same commit twice. Check whether current native trigger coverage
+   includes required PR/fork events rather than assuming that from this YAML.
+2. Follow the automatically created pipeline for this PR head. Require a real
+   successful `worker-unit` job, matching config/candidate/head SHA, complete
+   file/case artifacts and provider job identity. Record duration/credits.
+   The old 143-credit, 38-file/109-case run on `1e584aa8` is historical only.
+3. Inspect GitHub's actual check/status: record its exact context/name, publisher
+   App identity and head SHA. Do not guess `ci/circleci: worker-unit` from the job
+   name. Verify genuine failure and cancellation cannot satisfy the required
+   result; absence must block rather than pass. No current successful readback
+   or required-status binding is claimed by this code change.
 
-Keep this a bounded comparison with the existing GitHub worker evidence. Inspect
-the actual candidate/runner IDs, selected files and complete per-case result in
-`worker-unit-source.json` and `worker-unit-evidence.json`, plus the job's duration
-and credit use. Missing files, zero cases, failure, cancellation or timeout retain
-the existing runner's failing/not-run outcome. Stop after the comparison and
-resolve any missing coverage or environment mismatch before proposing adoption.
+## Separate coordinated adoption (NOT applied)
 
-## Existing measurement
-
-On 2026-10-15, GitHub [static-worker job 116291139919](https://github.com/FreeTWAI/freedom-platform/actions/runs/38694524884/job/116291139919)
-tested candidate and runner `1e584aa8734addfe251c7f081cf51cc84a52567f` with Node
-24.21.0. `ci.worker-unit` passed 38 files / 109 cases in 256 seconds
-(07:53:25–07:57:41 UTC). The complete static-worker job took 427 seconds,
-including other checks and media restore tests that this pilot does not run.
-Suite evidence SHA-256:
-`5070928f51a94ff106cb6aeb091537394d72b1107e935beb4612a8aca6733a52`.
-The enclosing Verify run failed at runtime aggregation; the worker result does
-not establish a successful full-platform run.
-
-The historical CircleCI pipeline 2 also passed 38 files / 109 cases for that
-same historical candidate/runner: 143 credits, job duration 7m07s. This is not
-evidence for the current PR head or routing adapter. Queue time,
-resource class and dependency-cache conditions can differ between providers.
-
-Adoption is a separate reviewed change after the comparison: retain trustworthy
-candidate attribution and required-check behavior, establish the supported fork
-path without secrets, then remove duplicate worker execution from its original
-lane only when the replacement is proven. Do not copy the full runtime/browser
-suite to CircleCI or leave both worker jobs running automatically on every push.
-
-## Validate configuration without credentials
+The prepared `packages/contribution-tools/worker-unit-adoption.patch` removes
+only the three-line worker suite invocation/environment from GitHub Verify.
+It leaves static-worker's builds, typechecks, contracts, broker checks and both
+media restore tests intact. It is a review artifact, not an applied change:
 
 ```sh
-circleci config validate .circleci/config.yml
-circleci config process .circleci/config.yml --pipeline-parameters 'run-worker-pilot: false'
-circleci config process .circleci/config.yml --pipeline-parameters 'run-worker-pilot: true'
+git apply --check packages/contribution-tools/worker-unit-adoption.patch
 ```
 
-The default configuration must compile to zero jobs; the opt-in form compiles to
-one worker-unit job. These are configuration checks, not test execution. Public
-configuration compilation uses CircleCI's API without credentials; local YAML
-and compiled shell syntax checks can also run offline.
+Before applying it, explicitly approve the live ruleset change adding the
+**observed** CircleCI context and publisher App binding while retaining existing
+`verify` and `CodeQL` requirements. Verify protection on a current PR and required
+failure/pending outcomes. Then review/apply the patch in a separate adoption PR.
+No skip status or GitHub success stub substitutes for CircleCI's worker result.
 
-## Config availability and routing boundary (#818)
+GitHub Verify currently runs `github.sha` (PR integration/merge-group candidate).
+A native push typically tests the branch head instead. Those are NOT equivalent
+commits. Adoption therefore also requires an explicit maintainer decision:
+retain GitHub worker validation for integration/merge-group commits, or configure
+and verify native CircleCI execution/status for those exact required candidates.
+Do not remove coverage based solely on a head-commit success. Forks and merge
+queues remain unverified until demonstrated through the existing integration.
+The patch is deliberately not applied while that binding is unresolved.
 
-This file and config are imported from #718 at
-`e9fd9cbdd2e40d38066fc41e42832cd7110321ed`; the config bytes are unchanged.
-Main `3c1ff744` and #818 `bc2257ec` had no `.circleci/config.yml`.
-Consequently an existing provider push trigger selecting either ref could fail
-before workflow evaluation with “No configuration was found”. Adding this file
-allows pushes whose **config source is this branch** to resolve the config.
-It does not repair other branches or a pipeline definition pinned to main.
-The provider's config repository/ref/path and checkout mapping must still be
-read back by a maintainer; no provider trigger or permission is changed here.
+## Local checks and limits
 
-An ordinary push supplies no pilot opt-in, so the only workflow is false and
-no worker suite should launch. No-workflow/config-valid is not a passing worker
-test and must never replace GitHub's required checks. No fake passing job is
-added. Provider compilation and the next automatic push outcome still need
-readback; offline YAML checks alone do not prove provider acceptance.
+Offline YAML structure, shell syntax and exact runner pin checks do not prove
+CircleCI compilation, resource availability, trigger mapping or status delivery.
+CircleCI CLI/browser access is unavailable in this execution environment; use
+the existing integration's automatic pipeline and readback for provider validation.
+No manual duplicate full GitHub CI is required. The unfinished evidence collector
+and disabled automatic budget controller in #818 are preserved but are not used
+by this native path.
 
-This is the historical **manual diagnostic pilot**, not live routing support.
-It accepts only `run-worker-pilot` and `candidate-sha`; the reviewed runner stays
-pinned to `1e584aa8734addfe251c7f081cf51cc84a52567f`. Do not point the routing
-adapter at this config: `runner-sha`, `suite-digest` and `routing-attempt` are
-unsupported, and its artifact/source shape is not the routing evidence contract.
-Implementing and reviewing those parameters, exact source/config/job evidence,
-and the credential-free execution boundary is a separate activation prerequisite.
-Do not opt in or change trigger filters as part of this integration.
+References: [pipeline values](https://circleci.com/docs/reference/variables/),
+[native GitHub Checks](https://circleci.com/docs/guides/integration/enable-checks/).

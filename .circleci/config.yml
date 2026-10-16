@@ -1,18 +1,11 @@
-# Opt-in diagnostic pilot, based on main 1e584aa8734addfe251c7f081cf51cc84a52567f.
+# Native worker suite candidate; GitHub coverage stays until coordinated adoption.
 # Run only with synthetic data in a project without secrets or contexts.
 # Existing GitHub required checks continue to own merge eligibility.
 version: 2.1
 
-parameters:
-  run-worker-pilot:
-    type: boolean
-    default: false
-  candidate-sha:
-    type: string
-    default: "1e584aa8734addfe251c7f081cf51cc84a52567f"
-
 jobs:
-  worker-unit-pilot:
+  worker-unit:
+    resource_class: medium
     working_directory: ~/freedom-platform
     docker:
       - image: cimg/node:24.21.0
@@ -26,8 +19,9 @@ jobs:
           POSTGRES_INITDB_ARGS: "-c dynamic_shared_memory_type=mmap"
     environment:
       CI: "true"
-      CANDIDATE_SHA: << pipeline.parameters.candidate-sha >>
-      RUNNER_SHA: "1e584aa8734addfe251c7f081cf51cc84a52567f"
+      CONFIG_SHA: << pipeline.config.sha >>
+      CANDIDATE_SHA: << pipeline.git.revision >>
+      RUNNER_SHA: "3c1ff74476d4072f5a1b8b179a1bb0faecefc461"
       TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
       WRANGLER_SEND_METRICS: "false"
       DO_NOT_TRACK: "1"
@@ -37,6 +31,9 @@ jobs:
           command: |
             [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
             [[ "$RUNNER_SHA" =~ ^[0-9a-f]{40}$ ]]
+            test "$CANDIDATE_SHA" = "$CIRCLE_SHA1"
+            [[ "$CONFIG_SHA" =~ ^[0-9a-f]{40}$ ]]
+            test "$CONFIG_SHA" = "$CANDIDATE_SHA"
             git init .
             git remote add origin https://github.com/FreeTWAI/freedom-platform.git
             git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
@@ -84,8 +81,14 @@ jobs:
             import { writeFileSync } from "node:fs";
             writeFileSync(".freedom/reports/circleci-worker-source.json", JSON.stringify({
               candidate_sha: process.env.CANDIDATE_SHA,
+              config_sha: process.env.CONFIG_SHA,
               runner_sha: process.env.RUNNER_SHA,
               suite: "ci.worker-unit",
+              pipeline_id: process.env.CIRCLE_PIPELINE_ID,
+              workflow_id: process.env.CIRCLE_WORKFLOW_ID,
+              job_id: process.env.CIRCLE_WORKFLOW_JOB_ID,
+              job_number: process.env.CIRCLE_BUILD_NUM,
+              resource_class: "medium",
               node: process.version
             }, null, 2) + "\n");
             '
@@ -100,7 +103,6 @@ jobs:
           destination: worker-unit-source.json
 
 workflows:
-  worker-pilot:
-    when: << pipeline.parameters.run-worker-pilot >>
+  worker-tests:
     jobs:
-      - worker-unit-pilot
+      - worker-unit
