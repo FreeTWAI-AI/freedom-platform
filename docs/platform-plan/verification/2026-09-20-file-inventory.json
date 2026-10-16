@@ -17559,8 +17559,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/queries.ts",
-      "bytes": 17787,
-      "sha256": "d0cf99aab02feada62817e6984750f1c24d782aa0d493fc9d693b1af99e61fdf"
+      "bytes": 17882,
+      "sha256": "8a2191c60b9e166ea766b0d3c3b6dbc21167902e34499a92be112082f3c007dd"
     },
     {
       "path": "modules/agent-commerce/payments/query-transport.ts",
@@ -23189,8 +23189,8 @@
     },
     {
       "path": "tests/runtime/hosted-payment-queries.test.ts",
-      "bytes": 40847,
-      "sha256": "ee116e8e8b286900ec4d1b08dedb244364f2936a172c23df47041f7fb142bb32"
+      "bytes": 42454,
+      "sha256": "c644c816cec72072d5e8c769cb3d5197638dc9402f4b6af400ca4cca83a53d64"
     },
     {
       "path": "tests/runtime/hosted-payment-repay.test.ts",
