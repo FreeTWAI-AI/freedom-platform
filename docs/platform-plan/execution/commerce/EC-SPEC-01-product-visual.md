@@ -146,7 +146,7 @@ B 頁是 `/shops/:slug` 之下的獨立文件，不進 portal 的 `app-frame`（
 |  | `pending` | 付款確認中 | 付款確認中 |
 |  | `paid` | 已付款 | 已收款 |
 |  | `partially_refunded`／`refunded` | 已部分退款／已退款 | 同左 |
-|  | `overpaid` | 付款金額待店家確認 | 溢收，需處理 |
+|  | `overpaid` | 付款金額待店家確認 | 收款與訂單不符，需處理 |
 |  | `simulated` | 不顯示（只在測試環境） | 模擬付款（不會出貨） |
 | 庫存 | `held` | 已為你保留到 {時間} | 保留中 |
 |  | `unallocated` | 已付款，店家確認庫存中 | 已收款但缺貨，需處理 |

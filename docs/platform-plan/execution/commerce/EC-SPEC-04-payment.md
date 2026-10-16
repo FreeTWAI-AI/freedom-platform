@@ -223,6 +223,17 @@ interface PaymentPort {
 
 付款相關例外都進 EC-SPEC-05 的 ExceptionCase（同一個工作台）：`unmatched_payment`、`amount_mismatch`、`paid_unallocatable`、`paid_after_cancel`、`overpaid`、`payment_unconfirmed`、`contradicting_event`。`payment_unconfirmed` 有兩種來源：已付款但查詢無法確認（§5.5），以及確認窗後 24 小時仍查不出結果的未付 attempt（§6.3）。每個例外有責任人（賣家）、下一個合法動作與期限，不只顯示「請聯絡客服」。
 
+M2 的處理（wp04-seller）：賣家在 `GET …/exception-cases?view=retailer`（`store:orders:read`）看本店的付款例外，動作走 `POST …/exception-cases/:id/actions/:action`（`store:orders:manage`，EC-SPEC-05 §9.1）。`169` 的 CHECK 要求結案者是一個人，所以付款例外只由賣家的動作結案，包括登錄退款時的自動結案；排程、查詢與付款通知都不結案。
+
+| 種類 | 下一個合法動作 | 結案 |
+| --- | --- | --- |
+| `amount_mismatch`、`paid_after_cancel`、`overpaid` | 在綠界後台退款，再登錄人工退款（§7.2）。`amount_mismatch` 的訂單沒有確認付款時不會自己結束，另用未付款取消 | 退款合計等於套用金額時自動結案（`refunded`）；登錄的金額有誤、合計到不了時用 `resolve_with_evidence`（`refunded`） |
+| `paid_unallocatable` | 補貨後 `retry_allocation`（EC-SPEC-03 §5.3）；不補貨的已付款取消與退款隨 M4（EC-SPEC-06 §2.4） | `retry_allocation` 成功時同一個交易結案（`allocated`） |
+| `payment_unconfirmed` | 立即查詢；到綠界後台核對 | `resolve_with_evidence`：`confirmed`（attempt 已 `confirmed`）或 `checked_with_provider` |
+| `unmatched_payment`、`contradicting_event` | 到綠界後台核對 | `resolve_with_evidence`（`checked_with_provider`） |
+
+`resolve_with_evidence` 只收結案代碼、綠界後台的日期（Asia/Taipei，不晚於今天）與參考號（`^[A-Za-z0-9_-]{1,64}$`），不收自由文字；`resolution_note` 由伺服器用固定格式組成。代碼 `confirmed` 不需要日期與參考號，由伺服器確認 attempt 已 `confirmed`。付款其實沒有完成、訂單卻已確認付款時的取消，隨 M4 的已付款取消。
+
 ## 6. 查詢（QueryTradeInfo/V5）
 
 ### 6.1 觸發

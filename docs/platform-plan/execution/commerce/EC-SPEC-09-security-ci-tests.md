@@ -64,6 +64,7 @@
 - 收款、物流、發票帳戶與金鑰的寫入（新增、換金鑰、換特店、啟用、停用、退役）只有 owner 或 admin 能做，並要重新輸入密碼（§2.5 的新用途）。改收款帳戶等於改錢的去向，所以不放進可授予的能力；讀取帳戶狀態用 `store:finance:read` 或 `store:manage`。
 - 店的資料匯出只有 owner，並要重新輸入密碼（EC-SPEC-08 §4.1）。
 - 每個授權列都要含模組的基本讀取鍵（前綴加 `:read`，這裡是 `store:read`）。現在的規則只要求「至少一個 `:read` 鍵」；1.1.0 有四個 `:read` 鍵，只給 `store:orders:read` 會通過驗證，但 `requireStoreInstance` 要求 `store:read`（`capabilities.ts:27`），結果整間店 404。`validateInstanceGrants` 改成檢查基本讀取鍵；`TenantSettings.tsx` 勾任何 store 能力時自動勾 `store:read`。
+- `store:orders:read` 看到的遮罩名稱：聯絡名稱去掉前後空白後的第一個字（Unicode code point）加「○○」，例如「王○○」、「J○○」；長度固定，不透露名字長度。聯絡資料已遮罩時顯示「已移除」。
 - 能力之間不互相隱含。需要看聯絡資料才能完成的動作（例如回覆對話）同時檢查 `store:orders:manage` 與 `store:customers:read`。畫面依能力隱藏，伺服器逐一檢查。
 - 「立即查詢」付款、物流或發票結果，有該軸線讀取權的人都能按（`store:orders:read`、`store:finance:read` 或 `store:fulfil`），受 §4 的限流。
 - 供應商在零售商的實例沒有任何能力。出貨者的動作以出貨者自己店的 `store:fulfil` 檢查，並核對自己是這筆履約單的出貨者（EC-SPEC-05 §4.1、EC-SPEC-06 §2.7）。

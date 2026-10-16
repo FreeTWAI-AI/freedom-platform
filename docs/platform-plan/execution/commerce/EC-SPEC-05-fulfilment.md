@@ -564,7 +564,7 @@ C2 採用綠界舊版國內物流（MD5 CheckMacValue、表單格式），不用
 | `GET …/shipments?view=retailer`、`GET …/shipments/:sid` | `shipments` 頁 |
 | `GET／PUT …/shipping-profile`、`GET／POST …/ship-from-locations`、`POST …/ship-from-locations/:id/retire` | `settings/shipping` |
 | `GET／POST …/fulfilment-agreements`、`POST …/fulfilment-agreements/:id/withdraw`、`…/revoke` | 代出貨同意（賣家側） |
-| `GET …/exception-cases?view=retailer`、`POST …/exception-cases/:id/actions/:action` | 例外處理 |
+| `GET …/exception-cases?view=retailer&state=open\|closed&cursor=`、`GET …/exception-cases/:id`、`POST …/exception-cases/:id/actions/:action` | 例外處理；付款種類的動作見 EC-SPEC-04 §5.6（M2） |
 
 自出貨時，賣家同時是出貨者，使用 §9.2 的出貨者路由（`view=executor`）。
 
