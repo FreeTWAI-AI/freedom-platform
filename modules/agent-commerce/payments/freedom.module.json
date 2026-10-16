@@ -26,7 +26,8 @@
     "tests/e2e/hosted-payment-fixture.ts",
     "tests/e2e/hosted-payment-queries.spec.ts",
     "tests/runtime/hosted-payment-refunds.test.ts",
-    "tests/runtime/hosted-seller-payment-queries.test.ts"
+    "tests/runtime/hosted-seller-payment-queries.test.ts",
+    "tests/runtime/hosted-logistics-services.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/payments/rules/index.ts"
@@ -34,7 +35,8 @@
   "dependencies": [
     "hosted-checkout",
     "commerce-providers",
-    "commerce-operations"
+    "commerce-operations",
+    "commerce-fulfilment"
   ],
   "contract_families": [],
   "client_profiles": [],

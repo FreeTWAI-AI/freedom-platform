@@ -17149,8 +17149,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/freedom.module.json",
-      "bytes": 706,
-      "sha256": "86e7dedd1e82f03eb7cd50da87d5fee1283898fd89cbb471b3bea3e8dc0cc295"
+      "bytes": 1166,
+      "sha256": "a42d330b96f597eb6bd77986ce45815d778337c138bfbd6b7b3eeaa85bab6348"
     },
     {
       "path": "modules/agent-commerce/fulfilment/rules/errors.ts",
@@ -17539,8 +17539,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/freedom.module.json",
-      "bytes": 1911,
-      "sha256": "4c181bbc0c2a94eb468150abfe74e74e9bc0c49d07925daf9c2fa47fc6574255"
+      "bytes": 1993,
+      "sha256": "038b8beded64305f32cf7712479390cc8fb375ccf68678431c5672f738784af1"
     },
     {
       "path": "modules/agent-commerce/payments/gateway.ts",
