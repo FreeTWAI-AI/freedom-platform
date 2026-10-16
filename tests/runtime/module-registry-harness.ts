@@ -210,3 +210,46 @@ export async function createRegistryHarness(prefix: string, options: { synthetic
 }
 
 export type RegistryHarness = Awaited<ReturnType<typeof createRegistryHarness>>;
+
+/** Shipping tests use real routes and a non-bypass runtime role. Provider
+ * activation is an explicit local transaction, never a provider transport. */
+export async function shippingSettingsHarness(prefix:string){
+  const {hostedPaymentHarness}=await import('../e2e/hosted-payment-fixture.js');
+  const {randomBytes}=await import('node:crypto');
+  const {DEMO_PASSWORD}=await import('../../packages/testing/seed.js');
+  const {activateLogisticsService}=await import('../../modules/agent-commerce/payments/logistics-services.js');
+  const {bindStore}=await import('../../modules/agent-commerce/checkout/authority.js');
+  const {authenticate}=await import('../../modules/identity-membership/service.js');
+  const f=await hostedPaymentHarness(prefix,{randomContact:true});
+  type Store=Awaited<ReturnType<typeof f.x.store>>;
+  async function request(s:Store,method:string,path:string,body?:unknown,version?:string,session=s.owner,key=randomUUID()){
+    return f.x.h.call(method,s.root+path,session,body,{'Idempotency-Key':key,...(version===undefined?{}:{'If-Match':`"${version}"`})},f.app);
+  }
+  const expect=(r:Reply,status=200)=>{if(r.status!==status)throw Error(JSON.stringify({status:r.status,data:r.data}));return r.data;};
+  async function store(){const s=await f.x.store();const v=(await f.x.h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[s.instanceId])).rows[0].version;expect(await request(s,'POST','/upgrade',{},v));return s;}
+  async function fresh(s:Store,session=s.owner,purpose='commerce.provider_account.write'){
+    return expect(await f.x.h.call('POST','/me/high-risk-verifications',session,{tenant_id:s.tenantId,purpose,password:DEMO_PASSWORD},{'Idempotency-Key':randomUUID()},f.app),201).verification_id as string;
+  }
+  const actor=(s:Store,session=s.owner)=>authenticate(f.x.runtime,session.cookie.split('=')[1].split(';')[0]);
+  async function member(s:Store,caps:readonly string[],role:'admin'|'operator'|'viewer'='operator'){
+    const m=await f.x.h.person('合成成員'+randomBytes(3).toString('hex'));await f.x.h.fullMember(m.id,'guild_commerce_sales');
+    const principal=await f.x.h.candidate(s.owner,m.id);const invite=await f.x.h.invite(s.owner,s.tenantId,principal,role);await f.x.h.accept(m.session,s.tenantId,invite);
+    if(caps.length)await f.x.h.pool.query(`INSERT INTO tenant_module_permissions(tenant_id,principal_id,instance_id,capabilities,status,granted_by_principal_id)
+      SELECT $1,$2,$3,$4,'active',principal_id FROM principals WHERE user_ref=$5`,[s.tenantId,principal,s.instanceId,[...new Set(['store:read',...caps])],s.owner.user.user_id]);return {...m,principal};
+  }
+  async function provider(s:Store,keys:readonly import('../../modules/agent-commerce/fulfilment/rules/types.js').ServiceKey[]=[],active=false,credentials=true){
+    let account=expect(await request(s,'POST','/provider-accounts',{provider:'ecpay',environment:'sandbox',merchant_id:String(randomBytes(4).readUInt32BE()%9000000+1000000),fresh_auth_verification_id:await fresh(s)}),201);
+    if(credentials)account=expect(await request(s,'PUT',`/provider-accounts/${account.account_id}/services/logistics`,{profile:'ecpay.logistics.domestic.v1',hash_key:randomBytes(8).toString('hex'),hash_iv:randomBytes(8).toString('hex'),fresh_auth_verification_id:await fresh(s)},account.version));
+    for(const service_key of keys){
+      account=expect(await request(s,'POST',`/provider-accounts/${account.account_id}/logistics-services`,{service_key,fresh_auth_verification_id:await fresh(s)},account.version),201);
+      if(active){await f.x.tx(async q=>{await bindStore(q,s.tenantId);await activateLogisticsService(q,{accountId:account.account_id,serviceKey:service_key,activationRef:randomUUID()});});account=expect(await request(s,'GET','/provider-accounts')).items.find((a:{account_id:string})=>a.account_id===account.account_id);}
+    }
+    return account;
+  }
+  function locationInput(){const digits=String(randomBytes(4).readUInt32BE()).padStart(10,'0'),syllables=['星','禾','青','羽','松','月'];const pick=()=>syllables[randomBytes(1)[0]%syllables.length];return {label:'合成倉'+digits,sender_name:'合成'+pick()+pick(),mobile:'09'+digits.slice(-8),postal_code:'100',address:'合成'+pick()+pick()+'路'+digits+'號',ships:true,receives_returns:true};}
+  const document=()=>({schema:'freedom.shipping-profile/v1' as const,working_days:[1,2,3,4,5],services:[] as import('../../modules/agent-commerce/fulfilment/settings/profile.js').ShippingDocument['services'],delivery_options:[],drop_ship:null as import('../../modules/agent-commerce/fulfilment/settings/profile.js').ShippingDocument['drop_ship']});
+  const attributes=()=>({weight_g:100,length_mm:100,width_mm:100,height_mm:100,temperature:'ambient' as const,cvs_allowed:true,ship_alone:false,max_per_parcel:null as number|null});
+  return {f,request,expect,store,fresh,actor,member,provider,locationInput,document,attributes,reset:()=>f.reset(),stop:()=>f.stop()};
+}
+export type ShippingSettingsHarness=Awaited<ReturnType<typeof shippingSettingsHarness>>;
+export type ShippingTestStore=Awaited<ReturnType<ShippingSettingsHarness['store']>>;

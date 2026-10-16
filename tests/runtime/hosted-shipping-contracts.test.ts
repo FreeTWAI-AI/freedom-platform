@@ -50,6 +50,6 @@ test('shipping contracts enforce bounds, money granularity, paths and liability 
   for(const path of ['services.100.x','services.-1.x','services.0.x\n','a'.repeat(81)])assert(!wire.ShippingFieldErrorSchema.safeParse({path,code:'format'}).success);
   const base={offered:false,fees:[],return_location_id:randomUUID(),liability:'😀'.repeat(1000),recipient_retention_days:1,accept_within_hours:1};
   assert(wire.DropShipSchema.safeParse(base).success);
-  for(const liability of ['', ' ', 'x\t', 'a'.repeat(1001), '😀'.repeat(1001), '\ud800'])assert(!wire.DropShipSchema.safeParse({...base,liability}).success);
+  for(const liability of ['', ' ', 'x\ty', 'a'.repeat(1001), '😀'.repeat(1001), '\ud800'])assert(!wire.DropShipSchema.safeParse({...base,liability}).success);
   for(const fee of [-100,1,101,1000100])assert(!wire.DropShipFeeSchema.safeParse({service_key:SERVICE_KEYS[0],fee_per_parcel_minor:fee}).success);
 });
