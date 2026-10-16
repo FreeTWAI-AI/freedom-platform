@@ -19,8 +19,12 @@
     "tests/runtime/hosted-payment-handoff.test.ts",
     "tests/runtime/hosted-payment-notifications.test.ts",
     "tests/runtime/hosted-payment-canary.test.ts",
+    "tests/runtime/hosted-payment-queries.test.ts",
+    "tests/runtime/hosted-payment-repay.test.ts",
+    "tests/runtime/hosted-payment-activation.test.ts",
     "tests/e2e/hosted-payment.spec.ts",
-    "tests/e2e/hosted-payment-fixture.ts"
+    "tests/e2e/hosted-payment-fixture.ts",
+    "tests/e2e/hosted-payment-queries.spec.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/payments/rules/index.ts"

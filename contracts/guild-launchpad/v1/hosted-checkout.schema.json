@@ -811,7 +811,8 @@
                 "unpaid",
                 "pending",
                 "simulated",
-                "confirmed"
+                "confirmed",
+                "overpaid"
               ]
             },
             "latest_payment_attempt": {
@@ -1186,7 +1187,8 @@
             "unpaid",
             "pending",
             "simulated",
-            "confirmed"
+            "confirmed",
+            "overpaid"
           ]
         },
         "latest_payment_attempt": {
@@ -1417,6 +1419,11 @@
             "credential_kind_rejected",
             "payment_profile_unavailable",
             "payment_handoff_unavailable",
+            "checkout_order_closed",
+            "checkout_hold_expired",
+            "payment_already_applied",
+            "payment_attempts_exhausted",
+            "payment_result_pending",
             "internal_error",
             "invalid_json",
             "origin_rejected",

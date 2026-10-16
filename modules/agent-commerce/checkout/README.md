@@ -182,6 +182,7 @@ off, the host is quarantined or store admission is withdrawn.
 | `consents_mismatch` | 422 | Freeze consent set differs from current required policies |
 | `terms_changed`, `checkout_expired` | 409 | Recompute or checkout deadline prevents placement |
 | `payment_profile_unavailable`, `payment_handoff_unavailable` | 409 | Unsupported credit terms or no resumable one-time handoff |
+| `checkout_order_closed`, `checkout_hold_expired`, `payment_already_applied`, `payment_attempts_exhausted`, `payment_result_pending` | 409 | Closed-list codes for order and payment conflicts in cancellation, re-pay and on-demand payment queries; no route emits them yet |
 | `stock_unavailable` | 409 | Per-SKU available quantities accompany the error |
 | `unresolved_order` | 409 | Existing unpaid order reference accompanies the error |
 | `too_many_open_orders` | 429 | Device or normalized email has three open orders at this store; database-clock Retry-After |

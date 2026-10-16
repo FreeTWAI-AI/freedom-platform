@@ -37,7 +37,8 @@ export function recordPaymentBrowserReturn(pool: Pool, input: {
       await scheduleDueWork(q, { tenantId: a.tenant_id, instanceId: a.instance_id, kind: 'payment_query', targetId: input.attemptId, dueAt: (await q.query('SELECT clock_timestamp()::text AS t')).rows[0].t });
   });
 }
-export function paymentBackLocation(pool: Pool, attemptId: string): Promise<string | null> {
+/** The order and current store slug of a retained order attempt. Reads only. */
+function orderAttemptStore(pool: Pool, attemptId: string): Promise<{ slug: string; orderId: string } | null> {
   return isolatedTransaction(pool, async (q) => {
     const a = (await q.query("SELECT tenant_id,instance_id,order_id FROM commerce_payment_attempts WHERE attempt_id=$1 AND kind='order'", [attemptId])).rows[0];
     if (!a)
@@ -45,6 +46,16 @@ export function paymentBackLocation(pool: Pool, attemptId: string): Promise<stri
     await clearTenantContext(q);
     await bindStore(q, a.tenant_id);
     const store = (await q.query('SELECT slug FROM commerce_storefront_profiles WHERE tenant_id=$1 AND instance_id=$2', [a.tenant_id, a.instance_id])).rows[0];
-    return store?.slug ? `/shops/${store.slug}/orders/${a.order_id}` : null;
+    return store?.slug ? { slug: store.slug, orderId: a.order_id } : null;
   });
+}
+export async function paymentBackLocation(pool: Pool, attemptId: string): Promise<string | null> {
+  const found = await orderAttemptStore(pool, attemptId);
+  return found ? `/shops/${found.slug}/orders/${found.orderId}` : null;
+}
+/** The B06 page resolves only an order attempt of the store with this slug; any
+ * other attempt reads as missing. Binds no buyer or member identity. */
+export async function resolvePaymentReturn(pool: Pool, slug: string, attemptId: string): Promise<{ order_ref: string } | null> {
+  const found = await orderAttemptStore(pool, attemptId);
+  return found?.slug === slug ? { order_ref: found.orderId } : null;
 }

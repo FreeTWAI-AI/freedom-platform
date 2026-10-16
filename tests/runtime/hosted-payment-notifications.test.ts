@@ -9,6 +9,7 @@ import { sealCredential } from '../../modules/agent-commerce/payments/credential
 import { bindStore, lockMachineOrder } from '../../modules/agent-commerce/checkout/authority.js';
 import { cancelUnpaidOrder, lockCheckoutOrders } from '../../modules/agent-commerce/checkout/orders.js';
 import { scheduleDueWork } from '../../modules/agent-commerce/operations/due-work.js';
+import { resolvePaymentReturn } from '../../modules/agent-commerce/payments/browser-return.js';
 import { publicOrder } from '../../modules/agent-commerce/checkout/public-order.js';
 import { formatTaipeiDateTime } from '../../modules/agent-commerce/providers/ecpay/aio-credit/index.js';
 import { settleDueCheckoutHolds, sweepDueCheckoutHolds } from '../../modules/agent-commerce/checkout/settlement.js';
@@ -582,6 +583,13 @@ test('back links resolve only retained order attempts and have no payment side e
     assert.equal(missing.status, 404);
     assert.match(missing.response.headers.get('Content-Type')!, /text\/html/);
   }
+});
+test('payment returns resolve only order attempts of the named store and write nothing', async () => {
+  const p = await f.placed(), other = await f.x.store(1, false), activation = await anotherAttempt(p, 1, 'service_activation'), before = await facts(p);
+  assert.deepEqual(await resolvePaymentReturn(f.x.runtime, p.s.slug, p.payment.attempt_ref), { order_ref: p.order.order_ref });
+  for (const [slug, id] of [[other.slug, p.payment.attempt_ref], [p.s.slug, activation.payment.attempt_ref], [p.s.slug, randomUUID()]])
+    assert.equal(await resolvePaymentReturn(f.x.runtime, slug, id), null);
+  assert.deepEqual(await facts(p), before);
 });
 async function buyerView(p: Placed) { const r = await f.http('GET', f.root(p.s) + '/orders/' + p.order.order_ref, undefined, p.cookie); assert.equal(r.status, 200, JSON.stringify(r.data)); return r.data; }
 test('buyer payment state orders confirmed above pending above simulated above unpaid', async () => {
