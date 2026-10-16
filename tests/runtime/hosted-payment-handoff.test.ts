@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+import { syncBuiltinESMExports } from 'node:module';
 import { CommerceCredentialKeyring } from '../../modules/agent-commerce/payments/credentials.js';
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -563,3 +565,26 @@ for (const mode of ['paid', 'failed', 'pending', 'simulated', 'delayed'] as cons
     const a = (await f.x.h.pool.query('SELECT state FROM commerce_payment_attempts WHERE attempt_id=$1', [p.payment.attempt_ref])).rows[0];
     assert.equal(a.state, mode === 'paid' || mode === 'delayed' ? 'paid' : mode === 'failed' ? 'failed' : 'issued');
   });
+
+
+test('review 5: twenty buyer DTO reads never unseal credentials and a handoff unseals once', async () => {
+  const p = await f.placed(), original = crypto.createDecipheriv;
+  let unseals = 0;
+  crypto.createDecipheriv = ((...args: Parameters<typeof original>) => { unseals++; return original(...args); }) as typeof original;
+  syncBuiltinESMExports();
+  try {
+    for (let i = 0; i < 20; i++) {
+      const dto = expect(await f.http('GET', f.root(p.s) + '/orders/' + p.order.order_ref, undefined, p.cookie), 200);
+      assert.equal(dto.can_resume_payment, true);
+    }
+    assert.equal(unseals, 0);
+    assert.equal((await page(p.payment.handoff_url)).status, 200);
+    assert.equal(unseals, 1);
+  } finally { crypto.createDecipheriv = original; syncBuiltinESMExports(); }
+});
+
+test('review 5: one payment summary cannot mix orders from different stores', async () => {
+  const a = await f.placed(), b = await f.placed();
+  await assert.rejects(f.x.tx(q => f.runtime.commercePorts!.payment!.summarize(q, [a.order.order_ref, b.order.order_ref])),
+    { message: 'payment_summary_scope_invalid' });
+});

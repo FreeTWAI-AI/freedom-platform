@@ -26,8 +26,8 @@ export interface HandoffGate {
   message: string;
 }
 const gate = (status: HandoffGate['status'], code: string, message: string) => ({ status, code, message });
-/** Read-only eligibility is shared by token issuance, the handoff page and the buyer summary. */
-export async function inspectOrderHandoff(q: PoolClient, attemptId: string, options: PaymentAttemptOptions) {
+/** Read-only gates never load credentials or provider entry routes. */
+export async function inspectOrderHandoffGate(q: PoolClient, attemptId: string, options: PaymentAttemptOptions) {
   const attempt = (await q.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1', [attemptId])).rows[0];
   if (!attempt)
     return { failure: gate(410, 'payment_handoff_unavailable', '付款連結已失效。') } as const;
@@ -62,13 +62,21 @@ export async function inspectOrderHandoff(q: PoolClient, attemptId: string, opti
     return { failure: gate(410, 'payment_handoff_unavailable', '已前往付款頁。要重新付款，請回到訂單頁。') } as const;
   if (!options.keyring)
     return { failure: gate(503, 'payment_handoff_unavailable', '付款服務暫時無法使用。') } as const;
+  return { attempt, order, store, gateway: options.gateway, keyring: options.keyring, failure: null } as const;
+}
+/** Only token issuance and the handoff page need credential material and URLs. */
+export async function inspectOrderHandoff(q: PoolClient, attemptId: string, options: PaymentAttemptOptions) {
+  const context = await inspectOrderHandoffGate(q, attemptId, options);
+  if (context.failure)
+    return context;
+  const { attempt, gateway, keyring } = context;
   try {
-    const credentials = await loadServiceCredentials(q, options.keyring, { accountId: attempt.account_id, purpose: 'payment', credentialVersion: attempt.credential_version });
+    const credentials = await loadServiceCredentials(q, keyring, { accountId: attempt.account_id, purpose: 'payment', credentialVersion: attempt.credential_version });
     const route = (await q.query(`SELECT route_key FROM commerce_entry_routes WHERE route_kind='provider_account' AND target_id=$1 AND revoked_at IS NULL`, [attempt.account_id])).rows[0];
     if (!route)
       throw Error();
-    const urls = paymentGatewayUrls(options.gateway, { accountRef: route.route_key, attemptId });
-    return { attempt, order, store, credentials, accountRef: route.route_key as string, urls, gateway: options.gateway, failure: null } as const;
+    const urls = paymentGatewayUrls(gateway, { accountRef: route.route_key, attemptId });
+    return { ...context, credentials, accountRef: route.route_key as string, urls } as const;
   }
   catch {
     return { failure: gate(503, 'payment_handoff_unavailable', '付款服務暫時無法使用。') } as const;
@@ -127,7 +135,7 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
           await scheduleDueWork(q, { tenantId: a.tenant_id, instanceId: a.instance_id, kind: 'payment_query', targetId: a.attempt_id, dueAt: a.query_due });
     },
     async summarize(q, orderIds) {
-      const rows = (await q.query(`SELECT co.order_id,${confirmedPaymentSQL('co.order_id')} AS confirmed,
+      const rows = (await q.query(`SELECT co.order_id,co.tenant_id,co.instance_id,${confirmedPaymentSQL('co.order_id')} AS confirmed,
         EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome='simulated') AS simulated,
         EXISTS(SELECT 1 FROM commerce_hosted_payment_events e JOIN commerce_payment_attempts a USING(attempt_id) WHERE a.order_id=co.order_id AND e.source='notification' AND e.outcome='paid' AND e.applied_at IS NULL) AS unapplied_paid,
         a.attempt_id,a.state,a.created_at,a.handed_off_at,
@@ -136,11 +144,14 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
         (a.state='issued' AND a.created_at+interval '60 minutes'>clock_timestamp() AND EXISTS(SELECT 1 FROM commerce_hosted_payment_events e WHERE e.attempt_id=a.attempt_id AND e.source='browser_return')) AS returned
         FROM commerce_checkout_orders co LEFT JOIN LATERAL (SELECT * FROM commerce_payment_attempts WHERE order_id=co.order_id ORDER BY sequence DESC LIMIT 1) a ON true
         WHERE co.order_id=ANY($1::uuid[]) ORDER BY co.order_id`, [orderIds])).rows;
+      if (rows.some(row => row.tenant_id !== rows[0].tenant_id || row.instance_id !== rows[0].instance_id))
+        throw Error('payment_summary_scope_invalid');
       const summaries = new Map<string, CheckoutPaymentSummary>();
       for (const row of rows) {
+        await bindStore(q, row.tenant_id);
         const payment_state = row.confirmed ? 'confirmed' : row.unapplied_paid || row.pending_confirmation || row.returned ? 'pending' : row.simulated ? 'simulated' : 'unpaid';
         const state = row.state === 'issued' ? (row.handed_off_at ? 'awaiting_result' : 'ready') : ['paid', 'confirmed'].includes(row.state) ? 'paid' : row.state === 'failed' ? 'failed' : 'expired';
-        const canResume = Boolean(row.attempt_id && !(await inspectOrderHandoff(q, row.attempt_id, options)).failure);
+        const canResume = Boolean(row.attempt_id && !(await inspectOrderHandoffGate(q, row.attempt_id, options)).failure);
         summaries.set(row.order_id, { payment_state, latest_payment_attempt: row.attempt_id ? { attempt_ref: row.attempt_id, state, created_at: row.created_at.toISOString() } : null, can_resume_payment: canResume });
       }
       return summaries;

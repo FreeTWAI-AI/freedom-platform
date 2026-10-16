@@ -75,7 +75,10 @@ inventory. The network limit still verifies and redirects but suppresses writes.
 Quarantine also suppresses writes. `GET /pay/ecpay/back/{attempt_id}` reads the
 stored store slug and redirects to its order without effects. Buyer summaries
 expose only confirmed/pending/simulated/unpaid, a coarse latest-attempt state and
-whether resume is currently available.
+whether resume is currently available. Summary reads run eligibility gates through
+keyring presence without unsealing credentials or reading provider routes; actual
+token issuance and handoff build the credential context. Each summary batch must
+belong to one tenant and instance.
 
 ## Next slices
 

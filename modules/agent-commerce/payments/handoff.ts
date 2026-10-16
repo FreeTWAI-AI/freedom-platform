@@ -7,7 +7,7 @@ import { hashKey } from '../checkout/terms.js';
 import { chargeCommerceBudgets } from '../checkout/limits.js';
 import type { EffectJournalPort } from '../operations/journal/journal.js';
 import { buildCreditCheckoutForm } from '../providers/ecpay/aio-credit/index.js';
-import { inspectOrderHandoff, type PaymentAttemptOptions } from './attempts.js';
+import { inspectOrderHandoff, inspectOrderHandoffGate, type PaymentAttemptOptions } from './attempts.js';
 import { handoffErrorPage, handoffFormPage } from './handoff-page.js';
 export const HANDOFF_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 export const isPaymentHandoffPath = (path: string) => /^\/pay\/ecpay\/[A-Za-z0-9_-]{43}$/.test(path);
@@ -86,7 +86,7 @@ export async function servePaymentHandoff(pool: Pool, token: string, network: st
     const current = (await q.query(`SELECT *,expires_at>clock_timestamp() AS live FROM commerce_entry_routes WHERE route_kind='payment_handoff' AND route_key=$1 FOR UPDATE`, [route.route_key])).rows[0];
     if (!current || current.revoked_at || !current.live || attempt.state !== 'issued' || attempt.handed_off_at || !attempt.journaled_at)
       return null;
-    const gate = await inspectOrderHandoff(q, route.target_id, options);
+    const gate = await inspectOrderHandoffGate(q, route.target_id, options);
     if (gate.failure)
       return { failure: gate.failure };
     await q.query(`UPDATE commerce_entry_routes SET revoked_at=clock_timestamp() WHERE route_kind='payment_handoff' AND route_key=$1`, [route.route_key]);
