@@ -120,7 +120,7 @@ order access depends on that identity or access grants, never this label.
 | `computeCheckoutTerms(q, store, input, ports?)` | Validate 1–50 unique SKUs, quantities 1–99; resolve current server prices/consent and quote shipping; return terms/hash using a fresh ephemeral contact salt. |
 | `freezeCheckout(q, store, input, ports?)` | Create or revise the draft and insert a contact; replay equal keyed content, conflict on different content. |
 | `placeCheckoutOrder(q, store, input, ports?)` | Require admission, settle bounded due holds, recompute terms and atomically create order/lines/sidecar/holds; report every SKU's available quantity on shortage. |
-| `cancelUnpaidOrder(q, store, orderId, actor, reason, ports?)` | Open and no confirmed payment only; release holds, invoke the optional payment cancellation hook in the same transaction and cancel once; repeat cancellation returns the current sidecar and reconciles the hook. |
+| `cancelUnpaidOrder(q, store, orderId, actor, reason, ports?)` | Open and no confirmed payment only; release holds, invoke the optional payment cancellation hook in the same transaction and cancel once; repeat cancellation returns the current sidecar without invoking the hook or scheduling work. |
 | `settleDueCheckoutHolds(q, itemIds, bounds?)` | Release due checkout holds, keeping orders open; at most 50 items and 99 orders per item. |
 | `sweepDueCheckoutHolds(pool, {limit?})` | Process at most 200 selected orders with isolated machine transactions; no cron registration. |
 | `applyConfirmedPayment(q, input)` | Deduplicate verified payment reference; record simulated/mismatch/after-cancel/overpaid or convert/allocate/unallocatable atomically. |

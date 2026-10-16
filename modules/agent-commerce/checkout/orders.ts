@@ -99,7 +99,7 @@ export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId
   if(actor==='system')await lockMachineOrder(q,orderId);
   else await lockStore(q,store,[],[orderId],false);
   const [row]=await lockCheckoutOrders(q,[orderId],store);
-  if(row.lifecycle_state==='cancelled'){await ports.payment?.onOrdersCancelled(q,[orderId]);return row;}
+  if(row.lifecycle_state==='cancelled')return row;
   requireCondition(row.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
   requireCondition(!await hasConfirmedPayment(q,orderId),409,'payment_already_applied','訂單已有付款紀錄。');
   await (await checkoutInventory(q,orderId)).releaseHolds();

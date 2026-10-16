@@ -588,3 +588,17 @@ test('review 5: one payment summary cannot mix orders from different stores', as
   await assert.rejects(f.x.tx(q => f.runtime.commercePorts!.payment!.summarize(q, [a.order.order_ref, b.order.order_ref])),
     { message: 'payment_summary_scope_invalid' });
 });
+
+
+test('review 6: a cancelled-order replay leaves due-work timestamps and entry routes unchanged', async () => {
+  const p = await f.placed();
+  assert.equal((await page(p.payment.handoff_url)).status, 200);
+  const cancel = () => f.x.tx(q => cancelUnpaidOrder(q, p.s, p.order.order_ref, 'buyer', 'buyer_cancelled', f.runtime.commercePorts));
+  const snapshot = async () => ({
+    due: (await f.x.h.pool.query('SELECT *,due_at::text AS exact_due,updated_at::text AS exact_updated FROM commerce_due_work WHERE target_id=$1 ORDER BY kind', [p.payment.attempt_ref])).rows,
+    routes: (await f.x.h.pool.query("SELECT *,revoked_at::text AS exact_revoked FROM commerce_entry_routes WHERE route_kind='payment_handoff' AND target_id=$1 ORDER BY route_key", [p.payment.attempt_ref])).rows
+  });
+  const cancelled = await cancel(), before = await snapshot();
+  assert.deepEqual(await cancel(), cancelled);
+  assert.deepEqual(await snapshot(), before);
+});
