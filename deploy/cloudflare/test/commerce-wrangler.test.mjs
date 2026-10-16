@@ -48,3 +48,35 @@ test('each environment with provider profiles must declare its own journal bindi
   for(const declaration of [{vars},{vars,r2_buckets:[]},{vars,r2_buckets:[{binding:'MEDIA'}]},{vars,r2_buckets:{}},{r2_buckets,env:{next:{vars}}}])assert(check(declaration).errors.includes('commerce_journal_binding_required'));
   assert.equal(check({env:{next:{vars,r2_buckets}}}).structural,true);
 });
+
+
+const paymentBlock = bucket => ({ vars: { FREEDOM_COMMERCE_PROVIDER_PROFILES: 'ecpay.aio.credit.v1' }, r2_buckets: [{ binding: 'COMMERCE_JOURNAL', bucket_name: bucket }] });
+test('review 15: journal buckets cannot repeat across environment blocks', () => {
+  for (const config of [
+    { env: { staging: paymentBlock('synthetic-shared-journal'), public: paymentBlock('synthetic-shared-journal') } },
+    { ...paymentBlock('synthetic-shared-journal'), env: { staging: paymentBlock('synthetic-shared-journal') } }
+  ]) {
+    const result = check(config);
+    assert.equal(result.structural, false);
+    assert(result.errors.includes('commerce_journal_bucket_reused'));
+    assert(!JSON.stringify(result).includes('synthetic-shared-journal'));
+  }
+});
+test('review 15: journal buckets cannot be any other R2 binding bucket in any block', () => {
+  for (const sameBlock of [false, true]) {
+    const config = { env: { staging: paymentBlock('synthetic-journal'), public: paymentBlock('synthetic-public-journal') } };
+    const block = sameBlock ? config.env.staging : config.env.public;
+    block.r2_buckets.push({ binding: 'MEDIA', bucket_name: 'synthetic-journal' });
+    const result = check(config);
+    assert.equal(result.structural, false);
+    assert(result.errors.includes('commerce_journal_bucket_shared'));
+    assert(!JSON.stringify(result).includes('synthetic-journal'));
+  }
+});
+test('review 15: distinct journal buckets and media buckets pass across environments', () => {
+  const config = { ...paymentBlock('synthetic-local-journal'), env: { staging: paymentBlock('synthetic-staging-journal'), public: paymentBlock('synthetic-public-journal') } };
+  config.r2_buckets.push({ binding: 'MEDIA', bucket_name: 'synthetic-local-media' });
+  config.env.staging.r2_buckets.push({ binding: 'MEDIA', bucket_name: 'synthetic-staging-media' });
+  config.env.public.r2_buckets.push({ binding: 'MEDIA', bucket_name: 'synthetic-public-media' });
+  assert.deepEqual(check(config).errors, []);
+});

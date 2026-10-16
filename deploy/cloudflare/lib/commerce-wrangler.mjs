@@ -28,5 +28,12 @@ export function checkCommerceWranglerConfig(path) {
     }
     if(vars.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&vars.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')errors.push('commerce_launchpad_required');
   }
+  // R2 declarations are environment-local; journal history must neither share
+  // another environment's namespace nor enter any other binding's backup set.
+  const buckets=blocks.flatMap((block,index)=>Array.isArray(block?.r2_buckets)
+    ?block.r2_buckets.filter(b=>b&&typeof b==='object'&&typeof b.bucket_name==='string').map(b=>({...b,blockIndex:index})):[]);
+  const journals=buckets.filter(b=>b.binding==='COMMERCE_JOURNAL');
+  if(journals.some(j=>journals.some(other=>other.blockIndex!==j.blockIndex&&other.bucket_name===j.bucket_name)))errors.push('commerce_journal_bucket_reused');
+  if(journals.some(j=>buckets.some(other=>other.binding!=='COMMERCE_JOURNAL'&&other.bucket_name===j.bucket_name)))errors.push('commerce_journal_bucket_shared');
   return report();
 }

@@ -140,7 +140,8 @@ Wrangler 檢查會要求同一設定區塊宣告 `binding: "COMMERCE_JOURNAL"` �
 R2 日誌，非空清單會使啟動失敗；只有本機 E2E 使用記憶體日誌與合成付款閘道。
 
 `COMMERCE_JOURNAL` bucket 由 Ted 另行建立，每個環境各一個，啟用 bucket lock，
-保存期至少 60 天。日誌使用條件式建立與固定 UTC 路徑，保留付款交接及控制事件的
+保存期至少 60 天。Wrangler 預檢拒絕跨環境重複的日誌 bucket 名稱，也拒絕與任何
+環境的其他 R2 binding（含媒體）共用 bucket。日誌使用條件式建立與固定 UTC 路徑，保留付款交接及控制事件的
 小型允許欄位，不含個資、原始通知或金鑰。只有列出 profile 的環境才加入 binding；
 bucket 尚未建立，因此本次不在 `wrangler.jsonc` 加入變數或 binding。帳戶、服務、
 商店准入與 checkout 開關仍須各自完成，列出 profile 不授予付款或部署權限。
