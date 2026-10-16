@@ -43,6 +43,6 @@ const slugs=['fulfilment','shipments','customers','support','storefront','produc
 /** Dispatch only: never rewrites the hash or enters Supplier Console paths. */
 export function sellerSlugFallback(hash:string):(SellerScope & {orders:boolean})|null {
  const {p}=parts(hash),s=scope(p);if(!s||p.length<4)return null;
- if(p[3]==='orders')return p.length>=5&&p.slice(4).every(v=>OpaqueId.safeParse(v).success||v==='reservations')?{...s,orders:true}:null;
+ if(p[3]==='orders')return p.length>=5&&(OpaqueId.safeParse(p[4]).success||p[4]==='reservations')?{...s,orders:true}:null;
  return slugs.includes(p[3])?{...s,orders:false}:null;
 }

@@ -14,6 +14,7 @@ export function Exceptions({c,route,manage}:{c:Controller;route:SellerConsoleRou
 function Evidence({c,d}:{c:Controller;d:ExceptionCaseView}){
  const [code,setCode]=useState('');
  useEffect(()=>()=>c.markDirty('evidence-code',false),[c.markDirty]);
+ useEffect(()=>{if(code&&!d.resolution_codes.some(value=>value===code)){setCode('');c.markDirty('evidence-code',false);}},[code,d.resolution_codes,c.markDirty]);
  return <div className="stack"><label className="field">處理結果<select aria-label="處理結果" disabled={c.locked} value={code} onChange={e=>{setCode(e.target.value);c.markDirty('evidence-code',!!e.target.value);}}><option value="">請選擇</option>{d.resolution_codes.map(value=><option value={value} key={value}>{words.resolution[value]}</option>)}</select></label>{code&&<Editor key={code} c={c} name="evidence" label="登錄處理結果" fields={code==='confirmed'?[]:[{name:'provider_date',label:'處理日期',type:'date',required:true},{name:'provider_reference',label:'綠界參考編號',required:true,pattern:/^[A-Za-z0-9_-]{1,64}$/}]} onSubmit={(v,clear)=>{const body=ResolveWithEvidenceInputSchema.parse({code,...v});c.command({label:'登錄處理結果',path:c.root+'/exception-cases/'+d.case_ref+'/actions/resolve_with_evidence',body,ifMatch:d.version,schema:ExceptionCaseViewSchema,match:v=>(v as ExceptionCaseView).case_ref===d.case_ref,settled:ok=>{if(ok){clear();setCode('');c.markDirty('evidence-code',false);}}});}}/>}</div>;
 }
 export function ExceptionDetail({c,route,manage}:{c:Controller;route:SellerConsoleRoute;manage:boolean}){

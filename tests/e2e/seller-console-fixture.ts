@@ -20,7 +20,7 @@ export const test=base.extend({baseURL:async({e2eAuthPool},use)=>{
  app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));await use(origin);
  }finally{if('closeAllConnections' in server)server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
 }});
-export async function openSeller(page:Page,origin:string,email:string,hash:string){await page.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());await apiLogin(page.context(),origin,email);await page.goto('/'+hash);await expect(page.locator('.seller-console')).toBeVisible();await expect(page.locator('.seller-business-bar')).not.toContainText('商店資料');}
+export async function openSeller(page:Page,origin:string,email:string,hash:string){await page.route('**/*',r=>new URL(r.request().url()).origin===origin?r.fallback():r.abort());await apiLogin(page.context(),origin,email);await page.goto('/'+hash);await expect(page.locator('.seller-console')).toBeVisible();await expect(page.locator('.seller-business-bar')).not.toContainText('商店資料');}
 export async function command(context:BrowserContext,origin:string,csrf:string,path:string,body:unknown={},version?:string,method='POST'){
  const r=await context.request.fetch('/api/v1'+path,{method,data:body,headers:{Origin:origin,'X-CSRF-Token':csrf,'Idempotency-Key':randomUUID(),...(version?{'If-Match':`"${version}"`}:{})}});expect(r.ok(),await r.text()).toBeTruthy();return r.json();
 }
