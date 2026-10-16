@@ -291,3 +291,21 @@ test('a cancellation hook failure rolls back hold release, token revocation and 
   await assert.rejects(f.x.tx(q=>cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled',{payment:{...payment,async onOrdersCancelled(q,ids){await payment.onOrdersCancelled(q,ids);throw Error('synthetic_hook_failure');}}})),{message:'synthetic_hook_failure'});
   await unused(p.payment.attempt_ref);assert.equal((await f.x.h.pool.query('SELECT lifecycle_state FROM commerce_checkout_orders WHERE order_id=$1',[p.order.order_ref])).rows[0].lifecycle_state,'open');assert.equal((await f.x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[p.s.product.product_id])).rows[0].reserved,5);
 });
+const buyerOrder=(p:Awaited<ReturnType<typeof f.placed>>)=>f.http('GET',f.root(p.s)+'/orders/'+p.order.order_ref,undefined,p.cookie);
+test('buyer summaries expose only the latest attempt and agree with token resumption',async()=>{
+  const p=await f.placed();let value=expect(await buyerOrder(p),200);assert.equal(value.payment_state,'unpaid');assert.deepEqual(value.latest_payment_attempt,{attempt_ref:p.payment.attempt_ref,state:'ready',created_at:(await f.x.h.pool.query('SELECT created_at FROM commerce_payment_attempts WHERE attempt_id=$1',[p.payment.attempt_ref])).rows[0].created_at.toISOString()});assert.equal(value.can_resume_payment,true);expect(await resume(p),201);
+  const fresh=expect(await resume(p),201);assert.equal((await page(fresh.handoff_url)).status,200);value=expect(await buyerOrder(p),200);assert.equal(value.latest_payment_attempt.state,'awaiting_result');assert.equal(value.can_resume_payment,false);expect(await resume(p),409,'payment_handoff_unavailable');
+  assert.deepEqual(Object.keys(value.latest_payment_attempt).sort(),['attempt_ref','created_at','state']);for(const field of ['account_id','merchant_id','trade_no','amount_received','exceptions','credential_version'])assert(!JSON.stringify(value).includes(field));
+});
+for(const state of ['failed','expired_unpaid','paid','confirmed'] as const)test(`buyer summary maps ${state} to the closed buyer state vocabulary`,async()=>{
+  const p=await f.placed();if(state==='confirmed')await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[p.payment.attempt_ref]);
+  await f.x.h.pool.query(`UPDATE commerce_payment_attempts SET state=$2,${state==='expired_unpaid'?'expired':state}_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1`,[p.payment.attempt_ref,state]);
+  const value=expect(await buyerOrder(p),200);assert.equal(value.latest_payment_attempt.state,state==='expired_unpaid'?'expired':state==='confirmed'?'paid':state);assert.equal(value.payment_state,'unpaid');assert.equal(value.can_resume_payment,false);expect(await resume(p),409);
+});
+for(const gate of ['quarantine','checkout_off','service_suspended','admission_revoked','keyring_missing'] as const)test(`buyer can_resume_payment agrees with the resume endpoint under ${gate}`,async()=>{
+  const p=await f.placed();if(gate==='quarantine')f.settings.quarantine=true;if(gate==='checkout_off')f.settings.checkoutEnabled=false;
+  if(gate==='keyring_missing')f.install({commerceCredentialKeyring:null});
+  if(gate==='service_suspended')await f.x.tx(async q=>{await f.runtime.commercePorts!.admission!.allowed(q,p.s);await q.query("UPDATE commerce_provider_account_services SET state='suspended',version=version+1,updated_at=clock_timestamp() WHERE account_id=$1",[p.provider.accountId]);});
+  if(gate==='admission_revoked')await f.x.h.pool.query("UPDATE commerce_store_admissions SET revoked_at=clock_timestamp(),revoked_by=(SELECT admin_id FROM platform_admins LIMIT 1),revoke_reason='合成撤銷' WHERE admission_id=$1",[p.provider.admissionId]);
+  const value=expect(await buyerOrder(p),200);assert.equal(value.can_resume_payment,false);assert.notEqual((await resume(p)).status,201);
+});

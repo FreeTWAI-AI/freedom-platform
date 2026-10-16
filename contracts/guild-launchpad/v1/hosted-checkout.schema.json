@@ -809,8 +809,51 @@
               "type": "string",
               "enum": [
                 "unpaid",
+                "pending",
+                "simulated",
                 "confirmed"
               ]
+            },
+            "latest_payment_attempt": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "attempt_ref": {
+                      "type": "string",
+                      "minLength": 36,
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "awaiting_result",
+                        "paid",
+                        "failed",
+                        "expired"
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                    }
+                  },
+                  "required": [
+                    "attempt_ref",
+                    "state",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "can_resume_payment": {
+              "type": "boolean"
             },
             "contact": {
               "anyOf": [
@@ -898,6 +941,8 @@
             "shipping_total_minor",
             "total_minor",
             "payment_state",
+            "latest_payment_attempt",
+            "can_resume_payment",
             "contact",
             "delivery",
             "invoice",
@@ -1139,8 +1184,51 @@
           "type": "string",
           "enum": [
             "unpaid",
+            "pending",
+            "simulated",
             "confirmed"
           ]
+        },
+        "latest_payment_attempt": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "attempt_ref": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "ready",
+                    "awaiting_result",
+                    "paid",
+                    "failed",
+                    "expired"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                }
+              },
+              "required": [
+                "attempt_ref",
+                "state",
+                "created_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "can_resume_payment": {
+          "type": "boolean"
         },
         "contact": {
           "anyOf": [
@@ -1228,6 +1316,8 @@
         "shipping_total_minor",
         "total_minor",
         "payment_state",
+        "latest_payment_attempt",
+        "can_resume_payment",
         "contact",
         "delivery",
         "invoice",

@@ -119,13 +119,13 @@ export async function placePublicOrder(pool:Pool,slug:string,checkoutRef:string,
     // Access may expire while waiting on inventory, policy or issuance locks.
     if(!await hasDeviceGrant(q,device!.device_id,checkoutRef))orderAccessNotFound();
     await currentMember(q,identity);
-    return {created:!replay,value:wire.PlaceOrderResponseSchema.parse({order:await publicOrder(q,store,saved.order_id),payment})};
+    return {created:!replay,value:wire.PlaceOrderResponseSchema.parse({order:await publicOrder(q,store,saved.order_id,options.payment),payment})};
   });
 }
 export async function readPublicOrder(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions) {
   return isolatedTransaction(pool,async q=>{
     const authorized=await authorizePublicOrder(q,slug,orderRef,access,options);
-    const value=await publicOrder(q,authorized.store,orderRef);await authorized.recheck();return value;
+    const value=await publicOrder(q,authorized.store,orderRef,options.payment);await authorized.recheck();return value;
   });
 }
 /** Reads and handoff resumption use one buyer-access proof and decision-clock recheck. */
@@ -161,7 +161,7 @@ export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,to
     const redeemed=await redeemAccessLink(q,{tenant_id:store.tenantId,instance_id:store.instanceId,order_id:orderRef},token);
     const ensured=await ensureDevice(q,access.deviceToken,options.origin);
     await grantDevice(q,ensured.device.device_id,{tenant_id:store.tenantId,instance_id:store.instanceId,checkout_id:redeemed.checkout_id},orderRef);
-    const value=await publicOrder(q,store,orderRef);await assertDeviceLive(q,ensured.device.device_id);
+    const value=await publicOrder(q,store,orderRef,options.payment);await assertDeviceLive(q,ensured.device.device_id);
     return {cookie:ensured.cookie,value};
   });
 }

@@ -256,3 +256,24 @@ test('back links resolve only retained order attempts and have no payment side e
   const p=await f.placed(),before=await facts(p),r=await post('/pay/ecpay/back/'+p.payment.attempt_ref,'',{},'GET');assert.equal(r.status,303);assert.equal(r.response.headers.get('Location'),`/shops/${p.s.slug}/orders/${p.order.order_ref}`);assert.deepEqual(await facts(p),before);
   const activation=await anotherAttempt(p,1,'service_activation');for(const id of [activation.payment.attempt_ref,randomUUID(),'invalid']){const missing=await post('/pay/ecpay/back/'+id,'',{},'GET');assert.equal(missing.status,404);assert.match(missing.response.headers.get('Content-Type')!,/text\/html/);}
 });
+async function buyerView(p:Placed){const r=await f.http('GET',f.root(p.s)+'/orders/'+p.order.order_ref,undefined,p.cookie);assert.equal(r.status,200,JSON.stringify(r.data));return r.data;}
+test('buyer payment state orders confirmed above pending above simulated above unpaid',async()=>{
+  const p=await f.placed();assert.equal((await buyerView(p)).payment_state,'unpaid');
+  await ack(await post(path(p),await body(p,{SimulatePaid:'1'})));let view=await buyerView(p);assert.equal(view.payment_state,'simulated');assert.equal(view.latest_payment_attempt.state,'ready');
+  await post(returnPath(p),await body(p));view=await buyerView(p);assert.equal(view.payment_state,'pending');
+  await ack(await post(path(p),await body(p)));view=await buyerView(p);assert.equal(view.payment_state,'confirmed');assert.equal(view.latest_payment_attempt.state,'paid');assert.equal(view.can_resume_payment,false);
+});
+test('a quarantined verified paid event projects pending before application',async()=>{
+  const p=await f.placed();f.settings.quarantine=true;await ack(await post(path(p),await body(p)));const view=await buyerView(p);assert.equal(view.payment_state,'pending');assert.equal(view.latest_payment_attempt.state,'ready');assert.equal(view.can_resume_payment,false);
+});
+test('pending confirmation on the latest attempt ends on a later failure',async()=>{
+  const p=await f.placed();await ack(await post(path(p),await body(p,{RtnCode:'10300066'})));assert.equal((await buyerView(p)).payment_state,'pending');await ack(await post(path(p),await body(p,{RtnCode:'0'})));const view=await buyerView(p);assert.equal(view.payment_state,'unpaid');assert.equal(view.latest_payment_attempt.state,'failed');
+});
+test('a browser hint beyond the latest attempt confirmation window is not pending',async()=>{
+  const p=await f.placed();const a=(await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency,created_at)
+    SELECT tenant_id,instance_id,kind,order_id,2,account_id,environment,merchant_id,credential_version,$2,amount_minor,currency,clock_timestamp()-interval '61 minutes' FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING attempt_id`,[p.payment.attempt_ref,newTradeNumber('F')])).rows[0];
+  const latest={...p,payment:{...p.payment,attempt_ref:a.attempt_id}};await post(returnPath(p),await body(latest));const view=await buyerView(p);assert.equal(view.latest_payment_attempt.attempt_ref,a.attempt_id);assert.equal(view.payment_state,'unpaid');
+});
+test('a pending event on an older attempt does not make the latest attempt pending',async()=>{
+  const p=await f.placed();await ack(await post(path(p),await body(p,{RtnCode:'10300066'})));const latest=await anotherAttempt(p);const view=await buyerView(p);assert.equal(view.latest_payment_attempt.attempt_ref,latest.payment.attempt_ref);assert.equal(view.payment_state,'unpaid');
+});
