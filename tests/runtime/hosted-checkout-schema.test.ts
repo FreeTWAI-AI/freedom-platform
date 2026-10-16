@@ -92,7 +92,8 @@ test('migration 168 audits existing hosted balances and atomically aborts corrup
   const schema=`fp_checkout_upgrade_${process.pid}_${Date.now()}`,url=process.env.TEST_DATABASE_URL;
   await x.h.admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
   try{
-    const all=readMigrationSources(new URL('../../migrations',import.meta.url).pathname),sources=all.filter(s=>Number(s.name.slice(0,3))<=167);
+    // This fixture audits the 167 -> 168 boundary independently of later foundations.
+    const all=readMigrationSources(new URL('../../migrations',import.meta.url).pathname).filter(s=>Number(s.name.slice(0,3))<=168),sources=all.filter(s=>Number(s.name.slice(0,3))<=167);
     await runMigrationPlan(pool,{sources,profile:legacyMigrationProfile({first:1,last:167,known_gaps:[22]})});await seedLocal(pool);
     const shop=randomUUID(),item=randomUUID();
     await pool.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,mode,accepting_orders,name,description,website_url,contact,currency,manifest_sha256,origin)
