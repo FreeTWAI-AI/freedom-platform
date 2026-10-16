@@ -54,3 +54,26 @@ export function orderAccessPageHtml(store: StorefrontStoreHeading): string {
     `<section class="shop-order"><h1>找回訂單</h1><p>這間店目前不寄確認信，請用這個瀏覽器回到訂單，或聯絡店家。</p><div class="shop-order-actions"><a href="/shops/${slug}">回到「${name}」</a></div></section>`,
   );
 }
+
+export function paymentReturnPageHtml(store: StorefrontStoreHeading, orderRef: string, attemptRef: string): string {
+  const slug = escapeHtml(store.slug);
+  const name = escapeHtml(store.name);
+  const ref = escapeHtml(orderRef);
+  const attempt = escapeHtml(attemptRef);
+  return storefrontShell(
+    store,
+    `付款結果｜${store.name}｜自由工坊`,
+    `<section class="shop-pay-return" id="shop-pay-return" data-store-slug="${slug}" data-store-name="${name}" data-order-ref="${ref}" data-attempt-ref="${attempt}" aria-labelledby="shop-pay-return-title" aria-busy="true"><h1 id="shop-pay-return-title" tabindex="-1">付款結果確認中</h1><p role="status">正在向付款服務確認結果…</p><noscript><p>確認付款結果需要開啟瀏覽器的 JavaScript。</p><p><a href="/shops/${slug}/orders/${ref}">查看訂單</a></p></noscript></section>`,
+    true,
+  );
+}
+
+export function paymentReturnMissingHtml(store: StorefrontStoreHeading): string {
+  const slug = escapeHtml(store.slug);
+  const name = escapeHtml(store.name);
+  return storefrontShell(
+    store,
+    `找不到這次付款｜${store.name}｜自由工坊`,
+    `<section class="shop-order"><h1>找不到這次付款</h1><p role="status">這個付款連結不屬於這間商店，或已經失效。</p><div class="shop-order-actions"><a href="/shops/${slug}/order-access">找回訂單</a><a href="/shops/${slug}">回到「${name}」</a></div></section>`,
+  );
+}

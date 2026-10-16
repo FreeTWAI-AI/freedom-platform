@@ -19,7 +19,19 @@ import {
   type CartCurrency,
   type StoredCart,
 } from './cart-store.js';
-import { formatTaipeiDateTime } from './format.js';
+import { formatRetryAfterTaipeiTime, formatTaipeiDateTime, formatTaipeiTime } from './format.js';
+import {
+  PAYMENT_OUTCOME_COPY,
+  PAYMENT_REFUSED_COPY,
+  classifyQueryPaymentResponse,
+  classifyStartPaymentResponse,
+  isPublicOrderShape,
+  orderPaymentSectionCopy,
+  paymentView,
+  type PaymentView,
+  type QueryPaymentOutcome,
+  type StartPaymentOutcome,
+} from './payment-view.js';
 
 const OPAQUE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ACCESS_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -59,17 +71,6 @@ function formatOrderLifecycle(order: PublicOrder): string {
   if (order.lifecycle_state === 'closed') return '已完成';
   const reason = order.cancel_reason ? CANCEL_REASON_COPY[order.cancel_reason] : undefined;
   return reason ? `已取消（${reason}）` : '已取消';
-}
-
-function isPublicOrderShape(value: unknown): value is PublicOrder {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<PublicOrder>;
-  return (
-    typeof candidate.order_ref === 'string' &&
-    typeof candidate.display_number === 'string' &&
-    Boolean(candidate.store && typeof candidate.store.slug === 'string' && typeof candidate.store.name === 'string') &&
-    Array.isArray(candidate.lines)
-  );
 }
 
 async function classifyOrderResponse(response: Response): Promise<OrderResult> {
@@ -146,6 +147,69 @@ async function postForgetBrowser(): Promise<'ok' | 'failed'> {
   }
 }
 
+async function startPayment(storeSlug: string, orderRef: string): Promise<StartPaymentOutcome> {
+  try {
+    const response = await fetch(
+      `/api/v1/public/stores/${encodeURIComponent(storeSlug)}/orders/${encodeURIComponent(orderRef)}/payment-handoffs`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+    return await classifyStartPaymentResponse(response);
+  } catch {
+    return { kind: 'failed' };
+  }
+}
+
+async function queryPayment(storeSlug: string, orderRef: string): Promise<QueryPaymentOutcome> {
+  try {
+    const response = await fetch(
+      `/api/v1/public/stores/${encodeURIComponent(storeSlug)}/orders/${encodeURIComponent(orderRef)}/payment-queries`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+    return await classifyQueryPaymentResponse(response, orderRef);
+  } catch {
+    return { kind: 'failed' };
+  }
+}
+
+type PaymentAlertState =
+  | { section: 'action' | 'payment'; kind: 'text'; text: string }
+  | { section: 'action' | 'payment'; kind: 'hold_expired'; storeSlug: string }
+  | null;
+
+function renderPaymentAlert(alert: NonNullable<PaymentAlertState>) {
+  if (alert.kind === 'hold_expired') {
+    return (
+      <p role="alert" className="shop-order-alert shop-pay-alert">
+        <span>{PAYMENT_REFUSED_COPY.checkout_hold_expired}</span>{' '}
+        <a href={`/shops/${alert.storeSlug}/cart`}>前往購物車</a>
+      </p>
+    );
+  }
+  return (
+    <p role="alert" className="shop-order-alert">
+      {alert.text}
+    </p>
+  );
+}
+
 function consumeAccessHash(): { kind: 'none' } | { kind: 'valid'; token: string } | { kind: 'malformed' } {
   if (!window.location.hash.startsWith('#access=')) {
     return { kind: 'none' };
@@ -185,15 +249,31 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   const [forgetting, setForgetting] = useState<boolean>(false);
   const [forgetError, setForgetError] = useState<boolean>(false);
   const [focusHeadingTrigger, setFocusHeadingTrigger] = useState<number>(0);
+  const [focusPaymentHeadingTrigger, setFocusPaymentHeadingTrigger] = useState<number>(0);
+
+  const [paymentBusy, setPaymentBusy] = useState<boolean>(false);
+  const [redirecting, setRedirecting] = useState<boolean>(false);
+  const [pendingHidePayButtons, setPendingHidePayButtons] = useState<boolean>(false);
+  const [startRateLimited, setStartRateLimited] = useState<boolean>(false);
+  const [queryRateLimited, setQueryRateLimited] = useState<boolean>(false);
+  const [paymentAlert, setPaymentAlert] = useState<PaymentAlertState>(null);
+  const [queryStatus, setQueryStatus] = useState<string>('');
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const paymentHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const forgetTriggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const forgottenTransitionRef = useRef<boolean>(false);
   const redeemRejectedRef = useRef<boolean>(false);
   const initialTitleRef = useRef<string>(document.title);
 
-  const anyBusy = busy || forgetting;
+  const paymentInFlightRef = useRef<boolean>(false);
+  const redirectingRef = useRef<boolean>(false);
+  const pendingHideTimerRef = useRef<number | null>(null);
+  const startRateLimitTimerRef = useRef<number | null>(null);
+  const queryRateLimitTimerRef = useRef<number | null>(null);
+
+  const anyBusy = busy || forgetting || paymentBusy;
 
   useEffect(() => {
     container.setAttribute('aria-busy', anyBusy ? 'true' : 'false');
@@ -213,6 +293,60 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     }
   }, [focusHeadingTrigger, view]);
 
+  useEffect(() => {
+    if (focusPaymentHeadingTrigger > 0) {
+      paymentHeadingRef.current?.focus();
+    }
+  }, [focusPaymentHeadingTrigger, order]);
+
+  function clearPendingHideTimer() {
+    if (pendingHideTimerRef.current !== null) {
+      window.clearTimeout(pendingHideTimerRef.current);
+      pendingHideTimerRef.current = null;
+    }
+  }
+
+  function clearStartRateLimitTimer() {
+    if (startRateLimitTimerRef.current !== null) {
+      window.clearTimeout(startRateLimitTimerRef.current);
+      startRateLimitTimerRef.current = null;
+    }
+  }
+
+  function clearQueryRateLimitTimer() {
+    if (queryRateLimitTimerRef.current !== null) {
+      window.clearTimeout(queryRateLimitTimerRef.current);
+      queryRateLimitTimerRef.current = null;
+    }
+  }
+
+  function armPendingHideTimer(seconds: number) {
+    clearPendingHideTimer();
+    setPendingHidePayButtons(true);
+    pendingHideTimerRef.current = window.setTimeout(() => {
+      pendingHideTimerRef.current = null;
+      setPendingHidePayButtons(false);
+    }, seconds * 1000);
+  }
+
+  function armStartRateLimitTimer(seconds: number) {
+    clearStartRateLimitTimer();
+    setStartRateLimited(true);
+    startRateLimitTimerRef.current = window.setTimeout(() => {
+      startRateLimitTimerRef.current = null;
+      setStartRateLimited(false);
+    }, seconds * 1000);
+  }
+
+  function armQueryRateLimitTimer(seconds: number) {
+    clearQueryRateLimitTimer();
+    setQueryRateLimited(true);
+    queryRateLimitTimerRef.current = window.setTimeout(() => {
+      queryRateLimitTimerRef.current = null;
+      setQueryRateLimited(false);
+    }, seconds * 1000);
+  }
+
   async function runInitialOrRetryGet() {
     setBusy(true);
     const result = await fetchPublicOrder(storeSlug, orderRef);
@@ -228,6 +362,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     if (result.kind === 'not_found') {
       setErrorKind(null);
       setOrder(null);
+      setPaymentAlert(null);
       if (tokenBox.read() !== null) {
         setView('link_prompt');
       } else if (redeemRejectedRef.current) {
@@ -242,6 +377,199 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     setErrorKind(result.kind);
     setRetryTarget('get');
     setBusy(false);
+  }
+
+  async function reReadOrderAfterPayment(preserveAlertOnError: boolean): Promise<PublicOrder | null> {
+    const result = await fetchPublicOrder(storeSlug, orderRef);
+    if (result.kind === 'ok') {
+      setOrder(result.order);
+      setErrorKind(null);
+      setView('order');
+      return result.order;
+    }
+    if (result.kind === 'not_found') {
+      setOrder(null);
+      setErrorKind(null);
+      setPaymentAlert(null);
+      setView('not_found');
+      return null;
+    }
+    if (!preserveAlertOnError) {
+      setErrorKind(result.kind);
+      setRetryTarget('get');
+    }
+    return null;
+  }
+
+  async function handleStartPayment() {
+    if (paymentInFlightRef.current || busy || forgetting || redirectingRef.current || startRateLimited) return;
+    paymentInFlightRef.current = true;
+    setPaymentBusy(true);
+    const activeOrderSlug = order?.store.slug ?? storeSlug;
+    const outcome = await startPayment(activeOrderSlug, orderRef);
+
+    if (outcome.kind === 'redirect') {
+      setPaymentAlert(null);
+      redirectingRef.current = true;
+      setRedirecting(true);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      window.location.assign(outcome.handoffUrl);
+      return;
+    }
+
+    if (outcome.kind === 'pending') {
+      setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.pending });
+      armPendingHideTimer(outcome.retryAfterSeconds);
+      await reReadOrderAfterPayment(true);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'refused') {
+      if (outcome.code === 'checkout_hold_expired') {
+        setPaymentAlert({ section: 'action', kind: 'hold_expired', storeSlug: activeOrderSlug });
+      } else {
+        setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_REFUSED_COPY[outcome.code] });
+      }
+      await reReadOrderAfterPayment(true);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'rate_limited') {
+      const retryTime = formatRetryAfterTaipeiTime(outcome.retryAfterSeconds);
+      setPaymentAlert({
+        section: 'action',
+        kind: 'text',
+        text: `操作太頻繁，請在 ${retryTime} 後再試。`,
+      });
+      armStartRateLimitTimer(outcome.retryAfterSeconds);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'paused') {
+      setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.paused });
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'payment_unavailable') {
+      setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.payment_unavailable });
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'not_found') {
+      setPaymentAlert(null);
+      await reReadOrderAfterPayment(false);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.failed });
+    paymentInFlightRef.current = false;
+    setPaymentBusy(false);
+  }
+
+  async function handleQueryPayment() {
+    if (paymentInFlightRef.current || busy || forgetting || redirectingRef.current || queryRateLimited) return;
+    paymentInFlightRef.current = true;
+    setPaymentBusy(true);
+    const activeOrderSlug = order?.store.slug ?? storeSlug;
+    const outcome = await queryPayment(activeOrderSlug, orderRef);
+
+    if (outcome.kind === 'ok') {
+      const nextView = paymentView(outcome.order);
+      const nextCopy = orderPaymentSectionCopy(nextView);
+      const nextHasQueryButton = outcome.order.lifecycle_state === 'open' && nextCopy.canQueryWhenOpen;
+      setOrder(outcome.order);
+      setPaymentAlert(null);
+      setQueryStatus(`${formatTaipeiTime(Date.now())} 已查詢：${nextCopy.label}`);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      if (!nextHasQueryButton) {
+        setFocusPaymentHeadingTrigger(count => count + 1);
+      }
+      return;
+    }
+
+    setQueryStatus('');
+
+    if (outcome.kind === 'pending') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.pending });
+      armPendingHideTimer(outcome.retryAfterSeconds);
+      const nextOrder = await reReadOrderAfterPayment(true);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      if (nextOrder) {
+        const nextCopy = orderPaymentSectionCopy(paymentView(nextOrder));
+        if (!(nextOrder.lifecycle_state === 'open' && nextCopy.canQueryWhenOpen)) {
+          setFocusPaymentHeadingTrigger(count => count + 1);
+        }
+      }
+      return;
+    }
+
+    if (outcome.kind === 'refused') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_REFUSED_COPY[outcome.code] });
+      const nextOrder = await reReadOrderAfterPayment(true);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      if (nextOrder) {
+        const nextCopy = orderPaymentSectionCopy(paymentView(nextOrder));
+        if (!(nextOrder.lifecycle_state === 'open' && nextCopy.canQueryWhenOpen)) {
+          setFocusPaymentHeadingTrigger(count => count + 1);
+        }
+      }
+      return;
+    }
+
+    if (outcome.kind === 'rate_limited') {
+      const retryTime = formatRetryAfterTaipeiTime(outcome.retryAfterSeconds);
+      setPaymentAlert({
+        section: 'payment',
+        kind: 'text',
+        text: `操作太頻繁，請在 ${retryTime} 後再試。`,
+      });
+      armQueryRateLimitTimer(outcome.retryAfterSeconds);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'paused') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.paused });
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'payment_unavailable') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.payment_unavailable });
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'not_found') {
+      setPaymentAlert(null);
+      await reReadOrderAfterPayment(false);
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.failed });
+    paymentInFlightRef.current = false;
+    setPaymentBusy(false);
   }
 
   async function runRedeem() {
@@ -315,8 +643,27 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       setErrorKind(null);
       void runInitialOrRetryGet();
     }
+    function handlePageShow(event: PageTransitionEvent) {
+      if (!event.persisted && !redirectingRef.current) return;
+      redirectingRef.current = false;
+      paymentInFlightRef.current = false;
+      setRedirecting(false);
+      setPaymentBusy(false);
+      clearStartRateLimitTimer();
+      clearQueryRateLimitTimer();
+      setStartRateLimited(false);
+      setQueryRateLimited(false);
+      void runInitialOrRetryGet();
+    }
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      clearPendingHideTimer();
+      clearStartRateLimitTimer();
+      clearQueryRateLimitTimer();
+    };
   }, []);
 
   function handleRetry() {
@@ -429,6 +776,16 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     );
   }
 
+  const currentPayView = paymentView(order);
+  const isOpenOrder = order.lifecycle_state === 'open';
+  const showActionSection =
+    isOpenOrder &&
+    (currentPayView === 'ready' ||
+      currentPayView === 'expired' ||
+      ((currentPayView === 'failed' || currentPayView === 'awaiting') && order.can_resume_payment));
+  const paymentSection = orderPaymentSectionCopy(currentPayView);
+  const paymentControlsDisabled = busy || forgetting || paymentBusy || redirecting;
+
   return (
     <>
       <div className="shop-order-header">
@@ -440,25 +797,92 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       </div>
       {errorBlock}
 
-      {order.lifecycle_state === 'open' && order.payment_state === 'unpaid' && (
+      {showActionSection && (
         <section className="shop-order-section" aria-labelledby="shop-order-action-heading">
           <h2 id="shop-order-action-heading">需要你處理</h2>
-          {order.reservation_expired ? (
+          {currentPayView === 'ready' && (
+            <>
+              <p>請在 {formatTaipeiDateTime(order.pay_by)} 前完成付款，逾時保留的商品會釋出。</p>
+              {order.can_resume_payment && !pendingHidePayButtons && (
+                <div className="shop-order-actions">
+                  <button
+                    type="button"
+                    className="shop-button shop-pay-primary"
+                    disabled={paymentControlsDisabled || startRateLimited}
+                    onClick={() => void handleStartPayment()}
+                  >
+                    {redirecting ? '正在前往付款…' : '前往付款'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {currentPayView === 'failed' && order.can_resume_payment && (
+            <>
+              <p>請在 {formatTaipeiDateTime(order.pay_by)} 前重新付款，逾時保留的商品會釋出。</p>
+              {!pendingHidePayButtons && (
+                <div className="shop-order-actions">
+                  <button
+                    type="button"
+                    className="shop-button shop-pay-primary"
+                    disabled={paymentControlsDisabled || startRateLimited}
+                    onClick={() => void handleStartPayment()}
+                  >
+                    {redirecting ? '正在前往付款…' : '重新付款'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {currentPayView === 'awaiting' && order.can_resume_payment && (
+            <>
+              <p>如果你沒有完成付款，可以重新付款；我們會先向付款服務確認，不會重複扣款。</p>
+              {!pendingHidePayButtons && (
+                <div className="shop-order-actions">
+                  <button
+                    type="button"
+                    className="shop-button shop-button-secondary"
+                    disabled={paymentControlsDisabled || startRateLimited}
+                    onClick={() => void handleStartPayment()}
+                  >
+                    {redirecting ? '正在前往付款…' : '重新付款'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {currentPayView === 'expired' && (
             <>
               <p>付款期限已過，保留的商品已釋出。</p>
               <div className="shop-order-actions">
                 <a href={`/shops/${order.store.slug}`}>回到「{order.store.name}」</a>
               </div>
             </>
-          ) : (
-            <p>請在 {formatTaipeiDateTime(order.pay_by)} 前完成付款，逾時保留的商品會釋出。</p>
           )}
+          {paymentAlert && paymentAlert.section === 'action' && renderPaymentAlert(paymentAlert)}
         </section>
       )}
 
       <section className="shop-order-section" aria-labelledby="shop-order-payment-heading">
-        <h2 id="shop-order-payment-heading">付款</h2>
-        <p>{order.payment_state === 'confirmed' ? '已付款' : '尚未付款'}</p>
+        <h2 id="shop-order-payment-heading" className="shop-pay-section-heading" ref={paymentHeadingRef} tabIndex={-1}>付款</h2>
+        <p className="shop-pay-label">{paymentSection.label}</p>
+        {paymentSection.description && <p>{paymentSection.description}</p>}
+        {isOpenOrder && paymentSection.canQueryWhenOpen && (
+          <div className="shop-order-actions">
+            <button
+              type="button"
+              className="shop-button shop-button-secondary"
+              disabled={paymentControlsDisabled || queryRateLimited}
+              onClick={() => void handleQueryPayment()}
+            >
+              查詢付款結果
+            </button>
+          </div>
+        )}
+        <p role="status" className={queryStatus ? 'shop-pay-status' : 'shop-sr-only'}>
+          {queryStatus}
+        </p>
+        {paymentAlert && (paymentAlert.section === 'payment' || !showActionSection) && renderPaymentAlert(paymentAlert)}
       </section>
 
       <section className="shop-order-section" aria-labelledby="shop-order-items-heading">
@@ -1531,11 +1955,665 @@ function bootOrderPage() {
   );
 }
 
+const PAYMENT_RETURN_POLL_INTERVAL_MS = 5000;
+const PAYMENT_RETURN_MAX_POLLS = 24;
+
+type ReturnLoadState = 'loading' | 'order' | 'no_access' | 'error';
+
+function paymentReturnHeading(loadState: ReturnLoadState, view: PaymentView | null): string {
+  if (loadState === 'no_access') return '無法在這個瀏覽器查看付款結果';
+  if (loadState !== 'order' || !view) return '付款結果確認中';
+  switch (view) {
+    case 'paid':
+      return '已收到付款';
+    case 'review':
+      return '付款金額待店家確認';
+    case 'checking':
+    case 'awaiting':
+      return '付款結果確認中';
+    case 'failed':
+      return '付款未完成';
+    case 'ready':
+      return '尚未付款';
+    case 'expired':
+      return '付款期限已過';
+    case 'closed':
+      return '訂單已取消';
+  }
+}
+
+interface PaymentReturnPageProps {
+  container: HTMLElement;
+  storeSlug: string;
+  storeName: string;
+  orderRef: string;
+}
+
+function PaymentReturnPage({ container, storeSlug, storeName, orderRef }: PaymentReturnPageProps) {
+  const [loadState, setLoadState] = useState<ReturnLoadState>('loading');
+  const [order, setOrder] = useState<PublicOrder | null>(null);
+  const [loadErrorKind, setLoadErrorKind] = useState<ErrorKind | null>(null);
+  const [pollingDone, setPollingDone] = useState<boolean>(false);
+  const [busy, setBusy] = useState<boolean>(true);
+  const [paymentBusy, setPaymentBusy] = useState<boolean>(false);
+  const [redirecting, setRedirecting] = useState<boolean>(false);
+  const [pendingHidePayButtons, setPendingHidePayButtons] = useState<boolean>(false);
+  const [startRateLimited, setStartRateLimited] = useState<boolean>(false);
+  const [queryDisabled, setQueryDisabled] = useState<boolean>(false);
+  const [paymentAlert, setPaymentAlert] = useState<PaymentAlertState>(null);
+  const [statusAnnouncement, setStatusAnnouncement] = useState<{ text: string; visible: boolean }>({
+    text: '',
+    visible: false,
+  });
+  const [focusHeadingTrigger, setFocusHeadingTrigger] = useState<number>(0);
+
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const unmountedRef = useRef<boolean>(false);
+  const initialLoadedRef = useRef<boolean>(false);
+  const lastViewKeyRef = useRef<string | null>(null);
+  const pollCountRef = useRef<number>(0);
+  const pollTimerRef = useRef<number | null>(null);
+  const pollingActiveRef = useRef<boolean>(false);
+  const requestInFlightRef = useRef<boolean>(false);
+  const redirectingRef = useRef<boolean>(false);
+  const pendingHideTimerRef = useRef<number | null>(null);
+  const startRateLimitTimerRef = useRef<number | null>(null);
+  const queryDisableTimerRef = useRef<number | null>(null);
+
+  const anyBusy = busy || paymentBusy;
+  const activeSlug = order?.store.slug ?? storeSlug;
+  const activeStoreName = order?.store.name ?? storeName;
+
+  useEffect(() => {
+    container.setAttribute('aria-busy', anyBusy ? 'true' : 'false');
+  }, [container, anyBusy]);
+
+  useEffect(() => {
+    document.title = `付款結果｜${activeStoreName}｜自由工坊`;
+  }, [activeStoreName]);
+
+  useEffect(() => {
+    if (focusHeadingTrigger > 0) {
+      headingRef.current?.focus();
+    }
+  }, [focusHeadingTrigger, loadState, order, pollingDone]);
+
+  function clearPollTimer() {
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }
+
+  function clearPendingHideTimer() {
+    if (pendingHideTimerRef.current !== null) {
+      window.clearTimeout(pendingHideTimerRef.current);
+      pendingHideTimerRef.current = null;
+    }
+  }
+
+  function clearStartRateLimitTimer() {
+    if (startRateLimitTimerRef.current !== null) {
+      window.clearTimeout(startRateLimitTimerRef.current);
+      startRateLimitTimerRef.current = null;
+    }
+  }
+
+  function clearQueryDisableTimer() {
+    if (queryDisableTimerRef.current !== null) {
+      window.clearTimeout(queryDisableTimerRef.current);
+      queryDisableTimerRef.current = null;
+    }
+  }
+
+  function armPendingHideTimer(seconds: number) {
+    clearPendingHideTimer();
+    setPendingHidePayButtons(true);
+    pendingHideTimerRef.current = window.setTimeout(() => {
+      pendingHideTimerRef.current = null;
+      setPendingHidePayButtons(false);
+    }, seconds * 1000);
+  }
+
+  function armStartRateLimitTimer(seconds: number) {
+    clearStartRateLimitTimer();
+    setStartRateLimited(true);
+    startRateLimitTimerRef.current = window.setTimeout(() => {
+      startRateLimitTimerRef.current = null;
+      setStartRateLimited(false);
+    }, seconds * 1000);
+  }
+
+  function armQueryDisableTimer(seconds: number) {
+    clearQueryDisableTimer();
+    setQueryDisabled(true);
+    queryDisableTimerRef.current = window.setTimeout(() => {
+      queryDisableTimerRef.current = null;
+      setQueryDisabled(false);
+    }, seconds * 1000);
+  }
+
+  function applyViewTransition(
+    nextLoadState: ReturnLoadState,
+    nextView: PaymentView | null,
+    source: 'initial' | 'poll' | 'buyer',
+  ) {
+    const nextKey = nextLoadState === 'order' && nextView ? `order:${nextView}` : nextLoadState;
+    if (!initialLoadedRef.current) {
+      initialLoadedRef.current = true;
+      lastViewKeyRef.current = nextKey;
+      return;
+    }
+    if (lastViewKeyRef.current !== nextKey) {
+      lastViewKeyRef.current = nextKey;
+      const nextH1 = paymentReturnHeading(nextLoadState, nextView);
+      setStatusAnnouncement({ text: nextH1, visible: false });
+      if (source === 'buyer') {
+        setFocusHeadingTrigger(count => count + 1);
+      }
+    }
+  }
+
+  function scheduleNextPoll() {
+    clearPollTimer();
+    if (unmountedRef.current || !pollingActiveRef.current) return;
+    if (pollCountRef.current >= PAYMENT_RETURN_MAX_POLLS) {
+      pollingActiveRef.current = false;
+      setPollingDone(true);
+      return;
+    }
+    pollTimerRef.current = window.setTimeout(() => {
+      pollTimerRef.current = null;
+      void runPoll();
+    }, PAYMENT_RETURN_POLL_INTERVAL_MS);
+  }
+
+  async function runPoll() {
+    if (unmountedRef.current || !pollingActiveRef.current) return;
+    if (requestInFlightRef.current) return;
+    requestInFlightRef.current = true;
+    setBusy(true);
+    pollCountRef.current += 1;
+
+    const result = await fetchPublicOrder(storeSlug, orderRef);
+    if (unmountedRef.current) return;
+    requestInFlightRef.current = false;
+    setBusy(false);
+    if (!pollingActiveRef.current) return;
+
+    if (result.kind === 'ok') {
+      const nextView = paymentView(result.order);
+      setOrder(result.order);
+      setLoadState('order');
+      setLoadErrorKind(null);
+      applyViewTransition('order', nextView, 'poll');
+      if (nextView !== 'checking' && nextView !== 'awaiting') {
+        pollingActiveRef.current = false;
+        clearPollTimer();
+        return;
+      }
+    } else if (result.kind === 'not_found') {
+      pollingActiveRef.current = false;
+      clearPollTimer();
+      setOrder(null);
+      setLoadErrorKind(null);
+      setLoadState('no_access');
+      applyViewTransition('no_access', null, 'poll');
+      return;
+    }
+
+    if (pollCountRef.current >= PAYMENT_RETURN_MAX_POLLS) {
+      pollingActiveRef.current = false;
+      setPollingDone(true);
+      return;
+    }
+    scheduleNextPoll();
+  }
+
+  async function runInitialOrRetryLoad(source: 'initial' | 'buyer') {
+    if (requestInFlightRef.current) return;
+    clearPollTimer();
+    pollingActiveRef.current = false;
+    requestInFlightRef.current = true;
+    setBusy(true);
+
+    const result = await fetchPublicOrder(storeSlug, orderRef);
+    if (unmountedRef.current) return;
+    requestInFlightRef.current = false;
+    setBusy(false);
+
+    if (result.kind === 'ok') {
+      const nextView = paymentView(result.order);
+      setOrder(result.order);
+      setLoadErrorKind(null);
+      setLoadState('order');
+      applyViewTransition('order', nextView, source);
+      if (nextView === 'checking' || nextView === 'awaiting') {
+        pollCountRef.current = 0;
+        pollingActiveRef.current = true;
+        setPollingDone(false);
+        scheduleNextPoll();
+      } else {
+        pollingActiveRef.current = false;
+        setPollingDone(false);
+      }
+      return;
+    }
+
+    if (result.kind === 'not_found') {
+      setOrder(null);
+      setLoadErrorKind(null);
+      setPaymentAlert(null);
+      setLoadState('no_access');
+      applyViewTransition('no_access', null, source);
+      return;
+    }
+
+    setLoadErrorKind(result.kind);
+    setLoadState('error');
+    if (!initialLoadedRef.current) {
+      initialLoadedRef.current = true;
+      lastViewKeyRef.current = 'error';
+    }
+  }
+
+  async function reReadOrderAfterAction(): Promise<void> {
+    const result = await fetchPublicOrder(storeSlug, orderRef);
+    if (unmountedRef.current) return;
+    if (result.kind === 'ok') {
+      const nextView = paymentView(result.order);
+      setOrder(result.order);
+      setLoadErrorKind(null);
+      setLoadState('order');
+      applyViewTransition('order', nextView, 'buyer');
+      return;
+    }
+    if (result.kind === 'not_found') {
+      pollingActiveRef.current = false;
+      clearPollTimer();
+      setOrder(null);
+      setLoadErrorKind(null);
+      setPaymentAlert(null);
+      setLoadState('no_access');
+      applyViewTransition('no_access', null, 'buyer');
+    }
+  }
+
+  async function handleStartPayment() {
+    if (requestInFlightRef.current || busy || paymentBusy || redirectingRef.current || startRateLimited) return;
+    clearPollTimer();
+    pollingActiveRef.current = false;
+    requestInFlightRef.current = true;
+    setPaymentBusy(true);
+    const outcome = await startPayment(activeSlug, orderRef);
+    if (unmountedRef.current) return;
+
+    if (outcome.kind === 'redirect') {
+      setPaymentAlert(null);
+      redirectingRef.current = true;
+      setRedirecting(true);
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      window.location.assign(outcome.handoffUrl);
+      return;
+    }
+
+    if (outcome.kind === 'pending') {
+      setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.pending });
+      armPendingHideTimer(outcome.retryAfterSeconds);
+      await reReadOrderAfterAction();
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'refused') {
+      if (outcome.code === 'checkout_hold_expired') {
+        setPaymentAlert({ section: 'action', kind: 'hold_expired', storeSlug: activeSlug });
+      } else {
+        setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_REFUSED_COPY[outcome.code] });
+      }
+      await reReadOrderAfterAction();
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'rate_limited') {
+      const retryTime = formatRetryAfterTaipeiTime(outcome.retryAfterSeconds);
+      setPaymentAlert({
+        section: 'action',
+        kind: 'text',
+        text: `操作太頻繁，請在 ${retryTime} 後再試。`,
+      });
+      armStartRateLimitTimer(outcome.retryAfterSeconds);
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'paused') {
+      setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.paused });
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'payment_unavailable') {
+      setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.payment_unavailable });
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'not_found') {
+      setPaymentAlert(null);
+      await reReadOrderAfterAction();
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    setPaymentAlert({ section: 'action', kind: 'text', text: PAYMENT_OUTCOME_COPY.failed });
+    requestInFlightRef.current = false;
+    setPaymentBusy(false);
+  }
+
+  async function handleManualQuery() {
+    if (requestInFlightRef.current || busy || paymentBusy || redirectingRef.current || queryDisabled) return;
+    clearPollTimer();
+    pollingActiveRef.current = false;
+    requestInFlightRef.current = true;
+    setPaymentBusy(true);
+    const outcome = await queryPayment(activeSlug, orderRef);
+    if (unmountedRef.current) return;
+
+    if (outcome.kind === 'ok') {
+      const nextView = paymentView(outcome.order);
+      setOrder(outcome.order);
+      setLoadErrorKind(null);
+      setLoadState('order');
+      setPaymentAlert(null);
+      if (nextView === 'checking' || nextView === 'awaiting') {
+        lastViewKeyRef.current = `order:${nextView}`;
+        setStatusAnnouncement({
+          text: `${formatTaipeiTime(Date.now())} 已查詢，仍在確認中。`,
+          visible: true,
+        });
+      } else {
+        applyViewTransition('order', nextView, 'buyer');
+      }
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    setStatusAnnouncement(prev => (prev.visible ? { text: '', visible: false } : prev));
+
+    if (outcome.kind === 'pending') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.pending });
+      armQueryDisableTimer(outcome.retryAfterSeconds);
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'refused') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_REFUSED_COPY[outcome.code] });
+      await reReadOrderAfterAction();
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'rate_limited') {
+      const retryTime = formatRetryAfterTaipeiTime(outcome.retryAfterSeconds);
+      setPaymentAlert({
+        section: 'payment',
+        kind: 'text',
+        text: `操作太頻繁，請在 ${retryTime} 後再試。`,
+      });
+      armQueryDisableTimer(outcome.retryAfterSeconds);
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'paused') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.paused });
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'payment_unavailable') {
+      setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.payment_unavailable });
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    if (outcome.kind === 'not_found') {
+      setPaymentAlert(null);
+      await reReadOrderAfterAction();
+      requestInFlightRef.current = false;
+      setPaymentBusy(false);
+      return;
+    }
+
+    setPaymentAlert({ section: 'payment', kind: 'text', text: PAYMENT_OUTCOME_COPY.failed });
+    requestInFlightRef.current = false;
+    setPaymentBusy(false);
+  }
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    void runInitialOrRetryLoad('initial');
+    function handlePageShow(event: PageTransitionEvent) {
+      if (!event.persisted && !redirectingRef.current) return;
+      redirectingRef.current = false;
+      requestInFlightRef.current = false;
+      setRedirecting(false);
+      setPaymentBusy(false);
+      clearStartRateLimitTimer();
+      clearQueryDisableTimer();
+      setStartRateLimited(false);
+      setQueryDisabled(false);
+      void runInitialOrRetryLoad('initial');
+    }
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      unmountedRef.current = true;
+      pollingActiveRef.current = false;
+      window.removeEventListener('pageshow', handlePageShow);
+      clearPollTimer();
+      clearPendingHideTimer();
+      clearStartRateLimitTimer();
+      clearQueryDisableTimer();
+    };
+  }, []);
+
+  if (loadState === 'loading') {
+    return (
+      <>
+        <h1 id="shop-pay-return-title" ref={headingRef} tabIndex={-1}>付款結果確認中</h1>
+        <p role="status">正在向付款服務確認結果…</p>
+      </>
+    );
+  }
+
+  if (loadState === 'error') {
+    return (
+      <>
+        <h1 id="shop-pay-return-title" ref={headingRef} tabIndex={-1}>付款結果確認中</h1>
+        <p role="status" className="shop-sr-only">{statusAnnouncement.text}</p>
+        {loadErrorKind && <p role="alert" className="shop-order-alert">{ERROR_COPY[loadErrorKind]}</p>}
+        <div className="shop-order-actions">
+          <button
+            type="button"
+            className="shop-button shop-button-secondary"
+            disabled={anyBusy}
+            onClick={() => void runInitialOrRetryLoad('buyer')}
+          >
+            重試
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (loadState === 'no_access' || !order) {
+    return (
+      <>
+        <h1 id="shop-pay-return-title" ref={headingRef} tabIndex={-1}>無法在這個瀏覽器查看付款結果</h1>
+        <p role="status" className="shop-sr-only">{statusAnnouncement.text}</p>
+        <p>這個瀏覽器沒有這筆訂單的查看權限。訂單只能在下單時使用的瀏覽器，或以下單時登入的會員帳號查看。</p>
+        <div className="shop-order-actions">
+          <a href={`/shops/${activeSlug}/order-access`}>找回訂單</a>
+          <a href={`/shops/${activeSlug}`}>回到「{activeStoreName}」</a>
+        </div>
+      </>
+    );
+  }
+
+  const currentPayView = paymentView(order);
+  const headingText = paymentReturnHeading('order', currentPayView);
+  const orderHref = `/shops/${activeSlug}/orders/${order.order_ref}`;
+  const paymentControlsDisabled = anyBusy || redirecting;
+
+  let bodyText = '';
+  switch (currentPayView) {
+    case 'paid':
+      bodyText = `訂單 ${order.display_number} 的後續進度會顯示在訂單頁。`;
+      break;
+    case 'review':
+      bodyText = '我們收到的付款和這筆訂單不符，店家會確認並處理退款。請不要再付款。';
+      break;
+    case 'checking':
+    case 'awaiting':
+      bodyText = pollingDone
+        ? '目前還沒有確認結果。你可以重新查詢，或稍後到訂單頁查看；請不要重複付款。'
+        : '已回到商店，正在向付款服務確認結果，請不要重複付款。';
+      break;
+    case 'failed':
+      bodyText = '這次付款沒有完成，沒有扣款。';
+      break;
+    case 'ready':
+      bodyText = `請在 ${formatTaipeiDateTime(order.pay_by)} 前完成付款，逾時保留的商品會釋出。`;
+      break;
+    case 'expired':
+      bodyText = '保留的商品已釋出。';
+      break;
+    case 'closed':
+      bodyText = '這筆訂單已取消，不能再付款。';
+      break;
+  }
+
+  return (
+    <>
+      <h1 id="shop-pay-return-title" ref={headingRef} tabIndex={-1}>{headingText}</h1>
+      <p className="shop-pay-return-order">訂單 {order.display_number}</p>
+      <p>{bodyText}</p>
+      <p role="status" className={statusAnnouncement.visible ? 'shop-pay-status' : 'shop-sr-only'}>
+        {statusAnnouncement.text}
+      </p>
+      {paymentAlert && renderPaymentAlert(paymentAlert)}
+      <div className="shop-order-actions">
+        {currentPayView === 'paid' && (
+          <a className="shop-button shop-pay-primary" href={orderHref}>
+            查看訂單
+          </a>
+        )}
+        {currentPayView === 'review' && <a href={orderHref}>查看訂單</a>}
+        {(currentPayView === 'checking' || currentPayView === 'awaiting') && !pollingDone && (
+          <a href={orderHref}>查看訂單</a>
+        )}
+        {(currentPayView === 'checking' || currentPayView === 'awaiting') && pollingDone && (
+          <>
+            <button
+              type="button"
+              className="shop-button shop-button-secondary"
+              disabled={paymentControlsDisabled || queryDisabled}
+              onClick={() => void handleManualQuery()}
+            >
+              重新查詢
+            </button>
+            <a href={orderHref}>稍後再看</a>
+          </>
+        )}
+        {currentPayView === 'failed' && (
+          <>
+            {order.can_resume_payment && !pendingHidePayButtons && (
+              <button
+                type="button"
+                className="shop-button shop-pay-primary"
+                disabled={paymentControlsDisabled || startRateLimited}
+                onClick={() => void handleStartPayment()}
+              >
+                {redirecting ? '正在前往付款…' : '重新付款'}
+              </button>
+            )}
+            <a href={orderHref}>查看訂單</a>
+          </>
+        )}
+        {currentPayView === 'ready' && (
+          <>
+            {order.can_resume_payment && !pendingHidePayButtons && (
+              <button
+                type="button"
+                className="shop-button shop-pay-primary"
+                disabled={paymentControlsDisabled || startRateLimited}
+                onClick={() => void handleStartPayment()}
+              >
+                {redirecting ? '正在前往付款…' : '前往付款'}
+              </button>
+            )}
+            <a href={orderHref}>查看訂單</a>
+          </>
+        )}
+        {currentPayView === 'expired' && (
+          <>
+            <a href={`/shops/${activeSlug}`}>回到「{activeStoreName}」</a>
+            <a href={orderHref}>查看訂單</a>
+          </>
+        )}
+        {currentPayView === 'closed' && <a href={orderHref}>查看訂單</a>}
+      </div>
+    </>
+  );
+}
+
+function bootPaymentReturnPage() {
+  const container = document.getElementById('shop-pay-return');
+  if (!container) return;
+  const storeSlug = container.dataset.storeSlug ?? '';
+  const storeName = container.dataset.storeName ?? '';
+  const orderRef = container.dataset.orderRef ?? '';
+  const attemptRef = container.dataset.attemptRef ?? '';
+  if (
+    !STORE_SLUG_PATTERN.test(storeSlug) ||
+    !OPAQUE_ID_PATTERN.test(orderRef) ||
+    !OPAQUE_ID_PATTERN.test(attemptRef)
+  ) {
+    return;
+  }
+
+  createRoot(container).render(
+    <PaymentReturnPage
+      container={container}
+      storeSlug={storeSlug}
+      storeName={storeName}
+      orderRef={orderRef}
+    />,
+  );
+}
+
 function bootStorefront() {
   const notifyHeader = bootCartHeaderLink();
   bootAddToCart(notifyHeader);
   bootCartPage();
   bootOrderPage();
+  bootPaymentReturnPage();
 }
 
 bootStorefront();
