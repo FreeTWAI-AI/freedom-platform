@@ -14089,8 +14089,8 @@
     },
     {
       "path": "docs/development/newcomer-guides.md",
-      "bytes": 9889,
-      "sha256": "4b0a53ca4d825756d9d7e9bf95dc5c557ce912ec81ac19f2902d577e69a64e4b"
+      "bytes": 10482,
+      "sha256": "fc94f5f2fe411bc0e97038b6325840d2b3401896663c95b8e1ea15f979020281"
     },
     {
       "path": "docs/development/onboarding-api.md",
@@ -16079,8 +16079,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 27843,
-      "sha256": "d2b6828689b6bfef9a398dd53c72779991c55f1dacc4e23ab8119843657f670e"
+      "bytes": 31109,
+      "sha256": "29406d06e85bd82e624ca4476642527e937fcef554200f8d685ae3b1af2cb135"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -19454,8 +19454,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 17266,
-      "sha256": "8fe7f311c7063f99b2e7c9cf2b551cf6ddf0b5e15d55d95fc50f976709d169ad"
+      "bytes": 20017,
+      "sha256": "3e31eb0e4199c7749620382d7989e49aaf653d4ad52dd528a6eabb0e69d5658e"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -19729,8 +19729,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 38888,
-      "sha256": "f5f01a507cd24515d2e68aa58b610f555e84516e7caee42bc6016b734d94a9f9"
+      "bytes": 53518,
+      "sha256": "49130004e6a00bfe50de6f3a2161da8ae30bff6f253885072e16adb55bec4964"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -20599,8 +20599,8 @@
     },
     {
       "path": "scripts/run-e2e.test.mjs",
-      "bytes": 11628,
-      "sha256": "9360cc0f10231b3353de3e15d4485d047e89c384e65a9dcc9198bacf489b0902"
+      "bytes": 11334,
+      "sha256": "e8bd9db5ac360412619504b4dce2e17c79958d504123cc2f8e8cbe2e7f85aa09"
     },
     {
       "path": "scripts/run-media-restore-test.mjs",
@@ -20759,8 +20759,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 13006,
-      "sha256": "12ebb1f514e595d1fd5de8f8eda507bdd82066f7bedfa7760288291a5393540c"
+      "bytes": 16290,
+      "sha256": "5b8207ad66789d790c39ff057f7abe81701287fba5c7deefe995e7c16527445a"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -20944,8 +20944,8 @@
     },
     {
       "path": "tests/e2e/calm-experience.spec.ts",
-      "bytes": 21159,
-      "sha256": "25580d9887e03f85236d9e4c61277b0dfb18c16e5806841c2e2bd3010ba69894"
+      "bytes": 21329,
+      "sha256": "b1a2e1c9f3b4a461e16f35e0378d6eb19a5620e2f3378b798402b1bc370e6c1f"
     },
     {
       "path": "tests/e2e/campaign-draft-newlines.spec.ts",
@@ -21414,8 +21414,8 @@
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
-      "bytes": 70696,
-      "sha256": "4647f2c686e3306f0b6f95d9224f4d3bee050f4ca68071fa3b3a1e2d8c3e7d89"
+      "bytes": 70845,
+      "sha256": "324847666e7ba7bbbf9a480225ddaabe01a84b4b1575504478ee346e3243b4aa"
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",
