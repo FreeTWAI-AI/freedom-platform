@@ -11,6 +11,7 @@ export const COMMERCE_LIMITS={
   cartNetwork:{limit:60,seconds:60},cartStore:{limit:600,seconds:60},
   checkoutNetwork:{limit:30,seconds:600},checkoutStore:{limit:600,seconds:600},
   placementNetwork:{limit:10,seconds:600},placementStore:{limit:300,seconds:600},
+  providerAccount:{limit:600,seconds:60},providerUnknownNetwork:{limit:120,seconds:60},
   handoffNetwork:{limit:30,seconds:600},
   handoffPageNetwork:{limit:60,seconds:600},
   newOrderNetwork:{limit:3,seconds:1800},

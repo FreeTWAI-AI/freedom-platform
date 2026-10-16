@@ -1,3 +1,4 @@
+import {isCommerceProviderEntry,isCommerceProviderEntryPath} from '../../../modules/agent-commerce/operations/provider-entry-paths.js';
 import {createHostedCommerceSetupRoutes} from './routes/hosted-commerce-setup.js';
 import {assertPaymentGatewayInstallation} from '../../../modules/agent-commerce/payments/gateway.js';
 import {isPaymentHandoffPath} from '../../../modules/agent-commerce/payments/handoff.js';
@@ -225,9 +226,11 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     if(c.req.path==='/api/v1/me/reports'||c.req.path.startsWith('/api/v1/me/reports/')||c.req.path==='/api/v1/admin/reports'||c.req.path.startsWith('/api/v1/admin/reports/')){
       requireCondition(runtime.memberReportingEnabled===true,404,'not_found','找不到這個頁面。');
     }
-    readSessionCookie(c.req.header('Cookie'),origin);
-    if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     c.header('Content-Security-Policy',headers['Content-Security-Policy']);
+    const commerceProviderEntry=isCommerceProviderEntry(c.req.method,c.req.path);
+    if(isCommerceProviderEntryPath(c.req.path)&&!commerceProviderEntry)return c.body(null,404);
+    if(!commerceProviderEntry)readSessionCookie(c.req.header('Cookie'),origin);
+    if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     // Public guide responses are terminal and own their explicit validated cache policy.
     // Return before generic mutation body parsing; unknown paths never reach the SPA.
     if(isGuideAssetPath(c.req.path)){
@@ -246,8 +249,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       const shopMachine=c.req.path.startsWith('/shop-api/v1/');
       const maintainerWebhook=isMaintainerWebhookPath(c.req.method,c.req.path);
       // GitHub sends no Origin. A browser Origin that is present must still match.
-      if((!agentUpload&&!shopMachine&&!maintainerWebhook)||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
-      if(agentUpload) {
+      if(!commerceProviderEntry&&((!agentUpload&&!shopMachine&&!maintainerWebhook)||c.req.header('Origin')!==undefined))requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
+      if(commerceProviderEntry) {
+        // The signed provider route owns form parsing and its bounded byte stream.
+      } else if(agentUpload) {
         // The Agent route authenticates and consumes a bounded stream itself.
       } else if(maintainerWebhook) {
         // The route checks content type, the 2 MiB cap and the signature, then reads the raw body.
