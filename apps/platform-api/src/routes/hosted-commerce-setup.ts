@@ -1,3 +1,4 @@
+import {flushControlEventsBestEffort,type EffectJournalPort} from '../../../../modules/agent-commerce/operations/journal/journal.js';
 import * as wire from '../../../../contracts/guild-launchpad/v1/hosted-commerce-setup.js';
 import {createProviderAccount,listProviderAccounts,putProviderService,changeProviderServiceState,type ProviderAccountOptions} from '../../../../modules/agent-commerce/payments/accounts.js';
 import {Hono} from 'hono';
@@ -7,9 +8,9 @@ import {CommerceSetupEmptyInputSchema,StoreReleaseSchema} from '../../../../cont
 import {readStoreRelease,upgradeStoreRelease} from '../../../../modules/agent-commerce/hosted/release-upgrade.js';
 import type {PlatformEnv} from '../module-context.js';
 import {commandHeaders,etag,privateCache,singleQuery} from './tenant-http.js';
-export function createHostedCommerceSetupRoutes(pool:Pool,options:ProviderAccountOptions){
+export function createHostedCommerceSetupRoutes(pool:Pool,options:ProviderAccountOptions & {journal?:EffectJournalPort}){
   const app=new Hono<PlatformEnv>();
-  app.use('*',async(c,next)=>{try{await next();}finally{privateCache(c);}});
+  app.use('*',async(c,next)=>{try{await next();if(c.req.method!=='GET'&&c.res.status<400)await flushControlEventsBestEffort(pool,options.journal);}finally{privateCache(c);}});
   const root='/tenants/:tenant_id/storefronts/:instance_id';
   app.get(root+'/release',async c=>{
     CommerceSetupEmptyInputSchema.parse(singleQuery(c));

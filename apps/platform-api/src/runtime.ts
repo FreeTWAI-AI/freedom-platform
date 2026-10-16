@@ -1,3 +1,4 @@
+import type {EffectJournalPort} from '../../../modules/agent-commerce/operations/journal/journal.js';
 import type {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import type {CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
 import type {CheckoutPorts} from '../../../modules/agent-commerce/checkout/terms.js';
@@ -29,6 +30,7 @@ export const SHARED_NETWORK_KEY = 'shared-server';
  * bindings, so no configuration is shared through process-wide state.
  */
 export type PlatformRuntime = {
+  commercePayments?:{journal:EffectJournalPort};
   commerceSettings?:CommerceSettings;
   commerceCredentialKeyring?:CommerceCredentialKeyring|null;
   commerceProviderEnvironment?:'sandbox'|'live';

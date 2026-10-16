@@ -333,7 +333,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     });
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
-  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true,runtime.participationMetricsEnabled===true,providerEnvironment(freedomEnv)));
+  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true,runtime.participationMetricsEnabled===true,providerEnvironment(freedomEnv),runtime.commercePayments?.journal));
   const skillEventBacklinks=runtime.eventOutcomesEnabled===true?async(id:string,c:Context)=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -721,7 +721,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders,runtime.tenantListCursors));
     app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore,runtime.tenantListCursors));
     app.route('/api/v1',createHostedStoreRoutes(pool));
-    app.route('/api/v1',createHostedCommerceSetupRoutes(pool,{keyring:runtime.commerceCredentialKeyring??null,environment:runtime.commerceProviderEnvironment??providerEnvironment(freedomEnv)}));
+    app.route('/api/v1',createHostedCommerceSetupRoutes(pool,{keyring:runtime.commerceCredentialKeyring??null,journal:runtime.commercePayments?.journal,environment:runtime.commerceProviderEnvironment??providerEnvironment(freedomEnv)}));
     if(storePhotosInstalled(runtime))app.route('/api/v1',createHostedStoreMediaRoutes(pool,runtime));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
