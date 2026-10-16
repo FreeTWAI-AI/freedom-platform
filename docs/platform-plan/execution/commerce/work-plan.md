@@ -74,6 +74,8 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
 | 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-queries（到期工作的執行） | 之後 |
 
+M2 的 staging 驗收（EC-SPEC-10 §4.6 的 J02～J04）要先能成立訂單。正式的 Worker 只接上店家准入與付款兩個 port，沒有運費報價（`ShippingQuotePort`），所以 staging 與正式環境成立訂單會回 409 `shipping_not_configured`；只有 E2E 伺服器接上 fixture 運費。運費報價由 M3 的履約模組實作（EC-SPEC-05 §3），B05 結帳頁（buyer-checkout）也排在 M3 的配送資料之後。所以 M2 的程式照常依旗標併入，staging 驗收和 M3 一起做，除非 Ted 決定提早做最小的 B05 與運費設定。
+
 **M3 履約（`commerce.hosted-fulfilment.v1`）**
 
 | 切片 | 內容 | CLI | 依賴 | 狀態 |
