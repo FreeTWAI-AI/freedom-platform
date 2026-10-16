@@ -14,6 +14,7 @@ import { SupplyTermsInputSchema } from '../../../../contracts/guild-launchpad/v1
 import { readSupplyTerms, updateSupplyTerms } from '../../../../modules/agent-commerce/hosted/supply-terms.js';
 import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-commerce/hosted/public.js';
 import { storeHtml, productHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
+import { orderPageHtml, orderMissingHtml, orderAccessPageHtml } from '../../../../modules/agent-commerce/storefront/pages.js';
 import { Problem } from '../../../../packages/shared/problem.js';
 import type { PlatformEnv } from '../module-context.js';
 import { privateCache, singleQuery, commandHeaders, etag } from './tenant-http.js';
@@ -139,6 +140,20 @@ export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string)
     const html = store && productHtml(store.projection, c.req.param('sku'), store.media.photos, publicOrigin ? {publicOrigin} : undefined);
     if (!html) return c.html(storeMissingHtml(true), 404);
     return c.html(html);
+  });
+  app.get('/shops/:slug/orders/:order_ref', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    const orderRef = c.req.param('order_ref');
+    if (!OpaqueId.safeParse(orderRef).success) return c.html(orderMissingHtml(store.projection), 404);
+    return c.html(orderPageHtml(store.projection, orderRef));
+  });
+  app.get('/shops/:slug/order-access', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    return c.html(orderAccessPageHtml(store.projection));
   });
   return app;
 }

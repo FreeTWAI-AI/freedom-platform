@@ -15,4 +15,8 @@ client bundle they share (EC-SPEC-01 §3, EC-SPEC-02 §4.2 and §6).
 - Before Ted authorises `FREEDOM_COMMERCE_EMAIL_ENABLED`, B10 shows the
   EC-SPEC-10 §6.2 explanation and collects no Email.
 
-Status: registered before the buyer-orders job; the pages arrive with it.
+Status: `pages.ts` renders the B07 order shell (`orderPageHtml`), the 404
+order-missing page (`orderMissingHtml`) and the B10 order-access guidance
+page (`orderAccessPageHtml`); `apps/portal-web/src/storefront/main.tsx`
+mounts `#shop-order` to redeem one-time links, display
+pre-payment/paid/cancelled orders and forget browser device access.
