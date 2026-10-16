@@ -325,7 +325,6 @@ tenant RLS policy used by checkout contacts. Seller routes below handle cases. S
 [EC-SPEC-05 §7.1](../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md)
 and [EC-SPEC-04](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md).
 
-
 ## Seller checkout HTTP
 
 The console flag mounts these routes under
