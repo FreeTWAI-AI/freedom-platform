@@ -7,7 +7,7 @@ import {retainedPhotoFailure,reviewPhotoAttempt,holdPhotoAttempt,heldPhotoAttemp
 import {prepareBrowserRaster,socialImageProblem} from '../../../../packages/asset-storage/browser-raster';
 
 export function HostedStorePhoto({client,userId,tenantId,instanceId,product,media,writable,uploadsEnabled,locked,onState,onSaved}:{
-  client:PortalClient;userId:string;tenantId:string;instanceId:string;product:ProductView;media?:ProductMediaView;writable:boolean;uploadsEnabled:boolean;locked:boolean;
+  client:PortalClient;userId:string;tenantId:string;instanceId:string;product:Pick<ProductView,'product_id'|'title'|'version'>;media?:ProductMediaView;writable:boolean;uploadsEnabled:boolean;locked:boolean;
   onState:(dirty:boolean,blocking:boolean)=>void;onSaved:()=>Promise<void>;
 }){
   const [restored]=useState(()=>restorePhotoAttempt(client,userId,{tenantId,instanceId,productId:product.product_id}));
