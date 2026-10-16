@@ -171,7 +171,9 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 | `POST R/distribution-photos/:product_id/detach` | `store:write`，空物件 | 同樣 key／CAS；清空指標，保留 Asset，回 `{product_id, version, changed, current}` |
 | `GET`／`HEAD R/distribution-photos/:product_id/photo/:version` | `store:read` | 只讀本店目前指標的複本；物件 I/O 前後核對指標與權限；inline、strong ETag；不相符回 404 |
 
-所有回應（含匿名 401）為 `private, no-store`、`Vary: Cookie`。讀取失敗顯示原因及「重試」，不顯示「沒有」或 0。公開使用與替換先開確認對話框，說明版本、商品、容量與下次發布才生效；Esc／取消可關閉並回復焦點。無 `store:write` 或旗標關閉時不提供命令按鈕。
+所有回應（含匿名 401）為 `private, no-store`、`Vary: Cookie`。讀取失敗顯示原因及「重試」，不顯示「沒有」或 0。公開使用與替換先開確認對話框，說明版本、商品、容量與下次發布才生效；打開時焦點在「取消」，Esc／取消可關閉並回復焦點。無 `store:write` 或旗標關閉時不提供命令按鈕。
+
+供應商撤回或改授權後，「合作素材」的「重新整理」只更新這一區；「店面與發布」要等賣家按「更新供貨狀態」重新讀取店面，才會出現「發布更新」，和其他供貨變動相同（SC-E2E-73 照這個流程走）。
 
 | 拒絕 | 狀態與 code | 文字 |
 | --- | --- | --- |

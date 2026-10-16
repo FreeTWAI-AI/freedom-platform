@@ -65,7 +65,7 @@
 | AT-40、41 | E2E 截圖（`SC-E2E-40`，SC-SPEC-01 的視覺驗收）與鍵盤操作（`SC-E2E-32`） |
 | AT-42 | E2E：舊書籤 `#stores/<t>/<i>/supply`、`…/supply-orders` 打開正確頁面 |
 | AT-44 | E2E：同一資料在新版關閉時由舊頁正確顯示 |
-| AT-23～28、43 | S3 素材（SC-SPEC-04 §4）：SQL、HTTP 與狀態邏輯見下方 `SC-09`、`MATERIAL-*`、`SC-API-M1C-*`、`SC-UI-M3-*`、`M2-*`；瀏覽器見 `SC-E2E-60`～`70`（合作店家看見並下載目前版本、新版本／撤銷／撤回後舊路徑 404 見 `69`、`70`）。真 R2 的寫入與讀取、備份與還原（AT-43）要在 staging 由 Ted 核准後做，在那之前記 not_run。AT-27 的「已發布店面不變」由 D-11 的 DP-02～04 覆蓋（本機 runtime，瀏覽器 not_run） |
+| AT-23～28、43 | S3 素材（SC-SPEC-04 §4）：SQL、HTTP 與狀態邏輯見下方 `SC-09`、`MATERIAL-*`、`SC-API-M1C-*`、`SC-UI-M3-*`、`M2-*`；瀏覽器見 `SC-E2E-60`～`70`（合作店家看見並下載目前版本、新版本／撤銷／撤回後舊路徑 404 見 `69`、`70`）。真 R2 的寫入與讀取、備份與還原（AT-43）要在 staging 由 Ted 核准後做，在那之前記 not_run。AT-27 的「已發布店面不變」由 D-11 的 DP-02～04（runtime）與 SC-E2E-72、73（瀏覽器）覆蓋 |
 | AT-29、30、31、32（報表） | S3 報表（SC-SPEC-04 §5）：HTTP `SC-API-25`～`36`（含 CSV 防公式注入 AT-32；幣別不符時整份報表失敗，不跨幣相加）、狀態邏輯 `SC-UI-S3-01`～`16`；瀏覽器 `SC-E2E-71`（預設台灣 30 天、各數字連到對應清單、無效期間不送出、CSV 檔名與 BOM 與防公式注入、非 owner 沒有預留、390／1440 版面） |
 | AT-35 | S1 的商品照片沿用 `HostedStorePhoto` 的晚到保護：會話世代與處理序號都相符、元件也仍掛載時，才把讀好的檔案放進預覽和待上傳內容。目前沒有不靠等待時間就能重現的自動測試，S1 記為 not_run。S3 素材上傳另有狀態邏輯測試（`SC-UI-M3-10`、`23`、`24`）：會話在送出或讀完回應時改變，不會更新憑證或接受上傳；晚到的結果不會覆蓋較新的上傳。這不是瀏覽器證據，瀏覽器層仍記 not_run |
 
@@ -102,7 +102,7 @@
 
 ### D-11 店面使用合作素材（本機候選）
 
-`distribution-photos.test.ts` 與 `distribution-photos-sql.test.ts` 已登記 runtime suites；使用受限角色、真 PostgreSQL schema 與 FakeObjectStore，不宣稱真 R2 或已部署。所有瀏覽器案例本輪 `not_run`，後續 job 補。
+`distribution-photos.test.ts` 與 `distribution-photos-sql.test.ts` 已登記 runtime suites；使用受限角色、真 PostgreSQL schema 與 FakeObjectStore，不宣稱真 R2 或已部署。瀏覽器案例 SC-E2E-72～75 在照片 pass（`tests/e2e/hosted-store-photo.spec.ts`），同樣用 FakeObjectStore。
 
 | 案例 | 驗證 | 對應 |
 | --- | --- | --- |
@@ -119,6 +119,10 @@
 | DP-11 | 選用／停止使用不改供貨同意 CAS | AT-27 |
 | DP-12 | 自有商品照片 JSON、預覽與發布維持原行為 | AT-27 |
 | DP-SQL-01～05 | 不可刪改來源事實、指標 identity／版本、同 tenant／instance／product 的 copy FK、ready／object FK、fence guards、intent shape／0 版本限制、tenant RLS | AT-24、32、33、43（非還原演練） |
+| SC-E2E-72 | 瀏覽器：確認對話框焦點在「取消」、取消不送出；選用後的草稿縮圖與私人讀取（匿名 401、供應商 404）；一筆來源 v1 的複本；發布前公開媒體不變，發布後位元組等於複本；供應商出 v2 後改用並發布才換成 v2，舊公開路徑 404 | AT-27、SC-R29 |
+| SC-E2E-73 | 瀏覽器：撤回素材或改回「僅授權的合作店家」後顯示來源失效與「停止使用」；已發布照片不變，下次發布移除；停止使用只清指標、保留複本 | AT-26、27 |
+| SC-E2E-74 | 瀏覽器：選用結果不明時顯示「重試」，以同 key、同 If-Match、同 body 重送，只有一份複本；重新登入後狀態相同 | AT-24、27 |
+| SC-E2E-75 | 瀏覽器：`store:read` 成員看得到狀態與縮圖、沒有命令按鈕；旗標關閉時每張可公開使用的圖片一行說明、不送讀取（UI 檢查，伺服器端見 DP-10）；390／1440 與對話框不溢出 | AT-27、33 |
 
 ## 4. 效能
 

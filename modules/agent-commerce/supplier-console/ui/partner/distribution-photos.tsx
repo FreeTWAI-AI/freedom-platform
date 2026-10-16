@@ -29,6 +29,7 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
  },[client,root,scope,enabled]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;abort.current?.abort();};},[]);
  useEffect(()=>{setChoice(null);if(active)void load();return()=>abort.current?.abort();},[scope,active,refresh,load]);
+ // showModal() focuses the first button: React's autoFocus writes no attribute, so 取消 must come first.
  useEffect(()=>{if(choice&&choice.scope===scope){dialog.current?.showModal();}else dialog.current?.close();},[choice,scope]);
  const close=()=>{setChoice(null);opener.current?.focus();};
  const rows=result?.scope===scope?result.items:[];
@@ -50,7 +51,7 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
   {enabled&&error&&<div className="stack"><p role="alert" className="banner banner-error">目前無法讀取店面照片。{error}</p><div className="actions"><button type="button" className="btn btn-ghost btn-small" onClick={()=>void load()}>重試</button></div></div>}
   {rows.filter(row=>row.state==='source_unavailable').map(row=><div key={row.product_id} className="stack"><p>「{row.title}」的店面照片來源已撤回或不再開放公開使用，下次發布時不會顯示。</p><div className="actions">{stop(row)}</div>{row.photo&&<img src={row.photo.read_path} alt={`${row.title}的店面草稿照片`} loading="lazy" width={96} className="distribution-photo-thumb"/>}</div>)}
   <dialog className="distribution-photo-dialog" ref={dialog} aria-labelledby="distribution-photo-confirm-title" onCancel={event=>{event.preventDefault();close();}} onClose={close}>
-   {choice&&choice.scope===scope&&<div className="stack"><h3 id="distribution-photo-confirm-title">把這張素材用在公開店面？</h3><p>會把第 {choice.material.current.version_no} 版複製到你的業務空間，作為「{choice.product.title}」的店面商品圖，計入業務空間容量。供應商之後更新或撤回素材，不會改寫已發布的店面；你重新發布店面後才會生效。</p><div className="actions"><button type="button" className="btn btn-primary btn-small" disabled={!allowed} onClick={()=>{send(choice.product,choice.material);close();}}>複製並使用</button><button type="button" className="btn btn-ghost btn-small" autoFocus onClick={close}>取消</button></div></div>}
+   {choice&&choice.scope===scope&&<div className="stack"><h3 id="distribution-photo-confirm-title">把這張素材用在公開店面？</h3><p>會把第 {choice.material.current.version_no} 版複製到你的業務空間，作為「{choice.product.title}」的店面商品圖，計入業務空間容量。供應商之後更新或撤回素材，不會改寫已發布的店面；你重新發布店面後才會生效。</p><div className="actions"><button type="button" className="btn btn-ghost btn-small" autoFocus onClick={close}>取消</button><button type="button" className="btn btn-primary btn-small" disabled={!allowed} onClick={()=>{send(choice.product,choice.material);close();}}>複製並使用</button></div></div>}
   </dialog>
  </>;
  const renderMaterial=(material:PartnerMaterial):ReactNode=>{

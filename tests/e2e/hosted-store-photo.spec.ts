@@ -1037,7 +1037,7 @@ test('SC-E2E-72 a partner image becomes the seller\'s storefront photo only afte
     await expect(useDialog).toContainText('第 1 版');
     await expect(useDialog).toContainText(`「${productTitle}」`);
     const cancelBtn = useDialog.getByRole('button', {name: '取消', exact: true});
-    await expect.soft(cancelBtn).toBeFocused();
+    await expect(cancelBtn).toBeFocused();
     await cancelBtn.click();
     await expect(useDialog).toBeHidden();
     await expect(useBtn).toBeFocused();
