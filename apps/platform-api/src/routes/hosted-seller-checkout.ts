@@ -1,3 +1,4 @@
+import {listSellerRefunds,recordSellerRefund} from '../../../../modules/agent-commerce/payments/refunds.js';
 import {Hono} from 'hono';
 import type {Pool} from 'pg';
 import {OpaqueId} from '../../../../contracts/guild-launchpad/v1/primitives.js';
@@ -23,6 +24,8 @@ export function createHostedSellerCheckoutRoutes(pool:Pool,options:SellerCheckou
     const h=commandHeaders(c,true),[t,i]=ids(c);wire.SellerCheckoutEmptyInputSchema.parse(await c.req.json());
     const view=wire.SellerCheckoutOrderSchema.parse(await cancelSellerCheckoutOrder(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('order_id')),h.key,h.expected!,options));etag(c,view.version);return c.json(view);
   });
+  app.get(orders+'/:order_id/refunds',async c=>{wire.SellerCheckoutEmptyInputSchema.parse(singleQuery(c));const [t,i]=ids(c);return c.json(wire.SellerRefundListSchema.parse(await listSellerRefunds(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('order_id')))));});
+  app.post(orders+'/:order_id/refunds',async c=>{const h=commandHeaders(c,false),[t,i]=ids(c);return c.json(wire.SellerRefundSchema.parse(await recordSellerRefund(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('order_id')),await c.req.json(),h.key,options)),201);});
   app.get(cases,async c=>{const [t,i]=ids(c);return c.json(wire.ExceptionCasePageSchema.parse(await listSellerExceptions(pool,c.get('actor'),t,i,singleQuery(c),options)));});
   app.get(cases+'/:case_id',async c=>{
     wire.SellerCheckoutEmptyInputSchema.parse(singleQuery(c));const [t,i]=ids(c);
