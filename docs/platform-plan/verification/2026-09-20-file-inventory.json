@@ -16079,8 +16079,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 30760,
-      "sha256": "d45744aff5743ef3b453ede8fca03974920a987f5c52b351397a6d2e659cf109"
+      "bytes": 31109,
+      "sha256": "29406d06e85bd82e624ca4476642527e937fcef554200f8d685ae3b1af2cb135"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -19729,8 +19729,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 50427,
-      "sha256": "b2f3c263a3826f74ca4dc13cd2e9ca8174c8ec115442adf68bc266066cd1019a"
+      "bytes": 53518,
+      "sha256": "49130004e6a00bfe50de6f3a2161da8ae30bff6f253885072e16adb55bec4964"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -20759,8 +20759,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 16221,
-      "sha256": "b049486b2ab22c28a0bcc6ba193a3f26263d3a7c611b66c744ae5af6df64736d"
+      "bytes": 16290,
+      "sha256": "5b8207ad66789d790c39ff057f7abe81701287fba5c7deefe995e7c16527445a"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",

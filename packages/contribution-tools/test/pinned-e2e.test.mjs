@@ -541,7 +541,7 @@ test('a failed default shard cancels its live peer and never starts a fixture pa
       if(part==='1/2'){
         const timer=setInterval(()=>{if(!fs.existsSync(${JSON.stringify(ready)}))return;clearInterval(timer);result();process.exit(1);},10);
       }else{
-        process.on('SIGTERM',()=>{fs.writeFileSync(${JSON.stringify(stopped)},'terminated');result();process.exit(0);});
+        process.on('SIGINT',()=>{fs.writeFileSync(${JSON.stringify(stopped)},'terminated');result();process.exit(0);});
         fs.writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>{},1000);
       }
     `);
@@ -556,7 +556,7 @@ test('a failed default shard cancels its live peer and never starts a fixture pa
   });
 });
 
-test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero child exit', async () => {
+test('CLI cancellation interrupts Playwright and retains test_cancelled with a zero child exit', async () => {
   await withFixture(async root => {
     await baseline(root);
     const runnerDir = join(root, 'node_modules/@playwright/test');
@@ -566,7 +566,7 @@ test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero chil
     await writeFile(join(runnerDir, 'cli.cjs'), `
       ${lifecycleListing(root)}
       const fs = require('node:fs');
-      process.on('SIGTERM', () => {
+      process.on('SIGINT', () => {
         fs.appendFileSync(${JSON.stringify(marker)},process.pid+'\\n');
         fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({
           config: { rootDir: ${JSON.stringify(join(root, 'tests/e2e'))} }, suites: [], errors: [],
@@ -603,6 +603,68 @@ test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero chil
   });
 });
 
+test('CLI cancellation tears down both real Playwright web servers before returning', async () => {
+  await withFixture(async root => {
+    await playwrightFixture(root, `
+      const origin='http://127.0.0.1:'+process.env.FREEDOM_E2E_PORT;
+      export default {timeout:45000,use:{baseURL:origin},
+        webServer:{command:'node fixture-http.mjs',url:origin+'/health',reuseExistingServer:false,
+          gracefulShutdown:{signal:'SIGTERM',timeout:5000}},projects:[{name:'chromium'}]};
+    `);
+    await writeFile(join(root,'fixture-http.mjs'),`
+      import {createServer} from 'node:http';
+      import {writeFileSync} from 'node:fs';
+      const port=process.env.FREEDOM_E2E_PORT;
+      const server=createServer((req,res)=>res.end('ok'));
+      server.listen(Number(port),'127.0.0.1',()=>writeFileSync('server-'+port,String(process.pid)));
+      process.on('SIGTERM',()=>{writeFileSync('stopped-'+port,'SIGTERM');server.close(()=>process.exit(0));});
+    `);
+    for(const file of E2E_BASELINE)await writeFile(join(root,file),`
+      import {test} from '@playwright/test';
+      test('pending operation',async()=>{
+        console.log('native_cancel_ready '+process.env.FREEDOM_E2E_PORT);
+        await new Promise(()=>{});
+      });
+    `);
+    const output=join(root,'result.json');
+    const child=spawn(process.execPath,[cli,'--root',root,'--output',output],{
+      env:cliEnv,stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'
+    });
+    let timer,stdout='',stderr='',signalled=false;
+    try{
+      const exit=new Promise((done,reject)=>{
+        child.once('error',reject);child.once('close',(code,signal)=>done({code,signal}));
+        timer=setTimeout(()=>reject(Error('real Playwright cancellation did not finish')),30000);
+      });
+      child.stderr.on('data',bytes=>{stderr+=bytes;});
+      child.stdout.on('data',bytes=>{
+        stdout+=bytes;
+        if(!signalled&&E2E_DEFAULT_SHARDS.every(({port})=>stdout.includes('native_cancel_ready '+port))){
+          signalled=true;child.kill('SIGTERM');
+        }
+      });
+      const resultExit=await exit;
+      assert.equal(signalled,true,stdout+stderr);
+      assert.deepEqual(resultExit,{code:1,signal:null});
+      const result=JSON.parse(await readFile(output,'utf8'));
+      assert.equal(result.status,'failed');assert.equal(result.reason,'test_cancelled');
+      assert.deepEqual(result.passes.map(pass=>pass.id),['default']);
+      for(const {port} of E2E_DEFAULT_SHARDS){
+        assert.equal(await readFile(join(root,'stopped-'+port),'utf8'),'SIGTERM');
+        const pid=Number(await readFile(join(root,'server-'+port),'utf8'));
+        assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
+      }
+    }finally{
+      clearTimeout(timer);
+      try{process.kill(process.platform==='win32'?child.pid:-child.pid,'SIGKILL');}catch{}
+      // A failing cleanup regression must not leave its own HTTP fixture behind.
+      for(const {port} of E2E_DEFAULT_SHARDS){
+        try{process.kill(Number(await readFile(join(root,'server-'+port),'utf8')),'SIGTERM');}catch{}
+      }
+    }
+  });
+});
+
 test('host pass budgets are finite and only the default capacity increases', async () => {
   assert.deepEqual(E2E_PASS_TIMEOUT_MS, {
     default: 60 * 60 * 1000,
@@ -632,7 +694,7 @@ test('CLI default deadline remains failure after graceful zero exit and stops la
       ${lifecycleListing(root)}
       const fs = require('node:fs');
       fs.appendFileSync(${JSON.stringify(starts)}, process.pid+'\\n');
-      process.on('SIGTERM', () => {
+      process.on('SIGINT', () => {
         fs.appendFileSync(${JSON.stringify(marker)}, process.pid+'\\n');
         fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({
           config: { rootDir: ${JSON.stringify(join(root, 'tests/e2e'))} }, suites: [], errors: [],

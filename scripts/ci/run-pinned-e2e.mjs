@@ -54,7 +54,8 @@ export async function cleanupE2ePass(temp, output, passId, failed) {
   finally { await rm(temp, { recursive: true, force: true }); }
 }
 
-// SIGTERM allows Playwright's 15s webServer shutdown to drop the private schema.
+// SIGINT enters Playwright's test-runner teardown, which sends the configured
+// SIGTERM to its separate webServer group and drops the private schema.
 // Escalation is bounded independently of the host-owned whole-pass budget.
 function execute(root, cli, pass, env, signal, configFile, { listing = false, shard, timeoutMs } = {}) {
   if (signal.aborted) return Promise.resolve({ exit_code: null, reason: 'test_cancelled' });
@@ -74,7 +75,7 @@ function execute(root, cli, pass, env, signal, configFile, { listing = false, sh
     const stop = code => {
       if (reason) return;
       reason = code;
-      kill('SIGTERM');
+      kill('SIGINT');
       escalation = setTimeout(() => kill('SIGKILL'), 20000);
     };
     const abort = () => stop('test_cancelled');

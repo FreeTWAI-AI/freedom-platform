@@ -104,7 +104,12 @@ No candidate CLI profile, file list, shard count or timeout override is accepted
 
 The current 60-minute default-mode budget from #796 includes discovery and both
 concurrent processes; discovery keeps its independent 60-second maximum. A failed shard
-cancels its peer, with the existing bounded SIGTERM/SIGKILL cleanup. Timeout or
+cancels its peer by interrupting the Playwright CLI with SIGINT. Playwright then
+runs its configured SIGTERM webServer teardown; the existing 20-second SIGKILL
+escalation remains bounded. Direct SIGTERM to the CLI skips that teardown and
+can leave its separate webServer process group alive. The real-Playwright
+cancellation regression requires both HTTP servers to receive SIGTERM and exit
+before the runner returns. Timeout or
 cancellation remains failed even if every interrupted child exits zero.
 Default evidence requires both ordered `partitions` with host-bound current/total,
 actual exit status and raw-report SHA-256. Their disjoint case union must equal
