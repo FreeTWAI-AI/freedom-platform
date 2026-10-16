@@ -493,7 +493,7 @@ CREATE TABLE commerce_hosted_payment_events (
   handling_charge_minor bigint CHECK(handling_charge_minor>=0),
   unknown_reason text CHECK(unknown_reason IN ('missing_field','invalid_field','unrecognized_status')),
   unknown_field text CHECK(unknown_field ~ '^[A-Za-z]{1,40}$'),
-  query_trigger text CHECK(query_trigger IN ('schedule','window_end','notification','browser_return','buyer','repay','activation')),
+  query_trigger text CHECK(query_trigger IN ('schedule','window_end','notification','browser_return','buyer','seller','repay','activation')),
   gwsr text CHECK(gwsr ~ '^[0-9]{1,20}$'),
   credential_version integer,
   body_sha256 text CHECK(body_sha256 ~ '^[a-f0-9]{64}$'),
@@ -605,6 +605,7 @@ CREATE TABLE commerce_exception_cases (
 );
 CREATE UNIQUE INDEX commerce_exception_case_open ON commerce_exception_cases(kind,subject_kind,subject_id) WHERE status='open';
 CREATE INDEX commerce_exception_case_store ON commerce_exception_cases(tenant_id,instance_id,status,due_at,case_id);
+CREATE INDEX commerce_exception_case_store_closed ON commerce_exception_cases(tenant_id,instance_id,updated_at,case_id) WHERE status<>'open';
 CREATE INDEX commerce_exception_case_order ON commerce_exception_cases(order_id);
 CREATE INDEX commerce_exception_case_executor ON commerce_exception_cases(executor_tenant_id);
 CREATE INDEX commerce_exception_case_opener ON commerce_exception_cases(opened_by_principal_id);
@@ -633,3 +634,84 @@ CREATE TRIGGER preserve_commerce_exception_case BEFORE INSERT OR UPDATE OR DELET
 ALTER TABLE commerce_exception_cases ENABLE ROW LEVEL SECURITY;
 CREATE POLICY commerce_exception_cases_tenant ON commerce_exception_cases FOR ALL TO PUBLIC
   USING(tenant_id=freedom_ctx_tenant()) WITH CHECK(tenant_id=freedom_ctx_tenant());
+
+-- Manual records of money never applied to an order. These non-PII ledgers are
+-- machine-readable before tenant binding; participant authority lives in APIs.
+CREATE TABLE commerce_refunds (
+  refund_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  order_id uuid NOT NULL REFERENCES commerce_checkout_orders(order_id),
+  application_id uuid NOT NULL,
+  attempt_id uuid NOT NULL REFERENCES commerce_payment_attempts(attempt_id),
+  basis text NOT NULL CHECK(basis='unapplied_payment'),
+  mode text NOT NULL CHECK(mode='manual_record'),
+  state text NOT NULL CHECK(state='recorded'),
+  amount_minor bigint NOT NULL CHECK(amount_minor>0),
+  currency text NOT NULL CHECK(currency ~ '^[A-Z]{3}$'),
+  refunded_on date NOT NULL,
+  provider_reference text CHECK(provider_reference ~ '^[A-Za-z0-9_-]{1,64}$'),
+  recorded_by_principal_id uuid NOT NULL REFERENCES principals(principal_id),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  version bigint NOT NULL DEFAULT 1 CHECK(version=1),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
+  FOREIGN KEY(application_id,order_id) REFERENCES commerce_checkout_payment_applications(application_id,order_id)
+);
+CREATE INDEX commerce_refund_store ON commerce_refunds(tenant_id,instance_id);
+CREATE INDEX commerce_refund_order ON commerce_refunds(order_id,created_at,refund_id);
+CREATE INDEX commerce_refund_application ON commerce_refunds(application_id,order_id);
+CREATE INDEX commerce_refund_attempt ON commerce_refunds(attempt_id);
+CREATE INDEX commerce_refund_recorder ON commerce_refunds(recorded_by_principal_id);
+CREATE TABLE commerce_refund_lines (
+  refund_id uuid NOT NULL REFERENCES commerce_refunds(refund_id),
+  line_no smallint NOT NULL CHECK(line_no>=1),
+  kind text NOT NULL CHECK(kind='unapplied'),
+  amount_minor bigint NOT NULL CHECK(amount_minor>0),
+  PRIMARY KEY(refund_id,line_no)
+);
+CREATE FUNCTION preserve_commerce_refund() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE application commerce_checkout_payment_applications%ROWTYPE; target commerce_checkout_orders%ROWTYPE; refunded numeric;
+BEGIN
+  IF TG_OP<>'INSERT' THEN
+    RAISE EXCEPTION 'refund ledger is append only' USING ERRCODE='23514';
+  END IF;
+  SELECT * INTO application FROM commerce_checkout_payment_applications WHERE application_id=NEW.application_id FOR UPDATE;
+  SELECT * INTO target FROM commerce_checkout_orders WHERE order_id=NEW.order_id;
+  IF application.application_id IS NULL OR target.order_id IS NULL
+    OR application.order_id<>NEW.order_id OR target.tenant_id<>NEW.tenant_id OR target.instance_id<>NEW.instance_id
+    OR application.payment_ref<>NEW.attempt_id OR application.outcome NOT IN ('overpaid','after_cancel','amount_mismatch')
+    OR application.currency<>NEW.currency THEN
+    RAISE EXCEPTION 'refund payment binding is invalid' USING ERRCODE='23514';
+  END IF;
+  SELECT coalesce(sum(amount_minor),0) INTO refunded FROM commerce_refunds WHERE application_id=NEW.application_id AND state<>'failed';
+  IF refunded+NEW.amount_minor>application.amount_minor THEN
+    RAISE EXCEPTION 'refund exceeds payment' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_refund BEFORE INSERT OR UPDATE OR DELETE ON commerce_refunds
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_refund();
+CREATE FUNCTION preserve_commerce_refund_line() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'refund lines are append only' USING ERRCODE='23514';
+END;
+$$;
+CREATE TRIGGER preserve_commerce_refund_line BEFORE UPDATE OR DELETE ON commerce_refund_lines
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_refund_line();
+CREATE FUNCTION check_commerce_refund_lines() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE total numeric; target bigint; count_lines bigint;
+BEGIN
+  SELECT amount_minor INTO target FROM commerce_refunds WHERE refund_id=NEW.refund_id;
+  SELECT count(*),coalesce(sum(amount_minor),0) INTO count_lines,total FROM commerce_refund_lines WHERE refund_id=NEW.refund_id;
+  IF count_lines=0 OR total<>target THEN
+    RAISE EXCEPTION 'refund lines must equal refund amount' USING ERRCODE='23514';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+CREATE CONSTRAINT TRIGGER commerce_refund_lines_balance AFTER INSERT ON commerce_refunds
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_commerce_refund_lines();
+CREATE CONSTRAINT TRIGGER commerce_refund_line_balance AFTER INSERT ON commerce_refund_lines
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_commerce_refund_lines();
+CREATE INDEX commerce_checkout_order_store_recent ON commerce_orders(public_shop_id,created_at,order_id) WHERE order_profile='hosted_checkout';

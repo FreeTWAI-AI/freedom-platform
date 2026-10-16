@@ -20,6 +20,8 @@ import { Pool, Client, type PoolClient } from 'pg';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { migrate } from '../../scripts/database.js';
 import { digest } from '../../packages/db/index.js';
+import { placeCheckoutOrder } from '../../modules/agent-commerce/checkout/orders.js';
+import { applyConfirmedPayment } from '../../modules/agent-commerce/checkout/payments.js';
 import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
 import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
@@ -335,19 +337,6 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
       VALUES($1,'payment',$2,$3,'sandbox','ecpay.aio.credit.v1',1)`,[accountId,space.tenantId,space.hosted.instanceId]);
     await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
       VALUES($1,'payment',1,$2,$3,'sandbox',$4,$5,$6)`,[accountId,space.tenantId,space.hosted.instanceId,sealed.key_id,sealed.sealed,author.principalId]);
-    const attemptId = randomUUID(), tradeNumber = newTradeNumber('F');
-    await q.query(`INSERT INTO commerce_payment_attempts(attempt_id,tenant_id,instance_id,kind,sequence,account_id,
-      environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency)
-      VALUES($1,$2,$3,'service_activation',1,$4,'sandbox','1234567',1,$5,1000,'TWD')`,
-    [attemptId,space.tenantId,space.hosted.instanceId,accountId,tradeNumber]);
-    // These exempt machine facts must survive backup as exactly as the RLS rows.
-    await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,
-      merchant_trade_no,trade_status,handling_charge_minor,unknown_reason,unknown_field,query_trigger,body_sha256)
-      VALUES($1,$2,$3,$4,'query','unknown',$5,'999',0,'invalid_field','TradeAmt','schedule',$6)`,
-    [space.tenantId,space.hosted.instanceId,accountId,attemptId,tradeNumber,createHash('sha256').update(attemptId).digest('hex')]);
-    await q.query(`INSERT INTO commerce_due_work(tenant_id,instance_id,kind,target_id,due_at,attempts,failure_count,last_query_at,last_error)
-      VALUES($1,$2,'payment_query',$3,clock_timestamp()+interval '10 minutes',4,3,clock_timestamp(),'verify_failed')`,
-    [space.tenantId,space.hosted.instanceId,attemptId]);
     const store = (await q.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [space.hosted.instanceId])).rows[0];
     space.checkout = await freezeCheckout(q, store, {
       publication_revision: '1', lines: [{ sku: 'P0001', quantity: 1 }],
@@ -356,6 +345,24 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     }, { shipping: { async quote(_q, _store, input) {
       return { groups: input.lines.map(line => ({ group_ref: 'synthetic-group', supplier_shop_id: line.supplier_shop_id, method_ref: 'synthetic', amount_minor: 0 })) };
     } } });
+    const checkoutOrder = await placeCheckoutOrder(q,store,{checkoutId:space.checkout.checkout_id,termsSha256:space.checkout.terms_sha256,clientOrderId:randomUUID(),buyerPrincipalId:null,environment:'sandbox'}, {admission:{allowed:()=>true},shipping:{async quote(_q,_store,input){return {groups:input.lines.map(line=>({group_ref:'synthetic-group',supplier_shop_id:line.supplier_shop_id,method_ref:'synthetic',amount_minor:0}))};}}});
+    const attemptId = randomUUID(), tradeNumber = newTradeNumber('F');
+    await q.query(`INSERT INTO commerce_payment_attempts(attempt_id,tenant_id,instance_id,kind,sequence,account_id,order_id,
+      environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency)
+      VALUES($1,$2,$3,'order',1,$4,$6,'sandbox','1234567',1,$5,1000,'TWD')`,
+    [attemptId,space.tenantId,space.hosted.instanceId,accountId,tradeNumber,checkoutOrder.order_id]);
+    // These exempt machine facts must survive backup as exactly as the RLS rows.
+    await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,
+      merchant_trade_no,trade_status,handling_charge_minor,unknown_reason,unknown_field,query_trigger,body_sha256)
+      VALUES($1,$2,$3,$4,'query','unknown',$5,'999',0,'invalid_field','TradeAmt','schedule',$6)`,
+    [space.tenantId,space.hosted.instanceId,accountId,attemptId,tradeNumber,createHash('sha256').update(attemptId).digest('hex')]);
+    await q.query(`INSERT INTO commerce_due_work(tenant_id,instance_id,kind,target_id,due_at,attempts,failure_count,last_query_at,last_error)
+      VALUES($1,$2,'payment_query',$3,clock_timestamp()+interval '10 minutes',4,3,clock_timestamp(),'verify_failed')`,
+    [space.tenantId,space.hosted.instanceId,attemptId]);
+    const application=await applyConfirmedPayment(q,{orderId:checkoutOrder.order_id,paymentRef:attemptId,amountMinor:200,currency:'TWD',simulated:false});
+    const refund=(await q.query(`INSERT INTO commerce_refunds(tenant_id,instance_id,order_id,application_id,attempt_id,basis,mode,state,amount_minor,currency,refunded_on,recorded_by_principal_id)
+      VALUES($1,$2,$3,$4,$5,'unapplied_payment','manual_record','recorded',100,'TWD',(clock_timestamp() AT TIME ZONE 'Asia/Taipei')::date,$6) RETURNING refund_id`,[space.tenantId,space.hosted.instanceId,checkoutOrder.order_id,application.application_id,attemptId,author.principalId])).rows[0];
+    await q.query("INSERT INTO commerce_refund_lines(refund_id,line_no,kind,amount_minor) VALUES($1,1,'unapplied',100)",[refund.refund_id]);
     await q.query(`INSERT INTO commerce_exception_cases(tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind) VALUES($1,$2,'unmatched_payment','payment_event',$3,'retailer',clock_timestamp()+interval '72 hours','system')`,[space.tenantId,space.hosted.instanceId,randomUUID()]);
     const {device}=await ensureDevice(q,undefined,'https://example.test');
     await grantDevice(q,device.device_id,{tenant_id:space.tenantId,instance_id:space.hosted.instanceId,checkout_id:space.checkout.checkout_id});
@@ -678,7 +685,7 @@ test('J6-R2 owner and backup counts and full-row fingerprints agree at the same 
   assert.doesNotThrow(() => compareEvidence(backup.evidence!, ownerEvidence));
   assert.deepEqual(Object.keys(EXPECTED).sort(), [...RLS_TABLES].sort());
   for (const table of RLS_TABLES) assert.equal(evidenceCount(backup.evidence, table), EXPECTED[table], table);
-  for (const table of ['commerce_payment_attempts','commerce_hosted_payment_events','commerce_due_work']) {
+  for (const table of ['commerce_payment_attempts','commerce_hosted_payment_events','commerce_due_work','commerce_refunds','commerce_refund_lines']) {
     assert.equal(evidenceCount(backup.evidence, table), 2, table);
   }
   assert.equal(snapshotAssets, 2);
@@ -744,13 +751,16 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
-  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id']] as const) {
+  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id'],['commerce_refunds','refund_id']] as const) {
     const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
     const restored = await rows(restoredPool);
     assert.equal(restored.length, 2);
     assert.deepEqual(restored, (await rows(owner)).filter(row => row.tenant_id !== spaces.c.tenantId));
     assert.equal((await restoredPool.query(`SELECT 1 FROM ${table} WHERE tenant_id=$1`, [spaces.c.tenantId])).rowCount, 0);
   }
+  const refundLines=async(pool:Pool)=>(await pool.query(`SELECT l.* FROM commerce_refund_lines l JOIN commerce_refunds r USING(refund_id) WHERE r.tenant_id=ANY($1::uuid[]) ORDER BY l.refund_id,l.line_no`,[[spaces.a.tenantId,spaces.b.tenantId]])).rows;
+  assert.equal((await refundLines(restoredPool)).length,2);
+  assert.deepEqual(await refundLines(restoredPool),await refundLines(owner));
   for(const row of (await restoredPool.query('SELECT * FROM commerce_provider_credentials')).rows){
     const actual=unsealCredential(commerceKeys,row,row);
     assert.equal(JSON.stringify(actual)===JSON.stringify(commerceMaterials.get(row.account_id)),true,'restored credential must unseal under its retained context');
