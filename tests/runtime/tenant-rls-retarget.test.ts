@@ -502,6 +502,8 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
     // Checkout customer/contact PII joins the same discovered A/B isolation checks.
     'commerce_customers', 'commerce_checkout_contacts',
+    // Payment exceptions retain free-text notes under the same tenant isolation.
+    'commerce_exception_cases',
     // So does each tenant's browser order access grant.
     'commerce_order_access_grants',
     'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
@@ -585,6 +587,9 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
         VALUES($1,'payment',$2,$3,'sandbox','ecpay.aio.credit.v1',1)`, [accountId,data.tenantId,data.instanceId]);
       await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
         VALUES($1,'payment',1,$2,$3,'sandbox',$4,$5,$6)`, [accountId,data.tenantId,data.instanceId,sealed.key_id,sealed.sealed,data.principalId]);
+      await q.query(`INSERT INTO commerce_exception_cases(tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind)
+        VALUES($1,$2,'unmatched_payment','payment_event',$3,'retailer',clock_timestamp()+interval '72 hours','system')`,
+      [data.tenantId,data.instanceId,randomUUID()]);
     });
   }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';
@@ -666,6 +671,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       const code = (error as { code?: string }).code;
       assert.ok(code && ['42501', '23503', '23514', 'P0001', '23505'].includes(code), `${table}: unexpected SQLSTATE ${code}: ${String(error)}`);
       if (table === 'commerce_order_quotes') assert.equal(code, '23514', 'quote UPDATE must retain its immutable guard');
+      if (table === 'commerce_exception_cases') assert.equal(code, '23514', 'exception identity cannot be retargeted');
       updateCovered = isRlsRejection(error);
       outcome = `${code}: ${(error as Error).message}`;
     }
