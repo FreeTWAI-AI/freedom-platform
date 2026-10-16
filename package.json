@@ -2,6 +2,7 @@
   "name": "freedom-platform",
   "version": "0.13.0-member-messages",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=24"

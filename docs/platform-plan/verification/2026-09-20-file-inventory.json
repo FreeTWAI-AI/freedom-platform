@@ -24,8 +24,8 @@
     },
     {
       "path": "CONTRIBUTING.md",
-      "bytes": 3727,
-      "sha256": "4986c23c7dbbe7416448976ab6e239d111729def704e129984a123ebc853ab61"
+      "bytes": 4326,
+      "sha256": "76a77140cceea13088e60bde21b847f2a409acc21e11032eff59025382ae98ac"
     },
     {
       "path": "DESIGN.md",
@@ -33,9 +33,14 @@
       "sha256": "7ac53c3c80a55ab12433d95bd4c8ddeec1574612f3121fda7bee65818b0c4013"
     },
     {
+      "path": "LICENSE",
+      "bytes": 1078,
+      "sha256": "309d48401cdd0e50dc3fe3c79c85c2a1cf9fea9efb3b85d8fd2328d85b94fc6c"
+    },
+    {
       "path": "README.md",
-      "bytes": 33416,
-      "sha256": "77523ab69413ab5ad956e8a0e36d5d64236b23281e125639d34c1a6709d94893"
+      "bytes": 34841,
+      "sha256": "b656e3ab721eef3f8c2ae8e2b1f334763fbd02ead9c8ef87974d7820e9aae040"
     },
     {
       "path": "compose.yaml",
@@ -49,13 +54,13 @@
     },
     {
       "path": "package-lock.json",
-      "bytes": 126774,
-      "sha256": "1a3fa1aecafae6feee268d5a8dac84069fefd6083cead525dde256104960fa9f"
+      "bytes": 126798,
+      "sha256": "0c1412f92481c9be3d32835802a567752f5c3762c22927ce581457e3aaf668eb"
     },
     {
       "path": "package.json",
-      "bytes": 8524,
-      "sha256": "66bebd9034fe61596fa7b2675f9b3feffb849e39fa3a404447490e658808cfbf"
+      "bytes": 8544,
+      "sha256": "689114ee3e0f807c6558574528beb122bea79ed7d0c3a9aa298e514b9a104d93"
     },
     {
       "path": "playwright.config.ts",
@@ -118,9 +123,19 @@
       "sha256": "e087c647400cfc2090251cb60d28303858e764bd1ad7bb0ed042405dec07d775"
     },
     {
+      "path": ".circleci/README.md",
+      "bytes": 7095,
+      "sha256": "28a74cf7288853b0d17484656361eac50f4b851c27b7c20ea6fbb080222fb063"
+    },
+    {
+      "path": ".circleci/config.yml",
+      "bytes": 5379,
+      "sha256": "ce388dd956d008a7533e1ecaff36b5e2d61a3b2132c3877731e7d723a5b19c11"
+    },
+    {
       "path": ".github/CODEOWNERS",
-      "bytes": 1919,
-      "sha256": "b120d9a72f9407ca870942afa17afd5439cd07fda12cf5a59da21b8c9578577d"
+      "bytes": 1960,
+      "sha256": "373b6ec37a43b145c1ac3db5c68ab2cc812c62e520d8953964c45ed4f4c0b6b0"
     },
     {
       "path": ".github/workflows/directory-runtime-profile.yml",
@@ -154,8 +169,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 33918,
-      "sha256": "6dcba363701b16f6ab4371a16ee7f8615d3b2b454a6274028074745106b8fc28"
+      "bytes": 34783,
+      "sha256": "8fd205e7880ffef0e638a0e8c9b95b50a015e6db6bec4087c02800aedb01df24"
     },
     {
       "path": "apps/freedom.module.json",
@@ -19009,8 +19024,8 @@
     },
     {
       "path": "modules/skill-submissions/freedom.module.json",
-      "bytes": 5441,
-      "sha256": "d876566a1b46f0c914637b97e573a3049cdff4de25b0fdd1b99f14dee8fc4dd5"
+      "bytes": 5634,
+      "sha256": "dd0dac1932dd8defc70122fbd5e54eecb521874f5fec4b5b30db4037a284fdc9"
     },
     {
       "path": "modules/skill-submissions/limits.ts",
@@ -19233,6 +19248,11 @@
       "sha256": "247cc8ef3a88ef9035523d3719d8ca7b9c97b6032bab8c1905b1d5774aca650c"
     },
     {
+      "path": "packages/contribution-tools/circleci-worker-status.mjs",
+      "bytes": 5401,
+      "sha256": "7b744a3731f47ebd4c65d8895635f0427fe0b1be4638ff5f684b300069950759"
+    },
+    {
       "path": "packages/contribution-tools/cli.mjs",
       "bytes": 4492,
       "sha256": "d3b3eab1b5ebc7d313770c7daa58d01f22ea4a0a14da51ad6f0b170025e1833d"
@@ -19349,8 +19369,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 4638,
-      "sha256": "a348e0881b385d87544e8d310dcdcd5c0e408d8c927568c0c029aa0b55236716"
+      "bytes": 4699,
+      "sha256": "5ffd02743a2b9e83eac9d8c7e101975c2d97495ffb9a6be603ea1693c38bec18"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -19513,19 +19533,44 @@
       "sha256": "c4893deb3910bb88fad4d5ea7a32d30af9bffa741d6d7ad5c91b4a6a5304830d"
     },
     {
+      "path": "packages/contribution-tools/worker-unit-dispatch.mjs",
+      "bytes": 10378,
+      "sha256": "8b91e9a1ef878b5a48055941efe67f8ae8a8d370abf5c911a0bf9d2578fb88c4"
+    },
+    {
+      "path": "packages/contribution-tools/worker-unit-fallback.yml.disabled",
+      "bytes": 4036,
+      "sha256": "a4e369bc2998d58be11b609f9167d9bfb873ea2602d3e43c9703bf6c4e6393ce"
+    },
+    {
+      "path": "packages/contribution-tools/worker-unit-http.mjs",
+      "bytes": 14270,
+      "sha256": "064f86e6f79a70cc608edd102854200c469c00fa42d1b3182b82dbce125fdd8c"
+    },
+    {
+      "path": "packages/contribution-tools/worker-unit-routing.md",
+      "bytes": 22827,
+      "sha256": "8c26fce20e6beb92cc5116c43386241ab1dd0de48cbbaa72355b9e650c8b9e09"
+    },
+    {
+      "path": "packages/contribution-tools/worker-unit-routing.mjs",
+      "bytes": 10699,
+      "sha256": "7edea7537358e094c4473134ffa57a99a85f1c74095e200b5eb5fc818d6511d4"
+    },
+    {
       "path": "packages/contribution-tools/workspace.mjs",
       "bytes": 4109,
       "sha256": "d33f1abc6db45d371b958c573459ad364fff3bbf62738036edcf976aa890cd35"
     },
     {
       "path": "packages/contribution-tools/directory-html-host/package-lock.json",
-      "bytes": 1126,
-      "sha256": "fa9f8e172ac878d814dfe7d2ee8613700e3f269e96b1ecd160e953859766752d"
+      "bytes": 1150,
+      "sha256": "5736fba1a5a32704520ed52c8d0ffa6241765a9659f5d2f078b8b6fe213d5c9c"
     },
     {
       "path": "packages/contribution-tools/directory-html-host/package.json",
-      "bytes": 157,
-      "sha256": "a04e55922959b6ee7bb7a936ef6be0f2503c67cf21ce8520ea04e6510dcd47db"
+      "bytes": 177,
+      "sha256": "b2e41e59eae15b64bd1fd36cfb2be328167da8bef7fd5cc9b8907b0a0a01cd0f"
     },
     {
       "path": "packages/contribution-tools/directory-reference/index.mjs",
@@ -19566,6 +19611,16 @@
       "path": "packages/contribution-tools/test/checkout-repositories.test.mjs",
       "bytes": 4387,
       "sha256": "3b7d566bd4265ae7a2af26d959480405fd72027a312622ac78548951cd31bce1"
+    },
+    {
+      "path": "packages/contribution-tools/test/circleci-config.test.mjs",
+      "bytes": 2729,
+      "sha256": "0c5de2a13d2220f9627593b550fa444cab170923dfe8cd48cde5ef342f7b896c"
+    },
+    {
+      "path": "packages/contribution-tools/test/circleci-worker-status.test.mjs",
+      "bytes": 6990,
+      "sha256": "fa0abebc6f4b800670cb428bc8c37387fd509c89e3c4d4990f1b21c9ba7c7d66"
     },
     {
       "path": "packages/contribution-tools/test/consumer-entry-coverage.test.mjs",
@@ -19731,6 +19786,21 @@
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
       "bytes": 16245,
       "sha256": "86bb8bec0c94f86298ff7b182e8eab88b90657de9082b3aebdfa42a9f87ed261"
+    },
+    {
+      "path": "packages/contribution-tools/test/worker-unit-dispatch.test.mjs",
+      "bytes": 13297,
+      "sha256": "33787df3b48f993b1ad9b73bcf5fa917cff33a2c3eb884bb0757797b14c72bd3"
+    },
+    {
+      "path": "packages/contribution-tools/test/worker-unit-http.test.mjs",
+      "bytes": 12808,
+      "sha256": "99e1a627bcffa96f9e44d68a4bb2cfc80a95cb4fecb7b1c538fc43a418d3e295"
+    },
+    {
+      "path": "packages/contribution-tools/test/worker-unit-routing.test.mjs",
+      "bytes": 10166,
+      "sha256": "b1503edf0e3a09602b05a1a20375278443c68de140828fdf543f57a767217ac3"
     },
     {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json",
@@ -20273,9 +20343,14 @@
       "sha256": "83a6baf7e8d7bcc8729d5f71b7c2b15d0088cbc6831184c537ed1773623063d9"
     },
     {
+      "path": "packages/skill-upload-client/LICENSE",
+      "bytes": 1078,
+      "sha256": "309d48401cdd0e50dc3fe3c79c85c2a1cf9fea9efb3b85d8fd2328d85b94fc6c"
+    },
+    {
       "path": "packages/skill-upload-client/README.md",
-      "bytes": 2089,
-      "sha256": "b823b13c08b5c95bc68d06f15a5dde424449be0c2edf5b206145f03063dd8972"
+      "bytes": 2129,
+      "sha256": "ab70a7ddfa892485ce7b97aca68904110ab14516d1a578d6bf7e0f2deddc1da8"
     },
     {
       "path": "packages/skill-upload-client/SKILL.md",
@@ -20284,8 +20359,8 @@
     },
     {
       "path": "packages/skill-upload-client/package.json",
-      "bytes": 575,
-      "sha256": "3b771a86ccca53401dfe0b9b75fd25a699b45737f5e385d4a629c380c0025c80"
+      "bytes": 568,
+      "sha256": "0c02114862e756395b4550ccc1acab09b1cafe62c6d22dc0b82feb63e6f8fd94"
     },
     {
       "path": "packages/skill-upload-client/protocol.md",
@@ -20299,8 +20374,8 @@
     },
     {
       "path": "packages/skill-upload-client/test/cli.test.mjs",
-      "bytes": 11928,
-      "sha256": "b311fea9e74708bc2d40ffdb90ef22a524d33d7b48c6985b1917ca118a103dfa"
+      "bytes": 11939,
+      "sha256": "2653579cd8faba707493c0b5ea0f2c6cd4449095add5478d30d8252369c1fca9"
     },
     {
       "path": "packages/testing/e2e-admin.ts",
