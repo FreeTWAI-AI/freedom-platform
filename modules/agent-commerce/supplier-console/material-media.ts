@@ -15,6 +15,7 @@ import { snapshotSupplyMaterialBytes, materialFormat, materialUploadUnavailable,
 import { storeCapabilities } from '../hosted/capabilities.js';
 import { lockStorefrontPhotoBoundary, type StorefrontPhotoActor } from '../hosted/photo-authority.js';
 import { profile, ready, storeRead } from '../hosted/store.js';
+import { partnerVisibleMaterials } from './materials.js';
 
 export type SupplyMaterialAssets = ReturnType<typeof createSupplyMaterialLifecycle>;
 export type SupplyMaterialCompletion = SupplyMaterialReceipt;
@@ -130,6 +131,39 @@ export async function readSupplyMaterialContent(pool: Pool, store: ObjectStore, 
     return { versionId: row.version_id, materialId: row.material_id, kind: row.kind,
       scopeId: row.scope_id, assetId: row.asset_id, representationId: row.representation_id, metadata };
   });
+  return readMaterialContent(store, snapshot, request);
+}
+
+// Suppliers use store:write for their withdrawn/historical files; partners use
+// their own store:read and only the current, active, granted cooperation material.
+export async function readPartnerMaterialContent(pool: Pool, store: ObjectStore, actor: Actor, tenantId: string, instanceId: string,
+  rawMaterialId: string, rawVersionId: string, request: { method: 'GET' | 'HEAD'; rangeHeader?: string; ifRangeHeader?: string }) {
+  const materialId = OpaqueId.parse(rawMaterialId), versionId = OpaqueId.parse(rawVersionId);
+  const snapshot = () => storeRead(pool, actor, tenantId, instanceId, 'store:read', async q => {
+    const p = await profile(q, tenantId, instanceId); ready(p);
+    const row = (await q.query(`WITH visible AS (${partnerVisibleMaterials})
+      SELECT v.version_id,v.material_id,v.kind,v.asset_id,v.representation_id,v.scope_id,
+        o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
+      FROM visible m JOIN supply_material_versions v ON v.version_id=m.version_id AND v.material_id=m.material_id
+      JOIN assets a ON a.asset_id=v.asset_id AND a.scope_id=v.scope_id AND a.tenant_ref=v.tenant_id AND a.scope_kind='tenant'
+        AND a.purpose=v.purpose AND a.representation_id=v.representation_id AND a.state='ready' AND a.deletion_fence=0
+      JOIN asset_objects o ON o.asset_id=a.asset_id AND o.scope_id=v.scope_id AND o.representation_id=v.representation_id
+        AND o.policy_revision=v.policy_revision AND o.purpose=v.purpose AND o.profile_id=v.purpose AND o.content_sha256=v.content_sha256
+      WHERE m.material_id=$2 AND m.version_id=$3 AND m.kind IN ('image','video')`,
+    [p.storefront_shop_id, materialId, versionId])).rows[0];
+    if (!row) throw missing();
+    const metadata: ObjectMetadata = { contentType: row.content_type, byteSize: Number(row.byte_size), sha256: row.content_sha256,
+      transformVersion: row.transform_version, policyRevision: row.policy_revision, profileId: row.profile_id };
+    return { versionId: row.version_id, materialId: row.material_id, kind: row.kind,
+      scopeId: row.scope_id, assetId: row.asset_id, representationId: row.representation_id, metadata };
+  });
+  return readMaterialContent(store, snapshot, request);
+}
+
+type MaterialContentPin = { versionId: string; materialId: string; kind: string; scopeId: string; assetId: string;
+  representationId: string; metadata: ObjectMetadata };
+async function readMaterialContent(store: ObjectStore, snapshot: () => Promise<MaterialContentPin>,
+  request: { method: 'GET' | 'HEAD'; rangeHeader?: string; ifRangeHeader?: string }) {
   const first = await snapshot(), pin = JSON.stringify(first);
   const unavailable = () => new Problem(503, 'material_content_unavailable', '素材檔案暫時無法讀取。');
   let body: ReadableStream<Uint8Array> | undefined, refused = false;
