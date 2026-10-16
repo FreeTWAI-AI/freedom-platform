@@ -586,7 +586,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/',createPublicHostedStoreRoutes(pool,runtime.publicOrigin));
     if(storePhotosInstalled(runtime))app.route('/',createPublicHostedStoreMediaRoutes(pool,runtime));
   }
-  for (const path of ['/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/content', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/versions/:version_id/content', '/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {
+  for (const path of ['/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/content', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/versions/:version_id/content', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/partner-materials/:material_id/versions/:version_id/content', '/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));

@@ -205,7 +205,7 @@ test('SC-API-M1C-06 viewer may read; outsiders match the list authority refusal;
     const list=await call(b,'/partner-materials',session),r=await read(b,m,{session});assert.equal(r.status,list.status);assert.equal(r.status,404);
     safeHeaders(r,a);const body=await r.json();assert.equal(body.code,'not_found');assert(!JSON.stringify(body).includes(m.material_id));
   }
-  const anon=await read(b,m,{session:null});assert.equal(anon.status,401);noLocators(anon,a);
+  const anon=await read(b,m,{session:null});assert.equal(anon.status,401);safeHeaders(anon,a);
   const body=await anon.text();assert(!body.includes(m.material_id));assert(!body.includes(m.version_id));assert(!body.includes('合成合作素材'));
 });
 
