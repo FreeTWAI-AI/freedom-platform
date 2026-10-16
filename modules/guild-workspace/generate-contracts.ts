@@ -163,6 +163,8 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
   ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
   ['hosted-shipping', 'Immutable hosted shipping settings. Identity, ownership, capability, availability and version checks remain server authority.', [
+    ['logistics-service-key', shipping.LogisticsServiceKeySchema, 'output', []],
+    ['delivery-method', shipping.DeliveryMethodSchema, 'output', []],
     ['shipping-empty-input', shipping.ShippingEmptyInputSchema, 'output', []],
     ['ship-from-location-input', shipping.ShipFromLocationInputSchema, 'output', []],
     ['ship-from-location', shipping.ShipFromLocationSchema, 'output', []],

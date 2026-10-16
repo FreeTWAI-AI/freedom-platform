@@ -3,6 +3,27 @@
   "$id": "https://freetwai.com/contracts/guild-launchpad/v1/hosted-shipping",
   "description": "Immutable hosted shipping settings. Identity, ownership, capability, availability and version checks remain server authority.",
   "$defs": {
+    "logistics-service-key": {
+      "type": "string",
+      "enum": [
+        "ecpay.logistics.home.tcat",
+        "ecpay.logistics.home.post",
+        "ecpay.logistics.cvs.unimartc2c",
+        "ecpay.logistics.cvs.famic2c",
+        "ecpay.logistics.cvs.hilifec2c"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "delivery-method": {
+      "type": "string",
+      "enum": [
+        "home",
+        "cvs:UNIMARTC2C",
+        "cvs:FAMIC2C",
+        "cvs:HILIFEC2C"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
     "shipping-empty-input": {
       "type": "object",
       "properties": {},
@@ -1427,38 +1448,127 @@
           ]
         },
         "logistics": {
-          "minItems": 5,
-          "maxItems": 5,
           "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "service_key": {
-                "type": "string",
-                "enum": [
-                  "ecpay.logistics.home.tcat",
-                  "ecpay.logistics.home.post",
-                  "ecpay.logistics.cvs.unimartc2c",
-                  "ecpay.logistics.cvs.famic2c",
-                  "ecpay.logistics.cvs.hilifec2c"
-                ]
+          "prefixItems": [
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.home.tcat"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
               },
-              "state": {
-                "type": "string",
-                "enum": [
-                  "active",
-                  "suspended",
-                  "draft",
-                  "not_configured"
-                ]
-              }
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
             },
-            "required": [
-              "service_key",
-              "state"
-            ],
-            "additionalProperties": false
-          }
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.home.post"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.cvs.unimartc2c"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.cvs.famic2c"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.cvs.hilifec2c"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            }
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
         }
       },
       "required": [

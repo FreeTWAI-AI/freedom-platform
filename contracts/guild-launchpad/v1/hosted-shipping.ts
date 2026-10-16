@@ -22,7 +22,13 @@ export const DropShipSchema=z.object({offered:z.boolean(),fees:z.array(DropShipF
 export const ShippingProfileDocumentSchema=z.object({schema:z.literal('freedom.shipping-profile/v1'),working_days:z.array(integer(7)).min(1).max(7),services:z.array(ProfileServiceSchema).max(5),delivery_options:z.array(DeliveryOptionSchema).max(4),drop_ship:DropShipSchema.nullable()}).strict();
 export const ShippingProfileInputSchema=ShippingProfileDocumentSchema;
 export const LogisticsAvailabilitySchema=z.object({service_key:LogisticsServiceKeySchema,state:z.enum(['active','suspended','draft','not_configured'])}).strict();
-export const ShippingProfileViewSchema=z.object({version:Version.nullable(),profile:ShippingProfileDocumentSchema.nullable(),saved_at:IsoTimeSchema.nullable(),environment:z.enum(['sandbox','live']),logistics:z.array(LogisticsAvailabilitySchema).length(5)}).strict();
+export const ShippingProfileViewSchema=z.object({version:Version.nullable(),profile:ShippingProfileDocumentSchema.nullable(),saved_at:IsoTimeSchema.nullable(),environment:z.enum(['sandbox','live']),logistics:z.tuple([
+  LogisticsAvailabilitySchema.extend({service_key:z.literal('ecpay.logistics.home.tcat')}).strict(),
+  LogisticsAvailabilitySchema.extend({service_key:z.literal('ecpay.logistics.home.post')}).strict(),
+  LogisticsAvailabilitySchema.extend({service_key:z.literal('ecpay.logistics.cvs.unimartc2c')}).strict(),
+  LogisticsAvailabilitySchema.extend({service_key:z.literal('ecpay.logistics.cvs.famic2c')}).strict(),
+  LogisticsAvailabilitySchema.extend({service_key:z.literal('ecpay.logistics.cvs.hilifec2c')}).strict(),
+])}).strict();
 export const ItemShippingAttributesInputSchema=z.object({weight_g:integer(1_000_000),length_mm:integer(10_000),width_mm:integer(10_000),height_mm:integer(10_000),temperature:z.enum(['ambient','chilled','frozen']),cvs_allowed:z.boolean(),ship_alone:z.boolean(),max_per_parcel:integer(999).nullable()}).strict();
 export const ItemShippingAttributesSchema=z.object({product_id:OpaqueId,version:Version.nullable(),attributes:ItemShippingAttributesInputSchema.nullable(),updated_at:IsoTimeSchema.nullable()}).strict();
 export const ShippingFieldErrorCodeSchema=z.enum(['required','format','too_short','too_long','unknown_postal_code','blocked_term','duplicate','post_mainland_only','not_in_services','fees_required','not_found','retired','role_required','not_activated']);
