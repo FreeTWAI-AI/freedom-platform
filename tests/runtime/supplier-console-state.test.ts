@@ -533,7 +533,7 @@ test('SC-UI-M3-18 list states preserve failures, capacity unavailability, active
 });
 test('SC-UI-M3-19 detail escapes copy, shows 404 recovery, confirmations and withdrawn read-only data',()=>{
  const detail=materialDetailFixture(),c=materialController({['material:'+id]:readySlot(detail)}),html=renderPresentation(createElement(Material,{c,id,mediaEnabled:false,uploadsEnabled:false,active:true}));
- for(const text of ['素材詳情','複製文字','儲存為新版本','合作店家可以把這個版本用在他們的公開店面。','確認開放','已被下載的副本無法收回。撤回後不能復原。','之後新加入的合作店家不會自動取得授權。'])assert.ok(html.includes(text),text);assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));
+ for(const text of ['素材詳情','複製文字','儲存為新版本','合作店家可以把這個版本用在他們的公開店面。','確認開放','已經下載或放上店面的副本無法收回。撤回後不能復原。','合作店家已經下載或放上店面的副本，撤回後無法收回。','之後新加入的合作店家不會自動取得授權。'])assert.ok(html.includes(text),text);assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));
  const missing=renderPresentation(createElement(Material,{c:materialController({['material:'+id]:{...failedSlot,status:404}}),id,mediaEnabled:false,uploadsEnabled:false,active:true}));assert.ok(missing.includes('找不到這個素材。'));assert.ok(missing.includes(href(scope,'materials')));
  const withdrawn={...detail,material:{...detail.material,state:'withdrawn' as const,withdrawn_at:asOf}};const readOnly=renderPresentation(createElement(Material,{c:materialController({['material:'+id]:readySlot(withdrawn)}),id,mediaEnabled:false,uploadsEnabled:false,active:true}));assert.ok(readOnly.includes('已撤回'));for(const text of ['儲存為新版本','確認撤回素材','確認開放','授權選取的店家','編輯標題與說明'])assert.ok(!readOnly.includes(text),text);
 });

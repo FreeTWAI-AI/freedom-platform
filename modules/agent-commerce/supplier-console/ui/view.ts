@@ -1,4 +1,5 @@
 import type {SupplierChange,SupplierMetric,SupplierProduct,SupplierPartner,SupplierProductSelection,SupplierTodo} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import {SUPPLY_MATERIAL_IMAGE_MAX_BYTES,SUPPLY_MATERIAL_VIDEO_MAX_BYTES} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import type {Distribution} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {productMatches} from '../../hosted-ui/CommerceTools';
 import {parseMajorToMinor,formatMinor} from '../../../../apps/portal-web/src/format';
@@ -55,7 +56,7 @@ export function materialCapacityText(capacity:import('../../../../contracts/guil
  return capacity?.state==='ready'?`業務空間已用 ${materialSize(capacity.used_bytes)}，處理中 ${materialSize(capacity.reserved_bytes)}，上限 ${materialSize(capacity.limit_bytes)}，還可使用 ${materialSize(capacity.remaining_bytes)}。`:'目前無法讀取業務空間容量。';
 }
 export function materialCapacityProblem(capacity:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterials['capacity']|undefined,kind:'image'|'video'){
- return capacity?.state==='ready'&&capacity.remaining_bytes<(kind==='image'?1048576:20*1048576)?`剩餘容量不足；處理${kind==='image'?'圖片需預留 1 MB':'影片需預留 20 MB'}。`:null;
+ return capacity?.state==='ready'&&capacity.remaining_bytes<(kind==='image'?SUPPLY_MATERIAL_IMAGE_MAX_BYTES:SUPPLY_MATERIAL_VIDEO_MAX_BYTES)?`剩餘容量不足；處理${kind==='image'?'圖片需預留 1 MB':'影片需預留 20 MB'}。`:null;
 }
 export function materialVersionSummary(version:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterialVersion){const c=version.content;return c.kind==='copy'?Array.from(c.body).slice(0,60).join(''):c.kind==='image'?`${c.width}×${c.height}・${materialSize(c.byte_size)}`:`${c.content_type}・${materialSize(c.byte_size)}`;}
 export function sellableMaterialPartners(partners:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterialDetail['partners']){return partners.filter(p=>!p.granted&&p.cooperation==='sellable').map(p=>p.partner_id);}

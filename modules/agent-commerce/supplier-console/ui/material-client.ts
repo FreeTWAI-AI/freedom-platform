@@ -1,12 +1,13 @@
 import {accessAwareFetch,expiredAccessStatus,isExpiredAccessResponse,MEMBER_ACCESS_EXPIRED_MESSAGE} from '../../../../apps/portal-web/src/access-fetch';
 import {ApiError,type PortalClient} from '../../../../apps/portal-web/src/api';
+import {SUPPLY_MATERIAL_IMAGE_SOURCE_MAX_BYTES,SUPPLY_MATERIAL_IMAGE_SOURCE_TYPES,SUPPLY_MATERIAL_VIDEO_MAX_BYTES,SUPPLY_MATERIAL_VIDEO_TYPES} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import {materialAcknowledgement,type MaterialUploadAttempt} from '../state/material-upload';
 export const MATERIAL_UPLOAD_UNKNOWN='尚未確認上傳結果。檔案仍保留，請按重試原操作確認後再離開。';
 export const MATERIAL_VIDEO_PROBLEM='影片需為 MP4 或 WebM，最多 20 MB。請先壓縮（建議 H.264／AAC、720p、60 秒內）再上傳。';
 export function materialFileProblem(kind:'image'|'video',file:Pick<File,'type'|'size'>){
- if(kind==='video')return !['video/mp4','video/webm'].includes(file.type)||file.size<1||file.size>20*1048576?MATERIAL_VIDEO_PROBLEM:null;
- if(!['image/png','image/jpeg','image/webp'].includes(file.type))return '圖片請選擇 PNG、JPEG 或 WebP。';
- return file.size<1||file.size>2*1048576?'圖片需在 2 MB 以下，請選擇完整的靜態圖。':null;
+ if(kind==='video')return !(SUPPLY_MATERIAL_VIDEO_TYPES as readonly string[]).includes(file.type)||file.size<1||file.size>SUPPLY_MATERIAL_VIDEO_MAX_BYTES?MATERIAL_VIDEO_PROBLEM:null;
+ if(!(SUPPLY_MATERIAL_IMAGE_SOURCE_TYPES as readonly string[]).includes(file.type))return '圖片請選擇 PNG、JPEG 或 WebP。';
+ return file.size<1||file.size>SUPPLY_MATERIAL_IMAGE_SOURCE_MAX_BYTES?'圖片需在 2 MB 以下，請選擇完整的靜態圖。':null;
 }
 export async function sendMaterialUpload(client:PortalClient,a:MaterialUploadAttempt){
  if(!client.csrfToken)throw new ApiError({message:MEMBER_ACCESS_EXPIRED_MESSAGE,status:401,accessExpired:true});
