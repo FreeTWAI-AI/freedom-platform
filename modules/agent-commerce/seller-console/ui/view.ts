@@ -19,4 +19,11 @@ export const NOT_ALLOWED='你沒有這個操作的權限';
 export const permissionHelp='請聯絡商店擁有者或管理員授予權限。';
 export function amountToMinor(value:string,currency:string){if(!['TWD','USD'].includes(currency)||!/^\d+$(?![\s\S])/.test(value))throw Error('請輸入大於 0 的整數金額。');return parseMajorToMinor(value);}
 export const setupNext:Record<string,string>={
+ store_upgrade_unavailable:'目前無法升級，請更新商店版本資訊。',
+ provider_account_not_found:'找不到這個收款帳戶，請更新帳戶清單。',
+ provider_profile_invalid:'收款設定檔與服務用途不符，請重新設定。',
+ admission_not_independent:'收款准入需由其他管理員確認，請聯絡平台。',admission_revoked:'收款准入已撤回，請聯絡平台。',store_admission_exists:'已有收款准入紀錄，請更新資料。',store_admission_unavailable:'目前無法確認收款准入，請稍後重試。',store_admission_not_found:'找不到收款准入，請聯絡平台。',
+ capability_denied:'請聯絡商店擁有者或管理員授予權限。',not_found:'找不到這筆資料，請回到商店重新開啟。',tenant_not_found:'找不到這個業務空間，請切換商店。',tenant_capability_denied:'請聯絡業務空間擁有者或管理員授予權限。',
+ storefront_unavailable:'商店目前無法使用，請聯絡擁有者或管理員。',idempotency_required:'操作缺少識別鍵，請重新開啟頁面。',version_required:'操作缺少資料版本，請更新資料後再送出。',
+ session_expired:'登入已到期，請重新登入後確認結果。',principal_disabled:'帳號目前停用，請聯絡管理員。',scope_disabled:'業務範圍目前停用，請聯絡管理員。',admin_required:'這個操作需要管理員，請聯絡平台。',admin_csrf_rejected:'管理員驗證已失效，請重新驗證。',internal_error:'服務暫時無法完成操作，請稍後確認結果。',
  commerce_credentials_unavailable:'收款金鑰服務暫停，稍後再試',provider_environment_not_allowed:'帳戶環境與平台不符，請聯絡管理員。',provider_account_exists:'已有相同的綠界帳戶，請更新帳戶資料。',provider_activation_pending:'驗證付款仍在處理，請稍後更新帳戶狀態。',provider_service_state:'服務狀態已改變，請更新資料後確認可用操作。',provider_service_conflict:'已有相同設定檔的啟用服務，請先暫停舊服務。',commerce_quarantined:'收款服務暫停操作，請稍後再試。',commerce_rate_limited:'操作太頻繁，請稍後再試。',fresh_auth_required:'請重新輸入密碼驗證身分。',idempotency_conflict:'原操作的冪等鍵有衝突，請核對目前資料；系統不會自動重送。',version_conflict:'資料已更新，已重新讀取。請確認保留的輸入，再送出一次。',invalid_version:'版本無效，已重新讀取。請確認後再送出。',payment_result_pending:'暫時無法確認，請稍後再查詢',validation_failed:'請檢查欄位格式，再送出。',refund_exceeds_payment:'請更新退款餘額並調整金額。',refund_date_invalid:'請核對付款日期與退款日期。',stock_unavailable:'請補貨後再試。',refund_not_available:'這筆款項目前無法登錄退款，請更新訂單。',exception_action_unavailable:'案件狀態已改變，請更新案件。'};

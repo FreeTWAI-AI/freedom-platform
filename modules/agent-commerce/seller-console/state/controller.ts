@@ -45,7 +45,7 @@ export function useController(client:PortalClient,root:string,registerLeave:Regi
  async function refresh(){const keys=[...descriptors.current.keys()].filter(k=>k!=='contact'&&k!=='reservations-probe');setPending(keys);await Promise.all(keys.map(key=>load(key)));}
  async function send(a:Attempt,command:Command){
   if(!live()||busy.current||held.current&&held.current.attempt.key!==a.key)return;
-  held.current={attempt:a,command};busy.current=true;setPhase('sending');setError('');
+  held.current={attempt:a,command};busy.current=true;setPhase('sending');setError('');setNotice('');
   let result:unknown,cause:unknown;
   try{result=command.schema.parse(await client[a.method](a.path,a.body,{idempotencyKey:a.key,ifMatch:a.ifMatch,signal:abort.current.signal,suppressConsole:true}));if(command.match&&!command.match(result))throw Error('response_target_mismatch');}
   catch(e){cause=e;}
@@ -62,8 +62,9 @@ export function useController(client:PortalClient,root:string,registerLeave:Regi
  }
  function command(input:Command){if(held.current||busy.current||pending.length||refused||!live())return;void send(createAttempt({method:input.method??'post',path:input.path,body:input.body,ifMatch:input.ifMatch}),input);}
  const markDirty=useCallback((name:string,value:boolean)=>{dirtyRef.current={...dirtyRef.current,[name]:value};setDirty(old=>old[name]===value?old:{...old,[name]:value});},[]);
+ const unregister=useCallback((key:string)=>{tickets.current.delete(key);descriptors.current.delete(key);setPending(old=>old.filter(k=>k!==key));},[]);
  const forget=useCallback((key:string)=>{tickets.current.delete(key);descriptors.current.delete(key);setReads(old=>{const next={...old};delete next[key];return next;});},[]);
- return {client,root,reads,slot:<T,>(key:string)=>(reads[key]??empty) as ReadSlot<T>,load,forget,markDirty,command,phase,notice,error,pending,refused,
+ return {client,root,reads,unregister,slot:<T,>(key:string)=>(reads[key]??empty) as ReadSlot<T>,load,forget,markDirty,command,phase,notice,error,pending,refused,
   locked:phase!=='idle'||pending.length>0||!!refused,retry:()=>{const h=held.current;if(h)void send(h.attempt,h.command);},
   recheck:async()=>{if(await load('store'))setRefused(null);},registerLegacy:useCallback<RegisterLeave>(g=>{legacyGuard.current=g;},[])};
 }
