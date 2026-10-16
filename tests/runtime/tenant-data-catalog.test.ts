@@ -19,7 +19,7 @@ const admin = new Pool({ connectionString });
 const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 2 });
 const ENABLED = [
   'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
-  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants',
+  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_customers', 'commerce_checkout_contacts', 'commerce_exception_cases', 'commerce_order_access_grants',
   'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
   'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
   'module_provision_operations', 'module_provision_steps',
@@ -624,4 +624,20 @@ test('T-021 mapped commerce retains drift checks after losing the reverse mappin
 test('browser commerce access devices belong to order/transaction dataset DC-09',()=>{
   const entry=TENANT_DATA_CATALOG.exemptions.find(e=>e.table==='commerce_access_devices');
   assert.equal(entry?.dataset_ref,'DC-09');assert(entry?.reason.includes('commerce decision DC12 (retention; decisions.md)'));
+});
+
+
+test('hosted payment machine tables retain individual participant-ACL catalog rationales', async () => {
+  const tables = ['commerce_payment_attempts', 'commerce_hosted_payment_events', 'commerce_due_work'];
+  for (const table of tables) {
+    const location = TENANT_DATA_CATALOG.datasets.flatMap(dataset => dataset.physical_locations)
+      .find((entry): entry is TableLocation => entry.kind === 'table' && entry.table === table);
+    assert(location);
+    assert.equal(location.isolation.rls, 'exempt');
+    if (location.isolation.rls !== 'exempt') throw Error('Expected machine-table exemption');
+    assert.equal(location.isolation.reason_code, 'commerce_profile_participant_acl');
+    assert(location.isolation.reason.length > 80);
+    const flags = (await pool.query(`SELECT relrowsecurity,relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relname=$2`, [schema, table])).rows[0];
+    assert.deepEqual(flags, {relrowsecurity:false,relforcerowsecurity:false});
+  }
 });

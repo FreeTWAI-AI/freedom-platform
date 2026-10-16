@@ -161,6 +161,7 @@ Under `/api/v1/public/stores/:slug`:
 | POST | `/checkouts` | 201 new / 200 replay | same gates; secret Idempotency-Key; ensures checkout device grant |
 | POST | `/checkouts/:checkout_ref/orders` | 201 new / 200 replay | same gates and live checkout device grant |
 | GET | `/orders/:order_ref` | 200 | live device grant or original member buyer |
+| POST | `/orders/:order_ref/payment-handoffs` | 201 | same buyer read access; live issued attempt, admission and payment gates; 409 when unavailable |
 | POST | `/orders/:order_ref/access` | 200 | not quarantined, matching single-use live link |
 | POST | `/order-access-requests` | empty 202 | not quarantined; an installed email port is required |
 
@@ -177,6 +178,7 @@ off, the host is quarantined or store admission is withdrawn.
 | `checkout_idempotency_conflict`, `order_intent_conflict` | 409 | A retained key has different content |
 | `consents_mismatch` | 422 | Freeze consent set differs from current required policies |
 | `terms_changed`, `checkout_expired` | 409 | Recompute or checkout deadline prevents placement |
+| `payment_profile_unavailable`, `payment_handoff_unavailable` | 409 | Unsupported credit terms or no resumable one-time handoff |
 | `stock_unavailable` | 409 | Per-SKU available quantities accompany the error |
 | `unresolved_order` | 409 | Existing unpaid order reference accompanies the error |
 | `too_many_open_orders` | 429 | Device or normalized email has three open orders at this store; database-clock Retry-After |
@@ -251,8 +253,8 @@ are scoped to the store tenant and instance; their 429 includes Retry-After from
 the database clock until the earliest counted prior open order expires (at least 1).
 
 Host checkout and quarantine settings default off. Checkout currently requires
-the launchpad setting. No production store-admission, shipping, policy or email
-port is installed. The scheduler sweeps up to 200 due holds before GitHub sync
+the launchpad setting. Production installs store admission and the optional configured payment port;
+shipping, policy and email ports remain absent. The scheduler sweeps up to 200 due holds before GitHub sync
 whenever quarantine is off, including when checkout creation is disabled.
 `commerce.hosted-checkout.v1` is a mandatory write floor from planned or retained
 schema168, independently of feature flags. It grants no payment or deploy authority.
@@ -265,9 +267,40 @@ two more queries than a random ref.
 
 ## Deliberately outside this slice
 
-Store transaction admission implementation, payment attempts/provider integration,
-refund execution, fulfilment/shipment aggregates, return cases, invoices and the
+Provider query execution, re-pay, refund execution, fulfilment/shipment aggregates,
+return-case resolution, invoices and the
 buyer pages that consume link fragments remain separate milestones. Domain
 functions accept verified payment, handover and inspected-return facts from those
 modules. Imported finance and direct/shared v1 DTOs keep their separate profiles
 and literal-false payment/fulfilment fields. Schema168 remains expand-only.
+
+
+## Payment port and shared exceptions
+
+Checkout and operations never import payments. `CheckoutPaymentPort` is optional
+in `CheckoutPorts`, injected alongside admission by the runtime and passed through
+`hostedCheckoutOptions`. Without it, domain tests retain M1 behavior. Its methods
+validate credit terms, create the initial attempt after holds, issue/reissue the
+one-time handoff, reconcile cancellation and summarize payment state. Creation
+and placement call profile availability before effects; invalid unit/net/shipping
+amounts or total cause payment_profile_unavailable with fixed Chinese text.
+Placement and replay return a fresh token only while the attempt is issued and
+has not been handed off. The buyer resume endpoint uses the same stored gates.
+
+`publicOrder` uses the payment summary port. Confirmed applications take priority
+over unapplied paid/pending-confirmation/browser-return hints, then simulated,
+then unpaid. The latest attempt exposes only a coarse state and creation time;
+can_resume_payment runs the same eligibility checks as resume. Provider/account
+facts and exception cases never enter the buyer DTO. Resume and order replies
+use no-store and no-referrer; the 30-per-10-minute resume network budget commits
+before the command.
+
+`exceptions.ts` owns the shared payment exception policy and `openException`.
+All seven payment kinds are the retailer's responsibility, with an adjustable
+72-hour due interval and a fixed future-console next_action. The partial open
+identity index makes event replay idempotent; closing requires status, resolution
+code/note and resolver together and cannot be revised. Free-text resolution notes
+are protected by the exact tenant RLS policy used by checkout contacts. There is
+no exception HTTP route in this slice. See
+[EC-SPEC-05 §7.1](../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md)
+and [EC-SPEC-04](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md).

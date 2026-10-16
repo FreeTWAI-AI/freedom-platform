@@ -1,21 +1,95 @@
 # Freedom Commerce Payments (`commerce-payments`)
 
-This module provides provider account setup and sealed credential storage, plus pure refund and allocation rules. Payment attempts, provider transactions and callbacks are not implemented here.
+This module implements inbound hosted ECPay credit payments and provider account
+setup with sealed credentials. The browser submits the signed checkout form;
+this module builds or sends no server-to-server provider request. Pure refund
+and allocation rules remain under `rules/`.
 
-## Scope & Status
+## Attempts and one-time handoff
 
-### What exists now
-- Pure rule functions and TypeScript types under `rules/` (`errors.ts`, `types.ts`, `allocation.ts`, `unapplied.ts`, `index.ts`).
-- Pure refund line allocation, line refund caps, price-difference refund limits, conditional shipping refund suggestions, seller allocation validation, and unapplied attempt refund validation.
-- The `rules/` directory has pure execution: no database access, no network calls, no system clock reads, no locale-sensitive formatters, no environment access, no console logging, no side-effects.
-- All returned objects and nested arrays are deeply frozen with `Object.freeze`. Caller input objects and arrays are never mutated, aliased, or frozen.
+The runtime injects `CheckoutPaymentPort` into checkout through `commercePorts`.
+Placement creates attempt 1 in the order transaction after its durable holds,
+pinning the active payment service, provider environment, merchant and credential
+version. A collision draws a fresh trade number at most five times. It schedules
+`payment_query` at creation +10 minutes and `payment_window_end` at +60 minutes.
+Creation and placement validate every unit/net/shipping amount and the total with
+the protocol profile: whole TWD, total 5–999,999,999 TWD. The four availability
+reasons map to fixed Chinese errors; unknown reasons fail closed.
 
-### What does not yet exist (deferred to M2)
-- Payment attempt and refund tables (`commerce_payment_attempts`, `commerce_refunds`, `commerce_refund_lines`).
-- Database triggers repeating the hard constraints on `commerce_refund_lines` (unit multiples, sums equal to refund total, cumulative line amount ≤ L, cumulative line units ≤ Q, cumulative shipping ≤ F).
-- HTTP routes and provider callbacks (payment initiation, provider webhook notifications, buyer redirect handlers).
-- Payments-side ECPay API calls and their wiring (`QueryTradeInfo/V5`, `CreditDetail/DoAction`, `CreditDetail/QueryTrade/V2`) do not exist yet and will use the existing ECPay protocol layer from `modules/agent-commerce/providers/` (module `commerce-providers`, which provides CheckMacValue, AES, and signed-form parsing).
-- Outbox workers and exception case lifecycle for payment processing.
+A placement replay or buyer-authorized resume can mint a new 256-bit handoff
+token only before the first handoff. `commerce_entry_routes` retains its SHA-256
+and a database-clock 15-minute expiry, revoking older live tokens atomically.
+The GET page checks host settings, quarantine, tenant/instance liveness, the
+listed profile and installed gateway, active service, admission, open order and
+live holds before unsealing the attempt's pinned credential. Failures preserve
+the token. A journal append outside any database transaction precedes setting
+`journaled_at`; consumption then locks the attempt before the route, rechecks
+eligibility and revokes the route while filling `handed_off_at`. One attempt can
+be handed off once. A concurrent loser receives 410.
+
+The minimal Traditional Chinese page has escaped hidden fields, external script
+and stylesheet, a noscript submit, delayed manual fallback and a back-forward
+cache guard. Only valid token paths extend CSP `form-action` to the configured
+gateway action origin. Every payment page uses no-store, no-referrer and noindex.
+
+`gateway.ts` is the only constructor of provider callback/return/back URLs.
+Production uses a validated HTTPS platform origin and the protocol library's
+exact sandbox/live checkout action. ClientBackURL contains only the attempt UUID,
+so store slugs cannot introduce a CDN-blocked term. The branded fixture gateway
+is refused outside local hosts and can be installed only by tests/E2E.
+
+## Verified inbox and browser returns
+
+`POST /api/v1/provider-callbacks/ecpay/{account_ref}/payment` accepts bounded
+16 KiB form bodies, rejects duplicate or invalid field names and verifies the
+merchant and CheckMacValue with current-first usable credential versions. Known
+attempts require their creating version or a newer unretired version. No cookie
+or member principal participates. Only the two exact POST entry patterns skip
+Origin/JSON gates; Host validation stays in force and other methods return 404.
+
+`commerce_hosted_payment_events` is the allowlisted verified inbox, separate from
+the imported-shop payment reports. It retains raw-body SHA-256, canonical dedupe
+SHA-256 and safe provider facts, never raw bodies, card digits, authorization
+codes or provider messages. A deduped replay acknowledges without applying twice.
+The acknowledgement is exactly `1|OK`, sent only after transaction commit.
+Quarantine acknowledges and retains known events unapplied. Scheduler recovery
+applies them in received-time/event-ID order, each with the same order/attempt
+locks in its own transaction.
+
+Paid notifications set the attempt once, apply the verified order payment and
+schedule confirmation queries. Simulations have no inventory effect; amount
+mismatches leave the attempt unchanged. Unmatched, mismatched, unallocatable,
+after-cancel, overpaid and contradictory payments open retailer exception cases.
+Failed and pending-confirmation facts follow the explicit state machine. Provider
+facts are set once, confirmed is final and retained attempts/events cannot be
+deleted. Cancellation revokes all handoff routes and schedules immediate queries
+for handed-off issued/superseded attempts in the cancellation transaction.
+
+`POST /pay/ecpay/return/{account_ref}` verifies independently and redirects to the
+stored order's payment-return URL. It records a browser hint and schedules a
+query, at most once per attempt per minute; it never changes an attempt, order or
+inventory. The network limit still verifies and redirects but suppresses writes.
+Quarantine also suppresses writes. `GET /pay/ecpay/back/{attempt_id}` reads the
+stored store slug and redirects to its order without effects. Buyer summaries
+expose only confirmed/pending/simulated/unpaid, a coarse latest-attempt state and
+whether resume is currently available.
+
+## Next slices
+
+wp04-queries adds QueryTradeInfo, due-work claiming/execution, payment-window end,
+confirmation, definite-unpaid re-pay, on-demand queries and verified activation.
+This slice does not enter `confirmed`, `superseded` or `expired_unpaid` attempts;
+it creates only attempt 1 and schedules work. Refund persistence, outbox/executor,
+credit-detail queries and DoAction arrive with wp04-refunds. Exception resolution
+and the buyer return UI arrive with their console/UI jobs.
+
+Credentials are not checked with a provider request at save or rotation time.
+The recommendation is that wp04-queries prove them through a verified activation
+payment and its confirmation query before service activation, as agreed for
+[EC-SPEC-04 §1.4](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md).
+See [payment rules](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md),
+[security/tests](../../../docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md)
+and [release/recovery](../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md).
 
 ## Provider setup and credential storage
 
@@ -34,8 +108,9 @@ activation is an internal function for a verified provider transaction, with no
 HTTP activation route. Only one service per store/environment/profile can be
 active. Rotation advances the current credential immediately and keeps service
 state; older unretired versions remain usable for in-flight provider work.
-Wrong keys surface as signature failures; wp04-payments will add the provider key
-check before activation and rotation. Current credentials cannot be retired.
+Wrong keys surface as signature failures. Saving or rotating credentials makes
+no provider call; verified activation is implemented by wp04-queries. Current
+credentials cannot be retired.
 
 `COMMERCE_CREDENTIAL_KEYS` is optional. Its format is comma-separated
 `key_id:base64` entries with no whitespace; ids match
@@ -65,7 +140,8 @@ must resolve the tenant before binding its context. Provider account refs encode
 all payment, logistics, invoice-allowance and buyer-return paths against the
 public CDN guard, with at most 16 attempts. Token routes will retain SHA-256
 hex digests only. The resolver returns identifiers and grants no authority;
-provider verification and machine commands arrive in wp04-payments.
+provider verification and machine commands resolve the stored account before
+binding its tenant.
 
 ## Public Exports
 
