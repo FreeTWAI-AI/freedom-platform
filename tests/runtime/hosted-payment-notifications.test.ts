@@ -864,3 +864,21 @@ test('review 8: one poison event skips its attempt siblings and does not block a
     assert.equal((await facts(b)).attempt.state, 'paid');
   } finally { console.error = original; }
 });
+
+
+test('review 10: notification locks its account before the credential and inbox insert', async () => {
+  const p = await f.placed(), value = await body(p), connect = f.x.runtime.connect, statements: string[] = [];
+  f.x.runtime.connect = (async () => {
+    const q = await (connect as () => Promise<PoolClient>).call(f.x.runtime), query = q.query, release = q.release;
+    q.query = (async (...args: unknown[]) => { statements.push(String(args[0])); return (query as Function).apply(q, args); }) as typeof q.query;
+    q.release = (error?: Error | boolean) => { q.query = query; q.release = release; release.call(q, error); };
+    return q;
+  }) as typeof f.x.runtime.connect;
+  try { await ack(await post(path(p), value)); } finally { f.x.runtime.connect = connect; }
+  const account = statements.findIndex(sql => sql.includes('FROM commerce_provider_accounts') && sql.includes('FOR KEY SHARE'));
+  const credential = statements.findIndex(sql => sql.includes('FROM commerce_provider_credentials') && sql.includes('FOR SHARE'));
+  const inbox = statements.findIndex(sql => sql.startsWith('INSERT INTO commerce_hosted_payment_events'));
+  assert(account >= 0, 'account KEY SHARE must precede the credential lock');
+  assert(credential > account, 'credential lock must follow the account lock');
+  assert(inbox > credential, 'inbox FK must follow both account and credential locks');
+});

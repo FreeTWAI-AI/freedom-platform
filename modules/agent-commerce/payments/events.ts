@@ -29,6 +29,8 @@ export function receivePaymentNotification(pool: Pool, input: {
     await clearTenantContext(q);
     await bindStore(q, a.tenant_id);
     const attempt = (await q.query('SELECT attempt_id,credential_version FROM commerce_payment_attempts WHERE account_id=$1 AND merchant_trade_no=$2', [a.account_id, m.merchantTradeNo])).rows[0];
+    // Account before credential matches retirement and precedes the inbox account FK.
+    await q.query('SELECT 1 FROM commerce_provider_accounts WHERE account_id=$1 FOR KEY SHARE', [a.account_id]);
     const credential = await q.query("SELECT 1 FROM commerce_provider_credentials WHERE account_id=$1 AND purpose='payment' AND credential_version=$2 AND retired_at IS NULL FOR SHARE", [a.account_id, input.credentialVersion]);
     if (!credential.rowCount || (attempt && input.credentialVersion < attempt.credential_version))
       throw new InvalidPaymentCredential();
