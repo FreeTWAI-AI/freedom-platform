@@ -588,8 +588,13 @@ test('SC-E2E-13 a read-only member sees overview and settings without write cont
     for (const card of await metricsCards.all()) {
       await expect(card.locator('.sc-metric-value')).toContainText('無法取得');
     }
-    await expect(activePage(pageA2).getByRole('heading', {name: '待辦', exact: true})).toBeVisible();
-    await expect(activePage(pageA2).getByText('無法取得：需要商品編輯權限才能查看')).toBeVisible();
+    // 待辦 and 近期變更 each say why they are unavailable, right under their own heading, with no list.
+    for (const heading of ['待辦', '近期變更']) {
+      const sectionHeading = activePage(pageA2).getByRole('heading', {name: heading, exact: true});
+      await expect(sectionHeading).toBeVisible();
+      await expect(sectionHeading.locator('xpath=following-sibling::p[1]')).toHaveText('無法取得：需要商品編輯權限才能查看');
+    }
+    await expect(activePage(pageA2).locator('.sc-history')).toHaveCount(0);
 
     // No write controls
     await expect(activePage(pageA2).getByRole('link', {name: '新增商品', exact: true})).toHaveCount(0);

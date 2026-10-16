@@ -1,4 +1,4 @@
-import type {SupplierMetric,SupplierProduct,SupplierPartner,SupplierProductSelection,SupplierTodo} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import type {SupplierChange,SupplierMetric,SupplierProduct,SupplierPartner,SupplierProductSelection,SupplierTodo} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import type {Distribution} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {productMatches} from '../../hosted-ui/CommerceTools';
 import {parseMajorToMinor,formatMinor} from '../../../../apps/portal-web/src/format';
@@ -26,3 +26,22 @@ export function commandFields(kind:AttemptKind,fields:Fields):Fields {
 }
 export const fieldLabels:Record<string,string>={title:'商品名稱',description:'說明',stock:'庫存',cost_minor:'供貨單價',shipping_minor:'每件運費',shipping_terms:'出貨條件',return_terms:'退貨條件',name:'商品庫名稱',currency:'幣別',decision:'決定',listing_sha256:'申請內容摘要',reservation_enabled:'開放新預留'};
 export function attemptFieldText(field:string,value:unknown,currency:string){return typeof value==='number'&&(field==='cost_minor'||field==='shipping_minor')?formatMinor(value,currency):typeof value==='boolean'?value?'是':'否':field==='decision'?(({accepted:'同意',declined:'不同意',revoked:'撤回同意'} as Record<string,string>)[String(value)]??String(value)):String(value??'（空白）');}
+
+export const CHANGE_LABELS={
+ 'storefront.supply-catalog.setup':'建立供貨商品庫',
+ 'storefront.supply-profile.update':'更新商品庫資料',
+ 'storefront.reservations.configure':'變更預留設定',
+ 'storefront.supply-product.create':'新增商品',
+ 'storefront.product.create':'在商店新增商品',
+ 'storefront.supply-product.update':'更新商品內容或庫存',
+ 'storefront.product.update':'在商店更新商品',
+ 'storefront.supply-terms.update':'更新供貨條件',
+ 'storefront.product.photo.upload':'上傳商品照片',
+ 'storefront.product.photo.remove':'移除商品照片',
+ 'storefront.supply-offer.publish':'公開新的供貨版本',
+ 'storefront.supply-offer.withdraw':'撤回供貨版本',
+ 'storefront.distribution.decide':'處理售價申請',
+} satisfies Record<SupplierChange['operation'],string>;
+export const changeLabel=(change:Pick<SupplierChange,'operation'|'version'>)=>change.operation==='storefront.supply-offer.publish'&&change.version!=='1'?'供貨版本由新版本取代':CHANGE_LABELS[change.operation];
+export const changeSubject=(subject:SupplierChange['subject'])=>subject.kind==='business'?'商品庫設定':subject.kind==='request'?`${subject.partner_name}・${subject.title}`:subject.title;
+export const reservationState=(state:'reserved'|'cancelled'|'expired')=>({reserved:'預留中',cancelled:'已取消',expired:'已到期'})[state];

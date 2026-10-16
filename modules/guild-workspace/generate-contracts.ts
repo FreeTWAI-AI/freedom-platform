@@ -159,6 +159,12 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['partner', supplierConsole.SupplierPartnerDetailSchema, 'output', ['stable_seller_shop_id', 'supplier_relationship_only']],
     ['profile-update', supplierConsole.SupplyProfileUpdateInputSchema, 'input', ['at_least_one_field', 'supply_only_profile', 'profile_version_cas']],
     ['profile-receipt', supplierConsole.SupplyProfileReceiptSchema, 'output', ['stable_metadata_only_command_receipt']],
+    ['reservation-query', supplierConsole.SupplierReservationQuerySchema, 'input', ['half_open_created_at_window', 'filter_bound_signed_cursor']],
+    ['reservations', supplierConsole.SupplierReservationsSchema, 'output', ['current_owner_only', 'state_decided_at_as_of', 'totals_share_page_snapshot', 'supply_amount_is_not_revenue']],
+    ['reservation', supplierConsole.SupplierReservationDetailSchema, 'output', ['current_owner_only', 'state_decided_at_as_of', 'supplier_lines_only']],
+    ['changes-query', supplierConsole.SupplierChangesQuerySchema, 'input', []],
+    ['changes', supplierConsole.SupplierChangesSchema, 'output', ['own_tenant_journal_only', 'ids_and_versions_only', 'bounded_newest_first']],
+    ['summary', supplierConsole.SupplierSummarySchema, 'output', ['one_business_per_read', 'store_write_required_for_counts', 'unavailable_is_not_zero']],
   ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
   ['hosted-store-media', 'Independent hosted store media candidate. No upload or read route is installed; Asset identity and current authorization stay server-only.', [

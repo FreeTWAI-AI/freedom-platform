@@ -1,6 +1,6 @@
 import type {Pool} from 'pg';
 import {SupplierOverviewSchema, SupplierProductsSchema, SupplierProductDetailSchema, SupplierPartnersSchema,
-  SupplierPartnerDetailSchema, SupplierRequestDetailSchema, type SupplierProduct, type SupplierTodo} from '../../../contracts/guild-launchpad/v1/supplier-console.js';
+  SupplierPartnerDetailSchema, SupplierRequestDetailSchema, SupplierSummarySchema, type SupplierProduct, type SupplierTodo} from '../../../contracts/guild-launchpad/v1/supplier-console.js';
 import {digest} from '../../../packages/db/index.js';
 import {requireCondition} from '../../../packages/shared/problem.js';
 import type {Actor} from '../../identity-membership/service.js';
@@ -107,6 +107,22 @@ export async function readSupplierOverview(pool: Pool, actor: Actor, tenantId: s
       metrics:{offered_products:metric(items.filter(i=>i.offer).length),pending_requests:metric(row.pending_requests),
         active_reservation_lines:context.role==='owner'?metric(row.active_reservation_lines):{state:'unavailable',reason:'owner_required'},
         out_of_stock_products:metric(items.filter(i=>i.available===0).length)},todos:{state:'ready',items:todos.slice(0,20),truncated:todos.length>20}});
+  });
+}
+export async function readSupplierSummary(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {
+  return storeRead(pool,actor,tenantId,instanceId,'store:read',async(q,context)=>{
+    const p=await profile(q,tenantId,instanceId);ready(p);
+    const base={profile:'freedom.supplier-console.summary/v1',tenant_id:tenantId,instance_id:instanceId};
+    if(!(await effectiveStoreCapabilities(q,context,instanceId)).includes('store:write')) {
+      const row=(await q.query(`/* supplier-console:summary-reader */ WITH ${clock} SELECT ${asOf} FROM clock`)).rows[0];
+      return SupplierSummarySchema.parse({...base,as_of:row.as_of,todos:{state:'unavailable',reason:'store_write_required'}});
+    }
+    const row=(await q.query(`/* supplier-console:summary */ WITH ${productCtes} SELECT ${asOf},
+      (SELECT count(*)::int FROM selections WHERE bucket='awaiting') AS pending_requests,
+      COALESCE((SELECT jsonb_agg(to_jsonb(i) ORDER BY i.sku,i.item_id) FROM products i),'[]') AS products FROM clock`,params(p))).rows[0];
+    const items=(row.products as Row[]).map(row=>productView(row,p.currency));
+    return SupplierSummarySchema.parse({...base,as_of:row.as_of,todos:{state:'ready',pending_requests:row.pending_requests,
+      outdated_offers:items.filter(i=>i.offer&&!i.offer.matches_current_terms).length,out_of_stock_products:items.filter(i=>i.available===0).length}});
   });
 }
 export async function listSupplierProducts(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {

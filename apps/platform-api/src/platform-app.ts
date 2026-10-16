@@ -743,7 +743,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/api/v1',createHostedStoreRoutes(pool));
     app.route('/api/v1',createHostedCommerceSetupRoutes(pool,{keyring:runtime.commerceCredentialKeyring??null,journal:runtime.commercePayments?.journal,activation:hostedPaymentOptions(runtime,freedomEnv),environment:runtime.commerceProviderEnvironment??providerEnvironment(freedomEnv)}));
     if(runtime.commerceSettings?.consoleEnabled===true)app.route('/api/v1',createHostedSellerCheckoutRoutes(pool,{settings:runtime.commerceSettings,payment:runtime.commercePorts?.payment,paymentActions:runtime.commercePorts?.paymentActions,cursors:runtime.tenantListCursors,network:runtime.rateLimitNetwork??runtime.sourceNetwork}));
-    if(runtime.supplierConsoleEnabled===true)app.route('/api/v1',createHostedSupplierConsoleRoutes(pool));
+    if(runtime.supplierConsoleEnabled===true)app.route('/api/v1',createHostedSupplierConsoleRoutes(pool,{cursors:runtime.tenantListCursors}));
     if(storePhotosInstalled(runtime))app.route('/api/v1',createHostedStoreMediaRoutes(pool,runtime));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.

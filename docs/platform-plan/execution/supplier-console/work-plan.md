@@ -107,5 +107,6 @@ S1 合併 → S3（D-05、D-14 已核准）
 ## 6. 成本與資源
 
 - 不新增付費服務、第二套資料庫、常駐服務或追蹤 SaaS。
-- 每個候選一次完整 CI；本機驗證用拋棄式 PostgreSQL（`postgres:18-alpine`，tmpfs），不碰開發資料庫 54339。
+- 每個候選一次完整 CI；本機驗證用拋棄式 PostgreSQL（`postgres:18-alpine`），資料放磁碟 volume 並設 `dynamic_shared_memory_type=mmap`，不碰開發資料庫 54339。
+- 測試暫存依 Ted 2026-10-09 的規則放磁碟：資料庫、SQLite、pytest 與 Git scratch 都不用 `/dev/shm` 或任何 tmpfs；pytest 用 `pytest-disktmp uv run pytest -q ...`，其他暫存用 `~/agent-work/tmp/` 下的唯一目錄；結束時清掉自己建立的 container、volume 與暫存目錄。做法見 [Runtime CI PostgreSQL storage and cleanup](../../../development/runtime-ci-postgres.md)。
 - 各 job 的實際投入與返工原因記在 [sources.md](sources.md) 的方法表。
