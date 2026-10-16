@@ -12999,13 +12999,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-shipping.schema.json",
-      "bytes": 60710,
-      "sha256": "70e60d18a6c19503ad5e30223865b2ed385e0db0ae7a379aec4113ced70cd569"
+      "bytes": 61480,
+      "sha256": "58a9ad1f7db05b4bdf56372393e3a405217ab9ebe1dbdba0f351777ff3dd4d35"
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-shipping.ts",
-      "bytes": 6197,
-      "sha256": "b4a3826eda49569a364e3d98dcb264a0cc99a8c42e7183e8d971a28eb8d845a6"
+      "bytes": 6450,
+      "sha256": "e4395734a76a8b7be381af59a80e126969372f144a4cce5db5398b110400b098"
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-store-media.schema.json",
@@ -17294,8 +17294,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/README.md",
-      "bytes": 24546,
-      "sha256": "3ca405ac018989cf1c596661e76bb6e987a1f894f4f1c6143ba9bd0014004e8c"
+      "bytes": 24756,
+      "sha256": "23f38a0d0c1f00c61c8cdc6af1a324c66344457d4b7783bcef41bab00f420ef1"
     },
     {
       "path": "modules/agent-commerce/fulfilment/freedom.module.json",
@@ -17359,8 +17359,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/settings/locations.ts",
-      "bytes": 7131,
-      "sha256": "3a9ebf05ae8fc14786c377152280f21c463dbd627c7039b465469b42bf5ec0e9"
+      "bytes": 7240,
+      "sha256": "10d9947d39fac87bcbbeaeda7bdaf80df4ee544caf79898e92c0c555167d52ea"
     },
     {
       "path": "modules/agent-commerce/fulfilment/settings/logistics.ts",
@@ -23539,8 +23539,8 @@
     },
     {
       "path": "tests/runtime/hosted-logistics-services.test.ts",
-      "bytes": 11876,
-      "sha256": "76872dfde77516f4995190e234db7758f1893d78c57a153cac6b49ad360d1e8e"
+      "bytes": 12561,
+      "sha256": "33173df975c03cf51b3536b0a67154a5e5df58bdb1d9ffb8b1547ab6031bfa52"
     },
     {
       "path": "tests/runtime/hosted-order-contracts.test.ts",
@@ -23644,23 +23644,23 @@
     },
     {
       "path": "tests/runtime/hosted-shipping-attributes.test.ts",
-      "bytes": 6167,
-      "sha256": "e6abae6096757f1d15807508cade98467f24b4c6613ff17feaf5929df1065066"
+      "bytes": 7254,
+      "sha256": "e8642ee1ec4f13929a11c790e5cb751b3aee27856fda4011d9f1e64259f5b425"
     },
     {
       "path": "tests/runtime/hosted-shipping-contracts.test.ts",
-      "bytes": 5647,
-      "sha256": "412c1a58e853659aba9e1dafc614b19cdb9c729c67064d3fe8298babf55ad974"
+      "bytes": 5962,
+      "sha256": "fad1a72ef282988e14cd9c9be3dc926981368318d8edc8e09bc8163861d132a8"
     },
     {
       "path": "tests/runtime/hosted-shipping-locations.test.ts",
-      "bytes": 12566,
-      "sha256": "bb260c73e9a989c4936b4ff929cc99d4bd295c27d6c2657899a8da66b641c0a4"
+      "bytes": 14113,
+      "sha256": "6ab6a4ef76dbf86f79e3964e57ac2e3c33a3344514903af25e1b2f07d74e2db2"
     },
     {
       "path": "tests/runtime/hosted-shipping-profile.test.ts",
-      "bytes": 9732,
-      "sha256": "cc65b479f066a1038bfdc1b2e0093b11fbfc112a5fbe1fac0d36a31c0a80c901"
+      "bytes": 11196,
+      "sha256": "cb6e553e0768d860f4d5dfa9154479662613a20025c53b28258f8a46773023fb"
     },
     {
       "path": "tests/runtime/hosted-store-isolation.test.ts",
