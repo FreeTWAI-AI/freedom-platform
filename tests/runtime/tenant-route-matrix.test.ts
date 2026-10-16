@@ -1,6 +1,6 @@
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import assert from 'node:assert/strict';
-import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { createLocalJWKSet } from 'jose';
@@ -12,6 +12,7 @@ import { migrate } from '../../scripts/database.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
+import { CommerceCredentialKeyring } from '../../modules/agent-commerce/payments/credentials.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -41,7 +42,9 @@ const store = new FakeObjectStore();
 const providers = syntheticModuleProviders(runtime);
 const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-matrix.cloudflareaccess.com', audience: 'tenant-route-matrix',
   csrfSecret: 'synthetic-matrix-admin-csrf-secret-123456789', keySet: createLocalJWKSet({ keys: [] }) });
-const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier });
+const providerMaterial = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex') };
+const commerceCredentialKeyring = CommerceCredentialKeyring.parse(`matrix:${randomBytes(32).toString('base64')}`)!;
+const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier, commerceCredentialKeyring });
 
 let created = false;
 let runtimeConnection: { current_user: string; session_user: string; rolsuper: boolean; rolbypassrls: boolean; pg_backend_pid: number };
@@ -202,6 +205,17 @@ async function installSyntheticCatalog() {
 }
 
 const routeTable: Record<string, string> = {
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/release': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/upgrade': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/suspend': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/resume': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/retire': 'tenant',
+  'POST /admin/api/commerce/store-admissions': 'admin',
+  'GET /admin/api/commerce/store-admissions': 'admin',
+  'POST /admin/api/commerce/store-admissions/:admission_id/revoke': 'admin',
   // Cache middleware is inventoried separately, never sent as a synthetic ALL request.
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*': 'middleware',
@@ -524,7 +538,7 @@ async function buildFixture() {
 let fixture: Awaited<ReturnType<typeof buildFixture>>;
 
 test('T-022 1. Route inventory guard', () => {
-  const relevantPaths = /(tenants|tenant-|module-instances|application-|^\/api\/v1\/tenants\/[^/]+\/operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
+  const relevantPaths = /(tenants|tenant-|module-instances|application-|^\/api\/v1\/tenants\/[^/]+\/operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad|^\/admin\/api\/commerce\/store-admissions(?:\/|$))/;
   // Member search telemetry has an operations path, but is not tenant authority.
   assert.equal(relevantPaths.test('/api/v1/community-search/operations/*'), false);
   for (const suffix of ['', '/reconcile', '/cancel']) {
@@ -535,8 +549,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 85, middleware: 2 });
-  assert.equal(selectedRoutes.length, 115);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 93, middleware: 2 });
+  assert.equal(selectedRoutes.length, 126);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -574,6 +588,14 @@ function assertSameAsRandom(route: string, actor: string, real: Reply, random: R
 
 type Route = { method: string; path: string; body?: any; version?: string; isRaw?: boolean };
 const routes: Route[] = [
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/release' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/upgrade', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts', body: { provider: 'ecpay', environment: 'sandbox', merchant_id: '1234567', fresh_auth_verification_id: randomUUID() } },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose', body: { profile: 'ecpay.aio.credit.v1', ...providerMaterial, fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/suspend', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/resume', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/retire', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel', body: {}, version: '"1"' },
@@ -677,6 +699,7 @@ function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
     principal_id: data.principalId, product_id: data.workId, order_id: data.workId, offer_id: data.workId, selection_id: data.workId,
+    account_id: data.workId, admission_id: data.invitationId, purpose: 'payment',
     instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
     plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
@@ -762,7 +785,14 @@ test('T-022 3a. Other tenant in the path', async () => {
 
 test('T-022 3b. Own tenant in path, other tenant resource', async () => {
   for (const route of routes) {
-    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id');
+    // Service purpose is a closed discriminator, not a tenant resource identity.
+    if (route.path.includes('/:purpose')) {
+      const invalid = await execute(route, fixture.people.P, { ...ids(fixture.A, route), purpose: randomUUID() });
+      assert.equal(invalid.status, 422, JSON.stringify(describe(invalid)));
+      assert.equal(invalid.data.code, 'validation_failed');
+      scanForLeaks(invalid, `3b invalid service purpose ${route.path}`, fixture.B);
+    }
+    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id' && key !== 'purpose');
     for (const position of positions) {
       for (const name of ['P', 'O'] as const) {
         const realIds = { ...ids(fixture.A, route), [position]: ids(fixture.B, route)[position] };
@@ -863,7 +893,7 @@ test('T-022 3d. Anonymous', async () => {
     if (!['tenant', 'principal', 'admin', 'guild'].includes(kind) || key.includes('/public/')) continue;
     const route = kind === 'tenant' ? routes.find(r => `${r.method} /api/v1${r.path.split('?')[0]}` === key)! : nonTenantRoute(key);
     const realIds = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
-    const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : randomUUID()]));
+    const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : key === 'purpose' ? realIds[key] : randomUUID()]));
     const replies = await pair(route, undefined, realIds, randomIds);
     assertSameAsRandom(key, 'Anonymous', ...replies);
     assert.ok([401, 403].includes(replies[0].status), `${key}: ${JSON.stringify(describe(replies[0]))}`);
@@ -1060,7 +1090,7 @@ test('T-022 4. Body, header and query substitution', async () => {
     scanForLeaks(launchpad, '4 launchpad eligibility', other);
     const manages = actor === P || actor === N;
     const expectedApplications = ['manual-workspace', 'hosted-store', 'synthetic-storefront'].map(application_key => ({
-      application_key, release_ref: `${application_key}@1.0.0`,
+      application_key, release_ref: application_key === 'hosted-store' ? 'hosted-store@1.1.0' : `${application_key}@1.0.0`,
       display_name: application_key === 'manual-workspace' ? '人工工作空間' : application_key === 'hosted-store' ? '線上商店' : '合成店面',
       eligibility: { can_launch: manages, reason_codes: manages ? [] : ['tenant_manage_required'],
         policy_revision: '1', required_guild_tier: 'full', tenant_action: manages ? (application_key === 'hosted-store' ? 'select' : 'continue') : 'create' },
