@@ -188,3 +188,34 @@ test('DP-05 upload admission, lifecycle, policy and source content fail with exa
  await f.h.pool.query("UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='storefront.product-photo'");const disabled=await use(b,o,m);assert.equal(disabled.status,503);assert.equal(disabled.data.code,'distribution_photo_unavailable');assert.equal(disabled.data.detail,'目前無法把素材用在公開店面。');
  assert.equal((await photo(b,o.product_id)).state,'none');
 });
+
+test('DP-13 flag off keeps published snapshots and drops an invalid source at the next publish',async()=>{
+ const {a,b,o,m}=await journey();
+ const validOffer=await offer(a),selection=await propose(b,validOffer);await decide(a,selection,'accepted');
+ const validMaterial=await material(a,'image',validOffer.product_id);await grant(a,validMaterial,b);
+ await mutation(a,validMaterial,'/access',{access:'public_use',confirm_public_use:true});
+ f.ok(await use(b,o,m));f.ok(await use(b,validOffer,validMaterial));
+ const first=await publish(b),initial=await publicPhoto(b,o,first.revision);
+ assert.equal(initial.status,200);const bytes=Buffer.from(await initial.arrayBuffer());
+ const validInitial=await publicPhoto(b,validOffer,first.revision);assert.equal(validInitial.status,200);
+ const validBytes=Buffer.from(await validInitial.arrayBuffer());
+ const copies=(await f.h.pool.query('SELECT asset_id FROM commerce_distribution_photo_copies WHERE tenant_id=$1 ORDER BY asset_id',[b.tenantId])).rows;
+ assert.equal(copies.length,2);const used=await usage(b);
+ const off=application({distributionPhotosEnabled:false});
+ const offPhoto=async(product:any,revision:string)=>{
+  const slug=(await f.h.pool.query('SELECT slug FROM commerce_storefront_profiles WHERE instance_id=$1',[b.instanceId])).rows[0].slug;
+  const sku=(await f.h.pool.query('SELECT hosted_sku FROM commerce_selections WHERE shop_id=$1 AND item_id=$2',[await shop(b),product.product_id])).rows[0].hosted_sku;
+  return off.request(f.h.origin+`/shops/${slug}/media/${revision}/${sku}`);
+ };
+ const retained=await offPhoto(o,first.revision);assert.equal(retained.status,200);assert.deepEqual(Buffer.from(await retained.arrayBuffer()),bytes);
+ await revoke(a,m,b);
+ const afterRevoke=await offPhoto(o,first.revision);assert.equal(afterRevoke.status,200);assert.deepEqual(Buffer.from(await afterRevoke.arrayBuffer()),bytes);
+ const next=await publish(b,off);assert.notEqual(next.publication_id,first.publication_id);
+ assert.equal((await offPhoto(o,next.revision)).status,404);
+ const carried=await offPhoto(validOffer,next.revision);assert.equal(carried.status,200);assert.deepEqual(Buffer.from(await carried.arrayBuffer()),validBytes);
+ const refs=(await f.h.pool.query('SELECT asset_id FROM commerce_publication_photo_refs WHERE publication_id=$1',[next.publication_id])).rows;
+ const validCopy=(await f.h.pool.query('SELECT asset_id FROM commerce_distribution_photo_copies WHERE tenant_id=$1 AND product_id=$2',[b.tenantId,validOffer.product_id])).rows;
+ assert.deepEqual(refs,validCopy);
+ assert.deepEqual((await f.h.pool.query('SELECT asset_id FROM commerce_distribution_photo_copies WHERE tenant_id=$1 ORDER BY asset_id',[b.tenantId])).rows,copies);
+ assert.equal(await usage(b),used);
+});
