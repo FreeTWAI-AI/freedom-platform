@@ -116,6 +116,26 @@ test('storefront bearer sees catalog and only approved store/listings; cannot wr
  assert.equal((await request('/client-api/v1/retail/stores',seller)).status,401);
 });
 
+test('approved store UUID aliases retain the same resource scope, not other stores',async()=>{
+ const seller=await ready(DEMO_USERS[1].email),supplier=await ready(),source=await product(supplier);
+ const ids=['a0000000-0000-4000-8000-000000000001','b0000000-0000-4000-8000-000000000002','c0000000-0000-4000-8000-000000000003'];
+ for(const [index,id]of ids.entries())await pool.query(`INSERT INTO retail_stores(store_id,community_id,seller_ref,name,description,support_contact)
+  VALUES($1,$2,$3,$4,'固定含字母 UUID 的合成商店','合成客服')`,[id,DEMO_COMMUNITY,index===2?supplier.user.user_id:seller.user.user_id,`合成 UUID 商店 ${index}`]);
+ const own=await listing(seller,ids[0],source.current_offer.offer_version_id);
+ await listing(seller,ids[1],source.current_offer.offer_version_id);await listing(supplier,ids[2],source.current_offer.offer_version_id);
+ const connected=await connect(seller,'storefront',ids[0].toUpperCase()),token=connected.access_token;
+ const storePage=await client(`/retail/stores/${ids[0].toUpperCase()}`,token);
+ assert.equal(storePage.status,200,JSON.stringify(storePage.data));
+ assert.deepEqual(storePage.data.items.map((row:{store_id:string})=>row.store_id),[ids[0]]);
+ const listingPage=await client(`/retail/stores/${ids[0].toUpperCase()}/listings`,token);
+ assert.equal(listingPage.status,200,JSON.stringify(listingPage.data));
+ assert.deepEqual(listingPage.data.items.map((row:{listing_id:string})=>row.listing_id),[own.listing_id]);
+ for(let index=1;index<ids.length;index++)for(const suffix of ['', '/listings']){
+  const denied=await client(`/retail/stores/${ids[index].toUpperCase()}${suffix}`,token);
+  assert.equal(denied.status,404);assert.equal(denied.data.code,'store_not_found');
+ }
+});
+
 test('supplier bearer is restricted to own products and requests, not other suppliers or retailer data',async()=>{
  const supplier=await ready(),other=await ready(DEMO_USERS[1].email),buyer=await ready(DEMO_USERS[2].email);
  const a=await product(supplier),b=await product(other),retail=await store(buyer);
