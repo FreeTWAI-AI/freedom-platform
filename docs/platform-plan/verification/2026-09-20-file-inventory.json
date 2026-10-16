@@ -22359,8 +22359,8 @@
     },
     {
       "path": "tests/runtime/guild-blocks.test.ts",
-      "bytes": 13303,
-      "sha256": "92690e62f6c283b2520e7f2b80a37124e685f90be98e2ae0faa9658361b39ec8"
+      "bytes": 13302,
+      "sha256": "e14d869296088e4c36cc0ce820d4196b122f26584b8a9694adff24d7f1cf1560"
     },
     {
       "path": "tests/runtime/guild-category-preferences.test.ts",

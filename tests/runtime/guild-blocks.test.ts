@@ -231,4 +231,3 @@ test('CatalogBlock source passes guildPresentationImportsProven', () => {
   const source = readFileSync(new URL('../../modules/guild-supply/CatalogBlock.tsx', import.meta.url), 'utf8');
   assert.equal(guildPresentationImportsProven(path, source), true);
 });
-
