@@ -961,8 +961,6 @@ function CartPage({ container, storeSlug, storeName }: CartPageProps) {
   const activeError = errorState && errorState.key === currentKey ? errorState.kind : null;
   const isPending = cart.lines.length > 0 && quote === null && activeError === null;
 
-  container.setAttribute('aria-busy', isPending ? 'true' : 'false');
-
   useEffect(() => {
     container.setAttribute('aria-busy', isPending ? 'true' : 'false');
   }, [container, isPending]);

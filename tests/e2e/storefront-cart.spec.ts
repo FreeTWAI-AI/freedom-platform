@@ -1216,10 +1216,38 @@ test('14. responsive layout and full-page screenshots across 1440, 1280, 768, 39
     expect([...longStoreName].length).toBe(80);
     expect([...longProductTitle].length).toBe(120);
 
-    await store.updateLongNamesAndRepublish(longStoreName, p1, longProductTitle);
+    const updatedLong = await store.updateLongNamesAndRepublish(longStoreName, p1, longProductTitle);
     await page.goto(`/shops/${store.slug}/products/${p1.sku}`);
     await expect(page.getByRole('heading', { level: 1, name: longProductTitle })).toBeVisible();
     await assertCartResponsiveLayout(page, RESPONSIVE_WIDTHS, w => info.outputPath(`b03-open-long-text-${w}.png`));
+
+    // 14. B04 with the 80-character store name and 120-character product title (quantity 2)
+    await page.evaluate(
+      ({ slug, revision, sku, title, priceMinor }) => {
+        window.localStorage.setItem(
+          `freedom.shop.cart.v1:${slug}`,
+          JSON.stringify({
+            revision,
+            lines: [{ sku, quantity: 2, title, price_minor: priceMinor, currency: 'TWD' }],
+          }),
+        );
+      },
+      {
+        slug: store.slug,
+        revision: updatedLong.projection.revision,
+        sku: p1.sku,
+        title: longProductTitle,
+        priceMinor: p1.price_minor,
+      },
+    );
+    const longTextQuote = page.waitForResponse(
+      res => res.url().includes(`/api/v1/public/stores/${store.slug}/cart-quotes`) && res.status() === 200,
+    );
+    await page.goto(`/shops/${store.slug}/cart`);
+    await longTextQuote;
+    await expect(page.locator('.shop-top-store')).toHaveText(longStoreName);
+    await expect(page.getByRole('region', { name: '商品' })).toContainText(longProductTitle);
+    await assertCartResponsiveLayout(page, RESPONSIVE_WIDTHS, w => info.outputPath(`b04-long-text-${w}.png`));
   } finally {
     try {
       await closedContext.close();

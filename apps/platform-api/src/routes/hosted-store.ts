@@ -13,7 +13,7 @@ import { readStoreAppearance, updateStoreAppearance } from '../../../../modules/
 import { SupplyTermsInputSchema } from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
 import { readSupplyTerms, updateSupplyTerms } from '../../../../modules/agent-commerce/hosted/supply-terms.js';
 import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-commerce/hosted/public.js';
-import { storeHtml, productHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
+import { storeHtml, productHtml, publicProduct, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
 import { cartPageHtml, orderPageHtml, orderMissingHtml, orderAccessPageHtml } from '../../../../modules/agent-commerce/storefront/pages.js';
 import { Problem } from '../../../../packages/shared/problem.js';
 import { publicPurchaseState, type HostedCheckoutOptions } from '../../../../modules/agent-commerce/checkout/public-commands.js';
@@ -140,7 +140,7 @@ export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string,
   app.get('/shops/:slug/products/:sku', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStorePage(pool, c.req.param('slug')), sku = c.req.param('sku');
-    if (!store || !store.projection.products.some(item => item.sku === sku)) return c.html(storeMissingHtml(true), 404);
+    if (!store || !publicProduct(store.projection, sku)) return c.html(storeMissingHtml(true), 404);
     const purchase = checkout ? await publicPurchaseState(pool, store.projection.slug, checkout, sku) : {open: false as const};
     const html = productHtml(store.projection, sku, store.media.photos, publicOrigin ? {publicOrigin} : undefined, purchase);
     if (!html) return c.html(storeMissingHtml(true), 404);

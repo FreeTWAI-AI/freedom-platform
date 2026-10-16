@@ -108,10 +108,6 @@ after(async () => {
 test('v1 storefront renderer bytes stay byte-identical across templates, publicOrigin, preview, explicit {open: false} and missing pages', () => {
   assert.equal(sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-grid-v1')), V1_PINNED_SHA256.gridDefault);
   assert.equal(
-    sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-grid-v1', [], { open: false })),
-    V1_PINNED_SHA256.gridDefault,
-  );
-  assert.equal(
     sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-grid-v1', [], undefined, { open: false })),
     V1_PINNED_SHA256.gridDefault,
   );
@@ -127,10 +123,14 @@ test('v1 storefront renderer bytes stay byte-identical across templates, publicO
     sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-grid-v1', [], { preview: true })),
     V1_PINNED_SHA256.gridPreview,
   );
+  assert.equal(
+    sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-grid-v1', [], { preview: true }, { open: true })),
+    V1_PINNED_SHA256.gridPreview,
+  );
 
   assert.equal(sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-list-v1')), V1_PINNED_SHA256.listDefault);
   assert.equal(
-    sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-list-v1', [], { open: false })),
+    sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-list-v1', [], undefined, { open: false })),
     V1_PINNED_SHA256.listDefault,
   );
   assert.equal(
@@ -145,12 +145,12 @@ test('v1 storefront renderer bytes stay byte-identical across templates, publicO
     sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-list-v1', [], { preview: true })),
     V1_PINNED_SHA256.listPreview,
   );
+  assert.equal(
+    sha256(storeHtml(V1_SYNTHETIC_PROJECTION, 'catalog-list-v1', [], { preview: true }, { open: true })),
+    V1_PINNED_SHA256.listPreview,
+  );
 
   assert.equal(sha256(productHtml(V1_SYNTHETIC_PROJECTION, 'P0001') ?? ''), V1_PINNED_SHA256.product1Default);
-  assert.equal(
-    sha256(productHtml(V1_SYNTHETIC_PROJECTION, 'P0001', [], { open: false }) ?? ''),
-    V1_PINNED_SHA256.product1Default,
-  );
   assert.equal(
     sha256(productHtml(V1_SYNTHETIC_PROJECTION, 'P0001', [], undefined, { open: false }) ?? ''),
     V1_PINNED_SHA256.product1Default,
@@ -253,6 +253,13 @@ test('B01 and B03 serve open variants only when checkout is open, and keep v1 by
   assert.equal(soldOutProdBody.includes('登入確認預留條件'), false);
   assert.equal(soldOutProdBody.includes('登入查看預留狀態'), false);
   assert.equal(soldOutProdBody.includes('查詢我的預留'), false);
+
+  for (const invalidSku of ['P1', 'p0001']) {
+    const missingProdRes = await openApp.request(`${x.h.origin}/shops/${s.slug}/products/${invalidSku}`);
+    assert.equal(missingProdRes.status, 404);
+    assert.equal(missingProdRes.headers.get('set-cookie'), null);
+    assert.equal(await missingProdRes.text(), storeMissingHtml(true));
+  }
 
   assert.deepEqual(await tableCounts(), before);
 });

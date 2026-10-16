@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import type { Pool } from 'pg';
+import { Pool } from 'pg';
 import type { Browser, Page } from '@playwright/test';
 import { expect } from './fixtures.js';
 import { apiLogin, member, ownedSchema } from './hosted-order-fixture.js';
 import { TENANT_CURSOR_TEST_KEY } from '../runtime/tenant-cursor-fixture.js';
 import { ports } from '../runtime/hosted-checkout-harness.js';
+import { LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { DEMO_COMMUNITY } from '../../packages/testing/seed.js';
+import { e2eSchema } from '../../packages/testing/e2e-auth-isolation.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { CreateResultSchema } from '../../contracts/guild-launchpad/v1/tenant.js';
 import {
@@ -62,6 +64,13 @@ export function assertExactQuoteInput(rawBody: string | null) {
 
 export async function openCartListener(db: Pool) {
   await ownedSchema(db);
+  const schema = e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
+  const listenerPool = new Pool({
+    connectionString: process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL,
+    options: `-c search_path=${schema} -c application_name=${schema}`,
+    max: 8,
+  });
+  listenerPool.on('error', () => {});
   let app: ReturnType<typeof createApp> | undefined;
   const server = serve({
     hostname: '127.0.0.1',
@@ -80,7 +89,7 @@ export async function openCartListener(db: Pool) {
       throw Error('Owned loopback listener unavailable.');
     }
     const origin = `http://127.0.0.1:${address.port}`;
-    app = createApp(db, origin, 'local', {
+    app = createApp(listenerPool, origin, 'local', {
       guildLaunchpadEnabled: true,
       tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY,
       commerceSettings: { checkoutEnabled: true, quarantine: false },
@@ -94,13 +103,21 @@ export async function openCartListener(db: Pool) {
     return {
       origin,
       close: async () => {
-        if ('closeAllConnections' in server) server.closeAllConnections();
-        await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
+        try {
+          if ('closeAllConnections' in server) server.closeAllConnections();
+          await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
+        } finally {
+          await listenerPool.end();
+        }
       },
     };
   } catch (error) {
-    if ('closeAllConnections' in server) server.closeAllConnections();
-    await new Promise<void>(resolve => server.close(() => resolve()));
+    try {
+      if ('closeAllConnections' in server) server.closeAllConnections();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    } finally {
+      await listenerPool.end().catch(() => {});
+    }
     throw error;
   }
 }
@@ -196,7 +213,7 @@ export async function setupCartFixtureStore(db: Pool, browser: Browser) {
     const p3 = ProductViewSchema.parse(
       await post(
         root + '/products',
-        { title: '青瓷茶海', description: '手拉坏青瓷茶海。', price_minor: 48000, stock: 3 },
+        { title: '青瓷茶海', description: '手拉坯青瓷茶海。', price_minor: 48000, stock: 3 },
         201,
       ),
     );

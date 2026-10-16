@@ -137,8 +137,8 @@ p { margin: 0 0 .65rem; }
 }
 
 .shop-cart-link { color: var(--ink); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
-.shop-brand-header, .shop-detail-copy, .shop-breadcrumb { min-width: 0; overflow-wrap: anywhere; }
-.shop-breadcrumb a, .shop-footer a { max-width: 100%; overflow-wrap: anywhere; }
+#main .shop-brand-header, #main .shop-detail-copy, #main .shop-breadcrumb { min-width: 0; overflow-wrap: anywhere; }
+#main .shop-breadcrumb a, #main ~ .shop-footer a { max-width: 100%; overflow-wrap: anywhere; }
 .shop-availability { margin: 20px 0 0; font-size: .95rem; font-weight: 600; color: var(--muted); line-height: 1.65; }
 .shop-add { margin-top: 20px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; }
 .shop-add-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; width: 100%; min-width: 0; }
@@ -171,6 +171,7 @@ p { margin: 0 0 .65rem; }
 .shop-cart-actions a:not(.shop-button), .shop-cart-section a:not(.shop-button) { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; overflow-wrap: anywhere; }
 .shop-cart-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
 .shop-cart-line { padding-bottom: 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.shop-cart-line:last-child { padding-bottom: 0; border-bottom: 0; }
 .shop-cart-line-title { font-weight: 650; margin: 0; }
 .shop-cart-line-title a { display: inline-flex; align-items: center; min-height: 44px; overflow-wrap: anywhere; }
 .shop-cart-line-options { color: var(--muted); font-size: .9rem; margin: 0; }

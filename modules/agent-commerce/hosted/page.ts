@@ -9,7 +9,10 @@ type Photo = ReturnType<typeof PrivateProductPhotoSchema.parse> | ReturnType<typ
 /** Only the public route supplies its configured origin; private preview never does. */
 type PublicShare = {publicOrigin: string};
 type PurchaseState = {open: false} | {open: true; product?: 'available' | 'sold_out'};
-type PageOptions = (PublicShare & Partial<PurchaseState>) | {preview: true} | PurchaseState;
+type PageOptions = PublicShare | {preview: true};
+export function publicProduct(store: PublicStoreProjection, sku: string) {
+  return ProductPhotoSkuSchema.safeParse(sku).success ? store.products.find(item => item.sku === sku) ?? null : null;
+}
 const productPath = (store: PublicStoreProjection, sku: string) => `/shops/${encodeURIComponent(store.slug)}/products/${encodeURIComponent(sku)}`;
 const reservationPath = (store: PublicStoreProjection, sku?: string) => `/#reservations/${encodeURIComponent(store.slug)}${sku ? `/product/${encodeURIComponent(sku)}` : ''}`;
 function paragraphs(text: string) {
@@ -42,10 +45,9 @@ function conditions(store: PublicStoreProjection) {
   return `<aside class="shop-notice" aria-label="預留與交易說明"><h2>看見喜歡的商品，下一步怎麼做？</h2><p>先查看商品，再登入確認這間商店目前是否開放預留。預留成功可保留 30 分鐘；此頁不提供付款，也不會安排出貨。</p><a href="${reservationPath(store)}">登入查看預留狀態</a></aside>`;
 }
 export function storeHtml(store: PublicStoreProjection, template: StoreTemplate = 'catalog-grid-v1', media: Media = [], options?: PageOptions, purchase?: PurchaseState) {
-  const preview = Boolean(options && 'preview' in options && options.preview);
-  const share = options && 'publicOrigin' in options && typeof options.publicOrigin === 'string' ? {publicOrigin: options.publicOrigin} : undefined;
-  const state = purchase ?? (options && 'open' in options ? options : undefined);
-  const open = Boolean(!preview && state?.open);
+  const preview = options && 'preview' in options && options.preview;
+  const share = options && 'publicOrigin' in options ? options : undefined;
+  const open = !preview && purchase?.open === true;
   const list = StoreTemplateSchema.parse(template) === 'catalog-list-v1', photos = photosFor(store, media, share);
   const cover = store.products.map(product => photos.get(product.sku)).find(Boolean);
   const items = store.products.map(p => {
@@ -59,20 +61,17 @@ export function storeHtml(store: PublicStoreProjection, template: StoreTemplate 
   const banner = preview ? '<aside class="shop-preview-notice">這是未發布的預覽。發布後才會有可分享的商店與商品頁。</aside>' : '';
   return shell(store.name, store.description, `${banner}<header class="shop-brand-header"><p class="shop-eyebrow">${escape(store.brand ?? '獨立商店')}</p><h1>${escape(store.name)}</h1><div class="shop-introduction">${paragraphs(store.description)}</div><a class="shop-button" href="#products">瀏覽商品 <span aria-hidden="true">↓</span></a></header><section class="shop-catalog" aria-labelledby="products"><div class="shop-section-heading"><h2 id="products">店裡的商品</h2><p>${store.products.length} 件商品</p></div>${items ? `<ul class="shop-products${list ? ' shop-products-list' : ''}">${items}</ul>` : '<p class="shop-empty">店主正在準備商品，稍後再回來看看。</p>'}</section>${preview || open ? '' : conditions(store)}`, metadata(store.name, store.description, `/shops/${store.slug}`, cover, share), Boolean(preview), open ? store.slug : undefined);
 }
-export function productHtml(store: PublicStoreProjection, sku: string, media: Media = [], share?: (PublicShare & Partial<PurchaseState>) | PurchaseState, purchase?: PurchaseState) {
-  if (!ProductPhotoSkuSchema.safeParse(sku).success) return null;
-  const product = store.products.find(item => item.sku === sku);
+export function productHtml(store: PublicStoreProjection, sku: string, media: Media = [], share?: PublicShare, purchase?: PurchaseState) {
+  const product = publicProduct(store, sku);
   if (!product) return null;
-  const publicShare = share && 'publicOrigin' in share && typeof share.publicOrigin === 'string' ? {publicOrigin: share.publicOrigin} : undefined;
-  const state = purchase ?? (share && 'open' in share ? share : undefined);
-  const open = Boolean(state?.open);
-  const photos = photosFor(store, media, publicShare), photo = photos.get(sku);
+  const open = purchase?.open === true;
+  const photos = photosFor(store, media, share), photo = photos.get(sku);
   const action = open
-    ? state?.open && state.product === 'sold_out'
+    ? purchase.product === 'sold_out'
       ? '<p class="shop-availability">目前沒有可售數量</p>'
       : `<div class="shop-add" id="shop-add-to-cart" data-store-slug="${escape(store.slug)}" data-store-name="${escape(store.name)}" data-sku="${escape(sku)}" data-title="${escape(product.title)}" data-price-minor="${escape(String(product.price_minor))}" data-currency="${escape(store.currency)}" data-revision="${escape(store.revision)}"><noscript><p class="shop-action-note">加入購物車需要開啟瀏覽器的 JavaScript。</p></noscript></div>`
     : `<a class="shop-button" href="${reservationPath(store, sku)}">登入確認預留條件</a><p class="shop-action-note">先確認是否開放，再自行選擇數量與確認預留。尚未付款，不會安排出貨。</p>`;
-  return shell(`${product.title}｜${store.name}`, product.description, `<nav class="shop-breadcrumb" aria-label="商品導覽"><a href="/shops/${escape(store.slug)}">← ${escape(store.name)}</a></nav><article class="shop-detail"><div class="shop-detail-photo">${picture(photo, product.title, true)}</div><div class="shop-detail-copy"><p class="shop-eyebrow">${escape(store.brand ?? store.name)}</p><h1>${escape(product.title)}</h1><p class="shop-price">${escape(formatMinor(product.price_minor, store.currency))}</p><div class="shop-description">${paragraphs(product.description) || '<p>店主尚未補充商品說明。</p>'}</div>${action}<p class="shop-product-ref">商品編號 ${escape(sku)}</p><a href="${productPath(store, sku)}">商品分享連結</a></div></article>${open ? '' : conditions(store)}`, metadata(`${product.title}｜${store.name}`, product.description, productPath(store, sku), photo, publicShare), false, open ? store.slug : undefined);
+  return shell(`${product.title}｜${store.name}`, product.description, `<nav class="shop-breadcrumb" aria-label="商品導覽"><a href="/shops/${escape(store.slug)}">← ${escape(store.name)}</a></nav><article class="shop-detail"><div class="shop-detail-photo">${picture(photo, product.title, true)}</div><div class="shop-detail-copy"><p class="shop-eyebrow">${escape(store.brand ?? store.name)}</p><h1>${escape(product.title)}</h1><p class="shop-price">${escape(formatMinor(product.price_minor, store.currency))}</p><div class="shop-description">${paragraphs(product.description) || '<p>店主尚未補充商品說明。</p>'}</div>${action}<p class="shop-product-ref">商品編號 ${escape(sku)}</p><a href="${productPath(store, sku)}">商品分享連結</a></div></article>${open ? '' : conditions(store)}`, metadata(`${product.title}｜${store.name}`, product.description, productPath(store, sku), photo, share), false, open ? store.slug : undefined);
 }
 export function storeMissingHtml(product = false) {
   const name = product ? '找不到這項商品' : '找不到這間商店', description = product ? '這項商品目前沒有公開。' : '這間商店目前沒有公開。';
