@@ -116,7 +116,7 @@ test('worker config fails closed without echoing bindings', () => {
       return true;
     }, JSON.stringify(Object.keys(override)));
   }
-  assert.deepEqual(readWorkerConfig(stagingEnv()), { freedomEnv: 'staging', origin: 'https://staging-next.freetwai.com', release: SHA_A, trustConnectingIp: true, commerceSettings: {checkoutEnabled:false,quarantine:false,providerProfiles:[]}, commerceCredentialKeyring:null,commerceProviderEnvironment:'sandbox' });
+  assert.deepEqual(readWorkerConfig(stagingEnv()), { freedomEnv: 'staging', origin: 'https://staging-next.freetwai.com', release: SHA_A, trustConnectingIp: true, commerceSettings: {consoleEnabled:false,checkoutEnabled:false,quarantine:false,providerProfiles:[]}, commerceCredentialKeyring:null,commerceProviderEnvironment:'sandbox' });
 });
 
 test('notification preferences binding accepts exact booleans and rejects typos before I/O', async () => {

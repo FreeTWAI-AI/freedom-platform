@@ -1,4 +1,5 @@
 import * as commerceSetup from '../../contracts/guild-launchpad/v1/hosted-commerce-setup.js';
+import * as sellerCheckout from '../../contracts/guild-launchpad/v1/hosted-seller-checkout.js';
 import * as checkout from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import * as supplyCatalog from '../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -178,6 +179,27 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['intent-lookup-query', hostedOrder.IntentLookupQuerySchema, 'input', ['exact_buyer_shop_intent']],
     ['order-page-query', hostedOrder.OrderPageQuerySchema, 'input', ['unique_query_keys', 'signed_cursor']],
     ['order-page', hostedOrder.OrderPageSchema, 'output', ['current_party_filter', 'signed_cursor', 'order_semantics']],
+  ]],
+  ['hosted-seller-checkout', 'Private checkout orders, payment cases and manual unapplied refund records. Shapes grant no store or finance authority.', [
+    ['payment-state', sellerCheckout.SellerPaymentStateSchema, 'output', []],
+    ['inventory-state', sellerCheckout.SellerInventoryStateSchema, 'output', []],
+    ['customer', sellerCheckout.SellerCustomerSchema, 'output', ['masked_name_and_redaction']],
+    ['order-summary', sellerCheckout.SellerCheckoutOrderSummarySchema, 'output', ['current_store_authority','read_time_axes']],
+    ['order-page', sellerCheckout.SellerCheckoutOrderPageSchema, 'output', ['signed_cursor_bound_after_authorization']],
+    ['order-line', sellerCheckout.SellerOrderLineSchema, 'output', []],
+    ['payment-attempt', sellerCheckout.SellerPaymentAttemptSchema, 'output', ['finance_capability','explicit_safe_fields']],
+    ['payment-application', sellerCheckout.SellerPaymentApplicationSchema, 'output', ['finance_capability','unapplied_refund_cap']],
+    ['refund', sellerCheckout.SellerRefundSchema, 'output', ['calendar_date','reference_only_receipt']],
+    ['exception-case', sellerCheckout.ExceptionCaseViewSchema, 'output', ['finance_facts_only_with_capability','current_allowed_actions']],
+    ['exception-case-page', sellerCheckout.ExceptionCasePageSchema, 'output', ['signed_cursor_bound_after_authorization']],
+    ['order', sellerCheckout.SellerCheckoutOrderSchema, 'output', ['current_store_authority','finance_capability','read_time_axes']],
+    ['order-contact', sellerCheckout.SellerOrderContactSchema, 'output', ['customer_capability','principal_budget','current_redaction']],
+    ['empty-input', sellerCheckout.SellerCheckoutEmptyInputSchema, 'input', []],
+    ['resolve-with-evidence-input', sellerCheckout.ResolveWithEvidenceInputSchema, 'input', ['calendar_date_not_future_in_taipei','kind_code_and_subject_state']],
+    ['retry-allocation-input', sellerCheckout.RetryAllocationInputSchema, 'input', ['stock_and_case_version']],
+    ['manual-refund-input', sellerCheckout.ManualRefundInputSchema, 'input', ['calendar_date_within_payment_and_today_taipei','settlement_unit_and_cap','negative_zero_forbidden']],
+    ['refund-list', sellerCheckout.SellerRefundListSchema, 'output', []],
+    ['error-code', sellerCheckout.SellerCheckoutErrorCodeSchema, 'output', []],
   ]],
   ['hosted-commerce-setup', 'Commerce release, account setup and controlled payment service verification. Shape validation grants no authority.', [
     ['empty-input', commerceSetup.CommerceSetupEmptyInputSchema, 'input', []],

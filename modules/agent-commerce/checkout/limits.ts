@@ -14,6 +14,7 @@ export const COMMERCE_LIMITS={
   paymentReturnNetwork:{limit:60,seconds:60},paymentReturnQuery:{limit:1,seconds:60},
   providerAccount:{limit:600,seconds:60},providerUnknownNetwork:{limit:120,seconds:60},
   paymentQueryNetwork:{limit:30,seconds:600},paymentQueryOrder:{limit:1,seconds:60},paymentQueryOrderHour:{limit:10,seconds:3600},
+  customerDataPrincipal:{limit:300,seconds:3600},
   activationAccount:{limit:10,seconds:3600},
   handoffNetwork:{limit:30,seconds:600},
   handoffPageNetwork:{limit:60,seconds:600},

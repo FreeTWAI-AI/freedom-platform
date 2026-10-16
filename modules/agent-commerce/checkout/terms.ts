@@ -48,7 +48,7 @@ export interface UnresolvedOrderPort {find(q:PoolClient,checkoutId:string):Promi
 export interface CheckoutPolicyPort {required(q:PoolClient,store:CheckoutStore):Promise<readonly {policy_kind:string;policy_version_id:string}[]>}
 export interface CheckoutPaymentHandoff {handoff_url:string;attempt_ref:string;expires_at:string}
 export interface CheckoutPaymentSummary {
-  payment_state:'unpaid'|'pending'|'simulated'|'confirmed'|'overpaid';
+  payment_state:'unpaid'|'pending'|'simulated'|'confirmed'|'overpaid'|'refunded';
   latest_payment_attempt:null|{attempt_ref:string;state:'ready'|'awaiting_result'|'paid'|'failed'|'expired';created_at:string};
   can_resume_payment:boolean;
 }
@@ -58,13 +58,14 @@ export interface CheckoutPaymentPort {
   createOrderAttempt(q:PoolClient,input:{store:CheckoutStore;orderId:string;amountMinor:number;currency:string;environment:'sandbox'|'live'}):Promise<void>;
   issueHandoff(q:PoolClient,input:{store:CheckoutStore;orderId:string}):Promise<CheckoutPaymentHandoff|null>;
   onOrdersCancelled(q:PoolClient,orderIds:readonly string[]):Promise<void>;
+  queryable?(q:PoolClient,orderId:string):Promise<boolean>;
   summarize(q:PoolClient,orderIds:readonly string[]):Promise<ReadonlyMap<string,CheckoutPaymentSummary>>;
 }
 /** Request orchestration owns its transactions and may query a provider only
  * after releasing the client. authorize is rechecked before each commit. */
 export interface CheckoutPaymentActions {
   resume(pool:Pool,input:{store:CheckoutStore;orderId:string;network:string;authorize(q:PoolClient):Promise<void>}):Promise<CheckoutPaymentHandoff>;
-  query?(pool:Pool,input:{store:CheckoutStore;orderId:string;network:string;authorize(q:PoolClient):Promise<void>}):Promise<'complete'|'query_in_progress'>;
+  query?(pool:Pool,input:{store:CheckoutStore;orderId:string;network:string;trigger?:'buyer'|'seller';authorize(q:PoolClient):Promise<void>}):Promise<'complete'|'query_in_progress'>;
 }
 export interface CheckoutPorts {paymentActions?:CheckoutPaymentActions;shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort}
 export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};

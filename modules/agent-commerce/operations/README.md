@@ -1,7 +1,11 @@
 # Commerce host operations
 
-`readCommerceSettings` defaults checkout/quarantine off and accepts only exact
-`true`/`false`. Checkout requires guild launchpad. `providerProfiles` is empty
+`readCommerceSettings` defaults console/checkout/quarantine off and accepts only
+exact `true`/`false`. FREEDOM_COMMERCE_CONSOLE_ENABLED=true requires
+FREEDOM_GUILD_LAUNCHPAD_ENABLED=true; checkout=true requires console=true. The
+parser always sets consoleEnabled; its optional type keeps older fixtures
+compatible, and absence is off. Worker/deployment readiness applies the same
+commerce_launchpad_required and commerce_console_required dependency errors. `providerProfiles` is empty
 unless `FREEDOM_COMMERCE_PROVIDER_PROFILES` lists implemented IDs, comma-separated
 without whitespace, empty entries or duplicates. Only `ecpay.aio.credit.v1` is
 implemented. Invalid configuration fails readiness with a fixed value-free code.
@@ -15,7 +19,11 @@ requires an unrevoked row in the current `providerEnvironment()`, every capabili
 registered by storefront 1.1.0 and an active payment service whose profile the
 host lists. An empty profile list refuses admission. A 1.0.0 store needs its
 owner upgrade first. Lifecycle lock waits recheck admission before creation.
-Retained order reads and machine hold expiry continue when checkout is disabled.
+Retained order reads, seller obligations and machine hold expiry continue when
+checkout is disabled. Console=false leaves all seller checkout/case routes on
+the JSON 404 catch-all. Console=true mounts them inside the launchpad member
+boundary; it grants no capability itself. Quarantine keeps seller reads available
+and refuses every seller write and on-demand query with commerce_quarantined.
 
 Independent active platform admins admit/revoke stores only in their community.
 An admin with any active membership in the tenant cannot decide either command.

@@ -5,9 +5,11 @@ import {CurrencySchema,StoreSlugSchema} from './storefront.js';
 export const checkoutTextPattern=/^[^\u0000\uD800-\uDFFF]*$(?![\s\S])/u;
 export const isCheckoutText=(value:string)=>checkoutTextPattern.test(value);
 const text=z.string().regex(checkoutTextPattern,'Invalid checkout text.');
-const money=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+export const CheckoutMoneySchema=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const money=CheckoutMoneySchema;
 const sha=z.string().regex(/^[a-f0-9]{64}$(?![\s\S])/);
-const time=z.string().regex(new RegExp(z.regexes.datetime({precision:3}).source.replace(/\\d/g,'[0-9]')+'(?![\\s\\S])'));
+export const CheckoutTimeSchema=z.string().regex(new RegExp(z.regexes.datetime({precision:3}).source.replace(/\\d/g,'[0-9]')+'(?![\\s\\S])'));
+const time=CheckoutTimeSchema;
 const sku=text.min(1).max(32);
 const quantity=z.number().int().min(1).max(99);
 const object=z.record(text,z.unknown()).refine(value=>{
@@ -60,7 +62,7 @@ export const PublicOrderSchema=z.object({order_ref:OpaqueId,display_number:z.str
   store:z.object({slug:StoreSlugSchema,name:z.string().min(1).max(80)}).strict(),created_at:time,pay_by:time,reservation_expired:z.boolean(),
   lifecycle_state:z.enum(['open','cancelled','closed']),cancel_reason:z.enum(['buyer_cancelled','seller_cancelled','payment_not_completed','paid_cancelled']).nullable(),currency:CurrencySchema,
   lines:z.array(line.extend({options})).min(1).max(50),merchandise_total_minor:money,discount_total_minor:money,shipping_total_minor:money,total_minor:money,
-  payment_state:z.enum(['unpaid','pending','simulated','confirmed','overpaid']),
+  payment_state:z.enum(['unpaid','pending','simulated','confirmed','overpaid','refunded']),
   latest_payment_attempt:z.object({attempt_ref:OpaqueId,state:z.enum(['ready','awaiting_result','paid','failed','expired']),created_at:time}).strict().nullable(),can_resume_payment:z.boolean(),contact:contact.nullable(),delivery:object.nullable(),invoice:object.nullable(),redacted:z.boolean(),
 }).strict().refine(v=>v.redacted? v.contact===null&&v.delivery===null&&v.invoice===null:v.contact!==null&&v.delivery!==null,'Invalid redaction projection.');
 export const PaymentHandoffResponseSchema=z.object({handoff_url:z.string().regex(/^\/pay\/ecpay\/[A-Za-z0-9_-]{43}$(?![\s\S])/),attempt_ref:OpaqueId,expires_at:time}).strict();

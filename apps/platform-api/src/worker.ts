@@ -64,6 +64,7 @@ import { workerPreviewFetch } from './worker-preview-fetch.js';
 export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   COMMERCE_CREDENTIAL_KEYS?:string;
   FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
+  FREEDOM_COMMERCE_CONSOLE_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
   FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
   COMMERCE_JOURNAL?:Pick<R2Bucket,'put'|'get'>;

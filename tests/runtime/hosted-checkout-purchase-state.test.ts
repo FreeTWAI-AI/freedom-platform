@@ -8,7 +8,7 @@ test('store pages offer a cart only where the cart quote answers, and a product 
   try{
     await x.reset();
     const s=await x.store(1),empty=await x.store(0);
-    const open:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},...ports};
+    const open:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:[]},...ports};
     const state=(slug:string,options:HostedCheckoutOptions=open,sku?:string)=>publicPurchaseState(x.runtime,slug,options,sku);
     const quote=(options:HostedCheckoutOptions)=>quotePublicCart(x.runtime,s.slug,{publication_revision:'1',lines:[{sku:s.product.sku,quantity:1}]},{network:'192.0.2.10'},options);
     const writes=async()=>(await x.h.pool.query(`SELECT (SELECT count(*) FROM auth_rate_limits)::int AS budgets,(SELECT count(*) FROM commerce_checkouts)::int AS checkouts,
@@ -21,7 +21,7 @@ test('store pages offer a cart only where the cart quote answers, and a product 
     assert.deepEqual(await state(s.slug,open,'P9999'),{open:true,product:'sold_out'});
     const closed:[HostedCheckoutOptions,string][]=[
       [{...open,settings:undefined},'checkout_not_enabled'],[{...open,settings:{checkoutEnabled:false,quarantine:false,providerProfiles:[]}},'checkout_not_enabled'],
-      [{...open,settings:{checkoutEnabled:true,quarantine:true,providerProfiles:[]}},'commerce_quarantined'],[{...open,admission:{allowed:()=>false}},'checkout_not_enabled'],
+      [{...open,settings:{checkoutEnabled:true,consoleEnabled:true,quarantine:true,providerProfiles:[]}},'commerce_quarantined'],[{...open,admission:{allowed:()=>false}},'checkout_not_enabled'],
       [{origin:x.h.origin,settings:open.settings,shipping:ports.shipping},'checkout_not_enabled'],
     ];
     for(const [options] of closed)assert.deepEqual(await state(s.slug,options,s.product.sku),{open:false});

@@ -12,7 +12,7 @@ import type {CommerceCredentialKeyring} from './credentials.js';
 import type {PaymentQueryTransport,QueryTransportResult} from './query-transport.js';
 import {lockMachinePaymentAttempt,paymentQueryDueAt,hasDefinitePaymentMismatch,settleOrderPayments,PAYMENT_WINDOW_MS,type MachinePaymentAttempt} from './window.js';
 
-export type PaymentQueryTrigger='schedule'|'window_end'|'notification'|'browser_return'|'buyer'|'repay'|'activation';
+export type PaymentQueryTrigger='schedule'|'window_end'|'notification'|'browser_return'|'buyer'|'seller'|'repay'|'activation';
 export type PaymentQueryError='timeout'|'network'|'response_too_large'|'http_status'|'http_403'|'verify_failed'
   |'merchant_mismatch'|'merchant_trade_no_mismatch'|'platform_mismatch'|'keyring_unavailable'|'credential_unavailable'
   |'throttled'|'tenant_inactive'|'environment_mismatch'|'internal';

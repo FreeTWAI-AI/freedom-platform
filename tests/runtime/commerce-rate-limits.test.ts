@@ -32,7 +32,7 @@ test('a failed command rolls every bucket back',async()=>{
   assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM auth_rate_limits')).rows[0].n,0);
 });
 for(const budget of ['device','email','network'] as const)test(`fourth open/new order per ${budget} leaves no order or hold; replay counts only attempt budgets`,async()=>{
-  const s=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},...ports};let browser:string|undefined;
+  const s=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:[]},...ports};let browser:string|undefined;
   let first:{checkout:string;input:{terms_sha256:string;client_order_id:string};access:{deviceToken?:string;network:string};order:string}|undefined;
   for(let i=0;i<4;i++) {
     const access={network:budget==='network'?'same-network':`network-${i}`,deviceToken:budget==='device'?browser:undefined};
@@ -58,7 +58,7 @@ for(const budget of ['device','email','network'] as const)test(`fourth open/new 
 });
 test('trusted-edge HTTP sets Retry-After on exhausted quote budgets; local and untrusted requests share a key',async()=>{
   const s=await x.store(),origin=x.h.origin;
-  const runtime=nodeRuntime('local',origin,{commerceSettings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},commercePorts:ports});runtime.rateLimitNetwork=cloudflareRateLimitNetwork(true);
+  const runtime=nodeRuntime('local',origin,{commerceSettings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:[]},commercePorts:ports});runtime.rateLimitNetwork=cloudflareRateLimitNetwork(true);
   const app=createPlatformApp(x.runtime,origin,'local',runtime),key='192.0.2.10';
   await x.h.pool.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),$2)',[`commerce:cartNetwork:${hashKey(key)}`,COMMERCE_LIMITS.cartNetwork.limit]);
   const call=async(trusted:boolean,address=key)=>{
@@ -71,7 +71,7 @@ test('trusted-edge HTTP sets Retry-After on exhausted quote budgets; local and u
 });
 
 for(const cap of ['email','device'] as const)test(`three open orders per ${cap} at store A do not consume store B slots`,async()=>{
-  const a=await x.store(50),b=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},...ports};let deviceToken:string|undefined;
+  const a=await x.store(50),b=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:[]},...ports};let deviceToken:string|undefined;
   for(let i=0;i<4;i++) {
     const s=i<3?a:b,access={network:`network-${i}`,deviceToken:cap==='device'?deviceToken:undefined};
     const c=await createPublicCheckout(x.runtime,s.slug,{...x.input(s.product.sku,1),contact:{name:'測試買家甲',email:cap==='email'?'same@example.test':`buyer${i}@example.test`,phone:'0900000000'}},randomUUID(),access,options);

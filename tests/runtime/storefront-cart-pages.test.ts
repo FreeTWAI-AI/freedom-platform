@@ -84,6 +84,7 @@ function makeApp(options: {
     tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY,
     commerceSettings: {
       checkoutEnabled: options.checkoutEnabled,
+      consoleEnabled: true,
       quarantine: options.quarantine ?? false,
       providerProfiles: [],
     },

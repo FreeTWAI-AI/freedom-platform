@@ -44,7 +44,8 @@ const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-mat
   csrfSecret: 'synthetic-matrix-admin-csrf-secret-123456789', keySet: createLocalJWKSet({ keys: [] }) });
 const providerMaterial = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex') };
 const commerceCredentialKeyring = CommerceCredentialKeyring.parse(`matrix:${randomBytes(32).toString('base64')}`)!;
-const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier, commerceCredentialKeyring });
+const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier, commerceCredentialKeyring,
+  commerceSettings: { checkoutEnabled: false, consoleEnabled: true, quarantine: false, providerProfiles: [] } });
 
 let created = false;
 let runtimeConnection: { current_user: string; session_user: string; rolsuper: boolean; rolbypassrls: boolean; pg_backend_pid: number };
@@ -205,6 +206,16 @@ async function installSyntheticCatalog() {
 }
 
 const routeTable: Record<string, string> = {
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/contact': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/cancel': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/payment-queries': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/exception-cases': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id/actions/:action': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/release': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/upgrade': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts': 'tenant',
@@ -550,8 +561,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 94, middleware: 2 });
-  assert.equal(selectedRoutes.length, 127);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 104, middleware: 2 });
+  assert.equal(selectedRoutes.length, 137);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -589,6 +600,16 @@ function assertSameAsRandom(route: string, actor: string, real: Reply, random: R
 
 type Route = { method: string; path: string; body?: any; version?: string; isRaw?: boolean };
 const routes: Route[] = [
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/contact' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/cancel', body: {}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/payment-queries', body: {} },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds', body: { application_ref: randomUUID(), amount_minor: 100, refunded_on: '2026-01-01' } },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/exception-cases?view=retailer' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id/actions/:action', body: { code: 'confirmed' }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/release' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/upgrade', body: {}, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts' },
@@ -701,7 +722,7 @@ function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
     principal_id: data.principalId, product_id: data.workId, order_id: data.workId, offer_id: data.workId, selection_id: data.workId,
-    account_id: data.workId, admission_id: data.invitationId, purpose: 'payment',
+    account_id: data.workId, admission_id: data.invitationId, case_id: data.workId, purpose: 'payment', action: 'resolve_with_evidence',
     instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
     plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
@@ -787,14 +808,14 @@ test('T-022 3a. Other tenant in the path', async () => {
 
 test('T-022 3b. Own tenant in path, other tenant resource', async () => {
   for (const route of routes) {
-    // Service purpose is a closed discriminator, not a tenant resource identity.
+    // Service purpose and exception action are closed discriminators, not tenant resource identities.
     if (route.path.includes('/:purpose')) {
       const invalid = await execute(route, fixture.people.P, { ...ids(fixture.A, route), purpose: randomUUID() });
       assert.equal(invalid.status, 422, JSON.stringify(describe(invalid)));
       assert.equal(invalid.data.code, 'validation_failed');
       scanForLeaks(invalid, `3b invalid service purpose ${route.path}`, fixture.B);
     }
-    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id' && key !== 'purpose');
+    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id' && key !== 'purpose' && key !== 'action');
     for (const position of positions) {
       for (const name of ['P', 'O'] as const) {
         const realIds = { ...ids(fixture.A, route), [position]: ids(fixture.B, route)[position] };
@@ -895,7 +916,7 @@ test('T-022 3d. Anonymous', async () => {
     if (!['tenant', 'principal', 'admin', 'guild'].includes(kind) || key.includes('/public/')) continue;
     const route = kind === 'tenant' ? routes.find(r => `${r.method} /api/v1${r.path.split('?')[0]}` === key)! : nonTenantRoute(key);
     const realIds: Record<string, string> = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
-    const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : key === 'purpose' ? realIds[key] : randomUUID()]));
+    const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : ['purpose', 'action'].includes(key) ? realIds[key] : randomUUID()]));
     const replies = await pair(route, undefined, realIds, randomIds);
     assertSameAsRandom(key, 'Anonymous', ...replies);
     assert.ok([401, 403].includes(replies[0].status), `${key}: ${JSON.stringify(describe(replies[0]))}`);

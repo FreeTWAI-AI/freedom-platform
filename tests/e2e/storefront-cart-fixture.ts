@@ -92,7 +92,7 @@ export async function openCartListener(db: Pool) {
     app = createApp(listenerPool, origin, 'local', {
       guildLaunchpadEnabled: true,
       tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY,
-      commerceSettings: { checkoutEnabled: true, quarantine: false, providerProfiles: [] },
+      commerceSettings: { checkoutEnabled: true, consoleEnabled: true, quarantine: false, providerProfiles: [] },
       commercePorts: {
         admission: { allowed: () => true },
         shipping: ports.shipping,

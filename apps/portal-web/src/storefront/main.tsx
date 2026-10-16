@@ -1966,6 +1966,8 @@ function paymentReturnHeading(loadState: ReturnLoadState, view: PaymentView | nu
   switch (view) {
     case 'paid':
       return '已收到付款';
+    case 'refunded':
+      return '已退款';
     case 'review':
       return '付款金額待店家確認';
     case 'checking':
@@ -2486,6 +2488,9 @@ function PaymentReturnPage({ container, storeSlug, storeName, orderRef }: Paymen
     case 'paid':
       bodyText = `訂單 ${order.display_number} 的後續進度會顯示在訂單頁。`;
       break;
+    case 'refunded':
+      bodyText = orderPaymentSectionCopy('refunded').description!;
+      break;
     case 'review':
       bodyText = '我們收到的付款和這筆訂單不符，店家會確認並處理退款。請不要再付款。';
       break;
@@ -2524,7 +2529,7 @@ function PaymentReturnPage({ container, storeSlug, storeName, orderRef }: Paymen
             查看訂單
           </a>
         )}
-        {currentPayView === 'review' && <a href={orderHref}>查看訂單</a>}
+        {(currentPayView === 'review' || currentPayView === 'refunded') && <a href={orderHref}>查看訂單</a>}
         {(currentPayView === 'checking' || currentPayView === 'awaiting') && !pollingDone && (
           <a href={orderHref}>查看訂單</a>
         )}
