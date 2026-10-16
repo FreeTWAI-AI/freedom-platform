@@ -247,7 +247,7 @@ test('SC-E2E-60 copy material from creation to partner use, revoke and withdraw 
   baseURL,
   e2eAuthPool,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   const supplierIds: string[] = [];
   const suffix = randomUUID().slice(0, 6);
@@ -457,11 +457,18 @@ test('SC-E2E-61 file materials say plainly that files are not available here', a
   baseURL,
   e2eAuthPool,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   const supplierIds: string[] = [];
   const suffix = randomUUID().slice(0, 6);
-  let policyTouched = false;
+  type PolicyRow = {
+    purpose: string;
+    mode: string;
+    persistence_allowed: boolean;
+    policy_revision: string | null;
+    retained_byte_limit: string | null;
+  };
+  let initialPolicyRows: PolicyRow[] | null = null;
 
   try {
     const ctxA = await browser.newContext({baseURL});
@@ -551,10 +558,10 @@ test('SC-E2E-61 file materials say plainly that files are not available here', a
     const actor = (
       await e2eAuthPool.query<Actor>(
         `SELECT u.user_id,u.community_id,u.email,u.display_name,u.profession_membership_ref,u.onboarding_required,u.onboarding_completed_at,
-                s.token_hash AS session_hash,s.csrf_token
-         FROM sessions s JOIN users u USING(user_id)
-         WHERE u.user_id=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()
-         LIMIT 1`,
+                 s.token_hash AS session_hash,s.csrf_token
+          FROM sessions s JOIN users u USING(user_id)
+          WHERE u.user_id=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()
+          LIMIT 1`,
         [sup.member.id],
       )
     ).rows[0];
@@ -563,7 +570,15 @@ test('SC-E2E-61 file materials say plainly that files are not available here', a
     const assets = createSupplyMaterialLifecycle(e2eAuthPool, {store: fakeStore});
     const videoStub = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom'), Buffer.alloc(244)]);
 
-    policyTouched = true;
+    initialPolicyRows = (
+      await e2eAuthPool.query<PolicyRow>(
+        `SELECT purpose, mode, persistence_allowed, policy_revision, retained_byte_limit::text AS retained_byte_limit
+         FROM domain_media_storage_policy
+         WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')
+         ORDER BY purpose`,
+      )
+    ).rows;
+    expect(initialPolicyRows).toHaveLength(2);
     await e2eAuthPool.query(
       `UPDATE domain_media_storage_policy
        SET mode='r2_only',persistence_allowed=true,policy_revision='e2e-supply-material-policy',retained_byte_limit=104857600
@@ -622,12 +637,36 @@ test('SC-E2E-61 file materials say plainly that files are not available here', a
     await expect(vidCard).toContainText('這個環境尚未開放素材檔案。');
     await expect(panelB.locator('img, video')).toHaveCount(0);
   } finally {
-    if (policyTouched) {
-      await e2eAuthPool.query(
-        `UPDATE domain_media_storage_policy
-         SET persistence_allowed=false
-         WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')`,
-      );
+    if (initialPolicyRows) {
+      const client = await e2eAuthPool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('ALTER TABLE domain_media_storage_policy DISABLE TRIGGER preserve_domain_media_floor');
+        for (const row of initialPolicyRows) {
+          await client.query(
+            `UPDATE domain_media_storage_policy
+             SET mode=$2, persistence_allowed=$3, policy_revision=$4, retained_byte_limit=$5::bigint
+             WHERE purpose=$1`,
+            [row.purpose, row.mode, row.persistence_allowed, row.policy_revision, row.retained_byte_limit],
+          );
+        }
+        await client.query('ALTER TABLE domain_media_storage_policy ENABLE TRIGGER preserve_domain_media_floor');
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+      const restoredPolicyRows = (
+        await e2eAuthPool.query<PolicyRow>(
+          `SELECT purpose, mode, persistence_allowed, policy_revision, retained_byte_limit::text AS retained_byte_limit
+           FROM domain_media_storage_policy
+           WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')
+           ORDER BY purpose`,
+        )
+      ).rows;
+      expect(restoredPolicyRows).toEqual(initialPolicyRows);
     }
     await withdrawSupplierOffers(e2eAuthPool, supplierIds);
     await Promise.all(contexts.map(c => c.close()));
@@ -639,7 +678,7 @@ test('SC-E2E-62 an unknown material command result is retried with the same key 
   baseURL,
   e2eAuthPool,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   const supplierIds: string[] = [];
   const suffix = randomUUID().slice(0, 6);
@@ -780,7 +819,7 @@ test('SC-E2E-63 permissions: viewer and admin in the supplier business, viewer i
   baseURL,
   e2eAuthPool,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   const supplierIds: string[] = [];
   const suffix = randomUUID().slice(0, 6);
@@ -875,7 +914,7 @@ test('SC-E2E-63 permissions: viewer and admin in the supplier business, viewer i
 });
 
 test('SC-E2E-64 leaving with an unsaved material draft asks first', async ({browser, baseURL, e2eAuthPool}) => {
-  test.setTimeout(240_000);
+  test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   const supplierIds: string[] = [];
   const suffix = randomUUID().slice(0, 6);
@@ -958,7 +997,7 @@ test('SC-E2E-64 leaving with an unsaved material draft asks first', async ({brow
 });
 
 test('SC-E2E-65 material pages fit narrow and wide screens', async ({browser, baseURL, e2eAuthPool}, info) => {
-  test.setTimeout(240_000);
+  test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   const supplierIds: string[] = [];
   const suffix = randomUUID().slice(0, 6);
@@ -1096,6 +1135,254 @@ test('SC-E2E-65 material pages fit narrow and wide screens', async ({browser, ba
     expect(await sellerB.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await assertSmallButtonsOnDesktop(sellerB.page, '.partner-materials');
     await sellerB.page.screenshot({path: info.outputPath('partner-materials-1440.png'), fullPage: true});
+  } finally {
+    await withdrawSupplierOffers(e2eAuthPool, supplierIds);
+    await Promise.all(contexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-71 the report page shows the period, links to the lists and downloads a CSV (AT-29,30,32)', async ({
+  browser,
+  baseURL,
+  e2eAuthPool,
+}, info) => {
+  test.setTimeout(120_000);
+  const {readFile} = await import('node:fs/promises');
+  const contexts: BrowserContext[] = [];
+  const supplierIds: string[] = [];
+  const suffix = randomUUID().slice(0, 6);
+
+  try {
+    const ctxA = await browser.newContext({baseURL});
+    contexts.push(ctxA);
+    const pageA = await ctxA.newPage();
+    const sup = await setupSupplierWithProductAndOffer(pageA, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    // Create second product (not published) via the console UI form with title '=SUM(1,1)'
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/products/new`, '新增商品');
+    const newProductForm = activePage(pageA).getByRole('form', {name: '新增商品', exact: true});
+    await newProductForm.getByLabel('商品名稱', {exact: true}).fill('=SUM(1,1)');
+    await newProductForm.getByRole('textbox', {name: '說明', exact: true}).fill('尚未公開的試算表公式防護測試商品');
+    await newProductForm.getByLabel('供貨單價', {exact: true}).fill('5');
+    await newProductForm.getByLabel('庫存', {exact: true}).fill('8');
+    await newProductForm.getByRole('button', {name: '新增商品', exact: true}).click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '商品詳情：=SUM(1,1)', exact: true})).toBeVisible();
+    const product2Id = new URL(pageA.url()).hash.split('/').pop()!;
+    const productsList = await getJson(pageA, `${sup.store.root}/supply-products`);
+    const product2 = productsList.items.find((p: {product_id: string}) => p.product_id === product2Id);
+    expect(product2).toBeTruthy();
+
+    await navLink(pageA, '設定與資料').click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '設定與資料', exact: true})).toBeVisible();
+    await activePage(pageA).getByRole('button', {name: '開放 30 分鐘預留', exact: true}).click();
+    await expect(consoleRoot(pageA).locator('.sc-announcement')).toHaveText('已保存：開放 30 分鐘預留。');
+
+    // Seller B sellable + published storefront + 1 buyer reservation created via public API
+    const sellerSlug = `seller-report-${suffix}`;
+    const sellerB = await setupSellerStore(browser, baseURL, e2eAuthPool, contexts, `報表賣家 ${suffix}`, sellerSlug);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1100},
+      201,
+    );
+    await post(
+      pageA,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+    const sellerView = await getJson(sellerB.page, sellerB.store.root);
+    await post(sellerB.page, `${sellerB.store.root}/publish`, {}, 200, sellerView.version);
+    const sellerSetting = await getJson(sellerB.page, `${sellerB.store.root}/reservation-setting`);
+    if (!sellerSetting.reservation_enabled) {
+      await patchJson(sellerB.page, `${sellerB.store.root}/reservation-setting`, {reservation_enabled: true}, 200, sellerSetting.version);
+    }
+
+    const buyer = await person(e2eAuthPool);
+    const ctxBuyer = await browser.newContext({baseURL});
+    contexts.push(ctxBuyer);
+    const buyerPage = await ctxBuyer.newPage();
+    await login(buyerPage, buyer.email);
+    const publicStore = await getJson(buyerPage, `/public/stores/${sellerSlug}`);
+    const quote = await post(
+      buyerPage,
+      `/hosted-stores/${sellerSlug}/reservation-quotes`,
+      {publication_revision: publicStore.revision, items: [{sku: propB.sku, quantity: 2}]},
+      201,
+    );
+    await post(
+      buyerPage,
+      `/hosted-stores/${sellerSlug}/reservation-orders`,
+      {quote_id: quote.quote_id, terms_sha256: quote.terms_sha256, client_order_id: randomUUID()},
+      201,
+    );
+
+    // Compute expected last 30 Taipei days with Asia/Taipei
+    const taipeiDate = (ms: number) =>
+      new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Taipei'}).format(new Date(ms));
+    const nowMs = Date.now();
+    const expectedFrom = taipeiDate(nowMs - 29 * 86_400_000);
+    const expectedTo = taipeiDate(nowMs);
+
+    // Open 營運報表 with no query
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    const fromInput = activePage(pageA).getByLabel('期間起（台灣時間）');
+    const toInput = activePage(pageA).getByLabel('期間迄（台灣時間）');
+    await expect(fromInput).toHaveValue(expectedFrom);
+    await expect(toInput).toHaveValue(expectedTo);
+
+    // Verify product count links have matching state filter and follow one link
+    const expectedProductLinks: Array<[string, string]> = [
+      ['商品總數：查看清單', `#${sup.store.hash}/supply/products`],
+      ['公開中：查看清單', `#${sup.store.hash}/supply/products?state=offered`],
+      ['尚未公開：查看清單', `#${sup.store.hash}/supply/products?state=not_offered`],
+      ['需更新版本：查看清單', `#${sup.store.hash}/supply/products?state=outdated`],
+      ['缺貨：查看清單', `#${sup.store.hash}/supply/products?state=out_of_stock`],
+    ];
+    for (const [linkName, expectedHref] of expectedProductLinks) {
+      await expect(activePage(pageA).getByRole('link', {name: linkName, exact: true})).toHaveAttribute(
+        'href',
+        expectedHref,
+      );
+    }
+
+    await activePage(pageA).getByRole('link', {name: '公開中：查看清單', exact: true}).click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '商品與庫存', exact: true})).toBeVisible();
+    await expect(pageA).toHaveURL(new RegExp(`#${sup.store.hash}/supply/products\\?state=offered$`));
+
+    // Back to 營運報表 and follow partner row link to B's detail
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    const partnerLink = activePage(pageA).getByRole('link', {name: sellerB.name, exact: true});
+    await expect(partnerLink).toHaveAttribute(
+      'href',
+      new RegExp(`^#${sup.store.hash}/supply/partners/[0-9a-f-]{36}$`),
+    );
+    const partnerHref = (await partnerLink.getAttribute('href'))!;
+    await partnerLink.click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '合作店家詳情', exact: true})).toBeVisible();
+    await expect(pageA).toHaveURL(new RegExp(`${partnerHref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+
+    // Back to 營運報表 and follow reservation row link with the same period
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    const expectedReservationLinks: Array<[string, string]> = [
+      ['預留中：查看預留', `#${sup.store.hash}/supply/reservations?state=reserved&from=${expectedFrom}&to=${expectedTo}`],
+      ['已取消：查看預留', `#${sup.store.hash}/supply/reservations?state=cancelled&from=${expectedFrom}&to=${expectedTo}`],
+      ['已到期：查看預留', `#${sup.store.hash}/supply/reservations?state=expired&from=${expectedFrom}&to=${expectedTo}`],
+    ];
+    for (const [linkName, expectedHref] of expectedReservationLinks) {
+      await expect(activePage(pageA).getByRole('link', {name: linkName, exact: true})).toHaveAttribute(
+        'href',
+        expectedHref,
+      );
+    }
+
+    await activePage(pageA).getByRole('link', {name: '預留中：查看預留', exact: true}).click();
+    await expect(activePage(pageA).getByRole('heading', {level: 2, name: '預留與訂單', exact: true})).toBeVisible();
+    await expect(pageA).toHaveURL(
+      new RegExp(`#${sup.store.hash}/supply/reservations\\?state=reserved&from=${expectedFrom}&to=${expectedTo}$`),
+    );
+
+    // Back to 營運報表 for invalid period checks
+    await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    await expect(fromInput).toHaveValue(expectedFrom);
+    const reportUrlBeforeInvalid = pageA.url();
+    const reportRequestsDuringInvalid: string[] = [];
+    const onReportReq = (req: Request) => {
+      if (req.url().includes(`${sup.store.root}/supplier-console/report`)) {
+        reportRequestsDuringInvalid.push(req.url());
+      }
+    };
+    pageA.on('request', onReportReq);
+    try {
+      // 1) from after to
+      await fromInput.fill(expectedTo);
+      await toInput.fill(expectedFrom);
+      await expect(activePage(pageA).getByRole('alert')).toHaveText('期間起不能晚於期間迄，請檢查日期。');
+      await expect(activePage(pageA).getByRole('button', {name: '套用期間', exact: true})).toBeDisabled();
+      await expect(activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true})).toBeDisabled();
+      expect(pageA.url()).toBe(reportUrlBeforeInvalid);
+      expect(reportRequestsDuringInvalid).toHaveLength(0);
+
+      // 2) more than 366 days
+      await fromInput.fill('2024-01-01');
+      await toInput.fill('2025-06-01');
+      await expect(activePage(pageA).getByRole('alert')).toHaveText('期間最長 366 天，請縮短期間。');
+      await expect(activePage(pageA).getByRole('button', {name: '套用期間', exact: true})).toBeDisabled();
+      await expect(activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true})).toBeDisabled();
+      expect(pageA.url()).toBe(reportUrlBeforeInvalid);
+      expect(reportRequestsDuringInvalid).toHaveLength(0);
+    } finally {
+      pageA.off('request', onReportReq);
+    }
+
+    // Restore valid period via 回到最近 30 天
+    await activePage(pageA).getByRole('button', {name: '回到最近 30 天', exact: true}).click();
+    await expect(fromInput).toHaveValue(expectedFrom);
+    await expect(toInput).toHaveValue(expectedTo);
+    await expect(activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true})).toBeEnabled();
+
+    // Download CSV as owner
+    const ownerDownloadPromise = pageA.waitForEvent('download');
+    await activePage(pageA).getByRole('button', {name: '下載 CSV', exact: true}).click();
+    const ownerDownload = await ownerDownloadPromise;
+    expect(ownerDownload.suggestedFilename()).toBe(`supplier-report-${expectedFrom}_${expectedTo}.csv`);
+    const ownerCsvPath = await ownerDownload.path();
+    expect(ownerCsvPath).toBeTruthy();
+    const ownerCsvBytes = await readFile(ownerCsvPath!);
+    expect(ownerCsvBytes[0]).toBe(0xef);
+    expect(ownerCsvBytes[1]).toBe(0xbb);
+    expect(ownerCsvBytes[2]).toBe(0xbf);
+    const ownerCsvText = ownerCsvBytes.toString('utf8');
+    expect(ownerCsvText.startsWith('\uFEFF')).toBe(true);
+    const ownerHeaderRows = ownerCsvText.slice(1).split('\r\n').slice(0, 12).join('\n');
+    expect(ownerHeaderRows).toContain('供應商營運報表');
+    expect(ownerHeaderRows).toContain('本檔不是完整資料匯出');
+    expect(ownerCsvText).toContain(sup.product.sku);
+    expect(ownerCsvText).toContain(product2.sku);
+    expect(ownerCsvText).toContain('"\'=SUM(1,1)"');
+
+    // Non-owner store:write member sees 只有業務空間擁有者可以查看預留。 and no reservation counts or links; their CSV says 本檔不含預留資料
+    const ctxWriter = await browser.newContext({baseURL});
+    contexts.push(ctxWriter);
+    const writerPage = await ctxWriter.newPage();
+    await inviteMember(pageA, writerPage, e2eAuthPool, sup.store, ['store:read', 'store:write'], 'operator');
+
+    await openSupplyPage(writerPage, `${sup.store.hash}/supply/reports`, '營運報表');
+    await expect(activePage(writerPage)).toContainText('只有業務空間擁有者可以查看預留。');
+    await expect(activePage(writerPage).getByRole('link', {name: /查看預留/})).toHaveCount(0);
+    await expect(activePage(writerPage).getByRole('columnheader', {name: '預留筆數', exact: true})).toHaveCount(0);
+
+    const writerDownloadPromise = writerPage.waitForEvent('download');
+    await activePage(writerPage).getByRole('button', {name: '下載 CSV', exact: true}).click();
+    const writerDownload = await writerDownloadPromise;
+    const writerCsvPath = await writerDownload.path();
+    expect(writerCsvPath).toBeTruthy();
+    const writerCsvText = (await readFile(writerCsvPath!)).toString('utf8');
+    expect(writerCsvText).toContain('本檔不含預留資料');
+    expect(writerCsvText).not.toContain('預留行項');
+
+    // Viewport checks at 390×844 and 1440×900
+    await pageA.setViewportSize({width: 390, height: 844});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const controlFonts390 = await pageA
+      .locator('.supplier-console input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), .supplier-console select, .supplier-console textarea')
+      .evaluateAll(elements =>
+        elements
+          .filter(el => (el as HTMLElement).offsetParent !== null)
+          .map(el => parseFloat(getComputedStyle(el).fontSize)),
+      );
+    expect(controlFonts390.length).toBeGreaterThan(0);
+    for (const size of controlFonts390) {
+      expect(size).toBeGreaterThanOrEqual(16);
+    }
+    await pageA.screenshot({path: info.outputPath('reports-390.png'), fullPage: true});
+
+    await pageA.setViewportSize({width: 1440, height: 900});
+    expect(await pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await pageA.screenshot({path: info.outputPath('reports-1440.png'), fullPage: true});
   } finally {
     await withdrawSupplierOffers(e2eAuthPool, supplierIds);
     await Promise.all(contexts.map(c => c.close()));

@@ -180,6 +180,7 @@ test('supply-only product photo through the console stays private (AT-11, S1 ste
 
 const materialConsole = (page: Page) => page.locator('.supplier-console');
 const materialActive = (page: Page) => page.locator('.sc-content > [data-sc-active="true"]');
+const sellerPartnerMaterials = (page: Page) => page.locator('.partner-materials');
 
 async function setupMaterialSupplier(page: Page, db: Parameters<typeof person>[0], suffix: string) {
   const member = await person(db);
@@ -194,24 +195,104 @@ async function createFileMaterialInConsole(
   store: {hash: string},
   kind: 'image' | 'video',
   title: string,
+  productId = '',
 ) {
   await page.evaluate(hash => {
     location.hash = hash;
   }, `${store.hash}/supply/materials/new`);
-  await expect(materialConsole(page)).toBeVisible();
-  await expect(materialActive(page).getByRole('heading', {level: 2, name: '新增素材', exact: true})).toBeVisible();
+  await expect(materialConsole(page)).toBeVisible({timeout: 15_000});
+  await expect(materialActive(page).getByRole('heading', {level: 2, name: '新增素材', exact: true})).toBeVisible({
+    timeout: 15_000,
+  });
   const form = materialActive(page).getByRole('form', {name: '新增素材', exact: true});
   await form.getByLabel('種類').selectOption(kind);
-  await form.getByLabel('素材對象').selectOption('');
+  await form.getByLabel('素材對象').selectOption(productId);
   await form.getByLabel('標題').fill(title);
   await form.getByLabel('說明').fill(`合成${kind === 'image' ? '圖片' : '影片'}素材說明`);
   await form.getByRole('button', {name: '建立素材', exact: true}).click();
   await expect(
     materialActive(page).getByRole('heading', {level: 2, name: `素材詳情：${title}`, exact: true}),
-  ).toBeVisible();
+  ).toBeVisible({timeout: 15_000});
   const match = new URL(page.url()).hash.match(/\/supply\/materials\/([0-9a-f-]{36})$/);
   expect(match).not.toBeNull();
   return match![1];
+}
+
+async function setupSupplierWithOfferForPartnerMedia(page: Page, db: Parameters<typeof person>[0], suffix: string) {
+  const member = await person(db);
+  await login(page, member.email);
+  const store = await launchStore(page, `合作素材供應空間 ${suffix}`);
+  const supplierName = `合作素材供應商 ${suffix}`;
+  await post(page, `${store.root}/supply-profile`, {name: supplierName, currency: 'TWD'}, 201);
+  const product = await post(
+    page,
+    `${store.root}/supply-products`,
+    {
+      title: `合作茶具 ${suffix}`,
+      description: '附授權圖影素材的供貨商品',
+      cost_minor: 450,
+      stock: 15,
+    },
+    201,
+  );
+  const session = await (await page.request.get('/api/v1/session')).json();
+  const termsResp = await page.request.patch(`/api/v1${store.root}/products/${product.product_id}/supply-terms`, {
+    data: {
+      cost_minor: 450,
+      shipping_minor: 60,
+      shipping_terms: '三日內宅配出貨',
+      return_terms: '七日內瑕疵包退',
+    },
+    headers: {
+      Origin: new URL(page.url()).origin,
+      'X-CSRF-Token': session.csrf_token,
+      'Idempotency-Key': randomUUID(),
+      'If-Match': `"${product.version}"`,
+    },
+  });
+  expect(termsResp.status()).toBe(200);
+  const terms = await termsResp.json();
+  const offer = await post(page, `${store.root}/products/${product.product_id}/supply-offer`, {}, 200, terms.version);
+  return {member, store, supplierName, product, offer};
+}
+
+async function openPartnerStore(
+  browser: {newContext: (opts: {baseURL?: string}) => Promise<{newPage: () => Promise<Page>; close: () => Promise<void>}>},
+  baseURL: string | undefined,
+  db: Parameters<typeof person>[0],
+  label: string,
+  slug: string,
+) {
+  const ctx = await browser.newContext({baseURL});
+  const member = await person(db);
+  const page = await ctx.newPage();
+  await login(page, member.email);
+  const store = await launchStore(page, `${label}空間`);
+  await post(page, `${store.root}/setup`, {name: label, slug, currency: 'TWD'}, 201);
+  return {ctx, member, page, store, name: label};
+}
+
+async function grantMaterialToAllSellableInConsole(page: Page) {
+  const grantSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '店家授權', exact: true})});
+  await grantSection.getByRole('button', {name: '授權給目前所有可售的合作店家（1 間）', exact: true}).click();
+  await grantSection.getByRole('button', {name: '授權選取的店家', exact: true}).click();
+  await expect(materialConsole(page).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。', {
+    timeout: 15_000,
+  });
+}
+
+async function withdrawPartnerOffers(db: Parameters<typeof person>[0], supplierUserIds: string[]) {
+  if (!supplierUserIds.length) return;
+  await db.query(
+    `UPDATE commerce_hosted_supply_offers o
+     SET state='withdrawn',version=o.version+1
+     FROM commerce_storefront_profiles p JOIN commerce_shops s ON s.shop_id=p.supply_shop_id
+     WHERE o.instance_id=p.instance_id AND o.tenant_id=p.tenant_id
+       AND s.owner_id=ANY($1::uuid[]) AND o.state='offered'`,
+    [supplierUserIds],
+  );
 }
 
 test('SC-E2E-66 image material upload, versions and the supplier\'s own read (AT-23)', async ({
@@ -220,7 +301,6 @@ test('SC-E2E-66 image material upload, versions and the supplier\'s own read (AT
   baseURL,
   e2eAuthPool,
 }) => {
-  test.setTimeout(240_000);
   const suffix = randomUUID().slice(0, 6);
   const {store} = await setupMaterialSupplier(page, e2eAuthPool, suffix);
   const title = `品牌主視覺 ${suffix}`;
@@ -345,7 +425,6 @@ test('SC-E2E-67 video material upload plays from the supplier read (AT-23, D-14)
   page,
   e2eAuthPool,
 }) => {
-  test.setTimeout(240_000);
   const {readFile} = await import('node:fs/promises');
   const suffix = randomUUID().slice(0, 6);
   const {store} = await setupMaterialSupplier(page, e2eAuthPool, suffix);
@@ -435,7 +514,6 @@ test('SC-E2E-68 upload with an unknown result is retried as the same operation (
   page,
   e2eAuthPool,
 }) => {
-  test.setTimeout(240_000);
   const suffix = randomUUID().slice(0, 6);
   const {member, store} = await setupMaterialSupplier(page, e2eAuthPool, suffix);
   const title = `未知上傳素材 ${suffix}`;
@@ -567,4 +645,293 @@ test('SC-E2E-68 upload with an unknown result is retried as the same operation (
       )
     ).rows[0].n,
   ).toBe(1);
+});
+
+test('SC-E2E-69 the granted seller sees and downloads the current image and video (AT-25)', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  const {readFile} = await import('node:fs/promises');
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{close: () => Promise<void>}> = [];
+  const supplierIds: string[] = [];
+
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerB = await openPartnerStore(browser, baseURL, e2eAuthPool, `授權賣家 B ${suffix}`, `partner-media-b-${suffix}`);
+    extraContexts.push(sellerB.ctx);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200},
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const sellerC = await openPartnerStore(browser, baseURL, e2eAuthPool, `無合作賣家 C ${suffix}`, `partner-media-c-${suffix}`);
+    extraContexts.push(sellerC.ctx);
+
+    // 1. Image material (brand) with one uploaded version + grant B
+    const imgTitle = `品牌形象圖 ${suffix}`;
+    const imgMaterialId = await createFileMaterialInConsole(page, sup.store, 'image', imgTitle, '');
+    const imgUploadSection = materialActive(page)
+      .locator('.sc-section')
+      .filter({has: page.getByRole('heading', {level: 3, name: '新版本', exact: true})});
+    const imgFile = await source(`partner-brand-${suffix}.png`, '#2e6b5e');
+    await imgUploadSection.getByLabel('選擇圖片').setInputFiles(imgFile);
+    await imgUploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+    await expect(imgUploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    await grantMaterialToAllSellableInConsole(page);
+
+    // 2. Video material (for the product) with event-video-160x90.mp4 + grant B
+    const vidTitle = `商品展示短片 ${suffix}`;
+    const vidMaterialId = await createFileMaterialInConsole(page, sup.store, 'video', vidTitle, sup.product.product_id);
+    const vidUploadSection = materialActive(page)
+      .locator('.sc-section')
+      .filter({has: page.getByRole('heading', {level: 3, name: '新版本', exact: true})});
+    const videoBytes = await readFile('tests/media-fixtures/event-video-160x90.mp4');
+    await vidUploadSection.getByLabel('選擇影片').setInputFiles({
+      name: 'event-video-160x90.mp4',
+      mimeType: 'video/mp4',
+      buffer: videoBytes,
+    });
+    await vidUploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+    await expect(vidUploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    await grantMaterialToAllSellableInConsole(page);
+
+    const versionRows = (
+      await e2eAuthPool.query<{material_id: string; current_version_id: string}>(
+        'SELECT material_id, current_version_id FROM supply_materials WHERE material_id = ANY($1::uuid[])',
+        [[imgMaterialId, vidMaterialId]],
+      )
+    ).rows;
+    const imgVersionId = versionRows.find(r => r.material_id === imgMaterialId)!.current_version_id;
+    const vidVersionId = versionRows.find(r => r.material_id === vidMaterialId)!.current_version_id;
+    const expectedImgPath = `/api/v1${sellerB.store.root}/partner-materials/${imgMaterialId}/versions/${imgVersionId}/content`;
+    const expectedVidPath = `/api/v1${sellerB.store.root}/partner-materials/${vidMaterialId}/versions/${vidVersionId}/content`;
+
+    // Track partner media responses in seller B's browser page
+    const bMediaResponses: Array<{url: string; status: number; headers: Record<string, string>}> = [];
+    sellerB.page.on('response', res => {
+      if (res.request().method() === 'GET' && res.url().includes('/partner-materials/')) {
+        bMediaResponses.push({url: new URL(res.url()).pathname, status: res.status(), headers: res.headers()});
+      }
+    });
+
+    await open(sellerB.page, sellerB.store.hash);
+    await storeArea(sellerB.page, '供貨合作');
+    const panelB = sellerPartnerMaterials(sellerB.page);
+    await expect(panelB.getByRole('heading', {level: 3, name: '合作素材', exact: true})).toBeVisible();
+
+    const imgCard = panelB.locator('article.card').filter({hasText: imgTitle});
+    const vidCard = panelB.locator('article.card').filter({hasText: vidTitle});
+    await expect(imgCard).toBeVisible();
+    await expect(vidCard).toBeVisible();
+
+    const imgEl = imgCard.locator('img');
+    await imgEl.scrollIntoViewIfNeeded();
+    await expect(imgEl).toHaveAttribute('src', expectedImgPath);
+    await expect.poll(() => imgEl.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+    const imgDirectResp = await sellerB.page.request.get(expectedImgPath);
+    expect(imgDirectResp.status()).toBe(200);
+    expect(imgDirectResp.headers()['cache-control']).toContain('no-store');
+    expect(imgDirectResp.headers()['content-type']).toBe('image/webp');
+    const imgBrowserResp = bMediaResponses.find(r => r.url === expectedImgPath);
+    expect(imgBrowserResp).toBeTruthy();
+    expect(imgBrowserResp!.status).toBe(200);
+    expect(imgBrowserResp!.headers['cache-control']).toContain('no-store');
+    expect(imgBrowserResp!.headers['content-type']).toBe('image/webp');
+
+    const vidEl = vidCard.locator('video');
+    await vidEl.scrollIntoViewIfNeeded();
+    await expect(vidEl).toHaveAttribute('src', expectedVidPath);
+    await expect.poll(() => vidEl.evaluate(el => (el as HTMLVideoElement).readyState)).toBeGreaterThanOrEqual(1);
+    const vidPartialResps = bMediaResponses.filter(r => r.url === expectedVidPath && r.status === 206);
+    expect(vidPartialResps.length).toBeGreaterThanOrEqual(1);
+    expect(vidPartialResps[0].headers['cache-control']).toContain('no-store');
+    expect(vidPartialResps[0].headers['content-type']).toBe('video/mp4');
+    expect(vidPartialResps[0].headers['content-range']).toMatch(new RegExp(`^bytes \\d+-\\d+/${videoBytes.length}$`));
+
+    const imgDownloadLink = imgCard.getByRole('link', {name: '下載', exact: true});
+    await expect(imgDownloadLink).toHaveAttribute('download', '');
+    await expect(imgDownloadLink).toHaveAttribute('href', expectedImgPath);
+
+    const vidDownloadLink = vidCard.getByRole('link', {name: '下載', exact: true});
+    await expect(vidDownloadLink).toHaveAttribute('download', '');
+    await expect(vidDownloadLink).toHaveAttribute('href', expectedVidPath);
+
+    // Seller C (signed in, no cooperation) gets 404 on B's paths and on C's own tenant/instance paths
+    for (const targetPath of [
+      expectedImgPath,
+      expectedVidPath,
+      `/api/v1${sellerC.store.root}/partner-materials/${imgMaterialId}/versions/${imgVersionId}/content`,
+      `/api/v1${sellerC.store.root}/partner-materials/${vidMaterialId}/versions/${vidVersionId}/content`,
+    ]) {
+      const cResp = await sellerC.page.request.get(targetPath);
+      expect(cResp.status()).toBe(404);
+      expect(cResp.headers()['content-type']).not.toContain('image/');
+      expect(cResp.headers()['content-type']).not.toContain('video/');
+    }
+
+    // Anonymous context gets 401 and no media bytes
+    const anonCtx = await browser.newContext({baseURL});
+    extraContexts.push(anonCtx);
+    for (const targetPath of [expectedImgPath, expectedVidPath]) {
+      const anonResp = await anonCtx.request.get(targetPath);
+      expect(anonResp.status()).toBe(401);
+      expect(anonResp.headers()['content-type']).not.toContain('image/');
+      expect(anonResp.headers()['content-type']).not.toContain('video/');
+      expect(await anonResp.text()).toContain('login_required');
+    }
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-70 a new version, a revoke and a withdrawal close the old paths (AT-26)', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{close: () => Promise<void>}> = [];
+  const supplierIds: string[] = [];
+
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerB = await openPartnerStore(browser, baseURL, e2eAuthPool, `版本切換賣家 B ${suffix}`, `partner-ver-b-${suffix}`);
+    extraContexts.push(sellerB.ctx);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200},
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    // Create image material (brand), upload version 1, and grant to B
+    const title = `季節海報 ${suffix}`;
+    const materialId = await createFileMaterialInConsole(page, sup.store, 'image', title, '');
+    const uploadSection = materialActive(page)
+      .locator('.sc-section')
+      .filter({has: page.getByRole('heading', {level: 3, name: '新版本', exact: true})});
+    const historySection = materialActive(page)
+      .locator('.sc-section')
+      .filter({has: page.getByRole('heading', {level: 3, name: '版本紀錄', exact: true})});
+    const grantSection = materialActive(page)
+      .locator('.sc-section')
+      .filter({has: page.getByRole('heading', {level: 3, name: '店家授權', exact: true})});
+
+    const fileV1 = await source(`poster-v1-${suffix}.png`, '#365b77');
+    await uploadSection.getByLabel('選擇圖片').setInputFiles(fileV1);
+    await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+    await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    await grantMaterialToAllSellableInConsole(page);
+
+    // B opens 供貨合作 → 合作素材 and loads version 1
+    await open(sellerB.page, sellerB.store.hash);
+    await storeArea(sellerB.page, '供貨合作');
+    const panelB = sellerPartnerMaterials(sellerB.page);
+    const cardB = panelB.locator('article.card').filter({hasText: title});
+    await expect(cardB).toBeVisible();
+    const imgB = cardB.locator('img');
+    await imgB.scrollIntoViewIfNeeded();
+    await expect.poll(() => imgB.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    const pathV1 = (await imgB.getAttribute('src'))!;
+    expect(pathV1).toMatch(
+      new RegExp(`^/api/v1${sellerB.store.root}/partner-materials/${materialId}/versions/[0-9a-f-]{36}/content$`),
+    );
+
+    // Supplier uploads version 2 in the console
+    const fileV2 = await source(`poster-v2-${suffix}.png`, '#8a4f2d');
+    await uploadSection.getByLabel('選擇圖片').setInputFiles(fileV2);
+    await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+    await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+
+    // B presses 重新整理: <img> uses version-2 path and loads; version-1 path returns 404 for B
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(imgB).not.toHaveAttribute('src', pathV1);
+    const pathV2 = (await imgB.getAttribute('src'))!;
+    expect(pathV2).toMatch(
+      new RegExp(`^/api/v1${sellerB.store.root}/partner-materials/${materialId}/versions/[0-9a-f-]{36}/content$`),
+    );
+    await imgB.scrollIntoViewIfNeeded();
+    await expect.poll(() => imgB.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    expect((await sellerB.page.request.get(pathV1)).status()).toBe(404);
+
+    // Supplier 撤銷 B (dialog) → B presses 重新整理: material gone from panel; version-2 path returns 404
+    const grantRowB = grantSection.locator('ul.sc-list li.sc-row').filter({hasText: sellerB.name});
+    await grantRowB.getByRole('button', {name: '撤銷', exact: true}).click();
+    const revokeDialog = page.getByRole('dialog', {name: '撤銷店家授權', exact: true});
+    await expect(revokeDialog).toBeVisible();
+    await revokeDialog.getByRole('button', {name: '確認撤銷', exact: true}).click();
+    await expect(materialConsole(page).locator('.sc-announcement')).toHaveText('已保存：撤銷授權。');
+
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(panelB).toContainText('目前沒有供應商授權給這間店的素材。');
+    await expect(panelB).not.toContainText(title);
+    expect((await sellerB.page.request.get(pathV2)).status()).toBe(404);
+
+    // Grant B again, then 撤回素材 (dialog): after 重新整理 material is gone and path returns 404 again
+    await grantMaterialToAllSellableInConsole(page);
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(panelB.locator('article.card').filter({hasText: title})).toBeVisible();
+
+    const withdrawSection = materialActive(page)
+      .locator('.sc-section')
+      .filter({has: page.getByRole('heading', {level: 3, name: '撤回素材', exact: true})});
+    await withdrawSection.getByRole('button', {name: '撤回素材', exact: true}).click();
+    const withdrawDialog = page.getByRole('dialog', {name: '永久撤回這個素材', exact: true});
+    await expect(withdrawDialog).toBeVisible();
+    await withdrawDialog.getByRole('button', {name: '確認撤回素材', exact: true}).click();
+    await expect(materialConsole(page).locator('.sc-announcement')).toHaveText('已保存：撤回素材。');
+
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(panelB).toContainText('目前沒有供應商授權給這間店的素材。');
+    await expect(panelB).not.toContainText(title);
+    expect((await sellerB.page.request.get(pathV2)).status()).toBe(404);
+    expect((await sellerB.page.request.get(pathV1)).status()).toBe(404);
+
+    // Supplier can still open version 1 and version 2 from 版本紀錄 after withdrawal
+    await expect(materialActive(page).locator('.detail-list')).toContainText('已撤回');
+    const v1Row = historySection.locator('li.sc-row').filter({hasText: '第 1 版'});
+    const v2Row = historySection.locator('li.sc-row').filter({hasText: '第 2 版'});
+    const supplierHrefV1 = await v1Row.getByRole('link', {name: /開啟檔案/}).getAttribute('href');
+    const supplierHrefV2 = await v2Row.getByRole('link', {name: /開啟檔案/}).getAttribute('href');
+    expect(supplierHrefV1).toBeTruthy();
+    expect(supplierHrefV2).toBeTruthy();
+    expect(supplierHrefV1).not.toBe(supplierHrefV2);
+
+    for (const href of [supplierHrefV1!, supplierHrefV2!]) {
+      const supResp = await page.request.get(href);
+      expect(supResp.status()).toBe(200);
+      expect(supResp.headers()['cache-control']).toBe('private, no-store');
+      expect(supResp.headers()['content-type']).toBe('image/webp');
+      expect((await supResp.body()).length).toBeGreaterThan(0);
+    }
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(c => c.close()));
+  }
 });
