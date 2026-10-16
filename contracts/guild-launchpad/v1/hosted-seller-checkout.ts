@@ -48,7 +48,7 @@ export const RetryAllocationInputSchema=SellerCheckoutEmptyInputSchema;
 export const ManualRefundInputSchema=z.object({application_ref:OpaqueId,amount_minor:integer.refine(v=>!Object.is(v,-0)),refunded_on:SellerDateSchema,provider_reference:SellerProviderReferenceSchema.optional()}).strict();
 export const SellerRefundListSchema=z.object({items:z.array(SellerRefundSchema).max(100)}).strict();
 // Documented codes are an aid to consumers, never a closed runtime error gate.
-export const SellerCheckoutErrorCodeSchema=z.enum(['not_found','capability_denied','tenant_not_found','tenant_capability_denied','principal_disabled','session_expired','resource_scope_unavailable',
+export const SellerCheckoutErrorCodeSchema=z.enum(['login_required','csrf_invalid','scope_disabled','membership_inactive','not_found','capability_denied','tenant_not_found','tenant_capability_denied','principal_disabled','session_expired','resource_scope_unavailable',
   'checkout_order_not_found','exception_case_not_found','commerce_quarantined','commerce_rate_limited','storefront_not_set_up','storefront_unavailable','validation_failed','invalid_json','invalid_cursor','tenant_cursor_unavailable',
   'version_required','version_conflict','invalid_version','idempotency_required','idempotency_conflict','invalid_idempotency_key','invalid_expected_version','receipt_reference_invalid',
   'payment_already_applied','checkout_order_closed','payment_result_pending','resolution_code_invalid','exception_action_unavailable','payment_not_confirmed','stock_unavailable','allocation_retry_unavailable','reservation_inconsistent',
