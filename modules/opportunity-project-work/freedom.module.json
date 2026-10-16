@@ -46,6 +46,7 @@
     "tests/runtime/private-result-races.test.ts",
     "apps/portal-web/src/modules/MemberTasks.tsx",
     "tests/runtime/flows.test.ts",
+    "tests/e2e/work-pagination.spec.ts",
     "apps/portal-web/src/modules/WorkbenchPanel.tsx",
     "apps/portal-web/src/modules/ShowcasePanel.tsx",
     "apps/portal-web/src/modules/EngagementPanel.tsx",
@@ -102,6 +103,7 @@
       "entry": "apps/platform-api/src/platform-app.ts",
       "operations": [
         "work.list",
+        "work.list.page",
         "work.create",
         "work.claim",
         "work.claim.update",
@@ -130,7 +132,7 @@
       "kind": "page",
       "entry": "apps/portal-web/src/modules/WorkbenchPanel.tsx",
       "operations": [
-        "work.list",
+        "work.list.page",
         "work.create",
         "work.claim",
         "work.claim.update"
@@ -211,6 +213,7 @@
   "tests": [
     "runtime.work",
     "runtime.work-privacy",
-    "runtime.full"
+    "runtime.full",
+    "ui.default"
   ]
 }

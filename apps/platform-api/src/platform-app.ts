@@ -5,7 +5,7 @@ import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoute
 import {readWithMemberSession} from '../../../packages/db/member-session.js';
 import {createHostedStoreMediaRoutes,createPublicHostedStoreMediaRoutes,isStorePhotoUpload,checkStorePhotoHeaders,storePhotosInstalled,storePhotoUploadsInstalled} from './routes/hosted-store-media.js';
 import { createHostedOrderRoutes } from './routes/hosted-orders.js';
-import { privateCache as hostedOrderPrivateCache } from './routes/tenant-http.js';
+import { privateCache as hostedOrderPrivateCache, singleQuery } from './routes/tenant-http.js';
 import { createHostedStoreRoutes, createPublicHostedStoreRoutes } from './routes/hosted-store.js';
 import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
@@ -19,7 +19,7 @@ import type { Pool } from 'pg';
 import { authenticate, login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
 import { memberBoundary } from './member-boundary.js';
 import { readSessionCookie, sessionCookieName } from './session-cookie.js';
-import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
+import { createWork,claimWork,changeClaim,listWorks,listWorksPage,workListPageQuery,dashboard } from '../../../modules/opportunity-project-work/work.js';
 import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { listOwnShowcases,readOwnShowcase,createShowcaseDraft,updateOwnShowcase,publishOwnShowcase,withdrawOwnShowcase } from '../../../modules/opportunity-project-work/business.js';
@@ -672,6 +672,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/',secure:secureCookies,httpOnly:true,sameSite:'Strict'});return c.json({logged_out:true});});
   app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
+  app.get('/api/v1/work-items/page',async c=>{
+    const query=workListPageQuery.parse(singleQuery(c));
+    return c.json(await listWorksPage(pool,c.get('actor'),query));
+  });
   app.route('/api/v1',createPrivateWorkRoutes(pool));
   app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));
   // Action suffix is part of the constrained segment; validate its UUID separately.
