@@ -20324,13 +20324,13 @@
     },
     {
       "path": "packages/contribution-tools/runtime-file-weights.mjs",
-      "bytes": 17121,
-      "sha256": "b1a981fdb6b7b01ea80aa6c610a967c4628737d510baf2ee0ba46e8d4d4a03d6"
+      "bytes": 21139,
+      "sha256": "516bf0c205e366e5106ee35f380dfdc76b7d02e4baeb2271c5c1f6fe9defae77"
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 12461,
-      "sha256": "d9dae3ba46902895d977a5e13925eeffab7411faa42df0c12ed37d41a861e00e"
+      "bytes": 13978,
+      "sha256": "97796d0c1f879882538561adf22e266ffdc132075323b9016bf2cb207d917c1e"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -20339,8 +20339,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
-      "bytes": 3934,
-      "sha256": "8f974b6fd602b4f5240c2389b2f1a0097a933c451c9bafc5cf3acc6faaff986e"
+      "bytes": 4825,
+      "sha256": "cfb217b52ce0a8e60be15e090cb91c74ae6ceeb4e18648860bad8618c107b1cc"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -20374,8 +20374,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 10014,
-      "sha256": "1571f8aedc564315273d24372bf81ec49381e262cf5ec211c3d3223538097e28"
+      "bytes": 10021,
+      "sha256": "56ff3a270869305e5c90fa68e06f50a3672a9eb6e1eb88e3e20aa1318390f7cc"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -20604,13 +20604,13 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
-      "bytes": 5645,
-      "sha256": "3ad35796949fc0c230238c31d7496e07cd8d140f131cb4021b537e65a8a7d58b"
+      "bytes": 7316,
+      "sha256": "e67c0bd85637ec964b63369f668bcd68ee294b932c9ad8a8447633810499e553"
     },
     {
       "path": "packages/contribution-tools/test/runtime-weights.test.mjs",
-      "bytes": 8694,
-      "sha256": "e44adbfddb0aca745a84e69588e3cd0e9f6552d4e321635a71b072ca11ec3f46"
+      "bytes": 12874,
+      "sha256": "488e60c12cdde8d706143f2de1f3ad6f740c2b029bc0824598b289806dd89839"
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
@@ -20661,6 +20661,11 @@
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json",
       "bytes": 10636,
       "sha256": "a57f70305d1ff8ab244e5d045f774052d8119349d2df22eb7bc3b857459d7c45"
+    },
+    {
+      "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261016.json",
+      "bytes": 17168,
+      "sha256": "b4b2c38184069277132765c21d482ea90fa5bda1008e29ee4345af25836a5e99"
     },
     {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37567098443.json",
@@ -21554,8 +21559,8 @@
     },
     {
       "path": "scripts/ci/derive-runtime-weights.mjs",
-      "bytes": 3187,
-      "sha256": "22d11ea12748a6e70a15244faa85c4a5891139f4c8ee0a5a081fe44cae7c8dd4"
+      "bytes": 3459,
+      "sha256": "86ae909a64ca41a0869d784a17f07b2d2141bc30d19a3be900b445b215c54a78"
     },
     {
       "path": "scripts/ci/guild-presentation-profile.test.mjs",
@@ -23029,8 +23034,8 @@
     },
     {
       "path": "tests/runtime/commerce-provider-accounts.test.ts",
-      "bytes": 22960,
-      "sha256": "816699ac0ae1814006c731b60cabd7f47999c3ccd0a1414b2cc7dbfb7b83171d"
+      "bytes": 23321,
+      "sha256": "6ac9803903eadcc6f354b69eabeb7a721b31eb31a4d1311b117cf2073c2e0235"
     },
     {
       "path": "tests/runtime/commerce-rate-limits.test.ts",
