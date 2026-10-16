@@ -157,6 +157,18 @@ test('activation account budget is ten per hour, including receipt replays',asyn
   const limited=await d.call('POST',d.path,first.body,first.expected,first.key);assert.equal(limited.status,429);assert.equal(limited.data.code,'commerce_rate_limited');assert(Number(limited.response.headers.get('Retry-After'))>0);
   assert.equal((await f.x.h.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,1);
 });
+test('denied callers do not spend the activation account budget',async()=>{
+  const d=await draft(),member=(await f.x.h.person('合成設定成員')).session,principal=await f.x.h.candidate(d.s.owner,member.user.user_id),stranger=(await f.x.h.person('合成非成員')).session;
+  const invite=await f.x.h.invite(d.s.owner,d.s.tenantId,principal,'operator');ok(invite,201);await f.x.h.accept(member,d.s.tenantId,invite);
+  await f.x.h.pool.query(`INSERT INTO tenant_module_permissions(tenant_id,principal_id,instance_id,capabilities,status,granted_by_principal_id)
+    SELECT $1,$2,$3,ARRAY['store:read','store:manage','store:finance:read'],'active',principal_id FROM principals WHERE user_ref=$4`,[d.s.tenantId,principal,d.s.instanceId,d.s.owner.user.user_id]);
+  for(let i=0;i<10;i++){
+    const headers={'Idempotency-Key':randomUUID(),'If-Match':`"${await d.version()}"`},body={fresh_auth_verification_id:randomUUID()};
+    const denied=await f.x.h.call('POST',d.path,member,body,headers,f.app);assert.equal(denied.status,403,JSON.stringify(denied.data));assert.equal(denied.data.code,'capability_denied');
+    const hidden=await f.x.h.call('POST',d.path,stranger,body,headers,f.app);assert.equal(hidden.status,404,JSON.stringify(hidden.data));
+  }
+  ok((await d.start()).result,201);
+});
 for(const mismatch of ['amount','trade'] as const)test(`activation ${mismatch} mismatch records an exception without activation or an order application`,async()=>{
   const d=await draft(),value=ok((await d.start()).result,201);await handoff(value.handoff_url);if(mismatch==='trade')await notify(d,value.attempt_ref);
   const result=await query(d,value.attempt_ref,mismatch==='amount'?{TradeAmt:'11'}:{TradeNo:'TOTHER'});assert.equal(result.status,mismatch==='amount'?'amount_mismatch':'trade_no_mismatch');

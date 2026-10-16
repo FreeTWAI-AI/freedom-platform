@@ -6,7 +6,7 @@ import type {Pool,PoolClient} from 'pg';
 import type {z} from 'zod';
 import * as wire from '../../../contracts/guild-launchpad/v1/hosted-commerce-setup.js';
 import {checkVersion} from '../../../packages/db/index.js';
-import type {TenantScopeContext} from '../../../packages/resource-scopes/index.js';
+import {withTenantRead,type TenantScopeContext} from '../../../packages/resource-scopes/index.js';
 import {scopedTenantCommand} from '../../../packages/scoped-commands/index.js';
 import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import type {Actor} from '../../identity-membership/service.js';
@@ -187,8 +187,20 @@ export async function resealProviderCredentials(q:PoolClient,ring:CommerceCreden
 
 /** Adjustable controlled self-payment amount: NT$10, never refunded here. */
 export const SERVICE_ACTIVATION_AMOUNT_MINOR=1000;
+/** Only an owner or admin of the account's store may spend its activation
+ * budget (EC-SPEC-09 §4): the same checks, in the same order, as `command`'s
+ * authorize up to the account lookup. Fresh verification stays in the command. */
+async function authorizeActivationBudget(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string){
+  try{await withTenantRead(pool,{actor,tenantId,capabilitiesForRole:storeCapabilities},async(q,ctx)=>{
+    await instance(q,tenantId,instanceId,false,true);
+    await requireStoreInstance(q,ctx,instanceId,'store:read');
+    requireCondition(ctx.role==='owner'||ctx.role==='admin',403,'capability_denied','目前沒有這個操作的權限。');
+    await account(q,accountId,tenantId,instanceId);
+  });}catch(e){if(e instanceof Problem&&e.code==='tenant_not_found')throw new Problem(404,'not_found',STORE_MISSING);throw e;}
+}
 export async function createPaymentServiceActivation(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string,raw:unknown,key:string,expected:string,options:PaymentAttemptOptions){
   keyringOf(options);const input=parseInput(wire.ProviderActivationPaymentInputSchema,raw);
+  await authorizeActivationBudget(pool,actor,tenantId,instanceId,accountId);
   await chargeCommerceBudgets(pool,accountId,{network:'activationAccount'});
   return command(pool,actor,tenantId,instanceId,accountId,'commerce.provider_service.activation_payment.payment',input,key,expected,async q=>{
     const a=await account(q,accountId,tenantId,instanceId);
