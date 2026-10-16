@@ -17199,8 +17199,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/freedom.module.json",
-      "bytes": 5269,
-      "sha256": "a51a668aa8404ab2dc6b05665217935a9f03dce3814388f7a50af819931bc83d"
+      "bytes": 5483,
+      "sha256": "71fe36ab372f51bbc6f8501e694dc5eaebbcad274a247fb0c31609da1f68d632"
     },
     {
       "path": "modules/agent-commerce/supplier-console/material-media.ts",
