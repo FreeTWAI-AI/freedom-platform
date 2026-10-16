@@ -52,6 +52,18 @@ describe('shipping profile versions',()=>{
     h.f.install({commerceProviderEnvironment:'live'});assert.equal((await h.request(s,'PUT','/shipping-profile',input,'3')).status,409);assert.equal(h.expect(await h.request(s,'GET','/shipping-profile')).logistics[0].state,'not_configured');
     assert.equal(draft.logistics_services[0].state,'draft');
   });
+  test('retired sub-types cannot be configured under an active purpose, and replacement drafts need activation',async()=>{
+    const s=await h.store(),id=await location(s),input=h.document();input.services=[service(id)];
+    let account=await h.provider(s,[SERVICE_KEYS[0]],true);
+    account=h.expect(await h.request(s,'POST',`/provider-accounts/${account.account_id}/logistics-services/${SERVICE_KEYS[0]}/retire`,{fresh_auth_verification_id:await h.fresh(s)},account.version));
+    assert.equal(account.services.find((row:{purpose:string})=>row.purpose==='logistics').state,'active');
+    assert.equal(h.expect(await h.request(s,'GET','/shipping-profile')).logistics[0].state,'not_configured');
+    const denied=await h.request(s,'PUT','/shipping-profile',input);assert.equal(denied.status,409);assert.equal(denied.data.code,'logistics_service_unavailable');assert.deepEqual(denied.data.fields,[{path:'services.0.service_key',code:'not_activated'}]);
+    h.expect(await h.request(s,'POST',`/provider-accounts/${account.account_id}/logistics-services`,{service_key:SERVICE_KEYS[0],fresh_auth_verification_id:await h.fresh(s)},account.version),201);
+    assert.equal(h.expect(await h.request(s,'GET','/shipping-profile')).logistics[0].state,'draft');
+    assert.equal((await h.request(s,'PUT','/shipping-profile',input)).status,409);
+    assert.equal((await h.f.x.h.pool.query('SELECT count(*)::int n FROM commerce_shipping_profile_versions')).rows[0].n,0);
+  });
   test('capabilities, revocation, archived reads, unavailable writes and console flag gate the profile',async()=>{
     const s=await h.store();
     for(const [caps,role,read,write] of [[[],'admin',200,201],[['store:read'],'operator',403,403],[['store:fulfil'],'operator',200,403],[['store:manage'],'operator',200,200]] as const){const m=await h.member(s,caps,role);assert.equal((await h.request(s,'GET','/shipping-profile',undefined,undefined,m.session)).status,read);assert.equal((await h.request(s,'PUT','/shipping-profile',h.document(),write===200?'1':undefined,m.session)).status,write);}

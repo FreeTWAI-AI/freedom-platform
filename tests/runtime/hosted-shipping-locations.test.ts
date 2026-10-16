@@ -33,7 +33,7 @@ describe('shipping locations',()=>{
     const counts=async()=> (await h.f.x.h.pool.query(`SELECT
       (SELECT count(*)::int FROM commerce_ship_from_locations WHERE instance_id=$1) AS locations,
       (SELECT count(*)::int FROM commerce_shipping_profile_versions WHERE instance_id=$1) AS profiles`,[s.instanceId])).rows[0];
-    const before=await counts();
+    const before=await counts();assert.deepEqual(before,{locations:0,profiles:0});
     for(const path of ['label','sender_name','address'])for(const invalid of ['\u0000','\ud800']){
       const rejected=await h.request(s,'POST','/ship-from-locations',{...input,[path]:input[path as keyof typeof input]+invalid});
       await receipts();results.push({path,character:invalid==='\u0000'?'NUL':'lone surrogate',status:rejected.status,code:rejected.data.code});

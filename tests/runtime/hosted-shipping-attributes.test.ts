@@ -36,6 +36,14 @@ describe('item shipping attributes',()=>{
     await assert.rejects(h.f.x.h.pool.query(`INSERT INTO commerce_item_shipping_attributes(item_id,version,tenant_id,instance_id,weight_g,length_mm,width_mm,height_mm,temperature,cvs_allowed,ship_alone,created_by_principal_id)
       SELECT $1,1,$2,$3,1,1,1,1,'ambient',true,false,principal_id FROM principals WHERE user_ref=$4`,[foreign,a.tenantId,a.instanceId,a.owner.user.user_id]),(e:unknown)=>(e as {code?:string}).code==='23514');
   });
+  test('quote attribute lookup selects the latest version per item across participants and omits unsaved items',async()=>{
+    const a=await h.store(),b=await h.store(),unsaved=await h.store(),first=h.attributes(),latest={...first,weight_g:321},other={...first,temperature:'chilled'};
+    h.expect(await h.request(a,'PUT',`/products/${a.product.product_id}/shipping-attributes`,first),201);
+    h.expect(await h.request(a,'PUT',`/products/${a.product.product_id}/shipping-attributes`,latest,'1'));
+    h.expect(await h.request(b,'PUT',`/products/${b.product.product_id}/shipping-attributes`,other),201);
+    const map=await h.f.x.tx(async q=>{const {bindStore}=await import('../../modules/agent-commerce/checkout/authority.js');await bindStore(q,a.tenantId);return currentItemShippingAttributes(q,[a.product.product_id,b.product.product_id,unsaved.product.product_id,randomUUID()]);});
+    assert.equal(map.size,2);assert.deepEqual(map.get(a.product.product_id),latest);assert.deepEqual(map.get(b.product.product_id),other);assert.equal(map.has(unsaved.product.product_id),false);
+  });
   test('read and write capabilities are independent and console flag controls all attribute routes',async()=>{
     const s=await h.store(),path=`/products/${s.product.product_id}/shipping-attributes`;
     for(const [caps,save] of [[['store:read'],403],[['store:write'],201],[['store:manage'],403],[['store:fulfil'],403]] as const){const member=await h.member(s,caps);assert.equal((await h.request(s,'GET',path,undefined,undefined,member.session)).status,200);assert.equal((await h.request(s,'PUT',path,h.attributes(),undefined,member.session)).status,save);}
