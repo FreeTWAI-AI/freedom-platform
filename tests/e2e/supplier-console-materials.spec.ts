@@ -1285,8 +1285,14 @@ test('SC-E2E-71 the report page shows the period, links to the lists and downloa
       new RegExp(`#${sup.store.hash}/supply/reservations\\?state=reserved&from=${expectedFrom}&to=${expectedTo}$`),
     );
 
-    // Back to 營運報表 for invalid period checks
+    // Back to 營運報表 for invalid period checks. The heading is visible before
+    // this visit's report GET finishes, so wait for that response before
+    // listening. The length-0 checks below still reject any later report read.
+    const reportLoaded = pageA.waitForResponse(
+      response => response.url().includes(`${sup.store.root}/supplier-console/report?from=${expectedFrom}&to=${expectedTo}`) && response.ok(),
+    );
     await openSupplyPage(pageA, `${sup.store.hash}/supply/reports`, '營運報表');
+    await reportLoaded;
     await expect(fromInput).toHaveValue(expectedFrom);
     const reportUrlBeforeInvalid = pageA.url();
     const reportRequestsDuringInvalid: string[] = [];
