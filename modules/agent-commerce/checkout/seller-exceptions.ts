@@ -1,5 +1,6 @@
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
+import {isSellerCalendarDate,ResolveWithEvidenceInputSchema,RetryAllocationInputSchema} from '../../../contracts/guild-launchpad/v1/hosted-seller-checkout.js';
 import {checkVersion} from '../../../packages/db/index.js';
 import {requireCondition} from '../../../packages/shared/problem.js';
 import {unavailableTenantListCursor} from '../../../packages/shared/tenant-list-cursor.js';
@@ -13,17 +14,7 @@ import {canonicalJSON} from './terms.js';
 
 export const SellerExceptionQuerySchema=z.object({view:z.literal('retailer'),state:z.enum(['open','closed']).optional(),cursor:z.string().max(512).optional(),
   limit:z.string().regex(/^[0-9]+$(?![\s\S])/).transform(Number).pipe(z.number().int().min(1).max(50)).optional()}).strict();
-export function isSellerCalendarDate(value:string) {
-  return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$(?![\s\S])/.test(value)&&value.slice(0,4)!=='0000'&&Number.isFinite(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
-}
-const date=z.string().refine(isSellerCalendarDate,'Invalid calendar date.');
-const reference=z.string().regex(/^[A-Za-z0-9_-]{1,64}$(?![\s\S])/);
-export const ResolveWithEvidenceInputSchema=z.discriminatedUnion('code',[
-  z.object({code:z.literal('confirmed')}).strict(),
-  z.object({code:z.literal('refunded'),provider_date:date,provider_reference:reference}).strict(),
-  z.object({code:z.literal('checked_with_provider'),provider_date:date,provider_reference:reference}).strict(),
-]);
-export const RetryAllocationInputSchema=z.object({}).strict();
+export {isSellerCalendarDate,ResolveWithEvidenceInputSchema,RetryAllocationInputSchema} from '../../../contracts/guild-launchpad/v1/hosted-seller-checkout.js';
 export function validateSellerDate(value:string,today:string,code='validation_failed',earliest?:string) {
   requireCondition(isSellerCalendarDate(value)&&value<=today&&(earliest===undefined||value>=earliest),422,code,'日期無效。');
 }

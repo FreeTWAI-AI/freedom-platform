@@ -232,11 +232,15 @@ import {hostedPaymentHarness} from '../e2e/hosted-payment-fixture.js';
 import {createTenantListCursorCodec} from '../../packages/shared/tenant-list-cursor.js';
 import {sellerCheckoutCommand} from '../../modules/agent-commerce/checkout/seller-command.js';
 import {cancelSellerCheckoutOrder,sellerCustomer,readSellerCheckoutOrder,listSellerCheckoutOrders,readSellerOrderContact} from '../../modules/agent-commerce/checkout/seller-orders.js';
+import {bindStore} from '../../modules/agent-commerce/checkout/authority.js';
+import {openException} from '../../modules/agent-commerce/checkout/exceptions.js';
+import {COMMERCE_LIMITS} from '../../modules/agent-commerce/checkout/limits.js';
+import {hashKey} from '../../modules/agent-commerce/checkout/terms.js';
 import {cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/orders.js';
 describe('hosted checkout seller commands',()=>{
   let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
   before(async()=>{f=await hostedPaymentHarness('fp_checkout_seller');});
-  beforeEach(async()=>{await f.reset();f.install({tenantListCursors:createTenantListCursorCodec(randomBytes(32).toString('base64url'),{environment:'local',origin:f.origin})});});
+  beforeEach(async()=>{await f.reset();f.settings.consoleEnabled=true;f.install({tenantListCursors:createTenantListCursorCodec(randomBytes(32).toString('base64url'),{environment:'local',origin:f.origin})});});
   after(async()=>f?.stop());
   test('store binding preserves the scoped principal, tenant and scope through cancellation and receipt replay',async()=>{
     const p=await f.placed(),a=await authenticate(f.x.runtime,p.s.owner.cookie.split('=')[1].split(';')[0]),key=randomUUID();
@@ -295,6 +299,54 @@ describe('hosted checkout seller commands',()=>{
     f.settings.quarantine=true;await assert.rejects(cancel('2',randomUUID()),code('commerce_quarantined'));
     assert.equal((await readSellerCheckoutOrder(f.x.runtime,a,p.s.tenantId,p.s.instanceId,p.order.order_ref,options)).actions.cancel,false);
     const receipts=(await f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation='commerce.checkout_order.cancel'")).rows;assert.equal(receipts.length,2);for(const r of receipts)assert.deepEqual(r.response,{id:p.order.order_ref});
+  });
+
+  async function member(s:Awaited<ReturnType<typeof f.x.store>>,role:'admin'|'viewer'|'operator',caps:string[]=[]){
+    const m=await f.x.h.person('合成成員'+randomUUID()),principal=await f.x.h.candidate(s.owner,m.id);await f.x.h.accept(m.session,s.tenantId,await f.x.h.invite(s.owner,s.tenantId,principal,role));
+    if(caps.length)await f.x.h.pool.query(`INSERT INTO tenant_module_permissions(tenant_id,principal_id,instance_id,capabilities,status,granted_by_principal_id) SELECT $1,$2,$3,$4,'active',principal_id FROM principals WHERE user_ref=$5`,[s.tenantId,principal,s.instanceId,['store:read',...caps],s.owner.user.user_id]);return {...m,principal};
+  }
+  const request=(s:{root:string;owner:Session},method:string,path:string,session=s.owner,body?:unknown,headers:Record<string,string>={})=>f.x.h.call(method,s.root+path,session,body,headers,f.app);
+  test('seller HTTP capabilities are independent; owner/admin and explicit grants use the installed release',async()=>{
+    const p=await f.placed();
+    for(const [role,caps] of [['owner',[]],['admin',[]],['viewer',['store:orders:read']],['viewer',['store:finance:read']],['viewer',['store:customers:read']],['operator',['store:orders:manage']]] as const){
+      const session=role==='owner'?p.s.owner:(await member(p.s,role,[...caps])).session,all=role==='owner'||role==='admin',orders=all||(caps as readonly string[]).includes('store:orders:read'),customers=all||(caps as readonly string[]).includes('store:customers:read'),manage=all||(caps as readonly string[]).includes('store:orders:manage');
+      const c=await f.x.tx(async q=>{await bindStore(q,p.s.tenantId);return openException(q,{tenantId:p.s.tenantId,instanceId:p.s.instanceId,kind:'unmatched_payment',subjectKind:'payment_event',subjectId:randomUUID()});});
+      for(const path of ['/checkout-orders','/checkout-orders/'+p.order.order_ref,'/exception-cases?view=retailer','/exception-cases/'+c.case_id]){
+        const r=await request(p.s,'GET',path,session);assert.equal(r.status,orders?200:403,role+' '+caps+' '+path+' '+JSON.stringify(r.data));assert.equal(r.response.headers.get('Cache-Control'),'private, no-store');
+        if(!orders)assert.equal(r.data.code,'capability_denied');
+        if(orders&&path==='/checkout-orders/'+p.order.order_ref){assert.equal(r.data.payment_detail!==null,all);assert.equal(r.response.headers.get('ETag'),`"${r.data.version}"`);}
+        if(orders&&path==='/exception-cases/'+c.case_id&&!manage){assert.deepEqual(r.data.allowed_actions,[]);assert.equal(r.data.payment_facts,null);}
+      }
+      const contact=await request(p.s,'GET','/checkout-orders/'+p.order.order_ref+'/contact',session);assert.equal(contact.status,customers?200:403);assert.equal(contact.response.headers.get('ETag'),null);
+      const version=(await f.x.h.pool.query('SELECT version::text FROM commerce_checkout_orders WHERE order_id=$1',[p.order.order_ref])).rows[0].version;
+      const cancelled=await request(p.s,'POST','/checkout-orders/'+p.order.order_ref+'/cancel',session,{}, {'Idempotency-Key':randomUUID(),'If-Match':`"${version}"`});assert.equal(cancelled.status,manage?200:403,JSON.stringify(cancelled.data));
+      const today=(await f.x.h.pool.query("SELECT to_char(clock_timestamp() AT TIME ZONE 'Asia/Taipei','YYYY-MM-DD') today")).rows[0].today;
+      const resolved=await request(p.s,'POST','/exception-cases/'+c.case_id+'/actions/resolve_with_evidence',session,{code:'checked_with_provider',provider_date:today,provider_reference:'F1'}, {'Idempotency-Key':randomUUID(),'If-Match':'"1"'});assert.equal(resolved.status,manage?200:403,JSON.stringify(resolved.data));
+    }
+    const old=await f.x.store();assert.equal((await request(old,'GET','/checkout-orders')).status,403);
+    const granted=await member(p.s,'viewer',['store:orders:read']);assert.equal((await request(p.s,'GET','/checkout-orders',granted.session)).status,200);
+    await f.x.h.pool.query("UPDATE tenant_module_permissions SET capabilities=ARRAY['store:read'],updated_at=clock_timestamp(),version=version+1 WHERE tenant_id=$1 AND principal_id=$2",[p.s.tenantId,granted.principal]);assert.equal((await request(p.s,'GET','/checkout-orders',granted.session)).status,403);
+    await f.x.h.pool.query("UPDATE tenant_module_permissions SET status='revoked',revoked_at=clock_timestamp(),updated_at=clock_timestamp(),version=version+1 WHERE tenant_id=$1 AND principal_id=$2",[p.s.tenantId,granted.principal]);assert.equal((await request(p.s,'GET','/checkout-orders',granted.session)).status,404);
+  });
+  test('seller HTTP validates strict queries, version headers and console mounting without exposing foreign orders',async()=>{
+    const p=await f.placed(),order='/checkout-orders/'+p.order.order_ref;
+    for(const path of ['/checkout-orders?unknown=x','/checkout-orders?limit=1&limit=2',order+'?x=1',order+'/contact?x=1'])assert.equal((await request(p.s,'GET',path)).status,422);
+    const missing=await request(p.s,'POST',order+'/cancel',p.s.owner,{}, {'Idempotency-Key':randomUUID()});assert.equal(missing.status,428);assert.equal(missing.data.code,'version_required');
+    assert.equal((await request(p.s,'POST',order+'/cancel',p.s.owner,{reason:'free text'},{'Idempotency-Key':randomUUID(),'If-Match':'"1"'})).status,422);
+    const foreign=await f.x.store();await f.setup(foreign);assert.equal((await request(foreign,'GET',order)).status,404);
+    const another=await f.x.store();await f.setup(another);const viewer=await member(another,'admin');assert.equal((await request(p.s,'GET',order,viewer.session)).status,404);
+    f.settings.checkoutEnabled=false;assert.equal((await request(p.s,'GET',order)).status,200);
+    f.settings.consoleEnabled=false;f.install();
+    for(const [method,path,body] of [['GET','/checkout-orders',undefined],['GET',order,undefined],['GET',order+'/contact',undefined],['POST',order+'/cancel',{}],['GET','/exception-cases?view=retailer',undefined],['GET','/exception-cases/'+randomUUID(),undefined],['POST','/exception-cases/'+randomUUID()+'/actions/resolve_with_evidence',{}]] as const)assert.equal((await request(p.s,method,path,p.s.owner,body)).status,404);
+    f.settings.consoleEnabled=true;
+  });
+  test('contact budget counts denied reads, refuses at the principal limit and leaves other principals available',async()=>{
+    const p=await f.placed(),denied=await member(p.s,'viewer',['store:orders:read']),path='/checkout-orders/'+p.order.order_ref+'/contact',bucket='commerce:customerDataPrincipal:'+hashKey(denied.principal);
+    assert.equal((await request(p.s,'GET',path,denied.session)).status,403);
+    assert.equal((await f.x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',[bucket])).rows[0].attempts,1);
+    await f.x.h.pool.query('UPDATE auth_rate_limits SET attempts=$2 WHERE bucket=$1',[bucket,COMMERCE_LIMITS.customerDataPrincipal.limit]);
+    const limited=await request(p.s,'GET',path,denied.session);assert.equal(limited.status,429);assert.equal(limited.data.code,'commerce_rate_limited');assert.ok(Number(limited.response.headers.get('Retry-After'))>0);
+    assert.equal((await request(p.s,'GET',path)).status,200);
   });
 
 });

@@ -5,9 +5,11 @@ import {CurrencySchema,StoreSlugSchema} from './storefront.js';
 export const checkoutTextPattern=/^[^\u0000\uD800-\uDFFF]*$(?![\s\S])/u;
 export const isCheckoutText=(value:string)=>checkoutTextPattern.test(value);
 const text=z.string().regex(checkoutTextPattern,'Invalid checkout text.');
-const money=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+export const CheckoutMoneySchema=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const money=CheckoutMoneySchema;
 const sha=z.string().regex(/^[a-f0-9]{64}$(?![\s\S])/);
-const time=z.string().regex(new RegExp(z.regexes.datetime({precision:3}).source.replace(/\\d/g,'[0-9]')+'(?![\\s\\S])'));
+export const CheckoutTimeSchema=z.string().regex(new RegExp(z.regexes.datetime({precision:3}).source.replace(/\\d/g,'[0-9]')+'(?![\\s\\S])'));
+const time=CheckoutTimeSchema;
 const sku=text.min(1).max(32);
 const quantity=z.number().int().min(1).max(99);
 const object=z.record(text,z.unknown()).refine(value=>{
