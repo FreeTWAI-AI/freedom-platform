@@ -29,7 +29,7 @@ const ENABLED = [
   'tenant_ownership_transfers', 'tenant_recovery_cases',
   'tenant_work_result_targets', 'tenant_work_results', 'tenants', 'work_items', 'workspace_module_bindings', 'workspaces',
 ];
-const EXEMPT = ['commerce_shipping_profile_versions', 'commerce_item_shipping_attributes', 'commerce_access_devices', 'assets', 'asset_upload_intents', 'asset_objects', 'resource_scopes', 'users', 'sessions', 'principals'];
+const EXEMPT = ['commerce_access_devices', 'assets', 'asset_upload_intents', 'asset_objects', 'resource_scopes', 'users', 'sessions', 'principals'];
 
 async function walk(dir: string, match: (name: string) => boolean): Promise<{ path: string; source: string }[]> {
   const found: { path: string; source: string }[] = [];
