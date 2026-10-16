@@ -118,16 +118,16 @@ test('five real trade-number conflicts draw fresh numbers and then roll back pla
   for(const table of ['commerce_checkout_orders','commerce_inventory_reservations','commerce_payment_attempts','commerce_due_work'])assert.equal((await f.x.h.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,0,table);
 });
 test('admission requires a listed active payment service in this environment, and an unrevoked admission',async()=>{
-  const s=await f.x.store(),before=f.runtime.commercePorts!.admission!;assert.equal(await f.x.tx(q=>before.allowed(q,s)),false);
-  const provider=await f.setup(s);assert.equal(await f.x.tx(q=>before.allowed(q,s)),true);
-  for(const port of [createStoreAdmissionPort('sandbox',[]),createStoreAdmissionPort('sandbox',['unknown']),createStoreAdmissionPort('live',['ecpay.aio.credit.v1'])])assert.equal(await f.x.tx(q=>port.allowed(q,s)),false);
+  const s=await f.x.store(),before=f.runtime.commercePorts!.admission!;assert.equal(await f.x.tx(async q=>before.allowed(q,s)),false);
+  const provider=await f.setup(s);assert.equal(await f.x.tx(async q=>before.allowed(q,s)),true);
+  for(const port of [createStoreAdmissionPort('sandbox',[]),createStoreAdmissionPort('sandbox',['unknown']),createStoreAdmissionPort('live',['ecpay.aio.credit.v1'])])assert.equal(await f.x.tx(async q=>port.allowed(q,s)),false);
   for(const state of ['suspended','retired'])await f.x.tx(async q=>{
     assert.equal(await before.allowed(q,s),true);
     await q.query('SAVEPOINT inactive');await q.query('UPDATE commerce_provider_account_services SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE account_id=$1',[provider.accountId,state]);
     assert.equal(await before.allowed(q,s),false);await q.query('ROLLBACK TO SAVEPOINT inactive');
   });
   await f.x.h.pool.query(`UPDATE commerce_store_admissions SET revoked_at=clock_timestamp(),revoked_by=(SELECT admin_id FROM platform_admins LIMIT 1),revoke_reason='合成撤銷' WHERE admission_id=$1`,[provider.admissionId]);
-  assert.equal(await f.x.tx(q=>before.allowed(q,s)),false);
+  assert.equal(await f.x.tx(async q=>before.allowed(q,s)),false);
 });
 const unavailableCases=[
   {reason:'currency_not_supported',message:'這間店的幣別不能用信用卡付款。'},
