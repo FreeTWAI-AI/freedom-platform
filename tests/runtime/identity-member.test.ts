@@ -2,6 +2,9 @@ import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setImmediate } from 'node:timers/promises';
+import { once } from 'node:events';
+import type { AddressInfo } from 'node:net';
+import { serve } from '@hono/node-server';
 import { z } from 'zod';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
@@ -29,6 +32,46 @@ async function request(path:string,session?:Session,body?:unknown,version?:numbe
 const session=(r:any):Session=>({cookie:r.response.headers.get('set-cookie')!.split(';')[0],csrf:r.data.csrf_token,user:r.data.user});
 async function signIn(email=DEMO_USERS[0].email):Promise<Session>{const r=await request('/auth/login',undefined,{email,password:DEMO_PASSWORD});assert.equal(r.status,200,JSON.stringify(r.data));return session(r);}
 async function account(s:Session,contacts=emptyContacts(),nickname='會員暱稱'){const before=await request('/me/account',s);return request('/me/account',s,{nickname,contacts},before.data.aggregate_version);}
+
+for(const surface of ['presence','empty presence','squad list','empty squad list','squad roster'] as const){
+ test(`private ${surface} rechecks current qualification after a native member-lock wait`,async()=>{
+  const viewer=await signIn(),owner=await signIn(DEMO_USERS[1].email);
+  const made=await request('/squads',owner,{name:'資格重設邊界',kind:'coaching',purpose:'人工合成會員讀取驗證',communication_channel_name:'資格重設前可見頻道'});
+  assert.equal(made.status,201,JSON.stringify(made.data));const id=made.data.squad_id;
+  const path=surface==='presence'?`/members/presence?ids=${owner.user.user_id}`:surface==='empty presence'?'/members/presence?ids=':surface==='squad list'?'/squads?limit=20&offset=0':surface==='empty squad list'?'/squads?limit=1&offset=10000':`/squads/${id}`;
+  await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=clock_timestamp() WHERE user_id=$1',[viewer.user.user_id]);
+  const server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});if(!server.listening)await once(server,'listening');
+  const url=`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/v1${path}`;
+  const get=()=>fetch(url,{headers:{Origin:origin,Cookie:viewer.cookie}});
+  const assertVisible=async()=>{
+    const response=await get(),data=await response.json() as any;assert.equal(response.status,200,JSON.stringify(data));
+    if(surface.startsWith('empty'))assert.deepEqual(data.items,[]);
+    else if(surface==='presence')assert.ok(data.items.some((item:any)=>item.user_id===owner.user.user_id&&item.is_online===true));
+    else if(surface==='squad list')assert.ok(data.items.some((item:any)=>item.squad_id===id));
+    else{assert.equal(data.squad_id,id);assert.equal(data.communication_channel_name,'資格重設前可見頻道');assert.ok(data.members.some((item:any)=>item.user_id===owner.user.user_id&&item.state==='active'));}
+  };
+  const holder=await pool.connect();let pending:Promise<Response>|undefined;let settled=false;
+  try{
+    await assertVisible();
+    await holder.query('BEGIN');const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query('UPDATE users SET onboarding_completed_at=NULL WHERE user_id=$1',[viewer.user.user_id]);
+    pending=get().finally(()=>{settled=true;});const deadline=performance.now()+10000;
+    for(;;){
+      if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount)break;
+      assert.equal(settled,false);assert.ok(performance.now()<deadline,'native read must wait on the current viewer user lock');await setImmediate();
+    }
+    await holder.query('COMMIT');const response=await pending,data=await response.json() as any;
+    assert.equal(response.status,403,JSON.stringify(data));assert.equal(data.code,'onboarding_required');
+    for(const key of ['items','members','squad_id','kinds','last_seen_at','communication_channel_name'])assert.equal(Object.hasOwn(data,key),false);
+    // Retain the existing qualification of legacy members not required to onboard.
+    await pool.query('UPDATE users SET onboarding_required=false WHERE user_id=$1',[viewer.user.user_id]);await assertVisible();
+  }finally{
+    await holder.query('ROLLBACK');holder.release();if(pending)await Promise.allSettled([pending]);
+    if('closeAllConnections' in server)server.closeAllConnections();
+    await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+  }
+ });
+}
 
 test('registration saves salted password, private unverified contacts and server-side closed onboarding',async()=>{
   const registration={email:'New.Person@example.com',password:'long-enough-new-password',nickname:'新的職人',contacts:{github:{value:'hello-member',audiences:[]}}};
