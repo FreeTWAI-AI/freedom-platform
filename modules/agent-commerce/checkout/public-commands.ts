@@ -11,7 +11,7 @@ import {placeCheckoutOrder} from './orders.js';
 import {cartQuote} from './cart-quote.js';
 import {publicOrder} from './public-order.js';
 import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,createAccessLink,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
-import {chargeCommerceBudgets,commerceRateLimitInTransaction,lockOpenOrderBudgets,enforceOpenOrderLimits} from './limits.js';
+import {chargePaymentQueryOrderBudgets,chargeCommerceBudgets,commerceRateLimitInTransaction,lockOpenOrderBudgets,enforceOpenOrderLimits} from './limits.js';
 import type {CommerceSettings} from '../operations/runtime-settings.js';
 import type {CommerceEmailPort} from '../operations/notifications/email-port.js';
 export interface HostedCheckoutOptions extends CheckoutPorts {settings?:CommerceSettings;email?:CommerceEmailPort;origin:string;environment?:'sandbox'|'live'}
@@ -156,6 +156,17 @@ export async function resumePublicPayment(pool:Pool,slug:string,orderRef:string,
     await authorized.recheck();requireCondition(handoff,409,'payment_handoff_unavailable','目前無法繼續付款，請查看訂單狀態。');
     return wire.PaymentHandoffResponseSchema.parse(handoff);
   });
+}
+/** Access is proved before the order budget and again after applying provider
+ * facts. Provider I/O belongs to the injected orchestrator, outside this client. */
+export async function queryPublicPayment(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions){
+  checkoutGate(options);await chargeCommerceBudgets(pool,access.network,{network:'paymentQueryNetwork'});
+  const store=await isolatedTransaction(pool,async q=>{const proof=await authorizePublicOrder(q,slug,orderRef,access,options);await proof.recheck();return proof.store;});
+  await chargePaymentQueryOrderBudgets(pool,orderRef);
+  const authorize=async(q:PoolClient)=>{const proof=await authorizePublicOrder(q,slug,orderRef,access,options);await proof.recheck();};
+  const result=await options.paymentActions?.query?.(pool,{store,orderId:orderRef,network:access.network,authorize});
+  if(result==='query_in_progress')throw new Problem(409,'payment_result_pending','付款結果確認中，請稍後再查詢。');
+  return readPublicOrder(pool,slug,orderRef,access,options);
 }
 export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,token:string,access:BrowserAccess,options:HostedCheckoutOptions) {
   quarantineGate(options);

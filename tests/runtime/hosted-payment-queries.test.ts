@@ -369,4 +369,29 @@ describe('payment query engine',()=>{
     assert(!text.includes('CheckMacValue'));
   });
 
+  const queryPath=(p:Placed)=>f.root(p.s)+'/orders/'+p.order.order_ref+'/payment-queries';
+  function installBuyer(p:Placed,body:string){let calls=0;f.install({commerceQueryTransport:createFixtureQueryTransport(async()=>{calls++;return {kind:'response',status:200,body};},'local')});return {get calls(){return calls;}};}
+  test('buyer query applies during the request and returns the parsed public DTO',async()=>{
+    const p=await handed(await f.placed()),t=installBuyer(p,await response(p));const r=await f.http('POST',queryPath(p),{},p.cookie);
+    assert.equal(r.status,200,JSON.stringify(r.data));assert.equal(r.data.payment_state,'confirmed');assert.equal(r.data.latest_payment_attempt.state,'paid');assert.equal(r.data.can_resume_payment,false);assert.equal(t.calls,1);
+    assert.equal(r.response.headers.get('Cache-Control'),'no-store');assert.equal(r.response.headers.get('Referrer-Policy'),'no-referrer');assert.equal((await facts(p)).events[0].query_trigger,'buyer');
+  });
+  test('buyer query with no eligible attempt still charges all budgets and makes no call',async()=>{
+    const p=await f.placed(),t=installBuyer(p,await response(p));const r=await f.http('POST',queryPath(p),{},p.cookie);assert.equal(r.status,200);assert.equal(t.calls,0);
+    assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM auth_rate_limits WHERE bucket LIKE 'commerce:paymentQuery%'")).rows[0].n,3);
+    const limited=await f.http('POST',queryPath(p),{},p.cookie);assert.equal(limited.status,429);assert(Number(limited.response.headers.get('Retry-After'))>0);
+  });
+  for(const outcome of ['unknown','transport','lease'] as const)test(`buyer query ${outcome} maps to the prescribed HTTP response`,async()=>{
+    const p=await handed(await f.placed()),body=await response(p,{TradeStatus:'777'});
+    f.install({commerceQueryTransport:createFixtureQueryTransport(async()=>outcome==='transport'?{kind:'error',code:'timeout'}:{kind:'response',status:200,body},'local')});
+    if(outcome==='lease')await f.x.h.pool.query("UPDATE commerce_due_work SET lease_until=clock_timestamp()+interval '1 minute' WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref]);
+    const r=await f.http('POST',queryPath(p),{},p.cookie);assert.equal(r.status,outcome==='lease'?409:200,JSON.stringify(r.data));if(outcome==='lease')assert.equal(r.data.code,'payment_result_pending');
+  });
+  test('buyer query uses ordinary access, JSON and Origin gates',async()=>{
+    const p=await handed(await f.placed()),t=installBuyer(p,await response(p));
+    assert.equal((await f.http('POST',queryPath(p),{})).status,404);
+    assert.equal((await f.http('POST',queryPath(p),{unexpected:true},p.cookie)).status,422);
+    assert.equal((await f.http('POST',queryPath(p),{},p.cookie,{Origin:'https://foreign.example.test'})).status,403);assert.equal(t.calls,0);
+  });
+
 });

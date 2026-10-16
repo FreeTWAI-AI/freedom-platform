@@ -240,6 +240,16 @@ export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queri
         await input.authorize(q);return handoff;
       });
     },
+    async query(pool,input){
+      const attempt=await isolatedTransaction(pool,async q=>{
+        await input.authorize(q);
+        const candidates=(await q.query("SELECT * FROM commerce_payment_attempts WHERE order_id=$1 AND handed_off_at IS NOT NULL AND state IN ('issued','superseded','paid') ORDER BY sequence DESC",[input.orderId])).rows;
+        for(const a of candidates)if(!await hasDefinitePaymentMismatch(q,a))return a;
+        return null;
+      });
+      if(!attempt||!queries)return 'complete';
+      return (await queryAttempt(pool,attempt.attempt_id,queries,'buyer')).status==='query_in_progress'?'query_in_progress':'complete';
+    },
 
   };
 }

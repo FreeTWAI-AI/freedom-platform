@@ -121,3 +121,7 @@ test('eligible summary reads neither sealed credentials nor provider routes',asy
     q.release=(error?:Error|boolean)=>{q.query=query;q.release=release;release.call(q,error);};return q;}) as typeof f.x.runtime.connect;
   try{assert.equal((await view(p)).can_resume_payment,true);assert.equal(t.calls,0);}finally{f.x.runtime.connect=connect;}
 });
+test('re-pay live queries and buyer on-demand queries share the order budget',async()=>{
+  const p=await oldAttempt(),t=install(p);assert.equal((await resume(p)).status,201);assert.equal(t.calls,1);
+  const r=await f.http('POST',url(p)+'/payment-queries',{},p.cookie);assert.equal(r.status,429,JSON.stringify(r.data));assert.equal(r.data.code,'commerce_rate_limited');assert(Number(r.response.headers.get('Retry-After'))>0);assert.equal(t.calls,1);
+});
