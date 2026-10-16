@@ -15474,8 +15474,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/README.md",
-      "bytes": 3044,
-      "sha256": "921ffad5193131d6c895bedd9a9a4a6244c31c5a8ad880fd705891de1fdcd626"
+      "bytes": 3164,
+      "sha256": "0ee906fb5ae7fe23a7ead122f597a14d504b9145ce57da3658f2ff23ce5dcc73"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-01-ia-visual.md",
@@ -15504,8 +15504,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
-      "bytes": 8341,
-      "sha256": "9a2e6a521f2162bcf12c7c0f763ad49570c26103da31362e7912149216f51c93"
+      "bytes": 8463,
+      "sha256": "8b5035241c3b581e457f4131a9149114d482e3b581fe14250d34dc2f0177249e"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-07-fulfilment.md",
@@ -15516,6 +15516,11 @@
       "path": "docs/platform-plan/execution/supplier-console/WP-00-baseline.md",
       "bytes": 10494,
       "sha256": "c4b2953384548babb96dc64b36dc1e423474bb8fe9b1b3df05758b0a42ca74bd"
+    },
+    {
+      "path": "docs/platform-plan/execution/supplier-console/WP-07-release-evidence.md",
+      "bytes": 8222,
+      "sha256": "c7c835a7246b238db7a3d7dd91de89d018a47595289f07bb9b1321b76fc5a9a4"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/first-journey.md",
@@ -20644,8 +20649,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 70761,
-      "sha256": "15c1db7eac675e586fd55d9e148df45ddfb23967ca2978a6b0dba2dbe309ee09"
+      "bytes": 73927,
+      "sha256": "32f9f3d834be1b2478c954715d4511e51405407295e105f1428dfb2335d5df21"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
@@ -20653,14 +20658,19 @@
       "sha256": "6c6ce4ab4ef3bcc6477034f0a2bc012cf68a03c94acd12a101aeee69d0e601d9"
     },
     {
+      "path": "scripts/verify-cloud-candidate-supplier.ts",
+      "bytes": 35184,
+      "sha256": "8795134719add68023a38526c1f2e5a761dbe5848add87deb4bab4eb9e5b3d05"
+    },
+    {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 34110,
-      "sha256": "2fa251a1cc3e8809255c6a3344e9ed6cca6417e37040b54faa81f5a0a928e90a"
+      "bytes": 41643,
+      "sha256": "4ba790257d345caba75528be190a79a5e96ef0cc05dfbdb276a3f0809cd6b9f3"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
-      "bytes": 12291,
-      "sha256": "106b4f1a8b732f811cedabde01ec25ed2ef506ddbabc5dd9d118f1058c3550c8"
+      "bytes": 14369,
+      "sha256": "168c1174c1d217bd25cfeb68d6daccada0115d208dd66b09baebeda931637d6e"
     },
     {
       "path": "scripts/verify-guild-work.mjs",
@@ -20979,8 +20989,13 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 77722,
-      "sha256": "3d75c7c6836b959f5aeb2ac7600b070eafe179b6225ec56912a33633e2a5dffa"
+      "bytes": 77841,
+      "sha256": "669b873e7c10a1412f215d2cffcc8e4b3d20fdaaa77d57dcac4167d1bd61802e"
+    },
+    {
+      "path": "tests/e2e/cloud-candidate-supplier.spec.ts",
+      "bytes": 28034,
+      "sha256": "3d477f800f62d94ca83ea1bb407afceb45a97d3d5a89a841c3a5b3c49f601abf"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
@@ -21104,8 +21119,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1522,
-      "sha256": "4d66ad4b07326df96e8c0cb05fdebfdb53ca04baf66cf4e4ef05f4394eeb8344"
+      "bytes": 1749,
+      "sha256": "4506d90f7bcc43e706ff259795586f6ca3f5678f52f1b02a8ea1c6a50988a3f5"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",

@@ -1,0 +1,95 @@
+# WP-07 發布證據：固定候選、合成驗收與回退清單
+
+需求：SC-R36、R39、R40。驗收：AT-42～48（AT-45、47、48 要真人）。規則見 [SC-SPEC-06](SC-SPEC-06-release-rollback-pilot.md)。
+
+這份文件只準備可審查的候選規則、合成驗收腳本與證據格式，**不**授權部署、開旗標、改正式資料、寄信或聯絡會員；每一步都由 Ted 決定。`FREEDOM_SUPPLIER_CONSOLE_ENABLED` 預設關閉。source 合併不代表下面任何一項驗收已完成。
+
+## 1. 固定候選
+
+- 候選是一個已合併的 main SHA；選定後不追新的 main。要納入新的合併，就重新選候選，並從第 3 步重跑。
+- 同一個 SHA 的完整 CI 要通過；取消、略過或只跑部分都不算。
+- 之後每一步的 receipt 都寫這個 SHA；staging 與 production 用同一個。
+
+2026-10-16 的狀態：
+
+| 項目 | 狀態 |
+| --- | --- |
+| 候選 | main `682fe87c`：S1（#761）與 S2（#857，連同 #856）。Ted 在 16:38:58Z 同意上 staging，16:47:03Z 合併 #857，所以 staging 用合併後的 `682fe87c`，不是先前的 `a4ec6c3b` |
+| schema | S1、S2 沒有 migration，staging 仍是 167。S3 帶 168，D-11 帶 169（先合併到 main 的保留編號） |
+| 完整 CI | `682fe87c` 的三個 workflow 都通過：Verify local milestone（run [38934643725](https://github.com/FreeTWAI/freedom-platform/actions/runs/38934643725)）、Push on main（CodeQL，[38934643547](https://github.com/FreeTWAI/freedom-platform/actions/runs/38934643547)）、Directory runtime profile tests（[38934643979](https://github.com/FreeTWAI/freedom-platform/actions/runs/38934643979)） |
+| 之後的 main | main 之後合併了 #858 等變更；候選不追新的 main。production 若經 Ted 同意，用同一個 `682fe87c` |
+
+## 2. 合成驗收腳本
+
+工具是 `scripts/verify-cloud-candidate.ts` 的四個 supplier 階段，細節見 [工具說明](../../../../scripts/verify-cloud-candidate.md)。
+
+| 階段 | 對應 | 寫入 |
+| --- | --- | --- |
+| `supplier-journey` | J01（步驟 1～3、5）、J03（6～7，供應商與賣家兩個帳號）、J02（15，重新登入）、J06 的 API 案例（回應遺失後同 key 重送、412） | 新的合成供貨事業、商品、條件與公開版本；合成賣家店與選品；同意決定 |
+| `supplier-photo` | 步驟 4：照片上傳到真 R2 並私人讀回，公開頁不出現 | 一張產生的照片 |
+| `supplier-reservations` | J04 供應端（步驟 11～14）、J06 的 409 | 開預留，買家預留 1 件後取消，再關回預留 |
+| `supplier-recheck` | 回退演練（SC-SPEC-06 §3.6、§4） | 只讀；用到的登入 session 結束時撤銷 |
+
+前提：
+
+- root 在候選環境先建立三個合成帳號：供應商（供貨公會 full 會員）、賣家（商業公會 full 會員）、買家（一般會員）。帳號檔 0600、`synthetic: true`，綁定候選 origin。自助註冊的帳號是見習會員，不能開店。
+- email 不能用 `@example.invalid`：那是驗證測試帳號，不能預留或發布。
+- 只在 staging 執行。目標是 `public` 時，四個階段都是 `not_run`，也不讀帳號檔。
+- 每次執行都要 Ted 同意。每次旅程用新的 handle 路徑，放在 repo 以外；回退演練的複查沿用同一個 handle。
+
+staging 的順序（每一步都等 Ted 同意）。`health.version` 預設比對執行 checkout 的 `package.json`，不同時用 `--expected-version` 指定候選的版本。
+
+```sh
+# 環境變數指向私人檔案：
+#   FREEDOM_CANDIDATE_ACCESS_FILE、FREEDOM_CANDIDATE_SUPPLIER_ACCOUNT_FILE、FREEDOM_CANDIDATE_SELLER_ACCOUNT_FILE、
+#   FREEDOM_CANDIDATE_BUYER_ACCOUNT_FILE、FREEDOM_CANDIDATE_SUPPLIER_HANDLE_FILE
+# 1. 旗標開啟後：旅程、照片、預留，最後複查一次
+npx tsx scripts/verify-cloud-candidate.ts execute --target staging --expected-release-sha <候選 SHA> \
+  --phases supplier-journey,supplier-photo,supplier-reservations,supplier-recheck --expect-supplier-console on
+# 2. operator 在同一個 release 關閉旗標後（不換 origin 與資料庫）：舊讀取同值、新路由 404、同一書籤打開舊頁
+npx tsx scripts/verify-cloud-candidate.ts execute --target staging --expected-release-sha <候選 SHA> \
+  --phases supplier-recheck --expect-supplier-console off
+# 3. 再開啟後：同樣的 ID 與數值
+npx tsx scripts/verify-cloud-candidate.ts execute --target staging --expected-release-sha <候選 SHA> \
+  --phases supplier-recheck --expect-supplier-console on
+```
+
+報告是 JSON，只有階段狀態、檢查與計數，不含帳號、ID 或內容。ID 只寫在 handle 檔。`cloud_proof` 只有在 health 驗到候選 SHA、而且所選階段全部通過時才是 true。本機 harness（`local_harness`）的結果只證明工具本身，不是部署證據。
+
+合成資料留在 staging：事業、商品、賣家店與選品由 root 在驗收後停用；journal、決定紀錄、照片版本與已取消的預留依規則保留，不刪除。旅程在寫入 handle 之前失敗時沒有 handle，root 停用兩個專用帳號擁有的所有 tenant。
+
+## 3. 回退證據清單
+
+每一步記：候選 SHA、環境、UTC 時間、執行者、指令、報告位置與 overall。任何一步失敗就停在那一步，不跳過。
+
+| # | 步驟（SC-SPEC-06 §3） | 證據 | 現況 |
+| --- | --- | --- | --- |
+| 1 | 確認沒有待部署的必要安全修補 | 檢查紀錄 | not_run |
+| 2 | 選定候選 SHA | 本文件 §1 與 Ted 的決定 | `682fe87c`（2026-10-16，Ted 同意上 staging） |
+| 3 | 同一 SHA 的完整 CI | Verify run 連結與結論 | `682fe87c` 已通過（§1） |
+| 4 | release wrapper：備份 → migration → grants → staging，旗標關閉；舊頁與既有行為不變 | 部署 receipt、備份 unit、grants 檢查、登入後的 staging 檢查 | 2026-10-16 完成：部署前備份通過（17:47Z）；這版沒有 migration，grants 不變；用 operator 的 release kit（不是 `release.sh`）以旗標關閉部署 staging（Worker 版本 `fd16b51f`）；18:00Z 驗收通過（health、protocol、assets、匿名、登入 session、瀏覽器、登出、build 檔案比對；營運中心 API 未掛載）。receipt 由 operator 保存，不進 repo |
+| 5 | staging 開旗標，跑合成旅程 | 第 2 節第 1 步的報告 | 一部分：旗標開啟部署（Worker 版本 `e474fb2e`），18:01Z 同一組驗收通過（API 已掛載），部署後備份通過（18:02Z）。第 2 節的合成供應商旅程還沒跑（not_run，要 Ted 同意與三個合成帳號） |
+| 6a | 關旗標 | operator receipt；第 2 步的報告（舊讀取同值、新路由 404、書籤打開舊頁） | not_run |
+| 6b | 再開旗標 | 第 3 步的報告（同 ID、同值） | not_run |
+| 7 | production 部署同一候選，旗標先關閉；Ted 決定開啟時間，開啟後觀察錯誤率與回報 | 部署 receipt、觀察紀錄 | not_run |
+
+SC-SPEC-06 §4 的其他情況：
+
+| 情況 | 證據 | 現況 |
+| --- | --- | --- |
+| 送出中或未確認的操作 | 本機 E2E 的 J06（`supplier-console-recovery.spec.ts`） | 本機有自動測試；staging not_run |
+| 照片上傳中途關閉 | intent 自然到期、finalize 冪等（runtime 測試） | staging not_run |
+| 程式回退到 S1 之前 | S1 沒有 schema 變更 | 沒有演練（not_run） |
+| S3 回退：先關素材上傳再退 runtime | S3 尚未合併 | not_run |
+
+## 4. 尚未執行（not_run）
+
+| 項目 | 前提 | 誰決定 |
+| --- | --- | --- |
+| staging 開旗標後跑 J01～J04、J06 合成旅程（旗標已開，見 §3 第 5 步） | root 建好三個合成帳號 | Ted |
+| 照片在真 R2 上傳與讀取（AT-11 的雲端部分） | staging 照片上傳已開 | Ted |
+| 回退演練：關閉 → 舊頁同資料、書籤 → 再開 | 上一項通過 | Ted |
+| production 部署與開啟 | staging 全部通過 | Ted |
+| J05 與素材的備份／還原（AT-43） | S3、D-11 合併並部署 | Ted |
+| 經同意的試用：兩位供應商、兩位賣家（AT-47），兩位非核心公會作者（AT-45） | Ted 邀請與安排；Agent 不聯絡會員 | Ted |
+| R1 結案與舊頁退場（AT-48） | SC-SPEC-06 §6 的條件全部成立 | Ted |

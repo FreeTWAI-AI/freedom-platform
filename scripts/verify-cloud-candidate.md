@@ -317,6 +317,10 @@ and the cancelled reservation/history are `residual_expected`. An uncancelled
 reservation is `cleanup_required`; setting/session restoration failures are
 `restore_failed`. The tool issues no deletion request.
 
+The journey writes the handle only at its end, after the fresh-login read. If it
+fails earlier, no handle exists: root deactivates every tenant owned by the
+dedicated synthetic supplier and seller accounts, which hold no other data.
+
 The isolated loopback harness swaps the app ON → OFF → ON on one listener and
 database. It is `harness: local_harness`, `cloud_proof: false`; it proves the tool,
 not staging acceptance. Its photo phase remains `not_run: photo_uploads_disabled`

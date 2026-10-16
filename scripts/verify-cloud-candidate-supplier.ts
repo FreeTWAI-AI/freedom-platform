@@ -97,7 +97,7 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
   function current(ctx:PhaseContext){ctx.check('supplier_handle_available',handle!==null&&(created||!options.phases.includes('supplier-journey')));return handle!;}
   async function launch(ctx:PhaseContext,c:CandidateClient,name:string,guild:string){
     if(!journalRecorded){journalRecorded=true;ctx.cleanup('journal facts and supplier decisions','residual_expected');}
-    ctx.cleanup('synthetic business, products, terms and published supply version; root deactivates tenants using the private handle','cleanup_required');
+    ctx.cleanup('synthetic business, products, terms and published supply version; root deactivates the dedicated supplier account tenants named in the private handle','cleanup_required');
     const space=await send(c,'POST','/api/v1/tenants',{json:{display_name:name},idempotency:true});ctx.check('supplier_tenant_created',space.status===201);
     const tenant=space.json()?.tenant?.tenant_id,workspace=space.json()?.workspace?.workspace_id;ctx.check('supplier_launch_identifiers',isId(tenant)&&isId(workspace));
     const plan=await send(c,'POST',`/api/v1/tenants/${tenant}/application-launch-plans`,{json:{guild_key:guild,workspace_id:workspace,application_key:'hosted-store',release_ref:'hosted-store@1.0.0',installation_choice:'create_new',dependencies:[{requirement_key:'storefront',choice:'create',configuration:{}}],configuration:{}},idempotency:true});
@@ -132,7 +132,7 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
     const offer=published.json();ctx.check('supplier_offer_identifier',isId(offer?.offer_id)&&offer.product_id===productId);
     const offered=await read(ctx,a,r+'/supplier-console/overview','supplier_offered_overview');ctx.check('supplier_public_supply_count',offered.metrics?.offered_products?.state==='ready'&&offered.metrics.offered_products.count===1);
     const seller=await launch(ctx,b,expected.seller_name,'guild_commerce_sales'),s=`/api/v1/tenants/${seller.tenant_id}/storefronts/${seller.instance_id}`,slug=`wp07-${tag}`;remember(slug);
-    ctx.cleanup('synthetic seller store and selection; root deactivates tenants using the private handle','cleanup_required');
+    ctx.cleanup('synthetic seller store and selection; root deactivates the dedicated seller account tenants named in the private handle','cleanup_required');
     const setup=await send(b,'POST',s+'/setup',{json:{name:expected.seller_name,slug,currency:'TWD'},idempotency:true});ctx.check('supplier_seller_setup',setup.status===201);
     const catalog=await read(ctx,b,s+'/supply-catalog','supplier_seller_catalog');const version=catalog.items?.find((v:any)=>v.terms?.title===expected.product_name);ctx.check('supplier_catalog_version',version?.offer_id===offer.offer_id&&version?.source_version===expected.terms_version);
     const proposal=await send(b,'POST',s+'/distribution-selections',{json:{offer_id:version.offer_id,terms_sha256:version.terms_sha256,retail_price_minor:expected.retail_price_minor},idempotency:true});ctx.check('supplier_selection_created',proposal.status===201);
@@ -146,7 +146,7 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
     const profileAfter=await read(ctx,fresh,r+'/supply-profile','supplier_j02_profile');ctx.check('supplier_j02_business',profileAfter.instance_id===supplier.instance_id&&profileAfter.catalog?.name===expected.supplier_name);
     // The console API rejects query parameters; the UI filters offered products in memory.
     const again=await read(ctx,fresh,r+'/supplier-console/products','supplier_j02_products');const product=again.items?.find((p:any)=>p.product_id===productId);ctx.check('supplier_j02_values',productMatches(product,handle,true)&&product.offer?.offer_id===offer.offer_id);
-    await persist(ctx,true);ctx.metric('requests',1);ctx.metric('replay_same_product',true);ctx.metric('stale_write_rejected',true);ctx.metric('fresh_login_matched',true);
+    await persist(ctx,true);ctx.metric('replay_same_product',true);ctx.metric('stale_write_rejected',true);ctx.metric('fresh_login_matched',true);
   }
   async function publicReads(ctx:PhaseContext,h:Handle,published=false){
     for(const suffix of ['', '/media']){const reply=await send(client,'GET',`/api/v1/public/stores/${h.seller.slug}${suffix}`,{session:false});ctx.check('supplier_public_read_status',(reply.status===200||(!published&&reply.status===404)),`status ${reply.status}`);const body=reply.json();ctx.check('supplier_public_json',body&&typeof body==='object'&&!Array.isArray(body));const text=JSON.stringify(body);ctx.check('supplier_private_fields_not_public',!text.includes('cost_minor')&&!text.includes(h.supplier.product_id)&&(!h.photo||!text.includes(h.photo.read_path)));if(reply.status===200)ctx.check('supplier_public_photo_absent',suffix==='/media'?Array.isArray(body.photos)&&body.photos.length===0:!['photo','photos','read_path'].some(key=>text.includes('"'+key+'"')));}
