@@ -7,6 +7,7 @@ export interface CommerceEnvironment {
   FREEDOM_COMMERCE_EMAIL_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?:string;
+  FREEDOM_SUPPLIER_CONSOLE_ENABLED?:string;
   FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
 }
 export const IMPLEMENTED_PROVIDER_PROFILES=Object.freeze(['ecpay.aio.credit.v1']);
@@ -29,6 +30,8 @@ export function readCommerceSettings(env:CommerceEnvironment):CommerceSettings {
     if(flag!==undefined&&flag!=='true'&&flag!=='false')throw new ReadinessError('Commerce flags must be true or false.');
   }
   if(env.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true'&&env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')throw new ReadinessError('commerce_launchpad_required');
+  // The seller pages live in the Supplier Console shell (EC-SPEC-10 §2.2).
+  if(env.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true'&&env.FREEDOM_SUPPLIER_CONSOLE_ENABLED!=='true')throw new ReadinessError('commerce_supplier_console_required');
   if(env.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&env.FREEDOM_COMMERCE_CONSOLE_ENABLED!=='true')throw new ReadinessError('commerce_console_required');
   return {consoleEnabled:env.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true',checkoutEnabled:env.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true',quarantine:env.FREEDOM_COMMERCE_QUARANTINE==='true',providerProfiles:readProviderProfiles(env.FREEDOM_COMMERCE_PROVIDER_PROFILES),emailEnabled:env.FREEDOM_COMMERCE_EMAIL_ENABLED==='true'};
 }

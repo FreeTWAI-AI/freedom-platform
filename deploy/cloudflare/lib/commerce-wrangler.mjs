@@ -31,6 +31,7 @@ export function checkCommerceWranglerConfig(path) {
       if(!Array.isArray(block.r2_buckets)||!block.r2_buckets.some(b=>b&&typeof b==='object'&&b.binding==='COMMERCE_JOURNAL'))errors.push('commerce_journal_binding_required');
     }
     if(vars.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true'&&vars.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')errors.push('commerce_launchpad_required');
+    if(vars.FREEDOM_COMMERCE_CONSOLE_ENABLED==='true'&&vars.FREEDOM_SUPPLIER_CONSOLE_ENABLED!=='true')errors.push('commerce_supplier_console_required');
     if(vars.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&vars.FREEDOM_COMMERCE_CONSOLE_ENABLED!=='true')errors.push('commerce_console_required');
   }
   // R2 declarations are environment-local; journal history must neither share

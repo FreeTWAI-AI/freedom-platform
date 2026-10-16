@@ -169,4 +169,4 @@ transport，不會連到綠界。
 
 ## 商務主控台與結帳開關
 
-`FREEDOM_COMMERCE_CONSOLE_ENABLED` 預設關閉，只有明確的 `true` 才安裝新的賣家訂單、付款例外、人工退款紀錄與付款查詢路由；關閉時這些路由回傳 404。它需要同一環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED=true`。`FREEDOM_COMMERCE_CHECKOUT_ENABLED=true` 則需要主控台開關同時開啟，確保店家可以處理新訂單。兩者都只接受 `true`／`false`；就緒與安裝檢查分別以 `commerce_launchpad_required`、`commerce_console_required` 拒絕缺少的依賴。關閉結帳不會關閉既有訂單的賣家服務。詳見 [EC-SPEC-10 §2.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#22-主機設定提議)。
+`FREEDOM_COMMERCE_CONSOLE_ENABLED` 預設關閉，只有明確的 `true` 才安裝新的賣家訂單、付款例外、人工退款紀錄與付款查詢路由；關閉時這些路由回傳 404。它需要同一環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED=true` 與 `FREEDOM_SUPPLIER_CONSOLE_ENABLED=true`（賣家頁使用 Supplier Console 的殼）。`FREEDOM_COMMERCE_CHECKOUT_ENABLED=true` 則需要主控台開關同時開啟，確保店家可以處理新訂單。兩者都只接受 `true`／`false`；就緒與安裝檢查分別以 `commerce_launchpad_required`、`commerce_supplier_console_required`、`commerce_console_required` 拒絕缺少的依賴。關閉結帳不會關閉既有訂單的賣家服務。詳見 [EC-SPEC-10 §2.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#22-主機設定提議)。

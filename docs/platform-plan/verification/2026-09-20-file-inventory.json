@@ -384,8 +384,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 65997,
-      "sha256": "73cb8feb1ee5701b4a5d16f55eea16978a20197b3485409b7f6e124c691da8c8"
+      "bytes": 66147,
+      "sha256": "9a1a23aefc79919f5f4f0c18099f9ff7e722ded64123cc6bfaef3a6c1240f5f5"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -2239,8 +2239,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
-      "bytes": 12343,
-      "sha256": "4839b486040ea5e845dd55245219361265ef65e1ba9277124860d36bdf1ddaad"
+      "bytes": 12379,
+      "sha256": "3323319ef98188aaa1384db2e85889fd28cd9acd507dff7ddf876d992ecd90f5"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.css",
@@ -13289,8 +13289,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 21807,
-      "sha256": "5163108ac49afee07169ef57c9564a66307cdbc5d412bddbc1f83215ae8829b5"
+      "bytes": 21935,
+      "sha256": "95e99033b8795cbfb3fc41ce0f33e709343f361cc9883abd4cc4c1a31cf77bc7"
     },
     {
       "path": "deploy/cloudflare/broker-preflight.mjs",
@@ -13369,8 +13369,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/commerce-wrangler.mjs",
-      "bytes": 3907,
-      "sha256": "dd15501ae3439355d18096ace6ddbe5b843c905a3f7ad0fa9e0538568d98cae6"
+      "bytes": 4060,
+      "sha256": "88a9bb2197eef365a0365c385530a55832d9e81552767c866c55d3bc45960221"
     },
     {
       "path": "deploy/cloudflare/lib/cost.mjs",
@@ -13484,8 +13484,8 @@
     },
     {
       "path": "deploy/cloudflare/test/commerce-wrangler.test.mjs",
-      "bytes": 8035,
-      "sha256": "0419a91598f7f3dd6e4d7f3635ad390f27b19ba6e32032cd5fab23aa4fec9087"
+      "bytes": 8730,
+      "sha256": "6f34c149c9c74de7951f2952e68f9a53a5f51b2b46fdb425c5740a9013f8cf4d"
     },
     {
       "path": "deploy/cloudflare/test/guide-r2-purposes.test.mjs",
@@ -15369,8 +15369,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
-      "bytes": 43446,
-      "sha256": "09ee579071645d8d47b62ccdf2fa4bf1ec61b376569e65ef63579ea27f8ee6e8"
+      "bytes": 43527,
+      "sha256": "7ab8528f977587159ff44fa16dd58766a42dd849bfcb0716e282fd193653ebae"
     },
     {
       "path": "docs/platform-plan/execution/commerce/README.md",
@@ -17569,8 +17569,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/README.md",
-      "bytes": 9718,
-      "sha256": "0fd8e2e4ea0870ccab87191dc33b23cee202fb0ae12290822093410e57579a37"
+      "bytes": 9857,
+      "sha256": "f33cc1bd469cc2d551adef52c8f5e3ec0b754bf91de7dc0799d4c43f1a751a9f"
     },
     {
       "path": "modules/agent-commerce/operations/admissions.ts",
@@ -17599,8 +17599,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/runtime-settings.ts",
-      "bytes": 2523,
-      "sha256": "115a9ae3fbf670381e22496551496d9663a6ee9b73e365d2c11e5b54e97dfaa2"
+      "bytes": 2806,
+      "sha256": "f4c07ff84493cbac4f13a64f458329a6289624bcf42fc7269bc95f0160f91440"
     },
     {
       "path": "modules/agent-commerce/operations/journal/journal.ts",
@@ -21314,8 +21314,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 17907,
-      "sha256": "e0b75012187f9804caa4e6912228cce64864889a5af41071954eddf89de5822c"
+      "bytes": 18185,
+      "sha256": "431df2fd4aa806883ee4af3f9516a778aa9f33dc7fe09e1ee29f679d5b699867"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -23019,13 +23019,13 @@
     },
     {
       "path": "tests/runtime/commerce-runtime-settings.test.ts",
-      "bytes": 5103,
-      "sha256": "ac71592515781d1899e112da9c7bbc9d2e969a337552f5dddf0eb695db3291f2"
+      "bytes": 6439,
+      "sha256": "41366c6df77a18b4ebce69fa2f00e855d481d983173588e066012d50fd4b3032"
     },
     {
       "path": "tests/runtime/commerce-scheduler.test.ts",
-      "bytes": 8268,
-      "sha256": "4cebfb95f53d8c9932f0d18e28873a018360505524f37513e529c1db0a3485a2"
+      "bytes": 8308,
+      "sha256": "deb7c822441b60bef74e159a2ab1dc94e1a3fdd80aaf4a89d63cf00e0f9a45b3"
     },
     {
       "path": "tests/runtime/commerce-store-admissions.test.ts",

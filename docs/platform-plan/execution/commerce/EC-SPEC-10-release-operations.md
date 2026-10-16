@@ -46,7 +46,7 @@
 
 | 設定 | 預設 | 就緒檢查的依賴 | 打開時 | 關閉或缺少時 |
 | --- | --- | --- | --- | --- |
-| `FREEDOM_COMMERCE_CONSOLE_ENABLED` | 關 | launchpad；`FREEDOM_SUPPLIER_CONSOLE_ENABLED`（殼）進 main 後也依賴它 | E02～E11 的新頁面與新的讀寫路由（EC-SPEC-01 §7.5）。M2 只有賣家的訂單、付款例外、退款紀錄與立即查詢路由，還沒有 E 頁 | 新路由回 404；E 頁的 slug 回到既有頁面；資料不動 |
+| `FREEDOM_COMMERCE_CONSOLE_ENABLED` | 關 | launchpad；`FREEDOM_SUPPLIER_CONSOLE_ENABLED`（殼） | E02～E11 的新頁面與新的讀寫路由（EC-SPEC-01 §7.5）。M2 只有賣家的訂單、付款例外、退款紀錄與立即查詢路由，還沒有 E 頁 | 新路由回 404；E 頁的 slug 回到既有頁面；資料不動 |
 | `FREEDOM_COMMERCE_CHECKOUT_ENABLED` | 關 | console | 新的 checkout、`hosted_checkout` 訂單與付款交接（B04、B05） | 購物車與結帳按鈕隱藏，B03 顯示「目前暫停接單」。已成立訂單的付款通知、查詢、到期釋放、出貨、售後與退款照常 |
 | `FREEDOM_COMMERCE_PROVIDER_PROFILES` | 空 | 每個 ID 都必須是這個 binary 實作的 profile；非空時必須有 `COMMERCE_CREDENTIAL_KEYS` 與 `COMMERCE_JOURNAL` | 只有列出的 profile 能啟用新服務、出現在結帳選項、發起新的對外操作（付款交接、建單、開票、API 退款） | 不在清單的 profile 照常接收通知與查詢；尚未執行的操作留在佇列，重新列入後繼續，不丟棄 |
 | `FREEDOM_COMMERCE_EMAIL_ENABLED` | 關 | Worker 的 `EMAIL` binding 與 `COMMERCE_JOURNAL`；Node server 打開時就緒失敗 | §6 的交易信件；只有打開期間發生的事實會建立信件列 | 不寄信，也不建立新的信件列，關閉期間的事實事後不補寄；打開時已建立、還沒寄出的列留在佇列，重新打開後在到期前寄出（§6.3） |
@@ -61,14 +61,14 @@
 - 安裝檢查（比照 `media-wrangler.mjs`）加相同的組合規則，部署前就擋下。
 - 正式與 staging 的值由 Ted 經 release wrapper 設定。每次變更都記在 receipt：環境、時間、前後值。
 - 新設定對設定生效後的請求才有作用；處理中的請求以開始時讀到的設定完成。每個命令是單一交易，所以不會停在一半。
-- M1 只有 `CHECKOUT` 與 `QUARANTINE`，`CHECKOUT` 依賴 launchpad。M2 的 wp04-seller 加入 `CONSOLE`，`CHECKOUT` 改依賴 `CONSOLE`：賣家要能處理訂單，才能開放結帳（§7 的回退也一起關）。`CONSOLE` 依賴的 `FREEDOM_SUPPLIER_CONSOLE_ENABLED` 還沒進 main（work-plan §8），所以先只依賴 launchpad，進 main 後再加上。就緒與安裝檢查的錯誤碼：`commerce_launchpad_required`（`CONSOLE` 沒有 launchpad）、`commerce_console_required`（`CHECKOUT` 沒有 `CONSOLE`）。
+- M1 只有 `CHECKOUT` 與 `QUARANTINE`，`CHECKOUT` 依賴 launchpad。M2 的 wp04-seller 加入 `CONSOLE`，`CHECKOUT` 改依賴 `CONSOLE`：賣家要能處理訂單，才能開放結帳（§7 的回退也一起關）。`CONSOLE` 起初只依賴 launchpad；Supplier Console 的殼進 main 後（2026-10-16），`CONSOLE` 也依賴 `FREEDOM_SUPPLIER_CONSOLE_ENABLED`。就緒與安裝檢查的錯誤碼：`commerce_launchpad_required`（`CONSOLE` 沒有 launchpad）、`commerce_supplier_console_required`（`CONSOLE` 沒有 Supplier Console 的開關）、`commerce_console_required`（`CHECKOUT` 沒有 `CONSOLE`）。
 
 ### 2.3 `site` 欄位與頁面
 
 - `/api/v1/site` 新增兩個欄位：
   - `commerce_console_enabled`：console、supplier console 與 launchpad 三者的 AND；
   - `commerce_checkout_enabled`：checkout 與 console 都開，而且不在隔離模式。
-  - M1 只加 `commerce_checkout_enabled`（checkout 開而且不在隔離模式）；`commerce_console_enabled` 與 `CONSOLE` 一起加入。
+  - M1 只加 `commerce_checkout_enabled`（checkout 開而且不在隔離模式）；`commerce_console_enabled` 在殼進 main 後加入（2026-10-16）。
 - 不公開 profile 清單、金鑰狀態或隔離原因。
 - B01～B03 是否出現購物車，由伺服器依該店的三層條件決定（§2.1），不只看 `site`。這幾頁的 HTML 由伺服器產生（EC-SPEC-02 §6）。
 - `/api/v1/health` 不加 commerce 欄位。設定錯誤本來就讓全站回 503，所以部署驗收的 health 階段就會發現。

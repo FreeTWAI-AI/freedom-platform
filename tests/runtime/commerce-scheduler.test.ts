@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import type {Pool} from 'pg';
 import {createWorkerHandler,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
-for(const settings of [{},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'false'},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true',FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'},{FREEDOM_COMMERCE_QUARANTINE:'true'},{FREEDOM_COMMERCE_QUARANTINE:'synthetic-secret'}])test(`scheduler commerce settings ${JSON.stringify(settings)}`,async()=>{
+for(const settings of [{},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'false'},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true',FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_SUPPLIER_CONSOLE_ENABLED:'true'},{FREEDOM_COMMERCE_QUARANTINE:'true'},{FREEDOM_COMMERCE_QUARANTINE:'synthetic-secret'}])test(`scheduler commerce settings ${JSON.stringify(settings)}`,async()=>{
   const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
   const pool={connect:async()=>({on(){},removeListener(){},release(){},query:async()=>({rows:[]})}),end:async()=>{calls.push('end');}} as unknown as Pool;
   try {

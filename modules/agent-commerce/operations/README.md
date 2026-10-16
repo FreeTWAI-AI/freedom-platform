@@ -5,7 +5,9 @@ exact `true`/`false`. FREEDOM_COMMERCE_CONSOLE_ENABLED=true requires
 FREEDOM_GUILD_LAUNCHPAD_ENABLED=true; checkout=true requires console=true. The
 parser always sets consoleEnabled; its optional type keeps older fixtures
 compatible, and absence is off. Worker/deployment readiness applies the same
-commerce_launchpad_required and commerce_console_required dependency errors. `providerProfiles` is empty
+commerce_launchpad_required, commerce_supplier_console_required (console=true
+also requires FREEDOM_SUPPLIER_CONSOLE_ENABLED=true, whose shell hosts the seller
+pages) and commerce_console_required dependency errors. `providerProfiles` is empty
 unless `FREEDOM_COMMERCE_PROVIDER_PROFILES` lists implemented IDs, comma-separated
 without whitespace, empty entries or duplicates. Only `ecpay.aio.credit.v1` is
 implemented. Invalid configuration fails readiness with a fixed value-free code.

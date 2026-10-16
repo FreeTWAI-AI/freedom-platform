@@ -17,7 +17,11 @@ for(const flag of ['FREEDOM_COMMERCE_CHECKOUT_ENABLED','FREEDOM_COMMERCE_CONSOLE
 }
 test('console requires launchpad in the same environment, not an inherited declaration',()=>{
   assert.equal(check({vars:{FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'},env:{next:{vars:{FREEDOM_COMMERCE_CONSOLE_ENABLED:'true'}}}}).structural,false);
-  assert.equal(check({env:{next:{vars:{FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'}}}}).structural,true);
+  assert.equal(check({env:{next:{vars:{FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_SUPPLIER_CONSOLE_ENABLED:'true'}}}}).structural,true);
+});
+test('console requires the supplier console in the same environment, not an inherited declaration',()=>{
+  for(const value of [undefined,'false','TRUE'])assert(check({env:{next:{vars:{FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',...(value===undefined?{}:{FREEDOM_SUPPLIER_CONSOLE_ENABLED:value})}}}}).errors.includes('commerce_supplier_console_required'));
+  assert(check({vars:{FREEDOM_SUPPLIER_CONSOLE_ENABLED:'true'},env:{next:{vars:{FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'}}}}).errors.includes('commerce_supplier_console_required'));
 });
 test('unknown commerce variables and unsafe declarations fail without copying names or values',()=>{
   const secret='synthetic-secret';const result=check({vars:{FREEDOM_COMMERCE_secret:secret}});assert.equal(result.structural,false);assert(!JSON.stringify(result).includes(secret));assert(!JSON.stringify(result).includes('FREEDOM_COMMERCE_secret'));
@@ -95,5 +99,5 @@ test('review 15: distinct journal buckets and media buckets pass across environm
 test('checkout requires console in its own environment',()=>{
   assert(check({vars:{FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true'}}).errors.includes('commerce_console_required'));
   assert(check({vars:{FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'},env:{next:{vars:{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true'}}}}).errors.includes('commerce_console_required'));
-  assert.equal(check({vars:{FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true'}}).structural,true);
+  assert.equal(check({vars:{FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_SUPPLIER_CONSOLE_ENABLED:'true',FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true'}}).structural,true);
 });
