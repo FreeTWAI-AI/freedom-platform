@@ -243,7 +243,7 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 }
 
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
-  const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment);
+  const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment,settings.providerProfiles);
   const payments=settings.providerProfiles.length?{gateway:createEcpayPaymentGateway(environment,config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:settings.providerProfiles}:undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;

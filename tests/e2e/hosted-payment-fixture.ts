@@ -4,7 +4,7 @@ import {checkoutHarness,ok,ports} from '../runtime/hosted-checkout-harness.js';
 import {createPlatformApp} from '../../apps/platform-api/src/platform-app.js';
 import {nodeRuntime} from '../../apps/platform-api/src/app.js';
 import {cloudflareRateLimitNetwork} from '../../apps/platform-api/src/worker.js';
-import {CommerceCredentialKeyring} from '../../modules/agent-commerce/payments/credentials.js';
+import {CommerceCredentialKeyring,sealCredential} from '../../modules/agent-commerce/payments/credentials.js';
 import {activateProviderService} from '../../modules/agent-commerce/payments/accounts.js';
 import {createFixturePaymentGateway} from '../../modules/agent-commerce/payments/gateway.js';
 import {MemoryEffectJournal} from '../../modules/agent-commerce/operations/journal/memory.js';
@@ -21,7 +21,12 @@ export async function hostedPaymentHarness(prefix:string,options:{publicSchema?:
   const settings:CommerceSettings={checkoutEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']};
   let runtime:PlatformRuntime,app:ReturnType<typeof createPlatformApp>;
   function install(overrides:Partial<PlatformRuntime>={}){
-    runtime={...nodeRuntime('local',origin,{guildLaunchpadEnabled:true,commerceSettings:settings,commerceCredentialKeyring:ring,commercePayments:{gateway,journal,profiles:settings.providerProfiles},commercePorts:{shipping:ports.shipping},adminVerifier:async()=>({email:adminEmail,subject:'synthetic-payment-admin',csrfToken:csrf})}),...overrides};
+    const configured=nodeRuntime('local',origin,{guildLaunchpadEnabled:true,
+      commerceSettings:Object.hasOwn(overrides,'commerceSettings')?overrides.commerceSettings:settings,
+      commerceCredentialKeyring:Object.hasOwn(overrides,'commerceCredentialKeyring')?overrides.commerceCredentialKeyring:ring,
+      commercePayments:Object.hasOwn(overrides,'commercePayments')?overrides.commercePayments:{gateway,journal,profiles:settings.providerProfiles},
+      commercePorts:{shipping:ports.shipping,...overrides.commercePorts},adminVerifier:async()=>({email:adminEmail,subject:'synthetic-payment-admin',csrfToken:csrf})});
+    runtime={...configured,...overrides,commercePorts:configured.commercePorts};
     runtime.rateLimitNetwork=cloudflareRateLimitNetwork(true);app=createPlatformApp(x.runtime,origin,'local',runtime);return app;
   }
   install();
@@ -61,4 +66,18 @@ export async function hostedPaymentHarness(prefix:string,options:{publicSchema?:
     return {...ready,order:order.data.order,payment:order.data.payment};
   }
   return {x,origin,settings,ring,journal,gateway,install,http,reset,setup,readyCheckout,placed,root,get app(){return app;},get runtime(){return runtime;},stop:()=>x.stop()};
+}
+
+/** Existing runtime admission fixtures need a service without changing their route assertions. */
+export async function seedAdmissionPaymentService(x:Awaited<ReturnType<typeof checkoutHarness>>,s:Awaited<ReturnType<typeof x.store>>){
+  const accountId=randomUUID(),ring=CommerceCredentialKeyring.parse('test:'+randomBytes(32).toString('base64'))!;
+  const principalId=(await x.h.pool.query('SELECT principal_id FROM principals WHERE user_ref=$1',[s.owner.user.user_id])).rows[0].principal_id;
+  const sealed=sealCredential(ring,{account_id:accountId,purpose:'payment',environment:'sandbox',credential_version:1},{hash_key:randomBytes(8).toString('hex'),hash_iv:randomBytes(8).toString('hex')});
+  await x.tx(async q=>{
+    await bindStore(q,s.tenantId);
+    await q.query(`INSERT INTO commerce_provider_accounts(account_id,tenant_id,instance_id,provider,environment,merchant_id,created_by_principal_id) VALUES($1,$2,$3,'ecpay','sandbox','1234567',$4)`,[accountId,s.tenantId,s.instanceId,principalId]);
+    await q.query(`INSERT INTO commerce_provider_account_services(account_id,purpose,tenant_id,instance_id,environment,profile,credential_version) VALUES($1,'payment',$2,$3,'sandbox','ecpay.aio.credit.v1',1)`,[accountId,s.tenantId,s.instanceId]);
+    await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id) VALUES($1,'payment',1,$2,$3,'sandbox',$4,$5,$6)`,[accountId,s.tenantId,s.instanceId,sealed.key_id,sealed.sealed,principalId]);
+    await activateProviderService(q,{accountId,purpose:'payment',activationRef:randomUUID()});
+  });
 }

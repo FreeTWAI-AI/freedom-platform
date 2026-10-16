@@ -7,6 +7,9 @@ import {createEcpayPaymentGateway,createFixturePaymentGateway,paymentGatewayUrls
 import {hostedPaymentHarness} from '../e2e/hosted-payment-fixture.js';
 import {hashKey} from '../../modules/agent-commerce/checkout/terms.js';
 import {COMMERCE_LIMITS} from '../../modules/agent-commerce/checkout/limits.js';
+import {createStoreAdmissionPort} from '../../modules/agent-commerce/operations/admissions.js';
+import {creditUnavailableMessage} from '../../modules/agent-commerce/payments/availability.js';
+import type {CreditUnavailableReason} from '../../modules/agent-commerce/providers/ecpay/aio-credit/index.js';
 const origin='https://payments.freedom.test',localOrigin='http://127.0.0.1:4745';
 const fixtureInput=()=>({freedomEnv:'local' as const,environment:'sandbox' as const,publicBaseUrl:'https://e2e-payments.freedom.test',checkoutAction:localOrigin+'/__e2e/ecpay/aio-checkout',localOrigin});
 for(const environment of ['sandbox','live'] as const)test(`gateway URLs and action equal the public form builder for ${environment}`,()=>{
@@ -113,4 +116,53 @@ test('five real trade-number conflicts draw fresh numbers and then roll back pla
   finally{f.x.runtime.connect=connect;}
   assert.equal(draws.length,5);assert.equal(new Set(draws).size,5);
   for(const table of ['commerce_checkout_orders','commerce_inventory_reservations','commerce_payment_attempts','commerce_due_work'])assert.equal((await f.x.h.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,0,table);
+});
+test('admission requires a listed active payment service in this environment, and an unrevoked admission',async()=>{
+  const s=await f.x.store(),before=f.runtime.commercePorts!.admission!;assert.equal(await f.x.tx(q=>before.allowed(q,s)),false);
+  const provider=await f.setup(s);assert.equal(await f.x.tx(q=>before.allowed(q,s)),true);
+  for(const port of [createStoreAdmissionPort('sandbox',[]),createStoreAdmissionPort('sandbox',['unknown']),createStoreAdmissionPort('live',['ecpay.aio.credit.v1'])])assert.equal(await f.x.tx(q=>port.allowed(q,s)),false);
+  for(const state of ['suspended','retired'])await f.x.tx(async q=>{
+    assert.equal(await before.allowed(q,s),true);
+    await q.query('SAVEPOINT inactive');await q.query('UPDATE commerce_provider_account_services SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE account_id=$1',[provider.accountId,state]);
+    assert.equal(await before.allowed(q,s),false);await q.query('ROLLBACK TO SAVEPOINT inactive');
+  });
+  await f.x.h.pool.query(`UPDATE commerce_store_admissions SET revoked_at=clock_timestamp(),revoked_by=(SELECT admin_id FROM platform_admins LIMIT 1),revoke_reason='合成撤銷' WHERE admission_id=$1`,[provider.admissionId]);
+  assert.equal(await f.x.tx(q=>before.allowed(q,s)),false);
+});
+const unavailableCases=[
+  {reason:'currency_not_supported',message:'這間店的幣別不能用信用卡付款。'},
+  {reason:'amount_not_whole_twd',message:'金額有不到 1 元的零頭，不能用信用卡付款。'},
+  {reason:'amount_below_minimum',message:'信用卡付款的總額至少 5 元。'},
+  {reason:'amount_above_maximum',message:'信用卡付款的總額最多 999,999,999 元。'},
+] as const;
+for(const phase of ['checkout','placement'] as const)for(const scenario of unavailableCases)test(`${phase} rejects ${scenario.reason} with its fixed Chinese message and no partial effect`,async()=>{
+  const s=await f.x.store(100);await f.setup(s);let revision='1',quantity=5;
+  const basePorts={...f.runtime.commercePorts};
+  if(scenario.reason==='currency_not_supported'){
+    await f.x.h.pool.query("UPDATE commerce_shops SET currency='USD' WHERE shop_id=ANY($1::uuid[])",[[s.storefront_shop_id,s.supply_shop_id]]);await f.x.publish(s);revision='2';
+  }
+  if(scenario.reason==='amount_not_whole_twd'){
+    expect(await f.x.send(s,'/products/'+s.product.product_id,{price_minor:150},s.product.version,'PATCH'),200);await f.x.publish(s);revision='2';quantity=2;
+    basePorts.shipping={quote:async(_q,_store,input)=>({groups:[{group_ref:'synthetic',supplier_shop_id:input.lines[0].supplier_shop_id,method_ref:'synthetic',amount_minor:200}]})};
+  }
+  if(scenario.reason==='amount_below_minimum')quantity=1;
+  if(scenario.reason==='amount_above_maximum')basePorts.shipping={quote:async(_q,_store,input)=>({groups:[{group_ref:'synthetic',supplier_shop_id:input.lines[0].supplier_shop_id,method_ref:'synthetic',amount_minor:99_999_999_900}]})};
+  f.install({commercePorts:{...basePorts,...(phase==='placement'?{payment:undefined}:{})}});
+  const input={...f.x.input(s.product.sku,quantity),publication_revision:revision};
+  let response=await f.http('POST',f.root(s)+'/checkouts',input,undefined,{'Idempotency-Key':randomUUID()});
+  if(phase==='placement'){
+    expect(response,201);const saved=response.data,cookie=response.response.headers.get('Set-Cookie')!.split(';')[0];f.install({commercePorts:basePorts});
+    response=await f.http('POST',f.root(s)+`/checkouts/${saved.checkout_ref}/orders`,{terms_sha256:saved.terms_sha256,client_order_id:randomUUID()},cookie);
+  }
+  expect(response,409,'payment_profile_unavailable');assert.equal(response.data.detail,scenario.message);
+  for(const table of ['commerce_checkout_orders','commerce_inventory_reservations','commerce_payment_attempts','commerce_due_work'])assert.equal((await f.x.h.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,0,table);
+  if(phase==='checkout')for(const table of ['commerce_checkouts','commerce_checkout_contacts','commerce_customers','commerce_order_access_grants'])assert.equal((await f.x.h.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,0,table);
+});
+test('availability checks each shipping group even when their sum and the order total are whole TWD',async()=>{
+  const s=await f.x.store();await f.setup(s);
+  f.install({commercePorts:{shipping:{quote:async(_q,_store,input)=>({groups:['a','b'].map(group_ref=>({group_ref,supplier_shop_id:input.lines[0].supplier_shop_id,method_ref:'synthetic',amount_minor:50}))})}}});
+  const r=await f.http('POST',f.root(s)+'/checkouts',f.x.input(s.product.sku,5),undefined,{'Idempotency-Key':randomUUID()});expect(r,409,'payment_profile_unavailable');assert.equal(r.data.detail,'金額有不到 1 元的零頭，不能用信用卡付款。');
+});
+test('the availability reason list is closed at runtime',()=>{
+  assert.throws(()=>creditUnavailableMessage('future_reason' as CreditUnavailableReason),{message:'payment_availability_reason_unknown'});
 });

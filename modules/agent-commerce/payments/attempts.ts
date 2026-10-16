@@ -11,6 +11,7 @@ import {newTradeNumber} from '../providers/ecpay/index.js';
 import {loadServiceCredentials} from './accounts.js';
 import type {CommerceCredentialKeyring} from './credentials.js';
 import {paymentGatewayUrls,type EcpayPaymentGateway} from './gateway.js';
+import {assertCreditPaymentAvailable} from './availability.js';
 
 export interface PaymentAttemptOptions {
   settings:CommerceSettings;profiles:readonly string[];environment:'sandbox'|'live';admission:CheckoutAdmissionPort;
@@ -53,6 +54,7 @@ export async function inspectOrderHandoff(q:PoolClient,attemptId:string,options:
 }
 export function createCheckoutPaymentPort(options:PaymentAttemptOptions):CheckoutPaymentPort{
   return {
+    assertTermsAvailable:assertCreditPaymentAvailable,
     async createOrderAttempt(q,input){
       const store=(await q.query('SELECT tenant_id,instance_id FROM commerce_storefront_profiles WHERE storefront_shop_id=$1',[input.store.storefront_shop_id])).rows[0];
       requireCondition(store,409,'payment_handoff_unavailable','付款服務暫時無法使用。');

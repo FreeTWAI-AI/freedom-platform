@@ -34,7 +34,7 @@ function authNetwork(c:Context) {
 
 /** Node runtime: settings are read from process configuration when used, as before. */
 export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
-  const environment=providerEnvironment(freedomEnv),admission=options.commercePorts?.admission??createStoreAdmissionPort(environment);
+  const environment=providerEnvironment(freedomEnv),admission=options.commercePorts?.admission??createStoreAdmissionPort(environment,options.commerceSettings?.providerProfiles??[]);
   const payment=options.commercePayments?createCheckoutPaymentPort({environment,admission,settings:options.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:options.commercePayments.profiles,gateway:options.commercePayments.gateway,keyring:options.commerceCredentialKeyring??null}):undefined;
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
