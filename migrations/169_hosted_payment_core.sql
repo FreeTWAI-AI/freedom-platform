@@ -418,8 +418,6 @@ CREATE INDEX commerce_payment_attempt_account_trade ON commerce_payment_attempts
 CREATE INDEX commerce_payment_attempt_account_identity ON commerce_payment_attempts(account_id,tenant_id,instance_id,environment,merchant_id);
 CREATE INDEX commerce_payment_attempt_credential ON commerce_payment_attempts(account_id,purpose,credential_version);
 CREATE INDEX commerce_payment_attempt_store ON commerce_payment_attempts(tenant_id,instance_id);
-CREATE INDEX commerce_payment_attempt_unjournaled ON commerce_payment_attempts(created_at,attempt_id) WHERE journaled_at IS NULL;
-CREATE INDEX commerce_payment_attempt_unhanded ON commerce_payment_attempts(order_id,sequence) WHERE state='issued' AND handed_off_at IS NULL;
 CREATE FUNCTION preserve_commerce_payment_attempt() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE field text; transition_field text;
 BEGIN

@@ -299,3 +299,10 @@ test('review 13: event amount accepts the protocol maximum and rejects one TWD m
   assert.equal((await event({ trade_amt_minor: 99999999900 })).trade_amt_minor, '99999999900');
   await rejects(() => event({ trade_amt_minor: 100000000000 }));
 });
+
+
+test('review 14: unused attempt journal and handoff partial indexes are absent', async () => {
+  const unused = await q.query(`SELECT indexname FROM pg_indexes WHERE schemaname=current_schema()
+    AND indexname=ANY($1::text[]) ORDER BY indexname`, [['commerce_payment_attempt_unjournaled', 'commerce_payment_attempt_unhanded']]);
+  assert.deepEqual(unused.rows, []);
+});
