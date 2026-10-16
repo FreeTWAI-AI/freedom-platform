@@ -137,7 +137,7 @@ test('a handed-off attempt cannot receive another token, including a placement r
   const p = await f.placed();
   await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1', [p.payment.attempt_ref]);
   await f.x.h.pool.query('UPDATE commerce_payment_attempts SET handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1', [p.payment.attempt_ref]);
-  expect(await resume(p), 409, 'payment_handoff_unavailable');
+  const pending=await resume(p);expect(pending,409,'payment_result_pending');assert(Number(pending.response.headers.get('Retry-After'))>0);
   const replay = expect(await f.http('POST', f.root(p.s) + `/checkouts/${p.checkout.checkout_ref}/orders`, p.intent, p.cookie), 200);
   assert.equal(replay.payment, null);
   assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_entry_routes WHERE route_kind='payment_handoff'")).rows[0].n, 1);
@@ -515,7 +515,7 @@ test('buyer summaries expose only the latest attempt and agree with token resump
   value = expect(await buyerOrder(p), 200);
   assert.equal(value.latest_payment_attempt.state, 'awaiting_result');
   assert.equal(value.can_resume_payment, false);
-  expect(await resume(p), 409, 'payment_handoff_unavailable');
+  const pending=await resume(p);expect(pending,409,'payment_result_pending');assert(Number(pending.response.headers.get('Retry-After'))>0);
   assert.deepEqual(Object.keys(value.latest_payment_attempt).sort(), ['attempt_ref', 'created_at', 'state']);
   for (const field of ['account_id', 'merchant_id', 'trade_no', 'amount_received', 'exceptions', 'credential_version'])
     assert(!JSON.stringify(value).includes(field));
@@ -529,8 +529,9 @@ for (const state of ['failed', 'expired_unpaid', 'paid', 'confirmed'] as const)
     const value = expect(await buyerOrder(p), 200);
     assert.equal(value.latest_payment_attempt.state, state === 'expired_unpaid' ? 'expired' : state === 'confirmed' ? 'paid' : state);
     assert.equal(value.payment_state, 'unpaid');
-    assert.equal(value.can_resume_payment, false);
-    expect(await resume(p), 409);
+    assert.equal(value.can_resume_payment, state==='failed');
+    if(state==='failed'){const next=expect(await resume(p),201);assert.notEqual(next.attempt_ref,p.payment.attempt_ref);assert.equal((await f.x.h.pool.query('SELECT sequence FROM commerce_payment_attempts WHERE attempt_id=$1',[next.attempt_ref])).rows[0].sequence,2);}
+    else expect(await resume(p), 409);
   });
 for (const gate of ['quarantine', 'checkout_off', 'service_suspended', 'admission_revoked', 'keyring_missing'] as const)
   test(`buyer can_resume_payment agrees with the resume endpoint under ${gate}`, async () => {
