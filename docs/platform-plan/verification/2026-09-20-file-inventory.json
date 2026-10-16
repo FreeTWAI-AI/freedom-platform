@@ -504,8 +504,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/event-highlights.ts",
-      "bytes": 8629,
-      "sha256": "1c1c6d02892eca90092e915c4f3c8098242991d3be50fd7f5b3753762ec0f2ca"
+      "bytes": 9012,
+      "sha256": "6aa00aec8221eb4cd6ec62bce9602963022eb152fc29f9ecbf829a1be963c85a"
     },
     {
       "path": "apps/platform-api/src/routes/event-outcomes.ts",
@@ -2894,8 +2894,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialInteractions.tsx",
-      "bytes": 21085,
-      "sha256": "313b4f6c7b9746cc2532a1ffedcbad1fc0b236f2f29aa18cdc8a52d1d8f248bb"
+      "bytes": 21293,
+      "sha256": "8824824cdfe2de59345e8c88c6c0257407bde36911033dae6351b35a531c47c1"
     },
     {
       "path": "apps/portal-web/src/modules/SocialPostEditor.tsx",
@@ -14009,8 +14009,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 78429,
-      "sha256": "b038b5720331690c3841ee4e3840feedbd3ae03f1995a22fe63797ab75335854"
+      "bytes": 79217,
+      "sha256": "ae4d963cc5ba65135c79818842408906d71deb9ef0f6508165a1b15c29840674"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14159,8 +14159,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 34287,
-      "sha256": "7aa486e200391f294d46b852e970e6c631f60fd184b8fada0e8e4a98657ec03e"
+      "bytes": 35445,
+      "sha256": "77bd4cdca50d90dc7a2e963bd03d3ce0138a4d0f61a56c0c7b91dd564392164c"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -17709,8 +17709,8 @@
     },
     {
       "path": "modules/community/event-highlights.ts",
-      "bytes": 38595,
-      "sha256": "9272ed0a0d26d24096f45972bb2a2e885dd332cb03ebb907b3d72ba652b5bcd8"
+      "bytes": 38625,
+      "sha256": "b44a723740fecc5f7b26bd1d1b809b7e362c211ecd1ef3c6f36b4bf6aeadd074"
     },
     {
       "path": "modules/community/event-outcomes-page.ts",
@@ -17764,8 +17764,8 @@
     },
     {
       "path": "modules/community/link-preview.ts",
-      "bytes": 7077,
-      "sha256": "5c0beb74ba4085783cc118274449653aea1eed1e2f6be15949b87eb1cf5a80e6"
+      "bytes": 7418,
+      "sha256": "061044712666217be5ae5b6d2bb63245eff1b590063be055253ddfeeda7ee90d"
     },
     {
       "path": "modules/community/member-reporting.ts",
@@ -17844,8 +17844,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 44708,
-      "sha256": "7285854cf774c5983d1d8a325539f2cde447461914e3f64dc6d8611adc5facfa"
+      "bytes": 44672,
+      "sha256": "9b49f34a69e8a10c1bb484c352d837f8f20ec7d75830a5fa4cfe0db9edd09edf"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -20014,8 +20014,8 @@
     },
     {
       "path": "packages/shared/member-service.ts",
-      "bytes": 6004,
-      "sha256": "a273fb54ccae5dac3f56979ab738418d0839ed540695b5120348f67f812f84cf"
+      "bytes": 6066,
+      "sha256": "c562b597ab1e0210eff299a6d316b93c8e178afbedba69cb66cab66a5b74c91a"
     },
     {
       "path": "packages/shared/problem.ts",
@@ -21954,8 +21954,8 @@
     },
     {
       "path": "tests/runtime/event-highlights.test.ts",
-      "bytes": 44929,
-      "sha256": "53fa0f3b0c5647b75ef660de43b1780b43a137d99ac891e3578f96e54923f849"
+      "bytes": 47659,
+      "sha256": "cdfb8bbbfb33f20d1e4f420e6178a70c77c8de5f5e099b0e915f13b44719f146"
     },
     {
       "path": "tests/runtime/event-outcomes.test.ts",
@@ -22319,8 +22319,8 @@
     },
     {
       "path": "tests/runtime/link-preview.test.ts",
-      "bytes": 15687,
-      "sha256": "1624bd4e2958ed316b20b818fb0b23271740bae46383b360320c2408c8809ad7"
+      "bytes": 16354,
+      "sha256": "a1cb7c66dd2d8bccaaeafb26ee559a1da6dfb7763ca2c7dcc0a5a94d6e2cf3d5"
     },
     {
       "path": "tests/runtime/login-lockout-recovery.test.ts",
@@ -22569,8 +22569,8 @@
     },
     {
       "path": "tests/runtime/member-services.test.ts",
-      "bytes": 49560,
-      "sha256": "86bae7eddb4161a7f12a4cfcb171d557c044e76f7d15aaf10dbf740441319f6d"
+      "bytes": 51745,
+      "sha256": "34f454ad25da63628a5b09ccb815a3cdf7654423f7e87412df5ba1a8efb80461"
     },
     {
       "path": "tests/runtime/member-session-lifecycle.test.ts",
@@ -23184,8 +23184,8 @@
     },
     {
       "path": "tests/runtime/social-feed.test.ts",
-      "bytes": 37298,
-      "sha256": "cead339d8acb5cfebb15a3b1a898b2ac407942aa72899e2897b1a0283b8f8677"
+      "bytes": 37786,
+      "sha256": "398916bdb500205dcd03f64f2c3da1ac103315636ce7344813ee320c8e5fd707"
     },
     {
       "path": "tests/runtime/social-links.test.ts",
