@@ -18,6 +18,7 @@
     "tests/runtime/supply-materials.test.ts",
     "tests/runtime/supply-materials-sql.test.ts",
     "tests/runtime/supply-material-media.test.ts",
+    "tests/runtime/partner-materials-view.test.ts",
     "tests/e2e/supplier-console.spec.ts",
     "tests/e2e/supplier-console-cooperation.spec.ts",
     "tests/e2e/supplier-console-recovery.spec.ts",
