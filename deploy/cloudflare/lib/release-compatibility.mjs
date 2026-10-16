@@ -189,6 +189,8 @@ const FOUNDATION_NAMES = [
   // Hosted payment callbacks, attempts and the verified inbox require a writer
   // floor even when checkout is disabled; recognition grants no payment authority.
   '169_hosted_payment_core.sql',
+  // Additive shipping settings only; recognition opens no capability.
+  '170_hosted_fulfilment.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

@@ -1,11 +1,11 @@
 import type {PoolClient} from 'pg';
 export const CONTROL_EVENT_KINDS = ['storefront.upgraded','provider_account.created','provider_service.created',
   'provider_service.state_changed','provider_credential.rotated','provider_credential.retired','provider_credential.resealed',
-  'store_admission.admitted','store_admission.revoked'] as const;
-type Detail = Partial<Record<'purpose'|'profile'|'environment'|'from_state'|'to_state'|'credential_version'|'module_release_ref',string|number>>;
+  'logistics_service.created','logistics_service.state_changed','store_admission.admitted','store_admission.revoked'] as const;
+type Detail = Partial<Record<'service_key'|'purpose'|'profile'|'environment'|'from_state'|'to_state'|'credential_version'|'module_release_ref',string|number>>;
 /** Call on the domain transaction's client. Never pass request objects here. */
 export async function recordControlEvent(q:PoolClient,input:{tenantId:string;instanceId?:string|null;kind:typeof CONTROL_EVENT_KINDS[number];subjectId:string;detail:Detail;actorKind:'person'|'platform_admin'|'system';actorId:string}):Promise<void>{
-  const allowed=['purpose','profile','environment','from_state','to_state','credential_version','module_release_ref'];
+  const allowed=['service_key','purpose','profile','environment','from_state','to_state','credential_version','module_release_ref'];
   let detail:string;
   try {
     if(!CONTROL_EVENT_KINDS.includes(input.kind)||!input.detail||typeof input.detail!=='object'||Array.isArray(input.detail)||Object.entries(input.detail).some(([key,value])=>

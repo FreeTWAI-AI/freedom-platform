@@ -133,11 +133,18 @@ export function normalizeMobile(raw: unknown): FieldValidationResult<string> {
   return { ok: true, value: s };
 }
 
+// Same rule as ECPay's assertHomeAddress: a lone UTF-16 surrogate is malformed text.
+const LONE_SURROGATE_PATTERN = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
 function cleanAddressText(raw: unknown): FieldValidationResult<string> {
   if (raw === undefined || raw === null) {
     return { ok: false, code: 'required' };
   }
   if (typeof raw !== 'string') {
+    return { ok: false, code: 'format' };
+  }
+  // Checked on the raw text, so removing a control character cannot join two halves into a pair.
+  if (LONE_SURROGATE_PATTERN.test(raw)) {
     return { ok: false, code: 'format' };
   }
 

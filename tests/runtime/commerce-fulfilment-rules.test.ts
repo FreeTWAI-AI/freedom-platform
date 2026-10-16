@@ -1223,6 +1223,19 @@ describe('7. Recipient and postal checks', () => {
       assert.equal(resCtrl.recipient.address, '一二三四五六七');
     }
 
+    // Lone UTF-16 surrogates are malformed (ECPay assertHomeAddress rejects them); a valid pair stays accepted
+    for (const address of ['一二三四五六七\uD800', '一二三四五六七\uDC00', '一二三四五\uD840\u0000\uDC00六七']) {
+      assert.deepEqual(validateHomeRecipient({ name: '王小明', mobile: '0912345678', postal_code: '100', address }), {
+        ok: false,
+        errors: [{ field: 'address', code: 'format' }],
+      });
+    }
+    const resPair = validateHomeRecipient({ name: '王小明', mobile: '0912345678', postal_code: '100', address: '一二三四五六\uD840\uDC00' });
+    assert.equal(resPair.ok, true);
+    if (resPair.ok) {
+      assert.equal(resPair.recipient.address, '一二三四五六\uD840\uDC00');
+    }
+
     // Home address CDN blocked terms and HTML forbidden characters (<>&)
     assert.deepEqual(
       validateHomeRecipient({

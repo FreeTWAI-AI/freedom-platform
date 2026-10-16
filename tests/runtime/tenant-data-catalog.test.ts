@@ -19,6 +19,7 @@ const admin = new Pool({ connectionString });
 const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 2 });
 const ENABLED = [
   'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
+  'commerce_ship_from_locations', 'commerce_logistics_services',
   'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_customers', 'commerce_checkout_contacts', 'commerce_exception_cases', 'commerce_order_access_grants',
   'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
   'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
@@ -628,7 +629,7 @@ test('browser commerce access devices belong to order/transaction dataset DC-09'
 
 
 test('hosted payment machine tables retain individual participant-ACL catalog rationales', async () => {
-  const tables = ['commerce_payment_attempts', 'commerce_hosted_payment_events', 'commerce_due_work', 'commerce_refunds', 'commerce_refund_lines', 'commerce_outbound_emails'];
+  const tables = ['commerce_payment_attempts', 'commerce_hosted_payment_events', 'commerce_due_work', 'commerce_refunds', 'commerce_refund_lines', 'commerce_outbound_emails', 'commerce_shipping_profile_versions', 'commerce_item_shipping_attributes'];
   for (const table of tables) {
     const location = TENANT_DATA_CATALOG.datasets.flatMap(dataset => dataset.physical_locations)
       .find((entry): entry is TableLocation => entry.kind === 'table' && entry.table === table);

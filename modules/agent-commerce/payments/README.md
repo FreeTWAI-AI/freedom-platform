@@ -353,3 +353,27 @@ no polling or payment/query action, even if a DTO incorrectly permits resume.
 See [seller routes](../checkout/README.md),
 [EC-SPEC-04 §7.2/§7.5](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md)
 and [EC-SPEC-03 §3.2](../../../docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md).
+
+## Logistics sub-types (M3 settings)
+
+[EC-SPEC-05 §2.2](../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md)
+adds one retained `commerce_logistics_services` row per account/service key. The
+account's `logistics` purpose owns all credentials; sub-types own no credentials.
+Multiple logistics purpose rows may be active for a store/environment (sandbox C2C
+and home use different merchants), while only one sub-type per service key may be
+active. Payment and invoice retain the existing one-active-purpose constraint.
+
+Under the store's `/provider-accounts/:account_id`, POST `/logistics-services`
+creates a draft; POST `/logistics-services/:service_key/suspend`, `/resume` and
+`/retire` change its state. Owner/admin authority, fresh verification with purpose
+`commerce.provider_account.write`, account `If-Match`, account revision bumps and
+control-event journaling use the existing account command. `accountView` lists
+non-retired sub-types in service-key order. There is no public activation command.
+
+`activateLogisticsService(q, { accountId, serviceKey, activationRef })` is an internal
+transaction function for wp05-activation, whose caller binds the stored tenant and
+owns the verification evidence. It locks tenant/account, logistics purpose, then
+sub-type; activates a draft purpose with the same reference before activating the
+draft sub-type; bumps the account and records system control events. It makes no
+provider call. Activation facts cannot be replaced. Resolution belongs exclusively
+to `fulfilment/settings/logistics.ts`; both purpose and sub-type must be active.

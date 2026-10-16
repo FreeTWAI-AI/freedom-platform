@@ -1,3 +1,4 @@
+import * as shipping from '../../contracts/guild-launchpad/v1/hosted-shipping.js';
 import * as commerceSetup from '../../contracts/guild-launchpad/v1/hosted-commerce-setup.js';
 import * as sellerCheckout from '../../contracts/guild-launchpad/v1/hosted-seller-checkout.js';
 import * as checkout from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
@@ -167,6 +168,30 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['summary', supplierConsole.SupplierSummarySchema, 'output', ['one_business_per_read', 'store_write_required_for_counts', 'unavailable_is_not_zero']],
   ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
+  ['hosted-shipping', 'Immutable hosted shipping settings. Identity, ownership, capability, availability and version checks remain server authority.', [
+    ['logistics-service-key', shipping.LogisticsServiceKeySchema, 'output', []],
+    ['delivery-method', shipping.DeliveryMethodSchema, 'output', []],
+    ['shipping-empty-input', shipping.ShippingEmptyInputSchema, 'output', []],
+    ['ship-from-location-input', shipping.ShipFromLocationInputSchema, 'output', []],
+    ['ship-from-location', shipping.ShipFromLocationSchema, 'output', []],
+    ['ship-from-location-page', shipping.ShipFromLocationPageSchema, 'output', []],
+    ['ship-from-location-retire-input', shipping.ShipFromLocationRetireInputSchema, 'output', []],
+    ['parcel-limits', shipping.ParcelLimitsSchema, 'output', []],
+    ['profile-service', shipping.ProfileServiceSchema, 'output', []],
+    ['delivery-option', shipping.DeliveryOptionSchema, 'output', []],
+    ['drop-ship-fee', shipping.DropShipFeeSchema, 'output', []],
+    ['drop-ship', shipping.DropShipSchema, 'output', []],
+    ['shipping-profile-document', shipping.ShippingProfileDocumentSchema, 'output', []],
+    ['shipping-profile-input', shipping.ShippingProfileInputSchema, 'output', []],
+    ['logistics-availability', shipping.LogisticsAvailabilitySchema, 'output', []],
+    ['shipping-profile-view', shipping.ShippingProfileViewSchema, 'output', []],
+    ['item-shipping-attributes-input', shipping.ItemShippingAttributesInputSchema, 'output', []],
+    ['item-shipping-attributes', shipping.ItemShippingAttributesSchema, 'output', []],
+    ['shipping-field-error-code', shipping.ShippingFieldErrorCodeSchema, 'output', []],
+    ['shipping-field-error', shipping.ShippingFieldErrorSchema, 'output', []],
+    ['shipping-error-code', shipping.ShippingErrorCodeSchema, 'output', []],
+    ['shipping-error', shipping.ShippingErrorSchema, 'output', []],
+  ]],
   ['hosted-store-media', 'Independent hosted store media candidate. No upload or read route is installed; Asset identity and current authorization stay server-only.', [
     ['product-media', hostedMedia.ProductMediaViewSchema, 'output', ['exact_product_version_path', 'current_same_instance_store_read', 'authorized_ready_photo_representation']],
     ['product-media-page', hostedMedia.ProductMediaPageSchema, 'output', ['unique_product_ids', 'current_same_instance_store_read']],
@@ -223,6 +248,7 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['store-release', commerceSetup.StoreReleaseSchema, 'output', ['current_instance_release_and_authority']],
     ['provider-account-create-input', commerceSetup.ProviderAccountCreateInputSchema, 'input', ['fresh_auth_required','host_provider_environment']],
     ['provider-service-put-input', commerceSetup.ProviderServicePutInputSchema, 'input', ['purpose_profile_pair','credential_fields_never_persisted']],
+    ['logistics-service-create-input', commerceSetup.LogisticsServiceCreateInputSchema, 'input', ['fresh_auth_required','account_version_cas']],
     ['provider-service-state-input', commerceSetup.ProviderServiceStateInputSchema, 'input', ['fresh_auth_required']],
     ['payment-activation', commerceSetup.PaymentActivationSchema, 'output', []],
     ['provider-activation-payment-input', commerceSetup.ProviderActivationPaymentInputSchema, 'input', ['fresh_auth_required','account_version_cas']],

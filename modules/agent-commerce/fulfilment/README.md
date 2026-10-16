@@ -1,6 +1,6 @@
 # Freedom Commerce Fulfilment (`commerce-fulfilment`)
 
-This module provides the pure, I/O-free domain rule functions for Freedom Commerce fulfilment and logistics planning, following EC-SPEC-05 §1.1, §2.2–§2.6, §3.1–§3.5, §5.1, §6.3, and §6.4.
+This module provides the shipping settings layer and pure, I/O-free domain rule functions for Freedom Commerce fulfilment and logistics planning, following EC-SPEC-05 §1.1, §2.2–§2.6, §3.1–§3.5, §5.1, §6.3, and §6.4.
 
 ## Scope & Status
 
@@ -14,8 +14,8 @@ This module provides the pure, I/O-free domain rule functions for Freedom Commer
 - `commerce-providers`: Imports the public export `findCdnBlockedTerm` from `ecpay/index.ts` for CDN blocked term checks on recipient names and addresses.
 
 ### What does not yet exist (deferred to future fulfilment domain milestone)
-- Database tables and migrations (e.g. `commerce_ship_from_locations`, `commerce_shipping_profile_versions`, `commerce_item_shipping_attributes`, `commerce_fulfilment_agreements`, `commerce_fulfilment_orders`, `commerce_fulfilment_recipients`, `commerce_cvs_selection_sessions`, `commerce_shipments`, `commerce_logistics_operations`, `commerce_logistics_events`).
-- HTTP routes and provider callbacks (carrier callbacks, store checkout CVS map selection, printing endpoints).
+- Shipment and agreement tables and migrations (e.g. `commerce_fulfilment_agreements`, `commerce_fulfilment_orders`, `commerce_fulfilment_recipients`, `commerce_cvs_selection_sessions`, `commerce_shipments`, `commerce_logistics_operations`, `commerce_logistics_events`).
+- Shipment HTTP routes and provider callbacks (carrier callbacks, store checkout CVS map selection, printing endpoints).
 - ECPay API integrations (MD5 CheckMacValue generation, `Express/Create`, `Express/map`, `QueryLogisticsTradeInfo/V5`, label printing forms).
 - Exception case lifecycle and outbox workers (`commerce_exception_cases`, outbox operation dispatcher).
 - Reverse logistics, cold chain (chilled/frozen), and Cash on Delivery (COD).
@@ -99,7 +99,7 @@ All text fields are normalized using Unicode NFKC.
 - Names: Must contain only Han ideographs and Latin alphabet characters (no digits, spaces, symbols, emoji, or dots). Han characters count as weight 2 (per code point, including surrogate pairs like `𠮷`), ASCII letters count as weight 1. Valid total weight is 4 to 10. After length and weight checks pass, names are checked against ECPay's CDN blocked terms (`findCdnBlockedTerm`); if matched (e.g. `Echo`, `ECHO`, `Tftp`), validation returns `blocked_term` so the buyer can provide an acceptable name (e.g. Chinese real name on ID card) before the request is rejected by ECPay's CDN. Order of checks: required -> format -> too_short/too_long -> blocked_term.
 - Mobile numbers: Must be a valid Taiwan mobile number matching `^09[0-9]{8}$`. Numbers in international format `+8869xxxxxxxx` are normalized to `09xxxxxxxx`.
 - **C2 Mobile Rule**: Convenience store pickup strictly requires a mobile number for SMS pickup notifications [8809]. Home delivery in C2 also strictly requires a mobile number so couriers can coordinate delivery.
-- Addresses: Stripped of control characters (C0, DEL, C1) and whitespace runs collapsed. Checked for HTML characters: if the cleaned text contains `<`, `>`, or `&`, validation returns `format` (ECPay strictly forbids HTML in values; full-width `＆` normalizes to `&` under NFKC and is also rejected as `format`; format check precedes length checks). Must be 7 to 60 Unicode code points (<= 6 is `too_short`, > 60 is `too_long` per [7414]). After length checks pass, the cleaned address is checked against ECPay's CDN blocked terms (`findCdnBlockedTerm`; e.g. `cd/`, `echo`, `tftp`, `;`), returning `blocked_term` if any blocked term is found. Order of checks: required -> format (`<>&`) -> too_short/too_long -> blocked_term.
+- Addresses: Input containing a lone UTF-16 surrogate returns `format` before any cleaning (the same rule as ECPay's `assertHomeAddress`; valid surrogate pairs are accepted). Stripped of control characters (C0, DEL, C1) and whitespace runs collapsed. Checked for HTML characters: if the cleaned text contains `<`, `>`, or `&`, validation returns `format` (ECPay strictly forbids HTML in values; full-width `＆` normalizes to `&` under NFKC and is also rejected as `format`; format check precedes length checks). Must be 7 to 60 Unicode code points (<= 6 is `too_short`, > 60 is `too_long` per [7414]). After length checks pass, the cleaned address is checked against ECPay's CDN blocked terms (`findCdnBlockedTerm`; e.g. `cd/`, `echo`, `tftp`, `;`), returning `blocked_term` if any blocked term is found. Order of checks: required -> format (lone surrogate, then `<>&`) -> too_short/too_long -> blocked_term.
 - Postal prefixes: Must be 3, 5, or 6 digits, with the first 3 digits matching an official Taiwan postal prefix.
 - `blocked_term`: Added to `RecipientValidationCode`. Indicates the cleaned name or home address contains a command word or character blocked by ECPay's CDN. The buyer must rewrite it (for example, the English name `Echo` to the Chinese name on the ID card).
 
@@ -188,3 +188,63 @@ Applies untrusted carrier callbacks against the shipment's current state and act
   - `informational`: state unchanged, `change: 'none'`, `record_handover: false`, no exception, `daily_review: false`.
   - `ops_review` / `unmapped`: state unchanged, `change: 'none'`, `record_handover: false`, no exception, `daily_review: true`.
 - Immutability guarantee: Caller input `open_exception_kinds` is never frozen, modified, or retained in return structures.
+
+## Hosted shipping settings (M3)
+
+The settings layer implements [EC-SPEC-05 §2](../../../docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md)
+and the independent [store capabilities](../../../docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md).
+It performs no provider call, quote, logistics-order creation or email delivery.
+Migration 170 adds tenant-RLS `commerce_ship_from_locations` (personal data) and
+`commerce_logistics_services`, plus non-PII, participant-ACL exempt
+`commerce_shipping_profile_versions` and `commerce_item_shipping_attributes`.
+
+The console flag mounts these routes below `/api/v1/tenants/:tenant_id/storefronts/:instance_id`:
+
+| Routes | Capability in addition to `store:read` |
+| --- | --- |
+| GET `/ship-from-locations`, GET `/ship-from-locations/:location_id`, GET `/shipping-profile` | `store:manage` or `store:fulfil` |
+| POST `/ship-from-locations`, POST `/ship-from-locations/:location_id/retire`, PUT `/shipping-profile` | `store:manage` |
+| GET `/products/:product_id/shipping-attributes` | `store:read` |
+| PUT `/products/:product_id/shipping-attributes` | `store:write` |
+
+Writes require a live store and serialize on its instance row. They do not acquire
+an order advisory lock, spend a budget or stop in commerce quarantine. An item's
+attributes belong exclusively to its supply shop's confirmed tenant/instance;
+a retailer's selection of a supplied item grants no settings access.
+
+Every profile save appends the next integer version of `freedom.shipping-profile/v1`.
+Every attribute save appends the next version per item. The highest version is current.
+The first save permits absent `If-Match`; subsequent saves require the current quoted
+version. Missing versions answer 428; stale or premature versions answer 412.
+Responses carry the current version in `ETag`. Profile working days are sorted and
+its SHA-256 covers `canonicalJSON(document)`; service order retains preference order.
+
+Locations never change. Replacement creates a row linked by `replaces_location_id`,
+retires the previous row and, if referenced, appends one profile version replacing
+all sender/return references in the same transaction. Used roles must be preserved.
+A referenced location cannot retire independently. Twenty unretired locations are
+allowed per store. Sender validation uses `validateHomeRecipient` and retains its
+normalized fields. Over HTTP, the platform JSON guard rejects raw NUL and lone
+UTF-16 surrogates anywhere in a body with 422 `validation_failed`, before
+authentication; the shared command boundary repeats that rejection with 400
+`invalid_command_json` for any other caller. Other control characters in labels
+and addresses produce 422 `shipping_input_invalid` field errors. Command receipts contain only `{ id }`; fresh commands and
+replays project current rows within the same authorized transaction. No location
+personal data belongs in a receipt, log, Problem detail, control event or journal.
+
+Later quote work can rely on the current profile version and these functions:
+
+- `logisticsAvailability(q, { instanceId, environment })` supplies five states in
+  `SERVICE_KEYS` order and `profileServiceKeys`, the activated retained sub-types a
+  profile may list under a non-retired purpose row. Suspended services may remain configured.
+- `resolveLogisticsService(q, { instanceId, environment, serviceKey })` resolves an
+  account, sub-type and current purpose credential version only when both states
+  are active. This is the sole resolution policy; callers must not duplicate it.
+- `currentItemShippingAttributes(q, itemIds)` returns a map of latest rule-library
+  attributes, omitting items with no saved attributes.
+
+The route option fixes sandbox/live environment; requests cannot choose it.
+Fulfilment settings and the shipping route must never import payments or operations.
+They read provider tables with SQL and import only fulfilment rules, hosted/checkout,
+providers, packages, tenant HTTP helpers and contracts. Payments may import fulfilment;
+contracts never import module code. This preserves the descriptor dependency graph.
