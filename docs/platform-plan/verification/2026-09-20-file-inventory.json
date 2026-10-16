@@ -20944,8 +20944,8 @@
     },
     {
       "path": "tests/e2e/calm-experience.spec.ts",
-      "bytes": 21159,
-      "sha256": "25580d9887e03f85236d9e4c61277b0dfb18c16e5806841c2e2bd3010ba69894"
+      "bytes": 21329,
+      "sha256": "b1a2e1c9f3b4a461e16f35e0378d6eb19a5620e2f3378b798402b1bc370e6c1f"
     },
     {
       "path": "tests/e2e/campaign-draft-newlines.spec.ts",
