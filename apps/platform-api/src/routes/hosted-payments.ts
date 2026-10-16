@@ -15,6 +15,7 @@ import { servePaymentHandoff } from '../../../../modules/agent-commerce/payments
 import { HANDOFF_SCRIPT, HANDOFF_CSS, handoffErrorPage } from '../../../../modules/agent-commerce/payments/handoff-page.js';
 export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, environment: FreedomEnv) {
   const app = new Hono();
+  const returnUnavailable = '暫時無法確認付款結果，請稍後到訂單頁查看。';
   app.onError((error, c) => {
     if (c.req.path.startsWith('/api/v1/provider-callbacks/ecpay/')) {
       if (error instanceof Problem && error.status === 429) {
@@ -26,7 +27,7 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     }
     if (c.req.path.startsWith('/pay/ecpay/return/')) {
       console.error('commerce_payment_return_failed');
-      return c.text('0|error', 500);
+      return c.html(handoffErrorPage(returnUnavailable), 500);
     }
     console.error('commerce_handoff_failed');
     return c.html(handoffErrorPage('付款服務暫時無法使用。'), 503);
@@ -67,7 +68,7 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
   app.post('/pay/ecpay/return/:account_ref', async (c) => {
     const body = await readProviderForm(c.req.raw);
     if (!body)
-      return c.text('0|invalid', 400);
+      return c.redirect('/', 303);
     const allowed = await tryChargeCommerceBudget(pool, 'paymentReturnNetwork', (runtime.rateLimitNetwork ?? runtime.sourceNetwork)(c));
     const account = await resolvePaymentAccount(pool, c.req.param('account_ref'));
     if (!account)
@@ -77,7 +78,7 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
       credentials = await paymentVerificationKeys(pool, account, runtime.commerceCredentialKeyring ?? null);
     }
     catch {
-      return c.text('0|unavailable', 503);
+      return c.html(handoffErrorPage(returnUnavailable), 503);
     }
     const message = parsePaymentBrowserReturn(body, credentials.map(c => c.keys), { merchantId: account.merchant_id });
     if (message.kind === 'invalid')
@@ -86,8 +87,12 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (!attempt)
       return c.redirect('/', 303);
     if (allowed && !runtime.commerceSettings?.quarantine) {
-      const scheduleQuery = await tryChargeCommerceBudget(pool, 'paymentReturnQuery', attempt.attempt_id);
-      await recordPaymentBrowserReturn(pool, { account, attemptId: attempt.attempt_id, merchantTradeNo: message.merchantTradeNo, credentialVersion: version, body, scheduleQuery });
+      try {
+        const scheduleQuery = await tryChargeCommerceBudget(pool, 'paymentReturnQuery', attempt.attempt_id);
+        await recordPaymentBrowserReturn(pool, { account, attemptId: attempt.attempt_id, merchantTradeNo: message.merchantTradeNo, credentialVersion: version, body, scheduleQuery });
+      } catch {
+        console.error('payment_browser_return_record_failed');
+      }
     }
     return c.redirect(attempt.kind === 'order' ? `/shops/${attempt.slug}/payment-return/${attempt.attempt_id}` : '/', 303);
   });

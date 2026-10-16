@@ -27,6 +27,9 @@ export function recordPaymentBrowserReturn(pool: Pool, input: {
     const a = input.account;
     await clearTenantContext(q);
     await bindStore(q, a.tenant_id);
+    // Take the attempt before due work, as the notification path does. The
+    // deferred inbox FK must not acquire this lock for the first time at commit.
+    await q.query('SELECT 1 FROM commerce_payment_attempts WHERE attempt_id=$1 FOR KEY SHARE', [input.attemptId]);
     await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,merchant_trade_no,credential_version,body_sha256,received_at,applied_at)
       SELECT $1,$2,$3,$4,'browser_return','returned',$5,$6,$7,t,t FROM (SELECT clock_timestamp() t) n`, [a.tenant_id, a.instance_id, a.account_id, input.attemptId, input.merchantTradeNo, input.credentialVersion, createHash('sha256').update(input.body).digest('hex')]);
     if (input.scheduleQuery)

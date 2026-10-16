@@ -6,8 +6,9 @@ import type { PoolClient } from 'pg';
 import { hostedPaymentHarness } from '../e2e/hosted-payment-fixture.js';
 import { EcpayKeyPair, encodeForm, signFields, newTradeNumber } from '../../modules/agent-commerce/providers/ecpay/index.js';
 import { sealCredential } from '../../modules/agent-commerce/payments/credentials.js';
-import { bindStore } from '../../modules/agent-commerce/checkout/authority.js';
-import { cancelUnpaidOrder } from '../../modules/agent-commerce/checkout/orders.js';
+import { bindStore, lockMachineOrder } from '../../modules/agent-commerce/checkout/authority.js';
+import { cancelUnpaidOrder, lockCheckoutOrders } from '../../modules/agent-commerce/checkout/orders.js';
+import { scheduleDueWork } from '../../modules/agent-commerce/operations/due-work.js';
 import { settleDueCheckoutHolds } from '../../modules/agent-commerce/checkout/settlement.js';
 import { isCommerceProviderEntry } from '../../modules/agent-commerce/operations/provider-entry-paths.js';
 import { COMMERCE_LIMITS } from '../../modules/agent-commerce/checkout/limits.js';
@@ -551,14 +552,14 @@ test('quarantine return verifies and redirects while leaving the inbox, order an
   assert.deepEqual(await facts(p), before);
   assert.deepEqual((await f.x.h.pool.query('SELECT * FROM commerce_due_work ORDER BY kind')).rows, due);
 });
-test('return body rules share the streamed cap and parser; malformed forms remain 400', async () => {
+test('review 1: malformed browser-return forms redirect to root without data', async () => {
   const p = await f.placed(), value = await body(p);
   for (const invalid of [value + '&MerchantID=1234567', value + '&bad-name=x', 'x=' + 'a'.repeat(16384)]) {
     const r = await post(returnPath(p), invalid);
-    assert.equal(r.status, 400);
-    assert.equal(r.text, '0|invalid');
+    assert.equal(r.status, 303);
+    assert.equal(r.response.headers.get('Location'), '/');
   }
-  assert.equal((await post(returnPath(p), value, { 'Content-Type': 'application/json' })).status, 400);
+  assert.equal((await post(returnPath(p), value, { 'Content-Type': 'application/json' })).status, 303);
   assert.equal(await count('commerce_hosted_payment_events'), 0);
 });
 test('activation return redirects to root and does not activate its service', async () => {
@@ -667,4 +668,102 @@ test('concurrent deferred replays apply a verified paid event once', async () =>
   const counts = await Promise.all([applyDeferredPaymentEvents(f.x.runtime, { limit: 200 }), applyDeferredPaymentEvents(f.x.runtime, { limit: 200 })]);
   assert.equal(counts.reduce((a, b) => a + b), 1);
   assert.equal((await facts(p)).applications.length, 1);
+});
+
+test('review 1: browser return locks its attempt before due work without a payment deadlock', async () => {
+  const p = await f.placed(), value = await body(p), locked = signal(), release = signal();
+  let pid = 0;
+  const transaction = f.x.tx(async q => {
+    pid = (await q.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await bindStore(q, p.s.tenantId);
+    await lockMachineOrder(q, p.order.order_ref);
+    await lockCheckoutOrders(q, [p.order.order_ref], undefined, p.payment.attempt_ref);
+    locked.resolve();
+    await release.promise;
+    await scheduleDueWork(q, { tenantId: p.s.tenantId, instanceId: p.s.instanceId,
+      kind: 'payment_query', targetId: p.payment.attempt_ref, dueAt: new Date() });
+  }).then(() => null, error => error as Error & { code?: string });
+  let returned: ReturnType<typeof post> | undefined;
+  try {
+    await locked.promise;
+    returned = post(returnPath(p), value);
+    const deadline = Date.now() + 15000;
+    let blocked = false;
+    while (Date.now() < deadline) {
+      if ((await f.x.h.pool.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND state='active' AND $1=ANY(pg_blocking_pids(pid))", [pid])).rowCount) {
+        blocked = true;
+        break;
+      }
+    }
+    assert(blocked, 'return never reached the real attempt lock barrier');
+    release.resolve();
+    const [failure, response] = await Promise.all([transaction, returned]);
+    assert.equal(failure?.code ?? null, null, 'notification-side transaction must not deadlock');
+    assert.equal(response.status, 303, response.text);
+    assert.equal(response.response.headers.get('Location'), `/shops/${p.s.slug}/payment-return/${p.payment.attempt_ref}`);
+    assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_hosted_payment_events WHERE source='browser_return' AND attempt_id=$1", [p.payment.attempt_ref])).rows[0].n, 1);
+    assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1", [p.payment.attempt_ref])).rows[0].n, 1);
+  } finally {
+    release.resolve();
+    await transaction;
+    await returned;
+  }
+});
+
+for (const failure of ['query_budget', 'record'] as const)
+  test(`review 1: ${failure} failure after resolving a browser return preserves the order redirect`, async () => {
+    const p = await f.placed(), value = await body(p), connect = f.x.runtime.connect;
+    const errors: unknown[][] = [], log = console.error;
+    f.x.runtime.connect = (async () => {
+      const q = await (connect as () => Promise<PoolClient>).call(f.x.runtime), query = q.query, release = q.release;
+      q.query = (async (...args: unknown[]) => {
+        const sql = String(args[0]);
+        if (failure === 'record' && sql.startsWith('INSERT INTO commerce_hosted_payment_events')
+          || failure === 'query_budget' && sql.includes('auth_rate_limits') && (args[1] as string[] | undefined)?.some(v => String(v).includes('commerce:paymentReturnQuery:')))
+          throw Error('synthetic_browser_hint_failure');
+        return (query as Function).apply(q, args);
+      }) as typeof q.query;
+      q.release = (error?: Error | boolean) => { q.query = query; q.release = release; release.call(q, error); };
+      return q;
+    }) as typeof f.x.runtime.connect;
+    console.error = (...args: unknown[]) => { errors.push(args); };
+    try {
+      const result = await post(returnPath(p), value);
+      assert.equal(result.status, 303, result.text);
+      assert.equal(result.response.headers.get('Location'), `/shops/${p.s.slug}/payment-return/${p.payment.attempt_ref}`);
+      assert(errors.some(row => row.length === 1 && row[0] === 'payment_browser_return_record_failed'));
+      assert.equal(await count('commerce_hosted_payment_events'), 0);
+    } finally {
+      f.x.runtime.connect = connect;
+      console.error = log;
+    }
+  });
+
+test('review 1: missing browser-return keyring serves an HTML result-unavailable page', async () => {
+  const p = await f.placed(), value = await body(p);
+  f.install({ commerceCredentialKeyring: null });
+  const result = await post(returnPath(p), value);
+  assert.equal(result.status, 503);
+  assert.match(result.response.headers.get('Content-Type')!, /^text\/html/);
+  assert.match(result.text, /暫時無法確認付款結果，請稍後到訂單頁查看。/);
+});
+
+test('review 1: unexpected pre-resolution return failure serves HTML rather than machine text', async () => {
+  const p = await f.placed(), value = await body(p), connect = f.x.runtime.connect;
+  f.x.runtime.connect = (async () => {
+    const q = await (connect as () => Promise<PoolClient>).call(f.x.runtime), query = q.query, release = q.release;
+    q.query = (async (...args: unknown[]) => {
+      if (String(args[0]).includes('SELECT tenant_id,instance_id,target_id AS account_id'))
+        throw Error('synthetic_browser_resolution_failure');
+      return (query as Function).apply(q, args);
+    }) as typeof q.query;
+    q.release = (error?: Error | boolean) => { q.query = query; q.release = release; release.call(q, error); };
+    return q;
+  }) as typeof f.x.runtime.connect;
+  try {
+    const result = await post(returnPath(p), value);
+    assert.equal(result.status, 500);
+    assert.match(result.response.headers.get('Content-Type')!, /^text\/html/);
+    assert.match(result.text, /暫時無法確認付款結果，請稍後到訂單頁查看。/);
+  } finally { f.x.runtime.connect = connect; }
 });
