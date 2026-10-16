@@ -361,6 +361,13 @@ No deployment, remote key installation or authenticator-device acceptance is imp
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
   return 404. No authenticated access to people until 完成加入（選定主要公會）.
   私人名片、目錄、好友目錄與推薦在最後一個 domain query 後重驗目前 session；SQL 等待跨過 `expires_at` 時回 `401 session_expired`，不回傳私人聯絡資訊。
+  `memberCards` 也在投影前（包括零筆結果）沿用 `assertInteractionMember` 重驗觀看者
+  目前的 active／加入資格，不信任入站 middleware 留下的 ready Actor。user row 鎖等待
+  期間若已提交加入資格重設，名片、目錄、好友與推薦均回 `403 onboarding_required`，
+  不回 contacts、items 或 total；原 session 期限檢查仍獨立存在。原本不要求 onboarding
+  的會員仍依既有 predicate 可讀；允許未完成加入者使用的帳號／加入流程未改。
+  原生 HTTP 回歸用真 user row lock 覆蓋各 consumer 的非空／空結果與有效控制；
+  這不是把加入限制塞進通用 `readWithMemberSession`，公開 opt-in 名片也未改。
 - `GET /friends/directory?scope=accepted|incoming|outgoing&search=&limit=20&offset=0`:
   `{items,total,next_offset}` with the same privacy-filtered member cards. Scope and
   search are applied before the bounded 1–50 row page; blocked or no-longer-visible
@@ -376,6 +383,8 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   accept/remove and renewed removed friendship need current version. Only the
   recipient can accept. Pending requests grant **no** contact access. Remove
   revokes access immediately. Repeat requests do not accept another's invitation.
+- `GET /members/presence?ids=<comma-separated UUIDs>`: up to 50 IDs;
+  `{items:[{user_id,last_seen_at,is_online}]}`, with a nullable last-seen timestamp.
 - `GET /squads?limit=20&offset=0`: `{items,next_offset,kinds}`. Items include
   `squad_id,name,kind,purpose,owner_ref,owner_name,member_count,membership`.
   Membership is null or `{state,aggregate_version}` for the current user.
@@ -385,6 +394,14 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   first active member. The portal opens member search immediately after creation;
   the owner can also use the directory card's 邀請夥伴 action. Invitations retain
   recipient consent and grant no membership or contact access before acceptance.
+- `GET /me/squad-invitations`: recipient-only `{items,next_offset}` with
+  `state=pending|all`, `limit` 1–50 and bounded `offset`. Like the outgoing
+  owner-only invitation list, it reads through `readWithMemberSession`:
+  active user and current session locks, onboarding and domain queries on
+  the same transaction client, then a final SQL wall-clock session check.
+  A domain wait crossing session expiry returns `401 session_expired`,
+  without private invitation rows or an empty-list success. Existing owner
+  eligibility, community filters, visibility and pagination remain unchanged.
 - `GET /squads/:id`: squad plus `members` with `user_id,nickname,state,
   aggregate_version`. Pending members visible only to themselves and owner.
 - `POST /squads/:id/request`: `{}` requests admission; no immediate group access.
@@ -423,6 +440,15 @@ After cutover, the former owner has ordinary member visibility, outbound history
 requires the current owner, and disbanded detail is 404. The session clock is
 rechecked after the last query before commit; this is not a guarantee during
 response transport or a single MVCC snapshot for every roster fact.
+
+Private presence, squad lists and squad detail recheck the viewer's current
+active/onboarding qualification with `assertInteractionMember` inside that
+member-session transaction, before any projection or empty-result return. If a
+user-row wait ends after an onboarding reset commits, they return
+`403 onboarding_required` without presence, squad, roster, items or kinds.
+Legacy members with `onboarding_required=false` retain their existing access.
+This does not add onboarding restrictions to the generic session helper or
+the account/onboarding flows that intentionally allow unfinished membership.
 
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.
