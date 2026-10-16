@@ -369,8 +369,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 63396,
-      "sha256": "b49ee575d0a8fc4d019778860827d660b5996db32741a955e177b4f2aaefca68"
+      "bytes": 63474,
+      "sha256": "8ff8386cadc78846907c5e3fecb7f567b7c02650b045a4c9be4d5bdc499aa356"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -13229,8 +13229,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 16575,
-      "sha256": "bbe7c17d4cc93985e1289ece7b9d8af3f3920f36cce49d2fdd9029f36dcd458c"
+      "bytes": 17209,
+      "sha256": "f49817274e30650efd6692187a067670355f83c955f62706ca60bd911d8b8bf4"
     },
     {
       "path": "deploy/cloudflare/broker-preflight.mjs",
@@ -17414,8 +17414,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/admissions.ts",
-      "bytes": 6809,
-      "sha256": "cbe05413bf812e5652ea9a4a5e46b096494945afdd3ae757b70615f19aa3fb61"
+      "bytes": 7042,
+      "sha256": "291e7e31150381c0af41f790a51ef22996b593a8b157210b4bc04cb6e6995a86"
     },
     {
       "path": "modules/agent-commerce/operations/control-events.ts",
@@ -17449,8 +17449,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/README.md",
-      "bytes": 11537,
-      "sha256": "843c285e2b054921db6daae8964d4812b6db6a1520138f3a00ad7cbfab131557"
+      "bytes": 11738,
+      "sha256": "981d31363f3b76866e9ff549b610f66230eb78b1f45ef3bf1aa67b04c72ff39e"
     },
     {
       "path": "modules/agent-commerce/payments/accounts.ts",
@@ -20899,8 +20899,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 16713,
-      "sha256": "0042fdac9a7e52cf29762020d94083dce8ad18a7f41756e664ffb0a9844959ab"
+      "bytes": 16642,
+      "sha256": "5ae591fa0c97a4e213d7416558a12f4dc986dde426fd030242368aecbf845443"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -22524,8 +22524,8 @@
     },
     {
       "path": "tests/runtime/commerce-store-admissions.test.ts",
-      "bytes": 7952,
-      "sha256": "94e405582426bbb701c68093d6855a9f2abbc15c7840ae26804fc4cce4d40195"
+      "bytes": 8560,
+      "sha256": "d2f6e6a81f3870c65ee9c5edc0db7b49d3ff83ac5229f8c68ef78c3c23a90b48"
     },
     {
       "path": "tests/runtime/commerce.test.ts",

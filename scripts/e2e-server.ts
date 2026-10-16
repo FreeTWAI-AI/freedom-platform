@@ -38,7 +38,6 @@ const linkPreviewFetch=(input:string)=>{
 // Dedicated schema; browser tests never reset the user's local demo records.
 const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
 const port=e2ePort(),origin=e2eOrigin();
-CommerceCredentialKeyring.parse(process.env.COMMERCE_CREDENTIAL_KEYS);
 const commerceCredentialKeyring=CommerceCredentialKeyring.parse('e2e:'+randomBytes(32).toString('base64'));
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const admin=createPool(url);admin.on('error',()=>{});await admin.query(`CREATE SCHEMA ${schema}`);
