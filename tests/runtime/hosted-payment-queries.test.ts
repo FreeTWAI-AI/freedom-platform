@@ -262,6 +262,21 @@ describe('payment query engine',()=>{
     const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{calls++;throw Error('must_not_call');},{keyring:ring}),'buyer');
     assert.equal(result.status,'credential_unavailable');assert.equal(calls,0);const current=await facts(p);assert.equal(current.due.failure_count,1);assert.equal(current.due.last_error,'credential_unavailable');assert.equal(current.events.length,0);
   });
+  test('an overlapping 403 preserves a longer throttle on a retired payment service',async()=>{
+    const p=await handed(await f.placed()),now=new Date(),longer=new Date(now.getTime()+40*60_000);
+    await f.x.h.pool.query("UPDATE commerce_provider_account_services SET state='retired',version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'",[p.provider.accountId]);
+    await f.x.h.pool.query("UPDATE commerce_due_work SET failure_count=2 WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref]);
+    const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{
+      // Another in-flight query can commit a later throttle after this lease.
+      await f.x.h.pool.query("UPDATE commerce_provider_account_services SET throttled_until=$2,version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'",[p.provider.accountId,longer]);
+      return {kind:'response',status:403,body:''};
+    },{now:()=>now}),'buyer');
+    assert.equal(result.status,'http_403');assert.equal(result.externalCalls,1);
+    const a=await facts(p);assert.equal(a.due.failure_count,2);assert.equal(a.due.last_error,'http_403');
+    assert.equal(a.due.due_at.getTime(),longer.getTime());assert.equal(a.due.lease_until,null);assert.equal(a.events.length,0);
+    const service=(await f.x.h.pool.query("SELECT * FROM commerce_provider_account_services WHERE account_id=$1 AND purpose='payment'",[p.provider.accountId])).rows[0];
+    assert.equal(service.state,'retired');assert.equal(service.throttled_until.getTime(),longer.getTime());
+  });
   test('an inactive instance refuses machine queries without an HTTP error or external call',async()=>{
     const p=await handed(await f.placed());await f.x.h.pool.query("UPDATE module_instances SET status='suspended' WHERE instance_id=$1",[p.s.instanceId]);
     const result=await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>{throw Error('must_not_call');}),'schedule');assert.equal(result.status,'tenant_inactive');assert.equal(result.externalCalls,0);assert.equal((await facts(p)).due.last_error,'tenant_inactive');

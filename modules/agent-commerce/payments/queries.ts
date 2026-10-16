@@ -123,7 +123,8 @@ export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryD
     else if(response.status===403) {
       error='http_403';
       await q.query(`UPDATE commerce_provider_account_services SET throttled_until=GREATEST(coalesce(throttled_until,$2),$2::timestamptz+interval '30 minutes'),
-        version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'`,[a.account_id,now]);
+        version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'
+        AND (throttled_until IS NULL OR throttled_until<$2::timestamptz+interval '30 minutes')`,[a.account_id,now]);
     } else if(response.status!==200)error='http_status';
     else {
       result=parseTradeInfoResponse(response.body,lease.verification.map(c=>c.keys),{merchantId:a.merchant_id,
