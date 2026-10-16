@@ -639,8 +639,14 @@ for (const scenario of ['replay points', 'new INSERT', 'expired owner conflict',
   });
 }
 
-for (const expires of [true, false]) {
-  test(`promotion event share-code INSERT ${expires ? 'rolls back after session expiry' : 'commits once for a live session'}`, async () => {
+for (const { entry, expires, existing } of [
+  { entry: 'promotion', expires: true, existing: false },
+  { entry: 'promotion', expires: false, existing: false },
+  { entry: 'direct', expires: true, existing: false },
+  { entry: 'direct', expires: false, existing: false },
+  { entry: 'direct', expires: true, existing: true },
+] as const) {
+  test(`${entry} event share-code INSERT ${existing ? 'does not disclose an existing code after session expiry' : expires ? 'rolls back after session expiry' : 'commits once for a live session'}`, async () => {
     let httpApp = app;
     const server = serve({ hostname: '127.0.0.1', port: 0, fetch: request => httpApp.fetch(request) });
     const holder = await pool.connect();
@@ -659,10 +665,16 @@ for (const expires of [true, false]) {
       const hash = tokenHash(cookie.split('=')[1]);
       const eventId = randomUUID();
       await eventRow(eventId, user.user_id, 'open', 'Session-bound event sharing', 'Event share-code creation must roll back with its promotion link.');
-      const post = () => fetch(`${httpOrigin}/api/v1/promotion/links`, {
+      const post = () => fetch(`${httpOrigin}/api/v1/${entry === 'promotion' ? 'promotion/links' : `events/${eventId}/share-code`}`, {
         method: 'POST', headers: { Origin: httpOrigin, Cookie: cookie, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
-        body: JSON.stringify({ kind: 'event', target: eventId }),
+        body: JSON.stringify(entry === 'promotion' ? { kind: 'event', target: eventId } : {}),
       });
+      let originalCode: string | undefined;
+      if (existing) {
+        const initial = await post();
+        assert.equal(initial.status, 200);
+        originalCode = z.object({ code: z.string() }).parse(await initial.json()).code;
+      }
       await holder.query('BEGIN');
       // SHARE allows the target reads but holds the actual share-code INSERT.
       await holder.query('LOCK TABLE community_event_share_codes IN SHARE MODE');
@@ -679,9 +691,10 @@ for (const expires of [true, false]) {
         if (waiting) break;
         await yieldToHttp();
       }
-      assert.ok(waiting, 'event promotion must reach the share-code INSERT behind the owned blocker');
+      assert.ok(waiting, 'event sharing must reach the share-code INSERT behind the owned blocker');
       assert.equal((await holder.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1', [hash])).rows[0].live, true);
       if (expires) {
+        // PostgreSQL's session deadline cannot be advanced by JavaScript fake timers.
         await holder.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM expires_at-clock_timestamp()))+0.05) FROM sessions WHERE token_hash=$1', [hash]);
         assert.equal((await holder.query('SELECT expires_at<=clock_timestamp() AS expired FROM sessions WHERE token_hash=$1', [hash])).rows[0].expired, true);
       }
@@ -702,7 +715,8 @@ for (const expires of [true, false]) {
         (SELECT count(*)::int FROM community_event_share_codes WHERE event_id=$1 AND user_id=$2) AS event_codes,
         (SELECT count(*)::int FROM promotion_links WHERE kind='event' AND target_key=$1::text AND user_id=$2) AS promotion_links`,
       [eventId, user.user_id])).rows[0];
-      assert.deepEqual(persisted, { event_codes: expires ? 0 : 1, promotion_links: expires ? 0 : 1 });
+      assert.deepEqual(persisted, { event_codes: existing || !expires ? 1 : 0, promotion_links: entry === 'promotion' && !expires ? 1 : 0 });
+      if (existing) assert.equal((await pool.query('SELECT code FROM community_event_share_codes WHERE event_id=$1 AND user_id=$2', [eventId, user.user_id])).rows[0].code, originalCode);
     } finally {
       let rollbackError: unknown;
       try { await holder.query('ROLLBACK'); } catch (error) { rollbackError = error; }

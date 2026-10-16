@@ -136,12 +136,12 @@ test('a private event detail is denied when its projection wait outlives the own
  const owner=await signIn();
  const created=await request('/events',owner,draft());assert.equal(created.status,201,JSON.stringify(created.data));
  const id=created.data.event_id as string;
- await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
  try{
   await blocker.query('BEGIN');
   const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
   pending=request(`/events/${id}`,owner);
   let waiting=false;
   for(let attempt=0;attempt<200;attempt++){
@@ -160,12 +160,12 @@ test('a private event detail is denied when its projection wait outlives the own
 test('the private event list is denied when its projection wait outlives the owner session',async()=>{
  const owner=await signIn();
  const created=await request('/events',owner,draft());assert.equal(created.status,201,JSON.stringify(created.data));
- await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
  try{
   await blocker.query('BEGIN');
   const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
   pending=request('/events',owner);
   let waiting=false;
   for(let attempt=0;attempt<200;attempt++){
@@ -188,12 +188,12 @@ test('the organizer referral report is denied when its projection wait outlives 
  const id=created.data.event_id as string;
  assert.equal((await request(`/events/${id}/review`,master,{decision:'approve',reason:'符合公會活動安排。'},1)).status,200);
  assert.equal((await request(`/events/${id}/share-code`,owner,{})).status,200);
- await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
  try{
   await blocker.query('BEGIN');
   const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
   pending=request(`/events/${id}/referrals`,owner);
   let waiting=false;
   for(let attempt=0;attempt<200;attempt++){
@@ -215,12 +215,12 @@ test('the event bulletin list is denied when its projection wait outlives the ow
  const created=await request('/events',owner,{...draft(),guild_key:'guild_security'});assert.equal(created.status,201,JSON.stringify(created.data));
  const id=created.data.event_id as string;
  assert.equal((await request(`/events/${id}/review`,master,{decision:'approve',reason:'符合公會活動安排。'},1)).status,200);
- await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
  try{
   await blocker.query('BEGIN');
   const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   await blocker.query('LOCK TABLE community_event_bulletins IN ACCESS EXCLUSIVE MODE');
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
   pending=request('/events/bulletins',owner);
   let waiting=false;
   for(let attempt=0;attempt<200;attempt++){
@@ -243,12 +243,12 @@ test('a private event video is denied when its projection wait outlives the owne
  const mp4=Buffer.concat([Buffer.from([0,0,0,16]),Buffer.from('ftypisom'),Buffer.from('00000000')]);
  const video=await app.request(`${origin}/api/v1/events/${id}/video`,{method:'POST',headers:{Origin:origin,Cookie:owner.cookie,'X-CSRF-Token':owner.csrf,'Content-Type':'video/mp4','Idempotency-Key':randomUUID(),'If-Match':'"1"'},body:new Uint8Array(mp4)});
  assert.equal(video.status,200,await video.text());
- await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
  const blocker=await pool.connect();let pending:ReturnType<typeof app.request>|undefined;
  try{
   await blocker.query('BEGIN');
   const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   await blocker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()+interval \'1 second\' WHERE user_id=$1',[owner.user.user_id]);
   pending=app.request(`${origin}/api/v1/events/${id}/video`,{headers:{Cookie:owner.cookie}});
   let waiting=false;
   for(let attempt=0;attempt<200;attempt++){
