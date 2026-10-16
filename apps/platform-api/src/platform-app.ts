@@ -274,8 +274,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         checkTenantResultContentHeaders(c.req.header('Content-Length'));
       } else {
         requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
-        // Note creation may embed one base64 image (#387); every other JSON command keeps the small ceiling.
-        const jsonLimit=c.req.method==='POST'&&c.req.path==='/api/v1/social-posts/notes'?SOCIAL_NOTE_REQUEST_BYTES:32768;
+        // Notes may embed an image; preview wraps up to 24,000 UTF-8 bytes
+        // in {"content":""}, with at most six JSON escape bytes per input byte.
+        const jsonLimit=c.req.method==='POST'&&c.req.path==='/api/v1/social-posts/notes'?SOCIAL_NOTE_REQUEST_BYTES:
+          c.req.method==='POST'&&c.req.path==='/api/v1/commerce/preview'?6*24000+14:32768;
         requireCondition(Number(c.req.header('Content-Length')??0)<=jsonLimit,413,'body_too_large','內容過長。');
         if(c.req.raw.body) {
           let size=0;
