@@ -18013,6 +18013,16 @@
       "sha256": "fd9291de7764b1c1e13f33b2840daad07bd2aaa1f30684c01f1e2f972f73eaf9"
     },
     {
+      "path": "modules/agent-commerce/seller-console/README.md",
+      "bytes": 806,
+      "sha256": "31ccce86e6523a3cef8010c723c0f2ee5abb1d02a17fedc90c6b2a159007ab8b"
+    },
+    {
+      "path": "modules/agent-commerce/seller-console/freedom.module.json",
+      "bytes": 1147,
+      "sha256": "50686c1d22e81ffe07cc6b35f282dff09ed6b71e8dbe3ecacc0beafeb8daea33"
+    },
+    {
       "path": "modules/agent-commerce/storefront/README.md",
       "bytes": 1999,
       "sha256": "7b7bc1a6c41d57b349e14fa1ea51979b12afb21672a0138983ac606ac8317ff9"
