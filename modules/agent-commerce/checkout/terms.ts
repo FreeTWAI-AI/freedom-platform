@@ -58,6 +58,7 @@ export interface CheckoutPaymentPort {
   createOrderAttempt(q:PoolClient,input:{store:CheckoutStore;orderId:string;amountMinor:number;currency:string;environment:'sandbox'|'live'}):Promise<void>;
   issueHandoff(q:PoolClient,input:{store:CheckoutStore;orderId:string}):Promise<CheckoutPaymentHandoff|null>;
   onOrdersCancelled(q:PoolClient,orderIds:readonly string[]):Promise<void>;
+  queryable?(q:PoolClient,orderId:string):Promise<boolean>;
   summarize(q:PoolClient,orderIds:readonly string[]):Promise<ReadonlyMap<string,CheckoutPaymentSummary>>;
 }
 /** Request orchestration owns its transactions and may query a provider only

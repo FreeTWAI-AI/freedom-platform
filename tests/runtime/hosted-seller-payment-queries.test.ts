@@ -67,15 +67,22 @@ test('a paid seller query returns the current confirmed order; quarantine blocks
 
 test('shared attempt choice skips the newest definite mismatch and queries the older superseded handoff; no-attempt orders make no call',async()=>{
   const p=await handed(await f.placed()),body=await response(p);let calls=0;
+  const detail=async(orderId=p.order.order_ref)=>{
+    const r=await f.x.h.call('GET',p.s.root+'/checkout-orders/'+orderId,p.s.owner,undefined,{},f.app);
+    assert.equal(r.status,200,JSON.stringify(r.data));return SellerCheckoutOrderSchema.parse(r.data);
+  };
   f.install({commerceQueryTransport:createFixtureQueryTransport(async()=>{calls++;return {kind:'response',status:200,body};},'local')});
   const frozen=await f.x.frozen(p.s,1,{contact:{name:'合成'+randomUUID(),email:randomUUID()+'@example.test',phone:randomUUID().slice(0,8)}}),plain=await f.x.place(p.s,frozen);
   const noAttempt=await f.x.h.call('POST',p.s.root+'/checkout-orders/'+plain.order_id+'/payment-queries',p.s.owner,{}, {},f.app);assert.equal(noAttempt.status,200);assert.equal(calls,0);assert.equal(noAttempt.data.actions.query_payment,false);
+  assert.equal((await detail(plain.order_id)).actions.query_payment,false);
   await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[p.payment.attempt_ref]);
   const latest=(await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,purpose,environment,merchant_id,credential_version,provider,profile,merchant_trade_no,amount_minor,currency)
     SELECT tenant_id,instance_id,kind,order_id,sequence+1,account_id,purpose,environment,merchant_id,credential_version,provider,profile,$2,amount_minor,currency FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING attempt_id`,[p.payment.attempt_ref,newTradeNumber('F')])).rows[0].attempt_id;
   await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[latest]);
   await f.x.h.pool.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,merchant_trade_no,trade_no,trade_amt_minor,query_trigger,credential_version)
     SELECT tenant_id,instance_id,account_id,attempt_id,'query','amount_mismatch',merchant_trade_no,'T1',600,'seller',1 FROM commerce_payment_attempts WHERE attempt_id=$1`,[latest]);
+  assert.equal((await detail()).actions.query_payment,true);
   const r=await seller(p);assert.equal(r.status,200,JSON.stringify(r.data));assert.equal(calls,1);const queried=(await f.x.h.pool.query("SELECT attempt_id FROM commerce_hosted_payment_events WHERE source='query' AND outcome='unpaid'")).rows;assert.deepEqual(queried.map(e=>e.attempt_id),[p.payment.attempt_ref]);
   await clearOrderBudget(p);await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='failed',failed_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[p.payment.attempt_ref]);assert.equal((await seller(p)).status,200);assert.equal(calls,1);
+  assert.equal((await detail()).actions.query_payment,false);
 });

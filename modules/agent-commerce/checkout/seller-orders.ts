@@ -126,12 +126,6 @@ export async function sellerExceptionView(q:PoolClient,context:SellerCheckoutCon
     subject:{kind:row.subject_kind,ref:row.subject_id},next_action:PAYMENT_EXCEPTION_POLICIES[kind].next_action,due_at:row.due_at.toISOString(),opened_at:row.created_at.toISOString(),updated_at:row.updated_at.toISOString(),
     resolution:row.status==='open'?null:{code:row.resolution_code,note:row.resolution_note,resolved_by:row.resolved_by_principal_id},payment_facts:facts,allowed_actions:actions,resolution_codes:actions.includes('resolve_with_evidence')?[...codes]:[],version:row.version};
 }
-async function queryablePayment(q:PoolClient,id:string) {
-  return Boolean((await q.query(`SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=$1 AND a.handed_off_at IS NOT NULL AND a.state IN ('issued','superseded','paid')
-    AND NOT EXISTS(SELECT 1 FROM commerce_hosted_payment_events e WHERE e.attempt_id=a.attempt_id AND
-      ((e.source='query' AND (e.outcome IN ('amount_mismatch','trade_no_mismatch') OR (e.outcome='paid' AND a.trade_no IS NOT NULL AND e.trade_no<>a.trade_no)))
-      OR (e.source='notification' AND e.outcome='paid' AND e.trade_amt_minor<>a.amount_minor))) LIMIT 1`,[id])).rowCount);
-}
 export async function projectSellerCheckoutOrder(q:PoolClient,context:SellerCheckoutContext,id:string,options:SellerCheckoutReadOptions={}) {
   const row=await sellerCheckoutOrderRow(q,context,id),keys=await effectiveStoreCapabilities(q,context.tenant,context.profile.instance_id),payment=(await options.payment?.summarize(q,[id]))?.get(id),base=await summary(q,row,payment),t=row.terms as CheckoutTerms;
   const applications=(await q.query(`SELECT a.application_id,a.payment_ref,a.amount_minor,a.currency,a.outcome,a.created_at,coalesce(r.refunded,0) AS refunded
@@ -152,7 +146,7 @@ export async function projectSellerCheckoutOrder(q:PoolClient,context:SellerChec
   return {...base.value,lines:t.items.map(l=>({sku:l.sku,title:l.title,quantity:l.quantity,unit_price_minor:l.unit_price_minor,line_total_minor:l.line_total_minor,inventory:base.stock.lines.get(l.sku)!})),
     merchandise_total_minor:t.merchandise_total_minor,discount_total_minor:t.discount_total_minor,shipping_total_minor:t.shipping_total_minor,latest_payment_attempt:payment?.latest_payment_attempt??null,payment_detail,exceptions,
     actions:{cancel:keys.includes('store:orders:manage')&&row.lifecycle_state==='open'&&!row.confirmed&&writable,
-      query_payment:(keys.includes('store:orders:read')||keys.includes('store:finance:read'))&&!options.settings?.quarantine&&await queryablePayment(q,id),
+      query_payment:(keys.includes('store:orders:read')||keys.includes('store:finance:read'))&&!options.settings?.quarantine&&(await options.payment?.queryable?.(q,id)??false),
       record_refund:keys.includes('store:refund')&&applications.some(a=>a.refundable_minor>0)&&writable,view_contact:keys.includes('store:customers:read'),view_finance:keys.includes('store:finance:read')}};
 }
 export function readSellerCheckoutOrder(pool:Pool,actor:Actor,tenantId:string,instanceId:string,id:string,options:SellerCheckoutReadOptions={}) {

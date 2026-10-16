@@ -144,6 +144,12 @@ async function issueOrderHandoff(q:PoolClient,input:{store:CheckoutStore;orderId
   if(context.failure)return {handoff:null,failure:context.failure} as const;
   return {handoff:await mintAttemptHandoff(q,context.attempt),failure:null} as const;
 }
+/** On-demand queries and seller actions share the same newest eligible handoff. */
+async function queryableOrderAttempt(q: PoolClient, orderId: string) {
+  const candidates = (await q.query("SELECT * FROM commerce_payment_attempts WHERE order_id=$1 AND handed_off_at IS NOT NULL AND state IN ('issued','superseded','paid') ORDER BY sequence DESC", [orderId])).rows;
+  for (const attempt of candidates) if (!await hasDefinitePaymentMismatch(q, attempt)) return attempt;
+  return null;
+}
 export function createCheckoutPaymentPort(options: PaymentAttemptOptions): CheckoutPaymentPort {
   return {
     assertTermsAvailable: assertCreditPaymentAvailable,
@@ -152,6 +158,7 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
       return (await issueOrderHandoff(q,input,options)).handoff;
     },
     onOrdersCancelled: onPaymentOrdersCancelled,
+    queryable: async (q, orderId) => Boolean(await queryableOrderAttempt(q, orderId)),
     async summarize(q, orderIds) {
       const rows = (await q.query(`SELECT co.order_id,co.tenant_id,co.instance_id,${confirmedPaymentSQL('co.order_id')} AS confirmed,
         EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome='simulated') AS simulated,
@@ -256,9 +263,7 @@ export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queri
     async query(pool,input){
       const attempt=await isolatedTransaction(pool,async q=>{
         await input.authorize(q);
-        const candidates=(await q.query("SELECT * FROM commerce_payment_attempts WHERE order_id=$1 AND handed_off_at IS NOT NULL AND state IN ('issued','superseded','paid') ORDER BY sequence DESC",[input.orderId])).rows;
-        for(const a of candidates)if(!await hasDefinitePaymentMismatch(q,a))return a;
-        return null;
+        return queryableOrderAttempt(q, input.orderId);
       });
       if(!attempt||!queries)return 'complete';
       return (await queryAttempt(pool,attempt.attempt_id,queries,input.trigger??'buyer')).status==='query_in_progress'?'query_in_progress':'complete';
