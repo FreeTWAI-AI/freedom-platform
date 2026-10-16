@@ -20,15 +20,24 @@ function ImportResult({kind,client,onImported}:{kind:Shop['kind'];client:ModuleP
  const {mutate,busy,error}=useModuleMutation(client),request=useRef(0),session=useRef(client.sessionGeneration),mounted=useRef(false);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  const current=()=>mounted.current&&session.current===client.sessionGeneration;
- async function inspect(body:{content:string}|{url:string}){
-  // File.text() may complete after Workspace has replaced this session's UI.
+ async function inspect(body:File|{url:string}){
+  // Start the revision before file I/O; neither a late read nor an API response may cross sessions.
   if(!current())return;
   const revision=++request.current;setReading(true);setPreview(null);setReadError('');setNotice('');
-  try{const result=await client.post<Preview>('/commerce/preview',body,{idempotencyKey:crypto.randomUUID()});if(!current()||revision!==request.current)return;if(result.manifest.kind!==kind)throw Error(`這是${result.manifest.kind==='internal'?'內部':'公開'}商店成果，請到另一個開店入口匯入。`);setPreview(result);}
+  try{
+   let input:{content:string}|{url:string};
+   if(body instanceof File){
+    const bytes=await body.arrayBuffer();
+    if(!current()||revision!==request.current)return;
+    try{input={content:new TextDecoder('utf-8',{fatal:true}).decode(bytes)};}
+    catch{throw Error('成果檔必須使用有效的 UTF-8 編碼，請重新匯出 JSON 或 MD。');}
+   }else input=body;
+   const result=await client.post<Preview>('/commerce/preview',input,{idempotencyKey:crypto.randomUUID()});if(!current()||revision!==request.current)return;if(result.manifest.kind!==kind)throw Error(`這是${result.manifest.kind==='internal'?'內部':'公開'}商店成果，請到另一個開店入口匯入。`);setPreview(result);
+  }
   catch(e){if(current()&&revision===request.current)setReadError(e instanceof Error?e.message:'無法讀取成果。');}finally{if(current()&&revision===request.current)setReading(false);}
  }
  return <section className="card stack" aria-labelledby={`${kind}-import`} data-guide-anchor={kind==='internal'?'supplier:import-results':undefined}><header><p className="eyebrow">帶回成果</p><h3 id={`${kind}-import`}>AI 做好了，把成果交回來</h3><p className="muted">上傳 AI 給你的商品／商店成果檔，先預覽，再確認。不用手填商品表格。</p></header>
- <label className="field">上傳成果檔<input type="file" accept=".json,.md,application/json,text/markdown" disabled={busy||reading} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>24000){++request.current;setPreview(null);setReadError('成果檔上限 24 KB，請讓 AI 精簡文字並以網址提供圖片。');return;}await inspect({content:await file.text()});}}/></label>
+ <label className="field">上傳成果檔<input type="file" accept=".json,.md,application/json,text/markdown" disabled={busy||reading} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(file.size>24000){++request.current;setPreview(null);setReadError('成果檔上限 24 KB，請讓 AI 精簡文字並以網址提供圖片。');return;}await inspect(file);}}/></label>
  <details><summary>我有成果檔網址</summary><form className="stack" onSubmit={e=>{e.preventDefault();void inspect({url});}}><label className="field">成果檔網址<input type="url" required value={url} maxLength={2000} placeholder="https://raw.githubusercontent.com/…/freedom-shop.json" onChange={e=>{setUrl(e.target.value);++request.current;setPreview(null);setReading(false);}}/></label><p className="field-hint">支援 GitHub 原始 JSON／MD 檔；其他平台可下載成果後直接上傳，不需要 GitHub 帳號。</p><button className="btn btn-ghost" disabled={busy||reading}>讀取成果</button></form></details>
  {(readError||error)&&<p role="alert" className="banner banner-error">{readError||error}</p>}{reading&&<p role="status">正在整理成果預覽…</p>}{notice&&<p role="status">{notice}</p>}
  {preview&&<div className="shop-import-preview stack"><h4>確認這次成果：{preview.manifest.name}</h4><p>{kind==='internal'?'內部商店 · 商品供登入會員挑選，商店網址不公開':'公開商店 · 確認後可透過公開商店資料取得網站網址'}</p><p>{preview.manifest.mode==='live'?'正式交易模式：請確認雙方金流與網站均已驗收':'測試模式：僅供測試金流串接，不代表已正式開店'}</p><p>共 {preview.count} 件商品 · {preview.manifest.currency}</p><p className="shop-url">網站：{preview.manifest.website_url}</p><ul>{preview.manifest.products?.map(p=><li key={p.sku}>{p.title} · {formatMinor(p.price_minor,preview.manifest.currency)} · 可供 {p.stock} 件</li>)}{preview.manifest.selections?.map(p=><li key={p.item_id}>商品 {p.item_id.slice(0,8)} · 預計售價 {formatMinor(p.retail_price_minor,preview.manifest.currency)}</li>)}</ul><p className="field-hint">{kind==='internal'?'請確認商品、價格與條件正確，並已同意會員依這些條件選品。外部內部商店的登入權限仍須由你的 AI 設好。':'請確認網站、售價及客服內容；這會登錄公開商店網址，不會替你部署網站或開通金流。'}</p><div className="actions"><button className="btn btn-primary" disabled={busy||reading} onClick={async()=>{const result=await mutate('/commerce/import',{manifest:preview.manifest,confirmed:true});if(result){setPreview(null);setNotice('成果已歸檔，可在我的商店查看。');await onImported();}}}>確認並歸檔</button><button className="btn btn-ghost" disabled={busy} onClick={()=>setPreview(null)}>取消</button></div></div>}
