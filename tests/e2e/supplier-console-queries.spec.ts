@@ -21,22 +21,6 @@ const activePage = (page: Page) => page.locator('.sc-content > [data-sc-active="
 const navLink = (page: Page, name: string) =>
   page.getByRole('navigation', {name: '營運中心', exact: true}).getByRole('link', {name, exact: true});
 
-async function waitForVisible(page: Page, locator: ReturnType<Page['locator']>) {
-  await expect
-    .poll(
-      async () => {
-        if (await locator.isVisible().catch(() => false)) return true;
-        const reloadBtn = page.getByRole('button', {name: '重新載入頁面', exact: true});
-        if (await reloadBtn.isVisible().catch(() => false)) {
-          await reloadBtn.click();
-        }
-        return false;
-      },
-      {timeout: 20_000},
-    )
-    .toBe(true);
-}
-
 async function login(page: Page, email: string) {
   await page.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
   await page.goto('/');
@@ -95,7 +79,7 @@ async function openSupplyPage(page: Page, hash: string, expectedHeading?: string
   await page.evaluate(h => {
     window.location.hash = h;
   }, targetHash);
-  await waitForVisible(page, consoleRoot(page));
+  await expect(consoleRoot(page)).toBeVisible();
   if (expectedHeading) {
     await expect(activePage(page).locator('h2').first()).toHaveText(expectedHeading, {timeout: 15_000});
   }
@@ -357,7 +341,7 @@ test('SC-E2E-50 reservation filters, totals and detail keep one definition (AT-2
     await buyerPage.evaluate(h => {
       window.location.hash = h;
     }, `reservations/order/${order2.order_id}`);
-    await waitForVisible(buyerPage, buyerPage.getByRole('region', {name: '我的預留'}));
+    await expect(buyerPage.getByRole('region', {name: '我的預留'})).toBeVisible();
     await expect(buyerPage.getByRole('region', {name: '我的預留'})).toContainText('預留中');
     buyerPage.once('dialog', d => d.accept());
     await buyerPage.getByRole('button', {name: '取消預留', exact: true}).click();
@@ -890,7 +874,7 @@ test('SC-E2E-53 guild block to-do summary per catalog, permission and failure (A
     const supplyBlock = ownerPage
       .locator('section.guild-launchpad-block')
       .filter({has: ownerPage.getByRole('heading', {level: 2, name: '商品與供貨', exact: true})});
-    await waitForVisible(ownerPage, supplyBlock);
+    await expect(supplyBlock).toBeVisible();
     await expect(supplyBlock).toContainText(catalogName);
     await expect(supplyBlock).toContainText('供貨資料已就緒');
     await expect(supplyBlock).toContainText('待辦：待確認售價申請 1、供貨版本需重新公開 0、缺貨商品 0');
@@ -901,7 +885,7 @@ test('SC-E2E-53 guild block to-do summary per catalog, permission and failure (A
       await route.abort('failed');
     });
     await ownerPage.reload();
-    await waitForVisible(ownerPage, supplyBlock);
+    await expect(supplyBlock).toBeVisible();
     const errorStatus = supplyBlock.getByText('暫時無法讀取待辦。');
     await expect(errorStatus).toBeVisible();
     expect(((await errorStatus.textContent()) ?? '').replace(catalogName, '')).not.toMatch(/\d/);
@@ -925,7 +909,7 @@ test('SC-E2E-53 guild block to-do summary per catalog, permission and failure (A
     const viewerBlock = viewerPage
       .locator('section.guild-launchpad-block')
       .filter({has: viewerPage.getByRole('heading', {level: 2, name: '商品與供貨', exact: true})});
-    await waitForVisible(viewerPage, viewerBlock);
+    await expect(viewerBlock).toBeVisible();
     await expect(viewerBlock).toContainText(catalogName);
     await expect(viewerBlock).toContainText('供貨資料已就緒');
     const viewerHint = viewerBlock.getByText('需要商品編輯權限才能查看待辦。', {exact: true});
@@ -938,7 +922,7 @@ test('SC-E2E-53 guild block to-do summary per catalog, permission and failure (A
       window.location.hash = h;
     }, `guilds/${guildKey}`);
     await ownerPage.reload();
-    await waitForVisible(ownerPage, supplyBlock);
+    await expect(supplyBlock).toBeVisible();
     await expect(supplyBlock).toContainText(catalogName);
     await expect(supplyBlock).toContainText('供貨資料已就緒');
     await expect(supplyBlock.getByText('目前沒有待辦。', {exact: true})).toBeVisible();
