@@ -37,7 +37,7 @@ test('registration saves salted password, private unverified contacts and server
   assert.equal(row.email,'new.person@example.com');assert.notEqual(row.password_hash,registration.password);assert.equal(row.email_verified_at,null);assert.equal(row.onboarding_required,true);assert.equal(row.onboarding_completed_at,null);
   const own=await request('/me/account',member);assert.equal(own.status,200,JSON.stringify(own.data));assert.deepEqual(own.data.contacts.email.audiences,[]);assert.equal(own.data.contacts.email.value,row.email);assert.equal(own.data.contacts.github.verified,false);
   assert.equal((await request('/session',member)).status,200);assert.equal((await request('/assessment-definition',member)).status,200);assert.equal((await request('/guilds',member)).status,200);
-  for(const path of ['/work-items','/dashboard','/members','/squads','/supplier/products','/retail/stores','/marketing/campaigns','/opensource/projects']) {
+  for(const path of ['/work-items','/work-items/page','/dashboard','/members','/squads','/supplier/products','/retail/stores','/marketing/campaigns','/opensource/projects']) {
     const blocked=await request(path,member);assert.equal(blocked.status,403,`${path}: ${JSON.stringify(blocked.data)}`);assert.equal(blocked.data.code,'onboarding_required');
   }
   assert.equal((await request('/work-items',member,{})).data.code,'onboarding_required');
@@ -277,7 +277,7 @@ test('legacy module reads never bypass contact privacy or return authentication 
   const sentinel='do-not-share-identity@example.com';await account(owner,{...emptyContacts(),email:{audiences:[]},discord:{value:'private-social-sentinel',audiences:[]}});
   const showcase=await request('/showcases',owner,{title:'Public artifact title',description:'An intentionally shared artifact description',artifact_ref:'artifact:public-example',consent_to_share:true});assert.equal(showcase.status,201);
   const forbidden=[sentinel,'private-social-sentinel',owner.user.email,'password_hash','csrf_token','session_hash','login_email'];
-  for(const path of ['/work-items','/dashboard','/showcases','/opportunities','/engagements','/supplier/products','/supplier/requests','/retail/catalog','/retail/stores','/retail/listings','/opensource/projects','/marketing/campaigns','/members','/guilds/directory','/squads']) {
+  for(const path of ['/work-items','/work-items/page','/dashboard','/showcases','/opportunities','/engagements','/supplier/products','/supplier/requests','/retail/catalog','/retail/stores','/retail/listings','/opensource/projects','/marketing/campaigns','/members','/guilds/directory','/squads']) {
     const response=await request(path,viewer);assert.equal(response.status,200,`${path}: ${JSON.stringify(response.data)}`);
     for(const secret of forbidden)assert.ok(!JSON.stringify(response.data).includes(secret),`${path} leaked ${secret}`);
   }

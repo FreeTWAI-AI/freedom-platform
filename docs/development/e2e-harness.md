@@ -51,11 +51,11 @@ workflow pin、測試選取、worker 數、重試或資料隔離，也不宣稱 
 
 `playwright.config.ts` 的 webServer 另固定帶上 `FREEDOM_E2E_GUIDE_FIXTURE=1` 與 `FREEDOM_E2E_GITHUB_FIXTURES=1`，以及這一輪的 `FREEDOM_E2E_SCHEMA`。`reuseExistingServer` 是 false。
 
-## Pinned CI 的容量界線（source 候選 2026-10-10）
+## Pinned CI 的容量界線（source 候選 2026-10-15）
 
-此 source 對 default 整輪給 50 分鐘；private-AI、avatar-asset、message-image 與 store-photo 各為
-30 分鐘上限。`ui-e2e` job 的整體上限為 60 分鐘，容納安裝／建置、default、
-四個 fixture 輪次與收尾。這是有限的整體上限，不承諾五輪各自耗盡最大上限時仍能
+此 source 對 default 整輪給 60 分鐘；private-AI、avatar-asset、message-image、store-photo 與
+notification-preferences 各為 30 分鐘上限。`ui-e2e` job 的整體上限為 75 分鐘，容納安裝／建置、
+default、五個 fixture 輪次與收尾。這是有限的整體上限，不承諾五輪各自耗盡最大上限時仍能
 全部跑完。單一案例 timeout、1 worker、0 retries、完整檔案／案例選擇、預期 skip
 政策與結果驗證不變。逾時仍先 SIGTERM，最多再等 20 秒後 SIGKILL；即使 child
 在 SIGTERM 後以 0 結束，仍記 `test_timeout` 並停止後續輪次，不以不完整報告算通過。
@@ -365,6 +365,47 @@ is not enabled by this fixture; event reminder browser coverage uses `in_app`.
 其中兩個案例曾失敗，另案追查，不能以增加時間消除那些失敗。相較 #433 的
 完整正例，604 個共同且原本至少1秒的成功案例耗時中位比為1.25；兩候選
 source不同，因此只記錄耗時觀察，不宣稱等價或已排除產品回歸。
+
+### 2026-10-15 UI 容量候選
+
+本次容量來源只把 default 整輪 50 → 60 分鐘、ui-e2e job 60 → 75 分鐘。其餘五個
+fixture passes 各 30 分鐘、每個案例 timeout、1 worker、0 retries、完整 file/case
+union、全部案例通過及預期 skip 規則、SIGTERM 後 20 秒 SIGKILL 與逾時判定都不變；
+不改任何案例、skip 或必要 gate。這是 source 提案，尚須獨立 review 與使用者核准後
+正常合併。
+
+#761 的 [Verify 38759102532](https://github.com/FreeTWAI/freedom-platform/actions/runs/38759102532)
+（candidate `7f7daa4c`，default 954 項）兩次都在 default 的 50 分鐘上限中止：第 1 次
+已印到第 954/954 項，第 2 次到第 935/954 項；pinned verdict 都是 `test_timeout`、
+`exit_code: null`，fixture 輪次沒有開始，也沒有印出 assertion failure。印出的進度不是
+完成證據；放寬上限不表示那些案例已通過，也不推定所有變慢都無害。
+
+同日三個通過的 PR run（[38743660911](https://github.com/FreeTWAI/freedom-platform/actions/runs/38743660911)
+`d30850f0`、[38734906534](https://github.com/FreeTWAI/freedom-platform/actions/runs/38734906534)
+`ed9e437e`、[38729096394](https://github.com/FreeTWAI/freedom-platform/actions/runs/38729096394)
+`4d047f5a`）的 default 是 931 項，Playwright 自報 48.9、49.5、49.3 分鐘，距 50 分鐘
+上限只剩 0.5～1.1 分鐘。main 的 push run
+[38759317738](https://github.com/FreeTWAI/freedom-platform/actions/runs/38759317738)
+（tree `fd2de450`）default 為 38.7 分鐘；各 run 的 tree 不同，這裡只記錄耗時觀察，不宣稱等價。
+以 140 個各次都有跑的 spec 檔合計：該 main run 37.2 分鐘，三個 PR run 47.0～47.5 分鐘，
+#761 兩次 46.2、47.9 分鐘；#761 新增的 5 支 spec 在 CI 約 1.8 分鐘。
+
+各階段實測（取自上述 job log 的時間戳）：
+
+| 階段 | 三個通過的 PR run | #761 兩次 |
+| --- | --- | --- |
+| job setup：容器、checkout、`npm ci`、Playwright 安裝、build、runner checkout | 50～54 秒 | 62～73 秒 |
+| runner 啟動到 default 的 `Running` | 24.8～25.0 秒 | 23.6～29.0 秒 |
+| default（Playwright 自報） | 48.9～49.5 分鐘 | 50 分鐘上限中止 |
+| default 結束到下一輪開始：reporter、webServer 收尾、暫存清理 | 5.7～6.7 秒 | — |
+| 五個 fixture 輪次合計 | 2.9～3.1 分鐘 | 未開始 |
+| 判定之後：證據保存與 post steps | 3.4～4.6 秒 | 5.5～6.4 秒 |
+| job 合計 | 53.0～53.6 分鐘 | 51.3～51.6 分鐘 |
+
+外層 75 分鐘的核對：以上表最慢值估計，setup 73 秒＋runner 啟動 29 秒＋default 60 分鐘
+＋逾時時最多 20 秒的 SIGKILL 等待＋輪次間 7 秒＋fixture 3.1 分鐘＋收尾 7 秒，約 65.6 分鐘，
+另留約 9 分鐘給 fixture 與 setup 的變動。這仍是有限的整體上限，不承諾每個 fixture 輪次
+各自用滿 30 分鐘時仍能全部跑完。
 
 ## Newcomer guide browser-selection pilot (source proposal, 2026-10-11)
 
