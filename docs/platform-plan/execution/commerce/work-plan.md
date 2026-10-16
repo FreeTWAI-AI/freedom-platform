@@ -20,7 +20,7 @@
 | EC-WP01 產品與視覺 | 角色、B／E／SL 頁、動線、狀態與文案 | EC-SPEC-01、pages.md | WP00 | C1 | 規格完成；EC 參考畫面的逐頁對照待 Ted 確認（EC-SPEC-01 §5、DC10） |
 | EC-WP02 商店與 Seller Console | 變體、照片、分類、店面內容、優惠；E02～E11 的頁 | EC-SPEC-02 §1～§3、EC-SPEC-01 §4、§7.5 | WP01；Supplier Console 的共用殼進 main（§8） | C1；各里程碑自己的 E 頁 | 未開始 |
 | EC-WP03 結帳與交易模型 | 顧客、checkout、訂單、N／H／A、付款後配置、出貨與退回的庫存效果；公開結帳路由與訂單存取 | EC-SPEC-02 §4～§5、EC-SPEC-03 | WP00 | M1 | 領域核心通過審查（`fc/wp03-core` `16caa586`）；公開結帳路由、訂單存取、限流、主機設定、排程與能力下限通過審查（`fc/wp03-http` `eea0f328`，整合 `762baaf0`）；兩者都已併入整合分支 |
-| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫與 AIO 信用卡協定通過審查（`fc/ecpay-proto` `67d9ba2e`、`fc/ecpay-aio` `b836419e`），已併入整合分支；退款分攤的純規則通過審查（`fc/refund-rules` `4376e471`，整合 `69067716`）；收款帳戶、封存金鑰、店家准入與商店 1.1.0 完成（`fc/wp04-accounts` `bfab7559`，整合 `38e8db3b`）；付款拆成四個工作（§4），wp04-payments 進行中 |
+| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫與 AIO 信用卡協定通過審查（`fc/ecpay-proto` `67d9ba2e`、`fc/ecpay-aio` `b836419e`），已併入整合分支；退款分攤的純規則通過審查（`fc/refund-rules` `4376e471`，整合 `69067716`）；收款帳戶、封存金鑰、店家准入與商店 1.1.0 完成（`fc/wp04-accounts` `bfab7559`，整合 `38e8db3b`）；付款拆成四個工作（§4）：wp04-payments 完成（`fc/wp04-payments` `c8044968`，整合 `f852b742`），wp04-queries 與 buyer-pay 進行中 |
 | EC-WP05 物流與供應商補充 | 出貨設定、配送群組、選店、託運單、標籤、貨態、例外、退回 | EC-SPEC-05；SC-SPEC-07 | WP03；WP04 的協定與排程 | M3 | 配送純規則通過審查（`fc/fulfil-rules` `5c8d8379`）；綠界國內物流協定通過審查（`fc/ecpay-logistics` `1f99faeb`）；兩者都已併入整合分支；收件資料改用 CDN 字詞檢查、門市代號寬度與貨態表凍結的修正輪也已併入（`fc/fulfil-rules-fix2` `d44f1d1d`，整合 `f38b9a08`） |
 | EC-WP06 發票與售後 | 發票、更正、對話、RMA、退款分攤、供貨帳 | EC-SPEC-06 | WP03～05 | M4 | 發票純規則通過審查（`fc/invoice-rules` `a9cb0ebf`），已併入整合分支；B2C 電子發票協定通過審查（`fc/ecpay-invoice` `f04b5eba`，整合 `44985a2f`） |
 | EC-WP07 營運與技能書 | 29 項技能的落點、報表與漏斗、書與站內應用的連結 | EC-SPEC-07 | WP02；PR #706 | M2 起 | 規格完成；程式未開始 |
@@ -65,10 +65,10 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | ecpay-aio | AIO 的送出內容、通知的驗證與解析、查詢結果對照、API 退款，全部是純函式加官方向量（EC-SPEC-04 §3.4、§5.2、§6.2、§7.3） | argon | ecpay-proto | 完成（`fc/ecpay-aio` `b836419e`，整合 `d6fa9098`） |
 | wp04-accounts | 收款帳戶與封存金鑰；重新確認身分的新用途；`storefront@1.1.0`、`hosted-store@1.1.0` 與升級；入口路由；店家准入；設定變更的控制事件（EC-SPEC-04 §1、EC-SPEC-09 §2.2～§2.5、EC-SPEC-10 §2.5、§8.2） | Codex | wp03-http | 完成（`fc/wp04-accounts` `bfab7559`；整合 `21e46a73`、`4b83fe1c`，修正輪 `38e8db3b`） |
 | refund-rules | 退款分攤的純規則：行項上限、運費建議、分攤與調低的檢查、未套用付款的退款（EC-SPEC-06 §2.5、EC-SPEC-04 §7.2） | flash | — | 完成（`fc/refund-rules` `4376e471`，整合 `69067716`） |
-| wp04-payments | attempt 與一次性交接頁、付款通知與瀏覽器返回（含閘道例外）、外部效果日誌、到期工作與例外的表、買家的付款摘要、隔離模式的付款閘門、能力 `commerce.hosted-payment.v1` 與強制下限；不呼叫綠界（EC-SPEC-04 §3～§5、EC-SPEC-09 §2.6、EC-SPEC-10 §3） | Codex | wp04-accounts、ecpay-aio | 進行中（`fc/wp04-payments`） |
-| wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 之後 |
+| wp04-payments | attempt 與一次性交接頁、付款通知與瀏覽器返回（含閘道例外）、外部效果日誌、到期工作與例外的表、買家的付款摘要、隔離模式的付款閘門、能力 `commerce.hosted-payment.v1` 與強制下限；不呼叫綠界（EC-SPEC-04 §3～§5、EC-SPEC-09 §2.6、EC-SPEC-10 §3） | Codex | wp04-accounts、ecpay-aio | 完成（`fc/wp04-payments` `c8044968`，整合 `f852b742`） |
+| wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 進行中（`fc/wp04-queries`） |
 | wp04-refunds | 退款紀錄、API 退款與人工紀錄、結果不明的退款（EC-SPEC-04 §7、EC-SPEC-06 §2.5） | Codex | wp04-queries、refund-rules | 之後 |
-| buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 之後 |
+| buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 進行中（`fc/buyer-pay`） |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
 | 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
 | 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-payments | 之後 |
@@ -151,6 +151,54 @@ wp04-payments 續跑後在第 1 項又停下一次：工作說明給收件匣的
 buyer-cart 的審查逐行讀過五個 commit，從基準的 renderer 重算 12 個 v1 位元組 pin，全部相符，沒有阻擋的缺陷。修正輪 6 項（`5d226d71`）：購買狀態只由第五個參數傳入，預覽一律不開放；路由先用 `publicProduct()` 確認 SKU 合法且在商店裡，才查購買狀態，否則回 404、不設 cookie；`aria-busy` 只在 effect 裡設定；新加的樣式只套在有 `<main id="main">` 的開放頁面，關閉商店的 v1 頁面維持原樣；最後一行商品不再重複底線；B04 加上長店名與長商品名在五種寬度的截圖；fixture 的「手拉坯青瓷茶海」改正。整合者在 `5d226d71` 重跑：typecheck、build、runtime 10/10 與 77/77、E2E 購物車 8、訂單頁 5、商店 15、selector 42/42、unknown-paths 0、inventory，看過 70 張截圖；合併為 `942df112`，合併後同一組檢查與契約 946/946 都過。
 
 `a3045598` 的完整驗證：typecheck、build、cloudflare、governance、worker 都過；契約 7 個失敗是 guild-launchpad README 的狀態列還寫 168，`6956f5f6` 已修正（`942df112` 上 946/946）；runtime 5290/5292，失敗的兩個（`identity-member` 的隱私投影、`model-broker-bridge-adversarial` 的到期回滾）在審查用的資料庫單獨重跑 23/23 與 8/8 通過，是全套負載下的計時問題。worker 序列的契約、check:*、dry-run、worker、media-restore、`--archive-only` 與 migration-postgres 都過。
+
+wp04-payments 的審查逐行讀過每個 commit；`f342df47` 只改格式（esbuild 重新輸出、去掉空白後 23 個檔案逐一相同）。
+修正輪 15 項（`b2342e9e`～`d35f3f5d`），每項一個 commit，各帶一個在 `94b579b1` 上會失敗的測試：
+
+- 瀏覽器返回先以 `FOR KEY SHARE` 鎖住 attempt，不會和付款通知互相等待；返回的紀錄或排查詢失敗時仍 303 回訂單；
+  表單錯誤導回首頁，缺金鑰與其他錯誤回 HTML 頁「暫時無法確認付款結果，請稍後到訂單頁查看。」。
+- 通知在驗證前的額度改以（帳戶, 網路）計，一個網路的未簽章流量用不完別人的額度。
+- 隔離解除的順序：Worker 先套用延後的付款事件，再掃到期預留；有未套用的已驗證付款通知時，下單時的結算與排程掃描都不
+  釋出那張訂單的預留；同一 attempt 的通知依收到順序套用，瀏覽器返回不擋。
+- T-022 8 的 RLS 清單加上 `commerce_exception_cases`。
+- 買家讀訂單只跑交接的閘門、不解封金鑰（20 次讀取 0 次解封，交接頁 1 次）；一次摘要只限一間店。
+- 取消的重送不再呼叫付款 hook。
+- 交接頁的按鈕一律是「前往綠界付款」：沒有 script 時立即顯示；有 script 時 10 秒後才和說明一起出現，按一次就停用；
+  從上一頁回來時顯示「返回訂單」。保留過期的訊息改成「付款期限已過，保留的商品已釋出。」。
+- 延後套用與日誌補寫都逐筆接住錯誤：失敗的事件只記事件 ID，同一 attempt 後面的事件留到下次，其他 attempt 照常。
+- 付款通知先鎖帳戶再鎖金鑰，和金鑰退役的順序一致。
+- 169 原地修改：每個 attempt 只留一筆瀏覽器返回；`paid`／`confirmed` 的 attempt 與 `paid` 事件必須有綠界交易號與
+  付款時間（事件另需金額）；金額上限 999,999,999 元；移除兩個沒有查詢用到的部分索引。
+- Wrangler 預檢拒絕跨環境重複、或與其他 R2 binding 共用的 `COMMERCE_JOURNAL` bucket。
+
+`c8044968` 把原有交接測試的 noscript 斷言改成「前往綠界付款」。Codex 在 `c8044968` 上的最後驗證：typecheck、契約、
+付款五組 runtime 360/360、checkout 與相關回歸 236/236、cloudflare 543/543、selector 42/42、unknown-paths 0、build
+都過；worker 118/123。失敗的 3 個缺 admin-sync 與 maintainer 的 dry-run 打包檔（驗證只跑了主 Worker 的 dry-run）；
+另外 2 個是 `tests/worker/github-sync-scheduled.test.ts` 的排程 fixture 只替 `commerceSweep` 放了 stub，新的延後付款
+工作在只有 `end()` 的假 pool 上失敗，多記一行 `commerce_payment_deferred_failed`。這個測試檔沒有登錄在任何
+descriptor，context 工具回 `surface_unmapped`，Codex 依規則停下，媒體還原、E2E、完整測試與 inventory 都沒有跑。
+合併為 `f852b742`；整合者在 `2cbe3c1d` 把這個測試登錄到 `worker.ts` 的擁有者 application-composition 並加上 stub
+（4/4），`09fd2145` 更新 inventory。
+
+派工前整合者在整合分支加上 `f4b2be35`：checkout 契約的封閉錯誤碼加上 `checkout_order_closed`、`checkout_hold_expired`、
+`payment_already_applied`、`payment_attempts_exhausted`、`payment_result_pending`（wp04-queries 用，buyer-pay
+同時要能解析）；`resolvePaymentReturn` 給 B06 用（attempt 只在屬於這個 slug 的商店時才解析）；先登錄 wp04-queries
+的測試路徑。`723ace13`：買家 DTO 的 `payment_state` 加上 `overpaid`（EC-SPEC-03 §3.2：有 `overpaid`、`after_cancel`
+或 `amount_mismatch` 的付款套用紀錄時，優先於其他狀態，`can_resume_payment` 為假，B06／B07 顯示「付款金額待店家確認」）。
+規格對齊：`8424559c` 把 EC-SPEC-01、03、04、09、10 與 decisions 照修正輪的實作改寫，每一項都對過合併後的程式；
+`0495da30` 定義付款摘要的 `overpaid`；`2d2aa544` 把未付款取消的條件寫成 `cancelUnpaidOrder` 實際檢查的：訂單 `open`
+且沒有確認付款。
+
+第六批（2026-10-16）：
+
+| 工作 | CLI | 分支 | PostgreSQL | E2E |
+| --- | --- | --- | --- | --- |
+| wp04-queries | Codex `gpt-6.1-sol` xhigh | `fc/wp04-queries` | 55445 | 4745 |
+| buyer-pay | agy `gemini-4-argon-high` | `fc/buyer-pay` | 55446 | 4746 |
+
+兩個工作從同一個 SHA 開出。buyer-pay 的「查詢付款結果」在它的 E2E 用 `page.route` 回應；wp04-queries 先合併，
+整合者再用真的端點重跑 buyer-pay 的 E2E。合併後的整合驗證（聚焦的 runtime、worker、媒體還原、E2E 與完整測試）和這兩個
+工作同時跑，結果記在下一次更新。
 
 ## 6. 共用檔案
 
