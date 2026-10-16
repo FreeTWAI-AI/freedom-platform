@@ -15504,8 +15504,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
-      "bytes": 8463,
-      "sha256": "8b5035241c3b581e457f4131a9149114d482e3b581fe14250d34dc2f0177249e"
+      "bytes": 8767,
+      "sha256": "e312a64609bd29584d9cbaf619537771cb471c7ab0cb195127d3abc9d089215e"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-07-fulfilment.md",
@@ -15519,8 +15519,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/WP-07-release-evidence.md",
-      "bytes": 8222,
-      "sha256": "c7c835a7246b238db7a3d7dd91de89d018a47595289f07bb9b1321b76fc5a9a4"
+      "bytes": 12162,
+      "sha256": "3fa28be73dc29b804500f889db9e16c267809fa61a418978176202de8e75bddf"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/first-journey.md",
@@ -20649,8 +20649,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 73927,
-      "sha256": "32f9f3d834be1b2478c954715d4511e51405407295e105f1428dfb2335d5df21"
+      "bytes": 74381,
+      "sha256": "7c96f6ca7fabdd476ce1620a7bbba6fae35588598beee22fb8f9fc4670ab3c16"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
@@ -20659,18 +20659,18 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-supplier.ts",
-      "bytes": 35184,
-      "sha256": "8795134719add68023a38526c1f2e5a761dbe5848add87deb4bab4eb9e5b3d05"
+      "bytes": 37928,
+      "sha256": "f9e6f2549661b3b8ee39dc72c006fb447d6b327c4a2a5fadd18d96c8f8184c84"
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 41643,
-      "sha256": "4ba790257d345caba75528be190a79a5e96ef0cc05dfbdb276a3f0809cd6b9f3"
+      "bytes": 44090,
+      "sha256": "550dc40d22c68ab4060c9c1b2ada98dd69dee30d830654ec8215ec5dd4b1bde8"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
-      "bytes": 14369,
-      "sha256": "168c1174c1d217bd25cfeb68d6daccada0115d208dd66b09baebeda931637d6e"
+      "bytes": 14543,
+      "sha256": "2108f6248b20b9b9b1b9ccfc377f705fe294bab3431d56b37002f7102f7e6f40"
     },
     {
       "path": "scripts/verify-guild-work.mjs",
@@ -20989,13 +20989,13 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 77841,
-      "sha256": "669b873e7c10a1412f215d2cffcc8e4b3d20fdaaa77d57dcac4167d1bd61802e"
+      "bytes": 79322,
+      "sha256": "12642ddd80351a7187aa8e137ba58e1b932671568fa79a38cc414518472734d3"
     },
     {
       "path": "tests/e2e/cloud-candidate-supplier.spec.ts",
-      "bytes": 28034,
-      "sha256": "3d477f800f62d94ca83ea1bb407afceb45a97d3d5a89a841c3a5b3c49f601abf"
+      "bytes": 43836,
+      "sha256": "7a4c66e6ed6faaa3a303136e7eb6c3338b04c30e8aa699afd839ca2ed7a86b81"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
