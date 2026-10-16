@@ -1,5 +1,7 @@
 import {createFixtureQueryTransport} from '../modules/agent-commerce/payments/query-transport.js';
 import {runDueCommerceWork} from '../modules/agent-commerce/operations/due-work.js';
+import {commerceEmailOutbox} from '../modules/agent-commerce/operations/notifications/outbox.js';
+import type {FixtureEmailSender} from '../modules/agent-commerce/operations/notifications/email-port.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -21,6 +23,7 @@ export function createE2eEcpayFixture(input: {
   origin: string;
   pool: Pool;
   keyring: CommerceCredentialKeyring;
+  emailSender?: FixtureEmailSender;
   forward: (request: Request) => Promise<Response>;
 }) {
   if (input.freedomEnv !== 'local')
@@ -134,11 +137,15 @@ export function createE2eEcpayFixture(input: {
     if(value.mode===null)queryModes.delete(value.attempt_ref);else queryModes.set(value.attempt_ref,value.mode);
     return c.json({ok:true});
   });
+  routes.get('/__e2e/commerce/mail',c=>{
+    const messages=(input.emailSender?.messages.splice(0)??[]).map(({to,subject,text})=>({to,subject,text}));
+    return c.json({messages});
+  });
   routes.post('/__e2e/commerce/run-due-work',async c=>{
     const value=await c.req.json().catch(()=>null);
     if(!value||Object.keys(value).some(k=>!['now','targets'].includes(k))||(value.now!==undefined&&(!Number.isFinite(Date.parse(value.now))||typeof value.now!=='string'))
       ||(value.targets!==undefined&&(!Array.isArray(value.targets)||value.targets.length>200||value.targets.some((id:unknown)=>typeof id!=='string'||!(/^[0-9a-f-]{36}$/.test(id))))))return c.text('invalid_work_request',400);
-    return c.json(await runDueCommerceWork(input.pool,{transport,keyring:input.keyring,freedomEnv:input.freedomEnv,now:value.now?()=>new Date(value.now):undefined},{targets:value.targets}));
+    return c.json(await runDueCommerceWork(input.pool,{transport,keyring:input.keyring,freedomEnv:input.freedomEnv,email:input.emailSender?commerceEmailOutbox:undefined,emailEnabled:Boolean(input.emailSender),emailSender:input.emailSender,journal,origin:input.origin,now:value.now?()=>new Date(value.now):undefined},{targets:value.targets}));
   });
   return { routes, gateway, journal, profiles, shipping,transport };
 }

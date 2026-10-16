@@ -130,7 +130,7 @@ export function createPublicHostedStoreRoutes(
   options?: { emailEnabled?: boolean },
 ) {
   const app = new Hono<PlatformEnv>();
-  const emailEnabled = options?.emailEnabled ?? Boolean(checkout?.email);
+  const emailEnabled = options?.emailEnabled ?? checkout?.settings?.emailEnabled ?? Boolean(checkout?.email);
   app.get('/api/v1/public/stores/:slug', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStore(pool, c.req.param('slug'));
