@@ -109,19 +109,19 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 
 每個環境在私有 overlay 要替換的名稱：`HYPERDRIVE`、`GITHUB_MAINTAINER_APP_ID`（數字，不能是 0）、`GITHUB_MAINTAINER_ORG`。`GITHUB_MAINTAINER_WRITES` 在 `staging-next` 與 `next` 已提交為 `requested_reviewers`，top-level 是 `off`；要停止寫入 GitHub 時改成 `off`。其他值在 tick 摘要裡記成 `writes=invalid`，不會寫 GitHub。Secret 是 `GITHUB_MAINTAINER_PRIVATE_KEY`（PKCS#8），用 `wrangler secret put` 上傳，不要寫進 `--var`。平台 Worker 另有選填的 `GITHUB_MAINTAINER_WEBHOOK_SECRET`。排程是 `* * * * *`。失敗訊息固定，日誌只有計數。刪除的是 `freedom-maintainer-*`，不是平台 Worker。
 
-Platform commerce setup optionally uses the secret `COMMERCE_CREDENTIAL_KEYS`.
-Its format is 1–8 comma-separated `key_id:base64` entries, without whitespace;
-ids match `^[a-z0-9][a-z0-9_-]{0,31}$` and each canonical base64 value encodes
-exactly 32 random bytes. Never place values in committed config, logs or `--var`.
-The first key seals new credentials; every installed key can unseal retained rows.
-Missing/empty means credential writes are unavailable; malformed configuration
-fails Worker readiness and Node startup with a fixed, value-free error.
+## 平台 Worker 商家憑證金鑰（COMMERCE_CREDENTIAL_KEYS）
 
-Rotate by prepending the new key, running `resealProviderCredentials` in authorized
-transactions, confirming no retained row uses the old id, then removing the old
-online key. Keep retired keys offline for the full backup retention period
-(EC-SPEC-10 §4.3). Keyring rotation changes credential-write fingerprints, so a
-replay made across rotation receives 409 and must use a new command key after
-reading the current account version. Provider environments are fixed by
-`FREEDOM_ENV`: local/staging use sandbox, public uses live. No provider adapters
-or network calls are enabled by installing this secret.
+平台 Worker 選填 secret `COMMERCE_CREDENTIAL_KEYS`，用於封存商家服務憑證，見
+[EC-SPEC-04 §1.3](../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md#13-金鑰保存提議-commerce_provider_credentials)。
+格式是 1–8 組以逗號分隔、沒有空白的 `key_id:base64`；id 不可重複，須符合
+`^[a-z0-9][a-z0-9_-]{0,31}$`，每個值須為恰好 32 個隨機位元組的標準 base64
+（解碼後重新編碼須與原值相同）。第一把金鑰封存新憑證；所有已安裝金鑰都能解封其對應的保留紀錄。
+未設定或空字串時，憑證寫入回 503，讀取仍可用。格式錯誤會使 Worker 就緒檢查與 Node 啟動失敗，
+錯誤訊息固定且不含設定值。Secret 不可寫進已提交的設定、日誌或 `--var`。
+
+輪替時把新金鑰放在第一組，在已授權交易中執行 `resealProviderCredentials`，確認所有保留紀錄
+都不再使用舊 id 後，才移除舊線上金鑰。退役金鑰仍須離線保留至備份保存期結束，見
+[EC-SPEC-10 §4.3](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#43-部署設定ted-操作)。
+金鑰環輪替會改變憑證寫入指紋，跨輪替重送會回 409；讀取目前帳戶版本後須使用新的命令識別碼。
+`FREEDOM_ENV` 決定 provider 環境：`local`／`staging` 使用 `sandbox`，`public` 使用 `live`。
+安裝這個 secret 不會啟用 provider adapter 或任何對外呼叫。
