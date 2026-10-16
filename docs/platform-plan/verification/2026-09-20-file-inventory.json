@@ -19324,13 +19324,23 @@
     },
     {
       "path": "packages/contribution-tools/worker-unit-dispatch.mjs",
-      "bytes": 10319,
-      "sha256": "8c65e410a90122bafc00715f8d71e38136d9e2dc8e66200dc0e1a6df731ac714"
+      "bytes": 10378,
+      "sha256": "8b91e9a1ef878b5a48055941efe67f8ae8a8d370abf5c911a0bf9d2578fb88c4"
+    },
+    {
+      "path": "packages/contribution-tools/worker-unit-fallback.yml.disabled",
+      "bytes": 4036,
+      "sha256": "a4e369bc2998d58be11b609f9167d9bfb873ea2602d3e43c9703bf6c4e6393ce"
+    },
+    {
+      "path": "packages/contribution-tools/worker-unit-http.mjs",
+      "bytes": 14270,
+      "sha256": "064f86e6f79a70cc608edd102854200c469c00fa42d1b3182b82dbce125fdd8c"
     },
     {
       "path": "packages/contribution-tools/worker-unit-routing.md",
-      "bytes": 16434,
-      "sha256": "4b043f8c981aa2f645ab16e4d48cc8c316a2e924149a533785e6b3ae8dc6567b"
+      "bytes": 22827,
+      "sha256": "8c26fce20e6beb92cc5116c43386241ab1dd0de48cbbaa72355b9e650c8b9e09"
     },
     {
       "path": "packages/contribution-tools/worker-unit-routing.mjs",
@@ -19561,6 +19571,11 @@
       "path": "packages/contribution-tools/test/worker-unit-dispatch.test.mjs",
       "bytes": 13297,
       "sha256": "33787df3b48f993b1ad9b73bcf5fa917cff33a2c3eb884bb0757797b14c72bd3"
+    },
+    {
+      "path": "packages/contribution-tools/test/worker-unit-http.test.mjs",
+      "bytes": 12808,
+      "sha256": "99e1a627bcffa96f9e44d68a4bb2cfc80a95cb4fecb7b1c538fc43a418d3e295"
     },
     {
       "path": "packages/contribution-tools/test/worker-unit-routing.test.mjs",

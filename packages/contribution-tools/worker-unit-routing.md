@@ -5,7 +5,7 @@ This is a small **proposal model and transport-injected adapter**, not an instal
 The model's `enabled` argument defaults to false; even `true` only produces data marked
 `executionAuthorized: false`. It cannot read credentials, call providers, publish
 checks, update refs or run candidate code. All current GitHub checks and provider
-permissions remain unchanged. No live CircleCI run is requested by this increment. The adapter invokes only local fixture transports during verification; its separate switch also defaults off.
+permissions remain unchanged. No live CircleCI run is requested by this increment. The adapter and fixed HTTP transports invoke only mocks during verification; both switches default off.
 
 Scope is only the existing complete `ci.worker-unit` suite. The existing
 `static-worker` lane still owns contracts, checks, builds, dry runs and media
@@ -54,7 +54,7 @@ cancelled cases cannot pass. Failure overrides a claimed infrastructure outcome.
 Terminal results cannot be overwritten by a later success. Confirmed cancellation
 remains cancelled, with no automatic fallback. Only independently reconciled
 infrastructure failure or confirmed non-dispatch yields `fallback_proposal`.
-That is **not a dispatch instruction** from the model. The transport-injected adapter now atomically records and deduplicates a separate GitHub fallback attempt before calling its dispatch port. No live GitHub dispatch transport is installed. Never classify an ordinary failed/timeout suite
+That is **not a dispatch instruction** from the model. The transport-injected adapter now atomically records and deduplicates a separate GitHub fallback attempt before calling its dispatch port. The fixed HTTP dispatch construction is now implemented but is not installed or enabled. Never classify an ordinary failed/timeout suite
 as infrastructure failure to get a green rerun. Reserved cost remains held even
 after reconciliation; billing settlement is outside this bounded increment.
 
@@ -71,7 +71,7 @@ are siblings; after one wins, the other's update is non-fast-forward and fails.
 The loser must reread/recompute admission, never merge stale reservations or
 force an update. Every transition, including reconciliation/fallback, needs the
 same serialization. Ref reads and commit ancestry must be independently checked.
-The injected adapter supplies this protocol to a storage port; no network transport or writer is installed here.
+The injected adapter supplies this protocol to the fixed HTTP storage port; no live writer is installed here.
 
 A timed-out ref PATCH is ambiguous. Read the ref and its retained immutable
 history to establish whether this exact proposal committed; neither a timeout
@@ -114,7 +114,7 @@ cannot enforce a trustworthy hard budget. Force-false alone is not authorization
    admission budget is not a hard organization-wide bill cap against other repos,
    manual reruns, uncapped jobs or noncompute charges. If no enforceable maximum
    and authoritative lower bound exist, leave routing disabled/on GitHub.
-4. Implement and verify authenticated HTTP transports for the bounded adapter.
+4. Verify the implemented HTTP transports with an approved installed identity.
    Local fixtures now cover lost acknowledgements, retained cross-cycle ownership
    and atomic fallback ownership. Live terminal evidence provenance, cycle
    creation/retention and crash recovery still require verification. Do not promote
@@ -132,7 +132,7 @@ cannot enforce a trustworthy hard budget. Force-false alone is not authorization
 Run from the repository root with Node 24 and Git:
 
 ```sh
-node --test packages/contribution-tools/test/worker-unit-routing.test.mjs packages/contribution-tools/test/worker-unit-dispatch.test.mjs
+node --test packages/contribution-tools/test/worker-unit-{routing,dispatch,http}.test.mjs
 python3 scripts/update-inventory.py
 npm run verify:inventory
 git diff --check
@@ -236,3 +236,98 @@ No credentials were created or stored, no security policy changed, and no live
 provider operation was tested. The local tests verify the protocol under the
 stated port contracts; they do not prove those contracts are enforced by GitHub,
 CircleCI, an operating system or an external evidence publisher.
+
+
+## Fixed HTTP transport slice (mock-verified, not activated)
+
+`workerUnitHttp(config, {enabled:false, credentials, fetchImpl, verifyEvidence})`
+constructs the four adapter ports. The default calls neither credential providers
+nor HTTP. Tests inject synthetic strings and a mock `fetchImpl`; no real token
+was accessed, stored or transmitted. Enabled construction accepts only fixed
+FreeTWAI/freedom-platform GitHub endpoints and CircleCI v2 endpoints under
+`https://circleci.com/api/v2`, with an explicitly verified GitHub-App-style
+`circleci/<organization-UUID>/<project-UUID>` slug and pipeline definition UUID.
+There is no arbitrary URL, OAuth slug guess, environment-token lookup or auth
+bootstrap. The existing App publisher cannot be reused unchanged: it grants
+check-publishing/read permissions, not the distinct ref writer this needs.
+
+The Git transport reads the operational ref, then the exact commit/tree/blob;
+only a one-file regular `ledger.json` tree is accepted and the blob's Git SHA is
+recomputed. Existing strict JSON parsing rejects duplicate keys and malformed
+UTF-8 before schema validation. Writes create immutable blob/tree/commit objects
+and PATCH the fixed ref with one parent and `force:false`. An initial stale head
+returns rejected; any uncertain PATCH acknowledgement stays unknown with no retry.
+No ref bootstrap/creation, force update, delete or repository setting API exists.
+
+Every request and overall port call has a deadline (default 5 seconds, at most
+30 seconds), including credential acquisition, streaming JSON and evidence hook.
+JSON responses are capped at 4 MB, ledger content at 2 MB. Redirects, foreign
+response URLs, non-success statuses, oversized content and parse errors fail
+closed. Credentials are held only for their request, sent in the provider's auth
+header, never cached or reflected in errors. Provider response messages and raw
+exceptions are replaced with `worker_http_unavailable`. There are no retries,
+artifact-URL fetches or cross-origin credential forwarding.
+
+Before dispatch, GitHub must resolve the configured lightweight config/workflow
+tag to its separately pinned exact commit. Tags must be protected immutable by
+the approved installation; the read-before-POST check is not an atomic tag lock.
+CircleCI receives the fixed definition, config/checkout tag and candidate SHA,
+runner SHA, suite digest and attempt parameters. **#718's existing config does
+not accept all of those parameters**: a separately reviewed compatible config
+must declare/validate them, pin the resource class, use the reviewed runner and
+retain their source evidence. Do not point this transport at the historical
+pilot and claim it is already ready for automated routing.
+
+The current [GitHub workflow dispatch API](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)
+documents a run ID response; a legacy 204 is accepted only as an unidentified
+acknowledgement and never converted to a made-up run ID. CircleCI's
+[pipeline-definition trigger](https://circleci.com/docs/api/v2/index.html#operation/triggerPipelineRun)
+uses config/checkout refs and parameters. A non-created/ambiguous response is not
+proof of non-dispatch. Ref semantics are documented in
+[GitHub's update-reference API](https://docs.github.com/en/rest/git/refs#update-a-reference).
+These docs were consulted on 2026-10-16; endpoints were not exercised live.
+
+Observation reads only known pipeline/run IDs, verifies project/repository and
+config/workflow revision, and admits only one workflow/job without pagination.
+GitHub additionally requires workflow_dispatch, run attempt 1 and the exact
+source/attempt run name. Missing pipeline identity, extra jobs/pages, unsupported
+CircleCI revision fields or absent evidence verifier return unknown. No search
+miss proves non-dispatch. A separately installed trusted `verifyEvidence` hook
+must validate complete retained file/case evidence, attempt/source/runner/config
+identity and authentic provenance. Its returned job must match the actual
+provider job; provider failure cannot be turned into a passed suite. Metadata
+alone is deliberately insufficient, so the stock transport cannot mark tests
+passed or enable fallback without that independently reviewed hook.
+
+### Fallback feasibility and remaining activation actions
+
+`worker-unit-fallback.yml.disabled` is a concrete template under this package,
+not an active workflow. It has `permissions:{}`, a default-false dispatch input
+and hard `if:false`; uses public anonymous Git fetches, fixed Node/PostgreSQL,
+existing build/dry-run prerequisites and `run-pinned-suite.mjs`; and never passes
+controller credentials or references secrets. Source/runner/attempt inputs are
+validated through environment variables, not interpolated shell commands. Here
+`suite_digest` means SHA-256 of the reviewed runner's `pinned-suites.mjs` bytes;
+the exact runner commit separately binds the implementation. It refetches the
+runner after candidate prerequisites as the pilot does. This is **not an
+independent sandbox** against malicious candidate processes. Trusted report
+collection/upload is not simulated; the existing candidate-produced report
+cannot by itself satisfy `verifyEvidence`. The template has not run on GitHub.
+
+The small remaining operator decisions are:
+
+1. Approve the distinct writer identity/ref restrictions and minimum GitHub
+   Contents/Actions plus verified CircleCI token scopes; provision them outside
+   candidate jobs through the installation's credential provider, not this repo.
+2. Review/install immutable config/workflow tags, compatible CircleCI parameters
+   and pinned cost bound, the disabled fallback template, bootstrap cycle ledger,
+   and the independently trusted evidence collector. These are installation and
+   evidence-trust prerequisites, not merely missing API keys. If they are not
+   available, retaining native GitHub is the substantially simpler safe route.
+3. Authorize a bounded same-source canary of trigger, unknown-result recovery,
+   genuine failure and fallback before enabling routing. Required GitHub checks
+   remain duplicated until a separate adoption review explicitly removes them.
+
+The code is ready for this integration review, not unattended live activation.
+No schedule, controller service, token, protection, workflow activation, required
+check replacement or actual billed pipeline was created in this task.

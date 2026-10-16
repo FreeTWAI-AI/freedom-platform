@@ -17,7 +17,7 @@ const clone = value => structuredClone(value);
 
 // Every retained cycle is read under the same ref/atomic update. No archive
 // loading or pruning is permitted: at these limits stop and review retention.
-function validate(state) {
+export function validateDispatchState(state) {
   check(state && state.version === 1 && Object.keys(state).sort().join() === 'cycles,fallback,version');
   check(Array.isArray(state.cycles) && state.cycles.length > 0 && state.cycles.length <= 12);
   const owners = new Map(); const attempts = new Set(); const cycles = new Set();
@@ -43,7 +43,7 @@ function validate(state) {
 function fallbackAttempt(b) { return `github-fallback-${hash(JSON.stringify([b.repository, b.sourceSha, b.suite, b.attempt])).slice(0, 40)}`; }
 export function createDispatchState(cycles) {
   const state = { version: 1, cycles: clone(cycles), fallback: createLedger({ cycle: fallbackCycle, startsAt: 0, endsAt: Number.MAX_SAFE_INTEGER }) };
-  validate(state); return state;
+  validateDispatchState(state); return state;
 }
 function locate(state, binding) {
   for (const ledger of [...state.cycles, state.fallback]) {
@@ -72,12 +72,12 @@ export function workerUnitAdapter(ports, { enabled = false, timeoutMs = 5000 } =
   }
   async function read(signal) {
     const snapshot = await call('read', { ref: LEDGER_REF }, signal);
-    check(validSha(snapshot.head)); validate(snapshot.state);
+    check(validSha(snapshot.head)); validateDispatchState(snapshot.state);
     check(Buffer.byteLength(JSON.stringify(snapshot.state)) <= 2000000);
     return clone(snapshot);
   }
   async function commit(snapshot, state, signal) {
-    validate(state);
+    validateDispatchState(state);
     const bytes = JSON.stringify(state) + '\n';
     const proposal = { ref: LEDGER_REF, path: 'ledger.json', parents: [snapshot.head], force: false, bytes, sha256: hash(bytes) };
     const ack = await call('commit', proposal, signal);
