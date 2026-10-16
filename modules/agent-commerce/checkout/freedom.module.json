@@ -14,7 +14,8 @@
     "contracts/guild-launchpad/v1/hosted-checkout.schema.json",
     "tests/runtime/hosted-checkout-http.test.ts",
     "tests/runtime/commerce-rate-limits.test.ts",
-    "tests/runtime/hosted-checkout-contracts.test.ts"
+    "tests/runtime/hosted-checkout-contracts.test.ts",
+    "tests/runtime/hosted-checkout-purchase-state.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/checkout/index.ts"

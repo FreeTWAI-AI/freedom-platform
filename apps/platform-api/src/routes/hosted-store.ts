@@ -16,6 +16,7 @@ import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-
 import { storeHtml, productHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
 import { orderPageHtml, orderMissingHtml, orderAccessPageHtml } from '../../../../modules/agent-commerce/storefront/pages.js';
 import { Problem } from '../../../../packages/shared/problem.js';
+import type { HostedCheckoutOptions } from '../../../../modules/agent-commerce/checkout/public-commands.js';
 import type { PlatformEnv } from '../module-context.js';
 import { privateCache, singleQuery, commandHeaders, etag } from './tenant-http.js';
 import {createHostedDistributionRoutes} from './hosted-distribution.js';
@@ -120,7 +121,8 @@ export function createHostedStoreRoutes(pool: Pool) {
   });
   return app;
 }
-export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string) {
+/** `checkout` is the checkout API's own configuration (see `hostedCheckoutOptions`). */
+export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string, checkout?: HostedCheckoutOptions) {
   const app = new Hono<PlatformEnv>();
   app.get('/api/v1/public/stores/:slug', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');

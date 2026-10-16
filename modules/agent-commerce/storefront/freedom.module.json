@@ -7,7 +7,10 @@
     "apps/portal-web/src/storefront/**",
     "tests/runtime/storefront-order-pages.test.ts",
     "tests/e2e/storefront-orders.spec.ts",
-    "tests/e2e/storefront-order-fixture.ts"
+    "tests/e2e/storefront-order-fixture.ts",
+    "tests/runtime/storefront-cart-pages.test.ts",
+    "tests/e2e/storefront-cart.spec.ts",
+    "tests/e2e/storefront-cart-fixture.ts"
   ],
   "public_exports": [],
   "dependencies": [

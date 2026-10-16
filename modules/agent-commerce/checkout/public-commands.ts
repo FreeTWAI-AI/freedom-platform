@@ -54,6 +54,22 @@ export async function quotePublicCart(pool:Pool,slug:string,input:wire.CartQuote
     return cartQuote(q,store,input,options);
   });
 }
+export type PublicPurchaseState={open:false}|{open:true;product?:'available'|'sold_out'};
+/** What B01/B03 may offer: the cart quote's own gates and, for a product page, the
+ * quote's availability for one unit. Read only and without rate budgets; pages only. */
+export async function publicPurchaseState(pool:Pool,slug:string,options:HostedCheckoutOptions,sku?:string):Promise<PublicPurchaseState> {
+  const settings=options.settings??defaults;
+  if(settings.quarantine||!settings.checkoutEnabled)return {open:false};
+  return isolatedTransaction(pool,async q=>{
+    await q.query('SET TRANSACTION READ ONLY');
+    let store;
+    try {store=await resolve(q,slug,options,true);}
+    catch(error) {if(error instanceof Problem&&['checkout_store_not_found','checkout_not_enabled'].includes(error.code))return {open:false} as const;throw error;}
+    if(sku===undefined)return {open:true} as const;
+    const line=(await cartQuote(q,store,{publication_revision:store.projection.revision,lines:[{sku,quantity:1}]},options)).lines[0];
+    return {open:true,product:line.state==='insufficient'||line.state==='unavailable'?'sold_out':'available'} as const;
+  });
+}
 
 export async function createPublicCheckout(pool:Pool,slug:string,input:CheckoutInput,key:string,access:BrowserAccess,options:HostedCheckoutOptions) {
   checkoutGate(options);

@@ -9,12 +9,18 @@ import {Problem,requireCondition} from '../../../../packages/shared/problem.js';
 import {readSessionCookie} from '../session-cookie.js';
 import type {PlatformRuntime} from '../runtime.js';
 import type {FreedomEnv} from '../env.js';
+import {providerEnvironment} from '../../../../modules/agent-commerce/operations/admissions.js';
+
+/** The one checkout configuration shared by the checkout API and the public store pages. */
+export function hostedCheckoutOptions(origin:string,runtime:PlatformRuntime,environment:FreedomEnv):commands.HostedCheckoutOptions {
+  return {origin,settings:runtime.commerceSettings,environment:providerEnvironment(environment),...runtime.commercePorts};
+}
 
 /** Parsing and response mapping only. Store resolution, access and effects live
  * together in the domain transaction; there is no member middleware boundary. */
 export function createHostedCheckoutRoutes(pool:Pool,origin:string,runtime:PlatformRuntime,environment:FreedomEnv) {
   const app=new Hono();
-  const options:commands.HostedCheckoutOptions={origin,settings:runtime.commerceSettings,environment:environment==='public'?'live':'sandbox',...runtime.commercePorts};
+  const options=hostedCheckoutOptions(origin,runtime,environment);
   const root='/api/v1/public/stores/:slug';
   for(const path of [root+'/cart-quotes',root+'/checkouts',root+'/checkouts/:checkout_ref/orders',root+'/orders/:order_ref',root+'/orders/:order_ref/access',root+'/order-access-requests','/api/v1/public/order-access/forget'])
     app.use(path,async(c,next)=>{c.header('Cache-Control','no-store');c.header('Referrer-Policy','no-referrer');await next();});

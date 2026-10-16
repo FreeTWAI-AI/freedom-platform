@@ -1,5 +1,5 @@
 import {createHostedCommerceSetupRoutes} from './routes/hosted-commerce-setup.js';
-import {createHostedCheckoutRoutes} from './routes/hosted-checkout.js';
+import {createHostedCheckoutRoutes,hostedCheckoutOptions} from './routes/hosted-checkout.js';
 import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoutes} from './routes/community-ar.js';
 import {readWithMemberSession} from '../../../packages/db/member-session.js';
 import {createHostedStoreMediaRoutes,createPublicHostedStoreMediaRoutes,isStorePhotoUpload,checkStorePhotoHeaders,storePhotosInstalled,storePhotoUploadsInstalled} from './routes/hosted-store-media.js';
@@ -578,7 +578,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
     app.route('/',createPublicModuleRegistryRoutes(pool,origin));
-    app.route('/',createPublicHostedStoreRoutes(pool,runtime.publicOrigin));
+    app.route('/',createPublicHostedStoreRoutes(pool,runtime.publicOrigin,hostedCheckoutOptions(origin,runtime,freedomEnv)));
     if(storePhotosInstalled(runtime))app.route('/',createPublicHostedStoreMediaRoutes(pool,runtime));
   }
   for (const path of ['/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {

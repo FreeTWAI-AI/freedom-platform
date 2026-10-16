@@ -369,8 +369,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 63325,
-      "sha256": "f508adb33ba4db73b784ea721222e4d0c91da0292de5cf4fefec64c11b8a87d3"
+      "bytes": 63396,
+      "sha256": "b49ee575d0a8fc4d019778860827d660b5996db32741a955e177b4f2aaefca68"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -539,8 +539,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-checkout.ts",
-      "bytes": 5667,
-      "sha256": "543b6437db46b120b6171708c7f742621bab5fb930ebc018eb8cae9b1ed2f399"
+      "bytes": 6015,
+      "sha256": "05aab7af2d91b12cbc7161bcbade2c23981e9eaedabf5544740bc30a3430570c"
     },
     {
       "path": "apps/platform-api/src/routes/hosted-commerce-setup.ts",
@@ -564,8 +564,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store.ts",
-      "bytes": 11512,
-      "sha256": "bdd787a563e58537a3535f602b09f5f1f5ed464f61010e8b3c2b0a3224db2772"
+      "bytes": 11744,
+      "sha256": "ef62940b8be3fb3dfc8f6248304cee81ed185dfb435d20dc37a83b7c3a94458e"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -17074,8 +17074,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/freedom.module.json",
-      "bytes": 1137,
-      "sha256": "637b0859fd0bbe4df9057038d8d024675bffca24a6111d4e0bcb2c316494e109"
+      "bytes": 1197,
+      "sha256": "58a07a38a7114db7ae022dd26885363bdbac2cfb7b37160f2ef2f850ea671826"
     },
     {
       "path": "modules/agent-commerce/checkout/index.ts",
@@ -17104,8 +17104,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/public-commands.ts",
-      "bytes": 13722,
-      "sha256": "0ea9949752677bc65a40455ac7dc4f2f75bed5432e2f71537ad0f952a9737914"
+      "bytes": 14878,
+      "sha256": "d8edfed51f1548cbe85e394c1ac802a17beec570a05e942e2d7c2e7a3fd373a1"
     },
     {
       "path": "modules/agent-commerce/checkout/public-order.ts",
@@ -17764,8 +17764,8 @@
     },
     {
       "path": "modules/agent-commerce/storefront/freedom.module.json",
-      "bytes": 840,
-      "sha256": "3d8a25b44951262f4ae4c8d68eb2ae125daf2430cfca84328fba35dfc1cae828"
+      "bytes": 976,
+      "sha256": "00caf9108cfa27258a61612b855557e7ce784213ec34ce419e5acdb0814f6076"
     },
     {
       "path": "modules/agent-commerce/storefront/pages.ts",
@@ -22976,6 +22976,11 @@
       "path": "tests/runtime/hosted-checkout-http.test.ts",
       "bytes": 51582,
       "sha256": "1cb6d643bb74b90988cc27015bac00c17d6e023225a3071274c293d30baaf6b1"
+    },
+    {
+      "path": "tests/runtime/hosted-checkout-purchase-state.test.ts",
+      "bytes": 3076,
+      "sha256": "da1cd2c05550321eed3d26343fb92d4117f1974c0ab294fbff189ffc92a92469"
     },
     {
       "path": "tests/runtime/hosted-checkout-races.test.ts",
