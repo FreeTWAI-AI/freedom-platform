@@ -134,20 +134,22 @@ const unresolvedPendingConfirmationSQL=(attemptIdSQL:string)=>`EXISTS(SELECT 1 F
   WHERE e.attempt_id=${attemptIdSQL} AND e.outcome='pending_confirmation'
     AND NOT EXISTS(SELECT 1 FROM commerce_hosted_payment_events later WHERE later.attempt_id=e.attempt_id
       AND later.outcome IN ('paid','failed') AND (later.received_at,later.event_id)>(e.received_at,e.event_id)))`;
+/** Retain the gate's failure for resume; the placement port exposes only null. */
+async function issueOrderHandoff(q:PoolClient,input:{store:CheckoutStore;orderId:string},options:PaymentAttemptOptions){
+  await lockStore(q,input.store,[],[input.orderId],false);
+  await lockCheckoutOrders(q,[input.orderId],input.store);
+  const attempt=(await q.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence DESC LIMIT 1',[input.orderId])).rows[0];
+  if(!attempt)return {handoff:null,failure:gate(410,'payment_handoff_unavailable','付款連結已失效。')} as const;
+  const context=await inspectOrderHandoff(q,attempt.attempt_id,options);
+  if(context.failure)return {handoff:null,failure:context.failure} as const;
+  return {handoff:await mintAttemptHandoff(q,context.attempt),failure:null} as const;
+}
 export function createCheckoutPaymentPort(options: PaymentAttemptOptions): CheckoutPaymentPort {
   return {
     assertTermsAvailable: assertCreditPaymentAvailable,
     createOrderAttempt:(q,input)=>createOrderPaymentAttempt(q,input,options),
     async issueHandoff(q, input) {
-      await lockStore(q, input.store, [], [input.orderId], false);
-      await lockCheckoutOrders(q, [input.orderId], input.store);
-      const attempt = (await q.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence DESC LIMIT 1', [input.orderId])).rows[0];
-      if (!attempt)
-        return null;
-      const context = await inspectOrderHandoff(q, attempt.attempt_id, options);
-      if (context.failure)
-        return null;
-      return mintAttemptHandoff(q,context.attempt);
+      return (await issueOrderHandoff(q,input,options)).handoff;
     },
     onOrdersCancelled: onPaymentOrdersCancelled,
     async summarize(q, orderIds) {
@@ -200,21 +202,26 @@ export async function inspectRepay(q:PoolClient,orderId:string,options:PaymentAt
   else if(facts.pending)failure=gate(409,'payment_result_pending','付款結果確認中，請稍後再查詢。');
   return {failure,attempt,context};
 }
-function assertRepay(result:Awaited<ReturnType<typeof inspectRepay>>){
-  if(result.failure)throw new Problem(result.failure.status,result.failure.code,result.failure.message,(result.failure as HandoffGate&{retryAfter?:number}).retryAfter);
+function assertRepay(result:Awaited<ReturnType<typeof inspectRepay>>,handoffFailure:HandoffGate|null=null){
+  // Earlier table rows keep precedence. An unhanded attempt cannot wait for a
+  // provider result, so its handoff failure replaces only the delay-row answer.
+  const failure=result.failure?.code==='payment_result_pending'&&result.attempt?.state==='issued'&&!result.attempt.handed_off_at&&handoffFailure
+    ? handoffFailure:result.failure;
+  if(failure)throw new Problem(failure.status,failure.code,failure.message,(failure as HandoffGate&{retryAfter?:number}).retryAfter);
   return result.attempt!;
 }
 export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queries?:PaymentQueryDependencies):CheckoutPaymentActions{
-  const port=createCheckoutPaymentPort(options);
   return {
     async resume(pool,input){
       const initial=await isolatedTransaction(pool,async q=>{
         await input.authorize(q);await lockStore(q,input.store,[],[input.orderId],false);await lockCheckoutOrders(q,[input.orderId],input.store);
         const latest=(await q.query('SELECT * FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence DESC LIMIT 1',[input.orderId])).rows[0];
+        let handoffFailure:HandoffGate|null=null;
         if(latest?.state==='issued'&&!latest.handed_off_at){
-          const handoff=await port.issueHandoff(q,input);if(handoff){await input.authorize(q);return {handoff};}
+          const result=await issueOrderHandoff(q,input,options);if(result.handoff){await input.authorize(q);return {handoff:result.handoff};}
+          handoffFailure=result.failure;
         }
-        const attempt=assertRepay(await inspectRepay(q,input.orderId,options));await input.authorize(q);return {attempt};
+        const attempt=assertRepay(await inspectRepay(q,input.orderId,options),handoffFailure);await input.authorize(q);return {attempt};
       });
       if(initial.handoff)return initial.handoff;
       const attempt=initial.attempt!;
@@ -229,15 +236,19 @@ export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queri
         await input.authorize(q);await lockStore(q,input.store,[],[input.orderId],false);await lockCheckoutOrders(q,[input.orderId],input.store);
         const latest=(await q.query('SELECT * FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence DESC LIMIT 1',[input.orderId])).rows[0];
         if(latest?.attempt_id!==attempt.attempt_id){
-          const handoff=latest?.state==='issued'&&!latest.handed_off_at?await port.issueHandoff(q,input):null;
-          if(handoff){await input.authorize(q);return handoff;}throw pendingPayment();
+          if(latest?.state==='issued'&&!latest.handed_off_at){
+            const result=await issueOrderHandoff(q,input,options);if(result.handoff){await input.authorize(q);return result.handoff;}
+            assertRepay(await inspectRepay(q,input.orderId,options),result.failure);
+          }
+          throw pendingPayment();
         }
         const checked=assertRepay(await inspectRepay(q,input.orderId,options));
         if(checked.state==='issued')await q.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[checked.attempt_id]);
         const order=(await q.query('SELECT currency,total_minor FROM commerce_orders WHERE order_id=$1',[input.orderId])).rows[0];
         await createOrderPaymentAttempt(q,{store:input.store,orderId:input.orderId,amountMinor:Number(order.total_minor),currency:order.currency,environment:options.environment,sequence:checked.sequence+1},options);
-        const handoff=await port.issueHandoff(q,input);requireCondition(handoff,409,'payment_handoff_unavailable','目前無法繼續付款，請查看訂單狀態。');
-        await input.authorize(q);return handoff;
+        const result=await issueOrderHandoff(q,input,options);
+        if(result.failure)throw new Problem(result.failure.status,result.failure.code,result.failure.message);
+        await input.authorize(q);return result.handoff;
       });
     },
     async query(pool,input){

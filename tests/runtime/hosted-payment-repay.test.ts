@@ -9,6 +9,7 @@ import {bindStore} from '../../modules/agent-commerce/checkout/authority.js';
 import {newTradeNumber,encodeForm,signFields,EcpayKeyPair} from '../../modules/agent-commerce/providers/ecpay/index.js';
 import {createFixtureQueryTransport} from '../../modules/agent-commerce/payments/query-transport.js';
 import {queryAttempt} from '../../modules/agent-commerce/payments/queries.js';
+import {CommerceCredentialKeyring} from '../../modules/agent-commerce/payments/credentials.js';
 let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
 type Placed=Awaited<ReturnType<typeof f.placed>>;
 before(async()=>{f=await hostedPaymentHarness('fp_payment_repay');});beforeEach(async()=>f.reset());after(async()=>f?.stop());
@@ -59,6 +60,51 @@ test('an unresolved pending confirmation still blocks re-pay and its DTO',async(
 test('an unconsumed attempt resumes with one new token and no new attempt',async()=>{
   const p=await f.placed(),t=install(p);assert.equal((await view(p)).can_resume_payment,true);
   const r=await resume(p);assert.equal(r.status,201,JSON.stringify(r.data));assert.equal(r.data.attempt_ref,p.payment.attempt_ref);assert.notEqual(r.data.handoff_url,p.payment.handoff_url);assert.equal((await attempts(p)).length,1);assert.equal(t.calls,0);assert.equal(r.response.headers.get('Cache-Control'),'no-store');assert.equal(r.response.headers.get('Referrer-Policy'),'no-referrer');
+});
+const queryBudgets=async()=>(await f.x.h.pool.query("SELECT * FROM auth_rate_limits WHERE bucket LIKE 'commerce:paymentQueryOrder:%' OR bucket LIKE 'commerce:paymentQueryOrderHour:%' ORDER BY bucket")).rows;
+async function breakHandoff(p:Placed,reason:'credential'|'route',transport:ReturnType<typeof install>['transport']){
+  if(reason==='credential')f.install({commerceQueryTransport:transport,commerceCredentialKeyring:CommerceCredentialKeyring.parse('different:'+randomBytes(32).toString('base64'))});
+  else await f.x.h.pool.query("UPDATE commerce_entry_routes SET revoked_at=clock_timestamp() WHERE route_kind='provider_account' AND target_id=$1",[p.provider.accountId]);
+}
+function expectUnavailable(result:Awaited<ReturnType<typeof resume>>){
+  assert.equal(result.status,503,JSON.stringify(result.data));assert.equal(result.data.code,'payment_handoff_unavailable');
+  assert.equal(result.data.detail,'付款服務暫時無法使用。');assert.equal(result.response.headers.get('Retry-After'),null);
+}
+for(const reason of ['credential','route'] as const)test(`an unhanded ${reason} failure returns the handoff error without re-pay side effects`,async()=>{
+  const p=await f.placed(),t=install(p);await breakHandoff(p,reason,t.transport);
+  const before=await attempts(p),budgetBefore=await queryBudgets();assert.equal((await view(p)).can_resume_payment,true);
+  expectUnavailable(await resume(p));assert.deepEqual(await attempts(p),before);assert.deepEqual(await queryBudgets(),budgetBefore);assert.equal(t.calls,0);
+});
+for(const reason of ['credential','route'] as const)test(`a new re-pay attempt rolls back on its ${reason} handoff failure`,async()=>{
+  const p=await oldAttempt();await failed(p);const t=install(p);await breakHandoff(p,reason,t.transport);
+  const before=await attempts(p),budgetBefore=await queryBudgets(),workBefore=(await f.x.h.pool.query('SELECT * FROM commerce_due_work ORDER BY due_work_id')).rows;
+  expectUnavailable(await resume(p));assert.deepEqual(await attempts(p),before);assert.deepEqual(await queryBudgets(),budgetBefore);
+  assert.deepEqual((await f.x.h.pool.query('SELECT * FROM commerce_due_work ORDER BY due_work_id')).rows,workBefore);assert.equal(t.calls,0);
+});
+for(const condition of ['closed','holds','overpaid','exhausted'] as const)test(`an unhanded credential failure preserves the earlier ${condition} answer`,async()=>{
+  const p=await f.placed(),t=install(p);
+  if(condition==='closed')await f.x.tx(async q=>{await bindStore(q,p.s.tenantId);await cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled');});
+  if(condition==='holds')await f.x.tx(async q=>{const {checkoutInventory}=await import('../../modules/agent-commerce/checkout/inventory.js');await bindStore(q,p.s.tenantId);await (await checkoutInventory(q,p.order.order_ref)).releaseHolds();});
+  if(condition==='overpaid')await f.x.tx(async q=>{await bindStore(q,p.s.tenantId);await applyConfirmedPayment(q,{orderId:p.order.order_ref,paymentRef:randomUUID(),amountMinor:600,currency:'TWD',simulated:false});});
+  if(condition==='exhausted')for(let sequence=2;sequence<=5;sequence++){
+    await failed({...p,payment:{...p.payment,attempt_ref:(await attempts(p)).at(-1)!.attempt_id}});assert.equal((await resume(p)).status,201);
+  }
+  await breakHandoff(p,'credential',t.transport);const before=await attempts(p);
+  await expectFailure(p,condition==='closed'?'checkout_order_closed':condition==='holds'?'checkout_hold_expired':condition==='overpaid'?'payment_already_applied':'payment_attempts_exhausted');
+  assert.deepEqual(await attempts(p),before);assert.deepEqual(await queryBudgets(),[]);assert.equal(t.calls,0);
+});
+test('a concurrent re-pay handoff preserves its route failure instead of returning pending',async()=>{
+  const p=await oldAttempt();let release!:()=>void,entered!:()=>void,calls=0;
+  const waiting=new Promise<void>(resolve=>{release=resolve;}),sent=new Promise<void>(resolve=>{entered=resolve;});
+  const transport=createFixtureQueryTransport(async request=>{calls++;entered();await waiting;return {kind:'response',status:200,body:encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:new URLSearchParams(request.bodyText()).get('MerchantTradeNo')!,TradeStatus:'0'},EcpayKeyPair.of(p.provider.material.hash_key,p.provider.material.hash_iv),'sha256'))};},'local');
+  f.install({commerceQueryTransport:transport});const pending=resume(p);
+  try{
+    await sent;await failed(p);const other=await resume(p);assert.equal(other.status,201,JSON.stringify(other.data));
+    await breakHandoff(p,'route',transport);const before=await attempts(p);
+    const routesBefore=(await f.x.h.pool.query("SELECT * FROM commerce_entry_routes WHERE route_kind='payment_handoff' ORDER BY route_key")).rows;
+    release();expectUnavailable(await pending);assert.deepEqual(await attempts(p),before);
+    assert.deepEqual((await f.x.h.pool.query("SELECT * FROM commerce_entry_routes WHERE route_kind='payment_handoff' ORDER BY route_key")).rows,routesBefore);assert.equal(calls,1);
+  }finally{release();await pending;}
 });
 test('a live unpaid query supersedes the old attempt and issues attempt two with its own deadlines',async()=>{
   const p=await oldAttempt(),t=install(p);assert.equal((await view(p)).can_resume_payment,true);
