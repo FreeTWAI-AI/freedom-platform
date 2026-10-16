@@ -70,6 +70,15 @@ the owner. The selector's exact-set admission guard is unchanged. Positive
 narrowing coverage uses the fixed synthetic reviewed graph; tests must not pin
 the current checkout's evolving ownership to an incidental narrow profile.
 
+The guild-workspace router, `apps/platform-api/src/routes/guild-workspace.ts`,
+is exactly owned by `guild-workspace`, alongside its existing launchpad router.
+`tests/runtime/guild-member-tiers.test.ts` is exactly owned by `positioning`,
+whose member-tier commands it exercises. These entries retain `runtime.full`
+and reverse-dependent impact without claiming other routes or runtime tests.
+Unknown paths still block context completion. Baseline/candidate unions,
+reviewed browser-pilot admission and host-required fallback rules are unchanged;
+a successful local context is not trusted CI approval.
+
 The descriptors do not constitute a complete runtime registration audit. The local suite adapters use fixed Node arguments, never descriptor shell commands or package hooks. `governance.unit` runs the contribution-tools tests without database credentials. Runtime adapters require operator-provisioned, disposable PostgreSQL and an **explicit** `TEST_DATABASE_URL` for the CLI, or `testDatabaseUrl` for the library; there is no database discovery or default fallback. Accepted URLs name an `fp_*` database on loopback, optionally with a single absolute Unix-socket `host` parameter. Passwords, remote hosts, duplicate/query connection overrides and non-test database names are rejected. This admission check does not establish that a server is disposable: the operator must provide an isolated test-only server, never a production service that happens to have a matching name. Runtime tests own fresh `fp_*` schemas/roles and their teardown; forced termination can leave test data to clean up on that disposable server.
 
 The fixed registry in `runtime-suites.mjs` maps these existing IDs:
