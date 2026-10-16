@@ -64,6 +64,30 @@ describe('shipping profile versions',()=>{
     assert.equal((await h.request(s,'PUT','/shipping-profile',input)).status,409);
     assert.equal((await h.f.x.h.pool.query('SELECT count(*)::int n FROM commerce_shipping_profile_versions')).rows[0].n,0);
   });
+  test('meetup saves alone or mixed, and rejects bad notes, a duplicate and a sixth option',async()=>{
+    const s=await h.store(),meetup={method:'meetup' as const,note:'面交於店門口'};
+    const home={method:'home' as const,fee_per_parcel_minor:10000,free_over_minor:null,outlying:{kind:'excluded' as const}};
+    const only={...h.document(),services:[],delivery_options:[meetup]};
+    let r=await h.request(s,'PUT','/shipping-profile',only);assert.equal(r.status,201);assert.equal(r.data.version,'1');assert.deepEqual(r.data.profile.delivery_options,[meetup]);assert.deepEqual(r.data.profile.services,[]);
+    assert.deepEqual(h.expect(await h.request(s,'GET','/shipping-profile')).profile.delivery_options,[meetup]);
+    for(const note of ['',' ','a'.repeat(201),'😀'.repeat(201),'有\t字','有\u000B字']){
+      const bad=await h.request(s,'PUT','/shipping-profile',{...only,delivery_options:[{method:'meetup',note}]},'1');
+      assert.equal(bad.status,422,JSON.stringify(note));assert.equal(bad.data.code,'validation_failed');
+    }
+    r=await h.request(s,'PUT','/shipping-profile',{...only,delivery_options:[{method:'meetup',note:'面'.repeat(200)}]},'1');assert.equal(r.status,200);assert.equal(r.data.profile.delivery_options[0].note,'面'.repeat(200));
+    r=await h.request(s,'PUT','/shipping-profile',{...only,delivery_options:[{method:'meetup',note:'  面交於店門口  '}]},'2');assert.equal(r.status,200);assert.equal(r.data.profile.delivery_options[0].note,'面交於店門口');
+    r=await h.request(s,'PUT','/shipping-profile',{...only,delivery_options:[{method:'meetup',note:'第一行\n第二行'}]},'3');assert.equal(r.status,200);assert.equal(r.data.profile.delivery_options[0].note,'第一行\n第二行');
+    const dup=await h.request(s,'PUT','/shipping-profile',{...only,delivery_options:[meetup,{method:'meetup',note:'另一處面交'}]},'4');
+    assert.equal(dup.status,422);assert.equal(dup.data.code,'shipping_input_invalid');assert(dup.data.fields.some((f:{path:string;code:string})=>f.path==='delivery_options.1.method'&&f.code==='duplicate'));
+    const methods=['home','cvs:UNIMARTC2C','cvs:FAMIC2C','cvs:HILIFEC2C'] as const;
+    const five={...h.document(),services:[],delivery_options:[...methods.map(method=>({method,fee_per_parcel_minor:10000,free_over_minor:null,outlying:{kind:'excluded'}})),meetup]};
+    r=await h.request(s,'PUT','/shipping-profile',five,'4');assert.equal(r.status,200);assert.equal(r.data.profile.delivery_options.length,5);
+    const sixth=await h.request(s,'PUT','/shipping-profile',{...five,delivery_options:[...five.delivery_options,home]},'5');assert.equal(sixth.status,422);assert.equal(sixth.data.code,'validation_failed');
+    const id=await location(s);await h.provider(s,[SERVICE_KEYS[0]],true);
+    const mixed={...h.document(),services:[service(id)],delivery_options:[home,meetup]};
+    r=await h.request(s,'PUT','/shipping-profile',mixed,'5');assert.equal(r.status,200);assert.deepEqual(r.data.profile.delivery_options.map((o:{method:string})=>o.method),['home','meetup']);assert.equal(r.data.profile.services.length,1);
+    assert.equal((await h.f.x.h.pool.query('SELECT count(*)::int n FROM commerce_shipping_profile_versions')).rows[0].n,6);
+  });
   test('capabilities, revocation, archived reads, unavailable writes and console flag gate the profile',async()=>{
     const s=await h.store();
     for(const [caps,role,read,write] of [[[],'admin',200,201],[['store:read'],'operator',403,403],[['store:fulfil'],'operator',200,403],[['store:manage'],'operator',200,200]] as const){const m=await h.member(s,caps,role);assert.equal((await h.request(s,'GET','/shipping-profile',undefined,undefined,m.session)).status,read);assert.equal((await h.request(s,'PUT','/shipping-profile',h.document(),write===200?'1':undefined,m.session)).status,write);}
