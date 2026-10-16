@@ -9,7 +9,7 @@ import {Problem, requireCondition } from '../../../packages/shared/problem.js';
 import { bindStore, lockStore, type CheckoutStore } from '../checkout/authority.js';
 import { lockCheckoutOrders } from '../checkout/orders.js';
 import { confirmedPaymentSQL } from '../checkout/confirmed-payment.js';
-import { hashKey, type CheckoutAdmissionPort, type CheckoutPaymentPort, type CheckoutPaymentSummary } from '../checkout/terms.js';
+import { hashKey, type CheckoutAdmissionPort, type CheckoutPaymentPort, type CheckoutPaymentSummary, type UnresolvedOrderPort } from '../checkout/terms.js';
 import { scheduleDueWork } from '../operations/due-work.js';
 import type { CommerceSettings } from '../operations/runtime-settings.js';
 import { newTradeNumber } from '../providers/ecpay/index.js';
@@ -250,8 +250,21 @@ export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queri
   };
 }
 
+/** Payments narrows M1's fallback to orders that can still receive money.
+ * Placement already holds the checkout lock and the caller's tenant binding. */
+export const paymentUnresolvedOrders:UnresolvedOrderPort={async find(q,checkoutId){
+  return (await q.query<{order_id:string}>(`SELECT co.order_id FROM commerce_checkout_orders co
+    WHERE co.checkout_id=$1 AND co.lifecycle_state='open' AND NOT ${confirmedPaymentSQL('co.order_id')}
+    AND EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=co.order_id
+      AND (a.state='paid' OR (a.state IN ('issued','superseded') AND a.handed_off_at IS NOT NULL)
+        OR (a.state='issued' AND a.handed_off_at IS NULL
+          AND EXISTS(SELECT 1 FROM commerce_inventory_reservations r WHERE r.order_id=co.order_id)
+          AND NOT EXISTS(SELECT 1 FROM commerce_inventory_reservations r WHERE r.order_id=co.order_id
+            AND (r.state<>'held' OR r.expires_at<=clock_timestamp())))))
+    ORDER BY co.order_id LIMIT 1`,[checkoutId])).rows[0]??null;
+}};
 export function createCheckoutPaymentPorts(options:PaymentAttemptOptions,queries?:PaymentQueryDependencies){
-  return {payment:createCheckoutPaymentPort(options),paymentActions:createCheckoutPaymentActions(options,queries)};
+  return {payment:createCheckoutPaymentPort(options),paymentActions:createCheckoutPaymentActions(options,queries),unresolved:paymentUnresolvedOrders};
 }
 
 /** Call only after the attempt gate and its domain locks. Raw bearer material
