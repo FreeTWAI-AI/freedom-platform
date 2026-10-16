@@ -15,6 +15,7 @@
     "tests/runtime/squad-management.test.ts",
     "tests/runtime/squad-invitations.test.ts",
     "tests/runtime/squad-read-cutover.test.ts",
+    "tests/runtime/squad-list-session-clock.test.ts",
     "tests/e2e/squad-invitations.spec.ts",
     "tests/e2e/squad-management.spec.ts",
     "tests/e2e/squad-types-channel.spec.ts"

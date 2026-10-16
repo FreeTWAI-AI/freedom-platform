@@ -3069,8 +3069,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 8202,
-      "sha256": "2191045e9a979176bd91931549ef63b189defa659fdb8a1f1ce2055842ca6586"
+      "bytes": 8307,
+      "sha256": "0ef9ffda678b6ff4c7f3131eec1a2044a7fc6cc9cfda60a940b486328d1c43fc"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -14054,8 +14054,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 81740,
-      "sha256": "167b1219cb2252f4afb2e83c3d8c473c2850bac90b6872bf8d8e9442498a2333"
+      "bytes": 83823,
+      "sha256": "5f98d9737c218da76dad582a5432c235d97965b02d45d5341d07fb88ceb68a7d"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -18659,8 +18659,8 @@
     },
     {
       "path": "modules/identity-membership/blocks.ts",
-      "bytes": 8766,
-      "sha256": "393a735274886d92501922774375d39916901ded238ce24639d9b50d7f67b0b5"
+      "bytes": 8780,
+      "sha256": "97abc9141f1655639342f1fb50ab52f1f347adea88d2f983d9c07f8ce87b9618"
     },
     {
       "path": "modules/identity-membership/deactivation.ts",
@@ -18694,8 +18694,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 41213,
-      "sha256": "053d8a42d4f78311416d234d71c640865904dc4c77ed60d20a8470054b65a092"
+      "bytes": 41384,
+      "sha256": "5c35b78d316d24733b0ea97888707f0abf9f4763bf39fe39c49bb97a18ddcd71"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -18714,8 +18714,8 @@
     },
     {
       "path": "modules/identity-membership/squad-invitations.ts",
-      "bytes": 15654,
-      "sha256": "b55e890986f19cff14c5d39ca967128debb3ae0fd106013ab6eb63a60cfd749d"
+      "bytes": 15710,
+      "sha256": "b552286f86bb78906992fc5babb37d33d20bdbd5a3c5649ce7d65210eaf154ae"
     },
     {
       "path": "modules/identity-membership/squad-outcomes-page.ts",
@@ -18739,8 +18739,8 @@
     },
     {
       "path": "modules/identity-membership/squads/freedom.module.json",
-      "bytes": 1675,
-      "sha256": "aff90911a5a25669a3e19c0ab78712ae9d001e016d526838d313447d4107fa27"
+      "bytes": 1729,
+      "sha256": "b964308461426e1c2153a91120ef093f09fa18851681cf0fd9bcc3c65a2f316a"
     },
     {
       "path": "modules/member-communications/channel-types.ts",
@@ -22724,8 +22724,8 @@
     },
     {
       "path": "tests/runtime/identity-member.test.ts",
-      "bytes": 41455,
-      "sha256": "633cb7f9cb376e48d10ba37bfd1cf22c87e9d02efe6fcae2666476c77f770672"
+      "bytes": 45079,
+      "sha256": "836b23bbf37c94cdc7324282eb83fe636938a4eaea734e42c0a449b6c657e6a2"
     },
     {
       "path": "tests/runtime/image-cloudflare.test.ts",
@@ -22899,8 +22899,8 @@
     },
     {
       "path": "tests/runtime/member-connections.test.ts",
-      "bytes": 23432,
-      "sha256": "c54491b9d4c0803884a6d03fb021cc1d97ef9507b2542cc511175d04122e3a52"
+      "bytes": 27868,
+      "sha256": "6afaf35f68665cf9806a213162c5b57e8760c28291f565f634a80b4ebeea5166"
     },
     {
       "path": "tests/runtime/member-device-bootstrap-adversarial.test.ts",
@@ -23674,8 +23674,8 @@
     },
     {
       "path": "tests/runtime/squad-invitations.test.ts",
-      "bytes": 37106,
-      "sha256": "466884baece5caf84a5052fb7cd584d6c113a33023c2fcb7425abe88cb5961e6"
+      "bytes": 39488,
+      "sha256": "f6bfa695b8894dce274a501d12823ab22b484e95ca8ffd9ff8a720c239d0c273"
     },
     {
       "path": "tests/runtime/squad-list-session-clock.test.ts",

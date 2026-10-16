@@ -167,9 +167,12 @@ export async function squadInvitations(pool:Pool,actor:Actor,squadId:string,raw:
 }
 // Received invitations are visible only to the recipient; an inactive owner hides them.
 export async function receivedSquadInvitations(pool:Pool,actor:Actor,raw:unknown) {
-  const {limit,offset,state}=ReceivedInvitationQuery.parse(raw);await eligibleActor(pool,actor);
-  const rows=(await pool.query(`${projection} WHERE i.recipient_ref=$1 AND i.community_id=$2 AND ($3='all' OR i.state='pending') AND s.owner_ref=i.owner_ref
+  const {limit,offset,state}=ReceivedInvitationQuery.parse(raw);
+  return readWithMemberSession(pool,actor,async q=>{
+  await eligibleActor(q,actor);
+  const rows=(await q.query(`${projection} WHERE i.recipient_ref=$1 AND i.community_id=$2 AND ($3='all' OR i.state='pending') AND s.owner_ref=i.owner_ref
     AND o.community_id=$2 AND o.active AND (NOT o.onboarding_required OR o.onboarding_completed_at IS NOT NULL)
     ORDER BY (i.state='pending') DESC,i.updated_at DESC,i.invitation_id LIMIT $4 OFFSET $5`,[actor.user_id,actor.community_id,state,limit+1,offset])).rows;
   return {items:rows.slice(0,limit).map(view),next_offset:rows.length>limit?offset+limit:null};
+  });
 }
