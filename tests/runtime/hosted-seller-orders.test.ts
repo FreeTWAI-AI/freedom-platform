@@ -224,3 +224,34 @@ test('seller page physically expires retained history and exact cancel keeps exp
   assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[s.product.product_id])).rows[0].reserved,0);
   assert.equal((await h.pool.query('SELECT 1 FROM scoped_transition_journal WHERE aggregate_id=$1 AND aggregate_version=2',[orderId])).rowCount,1);
 });
+
+// Checkout seller commands have a separate profile and receipt namespace from
+// the direct-reservation seller tests above.
+import {describe} from 'node:test';
+import {hostedPaymentHarness} from '../e2e/hosted-payment-fixture.js';
+import {sellerCheckoutCommand} from '../../modules/agent-commerce/checkout/seller-command.js';
+import {cancelUnpaidOrder} from '../../modules/agent-commerce/checkout/orders.js';
+describe('hosted checkout seller commands',()=>{
+  let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
+  before(async()=>{f=await hostedPaymentHarness('fp_checkout_seller');});
+  beforeEach(async()=>{await f.reset();});
+  after(async()=>f?.stop());
+  test('store binding preserves the scoped principal, tenant and scope through cancellation and receipt replay',async()=>{
+    const p=await f.placed(),a=await authenticate(f.x.runtime,p.s.owner.cookie.split('=')[1].split(';')[0]),key=randomUUID();
+    const bound=async(q:PoolClient)=>(await q.query(`SELECT current_setting('freedom.principal_id') principal,current_setting('freedom.tenant_id') tenant,current_setting('freedom.tenant_scope_id') scope`)).rows[0];
+    let runs=0,projections=0;
+    const command=()=>sellerCheckoutCommand(f.x.runtime,a,p.s.tenantId,p.s.instanceId,'store:orders:manage','commerce.checkout_order.cancel',
+      {kind:'hosted_checkout_order',id:p.order.order_ref},{},key,'1',async(q,context)=>{
+        runs++;const before=await bound(q);
+        assert.deepEqual(before,{principal:context.tenant.principal_id,tenant:context.tenant.tenant_id,scope:context.tenant.scope.scope_id});
+        await cancelUnpaidOrder(q,{storefront_shop_id:context.profile.storefront_shop_id},p.order.order_ref,'seller','seller_cancelled',f.runtime.commercePorts);
+        assert.deepEqual(await bound(q),before);return {id:p.order.order_ref};
+      },async(q,context,id)=>{
+        projections++;assert.deepEqual(await bound(q),{principal:context.tenant.principal_id,tenant:context.tenant.tenant_id,scope:context.tenant.scope.scope_id});
+        return (await q.query('SELECT order_id,lifecycle_state,version::text FROM commerce_checkout_orders WHERE order_id=$1',[id])).rows[0];
+      });
+    assert.equal((await command()).lifecycle_state,'cancelled');assert.equal((await command()).version,'2');
+    assert.equal(runs,1);assert.equal(projections,2);
+    assert.deepEqual((await f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation='commerce.checkout_order.cancel'")).rows.map(r=>r.response),[{id:p.order.order_ref}]);
+  });
+});
