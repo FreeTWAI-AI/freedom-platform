@@ -897,6 +897,8 @@ test('SC-E2E-70 a new version, a revoke and a withdrawal close the old paths (AT
     await grantMaterialToAllSellableInConsole(page);
     await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
     await expect(panelB.locator('article.card').filter({hasText: title})).toBeVisible();
+    // The re-grant opens the current path again, so the 404 after the withdrawal comes from the withdrawal.
+    expect((await sellerB.page.request.get(pathV2)).status()).toBe(200);
 
     const withdrawSection = materialActive(page)
       .locator('.sc-section')
