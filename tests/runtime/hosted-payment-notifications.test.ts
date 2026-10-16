@@ -931,3 +931,24 @@ test('review 11: replayed verified browser returns retain one hint and the same 
   }
   assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_hosted_payment_events WHERE attempt_id=$1 AND source='browser_return'", [p.payment.attempt_ref])).rows[0].n, 1);
 });
+
+import {createFixtureQueryTransport} from '../../modules/agent-commerce/payments/query-transport.js';
+test('notification commits and acknowledges before its collected confirmation query runs',async()=>{
+  const p=await f.placed(),value=await body(p),fields=new URLSearchParams(value),pending:(()=>Promise<void>)[]=[];
+  await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p.payment.attempt_ref]);
+  let calls=0;
+  f.install({afterResponse:work=>{pending.push(work);},commerceQueryTransport:createFixtureQueryTransport(async()=>{
+    calls++;assert.equal((await facts(p)).attempt.state,'paid');
+    return {kind:'response',status:200,body:encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:fields.get('MerchantTradeNo')!,TradeNo:fields.get('TradeNo')!,TradeAmt:'5',TradeStatus:'1'},EcpayKeyPair.of(p.provider.material.hash_key,p.provider.material.hash_iv),'sha256'))};
+  },'local')});
+  await ack(await post(path(p),value));assert.equal(calls,0);assert.equal(pending.length,1);assert.equal((await facts(p)).attempt.state,'paid');
+  await pending[0]();assert.equal(calls,1);const actual=await facts(p);assert.equal(actual.attempt.state,'confirmed');assert.equal(actual.applications.length,1);assert.equal(actual.events[1].query_trigger,'notification');
+  assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM auth_rate_limits WHERE bucket LIKE 'commerce:paymentQuery%'")).rows[0].n,0);
+});
+test('browser return queues only a committed new hint that scheduled a query',async()=>{
+  const p=await f.placed(),value=await body(p),pending:(()=>Promise<void>)[]=[];
+  f.install({afterResponse:work=>{pending.push(work);},commerceQueryTransport:createFixtureQueryTransport(async()=>({kind:'error',code:'network'}),'local')});
+  assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
+  assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
+  f.settings.quarantine=true;assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
+});

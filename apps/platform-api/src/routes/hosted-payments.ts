@@ -1,3 +1,4 @@
+import {runDueCommerceWork} from '../../../../modules/agent-commerce/operations/due-work.js';
 import { OpaqueId } from '../../../../contracts/guild-launchpad/v1/primitives.js';
 import { resolveReturnedAttempt, recordPaymentBrowserReturn, paymentBackLocation } from '../../../../modules/agent-commerce/payments/browser-return.js';
 import { Problem } from '../../../../packages/shared/problem.js';
@@ -15,6 +16,12 @@ import { servePaymentHandoff } from '../../../../modules/agent-commerce/payments
 import { HANDOFF_SCRIPT, HANDOFF_CSS, handoffErrorPage } from '../../../../modules/agent-commerce/payments/handoff-page.js';
 export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, environment: FreedomEnv) {
   const app = new Hono();
+  const afterResponse=(attemptId:string|null,trigger:'notification'|'browser_return')=>{
+    const transport=runtime.commerceQueryTransport,keyring=runtime.commerceCredentialKeyring;
+    if(!attemptId||!transport||!keyring||!runtime.afterResponse||runtime.commerceSettings?.quarantine)return;
+    try{runtime.afterResponse(async()=>{await runDueCommerceWork(pool,{transport,keyring,freedomEnv:environment},{targets:[attemptId],limit:2,trigger});});}
+    catch{console.error('commerce_after_response_failed');}
+  };
   const returnUnavailable = '暫時無法確認付款結果，請稍後到訂單頁查看。';
   app.onError((error, c) => {
     if (c.req.path.startsWith('/api/v1/provider-callbacks/ecpay/')) {
@@ -55,7 +62,8 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (message.kind === 'invalid')
       return invalid(message.reason);
     try {
-      await receivePaymentNotification(pool, { account, message, credentialVersion: credentials[message.keyIndex].credentialVersion, quarantine: runtime.commerceSettings?.quarantine ?? false });
+      const scheduledAttempt=await receivePaymentNotification(pool, { account, message, credentialVersion: credentials[message.keyIndex].credentialVersion, quarantine: runtime.commerceSettings?.quarantine ?? false });
+      afterResponse(scheduledAttempt,'notification');
     }
     catch (error) {
       if (error instanceof InvalidPaymentCredential)
@@ -89,7 +97,8 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (allowed && !runtime.commerceSettings?.quarantine) {
       try {
         const scheduleQuery = await tryChargeCommerceBudget(pool, 'paymentReturnQuery', attempt.attempt_id);
-        await recordPaymentBrowserReturn(pool, { account, attemptId: attempt.attempt_id, merchantTradeNo: message.merchantTradeNo, credentialVersion: version, body, scheduleQuery });
+        const recorded=await recordPaymentBrowserReturn(pool, { account, attemptId: attempt.attempt_id, merchantTradeNo: message.merchantTradeNo, credentialVersion: version, body, scheduleQuery });
+        if(recorded)afterResponse(attempt.attempt_id,'browser_return');
       } catch {
         console.error('payment_browser_return_record_failed');
       }

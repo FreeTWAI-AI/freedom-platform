@@ -41,9 +41,10 @@ export function receivePaymentNotification(pool: Pool, input: {
       ON CONFLICT(account_id,dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING RETURNING event_id`, [a.tenant_id, a.instance_id, a.account_id, attempt?.attempt_id ?? null, m.outcome, m.merchantTradeNo, m.tradeNo, m.rtnCode, m.dedupe.simulatePaid === '1',
     m.paymentDateEpochMs === null ? null : new Date(m.paymentDateEpochMs), safePaymentType(m.paymentType), m.tradeAmtMinor, m.chargeFeeMinor, m.gwsr, input.credentialVersion, m.bodySha256, notificationDedupe(a.account_id, m)])).rows[0];
     if (!event)
-      return;
+      return null;
     if (!attempt || !input.quarantine)
       await applyPaymentEvent(q, event.event_id);
+    return attempt && !input.quarantine && (await q.query("SELECT 1 FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1 AND due_at<=clock_timestamp()",[attempt.attempt_id])).rowCount ? attempt.attempt_id as string : null;
   });
 }
 /** Shared by synchronous receipt and deferred replay. Machine account provenance

@@ -19,7 +19,7 @@ export type PaymentQueryError='timeout'|'network'|'response_too_large'|'http_sta
 export interface PaymentQueryDependencies {
   transport:PaymentQueryTransport; keyring:CommerceCredentialKeyring|null;
   /** Host environment is explicit; providerEnvironment is its sole mapping. */
-  freedomEnv:'local'|'staging'|'public'; now?:()=>Date; quarantine?:boolean;
+  freedomEnv:'local'|'staging'|'public'; now?:()=>Date; quarantine?:boolean; signal?:AbortSignal;
 }
 export interface PaymentQueryRun {
   status:TradeInfoResponseResult['kind']|PaymentQueryError|'query_in_progress'|'payment_result_pending'|'skipped';
@@ -45,10 +45,10 @@ async function updateSchedule(q:PoolClient,a:MachinePaymentAttempt,row:DueRow,no
 /** Three phases: only immutable identity and in-memory keys leave phase one.
  * isolatedTransaction releases its client before the transport is invoked. */
 export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryDependencies,trigger:PaymentQueryTrigger,
-  {leaseToken}:{leaseToken?:string}={}):Promise<PaymentQueryRun> {
-  if(deps.quarantine)return {status:'skipped',externalCalls:0};
+  {leaseToken,tenantId}:{leaseToken?:string;tenantId?:string}={}):Promise<PaymentQueryRun> {
+  if(deps.quarantine||deps.signal?.aborted)return {status:'skipped',externalCalls:0};
   const lease=await isolatedTransaction(pool,async q=>{
-    const a=await lockMachinePaymentAttempt(q,attemptId);
+    const a=await lockMachinePaymentAttempt(q,attemptId,tenantId);
     if(!a)return {run:{status:'skipped',externalCalls:0} as PaymentQueryRun};
     await lockEvents(q,attemptId);
     let row=await dueRow(q,attemptId);
@@ -95,6 +95,7 @@ export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryD
     return {a,token:claimed.token,signing:signing!,verification};
   });
   if(lease.run)return lease.run;
+  if(deps.signal?.aborted)return {status:'skipped',externalCalls:0};
 
   let response:QueryTransportResult|{kind:'error';code:'internal'};
   try {
@@ -107,8 +108,11 @@ export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryD
     console.error('commerce_payment_query_internal');response={kind:'error',code:'internal'};
   }
 
-  return isolatedTransaction(pool,async q=>{
-    let a=await lockMachinePaymentAttempt(q,attemptId);if(!a)throw Error('payment_attempt_missing');
+  if(deps.signal?.aborted)return {status:'skipped',externalCalls:1};
+  try{return await isolatedTransaction(pool,async q=>{
+    if(deps.signal?.aborted)return {status:'skipped',externalCalls:1} as PaymentQueryRun;
+    let a=await lockMachinePaymentAttempt(q,attemptId,tenantId);if(!a)throw Error('payment_attempt_missing');
+    if(deps.signal?.aborted)return {status:'skipped',externalCalls:1} as PaymentQueryRun;
     await lockEvents(q,attemptId);
     const row=await dueRow(q,attemptId),ours=row?.token===lease.token,now=await timestamp(q,deps);
     let error:PaymentQueryError|null=null,result:TradeInfoResponseResult|undefined,eventId:string|undefined,applied=false;
@@ -150,7 +154,20 @@ export async function queryAttempt(pool:Pool,attemptId:string,deps:PaymentQueryD
       }
     }
     return {status:eventId&&!applied?'payment_result_pending':error??result?.kind??'internal',externalCalls:1,...(eventId?{eventId}:{})};
-  });
+  });}catch {
+    console.error('commerce_payment_query_internal');
+    try{await isolatedTransaction(pool,async q=>{
+      const a=await lockMachinePaymentAttempt(q,attemptId,tenantId);if(!a)return;
+      await lockEvents(q,attemptId);const row=await dueRow(q,attemptId);
+      if(row?.token===lease.token)await updateSchedule(q,a,row,await timestamp(q,deps),'internal',row.failure_count+1);
+    });}catch{console.error('commerce_payment_query_internal');}
+    throw new PaymentQueryExecutionError();
+  }
+}
+
+export class PaymentQueryExecutionError extends Error {
+  readonly externalCalls=1;
+  constructor(){super('payment_query_result_failed');}
 }
 
 /** Event application is shared by phase three and ordered deferred replay. */

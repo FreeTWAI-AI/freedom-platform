@@ -25,9 +25,10 @@ export async function hasDefinitePaymentMismatch(q:PoolClient, attempt:Pick<Mach
 }
 /** Resolve the exempt identity first; every machine writer then uses the same
  * order -> payment advisory -> attempts -> events -> due-work lock order. */
-export async function lockMachinePaymentAttempt(q:PoolClient, id:string):Promise<MachinePaymentAttempt|null> {
+export async function lockMachinePaymentAttempt(q:PoolClient, id:string,expectedTenantId?:string):Promise<MachinePaymentAttempt|null> {
   const peek = (await q.query<MachinePaymentAttempt>('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1',[id])).rows[0];
   if (!peek) return null;
+  if(expectedTenantId && peek.tenant_id!==expectedTenantId)throw Error('due_work_binding_invalid');
   await clearTenantContext(q); await bindStore(q,peek.tenant_id);
   if (peek.order_id) {
     await lockMachineOrder(q,peek.order_id);
@@ -72,13 +73,13 @@ export async function paymentQueryDueAt(q:PoolClient, a:MachinePaymentAttempt, n
   if (t>=window+DAY) { await exception(); return null; }
   return new Date(Math.min(t+(verifiedUnknown?10*60_000:retry),window+DAY));
 }
-export async function endPaymentWindow(pool:Pool, attemptId:string, options:{now?:()=>Date;leaseToken?:string}={}) {
+export async function endPaymentWindow(pool:Pool, attemptId:string, options:{now?:()=>Date;leaseToken?:string;tenantId?:string;signal?:AbortSignal}={}) {
   return isolatedTransaction(pool,async q=>{
-    const a=await lockMachinePaymentAttempt(q,attemptId); if(!a)return 'skipped' as const;
+    const a=await lockMachinePaymentAttempt(q,attemptId,options.tenantId); if(!a)return 'skipped' as const;
     const now=options.now?.()??new Date();
     const row=(await q.query(`SELECT *,lease_until::text AS token FROM commerce_due_work
       WHERE kind='payment_window_end' AND target_id=$1 FOR UPDATE`,[attemptId])).rows[0];
-    if(!row || row.due_at>now || (row.lease_until && row.lease_until>now && row.token!==options.leaseToken))return 'skipped' as const;
+    if(options.signal?.aborted || !row || row.due_at>now || (row.lease_until && row.lease_until>now && row.token!==options.leaseToken))return 'skipped' as const;
     if (['issued','superseded'].includes(a.state) && !await hasDefinitePaymentMismatch(q,a)) {
       if (!a.handed_off_at) {
         await q.query(`UPDATE commerce_payment_attempts SET state='expired_unpaid',expired_at=GREATEST(clock_timestamp(),created_at),version=version+1 WHERE attempt_id=$1`,[attemptId]);

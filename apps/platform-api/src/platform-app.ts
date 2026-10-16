@@ -1,3 +1,4 @@
+import {assertQueryTransportInstallation} from '../../../modules/agent-commerce/payments/query-transport.js';
 import {isCommerceProviderEntry,isCommerceProviderEntryPath} from '../../../modules/agent-commerce/operations/provider-entry-paths.js';
 import {createHostedCommerceSetupRoutes} from './routes/hosted-commerce-setup.js';
 import {assertPaymentGatewayInstallation} from '../../../modules/agent-commerce/payments/gateway.js';
@@ -164,6 +165,7 @@ export function platformResponseHeaders(path:string,brokerFormOrigin?:string,pay
 }
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
+  assertQueryTransportInstallation(runtime.commerceQueryTransport,freedomEnv);
   assertPaymentGatewayInstallation(runtime.commercePayments?.gateway,freedomEnv,origin);
   if(runtime.eventOutcomesEnabled===true&&runtime.squadOutcomesEnabled!==true)throw new Error('event_outcomes_require_squad_outcomes');
   if(runtime.firstParticipationEnabled===true&&runtime.personalContentEnabled!==true)throw new Error('first_participation_requires_personal_content');

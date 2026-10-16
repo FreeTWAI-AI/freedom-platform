@@ -19,16 +19,16 @@ test('commerce sweep failure logs a fixed name, continues later jobs and ends th
     await handler.scheduled({},{} as WorkerEnv,{waitUntil:p=>pending.push(p)});await Promise.all(pending);assert.deepEqual(logs,['commerce_sweep_failed']);assert.deepEqual(calls,['github','end']);
   }finally{console.error=original;}
 });
-test('each commerce backfill has its own failure boundary and quarantine skips all three',async()=>{
+test('each commerce backfill has its own failure boundary and quarantine skips all four',async()=>{
   const {randomBytes}=await import('node:crypto');
   for(const quarantine of [false,true]){
     const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
     const env={FREEDOM_ENV:'local',FREEDOM_COMMERCE_PROVIDER_PROFILES:'ecpay.aio.credit.v1',COMMERCE_CREDENTIAL_KEYS:'test:'+randomBytes(32).toString('base64'),COMMERCE_JOURNAL:{put:async()=>null,get:async()=>null},FREEDOM_COMMERCE_QUARANTINE:String(quarantine)} as unknown as WorkerEnv;
     const pool={end:async()=>{calls.push('end');}} as unknown as Pool;
     try{
-      const handler=createWorkerHandler({createPool:()=>pool,commerceSweep:async()=>{calls.push('holds');throw Error('synthetic-secret');},commerceApplyDeferred:async(given,options)=>{assert.equal(given,pool);assert.deepEqual(options,{limit:200});calls.push('payments');throw Error('synthetic-secret');},commerceFlushJournal:async(given,journal,options)=>{assert.equal(given,pool);assert.equal(journal.environment,'local');assert.deepEqual(options,{limit:200});calls.push('journal');throw Error('synthetic-secret');},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
+      const handler=createWorkerHandler({createPool:()=>pool,commerceDueWork:async()=>{calls.push('queries');throw Error('synthetic-secret');},commerceSweep:async()=>{calls.push('holds');throw Error('synthetic-secret');},commerceApplyDeferred:async(given,options)=>{assert.equal(given,pool);assert.deepEqual(options,{limit:200});calls.push('payments');throw Error('synthetic-secret');},commerceFlushJournal:async(given,journal,options)=>{assert.equal(given,pool);assert.equal(journal.environment,'local');assert.deepEqual(options,{limit:200});calls.push('journal');throw Error('synthetic-secret');},syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
       await handler.scheduled({},env,{waitUntil:p=>pending.push(p)});await Promise.all(pending);
-      assert.deepEqual(calls,quarantine?['github','end']:['payments','holds','journal','github','end']);assert.deepEqual(logs,quarantine?[]:['commerce_payment_deferred_failed','commerce_sweep_failed','commerce_control_journal_failed']);
+      assert.deepEqual(calls,quarantine?['github','end']:['payments','holds','queries','journal','github','end']);assert.deepEqual(logs,quarantine?[]:['commerce_payment_deferred_failed','commerce_sweep_failed','commerce_due_work_failed','commerce_control_journal_failed']);
     }finally{console.error=original;}
   }
 });

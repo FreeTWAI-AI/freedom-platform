@@ -28,6 +28,7 @@ test('the platform worker exposes scheduled and runs one bounded sync for events
   let pruned: unknown;
   const handler = createWorkerHandler({
     createPool: () => pool as unknown as Pool,
+    commerceDueWork:async()=>({claimed:0,completed:0,failed:0,externalCalls:0,released:0,unknown:0}),
     commerceSweep:async()=>0,
     commerceApplyDeferred:async()=>({applied:0,failed:0,skipped:0}),
     syncGitHub: async (given, options?: GitHubSyncOptions) => {
@@ -54,6 +55,7 @@ test('a scheduled sync failure is logged without the token and still ends the po
   const pool = {ended: 0, async end() { this.ended += 1; }};
   const handler = createWorkerHandler({
     createPool: () => pool as unknown as Pool,
+    commerceDueWork:async()=>({claimed:0,completed:0,failed:0,externalCalls:0,released:0,unknown:0}),
     commerceSweep:async()=>0,
     commerceApplyDeferred:async()=>({applied:0,failed:0,skipped:0}),
     syncGitHub: async () => { throw new Error('sync failed ' + TOKEN); },
@@ -73,6 +75,7 @@ test('a failing auth prune logs one line and still ends the pool', async () => {
   const pool = {ended: 0, async end() { this.ended += 1; }};
   const handler = createWorkerHandler({
     createPool: () => pool as unknown as Pool,
+    commerceDueWork:async()=>({claimed:0,completed:0,failed:0,externalCalls:0,released:0,unknown:0}),
     commerceSweep:async()=>0,
     commerceApplyDeferred:async()=>({applied:0,failed:0,skipped:0}),
     syncGitHub: async () => empty,

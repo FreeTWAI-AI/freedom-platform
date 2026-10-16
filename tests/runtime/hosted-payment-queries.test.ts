@@ -364,7 +364,7 @@ describe('payment query engine',()=>{
     const p=await handed(await f.placed()),canary=randomBytes(16).toString('hex'),logs:unknown[][]=[],original=console.error;
     const body=await response(p,{TradeStatus:'777',card4no:canary,auth_code:canary,RtnMsg:canary});console.error=(...args)=>{logs.push(args);};
     try{await queryAttempt(f.x.runtime,p.payment.attempt_ref,deps(async()=>({kind:'response',status:200,body})),'buyer');}finally{console.error=original;}
-    const a=await facts(p),text=JSON.stringify({events:a.events,cases:a.cases,due:a.due,attempt:a.attempt,applications:a.applications,logs,journal:f.journal});
+    const a=await facts(p),text=JSON.stringify({events:a.events,cases:a.cases,due:a.due,attempt:a.attempt,applications:a.applications,logs,journal:[...f.journal.objects.values()]});
     for(const secret of [canary,p.provider.material.hash_key,p.provider.material.hash_iv,p.provider.material.credit_check_code])assert(!text.includes(secret));
     assert(!text.includes('CheckMacValue'));
   });

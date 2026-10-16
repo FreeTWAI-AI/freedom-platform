@@ -1,3 +1,5 @@
+import {runDueCommerceWork,runAfterResponseWork} from '../../../modules/agent-commerce/operations/due-work.js';
+import {createEcpayQueryTransport,type PaymentQueryTransport} from '../../../modules/agent-commerce/payments/query-transport.js';
 import {applyDeferredPaymentEvents} from '../../../modules/agent-commerce/payments/events.js';
 import {flushControlEvents} from '../../../modules/agent-commerce/operations/journal/journal.js';
 import {createCheckoutPaymentPort} from '../../../modules/agent-commerce/payments/attempts.js';
@@ -279,7 +281,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
-    commercePayments:payments,commerceSettings:settings,
+    commerceQueryTransport:createEcpayQueryTransport(),commercePayments:payments,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
     commercePorts:{admission,payment:payments?createCheckoutPaymentPort({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null}):undefined},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
@@ -346,6 +348,8 @@ export type WorkerDependencies = {
   guildDiscovery?: typeof refreshGuildDiscoveryReports;
   /** Test seam. Production uses pruneExpiredAuthRecords. */
   authPrune?: typeof pruneExpiredAuthRecords;
+  commerceDueWork?:typeof runDueCommerceWork;
+  commerceQueryTransport?:PaymentQueryTransport;
   commerceSweep?:typeof sweepDueCheckoutHolds;
   commerceApplyDeferred?:typeof applyDeferredPaymentEvents;
   commerceFlushJournal?:typeof flushControlEvents;
@@ -381,6 +385,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         return problem(403, 'host_rejected', '請從自由工坊網站操作。');
       }
       if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!=='true'&&(url.pathname==='/api/v1/me/first-participation'||url.pathname.startsWith('/api/v1/first-participation/')))return problem(404,'not_found','找不到這個頁面。');
+      const afterResponse:(()=>Promise<void>)[]=[];
       let pool: Pool;
       // A throwing factory must not escape with its raw error or leave anything to end.
       try { pool = createPool(env); } catch (error) {
@@ -411,6 +416,8 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           }
         }
         const runtime=(deps.createRuntime??workerRuntime)(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
+        runtime.afterResponse=work=>{afterResponse.push(work);};
+        if(deps.commerceQueryTransport)runtime.commerceQueryTransport=deps.commerceQueryTransport;
         if(privateAi)Object.assign(runtime,privateAi);
         runtime.publicGuideAssets=await installWorkerGuideAssets(env);
         if(env.FREEDOM_SERVICE_COVER_ENABLED==='true'&&runtime.avatarAssetStore){
@@ -455,7 +462,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         return problem(500, 'internal_error', '操作未完成，請重新整理並查看目前狀態。');
       } finally {
         // Sockets are request-bound in Workers; always release them, even after errors.
-        ctx.waitUntil(pool.end().catch(() => console.error('pool_end_failed')));
+        ctx.waitUntil((async()=>{
+          await Promise.allSettled(afterResponse.map(work=>runAfterResponseWork(work).catch(()=>console.error('commerce_after_response_failed'))));
+          await pool.end().catch(()=>console.error('pool_end_failed'));
+        })());
       }
     },
     async scheduled(_controller: {readonly cron?: string; readonly scheduledTime?: number}, env: WorkerEnv, ctx: WorkerContext): Promise<void> {
@@ -477,6 +487,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           if(commerce&&!commerce.quarantine){
             try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
             try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
+            if(env.COMMERCE_CREDENTIAL_KEYS)try{
+              const keyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);
+              if(keyring)await (deps.commerceDueWork??runDueCommerceWork)(pool,{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring,freedomEnv:resolveFreedomEnv(env.FREEDOM_ENV)});
+            }catch{console.error('commerce_due_work_failed');}
             if(commerce.providerProfiles.length&&env.COMMERCE_JOURNAL)try{
               await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
             }catch{console.error('commerce_control_journal_failed');}
