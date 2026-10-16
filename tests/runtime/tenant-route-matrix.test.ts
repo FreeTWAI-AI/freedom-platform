@@ -892,7 +892,7 @@ test('T-022 3d. Anonymous', async () => {
   for (const [key, kind] of Object.entries(routeTable)) {
     if (!['tenant', 'principal', 'admin', 'guild'].includes(kind) || key.includes('/public/')) continue;
     const route = kind === 'tenant' ? routes.find(r => `${r.method} /api/v1${r.path.split('?')[0]}` === key)! : nonTenantRoute(key);
-    const realIds = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
+    const realIds: Record<string, string> = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
     const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : key === 'purpose' ? realIds[key] : randomUUID()]));
     const replies = await pair(route, undefined, realIds, randomIds);
     assertSameAsRandom(key, 'Anonymous', ...replies);
