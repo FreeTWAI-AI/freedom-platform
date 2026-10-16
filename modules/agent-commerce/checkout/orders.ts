@@ -94,7 +94,7 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
   await ports.payment?.createOrderAttempt(q,{store:p,orderId:id,amountMinor:saved.total_minor,currency:c.currency,environment:input.environment});
   return (await q.query<CheckoutOrderRow>('SELECT *,version::text FROM commerce_checkout_orders WHERE order_id=$1',[id])).rows[0];
 }
-export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId:string,actor:'buyer'|'seller'|'system',reason:'buyer_cancelled'|'seller_cancelled'|'payment_not_completed',ports:CheckoutPorts={}) {
+export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId:string,actor:'buyer'|'seller'|'system',reason:'buyer_cancelled'|'seller_cancelled'|'payment_not_completed',ports:{payment?:Pick<NonNullable<CheckoutPorts['payment']>,'onOrdersCancelled'>}={}) {
   requireCondition(reason===({buyer:'buyer_cancelled',seller:'seller_cancelled',system:'payment_not_completed'} as const)[actor],422,'invalid_cancel_reason','取消原因無效。');
   if(actor==='system')await lockMachineOrder(q,orderId);
   else await lockStore(q,store,[],[orderId],false);

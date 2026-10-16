@@ -5,7 +5,8 @@ A store argument is only a shop selector: stored profiles, selections and retain
 order lines establish tenant and supplier provenance. Callers must authenticate
 buyer capabilities or seller permissions before invoking participant commands.
 The payment machine caller must verify the provider fact before invoking payment
-application. No function performs external I/O.
+application. Transaction-core functions perform no external I/O. The separate
+payment action port orchestrates provider queries between committed transactions.
 
 ## Inventory and retained facts
 
@@ -16,7 +17,7 @@ Deferred constraints enforce the balance and exact frozen line/hold/allocation
 bindings at commit, including writes made outside this module. Every order line
 retains one hold forever; expiry releases it without cancelling the order.
 Conversion releases the hold and creates A atomically without changing reserved.
-An unapplied verified paid notification protects the order’s held units from both
+An unapplied verified paid notification or query protects the order’s held units from both
 placement settlement and the scheduled sweep, including after expiry. Deferred
 application after quarantine therefore converts those holds before releasing stock.
 Late payment allocates the entire order or records `unallocatable` without any A.
@@ -96,15 +97,30 @@ and contact references. Placement is idempotent within
 
 ## Function contracts
 
-All `q` arguments are caller-owned `PoolClient` transactions; only the sweep takes
-a pool. Store admission defaults to false and shipping defaults to
-`shipping_not_configured`. Ports run within the transaction and must not call a
+All `q` arguments are caller-owned `PoolClient` transactions. Sweeps and public
+commands take a pool; the separate payment action port orchestrates committed
+lease/call/result phases outside checkout transactions. Store admission defaults to false and shipping defaults to
+`shipping_not_configured`. SQL ports run within the transaction and must not call a
 provider. A confirmed payment is exactly an application whose outcome is in
 `CONFIRMED_PAYMENT_OUTCOMES = {converted, allocated, unallocatable}`. Simulated,
 amount-mismatch, after-cancel and overpaid outcomes do not confirm payment. The
 shared SQL helper applies this definition to payment application, both cancellation
 paths and unresolved-order detection. An open order without a confirmed payment
-blocks a new placement on that checkout with its reference in `unresolved_order`.
+blocks a new placement on that checkout with its reference in `unresolved_order`
+by default. Payments injects `UnresolvedOrderPort` alongside admission: it blocks
+only while an attempt is paid, issued/superseded and handed off, or issued and
+unhanded with every hold still held and unexpired. Definite unpaid attempts and
+unhanded attempts whose holds are gone do not block; their window can cancel the
+old order later. Without the port M1 retains its original behavior.
+
+Payments' 60-minute confirmation window calls `settleOrderPayments` after attempt
+changes at/after that deadline. It cancels through `cancelUnpaidOrder` only when
+all attempts are failed/expired, no confirmed application exists and no payment
+event awaits application. The same cancellation path releases holds and invokes
+the payment hook to revoke tokens; a cancellation replay makes no effects.
+Unknown, issued, superseded and paid attempts keep the order open. A later paid
+fact still applies as `after_cancel`. See [payments](../payments/README.md) and
+[EC-SPEC-03](../../../docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md).
 
 A customer/member link is a seller-facing label, independent of order read access.
 Both customer upsert and placement fill it only when currently NULL and the member
@@ -122,7 +138,7 @@ order access depends on that identity or access grants, never this label.
 | `placeCheckoutOrder(q, store, input, ports?)` | Require admission, settle bounded due holds, recompute terms and atomically create order/lines/sidecar/holds; report every SKU's available quantity on shortage. |
 | `cancelUnpaidOrder(q, store, orderId, actor, reason, ports?)` | Open and no confirmed payment only; release holds, invoke the optional payment cancellation hook in the same transaction and cancel once; repeat cancellation returns the current sidecar without invoking the hook or scheduling work. |
 | `settleDueCheckoutHolds(q, itemIds, bounds?)` | Release due checkout holds, keeping orders open; at most 50 items and 99 orders per item. |
-| `sweepDueCheckoutHolds(pool, {limit?})` | Process at most 200 selected orders with isolated machine transactions; no cron registration. |
+| `sweepDueCheckoutHolds(pool, {limit?})` | Process at most 200 selected orders with isolated machine transactions; the Worker scheduler invokes this before due payment work. |
 | `applyConfirmedPayment(q, input)` | Deduplicate verified payment reference; record simulated/mismatch/after-cancel/overpaid or convert/allocate/unallocatable atomically. |
 | `retryAllocation(q, store, orderId)` | Retry a retained unallocatable fact after restock, all items or none; preserve the original payment outcome on replay. |
 | `releaseAllocation(q, store, input)` | Release all or selected unshipped quantities once per command/allocation; cancel with paid_cancelled only when every remaining quantity and every shipped quantity are zero; partially shipped orders remain open. |
@@ -164,7 +180,8 @@ Under `/api/v1/public/stores/:slug`:
 | POST | `/checkouts` | 201 new / 200 replay | same gates; secret Idempotency-Key; ensures checkout device grant |
 | POST | `/checkouts/:checkout_ref/orders` | 201 new / 200 replay | same gates and live checkout device grant |
 | GET | `/orders/:order_ref` | 200 | live device grant or original member buyer |
-| POST | `/orders/:order_ref/payment-handoffs` | 201 | same buyer read access; live issued attempt, admission and payment gates; 409 when unavailable |
+| POST | `/orders/:order_ref/payment-handoffs` | 201 | same buyer read access; resume or verified-unpaid re-pay with admission/payment/hold gates; 409 pending includes Retry-After during the initial delay |
+| POST | `/orders/:order_ref/payment-queries` | 200 public order | same buyer read access, quarantine/checkout gates; 30/network/10 min and shared 1/order/min + 10/order/hour; 409 busy lease, 429 with Retry-After |
 | POST | `/orders/:order_ref/access` | 200 | not quarantined, matching single-use live link |
 | POST | `/order-access-requests` | empty 202 | not quarantined; an installed email port is required |
 
@@ -182,7 +199,7 @@ off, the host is quarantined or store admission is withdrawn.
 | `consents_mismatch` | 422 | Freeze consent set differs from current required policies |
 | `terms_changed`, `checkout_expired` | 409 | Recompute or checkout deadline prevents placement |
 | `payment_profile_unavailable`, `payment_handoff_unavailable` | 409 | Unsupported credit terms or no resumable one-time handoff |
-| `checkout_order_closed`, `checkout_hold_expired`, `payment_already_applied`, `payment_attempts_exhausted`, `payment_result_pending` | 409 | Closed-list codes for order and payment conflicts in cancellation, re-pay and on-demand payment queries; no route emits them yet |
+| `checkout_order_closed`, `checkout_hold_expired`, `payment_already_applied`, `payment_attempts_exhausted`, `payment_result_pending` | 409 | Order and payment conflicts in cancellation, re-pay and on-demand payment queries; the initial re-pay delay includes `Retry-After` |
 | `stock_unavailable` | 409 | Per-SKU available quantities accompany the error |
 | `unresolved_order` | 409 | Existing unpaid order reference accompanies the error |
 | `too_many_open_orders` | 429 | Device or normalized email has three open orders at this store; database-clock Retry-After |
@@ -271,7 +288,7 @@ two more queries than a random ref.
 
 ## Deliberately outside this slice
 
-Provider query execution, re-pay, refund execution, fulfilment/shipment aggregates,
+Refund execution, fulfilment/shipment aggregates,
 return-case resolution, invoices and the
 buyer pages that consume link fragments remain separate milestones. Domain
 functions accept verified payment, handover and inspected-return facts from those
@@ -281,7 +298,8 @@ and literal-false payment/fulfilment fields. Schema168 remains expand-only.
 
 ## Payment port and shared exceptions
 
-Checkout and operations never import payments. `CheckoutPaymentPort` is optional
+Checkout never imports the payment implementation; the operations executor
+dispatches payment due work. `CheckoutPaymentPort` is optional
 in `CheckoutPorts`, injected alongside admission by the runtime and passed through
 `hostedCheckoutOptions`. Without it, domain tests retain M1 behavior. Its methods
 validate credit terms, create the initial attempt after holds, issue/reissue the

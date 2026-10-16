@@ -1,3 +1,6 @@
+import type {PaymentAttemptOptions} from './attempts.js';
+import {scheduleDueWork} from '../operations/due-work.js';
+import {chargeCommerceBudgets} from '../checkout/limits.js';
 import {randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import type {z} from 'zod';
@@ -12,7 +15,7 @@ import {assertFreshVerificationCurrent,consumeFreshVerification,receiptNamespace
 import {effectiveStoreCapabilities,requireStoreInstance,storeCapabilities,STORE_MISSING} from '../hosted/capabilities.js';
 import {instance,storeFact,storeRead} from '../hosted/store.js';
 import {recordControlEvent} from '../operations/control-events.js';
-import {EcpayKeyPair} from '../providers/ecpay/index.js';
+import {EcpayKeyPair,newTradeNumber} from '../providers/ecpay/index.js';
 import {EcpayCreditCheckCode} from '../providers/ecpay/aio-credit/index.js';
 import {CommerceCredentialKeyring,credentialFingerprint,sealCredential,unsealCredential,resealCredential,type CredentialContext} from './credentials.js';
 import {createProviderAccountRoute} from './entry-routes.js';
@@ -37,7 +40,9 @@ async function accountView(q:PoolClient,id:string){
   const services=(await q.query(`SELECT s.purpose,s.profile,s.state,s.credential_version,c.created_at AS credential_updated_at,s.activated_at,s.throttled_until
     FROM commerce_provider_account_services s JOIN commerce_provider_credentials c ON c.account_id=s.account_id AND c.purpose=s.purpose AND c.credential_version=s.credential_version
     WHERE s.account_id=$1 ORDER BY s.purpose`,[id])).rows.map(s=>({...s,credential_updated_at:s.credential_updated_at.toISOString(),activated_at:s.activated_at?.toISOString()??null,throttled_until:s.throttled_until?.toISOString()??null}));
-  return wire.ProviderAccountViewSchema.parse({account_id:a.account_id,provider:a.provider,environment:a.environment,merchant_id:a.merchant_id,version:a.version,created_at:a.created_at.toISOString(),services});
+  const activation=(await q.query("SELECT attempt_id,state,handed_off_at,created_at FROM commerce_payment_attempts WHERE account_id=$1 AND kind='service_activation' ORDER BY sequence DESC LIMIT 1",[id])).rows[0];
+  const payment_activation=activation?{attempt_ref:activation.attempt_id,state:activation.state==='issued'?(activation.handed_off_at?'awaiting_result':'ready'):activation.state==='expired_unpaid'||activation.state==='superseded'?'expired':activation.state,created_at:activation.created_at.toISOString()}:null;
+  return wire.ProviderAccountViewSchema.parse({payment_activation,account_id:a.account_id,provider:a.provider,environment:a.environment,merchant_id:a.merchant_id,version:a.version,created_at:a.created_at.toISOString(),services});
 }
 export function listProviderAccounts(pool:Pool,actor:Actor,tenantId:string,instanceId:string){
   return storeRead(pool,actor,tenantId,instanceId,'store:read',async(q,ctx)=>{
@@ -47,7 +52,7 @@ export function listProviderAccounts(pool:Pool,actor:Actor,tenantId:string,insta
     const items=[];for(const row of rows)items.push(await accountView(q,row.account_id));return wire.ProviderAccountPageSchema.parse({items});
   });
 }
-async function command(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string|undefined,operation:string,body:{fresh_auth_verification_id:string},key:string,expected:string|undefined,run:(q:PoolClient,ctx:TenantScopeContext)=>Promise<z.infer<typeof wire.ProviderAccountViewSchema>>){
+async function command<T extends object>(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string|undefined,operation:string,body:{fresh_auth_verification_id:string},key:string,expected:string|undefined,run:(q:PoolClient,ctx:TenantScopeContext)=>Promise<T>){
   const namespace=(ctx:TenantScopeContext)=>receiptNamespaceDigest('freedom.scoped-tenant-command/v1',[ctx.principal_id,ctx.authn_kind,ctx.scope.scope_id,operation,key]);
   const authorize=async(q:PoolClient,ctx:TenantScopeContext)=>{
     await instance(q,tenantId,instanceId,false,true);
@@ -66,7 +71,10 @@ async function command(pool:Pool,actor:Actor,tenantId:string,instanceId:string,a
     const view=await run(q,ctx);
     await consumeFreshVerification(q,body.fresh_auth_verification_id,namespace(ctx));
     await bumpAuthorizationRevision(q,tenantId);
-    await storeFact(q,ctx,view.account_id,view.version,operation,'commerce_provider_account');return view;
+    // Activation receipts contain only an attempt reference; journal the account
+    // aggregate independently rather than putting its bearer handoff in a receipt.
+    const fact=accountId?await account(q,accountId):view as z.infer<typeof wire.ProviderAccountViewSchema>;
+    await storeFact(q,ctx,fact.account_id,fact.version,operation,'commerce_provider_account');return view;
   },authorize);}catch(e){if(e instanceof Problem&&e.code==='tenant_not_found')throw new Problem(404,'not_found',STORE_MISSING);throw e;}
 }
 export async function createProviderAccount(pool:Pool,actor:Actor,tenantId:string,instanceId:string,raw:unknown,key:string,options:ProviderAccountOptions){
@@ -131,7 +139,7 @@ async function updateServiceState(q:PoolClient,id:string,purpose:ProviderPurpose
 }
 /** Internal machine mutations follow the same tenant -> account lock order as
  * setup commands. Their caller owns the transaction and binds tenant context. */
-async function lockMachineAccount(q:PoolClient,id:string){
+export async function lockMachineAccount(q:PoolClient,id:string){
   const peek=await account(q,id);await q.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE',[peek.tenant_id]);return account(q,id,undefined,undefined,true);
 }
 async function machineFact(q:PoolClient,a:Record<string,any>,kind:Parameters<typeof recordControlEvent>[1]['kind'],detail:Parameters<typeof recordControlEvent>[1]['detail']){
@@ -175,4 +183,39 @@ export async function resealProviderCredentials(q:PoolClient,ring:CommerceCreden
     await machineFact(q,a,'provider_credential.resealed',{purpose:c.purpose,credential_version:c.credential_version});resealed++;
   }
   return {resealed};
+}
+
+/** Adjustable controlled self-payment amount: NT$10, never refunded here. */
+export const SERVICE_ACTIVATION_AMOUNT_MINOR=1000;
+export async function createPaymentServiceActivation(pool:Pool,actor:Actor,tenantId:string,instanceId:string,accountId:string,raw:unknown,key:string,expected:string,options:PaymentAttemptOptions){
+  keyringOf(options);const input=parseInput(wire.ProviderActivationPaymentInputSchema,raw);
+  await chargeCommerceBudgets(pool,accountId,{network:'activationAccount'});
+  return command(pool,actor,tenantId,instanceId,accountId,'commerce.provider_service.activation_payment.payment',input,key,expected,async q=>{
+    const a=await account(q,accountId,tenantId,instanceId);
+    const s=(await q.query(`SELECT s.* FROM commerce_provider_account_services s JOIN commerce_provider_credentials c
+      ON c.account_id=s.account_id AND c.purpose=s.purpose AND c.credential_version=s.credential_version
+      WHERE s.account_id=$1 AND s.purpose='payment' AND c.retired_at IS NULL FOR UPDATE OF s`,[accountId])).rows[0];
+    requireCondition(s?.state==='draft',409,'provider_service_state','供應商服務狀態不允許這個操作。');
+    requireCondition(!(await q.query(`SELECT 1 FROM commerce_provider_account_services WHERE instance_id=$1 AND environment=$2
+      AND profile=$3 AND purpose='payment' AND state='active' AND account_id<>$4`,[instanceId,a.environment,s.profile,accountId])).rowCount,
+      409,'provider_service_conflict','商店已有相同設定檔的啟用服務。');
+    requireCondition(options.profiles.includes(s.profile)&&options.gateway&&options.gateway.environment===a.environment&&a.environment===options.environment,
+      409,'provider_service_state','供應商服務狀態不允許這個操作。');
+    requireCondition(!options.settings.quarantine,503,'commerce_quarantined','商店系統維護中，訂單資料核對中。');
+    requireCondition(!(await q.query(`SELECT 1 FROM commerce_payment_attempts WHERE account_id=$1 AND kind='service_activation'
+      AND (state='paid' OR (state='issued' AND handed_off_at IS NOT NULL AND created_at+interval '60 minutes'>clock_timestamp()))`,[accountId])).rowCount,
+      409,'provider_activation_pending','收款服務驗證結果確認中，請稍後再試。');
+    const sequence=(await q.query("SELECT coalesce(max(sequence),0)+1 AS n FROM commerce_payment_attempts WHERE account_id=$1 AND kind='service_activation'",[accountId])).rows[0].n;
+    for(let i=0;i<5;i++){
+      const attempt=(await q.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,sequence,account_id,environment,merchant_id,credential_version,profile,merchant_trade_no,amount_minor,currency)
+        VALUES($1,$2,'service_activation',$3,$4,$5,$6,$7,$8,$9,$10,'TWD') ON CONFLICT(provider,environment,merchant_id,merchant_trade_no) DO NOTHING
+        RETURNING attempt_id,(created_at+interval '10 minutes')::text AS query_due,(created_at+interval '60 minutes')::text AS window_due`,
+        [tenantId,instanceId,sequence,accountId,a.environment,a.merchant_id,s.credential_version,s.profile,newTradeNumber('F'),SERVICE_ACTIVATION_AMOUNT_MINOR])).rows[0];
+      if(!attempt)continue;
+      for(const [kind,dueAt] of [['payment_query',attempt.query_due],['payment_window_end',attempt.window_due]] as const)
+        await scheduleDueWork(q,{tenantId,instanceId,kind,targetId:attempt.attempt_id,dueAt});
+      await bumpAccount(q,accountId);return {attempt_ref:attempt.attempt_id as string};
+    }
+    throw Error('payment_trade_number_unavailable');
+  });
 }

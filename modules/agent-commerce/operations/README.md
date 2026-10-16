@@ -41,7 +41,8 @@ Their immutable detail excludes credential fields, fingerprints, routing refs
 and request bodies. `flushControlEvents(pool, journal, {eventIds?, limit})`
 appends control.<kind> outside a database transaction, then fills journaled_at
 once. Account and admission routes try it after commit, preserving the command
-response on failure and logging only a fixed name. The scheduler backfills
+response on failure and logging only a fixed name. Activation-payment routes do
+not flush; their confirmation control event waits for the scheduled pass. The scheduler backfills
 unjournaled rows independently. Each failed row logs only its event ID and a fixed
 reason, then later rows continue. Flush returns written/failed counts; a poison
 record remains available for a later retry without blocking unrelated controls. Payment handoff requires its own journal append
@@ -52,9 +53,27 @@ before token consumption; journal failure leaves the link available for retry.
 `due-work.ts` maintains the non-PII cross-tenant `commerce_due_work` schedule:
 `payment_query` targets an attempt to query, and `payment_window_end` targets its
 60-minute confirmation deadline. `scheduleDueWork` upserts by kind/target using
-LEAST, so an earlier request wins and a retry never postpones work. Lease,
-attempt-count and fixed-error fields are reserved for wp04-queries executors.
-Finished work may be deleted; no executor or provider request exists here.
+LEAST, so an earlier request wins and a retry never postpones work. `runDueCommerceWork` claims at most 200 due rows cross-tenant with
+`FOR UPDATE SKIP LOCKED`, gives them two-minute leases and commits before dispatch.
+Each handler binds and validates its own tenant in separate transactions; queries
+extend their attempt lease to 60 seconds and make the external call only after
+commit. The exact lease timestamp is the ownership token. The claim filters to the
+handler table’s kinds, leaving other kinds available for a newer binary. The executor stops after 50
+external calls or five minutes and releases unstarted claims. Errors log only
+kind and a fixed code. Finished rows are deleted; `failure_count` tracks consecutive
+indefinite results separately from total runs and `last_query_at` tracks calls.
+A query needs transport/keyring, but no listed profile or active service, so old
+payment responsibility can still reconcile. The tenant/instance must be active.
+HTTP 403 waits 30 minutes on that account's payment service only.
+
+Notifications and recorded browser returns queue targeted execution through
+`PlatformRuntime.afterResponse` after their scheduling transaction commits. Each
+work item has a 25-second bound. The Worker gathers them in `ctx.waitUntil`, waits
+with `Promise.allSettled`, then ends its pool. An abandoned timed-out query leaves
+its lease for cron recovery. Node runs detached with fixed-name failure logging;
+tests can install an awaitable collector. The hook spends no notification budget.
+Quarantine and absent transport/keyring suppress it. The ten-minute cron is fallback.
+Queries write verified inbox facts, never an external-effect journal record.
 
 `provider-entry-paths.ts` recognizes exactly the payment callback POST and the
 browser-return POST with lowercase 26-character account refs. The platform gate
@@ -68,12 +87,14 @@ account and network, so one network cannot exhaust another sender’s budget. No
 Quarantine stops new commerce effects, the hold sweep, deferred payment
 application and control-event backfill. Verified callbacks still retain their
 inbox facts for ordered replay. When quarantine is off, the Worker runs deferred
-payment application before the hold sweep, then the journal flush, with independent
+payment application before the hold sweep, then due work, then the journal flush, with independent
 fixed-name error handlers. A failing deferred event logs only its ID and skips
 later events of that attempt in the run while other attempts continue. The result
 reports applied/failed/skipped counts; partial failures receive a fixed Worker log.
 Settlement also retains holds protected by unapplied
-verified paid notifications, so placements cannot release them before recovery. Due-work execution belongs to wp04-queries.
+verified paid notifications or query results, so placements cannot release them before recovery.
+See [payment confirmation](../payments/README.md) for slot/backoff, window-end and
+automatic cancellation rules.
 
 Release capabilities commerce.hosted-checkout.v1 (168) and
 commerce.hosted-payment.v1 (169) are mandatory for planned or retained schema

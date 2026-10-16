@@ -227,7 +227,12 @@ BEGIN
   END IF;
   IF (to_jsonb(NEW)-ARRAY['state','credential_version','throttled_until','activated_at','activation_ref','updated_at','version'])
     IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','credential_version','throttled_until','activated_at','activation_ref','updated_at','version'])
-    OR OLD.state='retired' OR NEW.version<>OLD.version+1 OR NEW.updated_at<OLD.updated_at
+    -- Retirement stops new effects, not read-only queries or their 403 throttle.
+    -- Every other retired-service fact, including credentials, remains frozen.
+    OR (OLD.state='retired' AND ((to_jsonb(NEW)-ARRAY['throttled_until','updated_at','version'])
+      IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['throttled_until','updated_at','version'])
+      OR NEW.throttled_until IS NOT DISTINCT FROM OLD.throttled_until))
+    OR NEW.version<>OLD.version+1 OR NEW.updated_at<OLD.updated_at
     OR (OLD.activated_at IS NOT NULL AND ROW(NEW.activated_at,NEW.activation_ref) IS DISTINCT FROM ROW(OLD.activated_at,OLD.activation_ref))
     OR (OLD.activated_at IS NULL AND NEW.activated_at IS NOT NULL AND NOT (OLD.state='draft' AND NEW.state='active')) THEN
     RAISE EXCEPTION 'provider service identity and activation are retained' USING ERRCODE='23514';
@@ -401,7 +406,8 @@ CREATE TABLE commerce_payment_attempts (
   charge_fee_minor bigint CHECK(charge_fee_minor>=0),
   gwsr text CHECK(gwsr ~ '^[0-9]{1,20}$'),
   version bigint NOT NULL DEFAULT 1 CHECK(version>0),
-  CHECK(state NOT IN ('paid','confirmed') OR (trade_no IS NOT NULL AND payment_date IS NOT NULL)),
+  -- QueryTradeInfo can prove payment without returning PaymentDate.
+  CHECK(state NOT IN ('paid','confirmed') OR trade_no IS NOT NULL),
   CHECK((kind='order' AND order_id IS NOT NULL AND sequence<=5) OR (kind='service_activation' AND order_id IS NULL)),
   FOREIGN KEY(account_id,tenant_id,instance_id,environment,merchant_id)
     REFERENCES commerce_provider_accounts(account_id,tenant_id,instance_id,environment,merchant_id),
@@ -414,6 +420,8 @@ CREATE TABLE commerce_payment_attempts (
   UNIQUE(attempt_id,account_id,tenant_id,instance_id)
 );
 CREATE UNIQUE INDEX commerce_payment_activation_sequence ON commerce_payment_attempts(account_id,sequence) WHERE kind='service_activation';
+-- Re-pay supersedes the previous issued attempt before inserting its successor.
+CREATE UNIQUE INDEX commerce_payment_attempt_one_issued_order ON commerce_payment_attempts(order_id) WHERE kind='order' AND state='issued';
 CREATE INDEX commerce_payment_attempt_account_trade ON commerce_payment_attempts(account_id,merchant_trade_no);
 CREATE INDEX commerce_payment_attempt_account_identity ON commerce_payment_attempts(account_id,tenant_id,instance_id,environment,merchant_id);
 CREATE INDEX commerce_payment_attempt_credential ON commerce_payment_attempts(account_id,purpose,credential_version);
@@ -470,7 +478,7 @@ CREATE TABLE commerce_hosted_payment_events (
   instance_id uuid NOT NULL,
   account_id uuid NOT NULL,
   attempt_id uuid,
-  source text NOT NULL CHECK(source IN ('notification','browser_return')),
+  source text NOT NULL CHECK(source IN ('notification','query','browser_return')),
   outcome text NOT NULL,
   merchant_trade_no text CHECK(merchant_trade_no ~ '^[0-9A-Z]{1,20}$'),
   trade_no text CHECK(trade_no ~ '^[0-9A-Z]{1,20}$'),
@@ -481,15 +489,28 @@ CREATE TABLE commerce_hosted_payment_events (
   payment_type text CHECK(payment_type ~ '^[A-Za-z0-9_]{1,40}$'),
   trade_amt_minor bigint CHECK(trade_amt_minor>=0 AND trade_amt_minor<=99999999900),
   charge_fee_minor bigint CHECK(charge_fee_minor>=0),
+  trade_status text CHECK(trade_status ~ '^[0-9]{1,10}$'),
+  handling_charge_minor bigint CHECK(handling_charge_minor>=0),
+  unknown_reason text CHECK(unknown_reason IN ('missing_field','invalid_field','unrecognized_status')),
+  unknown_field text CHECK(unknown_field ~ '^[A-Za-z]{1,40}$'),
+  query_trigger text CHECK(query_trigger IN ('schedule','window_end','notification','browser_return','buyer','repay','activation')),
   gwsr text CHECK(gwsr ~ '^[0-9]{1,20}$'),
   credential_version integer,
   body_sha256 text CHECK(body_sha256 ~ '^[a-f0-9]{64}$'),
   dedupe_key text CHECK(dedupe_key ~ '^[a-f0-9]{64}$'),
   received_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   applied_at timestamptz CHECK(applied_at IS NULL OR applied_at>=received_at),
-  CHECK(outcome<>'paid' OR (trade_no IS NOT NULL AND payment_date IS NOT NULL AND trade_amt_minor IS NOT NULL)),
+  CHECK(outcome<>'paid' OR (trade_no IS NOT NULL AND trade_amt_minor IS NOT NULL
+    AND (source<>'notification' OR payment_date IS NOT NULL))),
   CHECK((source='notification' AND outcome IN ('paid','failed','pending_confirmation','simulated') AND dedupe_key IS NOT NULL)
+    OR (source='query' AND outcome IN ('paid','unpaid','failed','amount_mismatch','trade_no_mismatch','unknown') AND dedupe_key IS NULL)
     OR (source='browser_return' AND outcome='returned' AND dedupe_key IS NULL)),
+  CHECK(source='query' OR (trade_status IS NULL AND handling_charge_minor IS NULL AND unknown_reason IS NULL AND unknown_field IS NULL AND query_trigger IS NULL)),
+  CHECK((query_trigger IS NOT NULL)=(source='query')),
+  CHECK((unknown_reason IS NOT NULL)=(outcome='unknown')),
+  CHECK(unknown_field IS NULL OR (unknown_reason IS NOT NULL AND unknown_reason IN ('missing_field','invalid_field'))),
+  -- Unknown parser results have no keyIndex, even when their MAC was verified.
+  CHECK(source<>'query' OR (outcome='unknown' AND credential_version IS NULL) OR (outcome<>'unknown' AND credential_version IS NOT NULL)),
   FOREIGN KEY(account_id) REFERENCES commerce_provider_accounts(account_id),
   FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
   -- Inbox insertion precedes order/attempt locks. Deferring this FK avoids
@@ -519,7 +540,7 @@ CREATE UNIQUE INDEX commerce_hosted_payment_events_browser_return ON commerce_ho
 CREATE INDEX commerce_hosted_payment_events_account ON commerce_hosted_payment_events(account_id,received_at,event_id);
 CREATE INDEX commerce_hosted_payment_events_attempt ON commerce_hosted_payment_events(attempt_id,received_at,event_id);
 CREATE INDEX commerce_hosted_payment_events_store ON commerce_hosted_payment_events(tenant_id,instance_id);
-CREATE INDEX commerce_hosted_payment_events_unapplied ON commerce_hosted_payment_events(received_at,event_id) WHERE source='notification' AND applied_at IS NULL;
+CREATE INDEX commerce_hosted_payment_events_unapplied ON commerce_hosted_payment_events(received_at,event_id) WHERE source IN ('notification','query') AND applied_at IS NULL;
 CREATE FUNCTION preserve_commerce_hosted_payment_events() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP='DELETE' OR (to_jsonb(NEW)-'applied_at') IS DISTINCT FROM (to_jsonb(OLD)-'applied_at')
@@ -543,7 +564,12 @@ CREATE TABLE commerce_due_work (
   due_at timestamptz NOT NULL,
   lease_until timestamptz,
   attempts integer NOT NULL DEFAULT 0 CHECK(attempts>=0),
-  last_error text CHECK(last_error ~ '^[a-z0-9_]{1,64}$'),
+  -- Calls and consecutive inconclusive runs are separate counters.
+  failure_count integer NOT NULL DEFAULT 0 CHECK(failure_count>=0),
+  last_query_at timestamptz,
+  last_error text CHECK(last_error IN ('timeout','network','response_too_large','http_status','http_403',
+    'verify_failed','merchant_mismatch','merchant_trade_no_mismatch','platform_mismatch',
+    'keyring_unavailable','credential_unavailable','throttled','tenant_inactive','environment_mismatch','internal')),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),

@@ -1,157 +1,224 @@
 # Freedom Commerce Payments (`commerce-payments`)
 
-This module implements inbound hosted ECPay credit payments and provider account
-setup with sealed credentials. The browser submits the signed checkout form;
-this module builds or sends no server-to-server provider request. Pure refund
-and allocation rules remain under `rules/`.
+Hosted ECPay credit payments use immutable attempts, a verified inbox and a
+read-only QueryTradeInfo/V5 confirmation query. The browser sends the checkout
+form; the server transport sends only the confirmation query. Pure refund and
+allocation rules remain under `rules/`; refund execution belongs to wp04-refunds.
 
-## Attempts and one-time handoff
+## Attempts, handoff and buyer reads
 
-The runtime injects `CheckoutPaymentPort` into checkout through `commercePorts`.
-Placement creates attempt 1 in the order transaction after its durable holds,
-pinning the active payment service, provider environment, merchant and credential
-version. A collision draws a fresh trade number at most five times. It schedules
-`payment_query` at creation +10 minutes and `payment_window_end` at +60 minutes.
-Creation and placement validate every unit/net/shipping amount and the total with
-the protocol profile: whole TWD, total 5–999,999,999 TWD. The four availability
-reasons map to fixed Chinese errors; unknown reasons fail closed.
+Placement creates attempt 1 after durable inventory holds, pinning the account,
+merchant, environment and credential version. Every amount passes the credit
+profile's whole-TWD range (5–999,999,999 TWD). Trade-number collisions draw fresh
+numbers up to five times. Creation schedules query work at +10 minutes and a
+separate confirmation-window end at +60 minutes. An order has at most one issued
+attempt; a superseded attempt retains its own payment responsibility.
 
-A placement replay or buyer-authorized resume can mint a new 256-bit handoff
-token only before the first handoff. `commerce_entry_routes` retains its SHA-256
-and a database-clock 15-minute expiry, revoking older live tokens atomically.
-The GET page checks host settings, quarantine, tenant/instance liveness, the
-listed profile and installed gateway, active service, admission, open order and
-live holds before unsealing the attempt's pinned credential. Failures preserve
-the token. A journal append outside any database transaction precedes setting
-`journaled_at`; consumption then locks the attempt before the route, rechecks
-eligibility and revokes the route while filling `handed_off_at`. One attempt can
-be handed off once. A concurrent loser receives 410.
+A 256-bit handoff token lives for 15 minutes by database time. Only its SHA-256
+hash is stored; minting revokes older live tokens of that attempt. The page checks
+quarantine, checkout, profile/gateway, tenant/instance, payment service, admission,
+open order and live holds before unsealing its pinned credentials. Failures keep
+the token. A `payment_handoff` journal append occurs outside a transaction before
+consumption; order/attempt locks then protect its one handoff. Concurrent reuse
+returns 410. Callback, browser-return and back URLs come only from `gateway.ts`.
+The page uses no-store, no-referrer, noindex, escaped fields and a bounded CSP.
 
-The minimal Traditional Chinese page has escaped hidden fields, external script
-and stylesheet, an immediate noscript submit, a 10-second manual fallback with
-a one-use click handler, and a back-forward cache guard that reveals the stored
-order back link without resubmitting. Both buttons read 前往綠界付款. Only valid token paths extend CSP `form-action` to the configured
-gateway action origin. Every payment page uses no-store, no-referrer and noindex.
+Buyer order reads expose only a coarse latest attempt and
+`overpaid|confirmed|pending|simulated|unpaid`. Here `confirmed` retains checkout's
+application definition; it does not itself assert server-query confirmation.
+Overpaid, after-cancel or amount-mismatch applications produce `overpaid` and
+turn resume off. `can_resume_payment` reads the resume and re-pay gates without
+calling ECPay, charging budgets, unsealing credentials or reading provider routes.
+A summary batch belongs to one tenant and instance.
 
-`gateway.ts` is the only constructor of provider callback/return/back URLs.
-Production uses a validated HTTPS platform origin and the protocol library's
-exact sandbox/live checkout action. ClientBackURL contains only the attempt UUID,
-so store slugs cannot introduce a CDN-blocked term. The branded fixture gateway
-is refused outside local hosts and can be installed only by tests/E2E.
+## Inbox, query phases and keys
 
-## Verified inbox and browser returns
+Notifications accept bounded 16 KiB forms and verify current-first usable keys,
+merchant and trade. The response `1|OK` follows commit. Quarantine retains known
+notification facts unapplied. Browser returns verify independently, retain one
+browser hint per attempt and redirect even if hint storage fails. They never
+apply payments. Activation returns/back links lead to `/`; order links use the
+stored slug. Only exact callback and browser-return POST paths skip Origin/JSON
+gates; Host checks remain. Notification budgets bind account and network.
 
-`POST /api/v1/provider-callbacks/ecpay/{account_ref}/payment` accepts bounded
-16 KiB form bodies, rejects duplicate or invalid field names and verifies the
-merchant and CheckMacValue with current-first usable credential versions. Known
-attempts require their creating version or a newer unretired version. No cookie
-or member principal participates. Only the two exact POST entry patterns skip
-Origin/JSON gates; Host validation stays in force and other methods return 404.
+The query engine has three phases: a tenant-bound transaction takes domain locks,
+loads in-memory keys and commits a 60-second lease; a fresh signed request is sent
+with no transaction or checked-out client; a new transaction records and applies
+the result. Order writers share checkout/order, advisory attempt and attempt-row
+locks. Activation queries lock tenant/account first, then advisory/attempt rows.
+Event rows precede the due-work row. A lost lease never drops verified facts;
+only its owner may change that lease's schedule.
 
-`commerce_hosted_payment_events` is the allowlisted verified inbox, separate from
-the imported-shop payment reports. It retains raw-body SHA-256, canonical dedupe
-SHA-256 and safe provider facts, never raw bodies, card digits, authorization
-codes or provider messages. A deduped replay acknowledges without applying twice.
-The acknowledgement is exactly `1|OK`, sent only after transaction commit.
-Quarantine acknowledges and retains known events unapplied. Scheduler recovery
-applies them in received-time/event-ID order, each with the same order/attempt
-locks in its own transaction. Synchronous application checks for older unapplied
-notifications of the same attempt after those locks and the event lock, leaving
-later events deferred until the earlier facts commit. Browser hints do not block.
-Retained paid facts protect still-held inventory until application.
+New queries sign with the account's **current** payment credential. Responses
+verify against all unretired versions, current first. Definite events record the
+verifying version; unknown results carry no key index and retain no version.
+`providerEnvironment()` alone chooses sandbox/live. Queries require an active
+tenant and instance, but can reconcile suspended/retired services and unlisted
+profiles. Missing keyrings, unusable credentials and environment mismatches make
+no call and retain a closed due-work error code.
 
-Paid notifications set the attempt once, apply the verified order payment and
-schedule confirmation queries. Simulations have no inventory effect; amount
-mismatches leave the attempt unchanged. Unmatched, mismatched, unallocatable,
-after-cancel, overpaid and contradictory payments open retailer exception cases.
-Failed and pending-confirmation facts follow the explicit state machine. Provider
-facts are set once, confirmed is final and retained attempts/events cannot be
-deleted. Cancellation revokes all handoff routes and schedules immediate queries
-for handed-off issued/superseded attempts in the cancellation transaction.
+Production transport pins the exact environment origin and QueryTradeInfo/V5
+path, sends a manual-redirect POST, times out after 10 seconds and reads at most
+64 KiB. The guarded local fixture verifies request MAC/freshness and answers from
+synthetic trade state. Tests and the E2E server install only that fixture.
 
-`POST /pay/ecpay/return/{account_ref}` verifies independently and redirects to the
-stored order's payment-return URL. It records a browser hint and schedules a
-query, at most once per attempt per minute; a partial unique index retains only
-one browser hint per attempt even when the signed return is replayed; it never changes an attempt, order or
-inventory. The network limit still verifies and redirects but suppresses writes.
-Quarantine also suppresses writes. `GET /pay/ecpay/back/{attempt_id}` reads the
-stored store slug and redirects to its order without effects. Buyer summaries
-expose only overpaid/confirmed/pending/simulated/unpaid, a coarse latest-attempt
-state and whether resume is currently available. `overpaid` (any overpaid,
-after-cancel or amount-mismatch application) outranks every other state and turns
-resume off; the store must check and refund that money. Summary reads run eligibility gates through
-keyring presence without unsealing credentials or reading provider routes; actual
-token issuance and handoff build the credential context. Each summary batch must
-belong to one tenant and instance.
+Every verified result about this merchant/trade becomes its own query event with
+response-body SHA-256, a trigger and allowlisted facts, never a raw body, key,
+card field or provider message. Verification/identity failures and transport
+errors create no event. Verified missing/invalid fields and unrecognized numeric
+statuses retain the closed unknown reason/field/status. HTTP 403 throttles only
+this account's payment queries for 30 minutes without increasing failure count.
+Queries are read-only external calls and write no external-effect journal record.
 
-## Next slices
+Notification and query events apply in `(received_at,event_id)` order; browser
+hints never block. A later event waits for older unapplied payment events.
+Deferred replay dispatches by source, and a failed event skips the rest of its
+attempt for that run. Unapplied paid facts protect holds. Both sources apply a
+payment once with `payment_ref=attempt_id`; late payments retain after-cancel,
+unallocatable and overpaid outcomes and exceptions. Query-paid facts can lack a
+payment date; paid notifications still require it. Matching query-paid confirms
+the attempt. A paid attempt contradicted by unpaid/failed opens
+`payment_unconfirmed` without losing its paid facts.
 
-wp04-queries adds QueryTradeInfo, due-work claiming/execution, payment-window end,
-confirmation, definite-unpaid re-pay, on-demand queries and verified activation.
-This slice does not enter `confirmed`, `superseded` or `expired_unpaid` attempts;
-it creates only attempt 1 and schedules work. Refund persistence, outbox/executor,
-credit-detail queries and DoAction arrive with wp04-refunds. Exception resolution
-and the buyer return UI arrive with their console/UI jobs.
+Amount mismatches apply the trade amount to an order, recording the existing
+`amount_mismatch` outcome, and open a case. Trade-number mismatches open
+`contradicting_event` without an application. Both are definite for scheduling,
+even though attempt state is unchanged: their durable event stops future queries,
+including after case closure, cancellation or window end. Such orders remain open
+until an explicit seller cancellation or later payment facts resolve them.
 
-Credentials are not checked with a provider request at save or rotation time.
-The recommendation is that wp04-queries prove them through a verified activation
-payment and its confirmation query before service activation, as agreed for
-[EC-SPEC-04 §1.4](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md).
-See [payment rules](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md),
-[security/tests](../../../docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md)
-and [release/recovery](../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md).
+## Schedule, confirmation window and cancellation
+
+`commerce_due_work` is the query schedule and lease; there is no payment outbox.
+Inside the 60-minute window, issued/superseded handed-off attempts use the next
+creation-relative slot at 10, 20, 40 or 60 minutes. Consecutive indefinite results
+increment `failure_count`; transport/verification failures back off 1, 2, 5 then
+10 minutes, capped by the next slot. A definite result resets that count.
+After the window, verified unknown results run every 10 minutes and other failures
+use the same backoff. At window end +24 hours they open `payment_unconfirmed` and
+stop. Paid/unconfirmed attempts use backoff until paid +24 hours, opening the
+exception at paid +60 minutes while continuing to query. Throttling waits until
+its account deadline and does not advance backoff.
+
+Never-handed-off attempts make no query call. Their window-end row expires issued
+or superseded attempts directly; handed-off attempts schedule a query immediately.
+Every window row is then deleted. Confirmed, failed, expired and mismatch attempts
+need no query row. At or after an attempt's window, `settleOrderPayments` cancels
+an open order only when it lacks a confirmed application, **all** attempts are
+failed/expired and none has an unapplied payment event. It calls checkout's
+`cancelUnpaidOrder(...,'system','payment_not_completed')`, releasing holds and
+revoking tokens through the existing hook. Replays have no effects. Outstanding
+issued, superseded or paid attempts prevent automatic cancellation.
+
+The Worker runs deferred apply, hold sweep, due work and journal flush in that
+order. Committed notification/return scheduling also queues targeted execution
+through `afterResponse`; the Worker keeps its pool open until collected work
+settles. The 10-minute cron is the fallback. Quarantine disables both paths.
+See [operations](../operations/README.md) for leases, budgets and time limits.
+
+## Re-pay and on-demand queries
+
+The single buyer pay endpoint remains
+`POST /api/v1/public/stores/:slug/orders/:order_ref/payment-handoffs` with `{}`.
+It resumes an issued unhanded attempt first. Otherwise it checks, in order: open
+order; live held inventory; no paid/confirmed attempt or confirmed application;
+no overpaid/after-cancel/amount-mismatch application; fewer than five attempts;
+a failed latest attempt or a handoff at least 60 seconds ago; no latest unapplied
+paid or pending-confirmation event. The initial delay returns
+`payment_result_pending` with Retry-After seconds remaining.
+
+A failed attempt needs no query. Other eligible attempts require a live verified
+unpaid/failed query. Paid facts apply before `payment_already_applied`; a busy
+lease, unknown result or query failure returns `payment_result_pending`. A new
+transaction rechecks every condition and the latest identity, supersedes an old
+issued attempt, creates its successor with new 10/60-minute deadlines and mints
+the handoff. Concurrent re-pays cannot create a third attempt. A late superseded
+payment still applies, and a second payment makes the order overpaid.
+
+`POST .../orders/:order_ref/payment-queries` accepts `{}`, proves the same buyer
+access as order reads and uses the resume quarantine/checkout gates. It selects
+the newest handed-off issued/superseded/paid attempt without a definite mismatch.
+It returns the current parsed public order after one query, or 409 pending for a
+busy lease; no candidate means no call. Network budget is 30/10 minutes. The
+order budgets, shared with re-pay and future seller queries, are 1/minute and
+10/hour. Budgets commit in their own short transaction before any provider call;
+429 includes Retry-After. Reads never spend them.
+
+Payments also injects checkout's unresolved-order port. An older open order
+without a confirmed payment blocks placement only with a paid attempt, a handed-off
+issued/superseded attempt, or an unhanded issued attempt backed by live holds.
+M1's original fallback remains when the payment port is absent.
+
+## Payment service activation
+
+Provider accounts have no lifecycle. Owners/admins use the setup command wrapper,
+account If-Match, Idempotency-Key and fresh `commerce.provider_account.write`
+verification to create an activation payment. The tenant/instance must be active;
+the payment service must be draft with current credentials and a listed profile
+and installed gateway, outside quarantine. Another account's active payment
+service for the same instance/environment/profile refuses with the existing
+`provider_service_conflict`. No service is suspended or retired implicitly.
+The account allowance is 10 activation commands/hour. Buyer checkout/admission
+flags do not apply.
+
+`SERVICE_ACTIVATION_AMOUNT_MINOR=1000` is the adjustable single constant for the
+NT$10 self-payment. The merchant pays their own account (sandbox test card or
+an explicitly authorized controlled live payment). An issued handed-off activation
+inside its window, or a paid activation, blocks another start. Attempts have a
+per-account sequence and no order. The scoped receipt contains **only**
+`{attempt_ref}`. After its commit the route mints a token; receipt replays mint
+fresh tokens only while that same attempt remains issued and unhanded.
+
+Activation handoff requires draft service, tenant/instance, profile/gateway and
+quarantine gates, without order/holds/checkout admission. Its item is
+`收款服務驗證 x1`; its display number is the Taipei creation day plus six Crockford
+base32 characters from the first thirty SHA-256 bits of the attempt ID. It uses
+the same gateway URLs and `payment_handoff` journal kind.
+
+A notification alone marks paid and cannot activate. A matching paid query
+confirms and calls `activateProviderService` in the same transaction under a
+savepoint. Existing 409 state/conflict refusals roll back only that savepoint:
+confirmed payment/event facts remain, all services stay as they are, and no false
+activation control event is written. Other errors propagate. Successful activation
+records its control event for the Worker's normal journal flush. Failed/expired
+attempts allow another activation. Views expose nullable `payment_activation`
+with ready/awaiting_result/paid/confirmed/failed/expired and no sensitive facts.
+
+The platform never refunds activation payments. A merchant may refund in ECPay's
+back office. This module never voids authorizations, creates logistics orders or
+issues invoices. wp04-refunds adds durable refund outbox/execution, credit-detail
+queries and DoAction; buyer-pay adds buyer pages on these APIs.
 
 ## Provider setup and credential storage
 
-Tenant owners and admins can create ECPay accounts, install or rotate payment,
-logistics and invoice credentials, and suspend, resume or retire services. Every
-write requires account CAS (after creation), an idempotency key, and fresh
-`commerce.provider_account.write` verification. Ordinary store grants never
-confer account write authority. Reads require `store:manage` or
-`store:finance:read`, and return allowlisted account/service metadata only.
-The platform environment selects exactly one provider environment: local and
-staging use sandbox; public uses live. Account refs are never included in views.
+Owners/admins create accounts, save/rotate keys and suspend/resume/retire services
+with fresh proof and account CAS. Reads require store management or finance
+capability. Ordinary store grants confer no account-write authority. Saving or
+rotating keys never calls a provider. The current credential changes immediately;
+older unretired versions remain usable for verification. Only one payment service
+per instance/environment/profile can be active; the merchant changes accounts
+by explicitly suspending/retiring the old service and verifying the new one.
 
-Accounts, services and credentials use tenant RLS. Immutable identities and
-retained credential versions are enforced in schema 169. New services are draft;
-activation is an internal function for a verified provider transaction, with no
-HTTP activation route. Only one service per store/environment/profile can be
-active. Rotation advances the current credential immediately and keeps service
-state; older unretired versions remain usable for in-flight provider work.
-Wrong keys surface as signature failures. Saving or rotating credentials makes
-no provider call; verified activation is implemented by wp04-queries. Current
-credentials cannot be retired.
+Accounts, services and credentials use tenant RLS. `COMMERCE_CREDENTIAL_KEYS` is
+optional, with 1–8 comma-separated `key_id:base64` entries and no whitespace.
+Each canonical base64 key decodes to 32 bytes; IDs match
+`^[a-z0-9][a-z0-9_-]{0,31}$`. The first key seals, all installed keys unseal.
+Missing keys refuse writes; invalid configuration fails startup with a fixed code.
+AES-256-GCM binds account/purpose/environment/version as AAD. Receipts retain
+only a keyed credential fingerprint, not keys. Changed secrets or a host-keyring
+rotation make an old key-save command conflict on replay.
 
-`COMMERCE_CREDENTIAL_KEYS` is optional. Its format is comma-separated
-`key_id:base64` entries with no whitespace; ids match
-`^[a-z0-9][a-z0-9_-]{0,31}$`, and each canonical base64 value decodes to 32 bytes.
-There are 1–8 unique ids. The first key seals new credentials; all keys can unseal.
-Missing keys leave reads available and refuse writes with 503. Malformed host
-configuration fails startup without exposing its value.
+`resealProviderCredentials` remains an internal tenant-bound function without an
+operator route/CLI/job. Keep installed sealing keys until all online rows have
+been resealed; retain offline keys through backup retention. The current provider
+credential cannot be retired. Non-PII provider entry routes resolve stored tenant
+identity before binding RLS and confer no authority themselves. Account refs are
+128-bit lowercase Crockford strings; handoff routes store bearer hashes only.
 
-AES-256-GCM retains nonce, tag and ciphertext, with account, purpose, environment
-and credential version bound in AAD. Receipts contain a keyed credential
-fingerprint, never raw key fields. Its HMAC key is derived from the active host
-key using `freedom.commerce-credential-fingerprint.v1`; the fingerprint binds
-account, purpose, profile and all supplied credential fields. Replaying with
-changed secrets **or after a keyring rotation** returns 409 idempotency conflict.
-
-A new sealing key can be prepended while retaining every installed key.
-`resealProviderCredentials` is an internal function; no operator route, CLI or
-job exists yet. Under the runtime role, one call reseals at most `limit` rows of
-the tenant bound in the caller-owned transaction only. Until an operator
-procedure exists, do not remove any online key: rows still sealed with it would
-become unreadable. Keep retired keys offline through the backup retention period
-so historical backups remain recoverable.
-
-Machine entry routes are non-PII routing records without tenant RLS: callbacks
-must resolve the tenant before binding its context. Provider account refs encode
-128 random bits in 26 lowercase Crockford base32 characters. Generation checks
-all payment, logistics, invoice-allowance and buyer-return paths against the
-public CDN guard, with at most 16 attempts. Token routes will retain SHA-256
-hex digests only. The resolver returns identifiers and grants no authority;
-provider verification and machine commands resolve the stored account before
-binding its tenant.
+See [payment rules](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md),
+[orders/inventory](../../../docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md),
+[security/tests](../../../docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md)
+and [release/recovery](../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md).
 
 ## Public Exports
 

@@ -1,3 +1,4 @@
+import type {PaymentQueryTransport} from '../../../modules/agent-commerce/payments/query-transport.js';
 import type {EffectJournalPort} from '../../../modules/agent-commerce/operations/journal/journal.js';
 import type {EcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
 import type {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
@@ -31,6 +32,8 @@ export const SHARED_NETWORK_KEY = 'shared-server';
  * bindings, so no configuration is shared through process-wide state.
  */
 export type PlatformRuntime = {
+  afterResponse?:(work:()=>Promise<void>)=>void;
+  commerceQueryTransport?:PaymentQueryTransport;
   commercePayments?:{gateway?:EcpayPaymentGateway;journal:EffectJournalPort;profiles:readonly string[]};
   commerceSettings?:CommerceSettings;
   commerceCredentialKeyring?:CommerceCredentialKeyring|null;

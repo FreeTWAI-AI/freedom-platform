@@ -17,13 +17,14 @@ test('strict setup requests reject credential authority selectors and request-su
 test('generated commerce setup bundle validates every request and response without extending storefront bytes',()=>{
   const bundle=JSON.parse(readFileSync('contracts/guild-launchpad/v1/hosted-commerce-setup.schema.json','utf8'));
   const id=randomUUID(),time='2028-02-29T12:34:56.789Z',fresh={fresh_auth_verification_id:id};
-  const account={account_id:id,provider:'ecpay',environment:'sandbox',merchant_id:'1234567',version:'1',created_at:time,
+  const account={payment_activation:null,account_id:id,provider:'ecpay',environment:'sandbox',merchant_id:'1234567',version:'1',created_at:time,
     services:[{purpose:'payment',profile:'ecpay.aio.credit.v1',state:'draft',credential_version:1,credential_updated_at:time,activated_at:null,throttled_until:null}]};
   const admission={admission_id:id,tenant_id:id,instance_id:id,environment:'sandbox',admitted_at:time,admitted_by:id,reason:'合成准入理由',revoked_at:null,revoked_by:null,revoke_reason:null};
   const samples:[string,unknown][]=[
     ['empty-input',{}],['store-release',{module_release_ref:'storefront@1.0.0',application_release_ref:'hosted-store@1.0.0',version:'1',capabilities:['store:read'],upgrade:{module_release_ref:'storefront@1.1.0',application_release_ref:'hosted-store@1.1.0'},can_upgrade:true}],
     ['provider-account-create-input',{provider:'ecpay',environment:'sandbox',merchant_id:'1234567',...fresh}],
     ['provider-service-put-input',{profile:'ecpay.aio.credit.v1',hash_key:randomBytes(8).toString('hex'),hash_iv:randomBytes(8).toString('hex'),...fresh}],
+    ['payment-activation',{attempt_ref:id,state:'ready',created_at:time}],['provider-activation-payment-input',fresh],['provider-activation-payment',{handoff_url:'/pay/ecpay/'+'A'.repeat(43),attempt_ref:id,expires_at:time}],
     ['provider-service-state-input',fresh],['provider-account',account],['provider-account-page',{items:[account]}],
     ['store-admission-create-input',{tenant_id:id,instance_id:id,reason:'合成准入理由'}],['store-admission-revoke-input',{reason:'合成撤銷理由'}],['store-admission-query',{tenant_id:id}],
     ['store-admission',admission],['store-admission-page',{items:[admission]}],['error-code','commerce_credentials_unavailable'],
@@ -40,5 +41,17 @@ for c in x['cases']:
  Draft202012Validator.check_schema(s)
  assert Draft202012Validator(s,format_checker=FormatChecker()).is_valid(c['value']) == c['valid'],c['name']
 print(len(x['cases']))`],{input:JSON.stringify({bundle,cases}),encoding:'utf8',timeout:15000});
-  assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),42);
+  assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),51);
+});
+test('activation contract requires fresh proof and exposes only its coarse state and bearer response',()=>{
+  const id=randomUUID(),time='2028-02-29T12:34:56.789Z',fresh={fresh_auth_verification_id:id};
+  assert(wire.ProviderActivationPaymentInputSchema.safeParse(fresh).success);
+  for(const value of [{},{...fresh,amount_minor:1000},{...fresh,account_id:id},{...fresh,environment:'sandbox'}])assert(!wire.ProviderActivationPaymentInputSchema.safeParse(value).success);
+  for(const state of ['ready','awaiting_result','paid','confirmed','failed','expired'])assert(wire.PaymentActivationSchema.safeParse({attempt_ref:id,state,created_at:time}).success);
+  for(const state of ['issued','superseded','expired_unpaid'])assert(!wire.PaymentActivationSchema.safeParse({attempt_ref:id,state,created_at:time}).success);
+  assert(!wire.PaymentActivationSchema.safeParse({attempt_ref:id,state:'ready',created_at:time,trade_no:'TSECRET'}).success);
+  const response={handoff_url:'/pay/ecpay/'+'A'.repeat(43),attempt_ref:id,expires_at:time};
+  assert(wire.ProviderActivationPaymentResponseSchema.safeParse(response).success);
+  for(const value of [{...response,handoff_url:'https://foreign.test'+response.handoff_url},{...response,handoff_url:response.handoff_url+'\n'},{...response,token:'forbidden'}])assert(!wire.ProviderActivationPaymentResponseSchema.safeParse(value).success);
+  assert(wire.CommerceSetupErrorCodeSchema.safeParse('provider_activation_pending').success);
 });

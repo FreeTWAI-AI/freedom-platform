@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import { isolatedTransaction, clearTenantContext } from '../../../packages/resource-scopes/tenant-transaction.js';
+import {hasDefinitePaymentMismatch} from './window.js';
 import { bindStore } from '../checkout/authority.js';
 import { scheduleDueWork } from '../operations/due-work.js';
 import type { PaymentAccount } from './provider-input.js';
@@ -29,12 +30,14 @@ export function recordPaymentBrowserReturn(pool: Pool, input: {
     await bindStore(q, a.tenant_id);
     // Take the attempt before due work, as the notification path does. The
     // deferred inbox FK must not acquire this lock for the first time at commit.
-    await q.query('SELECT 1 FROM commerce_payment_attempts WHERE attempt_id=$1 FOR KEY SHARE', [input.attemptId]);
-    await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,merchant_trade_no,credential_version,body_sha256,received_at,applied_at)
+    const attempt=(await q.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1 FOR KEY SHARE', [input.attemptId])).rows[0];
+    const recorded=await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,merchant_trade_no,credential_version,body_sha256,received_at,applied_at)
       SELECT $1,$2,$3,$4,'browser_return','returned',$5,$6,$7,t,t FROM (SELECT clock_timestamp() t) n
       ON CONFLICT(attempt_id) WHERE source='browser_return' DO NOTHING`, [a.tenant_id, a.instance_id, a.account_id, input.attemptId, input.merchantTradeNo, input.credentialVersion, createHash('sha256').update(input.body).digest('hex')]);
-    if (input.scheduleQuery)
+    const schedule=input.scheduleQuery && !await hasDefinitePaymentMismatch(q,attempt);
+    if (schedule)
       await scheduleDueWork(q, { tenantId: a.tenant_id, instanceId: a.instance_id, kind: 'payment_query', targetId: input.attemptId, dueAt: (await q.query('SELECT clock_timestamp()::text AS t')).rows[0].t });
+    return recorded.rowCount===1 && schedule;
   });
 }
 /** The order and current store slug of a retained order attempt. Reads only. */
@@ -50,6 +53,7 @@ function orderAttemptStore(pool: Pool, attemptId: string): Promise<{ slug: strin
   });
 }
 export async function paymentBackLocation(pool: Pool, attemptId: string): Promise<string | null> {
+  if((await pool.query("SELECT 1 FROM commerce_payment_attempts WHERE attempt_id=$1 AND kind='service_activation'",[attemptId])).rowCount)return '/';
   const found = await orderAttemptStore(pool, attemptId);
   return found ? `/shops/${found.slug}/orders/${found.orderId}` : null;
 }

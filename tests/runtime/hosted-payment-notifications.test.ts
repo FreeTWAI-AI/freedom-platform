@@ -172,7 +172,8 @@ for (const outcome of ['failed', 'pending_confirmation', 'simulated', 'amount_mi
     assert.deepEqual(r.applications.map(a => a.outcome), outcome === 'simulated' ? ['simulated'] : outcome === 'amount_mismatch' ? ['amount_mismatch'] : []);
     assert.deepEqual(r.cases.map(c => c.kind), outcome === 'amount_mismatch' ? ['amount_mismatch'] : []);
     const due = (await f.x.h.pool.query("SELECT w.due_at<=clock_timestamp() AS immediate FROM commerce_due_work w WHERE kind='payment_query' AND target_id=$1", [p.payment.attempt_ref])).rows[0];
-    assert.equal(due.immediate, outcome === 'pending_confirmation');
+    if(outcome==='amount_mismatch')assert.equal(due,undefined);
+    else assert.equal(due.immediate, outcome === 'pending_confirmation');
     assert.equal((await f.x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [p.s.product.product_id])).rows[0].reserved, 5);
   });
 test('notification dedupe is sequential, concurrent and insensitive to trade-number case', async () => {
@@ -258,6 +259,8 @@ async function rotate(p: Placed) {
   return material;
 }
 async function anotherAttempt(p: Placed, credentialVersion = 1, kind: 'order' | 'service_activation' = 'order') {
+  if (kind === 'order')
+    await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1 AND state='issued'", [p.payment.attempt_ref]);
   const a = (await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency)
     SELECT tenant_id,instance_id,$2,CASE WHEN $2='order' THEN order_id ELSE NULL END,2,account_id,environment,merchant_id,$3,$4,amount_minor,currency FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING attempt_id`, [p.payment.attempt_ref, kind, credentialVersion, newTradeNumber('F')])).rows[0];
   return { ...p, payment: { ...p.payment, attempt_ref: a.attempt_id } } as Placed;
@@ -578,7 +581,9 @@ test('back links resolve only retained order attempts and have no payment side e
   assert.equal(r.response.headers.get('Location'), `/shops/${p.s.slug}/orders/${p.order.order_ref}`);
   assert.deepEqual(await facts(p), before);
   const activation = await anotherAttempt(p, 1, 'service_activation');
-  for (const id of [activation.payment.attempt_ref, randomUUID(), 'invalid']) {
+  const activationBack=await post('/pay/ecpay/back/'+activation.payment.attempt_ref,'',{},'GET');
+  assert.equal(activationBack.status,303);assert.equal(activationBack.response.headers.get('Location'),'/');
+  for (const id of [randomUUID(), 'invalid']) {
     const missing = await post('/pay/ecpay/back/' + id, '', {}, 'GET');
     assert.equal(missing.status, 404);
     assert.match(missing.response.headers.get('Content-Type')!, /text\/html/);
@@ -654,6 +659,7 @@ test('pending confirmation on the latest attempt ends on a later failure', async
 });
 test('a browser hint beyond the latest attempt confirmation window is not pending', async () => {
   const p = await f.placed();
+  await f.x.h.pool.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1", [p.payment.attempt_ref]);
   const a = (await f.x.h.pool.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency,created_at)
     SELECT tenant_id,instance_id,kind,order_id,2,account_id,environment,merchant_id,credential_version,$2,amount_minor,currency,clock_timestamp()-interval '61 minutes' FROM commerce_payment_attempts WHERE attempt_id=$1 RETURNING attempt_id`, [p.payment.attempt_ref, newTradeNumber('F')])).rows[0];
   const latest = { ...p, payment: { ...p.payment, attempt_ref: a.attempt_id } };
@@ -926,4 +932,25 @@ test('review 11: replayed verified browser returns retain one hint and the same 
     assert.equal(result.response.headers.get('Location'), `/shops/${p.s.slug}/payment-return/${p.payment.attempt_ref}`);
   }
   assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_hosted_payment_events WHERE attempt_id=$1 AND source='browser_return'", [p.payment.attempt_ref])).rows[0].n, 1);
+});
+
+import {createFixtureQueryTransport} from '../../modules/agent-commerce/payments/query-transport.js';
+test('notification commits and acknowledges before its collected confirmation query runs',async()=>{
+  const p=await f.placed(),value=await body(p),fields=new URLSearchParams(value),pending:(()=>Promise<void>)[]=[];
+  await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p.payment.attempt_ref]);
+  let calls=0;
+  f.install({afterResponse:work=>{pending.push(work);},commerceQueryTransport:createFixtureQueryTransport(async()=>{
+    calls++;assert.equal((await facts(p)).attempt.state,'paid');
+    return {kind:'response',status:200,body:encodeForm(signFields({MerchantID:'1234567',MerchantTradeNo:fields.get('MerchantTradeNo')!,TradeNo:fields.get('TradeNo')!,TradeAmt:'5',TradeStatus:'1'},EcpayKeyPair.of(p.provider.material.hash_key,p.provider.material.hash_iv),'sha256'))};
+  },'local')});
+  await ack(await post(path(p),value));assert.equal(calls,0);assert.equal(pending.length,1);assert.equal((await facts(p)).attempt.state,'paid');
+  await pending[0]();assert.equal(calls,1);const actual=await facts(p);assert.equal(actual.attempt.state,'confirmed');assert.equal(actual.applications.length,1);assert.equal(actual.events[1].query_trigger,'notification');
+  assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM auth_rate_limits WHERE bucket LIKE 'commerce:paymentQuery%'")).rows[0].n,0);
+});
+test('browser return queues only a committed new hint that scheduled a query',async()=>{
+  const p=await f.placed(),value=await body(p),pending:(()=>Promise<void>)[]=[];
+  f.install({afterResponse:work=>{pending.push(work);},commerceQueryTransport:createFixtureQueryTransport(async()=>({kind:'error',code:'network'}),'local')});
+  assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
+  assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
+  f.settings.quarantine=true;assert.equal((await post(returnPath(p),value)).status,303);assert.equal(pending.length,1);
 });

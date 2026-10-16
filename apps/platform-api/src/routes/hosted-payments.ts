@@ -1,3 +1,5 @@
+import type {PaymentAttemptOptions} from '../../../../modules/agent-commerce/payments/attempts.js';
+import {runDueCommerceWork} from '../../../../modules/agent-commerce/operations/due-work.js';
 import { OpaqueId } from '../../../../contracts/guild-launchpad/v1/primitives.js';
 import { resolveReturnedAttempt, recordPaymentBrowserReturn, paymentBackLocation } from '../../../../modules/agent-commerce/payments/browser-return.js';
 import { Problem } from '../../../../packages/shared/problem.js';
@@ -13,8 +15,18 @@ import { providerEnvironment } from '../../../../modules/agent-commerce/operatio
 import type { FreedomEnv } from '../env.js';
 import { servePaymentHandoff } from '../../../../modules/agent-commerce/payments/handoff.js';
 import { HANDOFF_SCRIPT, HANDOFF_CSS, handoffErrorPage } from '../../../../modules/agent-commerce/payments/handoff-page.js';
+export function hostedPaymentOptions(runtime:PlatformRuntime,environment:FreedomEnv):PaymentAttemptOptions{
+  return {settings:runtime.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:runtime.commercePayments?.profiles??[],environment:providerEnvironment(environment),
+    admission:runtime.commercePorts?.admission??{allowed:()=>false},gateway:runtime.commercePayments?.gateway,keyring:runtime.commerceCredentialKeyring??null};
+}
 export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, environment: FreedomEnv) {
   const app = new Hono();
+  const afterResponse=(attemptId:string|null,trigger:'notification'|'browser_return')=>{
+    const transport=runtime.commerceQueryTransport,keyring=runtime.commerceCredentialKeyring;
+    if(!attemptId||!transport||!keyring||!runtime.afterResponse||runtime.commerceSettings?.quarantine)return;
+    try{runtime.afterResponse(async()=>{await runDueCommerceWork(pool,{transport,keyring,freedomEnv:environment},{targets:[attemptId],limit:2,trigger});});}
+    catch{console.error('commerce_after_response_failed');}
+  };
   const returnUnavailable = '暫時無法確認付款結果，請稍後到訂單頁查看。';
   app.onError((error, c) => {
     if (c.req.path.startsWith('/api/v1/provider-callbacks/ecpay/')) {
@@ -55,7 +67,8 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (message.kind === 'invalid')
       return invalid(message.reason);
     try {
-      await receivePaymentNotification(pool, { account, message, credentialVersion: credentials[message.keyIndex].credentialVersion, quarantine: runtime.commerceSettings?.quarantine ?? false });
+      const scheduledAttempt=await receivePaymentNotification(pool, { account, message, credentialVersion: credentials[message.keyIndex].credentialVersion, quarantine: runtime.commerceSettings?.quarantine ?? false });
+      afterResponse(scheduledAttempt,'notification');
     }
     catch (error) {
       if (error instanceof InvalidPaymentCredential)
@@ -89,7 +102,8 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (allowed && !runtime.commerceSettings?.quarantine) {
       try {
         const scheduleQuery = await tryChargeCommerceBudget(pool, 'paymentReturnQuery', attempt.attempt_id);
-        await recordPaymentBrowserReturn(pool, { account, attemptId: attempt.attempt_id, merchantTradeNo: message.merchantTradeNo, credentialVersion: version, body, scheduleQuery });
+        const recorded=await recordPaymentBrowserReturn(pool, { account, attemptId: attempt.attempt_id, merchantTradeNo: message.merchantTradeNo, credentialVersion: version, body, scheduleQuery });
+        if(recorded)afterResponse(attempt.attempt_id,'browser_return');
       } catch {
         console.error('payment_browser_return_record_failed');
       }
@@ -109,10 +123,7 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
     if (c.req.method !== 'GET')
       return c.html(handoffErrorPage('付款連結已失效或不存在。'), 404);
     const payments = runtime.commercePayments;
-    const page = await servePaymentHandoff(pool, c.req.param('token'), (runtime.rateLimitNetwork ?? runtime.sourceNetwork)(c), {
-      settings: runtime.commerceSettings ?? { checkoutEnabled: false, quarantine: false, providerProfiles: [] }, profiles: payments?.profiles ?? [], environment: providerEnvironment(environment),
-      admission: runtime.commercePorts?.admission ?? { allowed: () => false }, gateway: payments?.gateway, keyring: runtime.commerceCredentialKeyring ?? null, journal: payments?.journal
-    });
+    const page = await servePaymentHandoff(pool,c.req.param('token'),(runtime.rateLimitNetwork??runtime.sourceNetwork)(c),{...hostedPaymentOptions(runtime,environment),journal:payments?.journal});
     if (page.retryAfterSeconds !== undefined)
       c.header('Retry-After', String(page.retryAfterSeconds));
     return c.html(page.html, page.status);

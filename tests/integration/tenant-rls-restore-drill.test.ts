@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID, createHash, randomBytes } from 'node:crypto';
 import {CommerceCredentialKeyring,sealCredential,unsealCredential,type CredentialMaterial} from '../../modules/agent-commerce/payments/credentials.js';
+import {newTradeNumber} from '../../modules/agent-commerce/providers/ecpay/index.js';
 const commerceKeys=CommerceCredentialKeyring.parse('restore:'+randomBytes(32).toString('base64'))!;
 const commerceMaterials=new Map<string,CredentialMaterial>();
 import { createReadStream } from 'node:fs';
@@ -334,6 +335,19 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
       VALUES($1,'payment',$2,$3,'sandbox','ecpay.aio.credit.v1',1)`,[accountId,space.tenantId,space.hosted.instanceId]);
     await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
       VALUES($1,'payment',1,$2,$3,'sandbox',$4,$5,$6)`,[accountId,space.tenantId,space.hosted.instanceId,sealed.key_id,sealed.sealed,author.principalId]);
+    const attemptId = randomUUID(), tradeNumber = newTradeNumber('F');
+    await q.query(`INSERT INTO commerce_payment_attempts(attempt_id,tenant_id,instance_id,kind,sequence,account_id,
+      environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency)
+      VALUES($1,$2,$3,'service_activation',1,$4,'sandbox','1234567',1,$5,1000,'TWD')`,
+    [attemptId,space.tenantId,space.hosted.instanceId,accountId,tradeNumber]);
+    // These exempt machine facts must survive backup as exactly as the RLS rows.
+    await q.query(`INSERT INTO commerce_hosted_payment_events(tenant_id,instance_id,account_id,attempt_id,source,outcome,
+      merchant_trade_no,trade_status,handling_charge_minor,unknown_reason,unknown_field,query_trigger,body_sha256)
+      VALUES($1,$2,$3,$4,'query','unknown',$5,'999',0,'invalid_field','TradeAmt','schedule',$6)`,
+    [space.tenantId,space.hosted.instanceId,accountId,attemptId,tradeNumber,createHash('sha256').update(attemptId).digest('hex')]);
+    await q.query(`INSERT INTO commerce_due_work(tenant_id,instance_id,kind,target_id,due_at,attempts,failure_count,last_query_at,last_error)
+      VALUES($1,$2,'payment_query',$3,clock_timestamp()+interval '10 minutes',4,3,clock_timestamp(),'verify_failed')`,
+    [space.tenantId,space.hosted.instanceId,attemptId]);
     const store = (await q.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [space.hosted.instanceId])).rows[0];
     space.checkout = await freezeCheckout(q, store, {
       publication_revision: '1', lines: [{ sku: 'P0001', quantity: 1 }],
@@ -664,6 +678,9 @@ test('J6-R2 owner and backup counts and full-row fingerprints agree at the same 
   assert.doesNotThrow(() => compareEvidence(backup.evidence!, ownerEvidence));
   assert.deepEqual(Object.keys(EXPECTED).sort(), [...RLS_TABLES].sort());
   for (const table of RLS_TABLES) assert.equal(evidenceCount(backup.evidence, table), EXPECTED[table], table);
+  for (const table of ['commerce_payment_attempts','commerce_hosted_payment_events','commerce_due_work']) {
+    assert.equal(evidenceCount(backup.evidence, table), 2, table);
+  }
   assert.equal(snapshotAssets, 2);
   assert.deepEqual(backup.objects.objects.map(object => object.key).sort(), [spaces.a.object!.key, spaces.b.object!.key].sort());
 });
@@ -727,7 +744,7 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
-  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id']] as const) {
+  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id']] as const) {
     const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
     const restored = await rows(restoredPool);
     assert.equal(restored.length, 2);

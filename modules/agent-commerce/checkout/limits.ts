@@ -13,6 +13,8 @@ export const COMMERCE_LIMITS={
   placementNetwork:{limit:10,seconds:600},placementStore:{limit:300,seconds:600},
   paymentReturnNetwork:{limit:60,seconds:60},paymentReturnQuery:{limit:1,seconds:60},
   providerAccount:{limit:600,seconds:60},providerUnknownNetwork:{limit:120,seconds:60},
+  paymentQueryNetwork:{limit:30,seconds:600},paymentQueryOrder:{limit:1,seconds:60},paymentQueryOrderHour:{limit:10,seconds:3600},
+  activationAccount:{limit:10,seconds:3600},
   handoffNetwork:{limit:30,seconds:600},
   handoffPageNetwork:{limit:60,seconds:600},
   newOrderNetwork:{limit:3,seconds:1800},
@@ -74,4 +76,14 @@ export async function enforceOpenOrderLimits(q:PoolClient,deviceId:string,email:
 export async function tryChargeCommerceBudget(pool:Pool,name:CommerceBucket,key:string):Promise<boolean>{
   try{await chargeCommerceBudgets(pool,key,{network:name});return true;}
   catch(error){if(error instanceof Problem&&error.status===429&&error.code==='commerce_rate_limited')return false;throw error;}
+}
+
+/** Shared by buyer, re-pay and future seller query entry points. Both buckets
+ * commit atomically before any command or provider call; failed commands do not
+ * return the allowance. The network allowance is charged at the buyer boundary. */
+export async function chargePaymentQueryOrderBudgets(pool:Pool,orderId:string){
+  await isolatedTransaction(pool,async q=>{
+    await commerceRateLimitInTransaction(q,'paymentQueryOrder',orderId);
+    await commerceRateLimitInTransaction(q,'paymentQueryOrderHour',orderId);
+  });
 }

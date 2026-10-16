@@ -361,3 +361,49 @@ for (const transition of ['guest to member', 'member to guest', 'member A to mem
     assert.deepEqual(await stockFacts(), before);
   });
 }
+
+// M1's default stays broad; the installed payment port narrows it to attempts
+// that can still be handed off or whose provider result remains outstanding.
+for(const scenario of ['issued_held','issued_released','issued_handed','superseded_handed','superseded_unhanded','paid_released','failed','expired_unpaid','confirmed_application'] as const)
+  test(`payment unresolved port: ${scenario}`,async()=>{
+    const {seedAdmissionPaymentService}=await import('../e2e/hosted-payment-fixture.js');
+    const {createCheckoutPaymentPorts}=await import('../../modules/agent-commerce/payments/attempts.js');
+    const {bindStore}=await import('../../modules/agent-commerce/checkout/authority.js');
+    const s=await x.store(100),c=await x.frozen(s);await seedAdmissionPaymentService(x,s);
+    const paymentPorts={...ports,...createCheckoutPaymentPorts({settings:{checkoutEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},profiles:['ecpay.aio.credit.v1'],environment:'sandbox',admission:ports.admission!,keyring:null})};
+    const place=()=>x.tx(q=>placeCheckoutOrder(q,s,{checkoutId:c.checkout_id,termsSha256:c.terms_sha256,clientOrderId:randomUUID(),buyerPrincipalId:null,environment:'sandbox'},paymentPorts));
+    const o=await place(),a=(await x.h.pool.query('SELECT * FROM commerce_payment_attempts WHERE order_id=$1',[o.order_id])).rows[0];
+    await x.tx(async q=>{
+      await bindStore(q,s.tenantId);
+      if(scenario.endsWith('_handed'))await q.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[a.attempt_id]);
+      if(scenario.startsWith('superseded'))await q.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[a.attempt_id]);
+      if(scenario.startsWith('paid'))await q.query("UPDATE commerce_payment_attempts SET state='paid',paid_at=clock_timestamp(),trade_no='TUNRESOLVED',version=version+1 WHERE attempt_id=$1",[a.attempt_id]);
+      if(scenario==='failed'||scenario==='expired_unpaid')await q.query(`UPDATE commerce_payment_attempts SET state=$2,${scenario==='failed'?'failed_at':'expired_at'}=clock_timestamp(),version=version+1 WHERE attempt_id=$1`,[a.attempt_id,scenario]);
+      if(scenario.endsWith('_released')){
+        await q.query("UPDATE commerce_inventory_reservations SET state='released',released_at=clock_timestamp() WHERE order_id=$1",[o.order_id]);
+        await q.query('UPDATE commerce_items SET reserved=reserved-5 WHERE item_id=$1',[s.product.product_id]);
+      }
+      if(scenario==='confirmed_application')await applyConfirmedPayment(q,{orderId:o.order_id,paymentRef:a.attempt_id,amountMinor:500,currency:'TWD',simulated:false});
+      assert.equal((await paymentPorts.unresolved.find(q,c.checkout_id))?.order_id??null,['issued_held','issued_handed','superseded_handed','paid_released'].includes(scenario)?o.order_id:null);
+    });
+    if(['issued_held','issued_handed','superseded_handed','paid_released'].includes(scenario))await assert.rejects(place(),e=>code('unresolved_order')(e)&&(e as {order_ref:string}).order_ref===o.order_id);
+    else assert.notEqual((await place()).order_id,o.order_id);
+  });
+test('payment unresolved port ignores expired unhanded holds and considers every attempt',async()=>{
+  const {seedAdmissionPaymentService}=await import('../e2e/hosted-payment-fixture.js');
+  const {createCheckoutPaymentPorts,createOrderPaymentAttempt}=await import('../../modules/agent-commerce/payments/attempts.js');
+  const {bindStore}=await import('../../modules/agent-commerce/checkout/authority.js');
+  const s=await x.store(100),due=await x.due(s,5);await seedAdmissionPaymentService(x,s);
+  const options={settings:{checkoutEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},profiles:['ecpay.aio.credit.v1'],environment:'sandbox' as const,admission:ports.admission!,keyring:null},p=createCheckoutPaymentPorts(options);
+  await x.tx(async q=>{
+    await bindStore(q,s.tenantId);
+    await p.payment.createOrderAttempt(q,{store:s,orderId:due.order_id,amountMinor:500,currency:'TWD',environment:'sandbox'});
+    assert.equal(await p.unresolved.find(q,due.checkout.checkout_id),null);
+    await q.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),handed_off_at=clock_timestamp(),journaled_at=clock_timestamp(),version=version+1 WHERE order_id=$1",[due.order_id]);
+    await createOrderPaymentAttempt(q,{store:s,orderId:due.order_id,amountMinor:500,currency:'TWD',environment:'sandbox',sequence:2},options);
+    await q.query("UPDATE commerce_payment_attempts SET state='failed',failed_at=clock_timestamp(),version=version+1 WHERE order_id=$1 AND sequence=2",[due.order_id]);
+    assert.equal((await p.unresolved.find(q,due.checkout.checkout_id))?.order_id,due.order_id,'older handed-off superseded attempt still blocks');
+    await q.query("UPDATE commerce_payment_attempts SET state='expired_unpaid',expired_at=clock_timestamp(),version=version+1 WHERE order_id=$1 AND sequence=1",[due.order_id]);
+    assert.equal(await p.unresolved.find(q,due.checkout.checkout_id),null,'every attempt is now definite unpaid');
+  });
+});
