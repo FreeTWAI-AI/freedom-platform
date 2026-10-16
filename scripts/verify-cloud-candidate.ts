@@ -51,6 +51,8 @@ Environment (paths to private 0600 files owned by you; read only by execute):
   Supplier role files use the account format above; public never reads these files.
   Root provisions synthetic accounts; Ted approves every staging run and tenant cleanup.
   Supplier phases are guarded on public. Local harness results are not cloud proof.
+  Any restore_failed fails execute (exit 1); cleanup_required alone does not.
+  Photo reports unpublished public projections as not covered; reservations checks publication.
 
 See scripts/verify-cloud-candidate.md for prerequisites, cleanup and acceptance gates.`;
 

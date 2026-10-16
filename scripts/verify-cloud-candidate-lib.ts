@@ -296,7 +296,7 @@ export type Report = {
   tool: string; report_kind: 'cloud_candidate_acceptance'; run: 'plan' | 'execute'; harness: Target['harness']; cloud_proof: boolean;
   statement: string; target: { name: string; origin: string; expected_mode: Mode }; expected_version: string | null; expected_release_sha: string | null;
   account_label: string | null; access_credential: 'provided' | 'absent' | 'not_read'; started_at: string; finished_at: string;
-  overall: Overall; phases_selected: PhaseId[]; phases: PhaseReport[]; cleanup: { required: boolean; items: CleanupItem[] }; load_thresholds?: LoadOptions; redaction_applied: boolean;
+  overall: Overall; phases_selected: PhaseId[]; phases: PhaseReport[]; cleanup: { required: boolean; restore_failed: boolean; items: CleanupItem[] }; load_thresholds?: LoadOptions; redaction_applied: boolean;
 };
 
 function statement(target: Target, run: 'plan' | 'execute') {
@@ -339,7 +339,8 @@ export function planReport(options: Omit<RunOptions, 'run'>): Report {
 
 function finish(target: Target, run: 'plan' | 'execute', options: Omit<RunOptions, 'run'>, phases: PhaseReport[], cleanup: CleanupItem[], started: string, secrets: Secrets, now?: () => Date): Report {
   const selected = phases.filter(phase => options.phases.includes(phase.id));
-  const overall: Overall = run === 'plan' ? 'not_run' : selected.some(p => p.status === 'fail') ? 'fail' : selected.some(p => p.status === 'blocked') ? 'blocked'
+  const restoreFailed = cleanup.some(item => item.state === 'restore_failed');
+  const overall: Overall = run === 'plan' ? 'not_run' : restoreFailed || selected.some(p => p.status === 'fail') ? 'fail' : selected.some(p => p.status === 'blocked') ? 'blocked'
     : selected.every(p => p.status === 'pass') ? 'pass' : selected.some(p => p.status === 'pass') ? 'incomplete' : 'not_run';
   const report: Report = {
     tool: TOOL_VERSION, report_kind: 'cloud_candidate_acceptance', run, harness: target.harness,
@@ -348,7 +349,7 @@ function finish(target: Target, run: 'plan' | 'execute', options: Omit<RunOption
     statement: statement(target, run), target: { name: target.name, origin: target.origin, expected_mode: target.mode },
     expected_version: options.expectedVersion, expected_release_sha: options.expectedReleaseSha ?? null, account_label: options.account?.label ?? null, access_credential: run === 'plan' ? 'not_read' : options.access ? 'provided' : 'absent',
     started_at: started, finished_at: (now ?? (() => new Date()))().toISOString(), overall, phases_selected: [...options.phases], phases,
-    cleanup: { required: cleanup.some(item => item.state === 'cleanup_required' || item.state === 'restore_failed'), items: cleanup },
+    cleanup: { required: cleanup.some(item => item.state === 'cleanup_required' || item.state === 'restore_failed'), restore_failed: restoreFailed, items: cleanup },
     ...(options.phases.includes('load') ? { load_thresholds: options.load ?? loadOptions() } : {}),
     redaction_applied: false,
   };
@@ -651,7 +652,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
     const isSupplier = (SUPPLIER_PHASES as readonly string[]).includes(id);
     if (isSupplier && target.mode === 'public') { results.set(id, { id, status: 'not_run', reason: 'production_supplier_phases_guarded', ...writes, checks: [] }); continue; }
     const missing = (PHASE_DEPENDENCIES[id] ?? []).find(dep => results.get(dep)?.status !== 'pass');
-    const supplierEarlierBlocked = id === 'supplier-recheck' && options.phases.includes('supplier-journey') && SUPPLIER_PHASES.slice(0, 3).some(earlier => options.phases.includes(earlier) && results.get(earlier)?.status !== 'pass' && !(results.get(earlier)?.status === 'not_run' && ['supplier_console_disabled', 'photo_uploads_disabled', 'reservations_admission_off', 'synthetic_account_not_store_eligible'].includes(results.get(earlier)?.reason ?? '')));
+    const supplierEarlierBlocked = id === 'supplier-recheck' && options.phases.includes('supplier-journey') && (results.get('supplier-journey')?.status !== 'pass' || SUPPLIER_PHASES.slice(0, 3).some(earlier => options.phases.includes(earlier) && results.get(earlier)?.status !== 'pass' && !(results.get(earlier)?.status === 'not_run' && ['supplier_console_disabled', 'photo_uploads_disabled', 'reservations_admission_off', 'synthetic_account_not_store_eligible'].includes(results.get(earlier)?.reason ?? ''))));
     if (supplierEarlierBlocked) { results.set(id, { id, status: 'blocked', reason: 'requires selected supplier phases pass or fixed not_run', ...writes, checks: [] }); if (id === lastSupplier) await cleanupSupplier(id); continue; }
     if (isSupplier && results.get('health')?.status !== 'pass') { results.set(id, { id, status: 'blocked', reason: 'requires health pass', ...writes, checks: [] }); if (id === lastSupplier) await cleanupSupplier(id); continue; }
     if (missing) { results.set(id, { id, status: 'blocked', reason: `requires ${missing} pass`, ...writes, checks: [] }); if (id === lastSupplier) await cleanupSupplier(id); continue; }
@@ -672,6 +673,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
     report.duration_ms = Math.round(performance.now() - began);
     results.set(id, report);
     if (id === lastSupplier) await cleanupSupplier(id);
+    if (report.status === 'pass' && cleanup.some(item => item.phase === id && item.state === 'restore_failed')) { report.status = 'fail'; report.reason = 'cleanup_restore_failed'; report.checks.push({ id: 'cleanup_restored', status: 'fail' }); }
     log(`${id}: ${report.status}${report.reason ? ` (${secrets.redact(report.reason).text})` : ''}`);
   }
   if (userId || NEEDS_ACCOUNT.some(id => options.phases.includes(id) && results.get(id)?.status !== 'not_run')) {

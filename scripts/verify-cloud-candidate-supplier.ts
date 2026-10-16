@@ -65,8 +65,8 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
   async function persist(ctx:PhaseContext,exclusive=false){
     remember(handle);const data=JSON.stringify(handle);ctx.check('supplier_handle_bounded',Buffer.byteLength(data)<4096);
     const path=options.supplierHandleFile!,temporary=path+'.'+randomBytes(8).toString('hex')+'.tmp';
-    if(exclusive){const file=await open(path,'wx',0o600);try{await file.writeFile(data);}finally{await file.close();}created=true;return;}
-    try{const file=await open(temporary,'wx',0o600);try{await file.writeFile(data);}finally{await file.close();}await rename(temporary,path);}finally{await rm(temporary,{force:true});}
+    try{if(exclusive){const file=await open(path,'wx',0o600);try{await file.writeFile(data);}finally{await file.close();}created=true;return;}
+    try{const file=await open(temporary,'wx',0o600);try{await file.writeFile(data);}finally{await file.close();}await rename(temporary,path);}finally{await rm(temporary,{force:true});}}catch{ctx.check('supplier_handle_written',false);}
   }
   async function login(ctx:PhaseContext,role:SupplierRole){
     const existing=sessions.get(role);if(existing)return existing;
@@ -97,7 +97,8 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
   function current(ctx:PhaseContext){ctx.check('supplier_handle_available',handle!==null&&(created||!options.phases.includes('supplier-journey')));return handle!;}
   async function launch(ctx:PhaseContext,c:CandidateClient,name:string,guild:string){
     if(!journalRecorded){journalRecorded=true;ctx.cleanup('journal facts and supplier decisions','residual_expected');}
-    ctx.cleanup('synthetic business, products, terms and published supply version; root deactivates the dedicated supplier account tenants named in the private handle','cleanup_required');
+    const role=guild==='guild_product_quality_supply'?'supplier':'seller';
+    ctx.cleanup(role==='supplier'?`synthetic supply business, products, terms and published supply version: root deactivates every tenant owned by the dedicated account ${options.supplierAccounts!.supplier!.label} created at or after started_at (names start with "WP07 合成供貨"); the private handle, when present, lists the exact ids`:`synthetic seller store and selection: root deactivates every tenant owned by the dedicated account ${options.supplierAccounts!.seller!.label} created at or after started_at (names start with "WP07 合成選物"); the private handle, when present, lists the exact ids`,'cleanup_required');
     const space=await send(c,'POST','/api/v1/tenants',{json:{display_name:name},idempotency:true});ctx.check('supplier_tenant_created',space.status===201);
     const tenant=space.json()?.tenant?.tenant_id,workspace=space.json()?.workspace?.workspace_id;ctx.check('supplier_launch_identifiers',isId(tenant)&&isId(workspace));
     const plan=await send(c,'POST',`/api/v1/tenants/${tenant}/application-launch-plans`,{json:{guild_key:guild,workspace_id:workspace,application_key:'hosted-store',release_ref:'hosted-store@1.0.0',installation_choice:'create_new',dependencies:[{requirement_key:'storefront',choice:'create',configuration:{}}],configuration:{}},idempotency:true});
@@ -132,7 +133,6 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
     const offer=published.json();ctx.check('supplier_offer_identifier',isId(offer?.offer_id)&&offer.product_id===productId);
     const offered=await read(ctx,a,r+'/supplier-console/overview','supplier_offered_overview');ctx.check('supplier_public_supply_count',offered.metrics?.offered_products?.state==='ready'&&offered.metrics.offered_products.count===1);
     const seller=await launch(ctx,b,expected.seller_name,'guild_commerce_sales'),s=`/api/v1/tenants/${seller.tenant_id}/storefronts/${seller.instance_id}`,slug=`wp07-${tag}`;remember(slug);
-    ctx.cleanup('synthetic seller store and selection; root deactivates the dedicated seller account tenants named in the private handle','cleanup_required');
     const setup=await send(b,'POST',s+'/setup',{json:{name:expected.seller_name,slug,currency:'TWD'},idempotency:true});ctx.check('supplier_seller_setup',setup.status===201);
     const catalog=await read(ctx,b,s+'/supply-catalog','supplier_seller_catalog');const version=catalog.items?.find((v:any)=>v.terms?.title===expected.product_name);ctx.check('supplier_catalog_version',version?.offer_id===offer.offer_id&&version?.source_version===expected.terms_version);
     const proposal=await send(b,'POST',s+'/distribution-selections',{json:{offer_id:version.offer_id,terms_sha256:version.terms_sha256,retail_price_minor:expected.retail_price_minor},idempotency:true});ctx.check('supplier_selection_created',proposal.status===201);
@@ -149,7 +149,12 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
     await persist(ctx,true);ctx.metric('replay_same_product',true);ctx.metric('stale_write_rejected',true);ctx.metric('fresh_login_matched',true);
   }
   async function publicReads(ctx:PhaseContext,h:Handle,published=false){
-    for(const suffix of ['', '/media']){const reply=await send(client,'GET',`/api/v1/public/stores/${h.seller.slug}${suffix}`,{session:false});ctx.check('supplier_public_read_status',(reply.status===200||(!published&&reply.status===404)),`status ${reply.status}`);const body=reply.json();ctx.check('supplier_public_json',body&&typeof body==='object'&&!Array.isArray(body));const text=JSON.stringify(body);ctx.check('supplier_private_fields_not_public',!text.includes('cost_minor')&&!text.includes(h.supplier.product_id)&&(!h.photo||!text.includes(h.photo.read_path)));if(reply.status===200)ctx.check('supplier_public_photo_absent',suffix==='/media'?Array.isArray(body.photos)&&body.photos.length===0:!['photo','photos','read_path'].some(key=>text.includes('"'+key+'"')));}
+    const replies=[];for(const suffix of ['', '/media'])replies.push(await send(client,'GET',`/api/v1/public/stores/${h.seller.slug}${suffix}`,{session:false}));
+    const covered=replies.every(reply=>reply.status===200);ctx.check('supplier_public_read_status',covered||(!published&&replies.every(reply=>reply.status===404)));
+    if(!covered)return false;
+    const noPhoto=(value:any):boolean=>!value||typeof value!=='object'||Object.entries(value).every(([key,item])=>!((key==='photo'||key==='read_path')&&item!==null)&&(key!=='photos'||Array.isArray(item)&&item.length===0)&&noPhoto(item));
+    for(const [index,reply] of replies.entries()){const body=reply.json();ctx.check('supplier_public_json',body&&typeof body==='object'&&!Array.isArray(body));const text=JSON.stringify(body);ctx.check('supplier_private_fields_not_public',!text.includes('cost_minor')&&!text.includes(h.supplier.product_id)&&(!h.photo||!text.includes(h.photo.read_path)));ctx.check('supplier_public_photo_absent',noPhoto(body)&&(index!==1||Array.isArray(body.photos)));}
+    return true;
   }
   async function photo(ctx:PhaseContext){
     await guard(ctx,true);const h=current(ctx),a=await login(ctx,'supplier'),r=root(h,'supplier');
@@ -159,7 +164,7 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
     const privateRead=await send(a,'GET',image.read_path);ctx.check('supplier_photo_private_read',privateRead.status===200&&privateRead.headers.get('content-type')?.startsWith('image/webp')===true&&/no-store/.test(privateRead.headers.get('cache-control')??'')&&privateRead.bytes===image.byte_size);
     const bytes=Buffer.from(privateRead.body());let width=0,height=0;
     if(bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP')for(let at=12;at+8<=bytes.length;){const type=bytes.toString('ascii',at,at+4),size=bytes.readUInt32LE(at+4),p=at+8;if(p+size>bytes.length)break;if(type==='VP8X'&&size>=10){width=1+bytes.readUIntLE(p+4,3);height=1+bytes.readUIntLE(p+7,3);break;}if(type==='VP8 '&&size>=10){width=bytes.readUInt16LE(p+6)&16383;height=bytes.readUInt16LE(p+8)&16383;break;}if(type==='VP8L'&&size>=5&&bytes[p]===47){const bits=bytes.readUInt32LE(p+1);width=1+(bits&16383);height=1+((bits>>>14)&16383);break;}at=p+size+(size&1);}
-    ctx.check('supplier_photo_dimensions',width===320&&height===240);await publicReads(ctx,h);ctx.metric('private_photo_verified',true);ctx.metric('public_projection_private',true);
+    ctx.check('supplier_photo_dimensions',width===320&&height===240);const covered=await publicReads(ctx,h);ctx.metric('private_photo_verified',true);ctx.metric('public_projection',covered?'covered_published':'not_covered_unpublished');ctx.metric('public_projection_private',covered?true:null);
   }
   async function reservationLine(ctx:PhaseContext,a:CandidateClient,h:Handle,state:string){const page=await read(ctx,a,root(h,'supplier')+'/supply-reservations','supplier_reservations_read');const lines=page.items?.filter((o:any)=>o.order_id===h.reservation!.order_id);ctx.check('supplier_reservation_own_line',page.items?.length===1&&lines?.length===1&&lines[0].state===state&&lines[0].items?.length===1&&lines[0].items[0].product_id===h.supplier.product_id&&lines[0].items[0].quantity===1);}
   async function reservations(ctx:PhaseContext){
@@ -173,7 +178,7 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
       for(const [c,path,v,role] of [[a,r,setting.version,'supplier'],[b,s,sellerSetting.version,'seller']] as const){touched.push({client:c,root:path,role});const enabled=await send(c,'PATCH',path+'/reservation-setting',{json:{reservation_enabled:true},ifMatch:v,idempotency:true});ctx.check('supplier_reservations_enabled',enabled.status===200&&enabled.json()?.reservation_enabled===true);}
       const store=await read(ctx,b,s,'supplier_seller_store_read'),published=await send(b,'POST',s+'/publish',{json:{},ifMatch:store.version,idempotency:true});ctx.check('supplier_seller_published',published.status===200);
       const page=await read(ctx,b,s,'supplier_published_store_read'),selections=await read(ctx,b,s+'/distribution-selections','supplier_reservation_selection');const selected=selections.items?.find((v:any)=>v.selection_id===h.seller.selection_id);ctx.check('supplier_reservation_selection_sellable',selectionMatches(selected,h));
-      if(h.photo)await publicReads(ctx,h,true);buyer=await login(ctx,'buyer');
+      await publicReads(ctx,h,true);ctx.metric('public_projection_private',true);if(h.photo)ctx.metric('public_photo_checked',true);buyer=await login(ctx,'buyer');
       const quote=await send(buyer,'POST',`/api/v1/hosted-stores/${h.seller.slug}/reservation-quotes`,{json:{publication_revision:page.publication.current_revision,items:[{sku:selected.sku,quantity:1}]},idempotency:true});ctx.check('supplier_quote_created',quote.status===201);
       const q=quote.json();reservationAttempted=true;const placed=await send(buyer,'POST',`/api/v1/hosted-stores/${h.seller.slug}/reservation-orders`,{json:{quote_id:q.quote_id,terms_sha256:q.terms_sha256,client_order_id:randomUUID()},idempotency:true});ctx.check('supplier_reservation_created',placed.status===201&&placed.json()?.state==='reserved'&&isId(placed.json()?.order_id)&&isVersion(placed.json()?.version));order=placed.json();cancelKey=randomUUID();h.reservation={order_id:order.order_id,state:'reserved'};await persist(ctx);
       await reservationLine(ctx,a,h,'reserved');const list=await read(ctx,a,r+'/supplier-console/products','supplier_reserved_products'),product=list.items?.find((p:any)=>p.product_id===h.supplier.product_id);ctx.check('supplier_reserved_stock',product?.stock===h.expected.stock&&product.reserved===1&&product.available===h.expected.stock-1);
@@ -184,7 +189,7 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
       const restored=await read(ctx,a,r+'/supplier-console/products','supplier_released_products');ctx.check('supplier_stock_released_once',productMatches(restored.items?.find((p:any)=>p.product_id===h.supplier.product_id),h,true));ctx.metric('reservation_cancelled',true);ctx.metric('stock_released_once',true);
     }finally{
       if(order&&!cancelled){try{const reply=await cancel();if(reply.status===200&&reply.json()?.state==='cancelled'){cancelled=true;h.reservation!.state='cancelled';await persist(ctx);}}catch{/* retained reservation is reported below */}}
-      if(reservationAttempted)ctx.cleanup('synthetic reservation and its retained history',cancelled?'residual_expected':'cleanup_required');
+      if(reservationAttempted)ctx.cleanup(`synthetic reservation and its retained history: root cancels every reservation by the dedicated account ${options.supplierAccounts!.buyer!.label} created at or after started_at in tenants owned by ${options.supplierAccounts!.seller!.label} (names start with "WP07 合成選物"), then deactivates those tenants and the ${options.supplierAccounts!.supplier!.label} tenants (names start with "WP07 合成供貨"); the private handle, when present, lists the exact ids`,cancelled?'residual_expected':'cleanup_required');
       for(const item of touched.reverse()){let restored=false;try{const now=await send(item.client,'GET',item.root+'/reservation-setting');if(now.status===200){const body=now.json();if(body.reservation_enabled===false)restored=true;else{const off=await send(item.client,'PATCH',item.root+'/reservation-setting',{json:{reservation_enabled:false},ifMatch:body.version,idempotency:true});restored=off.status===200&&off.json()?.reservation_enabled===false;}}}catch{/* fixed cleanup result */}ctx.cleanup(`${item.role} reservation setting`,restored?'restored':'restore_failed');}
     }
   }
@@ -210,7 +215,18 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
       const landing=await page.goto(options.target.origin+'/',{waitUntil:'domcontentloaded'});ctx.check('supplier_bookmark_landing',landing?.status()===200);
       await page.getByLabel('電子郵件',{exact:true}).fill(options.supplierAccounts!.supplier!.email);await page.getByLabel('密碼',{exact:true}).fill(options.supplierAccounts!.supplier!.password);await page.getByRole('button',{name:'登入',exact:true}).click();await page.getByRole('button',{name:'設定',exact:true}).waitFor({state:'visible',timeout:20000});
       await page.goto(`${options.target.origin}/#stores/${h.supplier.tenant_id}/${h.supplier.instance_id}/supply/products/${h.supplier.product_id}`,{waitUntil:'domcontentloaded'});
-      const on=options.expectSupplierConsole==='on',area=page.locator(on?'.supplier-console':'.hosted-store');await area.getByRole('heading',{name:on?'商品詳情：'+e.product_name:e.supplier_name,exact:true}).first().waitFor({state:'visible',timeout:20000});ctx.check('supplier_bookmark_business_found',await page.getByText('找不到這間商店',{exact:false}).count()===0);ctx.metric('bookmark',on?'console_page':'old_page');
+      const on=options.expectSupplierConsole==='on',area=page.locator(on?'.supplier-console':'.hosted-supply-catalog');await area.getByRole('heading',{name:on?'商品詳情：'+e.product_name:e.supplier_name,exact:true}).first().waitFor({state:'visible',timeout:20000});ctx.check('supplier_bookmark_business_found',await page.getByText('找不到這間商店',{exact:false}).count()===0&&await page.getByText('找不到這個供貨商品庫',{exact:false}).count()===0);
+      if(on){
+        const stock=area.getByText(new RegExp('^庫存 '+e.stock+'／.*／可用 '+e.stock+'$'));await stock.waitFor({state:'visible',timeout:20000});
+        const form=area.getByRole('form',{name:'儲存供貨條件',exact:true});await form.waitFor({state:'visible',timeout:20000});
+        for(const [label,value] of [['供貨單價',(e.cost_minor/100).toFixed(2)],['每件運費',(e.shipping_minor/100).toFixed(2)],['出貨條件',e.shipping_terms],['退貨條件',e.return_terms]])ctx.check('supplier_bookmark_values_match',await form.getByRole('textbox',{name:label,exact:true}).inputValue({timeout:20000})===value);
+      }else{
+        const card=area.locator('article.hosted-store-product').filter({has:page.getByRole('heading',{name:e.product_name,exact:true})});await card.waitFor({state:'visible',timeout:20000});
+        // Match formatMinor's fixed TWD display without importing portal code into the tool.
+        const amount=new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',minimumFractionDigits:2,maximumFractionDigits:2}).format(e.cost_minor/100);
+        for(const text of ['供貨單價 '+amount,'庫存 '+e.stock,e.description])ctx.check('supplier_bookmark_values_match',await card.getByText(text,{exact:true}).count()===1);
+      }
+      ctx.metric('bookmark',on?'console_page':'old_page');ctx.metric('bookmark_values_matched',true);
     });
   }
   return {preflight,cleanup,phases:{'supplier-journey':journey,'supplier-photo':photo,'supplier-reservations':reservations,'supplier-recheck':recheck}};

@@ -103,7 +103,7 @@ npx tsx scripts/verify-cloud-candidate.ts execute --target public --expected-ver
 
 Deactivate every `cand-reg-*` member named in `cleanup.items` afterwards with the operator cleanup helper. The tool has no database access and cannot confirm that cleanup. No Access file is used for `public`.
 
-The JSON report goes to stdout, and the caller keeps it as the canonical record. Progress lines on stderr carry phase names and statuses only. For `execute`, the exit code is `0` only when every selected phase passed, `1` for any fail, blocked or not_run phase, and `2` for usage or credential-file errors. `plan` exits `0` after printing the report even though every phase is `not_run`; that `0` means the plan was written, not that any phase passed, and usage errors still exit `2`.
+The JSON report goes to stdout, and the caller keeps it as the canonical record. Progress lines on stderr carry phase names and statuses only. Any `restore_failed` item makes an execute run `overall: fail`, `cloud_proof: false`, and exit 1. `cleanup.restore_failed` reports that condition separately from the existing `cleanup.required` operator-follow-up flag. A previously passed phase becomes `fail: cleanup_restore_failed` with `cleanup_restored: fail` after all its cleanup attempts, including final supplier logouts. Existing failure reasons and `not_run`/`blocked` statuses stay intact. `cleanup_required` and `residual_expected` alone do not fail a run. For `execute`, the exit code is `0` only when every selected phase passed and restoration succeeded, `1` for any fail, blocked or not_run phase, and `2` for usage or credential-file errors. `plan` exits `0` after printing the report even though every phase is `not_run`; that `0` means the plan was written, not that any phase passed, and usage errors still exit `2`.
 
 ## Phases and acceptance gates
 
@@ -267,8 +267,8 @@ selected supplier phase, including failure paths.
 | Phase | Writes and checks |
 | --- | --- |
 | `supplier-journey` | Creates a synthetic supply-only business and product, saves terms, publishes one supply version, creates a seller store and selection, accepts its request, and returns after a fresh supplier login. Replays the product create with the same key and rejects stale If-Match. Retains business/product/offer/selection data and command/decision history. |
-| `supplier-photo` | Uploads a generated PNG using the ordinary product photo protocol, verifies the private WebP response and dimensions, and checks public store/media projections contain neither private supply data nor the photo. The retained version stays. |
-| `supplier-reservations` | Enables supplier **and seller** reservation settings, publishes the seller store, creates one synthetic buyer reservation, checks stock and the supplier's own line, rejects stock below reserved with 409, cancels and replays cancellation, and restores both settings to OFF even on failure. |
+| `supplier-photo` | Uploads a generated PNG using the ordinary product photo protocol, verifies the private WebP response and dimensions, and reads both public store/media endpoints. Two 404s before publication record `public_projection: not_covered_unpublished` and `public_projection_private: null`; this phase passes its private checks without publishing. Only two checked 200 projections record `public_projection_private: true`; mixed statuses fail. The retained version stays. |
+| `supplier-reservations` | Enables supplier **and seller** reservation settings, publishes the seller store, always checks both published public endpoints return 200 and exclude private supply data/photos (null photo placeholders are allowed), records `public_projection_private: true` and, when a photo exists, `public_photo_checked: true`, creates one synthetic buyer reservation, checks stock and the supplier's own line, rejects stock below reserved with 409, cancels and replays cancellation, and restores both settings to OFF even on failure. |
 | `supplier-recheck` | Read-only legacy and console API comparisons plus a fresh browser login opening the saved product bookmark. Its login sessions are revoked. Requires `--expect-supplier-console on\|off` and headless Chromium; this flag is rejected without this phase. |
 
 All four phases return `not_run: production_supplier_phases_guarded` on public;
@@ -285,7 +285,7 @@ Recheck verifies its expected flag rather than using the write-phase guard.
 Dependencies are journey → health, photo/reservations → journey, recheck →
 health. Photo and reservation writes require the journey to pass in the same
 run. Recheck is blocked unless
-all selected earlier supplier phases passed or returned one of the fixed
+the selected journey passed, and the selected photo/reservation phases passed or returned one of the fixed
 precondition reasons above. It uses the handle created by that run.
 
 The console API accepts no `state` query: like the UI, the journey checks offered
@@ -300,9 +300,9 @@ Rollback drill (only the lead operates host flags after Ted approves):
 2. Flip the host console flag OFF without changing the origin/database. Run only
    `supplier-recheck --expect-supplier-console off`, using the same A/B files and
    handle. Legacy values must match, console routes must be 404, and the same
-   bookmark must render the old page with the same business name.
+   bookmark must render the old supply catalog with the same business name, selected product name, formatted TWD supply price, stock and description; neither missing-store nor missing-catalog text may appear.
 3. Flip ON again. Run only `supplier-recheck --expect-supplier-console on` with
-   that handle; the console and bookmark must show the same product and values.
+   that handle; the console bookmark must show the same product heading, stock, available count, supply unit price, per-item shipping fee and shipping/return terms. Both bookmark modes record `bookmark_values_matched: true` only after those comparisons.
 
 An offline plan is safe and reads no role or handle file:
 
@@ -318,8 +318,22 @@ reservation is `cleanup_required`; setting/session restoration failures are
 `restore_failed`. The tool issues no deletion request.
 
 The journey writes the handle only at its end, after the fresh-login read. If it
-fails earlier, no handle exists: root deactivates every tenant owned by the
-dedicated synthetic supplier and seller accounts, which hold no other data.
+fails earlier (including a failed private file write), no handle may exist. The
+`cleanup_required` texts therefore name the dedicated supplier and seller **labels
+from their account files**, not identifiers or run tags. Labels are operator
+references, never registered as secrets. Root resolves those labels through the
+same private account files and lists every owned tenant created at or after this
+report's `started_at`: supplier names start with `WP07 合成供貨`, seller names with
+`WP07 合成選物`. Review and deactivate every tenant in that window, including
+partially launched tenants; these dedicated accounts hold no other data. If a
+reservation needs cleanup, resolve the dedicated buyer label, list its reservations
+created at or after `started_at` in those seller tenants, cancel each through the
+existing authorized procedure, then deactivate the supplier/seller tenants.
+The private handle, when present, lists exact ids as an additional locator. Keep
+account files and the sanitized report until this reconciliation is complete.
+The tool still attempts every touched setting OFF and every role logout after
+any earlier failure; an unresolved setting or session is `restore_failed` and
+cannot be accepted as a successful run.
 
 The isolated loopback harness swaps the app ON → OFF → ON on one listener and
 database. It is `harness: local_harness`, `cloud_proof: false`; it proves the tool,
