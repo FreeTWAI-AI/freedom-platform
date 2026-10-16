@@ -14,7 +14,8 @@ test('buyer transactional email E2E: B07 pre/post-payment email note, order_conf
   baseURL,
   e2eAuthPool,
 }, info) => {
-  // Drain any prior messages from the fixture
+  // Execute and drain any prior due work and messages from earlier tests in the shared E2E server
+  await page.request.post('/__e2e/commerce/run-due-work', { data: {} });
   await page.request.get('/__e2e/commerce/mail');
 
   const p = await createE2ePaymentOrder(e2eAuthPool, browser, baseURL!, page.context());
