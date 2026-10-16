@@ -36,7 +36,7 @@
 | `profile` | 付款為 `ecpay.aio.credit.v1`（§2）；物流與發票見 EC-SPEC-05、06 |
 | `credential_version` | 這個用途目前使用的金鑰版本（§1.3） |
 | `throttled_until` | 綠界對這個用途回 HTTP 403 時設定（§6.3）；同帳戶、同用途的查詢與操作暫停到這個時間，其他用途不受影響（EC-SPEC-09 §4） |
-| `state` | `draft` → `active` → `suspended`／`retired`；只有 `active` 能建立新付款。同一間店、同一環境、同一 profile 同時最多一個 `active` |
+| `state` | `draft` → `active` → `suspended`／`retired`；只有 `active` 能建立新付款。同一間店、同一環境、同一 profile 同時最多一個 `active`。物流例外：子類型各自一列並各自開通，`logistics` 服務列不受這條限制（EC-SPEC-05 §2.2） |
 | 開通證據 | §1.4 的驗證交易參考與時間 |
 | `version` | 每次改動 +1 |
 
