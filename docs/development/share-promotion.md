@@ -85,6 +85,15 @@ POST 回歸另以真正 HTTP 與 SQL barrier 覆蓋 existing replay 的最後點
 
 標題用投稿者填的；沒填就用預覽抓到的頁面標題（最多 120 字）；再沒有就用主機名。預覽失敗仍可建立貼文，只是沒有縮圖。作者可換縮圖或軟刪除。能審核活動的平台管理員可隱藏；公會長不行。隱藏或刪除後，列表看不到，分享連結回到首頁，公開縮圖 404。
 
+HTML 預覽的十進位／十六進位數字字元參照會把零、超出 Unicode 範圍及 surrogate 轉成 U+FFFD（�），避免遠端標題拋出 RangeError 或把 NUL 寫入資料庫；合法 Unicode（含 supplementary 與 U+10FFFF）保留。此規則同樣適用於 OG／meta 屬性，不改投稿者自填標題優先順序、抓取邊界或冪等重送。
+
+社群標題保留既有 120 個 UTF-16 code units 的輸入／編輯上限；截斷時若邊界落在 supplementary character 的 surrogate pair 中，整個省略超出邊界的字元，不留下半個 pair 讓資料庫編碼成額外 U+FFFD。完整落在上限內的 emoji 等字元保留。HTML／oEmbed 預覽、寫入前的標題上限及原生貼文建立／編輯共用同一規則；原生貼文正文不截短。這不是把輸入合約放寬為 120 個 Unicode scalars。
+
+遠端 HTML／OG 與 YouTube oEmbed JSON 標題中的原始 U+0000，在空白整理與
+120 字長度上限之前換成 U+FFFD，避免預覽內容使正常分享寫入 PostgreSQL 失敗。
+HTML 仍移除角括號；oEmbed 仍視為純文字，不解碼其中的 HTML entities 或刪除括號。
+自填標題優先與同 key 重播語意不變；這個 #721 邊界不同於 #717 的 numeric reference 解碼。
+
 預覽抓取（`modules/community/link-preview.ts`）由 runtime 注入。YouTube 取影片 id（`watch?v=`、`youtu.be`、`/shorts/`、`/live/`、`/embed/`），再抓 `i.ytimg.com` 的 `hqdefault.jpg`，標題可選 oEmbed。其他平台讀 `og:image`、`og:image:secure_url` 或 `twitter:image`。限制是：`redirect:manual`、最多 3 次重導、每一跳都重跑網址規則、全程 6 秒、HTML 最多 1 MiB、圖片最多 5 MiB。回應只要聲明 `image/*` 就收下；格式以檔案簽名判斷，不採用對方的 Content-Type。GIF、動畫 PNG、動畫 WebP、簽名不符或超過 5 MiB 時捨棄縮圖、保留標題。靜態 png／jpeg／webp 正規化成 640×360 的 WebP（`social_thumbnail`）。處理器失敗就沒有縮圖，不讓貼文失敗。上傳的縮圖仍要聲明類型與簽名一致，且在 512 KiB 以下。User-Agent 固定為 `FreedomWorkshopPreview/1.0 (+https://freetwai.com)`。測試與 e2e 使用假的 fetcher，不連外網。
 
 Production runtime 必須提供受限的 preview transport；缺少 transport 時只建立無預覽貼文，不回退到一般 `fetch`。6 秒期限包括 DNS、TLS、headers 與 body 讀取，頁面、重導及縮圖都走相同邊界：
@@ -119,6 +128,18 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `GET /api/v1/public/social-posts/:id/thumbnail` | 公開 | 只開放外部連結貼文；原生、隱藏或刪除為 404 |
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
 | `POST /api/v1/social-posts/:id/hide` | 平台管理員 | 隱藏 |
+
+貼文、留言與按讚名單的 `cursor` 為 opaque base64url；解碼後嚴格要求 UTC ISO
+timestamp 與 UUID 兩個欄位。非 ISO 時間、不存在的日曆日期、PostgreSQL 不接受的
+year zero 或多餘欄位回 422 `invalid_cursor`，不送入 SQL cast 變成 500。
+既有三位毫秒與六位微秒時間、有效閏日均保留原文字精度；呼叫端不需解析或重建。
+驗證不改匿名 401、不可見貼文 404 的授權邊界。
+
+貼文與留言的下一頁標記也直接使用 PostgreSQL 的 UTC 微秒字串，不從顯示用的
+JavaScript Date 毫秒值重建（#728）。貼文依 `(created_at,post_id)` 降冪，留言依
+`(created_at,comment_id)` 升冪；同一毫秒內不同微秒及完全同時的 UUID 並列均能
+完整續頁、不重複，最後一頁的 `next_cursor` 為 `null`。顯示用 `created_at` DTO、
+每頁 24 筆與原三位毫秒游標的讀取相容性不變；客戶端須原樣傳回 opaque cursor。
 
 會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
 讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
@@ -194,6 +215,13 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 等鎖跨過期限會回 401 `session_expired`，不回 `items`、暫停私人服務或會員 DTO；
 排序、游標、筆數與本人／公開資格不變。匿名公開頁不套用會員 session 規則。
 
+列表游標是 `updated_at` 的 UTC ISO 時間加服務 UUID（以換行分隔再 base64url）。伺服器產生六位微秒；較舊的三位毫秒游標仍可使用。其他格式，或不存在的日期、`24:00`、第 0 年，在送進資料庫前就被拒絕：會員清單回 422 `invalid_cursor`，公開 `/services?before=` 回到第一頁。
+
+分類篩選只接受服務分類列舉的自有 key；`constructor`、`__proto__`、
+`toString` 等繼承名稱不是分類。會員清單對非空的無效 `category` 回
+422 `validation_failed`；公開 `/services` 忽略無效分類，保留全部分類的
+服務與分頁，選中「全部」，canonical 不包含無效分類。合法分類仍在分頁前篩選。
+
 ### 資料
 
 `migrations/067_member_services.sql`：`member_services`、`member_service_covers`。公開列表索引是 `(community_id, updated_at DESC, service_id DESC) WHERE state='active'`，主人索引含有效與暫停。封面 `ON DELETE CASCADE`，但軟刪除要另外刪封面列。點擊分仍只在 `promotion_clicks`。列表的 `total_points` 用既有的 `promotion_links_target` 索引，合計該服務全部 `member_service` 連結的點擊。
@@ -228,6 +256,10 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 - 文字中的 Unicode `#標籤` 最多20個，可點選以 `GET /social-posts?tag=` 篩選。`mention_ids` 最多10位，從既有會員目錄選取；發布時重新驗同社群、有效會員、驗收帳號與雙向封鎖，保留當時顯示名稱。點 `@姓名` 讀目前可見會員卡；本案不新增通知派送（見 #403／#410）。
 - 貼文／留言均支援相機按鈕與剪貼簿照片。留言另沿用既有 emoji、工坊貼圖目錄；貼圖立即傳送並保留輸入中的文字與照片。留言讚採期望狀態，重試不重複計數。
 - `GET /social-posts/:id/likes` 回最多24位目前可見的按讚者與游標；有效會員與雙向封鎖會重驗。`POST /social-posts/:id/read` 以會員／貼文唯一鍵計人數。前端在頁面可見、貼文標頭至少一半進入畫面持續1秒後回報；只顯示人數，不提供閱讀名單，也不代表使用者理解全部內容。
+  按讚名單按 `(created_at,user_id)` 升冪續頁；`next_cursor` 是 opaque
+  base64url 標記，原樣放進下一次 `cursor`，最後一頁為 `null`。時間取 PostgreSQL
+  精確 UTC 微秒字串，不經 JavaScript Date 截成毫秒，避免同毫秒的按讚者重複或游標停滯；
+  完全同時的按讚以 user ID 穩定排序。這不改可見性條件、每頁上限或顯示日期。
 - 每張貼文的分享對話框帶入原文，X／Instagram／Facebook／Threads 預設全選；照片由使用者選擇加入。沿用已存在的轉交／下載與逐平台本人確認流程，不自動冒充已在外站刊登，原生貼文與會員附圖也不因此成為公開網址。
 
 新增會員路由：`POST /social-posts/:id/comment-images`、`GET /social-posts/:id/comments/:commentId/image`、`POST /social-posts/:id/comments/:commentId/like`。寫入沿用 session／CSRF／Origin 與 Idempotency-Key。上傳圖片綁定本人與目標貼文，只能附加至一則留言；斷線後沿用原上傳與留言 key。HTTP 二進位上限512 KiB，瀏覽器先縮圖；伺服器完整解碼並正規化為最長1920px、最多1 MiB WebP。格式限定靜態 PNG／JPEG／WebP。

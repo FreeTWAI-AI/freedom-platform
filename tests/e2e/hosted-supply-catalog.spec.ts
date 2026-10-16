@@ -79,7 +79,12 @@ for (const action of ['setup', 'create', 'edit'] as const) {
     await expect(page.getByLabel('商店網址', {exact: true})).toHaveCount(0);
     await expect(page.getByRole('heading', {name: '預覽與發布', exact: true})).toHaveCount(0);
     if (action === 'create') await page.getByRole('button', {name: '新增供貨商品', exact: true}).click();
-    if (action === 'edit') await page.getByRole('button', {name: '編輯供貨商品', exact: true}).click();
+    if (action === 'edit') {
+      const card = page.getByRole('article').filter({has: page.getByRole('heading', {level: 4, name: '供貨茶杯', exact: true})});
+      // The initial cooperation projection inserts a state row above the actions.
+      await expect(card.getByText('供貨版本：尚未公開', {exact: true})).toBeVisible();
+      await card.getByRole('button', {name: '編輯供貨商品', exact: true}).click();
+    }
     const form = page.getByRole('form', {name: action === 'setup' ? '建立供貨商品庫' : action === 'create' ? '新增供貨商品' : '編輯供貨商品', exact: true});
     if (action === 'setup') await form.getByLabel('商品庫名稱', {exact: true}).fill('私人商品庫');
     else {

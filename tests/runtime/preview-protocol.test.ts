@@ -2,6 +2,7 @@ import { test,before,after } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import { runInNewContext } from 'node:vm';
 import { Pool } from 'pg';
 import { serve } from '@hono/node-server';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
@@ -25,7 +26,7 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  assert.equal((await maker.call('listCareerTracks')).items.length,35);assert.equal((await maker.call('listGuilds')).items.length,18);
  const profile=await maker.call('savePositioning',{...key(),body:{real_world_occupations:['示範'],background:'',strengths:['規格整理'],goals:'供貨測試',weekly_minutes:30,desired_roles:['supplier'],selected_tracks:['food_supplier'],confirmed:true}});
  assert.equal((await maker.call('getPositioning')).profile?.profile_id,profile.profile_id);
- const membership=await maker.call('joinGuild',{...key(),params:{key:'guild_product_quality_supply'},body:{}});
+ const membership=await maker.call('joinGuild',{...key(),params:Object.assign(Object.create(null),{key:'guild_product_quality_supply'}),body:{}});
  assert.equal((await maker.call('leaveGuild',{...key(),params:{key:'guild_product_quality_supply'},body:{},version:membership.aggregate_version})).state,'left');
  const productBody={title:'協定測試茶葉',specifications:'150g',net_price_minor:30000,currency:'TWD' as const,availability:'manual_confirmation' as const,stock:null,shipping_terms:'測試出貨',return_terms:'測試退貨'};
  const retry=key();const product=await maker.call('createSupplierProduct',{...retry,body:productBody});
@@ -44,7 +45,10 @@ test('published preview SDK negotiates exact protocol and drives real HTTP/PG ac
  await maker.call('createSupplierOffer',{...key(),params:{id:product.product_id},version:product.aggregate_version,body:{...productBody, title:undefined,specifications:undefined} as any}).then(()=>assert.fail('unknown keys must fail'),()=>{});
  const {title:_,specifications:__,...offer}=productBody;
  await maker.call('createSupplierOffer',{...key(),params:{id:product.product_id},version:product.aggregate_version,body:{...offer,net_price_minor:32000}});
- const updated=await maker.call('reviseCampaign',{...key(),params:{id:campaign.campaign_id},version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'updated text'}});
+ await assert.rejects(maker.call('reviseCampaign',{...key(),params:Object.create({id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'inherited target must not mutate'}}),TypeError);
+ const inheritedOptions=Object.assign(Object.create({params:{id:campaign.campaign_id}}),{...key(),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'inherited options must not mutate'}});
+ await assert.rejects(maker.call('reviseCampaign',inheritedOptions),TypeError);
+ const updated=await maker.call('reviseCampaign',Object.assign(Object.create(null),{...key(),params:runInNewContext('({id})',{id:campaign.campaign_id}),version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'updated text'}}));
  assert.deepEqual(updated.source_snapshot,campaign.source_snapshot);
  await assert.rejects(maker.call('reviseCampaign',{...key(),params:{id:campaign.campaign_id},version:campaign.aggregate_version,body:{title:'供貨草稿',audience:'test',goal:'read',draft_text:'stale'}}),{status:412});
  const shared=await maker.call('recordShare',{...key(),params:{id:campaign.campaign_id},version:updated.aggregate_version,body:{channel:'test',share_url:'https://github.com/FreeTWAI/freedom-platform',note:'synthetic'}});
@@ -59,6 +63,9 @@ test('SDK refuses protocol skew, redirected credentials, unsafe identifiers and 
  await assert.rejects(skew.call('createStore',{...key(),body:{name:'a',description:'b',support_contact:'c'}}),/differs from the pinned contract/);assert.equal(calls,1);
  const client=new PlatformClient({baseUrl,csrfToken:'test',fetcher:async(input,options)=>{calls++;assert.equal(options?.redirect,'error');if(String(input).endsWith('/protocol'))return Response.json(metadata);throw new Error('simulated uncertain network outcome');}});
  await client.assertCompatible();calls=0;
+ for(const params of [null,42,'',true,[],new Date(),Object.create({id:'10000000-0000-4000-8000-000000000001'})])await assert.rejects(client.call('getHealth',{params}),TypeError);
+ for(const params of runInNewContext('[[],new Date(),new(class Parameters{}),Object.create({id:\"10000000-0000-4000-8000-000000000001\"})]'))await assert.rejects(client.call('getHealth',{params}),TypeError);
+ assert.equal(calls,0);
  await assert.rejects(client.call('reviseCampaign',{...key(),params:{id:'../../auth/logout'},version:1,body:{title:'a',audience:'b',goal:'c',draft_text:'d'}}),/identifier/);assert.equal(calls,0);
  for(const field of ['constructor','__proto__'])await assert.rejects(client.call('joinGuild',{...key(),params:{key:'guild_marketing'},body:JSON.parse('{"'+field+'":{"admin":true}}')}),/unknown field/);assert.equal(calls,0);
  await assert.rejects(client.call('createStore',{body:{name:'a',description:'b',support_contact:'c'}}),/Idempotency/);assert.equal(calls,0);

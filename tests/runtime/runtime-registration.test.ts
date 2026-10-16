@@ -3,6 +3,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { CompactSign, exportJWK, generateKeyPair } from 'jose';
 import { Pool } from 'pg';
+import { ZodError } from 'zod';
 import { migrate } from '../../scripts/database.js';
 import { createRuntimeRegistrations } from '../../modules/agent-control/runtime-registration.js';
 import { parseRuntimePublicJwk } from '../../modules/agent-control/runtime-proof.js';
@@ -158,6 +159,21 @@ test('ENROLL-12 current version controls revoke, with exactly one winner', async
   const results = await Promise.allSettled(Array.from({ length: 2 }, () => service.revoke(f.actor, { key: randomUUID(), runtimeDeviceId: row.runtimeDeviceId, expectedVersion: '1' })));
   assert.equal(results.filter(v => v.status === 'fulfilled').length, 1);
   assert.equal(results.filter(v => v.status === 'rejected' && status(412)(v.reason)).length, 1);
+});
+test('ENROLL version syntax rejects before receipt and a corrected revoke reuses its key', async () => {
+  const f = await fixture(), row = await service.confirm(f.actor, f.confirm);
+  const input = { key: randomUUID(), runtimeDeviceId: row.runtimeDeviceId, expectedVersion: '1' };
+  const tables = ['runtime_registrations','scoped_command_receipts','scoped_transition_journal','scoped_outbox'];
+  const before = await Promise.all(tables.map(count));
+  for (const expectedVersion of ['oops','1.5','1e3','0','9223372036854775808','9'.repeat(100)]) {
+    await assert.rejects(service.revoke(f.actor, {...input, expectedVersion}), error => error instanceof ZodError && error.issues.some(issue => issue.path[0] === 'expectedVersion'));
+  }
+  assert.deepEqual(await Promise.all(tables.map(count)), before);
+  assert.deepEqual(await service.read(f.actor, {runtimeDeviceId: row.runtimeDeviceId}), row);
+  await assert.rejects(service.revoke(f.actor, {...input, expectedVersion: '9223372036854775807'}), status(412));
+  const revoked = await service.revoke(f.actor, input);
+  assert.equal(revoked.runtimeDeviceId, row.runtimeDeviceId); assert.equal(revoked.state, 'revoked'); assert.equal(revoked.operational_authority, false);
+  assert.deepEqual(await service.revoke(f.actor, input), revoked);
 });
 test('ENROLL-13 expired challenge history counts toward the fixed lifetime limit', async () => {
   const f = await member(), pair = await keys();

@@ -268,7 +268,7 @@ test('contribution records do not assign an unapproved score',async()=>{
   const member=await signIn();
   const records=await request('/me/contribution-records',member);assert.equal(records.status,200);assert.equal(records.data.accepted_count,0);
   assert.equal(records.data.policy,'accepted_work_facts_v1');
-  assert.equal(records.data.total,undefined);assert.deepEqual(records.data.entries,[]);
+  assert.equal(records.data.total,undefined);assert.deepEqual(records.data.entries,[]);assert.equal(records.data.next_offset,null);
 });
 
 test('simultaneous requests for the last event seat admit only one member',async()=>{

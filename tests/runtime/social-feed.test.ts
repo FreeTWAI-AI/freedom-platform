@@ -2,10 +2,13 @@ import {test, before, after, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
+import {z} from 'zod';
 import {createPool} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
+import {serve} from '@hono/node-server';
+import {once} from 'node:events';
 
 const origin = 'http://127.0.0.1:4311';
 const url = process.env.TEST_DATABASE_URL;
@@ -74,6 +77,51 @@ test('write a native post without a URL/title/preview, replay once and reject a 
   assert.equal((await request('/promotion/links', session, {kind: 'social_post', target: first.data.post_id})).status, 404);
 });
 
+test('numeric remote HTML titles create real HTTP posts and replay without duplicates', async () => {
+  let html = '';
+  let liveApp = app;
+  const server = serve({fetch: req => liveApp.fetch(req), hostname: '127.0.0.1', port: 0});
+  try {
+    if (!server.listening) await once(server, 'listening');
+    const address = server.address(); assert.ok(address && typeof address !== 'string');
+    const liveOrigin = `http://127.0.0.1:${address.port}`;
+    liveApp = createApp(pool, liveOrigin, 'local', {linkPreviewFetch: async () =>
+      new Response(html, {headers: {'content-type': 'text/html; charset=utf-8'}})});
+    const signed = await fetch(liveOrigin + '/api/v1/auth/login', {method: 'POST',
+      headers: {Origin: liveOrigin, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID()},
+      body: JSON.stringify({email: DEMO_USERS[0].email, password: DEMO_PASSWORD})});
+    assert.equal(signed.status, 200);
+    const session = await signed.json() as {csrf_token: string};
+    const headers = {Origin: liveOrigin, Cookie: signed.headers.get('set-cookie')!.split(';')[0],
+      'X-CSRF-Token': session.csrf_token, 'Content-Type': 'application/json'};
+    const cases: [string, string, string?][] = [
+      ['<title>decimal &#1114112;</title>', 'decimal �'],
+      ['<meta property="og:title" content="hex &#x110000;">', 'hex �'],
+      ['<title>zero &#0;</title>', 'zero �'],
+      ['<meta property="og:title" content="surrogate &#xD800;">', 'surrogate �'],
+      ['<title>valid &#128512;&#x10FFFF;</title>', 'valid 😀\u{10ffff}'],
+      ['<title>invalid &#1114112;&#0;&#xD800;</title>', '投稿者標題', '投稿者標題'],
+    ];
+    for (const [index, [page, expected, title]] of cases.entries()) {
+      html = page;
+      const key = randomUUID(), body = JSON.stringify({url: `https://example.org/numeric-${index}`, ...(title ? {title} : {})});
+      const submit = () => fetch(liveOrigin + '/api/v1/social-posts', {method: 'POST',
+        headers: {...headers, 'Idempotency-Key': key}, body});
+      const first = await submit(), created = await first.json() as {post_id: string; title: string};
+      assert.equal(first.status, 201, JSON.stringify(created));
+      assert.equal(created.title, expected);
+      const replay = await submit(); assert.equal(replay.status, 201);
+      assert.deepEqual(await replay.json(), created);
+      const stored = await pool.query('SELECT title FROM community_social_posts WHERE post_id=$1', [created.post_id]);
+      assert.deepEqual(stored.rows, [{title: expected}]);
+    }
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_social_posts')).rows[0].n, cases.length);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts')).rows[0].n, cases.length);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
 test('native content validation rejects empty, control characters, oversized and unknown fields', async () => {
   const session = await login();
   for (const body of [{text: '  '}, {text: 'a'.repeat(2001)}, {text: 'abc\u0000'}, {text: 'hello', url: 'https://example.com'}]) assert.equal((await request('/social-posts/notes', session, body)).status, 422);
@@ -116,6 +164,73 @@ test('comment pagination is stable with identical timestamps and rejects invalid
   assert.equal(first.items.length, 24); assert.equal(next.items.length, 3); assert.equal(new Set([...first.items, ...next.items].map(item => item.comment_id)).size, 27); assert.equal(next.next_cursor, null);
   assert.equal((await request(path + '?cursor=broken', session)).status, 422);
 });
+
+for (const collection of ['posts', 'comments'] as const) {
+  for (const mixedMicroseconds of [false, true]) {
+    test(`${collection} pagination preserves ${mixedMicroseconds ? 'different microseconds within one millisecond' : 'identical microsecond timestamps'} across every page`, async () => {
+      const session = await login();
+      const note = collection === 'comments' ? await post(session) : null;
+      const timestamp = `'2026-01-01T00:00:00.123789Z'::timestamptz + ${mixedMicroseconds ? '(i % 3)' : '0'} * interval '1 microsecond'`;
+      if (note) {
+        await pool.query(`INSERT INTO community_social_comments(post_id,community_id,author_user_id,body,created_at)
+          SELECT $1,$2,$3,'synthetic pagination comment',${timestamp} FROM generate_series(1,51) AS s(i)`,
+        [note.post_id, DEMO_COMMUNITY, session.id]);
+      } else {
+        await pool.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,platform,title,note,state,created_at)
+          SELECT $1,$2,'note','other','synthetic pagination','synthetic pagination','active',${timestamp} FROM generate_series(1,51) AS s(i)`,
+        [DEMO_COMMUNITY, session.id]);
+      }
+      const idField = collection === 'posts' ? 'post_id' : 'comment_id';
+      const table = collection === 'posts' ? 'community_social_posts' : 'community_social_comments';
+      const direction = collection === 'posts' ? 'DESC' : 'ASC';
+      const expected = (await pool.query<{id: string}>(`SELECT ${idField}::text AS id FROM ${table}
+        ORDER BY created_at ${direction},${idField} ${direction}`)).rows.map(row => row.id);
+      const pageSchema = z.object({
+        items: z.array(z.record(z.string(), z.unknown())),
+        next_cursor: z.string().nullable(),
+      });
+      const path = note ? `/social-posts/${note.post_id}/comments` : '/social-posts';
+      const ids: string[] = [], sizes: number[] = [];
+      let cursor: string | null = null;
+      for (let page = 0; page < 4; page++) {
+        const response = await request(path + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), session);
+        assert.equal(response.status, 200);
+        const data = pageSchema.parse(response.data);
+        sizes.push(data.items.length);
+        ids.push(...data.items.map(item => z.uuid().parse(item[idField])));
+        cursor = data.next_cursor;
+        if (!cursor) break;
+      }
+      assert.deepEqual(sizes, [24, 24, 3]);
+      assert.deepEqual(ids, expected, 'all rows appear exactly once in database order');
+      assert.equal(cursor, null, 'the last page must terminate');
+    });
+  }
+}
+
+for(const collection of ['posts','comments','likes'] as const){
+ test(`${collection} cursor rejects non-ISO dates and extra fields while retaining precise valid boundaries`,async()=>{
+  const owner=await login(),note=await post(owner);
+  const comment=await request(`/social-posts/${note.post_id}/comments`,owner,{text:'Synthetic cursor boundary'});
+  assert.equal(comment.status,201);
+  assert.equal((await request(`/social-posts/${note.post_id}/like`,owner,{liked:true})).status,200);
+  const table={posts:'community_social_posts',comments:'community_social_comments',likes:'community_social_likes'}[collection];
+  await pool.query(`UPDATE ${table} SET created_at='2026-01-01T00:00:00.123789Z' WHERE post_id=$1`,[note.post_id]);
+  const path=collection==='posts'?'/social-posts':`/social-posts/${note.post_id}/${collection}`;
+  const id=collection==='posts'?note.post_id:collection==='comments'?comment.data.comment_id:owner.id;
+  const page=(text:string)=>request(path+'?cursor='+encodeURIComponent(Buffer.from(text).toString('base64url')),owner);
+  for(const text of [`0\n${id}`,`2026-02-30T00:00:00.000Z\n${id}`,`0000-01-01T00:00:00.000Z\n${id}`,`2026-01-01T00:00:00.000Z\n${id}\nignored`]){
+   const denied=await page(text);assert.equal(denied.status,422);assert.equal(denied.data.code,'invalid_cursor');
+  }
+  const idField={posts:'post_id',comments:'comment_id',likes:'user_id'}[collection];
+  const exact=await page(`2026-01-01T00:00:00.123789Z\n${id}`);
+  assert.equal(exact.status,200);assert.deepEqual(exact.data.items.map((item:Record<string,string>)=>item[idField]),[]);
+  for(const time of ['2024-02-29T00:00:00.000Z','2024-02-29T00:00:00.000000Z']){
+   const valid=await page(`${time}\n${id}`);assert.equal(valid.status,200);
+   assert.deepEqual(valid.data.items.map((item:Record<string,string>)=>item[idField]),collection==='posts'?[]:[id]);
+  }
+ });
+}
 
 test('other communities cannot read, like, comment or remove a known post', async () => {
   const owner = await login(), note = await post(owner), community = randomUUID();
@@ -242,6 +357,25 @@ test('like names respect current membership and blocks; comment likes deduplicat
  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[other.id]);assert.equal((await request(`${path}/likes`,owner)).data.items.length,0);
 });
 
+test('like pagination preserves microseconds and UUID ties without repeating or skipping members',async()=>{
+ const owner=await login(),note=await post(owner),prefix=randomUUID();
+ const users=(await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+  SELECT gen_random_uuid(),$1,$2||'-'||n||'@local.test','Synthetic like '||n,password_hash,gen_random_uuid()
+  FROM users CROSS JOIN generate_series(1,51) n WHERE user_id=$3 RETURNING user_id`,[DEMO_COMMUNITY,prefix,owner.id])).rows;
+ const ids=users.map(row=>row.user_id);
+ await pool.query(`INSERT INTO community_social_likes(post_id,community_id,user_id,created_at)
+  SELECT $1,$2,id,CASE WHEN n<=30 THEN '2026-01-01T00:00:00.123456Z'::timestamptz ELSE '2026-01-01T00:00:00.123789Z'::timestamptz END
+  FROM unnest($3::uuid[]) WITH ORDINALITY AS fixture(id,n)`,[note.post_id,DEMO_COMMUNITY,ids]);
+ const expected=(await pool.query('SELECT user_id FROM community_social_likes WHERE post_id=$1 ORDER BY created_at,user_id',[note.post_id])).rows.map(row=>row.user_id);
+ let cursor:string|null=null;const actual:string[]=[];
+ for(const size of [24,24,3]){
+  const result=await request(`/social-posts/${note.post_id}/likes${cursor?'?cursor='+encodeURIComponent(cursor):''}`,owner);
+  assert.equal(result.status,200);assert.equal(result.data.items.length,size);
+  actual.push(...result.data.items.map((item:{user_id:string})=>item.user_id));cursor=result.data.next_cursor;
+ }
+ assert.deepEqual(actual,expected);assert.equal(cursor,null);
+});
+
 test('comment image lifecycle binds owner and post, survives an unknown ACK, and denies hidden content',async()=>{
  const {FakeObjectStore}=await import('../../packages/asset-storage/fake-store.js');
  const {default:sharp}=await import('sharp');
@@ -281,4 +415,27 @@ test('comment image lifecycle binds owner and post, survives an unknown ACK, and
  assert.equal((await read()).status,404,'deletion during object I/O cannot return bytes');store.get=get;assert.equal((await read()).status,404);
  await pool.query("UPDATE community_social_posts SET state='hidden' WHERE post_id=$1",[note.post_id]);assert.equal((await upload()).status,404);
  }finally{await restricted.end();await pool.query(`DROP OWNED BY ${role}`);await admin.query(`DROP ROLE ${role}`);}
+});
+
+test('social titles keep complete scalar boundaries through link creation and note create/edit', async () => {
+  const session = await login();
+  const application = createApp(pool, origin, 'local', {linkPreviewFetch: async () =>
+    new Response(`<title>${'a'.repeat(118)}&#1114112;&#128512;</title>`, {headers: {'content-type': 'text/html'}})});
+  const call = async (path: string, body: unknown, revision?: number) => {
+    const response = await application.request(origin + '/api/v1' + path, {method: 'POST',
+      headers: {Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf,
+        'Content-Type': 'application/json', 'Idempotency-Key': randomUUID(),
+        ...(revision === undefined ? {} : {'If-Match': `"${revision}"`})}, body: JSON.stringify(body)});
+    return {status: response.status, data: await response.json() as {post_id: string; title: string; note: string; revision: number}};
+  };
+  const link = await call('/social-posts', {url: 'https://example.org/scalar-title'});
+  assert.equal(link.status, 201); assert.equal(link.data.title, 'a'.repeat(118) + '�');
+  const original = 'b'.repeat(119) + '😀tail\nfull original body';
+  const note = await call('/social-posts/notes', {text: original});
+  assert.equal(note.status, 201); assert.equal(note.data.title, 'b'.repeat(119)); assert.equal(note.data.note, original);
+  const text = 'c'.repeat(118) + '😀tail\nfull edited body';
+  const edited = await call(`/social-posts/${note.data.post_id}/edit`, {text}, note.data.revision);
+  assert.equal(edited.status, 200); assert.equal(edited.data.title, 'c'.repeat(118) + '😀'); assert.equal(edited.data.note, text);
+  const stored = (await pool.query('SELECT title,note FROM community_social_posts WHERE post_id=$1', [note.data.post_id])).rows;
+  assert.deepEqual(stored, [{title: 'c'.repeat(118) + '😀', note: text}]);
 });

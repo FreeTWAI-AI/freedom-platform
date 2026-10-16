@@ -2,6 +2,18 @@
 
 `e2e-harness` 是這個倉庫裡的一個模組，不是另一個 repo。它只擁有 Playwright 共用啟動與規格會 import 的 helper。功能規格 `tests/e2e/*.spec.ts` 仍屬於各功能模組；這次沒有把它們劃進來，也不使用 `tests/e2e/**`。
 
+## 現行 CI 審查方式（2026-10-14）
+
+GitHub Free 的 repository ruleset `main-baseline`（`25011111`）要求綁定來源 App 的
+`verify`／`CodeQL` checks 與有效 PR 核准；CI 控制檔依 PR base branch 的
+[CODEOWNERS](../../.github/CODEOWNERS) 取得 code-owner review。Runner 從當次
+`job.workflow_sha` checkout，並對該次 candidate 執行必要測試；這沒有恢復舊 Enterprise
+組織固定 workflow SHA 的保證。完整邊界見[治理說明](../../governance/README.md#github-free-repository-ci-review)。
+
+下文的 installed required-workflow pin／installed pin 升級說明保留搬遷前的歷史記錄，
+不描述目前 Free 組織的安裝方式。歷史 source SHA、pin 與實跑結果保留原樣；本機
+source／plan 測試仍不等於當前候選的 hosted checks、部署或真實會員驗收。
+
 ## 擁有的檔案
 
 | 路徑 | 角色 |
@@ -59,7 +71,7 @@ workflow pin、測試選取、worker 數、重試或資料隔離，也不宣稱 
 在兩次 runner 的觀察，不能推定產品回歸。40 分鐘提供有界餘裕；外層 50 分鐘另留
 實測 fixture、setup 與 cleanup 空間，不新增 sharding 或刪除安全等待。
 
-這是 source 修正。PR 的 runner/workflow 仍由 installed required-workflow pin 決定；
+歷史安裝註記（2026-10-10）：當時 PR 的 runner/workflow 由 installed required-workflow pin 決定；
 該 pin 沒有因本變更而自動升級。必須另經獨立 review、正常合併與有權操作者明確批准
 pin 更新，才對 pinned PR gate 生效。舊 run 保留真實失敗，不靠原版本重跑碰綠。
 
@@ -294,7 +306,7 @@ node scripts/freedom.mjs prepare --base-ref <base> --paths <path>
 `message-images.spec.ts`；移除繼承的三個 fixture env，再由每輪設定唯一 fixture。
 Trusted config 將該輪 fixture 傳給 webServer，不接受 candidate 覆蓋；既有
 community-search webServer 設定保留在 default 輪，不新增搜尋 pass。
-此 source／plan 測試不表示 installed required-workflow pin 已更新，也不等同
+歷史安裝註記：此 source／plan 測試不表示當時 installed required-workflow pin 已更新，也不等同
 真實 browser、部署、遠端媒體或備份驗收。pin 更新仍需獨立授權流程。
 
 ## 商店照片 pinned plan 候選（2026-10-09）
@@ -319,6 +331,11 @@ required checks 分別記錄；本機編排測試通過不代表後三者已完�
 `tests/e2e/hosted-order.spec.ts` 在普通輪無條件執行，沒有依開關 skip；漏掉注入必須因正向 readiness 斷言失敗。功能自有 `hosted-order-fixture.ts` 可另開 127.0.0.1 port 0 HTTP listener，使用同一個已核對的 `fp_e2e_` schema，省略 admission option 以驗證 default OFF，再以 GLP 亦 OFF 驗證本人預留恢復／取消。它拒絕 54339、非明示 loopback `fp_*` DB 或不符 schema，測試 finally 關閉 context、connections 和 listener；只由原 harness 擁有與卸下 schema。
 
 此增量不新增第四輪、不修改 `scripts/run-e2e.mjs` 或 trusted runner 的 pinned 計畫。`run-e2e.mjs` 是 candidate 本機編排，不是可信 host CI；候選 webServer 的可受測設定與 installed host pass/timeout/結果驗證權威分開。新 spec 和 fixture 的來源存在不代表已跑瀏覽器，實跑版本與結果另記。
+
+供貨商品的 edit recovery fixture 先等該商品的初始供貨狀態投影完成，再點編輯；
+父商品庫與按鈕可見不代表子合作讀取已完成。合作結果會在操作列上方加入狀態列，
+因此不可讓這個版面變動與 pointer click 同時發生。這是既有 recovery 情境的前置
+等待，不增加 sleep、timeout、強制 click 或寫入重試，也不代替未知結果與 receipt 驗證。
 
 ## Member feature hosts in the ordinary pass
 

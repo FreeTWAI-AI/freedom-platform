@@ -1,4 +1,4 @@
-import { test, before, beforeEach, after, type TestContext } from 'node:test';
+import { test, before, beforeEach, afterEach, after, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -11,6 +11,7 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal } from '../../packages/testing/seed.js';
 import metadata from '../../contracts/preview/v1/metadata.json' with { type: 'json' };
+import { createRequestDrain } from './helpers/request-drain.js';
 
 // This suite must never silently pass when the independently checked-out consumers are absent.
 const repositoriesRoot = process.env.FREEDOM_REPOSITORIES_ROOT;
@@ -25,6 +26,7 @@ const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=
 // The clients always use real HTTP. Only the Platform's outbound GitHub reads are replaced below.
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const key = () => ({ idempotencyKey: randomUUID() });
+const requests = createRequestDrain();
 let app: ReturnType<typeof createApp>, server: ReturnType<typeof serve> | undefined;
 let origin: string, baseUrl: string, schemaCreated = false;
 let storefront: any, growth: any, registry: any, page: any;
@@ -43,7 +45,7 @@ before(async () => {
   await admin.query(`CREATE SCHEMA ${schema}`);
   schemaCreated = true;
   await migrate(pool);
-  server = serve({ fetch: request => app.fetch(request), hostname: '127.0.0.1', port: 0 });
+  server = serve({ fetch: request => requests.track(Promise.resolve(app.fetch(request))), hostname: '127.0.0.1', port: 0 });
   if (!server.listening) await once(server, 'listening');
   const address = server.address();
   assert(address && typeof address !== 'string');
@@ -53,19 +55,26 @@ before(async () => {
 });
 
 beforeEach(async () => {
+  await requests.drain();
   await pool.query('TRUNCATE communities,login_attempts CASCADE');
   await seedLocal(pool);
 });
+afterEach(async () => { await requests.drain(); });
 
 after(async () => {
+  await requests.drain();
   if (server) await new Promise<void>((resolve, reject) => server!.close(error => error ? reject(error) : resolve()));
+  await requests.drain();
   await pool.end();
   if (schemaCreated) await admin.query(`DROP SCHEMA ${schema} CASCADE`);
   await admin.end();
 });
 
 async function login(Client: any, email = 'maker@local.test') {
-  return Client.loginDemo({ baseUrl, email, password: 'freedom-local-demo', fetcher: nativeFetch });
+  const client: any = await requests.track(Client.loginDemo({ baseUrl, email, password: 'freedom-local-demo', fetcher: nativeFetch }));
+  const call = client.call.bind(client);
+  client.call = (...args: unknown[]) => requests.track(call(...args));
+  return client;
 }
 
 const supplyTerms = {

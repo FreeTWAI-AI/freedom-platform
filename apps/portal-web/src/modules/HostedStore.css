@@ -1,6 +1,7 @@
 .hosted-store { min-width: 0; overflow-wrap: anywhere; }
 .hosted-store .actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .hosted-store .btn { width: fit-content; max-width: 100%; min-height: 44px; flex: none; }
+.hosted-store .hosted-seller-order-links { min-height: 44px; }
 .hosted-store-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .hosted-store-form { max-width: 680px; min-width: 0; }
 .hosted-store :is(input, textarea, select) { min-width: 0; max-width: 100%; }

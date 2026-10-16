@@ -6,7 +6,7 @@ function member(index:number,extra:Record<string,unknown>={}){return {user_id:`2
 async function openDirectory(page:Page){await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await navigate(page, '工坊夥伴');return page.locator('.members-panel');}
 test.beforeEach(async({page})=>{
   await page.route('**/api/v1/guilds/directory',route=>route.fulfill({json:{items:guilds}}));
-  await page.route('**/api/v1/friends',route=>route.fulfill({json:{items:[]}}));
+  await page.route('**/api/v1/friends/directory?*',route=>route.fulfill({json:{items:[],total:0,next_offset:null}}));
   await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:false,connected:false,github_user:null}}));
   await page.route('**/api/v1/members/*/social-links?*',route=>route.fulfill({json:{items:[],total:0,next_offset:null}}));
 });

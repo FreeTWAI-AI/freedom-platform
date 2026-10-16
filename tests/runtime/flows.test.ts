@@ -42,6 +42,14 @@ async function newWork(owner:Session,overrides:any={}) {
   const body={title:'新的有限工作',objective:'解決一個真實問題',acceptance_criteria:'交付可重用說明',gain:'自願留下公共成果，不保證報酬',estimated_minutes:20,maximum_minutes:30,claim_by:new Date(Date.now()+86400000).toISOString(),finish_by:new Date(Date.now()+2*86400000).toISOString(),will_review:true,...overrides};
   const r=await request('/work-items',owner,body);assert.equal(r.status,201,JSON.stringify(r.data));return r.data;
 }
+async function acceptFor(member:Session,reviewer:Session) {
+  const item=await newWork(reviewer);
+  let current=await claim(member,item.work_item_id);
+  current=await action(member,current,'start');
+  current=await action(member,current,'submit',{summary:'已完成合成驗收步驟。',artifact_ref:`artifact:owner-proof-${randomUUID()}`});
+  current=await action(reviewer,current,'begin-review');
+  return action(reviewer,current,'decide',{decision:'accept',feedback:'合成工作符合驗收條件。',submission_sha256:current.latest_submission.sha256});
+}
 const readSubmission=z.object({submission_id:z.uuid(),summary:z.string(),artifact_ref:z.string(),sha256:z.string(),revision:z.number().int()}).strict();
 const readClaim=z.object({claim_id:z.uuid(),claimant_ref:z.uuid(),state:z.string(),latest_submission:readSubmission.nullable(),feedback:z.string().nullable()});
 const readWork=z.object({work_item_id:z.uuid(),title:z.string(),review_capacity:z.enum(['available','waiting_reviewer_capacity']),my_claim:readClaim.nullable()});
@@ -213,7 +221,7 @@ test('login → claim → submit → request changes → resubmit → independen
   const result=await freshApp.request(origin+'/api/v1/dashboard',{headers:{Cookie:maker.cookie}});
   const dashboard:any=await result.json();assert.equal(dashboard.gained.length,1);assert.equal(dashboard.gained[0].official,false);
   const records=(await request('/me/contribution-records',maker)).data;
-  assert.equal(records.accepted_count,1);assert.equal(records.total,undefined);
+  assert.equal(records.accepted_count,1);assert.equal(records.total,undefined);assert.equal(records.next_offset,null);
   assert.equal(records.entries[0].work_item_id,DEMO_WORK);
   assert.ok(records.entries[0].decision_id);
   assert.equal(records.entries[0].acting_profession_membership_ref,maker.user.profession_membership_ref);
@@ -224,20 +232,64 @@ test('login → claim → submit → request changes → resubmit → independen
   assert.equal((await pool.query('SELECT count(*) FROM work_decisions')).rows[0].count,'2');
   assert.equal((await pool.query("SELECT count(*) FROM outbox WHERE event_type='freedom.work.submission.accepted.v1'")).rows[0].count,'1');
 });
+test('personal contribution records return bounded stable pages with an exact count',async()=>{
+  const maker=await signIn(),reviewer=await signIn(DEMO_USERS[1].email);
+  const source=await acceptFor(maker,reviewer);
+  await pool.query(`UPDATE contributions SET accepted_at='2002-01-01T00:00:00Z' WHERE work_item_id=$1`,[source.work_item_id]);
+  await pool.query(`WITH generated AS (
+      SELECT value,
+        ('95000000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid AS work_id,
+        ('95100000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid AS claim_id,
+        ('95200000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid AS submission_id,
+        ('95300000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid AS decision_id,
+        ('95400000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid AS contribution_id
+      FROM generate_series(0,21) value),
+    source_work AS (SELECT * FROM work_items WHERE work_item_id=$4),
+    inserted_works AS (
+      INSERT INTO work_items(work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,
+        participation_terms,participation_terms_sha256,claim_window_expires_at,due_at,created_at)
+      SELECT g.work_id,w.community_id,w.owner_ref,'分頁成果 '||g.value,w.objective,w.acceptance_criteria,w.gain,'accepted',
+        w.participation_terms,w.participation_terms_sha256,w.claim_window_expires_at,w.due_at,'2001-01-01T00:00:00Z'
+      FROM generated g CROSS JOIN source_work w RETURNING work_item_id),
+    inserted_claims AS (
+      INSERT INTO work_claims(claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,terms_revision,terms_sha256,terms_snapshot)
+      SELECT g.claim_id,g.work_id,$1,$2,'accepted',1,w.participation_terms_sha256,w.participation_terms
+      FROM generated g JOIN inserted_works i ON i.work_item_id=g.work_id CROSS JOIN source_work w RETURNING claim_id),
+    inserted_submissions AS (
+      INSERT INTO submissions(submission_id,claim_id,revision,summary,artifact_ref,sha256)
+      SELECT g.submission_id,g.claim_id,1,'分頁成果摘要','artifact:pagination-'||g.value,repeat('a',64)
+      FROM generated g JOIN inserted_claims i ON i.claim_id=g.claim_id RETURNING submission_id),
+    inserted_decisions AS (
+      INSERT INTO work_decisions(decision_id,claim_id,submission_id,reviewer_ref,decision,feedback,submission_sha256)
+      SELECT g.decision_id,g.claim_id,g.submission_id,$3,'accept','分頁驗收',repeat('a',64)
+      FROM generated g JOIN inserted_submissions i ON i.submission_id=g.submission_id RETURNING decision_id)
+    INSERT INTO contributions(contribution_id,claim_id,user_id,community_id,work_item_id,decision_id,title,summary,artifact_ref,accepted_at)
+      SELECT g.contribution_id,g.claim_id,$1,w.community_id,g.work_id,g.decision_id,'分頁成果 '||g.value,'分頁成果摘要','artifact:pagination-'||g.value,'2001-01-01T00:00:00Z'
+      FROM generated g JOIN inserted_decisions i ON i.decision_id=g.decision_id CROSS JOIN source_work w`,
+  [maker.user.user_id,maker.user.profession_membership_ref,reviewer.user.user_id,source.work_item_id]);
+  const sourceContribution=(await pool.query('SELECT contribution_id FROM contributions WHERE work_item_id=$1',[source.work_item_id])).rows[0].contribution_id as string;
+  const expected=[sourceContribution,...Array.from({length:22},(_,index)=>`95400000-0000-4000-8000-${index.toString().padStart(12,'0')}`).reverse()];
+
+  const first=await request('/me/contribution-records?limit=10&offset=0',maker);
+  assert.equal(first.status,200);assert.equal(first.data.entries.length,10);assert.equal(first.data.accepted_count,23);assert.equal(first.data.next_offset,10);
+  const second=(await request('/me/contribution-records?limit=10&offset=10',maker)).data;
+  const final=(await request('/me/contribution-records?limit=10&offset=20',maker)).data;
+  assert.deepEqual([...first.data.entries,...second.entries,...final.entries].map((row:any)=>row.contribution_id),expected);
+  assert.equal(second.accepted_count,23);assert.equal(second.next_offset,20);
+  assert.equal(final.entries.length,3);assert.equal(final.accepted_count,23);assert.equal(final.next_offset,null);
+  assert.deepEqual((await request('/me/contribution-records?limit=10&offset=30',maker)).data,{policy:'accepted_work_facts_v1',accepted_count:23,entries:[],next_offset:null});
+  for(const query of ['limit=0','limit=51','limit=1.5','offset=-1','offset=1.5','extra=1'])
+    assert.equal((await request(`/me/contribution-records?${query}`,maker)).status,422,query);
+  const other=await signIn(DEMO_USERS[2].email),isolated=(await request('/me/contribution-records',other)).data;
+  assert.equal(isolated.accepted_count,0);assert.deepEqual(isolated.entries,[]);
+});
+
 test('personal contribution references reject expired SQL waits and preserve current owner facts',async()=>{
   const maker=await signIn(),other=await signIn(DEMO_USERS[2].email),reviewer=await signIn(DEMO_USERS[1].email);
-  async function acceptFor(member:Session) {
-    const item=await newWork(reviewer);
-    let current=await claim(member,item.work_item_id);
-    current=await action(member,current,'start');
-    current=await action(member,current,'submit',{summary:'已完成合成驗收步驟。',artifact_ref:`artifact:owner-proof-${randomUUID()}`});
-    current=await action(reviewer,current,'begin-review');
-    return action(reviewer,current,'decide',{decision:'accept',feedback:'合成工作符合驗收條件。',submission_sha256:current.latest_submission.sha256});
-  }
-  const own=await acceptFor(maker),foreign=await acceptFor(other);
+  const own=await acceptFor(maker,reviewer),foreign=await acceptFor(other,reviewer);
   const entry=z.object({contribution_id:z.uuid(),claim_id:z.uuid(),work_item_id:z.uuid(),decision_id:z.uuid(),title:z.string(),
     accepted_at:z.string(),acting_profession_membership_ref:z.uuid(),reviewer_ref:z.uuid()}).strict();
-  const records=z.object({policy:z.literal('accepted_work_facts_v1'),accepted_count:z.number().int(),entries:z.array(entry)}).strict();
+  const records=z.object({policy:z.literal('accepted_work_facts_v1'),accepted_count:z.number().int(),entries:z.array(entry),next_offset:z.number().int().nullable()}).strict();
   const original=records.parse((await request('/me/contribution-records',maker)).data);
   const otherRecords=records.parse((await request('/me/contribution-records',other)).data);
   assert.equal(original.accepted_count,1);assert.equal(otherRecords.accepted_count,1);

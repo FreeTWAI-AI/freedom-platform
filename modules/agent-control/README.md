@@ -44,6 +44,13 @@ for current members. The host must explicitly select `local`, `staging-next`, or
 - `revoke(actor, { key, runtimeDeviceId, expectedVersion })`: permanently revokes
   using an exact decimal aggregate version; matching receipt retries are safe.
 
+The revoke version is piped through the complete `ExecutionVersion` format/length
+validation before the PostgreSQL bigint bound is checked. Malformed, non-positive
+or oversized versions produce `ZodError` issues for `expectedVersion`, never a raw
+`BigInt` conversion `SyntaxError`. Rejection leaves registration/receipt/facts
+unchanged; the same key can be corrected and used for an exact revoke/replay.
+The signed-64-bit decimal-string range and existing 428/412 rules are unchanged.
+
 All returned objects carry `operational_authority: false`. Enrollment proves
 member approval and possession of the corresponding private key under this closed service; it
 does not attest a runtime build, hardware, capability, provider, model, official

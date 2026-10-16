@@ -16,6 +16,54 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Event `starts_at`/`ends_at` (create, edit and schedule), Work
+`claim_by`/`finish_by`, and receipt `received_at` share the existing ISO datetime
+syntax with `Z` or a numeric offset (`±HH:MM`). Years must be AD 0001–9999 and
+offset hours must be below 16 (including valid ±15:59 boundaries). The existing
+ISO grammar rejects compact offsets such as `+1600` and `+1559`; this fix does
+not enable a new format. Invalid values
+return `422 validation_failed` before business writes or command/quota effects;
+the same idempotency key can then submit a corrected value. Valid input keeps
+its raw fractional precision through SQL binding; existing ordering, future-time,
+receipt-time, ownership and version checks still apply.
+
+Display-only external links (`public_url`, `demo_url`, marketing `share_url`,
+author-claim evidence and squad artifact links) retain the existing public HTTPS
+policy. Host checks ignore the single terminal DNS root dot: `printer.local.`
+and the absolute single-label name `printer.` are refused just like their
+non-absolute forms. A permitted public FQDN keeps its `URL.href` serialization, including
+the terminal dot, path, query and fragment. These hostname policy rejections return
+`422 invalid_external_url` before command facts are written; correcting the
+link may reuse the same key. These URLs are not fetched or embedded by this
+validator, and this change does not rewrite historical records or add DNS reads.
+
+Catalog product `photo_url` and imported-shop `website_url`, product `photo_url`
+and payment URLs use their own existing HTTPS policies, with the same terminal
+DNS root-dot comparison. URL syntax and length checks must succeed before their
+URL-dependent refinements run. Malformed values and private-host rejections
+return `422 validation_failed`, not a URL-constructor error; rejected commands
+write no business facts and can be corrected using the same key. Catalog photos
+still permit otherwise-allowed public non-default ports and fragments; shop
+URLs still refuse both. Permitted catalog/shop strings retain their spelling.
+These guards add no DNS/network reads and do not rewrite historical URLs.
+
+The runtime-neutral API envelope rejects `%00` (an encoded NUL) in the path or
+query of `/api/v1/` requests with `422 validation_failed`, after host validation
+and before route authentication or SQL. This applies even to anonymous requests
+and otherwise unused query parameters; the error reveals no resource state.
+Literal `%00` text must be encoded as `%2500` and keeps the route's normal
+validation and authentication. Public HTML routes and request bodies retain
+their existing validation; this is not a universal body-text NUL validator.
+
+The generic JSON reader rejects decoded unpaired UTF-16 surrogates in string
+values or object keys with `422 validation_failed`, including nested objects and
+arrays. It does not replace or remove input characters. Valid surrogate pairs,
+ordinary Unicode, newlines and literal backslash escape text retain their exact
+values. Malformed JSON remains `400 invalid_json`; existing body limits and Origin
+checks are unchanged. Rejection happens before a domain command can reserve its
+idempotency key. Binary uploads, signed webhooks and dedicated child transports
+retain their own raw-body readers; this policy does not replace those protocols.
+
 Presence refresh has a live-session/active-member guard; authentication reads
 the current Actor after that potentially blocking update, using the database clock.
 Expiry, session revocation or member deactivation during a presence lock wait
@@ -23,6 +71,23 @@ returns `401 session_expired`, without a user/CSRF projection or renewed cookie.
 This keeps the existing two database queries and the absolute, non-sliding
 30-day session lifetime. Existing domain-level current-session and
 authorization checks remain unchanged; presence is not an authorization grant.
+
+## Community content search cursor boundary (#716)
+
+`GET /api/v1/community-search` is available only with
+`FREEDOM_COMMUNITY_SEARCH_ENABLED=true` (default off; otherwise 404).
+Anonymous reads retain public-source visibility; a current member session adds
+only that member's authorized community content.
+
+Continue with the returned `next_cursor` unchanged. Its existing base64url tuple
+has exactly three newline-separated fields: UTC sort text with six fractional
+digits, a supported content kind, and a nonempty ID of at most 100 characters.
+IDs may be skill-book slugs, not only UUIDs. Decoded C0 controls (including NUL)
+and DEL in the ID, or any extra tuple field (even empty), return
+`422 invalid_cursor` before source queries or search-operation recording.
+Invalid cursors disclose no content or input fragments. Ordering continues to
+compare the original microsecond sort strings; it does not round through
+JavaScript dates. No feature activation or deployment is implied by this fix.
 
 ## Member reporting and moderation cases
 
@@ -46,6 +111,13 @@ permissions are unchanged.
   `state=all` or omitted state preserves the unfiltered list contract.
   `next_cursor` is null after the final page; new cases do
   not shift older pages. Lists never select private notes or evidence.
+  Cursors retain the PostgreSQL bigint range `1`–`9223372036854775807` as
+  strings, not JavaScript numbers. Bounded decimal-format validation short-circuits
+  before `BigInt` conversion: text, fractions, exponent notation and out-of-range
+  values return `422 validation_failed`, not an uncaught conversion error.
+  Invalid list queries remain `no-store`, return no items/private evidence and
+  create no report, receipt, journal or outbox entry. The existing anonymous
+  `401`, non-admin `403` for valid queries and feature-OFF `404` boundaries remain unchanged.
 - `GET /admin/reports/:id`: separately authorized case detail, including private
   notes and the immutable server snapshot. Member evidence retains the card
   content visible to the reporter, including only contacts they could see;
@@ -91,7 +163,22 @@ body/version/key and prevent list replacement until the same operation resolves.
 Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
+
+The generic JSON reader decodes those bytes as strict UTF-8. Invalid sequences
+return `400 invalid_json` before authentication or a domain command, rather than
+being replaced with `U+FFFD` and saved. Valid Unicode, including an intentionally
+encoded `U+FFFD`, retains its value; multi-byte characters may span stream chunks.
+The size limit still counts the original bytes before decoding.
+
 Binary uploads and signed machine transports retain their own bounded readers.
+After valid JSON syntax is established, this general reader rejects decoded
+NUL characters in string values or object keys, including nested arrays/objects,
+with `422 validation_failed` before routing or authentication. It never strips
+or replaces input: literal backslash-`u0000` text, normal newlines and Unicode
+retain their exact values. Malformed JSON remains `400 invalid_json`; a rejected
+body does not reserve a domain command's Idempotency-Key. This check applies
+only to the general JSON reader, not the binary, signed-webhook or dedicated
+child transports that already own their original body streams.
 
 Owner share settings (`GET /me/member-card-share`), the owner social-link list
 and the authenticated member social-link projection hold current user/session
@@ -274,7 +361,17 @@ No deployment, remote key installation or authenticator-device acceptance is imp
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
   return 404. No authenticated access to people until 完成加入（選定主要公會）.
   私人名片、目錄、好友目錄與推薦在最後一個 domain query 後重驗目前 session；SQL 等待跨過 `expires_at` 時回 `401 session_expired`，不回傳私人聯絡資訊。
-- `GET /friends`: `{items:[{user_id,nickname,state,requester_ref,aggregate_version}]}`.
+- `GET /friends/directory?scope=accepted|incoming|outgoing&search=&limit=20&offset=0`:
+  `{items,total,next_offset}` with the same privacy-filtered member cards. Scope and
+  search are applied before the bounded 1–50 row page; blocked or no-longer-visible
+  members are rechecked before return. The member directory reads the first incoming
+  page and shows its total; a notification target outside that page is re-read through
+  `GET /members/:id` and shown only while it is still an incoming request.
+  A definitive focused-member 404 omits that target; transient lookup failures
+  instead show the invitation error and retry the same focused lookup. Successful
+  retry still rechecks incoming state and deduplicates the first-page target.
+  “查看完整好友邀請” opens the full panel in incoming scope, not accepted friends;
+  ordinary friend navigation retains its accepted-scope default.
 - `POST /friends/:id/request|accept|remove`: `{}`. First request needs no version;
   accept/remove and renewed removed friendship need current version. Only the
   recipient can accept. Pending requests grant **no** contact access. Remove
@@ -361,15 +458,44 @@ network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per networ
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
 
+## Personal contribution records
+
+`GET /api/v1/me/contribution-records?limit=20&offset=0` returns the signed-in
+member's durable community-collaboration acceptance facts. `limit` defaults to
+20 and is capped at 50; `offset` must be a non-negative integer. The response
+keeps `policy: accepted_work_facts_v1`, the exact full `accepted_count`, and the
+existing private entry fields, plus `next_offset` (`null` on the final or an
+empty trailing page). Entries are ordered by `accepted_at` descending and
+`contribution_id` descending for stable timestamp ties.
+
+The reader holds the current member session and executes the count and bounded
+page in one PostgreSQL statement on the same transaction client. A relation
+wait that crosses session expiry returns `401 session_expired` without a
+partial page. Records remain scoped to the actor and community-collaboration
+Work; the shared accepted-work feed and contribution-outcomes API are separate
+projections.
+
 ## Organizer event referral reports
 
-`GET /api/v1/events/:id/referrals` returns sharing members' `user_id`,
-`member_name`, registrations and clicks only to the same-community organizer;
-other members receive `403 organizer_required`. The route holds current
-user/session locks and runs the existing organizer authorization and all report
-queries on that same transaction client. After the final projection it checks
-the PostgreSQL wall clock: a SQL wait crossing session expiry returns
-`401 session_expired`, without an `items` projection. Existing statistics,
+`GET /api/v1/events/:id/referrals?limit=20&offset=0` returns a bounded page of
+sharing members' `user_id`, `member_name`, registrations and clicks only to the
+same-community organizer. `limit` defaults to 20 and is capped at 50; `offset`
+must be a non-negative integer. The response includes `items`, the exact
+`total`, and `next_offset` (`null` on the final or an empty trailing page).
+Rows are ordered by registrations descending, then member name and `user_id`
+for stable ties. The Portal renders the first 20 rows and explicitly loads each
+following page without discarding already-visible rows when a request fails.
+Retry retains the offset of the failed request, separately from the last page's
+`next_offset`. A failed offset-zero refresh therefore retries zero and replaces
+the visible rows on success; a failed continuation retries its own offset and
+appends only after success. Existing request/session generation fences still
+discard superseded responses.
+
+Other members receive `403 organizer_required`. The route holds current
+user/session locks and runs the organizer authorization and report queries on
+that same transaction client. After the final projection it checks the
+PostgreSQL wall clock: a SQL wait crossing session expiry returns
+`401 session_expired`, without a report page. Existing statistics,
 verification-account exclusions and public event readers are unchanged.
 
 ## Member event bulletins
@@ -631,6 +757,16 @@ means only sender acceptance, `recorded` means a station notification was
 recorded, and `pending|cancelled|failed` are not delivery claims. In-app starts
 respect current notification preferences and quiet hours; essential invitation,
 schedule and cancellation notices retain their transactional classification.
+
+The candidate cutoff is bounded, but dispatch does not reuse a batch-start
+timestamp after event/source/preference locks. Without an explicit fixture
+`now`, the worker refreshes its clock for reconciliation, quiet-hour decisions
+and the final notification/email handoff decision. An event already started
+at that decision cancels unsent reminders, without a new notification or email.
+If an attempt insert itself waited across the start, its durable `failed`
+reservation remains while the reminder becomes `cancelled`; it is not delivery
+evidence and is not retried. A fixed fixture `now` stays fixed. This does not
+promise commit before event start or undo an email already handed to a sender.
 
 ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellation
 STATUS and RFC text escaping/octet folding. It does not turn private locations

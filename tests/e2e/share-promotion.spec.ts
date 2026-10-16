@@ -34,6 +34,7 @@ test.afterAll(async ({ e2eAuthPool }) => {
   await e2eAuthPool.query(`DELETE FROM community_event_bulletins WHERE event_id IN (SELECT event_id FROM community_events WHERE title=$1)`, [EVENT_TITLE]);
   await e2eAuthPool.query(`DELETE FROM community_events WHERE title=$1`, [EVENT_TITLE]);
   await e2eAuthPool.query(`DELETE FROM community_social_posts WHERE url IN ($1,$2,$3,$4,$5) OR url LIKE 'https://www.youtube.com/watch?v=e2eDemo%'`, [YOUTUBE, PLACEHOLDER, INSTAGRAM, FACEBOOK, LAYOUT]);
+  await e2eAuthPool.query(`DELETE FROM users WHERE email LIKE 'event-report-%@example.test'`);
 });
 
 async function login(page: Page) {
@@ -119,6 +120,15 @@ test('an event share link lands on the public page and shows the click', async (
   await e2eAuthPool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
     VALUES($1,$2,$3,$4,'用來確認活動分享點擊。',now()-interval '29 days',now()+interval '2 days','online','線上','published','open','other')`,
   [eventId, COMMUNITY, MAKER, EVENT_TITLE]);
+  await e2eAuthPool.query(`WITH source AS (SELECT password_hash FROM users WHERE user_id=$1)
+    INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+    SELECT ('91000000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid,$2,'event-report-'||value||'@example.test',
+      '分頁分享者 '||lpad(value::text,2,'0'),source.password_hash,('92000000-0000-4000-8000-'||lpad(value::text,12,'0'))::uuid
+    FROM generate_series(0,20) value CROSS JOIN source`, [MAKER, COMMUNITY]);
+  await e2eAuthPool.query(`INSERT INTO community_event_share_codes(event_id,user_id,code)
+    SELECT $1,user_id,replace(user_id::text,'-','') FROM users WHERE email LIKE 'event-report-%@example.test'`, [eventId]);
+  await e2eAuthPool.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,referred_by_user_id,email_sent_at)
+    VALUES($1,'event-report-guest@example.test','分享訪客',$2,now())`, [eventId, MAKER]);
   await login(page);
   await navigate(page, '社群活動');
   const card = page.locator('article.experience-card').filter({ has: page.getByRole('heading', { name: EVENT_TITLE, level: 3 }) });
@@ -130,7 +140,36 @@ test('an event share link lands on the public page and shows the click', async (
   eventGo = await field.inputValue();
   await creditVisit(browser, eventGo, url => url.pathname === `/events/${eventId}` && url.searchParams.has('ref'));
   await card.getByRole('button', { name: '分享報名統計', exact: true }).click();
-  await expect(card).toContainText('示範創作者：點擊 1・報名 0 人');
+  const report = card.locator('.event-referral-report');
+  await expect(report.getByRole('listitem')).toHaveCount(20);
+  await expect(report).toContainText('示範創作者：點擊 1・報名 1 人');
+  await expect(report).toContainText('目前顯示 20 / 22 位分享會員。');
+  await e2eAuthPool.query("UPDATE users SET display_name='分頁分享者 00（已更新）' WHERE user_id='91000000-0000-4000-8000-000000000000'");
+  await page.route(`**/api/v1/events/${eventId}/referrals?limit=20&offset=0`,route=>route.fulfill({
+    status:503,contentType:'application/problem+json',body:JSON.stringify({detail:'測試暫停第一頁刷新'}),
+  }),{times:1});
+  await card.getByRole('button',{name:'分享報名統計',exact:true}).click();
+  await expect(report.getByRole('alert')).toContainText('服務暫時無法回應（503）');
+  await expect(report.getByRole('listitem')).toHaveCount(20);
+  const refreshed=page.waitForResponse(response=>response.status()===200&&new URL(response.url()).pathname===`/api/v1/events/${eventId}/referrals`&&new URL(response.url()).searchParams.get('offset')==='0');
+  await report.getByRole('button',{name:'重試',exact:true}).click();await refreshed;
+  await expect(report.getByRole('listitem')).toHaveCount(20);
+  await expect(report).toContainText('分頁分享者 00（已更新）：點擊 0・報名 0 人');
+  await expect(report.getByText('分頁分享者 00：點擊 0・報名 0 人',{exact:true})).toHaveCount(0);
+  await page.route(`**/api/v1/events/${eventId}/referrals?limit=20&offset=20`, route => route.fulfill({
+    status: 503, contentType: 'application/problem+json', body: JSON.stringify({ detail: '測試暫停分享統計' }),
+  }), { times: 1 });
+  await report.getByRole('button', { name: '載入更多', exact: true }).click();
+  await expect(report.getByRole('alert')).toContainText('服務暫時無法回應（503）');
+  await expect(report.getByRole('listitem')).toHaveCount(20);
+  await report.getByRole('button', { name: '重試', exact: true }).click();
+  await expect(report.getByRole('listitem')).toHaveCount(22);
+  await expect(report).toContainText('目前顯示 22 / 22 位分享會員。');
+  await expect(report.getByRole('button', { name: '載入更多', exact: true })).toHaveCount(0);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await noOverflow(page);
+  }
 });
 
 test('sharing the workshop from home and the leaderboard uses one personal link', async ({ page, browser }) => {

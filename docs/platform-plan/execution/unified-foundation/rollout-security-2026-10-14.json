@@ -1,0 +1,1663 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-15T08:18:23.201214+00:00",
+  "status": "scoped_rollout_and_after_recovery_passed_scheduled_observation_pending",
+  "draft": false,
+  "scope": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938.",
+  "source": {
+    "release": "938516ee632287569389a37a7044ac779c18802e",
+    "tree": "089a3774e66c3f1ad4d68dc6548f125867510f09",
+    "reviewedHead": "ba71974c975d2ed8d5c16c6cf1a24c4d7d6f2f5f",
+    "reviewId": 5521249345,
+    "verifyRun": 38604734559,
+    "verifyAttempt": 1,
+    "codeqlRun": 38604729887,
+    "mergeMethod": "protected normal merge preserving original authors; reviewed and merged tree equality",
+    "humanIndependentReview": false,
+    "reviewDisclosure": "GitHub Dots approvals retained for the exact source landings; agent review is not a human usability acceptance.",
+    "governance": "GitHub Free repository ruleset25011111 with App-bound PR checks and base-branch CODEOWNERS review; no claim of Enterprise immutable required workflow enforcement.",
+    "bindingEvidence": {
+      "record": "reviewed_release_binding",
+      "sha256": "9cbb0dc07c3267f8d364807ee4b7b462b62853b727421983759ae55cfaa828bf",
+      "custody": "private_operator_original"
+    }
+  },
+  "included_prs": [
+    {
+      "number": 480,
+      "reviewedHead": "1293f728537066da967ec9df791175027eb28f1c",
+      "merge": "4a09057cbaf43259618706e3d675baf05b33e2d8",
+      "reviewId": 5501793623
+    },
+    {
+      "number": 481,
+      "reviewedHead": "fb310679621dfd8def0dd02c1a67eaf59a5a9223",
+      "merge": "098220b057c6babe91a279a544854b7cd3cb20e6",
+      "reviewId": 5503207785
+    },
+    {
+      "number": 479,
+      "reviewedHead": "d78a6bd85c7e7455cb86d6baf8cf69fc062e77b9",
+      "merge": "377ad7893e956fe4829f4490defcfd6d8170947d",
+      "reviewId": 5503987249
+    },
+    {
+      "number": 483,
+      "reviewedHead": "7496b1e749db953bf42d560b35c44b989ec8c806",
+      "merge": "a1377b5e80cde32c92e5726f791a4545176528f4",
+      "reviewId": 5504679199
+    },
+    {
+      "number": 489,
+      "reviewedHead": "4b3f53e90f312330975f2c14bdc1634426a0f983",
+      "merge": "a97f931e6efcb6c3446d6a90d2ecbd7519e762f4",
+      "reviewId": 5509063784
+    },
+    {
+      "number": 515,
+      "reviewedHead": "635e1b3ce4cf603ce6c70c903c6d16633fe73f2f",
+      "merge": "7081ee712a7d7fea33835aa76008b04bd756a73f",
+      "reviewId": 5510889107
+    },
+    {
+      "number": 482,
+      "reviewedHead": "c63944b44cf642e941b22dd25a88dbc0920933f5",
+      "merge": "aaa1cdaf422ddee2591aa6f8fdc1cb9d6f53ee0e",
+      "reviewId": 5512432787
+    },
+    {
+      "number": 549,
+      "reviewedHead": "a35ae43f57b606d587d0de5dd5621dc7fffcdc7f",
+      "merge": "afe8b692938da32fd2805c2fa8ce095170e49150",
+      "reviewId": 5513818111
+    },
+    {
+      "number": 583,
+      "reviewedHead": "f54e3f004720d353281c5e7be70b7f477e0a7bd5",
+      "merge": "612209fd668dde66648b0a7090f372f894317b11",
+      "reviewId": 5514847775
+    },
+    {
+      "number": 572,
+      "reviewedHead": "2e5b6e00624c3b5f941aae4a4e163a9c52d52970",
+      "merge": "0f3e82486262dab22261e15b26437d19e15f6be0",
+      "reviewId": 5518390538
+    },
+    {
+      "number": 648,
+      "reviewedHead": "7b8e0b7479892de7fe7bb25bffda97c3b5076a88",
+      "merge": "d2d1bc5a128d2d17acdb14a73f68ec7b8070a7da",
+      "reviewId": 5519966473
+    },
+    {
+      "number": 652,
+      "reviewedHead": "ba71974c975d2ed8d5c16c6cf1a24c4d7d6f2f5f",
+      "merge": "938516ee632287569389a37a7044ac779c18802e",
+      "reviewId": 5521249345
+    }
+  ],
+  "natural_main_ci": {
+    "head": "938516ee632287569389a37a7044ac779c18802e",
+    "conclusion": "success",
+    "naturalPushRun": true,
+    "verifyRun": 38604734559,
+    "verifyAttempt": 1,
+    "verifyCompletedAt": "2026-10-14T17:54:31Z",
+    "url": "https://github.com/FreeTWAI/freedom-platform/actions/runs/38604734559",
+    "codeqlRun": 38604729887,
+    "codeqlEvent": "dynamic",
+    "codeqlPath": "dynamic/github-code-scanning/codeql",
+    "codeqlAttempt": 1,
+    "codeqlCompletedAt": "2026-10-14T17:22:31Z",
+    "codeqlApp": 15368,
+    "codeqlAnalyzeJobs": [
+      {
+        "name": "Analyze (actions)",
+        "conclusion": "success"
+      },
+      {
+        "name": "Analyze (javascript-typescript)",
+        "conclusion": "success"
+      },
+      {
+        "name": "Analyze (python)",
+        "conclusion": "success"
+      }
+    ],
+    "runtime": {
+      "tests": 4754,
+      "passed": 4754,
+      "failed": 0,
+      "partitions": 6,
+      "databaseCleanupVerified": true
+    },
+    "browser": {
+      "tests": 940,
+      "passed": 940,
+      "source": "pinned-e2e report",
+      "databaseCleanupEvidence": "not exposed by browser report; runtime cleanup not reused as browser cleanup proof"
+    },
+    "guildPreviewSeparately": {
+      "tests": 5,
+      "passed": 5
+    },
+    "duplicateCountsExcluded": "Guild integration15 and runtime38 overlap complete lanes and are not added to unique totals.",
+    "notRerunForCloudAcceptance": true,
+    "evidence": [
+      {
+        "record": "natural_main_artifact_summary",
+        "sha256": "fafa470a7e28061b332a5af4ed00ef4aabf930a34bc7edec095df7fb6c412944",
+        "custody": "private_operator_original"
+      },
+      {
+        "record": "natural_main_verify_metadata",
+        "sha256": "904ed47cbed4e126c7c90b4fd879efa3cc875ec9e1b826f47013ed8c224270fc",
+        "custody": "private_operator_original"
+      },
+      {
+        "record": "natural_main_codeql_metadata",
+        "sha256": "c7bf6f19b70337ba809164761bd84bb17f410a671ae08e6f6db39ef54417ed06",
+        "custody": "private_operator_original"
+      }
+    ]
+  },
+  "environments": {
+    "staging": {
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed",
+      "observed_at": "2026-10-14T19:10:57.380360+00:00",
+      "worker_version": "368a5d67-c1c1-4602-bb45-98f05801bc10",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "938516ee632287569389a37a7044ac779c18802e",
+        "cache_control_no_store": true
+      },
+      "same_dist_sha256": "9fd9d54cab1368ff31e0f1d3bb0baca883cc334b4d78324690dad4d793b015b5",
+      "schema": {
+        "at": "2026-10-14T18:58:03.074Z",
+        "through_number": 166,
+        "applied": [],
+        "lastApplied": "166_freetwai_repository_transfer.sql",
+        "ledgerCount": 165,
+        "verificationMode": "existing_schema166_verified_and_retained_floor_bound; no migration applied this deployment",
+        "evidence": {
+          "record": "staging_committed_schema166_floor",
+          "sha256": "af167f02d6b6988b24330c6771f748eda1e9663cbbf56edfc58eb7cee9eee680",
+          "custody": "private_operator_original"
+        }
+      },
+      "build_bytes": {
+        "status": "passed",
+        "htmlBytesMatch": true,
+        "entryAssetsMatched": 10,
+        "scope": "retained_deployed_build_only",
+        "evidence": {
+          "record": "staging_retained_build_bytes",
+          "sha256": "2747bdbdfb6f85414b1bb63bf8c85337e958c90649c0d2d5247beb2f72755e5f",
+          "custody": "private_operator_original"
+        }
+      },
+      "floor": {
+        "minimum_schema": 166,
+        "capability": "github.freetwai-repository-transfer.v1",
+        "existing_ledger_retained": true,
+        "candidate_bound_to_reviewed_tree": true,
+        "pre166_worker_rollback_valid": false,
+        "restore_quarantine_required": true,
+        "operator_coordinate_extension_present": false
+      },
+      "deploymentEvidence": {
+        "record": "staging_deployment_result",
+        "sha256": "6e4d8f0b5666483b53afa3b1342512cf51e7c1c5cfff4714c660197bc9de1c72",
+        "custody": "private_operator_original"
+      },
+      "acceptanceEvidence": {
+        "record": "staging_composed_acceptance",
+        "sha256": "a40b85d3a1f53097ea0545ebe41ba9433fcc21bd615a5feb0fa58ac2d9766d4f",
+        "custody": "private_operator_original"
+      },
+      "backup_operator_completed_at": "2026-10-14T20:29:36.437007+00:00",
+      "later_scheduled_backup": {
+        "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
+        "status": "failed_owned_resources_reconciled",
+        "observed_at": "2026-10-15T05:04:48.356Z",
+        "repair_status": "full_manual_repair_passed_operator_installed_natural_schedule_unobserved",
+        "previous_release_after_restore_preserved": true
+      },
+      "backup_repair_completed_at": "2026-10-15T07:02:30.842489+00:00",
+      "backup_operator": {
+        "status": "installed_after_full_restore_natural_schedule_unobserved",
+        "at": "2026-10-15T07:04:34.799429+00:00",
+        "source": "938516ee632287569389a37a7044ac779c18802e",
+        "adapter_sha256": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a",
+        "after_backup_passed": true,
+        "backup_executed_by_install": false,
+        "evidence": {
+          "record": "daily_operator_restored_fence_install_completed",
+          "sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
+          "custody": "private_operator_original"
+        }
+      }
+    },
+    "production": {
+      "status": "deployed_scoped_acceptance_natural_sync_restore_and_operator_passed",
+      "selected_release_not_yet_deployed": false,
+      "last_observation": {
+        "at": "2026-10-15T03:03:01.563Z",
+        "release": "9d6d822ea95caada51742bb4a1e4c16c557a6dfb",
+        "worker_version": "79d2dae4-c5af-418c-9924-69667da31512",
+        "schema": 165,
+        "ledgerCount": 164,
+        "lastApplied": "165_oss_sharing_withdrawal.sql",
+        "evidence": {
+          "record": "production_predeployment_baseline",
+          "sha256": "778076483cea447e65768ed6f00d77fa78d03af0dec9bf67f913a1f41238b0df",
+          "custody": "private_operator_original"
+        },
+        "scope": "Pre-migration runtime/schema165 baseline, not current public route or a post-migration health observation."
+      },
+      "required_next": [
+        "Observe the next natural scheduled operator run; real OAuth/member/webhook and restore-authority acceptance remain separate."
+      ],
+      "new_release_health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "938516ee632287569389a37a7044ac779c18802e",
+        "cache_control_no_store": true
+      },
+      "new_worker_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
+      "migrations_applied": [
+        "166_freetwai_repository_transfer.sql"
+      ],
+      "acceptance": {
+        "status": "passed",
+        "at": "2026-10-15T03:31:43.661560+00:00",
+        "public_checks_finished_at": "2026-10-15T03:30:54.772Z",
+        "scope": "Public health, protocol, five images, anonymous access/origin rejection, exact HTML and ten entry asset bytes; provider route/cron configuration and live schema floor; natural scheduled execution is tracked separately",
+        "phases": [
+          {
+            "id": "preflight",
+            "status": "pass"
+          },
+          {
+            "id": "health",
+            "status": "pass"
+          },
+          {
+            "id": "protocol",
+            "status": "pass"
+          },
+          {
+            "id": "assets",
+            "status": "pass"
+          },
+          {
+            "id": "anonymous",
+            "status": "pass"
+          },
+          {
+            "id": "session",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "browser",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "guild-cache",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "github-handoff",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "avatar",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "registration",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "messages",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "messages-mobile",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "load",
+            "status": "not_run",
+            "reason": "not_selected"
+          },
+          {
+            "id": "logout",
+            "status": "not_run",
+            "reason": "not_selected"
+          }
+        ],
+        "fixture_cleanup": {
+          "status": "passed",
+          "scope": "No production fixture, member session, OAuth state or Access credential was created by this acceptance"
+        },
+        "full_source_regressions_reused": {
+          "source": "938516ee632287569389a37a7044ac779c18802e",
+          "verifyRun": 38604734559,
+          "runtime": 4754,
+          "browser": 940,
+          "guildPreviewSeparately": 5,
+          "rerunForCloudAcceptance": false
+        },
+        "staging_same_source_acceptance_reused": true,
+        "production_member_login": "not_run",
+        "production_browser_session": "not_run",
+        "real_github_oauth_and_webhook": "not_run",
+        "cloud_race_reconstruction": "not_run",
+        "limitations": [
+          "Production member login/browser/OAuth and real webhook delivery were not exercised; no consented production member session was available",
+          "Staging synthetic account and browser checks passed on the same source; these are not proof of real GitHub OAuth or member email delivery",
+          "T-047 restore permission reconciliation remains quarantined; successful restore is not public admission",
+          "Later main efaf314d and PR680 are not included in deployed938; AR167 remains outside this release"
+        ]
+      },
+      "schema": {
+        "at": "2026-10-15T03:28:44.247Z",
+        "through_number": 166,
+        "applied": [
+          "166_freetwai_repository_transfer.sql"
+        ],
+        "lastApplied": "166_freetwai_repository_transfer.sql",
+        "ledgerCount": 165,
+        "source": "938516ee632287569389a37a7044ac779c18802e",
+        "verificationMode": "confirmed_commit_then_explicit_read_only_reconciliation",
+        "evidence": {
+          "record": "production_migration166_reconciled",
+          "sha256": "85edc0f6ecbcbdd20bd984472c9242d27ac7469a75f222ad5427bed6cb8e6806",
+          "custody": "private_operator_original"
+        }
+      },
+      "migration_reconciliation": {
+        "at": "2026-10-15T03:28:44.247Z",
+        "status": "passed",
+        "commit_status": "confirmed",
+        "original_failure": {
+          "at": "2026-10-15T03:21:38.615Z",
+          "phase": "verify_invariants",
+          "retained": true,
+          "evidence": {
+            "record": "production_original_postcommit_invariant_failure",
+            "sha256": "0b852a6359eb0d2f931a8be87e368c2fd379573b650ef13cc52668acb787e89f",
+            "custody": "private_operator_original"
+          }
+        },
+        "unaffected_tables_observed": 266,
+        "unchanged_tables": 264,
+        "telemetry_exceptions": [
+          "github_feed_state",
+          "platform_credential_status"
+        ],
+        "telemetry_observation": "Only public feed cursor/status and provider credential health metadata changed; neither table contains credential material or authorization grants. Values and timing match existing GitHub-sync error/status branches; invocation source is inferred, not independently traced.",
+        "historical_and_credential_material_preservation_scope": "Historical receipt and credential-material tables unchanged; platform_credential_status health metadata explicitly excepted",
+        "policies_preserved": true,
+        "policies_count": 9,
+        "rls_tables": 33,
+        "canonical_readonly_privileges": "passed",
+        "sql_reexecuted": false,
+        "reconciliation_database_writes": false,
+        "entire_database_quiescence_claimed": false,
+        "exact_field_delta_since_migration_baseline_available": false,
+        "evidence": {
+          "record": "production_migration166_reconciled",
+          "sha256": "85edc0f6ecbcbdd20bd984472c9242d27ac7469a75f222ad5427bed6cb8e6806",
+          "custody": "private_operator_original"
+        }
+      },
+      "floor": {
+        "minimum_schema": 166,
+        "capability": "github.freetwai-repository-transfer.v1",
+        "pre166_worker_rollback_valid": false,
+        "restore_quarantine_required": true,
+        "operator_coordinate_extension_present": true,
+        "operator_extension": {
+          "format": "freedom.operator-coordinate-fence/v1",
+          "definition_sha256": "43e90761134b33561c0b88819c19f75958f4a970897b5d344cfc8959d9fac0bf",
+          "sql_sha256": "2b889632c877b2fe3dc6dac2a0474004d82cbfa81f0afe48aa67855d8c26dec8",
+          "inventory_sha256": "49b20af6ab9afbde384f52da95f754c215bd3af09b6e2204ef6c765c5e237cfd",
+          "port_sha256": "66faf10a661d0338b25eaeab1e8dc2ad9bdf182ce022f0a4ab650659c4948f72",
+          "builder_sha256": "1797c77dede973a2a48cdb52b27825e5f0d1fc8b2484493a6fb75eee29ad8717",
+          "commit_status": "confirmed",
+          "retain_after_admission_off": true,
+          "restore_verification_required": true,
+          "constraint_count": 10,
+          "all_constraints_validated_and_enforced": true,
+          "scope": "Separately recorded operator DDL installed in the canonical166 transaction; not a modification of historical migration166 bytes and not a general all-writer fence."
+        },
+        "evidence": {
+          "record": "production_committed_schema166_floor",
+          "sha256": "aa8030ba99c97fc018260f61bdf793a2c5c1b74ed42a2d20207d3758ac0c9788",
+          "custody": "private_operator_original"
+        }
+      },
+      "traffic_observation": {
+        "at": "2026-10-15T03:30:54.772Z",
+        "status": "normal_public_route_and_original_cron_restored",
+        "route": "freetwai.com/*",
+        "worker": "freedom-platform-next",
+        "cron": [
+          "*/10 * * * *"
+        ],
+        "compatible_deployment": "verified938",
+        "evidence": {
+          "record": "production_provider_route_cron_health",
+          "sha256": "e20d202d6d45a5ae1f03863f7f2e5d7cde025f59a492db67b7c6a487bc5081d2",
+          "custody": "private_operator_original"
+        },
+        "scope": "Route and cron configuration readback only; scheduled delivery and GitHub sync are tracked separately."
+      },
+      "observed_at": "2026-10-15T03:31:43.661560+00:00",
+      "worker_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "938516ee632287569389a37a7044ac779c18802e",
+        "cache_control_no_store": true
+      },
+      "same_dist_sha256": "9fd9d54cab1368ff31e0f1d3bb0baca883cc334b4d78324690dad4d793b015b5",
+      "deploymentEvidence": {
+        "record": "production_deployment_result",
+        "sha256": "7effa6f27fce8a2b19507be4831f9664ef92b61cc803b00b6031dfe98ba08538",
+        "custody": "private_operator_original"
+      },
+      "acceptanceEvidence": {
+        "record": "production_composed_acceptance",
+        "sha256": "4967c17dfb068ac442fc2e04aff496f3e5ef4a1cd8843224531035457cc34828",
+        "custody": "private_operator_original"
+      },
+      "build_bytes": {
+        "status": "passed",
+        "target": "public",
+        "release": "938516ee632287569389a37a7044ac779c18802e",
+        "htmlBytesMatch": true,
+        "entryAssetsMatched": 10,
+        "scope": "retained_deployed_build_only",
+        "evidence": {
+          "record": "production_retained_build_bytes",
+          "sha256": "d863fc69efb1cdc562a46ec1c2141459126359dd67ac390521e94e90b34be95d",
+          "custody": "private_operator_original"
+        }
+      },
+      "natural_background_sync_observation": {
+        "at": "2026-10-15T04:53:06.090Z",
+        "status": "passed",
+        "readOnly": true,
+        "scope": "Bounded natural provider-event and read-only database observation after one same-schedule repair; no event injection, OAuth/member flow or retry.",
+        "successful_natural_event_count": 1,
+        "latest_scheduled_event": {
+          "cpuTimeUs": 378935,
+          "cron": "*/10 * * * *",
+          "datetime": "2026-10-15T04:40:18Z",
+          "environmentName": "production",
+          "scheduledDatetime": "2026-10-15T04:40:18Z",
+          "scriptName": "freedom-platform-next",
+          "status": "success"
+        },
+        "latest_feed_watermark": "2026-10-15T04:50:21.344Z",
+        "feed_watermark_advanced_after_repair": true,
+        "new_coordinate_repositories": 21,
+        "old_coordinate_repositories": 0,
+        "new_coordinate_repositories_synced_after_repair": 21,
+        "repository_errors": 0,
+        "feed_errors": 0,
+        "natural_provider_and_database_proof": true,
+        "current_release": "938516ee632287569389a37a7044ac779c18802e",
+        "current_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
+        "deployment_percentage": 100,
+        "scheduled_dataset_has_no_version_field": true,
+        "version_evidence_scope": "Provider scheduled dataset has no version field; current deployment binding and observed traffic versions independently remained24c6/938.",
+        "later_plus30_observation": "not_run_after_plus20_passed",
+        "evidence": {
+          "record": "production_natural_cron_and_database_sync_plus20",
+          "sha256": "5f38dda6a81fc1790edd3a62a29b425309025b7d5ac2c2efd9afd34cf072a810",
+          "custody": "private_operator_original"
+        }
+      },
+      "backup_operator": {
+        "status": "installed_after_full_restore_natural_schedule_unobserved",
+        "at": "2026-10-15T07:04:34.799429+00:00",
+        "source": "938516ee632287569389a37a7044ac779c18802e",
+        "adapter_sha256": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+        "after_backup_passed": true,
+        "backup_executed_by_install": false,
+        "evidence": {
+          "record": "daily_operator_restored_fence_install_completed",
+          "sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
+          "custody": "private_operator_original"
+        }
+      },
+      "cron_delivery_diagnosis": {
+        "at": "2026-10-15T04:27:51.343197+00:00",
+        "status": "delivery_gap_repaired_natural_provider_and_database_proof_passed",
+        "version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
+        "deployment_percentage": 100,
+        "configured_schedule": "*/10 * * * *",
+        "schedule_created_at_before_repair": "2026-10-15T03:30:19.926412Z",
+        "scheduled_analytics_range": {
+          "start": "2026-10-15T02:30:00Z",
+          "end": "2026-10-15T04:24:54.049Z"
+        },
+        "last_observed_scheduled_event_at": "2026-10-15T03:20:35Z",
+        "scheduled_events_after_0330_schedule_recreation": 0,
+        "exact_version_tail": {
+          "startedAt": "2026-10-15T04:10:40.829Z",
+          "endedAt": "2026-10-15T04:21:46.022Z",
+          "fetchEvents": 295,
+          "scheduledEvents": 0,
+          "allOutcomesOk": true,
+          "allVersionMatches": true
+        },
+        "interpretation": "Matching schedule/version/handler configuration, continued HTTP traffic and absent scheduled events support a provider scheduling/propagation gap before the application handler. The underlying provider cause is unconfirmed; this is not proof of a GitHub-sync logic failure or an unavailable website.",
+        "evidence": {
+          "record": "production_cron_delivery_readonly_diagnosis",
+          "sha256": "94d41c5cc73192ad541f89041cc1b1c15a2ffec07fa7d80c82bb131aecd3c2a5",
+          "custody": "private_operator_original"
+        },
+        "same_schedule_repair": {
+          "at": "2026-10-15T04:33:01.506Z",
+          "status": "schedule_request_accepted_pending_natural_event_and_db_proof",
+          "writes": 2,
+          "remove_acknowledged": true,
+          "restore_acknowledged": true,
+          "intended_schedule_read_back": true,
+          "version_and_routes_unchanged": true,
+          "natural_sync_verified": false,
+          "scope": "One guarded remove and immediate restore of the same cron; configuration acceptance is not scheduled execution or successful GitHub synchronization.",
+          "evidence": {
+            "record": "production_same_schedule_repair_accepted",
+            "sha256": "94ffeb7739a974b078406f351bc07237551009d74ea03fea62481ee616028a37",
+            "custody": "private_operator_original"
+          },
+          "subsequent_natural_verification": "passed_at_2026-10-15T04:53:06.090Z"
+        },
+        "completion_requires": [
+          "new successful natural scheduled provider event",
+          "read-only database proof of advancing GitHub sync watermarks on current coordinates with zero old coordinates"
+        ],
+        "automatic_retry": false,
+        "natural_recovery_verification": {
+          "at": "2026-10-15T04:53:06.090Z",
+          "status": "passed",
+          "readOnly": true,
+          "scope": "Bounded natural provider-event and read-only database observation after one same-schedule repair; no event injection, OAuth/member flow or retry.",
+          "successful_natural_event_count": 1,
+          "latest_scheduled_event": {
+            "cpuTimeUs": 378935,
+            "cron": "*/10 * * * *",
+            "datetime": "2026-10-15T04:40:18Z",
+            "environmentName": "production",
+            "scheduledDatetime": "2026-10-15T04:40:18Z",
+            "scriptName": "freedom-platform-next",
+            "status": "success"
+          },
+          "latest_feed_watermark": "2026-10-15T04:50:21.344Z",
+          "feed_watermark_advanced_after_repair": true,
+          "new_coordinate_repositories": 21,
+          "old_coordinate_repositories": 0,
+          "new_coordinate_repositories_synced_after_repair": 21,
+          "repository_errors": 0,
+          "feed_errors": 0,
+          "natural_provider_and_database_proof": true,
+          "current_release": "938516ee632287569389a37a7044ac779c18802e",
+          "current_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
+          "deployment_percentage": 100,
+          "scheduled_dataset_has_no_version_field": true,
+          "version_evidence_scope": "Provider scheduled dataset has no version field; current deployment binding and observed traffic versions independently remained24c6/938.",
+          "later_plus30_observation": "not_run_after_plus20_passed",
+          "evidence": {
+            "record": "production_natural_cron_and_database_sync_plus20",
+            "sha256": "5f38dda6a81fc1790edd3a62a29b425309025b7d5ac2c2efd9afd34cf072a810",
+            "custody": "private_operator_original"
+          }
+        },
+        "completion_status": "passed"
+      },
+      "previous_natural_background_sync_observations": [
+        {
+          "at": "2026-10-15T04:07:10.355Z",
+          "readOnly": true,
+          "scope": "Natural background sync observation, no event injection or OAuth/member flow",
+          "newCoordinateRepositories": 21,
+          "oldCoordinateRepositories": 0,
+          "repositoriesSyncedAfterDeployment": [],
+          "repositoryErrors": [],
+          "feed_checked_at": "2026-10-15T03:20:36.684Z",
+          "feed_last_error": "github_unavailable",
+          "new_cron_delivery_proven": false,
+          "limitation": "21 current FreeTWAI repository rows and zero old-coordinate rows are observed. No repository row was synced after deployment and the feed check still predates deployment; restored cron configuration does not prove a new cron delivery or end-to-end GitHub event sync.",
+          "evidence": {
+            "record": "production_natural_sync_observation_0407",
+            "sha256": "5a35435bdfd4e09fc5b49057b58a960feab10199dfecf74d97942a86c0eab255",
+            "custody": "private_operator_original"
+          }
+        }
+      ],
+      "backup_repair_completed_at": "2026-10-15T06:46:10.722374+00:00"
+    }
+  },
+  "backups": {
+    "staging": [
+      {
+        "status": "passed",
+        "environment": "staging",
+        "sourceRelease": "a97f931e6efcb6c3446d6a90d2ecbd7519e762f4",
+        "operatorSource": "a97f931e6efcb6c3446d6a90d2ecbd7519e762f4",
+        "createdAt": "2026-10-14T18:33:09.350Z",
+        "completedAt": "2026-10-14T18:54:41.230Z",
+        "setId": "75ad3375-24e5-4e01-9429-7cbafafc6b26",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "3de2282f0f827a93fcd9926a44b3c19a9e4bfb94af374065d4205988439dc767",
+        "dumpSha256": "d9e20b2a6de6a9d7c4a6ef716edef237f518ea72cf7a083b853f5f032b486589",
+        "diskRestore": true,
+        "completionMethod": "original_capture_remote_readback_plus_explicit_same_set_restore_recovery",
+        "originalFailureRetained": true,
+        "restoredSchema166Floor": {
+          "status": "passed",
+          "schema": 166,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "label": "before-rollout; schema166 already present",
+        "originalAttempt": {
+          "status": "failed_at_restore",
+          "evidence": {
+            "record": "staging_before_original_restore_failure",
+            "sha256": "563f363f34f6dc022798988108fd77e6f98d7121fdda8134519bf058412902d7",
+            "custody": "private_operator_original"
+          }
+        },
+        "restoreRecovery": {
+          "status": "passed",
+          "sameSet": true,
+          "evidence": {
+            "record": "staging_before_same_set_restore_recovery",
+            "sha256": "2d4afa354b2db583dd33240d94f31d679829edf279f68729f54e5de8854955dc",
+            "custody": "private_operator_original"
+          }
+        },
+        "evidence": {
+          "record": "staging_before_completed_backup",
+          "sha256": "c45d1e808df28c86c8bf94c0ad2a7f83bc09d2b0632e2a6015d7a42d3ca4a9bd",
+          "custody": "private_operator_original"
+        }
+      },
+      {
+        "label": "after-rollout",
+        "status": "failed",
+        "environment": "staging",
+        "setId": "7bd4e3ca-939b-4600-a74e-5bdd033628ba",
+        "createdAt": "2026-10-14T19:12:00.907Z",
+        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+        "restore": "not_verified",
+        "remoteReadback": "not_verified",
+        "cleanupVerified": true,
+        "evidence": {
+          "record": "staging_after_backup_started",
+          "sha256": "09cd5955cd3dda7da02131040b0bb803988899aa2f32d2479a3cf6cf666ae3cb",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Capture failed after physical DB dump and partial local object writes; no sealed recovery set, offsite publication or restore. Original exception is not retained; no root cause established.",
+        "stage": "capture",
+        "code": "daily_backup_phase_failed",
+        "failure_record_written_at": "2026-10-14T19:22:59.091355+00:00",
+        "originalFailureRetained": true,
+        "failureEvidence": {
+          "record": "staging_after_capture_failure",
+          "sha256": "c403cbef9a93260077498df057ce6126812cf6616de3dd54160bfd7e9f2ce7a8",
+          "custody": "private_operator_original"
+        }
+      },
+      {
+        "status": "failed",
+        "stage": "capture",
+        "code": "daily_backup_phase_failed",
+        "environment": "staging",
+        "setId": "e8cb8321-d768-43fe-8733-053ed3d59402",
+        "createdAt": "2026-10-14T19:37:52.197Z",
+        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+        "restore": "not_verified",
+        "remoteReadback": "not_verified",
+        "cleanupVerified": true,
+        "label": "after-rollout; second explicit attempt",
+        "originalFailureRetained": true,
+        "failureEvidence": {
+          "record": "staging_after_second_capture_failure",
+          "sha256": "b76b9aba46569b906ca4b1047f89b9467a53ca71d1ae1337ce5a7f9960124934",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Capture failed while maintenance.readReferences rejected; the original database error was not retained. No sealed recovery set, remote publication or restore. Later read-only probes passed without reproducing the original lock/maintenance context; no root cause is established.",
+        "ownedCleanupEvidence": {
+          "record": "staging_after_second_owned_cleanup",
+          "sha256": "5bcbff5d0678e2bcb313330f6acc7eeaee932d6b04d4bc9ca71c2050cb14d629",
+          "custody": "private_operator_original"
+        }
+      },
+      {
+        "status": "passed",
+        "environment": "staging",
+        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+        "createdAt": "2026-10-14T20:09:08.261Z",
+        "setId": "e9ac7afd-9d19-45a4-a936-b50116c14017",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "bc8f9253f4512ca763836a3284448891501d503344a73d2d9621272618234360",
+        "dumpSha256": "613cb5b6fb6971072752e924a94b64a5d852035602b360bc210ec2cc7f6c449f",
+        "diskRestore": true,
+        "restoredSchema166Floor": {
+          "status": "passed",
+          "schema": 166,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "originalAdapterSha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
+        "observerAdapterSha256": "e6e24fb3abd4e9d4e65d6c2e2285d62591579aaa735ed12451640fa097521557",
+        "priorFailedSetsRetained": [
+          "7bd4e3ca-939b-4600-a74e-5bdd033628ba",
+          "e8cb8321-d768-43fe-8733-053ed3d59402"
+        ],
+        "label": "after-rollout; explicit database-observed attempt",
+        "observed_completed_by": "2026-10-14T20:29:36.437007+00:00",
+        "objects": {
+          "count": 59,
+          "bytes": 139861
+        },
+        "evidence": {
+          "record": "staging_after_completed_backup",
+          "sha256": "d8bd4efe9226726928570fb46baa1450ffe86052615d35ed80a59619c5896db1",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Successful new set does not establish the unknown causes of the two retained earlier capture failures."
+      },
+      {
+        "label": "later existing staging daily timer; separate from the passed release after-set",
+        "status": "failed",
+        "environment": "staging",
+        "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
+        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+        "adapterSha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
+        "createdAt": "2026-10-15T04:50:06.299Z",
+        "failure_observed_at": "2026-10-15T04:59:24Z",
+        "stage": "capture",
+        "code": "daily_backup_cleanup_failed",
+        "trigger": "existing_staging_daily_timer",
+        "restore": "not_verified",
+        "remoteReadback": "not_verified",
+        "cleanupVerified": false,
+        "originalFailureRetained": true,
+        "evidence": {
+          "record": "staging_later_scheduled_capture_failure",
+          "sha256": "c16326b253eb02aa1a06f38dd25f2f9c53815545c23699e92274dfe6fb0a317b",
+          "custody": "private_operator_original"
+        },
+        "owned_resource_reconciliation": {
+          "at": "2026-10-15T05:04:48.356Z",
+          "status": "reconciled",
+          "resources_remaining": 0,
+          "owned_database_sessions": 0,
+          "dump_clients": 0,
+          "policy_enabled": false,
+          "domain_media_enabled": false,
+          "retained_reference_count": 59,
+          "backup_succeeded": false,
+          "original_cleanupVerified": false,
+          "original_failure_preserved": true,
+          "evidence": {
+            "record": "staging_later_scheduled_owned_resource_reconciliation",
+            "sha256": "fb31a66bfa82f1c4b5f8a81d90dc1360573c74504542c8e5b79b6b145688795d",
+            "custody": "private_operator_original"
+          }
+        },
+        "limitation": "This later scheduled capture failed. Its separate cleanup reconciliation does not change the earlier successful staging release after-restore or establish future scheduled reliability."
+      },
+      {
+        "status": "passed",
+        "environment": "staging",
+        "setId": "8abd2a28-584e-49fc-b8ca-38a1bfd61f7a",
+        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+        "createdAt": "2026-10-15T06:49:18.200Z",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "diskRestore": true,
+        "restoredSchema166Floor": {
+          "status": "passed",
+          "schema": 166,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "label": "fresh complete after-backup with restored-fence and capture-window verification",
+        "completed_at": "2026-10-15T07:02:30.842489+00:00",
+        "adapterSha256": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a",
+        "restoredOperatorCoordinateFence": {
+          "status": "not_applicable",
+          "target": "staging"
+        },
+        "sourceProtection": "disabled_window_checked",
+        "durableCaptureWindow": {
+          "status": "passed",
+          "gcWindow": "superset_window_safe",
+          "constraints": 0,
+          "coordinateExtension": "not_applicable"
+        },
+        "evidence": {
+          "record": "staging_restored_fence_full_backup_completed",
+          "sha256": "1ed87c944767b0109f71c588f87a006f983a9608801b3fa6d6c4918920b38b5b",
+          "custody": "private_operator_original"
+        },
+        "executionEvidence": {
+          "record": "staging_restored_fence_full_backup_terminal",
+          "sha256": "a8f1a9d6ca7ca017b95f263b07776a1496594bc3f32d2417b1157a9aaf1fec13",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Explicit complete backup/restore, not a natural scheduled run or permission to admit restored data. Original failures remain failed."
+      }
+    ],
+    "production": {
+      "status": "before_and_fresh_after_passed_original_failed_attempts_retained",
+      "before": {
+        "status": "passed",
+        "environment": "production",
+        "sourceRelease": "9d6d822ea95caada51742bb4a1e4c16c557a6dfb",
+        "operatorSource": "9d6d822ea95caada51742bb4a1e4c16c557a6dfb",
+        "createdAt": "2026-10-15T03:06:25.326Z",
+        "setId": "87ec37e7-5257-404d-a131-77e7a44148f4",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "b313d94acb372d37f7b0632ee8e45dfbd1624241c530e2cb6e92a5e5caa0a4c8",
+        "dumpSha256": "f5d365e534fa0d8ccc3d67c6aec29825c6cc8cc13fff98655fe4bf46445c47ab",
+        "diskRestore": true,
+        "restoredSchema165Floor": {
+          "status": "passed",
+          "schema": 165,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "originalAdapterSha256": "bf0c31333b4c4842577a5d661104fff77f562371df8db42affcaa237b7055bd4",
+        "readinessDerivativeSha256": "10539d41a9edf4e8ea0f573493fe072ec8baa371ebff3e6a82459b65ff483de3",
+        "observerAdapterSha256": "136ac8ed48eaa1406ef94b6cbed525b409dd286237250696235ef721336c9123",
+        "refreshOfSet": "78d9f27a-5a0b-43cb-a0fe-9f2badd4b23d",
+        "originalBeforeReceiptSha256": "492b96543001029d51fa98d971d6e8db0e126f60b0158113f9871ad001948f84",
+        "freshProductionBaselineAt": "2026-10-15T03:03:01.563Z",
+        "canonicalBeforePromoted": true,
+        "promotedAt": "2026-10-15T03:17:31.358248+00:00",
+        "label": "production_before_completed_backup",
+        "evidence": {
+          "record": "production_before_completed_backup",
+          "sha256": "168232c0491b75966fc272727c8275bf97a9842a6dc7acc3c2a3749cac9bcf36",
+          "custody": "private_operator_original"
+        }
+      },
+      "after": {
+        "status": "passed",
+        "environment": "production",
+        "setId": "20c800a8-b0a8-4dc0-9d59-7392b2883370",
+        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+        "createdAt": "2026-10-15T06:29:20.613Z",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "diskRestore": true,
+        "restoredSchema166Floor": {
+          "status": "passed",
+          "schema": 166,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "label": "fresh complete after-backup with restored-fence and capture-window verification",
+        "completed_at": "2026-10-15T06:46:10.722374+00:00",
+        "adapterSha256": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+        "restoredOperatorCoordinateFence": {
+          "status": "verified",
+          "target": "production",
+          "constraints": 10,
+          "comparison": "exact_reviewed_pg18_definition_variants",
+          "canonicalSavedFloorVerified": true,
+          "inventoryReceiptSha256": "341926cbc10953d421c738e1f5ac8e41b3660233f15c169aadaadae0d254c32b"
+        },
+        "sourceProtection": "disabled_window_checked",
+        "durableCaptureWindow": {
+          "status": "passed",
+          "gcWindow": "superset_window_safe",
+          "constraints": 10,
+          "reviewedDefinitionVariants": 5
+        },
+        "evidence": {
+          "record": "production_restored_fence_full_backup_completed",
+          "sha256": "eb5194e791f17b614800c65c5e439d13cdcfd10dfc3590231475e8949ce24301",
+          "custody": "private_operator_original"
+        },
+        "executionEvidence": {
+          "record": "production_restored_fence_full_backup_terminal",
+          "sha256": "c33e3c60f386fb6d9838071c6cfc73324c237a9b0a8d4d790335c987a4bd3b31",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Explicit complete backup/restore, not a natural scheduled run or permission to admit restored data. Original failures remain failed."
+      },
+      "superseded_before": {
+        "status": "passed",
+        "environment": "production",
+        "sourceRelease": "9d6d822ea95caada51742bb4a1e4c16c557a6dfb",
+        "operatorSource": "9d6d822ea95caada51742bb4a1e4c16c557a6dfb",
+        "createdAt": "2026-10-14T20:30:52.278Z",
+        "setId": "78d9f27a-5a0b-43cb-a0fe-9f2badd4b23d",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "29535a751460881d23d728cb5d90610b4287d697fb96977c12527e85992a594b",
+        "dumpSha256": "d1a0b726baee2aebc5d7ba67c432222b38b45e37674bc230ae4c6d8c661b6376",
+        "diskRestore": true,
+        "restoredSchema165Floor": {
+          "status": "passed",
+          "schema": 165,
+          "restoredLedgerMatches": true,
+          "oldRollbackRejected": true,
+          "quarantineRetained": true,
+          "publicAdmission": false
+        },
+        "originalAdapterSha256": "bf0c31333b4c4842577a5d661104fff77f562371df8db42affcaa237b7055bd4",
+        "readinessDerivativeSha256": "10539d41a9edf4e8ea0f573493fe072ec8baa371ebff3e6a82459b65ff483de3",
+        "observerAdapterSha256": "136ac8ed48eaa1406ef94b6cbed525b409dd286237250696235ef721336c9123",
+        "label": "successful_earlier_set_replaced_for_freshness",
+        "evidence": {
+          "record": "successful_earlier_set_replaced_for_freshness",
+          "sha256": "492b96543001029d51fa98d971d6e8db0e126f60b0158113f9871ad001948f84",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Retained successful earlier set; refreshed before cutover because its capture time exceeded the deployment freshness window."
+      },
+      "failed_after_attempts": [
+        {
+          "status": "failed",
+          "stage": "capture",
+          "code": "daily_backup_cleanup_failed",
+          "environment": "production",
+          "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+          "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+          "setId": "480cd1f2-503a-4513-957c-518549525bc4",
+          "createdAt": "2026-10-15T03:32:43.707Z",
+          "remoteReadback": "not_verified",
+          "restore": "not_verified",
+          "cleanupVerified": false,
+          "snapshotEvidence": "unavailable",
+          "sourcePins": "retained",
+          "label": "after-rollout; first production attempt",
+          "failure_observed_at": "2026-10-15T03:41:21.028491+00:00",
+          "originalFailureRetained": true,
+          "evidence": {
+            "record": "production_after_first_capture_failure",
+            "sha256": "a32e2be63fbe8eb80d21172491f8151509239a52146a8d1e95790188e7bdcd86",
+            "custody": "private_operator_original"
+          },
+          "executionEvidence": {
+            "record": "production_after_first_execution_stopped",
+            "sha256": "6f0ed17f38375190b097b6e300137d7b451752e520cae6e158ce8e66dc81c415",
+            "custody": "private_operator_original"
+          },
+          "limitation": "The180-second bounded dump failed and no recovery set/restore completed. Original cleanupVerified=false remains unchanged; a separate03:44 UTC read-only reconciliation confirmed zero owned resources, disabled policy, and retained backup pins. Resource cleanup is not backup success.",
+          "owned_resource_reconciliation": {
+            "at": "2026-10-15T03:44:02.755Z",
+            "status": "reconciled",
+            "resources_remaining": 0,
+            "owned_database_sessions": 0,
+            "dump_clients": 0,
+            "owned_container_lifecycle_confirmed": true,
+            "policy_enabled": false,
+            "domain_media_enabled": false,
+            "retained_reference_count": 47,
+            "backup_succeeded": false,
+            "original_cleanupVerified": false,
+            "original_failure_preserved": true,
+            "evidence": {
+              "record": "production_after_first_owned_resource_reconciliation",
+              "sha256": "3a12c5610ecae0594be3f2faff8834be92b54b27c27162a435a9956a96f13495",
+              "custody": "private_operator_original"
+            }
+          }
+        },
+        {
+          "status": "failed",
+          "stage": "capture",
+          "code": "daily_backup_cleanup_failed",
+          "environment": "production",
+          "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+          "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+          "setId": "28c818b7-4631-4216-89c1-d357a348ee85",
+          "createdAt": "2026-10-15T03:50:53.097Z",
+          "remoteReadback": "not_verified",
+          "restore": "not_verified",
+          "cleanupVerified": false,
+          "snapshotEvidence": "unavailable",
+          "sourcePins": "retained",
+          "adapterSha256": "9cddfbdf54b751f131fbb3fc51dc694dd9336b31669a1f7d0d7afc35d96c7690",
+          "label": "after-rollout; second explicit production attempt",
+          "failure_observed_at": "2026-10-15T04:03:08.700370+00:00",
+          "originalFailureRetained": true,
+          "evidence": {
+            "record": "production_after_second_capture_failure",
+            "sha256": "3f83e8136c33fe9d4c5f185fb09fbe48ed6c224f7f7df3b59286e3c9fe322c4a",
+            "custody": "private_operator_original"
+          },
+          "executionEvidence": {
+            "record": "production_after_second_execution_stopped",
+            "sha256": "c092c68218447dac1a0b5b1b12a57f5348f772d0d53b5c780aeb63ad38ac7995",
+            "custody": "private_operator_original"
+          },
+          "scope": "Production-only dump subprocess budget increased from180 to300seconds; global1200-second bound and all capture/restore checks unchanged. Staging adapter was not changed.",
+          "limitation": "The300-second production dump subprocess budget, including Docker startup delay, expired without a usable dump or recovery set. No remote readback or restore completed. Original cleanupVerified=false remains unchanged; separate04:09 UTC read-only reconciliation confirmed zero owned resources, disabled policy and retained pins. Cleanup is not backup success.",
+          "owned_resource_reconciliation": {
+            "at": "2026-10-15T04:09:03.450Z",
+            "status": "reconciled",
+            "resources_remaining": 0,
+            "owned_database_sessions": 0,
+            "dump_clients": 0,
+            "owned_container_lifecycle_confirmed": true,
+            "policy_enabled": false,
+            "domain_media_enabled": false,
+            "retained_reference_count": 47,
+            "backup_succeeded": false,
+            "original_cleanupVerified": false,
+            "original_failure_preserved": true,
+            "evidence": {
+              "record": "production_after_second_owned_resource_reconciliation",
+              "sha256": "a5c3f53ff85be430badee25c2e2172a0827a41362d523000b09496baed677faa",
+              "custody": "private_operator_original"
+            }
+          }
+        },
+        {
+          "status": "failed",
+          "stage": "capture",
+          "code": "daily_backup_cleanup_failed",
+          "environment": "production",
+          "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+          "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+          "setId": "19f7e10e-4d56-4929-9b17-ba6f36304067",
+          "createdAt": "2026-10-15T04:34:40.185Z",
+          "remoteReadback": "not_verified",
+          "restore": "not_verified",
+          "cleanupVerified": false,
+          "snapshotEvidence": "unavailable",
+          "sourcePins": "retained",
+          "adapterSha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
+          "label": "after-rollout; existing daily timer execution, not a third manual retry",
+          "failure_observed_at": "2026-10-15T04:43:14Z",
+          "trigger": "existing_production_daily_timer",
+          "service_exit_code": 1,
+          "originalFailureRetained": true,
+          "evidence": {
+            "record": "production_scheduled_after_capture_failure",
+            "sha256": "a42594bba5ffc158e8d08794417898e1213e1ae813866ce6a111d153b5d4c9b3",
+            "custody": "private_operator_original"
+          },
+          "scope": "The existing daily timer selected source938 and the original canonical166 adapter. No service restart, timeout change or manual capture was performed for this run.",
+          "partial_dump_bytes": 5981963,
+          "manifest_produced": false,
+          "dump_lifecycle_diagnosis": {
+            "container_started_at": "2026-10-15T04:41:08.688652+00:00",
+            "sigterm_at": "2026-10-15T04:42:57.316938+00:00",
+            "container_destroyed_at": "2026-10-15T04:43:12.300614+00:00",
+            "output_files_created_at": "2026-10-15T04:39:56.505718+00:00",
+            "preparation_elapsed_seconds": 72.183,
+            "running_before_sigterm_seconds": 108.628,
+            "stderr": "pg_dump: terminated by user",
+            "interpretation": "The original180-second subprocess bound includes Docker preparation; approximately72seconds passed before the container started. The partial output is not a validated dump or recovery set.",
+            "evidence": {
+              "record": "production_scheduled_dump_container_lifecycle",
+              "sha256": "1f7092f618801a6ac647c869fb3c3b2e5f6dee7eab93ae1626f437a41a7442cd",
+              "custody": "private_operator_original"
+            }
+          },
+          "owned_resource_reconciliation": {
+            "at": "2026-10-15T04:46:26.116Z",
+            "status": "reconciled",
+            "resources_remaining": 0,
+            "owned_database_sessions": 0,
+            "dump_clients": 0,
+            "owned_container_lifecycle_confirmed": true,
+            "policy_enabled": false,
+            "domain_media_enabled": false,
+            "retained_reference_count": 47,
+            "backup_succeeded": false,
+            "original_cleanupVerified": false,
+            "original_failure_preserved": true,
+            "evidence": {
+              "record": "production_scheduled_after_owned_resource_reconciliation",
+              "sha256": "d0a1a2c7233564837ef1e8b1002b6ffd7e712967b17a3701b05e459e3251370f",
+              "custody": "private_operator_original"
+            }
+          },
+          "limitation": "Capture failed; no remote readback or isolated restore completed. The original cleanupVerified=false receipt is preserved. Separate read-only reconciliation confirms zero owned resources and disabled policy; this is cleanup evidence, not backup success."
+        },
+        {
+          "label": "after-rollout; reviewed container preparation correction, one explicit attempt",
+          "status": "failed",
+          "stage": "restore",
+          "code": "daily_backup_cleanup_failed",
+          "environment": "production",
+          "setId": "e021ebfc-39a0-45c8-bfe4-3662e980c04f",
+          "createdAt": "2026-10-15T05:06:51.861Z",
+          "failure_observed_at": "2026-10-15T05:24:52.876058+00:00",
+          "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+          "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+          "adapterSha256": "9f685606e0c011c859af9623b11d029a9991b7a7387189395338db4e2113f540",
+          "dump": {
+            "sha256": "4642b2e13828f1abfcba776ace34f59688f83e75d4018b203e9dfc3e5e20a8fb",
+            "byteSize": 6229149
+          },
+          "objects": {
+            "count": 47,
+            "bytes": 627676
+          },
+          "manifestSha256": "6ae92e23aa39a4f7ad71a9ece4f677c232c1923f1e8fe2c65295d34c030b770f",
+          "snapshotEvidence": "captured",
+          "restore": "not_verified",
+          "remoteReadback": "verified",
+          "cleanupVerified": false,
+          "completed_recovery_claimed": false,
+          "originalFailureRetained": true,
+          "owned_resource_reconciliation": {
+            "at": "2026-10-15T05:29:39.557Z",
+            "status": "reconciled",
+            "resources_remaining": 0,
+            "owned_volume_absent": true,
+            "owned_database_sessions": 0,
+            "dump_clients": 0,
+            "owned_container_lifecycles_confirmed": true,
+            "policy_enabled": false,
+            "domain_media_enabled": false,
+            "retained_reference_count": 47,
+            "backup_succeeded": false,
+            "original_cleanupVerified": false,
+            "original_failure_preserved": true,
+            "evidence": {
+              "record": "production_prepared_after_owned_resource_reconciliation",
+              "sha256": "7be962aa3537e33fd91e0e1bb8cc52bd5dc414feef1e29bfbe1eebe3fe18f62a",
+              "custody": "private_operator_original"
+            }
+          },
+          "scope": "Owned container preparation moved before policy enable/exported snapshot, retaining the original180-second dump budget and1200-second core bound. The candidate preserves explicit ownership acknowledgement until cleanup. This one-shot adapter is not installed as the scheduled operator.",
+          "evidence": {
+            "record": "production_after_prepared_dump_restore_failure",
+            "sha256": "2b947e74c057a145235fd1d819786e3d2995f7f271c5cdcadf71ee3e0010ce9e",
+            "custody": "private_operator_original"
+          },
+          "executionEvidence": {
+            "record": "production_after_prepared_dump_execution_stopped",
+            "sha256": "0622e82c6c7178a42bd0d653f178e42d2d834fbf348bb0f2d71f0d6d5ef4d3b5",
+            "custody": "private_operator_original"
+          },
+          "observationEvidence": {
+            "record": "production_after_prepared_dump_progress_snapshot",
+            "sha256": "35d79421f7dc3607187336eabef27cd80c91e1cf03d16aa6464a693cfcec8347",
+            "custody": "private_operator_original"
+          },
+          "reviewEvidence": {
+            "record": "production_after_prepared_dump_execution_review",
+            "sha256": "493cc241de036e21fef3846ac06734f565c437472e0f0d49c544f75931e984d3",
+            "custody": "private_operator_original"
+          },
+          "limitation": "Database/object capture and remote readback passed, but restore failed and the original cleanupVerified=false receipt remains. Separate read-only reconciliation confirmed zero owned resources, absent owned volume, disabled policy and retained pins. Cleanup is not restore success; no recapture is claimed."
+        }
+      ]
+    }
+  },
+  "staging_acceptance": {
+    "status": "passed",
+    "at": "2026-10-14T19:10:57.380360+00:00",
+    "scope": "Existing public/API/session checks plus one desktop browser login-cookie-reload-logout; no cloud race reconstruction",
+    "composition": "Original full selected invocation retained including browser locale failure; only browser phase repeated with explicit zh-TW through original library, then exact fixture and Access cleanup",
+    "phases": {
+      "preflight": {
+        "status": "passed",
+        "checks": 5,
+        "evidence_record": "staging_initial_selected_acceptance"
+      },
+      "health": {
+        "status": "passed",
+        "checks": 14,
+        "evidence_record": "staging_initial_selected_acceptance"
+      },
+      "protocol": {
+        "status": "passed",
+        "checks": 2,
+        "evidence_record": "staging_initial_selected_acceptance"
+      },
+      "assets": {
+        "status": "passed",
+        "checks": 15,
+        "evidence_record": "staging_initial_selected_acceptance"
+      },
+      "anonymous": {
+        "status": "passed",
+        "checks": 16,
+        "evidence_record": "staging_initial_selected_acceptance"
+      },
+      "session": {
+        "status": "passed",
+        "checks": 14,
+        "evidence_record": "staging_initial_selected_acceptance"
+      },
+      "logout": {
+        "status": "passed",
+        "checks": 4,
+        "evidence_record": "staging_initial_selected_acceptance"
+      },
+      "browser": {
+        "status": "passed",
+        "checks": 12,
+        "duration_ms": 8093,
+        "evidence_record": "staging_browser_locale_supplement"
+      }
+    },
+    "original_attempt": {
+      "started_at": "2026-10-14T19:04:37.445Z",
+      "finished_at": "2026-10-14T19:05:18.321Z",
+      "overall": "fail",
+      "browser": {
+        "status": "fail",
+        "reason": "TimeoutError",
+        "duration_ms": 31483,
+        "landing_200_passed": true,
+        "failure": "Browser default en-US rendered Email/Password; original harness waited for Chinese labels. No missing login form or application pageerror was observed.",
+        "cookie_checks_reached": false
+      },
+      "evidence": {
+        "record": "staging_initial_selected_acceptance",
+        "sha256": "3980b4808cc0dfe403e29796d4a2f257463c520e4118ec5caa24b201b291cc18",
+        "custody": "private_operator_original"
+      }
+    },
+    "browser_supplement": {
+      "started_at": "2026-10-14T19:09:54.760Z",
+      "finished_at": "2026-10-14T19:10:03.210Z",
+      "status": "passed",
+      "override": "Original library and CLI validation; injected browser.newContext applies locale:'zh-TW' only.",
+      "retained_release_source_changed": false,
+      "checks": [
+        "landing_200",
+        "browser_cookie_secure",
+        "browser_cookie_http_only",
+        "browser_cookie_same_site_strict",
+        "browser_cookie_script_invisible",
+        "reload_keeps_session",
+        "logout_returns_to_login",
+        "browser_cookie_cleared",
+        "no_inbox_response_received",
+        "no_page_errors",
+        "no_routing_failures",
+        "browser_teardown_clean"
+      ],
+      "not_covered": "Member inbox response content intentionally blocked; no claim of message-history acceptance.",
+      "evidence": {
+        "record": "staging_browser_locale_supplement",
+        "sha256": "295b61ddd42fd03190e4a9f9e23f8aff840f4bde429309962e1489802e979175",
+        "custody": "private_operator_original"
+      }
+    },
+    "fixture_cleanup": {
+      "status": "passed",
+      "ownedAccountInactive": true,
+      "ownedSessionsRevoked": true,
+      "ownedMembershipsEnded": true,
+      "credentialRemoved": true,
+      "fixtureReconciled": true,
+      "evidence": {
+        "record": "staging_owned_fixture_cleanup",
+        "sha256": "e717111acb4e1faf8afc8aa46af8c7c8a2001ecb31b4fed01a0a3b687397c016",
+        "custody": "private_operator_original"
+      }
+    },
+    "cloud_race_reconstruction": false,
+    "full_source_regressions_reused": true
+  },
+  "staging_access_cleanup": {
+    "result": "passed",
+    "service_token": "absent",
+    "access_policy": "absent",
+    "evidence": {
+      "record": "staging_access_after_revoke",
+      "sha256": "3a8191f92f20534043bbdfc8e2d813fbeb772d7fed7a5352e3952fc7eac28e2c",
+      "custody": "private_operator_original"
+    },
+    "limitation": "Provider absence observed; no credentials or Access identifiers published."
+  },
+  "not_deployed_from_later_work": {
+    "members_followup": {
+      "pr": 658,
+      "merged_source": "333e471e0215c2fbc275c20e20be103f1a3f23b8",
+      "included_in_release": false
+    },
+    "product_followup": {
+      "pr": 659,
+      "includes_ar_schema167": true,
+      "included_in_release": false,
+      "source_status": "merged after exact-head approval and necessary checks",
+      "source_observation": {
+        "head": "dcc95b4e7e34c92fdbdf901160faeb51e3b86be4",
+        "merge_sha": "efaf314d7397e288c6ac094c5d90ffdcc1094f14",
+        "merged_at": "2026-10-14T21:07:44Z",
+        "review_id": 5524076683,
+        "verify_run": 38629192755,
+        "verify_status": "success",
+        "codeql_check": 116076463600,
+        "codeql_conclusion": "success",
+        "runtime_passed": 4792,
+        "browser_unique_passed": 950,
+        "browser_successful_executions": 954,
+        "repeated_browser_executions_not_counted_as_unique": 4,
+        "guild_preview_passed": 5,
+        "cleanup_verified": true,
+        "evidence": {
+          "record": "pr659_final_reviewed_head_evidence",
+          "sha256": "fd98004168e401d2b3009a719693f2d7e88ee674bbaecf0770603f13c92d95b9",
+          "custody": "private_operator_original"
+        }
+      },
+      "merged_source": "efaf314d7397e288c6ac094c5d90ffdcc1094f14"
+    },
+    "next_approved_batch": {
+      "pr": 680,
+      "included_in_release": false,
+      "scope": "Three source PRs662/668/675 plus bounded CI and dated-state corrections; merged as1e584aa8 after current-head review and required checks. No product deployment is implied.",
+      "previous_head_evidence": {
+        "head": "93c6dc3fb7a452287026dc2ed01ccf2b36ca593d",
+        "candidate": "79ecb76e26d85f4a33399003abe36e8628eb6e18",
+        "run": 38675206937,
+        "attempt": 2,
+        "verify_conclusion": "failure",
+        "completed_at": "2026-10-15T05:17:57Z",
+        "runtime_partition_3": {
+          "status": "failed",
+          "reason": "test_timeout",
+          "completed_files": 55,
+          "selected_files": 62,
+          "completed_cases_only": 830,
+          "completed_case_failures": 0,
+          "cleanup": "verified_absent",
+          "complete_suite_pass": false
+        },
+        "browser_default_process": {
+          "status": "failed",
+          "reason": "test_process_failed",
+          "passed": 913,
+          "skipped": 17,
+          "failed": 1,
+          "total_reporter_results": 931,
+          "original_two_failures_now_passed": true,
+          "new_failure": "tests/e2e/hosted-supply-catalog.spec.ts:436",
+          "case_timeout_ms": 120000,
+          "original_blocking_operation": "unknown_missing_retained_trace",
+          "global_50_minute_timeout_was_terminal_reason": false,
+          "remaining_dedicated_passes": "not_run"
+        },
+        "prior_results_not_relabelled": true,
+        "evidence": [
+          {
+            "record": "pr680_old_head_runtime_retry_failure",
+            "sha256": "1f58b8ee4714ddbfc0ede46ee6ecfe20ae05ecfd67513f049c5be81cd9ec28e1",
+            "custody": "private_operator_original"
+          },
+          {
+            "record": "pr680_old_head_browser_and_verify_retry_failure",
+            "sha256": "6327f79298b7a6a6e4a03a86bc93da0ad31c79382204df7efbf81ce2ab7abd00",
+            "custody": "private_operator_original"
+          }
+        ]
+      },
+      "source_observation": {
+        "head": "a5255601e996c1ec9f03984eaba16de0b6e0c717",
+        "merge_sha": "1e584aa8734addfe251c7f081cf51cc84a52567f",
+        "merged_at": "2026-10-15T06:47:14Z",
+        "review_at": "2026-10-15T05:58:47Z",
+        "verify_run": 38689181933,
+        "verify_status": "success",
+        "codeql_run": 38689176515,
+        "runtime_aggregate": "success",
+        "ui": "success",
+        "included_in_deployed938": false
+      }
+    }
+  },
+  "limitations": [
+    "Full manual after-backup/restore passed for both environments and the repaired operator is installed. This does not establish a successful natural scheduled run of the new operator, real GitHub OAuth/member/webhook acceptance, current-authority reconciliation after restore (T-047), human usability or second-operator recovery. All original failed backup receipts remain unchanged.",
+    "Staging uses dedicated synthetic account checks, not human usability, adoption, or two independent guild authors.",
+    "Critical race regressions are natural-main isolated test evidence; no cloud race reconstruction was performed.",
+    "Real GitHub OAuth callbacks, member Issue/Star actions and real webhook deliveries were not exercised by this acceptance.",
+    "Maintainer #72 remains a separate uninstalled capability; two transferred member Apps do not establish Maintainer installation.",
+    "T-047 remains unresolved: restored data stay quarantined until current-authority/revocation reconciliation; a successful restore does not establish current authorization.",
+    "No second independent operator or independent-account disaster recovery acceptance.",
+    "No new product features, AR167, payment, member email delivery or production-member consent session are implied.",
+    "Production invariant reconciliation found264/266 table hashes unchanged and explicitly excepted two telemetry tables. It preserves the original post-COMMIT assertion failure, infers the known sync path from metadata without invocation attribution, and makes no database-wide quiescence or exact field-delta claim.",
+    "The observed post-deployment cron delivery gap was followed by one same-schedule repair. At04:53 UTC, bounded read-only acceptance passed: a successful natural scheduled event at04:40:18, advancing feed watermark at04:50:21,21/21 current-coordinate repositories synced and zero old coordinates/errors. The original provider cause remains unconfirmed; this is not a real OAuth/member webhook acceptance or a guarantee of future scheduling."
+  ],
+  "pending_completion_inputs": [
+    "next naturally scheduled execution of the installed operator; no such run observed at this cutoff",
+    "real GitHub OAuth/member/webhook and Maintainer #72 acceptance remain separate work",
+    "T-047 current-authority reconciliation, human trials and second-operator recovery remain open",
+    "GitHub deployment records only if actually created"
+  ],
+  "merged_source_observation": {
+    "repository": "FreeTWAI/freedom-platform",
+    "sha": "1e584aa8734addfe251c7f081cf51cc84a52567f",
+    "tree": "8f2bda1846d983f0bc3671578ba6fc16b24364f5",
+    "observed_at": "2026-10-15T06:47:14Z",
+    "not_the_selected_runtime_release": true,
+    "scope": "Protected merge #680 after current-head review and required checks; #658/#659 remain merged but outside deployed938.",
+    "product_pr_659": "Merged, including original sources622/657, with latest-head checks; not included in selected938 runtime."
+  },
+  "installed_backup_operator_observation": {
+    "observed_at": "2026-10-15T07:04:34.799429+00:00",
+    "status": "installed_after_both_full_restores",
+    "staging_source": "938516ee632287569389a37a7044ac779c18802e",
+    "production_source": "938516ee632287569389a37a7044ac779c18802e",
+    "dispatcher_sha256": "868886717771c6f9e99640d3231382ede73fd2c2aca42a50ffb9cdc7db006316",
+    "previous_dispatcher_sha256": "7d503ea03ce78692c39068ba5eba9bce364b9a80093f521c5315f8c9d15b6d23",
+    "production_wrapper_sha256": "9d346b1a53af5a40922ac4b5b159e8fccc210f26ba6f8ff666b47e85f5e0d6f0",
+    "staging_wrapper_sha256": "59c060fde4ab99764335c5a82de77a66c6951c7eece814cb816f033fd3a641bb",
+    "adapter_sha256_by_environment": {
+      "production": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+      "staging": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a"
+    },
+    "selected_release_dispatcher_installed": true,
+    "selected_release_dispatcher_installed_by_environment": {
+      "staging": true,
+      "production": true
+    },
+    "accepted_full_backup_sets": {
+      "production": "20c800a8-b0a8-4dc0-9d59-7392b2883370",
+      "staging": "8abd2a28-584e-49fc-b8ca-38a1bfd61f7a"
+    },
+    "atomic_replace": true,
+    "backup_timers_unchanged": true,
+    "old_wrappers_binding_and_evidence_preserved": true,
+    "backup_executed_by_install": false,
+    "scheduled_run_of_new_operator_observed": false,
+    "existing_service_state_at_install": {
+      "freedom-next-backup": "failed",
+      "freedom-staging-next-backup": "failed"
+    },
+    "next_natural_runs_at_install": {
+      "production": "2026-10-16T04:33:18+00:00",
+      "staging": "2026-10-16T04:46:20+00:00"
+    },
+    "scheduled_budgets": {
+      "core_abort_seconds": 1200,
+      "dump_preparation_milliseconds": 180000,
+      "dump_milliseconds": 180000,
+      "systemd_start_seconds": 1800,
+      "systemd_stop_seconds": 120,
+      "one_shot_outer_bound_claimed": false
+    },
+    "production_after_backup_passed": true,
+    "staging_after_backup_passed": true,
+    "evidence": {
+      "record": "daily_operator_restored_fence_install_completed",
+      "sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
+      "custody": "private_operator_original"
+    },
+    "limitation": "Versioned wrappers and exact adapters were installed after both complete manual runs. Existing failed service states were not relabelled. No subsequent natural run is observed; no backup/provider operation occurred during installation. Rollback remains explicit at the same938/schema166 source and preserves its known startup-budget limitation.",
+    "deployment_fully_closed": false
+  },
+  "consumer_protection_observation": {
+    "observed_at": "2026-10-15T04:38:34.720629+00:00",
+    "scope": "Two consumer repositories specifically called unprotected in the supplied audit",
+    "settings_changed": false,
+    "repositories": [
+      {
+        "repository": "FreeTWAI/freedom-agent-kit",
+        "mainProtected": true,
+        "rulesetId": 25061848,
+        "rulesetUrl": "https://github.com/FreeTWAI/freedom-agent-kit/rules/25061848",
+        "enforcement": "active",
+        "appliesTo": [
+          "refs/heads/main"
+        ],
+        "bypassActors": [],
+        "deletionBlocked": true,
+        "nonFastForwardBlocked": true,
+        "requiredApprovals": 1,
+        "dismissStaleReviews": true,
+        "requireLastPushApproval": true,
+        "requireResolvedThreads": true,
+        "requireCodeOwnerReview": false,
+        "strictRequiredChecks": true,
+        "checks": [
+          {
+            "context": "verify / verify-template",
+            "integrationId": 15368,
+            "observedOnLatestMain": "completed/success"
+          }
+        ]
+      },
+      {
+        "repository": "FreeTWAI/freedom-storefront",
+        "mainProtected": true,
+        "rulesetId": 25061960,
+        "rulesetUrl": "https://github.com/FreeTWAI/freedom-storefront/rules/25061960",
+        "enforcement": "active",
+        "appliesTo": [
+          "refs/heads/main"
+        ],
+        "bypassActors": [],
+        "deletionBlocked": true,
+        "nonFastForwardBlocked": true,
+        "requiredApprovals": 1,
+        "dismissStaleReviews": true,
+        "requireLastPushApproval": true,
+        "requireResolvedThreads": true,
+        "requireCodeOwnerReview": false,
+        "strictRequiredChecks": true,
+        "checks": [
+          {
+            "context": "verify / verify-template",
+            "integrationId": 15368,
+            "observedOnLatestMain": "completed/success"
+          },
+          {
+            "context": "verify-client-source",
+            "integrationId": 15368,
+            "observedOnLatestMain": "completed/success"
+          }
+        ]
+      }
+    ],
+    "all_consumers_verified": false,
+    "limitation": "These two repositories do not require CODEOWNERS approval. Their current PR and App-bound check rules do not establish immutable organization workflow enforcement or protection for other consumers.",
+    "evidence": {
+      "record": "two_consumer_repository_protection_readback",
+      "sha256": "7f127d83f0f0dafede5da8cfbeeb1fe72cf4543e579d937ffb5589fccfd3b827",
+      "custody": "private_operator_original"
+    }
+  },
+  "evidence_cutoff_at": "2026-10-15T07:04:34.799429+00:00",
+  "previous_installed_backup_operator_observations": [
+    {
+      "observed_at": "2026-10-15T04:15:10.512577+00:00",
+      "staging_source": "938516ee632287569389a37a7044ac779c18802e",
+      "production_source": "938516ee632287569389a37a7044ac779c18802e",
+      "dispatcher_sha256": "7d503ea03ce78692c39068ba5eba9bce364b9a80093f521c5315f8c9d15b6d23",
+      "staging_wrapper_sha256": "c5f847422a1694698ea4332d7dfafa6f524f03cb3e3b7d5b91d8c53870ffad2b",
+      "selected_release_dispatcher_installed": true,
+      "selected_release_dispatcher_installed_by_environment": {
+        "staging": true,
+        "production": true
+      },
+      "atomic_replace": true,
+      "backup_timers_unchanged": true,
+      "evidence": {
+        "record": "staging_daily_operator_installed",
+        "sha256": "177de68ecfd21c3e78dc88d99e79d15136b24119c452df8469d5a4ed9c1e79ef",
+        "custody": "private_operator_original"
+      },
+      "limitation": "Production configuration was explicitly advanced to the original canonical166 adapter to avoid retaining a schema165-incompatible scheduled operator. This was a reversible configuration repair; it did not run a backup, fabricate a completed after-set or waive runtime backup/restore/cleanup checks. Production restore of the coordinate extension remains unverified.",
+      "production_wrapper_sha256": "e0cbcbd70a42175900f06eb836475be15a65ed8d4512c5f55df4bf80b0b44461",
+      "adapter_sha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
+      "production_status": "installed_pending_production_after_backup",
+      "production_after_backup_passed": false,
+      "deployment_fully_closed": false,
+      "staging_branch_byte_exact": true,
+      "runtime_backup_restore_cleanup_gates_unchanged": true,
+      "production_evidence": {
+        "record": "production_daily_operator_installed_pending_after_backup",
+        "sha256": "06049ce9a024b9f213c88b94599832305f40013742f26b41bf4cf851155892fe",
+        "custody": "private_operator_original"
+      },
+      "repair_candidate_observation": {
+        "observed_at": "2026-10-15T05:29:39.557Z",
+        "production": "one explicit prepared-container candidate failed during restore; owned resources separately reconciled, restore remains unverified",
+        "staging": "prepared_not_executed",
+        "new_candidate_installed": false,
+        "staging_preparation_evidence": {
+          "record": "staging_operator_repair_prepared_not_executed",
+          "sha256": "7a433855854792bc9a272583eb007f0496780eb8110fd24c081d6710b0efeb1a",
+          "custody": "private_operator_original"
+        },
+        "limitation": "Prepared runner gates describe required future results, not completed execution. Current canonical dispatcher installation is retained as dated above; no repaired scheduled operator is claimed."
+      }
+    }
+  ]
+}

@@ -3,11 +3,11 @@ import {Problem} from '../../packages/shared/problem.js';
 import {text,money,currency} from '../../packages/shared/validation.js';
 
 // No URL is fetched except the separate, strictly allowlisted manifest reader.
-export const httpsUrl=z.url().max(2000).refine(value=>{
- const u=new URL(value),h=u.hostname.toLowerCase();
+export const httpsUrl=z.url().max(2000).pipe(z.string().refine(value=>{
+ const u=new URL(value),rawHost=u.hostname.toLowerCase(),h=rawHost.endsWith('.')?rawHost.slice(0,-1):rawHost;
  return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&
  !/^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[)/.test(h)&&h.includes('.')&&!h.endsWith('.local')&&!h.endsWith('.localhost');
-},'請提供不含帳密的公開 HTTPS 網址。');
+},'請提供不含帳密的公開 HTTPS 網址。'));
 const base={schema:z.literal('freedom-shop/v1'),mode:z.enum(['test','live']).default('test'),name:text(120),description:text(1500),website_url:httpsUrl,contact:text(250),currency};
 const unique=<T>(items:T[],key:(item:T)=>string)=>new Set(items.map(key)).size===items.length;
 export const manifestInput=z.discriminatedUnion('kind',[
