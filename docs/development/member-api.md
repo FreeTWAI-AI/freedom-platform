@@ -297,6 +297,14 @@ ordinary accounts still log in. Keep the key stable and securely backed up:
 changing it without separately migrating ciphertext makes enabled factors unreadable.
 No deployment, remote key installation or authenticator-device acceptance is implied.
 
+The login form invalidates a pending authenticator challenge and clears its code
+when the active authentication mode, email or password changes, not when a new
+challenge arrives or its code is entered. Skip reset dispatches when the challenge
+is already off and the code already empty. Unconditional same-value resets on
+every credential keystroke can exhaust React's nested-update limit during rapid
+native typing and lose an email character before registration succeeds. Keep
+authenticator/backup-code entry intact while retaining credential/mode invalidation.
+
 - `POST /me/account/email-verification/request`: `{}`; authenticated member with
   CSRF, including before onboarding completion. The account page exposes send/resend.
   Uses the existing transactional `eventEmailSender` adapter (Worker `EMAIL`
