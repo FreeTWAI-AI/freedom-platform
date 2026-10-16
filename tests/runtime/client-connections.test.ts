@@ -130,7 +130,7 @@ test('storefront bearer sees catalog and only approved store/listings; cannot wr
  assert.equal((await request('/client-api/v1/retail/stores',seller)).status,401);
 });
 
-test('approved store UUID aliases retain the same resource scope, not other stores',async()=>{
+test('store UUID and bearer scheme aliases compose without expanding scope or credential lifetime',async()=>{
  const seller=await ready(DEMO_USERS[1].email),supplier=await ready(),source=await product(supplier);
  const ids=['a0000000-0000-4000-8000-000000000001','b0000000-0000-4000-8000-000000000002','c0000000-0000-4000-8000-000000000003'];
  for(const [index,id]of ids.entries())await pool.query(`INSERT INTO retail_stores(store_id,community_id,seller_ref,name,description,support_contact)
@@ -144,10 +144,21 @@ test('approved store UUID aliases retain the same resource scope, not other stor
  const listingPage=await client(`/retail/stores/${ids[0].toUpperCase()}/listings`,token);
  assert.equal(listingPage.status,200,JSON.stringify(listingPage.data));
  assert.deepEqual(listingPage.data.items.map((row:{listing_id:string})=>row.listing_id),[own.listing_id]);
+ const aliased=(id:string,suffix='',body?:unknown)=>request(`/client-api/v1/retail/stores/${id.toUpperCase()}${suffix}`,undefined,body,undefined,undefined,{Authorization:'bEaReR   '+token});
+ assert.deepEqual((await aliased(ids[0])).data,storePage.data);
+ assert.deepEqual((await aliased(ids[0],'/listings')).data,listingPage.data);
  for(let index=1;index<ids.length;index++)for(const suffix of ['', '/listings']){
-  const denied=await client(`/retail/stores/${ids[index].toUpperCase()}${suffix}`,token);
-  assert.equal(denied.status,404);assert.equal(denied.data.code,'store_not_found');
+  for(const denied of [await client(`/retail/stores/${ids[index].toUpperCase()}${suffix}`,token),await aliased(ids[index],suffix)]){
+   assert.equal(denied.status,404);assert.equal(denied.data.code,'store_not_found');
+  }
  }
+ assert.equal((await aliased(ids[0],'/listings',{})).status,405);
+ await pool.query("UPDATE member_client_connections SET expires_at=clock_timestamp()-interval '1 second' WHERE connection_id=$1",[connected.connection_id]);
+ for(const suffix of ['', '/listings'])assert.equal((await aliased(ids[0],suffix)).status,401);
+ await pool.query("UPDATE member_client_connections SET expires_at=clock_timestamp()+interval '1 hour' WHERE connection_id=$1",[connected.connection_id]);
+ assert.equal((await aliased(ids[0])).status,200);
+ assert.equal((await api(`/me/client-connections/${connected.connection_id}/revoke`,seller,{},1)).status,200);
+ for(const suffix of ['', '/listings'])assert.equal((await aliased(ids[0],suffix)).status,401);
 });
 
 test('supplier bearer is restricted to own products and requests, not other suppliers or retailer data',async()=>{
