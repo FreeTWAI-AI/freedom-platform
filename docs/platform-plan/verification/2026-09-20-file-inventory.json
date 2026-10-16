@@ -169,8 +169,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 34783,
-      "sha256": "8fd205e7880ffef0e638a0e8c9b95b50a015e6db6bec4087c02800aedb01df24"
+      "bytes": 34793,
+      "sha256": "65f361aacb86da8d8184ff875766a63122ec266be04c0ca2d5ba0de894783dd5"
     },
     {
       "path": "apps/freedom.module.json",
@@ -20374,13 +20374,13 @@
     },
     {
       "path": "packages/contribution-tools/runtime-file-weights.mjs",
-      "bytes": 21139,
-      "sha256": "516bf0c205e366e5106ee35f380dfdc76b7d02e4baeb2271c5c1f6fe9defae77"
+      "bytes": 21679,
+      "sha256": "913de8fd634920ed24aef03722af1194952213df551a46a1daf1cc947fb3a158"
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 13978,
-      "sha256": "97796d0c1f879882538561adf22e266ffdc132075323b9016bf2cb207d917c1e"
+      "bytes": 15950,
+      "sha256": "fa6c5689b7efd4e1da12e597492afb7db7a121dc6b6979d192a2c63b2e7a0dc8"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -20399,8 +20399,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 37011,
-      "sha256": "e31567b5e4b5ab891b1617572a63c61d49f790bedac228923ada1d376c903c3f"
+      "bytes": 37079,
+      "sha256": "b1c6676c5fab1f280e5b2fb4d4357edf491fb4348737cc0deb8114a71f67f00e"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -20649,13 +20649,13 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 16250,
-      "sha256": "82b75fcb3c2fe7e602054902206a769e06b668a594b80958307a1612b20ffa41"
+      "bytes": 20059,
+      "sha256": "3c36dbd31b462ac9ea83782c8b0957bcbd82d4d1e1cf95c00a57a4d685283aeb"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
-      "bytes": 7316,
-      "sha256": "e67c0bd85637ec964b63369f668bcd68ee294b932c9ad8a8447633810499e553"
+      "bytes": 7508,
+      "sha256": "e2deb2c4d236d59589a701e4dd55884e0f657ee03f7f02ac879f942616b9f5dc"
     },
     {
       "path": "packages/contribution-tools/test/runtime-weights.test.mjs",
@@ -20714,8 +20714,8 @@
     },
     {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261016.json",
-      "bytes": 17168,
-      "sha256": "b4b2c38184069277132765c21d482ea90fa5bda1008e29ee4345af25836a5e99"
+      "bytes": 17623,
+      "sha256": "c0a8d7ac58f7f8adac470b86b30d4c7c655f7b02c99f37de76e61e9f0171d7af"
     },
     {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37567098443.json",
@@ -21519,13 +21519,13 @@
     },
     {
       "path": "scripts/runtime-aggregate.mjs",
-      "bytes": 1520,
-      "sha256": "ec581798ca33990948a8bfb755f59326c9b145740f9934a1976a7bfecc285552"
+      "bytes": 1524,
+      "sha256": "29f899ae840272785390b35ae1747818d39570669a048674f1a77e9a2dcedb91"
     },
     {
       "path": "scripts/runtime-full.mjs",
-      "bytes": 1770,
-      "sha256": "fd8e5836460c9839117892124def1280c9982907cb85d5d52ef03123ffd1793e"
+      "bytes": 1774,
+      "sha256": "c5b536f87cdb0467e36c3763b20963822418d1f5d5434e6312bc7c1dd184dcaa"
     },
     {
       "path": "scripts/shop-key-legacy-exit.ts",
@@ -21679,8 +21679,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 77399,
-      "sha256": "e226011f277f292e03ba00721db4ce1a58ee867c792892a532e8a83c7f2e8eb3"
+      "bytes": 77405,
+      "sha256": "0a78ac90b7ae506f47bdfb1876d07a9dda0f1d34d354116f90e57c58966e8b5f"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",

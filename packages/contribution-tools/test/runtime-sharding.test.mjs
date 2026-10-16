@@ -11,7 +11,7 @@ test('partition is exact, disjoint and rejects duplicates or invalid sizes', () 
   assert.equal(new Set(shards.flat()).size, files.length);
   assert(Math.max(...shards.map(s=>s.length))-Math.min(...shards.map(s=>s.length))<=1);
   }
-  for (const [input, count] of [[['a', 'a'], 2], [['a'], 2], [files, 3], [files, 5]]) assert.throws(() => partitionRuntimeFiles(input, count));
+  for (const [input, count] of [[['a', 'a'], 2], [['a'], 2], [files, 3], [files, 5], [files, 7]]) assert.throws(() => partitionRuntimeFiles(input, count));
 });
 
 test('reviewed hosted costs distribute heavy fixtures without losing unfinished or newly added files', () => {
@@ -92,31 +92,33 @@ test('October 9 disk costs stay inside the six-partition bounds under the curren
   }
 });
 
-test('October 16 measured costs balance six partitions inside the six-host budget', () => {
+test('October 16 measured costs balance six and eight partitions inside the host budget', () => {
   const observation = JSON.parse(readFileSync(new URL('./fixtures/runtime-hosted-costs-20261016.json', import.meta.url)));
   const files = Object.keys(observation.milliseconds).map(name => 'tests/runtime/' + name).sort();
   const cost = path => observation.milliseconds[path.split('/').at(-1)] ?? 0;
   const total = shard => shard.reduce((sum, path) => sum + cost(path), 0);
 
-  assert.equal(files.length, 395);
+  assert.equal(files.length, 404);
 
-  const partitions6 = partitionRuntimeFiles(files, 6);
-  assert.deepEqual(partitions6.flat().sort(), files);
-  assert.equal(new Set(partitions6.flat()).size, files.length);
-  assert(partitions6.every(shard => JSON.stringify(shard) === JSON.stringify([...shard].sort())));
+  // Per-file minima understate a single hosted run. Run 38968059268 needed up to about
+  // 1.33 times the minima of a six-way share, which left six partitions only a few percent
+  // inside 1,500s minus the 24s reserve; eight partitions leave room for about 1.9 times.
+  for (const [count, bound] of [[6, 1_040_000], [8, 780_000]]) {
+    const partitions = partitionRuntimeFiles(files, count);
+    assert.deepEqual(partitions.flat().sort(), files);
+    assert.equal(new Set(partitions.flat()).size, files.length);
+    assert(partitions.every(shard => JSON.stringify(shard) === JSON.stringify([...shard].sort())));
+    const totals = partitions.map(total);
+    assert(Math.max(...totals) < bound);
+    assert(Math.max(...totals) - Math.min(...totals) < 10_000);
 
-  // Per-file minima understate a single hosted run; the observed run that produced most of
-  // them was about a fifth slower, which this bound still leaves inside 1,500s minus the 24s reserve.
-  const totals6 = partitions6.map(total);
-  assert(Math.max(...totals6) < 1_100_000);
-  assert(Math.max(...totals6) - Math.min(...totals6) < 10_000);
-
-  for (const extra of ['tests/runtime/aaa-unmeasured.test.ts', 'tests/runtime/zzz-unmeasured.test.ts']) {
-    const expanded = [...files, extra].sort();
-    const shards = partitionRuntimeFiles(expanded, 6);
-    assert.deepEqual(shards.flat().sort(), expanded);
-    assert.equal(new Set(shards.flat()).size, expanded.length);
-    const withExtra = shard => shard.reduce((sum, path) => sum + (path === extra ? 15_000 : cost(path)), 0);
-    assert(Math.max(...shards.map(withExtra)) < 1_110_000);
+    for (const extra of ['tests/runtime/aaa-unmeasured.test.ts', 'tests/runtime/zzz-unmeasured.test.ts']) {
+      const expanded = [...files, extra].sort();
+      const shards = partitionRuntimeFiles(expanded, count);
+      assert.deepEqual(shards.flat().sort(), expanded);
+      assert.equal(new Set(shards.flat()).size, expanded.length);
+      const withExtra = shard => shard.reduce((sum, path) => sum + (path === extra ? 15_000 : cost(path)), 0);
+      assert(Math.max(...shards.map(withExtra)) < bound + 10_000);
+    }
   }
 });
