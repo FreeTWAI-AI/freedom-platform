@@ -271,4 +271,3 @@ export function orderEmailNote(view: PaymentView, emailEnabled: boolean): string
   }
   return null;
 }
-

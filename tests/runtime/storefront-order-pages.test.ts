@@ -167,12 +167,14 @@ test('B10 order-access page serves the form with Email, 訂單編號, submit but
   assert.equal(html, orderAccessPageHtml({ slug: s.slug, name: '合成商店' }, { emailEnabled: true }));
   assert.ok(html.includes('<script type="module" src="/assets/storefront.js"></script>'));
   assert.ok(html.includes('<h1 id="shop-order-access-title" tabindex="-1">找回訂單</h1>'));
+  assert.ok(html.includes('<form class="shop-order-section" method="post" novalidate>'));
   assert.ok(html.includes('<label class="shop-add-label" for="shop-order-access-email">Email</label>'));
   assert.ok(html.includes('<input id="shop-order-access-email"'));
   assert.ok(html.includes('<label class="shop-add-label" for="shop-order-access-display-number">訂單編號</label>'));
   assert.ok(html.includes('<input id="shop-order-access-display-number"'));
   assert.ok(html.includes('placeholder="261015-ABCDEF"'));
-  assert.ok(html.includes('<button type="submit" class="shop-button shop-pay-primary">寄送查看連結</button>'));
+  assert.ok(html.includes('<button type="submit" class="shop-button shop-pay-primary" disabled>寄送查看連結</button>'));
+  assert.ok(html.includes('<noscript><p>寄送查看連結需要開啟瀏覽器的 JavaScript。</p></noscript>'));
   assert.ok(html.includes(`<a href="/shops/${s.slug}">回到「合成商店」</a>`));
   assert.equal(html.includes('這間店目前不寄確認信'), false);
   assert.equal(/\bon[a-z]+\s*=/i.test(html), false);
@@ -233,4 +235,3 @@ test('formatTaipeiDateTime formats Asia/Taipei 24-hour timestamps including midn
   assert.equal(formatTaipeiDateTime('2026-01-05T01:05:00.000Z'), '2026/01/05 09:05');
   assert.equal(formatTaipeiDateTime('2026-12-31T15:59:00.000Z'), '2026/12/31 23:59');
 });
-

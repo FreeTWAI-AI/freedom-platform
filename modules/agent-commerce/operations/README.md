@@ -66,11 +66,13 @@ LEAST, so an earlier request wins and a retry never postpones work. `runDueComme
 Each handler binds and validates its own tenant in separate transactions; queries
 extend their attempt lease to 60 seconds and make the external call only after
 commit, while `email` rows check state/expiry/redaction, journal once, mint a
-fresh access link and render in memory before calling the sender outside any
-transaction. The exact lease timestamp is the ownership token. The claim filters to the
+fresh access link and extend their send lease to 60 seconds at the end of Prepare,
+render in memory and call the sender outside any transaction (marking `sent`
+whenever still `queued` even if the lease expired, while deleting the due-work row
+only when its token still matches the Prepare token). The exact lease timestamp is the ownership token. The claim filters to the
 currently runnable kinds (payment kinds require transport and keyring; `email`
-requires `emailEnabled`, sender and journal), so queued emails never crowd out
-payment queries when email is off. The executor stops after 50
+requires `emailEnabled`, sender, journal and an explicit `origin`), so queued emails never crowd out
+payment queries when email is off or `origin` is unavailable. The executor stops after 50
 external calls or five minutes and releases unstarted claims. Errors log only
 kind and a fixed code. Finished rows are deleted; `failure_count` tracks consecutive
 indefinite results separately from total runs and `last_query_at` tracks calls.
@@ -80,13 +82,16 @@ HTTP 403 waits 30 minutes on that account's payment service only.
 
 Notifications, recorded browser returns and matched B10 order-access requests
 queue targeted execution through `PlatformRuntime.afterResponse` after their
-scheduling transaction commits (payment hooks include any `queued` email IDs for
-the attempt's order). Each work item has a 25-second bound. The Worker gathers them in `ctx.waitUntil`, waits
+scheduling transaction commits. Payment hooks register one work item that first
+runs `runDueCommerceWork` for a due `attemptId` (when transport and keyring are
+installed), and then—when `emailEnabled`, sender, journal and `origin` are
+installed and `orderId` is set—selects up to 10 `queued` email IDs for that order
+(`ORDER BY created_at`) and runs `runDueCommerceWork` for those targets. Each work item has a 25-second bound. The Worker gathers them in `ctx.waitUntil`, waits
 with `Promise.allSettled`, then ends its pool. An abandoned timed-out query leaves
 its lease for cron recovery. Node runs detached with fixed-name failure logging;
 tests can install an awaitable collector. The hook spends no notification budget.
-Quarantine Suppresses it; payment hooks require transport/keyring and B10 hooks
-require `emailEnabled`, sender and journal. The ten-minute cron is fallback.
+Quarantine suppresses it; missing transport/keyring skips only the attempt-query
+step, and B10 hooks require `emailEnabled`, sender, journal and `origin`. The ten-minute cron is fallback.
 Queries write verified inbox facts, never an external-effect journal record.
 
 `provider-entry-paths.ts` recognizes exactly the payment callback POST and the

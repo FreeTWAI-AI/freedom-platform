@@ -20,7 +20,7 @@ import { Pool, Client, type PoolClient } from 'pg';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { migrate } from '../../scripts/database.js';
 import { digest } from '../../packages/db/index.js';
-import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
+import { freezeCheckout, placeCheckoutOrder } from '../../modules/agent-commerce/checkout/index.js';
 import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
@@ -349,23 +349,21 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
       VALUES($1,$2,'payment_query',$3,clock_timestamp()+interval '10 minutes',4,3,clock_timestamp(),'verify_failed')`,
     [space.tenantId,space.hosted.instanceId,attemptId]);
     const store = (await q.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [space.hosted.instanceId])).rows[0];
+    const shipping = { async quote(_q: PoolClient, _store: unknown, input: { lines: readonly { supplier_shop_id: string }[] }) {
+      return { groups: input.lines.map(line => ({ group_ref: 'synthetic-group', supplier_shop_id: line.supplier_shop_id, method_ref: 'synthetic', amount_minor: 0 })) };
+    } };
     space.checkout = await freezeCheckout(q, store, {
       publication_revision: '1', lines: [{ sku: 'P0001', quantity: 1 }],
       contact: { name: '測試買家甲', email: `restore-${space.tenantId}@example.test`, phone: '0900000000' },
       delivery: { address: '合成測試地址' }, invoice: null, consents: [], idempotencyKey: randomUUID(),
-    }, { shipping: { async quote(_q, _store, input) {
-      return { groups: input.lines.map(line => ({ group_ref: 'synthetic-group', supplier_shop_id: line.supplier_shop_id, method_ref: 'synthetic', amount_minor: 0 })) };
-    } } });
-    const orderId = randomUUID();
-    await q.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,order_profile,client_order_id)
-      SELECT $1,$2,$3,$4,'TWD',100,t,t+interval '30 minutes','hosted_checkout',$5 FROM (SELECT date_trunc('milliseconds',clock_timestamp()) t) n`,
-    [orderId, store.storefront_shop_id, `chk:${space.checkout.checkout_id}:${orderId}`, space.checkout.terms_sha256, orderId]);
-    await q.query(`INSERT INTO commerce_checkout_orders(order_id,tenant_id,instance_id,checkout_id,customer_id,contact_id,display_number,terms,terms_sha256,environment)
-      SELECT $1,tenant_id,instance_id,checkout_id,customer_id,current_contact_id,'261015-'||upper(substr(replace($1::text,'-',''),1,6)),terms,terms_sha256,'sandbox'
-      FROM commerce_checkouts WHERE checkout_id=$2`, [orderId, space.checkout.checkout_id]);
+    }, { shipping });
+    const order = await placeCheckoutOrder(q, store, {
+      checkoutId: space.checkout.checkout_id, termsSha256: space.checkout.terms_sha256,
+      clientOrderId: randomUUID(), buyerPrincipalId: null, environment: 'sandbox',
+    }, { shipping, admission: { async allowed() { return true; } } });
     await q.query(`INSERT INTO commerce_outbound_emails(tenant_id,instance_id,order_id,template,access_request_id,created_at,expires_at)
       SELECT $1,$2,$3,'order_access',$4,t,t+interval '7 days' FROM (SELECT clock_timestamp() t) n`,
-    [space.tenantId, space.hosted.instanceId, orderId, randomUUID()]);
+    [space.tenantId, space.hosted.instanceId, order.order_id, randomUUID()]);
     await q.query(`INSERT INTO commerce_exception_cases(tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind) VALUES($1,$2,'unmatched_payment','payment_event',$3,'retailer',clock_timestamp()+interval '72 hours','system')`,[space.tenantId,space.hosted.instanceId,randomUUID()]);
     const {device}=await ensureDevice(q,undefined,'https://example.test');
     await grantDevice(q,device.device_id,{tenant_id:space.tenantId,instance_id:space.hosted.instanceId,checkout_id:space.checkout.checkout_id});

@@ -91,4 +91,3 @@ test('review 15: distinct journal buckets and media buckets pass across environm
   config.env.public.r2_buckets.push({ binding: 'MEDIA', bucket_name: 'synthetic-public-media' });
   assert.deepEqual(check(config).errors, []);
 });
-

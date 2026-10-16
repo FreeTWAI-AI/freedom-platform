@@ -35,4 +35,3 @@ test('Node and Worker use the same parsed settings and site reports effective ch
   }
   assert.throws(()=>readWorkerConfig({...env(),FREEDOM_COMMERCE_QUARANTINE:'invalid'}),ReadinessError);
 });
-

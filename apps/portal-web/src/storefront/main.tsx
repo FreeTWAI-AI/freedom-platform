@@ -2762,11 +2762,13 @@ function OrderAccessPage({
           <a href={`/shops/${storeSlug}`}>回到「{storeName}」</a>
         </div>
       </form>
-      {statusMessage && (
-        <p role="status" className="shop-order-alert">
-          {statusMessage}
-        </p>
-      )}
+      <div role="status">
+        {statusMessage && (
+          <p className="shop-order-alert">
+            {statusMessage}
+          </p>
+        )}
+      </div>
     </>
   );
 }
@@ -2802,4 +2804,3 @@ function bootStorefront() {
 }
 
 bootStorefront();
-
