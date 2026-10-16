@@ -14094,8 +14094,8 @@
     },
     {
       "path": "docs/development/onboarding-api.md",
-      "bytes": 20899,
-      "sha256": "4782f7a513780efb3f6409d373ffa8f98d51226a49af7ebb1eb540d48deccb9e"
+      "bytes": 21282,
+      "sha256": "5cc89e9cf4c8beca00758e212bd7878cc1d79448e3fd0aefa50b5991a09f771a"
     },
     {
       "path": "docs/development/openrouter-byok.md",
@@ -16079,8 +16079,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 31109,
-      "sha256": "29406d06e85bd82e624ca4476642527e937fcef554200f8d685ae3b1af2cb135"
+      "bytes": 31710,
+      "sha256": "dad2cfbca4141e19beadfe6810971c33e9b86624e92401feed0f8bcd5e260983"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -18469,8 +18469,8 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 5050,
-      "sha256": "9670a2d3669e8df9a0ddc1e9bebaa22c7a4425ce1ad088027979af6f70bd33d3"
+      "bytes": 5105,
+      "sha256": "78b32b182abde80c2ced6a65ba2603538ab53e65ea01321984da0fe6f62d3cf7"
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
@@ -18934,8 +18934,8 @@
     },
     {
       "path": "modules/positioning/freedom.module.json",
-      "bytes": 1169,
-      "sha256": "ae70cb496908f677f2582a6074bbeed5edccd7f9d3423bc171817b9dbcd7a014"
+      "bytes": 1217,
+      "sha256": "4fcf0c6c2b1b7b3d8d6b2bae56d233677611e7c2b7e8837571b6f99810e6b843"
     },
     {
       "path": "modules/positioning/guild-categories.ts",
@@ -18949,8 +18949,8 @@
     },
     {
       "path": "modules/positioning/member-tier.ts",
-      "bytes": 9172,
-      "sha256": "56be9442e97a2f2c2715f88034bba15963d2d4c1c048ea6578e7d7797d89265f"
+      "bytes": 9231,
+      "sha256": "f933f601c9b5ee2e9926ce451ec5f45e8e54845c92238a2d37f507f4fea0fd76"
     },
     {
       "path": "modules/positioning/onboarding.ts",
@@ -22484,8 +22484,8 @@
     },
     {
       "path": "tests/runtime/guild-member-tiers.test.ts",
-      "bytes": 19960,
-      "sha256": "851e8f20aa58cb9a022b32420572e9f95c57295a604c3003a2a027fc4ccce133"
+      "bytes": 22529,
+      "sha256": "81e063e0bef5b40b588d529017d85a123e3b1822fcde6ea8eb86924548a8203a"
     },
     {
       "path": "tests/runtime/guild-preferences.test.ts",
