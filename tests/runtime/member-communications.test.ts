@@ -179,6 +179,52 @@ test('marking a notification read is own-recipient only, idempotent, replay-safe
   assert.equal((await request('/me/notifications',b)).data.unread_count,1);
 });
 
+test('a notification arriving while its read waits for the session is not read before it was created',async()=>{
+  const [a]=await signInAll(),id=randomUUID(),blocker=await pool.connect();
+  let pending:ReturnType<typeof request>|undefined;
+  try{
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT token_hash FROM sessions WHERE user_id=$1 FOR UPDATE',[A]);
+    pending=request(`/me/notifications/${id}/read`,a,{});
+    await waitUntilBlocked(pid,1,[pending]);
+    // The command transaction already started; this notice arrives afterwards.
+    await pool.query(`INSERT INTO member_notifications(notification_id,community_id,recipient_ref,kind,source_key,title,body)
+      VALUES($1,$2,$3,'friend_request',$4,'合成通知','session 等待期間才到達')`,[id,DEMO_COMMUNITY,A,`test/${id}`]);
+    await blocker.query('COMMIT');
+    const response=await pending;
+    assert.equal(response.status,200,JSON.stringify(response.data));
+    const stored=(await pool.query('SELECT read_at,read_at>=created_at AS chronological FROM member_notifications WHERE notification_id=$1',[id])).rows[0];
+    assert.equal(stored.chronological,true,'first read must not predate notification creation');
+    assert.equal(response.data.read_at,stored.read_at.toISOString());
+    assert.equal((await request('/me/notifications',a)).data.unread_count,0);
+  }finally{
+    await blocker.query('ROLLBACK').catch(()=>{});blocker.release();
+    await pending?.catch(()=>{});
+  }
+});
+
+test('a first notification read takes its timestamp after waiting for the notification row',async()=>{
+  const [a]=await signInAll(),id=(await notify(notice(A)))!.notification_id,blocker=await pool.connect();
+  let pending:ReturnType<typeof request>|undefined;
+  try{
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT notification_id FROM member_notifications WHERE notification_id=$1 FOR UPDATE',[id]);
+    pending=request(`/me/notifications/${id}/read`,a,{});
+    await waitUntilBlocked(pid,1,[pending]);
+    const releaseAt=(await blocker.query('SELECT clock_timestamp()::text AS at')).rows[0].at as string;
+    await blocker.query('COMMIT');
+    const response=await pending;
+    assert.equal(response.status,200,JSON.stringify(response.data));
+    const stored=(await pool.query('SELECT read_at>=$2::timestamptz AS after_wait FROM member_notifications WHERE notification_id=$1',[id,releaseAt])).rows[0];
+    assert.equal(stored.after_wait,true,'first read must use the post-row-wait mutation clock');
+  }finally{
+    await blocker.query('ROLLBACK').catch(()=>{});blocker.release();
+    await pending?.catch(()=>{});
+  }
+});
+
 test('notifyMember rejects arbitrary actions, extra fields and cross-community recipients, and deduplicates by source key',async()=>{
   const outsider=await extraMember('outside',randomUUID());
   const bad:Partial<NotifyMemberInput>[]=[

@@ -87,9 +87,10 @@ export async function listNotifications(pool:Pool,actor:Actor,raw:unknown):Promi
 }
 export async function markNotificationRead(pool:Pool,input:Command,rawId:string){
   Empty.parse(input.body);const id=z.uuid().parse(rawId).toLowerCase();
-  const own=async(q:PoolClient)=>{await currentMember(q,input.actor,false);requireCondition((await q.query('SELECT 1 FROM member_notifications WHERE notification_id=$1 AND community_id=$2 AND recipient_ref=$3',[id,input.actor.community_id,input.actor.user_id])).rowCount===1,404,'notification_not_found','找不到這則通知。');};
+  // Lock before evaluating the mutation clock; UPDATE expressions can run before a row wait.
+  const own=async(q:PoolClient)=>{await currentMember(q,input.actor,false);requireCondition((await q.query('SELECT 1 FROM member_notifications WHERE notification_id=$1 AND community_id=$2 AND recipient_ref=$3 FOR UPDATE',[id,input.actor.community_id,input.actor.user_id])).rowCount===1,404,'notification_not_found','找不到這則通知。');};
   return command(pool,input,own,async q=>{
-    const row=(await q.query(`UPDATE member_notifications SET read_at=COALESCE(read_at,now()) WHERE notification_id=$1 AND community_id=$2 AND recipient_ref=$3
+    const row=(await q.query(`UPDATE member_notifications SET read_at=COALESCE(read_at,clock_timestamp()) WHERE notification_id=$1 AND community_id=$2 AND recipient_ref=$3
       RETURNING notification_id,read_at`,[id,input.actor.community_id,input.actor.user_id])).rows[0];
     return {notification_id:row.notification_id as string,read_at:iso(row.read_at)!};
   });
