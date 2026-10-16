@@ -28,6 +28,16 @@ the check is before returning the projection, not through commit/HTTP delivery.
 
 Send `Authorization: Bearer <access_token>` to `/client-api/v1`. Every request checks active user, completed onboarding, expiry, revocation and resource scope in the same PostgreSQL transaction as the read. Expiry uses `clock_timestamp()` after the member lock. `/connection` metadata checks it again after the credential-row lock, before any metadata is returned. List reads check it again after the data query. A credential-row wait that crosses expiry denies both. No browser session or synthetic Actor is created.
 
+The HTTP authentication scheme is ASCII case-insensitive and accepts one or more
+ASCII spaces before the credential, per [RFC 9110 §11.1](https://www.rfc-editor.org/rfc/rfc9110#section-11.1)
+and [§11.4](https://www.rfc-editor.org/rfc/rfc9110#section-11.4).
+For example, `bearer <access_token>` and `bEaReR   <access_token>` authenticate
+the same exact token. The opaque `fw_read_` token is never lowercased or trimmed;
+its prefix, format and case-sensitive hash lookup are unchanged. HTAB or other
+whitespace is not a substitute for the ASCII-space separator. Polling still
+reports `token_type:"Bearer"`; resource scope, expiry, revocation and GET-only
+restrictions do not change.
+
 | Route (GET only) | Scope |
 |---|---|
 | `/connection` | Current connection metadata, no credential |

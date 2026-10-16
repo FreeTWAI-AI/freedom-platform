@@ -123,9 +123,10 @@ async function assertClientConnectionClock(q:PoolClient,connectionId:string){
  requireCondition((await q.query('SELECT 1 FROM member_client_connections WHERE connection_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[connectionId])).rowCount===1,401,'client_token_invalid','讀取連線已失效，請重新配對。');
 }
 export async function readClientResource(pool:Pool,authorization:string|undefined,resource:ClientResource,requestedStoreId?:string){
- requireCondition(authorization&&/^Bearer fw_read_[A-Za-z0-9_-]{43}$/.test(authorization),401,'client_token_invalid','讀取連線已失效，請重新配對。');
+ // Only the HTTP scheme is case-insensitive; keep the opaque credential's exact bytes.
+ requireCondition(authorization&&/^[Bb][Ee][Aa][Rr][Ee][Rr] +fw_read_[A-Za-z0-9_-]{43}$/.test(authorization),401,'client_token_invalid','讀取連線已失效，請重新配對。');
  return transaction(pool,async q=>{
-   const credentialHash=tokenHash(authorization.slice(7));
+   const credentialHash=tokenHash(authorization.slice(authorization.lastIndexOf(' ')+1));
    const owner=(await q.query('SELECT user_id,community_id FROM member_client_connections WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[credentialHash])).rows[0];
    requireCondition(owner,401,'client_token_invalid','讀取連線已失效，請重新配對。');
    // Member → connection is the same lock order as administrative deactivation.
