@@ -21329,8 +21329,8 @@
     },
     {
       "path": "scripts/e2e-ecpay-fixture.ts",
-      "bytes": 13331,
-      "sha256": "f1bf86543f9b930f339473042b3f98d6fc1d3e2f51059d51f3badc9298e00152"
+      "bytes": 13352,
+      "sha256": "448cc8d1ca81a68aaa5754de3d1ea29074cd876b602c74b7c662439992dbe048"
     },
     {
       "path": "scripts/e2e-server.ts",
@@ -22064,8 +22064,8 @@
     },
     {
       "path": "tests/e2e/hosted-payment-fixture.ts",
-      "bytes": 15025,
-      "sha256": "1d4c137c078690e5f49d053314f6c9c64dba494740b12c2f49fa65f3dd5643e4"
+      "bytes": 14994,
+      "sha256": "69b7828351c846cd5d8d80157b7eab1c0caf00e5f638a79a126a6ad22b779219"
     },
     {
       "path": "tests/e2e/hosted-payment-queries.spec.ts",
@@ -23029,8 +23029,8 @@
     },
     {
       "path": "tests/runtime/commerce-provider-accounts.test.ts",
-      "bytes": 22969,
-      "sha256": "22f1a7e51a3943d8567cf302e88dc184a3c8d0eb31c6854edd6ce34ebb463005"
+      "bytes": 22960,
+      "sha256": "816699ac0ae1814006c731b60cabd7f47999c3ccd0a1414b2cc7dbfb7b83171d"
     },
     {
       "path": "tests/runtime/commerce-rate-limits.test.ts",
@@ -23569,8 +23569,8 @@
     },
     {
       "path": "tests/runtime/hosted-payment-canary.test.ts",
-      "bytes": 8563,
-      "sha256": "17d1bf3c958dd59a12e65b0d5e314bc68d9121047a557c58e9053561a876f762"
+      "bytes": 8553,
+      "sha256": "8b6b651bd6810dd10cf15e03b1296e89d2a85a477a5d3d88032b2c477ad42e19"
     },
     {
       "path": "tests/runtime/hosted-payment-handoff.test.ts",
@@ -23579,8 +23579,8 @@
     },
     {
       "path": "tests/runtime/hosted-payment-notifications.test.ts",
-      "bytes": 68886,
-      "sha256": "27e518fd2c1fec45641b5bb0c31fda4a3456c25b6a3fdd0350696084e5499fa0"
+      "bytes": 68832,
+      "sha256": "8b068d02b1d877d35d173d4bca9f694ec736a551c3bfd75775ecbbc38adf0fcb"
     },
     {
       "path": "tests/runtime/hosted-payment-queries.test.ts",

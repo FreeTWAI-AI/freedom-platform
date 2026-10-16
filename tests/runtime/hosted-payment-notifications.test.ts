@@ -1,6 +1,6 @@
 import { applyDeferredPaymentEvents } from '../../modules/agent-commerce/payments/events.js';
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { before, after, beforeEach, test } from 'node:test';
 import type { PoolClient } from 'pg';
 import { hostedPaymentHarness } from '../e2e/hosted-payment-fixture.js';
@@ -23,7 +23,7 @@ beforeEach(async () => f.reset());
 after(async () => f?.stop());
 async function body(p: Placed, overrides: Record<string, string> = {}, material = p.provider.material) {
   const a = (await f.x.h.pool.query('SELECT merchant_trade_no FROM commerce_payment_attempts WHERE attempt_id=$1', [p.payment.attempt_ref])).rows[0];
-  return encodeForm(signFields({ MerchantID: '1234567', MerchantTradeNo: a.merchant_trade_no, TradeNo: 'T' + randomBytes(8).toString('hex').toUpperCase(), RtnCode: '1', RtnMsg: '合成付款結果', TradeAmt: '5', SimulatePaid: '0', PaymentDate: '2026/10/15 10:20:30', PaymentType: 'Credit_CreditCard', PaymentTypeChargeFee: '0.3', gwsr: '12345', card6no: String(randomBytes(3).readUIntBE(0, 3) % 1000000).padStart(6, '0'), card4no: String(randomBytes(2).readUInt16BE() % 10000).padStart(4, '0'), auth_code: randomBytes(3).toString('hex'), ...overrides }, EcpayKeyPair.of(material.hash_key, material.hash_iv), 'sha256'));
+  return encodeForm(signFields({ MerchantID: '1234567', MerchantTradeNo: a.merchant_trade_no, TradeNo: 'T' + randomBytes(8).toString('hex').toUpperCase(), RtnCode: '1', RtnMsg: '合成付款結果', TradeAmt: '5', SimulatePaid: '0', PaymentDate: '2026/10/15 10:20:30', PaymentType: 'Credit_CreditCard', PaymentTypeChargeFee: '0.3', gwsr: '12345', card6no: String(randomInt(1000000)).padStart(6, '0'), card4no: String(randomInt(10000)).padStart(4, '0'), auth_code: randomBytes(3).toString('hex'), ...overrides }, EcpayKeyPair.of(material.hash_key, material.hash_iv), 'sha256'));
 }
 const path = (p: Placed) => '/api/v1/provider-callbacks/ecpay/' + p.provider.accountRef + '/payment';
 async function post(url: string, value: string | ReadableStream<Uint8Array>, headers: Record<string, string> = {}, method = 'POST') {
@@ -248,7 +248,7 @@ test('a forced commit failure returns 500 and rolls back the inbox, attempt and 
   assert.equal((await f.x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [p.s.product.product_id])).rows[0].reserved, 5);
 });
 async function rotate(p: Placed) {
-  const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomBytes(4).readUInt32BE() % 100000000).padStart(8, '0') };
+  const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomInt(100000000)).padStart(8, '0') };
   const sealed = sealCredential(f.ring, { account_id: p.provider.accountId, purpose: 'payment', environment: 'sandbox', credential_version: 2 }, material);
   await f.x.tx(async (q) => {
     await bindStore(q, p.s.tenantId);

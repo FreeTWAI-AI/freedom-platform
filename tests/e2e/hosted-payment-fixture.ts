@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { checkoutHarness, ok, ports } from '../runtime/hosted-checkout-harness.js';
 import { createPlatformApp } from '../../apps/platform-api/src/platform-app.js';
 import { nodeRuntime } from '../../apps/platform-api/src/app.js';
@@ -61,7 +61,7 @@ export async function hostedPaymentHarness(prefix: string, options: {
     ok(await call('POST', s.root + '/upgrade', {}, version));
     const fresh = async () => ok(await call('POST', '/me/high-risk-verifications', { tenant_id: s.tenantId, purpose: 'commerce.provider_account.write', password: DEMO_PASSWORD }), 201).verification_id;
     let account = ok(await call('POST', s.root + '/provider-accounts', { provider: 'ecpay', environment: 'sandbox', merchant_id: '1234567', fresh_auth_verification_id: await fresh() }), 201);
-    const material = materialOverride ?? { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomBytes(4).readUInt32BE() % 100000000).padStart(8, '0') };
+    const material = materialOverride ?? { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomInt(100000000)).padStart(8, '0') };
     account = ok(await call('PUT', s.root + `/provider-accounts/${account.account_id}/services/payment`, { profile: 'ecpay.aio.credit.v1', ...material, fresh_auth_verification_id: await fresh() }, account.version));
     await x.tx(async (q) => { await bindStore(q, s.tenantId); await activateProviderService(q, { accountId: account.account_id, purpose: 'payment', activationRef: randomUUID() }); });
     const admitted = await http('POST', '/admin/api/commerce/store-admissions', { tenant_id: s.tenantId, instance_id: s.instanceId, reason: '合成付款驗證' }, undefined, { 'X-Admin-CSRF': csrf, 'Idempotency-Key': randomUUID() });
@@ -131,7 +131,7 @@ export async function setupE2ePayment(db: import('pg').Pool, browser: import('@p
     };
     const fresh = async () => (await command('POST', '/me/high-risk-verifications', { tenant_id: store.tenant, purpose: 'commerce.provider_account.write', password: DEMO_PASSWORD }, 201)).verification_id;
     let account = await command('POST', store.root + '/provider-accounts', { provider: 'ecpay', environment: 'sandbox', merchant_id: '1234567', fresh_auth_verification_id: await fresh() }, 201);
-    const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomBytes(4).readUInt32BE() % 100000000).padStart(8, '0') };
+    const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomInt(100000000)).padStart(8, '0') };
     account = await command('PUT', store.root + `/provider-accounts/${account.account_id}/services/payment`, { profile: 'ecpay.aio.credit.v1', ...material, fresh_auth_verification_id: await fresh() }, 200, account.version);
     if(options.activationOnly)return {accountId:account.account_id as string,material,version:account.version as string};
     const { isolatedTransaction } = await import('../../packages/resource-scopes/tenant-transaction.js');

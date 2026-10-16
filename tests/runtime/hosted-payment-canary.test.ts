@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -22,7 +22,7 @@ test('canary detection covers every required encoding and reports location witho
   assert.throws(() => check('console_error', formatWithOptions({ colors: false }, new Error(canary))), { message: 'payment_canary_leak_at_console_error' });
 });
 test('payment keys and ignored card fields never reach responses, public database columns, logs or the effect journal', async () => {
-  const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomBytes(4).readUInt32BE() % 100000000).padStart(8, '0') };
+  const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomInt(100000000)).padStart(8, '0') };
   // Long random taint markers in ignored fields avoid accidental matches against
   // unrelated four-digit substrings of UUIDs, timestamps and SHA-256 digests.
   const card6 = 'CANARY_CARD6_' + randomBytes(16).toString('hex'), card4 = 'CANARY_CARD4_' + randomBytes(16).toString('hex');

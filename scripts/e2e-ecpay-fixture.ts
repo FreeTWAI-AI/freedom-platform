@@ -2,7 +2,7 @@ import {createFixtureQueryTransport} from '../modules/agent-commerce/payments/qu
 import {runDueCommerceWork} from '../modules/agent-commerce/operations/due-work.js';
 import {commerceEmailOutbox} from '../modules/agent-commerce/operations/notifications/outbox.js';
 import type {FixtureEmailSender} from '../modules/agent-commerce/operations/notifications/email-port.js';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import type { FreedomEnv } from '../apps/platform-api/src/env.js';
@@ -40,7 +40,7 @@ export function createE2eEcpayFixture(input: {
     url: string;
     body: string;
   }>();
-  const digits = (n: number) => [...randomBytes(n)].map(b => String(b % 10)).join(''), card6 = digits(6), card4 = digits(4);
+  const digits = (n: number) => Array.from({ length: n }, () => String(randomInt(10))).join(''), card6 = digits(6), card4 = digits(4);
   async function attempt(id: string,current=false) {
     return isolatedTransaction(input.pool, async (q) => {
       const a = (await q.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1', [id])).rows[0];

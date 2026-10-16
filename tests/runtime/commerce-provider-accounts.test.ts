@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import {randomBytes,randomUUID} from 'node:crypto';
+import {randomBytes,randomInt,randomUUID} from 'node:crypto';
 import {inspect} from 'node:util';
 import {test} from 'node:test';
 import {CommerceCredentialKeyring,sealCredential,unsealCredential,resealCredential,credentialFingerprint,_sealCredentialWithNonceForTest} from '../../modules/agent-commerce/payments/credentials.js';
 import {CREDENTIAL_SEAL_VECTOR as vector} from '../../modules/agent-commerce/payments/credential-seal-vector.js';
-const randomMaterial=()=>({hash_key:randomBytes(16).toString('hex').slice(0,16),hash_iv:randomBytes(16).toString('hex').slice(0,16),credit_check_code:String(randomBytes(4).readUInt32BE()%100000000).padStart(8,'0')});
+const randomMaterial=()=>({hash_key:randomBytes(16).toString('hex').slice(0,16),hash_iv:randomBytes(16).toString('hex').slice(0,16),credit_check_code:String(randomInt(100000000)).padStart(8,'0')});
 const entry=(id='current')=>`${id}:${randomBytes(32).toString('base64')}`;
 const context=()=>({account_id:randomUUID(),purpose:'payment' as const,environment:'sandbox' as const,credential_version:1});
 test('keyring parse enforces canonical opaque 1..8 entries and fixed errors',()=>{
