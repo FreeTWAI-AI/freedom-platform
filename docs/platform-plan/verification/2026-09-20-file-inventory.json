@@ -15274,8 +15274,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
-      "bytes": 28613,
-      "sha256": "28adf3dc348b75936a1194b9d1fb87c957c4177d07520403732499c6c157d274"
+      "bytes": 29024,
+      "sha256": "871ed29b6325a9e6c2e531cd130ac089da678b464d144673d5c7494d946a2e3f"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-02-catalog-storefront-cart.md",
@@ -15284,13 +15284,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md",
-      "bytes": 30873,
-      "sha256": "a21005de84ced5ca21137aab239de4784bde1e27ce7d06137479083401700466"
+      "bytes": 31415,
+      "sha256": "25f2e8778941e3fa81653981c4c29c47b80c7ed02cee3a71607b26ae9c8afeda"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 44518,
-      "sha256": "39b7b00fbd836a9ca1be85466aef15730d03d120ab10d68cf9f4bdfb33e911a7"
+      "bytes": 47575,
+      "sha256": "721fb1a49b459b04dcd0dac414bc087c3d8e22777f17dbb425caa92b9a99286a"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
@@ -15299,8 +15299,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
-      "bytes": 56548,
-      "sha256": "f005789e6f946a3e14ee52fe19bb26bda690c44ed51a98953bf660677ddac014"
+      "bytes": 56682,
+      "sha256": "db2a4b9b79b4de9ee327f1b81bd3ec9fa35a83f75c33ad9dc6e18f993092b35b"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-07-operations-skillbooks.md",
@@ -15344,8 +15344,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/pages.md",
-      "bytes": 16953,
-      "sha256": "482912be4bc4f0e7dda85f1dea1b46cd80fcc8a263ded66cdf03d75024cc94e5"
+      "bytes": 17192,
+      "sha256": "3179a604c7c0a0471814aa3bbf3475d568ddf998de82d9bc0c85725089cc1afb"
     },
     {
       "path": "docs/platform-plan/execution/commerce/sources.md",
@@ -15354,8 +15354,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 37260,
-      "sha256": "f3d92ccb9bdf32de5270a61d5e538475f5ca9a0af898e34ddc74e2b4b44361c3"
+      "bytes": 40595,
+      "sha256": "3dcf97c4be812512f655167c1f151d2954c66f4a7753cd82d1475575af1d3624"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",

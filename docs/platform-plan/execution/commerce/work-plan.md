@@ -67,11 +67,12 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | refund-rules | 退款分攤的純規則：行項上限、運費建議、分攤與調低的檢查、未套用付款的退款（EC-SPEC-06 §2.5、EC-SPEC-04 §7.2） | flash | — | 完成（`fc/refund-rules` `4376e471`，整合 `69067716`） |
 | wp04-payments | attempt 與一次性交接頁、付款通知與瀏覽器返回（含閘道例外）、外部效果日誌、到期工作與例外的表、買家的付款摘要、隔離模式的付款閘門、能力 `commerce.hosted-payment.v1` 與強制下限；不呼叫綠界（EC-SPEC-04 §3～§5、EC-SPEC-09 §2.6、EC-SPEC-10 §3） | Codex | wp04-accounts、ecpay-aio | 完成（`fc/wp04-payments` `c8044968`，整合 `f852b742`） |
 | wp04-queries | 查詢與到期工作的執行（用 `commerce_due_work`，不建 outbox）、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 進行中（`fc/wp04-queries`） |
-| wp04-refunds | 退款紀錄、API 退款與人工紀錄、結果不明的退款（EC-SPEC-04 §7、EC-SPEC-06 §2.5） | Codex | wp04-queries、refund-rules | 之後 |
+| wp04-seller | 賣家端的 M2 後端：訂單讀取（E05 的 `…/checkout-orders`）、未付款取消、付款例外的處理、立即查詢；未套用付款的人工退款紀錄與買家的 `refunded`（EC-SPEC-03 §3.2、EC-SPEC-04 §7.1～7.2、EC-SPEC-09 §2.2） | Codex | wp04-queries、buyer-pay、refund-rules | 之後 |
+| wp04-refund-api | API 退款：operations outbox、QueryTrade/V2 與 DoAction、結果不明、每日關帳時段（EC-SPEC-04 §7.3～7.4）；正式環境預設關閉 | Codex | wp04-seller | C2 受控試用排定時 |
 | buyer-pay | B06 待付款與付款返回、B07 的「前往付款」與「查詢付款結果」 | argon | wp04-payments；查詢按鈕要 wp04-queries | 進行中（`fc/buyer-pay`） |
 | E 殼與 E05、E09、E11 | 訂單、收款、設定頁；`CONSOLE` 開關（依賴 Supplier Console 的旗標） | argon | 共用殼進 main；wp04-accounts | 之後 |
 | 信件範本 | 五封買家信件的純文字範本，README 的範例由測試核對（EC-SPEC-10 §6.1） | flash；修正輪 argon | — | 完成（`fc/email-templates` `04916980`，整合 `0bc97559`） |
-| 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-payments | 之後 |
+| 信件列與寄送 | 信件列、`EmailPort` 的正式實作、到期工作寄送、fixture sender（EC-SPEC-10 §6.3、§6.4） | 之後決定 | 信件範本、wp04-queries（到期工作的執行） | 之後 |
 
 **M3 履約（`commerce.hosted-fulfilment.v1`）**
 
@@ -199,6 +200,32 @@ descriptor，context 工具回 `surface_unmapped`，Codex 依規則停下，媒�
 兩個工作從同一個 SHA 開出。buyer-pay 的「查詢付款結果」在它的 E2E 用 `page.route` 回應；wp04-queries 先合併，
 整合者再用真的端點重跑 buyer-pay 的 E2E。合併後的整合驗證（聚焦的 runtime、worker、媒體還原、E2E 與完整測試）和這兩個
 工作同時跑，結果記在下一次更新。
+
+第六批原本從 `fb27a3fc` 開出。整合者在工作改動任何檔案前停下：那個 SHA 的 typecheck 在兩個購物車測試失敗（TS2741）。
+wp04-payments 讓 `CommerceSettings.providerProfiles` 成為必填，buyer-cart 的 fixture 寫在那之前；兩個分支各自都過，
+合併後才出現。整合者在 fixture 補上 `providerProfiles: []`（`cb5e4e34`），兩個工作改從這個 SHA 開出。之後每次合併都先跑
+typecheck，再從那個 SHA 派工。
+
+`cb5e4e34` 的整合驗證：typecheck、契約、build、付款 runtime 364/364、checkout 238/238、商店 40/40、cloudflare
+543/543、selector 42/42、unknown-paths 0、媒體還原、E2E 付款 18 與商店 15、inventory 都過。worker 122/123：
+`media-operator-images-worker` 的「private native operator RPC installs only four purposes」在兩個 CLI 工作同時執行時
+到 60 秒逾時；單獨重跑（自己的資料庫）7.1 秒通過，以前的執行是 6.8～7.4 秒，`cb5e4e34` 只改購物車的測試 fixture，
+所以是負載造成的逾時。worker 序列與完整測試在 `cb5e4e34` 上執行中。
+
+wp04-queries 在寫程式前依矛盾規則停下：工作說明要驗證付款的命令檢查「收款帳戶是 `active`」，但收款帳戶沒有自己的
+生命週期，只有付款服務有（EC-SPEC-04 §1.2）。這是工作說明寫錯。整合者改成：店家與商店實例是 `active`、帳戶屬於它們，
+沿用 `payments/accounts.ts` 的 `command(...)`，不符時回 403 `capability_denied`，不加新的錯誤碼；`service_activation`
+的交接頁遇到停用的店家，和訂單付款一樣回 409 `payment_handoff_unavailable`；`tenant_inactive` 只是到期工作的
+`last_error`。第一份補充說明誤把 `tenant_inactive` 寫成 HTTP 錯誤碼，整合者在 Codex 還在讀檔時停下那次續跑，
+改用更正後的補充說明重開。EC-SPEC-04 §1.2 補上「收款帳戶沒有生命週期」（`1641c394`）。
+
+M2 剩下的工作重新切分（§4）。E05 原本列的 `GET …/orders` 已是 v1 直接預留的賣家路徑（`hosted-orders.ts:72`），
+`hosted_checkout` 的訂單還沒有任何賣家 API；`cancelUnpaidOrder` 沒有路由，付款例外也沒有讀取與結案的路徑。
+M2 的驗收（EC-SPEC-10 §4.6）不含退款；API 退款只限正式環境，要等 C2 的受控試用。所以 wp04-refunds 拆成兩個：
+wp04-seller 做賣家端的 M2 後端與未套用付款的人工退款紀錄；wp04-refund-api 做 API 退款，受控試用排定時才開出。
+規格先改（`6a61d053`）：M2 的退款只有人工紀錄，每筆連到一筆未套用的付款，上限是那筆套用紀錄的金額（已驗證的實付），
+全額退完時自動結案那筆例外；買家的付款摘要加上 `refunded`，畫面寫「店家已登記退回」，因為平台沒有向綠界確認；
+E05 的路徑改成 `…/checkout-orders`。
 
 ## 6. 共用檔案
 
