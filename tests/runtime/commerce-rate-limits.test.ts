@@ -1,7 +1,7 @@
 import {test,before,beforeEach,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {COMMERCE_LIMITS,commerceRateLimitInTransaction,type CommerceBucket} from '../../modules/agent-commerce/checkout/limits.js';
+import {COMMERCE_LIMITS,commerceRateLimitInTransaction,tryChargeCommerceBudget,chargeCommerceBudgets,type CommerceBucket} from '../../modules/agent-commerce/checkout/limits.js';
 import {createPublicCheckout,placePublicOrder,type HostedCheckoutOptions} from '../../modules/agent-commerce/checkout/public-commands.js';
 import {hashKey} from '../../modules/agent-commerce/checkout/terms.js';
 import {checkoutHarness,ports,code,type CheckoutHarness} from './hosted-checkout-harness.js';
@@ -32,7 +32,7 @@ test('a failed command rolls every bucket back',async()=>{
   assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM auth_rate_limits')).rows[0].n,0);
 });
 for(const budget of ['device','email','network'] as const)test(`fourth open/new order per ${budget} leaves no order or hold; replay counts only attempt budgets`,async()=>{
-  const s=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false},...ports};let browser:string|undefined;
+  const s=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},...ports};let browser:string|undefined;
   let first:{checkout:string;input:{terms_sha256:string;client_order_id:string};access:{deviceToken?:string;network:string};order:string}|undefined;
   for(let i=0;i<4;i++) {
     const access={network:budget==='network'?'same-network':`network-${i}`,deviceToken:budget==='device'?browser:undefined};
@@ -58,7 +58,7 @@ for(const budget of ['device','email','network'] as const)test(`fourth open/new 
 });
 test('trusted-edge HTTP sets Retry-After on exhausted quote budgets; local and untrusted requests share a key',async()=>{
   const s=await x.store(),origin=x.h.origin;
-  const runtime=nodeRuntime('local',origin,{commerceSettings:{checkoutEnabled:true,quarantine:false},commercePorts:ports});runtime.rateLimitNetwork=cloudflareRateLimitNetwork(true);
+  const runtime=nodeRuntime('local',origin,{commerceSettings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},commercePorts:ports});runtime.rateLimitNetwork=cloudflareRateLimitNetwork(true);
   const app=createPlatformApp(x.runtime,origin,'local',runtime),key='192.0.2.10';
   await x.h.pool.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),$2)',[`commerce:cartNetwork:${hashKey(key)}`,COMMERCE_LIMITS.cartNetwork.limit]);
   const call=async(trusted:boolean,address=key)=>{
@@ -71,7 +71,7 @@ test('trusted-edge HTTP sets Retry-After on exhausted quote budgets; local and u
 });
 
 for(const cap of ['email','device'] as const)test(`three open orders per ${cap} at store A do not consume store B slots`,async()=>{
-  const a=await x.store(50),b=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false},...ports};let deviceToken:string|undefined;
+  const a=await x.store(50),b=await x.store(50),options:HostedCheckoutOptions={origin:x.h.origin,settings:{checkoutEnabled:true,quarantine:false,providerProfiles:[]},...ports};let deviceToken:string|undefined;
   for(let i=0;i<4;i++) {
     const s=i<3?a:b,access={network:`network-${i}`,deviceToken:cap==='device'?deviceToken:undefined};
     const c=await createPublicCheckout(x.runtime,s.slug,{...x.input(s.product.sku,1),contact:{name:'測試買家甲',email:cap==='email'?'same@example.test':`buyer${i}@example.test`,phone:'0900000000'}},randomUUID(),access,options);
@@ -79,4 +79,17 @@ for(const cap of ['email','device'] as const)test(`three open orders per ${cap} 
     const r=await placePublicOrder(x.runtime,s.slug,c.value.checkout_ref,{terms_sha256:c.value.terms_sha256,client_order_id:randomUUID()},access,options);assert.equal(r.created,true);
   }
   assert.deepEqual((await x.h.pool.query('SELECT instance_id,count(*)::int n FROM commerce_checkout_orders GROUP BY instance_id ORDER BY instance_id')).rows,[{instance_id:a.instanceId,n:3},{instance_id:b.instanceId,n:1}].sort((a,b)=>a.instance_id.localeCompare(b.instance_id)));
+});
+
+test('payment budget values are closed and match their transport rules',()=>{
+  assert.deepEqual(Object.fromEntries(['providerAccount','providerUnknownNetwork','paymentReturnNetwork','paymentReturnQuery','handoffNetwork','handoffPageNetwork'].map(name=>[name,COMMERCE_LIMITS[name as CommerceBucket]])),{
+    providerAccount:{limit:600,seconds:60},providerUnknownNetwork:{limit:120,seconds:60},paymentReturnNetwork:{limit:60,seconds:60},paymentReturnQuery:{limit:1,seconds:60},handoffNetwork:{limit:30,seconds:600},handoffPageNetwork:{limit:60,seconds:600},
+  });
+});
+test('redirect budgets return false only for exhaustion and persist before a failed command',async()=>{
+  const results=await Promise.all([1,2,3].map(()=>tryChargeCommerceBudget(x.runtime,'paymentReturnQuery','synthetic-attempt')));assert.deepEqual(results.sort(),[false,false,true]);
+  assert.equal((await x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',['commerce:paymentReturnQuery:'+hashKey('synthetic-attempt')])).rows[0].attempts,1);
+  await chargeCommerceBudgets(x.runtime,'synthetic-account',{network:'providerAccount'});await assert.rejects(x.tx(async()=>{throw Error('synthetic_command_failure');}));
+  assert.equal((await x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',['commerce:providerAccount:'+hashKey('synthetic-account')])).rows[0].attempts,1);
+  await assert.rejects(tryChargeCommerceBudget({connect:async()=>{throw Error('synthetic_database_failure');}} as never,'paymentReturnNetwork','synthetic-network'),{message:'synthetic_database_failure'});
 });

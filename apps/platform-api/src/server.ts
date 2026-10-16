@@ -1,5 +1,5 @@
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
-import {readCommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
+import {readNodeCommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
 import { createLocalGuideCatalog } from '../../../packages/public-guide-assets/node.js';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
@@ -20,7 +20,7 @@ assertOriginAllowed(freedomEnv, origin);
 if(process.env.FREEDOM_FIRST_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(process.env.FREEDOM_FIRST_PARTICIPATION_ENABLED))throw new Error('invalid_first_participation_flag');
 if(process.env.FREEDOM_FIRST_PARTICIPATION_ENABLED==='true'&&process.env.FREEDOM_PERSONAL_CONTENT_ENABLED!=='true')throw new Error('first_participation_requires_personal_content');
 if(process.env.FREEDOM_PARTICIPATION_METRICS_ENABLED!==undefined&&!['true','false'].includes(process.env.FREEDOM_PARTICIPATION_METRICS_ENABLED))throw new Error('invalid_participation_metrics_flag');
-const commerceSettings=readCommerceSettings(process.env);
+const commerceSettings=readNodeCommerceSettings(process.env);
 const commerceCredentialKeyring=CommerceCredentialKeyring.parse(process.env.COMMERCE_CREDENTIAL_KEYS);
 const pool = createPool();
 await pool.query('SELECT 1');

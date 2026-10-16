@@ -24,8 +24,11 @@ export async function lockCheckoutOrders(q:PoolClient,ids:readonly string[],stor
   await q.query('SELECT order_id FROM commerce_orders WHERE order_id=ANY($1::uuid[]) ORDER BY order_id FOR UPDATE',[sorted]);
   if(paymentRef){
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`checkout-payment/${paymentRef}`]);
-    if((await q.query('SELECT 1 FROM commerce_checkout_payment_applications WHERE payment_ref=$1',[paymentRef])).rowCount)return rows;
   }
+  // Attempt rows belong immediately after base orders / payment-reference locks,
+  // before applications and inventory. Handoff, callback and expiry share this order.
+  await q.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=ANY($1::uuid[]) ORDER BY order_id,attempt_id FOR UPDATE',[sorted]);
+  if(paymentRef&&(await q.query('SELECT 1 FROM commerce_checkout_payment_applications WHERE payment_ref=$1',[paymentRef])).rowCount)return rows;
   await q.query('SELECT application_id FROM commerce_checkout_payment_applications WHERE order_id=ANY($1::uuid[]) ORDER BY application_id FOR UPDATE',[sorted]);
   await q.query('SELECT reservation_id FROM commerce_inventory_reservations WHERE order_id=ANY($1::uuid[]) ORDER BY item_id,order_id FOR UPDATE',[sorted]);
   await q.query('SELECT allocation_id FROM commerce_inventory_allocations WHERE order_id=ANY($1::uuid[]) ORDER BY item_id,order_id FOR UPDATE',[sorted]);
@@ -88,9 +91,10 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
     VALUES($1,$2,$3,$4,$5,'hosted_checkout',$6,$7,$8,$9)`,[id,b.selection_id,b.item_id,b.quantity,saved.items.find(l=>l.sku===b.sku),b.supplier_shop_id,b.offer_id,b.acceptance_id,b.listing_sha256]);
   await (await checkoutInventory(q,id)).hold();
   await bindStore(q,p.tenant_id);
+  await ports.payment?.createOrderAttempt(q,{store:p,orderId:id,amountMinor:saved.total_minor,currency:c.currency,environment:input.environment});
   return (await q.query<CheckoutOrderRow>('SELECT *,version::text FROM commerce_checkout_orders WHERE order_id=$1',[id])).rows[0];
 }
-export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId:string,actor:'buyer'|'seller'|'system',reason:'buyer_cancelled'|'seller_cancelled'|'payment_not_completed') {
+export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId:string,actor:'buyer'|'seller'|'system',reason:'buyer_cancelled'|'seller_cancelled'|'payment_not_completed',ports:CheckoutPorts={}) {
   requireCondition(reason===({buyer:'buyer_cancelled',seller:'seller_cancelled',system:'payment_not_completed'} as const)[actor],422,'invalid_cancel_reason','取消原因無效。');
   if(actor==='system')await lockMachineOrder(q,orderId);
   else await lockStore(q,store,[],[orderId],false);
@@ -99,5 +103,6 @@ export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId
   requireCondition(row.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
   requireCondition(!await hasConfirmedPayment(q,orderId),409,'payment_already_applied','訂單已有付款紀錄。');
   await (await checkoutInventory(q,orderId)).releaseHolds();
+  await ports.payment?.onOrdersCancelled(q,[orderId]);
   return (await q.query<CheckoutOrderRow>(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason=$2,cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[orderId,reason])).rows[0];
 }

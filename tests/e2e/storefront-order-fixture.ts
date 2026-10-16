@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import type { Browser, Page } from '@playwright/test';
 import { expect } from './fixtures.js';
 import { apiLogin, enableStore, fixtureStore } from './hosted-order-fixture.js';
+import { setupE2ePayment } from './hosted-payment-fixture.js';
 import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { mapPersonPrincipal } from '../../packages/resource-scopes/index.js';
 import {
@@ -42,6 +43,7 @@ export const e2eCheckoutPorts: CheckoutPorts = {
 export async function setupStorefrontOrderStore(db: Pool, browser: Browser, origin: string) {
   const store = await fixtureStore(db, browser, origin);
   await enableStore(db, store.instance);
+  await setupE2ePayment(db, browser, origin, store);
   const profileRow = (
     await db.query<{ storefront_shop_id: string }>(
       'SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1',

@@ -1,3 +1,4 @@
+import {createE2eEcpayFixture} from './e2e-ecpay-fixture.js';
 import {CommerceCredentialKeyring} from '../modules/agent-commerce/payments/credentials.js';
 import {randomBytes} from 'node:crypto';
 import {readCommerceSettings} from '../modules/agent-commerce/operations/runtime-settings.js';
@@ -186,7 +187,8 @@ try{
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
-const app=createApp(productPool??pool,origin,'local',{commerceCredentialKeyring,commerceSettings:readCommerceSettings({...process.env,FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'}),arEnabled:true,arAssetStore:arFixtureStore,shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
+const paymentFixture=createE2eEcpayFixture({freedomEnv:'local',origin,pool:productPool??pool,keyring:commerceCredentialKeyring!,forward:request=>Promise.resolve(app.fetch(request))});
+const app=createApp(productPool??pool,origin,'local',{commercePayments:{gateway:paymentFixture.gateway,journal:paymentFixture.journal,profiles:paymentFixture.profiles},commercePorts:{shipping:paymentFixture.shipping},commerceCredentialKeyring,commerceSettings:readCommerceSettings({...process.env,FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true',FREEDOM_COMMERCE_PROVIDER_PROFILES:paymentFixture.profiles.join(',')}),arEnabled:true,arAssetStore:arFixtureStore,shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
   memberReportingEnabled:process.env.FREEDOM_MEMBER_REPORTING_ENABLED==='true',
   // Explicit browser-harness option; product server/Worker release flags remain default OFF.
@@ -206,4 +208,4 @@ const app=createApp(productPool??pool,origin,'local',{commerceCredentialKeyring,
   ...(messageImageFixture?{messageImageAssets:messageImageFixture.assets,messageImageAssetStore:messageImageFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
-server=serve({fetch:app.fetch,hostname:'127.0.0.1',port});
+server=serve({fetch:request=>new URL(request.url).pathname.startsWith('/__e2e/ecpay/')?paymentFixture.routes.fetch(request):app.fetch(request),hostname:'127.0.0.1',port});

@@ -60,9 +60,12 @@ export const PublicOrderSchema=z.object({order_ref:OpaqueId,display_number:z.str
   store:z.object({slug:StoreSlugSchema,name:z.string().min(1).max(80)}).strict(),created_at:time,pay_by:time,reservation_expired:z.boolean(),
   lifecycle_state:z.enum(['open','cancelled','closed']),cancel_reason:z.enum(['buyer_cancelled','seller_cancelled','payment_not_completed','paid_cancelled']).nullable(),currency:CurrencySchema,
   lines:z.array(line.extend({options})).min(1).max(50),merchandise_total_minor:money,discount_total_minor:money,shipping_total_minor:money,total_minor:money,
-  payment_state:z.enum(['unpaid','confirmed']),contact:contact.nullable(),delivery:object.nullable(),invoice:object.nullable(),redacted:z.boolean(),
+  payment_state:z.enum(['unpaid','pending','simulated','confirmed']),
+  latest_payment_attempt:z.object({attempt_ref:OpaqueId,state:z.enum(['ready','awaiting_result','paid','failed','expired']),created_at:time}).strict().nullable(),can_resume_payment:z.boolean(),contact:contact.nullable(),delivery:object.nullable(),invoice:object.nullable(),redacted:z.boolean(),
 }).strict().refine(v=>v.redacted? v.contact===null&&v.delivery===null&&v.invoice===null:v.contact!==null&&v.delivery!==null,'Invalid redaction projection.');
-export const PlaceOrderResponseSchema=z.object({order:PublicOrderSchema,payment:z.null()}).strict();
+export const PaymentHandoffResponseSchema=z.object({handoff_url:z.string().regex(/^\/pay\/ecpay\/[A-Za-z0-9_-]{43}$(?![\s\S])/),attempt_ref:OpaqueId,expires_at:time}).strict();
+export const PaymentHandoffInputSchema=z.object({}).strict();
+export const PlaceOrderResponseSchema=z.object({order:PublicOrderSchema,payment:PaymentHandoffResponseSchema.nullable()}).strict();
 export const RedeemAccessInputSchema=z.object({token:text.max(256)}).strict();
 export const AccessRequestInputSchema=z.object({email:text.min(1).max(512),display_number:text.max(80)}).strict();
 export const ForgetAccessInputSchema=z.object({}).strict();
@@ -72,7 +75,7 @@ export const CheckoutErrorCodeSchema=z.enum(['commerce_quarantined','checkout_no
   'invalid_idempotency_key','checkout_idempotency_conflict','order_intent_conflict','consents_mismatch','terms_changed','stock_unavailable','unresolved_order','checkout_expired',
   'too_many_open_orders','commerce_rate_limited','order_access_email_unavailable','validation_failed','invalid_checkout_json','checkout_contact_too_large','checkout_contact_unavailable',
   'shipping_not_configured','shipping_unavailable','checkout_total_invalid','storefront_unavailable','storefront_not_set_up','supply_unavailable','publication_changed','display_number_unavailable','credential_kind_rejected',
-  'internal_error','invalid_json','origin_rejected','host_rejected','json_required','body_too_large']);
+  'payment_profile_unavailable','payment_handoff_unavailable','internal_error','invalid_json','origin_rejected','host_rejected','json_required','body_too_large']);
 export const CheckoutErrorSchema=z.object({type:z.string(),title:z.string(),status:z.number().int(),code:CheckoutErrorCodeSchema,detail:z.string(),
   items:z.array(z.object({sku,available:z.number().int().nonnegative()}).strict()).optional(),order_ref:OpaqueId.optional()}).strict();
 export type PublicOrder=z.infer<typeof PublicOrderSchema>;

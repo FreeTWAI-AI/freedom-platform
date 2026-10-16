@@ -7,8 +7,8 @@ import {readWorkerConfig,workerRuntime,type WorkerEnv} from '../../apps/platform
 import {nodeRuntime,createApp} from '../../apps/platform-api/src/app.js';
 const env=():WorkerEnv=>({FREEDOM_ENV:'local',APP_ORIGIN:'http://127.0.0.1:4310',HYPERDRIVE:{connectionString:'postgres://unused'},ASSETS:{fetch:async()=>new Response()}} as WorkerEnv);
 test('commerce settings default off and accept exact boolean strings',()=>{
-  assert.deepEqual(readCommerceSettings({}),{checkoutEnabled:false,quarantine:false});
-  for(const checkout of ['true','false'])for(const quarantine of ['true','false'])assert.deepEqual(readCommerceSettings({FREEDOM_COMMERCE_CHECKOUT_ENABLED:checkout,FREEDOM_COMMERCE_QUARANTINE:quarantine,FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'}),{checkoutEnabled:checkout==='true',quarantine:quarantine==='true'});
+  assert.deepEqual(readCommerceSettings({}),{checkoutEnabled:false,quarantine:false,providerProfiles:[]});
+  for(const checkout of ['true','false'])for(const quarantine of ['true','false'])assert.deepEqual(readCommerceSettings({FREEDOM_COMMERCE_CHECKOUT_ENABLED:checkout,FREEDOM_COMMERCE_QUARANTINE:quarantine,FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true'}),{checkoutEnabled:checkout==='true',quarantine:quarantine==='true',providerProfiles:[]});
 });
 for(const flag of ['FREEDOM_COMMERCE_CHECKOUT_ENABLED','FREEDOM_COMMERCE_QUARANTINE'])for(const value of ['TRUE','False','',' true','false ','synthetic-secret'])test(`invalid ${flag} ${JSON.stringify(value)} fails without echoing the value`,()=>{
   assert.throws(()=>readCommerceSettings({[flag]:value}),(error:unknown)=>error instanceof ReadinessError&&error.message==='Commerce flags must be true or false.');

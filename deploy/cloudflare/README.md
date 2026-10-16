@@ -127,3 +127,28 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 金鑰環輪替會改變憑證寫入指紋，跨輪替重送會回 409；讀取目前帳戶版本後須使用新的命令識別碼。
 `FREEDOM_ENV` 決定 provider 環境：`local`／`staging` 使用 `sandbox`，`public` 使用 `live`。
 安裝這個 secret 不會啟用 provider adapter 或任何對外呼叫。
+
+## 平台 Worker 付款 profile 與外部效果日誌
+
+`FREEDOM_COMMERCE_PROVIDER_PROFILES` 未設定或空字串時為空清單，不開放付款。
+目前只實作 `ecpay.aio.credit.v1`；格式為逗號分隔，不能含空白、空項目、重複或未知 ID。
+格式錯誤會以固定訊息拒絕就緒，不回顯設定值。非空清單同時需要可用的
+`COMMERCE_CREDENTIAL_KEYS` 與 `COMMERCE_JOURNAL` R2 binding；缺少時分別回報
+`commerce_profiles_require_keyring`、`commerce_profiles_require_journal`。
+Wrangler 檢查會要求同一設定區塊宣告 `binding: "COMMERCE_JOURNAL"` 的 `r2_buckets`
+項目；設定檔無法證明 secret 可解封，仍由 Worker 就緒檢查把關。Node server 沒有
+R2 日誌，非空清單會使啟動失敗；只有本機 E2E 使用記憶體日誌與合成付款閘道。
+
+`COMMERCE_JOURNAL` bucket 由 Ted 另行建立，每個環境各一個，啟用 bucket lock，
+保存期至少 60 天。Wrangler 預檢拒絕跨環境重複的日誌 bucket 名稱，也拒絕與任何
+環境的其他 R2 binding（含媒體）共用 bucket。日誌使用條件式建立與固定 UTC 路徑，保留付款交接及控制事件的
+小型允許欄位，不含個資、原始通知或金鑰。只有列出 profile 的環境才加入 binding；
+bucket 尚未建立，因此本次不在 `wrangler.jsonc` 加入變數或 binding。帳戶、服務、
+商店准入與 checkout 開關仍須各自完成，列出 profile 不授予付款或部署權限。
+
+staging Access 僅對 `/api/v1/provider-callbacks/ecpay/*` 與
+`/pay/ecpay/return/*` 設定 bypass，供綠界通知與瀏覽器 POST 返回；應用仍只接受
+精確的 POST 路徑、Host、表單限制與簽章。其他付款路徑不需額外 bypass 或設定。
+本次沒有 server-to-server ECPay 呼叫，也不需要額外對外請求權限。
+見 [EC-SPEC-04](../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md)、
+[EC-SPEC-10 §2.2、§4.4、§8.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md)。

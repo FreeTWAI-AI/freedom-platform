@@ -16,7 +16,7 @@ import type {CommerceSettings} from '../operations/runtime-settings.js';
 import type {CommerceEmailPort} from '../operations/notifications/email-port.js';
 export interface HostedCheckoutOptions extends CheckoutPorts {settings?:CommerceSettings;email?:CommerceEmailPort;origin:string;environment?:'sandbox'|'live'}
 export interface BrowserAccess {deviceToken?:string;sessionToken?:string;network:string}
-const defaults:CommerceSettings={checkoutEnabled:false,quarantine:false};
+const defaults:CommerceSettings={checkoutEnabled:false,quarantine:false,providerProfiles:[]};
 export function quarantineGate(options:HostedCheckoutOptions) {requireCondition(!(options.settings??defaults).quarantine,503,'commerce_quarantined','商務服務暫停中。');}
 export function checkoutGate(options:HostedCheckoutOptions) {quarantineGate(options);requireCondition((options.settings??defaults).checkoutEnabled,409,'checkout_not_enabled','尚未開放結帳。');}
 async function resolve(q:PoolClient,slug:string,options:HostedCheckoutOptions,admit=false,order=false) {
@@ -115,26 +115,41 @@ export async function placePublicOrder(pool:Pool,slug:string,checkoutRef:string,
       await enforceOpenOrderLimits(q,device!.device_id,customer.email_normalized,store,saved.order_id);
       await commerceRateLimitInTransaction(q,'newOrderNetwork',access.network);
     }
-    // Access may have expired while waiting on inventory/policy locks.
+    const payment=await options.payment?.issueHandoff(q,{store,orderId:saved.order_id})??null;
+    // Access may expire while waiting on inventory, policy or issuance locks.
     if(!await hasDeviceGrant(q,device!.device_id,checkoutRef))orderAccessNotFound();
     await currentMember(q,identity);
-    return {created:!replay,value:wire.PlaceOrderResponseSchema.parse({order:await publicOrder(q,store,saved.order_id),payment:null})};
+    return {created:!replay,value:wire.PlaceOrderResponseSchema.parse({order:await publicOrder(q,store,saved.order_id,options.payment),payment})};
   });
 }
 export async function readPublicOrder(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions) {
   return isolatedTransaction(pool,async q=>{
-    const identity=await member(q,access.sessionToken),store=await resolve(q,slug,options,false,true);
-    if(!OpaqueId.safeParse(orderRef).success)orderAccessNotFound();
-    const row=(await q.query<{checkout_id:string;buyer_principal_id:string|null}>(`SELECT co.checkout_id,o.buyer_principal_id FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
-      WHERE co.order_id=$1 AND co.tenant_id=$2 AND co.instance_id=$3`,[orderRef,store.tenantId,store.instanceId])).rows[0];
-    if(!row)orderAccessNotFound();
-    const device=await liveDevice(q,access.deviceToken);
-    const byMember=identity?.principalId!==null&&identity?.principalId!==undefined&&identity.principalId===row.buyer_principal_id;
-    if(!byMember&&!(device&&await hasDeviceGrant(q,device.device_id,row.checkout_id,orderRef)))orderAccessNotFound();
-    const value=await publicOrder(q,store,orderRef);
+    const authorized=await authorizePublicOrder(q,slug,orderRef,access,options);
+    const value=await publicOrder(q,authorized.store,orderRef,options.payment);await authorized.recheck();return value;
+  });
+}
+/** Reads and handoff resumption use one buyer-access proof and decision-clock recheck. */
+async function authorizePublicOrder(q:PoolClient,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions){
+  const identity=await member(q,access.sessionToken),store=await resolve(q,slug,options,false,true);
+  if(!OpaqueId.safeParse(orderRef).success)orderAccessNotFound();
+  const row=(await q.query<{checkout_id:string;buyer_principal_id:string|null}>(`SELECT co.checkout_id,o.buyer_principal_id FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
+    WHERE co.order_id=$1 AND co.tenant_id=$2 AND co.instance_id=$3`,[orderRef,store.tenantId,store.instanceId])).rows[0];
+  if(!row)orderAccessNotFound();
+  const device=await liveDevice(q,access.deviceToken);
+  const byMember=identity?.principalId!==null&&identity?.principalId!==undefined&&identity.principalId===row.buyer_principal_id;
+  if(!byMember&&!(device&&await hasDeviceGrant(q,device.device_id,row.checkout_id,orderRef)))orderAccessNotFound();
+  return {store,recheck:async()=>{
     if(byMember)await currentMember(q,identity);
     else if(!await hasDeviceGrant(q,device!.device_id,row.checkout_id,orderRef))orderAccessNotFound();
-    return value;
+  }};
+}
+export async function resumePublicPayment(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions){
+  checkoutGate(options);await chargeCommerceBudgets(pool,access.network,{network:'handoffNetwork'});
+  return isolatedTransaction(pool,async q=>{
+    const authorized=await authorizePublicOrder(q,slug,orderRef,access,options);
+    const handoff=await options.payment?.issueHandoff(q,{store:authorized.store,orderId:orderRef})??null;
+    await authorized.recheck();requireCondition(handoff,409,'payment_handoff_unavailable','目前無法繼續付款，請查看訂單狀態。');
+    return wire.PaymentHandoffResponseSchema.parse(handoff);
   });
 }
 export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,token:string,access:BrowserAccess,options:HostedCheckoutOptions) {
@@ -146,7 +161,7 @@ export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,to
     const redeemed=await redeemAccessLink(q,{tenant_id:store.tenantId,instance_id:store.instanceId,order_id:orderRef},token);
     const ensured=await ensureDevice(q,access.deviceToken,options.origin);
     await grantDevice(q,ensured.device.device_id,{tenant_id:store.tenantId,instance_id:store.instanceId,checkout_id:redeemed.checkout_id},orderRef);
-    const value=await publicOrder(q,store,orderRef);await assertDeviceLive(q,ensured.device.device_id);
+    const value=await publicOrder(q,store,orderRef,options.payment);await assertDeviceLive(q,ensured.device.device_id);
     return {cookie:ensured.cookie,value};
   });
 }

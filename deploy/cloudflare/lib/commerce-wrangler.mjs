@@ -19,8 +19,21 @@ export function checkCommerceWranglerConfig(path) {
     if(block.vars!==undefined&&(!block.vars||typeof block.vars!=='object'||Array.isArray(block.vars))){errors.push('vars_invalid');continue;}
     const vars=block.vars??{};
     for(const flag of flags)if(vars[flag]!==undefined&&!['true','false'].includes(vars[flag]))errors.push('commerce_flag_invalid');
-    if(Object.keys(vars).some(k=>k.startsWith('FREEDOM_COMMERCE_')&&!flags.has(k)))errors.push('commerce_flag_unknown');
+    if(Object.keys(vars).some(k=>k.startsWith('FREEDOM_COMMERCE_')&&!flags.has(k)&&k!=='FREEDOM_COMMERCE_PROVIDER_PROFILES'))errors.push('commerce_flag_unknown');
+    const rawProfiles=vars.FREEDOM_COMMERCE_PROVIDER_PROFILES;
+    if(rawProfiles!==undefined&&rawProfiles!==''){
+      const profiles=typeof rawProfiles==='string'?rawProfiles.split(','):[];
+      if(typeof rawProfiles!=='string'||/\s/.test(rawProfiles)||!profiles.length||new Set(profiles).size!==profiles.length||profiles.some(p=>p!=='ecpay.aio.credit.v1'))errors.push('commerce_provider_profiles_invalid');
+      else if(!Array.isArray(block.r2_buckets)||!block.r2_buckets.some(b=>b&&typeof b==='object'&&b.binding==='COMMERCE_JOURNAL'))errors.push('commerce_journal_binding_required');
+    }
     if(vars.FREEDOM_COMMERCE_CHECKOUT_ENABLED==='true'&&vars.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')errors.push('commerce_launchpad_required');
   }
+  // R2 declarations are environment-local; journal history must neither share
+  // another environment's namespace nor enter any other binding's backup set.
+  const buckets=blocks.flatMap((block,index)=>Array.isArray(block?.r2_buckets)
+    ?block.r2_buckets.filter(b=>b&&typeof b==='object'&&typeof b.bucket_name==='string').map(b=>({...b,blockIndex:index})):[]);
+  const journals=buckets.filter(b=>b.binding==='COMMERCE_JOURNAL');
+  if(journals.some(j=>journals.some(other=>other.blockIndex!==j.blockIndex&&other.bucket_name===j.bucket_name)))errors.push('commerce_journal_bucket_reused');
+  if(journals.some(j=>buckets.some(other=>other.binding!=='COMMERCE_JOURNAL'&&other.bucket_name===j.bucket_name)))errors.push('commerce_journal_bucket_shared');
   return report();
 }

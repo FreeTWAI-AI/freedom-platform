@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://freetwai.com/contracts/guild-launchpad/v1/hosted-checkout",
-  "description": "Public hosted checkout M1. Shape validation grants no payment, email or deployment authority.",
+  "description": "Public hosted checkout and payment handoff. Shape validation grants no payment, email or deployment authority.",
   "$defs": {
     "cart-quote-input": {
       "type": "object",
@@ -809,8 +809,51 @@
               "type": "string",
               "enum": [
                 "unpaid",
+                "pending",
+                "simulated",
                 "confirmed"
               ]
+            },
+            "latest_payment_attempt": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "attempt_ref": {
+                      "type": "string",
+                      "minLength": 36,
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "awaiting_result",
+                        "paid",
+                        "failed",
+                        "expired"
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                    }
+                  },
+                  "required": [
+                    "attempt_ref",
+                    "state",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "can_resume_payment": {
+              "type": "boolean"
             },
             "contact": {
               "anyOf": [
@@ -898,6 +941,8 @@
             "shipping_total_minor",
             "total_minor",
             "payment_state",
+            "latest_payment_attempt",
+            "can_resume_payment",
             "contact",
             "delivery",
             "invoice",
@@ -906,7 +951,36 @@
           "additionalProperties": false
         },
         "payment": {
-          "type": "null"
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "handoff_url": {
+                  "type": "string",
+                  "pattern": "^\\/pay\\/ecpay\\/[A-Za-z0-9_-]{43}$(?![\\s\\S])"
+                },
+                "attempt_ref": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "expires_at": {
+                  "type": "string",
+                  "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                }
+              },
+              "required": [
+                "handoff_url",
+                "attempt_ref",
+                "expires_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -915,6 +989,38 @@
       ],
       "additionalProperties": false,
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: first_buyer_replay."
+    },
+    "payment-handoff-input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: current_buyer_access."
+    },
+    "payment-handoff": {
+      "type": "object",
+      "properties": {
+        "handoff_url": {
+          "type": "string",
+          "pattern": "^\\/pay\\/ecpay\\/[A-Za-z0-9_-]{43}$(?![\\s\\S])"
+        },
+        "attempt_ref": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "handoff_url",
+        "attempt_ref",
+        "expires_at"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: single_use_handoff_token."
     },
     "order": {
       "type": "object",
@@ -1078,8 +1184,51 @@
           "type": "string",
           "enum": [
             "unpaid",
+            "pending",
+            "simulated",
             "confirmed"
           ]
+        },
+        "latest_payment_attempt": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "attempt_ref": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "ready",
+                    "awaiting_result",
+                    "paid",
+                    "failed",
+                    "expired"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "pattern": "^(?:(?:[0-9][0-9][2468][048]|[0-9][0-9][13579][26]|[0-9][0-9]0[48]|[02468][048]00|[13579][26]00)-02-29|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|(?:02)-(?:0[1-9]|1[0-9]|2[0-8])))T(?:(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}(?:Z))$(?![\\s\\S])"
+                }
+              },
+              "required": [
+                "attempt_ref",
+                "state",
+                "created_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "can_resume_payment": {
+          "type": "boolean"
         },
         "contact": {
           "anyOf": [
@@ -1167,6 +1316,8 @@
         "shipping_total_minor",
         "total_minor",
         "payment_state",
+        "latest_payment_attempt",
+        "can_resume_payment",
         "contact",
         "delivery",
         "invoice",
@@ -1264,6 +1415,8 @@
             "publication_changed",
             "display_number_unavailable",
             "credential_kind_rejected",
+            "payment_profile_unavailable",
+            "payment_handoff_unavailable",
             "internal_error",
             "invalid_json",
             "origin_rejected",

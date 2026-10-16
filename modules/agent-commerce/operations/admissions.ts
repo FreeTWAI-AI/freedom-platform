@@ -6,6 +6,7 @@ import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {bindTenantScope} from '../../tenant-workspaces/facts.js';
 import type {CheckoutAdmissionPort} from '../checkout/terms.js';
 import {recordControlEvent} from './control-events.js';
+import {bindStore as bindCheckoutStore} from '../checkout/authority.js';
 export type CommerceProviderEnvironment='sandbox'|'live';
 export const providerEnvironment=(environment:'local'|'staging'|'public'):CommerceProviderEnvironment=>environment==='public'?'live':'sandbox';
 async function bindStore(q:PoolClient,admin:AdminActor,tenantId:string,instanceId?:string,active=false){
@@ -68,13 +69,19 @@ export async function listStoreAdmissions(pool:Pool,admin:AdminActor,tenantId:st
     return wire.StoreAdmissionPageSchema.parse({items:(await q.query('SELECT * FROM commerce_store_admissions WHERE tenant_id=$1 ORDER BY admitted_at DESC,admission_id DESC LIMIT 100',[tenantId])).rows.map(view)});
   });
 }
-export function createStoreAdmissionPort(environment:CommerceProviderEnvironment):CheckoutAdmissionPort{
+export function createStoreAdmissionPort(environment:CommerceProviderEnvironment,profiles:readonly string[]):CheckoutAdmissionPort{
   return {async allowed(q,store){
+    if(!profiles.length)return false;
+    const owner=(await q.query('SELECT tenant_id FROM commerce_storefront_profiles WHERE storefront_shop_id=$1',[store.storefront_shop_id])).rows[0];
+    if(!owner)return false;await bindCheckoutStore(q,owner.tenant_id);
     return (await q.query(`SELECT 1 FROM commerce_storefront_profiles p
       JOIN module_instances i ON i.tenant_id=p.tenant_id AND i.instance_id=p.instance_id AND i.module_key='storefront'
       JOIN module_definitions actual ON actual.module_key=i.module_key AND actual.release_ref=i.module_release_ref
       JOIN module_definitions required ON required.module_key='storefront' AND required.release_ref='storefront@1.1.0'
       JOIN commerce_store_admissions a ON a.tenant_id=i.tenant_id AND a.instance_id=i.instance_id AND a.environment=$2 AND a.revoked_at IS NULL
-      WHERE p.storefront_shop_id=$1 AND actual.capabilities @> required.capabilities LIMIT 1`,[store.storefront_shop_id,environment])).rowCount===1;
+      WHERE p.storefront_shop_id=$1 AND actual.capabilities @> required.capabilities
+        AND EXISTS(SELECT 1 FROM commerce_provider_account_services service WHERE service.tenant_id=p.tenant_id AND service.instance_id=p.instance_id
+          AND service.environment=$2 AND service.purpose='payment' AND service.state='active' AND service.profile=ANY($3::text[]))
+      LIMIT 1`,[store.storefront_shop_id,environment,profiles])).rowCount===1;
   }};
 }

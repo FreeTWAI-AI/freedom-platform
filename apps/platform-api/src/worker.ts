@@ -1,3 +1,8 @@
+import {applyDeferredPaymentEvents} from '../../../modules/agent-commerce/payments/events.js';
+import {flushControlEvents} from '../../../modules/agent-commerce/operations/journal/journal.js';
+import {createCheckoutPaymentPort} from '../../../modules/agent-commerce/payments/attempts.js';
+import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/journal/r2.js';
+import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
@@ -9,7 +14,7 @@ import type { GuideR2Binding } from '../../../packages/public-guide-assets/r2.js
 import {createEventHighlightAssetService,resolveEventHighlightUploadPolicy} from '../../../modules/assets/event-highlight.js';
 import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../../modules/assets/social-thumbnail.js';
 import {createSkillImageAssetService} from '../../../modules/assets/skill-image.js';
-import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding } from '@cloudflare/workers-types';
+import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding, R2Bucket } from '@cloudflare/workers-types';
 import type { Context, Hono } from 'hono';
 import { isIP } from 'node:net';
 import type { Pool } from 'pg';
@@ -58,6 +63,8 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   COMMERCE_CREDENTIAL_KEYS?:string;
   FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
   FREEDOM_COMMERCE_QUARANTINE?:string;
+  FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
+  COMMERCE_JOURNAL?:Pick<R2Bucket,'put'|'get'>;
   /** Explicit cover composition; native MEDIA alone grants no persistence. */
   FREEDOM_SERVICE_COVER_ENABLED?: string;
   /** Explicit banner composition; canonical community policy remains required. */
@@ -132,7 +139,11 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   const commerceSettings=readCommerceSettings(env);
   let commerceCredentialKeyring:CommerceCredentialKeyring|null;
   try{commerceCredentialKeyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);}
-  catch{throw new ReadinessError('Commerce credential keyring configuration is invalid.');}
+  catch{throw new ReadinessError(commerceSettings.providerProfiles.length?'commerce_profiles_require_keyring':'Commerce credential keyring configuration is invalid.');}
+  if(commerceSettings.providerProfiles.length){
+    if(!commerceCredentialKeyring)throw new ReadinessError('commerce_profiles_require_keyring');
+    if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_profiles_require_journal');
+  }
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
   try { freedomEnv = resolveFreedomEnv(env.FREEDOM_ENV); } catch { throw new ReadinessError('FREEDOM_ENV binding is invalid.'); }
@@ -234,6 +245,8 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 }
 
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
+  const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment,settings.providerProfiles);
+  const payments=settings.providerProfiles.length?{gateway:createEcpayPaymentGateway(environment,config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:settings.providerProfiles}:undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
@@ -266,9 +279,9 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
-    commerceSettings:config.commerceSettings??readCommerceSettings(env),
+    commercePayments:payments,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
-    commercePorts:{admission:createStoreAdmissionPort(providerEnvironment(config.freedomEnv))},
+    commercePorts:{admission,payment:payments?createCheckoutPaymentPort({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null}):undefined},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
@@ -334,6 +347,8 @@ export type WorkerDependencies = {
   /** Test seam. Production uses pruneExpiredAuthRecords. */
   authPrune?: typeof pruneExpiredAuthRecords;
   commerceSweep?:typeof sweepDueCheckoutHolds;
+  commerceApplyDeferred?:typeof applyDeferredPaymentEvents;
+  commerceFlushJournal?:typeof flushControlEvents;
 };
 
 /**
@@ -460,7 +475,11 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           let commerce:CommerceSettings|undefined;
           try{commerce=readCommerceSettings(env);}catch{console.error('commerce_settings_invalid');}
           if(commerce&&!commerce.quarantine){
+            try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
             try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
+            if(commerce.providerProfiles.length&&env.COMMERCE_JOURNAL)try{
+              await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
+            }catch{console.error('commerce_control_journal_failed');}
           }
           try{await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});}
           catch(error){const name=error instanceof Error&&/^[A-Za-z][A-Za-z0-9_]*$/.test(error.name)?error.name:'unknown';console.error('github_sync_failed',name);}

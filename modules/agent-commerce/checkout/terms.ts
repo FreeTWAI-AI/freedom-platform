@@ -46,7 +46,21 @@ export interface ShippingQuotePort {
 export interface CheckoutAdmissionPort {allowed(q:PoolClient,store:CheckoutStore):boolean|Promise<boolean>}
 export interface UnresolvedOrderPort {find(q:PoolClient,checkoutId:string):Promise<{order_id:string}|null>}
 export interface CheckoutPolicyPort {required(q:PoolClient,store:CheckoutStore):Promise<readonly {policy_kind:string;policy_version_id:string}[]>}
-export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort}
+export interface CheckoutPaymentHandoff {handoff_url:string;attempt_ref:string;expires_at:string}
+export interface CheckoutPaymentSummary {
+  payment_state:'unpaid'|'pending'|'simulated'|'confirmed';
+  latest_payment_attempt:null|{attempt_ref:string;state:'ready'|'awaiting_result'|'paid'|'failed'|'expired';created_at:string};
+  can_resume_payment:boolean;
+}
+/** SQL-local inbound payment operations. Implementations must not call a provider. */
+export interface CheckoutPaymentPort {
+  assertTermsAvailable(input:{currency:string;totalMinor:number;amountsMinor:readonly number[]}):void;
+  createOrderAttempt(q:PoolClient,input:{store:CheckoutStore;orderId:string;amountMinor:number;currency:string;environment:'sandbox'|'live'}):Promise<void>;
+  issueHandoff(q:PoolClient,input:{store:CheckoutStore;orderId:string}):Promise<CheckoutPaymentHandoff|null>;
+  onOrdersCancelled(q:PoolClient,orderIds:readonly string[]):Promise<void>;
+  summarize(q:PoolClient,orderIds:readonly string[]):Promise<ReadonlyMap<string,CheckoutPaymentSummary>>;
+}
+export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort}
 export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};
 const defaultShipping:ShippingQuotePort={async quote(){requireCondition(false,409,'shipping_not_configured','尚未設定配送。');}};
 const shippingSchema=z.object({groups:z.array(z.object({group_ref:z.string().min(1).max(80),supplier_shop_id:z.uuid(),method_ref:z.string().min(1).max(80),amount_minor:money})).min(1).max(50)});
@@ -99,6 +113,7 @@ export async function checkoutTerms(q:PoolClient,context:StoreContext,input:Retu
   const items=resolved.lines.map(l=>({...l,offer_sha256:bindings.find(b=>b.sku===l.sku)!.offer_sha256}));
   const merchandise=items.reduce((n,l)=>n+l.line_total_minor,0),shippingTotal=shipping.groups.reduce((n,g)=>n+g.amount_minor,0),total=merchandise+shippingTotal;
   requireCondition(Number.isSafeInteger(total)&&total>0,422,'checkout_total_invalid','結帳總額無效。');
+  ports.payment?.assertTermsAvailable({currency:p.currency,totalMinor:total,amountsMinor:[...items.flatMap(l=>[l.unit_price_minor,l.line_total_minor]),...shipping.groups.map(g=>g.amount_minor),total]});
   const terms={profile:'freedom.checkout-terms/v1' as const,publication_revision:projection.revision,publication_id:p.current_publication_id!,currency:p.currency,
     bindings,items,merchandise_total_minor:merchandise,discount_total_minor:0,discounts:[],shipping,shipping_total_minor:shippingTotal,
     tax_state:'not_assessed',total_minor:total,consents:input.consents,payment_methods:['immediate_card'],contact_sha256:contactHash(input,salt)};
