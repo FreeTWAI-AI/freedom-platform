@@ -50,6 +50,15 @@ returns 404. Store failure or metadata mismatch returns a 503 problem. Responses
 are private/no-store, vary by Cookie and expose no object locator. A range does
 not claim whole-file digest verification.
 
-Partner byte reads, grant/cooperation authority, public_use publication copying,
-cloud installation, backup/restore acceptance and operational activation are
-separate work. public_use never creates a public storage URL.
+Partner GET/HEAD uses `store:read` on the seller's own confirmed storefront and
+the same visibility query as its partner-material list: an active grant pinned
+to that exact shop, an active material's current image/video version, and a
+current cooperation (`awaiting_supply_acceptance` or `sellable`) on the material's
+product, or any supplier product for brand materials. The ready Asset/object
+tuple belongs to the material's supplier tenant. The complete authority and
+object identity snapshot runs again after object I/O; every visibility refusal
+returns the same 404 and cancels any started range stream. Metadata/store failures
+return 503. Headers and range handling match the private supplier read; no public
+storage URL is created. D-11 publication copying for `public_use`, cloud
+installation, backup/restore acceptance and operational activation remain
+separate work.
