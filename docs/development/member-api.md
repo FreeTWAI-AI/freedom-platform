@@ -772,6 +772,13 @@ ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellatio
 STATUS and RFC text escaping/octet folding. It does not turn private locations
 or joining links into a public calendar feed. Import is a manual snapshot:
 redownload after changes; no automatic subscription/update is promised.
+Guest calendar reads take the event's `FOR SHARE` lock before capability/RSVP
+resolution and generate the ICS on that same transaction client. This follows
+the event → capability order used by participation mutations: cancellation
+already holding the event lock must commit before the reader selects its source.
+Cancelled events retain only authorized history with `STATUS:CANCELLED`; a
+cancelled RSVP no longer includes private location or joining links. This does
+not recall previously downloaded calendar snapshots.
 Isolated browser download, UTC/time-zone and independent parser checks do not
 claim an actual Apple/Google Calendar import, external Email delivery, Worker
 cron deployment, attendance rate, XP, ticketing or payment completion.
