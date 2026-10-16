@@ -128,6 +128,8 @@ v1 的兩個 profile 及其 wire 不變；不把 literal false 換成 true。新
 | 發票 | invoice documents（EC-SPEC-06） | 每張發票與折讓各自狀態 |
 | 售後 | 售後申請（EC-SPEC-06 §2） | 每張申請的決定，加上實物、錢、發票各軸的進度 |
 
+付款摘要的 `overpaid`：這筆訂單有任何一筆結果為 `overpaid`、`after_cancel` 或 `amount_mismatch` 的付款套用紀錄（§5），表示收到的錢和訂單不符，店家必須核對並退款。它優先於其他付款摘要值，包括已確認付款。買家看到「付款金額待店家確認」，不再有付款或重新付款（EC-SPEC-01 §6.2）；之後才到的正確付款仍照 §5 套用。買家 DTO 的 `payment_state` 依序取第一個成立的：`overpaid`、`confirmed`（即上表的 `paid`）、`pending`、`simulated`、`unpaid`。退款後的 `partially_refunded`／`refunded` 隨退款（EC-SPEC-04 §7）一起定義。
+
 需要高效查詢的待辦（例如「已過保留期且付款未定」）以這些表的索引查詢，不另存第二份狀態。若之後加摘要欄位，只能由同一個領域函式在同一交易內更新，並有測試比對。
 
 ### 3.3 轉換（全部經同一組領域 command）

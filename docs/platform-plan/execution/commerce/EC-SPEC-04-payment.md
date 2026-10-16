@@ -94,7 +94,7 @@
 | `commerce_refunds` | 退款 | §7；累計上限由 trigger 檢查 |
 | `commerce_refund_lines` | 每筆退款分到哪些行項與運費（EC-SPEC-06 §2.5） | 各列合計＝退款金額；同一行項、同一配送群組的累計上限由 trigger 檢查 |
 
-訂單的付款摘要（EC-SPEC-03 §3.2：`unpaid`、`pending`、`paid`、`partially_refunded`、`refunded`、`overpaid`、`simulated`）由這些表讀取時計算，不另存。
+訂單的付款摘要（EC-SPEC-03 §3.2：`unpaid`、`pending`、`paid`、`partially_refunded`、`refunded`、`overpaid`、`simulated`）由這些表讀取時計算，不另存。`overpaid` 的定義和優先順序也在 EC-SPEC-03 §3.2。
 
 ### 3.2 PaymentPort（介面，名稱可收斂）
 
