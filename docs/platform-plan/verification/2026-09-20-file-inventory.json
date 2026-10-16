@@ -17059,8 +17059,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/README.md",
-      "bytes": 24614,
-      "sha256": "c59137097aee61f1c01ea3c07e98e6e3d92cc228e79f5de38ecec3d647fe68ef"
+      "bytes": 24671,
+      "sha256": "f2a275189d29b79a4e561e91b4df57815c37f4cb9c6985047154092ea2a6c177"
     },
     {
       "path": "modules/agent-commerce/checkout/access.ts",
