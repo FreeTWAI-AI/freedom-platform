@@ -276,3 +276,18 @@ test('expired retained holds refuse handoff before journaling and leave the toke
   await f.x.h.pool.query("INSERT INTO commerce_entry_routes(route_kind,route_key,tenant_id,instance_id,target_id,expires_at) VALUES('payment_handoff',$1,$2,$3,$4,clock_timestamp()+interval '15 minutes')",[hashKey(token),s.tenantId,s.instanceId,a.attempt_id]);
   const r=await page('/pay/ecpay/'+token);assert.equal(r.status,409);assert.match(r.html,/保留時間已結束/);assert(r.html.includes('/pay/ecpay/back/'+a.attempt_id));await unused(a.attempt_id);
 });
+for(const actor of ['buyer','seller','system'] as const)for(const handedOff of [false,true])test(`${actor} cancellation revokes all tokens and queries only handed-off attempts (${handedOff})`,async()=>{
+  const p=await f.placed();expect(await resume(p),201);
+  if(handedOff){const latest=(await f.x.h.pool.query("SELECT route_key FROM commerce_entry_routes WHERE target_id=$1 AND route_kind='payment_handoff' AND revoked_at IS NULL",[p.payment.attempt_ref])).rows[0];assert(latest);await f.x.h.pool.query('UPDATE commerce_payment_attempts SET journaled_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p.payment.attempt_ref]);await f.x.h.pool.query('UPDATE commerce_payment_attempts SET handed_off_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1',[p.payment.attempt_ref]);}
+  const reason={buyer:'buyer_cancelled',seller:'seller_cancelled',system:'payment_not_completed'} as const;
+  const cancelled=await f.x.tx(q=>cancelUnpaidOrder(q,p.s,p.order.order_ref,actor,reason[actor],f.runtime.commercePorts));assert.equal(cancelled.lifecycle_state,'cancelled');
+  assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM commerce_entry_routes WHERE target_id=$1 AND route_kind='payment_handoff' AND revoked_at IS NULL",[p.payment.attempt_ref])).rows[0].n,0);
+  assert.equal((await f.x.h.pool.query("SELECT due_at<=clock_timestamp() AS immediate FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0].immediate,handedOff);
+  const due=(await f.x.h.pool.query("SELECT due_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0].due_at;
+  await f.x.tx(q=>cancelUnpaidOrder(q,p.s,p.order.order_ref,actor,reason[actor],f.runtime.commercePorts));assert.equal((await f.x.h.pool.query("SELECT due_at::text FROM commerce_due_work WHERE kind='payment_query' AND target_id=$1",[p.payment.attempt_ref])).rows[0].due_at,due);
+});
+test('a cancellation hook failure rolls back hold release, token revocation and the order transition',async()=>{
+  const p=await f.placed(),payment=f.runtime.commercePorts!.payment!;
+  await assert.rejects(f.x.tx(q=>cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled',{payment:{...payment,async onOrdersCancelled(q,ids){await payment.onOrdersCancelled(q,ids);throw Error('synthetic_hook_failure');}}})),{message:'synthetic_hook_failure'});
+  await unused(p.payment.attempt_ref);assert.equal((await f.x.h.pool.query('SELECT lifecycle_state FROM commerce_checkout_orders WHERE order_id=$1',[p.order.order_ref])).rows[0].lifecycle_state,'open');assert.equal((await f.x.h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1',[p.s.product.product_id])).rows[0].reserved,5);
+});

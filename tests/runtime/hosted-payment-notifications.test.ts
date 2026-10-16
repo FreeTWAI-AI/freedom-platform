@@ -151,11 +151,11 @@ for(const order of ['cancel_first','payment_first'] as const)test(`notification 
   const p=await f.placed(),value=await body(p);
   if(order==='cancel_first'){
     let release!:()=>void,ready!:()=>void;const held=new Promise<void>(r=>release=r),started=new Promise<void>(r=>ready=r);
-    const cancellation=f.x.tx(async q=>{await cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled');ready();await held;});await started;
+    const cancellation=f.x.tx(async q=>{await cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled',f.runtime.commercePorts);ready();await held;});await started;
     const notification=post(path(p),value);release();await cancellation;await ack(await notification);
     const r=await facts(p);assert.equal(r.applications[0].outcome,'after_cancel');assert.equal(r.cases[0].kind,'paid_after_cancel');
   }else{
-    await ack(await post(path(p),value));await assert.rejects(f.x.tx(q=>cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled')),e=>(e as {code?:string}).code==='payment_already_applied');assert.equal((await facts(p)).cases.length,0);
+    await ack(await post(path(p),value));await assert.rejects(f.x.tx(q=>cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled',f.runtime.commercePorts)),e=>(e as {code?:string}).code==='payment_already_applied');assert.equal((await facts(p)).cases.length,0);
   }
 });
 for(const order of ['expiry_first','payment_first'] as const)test(`notification and expired-hold settlement serialize with ${order}`,async()=>{
@@ -190,7 +190,7 @@ for(const competitor of ['cancellation','expiry'] as const)test(`a notification 
     }) as typeof q.query;q.release=(error?:Error|boolean)=>{q.query=query;q.release=release;release.call(q,error);};return q;}) as typeof f.x.runtime.connect;
   try{
     const notification=post(path(p),value);await atCommit.promise;
-    const other=f.x.tx(async q=>competitor==='cancellation'?cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled'):settleDueCheckoutHolds(q,[p.s.product.product_id])).then(result=>({result,error:null}),error=>({result:null,error}));
+    const other=f.x.tx(async q=>competitor==='cancellation'?cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled',f.runtime.commercePorts):settleDueCheckoutHolds(q,[p.s.product.product_id])).then(result=>({result,error:null}),error=>({result:null,error}));
     await competing.promise;releaseCommit.resolve();await ack(await notification);const completed=await other;
     if(competitor==='cancellation')assert.equal(completed.error?.code,'payment_already_applied');else{assert.equal(completed.error,null);assert.equal(completed.result,0);}
     assert.equal((await facts(p)).applications[0].outcome,'converted');
@@ -204,7 +204,7 @@ for(const competitor of ['cancellation','expiry'] as const)test(`a concurrent no
     const a=(await f.x.h.pool.query('SELECT attempt_id FROM commerce_payment_attempts WHERE order_id=$1',[due.order_id])).rows[0];p={s,provider,order:{order_ref:due.order_id},payment:{attempt_ref:a.attempt_id}} as Placed;
   }
   const value=await body(p),ready=signal(),releaseFirst=signal(),inserted=signal(),connect=f.x.runtime.connect;
-  const first=f.x.tx(async q=>{if(competitor==='cancellation')await cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled');else await settleDueCheckoutHolds(q,[p.s.product.product_id]);ready.resolve();await releaseFirst.promise;});await ready.promise;
+  const first=f.x.tx(async q=>{if(competitor==='cancellation')await cancelUnpaidOrder(q,p.s,p.order.order_ref,'buyer','buyer_cancelled',f.runtime.commercePorts);else await settleDueCheckoutHolds(q,[p.s.product.product_id]);ready.resolve();await releaseFirst.promise;});await ready.promise;
   f.x.runtime.connect=(async()=>{const q=await (connect as ()=>Promise<PoolClient>).call(f.x.runtime),query=q.query,release=q.release;
     q.query=(async(...args:unknown[])=>{const result=await (query as Function).apply(q,args);if(String(args[0]).startsWith('INSERT INTO commerce_hosted_payment_events'))inserted.resolve();return result;}) as typeof q.query;
     q.release=(error?:Error|boolean)=>{q.query=query;q.release=release;release.call(q,error);};return q;}) as typeof f.x.runtime.connect;

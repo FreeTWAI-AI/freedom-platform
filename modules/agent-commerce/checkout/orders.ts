@@ -94,14 +94,15 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
   await ports.payment?.createOrderAttempt(q,{store:p,orderId:id,amountMinor:saved.total_minor,currency:c.currency,environment:input.environment});
   return (await q.query<CheckoutOrderRow>('SELECT *,version::text FROM commerce_checkout_orders WHERE order_id=$1',[id])).rows[0];
 }
-export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId:string,actor:'buyer'|'seller'|'system',reason:'buyer_cancelled'|'seller_cancelled'|'payment_not_completed') {
+export async function cancelUnpaidOrder(q:PoolClient,store:CheckoutStore,orderId:string,actor:'buyer'|'seller'|'system',reason:'buyer_cancelled'|'seller_cancelled'|'payment_not_completed',ports:CheckoutPorts={}) {
   requireCondition(reason===({buyer:'buyer_cancelled',seller:'seller_cancelled',system:'payment_not_completed'} as const)[actor],422,'invalid_cancel_reason','取消原因無效。');
   if(actor==='system')await lockMachineOrder(q,orderId);
   else await lockStore(q,store,[],[orderId],false);
   const [row]=await lockCheckoutOrders(q,[orderId],store);
-  if(row.lifecycle_state==='cancelled')return row;
+  if(row.lifecycle_state==='cancelled'){await ports.payment?.onOrdersCancelled(q,[orderId]);return row;}
   requireCondition(row.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
   requireCondition(!await hasConfirmedPayment(q,orderId),409,'payment_already_applied','訂單已有付款紀錄。');
   await (await checkoutInventory(q,orderId)).releaseHolds();
+  await ports.payment?.onOrdersCancelled(q,[orderId]);
   return (await q.query<CheckoutOrderRow>(`UPDATE commerce_checkout_orders SET lifecycle_state='cancelled',cancel_reason=$2,cancelled_at=clock_timestamp(),version=version+1 WHERE order_id=$1 RETURNING *,version::text`,[orderId,reason])).rows[0];
 }
