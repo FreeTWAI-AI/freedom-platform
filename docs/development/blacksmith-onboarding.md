@@ -4,9 +4,9 @@ Tracking and future admission ledger: [#866](https://github.com/FreeTWAI/freedom
 
 The [workflow](../../.github/workflows/blacksmith-onboarding.yml) is an optional
 onboarding benchmark, not a required check or substitute for Verify, CodeQL or
-the existing CircleCI worker-unit lane. It proves runner onboarding only, not
-heavy-job speedup. There is no automatic routing, deployment or paid overage
-authorization.
+the existing CircleCI worker-unit lane. It provides connection/build evidence only.
+Its short workload does not prove that Blacksmith saves time on our bottleneck.
+There is no automatic routing, deployment or paid overage authorization.
 
 The job-level literal `false` prevents Blacksmith runner allocation, even after
 a manual dispatch. There are no dispatch inputs. Activation needs a separately
@@ -20,22 +20,29 @@ existing code-owner review remains essential.
 
 - One `blacksmith-4vcpu-ubuntu-2404` job, 15-minute job timeout; no matrix,
   retries, caches, sticky disks, paid storage add-ons, secrets or services.
-- Source and suite runner both pin merged main
-  `75309b0747a5220e9aa2a478a5012cc3c3c35ee6` (#861). The workflow checks both
-  checkouts and the suite policy before dependency installation. Pin changes
-  require review; arbitrary source/runner/command inputs are not accepted.
+- Source pins merged main `75309b0747a5220e9aa2a478a5012cc3c3c35ee6` (#861).
+  The workflow verifies the clean checkout before installation. Build commands
+  come from that reviewed source; no separate test-runner checkout is needed.
+  Pin changes require review; arbitrary source/command inputs are not accepted.
 - Existing checkout/setup-node/upload-artifact action SHAs and Node 24 are
   reused. Checkout credentials are not persisted; token permissions are only
   `contents: read`. Install uses `npm ci --ignore-scripts --no-audit --no-fund`.
-- The existing pinned `ci.governance-unit` suite remains `database: false`,
-  `timeoutMs: 300000`; no custom runner or suite replacement is introduced.
-- Four explicitly named JSON evidence files retain source/runner/workflow SHA,
+- Run the complete existing `npm run build`: guild-registry and runtime-text
+  freshness checks, skill-client packaging, and production Vite build. No database,
+  server startup or deployment. The command has a 300-second timeout, then at most
+  five seconds for forced termination; the overall job remains 15 minutes.
+  Required CI and its suite definitions are unchanged. This optional build never
+  substitutes for governance, runtime, browser or other required verification.
+- Four explicitly named JSON evidence files retain source/workflow SHA,
   runner label/identity, actual Node version, observed logical CPU count, available
   parallelism, CPU model(s), `/etc/os-release`, kernel and runner image identifiers
   (explicitly null when the provider does not expose `ImageOS`/`ImageVersion`),
-  install/test elapsed seconds and exit codes, plus the existing per-case suite
-  result. GitHub artifacts expire after one day. Check free artifact allowance before admission; no storage
-  purchase is authorized. A timeout, cancellation or setup failure can prevent
+  separate install/build durations and exit codes, and total elapsed time with
+  step outcomes. Total spans the first step through the summary, including checkout
+  and Node setup, but excludes queue, provisioning and artifact upload; it is not
+  provider billing time. Missing start time yields null, never invented duration.
+  GitHub artifacts expire after one day. Check free artifact allowance before
+  admission; no storage purchase is authorized. A timeout, cancellation or setup failure can prevent
   final artifacts: retain the failed run/logs and never count it as a pass.
 
 ## Activation checklist and manual admission
@@ -50,14 +57,12 @@ existing code-owner review remains essential.
    and GitHub artifact allowance remain. Do not alter App permissions, billing,
    secrets, required checks, deployments or provider settings for this pilot.
    If those confirmations require changes, stop and seek separate authorization.
-3. Resolve the **unresolved full local rehearsal/300-second timeout** before
-   activation. The original exact-pinned-source suite failed and timed out;
-   diagnosing its cancellation case and passing that one case under a local
-   subreaper does not establish full-suite success. Preserve the original failure,
-   require a complete successful rehearsal within the unchanged 300-second suite
-   limit, and record its source, runner, environment and result. Do not extend the
-   budget, omit tests or combine partial runs into a pass.
-4. Review the source, runner and action pins, approve a separate activation PR,
+3. Require a complete successful fixed-source install/build rehearsal within the
+   unchanged 300-second workload limit and 15-minute job budget. Record source,
+   workflow, environment and results. Preserve the governance failures below;
+   switching this optional benchmark does not resolve or waive mandatory evidence.
+   Do not omit build steps or combine partial runs into a pass.
+4. Review the source and action pins, approve a separate activation PR,
    and name one maintainer responsible for admission. Keep the first trial to
    **at most ten manually admitted runs**. Before each dispatch, record an ordinal,
    approver, UTC time, source/workflow SHA and remaining quota in the tracking
@@ -86,7 +91,35 @@ data is diagnostic, not independently authenticated merge evidence. Keep the
 original failures and do not splice successful subsets into a passing run.
 
 A later, separately admitted GitHub baseline must use the same source SHA,
-runner code SHA, Node version, lockfile, install flags, suite and cold-cache
-conditions. Record the actual GitHub runner class/CPU/OS, setup and queue time,
-install/test duration, result and provider usage separately. Compare matched
+workflow command identity, Node version, lockfile, install flags, full build and
+cold-cache conditions. Record the actual GitHub runner class/CPU/OS, setup and queue time,
+install/build/total duration, result and provider usage separately. Compare matched
 samples only; no baseline has been run and no speed or cost saving is claimed.
+
+## Preserved local governance failures and workload decision
+
+The initial optional workload was the complete pinned `ci.governance-unit` suite
+at source/runner `75309b0747a5220e9aa2a478a5012cc3c3c35ee6`. It was not reduced
+or declared passing:
+
+- Original full rehearsal: failed cancellation regression, then `test_timeout`
+  at 300 seconds; 41 files selected, 26 started, 25 completed.
+- Exact-base focused diagnosis: both servers received SIGTERM and closed their
+  ports, but this environment's PID 1 (`tail`) left zombies. The unchanged PID
+  assertion failed. Under local `tini 0.19.0`, the unchanged focused case passed
+  1/1 with zero skips. That is not a full-suite pass.
+- One authorized full subreaper rehearsal: `failed/test_timeout`, exit 1,
+  300.422 seconds; 41 files selected, 25 started, 24 completed. No repeated
+  attempts or increased suite budget followed. Full governance timing remains
+  unresolved here, and its required CI obligations are untouched.
+
+The approved replacement is the existing full build, not a filtered test subset.
+One proposal measurement on the same source passed in 10.496 seconds (Vite 5.36s),
+with dependencies already installed and no prior `dist`. That single local sample
+is neither typical duration nor a matched GitHub/Blacksmith baseline. It supports
+bounded onboarding/build execution only, not acceleration or cost savings.
+The revised shell-step rehearsal on 2026-10-16 passed on a fresh pinned checkout:
+install 10 seconds, full build 5 seconds, measured total 15.796 seconds (outer
+wall time 15.836 seconds). It reused a local npm cache; checkout/setup-node/upload
+actions were not executed locally. It is not a hosted or cold-cache comparison.
+Original results and the decision are recorded on [PR #867](https://github.com/FreeTWAI/freedom-platform/pull/867).

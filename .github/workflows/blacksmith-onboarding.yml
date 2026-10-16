@@ -29,10 +29,11 @@ jobs:
         shell: bash
     env:
       SOURCE_SHA: 75309b0747a5220e9aa2a478a5012cc3c3c35ee6
-      RUNNER_SHA: 75309b0747a5220e9aa2a478a5012cc3c3c35ee6
       CI: 'true'
       DO_NOT_TRACK: '1'
     steps:
+      - name: Start measured job interval
+        run: printf 'PILOT_STARTED_MS=%s\n' "$(date +%s%3N)" >> "$GITHUB_ENV"
       - name: Checkout fixed main source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -43,13 +44,6 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - name: Checkout fixed suite runner
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: FreeTWAI/freedom-platform
-          ref: 75309b0747a5220e9aa2a478a5012cc3c3c35ee6
-          path: .freedom/trusted
-          persist-credentials: false
       - name: Verify identities and record provenance
         env:
           WORKFLOW_SHA: ${{ github.workflow_sha }}
@@ -58,21 +52,16 @@ jobs:
           RUNNER_ARCH: ${{ runner.arch }}
         run: |
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$RUNNER_SHA"
           test -z "$(git status --porcelain)"
-          test -z "$(git -C .freedom/trusted status --porcelain)"
           mkdir -p .freedom/reports
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from 'node:fs';
           import { availableParallelism, cpus, release } from 'node:os';
-          import { PINNED_SUITES } from './.freedom/trusted/packages/contribution-tools/pinned-suites.mjs';
-          const suite = PINNED_SUITES['ci.governance-unit'];
-          if (suite.database !== false || suite.timeoutMs !== 300000) throw new Error('unexpected_suite_policy');
           const e = process.env;
           const cpu = cpus();
           writeFileSync('.freedom/reports/blacksmith-source.json', JSON.stringify({
-            source_sha: e.SOURCE_SHA, runner_sha: e.RUNNER_SHA,
-            workflow_sha: e.WORKFLOW_SHA, suite: 'ci.governance-unit',
+            source_sha: e.SOURCE_SHA, workflow_sha: e.WORKFLOW_SHA,
+            command: 'npm run build', workload_timeout_seconds: 300,
             runner_label: 'blacksmith-4vcpu-ubuntu-2404', runner_name: e.RUNNER_NAME,
             runner_os: e.RUNNER_OS, runner_arch: e.RUNNER_ARCH, node: process.version,
             cpu_logical_count: cpu.length, cpu_available_parallelism: availableParallelism(),
@@ -84,15 +73,37 @@ jobs:
           }, null, 2) + '\n');
           NODE
       - name: Install locked dependencies and record duration
+        id: install
         run: |
           start=$SECONDS
           trap 'rc=$?; printf "{\"duration_seconds\":%s,\"exit_code\":%s}\n" "$((SECONDS-start))" "$rc" > .freedom/reports/blacksmith-install.json' EXIT
           npm ci --ignore-scripts --no-audit --no-fund
-      - name: Run the fixed governance suite and record duration
+      - name: Run the complete fixed-source build and record duration
+        id: build
         run: |
           start=$SECONDS
-          trap 'rc=$?; printf "{\"duration_seconds\":%s,\"exit_code\":%s}\n" "$((SECONDS-start))" "$rc" > .freedom/reports/blacksmith-test.json' EXIT
-          node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit
+          trap 'rc=$?; printf "{\"duration_seconds\":%s,\"exit_code\":%s}\n" "$((SECONDS-start))" "$rc" > .freedom/reports/blacksmith-build.json' EXIT
+          timeout --signal=TERM --kill-after=5s 300s npm run build
+      - name: Record total measured interval and outcomes
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          mkdir -p .freedom/reports
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const e = process.env, started = Number(e.PILOT_STARTED_MS), ended = Date.now();
+          writeFileSync('.freedom/reports/blacksmith-total.json', JSON.stringify({
+            started_ms: Number.isSafeInteger(started) && started > 0 ? started : null,
+            ended_ms: ended,
+            duration_seconds: Number.isSafeInteger(started) && started > 0 && ended >= started ? (ended - started) / 1000 : null,
+            job_status_before_upload: e.JOB_STATUS,
+            install_outcome: e.INSTALL_OUTCOME, build_outcome: e.BUILD_OUTCOME,
+            scope: 'first step through summary; excludes queue, provisioning and artifact upload; not provider billing time'
+          }, null, 2) + '\n');
+          NODE
       - name: Retain onboarding evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -104,5 +115,5 @@ jobs:
           path: |
             .freedom/reports/blacksmith-source.json
             .freedom/reports/blacksmith-install.json
-            .freedom/reports/blacksmith-test.json
-            .freedom/reports/pinned-ci.governance-unit.json
+            .freedom/reports/blacksmith-build.json
+            .freedom/reports/blacksmith-total.json
