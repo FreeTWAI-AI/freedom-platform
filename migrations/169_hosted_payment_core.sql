@@ -227,7 +227,12 @@ BEGIN
   END IF;
   IF (to_jsonb(NEW)-ARRAY['state','credential_version','throttled_until','activated_at','activation_ref','updated_at','version'])
     IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['state','credential_version','throttled_until','activated_at','activation_ref','updated_at','version'])
-    OR OLD.state='retired' OR NEW.version<>OLD.version+1 OR NEW.updated_at<OLD.updated_at
+    -- Retirement stops new effects, not read-only queries or their 403 throttle.
+    -- Every other retired-service fact, including credentials, remains frozen.
+    OR (OLD.state='retired' AND ((to_jsonb(NEW)-ARRAY['throttled_until','updated_at','version'])
+      IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['throttled_until','updated_at','version'])
+      OR NEW.throttled_until IS NOT DISTINCT FROM OLD.throttled_until))
+    OR NEW.version<>OLD.version+1 OR NEW.updated_at<OLD.updated_at
     OR (OLD.activated_at IS NOT NULL AND ROW(NEW.activated_at,NEW.activation_ref) IS DISTINCT FROM ROW(OLD.activated_at,OLD.activation_ref))
     OR (OLD.activated_at IS NULL AND NEW.activated_at IS NOT NULL AND NOT (OLD.state='draft' AND NEW.state='active')) THEN
     RAISE EXCEPTION 'provider service identity and activation are retained' USING ERRCODE='23514';

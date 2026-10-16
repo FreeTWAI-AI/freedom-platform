@@ -370,3 +370,12 @@ test('trade number mismatches can retain a contradicting-event case on a payment
     kind: 'contradicting_event', subjectKind: 'payment_attempt', subjectId: a.attempt_id });
   assert.equal(result.subject_id, a.attempt_id);
 });
+test('retired payment services retain query throttles without reopening their lifecycle', async () => {
+  await q.query("UPDATE commerce_provider_account_services SET state='retired',version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'", [accountId]);
+  await q.query("UPDATE commerce_provider_account_services SET throttled_until=clock_timestamp()+interval '30 minutes',version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'", [accountId]);
+  const row = (await q.query("SELECT state,credential_version,throttled_until>clock_timestamp() AS throttled FROM commerce_provider_account_services WHERE account_id=$1 AND purpose='payment'", [accountId])).rows[0];
+  assert.deepEqual(row, { state: 'retired', credential_version: 1, throttled: true });
+  await rejects(() => q.query("UPDATE commerce_provider_account_services SET state='draft',version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'", [accountId]));
+  await rejects(() => q.query("UPDATE commerce_provider_account_services SET credential_version=2,version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'", [accountId]));
+  await rejects(() => q.query("UPDATE commerce_provider_account_services SET version=version+1,updated_at=clock_timestamp() WHERE account_id=$1 AND purpose='payment'", [accountId]));
+});
