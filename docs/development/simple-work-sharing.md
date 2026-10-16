@@ -44,7 +44,7 @@ Agent／聊天 AI／CLI 上傳保留在進階工具中；其既有 100 則短文
 - `POST /api/v1/opensource/projects/:id/edit-access`：需會員 session、Origin／CSRF、Idempotency-Key；僅核對當次編輯權。
 - `POST /api/v1/opensource/projects/:id:revise`、`:refresh`：每次獨立核對編輯權，保留 If-Match／交易／稽核；權限只適用同社群可見作品。
 - `migrations/126_project_public_metadata.sql`：新增公開介紹已修訂標記；尚未修訂的既有投稿繼續呈現原投稿內容。
-- Preview 契約更新為 `freedom.preview/v1` revision `0.4.0`，新增 `checkProjectEditing` 並同步 SDK／bundle；外倉由其維護者更新自己的來源 pins。
+- 依 #222 維護者決策，`edit-access` 保持 Portal-only；該次交付未發布 Preview `0.4.0`，preview bundle／SDK 當時維持 revision `0.3.0`，外倉 pins 未變。
 
 本次本機驗證使用隔離 PostgreSQL schema 與明示的合成 GitHub OAuth／組織 Repo 回應；瀏覽器實跑管理者核對、儲存、書架與公開介紹頁同步，390px 書架無水平溢出。未使用真實組織憑證，未部署正式站。
 
@@ -54,6 +54,7 @@ Agent／聊天 AI／CLI 上傳保留在進階工具中；其既有 100 則短文
 
 - `POST /api/v1/showcases`：`artifact_ref` 改為選填，未提供時在同一交易內產生；新增選填 `public_url`。保留舊 request 與既有引用規則。
 - `GET /api/v1/showcases?limit=20&offset=0`（#402）：社群已發布作品分頁，`limit` 1–50（預設 20）、`offset` 為非負安全整數，回 `{items,next_offset}`，依 `created_at DESC, showcase_id` 穩定排序；超過 10,000 筆仍可依回傳的 `next_offset` 續頁，未知參數回 422。「作品與需求」頁顯示「載入更多作品」，`#showcase/<id>` 深連結會逐頁載入直到找到該作品。
+- `GET /api/v1/marketing/campaigns?limit=20&offset=0`（#671）：本人私人行銷草稿分頁，`limit` 1–50（預設 20）、`offset` 為非負整數，回 `{items,next_offset}`，依 `created_at DESC, campaign_id DESC` 穩定排序；Portal 可載入更多，後續頁失敗時保留已載入草稿。建立、修訂與記錄人工分享直接更新既有頁，不把較舊草稿丟掉。
 - `POST /api/v1/me/skill-submissions/manual`：只保存本人私人草稿；不建立 upload key 或 bearer grant。
 - `POST /api/v1/me/skill-submissions/:id/manual`：只修改本人、尚未公開、沒有 Agent grant 的手動草稿；要求 If-Match。
 - `POST /api/v1/me/skill-submissions/:id/publish`：沿用現有公開機制、來源查驗、稽核與交易回滾。

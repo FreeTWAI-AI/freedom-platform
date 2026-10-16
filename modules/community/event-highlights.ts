@@ -238,7 +238,7 @@ async function visibleItems(q: Pick<Pool, 'query'>, eventIds: string[], viewerId
   return grouped;
 }
 
-export async function listHighlightEvents(pool: Pool, scope: {communityId: string | null; viewerId: string | null; publicOnly?:boolean; mode: HighlightMode; cursor: {endsAt: string; eventId: string} | null}) {
+export async function listHighlightEvents(pool: Pick<Pool, 'query'>, scope: {communityId: string | null; viewerId: string | null; publicOnly?:boolean; mode: HighlightMode; cursor: {endsAt: string; eventId: string} | null}) {
   const rows = (await pool.query(`SELECT e.event_id,e.title,e.starts_at,e.ends_at,e.mode,e.event_kind,u.display_name AS organizer_name,
     to_char(e.ends_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS ends_cursor,
     (SELECT orientation FROM community_event_banners b WHERE b.event_id=e.event_id) AS banner_orientation,
@@ -285,7 +285,7 @@ function assertRoom(counts: {my_links: number; event_links: number; my_photos: n
   if (event >= limits[kind].event) throw limitProblem(kind, 'event');
 }
 
-export async function readHighlightEvent(pool: Pool, scope: {communityId: string | null; viewerId: string | null; eventId: string}) {
+export async function readHighlightEvent(pool: Pick<Pool, 'query'>, scope: {communityId: string | null; viewerId: string | null; eventId: string}) {
   const row = await loadListed(pool, scope.eventId, scope.communityId, scope.viewerId);
   const items = (await pool.query(`SELECT h.media_id,h.kind,h.title,h.url,h.platform,h.orientation,h.created_at,h.uploader_user_id,u.display_name,
     a.aggregate_version AS avatar_version, a.present AS avatar_present,EXISTS(SELECT 1 FROM community_event_outcome_media binding WHERE binding.media_id=h.media_id) AS outcome_bound
