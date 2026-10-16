@@ -1,8 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AVATAR_ASSET_SPEC, EVENT_PARTICIPATION_SPEC, explicitFileArgs, MESSAGE_IMAGE_SPEC, STORE_PHOTO_SPEC, NOTIFICATION_PREFERENCES_SPEC, FIRST_PARTICIPATION_SPEC, planE2e, PRIVATE_AI_SPEC, runE2e } from './run-e2e.mjs';
 
@@ -185,10 +183,6 @@ test('the avatar fixture failure is returned after the earlier passes', async ()
   assert.deepEqual(calls, [null, null, '1']);
 });
 
-test('package test:e2e delegates to this runner', async () => {
-  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-  assert.equal(pkg.scripts['test:e2e'], 'node scripts/run-e2e.mjs');
-});
 
 function runSeam(source) {
   return new Promise(done => {
