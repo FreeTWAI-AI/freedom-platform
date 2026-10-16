@@ -507,6 +507,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     // So does each tenant's browser order access grant.
     'commerce_order_access_grants',
     'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
+  'commerce_ship_from_locations', 'commerce_logistics_services',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
@@ -587,6 +588,17 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
         VALUES($1,'payment',$2,$3,'sandbox','ecpay.aio.credit.v1',1)`, [accountId,data.tenantId,data.instanceId]);
       await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
         VALUES($1,'payment',1,$2,$3,'sandbox',$4,$5,$6)`, [accountId,data.tenantId,data.instanceId,sealed.key_id,sealed.sealed,data.principalId]);
+      const logisticsSealed=sealCredential(credentialKeys,{account_id:accountId,purpose:'logistics',environment:'sandbox',credential_version:1},
+        {hash_key:randomBytes(8).toString('hex'),hash_iv:randomBytes(8).toString('hex')});
+      await q.query(`INSERT INTO commerce_provider_account_services(account_id,purpose,tenant_id,instance_id,environment,profile,credential_version)
+        VALUES($1,'logistics',$2,$3,'sandbox','ecpay.logistics.domestic.v1',1)`,[accountId,data.tenantId,data.instanceId]);
+      await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
+        VALUES($1,'logistics',1,$2,$3,'sandbox',$4,$5,$6)`,[accountId,data.tenantId,data.instanceId,logisticsSealed.key_id,logisticsSealed.sealed,data.principalId]);
+      await q.query(`INSERT INTO commerce_logistics_services(account_id,service_key,tenant_id,instance_id,environment,created_by_principal_id)
+        VALUES($1,'ecpay.logistics.home.tcat',$2,$3,'sandbox',$4)`,[accountId,data.tenantId,data.instanceId,data.principalId]);
+      const digits=String(randomBytes(4).readUInt32BE()).padStart(10,'0');
+      await q.query(`INSERT INTO commerce_ship_from_locations(tenant_id,instance_id,label,sender_name,mobile,postal_code,address,ships,receives_returns,created_by_principal_id)
+        VALUES($1,$2,$3,'合成星禾',$4,'100',$5,true,true,$6)`,[data.tenantId,data.instanceId,'合成倉'+digits,'09'+digits.slice(-8),'合成星禾路'+digits+'號',data.principalId]);
       await q.query(`INSERT INTO commerce_exception_cases(tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind)
         VALUES($1,$2,'unmatched_payment','payment_event',$3,'retailer',clock_timestamp()+interval '72 hours','system')`,
       [data.tenantId,data.instanceId,randomUUID()]);
