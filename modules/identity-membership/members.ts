@@ -122,6 +122,7 @@ export async function memberCard(pool:Pick<Pool,'query'>,actor:Actor,id:string) 
 }
 export async function memberCards(pool:Pick<Pool,'query'>,actor:Actor,ids:string[]) {
   ids=ids.map(id=>z.uuid().parse(id).toLowerCase());
+  await assertInteractionMember(pool,actor);
   if(!ids.length)return [];
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
@@ -221,6 +222,7 @@ export async function listMembers(pool:Pick<Pool,'query'>,actor:Actor,limit:numb
 export async function memberPresence(pool:Pool,actor:Actor,raw:string){
   const ids=z.array(z.uuid()).max(50).parse(raw.split(',').filter(Boolean));
   return readWithMemberSession(pool,actor,async q=>{
+  await assertInteractionMember(q,actor);
   if(ids.length===0)return {items:[]};
   const rows=(await q.query(`SELECT u.user_id,
     (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
@@ -266,6 +268,7 @@ async function squadExists(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
 }
 export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:number) {
   return readWithMemberSession(pool,actor,async q=>{
+  await assertInteractionMember(q,actor);
   const rows=(await q.query(`SELECT s.*,u.display_name AS owner_name,
     (SELECT count(*)::int FROM member_squad_memberships a JOIN users mu ON mu.user_id=a.user_id JOIN member_account_classification mt ON mt.user_id=mu.user_id AND mt.community_id=mu.community_id WHERE a.squad_id=s.squad_id AND a.state='active' AND mu.active AND mu.community_id=s.community_id AND NOT mt.is_test_account) AS member_count,
     CASE WHEN m.user_id IS NULL THEN NULL ELSE jsonb_build_object('state',m.state,'aggregate_version',m.aggregate_version) END AS membership
@@ -277,6 +280,7 @@ export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:numbe
 }
 export async function squadView(pool:Pool,actor:Actor,id:string) {
   return readWithMemberSession(pool,actor,async q=>{
+  await assertInteractionMember(q,actor);
   // Keep the owner/active grant stable until the roster and session decision finish.
   const squad=await squadExists(q,actor,id,true);
   const members=(await q.query(`SELECT m.user_id,u.display_name AS nickname,m.state,m.aggregate_version FROM member_squad_memberships m JOIN users u USING(user_id)
