@@ -24,7 +24,9 @@
     "tests/runtime/hosted-payment-activation.test.ts",
     "tests/e2e/hosted-payment.spec.ts",
     "tests/e2e/hosted-payment-fixture.ts",
-    "tests/e2e/hosted-payment-queries.spec.ts"
+    "tests/e2e/hosted-payment-queries.spec.ts",
+    "tests/runtime/hosted-payment-refunds.test.ts",
+    "tests/runtime/hosted-seller-payment-queries.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/payments/rules/index.ts"
