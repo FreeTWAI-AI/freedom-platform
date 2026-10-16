@@ -177,3 +177,394 @@ test('supply-only product photo through the console stays private (AT-11, S1 ste
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('supply-only-private-photo.png'),fullPage:true});
   }finally{await anonymous.close();await retail.close();}
 });
+
+const materialConsole = (page: Page) => page.locator('.supplier-console');
+const materialActive = (page: Page) => page.locator('.sc-content > [data-sc-active="true"]');
+
+async function setupMaterialSupplier(page: Page, db: Parameters<typeof person>[0], suffix: string) {
+  const member = await person(db);
+  await login(page, member.email);
+  const store = await launchStore(page, `合成素材空間 ${suffix}`);
+  await post(page, `${store.root}/supply-profile`, {name: `合成素材商品庫 ${suffix}`, currency: 'TWD'}, 201);
+  return {member, store};
+}
+
+async function createFileMaterialInConsole(
+  page: Page,
+  store: {hash: string},
+  kind: 'image' | 'video',
+  title: string,
+) {
+  await page.evaluate(hash => {
+    location.hash = hash;
+  }, `${store.hash}/supply/materials/new`);
+  await expect(materialConsole(page)).toBeVisible();
+  await expect(materialActive(page).getByRole('heading', {level: 2, name: '新增素材', exact: true})).toBeVisible();
+  const form = materialActive(page).getByRole('form', {name: '新增素材', exact: true});
+  await form.getByLabel('種類').selectOption(kind);
+  await form.getByLabel('素材對象').selectOption('');
+  await form.getByLabel('標題').fill(title);
+  await form.getByLabel('說明').fill(`合成${kind === 'image' ? '圖片' : '影片'}素材說明`);
+  await form.getByRole('button', {name: '建立素材', exact: true}).click();
+  await expect(
+    materialActive(page).getByRole('heading', {level: 2, name: `素材詳情：${title}`, exact: true}),
+  ).toBeVisible();
+  const match = new URL(page.url()).hash.match(/\/supply\/materials\/([0-9a-f-]{36})$/);
+  expect(match).not.toBeNull();
+  return match![1];
+}
+
+test('SC-E2E-66 image material upload, versions and the supplier\'s own read (AT-23)', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  test.setTimeout(240_000);
+  const suffix = randomUUID().slice(0, 6);
+  const {store} = await setupMaterialSupplier(page, e2eAuthPool, suffix);
+  const title = `品牌主視覺 ${suffix}`;
+  const materialId = await createFileMaterialInConsole(page, store, 'image', title);
+
+  const uploadSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '新版本', exact: true})});
+  const contentSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '內容', exact: true})});
+  const historySection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '版本紀錄', exact: true})});
+
+  // Device validation: wrong type or corrupt/oversize image refused on device with 0 requests sent
+  const uploadPath = `/api/v1${store.root}/supply-materials/${materialId}/content`;
+  const sentUploads: Request[] = [];
+  page.on('request', req => {
+    if (req.method() === 'POST' && new URL(req.url()).pathname === uploadPath) {
+      sentUploads.push(req);
+    }
+  });
+
+  await uploadSection.getByLabel('選擇圖片').setInputFiles({
+    name: 'wrong-format.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('plain text is not an image'),
+  });
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('請選擇 JPEG、PNG 或 WebP 圖片。');
+  expect(sentUploads).toHaveLength(0);
+
+  await uploadSection.getByLabel('選擇圖片').setInputFiles({
+    name: 'renamed-text-over-2mb.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(2 * 1024 * 1024 + 128, 0x41),
+  });
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('圖片無法讀取，請選擇完整的靜態 JPEG、PNG 或 WebP 圖片。');
+  expect(sentUploads).toHaveLength(0);
+
+  await uploadSection.getByLabel('選擇圖片').setInputFiles({
+    name: 'oversize-21mb.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(21 * 1024 * 1024),
+  });
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('這張圖片超過 20 MB，請選擇較小的原始照片。');
+  expect(sentUploads).toHaveLength(0);
+
+  // Version 1 upload
+  const file1 = await source(`brand-v1-${suffix}.png`, '#2b5f75');
+  await uploadSection.getByLabel('選擇圖片').setInputFiles(file1);
+  await expect(uploadSection).toContainText(`已選擇：${file1.name}・image/png・`);
+  await expect(uploadSection.getByRole('img', {name: '待上傳圖片的裝置預覽', exact: true})).toBeVisible();
+
+  const contentReadV1 = page.waitForResponse(
+    res =>
+      res.request().method() === 'GET' &&
+      res.url().includes(`${store.root}/supply-materials/${materialId}/versions/`) &&
+      res.url().endsWith('/content'),
+  );
+  await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+  expect(sentUploads).toHaveLength(1);
+
+  const imgV1Resp = await contentReadV1;
+  expect(imgV1Resp.status()).toBe(200);
+  expect(imgV1Resp.headers()['cache-control']).toBe('private, no-store');
+  expect(imgV1Resp.headers()['content-type']).toBe('image/webp');
+
+  const contentImg = contentSection.locator('img.sc-material-media');
+  await expect(contentImg).toBeVisible();
+  const srcV1 = await contentImg.getAttribute('src');
+  expect(srcV1).toMatch(
+    new RegExp(`^/api/v1${store.root}/supply-materials/${materialId}/versions/[0-9a-f-]{36}/content$`),
+  );
+  await expect.poll(() => contentImg.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+  const v1Row = historySection.locator('li.sc-row').filter({hasText: '第 1 版'});
+  await expect(v1Row.locator('.badge')).toHaveText('目前版本');
+  const openV1Link = v1Row.getByRole('link', {name: /開啟檔案/});
+  await expect(openV1Link).toHaveAttribute('href', srcV1!);
+
+  // Version 2 upload
+  const file2 = await source(`brand-v2-${suffix}.png`, '#7a4b2a');
+  await uploadSection.getByLabel('選擇圖片').setInputFiles(file2);
+  await expect(uploadSection).toContainText(`已選擇：${file2.name}・image/png・`);
+  await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+  expect(sentUploads).toHaveLength(2);
+
+  const v2Row = historySection.locator('li.sc-row').filter({hasText: '第 2 版'});
+  await expect(v2Row.locator('.badge')).toHaveText('目前版本');
+  await expect(v1Row.locator('.badge')).toHaveCount(0);
+  const srcV2 = await contentImg.getAttribute('src');
+  expect(srcV2).not.toBe(srcV1);
+  await expect.poll(() => contentImg.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+  // First version still opens for the supplier
+  await expect(openV1Link).toHaveAttribute('href', srcV1!);
+  const supplierV1Check = await page.request.get(srcV1!);
+  expect(supplierV1Check.status()).toBe(200);
+  expect(supplierV1Check.headers()['cache-control']).toBe('private, no-store');
+  expect(supplierV1Check.headers()['content-type']).toBe('image/webp');
+  expect((await supplierV1Check.body()).length).toBeGreaterThan(0);
+
+  // Anonymous browser context gets no image bytes
+  const anonymous = await browser.newContext({baseURL});
+  try {
+    for (const url of [srcV1!, srcV2!]) {
+      const anonResp = await anonymous.request.get(url);
+      expect(anonResp.status()).toBe(401);
+      expect(anonResp.headers()['content-type']).not.toContain('image/');
+      const anonBody = await anonResp.text();
+      expect(anonBody).toContain('login_required');
+    }
+  } finally {
+    await anonymous.close();
+  }
+});
+
+test('SC-E2E-67 video material upload plays from the supplier read (AT-23, D-14)', async ({
+  page,
+  e2eAuthPool,
+}) => {
+  test.setTimeout(240_000);
+  const {readFile} = await import('node:fs/promises');
+  const suffix = randomUUID().slice(0, 6);
+  const {store} = await setupMaterialSupplier(page, e2eAuthPool, suffix);
+  const title = `開箱短片 ${suffix}`;
+  const materialId = await createFileMaterialInConsole(page, store, 'video', title);
+
+  const uploadSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '新版本', exact: true})});
+  const contentSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '內容', exact: true})});
+  const historySection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '版本紀錄', exact: true})});
+
+  const uploadPath = `/api/v1${store.root}/supply-materials/${materialId}/content`;
+  const sentUploads: Request[] = [];
+  page.on('request', req => {
+    if (req.method() === 'POST' && new URL(req.url()).pathname === uploadPath) {
+      sentUploads.push(req);
+    }
+  });
+
+  // Device refusal for 21 MB video buffer with D-14 message and 0 requests
+  await uploadSection.getByLabel('選擇影片').setInputFiles({
+    name: 'oversize-21mb.mp4',
+    mimeType: 'video/mp4',
+    buffer: Buffer.alloc(21 * 1024 * 1024),
+  });
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText(
+    '影片需為 MP4 或 WebM，最多 20 MB。請先壓縮（建議 H.264／AAC、720p、60 秒內）再上傳。',
+  );
+  expect(sentUploads).toHaveLength(0);
+
+  // Real MP4 upload
+  const videoBytes = await readFile('tests/media-fixtures/event-video-160x90.mp4');
+  const contentResponses: Array<{status: number; headers: Record<string, string>}> = [];
+  page.on('response', res => {
+    if (
+      res.request().method() === 'GET' &&
+      res.url().includes(`${store.root}/supply-materials/${materialId}/versions/`) &&
+      res.url().endsWith('/content')
+    ) {
+      contentResponses.push({status: res.status(), headers: res.headers()});
+    }
+  });
+
+  await uploadSection.getByLabel('選擇影片').setInputFiles({
+    name: 'event-video-160x90.mp4',
+    mimeType: 'video/mp4',
+    buffer: videoBytes,
+  });
+  await expect(uploadSection).toContainText('已選擇：event-video-160x90.mp4・video/mp4・');
+  await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+  expect(sentUploads).toHaveLength(1);
+
+  const videoEl = contentSection.locator('video.sc-material-media');
+  await expect(videoEl).toBeVisible();
+  const videoSrc = await videoEl.getAttribute('src');
+  expect(videoSrc).toMatch(
+    new RegExp(`^/api/v1${store.root}/supply-materials/${materialId}/versions/[0-9a-f-]{36}/content$`),
+  );
+
+  await expect.poll(() => videoEl.evaluate(el => (el as HTMLVideoElement).readyState)).toBeGreaterThanOrEqual(1);
+
+  const partialResponses = contentResponses.filter(r => r.status === 206);
+  expect(partialResponses.length).toBeGreaterThanOrEqual(1);
+  expect(partialResponses[0].headers['cache-control']).toBe('private, no-store');
+  expect(partialResponses[0].headers['content-type']).toBe('video/mp4');
+  expect(partialResponses[0].headers['content-range']).toMatch(new RegExp(`^bytes \\d+-\\d+/${videoBytes.length}$`));
+
+  // Also verify full GET content-length and byte identity (no transcoding)
+  const fullGet = await page.request.get(videoSrc!);
+  expect(fullGet.status()).toBe(200);
+  expect(Number(fullGet.headers()['content-length'])).toBe(videoBytes.length);
+  expect(Buffer.from(await fullGet.body()).equals(videoBytes)).toBe(true);
+
+  const expectedSizeText = `${(videoBytes.length / 1048576).toFixed(1)} MB`;
+  const v1Row = historySection.locator('li.sc-row').filter({hasText: '第 1 版'});
+  await expect(v1Row.locator('.badge')).toHaveText('目前版本');
+  await expect(v1Row).toContainText(`video/mp4・${expectedSizeText}`);
+});
+
+test('SC-E2E-68 upload with an unknown result is retried as the same operation (AT-24)', async ({
+  page,
+  e2eAuthPool,
+}) => {
+  test.setTimeout(240_000);
+  const suffix = randomUUID().slice(0, 6);
+  const {member, store} = await setupMaterialSupplier(page, e2eAuthPool, suffix);
+  const title = `未知上傳素材 ${suffix}`;
+  const materialId = await createFileMaterialInConsole(page, store, 'image', title);
+
+  const uploadSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '新版本', exact: true})});
+
+  const file = await source(`unknown-upload-${suffix}.png`, '#446879');
+  const uploadPath = `/api/v1${store.root}/supply-materials/${materialId}/content`;
+  const requests: ReturnType<typeof signature>[] = [];
+  const statuses: number[] = [];
+
+  await page.route(`**${uploadPath}`, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    requests.push(signature(route.request()));
+    const response = await route.fetch();
+    statuses.push(response.status());
+    if (requests.length === 1) {
+      expect(response.status()).toBe(200);
+      await route.abort('failed');
+    } else {
+      await route.fulfill({response});
+    }
+  });
+
+  await uploadSection.getByLabel('選擇圖片').setInputFiles(file);
+  await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+
+  const unknownText = '尚未確認上傳結果。檔案仍保留，請按重試原操作確認後再離開。';
+  const retryBtn = uploadSection.getByRole('button', {name: '重試原操作', exact: true});
+  await expect(retryBtn).toBeVisible();
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText(unknownText);
+  await expect(materialConsole(page)).toContainText(unknownText);
+  expect(statuses).toEqual([200]);
+
+  // Leave guard blocks leaving while outcome is unknown
+  const detailHash = `${store.hash}/supply/materials/${materialId}`;
+  await page.evaluate(() => {
+    location.hash = 'home';
+  });
+  await expect(page).toHaveURL(new RegExp(`#${detailHash}$`));
+  await expect(materialConsole(page).locator('.sc-announcement')).toHaveText(
+    '尚未確認原操作的結果，請按「重試」確認後再離開。',
+  );
+
+  // Expire session so retry hits 401 and unmounts console, then sign back in and restore held upload
+  const expired = await e2eAuthPool.query(
+    "UPDATE sessions SET expires_at=now()-interval '1 second' WHERE user_id=$1 AND expires_at>now()",
+    [member.id],
+  );
+  expect(expired.rowCount).toBe(1);
+  await retryBtn.click();
+  await expect(page.getByRole('heading', {name: '登入', exact: true})).toBeVisible();
+  expect(statuses).toEqual([200, 401]);
+
+  await loginHere(page, member.email);
+  await page.evaluate(hash => {
+    location.hash = hash;
+  }, detailHash);
+  await expect(materialConsole(page)).toBeVisible();
+  await expect(retryBtn).toBeVisible();
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText(unknownText);
+  await expect(uploadSection).toContainText(file.name);
+  expect(requests).toHaveLength(2);
+
+  await retryBtn.click();
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+
+  expect(statuses).toEqual([200, 401, 200]);
+  expect(requests).toHaveLength(3);
+  expect(requests[0].key).toBeTruthy();
+  expect(requests[0].version).toBe('"1"');
+  expect(requests[0].sha256).toBe(digest(file.buffer));
+  expect(requests[1]).toEqual(requests[0]);
+  expect(requests[2]).toEqual(requests[0]);
+
+  const key = requests[0].key;
+  expect(
+    (
+      await e2eAuthPool.query<{n: number}>(
+        'SELECT count(*)::int AS n FROM supply_material_versions WHERE material_id=$1',
+        [materialId],
+      )
+    ).rows[0].n,
+  ).toBe(1);
+  expect(
+    (
+      await e2eAuthPool.query<{n: number}>(
+        "SELECT count(*)::int AS n FROM scoped_command_receipts WHERE target_id=$1 AND operation='storefront.supply-material.upload' AND idempotency_key=$2",
+        [materialId, key],
+      )
+    ).rows[0].n,
+  ).toBe(1);
+  expect(
+    (
+      await e2eAuthPool.query<{n: number}>(
+        "SELECT count(*)::int AS n FROM scoped_transition_journal WHERE aggregate_id=$1 AND operation='storefront.supply-material.upload'",
+        [materialId],
+      )
+    ).rows[0].n,
+  ).toBe(1);
+  expect(
+    (
+      await e2eAuthPool.query<{n: number}>(
+        "SELECT count(*)::int AS n FROM asset_upload_intents WHERE target_material_id=$1 AND state='finalized'",
+        [materialId],
+      )
+    ).rows[0].n,
+  ).toBe(1);
+  expect(
+    (
+      await e2eAuthPool.query<{n: number}>(
+        `SELECT count(*)::int AS n
+         FROM assets a
+         JOIN asset_upload_intents i USING(asset_id)
+         WHERE i.target_material_id=$1 AND a.state='ready'
+           AND NOT EXISTS (SELECT 1 FROM supply_material_versions v WHERE v.asset_id=a.asset_id)`,
+        [materialId],
+      )
+    ).rows[0].n,
+  ).toBe(0);
+  expect(
+    (
+      await e2eAuthPool.query<{n: number}>(
+        'SELECT count(*)::int AS n FROM asset_object_write_effects e JOIN asset_upload_intents i USING(asset_id) WHERE i.target_material_id=$1',
+        [materialId],
+      )
+    ).rows[0].n,
+  ).toBe(1);
+});
