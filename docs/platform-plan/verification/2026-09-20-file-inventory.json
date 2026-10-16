@@ -119,13 +119,13 @@
     },
     {
       "path": ".circleci/README.md",
-      "bytes": 5208,
-      "sha256": "05de1a3d710a85282663f12bee91b76dcc7309dea3d0c98e26281566c5f8fc1a"
+      "bytes": 6186,
+      "sha256": "17c3688c16488cd543f0bd846bfade7dd042fa3a7f0e607502ea5638b9fd65cf"
     },
     {
       "path": ".circleci/config.yml",
-      "bytes": 4724,
-      "sha256": "bcf0d149bcd341c718db436b0d03338f359fe7f3bffc5b23c12fde688fa27052"
+      "bytes": 5379,
+      "sha256": "ce388dd956d008a7533e1ecaff36b5e2d61a3b2132c3877731e7d723a5b19c11"
     },
     {
       "path": ".github/CODEOWNERS",
@@ -19416,6 +19416,11 @@
       "path": "packages/contribution-tools/test/checkout-repositories.test.mjs",
       "bytes": 4387,
       "sha256": "3b7d566bd4265ae7a2af26d959480405fd72027a312622ac78548951cd31bce1"
+    },
+    {
+      "path": "packages/contribution-tools/test/circleci-config.test.mjs",
+      "bytes": 2729,
+      "sha256": "0c5de2a13d2220f9627593b550fa444cab170923dfe8cd48cde5ef342f7b896c"
     },
     {
       "path": "packages/contribution-tools/test/consumer-entry-coverage.test.mjs",

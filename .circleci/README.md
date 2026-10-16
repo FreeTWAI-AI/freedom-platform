@@ -5,9 +5,8 @@ existing native GitHub integration. There is no opt-in flag, historical candidat
 parameter, controller, ledger writer, API dispatcher or automatic fallback.
 Existing GitHub worker coverage remains until coordinated adoption below.
 
-The candidate is `pipeline.git.revision`, checked against `CIRCLE_SHA1` and the
-GitHub App config source `pipeline.config.sha`. A mismatched config/checkout
-mapping fails instead of testing an unrelated historical commit. Public anonymous
+The candidate is `pipeline.git.revision`, checked against `CIRCLE_SHA1` and verified after checkout. The OAuth integration
+does not provide `pipeline.config.sha` (pipeline 9 compiled it as null). Public anonymous
 Git fetches materialize that exact commit. The reviewed runner is pinned to main
 `3c1ff74476d4072f5a1b8b179a1bb0faecefc461`; worker runner/definition behavior is
 unchanged from the successful #718 pilot (the intervening runner edit concerns
@@ -18,7 +17,7 @@ The existing complete `ci.worker-unit` runner discovers the candidate worker
 files and validates complete case accounting. Its exit code controls the job:
 failure, timeout and not-run remain failures. Artifacts retain the complete
 `worker-unit-evidence.json` report and `worker-unit-source.json` containing exact
-candidate/config/runner SHA, pipeline/workflow/job IDs, resource class and Node
+candidate/runner SHA, checked-out config-file hash, pipeline/workflow/job IDs, resource class and Node
 version. No-workflow is never worker success. Cancellation or missing artifacts
 is not acceptance. This retains existing candidate-test trust, not independent
 attestation against malicious test code.
@@ -36,7 +35,7 @@ job. No provider permission, trigger setting or GitHub ruleset is changed here.
    that runs the same commit twice. Check whether current native trigger coverage
    includes required PR/fork events rather than assuming that from this YAML.
 2. Follow the automatically created pipeline for this PR head. Require a real
-   successful `worker-unit` job, matching config/candidate/head SHA, complete
+   successful `worker-unit` job, matching candidate/head SHA and checked-out config hash, complete
    file/case artifacts and provider job identity. Record duration/credits.
    The old 143-credit, 38-file/109-case run on `1e584aa8` is historical only.
 3. Inspect GitHub's actual check/status: record its exact context/name, publisher
@@ -83,3 +82,18 @@ by this native path.
 
 References: [pipeline values](https://circleci.com/docs/reference/variables/),
 [native GitHub Checks](https://circleci.com/docs/guides/integration/enable-checks/).
+
+## OAuth config provenance correction
+
+Official variable documentation limits `pipeline.config.*` to GitHub App / App
+Server; OAuth uses the same repository as checkout. The first step hashes
+`git show <exact-candidate>:.circleci/config.yml` before dependency installation
+and records `checkout_commit`, `circle_sha1`, `config_file_sha256` and
+`config_provenance: oauth-same-repository-checkout-assumption`. This identifies
+committed config bytes, not an independently authenticated copy of the compiled
+provider config. Native push provenance and the same-repository configuration
+assumption must be checked against provider pipeline metadata. `CIRCLE_SHA1` is
+a checkout identity, not a separately proven event-trigger SHA. No unsupported
+config SHA is relabeled as verified; candidate equality and exact checkout
+checks stay mandatory. The authenticated pipeline 9 evidence confirms its null
+CONFIG_SHA caused the old guard to reject before any tests ran.
