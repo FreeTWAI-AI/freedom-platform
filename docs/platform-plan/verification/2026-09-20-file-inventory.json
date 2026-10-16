@@ -2524,8 +2524,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedStore.tsx",
-      "bytes": 43782,
-      "sha256": "0d91863d784d337ff5d3fc4615a53c2974c4b851c75b4b0da7b35e566cbf1d01"
+      "bytes": 44136,
+      "sha256": "58e2a3a3f0f917cecfbf5d4e4a7ef84c894dffd57978c521d31bc416b08c237f"
     },
     {
       "path": "apps/portal-web/src/modules/HostedStorePhoto.tsx",
@@ -15494,8 +15494,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-04-materials-settings-reports.md",
-      "bytes": 26143,
-      "sha256": "5a81539aa04aaf9c9359c04e5e9768cdea9294189f4d37d2a87b310251da8851"
+      "bytes": 26402,
+      "sha256": "b8d96e0de38dfee41707706e5fb286d68bb1d555ac0fae979f3b87f7942b1271"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
@@ -17209,8 +17209,8 @@
     },
     {
       "path": "modules/agent-commerce/supplier-console/distribution-photo-target.ts",
-      "bytes": 8539,
-      "sha256": "0893cc02b9b812de687712137c0e0d45d44e11a7365567ca73116183f473c5e1"
+      "bytes": 8509,
+      "sha256": "b047c533c6fc0074ce8a31f81584fe32e2a636ebb7aafb7a99eadf658a8748bf"
     },
     {
       "path": "modules/agent-commerce/supplier-console/distribution-photos.ts",

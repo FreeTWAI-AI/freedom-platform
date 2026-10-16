@@ -178,10 +178,12 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 | 非本店可售選品、不可見或不適用素材、其他店 | 404 `not_found` | 找不到這個素材。 |
 | 可見但非公開使用 | 409 `material_not_public` | 供應商尚未同意把這個素材用在公開店面。 |
 | 非圖片 | 409 `material_not_image` | 只有圖片素材可以用在公開店面。 |
-| 可見素材已換版本 | 409 `material_version_changed` | 供應商已更新這個素材，請重新整理後再選用。 |
+| 可見素材已換版本 | 409 `material_version_changed` | 供應商已更新這個素材。 |
 | 上傳／lifecycle／商品照片 policy 不可用 | 503 `distribution_photo_unavailable` | 目前無法把素材用在公開店面。 |
 | 來源物件無法讀取或 metadata 不符 | 503 `material_content_unavailable` | 素材檔案暫時無法讀取。 |
 | 容量、版本 | 429 `quota_exceeded`／409 `asset_retained_quota`；412 `version_conflict`／428 | 沿既有照片命令文字 |
+
+賣家畫面在伺服器文字後接一句下一步：換版本時請按合作素材的「重新整理」再選用新版本；非公開使用時改用其他素材或請供應商開放；非圖片時改選圖片；兩種 503 請稍後再試。其他沿商店頁既有的下一步文字。
 
 ### S3 反例（runtime＋E2E）
 

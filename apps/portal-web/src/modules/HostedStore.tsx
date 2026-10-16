@@ -53,6 +53,11 @@ const NEXT: Record<string, string> = {
   storefront_unavailable: '請聯絡業務空間擁有者恢復使用。',
   storefront_exists: '這個業務空間已經有商店，請沿用它。',
   capability_denied: '請聯絡業務空間擁有者確認你的權限。',
+  material_version_changed: '請按合作素材的「重新整理」，再選用新版本。',
+  material_not_public: '請改用其他素材，或請供應商開放公開使用。',
+  material_not_image: '請改選圖片素材。',
+  material_content_unavailable: '請稍後再試一次。',
+  distribution_photo_unavailable: '請稍後再試一次。',
 };
 function errorText(error: unknown) {
   if (error instanceof ApiError) {

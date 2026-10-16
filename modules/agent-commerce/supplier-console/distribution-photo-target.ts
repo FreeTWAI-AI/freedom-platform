@@ -68,7 +68,7 @@ export async function distributionSource(q:PoolClient,p:Profile,productId:string
  if(!material || !material.applies_to.includes(productId))distributionPhotoMissing();
  requireCondition(material.access==='public_use',409,'material_not_public','供應商尚未同意把這個素材用在公開店面。');
  requireCondition(material.kind==='image',409,'material_not_image','只有圖片素材可以用在公開店面。');
- requireCondition(current.version_id===versionId,409,'material_version_changed','供應商已更新這個素材，請重新整理後再選用。');
+ requireCondition(current.version_id===versionId,409,'material_version_changed','供應商已更新這個素材。');
  const exact=await readPartnerMaterial(q,p.storefront_shop_id,materialId,versionId);
  if(!exact)distributionPhotoMissing();
  const object=(await q.query(`SELECT v.scope_id,v.asset_id,v.representation_id,o.content_type,o.byte_size,o.content_sha256,
