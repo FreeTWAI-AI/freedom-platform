@@ -330,8 +330,8 @@ ALTER TABLE commerce_orders DROP CONSTRAINT commerce_order_profile_fields,
       AND client_order_id IS NOT NULL AND buyer_payment='pending'
       AND (expires_at=created_at+interval '30 minutes' OR (expires_at>=created_at+interval '24 hours' AND expires_at<=created_at+interval '336 hours'
         AND extract(epoch FROM expires_at-created_at)::numeric % 86400=0))));
--- The exact generated name was checked in the PostgreSQL 169 catalog.
-ALTER TABLE commerce_inventory_reservations DROP CONSTRAINT commerce_inventory_reservations_expires_at_check,
+-- PostgreSQL named this unnamed two-column check commerce_inventory_reservations_check.
+ALTER TABLE commerce_inventory_reservations DROP CONSTRAINT commerce_inventory_reservations_check,
   ADD CONSTRAINT commerce_inventory_reservations_expires_at_check CHECK(expires_at=created_at+interval '30 minutes'
     OR (expires_at>=created_at+interval '24 hours' AND expires_at<=created_at+interval '336 hours'
       AND extract(epoch FROM expires_at-created_at)::numeric % 86400=0));
