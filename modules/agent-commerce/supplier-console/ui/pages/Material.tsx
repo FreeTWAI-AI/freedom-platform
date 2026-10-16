@@ -32,7 +32,13 @@ function MaterialUpload({c,m,enabled,active}:{c:ConsoleController;m:SupplyMateri
  const input=useRef<HTMLInputElement>(null),id=useId(),busy=useRef(false),held=useRef(attempt),mounted=useRef(false),serial=useRef(0),generation=useRef(c.client.sessionGeneration),latest=useRef(c);latest.current=c;
  const binding=`${c.scope.tenantId}:${c.scope.instanceId}`,current=()=>mounted.current&&generation.current===c.client.sessionGeneration&&latest.current.client===c.client&&`${latest.current.scope.tenantId}:${latest.current.scope.instanceId}`===binding;
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;serial.current++;};},[]);
- useEffect(()=>{if(!file){setPreview('');return;}const url=URL.createObjectURL(file);setPreview(url);return()=>URL.revokeObjectURL(url);},[file]);
+ useEffect(()=>{
+  setPreview('');if(!file)return;let live=true,url='';
+  // Preview a copy with a fixed MIME; the selected File itself is what gets uploaded.
+  const type=m.kind==='video'?(file.type==='video/webm'?'video/webm':'video/mp4'):file.type==='image/png'?'image/png':file.type==='image/webp'?'image/webp':'image/jpeg';
+  void file.arrayBuffer().then(bytes=>{if(!live)return;url=URL.createObjectURL(new Blob([bytes],{type}));setPreview(url);},()=>{if(live)setMessage('預覽暫時無法讀取，請重新選擇檔案。');});
+  return()=>{live=false;if(url)URL.revokeObjectURL(url);};
+ },[file]);
  const onState=useRef(c.materialState);onState.current=c.materialState;
  useEffect(()=>{onState.current(m.material_id,!!file||preparing||!!attempt,phase==='sending'||phase==='unknown');},[file,preparing,attempt,phase,m.material_id]);
  useEffect(()=>()=>onState.current(m.material_id,false,false),[m.material_id]);
