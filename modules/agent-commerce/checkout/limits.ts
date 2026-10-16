@@ -78,7 +78,9 @@ export async function tryChargeCommerceBudget(pool:Pool,name:CommerceBucket,key:
   catch(error){if(error instanceof Problem&&error.status===429&&error.code==='commerce_rate_limited')return false;throw error;}
 }
 
-/** Shared by buyer, re-pay and future seller query entry points. */
+/** Shared by buyer, re-pay and future seller query entry points. Both buckets
+ * commit atomically before any command or provider call; failed commands do not
+ * return the allowance. The network allowance is charged at the buyer boundary. */
 export async function chargePaymentQueryOrderBudgets(pool:Pool,orderId:string){
   await isolatedTransaction(pool,async q=>{
     await commerceRateLimitInTransaction(q,'paymentQueryOrder',orderId);

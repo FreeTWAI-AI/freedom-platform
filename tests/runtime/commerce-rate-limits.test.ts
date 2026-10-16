@@ -1,7 +1,7 @@
 import {test,before,beforeEach,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {COMMERCE_LIMITS,commerceRateLimitInTransaction,tryChargeCommerceBudget,chargeCommerceBudgets,type CommerceBucket} from '../../modules/agent-commerce/checkout/limits.js';
+import {COMMERCE_LIMITS,commerceRateLimitInTransaction,tryChargeCommerceBudget,chargeCommerceBudgets,chargePaymentQueryOrderBudgets,type CommerceBucket} from '../../modules/agent-commerce/checkout/limits.js';
 import {createPublicCheckout,placePublicOrder,type HostedCheckoutOptions} from '../../modules/agent-commerce/checkout/public-commands.js';
 import {hashKey} from '../../modules/agent-commerce/checkout/terms.js';
 import {checkoutHarness,ports,code,type CheckoutHarness} from './hosted-checkout-harness.js';
@@ -82,8 +82,9 @@ for(const cap of ['email','device'] as const)test(`three open orders per ${cap} 
 });
 
 test('payment budget values are closed and match their transport rules',()=>{
-  assert.deepEqual(Object.fromEntries(['providerAccount','providerUnknownNetwork','paymentReturnNetwork','paymentReturnQuery','handoffNetwork','handoffPageNetwork'].map(name=>[name,COMMERCE_LIMITS[name as CommerceBucket]])),{
+  assert.deepEqual(Object.fromEntries(['providerAccount','providerUnknownNetwork','paymentReturnNetwork','paymentReturnQuery','handoffNetwork','handoffPageNetwork','paymentQueryNetwork','paymentQueryOrder','paymentQueryOrderHour','activationAccount'].map(name=>[name,COMMERCE_LIMITS[name as CommerceBucket]])),{
     providerAccount:{limit:600,seconds:60},providerUnknownNetwork:{limit:120,seconds:60},paymentReturnNetwork:{limit:60,seconds:60},paymentReturnQuery:{limit:1,seconds:60},handoffNetwork:{limit:30,seconds:600},handoffPageNetwork:{limit:60,seconds:600},
+    paymentQueryNetwork:{limit:30,seconds:600},paymentQueryOrder:{limit:1,seconds:60},paymentQueryOrderHour:{limit:10,seconds:3600},activationAccount:{limit:10,seconds:3600},
   });
 });
 test('redirect budgets return false only for exhaustion and persist before a failed command',async()=>{
@@ -92,4 +93,25 @@ test('redirect budgets return false only for exhaustion and persist before a fai
   await chargeCommerceBudgets(x.runtime,'synthetic-account',{network:'providerAccount'});await assert.rejects(x.tx(async()=>{throw Error('synthetic_command_failure');}));
   assert.equal((await x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',['commerce:providerAccount:'+hashKey('synthetic-account')])).rows[0].attempts,1);
   await assert.rejects(tryChargeCommerceBudget({connect:async()=>{throw Error('synthetic_database_failure');}} as never,'paymentReturnNetwork','synthetic-network'),{message:'synthetic_database_failure'});
+});
+
+test('order query budgets serialize buyers and re-pay, retain the hourly ceiling and commit before commands',async()=>{
+  const order=randomUUID(),other=randomUUID(),minute='commerce:paymentQueryOrder:'+hashKey(order),hour='commerce:paymentQueryOrderHour:'+hashKey(order);
+  const results=await Promise.allSettled([chargePaymentQueryOrderBudgets(x.runtime,order),chargePaymentQueryOrderBudgets(x.runtime,order)]);
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+  const rejected=results.find(r=>r.status==='rejected') as PromiseRejectedResult;assert(code('commerce_rate_limited')(rejected.reason));assert(rejected.reason.retryAfterSeconds>0);
+  await assert.rejects(x.tx(async()=>{throw Error('command_failed_after_budget');}));
+  assert.deepEqual((await x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=ANY($1::text[]) ORDER BY bucket',[[minute,hour]])).rows,[{attempts:1},{attempts:1}]);
+  await x.h.pool.query("UPDATE auth_rate_limits SET window_start=clock_timestamp()-interval '61 seconds' WHERE bucket=$1",[minute]);
+  await x.h.pool.query('UPDATE auth_rate_limits SET attempts=9 WHERE bucket=$1',[hour]);
+  await chargePaymentQueryOrderBudgets(x.runtime,order);
+  assert.equal((await x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',[hour])).rows[0].attempts,10);
+  await x.h.pool.query("UPDATE auth_rate_limits SET window_start=clock_timestamp()-interval '61 seconds' WHERE bucket=$1",[minute]);
+  const before=(await x.h.pool.query('SELECT * FROM auth_rate_limits WHERE bucket=ANY($1::text[]) ORDER BY bucket',[[minute,hour]])).rows;
+  await assert.rejects(chargePaymentQueryOrderBudgets(x.runtime,order),(e:unknown)=>code('commerce_rate_limited')(e)&&(e as {retryAfterSeconds:number}).retryAfterSeconds>60);
+  assert.deepEqual((await x.h.pool.query('SELECT * FROM auth_rate_limits WHERE bucket=ANY($1::text[]) ORDER BY bucket',[[minute,hour]])).rows,before,'an hourly refusal rolls back the minute reset');
+  await chargePaymentQueryOrderBudgets(x.runtime,other);
+  await x.h.pool.query("UPDATE auth_rate_limits SET window_start=clock_timestamp()-interval '3601 seconds' WHERE bucket=$1",[hour]);
+  await chargePaymentQueryOrderBudgets(x.runtime,order);
+  assert.equal((await x.h.pool.query('SELECT attempts FROM auth_rate_limits WHERE bucket=$1',[hour])).rows[0].attempts,1);
 });
