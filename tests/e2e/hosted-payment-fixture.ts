@@ -15,6 +15,7 @@ import type { PlatformRuntime } from '../../apps/platform-api/src/runtime.js';
 /** Shared real-route setup, with only service activation using the M2 test shortcut. */
 export async function hostedPaymentHarness(prefix: string, options: {
   publicSchema?: boolean;
+  randomContact?: boolean;
 } = {}) {
   const x = await checkoutHarness(prefix, options), origin = x.h.origin, adminEmail = `admin-${randomUUID()}@example.test`, csrf = randomUUID();
   const ring = CommerceCredentialKeyring.parse('test:' + randomBytes(32).toString('base64'))!, journal = new MemoryEffectJournal('local');
@@ -146,13 +147,14 @@ export async function setupE2ePayment(db: import('pg').Pool, browser: import('@p
     await context.close();
   }
 }
-export async function createE2ePaymentOrder(db: import('pg').Pool, browser: import('@playwright/test').Browser, origin: string, context: import('@playwright/test').BrowserContext) {
+export async function createE2ePaymentOrder(db: import('pg').Pool, browser: import('@playwright/test').Browser, origin: string, context: import('@playwright/test').BrowserContext, options: {randomContact?: boolean} = {}) {
   const { fixtureStore } = await import('./hosted-order-fixture.js');
   const { CheckoutResponseSchema, PlaceOrderResponseSchema } = await import('../../contracts/guild-launchpad/v1/hosted-checkout.js');
   const store = await fixtureStore(db, browser, origin);
   await setupE2ePayment(db, browser, origin, store);
   const root = '/api/v1/public/stores/' + store.slug;
-  let response = await context.request.post(root + '/checkouts', { data: { publication_revision: '1', lines: [{ sku: store.product.sku, quantity: 1 }], contact: { name: '合成付款買家', email: 'synthetic-payment@example.test', phone: '0000000000' }, delivery: { method: 'synthetic', address: '合成測試地址' }, invoice: null, consents: [] }, headers: { Origin: origin, 'Idempotency-Key': randomUUID() } });
+  const contact=options.randomContact?{name:'合成付款買家-'+randomUUID(),email:'synthetic-payment-'+randomUUID()+'@example.test',phone:'000'+randomUUID().replaceAll('-','').slice(0,7)}:{name:'合成付款買家',email:'synthetic-payment@example.test',phone:'0000000000'};
+  let response = await context.request.post(root + '/checkouts', { data: { publication_revision: '1', lines: [{ sku: store.product.sku, quantity: 1 }], contact, delivery: { method: 'synthetic', address: options.randomContact?'合成測試地址-'+randomUUID():'合成測試地址' }, invoice: null, consents: [] }, headers: { Origin: origin, 'Idempotency-Key': randomUUID() } });
   assert.equal(response.status(), 201, 'payment checkout fixture failed');
   const checkout = CheckoutResponseSchema.parse(await response.json());
   response = await context.request.post(root + `/checkouts/${checkout.checkout_ref}/orders`, { data: { terms_sha256: checkout.terms_sha256, client_order_id: randomUUID() }, headers: { Origin: origin } });

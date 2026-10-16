@@ -9,7 +9,7 @@ import {openException} from '../../modules/agent-commerce/checkout/exceptions.js
 import {SellerRefundSchema,SellerRefundListSchema,SellerCheckoutOrderSchema} from '../../contracts/guild-launchpad/v1/hosted-seller-checkout.js';
 import {applyConfirmedPayment} from '../../modules/agent-commerce/checkout/payments.js';
 let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
-before(async()=>{f=await hostedPaymentHarness('fp_refund');});
+before(async()=>{f=await hostedPaymentHarness('fp_refund',{randomContact:true});});
 beforeEach(async()=>f.reset());
 after(async()=>f?.stop());
 async function placed(){

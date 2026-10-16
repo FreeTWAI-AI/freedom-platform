@@ -242,7 +242,7 @@ import {settleDueCheckoutHolds} from '../../modules/agent-commerce/checkout/sett
 import {EcpayKeyPair,encodeForm,signFields} from '../../modules/agent-commerce/providers/ecpay/index.js';
 describe('hosted checkout seller commands',()=>{
   let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
-  before(async()=>{f=await hostedPaymentHarness('fp_checkout_seller');});
+  before(async()=>{f=await hostedPaymentHarness('fp_checkout_seller',{randomContact:true});});
   beforeEach(async()=>{await f.reset();f.settings.consoleEnabled=true;f.install({tenantListCursors:createTenantListCursorCodec(randomBytes(32).toString('base64url'),{environment:'local',origin:f.origin})});});
   after(async()=>f?.stop());
   test('store binding preserves the scoped principal, tenant and scope through cancellation and receipt replay',async()=>{
@@ -272,8 +272,8 @@ describe('hosted checkout seller commands',()=>{
     const result=await read();assert.equal(result.inventory_state,'hold_expired');assert.equal(result.customer.name_masked,'合○○');assert.equal(result.lines[0].inventory.held,5);
     assert.deepEqual(await before(),saved);
     const contact=await readSellerOrderContact(f.x.runtime,a,s.tenantId,s.instanceId,due.order_id);
-    assert.equal(contact.contact?.name,'合成買家');assert.deepEqual(await before(),saved);
-    const json=JSON.stringify(result);for(const value of ['合成買家','synthetic-buyer@example.test','0000000000','合成測試地址'])assert.equal(json.includes(value),false,value);
+    assert.equal(contact.contact?.name,f.x.input(s.product.sku).contact.name);assert.deepEqual(await before(),saved);
+    const json=JSON.stringify(result);for(const value of [...Object.values(f.x.input(s.product.sku).contact),String(f.x.input(s.product.sku).delivery.address)])assert.equal(json.includes(value),false,value);
     for(const [name,masked] of [[' Alice ','A○○'],[' 王小明 ','王○○'],[' 😀 buyer ','😀○○'],['   ','○○']])assert.deepEqual(sellerCustomer(name,false),{name_masked:masked,contact_redacted:false});
     const removed=await f.x.h.pool.query(`UPDATE commerce_checkout_contacts SET contact_name=NULL,contact_email=NULL,contact_phone=NULL,delivery=NULL,invoice=NULL,contact_salt=NULL,redacted_at=clock_timestamp() WHERE contact_id=(SELECT contact_id FROM commerce_checkout_orders WHERE order_id=$1)`,[due.order_id]);assert.equal(removed.rowCount,1);
     assert.deepEqual((await read()).customer,{name_masked:null,contact_redacted:true});

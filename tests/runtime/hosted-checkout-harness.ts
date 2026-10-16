@@ -10,7 +10,7 @@ import {freezeCheckout,placeCheckoutOrder,cancelUnpaidOrder,type CheckoutPorts,t
 export const ok=(r:Reply,status=200)=>{assert.equal(r.status,status,JSON.stringify(r.data));return r.data;};
 export const code=(expected:string)=>(e:unknown)=>(e as {code?:string}).code===expected;
 export const ports:CheckoutPorts={admission:{allowed:()=>true},shipping:{async quote(_q,_s,input){return {groups:[...new Set(input.lines.map(l=>l.supplier_shop_id))].sort().map(s=>({group_ref:s,supplier_shop_id:s,method_ref:'synthetic-fixed',amount_minor:0}))};}}};
-export async function checkoutHarness(prefix:string,options:{publicSchema?:boolean}={}) {
+export async function checkoutHarness(prefix:string,options:{publicSchema?:boolean;randomContact?:boolean}={}) {
   const url=process.env.TEST_DATABASE_URL;assert.ok(url&&/^\/fp_[a-z0-9_]+$/.test(new URL(url).pathname),'Explicit disposable fp_* TEST_DATABASE_URL required');
   const h=await createRegistryHarness(prefix,options),role=`${prefix}_runtime_${process.pid}_${Date.now()}`;
   await h.admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;
@@ -35,7 +35,9 @@ export async function checkoutHarness(prefix:string,options:{publicSchema?:boole
     if(withProduct)await publish(s);return {...s,...p,product};
   }
   async function publish(s:{root:string;owner:Session}){const current=ok(await h.call('GET',s.root,s.owner,undefined,{},app));return ok(await send(s,'/publish',{},current.version));}
-  const input=(sku:string,quantity=5):CheckoutInput=>({publication_revision:'1',lines:[{sku,quantity}],contact:{name:'合成買家',email:'synthetic-buyer@example.test',phone:'0000000000'},delivery:{method:'synthetic',address:'合成測試地址'},invoice:null,consents:[]});
+  const contact=options.randomContact?{name:'合成買家-'+randomUUID(),email:'synthetic-'+randomUUID()+'@example.test',phone:'000'+randomUUID().replaceAll('-','').slice(0,7)}:{name:'合成買家',email:'synthetic-buyer@example.test',phone:'0000000000'};
+  const address=options.randomContact?'合成測試地址-'+randomUUID():'合成測試地址';
+  const input=(sku:string,quantity=5):CheckoutInput=>({publication_revision:'1',lines:[{sku,quantity}],contact:{...contact},delivery:{method:'synthetic',address},invoice:null,consents:[]});
   async function frozen(s:Awaited<ReturnType<typeof store>>,quantity=5,extra:Partial<CheckoutInput>={}){return tx(q=>freezeCheckout(q,s,{...input(s.product.sku,quantity),...extra,idempotencyKey:randomUUID()},ports));}
   const place=(s:Awaited<ReturnType<typeof store>>,c:Awaited<ReturnType<typeof frozen>>,clientOrderId=randomUUID(),buyerPrincipalId:string|null=null)=>tx(q=>placeCheckoutOrder(q,s,{checkoutId:c.checkout_id,termsSha256:c.terms_sha256,clientOrderId,buyerPrincipalId,environment:'sandbox'},ports));
   async function due(s:Awaited<ReturnType<typeof store>>,quantity=5){

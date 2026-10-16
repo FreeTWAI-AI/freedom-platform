@@ -8,7 +8,7 @@ import {SellerCheckoutOrderSchema} from '../../contracts/guild-launchpad/v1/host
 import {hashKey} from '../../modules/agent-commerce/checkout/terms.js';
 let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
 type Placed=Awaited<ReturnType<typeof f.placed>>;
-before(async()=>{f=await hostedPaymentHarness('fp_seller_query');});
+before(async()=>{f=await hostedPaymentHarness('fp_seller_query',{randomContact:true});});
 beforeEach(async()=>{await f.reset();f.settings.consoleEnabled=true;});
 after(async()=>f?.stop());
 const path=(p:Placed)=>p.s.root+'/checkout-orders/'+p.order.order_ref+'/payment-queries';

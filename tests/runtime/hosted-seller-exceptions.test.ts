@@ -12,7 +12,7 @@ import {settleDueCheckoutHolds} from '../../modules/agent-commerce/checkout/sett
 import {applyConfirmedPayment} from '../../modules/agent-commerce/checkout/payments.js';
 import {code} from './hosted-checkout-harness.js';
 let f:Awaited<ReturnType<typeof hostedPaymentHarness>>;
-before(async()=>{f=await hostedPaymentHarness('fp_seller_exceptions');});
+before(async()=>{f=await hostedPaymentHarness('fp_seller_exceptions',{randomContact:true});});
 beforeEach(async()=>{await f.reset();f.install({tenantListCursors:createTenantListCursorCodec(randomBytes(32).toString('base64url'),{environment:'local',origin:f.origin})});});
 after(async()=>f?.stop());
 async function fixture(){const p=await f.placed(),actor=await authenticate(f.x.runtime,p.s.owner.cookie.split('=')[1].split(';')[0]);return {...p,actor};}

@@ -1203,7 +1203,7 @@ test('15. Responsive layout and full-page screenshots across 1440, 1280, 768, 39
 });
 
 test('16. Refunded B06 and B07 are final, with only order navigation and no payment actions at mobile and desktop widths',async({page,browser,baseURL,e2eAuthPool},info)=>{
-  const p=await createE2ePaymentOrder(e2eAuthPool,browser,baseURL!,page.context());
+  const p=await createE2ePaymentOrder(e2eAuthPool,browser,baseURL!,page.context(),{randomContact:true});
   await page.clock.install({time:new Date('2026-10-16T02:00:00.000Z')});
   const base=await readOrderDtoWithPageCookies(page,p.store.slug,p.order.order_ref);
   const dto=PublicOrderSchema.parse({...base,payment_state:'refunded',can_resume_payment:true,latest_payment_attempt:{attempt_ref:p.payment.attempt_ref,state:'paid',created_at:base.created_at}});
