@@ -22184,8 +22184,8 @@
     },
     {
       "path": "tests/e2e/storefront-payment.spec.ts",
-      "bytes": 50942,
-      "sha256": "bba9a140379b3a5050d9cc1c3e39b21b0bd0bd59386b9abc6be95f1af3a3cd28"
+      "bytes": 59261,
+      "sha256": "f13ba0e8832d04f71f717e9b81379dda0f95ecc266d05bc867c6773be8d92157"
     },
     {
       "path": "tests/e2e/storefront-product.spec.ts",
