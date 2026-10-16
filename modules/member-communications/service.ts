@@ -275,12 +275,23 @@ export async function markConversationRead(pool:Pool,input:Command,rawPeer:strin
       AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
       [through,input.actor.community_id,input.actor.user_id,id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
   },async q=>{
+    // Share the bulk-inbox barrier before taking potentially opposing row-lock orders.
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`member-inbox-read-all/${input.actor.community_id}/${input.actor.user_id}`]);
     // Opening a thread marks only through its displayed snapshot. A later arrival stays unread.
     // The empty-body legacy command remains compatible; the portal always supplies a boundary.
-    const row=(await q.query(`WITH marked AS (UPDATE member_direct_messages SET read_at=now()
+    // Drain all eligible row locks before sampling one clock, even for an empty boundary.
+    const row=(await q.query(`WITH locked AS MATERIALIZED (
+        SELECT message_id FROM member_direct_messages
         WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL
-          AND ($4::uuid IS NULL OR (created_at,message_id)<=(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$4)) RETURNING 1)
-      SELECT now() AS read_at,(SELECT count(*)::int FROM marked) AS updated_count`,[input.actor.community_id,input.actor.user_id,id,through??null])).rows[0];
+          AND ($4::uuid IS NULL OR (created_at,message_id)<=(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$4))
+        ORDER BY message_id FOR UPDATE
+      ), read_clock AS MATERIALIZED (
+        SELECT clock_timestamp() AS read_at,count(*) AS locked_count FROM locked
+      ), marked AS (
+        UPDATE member_direct_messages d SET read_at=c.read_at FROM locked l,read_clock c
+        WHERE d.message_id=l.message_id RETURNING 1
+      )
+      SELECT read_at,(SELECT count(*)::int FROM marked) AS updated_count FROM read_clock`,[input.actor.community_id,input.actor.user_id,id,through??null])).rows[0];
     return {user_id:id,read_at:iso(row.read_at)!,updated_count:row.updated_count as number};
   });
 }

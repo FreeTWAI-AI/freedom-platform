@@ -14,7 +14,7 @@
 | `GET /api/v1/me/conversations` | `{items:[{participant, can_send, last_message, unread_count}], unread_count, next_offset}`，依最後一則訊息排序 |
 | `GET /api/v1/me/conversations/:userId/messages` | `{participant, can_send, items: Message[], unread_count, next_offset}`；還沒對話時回空陣列，可直接開始撰寫 |
 | `POST /api/v1/me/conversations/:userId/messages` `{body}` | `201 Message` |
-| `POST /api/v1/me/conversations/:userId/read` `{}` | `{user_id, read_at, updated_count}`；只標對方傳給自己的未讀訊息 |
+| `POST /api/v1/me/conversations/:userId/read` `{}` 或 `{through_message_id}` | `{user_id, read_at, updated_count}`；只標對方傳給自己的未讀訊息，有邊界時只標到該則 |
 | `POST /api/v1/me/conversations/:userId/messages/:messageId/retract` `{}` | `{message_id, retracted_at}`；只有傳送者可收回（#398） |
 | `POST /api/v1/me/channels/:kind/:key/messages/:messageId/retract` `{}` | `{message_id, retracted_at}`；只有傳送者、且仍是該頻道成員可收回 |
 
@@ -42,6 +42,18 @@ DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；
 - 找不到、跨社群、或未完成加入且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成加入時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。任一方向封鎖時傳送與建立／接受好友邀請回通用 `409 recipient_unavailable`，不回傳反向封鎖欄位。
 - 每位傳送者 60 秒內最多 20 則新訊息（`429 message_rate_limited`）。私訊先取得無序 pair lock，再取得傳送者頻率限制 advisory lock；同時送出也不會超過，雙向傳送使用相同 pair barrier。授權通過後重送既有 key 不計次；收件者以 `FOR SHARE` 鎖定。
 - 私訊不產生通知（避免未讀重複計算）。訊息內容不寫入 command receipt 或 transition journal；receipt 只保留 `message_id`。
+- 私訊標讀先沿用 bulk inbox 的本人 `member-inbox-read-all/<community>/<user>`
+  advisory barrier，再以既有方向／顯示邊界選取仍未讀的列，按 message ID 排序 `FOR UPDATE`。
+  MATERIALIZED locking CTE 全部讀完後，aggregate 才取得一次 DB `clock_timestamp()`；
+  同批列與 response 使用同一時間，零列也仍回合法的 `updated_count:0`。
+  因此 session 等待期間才到達的訊息不會被標成早於建立時間，訊息列鎖等待也
+  不會回填等待前的時間；不是以舊時間或 `created_at` 人工夾值。
+  原 key 重播只回原結果，不消耗顯示邊界之後的新訊息；空 body 保留既有未讀全標語意。
+  `member-communications.test.ts` 以真 PG session／訊息列鎖覆蓋兩種 body、
+  同批共用鎖後時間、零更新、較晚訊息與重播，既有封鎖／授權規則不變。
+  同會員的 bulk 與單一對話標讀須在列鎖前共用 barrier，避免 bulk 的 heap 順序與
+  對話的 ID 順序相反而死鎖；回歸以兩個真 PG 行鎖建立該等待圖，兩個請求均須 200，
+  訊息只更新一次，不以自動 retry 或忽略 500 代替正確排序。
 
 ## 獨立會員封鎖與部署邊界
 
