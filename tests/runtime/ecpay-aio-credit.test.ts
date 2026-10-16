@@ -220,6 +220,31 @@ describe('ECPay AIO credit-card protocol layer (ecpay.aio.credit.v1)', () => {
     assert.deepEqual(ok500, { available: true });
     assert.equal(Object.isFrozen(ok500), true);
 
+    // 6. totalMinor above 999,999,999 TWD -> amount_above_maximum, after the other reasons
+    assert.deepEqual(
+      checkCreditAvailability({
+        currency: 'TWD',
+        totalMinor: 99999999900,
+        amountsMinor: [99999999900, 0],
+      }),
+      { available: true },
+    );
+    const aboveMax = checkCreditAvailability({
+      currency: 'TWD',
+      totalMinor: 100000000000,
+      amountsMinor: [100000000000, 0],
+    });
+    assert.deepEqual(aboveMax, { available: false, reason: 'amount_above_maximum' });
+    assert.equal(Object.isFrozen(aboveMax), true);
+    assert.deepEqual(
+      checkCreditAvailability({ currency: 'USD', totalMinor: 100000000000, amountsMinor: [] }),
+      { available: false, reason: 'currency_not_supported' },
+    );
+    assert.deepEqual(
+      checkCreditAvailability({ currency: 'TWD', totalMinor: 100000000050, amountsMinor: [] }),
+      { available: false, reason: 'amount_not_whole_twd' },
+    );
+
     // Invalid inputs throw invalid_input
     expectProtocolError(
       () => checkCreditAvailability({ currency: 'TWD', totalMinor: -100, amountsMinor: [] }),
@@ -525,7 +550,8 @@ describe('ECPay AIO credit-card protocol layer (ecpay.aio.credit.v1)', () => {
       'invalid_input',
     );
 
-    // Bad totalMinor: 150050 (not whole TWD), 400 (< 500), above Int32 cap (214748364800)
+    // Bad totalMinor: 150050 (not whole TWD), 400 (< 500), above 999,999,999 TWD (100000000000,
+    // and the Int32 cap 214748364800)
     expectProtocolError(
       () => buildCreditCheckoutForm({ ...validBase, totalMinor: 150050 }, stageKeys),
       'invalid_input',
@@ -534,10 +560,12 @@ describe('ECPay AIO credit-card protocol layer (ecpay.aio.credit.v1)', () => {
       () => buildCreditCheckoutForm({ ...validBase, totalMinor: 400 }, stageKeys),
       'invalid_input',
     );
-    expectProtocolError(
-      () => buildCreditCheckoutForm({ ...validBase, totalMinor: 214748364800 }, stageKeys),
-      'invalid_input',
-    );
+    for (const tooLarge of [100000000000, 214748364800]) {
+      expectProtocolError(
+        () => buildCreditCheckoutForm({ ...validBase, totalMinor: tooLarge }, stageKeys),
+        'invalid_input',
+      );
+    }
 
     // Unknown environment
     expectProtocolError(
@@ -546,6 +574,107 @@ describe('ECPay AIO credit-card protocol layer (ecpay.aio.credit.v1)', () => {
           { ...validBase, environment: 'staging' as unknown as 'sandbox' },
           stageKeys,
         ),
+      'invalid_input',
+    );
+  });
+
+  it('keeps one amount range from availability and the form to notifications, credit detail and refunds', () => {
+    const largest = 99999999900;
+    const tooLarge = largest + 100;
+    const base = {
+      ...CHECKOUT_COMMON_BASE,
+      createdAtEpochMs: CHECKOUT_GOLDEN_VECTORS[0].input.createdAtEpochMs,
+    };
+
+    // The largest form amount comes back in a signed notification as paid
+    const form = Object.fromEntries(
+      buildCreditCheckoutForm({ ...base, totalMinor: largest }, stageKeys).fields,
+    );
+    assert.equal(form.TotalAmount, '999999999');
+    const returnVec = CHECKMAC_VECTORS.find((v) => v.id === 'aio-return')!;
+    const notified = parsePaymentNotification(
+      encodeForm(
+        aio.sign(
+          returnVec.fields.map(([name, value]): readonly [string, string] => [
+            name,
+            name === 'TradeAmt' ? form.TotalAmount : value,
+          ]),
+          stageKeys,
+        ),
+      ),
+      stageKeys,
+      { merchantId: AIO_CREDIT_GOLDEN_MERCHANT_ID },
+    );
+    assert.equal(notified.kind, 'notification');
+    if (notified.kind === 'notification') {
+      assert.equal(notified.outcome, 'paid');
+      assert.equal(notified.tradeAmtMinor, largest);
+    }
+
+    // One TWD more: unavailable before placement, and no form, query or refund carries it
+    assert.deepEqual(
+      checkCreditAvailability({ currency: 'TWD', totalMinor: tooLarge, amountsMinor: [tooLarge] }),
+      { available: false, reason: 'amount_above_maximum' },
+    );
+    expectProtocolError(
+      () => buildCreditCheckoutForm({ ...base, totalMinor: tooLarge }, stageKeys),
+      'invalid_input',
+    );
+    const detail = {
+      environment: 'live' as const,
+      merchantId: AIO_CREDIT_GOLDEN_MERCHANT_ID,
+      gwsr: '11943021',
+    };
+    assert.doesNotThrow(() =>
+      buildCreditDetailQuery({ ...detail, amountMinor: largest }, stageKeys, stageCheckCode),
+    );
+    expectProtocolError(
+      () => buildCreditDetailQuery({ ...detail, amountMinor: tooLarge }, stageKeys, stageCheckCode),
+      'invalid_input',
+    );
+    expectProtocolError(
+      () => parseCreditDetailResponse('{}', { expectedAmountMinor: tooLarge }),
+      'invalid_input',
+    );
+    assert.equal(
+      planCreditRefund({
+        status: 'authorized',
+        paidMinor: largest,
+        refundedMinor: 0,
+        requestedMinor: largest,
+      }).kind,
+      'plan',
+    );
+    expectProtocolError(
+      () =>
+        planCreditRefund({
+          status: 'authorized',
+          paidMinor: tooLarge,
+          refundedMinor: 0,
+          requestedMinor: largest,
+        }),
+      'invalid_input',
+    );
+    expectProtocolError(
+      () =>
+        planCreditRefund({
+          status: 'authorized',
+          paidMinor: largest,
+          refundedMinor: 0,
+          requestedMinor: tooLarge,
+        }),
+      'invalid_input',
+    );
+    const doAction = {
+      environment: 'live' as const,
+      merchantId: AIO_CREDIT_GOLDEN_MERCHANT_ID,
+      merchantTradeNo: AIO_CREDIT_GOLDEN_TRADE_NO,
+      tradeNo: '2610150902037371',
+      action: 'R' as const,
+    };
+    assert.doesNotThrow(() => buildDoActionRequest({ ...doAction, amountMinor: largest }, stageKeys));
+    expectProtocolError(
+      () => buildDoActionRequest({ ...doAction, amountMinor: tooLarge }, stageKeys),
       'invalid_input',
     );
   });
@@ -847,6 +976,26 @@ describe('ECPay AIO credit-card protocol layer (ecpay.aio.credit.v1)', () => {
       chargeFeeMinor: 3000,
       keyIndex: 0,
     });
+
+    // The profile's largest amount reads back; one TWD more cannot be expected
+    const largest = parseTradeInfoResponse(signQueryResp({ TradeAmt: '999999999' }), stageKeys, {
+      merchantId: AIO_CREDIT_GOLDEN_MERCHANT_ID,
+      merchantTradeNo: AIO_CREDIT_GOLDEN_TRADE_NO,
+      expectedAmountMinor: 99999999900,
+    });
+    assert.equal(largest.kind, 'paid');
+    if (largest.kind === 'paid') {
+      assert.equal(largest.tradeAmtMinor, 99999999900);
+    }
+    expectProtocolError(
+      () =>
+        parseTradeInfoResponse(signQueryResp({ TradeAmt: '1000000000' }), stageKeys, {
+          merchantId: AIO_CREDIT_GOLDEN_MERCHANT_ID,
+          merchantTradeNo: AIO_CREDIT_GOLDEN_TRADE_NO,
+          expectedAmountMinor: 100000000000,
+        }),
+      'invalid_input',
+    );
 
     // Amount mismatch
     assert.deepEqual(

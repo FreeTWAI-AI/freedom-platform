@@ -5,18 +5,18 @@ import { EcpayProtocolError } from '../errors.js';
 import {
   MINOR_PER_TWD,
   assertMerchantId,
-  assertPositiveWholeTwdMinor,
   isPlainObject,
 } from '../field-rules.js';
 import type { FormFields } from '../form.js';
 import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
 import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
 import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
+import { MAX_CREDIT_AMOUNT_MINOR, assertCreditAmountMinor } from './profile.js';
 
 const CHECK_CODE_PATTERN = /^[0-9]{8}$/;
 const GWSR_PATTERN = /^[0-9]{1,20}$/;
 const DIGIT_AMOUNT_PATTERN = /^[0-9]{1,9}$/;
-const MAX_AMOUNT_TWD = 999_999_999;
+const MAX_AMOUNT_TWD = MAX_CREDIT_AMOUNT_MINOR / MINOR_PER_TWD;
 const MAX_RESPONSE_CHARS = 65_536;
 const MAX_SHORT_FIELD_CODE_POINTS = 40;
 
@@ -166,7 +166,7 @@ export function buildCreditDetailQuery(
     throw new EcpayProtocolError('invalid_input');
   }
 
-  assertPositiveWholeTwdMinor(input.amountMinor);
+  assertCreditAmountMinor(input.amountMinor);
 
   const unsignedFields: FormFields = [
     ['MerchantID', input.merchantId],
@@ -222,7 +222,7 @@ export function parseCreditDetailResponse(
   if (!isPlainObject(options)) {
     throw new EcpayProtocolError('invalid_input');
   }
-  assertPositiveWholeTwdMinor(options.expectedAmountMinor);
+  assertCreditAmountMinor(options.expectedAmountMinor);
 
   if (typeof text !== 'string') {
     return Object.freeze({

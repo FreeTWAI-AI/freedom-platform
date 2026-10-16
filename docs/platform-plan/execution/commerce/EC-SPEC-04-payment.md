@@ -72,8 +72,8 @@
 | --- | --- | --- |
 | 付款方式 | 全方位金流導轉、信用卡一次付清：`ChoosePayment=Credit`、`PaymentType=aio`、`EncryptType=1` | [2862][2866] |
 | 不開 | 分期（`CreditInstallment`）、圓夢分期、定期定額、紅利（`Redeem`）、記憶卡號（`BindingCard`）、ATM／超商代碼／條碼（DC05）、Apple Pay、TWQR、BNPL | DC05；這些各有退款或期限規則，另立 profile |
-| 幣別與金額 | 只收 TWD。terms 裡每一個金額——行項單價、折扣分攤後的行項淨額、每個配送群組的運費、總額——都必須是整數元（100 的倍數，`100 minor = 1 元`；terms 的 `settlement_unit_minor = 100`，EC-SPEC-02 §3），總額 ≥ 5 元，`TotalAmount = total_minor / 100`。不合就**不提供**這個付款方式（結帳時 409 `payment_profile_unavailable`，原因 `amount_not_whole_twd` 或 `amount_below_minimum`），adapter 不做四捨五入或截尾。只檢查總額不夠：退刷的 `TotalAmount`、發票的 `SalesAmount` 與折讓的 `AllowanceAmount` 也都是整數元，行項或運費有零頭時，部分退款與折讓就無法精確對到行項（EC-SPEC-06 §2.5、§3.5） | [2862]（整數新臺幣、信用卡最低 5 元）[2885][7896][7901]；計畫 §9.2 |
-| 商家單筆上限 | 由綠界依合約與卡片額度決定，文件沒有固定值；超過時綠界拒絕，attempt 記 `failed` 並顯示原因 | [2862] |
+| 幣別與金額 | 只收 TWD。terms 裡每一個金額——行項單價、折扣分攤後的行項淨額、每個配送群組的運費、總額——都必須是整數元（100 的倍數，`100 minor = 1 元`；terms 的 `settlement_unit_minor = 100`，EC-SPEC-02 §3），總額 5～999,999,999 元，`TotalAmount = total_minor / 100`。不合就**不提供**這個付款方式（結帳時 409 `payment_profile_unavailable`，原因 `currency_not_supported`、`amount_not_whole_twd`、`amount_below_minimum` 或 `amount_above_maximum`），adapter 不做四捨五入或截尾。上限是 adapter 讀得回來的金額：付款通知、交易查詢與授權明細的金額欄位最多 9 位數，所以付款表單、查詢與退款也不送更大的金額，同一個上限（`MAX_CREDIT_AMOUNT_MINOR`）用在每一處。只檢查總額不夠：退刷的 `TotalAmount`、發票的 `SalesAmount` 與折讓的 `AllowanceAmount` 也都是整數元，行項或運費有零頭時，部分退款與折讓就無法精確對到行項（EC-SPEC-06 §2.5、§3.5） | [2862]（整數新臺幣、信用卡最低 5 元）[2885][7896][7901]；計畫 §9.2；上限是 adapter 的解析範圍（`aio-credit/profile.ts`） |
+| 商家單筆上限 | 由綠界依合約與卡片額度決定，文件沒有固定值；超過時綠界拒絕，attempt 記 `failed` 並顯示原因。這和上一列的 999,999,999 元不同：那是平台送得出、讀得回的範圍，這是商家的額度 | [2862] |
 | 確認窗 | attempt 建立後 60 分鐘（§6.2）。窗內未確認付款不取消訂單 | [2887][2890] |
 | 退款 | 正式環境以 `CreditDetail/DoAction`；stage 不提供，sandbox 只能人工紀錄（§7） | [2885] |
 | 需要額外付款資訊 | `NeedExtraPaidInfo=Y`，為了取得授權單號 `gwsr`（退款前查詢清算狀態要用） | [5675][2894] |

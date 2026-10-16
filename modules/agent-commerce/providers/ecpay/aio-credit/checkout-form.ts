@@ -2,7 +2,6 @@ import { aio } from '../aio.js';
 import { assertFieldsCdnSafe, findCdnBlockedTerm } from '../cdn-guard.js';
 import { EcpayProtocolError } from '../errors.js';
 import {
-  MAX_ECPAY_TWD_AMOUNT,
   MINOR_PER_TWD,
   assertEnvironment,
   assertMerchantId,
@@ -14,7 +13,7 @@ import { ECPAY_ORIGINS, type EcpayEnvironment } from '../index.js';
 import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
 import { formatTaipeiDateTime } from '../taipei-time.js';
 import { isTradeNumber } from '../trade-number.js';
-import { MIN_CREDIT_TOTAL_MINOR } from './profile.js';
+import { MAX_CREDIT_AMOUNT_MINOR, MIN_CREDIT_TOTAL_MINOR } from './profile.js';
 
 const LONE_SURROGATE_GLOBAL =
   /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
@@ -137,7 +136,7 @@ export function buildCreditCheckoutForm(
     !Number.isSafeInteger(input.totalMinor) ||
     input.totalMinor < MIN_CREDIT_TOTAL_MINOR ||
     input.totalMinor % MINOR_PER_TWD !== 0 ||
-    input.totalMinor / MINOR_PER_TWD > MAX_ECPAY_TWD_AMOUNT
+    input.totalMinor > MAX_CREDIT_AMOUNT_MINOR
   ) {
     throw new EcpayProtocolError('invalid_input');
   }

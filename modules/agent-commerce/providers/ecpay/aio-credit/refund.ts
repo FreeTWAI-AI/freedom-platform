@@ -6,7 +6,6 @@ import {
   MINOR_PER_TWD,
   assertMerchantId,
   assertNonNegativeSafeInteger,
-  assertPositiveWholeTwdMinor,
   isPlainObject,
 } from '../field-rules.js';
 import { parseForm, type FormFields } from '../form.js';
@@ -15,6 +14,7 @@ import { unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
 import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
 import { isTradeNumber } from '../trade-number.js';
 import type { CreditSettlementStatus } from './credit-detail.js';
+import { assertCreditAmountMinor } from './profile.js';
 
 const ALPHANUMERIC_ID_PATTERN = /^[0-9A-Za-z]{1,20}$/;
 const RTN_CODE_PATTERN = /^-?[0-9]{1,10}$/;
@@ -105,12 +105,12 @@ export function planCreditRefund(input: CreditRefundPlanInput): CreditRefundPlan
     throw new EcpayProtocolError('invalid_input');
   }
 
-  assertPositiveWholeTwdMinor(input.paidMinor);
+  assertCreditAmountMinor(input.paidMinor);
   assertNonNegativeSafeInteger(input.refundedMinor);
   if (input.refundedMinor % MINOR_PER_TWD !== 0) {
     throw new EcpayProtocolError('invalid_input');
   }
-  assertPositiveWholeTwdMinor(input.requestedMinor);
+  assertCreditAmountMinor(input.requestedMinor);
 
   if (input.status === 'unauthorized') {
     return Object.freeze({
@@ -220,7 +220,7 @@ export function buildDoActionRequest(
     throw new EcpayProtocolError('invalid_input');
   }
 
-  assertPositiveWholeTwdMinor(input.amountMinor);
+  assertCreditAmountMinor(input.amountMinor);
 
   const unsignedFields: FormFields = [
     ['MerchantID', input.merchantId],

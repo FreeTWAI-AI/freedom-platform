@@ -15279,8 +15279,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
-      "bytes": 37745,
-      "sha256": "998204d68fd778733e3b11710a06a33026542f99c340e5555dce72f0f1acaca3"
+      "bytes": 38228,
+      "sha256": "751cf0308dd006448f91e14531881355c4500ad99604d445daee4a498add3cae"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
@@ -17609,13 +17609,13 @@
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/checkout-form.ts",
-      "bytes": 5891,
-      "sha256": "0b019fd2782945a163ac41a18890d656eedb9f3bca8453122ae186a096fb3a4a"
+      "bytes": 5879,
+      "sha256": "9d1bae95f7458aec2514db88b8c6ae0b6e246dc6e34e901809fbe331a5da841a"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/credit-detail.ts",
-      "bytes": 10793,
-      "sha256": "b417a3a5cd006b76cc57285af88059ceb7872163fdaeb2e97dbbc1ffc610426c"
+      "bytes": 10863,
+      "sha256": "3dcb4170020a6bd468830d0ca2419e6920aa5c6d95f355521e21f32f98b2081d"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/index.ts",
@@ -17629,18 +17629,18 @@
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/profile.ts",
-      "bytes": 1889,
-      "sha256": "b53f4c6b4a44ab5d2f4949a467275aab83b7258abd7aece1fdc2b42ce5f51ce0"
+      "bytes": 2676,
+      "sha256": "b9b5f68b92f0b5daae01343e564c5e2057306c0097e2dece682b91f15be04284"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/query.ts",
-      "bytes": 8457,
-      "sha256": "46f8939c89e7cf5b3068175a423e406bed4b6aa726c6377c52cebeff6a804a54"
+      "bytes": 8478,
+      "sha256": "f836c1b25e5ccdd262ab13c32ac886d0d477a64c1040cb32d01cebfe4d594677"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/refund.ts",
-      "bytes": 9134,
-      "sha256": "c62abaf66a237d7af032d8bbf7713840da51b7ee735145897e9ef14f2701e900"
+      "bytes": 9147,
+      "sha256": "286c8c55129996d34b5be12365a92207b2395c287f13b178bba0b0d11739f0db"
     },
     {
       "path": "modules/agent-commerce/providers/ecpay/aio-credit/time.ts",
@@ -22669,8 +22669,8 @@
     },
     {
       "path": "tests/runtime/ecpay-aio-credit.test.ts",
-      "bytes": 54978,
-      "sha256": "8e81873a9f46b36a56f7972137eb8936b008fe2dc7d9caadb40cd2658bdb822f"
+      "bytes": 60152,
+      "sha256": "5a8388daa0ab6e3adae0684c0d10a0ed11252ea051f26dd6ac20b86eb949892b"
     },
     {
       "path": "tests/runtime/ecpay-b2c-invoice.test.ts",

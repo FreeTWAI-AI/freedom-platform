@@ -6,7 +6,6 @@ import {
   MINOR_PER_TWD,
   assertEnvironment,
   assertMerchantId,
-  assertPositiveWholeTwdMinor,
   isPlainObject,
   parseOptionalFeeMinor,
   parseOptionalSanitized,
@@ -17,6 +16,7 @@ import { unwrapKeyList, unwrapKeyPair, type EcpayKeyPair } from '../keys.js';
 import { createServerRequest, type EcpayServerRequest } from '../server-request.js';
 import { parseTaipeiDateTime } from '../taipei-time.js';
 import { isTradeNumber } from '../trade-number.js';
+import { assertCreditAmountMinor } from './profile.js';
 
 const ALPHANUMERIC_ID_PATTERN = /^[0-9A-Za-z]{1,20}$/;
 const TRADE_AMT_PATTERN = /^[0-9]{1,9}$/;
@@ -141,7 +141,7 @@ export function parseTradeInfoResponse(
     throw new EcpayProtocolError('invalid_input');
   }
 
-  assertPositiveWholeTwdMinor(options.expectedAmountMinor);
+  assertCreditAmountMinor(options.expectedAmountMinor);
 
   if (
     options.expectedTradeNo !== undefined &&
