@@ -1,3 +1,5 @@
+import {applyDeferredPaymentEvents} from '../../../modules/agent-commerce/payments/events.js';
+import {flushControlEvents} from '../../../modules/agent-commerce/operations/journal/journal.js';
 import {createCheckoutPaymentPort} from '../../../modules/agent-commerce/payments/attempts.js';
 import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/journal/r2.js';
 import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
@@ -345,6 +347,8 @@ export type WorkerDependencies = {
   /** Test seam. Production uses pruneExpiredAuthRecords. */
   authPrune?: typeof pruneExpiredAuthRecords;
   commerceSweep?:typeof sweepDueCheckoutHolds;
+  commerceApplyDeferred?:typeof applyDeferredPaymentEvents;
+  commerceFlushJournal?:typeof flushControlEvents;
 };
 
 /**
@@ -472,6 +476,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           try{commerce=readCommerceSettings(env);}catch{console.error('commerce_settings_invalid');}
           if(commerce&&!commerce.quarantine){
             try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
+            try{await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200});}catch{console.error('commerce_payment_deferred_failed');}
+            if(commerce.providerProfiles.length&&env.COMMERCE_JOURNAL)try{
+              await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
+            }catch{console.error('commerce_control_journal_failed');}
           }
           try{await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});}
           catch(error){const name=error instanceof Error&&/^[A-Za-z][A-Za-z0-9_]*$/.test(error.name)?error.name:'unknown';console.error('github_sync_failed',name);}

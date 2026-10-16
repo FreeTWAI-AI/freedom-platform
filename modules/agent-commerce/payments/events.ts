@@ -73,3 +73,11 @@ export async function applyPaymentEvent(q:PoolClient,eventId:string):Promise<boo
   await q.query('UPDATE commerce_hosted_payment_events SET applied_at=clock_timestamp() WHERE event_id=$1 AND applied_at IS NULL',[eventId]);
   return true;
 }
+
+/** Each verified event commits separately, in receipt order. The host skips this
+ * worker while commerce is quarantined; no provider query is executed here. */
+export async function applyDeferredPaymentEvents(pool:Pool,{limit=200}:{limit?:number}={}):Promise<number>{
+  if(!Number.isInteger(limit)||limit<1||limit>200)throw Error('payment_deferred_limit_invalid');
+  const events=(await pool.query("SELECT event_id FROM commerce_hosted_payment_events WHERE source='notification' AND applied_at IS NULL ORDER BY received_at,event_id LIMIT $1",[limit])).rows;
+  let applied=0;for(const event of events)if(await isolatedTransaction(pool,q=>applyPaymentEvent(q,event.event_id)))applied++;return applied;
+}

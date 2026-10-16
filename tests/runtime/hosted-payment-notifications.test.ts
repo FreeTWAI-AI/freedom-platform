@@ -1,3 +1,4 @@
+import {applyDeferredPaymentEvents} from '../../modules/agent-commerce/payments/events.js';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {before,after,beforeEach,test} from 'node:test';
@@ -276,4 +277,17 @@ test('a browser hint beyond the latest attempt confirmation window is not pendin
 });
 test('a pending event on an older attempt does not make the latest attempt pending',async()=>{
   const p=await f.placed();await ack(await post(path(p),await body(p,{RtnCode:'10300066'})));const latest=await anotherAttempt(p);const view=await buyerView(p);assert.equal(view.latest_payment_attempt.attempt_ref,latest.payment.attempt_ref);assert.equal(view.payment_state,'unpaid');
+});
+
+test('quarantined notifications replay in receipt order, once per transaction and once per event',async()=>{
+  const p=await f.placed();f.settings.quarantine=true;
+  for(const overrides of [{RtnCode:'0'},{RtnCode:'10300066'},{RtnCode:'1'}])await ack(await post(path(p),await body(p,overrides)));
+  let actual=await facts(p);assert.equal(actual.events.length,3);assert(actual.events.every(e=>e.applied_at===null));assert.equal(actual.attempt.state,'issued');
+  f.settings.quarantine=false;assert.equal(await applyDeferredPaymentEvents(f.x.runtime,{limit:1}),1);actual=await facts(p);assert.equal(actual.attempt.state,'failed');assert(actual.events[0].applied_at);assert.equal(actual.events[1].applied_at,null);
+  assert.equal(await applyDeferredPaymentEvents(f.x.runtime,{limit:200}),2);actual=await facts(p);assert.equal(actual.attempt.state,'paid');assert(actual.events.every(e=>e.applied_at));assert.equal(actual.applications.length,1);assert.equal(actual.cases.length,0);assert.equal((await buyerView(p)).payment_state,'confirmed');assert.equal(await applyDeferredPaymentEvents(f.x.runtime,{limit:200}),0);
+  for(const limit of [0,201,1.5])await assert.rejects(applyDeferredPaymentEvents(f.x.runtime,{limit}),{message:'payment_deferred_limit_invalid'});
+});
+test('concurrent deferred replays apply a verified paid event once',async()=>{
+  const p=await f.placed();f.settings.quarantine=true;await ack(await post(path(p),await body(p)));f.settings.quarantine=false;
+  const counts=await Promise.all([applyDeferredPaymentEvents(f.x.runtime,{limit:200}),applyDeferredPaymentEvents(f.x.runtime,{limit:200})]);assert.equal(counts.reduce((a,b)=>a+b),1);assert.equal((await facts(p)).applications.length,1);
 });

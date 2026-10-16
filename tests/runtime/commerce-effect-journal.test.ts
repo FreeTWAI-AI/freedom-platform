@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {test} from 'node:test';
 import {readCommerceSettings,readNodeCommerceSettings} from '../../modules/agent-commerce/operations/runtime-settings.js';
-import {readWorkerConfig,workerRuntime,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
+import {readWorkerConfig,workerRuntime,createWorkerHandler,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
 import {ReadinessError} from '../../apps/platform-api/src/readiness.js';
 import {encodeEffectRecord,flushControlEvents,flushControlEventsBestEffort,type EffectRecord} from '../../modules/agent-commerce/operations/journal/journal.js';
 import {createR2EffectJournal,type CommerceJournalBucket} from '../../modules/agent-commerce/operations/journal/r2.js';
@@ -151,5 +151,19 @@ test('control events append only after commit and journaled_at is filled only af
       assert([...journal.objects.keys()].some(key=>key.includes('/control.store_admission.admitted/')));
       assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_control_events WHERE journaled_at IS NULL')).rows[0].n,0,'the next successful post-commit flush also backfills retained events');
     });
+  }finally{await x.stop();}
+});
+
+test('the scheduled commerce block backfills retained control events into its R2 journal',async()=>{
+  const x=await checkoutHarness('fp_effect_scheduler');
+  try{
+    await x.reset();const s=await x.store(),subjectId=randomUUID(),b=bucket();
+    await x.tx(q=>recordControlEvent(q,{tenantId:s.tenantId,instanceId:s.instanceId,kind:'provider_account.created',subjectId,detail:{environment:'sandbox'},actorKind:'system',actorId:subjectId}));
+    const id=(await x.h.pool.query('SELECT event_id FROM commerce_control_events WHERE subject_id=$1',[subjectId])).rows[0].event_id;
+    const pool={query:x.runtime.query.bind(x.runtime),connect:x.runtime.connect.bind(x.runtime),end:async()=>{}} as unknown as import('pg').Pool;
+    const handler=createWorkerHandler({createPool:()=>pool,syncGitHub:async()=>({requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'}),authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
+    const pending:Promise<unknown>[]=[],env={...workerBindings(),FREEDOM_COMMERCE_PROVIDER_PROFILES:profile,COMMERCE_CREDENTIAL_KEYS:randomRing(),COMMERCE_JOURNAL:b.binding};
+    await handler.scheduled({},env,{waitUntil:p=>pending.push(p)});await Promise.all(pending);
+    assert((await x.h.pool.query('SELECT journaled_at FROM commerce_control_events WHERE event_id=$1',[id])).rows[0].journaled_at instanceof Date);assert.equal(b.objects.size,1);assert([...b.objects.keys()][0].endsWith('/control.provider_account.created/'+id));
   }finally{await x.stop();}
 });
