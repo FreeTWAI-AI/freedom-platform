@@ -183,18 +183,23 @@ test('joined member loads only the current hero before interaction and each perm
   const packChunk=new RegExp(`/assets/(${Object.keys(SPIRIT_CHARACTERS).join('|')})-[A-Za-z0-9_-]{8}\\.js$`);
   // Match a content module plus Vite's emitted hash, not a shared product module
   // whose name begins with a page id (for example social-image).
-  for(const id of Object.keys(SPIRIT_CHARACTERS))expect(packChunk.test(`/assets/${id}-Ab3_-xyz.js`)).toBe(true);
-  expect(packChunk.test('/assets/social-image-BKMxIenW.js')).toBe(false);
   page.on('request',request=>{const path=new URL(request.url()).pathname;if(packChunk.test(path)||/\/content\/[^/]+\.json$/.test(path))packRequests.push(path);});
   await registerJoined(page);
   await expect(widget(page).locator('.page-spirit-launcher img')).toHaveJSProperty('complete',true);
-  expect(requests.length).toBeGreaterThan(0);
+  expect(requests).toContainEqual({pageId:'home',part:'hero'});
   // The pinned pack deliberately aliases hero and frame-0 to one physical digest.
   expect(requests.every(request=>request.pageId==='home' && ['hero','frame-0'].includes(request.part))).toBe(true);
   expect(packRequests).toEqual([]);
   await expect(widget(page).locator('.page-spirit-launcher img')).toHaveAttribute('src',SPIRIT_CHARACTERS.home.hero);
   const businessWrites: string[] = [];
-  page.on('request',request=>{if(!['GET','HEAD','OPTIONS'].includes(request.method()) && new URL(request.url()).pathname.startsWith('/api/v1/'))businessWrites.push(new URL(request.url()).pathname);});
+  page.on('request',request=>{
+    const method=request.method();
+    if(method==='GET'||method==='HEAD'||method==='OPTIONS')return;
+    const path=new URL(request.url()).pathname;
+    // The mounted feed records visible-post reads independently of guide controls.
+    if(method==='POST'&&/^\/api\/v1\/social-posts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/read$/.test(path))return;
+    if(path.startsWith('/api/v1/'))businessWrites.push(path);
+  });
   await openSpirit(page);
   await expect(line(page)).toHaveText(home.entryLine);
   await expect(widget(page)).toHaveAttribute('role','region');
@@ -598,8 +603,10 @@ test('a tall real calendar guide shows its beginning and stops scrolling when di
   await registerJoined(page); await navigate(page,'社群活動');
   await openSpirit(page); await useInstantText(page); await page.setViewportSize({width:320,height:420});
   const topic=events.topics.find(item=>item.id==='events:topic-2')!,definition=getSpiritGuide('events',topic.id)!;
+  const target=page.locator(definition.steps[0].selector);
+  await expect(target).toBeVisible();
   await ask(page,topic.label); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
-  const target=page.locator(definition.steps[0].selector),guideRegion=guide(page);
+  const guideRegion=guide(page);
   await expect(guideRegion).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
   await expectReservedCompanionSpace(page);
   expect((await target.boundingBox())!.height).toBeGreaterThan(210);

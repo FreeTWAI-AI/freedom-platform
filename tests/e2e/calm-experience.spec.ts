@@ -51,7 +51,10 @@ test('synthetic entry budget: two required fields and one guild choice reach use
   await expect(next.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true})).toBeVisible();
   await expect(next.getByRole('button',{name:/^(查看社群任務|分享作品與需求)$/})).toBeVisible();
   await page.screenshot({path:'test-results/calm-home-320.png',fullPage:true});
-  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/calm-home-1440.png',fullPage:true});await page.setViewportSize({width:320,height:720});await openHomeGuide(page);
+  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/calm-home-1440.png',fullPage:true});await page.setViewportSize({width:320,height:720});
+  // Wait for the responsive disclosure state before opening it through the UI.
+  await expect(page.locator('.home-guide-disclosure')).toHaveJSProperty('open',false);
+  await openHomeGuide(page);
   await next.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true}).click();await expect(page.getByRole('heading',{name:'AI 開發公會・公會閒聊',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'在 AI 開發公會 發言'})).toBeVisible();
 });
 test('feature search finds chat and selling functions, and all themes work at 320 pixels',async({page})=>{

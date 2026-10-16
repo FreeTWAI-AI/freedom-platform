@@ -15,7 +15,7 @@ function targetId(actor:Actor,raw:string){
   const id=z.uuid().parse(raw).toLowerCase();
   requireCondition(id!==actor.user_id.toLowerCase(),422,'self_block','不能封鎖自己。');return id;
 }
-export async function assertInteractionMember(q:PoolClient,actor:Actor){
+export async function assertInteractionMember(q:Pick<PoolClient,'query'>,actor:Actor){
   const row=(await q.query(`SELECT ${eligible('u')} AS ready FROM users u WHERE user_id=$1 AND community_id=$2`,[actor.user_id,actor.community_id])).rows[0];
   requireCondition(row?.ready,403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
 }
