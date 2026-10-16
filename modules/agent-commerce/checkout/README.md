@@ -246,13 +246,18 @@ buyer. Reads neither refresh devices nor write grant/session activity.
 
 Access links contain 32 random bytes in a fragment, expire after seven days and
 redeem exactly once in the same transaction as the order grant and device cookie.
-B10 matches the store's display number and unredacted normalized customer email,
-creates a link, commits, then invokes the email port. Unmatched, redacted and
-rate-limited requests all return empty 202. Only customer email and checkout
-contact email hold canonical plaintext; no extra copy enters grants, buckets,
-errors or logs. A matched request takes longer (a timing side channel); M2's
-outbox removes that difference. M1 has only an in-memory fixture email adapter,
-which is never installed by Worker, Node or E2E hosts.
+B10 requires an injected `CommerceEmailOutbox` (`options.email`, installed only
+when `FREEDOM_COMMERCE_EMAIL_ENABLED` is true); without it, B10 returns 409
+`order_access_email_unavailable` before any SQL access. When installed, B10
+matches the store's display number and unredacted normalized customer email and
+queues an `order_access` row in `commerce_outbound_emails` (plus its
+`commerce_due_work` entry) with a fresh `access_request_id` inside the same
+transaction as the rate-limit charges and lookup, without creating a link or
+sending inline. Unmatched, redacted and rate-limited requests all return empty
+202; the route triggers `runDueCommerceWork` for the queued `email_id` through
+`afterResponse` after commit, and the due-work executor mints the one-time access
+link at send time. Only customer email and checkout contact email hold canonical
+plaintext; no extra copy enters the outbox, grants, buckets, errors or logs.
 
 `COMMERCE_LIMITS` is the single constants table: cart network 60/min and store
 600/min; checkout network 30/10 min and store 600/10 min; placement network
@@ -273,9 +278,10 @@ counts new orders and rolls back on failure. Open-order counts and advisory lock
 are scoped to the store tenant and instance; their 429 includes Retry-After from
 the database clock until the earliest counted prior open order expires (at least 1).
 
-Host checkout and quarantine settings default off. Checkout currently requires
-the launchpad setting. Production installs store admission and the optional configured payment port;
-shipping, policy and email ports remain absent. The scheduler sweeps up to 200 due holds before GitHub sync
+Host checkout, quarantine and email settings default off. Checkout currently requires
+the launchpad setting. Production installs store admission, the optional configured payment port
+and, when `emailEnabled` is true on the Worker, the email outbox and Worker sender;
+shipping and policy ports remain absent. The scheduler sweeps up to 200 due holds before GitHub sync
 whenever quarantine is off, including when checkout creation is disabled.
 `commerce.hosted-checkout.v1` is a mandatory write floor from planned or retained
 schema168, independently of feature flags. It grants no payment or deploy authority.
