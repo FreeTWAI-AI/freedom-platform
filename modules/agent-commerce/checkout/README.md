@@ -273,7 +273,7 @@ counts new orders and rolls back on failure. Open-order counts and advisory lock
 are scoped to the store tenant and instance; their 429 includes Retry-After from
 the database clock until the earliest counted prior open order expires (at least 1).
 
-Host checkout and quarantine settings default off. Checkout currently requires
+Host checkout and quarantine settings default off. Checkout requires the console setting, which requires
 the launchpad setting. Production installs store admission and the optional configured payment port;
 shipping, policy and email ports remain absent. The scheduler sweeps up to 200 due holds before GitHub sync
 whenever quarantine is off, including when checkout creation is disabled.
