@@ -493,6 +493,9 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
   static-worker:
+    permissions:
+      contents: read
+      statuses: read
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     needs: select
@@ -516,10 +519,26 @@ jobs:
       TEST_DATABASE_URL: postgresql://freedom_local:local-development-only@127.0.0.1:5432/fp_foundation_ci
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
+      - name: Checkout the pinned worker status guard
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/worker-status
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Require CircleCI worker success for an identical same-repository PR tree
+        id: worker-provider
+        env:
+          GH_STATUS_TOKEN: ${{ github.token }}
+        run: node .freedom/worker-status/packages/contribution-tools/circleci-worker-status.mjs
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Same immutable PR integration / merge-group candidate in every job.
           ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
@@ -567,6 +586,7 @@ jobs:
           test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
           test -z "$(git -C .freedom/trusted status --porcelain)"
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.worker-unit
+        if: steps.worker-provider.outputs.run_github == 'true'
         env:
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
       - run: npm run test:media-restore
