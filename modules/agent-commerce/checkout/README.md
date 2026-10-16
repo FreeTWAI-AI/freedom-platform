@@ -298,7 +298,8 @@ and literal-false payment/fulfilment fields. Schema168 remains expand-only.
 
 ## Payment port and shared exceptions
 
-Checkout and operations never import payments. `CheckoutPaymentPort` is optional
+Checkout never imports the payment implementation; the operations executor
+dispatches payment due work. `CheckoutPaymentPort` is optional
 in `CheckoutPorts`, injected alongside admission by the runtime and passed through
 `hostedCheckoutOptions`. Without it, domain tests retain M1 behavior. Its methods
 validate credit terms, create the initial attempt after holds, issue/reissue the
