@@ -20,7 +20,7 @@
 | EC-WP01 產品與視覺 | 角色、B／E／SL 頁、動線、狀態與文案 | EC-SPEC-01、pages.md | WP00 | C1 | 規格完成；EC 參考畫面的逐頁對照待 Ted 確認（EC-SPEC-01 §5、DC10） |
 | EC-WP02 商店與 Seller Console | 變體、照片、分類、店面內容、優惠；E02～E11 的頁 | EC-SPEC-02 §1～§3、EC-SPEC-01 §4、§7.5 | WP01；Supplier Console 的共用殼進 main（§8） | C1；各里程碑自己的 E 頁 | 未開始 |
 | EC-WP03 結帳與交易模型 | 顧客、checkout、訂單、N／H／A、付款後配置、出貨與退回的庫存效果；公開結帳路由與訂單存取 | EC-SPEC-02 §4～§5、EC-SPEC-03 | WP00 | M1 | 領域核心通過審查（`fc/wp03-core` `16caa586`）；公開結帳路由、訂單存取、限流、主機設定、排程與能力下限通過審查（`fc/wp03-http` `eea0f328`，整合 `762baaf0`）；兩者都已併入整合分支 |
-| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫與 AIO 信用卡協定通過審查（`fc/ecpay-proto` `67d9ba2e`、`fc/ecpay-aio` `b836419e`），已併入整合分支；退款分攤的純規則通過審查（`fc/refund-rules` `4376e471`，整合 `69067716`）；收款帳戶、封存金鑰、店家准入與商店 1.1.0 通過審查（`fc/wp04-accounts` `e3830883`，整合 `4b83fe1c`），修正輪進行中；付款拆成四個工作（§4），wp04-payments 進行中 |
+| EC-WP04 金流與退款 | 收款帳戶與金鑰、PaymentPort、ECPay AIO、通知與查詢、退款、對帳 | EC-SPEC-04 | WP03 | M2 | 協定函式庫與 AIO 信用卡協定通過審查（`fc/ecpay-proto` `67d9ba2e`、`fc/ecpay-aio` `b836419e`），已併入整合分支；退款分攤的純規則通過審查（`fc/refund-rules` `4376e471`，整合 `69067716`）；收款帳戶、封存金鑰、店家准入與商店 1.1.0 完成（`fc/wp04-accounts` `bfab7559`，整合 `38e8db3b`）；付款拆成四個工作（§4），wp04-payments 進行中 |
 | EC-WP05 物流與供應商補充 | 出貨設定、配送群組、選店、託運單、標籤、貨態、例外、退回 | EC-SPEC-05；SC-SPEC-07 | WP03；WP04 的協定與排程 | M3 | 配送純規則通過審查（`fc/fulfil-rules` `5c8d8379`）；綠界國內物流協定通過審查（`fc/ecpay-logistics` `1f99faeb`）；兩者都已併入整合分支；收件資料改用 CDN 字詞檢查、門市代號寬度與貨態表凍結的修正輪也已併入（`fc/fulfil-rules-fix2` `d44f1d1d`，整合 `f38b9a08`） |
 | EC-WP06 發票與售後 | 發票、更正、對話、RMA、退款分攤、供貨帳 | EC-SPEC-06 | WP03～05 | M4 | 發票純規則通過審查（`fc/invoice-rules` `a9cb0ebf`），已併入整合分支；B2C 電子發票協定通過審查（`fc/ecpay-invoice` `f04b5eba`，整合 `44985a2f`） |
 | EC-WP07 營運與技能書 | 29 項技能的落點、報表與漏斗、書與站內應用的連結 | EC-SPEC-07 | WP02；PR #706 | M2 起 | 規格完成；程式未開始 |
@@ -63,7 +63,7 @@ M1 沒有店家准入表（M2），所以正式與 staging 都還不能成立 `h
 | --- | --- | --- | --- | --- |
 | ecpay-proto | 綠界協定函式庫 | argon | — | 完成 |
 | ecpay-aio | AIO 的送出內容、通知的驗證與解析、查詢結果對照、API 退款，全部是純函式加官方向量（EC-SPEC-04 §3.4、§5.2、§6.2、§7.3） | argon | ecpay-proto | 完成（`fc/ecpay-aio` `b836419e`，整合 `d6fa9098`） |
-| wp04-accounts | 收款帳戶與封存金鑰；重新確認身分的新用途；`storefront@1.1.0`、`hosted-store@1.1.0` 與升級；入口路由；店家准入；設定變更的控制事件（EC-SPEC-04 §1、EC-SPEC-09 §2.2～§2.5、EC-SPEC-10 §2.5、§8.2） | Codex | wp03-http | 通過審查，整合到 `e3830883`（`21e46a73`、`4b83fe1c`）；修正輪進行中 |
+| wp04-accounts | 收款帳戶與封存金鑰；重新確認身分的新用途；`storefront@1.1.0`、`hosted-store@1.1.0` 與升級；入口路由；店家准入；設定變更的控制事件（EC-SPEC-04 §1、EC-SPEC-09 §2.2～§2.5、EC-SPEC-10 §2.5、§8.2） | Codex | wp03-http | 完成（`fc/wp04-accounts` `bfab7559`；整合 `21e46a73`、`4b83fe1c`，修正輪 `38e8db3b`） |
 | refund-rules | 退款分攤的純規則：行項上限、運費建議、分攤與調低的檢查、未套用付款的退款（EC-SPEC-06 §2.5、EC-SPEC-04 §7.2） | flash | — | 完成（`fc/refund-rules` `4376e471`，整合 `69067716`） |
 | wp04-payments | attempt 與一次性交接頁、付款通知與瀏覽器返回（含閘道例外）、外部效果日誌、到期工作與例外的表、買家的付款摘要、隔離模式的付款閘門、能力 `commerce.hosted-payment.v1` 與強制下限；不呼叫綠界（EC-SPEC-04 §3～§5、EC-SPEC-09 §2.6、EC-SPEC-10 §3） | Codex | wp04-accounts、ecpay-aio | 進行中（`fc/wp04-payments`） |
 | wp04-queries | 查詢的 outbox 與執行、排程與即時執行、確認窗結束、重新付款、按需查詢、收款服務的驗證付款（EC-SPEC-04 §1.4、§4.3、§6） | Codex | wp04-payments | 之後 |
@@ -141,6 +141,10 @@ wp04-accounts 的 Codex 在完整 runtime 測試時被主機的記憶體不足�
 派工前整合者在整合分支加上 `publicPurchaseState`（`61f329e6`）：B01／B03 是否提供購物車，用的是購物車報價自己的閘門（平台開關、隔離模式、店家准入）與一件的可售量，唯讀、不扣限流額度。公開商店路由與結帳 API 從同一個 `hostedCheckoutOptions()` 取得結帳設定，`hosted-checkout.ts` 自寫的 `'public' ? 'live' : 'sandbox'` 改用 `providerEnvironment()`（`platform-app.ts` 的兩處由 wp04-accounts 的修正輪改）。這樣 buyer-cart 不必改 `platform-app.ts` 與 checkout 模組，兩個工作的檔案不重疊。它的測試把准入閘門拿掉、或把數量不足當成可售，都會失敗。整合者在 `61f329e6` 重跑：typecheck、inventory、purchase-state 1/1、RLS retarget 2/2、buyer-cart 會跑的既有 runtime（買家頁、結帳 HTTP、商店）82/82；在 `4b83fe1c` 重跑 typecheck、inventory、路由矩陣 72/72 與 purchase-state 1/1。buyer-cart 第一次啟動時 Google 的服務回 503（不是額度），還沒開始工作就結束，00:42Z 重新啟動。
 
 M2 的付款拆成四個工作（§4）：wp04-payments 不呼叫綠界，「排查詢」只寫到期工作；需要伺服器查詢的確認窗結束、重新付款與按需查詢由 wp04-queries 接手，退款由 wp04-refunds，買家的付款頁由 buyer-pay。開出前定案的規則：重新付款只在前一個 attempt 確定沒有付款時建立——`failed`，或交接 60 秒後當場查詢回 `TradeStatus=0`；查無此單和其他無法辨識的結果一樣算不明（`96b4d4f4`、`54976ffc`）。`ClientBackURL` 用 `/pay/ecpay/back/{attempt_id}`，不帶商店 slug，避免組出綠界 CDN 的擋字（`96b4d4f4`）。確認窗結束時結果仍不明的 attempt 不取消訂單，繼續查詢到窗後 24 小時再轉例外；從未交接的 attempt 直接 `expired_unpaid`（`d363b78d`）。查詢在回應後由 Worker 的 `waitUntil` 立即執行，10 分鐘的排程只是後備。
+
+wp04-accounts 的修正輪 6 項通過審查，合併為 `38e8db3b`。整合者重跑：typecheck、相關的 runtime 32/32、cloudflare 517/517、inventory。
+
+wp04-payments 第一次執行在寫程式之前就依矛盾規則停下：綠界信用卡 profile 的三處金額範圍不一致。可用性檢查沒有上限，付款表單收到 2,147,483,647 元，付款通知的 `TradeAmt` 卻只讀 9 位數；表單送得出 10 位數的金額，綠界簽章正確的通知反而被拒。整合者把函式庫統一成 5～999,999,999 元（`08f5bea4`）：可用性多一個原因 `amount_above_maximum`；表單、交易查詢與授權明細的預期金額、退款計畫與 DoAction 都拒絕更大的金額。EC-SPEC-04 §2 記下這個範圍，並和商家的單筆額度分開。新的回歸測試放到舊的函式庫上有 4 個失敗。整合者重跑 typecheck、綠界協定測試 52/52 與 inventory。wp04-payments 改以 `08f5bea4` 為基準，01:06Z 續跑同一個 Codex session（資料庫在 55445 重建）。它對 §1.4 的建議也採用：儲存金鑰時不以伺服器查詢驗證。
 
 ## 6. 共用檔案
 

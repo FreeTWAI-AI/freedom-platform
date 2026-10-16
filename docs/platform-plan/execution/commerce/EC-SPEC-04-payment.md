@@ -64,7 +64,8 @@
 - 付款服務 `draft → active` 需要一次成功的已驗證交易：sandbox 以 stage 測試卡完成一筆真實 stage 付款與通知；live 以 §11 的受控小額試付。在完成之前，店家的結帳開關（EC-SPEC-02 §2.3、EC-SPEC-10 §4.5）不能打開。
 - 付款服務 `suspended` 後：不建立新 attempt；已建立的 attempt 照常接收通知、查詢與退款（在途責任不因停用消失，EC-R56）。
 - `draft → active` 不是 HTTP 命令：付款工作在驗證交易成立後，於同一個交易呼叫內部的啟用函式（記下啟用時間與證據參考）。同一間店、同一環境、同一 profile 同時只能有一個 `active` 服務。
-- 換金鑰不改服務狀態，新的 `credential_version` 立即生效。填錯的金鑰要到下一次簽章才發現（通知與查詢驗證失敗）；儲存時是否先以伺服器對伺服器的查詢驗證新金鑰，由 wp04-payments 提出（work-plan §4）。
+- 換金鑰不改服務狀態，新的 `credential_version` 立即生效。填錯的金鑰要到下一次簽章才發現：綠界拒絕用它簽出的付款表單，通知與查詢也驗證失敗。
+- 儲存金鑰時不以伺服器對伺服器的查詢驗證（2026-10-16 依 wp04-payments 的建議定案）：只檢查格式並封存；在本機算出簽章也不算驗證。首次的金鑰由上面的驗證交易證明。換金鑰後，一個版本是否已驗證，只看有沒有由它驗證成功的付款事件（`commerce_payment_events.credential_version`）；還沒有的版本，Seller Console 標示「尚未經綠界驗證」。
 
 ## 2. 首發 profile：`ecpay.aio.credit.v1`
 
