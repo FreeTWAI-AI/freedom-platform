@@ -289,3 +289,13 @@ for (const missing of ['trade_no', 'payment_date', 'trade_amt_minor'] as const)
   test(`review 12: a paid event requires ${missing}`, async () => {
     await rejects(() => event({ trade_no: 'SYNTHETIC', payment_date: new Date(), trade_amt_minor: 500, [missing]: null }));
   });
+
+
+test('review 13: attempt amount accepts the protocol maximum and rejects one TWD more', async () => {
+  assert.equal((await attempt({ amount_minor: 99999999900 })).amount_minor, '99999999900');
+  await rejects(() => attempt({ sequence: 2, amount_minor: 100000000000 }));
+});
+test('review 13: event amount accepts the protocol maximum and rejects one TWD more', async () => {
+  assert.equal((await event({ trade_amt_minor: 99999999900 })).trade_amt_minor, '99999999900');
+  await rejects(() => event({ trade_amt_minor: 100000000000 }));
+});
