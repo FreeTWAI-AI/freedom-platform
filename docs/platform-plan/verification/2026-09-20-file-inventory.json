@@ -21583,6 +21583,11 @@
       "sha256": "bcefdf10a2d669460e3f5f9e27be795e12b4a928602535725cd7ad4a45b16e1e"
     },
     {
+      "path": "tests/e2e/supplier-console-queries.spec.ts",
+      "bytes": 57653,
+      "sha256": "4412e40a7e1f465915526676db4caa46e8905c215e92909ddc6fba266cde7c36"
+    },
+    {
       "path": "tests/e2e/supplier-console-recovery.spec.ts",
       "bytes": 50260,
       "sha256": "aae513a19d1e63b682e4a27a4faa022de72cd5d9b4436892b68f631102e3030e"
