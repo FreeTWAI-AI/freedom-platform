@@ -81,7 +81,7 @@
 
 ## 3. 資料模型與 PaymentPort
 
-### 3.1 表（提議，M2；M1 是 EC-SPEC-03 的交易核心）
+### 3.1 表（M2；`169` 已建立前五列，退款的三張表由 wp04-refunds 加入；M1 是 EC-SPEC-03 的交易核心）
 
 | 表 | 用途 | 規則 |
 | --- | --- | --- |
@@ -144,15 +144,23 @@ interface PaymentPort {
 ### 4.1 交接頁
 
 - 下單（EC-SPEC-02 §5.4）或「重新付款」（§4.3）產生 attempt，回傳 `handoff_url = /pay/ecpay/{handoff_token}`。`handoff_token` 是 256-bit 隨機值、只存雜湊、只對這個 attempt 有效、15 分鐘到期。
-- Worker 對這個路徑回一個極小的 HTML：一個 `method="POST"` 的表單，action 是該環境的 `AioCheckOut/V5` [2862]，欄位含 CheckMacValue（這是簽章，不是金鑰）。同源的外部 script 載入後自動送出；`<noscript>` 顯示按鈕。不用 `target="_blank"`、不放 iframe（iOS 內嵌瀏覽器會擋 [2862][61944]）。
+- Worker 對這個路徑回一個極小的 HTML：一個 `method="POST"` 的表單，action 是該環境的 `AioCheckOut/V5` [2862]，欄位含 CheckMacValue（這是簽章，不是金鑰）。同源的外部 script 在 `load` 後自動送出一次；不用 `target="_blank"`、不放 iframe（iOS 內嵌瀏覽器會擋 [2862][61944]）。
+- 按鈕一律是「前往綠界付款」，至少 44 px，可用鍵盤操作：
+  - `<noscript>` 裡的按鈕立即顯示。
+  - 有 script 時，停留 10 秒後才顯示按鈕與「如果畫面一直沒有變化，請按「前往綠界付款」。」。網路慢時第一次 POST 可能還在進行；太早出現的按鈕會讓同一個 `MerchantTradeNo` 送出兩次。按下後立即停用、只送出一次。
+  - 從綠界頁按上一頁回到這頁（`pageshow` 的 `persisted`）時不再送出：隱藏表單與按鈕，顯示「已前往付款頁。要重新付款，請回到訂單頁。」與連結「返回訂單」（`/pay/ecpay/back/{attempt_id}`，§4.2）。
 - 這個路徑的 CSP 例外：`form-action` 只加上該環境的綠界主機（`https://payment-stage.ecpay.com.tw` 或 `https://payment.ecpay.com.tw`），沿用 `platformContentSecurityPolicy(path)` 依路徑加表單目的地的做法（`apps/platform-api/src/platform-app.ts:146`）。其他頁面不放寬。SPA 用 hash 路由，CSP 只能依 HTTP 路徑區分，所以必須是獨立路徑。
-- token 到期後再開：頁面顯示「這個付款連結已失效」，帶回訂單頁。
-- 只有訂單 `open`、hold 仍有效、attempt 仍是 `issued` 且還沒交接時才交接；`handed_off_at` 提交之後才回付款表單。條件不符就顯示對應的頁面，token 不消耗。hold 到期後不再交接，所以確認窗結束時還沒交接的 attempt 之後也不會付款（§6.2）。
+- token 到期後再開：頁面顯示「付款連結已失效或不存在。」；找得到 attempt 時附「返回訂單」連結。
+- 只有訂單 `open`、hold 仍有效、attempt 仍是 `issued` 且還沒交接時才交接；`handed_off_at` 提交之後才回付款表單。條件不符就顯示對應的頁面，token 不消耗；hold 已到期時顯示「付款期限已過，保留的商品已釋出。」（與 B07 相同）。hold 到期後不再交接，所以確認窗結束時還沒交接的 attempt 之後也不會付款（§6.2）。
 
 ### 4.2 回到商店
 
 - `ClientBackURL`＝`/pay/ecpay/back/{attempt_id}`（GET、無付款參數）[2878]：伺服器找到 attempt 後 303 到訂單頁（`/shops/:slug/orders/:order_ref`），沒有其他效果。送給綠界的網址不放商店 slug 與訂單編號：slug 接上路徑可能組出綠界 CDN 的擋字（例如以 `cd` 結尾的 slug 加上 `/` 成為 `cd/`，或含 `echo`），表單產生器會拒絕整張表單（§3.4）。
-- `OrderResultURL`＝`/pay/ecpay/return/{account_ref}`：綠界讓瀏覽器以 POST 帶付款結果回來 [2878]。伺服器驗 CheckMacValue（失敗就當沒有資料）、為對應 attempt 排一次查詢（同 attempt 每分鐘最多一次），然後 303 轉到付款返回頁（B06，`/shops/:slug/payment-return/:attempt_ref`，EC-SPEC-01 §3）。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。**不改任何付款狀態**：瀏覽器返回不是付款證據（計畫 §10.3、EC-AT18）。
+- `OrderResultURL`＝`/pay/ecpay/return/{account_ref}`：綠界讓瀏覽器以 POST 帶付款結果回來 [2878]。伺服器驗 CheckMacValue（失敗就當沒有資料）、為對應 attempt 排一次查詢（同 attempt 每分鐘最多一次），然後 303 轉到付款返回頁（B06，`/shops/:slug/payment-return/:attempt_ref`，EC-SPEC-01 §3）。
+  - 每個 attempt 只記一筆瀏覽器返回；重送同一份已簽章的表單不再新增紀錄。
+  - 記錄前先以 `FOR KEY SHARE` 鎖 attempt，再碰到期工作，與通知同一個鎖序（EC-SPEC-03 §6）。否則兩者幾乎同時到達時，會互相等待對方已鎖的列而死結。
+  - 瀏覽器返回只是提示：找到 attempt 之後，排查詢或記錄失敗只記固定的錯誤名稱，照樣 303 到付款返回頁。
+  - 不回機器文字：表單格式錯誤或簽章不符 303 到首頁；金鑰環不可用時回 503 的錯誤頁「暫時無法確認付款結果，請稍後到訂單頁查看。」；找到 attempt 之前的其他錯誤回 500 的同一頁。這條路徑是請求閘道的例外之一：不檢查 Origin、不要求 JSON，由路由自己檢查表單格式與大小（EC-SPEC-09 §2.6）。**不改任何付款狀態**：瀏覽器返回不是付款證據（計畫 §10.3、EC-AT18）。
 - 從綠界頁面送出的跨站 POST 不帶 `SameSite=Lax` 的買家憑證；303 之後的頂層 GET 導覽會帶它，但不帶 `SameSite=Strict` 的會員 session（EC-SPEC-09 §2.6）。所以這個端點不需要也不讀任何 cookie；返回頁的 HTML 不依身分產生，狀態由頁面內的同站 fetch 讀取。
 - 付款返回頁顯示「付款結果確認中」並輪詢付款摘要（每 5 秒、最多 2 分鐘，之後改成按鈕「重新查詢」）；確認後帶到訂單頁（B07）。
 
@@ -190,7 +198,7 @@ interface PaymentPort {
 ### 5.3 交易順序與回應
 
 - 一個 DB 交易：寫入事件（去重）→ 鎖序 EC-SPEC-03 §6 → 改 attempt → 呼叫 `applyConfirmedPayment`（EC-SPEC-03 §5，`payment_ref = attempt_id`）→ 排確認查詢 → commit。
-- **提交成功後**才回 `1|OK`（純文字、HTTP 200、無引號空白 [2878]）。提交失敗回 500，讓綠界重送（隔 5～15 分鐘、當天最多 4 次 [2878]）。
+- **提交成功後**才回 `1|OK`（純文字、HTTP 200、無引號空白 [2878]）。提交失敗回 500 `0|error`，讓綠界重送（隔 5～15 分鐘、當天最多 4 次 [2878]）。超過限流回 429 `0|limited`（帶 `Retry-After`）；金鑰環不可用回 503 `0|unavailable`；兩者綠界都會重送。
 - 驗證失敗（簽章、商家、格式）回 400 `0|invalid`，只記錄計數與帳戶，不存 body。
 
 ### 5.4 去重與亂序
@@ -199,6 +207,8 @@ interface PaymentPort {
 - 付款套用以 `payment_ref` 冪等（EC-SPEC-03 §5）：同一 attempt 的通知與查詢結果先後到達，只套用一次。
 - 通知與 `OrderResultURL` 沒有固定先後 [2878]；查詢與通知也可能交錯。狀態只依 §3.3 前進，不倒退（EC-AT21）。
 - 通知與保留到期結算、買家取消、另一筆通知同時發生：全部走同一組鎖，先提交者勝（EC-SPEC-03 §6；測試見 §12）。
+- 同一 attempt 的通知事件依（`received_at`, `event_id`）的順序套用。較早的事件還沒套用時（例如隔離期間延後的事件），新事件只寫入收件匣、照樣回 `1|OK`，由排程依序補套用。否則延後的 `failed` 會晚於後到的 `paid` 套用，開出不實的 `contradicting_event`。
+- 補套用時，一筆事件套用失敗只記固定的錯誤名稱與事件 ID，並略過同一 attempt 後面的事件；其他 attempt 照常處理。
 
 ### 5.5 確認查詢與出貨門檻
 
@@ -303,7 +313,7 @@ interface PaymentPort {
 - `NeedExtraPaidInfo=Y` 會帶回 `card6no`、`card4no` [5675]：只用於簽章驗證，**不保存**、不顯示、不寫日誌；事件只存 `gwsr`、授權碼以外的必要欄位與原始 body 的 SHA-256。`auth_code` 不保存。
 - 日誌只記事件 ID、帳戶、結果碼；不記 body、金鑰、簽章字串。
 - callback 端點不需要 CSRF token，但有簽章、商家、金額與交易識別驗證；去重鍵防重放。
-- 綠界主機 IP 不固定 [2858]：不做 IP 白名單；也不對 callback 做容易誤擋的嚴格限流（綠界提醒雲端 WAF 會擋高峰通知 [61944]）；只限 body 大小與每帳戶每分鐘 600 次。
+- 綠界主機 IP 不固定 [2858]：不做 IP 白名單；也不對 callback 做容易誤擋的嚴格限流（綠界提醒雲端 WAF 會擋高峰通知 [61944]）；只限 body 大小與每個（帳戶, 網路）每分鐘 600 次。這個額度在驗證之前計數，所以不能只以帳戶為鍵：`account_ref` 出現在每張交接表單的 `ReturnURL`，只以帳戶為鍵時任何人都能耗盡它，讓真通知收到 429（EC-SPEC-09 §4）。
 - 機器路徑沒有 principal：以帳戶列解析出的 tenant 設定交易身分變數（EC-SPEC-09 §2），不接受請求內容指定 tenant。
 
 ## 10. 程式位置與 migration
@@ -335,7 +345,7 @@ interface PaymentPort {
 | 通知重送（含並行兩筆相同通知）只套用一次；先失敗後成功、先成功後失敗、查詢與通知交錯 | EC-AT17、21 |
 | `SimulatePaid=1` 且 `RtnCode=1`：不改 attempt、不動庫存、不建立履約 | EC-AT19 |
 | 瀏覽器 `OrderResultURL` 帶有效簽章的成功資料：不改狀態，只排查詢 | EC-AT18 |
-| 提交失敗不回 `1|OK`；提交成功才回 | EC-AT17 |
+| 提交失敗不回 `1\|OK`；提交成功才回 | EC-AT17 |
 | 查詢 403 → 同帳戶付款服務暫停 30 分、物流與發票不受影響；逾時退避；`TimeStamp` 每次重產 | EC-AT20 |
 | 確認窗結束：全部 attempt 確定未付 → 取消；有 `unknown` → 不取消、繼續查詢、24 小時後開例外；從未交接 → `expired_unpaid` 且不查詢 | EC-SPEC-03 §3.3 |
 | 重新付款：當場查詢回未付才建立新 attempt；結果不明、交接未滿 60 秒、已有付款、滿 5 個、hold 過期各回對應的 409；並行兩次只建一個；被取代的 attempt 晚到的付款照常套用 | EC-SPEC-04 §4.3 |

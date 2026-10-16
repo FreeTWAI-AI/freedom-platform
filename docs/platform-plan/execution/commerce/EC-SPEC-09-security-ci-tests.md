@@ -88,9 +88,9 @@ guest、provider 通知與排程都沒有 principal。規則：
 1. 個資表一律 tenant RLS（`tenant_id = freedom_ctx_tenant()`，比照 `134:22-25`）：顧客、聯絡資料、出貨者的收件投影、選店 session、訂單對話、發票的買家資料。`168` 的 `commerce_customers` 與 `commerce_checkout_contacts` 已是如此。
 2. 不含個資的交易與帳本表可以豁免 RLS，catalog 記 `reason_code: commerce_profile_participant_acl` 與理由（`168` 的 checkout、訂單 sidecar、付款套用、配置與異動都這樣登錄）。授權由程式依儲存的關聯判斷；豁免不代表有任何 HTTP 讀取者。
 3. 沒有 principal 的路徑，先從**已儲存、不含個資**的列解析出 tenant 與實例，再 `bindTenantContext`，然後才碰個資表。tenant 永遠不從請求內容取得（EC-SPEC-04 §9）。
-4. 解析用的兩張表（提議，M2）：
+4. 解析用的兩張表（M2，`169` 已建立）：
    - `commerce_entry_routes`：`(route_kind, route_key) → tenant_id, instance_id, target_id, expires_at, revoked_at`。`route_kind` 是 `provider_account`（`account_ref`，出現在 callback 網址，不是秘密）、`payment_handoff`、`cvs_map`、`cvs_map_return`、`label_print`；後四種只存 token 的 SHA-256。豁免 RLS、不含個資；只寫一次，撤銷與到期只能前進。`account_ref` 是 26 個小寫 Crockford Base32 字元（128 bits 隨機）；組成 §2.6 的四條 `account_ref` 路徑後，任一條含綠界 CDN 擋字（`findCdnBlockedTerm`，例如結尾 `cd` 會組成 `cd/`）就重抽，最多 16 次。以店的 slug 進來的公開路徑不需要這張表（`readPublicStorePage` 的解析方式）。
-   - `commerce_due_work`：`(tenant_id, instance_id, kind, target_id, due_at, lease_until, attempts)`。排程以一個跨 tenant 的查詢取出到期列（`FOR UPDATE SKIP LOCKED`、每次有上限），每一列在自己的交易裡 `bindTenantContext` 後處理。不逐一掃描每個 tenant scope（`operations.ts:529` 的做法在店數變多時，10 分鐘一次的 cron 跑不完）。豁免 RLS、不含個資。
+   - `commerce_due_work`：`(tenant_id, instance_id, kind, target_id, due_at, lease_until, attempts, last_error)`，每個 `(kind, target_id)` 只有一列。`169` 的種類是 `payment_query` 與 `payment_window_end`，下單建立 attempt 時一起建立；執行器由 wp04-queries 加入。排程以一個跨 tenant 的查詢取出到期列（`FOR UPDATE SKIP LOCKED`、每次有上限），每一列在自己的交易裡 `bindTenantContext` 後處理。不逐一掃描每個 tenant scope（`operations.ts:529` 的做法在店數變多時，10 分鐘一次的 cron 跑不完）。豁免 RLS、不含個資。
 5. 同一時間只綁一個 tenant。需要另一方的資料時，照 shared 訂單的做法先 `clearTenantContext` 再明確綁定下一方（`hosted/shared-authority.ts:13-17`），不靠 `bindTenantContext` 直接切換。個資只在綁定該 tenant 時讀寫，讀到的個資不帶進下一方的綁定。效果跨兩個事業時（例如供應商帳戶收到的貨態要更新零售商的訂單軸線），跨過去的部分只能寫不含個資的豁免表，或排一筆到期工作由另一個交易處理。
 6. 不用 `SECURITY DEFINER`（部署工具拒絕未審查的 definer，`deploy/cloudflare/lib/migrations.mjs:7-23`）。
 7. 機器路徑寫的事件標明來源（`provider` 或 `scheduler`）與帳戶，不冒用任何會員 principal。`scoped_command_receipts` 只收 `person`（`migrations/078_scoped_member_commands.sql:4`），所以機器路徑用各領域的事件表去重（EC-SPEC-04 §5.4）。
@@ -130,8 +130,10 @@ guest、provider 通知與排程都沒有 principal。規則：
 
 規則：
 
-- 一個判斷函式（提議 `isCommerceProviderEntry(method, path)`）只認上表的方法與路徑格式（ref 的字元與長度固定），比照 `isMaintainerWebhookPath`。閘道對它跳過 Origin 與 JSON 檢查，改由路由自己檢查 `Content-Type`、以串流計算 16 KiB 上限、拒絕重複的參數名、限制參數名字元（EC-SPEC-04 §5.1）。Host 檢查（`host_rejected`）照舊。
-- 不檢查 Origin 的理由：這些端點不讀也不設定任何 cookie、不依 session 做事，回應只有固定的 `1|OK`、`0|invalid`、404，或 303 到固定的站內路徑，沒有可被跨站借用的身分。測試證明：帶有效的會員 session 與買家憑證、帶外站 Origin、不帶 Origin，結果都相同。
+- 一個判斷函式（`isCommerceProviderEntry(method, path)`，`modules/agent-commerce/operations/provider-entry-paths.ts`）只認上表的方法與路徑格式（ref 的字元與長度固定），比照 `isMaintainerWebhookPath`。M2 只認付款通知與付款的瀏覽器返回兩條；其他三條隨 M3、M4 的路由加入。閘道對它跳過 Origin 與 JSON 檢查，改由路由自己檢查 `Content-Type`、以串流計算 16 KiB 上限、拒絕重複的參數名、限制參數名字元（EC-SPEC-04 §5.1）。Host 檢查（`host_rejected`）照舊。
+- 不檢查 Origin 的理由：這些端點不讀也不設定任何 cookie、不依 session 做事，回應只有下列固定內容，沒有可被跨站借用的身分。測試證明：帶有效的會員 session 與買家憑證、帶外站 Origin、不帶 Origin，結果都相同。
+  - 伺服器通知：`1|OK`（200）、`0|invalid`（400）、`0|limited`（429，帶 `Retry-After`）、`0|unavailable`（503，金鑰環不可用）、`0|error`（500），找不到帳戶是空的 404。
+  - 瀏覽器返回：303 到固定的站內路徑，或不含任何訂單資料的錯誤頁（金鑰環不可用 503、其他錯誤 500）；不回機器文字。找到 attempt 之後，記錄失敗也照樣 303 到付款返回頁。
 - 其他新路徑都不加例外：B04～B10 的公開命令是同站 JSON（EC-SPEC-02 §5.1）；付款交接、選店與列印頁都是 GET。
 - 會員 session 是 `SameSite=Strict`：從綠界回來的導轉（303 之後的第一個 GET）不帶它，`SameSite=Lax` 的買家憑證則會帶。所以付款返回頁與訂單頁的 HTML 不依身分產生，狀態一律由頁面內的同站 fetch 讀取（這時兩種 cookie 都會帶）。
 - staging 的 Access 要排除上表五條路徑：綠界伺服器沒有 Access 身分，買家瀏覽器從綠界頁面送出的跨站 POST 也不一定帶得到 Access 的 cookie。設定由 Ted 操作（EC-SPEC-10 §4.4）。
@@ -186,7 +188,7 @@ guest、provider 通知與排程都沒有 principal。規則：
 
 ## 4. 限流
 
-沿用 `authRateLimitInTransaction` 的固定視窗與雜湊 bucket。每次嘗試都計數，包括失敗、被拒與重播：bucket 在命令之前用自己的短交易計數並提交，命令交易不持有 bucket 的列鎖，也不在交易中再借第二條連線。這樣重播和猜測都有上限，猜錯的請求同樣受限。店的 bucket 以 slug 解析出的店為鍵；找不到店時只計網路。唯一的例外是「同時未付款的有效訂單」的網路近似：它只在命令交易裡對新建的訂單計數，命令失敗時一起回滾。commerce 用的版本回傳剩餘秒數，429 帶 `Retry-After`。網路鍵用 `rateLimitNetwork`；本機與不可信的 edge 會全部落在 `shared-server`，所以限流測試要用可信 edge 的設定。數值集中在一份常數表（§8），測試讀同一份表；調整數值不改規格，記在 PR。
+沿用 `authRateLimitInTransaction` 的固定視窗與雜湊 bucket。每次嘗試都計數，包括失敗、被拒與重播：bucket 在命令之前用自己的短交易計數並提交，命令交易不持有 bucket 的列鎖，也不在交易中再借第二條連線。這樣重播和猜測都有上限，猜錯的請求同樣受限。provider 通知在驗證簽章之前就計數，所以鍵不能只用帳戶：`account_ref` 是公開的（每張付款交接表單的 `ReturnURL` 都帶著它），只以帳戶為鍵時，任何人都能用未簽章的請求耗盡額度，讓綠界的真通知與重送都收到 429。驗證前的帳戶額度因此以（帳戶, 網路）為鍵（decisions.md）。店的 bucket 以 slug 解析出的店為鍵；找不到店時只計網路。唯一的例外是「同時未付款的有效訂單」的網路近似：它只在命令交易裡對新建的訂單計數，命令失敗時一起回滾。commerce 用的版本回傳剩餘秒數，429 帶 `Retry-After`。網路鍵用 `rateLimitNetwork`；本機與不可信的 edge 會全部落在 `shared-server`，所以限流測試要用可信 edge 的設定。數值集中在一份常數表（§8），測試讀同一份表；調整數值不改規格，記在 PR。
 
 買家（公開路由）：
 
@@ -211,9 +213,9 @@ provider 入口：
 
 | 操作 | 鍵與上限 | 超過時 |
 | --- | --- | --- |
-| 付款、物流、折讓通知 | 帳戶 600／分；body 16 KiB | 429（綠界會重送） |
+| 付款、物流、折讓通知 | （帳戶, 網路）600／分，驗證前計數；body 16 KiB | 429 `0\|limited`（綠界會重送） |
 | 找不到 `account_ref` | 網路 120／分 | 429 |
-| 付款的瀏覽器返回 | 網路 60／分；同 attempt 的查詢 1／分（EC-SPEC-04 §4.2） | 只 303，不排查詢 |
+| 付款的瀏覽器返回 | 網路 60／分；同 attempt 的查詢 1／分；每個 attempt 只記一筆返回（EC-SPEC-04 §4.2） | 只 303，不排查詢 |
 | 地圖返回 | 每個 session 一次 | 303 回原頁，不改暫存 |
 
 賣家與出貨者：
@@ -334,14 +336,14 @@ provider 入口：
 
 ## 8. 程式位置
 
-| 項目 | 位置（提議） |
+| 項目 | 位置（未註明已建的仍是提議） |
 | --- | --- |
-| `storefront@1.1.0`、`hosted-store@1.1.0`、`module_release_upgrades`、放寬的實例身分 trigger、重新確認身分的新用途 | M2 的 migration；`modules/module-registry/definitions.ts`；`contracts/guild-launchpad/v1/tenant.ts` |
-| owner／admin 的能力改讀實例版本；升級命令 | `modules/agent-commerce/hosted/capabilities.ts`、`modules/agent-commerce/hosted/upgrade.ts` |
+| `storefront@1.1.0`、`hosted-store@1.1.0`、`module_release_upgrades`、放寬的實例身分 trigger、重新確認身分的新用途 | 已建：`169`；`modules/module-registry/definitions.ts`；`contracts/guild-launchpad/v1/tenant.ts` |
+| owner／admin 的能力改讀實例版本；升級命令 | 已建：`modules/agent-commerce/hosted/capabilities.ts`、`modules/agent-commerce/hosted/release-upgrade.ts`（`upgradeStoreRelease`） |
 | 授權驗證的基本讀取鍵 | `modules/tenant-workspaces/instance-grants.ts`、`apps/portal-web/src/modules/TenantSettings.tsx` |
-| provider 入口的判斷函式 | `modules/agent-commerce/providers/ecpay/entry-paths.ts`；`platform-app.ts` 閘道加一個條件 |
-| `commerce_entry_routes`、`commerce_due_work`、遮罩工作、限流常數表 | M2 的 migration；`modules/agent-commerce/checkout/`（`routes.ts`、`due-work.ts`、`retention.ts`、`limits.ts`） |
-| 跨領域測試 | `tests/runtime/commerce-capability-matrix.test.ts`、`commerce-entry-gate.test.ts`、`commerce-secret-canary.test.ts`、`commerce-retention.test.ts`、`commerce-rate-limits.test.ts`；`tests/e2e/commerce-no-model-keys.spec.ts` |
+| provider 入口的判斷函式 | 已建：`modules/agent-commerce/operations/provider-entry-paths.ts`（`isCommerceProviderEntry`、`isCommerceProviderEntryPath`）；`platform-app.ts` 閘道加一個條件 |
+| `commerce_entry_routes`、`commerce_due_work`、遮罩工作、限流常數表 | 已建：`169`；`modules/agent-commerce/payments/entry-routes.ts`、`modules/agent-commerce/operations/due-work.ts`、`modules/agent-commerce/checkout/limits.ts`。遮罩工作（`retention.ts`）尚未建立 |
+| 跨領域測試 | 已建：`tests/runtime/commerce-rate-limits.test.ts`、`hosted-payment-canary.test.ts`（秘密 canary）、`hosted-payment-schema.test.ts`、`hosted-payment-handoff.test.ts`、`hosted-payment-notifications.test.ts`、`commerce-effect-journal.test.ts`。尚未建立：`commerce-capability-matrix.test.ts`、`commerce-entry-gate.test.ts`、`commerce-retention.test.ts`、`tests/e2e/commerce-no-model-keys.spec.ts` |
 
 descriptor 的歸屬與工作順序在 [work-plan.md](work-plan.md)。
 
