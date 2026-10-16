@@ -3,24 +3,24 @@ import {z} from 'zod';
 import {OpaqueId} from '../../../contracts/guild-launchpad/v1/primitives.js';
 import {checkVersion} from '../../../packages/db/index.js';
 import {assertCurrentSessionClock,lockMemberSession} from '../../../packages/db/member-session.js';
-import {mapPersonPrincipal} from '../../../packages/resource-scopes/index.js';
+import {mapPersonPrincipal,lockTenantScope} from '../../../packages/resource-scopes/index.js';
 import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
-import {requireCondition} from '../../../packages/shared/problem.js';
+import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {type TenantListCursorCodec,type TenantListCursorBinding,unavailableTenantListCursor} from '../../../packages/shared/tenant-list-cursor.js';
 import type {Actor} from '../../identity-membership/service.js';
-import {effectiveStoreCapabilities} from '../hosted/capabilities.js';
-import {profile,ready,storeRead} from '../hosted/store.js';
+import {effectiveStoreCapabilities,requireStoreInstance,storeCapabilities} from '../hosted/capabilities.js';
+import {instance,profile,ready,storeRead} from '../hosted/store.js';
 import type {CommerceSettings} from '../operations/runtime-settings.js';
 import {confirmedPaymentSQL} from './confirmed-payment.js';
 import {PAYMENT_EXCEPTION_POLICIES,type PaymentExceptionKind} from './exceptions.js';
-import {commerceRateLimitInTransaction} from './limits.js';
+import {commerceRateLimitInTransaction,chargePaymentQueryOrderBudgets} from './limits.js';
 import {sellerCheckoutCommand,type SellerCheckoutContext} from './seller-command.js';
 import {quarantineGate} from './public-commands.js';
 import {lockStore} from './authority.js';
 import {cancelUnpaidOrder,lockCheckoutOrders} from './orders.js';
-import {canonicalJSON,type CheckoutPaymentPort,type CheckoutPaymentSummary,type CheckoutTerms} from './terms.js';
+import {canonicalJSON,type CheckoutPaymentActions,type CheckoutPaymentPort,type CheckoutPaymentSummary,type CheckoutTerms} from './terms.js';
 
-export interface SellerCheckoutReadOptions {settings?:CommerceSettings;payment?:CheckoutPaymentPort;cursors?:TenantListCursorCodec}
+export interface SellerCheckoutReadOptions {settings?:CommerceSettings;payment?:CheckoutPaymentPort;paymentActions?:CheckoutPaymentActions;cursors?:TenantListCursorCodec}
 const limit=z.string().regex(/^[0-9]+$(?![\s\S])/).transform(Number).pipe(z.number().int().min(1).max(50));
 export const SellerCheckoutOrderQuerySchema=z.object({lifecycle:z.enum(['open','cancelled','closed']).optional(),needs_action:z.literal('true').optional(),
   display_number:z.string().regex(/^[0-9]{6}-[0-9A-HJKMNP-TV-Z]{6}$(?![\s\S])/).optional(),cursor:z.string().max(512).optional(),limit:limit.optional()}).strict();
@@ -180,4 +180,26 @@ export async function cancelSellerCheckoutOrder(pool:Pool,actor:Actor,tenantId:s
       await lockStore(q,store,[],[id],false);const [order]=await lockCheckoutOrders(q,[id],store);checkVersion(order.version,expected);
       await cancelUnpaidOrder(q,store,id,'seller','seller_cancelled',{payment:options.payment});return {id};
     },(q,context,ref)=>projectSellerCheckoutOrder(q,context,ref,options));
+}
+
+/** Authorize and charge in separate short transactions. The shared payment
+ * action owns attempt selection and releases its lease client before transport. */
+export async function querySellerPayment(pool:Pool,actor:Actor,tenantId:string,instanceId:string,orderId:string,network:string,options:SellerCheckoutReadOptions={}) {
+  quarantineGate(options);
+  const permitted=async(q:PoolClient,context:SellerCheckoutContext)=>{
+    const keys=await effectiveStoreCapabilities(q,context.tenant,instanceId);
+    requireCondition(keys.includes('store:orders:read')||keys.includes('store:finance:read'),403,'capability_denied','目前沒有這個操作的權限。');
+    await sellerCheckoutOrderRow(q,context,orderId);return context;
+  };
+  const context=await sellerCheckoutRead(pool,actor,tenantId,instanceId,'store:read',permitted);
+  await chargePaymentQueryOrderBudgets(pool,orderId);
+  const authorize=async(q:PoolClient)=>{
+    const tenant=await lockTenantScope(q,{actor,tenantId,capabilitiesForRole:storeCapabilities});
+    await instance(q,tenantId,instanceId,false);await requireStoreInstance(q,tenant,instanceId,'store:read');
+    const p=await profile(q,tenantId,instanceId);ready(p);await permitted(q,{tenant,profile:p});
+    await assertCurrentSessionClock(q,actor);
+  };
+  const result=await options.paymentActions?.query?.(pool,{store:{storefront_shop_id:context.profile.storefront_shop_id},orderId,network,authorize,trigger:'seller'});
+  if(result==='query_in_progress')throw new Problem(409,'payment_result_pending','付款結果確認中，請稍後再查詢。');
+  return sellerCheckoutRead(pool,actor,tenantId,instanceId,'store:read',async(q,current)=>{await permitted(q,current);return projectSellerCheckoutOrder(q,current,orderId,options);});
 }

@@ -259,7 +259,7 @@ export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queri
         return null;
       });
       if(!attempt||!queries)return 'complete';
-      return (await queryAttempt(pool,attempt.attempt_id,queries,'buyer')).status==='query_in_progress'?'query_in_progress':'complete';
+      return (await queryAttempt(pool,attempt.attempt_id,queries,input.trigger??'buyer')).status==='query_in_progress'?'query_in_progress':'complete';
     },
 
   };

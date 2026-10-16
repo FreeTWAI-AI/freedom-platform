@@ -4,12 +4,12 @@ import type {Pool} from 'pg';
 import {OpaqueId} from '../../../../contracts/guild-launchpad/v1/primitives.js';
 import * as wire from '../../../../contracts/guild-launchpad/v1/hosted-seller-checkout.js';
 import {requireCondition} from '../../../../packages/shared/problem.js';
-import {listSellerCheckoutOrders,readSellerCheckoutOrder,readSellerOrderContact,cancelSellerCheckoutOrder,type SellerCheckoutReadOptions} from '../../../../modules/agent-commerce/checkout/seller-orders.js';
+import {listSellerCheckoutOrders,readSellerCheckoutOrder,readSellerOrderContact,cancelSellerCheckoutOrder,querySellerPayment,type SellerCheckoutReadOptions} from '../../../../modules/agent-commerce/checkout/seller-orders.js';
 import {listSellerExceptions,readSellerException,actOnSellerException} from '../../../../modules/agent-commerce/checkout/seller-exceptions.js';
 import type {PlatformEnv} from '../module-context.js';
 import {commandHeaders,etag,privateCache,singleQuery} from './tenant-http.js';
 
-export function createHostedSellerCheckoutRoutes(pool:Pool,options:SellerCheckoutReadOptions={}) {
+export function createHostedSellerCheckoutRoutes(pool:Pool,options:SellerCheckoutReadOptions&{network?:(c:Parameters<typeof singleQuery>[0])=>string}={}) {
   const app=new Hono<PlatformEnv>();
   app.use('*',async(c,next)=>{try{if(c.req.method!=='GET')wire.SellerCheckoutEmptyInputSchema.parse(singleQuery(c));await next();}finally{privateCache(c);}});
   const root='/tenants/:tenant_id/storefronts/:instance_id',orders=root+'/checkout-orders',cases=root+'/exception-cases';
@@ -24,6 +24,7 @@ export function createHostedSellerCheckoutRoutes(pool:Pool,options:SellerCheckou
     const h=commandHeaders(c,true),[t,i]=ids(c);wire.SellerCheckoutEmptyInputSchema.parse(await c.req.json());
     const view=wire.SellerCheckoutOrderSchema.parse(await cancelSellerCheckoutOrder(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('order_id')),h.key,h.expected!,options));etag(c,view.version);return c.json(view);
   });
+  app.post(orders+'/:order_id/payment-queries',async c=>{wire.SellerCheckoutEmptyInputSchema.parse(await c.req.json());const [t,i]=ids(c);const view=wire.SellerCheckoutOrderSchema.parse(await querySellerPayment(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('order_id')),options.network?.(c)??'unknown',options));return c.json(view);});
   app.get(orders+'/:order_id/refunds',async c=>{wire.SellerCheckoutEmptyInputSchema.parse(singleQuery(c));const [t,i]=ids(c);return c.json(wire.SellerRefundListSchema.parse(await listSellerRefunds(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('order_id')))));});
   app.post(orders+'/:order_id/refunds',async c=>{const h=commandHeaders(c,false),[t,i]=ids(c);return c.json(wire.SellerRefundSchema.parse(await recordSellerRefund(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('order_id')),await c.req.json(),h.key,options)),201);});
   app.get(cases,async c=>{const [t,i]=ids(c);return c.json(wire.ExceptionCasePageSchema.parse(await listSellerExceptions(pool,c.get('actor'),t,i,singleQuery(c),options)));});
