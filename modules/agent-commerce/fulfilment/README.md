@@ -1,6 +1,6 @@
 # Freedom Commerce Fulfilment (`commerce-fulfilment`)
 
-This module provides the pure, I/O-free domain rule functions for Freedom Commerce fulfilment and logistics planning, following EC-SPEC-05 §1.1, §2.2–§2.6, §3.1–§3.5, §5.1, §6.3, and §6.4.
+This module provides the shipping settings layer and pure, I/O-free domain rule functions for Freedom Commerce fulfilment and logistics planning, following EC-SPEC-05 §1.1, §2.2–§2.6, §3.1–§3.5, §5.1, §6.3, and §6.4.
 
 ## Scope & Status
 
@@ -14,8 +14,8 @@ This module provides the pure, I/O-free domain rule functions for Freedom Commer
 - `commerce-providers`: Imports the public export `findCdnBlockedTerm` from `ecpay/index.ts` for CDN blocked term checks on recipient names and addresses.
 
 ### What does not yet exist (deferred to future fulfilment domain milestone)
-- Database tables and migrations (e.g. `commerce_ship_from_locations`, `commerce_shipping_profile_versions`, `commerce_item_shipping_attributes`, `commerce_fulfilment_agreements`, `commerce_fulfilment_orders`, `commerce_fulfilment_recipients`, `commerce_cvs_selection_sessions`, `commerce_shipments`, `commerce_logistics_operations`, `commerce_logistics_events`).
-- HTTP routes and provider callbacks (carrier callbacks, store checkout CVS map selection, printing endpoints).
+- Shipment and agreement tables and migrations (e.g. `commerce_fulfilment_agreements`, `commerce_fulfilment_orders`, `commerce_fulfilment_recipients`, `commerce_cvs_selection_sessions`, `commerce_shipments`, `commerce_logistics_operations`, `commerce_logistics_events`).
+- Shipment HTTP routes and provider callbacks (carrier callbacks, store checkout CVS map selection, printing endpoints).
 - ECPay API integrations (MD5 CheckMacValue generation, `Express/Create`, `Express/map`, `QueryLogisticsTradeInfo/V5`, label printing forms).
 - Exception case lifecycle and outbox workers (`commerce_exception_cases`, outbox operation dispatcher).
 - Reverse logistics, cold chain (chilled/frozen), and Cash on Delivery (COD).
