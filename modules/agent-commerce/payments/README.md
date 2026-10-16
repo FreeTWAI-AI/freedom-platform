@@ -1,21 +1,68 @@
 # Freedom Commerce Payments (`commerce-payments`)
 
-This module provides the pure, I/O-free domain rule functions for Freedom Commerce payment refunds and allocation, following EC-SPEC-04 §2, §7.1, §7.2, §10 and EC-SPEC-06 §2.5.
+This module provides provider account setup and sealed credential storage, plus pure refund and allocation rules. Payment attempts, provider transactions and callbacks are not implemented here.
 
 ## Scope & Status
 
 ### What exists now
 - Pure rule functions and TypeScript types under `rules/` (`errors.ts`, `types.ts`, `allocation.ts`, `unapplied.ts`, `index.ts`).
 - Pure refund line allocation, line refund caps, price-difference refund limits, conditional shipping refund suggestions, seller allocation validation, and unapplied attempt refund validation.
-- 100% pure execution: no database access, no network calls, no system clock reads, no locale-sensitive formatters, no environment access, no console logging, no side-effects.
+- The `rules/` directory has pure execution: no database access, no network calls, no system clock reads, no locale-sensitive formatters, no environment access, no console logging, no side-effects.
 - All returned objects and nested arrays are deeply frozen with `Object.freeze`. Caller input objects and arrays are never mutated, aliased, or frozen.
 
 ### What does not yet exist (deferred to M2)
-- Database tables and migrations (e.g. `commerce_provider_accounts`, `commerce_provider_account_services`, `commerce_provider_credentials`, `commerce_payment_attempts`, `commerce_refunds`, `commerce_refund_lines`).
+- Payment attempt and refund tables (`commerce_payment_attempts`, `commerce_refunds`, `commerce_refund_lines`).
 - Database triggers repeating the hard constraints on `commerce_refund_lines` (unit multiples, sums equal to refund total, cumulative line amount ≤ L, cumulative line units ≤ Q, cumulative shipping ≤ F).
 - HTTP routes and provider callbacks (payment initiation, provider webhook notifications, buyer redirect handlers).
 - Payments-side ECPay API calls and their wiring (`QueryTradeInfo/V5`, `CreditDetail/DoAction`, `CreditDetail/QueryTrade/V2`) do not exist yet and will use the existing ECPay protocol layer from `modules/agent-commerce/providers/` (module `commerce-providers`, which provides CheckMacValue, AES, and signed-form parsing).
 - Outbox workers and exception case lifecycle for payment processing.
+
+## Provider setup and credential storage
+
+Tenant owners and admins can create ECPay accounts, install or rotate payment,
+logistics and invoice credentials, and suspend, resume or retire services. Every
+write requires account CAS (after creation), an idempotency key, and fresh
+`commerce.provider_account.write` verification. Ordinary store grants never
+confer account write authority. Reads require `store:manage` or
+`store:finance:read`, and return allowlisted account/service metadata only.
+The platform environment selects exactly one provider environment: local and
+staging use sandbox; public uses live. Account refs are never included in views.
+
+Accounts, services and credentials use tenant RLS. Immutable identities and
+retained credential versions are enforced in schema 169. New services are draft;
+activation is an internal function for a verified provider transaction, with no
+HTTP activation route. Only one service per store/environment/profile can be
+active. Rotation advances the current credential immediately and keeps service
+state; older unretired versions remain usable for in-flight provider work.
+Wrong keys surface as signature failures; wp04-payments will add the provider key
+check before activation and rotation. Current credentials cannot be retired.
+
+`COMMERCE_CREDENTIAL_KEYS` is optional. Its format is comma-separated
+`key_id:base64` entries with no whitespace; ids match
+`^[a-z0-9][a-z0-9_-]{0,31}$`, and each canonical base64 value decodes to 32 bytes.
+There are 1–8 unique ids. The first key seals new credentials; all keys can unseal.
+Missing keys leave reads available and refuse writes with 503. Malformed host
+configuration fails startup without exposing its value.
+
+AES-256-GCM retains nonce, tag and ciphertext, with account, purpose, environment
+and credential version bound in AAD. Receipts contain a keyed credential
+fingerprint, never raw key fields. Its HMAC key is derived from the active host
+key using `freedom.commerce-credential-fingerprint.v1`; the fingerprint binds
+account, purpose, profile and all supplied credential fields. Replaying with
+changed secrets **or after a keyring rotation** returns 409 idempotency conflict.
+
+Rotate by prepending a new key, running `resealProviderCredentials` inside a
+caller-owned transaction with tenant context, then removing old online keys when
+all retained credentials have been resealed. Keep retired keys offline through
+the backup retention period so historical backups remain recoverable.
+
+Machine entry routes are non-PII routing records without tenant RLS: callbacks
+must resolve the tenant before binding its context. Provider account refs encode
+128 random bits in 26 lowercase Crockford base32 characters. Generation checks
+all payment, logistics, invoice-allowance and buyer-return paths against the
+public CDN guard, with at most 16 attempts. Token routes will retain SHA-256
+hex digests only. The resolver returns identifiers and grants no authority;
+provider verification and machine commands arrive in wp04-payments.
 
 ## Public Exports
 

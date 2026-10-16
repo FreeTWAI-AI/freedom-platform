@@ -24,7 +24,7 @@ async function resolve(q:PoolClient,slug:string,options:HostedCheckoutOptions,ad
   if(!store){if(order)orderAccessNotFound();requireCondition(false,404,'checkout_store_not_found','找不到商店。');}
   // Public projections intentionally contain no internal shop selector.
   const row=(await q.query<{storefront_shop_id:string}>('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE tenant_id=$1 AND instance_id=$2',[store.tenantId,store.instanceId])).rows[0];
-  if(admit)requireCondition(await (options.admission??defaultAdmission).allowed(row),409,'checkout_not_enabled','尚未開放結帳。');
+  if(admit)requireCondition(await (options.admission??defaultAdmission).allowed(q,row),409,'checkout_not_enabled','尚未開放結帳。');
   return {...store,...row};
 }
 /** Optional member identity, without authenticate()'s session activity write.
@@ -63,6 +63,9 @@ export async function createPublicCheckout(pool:Pool,slug:string,input:CheckoutI
     // Serialize the replay lookup with the core's existing lifecycle/community
     // lock order, so concurrent requests return exactly one 201.
     await lockStore(q,store,input.lines.map(l=>l.sku));
+    // Admission may be revoked while waiting for lifecycle locks. Re-read it
+    // under those locks before any new checkout or receipt is written.
+    requireCondition(await (options.admission??defaultAdmission).allowed(q,store),409,'checkout_not_enabled','尚未開放結帳。');
     const replay=(await q.query('SELECT 1 FROM commerce_checkout_idempotency_keys WHERE instance_id=$1 AND idempotency_key_sha256=$2',[store.instanceId,hashKey(key)])).rowCount===1;
     const saved=await freezeCheckout(q,store,{...input,idempotencyKey:key,...(identity?.principalId?{memberPrincipalId:identity.principalId}:{})},options);
     if(replay)requireCondition((await q.query(`SELECT 1 FROM commerce_checkouts ch WHERE ch.checkout_id=$1 AND ch.expires_at>clock_timestamp()

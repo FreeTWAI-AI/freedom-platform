@@ -1,3 +1,4 @@
+import * as commerceSetup from '../../contracts/guild-launchpad/v1/hosted-commerce-setup.js';
 import * as checkout from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import * as supplyCatalog from '../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -173,6 +174,22 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['intent-lookup-query', hostedOrder.IntentLookupQuerySchema, 'input', ['exact_buyer_shop_intent']],
     ['order-page-query', hostedOrder.OrderPageQuerySchema, 'input', ['unique_query_keys', 'signed_cursor']],
     ['order-page', hostedOrder.OrderPageSchema, 'output', ['current_party_filter', 'signed_cursor', 'order_semantics']],
+  ]],
+  ['hosted-commerce-setup', 'Commerce release and account setup. No payment execution authority.', [
+    ['empty-input', commerceSetup.CommerceSetupEmptyInputSchema, 'input', []],
+    ['store-release', commerceSetup.StoreReleaseSchema, 'output', ['current_instance_release_and_authority']],
+    ['provider-account-create-input', commerceSetup.ProviderAccountCreateInputSchema, 'input', ['fresh_auth_required','host_provider_environment']],
+    ['provider-service-put-input', commerceSetup.ProviderServicePutInputSchema, 'input', ['purpose_profile_pair','credential_fields_never_persisted']],
+    ['provider-service-state-input', commerceSetup.ProviderServiceStateInputSchema, 'input', ['fresh_auth_required']],
+    ['provider-account', commerceSetup.ProviderAccountViewSchema, 'output', []],
+    ['provider-account-page', commerceSetup.ProviderAccountPageSchema, 'output', []],
+    ['store-admission-create-input', commerceSetup.StoreAdmissionCreateInputSchema, 'input', ['independent_active_platform_admin']],
+    ['store-admission-revoke-input', commerceSetup.StoreAdmissionRevokeInputSchema, 'input', ['independent_active_platform_admin']],
+    ['store-admission-query', commerceSetup.StoreAdmissionQuerySchema, 'input', []],
+    ['store-admission', commerceSetup.StoreAdmissionViewSchema, 'output', []],
+    ['store-admission-page', commerceSetup.StoreAdmissionPageSchema, 'output', []],
+    ['error-code', commerceSetup.CommerceSetupErrorCodeSchema, 'output', []],
+    ['error', commerceSetup.CommerceSetupErrorSchema, 'output', []],
   ]],
   ['storefront', 'Hosted store inputs, private views and allowlisted public projection. Ordering is not enabled.', [
     ['store-setup-input', storefront.StoreSetupInputSchema, 'input', ['text_trim_and_control_characters', 'slug_lowercase_reserved_unique']],

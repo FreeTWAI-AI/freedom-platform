@@ -53,7 +53,7 @@ export async function fixtureStore(db: Pool, browser: Browser, origin: string) {
     };
     const space = CreateResultSchema.parse(await post('/tenants', {display_name: '預留商品空間'}, 201));
     const tenant = space.tenant.tenant_id;
-    const plan = LaunchPlanSchema.parse(await post(`/tenants/${tenant}/application-launch-plans`, {guild_key: 'guild_commerce_sales', workspace_id: space.workspace.workspace_id, application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0', installation_choice: 'create_new', dependencies: [{requirement_key: 'storefront', choice: 'create', configuration: {}}], configuration: {}}, 201));
+    const plan = LaunchPlanSchema.parse(await post(`/tenants/${tenant}/application-launch-plans`, {guild_key: 'guild_commerce_sales', workspace_id: space.workspace.workspace_id, application_key: 'hosted-store', release_ref: 'hosted-store@1.1.0', installation_choice: 'create_new', dependencies: [{requirement_key: 'storefront', choice: 'create', configuration: {}}], configuration: {}}, 201));
     const operation = RegistryOperationSchema.parse(await post(`/tenants/${tenant}/application-installations`, {plan_id: plan.plan_id, expected_plan_version: plan.version, configuration_digest: plan.configuration_digest}));
     expect(operation.state).toBe('succeeded');
     const installation = InstallationViewSchema.parse(await (await context.request.get(`/api/v1/tenants/${tenant}/application-installations/by-operation/${operation.operation_id}`)).json());

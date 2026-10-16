@@ -185,6 +185,8 @@ const FOUNDATION_NAMES = [
   // Hosted checkout writers must preserve the M1 access, hold and replay
   // invariants. Capability acknowledgement grants no payment or deployment.
   '168_hosted_checkout_core.sql',
+  // Expand-only provider setup and admissions; no hosted-payment capability floor.
+  '169_hosted_payment_core.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

@@ -43,7 +43,7 @@ export interface ShippingQuotePort {
   /** SQL-local policy only. No provider/network call is permitted in this transaction. */
   quote(q:PoolClient,store:CheckoutStore,input:{lines:readonly {item_id:string;supplier_shop_id:string;quantity:number}[];delivery:Record<string,unknown>}):Promise<unknown>;
 }
-export interface CheckoutAdmissionPort {allowed(store:CheckoutStore):boolean|Promise<boolean>}
+export interface CheckoutAdmissionPort {allowed(q:PoolClient,store:CheckoutStore):boolean|Promise<boolean>}
 export interface UnresolvedOrderPort {find(q:PoolClient,checkoutId:string):Promise<{order_id:string}|null>}
 export interface CheckoutPolicyPort {required(q:PoolClient,store:CheckoutStore):Promise<readonly {policy_kind:string;policy_version_id:string}[]>}
 export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort}

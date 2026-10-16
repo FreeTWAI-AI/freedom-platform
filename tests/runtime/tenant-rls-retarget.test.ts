@@ -1,6 +1,6 @@
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
 import { Pool, type PoolClient } from 'pg';
@@ -14,6 +14,7 @@ import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
 import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
 import { ensureDevice, grantDevice } from '../../modules/agent-commerce/checkout/access.js';
+import { CommerceCredentialKeyring, sealCredential } from '../../modules/agent-commerce/payments/credentials.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
@@ -503,6 +504,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'commerce_customers', 'commerce_checkout_contacts',
     // So does each tenant's browser order access grant.
     'commerce_order_access_grants',
+    'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
@@ -517,13 +519,13 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       ON CONFLICT (transition_id) DO NOTHING`, [randomUUID(), data.scopeId]);
   }
   // Exact A/B hosted quote graphs also provide confirmed shop-mapping rows.
-  const hosted: { tenantId: string; instanceId: string; itemId: string; session: Session }[] = [];
+  const hosted: { tenantId: string; principalId: string; instanceId: string; itemId: string; session: Session }[] = [];
   const fixtureClient = await owner.connect();
   try {
     await fixtureClient.query('BEGIN');
     for (const [data, session] of [[A, fixture.people.P], [B, fixture.people.N]] as const) {
       const retained = await insertHostedQuote(fixtureClient, data);
-      hosted.push({ tenantId: data.tenantId, instanceId: retained.instanceId, itemId: retained.itemId, session });
+      hosted.push({ tenantId: data.tenantId, principalId: data.principalId, instanceId: retained.instanceId, itemId: retained.itemId, session });
     }
     await fixtureClient.query('COMMIT');
   } catch (error) { await fixtureClient.query('ROLLBACK'); throw error; }
@@ -555,6 +557,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
   }
   // Create each tenant's PII through the domain in its own transaction, preserving
   // lifecycle-before-community lock order and retaining all checkout constraints.
+  const credentialKeys = CommerceCredentialKeyring.parse(`retarget:${randomBytes(32).toString('base64')}`)!;
   // The browser grant follows the public checkout command's order after the freeze.
   for (const data of hosted) {
     await isolatedTransaction(runtime, async q => {
@@ -572,6 +575,16 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       } } });
       const { device } = await ensureDevice(q, undefined, origin);
       await grantDevice(q, device.device_id, { tenant_id: data.tenantId, instance_id: data.instanceId, checkout_id: saved.checkout_id });
+      // Nonempty A/B account graphs retain every production FK/trigger and actual sealed bytes.
+      const accountId = randomUUID();
+      const sealed = sealCredential(credentialKeys, { account_id: accountId, purpose: 'payment', environment: 'sandbox', credential_version: 1 },
+        { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex') });
+      await q.query(`INSERT INTO commerce_provider_accounts(account_id,tenant_id,instance_id,provider,environment,merchant_id,created_by_principal_id)
+        VALUES($1,$2,$3,'ecpay','sandbox','1234567',$4)`, [accountId,data.tenantId,data.instanceId,data.principalId]);
+      await q.query(`INSERT INTO commerce_provider_account_services(account_id,purpose,tenant_id,instance_id,environment,profile,credential_version)
+        VALUES($1,'payment',$2,$3,'sandbox','ecpay.aio.credit.v1',1)`, [accountId,data.tenantId,data.instanceId]);
+      await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
+        VALUES($1,'payment',1,$2,$3,'sandbox',$4,$5,$6)`, [accountId,data.tenantId,data.instanceId,sealed.key_id,sealed.sealed,data.principalId]);
     });
   }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';

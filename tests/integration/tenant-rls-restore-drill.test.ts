@@ -5,7 +5,10 @@ import {ensureDevice,grantDevice} from '../../modules/agent-commerce/checkout/ac
 // T-046 copy/backup cleanup is not_run: OPEN-07 values are decided, no executor exists.
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID, createHash, randomBytes } from 'node:crypto';
+import {CommerceCredentialKeyring,sealCredential,unsealCredential,type CredentialMaterial} from '../../modules/agent-commerce/payments/credentials.js';
+const commerceKeys=CommerceCredentialKeyring.parse('restore:'+randomBytes(32).toString('base64'))!;
+const commerceMaterials=new Map<string,CredentialMaterial>();
 import { createReadStream } from 'node:fs';
 import { mkdtemp, open, rename, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -136,6 +139,7 @@ function copyCounts(dump: Buffer): Record<string, number> {
 
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
+  'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
   'commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants',
   'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
@@ -321,6 +325,15 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     [space.workId, space.scopeId, author.userId, `note-${space.tenantId}`, space.tenantId, space.instanceId, space.workspaceId, author.principalId]);
     await publishResult(q, space, author);
     space.hosted = await insertHostedQuote(q, { ...space, principalId: author.principalId });
+    const accountId=randomUUID(),material={hash_key:randomBytes(8).toString('hex'),hash_iv:randomBytes(8).toString('hex')};
+    commerceMaterials.set(accountId,material);
+    const sealed=sealCredential(commerceKeys,{account_id:accountId,purpose:'payment',environment:'sandbox',credential_version:1},material);
+    await q.query(`INSERT INTO commerce_provider_accounts(account_id,tenant_id,instance_id,provider,environment,merchant_id,created_by_principal_id)
+      VALUES($1,$2,$3,'ecpay','sandbox','1234567',$4)`,[accountId,space.tenantId,space.hosted.instanceId,author.principalId]);
+    await q.query(`INSERT INTO commerce_provider_account_services(account_id,purpose,tenant_id,instance_id,environment,profile,credential_version)
+      VALUES($1,'payment',$2,$3,'sandbox','ecpay.aio.credit.v1',1)`,[accountId,space.tenantId,space.hosted.instanceId]);
+    await q.query(`INSERT INTO commerce_provider_credentials(account_id,purpose,credential_version,tenant_id,instance_id,environment,key_id,sealed,created_by_principal_id)
+      VALUES($1,'payment',1,$2,$3,'sandbox',$4,$5,$6)`,[accountId,space.tenantId,space.hosted.instanceId,sealed.key_id,sealed.sealed,author.principalId]);
     const store = (await q.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [space.hosted.instanceId])).rows[0];
     space.checkout = await freezeCheckout(q, store, {
       publication_revision: '1', lines: [{ sku: 'P0001', quantity: 1 }],
@@ -411,6 +424,7 @@ const EXPECTED: Record<string, number> = {
   tenant_authority_audit: 2, module_instances: 4, deployment_bindings: 4, workspace_module_bindings: 2,
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
   // This fixture has no explicit instance grants; verify the new table survives empty.
+  commerce_provider_accounts: 2, commerce_provider_account_services: 2, commerce_provider_credentials: 2,
   commerce_customers: 2, commerce_checkout_contacts: 2, commerce_order_access_grants: 2,
   tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2, commerce_hosted_supply_offers: 2,
   // Photo-bearing restore is exercised by media-backup-restore; this fixture
@@ -712,12 +726,16 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   }
   assert.equal((await restoredPool.query('SELECT 1 FROM commerce_hosted_supply_offers WHERE tenant_id=$1 OR offer_id=$2',
     [spaces.c.tenantId, spaces.c.hosted!.offerId])).rowCount, 0);
-  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_order_access_grants', 'grant_id']] as const) {
+  for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id']] as const) {
     const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
     const restored = await rows(restoredPool);
     assert.equal(restored.length, 2);
     assert.deepEqual(restored, (await rows(owner)).filter(row => row.tenant_id !== spaces.c.tenantId));
     assert.equal((await restoredPool.query(`SELECT 1 FROM ${table} WHERE tenant_id=$1`, [spaces.c.tenantId])).rowCount, 0);
+  }
+  for(const row of (await restoredPool.query('SELECT * FROM commerce_provider_credentials')).rows){
+    const actual=unsealCredential(commerceKeys,row,row);
+    assert.equal(JSON.stringify(actual)===JSON.stringify(commerceMaterials.get(row.account_id)),true,'restored credential must unseal under its retained context');
   }
   const restoredKeys = await foreignKeys(restoredPool);
   assert(restoredKeys.length > 0); assert.deepEqual(restoredKeys, await foreignKeys(owner));
@@ -781,11 +799,11 @@ test('J6-R4 lockdown precedes grants; one restored runtime connection cycles A, 
 test('J6-R4 restored checkout PII requires the exact tenant context and disappears without context', async () => {
   for (const space of [spaces.a, spaces.b]) {
     await isolatedTransaction(runtimePool, async q => {
-      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants','commerce_provider_accounts','commerce_provider_account_services','commerce_provider_credentials']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
       await bindPrincipalContext(q, space === spaces.a ? people.p1.principalId : people.p2.principalId);
-      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants','commerce_provider_accounts','commerce_provider_account_services','commerce_provider_credentials']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
       await bindTenantContext(q, { tenantId: space.tenantId, tenantScopeId: space.scopeId });
-      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) {
+      for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants','commerce_provider_accounts','commerce_provider_account_services','commerce_provider_credentials']) {
         const rows = (await q.query(`SELECT * FROM ${table}`)).rows;
         assert.equal(rows.length, 1);
         assert.deepEqual(rows, (await restoredPool.query(`SELECT * FROM ${table} WHERE tenant_id=$1`, [space.tenantId])).rows);
@@ -793,7 +811,7 @@ test('J6-R4 restored checkout PII requires the exact tenant context and disappea
     });
   }
   await isolatedTransaction(runtimePool, async q => {
-    for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
+    for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_order_access_grants','commerce_provider_accounts','commerce_provider_account_services','commerce_provider_credentials']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
   });
 });
 
