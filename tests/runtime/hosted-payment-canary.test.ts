@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { formatWithOptions } from 'node:util';
 import { hostedPaymentHarness } from '../e2e/hosted-payment-fixture.js';
 import { EcpayKeyPair, signFields, encodeForm } from '../../modules/agent-commerce/providers/ecpay/index.js';
 import { applyDeferredPaymentEvents } from '../../modules/agent-commerce/payments/events.js';
@@ -18,6 +19,7 @@ test('canary detection covers every required encoding and reports location witho
   const canary = 'CANARY_' + randomBytes(16).toString('hex'), check = checker([canary]);
   for (const encoded of encodings(canary))
     assert.throws(() => check('synthetic_location', encoded), { message: 'payment_canary_leak_at_synthetic_location' });
+  assert.throws(() => check('console_error', formatWithOptions({ colors: false }, new Error(canary))), { message: 'payment_canary_leak_at_console_error' });
 });
 test('payment keys and ignored card fields never reach responses, public database columns, logs or the effect journal', async () => {
   const material = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex'), credit_check_code: String(randomBytes(4).readUInt32BE() % 100000000).padStart(8, '0') };
@@ -31,9 +33,10 @@ test('payment keys and ignored card fields never reach responses, public databas
     body: string;
     headers: string;
   }[] = [], pending: Promise<void>[] = [], logs: string[] = [];
-  const originals = { log: console.log, warn: console.warn, error: console.error };
-  for (const key of ['log', 'warn', 'error'] as const)
-    console[key] = (...args: unknown[]) => { logs.push(args.map(v => typeof v === 'string' ? v : JSON.stringify(v)).join(' ')); };
+  const methods = ['log', 'info', 'debug', 'warn', 'error', 'trace', 'dir', 'table'] as const;
+  const originals = Object.fromEntries(methods.map(key => [key, console[key]]));
+  for (const key of methods)
+    console[key] = (...args: unknown[]) => { logs.push(formatWithOptions({ colors: false }, ...args)); };
   function capture(app: typeof f.app, label: string) {
     const original = app.fetch;
     app.fetch = (async (...args: Parameters<typeof original>) => {
