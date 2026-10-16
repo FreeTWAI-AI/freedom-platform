@@ -55,6 +55,8 @@ describe('shipping profile versions',()=>{
   test('capabilities, revocation, archived reads, unavailable writes and console flag gate the profile',async()=>{
     const s=await h.store();
     for(const [caps,role,read,write] of [[[],'admin',200,201],[['store:read'],'operator',403,403],[['store:fulfil'],'operator',200,403],[['store:manage'],'operator',200,200]] as const){const m=await h.member(s,caps,role);assert.equal((await h.request(s,'GET','/shipping-profile',undefined,undefined,m.session)).status,read);assert.equal((await h.request(s,'PUT','/shipping-profile',h.document(),write===200?'1':undefined,m.session)).status,write);}
+    const granted=await h.member(s,['store:manage']);assert.equal((await h.request(s,'GET','/shipping-profile',undefined,undefined,granted.session)).status,200);
+    await h.f.x.h.pool.query("UPDATE tenant_module_permissions SET status='revoked',revoked_at=clock_timestamp(),updated_at=clock_timestamp(),version=version+1 WHERE principal_id=$1",[granted.principal]);assert.equal((await h.request(s,'GET','/shipping-profile',undefined,undefined,granted.session)).status,404);
     const outsider=(await h.f.x.h.person('合成外部'+randomUUID())).session;assert.equal((await h.request(s,'GET','/shipping-profile',undefined,undefined,outsider)).status,404);
     h.f.settings.consoleEnabled=false;h.f.install();assert.equal((await h.request(s,'GET','/shipping-profile')).status,404);h.f.settings.consoleEnabled=true;h.f.install();
     await h.f.x.h.pool.query("UPDATE module_instances SET status='archived',version=version+1 WHERE instance_id=$1",[s.instanceId]);assert.equal((await h.request(s,'GET','/shipping-profile')).status,404);assert.equal((await h.request(s,'PUT','/shipping-profile',h.document(),'2')).status,409);

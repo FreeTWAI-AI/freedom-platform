@@ -844,6 +844,11 @@ test('T-022 3b. Own tenant in path, other tenant resource', async () => {
       assert.equal(invalid.data.code, 'validation_failed');
       scanForLeaks(invalid, `3b invalid service purpose ${route.path}`, fixture.B);
     }
+    if(route.path.includes('/:service_key')){
+      const invalid=await execute(route,fixture.people.P,{...ids(fixture.A,route),service_key:randomUUID()});
+      assert.equal(invalid.status,422,JSON.stringify(describe(invalid)));assert.equal(invalid.data.code,'validation_failed');
+      scanForLeaks(invalid,`3b invalid logistics service key ${route.path}`,fixture.B);
+    }
     const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id' && key !== 'purpose' && key !== 'service_key' && key !== 'action');
     for (const position of positions) {
       for (const name of ['P', 'O'] as const) {

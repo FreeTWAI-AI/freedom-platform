@@ -39,6 +39,8 @@ describe('item shipping attributes',()=>{
   test('read and write capabilities are independent and console flag controls all attribute routes',async()=>{
     const s=await h.store(),path=`/products/${s.product.product_id}/shipping-attributes`;
     for(const [caps,save] of [[['store:read'],403],[['store:write'],201],[['store:manage'],403],[['store:fulfil'],403]] as const){const member=await h.member(s,caps);assert.equal((await h.request(s,'GET',path,undefined,undefined,member.session)).status,200);assert.equal((await h.request(s,'PUT',path,h.attributes(),undefined,member.session)).status,save);}
+    const granted=await h.member(s,['store:write']);assert.equal((await h.request(s,'PUT',path,h.attributes(),'1',granted.session)).status,200);
+    await h.f.x.h.pool.query("UPDATE tenant_module_permissions SET status='revoked',revoked_at=clock_timestamp(),updated_at=clock_timestamp(),version=version+1 WHERE principal_id=$1",[granted.principal]);assert.equal((await h.request(s,'GET',path,undefined,undefined,granted.session)).status,404);assert.equal((await h.request(s,'PUT',path,h.attributes(),'2',granted.session)).status,404);
     h.f.settings.consoleEnabled=false;h.f.install();assert.equal((await h.request(s,'GET',path)).status,404);assert.equal((await h.request(s,'PUT',path,h.attributes(),'1')).status,404);
   });
 });

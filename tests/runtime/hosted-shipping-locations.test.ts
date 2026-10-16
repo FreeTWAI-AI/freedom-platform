@@ -74,4 +74,20 @@ describe('shipping locations',()=>{
     h.f.settings.quarantine=true;assert.equal((await create(s)).status,201);
     for(const status of ['suspended','archived']){await h.f.x.h.pool.query('UPDATE module_instances SET status=$2,version=version+1 WHERE instance_id=$1',[s.instanceId,status]);if(status==='archived')assert.equal((await h.request(s,'GET','/ship-from-locations')).status,404);const r=await h.request(s,'POST','/ship-from-locations',h.locationInput());assert.equal(r.status,409);assert.equal(r.data.code,'storefront_unavailable');await receipts();}
   });
+  test('a replacement store in the same tenant cannot read or replace historical locations or item attributes',async()=>{
+    const old=await h.store(),row=(await create(old)).data;
+    h.expect(await h.request(old,'PUT',`/products/${old.product.product_id}/shipping-attributes`,h.attributes()),201);
+    await h.f.x.h.pool.query("UPDATE module_instances SET status='archived',version=version+1 WHERE instance_id=$1",[old.instanceId]);
+    const workspace=await h.f.x.h.workspace(old.owner,old.tenantId,'合成新櫃檯'+randomUUID().slice(0,8));
+    const plan=await h.f.x.h.plan(old.owner,old.tenantId,h.f.x.h.planBody('guild_commerce_sales',workspace,'hosted-store','hosted-store@1.0.0'));h.expect(plan,201);assert.equal((await h.f.x.h.launch(old.owner,old.tenantId,plan)).data.state,'succeeded');
+    const id=(await h.f.x.h.pool.query("SELECT instance_id FROM module_instances WHERE tenant_id=$1 AND status='active'",[old.tenantId])).rows[0].instance_id;
+    const next={...old,instanceId:id,root:`/tenants/${old.tenantId}/storefronts/${id}`};
+    h.expect(await h.request(next,'POST','/setup',{name:'合成新商店'+randomUUID().slice(0,8),slug:'s-'+randomUUID().slice(0,12),currency:'TWD'}),201);
+    const version=(await h.f.x.h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[id])).rows[0].version;h.expect(await h.request(next,'POST','/upgrade',{},version));
+    assert.equal((await h.request(next,'GET',`/ship-from-locations/${row.location_id}`)).status,404);
+    assert.equal((await create(next,{...h.locationInput(),replaces_location_id:row.location_id},404)).data.code,'ship_from_location_not_found');
+    assert.equal((await h.request(next,'GET',`/products/${old.product.product_id}/shipping-attributes`)).status,404);
+    assert.equal(h.expect(await h.request(next,'GET','/shipping-profile')).profile,null);
+  });
+
 });
