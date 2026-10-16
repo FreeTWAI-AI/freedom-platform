@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {test} from 'node:test';
 import {readCommerceSettings,readNodeCommerceSettings} from '../../modules/agent-commerce/operations/runtime-settings.js';
-import {readWorkerConfig,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
+import {readWorkerConfig,workerRuntime,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
 import {ReadinessError} from '../../apps/platform-api/src/readiness.js';
 import {encodeEffectRecord,flushControlEvents,flushControlEventsBestEffort,type EffectRecord} from '../../modules/agent-commerce/operations/journal/journal.js';
 import {createR2EffectJournal,type CommerceJournalBucket} from '../../modules/agent-commerce/operations/journal/r2.js';
@@ -37,6 +37,15 @@ test('Worker provider profiles require a usable keyring and journal methods; nei
 test('Node startup settings refuse every non-empty implemented provider list without a journal',()=>{
   assert.throws(()=>readNodeCommerceSettings({FREEDOM_COMMERCE_PROVIDER_PROFILES:profile}),{name:'ReadinessError',message:'commerce_profiles_require_journal'});
   const parsed=readCommerceSettings({FREEDOM_COMMERCE_PROVIDER_PROFILES:profile});assert.deepEqual(parsed.providerProfiles,[profile]);assert(Object.isFrozen(parsed.providerProfiles));
+});
+test('Worker installs a production gateway and R2 journal only with listed profiles',()=>{
+  const binding={put(){throw Error('unexpected I/O');},get(){throw Error('unexpected I/O');}};
+  const empty={...workerBindings(),COMMERCE_JOURNAL:binding};assert.equal(workerRuntime(empty,readWorkerConfig(empty)).commercePayments,undefined);
+  for(const freedomEnv of ['staging','public'] as const){
+    const env={...workerBindings(),FREEDOM_ENV:freedomEnv,APP_ORIGIN:'https://payments.freedom.test',FREEDOM_RELEASE_SHA:'a'.repeat(40),FREEDOM_COMMERCE_PROVIDER_PROFILES:profile,COMMERCE_CREDENTIAL_KEYS:randomRing(),COMMERCE_JOURNAL:binding};
+    const config=readWorkerConfig(env),runtime=workerRuntime(env,config);
+    assert.deepEqual(runtime.commercePayments?.profiles,[profile]);assert.equal(runtime.commercePayments?.journal.environment,freedomEnv);assert.equal(runtime.commercePayments?.gateway?.publicBaseUrl,env.APP_ORIGIN);assert.equal(runtime.commercePayments?.gateway?.environment,config.commerceProviderEnvironment);
+  }
 });
 const record=():EffectRecord=>({environment:'local',kind:'payment_handoff',id:randomUUID(),occurred_at:'2026-01-02T23:59:59.001Z',tenant_id:randomUUID(),instance_id:randomUUID(),detail:{merchant_trade_no:newTradeNumber('F'),currency:'TWD',amount_minor:500}});
 function bucket(){
@@ -122,7 +131,7 @@ test('control events append only after commit and journaled_at is filled only af
     await t.test('provider-account and admission routes flush after commit; journal failure preserves the account response',async()=>{
       await x.h.pool.query(`INSERT INTO tenant_authority_policies(revision,status,fresh_auth_ttl_seconds,transfer_ttl_seconds,recovery_approval_ttl_seconds,max_open_recovery_cases_per_tenant) VALUES(1,'active',600,86400,86400,1)`);
       const csrf=randomUUID(),adminEmail=`admin-${randomUUID()}@example.test`;
-      const options={guildLaunchpadEnabled:true,commerceCredentialKeyring:CommerceCredentialKeyring.parse(randomRing())!,commercePayments:{journal},adminVerifier:async()=>({email:adminEmail,subject:'synthetic-journal-admin',csrfToken:csrf})};
+      const options={guildLaunchpadEnabled:true,commerceCredentialKeyring:CommerceCredentialKeyring.parse(randomRing())!,commercePayments:{journal,profiles:[]},adminVerifier:async()=>({email:adminEmail,subject:'synthetic-journal-admin',csrfToken:csrf})};
       const app=createApp(x.runtime,x.h.origin,'local',options);
       const call=(path:string,body:unknown,version?:string,target=app)=>x.h.call('POST',path,s.owner,body,{'Idempotency-Key':randomUUID(),...(version?{'If-Match':`"${version}"`}:{})},target);
       const version=(await x.h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[s.instanceId])).rows[0].version;
@@ -131,7 +140,7 @@ test('control events append only after commit and journaled_at is filled only af
       const account=ok(await call(s.root+'/provider-accounts',{provider:'ecpay',environment:'sandbox',merchant_id:'1234567',fresh_auth_verification_id:await fresh()}),201);
       const accountEvent=(await x.h.pool.query("SELECT * FROM commerce_control_events WHERE subject_id=$1 AND kind='provider_account.created'",[account.account_id])).rows[0];
       assert(accountEvent.journaled_at instanceof Date);assert([...journal.objects.keys()].some(key=>key.endsWith('/'+accountEvent.event_id)));
-      const broken=createApp(x.runtime,x.h.origin,'local',{...options,commercePayments:{journal:{environment:'local',append:async()=>{throw Error('synthetic-private');}}}});
+      const broken=createApp(x.runtime,x.h.origin,'local',{...options,commercePayments:{profiles:[],journal:{environment:'local',append:async()=>{throw Error('synthetic-private');}}}});
       const logs:unknown[][]=[],original=console.error;console.error=(...args)=>logs.push(args);
       let retained;
       try{retained=ok(await call(s.root+'/provider-accounts',{provider:'ecpay',environment:'sandbox',merchant_id:'1234568',fresh_auth_verification_id:await fresh()},undefined,broken),201);assert.deepEqual(logs,[['commerce_control_journal_failed']]);}finally{console.error=original;}

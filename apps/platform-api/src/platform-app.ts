@@ -1,4 +1,5 @@
 import {createHostedCommerceSetupRoutes} from './routes/hosted-commerce-setup.js';
+import {assertPaymentGatewayInstallation} from '../../../modules/agent-commerce/payments/gateway.js';
 import {providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {createHostedCheckoutRoutes,hostedCheckoutOptions} from './routes/hosted-checkout.js';
 import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoutes} from './routes/community-ar.js';
@@ -159,6 +160,7 @@ export function platformResponseHeaders(path:string,brokerFormOrigin?:string){
 }
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
+  assertPaymentGatewayInstallation(runtime.commercePayments?.gateway,freedomEnv,origin);
   if(runtime.eventOutcomesEnabled===true&&runtime.squadOutcomesEnabled!==true)throw new Error('event_outcomes_require_squad_outcomes');
   if(runtime.firstParticipationEnabled===true&&runtime.personalContentEnabled!==true)throw new Error('first_participation_requires_personal_content');
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);

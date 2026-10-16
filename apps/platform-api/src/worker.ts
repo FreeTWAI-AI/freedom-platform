@@ -1,4 +1,5 @@
 import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/journal/r2.js';
+import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
@@ -273,7 +274,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
-    commercePayments:config.commerceSettings?.providerProfiles.length?{journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!)}:undefined,
+    commercePayments:config.commerceSettings?.providerProfiles.length?{gateway:createEcpayPaymentGateway(providerEnvironment(config.freedomEnv),config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:config.commerceSettings.providerProfiles}:undefined,
     commerceSettings:config.commerceSettings??readCommerceSettings(env),
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
     commercePorts:{admission:createStoreAdmissionPort(providerEnvironment(config.freedomEnv))},
