@@ -205,6 +205,23 @@ test('schema169 recognition keeps schema168 approvals separate and rejects unkno
   assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
 });
 
+test('schema170 adds settings without opening the fulfilment capability', () => {
+  const f=fixtureAt(170), old=prefix(f.scan,169);
+  assert.equal(f.scan.ledger.at(-1).name,'170_hosted_fulfilment.sql');
+  const current=evaluate(f);
+  assert.equal(current.status,'compatible');
+  assert(!current.required_capabilities.includes('commerce.hosted-fulfilment.v1'));
+  assert.deepEqual(current.required_shapes,[]);
+  f.host.release_records[0].schema_ledger_digests=[old.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  const renamed=fixtureAt(170);renamed.scan.ledger.at(-1).name='170_unreviewed.sql';
+  renamed.scan.ledger_digest=compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)),['schema_unknown']);
+  const changed=fixtureAt(170);changed.scan.ledger.at(-1).sha256='d'.repeat(64);
+  changed.scan.ledger_digest=compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+});
+
 test('retained schema169 cannot be erased by a schema168 restore or rollback plan', () => {
   const f = fixtureAt(169), old = prefix(f.scan, 168);
   f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
