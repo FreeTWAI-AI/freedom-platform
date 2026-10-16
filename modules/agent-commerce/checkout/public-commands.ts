@@ -145,6 +145,11 @@ async function authorizePublicOrder(q:PoolClient,slug:string,orderRef:string,acc
 }
 export async function resumePublicPayment(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions){
   checkoutGate(options);await chargeCommerceBudgets(pool,access.network,{network:'handoffNetwork'});
+  if(options.paymentActions){
+    const authorize=async(q:PoolClient)=>{const proof=await authorizePublicOrder(q,slug,orderRef,access,options);await proof.recheck();};
+    const store=await isolatedTransaction(pool,async q=>{const proof=await authorizePublicOrder(q,slug,orderRef,access,options);await proof.recheck();return proof.store;});
+    return wire.PaymentHandoffResponseSchema.parse(await options.paymentActions.resume(pool,{store,orderId:orderRef,network:access.network,authorize}));
+  }
   return isolatedTransaction(pool,async q=>{
     const authorized=await authorizePublicOrder(q,slug,orderRef,access,options);
     const handoff=await options.payment?.issueHandoff(q,{store:authorized.store,orderId:orderRef})??null;

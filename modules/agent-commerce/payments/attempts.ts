@@ -1,6 +1,11 @@
+import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
+import {queryAttempt,type PaymentQueryDependencies} from './queries.js';
+import {hasDefinitePaymentMismatch} from './window.js';
+import {chargePaymentQueryOrderBudgets} from '../checkout/limits.js';
+import type {CheckoutPaymentActions} from '../checkout/terms.js';
 import { randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { requireCondition } from '../../../packages/shared/problem.js';
+import {Problem, requireCondition } from '../../../packages/shared/problem.js';
 import { bindStore, lockStore, type CheckoutStore } from '../checkout/authority.js';
 import { lockCheckoutOrders } from '../checkout/orders.js';
 import { confirmedPaymentSQL } from '../checkout/confirmed-payment.js';
@@ -43,7 +48,7 @@ export async function onPaymentOrdersCancelled(q: PoolClient, orderIds: readonly
 }
 const gate = (status: HandoffGate['status'], code: string, message: string) => ({ status, code, message });
 /** Read-only gates never load credentials or provider entry routes. */
-export async function inspectOrderHandoffGate(q: PoolClient, attemptId: string, options: PaymentAttemptOptions) {
+export async function inspectOrderHandoffGate(q: PoolClient, attemptId: string, options: PaymentAttemptOptions,repay=false) {
   const attempt = (await q.query('SELECT * FROM commerce_payment_attempts WHERE attempt_id=$1', [attemptId])).rows[0];
   if (!attempt)
     return { failure: gate(410, 'payment_handoff_unavailable', '付款連結已失效。') } as const;
@@ -69,12 +74,12 @@ export async function inspectOrderHandoffGate(q: PoolClient, attemptId: string, 
   const order = (await q.query(`SELECT co.*,o.currency,o.total_minor FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)
     WHERE co.order_id=$1 AND co.tenant_id=$2 AND co.instance_id=$3`, [attempt.order_id, attempt.tenant_id, attempt.instance_id])).rows[0];
   if (!order || order.lifecycle_state !== 'open')
-    return { failure: gate(409, 'payment_handoff_unavailable', '訂單目前無法付款。') } as const;
+    return { failure: gate(409, repay?'checkout_order_closed':'payment_handoff_unavailable', '訂單目前無法付款。') } as const;
   const holds = (await q.query(`SELECT count(*)::int AS total,bool_and(state='held' AND expires_at>clock_timestamp()) AS live
     FROM commerce_inventory_reservations WHERE order_id=$1`, [attempt.order_id])).rows[0];
   if (!holds.total || !holds.live)
-    return { failure: gate(409, 'payment_handoff_unavailable', '付款期限已過，保留的商品已釋出。') } as const;
-  if (attempt.state !== 'issued' || attempt.handed_off_at)
+    return { failure: gate(409, repay?'checkout_hold_expired':'payment_handoff_unavailable', repay?'保留時間已結束，請回到購物車重新下單。':'付款期限已過，保留的商品已釋出。') } as const;
+  if (!repay && (attempt.state !== 'issued' || attempt.handed_off_at))
     return { failure: gate(410, 'payment_handoff_unavailable', '已前往付款頁。要重新付款，請回到訂單頁。') } as const;
   if (!options.keyring)
     return { failure: gate(503, 'payment_handoff_unavailable', '付款服務暫時無法使用。') } as const;
@@ -98,10 +103,7 @@ export async function inspectOrderHandoff(q: PoolClient, attemptId: string, opti
     return { failure: gate(503, 'payment_handoff_unavailable', '付款服務暫時無法使用。') } as const;
   }
 }
-export function createCheckoutPaymentPort(options: PaymentAttemptOptions): CheckoutPaymentPort {
-  return {
-    assertTermsAvailable: assertCreditPaymentAvailable,
-    async createOrderAttempt(q, input) {
+export async function createOrderPaymentAttempt(q:PoolClient,input:{store:CheckoutStore;orderId:string;amountMinor:number;currency:string;environment:'sandbox'|'live';sequence?:number},options:PaymentAttemptOptions){
       const store = (await q.query('SELECT tenant_id,instance_id FROM commerce_storefront_profiles WHERE storefront_shop_id=$1', [input.store.storefront_shop_id])).rows[0];
       requireCondition(store, 409, 'payment_handoff_unavailable', '付款服務暫時無法使用。');
       await bindStore(q, store.tenant_id);
@@ -112,9 +114,9 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
       requireCondition(account, 409, 'payment_handoff_unavailable', '付款服務暫時無法使用。');
       for (let i = 0;i < 5;i++) {
         const inserted = (await q.query(`INSERT INTO commerce_payment_attempts(tenant_id,instance_id,kind,order_id,sequence,account_id,purpose,environment,merchant_id,credential_version,provider,profile,merchant_trade_no,amount_minor,currency)
-          VALUES($1,$2,'order',$3,1,$4,'payment',$5,$6,$7,'ecpay',$8,$9,$10,$11)
+          VALUES($1,$2,'order',$3,$12,$4,'payment',$5,$6,$7,'ecpay',$8,$9,$10,$11)
           ON CONFLICT(provider,environment,merchant_id,merchant_trade_no) DO NOTHING
-          RETURNING attempt_id,(created_at+interval '10 minutes')::text AS query_due,(created_at+interval '60 minutes')::text AS window_due`, [store.tenant_id, store.instance_id, input.orderId, account.account_id, input.environment, account.merchant_id, account.credential_version, account.profile, newTradeNumber('F'), input.amountMinor, input.currency])).rows[0];
+          RETURNING attempt_id,(created_at+interval '10 minutes')::text AS query_due,(created_at+interval '60 minutes')::text AS window_due`, [store.tenant_id, store.instance_id, input.orderId, account.account_id, input.environment, account.merchant_id, account.credential_version, account.profile, newTradeNumber('F'), input.amountMinor, input.currency, input.sequence??1])).rows[0];
         if (!inserted)
           continue;
         for (const [kind, dueAt] of [['payment_query', inserted.query_due], ['payment_window_end', inserted.window_due]] as const)
@@ -122,7 +124,11 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
         return;
       }
       throw Error('payment_trade_number_unavailable');
-    },
+}
+export function createCheckoutPaymentPort(options: PaymentAttemptOptions): CheckoutPaymentPort {
+  return {
+    assertTermsAvailable: assertCreditPaymentAvailable,
+    createOrderAttempt:(q,input)=>createOrderPaymentAttempt(q,input,options),
     async issueHandoff(q, input) {
       await lockStore(q, input.store, [], [input.orderId], false);
       await lockCheckoutOrders(q, [input.orderId], input.store);
@@ -148,7 +154,7 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
       const rows = (await q.query(`SELECT co.order_id,co.tenant_id,co.instance_id,${confirmedPaymentSQL('co.order_id')} AS confirmed,
         EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome='simulated') AS simulated,
         EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome IN ('overpaid','after_cancel','amount_mismatch')) AS overpaid,
-        EXISTS(SELECT 1 FROM commerce_hosted_payment_events e JOIN commerce_payment_attempts a USING(attempt_id) WHERE a.order_id=co.order_id AND e.source='notification' AND e.outcome='paid' AND e.applied_at IS NULL) AS unapplied_paid,
+        EXISTS(SELECT 1 FROM commerce_hosted_payment_events e JOIN commerce_payment_attempts a USING(attempt_id) WHERE a.order_id=co.order_id AND e.source IN ('notification','query') AND e.outcome='paid' AND e.applied_at IS NULL) AS unapplied_paid,
         a.attempt_id,a.state,a.created_at,a.handed_off_at,
         EXISTS(SELECT 1 FROM commerce_hosted_payment_events e WHERE e.attempt_id=a.attempt_id AND e.outcome='pending_confirmation'
           AND NOT EXISTS(SELECT 1 FROM commerce_hosted_payment_events later WHERE later.attempt_id=a.attempt_id AND later.outcome IN ('paid','failed') AND (later.received_at,later.event_id)>(e.received_at,e.event_id))) AS pending_confirmation,
@@ -163,10 +169,81 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
         // Money that does not match the order outranks every state; the store must refund it.
         const payment_state = row.overpaid ? 'overpaid' : row.confirmed ? 'confirmed' : row.unapplied_paid || row.pending_confirmation || row.returned ? 'pending' : row.simulated ? 'simulated' : 'unpaid';
         const state = row.state === 'issued' ? (row.handed_off_at ? 'awaiting_result' : 'ready') : ['paid', 'confirmed'].includes(row.state) ? 'paid' : row.state === 'failed' ? 'failed' : 'expired';
-        const canResume = Boolean(row.attempt_id && !row.overpaid && !(await inspectOrderHandoffGate(q, row.attempt_id, options)).failure);
+        const canResume = Boolean(row.attempt_id && !row.overpaid && (!(await inspectOrderHandoffGate(q,row.attempt_id,options)).failure || !(await inspectRepay(q,row.order_id,options)).failure));
         summaries.set(row.order_id, { payment_state, latest_payment_attempt: row.attempt_id ? { attempt_ref: row.attempt_id, state, created_at: row.created_at.toISOString() } : null, can_resume_payment: canResume });
       }
       return summaries;
     },
   };
+}
+
+const pendingPayment=(retryAfter?:number)=>new Problem(409,'payment_result_pending','付款結果確認中，請稍後再查詢。',retryAfter);
+/** Read-only re-pay eligibility is also the buyer summary's exact gate. It
+ * reads neither credential ciphertext nor routing tokens and charges no budget. */
+export async function inspectRepay(q:PoolClient,orderId:string,options:PaymentAttemptOptions){
+  const attempt=(await q.query('SELECT * FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence DESC LIMIT 1',[orderId])).rows[0];
+  if(!attempt)return {failure:gate(409,'payment_handoff_unavailable','目前無法繼續付款，請查看訂單狀態。'),attempt:null};
+  const context=await inspectOrderHandoffGate(q,attempt.attempt_id,options,true);
+  if(context.failure)return {failure:context.failure,attempt};
+  const facts=(await q.query(`SELECT ${confirmedPaymentSQL('$1')} AS confirmed,
+    EXISTS(SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 AND state IN ('paid','confirmed')) AS paid,
+    EXISTS(SELECT 1 FROM commerce_checkout_payment_applications WHERE order_id=$1 AND outcome IN ('overpaid','after_cancel','amount_mismatch')) AS overpaid,
+    (SELECT count(*)::int FROM commerce_payment_attempts WHERE order_id=$1) AS attempts,
+    ($2::timestamptz IS NOT NULL AND $2::timestamptz+interval '60 seconds'<=clock_timestamp()) AS old_enough,
+    greatest(1,ceil(extract(epoch FROM $2::timestamptz+interval '60 seconds'-clock_timestamp())))::int AS retry_after,
+    EXISTS(SELECT 1 FROM commerce_hosted_payment_events WHERE attempt_id=$3 AND
+      ((source IN ('notification','query') AND outcome='paid' AND applied_at IS NULL) OR outcome='pending_confirmation')) AS pending`,[orderId,attempt.handed_off_at,attempt.attempt_id])).rows[0];
+  let failure:HandoffGate|null=null;
+  if(facts.paid||facts.confirmed||facts.overpaid)failure=gate(409,'payment_already_applied','訂單已有付款紀錄。');
+  else if(facts.attempts>=5)failure=gate(409,'payment_attempts_exhausted','付款次數已達上限，請聯絡店家。');
+  else if(attempt.state!=='failed'&&!facts.old_enough)failure={...gate(409,'payment_result_pending','付款結果確認中，請稍後再查詢。'),retryAfter:facts.retry_after??60} as HandoffGate;
+  else if(facts.pending)failure=gate(409,'payment_result_pending','付款結果確認中，請稍後再查詢。');
+  return {failure,attempt,context};
+}
+function assertRepay(result:Awaited<ReturnType<typeof inspectRepay>>){
+  if(result.failure)throw new Problem(result.failure.status,result.failure.code,result.failure.message,(result.failure as HandoffGate&{retryAfter?:number}).retryAfter);
+  return result.attempt!;
+}
+export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queries?:PaymentQueryDependencies):CheckoutPaymentActions{
+  const port=createCheckoutPaymentPort(options);
+  return {
+    async resume(pool,input){
+      const initial=await isolatedTransaction(pool,async q=>{
+        await input.authorize(q);await lockStore(q,input.store,[],[input.orderId],false);await lockCheckoutOrders(q,[input.orderId],input.store);
+        const latest=(await q.query('SELECT * FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence DESC LIMIT 1',[input.orderId])).rows[0];
+        if(latest?.state==='issued'&&!latest.handed_off_at){
+          const handoff=await port.issueHandoff(q,input);if(handoff){await input.authorize(q);return {handoff};}
+        }
+        const attempt=assertRepay(await inspectRepay(q,input.orderId,options));await input.authorize(q);return {attempt};
+      });
+      if(initial.handoff)return initial.handoff;
+      const attempt=initial.attempt!;
+      if(attempt.state!=='failed'){
+        await chargePaymentQueryOrderBudgets(pool,input.orderId);
+        if(!queries)throw pendingPayment();
+        const result=await queryAttempt(pool,attempt.attempt_id,queries,'repay');
+        if(result.status==='paid'||result.status==='amount_mismatch')throw new Problem(409,'payment_already_applied','訂單已有付款紀錄。');
+        if(!['unpaid','failed'].includes(result.status))throw pendingPayment();
+      }
+      return isolatedTransaction(pool,async q=>{
+        await input.authorize(q);await lockStore(q,input.store,[],[input.orderId],false);await lockCheckoutOrders(q,[input.orderId],input.store);
+        const latest=(await q.query('SELECT * FROM commerce_payment_attempts WHERE order_id=$1 ORDER BY sequence DESC LIMIT 1',[input.orderId])).rows[0];
+        if(latest?.attempt_id!==attempt.attempt_id){
+          const handoff=latest?.state==='issued'&&!latest.handed_off_at?await port.issueHandoff(q,input):null;
+          if(handoff){await input.authorize(q);return handoff;}throw pendingPayment();
+        }
+        const checked=assertRepay(await inspectRepay(q,input.orderId,options));
+        if(checked.state==='issued')await q.query("UPDATE commerce_payment_attempts SET state='superseded',superseded_at=clock_timestamp(),version=version+1 WHERE attempt_id=$1",[checked.attempt_id]);
+        const order=(await q.query('SELECT currency,total_minor FROM commerce_orders WHERE order_id=$1',[input.orderId])).rows[0];
+        await createOrderPaymentAttempt(q,{store:input.store,orderId:input.orderId,amountMinor:Number(order.total_minor),currency:order.currency,environment:options.environment,sequence:checked.sequence+1},options);
+        const handoff=await port.issueHandoff(q,input);requireCondition(handoff,409,'payment_handoff_unavailable','目前無法繼續付款，請查看訂單狀態。');
+        await input.authorize(q);return handoff;
+      });
+    },
+
+  };
+}
+
+export function createCheckoutPaymentPorts(options:PaymentAttemptOptions,queries?:PaymentQueryDependencies){
+  return {payment:createCheckoutPaymentPort(options),paymentActions:createCheckoutPaymentActions(options,queries)};
 }

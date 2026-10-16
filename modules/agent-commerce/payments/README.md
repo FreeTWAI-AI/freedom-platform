@@ -239,3 +239,16 @@ Unapplied refunds never alter order invoice documents.
 
 ### Database Trigger Invariant
 These pure rules form the application-level validator. In M2, the PostgreSQL database trigger on `commerce_refund_lines` strictly repeats these hard invariants (multiples of `u`, sum matches refund amount, line amount ≤ `L`, line quantity ≤ `Q`, group shipping ≤ `F`, attempt balance not exceeded) under transaction row locks.
+
+## Re-pay through the resume endpoint
+
+The existing buyer payment-handoff command first resumes an unconsumed attempt.
+Otherwise it checks the open order, live holds, payment facts, five-attempt cap,
+60-second handoff delay and pending events. A failed attempt needs no provider
+call. Other eligible attempts must receive a verified unpaid or failed query
+before a new transaction supersedes the old issued attempt, creates the next
+attempt and issues its handoff. The old attempt retains its own schedule and
+window; a late payment is still applied and a second payment becomes overpaid.
+Order query budgets commit before the live query and are shared with on-demand
+queries. Summary eligibility reads these same gates without unsealing keys,
+looking up provider routes, charging budgets or calling ECPay.

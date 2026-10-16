@@ -1,6 +1,6 @@
 /// <reference lib="es2024.string" />
 import {createHash,createHmac,randomBytes,randomUUID} from 'node:crypto';
-import type {PoolClient} from 'pg';
+import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {isCheckoutText} from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import {requireCondition} from '../../../packages/shared/problem.js';
@@ -60,7 +60,13 @@ export interface CheckoutPaymentPort {
   onOrdersCancelled(q:PoolClient,orderIds:readonly string[]):Promise<void>;
   summarize(q:PoolClient,orderIds:readonly string[]):Promise<ReadonlyMap<string,CheckoutPaymentSummary>>;
 }
-export interface CheckoutPorts {shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort}
+/** Request orchestration owns its transactions and may query a provider only
+ * after releasing the client. authorize is rechecked before each commit. */
+export interface CheckoutPaymentActions {
+  resume(pool:Pool,input:{store:CheckoutStore;orderId:string;network:string;authorize(q:PoolClient):Promise<void>}):Promise<CheckoutPaymentHandoff>;
+  query?(pool:Pool,input:{store:CheckoutStore;orderId:string;network:string;authorize(q:PoolClient):Promise<void>}):Promise<'complete'|'query_in_progress'>;
+}
+export interface CheckoutPorts {paymentActions?:CheckoutPaymentActions;shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort}
 export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};
 const defaultShipping:ShippingQuotePort={async quote(){requireCondition(false,409,'shipping_not_configured','尚未設定配送。');}};
 const shippingSchema=z.object({groups:z.array(z.object({group_ref:z.string().min(1).max(80),supplier_shop_id:z.uuid(),method_ref:z.string().min(1).max(80),amount_minor:money})).min(1).max(50)});

@@ -2,7 +2,7 @@ import {runDueCommerceWork,runAfterResponseWork} from '../../../modules/agent-co
 import {createEcpayQueryTransport,type PaymentQueryTransport} from '../../../modules/agent-commerce/payments/query-transport.js';
 import {applyDeferredPaymentEvents} from '../../../modules/agent-commerce/payments/events.js';
 import {flushControlEvents} from '../../../modules/agent-commerce/operations/journal/journal.js';
-import {createCheckoutPaymentPort} from '../../../modules/agent-commerce/payments/attempts.js';
+import {createCheckoutPaymentPorts} from '../../../modules/agent-commerce/payments/attempts.js';
 import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/journal/r2.js';
 import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
@@ -246,8 +246,9 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
   try { return createAdminAccessVerifier({ issuer, audience, csrfSecret }); } catch { return unavailable; }
 }
 
-export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
+export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{queryTransport?:PaymentQueryTransport}={}): PlatformRuntime {
   const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment,settings.providerProfiles);
+  const queryTransport=options.queryTransport??createEcpayQueryTransport();
   const payments=settings.providerProfiles.length?{gateway:createEcpayPaymentGateway(environment,config.origin),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),profiles:settings.providerProfiles}:undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
@@ -281,9 +282,9 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
-    commerceQueryTransport:createEcpayQueryTransport(),commercePayments:payments,commerceSettings:settings,
+    commerceQueryTransport:queryTransport,commercePayments:payments,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
-    commercePorts:{admission,payment:payments?createCheckoutPaymentPort({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null}):undefined},
+    commercePorts:{admission,...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},{transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine}):{})},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
@@ -415,7 +416,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
             }});
           }
         }
-        const runtime=(deps.createRuntime??workerRuntime)(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
+        const runtime=(deps.createRuntime??workerRuntime)(env,config,{queryTransport:deps.commerceQueryTransport}),privateAi=await workerPrivateAiPorts(pool,env,config);
         runtime.afterResponse=work=>{afterResponse.push(work);};
         if(deps.commerceQueryTransport)runtime.commerceQueryTransport=deps.commerceQueryTransport;
         if(privateAi)Object.assign(runtime,privateAi);

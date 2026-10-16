@@ -23,7 +23,7 @@ export async function hostedPaymentHarness(prefix: string, options: {
   let runtime: PlatformRuntime, app: ReturnType<typeof createPlatformApp>;
   function install(overrides: Partial<PlatformRuntime> = {}) {
     const configured = nodeRuntime('local', origin, {
-      guildLaunchpadEnabled: true,
+      guildLaunchpadEnabled: true,commerceQueryTransport:overrides.commerceQueryTransport,
       commerceSettings: Object.hasOwn(overrides, 'commerceSettings') ? overrides.commerceSettings : settings,
       commerceCredentialKeyring: Object.hasOwn(overrides, 'commerceCredentialKeyring') ? overrides.commerceCredentialKeyring : ring,
       commercePayments: Object.hasOwn(overrides, 'commercePayments') ? overrides.commercePayments : { gateway, journal, profiles: settings.providerProfiles },
