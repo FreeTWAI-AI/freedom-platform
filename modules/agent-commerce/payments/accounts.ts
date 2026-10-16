@@ -131,7 +131,7 @@ async function updateServiceState(q:PoolClient,id:string,purpose:ProviderPurpose
 }
 /** Internal machine mutations follow the same tenant -> account lock order as
  * setup commands. Their caller owns the transaction and binds tenant context. */
-async function lockMachineAccount(q:PoolClient,id:string){
+export async function lockMachineAccount(q:PoolClient,id:string){
   const peek=await account(q,id);await q.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE',[peek.tenant_id]);return account(q,id,undefined,undefined,true);
 }
 async function machineFact(q:PoolClient,a:Record<string,any>,kind:Parameters<typeof recordControlEvent>[1]['kind'],detail:Parameters<typeof recordControlEvent>[1]['detail']){

@@ -25,6 +25,22 @@ export interface HandoffGate {
   code: string;
   message: string;
 }
+/** Cancellation retains provider responsibility but revokes every bearer link.
+ * Mismatch facts are definite even though their attempt state is unchanged. */
+export async function onPaymentOrdersCancelled(q: PoolClient, orderIds: readonly string[]) {
+  const attempts = (await q.query(`SELECT a.*,clock_timestamp()::text AS query_due FROM commerce_payment_attempts a
+    WHERE a.order_id=ANY($1::uuid[]) ORDER BY a.order_id,a.attempt_id FOR UPDATE`, [orderIds])).rows;
+  await q.query(`UPDATE commerce_entry_routes SET revoked_at=clock_timestamp() WHERE route_kind='payment_handoff'
+    AND target_id=ANY($1::uuid[]) AND revoked_at IS NULL`, [attempts.map(a => a.attempt_id)]);
+  for (const a of attempts) {
+    const mismatch = (await q.query(`SELECT 1 FROM commerce_hosted_payment_events e WHERE attempt_id=$1
+      AND ((source='query' AND (outcome IN ('amount_mismatch','trade_no_mismatch')
+          OR (outcome='paid' AND trade_no<>$3)))
+        OR (source='notification' AND outcome='paid' AND trade_amt_minor<>$2)) LIMIT 1`, [a.attempt_id, a.amount_minor, a.trade_no])).rowCount;
+    if (a.handed_off_at && ['issued','superseded'].includes(a.state) && !mismatch)
+      await scheduleDueWork(q, { tenantId:a.tenant_id, instanceId:a.instance_id, kind:'payment_query', targetId:a.attempt_id, dueAt:a.query_due });
+  }
+}
 const gate = (status: HandoffGate['status'], code: string, message: string) => ({ status, code, message });
 /** Read-only gates never load credentials or provider entry routes. */
 export async function inspectOrderHandoffGate(q: PoolClient, attemptId: string, options: PaymentAttemptOptions) {
@@ -127,13 +143,7 @@ export function createCheckoutPaymentPort(options: PaymentAttemptOptions): Check
       }
       throw Error('payment_handoff_token_unavailable');
     },
-    async onOrdersCancelled(q, orderIds) {
-      const attempts = (await q.query(`SELECT *,clock_timestamp()::text AS query_due FROM commerce_payment_attempts WHERE order_id=ANY($1::uuid[]) ORDER BY order_id,attempt_id FOR UPDATE`, [orderIds])).rows;
-      await q.query(`UPDATE commerce_entry_routes SET revoked_at=clock_timestamp() WHERE route_kind='payment_handoff' AND target_id=ANY($1::uuid[]) AND revoked_at IS NULL`, [attempts.map(a => a.attempt_id)]);
-      for (const a of attempts)
-        if (a.handed_off_at && ['issued', 'superseded'].includes(a.state))
-          await scheduleDueWork(q, { tenantId: a.tenant_id, instanceId: a.instance_id, kind: 'payment_query', targetId: a.attempt_id, dueAt: a.query_due });
-    },
+    onOrdersCancelled: onPaymentOrdersCancelled,
     async summarize(q, orderIds) {
       const rows = (await q.query(`SELECT co.order_id,co.tenant_id,co.instance_id,${confirmedPaymentSQL('co.order_id')} AS confirmed,
         EXISTS(SELECT 1 FROM commerce_checkout_payment_applications p WHERE p.order_id=co.order_id AND p.outcome='simulated') AS simulated,
