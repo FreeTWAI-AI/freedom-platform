@@ -42,7 +42,7 @@ export function createHostedPaymentRoutes(pool: Pool, runtime: PlatformRuntime, 
       await chargeCommerceBudgets(pool, network, { network: 'providerUnknownNetwork' });
       return c.body(null, 404);
     }
-    await chargeCommerceBudgets(pool, account.account_id, { network: 'providerAccount' });
+    await chargeCommerceBudgets(pool, account.account_id + ':' + network, { network: 'providerAccount' });
     let credentials;
     try {
       credentials = await paymentVerificationKeys(pool, account, runtime.commerceCredentialKeyring ?? null);

@@ -113,9 +113,9 @@ test('unknown references are empty 404s, with only the unknown-network budget', 
   await ack(await post(path(p), value));
   assert.equal((await f.x.h.pool.query("SELECT count(*)::int n FROM auth_rate_limits WHERE bucket LIKE 'commerce:providerAccount:%'")).rows[0].n, 1);
 });
-test('known-account budget is 600 per minute independent of network and returns text 429', async () => {
+test('known-account and network budget is 600 per minute and returns text 429', async () => {
   const p = await f.placed();
-  await f.x.h.pool.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),$2)', ['commerce:providerAccount:' + hashKey(p.provider.accountId), 600]);
+  await f.x.h.pool.query('INSERT INTO auth_rate_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),$2)', ['commerce:providerAccount:' + hashKey(p.provider.accountId + ':198.51.100.2'), 600]);
   const r = await post(path(p), await body(p), { 'CF-Connecting-IP': '198.51.100.2' });
   assert.equal(r.status, 429);
   assert(Number(r.response.headers.get('Retry-After')) > 0);
@@ -766,4 +766,20 @@ test('review 1: unexpected pre-resolution return failure serves HTML rather than
     assert.match(result.response.headers.get('Content-Type')!, /^text\/html/);
     assert.match(result.text, /暫時無法確認付款結果，請稍後到訂單頁查看。/);
   } finally { f.x.runtime.connect = connect; }
+});
+
+test('review 2: unsigned traffic exhausts only its account and network budget', async () => {
+  const p = await f.placed(), signed = await body(p), warn = console.warn;
+  console.warn = () => {};
+  try {
+    for (let i = 0; i < 600; i++)
+      assert.equal((await post(path(p), 'MerchantID=1234567', { 'CF-Connecting-IP': '192.0.2.10' })).status, 400);
+    const limited = await post(path(p), 'MerchantID=1234567', { 'CF-Connecting-IP': '192.0.2.10' });
+    assert.equal(limited.status, 429);
+    assert(Number(limited.response.headers.get('Retry-After')) > 0);
+    await ack(await post(path(p), signed, { 'CF-Connecting-IP': '192.0.2.20' }));
+    const actual = await facts(p);
+    assert.equal(actual.attempt.state, 'paid');
+    assert.equal(actual.applications[0].outcome, 'converted');
+  } finally { console.warn = warn; }
 });
