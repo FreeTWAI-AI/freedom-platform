@@ -28,7 +28,7 @@ describe('shipping locations',()=>{
     for(const value of [input.label,input.sender_name,input.mobile,input.address])assert.equal(elsewhere.includes(value),false);
     assert.equal((await h.f.x.h.pool.query("SELECT count(*)::int n FROM commerce_ship_from_locations WHERE instance_id=$1",[s.instanceId])).rows[0].n,1);
   });
-  test('raw NUL and lone surrogates in each sender text field reject before location or profile writes',async()=>{
+  test('the platform JSON guard rejects raw NUL and lone surrogates in each sender text field before location or profile writes',async()=>{
     const s=await h.store(),input=h.locationInput(),results:{path:string;character:string;status:number;code:string}[]=[];
     const counts=async()=> (await h.f.x.h.pool.query(`SELECT
       (SELECT count(*)::int FROM commerce_ship_from_locations WHERE instance_id=$1) AS locations,
@@ -39,7 +39,7 @@ describe('shipping locations',()=>{
       await receipts();results.push({path,character:invalid==='\u0000'?'NUL':'lone surrogate',status:rejected.status,code:rejected.data.code});
       assert.deepEqual(await counts(),before,`raw command rejection changed rows for ${path}`);
     }
-    assert.deepEqual(results,results.map(({path,character})=>({path,character,status:400,code:'invalid_command_json'})));
+    assert.deepEqual(results,results.map(({path,character})=>({path,character,status:422,code:'validation_failed'})));
   });
   test('twenty-row limit permits replacement; replay reprojects retirement and rejects changed bodies',async()=>{
     const s=await h.store(),input=h.locationInput(),key=randomUUID(),first=(await create(s,input,201,key)).data;

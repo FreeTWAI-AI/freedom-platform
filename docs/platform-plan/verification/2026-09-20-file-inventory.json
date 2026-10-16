@@ -17294,8 +17294,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/README.md",
-      "bytes": 24756,
-      "sha256": "23f38a0d0c1f00c61c8cdc6af1a324c66344457d4b7783bcef41bab00f420ef1"
+      "bytes": 24845,
+      "sha256": "2ef382f8602d8e52fc1b0ddb125ccc5419ce50741703fab8fb1b1c9eb0897b6d"
     },
     {
       "path": "modules/agent-commerce/fulfilment/freedom.module.json",
@@ -23654,8 +23654,8 @@
     },
     {
       "path": "tests/runtime/hosted-shipping-locations.test.ts",
-      "bytes": 14113,
-      "sha256": "6ab6a4ef76dbf86f79e3964e57ac2e3c33a3344514903af25e1b2f07d74e2db2"
+      "bytes": 14135,
+      "sha256": "c37fd013a141ba3e5aba326e5d93ca5db099a800b655d402b8fc9536d33f337d"
     },
     {
       "path": "tests/runtime/hosted-shipping-profile.test.ts",
