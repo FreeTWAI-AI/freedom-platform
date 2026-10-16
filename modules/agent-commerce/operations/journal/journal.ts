@@ -41,7 +41,7 @@ export function encodeEffectRecord(record: EffectRecord, environment: JournalEnv
   try {
     if (!record || Object.keys(record).some(key => !recordKeys.includes(key)) || record.environment !== environment
       || !['local', 'staging', 'public'].includes(environment) || !uuid.test(record.id) || !uuid.test(record.tenant_id)
-      || record.instance_id !== null && !uuid.test(record.instance_id) || !['payment_handoff', ...CONTROL_EVENT_KINDS.map(k => 'control.' + k)].includes(record.kind)
+      || record.instance_id !== null && !uuid.test(record.instance_id) || !['payment_handoff', 'email_send', ...CONTROL_EVENT_KINDS.map(k => 'control.' + k)].includes(record.kind)
       || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(record.occurred_at)
       || new Date(record.occurred_at).toISOString() !== record.occurred_at || !record.detail || Array.isArray(record.detail))
       throw Error();

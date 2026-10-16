@@ -8,6 +8,7 @@ import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payment
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
+import {sweepCommerceOutboundEmails} from '../../../modules/agent-commerce/operations/notifications/delivery.js';
 import {sweepDueCheckoutHolds} from '../../../modules/agent-commerce/checkout/settlement.js';
 import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
@@ -357,6 +358,7 @@ export type WorkerDependencies = {
   commerceDueWork?:typeof runDueCommerceWork;
   commerceQueryTransport?:PaymentQueryTransport;
   commerceSweep?:typeof sweepDueCheckoutHolds;
+  commerceEmailSweep?:typeof sweepCommerceOutboundEmails;
   commerceApplyDeferred?:typeof applyDeferredPaymentEvents;
   commerceFlushJournal?:typeof flushControlEvents;
 };
@@ -497,6 +499,9 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
               const keyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);
               if(keyring)await (deps.commerceDueWork??runDueCommerceWork)(pool,{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring,freedomEnv:resolveFreedomEnv(env.FREEDOM_ENV)});
             }catch{console.error('commerce_due_work_failed');}
+            if(deps.commerceEmailSweep||typeof pool.connect==='function')try{
+              await (deps.commerceEmailSweep??sweepCommerceOutboundEmails)(pool,{limit:500});
+            }catch{console.error('commerce_email_sweep_failed');}
             if(commerce.providerProfiles.length&&env.COMMERCE_JOURNAL)try{
               await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
             }catch{console.error('commerce_control_journal_failed');}
