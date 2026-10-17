@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-15T08:18:23.201214+00:00",
+  "recorded_at": "2026-10-17T16:46:04.249377+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -14,104 +14,99 @@
   },
   "merged_source": {
     "repository": "FreeTWAI/freedom-platform",
-    "sha": "1e584aa8734addfe251c7f081cf51cc84a52567f",
-    "tree": "8f2bda1846d983f0bc3671578ba6fc16b24364f5",
-    "observed_at": "2026-10-15T06:47:14Z",
-    "runtime_release_source": "938516ee632287569389a37a7044ac779c18802e",
+    "sha": "35ec3ffc72423b970b7a253332d08f6af1b8e6a8",
+    "tree": "341e3ebda3f34cdc81773a57a000ae2de6351b96",
+    "observed_at": "2026-10-17T16:46:04.249377+00:00",
+    "runtime_release_source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
     "release_source_verify": {
       "conclusion": "success",
-      "source": "938516ee632287569389a37a7044ac779c18802e",
-      "run": 38604734559,
-      "natural_main_codeql_run": 38604729887,
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "head": "0d700e1d7f5e919b629f52eb2e9fd3c765db7e32",
+      "run": 39037614076,
+      "attempt": 2,
+      "tree_equals_merged_release": true,
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
     },
-    "limitation": "Main1e584aa8 includes #658, #659 and #680, separately from deployed938/schema166. Both complete after-restores and repaired operator installation passed; the new operator natural schedule, real OAuth/webhook, T-047 and human/second-operator acceptance remain unverified. AR167 and later source are not deployed."
+    "limitation": "Main was read separately from the exact deployed merge; later main changes are not implied deployed. All 168 original Foundation requirements, T-047 current-authority reconciliation, human usability and second-operator recovery remain open where previously unverified.",
+    "migrations_beyond_observed_runtime": [
+      "172_distribution_photos.sql"
+    ]
   },
   "deployment": {
     "production": {
       "url": "https://freetwai.com/",
-      "observed_release_sha": "938516ee632287569389a37a7044ac779c18802e",
-      "observed_at": "2026-10-15T03:31:43.661560+00:00",
+      "observed_release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "observed_at": "2026-10-17T16:42:30.777Z",
       "health": {
         "http": 200,
         "status": "ok",
         "mode": "public",
         "runtime": "cloudflare-workers",
-        "release_sha": "938516ee632287569389a37a7044ac779c18802e",
+        "release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
         "cache_control_no_store": true
       },
-      "worker_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "limitation": "Scoped public acceptance and the04:53 UTC natural-sync acceptance passed. Fresh20c800a8 passed full database/object restore, ten restored coordinate constraints, capture-window checks and cleanup; repaired operator installed07:04 UTC. Original failed after-sets remain failed. No new natural operator run, production member login/browser/OAuth or real webhook acceptance is claimed; the original cron provider cause remains unconfirmed.",
-      "health_observation": "Exact938 public HTTP health observed after compatible deployment and normal route/cron restoration.",
-      "status": "deployed_scoped_acceptance_natural_sync_restore_and_operator_passed",
-      "schema_transition_observed_at": "2026-10-15T03:28:44.247Z",
-      "last_operator_release_sha": "938516ee632287569389a37a7044ac779c18802e",
-      "natural_background_sync_status": "passed_natural_provider_event_and_database_sync",
-      "cron_diagnosis_observed_at": "2026-10-15T04:27:51.343197+00:00",
-      "same_schedule_repair_observed_at": "2026-10-15T04:33:01.506Z",
-      "natural_background_sync_observed_at": "2026-10-15T04:53:06.090Z",
-      "backup_repair_completed_at": "2026-10-15T06:46:10.722374+00:00"
+      "worker_version": "06fa92e7-c1a0-4efc-aa34-3975ae989a3f",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed",
+      "last_operator_release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "limitation": "Commerce console, checkout and transactional email remain OFF; deployment is not merchant admission or real payment acceptance. Staging uses owned synthetic member acceptance; production member login/browser, GitHub OAuth and payment-provider transactions were not run. Natural scheduled execution of the newly installed backup operator is not yet observed; manual database/object restores are separate evidence.",
+      "health_observation": "Exact release, HTML and local built entry-asset bytes checked after restoration of the bound route and original cron."
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
-      "observed_release_sha": "938516ee632287569389a37a7044ac779c18802e",
-      "observed_at": "2026-10-14T19:10:57.380360+00:00",
+      "observed_release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "observed_at": "2026-10-17T16:42:28.292Z",
       "health": {
         "http": 200,
         "status": "ok",
         "mode": "staging",
         "runtime": "cloudflare-workers",
-        "release_sha": "938516ee632287569389a37a7044ac779c18802e",
+        "release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
         "cache_control_no_store": true
       },
-      "worker_version": "368a5d67-c1c1-4602-bb45-98f05801bc10",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "limitation": "Scoped synthetic acceptance and earlier release restores remain passed. Fresh8abd2a28 passed complete backup/restore, schema166 floor, capture-window checks and cleanup; repaired operator installed07:04 UTC. Original capture/browser failures, including scheduledfc39f036, remain preserved. No new natural operator run, human, real OAuth or full cloud-race acceptance is claimed.",
-      "last_operator_release_sha": "938516ee632287569389a37a7044ac779c18802e",
+      "worker_version": "ad50fd6f-6cc4-479d-9894-94600dc50490",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
       "status": "deployed_scoped_acceptance_restore_and_operator_passed",
-      "later_scheduled_backup": {
-        "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
-        "status": "failed_owned_resources_reconciled",
-        "observed_at": "2026-10-15T05:04:48.356Z",
-        "repair_status": "full_manual_repair_passed_operator_installed_natural_schedule_unobserved",
-        "previous_release_after_restore_preserved": true
-      },
-      "backup_repair_completed_at": "2026-10-15T07:02:30.842489+00:00"
+      "last_operator_release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "limitation": "Commerce console, checkout and transactional email remain OFF; deployment is not merchant admission or real payment acceptance. Staging uses owned synthetic member acceptance; production member login/browser, GitHub OAuth and payment-provider transactions were not run. Natural scheduled execution of the newly installed backup operator is not yet observed; manual database/object restores are separate evidence.",
+      "health_observation": "Exact release, HTML and local built entry-asset bytes checked after restoration of the bound route and original cron."
     },
     "last_operator_rollout": {
-      "source": "938516ee632287569389a37a7044ac779c18802e",
-      "at": "2026-10-15T08:18:23.201214+00:00",
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "at": "2026-10-17T16:42:32.826Z",
       "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
-      "scope": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938.",
-      "status": "scoped_rollout_and_after_recovery_passed_scheduled_observation_pending",
-      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "receipt_sha256": "91de5a2e52a634a3da870bf01913c91fe3765faf52ce1d42242db4753380c391",
+      "scope": "Commerce backend/schema170 followed by buyer flow and main supply-material schema171; same bound source and build on both targets; fresh before/after full restores.",
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed",
+      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
+      "receipt_sha256": "8fcceaaa0397572c4cc45ab0630378908174e9d080b9af9ff9f851c05c4f6870",
       "database_migrations_applied": {
-        "staging": [],
+        "staging": [
+          "171_supply_materials.sql"
+        ],
         "production": [
-          "166_freetwai_repository_transfer.sql"
+          "171_supply_materials.sql"
         ]
       },
       "worker_versions": {
-        "staging": "368a5d67-c1c1-4602-bb45-98f05801bc10",
-        "production": "24c6c843-c7db-437d-a2b9-c0bcd93900c0"
+        "staging": "ad50fd6f-6cc4-479d-9894-94600dc50490",
+        "production": "06fa92e7-c1a0-4efc-aa34-3975ae989a3f"
       },
-      "limitation": "Full manual after-backup/restore passed for both environments and the repaired operator is installed. This does not establish a successful natural scheduled run of the new operator, real GitHub OAuth/member/webhook acceptance, current-authority reconciliation after restore (T-047), human usability or second-operator recovery. All original failed backup receipts remain unchanged.",
-      "evidence_cutoff_at": "2026-10-15T07:04:34.799429+00:00"
+      "limitation": "Commerce console, checkout and transactional email remain OFF; deployment is not merchant admission or real payment acceptance. Staging uses owned synthetic member acceptance; production member login/browser, GitHub OAuth and payment-provider transactions were not run. Natural scheduled execution of the newly installed backup operator is not yet observed; manual database/object restores are separate evidence. All 168 original Foundation requirements, T-047 current-authority reconciliation, human usability and second-operator recovery remain open where previously unverified. This buyer follow-up is not all M3/M4: CVS selection, invoices, complete shipment workflows and aftersales remain incomplete.",
+      "evidence_cutoff_at": "2026-10-17T16:42:32.826Z"
     },
     "last_production_rollout": {
       "same_as": "last_operator_rollout",
-      "source": "938516ee632287569389a37a7044ac779c18802e",
-      "at": "2026-10-15T03:31:43.661560+00:00",
-      "status": "deployed_scoped_acceptance_natural_sync_restore_and_operator_passed",
-      "scope": "Production public read-only acceptance; no production member browser/login session."
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "at": "2026-10-17T16:42:30.777Z",
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed",
+      "scope": "Read-only public acceptance; no production member session."
     },
     "last_staging_rollout": {
       "same_as": "last_operator_rollout",
-      "source": "938516ee632287569389a37a7044ac779c18802e",
-      "at": "2026-10-14T20:29:36.437007+00:00",
-      "status": "deployed_scoped_acceptance_restore_and_operator_passed"
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "at": "2026-10-17T16:42:28.292Z",
+      "status": "deployed_scoped_acceptance_restore_and_operator_passed",
+      "scope": "Synthetic member acceptance"
     },
     "previous_production_rollout": {
       "source": "2bd62c256185f209dd936a8d811dc3c5d3b0d051",
@@ -826,62 +821,68 @@
   },
   "schema": {
     "last_observed_live": {
-      "ledger_rows": 112,
-      "through_number": 113,
+      "ledger_rows": 170,
+      "through_number": 171,
       "source_digest_drift": 0,
-      "source": "80acbd471fd28e5bb59898de79a1ace179511ef3",
-      "evidence": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "kind": "historical_operator_observed"
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
+      "kind": "operator_observed_both_targets"
     },
     "staging_observed": {
       "environment": "staging",
-      "ledger_rows": 165,
-      "through_number": 166,
-      "applied": [],
+      "ledger_rows": 170,
+      "through_number": 171,
+      "applied": [
+        "171_supply_materials.sql"
+      ],
       "pending": [],
-      "source": "938516ee632287569389a37a7044ac779c18802e",
-      "at": "2026-10-14T18:58:03.074Z",
-      "kind": "operator_observed_private_receipt",
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "at": "2026-10-17T16:42:30.118Z",
+      "kind": "authenticated_operator_read_only_ledger",
       "role": "staging migrator",
       "source_digest_drift": 0,
-      "post_checks": "Existing166 ledger verified; no migration was applied by this deployment. Bound retained floor requires FreeTWAI repository coordinates; no operator coordinate extension installed on staging.",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+      "post_checks": "Exact full ledger and retained floor verified; prior166/167/170 migration receipts retained; runtime grants and new schema shapes verified.",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
     },
     "production_observed": {
       "environment": "production",
-      "ledger_rows": 165,
-      "through_number": 166,
+      "ledger_rows": 170,
+      "through_number": 171,
       "applied": [
-        "166_freetwai_repository_transfer.sql"
+        "171_supply_materials.sql"
       ],
       "pending": [],
-      "source": "938516ee632287569389a37a7044ac779c18802e",
-      "at": "2026-10-15T03:28:44.247Z",
-      "kind": "operator_observed_private_receipt",
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "at": "2026-10-17T16:42:32.567Z",
+      "kind": "authenticated_operator_read_only_ledger",
       "role": "production migrator",
       "source_digest_drift": 0,
-      "post_checks": "Canonical166 committed once. Post-commit assertion failure retained; explicit read-only reconciliation verifies264/266 unchanged tables, excepting two telemetry tables, policies9, RLS33 and read-only privileges. Ten separately recorded operator coordinate constraints and retained166 floor verified; pre166 Worker rejected.",
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+      "post_checks": "Exact full ledger and retained floor verified; prior166/167/170 migration receipts retained; runtime grants and new schema shapes verified.",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
     },
-    "production_last_reported": "Confirmed166 with165 ledger names/digests; historical gap022 unchanged. Canonical migration applied once; separate operator coordinate extension and explicit post-COMMIT telemetry reconciliation recorded.",
+    "production_last_reported": "Confirmed171 with170 canonical ledger names/digests; historical gap022 unchanged. Production retains the ten original operator coordinate constraints.",
     "fresh_live_ledger_read": {
       "staging": {
-        "at": "2026-10-14T18:58:03.074Z",
-        "rows": 165,
-        "last_applied": "166_freetwai_repository_transfer.sql",
+        "at": "2026-10-17T16:42:30.118Z",
+        "rows": 170,
+        "last_applied": "171_supply_materials.sql",
         "source_digest_drift": 0,
-        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
       },
       "production": {
-        "at": "2026-10-15T03:28:44.247Z",
-        "rows": 165,
-        "last_applied": "166_freetwai_repository_transfer.sql",
+        "at": "2026-10-17T16:42:32.567Z",
+        "rows": 170,
+        "last_applied": "171_supply_materials.sql",
         "source_digest_drift": 0,
-        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
       }
     },
     "limitation": "Ledger evidence is the authenticated operator query, separate from HTTP health. Re-read before future schema/recovery operations.",
-    "row_security_observed": {
+    "declared_historical_number_gaps": [
+      22
+    ],
+    "gap_evidence": "deploy/cloudflare/environments.json#/database_defaults/migrations/known_gaps",
+    "historical_row_security_observation": {
       "staging": {
         "tables": 33,
         "policies": 46,
@@ -899,10 +900,15 @@
         "backup_bypass": true
       }
     },
-    "declared_historical_number_gaps": [
-      22
-    ],
-    "gap_evidence": "deploy/cloudflare/environments.json#/database_defaults/migrations/known_gaps"
+    "main_migrations_beyond_observed_release": {
+      "source": "35ec3ffc72423b970b7a253332d08f6af1b8e6a8",
+      "runtime_source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "runtime_observed_at": "2026-10-17T16:42:32.826Z",
+      "migrations": [
+        "172_distribution_photos.sql"
+      ],
+      "limitation": "Compared with this dated runtime observation only; the separate PR864/schema172 rollout may supersede it."
+    }
   },
   "topology": {
     "member_runtime": "Cloudflare Workers",
@@ -1015,128 +1021,28 @@
     },
     "limitation": "Merged or deployed source does not enable default-off features or establish full acceptance; see the release flags and receipt.",
     "release_flags": {
-      "source": "dcb393515dd03413862628806f17e500d0f7bc32",
-      "observed_at": "2026-10-13T02:25:02.024658+00:00",
-      "off": [
-        "FREEDOM_COMMUNITY_DISCOVERY_ENABLED",
-        "FREEDOM_UNIFIED_SHARING_ENABLED"
-      ],
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r24-2026-10-12.json",
-      "on_added": [
-        "FREEDOM_HOSTED_STORE_PHOTOS_ENABLED",
-        "FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED"
-      ],
-      "r16_enabled": {
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "observed_at": "2026-10-17T16:42:32.826Z",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
+      "by_environment": {
         "staging": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true"
+          "commerce_console": false,
+          "commerce_checkout": false,
+          "commerce_email": false,
+          "commerce_quarantine": false,
+          "supplier_console": true,
+          "ar_persistence": false
         },
         "production": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true"
+          "commerce_console": false,
+          "commerce_checkout": false,
+          "commerce_email": false,
+          "commerce_quarantine": false,
+          "supplier_console": false,
+          "ar_persistence": false
         }
       },
-      "remaining_default_off": [
-        "first-participation",
-        "participation-metrics",
-        "member-reporting",
-        "skill-book-star-gate",
-        "event-participation",
-        "squad-outcomes",
-        "event-outcomes"
-      ],
-      "on_added_scope": "Historical photo activation; the four R16 additions are listed separately under r16_enabled.",
-      "r17_reservation_admission": {
-        "staging": "true",
-        "production": "true",
-        "existing_shops_automatically_enabled": 0,
-        "owner_opt_in_required": true
-      },
-      "existing_flags_preserved_except_explicit_r16_and_r17_enablement": true,
-      "r18_reservation_admission_restored": {
-        "staging": "true",
-        "production": "true",
-        "existing_shops_automatically_enabled": 0,
-        "owner_opt_in_required": true
-      },
-      "existing_flags_preserved_after_r18_handover": true,
-      "existing_flags_preserved_after_r19": true,
-      "r21_enabled": {
-        "staging": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        },
-        "production": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        }
-      },
-      "r22_unchanged": {
-        "staging": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        },
-        "production": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        }
-      },
-      "r23_unchanged": {
-        "staging": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        },
-        "production": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        }
-      },
-      "r24_unchanged": {
-        "staging": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        },
-        "production": {
-          "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
-          "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
-          "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
-          "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
-          "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
-          "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
-        }
-      }
+      "other_flags": "Exact predecessor values preserved; only FREEDOM_RELEASE_SHA changed in the buyer171 release."
     },
     "hosted_store": {
       "source": "14f82aa29860c805e63edb98e9cb1f85eccd251f",
@@ -1212,17 +1118,21 @@
         "human_merchant_acceptance": false
       },
       "offline_buyer_source_observation": {
-        "observed_at": "2026-10-17T11:17:29.965065+00:00",
+        "observed_at": "2026-10-17T16:42:32.826Z",
         "backend_merged_source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
         "backend_pr": 863,
         "followup_branch": "fc/offline-buyer-flow",
-        "status": "B05/B07 implemented with local synthetic browser/runtime evidence; follow-up hosted CI, review, merge and cloud acceptance pending",
-        "evidence": "docs/platform-plan/execution/commerce/work-plan.md#2026-10-17-863-合併與離線買家頁補齊",
+        "status": "Buyer flow merged and deployed with Commerce OFF; local and hosted synthetic browser/runtime evidence passed; cloud acceptance is scoped deployment acceptance.",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
         "limits": [
-          "Not full M3/M4: CVS selection, invoices, shipment workflows and aftersales remain incomplete.",
-          "No real merchant admission, provider transaction, email delivery or human adoption claimed.",
-          "Does not update deployment/schema observations or accept any additional Foundation requirement."
-        ]
+          "Commerce console, checkout and transactional email remain OFF; deployment is not merchant admission or real payment acceptance.",
+          "Staging uses owned synthetic member acceptance; production member login/browser, GitHub OAuth and payment-provider transactions were not run.",
+          "Natural scheduled execution of the newly installed backup operator is not yet observed; manual database/object restores are separate evidence.",
+          "All 168 original Foundation requirements, T-047 current-authority reconciliation, human usability and second-operator recovery remain open where previously unverified.",
+          "This buyer follow-up is not all M3/M4: CVS selection, invoices, complete shipment workflows and aftersales remain incomplete."
+        ],
+        "followup_pr": 875,
+        "merged_source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21"
       }
     },
     "comment_images": {
@@ -1290,34 +1200,22 @@
   },
   "recovery": {
     "daily_operator_source": {
-      "staging": "938516ee632287569389a37a7044ac779c18802e",
-      "production": "938516ee632287569389a37a7044ac779c18802e"
+      "staging": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "production": "d39370a17d1d1d6af2507acd9ee7b592ff221a21"
     },
     "last_rollout_backup_release_pins": {
-      "staging": "938516ee632287569389a37a7044ac779c18802e",
-      "production": "938516ee632287569389a37a7044ac779c18802e",
-      "wrapper_sha256": "868886717771c6f9e99640d3231382ede73fd2c2aca42a50ffb9cdc7db006316",
-      "staging_wrapper_sha256": "59c060fde4ab99764335c5a82de77a66c6951c7eece814cb816f033fd3a641bb",
-      "production_wrapper_sha256": "9d346b1a53af5a40922ac4b5b159e8fccc210f26ba6f8ff666b47e85f5e0d6f0",
-      "at": "2026-10-15T07:04:34.799429+00:00",
+      "staging": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "production": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "wrapper_sha256": "9bc33c61bd7a1c0db02ea6b640b2005a7d684dea1ab6fb2e2b4e23cbde497f3b",
+      "at": "2026-10-17T16:42:26.653465+00:00",
       "operator_source": {
-        "production": "938516ee632287569389a37a7044ac779c18802e",
-        "staging": "938516ee632287569389a37a7044ac779c18802e"
+        "staging": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+        "production": "d39370a17d1d1d6af2507acd9ee7b592ff221a21"
       },
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
       "selected_release_dispatcher_installed": true,
-      "selected_release_dispatcher_installed_by_environment": {
-        "staging": true,
-        "production": true
-      },
-      "adapter_sha256_by_environment": {
-        "production": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
-        "staging": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a"
-      },
-      "production_status": "installed_after_full_restore_natural_schedule_unobserved",
       "production_after_backup_passed": true,
       "staging_after_backup_passed": true,
-      "installation_receipt_sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
       "scheduled_run_of_new_operator_observed": false
     },
     "production_rollout_backups": [
@@ -1931,6 +1829,61 @@
         "durable_capture_window": "superset_window_safe",
         "completion_receipt_sha256": "eb5194e791f17b614800c65c5e439d13cdcfd10dfc3590231475e8949ce24301",
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+      },
+      {
+        "label": "commerce170 before",
+        "set_id": "d181776e-58ce-461c-b3ab-2172f00e29e3",
+        "source_release": "08a832d3d775322f754266f8d2f00cd3980078ca",
+        "schema": 167,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "a98f199ca888e4e3aa5c1408a3f46348ae65d47612c908ac64c9d2b2fd416dce",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "commerce170 migration",
+        "set_id": "594fd13f-3aea-4cd8-9b6c-299f2aaedfee",
+        "source_release": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+        "schema": 170,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "89bf588ec04ab6135f9639f0bcef314ddebcb56ed4c5c1674d9313ed3ddb6758",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "commerce170 after",
+        "set_id": "875ba84b-36c9-4ee0-b1c5-98440b8f7984",
+        "source_release": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+        "schema": 170,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "3cff85a9bdb011e7c075a85f8a856523bbd626b0ad25123d317b3c663f150705",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "buyer171 before",
+        "set_id": "89b73ab7-0fe5-4794-a0a0-96f3fa87a452",
+        "source_release": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+        "schema": 170,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "f919a93a55bf88a5225d461053599113e0029b566b006560e980834f6c913cce",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "buyer171 after",
+        "set_id": "64ac1c63-57e6-47db-ba5b-08fae4dbef03",
+        "source_release": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+        "schema": 171,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "8ee7ee70bdb964f0df3ed21219a7801ef08d4a402c86851fa0190923c7b0549e",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
       }
     ],
     "staging_rollout_backups": [
@@ -2485,6 +2438,61 @@
         "durable_capture_window": "superset_window_safe",
         "completion_receipt_sha256": "1ed87c944767b0109f71c588f87a006f983a9608801b3fa6d6c4918920b38b5b",
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+      },
+      {
+        "label": "commerce170 before",
+        "set_id": "db0d57ef-6525-493f-a16c-5b58c7b89d8e",
+        "source_release": "08a832d3d775322f754266f8d2f00cd3980078ca",
+        "schema": 167,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "0c3d327de97c1c3cfa002d5061c9de71cb944938396ab7878b34a877fee042f3",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "commerce170 migration",
+        "set_id": "ae83366b-6e81-4190-825e-bc0f93120909",
+        "source_release": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+        "schema": 170,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "61f3bf9c14caccc2e1261d9d01d36a9afb24c749fa9a9e14fa8f6f185ce25993",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "commerce170 after",
+        "set_id": "f5c34066-3ea1-4f86-a1a3-80e952e9aff5",
+        "source_release": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+        "schema": 170,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "5605d9bd1680d13dde960c514b56d4c64346e0b65c518a1c6062ed84e0e83e64",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "buyer171 before",
+        "set_id": "2a0f6035-41cb-4aeb-af5e-6b9c0f89f9a0",
+        "source_release": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+        "schema": 170,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "b800a1c58f1e43888698825c0ae3af7c860a5284554205ef4b087bdd938c79b0",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
+      },
+      {
+        "label": "buyer171 after",
+        "set_id": "af62b149-ce01-4d0f-b307-3bdb7681c5b8",
+        "source_release": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+        "schema": 171,
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "receipt_sha256": "c24119db25a89e3276c4005ce88680cd6a5a6a14f64c01a2929174265ac8611e",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json"
       }
     ],
     "scheduled_drill_source": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
@@ -2497,51 +2505,36 @@
       "Same-host isolated current-schema restore passed; a second authorized operator in a new environment is not yet accepted",
       "GC/OFF daily mode remains selected; retention executor and historical unsettled PUT remain open"
     ],
-    "operator_source_note": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938. Both restored environments retain quarantine and reject pre166 rollback. Successful restore does not close T-047. Production uses five exact reviewed PG18 deparser variants plus five unchanged definitions; original SQL/floor/live checks are preserved, without generic normalization.",
+    "operator_source_note": "Both targets now retain schema171 and the exact buyer release. Fresh before/after database and object restores passed; the new daily dispatcher is installed and both original timers restored. Natural scheduled success is not inferred; all historical failures and T-047 remain preserved.",
     "current_operator_scheduled_run": {
-      "observed_at": "2026-10-15T05:04:48.356Z",
-      "trigger": "existing staging systemd timer; no manual restart",
-      "receipt": {
-        "status": "failed",
-        "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
-        "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
-        "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
-        "adapterSha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
-        "cleanupVerified": false,
-        "service": {
-          "Result": "exit-code",
-          "ExecMainStartTimestamp": "2026-10-15T04:49:59Z",
-          "ExecMainExitTimestamp": "2026-10-15T04:59:24Z",
-          "ExecMainStatus": 1
-        }
-      },
-      "reconciliation": {
-        "at": "2026-10-15T05:04:48.356Z",
-        "status": "owned_resources_reconciled",
-        "resources_remaining": 0,
-        "original_cleanup_verified_unchanged": false,
-        "backup_succeeded": false
-      },
-      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
-      "limitation": "This is the latest observed scheduled run of the prior dispatcher, and its capture failure remains unchanged. Fresh manual production20c800a8 and staging8abd2a28 passed; the repaired dispatcher was installed07:04 UTC. Its next natural scheduled run is not yet observed; installation is not scheduled reliability evidence."
+      "observed_at": "2026-10-17T16:42:32.826Z",
+      "status": "not_observed_for_new_operator",
+      "operator_source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
+      "limitation": "Manual complete restores and timer restoration do not establish natural scheduled execution."
     },
     "rollback": {
       "current_schema": {
-        "staging": 166,
-        "production": 166
+        "staging": 171,
+        "production": 171
       },
       "known_gaps": [
         22
       ],
-      "rule": "Forward repair retaining private-content, disbanded-squad, comment-image, retracted-message and outcome-source ACL readers; no blanket downgrade to R15 after new writes. Once message-image persistence is activated, retain media.message-image.asset.v1; stop new uploads with persistence_allowed=false while preserving authorized existing reads. Preserve enrolled TOTP enforcement and its environment-specific encryption key; R15 password-only login is not a compatible rollback after enrollment. After shared-reservation writes retain commerce.hosted-shared-reservation.v1 and schema 161 even with admission OFF; preserve restore quarantine and current-authority reconciliation. Schema162 requires commerce.hosted-inventory-reservation.v1 and its retained full ledger even with new admission OFF. Use the new compatible writer or forward repair; no pre162 Worker-only rollback. T-047 remains unresolved. Schema164 additionally requires commerce.hosted-supply-catalog.v1. Preserve both floors; no pre164 Worker-only rollback. Before null-slug supply writes all historical profiles and selections must retain retail shape. No replica/old Worker may serve new null-slug data. Schema165 additionally requires opensource.sharing-visibility.v1; pre165 readers can expose withdrawn content and are forbidden. Both environments retain schema166 and github.freetwai-repository-transfer.v1; pre166 Worker rollback is forbidden. Production additionally retains the separately recorded ten operator coordinate constraints; this does not establish all-writer quiescence.",
+      "rule": "Forward repair retaining private-content, disbanded-squad, comment-image, retracted-message and outcome-source ACL readers; no blanket downgrade to R15 after new writes. Once message-image persistence is activated, retain media.message-image.asset.v1; stop new uploads with persistence_allowed=false while preserving authorized existing reads. Preserve enrolled TOTP enforcement and its environment-specific encryption key; R15 password-only login is not a compatible rollback after enrollment. After shared-reservation writes retain commerce.hosted-shared-reservation.v1 and schema 161 even with admission OFF; preserve restore quarantine and current-authority reconciliation. Schema162 requires commerce.hosted-inventory-reservation.v1 and its retained full ledger even with new admission OFF. Use the new compatible writer or forward repair; no pre162 Worker-only rollback. T-047 remains unresolved. Schema164 additionally requires commerce.hosted-supply-catalog.v1. Preserve both floors; no pre164 Worker-only rollback. Before null-slug supply writes all historical profiles and selections must retain retail shape. No replica/old Worker may serve new null-slug data. Schema165 additionally requires opensource.sharing-visibility.v1; pre165 readers can expose withdrawn content and are forbidden. Both environments retain schema166 and github.freetwai-repository-transfer.v1; pre166 Worker rollback is forbidden. Production additionally retains the separately recorded ten operator coordinate constraints; this does not establish all-writer quiescence. Schema167/170/171 floors also remain retained with admission OFF; pre171 Worker rollback is forbidden. Preserve AR target, hosted checkout/payment and supply-material capability readers.",
       "live_rollback_drill": "not_run",
       "gc_and_retention": "OFF; historical assets retained",
       "restored_environment_exposure": "Quarantine and reconcile current authorization; worker rollback does not restore the database or object storage.",
       "pre162_worker_rollback_valid": false,
-      "post_migration_recovery": "Retain sharing visibility schema165, supply schema164 and inventory schema162 floors even with admission OFF; compatible forward repair only. Restores stay quarantined pending current-authority reconciliation. Actual deployment guard rejects the prior72236 Worker; isolated restored floor also rejects it. Staging has the166 coordinate floor without an operator coordinate extension; production166 and its separately recorded coordinate fence are committed and verified. No restore may be opened before current-authority reconciliation.",
+      "post_migration_recovery": "Use compatible forward repair retaining the complete171 ledger, prior166/167/170 receipts and production coordinate constraints. Restores remain quarantined pending current-authority reconciliation; T-047 is not closed.",
       "required_capabilities": [
-        "commerce.hosted-supply-catalog.v1",
+        "commerce.hosted-checkout.v1",
         "commerce.hosted-inventory-reservation.v1",
+        "commerce.hosted-payment.v1",
+        "commerce.hosted-shared-reservation.v1",
+        "commerce.hosted-supply-catalog.v1",
+        "github.freetwai-repository-transfer.v1",
+        "media.supply-material.asset.v1",
         "opensource.sharing-visibility.v1"
       ],
       "pre164_worker_rollback_valid": false,
@@ -2552,20 +2545,39 @@
           "commerce.hosted-supply-catalog.v1",
           "commerce.hosted-inventory-reservation.v1",
           "commerce.hosted-shared-reservation.v1",
-          "github.freetwai-repository-transfer.v1"
+          "github.freetwai-repository-transfer.v1",
+          "commerce.hosted-checkout.v1",
+          "commerce.hosted-payment.v1",
+          "media.supply-material.asset.v1"
         ],
         "production": [
           "opensource.sharing-visibility.v1",
           "commerce.hosted-supply-catalog.v1",
           "commerce.hosted-inventory-reservation.v1",
           "commerce.hosted-shared-reservation.v1",
-          "github.freetwai-repository-transfer.v1"
+          "github.freetwai-repository-transfer.v1",
+          "commerce.hosted-checkout.v1",
+          "commerce.hosted-payment.v1",
+          "media.supply-material.asset.v1"
         ]
       },
       "pre166_worker_rollback_valid": {
         "staging": false,
         "production": false
-      }
+      },
+      "pre167_worker_rollback_valid": {
+        "staging": false,
+        "production": false
+      },
+      "pre170_worker_rollback_valid": {
+        "staging": false,
+        "production": false
+      },
+      "pre171_worker_rollback_valid": {
+        "staging": false,
+        "production": false
+      },
+      "required_capabilities_basis": "Union of prior published compatibility requirements and capabilities declared by the new floor; retained166/167/170 receipts and their readers remain required."
     },
     "previous_dated_operator_scheduled_observation": {
       "observed_at": "2026-10-11T05:34:10.167209+00:00",
@@ -3104,5 +3116,406 @@
         "disclosure": "AI source review; not independent human usability or contributor acceptance."
       }
     }
-  }
+  },
+  "dated_prior_snapshots": [
+    {
+      "recorded_at": "2026-10-15T08:18:23.201214+00:00",
+      "merged_source": {
+        "repository": "FreeTWAI/freedom-platform",
+        "sha": "1e584aa8734addfe251c7f081cf51cc84a52567f",
+        "tree": "8f2bda1846d983f0bc3671578ba6fc16b24364f5",
+        "observed_at": "2026-10-15T06:47:14Z",
+        "runtime_release_source": "938516ee632287569389a37a7044ac779c18802e",
+        "release_source_verify": {
+          "conclusion": "success",
+          "source": "938516ee632287569389a37a7044ac779c18802e",
+          "run": 38604734559,
+          "natural_main_codeql_run": 38604729887,
+          "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+        },
+        "limitation": "Main1e584aa8 includes #658, #659 and #680, separately from deployed938/schema166. Both complete after-restores and repaired operator installation passed; the new operator natural schedule, real OAuth/webhook, T-047 and human/second-operator acceptance remain unverified. AR167 and later source are not deployed."
+      },
+      "environments": {
+        "staging": {
+          "url": "https://staging.freetwai.com/",
+          "observed_release_sha": "938516ee632287569389a37a7044ac779c18802e",
+          "observed_at": "2026-10-14T19:10:57.380360+00:00",
+          "health": {
+            "http": 200,
+            "status": "ok",
+            "mode": "staging",
+            "runtime": "cloudflare-workers",
+            "release_sha": "938516ee632287569389a37a7044ac779c18802e",
+            "cache_control_no_store": true
+          },
+          "worker_version": "368a5d67-c1c1-4602-bb45-98f05801bc10",
+          "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+          "limitation": "Scoped synthetic acceptance and earlier release restores remain passed. Fresh8abd2a28 passed complete backup/restore, schema166 floor, capture-window checks and cleanup; repaired operator installed07:04 UTC. Original capture/browser failures, including scheduledfc39f036, remain preserved. No new natural operator run, human, real OAuth or full cloud-race acceptance is claimed.",
+          "last_operator_release_sha": "938516ee632287569389a37a7044ac779c18802e",
+          "status": "deployed_scoped_acceptance_restore_and_operator_passed",
+          "later_scheduled_backup": {
+            "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
+            "status": "failed_owned_resources_reconciled",
+            "observed_at": "2026-10-15T05:04:48.356Z",
+            "repair_status": "full_manual_repair_passed_operator_installed_natural_schedule_unobserved",
+            "previous_release_after_restore_preserved": true
+          },
+          "backup_repair_completed_at": "2026-10-15T07:02:30.842489+00:00"
+        },
+        "production": {
+          "url": "https://freetwai.com/",
+          "observed_release_sha": "938516ee632287569389a37a7044ac779c18802e",
+          "observed_at": "2026-10-15T03:31:43.661560+00:00",
+          "health": {
+            "http": 200,
+            "status": "ok",
+            "mode": "public",
+            "runtime": "cloudflare-workers",
+            "release_sha": "938516ee632287569389a37a7044ac779c18802e",
+            "cache_control_no_store": true
+          },
+          "worker_version": "24c6c843-c7db-437d-a2b9-c0bcd93900c0",
+          "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+          "limitation": "Scoped public acceptance and the04:53 UTC natural-sync acceptance passed. Fresh20c800a8 passed full database/object restore, ten restored coordinate constraints, capture-window checks and cleanup; repaired operator installed07:04 UTC. Original failed after-sets remain failed. No new natural operator run, production member login/browser/OAuth or real webhook acceptance is claimed; the original cron provider cause remains unconfirmed.",
+          "health_observation": "Exact938 public HTTP health observed after compatible deployment and normal route/cron restoration.",
+          "status": "deployed_scoped_acceptance_natural_sync_restore_and_operator_passed",
+          "schema_transition_observed_at": "2026-10-15T03:28:44.247Z",
+          "last_operator_release_sha": "938516ee632287569389a37a7044ac779c18802e",
+          "natural_background_sync_status": "passed_natural_provider_event_and_database_sync",
+          "cron_diagnosis_observed_at": "2026-10-15T04:27:51.343197+00:00",
+          "same_schedule_repair_observed_at": "2026-10-15T04:33:01.506Z",
+          "natural_background_sync_observed_at": "2026-10-15T04:53:06.090Z",
+          "backup_repair_completed_at": "2026-10-15T06:46:10.722374+00:00"
+        }
+      },
+      "last_operator_rollout": {
+        "source": "938516ee632287569389a37a7044ac779c18802e",
+        "at": "2026-10-15T08:18:23.201214+00:00",
+        "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
+        "scope": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938.",
+        "status": "scoped_rollout_and_after_recovery_passed_scheduled_observation_pending",
+        "receipt": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+        "receipt_sha256": "91de5a2e52a634a3da870bf01913c91fe3765faf52ce1d42242db4753380c391",
+        "database_migrations_applied": {
+          "staging": [],
+          "production": [
+            "166_freetwai_repository_transfer.sql"
+          ]
+        },
+        "worker_versions": {
+          "staging": "368a5d67-c1c1-4602-bb45-98f05801bc10",
+          "production": "24c6c843-c7db-437d-a2b9-c0bcd93900c0"
+        },
+        "limitation": "Full manual after-backup/restore passed for both environments and the repaired operator is installed. This does not establish a successful natural scheduled run of the new operator, real GitHub OAuth/member/webhook acceptance, current-authority reconciliation after restore (T-047), human usability or second-operator recovery. All original failed backup receipts remain unchanged.",
+        "evidence_cutoff_at": "2026-10-15T07:04:34.799429+00:00"
+      },
+      "schema": {
+        "last_observed_live": {
+          "ledger_rows": 112,
+          "through_number": 113,
+          "source_digest_drift": 0,
+          "source": "80acbd471fd28e5bb59898de79a1ace179511ef3",
+          "evidence": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
+          "kind": "historical_operator_observed"
+        },
+        "staging_observed": {
+          "environment": "staging",
+          "ledger_rows": 165,
+          "through_number": 166,
+          "applied": [],
+          "pending": [],
+          "source": "938516ee632287569389a37a7044ac779c18802e",
+          "at": "2026-10-14T18:58:03.074Z",
+          "kind": "operator_observed_private_receipt",
+          "role": "staging migrator",
+          "source_digest_drift": 0,
+          "post_checks": "Existing166 ledger verified; no migration was applied by this deployment. Bound retained floor requires FreeTWAI repository coordinates; no operator coordinate extension installed on staging.",
+          "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+        },
+        "production_observed": {
+          "environment": "production",
+          "ledger_rows": 165,
+          "through_number": 166,
+          "applied": [
+            "166_freetwai_repository_transfer.sql"
+          ],
+          "pending": [],
+          "source": "938516ee632287569389a37a7044ac779c18802e",
+          "at": "2026-10-15T03:28:44.247Z",
+          "kind": "operator_observed_private_receipt",
+          "role": "production migrator",
+          "source_digest_drift": 0,
+          "post_checks": "Canonical166 committed once. Post-commit assertion failure retained; explicit read-only reconciliation verifies264/266 unchanged tables, excepting two telemetry tables, policies9, RLS33 and read-only privileges. Ten separately recorded operator coordinate constraints and retained166 floor verified; pre166 Worker rejected.",
+          "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+        },
+        "production_last_reported": "Confirmed166 with165 ledger names/digests; historical gap022 unchanged. Canonical migration applied once; separate operator coordinate extension and explicit post-COMMIT telemetry reconciliation recorded.",
+        "fresh_live_ledger_read": {
+          "staging": {
+            "at": "2026-10-14T18:58:03.074Z",
+            "rows": 165,
+            "last_applied": "166_freetwai_repository_transfer.sql",
+            "source_digest_drift": 0,
+            "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+          },
+          "production": {
+            "at": "2026-10-15T03:28:44.247Z",
+            "rows": 165,
+            "last_applied": "166_freetwai_repository_transfer.sql",
+            "source_digest_drift": 0,
+            "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json"
+          }
+        },
+        "limitation": "Ledger evidence is the authenticated operator query, separate from HTTP health. Re-read before future schema/recovery operations.",
+        "row_security_observed": {
+          "staging": {
+            "tables": 33,
+            "policies": 46,
+            "forced": 0,
+            "security_definers_referencing_rls": 0,
+            "runtime_bypass": false,
+            "backup_bypass": true
+          },
+          "production": {
+            "tables": 33,
+            "policies": 46,
+            "forced": 0,
+            "security_definers_referencing_rls": 0,
+            "runtime_bypass": false,
+            "backup_bypass": true
+          }
+        },
+        "declared_historical_number_gaps": [
+          22
+        ],
+        "gap_evidence": "deploy/cloudflare/environments.json#/database_defaults/migrations/known_gaps"
+      },
+      "release_flags": {
+        "source": "dcb393515dd03413862628806f17e500d0f7bc32",
+        "observed_at": "2026-10-13T02:25:02.024658+00:00",
+        "off": [
+          "FREEDOM_COMMUNITY_DISCOVERY_ENABLED",
+          "FREEDOM_UNIFIED_SHARING_ENABLED"
+        ],
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r24-2026-10-12.json",
+        "on_added": [
+          "FREEDOM_HOSTED_STORE_PHOTOS_ENABLED",
+          "FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED"
+        ],
+        "r16_enabled": {
+          "staging": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true"
+          },
+          "production": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true"
+          }
+        },
+        "remaining_default_off": [
+          "first-participation",
+          "participation-metrics",
+          "member-reporting",
+          "skill-book-star-gate",
+          "event-participation",
+          "squad-outcomes",
+          "event-outcomes"
+        ],
+        "on_added_scope": "Historical photo activation; the four R16 additions are listed separately under r16_enabled.",
+        "r17_reservation_admission": {
+          "staging": "true",
+          "production": "true",
+          "existing_shops_automatically_enabled": 0,
+          "owner_opt_in_required": true
+        },
+        "existing_flags_preserved_except_explicit_r16_and_r17_enablement": true,
+        "r18_reservation_admission_restored": {
+          "staging": "true",
+          "production": "true",
+          "existing_shops_automatically_enabled": 0,
+          "owner_opt_in_required": true
+        },
+        "existing_flags_preserved_after_r18_handover": true,
+        "existing_flags_preserved_after_r19": true,
+        "r21_enabled": {
+          "staging": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          },
+          "production": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          }
+        },
+        "r22_unchanged": {
+          "staging": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          },
+          "production": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          }
+        },
+        "r23_unchanged": {
+          "staging": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          },
+          "production": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          }
+        },
+        "r24_unchanged": {
+          "staging": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          },
+          "production": {
+            "FREEDOM_COMMUNITY_SEARCH_ENABLED": "true",
+            "FREEDOM_MEMBER_BLOCKING_ENABLED": "true",
+            "FREEDOM_MESSAGE_IMAGE_ENABLED": "true",
+            "FREEDOM_NOTIFICATION_PREFERENCES_ENABLED": "true",
+            "FREEDOM_HOSTED_RESERVATIONS_ENABLED": "true",
+            "FREEDOM_PERSONAL_CONTENT_ENABLED": "true"
+          }
+        }
+      },
+      "recovery_operator": {
+        "daily_operator_source": {
+          "staging": "938516ee632287569389a37a7044ac779c18802e",
+          "production": "938516ee632287569389a37a7044ac779c18802e"
+        },
+        "last_rollout_backup_release_pins": {
+          "staging": "938516ee632287569389a37a7044ac779c18802e",
+          "production": "938516ee632287569389a37a7044ac779c18802e",
+          "wrapper_sha256": "868886717771c6f9e99640d3231382ede73fd2c2aca42a50ffb9cdc7db006316",
+          "staging_wrapper_sha256": "59c060fde4ab99764335c5a82de77a66c6951c7eece814cb816f033fd3a641bb",
+          "production_wrapper_sha256": "9d346b1a53af5a40922ac4b5b159e8fccc210f26ba6f8ff666b47e85f5e0d6f0",
+          "at": "2026-10-15T07:04:34.799429+00:00",
+          "operator_source": {
+            "production": "938516ee632287569389a37a7044ac779c18802e",
+            "staging": "938516ee632287569389a37a7044ac779c18802e"
+          },
+          "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+          "selected_release_dispatcher_installed": true,
+          "selected_release_dispatcher_installed_by_environment": {
+            "staging": true,
+            "production": true
+          },
+          "adapter_sha256_by_environment": {
+            "production": "8db173dcb197f4d27478eb87f25a469377fc519c46cdb362b977247bd902d16f",
+            "staging": "9e437dd6e828508e12a60114cffc0dab9dc03bc1c4d33daf0b57f3ebe7de7a5a"
+          },
+          "production_status": "installed_after_full_restore_natural_schedule_unobserved",
+          "production_after_backup_passed": true,
+          "staging_after_backup_passed": true,
+          "installation_receipt_sha256": "3a931aab008a401b48f29d05808e48061436b56d486b2df3b4b0172d0785c276",
+          "scheduled_run_of_new_operator_observed": false
+        },
+        "operator_source_note": "Both environments retain release938/schema166 with scoped acceptance and the already observed natural production GitHub sync. New complete production20c800a8 and staging8abd2a28 backup sets passed remote readback, isolated database/object restore, schema166 floor, durable capture-window checks and cleanup. Production also passed the ten restored coordinate constraints against exact reviewed PostgreSQL18 definitions. The repaired daily dispatcher was installed at07:04 UTC without changing timers/services or deployed source. Original failed sets remain failed; the new operator has not yet been observed on its natural schedule. Later #658, #659/AR167 and #680 remain outside deployed938. Both restored environments retain quarantine and reject pre166 rollback. Successful restore does not close T-047. Production uses five exact reviewed PG18 deparser variants plus five unchanged definitions; original SQL/floor/live checks are preserved, without generic normalization.",
+        "current_operator_scheduled_run": {
+          "observed_at": "2026-10-15T05:04:48.356Z",
+          "trigger": "existing staging systemd timer; no manual restart",
+          "receipt": {
+            "status": "failed",
+            "setId": "fc39f036-4faa-4a0d-bc32-e9f44b651556",
+            "sourceRelease": "938516ee632287569389a37a7044ac779c18802e",
+            "operatorSource": "938516ee632287569389a37a7044ac779c18802e",
+            "adapterSha256": "58f26d9a39c0c199b13cf23bbfb499c0e785547ee74cd90619d3e2752c1774e9",
+            "cleanupVerified": false,
+            "service": {
+              "Result": "exit-code",
+              "ExecMainStartTimestamp": "2026-10-15T04:49:59Z",
+              "ExecMainExitTimestamp": "2026-10-15T04:59:24Z",
+              "ExecMainStatus": 1
+            }
+          },
+          "reconciliation": {
+            "at": "2026-10-15T05:04:48.356Z",
+            "status": "owned_resources_reconciled",
+            "resources_remaining": 0,
+            "original_cleanup_verified_unchanged": false,
+            "backup_succeeded": false
+          },
+          "evidence": "docs/platform-plan/execution/unified-foundation/rollout-security-2026-10-14.json",
+          "limitation": "This is the latest observed scheduled run of the prior dispatcher, and its capture failure remains unchanged. Fresh manual production20c800a8 and staging8abd2a28 passed; the repaired dispatcher was installed07:04 UTC. Its next natural scheduled run is not yet observed; installation is not scheduled reliability evidence."
+        },
+        "rollback": {
+          "current_schema": {
+            "staging": 166,
+            "production": 166
+          },
+          "known_gaps": [
+            22
+          ],
+          "rule": "Forward repair retaining private-content, disbanded-squad, comment-image, retracted-message and outcome-source ACL readers; no blanket downgrade to R15 after new writes. Once message-image persistence is activated, retain media.message-image.asset.v1; stop new uploads with persistence_allowed=false while preserving authorized existing reads. Preserve enrolled TOTP enforcement and its environment-specific encryption key; R15 password-only login is not a compatible rollback after enrollment. After shared-reservation writes retain commerce.hosted-shared-reservation.v1 and schema 161 even with admission OFF; preserve restore quarantine and current-authority reconciliation. Schema162 requires commerce.hosted-inventory-reservation.v1 and its retained full ledger even with new admission OFF. Use the new compatible writer or forward repair; no pre162 Worker-only rollback. T-047 remains unresolved. Schema164 additionally requires commerce.hosted-supply-catalog.v1. Preserve both floors; no pre164 Worker-only rollback. Before null-slug supply writes all historical profiles and selections must retain retail shape. No replica/old Worker may serve new null-slug data. Schema165 additionally requires opensource.sharing-visibility.v1; pre165 readers can expose withdrawn content and are forbidden. Both environments retain schema166 and github.freetwai-repository-transfer.v1; pre166 Worker rollback is forbidden. Production additionally retains the separately recorded ten operator coordinate constraints; this does not establish all-writer quiescence.",
+          "live_rollback_drill": "not_run",
+          "gc_and_retention": "OFF; historical assets retained",
+          "restored_environment_exposure": "Quarantine and reconcile current authorization; worker rollback does not restore the database or object storage.",
+          "pre162_worker_rollback_valid": false,
+          "post_migration_recovery": "Retain sharing visibility schema165, supply schema164 and inventory schema162 floors even with admission OFF; compatible forward repair only. Restores stay quarantined pending current-authority reconciliation. Actual deployment guard rejects the prior72236 Worker; isolated restored floor also rejects it. Staging has the166 coordinate floor without an operator coordinate extension; production166 and its separately recorded coordinate fence are committed and verified. No restore may be opened before current-authority reconciliation.",
+          "required_capabilities": [
+            "commerce.hosted-supply-catalog.v1",
+            "commerce.hosted-inventory-reservation.v1",
+            "opensource.sharing-visibility.v1"
+          ],
+          "pre164_worker_rollback_valid": false,
+          "pre165_worker_rollback_valid": false,
+          "required_capabilities_by_environment": {
+            "staging": [
+              "opensource.sharing-visibility.v1",
+              "commerce.hosted-supply-catalog.v1",
+              "commerce.hosted-inventory-reservation.v1",
+              "commerce.hosted-shared-reservation.v1",
+              "github.freetwai-repository-transfer.v1"
+            ],
+            "production": [
+              "opensource.sharing-visibility.v1",
+              "commerce.hosted-supply-catalog.v1",
+              "commerce.hosted-inventory-reservation.v1",
+              "commerce.hosted-shared-reservation.v1",
+              "github.freetwai-repository-transfer.v1"
+            ]
+          },
+          "pre166_worker_rollback_valid": {
+            "staging": false,
+            "production": false
+          }
+        }
+      }
+    }
+  ]
 }
