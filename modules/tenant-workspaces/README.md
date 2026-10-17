@@ -10,6 +10,21 @@ Quotas in this slice: 5 active memberships in active tenants per person, 10 work
 
 There is no seeded authority policy. Without an active `tenant_authority_policies` row, fresh verification, transfer propose/accept, and recovery open/approve/execute/accept return `policy_unconfigured`. Cancel, decline, close, and reads still work. The local e2e harness inserts a synthetic policy (600, 86400, 86400, 1).
 
+Fresh password verification rechecks its already-locked member session with
+`assertCurrentSessionClock` after the final SQL of every normal outcome:
+proof created, password rejected, failure budget exhausted, or policy missing.
+A native budget/policy/proof wait crossing session expiry returns
+`401 session_expired`; the transaction rolls back the proof, failure-counter
+changes and any newly created mapping. A live session retains the original
+201/403/429, committed wrong-password count, purpose/tenant/session binding and
+no-receipt behavior. A database failure keeps its original SQLSTATE: this fence
+runs only after successful SQL, never in a `finally` that could mask the error.
+The [high-risk regression suite](../../tests/runtime/tenant-high-risk-verification.test.ts)
+uses real PostgreSQL row/advisory barriers, actual DB expiry and live controls,
+including proof INSERT and failure UPDATE waits. The decision is pre-commit,
+not a promise that the session stays valid through commit or HTTP delivery;
+downstream fresh-verification/ownership checks remain independently required.
+
 Accept and recovery-accept receipts stay on the recipient's personal scope. Disabling the last loginable owner sets `recovery_required` and does not grant the tenant to a guild leader or admin. Re-activation restores `active` only while the reason is still `owner_account_disabled`, no recovery case is `approved` or `executed`, and that person is still an active owner. Admin actions are also written to `platform_admin_audit`; `tenant_authority_audit` uses the affected person because that table cannot store an admin. Recovery open binds that tenant and its scope after the capability check. A case-id admin route binds `freedom.platform_admin_id` only after that check, reads the case tenant, then binds that tenant and its scope; recovery execution writes the tenant journal in that context. The security path lists the person's owner memberships with only the principal bound, binds each tenant and its scope for the status change, audit, journal and outbox, and clears that tenant before the next one. Pending transfers where this person is the recipient are invalidated with only the principal bound. A transfer this person sent is invalidated with that tenant bound: while the tenant is clear, the only transfer read policy matches the recipient, so the sender row would otherwise stay pending. A transfer recipient and a proposed owner bind the tenant with `bindTenantContext` because they may not be members. `listMyTransfers` and `listMyRecoveryCases` bind only the principal. Membership facts for one transfer use aggregate types `tenant_membership` and `tenant_membership_prior` on the personal scope so the two events do not collide.
 
 `tenant_memberships.tenant_id` and `principal_id` are immutable. Ownership transfer has to change `role` on the same row or insert a new row. The deferred owner check locks every touched tenant in ascending `tenant_id` order. Private reads of one tenant go through `withTenantRead` (`packages/resource-scopes/index.ts`). The tenant list, invitation inbox, and invite-candidate reads call `assertCurrentSessionClock` after their row locks and before returning, and only when that read succeeded. A database error from the read keeps its SQLSTATE.
