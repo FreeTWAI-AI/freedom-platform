@@ -525,7 +525,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
             try{
               await (deps.commerceEmailSweep??sweepCommerceOutboundEmails)(pool,{limit:500});
             }catch{console.error('commerce_email_sweep_failed');}
-            if(commerce.providerProfiles.some(profile=>profile.startsWith('ecpay.'))&&env.COMMERCE_JOURNAL)try{
+            if(typeof env.COMMERCE_JOURNAL?.put==='function'&&typeof env.COMMERCE_JOURNAL?.get==='function')try{
               await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
             }catch{console.error('commerce_control_journal_failed');}
           }

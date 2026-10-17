@@ -15,6 +15,8 @@ export type EffectDetail = Partial<{
   to_state: string;
   credential_version: number;
   module_release_ref: string;
+  settings_version: number;
+  methods: 'none' | 'bank_transfer' | 'cash_on_meetup' | 'bank_transfer,cash_on_meetup';
 }>;
 export interface EffectRecord {
   environment: JournalEnvironment;
@@ -31,7 +33,7 @@ export interface EffectJournalPort {
   append(record: EffectRecord): Promise<void>;
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const detailKeys = ['service_key', 'account_ref', 'merchant_trade_no', 'amount_minor', 'currency', 'attempt_id', 'order_id', 'purpose', 'profile', 'from_state', 'to_state', 'credential_version', 'module_release_ref'];
+const detailKeys = ['service_key', 'account_ref', 'merchant_trade_no', 'amount_minor', 'currency', 'attempt_id', 'order_id', 'purpose', 'profile', 'from_state', 'to_state', 'credential_version', 'module_release_ref', 'settings_version', 'methods'];
 const recordKeys = ['environment', 'kind', 'id', 'occurred_at', 'tenant_id', 'instance_id', 'detail'];
 function sorted(value: Record<string, unknown>): Record<string, unknown> { return Object.fromEntries(Object.keys(value).sort().map(key => [key, value[key]])); }
 /** A deliberately small wire format. Unknown fields fail before reaching storage. */
@@ -49,8 +51,12 @@ export function encodeEffectRecord(record: EffectRecord, environment: JournalEnv
     for (const [key, value] of Object.entries(record.detail)) {
       if (!detailKeys.includes(key))
         throw Error();
-      if (key === 'amount_minor' || key === 'credential_version') {
+      if (key === 'amount_minor' || key === 'credential_version' || key === 'settings_version') {
         if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < (key === 'amount_minor' ? 0 : 1))
+          throw Error();
+      }
+      else if (key === 'methods') {
+        if (typeof value !== 'string' || !['none', 'bank_transfer', 'cash_on_meetup', 'bank_transfer,cash_on_meetup'].includes(value))
           throw Error();
       }
       else if (typeof value !== 'string' || value.length < 1 || value.length > 200 || !/^[A-Za-z0-9_.:@/-]+$/.test(value))

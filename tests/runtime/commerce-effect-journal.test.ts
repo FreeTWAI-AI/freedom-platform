@@ -103,6 +103,19 @@ test('journal UTC key and canonical JSON contain only the declared record and de
   assert.equal(encoded.body, JSON.stringify({ detail: { amount_minor: 500, currency: 'TWD', merchant_trade_no: r.detail.merchant_trade_no }, environment: 'local', id: r.id, instance_id: r.instance_id, kind: r.kind, occurred_at: r.occurred_at, tenant_id: r.tenant_id }));
   assert.deepEqual(encodeEffectRecord({ ...r, detail: { amount_minor: 500, merchant_trade_no: r.detail.merchant_trade_no, currency: 'TWD' } }, 'local'), encoded);
 });
+test('offline settings control journals retain only a positive version and canonical method names', () => {
+  const base = {...record(), kind: 'control.offline_payment_settings.changed'};
+  for (const methods of ['none', 'bank_transfer', 'cash_on_meetup', 'bank_transfer,cash_on_meetup']) {
+    const detail = {settings_version: 2, methods};
+    const encoded = encodeEffectRecord({...base, detail} as unknown as EffectRecord, 'local');
+    assert.deepEqual(JSON.parse(encoded.body).detail, detail);
+  }
+  for (const detail of [
+    {settings_version: 0}, {settings_version: '2'}, {settings_version: 1.5},
+    {methods: 'cash_on_meetup,bank_transfer'}, {methods: 'bank_transfer,bank_transfer'},
+    {methods: 'synthetic-private'}, {methods: ''}, {methods: ['bank_transfer']}, {account_number: '123456789012'},
+  ]) assert.throws(() => encodeEffectRecord({...base, detail} as unknown as EffectRecord, 'local'), {message: 'journal_unavailable'});
+});
 test('journal rejects unknown fields, non-UTC timestamps, invalid identity and environment without exposing input', () => {
   const r = record();
   for (const change of [{ secret: 'synthetic-private' }, { detail: { card4no: '9876' } }, { detail: { amount_minor: 1.5 } }, { detail: { credential_version: 0 } }, { detail: { order_id: 'invalid' } }, { kind: '../escape' }, { id: '../escape' }, { environment: 'staging' }, { occurred_at: '2026-01-03T07:59:59.001+08:00' }, { occurred_at: 'invalid' }, { instance_id: 'invalid' }])
@@ -250,6 +263,43 @@ test('the scheduled commerce block backfills retained control events into its R2
   finally {
     await x.stop();
   }
+});
+
+test('an email journal backfills offline settings with offline or disabled provider profiles', async t => {
+  const x = await checkoutHarness('fp_effect_offline_email');
+  try {
+    for (const profiles of ['offline.bank_transfer.v1,offline.cash_on_meetup.v1', '']) await t.test(profiles || 'profiles disabled', async () => {
+      await x.reset();
+      const s = await x.store(), b = bucket(), detail = {settings_version: 1, methods: 'bank_transfer,cash_on_meetup'};
+      await x.tx(q => recordControlEvent(q, {tenantId: s.tenantId, instanceId: s.instanceId,
+        kind: 'offline_payment_settings.changed', subjectId: s.instanceId, detail, actorKind: 'system', actorId: s.instanceId}));
+      const event = (await x.h.pool.query('SELECT event_id FROM commerce_control_events WHERE subject_id=$1', [s.instanceId])).rows[0];
+      const pool = {query: x.runtime.query.bind(x.runtime), connect: x.runtime.connect.bind(x.runtime), end: async () => {}} as unknown as import('pg').Pool;
+      const handler = createWorkerHandler({createPool: () => pool,
+        syncGitHub: async () => ({requests: 0, repositories: 0, items_upserted: 0, not_modified: 0, stop_reason: 'completed'}),
+        authPrune: async () => ({sessions: 0, login_attempts: 0, auth_rate_limits: 0, password_reset_tokens: 0})});
+      const env = {...workerBindings(), FREEDOM_COMMERCE_PROVIDER_PROFILES: profiles,
+        FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', COMMERCE_JOURNAL: b.binding,
+        EMAIL: {send: async () => {throw Error('no email is queued by this test');}}};
+      const runtime = workerRuntime(env, readWorkerConfig(env));
+      assert.equal(runtime.commerceCredentialKeyring, null);
+      assert.equal(runtime.commercePayments, undefined);
+      assert(runtime.commerceJournal);
+      const tick = async () => {
+        const pending: Promise<unknown>[] = [];
+        await handler.scheduled({}, env, {waitUntil: p => pending.push(p)});
+        await Promise.all(pending);
+      };
+      await tick();
+      assert((await x.h.pool.query('SELECT journaled_at FROM commerce_control_events WHERE event_id=$1', [event.event_id])).rows[0].journaled_at instanceof Date);
+      assert.equal(b.objects.size, 1);
+      const [key, bytes] = [...b.objects][0];
+      assert(key.endsWith('/control.offline_payment_settings.changed/' + event.event_id));
+      assert.deepEqual(JSON.parse(new TextDecoder().decode(bytes)).detail, detail);
+      await tick();
+      assert.equal(b.writes.length, 1, 'a later tick must not copy the same event again');
+    });
+  } finally {await x.stop();}
 });
 
 

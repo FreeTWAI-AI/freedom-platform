@@ -444,8 +444,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 43282,
-      "sha256": "02c39f40de2a69fa4c4ea85a491a3060c17ae3d9b7dbb7f7d40b64f2a24123a4"
+      "bytes": 43283,
+      "sha256": "e49d02bbc5cae562cc7cb874fa120265ca555f2eeaa93c4b6e582b927097feec"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -17689,8 +17689,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/journal/journal.ts",
-      "bytes": 6118,
-      "sha256": "8eaaae341dd3499734bc5cd013414b601ab6ea68253607ffa32c988aa44cdc98"
+      "bytes": 6500,
+      "sha256": "806668bcb6c9c9d6a31bce76e3242e85e0950b9a1d498044e62d40955f28046b"
     },
     {
       "path": "modules/agent-commerce/operations/journal/memory.ts",
@@ -23189,8 +23189,8 @@
     },
     {
       "path": "tests/runtime/commerce-effect-journal.test.ts",
-      "bytes": 24427,
-      "sha256": "4ad7b0868ab27863998d75207d63a8800f2408ce791a55c9716c594f9f5b9828"
+      "bytes": 27944,
+      "sha256": "fd0a068501c1fdb1a26b6225b192adca548d1cdd908b1bcf0c79cf9c916fbd54"
     },
     {
       "path": "tests/runtime/commerce-email-delivery.test.ts",
