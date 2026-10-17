@@ -78,7 +78,15 @@ async function composeImage(file: File) {
 const FOCUS_PAGE_LIMIT = 4;
 export function SocialZone({client, canReview = false, viewer, focusPost}: {client: PortalClient; canReview?: boolean; viewer?: {name: string; avatarUrl?: string | null}; focusPost?: {id: string; sequence: number}}) {
   const composerId = useId();
-  const composer = useRef<HTMLDialogElement>(null), composerTrigger = useRef<HTMLButtonElement>(null);
+  const composer = useRef<HTMLDialogElement>(null), composerTrigger = useRef<HTMLButtonElement>(null), composerStart = useRef<HTMLDivElement>(null);
+  // The sticky community header wraps on narrow screens, so the composer sticks below its measured height.
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>('.community-header'), start = composerStart.current;
+    if (!header || !start) return;
+    const size = () => start.style.setProperty('--social-composer-top', `${header.getBoundingClientRect().height}px`);
+    const observer = new ResizeObserver(size); observer.observe(header); size();
+    return () => observer.disconnect();
+  }, []);
   const options = useRef<HTMLDialogElement>(null), optionsTrigger = useRef<HTMLButtonElement>(null), linkComposer = useRef<HTMLDialogElement>(null);
   const [optionsOpen, setOptionsOpen] = useState(false), [linkOpen, setLinkOpen] = useState(false);
   const linkVersion = useRef(0);
@@ -332,9 +340,9 @@ export function SocialZone({client, canReview = false, viewer, focusPost}: {clie
     finally { setSaving(false); }
   }
   return <section className="social-zone stack" aria-label="社群媒體分享專區" data-feed={platform || 'all'} aria-busy={loading||more}>
-    <div className="card social-composer-start" data-guide-anchor="social:composer">
+    <div ref={composerStart} className="card social-composer-start" data-guide-anchor="social:composer">
       <div className="social-composer-prompt"><MemberAvatar nickname={viewer?.name ?? '我'} avatarUrl={viewer?.avatarUrl}/>
-        <button ref={composerTrigger} type="button" className="social-write-trigger" aria-label="建立貼文" aria-haspopup="dialog" onClick={openComposer}><span>{pending.current ? '繼續確認剛才的貼文…' : text ? '繼續編輯你的貼文…' : '想分享什麼？'}</span><strong>＋發文</strong></button><button type="button" className="social-icon-button social-compose-camera" aria-label="新增照片貼文" title="新增照片貼文" onClick={()=>{openComposer();requestAnimationFrame(()=>composeInput.current?.click());}}><SocialIcon name="camera"/></button>
+        <button ref={composerTrigger} type="button" className="social-write-trigger" aria-label="建立貼文" aria-haspopup="dialog" onClick={openComposer}><span>{pending.current ? '繼續確認剛才的貼文…' : text ? '繼續編輯你的貼文…' : '想分享什麼？'}</span></button>
       </div>
     </div>
     <dialog ref={composer} className="social-publish-dialog" aria-labelledby={composerId} onCancel={event => {if(event.target!==event.currentTarget)return;event.preventDefault(); closeComposer();}} onClose={() => setComposerOpen(false)}>

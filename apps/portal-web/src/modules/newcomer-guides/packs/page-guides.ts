@@ -227,7 +227,7 @@ export const PAGE_GUIDES: Record<string, Record<string, GuideDefinition>> = {
       "steps": [
         {
           "selector": "[data-guide-anchor=\"social:composer\"]",
-          "instruction": "按「＋發文」就能寫貼文，完成後再自行發布。"
+          "instruction": "按「想分享什麼？」就能寫貼文，完成後再自行發布。"
         }
       ]
     },

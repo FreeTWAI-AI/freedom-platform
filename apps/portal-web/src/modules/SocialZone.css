@@ -38,7 +38,7 @@
 @media(max-width:700px){.social-grid{grid-template-columns:1fr}}
 .social-zone{max-width:48rem;margin-inline:auto;width:100%}
 .social-native-composer{padding:0}
-.social-composer-start{padding:1rem}
+.social-composer-start{padding:1rem;position:sticky;top:calc(var(--connection-status-height,0px) + var(--social-composer-top,0px));z-index:20}
 .social-composer-prompt{display:flex;align-items:center;gap:.75rem;min-width:0}
 .social-composer-prompt .member-avatar,.social-publish-identity .member-avatar{width:40px;height:40px;min-width:40px;box-shadow:none}
 .social-write-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:1;min-width:0;min-height:48px;text-align:left;border:0;border-radius:24px;background:var(--bg);color:var(--muted);padding:4px 4px 4px 1rem;font:inherit;cursor:pointer;overflow-wrap:anywhere}
