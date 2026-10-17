@@ -2,15 +2,12 @@ import {randomUUID} from 'node:crypto';
 import type {PoolClient} from 'pg';
 import {requireCondition} from '../../../packages/shared/problem.js';
 import {lockMachineOrder,lockStore,type CheckoutStore} from './authority.js';
-import {lockCheckoutOrders} from './orders.js';
+import {lockCheckoutOrders,type CheckoutOrderRow} from './orders.js';
 import {checkoutInventory} from './inventory.js';
 import {hasConfirmedPayment} from './confirmed-payment.js';
 export type PaymentOutcome='converted'|'allocated'|'unallocatable'|'after_cancel'|'overpaid'|'amount_mismatch'|'simulated';
 export interface PaymentApplication {application_id:string;order_id:string;payment_ref:string;amount_minor:string;currency:string;outcome:PaymentOutcome}
-export async function applyConfirmedPayment(q:PoolClient,input:{orderId:string;paymentRef:string;amountMinor:number;currency:string;simulated:boolean}):Promise<PaymentApplication> {
-  requireCondition(Number.isSafeInteger(input.amountMinor)&&input.amountMinor>=0 && /^[A-Z]{3}$/.test(input.currency),422,'invalid_payment_fact','付款事實無效。');
-  await lockMachineOrder(q,input.orderId);
-  const [order]=await lockCheckoutOrders(q,[input.orderId],undefined,input.paymentRef);
+async function applyHeldPayment(q:PoolClient,input:{orderId:string;paymentRef:string;amountMinor:number;currency:string;simulated:boolean},order:CheckoutOrderRow):Promise<PaymentApplication> {
   const prior=(await q.query<PaymentApplication>('SELECT * FROM commerce_checkout_payment_applications WHERE payment_ref=$1',[input.paymentRef])).rows[0];
   if(prior){requireCondition(prior.order_id===input.orderId,409,'payment_ref_conflict','付款事實已用於其他訂單。');return prior;}
   const inv=await checkoutInventory(q,input.orderId);
@@ -35,6 +32,17 @@ export async function applyConfirmedPayment(q:PoolClient,input:{orderId:string;p
     VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[randomUUID(),input.orderId,input.paymentRef,input.amountMinor,input.currency,outcome])).rows[0];
   if(outcome==='converted'||outcome==='allocated')for(const l of inv.lines)await inv.port[outcome==='converted'?'convert':'allocate'](l.item_id,app.application_id);
   return app;
+}
+export async function applyConfirmedPayment(q:PoolClient,input:{orderId:string;paymentRef:string;amountMinor:number;currency:string;simulated:boolean}):Promise<PaymentApplication> {
+  requireCondition(Number.isSafeInteger(input.amountMinor)&&input.amountMinor>=0 && /^[A-Z]{3}$/.test(input.currency),422,'invalid_payment_fact','付款事實無效。');
+  await lockMachineOrder(q,input.orderId);
+  const [order]=await lockCheckoutOrders(q,[input.orderId],undefined,input.paymentRef);
+  return applyHeldPayment(q,input,order);
+}
+/** Seller commands already hold the store and checkout locks, including the payment-reference advisory. */
+export async function applyConfirmedPaymentHeld(q:PoolClient,input:{orderId:string;paymentRef:string;amountMinor:number;currency:string;simulated:boolean},order:CheckoutOrderRow):Promise<PaymentApplication> {
+  requireCondition(Number.isSafeInteger(input.amountMinor)&&input.amountMinor>=0 && /^[A-Z]{3}$/.test(input.currency),422,'invalid_payment_fact','付款事實無效。');
+  return applyHeldPayment(q,input,order);
 }
 export async function retryAllocation(q:PoolClient,store:CheckoutStore,orderId:string) {
   await lockStore(q,store,[],[orderId],false);const [order]=await lockCheckoutOrders(q,[orderId],store);

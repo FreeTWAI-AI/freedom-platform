@@ -4,12 +4,12 @@ import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {CartQuoteResponseSchema,type CartQuoteInput} from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import {sharedLines} from '../hosted/shared-quotes.js';
 import {readCheckoutStore,type CheckoutStore} from './authority.js';
-import {validateShippingQuote,type CheckoutPorts,type ShippingQuoteLine} from './terms.js';
+import {validateShippingQuote,type CheckoutPorts,type ShippingQuoteLine,type PaymentMethod} from './terms.js';
 const cartPortResult=z.object({delivery_options:CartQuoteResponseSchema.shape.delivery_options,shipping:CartQuoteResponseSchema.shape.shipping}).strict();
 
 /** Called only in a READ ONLY transaction. In particular, due holds are ignored
  * in availability without settling them or touching the materialized balance. */
-export async function cartQuote(q:PoolClient,store:CheckoutStore,input:CartQuoteInput,ports:CheckoutPorts) {
+export async function cartQuote(q:PoolClient,store:CheckoutStore,input:CartQuoteInput,ports:CheckoutPorts,isMember=false) {
   const context=await readCheckoutStore(q,store,input.lines.map(l=>l.sku)),p=context.profile;
   const publication=p.projection as {revision:string;products:{sku:string;title:string;price_minor:number}[]};
   const quoteLines:ShippingQuoteLine[]=[];
@@ -50,6 +50,22 @@ export async function cartQuote(q:PoolClient,store:CheckoutStore,input:CartQuote
     }
   }
   const merchandise=lines.reduce((n,l)=>n+(['ok','revision_changed'].includes(l.state)?l.line_total_minor??0:0),0);
+  const shippingMethodRefs=shipping.state==='quoted'?[shipping.method]:null;
+  const total_minor=shipping.total_minor===null||lines.some(l=>l.state==='insufficient'||l.state==='unavailable')?null:merchandise+shipping.total_minor;
+  const amountsMinor=lines.flatMap(l=>[l.unit_price_minor,l.line_total_minor].filter((amount):amount is number=>amount!==null));
+  if(shipping.state==='quoted'&&shipping.total_minor!==null)amountsMinor.push(...shipping.groups.map(g=>g.amount_minor),shipping.total_minor);
+  const knownTotal=total_minor??(shipping.state==='quoted'&&shipping.total_minor!==null?merchandise+shipping.total_minor:merchandise);
+  if(total_minor!==null)amountsMinor.push(total_minor);
+  let payment_options:{method:PaymentMethod;available:boolean;reason:null|'payment_profile_unavailable'|'meetup_required'|'member_required'}[];
+  if(ports.paymentMethods){
+    payment_options=(await ports.paymentMethods.resolve(q,p,{currency:p.currency,totalMinor:knownTotal,amountsMinor,shippingMethodRefs})).options.map(option=>({...option}));
+    if(!isMember&&ports.paymentMethods.offlinePaymentRequiresMember!==false)payment_options=payment_options.map(option=>option.method!=='immediate_card'&&option.available?{...option,available:false,reason:'member_required'}:option);
+  }else{
+    let available=true;
+    try{ports.payment?.assertTermsAvailable({currency:p.currency,totalMinor:knownTotal,amountsMinor});}
+    catch(error){if(!(error instanceof Problem)||error.code!=='payment_profile_unavailable')throw error;available=false;}
+    payment_options=[{method:'immediate_card',available,reason:available?null:'payment_profile_unavailable'}];
+  }
   return CartQuoteResponseSchema.parse({publication_revision:publication.revision,currency:p.currency,lines,merchandise_total_minor:merchandise,discounts:[],delivery_options,shipping,
-    total_minor:shipping.total_minor===null||lines.some(l=>l.state==='insufficient'||l.state==='unavailable')?null:merchandise+shipping.total_minor});
+    total_minor,payment_options});
 }

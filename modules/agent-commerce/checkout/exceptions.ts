@@ -16,7 +16,7 @@ export interface OpenExceptionInput {
   instanceId: string;
   orderId?: string | null;
   kind: PaymentExceptionKind;
-  subjectKind: 'payment_attempt' | 'payment_event';
+  subjectKind: 'payment_attempt' | 'payment_event' | 'offline_payment';
   subjectId: string;
   openedBy?: {
     kind: 'person';

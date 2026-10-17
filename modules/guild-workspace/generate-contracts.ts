@@ -1,6 +1,7 @@
 import * as shipping from '../../contracts/guild-launchpad/v1/hosted-shipping.js';
 import * as commerceSetup from '../../contracts/guild-launchpad/v1/hosted-commerce-setup.js';
 import * as sellerCheckout from '../../contracts/guild-launchpad/v1/hosted-seller-checkout.js';
+import * as offlinePayment from '../../contracts/guild-launchpad/v1/hosted-offline-payment.js';
 import * as checkout from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import * as supplyCatalog from '../../contracts/guild-launchpad/v1/hosted-supply-catalog.js';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -249,7 +250,19 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
     ['retry-allocation-input', sellerCheckout.RetryAllocationInputSchema, 'input', ['stock_and_case_version']],
     ['manual-refund-input', sellerCheckout.ManualRefundInputSchema, 'input', ['calendar_date_within_payment_and_today_taipei','settlement_unit_and_cap','negative_zero_forbidden']],
     ['refund-list', sellerCheckout.SellerRefundListSchema, 'output', []],
+    ['order-query', sellerCheckout.SellerCheckoutOrderQuerySchema, 'input', ['filter_bound_signed_cursor']],
+    ['offline-payment-confirm-input', sellerCheckout.OfflinePaymentConfirmInputSchema, 'input', ['amount_equals_order_total','taipei_calendar_date']],
+    ['meetup-completion-input', sellerCheckout.MeetupCompletionInputSchema, 'input', ['amount_equals_order_total','taipei_calendar_date']],
+    ['meetup-handover-input', sellerCheckout.MeetupHandoverInputSchema, 'input', ['taipei_calendar_date']],
     ['error-code', sellerCheckout.SellerCheckoutErrorCodeSchema, 'output', []],
+  ]],
+  ['hosted-offline-payment', 'Offline payment settings. The fresh-auth id is request metadata and is not stored or projected. Shapes grant no payment authority.', [
+    ['settings-input', offlinePayment.OfflinePaymentSettingsInputSchema, 'input', ['fresh_auth_request_metadata','field_rules_are_not_structural']],
+    ['settings-view', offlinePayment.OfflinePaymentSettingsViewSchema, 'output', ['version_saved_at_settings_together','account_number_null_exactly_for_last4']],
+    ['field-error-code', offlinePayment.OfflineSettingsFieldErrorCodeSchema, 'output', []],
+    ['field-error', offlinePayment.OfflineSettingsFieldErrorSchema, 'output', []],
+    ['error-code', offlinePayment.OfflineSettingsErrorCodeSchema, 'output', []],
+    ['error', offlinePayment.OfflineSettingsErrorSchema, 'output', []],
   ]],
   ['hosted-commerce-setup', 'Commerce release, account setup and controlled payment service verification. Shape validation grants no authority.', [
     ['empty-input', commerceSetup.CommerceSetupEmptyInputSchema, 'input', []],

@@ -20,9 +20,9 @@ export const COMMERCE_LIMITS={
   handoffPageNetwork:{limit:60,seconds:600},
   newOrderNetwork:{limit:3,seconds:1800},
   accessRequestNetwork:{limit:10,seconds:3600},accessRequestEmail:{limit:3,seconds:3600},accessRequestGlobal:{limit:300,seconds:3600},
-  redemptionNetwork:{limit:30,seconds:600},openOrdersDevice:3,openOrdersEmail:3,
+  redemptionNetwork:{limit:30,seconds:600},openOrdersDevice:3,openOrdersEmail:3,openOfflineOrdersMember:3,openOfflineOrdersStore:50,
 } as const;
-export type CommerceBucket=Exclude<keyof typeof COMMERCE_LIMITS,'openOrdersDevice'|'openOrdersEmail'>;
+export type CommerceBucket=Exclude<keyof typeof COMMERCE_LIMITS,'openOrdersDevice'|'openOrdersEmail'|'openOfflineOrdersMember'|'openOfflineOrdersStore'>;
 export async function commerceRateLimitInTransaction(q:PoolClient,name:CommerceBucket,key:string) {
   const rule=COMMERCE_LIMITS[name],bucket=`commerce:${name}:${hashKey(key)}`;
   // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
@@ -52,10 +52,12 @@ export async function chargeCommerceBudgets(pool:Pool,network:string,charges:{ne
   });
 }
 /** Store-local device/email locks precede lifecycle locks. */
-export async function lockOpenOrderBudgets(q:PoolClient,deviceId:string,email:string,instanceId:string) {
-  for(const key of [`device/${deviceId}`,`email/${hashKey(email)}`].sort())await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce:open:${instanceId}:${key}`]);
+export async function lockOpenOrderBudgets(q:PoolClient,deviceId:string,email:string,instanceId:string,offline?:{principalId:string|null}) {
+  const keys=[`device/${deviceId}`,`email/${hashKey(email)}`];
+  if(offline){keys.push(`offline/${instanceId}`);if(offline.principalId)keys.push(`member/${offline.principalId}`);}
+  for(const key of keys.sort())await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce:open:${instanceId}:${key}`]);
 }
-export async function enforceOpenOrderLimits(q:PoolClient,deviceId:string,email:string,store:{tenantId:string;instanceId:string},placedOrderId:string) {
+export async function enforceOpenOrderLimits(q:PoolClient,deviceId:string,email:string,store:{tenantId:string;instanceId:string},placedOrderId:string,offline?:{principalId:string|null}) {
   await bindStore(q,store.tenantId);
   const row=(await q.query<{devices:number;emails:number;retry_after:number}>(`WITH decision AS MATERIALIZED (SELECT clock_timestamp() AS t), counted AS MATERIALIZED (
     SELECT o.order_id,o.expires_at,
@@ -70,6 +72,16 @@ export async function enforceOpenOrderLimits(q:PoolClient,deviceId:string,email:
     greatest(1,ceil(extract(epoch FROM min(expires_at) FILTER(WHERE order_id<>$5 AND (device OR email))-(SELECT t FROM decision))))::int AS retry_after
     FROM counted`,[deviceId,email,store.tenantId,store.instanceId,placedOrderId])).rows[0];
   if(row.devices>COMMERCE_LIMITS.openOrdersDevice||row.emails>COMMERCE_LIMITS.openOrdersEmail)throw new Problem(429,'too_many_open_orders','尚有未完成的訂單。',row.retry_after);
+  if(!offline)return;
+  const offlineRow=(await q.query<{members:number;stores:number;retry_after:number}>(`WITH decision AS MATERIALIZED (SELECT clock_timestamp() AS t), counted AS MATERIALIZED (
+    SELECT o.order_id,o.expires_at,o.buyer_principal_id FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id) CROSS JOIN decision
+    WHERE co.tenant_id=$1 AND co.instance_id=$2 AND o.order_profile='hosted_checkout' AND co.lifecycle_state='open'
+      AND co.payment_method IN ('bank_transfer','cash_on_meetup') AND o.expires_at>decision.t AND NOT ${confirmedPaymentSQL('co.order_id')}
+  ) SELECT count(*) FILTER(WHERE buyer_principal_id=$3)::int AS members,count(*)::int AS stores,
+    greatest(1,ceil(extract(epoch FROM min(expires_at) FILTER(WHERE order_id<>$4 AND buyer_principal_id=$3)-(SELECT t FROM decision))))::int AS retry_after
+    FROM counted`,[store.tenantId,store.instanceId,offline.principalId,placedOrderId])).rows[0];
+  if(offline.principalId&&offlineRow.members>COMMERCE_LIMITS.openOfflineOrdersMember)throw new Problem(429,'too_many_open_orders','尚有未完成的訂單。',offlineRow.retry_after);
+  if(offlineRow.stores>COMMERCE_LIMITS.openOfflineOrdersStore)throw new Problem(409,'offline_order_limit','這間店目前待付款的訂單較多，請稍後再試或選擇其他付款方式。');
 }
 
 /** Redirect hints still verify over budget. Only a rate rejection becomes false;

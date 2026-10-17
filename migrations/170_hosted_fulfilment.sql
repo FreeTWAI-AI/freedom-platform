@@ -184,3 +184,169 @@ ALTER TABLE commerce_control_events DROP CONSTRAINT commerce_control_events_kind
 ALTER TABLE commerce_control_events DROP CONSTRAINT commerce_control_events_detail_check,
   ADD CONSTRAINT commerce_control_events_detail_check CHECK(jsonb_typeof(detail)='object' AND octet_length(detail::text)<=1024
     AND detail-ARRAY['purpose','profile','environment','from_state','to_state','credential_version','module_release_ref','service_key']='{}'::jsonb);
+
+-- EC-SPEC-11: bank transfer and meetup payments.
+-- Business bank data: tenant RLS. Versions are append-only and contiguous.
+CREATE TABLE commerce_offline_payment_settings (
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  version integer NOT NULL CHECK(version>=1),
+  document jsonb NOT NULL CHECK(jsonb_typeof(document)='object' AND document->>'schema'='freedom.offline-payment-settings/v1'
+    AND octet_length(document::text)<=4096),
+  document_sha256 text NOT NULL CHECK(document_sha256 ~ '^[0-9a-f]{64}$'),
+  created_by_principal_id uuid NOT NULL REFERENCES principals(principal_id),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(instance_id,version),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id)
+);
+CREATE INDEX commerce_offline_payment_settings_store ON commerce_offline_payment_settings(tenant_id,instance_id);
+CREATE INDEX commerce_offline_payment_settings_creator ON commerce_offline_payment_settings(created_by_principal_id);
+CREATE FUNCTION preserve_commerce_offline_payment_settings() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP<>'INSERT' THEN RAISE EXCEPTION 'offline payment settings are append only' USING ERRCODE='23514'; END IF;
+  -- Serializes the contiguous-version check even for direct SQL writers.
+  PERFORM 1 FROM module_instances WHERE tenant_id=NEW.tenant_id AND instance_id=NEW.instance_id FOR NO KEY UPDATE;
+  IF NEW.version<>1+coalesce((SELECT max(version) FROM commerce_offline_payment_settings WHERE instance_id=NEW.instance_id),0) THEN
+    RAISE EXCEPTION 'offline payment settings version must be contiguous' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_offline_payment_settings BEFORE INSERT OR UPDATE OR DELETE ON commerce_offline_payment_settings
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_offline_payment_settings();
+CREATE TRIGGER require_commerce_offline_settings_storefront BEFORE INSERT ON commerce_offline_payment_settings
+  FOR EACH ROW EXECUTE FUNCTION require_commerce_storefront_instance();
+ALTER TABLE commerce_offline_payment_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY commerce_offline_payment_settings_tenant ON commerce_offline_payment_settings FOR ALL TO PUBLIC
+  USING(tenant_id=freedom_ctx_tenant()) WITH CHECK(tenant_id=freedom_ctx_tenant());
+
+-- The chosen method is fixed at placement; the existing preserve trigger keeps it immutable.
+ALTER TABLE commerce_checkout_orders ADD COLUMN payment_method text NOT NULL DEFAULT 'immediate_card'
+  CHECK(payment_method IN ('immediate_card','bank_transfer','cash_on_meetup'));
+
+-- One seller-confirmed payment per order: no partial payment and no reversal in v1.
+CREATE TABLE commerce_offline_payments (
+  payment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  order_id uuid NOT NULL UNIQUE REFERENCES commerce_checkout_orders(order_id),
+  method text NOT NULL CHECK(method IN ('bank_transfer','cash_on_meetup')),
+  amount_minor bigint NOT NULL CHECK(amount_minor>0),
+  currency text NOT NULL CHECK(currency ~ '^[A-Z]{3}$'),
+  received_on date NOT NULL,
+  reference text CHECK(reference IS NULL OR char_length(reference) BETWEEN 1 AND 40),
+  confirmed_by_principal_id uuid NOT NULL REFERENCES principals(principal_id),
+  confirmed_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id)
+);
+CREATE INDEX commerce_offline_payments_confirmer ON commerce_offline_payments(confirmed_by_principal_id);
+CREATE INDEX commerce_offline_payments_store ON commerce_offline_payments(tenant_id,instance_id,confirmed_at,payment_id);
+CREATE FUNCTION preserve_commerce_offline_payment() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP<>'INSERT' THEN RAISE EXCEPTION 'offline payments are append only' USING ERRCODE='23514'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM commerce_checkout_orders co WHERE co.order_id=NEW.order_id AND co.tenant_id=NEW.tenant_id
+    AND co.instance_id=NEW.instance_id AND co.payment_method=NEW.method) THEN
+    RAISE EXCEPTION 'offline payment must match its checkout order and method' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_offline_payment BEFORE INSERT OR UPDATE OR DELETE ON commerce_offline_payments
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_offline_payment();
+ALTER TABLE commerce_offline_payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY commerce_offline_payments_tenant ON commerce_offline_payments FOR ALL TO PUBLIC
+  USING(tenant_id=freedom_ctx_tenant()) WITH CHECK(tenant_id=freedom_ctx_tenant());
+
+-- One meetup handover per order; ship movements use source_ref=handover_id.
+CREATE TABLE commerce_meetup_handovers (
+  handover_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  instance_id uuid NOT NULL,
+  order_id uuid NOT NULL UNIQUE REFERENCES commerce_checkout_orders(order_id),
+  offline_payment_id uuid UNIQUE REFERENCES commerce_offline_payments(payment_id),
+  completed_on date NOT NULL,
+  recorded_by_principal_id uuid NOT NULL REFERENCES principals(principal_id),
+  recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id)
+);
+CREATE INDEX commerce_meetup_handovers_recorder ON commerce_meetup_handovers(recorded_by_principal_id);
+CREATE FUNCTION preserve_commerce_meetup_handover() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP<>'INSERT' THEN RAISE EXCEPTION 'meetup handovers are append only' USING ERRCODE='23514'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM commerce_checkout_orders co WHERE co.order_id=NEW.order_id AND co.tenant_id=NEW.tenant_id AND co.instance_id=NEW.instance_id)
+    OR (NEW.offline_payment_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM commerce_offline_payments p
+      WHERE p.payment_id=NEW.offline_payment_id AND p.order_id=NEW.order_id)) THEN
+    RAISE EXCEPTION 'meetup handover must match its checkout order and payment' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_commerce_meetup_handover BEFORE INSERT OR UPDATE OR DELETE ON commerce_meetup_handovers
+  FOR EACH ROW EXECUTE FUNCTION preserve_commerce_meetup_handover();
+ALTER TABLE commerce_meetup_handovers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY commerce_meetup_handovers_tenant ON commerce_meetup_handovers FOR ALL TO PUBLIC
+  USING(tenant_id=freedom_ctx_tenant()) WITH CHECK(tenant_id=freedom_ctx_tenant());
+
+-- The method must be frozen in the terms and its deadline must match them exactly.
+CREATE FUNCTION check_commerce_checkout_payment_method() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE o commerce_orders; days text;
+BEGIN
+  SELECT * INTO o FROM commerce_orders WHERE order_id=NEW.order_id;
+  IF o.order_profile IS DISTINCT FROM 'hosted_checkout' THEN RETURN NULL; END IF;
+  IF jsonb_typeof(NEW.terms->'payment_methods') IS DISTINCT FROM 'array' OR NOT (NEW.terms->'payment_methods') ? NEW.payment_method THEN
+    RAISE EXCEPTION 'checkout payment method must be in the frozen terms' USING ERRCODE='23514';
+  END IF;
+  IF NEW.payment_method='immediate_card' THEN
+    IF o.expires_at<>o.created_at+interval '30 minutes' THEN
+      RAISE EXCEPTION 'card checkout orders expire after 30 minutes' USING ERRCODE='23514';
+    END IF;
+  ELSE
+    days:=NEW.terms->'offline_payment'->>(CASE NEW.payment_method WHEN 'bank_transfer' THEN 'bank_transfer_deadline_days' ELSE 'meetup_deadline_days' END);
+    IF days IS NULL OR days !~ '^[1-9][0-9]?$' OR o.expires_at<>o.created_at+make_interval(hours=>24*days::integer) THEN
+      RAISE EXCEPTION 'offline checkout order expiry must match the frozen deadline' USING ERRCODE='23514';
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+CREATE CONSTRAINT TRIGGER check_commerce_checkout_payment_method AFTER INSERT ON commerce_checkout_orders
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_commerce_checkout_payment_method();
+
+-- Checkout orders and their holds may last 30 minutes or exactly 1-14 whole days.
+-- v1 reservations stay at 30 minutes; holds follow their orders through the existing trigger.
+ALTER TABLE commerce_orders DROP CONSTRAINT commerce_order_profile_fields,
+  ADD CONSTRAINT commerce_order_profile_fields CHECK(
+    (order_profile='imported_reseller' AND quote_id IS NULL AND buyer_principal_id IS NULL AND client_order_id IS NULL
+      AND reservation_state IS NULL AND reservation_version IS NULL AND closed_at IS NULL AND close_reason IS NULL)
+    OR (order_profile IN ('hosted_direct_reservation','hosted_shared_reservation') AND quote_id IS NOT NULL AND buyer_principal_id IS NOT NULL AND client_order_id IS NOT NULL
+      AND buyer_payment='pending' AND reservation_version IS NOT NULL AND reservation_version>0
+      AND expires_at=created_at+interval '30 minutes' AND reservation_state IS NOT NULL
+      AND ((reservation_state='reserved' AND closed_at IS NULL AND close_reason IS NULL)
+        OR (reservation_state='cancelled' AND closed_at IS NOT NULL AND closed_at>=created_at AND closed_at<expires_at
+          AND close_reason IS NOT NULL AND close_reason IN ('buyer_cancelled','seller_cancelled'))
+        OR (reservation_state='expired' AND closed_at IS NOT NULL AND closed_at>=expires_at AND close_reason IS NOT NULL AND close_reason='reservation_expired')))
+    OR (order_profile='hosted_checkout' AND quote_id IS NULL AND reservation_state IS NULL
+      AND reservation_version IS NULL AND closed_at IS NULL AND close_reason IS NULL
+      AND client_order_id IS NOT NULL AND buyer_payment='pending'
+      AND (expires_at=created_at+interval '30 minutes' OR (expires_at>=created_at+interval '24 hours' AND expires_at<=created_at+interval '336 hours'
+        AND extract(epoch FROM expires_at-created_at)::numeric % 86400=0))));
+-- PostgreSQL named this unnamed two-column check commerce_inventory_reservations_check.
+ALTER TABLE commerce_inventory_reservations DROP CONSTRAINT commerce_inventory_reservations_check,
+  ADD CONSTRAINT commerce_inventory_reservations_expires_at_check CHECK(expires_at=created_at+interval '30 minutes'
+    OR (expires_at>=created_at+interval '24 hours' AND expires_at<=created_at+interval '336 hours'
+      AND extract(epoch FROM expires_at-created_at)::numeric % 86400=0));
+
+-- These exact constraint names were checked in the PostgreSQL 169/170 catalog.
+ALTER TABLE commerce_due_work DROP CONSTRAINT commerce_due_work_kind_check,
+  ADD CONSTRAINT commerce_due_work_kind_check CHECK(kind IN ('payment_query','payment_window_end','email','offline_payment_window_end'));
+ALTER TABLE commerce_exception_cases DROP CONSTRAINT commerce_exception_cases_subject_kind_check,
+  ADD CONSTRAINT commerce_exception_cases_subject_kind_check CHECK(subject_kind IN ('payment_attempt','payment_event','offline_payment'));
+ALTER TABLE commerce_control_events DROP CONSTRAINT commerce_control_events_kind_check,
+  ADD CONSTRAINT commerce_control_events_kind_check CHECK(kind IN ('storefront.upgraded','provider_account.created','provider_service.created',
+    'provider_service.state_changed','provider_credential.rotated','provider_credential.retired','provider_credential.resealed',
+    'store_admission.admitted','store_admission.revoked','logistics_service.created','logistics_service.state_changed',
+    'offline_payment_settings.changed'));
+ALTER TABLE commerce_control_events DROP CONSTRAINT commerce_control_events_detail_check,
+  ADD CONSTRAINT commerce_control_events_detail_check CHECK(jsonb_typeof(detail)='object' AND octet_length(detail::text)<=1024
+    AND detail-ARRAY['purpose','profile','environment','from_state','to_state','credential_version','module_release_ref','service_key',
+      'settings_version','methods']='{}'::jsonb);

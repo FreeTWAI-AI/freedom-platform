@@ -14,9 +14,16 @@ import {nodeRuntime} from '../../apps/platform-api/src/app.js';
 
 const ring=()=>CommerceCredentialKeyring.parse('test:'+randomBytes(32).toString('base64'))!;
 const transport=createFixtureQueryTransport(async()=>({kind:'error',code:'network'}),'local');
-test('quarantine and missing keyring skip before claiming any row',async()=>{
-  const pool={connect:()=>{throw Error('must not connect');}} as unknown as Pool;
-  for(const extra of [{quarantine:true,keyring:ring()},{keyring:null}])assert.equal((await runDueCommerceWork(pool,{transport,freedomEnv:'local',...extra})).claimed,0);
+test('quarantine skips before claiming and a missing keyring claims only offline expiry',async()=>{
+  const blocked={connect:()=>{throw Error('must not connect');}} as unknown as Pool;
+  assert.equal((await runDueCommerceWork(blocked,{transport,freedomEnv:'local',quarantine:true,keyring:ring()})).claimed,0);
+  let kinds:unknown;
+  const pool={connect:async()=>({on(){},removeListener(){},release(){},query:async(sql:string,values:unknown[])=>{
+    if(sql.startsWith('SELECT w.')){const filter=sql.match(/\bkind\s*=\s*ANY\(\$(\d+)::text\[\]\)/);kinds=values[Number(filter![1])-1];return {rows:[]};}
+    return {rows:[]};
+  }}),query:async()=>({rowCount:0})} as unknown as Pool;
+  assert.equal((await runDueCommerceWork(pool,{transport,freedomEnv:'local',keyring:null})).claimed,0);
+  assert.deepEqual(kinds,['offline_payment_window_end']);
 });
 test('claim filters exactly the handler kinds and leases only the returned rows',async()=>{
   const rows=[{due_work_id:'a',tenant_id:'b',target_id:'c',kind:'payment_query',token:'2026-10-16 00:00:00+00'},
@@ -26,7 +33,7 @@ test('claim filters exactly the handler kinds and leases only the returned rows'
     if(sql.startsWith('SELECT w.')){
       claims++;assert(sql.includes('FOR UPDATE SKIP LOCKED'));
       const filter=sql.match(/\bkind\s*=\s*ANY\(\$(\d+)::text\[\]\)/);assert(filter,'claim must exclude kinds without a handler');
-      assert.deepEqual(values[Number(filter[1])-1],['payment_query','payment_window_end']);return {rows};
+      assert.deepEqual(values[Number(filter[1])-1],['payment_query','payment_window_end','offline_payment_window_end']);return {rows};
     }
     if(sql.startsWith('UPDATE commerce_due_work SET lease_until=')){
       leases++;assert(sql.includes('WHERE due_work_id=ANY($1::uuid[])'));assert.deepEqual(values[0],['a','d']);return {rows};

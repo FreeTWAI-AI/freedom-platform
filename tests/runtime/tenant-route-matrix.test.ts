@@ -210,6 +210,9 @@ const routeTable: Record<string, string> = {
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/contact': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/cancel': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/offline-payments': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-completion': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-handover': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/payment-queries': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds': 'tenant',
@@ -222,6 +225,7 @@ const routeTable: Record<string, string> = {
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'middleware',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations': 'tenant',
@@ -229,6 +233,8 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'tenant',
   'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'tenant',
   'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services': 'tenant',
@@ -578,8 +584,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 116, middleware: 7 });
-  assert.equal(selectedRoutes.length, 154);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 121, middleware: 8 });
+  assert.equal(selectedRoutes.length, 160);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -621,6 +627,9 @@ const routes: Route[] = [
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/contact' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/cancel', body: {}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/offline-payments', body: {amount_minor:100, received_on:'2026-01-01'}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-completion', body: {amount_minor:100, completed_on:'2026-01-01'}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-handover', body: {completed_on:'2026-01-01'}, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/payment-queries', body: {} },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds', body: { application_ref: randomUUID(), amount_minor: 100, refunded_on: '2026-01-01' } },
@@ -635,6 +644,8 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire', body: {} },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/shipping-profile' },
   { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/shipping-profile', body: {schema:'freedom.shipping-profile/v1',working_days:[1],services:[],delivery_options:[],drop_ship:null}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings' },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings', body: {schema:'freedom.offline-payment-settings/v1',bank_transfer:null,cash_on_meetup:null,fresh_auth_verification_id:randomUUID()}, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes' },
   { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes', body: {weight_g:100,length_mm:100,width_mm:100,height_mm:100,temperature:'ambient',cvs_allowed:true,ship_alone:false,max_per_parcel:null}, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services', body: {service_key:'ecpay.logistics.home.tcat',fresh_auth_verification_id:randomUUID()}, version: '"1"' },

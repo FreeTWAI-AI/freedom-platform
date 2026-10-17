@@ -57,13 +57,14 @@
 
 - 先去掉頭尾空白，再檢查長度。
 - 含控制字元時是欄位錯誤 `format`。
-- NUL 與單獨的 surrogate 在共用命令邊界就被拒絕：回 400 `invalid_command_json`，不會進到欄位檢查（`packages/scoped-commands`，全平台規則，EC-SPEC-05 §2.1 相同）。
-- 所有欄位錯誤合併成一個 422 `offline_settings_invalid`，附 `fields`。
+- NUL 與單獨的 surrogate 不會進到欄位檢查。HTTP 的共用 JSON 護欄先回 422 `validation_failed`。直接命令邊界的 `jsonSnapshot` 回 400 `invalid_command_json`。不要放寬這兩道護欄。
+- 所有欄位錯誤合併成一個 422 `offline_settings_invalid`，附 `fields`。結構或型別不符（例如期限不是整數）是 422 `validation_failed`，不是欄位錯誤。
 
 權限：
 
 - **寫入**只限 owner 或 admin，而且要重新輸入密碼。理由：改收款去向不放進可授予的能力（EC-SPEC-09 §2.2）。
   - 沿用重新確認的用途 `commerce.provider_account.write`，不新增用途。
+  - `fresh_auth_verification_id` 是命令要求的中繼資料，放在嚴格輸入的頂層，跟 `schema`、`bank_transfer`、`cash_on_meetup` 並列。它不是版本化設定文件的欄位，不寫進 `commerce_offline_payment_settings`，也不出現在設定檢視。缺欄、格式、目前授權、一次性與回條命名空間沿用 provider account 命令。
   - 需要 `If-Match`（目前版本；第一次設定時省略）與 `Idempotency-Key`。
   - 每次寫入記一筆控制事件 `offline_payment_settings.changed`。`detail` 只有提供了哪些方式和版本號，不含帳號。這個種類加進 `commerce_control_events` 的封閉清單（EC-SPEC-10 §8.2）。
 - **讀取**：
@@ -330,7 +331,7 @@
 
 | 範圍 | 案例 |
 | --- | --- |
-| 設定 | 每個欄位的錯誤碼；NUL 與單獨的 surrogate 回 400，而且什麼都沒寫；版本連續；`If-Match`；重新輸入密碼；只有 owner 與 admin 能寫；讀取依能力遮罩；控制事件不含帳號 |
+| 設定 | 每個欄位的錯誤碼；HTTP 的 NUL 與單獨 surrogate 回 422 `validation_failed`，直接命令邊界回 400 `invalid_command_json`，而且什麼都沒寫；版本連續；`If-Match`；重新輸入密碼；只有 owner 與 admin 能寫；讀取依能力遮罩；控制事件不含帳號 |
 | 報價與 checkout | `payment_options[]` 與每種不可用原因；面交只在全部自出貨時出現；面交跳過拆包與配送屬性；改設定後 `terms_changed`；沒有可用方式時 409；公開 terms 不含帳號 |
 | 下單 | guest 選線下方式時 403；期限是整天數；沒有 attempt；每店 50 張的上限；每位會員 3 張的上限；hold 與訂單的檢查同時接受 30 分鐘與整天數、拒絕其他值；v1 預留仍只能 30 分鐘 |
 | 確認收款 | 三種套用結果；金額不符；訂單已取消；同一個 key 重送；`If-Match` 衝突；能力矩陣；確認後可建物流單（出貨門檻）；付款摘要與退款依付款方式分辨 `payment_ref`；隔離模式 503 |

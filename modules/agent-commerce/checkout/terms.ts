@@ -75,13 +75,26 @@ export interface CheckoutPaymentPort {
   queryable?(q:PoolClient,orderId:string):Promise<boolean>;
   summarize(q:PoolClient,orderIds:readonly string[]):Promise<ReadonlyMap<string,CheckoutPaymentSummary>>;
 }
+export type PaymentMethod='immediate_card'|'bank_transfer'|'cash_on_meetup';
+export interface PaymentOptionResolution {
+  options:readonly {method:PaymentMethod;available:boolean;reason:null|'payment_profile_unavailable'|'meetup_required'}[];
+  offline:null|{settings_version:string;bank_transfer_deadline_days:number|null;meetup_deadline_days:number|null};
+}
+export interface CheckoutPaymentMethodsPort {
+  /** Absent or true keeps the member rule. Checkout reads this flag and never imports payment code. */
+  readonly offlinePaymentRequiresMember?:boolean;
+  /** Identity-agnostic; deterministic for the same committed rows. totalMinor is the known order total. */
+  resolve(q:PoolClient,store:StoreContext['profile'],input:{currency:string;totalMinor:number;amountsMinor:readonly number[];shippingMethodRefs:readonly string[]|null}):Promise<PaymentOptionResolution>;
+  /** Called by placement in the order's transaction, after the holds, for offline orders only. */
+  onOfflineOrderPlaced(q:PoolClient,input:{tenantId:string;instanceId:string;orderId:string;expiresAt:Date}):Promise<void>;
+}
 /** Request orchestration owns its transactions and may query a provider only
  * after releasing the client. authorize is rechecked before each commit. */
 export interface CheckoutPaymentActions {
   resume(pool:Pool,input:{store:CheckoutStore;orderId:string;network:string;authorize(q:PoolClient):Promise<void>}):Promise<CheckoutPaymentHandoff>;
   query?(pool:Pool,input:{store:CheckoutStore;orderId:string;network:string;trigger?:'buyer'|'seller';authorize(q:PoolClient):Promise<void>}):Promise<'complete'|'query_in_progress'>;
 }
-export interface CheckoutPorts {paymentActions?:CheckoutPaymentActions;shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort}
+export interface CheckoutPorts {paymentActions?:CheckoutPaymentActions;shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort;paymentMethods?:CheckoutPaymentMethodsPort}
 export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};
 const defaultShipping:ShippingQuotePort={async quote(){requireCondition(false,409,'shipping_not_configured','尚未設定配送。');}};
 function invalidShippingQuote():never {throw new Error('shipping_quote_invalid');}
@@ -156,6 +169,19 @@ export function parseCheckoutInput(raw:CheckoutInput) {
   return {...input,invoice:input.invoice??null};
 }
 export const contactHash=(input:ReturnType<typeof parseCheckoutInput>,salt:string)=>hashJSON({contact:input.contact,delivery:input.delivery,invoice:input.invoice,salt});
+async function choosePaymentTerms(q:PoolClient,store:StoreContext['profile'],ports:CheckoutPorts,amountsMinor:readonly number[],shippingMethodRefs:readonly string[],totalMinor:number){
+  if(!ports.paymentMethods){
+    ports.payment?.assertTermsAvailable({currency:store.currency,totalMinor,amountsMinor});
+    return {payment_methods:['immediate_card'] as PaymentMethod[],offline_payment:null as PaymentOptionResolution['offline']};
+  }
+  const resolved=await ports.paymentMethods.resolve(q,store,{currency:store.currency,totalMinor,amountsMinor,shippingMethodRefs});
+  const payment_methods=resolved.options.filter(option=>option.available).map(option=>option.method);
+  if(!payment_methods.length){
+    if(resolved.options.length===1&&resolved.options[0].method==='immediate_card')ports.payment?.assertTermsAvailable({currency:store.currency,totalMinor,amountsMinor});
+    requireCondition(false,409,'payment_method_unavailable','這間店目前沒有可用的付款方式。');
+  }
+  return {payment_methods,offline_payment:resolved.offline};
+}
 
 /** Reuse the exact v1 shared binding and price validation with a principal-less
  * supplier resolver. Lifecycle authority was acquired by lockStore beforehand. */
@@ -178,10 +204,11 @@ export async function checkoutTerms(q:PoolClient,context:StoreContext,input:Retu
   const shipping=validateShippingQuote(await (ports.shipping??defaultShipping).quote(q,p,{lines:quoteLines,merchandise_net_minor:merchandise,delivery:input.delivery}),quoteLines);
   const shippingTotal=shipping.groups.reduce((n,g)=>n+g.amount_minor,0),total=merchandise+shippingTotal;
   requireCondition(Number.isSafeInteger(total)&&total>0,422,'checkout_total_invalid','結帳總額無效。');
-  ports.payment?.assertTermsAvailable({currency:p.currency,totalMinor:total,amountsMinor:[...items.flatMap(l=>[l.unit_price_minor,l.line_total_minor]),...shipping.groups.map(g=>g.amount_minor),total]});
+  const amountsMinor=[...items.flatMap(l=>[l.unit_price_minor,l.line_total_minor]),...shipping.groups.map(g=>g.amount_minor),total];
+  const chosen=await choosePaymentTerms(q,p,ports,amountsMinor,shipping.groups.map(g=>g.method_ref),total);
   const terms={profile:'freedom.checkout-terms/v1' as const,publication_revision:projection.revision,publication_id:p.current_publication_id!,currency:p.currency,
     bindings,items,merchandise_total_minor:merchandise,discount_total_minor:0,discounts:[],shipping,shipping_total_minor:shippingTotal,
-    tax_state:'not_assessed',total_minor:total,consents:input.consents,payment_methods:['immediate_card'],contact_sha256:contactHash(input,salt)};
+    tax_state:'not_assessed',total_minor:total,consents:input.consents,payment_methods:chosen.payment_methods,offline_payment:chosen.offline_payment,contact_sha256:contactHash(input,salt)};
   return {terms,terms_sha256:hashJSON(terms)};
 }
 export type CheckoutTerms=Awaited<ReturnType<typeof checkoutTerms>>['terms'];
@@ -195,7 +222,7 @@ export function publicCheckoutTerms(terms:CheckoutTerms) {
       for(const parcel of group.parcels)for(const line of parcel.lines)quantities.set(line.sku,(quantities.get(line.sku)??0)+line.quantity);
       return {group_ref:group.group_ref,method:group.method_ref,amount_minor:group.amount_minor,fee_per_parcel_minor:group.fee_per_parcel_minor,outlying_surcharge_per_parcel_minor:group.outlying_surcharge_per_parcel_minor,parcel_count:group.parcels.length,handling_days:group.logistics?.handling_days??null,items:[...quantities.keys()].sort(bySku).map(sku=>({sku,quantity:quantities.get(sku)!})),meetup_note:group.meetup?.note??null};
     })},
-    shipping_total_minor:terms.shipping_total_minor,tax_state:terms.tax_state,total_minor:terms.total_minor,consents:terms.consents,payment_methods:terms.payment_methods};
+    shipping_total_minor:terms.shipping_total_minor,tax_state:terms.tax_state,total_minor:terms.total_minor,consents:terms.consents,payment_methods:terms.payment_methods,offline_payment:terms.offline_payment};
 }
 export async function computeCheckoutTerms(q:PoolClient,store:CheckoutStore,raw:CheckoutInput,ports:CheckoutPorts={}) {
   const input=parseCheckoutInput(raw),context=await lockStore(q,store,input.lines.map(l=>l.sku));
