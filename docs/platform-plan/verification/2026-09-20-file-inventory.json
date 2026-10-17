@@ -3109,8 +3109,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 8307,
-      "sha256": "0ef9ffda678b6ff4c7f3131eec1a2044a7fc6cc9cfda60a940b486328d1c43fc"
+      "bytes": 8359,
+      "sha256": "3000f43b25e4050c89c3ef8963d17531493fb336789c30a466112da778372e7b"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -13049,8 +13049,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-store-media.ts",
-      "bytes": 3661,
-      "sha256": "fce7f0b29b9e4eaa656cd11ec379a648590576911e3907cf8752ac8c37dbe62a"
+      "bytes": 3791,
+      "sha256": "10398b745abf46631be97346a8b5bafc0a39e38da2f8898f48b491ed8fcc7749"
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-supply-catalog.schema.json",
@@ -15729,8 +15729,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 29322,
-      "sha256": "3213c8182dbc73524cd4f5ae0345789642034e044c714444efba507820115620"
+      "bytes": 29838,
+      "sha256": "52a6df4f0eade1ff2ab347fc2c8def975bc76ed2767a5ae936e073133e2a306f"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -17509,8 +17509,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/media-contract.md",
-      "bytes": 4800,
-      "sha256": "d2597de3113ec20e53663ec53a7e5262192cbc5153a77eb40641f5d6f5fb7a9a"
+      "bytes": 5508,
+      "sha256": "ffe5d2b1a16bece59c2b63dd2b3e2a1245fef52eb16e4134d014dda016c11758"
     },
     {
       "path": "modules/agent-commerce/hosted/media.ts",
@@ -22254,8 +22254,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1522,
-      "sha256": "4d66ad4b07326df96e8c0cb05fdebfdb53ca04baf66cf4e4ef05f4394eeb8344"
+      "bytes": 1566,
+      "sha256": "199ec98066c14abf0519dcfd1afca934abcd302fe89703d098459a2ee6512c97"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
@@ -22404,8 +22404,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 195693,
-      "sha256": "8c8be0445046437fc4c6365107f85385481133e4dac1927c52cbeb8d1de1a625"
+      "bytes": 205427,
+      "sha256": "aeabe6a6bef84c5320e2778eb2b7a7b38857644d5f295989529c27eecd540900"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
@@ -24049,8 +24049,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-media-contracts.test.ts",
-      "bytes": 10202,
-      "sha256": "cc5db9ea18222d67c3e64e3cedbdbb80bcb90e2c2d270e835bad02058f780730"
+      "bytes": 11755,
+      "sha256": "964967ff2599ca785c03d8e49730f453192fb60f2fbf70c88a4e99c7309ab3aa"
     },
     {
       "path": "tests/runtime/hosted-store-offering.test.ts",
@@ -24064,8 +24064,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-photo-state.test.ts",
-      "bytes": 21042,
-      "sha256": "76855c3acb20689324d08b602ba10dad84329bfdf5c14d3279fcdafead100db9"
+      "bytes": 21429,
+      "sha256": "c8d68dc99602ed10d263835a643d2170db538f496a5a7a77cf6c3d97154778f0"
     },
     {
       "path": "tests/runtime/hosted-store-photo.test.ts",
@@ -25245,7 +25245,7 @@
     {
       "path": "tests/runtime/tenant-route-matrix.test.ts",
       "bytes": 131147,
-      "sha256": "5b6e6f4bb399b2d47bfcc1a733d7f777f3c251b8128983830f6d7f5ed4ed2207"
+      "sha256": "ab15850310728ab20d61ddb725fd9820a4de827f14025e69a5640ac193293607"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",

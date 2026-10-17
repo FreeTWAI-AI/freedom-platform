@@ -602,7 +602,7 @@ test('T-022 1. Route inventory guard', () => {
     return all;
   }, {});
   assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 126, middleware: 16 });
-  assert.equal(selectedRoutes.length, 170);
+  assert.equal(selectedRoutes.length, 173);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;

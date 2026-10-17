@@ -85,6 +85,7 @@
     "tests/runtime/totp.test.ts",
     "tests/runtime/portal-totp.test.ts",
     "modules/identity-membership/service.ts",
+    "modules/identity-membership/test-accounts.ts",
     "tests/e2e/totp.spec.ts"
   ],
   "owner_role": "foundation",

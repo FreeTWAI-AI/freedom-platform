@@ -3094,3 +3094,123 @@ test('SC-E2E-81 a removed store read clears partner materials, a regrant reads t
     await Promise.all(extraContexts.map(context => context.close()));
   }
 });
+
+test('SC-E2E-85 a malformed committed photo upload ack retains the original File and retries to one asset and publication', async ({page, browser, baseURL, e2eAuthPool}, info) => {
+  const s = await ready(page, e2eAuthPool);
+  const file = await source('original-malformed-ack.png', '#385d75');
+  const tenantId = s.hash.split('/')[1], instanceId = s.hash.split('/')[2];
+  const requests: ReturnType<typeof signature>[] = [];
+  const statuses: number[] = [];
+  let committedAck: unknown;
+  // Observe the actual fetch bodies without replacing the native transport or File.
+  await page.evaluate(path => {
+    const target = window as typeof window & {photoAckFiles: BodyInit[]};
+    target.photoAckFiles = [];
+    const nativeFetch = window.fetch;
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (new URL(url, location.href).pathname === path && init?.method === 'POST') target.photoAckFiles.push(init.body!);
+      return nativeFetch(input, init);
+    };
+  }, s.path);
+  async function facts() {
+    const pointers = (await e2eAuthPool.query('SELECT asset_id,representation_id,policy_revision,linked_at_product_version::text AS version FROM commerce_product_photo_targets WHERE product_id=$1', [s.product.product_id])).rows;
+    const intents = (await e2eAuthPool.query('SELECT intent_id,asset_id,state,source_sha256,expected_version::text AS expected,reserved_bytes FROM asset_upload_intents WHERE target_product_id=$1 ORDER BY intent_id', [s.product.product_id])).rows;
+    const assets = (await e2eAuthPool.query('SELECT a.asset_id,a.state,o.byte_size,o.content_sha256 FROM assets a JOIN asset_upload_intents i USING(asset_id) LEFT JOIN asset_objects o USING(asset_id) WHERE i.target_product_id=$1 ORDER BY a.asset_id', [s.product.product_id])).rows;
+    const effects = (await e2eAuthPool.query('SELECT e.effect_id,e.asset_id,e.state FROM asset_object_write_effects e JOIN asset_upload_intents i USING(asset_id) WHERE i.target_product_id=$1 ORDER BY e.effect_id', [s.product.product_id])).rows;
+    const receipts = (await e2eAuthPool.query("SELECT idempotency_key,response FROM scoped_command_receipts WHERE target_id=$1 AND operation='storefront.product.photo.upload' ORDER BY idempotency_key", [s.product.product_id])).rows;
+    const journal = (await e2eAuthPool.query("SELECT transition_id,aggregate_version::text AS version FROM scoped_transition_journal WHERE aggregate_id=$1 AND operation='storefront.product.photo.upload' ORDER BY transition_id", [s.product.product_id])).rows;
+    const capacity = (await e2eAuthPool.query(`SELECT COALESCE(sum(o.byte_size),0)::text AS used,
+      COALESCE(sum(CASE WHEN o.asset_id IS NULL THEN COALESCE(i.reserved_bytes,CASE a.purpose
+        WHEN 'storefront.product-photo' THEN 1048576 WHEN 'storefront.supply-material' THEN 1048576
+        WHEN 'storefront.supply-material-video' THEN 20971520 ELSE 262144 END) ELSE 0 END),0)::text AS reserved
+      FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id)
+      WHERE a.tenant_ref=$1 AND a.purpose IN ('work.tenant-result','storefront.product-photo','storefront.supply-material','storefront.supply-material-video')`, [tenantId])).rows[0];
+    return {pointers, intents, assets, effects, receipts, journal, capacity};
+  }
+  const baseline = await facts();
+  expect(baseline.assets).toEqual([]); expect(baseline.intents).toEqual([]);
+  expect(baseline.receipts).toEqual([]); expect(baseline.effects).toEqual([]);
+  await page.route('**' + s.path, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    requests.push(signature(route.request()));
+    const response = await route.fetch();
+    statuses.push(response.status());
+    expect(response.status()).toBe(200);
+    if (requests.length === 1) {
+      committedAck = await response.json();
+      ProductMediaCommandSchema.parse(committedAck);
+      const malformed = {...committedAck as object, completed_version: 'abc'};
+      expect(ProductMediaCommandSchema.safeParse(malformed).success).toBe(false);
+      await route.fulfill({response, body: JSON.stringify(malformed)});
+    } else await route.fulfill({response});
+  });
+  await photo(page).getByLabel('商品照片', {exact:true}).setInputFiles(file);
+  await expect(photo(page).getByRole('img', {name:'待儲存的完整商品照片', exact:true})).toBeVisible();
+  await photo(page).getByRole('button', {name:'儲存照片', exact:true}).click();
+  const retry = photo(page).getByRole('button', {name:'重試原照片操作', exact:true});
+  await expect(retry).toBeVisible();
+  await expect(photo(page).getByRole('status')).toHaveText('尚未確認原操作結果。照片與原操作仍保留，請重試確認後再離開。');
+  await expect(photo(page)).toContainText(file.name);
+  await expect(photo(page).getByLabel('商品照片', {exact:true})).toBeDisabled();
+  await expect(photo(page).getByRole('img', {name:'待儲存的完整商品照片', exact:true})).toBeVisible();
+  expect(requests).toHaveLength(1); expect(statuses).toEqual([200]);
+  expect(requests[0]).toMatchObject({version:'"1"', mime:file.mimeType, sha256:digest(file.buffer), bytes:file.buffer.length});
+  expect(requests[0].key).toBeTruthy();
+  const committed = await facts();
+  const ack = ProductMediaCommandSchema.parse(committedAck);
+  expect(ack.completed_version).toBe('2'); expect(ack.current.version).toBe('2');
+  expect(committed.assets).toHaveLength(1);
+  const asset = committed.assets[0]; expect(asset.state).toBe('ready');
+  expect(committed.pointers).toEqual([expect.objectContaining({asset_id:asset.asset_id, version:'2'})]);
+  expect(committed.intents).toEqual([expect.objectContaining({asset_id:asset.asset_id, state:'finalized', expected:'1', source_sha256:requests[0].sha256})]);
+  expect(committed.effects).toEqual([expect.objectContaining({asset_id:asset.asset_id})]);
+  expect(committed.receipts).toEqual([{idempotency_key:requests[0].key, response:{productId:s.product.product_id, completedVersion:'2', changed:true}}]);
+  expect(committed.journal).toEqual([expect.objectContaining({version:'2'})]);
+  expect(BigInt(committed.capacity.used) - BigInt(baseline.capacity.used)).toBe(BigInt(asset.byte_size));
+  expect(committed.capacity.reserved).toBe('0');
+  const originalURL = page.url();
+  await page.getByRole('link', {name:'返回我的商店', exact:true}).click();
+  await expect(page).toHaveURL(originalURL);
+  await expect(photo(page)).toContainText(file.name);
+  expect(requests).toHaveLength(1);
+  const replay = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === s.path);
+  await retry.click();
+  const replayed = await replay;
+  expect(replayed.status()).toBe(200); expect(await replayed.finished()).toBeNull();
+  expect(await replayed.json()).toEqual(committedAck);
+  expect(signature(replayed.request())).toEqual(requests[0]);
+  await expect(photo(page).getByRole('status')).toContainText('已儲存照片變更');
+  await expect(retry).toHaveCount(0); await expect(photo(page)).not.toContainText(file.name);
+  expect(requests).toEqual([requests[0], requests[0]]); expect(statuses).toEqual([200,200]);
+  const retainedFile = await page.evaluate(() => {
+    const files = (window as typeof window & {photoAckFiles: File[]}).photoAckFiles;
+    return {count:files.length, originalFile:files[0] instanceof File, sameFile:files[0] === files[1], name:files[0].name, type:files[0].type, size:files[0].size};
+  });
+  expect(retainedFile).toEqual({count:2, originalFile:true, sameFile:true, name:file.name, type:file.mimeType, size:file.buffer.length});
+  expect(await facts()).toEqual(committed);
+  const privatePath = ack.current.photo!.read_path;
+  await expect(photo(page).locator(':scope > img')).toHaveAttribute('src', privatePath);
+  const anonymous = await browser.newContext({baseURL});
+  try {
+    expect((await anonymous.request.get(privatePath)).status()).toBe(401);
+    await storeArea(page, '店面與發布');
+    await page.getByRole('button', {name:'發布展示頁', exact:true}).click();
+    await expect(page.locator('.hosted-store')).toContainText('已發布・第 1 版');
+    const publicMedia = PublicStoreMediaSchema.parse(await (await anonymous.request.get('/api/v1/public/stores/' + s.slug + '/media')).json());
+    expect(publicMedia.photos).toHaveLength(1);
+    expect(publicMedia.photos[0].sku).toBe(s.product.sku);
+    const publicPath = publicMedia.photos[0].photo.read_path;
+    const published = await anonymous.newPage(); await published.goto('/shops/' + s.slug);
+    await expect(published.locator('article img')).toHaveAttribute('src', publicPath);
+    await expect.poll(() => published.locator('article img').evaluate(node => (node as HTMLImageElement).naturalWidth)).toBe(120);
+    const publicBytes = await (await anonymous.request.get(publicPath)).body();
+    expect(publicBytes.subarray(0,4).toString()).toBe('RIFF');
+    expect(digest(publicBytes)).toBe(digest(await (await page.request.get(privatePath)).body()));
+    expect(digest(publicBytes)).toBe(asset.content_sha256);
+    const refs = (await e2eAuthPool.query('SELECT asset_id,content_sha256 FROM commerce_publication_photo_refs WHERE instance_id=$1', [instanceId])).rows;
+    expect(refs).toEqual([{asset_id:asset.asset_id, content_sha256:asset.content_sha256}]);
+    expect(await facts()).toEqual(committed);
+    await writeFile(info.outputPath('photo-malformed-upload-ack.json'), JSON.stringify({requests, statuses, retainedFile, baseline, committed, publicMedia, refs}, null, 2));
+  } finally {await anonymous.close(); await page.unrouteAll({behavior:'wait'});}
+});
