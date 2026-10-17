@@ -221,7 +221,12 @@ test('real private stickers stay in their conversation and unsent reply drafts f
   const first=await post(receiver,`/me/conversations/${accounts[0].id}/messages`,{body:'先對一下合作方向'});
   await expect(a.locator(`[data-message-id="${first.message_id}"]`)).toBeVisible();
   await a.locator(`[data-message-id="${first.message_id}"]`).getByRole('button',{name:`回覆${accounts[1].name}的訊息`,exact:true}).click();
-  await choose(a,'謝謝');await expect(b.locator('.messages-bubbles [data-sticker-id="workshop-v1-thanks"]')).toHaveCount(1);await direct(sender,accounts[2]);await expect(a.getByLabel('待送出的貼圖')).toHaveCount(0);await expect(a.locator('.chat-reply-draft')).toHaveCount(0);
+  // Closing the picker precedes the native POST acknowledgement. Start the
+  // recipient's live-update assertion only after this exact send is confirmed.
+  const sent=sender.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname===`/api/v1/me/conversations/${accounts[1].id}/messages`);
+  await choose(a,'謝謝');const ack=await sent;expect(ack.status()).toBe(201);const sticker=await ack.json();
+  await expect(a.locator(`[data-message-id="${sticker.message_id}"]`)).toBeVisible();
+  await expect(b.locator('.messages-bubbles [data-sticker-id="workshop-v1-thanks"]')).toHaveCount(1);await direct(sender,accounts[2]);await expect(a.getByLabel('待送出的貼圖')).toHaveCount(0);await expect(a.locator('.chat-reply-draft')).toHaveCount(0);
   await direct(sender,accounts[1]);await expect(a.getByLabel('待送出的貼圖')).toHaveCount(0);await expect(a.locator('.chat-reply-draft')).toContainText('先對一下合作方向');
   await a.locator('textarea').fill('保留的回覆另行送出');await a.getByRole('button',{name:'送出',exact:true}).click();await expect(b.locator('.messages-bubbles [data-sticker-id="workshop-v1-thanks"]')).toHaveCount(1);
   await expect(b.locator('.messages-bubbles>li').filter({has:receiver.locator('[data-sticker-id="workshop-v1-thanks"]')}).getByLabel('回覆的訊息')).toHaveCount(0);
