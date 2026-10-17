@@ -21054,8 +21054,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 46985,
-      "sha256": "93eb6fe46643cd3b6c0874384a9dfdb076493d56da390201f1f6330c89ae9e79"
+      "bytes": 47263,
+      "sha256": "60946ee6580cb5d30ae1258d6f5c121c561990063a0c44cb5058cc29ce941428"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",

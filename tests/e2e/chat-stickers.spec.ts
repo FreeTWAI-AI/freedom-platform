@@ -334,7 +334,10 @@ test('revoked channel keeps its pending command reachable and read-only access r
   });
   await choose(panel,'謝謝');await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
   await db.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
-  await panel.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+  // Polling may already have observed the revoke and changed refresh to recheck.
+  const deniedRead=page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname===path);
+  await panel.getByRole('button',{name:/^(重新讀取訊息|重新檢查頻道存取)$/}).click();
+  expect((await deniedRead).status()).toBe(404);await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
   await expect(panel.locator('.messages-bubbles')).toHaveCount(0);await expect(panel.locator('.messages-pending')).toHaveCount(0);
   await expect(panel.getByText('先前的傳送結果仍未確認，原操作保留。恢復頻道存取後才能重試；重新檢查不會送出訊息。')).toBeVisible();
   await group(page,'world');await page.getByRole('tab',{name:/^公會閒聊/}).click();
