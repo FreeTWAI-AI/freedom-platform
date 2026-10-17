@@ -8,11 +8,16 @@ export const httpsUrl=z.url().max(2000).pipe(z.string().refine(value=>{
  return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&
  !/^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[)/.test(h)&&h.includes('.')&&!h.endsWith('.local')&&!h.endsWith('.localhost');
 },'請提供不含帳密的公開 HTTPS 網址。'));
-const base={schema:z.literal('freedom-shop/v1'),mode:z.enum(['test','live']).default('test'),name:text(120),description:text(1500),website_url:httpsUrl,contact:text(250),currency};
+// Unicode mode retains valid surrogate pairs as scalar code points.
+// Apply after inner JSON decoding, without changing other commerce text inputs.
+const manifestString=z.string().regex(/^[^\u0000\uD800-\uDFFF]*$/u,'成果文字不得含空字元，且必須使用有效的 Unicode 字元。');
+const manifestText=(max:number)=>text(max).pipe(manifestString);
+const manifestUrl=httpsUrl.pipe(manifestString);
+const base={schema:z.literal('freedom-shop/v1'),mode:z.enum(['test','live']).default('test'),name:manifestText(120),description:manifestText(1500),website_url:manifestUrl,contact:manifestText(250),currency};
 const unique=<T>(items:T[],key:(item:T)=>string)=>new Set(items.map(key)).size===items.length;
 export const manifestInput=z.discriminatedUnion('kind',[
- z.object({...base,kind:z.literal('internal'),access:z.literal('authenticated'),products:z.array(z.object({sku:text(80),title:text(120),description:text(2000),photo_url:httpsUrl.nullable(),price_minor:money,shipping_minor:z.number().int().min(0).max(100000000000),stock:z.number().int().min(0).max(1000000),shipping_terms:text(1500),return_terms:text(1500)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.sku),'商品代號不可重複。')}).strict(),
- z.object({...base,kind:z.literal('public'),selections:z.array(z.object({item_id:z.uuid(),retail_price_minor:money,sale_terms:text(1500)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.item_id),'商品不可重複。')}).strict()
+ z.object({...base,kind:z.literal('internal'),access:z.literal('authenticated'),products:z.array(z.object({sku:manifestText(80),title:manifestText(120),description:manifestText(2000),photo_url:manifestUrl.nullable(),price_minor:money,shipping_minor:z.number().int().min(0).max(100000000000),stock:z.number().int().min(0).max(1000000),shipping_terms:manifestText(1500),return_terms:manifestText(1500)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.sku),'商品代號不可重複。')}).strict(),
+ z.object({...base,kind:z.literal('public'),selections:z.array(z.object({item_id:z.uuid(),retail_price_minor:money,sale_terms:manifestText(1500)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.item_id),'商品不可重複。')}).strict()
 ]);
 export type ShopManifest=z.infer<typeof manifestInput>;
 export const importInput=z.object({manifest:manifestInput,confirmed:z.literal(true)}).strict();
