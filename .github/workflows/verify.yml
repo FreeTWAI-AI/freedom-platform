@@ -351,7 +351,8 @@ jobs:
           # Disposable runner-only synthetic DB: low-privilege fixture LOGIN roles
           # have no passwords. Never use this authentication mode outside CI.
           POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_INITDB_ARGS: '-c dynamic_shared_memory_type=mmap'
+          # Full-schema migrations and prior-pass schema cleanup share the lock table.
+          POSTGRES_INITDB_ARGS: '-c max_locks_per_transaction=256 -c dynamic_shared_memory_type=mmap'
         ports: ['127.0.0.1:5432:5432']
         options: >-
           --health-cmd "pg_isready -U freedom_local -d fp_foundation_ci"
@@ -368,6 +369,22 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Verify browser PostgreSQL lock capacity
+        env:
+          POSTGRES_SERVICE_ID: ${{ job.services.postgres.id }}
+        run: |
+          [[ "$POSTGRES_SERVICE_ID" =~ ^[a-f0-9]{64}$ ]]
+          settings=$(docker exec "$POSTGRES_SERVICE_ID" psql -U freedom_local -d fp_foundation_ci -v ON_ERROR_STOP=1 -tA -c "SELECT json_build_object('database',current_database(),'server_version_num',current_setting('server_version_num'),'max_locks_per_transaction',setting,'pending_restart',pending_restart,'dynamic_shared_memory_type',current_setting('dynamic_shared_memory_type'),'fsync',current_setting('fsync'),'full_page_writes',current_setting('full_page_writes')) FROM pg_settings WHERE name='max_locks_per_transaction'")
+          python3 - "$settings" <<'PYREADBACK'
+          import json,sys
+          s=json.loads(sys.argv[1])
+          assert s['database']=='fp_foundation_ci'
+          assert 180000 <= int(s['server_version_num']) < 190000
+          assert int(s['max_locks_per_transaction'])==256 and s['pending_restart'] is False
+          assert s['dynamic_shared_memory_type']=='mmap'
+          assert s['fsync']=='on' and s['full_page_writes']=='on'
+          print(json.dumps(s,sort_keys=True))
+          PYREADBACK
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run contracts:build
