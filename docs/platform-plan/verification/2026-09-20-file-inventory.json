@@ -14059,8 +14059,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 35979,
-      "sha256": "0e172cd9c19affa8072e9cade85e7f783d360c9101eac7330d7410dd31065bff"
+      "bytes": 39123,
+      "sha256": "a9c3f99b1c49c1ceac48cb54ce59faaf92d6b52dc7115eac4876cd0466d8336a"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -16294,8 +16294,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 31710,
-      "sha256": "dad2cfbca4141e19beadfe6810971c33e9b86624e92401feed0f8bcd5e260983"
+      "bytes": 32212,
+      "sha256": "b8be814e5740331ee2f380d7c4b238df7d1fba1d47f4a735eb1dabea67f12dbe"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -20749,8 +20749,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 60027,
-      "sha256": "79ff64bcb72ad6e472d49c2fef4f2e7a07303e851eeca87257be84e9ce0d8d5e"
+      "bytes": 69839,
+      "sha256": "fa011496571a0a8bde12a9839fb6b7dc481e6ad824dd8a955d0dc5bd101064b9"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -21794,8 +21794,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 20544,
-      "sha256": "7de5cc941f23be0c02a1cf832d2496755a1573ab7ef05fdcc68fd595f72da87a"
+      "bytes": 23799,
+      "sha256": "57055919482c380f612f508b8dc896609316d6ec7ec9cfaab4f4d324274f690c"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",

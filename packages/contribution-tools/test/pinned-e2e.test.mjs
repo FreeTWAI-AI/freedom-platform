@@ -434,7 +434,7 @@ async function playwrightFixture(root, config) {
   for (const file of E2E_BASELINE) await writeFile(join(root, file), ordinaryTests);
 }
 
-test('CLI ignores candidate filters, includes new specs and isolates concurrent default state', async () => {
+test('CLI ignores candidate filters, includes new specs and isolates concurrent default and tail state', async () => {
   await withFixture(async root => {
     await playwrightFixture(root, `
     const origin='http://127.0.0.1:'+process.env.FREEDOM_E2E_PORT;
@@ -444,7 +444,7 @@ test('CLI ignores candidate filters, includes new specs and isolates concurrent 
       grep: /smoke/, grepInvert: /required/, shard: { total: 4, current: 1 }, retries: 2, forbidOnly: false,
       captureGitInfo: { commit: true, diff: true },
       use:{baseURL:origin},
-      ...(!fixture?{webServer:{command:'node fixture-http.mjs',url:origin+'/health',reuseExistingServer:false,gracefulShutdown:{signal:'SIGTERM',timeout:5000}}}:{}),
+      webServer:{command:'node fixture-http.mjs',url:origin+'/health',reuseExistingServer:false,gracefulShutdown:{signal:'SIGTERM',timeout:5000}},
       projects: [{ name: 'chromium', grep: /smoke/, testDir: './empty', testIgnore: '**/*.spec.ts' },
         { name: 'extra', testMatch: /nothing/ }]
     };`);
@@ -475,6 +475,23 @@ test('CLI ignores candidate filters, includes new specs and isolates concurrent 
       "test('smoke'", "test.skip(process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE !== '1');\ntest('smoke'"));
     await writeFile(join(root, 'tests/e2e/notification-preferences.spec.ts'), ordinaryTests.replace(
       "test('smoke'", "test.skip(process.env.FREEDOM_E2E_NOTIFICATION_PREFERENCES !== '1');\ntest('smoke'"));
+    for (const [index, pass] of E2E_PLAN.slice(1).entries()) {
+      const file = join(root, pass.files[0]), flag = Object.keys(pass.env)[0];
+      const peer = index === 4 ? 4 : index % 2 === 0 ? index + 1 : index - 1;
+      await writeFile(file, (await readFile(file, 'utf8')) + `
+        import {expect} from '@playwright/test';
+        import {existsSync,writeFileSync} from 'node:fs';
+        test('dedicated server state is isolated',async({request})=>{
+          test.skip(process.env.${flag}!=='1');
+          const mine=process.env.FREEDOM_E2E_SCHEMA;
+          expect(mine).toMatch(/^fp_e2e_[a-f0-9]{32}$/);
+          await request.post('/state',{data:{value:mine}});
+          writeFileSync(${JSON.stringify(join(root, 'tail-arrived-' + index))},mine);
+          await expect.poll(()=>existsSync(${JSON.stringify(join(root, 'tail-arrived-' + peer))}),{timeout:10000}).toBe(true);
+          expect((await (await request.get('/state')).json()).value).toBe(mine);
+        });
+      `);
+    }
     // A pull_request event whose base commit is not local: Playwright's git info would try to fetch it.
     await writeFile(join(root, 'event.json'), JSON.stringify({ pull_request: { title: 't', number: 1, base: { sha: '0'.repeat(40) } } }));
     const output = join(root, 'result.json');
@@ -483,9 +500,9 @@ test('CLI ignores candidate filters, includes new specs and isolates concurrent 
     assert.doesNotMatch(child.stdout + child.stderr, /GitCommitInfo: running "git /);
     const result = JSON.parse(await readFile(output, 'utf8'));
     assert.equal(result.status, 'passed');
-    assert.equal(result.test_count, 2 * (E2E_BASELINE.length + 1) + 2);
+    assert.equal(result.test_count, 2 * (E2E_BASELINE.length + 1) + 2 + 5);
     assert.equal(result.test_files.length, E2E_BASELINE.length + 3);
-    assert.ok(result.test_files.every(file => file.counts.tests === (isolatedFiles.some(name=>file.path.endsWith('/'+name))?1:2) && file.counts.passed === file.counts.tests));
+    assert.ok(result.test_files.every(file => file.counts.tests === (isolatedFiles.some(name=>file.path.endsWith('/'+name))?1:E2E_PLAN.slice(1).some(pass=>pass.files.includes(file.path))?3:2) && file.counts.passed === file.counts.tests));
     assert.deepEqual(result.passes.map(pass => pass.exit_code), [0, 0, 0, 0, 0, 0]);
   });
 });
@@ -988,4 +1005,144 @@ test('Guild preview requires every listed case from all three reviewed module fi
   const withoutEvents=clean();withoutEvents[0].report.suites=withoutEvents[0].report.suites.filter(suite=>suite.file!=='guild-events/EventsBlock.spec.ts');
   withoutEvents[0].report.stats.expected--;assert.equal(check(withoutEvents).status,'failed');
   assert.equal(evaluateE2ePasses([...files,'modules/other/WorksBlock.spec.ts'],clean(),{rootDir,configFile,profile:'guild-preview'}).status,'failed');
+});
+
+// Lifecycle-only fixture: real child processes and bound HTTP ports, synthetic
+// reports. Product database/browser behavior remains ordinary PR CI's job.
+async function tailFixture(root, scenario = 'success') {
+  await baseline(root);
+  const runnerDir = join(root, 'node_modules/@playwright/test');
+  await mkdir(runnerDir, { recursive: true });
+  await writeFile(join(runnerDir, 'package.json'), JSON.stringify({ exports: { './cli': './cli.cjs' } }));
+  const reports = E2E_PLAN.map(pass => report((pass.id === 'default' ? E2E_BASELINE : pass.files)
+    .map(file => suite(file.slice('tests/e2e/'.length), [['smoke', 'expected']]))));
+  for (const value of reports) {
+    value.config.rootDir = join(root, 'tests/e2e');
+    value.config.configFile = join(repoRoot, 'scripts/ci/pinned-playwright.config.mjs');
+    value.config.projects[0].testDir = value.config.rootDir;
+  }
+  await writeFile(join(runnerDir, 'cli.cjs'), `
+    const fs=require('node:fs'), http=require('node:http'), path=require('node:path');
+    const plan=${JSON.stringify(E2E_PLAN)}, reports=${JSON.stringify(reports)};
+    const flags=plan.slice(1).flatMap(pass=>Object.keys(pass.env));
+    const index=plan.findIndex((pass,i)=>i>0&&process.env[Object.keys(pass.env)[0]]==='1');
+    const mode=index<0?0:index, id=plan[mode].id, value=reports[mode];
+    const log=event=>fs.appendFileSync(${JSON.stringify(join(root, 'tail-events'))},JSON.stringify({event,id,pid:process.pid,
+      port:process.env.FREEDOM_E2E_PORT,schema:process.env.FREEDOM_E2E_SCHEMA,
+      report:process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,last:process.env.PLAYWRIGHT_LAST_RUN_OUTPUT_FILE,
+      output:process.argv[process.argv.indexOf('--output')+1],flags:flags.filter(key=>process.env[key]==='1')})+'\\n');
+    const write=()=>fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,JSON.stringify(value));
+    if(process.argv.includes('--list')){write();process.exit(0);}
+    if(mode===0){
+      const current=Number(process.argv[process.argv.indexOf('--shard')+1].split('/')[0]);
+      value.config.shard={current,total:2};value.suites=value.suites.filter((_,i)=>i%2===current-1);
+      value.stats.expected=value.suites.length;log('start');write();log('end');process.exit(0);
+    }
+    const marker=name=>path.join(${JSON.stringify(root)},name);
+    const server=http.createServer((req,res)=>res.end(process.env.FREEDOM_E2E_SCHEMA));
+    const finish=code=>{clearInterval(timer);server.close(()=>{write();log('end');fs.writeFileSync(marker('end-'+mode),'done');process.exit(code);});};
+    process.on('SIGINT',()=>{log('interrupt');finish(0);});
+    const scenario=${JSON.stringify(scenario)};
+    const peer=mode===5?5:mode%2===1?mode+1:mode-1;
+    server.listen(Number(process.env.FREEDOM_E2E_PORT),'127.0.0.1',()=>{
+      log('start');fs.writeFileSync(marker('ready-'+mode),'ready');console.log('tail_ready '+mode);
+    });
+    const timer=setInterval(()=>{
+      if(!fs.existsSync(marker('ready-'+peer)))return;
+      if(scenario==='cancel')return;
+      if(scenario==='failure') {if(mode===2)finish(7);return;}
+      if(scenario==='malformed') {if(mode===1){delete value.config;finish(0);}return;}
+      // Force reverse completion inside each pair, without a timing guess.
+      if(mode!==5&&mode%2===1&&!fs.existsSync(marker('end-'+peer)))return;
+      finish(0);
+    },10);
+  `);
+}
+async function readTailEvents(root) {
+  return (await readFile(join(root, 'tail-events'), 'utf8')).trim().split('\n').map(JSON.parse);
+}
+async function assertTailClean(events) {
+  for (const event of events.filter(item => item.event === 'start')) {
+    assert.throws(() => process.kill(event.pid, 0), { code: 'ESRCH' });
+    await assert.rejects(stat(join(event.report, '..')), { code: 'ENOENT' });
+  }
+}
+
+test('full tail has at most two isolated children and aggregates reverse completion in plan order', async () => {
+  await withFixture(async root => {
+    await tailFixture(root);
+    const output = join(root, 'result.json');
+    const inherited = Object.fromEntries(E2E_PLAN.slice(1).flatMap(pass => Object.keys(pass.env).map(key => [key, '1'])));
+    const child = invoke(['--root', root, '--output', output], { ...inherited, FREEDOM_E2E_SCHEMA: 'untrusted-inherited' });
+    assert.equal(child.status, 0, child.stdout + child.stderr);
+    const result = JSON.parse(await readFile(output, 'utf8'));
+    assert.equal(result.status, 'passed'); assert.equal(result.test_count, E2E_BASELINE.length);
+    assert.deepEqual(result.passes.map(pass => pass.id), E2E_PLAN.map(pass => pass.id));
+    const events = await readTailEvents(root), tail = events.filter(event => event.id !== 'default');
+    assert.deepEqual(events.slice(0, 4).map(event => event.id), Array(4).fill('default'));
+    const starts = tail.filter(event => event.event === 'start');
+    for (const key of ['port', 'schema', 'report', 'last', 'output']) assert.equal(new Set(starts.map(event => event[key])).size, 5, key);
+    for (const event of starts) {
+      const index = E2E_PLAN.findIndex(pass => pass.id === event.id);
+      assert.equal(event.port, String(14312 + index));
+      assert.match(event.schema, /^fp_e2e_[a-f0-9]{32}$/);
+      assert.deepEqual(event.flags, Object.keys(E2E_PLAN[index].env));
+    }
+    let active = 0, maximum = 0;
+    for (const event of tail) { active += event.event === 'start' ? 1 : -1; maximum = Math.max(maximum, active); }
+    assert.equal(active, 0); assert.equal(maximum, 2);
+    assert.deepEqual(tail.filter(event => event.event === 'end').map(event => event.id),
+      ['avatar-asset', 'private-ai', 'store-photo', 'message-image', 'notification-preferences']);
+    await assertTailClean(events);
+    await assert.rejects(stat(output + '.failure-artifacts'), { code: 'ENOENT' });
+  });
+});
+
+for (const [scenario, reason] of [['failure', 'test_process_failed'], ['malformed', 'invalid_test_results']]) {
+  test(`tail ${scenario} cancels its live peer, retains both reports and stops later batches`, async () => {
+    await withFixture(async root => {
+      await tailFixture(root, scenario);
+      const output = join(root, 'result.json'), child = invoke(['--root', root, '--output', output]);
+      assert.equal(child.status, 1, child.stdout + child.stderr);
+      const result = JSON.parse(await readFile(output, 'utf8'));
+      assert.equal(result.status, 'failed'); assert.equal(result.reason, reason);
+      assert.deepEqual(result.passes.map(pass => pass.id), ['default', 'private-ai', 'avatar-asset']);
+      assert.deepEqual(result.passes.slice(1).map(pass => pass.exit_code), scenario === 'failure' ? [0, 7] : [0, 0]);
+      const events = await readTailEvents(root);
+      assert.equal(events.filter(event => event.event === 'interrupt').length, 1);
+      assert.deepEqual(events.filter(event => event.event === 'start' && event.id !== 'default').map(event => event.id).sort(), ['avatar-asset', 'private-ai']);
+      await assertTailClean(events);
+      const diagnostics = await readdir(output + '.failure-artifacts'); assert.equal(diagnostics.length, 2);
+      for (const directory of diagnostics) {
+        const bytes = await readFile(join(output + '.failure-artifacts', directory, 'report.json'));
+        const pass = result.passes.find(pass => directory.startsWith(pass.id + '-'));
+        assert.equal(createHash('sha256').update(bytes).digest('hex'), pass.evidence_sha256);
+      }
+    });
+  });
+}
+
+test('external tail cancellation waits for both zero-exit children and removes scratch', async () => {
+  await withFixture(async root => {
+    await tailFixture(root, 'cancel');
+    const output = join(root, 'result.json');
+    const child = spawn(process.execPath, [cli, '--root', root, '--output', output], { env: cliEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '', stderr = '', signalled = false;
+    const timer = setTimeout(() => child.kill('SIGTERM'), 10000);
+    try {
+      child.stderr.on('data', bytes => { stderr += bytes; });
+      child.stdout.on('data', bytes => {
+        stdout += bytes;
+        if (!signalled && stdout.includes('tail_ready 1') && stdout.includes('tail_ready 2')) { signalled = true; child.kill('SIGTERM'); }
+      });
+      const code = await new Promise(resolve => child.once('close', resolve));
+      assert.equal(signalled, true, stdout + stderr); assert.equal(code, 1, stdout + stderr);
+      const result = JSON.parse(await readFile(output, 'utf8'));
+      assert.equal(result.reason, 'test_cancelled');
+      assert.deepEqual(result.passes.slice(1).map(pass => pass.exit_code), [0, 0]);
+      const events = await readTailEvents(root);
+      assert.equal(events.filter(event => event.event === 'interrupt').length, 2);
+      await assertTailClean(events);
+    } finally { clearTimeout(timer); child.kill('SIGTERM'); }
+  });
 });

@@ -187,6 +187,60 @@ async function readPassReport(path) {
   } catch { return {}; }
 }
 
+// The full-plan tail is admitted only after default evidence validates. Batches
+// keep at most two one-worker CLIs alive, and retain plan order even if the
+// second child finishes first. No candidate scheduling/port input is accepted.
+async function executeFixtureTail({ root, cli, baseEnv, signal, configFile, output, expectedFiles, passReports, evidenceOptions }) {
+  const tail = E2E_PLAN.slice(1);
+  for (let offset = 0; offset < tail.length; offset += 2) {
+    const batch = tail.slice(offset, offset + 2);
+    const peers = new AbortController();
+    const combined = AbortSignal.any([signal, peers.signal]);
+    const results = new Array(batch.length), scratch = new Array(batch.length);
+    let failure;
+    const fail = reason => { if (!failure) { failure = reason; peers.abort(); } };
+    try {
+      await Promise.all(batch.map(async (pass, index) => {
+        try {
+          if (combined.aborted) { fail('test_cancelled'); return; }
+          const temp = await mkdtemp(join(tmpdir(), 'fp-pinned-'));
+          scratch[index] = temp;
+          const env = { ...baseEnv, ...pass.env, FREEDOM_PINNED_E2E_ROOT: root,
+            FREEDOM_E2E_PORT: String(14313 + offset + index),
+            FREEDOM_E2E_SCHEMA: `fp_e2e_${randomUUID().replaceAll('-', '')}`,
+            PLAYWRIGHT_JSON_OUTPUT_FILE: join(temp, 'report.json'),
+            PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: join(temp, 'last-run.json') };
+          const ran = await execute(root, cli, pass, env, combined, configFile);
+          const data = await readPassReport(env.PLAYWRIGHT_JSON_OUTPUT_FILE);
+          results[index] = { id: pass.id, exit_code: ran.exit_code, ...data };
+          const reason = ran.reason ?? (ran.exit_code !== 0 ? 'test_process_failed' : !data.report ? 'invalid_test_results' : undefined);
+          if (reason) fail(reason);
+          if (!failure) {
+            // Validate every available ordered prefix before discarding scratch.
+            // A later result waits for its predecessor; never fabricate a gap.
+            const prefix = [];
+            for (let i = 0; i < results.length && results[i]; i++) prefix.push(results[i]);
+            if (prefix.length) {
+              const progress = evaluateE2ePassProgress(expectedFiles, [...passReports, ...prefix], evidenceOptions);
+              if (progress.status !== 'passed') fail(progress.reason);
+            }
+          }
+        } catch { fail('incomplete_test_results'); }
+        finally { results[index] ??= { id: pass.id, exit_code: null }; }
+      }));
+      passReports.push(...results);
+    } finally {
+      // Both children (including interrupted peers) have closed before cleanup
+      // or a later batch starts. Retain both reports on a failed batch.
+      await Promise.all(scratch.map((temp, index) => temp
+        ? cleanupE2ePass(temp, output, batch[index].id, Boolean(failure) || signal.aborted)
+        : undefined));
+    }
+    if (signal.aborted) return 'test_cancelled';
+    if (failure) return failure;
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2), input = {};
   const flags = { '--root': 'root', '--output': 'output', '--event': 'event', '--base': 'base',
@@ -282,6 +336,11 @@ async function main() {
   try {
     for (const pass of plan) {
       if (controller.signal.aborted) { executionReason = 'test_cancelled'; break; }
+      if (profile === 'full' && pass.id === 'private-ai') {
+        executionReason = await executeFixtureTail({ root, cli, baseEnv, signal: controller.signal,
+          configFile, output, expectedFiles, passReports, evidenceOptions });
+        break;
+      }
       let temp, passCompleted = false;
       try {
         temp = await mkdtemp(join(tmpdir(), 'fp-pinned-'));

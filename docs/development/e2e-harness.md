@@ -513,3 +513,50 @@ or a demonstrated speedup. Synthetic real-Playwright runner tests exercise the
 selection and evidence path without launching a browser or connecting to a DB.
 A real isolated PostgreSQL/browser comparison and independent review are still
 required before an operator-authorized pin rollout.
+
+
+## Bounded full-plan fixture tail experiment (2026-10-17)
+
+The full pinned CI plan first completes and validates its existing two default
+shards. It then runs the five dedicated modes in batches: private-AI + avatar,
+message-image + store-photo, then notification-preferences. At most two
+single-worker Playwright processes run at once; no extra job or runner is added.
+Narrow guide/guild plans and the local `npm run test:e2e` orchestrator stay serial.
+
+The host assigns each tail pass a distinct port (14313–14317), generated
+`fp_e2e_<32 hex>` schema and fresh scratch directory for JSON, last-run and
+attachments. Inherited fixture flags are cleared before each fixed pass's flag
+is applied. The existing candidate config passes the schema to its webServer;
+server pools/reset/cleanup are schema-scoped. Avatar disk storage includes the
+schema name; other asset fixtures use process-local stores. Only private-AI
+writes its fixed optional observation file, so this plan has one writer for it.
+Run only one full pinned plan per host; fixed ports do not isolate separate jobs
+sharing a host. This is resource separation, not a sandbox against hostile code.
+
+Reports aggregate in original plan order, independently of child completion
+order. Validate available ordered prefixes; retain a later report until its
+predecessor completes. Process failure, missing report, timeout or invalid prefix
+cancels live peers through the existing SIGINT Playwright teardown, with unchanged
+20-second SIGKILL escalation. Await both children and cleanup before another
+batch. A failed batch retains both raw reports; external cancellation remains
+failed even when interrupted children exit zero. The existing 30-minute fixture
+budgets, 60-minute default budget, 75-minute job ceiling, case selection, expected
+skip coverage, one worker and zero retries are unchanged.
+
+Comparison baseline: [Verify 39024995045, browser job 117374201610](https://github.com/FreeTWAI/freedom-platform/actions/runs/39024995045/job/117374201610),
+pinned candidate/runner `5e9269e5d2c5d2b60cca8cc6403f5fd594577446`, had 1,044
+unique cases across 165 files and six modes. Default shard summaries were 26.0 and
+26.9 minutes; the interval from the last default summary through the final fixture
+summary was 139.6 seconds. Full job log span was 1,824.8 seconds (30m25s).
+The npm cache hit; install took about four seconds. These are log observations,
+not billed time or queue duration.
+
+This experiment starts from main `1ae0d0a4`; the independent runtime-timing fix
+[#873](https://github.com/FreeTWAI/freedom-platform/pull/873) stays unchanged and
+should land separately. Compare ordinary PR CI's actual runner/candidate SHA,
+case union, cache/setup, default duration, fixture tail and full job span against
+the baseline. Check application, test and lockfile bytes before calling sources
+matched; different orchestration and hosted contention remain confounders even
+when product bytes agree. Do not infer a speedup from local synthetic tests or
+from a different-source run. No additional full-suite manual reruns, provider
+routing or settings changes are part of this experiment.
