@@ -701,11 +701,12 @@ test('successful manual progress after a refusal hides forgetting and restarts a
   const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'重新追蹤空間',workspace_name:'追蹤區'});
   const held=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id); held.operation={...held.operation,state:'running'};
   await page.evaluate(({userId,held,guild})=>sessionStorage.setItem(`freedom-application-launch:${userId}:${guild}`,JSON.stringify([held])),{userId,held,guild:GUILD});
-  await page.clock.install(); await page.clock.pauseAt(new Date(Date.now()+1000)); let reads=0;
+  await page.clock.install(); await page.clock.pauseAt(new Date(Date.now()+1000)); let reads=0,completedReads=0;
   await page.route(url=>url.pathname===`/api/v1/tenants/${held.tenant_id}/operations/${held.operation.operation_id}`,async route=>{
-    reads++; const response=await route.fetch(); expect(response.status()).toBe(200); const body=await response.json();
-    if(reads===1) {await route.fulfill({response,status:403,json:{code:'capability_denied',detail:'目前沒有這個操作的權限。'}}); return;}
-    await route.fulfill({response,json:{...body,state:'running'}});
+    const read=++reads; const response=await route.fetch(); expect(response.status()).toBe(200); const body=await response.json();
+    if(read===1) await route.fulfill({response,status:403,json:{code:'capability_denied',detail:'目前沒有這個操作的權限。'}});
+    else await route.fulfill({response,json:{...body,state:'running'}});
+    completedReads++;
   });
   await open(page); await expect(flow(page).getByRole('button',{name:'不再追蹤',exact:true})).toBeVisible();
   await page.clock.runFor(30000); expect(reads).toBe(1);
@@ -714,6 +715,8 @@ test('successful manual progress after a refusal hides forgetting and restarts a
   await expect(flow(page).getByRole('button',{name:'不再追蹤',exact:true})).toHaveCount(0);
   await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText('配置中'); expect(reads).toBe(2);
   await page.clock.runFor(3000); await expect.poll(()=>reads,{timeout:5000}).toBe(3);
+  // A started poll does not prove its fetch/body/fulfill callback survived teardown.
+  await expect.poll(()=>completedReads,{timeout:5000}).toBe(3);
   await expect(flow(page).getByRole('button',{name:'不再追蹤',exact:true})).toHaveCount(0);
 });
 
