@@ -1,4 +1,4 @@
-import {spawn} from 'node:child_process';
+import {spawn, spawnSync} from 'node:child_process';
 import {verificationEnvironment} from '../process-env.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -138,3 +138,67 @@ test('test cancellation kills and reaps the transport child', {timeout:10000}, a
   controller.abort();
   await assert.rejects(pending,/cleanup_fixture_aborted/);
 });
+
+// Controlled transport/clock evidence, not a reproduction of PostgreSQL I/O.
+// Run the actual helper with DROP's ACK lost at 16.057s and a nonce-bound
+// cleaner whose termination is delayed beyond pg_terminate_backend's 1s wait.
+const settlementCode = String.raw`
+const assert=require('node:assert/strict'),Module=require('node:module');
+const scenario=process.argv[2],originalLoad=Module._load;
+let now=0,pid=0,polls=0,terminations=0,absence=0,database,cleanupApplication;
+Object.defineProperty(performance,'now',{value:()=>now});
+const realTimeout=setTimeout;
+global.setTimeout=(callback,delay,...args)=>{
+ if(delay===100){now+=delay;return realTimeout(callback,0,...args);}
+ return realTimeout(callback,delay,...args);
+};
+class Client {
+ constructor(config){this.config=config;this.pid=++pid;this.connection={stream:{destroy(){}}};
+  if(config.application_name.endsWith('_cleanup'))cleanupApplication=config.application_name;}
+ on(){} async connect(){} async end(){}
+ async query(q){
+  const text=typeof q==='string'?q:q.text,values=q.values||[];
+  if(text.startsWith('SELECT current_database()'))return {rows:[{database:'fp_review',owner:'review',session:'review',pid:this.pid}],rowCount:1};
+  if(text.startsWith('SELECT 1 FROM pg_database'))return {rows:[],rowCount:0};
+  if(text.startsWith('CREATE DATABASE')){database=text.match(/^CREATE DATABASE "([^"]+)"/)[1];return {rows:[],rowCount:0};}
+  if(text.startsWith('SELECT pg_get_userbyid'))return {rows:[{owner:'review'}],rowCount:1};
+  if(text.startsWith('DROP DATABASE')){now=16057;throw Error('Query read timeout');}
+  if(text.includes('FROM pg_stat_activity WHERE pid=$1')){
+   assert.match(text,/usename=\$2 AND application_name=\$3$/);
+   assert.equal(values[1],'review');
+   if(values[0]===1){assert.match(values[2],/^fp_suite_\d+_[a-f0-9]{16}_owner$/);return {rows:[],rowCount:0};}
+   assert.equal(values[0],2);assert.equal(values[2],cleanupApplication);
+   if(text.startsWith('SELECT pg_terminate_backend')){terminations++;now+=1000;return {rows:[{stopped:false}],rowCount:1};}
+   polls++;now+=50;
+   const present=scenario==='never'||now<(scenario==='late'?19500:18700);
+   return {rows:present?[{}]:[],rowCount:present?1:0};
+  }
+  if(text.startsWith('SELECT datname FROM pg_database')){
+   absence++;assert.deepEqual(values,[[database]]);
+   if(scenario==='absence-deadline')now=20001;
+   return {rows:scenario==='present'?[{datname:database}]:[],rowCount:scenario==='present'?1:0};
+  }
+  return {rows:[],rowCount:0};
+ }
+}
+Module._load=function(request,...rest){return request==='pg'?{Client}:originalLoad.call(this,request,...rest)};
+(async()=>{const {createRuntimeDatabases}=await import(process.argv[1]);
+ const created=await createRuntimeDatabases('postgresql://review@localhost/fp_review',1);
+ const verified=await created.cleanup();console.log(JSON.stringify({verified,now,polls,terminations,absence}));
+})().catch(()=>{process.exitCode=1;});
+`;
+for (const scenario of ['delayed', 'never', 'present', 'late', 'absence-deadline']) {
+  test(`nonce cleaner settlement ${scenario} preserves the absolute deadline and positive absence proof`, () => {
+    const child=spawnSync(process.execPath,['-e',settlementCode,new URL('../runtime-databases.mjs',import.meta.url).href,scenario],
+      {env:verificationEnvironment(),encoding:'utf8',timeout:5000});
+    assert.equal(child.status,0,child.stderr);
+    const result=JSON.parse(child.stdout);
+    assert.equal(result.verified,scenario==='delayed',JSON.stringify(result));
+    assert.equal(result.terminations,1,'poll settlement; never resend termination');
+    assert.ok(result.polls>1,JSON.stringify(result));
+    assert.equal(result.absence,['never','late'].includes(scenario)?0:1,JSON.stringify(result));
+    assert.ok(result.now <= (scenario==='absence-deadline'?20001:20000),JSON.stringify(result));
+    if(scenario==='delayed')assert.ok(result.now>=18700&&result.now<19000);
+    assert.doesNotMatch(child.stderr,/fp_suite_|postgresql:|DROP DATABASE/);
+  });
+}

@@ -20619,8 +20619,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-databases.mjs",
-      "bytes": 13322,
-      "sha256": "f1f7efe030cb3c96f5033e6e30f80a1f3140c7c2b9aa674f8aa38646db6c0cfe"
+      "bytes": 13643,
+      "sha256": "a2c6b3c413f729c5b693ec2d23792c685eecced0ec5687409dadb14d33346531"
     },
     {
       "path": "packages/contribution-tools/runtime-file-weights.mjs",
@@ -20629,8 +20629,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 15950,
-      "sha256": "fa6c5689b7efd4e1da12e597492afb7db7a121dc6b6979d192a2c63b2e7a0dc8"
+      "bytes": 21784,
+      "sha256": "0e16f9b97816a829b3fa7722d1e0161fe25f22db1da49aad4bfa1b8a2c071563"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -20639,8 +20639,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
-      "bytes": 4825,
-      "sha256": "cfb217b52ce0a8e60be15e090cb91c74ae6ceeb4e18648860bad8618c107b1cc"
+      "bytes": 5574,
+      "sha256": "7196f934a167cc18146b9b8d4f6032ac26135437eb09b30d390cd4fec0617f31"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -20674,8 +20674,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 10021,
-      "sha256": "56ff3a270869305e5c90fa68e06f50a3672a9eb6e1eb88e3e20aa1318390f7cc"
+      "bytes": 10086,
+      "sha256": "4209a74f8ffe4ace9cfac6c2e93daba0632446b2e9f5bcf6fac70231b18b0903"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -20899,8 +20899,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-cleanup-diagnostics.test.mjs",
-      "bytes": 8615,
-      "sha256": "ca053780f11f7a00bddd38ea081f573b70f4c780fd71ea77bc8e29428eb7958d"
+      "bytes": 12613,
+      "sha256": "db3207aa8775fb1271e32e89db75e92ca3ca556e13917a08775ac1d35cdc5006"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
@@ -20914,8 +20914,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-weights.test.mjs",
-      "bytes": 12874,
-      "sha256": "488e60c12cdde8d706143f2de1f3ad6f740c2b029bc0824598b289806dd89839"
+      "bytes": 16654,
+      "sha256": "3769aef3b7581d8a6ac07e429a69ce24209b3aff741f9b9323b48959fae49f0f"
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
@@ -20939,8 +20939,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 26736,
-      "sha256": "f818c77bb4e57896c0577a047a09f69b58f02d859304fb504d5b0856c5e0bc1b"
+      "bytes": 28708,
+      "sha256": "d46daf745ebb330b176ce73d7df9ce32adfda8ea3d1600944ce01bb95e410e23"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
@@ -21874,8 +21874,8 @@
     },
     {
       "path": "scripts/ci/derive-runtime-weights.mjs",
-      "bytes": 3459,
-      "sha256": "86ae909a64ca41a0869d784a17f07b2d2141bc30d19a3be900b445b215c54a78"
+      "bytes": 3964,
+      "sha256": "e50768516fca75ac335ff4c1ac957c0018fdd867ce785508993d13ca8f9783ed"
     },
     {
       "path": "scripts/ci/guild-presentation-profile.test.mjs",

@@ -97,6 +97,9 @@ try {
   process.exit(1);
 }
 
+if (args.logs.some(log => log.partial)) {
+  moduleCode = '// Partial scheduling estimates; not a complete source-bound weight refresh.\n' + moduleCode;
+}
 fs.writeFileSync(args.output, moduleCode, 'utf8');
 
 const costsData = {
@@ -104,6 +107,11 @@ const costsData = {
   measurement: 'per-file minimum of serial completed-file progress deltas across the listed hosted runs; includes file loading',
   milliseconds: finalMs
 };
+if (args.logs.some(log => log.partial)) {
+  costsData.input_completeness = 'partial_scheduling_estimates';
+  costsData.partial_logs = args.logs.filter(log => log.partial).map(log => path.basename(log.file));
+  process.stderr.write('Partial scheduling estimates: saturated/in-flight/unstarted files may be absent; not a complete weight refresh.\n');
+}
 fs.writeFileSync(args.costsOutput, JSON.stringify(costsData, null, 2) + '\n', 'utf8');
 
 let totalWeight = 0;
