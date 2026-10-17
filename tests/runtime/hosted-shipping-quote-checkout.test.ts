@@ -211,3 +211,87 @@ describe('hosted shipping quote over HTTP',()=>{
     finally {await h.request(store,'POST',`/provider-accounts/${account.account_id}/logistics-services/${SERVICE_KEYS[0]}/resume`,{fresh_auth_verification_id:await h.fresh(store)},suspended.version);}
   });
 });
+
+test('production Node ports quote, place and complete cash meetup without an ECPay account or journal',async()=>{
+  const {nodeRuntime}=await import('../../apps/platform-api/src/app.js');
+  const {createPlatformApp}=await import('../../apps/platform-api/src/platform-app.js');
+  const h=await shippingSettingsHarness('fp_ship_offline_join');
+  try{
+    await h.reset();
+    const store=await h.store(),adminCsrf=randomUUID();
+    const adminEmail=(await h.f.x.h.pool.query('SELECT email FROM platform_admins LIMIT 1')).rows[0].email as string;
+    // No commercePorts override: this exercises both production port factories.
+    const runtime=nodeRuntime('local',h.f.origin,{
+      guildLaunchpadEnabled:true,commerceCredentialKeyring:null,
+      commerceSettings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:['offline.cash_on_meetup.v1']},
+      adminVerifier:async()=>({email:adminEmail,subject:'synthetic-offline-admin',csrfToken:adminCsrf}),
+    });
+    assert.equal(runtime.commercePayments,undefined);
+    assert.equal(runtime.commerceJournal,undefined);
+    assert.equal(runtime.commerceCredentialKeyring,null);
+    const app=createPlatformApp(h.f.x.runtime,h.f.origin,'local',runtime);
+    const seller=(method:string,path:string,body?:unknown,version?:string,key=randomUUID())=>h.f.x.h.call(method,store.root+path,store.owner,body,
+      {'Idempotency-Key':key,...(version===undefined?{}:{'If-Match':`"${version}"`})},app);
+    h.expect(await seller('PUT','/shipping-profile',{...h.document(),delivery_options:[{method:'meetup',note:'店門口面交'}]}),201);
+    h.expect(await seller('PUT','/offline-payment-settings',{
+      schema:'freedom.offline-payment-settings/v1',bank_transfer:null,cash_on_meetup:{deadline_days:7},fresh_auth_verification_id:await h.fresh(store),
+    }),201);
+    const admitted=await app.request(h.f.origin+'/admin/api/commerce/store-admissions',{
+      method:'POST',headers:{Origin:h.f.origin,'Content-Type':'application/json','X-Admin-CSRF':adminCsrf,'Idempotency-Key':randomUUID()},
+      body:JSON.stringify({tenant_id:store.tenantId,instance_id:store.instanceId,reason:'合成面交整合驗證'}),
+    });
+    assert.equal(admitted.status,201,await admitted.text());
+    const root='/public/stores/'+store.slug;
+    const cart=h.expect(await h.f.x.h.call('POST',root+'/cart-quotes',store.owner,{
+      publication_revision:'1',lines:[{sku:store.product.sku,quantity:2}],delivery:{method:'meetup'},
+    },{},app));
+    assert.deepEqual(cart.payment_options,[{method:'cash_on_meetup',available:true,reason:null}]);
+    assert.equal(cart.shipping.method,'meetup');
+    assert.equal(cart.shipping.total_minor,0);
+    const frozen=await h.f.x.h.call('POST',root+'/checkouts',store.owner,{
+      ...h.f.x.input(store.product.sku,2),delivery:{method:'meetup',name:'面交買家',mobile:'0900000000'},
+    },{'Idempotency-Key':randomUUID()},app);
+    const checkout=h.expect(frozen,201);
+    assert.deepEqual(checkout.terms.payment_methods,['cash_on_meetup']);
+    assert.deepEqual(checkout.terms.offline_payment,{settings_version:'1',bank_transfer_deadline_days:null,meetup_deadline_days:7});
+    assert.equal(checkout.terms.shipping.destination_state,'complete');
+    assert.equal(checkout.terms.shipping.groups[0].method,'meetup');
+    assert.equal(checkout.terms.shipping.groups[0].meetup_note,'店門口面交');
+    const device=frozen.response.headers.get('set-cookie')!.split(';')[0];
+    const buyer={...store.owner,cookie:store.owner.cookie+'; '+device};
+    const placed=h.expect(await h.f.x.h.call('POST',root+`/checkouts/${checkout.checkout_ref}/orders`,buyer,{
+      terms_sha256:checkout.terms_sha256,client_order_id:randomUUID(),payment_method:'cash_on_meetup',
+    },{},app),201);
+    assert.equal(placed.payment,null);
+    assert.equal(placed.order.payment_method,'cash_on_meetup');
+    assert.equal(placed.order.payment_state,'unpaid');
+    const orderId=placed.order.order_ref as string;
+    const retained=(await h.f.x.h.pool.query(`SELECT co.terms,extract(epoch FROM o.expires_at-o.created_at)::int AS seconds
+      FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id) WHERE co.order_id=$1`,[orderId])).rows[0];
+    assert.equal(retained.seconds,7*24*60*60);
+    assert.equal(retained.terms.shipping.groups[0].method_ref,'meetup');
+    assert.equal(retained.terms.shipping.groups[0].fulfilment_mode,'self');
+    const detail=h.expect(await seller('GET',`/checkout-orders/${orderId}`));
+    assert.equal(detail.actions.complete_meetup,true);
+    const completedOn=(await h.f.x.h.pool.query("SELECT to_char(clock_timestamp() AT TIME ZONE 'Asia/Taipei','YYYY-MM-DD') AS date")).rows[0].date as string;
+    const key=randomUUID(),body={amount_minor:placed.order.total_minor,completed_on:completedOn};
+    const completed=h.expect(await seller('POST',`/checkout-orders/${orderId}/meetup-completion`,body,detail.version,key));
+    assert.equal(completed.payment_state,'confirmed');
+    assert.equal(completed.inventory_state,'shipped');
+    assert.equal(completed.actions.complete_meetup,false);
+    assert.equal(completed.meetup_handover.completed_on,completedOn);
+    const replay=h.expect(await seller('POST',`/checkout-orders/${orderId}/meetup-completion`,body,detail.version,key));
+    assert.equal(replay.meetup_handover.handover_ref,completed.meetup_handover.handover_ref);
+    for(const table of ['commerce_offline_payments','commerce_checkout_payment_applications','commerce_meetup_handovers']){
+      assert.equal((await h.f.x.h.pool.query(`SELECT count(*)::int n FROM ${table} WHERE order_id=$1`,[orderId])).rows[0].n,1,table);
+    }
+    assert.equal((await h.f.x.h.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts WHERE order_id=$1',[orderId])).rows[0].n,0);
+    assert.equal((await h.f.x.h.pool.query('SELECT count(*)::int n FROM commerce_provider_accounts')).rows[0].n,0);
+    assert.equal((await h.f.x.h.pool.query('SELECT count(*)::int n FROM commerce_item_shipping_attributes')).rows[0].n,0);
+    assert.deepEqual((await h.f.x.h.pool.query('SELECT quantity,shipped_quantity,released_quantity FROM commerce_inventory_allocations WHERE order_id=$1',[orderId])).rows,
+      [{quantity:2,shipped_quantity:2,released_quantity:0}]);
+    const publicOrder=h.expect(await h.f.x.h.call('GET',root+`/orders/${orderId}`,buyer,undefined,{},app));
+    assert.equal(publicOrder.payment_state,'confirmed');
+    assert.equal(publicOrder.can_resume_payment,false);
+  }finally{await h.stop();}
+});

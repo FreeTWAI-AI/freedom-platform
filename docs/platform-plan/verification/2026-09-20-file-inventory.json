@@ -23854,8 +23854,8 @@
     },
     {
       "path": "tests/runtime/hosted-shipping-quote-checkout.test.ts",
-      "bytes": 18300,
-      "sha256": "6afde0c2f2a914bd6128311824f55a6c712caa60a46afedeac6241e5adad119a"
+      "bytes": 24818,
+      "sha256": "fa342a087cc6f19625c11ea9f556438801fb70ce99649044086a13813830fcc8"
     },
     {
       "path": "tests/runtime/hosted-shipping-quote.test.ts",
