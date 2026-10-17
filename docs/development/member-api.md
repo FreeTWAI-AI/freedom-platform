@@ -16,6 +16,18 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Shared persisted budgets serialize on the bucket row before deciding expiration
+with PostgreSQL `clock_timestamp()`. Reopened windows also start at that actual
+database clock, not Node time or transaction-start `now()`: an old transaction
+waiting for the bucket cannot repeatedly reopen an already-expired window.
+The existing scope/network hash, per-caller limits and durations remain unchanged.
+Charges made inside a domain command still roll back with its failed effects;
+standalone authentication charges retain their own transaction. The decision
+does not promise that a window remains active through commit or response delivery.
+[Window regressions](../../tests/runtime/auth-rate-limit-window.test.ts) use
+real PostgreSQL row waits, aged transactions and natural expiration in an isolated
+schema; their two-second fixture does not reduce any deployed limit or duration.
+
 Event `starts_at`/`ends_at` (create, edit and schedule), Work
 `claim_by`/`finish_by`, and receipt `received_at` share the existing ISO datetime
 syntax with `Z` or a numeric offset (`±HH:MM`). Years must be AD 0001–9999 and
