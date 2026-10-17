@@ -2134,8 +2134,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
-      "bytes": 2074,
-      "sha256": "261c5b68cdd9f34c3bb8d99e3dc946060130fe3bedfd2d9a2557526ab5b11a1c"
+      "bytes": 2198,
+      "sha256": "8ca520f0159b82447633010f09e9a624c8d1742a8c6c767a8ee74e2d0b8fb812"
     },
     {
       "path": "apps/portal-web/src/modules/AuthorClaim.css",
@@ -2209,8 +2209,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
-      "bytes": 25191,
-      "sha256": "435e79f706f3e6cbd948a5d5e7f8e0b07cf8e45fafc88a4453c678c9e1a292b4"
+      "bytes": 25559,
+      "sha256": "6a71d48e77b13737998aff97c7ca4219c3175ed952d32ce2c2b95553976035b9"
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
@@ -13934,8 +13934,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 33612,
-      "sha256": "2f8b980e0c3faaf278614a8d39e1eda3c872392aa752ee92968b63ff4000e66b"
+      "bytes": 35352,
+      "sha256": "f6d463ad8202d363897efb58fca9c239ea3a77a1df4ed7ea873aee55321a9b9a"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -16959,8 +16959,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 28794,
-      "sha256": "f19acc73e1e46682c6c7db3e1ef8a0a7cc92326593db7d87db3a86edffa2e941"
+      "bytes": 30036,
+      "sha256": "db348fe8e79ab62e954ae83912a24445898ce324702d8933dda9fe2a20a12e83"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -20909,8 +20909,8 @@
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
-      "bytes": 17173,
-      "sha256": "eaca8101923796c5a68d0d2ed7307b4fcf311e74182af5c148fa4167008347be"
+      "bytes": 23869,
+      "sha256": "640b84b38a8773d11da422af0836f5ae4cea085a10fcf74e7d56eb747314c59d"
     },
     {
       "path": "tests/e2e/ai-sister-guides.spec.ts",
