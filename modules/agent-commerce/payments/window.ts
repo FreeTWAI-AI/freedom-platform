@@ -43,9 +43,9 @@ export async function lockMachinePaymentAttempt(q:PoolClient, id:string,expected
 /** Caller already owns the machine order/attempt locks. No unapplied payment
  * event may be overtaken by cancellation, including a definite failed event. */
 export async function settleOrderPayments(q:PoolClient, orderId:string) {
-  const order = (await q.query(`SELECT co.lifecycle_state,p.storefront_shop_id FROM commerce_checkout_orders co
+  const order = (await q.query(`SELECT co.lifecycle_state,co.payment_method,p.storefront_shop_id FROM commerce_checkout_orders co
     JOIN commerce_storefront_profiles p ON p.tenant_id=co.tenant_id AND p.instance_id=co.instance_id WHERE co.order_id=$1`,[orderId])).rows[0];
-  if (!order || order.lifecycle_state!=='open' || await hasConfirmedPayment(q,orderId)) return false;
+  if (!order || order.lifecycle_state!=='open' || order.payment_method!=='immediate_card' || await hasConfirmedPayment(q,orderId)) return false;
   const pending = (await q.query(`SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=$1 AND
     (a.state NOT IN ('failed','expired_unpaid') OR EXISTS(SELECT 1 FROM commerce_hosted_payment_events e
       WHERE e.attempt_id=a.attempt_id AND e.source IN ('notification','query') AND e.applied_at IS NULL)) LIMIT 1`,[orderId])).rowCount;

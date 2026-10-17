@@ -277,12 +277,13 @@ export function createCheckoutPaymentActions(options:PaymentAttemptOptions,queri
 export const paymentUnresolvedOrders:UnresolvedOrderPort={async find(q,checkoutId){
   return (await q.query<{order_id:string}>(`SELECT co.order_id FROM commerce_checkout_orders co
     WHERE co.checkout_id=$1 AND co.lifecycle_state='open' AND NOT ${confirmedPaymentSQL('co.order_id')}
-    AND EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=co.order_id
+    AND (EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=co.order_id
       AND (a.state='paid' OR (a.state IN ('issued','superseded') AND a.handed_off_at IS NOT NULL)
         OR (a.state='issued' AND a.handed_off_at IS NULL
           AND EXISTS(SELECT 1 FROM commerce_inventory_reservations r WHERE r.order_id=co.order_id)
           AND NOT EXISTS(SELECT 1 FROM commerce_inventory_reservations r WHERE r.order_id=co.order_id
             AND (r.state<>'held' OR r.expires_at<=clock_timestamp())))))
+      OR (co.payment_method IN ('bank_transfer','cash_on_meetup') AND EXISTS(SELECT 1 FROM commerce_orders o WHERE o.order_id=co.order_id AND o.expires_at>clock_timestamp())))
     ORDER BY co.order_id LIMIT 1`,[checkoutId])).rows[0]??null;
 }};
 export function createCheckoutPaymentPorts(options:PaymentAttemptOptions,queries?:PaymentQueryDependencies){
