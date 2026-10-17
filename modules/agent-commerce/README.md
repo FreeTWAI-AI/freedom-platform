@@ -41,6 +41,16 @@ substitutes only a synthetic loopback upstream and checks complete manifest
 content plus absent Referer. This does not establish live GitHub availability,
 Worker/deployed behavior, or additional text-encoding guarantees.
 
+Local JSON/MD import sources remain limited to 24,000 UTF-8 bytes. Only
+`POST /api/v1/commerce/preview` permits a 144,014-byte JSON request: the
+`{"content":""}` wrapper adds 14 bytes and each source byte can require at
+most six bytes when JSON-escaped. This transport allowance prevents valid
+escaped results from hitting the ordinary 32 KiB request ceiling; it does
+not increase the decoded source limit or change the manifest schema.
+Both declared lengths and the actual stream are bounded before parsing.
+All existing Origin, session, CSRF, UTF-8/Unicode/NUL and preview rate-limit
+checks remain in place. Other JSON commands keep their existing ceilings.
+
 The server resolver and schema constraints are documented in [resource-scopes](../../packages/resource-scopes/README.md). After schema 117 and 118, an upgraded issuer creates only purpose-bound v2 keys when the owner explicitly requests issuance. Its existing member receipt/digest stays unchanged and a replay still returns `token: null`. The application must receive an explicit `FREEDOM_SHOP_KEY_POLICY=legacy-compatible` or `purpose-bound-only`; absent configuration yields shop-only 503. The Worker config checker lists this as a required injection without changing deployed vars. `/api/v1/health` reports the actual selected policy and issuer profile, or `unconfigured`/null. A merged source SHA or configured example is not an installed policy observation.
 
 ## Controlled legacy exit

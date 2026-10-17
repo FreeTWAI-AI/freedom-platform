@@ -76,6 +76,58 @@ test('declared oversized JSON is rejected without pulling its source', async () 
   assert.equal(pulled, 0);
 });
 
+test('commerce preview accepts the 24,000-byte content string at its worst JSON escape expansion',async()=>{
+  const body=JSON.stringify({content:'\u0001'.repeat(24000)});
+  assert.equal(Buffer.byteLength(body),144014);
+  for(const declared of [false,true]){
+    const response=await app.request(origin+'/api/v1/commerce/preview',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(declared?{'Content-Length':String(Buffer.byteLength(body))}:{})},
+      body:new ReadableStream<Uint8Array>({start(controller){
+        const bytes=new TextEncoder().encode(body);
+        controller.enqueue(bytes.subarray(0,32768));controller.enqueue(bytes.subarray(32768));controller.close();
+      }}),duplex:'half',
+    } as RequestInit);
+    assert.equal(response.status,401);
+    assert.equal((await response.json()).code,'login_required');
+  }
+  const response=await app.request(origin+'/api/v1/commerce/preview',{
+    method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:body+' ',
+  });
+  assert.equal(response.status,413);
+  assert.equal((await response.json()).code,'body_too_large');
+});
+
+test('commerce preview rejects declared and streamed overflow without draining the source',async()=>{
+  for(const declared of [false,true]){
+    let pulled=0,cancelled=false;
+    const response=await app.request(origin+'/api/v1/commerce/preview',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(declared?{'Content-Length':'144015'}:{})},
+      body:new ReadableStream<Uint8Array>({
+        pull(controller){
+          pulled++;
+          controller.enqueue(new Uint8Array(8192).fill(32));
+          if(pulled===32)controller.close();
+        },
+        cancel(){cancelled=true;},
+      },{highWaterMark:0}),duplex:'half',
+    } as RequestInit);
+    assert.equal(response.status,413);
+    assert.equal((await response.json()).code,'body_too_large');
+    if(declared)assert.equal(pulled,0);
+    else{assert.ok(pulled<32);assert.equal(cancelled,true);}
+  }
+});
+
+test('the larger content envelope does not extend to other methods or neighboring commerce routes',async()=>{
+  for(const [method,path] of [['PATCH','/api/v1/commerce/preview'],['POST','/api/v1/commerce/preview/extra'],['POST','/api/v1/commerce/import'],['POST','/api/v1/auth/logout']]){
+    const response=await app.request(origin+path,{
+      method,headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({content:'x'.repeat(32768)}),
+    });
+    assert.equal(response.status,413,`${method} ${path}`);
+    assert.equal((await response.json()).code,'body_too_large');
+  }
+});
+
 test('decoded JSON NUL keys and values fail before authentication, but escaped literal text and ordinary Unicode do not', async () => {
   for (const body of ['\0', {nested: ['safe', {text: 'a\0b'}]}, {nested: [{'bad\0key': null}]}]) {
     const response = await app.request(origin + '/api/v1/auth/logout', {
