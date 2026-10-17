@@ -230,7 +230,8 @@ order exists; otherwise it returns `checkout_expired` without a device, grant or
 cookie. Its fingerprint ignores login/logout/member switches and keeps the first
 customer member link. Checkout responses, including replays, allowlist only the
 public terms fields: revision, currency, priced items, discounts, group references
-and shipping amounts, tax state, totals, consents and payment methods. They omit
+and shipping amounts, tax state, totals, consents, payment methods and nullable
+`offline_payment`. They omit
 internal publication, supplier, selection, binding and contact digests. The returned
 `terms_sha256` still hashes the full retained terms and placement checks it.
 
