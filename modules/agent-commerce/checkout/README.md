@@ -359,6 +359,23 @@ amounts or total cause payment_profile_unavailable with fixed Chinese text.
 Placement and replay return a fresh token only while the attempt is issued and
 has not been handed off. The buyer resume endpoint uses the same stored gates.
 
+`CheckoutPaymentMethodsPort` is the optional sibling of that card port. Hosts
+inject it whenever a provider profile is listed. `choosePaymentTerms` freezes the
+offered methods and an `offline_payment` block that carries the settings version
+and deadlines only. `placeCheckoutOrder` stores the chosen `payment_method` on
+`commerce_checkout_orders`. An immediate card expires 30 minutes after creation.
+Bank transfer and cash on meetup expire `24 * deadline_days` hours after creation
+and schedule `offline_payment_window_end` for `expires_at + 72h`. Hold release at
+`expires_at` returns the stock and leaves the order open, so a seller can still
+confirm it until the grace handler cancels it. Card settlement does not cancel
+an offline order.
+
+`cancelPublicOrder` cancels an open unpaid card or offline order as
+`buyer_cancelled`. A second cancel returns the same order. A confirmed payment
+answers `payment_already_applied`. Quarantine answers 503 before any change. The
+route is mounted with the other public checkout paths and is not part of the
+tenant route table.
+
 `publicOrder` uses the payment summary port. Outstanding unapplied payments take priority, followed by confirmed applications,
 fully refunded unapplied payments, pending hints, simulated applications and unpaid. The latest attempt exposes only a coarse state and creation time;
 can_resume_payment runs the same eligibility checks as resume. Provider/account

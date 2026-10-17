@@ -17219,8 +17219,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/README.md",
-      "bytes": 33714,
-      "sha256": "229ef646eec3005bc8d6767cbf83a2c07ca26459a37f865371c2ca928446c80e"
+      "bytes": 34783,
+      "sha256": "5b23480c74c9f8d6d6c49553641572583a92c590d0733a006691138a7f4879f7"
     },
     {
       "path": "modules/agent-commerce/checkout/access.ts",
@@ -17654,8 +17654,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/README.md",
-      "bytes": 9857,
-      "sha256": "f33cc1bd469cc2d551adef52c8f5e3ec0b754bf91de7dc0799d4c43f1a751a9f"
+      "bytes": 10177,
+      "sha256": "4e04332ace38a52fca2a28e2e1fc81021cdf51b17326f8074b8b349b1a7b1ba1"
     },
     {
       "path": "modules/agent-commerce/operations/admissions.ts",
@@ -17729,8 +17729,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/README.md",
-      "bytes": 25644,
-      "sha256": "506f71192352876395579b9c33c4ef961f58215b07c0dfbd24e734a0b0528e9c"
+      "bytes": 27650,
+      "sha256": "ae904cb4f0f8801c4e22b50d6a209c6a8a578ae58f7ef40b234634a6daa5ff4b"
     },
     {
       "path": "modules/agent-commerce/payments/accounts.ts",
@@ -23733,9 +23733,34 @@
       "sha256": "33173df975c03cf51b3536b0a67154a5e5df58bdb1d9ffb8b1547ab6031bfa52"
     },
     {
+      "path": "tests/runtime/hosted-offline-checkout.test.ts",
+      "bytes": 30849,
+      "sha256": "bf19ae647774bf963c3ec9a0e46cba6daf38749980b294e5ab050a8f7b80c4bd"
+    },
+    {
       "path": "tests/runtime/hosted-offline-confirm.test.ts",
-      "bytes": 12427,
-      "sha256": "20e367b939ee6ff927fe468f6d92e1900efe21e9e72f016410abccf8c0aee68a"
+      "bytes": 45398,
+      "sha256": "1e088510b58bafb5d61211d51cef96ffc7a5e2358c4d00af780aca41aa7a79d0"
+    },
+    {
+      "path": "tests/runtime/hosted-offline-contracts.test.ts",
+      "bytes": 19484,
+      "sha256": "2a02e5d61e75af1709f487f93c03eb7d9755975bd435a951668db0a00d90dbeb"
+    },
+    {
+      "path": "tests/runtime/hosted-offline-expiry.test.ts",
+      "bytes": 15048,
+      "sha256": "22f905706dc8d83a8d274c2cf8a7e4d4dc39b785c73f30b13406c7638e1ebffe"
+    },
+    {
+      "path": "tests/runtime/hosted-offline-schema.test.ts",
+      "bytes": 16888,
+      "sha256": "1135d53606bd34f264b2b4ce3337a7c8564aafd76e61f7a16793a934ca24a99f"
+    },
+    {
+      "path": "tests/runtime/hosted-offline-settings.test.ts",
+      "bytes": 30092,
+      "sha256": "e79a65710f63c17a490b83d62c722388133adad4b38e922f72a9ef3e878b28f2"
     },
     {
       "path": "tests/runtime/hosted-order-contracts.test.ts",
