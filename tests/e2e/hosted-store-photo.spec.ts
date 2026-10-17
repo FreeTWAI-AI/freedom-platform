@@ -2848,7 +2848,11 @@ test('SC-E2E-80 supplier image and video preview retry the same version, and a d
         name: 'event-video-160x90.mp4', mimeType: 'video/mp4', buffer: await readFile('tests/media-fixtures/event-video-160x90.mp4'),
       });
     }
+    const uploaded = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `${detailPath}/content`);
     await uploadSection.getByRole('button', { name: '上傳新版本', exact: true }).click();
+    const uploadResponse = await uploaded;
+    expect(uploadResponse.status()).toBe(200); expect(await uploadResponse.finished()).toBeNull();
+    await uploadResponse.body();
     await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
     await expect(contentSection).toContainText(failureText);
     await expect(contentSection.locator(kind === 'image' ? 'img' : 'video')).toHaveCount(0);
