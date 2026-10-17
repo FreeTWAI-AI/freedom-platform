@@ -424,7 +424,11 @@ function LoginView({
   const [totpRequired,setTotpRequired]=useState(false)
   const [loginCode,setLoginCode]=useState('')
   const codeInput=useRef<HTMLInputElement>(null)
-  useEffect(()=>{setTotpRequired(false);setLoginCode('')},[activeMode,email,password])
+  // Only credential/mode changes invalidate a challenge, not code entry itself.
+  useEffect(()=>{
+    if(totpRequired)setTotpRequired(false)
+    if(loginCode)setLoginCode('')
+  },[activeMode,email,password])
   const [resetNotice,setResetNotice]=useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<unknown>(null)
