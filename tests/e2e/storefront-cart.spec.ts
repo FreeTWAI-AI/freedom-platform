@@ -561,6 +561,7 @@ test('9. B04 error table (429, 503, 409, 404, network/malformed), retry focus to
       discounts: [],
       shipping: { state: 'not_configured', groups: [], total_minor: null },
       total_minor: null,
+      payment_options: [{ method: 'immediate_card', available: true, reason: null }],
     });
 
     const unavailableWithTitleQuote = buildVerifiedQuote({
@@ -581,6 +582,7 @@ test('9. B04 error table (429, 503, 409, 404, network/malformed), retry focus to
       discounts: [],
       shipping: { state: 'needs_delivery_data', groups: [], total_minor: null },
       total_minor: null,
+      payment_options: [{ method: 'immediate_card', available: true, reason: null }],
     });
 
     const quotePattern = `**/api/v1/public/stores/${store.slug}/cart-quotes`;
@@ -748,6 +750,7 @@ test('9. B04 error table (429, 503, 409, 404, network/malformed), retry focus to
           total_minor: 6000,
         },
         total_minor: p1.price_minor * qty + 6000,
+        payment_options: [{ method: 'immediate_card', available: true, reason: null }],
       });
       await route.fulfill({
         status: 200,
@@ -852,6 +855,7 @@ test('10. defensive storage cleanup, 50-line cap alert on B03, and Storage.proto
         discounts: [],
         shipping: { state: 'needs_delivery_data', groups: [], total_minor: null },
         total_minor: null,
+        payment_options: [{ method: 'immediate_card', available: true, reason: null }],
       });
       await route.fulfill({
         status: 200,
