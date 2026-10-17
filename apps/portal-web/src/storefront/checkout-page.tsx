@@ -58,6 +58,9 @@ function errorCopy(raw: unknown): string {
 function CheckoutPage({slug, name, container}: {slug: string; name: string; container: HTMLElement}) {
   const [cart] = useState(() => readCart(slug));
   const [intent, setIntent] = useState<Intent | null>(() => readIntent(slug));
+  // A persisted intent has no original cart snapshot. After a reload, the
+  // current cart may belong to a newer purchase, so recovery must retain it.
+  const submittedCart = useRef(intent === null ? cart : null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [method, setMethod] = useState<ShippingMethodRef | ''>('');
   const [contactName, setContactName] = useState('');
@@ -153,7 +156,7 @@ function CheckoutPage({slug, name, container}: {slug: string; name: string; cont
         sessionStorage.removeItem(intentKey(slug));
         freezeRequest.current = null;
         // A cart changed in another tab must not be discarded by an older checkout.
-        if (JSON.stringify(readCart(slug)) === JSON.stringify(cart)) writeCart(slug, {revision: '', lines: []});
+        if (submittedCart.current && JSON.stringify(readCart(slug)) === JSON.stringify(submittedCart.current)) writeCart(slug, {revision: '', lines: []});
         window.location.assign(parsed.data.payment?.handoff_url ?? `/shops/${encodeURIComponent(slug)}/orders/${parsed.data.order.order_ref}`);
         return;
       }

@@ -39,6 +39,8 @@ CVS store selection and invoice fields remain pending their provider workflows.
 The checkout key and contact values stay in memory. A placement stores only its
 checkout reference, terms hash, payment method and client order ID in tab session
 storage before sending, so a lost response or refresh can retry the same intent.
+Recovered intents retain the current cart because its original contents are not
+persisted with the intent; another tab may have prepared a newer purchase.
 No bank instructions or contact data are persisted in browser storage.
 `offline-order.tsx` displays authorized, frozen bank/meetup instructions, seller
 confirmation and deadlines, and offers refresh and buyer cancellation. It never

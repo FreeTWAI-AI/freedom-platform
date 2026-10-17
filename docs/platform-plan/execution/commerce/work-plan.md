@@ -520,8 +520,20 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
 - 本機磁碟 PostgreSQL 的 5 項新 browser 情境、26 項既有 browser 回歸、30 項 runtime、typecheck
   與 build 通過；390／768／1440 截圖已檢視。首次 browser **1 passed／2 failed** 保留：
   成功下單立即導頁後，測試讀取舊 response body 失敗；改為在真實回應送到頁面之前捕獲，不替換業務回應。
-  重跑及原始測試容器／精確 volume 均已核對移除。後續欄位旁錯誤與輸入保留補驗另記結果。
-- 這是隔離本機證據；尚未以此後續來源完成 hosted CI、獨立 review、合併或雲端驗收。
+  重跑及原始測試容器／精確 volume 均已核對移除。`2e8dbba1` 的欄位旁錯誤、輸入保留與
+  response payment method 檢查再次通過相同 5／26／30 項測試、typecheck 與重新 build。
+- PR #875 的 `2e8dbba1` hosted Verify
+  [39028228960](https://github.com/FreeTWAI/freedom-platform/actions/runs/39028228960) 中，UI 全模式
+  1,049 案通過；runtime 427 檔 6,261／6,262 通過，八區 cleanup 均成立。
+  唯一失敗在既有 `github-social.test.ts`（54／55，`testCodeFailure`）；hosted 未保留原始 assertion。
+  不改原碼的本機對照為 55／55，不能據此認定根因或把原失敗改列成功。
+- `detna-vibe-coding` 的獨立 AI-assisted review 在 `2e8dbba1` 提出 P2：遺失下單回應後，
+  另一分頁修改購物車，重新載入再重送原 intent，可能清除新的購物車。真實 browser 先重現
+  「數量 2 的購物車變成 null」。修正採恢復 intent 時保留目前購物車；一般下單仍只清除
+  本頁送出的原購物車，不增加 sessionStorage 的商品或個資內容。
+  修正後 typecheck、重新 build 與 6／6 browser 案通過；確認跨分頁購物車保留、相同重送座標、
+  只建立一筆原數量訂單，以及一般下單的購物車清除。原重現失敗的 trace／截圖與 log 保留。
+- 此後續來源仍待修正後的 hosted CI、再次 source review、合併及雲端驗收。
   不更新 Foundation 168 項要求為 accepted，不宣告完整 M3／M4、真實金流、物流、寄信或商家採用完成。
 
 ## 6. 共用檔案

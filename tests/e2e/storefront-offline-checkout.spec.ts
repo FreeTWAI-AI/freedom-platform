@@ -71,6 +71,7 @@ test('bank checkout uses frozen instructions, member/link access, seller confirm
     expect(JSON.stringify(checkout)).not.toContain('000000123456');
     await assertCartResponsiveLayout(page, [390,768,1440], width => info.outputPath(`checkout-confirm-${width}.png`));
     const order = await place(page, '銀行匯款');
+    expect(await page.evaluate(slug => localStorage.getItem(`freedom.shop.cart.v1:${slug}`), store.slug)).toBeNull();
     expect(order.meetup_notes).toEqual(['請先約定時間，在山邊小店門口面交。']);
     await expect(page.getByText('000000123456', {exact: true})).toBeVisible();
     await expect(page.getByRole('button', {name: /前往付款|重新付款|查詢付款結果/})).toHaveCount(0);
@@ -119,7 +120,7 @@ test('bank checkout uses frozen instructions, member/link access, seller confirm
   } finally {await context.close(); await store.close();}
 });
 
-test('unknown checkout and order acknowledgments retry the same identities across refresh', async ({browser, e2eAuthPool}) => {
+for (const editedInAnotherTab of [false, true]) test(`unknown checkout and order acknowledgments retry the same identities across refresh${editedInAnotherTab ? ' after an other-tab cart edit' : ''}`, async ({browser, e2eAuthPool}) => {
   const store = await setupCartFixtureStore(e2eAuthPool, browser, true);
   const context = await browser.newContext({baseURL: store.origin});
   try {
@@ -146,12 +147,23 @@ test('unknown checkout and order acknowledgments retry the same identities acros
     });
     await page.getByRole('button', {name: '確認下單', exact: true}).click();
     await expect(page.getByRole('alert')).toContainText('還沒收到下單結果');
+    if (editedInAnotherTab) {
+      const otherTab = await context.newPage();
+      await otherTab.goto(`${store.origin}/shops/${store.slug}/cart`);
+      await otherTab.getByRole('button', {name: `增加${store.products[0].title}數量`, exact: true}).click();
+      await expect(otherTab.getByLabel(`${store.products[0].title}數量`, {exact: true})).toHaveValue('2');
+      await otherTab.close();
+    }
+    const cartBeforeRecovery = await page.evaluate(slug => localStorage.getItem(`freedom.shop.cart.v1:${slug}`), store.slug);
+    expect(JSON.parse(cartBeforeRecovery!).lines[0].quantity).toBe(editedInAnotherTab ? 2 : 1);
     await page.reload();
     await page.getByRole('button', {name: '重試同一筆訂單', exact: true}).click();
     await expect(page.getByRole('heading', {level: 1})).toHaveText(/^訂單 /);
     expect(bodies).toHaveLength(2); expect(bodies[1]).toBe(bodies[0]);
+    expect(await page.evaluate(slug => localStorage.getItem(`freedom.shop.cart.v1:${slug}`), store.slug)).toBe(cartBeforeRecovery);
     await expect(page.getByText('店家會用你留下的手機或 Email 和你約時間地點。', {exact: true})).toBeVisible();
     expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM commerce_checkout_orders WHERE instance_id=$1', [store.instance])).rows[0].n).toBe(1);
+    expect((await e2eAuthPool.query('SELECT l.quantity FROM commerce_order_lines l JOIN commerce_checkout_orders o USING(order_id) WHERE o.instance_id=$1', [store.instance])).rows).toEqual([{quantity: 1}]);
     await page.getByRole('button', {name: '取消訂單', exact: true}).click();
     await page.getByRole('button', {name: '確認取消訂單', exact: true}).click();
     await expect(page.getByText('訂單狀態：已取消（你取消了訂單）', {exact: true})).toBeVisible();
