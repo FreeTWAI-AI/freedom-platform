@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import {createHash} from 'node:crypto';
+import {canonicalJSON} from '../../modules/agent-commerce/checkout/terms.js';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Pool } from 'pg';
@@ -62,7 +64,7 @@ export function assertExactQuoteInput(rawBody: string | null) {
   return parsed as { publication_revision: string; lines: { sku: string; quantity: number }[] };
 }
 
-export async function openCartListener(db: Pool) {
+export async function openCartListener(db: Pool, offline = false) {
   await ownedSchema(db);
   const schema = e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
   const listenerPool = new Pool({
@@ -92,10 +94,10 @@ export async function openCartListener(db: Pool) {
     app = createApp(listenerPool, origin, 'local', {
       guildLaunchpadEnabled: true,
       tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY,
-      commerceSettings: { checkoutEnabled: true, consoleEnabled: true, quarantine: false, providerProfiles: [] },
+      commerceSettings: { checkoutEnabled: true, consoleEnabled: true, quarantine: false, providerProfiles: offline ? ['offline.bank_transfer.v1', 'offline.cash_on_meetup.v1'] : [] },
       commercePorts: {
         admission: { allowed: () => true },
-        shipping: ports.shipping,
+        ...(!offline ? {shipping: ports.shipping} : {}),
       },
     });
     app.use('/*', serveStatic({ root: './apps/portal-web/dist' }));
@@ -122,9 +124,9 @@ export async function openCartListener(db: Pool) {
   }
 }
 
-export async function setupCartFixtureStore(db: Pool, browser: Browser) {
+export async function setupCartFixtureStore(db: Pool, browser: Browser, offline = false) {
   await ownedSchema(db);
-  const listener = await openCartListener(db);
+  const listener = await openCartListener(db, offline);
   const seller = await member(db);
   await db.query(
     `INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
@@ -235,6 +237,20 @@ export async function setupCartFixtureStore(db: Pool, browser: Browser) {
 
     const initialProjection = await republish();
 
+    const saveOfflineFixture = async (version = 1) => {
+      if (!offline) throw Error('Offline fixture must be explicitly enabled.');
+      await ownedSchema(db);
+      const principal = (await db.query('SELECT principal_id FROM principals WHERE user_ref=$1 AND kind=$2', [seller.id, 'person'])).rows[0].principal_id;
+      const document = {schema: 'freedom.offline-payment-settings/v1', bank_transfer: {bank_code: '000', bank_name: '合成測試銀行', branch_name: null, account_number: version === 1 ? '000000123456' : '000000654321', account_name: '合成測試商店', deadline_days: 3, note: '匯款後請與店家聯絡。'}, cash_on_meetup: {deadline_days: 7}};
+      await db.query(`INSERT INTO commerce_offline_payment_settings(tenant_id,instance_id,version,document,document_sha256,created_by_principal_id) VALUES($1,$2,$3,$4,$5,$6)`, [tenant, instance, version, document, createHash('sha256').update(canonicalJSON(document)).digest('hex'), principal]);
+      const response = await sellerContext.request.put('/api/v1' + root + '/shipping-profile', {
+        data: {schema: 'freedom.shipping-profile/v1', working_days: [1,2,3,4,5], services: [], delivery_options: [{method: 'meetup', note: version === 1 ? '請先約定時間，在山邊小店門口面交。' : '新的面交地點。'}], drop_ship: null},
+        headers: headers(version === 1 ? undefined : String(version - 1)),
+      });
+      expect(response.status(), await response.text()).toBe(version === 1 ? 201 : 200);
+    };
+    if (offline) await saveOfflineFixture();
+
     const updatePriceAndRepublish = async (product: ProductView, priceMinor: number) => {
       const updated = ProductViewSchema.parse(
         await patch(`${root}/products/${product.product_id}`, { price_minor: priceMinor }, product.version),
@@ -272,6 +288,8 @@ export async function setupCartFixtureStore(db: Pool, browser: Browser) {
       products: [p1, p2, p3] as const,
       soldOutProduct,
       revision: initialProjection.revision,
+      saveOfflineFixture,
+      sellerPost: post,
       updatePriceAndRepublish,
       removeProductAndRepublish,
       updateLongNamesAndRepublish,

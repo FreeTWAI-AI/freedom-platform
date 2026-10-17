@@ -1,4 +1,4 @@
-import type { PublicOrder } from '../../../../contracts/guild-launchpad/v1/hosted-checkout.js';
+import {PublicOrderSchema, type PublicOrder} from '../../../../contracts/guild-launchpad/v1/hosted-checkout.js';
 
 export type PaymentView =
   | 'review'
@@ -49,14 +49,7 @@ export function isHandoffUrl(value: unknown): value is string {
 }
 
 export function isPublicOrderShape(value: unknown): value is PublicOrder {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<PublicOrder>;
-  return (
-    typeof candidate.order_ref === 'string' &&
-    typeof candidate.display_number === 'string' &&
-    Boolean(candidate.store && typeof candidate.store.slug === 'string' && typeof candidate.store.name === 'string') &&
-    Array.isArray(candidate.lines)
-  );
+  return PublicOrderSchema.safeParse(value).success;
 }
 
 export type StartPaymentRefusedCode =

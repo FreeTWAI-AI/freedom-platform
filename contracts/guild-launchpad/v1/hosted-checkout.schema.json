@@ -1704,6 +1704,21 @@
                 }
               ]
             },
+            "meetup_notes": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "allOf": [
+                  {
+                    "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                  },
+                  {
+                    "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                  }
+                ]
+              }
+            },
             "latest_payment_attempt": {
               "anyOf": [
                 {
@@ -2187,6 +2202,21 @@
             }
           ]
         },
+        "meetup_notes": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "allOf": [
+              {
+                "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+              },
+              {
+                "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+              }
+            ]
+          }
+        },
         "latest_payment_attempt": {
           "anyOf": [
             {
@@ -2592,6 +2622,21 @@
               "type": "null"
             }
           ]
+        },
+        "meetup_notes": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "allOf": [
+              {
+                "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+              },
+              {
+                "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+              }
+            ]
+          }
         },
         "latest_payment_attempt": {
           "anyOf": [

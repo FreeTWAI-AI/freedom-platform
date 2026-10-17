@@ -225,3 +225,9 @@ p { margin: 0 0 .65rem; }
 .shop-order-access-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .shop-text-input { width: 100%; max-width: 480px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-family: inherit; font-size: 1rem; line-height: 1.4; }
 .shop-text-input:focus-visible { outline: 3px solid #537300; outline-offset: 2px; }
+.shop-preserve-lines { white-space: pre-line; }
+.shop-checkout-fields { border: 0; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.shop-checkout-fields legend { font-size: 1.15rem; font-weight: 650; margin-bottom: 16px; }
+.shop-checkout-choice { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 8px 0; cursor: pointer; }
+.shop-checkout-choice input { margin-top: 6px; flex-shrink: 0; }
+.shop-checkout-reason { display: block; color: var(--muted); font-size: .9rem; }

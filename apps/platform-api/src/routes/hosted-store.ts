@@ -14,7 +14,7 @@ import { SupplyTermsInputSchema } from '../../../../contracts/guild-launchpad/v1
 import { readSupplyTerms, updateSupplyTerms } from '../../../../modules/agent-commerce/hosted/supply-terms.js';
 import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-commerce/hosted/public.js';
 import { storeHtml, productHtml, publicProduct, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
-import { cartPageHtml, orderPageHtml, orderMissingHtml, orderAccessPageHtml, paymentReturnPageHtml, paymentReturnMissingHtml } from '../../../../modules/agent-commerce/storefront/pages.js';
+import { cartPageHtml, checkoutPageHtml, orderPageHtml, orderMissingHtml, orderAccessPageHtml, paymentReturnPageHtml, paymentReturnMissingHtml } from '../../../../modules/agent-commerce/storefront/pages.js';
 import { resolvePaymentReturn } from '../../../../modules/agent-commerce/payments/browser-return.js';
 import { Problem } from '../../../../packages/shared/problem.js';
 import { publicPurchaseState, type HostedCheckoutOptions } from '../../../../modules/agent-commerce/checkout/public-commands.js';
@@ -158,6 +158,12 @@ export function createPublicHostedStoreRoutes(
     const store = await readPublicStorePage(pool, c.req.param('slug'));
     if (!store) return c.html(storeMissingHtml(), 404);
     return c.html(cartPageHtml(store.projection));
+  });
+  app.get('/shops/:slug/checkout', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    return c.html(checkoutPageHtml(store.projection));
   });
   app.get('/shops/:slug/orders/:order_ref', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');

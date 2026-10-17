@@ -96,6 +96,25 @@ test('quotes show every offline reason for profiles, settings, shipping and memb
   assert.equal(home.payment_options.find(option => option.method === 'cash_on_meetup')?.reason, 'meetup_required');
 });
 
+test('first-time members get offline quotes without writes, while disabled mapped principals remain unavailable', async () => {
+  const s = await x.store();
+  await saveSettings(s);
+  const profiles = ['offline.bank_transfer.v1', 'offline.cash_on_meetup.v1'];
+  const opt = options({admission: {allowed: () => true}, shipping: ship('meetup'), paymentMethods: createPaymentMethodsPort({environment: 'sandbox', profiles})});
+  const newcomer = await x.h.person(synthetic(3));
+  assert.equal((await x.h.pool.query('SELECT 1 FROM principals WHERE user_ref=$1', [newcomer.id])).rowCount, 0);
+  const access = {network: network(), sessionToken: sessionOf(newcomer.session.cookie)};
+  const input = {publication_revision: '1', lines: [{sku: s.product.sku, quantity: 1}], delivery: {method: 'meetup'}};
+  const first = await quotePublicCart(x.runtime, s.slug, input, access, opt);
+  assert.equal(first.payment_options.every(option => option.available), true);
+  assert.equal(first.payment_options.length, 2);
+  assert.equal((await x.h.pool.query('SELECT 1 FROM principals WHERE user_ref=$1', [newcomer.id])).rowCount, 0);
+  const principal = await x.tx(q => mapPersonPrincipal(q, newcomer.id));
+  await x.h.pool.query("UPDATE principals SET status='disabled' WHERE principal_id=$1", [principal.principal_id]);
+  const disabled = await quotePublicCart(x.runtime, s.slug, input, access, opt);
+  assert.equal(disabled.payment_options.every(option => !option.available && option.reason === 'member_required'), true);
+});
+
 test('frozen terms keep the offline block, change with settings, and never carry account data', async () => {
   const s = await x.store();
   const saved = await saveSettings(s);

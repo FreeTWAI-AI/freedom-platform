@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import {OfflineOrder} from './offline-order.js';
+import {bootCheckoutPage} from './checkout-page.js';
 import type { PublicOrder } from '../../../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import { formatMinor } from '../../../../modules/agent-commerce/hosted/format.js';
 import {
@@ -84,7 +86,7 @@ async function classifyOrderResponse(response: Response): Promise<OrderResult> {
       return { kind: 'failed' };
     }
   }
-  if (response.status === 404) return { kind: 'not_found' };
+  if ([401, 403, 404].includes(response.status)) return { kind: 'not_found' };
   if (response.status === 429) return { kind: 'rate_limited' };
   if (response.status === 503) {
     try {
@@ -106,7 +108,9 @@ async function fetchPublicOrder(storeSlug: string, orderRef: string): Promise<Or
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
-    return await classifyOrderResponse(response);
+    const result = await classifyOrderResponse(response);
+    if (result.kind === 'ok' && (result.order.order_ref !== orderRef || result.order.store.slug !== storeSlug)) return {kind: 'failed'};
+    return result;
   } catch {
     return { kind: 'failed' };
   }
@@ -124,7 +128,9 @@ async function postRedeemOrder(storeSlug: string, orderRef: string, token: strin
       },
       body: JSON.stringify({ token }),
     });
-    return await classifyOrderResponse(response);
+    const result = await classifyOrderResponse(response);
+    if (result.kind === 'ok' && (result.order.order_ref !== orderRef || result.order.store.slug !== storeSlug)) return {kind: 'failed'};
+    return result;
   } catch {
     return { kind: 'failed' };
   }
@@ -268,6 +274,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   const forgottenTransitionRef = useRef<boolean>(false);
   const redeemRejectedRef = useRef<boolean>(false);
   const initialTitleRef = useRef<string>(document.title);
+  const orderReadGeneration = useRef(0);
 
   const paymentInFlightRef = useRef<boolean>(false);
   const redirectingRef = useRef<boolean>(false);
@@ -350,8 +357,10 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   }
 
   async function runInitialOrRetryGet() {
+    const generation = ++orderReadGeneration.current;
     setBusy(true);
     const result = await fetchPublicOrder(storeSlug, orderRef);
+    if (generation !== orderReadGeneration.current) return;
     if (result.kind === 'ok') {
       redeemRejectedRef.current = false;
       tokenBox.clear();
@@ -381,8 +390,43 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     setBusy(false);
   }
 
+  async function cancelOfflineOrder() {
+    if (paymentInFlightRef.current || busy || forgetting || !order || order.payment_method === 'immediate_card') return;
+    const generation = ++orderReadGeneration.current;
+    paymentInFlightRef.current = true;
+    setPaymentBusy(true);
+    setPaymentAlert(null);
+    try {
+      const response = await fetch(`/api/v1/public/stores/${encodeURIComponent(storeSlug)}/orders/${encodeURIComponent(orderRef)}/cancel`, {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: {Accept: 'application/json', 'Content-Type': 'application/json'}, body: '{}',
+      });
+      const result = await classifyOrderResponse(response);
+      if (generation !== orderReadGeneration.current) return;
+      if (result.kind === 'ok' && result.order.order_ref === orderRef && result.order.store.slug === storeSlug) {
+        setOrder(result.order);
+        setErrorKind(null);
+      } else if (result.kind === 'not_found' || response.status === 403) {
+        setOrder(null);
+        setView('not_found');
+      } else {
+        await reReadOrderAfterPayment(false);
+        setPaymentAlert({section: 'payment', kind: 'text', text: '尚未確認訂單已取消。請查看最新狀態後再試。'});
+      }
+    } catch {
+      if (generation !== orderReadGeneration.current) return;
+      await reReadOrderAfterPayment(false);
+      setPaymentAlert({section: 'payment', kind: 'text', text: '尚未確認訂單已取消。請查看最新狀態後再試。'});
+    } finally {
+      paymentInFlightRef.current = false;
+      setPaymentBusy(false);
+    }
+  }
+
   async function reReadOrderAfterPayment(preserveAlertOnError: boolean): Promise<PublicOrder | null> {
+    const generation = orderReadGeneration.current;
     const result = await fetchPublicOrder(storeSlug, orderRef);
+    if (generation !== orderReadGeneration.current) return null;
     if (result.kind === 'ok') {
       setOrder(result.order);
       setErrorKind(null);
@@ -575,6 +619,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   }
 
   async function runRedeem() {
+    const generation = ++orderReadGeneration.current;
     const token = tokenBox.read();
     if (!token) {
       setView('invalid_link');
@@ -583,6 +628,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
     setBusy(true);
     setRedeeming(true);
     const result = await postRedeemOrder(storeSlug, orderRef, token);
+    if (generation !== orderReadGeneration.current) return;
     if (result.kind === 'ok') {
       redeemRejectedRef.current = false;
       tokenBox.clear();
@@ -598,6 +644,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       tokenBox.clear();
       redeemRejectedRef.current = true;
       const followUp = await fetchPublicOrder(storeSlug, orderRef);
+      if (generation !== orderReadGeneration.current) return;
       setRedeeming(false);
       setBusy(false);
       if (followUp.kind === 'ok') {
@@ -631,6 +678,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       const consumed = consumeAccessHash();
       if (consumed.kind === 'none') return;
       if (consumed.kind === 'malformed') {
+        orderReadGeneration.current++;
         redeemRejectedRef.current = false;
         tokenBox.clear();
         setOrder(null);
@@ -655,11 +703,14 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       clearQueryRateLimitTimer();
       setStartRateLimited(false);
       setQueryRateLimited(false);
+      setOrder(null);
+      setView('loading');
       void runInitialOrRetryGet();
     }
     window.addEventListener('hashchange', handleHashChange);
     window.addEventListener('pageshow', handlePageShow);
     return () => {
+      orderReadGeneration.current++;
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('pageshow', handlePageShow);
       clearPendingHideTimer();
@@ -683,6 +734,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   }
 
   async function confirmForget() {
+    orderReadGeneration.current++;
     setForgetting(true);
     const outcome = await postForgetBrowser();
     if (outcome === 'ok') {
@@ -690,6 +742,9 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
       dialogRef.current?.close();
       setForgetting(false);
       setErrorKind(null);
+      setOrder(null);
+      setPaymentAlert(null);
+      setQueryStatus('');
       setView('forgotten');
       setFocusHeadingTrigger(count => count + 1);
       return;
@@ -779,14 +834,15 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
   }
 
   const currentPayView = paymentView(order);
+  const offline = order.payment_method !== 'immediate_card';
   const isOpenOrder = order.lifecycle_state === 'open';
   const showActionSection =
-    isOpenOrder &&
+    !offline && isOpenOrder &&
     (currentPayView === 'ready' ||
       currentPayView === 'expired' ||
       ((currentPayView === 'failed' || currentPayView === 'awaiting') && order.can_resume_payment));
   const paymentSection = orderPaymentSectionCopy(currentPayView);
-  const emailNote = orderEmailNote(currentPayView, emailEnabled);
+  const emailNote = offline && emailEnabled ? '請保留訂單網址，也可以用下單時登入的會員帳號查看。' : orderEmailNote(currentPayView, emailEnabled);
   const paymentControlsDisabled = busy || forgetting || paymentBusy || redirecting;
 
   return (
@@ -799,6 +855,9 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
         <p className="shop-order-status">訂單狀態：{formatOrderLifecycle(order)}</p>
       </div>
       {errorBlock}
+
+      {offline && <OfflineOrder key={order.order_ref} order={order} disabled={paymentControlsDisabled}
+        onCancel={cancelOfflineOrder} onRefresh={() => void runInitialOrRetryGet()} />}
 
       {showActionSection && (
         <section className="shop-order-section" aria-labelledby="shop-order-action-heading">
@@ -868,9 +927,9 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
 
       <section className="shop-order-section" aria-labelledby="shop-order-payment-heading">
         <h2 id="shop-order-payment-heading" className="shop-pay-section-heading" ref={paymentHeadingRef} tabIndex={-1}>付款</h2>
-        <p className="shop-pay-label">{paymentSection.label}</p>
-        {paymentSection.description && <p>{paymentSection.description}</p>}
-        {isOpenOrder && paymentSection.canQueryWhenOpen && (
+        <p className="shop-pay-label">{offline && currentPayView === 'paid' ? '已收款（店家確認）' : paymentSection.label}</p>
+        {!offline && paymentSection.description && <p>{paymentSection.description}</p>}
+        {!offline && isOpenOrder && paymentSection.canQueryWhenOpen && (
           <div className="shop-order-actions">
             <button
               type="button"
@@ -960,7 +1019,7 @@ function OrderPage({ container, storeSlug, storeName, orderRef, tokenBox, malfor
             type="button"
             className="shop-button shop-button-secondary"
             ref={forgetTriggerRef}
-            disabled={forgetting}
+            disabled={paymentControlsDisabled}
             onClick={openForgetDialog}
           >
             在這個瀏覽器忘記我的訂單
@@ -1825,8 +1884,9 @@ function CartPage({ container, storeSlug, storeName }: CartPageProps) {
               </div>
             </dl>
           </section>
-          <p>{hasFlaggedLines ? '請先處理上面標示的商品。' : '結帳功能尚未開放。購物車會保留在這個瀏覽器。'}</p>
+          <p>{hasFlaggedLines ? '請先處理上面標示的商品。' : '請到結帳頁選擇取貨與付款方式，核對最新價格。'}</p>
           <div className="shop-cart-actions">
+            {!hasFlaggedLines && quote && <a href={`/shops/${storeSlug}/checkout`} className="shop-button shop-pay-primary">前往結帳</a>}
             <a href={`/shops/${storeSlug}`}>繼續購物</a>
           </div>
         </>
@@ -2803,6 +2863,7 @@ function bootStorefront() {
   const notifyHeader = bootCartHeaderLink();
   bootAddToCart(notifyHeader);
   bootCartPage();
+  bootCheckoutPage();
   bootOrderPage();
   bootPaymentReturnPage();
   bootOrderAccessPage();
