@@ -16,6 +16,24 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+The `login_attempts` failure budgets for email login, signed-in password change
+and tenant high-risk password verification retain their separate keys and
+10-failure/15-minute policy. Their existing UPSERT owns the budget row before
+SQL decides expiry with PostgreSQL `clock_timestamp()`. New/reopened windows,
+including the window cleared by a valid mailbox recovery, use that actual
+database clock rather than transaction-start `now()` or application `Date.now()`.
+An old queued transaction must not reopen an already-expired window and lose
+failures admitted after the lock is released. This is a budget decision, not a
+promise that the window remains active through commit or response delivery.
+Failure commits, successful-login counter clearing, mailbox-proof recovery,
+MFA, credential/session lifetimes and domain lock order remain unchanged.
+The [login recovery](../../tests/runtime/login-lockout-recovery.test.ts),
+[account security](../../tests/runtime/account-security.test.ts) and
+[high-risk verification](../../tests/runtime/tenant-high-risk-verification.test.ts)
+regressions use native PostgreSQL lock barriers/database markers and scoped
+application-clock skew; they do not shorten production windows or add a
+production clock override.
+
 Event `starts_at`/`ends_at` (create, edit and schedule), Work
 `claim_by`/`finish_by`, and receipt `received_at` share the existing ISO datetime
 syntax with `Z` or a numeric offset (`±HH:MM`). Years must be AD 0001–9999 and

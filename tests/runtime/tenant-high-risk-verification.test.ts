@@ -1,6 +1,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
@@ -83,6 +84,38 @@ async function propose(owner: Session, tenantId: string, to: string, verificatio
     to_principal_id: to, from_role_after: 'admin', expires_at: expiresAt, reason: '交給下一位擁有者', fresh_auth_verification_id: verificationId,
   }, { key });
 }
+
+for(const skew of ['ahead','behind'] as const)test(`high-risk password budget follows DB time with application clock ${skew}`,async t=>{
+  const owner=await person('合成擁有者'),tenant=await createTenant(owner.session),bucket=tokenHash(`high-risk-verification:${owner.id}`);
+  await pool.query('INSERT INTO login_attempts VALUES($1,10,clock_timestamp()-make_interval(secs=>$2))',[bucket,skew==='ahead'?0:960]);
+  const realNow=Date.now();t.mock.method(Date,'now',()=>realNow+(skew==='ahead'?1:-1)*86400000);
+  const response=await verify(owner.session,tenant.tenant_id,'tenant.ownership.propose','synthetic-invalid-password');
+  assert.equal(response.status,skew==='ahead'?429:403,response.text);
+  assert.equal(response.data.code,skew==='ahead'?'fresh_auth_rate_limited':'fresh_auth_required');
+  assert.equal((await pool.query('SELECT failures FROM login_attempts WHERE attempt_key=$1',[bucket])).rows[0].failures,skew==='ahead'?10:1);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_high_risk_verifications')).rows[0].n,0);
+});
+
+test('a high-risk password failure window starts after its budget row wait',async()=>{
+  const owner=await person('合成擁有者'),tenant=await createTenant(owner.session),bucket=tokenHash(`high-risk-verification:${owner.id}`);
+  await pool.query("INSERT INTO login_attempts VALUES($1,10,clock_timestamp()-interval '1 day')",[bucket]);
+  const blocker=await pool.connect();let pending:Promise<unknown>|undefined;
+  try{
+    await blocker.query('BEGIN');await blocker.query('SELECT 1 FROM login_attempts WHERE attempt_key=$1 FOR UPDATE',[bucket]);
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const reply=verify(owner.session,tenant.tenant_id,'tenant.ownership.propose','synthetic-invalid-password');pending=reply;
+    const deadline=Date.now()+5000;let waiting=false;
+    while(Date.now()<deadline){
+      if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount){waiting=true;break;}
+      await delay(10);
+    }
+    assert.equal(waiting,true,'the actual high-risk recheck must wait on its budget');
+    const marker=(await admin.query('SELECT clock_timestamp()::text AS at')).rows[0].at;
+    await blocker.query('COMMIT');assert.equal((await reply).status,403);
+    assert.deepEqual((await pool.query('SELECT failures,window_start>=$2::timestamptz AS fresh FROM login_attempts WHERE attempt_key=$1',[bucket,marker])).rows[0],{failures:1,fresh:true});
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_high_risk_verifications')).rows[0].n,0);
+  }finally{await blocker.query('ROLLBACK');blocker.release();await pending;}
+});
 
 test('fresh verification rejects a wrong password without becoming 401 and ignores Idempotency-Key', async () => {
   const owner = await person('擁有者');

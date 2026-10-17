@@ -58,6 +58,7 @@
     "modules/identity-membership/password-recovery.ts",
     "tests/e2e/account-security.spec.ts",
     "tests/runtime/account-security.test.ts",
+    "tests/runtime/login-lockout-recovery.test.ts",
     "apps/portal-web/src/modules/AccountDeactivation.tsx",
     "apps/portal-web/src/modules/Onboarding.tsx",
     "apps/portal-web/src/modules/PreviewProfileMenu.tsx",

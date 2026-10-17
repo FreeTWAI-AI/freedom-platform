@@ -41,6 +41,62 @@ async function resetLink() {
   assert.ok(token); return token;
 }
 
+async function waitForLoginLock(blockerPid:number) {
+  const deadline=Date.now()+5000;
+  while(Date.now()<deadline){
+    if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[blockerPid])).rowCount)return;
+    await delay(10);
+  }
+  assert.fail('the native login/recovery transaction must reach the held row');
+}
+
+for(const skew of ['ahead','behind'] as const)test(`login failure expiry uses the database clock when the application clock is ${skew}`,async t=>{
+  const bucket=tokenHash(email);
+  await pool.query(`INSERT INTO login_attempts VALUES($1,10,clock_timestamp()-make_interval(secs=>$2))`,[bucket,skew==='ahead'?0:960]);
+  const realNow=Date.now();
+  t.mock.method(Date,'now',()=>realNow+(skew==='ahead'?1:-1)*86400000);
+  const response=await post('/auth/login',{email,password:'synthetic-invalid-password'});
+  assert.equal(response.status,skew==='ahead'?429:401);
+  assert.equal(response.data.code,skew==='ahead'?'login_rate_limited':'invalid_credentials');
+  assert.equal((await pool.query('SELECT failures FROM login_attempts WHERE attempt_key=$1',[bucket])).rows[0].failures,skew==='ahead'?10:1);
+  assert.equal(response.cookie,undefined);
+});
+
+test('a reopened login failure window starts after the actual bucket lock wait',async()=>{
+  const bucket=tokenHash(email),blocker=await pool.connect();let pending:Promise<unknown>|undefined;
+  await pool.query("INSERT INTO login_attempts VALUES($1,10,clock_timestamp()-interval '1 day')",[bucket]);
+  try{
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT 1 FROM login_attempts WHERE attempt_key=$1 FOR UPDATE',[bucket]);
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const reply=post('/auth/login',{email,password:'synthetic-invalid-password'});pending=reply;
+    await waitForLoginLock(pid);
+    const marker=(await admin.query('SELECT clock_timestamp()::text AS at')).rows[0].at;
+    await blocker.query('COMMIT');
+    assert.equal((await reply).status,401);
+    const window=(await pool.query('SELECT failures,window_start>=$2::timestamptz AS fresh FROM login_attempts WHERE attempt_key=$1',[bucket,marker])).rows[0];
+    assert.deepEqual(window,{failures:1,fresh:true});
+    for(let i=0;i<9;i++)assert.equal((await post('/auth/login',{email,password:'synthetic-invalid-password'})).status,401);
+    const denied=await post('/auth/login',{email,password:DEMO_PASSWORD});
+    assert.equal(denied.status,429);assert.equal(denied.data.code,'login_rate_limited');
+  }finally{await blocker.query('ROLLBACK');blocker.release();await pending;}
+});
+
+test('mailbox recovery starts the cleared failure window after its user lock wait',async()=>{
+  await lockAccount();const token=await resetLink(),blocker=await pool.connect();let pending:Promise<unknown>|undefined;
+  try{
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT 1 FROM users WHERE user_id=$1 FOR UPDATE',[DEMO_USERS[0].user_id]);
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const reply=post('/auth/reset/confirm',{token,password:newPassword});pending=reply;
+    await waitForLoginLock(pid);
+    const marker=(await admin.query('SELECT clock_timestamp()::text AS at')).rows[0].at;
+    await blocker.query('COMMIT');
+    assert.equal((await reply).status,200);
+    assert.deepEqual((await pool.query('SELECT failures,window_start>=$2::timestamptz AS fresh FROM login_attempts WHERE attempt_key=$1',[tokenHash(email),marker])).rows[0],{failures:0,fresh:true});
+  }finally{await blocker.query('ROLLBACK');blocker.release();await pending;}
+});
+
 test('mailbox proof restores a locked member session even if failed logins lock the account again', async () => {
   const old = await post('/auth/login', { email, password: DEMO_PASSWORD }); assert.ok(old.cookie);
   await lockAccount();

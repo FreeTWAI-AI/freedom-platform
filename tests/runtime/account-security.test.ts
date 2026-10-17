@@ -1,6 +1,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import { Pool } from 'pg';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
@@ -54,6 +55,37 @@ async function signIn(email = DEMO_USERS[0].email, password = DEMO_PASSWORD): Pr
   const data = await response.json() as { csrf_token: string; user: { user_id: string } };
   return { cookie, csrf: data.csrf_token, hash: tokenHash(cookie.split('=')[1]), userId: data.user.user_id };
 }
+
+for(const skew of ['ahead','behind'] as const)test(`password-change failure expiry follows DB time with application clock ${skew}`,async t=>{
+  const session=await signIn(),bucket=tokenHash(`password-change:${session.userId}`);
+  await pool.query('INSERT INTO login_attempts VALUES($1,10,clock_timestamp()-make_interval(secs=>$2))',[bucket,skew==='ahead'?0:960]);
+  const realNow=Date.now();t.mock.method(Date,'now',()=>realNow+(skew==='ahead'?1:-1)*86400000);
+  const response=await request('/me/password',session,{current_password:'synthetic-invalid-password',new_password:NEW_PASSWORD});
+  assert.equal(response.status,skew==='ahead'?429:403);
+  assert.equal(response.data.code,skew==='ahead'?'password_change_rate_limited':'current_password_invalid');
+  assert.equal((await pool.query('SELECT failures FROM login_attempts WHERE attempt_key=$1',[bucket])).rows[0].failures,skew==='ahead'?10:1);
+  assert.equal((await request('/session',session)).status,200);
+});
+
+test('a password-change failure window starts after its budget row wait',async()=>{
+  const session=await signIn(),bucket=tokenHash(`password-change:${session.userId}`),blocker=await pool.connect();let pending:Promise<unknown>|undefined;
+  await pool.query("INSERT INTO login_attempts VALUES($1,10,clock_timestamp()-interval '1 day')",[bucket]);
+  try{
+    await blocker.query('BEGIN');await blocker.query('SELECT 1 FROM login_attempts WHERE attempt_key=$1 FOR UPDATE',[bucket]);
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const reply=request('/me/password',session,{current_password:'synthetic-invalid-password',new_password:NEW_PASSWORD});pending=reply;
+    const deadline=Date.now()+5000;let waiting=false;
+    while(Date.now()<deadline){
+      if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount){waiting=true;break;}
+      await delay(10);
+    }
+    assert.equal(waiting,true,'the actual password change must wait on its budget');
+    const marker=(await admin.query('SELECT clock_timestamp()::text AS at')).rows[0].at;
+    await blocker.query('COMMIT');assert.equal((await reply).status,403);
+    assert.deepEqual((await pool.query('SELECT failures,window_start>=$2::timestamptz AS fresh FROM login_attempts WHERE attempt_key=$1',[bucket,marker])).rows[0],{failures:1,fresh:true});
+    assert.equal((await request('/session',session)).status,200);
+  }finally{await blocker.query('ROLLBACK');blocker.release();await pending;}
+});
 
 test('changing the password keeps the proving session, ends the others and retires the old password', async () => {
   const expired = await signIn();
