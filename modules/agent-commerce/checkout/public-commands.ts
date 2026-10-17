@@ -8,7 +8,7 @@ import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {resolvePublicStorePage} from '../hosted/public.js';
 import {lockStore} from './authority.js';
 import {freezeCheckout,hashKey,publicCheckoutTerms,validateBuyerJSON,defaultAdmission,type CheckoutPorts,type CheckoutInput} from './terms.js';
-import {placeCheckoutOrder} from './orders.js';
+import {cancelUnpaidOrder,placeCheckoutOrder} from './orders.js';
 import {cartQuote} from './cart-quote.js';
 import {publicOrder} from './public-order.js';
 import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
@@ -124,6 +124,15 @@ export async function placePublicOrder(pool:Pool,slug:string,checkoutRef:string,
     if(!await hasDeviceGrant(q,device!.device_id,checkoutRef))orderAccessNotFound();
     await currentMember(q,identity);
     return {created:!replay,value:wire.PlaceOrderResponseSchema.parse({order:await publicOrder(q,store,saved.order_id,options.payment),payment})};
+  });
+}
+export async function cancelPublicOrder(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions){
+  quarantineGate(options);
+  await chargeCommerceBudgets(pool,access.network,{network:'handoffNetwork'});
+  return isolatedTransaction(pool,async q=>{
+    const authorized=await authorizePublicOrder(q,slug,orderRef,access,options);
+    await cancelUnpaidOrder(q,authorized.store,orderRef,'buyer','buyer_cancelled',{payment:options.payment});
+    const value=await publicOrder(q,authorized.store,orderRef,options.payment);await authorized.recheck();return value;
   });
 }
 export async function readPublicOrder(pool:Pool,slug:string,orderRef:string,access:BrowserAccess,options:HostedCheckoutOptions) {

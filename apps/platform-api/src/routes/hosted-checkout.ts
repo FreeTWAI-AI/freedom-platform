@@ -47,7 +47,7 @@ export function createHostedCheckoutRoutes(pool:Pool,origin:string,runtime:Platf
   const app=new Hono();
   const options=hostedCheckoutOptions(origin,runtime,environment);
   const root='/api/v1/public/stores/:slug';
-  for(const path of [root+'/cart-quotes',root+'/checkouts',root+'/checkouts/:checkout_ref/orders',root+'/orders/:order_ref',root+'/orders/:order_ref/payment-handoffs',root+'/orders/:order_ref/payment-queries',root+'/orders/:order_ref/access',root+'/order-access-requests','/api/v1/public/order-access/forget'])
+  for(const path of [root+'/cart-quotes',root+'/checkouts',root+'/checkouts/:checkout_ref/orders',root+'/orders/:order_ref',root+'/orders/:order_ref/cancel',root+'/orders/:order_ref/payment-handoffs',root+'/orders/:order_ref/payment-queries',root+'/orders/:order_ref/access',root+'/order-access-requests','/api/v1/public/order-access/forget'])
     app.use(path,async(c,next)=>{c.header('Cache-Control','no-store');c.header('Referrer-Policy','no-referrer');await next();});
   app.onError((error,c)=>{
     if(!(error instanceof Problem)||!wire.CheckoutErrorCodeSchema.safeParse(error.code).success) {
@@ -86,6 +86,10 @@ export function createHostedCheckoutRoutes(pool:Pool,origin:string,runtime:Platf
   });
   app.get(root+'/orders/:order_ref',async c=>{
     noQuery(c.req.url);return c.json(wire.PublicOrderSchema.parse(await commands.readPublicOrder(pool,c.req.param('slug')!,c.req.param('order_ref')!,access(c),options)));
+  });
+  app.post(root+'/orders/:order_ref/cancel',async c=>{
+    noQuery(c.req.url);commands.quarantineGate(options);parse(z.object({}).strict(),await c.req.json());
+    return c.json(wire.PublicOrderSchema.parse(await commands.cancelPublicOrder(pool,c.req.param('slug')!,c.req.param('order_ref')!,access(c),options)));
   });
   app.post(root+'/orders/:order_ref/payment-handoffs',async c=>{
     commands.checkoutGate(options);noQuery(c.req.url);parse(wire.PaymentHandoffInputSchema,await c.req.json());
