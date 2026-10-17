@@ -103,12 +103,17 @@ test('a switched community can set and clear two category primaries, including k
       await session.page.setViewportSize({width: 360, height: 800});
       await noOverflow(session.page);
       const again = session.page.getByRole('article', {name: guildNames.talent, exact: true}).getByRole('button', {name: '設為本類主力', exact: true});
+      // The cleared slot renders before its refresh finishes; focus() does not wait for enabled.
+      await expect(again).toBeEnabled();
       await again.focus();
       await session.page.keyboard.press('Enter');
       const chosen = session.page.getByRole('group', {name: '社群架構開發主力', exact: true}).getByRole('button', {name: '取消本類主力', exact: true});
       await expect(chosen).toBeFocused();
+      await expect(external.getByRole('article', {name: guildNames.partnership, exact: true})).toBeVisible();
       await chosen.click();
       await expect(session.page.getByRole('group', {name: '社群架構開發主力', exact: true})).toContainText('尚未選擇');
+      await expect(external.getByRole('article', {name: guildNames.partnership, exact: true})).toBeVisible();
+      await expect(session.page.getByLabel('我的公會概況', {exact: true})).toContainText('已加入 3 個公會');
       await session.page.getByRole('article', {name: guildNames.talent, exact: true}).getByRole('button', {name: '設為本類主力', exact: true}).click();
       const leave = session.page.getByRole('group', {name: '社群架構開發主力', exact: true}).getByRole('button', {name: `退出${guildNames.talent}`, exact: true});
       await leave.click();
