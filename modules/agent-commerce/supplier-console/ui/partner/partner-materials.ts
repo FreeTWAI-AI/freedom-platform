@@ -1,5 +1,6 @@
 import type {
   PartnerMaterial,
+  PartnerMaterials,
   SupplyMaterialContent,
 } from '../../../../../contracts/guild-launchpad/v1/supplier-console';
 import { ApiError } from '../../../../../apps/portal-web/src/api';
@@ -151,4 +152,29 @@ export function partnerMaterialsErrorText(error: unknown): string {
     return typeof raw === 'string' ? raw.trim() : '';
   }
   return '';
+}
+
+/**
+ * A known refusal drops this read's private projection. Network loss, timeouts
+ * and 5xx keep the previous read visibly stale. GET 5xx sets network to false,
+ * so the HTTP status is what separates those from 403 and 404.
+ */
+export function partnerMaterialsFailureKeepsStale(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true;
+  if (error.accessExpired) return false;
+  if (error.status === 401 || error.status === 403 || error.status === 404) return false;
+  if (error.status === 408 || error.status === 429) return true;
+  if (error.status >= 500 || error.network || error.timedOut || error.status === 0) return true;
+  if (error.status >= 400 && error.status < 500) return false;
+  return true;
+}
+
+export function partnerMaterialsFailureState(data: PartnerMaterials | null, error: unknown): {
+  data: PartnerMaterials | null;
+  state: { kind: 'failed'; error?: string; staleData?: PartnerMaterials };
+} {
+  const message = partnerMaterialsErrorText(error);
+  const text = message ? { error: message } : {};
+  if (!partnerMaterialsFailureKeepsStale(error)) return { data: null, state: { kind: 'failed', ...text } };
+  return { data, state: { kind: 'failed', ...text, ...(data ? { staleData: data } : {}) } };
 }

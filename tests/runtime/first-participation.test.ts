@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {scheduler} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
@@ -24,8 +25,8 @@ async function session(email:string,id:string){
  const headers={Origin:origin,Cookie:response.headers.get('set-cookie')!.split(';')[0],'X-CSRF-Token':auth.csrf_token,'Content-Type':'application/json'};
  return {id,email,request:async(route:string,body?:unknown,version?:number|string,key:string=randomUUID())=>app.request(origin+'/api/v1/'+route,body===undefined?{headers}:{method:'POST',headers:{...headers,'Idempotency-Key':key,...(version!==undefined?{'If-Match':`"${version}"`}:{})},body:JSON.stringify(body)})};
 }
-async function member(community=DEMO_COMMUNITY){
- const id=randomUUID(),email=`first-${id}@example.test`;
+async function member(community=DEMO_COMMUNITY,id=randomUUID()){
+ const email=`first-${id}@example.test`;
  if(community!==DEMO_COMMUNITY)await pool.query('INSERT INTO communities VALUES($1,$2) ON CONFLICT DO NOTHING',[community,'合成其他社群']);
  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required) SELECT $1,$2,$3,$4,password_hash,$5,true FROM users WHERE user_id=$6`,[id,community,email,'合成會員'+id.slice(0,8),randomUUID(),DEMO_USERS[0].user_id]);
  const m=await session(email,id);const onboard=await m.request('me/onboarding/quick-start',{guild_keys:[guild],primary_guild_key:guild,guild_answers:sampleGuildAnswers(guild),confirmed:true});assert.equal(onboard.status,200,await onboard.clone().text());return m;
@@ -83,11 +84,13 @@ test('different first commands have one CAS winner and disabled claimant loses c
 });
 
 test('volunteer opt-in, cross-community denial, one claim winner, release, stop and revoked replay use current sources',async()=>{
- const owner=await member(),a=await member(),b=await member(),outsider=await member(randomUUID());const selection=await choose(owner,'work');await publish(owner);
+ const owner=await member(DEMO_COMMUNITY,'a1111111-1111-4111-8111-111111111111'),a=await member(),b=await member(),outsider=await member(randomUUID());const selection=await choose(owner,'work');await publish(owner);
  assert.deepEqual((await json(await a.request(queue))).items,[]);
  const request=await json(await owner.request(path,{action:'request_reception'},selection.aggregate_version));
  assert.deepEqual((await json(await outsider.request(queue))).items,[]);assert.equal((await outsider.request(queue+'/'+owner.id+'/claim',{},request.aggregate_version)).status,404);
- assert.equal((await owner.request(queue+'/'+owner.id+'/claim',{},request.aggregate_version)).status,403);
+ for(const id of [owner.id,owner.id.toUpperCase()])for(const action of ['claim','release']){
+  assert.equal((await owner.request(`${queue}/${id}/${action}`,{},request.aggregate_version)).status,403);
+ }
  const ka=randomUUID(),kb=randomUUID();const results=await Promise.all([a.request(queue+'/'+owner.id+'/claim',{},request.aggregate_version,ka),b.request(queue+'/'+owner.id+'/claim',{},request.aggregate_version,kb)]);
  assert.deepEqual(results.map(r=>r.status).sort(),[200,412]);const winner=results[0].status===200?a:b,key=results[0].status===200?ka:kb;
  const claimed=await json(await owner.request(path));assert.equal(claimed.reception!.claimant!.user_id,winner.id);
@@ -96,6 +99,44 @@ test('volunteer opt-in, cross-community denial, one claim winner, release, stop 
  await json(await owner.request(path,{action:'stop_reception'},released.aggregate_version));
  assert.deepEqual((await json(await a.request(queue))).items,[]);assert.equal((await winner.request(queue+'/'+owner.id+'/claim',{},request.aggregate_version,key)).status,404);
  assert.equal((await json(await owner.request(path))).reception!.state,'stopped');
+});
+
+test('UUID-equivalent reception targets share one CAS lock without overwriting the acknowledged claimant',async()=>{
+ const owner=await member(DEMO_COMMUNITY,'a1111111-1111-4111-8111-111111111111'),a=await member(),b=await member();
+ const selection=await choose(owner,'work');await publish(owner);
+ const request=await json(await owner.request(path,{action:'request_reception'},selection.aggregate_version));
+ const locker=await pool.connect(),keys=[randomUUID(),randomUUID()],volunteers=[a,b],targets=[owner.id,owner.id.toUpperCase()];
+ let pending:Promise<Response[]>|undefined;
+ try{
+  await locker.query('BEGIN');
+  const pid=(await locker.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+  await locker.query('LOCK TABLE member_first_participation IN SHARE MODE');
+  pending=Promise.all(volunteers.map((volunteer,index)=>volunteer.request(`${queue}/${targets[index]}/claim`,{},request.aggregate_version,keys[index])));
+  let waiting=false;
+  for(let attempt=0;attempt<2000;attempt++){
+   waiting=Number((await admin.query(`SELECT count(*) AS n FROM pg_stat_activity WHERE wait_event_type='Lock'
+    AND ($1=ANY(pg_blocking_pids(pid)) OR EXISTS(
+      SELECT 1 FROM pg_stat_activity first WHERE $1=ANY(pg_blocking_pids(first.pid)) AND first.pid=ANY(pg_blocking_pids(pg_stat_activity.pid))))`,[pid])).rows[0].n)>=2;
+   if(waiting)break;
+   await scheduler.yield();
+  }
+  assert.ok(waiting,'both requests must reach actual update/advisory barriers before release');
+  await locker.query('COMMIT');
+  const responses=await pending;
+  assert.deepEqual(responses.map(response=>response.status).sort(),[200,412]);
+  const winner=responses.findIndex(response=>response.status===200),claimed=await json(responses[winner]);
+  const current=await json(await owner.request(path));
+  assert.equal(current.aggregate_version,request.aggregate_version!+1);
+  assert.equal(current.reception!.claimant!.user_id,volunteers[winner].id);
+  assert.equal(claimed.claimant!.user_id,volunteers[winner].id);
+  assert.equal((await pool.query(`SELECT count(*)::int AS n FROM transition_journal
+   WHERE aggregate_type='first_participation' AND aggregate_id=$1 AND command='claim'`,[owner.id])).rows[0].n,1);
+  assert.equal((await volunteers[winner].request(`${queue}/${targets[winner]}/claim`,{},request.aggregate_version,keys[winner])).status,200);
+  const released=await json(await volunteers[winner].request(`${queue}/${owner.id.toUpperCase()}/release`,{},current.aggregate_version));
+  assert.equal(released.claimant,null);
+ }finally{
+  await locker.query('ROLLBACK');locker.release();await pending;
+ }
 });
 
 test('only actual selected guild message completes; replies count original other-author replies, leave and disabled owner revoke',async()=>{
