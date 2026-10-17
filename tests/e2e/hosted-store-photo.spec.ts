@@ -1915,6 +1915,9 @@ test('SC-E2E-77 a use answered after a business-space or account switch changes 
   evidence.businessRefusal=refusal;await screenshot('business-space-navigation-refused.png');
   await one.deliver();await expect(partnerPhotoBlock(b.page,title,product)).toContainText('店面使用中（第 1 版）');
   const after1=await photoFacts(e2eAuthPool,b.store,productId);expect(after1.copies).toHaveLength(1);expect(after1.assets).toHaveLength(1);
+  // The photo projection can refresh before the command's full store reload finishes.
+  // Its final notice marks settlement; until then native navigation correctly refuses to leave.
+  await expect(b.page.locator('.hosted-store > [role="status"]')).toHaveText('已更新店面草稿，發布店面後才會生效。 尚未發布');
   await photoStoreFromList(b.page,b2);await storeArea(b.page,'供貨合作');await none(b.page,b2);
   expect(await photoFacts(e2eAuthPool,b2,productId)).toEqual(b2Before);
   await storeArea(b.page,'店面與發布');expect(await b.page.locator('#store-publish-panel').innerText()).toBe(b2Publication);

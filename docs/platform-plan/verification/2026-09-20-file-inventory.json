@@ -21354,8 +21354,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 190635,
-      "sha256": "c6203ad835a51f317d20e594e7fd072455da9fd84a4714857a47af9db0dc2bb9"
+      "bytes": 190968,
+      "sha256": "7523d68b5d49f6f321d2bc9f1625be654070f1ac63137617bcbb1c7d5c8b9d8d"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
