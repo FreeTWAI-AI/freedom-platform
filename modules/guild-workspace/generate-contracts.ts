@@ -26,6 +26,7 @@ import * as sharedOrder from '../../contracts/guild-launchpad/v1/hosted-shared-o
 import * as hostedOrder from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import * as distribution from '../../contracts/guild-launchpad/v1/hosted-distribution.js';
 import * as supplyTerms from '../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
+import * as supplierConsole from '../../contracts/guild-launchpad/v1/supplier-console.js';
 
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
 const displayName = ['display_name_control_character'] as const;
@@ -128,6 +129,22 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
   ['hosted-supply-terms', 'Private supplier terms on the existing inventory item. No supply offer, acceptance or transaction is enabled.', [
     ['input', supplyTerms.SupplyTermsInputSchema, 'input', ['current_same_instance_store_write_capability', 'product_version_cas']],
     ['view', supplyTerms.SupplyTermsSchema, 'output', ['available_equals_stock_minus_reserved', 'private_cost_and_terms']],
+  ]],
+  ['supplier-console', 'Private supplier console read projections over the existing hosted supply authority. Commands stay on the existing routes, keys and versions; no payment, revenue or commission fact.', [
+    ['overview', supplierConsole.SupplierOverviewSchema, 'output', ['single_statement_snapshot', 'store_write_required_for_counts', 'owner_required_for_reservation_lines', 'unavailable_is_not_zero']],
+    ['products', supplierConsole.SupplierProductsSchema, 'output', ['complete_bounded_catalog', 'available_equals_stock_minus_reserved', 'private_cost_and_terms']],
+    ['product', supplierConsole.SupplierProductDetailSchema, 'output', ['private_cost_and_terms', 'impact_preview_is_not_authority']],
+    ['request', supplierConsole.SupplierRequestDetailSchema, 'output', ['single_statement_snapshot', 'supplier_relationship_only', 'current_selection_version_and_digest']],
+    ['partners', supplierConsole.SupplierPartnersSchema, 'output', ['stable_seller_shop_id', 'supplier_relationship_only']],
+    ['partner', supplierConsole.SupplierPartnerDetailSchema, 'output', ['stable_seller_shop_id', 'supplier_relationship_only']],
+    ['profile-update', supplierConsole.SupplyProfileUpdateInputSchema, 'input', ['at_least_one_field', 'supply_only_profile', 'profile_version_cas']],
+    ['profile-receipt', supplierConsole.SupplyProfileReceiptSchema, 'output', ['stable_metadata_only_command_receipt']],
+    ['reservation-query', supplierConsole.SupplierReservationQuerySchema, 'input', ['half_open_created_at_window', 'filter_bound_signed_cursor']],
+    ['reservations', supplierConsole.SupplierReservationsSchema, 'output', ['current_owner_only', 'state_decided_at_as_of', 'totals_share_page_snapshot', 'supply_amount_is_not_revenue']],
+    ['reservation', supplierConsole.SupplierReservationDetailSchema, 'output', ['current_owner_only', 'state_decided_at_as_of', 'supplier_lines_only']],
+    ['changes-query', supplierConsole.SupplierChangesQuerySchema, 'input', []],
+    ['changes', supplierConsole.SupplierChangesSchema, 'output', ['own_tenant_journal_only', 'ids_and_versions_only', 'bounded_newest_first']],
+    ['summary', supplierConsole.SupplierSummarySchema, 'output', ['one_business_per_read', 'store_write_required_for_counts', 'unavailable_is_not_zero']],
   ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
   ['hosted-store-media', 'Independent hosted store media candidate. No upload or read route is installed; Asset identity and current authorization stay server-only.', [

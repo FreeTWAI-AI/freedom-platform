@@ -10,6 +10,7 @@
     "modules/skill-submissions/repository-match.ts",
     "modules/skill-submissions/service.ts",
     "modules/skill-submissions/upload-authority.ts",
+    "packages/skill-upload-client/protocol.md",
     "apps/platform-api/src/routes/skill-submissions.ts",
     "apps/platform-api/src/routes/published-skills.ts",
     "apps/platform-api/src/routes/opensource.ts",
@@ -32,7 +33,11 @@
     "modules/skill-submissions/sharing-lifecycle.md",
     "modules/opensource-marketing/github.ts",
     "tests/runtime/opensource-marketing.test.ts",
-    "tests/e2e/opensource-modules.spec.ts"
+    "tests/e2e/opensource-modules.spec.ts",
+    "packages/skill-upload-client/LICENSE",
+    "packages/skill-upload-client/README.md",
+    "packages/skill-upload-client/package.json",
+    "packages/skill-upload-client/test/cli.test.mjs"
   ],
   "public_exports": [
     "modules/skill-submissions/limits.ts",

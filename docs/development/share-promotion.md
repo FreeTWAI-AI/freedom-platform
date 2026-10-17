@@ -71,6 +71,13 @@ POST 回歸另以真正 HTTP 與 SQL barrier 覆蓋 existing replay 的最後點
 活動目標另外以真正 HTTP 持有活動分享碼 INSERT 的 relation lock；到期後必須
 同時沒有活動分享碼與推廣連結。有效 session 的相同等待及重播只保留各一筆。
 
+直接 `POST /api/v1/events/:id/share-code` 也用 `readWithMemberSession` 的同一
+transaction client 執行原 helper，並在最後 SQL 後重驗 session 的 DB clock，
+不是只保護 `/promotion/links`。INSERT 等待跨到期時回 401 `session_expired`，
+新碼回滾為零列；既有碼也不回傳，原列／值保留。有效 session 仍回原有
+`{code}` 並可穩定重取，direct 路徑不建立 promotion link。永久原生 HTTP matrix
+同時覆蓋兩個入口，以及 direct 的新碼／既有碼與有效 session 控制。
+
 ## 隱私
 
 不保存原始 IP 或 User-Agent。訪客鍵與網路鍵是當天 32-byte salt 加網路（以及匿名訪客的 User-Agent）的 SHA-256。Salt 存在 `promotion_click_salts`，第一次用到那天時建立，並順便刪掉超過 3 天的列（`click_day < 今天 - 3`）。
@@ -93,6 +100,11 @@ HTML 預覽的十進位／十六進位數字字元參照會把零、超出 Unico
 120 字長度上限之前換成 U+FFFD，避免預覽內容使正常分享寫入 PostgreSQL 失敗。
 HTML 仍移除角括號；oEmbed 仍視為純文字，不解碼其中的 HTML entities 或刪除括號。
 自填標題優先與同 key 重播語意不變；這個 #721 邊界不同於 #717 的 numeric reference 解碼。
+
+HTML 的備用 `title` 只定位一次開始標籤、一次 `>` 與一次結束標籤（#765）；
+缺少結束標籤或開頭的 `>` 時回無標題，不對每個候選重新掃描剩餘全文。
+這避免最多 1 MiB 的重複未結束標籤造成平方時間的同步解析；不宣稱
+AbortController 能中斷同步 JavaScript。OG 優先、entity 解碼、清理與長度上限不變。
 
 預覽抓取（`modules/community/link-preview.ts`）由 runtime 注入。YouTube 取影片 id（`watch?v=`、`youtu.be`、`/shorts/`、`/live/`、`/embed/`），再抓 `i.ytimg.com` 的 `hqdefault.jpg`，標題可選 oEmbed。其他平台讀 `og:image`、`og:image:secure_url` 或 `twitter:image`。限制是：`redirect:manual`、最多 3 次重導、每一跳都重跑網址規則、全程 6 秒、HTML 最多 1 MiB、圖片最多 5 MiB。回應只要聲明 `image/*` 就收下；格式以檔案簽名判斷，不採用對方的 Content-Type。GIF、動畫 PNG、動畫 WebP、簽名不符或超過 5 MiB 時捨棄縮圖、保留標題。靜態 png／jpeg／webp 正規化成 640×360 的 WebP（`social_thumbnail`）。處理器失敗就沒有縮圖，不讓貼文失敗。上傳的縮圖仍要聲明類型與簽名一致，且在 512 KiB 以下。User-Agent 固定為 `FreedomWorkshopPreview/1.0 (+https://freetwai.com)`。測試與 e2e 使用假的 fetcher，不連外網。
 
@@ -138,8 +150,13 @@ year zero 或多餘欄位回 422 `invalid_cursor`，不送入 SQL cast 變成 50
 貼文與留言的下一頁標記也直接使用 PostgreSQL 的 UTC 微秒字串，不從顯示用的
 JavaScript Date 毫秒值重建（#728）。貼文依 `(created_at,post_id)` 降冪，留言依
 `(created_at,comment_id)` 升冪；同一毫秒內不同微秒及完全同時的 UUID 並列均能
-完整續頁、不重複，最後一頁的 `next_cursor` 為 `null`。顯示用 `created_at` DTO、
-每頁 24 筆與原三位毫秒游標的讀取相容性不變；客戶端須原樣傳回 opaque cursor。
+完整續頁、不重複，最後一頁的 `next_cursor` 為 `null`。每頁 24 筆與原三位毫秒
+游標的讀取相容性不變；客戶端須原樣傳回 opaque cursor。
+
+留言的 `created_at` DTO 亦保留 UTC 六位微秒（#771），沿同一投影提供列表、
+新建與編輯回應，避免瀏覽器合併續頁時把同毫秒內不同時間誤當 UUID 並列。
+既有成功收據中的三位毫秒時間不重寫；前端補齊小數位比較，不用 Date 截斷，
+讓歷史毫秒與新微秒回應可正確合併。畫面時間格式、貼文 DTO 與原權限不變。
 
 會員縮圖的每個 ACL／媒體 snapshot 都在同一短交易鎖定目前 user／session，
 讀完投影後以 `clock_timestamp()` 重驗期限；legacy bytes 不再略過登入檢查。
@@ -178,6 +195,11 @@ JavaScript Date 毫秒值重建（#728）。貼文依 `(created_at,post_id)` 降
 社員可以列出自己的本業服務。任何看得到該服務的社員都能用自己的 `/go/` 連結分享；點的人不是分享者本人，才算分享者的業務推廣分。服務主人分享自己的服務，分數也算主人的。
 
 每位社員最多 5 項 `active` 或 `paused` 服務。隱藏與刪除不計入，上限在交易裡用 advisory lock 檢查，沒有資料庫 CHECK。分類是 `hair_beauty` 美髮造型・假髮、`courses` 課程・教學、`language` 語言教學、`design` 設計、`photo_video` 攝影・影音、`tech` 技術・開發、`consulting` 顧問・諮詢、`handmade` 手作・商品、`other` 其他。服務方式是 `online`、`in_person` 或 `both`。
+
+`category` 與 `service_mode` 必須是上述列舉的原始字串，不做 `String(...)`
+強制轉型（#769）。單元素或巢狀陣列、物件、null 等錯誤型別均由共享驗證器
+回傳欄位問題；建立／編輯 API 回 `422 validation_failed`，不進 command、
+不增加服務版本或占用 Idempotency-Key。修正為合法字串後可沿原 key 重試。
 
 標題 1–80 字、簡介 1–160 字、說明最多 2000 字、價格與地區各最多 60 字。聯絡方式 1–3 個，名稱 1–20 字。網址必須是 https，沒有帳密、非預設埠、本機或 IP 主機，並用 `normalizeShareUrl` 正規化後儲存。表單送出前跑同一份檢查。
 

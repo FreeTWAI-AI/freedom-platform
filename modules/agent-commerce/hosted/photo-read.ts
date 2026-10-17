@@ -8,10 +8,10 @@ import { profile, ready, storeRead } from './store.js';
 import { photoProducts, privatePhotoView, type StoredProductPhoto } from './photo-projection.js';
 import { readPublicStorePage } from './public.js';
 
-export async function listProductMedia(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {
+export async function listProductMedia(pool: Pool, actor: Actor, tenantId: string, instanceId: string, scope: { retailOnly: boolean } = { retailOnly: true }) {
   return storeRead(pool,actor,tenantId,instanceId,'store:read',async q => {
     const p=await profile(q,tenantId,instanceId);ready(p);
-    return ProductMediaPageSchema.parse({ profile:HOSTED_STORE_MEDIA_PROFILE,items:(await photoProducts(q,p)).map(item=>privatePhotoView(p,item)) });
+    return ProductMediaPageSchema.parse({ profile:HOSTED_STORE_MEDIA_PROFILE,items:(await photoProducts(q,p,scope)).map(item=>privatePhotoView(p,item)) });
   });
 }
 function objectMetadata(photo:StoredProductPhoto): ObjectMetadata {
@@ -25,11 +25,11 @@ function photoIdentity(photo:StoredProductPhoto) {
 async function photoBytes(store:ObjectStore,photo:StoredProductPhoto) {
   return (await readVerifiedObject(store,objectKey({scopeId:photo.scopeId,assetId:photo.ref.asset_id,representationId:photo.ref.representation_id}),objectMetadata(photo))).bytes;
 }
-export async function readPrivateProductPhoto(pool:Pool,store:ObjectStore,actor:Actor,tenantId:string,instanceId:string,rawProductId:string,rawVersion:string) {
+export async function readPrivateProductPhoto(pool:Pool,store:ObjectStore,actor:Actor,tenantId:string,instanceId:string,rawProductId:string,rawVersion:string,scope:{retailOnly:boolean}={retailOnly:true}) {
   const productId=OpaqueId.parse(rawProductId), version=Version.parse(rawVersion);
   const snapshot=()=>storeRead(pool,actor,tenantId,instanceId,'store:read',async q=>{
     const p=await profile(q,tenantId,instanceId);ready(p);
-    const item=(await photoProducts(q,p)).find(row=>row.product.product_id===productId);
+    const item=(await photoProducts(q,p,scope)).find(row=>row.product.product_id===productId);
     requireCondition(item?.photo && item.product.version===version,404,'not_found','找不到這張商品照片。');
     return item.photo;
   });

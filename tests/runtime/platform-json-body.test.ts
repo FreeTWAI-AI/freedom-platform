@@ -15,6 +15,30 @@ function request(body: BodyInit, extra: Record<string, string> = {}) {
   } as RequestInit));
 }
 
+test('JSON media type tokens ignore case and permit SP or HTAB before parameters without bypassing body guards',async()=>{
+  for(const contentType of ['Application/JSON','APPLICATION/JSON; charset=UTF-8','application/json ; charset=UTF-8','application/Json\t;\tcharset="UTF-8"']){
+    const send=(body:BodyInit)=>app.request(new Request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':contentType},body,
+    }));
+    for(const [body,status,code] of [
+      ['{}',401,'login_required'],['{',400,'invalid_json'],['"\\u0000"',422,'validation_failed'],['"\\ud800"',422,'validation_failed'],[' '.repeat(32769),413,'body_too_large'],
+    ] as const){
+      const response=await send(body);
+      assert.equal(response.status,status,contentType);
+      assert.equal((await response.json()).code,code,contentType);
+    }
+    const invalidUtf8=await send(Uint8Array.of(0x22,0xc3,0x28,0x22));
+    assert.equal(invalidUtf8.status,400);assert.equal((await invalidUtf8.json()).code,'invalid_json');
+  }
+});
+
+test('JSON media type recognition rejects prefix lookalikes, other types and non-HTTP whitespace',async()=>{
+  for(const contentType of ['application/jsonp','application/json-seq','application/problem+json','text/plain','text/json','application/json\u00a0; charset=UTF-8']){
+    const response=await request('{}',{'Content-Type':contentType});
+    assert.equal(response.status,415,contentType);assert.equal((await response.json()).code,'json_required');
+  }
+});
+
 test('oversized JSON without Content-Length is cancelled before draining the source', async () => {
   let pulled = 0, cancelled = false;
   const body = new ReadableStream<Uint8Array>({
@@ -69,6 +93,66 @@ test('decoded JSON NUL keys and values fail before authentication, but escaped l
   const malformed = await request('{"text":"\\u0000",');
   assert.equal(malformed.status, 400);
   assert.equal((await malformed.json()).code, 'invalid_json');
+});
+
+test('malformed UTF-8 in JSON values and keys is rejected before authentication instead of replaced',async()=>{
+  const encoder=new TextEncoder();
+  for(const bad of [[0xc0,0xaf],[0xed,0xa0,0x80],[0xe2,0x82],[0x80]]) {
+    for(const json of ['"MARK"','{"MARK":true}','{"nested":[{"text":"MARK"}]}']) {
+      const at=json.indexOf('MARK'),prefix=encoder.encode(json.slice(0,at)),suffix=encoder.encode(json.slice(at+4));
+      const bytes=new Uint8Array(prefix.length+bad.length+suffix.length);
+      bytes.set(prefix);bytes.set(bad,prefix.length);bytes.set(suffix,prefix.length+bad.length);
+      const response=await app.request(origin+'/api/v1/auth/logout',{
+        method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:bytes,
+      });
+      assert.equal(response.status,400);assert.equal((await response.json()).code,'invalid_json');
+    }
+  }
+});
+
+test('valid UTF-8 split across chunks retains scalars and the exact JSON byte ceiling',async()=>{
+  const bytes=new TextEncoder().encode(JSON.stringify({text:'繁中😀�'}));
+  for(const size of [32768,32769]) {
+    const body=new ReadableStream<Uint8Array>({start(controller){
+      for(const byte of bytes)controller.enqueue(Uint8Array.of(byte));
+      controller.enqueue(new Uint8Array(size-bytes.length).fill(32));controller.close();
+    }});
+    const response=await app.request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body,duplex:'half',
+    } as RequestInit);
+    assert.equal(response.status,size===32768?401:413);
+    assert.equal((await response.json()).code,size===32768?'login_required':'body_too_large');
+  }
+});
+
+test('decoded unpaired surrogates in JSON values and keys are rejected without rejecting scalar pairs or literal escapes',async()=>{
+  for(const invalid of ['\uD800','\uDC00','\uD800x\uDC00']) {
+    for(const body of [invalid,{nested:['safe',{text:invalid}]},{nested:[{['key'+invalid]:null}]}]) {
+      const response=await app.request(origin+'/api/v1/auth/logout',{
+        method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body),
+      });
+      assert.equal(response.status,422);assert.equal((await response.json()).code,'validation_failed');
+    }
+  }
+  for(const body of ['繁中😀\uD800\uDC00\uDBFF\uDFFF\n下一行',{nested:['\\ud800\\udc00',{['鍵😀']:true}]},null,false,0]) {
+    const response=await app.request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body),
+    });
+    assert.equal(response.status,401);assert.equal((await response.json()).code,'login_required');
+  }
+  const malformed=await request('{"text":"\\ud800",');
+  assert.equal(malformed.status,400);assert.equal((await malformed.json()).code,'invalid_json');
+});
+
+test('bounded deeply nested JSON validates scalar strings without consuming the call stack',async()=>{
+  for(const [value,status] of [['"\\ud800"',422],['"\\ud83d\\ude00"',401]] as const) {
+    const response=await app.request(origin+'/api/v1/auth/logout',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+      body:'['.repeat(12000)+value+']'.repeat(12000),
+    });
+    assert.equal(response.status,status);
+    assert.equal((await response.json()).code,status===422?'validation_failed':'login_required');
+  }
 });
 
 test('slow requests log once at the threshold using nested route patterns, without request content', async t => {

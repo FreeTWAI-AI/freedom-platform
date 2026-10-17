@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
-import { readdir, readFile, writeFile, mkdir, mkdtemp, rm, stat, lstat, opendir, realpath } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir, mkdtemp, rm, rename, stat, lstat, opendir, realpath } from 'node:fs/promises';
 import { resolve, join, dirname, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { E2E_BASELINE, E2E_PLAN, GUILD_E2E_PLAN, GUILD_PREVIEW_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, planE2eSelection } from '../../packages/contribution-tools/pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, E2E_DEFAULT_SHARDS, GUILD_E2E_PLAN, GUILD_PREVIEW_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses, evaluateE2ePassProgress, planE2eSelection } from '../../packages/contribution-tools/pinned-e2e.mjs';
 import { GUILD_PRESENTATION_PROFILE } from '../../packages/contribution-tools/guild-presentation-profile.mjs';
 import { collectRepositoryE2eDecision } from './select-affected-jobs.mjs';
 import { readBounded } from '../../packages/contribution-tools/io.mjs';
@@ -44,21 +44,29 @@ export async function cleanupE2ePass(temp, output, passId, failed) {
         } else omitted++;
       } catch { omitted++; }
     }
-    for (const path of ['report.json', 'last-run.json', 'artifacts']) await copy(path);
+    // Preserve the inventory and both reports before optional traces consume
+    // the shared byte/entry bound.
+    for (const path of ['report.json', 'listing.json', ...E2E_DEFAULT_SHARDS.map(shard => `shard-${shard.current}/report.json`),
+      'last-run.json', 'artifacts', ...E2E_DEFAULT_SHARDS.flatMap(shard => [`shard-${shard.current}/last-run.json`, `shard-${shard.current}/artifacts`])]) await copy(path);
     await writeFile(join(destination, 'diagnostics.json'), JSON.stringify({ pass: passId, copied, omitted,
       bytes: 128 * 1024 * 1024 - remaining, admission_evidence: false }) + '\n', { flag: 'wx', mode: 0o600 });
   } catch { console.error('pinned_e2e_diagnostics_unavailable'); }
   finally { await rm(temp, { recursive: true, force: true }); }
 }
 
-// SIGTERM allows Playwright's 15s webServer shutdown to drop the private schema.
+// SIGINT enters Playwright's test-runner teardown, which sends the configured
+// SIGTERM to its separate webServer group and drops the private schema.
 // Escalation is bounded independently of the host-owned whole-pass budget.
-function execute(root, cli, pass, env, signal, configFile, listing = false) {
+function execute(root, cli, pass, env, signal, configFile, { listing = false, shard, timeoutMs } = {}) {
+  if (signal.aborted) return Promise.resolve({ exit_code: null, reason: 'test_cancelled' });
+  const maximum = listing ? 60_000 : E2E_PASS_TIMEOUT_MS[pass.id];
+  const budget = timeoutMs === undefined ? maximum : Math.min(maximum, timeoutMs);
+  if (budget <= 0) return Promise.resolve({ exit_code: null, reason: 'test_timeout' });
   return new Promise(done => {
     const group = process.platform !== 'win32';
     const files = pass.files.map(file => '(?:^|/)' + file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$');
     // Print each failure before a whole-pass timeout can prevent the final summary.
-    const child = spawn(process.execPath, [cli, 'test', '--config', configFile, '--forbid-only', listing ? '--reporter=json' : '--reporter=line,json', ...(listing ? ['--list'] : []), '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...files],
+    const child = spawn(process.execPath, [cli, 'test', '--config', configFile, '--forbid-only', listing ? '--reporter=json' : '--reporter=line,json', ...(listing ? ['--list'] : []), ...(shard ? ['--shard', `${shard.current}/${shard.total}`] : []), '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...files],
       { cwd: root, env, stdio: 'inherit', detached: group });
     let reason, escalation;
     const kill = name => {
@@ -67,13 +75,13 @@ function execute(root, cli, pass, env, signal, configFile, listing = false) {
     const stop = code => {
       if (reason) return;
       reason = code;
-      kill('SIGTERM');
+      kill('SIGINT');
       escalation = setTimeout(() => kill('SIGKILL'), 20000);
     };
     const abort = () => stop('test_cancelled');
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) abort();
-    const timer = setTimeout(() => stop('test_timeout'), listing ? 60_000 : E2E_PASS_TIMEOUT_MS[pass.id]);
+    const timer = setTimeout(() => stop('test_timeout'), budget);
     child.once('error', () => { reason ??= 'test_process_failed'; });
     child.once('close', (exit_code, termination_signal) => {
       clearTimeout(timer);
@@ -82,6 +90,13 @@ function execute(root, cli, pass, env, signal, configFile, listing = false) {
       done({ exit_code, reason: reason ?? (termination_signal ? 'test_process_failed' : undefined) });
     });
   });
+}
+
+async function readPassReport(path) {
+  try {
+    const bytes = await readFile(path);
+    return { report: JSON.parse(bytes.toString('utf8')), evidence_sha256: sha256(bytes) };
+  } catch { return {}; }
 }
 
 async function main() {
@@ -174,6 +189,8 @@ async function main() {
   process.on('SIGINT', onSignal);
   process.on('SIGTERM', onSignal);
   let executionReason;
+  const evidenceOptions = { rootDir: resolve(root, profile === 'guild-preview' ? 'modules' : 'tests/e2e').split(sep).join('/'), configFile, profile };
+  let progress;
   try {
     for (const pass of plan) {
       if (controller.signal.aborted) { executionReason = 'test_cancelled'; break; }
@@ -183,32 +200,60 @@ async function main() {
         const reportPath = join(temp, 'report.json');
         const env = { ...baseEnv, ...pass.env, FREEDOM_PINNED_E2E_ROOT: root,
           PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath, PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: join(temp, 'last-run.json') };
+        const partitioned = profile === 'full' && pass.id === 'default';
+        const deadline = partitioned ? Date.now() + E2E_PASS_TIMEOUT_MS.default : undefined;
         let listing, listing_exit_code, listing_evidence_sha256;
-        if (profile !== 'full') {
-          const listed = await execute(root, cli, pass, env, controller.signal, configFile, true);
+        if (profile !== 'full' || partitioned) {
+          const listed = await execute(root, cli, pass, env, controller.signal, configFile,
+            { listing: true, timeoutMs: partitioned ? deadline - Date.now() : undefined });
           listing_exit_code = listed.exit_code;
-          executionReason = listed.reason ?? (listed.exit_code !== 0 ? 'invalid_case_listing' : undefined);
-          try {
-            const bytes = await readFile(reportPath);
-            listing = JSON.parse(bytes.toString('utf8')); listing_evidence_sha256 = sha256(bytes);
-          } catch { executionReason ??= 'invalid_case_listing'; }
-          if (executionReason) break;
-          await rm(reportPath, { force: true });
+          const data = await readPassReport(reportPath);
+          listing = data.report; listing_evidence_sha256 = data.evidence_sha256;
+          executionReason = listed.reason ?? (listed.exit_code !== 0 ? 'test_process_failed' : !listing ? 'invalid_case_listing' : undefined);
+          if (executionReason) {
+            passReports.push({ id: pass.id, exit_code: listed.exit_code, listing, listing_exit_code, listing_evidence_sha256 });
+            break;
+          }
+          await rename(reportPath, join(temp, 'listing.json'));
         }
-        const ran = await execute(root, cli, pass, env, controller.signal, configFile);
-        executionReason = ran.reason;
-        let report, evidence_sha256;
-        try {
-          const bytes = await readFile(reportPath);
-          report = JSON.parse(bytes.toString('utf8'));
-          evidence_sha256 = sha256(bytes);
-        } catch { /* unreadable evidence fails closed */ }
-        passReports.push({ id: pass.id, exit_code: ran.exit_code, report, evidence_sha256,
-          ...(profile !== 'full' ? { listing, listing_exit_code, listing_evidence_sha256 } : {}) });
+        if (partitioned) {
+          const peers = new AbortController();
+          const signal = AbortSignal.any([controller.signal, peers.signal]);
+          let failed;
+          const partitions = await Promise.all(E2E_DEFAULT_SHARDS.map(async shard => {
+            try {
+              const directory = join(temp, `shard-${shard.current}`);
+              await mkdir(directory);
+              const shardEnv = { ...env, FREEDOM_E2E_PORT: String(shard.port),
+                FREEDOM_E2E_SCHEMA: `fp_e2e_${randomUUID().replaceAll('-', '')}`,
+                PLAYWRIGHT_JSON_OUTPUT_FILE: join(directory, 'report.json'),
+                PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: join(directory, 'last-run.json') };
+              const ran = await execute(root, cli, pass, shardEnv, signal, configFile,
+                { shard, timeoutMs: deadline - Date.now() });
+              const data = await readPassReport(shardEnv.PLAYWRIGHT_JSON_OUTPUT_FILE);
+              const reason = ran.reason ?? (ran.exit_code !== 0 ? 'test_process_failed' : !data.report ? 'invalid_test_results' : undefined);
+              if (reason && !failed) { failed = reason; peers.abort(); }
+              return { current: shard.current, total: shard.total, exit_code: ran.exit_code, ...data };
+            } catch {
+              if (!failed) { failed = 'incomplete_test_results'; peers.abort(); }
+              return { current: shard.current, total: shard.total, exit_code: null };
+            }
+          }));
+          executionReason = failed;
+          const exit_code = partitions.every(part => part.exit_code === 0) ? 0
+            : partitions.find(part => Number.isInteger(part.exit_code) && part.exit_code !== 0)?.exit_code ?? null;
+          passReports.push({ id: pass.id, exit_code, partitions, listing, listing_exit_code, listing_evidence_sha256 });
+        } else {
+          const ran = await execute(root, cli, pass, env, controller.signal, configFile);
+          const data = await readPassReport(reportPath);
+          passReports.push({ id: pass.id, exit_code: ran.exit_code, ...data,
+            ...(profile !== 'full' ? { listing, listing_exit_code, listing_evidence_sha256 } : {}) });
+          executionReason = ran.reason ?? (ran.exit_code !== 0 ? 'test_process_failed' : !data.report ? 'invalid_test_results' : undefined);
+        }
         // An early stop leaves fewer passes; report its cause rather than invalid_pass_plan.
-        if (!executionReason && ran.exit_code !== 0) executionReason = 'test_process_failed';
-        if (!executionReason && !report) executionReason = 'invalid_test_results';
         if (executionReason) break;
+        progress = evaluateE2ePassProgress(expectedFiles, passReports, evidenceOptions);
+        if (progress.status !== 'passed') { executionReason = progress.reason; break; }
         passCompleted = true;
       } finally {
         if (temp) await cleanupE2ePass(temp, output, pass.id, !passCompleted);
@@ -220,7 +265,7 @@ async function main() {
     process.removeListener('SIGTERM', onSignal);
   }
   if (controller.signal.aborted) executionReason = 'test_cancelled';
-  const result = evaluateE2ePasses(expectedFiles, passReports, { rootDir: resolve(root, profile==='guild-preview'?'modules':'tests/e2e').split(sep).join('/'), configFile, profile });
+  const result = progress?.status === 'failed' ? progress : evaluateE2ePasses(expectedFiles, passReports, evidenceOptions);
   if (executionReason) { result.status = 'failed'; result.reason = executionReason; }
   await publish(result);
 }

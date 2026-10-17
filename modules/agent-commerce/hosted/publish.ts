@@ -10,7 +10,7 @@ import { storeHtml } from './page.js';
 import {distributionProducts} from './distribution.js';
 
 async function publicationProducts(q: PoolClient, p: Profile): Promise<PhotoProduct[]> {
-  const own = await photoProducts(q, p), shared = await distributionProducts(q, p);
+  const own = await photoProducts(q, p, { retailOnly: true }), shared = await distributionProducts(q, p);
   requireCondition(own.length+shared.length<=200, 500, 'storefront_product_limit', '商品資料超出上限。');
   // This projection does not extend the own-product photo reader/writer ACL.
   return [...own,...shared];

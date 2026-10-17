@@ -5,6 +5,7 @@ import {readdir,readFile} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Pool} from 'pg';
+import {z} from 'zod';
 import {createPool,LOCAL_DATABASE_URL,digest,transaction,type Command} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
@@ -41,8 +42,7 @@ beforeEach(async()=>{
 });
 async function tier(userId:string,key=guild){const row=(await pool.query('SELECT member_tier,aggregate_version::text,state FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3',[DEMO_COMMUNITY,userId,key])).rows[0] as {member_tier:string;aggregate_version:string;state:string}|undefined;assert.ok(row);return row;}
 async function notices(userId:string,kind:string){return (await pool.query('SELECT title,body FROM member_notifications WHERE community_id=$1 AND recipient_ref=$2 AND kind=$3 ORDER BY created_at',[DEMO_COMMUNITY,userId,kind])).rows as {title:string;body:string}[];}
-async function extra(label:string){
- const id=randomUUID();
+async function extra(label:string,id:string=randomUUID()){
  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id=$6`,[id,DEMO_COMMUNITY,`${id}@tier-limit.invalid`,label,randomUUID(),actors[0].user_id]);
  return id;
 }
@@ -171,6 +171,38 @@ test('only the current master appoints experts, the cap includes admin seats, an
  await changeGuildMembership(pool,cmd(actors[1],'leave',{},(await tier(actors[1].user_id)).aggregate_version),guild,'leave');
  const revoked=(await pool.query('SELECT active,aggregate_version::text FROM positioning_guild_experts WHERE user_id=$1 AND guild_key=$2',[actors[1].user_id,guild])).rows[0];
  assert.equal(revoked.active,false);assert.equal(revoked.aggregate_version,'2');
+});
+
+test('self mutation prohibitions follow UUID identity without effects or poisoning the retry key',async()=>{
+ const id=await extra('大小寫驗證會長','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+ const master=(await login(pool,`${id}@tier-limit.invalid`,DEMO_PASSWORD)).actor;
+ await appointGuildMaster(pool,adm({user_id:id,reason:'指定含字母 UUID 的現任會長。'}),guild);
+ const counts=z.object({experts:z.number(),receipts:z.number(),journal:z.number(),notifications:z.number()});
+ const effects=async()=>({membership:await tier(id),counts:counts.parse((await pool.query(`SELECT
+   (SELECT count(*)::int FROM positioning_guild_experts) AS experts,
+   (SELECT count(*)::int FROM command_receipts) AS receipts,
+   (SELECT count(*)::int FROM transition_journal) AS journal,
+   (SELECT count(*)::int FROM member_notifications) AS notifications`)).rows[0])});
+ const before=await effects(),key=randomUUID();
+ const mixed=id.replace(/[a-f]/g,(letter,index)=>index%2?letter.toUpperCase():letter);
+ for(const userId of [id,id.toUpperCase(),mixed]){
+  await assert.rejects(setGuildExpertByMaster(pool,cmd(master,'case-expert',{user_id:userId,active:true},undefined,key),guild),code(409,'guild_expert_self'));
+  await assert.rejects(setMemberTier(pool,cmd(master,'case-tier',{member_tier:'full'},before.membership.aggregate_version),guild,userId),code(409,'guild_member_tier_self'));
+  assert.deepEqual(await effects(),before);
+ }
+ const other=await extra('其他會員','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+ const input=cmd(master,'case-expert',{user_id:other.toUpperCase(),active:true},undefined,key);
+ const appointed=await setGuildExpertByMaster(pool,input,guild);
+ assert.equal(appointed.active,true);assert.equal((await tier(other)).member_tier,'full');
+ const after=await effects();
+ assert.deepEqual(await setGuildExpertByMaster(pool,input,guild),appointed);
+ assert.deepEqual(await effects(),after);
+ await assert.rejects(setGuildExpertByMaster(pool,{...input,body:{user_id:other,active:true}},guild),code(409,'idempotency_conflict'));
+ assert.deepEqual(await effects(),after);
+ const sameTier=await setMemberTier(pool,cmd(master,'case-other-tier',{member_tier:'full'},(await tier(other)).aggregate_version),guild,other.toUpperCase());
+ assert.equal(sameTier.changed,false);
+ assert.deepEqual((await pool.query('SELECT user_id,active,user_id=appointed_by_user_id AS self_appointed FROM positioning_guild_experts')).rows,[{user_id:other,active:true,self_appointed:false}]);
+ assert.deepEqual(await tier(id),before.membership);
 });
 
 test('a membership created before migration 069 stays full and a membership created after defaults to intern',async()=>{

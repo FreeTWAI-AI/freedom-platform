@@ -48,6 +48,41 @@ const notify=(input:NotifyMemberInput)=>transaction(pool,q=>notifyMember(q,input
 const count=async(sql:string,values:unknown[]=[])=>(await pool.query(`SELECT count(*)::int AS n FROM ${sql}`,values)).rows[0].n as number;
 const noPrivate=(data:unknown)=>{const text=JSON.stringify(data);for(const needle of ['@local.test','@example.invalid','password','csrf','token_hash','email'])assert.ok(!text.includes(needle),`leaked ${needle}: ${text}`);};
 
+test('direct-message pages, search and conversation previews retain microsecond chronology',async()=>{
+  const a=await signIn(DEMO_USERS[0].email),path=`/me/conversations/${B}/messages`;
+  const older='ffffffff-ffff-4fff-8fff-ffffffffffff',newer='00000000-0000-4000-8000-000000000001';
+  await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+    VALUES($1,$3,$4,$5,'合成 microsecond earlier','2026-10-04T00:00:00.123001Z'),
+      ($2,$3,$4,$5,'合成 microsecond later','2026-10-04T00:00:00.123999Z')`,[older,newer,DEMO_COMMUNITY,B,A]);
+  const latest=await request(`${path}?limit=1`,a),previous=await request(`${path}?limit=1&offset=1`,a);
+  assert.equal(latest.status,200);assert.equal(previous.status,200);
+  assert.deepEqual([latest.data.items[0].message_id,previous.data.items[0].message_id],[newer,older]);
+  assert.deepEqual([latest.data.items[0].created_at,previous.data.items[0].created_at],
+    ['2026-10-04T00:00:00.123999Z','2026-10-04T00:00:00.123001Z']);
+  assert.equal(latest.data.next_offset,1);assert.equal(previous.data.next_offset,null);
+  const search=await request(`${path}/search?q=microsecond&limit=1`,a);assert.equal(search.status,200);
+  assert.equal(search.data.items[0].message_id,newer);assert.equal(search.data.items[0].created_at,latest.data.items[0].created_at);
+  const searchOlder=await request(`${path}/search?q=microsecond&limit=1&cursor=${search.data.next_cursor}`,a);
+  assert.equal(searchOlder.status,200);assert.equal(searchOlder.data.items[0].message_id,older);
+  assert.equal(searchOlder.data.items[0].created_at,previous.data.items[0].created_at);assert.equal(searchOlder.data.next_cursor,null);
+  const conversations=await request('/me/conversations',a);assert.equal(conversations.status,200);
+  assert.equal(conversations.data.items[0].last_message.message_id,newer);
+  assert.equal(conversations.data.items[0].last_message.created_at,latest.data.items[0].created_at);
+  assert.equal(await count('member_direct_messages WHERE read_at IS NOT NULL'),0);assert.equal(await count('command_receipts'),0);
+});
+
+test('direct-message send ACK and original-key replay retain the stored microsecond time',async()=>{
+  const a=await signIn(DEMO_USERS[0].email),path=`/me/conversations/${B}/messages`,key=randomUUID(),body={body:'合成 microsecond ACK'};
+  const sent=await request(path,a,body,{key});assert.equal(sent.status,201);
+  const stored=(await pool.query<{created_at:string}>(`SELECT to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
+    FROM member_direct_messages WHERE message_id=$1`,[sent.data.message_id])).rows[0];
+  assert.equal(sent.data.created_at,stored.created_at);
+  await pool.query(`UPDATE member_direct_messages SET created_at='2026-10-04T00:00:00.123456Z' WHERE message_id=$1`,[sent.data.message_id]);
+  const replay=await request(path,a,body,{key});assert.equal(replay.status,201);
+  assert.equal(replay.data.message_id,sent.data.message_id);assert.equal(replay.data.created_at,'2026-10-04T00:00:00.123456Z');
+  assert.equal(await count('member_direct_messages'),1);assert.equal(await count('command_receipts'),1);
+});
+
 test('conversation search finds older literal text with stable ties and never marks it read',async()=>{
   const [a]=await signInAll(),ids:string[]=[];
   for(let i=0;i<26;i++){
@@ -179,6 +214,52 @@ test('marking a notification read is own-recipient only, idempotent, replay-safe
   assert.equal((await request('/me/notifications',b)).data.unread_count,1);
 });
 
+test('a notification arriving while its read waits for the session is not read before it was created',async()=>{
+  const [a]=await signInAll(),id=randomUUID(),blocker=await pool.connect();
+  let pending:ReturnType<typeof request>|undefined;
+  try{
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT token_hash FROM sessions WHERE user_id=$1 FOR UPDATE',[A]);
+    pending=request(`/me/notifications/${id}/read`,a,{});
+    await waitUntilBlocked(pid,1,[pending]);
+    // The command transaction already started; this notice arrives afterwards.
+    await pool.query(`INSERT INTO member_notifications(notification_id,community_id,recipient_ref,kind,source_key,title,body)
+      VALUES($1,$2,$3,'friend_request',$4,'合成通知','session 等待期間才到達')`,[id,DEMO_COMMUNITY,A,`test/${id}`]);
+    await blocker.query('COMMIT');
+    const response=await pending;
+    assert.equal(response.status,200,JSON.stringify(response.data));
+    const stored=(await pool.query('SELECT read_at,read_at>=created_at AS chronological FROM member_notifications WHERE notification_id=$1',[id])).rows[0];
+    assert.equal(stored.chronological,true,'first read must not predate notification creation');
+    assert.equal(response.data.read_at,stored.read_at.toISOString());
+    assert.equal((await request('/me/notifications',a)).data.unread_count,0);
+  }finally{
+    await blocker.query('ROLLBACK').catch(()=>{});blocker.release();
+    await pending?.catch(()=>{});
+  }
+});
+
+test('a first notification read takes its timestamp after waiting for the notification row',async()=>{
+  const [a]=await signInAll(),id=(await notify(notice(A)))!.notification_id,blocker=await pool.connect();
+  let pending:ReturnType<typeof request>|undefined;
+  try{
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT notification_id FROM member_notifications WHERE notification_id=$1 FOR UPDATE',[id]);
+    pending=request(`/me/notifications/${id}/read`,a,{});
+    await waitUntilBlocked(pid,1,[pending]);
+    const releaseAt=(await blocker.query('SELECT clock_timestamp()::text AS at')).rows[0].at as string;
+    await blocker.query('COMMIT');
+    const response=await pending;
+    assert.equal(response.status,200,JSON.stringify(response.data));
+    const stored=(await pool.query('SELECT read_at>=$2::timestamptz AS after_wait FROM member_notifications WHERE notification_id=$1',[id,releaseAt])).rows[0];
+    assert.equal(stored.after_wait,true,'first read must use the post-row-wait mutation clock');
+  }finally{
+    await blocker.query('ROLLBACK').catch(()=>{});blocker.release();
+    await pending?.catch(()=>{});
+  }
+});
+
 test('notifyMember rejects arbitrary actions, extra fields and cross-community recipients, and deduplicates by source key',async()=>{
   const outsider=await extraMember('outside',randomUUID());
   const bad:Partial<NotifyMemberInput>[]=[
@@ -295,6 +376,95 @@ test('conversations show only own pairs sorted by latest message, with per-pair 
   assert.deepEqual(aThread.data.items.map((m:any)=>[m.body,m.read_at===null]),[['B1',true],['A2',false],['A1',false]]);
   assert.equal((await request(`/me/conversations/${C}/read`,a,{})).data.updated_count,0);
   assert.equal((await pool.query("SELECT read_at FROM member_direct_messages WHERE body='C1'")).rows[0].read_at,null);
+});
+
+for(const bounded of [false,true]){
+ test(`DM read clock follows a session wait for ${bounded?'displayed boundary':'legacy empty body'}`,async()=>{
+  const [a]=await signInAll(),id=randomUUID(),blocker=await pool.connect();
+  let pending:ReturnType<typeof request>|undefined;
+  try{
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT token_hash FROM sessions WHERE user_id=$1 FOR UPDATE',[A]);
+    pending=request(`/me/conversations/${B}/read`,a,bounded?{through_message_id:id}:{});
+    await waitUntilBlocked(pid,1,[pending]);
+    await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+      VALUES($1,$2,$3,$4,'session 等待期間才到達',clock_timestamp())`,[id,DEMO_COMMUNITY,B,A]);
+    await blocker.query('COMMIT');
+    const response=await pending;assert.equal(response.status,200,JSON.stringify(response.data));assert.equal(response.data.updated_count,1);
+    const stored=(await pool.query('SELECT read_at,read_at>=created_at AS chronological FROM member_direct_messages WHERE message_id=$1',[id])).rows[0];
+    assert.equal(stored.chronological,true,'read time must not precede a message that arrived while the command waited');
+    assert.equal(response.data.read_at,stored.read_at.toISOString());
+  }finally{
+    await blocker.query('ROLLBACK');blocker.release();await pending?.catch(()=>{});
+  }
+ });
+}
+
+test('DM read clock is one stamp after all eligible row locks, without consuming later arrivals on replay',async()=>{
+  const [a]=await signInAll(),ids=[randomUUID(),randomUUID()].sort(),later=randomUUID(),key=randomUUID(),blocker=await pool.connect();
+  const path=`/me/conversations/${B}/read`,body={through_message_id:ids[1]};
+  let pending:ReturnType<typeof request>|undefined;
+  try{
+    await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+      SELECT message_id,$2,$3,$4,'共用已讀時間的合成訊息',now() FROM unnest($1::uuid[]) AS message_id`,[ids,DEMO_COMMUNITY,B,A]);
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT message_id FROM member_direct_messages WHERE message_id=$1 FOR UPDATE',[ids[1]]);
+    pending=request(path,a,body,{key});await waitUntilBlocked(pid,1,[pending]);
+    await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+      VALUES($1,$2,$3,$4,'顯示邊界之後的新訊息',clock_timestamp())`,[later,DEMO_COMMUNITY,B,A]);
+    const releaseAt=(await blocker.query('SELECT clock_timestamp()::text AS at')).rows[0].at as string;
+    await blocker.query('COMMIT');
+    const response=await pending;assert.equal(response.status,200,JSON.stringify(response.data));assert.equal(response.data.updated_count,2);
+    const stored=(await pool.query(`SELECT count(DISTINCT read_at)::int AS stamps,bool_and(read_at>=$2::timestamptz) AS after_wait,
+      min(read_at) AS read_at FROM member_direct_messages WHERE message_id=ANY($1::uuid[])`,[ids,releaseAt])).rows[0];
+    assert.equal(stored.after_wait,true,'every changed row uses a clock sampled after the last eligible lock');
+    assert.equal(stored.stamps,1);assert.equal(response.data.read_at,stored.read_at.toISOString());
+    assert.deepEqual((await request(path,a,body,{key})).data,response.data);
+    assert.equal((await request(path,a,body)).data.updated_count,0,'an already read boundary still returns a zero-row receipt');
+    assert.equal((await pool.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[later])).rows[0].read_at,null);
+    assert.equal((await request(`/me/conversations/${B}/messages`,a)).data.unread_count,1);
+  }finally{
+    await blocker.query('ROLLBACK');blocker.release();await pending?.catch(()=>{});
+  }
+});
+
+test('DM read clock and bulk inbox read complete without opposing row-lock deadlocks',async()=>{
+  const [a]=await signInAll(),ids=['10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002'];
+  const first=await pool.connect(),second=await pool.connect(),pending:ReturnType<typeof request>[]=[];
+  async function waitForGraph(condition:()=>Promise<boolean>){
+    const deadline=performance.now()+10000;
+    while(performance.now()<deadline){
+      if(await condition())return;
+      await new Promise<void>(resolve=>setImmediate(resolve));
+    }
+    assert.fail('concurrent inbox requests did not reach the controlled row-lock graph');
+  }
+  try{
+    // Heap insertion order opposes the thread's message-id lock order.
+    for(const id of [...ids].reverse())await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+      VALUES($1,$2,$3,$4,'並行已讀的合成訊息',clock_timestamp())`,[id,DEMO_COMMUNITY,B,A]);
+    const firstPid=(await first.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    const secondPid=(await second.query('SELECT pg_backend_pid() AS pid')).rows[0].pid as number;
+    await first.query('BEGIN');await first.query('SELECT message_id FROM member_direct_messages WHERE message_id=$1 FOR UPDATE',[ids[1]]);
+    await second.query('BEGIN');await second.query('SELECT message_id FROM member_direct_messages WHERE message_id=$1 FOR UPDATE',[ids[0]]);
+    const bulk=request('/me/inbox/read-all',a,{});pending.push(bulk);await waitUntilBlocked(firstPid,1,pending);
+    const bulkPid=(await pool.query('SELECT pid FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[firstPid])).rows[0].pid as number;
+    const thread=request(`/me/conversations/${B}/read`,a,{through_message_id:ids[0]});pending.push(thread);
+    await waitForGraph(async()=>(await pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+      WHERE $1=ANY(pg_blocking_pids(pid)) OR $2=ANY(pg_blocking_pids(pid)) OR $3=ANY(pg_blocking_pids(pid))`,[firstPid,secondPid,bulkPid])).rows[0].n>=2);
+    await second.query('COMMIT');
+    await waitForGraph(async()=>(await pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+      WHERE pid<>$1 AND ($1=ANY(pg_blocking_pids(pid)) OR $2=ANY(pg_blocking_pids(pid)))`,[bulkPid,firstPid])).rows[0].n>=1);
+    await first.query('COMMIT');
+    const [allRead,threadRead]=await Promise.all(pending);
+    assert.equal(allRead.status,200,JSON.stringify(allRead.data));assert.equal(threadRead.status,200,JSON.stringify(threadRead.data));
+    assert.equal(allRead.data.direct_messages_updated,2);assert.equal(threadRead.data.updated_count,0);
+    assert.equal(await count('member_direct_messages WHERE message_id=ANY($1::uuid[]) AND read_at IS NULL',[ids]),0);
+  }finally{
+    await first.query('ROLLBACK');await second.query('ROLLBACK');first.release();second.release();await Promise.allSettled(pending);
+  }
 });
 
 test('snapshot-bounded private reads preserve later arrivals, other peers and stable timestamp ties',async()=>{

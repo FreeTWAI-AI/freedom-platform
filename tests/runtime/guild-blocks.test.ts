@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import CatalogBlock from '../../modules/guild-supply/CatalogBlock';
+import CatalogBlock, {SupplySummaryView} from '../../modules/guild-supply/CatalogBlock';
 import WorksBlock from '../../modules/guild-open-source/WorksBlock';
 import {GuildBlock} from '../../apps/portal-web/src/guild-blocks/runtime';
 import type {GuildBlockProps} from '../../packages/guild-presentation/block';
@@ -11,6 +12,8 @@ import {BLOCK_KINDS, parseConfig as parseV1} from '../../contracts/guild-launchp
 import {parseConfig, convertV1, assertAvailableBlocks, publicSafeConfig} from '../../contracts/guild-launchpad/v2/config';
 // @ts-expect-error Build tooling is a native ESM JavaScript module.
 import {collectGuildBlocks, renderRegistry} from '../../scripts/generate-guild-blocks.mjs';
+// @ts-expect-error Build tooling is a native ESM JavaScript module.
+import {guildPresentationImportsProven} from '../../packages/contribution-tools/guild-presentation-profile.mjs';
 
 const descriptor = {module_id: 'sample-guild', owned_paths: ['modules/sample/**'], public_exports: ['modules/sample/Block.tsx'], surfaces: [{surface_id: 'guild-block.sample.v1', kind: 'page', entry: 'modules/sample/Block.tsx', auth_profile: 'member-session', operations: ['sample.read']}]};
 test('reviewed module surfaces produce deterministic bundled imports without a second application manifest', () => {
@@ -94,4 +97,137 @@ test('layout edits and late adoption preserve mounted work and launch flows when
   legacy.blocks = legacy.blocks.map(block => block.kind === 'my_work' ? {...block, enabled: false} : block);
   assert.equal(canReplaceLaunchpadLayout(v1(), legacy, {my_work: () => {throw new Error('v1 work remains visible');}}), true);
   assert.equal(canReplaceLaunchpadLayout(legacy, {...legacy, schema_version: 'guild-launchpad.config/v2'}, {my_work: () => false}), false);
+});
+
+test('SupplySummaryView renders expected markup for each state in SSR', () => {
+  const name = '山間茶作 · 示範供貨';
+  const tenantId = '70000000-0000-4000-8000-000000000001';
+  const instanceId = '70000000-0000-4000-8000-000000000002';
+  const retry = () => {};
+
+  // loading
+  const loadingHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {kind: 'loading'}, name, tenantId, instanceId, retry,
+  }));
+  assert.equal(loadingHtml, '<p class="field-hint">正在讀取待辦…</p>');
+  assert.equal(loadingHtml.includes('<button'), false);
+
+  // ready with zeros -> 目前沒有待辦。
+  const readyZeroHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {
+      kind: 'ready',
+      data: {
+        profile: 'freedom.supplier-console.summary/v1',
+        tenant_id: tenantId,
+        instance_id: instanceId,
+        as_of: '2026-10-15T00:00:00.000Z',
+        todos: {state: 'ready', pending_requests: 0, outdated_offers: 0, out_of_stock_products: 0},
+      },
+    },
+    name, tenantId, instanceId, retry,
+  }));
+  assert.equal(readyZeroHtml, '<p class="field-hint">目前沒有待辦。</p>');
+
+  // ready otherwise
+  const readyHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {
+      kind: 'ready',
+      data: {
+        profile: 'freedom.supplier-console.summary/v1',
+        tenant_id: tenantId,
+        instance_id: instanceId,
+        as_of: '2026-10-15T00:00:00.000Z',
+        todos: {state: 'ready', pending_requests: 3, outdated_offers: 2, out_of_stock_products: 1},
+      },
+    },
+    name, tenantId, instanceId, retry,
+  }));
+  assert.equal(readyHtml, '<p class="field-hint">待辦：待確認售價申請 3、供貨版本需重新公開 2、缺貨商品 1</p>');
+
+  // unavailable: store_write_required -> 需要商品編輯權限才能查看待辦。 (no number rendered)
+  const writeRequiredHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {
+      kind: 'ready',
+      data: {
+        profile: 'freedom.supplier-console.summary/v1',
+        tenant_id: tenantId,
+        instance_id: instanceId,
+        as_of: '2026-10-15T00:00:00.000Z',
+        todos: {state: 'unavailable', reason: 'store_write_required'},
+      },
+    },
+    name, tenantId, instanceId, retry,
+  }));
+  assert.equal(writeRequiredHtml, '<p class="field-hint">需要商品編輯權限才能查看待辦。</p>');
+  assert.equal(/\d/.test(writeRequiredHtml), false);
+
+  // read error -> 暫時無法讀取待辦。 + ghost button 重新讀取待辦 with catalog name (no number rendered)
+  const errorHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {kind: 'error'}, name, tenantId, instanceId, retry,
+  }));
+  assert.match(errorHtml, /暫時無法讀取待辦。/);
+  assert.match(errorHtml, /<button[^>]*class="btn btn-ghost btn-small"[^>]*>重新讀取待辦<span class="sr-only">：山間茶作 · 示範供貨<\/span><\/button>/);
+  assert.equal(/\d/.test(errorHtml), false);
+
+  // mismatched tenant_id renders error text + button with name (no number rendered)
+  const mismatchedTenantHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {
+      kind: 'ready',
+      data: {
+        profile: 'freedom.supplier-console.summary/v1',
+        tenant_id: '70000000-0000-4000-8000-999999999999',
+        instance_id: instanceId,
+        as_of: '2026-10-15T00:00:00.000Z',
+        todos: {state: 'ready', pending_requests: 5, outdated_offers: 2, out_of_stock_products: 1},
+      },
+    },
+    name, tenantId, instanceId, retry,
+  }));
+  assert.match(mismatchedTenantHtml, /暫時無法讀取待辦。/);
+  assert.match(mismatchedTenantHtml, /重新讀取待辦/);
+  assert.match(mismatchedTenantHtml, new RegExp(name));
+  assert.equal(/\d/.test(mismatchedTenantHtml), false);
+
+  // mismatched instance_id renders error text + button with name (no number rendered)
+  const mismatchedInstanceHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {
+      kind: 'ready',
+      data: {
+        profile: 'freedom.supplier-console.summary/v1',
+        tenant_id: tenantId,
+        instance_id: '70000000-0000-4000-8000-999999999999',
+        as_of: '2026-10-15T00:00:00.000Z',
+        todos: {state: 'ready', pending_requests: 5, outdated_offers: 2, out_of_stock_products: 1},
+      },
+    },
+    name, tenantId, instanceId, retry,
+  }));
+  assert.match(mismatchedInstanceHtml, /暫時無法讀取待辦。/);
+  assert.match(mismatchedInstanceHtml, /重新讀取待辦/);
+  assert.match(mismatchedInstanceHtml, new RegExp(name));
+  assert.equal(/\d/.test(mismatchedInstanceHtml), false);
+
+  // denied -> empty markup
+  const deniedHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {kind: 'denied'}, name, tenantId, instanceId, retry,
+  }));
+  assert.equal(deniedHtml, '');
+
+  // unavailable -> empty markup
+  const unavailableHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {kind: 'unavailable'}, name, tenantId, instanceId, retry,
+  }));
+  assert.equal(unavailableHtml, '');
+
+  // visitor -> empty markup
+  const visitorHtml = renderToStaticMarkup(createElement(SupplySummaryView, {
+    state: {kind: 'visitor'}, name, tenantId, instanceId, retry,
+  }));
+  assert.equal(visitorHtml, '');
+});
+
+test('CatalogBlock source passes guildPresentationImportsProven', () => {
+  const path = 'modules/guild-supply/CatalogBlock.tsx';
+  const source = readFileSync(new URL('../../modules/guild-supply/CatalogBlock.tsx', import.meta.url), 'utf8');
+  assert.equal(guildPresentationImportsProven(path, source), true);
 });

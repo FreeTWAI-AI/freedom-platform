@@ -8,7 +8,7 @@ import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { hashPassword,authenticate,tokenHash } from '../../modules/identity-membership/service.js';
-import { getMarketingProductSource,listProducts,listStores,listListings,listSupplyRequests } from '../../modules/catalog-commerce/service.js';
+import { getMarketingProductSource,listSupplierProducts,listCatalogProducts,listStores,listListings,listSupplyRequests } from '../../modules/catalog-commerce/service.js';
 import { Problem } from '../../packages/shared/problem.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
@@ -98,10 +98,16 @@ for(const surface of [
 
 test('empty catalog and retail domain reads reject an expired real actor before returning an empty projection',async()=>{
   const s=await login(),actor=await authenticate(pool,s.cookie.split('=')[1]);
-  const reads=[()=>listProducts(pool,actor,true),()=>listProducts(pool,actor),()=>listStores(pool,actor),()=>listListings(pool,actor),()=>listSupplyRequests(pool,actor)];
-  for(const read of reads)assert.deepEqual(await read(),[]);
+  const reads=[
+    {read:()=>listSupplierProducts(pool,actor),expected:[]},
+    {read:()=>listCatalogProducts(pool,actor),expected:{items:[],next_offset:null}},
+    {read:()=>listStores(pool,actor),expected:[]},
+    {read:()=>listListings(pool,actor),expected:[]},
+    {read:()=>listSupplyRequests(pool,actor),expected:[]}
+  ];
+  for(const {read,expected} of reads)assert.deepEqual(await read(),expected);
   await pool.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1",[actor.session_hash]);
-  for(const read of reads)await assert.rejects(read,(error:unknown)=>error instanceof Problem&&error.status===401&&error.code==='session_expired');
+  for(const {read} of reads)await assert.rejects(read,(error:unknown)=>error instanceof Problem&&error.status===401&&error.code==='session_expired');
 });
 
 test('physical supply → independent store → immutable listing → supplier decision survives application restart',async()=>{
@@ -116,6 +122,29 @@ test('physical supply → independent store → immutable listing → supplier d
   assert.equal((await request('/orders',seller,{})).status,404);
 });
 
+test('retail catalog returns bounded stable pages and rejects invalid pagination',async()=>{
+  const supplier=await login(),seller=await login(DEMO_USERS[2].email),created:any[]=[];
+  for(let index=0;index<23;index++){
+    const response=await request('/supplier/products',supplier,{...productBody,title:`分頁商品 ${String(index).padStart(2,'0')}`});
+    assert.equal(response.status,201,JSON.stringify(response.data));created.push(response.data);
+  }
+  await pool.query("UPDATE catalog_products SET created_at='2026-01-02T03:04:05Z'");
+  const expected=created.map(item=>item.product_id).sort((a,b)=>b.localeCompare(a));
+  const first=await request('/retail/catalog?limit=10&offset=0',seller);
+  assert.equal(first.status,200);assert.equal(first.data.items.length,10);assert.equal(first.data.next_offset,10);
+  const second=await request('/retail/catalog?limit=10&offset=10',seller);
+  const third=await request('/retail/catalog?limit=10&offset=20',seller);
+  assert.deepEqual([...first.data.items,...second.data.items,...third.data.items].map(item=>item.product_id),expected);
+  assert.equal(second.data.items.length,10);assert.equal(second.data.next_offset,20);
+  assert.equal(third.data.items.length,3);assert.equal(third.data.next_offset,null);
+  const empty=await request('/retail/catalog?limit=10&offset=30',seller);
+  assert.deepEqual(empty.data,{items:[],next_offset:null});
+  const defaultPage=await request('/retail/catalog',seller);
+  assert.equal(defaultPage.data.items.length,20);assert.equal(defaultPage.data.next_offset,20);
+  for(const query of ['limit=0','limit=51','limit=1.5','offset=-1','offset=nope','extra=1'])
+    assert.equal((await request(`/retail/catalog?${query}`,seller)).status,422,query);
+});
+
 test('product and supply snapshot commit once under concurrent idempotent retries; changed payload conflicts',async()=>{
   const supplier=await login(),key=randomUUID();
   const results=await Promise.all([request('/supplier/products',supplier,productBody,undefined,key),request('/supplier/products',supplier,productBody,undefined,key)]);
@@ -123,6 +152,62 @@ test('product and supply snapshot commit once under concurrent idempotent retrie
   assert.equal((await pool.query('SELECT count(*) FROM catalog_products')).rows[0].count,'1');
   assert.equal((await pool.query('SELECT count(*) FROM supplier_offer_versions')).rows[0].count,'1');
   assert.equal((await request('/supplier/products',supplier,{...productBody,title:'不同商品'},undefined,key)).data.code,'idempotency_conflict');
+});
+
+test('invalid UTF-8 cannot commit replacement supply terms or reserve a key; corrected text replays unchanged',async()=>{
+  const supplier=await login(),key=randomUUID(),encoder=new TextEncoder();
+  const json=JSON.stringify({...productBody,shipping_terms:'MARK'}),at=json.indexOf('MARK');
+  const prefix=encoder.encode(json.slice(0,at)),suffix=encoder.encode(json.slice(at+4));
+  const facts=async()=>(await pool.query(`SELECT (SELECT count(*)::int FROM catalog_products) products,
+    (SELECT count(*)::int FROM supplier_offer_versions) offers,(SELECT count(*)::int FROM command_receipts) receipts,
+    (SELECT count(*)::int FROM transition_journal WHERE aggregate_type='catalog_product') journal`)).rows[0];
+  const before=await facts();
+  for(const bad of [[0xc0,0xaf],[0xed,0xa0,0x80],[0xe2,0x82],[0x80]]) {
+    const body=new Uint8Array(prefix.length+bad.length+suffix.length);
+    body.set(prefix);body.set(bad,prefix.length);body.set(suffix,prefix.length+bad.length);
+    const rejected=await app.request(origin+'/api/v1/supplier/products',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:supplier.cookie,
+        'X-CSRF-Token':supplier.csrf,'Idempotency-Key':key},body,
+    });
+    assert.equal(rejected.status,400);assert.equal((await rejected.json()).code,'invalid_json');
+    assert.deepEqual(await facts(),before);
+  }
+  const corrected={...productBody,shipping_terms:'繁中😀�\n這是原本就合法的替換字元'};
+  const created=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(created.status,201,JSON.stringify(created.data));
+  assert.equal(created.data.current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  const replay=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(replay.status,201);assert.deepEqual(replay.data,created.data);
+  const listed=await request('/supplier/products',supplier);
+  assert.deepEqual(listed.data.items.map((item:any)=>item.product_id),[created.data.product_id]);
+  assert.equal(listed.data.items[0].current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  assert.deepEqual(await facts(),{products:1,offers:1,receipts:1,journal:1});
+});
+
+test('unpaired JSON surrogates cannot reserve a product command; corrected scalar text persists and replays exactly',async()=>{
+  const supplier=await login(),key=randomUUID();
+  const facts=async()=>(await pool.query(`SELECT (SELECT count(*)::int FROM catalog_products) products,
+    (SELECT count(*)::int FROM supplier_offer_versions) offers,(SELECT count(*)::int FROM command_receipts) receipts,
+    (SELECT count(*)::int FROM transition_journal WHERE aggregate_type='catalog_product') journal`)).rows[0];
+  const before=await facts();
+  for(const invalid of ['\uD800','\uDC00','\uD800x\uDC00']) {
+    const rejected=await request('/supplier/products',supplier,{...productBody,shipping_terms:'配送'+invalid},undefined,key);
+    assert.equal(rejected.status,422);assert.equal(rejected.data.code,'validation_failed');
+    assert.deepEqual(await facts(),before);
+  }
+  const corrected={...productBody,shipping_terms:'繁中😀\uD800\uDC00\uDBFF\uDFFF\n字面\\ud800\\udc00'};
+  const created=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(created.status,201,JSON.stringify(created.data));
+  assert.equal(created.data.current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  const replay=await request('/supplier/products',supplier,corrected,undefined,key);
+  assert.equal(replay.status,201);assert.deepEqual(replay.data,created.data);
+  const persisted=await request('/supplier/products',supplier);
+  assert.deepEqual(persisted.data.items.map((item:any)=>item.product_id),[created.data.product_id]);
+  assert.equal(persisted.data.items[0].current_offer.snapshot.shipping_terms,corrected.shipping_terms);
+  assert.deepEqual(await facts(),{products:1,offers:1,receipts:1,journal:1});
+  const conflict=await request('/supplier/products',supplier,{...corrected,shipping_terms:corrected.shipping_terms+'!'},undefined,key);
+  assert.equal(conflict.status,409);assert.equal(conflict.data.code,'idempotency_conflict');
+  assert.deepEqual(await facts(),{products:1,offers:1,receipts:1,journal:1});
 });
 
 test('requests use optimistic version and exact digest; races cannot create two acceptances',async()=>{

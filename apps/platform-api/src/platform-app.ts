@@ -1,8 +1,9 @@
+import {createHostedSupplierConsoleRoutes} from './routes/hosted-supplier-console.js';
 import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoutes} from './routes/community-ar.js';
 import {readWithMemberSession} from '../../../packages/db/member-session.js';
 import {createHostedStoreMediaRoutes,createPublicHostedStoreMediaRoutes,isStorePhotoUpload,checkStorePhotoHeaders,storePhotosInstalled,storePhotoUploadsInstalled} from './routes/hosted-store-media.js';
 import { createHostedOrderRoutes } from './routes/hosted-orders.js';
-import { privateCache as hostedOrderPrivateCache } from './routes/tenant-http.js';
+import { privateCache as hostedOrderPrivateCache, singleQuery } from './routes/tenant-http.js';
 import { createHostedStoreRoutes, createPublicHostedStoreRoutes } from './routes/hosted-store.js';
 import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
@@ -16,7 +17,7 @@ import type { Pool } from 'pg';
 import { authenticate, login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
 import { memberBoundary } from './member-boundary.js';
 import { readSessionCookie, sessionCookieName } from './session-cookie.js';
-import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
+import { createWork,claimWork,changeClaim,listWorks,listWorksPage,workListPageQuery,dashboard } from '../../../modules/opportunity-project-work/work.js';
 import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { listOwnShowcases,readOwnShowcase,createShowcaseDraft,updateOwnShowcase,publishOwnShowcase,withdrawOwnShowcase } from '../../../modules/opportunity-project-work/business.js';
@@ -93,6 +94,9 @@ import { searchCommunityContent, assignContentTopics, listTaggableContent } from
 import { listCommunityBookmarks,changeCommunityBookmark,listCommunityFollows,changeCommunityFollow,listCommunityFollowUpdates } from '../../../modules/community/content-relations.js';
 
 const SLOW_REQUEST_THRESHOLD_MS=1000;
+const JSON_UTF8_DECODER=new TextDecoder('utf-8',{fatal:true});
+// Unicode mode treats a valid UTF-16 pair as one code point, outside this range.
+const UNPAIRED_JSON_SURROGATE=/[\uD800-\uDFFF]/u;
 
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
@@ -269,7 +273,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         // The route reads a capped byte stream after the session check. Do not parse JSON.
         checkTenantResultContentHeaders(c.req.header('Content-Length'));
       } else {
-        requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
+        requireCondition(/^application\/json[ \t]*(?:;|$)/i.test(c.req.header('Content-Type')??''),415,'json_required','操作需要 JSON。');
         // Note creation may embed one base64 image (#387); every other JSON command keeps the small ceiling.
         const jsonLimit=c.req.method==='POST'&&c.req.path==='/api/v1/social-posts/notes'?SOCIAL_NOTE_REQUEST_BYTES:32768;
         requireCondition(Number(c.req.header('Content-Length')??0)<=jsonLimit,413,'body_too_large','內容過長。');
@@ -283,19 +287,25 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
             },
           }));
           // Hono caches body promises. Preserve the host Request and its cf metadata.
-          Object.assign(c.req.bodyCache,{text:new Response(body).text()});
+          Object.assign(c.req.bodyCache,{text:new Response(body).arrayBuffer().then(bytes=>{
+            try { return JSON_UTF8_DECODER.decode(bytes); }
+            catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
+          })});
         }
         const raw=await c.req.text();
         let parsed:unknown;
         try { parsed=JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
         // JSON permits escaped NUL, but PostgreSQL text/jsonb cannot retain it.
-        // Walk decoded values iteratively so deeply nested, bounded JSON does not consume the call stack.
+        // Validate decoded values once; bounded JSON can still be deeply nested.
         const pending:unknown[]=[parsed];
         while(pending.length) {
           const value=pending.pop();
-          if(typeof value==='string')requireCondition(!value.includes('\0'),422,'validation_failed','JSON 內容含有不允許的空字元。');
-          else if(value!==null&&typeof value==='object')for(const key of Object.keys(value)) {
+          if(typeof value==='string') {
+            requireCondition(!value.includes('\0'),422,'validation_failed','JSON 內容含有不允許的空字元。');
+            requireCondition(!UNPAIRED_JSON_SURROGATE.test(value),422,'validation_failed','JSON 文字必須使用有效的 Unicode 字元。');
+          } else if(value!==null&&typeof value==='object')for(const key of Object.keys(value)) {
             requireCondition(!key.includes('\0'),422,'validation_failed','JSON 欄位含有不允許的空字元。');
+            requireCondition(!UNPAIRED_JSON_SURROGATE.test(key),422,'validation_failed','JSON 欄位必須使用有效的 Unicode 字元。');
             pending.push((value as Record<string,unknown>)[key]);
           }
         }
@@ -333,7 +343,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,ar_enabled:runtime.arEnabled===true&&!!runtime.arAssetStore,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,ar_enabled:runtime.arEnabled===true&&!!runtime.arAssetStore,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime),supplier_console_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -656,6 +666,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/',secure:secureCookies,httpOnly:true,sameSite:'Strict'});return c.json({logged_out:true});});
   app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
+  app.get('/api/v1/work-items/page',async c=>{
+    const query=workListPageQuery.parse(singleQuery(c));
+    return c.json(await listWorksPage(pool,c.get('actor'),query));
+  });
   app.route('/api/v1',createPrivateWorkRoutes(pool));
   app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));
   // Action suffix is part of the constrained segment; validate its UUID separately.
@@ -708,6 +722,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders,runtime.tenantListCursors));
     app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore,runtime.tenantListCursors));
     app.route('/api/v1',createHostedStoreRoutes(pool));
+    if(runtime.supplierConsoleEnabled===true)app.route('/api/v1',createHostedSupplierConsoleRoutes(pool,{cursors:runtime.tenantListCursors}));
     if(storePhotosInstalled(runtime))app.route('/api/v1',createHostedStoreMediaRoutes(pool,runtime));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.

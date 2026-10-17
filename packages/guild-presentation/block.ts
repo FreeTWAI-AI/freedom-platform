@@ -12,6 +12,8 @@ export type GuildBlockProps = {
   /** The existing application launcher owns eligibility, creation and leave guards. */
   startApplication?: (applicationKey: string) => void;
   startableApplications?: readonly string[];
+  /** Optional. The site's supplier-console flag; absent or false means OFF, so no console endpoint is read. */
+  supplierConsoleEnabled?: boolean;
   /** Optional. Only a guild page that already knows its key should pass it. */
   guildKey?: string;
 };

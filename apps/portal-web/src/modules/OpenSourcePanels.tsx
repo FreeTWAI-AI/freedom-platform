@@ -11,6 +11,7 @@ import { GitHubAuthorFollow } from './GitHubAuthorFollow';
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
 type Project={sharing_withdrawn_at?:string|null;project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion;skill_book?:ProjectSkillBook|null};
 type Campaign={campaign_id:string;title:string;audience:string;goal:string;draft_text:string;aggregate_version:number;source_snapshot:{kind:string;title?:string;brief?:string;commit_sha?:string;license_spdx?:string;repository_url?:string;source_version?:string;currency?:string;net_price_minor?:string};shares:{share_id:string;channel:string;share_url:string;note:string;verification_status:string}[]};
+type CampaignPage={items:Campaign[];next_offset:number|null};
 type SupplierProduct={product_id:string;title:string;current_offer:{revision:number}};
 const relationshipLabels:Record<string,string>={author:'原作者',maintainer:'維護者',contributor:'貢獻者',curator:'推薦／整理者'};
 
@@ -113,10 +114,47 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
   const [campaigns,setCampaigns]=useState<Campaign[]>([]),[projects,setProjects]=useState<Project[]>([]),[draft,setDraft]=useState({...blankCampaign});
   const [products,setProducts]=useState<SupplierProduct[]>([]);
   const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState<string|null>(null);
+  const [campaignNextOffset,setCampaignNextOffset]=useState<number|null>(null),[campaignLoadingMore,setCampaignLoadingMore]=useState(false),[campaignPageError,setCampaignPageError]=useState<string|null>(null);
+  // Creation shifts the offset, so it must not overlap a continuation request.
+  const campaignOperationPending=useRef(false);
   const {mutate,busy,error}=useModuleMutation(client);
-  const refresh=useCallback(async()=>{setLoading(true);setLoadError(null);try{const [campaignData,projectData,productData]=await Promise.all([client.get('/marketing/campaigns'),client.get('/opensource/projects'),client.get('/supplier/products')]);setCampaigns(requireItems<Campaign>(campaignData,'行銷草稿'));setProjects(requireItems<Project>(projectData,'開源作品').filter(p=>p.owner_ref===session.user.user_id));setProducts(requireItems<SupplierProduct>(productData,'供貨商品'));}catch(cause){setLoadError(cause instanceof Error?cause.message:'無法載入行銷工作室。');}finally{setLoading(false);}},[client,session.user.user_id]);
+  const refresh=useCallback(async()=>{
+    setLoading(true);setLoadError(null);setCampaignPageError(null);
+    try{
+      const [campaignData,projectData,productData]=await Promise.all([
+        client.get<CampaignPage>('/marketing/campaigns?limit=20&offset=0'),
+        client.get('/opensource/projects'),
+        client.get('/supplier/products'),
+      ]);
+      setCampaigns(campaignData.items);setCampaignNextOffset(campaignData.next_offset);
+      setProjects(requireItems<Project>(projectData,'開源作品').filter(p=>p.owner_ref===session.user.user_id));
+      setProducts(requireItems<SupplierProduct>(productData,'供貨商品'));
+    }catch(cause){setLoadError(cause instanceof Error?cause.message:'無法載入行銷工作室。');}finally{setLoading(false);}
+  },[client,session.user.user_id]);
   useEffect(()=>{void refresh();},[refresh]);
-  async function create(event:FormEvent){event.preventDefault();setNotice(null);const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');const saved=await mutate('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});if(saved){setDraft({...blankCampaign});setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');await refresh();}}
+  const saveCampaign=useCallback((saved:Campaign)=>{
+    setCampaigns(current=>current.map(campaign=>campaign.campaign_id===saved.campaign_id?saved:campaign));
+  },[]);
+  const loadMoreCampaigns=useCallback(async()=>{
+    if(loading||campaignNextOffset===null||campaignOperationPending.current)return;
+    campaignOperationPending.current=true;
+    setCampaignLoadingMore(true);setCampaignPageError(null);
+    try{
+      const page=await client.get<CampaignPage>(`/marketing/campaigns?limit=20&offset=${campaignNextOffset}`);
+      setCampaigns(current=>{const seen=new Set(current.map(campaign=>campaign.campaign_id));return [...current,...page.items.filter(campaign=>!seen.has(campaign.campaign_id))];});
+      setCampaignNextOffset(page.next_offset);
+    }catch(cause){setCampaignPageError(cause instanceof Error?cause.message:'無法載入更多行銷草稿。');}finally{campaignOperationPending.current=false;setCampaignLoadingMore(false);}
+  },[campaignNextOffset,client,loading]);
+  async function create(event:FormEvent){
+    event.preventDefault();
+    if(loading||campaignOperationPending.current)return;
+    campaignOperationPending.current=true;setNotice(null);
+    try{
+      const {source_selection,...content}=draft;const [kind,sourceId]=source_selection.split(':');
+      const saved=await mutate<Campaign>('/marketing/campaigns',{...content,source_project_id:kind==='oss'?sourceId:null,source_supplier_product_id:kind==='supplier'?sourceId:null,source_brief:source_selection?'':draft.source_brief});
+      if(saved){setDraft({...blankCampaign});setCampaigns(current=>[saved,...current.filter(campaign=>campaign.campaign_id!==saved.campaign_id)]);setCampaignNextOffset(current=>current===null?null:current+1);setNotice('私人草稿已儲存，可以繼續編輯或自行分享。');}
+    }finally{campaignOperationPending.current=false;}
+  }
   return <div className="stack">
     {notice&&<p className="banner banner-info" role="status">{notice}</p>}{error&&<p className="banner banner-error" role="alert">{error}</p>}<LoadError error={loadError} retry={()=>void refresh()}/>
     <div className="card-grid"><section className="card stack"><div className="section-head"><h2>建立行銷草稿</h2><p>先寫文案，再到你選擇的平台自行發布。</p></div>
@@ -127,20 +165,20 @@ export function MarketingPanel({client,session}:ModulePanelProps) {
         <label className="field">想分享給誰<input required maxLength={1000} value={draft.audience} onChange={e=>setDraft({...draft,audience:e.target.value})}/></label>
         <label className="field">希望對方下一步做什麼<input required maxLength={1000} value={draft.goal} onChange={e=>setDraft({...draft,goal:e.target.value})}/></label>
         <label className="field">文案草稿<textarea required rows={6} maxLength={6000} value={draft.draft_text} onChange={e=>setDraft({...draft,draft_text:e.target.value})}/></label>
-        <button className="btn btn-primary" disabled={busy}>儲存私人草稿</button>
+        <button className="btn btn-primary" disabled={busy||campaignLoadingMore||loading}>儲存私人草稿</button>
       </form></section>
-      <section className="stack" aria-label="我的行銷草稿" data-guide-anchor="marketing:drafts"><div className="section-head"><h2>我的行銷草稿</h2><p>來源版本會保留下來，方便日後核對。</p></div>{loading&&<p role="status">正在載入草稿…</p>}{!loading&&!loadError&&campaigns.length===0&&<div className="card empty"><h3>把第一個想法寫下來</h3><p>從你的一件作品或活動開始，先準備一段能讓人理解的介紹。</p></div>}{campaigns.map(campaign=><CampaignCard key={campaign.campaign_id} campaign={campaign} client={client} reload={refresh}/>)}</section>
+      <section className="stack" aria-label="我的行銷草稿" data-guide-anchor="marketing:drafts"><div className="section-head"><h2>我的行銷草稿</h2><p>已載入 {campaigns.length} 份 · 來源版本會保留下來，方便日後核對。</p></div>{loading&&<p role="status">正在載入草稿…</p>}{!loading&&!loadError&&campaigns.length===0&&<div className="card empty"><h3>把第一個想法寫下來</h3><p>從你的一件作品或活動開始，先準備一段能讓人理解的介紹。</p></div>}{campaigns.map(campaign=><CampaignCard key={campaign.campaign_id} campaign={campaign} client={client} onSaved={saveCampaign}/>)}{campaignPageError&&<p className="banner banner-error" role="alert">{campaignPageError}</p>}{campaignNextOffset!==null&&<div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={campaignLoadingMore||busy||loading} onClick={()=>void loadMoreCampaigns()}>{campaignLoadingMore?'載入中…':'載入更多行銷草稿'}</button></div>}</section>
     </div>
     <details className="card"><summary>行銷與影音公會的技能書</summary><RepositoryLibrary client={client} ids={['social-post','typo-studio','video-autopilot','short-drama','media-generator']} title="Hao 的行銷與影音技能書"/></details>
   </div>;
 }
 
-function CampaignCard({campaign,client,reload}:{campaign:Campaign;client:ModulePanelProps['client'];reload:()=>Promise<void>}) {
+function CampaignCard({campaign,client,onSaved}:{campaign:Campaign;client:ModulePanelProps['client'];onSaved:(campaign:Campaign)=>void}) {
   const [editing,setEditing]=useState(false),[sharing,setSharing]=useState(false),[draft,setDraft]=useState({title:campaign.title,audience:campaign.audience,goal:campaign.goal,draft_text:campaign.draft_text});
   const [share,setShare]=useState({channel:'',share_url:'',note:''}),[notice,setNotice]=useState<string|null>(null);
   const {mutate,busy,error}=useModuleMutation(client);
-  async function revise(event:FormEvent){event.preventDefault();const result=await mutate(`/marketing/campaigns/${campaign.campaign_id}:revise`,draft,campaign.aggregate_version);if(result){setEditing(false);setNotice('草稿已更新；既有分享紀錄保留當時的文案。');await reload();}}
-  async function saveShare(event:FormEvent){event.preventDefault();const result=await mutate(`/marketing/campaigns/${campaign.campaign_id}/shares`,share,campaign.aggregate_version);if(result){setSharing(false);setShare({channel:'',share_url:'',note:''});setNotice('分享連結已記錄，標示為你的人工回報。');await reload();}}
+  async function revise(event:FormEvent){event.preventDefault();const result=await mutate<Campaign>(`/marketing/campaigns/${campaign.campaign_id}:revise`,draft,campaign.aggregate_version);if(result){setEditing(false);setNotice('草稿已更新；既有分享紀錄保留當時的文案。');onSaved(result);}}
+  async function saveShare(event:FormEvent){event.preventDefault();const result=await mutate<Campaign>(`/marketing/campaigns/${campaign.campaign_id}/shares`,share,campaign.aggregate_version);if(result){setSharing(false);setShare({channel:'',share_url:'',note:''});setNotice('分享連結已記錄，標示為你的人工回報。');onSaved(result);}}
   return <article className="card stack" aria-label={`行銷活動：${campaign.title}`}><div className="card-head"><h3>{campaign.title}</h3><span className="pill">私人草稿</span></div>
     <dl className="meta"><div><dt>分享對象</dt><dd>{campaign.audience}</dd></div><div><dt>下一步</dt><dd>{campaign.goal}</dd></div><div><dt>來源</dt><dd>{campaign.source_snapshot.kind==='oss_project'?`${campaign.source_snapshot.title} · ${campaign.source_snapshot.commit_sha?.slice(0,12)} · ${campaign.source_snapshot.license_spdx}`:campaign.source_snapshot.kind==='supplier_product'?`${campaign.source_snapshot.title} · 供貨版本 ${campaign.source_snapshot.source_version} · 供貨價 ${campaign.source_snapshot.currency} ${(Number(campaign.source_snapshot.net_price_minor)/100).toFixed(2)}（非零售價）`:<span className="draft-copy">{campaign.source_snapshot.brief}</span>}</dd></div></dl>
     <div className="help-box"><p className="draft-copy">{campaign.draft_text}</p></div>

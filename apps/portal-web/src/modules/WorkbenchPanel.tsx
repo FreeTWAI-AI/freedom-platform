@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { requireDashboard, requireItems } from '../api'
+import { requireCursorPage, requireDashboard } from '../api'
 import { client, usePortal, describeError, isOwnRef, type ActionError, type PortalContextValue } from '../portal-session'
 import { Section, EmptyState, ErrorPanel } from '../portal-feedback'
 import { ModuleBanner } from './ModuleBanner'
@@ -11,28 +11,53 @@ import type { Dashboard, ReviewQueueItem, WorkClaim, WorkItem } from '../types'
 export function WorkbenchPanel() {
   const { session, pending, mutate } = usePortal()
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState<ActionError | null>(null)
+  const [pageError, setPageError] = useState('')
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [items, setItems] = useState<WorkItem[] | null>(null)
-
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const load = useCallback(async () => {
     setLoading(true)
     setLoadError(null)
+    setPageError('')
     try {
       const [dashPayload, itemsPayload] = await Promise.all([
         client.get<unknown>('/dashboard'),
-        client.get<unknown>('/work-items'),
+        client.get<unknown>('/work-items/page'),
       ])
+      const page=requireCursorPage<WorkItem>(itemsPayload,'工作列表')
       setDashboard(requireDashboard<Dashboard>(dashPayload))
-      setItems(requireItems<WorkItem>(itemsPayload, '工作列表'))
+      setItems(page.items)
+      setNextCursor(page.next_cursor)
     } catch (err) {
       setDashboard(null)
       setItems(null)
+      setNextCursor(null)
       setLoadError(describeError(err))
     } finally {
       setLoading(false)
     }
   }, [])
+
+  async function loadMore() {
+    if(!nextCursor||loadingMore)return
+    setLoadingMore(true)
+    setPageError('')
+    try {
+      const page=requireCursorPage<WorkItem>(await client.get<unknown>(`/work-items/page?cursor=${encodeURIComponent(nextCursor)}`),'工作列表')
+      setItems(current=>{
+        if(!current)return page.items
+        const known=new Set(current.map(item=>item.work_item_id))
+        return [...current,...page.items.filter(item=>!known.has(item.work_item_id))]
+      })
+      setNextCursor(page.next_cursor)
+    } catch {
+      setPageError('較早的社群工作暫時無法載入。')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     void load()
@@ -74,7 +99,9 @@ export function WorkbenchPanel() {
       </Section>
 
       <Section title="其他社群工作" description="未列在上方的社群工作；開放中的可直接認領。">
-        <WorkItemList items={catalog} empty="目前沒有其他社群工作。你可以在頁尾發布一張，或稍後再來看。" pending={pending} mutate={mutate} onChanged={load} />
+        <WorkItemList items={catalog} empty="目前沒有其他社群工作。你可以在頁尾發布一張，或載入較早的工作。" pending={pending} mutate={mutate} onChanged={load} />
+        {pageError&&<p role="alert" className="banner banner-error">{pageError}</p>}
+        {nextCursor&&<div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={loadingMore} onClick={()=>void loadMore()}>{loadingMore?'正在載入…':'載入較早的社群工作'}</button></div>}
       </Section>
 
       <Section title="待你回饋" description="只列出目前指派給你的項目。實際貢獻者不能審自己的提交。">
