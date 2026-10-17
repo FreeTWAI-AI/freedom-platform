@@ -2584,8 +2584,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 45209,
-      "sha256": "3b5b3392c1208c624c63eaf83aa5b0fd1a445c97659ac19b973c05c27739d037"
+      "bytes": 46075,
+      "sha256": "5dd60c0d7851bdc221e4d27d48556b3d14d98746a4177d2b97b337c48337cf80"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -2624,8 +2624,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 64061,
-      "sha256": "a7577d055e1d58b792c18cb4860dabbf9e0cf0970cd8cbdaa9c125501956e0f0"
+      "bytes": 64254,
+      "sha256": "7f2df558060337e26ca6b7538b77598e7f9f17bacab05d47dc2f3f6ef40d0cbf"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -3044,8 +3044,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/direct-message-receipts.ts",
-      "bytes": 3234,
-      "sha256": "152eb0b2554e5b026ddf87bee0f17f9dafb40b47ba5a7ea5e296343196657f65"
+      "bytes": 3906,
+      "sha256": "0bfe2149c2c7000a0a3e8a4cf06a6f8de937a2cea7df0555d43c0d935ddaa1ca"
     },
     {
       "path": "apps/portal-web/src/modules/event-banner-client.ts",
@@ -13934,8 +13934,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 33612,
-      "sha256": "2f8b980e0c3faaf278614a8d39e1eda3c872392aa752ee92968b63ff4000e66b"
+      "bytes": 34239,
+      "sha256": "0447a76a420a76e2b8dad2f445c5eac7504b6baee242d078857970c6314921c2"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -14044,8 +14044,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 31264,
-      "sha256": "82f29a587fbe5f6022430ccbec695d4998199b602227b3353326cf2f92a11549"
+      "bytes": 34399,
+      "sha256": "db4e3d44d9599b1d162743c68af3c0a2c84b49f6838560c44e0dc98974a5176e"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -18684,8 +18684,8 @@
     },
     {
       "path": "modules/member-communications/service.ts",
-      "bytes": 26517,
-      "sha256": "419447e5823378d59806c741e4cbec521d424c9cd87042fbdebc0615a24daee9"
+      "bytes": 26916,
+      "sha256": "6d0d89f8a1cc35b54cfd8f81e7d4523ea8078869462ddb1a44c627c24eb48a75"
     },
     {
       "path": "modules/member-communications/stickers.ts",
@@ -20969,8 +20969,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 46985,
-      "sha256": "93eb6fe46643cd3b6c0874384a9dfdb076493d56da390201f1f6330c89ae9e79"
+      "bytes": 49012,
+      "sha256": "6c7244cf9d4fce264847b39cca949ff2079bed5b0dccdfe456974cf1309a2b98"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -21099,8 +21099,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 15254,
-      "sha256": "beeb0deb1eed5f7ebca5d842210ab1ce1c1cd97c25b593d988e192ce6c44923a"
+      "bytes": 22405,
+      "sha256": "5e8faca16f76767fd1be5984640ca7a4df3b57645ee63e4ef2dfea3b639513e6"
     },
     {
       "path": "tests/e2e/freedom.module.json",
@@ -21374,8 +21374,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 45394,
-      "sha256": "4da4e9e531e0e56d748a4842906555637d5e21561900347107301098224fac81"
+      "bytes": 46367,
+      "sha256": "75594a6e8d3eabdf853e8ea46bd93f76c155137417c4de3663592e12fb88e502"
     },
     {
       "path": "tests/e2e/message-retraction.spec.ts",
@@ -22214,8 +22214,8 @@
     },
     {
       "path": "tests/runtime/direct-message-receipts.test.ts",
-      "bytes": 8180,
-      "sha256": "acb445864a9a84f7cd2ee9986cb0212559417a059652e718aa74c4e470284277"
+      "bytes": 9985,
+      "sha256": "3cbf17172a1f00e4819e357427299a8e7fddc0c7d1fc7a5cd4615cd3e4a4c71f"
     },
     {
       "path": "tests/runtime/domain-media-gc.test.ts",
@@ -22764,8 +22764,8 @@
     },
     {
       "path": "tests/runtime/member-communications.test.ts",
-      "bytes": 54268,
-      "sha256": "27df04053fb6f7298c19a03d43199fbc7124cded5e2c04a88406ce5dca110984"
+      "bytes": 57450,
+      "sha256": "ac4c8faeac5ec3d329cab7090b5d59c49ed570bacc942676eddbd2e316830ea8"
     },
     {
       "path": "tests/runtime/member-connections.test.ts",

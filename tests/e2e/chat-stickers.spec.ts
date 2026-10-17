@@ -325,25 +325,53 @@ for(const surface of ['page','dock'] as const)test(`${surface}: channel send blo
   }finally{release();}
 });
 
-test('revoked channel keeps its pending command reachable and read-only access rechecks never send',async({browser,baseURL})=>{
-  const page=await member(browser,baseURL!,0),panel=await group(page),path=`/api/v1/me/channels/guild/${guild}/messages`,sends:{key:string;body:unknown}[]=[];
+for(const observation of ['activity-first','manual-first'] as const)test(`revoked channel keeps its pending command reachable and read-only access rechecks never send (${observation})`,async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0),path=`/api/v1/me/channels/guild/${guild}/messages`,activityPath=`/api/v1/me/channels/guild/${guild}/activity`;
+  const sends:{key:string;body:unknown}[]=[],ackIds:string[]=[],denials:string[]=[];
+  let deniedActivities=0,activeActivities=0,activeSends=0,channelWrites=0,releaseDenied!:()=>void;
+  const deniedGate=new Promise<void>(resolve=>{releaseDenied=resolve;});
+  page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname.startsWith(`/api/v1/me/channels/guild/${guild}/`))channelWrites++;});
+  page.on('response',response=>{const pathname=new URL(response.url()).pathname;if(response.status()===404&&[path,activityPath].includes(pathname))denials.push(pathname===activityPath?'activity-first':'manual-first');});
+  // Keep production polling running. Gate only delivery of its real authorization refusal.
+  await page.route(url=>url.pathname===activityPath,async route=>{
+    activeActivities++;
+    try{
+      const response=await route.fetch();
+      if(response.status()!==200){expect(response.status()).toBe(404);deniedActivities++;await deniedGate;}
+      await route.fulfill({response});
+    }finally{activeActivities--;}
+  });
   await page.route(`**${path}`,async route=>{
     if(route.request().method()!=='POST')return route.continue();
-    sends.push({key:route.request().headers()['idempotency-key'],body:route.request().postDataJSON()});const response=await route.fetch();expect(response.status()).toBe(201);
-    if(sends.length===1)return route.abort();return route.fulfill({response});
+    activeSends++;
+    try{
+      sends.push({key:route.request().headers()['idempotency-key'],body:route.request().postDataJSON()});const response=await route.fetch();expect(response.status()).toBe(201);
+      ackIds.push((await response.json()).message_id);
+      if(sends.length===1)return await route.abort();await route.fulfill({response});
+    }finally{activeSends--;}
   });
-  await choose(panel,'謝謝');await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
-  await db.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
-  await panel.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
-  await expect(panel.locator('.messages-bubbles')).toHaveCount(0);await expect(panel.locator('.messages-pending')).toHaveCount(0);
-  await expect(panel.getByText('先前的傳送結果仍未確認，原操作保留。恢復頻道存取後才能重試；重新檢查不會送出訊息。')).toBeVisible();
-  await group(page,'world');await page.getByRole('tab',{name:/^公會閒聊/}).click();
-  await panel.getByRole('button',{name:'回到待確認訊息（1）',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
-  await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');expect(sends).toHaveLength(1);
-  await db.query("UPDATE positioning_profession_memberships SET state='active' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
-  await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();expect(sends).toHaveLength(1);
-  await panel.getByRole('button',{name:'重試送出',exact:true}).click();await expect(panel.locator('.messages-pending')).toHaveCount(0);expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);
-  expect((await db.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE sender_ref=$1 AND sticker_id IS NOT NULL',[accounts[0].id])).rows[0].n).toBe(1);
+  try{
+    const panel=await group(page);
+    await choose(panel,'謝謝');await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
+    await db.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
+    await expect.poll(()=>deniedActivities).toBeGreaterThan(0);
+    if(observation==='manual-first'){
+      await panel.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+      releaseDenied();
+    }else{releaseDenied();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');}
+    expect(denials[0]).toBe(observation);
+    await expect(panel.locator('.messages-bubbles')).toHaveCount(0);await expect(panel.locator('.messages-pending')).toHaveCount(0);
+    await expect(panel.getByText('先前的傳送結果仍未確認，原操作保留。恢復頻道存取後才能重試；重新檢查不會送出訊息。')).toBeVisible();
+    await group(page,'world');await page.getByRole('tab',{name:/^公會閒聊/}).click();
+    await panel.getByRole('button',{name:'回到待確認訊息（1）',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+    const beforeRecheck=channelWrites;
+    await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');expect(sends).toHaveLength(1);expect(channelWrites).toBe(beforeRecheck);
+    await db.query("UPDATE positioning_profession_memberships SET state='active' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
+    await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();expect(sends).toHaveLength(1);expect(channelWrites).toBe(beforeRecheck);
+    await panel.getByRole('button',{name:'重試送出',exact:true}).click();await expect(panel.locator('.messages-pending')).toHaveCount(0);expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);expect(ackIds[1]).toBe(ackIds[0]);
+    expect((await db.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE sender_ref=$1 AND sticker_id IS NOT NULL',[accounts[0].id])).rows[0].n).toBe(1);
+    expect((await db.query('SELECT count(*)::int AS n FROM command_receipts WHERE user_id=$1 AND idempotency_key=$2',[accounts[0].id,sends[0].key])).rows[0].n).toBe(1);
+  }finally{releaseDenied();await expect.poll(()=>activeActivities+activeSends).toBe(0);}
 });
 
 for(const surface of ['page','dock'] as const)for(const status of [403,404])test(`${surface}: first committed sticker with controlled ${status} keeps its key through real membership revocation`,async({browser,baseURL},testInfo)=>{

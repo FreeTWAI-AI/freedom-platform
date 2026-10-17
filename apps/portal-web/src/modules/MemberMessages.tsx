@@ -411,7 +411,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   useEffect(()=>{if(threadStatus==='ready'&&focusThread.current){focusThread.current=false;heading.current?.focus();}},[threadStatus]);
 
   async function earlier(){
-    if(!thread||thread.next_offset===null||threadMore.loading||!peer||(olderInFlight.current?.id===peer&&olderInFlight.current.generation===threadGeneration.current))return;
+    if(threadInFlight.current||!thread||thread.next_offset===null||threadMore.loading||!peer||(olderInFlight.current?.id===peer&&olderInFlight.current.generation===threadGeneration.current))return;
     const current=threadGeneration.current,id=peer;
     const request={id,generation:current,refresh:false};olderInFlight.current=request;
     setThreadMore({loading:true,error:''});
@@ -566,7 +566,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
           <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" aria-label="重新讀取訊息" type="button" aria-disabled={threadRefresh.loading} onClick={()=>{if(!threadRefresh.loading)void loadThread(peer,true);}}>{threadRefresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
           {threadRefresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{threadRefresh.error}</p>}
           <div ref={scroll} className="messages-scroll" role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label={`與${thread.participant.display_name}的對話紀錄`} onScroll={()=>{if(scroll.current){stick.current=scroll.current.scrollHeight-scroll.current.scrollTop-scroll.current.clientHeight<80;if(stick.current)setHasNew(false);}}}>
-          {thread.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={threadMore.loading} onClick={()=>void earlier()}>{threadMore.loading?'正在讀取…':threadMore.error?'重試載入較早訊息':'載入較早訊息'}</button>}
+          {thread.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={threadMore.loading||threadRefresh.loading} onClick={()=>void earlier()}>{threadMore.loading?'正在讀取…':threadMore.error?'重試載入較早訊息':'載入較早訊息'}</button>}
           {threadMore.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{threadMore.error}</p>}
           {thread.items.length===0?<p className="empty">還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="訊息">
             {[...thread.items].reverse().map(message=>{const mine=message.sender_ref!==thread.participant.user_id;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
