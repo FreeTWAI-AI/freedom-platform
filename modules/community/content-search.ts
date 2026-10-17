@@ -229,17 +229,15 @@ export async function listTaggableContent(pool: Pool, actor: Actor) {
     const eligibleBooks = (await activeDevelopmentGuilds(q, actor, 'skill')).length > 0;
     const topics = new Map((await q.query(`SELECT content_kind,content_id,topics,aggregate_version FROM community_content_topic_sets WHERE community_id=$1`, [actor.community_id])).rows.map(row => [`${row.content_kind}:${row.content_id}`, row]));
     const tag = (kind: Kind, id: string) => { const row = topics.get(`${kind}:${id}`); return { topics: (row?.topics ?? []) as string[], aggregate_version: row ? Number(row.aggregate_version) : null }; };
-    const [posts, works, events, books] = await Promise.all([
-      q.query(`SELECT post_id::text AS id,title FROM community_social_posts WHERE community_id=$1 AND author_user_id=$2 AND state='active' ORDER BY created_at DESC,post_id LIMIT 20`, [actor.community_id, actor.user_id]),
-      q.query(`SELECT id,title FROM (
+    const posts = await q.query(`SELECT post_id::text AS id,title FROM community_social_posts WHERE community_id=$1 AND author_user_id=$2 AND state='active' ORDER BY created_at DESC,post_id LIMIT 20`, [actor.community_id, actor.user_id]);
+    const works = await q.query(`SELECT id,title FROM (
         SELECT submission_id::text AS id,payload->>'title' AS title,published_at AS created_at
         FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2 AND status='published'
         UNION ALL
         SELECT showcase_id::text AS id,title,created_at FROM showcases WHERE community_id=$1 AND owner_ref=$2
-      ) owned_works ORDER BY created_at DESC,id LIMIT 20`, [actor.community_id, actor.user_id]),
-      q.query(`SELECT event_id::text AS id,title FROM community_events WHERE community_id=$1 AND organizer_ref=$2 AND state='published' ORDER BY created_at DESC,event_id LIMIT 20`, [actor.community_id, actor.user_id]),
-      q.query(`SELECT book_id FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND active AND $3::boolean ORDER BY book_id LIMIT 20 FOR SHARE`, [actor.community_id, actor.user_id, eligibleBooks]),
-    ]);
+      ) owned_works ORDER BY created_at DESC,id LIMIT 20`, [actor.community_id, actor.user_id]);
+    const events = await q.query(`SELECT event_id::text AS id,title FROM community_events WHERE community_id=$1 AND organizer_ref=$2 AND state='published' ORDER BY created_at DESC,event_id LIMIT 20`, [actor.community_id, actor.user_id]);
+    const books = await q.query(`SELECT book_id FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND active AND $3::boolean ORDER BY book_id LIMIT 20 FOR SHARE`, [actor.community_id, actor.user_id, eligibleBooks]);
     await assertCurrentSessionClock(q, actor);
     return { items: [
       ...posts.rows.map(row => ({ kind: 'post' as const, id: String(row.id), title: String(row.title), ...tag('post', row.id) })),

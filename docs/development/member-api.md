@@ -89,6 +89,13 @@ Invalid cursors disclose no content or input fragments. Ordering continues to
 compare the original microsecond sort strings; it does not round through
 JavaScript dates. No feature activation or deployment is implied by this fix.
 
+`GET /api/v1/community-search/mine` reads the member's taggable content on
+one transaction client, awaiting posts, works, events and book appointments
+sequentially. It does not rely on pg's deprecated implicit concurrent-query
+queue. Source SQL, per-kind limits, current skill-book authority and response
+shape stay unchanged; the final database-clock session check still runs after
+all four projections. This changes neither feature activation nor driver version.
+
 ## Member reporting and moderation cases
 
 This surface is default OFF. Only `FREEDOM_MEMBER_REPORTING_ENABLED=true`
