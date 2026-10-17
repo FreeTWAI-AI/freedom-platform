@@ -22014,8 +22014,8 @@
     },
     {
       "path": "tests/e2e/community-ar.spec.ts",
-      "bytes": 27124,
-      "sha256": "542b17990efa7f02efec9899eb06baad045d5e74d5f005c5adaf715adad1a086"
+      "bytes": 27425,
+      "sha256": "af1dc4f9ec635217b64ae181ebda454caf1df2730ad28036a6a1fa5e517fc3b3"
     },
     {
       "path": "tests/e2e/community-erp-demo.spec.ts",
