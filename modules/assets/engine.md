@@ -96,3 +96,8 @@ All phases acquire the commerce boundary and capacity/media policy locks before
 the item/selection/retained target. See [the photo contract](storefront-product-photo.md)
 for default-OFF policy, shared conservative retention and immutable publication
 references. Existing purposes retain their own authority and lock contracts.
+
+The two [supplier material profiles](supply-material.md) use the same branded
+storefront authority and tenant/instance binding. Image uses image/2 MiB/1 MiB;
+video uses video/20 MiB/20 MiB. Both retain earlier Assets. Material intents name
+target_material_id; only image output contributes canonical WebP dimensions.

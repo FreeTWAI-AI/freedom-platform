@@ -18,3 +18,14 @@
 @media(max-width:1000px){.sc-toolbar>.field:first-child{flex-basis:100%}.sc-products,.sc-products tbody,.sc-products tr,.sc-products td{display:block}.sc-products thead{display:none}.sc-products tr{padding-block:.5rem;border-bottom:1px solid var(--line)}.sc-products td{border:0;padding:.25rem 0}.sc-products td[data-label]::before{content:attr(data-label)'：';font-weight:650}.sc-products td:first-child::before{display:none}.sc-products .sc-number{text-align:left}}
 @media(max-width:720px){.sc-review-columns{grid-template-columns:minmax(0,1fr)}.supplier-console input,.supplier-console select,.supplier-console textarea{font-size:16px}}
 .sc-reservation-filters>.field{flex:1 1 10rem;min-width:0;max-width:100%}.sc-reservation-filters input,.sc-reservation-filters select{min-height:44px}
+.sc-report-table .sc-number,.sc-report-totals dd{text-align:right;font-variant-numeric:tabular-nums}
+.sc-report-table tbody th{white-space:normal}
+@media(max-width:1000px){.sc-report-table tbody th{display:block;border:0;padding:.25rem 0}}
+
+.sc-material-media{display:block;max-width:100%;width:auto;height:auto;max-height:30rem;object-fit:contain}
+.sc-material-copy{white-space:pre-wrap;overflow-wrap:anywhere}
+.sc-material-withdrawn{color:var(--muted)}
+.sc-material-withdrawn a{color:inherit}
+.sc-material-danger>button{color:var(--danger)}
+.sc-material-row-action>button{padding:.5rem .75rem}
+.sc-material-page{line-height:1.6}.sc-material-page .field-hint{font-size:.9rem;line-height:1.6}

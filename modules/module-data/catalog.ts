@@ -1,7 +1,8 @@
 import { COMMERCE_RESOURCE_PATHS, deepFreeze, type TenantDataCatalog } from './catalog-check.js';
 
 /** Tenant purposes come only from pg_get_constraintdef of asset_scope_purpose,
- * the scope_kind = 'tenant' branch. The closed tenant purposes are Work results and storefront product photos.
+ * the scope_kind = 'tenant' branch. The closed tenant purposes are Work results, storefront product photos and
+ * supplier cooperation materials (image and video).
  * Column lists are the installed attnum order. FORCE is not used (OPEN-14).
  */
 export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
@@ -2192,16 +2193,22 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["commerce_product_photo_targets_tenant"] } },
         { kind: "table" as const, table: "commerce_publication_photo_refs", columns: ["publication_id", "sku", "tenant_id", "instance_id", "scope_id", "scope_kind", "asset_id", "representation_id", "policy_revision", "purpose", "asset_state", "content_type", "byte_size", "content_sha256", "transform_version", "width", "height"],
           tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["commerce_publication_photo_refs_tenant"] } },
+        { kind: "table" as const, table: "supply_materials", columns: ["material_id", "tenant_id", "instance_id", "scope_id", "scope_kind", "kind", "product_id", "title", "description", "access", "state", "current_version_id", "aggregate_version", "created_by_principal_id", "created_at", "updated_at", "withdrawn_at"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["supply_materials_partner_read", "supply_materials_tenant"] } },
+        { kind: "table" as const, table: "supply_material_versions", columns: ["version_id", "material_id", "tenant_id", "instance_id", "scope_id", "scope_kind", "kind", "version_no", "body", "asset_id", "representation_id", "policy_revision", "purpose", "asset_state", "content_sha256", "created_by_principal_id", "created_at"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["supply_material_versions_partner_read", "supply_material_versions_tenant"] } },
+        { kind: "table" as const, table: "supply_material_grants", columns: ["grant_id", "material_id", "tenant_id", "instance_id", "partner_shop_id", "granted_by_principal_id", "granted_at", "revoked_by_principal_id", "revoked_at"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["supply_material_grants_partner_read", "supply_material_grants_tenant"] } },
       ],
       classification: "tenant_private_with_explicit_public_projection",
       authoritative_module: "agent-commerce",
       tenant_resolution: "Profile/publication tenant_id; shops resolve through commerce_resource_tenants.resource_id -> commerce_shops.shop_id, items and selections through their own shop_id first. Only resource_kind=shop, mapping_state=confirmed with the authorized tenant and instance establishes row scope. Missing/ambiguous mappings and imported/unmapped rows are not assigned by owner_id, community_id, slug or a selection's item reference. Schema FK evidence alone is not row authorization.",
       identity_keys: ["instance_id", "publication_id", "shop_id", "item_id", "selection_id", "quote_id", "order_id", "buyer_principal_id", "client_order_id", "customer_id", "checkout_id", "contact_id", "application_id", "allocation_id", "movement_id"],
-      readable_by: ["store:read", "store:write for private supplier cost and terms", "anonymous:current-live-publication"],
+      readable_by: ["store:read", "store:write for private supplier cost and terms", "anonymous:current-live-publication", "store:read of a partner storefront for the current version of an active material it holds an active grant for"],
       writable_by: ["store:manage", "store:write", "store:publish"],
       export_scope: "Coverage only: no store export, import, restore or external migration capability is implemented by this catalog. Bulk export requires separately authorized module.data.export, confirmed row mappings and field policy; it must exclude platform authentication, imported/unmapped shops and another supplier's private item data.",
       dependency_refs: ["DC-04", "DC-07", "DC-10"],
-      sensitivity: "Provider account metadata, service state and sealed credentials are tenant-private under RLS. Host key bytes never enter database rows, receipts or exports; backups require the corresponding offline host keys. Entry routes, admissions and control events are non-PII control metadata with explicitly authorized readers. Store-scoped access grants are tenant-private credentials under RLS; seven-day single-use link digests contain no email, and device grants expire with their platform-wide 180-day credential. Customer normalized email/member links and checkout contact/delivery/invoice rows are PII under tenant RLS; customers and contacts each permit a single redaction. Contact salts are PII erased with contact fields; retained contact digests are salted and freeze request digests are keyed by unstored plaintext idempotency keys. Transaction/digest history is retained. Checkout terms and idempotency replies contain no PII. Offline payment settings and confirmed offline payments are tenant-private business bank data under RLS, not buyer personal data. Meetup handovers are tenant-private completion records under RLS and contain no buyer personal data. Store drafts, item costs/stock and publisher principal references are private; only the explicit publication allowlist is public. commerce_items is listed once for hosted source coverage; product/offer responsibility remains DC-07 and stock/reserved responsibility remains DC-10 under the existing agent-commerce writer.",
+      sensitivity: "Provider account metadata, service state and sealed credentials are tenant-private under RLS. Host key bytes never enter database rows, receipts or exports; backups require the corresponding offline host keys. Entry routes, admissions and control events are non-PII control metadata with explicitly authorized readers. Store-scoped access grants are tenant-private credentials under RLS; seven-day single-use link digests contain no email, and device grants expire with their platform-wide 180-day credential. Customer normalized email/member links and checkout contact/delivery/invoice rows are PII under tenant RLS; customers and contacts each permit a single redaction. Contact salts are PII erased with contact fields; retained contact digests are salted and freeze request digests are keyed by unstored plaintext idempotency keys. Transaction/digest history is retained. Checkout terms and idempotency replies contain no PII. Offline payment settings and confirmed offline payments are tenant-private business bank data under RLS, not buyer personal data. Meetup handovers are tenant-private completion records under RLS and contain no buyer personal data. Store drafts, item costs/stock and publisher principal references are private; only the explicit publication allowlist is public. Supplier cooperation materials are private to the supplier; a partner storefront reads only the current version of an active material through its own active grant, and a public-use flag publishes nothing. commerce_items is listed once for hosted source coverage; product/offer responsibility remains DC-07 and stock/reserved responsibility remains DC-10 under the existing agent-commerce writer.",
       sharing_purpose: "Member-approved public display; closed direct-reservation backend is disabled by default with no route/release activation. Buyer identity and terms stay private. Personal command receipts/journals describe the actual buyer; exact quote tenant/instance ownership does not create seller membership. Checkout domain commands support verified-payment inventory effects internally with store admission defaulting to false; no writer route, payment attempt/provider integration or fulfilment capability is enabled.",
       field_allowlist: ["slug", "name", "brand", "description", "currency", "products.sku", "products.title", "products.description", "products.price_minor", "revision", "published_at", "transaction_state"],
       central_retention: { state: "policy_undecided" as const, decision_refs: ["OPEN-07"] },
@@ -2314,6 +2321,8 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             purposes: [
               "work.tenant-result",
               "storefront.product-photo",
+              "storefront.supply-material",
+              "storefront.supply-material-video",
             ],
           },
           isolation: {
@@ -2368,6 +2377,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "target_product_id",
             "target_instance_id",
             "target_ar_id",
+            "target_material_id",
           ],
           tenant_resolution: {
             kind: "direct" as const,
@@ -2709,10 +2719,12 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           ],
         },
         { kind: "object" as const, purpose: "storefront.product-photo", target_kind: "storefront.product-photo", variants: ["image"] },
+        { kind: "object" as const, purpose: "storefront.supply-material", target_kind: "storefront.supply-material", variants: ["image"] },
+        { kind: "object" as const, purpose: "storefront.supply-material-video", target_kind: "storefront.supply-material-video", variants: ["video"] },
       ],
       classification: "attachment",
       authoritative_module: "asset-lifecycle",
-      tenant_resolution: "assets.tenant_ref, asset_upload_intents.target_tenant_id, and closed tenant purposes work.tenant-result and storefront.product-photo on asset_objects; other asset rows resolve by foreign key to assets",
+      tenant_resolution: "assets.tenant_ref, asset_upload_intents.target_tenant_id, and closed tenant purposes work.tenant-result, storefront.product-photo, storefront.supply-material and storefront.supply-material-video on asset_objects; other asset rows resolve by foreign key to assets",
       identity_keys: [
         "asset_id",
         "intent_id",

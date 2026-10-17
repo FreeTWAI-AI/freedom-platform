@@ -1,3 +1,4 @@
+import type { SupplyMaterialAssets } from '../../../modules/agent-commerce/supplier-console/material-media.js';
 import type {PaymentQueryTransport} from '../../../modules/agent-commerce/payments/query-transport.js';
 import type {EffectJournalPort} from '../../../modules/agent-commerce/operations/journal/journal.js';
 import type {EcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
@@ -115,6 +116,9 @@ export type PlatformRuntime = {
   storePhotoAssetStore?: ObjectStore;
   storePhotoAssets?: StorePhotoAssets;
   storePhotoUploadsEnabled?: boolean;
+  supplyMaterialAssetStore?: ObjectStore;
+  supplyMaterialAssets?: SupplyMaterialAssets;
+  supplyMaterialUploadsEnabled?: boolean;
   communityDiscoveryEnabled?: boolean;
   /** Management surface only; saved blocks continue protecting contact when false. */
   memberBlockingEnabled?: boolean;

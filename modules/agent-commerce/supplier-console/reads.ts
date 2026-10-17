@@ -17,7 +17,7 @@ const capacity = `(SELECT count(*)::int FROM commerce_selections l
   WHERE m.tenant_id=$1 AND m.instance_id=$2 AND m.resource_id=$4 AND m.mapping_state='confirmed') AS product_count`;
 // Availability is derived only in this column (stock minus the reserved counter), so a
 // commerce-owned availability rule can replace it here without touching the projections.
-const own = `own AS (
+export const own = `own AS (
   SELECT i.*,i.stock-i.reserved AS available,l.aggregate_version::text AS product_version,s.currency
   FROM commerce_items i JOIN commerce_selections l ON l.item_id=i.item_id
   JOIN commerce_resource_tenants supply ON supply.resource_kind='shop' AND supply.resource_id=i.shop_id AND supply.mapping_state='confirmed'
@@ -26,7 +26,7 @@ const own = `own AS (
   JOIN commerce_shops s ON s.shop_id=i.shop_id AND s.origin='hosted'
   WHERE supply.tenant_id=$1 AND supply.instance_id=$2 AND i.shop_id=$3 AND l.shop_id=$4
 )`;
-const offers = `offers AS (
+export const offers = `offers AS (
   SELECT o.offer_id,o.item_id,o.supplier_name,o.source_version::text AS source_version,
     o.terms,o.terms_sha256,o.state,o.version::text AS version FROM commerce_hosted_supply_offers o
   JOIN commerce_items i ON i.item_id=o.item_id AND i.shop_id=$3
@@ -34,7 +34,7 @@ const offers = `offers AS (
     AND source.supply_shop_id=$3 AND source.storefront_shop_id=$4
   WHERE o.tenant_id=$1 AND o.instance_id=$2
 )`;
-const selections = `selections AS (
+export const selections = `selections AS (
   SELECT o.*,l.selection_id,l.shop_id AS partner_id,l.hosted_sku,l.retail_price_minor,l.listing_sha256,l.acceptance_state,
     l.aggregate_version::text AS selection_version,s.name AS seller_name,
     CASE WHEN o.state='withdrawn' OR l.acceptance_state IN ('declined','revoked') THEN 'inactive'
@@ -44,22 +44,22 @@ const selections = `selections AS (
   FROM offers o JOIN commerce_selections l ON l.hosted_offer_id=o.offer_id AND l.item_id=o.item_id
   JOIN commerce_shops s ON s.shop_id=l.shop_id AND s.origin='hosted'
 )`;
-const cooperation = `jsonb_build_object('awaiting',count(*) FILTER (WHERE bucket='awaiting'),
+export const cooperation = `jsonb_build_object('awaiting',count(*) FILTER (WHERE bucket='awaiting'),
   'sellable',count(*) FILTER (WHERE bucket='sellable'),'changes_requested',count(*) FILTER (WHERE bucket='changes_requested'),
   'inactive',count(*) FILTER (WHERE bucket='inactive'))`;
-const products = `products AS (
+export const products = `products AS (
   SELECT i.*, (SELECT to_jsonb(o) FROM offers o WHERE o.item_id=i.item_id AND o.state='offered') AS current_offer,
     (SELECT ${cooperation} FROM selections l WHERE l.item_id=i.item_id) AS cooperation FROM own i
 )`;
-const partners = `partners AS (
+export const partners = `partners AS (
   SELECT partner_id,seller_name AS name,${cooperation} AS cooperation,count(DISTINCT item_id)::int AS products,
     count(*) FILTER (WHERE bucket='awaiting') AS awaiting FROM selections GROUP BY partner_id,seller_name
 )`;
 const productCtes = `${clock},${own},${offers},${selections},${products}`;
 const partnerCtes = `${clock},${offers},${selections},${partners}`;
-const params = (p: Profile) => [p.tenant_id,p.instance_id,p.supply_shop_id,p.storefront_shop_id];
-type Row = Record<string, any>;
-function productView(row: Row, currency: Profile['currency']): SupplierProduct {
+export const params = (p: Profile) => [p.tenant_id,p.instance_id,p.supply_shop_id,p.storefront_shop_id];
+export type Row = Record<string, any>;
+export function productView(row: Row, currency: Profile['currency']): SupplierProduct {
   const o = row.current_offer;
   return {product_id:row.item_id,sku:row.sku,title:row.title,description:row.description,currency,
     supply_price_minor:Number(row.price_minor),shipping_minor:Number(row.shipping_minor),stock:row.stock,reserved:row.reserved,
@@ -67,7 +67,7 @@ function productView(row: Row, currency: Profile['currency']): SupplierProduct {
     offer:o?{offer_id:o.offer_id,version:String(o.version),terms_sha256:o.terms_sha256,
       matches_current_terms:digest(supplyOfferTerms(row as Parameters<typeof supplyOfferTerms>[0],currency))===o.terms_sha256}:null};
 }
-function partnerView(row: Row) {
+export function partnerView(row: Row) {
   return {partner_id:row.partner_id,name:row.name,cooperation:row.cooperation,products:row.products};
 }
 
