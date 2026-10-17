@@ -5,14 +5,16 @@ import {prepareBrowserRaster,socialImageProblem} from '../../../../../packages/a
 import type {ConsoleController} from '../../state/useSupplierConsoleController';
 import {holdMaterialUpload,heldMaterialUpload,markMaterialUploadUnknown,restoreMaterialUpload,releaseMaterialUpload,forgetRefusedMaterialUpload,type MaterialUploadAttempt} from '../../state/material-upload';
 import {sendMaterialUpload,materialFileProblem,MATERIAL_UPLOAD_UNKNOWN} from '../material-client';
-import {materialAccess,materialKind,materialSubject,materialTime,materialSize,materialVersionSummary,materialContentPath,materialCapacityText,materialCapacityProblem,sellableMaterialPartners,partnerLabel} from '../view';
+import {materialAccess,materialKind,materialSubject,materialTime,materialSize,materialVersionSummary,materialContentPath,materialCapacityText,materialCapacityProblem,sellableMaterialPartners,partnerLabel,acceptedMaterialPreview} from '../view';
 import {supplierConsoleHref} from '../route';
 import {ReadStatus,Editor,ConfirmAction} from './Shared';
 
 function MaterialContent({c,material,version,enabled}:{c:ConsoleController;material:SupplyMaterial;version:SupplyMaterialVersion;enabled:boolean}){
  const content=version.content,path=materialContentPath(c.scope,material.material_id,version.version_id),[failed,setFailed]=useState(''),[message,setMessage]=useState('');
  const text=useRef<HTMLParagraphElement>(null),mounted=useRef(false),generation=c.client.sessionGeneration;
+ const slot=c.slot<SupplyMaterialDetail>('material:'+material.material_id),accepted=acceptedMaterialPreview(slot,c.scope,material.material_id,version.version_id),seenSlot=useRef<typeof slot|null>(null);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+ useEffect(()=>{if(!accepted)return;if(seenSlot.current===null){seenSlot.current=slot;return;}if(seenSlot.current!==slot){seenSlot.current=slot;setFailed('');}},[accepted,slot]);
  async function copy(){
   if(content.kind!=='copy')return;
   try{await navigator.clipboard.writeText(content.body);if(mounted.current&&generation===c.client.sessionGeneration)setMessage('已複製文字。');}

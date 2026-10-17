@@ -61,3 +61,9 @@ export function materialCapacityProblem(capacity:import('../../../../contracts/g
 export function materialVersionSummary(version:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterialVersion){const c=version.content;return c.kind==='copy'?Array.from(c.body).slice(0,60).join(''):c.kind==='image'?`${c.width}×${c.height}・${materialSize(c.byte_size)}`:`${c.content_type}・${materialSize(c.byte_size)}`;}
 export function sellableMaterialPartners(partners:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterialDetail['partners']){return partners.filter(p=>!p.granted&&p.cooperation==='sellable').map(p=>p.partner_id);}
 export const materialContentPath=(scope:import('./route').ConsoleScope,id:string,versionId:string)=>`/api/v1/tenants/${scope.tenantId}/storefronts/${scope.instanceId}/supply-materials/${id}/versions/${versionId}/content`;
+export function acceptedMaterialPreview<T extends {tenant_id:string;instance_id:string;material:{material_id:string;current:{version_id:string}|null}}>(
+ slot:{state:string;data:T|null},scope:{tenantId:string;instanceId:string},materialId:string,versionId:string):T|null {
+ const data=slot.state==='ready'?slot.data:null;
+ if(!data||data.tenant_id!==scope.tenantId||data.instance_id!==scope.instanceId||data.material.material_id!==materialId||data.material.current?.version_id!==versionId)return null;
+ return data;
+}

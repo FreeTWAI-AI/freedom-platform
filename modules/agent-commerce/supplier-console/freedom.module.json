@@ -20,6 +20,7 @@
     "tests/runtime/supply-material-media.test.ts",
     "tests/runtime/partner-material-content.test.ts",
     "tests/runtime/partner-materials-view.test.ts",
+    "tests/runtime/partner-materials-recovery.test.ts",
     "tests/e2e/supplier-console.spec.ts",
     "tests/e2e/supplier-console-cooperation.spec.ts",
     "tests/e2e/supplier-console-recovery.spec.ts",

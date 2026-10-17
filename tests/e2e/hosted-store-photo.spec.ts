@@ -3,7 +3,7 @@ import {LIVE_PUBLIC_ORIGIN} from '../../apps/platform-api/src/routes/published-s
 import {createHash,randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import sharp from 'sharp';
-import {test,expect,type Page,type Request} from './fixtures.js';
+import {test,expect,type Page,type Request,type Route} from './fixtures.js';
 import {person,login,open,post,launchStore} from './hosted-store-fixture.js';
 import {navigate,signOut} from './navigation.js';
 import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
@@ -1172,4 +1172,484 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   const evidence = info.outputPath('material-switch-evidence.json');
   await writeFile(evidence, JSON.stringify({observed, signatures: [sig1, sig2], before, after1, after2}, null, 2));
   await info.attach('material-switch-evidence', {path: evidence, contentType: 'application/json'});
+});
+
+function problemBody(status: number, detail: string, code: string) {
+  return JSON.stringify({ type: 'about:blank', title: status === 403 ? 'Forbidden' : 'Service Unavailable', status, detail, code });
+}
+
+async function grantSellablePartners(page: Page, store: { root: string }, materialId: string) {
+  const detail = await (await page.request.get(`/api/v1${store.root}/supply-materials/${materialId}`)).json();
+  const partnerIds = (detail.partners as { partner_id: string; granted: boolean; cooperation: string }[])
+    .filter(partner => !partner.granted && partner.cooperation === 'sellable')
+    .map(partner => partner.partner_id);
+  expect(partnerIds, JSON.stringify(detail.partners)).toHaveLength(1);
+  await post(page, `${store.root}/supply-materials/${materialId}/grants`, { partner_ids: partnerIds }, 200, detail.material.version);
+}
+
+test('SC-E2E-79 seller image and video retry the same version after a media 503, and a list 503 stays explicitly stale', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  const { readFile } = await import('node:fs/promises');
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{ close: () => Promise<void> }> = [];
+  const supplierIds: string[] = [];
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+    const seller = await openPartnerStore(browser, baseURL, e2eAuthPool, `重試賣家 ${suffix}`, `partner-retry-${suffix}`);
+    extraContexts.push(seller.ctx);
+    const proposal = await post(
+      seller.page,
+      `${seller.store.root}/distribution-selections`,
+      { offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200 },
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${proposal.selection_id}/decision`,
+      { decision: 'accepted', listing_sha256: proposal.listing_sha256 },
+      200,
+      proposal.version,
+    );
+
+    const copyBody = `合成私人文案 ${suffix}`;
+    const copy = await post(page, `${sup.store.root}/supply-materials`, {
+      kind: 'copy', product_id: null, title: `合作文案 ${suffix}`, description: '合成說明', body: copyBody,
+    }, 201);
+    await grantSellablePartners(page, sup.store, copy.material_id);
+
+    const imgTitle = `重試圖片 ${suffix}`;
+    const imgMaterialId = await createFileMaterialInConsole(page, sup.store, 'image', imgTitle, '');
+    const imgUpload = materialActive(page).locator('.sc-section').filter({ has: page.getByRole('heading', { level: 3, name: '新版本', exact: true }) });
+    await imgUpload.getByLabel('選擇圖片').setInputFiles(await source(`retry-image-${suffix}.png`, '#2e6b5e'));
+    await imgUpload.getByRole('button', { name: '上傳新版本', exact: true }).click();
+    await expect(imgUpload.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    await grantMaterialToAllSellableInConsole(page);
+
+    const vidTitle = `重試影片 ${suffix}`;
+    const vidMaterialId = await createFileMaterialInConsole(page, sup.store, 'video', vidTitle, sup.product.product_id);
+    const vidUpload = materialActive(page).locator('.sc-section').filter({ has: page.getByRole('heading', { level: 3, name: '新版本', exact: true }) });
+    await vidUpload.getByLabel('選擇影片').setInputFiles({
+      name: 'event-video-160x90.mp4', mimeType: 'video/mp4', buffer: await readFile('tests/media-fixtures/event-video-160x90.mp4'),
+    });
+    await vidUpload.getByRole('button', { name: '上傳新版本', exact: true }).click();
+    await expect(vidUpload.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    await grantMaterialToAllSellableInConsole(page);
+
+    const versions = (await e2eAuthPool.query<{ material_id: string; current_version_id: string }>(
+      'SELECT material_id, current_version_id FROM supply_materials WHERE material_id = ANY($1::uuid[])',
+      [[imgMaterialId, vidMaterialId]],
+    )).rows;
+    const imgPath = `/api/v1${seller.store.root}/partner-materials/${imgMaterialId}/versions/${versions.find(row => row.material_id === imgMaterialId)!.current_version_id}/content`;
+    const vidPath = `/api/v1${seller.store.root}/partner-materials/${vidMaterialId}/versions/${versions.find(row => row.material_id === vidMaterialId)!.current_version_id}/content`;
+    const listPath = `/api/v1${seller.store.root}/partner-materials`;
+    const mediaGets = new Map<string, number>();
+    let listGets = 0;
+    seller.page.on('request', request => {
+      if (request.method() !== 'GET') return;
+      const path = new URL(request.url()).pathname;
+      if (path === imgPath || path === vidPath) mediaGets.set(path, (mediaGets.get(path) ?? 0) + 1);
+      if (path === listPath) listGets += 1;
+    });
+    const mediaFailures = new Set([imgPath, vidPath]);
+    const matchMediaFailure = (url: URL) => mediaFailures.has(url.pathname);
+    const fulfillMedia503: (route: Route) => Promise<void> = async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      const path = new URL(route.request().url()).pathname;
+      if (!mediaFailures.delete(path)) return route.continue();
+      await route.fulfill({ status: 503, contentType: 'application/problem+json', body: problemBody(503, '素材檔案暫時無法讀取。', 'material_content_unavailable') });
+    };
+    await seller.page.route(matchMediaFailure, fulfillMedia503);
+
+    await open(seller.page, seller.store.hash);
+    await storeArea(seller.page, '供貨合作');
+    const panel = sellerPartnerMaterials(seller.page);
+    const imgCard = panel.locator('article.card').filter({ hasText: imgTitle });
+    const vidCard = panel.locator('article.card').filter({ hasText: vidTitle });
+    await imgCard.scrollIntoViewIfNeeded();
+    await expect(imgCard).toContainText('素材暫時無法讀取。');
+    await expect(imgCard.locator('img')).toHaveCount(0);
+    await expect(imgCard.getByRole('link', { name: '下載', exact: true })).toHaveCount(0);
+    await vidCard.scrollIntoViewIfNeeded();
+    await expect(vidCard).toContainText('素材暫時無法讀取。');
+    await expect(vidCard.locator('video')).toHaveCount(0);
+    await expect(vidCard.getByRole('link', { name: '下載', exact: true })).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toBeEnabled();
+    const imageGetsAfterFailure = mediaGets.get(imgPath) ?? 0;
+    const videoGetsAfterFailure = mediaGets.get(vidPath) ?? 0;
+    expect(imageGetsAfterFailure).toBeGreaterThan(0);
+    expect(videoGetsAfterFailure).toBeGreaterThan(0);
+
+    const listGetsBeforeRetry = listGets;
+    const recovered = seller.page.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 200);
+    await panel.getByRole('button', { name: '重新整理', exact: true }).click();
+    await recovered;
+    expect(listGets).toBe(listGetsBeforeRetry + 1);
+    await imgCard.scrollIntoViewIfNeeded();
+    await expect(imgCard.locator('img')).toHaveAttribute('src', imgPath);
+    await expect.poll(() => imgCard.locator('img').evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await expect(imgCard.getByRole('link', { name: '下載', exact: true })).toHaveAttribute('href', imgPath);
+    await vidCard.scrollIntoViewIfNeeded();
+    await expect(vidCard.locator('video')).toHaveAttribute('src', vidPath);
+    await expect.poll(() => vidCard.locator('video').evaluate(element => (element as HTMLVideoElement).readyState)).toBeGreaterThanOrEqual(1);
+    await expect(vidCard.getByRole('link', { name: '下載', exact: true })).toHaveAttribute('href', vidPath);
+    expect(mediaGets.get(imgPath) ?? 0).toBeGreaterThan(imageGetsAfterFailure);
+    expect(mediaGets.get(vidPath) ?? 0).toBeGreaterThan(videoGetsAfterFailure);
+    await expect(imgCard).not.toContainText('素材暫時無法讀取。');
+    await expect(vidCard).not.toContainText('素材暫時無法讀取。');
+
+    let listFailed = false;
+    const matchList = (url: URL) => url.pathname === listPath;
+    const fulfillList503: (route: Route) => Promise<void> = async route => {
+      if (route.request().method() !== 'GET' || listFailed) return route.continue();
+      listFailed = true;
+      await route.fulfill({ status: 503, contentType: 'application/problem+json', body: problemBody(503, '服務暫時無法回應。', 'unavailable') });
+    };
+    await seller.page.route(matchList, fulfillList503);
+    const listGetsBeforeStale = listGets;
+    const stale = seller.page.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 503);
+    await panel.getByRole('button', { name: '重新整理', exact: true }).click();
+    await stale;
+    expect(listGets).toBe(listGetsBeforeStale + 1);
+    await expect(panel).toContainText('顯示的是');
+    await expect(panel).toContainText('最新讀取失敗');
+    await expect(panel).toContainText('服務暫時無法回應（503）');
+    await expect(panel).toContainText(copyBody);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toBeEnabled();
+    await expect(panel).not.toContainText('資料時間');
+    await seller.page.unroute(matchList, fulfillList503);
+    const listGetsBeforeRestore = listGets;
+    const restored = seller.page.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 200);
+    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await restored;
+    expect(listGets).toBe(listGetsBeforeRestore + 1);
+    await expect(panel.getByRole('button', { name: '重新整理', exact: true })).toBeEnabled();
+    await expect(panel).toContainText(copyBody);
+    await expect(panel).not.toContainText('最新讀取失敗');
+
+    let forbidden = false;
+    const fulfillList403: (route: Route) => Promise<void> = async route => {
+      if (route.request().method() !== 'GET' || forbidden) return route.continue();
+      forbidden = true;
+      await route.fulfill({ status: 403, contentType: 'application/problem+json', body: problemBody(403, '目前沒有這個操作的權限。', 'capability_denied') });
+    };
+    await seller.page.route(matchList, fulfillList403);
+    const listGetsBeforeDenial = listGets;
+    const denied = seller.page.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 403);
+    await panel.getByRole('button', { name: '重新整理', exact: true }).click();
+    await denied;
+    expect(listGets).toBe(listGetsBeforeDenial + 1);
+    await expect(panel).not.toContainText(copyBody);
+    await expect(panel).not.toContainText(imgTitle);
+    await expect(panel).not.toContainText(vidTitle);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toHaveCount(0);
+    await expect(panel.locator('img')).toHaveCount(0);
+    await expect(panel.locator('video')).toHaveCount(0);
+    await expect(panel.getByRole('link', { name: '下載', exact: true })).toHaveCount(0);
+    await expect(panel).toContainText('目前無法讀取合作素材。');
+    await expect(panel).toContainText('目前沒有這個操作的權限。');
+    await expect(panel).not.toContainText('顯示的是');
+    await expect(seller.page.getByRole('button', { name: '設定', exact: true })).toBeVisible();
+    await seller.page.unroute(matchList, fulfillList403);
+    await seller.page.unroute(matchMediaFailure, fulfillMedia503);
+    const listGetsBeforeReread = listGets;
+    const reread = seller.page.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 200);
+    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await reread;
+    expect(listGets).toBe(listGetsBeforeReread + 1);
+    await expect(panel).toContainText(copyBody);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toBeEnabled();
+    await expect(imgCard.locator('img')).toHaveAttribute('src', imgPath);
+    await expect(vidCard.locator('video')).toHaveAttribute('src', vidPath);
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(context => context.close()));
+  }
+});
+
+test('SC-E2E-80 supplier image and video preview retry the same version, and a denied detail read does not restore bytes', async ({
+  page,
+  e2eAuthPool,
+}) => {
+  const { readFile } = await import('node:fs/promises');
+  const suffix = randomUUID().slice(0, 6);
+  const { store } = await setupMaterialSupplier(page, e2eAuthPool, suffix);
+
+  async function proveRetry(kind: 'image' | 'video', materialId: string, title: string, failureText: string) {
+    const contentSection = materialActive(page).locator('.sc-section').filter({ has: page.getByRole('heading', { level: 3, name: '內容', exact: true }) });
+    const uploadSection = materialActive(page).locator('.sc-section').filter({ has: page.getByRole('heading', { level: 3, name: '新版本', exact: true }) });
+    const detailPath = `/api/v1${store.root}/supply-materials/${materialId}`;
+    let contentGets = 0;
+    let detailGets = 0;
+    let failedContent = false;
+    const onRequest = (request: Request) => {
+      if (request.method() !== 'GET') return;
+      const url = new URL(request.url());
+      if (url.pathname.includes(`/supply-materials/${materialId}/versions/`) && url.pathname.endsWith('/content')) contentGets += 1;
+      if (url.pathname === detailPath) detailGets += 1;
+    };
+    page.on('request', onRequest);
+    const matchContent = (url: URL) => url.pathname.includes(`/supply-materials/${materialId}/versions/`) && url.pathname.endsWith('/content');
+    const fulfillContent503: (route: Route) => Promise<void> = async route => {
+      if (route.request().method() !== 'GET' || failedContent) return route.continue();
+      failedContent = true;
+      await route.fulfill({ status: 503, contentType: 'application/problem+json', body: problemBody(503, '素材檔案暫時無法讀取。', 'material_content_unavailable') });
+    };
+    await page.route(matchContent, fulfillContent503);
+    if (kind === 'image') {
+      await uploadSection.getByLabel('選擇圖片').setInputFiles(await source(`supplier-retry-${suffix}.png`, '#365b77'));
+    } else {
+      await uploadSection.getByLabel('選擇影片').setInputFiles({
+        name: 'event-video-160x90.mp4', mimeType: 'video/mp4', buffer: await readFile('tests/media-fixtures/event-video-160x90.mp4'),
+      });
+    }
+    await uploadSection.getByRole('button', { name: '上傳新版本', exact: true }).click();
+    await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    await expect(contentSection).toContainText(failureText);
+    await expect(contentSection.locator(kind === 'image' ? 'img' : 'video')).toHaveCount(0);
+    const getsAfterFailure = contentGets;
+    expect(getsAfterFailure).toBeGreaterThan(0);
+    const detailGetsBeforeRetry = detailGets;
+    const reread = page.waitForResponse(response => new URL(response.url()).pathname === detailPath && response.status() === 200);
+    await materialActive(page).getByRole('button', { name: '更新資料', exact: true }).click();
+    await reread;
+    expect(detailGets).toBe(detailGetsBeforeRetry + 1);
+    const media = contentSection.locator(kind === 'image' ? 'img.sc-material-media' : 'video.sc-material-media');
+    await expect(media).toBeVisible();
+    if (kind === 'image') await expect.poll(() => media.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    else await expect.poll(() => media.evaluate(element => (element as HTMLVideoElement).readyState)).toBeGreaterThanOrEqual(1);
+    expect(contentGets).toBeGreaterThan(getsAfterFailure);
+    await expect(contentSection).not.toContainText(failureText);
+    const sameSrc = await media.getAttribute('src');
+    expect(sameSrc).toMatch(new RegExp(`^/api/v1${store.root}/supply-materials/${materialId}/versions/[0-9a-f-]{36}/content$`));
+
+    let denials = 0;
+    const matchDetail = (url: URL) => url.pathname === detailPath;
+    const fulfillDetail403: (route: Route) => Promise<void> = async route => {
+      if (route.request().method() !== 'GET' || denials >= 2) return route.continue();
+      denials += 1;
+      await route.fulfill({ status: 403, contentType: 'application/problem+json', body: problemBody(403, '目前沒有這個操作的權限。', 'capability_denied') });
+    };
+    await page.route(matchDetail, fulfillDetail403);
+    const getsBeforeDenial = contentGets;
+    const detailGetsBeforeFirstDenial = detailGets;
+    const firstDenial = page.waitForResponse(response => new URL(response.url()).pathname === detailPath && response.status() === 403);
+    await materialActive(page).getByRole('button', { name: '更新資料', exact: true }).click();
+    await firstDenial;
+    expect(detailGets).toBe(detailGetsBeforeFirstDenial + 1);
+    await expect(materialActive(page).getByRole('heading', { level: 2, name: '素材詳情', exact: true })).toBeVisible();
+    await expect(materialActive(page)).not.toContainText(title);
+    await expect(materialActive(page)).not.toContainText(failureText);
+    await expect(materialActive(page).locator('img.sc-material-media, video.sc-material-media')).toHaveCount(0);
+    await expect(materialActive(page).getByRole('link', { name: /開啟檔案/ })).toHaveCount(0);
+    const detailGetsBeforeSecondDenial = detailGets;
+    const secondDenial = page.waitForResponse(response => new URL(response.url()).pathname === detailPath && response.status() === 403);
+    await materialActive(page).getByRole('button', { name: '重試', exact: true }).click();
+    await secondDenial;
+    expect(detailGets).toBe(detailGetsBeforeSecondDenial + 1);
+    await expect(materialActive(page)).not.toContainText(title);
+    await expect(materialActive(page).locator('img.sc-material-media, video.sc-material-media')).toHaveCount(0);
+    await expect(materialActive(page).getByRole('link', { name: /開啟檔案/ })).toHaveCount(0);
+    expect(contentGets).toBe(getsBeforeDenial);
+    const detailGetsBeforeAllow = detailGets;
+    const allowed = page.waitForResponse(response => new URL(response.url()).pathname === detailPath && response.status() === 200);
+    await materialActive(page).getByRole('button', { name: '重試', exact: true }).click();
+    await allowed;
+    expect(detailGets).toBe(detailGetsBeforeAllow + 1);
+    const restoredMedia = contentSection.locator(kind === 'image' ? 'img.sc-material-media' : 'video.sc-material-media');
+    await expect(restoredMedia).toBeVisible();
+    await expect(restoredMedia).toHaveAttribute('src', sameSrc!);
+    if (kind === 'image') await expect.poll(() => restoredMedia.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    else await expect.poll(() => restoredMedia.evaluate(element => (element as HTMLVideoElement).readyState)).toBeGreaterThanOrEqual(1);
+    await expect(materialActive(page)).toContainText(title);
+    await expect(materialActive(page).getByRole('link', { name: /開啟檔案/ })).toHaveAttribute('href', sameSrc!);
+    await page.unroute(matchDetail, fulfillDetail403);
+    await page.unroute(matchContent, fulfillContent503);
+    page.off('request', onRequest);
+  }
+
+  const imageTitle = `供應商重試圖 ${suffix}`;
+  const imageId = await createFileMaterialInConsole(page, store, 'image', imageTitle);
+  await proveRetry('image', imageId, imageTitle, '圖片暫時無法讀取。');
+  const videoTitle = `供應商重試影片 ${suffix}`;
+  const videoId = await createFileMaterialInConsole(page, store, 'video', videoTitle);
+  await proveRetry('video', videoId, videoTitle, '影片暫時無法讀取。');
+});
+
+test('SC-E2E-81 a removed store read clears partner materials, a regrant reads them again, and an old version stays closed', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{ close: () => Promise<void> }> = [];
+  const supplierIds: string[] = [];
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+    const seller = await openPartnerStore(browser, baseURL, e2eAuthPool, `讀權賣家 ${suffix}`, `partner-read-${suffix}`);
+    extraContexts.push(seller.ctx);
+    const proposal = await post(
+      seller.page,
+      `${seller.store.root}/distribution-selections`,
+      { offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200 },
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${proposal.selection_id}/decision`,
+      { decision: 'accepted', listing_sha256: proposal.listing_sha256 },
+      200,
+      proposal.version,
+    );
+    const copyBody = `撤權私人文案 ${suffix}`;
+    const copy = await post(page, `${sup.store.root}/supply-materials`, {
+      kind: 'copy', product_id: null, title: `撤權文案 ${suffix}`, description: '合成說明', body: copyBody,
+    }, 201);
+    await grantSellablePartners(page, sup.store, copy.material_id);
+    const title = `撤權圖片 ${suffix}`;
+    const materialId = await createFileMaterialInConsole(page, sup.store, 'image', title, '');
+    const upload = materialActive(page).locator('.sc-section').filter({ has: page.getByRole('heading', { level: 3, name: '新版本', exact: true }) });
+    await upload.getByLabel('選擇圖片').setInputFiles(await source(`revoke-image-${suffix}.png`, '#8a4f2d'));
+    await upload.getByRole('button', { name: '上傳新版本', exact: true }).click();
+    await expect(upload.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    await grantMaterialToAllSellableInConsole(page);
+    const versionId = (await e2eAuthPool.query<{ current_version_id: string }>(
+      'SELECT current_version_id FROM supply_materials WHERE material_id=$1',
+      [materialId],
+    )).rows[0].current_version_id;
+    const imagePath = `/api/v1${seller.store.root}/partner-materials/${materialId}/versions/${versionId}/content`;
+    const listPath = `/api/v1${seller.store.root}/partner-materials`;
+    const ids = seller.store.root.match(/^\/tenants\/([^/]+)\/storefronts\/([^/]+)$/);
+    expect(ids).not.toBeNull();
+    const tenantId = ids![1];
+    const instanceId = ids![2];
+
+    const viewerContext = await browser.newContext({ baseURL });
+    extraContexts.push(viewerContext);
+    const viewerMember = await person(e2eAuthPool);
+    const viewer = await viewerContext.newPage();
+    await login(viewer, viewerMember.email);
+    const candidate = await (await seller.page.request.get(`/api/v1/tenants/invite-candidates?user_id=${viewerMember.id}`)).json();
+    const invitation = await post(seller.page, `/tenants/${tenantId}/invitations`, {
+      invitee_principal_id: candidate.principal_id,
+      role: 'viewer',
+      instance_capabilities: [{ instance_id: instanceId, capabilities: ['store:read'] }],
+      expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+    }, 201);
+    await post(viewer, `/tenants/${tenantId}/invitations/${invitation.invitation_id}/accept`, {}, 200, invitation.version);
+    let imageGets = 0;
+    let listGets = 0;
+    viewer.on('request', request => {
+      if (request.method() !== 'GET') return;
+      const path = new URL(request.url()).pathname;
+      if (path === imagePath) imageGets += 1;
+      if (path === listPath) listGets += 1;
+    });
+    await open(viewer, seller.store.hash);
+    await storeArea(viewer, '供貨合作');
+    const panel = sellerPartnerMaterials(viewer);
+    await expect(panel).toContainText(copyBody);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toBeEnabled();
+    const image = panel.locator('article.card').filter({ hasText: title }).locator('img');
+    await image.scrollIntoViewIfNeeded();
+    await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    const getsWhileAllowed = imageGets;
+
+    const readMember = async () => {
+      const body = await (await seller.page.request.get(`/api/v1/tenants/${tenantId}/members`)).json();
+      const found = (body.items as { principal_id: string; version: string }[]).find(item => item.principal_id === candidate.principal_id);
+      expect(found).toBeTruthy();
+      return found!;
+    };
+    const changeMember = async (capabilities: { instance_id: string; capabilities: string[] }[], reason: string) => {
+      const current = await readMember();
+      await post(seller.page, `/tenants/${tenantId}/members/${candidate.principal_id}/change`, {
+        role: 'viewer', status: 'active', instance_capabilities: capabilities, reason,
+      }, 200, current.version);
+    };
+    await changeMember([], '移除商店讀取權限');
+    expect((await viewer.request.get(listPath)).status()).toBe(404);
+    const listGetsBeforeRevoke = listGets;
+    const denied = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 404);
+    await panel.getByRole('button', { name: '重新整理', exact: true }).click();
+    await denied;
+    expect(listGets).toBe(listGetsBeforeRevoke + 1);
+    await expect(panel).not.toContainText(copyBody);
+    await expect(panel).not.toContainText(title);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toHaveCount(0);
+    await expect(panel.locator('img')).toHaveCount(0);
+    await expect(panel.getByRole('link', { name: '下載', exact: true })).toHaveCount(0);
+    await expect(panel).toContainText('目前無法讀取合作素材。');
+    await expect(panel).not.toContainText('顯示的是');
+    await expect(panel.getByRole('button', { name: '重試', exact: true })).toBeEnabled();
+    const listGetsBeforeStillDenied = listGets;
+    const stillDenied = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 404);
+    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await stillDenied;
+    expect(listGets).toBe(listGetsBeforeStillDenied + 1);
+    await expect(panel).not.toContainText(copyBody);
+    await expect(panel).not.toContainText(title);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toHaveCount(0);
+    await expect(panel.locator('img')).toHaveCount(0);
+    await expect(panel.getByRole('link', { name: '下載', exact: true })).toHaveCount(0);
+    expect(imageGets).toBe(getsWhileAllowed);
+
+    let forbidden = false;
+    const matchList = (url: URL) => url.pathname === listPath;
+    const fulfillList403: (route: Route) => Promise<void> = async route => {
+      if (route.request().method() !== 'GET' || forbidden) return route.continue();
+      forbidden = true;
+      await route.fulfill({ status: 403, contentType: 'application/problem+json', body: problemBody(403, '目前沒有這個操作的權限。', 'capability_denied') });
+    };
+    await viewer.route(matchList, fulfillList403);
+    await changeMember([{ instance_id: instanceId, capabilities: ['store:read'] }], '恢復商店讀取權限');
+    const listGetsBeforeForbidden = listGets;
+    const forbiddenRead = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 403);
+    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await forbiddenRead;
+    expect(listGets).toBe(listGetsBeforeForbidden + 1);
+    await expect(panel).not.toContainText(copyBody);
+    await expect(panel).not.toContainText(title);
+    await expect(panel.locator('img')).toHaveCount(0);
+    await expect(panel.getByRole('link', { name: '下載', exact: true })).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toHaveCount(0);
+    await viewer.unroute(matchList, fulfillList403);
+    const listGetsBeforeAllow = listGets;
+    const allowedAgain = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 200);
+    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await allowedAgain;
+    expect(listGets).toBe(listGetsBeforeAllow + 1);
+    await expect(panel).toContainText(copyBody);
+    await expect(panel.getByRole('button', { name: '複製文字', exact: true })).toBeEnabled();
+    const restored = panel.locator('article.card').filter({ hasText: title }).locator('img');
+    await restored.scrollIntoViewIfNeeded();
+    await expect(restored).toHaveAttribute('src', imagePath);
+    await expect.poll(() => restored.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await expect(panel.getByRole('link', { name: '下載', exact: true })).toHaveAttribute('href', imagePath);
+
+    await upload.getByLabel('選擇圖片').setInputFiles(await source(`revoke-image-v2-${suffix}.png`, '#365b77'));
+    await upload.getByRole('button', { name: '上傳新版本', exact: true }).click();
+    await expect(upload.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+    const listGetsBeforeVersion = listGets;
+    const versioned = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 200);
+    await panel.getByRole('button', { name: '重新整理', exact: true }).click();
+    await versioned;
+    expect(listGets).toBe(listGetsBeforeVersion + 1);
+    await expect(restored).not.toHaveAttribute('src', imagePath);
+    const nextPath = await restored.getAttribute('src');
+    expect(nextPath).toMatch(new RegExp(`^/api/v1${seller.store.root}/partner-materials/${materialId}/versions/[0-9a-f-]{36}/content$`));
+    expect(nextPath).not.toBe(imagePath);
+    await expect.poll(() => restored.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    expect((await viewer.request.get(imagePath)).status()).toBe(404);
+    expect((await viewer.request.get(nextPath!)).status()).toBe(200);
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(context => context.close()));
+  }
 });

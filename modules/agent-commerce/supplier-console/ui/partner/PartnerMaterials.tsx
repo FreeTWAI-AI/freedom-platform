@@ -14,7 +14,7 @@ import {
   materialKindLabel,
   materialVersionText,
   partnerMaterialPath,
-  partnerMaterialsErrorText,
+  partnerMaterialsFailureState,
 } from './partner-materials';
 
 export type PartnerMaterialsViewState =
@@ -29,6 +29,8 @@ export interface PartnerMaterialsViewProps {
   mediaEnabled?: boolean;
   onReload?: () => void;
   onRetry?: () => void;
+  /** Increments only after a successful read for this mounted scope. */
+  mediaAttempt?: number;
 }
 
 export function PartnerMaterialsView({
@@ -36,12 +38,19 @@ export function PartnerMaterialsView({
   tenantId,
   instanceId,
   mediaEnabled = false,
+  mediaAttempt = 0,
   onReload,
   onRetry,
 }: PartnerMaterialsViewProps) {
   const [copyStatus, setCopyStatus] = useState<Record<string, string>>({});
   const [failedMedia, setFailedMedia] = useState<Record<string, boolean>>({});
+  const [seenAttempt, setSeenAttempt] = useState(mediaAttempt);
   const copyBodyRefs = useRef<Record<string, HTMLElement | null>>({});
+  // One successful metadata read clears the previous media failure so the same URL can be requested again.
+  if (seenAttempt !== mediaAttempt) {
+    setSeenAttempt(mediaAttempt);
+    setFailedMedia({});
+  }
 
   const markFailed = (path: string) => {
     setFailedMedia(prev => (prev[path] ? prev : { ...prev, [path]: true }));
@@ -292,6 +301,7 @@ export function PartnerMaterials({
   mediaEnabled = false,
 }: PartnerMaterialsProps) {
   const [state, setState] = useState<PartnerMaterialsViewState>({ kind: 'loading' });
+  const [mediaAttempt, setMediaAttempt] = useState(0);
   const dataRef = useRef<PartnerMaterialsData | null>(null);
   const ticketRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -314,6 +324,10 @@ export function PartnerMaterials({
   ) {
     prevScopeRef.current = { userId, tenantId, instanceId };
     dataRef.current = null;
+    ticketRef.current += 1;
+    abortRef.current?.abort();
+    setMediaAttempt(0);
+    if (state.kind !== 'loading') setState({ kind: 'loading' });
   }
 
   const load = useCallback(async () => {
@@ -347,15 +361,13 @@ export function PartnerMaterials({
       if (isStale()) return;
       const parsed = PartnerMaterialsSchema.parse(raw);
       dataRef.current = parsed;
+      setMediaAttempt(attempt => attempt + 1);
       setState({ kind: 'ready', data: parsed });
     } catch (err) {
       if (isStale()) return;
-      const message = partnerMaterialsErrorText(err);
-      setState({
-        kind: 'failed',
-        error: message,
-        staleData: dataRef.current ?? undefined,
-      });
+      const settled = partnerMaterialsFailureState(dataRef.current, err);
+      dataRef.current = settled.data;
+      setState(settled.state);
     }
   }, [client, userId, tenantId, instanceId]);
 
@@ -375,10 +387,12 @@ export function PartnerMaterials({
 
   return (
     <PartnerMaterialsView
+      key={`${userId}:${tenantId}:${instanceId}`}
       state={state}
       tenantId={tenantId}
       instanceId={instanceId}
       mediaEnabled={mediaEnabled}
+      mediaAttempt={mediaAttempt}
       onReload={() => void load()}
       onRetry={() => void load()}
     />
