@@ -8,7 +8,7 @@ import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const shape = 'execution.member-run-record.v1';
-const capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1', 'work.server-policy.v1', shape];
+const capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1', 'work.server-policy.v1', shape];
 function fixture() {
   const scan = checkMigrations(join(root, 'migrations'), loadManifest().database_defaults.migrations);
   assert.equal(scan.ok, true);
@@ -31,7 +31,7 @@ function evaluate(f) {
 }
 test('086 additive schema alone does not activate closed Runs or require their capability', () => {
   const f = fixture();
-  for (const record of f.host.release_records) record.capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
+  for (const record of f.host.release_records) record.capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
   assert.equal(evaluate(f).status, 'compatible');
   assert(!evaluate(f).required_capabilities.includes(shape));
 });
@@ -91,15 +91,15 @@ test('retained human Result at084 requires owner ACL but does not invent the lat
   f.host.rollback_floor.capabilities = ['work.private-human-result.v1'];
   for (const record of f.host.release_records) {
     record.schema_ledger_digests = [digest];
-    record.capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1'];
+    record.capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1'];
   }
   const result = evaluate(f); assert.equal(result.status, 'compatible');
   assert(!result.required_capabilities.includes('work.server-policy.v1'));
 });
 test('owner ACL capability alone does not invent persistence Result or Run requirements', () => {
   const f = fixture(); f.host.rollback_floor.capabilities = ['work.personal-owner-acl.v1'];
-  for (const record of f.host.release_records) record.capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1'];
+  for (const record of f.host.release_records) record.capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1'];
   const result = evaluate(f); assert.equal(result.status, 'compatible');
-  assert.deepEqual(result.required_capabilities, ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1']);
+  assert.deepEqual(result.required_capabilities, ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'work.personal-owner-acl.v1']);
   assert.deepEqual(result.required_shapes, []);
 });

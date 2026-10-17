@@ -1,0 +1,1092 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/hosted-commerce-setup",
+  "description": "Commerce release, account setup and controlled payment service verification. Shape validation grants no authority.",
+  "$defs": {
+    "empty-input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "store-release": {
+      "type": "object",
+      "properties": {
+        "module_release_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "application_release_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 19,
+          "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+        },
+        "capabilities": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "upgrade": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "module_release_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "application_release_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "module_release_ref",
+                "application_release_ref"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "can_upgrade": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "module_release_ref",
+        "application_release_ref",
+        "version",
+        "capabilities",
+        "upgrade",
+        "can_upgrade"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: current_instance_release_and_authority."
+    },
+    "provider-account-create-input": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "const": "ecpay"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "sandbox",
+            "live"
+          ]
+        },
+        "merchant_id": {
+          "type": "string",
+          "pattern": "^[0-9]{7,10}$"
+        },
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "provider",
+        "environment",
+        "merchant_id",
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_required, host_provider_environment."
+    },
+    "provider-service-put-input": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "enum": [
+            "ecpay.aio.credit.v1",
+            "ecpay.logistics.domestic.v1",
+            "ecpay.invoice.b2c.v1"
+          ]
+        },
+        "hash_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]{16}$"
+        },
+        "hash_iv": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]{16}$"
+        },
+        "credit_check_code": {
+          "type": "string",
+          "pattern": "^[0-9]{8}$"
+        },
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "profile",
+        "hash_key",
+        "hash_iv",
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: purpose_profile_pair, credential_fields_never_persisted."
+    },
+    "logistics-service-create-input": {
+      "type": "object",
+      "properties": {
+        "service_key": {
+          "type": "string",
+          "enum": [
+            "ecpay.logistics.home.tcat",
+            "ecpay.logistics.home.post",
+            "ecpay.logistics.cvs.unimartc2c",
+            "ecpay.logistics.cvs.famic2c",
+            "ecpay.logistics.cvs.hilifec2c"
+          ]
+        },
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "service_key",
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_required, account_version_cas."
+    },
+    "provider-service-state-input": {
+      "type": "object",
+      "properties": {
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_required."
+    },
+    "payment-activation": {
+      "type": "object",
+      "properties": {
+        "attempt_ref": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "awaiting_result",
+            "paid",
+            "confirmed",
+            "failed",
+            "expired"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "attempt_ref",
+        "state",
+        "created_at"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "provider-activation-payment-input": {
+      "type": "object",
+      "properties": {
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_required, account_version_cas."
+    },
+    "provider-activation-payment": {
+      "type": "object",
+      "properties": {
+        "handoff_url": {
+          "type": "string",
+          "pattern": "^\\/pay\\/ecpay\\/[A-Za-z0-9_-]{43}$(?![\\s\\S])"
+        },
+        "attempt_ref": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "handoff_url",
+        "attempt_ref",
+        "expires_at"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: bearer_token_excluded_from_command_receipt."
+    },
+    "provider-account": {
+      "type": "object",
+      "properties": {
+        "account_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "provider": {
+          "type": "string",
+          "const": "ecpay"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "sandbox",
+            "live"
+          ]
+        },
+        "merchant_id": {
+          "type": "string",
+          "pattern": "^[0-9]{7,10}$"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 19,
+          "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        },
+        "payment_activation": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "attempt_ref": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "ready",
+                    "awaiting_result",
+                    "paid",
+                    "confirmed",
+                    "failed",
+                    "expired"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                }
+              },
+              "required": [
+                "attempt_ref",
+                "state",
+                "created_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "logistics_services": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "service_key": {
+                "type": "string",
+                "enum": [
+                  "ecpay.logistics.home.tcat",
+                  "ecpay.logistics.home.post",
+                  "ecpay.logistics.cvs.unimartc2c",
+                  "ecpay.logistics.cvs.famic2c",
+                  "ecpay.logistics.cvs.hilifec2c"
+                ]
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "active",
+                  "suspended"
+                ]
+              },
+              "activated_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+              }
+            },
+            "required": [
+              "service_key",
+              "state",
+              "activated_at",
+              "created_at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "services": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "purpose": {
+                "type": "string",
+                "enum": [
+                  "payment",
+                  "logistics",
+                  "invoice"
+                ]
+              },
+              "profile": {
+                "type": "string",
+                "enum": [
+                  "ecpay.aio.credit.v1",
+                  "ecpay.logistics.domestic.v1",
+                  "ecpay.invoice.b2c.v1"
+                ]
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "active",
+                  "suspended",
+                  "retired"
+                ]
+              },
+              "credential_version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "credential_updated_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+              },
+              "activated_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "throttled_until": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "purpose",
+              "profile",
+              "state",
+              "credential_version",
+              "credential_updated_at",
+              "activated_at",
+              "throttled_until"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "account_id",
+        "provider",
+        "environment",
+        "merchant_id",
+        "version",
+        "created_at",
+        "payment_activation",
+        "logistics_services",
+        "services"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "provider-account-page": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "account_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "provider": {
+                "type": "string",
+                "const": "ecpay"
+              },
+              "environment": {
+                "type": "string",
+                "enum": [
+                  "sandbox",
+                  "live"
+                ]
+              },
+              "merchant_id": {
+                "type": "string",
+                "pattern": "^[0-9]{7,10}$"
+              },
+              "version": {
+                "type": "string",
+                "maxLength": 19,
+                "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+              },
+              "payment_activation": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "attempt_ref": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "ready",
+                          "awaiting_result",
+                          "paid",
+                          "confirmed",
+                          "failed",
+                          "expired"
+                        ]
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                      }
+                    },
+                    "required": [
+                      "attempt_ref",
+                      "state",
+                      "created_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "logistics_services": {
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "service_key": {
+                      "type": "string",
+                      "enum": [
+                        "ecpay.logistics.home.tcat",
+                        "ecpay.logistics.home.post",
+                        "ecpay.logistics.cvs.unimartc2c",
+                        "ecpay.logistics.cvs.famic2c",
+                        "ecpay.logistics.cvs.hilifec2c"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "active",
+                        "suspended"
+                      ]
+                    },
+                    "activated_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                    }
+                  },
+                  "required": [
+                    "service_key",
+                    "state",
+                    "activated_at",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "services": {
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "purpose": {
+                      "type": "string",
+                      "enum": [
+                        "payment",
+                        "logistics",
+                        "invoice"
+                      ]
+                    },
+                    "profile": {
+                      "type": "string",
+                      "enum": [
+                        "ecpay.aio.credit.v1",
+                        "ecpay.logistics.domestic.v1",
+                        "ecpay.invoice.b2c.v1"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "active",
+                        "suspended",
+                        "retired"
+                      ]
+                    },
+                    "credential_version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "credential_updated_at": {
+                      "type": "string",
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                    },
+                    "activated_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "throttled_until": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "purpose",
+                    "profile",
+                    "state",
+                    "credential_version",
+                    "credential_updated_at",
+                    "activated_at",
+                    "throttled_until"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "account_id",
+              "provider",
+              "environment",
+              "merchant_id",
+              "version",
+              "created_at",
+              "payment_activation",
+              "logistics_services",
+              "services"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "store-admission-create-input": {
+      "type": "object",
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "instance_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "instance_id",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: independent_active_platform_admin."
+    },
+    "store-admission-revoke-input": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: independent_active_platform_admin."
+    },
+    "store-admission-query": {
+      "type": "object",
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "tenant_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "store-admission": {
+      "type": "object",
+      "properties": {
+        "admission_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "tenant_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "instance_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "sandbox",
+            "live"
+          ]
+        },
+        "admitted_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        },
+        "admitted_by": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revoked_by": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revoke_reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "admission_id",
+        "tenant_id",
+        "instance_id",
+        "environment",
+        "admitted_at",
+        "admitted_by",
+        "reason",
+        "revoked_at",
+        "revoked_by",
+        "revoke_reason"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "store-admission-page": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "admission_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "tenant_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "instance_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "environment": {
+                "type": "string",
+                "enum": [
+                  "sandbox",
+                  "live"
+                ]
+              },
+              "admitted_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+              },
+              "admitted_by": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500,
+                "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+              },
+              "revoked_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "revoked_by": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 36,
+                    "maxLength": 36,
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "revoke_reason": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "admission_id",
+              "tenant_id",
+              "instance_id",
+              "environment",
+              "admitted_at",
+              "admitted_by",
+              "reason",
+              "revoked_at",
+              "revoked_by",
+              "revoke_reason"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "error-code": {
+      "type": "string",
+      "enum": [
+        "logistics_credentials_required",
+        "logistics_service_exists",
+        "logistics_service_not_found",
+        "logistics_service_state",
+        "logistics_service_conflict",
+        "store_upgrade_unavailable",
+        "commerce_credentials_unavailable",
+        "provider_environment_not_allowed",
+        "provider_account_exists",
+        "provider_account_not_found",
+        "provider_profile_invalid",
+        "provider_service_state",
+        "provider_service_conflict",
+        "provider_activation_pending",
+        "commerce_quarantined",
+        "commerce_rate_limited",
+        "admission_not_independent",
+        "admission_revoked",
+        "store_admission_exists",
+        "store_admission_unavailable",
+        "store_admission_not_found",
+        "validation_failed",
+        "fresh_auth_required",
+        "capability_denied",
+        "not_found",
+        "tenant_not_found",
+        "tenant_capability_denied",
+        "storefront_unavailable",
+        "idempotency_required",
+        "idempotency_conflict",
+        "version_required",
+        "invalid_version",
+        "version_conflict",
+        "session_expired",
+        "principal_disabled",
+        "scope_disabled",
+        "admin_required",
+        "admin_csrf_rejected",
+        "internal_error"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "about:blank"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "logistics_credentials_required",
+            "logistics_service_exists",
+            "logistics_service_not_found",
+            "logistics_service_state",
+            "logistics_service_conflict",
+            "store_upgrade_unavailable",
+            "commerce_credentials_unavailable",
+            "provider_environment_not_allowed",
+            "provider_account_exists",
+            "provider_account_not_found",
+            "provider_profile_invalid",
+            "provider_service_state",
+            "provider_service_conflict",
+            "provider_activation_pending",
+            "commerce_quarantined",
+            "commerce_rate_limited",
+            "admission_not_independent",
+            "admission_revoked",
+            "store_admission_exists",
+            "store_admission_unavailable",
+            "store_admission_not_found",
+            "validation_failed",
+            "fresh_auth_required",
+            "capability_denied",
+            "not_found",
+            "tenant_not_found",
+            "tenant_capability_denied",
+            "storefront_unavailable",
+            "idempotency_required",
+            "idempotency_conflict",
+            "version_required",
+            "invalid_version",
+            "version_conflict",
+            "session_expired",
+            "principal_disabled",
+            "scope_disabled",
+            "admin_required",
+            "admin_csrf_rejected",
+            "internal_error"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    }
+  }
+}

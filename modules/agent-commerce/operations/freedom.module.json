@@ -1,0 +1,38 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "commerce-operations",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/operations/**",
+    "tests/runtime/commerce-runtime-settings.test.ts",
+    "tests/runtime/hosted-commerce-quarantine.test.ts",
+    "tests/runtime/commerce-scheduler.test.ts",
+    "tests/runtime/commerce-due-work.test.ts",
+    "deploy/cloudflare/lib/commerce-wrangler.mjs",
+    "deploy/cloudflare/test/commerce-wrangler.test.mjs",
+    "apps/platform-api/src/routes/commerce-admissions.ts",
+    "tests/runtime/commerce-store-admissions.test.ts",
+    "tests/runtime/commerce-email-templates.test.ts",
+    "tests/runtime/commerce-effect-journal.test.ts",
+    "tests/runtime/commerce-email-outbox.test.ts",
+    "tests/runtime/commerce-email-delivery.test.ts"
+  ],
+  "public_exports": [
+    "modules/agent-commerce/operations/runtime-settings.ts"
+  ],
+  "dependencies": [
+    "hosted-checkout",
+    "commerce-fulfilment"
+  ],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "modules/agent-commerce/operations/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md"
+  ],
+  "invariants": [],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

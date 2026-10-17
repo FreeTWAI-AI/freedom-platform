@@ -108,3 +108,65 @@ npx wrangler delete --config <private-overlay.jsonc> --env next
 | `next` | `freedom-maintainer-next` | 與 `freedom-platform-next` 同一份、caching disabled 的 Hyperdrive |
 
 每個環境在私有 overlay 要替換的名稱：`HYPERDRIVE`、`GITHUB_MAINTAINER_APP_ID`（數字，不能是 0）、`GITHUB_MAINTAINER_ORG`。`GITHUB_MAINTAINER_WRITES` 在 `staging-next` 與 `next` 已提交為 `requested_reviewers`，top-level 是 `off`；要停止寫入 GitHub 時改成 `off`。其他值在 tick 摘要裡記成 `writes=invalid`，不會寫 GitHub。Secret 是 `GITHUB_MAINTAINER_PRIVATE_KEY`（PKCS#8），用 `wrangler secret put` 上傳，不要寫進 `--var`。平台 Worker 另有選填的 `GITHUB_MAINTAINER_WEBHOOK_SECRET`。排程是 `* * * * *`。失敗訊息固定，日誌只有計數。刪除的是 `freedom-maintainer-*`，不是平台 Worker。
+
+## 平台 Worker 商家憑證金鑰（COMMERCE_CREDENTIAL_KEYS）
+
+平台 Worker 選填 secret `COMMERCE_CREDENTIAL_KEYS`，用於封存商家服務憑證，見
+[EC-SPEC-04 §1.3](../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md#13-金鑰保存提議-commerce_provider_credentials)。
+格式是 1–8 組以逗號分隔、沒有空白的 `key_id:base64`；id 不可重複，須符合
+`^[a-z0-9][a-z0-9_-]{0,31}$`，每個值須為恰好 32 個隨機位元組的標準 base64
+（解碼後重新編碼須與原值相同）。第一把金鑰封存新憑證；所有已安裝金鑰都能解封其對應的保留紀錄。
+未設定或空字串時，憑證寫入回 503，讀取仍可用。格式錯誤會使 Worker 就緒檢查與 Node 啟動失敗，
+錯誤訊息固定且不含設定值。Secret 不可寫進已提交的設定、日誌或 `--var`。
+
+可把新金鑰放在第一組供新憑證使用，但須保留所有已安裝金鑰。`resealProviderCredentials`
+目前是內部函式，尚無供操作者使用的 route、CLI 或排程入口。在 runtime 角色下，一次呼叫只會
+重新封存呼叫者交易所綁定 tenant 的紀錄，最多 `limit` 列。操作者程序完成前，不可移除任何線上金鑰，
+否則仍以該金鑰封存的紀錄將無法讀取。退役金鑰仍須離線保留至備份保存期結束，見
+[EC-SPEC-10 §4.3](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#43-部署設定ted-操作)。
+金鑰環輪替會改變憑證寫入指紋，跨輪替重送會回 409；讀取目前帳戶版本後須使用新的命令識別碼。
+`FREEDOM_ENV` 決定 provider 環境：`local`／`staging` 使用 `sandbox`，`public` 使用 `live`。
+安裝這個 secret 不會啟用 provider adapter 或任何對外呼叫。
+
+## 平台 Worker 付款 profile 與外部效果日誌
+
+`FREEDOM_COMMERCE_PROVIDER_PROFILES` 未設定或空字串時為空清單，不開放付款。
+目前只實作 `ecpay.aio.credit.v1`；格式為逗號分隔，不能含空白、空項目、重複或未知 ID。
+格式錯誤會以固定訊息拒絕就緒，不回顯設定值。非空清單同時需要可用的
+`COMMERCE_CREDENTIAL_KEYS` 與 `COMMERCE_JOURNAL` R2 binding；缺少時分別回報
+`commerce_profiles_require_keyring`、`commerce_profiles_require_journal`。
+Wrangler 檢查會要求同一設定區塊宣告 `binding: "COMMERCE_JOURNAL"` 的 `r2_buckets`
+項目；設定檔無法證明 secret 可解封，仍由 Worker 就緒檢查把關。Node server 沒有
+R2 日誌，非空清單會使啟動失敗；只有本機 E2E 使用記憶體日誌與合成付款閘道。
+
+`COMMERCE_JOURNAL` bucket 由 Ted 另行建立，每個環境各一個，啟用 bucket lock，
+保存期至少 60 天。Wrangler 預檢拒絕跨環境重複的日誌 bucket 名稱，也拒絕與任何
+環境的其他 R2 binding（含媒體）共用 bucket。日誌使用條件式建立與固定 UTC 路徑，保留付款交接及控制事件的
+小型允許欄位，不含個資、原始通知或金鑰。只有列出 profile 的環境才加入 binding；
+bucket 尚未建立，因此本次不在 `wrangler.jsonc` 加入變數或 binding。帳戶、服務、
+商店准入與 checkout 開關仍須各自完成，列出 profile 不授予付款或部署權限。
+
+staging Access 僅對 `/api/v1/provider-callbacks/ecpay/*` 與
+`/pay/ecpay/return/*` 設定 bypass，供綠界通知與瀏覽器 POST 返回；應用仍只接受
+精確的 POST 路徑、Host、表單限制與簽章。其他付款路徑不需額外 bypass 或設定。
+Worker 的付款確認查詢會從伺服器向 `payment-stage.ecpay.com.tw`（sandbox）或
+`payment.ecpay.com.tw`（live）送出 QueryTradeInfo/V5。這是向外的請求，staging
+不需新增 Access bypass。正式 transport 只接受對應環境的精確 origin 與查詢路徑，
+不跟隨重新導向；單次逾時 10 秒，回應上限 64 KiB。本機及瀏覽器測試只安裝 fixture
+transport，不會連到綠界。
+
+每十分鐘的 commerce cron 先重放未套用的付款事件，再清理保留、執行 due work、
+補寫控制事件日誌。due work 每次最多認領 200 列、呼叫提供者 50 次、執行 5 分鐘；
+未開始的租約會釋出。通知及瀏覽器返回提交後也會透過 `waitUntil` 立即執行該筆工作，
+每項最多 25 秒，完成後才關閉連線池；逾時由租約到期與 cron 接手。
+隔離模式不執行這些工作。查詢是唯讀，不寫外部效果日誌；啟用收款服務的控制事件仍由
+既有 flush 補寫。403 只暫停同一帳戶的付款查詢 30 分鐘，不影響物流或發票服務。
+
+`FREEDOM_COMMERCE_EMAIL_ENABLED` 預設關閉，只接受 `'true'`／`'false'`。開啟時，同一環境區塊須宣告名稱為 `EMAIL` 的 `send_email` binding（缺少時回報 `commerce_email_binding_required`）以及 `COMMERCE_JOURNAL` R2 binding（缺少時回報 `commerce_journal_binding_required`），Worker 就緒檢查也會驗證 `EMAIL.send` 與 `COMMERCE_JOURNAL`。Node server 沒有 `EMAIL` binding 與外部效果日誌，設為 `'true'` 時以 `commerce_email_requires_worker` 拒絕啟動；只有本機測試與 E2E server 安裝記憶體 fixture sender 與記憶體日誌。是否於已部署環境開啟此旗標由 Ted 依 [EC-SPEC-10 §6.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md) 授權決定，不在 repo 預設啟用。
+
+見 [EC-SPEC-04](../../docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md)、
+[EC-SPEC-10 §2.2、§4.4、§6.2、§8.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md)。
+
+## 商務主控台與結帳開關
+
+`FREEDOM_COMMERCE_CONSOLE_ENABLED` 預設關閉，只有明確的 `true` 才安裝新的賣家訂單、付款例外、人工退款紀錄與付款查詢路由；關閉時這些路由回傳 404。它需要同一環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED=true` 與 `FREEDOM_SUPPLIER_CONSOLE_ENABLED=true`（賣家頁使用 Supplier Console 的殼）。`FREEDOM_COMMERCE_CHECKOUT_ENABLED=true` 則需要主控台開關同時開啟，確保店家可以處理新訂單。兩者都只接受 `true`／`false`；就緒與安裝檢查分別以 `commerce_launchpad_required`、`commerce_supplier_console_required`、`commerce_console_required` 拒絕缺少的依賴。關閉結帳不會關閉既有訂單的賣家服務。詳見 [EC-SPEC-10 §2.2](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md#22-主機設定提議)。

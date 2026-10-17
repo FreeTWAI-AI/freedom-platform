@@ -129,6 +129,14 @@ The JSON report goes to stdout, and the caller keeps it as the canonical record.
 | load | Anonymous GETs of health and two static images only. Bounded by requests ≤600, concurrency ≤16, rps ≤30, timeout ≤30 s. Reports the actual request count, status distribution, network errors by class, error rate, p50/p95/p99 and duration. Passes only within the configured thresholds. It stays not_run until executed. | none |
 | logout | Runs whenever a tool session exists. Returns 200 with `no-store` and clears the cookie. Replaying the revoked cookie gets 401 `session_expired`. | session revoked |
 
+### Supplier public projection proof
+
+New synthetic stores use the currently offered `hosted-store@1.1.0`. The local harness verifies the supply and legacy reservation journey on that release with both Commerce console and checkout disabled; existing stores are not upgraded by the verifier.
+
+After publishing, `supplier-reservations` verifies the authenticated seller store and selected supply item, cross-checks the publish receipt revision, and saves that revision and selected SKU in the private handle. Both public endpoints must then return 200 with the expected store slug and revision. The store must also match the expected name, TWD currency, and exactly one target SKU with its expected title, description and retail price. The media profile must match the same publication; an empty `photos: []` is valid. Only after these positive checks and the private-field/photo absence checks pass does the tool record `public_projection_private: true`. Empty objects, empty products and two public responses sharing the same wrong revision cannot establish proof.
+
+`supplier-photo` applies the same checks when an already published store returns 200. It requires the authenticated publication pin retained by the earlier reservation phase; an older published handle without that pin fails `supplier_publication_recorded`. Two 404s still mean `not_covered_unpublished` with `public_projection_private: null`, and do not require a publication pin. Mixed statuses fail. Publication or projection failures still restore both reservation settings and revoke every opened session.
+
 ### guild-cache (grant/revoke and freshness)
 
 Uses the real routes `POST /api/v1/guilds/:key/{join,leave}` (If-Match, Idempotency-Key, Origin, CSRF), `GET /api/v1/guilds` (catalog plus the caller's own membership, for If-Match and cleanup), and `GET /api/v1/me/development/skill/:book`. It does not call `GET /api/v1/guilds/directory`.

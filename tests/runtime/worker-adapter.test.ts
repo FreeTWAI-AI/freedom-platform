@@ -116,7 +116,7 @@ test('worker config fails closed without echoing bindings', () => {
       return true;
     }, JSON.stringify(Object.keys(override)));
   }
-  assert.deepEqual(readWorkerConfig(stagingEnv()), { freedomEnv: 'staging', origin: 'https://staging-next.freetwai.com', release: SHA_A, trustConnectingIp: true });
+  assert.deepEqual(readWorkerConfig(stagingEnv()), { freedomEnv: 'staging', origin: 'https://staging-next.freetwai.com', release: SHA_A, trustConnectingIp: true, commerceSettings: {consoleEnabled:false,checkoutEnabled:false,quarantine:false,providerProfiles:[],emailEnabled:false}, commerceCredentialKeyring:null,commerceProviderEnvironment:'sandbox' });
 });
 
 test('notification preferences binding accepts exact booleans and rejects typos before I/O', async () => {
@@ -524,4 +524,108 @@ test('real database: default Worker scope sends avatar uploads through this requ
   const meta = await sharp(stored).metadata();
   assert.equal(meta.format, 'webp'); assert.equal(meta.width, 256); assert.equal(meta.height, 256);
   await Promise.all(pending); await Promise.all(pools.map(p => p.end().catch(() => undefined)));
+});
+test('Worker retains its injected query transport and awaits all after-response tasks before ending the pool',async()=>{
+  const {createFixtureQueryTransport}=await import('../../modules/agent-commerce/payments/query-transport.js');
+  const transport=createFixtureQueryTransport(async()=>{throw Error('must_not_call');},'local'),pool=fakePool(),pending:Promise<unknown>[]=[];
+  let release!:()=>void;const unfinished=new Promise<void>(resolve=>{release=resolve;});
+  const handler=createWorkerHandler({createPool:()=>pool as unknown as Pool,commerceQueryTransport:transport,createApp:((_pool,_origin,_environment,runtime)=>{
+    const app=new Hono<import('../../apps/platform-api/src/module-context.js').PlatformEnv>();app.get('/background',c=>{
+      assert.equal(runtime.commerceQueryTransport,transport);
+      runtime.afterResponse!(async()=>{throw Error('private_query_material');});runtime.afterResponse!(async()=>{await unfinished;});return c.text('committed');
+    });return app;
+  }) as NonNullable<Parameters<typeof createWorkerHandler>[0]>['createApp']});
+  const {logged}=await quietly(async()=>{
+    const response=await handler.fetch(new Request('http://127.0.0.1:8787/background'),env(),{waitUntil:work=>{pending.push(work);}});
+    assert.equal(response.status,200);assert.equal(await response.text(),'committed');await Promise.resolve();assert.equal(pool.state.ended,0);
+    release();await Promise.all(pending);assert.equal(pool.state.ended,1);
+  });
+  assert(logged.includes('commerce_after_response_failed'));assert(!logged.some(line=>line.includes('private_query_material')));
+});
+
+test('Worker commerce email requires EMAIL and COMMERCE_JOURNAL before opening a pool and installs sender/journal/outbox only when enabled', async () => {
+  const { commerceCheckoutQueryDeps } = await import('../../apps/platform-api/src/routes/hosted-checkout.js');
+  const { commerceEmailOutbox } = await import('../../modules/agent-commerce/operations/notifications/outbox.js');
+  const { createFixtureQueryTransport } = await import('../../modules/agent-commerce/payments/query-transport.js');
+  const transport = createFixtureQueryTransport(async () => { throw new Error('unused'); }, 'local');
+
+  const depsOff = commerceCheckoutQueryDeps({ transport, keyring: null, freedomEnv: 'local', emailEnabled: false });
+  assert.equal('email' in depsOff, false);
+  const depsDefault = commerceCheckoutQueryDeps({ transport, keyring: null, freedomEnv: 'local' });
+  assert.equal('email' in depsDefault, false);
+  const depsOn = commerceCheckoutQueryDeps({ transport, keyring: null, freedomEnv: 'local', emailEnabled: true });
+  assert.equal(depsOn.email, commerceEmailOutbox);
+
+  const EMAIL = { send: async () => { throw new Error('unexpected I/O'); } };
+  const COMMERCE_JOURNAL = { put() { throw new Error('unexpected I/O'); }, get() { throw new Error('unexpected I/O'); } };
+  for (const invalid of [
+    env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', COMMERCE_JOURNAL } as any),
+    env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', EMAIL } as any),
+    env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'invalid', EMAIL, COMMERCE_JOURNAL } as any),
+  ]) {
+    const h = harness();
+    const { result } = await quietly(() => h.fetch('http://127.0.0.1:8787/api/v1/health', invalid));
+    assert.equal(result.status, 503);
+    assert.equal(h.pools.length, 0);
+  }
+  const offEnv = env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'false', EMAIL, COMMERCE_JOURNAL } as any);
+  const offRuntime = workerRuntime(offEnv, readWorkerConfig(offEnv));
+  assert.equal(offRuntime.commerceEmailSender, undefined);
+  assert.equal('email' in (offRuntime.commercePorts ?? {}), false);
+  assert.equal(typeof offRuntime.commercePorts?.shipping?.quote, 'function');
+
+  const onEnv = env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', EMAIL, COMMERCE_JOURNAL } as any);
+  const onRuntime = workerRuntime(onEnv, readWorkerConfig(onEnv));
+  assert.equal(typeof onRuntime.commerceEmailSender?.send, 'function');
+  assert.equal(typeof onRuntime.commerceJournal?.append, 'function');
+  assert.equal(onRuntime.commercePorts?.email, commerceEmailOutbox);
+  assert.equal(typeof onRuntime.commercePorts?.shipping?.quote, 'function');
+
+  // Scheduled passes readWorkerConfig(env).origin to commerceDueWork when valid, and on config error logs commerce_email_not_ready and omits only the email kind while payment kinds and commerceEmailSweep still run
+  const { randomBytes } = await import('node:crypto');
+  const dueDepsSeen: any[] = [];
+  const sweepSeen: any[] = [];
+  const schedPool = { end: async () => {} } as unknown as Pool;
+  const schedHandler = createWorkerHandler({
+    createPool: () => schedPool,
+    commerceApplyDeferred: async () => ({ applied: 0, failed: 0, skipped: 0 }),
+    commerceSweep: async () => 0,
+    commerceDueWork: async (_p, deps) => { dueDepsSeen.push(deps); return { claimed: 0, completed: 0, failed: 0, externalCalls: 0, released: 0, unknown: 0 }; },
+    commerceEmailSweep: async (_p, opts) => { sweepSeen.push(opts); return { expired: 0, deleted: 0 }; },
+    commerceFlushJournal: async () => ({ written: 0, failed: 0 }),
+    syncGitHub: async () => ({ requests: 0, repositories: 0, items_upserted: 0, not_modified: 0, stop_reason: 'completed' }),
+    authPrune: async () => ({ sessions: 0, login_attempts: 0, auth_rate_limits: 0, password_reset_tokens: 0 }),
+  });
+  const validSchedEnv = stagingEnv({
+    APP_ORIGIN: 'https://staging-next.freetwai.com',
+    FREEDOM_COMMERCE_EMAIL_ENABLED: 'true',
+    EMAIL,
+    COMMERCE_JOURNAL,
+    FREEDOM_COMMERCE_PROVIDER_PROFILES: 'ecpay.aio.credit.v1',
+    COMMERCE_CREDENTIAL_KEYS: 'test:' + randomBytes(32).toString('base64'),
+  } as any);
+  const pendingValid: Promise<unknown>[] = [];
+  await schedHandler.scheduled({}, validSchedEnv, { waitUntil: p => { pendingValid.push(p); } });
+  await Promise.all(pendingValid);
+  assert.equal(dueDepsSeen.length, 1);
+  assert.equal(dueDepsSeen[0].origin, 'https://staging-next.freetwai.com');
+  assert.equal(dueDepsSeen[0].emailEnabled, true);
+  assert.equal(typeof dueDepsSeen[0].emailSender?.send, 'function');
+  assert.deepEqual(sweepSeen, [{ limit: 500 }]);
+
+  // Config error in scheduled (invalid APP_ORIGIN): logs commerce_email_not_ready, omits email sender, still runs payment due work
+  const badOriginEnv = {
+    ...validSchedEnv,
+    APP_ORIGIN: 'not a url',
+  } as WorkerEnv;
+  const pendingBad: Promise<unknown>[] = [];
+  const { logged: badLogged } = await quietly(async () => {
+    await schedHandler.scheduled({}, badOriginEnv, { waitUntil: p => { pendingBad.push(p); } });
+    await Promise.all(pendingBad);
+  });
+  assert(badLogged.includes('commerce_email_not_ready'));
+  assert.equal(dueDepsSeen.length, 2);
+  assert.equal(dueDepsSeen[1].origin, undefined);
+  assert.equal(dueDepsSeen[1].emailSender, undefined);
+  assert.ok(dueDepsSeen[1].keyring);
 });

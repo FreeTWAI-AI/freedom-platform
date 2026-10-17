@@ -12,6 +12,58 @@ import { readBounded } from '../../packages/contribution-tools/io.mjs';
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const defaultConfigFile = fileURLToPath(new URL('./pinned-playwright.config.mjs', import.meta.url));
+const FAILURE_ATTACHMENT_STATUSES = new Set(['failed', 'timedOut', 'interrupted']);
+const DIAGNOSTIC_ENTRY_LIMIT = 512;
+const DIAGNOSTIC_TOTAL_BYTES = 128 * 1024 * 1024;
+const DIAGNOSTIC_FILE_BYTES = 64 * 1024 * 1024;
+const DIAGNOSTIC_DEPTH = 8;
+const ARTIFACT_DIRECTORIES = Object.freeze([
+  'artifacts',
+  ...E2E_DEFAULT_SHARDS.map(shard => `shard-${shard.current}/artifacts`),
+]);
+
+// POSIX absolute paths start with one empty segment. Any later empty segment is
+// a double slash; dot segments are rejected before normalization can escape.
+function attachmentRelative(temp, absolute) {
+  if (typeof absolute !== 'string' || !absolute.startsWith('/') || absolute.length > 4096 || absolute.includes('\0')) return null;
+  const parts = absolute.split('/');
+  if (parts.length < 2 || parts[0] !== '' || parts.slice(1).some(part => part === '' || part === '.' || part === '..')) return null;
+  const rootParts = resolve(temp).split('/');
+  if (rootParts[0] !== '' || parts.length <= rootParts.length) return null;
+  for (let index = 0; index < rootParts.length; index++) if (parts[index] !== rootParts[index]) return null;
+  const relative = parts.slice(rootParts.length).join('/');
+  const depth = artifactDepth(relative);
+  // Only regular attachments under the fixed output directories, and only as
+  // deep as the directory walk itself is allowed to descend.
+  if (depth === null || depth < 1 || depth > DIAGNOSTIC_DEPTH) return null;
+  return relative;
+}
+
+function artifactDepth(relative) {
+  for (const root of ARTIFACT_DIRECTORIES) {
+    if (relative === root) return 0;
+    const prefix = root + '/';
+    if (relative.startsWith(prefix)) return relative.slice(prefix.length).split('/').length;
+  }
+  return null;
+}
+
+function failureAttachmentPaths(report) {
+  const found = [];
+  const visit = node => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+    if (FAILURE_ATTACHMENT_STATUSES.has(node.status) && Array.isArray(node.attachments)) {
+      for (const attachment of node.attachments) if (typeof attachment?.path === 'string') found.push(attachment.path);
+    }
+    for (const value of Object.values(node)) if (value && typeof value === 'object') visit(value);
+  };
+  visit(report);
+  return found;
+}
 
 // Diagnostics are untrusted synthetic test output, never admission evidence.
 // Retain only the fixed Playwright outputs, with bounded traversal/bytes and
@@ -25,31 +77,67 @@ export async function cleanupE2ePass(temp, output, passId, failed) {
     await mkdir(target, { recursive: true });
     if (!(await lstat(target)).isDirectory() || (await lstat(target)).isSymbolicLink()) throw Error('unsafe_diagnostic_directory');
     const destination = await mkdtemp(join(target, passId + '-'));
-    let remaining = 128 * 1024 * 1024, entries = 0, copied = 0, omitted = 0;
+    let remaining = DIAGNOSTIC_TOTAL_BYTES, entries = 0, copied = 0, omitted = 0;
+    let scanRemaining = DIAGNOSTIC_ENTRY_LIMIT;
+    const handled = new Set();
+    const compareName = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+    // Optional walks share one scan budget, plus one overflow observation.
+    // Sort only complete listings; omit oversized directories instead of
+    // keeping a subset that depends on filesystem enumeration order.
+    async function boundedUnseen(directory, parent, limit) {
+      if (limit <= 0 || scanRemaining <= 0) return { kept: [], dropped: 1 };
+      const seen = [];
+      const dir = await opendir(directory);
+      try {
+        for await (const item of dir) {
+          if (scanRemaining === 0) return { kept: [], dropped: 1 };
+          scanRemaining--;
+          if (!handled.has(parent + '/' + item.name)) seen.push(item.name);
+        }
+      } finally { await dir.close().catch(() => {}); }
+      seen.sort(compareName);
+      if (seen.length > limit) return { kept: seen.slice(0, limit), dropped: seen.length - limit };
+      return { kept: seen, dropped: 0 };
+    }
     async function copy(path, depth = 0) {
-      if (++entries > 512 || depth > 8) { omitted++; return; }
+      if (handled.has(path)) return;
+      handled.add(path);
+      if (++entries > DIAGNOSTIC_ENTRY_LIMIT || depth > DIAGNOSTIC_DEPTH) { omitted++; return; }
       try {
         const info = await lstat(join(temp, path));
         if (info.isSymbolicLink()) { omitted++; return; }
         if (info.isDirectory()) {
-          for await (const item of await opendir(join(temp, path))) {
-            if (entries >= 512) { omitted++; break; }
-            await copy(path + '/' + item.name, depth + 1);
-          }
+          const listed = await boundedUnseen(join(temp, path), path, DIAGNOSTIC_ENTRY_LIMIT - entries);
+          omitted += listed.dropped;
+          for (const name of listed.kept) await copy(path + '/' + name, depth + 1);
         } else if (info.isFile()) {
-          const bytes = await readBounded(temp, path, Math.min(64 * 1024 * 1024, remaining));
+          const bytes = await readBounded(temp, path, Math.min(DIAGNOSTIC_FILE_BYTES, remaining));
           await mkdir(dirname(join(destination, path)), { recursive: true });
           await writeFile(join(destination, path), bytes, { flag: 'wx', mode: 0o600 });
           remaining -= bytes.length; copied++;
         } else omitted++;
       } catch { omitted++; }
     }
-    // Preserve the inventory and both reports before optional traces consume
-    // the shared byte/entry bound.
-    for (const path of ['report.json', 'listing.json', ...E2E_DEFAULT_SHARDS.map(shard => `shard-${shard.current}/report.json`),
-      'last-run.json', 'artifacts', ...E2E_DEFAULT_SHARDS.flatMap(shard => [`shard-${shard.current}/last-run.json`, `shard-${shard.current}/artifacts`])]) await copy(path);
+    const shardReports = E2E_DEFAULT_SHARDS.map(shard => `shard-${shard.current}/report.json`);
+    // Inventory and every result report stay ahead of traces. Failure,
+    // timed-out, and interrupted attachments from the non-sharded report and
+    // both shard reports then precede ordinary screenshots.
+    for (const path of ['report.json', 'listing.json', ...shardReports, 'last-run.json',
+      ...E2E_DEFAULT_SHARDS.map(shard => `shard-${shard.current}/last-run.json`)]) await copy(path);
+    const priority = new Set();
+    for (const path of ['report.json', ...shardReports]) {
+      try {
+        const report = JSON.parse((await readBounded(temp, path, Math.min(DIAGNOSTIC_FILE_BYTES, remaining))).toString('utf8'));
+        for (const absolute of failureAttachmentPaths(report)) {
+          const relative = attachmentRelative(temp, absolute);
+          if (relative) priority.add(relative);
+        }
+      } catch { /* A missing or hostile shard report does not drop the others. */ }
+    }
+    for (const path of [...priority].sort(compareName)) await copy(path, artifactDepth(path));
+    for (const path of ARTIFACT_DIRECTORIES) await copy(path);
     await writeFile(join(destination, 'diagnostics.json'), JSON.stringify({ pass: passId, copied, omitted,
-      bytes: 128 * 1024 * 1024 - remaining, admission_evidence: false }) + '\n', { flag: 'wx', mode: 0o600 });
+      bytes: DIAGNOSTIC_TOTAL_BYTES - remaining, admission_evidence: false }) + '\n', { flag: 'wx', mode: 0o600 });
   } catch { console.error('pinned_e2e_diagnostics_unavailable'); }
   finally { await rm(temp, { recursive: true, force: true }); }
 }

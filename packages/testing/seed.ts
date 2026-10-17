@@ -48,10 +48,10 @@ export async function seedLocal(pool:Pool) {
           offering_id, community_id, guild_key, application_key, release_ref, status, display_order, launch_policy_ref, version)
         SELECT gen_random_uuid(), NULL, NULL, application_key, release_ref, 'offered', 10, launch_policy_ref, 1
         FROM application_definitions
-        WHERE application_key = 'hosted-store' AND release_ref = 'hosted-store@1.0.0'
+        WHERE application_key = 'hosted-store' AND release_ref = 'hosted-store@1.1.0'
           AND NOT EXISTS (
             SELECT 1 FROM guild_application_offerings
-            WHERE community_id IS NULL AND guild_key IS NULL AND release_ref = 'hosted-store@1.0.0')`);
+            WHERE community_id IS NULL AND guild_key IS NULL AND release_ref = 'hosted-store@1.1.0')`);
     }
   });
 }

@@ -8,7 +8,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => controlle
 const args = process.argv.slice(2);
 let report, output;
 if (args.length) {
-  if (args.length !== 6 || args[0] !== '--partition-count' || !['4','6'].includes(args[1]) ||
+  if (args.length !== 6 || args[0] !== '--partition-count' || !['4','6','8'].includes(args[1]) ||
     args[2] !== '--partition-index' || !/^[0-9]$/.test(args[3]) || Number(args[3]) >= Number(args[1]) || args[4] !== '--output' || !args[5]) {
     console.error('invalid_runtime_partition_arguments'); process.exit(2);
   }

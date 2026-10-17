@@ -232,3 +232,20 @@ test('a retired policy blocks a consumed command and the marker password is abse
   assert.equal(off.status, 404);
   assert.equal(off.data.code, 'not_found');
 });
+
+test('commerce verification purposes require active tenant roles and keep unqualified callers hidden',async()=>{
+  const owner=await person('合成商務擁有者'),tenant=await createTenant(owner.session);
+  const purposes=['commerce.provider_account.write','commerce.store_export.create'];
+  for(const purpose of purposes)assert.equal((await verify(owner.session,tenant.tenant_id,purpose)).status,201);
+  for(const role of ['admin','operator','viewer'] as const){
+    const member=await person('合成商務成員'),principal=await candidate(owner.session,member.id);
+    const invitation=await send(`/tenants/${tenant.tenant_id}/invitations`,owner.session,{invitee_principal_id:principal,role,instance_capabilities:[],expires_at:later()});assert.equal(invitation.status,201,invitation.text);
+    const accepted=await send(`/tenants/${tenant.tenant_id}/invitations/${invitation.data.invitation_id}/accept`,member.session,{}, {version:`"${invitation.data.version}"`});assert.equal(accepted.status,200,accepted.text);
+    for(const purpose of purposes){const result=await verify(member.session,tenant.tenant_id,purpose);assert.equal(result.status,role==='admin'&&purpose==='commerce.provider_account.write'?201:404,result.text);if(result.status===404)assert.equal(result.data.code,'tenant_not_found');}
+    await pool.query("UPDATE tenant_memberships SET status='revoked',revoked_at=clock_timestamp(),version=version+1 WHERE tenant_id=$1 AND principal_id=$2",[tenant.tenant_id,principal]);
+    for(const purpose of purposes)assert.equal((await verify(member.session,tenant.tenant_id,purpose)).status,404);
+  }
+  const outsider=await person('合成商務外部會員');for(const purpose of purposes)assert.equal((await verify(outsider.session,tenant.tenant_id,purpose)).status,404);
+  await pool.query("UPDATE tenants SET status='suspended',version=version+1 WHERE tenant_id=$1",[tenant.tenant_id]);
+  for(const purpose of purposes)assert.equal((await verify(owner.session,tenant.tenant_id,purpose)).status,404);
+});

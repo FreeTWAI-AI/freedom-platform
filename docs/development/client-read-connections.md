@@ -28,6 +28,16 @@ the check is before returning the projection, not through commit/HTTP delivery.
 
 Send `Authorization: Bearer <access_token>` to `/client-api/v1`. Every request checks active user, completed onboarding, expiry, revocation and resource scope in the same PostgreSQL transaction as the read. Expiry uses `clock_timestamp()` after the member lock. `/connection` metadata checks it again after the credential-row lock, before any metadata is returned. List reads check it again after the data query. A credential-row wait that crosses expiry denies both. No browser session or synthetic Actor is created.
 
+The HTTP authentication scheme is ASCII case-insensitive and accepts one or more
+ASCII spaces before the credential, per [RFC 9110 §11.1](https://www.rfc-editor.org/rfc/rfc9110#section-11.1)
+and [§11.4](https://www.rfc-editor.org/rfc/rfc9110#section-11.4).
+For example, `bearer <access_token>` and `bEaReR   <access_token>` authenticate
+the same exact token. The opaque `fw_read_` token is never lowercased or trimmed;
+its prefix, format and case-sensitive hash lookup are unchanged. HTAB or other
+whitespace is not a substitute for the ASCII-space separator. Polling still
+reports `token_type:"Bearer"`; resource scope, expiry, revocation and GET-only
+restrictions do not change.
+
 | Route (GET only) | Scope |
 |---|---|
 | `/connection` | Current connection metadata, no credential |
@@ -40,6 +50,13 @@ Send `Authorization: Bearer <access_token>` to `/client-api/v1`. Every request c
 | `/supplier/requests` | Supplier: member's own received supply requests |
 
 List responses are `{items,read_only:true,limit:200}`. The first preview has a 200-item cap and does not yet support pagination. Other paths return 404; write methods return 405; unsupported query parameters return 422. Storefront cannot read supplier-only resources or another store, even another store owned by the same person. Storefront catalog access may contain the supply price and terms the approving member can already read; it is not a public retail feed.
+
+Store-specific path IDs are validated UUIDs, and the approved-store scope compares
+their lowercase UUID identity with PostgreSQL's stored value. Uppercase UUID
+spelling therefore reads the same approved store or its listings; another store
+is still 404, including another one owned by the same member. Response IDs keep
+their PostgreSQL spelling. This comparison does not fold bearer credentials or
+expand ownership, resource scope, or write permissions.
 
 ## Review and revoke
 

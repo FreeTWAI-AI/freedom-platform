@@ -6,7 +6,7 @@ export const HIGH_RISK_INSTANCE_CAPABILITIES: ReadonlySet<string> = new Set([
   'module.data.export', 'module.authority.transfer', 'module.binding.manage', 'tenant.ownership.transfer', 'instance.manage',
 ]);
 
-/** Instance identity/release and registered keys are immutable. No instance locks here:
+/** Upgrades and grant writers both lock the tenant, stabilizing registered keys. No instance locks here:
  * writers already hold the tenant and target membership FOR UPDATE; readers hold SHARE. */
 export async function validateInstanceGrants(q: PoolClient, tenantId: string, role: InviteRole,
   raw: unknown, stale = false): Promise<InstanceCapabilitiesInput> {
@@ -29,7 +29,7 @@ export async function validateInstanceGrants(q: PoolClient, tenantId: string, ro
     const keys = registered.get(entry.instance_id);
     if (!keys || entry.capabilities.some(key => HIGH_RISK_INSTANCE_CAPABILITIES.has(key) || !keys.includes(key)
       || role === 'viewer' && !key.endsWith(':read'))
-      || keys.some(key => key.endsWith(':read')) && !entry.capabilities.some(key => key.endsWith(':read'))) return fail();
+      || keys.some(key => key.split(':').length === 2 && key.endsWith(':read') && !entry.capabilities.includes(key))) return fail();
   }
   return entries.map(entry => ({ instance_id: entry.instance_id, capabilities: [...entry.capabilities].sort() }))
     .sort((a, b) => a.instance_id < b.instance_id ? -1 : a.instance_id > b.instance_id ? 1 : 0);

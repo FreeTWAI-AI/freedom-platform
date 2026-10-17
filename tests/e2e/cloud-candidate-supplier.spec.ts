@@ -41,7 +41,7 @@ function handle(origin=target.origin){return {candidate_origin:origin,run_tag:'a
 async function save(path:string,value:unknown){await writeFile(path,JSON.stringify(value),{mode:0o600});}
 function cleanReport(report:Report,logs:string[],secrets:Iterable<string>){const text=JSON.stringify(report)+'\n'+logs.join('\n');expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);for(const secret of secrets)if(secret.length>=6)expect(text).not.toContain(secret);expect(report.redaction_applied,JSON.stringify(report).match(/.{0,80}\[REDACTED\].{0,80}/g)?.join('\n')).toBe(false);}
 
-function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boolean;publicPhoto?:boolean;admission?:boolean;replayDifferent?:boolean;staleAccepted?:boolean;siteOff?:boolean;legacyChanged?:boolean;consoleOff?:boolean;consoleStillOn?:boolean;ineligible?:boolean;offFailure?:'500'|'throw';logoutFailure?:'500'|'throw';uploadFailure?:boolean;stockAccepted?:boolean;decisionFailure?:boolean;beforeHandle?:()=>Promise<void>;mixedPublic?:boolean;publicLeak?:'photo'|'read_path'|'private_path'|'product_id'|'cost_minor'}={},existing=handle()){
+function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boolean;publicPhoto?:boolean;admission?:boolean;replayDifferent?:boolean;staleAccepted?:boolean;siteOff?:boolean;legacyChanged?:boolean;consoleOff?:boolean;consoleStillOn?:boolean;ineligible?:boolean;offFailure?:'500'|'throw';logoutFailure?:'500'|'throw';uploadFailure?:boolean;stockAccepted?:boolean;decisionFailure?:boolean;beforeHandle?:()=>Promise<void>;mixedPublic?:boolean;publicLeak?:'photo'|'read_path'|'private_path'|'product_id'|'cost_minor';publicFault?:'empty-store'|'empty-products'|'wrong-store'|'wrong-name'|'wrong-sku'|'wrong-title'|'wrong-price'|'wrong-revision'|'wrong-both-revisions'|'empty-media-body'|'wrong-media-store'|'wrong-media-revision'}={},existing=handle()){
   const h=existing,known=new Set<string>([password,...Object.values(accounts).map(a=>a.email),'wp07-csrf-value']),sessions=new Set<string>(),roles=new Map<string,string>();
   const settings={supplier:{reservation_enabled:false,admission_enabled:knobs.admission!==false,version:'1'},seller:{reservation_enabled:false,admission_enabled:knobs.admission!==false,version:'1'}};
   let published=false,order:any=null,cancelBody:string|undefined,cancelHeaders:Record<string,string>|undefined;const publicStatuses:number[]=[];
@@ -58,7 +58,7 @@ function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boo
     if(path==='/api/v1/auth/login'){const cookie=`wp07-cookie-${++login}`.padEnd(43,'x');sessions.add(cookie);roles.set(cookie,body.email);known.add(cookie);return {...ok({user:{user_id:randomUUID(),email:body.email},csrf_token:'wp07-csrf-value'}),cookies:[`__Host-freedom_session=${cookie}; Path=/; Secure; HttpOnly; SameSite=Strict`]};}
     if(path==='/api/v1/auth/logout'){if(knobs.logoutFailure&&roles.get((request.headers.Cookie??'').split('=')[1])===accounts.seller.email){if(knobs.logoutFailure==='throw')throw new TypeError('synthetic transport');return ok({},500);}sessions.delete((request.headers.Cookie??'').split('=')[1]);return {...ok({}),cookies:['__Host-freedom_session=; Path=/; Secure; Max-Age=0']};}
     if(path==='/api/v1/tenants'){const seller=body.display_name.includes('選物');h.expected[seller?'seller_name':'supplier_name']=body.display_name;return ok({tenant:{tenant_id:seller?h.seller.tenant_id:h.supplier.tenant_id},workspace:{workspace_id:randomUUID()}},201);}
-    if(path.endsWith('/application-launch-plans'))return knobs.ineligible?{status:403,json:{code:'guild_full_member_required'}}:ok({plan_id:randomUUID(),version:'1',configuration_digest:{algorithm:'sha256',value:'c'.repeat(64)}},201);
+    if(path.endsWith('/application-launch-plans')){expect(body.release_ref).toBe('hosted-store@1.1.0');return knobs.ineligible?{status:403,json:{code:'guild_full_member_required'}}:ok({plan_id:randomUUID(),version:'1',configuration_digest:{algorithm:'sha256',value:'c'.repeat(64)}},201);}
     if(path.endsWith('/application-installations'))return ok({operation_id:randomUUID(),state:'succeeded'});
     if(path.includes('/application-installations/by-operation/'))return ok({modules:[{requirement_key:'storefront',instance_id:path.includes(h.seller.tenant_id)?h.seller.instance_id:h.supplier.instance_id}]});
     if(path.endsWith('/supply-profile'))return method==='POST'?ok({instance_id:h.supplier.instance_id,version:'1',created:true},201):ok({setup_state:product?'ready':'setup_required',tenant_id:h.supplier.tenant_id,instance_id:h.supplier.instance_id,catalog:product?{name:h.expected.supplier_name}:null});
@@ -69,11 +69,26 @@ function supplierMock(knobs:{disabled?:boolean;photo?:boolean;photoProtocol?:boo
       if(path===readPath)return {status:200,body:photoBytes,headers:{'content-type':'image/webp'}};
     }
     if(path.startsWith('/api/v1/public/stores/')){const media=path.endsWith('/media'),status=published||knobs.mixedPublic&&media?200:404;publicStatuses.push(status);if(status===404)return ok({code:'not_found'},404);
-      const leak=knobs.publicLeak,photo=knobs.publicPhoto||leak==='photo',item:any={sku:'P0001',title:h.expected.product_name,photo:photo?{read_path:'/shops/'+h.seller.slug+'/media/1/P0001'}:null};
+      const leak=knobs.publicLeak,photo=knobs.publicPhoto||leak==='photo',item:any={sku:'P0001',title:h.expected.product_name,description:h.expected.description,price_minor:h.expected.retail_price_minor,photo:photo?{read_path:'/shops/'+h.seller.slug+'/media/1/P0001'}:null};
       if(leak==='read_path')item.read_path='/shops/'+h.seller.slug+'/media/1/P0001';if(leak==='private_path')item.description=readPath;if(leak==='product_id')item.product_id=h.supplier.product_id;if(leak==='cost_minor')item.cost_minor=h.expected.cost_minor;
-      return ok(media?{photos:photo?[item]:[]}:{name:h.expected.seller_name,products:[item]});}
-    if(path.endsWith('/publish')){published=true;return ok({});}
-    if(path===`/api/v1/tenants/${h.seller.tenant_id}/storefronts/${h.seller.instance_id}`)return ok({version:'1',publication:{current_revision:published?'1':null}});
+      const projection:any={slug:h.seller.slug,name:h.expected.seller_name,currency:'TWD',revision:'1',products:[item]},publicMedia:any={profile:'freedom.hosted-store-media/v1',slug:h.seller.slug,revision:'1',photos:photo?[item]:[]};
+      switch(knobs.publicFault){
+        case 'empty-store':return ok(media?publicMedia:{});
+        case 'empty-products':projection.products=[];break;
+        case 'wrong-store':projection.slug='another-synthetic-store';break;
+        case 'wrong-name':projection.name='另一間合成商店';break;
+        case 'wrong-sku':item.sku='P9999';break;
+        case 'wrong-title':item.title='另一件合成商品';break;
+        case 'wrong-price':item.price_minor++;break;
+        case 'wrong-revision':projection.revision='2';break;
+        case 'wrong-both-revisions':projection.revision=publicMedia.revision='2';break;
+        case 'empty-media-body':return ok(media?{}:projection);
+        case 'wrong-media-store':publicMedia.slug='another-synthetic-store';break;
+        case 'wrong-media-revision':publicMedia.revision='2';break;
+      }
+      return ok(media?publicMedia:projection);}
+    if(path.endsWith('/publish')){published=true;return ok({publication:{state:'published',current_revision:'1'}});}
+    if(path===`/api/v1/tenants/${h.seller.tenant_id}/storefronts/${h.seller.instance_id}`)return ok({version:'1',store:{slug:h.seller.slug,name:h.expected.seller_name,currency:'TWD'},publication:{state:published?'published':'never_published',current_revision:published?'1':null}});
     if(path.endsWith('/reservation-quotes'))return ok({quote_id:randomUUID(),terms_sha256:'d'.repeat(64)},201);
     if(path.endsWith('/reservation-orders')){expect(settings.supplier.reservation_enabled&&settings.seller.reservation_enabled&&published).toBe(true);order={order_id:randomUUID(),state:'reserved',version:'1'};product.reserved=1;product.available=9;return ok(order,201);}
     if(path.endsWith('/supply-reservations'))return ok({items:order?[{...order,items:[{product_id:h.supplier.product_id,quantity:1}]}]:[]});
@@ -208,8 +223,31 @@ test('recheck detects host, legacy and console OFF regressions and requires a br
 
 test('published reservation baseline restores settings and sessions with operator cleanup still required',async()=>temporary(async file=>{
   const server=supplierMock(),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
-  expect(phase(report,'supplier-reservations').status).toBe('pass');expect(report).toMatchObject({overall:'pass',cloud_proof:true,cleanup:{required:true,restore_failed:false}});
+  expect(phase(report,'supplier-reservations').status).toBe('pass');expect(JSON.parse(await readFile(file,'utf8')).publication).toEqual({revision:'1',sku:'P0001'});expect(report).toMatchObject({overall:'pass',cloud_proof:true,cleanup:{required:true,restore_failed:false}});
   expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);expect(server.order().state).toBe('cancelled');expect(server.publicStatuses).toEqual([200,200]);cleanReport(report,logs,server.known);
+}));
+
+for(const publicFault of ['empty-store','empty-products','wrong-store','wrong-name','wrong-sku','wrong-title','wrong-price','wrong-revision','wrong-both-revisions','empty-media-body','wrong-media-store','wrong-media-revision'] as const)test(`published public projection rejects ${publicFault} and restores settings and sessions`,async()=>temporary(async file=>{
+  const server=supplierMock({publicFault}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
+  expect(phase(report,'supplier-reservations').status).toBe('fail');expect(report).toMatchObject({overall:'fail',cloud_proof:false});
+  expect(phase(report,'supplier-reservations').metrics?.public_projection_private).not.toBe(true);
+  expect(server.publicStatuses).toEqual([200,200]);expect(server.order()).toBeNull();expect(paths(server.calls).some(path=>path.endsWith('/reservation-quotes'))).toBe(false);
+  expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);
+  for(const role of ['supplier','seller'])expect(report.cleanup.items).toContainEqual({phase:'supplier-reservations',item:`${role} reservation setting`,state:'restored'});
+  cleanReport(report,logs,server.known);
+}));
+
+for(const pin of ['matched','missing','stale'] as const)test(`published photo-only recheck requires the authenticated publication pin: ${pin}`,async()=>temporary(async file=>{
+  const server=supplierMock({photo:true,photoProtocol:true}),logs:string[]=[];
+  const first=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
+  expect(first.overall).toBe('pass');const saved=JSON.parse(await readFile(file,'utf8'));expect(saved.publication).toEqual({revision:'1',sku:'P0001'});
+  if(pin==='missing')delete saved.publication;else if(pin==='stale')saved.publication.revision='2';await save(file,saved);
+  const start=server.calls.length,report=await runCandidate({...base(['supplier-photo'],file,{supplierAccounts:{supplier:accounts.supplier}}),transport:server.transport,log:line=>logs.push(line)});
+  expect(phase(report,'supplier-photo')).toMatchObject(pin==='matched'?{status:'pass',metrics:{public_projection:'covered_published',public_projection_private:true}}:{status:'fail',reason:pin==='missing'?'supplier_publication_recorded':'supplier_public_store_matches'});
+  expect(report).toMatchObject({overall:pin==='matched'?'pass':'fail',cloud_proof:pin==='matched'});
+  expect(server.publicStatuses).toEqual([200,200,200,200]);expect(paths(server.calls.slice(start)).filter(path=>path==='POST /api/v1/auth/login')).toHaveLength(1);
+  expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);
+  expect(report.cleanup.items).toContainEqual({phase:'supplier-photo',item:'supplier synthetic account session',state:'restored'});cleanReport(report,logs,[...server.known,server.readPath]);
 }));
 
 test('failed seller OFF restores the supplier setting and revokes all sessions before failing the phase and run',async()=>{
@@ -245,7 +283,7 @@ test('published photo projections are verified and leaks appearing only after pu
   for(const publicLeak of [undefined,'photo','read_path','private_path','product_id','cost_minor'] as const)await temporary(async file=>{
     const server=supplierMock({photo:true,photoProtocol:true,publicLeak}),logs:string[]=[],report=await runCandidate({...base(['supplier-journey','supplier-photo','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
     expect(phase(report,'supplier-photo')).toMatchObject({status:'pass',metrics:{public_projection:'not_covered_unpublished',public_projection_private:null}});
-    expect(phase(report,'supplier-reservations')).toMatchObject(publicLeak?{status:'fail',reason:['photo','read_path'].includes(publicLeak)?'supplier_public_photo_absent':'supplier_private_fields_not_public'}:{status:'pass',metrics:{public_projection_private:true,public_photo_checked:true}});
+    expect(phase(report,'supplier-reservations')).toMatchObject(publicLeak?{status:'fail',reason:['photo','read_path'].includes(publicLeak)?'supplier_public_photo_absent':publicLeak==='private_path'?'supplier_public_product_matches':'supplier_private_fields_not_public'}:{status:'pass',metrics:{public_projection_private:true,public_photo_checked:true}});
     expect(server.publicStatuses.slice(0,2)).toEqual([404,404]);expect(server.publicStatuses.slice(2)).toEqual([200,200]);expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);cleanReport(report,logs,[...server.known,server.readPath,server.h.seller.slug]);
   });
 });
@@ -312,13 +350,16 @@ test('local harness: supplier acceptance and same-origin ON → OFF → ON bookm
         try{const text=Buffer.from(reply.body).toString();for(const id of text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)??[])known.add(id);const json=JSON.parse(text);if(new URL(request.url).pathname.startsWith('/api/v1/public/stores/')){const keys=(v:any):void=>{if(v&&typeof v==='object'){for(const [key,item] of Object.entries(v)){if(!Array.isArray(v))publicFields.add(key);keys(item);}}};keys(json);}if(json.csrf_token)known.add(json.csrf_token);}catch{/* binary response */}return reply;
       };
       const run=(selected:readonly string[],state:'on'|'off')=>runCandidate({...base(selected,file),target:local,expectedVersion:packageMetadata.version,expectedReleaseSha:null,supplierAccounts:identities,transport,browser,expectSupplierConsole:state,log:line=>logs.push(line)});
-      swap(true);const initial=await run(supplierPhases,'on');
+      swap(true);
+      expect(await (await fetch(origin+'/api/v1/site')).json()).toMatchObject({commerce_console_enabled:false,commerce_checkout_enabled:false,supplier_console_enabled:true});
+      const initial=await run(supplierPhases,'on');
       expect(initial.phases.filter(p=>p.status==='fail').map(p=>({phase:p.id,reason:p.reason,checks:p.checks.filter(c=>c.status==='fail')}))).toEqual([]);
       for(const id of ['supplier-journey','supplier-reservations','supplier-recheck'])expect(phase(initial,id).status,id).toBe('pass');
       expect(phase(initial,'supplier-photo')).toMatchObject({status:'not_run',reason:'photo_uploads_disabled'});
       expect(phase(initial,'supplier-reservations').metrics).toMatchObject({public_projection_private:true});
       expect(initial).toMatchObject({harness:'local_harness',cloud_proof:false});
-      expect((await stat(file)).mode&0o777).toBe(0o600);const saved=JSON.parse(await readFile(file,'utf8'));expect(saved.reservation.state).toBe('cancelled');
+      expect((await stat(file)).mode&0o777).toBe(0o600);const saved=JSON.parse(await readFile(file,'utf8'));expect(saved.reservation.state).toBe('cancelled');expect(saved.publication).toEqual({revision:expect.stringMatching(/^[1-9][0-9]*$/),sku:expect.stringMatching(/^P[0-9]{4,}$/)});
+      expect((await e2eAuthPool.query('SELECT module_release_ref,application_release_ref FROM module_instances WHERE instance_id=ANY($1::uuid[])',[ [saved.supplier.instance_id,saved.seller.instance_id] ])).rows).toEqual(Array.from({length:2},()=>({module_release_ref:'storefront@1.1.0',application_release_ref:'hosted-store@1.1.0'})));
       for(const id of JSON.stringify(saved).match(/[0-9a-f-]{36}/g)??[])known.add(id);known.add(saved.seller.slug);
       swap(false);const off=await run(['supplier-recheck'],'off');expect(phase(off,'supplier-recheck')).toMatchObject({status:'pass',metrics:{console_routes_404:true,bookmark:'old_page',legacy_reads_matched:true,bookmark_values_matched:true}});
       swap(true);const on=await run(['supplier-recheck'],'on');expect(phase(on,'supplier-recheck')).toMatchObject({status:'pass',metrics:{bookmark:'console_page',legacy_reads_matched:true,console_reads_matched:true,bookmark_values_matched:true}});
