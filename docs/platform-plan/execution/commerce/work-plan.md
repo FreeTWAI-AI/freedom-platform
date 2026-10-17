@@ -337,6 +337,23 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
 - 完整還原、封存與瀏覽器驗證接續執行；之後完整 serial runtime 與新 head 的 hosted CI 並行。
   426 個 runtime 檔案均納入八分區，沒有遺漏或重複；排程權重不是實測通過證據。
 
+訂單恢復授權修正（2026-10-17 03:28Z）：
+
+- PR #863 的審查指出 access link 在原生 PostgreSQL 行鎖等待期間過期，仍能兌換。
+  整合者先用完整 HTTP／受限 runtime role 重現：第一筆實際兌換暫持 transaction，第二筆 HTTP
+  由 `pg_blocking_pids` 證實等待，資料庫時鐘跨過不可改的期限後回滾第一筆，舊實作仍回 200 與私有訂單。
+  等待裝置鎖至連結過期也回 200；期限前成功的兌換時間則錯用等待前的時間。四個新案例先失敗三項。
+- 修正先鎖定原 link 身分，再用另一 SQL statement 的資料庫時鐘檢查期限、撤銷與一次性狀態；
+  裝置／grant／訂單處理後再查一次 link 期限。失敗回相同 404，整筆回滾，不留 redeemed marker、
+  新 device、grant、cookie 或私有回應。未改 migration 168、trigger、固定 168 小時期限、token 或訂單範圍。
+- 四個新流程修正後通過，包含期限前 rollback 後成功、新 B10 fixture 郵件恢復讀單、原 key 無法繞過
+  forget，以及新 device 只取得該訂單權限。原有一般併發一次控制也通過。完整 HTTP 首輪 50/51：
+  一處舊公開條款清單漏列已合併的 `offline_payment`；補上精確清單與卡片 fixture 必須為 null 的斷言。
+  修正後 typecheck 與結帳核心／HTTP／schema／競態／郵件相關全套 168/168 通過（117.42 秒，零 skip）。
+  訂單頁與 browser 恢復旅程、最終來源同步與新 head CI 仍須完成，不能用舊 head 綠燈解除這項阻塞。
+- `fe7d0d1d` 已完成還原 10 pass／1 既有 T-047 TODO、封存 6/6、browser 75/75（零重試）。
+  該來源的完整 serial runtime 因發現上述尚未修正的授權問題而主動中止，原日誌保留；中止不是全套通過。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |

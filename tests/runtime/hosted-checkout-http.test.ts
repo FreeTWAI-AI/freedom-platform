@@ -13,7 +13,8 @@ import {FixtureEmailSender} from '../../modules/agent-commerce/operations/notifi
 import {runDueCommerceWork} from '../../modules/agent-commerce/operations/due-work.js';
 import {MemoryEffectJournal} from '../../modules/agent-commerce/operations/journal/memory.js';
 import {canonicalJSON,parseCheckoutInput,hashKey} from '../../modules/agent-commerce/checkout/terms.js';
-import {shopCookieName} from '../../modules/agent-commerce/checkout/access.js';
+import {redeemAccessLink,shopCookieName} from '../../modules/agent-commerce/checkout/access.js';
+import {resolvePublicStorePage} from '../../modules/agent-commerce/hosted/public.js';
 import {checkoutHarness,ports,ok,type CheckoutHarness} from './hosted-checkout-harness.js';
 import type {CommerceSettings} from '../../modules/agent-commerce/operations/runtime-settings.js';
 import type {CheckoutPorts} from '../../modules/agent-commerce/checkout/terms.js';
@@ -86,6 +87,30 @@ async function requestLink(f:Awaited<ReturnType<typeof placed>>,address='buyer@e
   assert.equal((await runDueCommerceWork(x.runtime,{freedomEnv:origin.startsWith('https:')?'public':'local',origin,emailEnabled:true,emailSender:email,journal})).completed,1);
   const url=email.messages.at(-1)!.text.match(/https?:\/\/[^\s]+/)![0];
   return new URL(url).hash.slice('#access='.length);
+}
+async function accessState() {
+  return {
+    devices:(await x.h.pool.query('SELECT * FROM commerce_access_devices ORDER BY device_id')).rows,
+    grants:(await x.h.pool.query('SELECT * FROM commerce_order_access_grants ORDER BY grant_id')).rows,
+  };
+}
+/** Historical credential fixture: keep the immutable 168-hour lifetime and all
+ * real order FKs. Never alter an issued link, its trigger or the database clock. */
+async function expiringLink(f:Awaited<ReturnType<typeof placed>>) {
+  const token=randomBytes(32).toString('base64url');
+  await x.h.pool.query(`INSERT INTO commerce_order_access_grants(tenant_id,instance_id,checkout_id,order_id,kind,link_token_sha256,created_at,expires_at)
+    SELECT tenant_id,instance_id,checkout_id,order_id,'link',$2,t,t+interval '168 hours'
+    FROM commerce_checkout_orders CROSS JOIN (SELECT clock_timestamp()-interval '168 hours'+interval '3 seconds' t)n WHERE order_id=$1`,[f.order.order_ref,hashKey(token)]);
+  return token;
+}
+async function linkClock(token:string) {
+  return (await x.h.pool.query(`SELECT clock_timestamp() AS observed_at,expires_at,expires_at<=clock_timestamp() AS expired,
+    expires_at-created_at=interval '168 hours' AS fixed_lifetime FROM commerce_order_access_grants WHERE link_token_sha256=$1`,[hashKey(token)])).rows[0];
+}
+async function waitOnTransaction(pid:number,token:string) {
+  await until(async()=>(await x.h.pool.query(`SELECT 1 FROM pg_stat_activity a,commerce_order_access_grants g
+    WHERE $1=ANY(pg_blocking_pids(a.pid)) AND g.link_token_sha256=$2 AND a.query_start<g.expires_at`,[pid,hashKey(token)])).rowCount!>0,'HTTP redemption must begin before expiry and wait on the real transaction');
+  assert.equal((await linkClock(token)).expired,false,'observe the lock wait while the link is still live');
 }
 before(async()=>{x=await checkoutHarness('fc_http',{publicSchema:true});origin=x.h.origin;});
 beforeEach(async()=>{await x.reset();origin=x.h.origin;email=new FixtureEmailSender();journal=new MemoryEffectJournal('local');policies=[];install();});
@@ -170,6 +195,70 @@ test('link redemption is one-time, grants only its order and resolves a concurre
   expect(await http('POST',path+'/access',{token}),404,'checkout_order_not_found');
   expect(await http('POST',root(f.s)+`/checkouts/${f.c.checkout_ref}/orders`,f.intent,cookie(winner)),404,'checkout_order_not_found');
   expect(await http('POST',path+'/access',{token:'guessed'}),404,'checkout_order_not_found');
+});
+for(const expires of [true,false])test(`link redemption after a real redemption rolls back ${expires?'after':'before'} expiry`,async t=>{
+  const f=await placed(),token=expires?await expiringLink(f):await requestLink(f),path=root(f.s)+'/orders/'+f.order.order_ref,before=await accessState();
+  const q=await x.runtime.connect();let pending:ReturnType<typeof http>|undefined;
+  try {
+    await q.query('BEGIN');assert(await resolvePublicStorePage(q,f.s.slug));
+    const redeemed=await redeemAccessLink(q,{tenant_id:f.s.tenantId,instance_id:f.s.instanceId,order_id:f.order.order_ref},token);
+    assert.equal(redeemed.checkout_id,f.c.checkout_ref);
+    assert.equal((await q.query('SELECT redeemed_at IS NOT NULL AS redeemed FROM commerce_order_access_grants WHERE link_token_sha256=$1',[hashKey(token)])).rows[0].redeemed,true);
+    const pid=(await q.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+    pending=http('POST',path+'/access',{token});await waitOnTransaction(pid,token);
+    t.diagnostic(JSON.stringify({event:'redemption_blocked_before_expiry',...(await linkClock(token))}));
+    if(expires)await until(async()=>(await linkClock(token)).expired,'database clock must cross the immutable link expiry while HTTP is blocked');
+    const atRelease=await linkClock(token);assert.equal(atRelease.expired,expires);assert.equal(atRelease.fixed_lifetime,true);
+    t.diagnostic(JSON.stringify({event:'blocker_rollback',...atRelease}));await q.query('ROLLBACK');
+    const result=await pending;
+    if(expires) {
+      same404(result);assert.deepEqual(await accessState(),before,'failed redemption rolls back every credential effect');
+      same404(await http('POST',path+'/access',{token}));same404(await http('GET',path));
+      assert.deepEqual(await accessState(),before);
+      // A fresh B10 email remains a recovery path after the stale link failed.
+      const fresh=await requestLink(f);assert.notEqual(fresh,token);
+      const recovered=await http('POST',path+'/access',{token:fresh});expect(recovered);assert.deepEqual(recovered.data,f.order);
+      assert.deepEqual(expect(await http('GET',path,undefined,cookie(recovered))),f.order);
+      const old=(await x.h.pool.query('SELECT * FROM commerce_order_access_grants WHERE link_token_sha256=$1',[hashKey(token)])).rows[0];
+      assert.deepEqual(old,before.grants.find(g=>g.link_token_sha256===hashKey(token)));
+    } else {
+      expect(result);assert.deepEqual(result.data,f.order);assert.deepEqual(expect(await http('GET',path,undefined,cookie(result))),f.order);
+      const after=await accessState(),link=after.grants.find(g=>g.link_token_sha256===hashKey(token))!;
+      assert(link.redeemed_at>=atRelease.observed_at,'redemption timestamp is sampled after the rollback released its lock');
+      assert.deepEqual({...link,redeemed_at:null},before.grants.find(g=>g.grant_id===link.grant_id));
+      assert.equal(after.devices.length,before.devices.length+1);assert.equal(after.grants.length,before.grants.length+1);
+      same404(await http('POST',path+'/access',{token}));assert.deepEqual(await accessState(),after);
+    }
+  } finally {await q.query('ROLLBACK');q.release();await Promise.allSettled([pending]);}
+});
+test('link expiry while redemption waits on its browser device rolls back the redeemed marker and grant',async t=>{
+  const f=await placed(),token=await expiringLink(f),path=root(f.s)+'/orders/'+f.order.order_ref,before=await accessState();
+  const q=await x.h.pool.connect();let pending:ReturnType<typeof http>|undefined;
+  try {
+    await q.query('BEGIN');await q.query('SELECT device_id FROM commerce_access_devices WHERE token_sha256=$1 FOR UPDATE',[hashKey(f.browser.split('=')[1])]);
+    const pid=(await q.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+    pending=http('POST',path+'/access',{token},f.browser);await waitOnTransaction(pid,token);
+    await until(async()=>(await linkClock(token)).expired,'database clock must cross link expiry during the device lock wait');
+    t.diagnostic(JSON.stringify({event:'device_blocker_rollback',...(await linkClock(token))}));await q.query('ROLLBACK');
+    same404(await pending);assert.deepEqual(await accessState(),before);same404(await http('GET',path));
+    same404(await http('POST',path+'/access',{token},f.browser));assert.deepEqual(await accessState(),before);
+  } finally {await q.query('ROLLBACK');q.release();await Promise.allSettled([pending]);}
+});
+test('after forgetting a placed checkout, original keys cannot restore access but a fresh B10 link restores only its order',async()=>{
+  const f=await placed(),path=root(f.s)+'/orders/'+f.order.order_ref;
+  expect(await http('POST','/public/order-access/forget',{},f.browser),204);const before=await accessState();
+  const retry=()=>http('POST',root(f.s)+'/checkouts',{...x.input(f.s.product.sku,1),contact:{name:'測試買家甲',email:'buyer@example.test',phone:'0900000000'}},undefined,{'Idempotency-Key':f.key});
+  const stale=await retry();expect(stale,409,'checkout_expired');assert.equal(stale.response.headers.get('Set-Cookie'),null);
+  same404(await http('POST',root(f.s)+`/checkouts/${f.c.checkout_ref}/orders`,f.intent,f.browser));same404(await http('GET',path,undefined,f.browser));
+  assert.deepEqual(await accessState(),before);
+  const token=await requestLink(f);assert.equal((await linkClock(token)).fixed_lifetime,true);
+  const recovered=await http('POST',path+'/access',{token});expect(recovered);assert.deepEqual(recovered.data,f.order);
+  const browser=cookie(recovered),after=await accessState();assert.notEqual(browser,f.browser);
+  assert.deepEqual(expect(await http('GET',path,undefined,browser)),f.order);
+  const device=after.devices.find(d=>d.token_sha256===hashKey(browser.split('=')[1]))!;
+  assert.deepEqual(after.grants.filter(g=>g.device_id===device.device_id).map(g=>({checkout_id:g.checkout_id,order_id:g.order_id})),[{checkout_id:f.c.checkout_ref,order_id:f.order.order_ref}]);
+  same404(await http('POST',root(f.s)+`/checkouts/${f.c.checkout_ref}/orders`,f.intent,browser));
+  same404(await http('POST',path+'/access',{token}));expect(await retry(),409,'checkout_expired');assert.deepEqual(await accessState(),after);
 });
 test('revoked and expired device credentials cannot read; forget clears and revokes the whole browser',async()=>{
   const f=await placed(),path=root(f.s)+'/orders/'+f.order.order_ref;
@@ -352,7 +441,8 @@ test('quote snapshot does not hold its already committed bucket rows',async()=>{
 });
 test('checkout public terms are an exact allowlist, replay identically and retain the full stored hash for placement',async()=>{
   const s=await x.store(),f=await checkout(s),terms=f.c.terms;
-  assert.deepEqual(Object.keys(terms).sort(),['publication_revision','currency','items','merchandise_total_minor','discount_total_minor','discounts','shipping','shipping_total_minor','tax_state','total_minor','consents','payment_methods'].sort());
+  assert.deepEqual(Object.keys(terms).sort(),['publication_revision','currency','items','merchandise_total_minor','discount_total_minor','discounts','shipping','shipping_total_minor','tax_state','total_minor','consents','payment_methods','offline_payment'].sort());
+  assert.equal(terms.offline_payment,null,'the card-only fixture has no offline payment terms');
   assert.deepEqual(Object.keys(terms.items[0]).sort(),['sku','title','quantity','unit_price_minor','line_total_minor'].sort());
   assert.deepEqual(Object.keys(terms.shipping).sort(),['destination_state','groups']);
   assert.deepEqual(Object.keys(terms.shipping.groups[0]).sort(),['amount_minor','fee_per_parcel_minor','group_ref','handling_days','items','meetup_note','method','outlying_surcharge_per_parcel_minor','parcel_count']);

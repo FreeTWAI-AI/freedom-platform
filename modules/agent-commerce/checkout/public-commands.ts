@@ -11,7 +11,7 @@ import {freezeCheckout,hashKey,publicCheckoutTerms,validateBuyerJSON,defaultAdmi
 import {cancelUnpaidOrder,placeCheckoutOrder} from './orders.js';
 import {cartQuote} from './cart-quote.js';
 import {publicOrder} from './public-order.js';
-import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
+import {liveDevice,ensureDevice,grantDevice,hasDeviceGrant,assertDeviceLive,assertAccessLinkLive,redeemAccessLink,forgetDevice,shopCookie,orderAccessNotFound} from './access.js';
 import {chargePaymentQueryOrderBudgets,chargeCommerceBudgets,commerceRateLimitInTransaction,lockOpenOrderBudgets,enforceOpenOrderLimits} from './limits.js';
 import type {CommerceSettings} from '../operations/runtime-settings.js';
 import type {CommerceEmailOutbox} from '../operations/notifications/email-port.js';
@@ -191,6 +191,7 @@ export async function redeemPublicOrder(pool:Pool,slug:string,orderRef:string,to
     const ensured=await ensureDevice(q,access.deviceToken,options.origin);
     await grantDevice(q,ensured.device.device_id,{tenant_id:store.tenantId,instance_id:store.instanceId,checkout_id:redeemed.checkout_id},orderRef);
     const value=await publicOrder(q,store,orderRef,options.payment);await assertDeviceLive(q,ensured.device.device_id);
+    await assertAccessLinkLive(q,redeemed.grant_id);
     return {cookie:ensured.cookie,value};
   });
 }

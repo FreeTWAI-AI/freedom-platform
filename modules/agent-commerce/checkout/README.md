@@ -246,6 +246,14 @@ buyer. Reads neither refresh devices nor write grant/session activity.
 
 Access links contain 32 random bytes in a fragment, expire after seven days and
 redeem exactly once in the same transaction as the order grant and device cookie.
+Redemption first locks the immutable link identity, then checks the database clock,
+revocation and one-use state in a separate statement. It checks link expiry again
+after device/grant/order processing, before committing. Expiry during either lock
+wait returns the same `checkout_order_not_found` 404 and rolls back the redeemed
+marker and all device/grant writes; no cookie or private order response is sent.
+The fixed 168-hour lifetime, token and order scope never change. An original
+checkout key cannot restore access after placement/forget; B10 can issue a fresh
+link that restores access to that order only.
 B10 requires an injected `CommerceEmailOutbox` (`options.email`, installed only
 when `FREEDOM_COMMERCE_EMAIL_ENABLED` is true); without it, B10 returns 409
 `order_access_email_unavailable` before any SQL access. When installed, B10

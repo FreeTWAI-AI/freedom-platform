@@ -54,12 +54,25 @@ export async function createAccessLink(q:PoolClient,target:{tenant_id:string;ins
 }
 export async function redeemAccessLink(q:PoolClient,target:{tenant_id:string;instance_id:string;order_id:string},token:string) {
   if(!credential.test(token))return orderAccessNotFound();
-  const row=(await q.query<{checkout_id:string}>(`UPDATE commerce_order_access_grants SET redeemed_at=clock_timestamp()
-    WHERE tenant_id=$1 AND instance_id=$2 AND order_id=$3 AND kind='link' AND link_token_sha256=$4
-      AND redeemed_at IS NULL AND revoked_at IS NULL AND expires_at>clock_timestamp() RETURNING checkout_id`,
+  // UPDATE may evaluate its clock predicate and SET value before waiting on a
+  // concurrent redemption that rolls back. Lock the immutable identity first;
+  // the separate statement below makes its decision using the post-lock clock.
+  const locked=(await q.query<{grant_id:string}>(`SELECT grant_id FROM commerce_order_access_grants
+    WHERE tenant_id=$1 AND instance_id=$2 AND order_id=$3 AND kind='link' AND link_token_sha256=$4 FOR UPDATE`,
   [target.tenant_id,target.instance_id,target.order_id,hashKey(token)])).rows[0];
+  if(!locked)orderAccessNotFound();
+  const row=(await q.query<{grant_id:string;checkout_id:string}>(`UPDATE commerce_order_access_grants SET redeemed_at=clock_timestamp()
+    WHERE tenant_id=$1 AND instance_id=$2 AND order_id=$3 AND kind='link' AND link_token_sha256=$4
+      AND grant_id=$5 AND redeemed_at IS NULL AND revoked_at IS NULL AND expires_at>clock_timestamp() RETURNING grant_id,checkout_id`,
+  [target.tenant_id,target.instance_id,target.order_id,hashKey(token),locked.grant_id])).rows[0];
   if(!row)orderAccessNotFound();
   return row!;
+}
+/** The redemption transaction still owns this link's row lock. A later device
+ * or order wait must not let an expired link commit its new browser grant. */
+export async function assertAccessLinkLive(q:PoolClient,grantId:string) {
+  if((await q.query(`SELECT 1 FROM commerce_order_access_grants WHERE grant_id=$1 AND kind='link'
+    AND redeemed_at IS NOT NULL AND revoked_at IS NULL AND expires_at>clock_timestamp()`,[grantId])).rowCount!==1)orderAccessNotFound();
 }
 export async function forgetDevice(q:PoolClient,token:string|undefined) {
   if(token&&credential.test(token))await q.query(`UPDATE commerce_access_devices SET revoked_at=clock_timestamp()
