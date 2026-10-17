@@ -309,6 +309,13 @@ community-search webServer 設定保留在 default 輪，不新增搜尋 pass。
 歷史安裝註記：此 source／plan 測試不表示當時 installed required-workflow pin 已更新，也不等同
 真實 browser、部署、遠端媒體或備份驗收。pin 更新仍需獨立授權流程。
 
+`message-images.spec.ts` 的 unknown text／sticker 原 tuple 重試會明確等待最後 ACK
+確認後的 consumer 狀態：傳送狀態消失、輸入恢復可編輯、貼圖選擇重新啟用。既有訊息
+和 receipt 在第一次已 commit，重試按鈕也會在開始 sending 時改名，這些都不能代替
+最後一次 route response 的完成。案例以可控 Promise gate 暫停第三次 ACK，先確認
+pending／草稿鎖仍在，再放行並檢查恢復；不加 sleep、timeout、ignoreErrors，也不吞掉
+route callback 例外。原 key/body、訊息 identity、一次儲存及草稿保留斷言仍在。
+
 ## 商店照片 pinned plan 候選（2026-10-09）
 
 只更新本機 `scripts/run-e2e.mjs` 不會讓正式 CI 執行照片案例。本候選把
