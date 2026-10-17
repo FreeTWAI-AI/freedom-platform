@@ -31,6 +31,16 @@ batched orders remain unchanged. This is a read-decision fence, not a guarantee
 through commit or HTTP delivery; machine bearer and anonymous public-shop readers
 retain their separate authority and are not changed by the member boundary.
 
+Remote import previews accept only the existing allowlisted raw GitHub JSON/MD
+locations. The reader uses Fetch `referrerPolicy: 'no-referrer'`, not a literal
+`no-referrer` URL in `referrer`; native Node Fetch must be able to construct the
+request without disclosing the member page as Referer. Redirect refusal,
+credential omission, the 24,000-byte cap and eight-second abort remain unchanged.
+The native-fetch regression in [agent-commerce.test.ts](../../tests/runtime/agent-commerce.test.ts)
+substitutes only a synthetic loopback upstream and checks complete manifest
+content plus absent Referer. This does not establish live GitHub availability,
+Worker/deployed behavior, or additional text-encoding guarantees.
+
 The server resolver and schema constraints are documented in [resource-scopes](../../packages/resource-scopes/README.md). After schema 117 and 118, an upgraded issuer creates only purpose-bound v2 keys when the owner explicitly requests issuance. Its existing member receipt/digest stays unchanged and a replay still returns `token: null`. The application must receive an explicit `FREEDOM_SHOP_KEY_POLICY=legacy-compatible` or `purpose-bound-only`; absent configuration yields shop-only 503. The Worker config checker lists this as a required injection without changing deployed vars. `/api/v1/health` reports the actual selected policy and issuer profile, or `unconfigured`/null. A merged source SHA or configured example is not an installed policy observation.
 
 ## Controlled legacy exit

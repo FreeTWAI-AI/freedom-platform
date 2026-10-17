@@ -1,6 +1,7 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {createServer} from 'node:http';
 import {setImmediate} from 'node:timers/promises';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
@@ -322,10 +323,34 @@ test('batched pages match single views with multiple lines, transfers and scoped
  }finally{q.query=original;q.release();}
 });
 
+test('native fetch reads a complete raw manifest without forwarding an ambient referrer',async()=>{
+ const expected={...internal(),mode:'test'},referers:(string|undefined)[]=[];
+ const server=createServer((request,response)=>{
+  referers.push(request.headers.referer);
+  response.writeHead(200,{'Content-Type':'application/json'});
+  response.end(JSON.stringify(expected));
+ });
+ try{
+  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const address=server.address();assert.ok(address&&typeof address==='object');
+  const origin=`http://127.0.0.1:${address.port}`;
+  // Substitute only the upstream destination; native fetch consumes the real
+  // reader's RequestInit. The synthetic response has no GitHub URL assertion.
+  const nativeFixture:typeof fetch=async(_url,init)=>{
+   const response=await fetch(origin,{referrer:origin+'/private/synthetic-account',...init});
+   return new Response(response.body,{status:response.status,headers:response.headers});
+  };
+  assert.deepEqual(await fetchManifest('https://raw.githubusercontent.com/synthetic/fixture/main/shop.json',nativeFixture),expected);
+  assert.deepEqual(referers,[undefined]);
+ }finally{
+  await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+ }
+});
+
 test('manifest URL reader rejects unsafe hosts and oversize data without following redirects',async()=>{
  const unsupported=(e:unknown)=>e instanceof Problem&&e.status===422&&e.code==='manifest_url_unsupported';
  const failed=(e:unknown)=>e instanceof Problem&&e.status===422&&e.code==='manifest_fetch_failed';
- let calls=0;const mock:typeof fetch=async(_u,init)=>{calls++;assert.equal(init?.redirect,'manual');assert.equal(init?.credentials,'omit');assert.equal(init?.referrer,'no-referrer');return new Response(JSON.stringify(internal()));};
+ let calls=0;const mock:typeof fetch=async(_u,init)=>{calls++;assert.equal(init?.redirect,'manual');assert.equal(init?.credentials,'omit');return new Response(JSON.stringify(internal()));};
  for(const url of ['http://raw.githubusercontent.com/a/b/main/shop.json','https://127.0.0.1/shop.json','https://raw.githubusercontent.com.evil.example/a/b/main/shop.json','https://raw.githubusercontent.com/a/b/main/shop.json?token=secret','not a url'])await assert.rejects(()=>fetchManifest(url,mock),unsupported);
  assert.equal(calls,0);
  assert.equal((await fetchManifest('https://raw.githubusercontent.com/a/b/main/shop.json',mock)).kind,'internal');
