@@ -13894,8 +13894,8 @@
     },
     {
       "path": "docs/development/client-read-connections.md",
-      "bytes": 7442,
-      "sha256": "3c0c6d6e8709268b947021ba0045a0597d559f2440c1d32cf22025654ad1d38b"
+      "bytes": 8582,
+      "sha256": "c6d06f2ac14380faebccbdfdf685e6cccc3fdf31a72907ec3b9c177730175735"
     },
     {
       "path": "docs/development/cloudflare-migration-status-2026-09-24.md",
@@ -15514,8 +15514,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-05-tests-ci-guild-dev.md",
-      "bytes": 28959,
-      "sha256": "6374294a8ac212bdd699f618eba07a4ccda7624f5c81d6e43769d9ca79c3fcbc"
+      "bytes": 29047,
+      "sha256": "afeae29185c488472e8ec8aabf69b3da4c753f69631adbee5cac646106116cf9"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/SC-SPEC-06-release-rollback-pilot.md",
@@ -17984,8 +17984,8 @@
     },
     {
       "path": "modules/client-connections/service.ts",
-      "bytes": 16730,
-      "sha256": "4e305f02b62a2094626a8e5f356a0996bb60cf7e50f657244e1fcc89dcc325a7"
+      "bytes": 16882,
+      "sha256": "f349c8924d81d1aec88e9567a6a455c3d11290b5028e734a16b81a89a3c26d0e"
     },
     {
       "path": "modules/co-creation/github.ts",
@@ -21354,8 +21354,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
-      "bytes": 191117,
-      "sha256": "ac6aef0b4fd5beaaedc39e2b3f77ec8e1355ca68acb2668afa85ebad063d0b98"
+      "bytes": 190635,
+      "sha256": "c6203ad835a51f317d20e594e7fd072455da9fd84a4714857a47af9db0dc2bb9"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
@@ -21409,8 +21409,8 @@
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
-      "bytes": 25716,
-      "sha256": "a36c1654675c63723335bcb73ae9daa663e8897a571826596c992f0a07223725"
+      "bytes": 25732,
+      "sha256": "387c1b6e82e62e6245f1ad6538d9b0fd9f446dc94c95efaefbff7cbe871eec92"
     },
     {
       "path": "tests/e2e/member-connections.spec.ts",
@@ -21449,8 +21449,8 @@
     },
     {
       "path": "tests/e2e/member-navigation-hierarchy.spec.ts",
-      "bytes": 7330,
-      "sha256": "5d91472ecdef5f05a7cb87c620c6c754d64e4cebcf28b5d975938a78fffa772f"
+      "bytes": 7346,
+      "sha256": "cb35546d5dcbd4c5c7fcb77adaaca7fd08a0dba74fb325d5dfc1c4b6ee5bc636"
     },
     {
       "path": "tests/e2e/member-reporting.spec.ts",
@@ -21524,8 +21524,8 @@
     },
     {
       "path": "tests/e2e/navigation.ts",
-      "bytes": 6802,
-      "sha256": "5d39b6e97db1d444f4abb9a43117a25d65184450eeff577856d45d27d189ce8a"
+      "bytes": 7450,
+      "sha256": "2e09220bba7edff0276c12e3a766cfbc712f960e3bae759239a56444f03121d8"
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
@@ -22199,8 +22199,8 @@
     },
     {
       "path": "tests/runtime/client-connections.test.ts",
-      "bytes": 46581,
-      "sha256": "99bc7869fac50e15eb4958220e3b7ad495de3fb0117adc5c6b2da6e589096c46"
+      "bytes": 50679,
+      "sha256": "e5db96a5d05791edcec2d2f3a125712fa6dab2dabd72535760dbe70db476a62a"
     },
     {
       "path": "tests/runtime/co-creation.test.ts",

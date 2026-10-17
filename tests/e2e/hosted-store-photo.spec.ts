@@ -2161,24 +2161,17 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   await signOut(page); await loginHere(page, a.member.email); await enter(m1);
   const retry = upload().getByRole('button', {name: '重試原操作', exact: true});
   const receipt2 = await answer2.response.json();
-  if (await retry.isVisible()) {
-    observed.recovery = '重試原操作';
-    await expect(upload()).toContainText(second.name);
-    const replayRequest = page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === path(m1));
-    const replayAnswer = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === path(m1));
-    await retry.click();
-    expect(signature(await replayRequest)).toEqual(sig2);
-    const response = await replayAnswer;
-    expect(response.status()).toBe(answer2.response.status()); expect(await response.json()).toEqual(receipt2);
-    await expect(uploadStatus()).toHaveText('已上傳新版本。');
-  } else {
-    observed.recovery = 'captured replay';
-    await expect(section('版本紀錄').getByRole('listitem')).toHaveCount(3);
-    const session = await (await page.request.get('/api/v1/session')).json();
-    const replay = await page.request.post(path(m1), {data: body2, headers: {Origin: new URL(page.url()).origin,
-      'X-CSRF-Token': session.csrf_token, 'Content-Type': sig2.mime, 'Idempotency-Key': sig2.key, 'If-Match': sig2.version}});
-    expect(replay.status()).toBe(answer2.response.status()); expect(await replay.json()).toEqual(receipt2);
-  }
+  // Recovery must remain available to the member; a direct HTTP replay cannot stand in for it.
+  await expect(retry).toBeVisible();
+  await expect(upload()).toContainText(second.name);
+  observed.recovery = '重試原操作';
+  const replayRequest = page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === path(m1));
+  const replayAnswer = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === path(m1));
+  await retry.click();
+  expect(signature(await replayRequest)).toEqual(sig2);
+  const response = await replayAnswer;
+  expect(response.status()).toBe(answer2.response.status()); expect(await response.json()).toEqual(receipt2);
+  await expect(uploadStatus()).toHaveText('已上傳新版本。');
   await expect(section('版本紀錄').getByRole('listitem')).toHaveCount(3);
   await expect(materialActive(page).locator('.detail-list')).toContainText('第 3 版');
   await screenshot('material-original-attempt-recovered.png');

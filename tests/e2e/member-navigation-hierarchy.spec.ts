@@ -1,5 +1,5 @@
 import {test,expect,type Page} from './fixtures';
-import {navigate,openHomeGuide,openFeatureSearch} from './navigation';
+import {navigate,openHomeGuide,openFeatureSearch,setHomeViewport} from './navigation';
 async function login(page:Page){
   await page.goto('/');
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
@@ -66,7 +66,7 @@ test('member hierarchy keeps one feed, distinct destinations and readable contro
   }
 
   for(const theme of ['light','dark','versefolk'])for(const width of [390,768,1440]){
-    await page.setViewportSize({width,height:width===1440?900:844});
+    await setHomeViewport(page,{width,height:width===1440?900:844});
     await page.evaluate(value=>{document.documentElement.dataset.theme=value;document.documentElement.dataset.experienceProfile=value;window.dispatchEvent(new Event('freedom-theme-changed'));},theme);
     await expect(page.locator('.home-timeline')).toBeVisible();
     await openHomeGuide(page);
