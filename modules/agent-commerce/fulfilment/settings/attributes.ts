@@ -4,6 +4,7 @@ import {OpaqueId} from '../../../../contracts/guild-launchpad/v1/primitives.js';
 import {requireCondition} from '../../../../packages/shared/problem.js';
 import type {Profile} from '../../hosted/store.js';
 import type {ItemShippingAttributes} from '../rules/types.js';
+export interface CurrentItemShippingAttributes {readonly version:string;readonly attributes:ItemShippingAttributes}
 import {shippingSettingsCommand,shippingSettingsRead,nextSettingsVersion,type SettingsActor} from './command.js';
 async function ownItem(q:PoolClient,p:Profile,id:string){
   const row=await q.query(`SELECT i.item_id FROM commerce_items i
@@ -15,10 +16,10 @@ async function ownItem(q:PoolClient,p:Profile,id:string){
     WHERE sm.tenant_id=$1 AND sm.instance_id=$2 AND i.shop_id=$3 AND i.item_id=$5`,[p.tenant_id,p.instance_id,p.supply_shop_id,p.storefront_shop_id,id]);
   requireCondition(row.rowCount,404,'not_found','找不到這項商品。');
 }
-export async function currentItemShippingAttributes(q:PoolClient,itemIds:readonly string[]):Promise<Map<string,ItemShippingAttributes>>{
-  const rows=(await q.query(`SELECT DISTINCT ON(item_id) item_id,weight_g,length_mm,width_mm,height_mm,temperature,cvs_allowed,ship_alone,max_per_parcel
+export async function currentItemShippingAttributes(q:PoolClient,itemIds:readonly string[]):Promise<Map<string,CurrentItemShippingAttributes>>{
+  const rows=(await q.query<{item_id:string;version:string;weight_g:number;length_mm:number;width_mm:number;height_mm:number;temperature:'ambient'|'chilled'|'frozen';cvs_allowed:boolean;ship_alone:boolean;max_per_parcel:number|null}>(`SELECT DISTINCT ON(item_id) item_id,version::text AS version,weight_g,length_mm,width_mm,height_mm,temperature,cvs_allowed,ship_alone,max_per_parcel
     FROM commerce_item_shipping_attributes WHERE item_id=ANY($1::uuid[]) ORDER BY item_id,version DESC`,[itemIds])).rows;
-  return new Map(rows.map(({item_id,...attributes})=>[item_id,wire.ItemShippingAttributesInputSchema.parse(attributes)]));
+  return new Map(rows.map(row=>[row.item_id,{version:row.version,attributes:wire.ItemShippingAttributesInputSchema.parse({weight_g:row.weight_g,length_mm:row.length_mm,width_mm:row.width_mm,height_mm:row.height_mm,temperature:row.temperature,cvs_allowed:row.cvs_allowed,ship_alone:row.ship_alone,max_per_parcel:row.max_per_parcel})}]));
 }
 async function attributesView(q:PoolClient,p:Profile,id:string){
   await ownItem(q,p,id);

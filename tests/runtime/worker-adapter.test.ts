@@ -572,12 +572,14 @@ test('Worker commerce email requires EMAIL and COMMERCE_JOURNAL before opening a
   const offRuntime = workerRuntime(offEnv, readWorkerConfig(offEnv));
   assert.equal(offRuntime.commerceEmailSender, undefined);
   assert.equal('email' in (offRuntime.commercePorts ?? {}), false);
+  assert.equal(typeof offRuntime.commercePorts?.shipping?.quote, 'function');
 
   const onEnv = env({ FREEDOM_COMMERCE_EMAIL_ENABLED: 'true', EMAIL, COMMERCE_JOURNAL } as any);
   const onRuntime = workerRuntime(onEnv, readWorkerConfig(onEnv));
   assert.equal(typeof onRuntime.commerceEmailSender?.send, 'function');
   assert.equal(typeof onRuntime.commerceJournal?.append, 'function');
   assert.equal(onRuntime.commercePorts?.email, commerceEmailOutbox);
+  assert.equal(typeof onRuntime.commercePorts?.shipping?.quote, 'function');
 
   // Scheduled passes readWorkerConfig(env).origin to commerceDueWork when valid, and on config error logs commerce_email_not_ready and omits only the email kind while payment kinds and commerceEmailSweep still run
   const { randomBytes } = await import('node:crypto');

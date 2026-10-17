@@ -175,7 +175,7 @@ function cleanAddressText(raw: unknown): FieldValidationResult<string> {
   return { ok: true, value: s };
 }
 
-function validatePostalCode(raw: unknown): FieldValidationResult<{ code: string; prefix: string }> {
+export function validatePostalCode(raw: unknown): FieldValidationResult<{ code: string; prefix: string }> {
   if (raw === undefined || raw === null) {
     return { ok: false, code: 'required' };
   }
