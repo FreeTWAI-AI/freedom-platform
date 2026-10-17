@@ -13,7 +13,8 @@ export class UnresolvedCheckoutOrder extends Problem {
   constructor(public order_ref:string){super(409,'unresolved_order','前一筆付款結果確認中。');}
 }
 export interface CheckoutOrderRow {order_id:string;checkout_id:string;customer_id:string;contact_id:string;tenant_id:string;instance_id:string;
-  terms:CheckoutTerms;terms_sha256:string;environment:'sandbox'|'live';lifecycle_state:'open'|'cancelled'|'closed';cancel_reason:string|null;version:string;display_number:string}
+  terms:CheckoutTerms;terms_sha256:string;environment:'sandbox'|'live';lifecycle_state:'open'|'cancelled'|'closed';cancel_reason:string|null;version:string;display_number:string;
+  payment_method:PaymentMethod}
 export async function lockCheckoutOrders(q:PoolClient,ids:readonly string[],store?:CheckoutStore,paymentRef?:string) {
   const sorted=[...new Set(ids)].sort();
   const targets=(await q.query(`SELECT co.order_id,co.checkout_id FROM commerce_checkout_orders co JOIN commerce_orders o USING(order_id)

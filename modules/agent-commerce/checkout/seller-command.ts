@@ -9,7 +9,7 @@ import {requireStoreInstance,storeCapabilities} from '../hosted/capabilities.js'
 import {instance,profile,ready,type Profile} from '../hosted/store.js';
 
 export interface SellerCheckoutContext {tenant:TenantScopeContext;profile:Profile}
-export type SellerCheckoutOperation='commerce.checkout_order.cancel'|'commerce.exception_case.resolve_with_evidence'|'commerce.exception_case.retry_allocation'|'commerce.refund.record';
+export type SellerCheckoutOperation='commerce.checkout_order.cancel'|'commerce.checkout_order.confirm_offline_payment'|'commerce.checkout_order.complete_meetup'|'commerce.checkout_order.record_meetup_handover'|'commerce.exception_case.resolve_with_evidence'|'commerce.exception_case.retry_allocation'|'commerce.refund.record';
 
 /** Retained obligations remain serviceable when selling stops. The domain owns
  * its lock order; authorization does not take commerce row locks. Receipts hold
