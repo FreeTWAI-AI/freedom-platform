@@ -59,6 +59,9 @@ function makeOrder(overrides: Partial<PublicOrder> = {}): PublicOrder {
     shipping_total_minor: 6000,
     total_minor: 56000,
     payment_state: 'unpaid',
+    payment_method: 'immediate_card',
+    payment_grace_until: null,
+    offline_instructions: null,
     latest_payment_attempt: {
       attempt_ref: SAMPLE_ATTEMPT_REF,
       state: 'ready',

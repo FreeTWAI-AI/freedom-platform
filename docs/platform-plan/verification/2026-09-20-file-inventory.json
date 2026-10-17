@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 57105,
-      "sha256": "f0dd56d50d04782e4b661c8e4daab2049e31ea4acbdf49c17fad4f2e59d6913e"
+      "bytes": 59499,
+      "sha256": "5b2029aa94334187cb827f87c1e69102bc7cdc7d400d9eec6d8f60ae86e957ca"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -18189,8 +18189,8 @@
     },
     {
       "path": "modules/agent-commerce/seller-console/ui/view.ts",
-      "bytes": 5886,
-      "sha256": "c1594bcd47c11c2c6c311b25db2b944fcf597dfa3a69feeea237fe41d757efe3"
+      "bytes": 6346,
+      "sha256": "9f6dc9db204482deeb90b952cccd1fa3e212115bc464aa1af54e7d0cd9633745"
     },
     {
       "path": "modules/agent-commerce/storefront/README.md",
@@ -22250,7 +22250,7 @@
     {
       "path": "tests/e2e/hosted-payment-fixture.ts",
       "bytes": 14994,
-      "sha256": "69b7828351c846cd5d8d80157b7eab1c0caf00e5f638a79a126a6ad22b779219"
+      "sha256": "06534a05cd71adf255eace247c2d2a330ad75e8926ed93d8c49138ab770408f7"
     },
     {
       "path": "tests/e2e/hosted-payment-queries.spec.ts",
@@ -23254,13 +23254,13 @@
     },
     {
       "path": "tests/runtime/commerce-scheduler.test.ts",
-      "bytes": 8308,
-      "sha256": "deb7c822441b60bef74e159a2ab1dc94e1a3fdd80aaf4a89d63cf00e0f9a45b3"
+      "bytes": 8637,
+      "sha256": "44abb60d55fa84fab78deb8fc9a520c140340bfca19aff2ce4d1c950734a4e54"
     },
     {
       "path": "tests/runtime/commerce-store-admissions.test.ts",
-      "bytes": 8743,
-      "sha256": "d458d84292e2f6fdd5fa7d90525fac1ee7aeb3d3e2a8b9de3c9e0608122ab6b0"
+      "bytes": 8873,
+      "sha256": "9a86460bf44ec076f335765b1a200f43c518e190ba1538053b02fa8a7df5af4f"
     },
     {
       "path": "tests/runtime/commerce.test.ts",
@@ -23814,8 +23814,8 @@
     },
     {
       "path": "tests/runtime/hosted-payment-handoff.test.ts",
-      "bytes": 54222,
-      "sha256": "3a3f18f931fd398aa306bd99d98f3b4e4cb399eca9e03a629a03c5f648d6fb42"
+      "bytes": 54413,
+      "sha256": "ecf768a568d1827078bdbb846a14a422fcd716a7317cbfba48003b52eb314bb7"
     },
     {
       "path": "tests/runtime/hosted-payment-notifications.test.ts",
@@ -24939,8 +24939,8 @@
     },
     {
       "path": "tests/runtime/storefront-payment-pages.test.ts",
-      "bytes": 26674,
-      "sha256": "8e2d8324d6efad9d42f976787b871c220dec8b4bf912611bcb10c80ce7deab25"
+      "bytes": 26775,
+      "sha256": "df2dc297009699c8e94d9774c32d565093ed3242d08cc403009c28845b8a295b"
     },
     {
       "path": "tests/runtime/storefront-presentation-contracts.test.ts",

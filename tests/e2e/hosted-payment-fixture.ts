@@ -97,8 +97,8 @@ export async function hostedPaymentHarness(prefix: string, options: {
   return { x, origin, settings, ring, journal, gateway, install, http, reset, setup, readyCheckout, placed, root, get app() { return app; }, get runtime() { return runtime; }, stop: () => x.stop() };
 }
 /** Existing runtime admission fixtures need a service without changing their route assertions. */
-export async function seedAdmissionPaymentService(x: Awaited<ReturnType<typeof checkoutHarness>>, s: Awaited<ReturnType<typeof x.store>>) {
-  const accountId = randomUUID(), ring = CommerceCredentialKeyring.parse('test:' + randomBytes(32).toString('base64'))!;
+export async function seedAdmissionPaymentService(x: Awaited<ReturnType<typeof checkoutHarness>>, s: Awaited<ReturnType<typeof x.store>>, ring = CommerceCredentialKeyring.parse('test:' + randomBytes(32).toString('base64'))!) {
+  const accountId = randomUUID();
   const principalId = (await x.h.pool.query('SELECT principal_id FROM principals WHERE user_ref=$1', [s.owner.user.user_id])).rows[0].principal_id;
   const sealed = sealCredential(ring, { account_id: accountId, purpose: 'payment', environment: 'sandbox', credential_version: 1 }, { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex') });
   await x.tx(async (q) => {

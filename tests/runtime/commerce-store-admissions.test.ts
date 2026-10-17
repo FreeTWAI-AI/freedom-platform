@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {test} from 'node:test';
-import {checkoutHarness,ok,ports} from './hosted-checkout-harness.js';
+import {ok,ports} from './hosted-checkout-harness.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {Problem} from '../../packages/shared/problem.js';
 import {providerEnvironment} from '../../modules/agent-commerce/operations/admissions.js';
 import {DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {settleDueCheckoutHolds} from '../../modules/agent-commerce/checkout/settlement.js';
-import {seedAdmissionPaymentService} from '../e2e/hosted-payment-fixture.js';
+import {hostedPaymentHarness,seedAdmissionPaymentService} from '../e2e/hosted-payment-fixture.js';
 test('independent admin admissions gate new checkouts without stopping retained orders or hold expiry',async()=>{
-  const x=await checkoutHarness('fp_admissions'),h=x.h,csrf=randomUUID(),adminEmail=`admin-${randomUUID()}@example.test`,adminId=randomUUID();
+  const payment=await hostedPaymentHarness('fp_admissions'),x=payment.x,h=x.h,csrf=randomUUID(),adminEmail=`admin-${randomUUID()}@example.test`,adminId=randomUUID();
   const verifier=async(request:Request)=>{
     const email=request.headers.get('X-Fixture-Admin');if(!email)throw new Problem(403,'admin_required','需要管理員。');
     return {email,subject:'synthetic-admission-admin',csrfToken:csrf};
   };
-  const app=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true,adminVerifier:verifier,commerceSettings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},commercePorts:{shipping:ports.shipping}});
+  const app=createApp(x.runtime,h.origin,'local',{guildLaunchpadEnabled:true,adminVerifier:verifier,commerceSettings:{checkoutEnabled:true,consoleEnabled:true,quarantine:false,providerProfiles:['ecpay.aio.credit.v1']},commercePorts:{shipping:ports.shipping},commercePayments:payment.runtime.commercePayments,commerceCredentialKeyring:payment.ring});
   const admin=async(method:string,path:string,body?:unknown,key=randomUUID(),email=adminEmail)=>{
     const response=await app.request(h.origin+'/admin/api/commerce/store-admissions'+path,{method,headers:{Origin:h.origin,'X-Fixture-Admin':email,'X-Admin-CSRF':csrf,'Content-Type':'application/json','Idempotency-Key':key},body:body===undefined?undefined:JSON.stringify(body)});
     return {response,status:response.status,data:await response.json()} as any;
@@ -50,11 +50,11 @@ test('independent admin admissions gate new checkouts without stopping retained 
       const response=await app.request(h.origin+publicRoot+path,{method,headers:{Origin:h.origin,'Content-Type':'application/json','Idempotency-Key':randomUUID(),...(cookie?{Cookie:cookie}:{})},body:input===undefined?undefined:JSON.stringify(input)});
       return {response,status:response.status,data:await response.json()} as any;
     };
-    const input=x.input(s.product.sku,1);
+    const input=x.input(s.product.sku,5);
     assert.equal((await buyer('POST','/checkouts',input)).data.code,'checkout_not_enabled');
     const version=(await h.pool.query('SELECT version::text FROM module_instances WHERE instance_id=$1',[s.instanceId])).rows[0].version;
     ok(await x.send(s,'/upgrade',{},version));
-    await seedAdmissionPaymentService(x,s);
+    await seedAdmissionPaymentService(x,s,payment.ring);
     const checkout=await buyer('POST','/checkouts',input),frozen=ok(checkout,201),cookie=checkout.response.headers.get('set-cookie')!.split(';')[0];
     const order=ok(await buyer('POST',`/checkouts/${frozen.checkout_ref}/orders`,{terms_sha256:frozen.terms_sha256,client_order_id:randomUUID()},cookie),201).order;
     const due=await x.due(s,5),revokeKey=randomUUID(),revokeBody={reason:'合成撤銷驗證'};

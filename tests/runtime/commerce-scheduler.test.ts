@@ -2,6 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import type {Pool} from 'pg';
 import {createWorkerHandler,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
+// These scheduler tests isolate job boundaries; real offline expiry runs in its own PG tests.
+const idleDueWork=async()=>({claimed:0,completed:0,failed:0,externalCalls:0,released:0,unknown:0});
 for(const settings of [{},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'false'},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true',FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_SUPPLIER_CONSOLE_ENABLED:'true'},{FREEDOM_COMMERCE_QUARANTINE:'true'},{FREEDOM_COMMERCE_QUARANTINE:'synthetic-secret'}])test(`scheduler commerce settings ${JSON.stringify(settings)}`,async()=>{
   const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
   const pool={connect:async()=>({on(){},removeListener(){},release(){},query:async()=>({rows:[]})}),end:async()=>{calls.push('end');}} as unknown as Pool;
@@ -15,7 +17,7 @@ for(const settings of [{},{FREEDOM_COMMERCE_CHECKOUT_ENABLED:'false'},{FREEDOM_C
 test('commerce sweep failure logs a fixed name, continues later jobs and ends the pool',async()=>{
   const calls:string[]=[],logs:string[]=[],pending:Promise<unknown>[]=[];const original=console.error;console.error=(...args)=>logs.push(args.join(' '));
   try {
-    const handler=createWorkerHandler({createPool:()=>({end:async()=>{calls.push('end');}} as unknown as Pool),commerceApplyDeferred:async()=>({applied:0,failed:0,skipped:0}),commerceSweep:async()=>{throw Error('synthetic-secret');},commerceEmailSweep:async()=>({expired:0,deleted:0}),syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
+    const handler=createWorkerHandler({createPool:()=>({end:async()=>{calls.push('end');}} as unknown as Pool),commerceDueWork:idleDueWork,commerceApplyDeferred:async()=>({applied:0,failed:0,skipped:0}),commerceSweep:async()=>{throw Error('synthetic-secret');},commerceEmailSweep:async()=>({expired:0,deleted:0}),syncGitHub:async()=>{calls.push('github');return {requests:0,repositories:0,items_upserted:0,not_modified:0,stop_reason:'completed'};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
     await handler.scheduled({},{} as WorkerEnv,{waitUntil:p=>pending.push(p)});await Promise.all(pending);assert.deepEqual(logs,['commerce_sweep_failed']);assert.deepEqual(calls,['github','end']);
   }finally{console.error=original;}
 });
@@ -38,6 +40,7 @@ test('review 3: quarantine recovery applies verified payments before sweeping ho
   const calls: string[] = [], pending: Promise<unknown>[] = [];
   const handler = createWorkerHandler({
     createPool: () => ({ end: async () => {} }) as unknown as Pool,
+    commerceDueWork: idleDueWork,
     commerceApplyDeferred: async () => { calls.push('payments'); return { applied: 0, failed: 0, skipped: 0 }; },
     commerceSweep: async () => { calls.push('holds'); return 0; },
     commerceEmailSweep: async () => ({ expired: 0, deleted: 0 }),
@@ -56,6 +59,7 @@ test('review 8: deferred partial failure logs only its fixed name and counts bef
   try {
     const handler = createWorkerHandler({
       createPool: () => ({ end: async () => {} }) as unknown as Pool,
+      commerceDueWork: idleDueWork,
       commerceApplyDeferred: async () => ({ applied: 1, failed: 1, skipped: 1 }), commerceSweep: async () => 0,
       commerceEmailSweep: async () => ({ expired: 0, deleted: 0 }),
       syncGitHub: async () => ({ requests: 0, repositories: 0, items_upserted: 0, not_modified: 0, stop_reason: 'completed' }),
@@ -73,6 +77,7 @@ test('scheduled runs commerceEmailSweep with { limit: 500 } outside quarantine a
     const pool = { end: async () => {} } as unknown as Pool;
     const handler = createWorkerHandler({
       createPool: () => pool,
+      commerceDueWork: idleDueWork,
       commerceApplyDeferred: async () => ({ applied: 0, failed: 0, skipped: 0 }),
       commerceSweep: async () => 0,
       commerceEmailSweep: async (given, options) => { sweepCalls.push({ pool: given, options }); return { expired: 0, deleted: 0 }; },

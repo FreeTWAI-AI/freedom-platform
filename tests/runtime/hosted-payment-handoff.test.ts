@@ -238,7 +238,9 @@ for (const phase of ['checkout', 'placement'] as const)
         quantity = 1;
       if (scenario.reason === 'amount_above_maximum')
         basePorts.shipping = syntheticShippingPort({ fee_per_parcel_minor: 99999999900 });
-      f.install({ commercePorts: { ...basePorts, ...(phase === 'placement' ? { payment: undefined } : {}) } });
+      // Freeze the invalid terms without either quote-time card gate, then restore
+      // both real ports so placement must reject them without partial effects.
+      f.install({ commercePorts: { ...basePorts, ...(phase === 'placement' ? { payment: undefined, paymentMethods: undefined } : {}) } });
       const input = { ...f.x.input(s.product.sku, quantity), publication_revision: revision };
       let response = await f.http('POST', f.root(s) + '/checkouts', input, undefined, { 'Idempotency-Key': randomUUID() });
       if (phase === 'placement') {

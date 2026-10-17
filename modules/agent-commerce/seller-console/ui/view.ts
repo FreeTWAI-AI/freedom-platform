@@ -19,6 +19,11 @@ export const NOT_ALLOWED='你沒有這個操作的權限';
 export const permissionHelp='請聯絡商店擁有者或管理員授予權限。';
 export function amountToMinor(value:string,currency:string){if(!['TWD','USD'].includes(currency)||!/^\d+$(?![\s\S])/.test(value))throw Error('請輸入大於 0 的整數金額。');return parseMajorToMinor(value);}
 export const setupNext:Record<string,string>={
+ logistics_credentials_required:'請先設定綠界物流金鑰，再新增物流服務。',
+ logistics_service_exists:'已有相同的物流服務，請更新服務清單。',
+ logistics_service_not_found:'找不到這個物流服務，請更新服務清單。',
+ logistics_service_state:'物流服務狀態已改變，請更新資料後確認可用操作。',
+ logistics_service_conflict:'已有相同類型的啟用物流服務，請先暫停舊服務。',
  store_upgrade_unavailable:'目前無法升級，請更新商店版本資訊。',
  provider_account_not_found:'找不到這個收款帳戶，請更新帳戶清單。',
  provider_profile_invalid:'收款設定檔與服務用途不符，請重新設定。',

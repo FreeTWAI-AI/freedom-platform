@@ -381,6 +381,30 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   本機 serial runtime 在中止前有 107 個通過標記、零失敗標記，但不是全套通過。
   修正後仍須驗證完整 retarget／還原、typecheck、最終來源完整 CI／CodeQL 與 serial runtime。
 
+### 2026-10-17：離線／運費整合後的完整 runtime 修正
+
+- `ec3adc97` 的 CodeQL 已通過。Verify `39002910800` 的八份 runtime 與 aggregate ZIP
+  均核對 digest、candidate `91aa27e4`、父節點及 426 檔來源；6,254 案有 11 案失敗，
+  沒有 skip／todo／cancelled。最長分區 1,150.196 秒，沒有觸及 1,500 秒上限。
+  分區 1 的 871 案雖全過，DROP 後仍觀察到 database_present，清理不合格，aggregate 失敗。
+  其 checkpoint 僅 0.098 秒；後續 DROP 的 query_read_timeout 原因未確定，未改清理期限或 guard。
+- 同一乾淨 `ec3adc97` 重現四份 Commerce 檔案 104/114、賣家 view 17/18。
+  排程 fixture 沒有注入新增離線到期工作會用到的 due-work port；補齊隔離 port，保留 exact log、
+  quarantine 與後續工作斷言。Worker 及真實 offline expiry 不改回依賴金流金鑰。
+- 准入 fixture 接上實際卡片付款 port 與同一封存 keyring，金額符合原有 5 元最低額；保留獨立管理員、
+  跨社群拒絕、撤銷准入後讀取保留訂單與到期釋放。下單階段的四種不合法條款 fixture 在凍結時隔離
+  兩個 quote-time gate，下單前還原實際 ports，原 409 中文訊息及零副作用斷言全部保留。
+- 買家付款頁的卡片 DTO fixture 補齊 `payment_method`、nullable `payment_grace_until` 與
+  `offline_instructions`。賣家既有警示區補齊五個物流錯誤的下一步提示，不改頁面結構或 API 權限。
+- 修正後 typecheck 與八份相關 runtime **212/212** 通過（192.84 秒，零 skip／todo／cancelled），
+  包含真實離線到期、due work 與結帳核心；所屬磁碟 PostgreSQL 容器及 volume 已清理。
+  build 及付款／賣家 browser **22/22** 通過（43.1 秒，零重試／skip）；五種物流提示在既有
+  警示區的前後畫面各 1 案通過，390／768／1440 均無橫向溢出，桌面、平板與手機截圖已檢視。
+  首次額外視覺腳本因外部 config 的相對工作目錄在啟動測試前拒絕；修正腳本 cwd 後執行，原錯誤保留。
+  完整 serial runtime、新 head 全部必要 CI 與 code-owner 審查仍須各自完成。
+  舊完整 serial runtime 因已知 Commerce 阻塞中止，保留中止前五項實際失敗，不把中止後的 pending
+  promise 訊息當新案例失敗，也不宣稱整輪通過。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |
