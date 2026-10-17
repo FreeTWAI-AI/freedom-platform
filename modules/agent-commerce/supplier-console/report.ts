@@ -20,17 +20,23 @@ async function reservationOwner(q:PoolClient,actor:Actor,context:TenantScopeCont
   return eligible.rowCount===1;
 }
 function reportSql({owner,detail}:{owner:boolean;detail:boolean}) {
+  // Keep the order lookup parameterized by each scoped line. Without this
+  // boundary, stale statistics can choose a supplier-wide line scan for every
+  // order (quadratic work), even though both sides have exact-key indexes.
   const lines=owner?`,report_lines AS (
     SELECT o.order_id,o.created_at,o.expires_at,o.closed_at,o.public_shop_id AS partner_id,retail.name AS partner_name,
       line.item_id,line.selection_id,line.hosted_offer_id AS offer_id,line.snapshot->>'sku' AS sku,line.snapshot->>'title' AS title,
       line.quantity,(offer.terms->>'cost_minor')::bigint AS unit_supply_price_minor,offer.terms->>'currency' AS currency,
       CASE WHEN o.reservation_state='reserved' AND o.expires_at<=report_clock.at THEN 'expired' ELSE o.reservation_state END AS state
     FROM report_clock,commerce_order_lines line
-    JOIN commerce_orders o ON o.order_id=line.order_id AND o.order_profile=line.order_profile
+    JOIN LATERAL (
+      SELECT o.order_id,o.created_at,o.expires_at,o.closed_at,o.public_shop_id,o.reservation_state
+      FROM commerce_orders o WHERE o.order_id=line.order_id AND o.order_profile=line.order_profile
+        AND o.created_at>=$5::timestamptz AND o.created_at<$6::timestamptz OFFSET 0
+    ) o ON true
     JOIN offers offer ON offer.offer_id=line.hosted_offer_id AND offer.item_id=line.item_id
     JOIN commerce_shops retail ON retail.shop_id=o.public_shop_id AND retail.origin='hosted'
-    WHERE line.supplier_shop_id=$3 AND line.hosted_offer_id IS NOT NULL AND line.order_profile='hosted_shared_reservation'
-      AND o.created_at>=$5::timestamptz AND o.created_at<$6::timestamptz)` : '';
+    WHERE line.supplier_shop_id=$3 AND line.hosted_offer_id IS NOT NULL AND line.order_profile='hosted_shared_reservation')` : '';
   return `/* supplier-console:${detail?'report-csv':'report'} */ WITH report_clock AS (
       SELECT date_trunc('milliseconds',statement_timestamp()) AS at,$5::timestamptz AS period_start,$6::timestamptz AS period_end),
     ${own},${offers},${selections},${products},${partners}${lines}

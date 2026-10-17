@@ -84,7 +84,7 @@
 | `SC-E2E-20`～`26` | `tests/e2e/supplier-console-recovery.spec.ts` | 回應遺失後重試、未確認時離開、兩個分頁的 412、庫存低於預留、概覽讀取失敗、登出後晚到、權限撤回（AT-06、07、08、29、34、36、37） |
 | `SC-E2E-30`～`32` | `tests/e2e/supplier-console-navigation.spec.ts` | 事業切換時晚到的讀取、200 件商品的清單與返回位置、鍵盤與焦點（AT-03、09、10、30、41） |
 | `SC-E2E-40` | `tests/e2e/supplier-console-visual.spec.ts` | 五種寬度與五種外觀的版面檢查與截圖（AT-40） |
-| `SC-API-25`～`36` | `tests/runtime/supplier-console-report.test.ts` | S3 報表：台灣日界與期間、與清單同一定義、到期不結算、只含被查詢的供應商、owner 與能力、CSV 版面與防公式注入、10,000／10,001 列、失敗不變成 0 或部分 CSV、未設定時沿用原拒絕、畫面最多 200 家而 CSV 列全部店家（AT-04、29、30、32） |
+| `SC-API-25`～`36` | `tests/runtime/supplier-console-report.test.ts` | S3 報表：台灣日界與期間、與清單同一定義、到期不結算、只含被查詢的供應商、owner 與能力、CSV 版面與防公式注入、10,000／10,001 列；`33` 另以未更新統計的隔離資料、原受限角色與實際 EXPLAIN buffer 次數防止每張訂單重掃全部行項，不以放寬逾時通過；失敗不變成 0 或部分 CSV、未設定時沿用原拒絕、畫面最多 200 家而 CSV 列全部店家（AT-04、29、30、32） |
 | `SC-UI-S3-01`～`16` | `tests/runtime/supplier-console-state.test.ts` | S3 報表頁：期間連結、導覽、CSV 下載的會話與逾時、失敗與 409 不顯示數字、非 owner 沒有預留列 |
 | `SC-09` | `tests/runtime/supply-materials.test.ts` | S3 素材紀錄：形狀與自有商品、命令與版本、重播與 CAS、撤回、上限、授權只給目前合作店家、合作店家投影、權限與私人標頭、旗標關閉時 404 |
 | （SQL） | `tests/runtime/supply-materials-sql.test.ts` | migration 171：版本只增不改、授權列唯一與撤銷一次、用途預設關、媒體投影綁完整 Asset／物件、受限角色下身分欄位不可改 |

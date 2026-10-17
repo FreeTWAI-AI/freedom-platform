@@ -85,6 +85,9 @@ before(async()=>{
   const url=process.env.TEST_DATABASE_URL;
   assert.ok(url&&['127.0.0.1','localhost'].includes(new URL(url).hostname)&&new URL(url).pathname.startsWith('/fp_'));
   h=await createRegistryHarness('fp_supplier_report');
+  // Retain the fresh-install statistics state for the bulk-history regression.
+  // These two tables belong only to this disposable harness schema.
+  await h.pool.query('ALTER TABLE commerce_orders SET (autovacuum_enabled=false); ALTER TABLE commerce_order_lines SET (autovacuum_enabled=false)');
   await h.admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;
     GRANT USAGE ON SCHEMA ${h.schema} TO ${role}; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${h.schema} TO ${role};
     GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${h.schema} TO ${role}; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${h.schema} TO ${role}`);
@@ -422,6 +425,18 @@ test('SC-API-33 exactly 10000 CSV data rows succeed and 10001 fail as JSON probl
   const fixtureStart=performance.now();await historicalCopies(source,Array(9997).fill(source.created_at),true);
   t.diagnostic(`Set-based 9997-row fixture: ${Math.round(performance.now()-fixtureStart)} ms`);
   const r=(await report(a)).data;assert.equal(r.csv_rows,10000);assert.equal(r.reservations.cancelled.lines,9997);
+  // Bound database work rather than elapsed time: a bad join can scan all
+  // supplier lines once per order and still pass on a fast/quiet machine.
+  const snapshot=statements[0],principal=(await h.pool.query('SELECT principal_id FROM principals WHERE user_ref=$1',[a.owner.user.user_id])).rows[0].principal_id;
+  const q=await runtime.connect();
+  try {
+    await q.query('BEGIN');
+    await q.query("SELECT set_config('freedom.tenant_id',$1,true),set_config('freedom.principal_id',$2,true)",[a.tenantId,principal]);
+    const explained=await q.query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) '+snapshot.text,snapshot.values);
+    const plan=explained.rows[0]['QUERY PLAN'][0].Plan,blocks=plan['Shared Hit Blocks']+plan['Shared Read Blocks'];
+    t.diagnostic(`10000-row report plan shared buffer accesses: ${blocks}`);
+    assert.ok(blocks<1_000_000,`report must avoid quadratic scans: ${blocks} shared buffer accesses`);
+  } finally {try{await q.query('ROLLBACK');}finally{q.release();}}
   const rows=parseCsv(await csvBody(await report(a,true)));
   assert.equal(section(rows,'商品').length+section(rows,'合作店家').length+section(rows,'預留行項').length,10000);assertSummary(rows,r);
   await historicalCopies(source,[source.created_at],true);
