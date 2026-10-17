@@ -28,10 +28,10 @@ const get=(s:Store,path:string,session=s.owner,target=app)=>h.call('GET',s.root+
 const send=(s:Store,path:string,body:unknown={},version?:string,method='POST',session=s.owner)=>
   h.call(method,s.root+path,session,body,{'Idempotency-Key':randomUUID(),...(version?{'If-Match':`"${version}"`}:{})},app);
 const profileRow=async(s:Store)=>(await h.pool.query('SELECT * FROM commerce_storefront_profiles WHERE instance_id=$1',[s.instanceId])).rows[0];
-async function open(name:string,guild=supplierGuild,owner?:Session):Promise<Store> {
+async function open(name:string,guild=supplierGuild,owner?:Session,release='hosted-store@1.0.0'):Promise<Store> {
   owner??=(await h.person(name)).session;await h.fullMember(owner.user.user_id,guild);
   const {tenantId,workspaceId}=await h.createTenant(owner,name);
-  const planned=await h.plan(owner,tenantId,h.planBody(guild,workspaceId,'hosted-store','hosted-store@1.0.0'));ok(planned,201);
+  const planned=await h.plan(owner,tenantId,h.planBody(guild,workspaceId,'hosted-store',release));ok(planned,201);
   const launched=await h.launch(owner,tenantId,planned);assert.ok([200,202].includes(launched.status),JSON.stringify(launched.data));
   assert.equal(launched.data.state,'succeeded');
   const instanceId=(await h.pool.query("SELECT instance_id FROM module_instances WHERE tenant_id=$1 AND module_key='storefront'",[tenantId])).rows[0].instance_id;
@@ -343,4 +343,22 @@ test('SC-09 partner lists bound at 200 with deterministic ties and refuse corrup
   const page=await visible(b);assert.equal(page.items.length,200);assert.equal(page.truncated,true);
   assert.deepEqual(page.items.map((m:any)=>m.material_id),[m.material_id,...extra.map(m=>m.material_id)].sort().slice(0,200));
   fault=r=>{r.items[0].current.content={kind:'copy',body:''};};ok(await get(b,'/partner-materials'),500);fault=undefined;
+});
+
+// Historical 1.0.0 fixtures above stay intact; new installations use the current release.
+test('SC-09 current 1.1.0 material cooperation works with Commerce console and checkout OFF',async()=>{
+  for(const guild of [supplierGuild,retailGuild])await h.pool.query(`INSERT INTO guild_application_offerings
+    (offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+    VALUES($1,$2,$3,'hosted-store','hosted-store@1.1.0','offered',10,'{"policy_key":"hosted-store.launch","version":"1"}',1)
+    ON CONFLICT (community_id,guild_key,application_key,release_ref) DO NOTHING`,[randomUUID(),DEMO_COMMUNITY,guild]);
+  const site=ok(await h.call('GET','/site',undefined,undefined,{},app));
+  assert.equal(site.supplier_console_enabled,true);assert.equal(site.commerce_console_enabled,false);assert.equal(site.commerce_checkout_enabled,false);
+  const a=await open('新版供應',supplierGuild,undefined,'hosted-store@1.1.0'),b=await open('新版零售',retailGuild,undefined,'hosted-store@1.1.0');
+  for(const s of [a,b])assert.equal((await h.pool.query('SELECT module_release_ref FROM module_instances WHERE instance_id=$1',[s.instanceId])).rows[0].module_release_ref,'storefront@1.1.0');
+  ok(await send(a,'/supply-profile',{...catalog,name:'新版供應'}),201);
+  ok(await send(b,'/setup',{name:'新版零售',slug:`current-${randomUUID().slice(0,12)}`,currency:'TWD'}),201);
+  const item=await supplyProduct(a),o=await offer(a,item);await accept(a,await propose(b,o));
+  const m=await mutation(a,await make(a,materialInput('copy',item.product_id)),'/grants',{partner_ids:[await partnerId(b)]});
+  const view=await visible(b);assert.deepEqual(view.items.map((m:{material_id:string})=>m.material_id),[m.material_id]);assert.equal(view.items[0].current!.content.kind,'copy');
+  ok(await get(b,'/checkout-orders'),404);assert.equal((await h.pool.query('SELECT count(*)::int AS n FROM commerce_checkout_orders')).rows[0].n,0);
 });

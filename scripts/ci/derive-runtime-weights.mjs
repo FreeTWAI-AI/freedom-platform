@@ -19,7 +19,11 @@ function parseArgs(argv) {
       args.costsOutput = argv[i + 1];
       i += 2;
     } else if (argv[i] === '--log' && i + 1 < argv.length) {
-      args.logs.push(argv[i + 1]);
+      args.logs.push({ file: argv[i + 1], partial: false });
+      i += 2;
+    } else if (argv[i] === '--partial-log' && i + 1 < argv.length) {
+      // A timed-out partition: only its completed files are measured.
+      args.logs.push({ file: argv[i + 1], partial: true });
       i += 2;
     } else {
       return null;
@@ -38,7 +42,7 @@ if (!args) {
 }
 
 const maps = [];
-for (const logFile of args.logs) {
+for (const { file: logFile, partial } of args.logs) {
   let text;
   try {
     text = fs.readFileSync(logFile, 'utf8');
@@ -47,7 +51,7 @@ for (const logFile of args.logs) {
     process.exit(1);
   }
   try {
-    const map = parseProgressLog(text);
+    const map = parseProgressLog(text, { partial });
     if (map.size === 0) {
       process.stderr.write(`Empty final segment in log: ${logFile}\n`);
       process.exit(1);

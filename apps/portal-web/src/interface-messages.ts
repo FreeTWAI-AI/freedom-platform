@@ -2,6 +2,15 @@
 // All supported languages must have the same keys. Member-authored content is
 // not an interface message and must never be substituted by this catalog.
 export const interfaceMessages = {
+  'sellerConsole.orders':["訂單", "Orders", "注文", "주문", "Pedidos"],
+  'sellerConsole.order':["訂單詳情", "Order details", "注文詳細", "주문 상세", "Detalles del pedido"],
+  'sellerConsole.reservations':["舊版預留", "Legacy reservations", "旧版の予約", "이전 예약", "Reservas anteriores"],
+  'sellerConsole.payments':["收款與對帳", "Payments and reconciliation", "入金と照合", "수금 및 대사", "Cobros y conciliación"],
+  'sellerConsole.case':["付款例外", "Payment exception", "支払い例外", "결제 예외", "Incidencia de pago"],
+  'sellerConsole.settings':["商店設定", "Store settings", "店舗設定", "매장 설정", "Configuración de la tienda"],
+  'sellerConsole.settings-payments':["收款設定", "Payment settings", "入金設定", "수금 설정", "Configuración de cobros"],
+  'sellerConsole.not-allowed':["沒有權限", "Access denied", "権限がありません", "권한 없음", "Sin permiso"],
+
   'supplierConsole.overview':["營運概覽", "Overview", "運営概要", "운영 개요", "Resumen"],
   'supplierConsole.products':["商品與庫存", "Products and stock", "商品と在庫", "상품 및 재고", "Productos e inventario"],
   'supplierConsole.product-new':["新增商品", "New product", "商品追加", "상품 추가", "Nuevo producto"],

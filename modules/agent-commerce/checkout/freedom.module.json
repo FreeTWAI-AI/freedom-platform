@@ -1,0 +1,43 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "hosted-checkout",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/checkout/**",
+    "migrations/168_hosted_checkout_core.sql",
+    "tests/runtime/hosted-checkout-core.test.ts",
+    "tests/runtime/hosted-checkout-races.test.ts",
+    "tests/runtime/hosted-checkout-schema.test.ts",
+    "tests/runtime/hosted-checkout-harness.ts",
+    "apps/platform-api/src/routes/hosted-checkout.ts",
+    "contracts/guild-launchpad/v1/hosted-checkout.ts",
+    "contracts/guild-launchpad/v1/hosted-checkout.schema.json",
+    "tests/runtime/hosted-checkout-http.test.ts",
+    "tests/runtime/commerce-rate-limits.test.ts",
+    "tests/runtime/hosted-checkout-contracts.test.ts",
+    "tests/runtime/hosted-checkout-purchase-state.test.ts",
+    "apps/platform-api/src/routes/hosted-seller-checkout.ts",
+    "contracts/guild-launchpad/v1/hosted-seller-checkout.ts",
+    "contracts/guild-launchpad/v1/hosted-seller-checkout.schema.json",
+    "tests/runtime/hosted-seller-checkout-orders.test.ts",
+    "tests/runtime/hosted-seller-exceptions.test.ts",
+    "tests/runtime/hosted-seller-contracts.test.ts"
+  ],
+  "public_exports": [
+    "modules/agent-commerce/checkout/index.ts"
+  ],
+  "dependencies": [
+    "agent-commerce"
+  ],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "modules/agent-commerce/checkout/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-03-order-inventory.md"
+  ],
+  "invariants": [],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

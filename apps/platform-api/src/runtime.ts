@@ -1,4 +1,11 @@
 import type { SupplyMaterialAssets } from '../../../modules/agent-commerce/supplier-console/material-media.js';
+import type {PaymentQueryTransport} from '../../../modules/agent-commerce/payments/query-transport.js';
+import type {EffectJournalPort} from '../../../modules/agent-commerce/operations/journal/journal.js';
+import type {EcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
+import type {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
+import type {CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
+import type {CheckoutPorts} from '../../../modules/agent-commerce/checkout/terms.js';
+import type {CommerceEmailOutbox,CommerceEmailSender} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
 import type { StorePhotoAssets } from '../../../modules/agent-commerce/hosted/photo-commands.js';
 import type { TenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { PublicGuideAssets } from '../../../packages/public-guide-assets/index.js';
@@ -26,6 +33,15 @@ export const SHARED_NETWORK_KEY = 'shared-server';
  * bindings, so no configuration is shared through process-wide state.
  */
 export type PlatformRuntime = {
+  afterResponse?:(work:()=>Promise<void>)=>void;
+  commerceQueryTransport?:PaymentQueryTransport;
+  commercePayments?:{gateway?:EcpayPaymentGateway;journal:EffectJournalPort;profiles:readonly string[]};
+  commerceJournal?:EffectJournalPort;
+  commerceEmailSender?:CommerceEmailSender;
+  commerceSettings?:CommerceSettings;
+  commerceCredentialKeyring?:CommerceCredentialKeyring|null;
+  commerceProviderEnvironment?:'sandbox'|'live';
+  commercePorts?:CheckoutPorts & {email?:CommerceEmailOutbox};
   /** Explicit upgrade policy. Absence closes shop-key operations; never allows legacy. */
   shopKeyPolicy?: 'legacy-compatible'|'purpose-bound-only';
   /** Independently installed read-only platform-public guide release. Never MEDIA. */

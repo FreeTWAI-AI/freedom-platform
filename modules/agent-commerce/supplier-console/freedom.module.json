@@ -7,7 +7,7 @@
     "apps/platform-api/src/routes/hosted-supplier-console.ts",
     "apps/platform-api/src/routes/hosted-supply-materials.ts",
     "apps/platform-api/src/routes/hosted-supply-material-media.ts",
-    "migrations/168_supply_materials.sql",
+    "migrations/171_supply_materials.sql",
     "contracts/guild-launchpad/v1/supplier-console.ts",
     "contracts/guild-launchpad/v1/supplier-console.schema.json",
     "tests/runtime/supplier-console.test.ts",

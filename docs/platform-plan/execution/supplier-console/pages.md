@@ -95,7 +95,7 @@
 ### SC-09 行銷素材（S3）
 
 - **操作**：清單 `…/materials`（有效素材在前、業務空間容量）、新增 `…/materials/new`、詳情 `…/materials/<material_id>`。可建立圖片、影片或文案素材，對象是某個自有商品或整個品牌；上傳新版本（圖片超過 2 MiB 先在裝置上縮小；影片由供應商先壓好，瀏覽器不處理）、改標題與說明、改文案、設定「僅授權合作店家」或「可用在公開店面」（需在對話框明示）、逐店授權與撤銷、撤回素材。
-- **資料**：`GET R/supply-materials`、`GET R/supply-materials/:material_id`；命令與檔案路由見 [SC-SPEC-04 §4](SC-SPEC-04-materials-settings-reports.md#4-s3合作素材sc-09)。表是 `supply_materials`／`_versions`／`_grants`（migration 168，暫定編號），檔案沿用 Asset intent／finalize／ObjectStore，經 API 讀取，不發永久 URL。用途見 work-plan D-05 圖片、D-14 影片。
+- **資料**：`GET R/supply-materials`、`GET R/supply-materials/:material_id`；命令與檔案路由見 [SC-SPEC-04 §4](SC-SPEC-04-materials-settings-reports.md#4-s3合作素材sc-09)。表是 `supply_materials`／`_versions`／`_grants`（migration 171），檔案沿用 Asset intent／finalize／ObjectStore，經 API 讀取，不發永久 URL。用途見 work-plan D-05 圖片、D-14 影片。
 - **權限**：`write`；只有 `read` 時說明原因，不送讀取。
 - **狀態**：上傳結果不明時，素材頁與頂部橫幅都鎖住同一個操作，只允許「重試原操作」，離開前會提醒；切換事業或登出後舊回應不會填進新畫面。讀不到容量時寫明「容量暫時無法確認」，不顯示 0。
 - **導覽與旗標**：在「管理」群組，需要 `write`。`supply_material_uploads_enabled` 為假時寫明「這個環境未開放素材檔案上傳」，不顯示選檔欄位；`supply_material_media_enabled` 為假時不顯示預覽與「開啟檔案」。文案素材不受這兩個旗標影響。

@@ -34,7 +34,11 @@ Order receipts still return only the order reference and recheck current
 authority. Order, all lines, holds, physical balance, journal and receipt commit
 in the same SQL transaction. Deferred database checks require each hosted
 order's holds to match its immutable lines and state, and each hosted item's
-reserved balance to equal its active holds. Imported commerce is excluded.
+reserved balance to equal H + A: active holds plus remaining paid allocations.
+Migration 168 adds the hosted_checkout profile and retained allocations/movements;
+v1 reservations still produce H only. `inventoryPositions(q, itemIds)` returns
+stock, held, allocated and available after checking that equality; callers must
+authorize the item IDs before using it. Imported commerce is excluded.
 Cancellation and expiry use retained supply provenance even after withdrawal;
 current offer availability must not prevent releasing an existing reservation.
 

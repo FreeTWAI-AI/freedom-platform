@@ -17,7 +17,7 @@ function fixture() {
    observation:{evidence_id:'synthetic-shared-observation',target,observed_at_ms:9999,schema_ledger:scan.ledger,schema_ledger_digest:scan.ledger_digest,
     enabled_shapes:[],written_shapes:[],active_releases:[active],complete:true},
    release_records:[active,candidate].map(identity=>({...identity,evidence_id:'synthetic-shared-approval',status:'approved',environments:['staging-next'],
-    schema_ledger_digests:[scan.ledger_digest],capabilities:['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1',shape],approved_at_ms:9000,expires_at_ms:11000}))}};
+    schema_ledger_digests:[scan.ledger_digest],capabilities:['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1',shape],approved_at_ms:9000,expires_at_ms:11000}))}};
 }
 function run(f){const r=evaluateReleaseCompatibility(f.input,{scan:f.scan,host:f.host});
  for(const field of ['deployment_authority','restore_proof','execution_authority'])assert.equal(r[field],false);return r;}

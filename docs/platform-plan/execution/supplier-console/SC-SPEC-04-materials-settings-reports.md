@@ -81,7 +81,7 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 
 公開店面目前沒有影片欄位，所以第一版的影片只供合作店家在後台預覽與下載；D-11 的「發布時複製」只適用圖片。
 
-### 資料表（migration `168_supply_materials.sql`，合併前的暫定編號）
+### 資料表（migration `171_supply_materials.sql`）
 
 | 表 | 主要欄位 | 規則 |
 | --- | --- | --- |
@@ -91,7 +91,7 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 
 三張表都有 tenant RLS policy，另外各有一條合作店家只讀的 policy；資料責任目錄（`modules/module-data/catalog.ts`）登記了三張表與兩個用途。`assets`／`asset_objects` 仍沒有 RLS，由讀取 SQL 綁定 tenant 與物件身分。
 
-編號規則：Commerce 的 168／169 若先合併，S3 改用當時最小的可用號（至少 170），並同步改 `FOUNDATION_NAMES`、migration-plan 測試的最後一筆，以及 release-compatibility 中 `media.supply-material.asset.v1` 的 migration 下限。已發布的 SQL 不改寫。
+2026-10-17 整合固定 main `1ae0d0a4`：Commerce 已使用 168–170，S3 由未發布的暫定 168 改為 171，SQL bytes 不變；`FOUNDATION_NAMES`、migration-plan 最後一筆與 release-compatibility 下限同步為 171。已發布的 SQL 不改寫。
 
 上傳與照片相同：沿既有 intent／容量／媒體檢查／ObjectStore／finalize。`tenant-capacity.ts` 的用途清單已加入兩個新用途，有測試防止素材不計容量。未完成的上傳先預留容量：圖片 1 MiB、影片 20 MiB；存好後改計實際大小。舊版本、未完成或過期的上傳都繼續計入；撤回素材或找不到物件都不釋放容量。每個業務空間預設 100 MiB（`docs/development/tenant-capacity-policy.md`），大約只放得下五支 20 MiB 的影片；第一版沿用預設，畫面在上傳前顯示剩餘容量，要調大另外提。容量不足時回 429 `quota_exceeded`（業務空間共用額度）或 409 `asset_retained_quota`（素材用途自己的額度）。
 
@@ -103,7 +103,7 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 | 素材檔案讀取 | `FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED`；`/api/v1/site` 的 `supply_material_media_enabled` | 關 | Worker 需要 `MEDIA` binding 與 supplier console；沒安裝時檔案路由回 404 |
 | 新上傳 | `FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED`；`supply_material_uploads_enabled` | 關 | 另需檔案讀取已安裝與 `IMAGES` binding；關閉時新上傳回 503 `material_upload_unavailable`，原本成功的上傳仍可用同一個 key 重播結果 |
 | storage policy | `domain_media_storage_policy` 兩列 | `legacy`、不允許保存 | 營運者另外核准 revision 與容量後才可能啟用 |
-| release capability | `media.supply-material.asset.v1`（migration 下限 168） | — | 不能退回看不懂新用途的 reader |
+| release capability | `media.supply-material.asset.v1`（migration 下限 171） | — | 不能退回看不懂新用途的 reader |
 
 ### 授權規則
 

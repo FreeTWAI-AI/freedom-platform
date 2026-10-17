@@ -48,6 +48,41 @@ const notify=(input:NotifyMemberInput)=>transaction(pool,q=>notifyMember(q,input
 const count=async(sql:string,values:unknown[]=[])=>(await pool.query(`SELECT count(*)::int AS n FROM ${sql}`,values)).rows[0].n as number;
 const noPrivate=(data:unknown)=>{const text=JSON.stringify(data);for(const needle of ['@local.test','@example.invalid','password','csrf','token_hash','email'])assert.ok(!text.includes(needle),`leaked ${needle}: ${text}`);};
 
+test('direct-message pages, search and conversation previews retain microsecond chronology',async()=>{
+  const a=await signIn(DEMO_USERS[0].email),path=`/me/conversations/${B}/messages`;
+  const older='ffffffff-ffff-4fff-8fff-ffffffffffff',newer='00000000-0000-4000-8000-000000000001';
+  await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+    VALUES($1,$3,$4,$5,'合成 microsecond earlier','2026-10-04T00:00:00.123001Z'),
+      ($2,$3,$4,$5,'合成 microsecond later','2026-10-04T00:00:00.123999Z')`,[older,newer,DEMO_COMMUNITY,B,A]);
+  const latest=await request(`${path}?limit=1`,a),previous=await request(`${path}?limit=1&offset=1`,a);
+  assert.equal(latest.status,200);assert.equal(previous.status,200);
+  assert.deepEqual([latest.data.items[0].message_id,previous.data.items[0].message_id],[newer,older]);
+  assert.deepEqual([latest.data.items[0].created_at,previous.data.items[0].created_at],
+    ['2026-10-04T00:00:00.123999Z','2026-10-04T00:00:00.123001Z']);
+  assert.equal(latest.data.next_offset,1);assert.equal(previous.data.next_offset,null);
+  const search=await request(`${path}/search?q=microsecond&limit=1`,a);assert.equal(search.status,200);
+  assert.equal(search.data.items[0].message_id,newer);assert.equal(search.data.items[0].created_at,latest.data.items[0].created_at);
+  const searchOlder=await request(`${path}/search?q=microsecond&limit=1&cursor=${search.data.next_cursor}`,a);
+  assert.equal(searchOlder.status,200);assert.equal(searchOlder.data.items[0].message_id,older);
+  assert.equal(searchOlder.data.items[0].created_at,previous.data.items[0].created_at);assert.equal(searchOlder.data.next_cursor,null);
+  const conversations=await request('/me/conversations',a);assert.equal(conversations.status,200);
+  assert.equal(conversations.data.items[0].last_message.message_id,newer);
+  assert.equal(conversations.data.items[0].last_message.created_at,latest.data.items[0].created_at);
+  assert.equal(await count('member_direct_messages WHERE read_at IS NOT NULL'),0);assert.equal(await count('command_receipts'),0);
+});
+
+test('direct-message send ACK and original-key replay retain the stored microsecond time',async()=>{
+  const a=await signIn(DEMO_USERS[0].email),path=`/me/conversations/${B}/messages`,key=randomUUID(),body={body:'合成 microsecond ACK'};
+  const sent=await request(path,a,body,{key});assert.equal(sent.status,201);
+  const stored=(await pool.query<{created_at:string}>(`SELECT to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
+    FROM member_direct_messages WHERE message_id=$1`,[sent.data.message_id])).rows[0];
+  assert.equal(sent.data.created_at,stored.created_at);
+  await pool.query(`UPDATE member_direct_messages SET created_at='2026-10-04T00:00:00.123456Z' WHERE message_id=$1`,[sent.data.message_id]);
+  const replay=await request(path,a,body,{key});assert.equal(replay.status,201);
+  assert.equal(replay.data.message_id,sent.data.message_id);assert.equal(replay.data.created_at,'2026-10-04T00:00:00.123456Z');
+  assert.equal(await count('member_direct_messages'),1);assert.equal(await count('command_receipts'),1);
+});
+
 test('conversation search finds older literal text with stable ties and never marks it read',async()=>{
   const [a]=await signInAll(),ids:string[]=[];
   for(let i=0;i<26;i++){

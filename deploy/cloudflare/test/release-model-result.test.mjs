@@ -21,7 +21,7 @@ function fixture() {
       schema_ledger: scan.ledger, schema_ledger_digest: scan.ledger_digest, enabled_shapes: [], written_shapes: [], active_releases: [active], complete: true },
     release_records: [active, candidate].map(identity => ({ ...identity, evidence_id: 'synthetic-approval', status: 'approved',
       environments: ['next'], schema_ledger_digests: [scan.ledger_digest],
-      capabilities: ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', shape, ...prerequisites], approved_at_ms: 9000, expires_at_ms: 11000 })) };
+      capabilities: ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', shape, ...prerequisites], approved_at_ms: 9000, expires_at_ms: 11000 })) };
   return { input: { schema: 'freedom.release-compatibility-request/v1', environment: 'next', candidate, enable_shapes: [] }, scan, host };
 }
 function run(f) {
@@ -32,7 +32,7 @@ function run(f) {
 test('094 schema alone grants neither member consent nor execution capability', () => {
   const f = fixture(); for (const record of f.host.release_records) record.capabilities.splice(record.capabilities.indexOf('work.explicit-wire.v1') + 1);
   assert.equal(run(f).status, 'compatible');
-  assert.deepEqual(run(f).required_capabilities, ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
+  assert.deepEqual(run(f).required_capabilities, ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
 });
 for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes']) for (const binary of [0, 1]) {
   test(`094 ${source} retains exact text/result profile from binary ${binary}`, () => {
