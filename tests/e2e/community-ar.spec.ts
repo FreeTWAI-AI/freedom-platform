@@ -87,11 +87,16 @@ test('AR-UI-05 actual replay camera renders a tracked overlay, captures a photo 
   await page.route('**/_ar-test/positive.webm',route=>route.fulfill({contentType:'video/webm',body:readFileSync(new URL('../fixtures/community-ar/positive.webm',import.meta.url))}));
   await page.addInitScript(()=>{Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{const replay=document.createElement('video');replay.src='/_ar-test/positive.webm';replay.loop=true;replay.muted=true;replay.playsInline=true;await replay.play();await new Promise<void>(resolve=>replay.requestVideoFrameCallback(()=>resolve()));(window as any).arReplay=replay;const stream=(replay as HTMLVideoElement&{captureStream:()=>MediaStream}).captureStream();(window as any).arTestStream=stream;return stream;}});});
   await page.goto(path);await expect(page.getByRole('button',{name:'開啟相機',exact:true})).toBeEnabled();await page.getByRole('button',{name:'開啟相機',exact:true}).click();
-  const acquisitionDeadline=Date.now()+30000;
-  await expect(page.getByRole('link',{name:'查看內容',exact:true})).toBeVisible({timeout:Math.max(1,acquisitionDeadline-Date.now())});
-  // Replay tracking can disappear between the link check and the canvas read.
-  // Require actual painted pixels within the original acquisition deadline.
-  await expect.poll(()=>page.locator('.ar-stage canvas').evaluate(node=>{const c=(node as HTMLCanvasElement).getContext('2d')!;return c.getImageData(0,0,c.canvas.width,c.canvas.height).data.some((v,i)=>i%4===3&&v>0);}),{timeout:Math.max(1,acquisitionDeadline-Date.now())}).toBe(true);
+  // Observe both in one browser turn: replay tracking can disappear between reads.
+  await expect.poll(()=>page.evaluate(()=>{
+    const link=Array.from(document.querySelectorAll<HTMLAnchorElement>('.ar-scanner a')).find(node=>node.textContent?.trim()==='查看內容');
+    const rect=link?.getBoundingClientRect();
+    if(!link||!rect?.width||!rect.height||getComputedStyle(link).visibility!=='visible')return false;
+    const canvas=document.querySelector<HTMLCanvasElement>('.ar-stage canvas');
+    if(!canvas?.width||!canvas.height)return false;
+    const c=canvas.getContext('2d');
+    return c!==null&&c.getImageData(0,0,canvas.width,canvas.height).data.some((v,i)=>i%4===3&&v>0);
+  }),{timeout:30000,intervals:[100]}).toBe(true);
   await page.getByRole('button',{name:'拍照',exact:true}).click();await expect(page.getByRole('img',{name:'剛拍攝的相機與 AR 合成照片'})).toBeVisible();
   await page.getByRole('button',{name:'X',exact:true}).click();await expect(page.getByRole('button',{name:'X',exact:true})).toHaveAttribute('aria-pressed','true');await page.getByRole('button',{name:'Facebook',exact:true}).click();await expect(page.getByRole('button',{name:'Facebook',exact:true})).toHaveAttribute('aria-pressed','true');
   await page.getByRole('button',{name:'暫停相機',exact:true}).click();await expect.poll(()=>page.evaluate(()=>(window as any).arTestStream.getTracks().every((track:MediaStreamTrack)=>track.readyState==='ended'))).toBe(true);
