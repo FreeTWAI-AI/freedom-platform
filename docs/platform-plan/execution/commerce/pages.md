@@ -4,6 +4,14 @@
 
 現況判定：`exists`＝可直接沿用；`partial`＝有基礎、缺主要能力；`missing`＝沒有對應頁面。
 
+## 2026-10-17 後續實作觀察
+
+下表保留 `efaf314d` 的原需求盤點。最新 source 與驗證層級見
+[work-plan 的 #863 合併與離線買家頁紀錄](work-plan.md#2026-10-17-863-合併與離線買家頁補齊)。
+`1ae0d0a4` 已包含 B04、B06、B07／B10 與離線後端；後續買家頁補齊 B05 的聯絡人、
+配送報價、付款方式、凍結確認，以及 B07 的匯款／面交說明、期限與未付款取消。
+超商選店、發票、逐包履約與完整售後仍待完成；本機合成驗證不代表正式啟用或真人驗收。
+
 ## 共同前提
 
 - **公開店面**：`/shops/:slug`、`/shops/:slug/products/:sku` 是 server 產生的 HTML（`modules/agent-commerce/hosted/page.ts:42,58`，路由在 `apps/platform-api/src/routes/hosted-store.ts:130,136`），只連 `/shops.css`；JSON 投影在 `GET /api/v1/public/stores/:slug`（`hosted-store.ts:124`）。不經過 React portal，匿名可讀。

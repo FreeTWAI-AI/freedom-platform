@@ -4,7 +4,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import type { PublicStoreProjection } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { productHtml, storeHtml, storeMissingHtml } from '../../modules/agent-commerce/hosted/page.js';
-import { cartPageHtml } from '../../modules/agent-commerce/storefront/pages.js';
+import { cartPageHtml, checkoutPageHtml } from '../../modules/agent-commerce/storefront/pages.js';
 import { checkoutHarness, ok, ports, type CheckoutHarness } from './hosted-checkout-harness.js';
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 
@@ -314,6 +314,26 @@ test('B04 cart route serves no-store HTML shell identically with checkout on and
   assert.equal(unpubRes.headers.get('set-cookie'), null);
   assert.equal(await unpubRes.text(), storeMissingHtml());
 
+  assert.deepEqual(await tableCounts(), before);
+});
+
+test('B05 is a no-store shell with no order effects and follows store publication visibility', async () => {
+  const s = await x.store(5);
+  const app = makeApp({checkoutEnabled: true});
+  const before = await tableCounts();
+  for (const candidate of [app, x.app]) {
+    const response = await candidate.request(`${x.h.origin}/shops/${s.slug.toUpperCase()}/checkout`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('set-cookie'), null);
+    assert.equal(response.headers.get('x-robots-tag'), 'noindex');
+    assert.equal(await response.text(), checkoutPageHtml({slug: s.slug, name: '合成商店'}));
+  }
+  const missing = await app.request(`${x.h.origin}/shops/no-such-store/checkout`);
+  assert.equal(missing.status, 404);
+  const current = ok(await x.h.call('GET', s.root, s.owner, undefined, {}, x.app));
+  ok(await x.send(s, '/unpublish', {}, current.version));
+  assert.equal((await app.request(`${x.h.origin}/shops/${s.slug}/checkout`)).status, 404);
   assert.deepEqual(await tableCounts(), before);
 });
 

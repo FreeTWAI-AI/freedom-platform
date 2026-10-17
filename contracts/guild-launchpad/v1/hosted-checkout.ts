@@ -105,6 +105,8 @@ export const PublicOrderSchema=z.object({order_ref:OpaqueId,display_number:z.str
   lines:z.array(line.extend({options})).min(1).max(50),merchandise_total_minor:money,discount_total_minor:money,shipping_total_minor:money,total_minor:money,
   payment_state:z.enum(['unpaid','pending','simulated','confirmed','overpaid','refunded']),
   payment_method:PaymentMethodSchema,payment_grace_until:time.nullable(),offline_instructions:OfflineInstructionsSchema.nullable(),
+  /** Frozen public meetup notes; optional for older order response producers. */
+  meetup_notes:z.array(MeetupNoteSchema).max(50).optional(),
   latest_payment_attempt:z.object({attempt_ref:OpaqueId,state:z.enum(['ready','awaiting_result','paid','failed','expired']),created_at:time}).strict().nullable(),can_resume_payment:z.boolean(),contact:contact.nullable(),delivery:object.nullable(),invoice:object.nullable(),redacted:z.boolean(),
 }).strict().refine(v=>v.redacted? v.contact===null&&v.delivery===null&&v.invoice===null:v.contact!==null&&v.delivery!==null,'Invalid redaction projection.')
   .refine(v=>(v.payment_grace_until!==null)===(v.payment_method!=='immediate_card'),'Grace follows the payment method.')
