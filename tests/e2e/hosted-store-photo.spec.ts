@@ -9,6 +9,7 @@ import {navigate,signOut} from './navigation.js';
 import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {ProductViewSchema} from '../../contracts/guild-launchpad/v1/storefront.js';
 import {ProductMediaCommandSchema,PublicStoreMediaSchema} from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
+import {DistributionPhotosSchema,PartnerMaterialsSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
 
 // Dedicated local schema + restricted runtime + real Sharp; FakeObjectStore is the only synthetic media provider.
 test.setTimeout(90_000);
@@ -2216,4 +2217,325 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   const evidence = info.outputPath('material-switch-evidence.json');
   await writeFile(evidence, JSON.stringify({observed, signatures: [sig1, sig2], before, after1, after2}, null, 2));
   await info.attach('material-switch-evidence', {path: evidence, contentType: 'application/json'});
+});
+
+async function draftWebp() {
+  return sharp({create:{width:12,height:8,channels:3,background:'#234863'}}).webp().toBuffer();
+}
+
+function isExpectedBrowserAbort(error:unknown, request:Request): boolean {
+  const failure = request.failure()?.errorText ?? '';
+  if (failure === 'net::ERR_ABORTED') return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /net::ERR_ABORTED|Request aborted/.test(message);
+}
+
+function privateProjection(store:{hash:string;root:string}, productId:string, sku:string, title:string, bytes:Buffer) {
+  const [tenant, instance] = store.hash.split('/').slice(1);
+  const readPath = `/api/v1/tenants/${tenant}/storefronts/${instance}/distribution-photos/${productId}/photo/1`;
+  const list = DistributionPhotosSchema.parse({items:[{
+    product_id:productId, sku, title, version:'1', state:'source_unavailable',
+    photo:{content_type:'image/webp', byte_size:bytes.length, width:12, height:8, read_path:readPath},
+    source:null, latest:null,
+  }]});
+  const materials = PartnerMaterialsSchema.parse({
+    profile:'freedom.partner-materials/v1', tenant_id:tenant, instance_id:instance, as_of:'2026-10-16T12:00:00.000Z',
+    items:[{
+      material_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', kind:'image', supplier_name:'合成供應商',
+      subject:{kind:'brand'}, applies_to:[productId], title:'合成公開素材', description:'', access:'public_use',
+      current:{
+        version_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc', version_no:1, created_at:'2026-10-16T12:00:00.000Z',
+        content:{kind:'image', content_type:'image/webp', byte_size:bytes.length, width:12, height:8},
+      },
+    }],
+    truncated:false,
+  });
+  return {list, materials, readPath, listPath:`/api/v1${store.root}/distribution-photos`, materialsPath:`/api/v1${store.root}/partner-materials`};
+}
+
+test('SC-E2E-82 a denied distribution-photo read clears the private projection; an authorized unavailable source stays', async ({page, e2eAuthPool}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const s = await ready(page, e2eAuthPool);
+  const title = `私有草稿 ${suffix}`;
+  const bytes = await draftWebp();
+  const projection = privateProjection(s, s.product.product_id, s.product.sku, title, bytes);
+  const posts: string[] = [];
+  page.on('request', request => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.includes('/distribution-photos')) posts.push(new URL(request.url()).pathname);
+  });
+  let listStatus: 200 | 403 | 404 = 200;
+  await page.route(url => {
+    const path = new URL(url).pathname;
+    return path === projection.listPath || path === projection.materialsPath || path === projection.readPath;
+  }, async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== 'GET') return route.continue();
+    if (path === projection.readPath) return route.fulfill({status:200, contentType:'image/webp', body:bytes});
+    if (path === projection.materialsPath) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.materials)});
+    if (listStatus === 200) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.list)});
+    return route.fulfill({status:listStatus, contentType:'application/json', body:JSON.stringify({type:'about:blank', title:'denied', status:listStatus, code:'forbidden', detail:'合成讀取被拒'})});
+  });
+  await storeArea(page, '供貨合作');
+  const panel = sellerPartnerMaterials(page);
+  await expect(panel.getByText(title, {exact:true})).toBeVisible();
+  await expect(panel.getByText('合成公開素材')).toBeVisible();
+  await expect(panel.locator('img.distribution-photo-thumb')).toHaveCount(2);
+  await expect.poll(() => panel.locator('img.distribution-photo-thumb').first().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+  await expect(panel.getByRole('button', {name:'停止使用', exact:true}).first()).toBeEnabled();
+  await panel.getByRole('button', {name:'改用這個素材', exact:true}).click();
+  const dialog = page.getByRole('dialog', {name:'把這張素材用在公開店面？', exact:true});
+  await expect(dialog).toContainText(title);
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', {name:'取消', exact:true}).click();
+  await expect(dialog).toBeHidden();
+  const cleared = async () => {
+    await expect(panel.getByText(title)).toHaveCount(0);
+    await expect(panel.locator('img.distribution-photo-thumb')).toHaveCount(0);
+    await expect(panel.getByRole('button', {name:'停止使用', exact:true})).toHaveCount(0);
+    await expect(panel.getByRole('button', {name:'改用這個素材', exact:true})).toHaveCount(0);
+    await expect(dialog).toBeHidden();
+    await expect(panel.getByRole('alert')).toContainText('目前無法讀取店面照片');
+    await expect(panel.getByText('合成公開素材')).toBeVisible();
+  };
+  listStatus = 403;
+  await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+  await cleared();
+  listStatus = 200;
+  await panel.getByRole('button', {name:'重試', exact:true}).click();
+  await expect(panel.getByText(title, {exact:true})).toBeVisible();
+  await expect.poll(() => panel.locator('img.distribution-photo-thumb').first().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+  listStatus = 404;
+  await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+  await cleared();
+  expect(posts).toEqual([]);
+});
+
+test('SC-E2E-83 a transient distribution-photo failure keeps the draft, and a late read cannot restore it in another scope', async ({page, e2eAuthPool}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const s = await ready(page, e2eAuthPool);
+  const other = await launchStore(page, `另一空間 ${suffix}`);
+  await post(page, `${other.root}/setup`, {name:`另一商店 ${suffix}`, slug:`other-${suffix}`, currency:'TWD'}, 201);
+  const title = `私有草稿 ${suffix}`;
+  const bytes = await draftWebp();
+  const projection = privateProjection(s, s.product.product_id, s.product.sku, title, bytes);
+  // Synthetic HTTP projection/media on a real shop; this checks the client lifetime, not server revocation.
+  type Settlement = {kind:'response'; status:number} | {kind:'aborted'; error:string};
+  const held: Array<{url:string; settlement:Promise<Settlement>}> = [];
+  let listMode: 'ok' | '503' | 'hold' = 'ok';
+  let waitHold = Promise.resolve();
+  let releaseHold: (() => void) | undefined;
+  const release = () => { const done = releaseHold; releaseHold = undefined; done?.(); };
+  const armHold = () => {
+    listMode = 'hold';
+    held.length = 0;
+    waitHold = new Promise(resolve => { releaseHold = resolve; });
+  };
+  try {
+    await page.route(url => {
+      const path = new URL(url).pathname;
+      return path === projection.listPath || path === projection.materialsPath || path === projection.readPath;
+    }, async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (route.request().method() !== 'GET') return route.continue();
+      if (path === projection.readPath) return route.fulfill({status:200, contentType:'image/webp', body:bytes});
+      if (path === projection.materialsPath) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.materials)});
+      if (listMode === 'hold') {
+        const request = route.request();
+        const gate = waitHold;
+        const settlement = new Promise<Settlement>(resolve => {
+          const clean = () => { page.off('requestfinished', finished); page.off('requestfailed', failed); };
+          const finished = async (seen:Request) => {
+            if (seen !== request) return;
+            clean(); resolve({kind:'response', status:(await request.response())!.status()});
+          };
+          const failed = (seen:Request) => {
+            if (seen !== request) return;
+            clean(); resolve({kind:'aborted', error:request.failure()!.errorText});
+          };
+          page.on('requestfinished', finished); page.on('requestfailed', failed);
+        });
+        held.push({url:request.url(), settlement});
+        try {
+          await gate;
+          await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.list)});
+        } catch (error) {
+          if (isExpectedBrowserAbort(error, request)) {
+            return;
+          }
+          throw error;
+        }
+        return;
+      }
+      if (listMode === '503') return route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({type:'about:blank', title:'unavailable', status:503, code:'unavailable', detail:'合成暫時失敗'})});
+      return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.list)});
+    });
+    await storeArea(page, '供貨合作');
+    const panel = sellerPartnerMaterials(page);
+    const thumb = () => panel.locator('img.distribution-photo-thumb').first();
+    await expect(panel.getByText(title, {exact:true})).toBeVisible();
+    await expect.poll(() => thumb().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+    listMode = '503';
+    await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+    await expect(panel.getByRole('alert')).toContainText('目前無法讀取店面照片');
+    await expect(panel.getByText(title, {exact:true})).toBeVisible();
+    await expect.poll(() => thumb().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+    listMode = 'ok';
+    await panel.getByRole('button', {name:'重試', exact:true}).click();
+    await expect(panel.getByRole('alert')).toHaveCount(0);
+    await expect(panel.getByText(title, {exact:true})).toBeVisible();
+    armHold();
+    await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+    await expect.poll(() => held.length).toBeGreaterThan(0);
+    await page.getByRole('link', {name:'返回我的商店', exact:true}).click();
+    await page.locator(`a[href="#${other.hash}"]`).click();
+    await expect(page.locator('.hosted-store')).toBeVisible();
+    await storeArea(page, '供貨合作');
+    await expect(page.getByText(title)).toHaveCount(0);
+    listMode = 'ok';
+    const businessHeld = held.slice();
+    release();
+    const businessOutcome = await Promise.all(businessHeld.map(item => item.settlement));
+    console.log(`SC83-business ${JSON.stringify(businessOutcome)}`);
+    await expect(page.getByText(title)).toHaveCount(0);
+    await expect(page.locator('img.distribution-photo-thumb')).toHaveCount(0);
+    await expect(sellerPartnerMaterials(page)).toContainText('目前沒有供應商授權給這間店的素材');
+    await photoStoreFromList(page, s);
+    await storeArea(page, '供貨合作');
+    await expect(sellerPartnerMaterials(page).getByText(title, {exact:true})).toBeVisible();
+    armHold();
+    await sellerPartnerMaterials(page).getByRole('button', {name:'重新整理', exact:true}).click();
+    await expect.poll(() => held.length).toBeGreaterThan(0);
+    await signOut(page);
+    await expect(page.getByRole('heading', {name:'登入', exact:true})).toBeVisible();
+    await expect(page.getByText(title)).toHaveCount(0);
+    listMode = 'ok';
+    const sessionHeld = held.slice();
+    release();
+    const sessionOutcome = await Promise.all(sessionHeld.map(item => item.settlement));
+    console.log(`SC83-session ${JSON.stringify(sessionOutcome)}`);
+    await expect(page.getByText(title)).toHaveCount(0);
+    const stranger = await person(e2eAuthPool);
+    await loginHere(page, stranger.email);
+    await expect(page.getByText(title)).toHaveCount(0);
+    await expect(page.locator('img.distribution-photo-thumb')).toHaveCount(0);
+  } finally {
+    release();
+    await page.unrouteAll({behavior:'wait'});
+  }
+});
+
+test('SC-E2E-84 a malformed committed use or detach ack keeps the original attempt and one copy', async ({page, browser, baseURL, e2eAuthPool}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extra: Array<{close: () => Promise<void>}> = [];
+  const suppliers: string[] = [];
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    suppliers.push(sup.member.id);
+    const productTitle = sup.offer.terms.title;
+    const seller = await openPartnerStore(browser, baseURL, e2eAuthPool, `畸形回條賣家 ${suffix}`, `ack-${suffix}`);
+    extra.push(seller.ctx);
+    await photoAccept(seller.page, page, seller.store.root, sup.store.root, sup.offer);
+    const matTitle = `回條素材 ${suffix}`;
+    await createFileMaterialInConsole(page, sup.store, 'image', matTitle, sup.product.product_id);
+    await uploadImageVersionInConsole(page, `ack-v1-${suffix}.png`, '#3b5998');
+    await setMaterialAccessInConsole(page, 'public_use');
+    await grantMaterialToAllSellableInConsole(page);
+    await open(seller.page, seller.store.hash);
+    await storeArea(seller.page, '供貨合作');
+    const block = partnerPhotoBlock(seller.page, matTitle, productTitle);
+    await expect(block.getByRole('button', {name:'用於公開店面', exact:true})).toBeEnabled();
+    const productId = sup.product.product_id;
+    const baseline = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(baseline.copies).toEqual([]);
+    expect(baseline.pointers).toEqual([]);
+    const usePath = `/api/v1${seller.store.root}/distribution-photos/${productId}/use`;
+    const detachPath = `/api/v1${seller.store.root}/distribution-photos/${productId}/detach`;
+    const captured: Array<{key:string; ifMatch:string; body:string}> = [];
+    let originalUse = '';
+    let mangleUse = true;
+    await seller.page.route(`**${usePath}`, async route => {
+      const req = route.request();
+      if (req.method() !== 'POST') return route.continue();
+      captured.push({key:req.headers()['idempotency-key'] ?? '', ifMatch:req.headers()['if-match'] ?? '', body:req.postData() ?? ''});
+      if (!mangleUse) return route.continue();
+      mangleUse = false;
+      const response = await route.fetch();
+      originalUse = await response.text();
+      expect(response.status()).toBe(200);
+      const json = JSON.parse(originalUse) as {version:string};
+      json.version = 'abc';
+      await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(json)});
+    });
+    await block.getByRole('button', {name:'用於公開店面', exact:true}).click();
+    await seller.page.getByRole('dialog', {name:'把這張素材用在公開店面？', exact:true}).getByRole('button', {name:'複製並使用', exact:true}).click();
+    await expect(seller.page.locator('.hosted-store > [role="alert"]')).toHaveText('尚未確認原操作的結果，請按「重試」確認。');
+    const retry = seller.page.locator('.hosted-store > .actions').getByRole('button', {name:'重試', exact:true});
+    await expect(retry).toBeVisible();
+    await expect(block.getByRole('button', {name:'用於公開店面', exact:true})).toBeDisabled();
+    const stayed = seller.page.url();
+    await seller.page.getByRole('link', {name:'返回我的商店', exact:true}).click();
+    await expect(seller.page.locator('.hosted-store > [role="status"]')).toContainText('尚未確認原操作的結果，請按「重試」確認後再離開。');
+    await expect(seller.page).toHaveURL(stayed);
+    expect(captured).toHaveLength(1);
+    expect(captured[0].key).toBeTruthy();
+    expect(captured[0].ifMatch).toBe('"0"');
+    const beforeRetry = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(beforeRetry.copies).toHaveLength(1);
+    expect(beforeRetry.pointers).toEqual([{asset_id:beforeRetry.copies[0].asset_id, version:'1'}]);
+    expect(beforeRetry.assets).toHaveLength(baseline.assets.length + 1);
+    expect(beforeRetry.assets.map(row => row.asset_id)).toContain(beforeRetry.copies[0].asset_id);
+    expect(BigInt(beforeRetry.capacity) - BigInt(baseline.capacity)).toBe(BigInt(beforeRetry.copies[0].byte_size));
+    const replay = seller.page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === usePath);
+    await retry.click();
+    const replayed = await replay;
+    expect(replayed.request().headers()['idempotency-key']).toBe(captured[0].key);
+    expect(replayed.request().headers()['if-match']).toBe(captured[0].ifMatch);
+    expect(replayed.request().postData()).toBe(captured[0].body);
+    expect(replayed.status()).toBe(200);
+    expect(await replayed.text()).toBe(originalUse);
+    await expect(block.locator('.badge')).toHaveText('店面使用中（第 1 版）');
+    const afterUse = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(afterUse).toEqual(beforeRetry);
+    let originalDetach = '';
+    let mangleDetach = true;
+    const detachCaptured: Array<{key:string; ifMatch:string; body:string}> = [];
+    await seller.page.route(`**${detachPath}`, async route => {
+      const req = route.request();
+      if (req.method() !== 'POST') return route.continue();
+      detachCaptured.push({key:req.headers()['idempotency-key'] ?? '', ifMatch:req.headers()['if-match'] ?? '', body:req.postData() ?? ''});
+      if (!mangleDetach) return route.continue();
+      mangleDetach = false;
+      const response = await route.fetch();
+      originalDetach = await response.text();
+      expect(response.status()).toBe(200);
+      const json = JSON.parse(originalDetach) as {current:{version:string}};
+      json.current.version = '1.2';
+      await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(json)});
+    });
+    await block.getByRole('button', {name:'停止使用', exact:true}).click();
+    await expect(seller.page.locator('.hosted-store > [role="alert"]')).toHaveText('尚未確認原操作的結果，請按「重試」確認。');
+    await expect(block.getByRole('button', {name:'停止使用', exact:true})).toBeDisabled();
+    expect(detachCaptured).toHaveLength(1);
+    expect(detachCaptured[0].ifMatch).toBe('"1"');
+    expect(detachCaptured[0].body).toBe('{}');
+    const beforeDetachRetry = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(beforeDetachRetry.copies).toEqual(afterUse.copies);
+    expect(beforeDetachRetry.assets).toEqual(afterUse.assets);
+    expect(beforeDetachRetry.capacity).toBe(afterUse.capacity);
+    expect(beforeDetachRetry.pointers).toEqual([{asset_id:null, version:'2'}]);
+    const detachReplay = seller.page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === detachPath);
+    await seller.page.locator('.hosted-store > .actions').getByRole('button', {name:'重試', exact:true}).click();
+    const detached = await detachReplay;
+    expect(detached.request().headers()['idempotency-key']).toBe(detachCaptured[0].key);
+    expect(detached.request().headers()['if-match']).toBe('"1"');
+    expect(detached.request().postData()).toBe('{}');
+    expect(await detached.text()).toBe(originalDetach);
+    const afterDetach = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(afterDetach).toEqual(beforeDetachRetry);
+    expect(captured.filter(item => item.key === captured[0].key)).toHaveLength(2);
+    expect(detachCaptured).toHaveLength(2);
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, suppliers);
+    await Promise.all(extra.map(ctx => ctx.close()));
+  }
 });

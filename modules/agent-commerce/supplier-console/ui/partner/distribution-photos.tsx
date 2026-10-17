@@ -1,11 +1,15 @@
 import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import type {z} from 'zod';
-import type {PortalClient} from '../../../../../apps/portal-web/src/api';
+import {ApiError, type PortalClient} from '../../../../../apps/portal-web/src/api';
 import {DistributionPhotosSchema,DistributionPhotoCommandSchema,type DistributionPhotoItem,type PartnerMaterial} from '../../../../../contracts/guild-launchpad/v1/supplier-console';
 import {partnerMaterialsErrorText} from './partner-materials';
 
 export type DistributionPhotoSender=(attempt:{method:'post';path:string;body:unknown;version:string;schema:z.ZodType;
  notice:string;targetMissingIsStore:false;success:(value:unknown)=>void})=>Promise<void>;
+/** A known 403/404 drops this projection. 503 and other read failures keep the last authorized rows. */
+export function distributionPhotoReadClearsPrivate(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 403 || error.status === 404);
+}
 interface Props {client:PortalClient;userId:string;tenantId:string;instanceId:string;active:boolean;refresh:number;
  enabled:boolean;writable:boolean;busy:boolean;onCommand?:DistributionPhotoSender}
 /** Uses the store's command owner: unknown results retain its original key/body/CAS. */
@@ -24,7 +28,12 @@ export function useDistributionPhotos({client,userId,tenantId,instanceId,active,
   const valid=()=>client.sessionGeneration===generation&&mounted.current&&!control.signal.aborted&&ticket===epoch.current&&scope===current.current;
   setLoading(true);setError('');
   try{const data=DistributionPhotosSchema.parse(await client.get(root,{signal:control.signal}));if(valid())setResult({scope,items:data.items});}
-  catch(reason){if(valid())setError(partnerMaterialsErrorText(reason));}
+  catch(reason){
+   if(!valid())return;
+   setError(partnerMaterialsErrorText(reason));
+   // Only this ticket may clear. An older 200 must not put the private rows back.
+   if(distributionPhotoReadClearsPrivate(reason)){setResult(null);setChoice(null);}
+  }
   finally{if(valid())setLoading(false);}
  },[client,root,scope,enabled]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;abort.current?.abort();};},[]);

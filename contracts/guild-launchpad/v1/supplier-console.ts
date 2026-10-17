@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {OpaqueId, Version, NonNegativeDecimal} from './primitives.js';
+import {OpaqueId, Version, NonNegativeDecimal, NON_NEGATIVE_DECIMAL_PATTERN} from './primitives.js';
 import {CurrencySchema, ProductViewSchema} from './storefront.js';
 import {SupplyCatalogSetupInputSchema} from './hosted-supply-catalog.js';
 import {SupplyTermsInputSchema, SupplyTermsSchema} from './hosted-supply-terms.js';
@@ -452,8 +452,17 @@ export const DistributionPhotoItemSchema=z.object({
 }).strict();
 export const DistributionPhotosSchema=z.object({items:z.array(DistributionPhotoItemSchema).max(200)}).strict();
 export const DistributionPhotoUseInputSchema=z.object({material_id:OpaqueId,version_id:OpaqueId}).strict();
+/** Field checks can fail while this refine still runs. Compare the canonical decimal; do not call BigInt on the raw text. */
+function nonNegativeDecimalAtMost(completed: unknown, current: unknown): boolean {
+  if (typeof completed !== 'string' || typeof current !== 'string') return false;
+  if (!NON_NEGATIVE_DECIMAL_PATTERN.test(completed) || !NON_NEGATIVE_DECIMAL_PATTERN.test(current)) return false;
+  if (completed === '0') return true;
+  if (current === '0') return false;
+  if (completed.length !== current.length) return completed.length < current.length;
+  return completed <= current;
+}
 export const DistributionPhotoCommandSchema=z.object({product_id:OpaqueId,version:NonNegativeDecimal,changed:z.boolean(),current:DistributionPhotoItemSchema}).strict()
- .refine(v=>v.product_id===v.current.product_id && BigInt(v.version)<=BigInt(v.current.version));
+ .refine(v=>v.product_id===v.current.product_id && nonNegativeDecimalAtMost(v.version, v.current.version));
 export type DistributionPhotoItem=z.infer<typeof DistributionPhotoItemSchema>;
 export type DistributionPhotoCommand=z.infer<typeof DistributionPhotoCommandSchema>;
 
