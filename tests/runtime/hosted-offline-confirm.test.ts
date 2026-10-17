@@ -128,7 +128,7 @@ async function blockedBy(holder: number) {
   }
   assert.fail('meetup completion never waited on the receipt table lock');
 }
-async function operator(s: {tenantId: string; instanceId: string; owner: {user: {user_id: string}; cookie: string}}, caps: string[]) {
+async function operator(s: Awaited<ReturnType<CheckoutHarness['store']>>, caps: string[]) {
   const member = await x.h.person(synthetic(3));
   const principal = await x.h.candidate(s.owner, member.id);
   await x.h.accept(member.session, s.tenantId, await x.h.invite(s.owner, s.tenantId, principal, 'operator'));

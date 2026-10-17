@@ -23734,8 +23734,8 @@
     },
     {
       "path": "tests/runtime/hosted-offline-confirm.test.ts",
-      "bytes": 12470,
-      "sha256": "2dcb0844df5a28b11da78a06f84d5b529f1463bb0512121e3a42fc786dad4b5c"
+      "bytes": 12427,
+      "sha256": "20e367b939ee6ff927fe468f6d92e1900efe21e9e72f016410abccf8c0aee68a"
     },
     {
       "path": "tests/runtime/hosted-order-contracts.test.ts",
