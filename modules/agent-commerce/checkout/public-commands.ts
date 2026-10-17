@@ -34,13 +34,18 @@ async function resolve(q:PoolClient,slug:string,options:HostedCheckoutOptions,ad
 async function member(q:PoolClient,token:string|undefined,create=false) {
   if(!token)return null;
   const sessionHash=hashKey(token);
-  const row=(await q.query<{user_id:string;principal_id:string|null}>(`SELECT u.user_id,p.principal_id FROM sessions s JOIN users u USING(user_id)
+  const row=(await q.query<{user_id:string;principal_id:string|null;principal_exists:boolean}>(`SELECT u.user_id,p.principal_id,
+    EXISTS(SELECT 1 FROM principals existing WHERE existing.user_ref=u.user_id AND existing.kind='person') AS principal_exists
+    FROM sessions s JOIN users u USING(user_id)
     LEFT JOIN principals p ON p.user_ref=u.user_id AND p.kind='person' AND p.status='active'
     WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND u.active ${create?'FOR SHARE OF u,s':''}`,[sessionHash])).rows[0];
   if(!row)return null;
   const mapped=!row.principal_id&&create?await mapPersonPrincipal(q,row.user_id):null;
   const principalId=row.principal_id??(mapped?.status==='active'&&mapped.kind==='person'?mapped.principal_id:null);
-  return {principalId,sessionHash,userId:row.user_id};
+  // A first-time buyer has a valid member session before foundation mapping.
+  // Quotes stay read-only; checkout creates that mapping under its write locks.
+  // A disabled existing principal must not be treated as a new member.
+  return {principalId,sessionHash,userId:row.user_id,offlineEligible:principalId!==null||!row.principal_exists};
 }
 async function currentMember(q:PoolClient,identity:Awaited<ReturnType<typeof member>>) {
   if(identity&&(await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>clock_timestamp()',[identity.sessionHash,identity.userId])).rowCount!==1)orderAccessNotFound();
@@ -53,7 +58,7 @@ export async function quotePublicCart(pool:Pool,slug:string,input:wire.CartQuote
     await q.query('SET TRANSACTION READ ONLY');
     const store=await resolve(q,slug,options,true);
     const identity=await member(q,access.sessionToken,false);
-    return cartQuote(q,store,input,options,Boolean(identity?.principalId));
+    return cartQuote(q,store,input,options,Boolean(identity?.offlineEligible));
   });
 }
 export type PublicPurchaseState={open:false}|{open:true;product?:'available'|'sold_out'};

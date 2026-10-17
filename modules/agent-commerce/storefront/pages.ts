@@ -23,6 +23,11 @@ export function cartPageHtml(store: StorefrontStoreHeading): string {
   );
 }
 
+export function checkoutPageHtml(store: StorefrontStoreHeading): string {
+  return storefrontShell(store, `結帳｜${store.name}｜自由工坊`,
+    `<section class="shop-order" id="shop-checkout" data-store-slug="${escapeHtml(store.slug)}" data-store-name="${escapeHtml(store.name)}" aria-labelledby="shop-checkout-title" aria-busy="true"><h1 id="shop-checkout-title" tabindex="-1">結帳</h1><p role="status">正在讀取購物車…</p><noscript><p>結帳需要開啟瀏覽器的 JavaScript。</p></noscript></section>`, true);
+}
+
 export function orderPageHtml(
   store: StorefrontStoreHeading,
   orderRef: string,

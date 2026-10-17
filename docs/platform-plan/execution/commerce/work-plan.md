@@ -495,6 +495,35 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   不把 195e 的失敗整輪稱為通過。195e 的乾淨治理測試 598/598 及新的 CodeQL 成功另行保留；
   額外 AGY／Opus 5.5 複核因 CLI 內容過濾錯誤中止，沒有採用為 review approval。
 
+### 2026-10-17：#863 合併與離線買家頁補齊
+
+- Ted 已在本次對話授權結案、正常合併與部署，並撤回 Grok 使用授權；早先快照的「合併前再問」不再適用。
+  AGY Opus 5.5 額度不足，這輪由 Codex 接續，沒有將失敗的 CLI 呼叫稱為審查。
+- [PR #863](https://github.com/FreeTWAI/freedom-platform/pull/863) 於 2026-10-17 10:16:58 UTC
+  正常合併為 `1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8`，mergedBy `teddashh`；未 bypass。
+  `e737f79c` 的 code-owner review `5557024538` 是 AI-assisted review，不冒充真人驗收。
+  Verify [39017464361](https://github.com/FreeTWAI/freedom-platform/actions/runs/39017464361)
+  17 jobs 通過；runtime **6,260/6,260**、427 檔、八區清理通過、最長 1,333.022 秒。
+  UI 六種 fixture mode 合計 **1,044** 個不重複案例；主模式 18 項預期 skip 由其他模式覆蓋。
+  runtime 九份 ZIP／來源／互斥聯集及 browser aggregate 已獨立讀回；沒有留存全部原始 browser report，
+  不宣稱其逐案原始報告與 browser cleanup 已獨立驗證。合併後 main Verify
+  [39024313796](https://github.com/FreeTWAI/freedom-platform/actions/runs/39024313796) 亦為 17 jobs 成功。
+  此段不改寫先前失敗與取消的結果，也不等於已部署 schema170。
+- 後續 `fc/offline-buyer-flow` 以該 merge 為基底，實作 B04→B05→B07 的最小離線流程：
+  面交／宅配收件、server 報價與付款選項、凍結條款、最後確認，及私有的匯款帳號、複製、
+  面交說明、期限／72 小時寬限、取消與店家確認後重讀。超商選店與發票／售後仍待既有後續工作。
+  公開 checkout terms 不輸出銀行資料；B07 的面交說明來自凍結的配送群組，新增 optional `meetup_notes`。
+- 登入但尚未建立 person principal 的新會員現在可在唯讀報價看到線下方式；正式 checkout 才建立映射。
+  已停用的 principal 仍被拒絕。前端只在 tab sessionStorage 保存原 checkout ref、terms hash、付款方式與
+  client order ID；回應不明或刷新沿用同一筆下單，不保存聯絡資料、帳號或 checkout key。
+  既有訂單頁加強完整 DTO／商店與訂單座標檢查、失效與忘記裝置清除，以及晚到回應的隔離。
+- 本機磁碟 PostgreSQL 的 5 項新 browser 情境、26 項既有 browser 回歸、30 項 runtime、typecheck
+  與 build 通過；390／768／1440 截圖已檢視。首次 browser **1 passed／2 failed** 保留：
+  成功下單立即導頁後，測試讀取舊 response body 失敗；改為在真實回應送到頁面之前捕獲，不替換業務回應。
+  重跑及原始測試容器／精確 volume 均已核對移除。後續欄位旁錯誤與輸入保留補驗另記結果。
+- 這是隔離本機證據；尚未以此後續來源完成 hosted CI、獨立 review、合併或雲端驗收。
+  不更新 Foundation 168 項要求為 accepted，不宣告完整 M3／M4、真實金流、物流、寄信或商家採用完成。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |
