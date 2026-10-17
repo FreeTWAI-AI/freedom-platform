@@ -19494,8 +19494,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 12461,
-      "sha256": "d9dae3ba46902895d977a5e13925eeffab7411faa42df0c12ed37d41a861e00e"
+      "bytes": 14368,
+      "sha256": "e91d03b8507714955beb163b60a14217f6603170fe7ddca7db18832f151a52d8"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -19504,8 +19504,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
-      "bytes": 3934,
-      "sha256": "8f974b6fd602b4f5240c2389b2f1a0097a933c451c9bafc5cf3acc6faaff986e"
+      "bytes": 4559,
+      "sha256": "821dd11e8d27c57625be0f8531f24f048acd7d6915511abb14626806acd11d57"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -19539,8 +19539,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 10014,
-      "sha256": "1571f8aedc564315273d24372bf81ec49381e262cf5ec211c3d3223538097e28"
+      "bytes": 10073,
+      "sha256": "067cd9a8b891ea540b933cc0343d39a81d49d7954c2f574b1d045080d38e1f85"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -19779,8 +19779,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-weights.test.mjs",
-      "bytes": 8694,
-      "sha256": "e44adbfddb0aca745a84e69588e3cd0e9f6552d4e321635a71b072ca11ec3f46"
+      "bytes": 10733,
+      "sha256": "6b98a155ab2a387ce7dda5bca78832b40e7152d2d27264043bc9d673684997d0"
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
@@ -19804,8 +19804,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 26736,
-      "sha256": "f818c77bb4e57896c0577a047a09f69b58f02d859304fb504d5b0856c5e0bc1b"
+      "bytes": 28708,
+      "sha256": "d46daf745ebb330b176ce73d7df9ce32adfda8ea3d1600944ce01bb95e410e23"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",

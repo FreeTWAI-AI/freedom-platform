@@ -44,6 +44,17 @@ export function parseProgressLog(text) {
       if (!/^tests\/runtime\/[a-z][a-z0-9_-]*\.test\.ts$/.test(record.path)) {
         throw new Error('invalid_progress_path');
       }
+      if (record.event === 'started' || record.event === 'completed') {
+        if (!Number.isSafeInteger(record.elapsed_ms) || record.elapsed_ms < 0 || record.elapsed_ms > 1_500_000) {
+          throw new Error('inconsistent_progress_log');
+        }
+        // Both reporter generations clamp at their ceiling. Even a complete
+        // file-count summary cannot recover time lost to that saturation.
+        // Conservatively reject an exact ceiling, including a coincidental hit.
+        if ([1_200_000, 1_500_000].includes(record.elapsed_ms)) {
+          throw new Error('saturated_progress_timing');
+        }
+      }
       if (record.event === 'started') {
         if (started.has(record.path)) throw new Error('inconsistent_progress_log');
         started.set(record.path, record);

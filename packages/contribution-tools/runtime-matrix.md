@@ -100,6 +100,34 @@ rejections, plus the four-partition limits. Six-partition boundaries now accept
 1,500 seconds and reject one millisecond more, while the 2,400-second aggregate
 boundary and a delayed failed-only fragment remain rejected when exceeded.
 
+## Timing integrity investigation, 2026-10-17
+
+The six-partition execution budget is already 1,500 seconds, but the diagnostic
+reporter still clamped elapsed time at 1,200 seconds. In successful
+[Verify 38994475692, partition 3](https://github.com/FreeTWAI/freedom-platform/actions/runs/38994475692/job/117285301639),
+all 63 files completed, yet 19 progress records reached that old ceiling.
+Ten files were affected; nine had both endpoints equal to 1,200,000 ms and would
+be assigned zero measured duration (rounded to weight 1). Complete file counts
+therefore did not establish complete timing evidence. The original successful
+test result remains successful; only its late-file scheduling measurements are
+unusable. The other five partitions' timing records did not reach the ceiling.
+
+The reporter's diagnostic bound now matches the existing 1,500-second execution
+budget. Weight generation rejects any started/completed record at either the
+legacy 1,200,000-ms ceiling or the current 1,500,000-ms ceiling, and rejects
+invalid/out-of-range elapsed values. An exact natural hit on a ceiling is also
+conservatively rejected because v1 records cannot distinguish it from clamping.
+No incomplete or saturated partition is silently dropped from a refresh.
+
+Existing weights and their historical fixture remain unchanged. Collect complete,
+unsaturated per-file evidence from a future ordinary required run, verify source
+hashes and the full six-partition union, then evaluate a separate weight refresh.
+Do not infer missing durations from zero deltas or substitute log arrival times
+for the reporter's monotonic clock. Tests exercise late-file emission/decoding,
+legacy saturation rejection and the unchanged failed-timeout result boundary.
+This fixes measurement fidelity; no hosted speedup is demonstrated or promised.
+Suite budgets, selection, case checks, cleanup, scheduling and security are unchanged.
+
 ## Historical capacity change, 2026-10-10
 
 The October 10 source gave six partitions 1,200 seconds each and a 2,400-second aggregate window. Legacy four-partition limits remained 1,200 / 1,800 seconds; the local full-suite default was unchanged. At that time, the installed `fa2fcdef` runner still used six-partition 900 / 1,800 seconds until a separately reviewed trusted-source rollout. That source change did not update the workflow pin, ruleset, permissions or runner hardware.

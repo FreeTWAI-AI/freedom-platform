@@ -1,7 +1,7 @@
 import {createFailureDiagnosticDecoder,createFailureDiagnosticEmitter,createIngestBrowserDiagnostic} from '../test-failure-diagnostic.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {readFile,symlink} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -37,11 +37,38 @@ test('invalid, duplicate, traversal and symlink progress selections produce no d
 });
 test('parent discards malformed, unexpected, duplicate, digest mismatch and unbounded records without forwarding raw bytes',()=>{
  const path='tests/one.test.mjs',digest='a'.repeat(64),start={schema:'freedom.test-file-progress/v1',event:'started',path,source_sha256:digest,elapsed_ms:1};
- const bad=[{...start,path:'tests/PRIVATE_UNKNOWN.test.mjs'},{...start,source_sha256:'b'.repeat(64)},{...start,PRIVATE_EXTRA:'postgres://PRIVATE_URL'},{...start,elapsed_ms:-1},{...start,elapsed_ms:1_200_001},{...start,event:'completed',counts:{tests:1,passed:0,failed:0,cancelled:0,skipped:0,todo:0,suites:0}}];
+ const bad=[{...start,path:'tests/PRIVATE_UNKNOWN.test.mjs'},{...start,source_sha256:'b'.repeat(64)},{...start,PRIVATE_EXTRA:'postgres://PRIVATE_URL'},{...start,elapsed_ms:-1},{...start,elapsed_ms:1_500_001},{...start,event:'completed',counts:{tests:1,passed:0,failed:0,cancelled:0,skipped:0,todo:0,suites:0}}];
  for(const r of bad){const out=[],d=createProgressDecoder([{path,source_sha256:digest}],r=>out.push(r));if(r.event==='completed')d.push(Buffer.from(JSON.stringify(start)+'\n'));d.push(Buffer.from(JSON.stringify(r)+'\n'));assert.equal(out.length,r.event==='completed'?1:0);assert.equal(d.finish().incomplete,true);}
- const late=[],partition=createProgressDecoder([{path,source_sha256:digest}],r=>late.push(r));partition.push(Buffer.from(JSON.stringify({...start,elapsed_ms:1_200_000})+'\n'));assert.equal(late.length,1);
+ const late=[],partition=createProgressDecoder([{path,source_sha256:digest}],r=>late.push(r));partition.push(Buffer.from(JSON.stringify({...start,elapsed_ms:1_500_000})+'\n'));assert.equal(late.length,1);
  const out=[],d=createProgressDecoder([{path,source_sha256:digest}],r=>out.push(r));const line=Buffer.from(JSON.stringify(start)+'\n');d.push(line.subarray(0,7));d.push(line.subarray(7));d.push(line);d.push(Buffer.from('PRIVATE_RAW_INVALID_JSON\n'));d.push(Buffer.alloc(1_048_577,65));assert.equal(out.length,1);assert.equal(d.finish().incomplete,true);assert.ok(!JSON.stringify(out).includes('PRIVATE_'));
 });
+test('reporter and parent preserve distinct late-file timing within the existing six-partition budget',async t=>{
+ const root=await fixtureRoot(t),file='tests/runtime/late.test.ts';await put(root,file,'// synthetic timing fixture\n');
+ // Exercise the real reporter's FD3 emitter with a controlled monotonic clock,
+ // without running or sleeping through a 25-minute suite or adding a production hook.
+ const program=`
+ import report from ${JSON.stringify(new URL('../test-reporter.mjs',import.meta.url).href)};
+ let now=0;Object.defineProperty(performance,'now',{value:()=>now});
+ const counts={tests:1,passed:1,failed:0,cancelled:0,skipped:0,todo:0,suites:0};
+ async function* events(){
+   now=1_250_000;yield {type:'test:dequeue',data:{file:${JSON.stringify(join(root,file))},nesting:0}};
+   now=1_360_000;yield {type:'test:summary',data:{file:${JSON.stringify(join(root,file))},counts,success:true}};
+   yield {type:'test:summary',data:{counts,success:true}};
+ }
+ for await(const chunk of report(events()))process.stdout.write(chunk);`;
+ const ran=spawnSync(process.execPath,['--input-type=module','--eval',program],{cwd:root,
+   env:{...verificationEnvironment(),FREEDOM_TEST_PROGRESS_FILES:JSON.stringify([file])},
+   stdio:['ignore','pipe','pipe','pipe'],encoding:'utf8',timeout:5000});
+ assert.equal(ran.status,0,ran.stderr);
+ const records=ran.output[3].trim().split('\n').map(JSON.parse);
+ assert.deepEqual(records.map(r=>r.elapsed_ms),[1_250_000,1_360_000]);
+ const accepted=[],decoder=createProgressDecoder([{path:file,source_sha256:sha256(await readFile(join(root,file)))}],r=>accepted.push(r));
+ decoder.push(Buffer.from(ran.output[3]));assert.equal(decoder.finish().incomplete,false);
+ assert.equal(accepted[1].elapsed_ms-accepted[0].elapsed_ms,110_000);
+ const final=JSON.parse(ran.stdout);assert.equal(final.success,true);assert.equal(final.counts.tests,1);
+ assert.equal(final.progress,undefined);assert.equal(final.elapsed_ms,undefined);
+});
+
 test('actual host timeout keeps sanitized completion/active progress off the failed final verifier JSON',async t=>{
  const root=await fixtureRoot(t),files=['packages/contribution-tools/test/a.test.mjs','packages/contribution-tools/test/b.test.mjs'];await put(root,files[0],source);await put(root,files[1],"import{test}from'node:test';test('PRIVATE_HANG',async()=>{await new Promise(()=>{});});setInterval(()=>{},1000);\n");
  const verify=new URL('../verify.mjs',import.meta.url).href;

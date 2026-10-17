@@ -75,6 +75,24 @@ test('parseProgressLog throws expected errors', () => {
   assert.throws(() => parseProgressLog(buildSyntheticLog(badStartPath)), /invalid_progress_path/);
 });
 
+test('complete counts cannot admit saturated or invalid file timing as scheduling weights', () => {
+  const records = (start, end) => [
+    {schema:'freedom.test-file-progress/v1',event:'started',path:'tests/runtime/late.test.ts',elapsed_ms:start},
+    {schema:'freedom.test-file-progress/v1',event:'completed',path:'tests/runtime/late.test.ts',elapsed_ms:end},
+    {schema:'freedom.test-file-progress-summary/v1',selected_count:1,started_count:1,completed_count:1,incomplete:false},
+  ];
+  for (const [start,end] of [[1_190_000,1_200_000],[1_200_000,1_200_000],[1_490_000,1_500_000],[1_500_000,1_500_000]]) {
+    assert.throws(()=>parseProgressLog(buildSyntheticLog(records(start,end))),/saturated_progress_timing/);
+  }
+  for (const start of [-1,1.5,'100',null]) {
+    assert.throws(()=>parseProgressLog(buildSyntheticLog(records(start,200))),/inconsistent_progress_log/);
+  }
+  assert.throws(()=>parseProgressLog(buildSyntheticLog(records(1_400_000,1_500_001))),/inconsistent_progress_log/);
+  const timing=parseProgressLog(buildSyntheticLog(records(1_250_000,1_360_000)));
+  assert.equal(timing.get('tests/runtime/late.test.ts'),110_000);
+  assert.equal(deriveRuntimeWeights([timing]).weights['tests/runtime/late.test.ts'],110);
+});
+
 test('deriveRuntimeWeights logic', () => {
   const m1 = new Map([['a', 1500], ['b', 500]]);
   const m2 = new Map([['a', 1200], ['b', 1100], ['c', 100]]);
@@ -143,6 +161,18 @@ test('CLI tests', (t) => {
     measurement: 'per-file minimum of serial completed-file progress deltas across the listed hosted runs; includes file loading',
     milliseconds: { 'a.test.ts': 100 }
   });
+
+  // A complete-looking legacy saturated log must fail before either output
+  // can overwrite an existing reviewed weights module or cost fixture.
+  const saturated = ok.map(record => record.event === 'started' || record.event === 'completed'
+    ? {...record, elapsed_ms:1_200_000} : record);
+  fs.writeFileSync(path.join(dir, 'saturated.log'), buildSyntheticLog(saturated));
+  r = runCli(['--root', dir, '--note', 'Test', '--output', path.join(dir, 'out.mjs'),
+    '--costs-output', path.join(dir, 'out.json'), '--log', path.join(dir, 'saturated.log')]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /saturated_progress_timing/);
+  assert.equal(fs.readFileSync(path.join(dir, 'out.mjs'), 'utf8'), moduleStr);
+  assert.equal(fs.readFileSync(path.join(dir, 'out.json'), 'utf8'), costsStr);
 });
 
 test('Committed module and fixture agree', async () => {
