@@ -559,6 +559,7 @@ test('9. B04 error table (429, 503, 409, 404, network/malformed), retry focus to
       ],
       merchandise_total_minor: p1.price_minor * 2,
       discounts: [],
+      delivery_options: [],
       shipping: { state: 'not_configured', groups: [], total_minor: null },
       total_minor: null,
     });
@@ -579,6 +580,7 @@ test('9. B04 error table (429, 503, 409, 404, network/malformed), retry focus to
       ],
       merchandise_total_minor: 0,
       discounts: [],
+      delivery_options: [],
       shipping: { state: 'needs_delivery_data', groups: [], total_minor: null },
       total_minor: null,
     });
@@ -742,8 +744,10 @@ test('9. B04 error table (429, 503, 409, 404, network/malformed), retry focus to
         ],
         merchandise_total_minor: p1.price_minor * qty,
         discounts: [],
+        delivery_options: [],
         shipping: {
           state: 'quoted',
+          method: 'home',
           groups: [{ group_ref: 'g1', amount_minor: 6000 }],
           total_minor: 6000,
         },
@@ -850,6 +854,7 @@ test('10. defensive storage cleanup, 50-line cap alert on B03, and Storage.proto
         })),
         merchandise_total_minor: parsed.lines.reduce((sum, l) => sum + 1000 * l.quantity, 0),
         discounts: [],
+        delivery_options: [],
         shipping: { state: 'needs_delivery_data', groups: [], total_minor: null },
         total_minor: null,
       });

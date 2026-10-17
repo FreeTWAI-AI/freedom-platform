@@ -5,6 +5,7 @@ import * as wire from '../../../../contracts/guild-launchpad/v1/hosted-checkout.
 import * as commands from '../../../../modules/agent-commerce/checkout/public-commands.js';
 import {readShopCookie} from '../../../../modules/agent-commerce/checkout/access.js';
 import {CheckoutStockUnavailable,UnresolvedCheckoutOrder} from '../../../../modules/agent-commerce/checkout/orders.js';
+import {CheckoutDeliveryProblem} from '../../../../modules/agent-commerce/checkout/terms.js';
 import {Problem,requireCondition} from '../../../../packages/shared/problem.js';
 import {readSessionCookie} from '../session-cookie.js';
 import type {PlatformRuntime} from '../runtime.js';
@@ -58,7 +59,8 @@ export function createHostedCheckoutRoutes(pool:Pool,origin:string,runtime:Platf
     const problem=error as Problem;
     if(problem.retryAfterSeconds!==undefined)c.header('Retry-After',String(problem.retryAfterSeconds));
     const value=wire.CheckoutErrorSchema.parse({type:'about:blank',title:problem.code,status:problem.status,code:problem.code,detail:problem.message,
-      ...(error instanceof CheckoutStockUnavailable?{items:error.items}:{}),...(error instanceof UnresolvedCheckoutOrder?{order_ref:error.order_ref}:{})});
+      ...(error instanceof CheckoutStockUnavailable?{items:error.items}:{}),...(error instanceof UnresolvedCheckoutOrder?{order_ref:error.order_ref}:{}),
+      ...(error instanceof CheckoutDeliveryProblem&&error.fields?.length?{fields:error.fields}:{}),...(error instanceof CheckoutDeliveryProblem&&error.lines?.length?{lines:error.lines}:{})});
     return c.json(value,problem.status as 404);
   });
   const access=(c:Parameters<PlatformRuntime['sourceNetwork']>[0]):commands.BrowserAccess=>({

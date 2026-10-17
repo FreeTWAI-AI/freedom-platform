@@ -13,6 +13,7 @@ import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchp
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
 import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
+import { syntheticShippingPort } from '../../scripts/synthetic-shipping-quote.js';
 import { ensureDevice, grantDevice } from '../../modules/agent-commerce/checkout/access.js';
 import { CommerceCredentialKeyring, sealCredential } from '../../modules/agent-commerce/payments/credentials.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
@@ -572,10 +573,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
         lines: [{ sku: 'P0001', quantity: 1 }],
         contact: { name: '合成買家', email: `checkout-${data.instanceId}@synthetic.test`, phone: 'synthetic-phone' },
         delivery: { kind: 'synthetic' },
-      }, { shipping: { async quote(_q, _store, input) {
-        return { groups: [{ group_ref: 'synthetic', supplier_shop_id: input.lines[0].supplier_shop_id,
-          method_ref: 'synthetic', amount_minor: 0 }] };
-      } } });
+      }, { shipping: syntheticShippingPort() });
       const { device } = await ensureDevice(q, undefined, origin);
       await grantDevice(q, device.device_id, { tenant_id: data.tenantId, instance_id: data.instanceId, checkout_id: saved.checkout_id });
       // Nonempty A/B account graphs retain every production FK/trigger and actual sealed bytes.

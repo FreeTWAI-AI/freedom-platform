@@ -36,6 +36,7 @@ test('guest placement → conversion → handover 2/5 → restock 1, with durabl
   await assert.rejects(x.tx(q=>recordHandover(q,s,{shipmentRef:randomUUID(),lines:[{...shipment.lines[0],quantity:4}]})),code('allocation_exceeded'));
   assert.equal((await x.h.pool.query('SELECT count(*)::int n FROM commerce_inventory_movements WHERE order_id=$1',[o.order_id])).rows[0].n,3);
 });
+// Supplied line freezes through the test port's synthetic drop_ship agreement, then withdrawn consent is terms_changed. Production still rejects supplied lines.
 test('withdrawn supplier consent changes terms and prevents any placement effects',async()=>{
   const supplier=await x.store(),retailer=await x.store(10,false);
   const offer=ok(await x.send(supplier,`/products/${supplier.product.product_id}/supply-offer`,{},supplier.product.version));

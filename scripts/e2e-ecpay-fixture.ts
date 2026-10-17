@@ -9,6 +9,7 @@ import type { FreedomEnv } from '../apps/platform-api/src/env.js';
 import { isolatedTransaction, clearTenantContext } from '../packages/resource-scopes/tenant-transaction.js';
 import { bindStore } from '../modules/agent-commerce/checkout/authority.js';
 import type { CheckoutPorts } from '../modules/agent-commerce/checkout/terms.js';
+import { syntheticShippingPort } from './synthetic-shipping-quote.js';
 import { MemoryEffectJournal } from '../modules/agent-commerce/operations/journal/memory.js';
 import { createFixturePaymentGateway, paymentGatewayUrls } from '../modules/agent-commerce/payments/gateway.js';
 import { readProviderForm } from '../modules/agent-commerce/payments/provider-input.js';
@@ -30,7 +31,7 @@ export function createE2eEcpayFixture(input: {
     throw Error('payment_fixture_requires_local');
   const gateway = createFixturePaymentGateway({ freedomEnv: input.freedomEnv, environment: 'sandbox', publicBaseUrl: 'https://e2e-payments.freedom.test', checkoutAction: input.origin + '/__e2e/ecpay/aio-checkout', localOrigin: input.origin });
   const journal = new MemoryEffectJournal('local'), profiles = ['ecpay.aio.credit.v1'] as const;
-  const shipping: CheckoutPorts['shipping'] = { async quote(_q, _store, request) { return { groups: [...new Set(request.lines.map(l => l.supplier_shop_id))].map(id => ({ group_ref: id, supplier_shop_id: id, method_ref: 'synthetic-fixed', amount_minor: 0 })) }; } };
+  const shipping: CheckoutPorts['shipping'] = syntheticShippingPort();
   type QueryMode='query_unpaid'|'query_unknown_status'|'query_amount_mismatch'|'query_403'|'query_timeout'|'query_invalid_signature';
   const trades=new Map<string,{status:'0'|'1'|'10200095';tradeNo:string;paymentDate:string}>(),queryModes=new Map<string,QueryMode>();
   const sessions = new Map<string, {

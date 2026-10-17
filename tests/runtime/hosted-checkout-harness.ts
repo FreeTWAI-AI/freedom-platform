@@ -7,9 +7,11 @@ import {isolatedTransaction} from '../../packages/resource-scopes/tenant-transac
 import {DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createRegistryHarness,type RegistryHarness,type Session,type Reply} from './module-registry-harness.js';
 import {freezeCheckout,placeCheckoutOrder,cancelUnpaidOrder,type CheckoutPorts,type CheckoutInput} from '../../modules/agent-commerce/checkout/index.js';
+import {syntheticShippingPort} from '../../scripts/synthetic-shipping-quote.js';
 export const ok=(r:Reply,status=200)=>{assert.equal(r.status,status,JSON.stringify(r.data));return r.data;};
 export const code=(expected:string)=>(e:unknown)=>(e as {code?:string}).code===expected;
-export const ports:CheckoutPorts={admission:{allowed:()=>true},shipping:{async quote(_q,_s,input){return {groups:[...new Set(input.lines.map(l=>l.supplier_shop_id))].sort().map(s=>({group_ref:s,supplier_shop_id:s,method_ref:'synthetic-fixed',amount_minor:0}))};}}};
+/** Quote-only synthetic port. Supplied lines are drop_ship with a fake agreement so consent tests can freeze; production still rejects them. */
+export const ports:CheckoutPorts={admission:{allowed:()=>true},shipping:syntheticShippingPort()};
 export async function checkoutHarness(prefix:string,options:{publicSchema?:boolean;randomContact?:boolean}={}) {
   const url=process.env.TEST_DATABASE_URL;assert.ok(url&&/^\/fp_[a-z0-9_]+$/.test(new URL(url).pathname),'Explicit disposable fp_* TEST_DATABASE_URL required');
   const h=await createRegistryHarness(prefix,options),role=`${prefix}_runtime_${process.pid}_${Date.now()}`;

@@ -354,8 +354,9 @@ test('checkout public terms are an exact allowlist, replay identically and retai
   const s=await x.store(),f=await checkout(s),terms=f.c.terms;
   assert.deepEqual(Object.keys(terms).sort(),['publication_revision','currency','items','merchandise_total_minor','discount_total_minor','discounts','shipping','shipping_total_minor','tax_state','total_minor','consents','payment_methods'].sort());
   assert.deepEqual(Object.keys(terms.items[0]).sort(),['sku','title','quantity','unit_price_minor','line_total_minor'].sort());
-  assert.deepEqual(Object.keys(terms.shipping),['groups']);assert.deepEqual(Object.keys(terms.shipping.groups[0]).sort(),['amount_minor','group_ref']);
-  for(const key of ['supplier','selection','item_id','offer','acceptance','listing','publication_id','contact_sha256'])assert(!JSON.stringify(terms).includes(key),key);
+  assert.deepEqual(Object.keys(terms.shipping).sort(),['destination_state','groups']);
+  assert.deepEqual(Object.keys(terms.shipping.groups[0]).sort(),['amount_minor','fee_per_parcel_minor','group_ref','handling_days','items','meetup_note','method','outlying_surcharge_per_parcel_minor','parcel_count']);
+  for(const key of ['supplier','selection','item_id','offer','acceptance','listing','publication_id','contact_sha256','agreement','service_key','ship_from','profile_version','logistics'])assert(!JSON.stringify(terms).includes(key),key);
   const stored=(await x.h.pool.query('SELECT terms,terms_sha256 FROM commerce_checkouts WHERE checkout_id=$1',[f.c.checkout_ref])).rows[0];
   assert.equal(f.c.terms_sha256,stored.terms_sha256);assert(stored.terms.bindings.length===1);
   const body={...x.input(s.product.sku,1),contact:{name:'測試買家甲',email:'buyer@example.test',phone:'0900000000'}};

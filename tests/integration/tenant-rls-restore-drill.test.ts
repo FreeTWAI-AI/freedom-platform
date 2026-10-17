@@ -23,6 +23,7 @@ import { digest } from '../../packages/db/index.js';
 import { placeCheckoutOrder } from '../../modules/agent-commerce/checkout/orders.js';
 import { applyConfirmedPayment } from '../../modules/agent-commerce/checkout/payments.js';
 import { freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
+import { syntheticShippingPort } from '../../scripts/synthetic-shipping-quote.js';
 import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
@@ -358,10 +359,8 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
       publication_revision: '1', lines: [{ sku: 'P0001', quantity: 1 }],
       contact: { name: '測試買家甲', email: `restore-${space.tenantId}@example.test`, phone: '0900000000' },
       delivery: { address: '合成測試地址' }, invoice: null, consents: [], idempotencyKey: randomUUID(),
-    }, { shipping: { async quote(_q, _store, input) {
-      return { groups: input.lines.map(line => ({ group_ref: 'synthetic-group', supplier_shop_id: line.supplier_shop_id, method_ref: 'synthetic', amount_minor: 0 })) };
-    } } });
-    const checkoutOrder = await placeCheckoutOrder(q,store,{checkoutId:space.checkout.checkout_id,termsSha256:space.checkout.terms_sha256,clientOrderId:randomUUID(),buyerPrincipalId:null,environment:'sandbox'}, {admission:{allowed:()=>true},shipping:{async quote(_q,_store,input){return {groups:input.lines.map(line=>({group_ref:'synthetic-group',supplier_shop_id:line.supplier_shop_id,method_ref:'synthetic',amount_minor:0}))};}}});
+    }, { shipping: syntheticShippingPort() });
+    const checkoutOrder = await placeCheckoutOrder(q,store,{checkoutId:space.checkout.checkout_id,termsSha256:space.checkout.terms_sha256,clientOrderId:randomUUID(),buyerPrincipalId:null,environment:'sandbox'}, {admission:{allowed:()=>true},shipping:syntheticShippingPort()});
     const attemptId = randomUUID(), tradeNumber = newTradeNumber('F');
     await q.query(`INSERT INTO commerce_payment_attempts(attempt_id,tenant_id,instance_id,kind,sequence,account_id,
       environment,merchant_id,credential_version,merchant_trade_no,amount_minor,currency)
