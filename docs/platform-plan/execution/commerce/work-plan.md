@@ -280,6 +280,33 @@ EC-SPEC-09 §4 同步（`b0a1c3b8`）。驗證：付款開通 32/32、路由矩�
 b07-live 通過審查，合併為 `2586d796`。審查時刪掉一個沒用到的讀取函式。驗證：店面付款 E2E 11/11，三個新測試各重跑三次
 9/9。`feat/freedom-commerce` 快轉到 `151c0ba0`。
 
+接手快照（2026-10-17 01:50Z）：
+
+Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `grok-4.7` 與 agy CLI Opus 5.5。
+目前可推送功能分支與更新 [PR #863](https://github.com/FreeTWAI/freedom-platform/pull/863)；合併 main 前仍須問 Ted。
+部署、綠界連線（含 stage）與實際寄信沒有本批授權。下列是具版本的接手紀錄，不改寫前面的歷史狀態欄。
+
+- `integ-11` 已包含賣家後端（`b65a47cd`）、交易信件（`318eeb4a`）、出貨設定與 migration 170
+  （`d3219f0a`）、seller-console 與八分割 runtime（`49900aa2`），以及 main PR #870（`fc374412`）。
+- `wp05-quote` 交付 `db997d6b` 已整合：正式 Node 與 Worker 都接上 SQL 本地運費報價。
+  面交與既有可用物流設定可報價；供貨協議尚未實作的品項仍回 `fulfilment_not_agreed`，超商未選店仍不能下單。
+  這不是整個 M3 完成；B05、物流啟用、正式選店與履約單仍是後續切片。
+- `offline-core` 的設定、准入、凍結條款、下單、到期、賣家確認收款、面交交貨與主機接線已整合至
+  `6c823444`（整合 `952ab161`）。其餘測試、文件與交付審查仍在進行。設定／契約測試由獨立工作負責，
+  不與核心工作同時修改同一檔案。
+- 整合者用正式 Node ports 跑過設定、准入、購物車、凍結條款、成立面交訂單、完成及重放，沒有覆寫 ports，
+  也沒有 ECPay 帳戶、keyring 或 journal；相關 runtime 66/66、wrangler 52/52 與 typecheck 通過。
+  `46272518` 另修正只有 Email 提供 journal binding 時，離線 profile 的排程不會封存日誌，以及離線設定版本與
+  方法被日誌白名單丟掉的問題；實際 SQL/R2 與 codec 回歸先失敗 4 項，修正後日誌測試 35/35 通過。
+- 已推送的 `b5dd3a74` 在 hosted run `38988236119` 的八個 runtime 分割與 aggregate 全過：6154 項、413 檔，
+  最長分割 1082.229 秒，低於 1500 秒上限；九份產物的 digest、內容、來源 hash、分割聯集與清理證據均核對。
+  同輪 UI 為 982 過、18 明示 skip、15 未跑、1 失敗、1 中斷；賣家 8 項與 chat-stickers 20 項都過。
+  失敗是 AR-UI-05 的單次畫布像素斷言，tenant-ownership 是隨後中斷，不能把整輪寫成通過。
+- AR trace 顯示先畫出圖卡、再失去追蹤並清空畫布。`d1dde3f8` 讓同一像素斷言在原本 30 秒取得追蹤的期限內等待；
+  保留真實影片辨識、90 秒案例上限及零重試。本機 AR 9/9 與 typecheck 通過，最終候選仍須重新驗證 hosted CI。
+- 此快照的整合分支尚未推送。最終候選要完成合併後的 scoped runtime、資料目錄／retarget、Worker、瀏覽器與還原驗證，
+  再跑一次完整 serial runtime。既有 T-047 還原 TODO（備份後撤銷的會員／邀請可能復活）保留，不能當完整還原驗收通過。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |
