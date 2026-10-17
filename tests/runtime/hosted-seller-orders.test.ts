@@ -29,7 +29,7 @@ async function fixture(stock = 3) {
   await h.fullMember(owner.user.user_id, 'guild_commerce_sales');
   const t = await h.createTenant(owner, '合成直售商店');
   const plan = ok(await post(`/tenants/${t.tenantId}/application-launch-plans`, owner,
-    h.planBody('guild_commerce_sales', t.workspaceId, 'hosted-store', 'hosted-store@1.0.0')), 201);
+    h.planBody('guild_commerce_sales', t.workspaceId, 'hosted-store', 'hosted-store@1.1.0')), 201);
   const launched = await post(`/tenants/${t.tenantId}/application-installations`, owner,
     { plan_id: plan.plan_id, expected_plan_version: plan.version, configuration_digest: plan.configuration_digest });
   assert.ok([200, 202].includes(launched.status), JSON.stringify(launched.data));

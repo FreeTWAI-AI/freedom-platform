@@ -1,0 +1,120 @@
+name: Blacksmith onboarding pilot (single admission)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialization is not a spending cap; admission is manual (see the runbook).
+concurrency:
+  group: blacksmith-onboarding-pilot
+  cancel-in-progress: false
+
+jobs:
+  onboarding:
+    # Unset admission variable is OFF before runner allocation. The maintainer
+    # may admit only workflow run 1, attempt 1 after the runbook checklist.
+    if: >-
+      ${{ vars.BLACKSMITH_PILOT_ADMISSION == 'first-run-approved' &&
+          github.run_number == 1 &&
+          github.event_name == 'workflow_dispatch' &&
+          github.repository == 'FreeTWAI/freedom-platform' &&
+          github.ref == 'refs/heads/main' &&
+          github.workflow_ref == 'FreeTWAI/freedom-platform/.github/workflows/blacksmith-onboarding.yml@refs/heads/main' &&
+          github.run_attempt == 1 }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      SOURCE_SHA: 75309b0747a5220e9aa2a478a5012cc3c3c35ee6
+      CI: 'true'
+      DO_NOT_TRACK: '1'
+    steps:
+      - name: Start measured job interval
+        run: printf 'PILOT_STARTED_MS=%s\n' "$(date +%s%3N)" >> "$GITHUB_ENV"
+      - name: Checkout fixed main source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: FreeTWAI/freedom-platform
+          ref: 75309b0747a5220e9aa2a478a5012cc3c3c35ee6
+          persist-credentials: false
+      - name: Set up the existing Node version (no cache)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Verify identities and record provenance
+        env:
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          RUNNER_NAME: ${{ runner.name }}
+          RUNNER_OS: ${{ runner.os }}
+          RUNNER_ARCH: ${{ runner.arch }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          mkdir -p .freedom/reports
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { availableParallelism, cpus, release } from 'node:os';
+          const e = process.env;
+          const cpu = cpus();
+          writeFileSync('.freedom/reports/blacksmith-source.json', JSON.stringify({
+            source_sha: e.SOURCE_SHA, workflow_sha: e.WORKFLOW_SHA,
+            command: 'npm run build', workload_timeout_seconds: 300,
+            runner_label: 'blacksmith-4vcpu-ubuntu-2404', runner_name: e.RUNNER_NAME,
+            runner_os: e.RUNNER_OS, runner_arch: e.RUNNER_ARCH, node: process.version,
+            cpu_logical_count: cpu.length, cpu_available_parallelism: availableParallelism(),
+            cpu_models: [...new Set(cpu.map(core => core.model))],
+            os_release: readFileSync('/etc/os-release', 'utf8'), kernel_release: release(),
+            runner_image_os: e.ImageOS ?? null, runner_image_version: e.ImageVersion ?? null,
+            run_id: e.GITHUB_RUN_ID, run_number: e.GITHUB_RUN_NUMBER, run_attempt: e.GITHUB_RUN_ATTEMPT,
+            started_at: new Date().toISOString(), purpose: 'onboarding-only'
+          }, null, 2) + '\n');
+          NODE
+      - name: Install locked dependencies and record duration
+        id: install
+        run: |
+          start=$SECONDS
+          trap 'rc=$?; printf "{\"duration_seconds\":%s,\"exit_code\":%s}\n" "$((SECONDS-start))" "$rc" > .freedom/reports/blacksmith-install.json' EXIT
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run the complete fixed-source build and record duration
+        id: build
+        run: |
+          start=$SECONDS
+          trap 'rc=$?; printf "{\"duration_seconds\":%s,\"exit_code\":%s}\n" "$((SECONDS-start))" "$rc" > .freedom/reports/blacksmith-build.json' EXIT
+          timeout --signal=TERM --kill-after=5s 300s npm run build
+      - name: Record total measured interval and outcomes
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          mkdir -p .freedom/reports
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const e = process.env, started = Number(e.PILOT_STARTED_MS), ended = Date.now();
+          writeFileSync('.freedom/reports/blacksmith-total.json', JSON.stringify({
+            started_ms: Number.isSafeInteger(started) && started > 0 ? started : null,
+            ended_ms: ended,
+            duration_seconds: Number.isSafeInteger(started) && started > 0 && ended >= started ? (ended - started) / 1000 : null,
+            job_status_before_upload: e.JOB_STATUS,
+            install_outcome: e.INSTALL_OUTCOME, build_outcome: e.BUILD_OUTCOME,
+            scope: 'first step through summary; excludes queue, provisioning and artifact upload; not provider billing time'
+          }, null, 2) + '\n');
+          NODE
+      - name: Retain onboarding evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: blacksmith-onboarding-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 1
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: |
+            .freedom/reports/blacksmith-source.json
+            .freedom/reports/blacksmith-install.json
+            .freedom/reports/blacksmith-build.json
+            .freedom/reports/blacksmith-total.json

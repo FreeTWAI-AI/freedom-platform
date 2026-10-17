@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/hosted-offline-payment",
+  "description": "Offline payment settings. The fresh-auth id is request metadata and is not stored or projected. Shapes grant no payment authority.",
+  "$defs": {
+    "settings-input": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "freedom.offline-payment-settings/v1"
+        },
+        "bank_transfer": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "bank_code": {
+                  "type": "string"
+                },
+                "bank_name": {
+                  "type": "string"
+                },
+                "branch_name": {
+                  "type": "string"
+                },
+                "account_number": {
+                  "type": "string"
+                },
+                "account_name": {
+                  "type": "string"
+                },
+                "deadline_days": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "bank_code",
+                "bank_name",
+                "account_number",
+                "account_name"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cash_on_meetup": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "deadline_days": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fresh_auth_verification_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "schema",
+        "bank_transfer",
+        "cash_on_meetup",
+        "fresh_auth_verification_id"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: fresh_auth_request_metadata, field_rules_are_not_structural."
+    },
+    "settings-view": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "saved_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "account_visibility": {
+          "type": "string",
+          "enum": [
+            "full",
+            "last4"
+          ]
+        },
+        "host_profiles": {
+          "type": "object",
+          "properties": {
+            "bank_transfer": {
+              "type": "boolean"
+            },
+            "cash_on_meetup": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "bank_transfer",
+            "cash_on_meetup"
+          ],
+          "additionalProperties": false
+        },
+        "settings": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "bank_transfer": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "bank_code": {
+                          "type": "string",
+                          "pattern": "^[0-9]{3}$(?![\\s\\S])"
+                        },
+                        "bank_name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 20,
+                          "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
+                        },
+                        "branch_name": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 20,
+                              "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "account_number": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[0-9]{6,16}$(?![\\s\\S])"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "account_number_last4": {
+                          "type": "string",
+                          "pattern": "^[0-9]{4}$(?![\\s\\S])"
+                        },
+                        "account_name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
+                        },
+                        "deadline_days": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        },
+                        "note": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "pattern": "^[^\\u0000\\uD800-\\uDFFF]*$(?![\\s\\S])"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "bank_code",
+                        "bank_name",
+                        "branch_name",
+                        "account_number",
+                        "account_number_last4",
+                        "account_name",
+                        "deadline_days",
+                        "note"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "cash_on_meetup": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "deadline_days": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 14
+                        }
+                      },
+                      "required": [
+                        "deadline_days"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "bank_transfer",
+                "cash_on_meetup"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "saved_at",
+        "account_visibility",
+        "host_profiles",
+        "settings"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: version_saved_at_settings_together, account_number_null_exactly_for_last4."
+    },
+    "field-error-code": {
+      "type": "string",
+      "enum": [
+        "required",
+        "format",
+        "too_short",
+        "too_long",
+        "out_of_range"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "field-error": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-z_]+(\\.([0-9]{1,2}|[a-z_]+))*$(?![\\s\\S])"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "required",
+            "format",
+            "too_short",
+            "too_long",
+            "out_of_range"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "code"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "error-code": {
+      "type": "string",
+      "enum": [
+        "offline_settings_invalid",
+        "fresh_auth_required",
+        "not_found",
+        "tenant_not_found",
+        "capability_denied",
+        "tenant_capability_denied",
+        "storefront_unavailable",
+        "storefront_not_set_up",
+        "validation_failed",
+        "invalid_json",
+        "invalid_command_json",
+        "origin_rejected",
+        "host_rejected",
+        "json_required",
+        "body_too_large",
+        "login_required",
+        "csrf_rejected",
+        "onboarding_required",
+        "scope_kind_unavailable",
+        "foundation_mapping_unavailable",
+        "tenant_context_unavailable",
+        "resource_not_found",
+        "invalid_query",
+        "idempotency_required",
+        "idempotency_conflict",
+        "version_required",
+        "invalid_version",
+        "version_conflict",
+        "session_expired",
+        "principal_disabled",
+        "scope_disabled",
+        "internal_error"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "about:blank"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "offline_settings_invalid",
+            "fresh_auth_required",
+            "not_found",
+            "tenant_not_found",
+            "capability_denied",
+            "tenant_capability_denied",
+            "storefront_unavailable",
+            "storefront_not_set_up",
+            "validation_failed",
+            "invalid_json",
+            "invalid_command_json",
+            "origin_rejected",
+            "host_rejected",
+            "json_required",
+            "body_too_large",
+            "login_required",
+            "csrf_rejected",
+            "onboarding_required",
+            "scope_kind_unavailable",
+            "foundation_mapping_unavailable",
+            "tenant_context_unavailable",
+            "resource_not_found",
+            "invalid_query",
+            "idempotency_required",
+            "idempotency_conflict",
+            "version_required",
+            "invalid_version",
+            "version_conflict",
+            "session_expired",
+            "principal_disabled",
+            "scope_disabled",
+            "internal_error"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "fields": {
+          "minItems": 1,
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^[a-z_]+(\\.([0-9]{1,2}|[a-z_]+))*$(?![\\s\\S])"
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "format",
+                  "too_short",
+                  "too_long",
+                  "out_of_range"
+                ]
+              }
+            },
+            "required": [
+              "path",
+              "code"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    }
+  }
+}

@@ -9,11 +9,15 @@ export function storeCapabilities(role: TenantAccessRole): readonly string[] {
   return role === 'owner' || role === 'admin' ? template : [];
 }
 export async function effectiveStoreCapabilities(q: PoolClient, context: TenantScopeContext, instanceId: string): Promise<string[]> {
-  if (context.role === 'owner' || context.role === 'admin') return [...STORE_CAPABILITIES];
+  const registered = (await q.query<{ capabilities: string[] }>(`SELECT d.capabilities FROM module_instances i
+    JOIN module_definitions d ON d.module_key=i.module_key AND d.release_ref=i.module_release_ref
+    WHERE i.tenant_id=$1 AND i.instance_id=$2 AND i.module_key='storefront'`,
+  [context.tenant_id, instanceId])).rows[0]?.capabilities ?? [];
+  if (context.role === 'owner' || context.role === 'admin') return [...registered];
   const row = (await q.query<{ capabilities: string[] }>(`SELECT capabilities FROM tenant_module_permissions
     WHERE tenant_id=$1 AND instance_id=$2 AND principal_id=$3 AND purpose IS NULL AND status='active'`,
   [context.tenant_id, instanceId, context.principal_id])).rows[0];
-  return STORE_CAPABILITIES.filter(key => row?.capabilities.includes(key));
+  return registered.filter(key => row?.capabilities.includes(key));
 }
 export async function requireStoreCapability(q: PoolClient, context: TenantScopeContext, key: string, write: boolean) {
   if (write && context.tenant_status !== 'active') throw new Problem(403, 'capability_denied', '目前無法使用這個業務空間。');

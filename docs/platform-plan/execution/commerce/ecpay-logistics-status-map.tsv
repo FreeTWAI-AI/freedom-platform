@@ -1,0 +1,279 @@
+sub_type	code	ecpay_message	effect	state	exception
+UNIMARTC2C	300	訂單處理中(綠界已收到訂單資料)	progress	created	
+UNIMARTC2C	2030	物流中心驗收成功	progress	in_transit	
+UNIMARTC2C	2041	物流中心理貨中	progress	in_transit	
+UNIMARTC2C	2042	包裹遺失，進入賠償程序	exception		lost
+UNIMARTC2C	2043	門市指定時間不配送，後續配送中	progress	in_transit	
+UNIMARTC2C	2048	包裝異常，請洽客服	exception		carrier_attention
+UNIMARTC2C	2051	賣家要求提早退貨	progress	returning	
+UNIMARTC2C	2053	門市誤刷取件，包裹退回中	progress	returning	
+UNIMARTC2C	2058	天候不佳，後續配送中	progress	in_transit	
+UNIMARTC2C	2061	包裹異常，請洽客服	exception		carrier_attention
+UNIMARTC2C	2062	包裹門市確認中	informational		
+UNIMARTC2C	2066	包裹確認中，將退回物流中心	exception		carrier_attention
+UNIMARTC2C	2067	買家已到店取貨	progress	delivered	
+UNIMARTC2C	2068	賣家已到門市寄件	progress	handed_over	
+UNIMARTC2C	2069	退貨便收件(商品退回指定C門市)	ops_review		
+UNIMARTC2C	2070	賣家已取退回包裹	progress	returned	
+UNIMARTC2C	2072	包裹已退至原寄件門市	progress	returned	
+UNIMARTC2C	2073	包裹配達取件門市	progress	ready_for_pickup	
+UNIMARTC2C	2074	買家未取包裹，將退回物流中心	progress	returning	uncollected
+UNIMARTC2C	2075	賣家未取包裹，將退回物流中心	exception		carrier_attention
+UNIMARTC2C	2076	買家未取包裹，已退回物流中心	progress	returning	uncollected
+UNIMARTC2C	2077	賣家未取包裹，待申請退回	exception		carrier_attention
+UNIMARTC2C	2078	買家未取包裹，已退回物流中心	progress	returning	uncollected
+UNIMARTC2C	2079	買家未取貨退回物流中心-商品瑕疵(進物流中心)	progress	returning	
+UNIMARTC2C	2080	買家未取貨退回物流中心-超材	progress	returning	
+UNIMARTC2C	2081	買家未取貨退回物流中心-違禁品(退貨及罰款處理)	progress	returning	
+UNIMARTC2C	2082	買家未取貨退回物流中心-訂單資料重複上傳	progress	returning	
+UNIMARTC2C	2083	買家未取貨退回物流中心-已過門市進貨日（未於指定時間內寄至物流中心)	progress	returning	
+UNIMARTC2C	2084	買家未取貨退回物流中心-第一段標籤規格錯誤	progress	returning	
+UNIMARTC2C	2085	買家未取貨退回物流中心-第一段標籤無法判讀	progress	returning	
+UNIMARTC2C	2086	買家未取貨退回物流中心-第一段標籤資料錯誤	progress	returning	
+UNIMARTC2C	2087	買家未取貨退回物流中心-物流中心理貨中	progress	returning	
+UNIMARTC2C	2088	買家未取貨退回物流中心-商品遺失	exception		lost
+UNIMARTC2C	2089	買家未取退回物流中心-門市指定不配送(六、日)	exception		carrier_attention
+UNIMARTC2C	2092	買家未取退回物流中心-門市關轉	exception		pickup_store_closed
+UNIMARTC2C	2093	買家未取退回物流中心-爆量	exception		carrier_attention
+UNIMARTC2C	2094	包裹異常，請洽客服	exception		carrier_attention
+UNIMARTC2C	2096	賣家未取包裹，待申請退回	exception		carrier_attention
+UNIMARTC2C	2097	包裹宅配退回中	progress	returning	
+UNIMARTC2C	2098	包裹重新配達取件門市	progress	ready_for_pickup	
+UNIMARTC2C	2099	包裹重新配達寄件門市	progress	returned	
+UNIMARTC2C	2101	門市關轉店	exception		pickup_store_closed
+UNIMARTC2C	2102	門市舊店號更新	informational		
+UNIMARTC2C	2103	無取件門市資料	exception		pickup_store_closed
+UNIMARTC2C	2104	門市關轉，請重選門市	exception		pickup_store_closed
+UNIMARTC2C	2105	已申請門市變更	informational		
+UNIMARTC2C	7013	訂單超過驗收期限（賣家未出貨）	exception		carrier_attention
+UNIMARTC2C	7017	取件包裹異常，協尋中	exception		carrier_attention
+UNIMARTC2C	7018	包裹遺失，進入賠償程序	exception		lost
+UNIMARTC2C	7019	寄件包裹異常，協尋中	exception		carrier_attention
+UNIMARTC2C	7020	包裹遺失，進入賠償程序	exception		lost
+UNIMARTC2C	7038	門市驗收異常，請洽客服	exception		carrier_attention
+UNIMARTC2C	9999	訂單取消	exception		carrier_attention
+FAMIC2C	300	訂單處理中(綠界已收到訂單資料)	progress	created	
+FAMIC2C	310	訂單上傳物流中	progress	created	
+FAMIC2C	2105	已申請門市變更	informational		
+FAMIC2C	3018	包裹配達取件門市	progress	ready_for_pickup	
+FAMIC2C	3019	包裹已退至原寄件門市	progress	returned	
+FAMIC2C	3020	買家未取包裹，將退回物流中心	progress	returning	uncollected
+FAMIC2C	3021	賣家未取包裹，待申請退回	exception		carrier_attention
+FAMIC2C	3022	買家已到店取貨	progress	delivered	
+FAMIC2C	3023	賣家已取退回包裹	progress	returned	
+FAMIC2C	3024	物流中心驗收成功	progress	in_transit	
+FAMIC2C	3025	買家未取包裹，已退回物流中心	progress	returning	uncollected
+FAMIC2C	3029	包裹已配達指定取件門市	progress	ready_for_pickup	
+FAMIC2C	3031	包裹已退至指定寄件門市	progress	returned	
+FAMIC2C	3032	賣家已到門市寄件	progress	handed_over	
+FAMIC2C	4001	買家已到門市寄件	ops_review		
+FAMIC2C	4002	退貨商品已至物流中心	ops_review		
+FAMIC2C	5009	包裹異常，請洽客服	exception		carrier_attention
+FAMIC2C	7006	包裹遺失，進入賠償程序	exception		lost
+FAMIC2C	7007	包裹遺失，進入賠償程序	exception		lost
+FAMIC2C	7008	包裹破損，請洽客服	exception		damaged
+FAMIC2C	7009	包裝異常，請洽客服	exception		carrier_attention
+FAMIC2C	7010	包裝異常，請洽客服	exception		carrier_attention
+FAMIC2C	7011	取件門市關轉，請重選門市	exception		pickup_store_closed
+FAMIC2C	7012	條碼錯誤，廠退處理	progress	returning	
+FAMIC2C	7013	訂單超過驗收期限（賣家未出貨）	exception		carrier_attention
+FAMIC2C	7014	等待賣家出貨	progress	created	
+FAMIC2C	7015	條碼重複，請洽客服	exception		carrier_attention
+FAMIC2C	7016	包裹超材，退回賣家	progress	returning	
+FAMIC2C	7032	寄件門市關轉，請重選門市	exception		carrier_attention
+FAMIC2C	7034	貨物進店發生異常，請洽客服	exception		carrier_attention
+FAMIC2C	7035	逾期未領，貨件銷毀	exception		carrier_attention
+FAMIC2C	7036	貨件破損，請洽客服	exception		damaged
+HILIFEC2C	300	訂單處理中(綠界已收到訂單資料)	progress	created	
+HILIFEC2C	310	訂單上傳物流中	progress	created	
+HILIFEC2C	311	訂單傳送物流成功	progress	created	
+HILIFEC2C	325	退貨訂單處理中(綠界已收到訂單資料)	ops_review		
+HILIFEC2C	2000	已申請門市變更	informational		
+HILIFEC2C	2001	訂單傳送超商成功	progress	created	
+HILIFEC2C	2002	出貨單號不合規則	exception		carrier_attention
+HILIFEC2C	2003	XML檔內出貨單號重複	exception		carrier_attention
+HILIFEC2C	2004	出貨單號重複上傳使用(驗收時發現)	exception		carrier_attention
+HILIFEC2C	2005	日期格式不符	exception		carrier_attention
+HILIFEC2C	2006	訂單金額或代收金額錯誤	exception		carrier_attention
+HILIFEC2C	2007	商品類型為空	exception		carrier_attention
+HILIFEC2C	2009	門市店號為空	exception		carrier_attention
+HILIFEC2C	2010	出貨日期為空	exception		carrier_attention
+HILIFEC2C	2011	出貨金額為空	exception		carrier_attention
+HILIFEC2C	2012	出貨編號不存在	exception		carrier_attention
+HILIFEC2C	2013	母廠商不存在	exception		carrier_attention
+HILIFEC2C	2014	子廠商不存在	exception		carrier_attention
+HILIFEC2C	2015	出貨編號已存在(單筆)	exception		carrier_attention
+HILIFEC2C	2016	門市已關轉店，將進行退貨處理	progress	returning	
+HILIFEC2C	2017	出貨日期不符合規定	exception		carrier_attention
+HILIFEC2C	2018	服務類型不符規定(如只開取貨付款服務，卻使用純取貨服務)	exception		carrier_attention
+HILIFEC2C	2019	商品類型不符規定	exception		carrier_attention
+HILIFEC2C	2020	廠商尚未申請店配服務	exception		carrier_attention
+HILIFEC2C	2021	同一批次出貨編號重複(批次)	exception		carrier_attention
+HILIFEC2C	2022	出貨金額不符規定	exception		carrier_attention
+HILIFEC2C	2023	取貨人姓名為空	exception		carrier_attention
+HILIFEC2C	2024	訂單傳送超商成功	progress	created	
+HILIFEC2C	2025	門市轉店號(舊門市店號已更新)	informational		
+HILIFEC2C	2026	無此門市，將進行退貨處理	progress	returning	
+HILIFEC2C	2027	門市指定時間不配送，後續配送中	progress	in_transit	
+HILIFEC2C	2028	門市關轉店，3日內未更新SUP(新店號)便至退貨流程	exception		pickup_store_closed
+HILIFEC2C	2029	門市尚未開店	exception		pickup_store_closed
+HILIFEC2C	2030	物流中心驗收成功	progress	in_transit	
+HILIFEC2C	2031	等待賣家出貨	progress	created	
+HILIFEC2C	2032	包裝異常，請洽客服	exception		carrier_attention
+HILIFEC2C	2033	包裹超材，退回賣家	progress	returning	
+HILIFEC2C	2034	違禁品(退貨及罰款處理)	progress	returning	
+HILIFEC2C	2035	訂單資料重複上傳	exception		carrier_attention
+HILIFEC2C	2036	訂單超過驗收期限（賣家未出貨）	exception		carrier_attention
+HILIFEC2C	2037	取件門市關轉，請重選門市	exception		pickup_store_closed
+HILIFEC2C	2038	標籤錯誤，廠退處理	progress	returning	
+HILIFEC2C	2039	標籤錯誤，廠退處理	progress	returning	
+HILIFEC2C	2040	標籤錯誤，廠退處理	progress	returning	
+HILIFEC2C	2041	物流中心理貨中	progress	in_transit	
+HILIFEC2C	2042	包裹遺失，進入賠償程序	exception		lost
+HILIFEC2C	2043	門市指定時間不配送，後續配送中	progress	in_transit	
+HILIFEC2C	2045	不正常到貨(商品提早到物流中心)，廠退處理	progress	returning	
+HILIFEC2C	2046	貨件未取退回大智通物流中心	progress	returning	uncollected
+HILIFEC2C	2047	正常二退(退貨時間延長，在判賠期限內退回)	progress	returning	
+HILIFEC2C	2048	包裝異常，請洽客服	exception		carrier_attention
+HILIFEC2C	2049	門市關店，將進行退貨處理	progress	returning	
+HILIFEC2C	2050	門市轉店，將進行退貨處理	progress	returning	
+HILIFEC2C	2051	賣家要求提早退貨	progress	returning	
+HILIFEC2C	2052	違禁品(退貨及罰款處理)	progress	returning	
+HILIFEC2C	2053	門市誤刷取件，包裹退回中	progress	returning	
+HILIFEC2C	2054	賣家要求提早退貨	progress	returning	
+HILIFEC2C	2055	包裹退至物流中心	progress	returning	
+HILIFEC2C	2057	車輛故障，後續配送中	progress	in_transit	
+HILIFEC2C	2058	天候不佳，後續配送中	progress	in_transit	
+HILIFEC2C	2059	道路中斷，後續配送中	progress	in_transit	
+HILIFEC2C	2060	門市停業，廠退處理	progress	returning	
+HILIFEC2C	2061	包裹異常，請洽客服	exception		carrier_attention
+HILIFEC2C	2062	包裹門市確認中	informational		
+HILIFEC2C	2063	包裹配達取件門市	progress	ready_for_pickup	
+HILIFEC2C	2065	買家未取包裹，將退回物流中心	progress	returning	uncollected
+HILIFEC2C	2066	包裹確認中，將退回物流中心	exception		carrier_attention
+HILIFEC2C	2067	買家已到店取貨	progress	delivered	
+HILIFEC2C	2068	賣家已到門市寄件	progress	handed_over	
+HILIFEC2C	2069	退貨便收件(商品退回指定C門市)	ops_review		
+HILIFEC2C	2070	賣家已取退回包裹	progress	returned	
+HILIFEC2C	2071	門市代碼格式錯誤	exception		carrier_attention
+HILIFEC2C	2072	包裹已退至原寄件門市	progress	returned	
+HILIFEC2C	2073	包裹配達取件門市	progress	ready_for_pickup	
+HILIFEC2C	2074	買家未取包裹，將退回物流中心	progress	returning	uncollected
+HILIFEC2C	2075	賣家未取包裹，將退回物流中心	exception		carrier_attention
+HILIFEC2C	2101	門市關轉店	exception		pickup_store_closed
+HILIFEC2C	2102	門市舊店號更新	informational		
+HILIFEC2C	2103	無取件門市資料	exception		pickup_store_closed
+HILIFEC2C	2104	門市關轉，請重選門市	exception		pickup_store_closed
+HILIFEC2C	2105	已申請門市變更	informational		
+HILIFEC2C	3018	包裹配達取件門市	progress	ready_for_pickup	
+HILIFEC2C	3019	包裹已退至原寄件門市	progress	returned	
+HILIFEC2C	3020	買家未取包裹，將退回物流中心	progress	returning	uncollected
+HILIFEC2C	3021	賣家未取包裹，待申請退回	exception		carrier_attention
+HILIFEC2C	3022	買家已到店取貨	progress	delivered	
+HILIFEC2C	3023	賣家已取退回包裹	progress	returned	
+HILIFEC2C	3024	物流中心驗收成功	progress	in_transit	
+HILIFEC2C	3025	買家未取包裹，已退回物流中心	progress	returning	uncollected
+HILIFEC2C	3029	包裹已配達指定取件門市	progress	ready_for_pickup	
+HILIFEC2C	3031	包裹已退至指定寄件門市	progress	returned	
+HILIFEC2C	3032	賣家已到門市寄件	progress	handed_over	
+HILIFEC2C	3033	EC客戶要求提早退貨	progress	returning	
+HILIFEC2C	4001	買家已到門市寄件	ops_review		
+HILIFEC2C	4002	退貨商品已至物流中心	ops_review		
+HILIFEC2C	5001	損壞，站所將協助退貨	progress	returning	damaged
+HILIFEC2C	5002	遺失	exception		lost
+HILIFEC2C	5003	BASE列管(寄件人和收件人聯絡不到)	exception		carrier_attention
+HILIFEC2C	5004	賣家未取包裹，待申請退回	exception		carrier_attention
+HILIFEC2C	5005	代收退貨	progress	returning	
+HILIFEC2C	5006	代收毀損	exception		damaged
+HILIFEC2C	5007	代收遺失	exception		lost
+HILIFEC2C	5008	退貨配完	progress	returned	
+HILIFEC2C	5009	包裹異常，請洽客服	exception		carrier_attention
+HILIFEC2C	7001	超大(通常發生於司機取件，不取件)	exception		carrier_attention
+HILIFEC2C	7002	超重(通常發生於司機取件，不取件)	exception		carrier_attention
+HILIFEC2C	7003	地址錯誤，聯繫收件人	exception		carrier_attention
+HILIFEC2C	7004	航班延誤	progress	in_transit	
+HILIFEC2C	7005	託運單刪除	exception		carrier_attention
+HILIFEC2C	7006	包裹遺失，進入賠償程序	exception		lost
+HILIFEC2C	7007	包裹遺失，進入賠償程序	exception		lost
+HILIFEC2C	7008	包裹破損，請洽客服	exception		damaged
+HILIFEC2C	7009	包裝異常，請洽客服	exception		carrier_attention
+HILIFEC2C	7010	包裝異常，請洽客服	exception		carrier_attention
+HILIFEC2C	7011	取件門市關轉，請重選門市	exception		pickup_store_closed
+HILIFEC2C	7012	條碼錯誤，廠退處理	progress	returning	
+HILIFEC2C	7013	訂單超過驗收期限（賣家未出貨）	exception		carrier_attention
+HILIFEC2C	7014	等待賣家出貨	progress	created	
+HILIFEC2C	7016	包裹超材，退回賣家	progress	returning	
+HILIFEC2C	7032	寄件門市關轉，請重選門市	exception		carrier_attention
+HILIFEC2C	9001	退貨已取	ops_review		
+HILIFEC2C	9002	退貨已取	ops_review		
+HILIFEC2C	9999	訂單取消	exception		carrier_attention
+TCAT	300	訂單處理中(綠界已收到訂單資料)	progress	created	
+TCAT	310	訂單上傳物流中	progress	created	
+TCAT	311	訂單傳送物流成功	progress	created	
+TCAT	325	退貨訂單處理中(綠界已收到訂單資料)	ops_review		
+TCAT	3001	轉運中(即集貨)	progress	in_transit	
+TCAT	3002	不在家	progress	in_transit	
+TCAT	3003	配完	progress	delivered	
+TCAT	3004	送錯BASE (送錯營業所)	progress	in_transit	
+TCAT	3005	送錯CENTER(送錯轉運中心)	progress	in_transit	
+TCAT	3006	配送中	progress	in_transit	
+TCAT	3007	公司行號休息	progress	in_transit	
+TCAT	3008	地址錯誤，聯繫收件人	exception		recipient_address_invalid
+TCAT	3009	搬家	exception		recipient_address_invalid
+TCAT	3010	轉寄(如原本寄到A，改寄B)	progress	in_transit	
+TCAT	3011	暫置營業所(收件人要求至營業所取貨)	progress	ready_for_pickup	
+TCAT	3012	到所(收件人要求到站所取件)	progress	ready_for_pickup	
+TCAT	3013	當配下車(當日配送A至B營業所，已抵達B營業所)	progress	in_transit	
+TCAT	3014	當配上車(當日配送從A至B營業所，已抵達A營業所)	progress	in_transit	
+TCAT	3015	空運配送中	progress	in_transit	
+TCAT	3016	配完狀態刪除	exception		contradicting_event
+TCAT	3017	退回狀態刪除(代收退貨刪除)	exception		contradicting_event
+TCAT	3117	拒收(調查處理中)	exception		uncollected
+TCAT	3118	暫置營業所	progress	in_transit	
+TCAT	3119	暫置營業所(假日暫置)	progress	in_transit	
+TCAT	3120	預備配送中	progress	in_transit	
+TCAT	3121	轉交門市配達	progress	ready_for_pickup	
+TCAT	3122	另約時間	progress	in_transit	
+TCAT	3123	逾期未取，門市刷退	progress	returning	uncollected
+TCAT	3124	退貨包裹待司機取回	progress	returning	
+TCAT	3125	司機已到門市取回	progress	returning	
+TCAT	5001	損壞，站所將協助退貨	progress	returning	damaged
+TCAT	5002	遺失	exception		lost
+TCAT	5003	BASE列管(寄件人和收件人聯絡不到)	exception		carrier_attention
+TCAT	5004	一般單退回	progress	returning	
+TCAT	5005	代收退貨	progress	returning	
+TCAT	5006	代收毀損	exception		damaged
+TCAT	5007	代收遺失	exception		lost
+TCAT	5008	退貨配完	progress	returned	
+TCAT	7001	超大(通常發生於司機取件，不取件)	exception		carrier_attention
+TCAT	7002	超重(通常發生於司機取件，不取件)	exception		carrier_attention
+TCAT	7003	地址錯誤，聯繫收件人	exception		recipient_address_invalid
+TCAT	7004	航班延誤	progress	in_transit	
+TCAT	7005	託運單刪除	exception		carrier_attention
+TCAT	7024	另約時間	progress	in_transit	
+TCAT	7025	電聯不上	exception		carrier_attention
+TCAT	7026	資料有誤	exception		carrier_attention
+TCAT	7027	無件可退	exception		carrier_attention
+TCAT	7028	超大超重	exception		carrier_attention
+TCAT	7029	已回收	ops_review		
+TCAT	7030	別家收走	exception		carrier_attention
+TCAT	7031	商品未到	exception		carrier_attention
+POST	320	郵局已確認資料，可列印	progress	created	
+POST	3301	交寄郵件	progress	handed_over	
+POST	3302	各區郵局招領中	progress	ready_for_pickup	
+POST	3303	投遞不成功	progress	in_transit	
+POST	3304	依寄件人指示銷毀	exception		carrier_attention
+POST	3305	拒收	progress	returning	uncollected
+POST	3306	退回投遞不成功	exception		carrier_attention
+POST	3307	i郵箱取件成功	progress	delivered	
+POST	3308	投遞成功	progress	delivered	
+POST	3309	投遞成功(收受人領取)	progress	delivered	
+POST	3310	已退回寄件人	progress	returned	
+POST	3311	退回郵件投遞中	progress	returning	
+POST	3312	貨件投遞中	progress	in_transit	
+POST	3313	郵局貨件運轉中	progress	in_transit	
+POST	3314	到達i郵箱	progress	ready_for_pickup	
+POST	3315	i郵箱逾期退招領	progress	ready_for_pickup	
+POST	7300	郵局接收資料異常	exception		carrier_attention
+POST	7301	郵件破損 - 無法投遞	exception		damaged
+POST	7302	郵件遺失	exception		lost

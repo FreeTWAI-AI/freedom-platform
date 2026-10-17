@@ -40,6 +40,10 @@ const DEFINERS = [
   'publish_media_backfill_skill', 'publish_media_backfill_social', 'publish_media_backfill_video',
 ].sort();
 const RLS_TABLES = [
+  'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
+  'commerce_ship_from_locations', 'commerce_logistics_services',
+  'commerce_offline_payment_settings', 'commerce_offline_payments', 'commerce_meetup_handovers',
+  'commerce_customers', 'commerce_checkout_contacts', 'commerce_exception_cases', 'commerce_order_access_grants',
   'commerce_resource_tenants',
   'tenants', 'tenant_memberships', 'tenant_module_permissions', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
@@ -57,7 +61,7 @@ interface Person { userId: string; principalId: string; personalScopeId: string 
 interface Space {
   tenantId: string; scopeId: string; workspaceId: string; instanceId: string; bindingId: string;
   workId: string; resultId: string; invitationId: string; auditId: string; receiptKey: string;
-  transitionId: string; eventId: string; policyId: string;
+  transitionId: string; eventId: string; policyId: string; caseId: string;
 }
 const people: { p1: Person; p2: Person; p3: Person } = {
   p1: { userId: '', principalId: '', personalScopeId: '' },
@@ -76,7 +80,7 @@ function blankSpace(): Space {
     tenantId: randomUUID(), scopeId: randomUUID(), workspaceId: randomUUID(), instanceId: randomUUID(),
     bindingId: randomUUID(), workId: randomUUID(), resultId: randomUUID(), invitationId: randomUUID(),
     auditId: randomUUID(), receiptKey: `receipt${randomUUID().replaceAll('-', '').slice(0, 16)}`,
-    transitionId: randomUUID(), eventId: randomUUID(), policyId: randomUUID(),
+    transitionId: randomUUID(), eventId: randomUUID(), policyId: randomUUID(), caseId: randomUUID(),
   };
 }
 const sqlCode = (code: string) => (error: unknown) => (error as { code?: string }).code === code;
@@ -180,6 +184,7 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
       VALUES($1,'tenant_execution',$2,$3,NULL,NULL,$4,'Keep this note','draft',$5,$6,$7,$8,'todo',clock_timestamp(),NULL)`,
     [space.workId, space.scopeId, author.userId, `note-${space.tenantId}`, space.tenantId, space.instanceId, space.workspaceId, author.principalId]);
     await publishResult(q, space, author);
+    await q.query(`INSERT INTO commerce_exception_cases(case_id,tenant_id,instance_id,kind,subject_kind,subject_id,responsible_party,due_at,opened_by_kind) VALUES($1,$2,$3,'unmatched_payment','payment_event',$4,'retailer',clock_timestamp()+interval '72 hours','system')`,[space.caseId,space.tenantId,space.instanceId,randomUUID()]);
     await q.query(`INSERT INTO tenant_invitations(invitation_id,tenant_id,invitee_principal_id,role,instance_capabilities,expires_at,state,created_by_principal_id)
       VALUES($1,$2,$3,'viewer','[]'::jsonb,clock_timestamp()+interval '3 days','pending',$4)`,
     [space.invitationId, space.tenantId, invitee.principalId, author.principalId]);
@@ -250,6 +255,7 @@ after(async () => {
 
 async function visible(q: PoolClient) {
   return {
+    cases: await column(q, 'SELECT case_id AS id FROM commerce_exception_cases'),
     tenants: await column(q, 'SELECT tenant_id AS id FROM tenants'),
     memberships: await column(q, `SELECT tenant_id::text || ':' || principal_id::text AS id FROM tenant_memberships`),
     invitations: await column(q, 'SELECT invitation_id AS id FROM tenant_invitations'),
@@ -270,6 +276,7 @@ async function visible(q: PoolClient) {
 function pair(tenantId: string, principalId: string) { return `${tenantId}:${principalId}`; }
 function tenantSlice(space: Space) {
   return {
+    cases: [space.caseId],
     tenants: [space.tenantId],
     memberships: space === spaces.a
       ? [pair(space.tenantId, people.p1.principalId)]
@@ -290,7 +297,7 @@ function tenantSlice(space: Space) {
   };
 }
 const personalOnly = () => ({
-  tenants: [], memberships: [], invitations: [], workspaces: [], audit: [], instances: [], deployments: [],
+  cases: [], tenants: [], memberships: [], invitations: [], workspaces: [], audit: [], instances: [], deployments: [],
   bindings: [], results: [], targets: [], capacity: [defaultPolicyId], work: [personalWorkId],
   receipts: [personalReceiptKey], journal: [personalTransitionId], outbox: [personalEventId],
 });
@@ -665,4 +672,20 @@ test('T-024 definer inventory is unchanged and does not name an RLS table', asyn
     { proname: 'freedom_ctx_tenant', prosecdef: false },
     { proname: 'freedom_ctx_tenant_scope', prosecdef: false },
   ]);
+});
+
+test('T-024 exception resolution notes stay inside the exact tenant context', async () => {
+  await isolatedTransaction(runtime, async q => {
+    await bindSpace(q, people.p1, spaces.a);
+    assert.equal((await q.query(`UPDATE commerce_exception_cases SET status='resolved',resolution_code='provider_checked',resolution_note='合成處理備註',resolved_by_principal_id=$2,updated_at=clock_timestamp(),version=version+1 WHERE case_id=$1`, [spaces.b.caseId, people.p1.principalId])).rowCount, 0);
+    assert.equal((await q.query('SELECT resolution_note FROM commerce_exception_cases WHERE case_id=$1', [spaces.b.caseId])).rowCount, 0);
+    assert.equal((await q.query(`UPDATE commerce_exception_cases SET status='resolved',resolution_code='provider_checked',resolution_note='合成處理備註',resolved_by_principal_id=$2,updated_at=clock_timestamp(),version=version+1 WHERE case_id=$1`, [spaces.a.caseId, people.p1.principalId])).rowCount, 1);
+  });
+  await isolatedTransaction(runtime, async q => {
+    await bindSpace(q, people.p2, spaces.b);
+    assert.equal((await q.query('SELECT resolution_note FROM commerce_exception_cases WHERE case_id=$1', [spaces.a.caseId])).rowCount, 0);
+  });
+  await isolatedTransaction(runtime, async q => {
+    assert.equal((await q.query('SELECT * FROM commerce_exception_cases')).rowCount, 0);
+  });
 });

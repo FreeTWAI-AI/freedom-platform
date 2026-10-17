@@ -29,11 +29,11 @@
 | --- | --- | --- | --- | --- |
 | S1 | 無 migration、無新欄位、無新媒體用途 | `commerce_shops` 的名稱／說明（既有欄位）；journal `storefront.supply-profile.update`（operation 只受 `migrations/078_scoped_member_commands.sql:11` 的格式檢查）；純供貨商品的照片（既有用途與表） | 名稱正常顯示；純供貨照片被舊的私人讀取忽略（`photo-projection.ts:33` 的條件），也不會進公開投影 | 不變 |
 | S2 | 無 migration；只新增預留、變更紀錄與公會摘要的讀取 | 無 | — | 不變 |
-| S3 | `168_supply_materials.sql`：素材、版本、授權三張表；兩個新用途 `storefront.supply-material`（圖片）與 `storefront.supply-material-video`（影片）及其 storage policy；容量計算加入兩個用途 | 素材、版本、授權、物件 | 舊 runtime 不認識新表，不會寫；但舊的容量計算不含新用途，所以不能讓舊 runtime 在有素材物件時繼續收上傳 | release-compatibility shape `media.supply-material.asset.v1`（migration 下限 168）；備份／還原含新表與物件（AT-43，not_run） |
+| S3 | `171_supply_materials.sql`：素材、版本、授權三張表；兩個新用途 `storefront.supply-material`（圖片）與 `storefront.supply-material-video`（影片）及其 storage policy；容量計算加入兩個用途 | 素材、版本、授權、物件 | 舊 runtime 不認識新表，不會寫；但舊的容量計算不含新用途，所以不能讓舊 runtime 在有素材物件時繼續收上傳 | release-compatibility shape `media.supply-material.asset.v1`（migration 下限 171）；備份／還原含新表與物件（AT-43，not_run） |
 
-D-11 本機 migration `169_distribution_photos.sql`（合併前的暫定編號；本輪不重編、不改已寫的 SQL）：兩張 seller tenant RLS 表、intent 新目標欄位及 shape。沿用商品照片用途與容量；release floor 加 `media.distribution-photo.asset.v1`，下限 169。舊 reader／engine 不認識新 target kind，重新發布可能漏掉指標，不能作為有新資料後的回退 reader；維運捕捉本來涵蓋所有未 fenced 物件，GC 仍禁止商品照片用途。
+D-11 migration `172_distribution_photos.sql`：兩張 seller tenant RLS 表、intent 新目標欄位及 shape。沿用商品照片用途與容量；release floor 加 `media.distribution-photo.asset.v1`，下限 172。舊 reader／engine 不認識新 target kind，重新發布可能漏掉指標，不能作為有新資料後的回退 reader；維運捕捉本來涵蓋所有未 fenced 物件，GC 仍禁止商品照片用途。
 
-已套用的 migration 不改 bytes。root 讀回時，main 已套用的最大號仍是 `167_community_ar.sql`。S3 的 168 與 D-11 的 169 都是合併前的暫定編號；這次整合不改號、不改 SQL。Commerce PR 863 仍開放（`e6058a05`），目前也使用 168／169，不是 168–170。只有 Commerce 先落地並佔用這兩個號時，才把尚未落地的 S3／D-11 改到當時的下一個空號（≥170），並同步 `FOUNDATION_NAMES`、migration-plan 測試的最後名稱與上表的下限（SC-SPEC-04 §4）。
+已套用的 migration 不改 bytes。Commerce 已先合併並使用 168–170；2026-10-17 整合固定 main `1ae0d0a4` 時，S3 的未發布暫定 168 改為 171，D-11 的未發布暫定 169 改為 172，兩份 SQL bytes 不變，並同步 `FOUNDATION_NAMES`、migration-plan 最後名稱與上表下限（SC-SPEC-04 §4）。
 
 ## 3. 固定候選的發布順序
 

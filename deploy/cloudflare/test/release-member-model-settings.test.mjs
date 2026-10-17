@@ -20,7 +20,7 @@ function fixture() {
     observation:{evidence_id:'synthetic-settings-observation',observed_at_ms:9999,target,schema_ledger:scan.ledger,schema_ledger_digest:scan.ledger_digest,
       enabled_shapes:[],written_shapes:[],active_releases:[active],complete:true},
     release_records:[active,candidate].map(identity=>({...identity,evidence_id:'synthetic-settings-approval',status:'approved',environments:['next'],
-      schema_ledger_digests:[scan.ledger_digest],capabilities:['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1',shape,...prerequisites],approved_at_ms:9000,expires_at_ms:11000}))};
+      schema_ledger_digests:[scan.ledger_digest],capabilities:['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1',shape,...prerequisites],approved_at_ms:9000,expires_at_ms:11000}))};
   return {input:{schema:'freedom.release-compatibility-request/v1',environment:'next',candidate,enable_shapes:[]},scan,host};
 }
 function run(f) {
@@ -42,7 +42,7 @@ function useLedger(f,view,{planned=true}={}) {
 test('settings schema presence alone does not claim metadata API support, capture or provider authority',()=>{
   const f=fixture();for (const record of f.host.release_records) record.capabilities.splice(record.capabilities.indexOf('work.explicit-wire.v1') + 1);
   const result=run(f);assert.equal(result.status,'compatible');
-  assert.deepEqual(result.required_capabilities,['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1']);
+  assert.deepEqual(result.required_capabilities,['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1']);
   assert.deepEqual(result.required_shapes,[]);
 });
 
@@ -63,7 +63,7 @@ for (const source of ['enable_shapes','enabled_shapes','written_shapes','rollbac
 test('settings capability-only history retains custody closure without inventing written shapes or ingestion',()=>{
   const f=fixture();f.host.rollback_floor.capabilities=[shape];
   const result=run(f);assert.equal(result.status,'compatible');assert.deepEqual(result.required_shapes,[]);
-  assert.deepEqual(result.required_capabilities,['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1',shape,...prerequisites].sort());
+  assert.deepEqual(result.required_capabilities,['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1',shape,...prerequisites].sort());
   for (const capability of prerequisites) for (const binary of [0,1]) {
     const changed=structuredClone(f);changed.host.release_records[binary].capabilities=changed.host.release_records[binary].capabilities.filter(c=>c!==capability);
     assert(run(changed).issues.some(i=>i.capability===capability&&i.source_sha===changed.host.release_records[binary].source_sha));

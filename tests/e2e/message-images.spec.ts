@@ -350,6 +350,9 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
 
   for(const kind of ['text','sticker'] as const)test(`unknown ${kind} keeps its original tuple after a later definite rejection`,async({page,e2eAuthPool})=>{
     const thread=await openDirect(page),draft=`Original ${kind} ${crypto.randomUUID()}`,keys:string[]=[],payloads:string[]=[];let messageId='';
+    // The repository targets ES2023, before Promise.withResolvers.
+    let releaseFinalAck!:()=>void;
+    const finalAck=new Promise<void>(resolve=>{releaseFinalAck=resolve;});
     const storedCount=async()=>(await e2eAuthPool.query("SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=(SELECT user_id FROM users WHERE email='maker@local.test') AND recipient_ref=(SELECT user_id FROM users WHERE email='reviewer@local.test')")).rows[0].n as number;
     const before=await storedCount();
     await thread.getByRole('textbox').fill(draft);
@@ -357,6 +360,7 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
       if(route.request().method()!=='POST')return route.continue();
       keys.push(route.request().headers()['idempotency-key']);payloads.push(route.request().postData()!);
       if(keys.length===2)return route.fulfill({status:400,contentType:'application/problem+json',json:{type:'about:blank',title:'Bad Request',status:400,detail:'Synthetic definite retry rejection'}});
+      if(keys.length===3)await finalAck;
       const response=await route.fetch();expect(response.status()).toBe(201);const canonical=await response.json();
       if(keys.length===1){messageId=canonical.message_id;return route.fulfill({response,json:{}});}
       expect(canonical.message_id).toBe(messageId);await route.fulfill({response});
@@ -372,14 +376,26 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await expect(thread.locator('textarea')).toHaveValue(draft);
     await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
     if(kind==='sticker')await expect(thread.locator('.messages-pending [data-sticker-id="workshop-v1-hello"]')).toHaveCount(1);
-    await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toHaveCount(0);
+    const finalRequest=page.waitForRequest(request=>request.method()==='POST'&&/\/api\/v1\/me\/conversations\/[^/]+\/messages$/.test(request.url()));
+    await thread.getByRole('button',{name:'重試送出',exact:true}).click();
+    try{
+      await finalRequest;
+      // The old completion marker is already true while the final ACK is held.
+      await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toHaveCount(0);
+      await expect(thread.getByRole('status',{name:'傳送狀態',exact:true})).toBeVisible();
+      await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
+      await expect(thread.getByRole('button',{name:'選擇貼圖',exact:true})).toBeDisabled();
+    }finally{releaseFinalAck();}
+    await expect(thread.getByRole('textbox')).toBeEditable();
+    await expect(thread.getByRole('status',{name:'傳送狀態',exact:true})).toHaveCount(0);
+    await expect(thread.getByRole('button',{name:'選擇貼圖',exact:true})).toBeEnabled();
     expect(keys).toHaveLength(3);expect(new Set(keys).size).toBe(1);expect(new Set(payloads).size).toBe(1);
     expect(JSON.parse(payloads[0])).toEqual(kind==='text'?{body:draft}:{sticker_id:'workshop-v1-hello'});
     const rows=(await e2eAuthPool.query('SELECT message_id,body,sticker_id FROM member_direct_messages WHERE message_id=$1',[messageId])).rows;
     expect(rows).toEqual([{message_id:messageId,body:kind==='text'?draft:'[貼圖] 你好',sticker_id:kind==='text'?null:'workshop-v1-hello'}]);
     const receipts=(await e2eAuthPool.query('SELECT count(*)::int AS n FROM command_receipts WHERE idempotency_key=$1',[keys[0]])).rows;
     expect(receipts[0].n).toBe(1);expect(await storedCount()).toBe(before+1);
-    if(kind==='sticker'){await expect(thread.getByLabel('待送出的貼圖')).toHaveCount(0);await expect(thread.getByRole('textbox')).toHaveValue(draft);}
+    if(kind==='sticker')await expect(thread.getByRole('textbox')).toHaveValue(draft);
     else await expect(thread.getByRole('textbox')).toHaveValue('');
   });
 

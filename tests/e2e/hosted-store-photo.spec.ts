@@ -363,7 +363,11 @@ test('SC-E2E-66 image material upload, versions and the supplier\'s own read (AT
       res.url().includes(`${store.root}/supply-materials/${materialId}/versions/`) &&
       res.url().endsWith('/content'),
   );
+  const uploadV1 = page.waitForResponse(res => res.request().method() === 'POST' && new URL(res.url()).pathname === uploadPath);
   await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+  const uploadAckV1 = await uploadV1;
+  expect(uploadAckV1.status()).toBe(200);
+  expect(await uploadAckV1.finished()).toBeNull();
   await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
   expect(sentUploads).toHaveLength(1);
 
@@ -389,7 +393,11 @@ test('SC-E2E-66 image material upload, versions and the supplier\'s own read (AT
   const file2 = await source(`brand-v2-${suffix}.png`, '#7a4b2a');
   await uploadSection.getByLabel('選擇圖片').setInputFiles(file2);
   await expect(uploadSection).toContainText(`已選擇：${file2.name}・image/png・`);
+  const uploadV2 = page.waitForResponse(res => res.request().method() === 'POST' && new URL(res.url()).pathname === uploadPath);
   await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+  const uploadAckV2 = await uploadV2;
+  expect(uploadAckV2.status()).toBe(200);
+  expect(await uploadAckV2.finished()).toBeNull();
   await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
   expect(sentUploads).toHaveLength(2);
 
@@ -2049,30 +2057,81 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   for (const [m, f] of [[m1, before.a1], [m2, before.a2], [mz, before.z1]] as const) {
     expect(f.material.version).toBe(m.version); expect(f.versions).toHaveLength(1);
   }
+  const heldUploads: {deliver(): Promise<void>}[] = [];
+  const completed = new Map<Request, import('@playwright/test').Response>();
+  const failed = new Set<Request>();
   const requests: Request[] = [];
   const failures: string[] = [];
   const delivery = new Map<string, string>();
   const requestKey = (request: Request) => request.headers()['idempotency-key'];
-  page.on('response', response => delivery.set(requestKey(response.request()), `response ${response.status()}`));
-  page.on('requestfailed', request => delivery.set(requestKey(request), `failed: ${request.failure()?.errorText}`));
+  page.on('requestfinished', async request => {
+    const response = await request.response();
+    if (response) {completed.set(request, response); delivery.set(requestKey(request), `response ${response.status()}`);}
+  });
+  page.on('requestfailed', request => {failed.add(request); delivery.set(requestKey(request), `failed: ${request.failure()?.errorText}`);});
   const observed: Record<string, unknown> = {initialVersions: [m1.version, m2.version, mz.version]};
   page.on('request', request => requests.push(request));
+  // Observe the original consumer entering response.json; the native method still reads the wire body.
+  await page.evaluate(uploadPath => {
+    const observed = window as typeof window & {materialAckBodyReads: number};
+    observed.materialAckBodyReads = 0;
+    const nativeJson = Response.prototype.json;
+    Response.prototype.json = function(this: Response) {
+      if (this.status === 200 && this.url && new URL(this.url).pathname === uploadPath) observed.materialAckBodyReads++;
+      return nativeJson.call(this);
+    };
+  }, path(m1));
+  const bodyReads = () => page.evaluate(() => (window as typeof window & {materialAckBodyReads: number}).materialAckBodyReads);
   async function hold() {
+    const {createServer} = await import('node:http');
     let release!: () => void;
     const gate = new Promise<void>(resolve => {release = resolve;});
     let ready!: (value: {request: Request; response: import('@playwright/test').APIResponse}) => void;
-    const committed = new Promise<{request: Request; response: import('@playwright/test').APIResponse}>(resolve => {ready = resolve;});
+    let reject!: (error: unknown) => void;
+    const committed = new Promise<{request: Request; response: import('@playwright/test').APIResponse}>((resolve, fail) => {ready = resolve; reject = fail;});
+    let original: Request | undefined;
+    let response: import('@playwright/test').APIResponse;
     let done!: () => void;
     const delivered = new Promise<void>(resolve => {done = resolve;});
+    let received = false;
+    const relay = createServer(async (request, reply) => {
+      received = true;
+      reply.once('close', done);
+      try {
+        expect(request.method).toBe('POST'); expect(request.url).toBe(path(m1));
+        expect(original).toBeDefined();
+        const parts: Buffer[] = []; for await (const part of request) parts.push(Buffer.from(part));
+        expect(Buffer.concat(parts)).toEqual(original!.postDataBuffer());
+        for (const name of ['idempotency-key', 'if-match', 'content-type']) expect(request.headers[name]).toBe(original!.headers()[name]);
+        const body = await response.body();
+        const headers = {...response.headers()};
+        delete headers['content-encoding']; delete headers['transfer-encoding']; delete headers['keep-alive'];
+        headers['content-length'] = String(body.length); headers.connection = 'close';
+        headers['access-control-allow-origin'] = new URL(page.url()).origin;
+        headers['access-control-allow-credentials'] = 'true';
+        reply.writeHead(response.status(), headers); reply.flushHeaders();
+        await gate;
+        reply.end(body);
+      } catch (error) {failures.push(String(error)); reply.destroy(); done();}
+    });
+    await new Promise<void>(resolve => relay.listen(0, '127.0.0.1', resolve));
+    const address = relay.address() as import('node:net').AddressInfo;
     const handler = async (route: import('@playwright/test').Route) => {
       if (route.request().method() !== 'POST') return route.continue();
-      const response = await route.fetch();
-      ready({request: route.request(), response});
-      await gate;
-      try {await route.fulfill({response});} catch (error) {failures.push(String(error));} finally {done();}
+      try {
+        original = route.request(); response = await route.fetch(); ready({request: original, response});
+        // One real backend commit; the relay forwards only that captured ACK to this original browser request.
+        await route.continue({url: `http://127.0.0.1:${address.port}${path(m1)}`});
+      } catch (error) {failures.push(String(error)); reject(error); done();}
     };
     await page.route(`**${path(m1)}`, handler);
-    return {committed, async deliver() {release(); await delivered; await page.unroute(`**${path(m1)}`, handler);}};
+    const held = {committed, async deliver() {
+      release(); if (received) await delivered;
+      await page.unroute(`**${path(m1)}`, handler);
+      if (relay.listening) await new Promise<void>(resolve => relay.close(() => resolve()));
+    }};
+    heldUploads.push(held);
+    return held;
   }
   async function cleanScope(m: typeof m1) {
     await expect(materialActive(page).locator('.detail-list')).toContainText('第 1 版');
@@ -2090,10 +2149,12 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   }
   const refusal = '尚未確認原操作的結果，請按「重試」確認後再離開。';
   await signOut(page); await loginHere(page, a.member.email); await enter(m1);
+  try {
   const one = await hold();
   await upload().getByLabel('選擇圖片', {exact: true}).setInputFiles(first);
   await upload().getByRole('button', {name: '上傳新版本', exact: true}).click();
   const answer1 = await one.committed;
+  await expect.poll(bodyReads).toBe(1);
   const sig1 = signature(answer1.request);
   expect(answer1.response.status()).toBe(200); expect(sig1.version).toBe(`"${m1.version}"`);
   expect(sig1.key).toBeTruthy(); expect(sig1.mime).toBe(first.mimeType); expect(sig1.sha256).toBe(digest(first.buffer));
@@ -2121,6 +2182,8 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   await upload().getByLabel('選擇圖片', {exact: true}).setInputFiles(second);
   await upload().getByRole('button', {name: '上傳新版本', exact: true}).click();
   const answer2 = await two.committed;
+  await expect.poll(bodyReads).toBe(2);
+  observed.bodyReadsBeforeAccountSwitch = await bodyReads();
   const sig2 = signature(answer2.request), body2 = answer2.request.postDataBuffer()!;
   expect(answer2.response.status()).toBe(200); expect(sig2.version).toBe(`"${staleVersion}"`);
   expect(sig2.key).toBeTruthy(); expect(sig2.key).not.toBe(sig1.key);
@@ -2129,33 +2192,45 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   const dialogs: string[] = [];
   const accept = async (dialog: import('@playwright/test').Dialog) => {dialogs.push(dialog.message()); await dialog.accept();};
   page.on('dialog', accept);
+  const logoutMark = requests.length;
   const settings = page.getByRole('button', {name: '設定', exact: true});
   await settings.click();
   await page.getByRole('menu', {name: '個人檔案', exact: true}).getByRole('menuitem', {name: '登出', exact: true}).click();
   const loginHeading = page.getByRole('heading', {name: '登入', exact: true});
-  if (!await loginHeading.isVisible()) {
-    await expect(materialConsole(page).locator('.sc-announcement')).toHaveText(refusal);
-    await expect(page).toHaveURL(urlA1);
-    observed.signOut = {possibleWhileSending: false, refusal: await materialConsole(page).locator('.sc-announcement').innerText(), dialogs};
-    await screenshot('material-signout-refused.png');
-    const expired = await e2eAuthPool.query("UPDATE sessions SET expires_at=now()-interval '1 second' WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>now()", [a.member.id]);
-    expect(expired.rowCount).toBe(1);
-    const unauthorized = page.waitForResponse(r => r.status() === 401 && new URL(r.url()).pathname === path(m1).replace(/\/content$/, ''));
-    await materialActive(page).locator('.sc-read-status').first().getByRole('button', {name: '更新資料', exact: true}).click();
-    expect((await unauthorized).status()).toBe(401);
-  } else observed.signOut = {possibleWhileSending: true, dialogs};
+  expect(requests.slice(logoutMark).filter(r => r.method() === 'POST' && new URL(r.url()).pathname === '/api/v1/auth/logout')).toHaveLength(0);
+  await expect(materialConsole(page).locator('.sc-announcement')).toHaveText(refusal);
+  await expect(page).toHaveURL(urlA1);
+  await expect(loginHeading).toHaveCount(0);
+  await expect(materialConsole(page).locator('.sc-business-bar strong')).toHaveText(`合成素材商品庫 A1-${suffix}`);
+  const retainedSession = await (await page.request.get('/api/v1/session')).json();
+  expect(retainedSession.user.user_id).toBe(a.member.id);
+  expect(dialogs).toEqual([]);
+  observed.signOut = {possibleWhileSending: false, logoutRequests: 0, userId: retainedSession.user.user_id, refusal: await materialConsole(page).locator('.sc-announcement').innerText(), dialogs};
+  await screenshot('material-signout-refused.png');
+  expect(requests.slice(logoutMark).filter(r => r.method() === 'POST' && new URL(r.url()).pathname === '/api/v1/auth/logout')).toHaveLength(0);
+  // A separate server-side expiry enters the account-switch scenario after native logout was refused.
+  const expired = await e2eAuthPool.query("UPDATE sessions SET expires_at=now()-interval '1 second' WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>now()", [a.member.id]);
+  expect(expired.rowCount).toBe(1);
+  const unauthorized = page.waitForResponse(r => r.status() === 401 && new URL(r.url()).pathname === path(m1).replace(/\/content$/, ''));
+  await materialActive(page).locator('.sc-read-status').first().getByRole('button', {name: '更新資料', exact: true}).click();
+  expect((await unauthorized).status()).toBe(401);
   page.off('dialog', accept);
   await expect(loginHeading).toBeVisible(); await expect(materialConsole(page)).toHaveCount(0);
   await loginHere(page, z.member.email); await enter(mz);
   await cleanScope(mz);
   const zURL = page.url();
-  // Response delivery is correlated with the captured original operation, including an earlier browser failure.
-  const lateFinished = delivery.has(sig2.key) ? Promise.resolve(delivery.get(sig2.key)) : Promise.race([
-    page.waitForResponse(r => requestKey(r.request()) === sig2.key).then(r => `response ${r.status()}`),
-    page.waitForEvent('requestfailed', {predicate: r => requestKey(r) === sig2.key}).then(r => `failed: ${r.failure()?.errorText}`),
-  ]);
+  // Completion is tied to the original browser request, not route.fetch's backend ACK.
   await two.deliver();
-  observed.lateAnswer = {network: failures.length ? 'fulfill threw; late answer could not reach the page' : await lateFinished, fulfillErrors: failures};
+  await expect.poll(() => completed.has(answer2.request)).toBe(true);
+  const lateResponse = completed.get(answer2.request)!;
+  expect(lateResponse.request()).toBe(answer2.request);
+  expect(requestKey(lateResponse.request())).toBe(sig2.key);
+  expect(lateResponse.status()).toBe(200);
+  expect(await lateResponse.finished()).toBeNull();
+  expect(await lateResponse.json()).toEqual(await answer2.response.json());
+  expect(failed.has(answer2.request)).toBe(false);
+  expect(failures).toEqual([]);
+  observed.lateAnswer = {transport: 'real ACK headers before switch; body after switch', network: delivery.get(sig2.key), bodyFinished: true, requestFailed: false, relayErrors: [...failures]};
   await expect(page).toHaveURL(zURL); await cleanScope(mz);
   expect(requests.filter(r => r.method() === 'POST' && new URL(r.url()).pathname === path(mz))).toHaveLength(0);
   expect(await facts(mz)).toEqual(before.z1); expect(await facts(m2)).toEqual(before.a2);
@@ -2213,6 +2288,10 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   const evidence = info.outputPath('material-switch-evidence.json');
   await writeFile(evidence, JSON.stringify({observed, signatures: [sig1, sig2], before, after1, after2}, null, 2));
   await info.attach('material-switch-evidence', {path: evidence, contentType: 'application/json'});
+  } finally {
+    for (const held of heldUploads) await held.deliver();
+    await writeFile(info.outputPath('material-delivery-observation.json'), JSON.stringify({observed, delivery: Object.fromEntries([...delivery].filter(([key]) => key)), relayErrors: failures}, null, 2));
+  }
 });
 
 async function draftWebp() {

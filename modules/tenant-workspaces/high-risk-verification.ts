@@ -9,7 +9,7 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { bindTenantScope, iso, NOT_FOUND } from './facts.js';
 import { loadActivePolicy } from './policy.js';
 
-type Purpose = 'tenant.ownership.propose' | 'tenant.ownership.accept' | 'tenant.recovery.accept';
+type Purpose = 'tenant.ownership.propose' | 'tenant.ownership.accept' | 'tenant.recovery.accept' | 'commerce.provider_account.write' | 'commerce.store_export.create';
 
 export function receiptNamespaceDigest(profile: string, parts: readonly string[]): string {
   return tokenHash(JSON.stringify([profile, ...parts]));
@@ -19,6 +19,12 @@ async function qualified(q: PoolClient, actor: Actor, principalId: string, tenan
   const tenant = (await q.query<{ community_id: string; status: string }>(
     `SELECT community_id, status FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
   if (!tenant || tenant.community_id !== actor.community_id) throw new Problem(404, 'tenant_not_found', NOT_FOUND);
+  if (purpose === 'commerce.provider_account.write' || purpose === 'commerce.store_export.create') {
+    const member = await q.query(`SELECT 1 FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2
+      AND status='active' AND (role='owner' OR ($3='commerce.provider_account.write' AND role='admin'))`, [tenantId, principalId, purpose]);
+    if (tenant.status !== 'active' || member.rowCount !== 1) throw new Problem(404, 'tenant_not_found', NOT_FOUND);
+    return;
+  }
   if (purpose === 'tenant.ownership.propose') {
     const owner = await q.query(`SELECT 1 FROM tenant_memberships
       WHERE tenant_id=$1 AND principal_id=$2 AND role='owner' AND status='active'`, [tenantId, principalId]);
