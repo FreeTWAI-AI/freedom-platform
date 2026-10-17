@@ -174,7 +174,7 @@ test('legacy loaded history is reread at microsecond precision before quiet refr
   await login(page);
   await page.locator('.floating-messages').click();
   const panel=page.locator('.floating-message-panel');
-  await panel.locator('.messages-peer').click();
+  await panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:new RegExp(participant.display_name)}).click();
   await panel.getByRole('button',{name:'載入較早訊息',exact:true}).click();
   const shown=panel.locator('[data-message-id]'),expected=rows.toReversed().map(item=>item.message_id);
   await expect.poll(()=>shown.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-message-id')).sort())).toEqual([...expected].sort());
@@ -207,7 +207,7 @@ for(const order of ['refresh-first','older-first'] as const)test(`precision refr
   await page.route(url=>url.pathname===root+'/activity',route=>route.fulfill({json:{last_message_id:rows[0].message_id,unread_count:0,can_send:true,last_outgoing:null,retraction_count:'0'}}));
   await page.route(url=>url.pathname==='/api/v1/me/conversations',route=>route.fulfill({json:{items:[{participant,can_send:true,last_message:project(rows[0]),unread_count:0}],unread_count:0,next_offset:null}}));
   try{
-    await login(page);await page.locator('.floating-messages').click();const panel=page.locator('.floating-message-panel');await panel.locator('.messages-peer').click();
+    await login(page);await page.locator('.floating-messages').click();const panel=page.locator('.floating-message-panel');await panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:new RegExp(participant.display_name)}).click();
     const older=panel.getByRole('button',{name:'載入較早訊息',exact:true}),reload=panel.getByRole('button',{name:'重新讀取訊息',exact:true}),shown=panel.locator('[data-message-id]');
     await older.click();await expect(shown).toHaveCount(40);const draft=panel.locator('textarea');await draft.fill('分頁與精度刷新都保留這份草稿');
     if(order==='older-first'){
