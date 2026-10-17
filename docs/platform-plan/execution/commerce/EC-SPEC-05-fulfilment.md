@@ -204,6 +204,8 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 - 交集為空時，不收款：在 B05 第 2 步說明哪些商品不能一起配送，提供可用的方式或請買家分開下單（計畫 Supplier v1.1 §3.2、EC-AT12）。
 - 不可用原因（逐行回傳，每行只回依下列順序第一個不符合的原因）：`fulfilment_not_agreed`、`shipping_attributes_missing`、`method_unsupported`、`temperature_unsupported`、`too_large`、`cvs_value_limit`、`outlying_unsupported`。
 
+報價入口先確認賣家有提供買家選的方式；未提供時，各行回 `method_unsupported`，不進入上述逐行履約檢查。代出貨同意尚未實作的報價切片，只把賣家自己的商品當作 `self`；選品保持 `not_agreed`，在已提供的方式（含面交）回 `fulfilment_not_agreed`，不能假造同意或改成賣家自出貨。面交的 `method_ref` 固定為 `meetup`，不帶物流服務、寄件地或代出貨同意，運費為零。
+
 ### 3.4 運費
 
 - 每個包裹的運費＝賣家該配送方式的 `fee_per_parcel_minor`；訂單商品金額（折扣後）達到（≥）`free_over_minor` 時為 0（賣家吸收）。
@@ -227,7 +229,11 @@ FulfillmentOrder 與 Shipment 是既有訂單行項與配置（EC-SPEC-03）的�
 
 不合規則回 422 並指出欄位（沿用 EC-SPEC-02 §5.3）。郵遞區號前 3 碼與離島的判斷依中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用，368 個代碼；來源與離島清單見 [sources.md §7](sources.md)）；離島＝連江 209～212、澎湖 880～885、金門 890～894 與 896、琉球 929、綠島 951、蘭嶼 952、東沙 817、南沙 819、釣魚臺列嶼 290。超商的離島：選店有回傳 `CVSOutSide`（0／1）就以它為準；沒有回傳時改看門市地址，地址含「澎湖縣」「金門縣」「連江縣」或上述離島郵遞區號所屬的 19 個鄉鎮市名稱（馬公市、湖西鄉、白沙鄉、西嶼鄉、望安鄉、七美鄉、金城鎮、金湖鎮、金沙鎮、金寧鄉、烈嶼鄉、烏坵鄉、南竿鄉、北竿鄉、莒光鄉、東引鄉、琉球鄉、綠島鄉、蘭嶼鄉）就算離島。萊爾富店到店一律不回傳 `CVSOutSide`，所以都用地址判斷；7-ELEVEN 與全家店到店會回傳 [8795]（§3.6）。
 
+面交不送綠界，姓名不套用綠界的中文字權重、英文字詞或 CDN 擋字規則。原始姓名最多 40 個 UTF-16 單位，再以 NFKC 正規化並去掉前後空白，結果須為 1～40 個 Unicode code points；原始與正規化後的內容都拒絕 C0、DEL、C1 控制字元與不成對的 surrogate。合法的非 BMP 字元可在原始長度上限內使用，手機沿用上表的正規化與格式。HTTP 的 NUL／不成對 surrogate 仍先由共用 JSON 邊界回 422 `validation_failed`。
+
 ### 3.6 超商選店（`Express/map`）
+
+報價先凍結超商方式時，配送的 `destination_state` 是 `store_required`。下單必須是 `complete`；尚未完成選店時回 409 `delivery_store_required`，不建立訂單、預留或付款 attempt。選店尚未實作的切片維持這個阻擋，不能以測試門市或省略狀態繞過。
 
 綠界電子地圖是瀏覽器 POST，請求與回傳**都沒有** CheckMacValue；回傳是綠界讓瀏覽器 POST 到我們指定的網址，內容不可信 [8795]。所以：
 

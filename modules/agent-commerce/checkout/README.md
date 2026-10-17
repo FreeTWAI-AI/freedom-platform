@@ -319,9 +319,12 @@ The frozen shipping object is internal. `publicCheckoutTerms` publishes
 `destination_state` and, per group, `group_ref`, `method`, amounts, parcel count,
 handling days, SKU quantities and `meetup_note`. Shop ids, agreement ids,
 versions, locations and service keys stay off that view. `payment_methods`
-stays `['immediate_card']`. There is no `payment_options` field; offline payment
-options belong to the offline-core job. Meetup's method reference is exactly
-`meetup`.
+contains the available methods in canonical order: `immediate_card`,
+`bank_transfer`, `cash_on_meetup`. Frozen `offline_payment` contains the settings
+version and the deadlines for the listed offline methods; it never contains bank
+account details. Cart `payment_options` also reports unavailable methods and their
+reasons, including membership and meetup requirements. Meetup's method reference
+is exactly `meetup`.
 
 Placement recomputes terms and compares `terms_sha256`. A shipping change is
 `terms_changed`. Immediately after that recompute, and before the unresolved-order

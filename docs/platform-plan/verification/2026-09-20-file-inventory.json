@@ -15374,8 +15374,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
-      "bytes": 86223,
-      "sha256": "2e0a87a6cf185910cfc52753ed744fa031ae587bfa5e10cc5bd8ad7819f858a8"
+      "bytes": 87534,
+      "sha256": "9e120561b505152c3fc15e173bbd8ce96fd4e4af0db783c139a33f45c9839ca5"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md",
@@ -15394,8 +15394,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md",
-      "bytes": 46457,
-      "sha256": "8b0f4e0884f90aeeb2fb654f20f20095de2608f5fcda29381a1665c0a1c0453d"
+      "bytes": 46970,
+      "sha256": "68c7fd44f9c2f7e8fc7b573f228bfe98379419b7ef97d53cce3e3d045a49bd3f"
     },
     {
       "path": "docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md",
@@ -17219,8 +17219,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/README.md",
-      "bytes": 33465,
-      "sha256": "44d5a5cd89c8bd08b8ab9f39bd2054b4f5880cfcfeb54b082e9751066372f6d0"
+      "bytes": 33714,
+      "sha256": "229ef646eec3005bc8d6767cbf83a2c07ca26459a37f865371c2ca928446c80e"
     },
     {
       "path": "modules/agent-commerce/checkout/access.ts",

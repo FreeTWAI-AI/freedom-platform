@@ -143,6 +143,7 @@ guest、provider 通知與排程都沒有 principal。規則：
 
 - 公開讀取只走發布版本的允許欄位（`catalog.ts` 的 `field_allowlist`）。新的店面內容（封面、分類、政策、賣方揭露）先加進白名單再公開；草稿與預覽只在私有路由（EC-AT06）。
 - 公開命令（報價、checkout、下單、選店、發票輔助查詢、找回訂單）只接受店的 slug，不接受 tenant、實例或帳戶 ID；伺服器解析出店之後才綁 tenant（§2.4）。
+- 結帳的公開配送投影只含 `destination_state`，各群組只含 `group_ref`、`method`、`amount_minor`、`fee_per_parcel_minor`、`outlying_surcharge_per_parcel_minor`、`parcel_count`、`handling_days`、SKU 與數量的 `items`、`meetup_note`。供應商／商店 ID、代出貨同意、設定與屬性版本、寄件地、物流服務參照只留在伺服器的凍結 terms。公開 `offline_payment` 只含設定版本與期限；銀行帳號只依 EC-SPEC-11 §6.2 的訂單存取條件顯示。
 - 快取：公開 JSON 60 秒；報價、checkout、訂單、付款狀態與 provider 入口都是 `no-store`。
 - 公開店面維持 `noindex`。訂單、付款交接與返回、選店、列印頁另外回 `Referrer-Policy: no-referrer`，網址裡的 ref 不會經由 Referer 流到外站。
 - 匿名可以加購物車、走到結帳；E 頁與所有私有 API 照舊拒絕（EC-AT04）。
