@@ -36,6 +36,9 @@
 
 .hosted-supply-catalog .hosted-store-product {gap: 8px; margin-top: 0;}
 .hosted-supply-catalog .hosted-store-product h4 {margin: 0;}
+.partner-materials .stack {margin-top: 0;}
+.partner-materials h4, .partner-materials h5 {margin: 0;}
+.partner-materials h5 {font-size: .875rem; color: var(--muted);}
 .hosted-store .hosted-supply-panel[hidden],.hosted-store-product[hidden]{display:none!important}
 .hosted-product-search {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;max-width:680px}
 .hosted-product-search .field {grid-column:1/-1;margin:0}

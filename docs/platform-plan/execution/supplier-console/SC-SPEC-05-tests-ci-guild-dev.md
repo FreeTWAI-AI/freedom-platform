@@ -65,8 +65,9 @@
 | AT-40、41 | E2E 截圖（`SC-E2E-40`，SC-SPEC-01 的視覺驗收）與鍵盤操作（`SC-E2E-32`） |
 | AT-42 | E2E：舊書籤 `#stores/<t>/<i>/supply`、`…/supply-orders` 打開正確頁面 |
 | AT-44 | E2E：同一資料在新版關閉時由舊頁正確顯示 |
-| AT-23～28、32、43 | S3（SC-SPEC-04） |
-| AT-35 | S1 的商品照片沿用 `HostedStorePhoto` 的晚到保護：會話世代與處理序號都相符、元件也仍掛載時，才把讀好的檔案放進預覽和待上傳內容。目前沒有不靠等待時間就能重現的自動測試，S1 記為 not_run。S3 素材沿用同一規則 |
+| AT-23～28、43 | S3 素材（SC-SPEC-04 §4）：SQL、HTTP 與狀態邏輯見下方 `SC-09`、`MATERIAL-*`、`SC-API-M1C-*`、`SC-UI-M3-*`、`M2-*`；瀏覽器見 `SC-E2E-60`～`70`（合作店家看見並下載目前版本、新版本／撤銷／撤回後舊路徑 404 見 `69`、`70`）。真 R2 的寫入與讀取、備份與還原（AT-43）要在 staging 由 Ted 核准後做，在那之前記 not_run。AT-27 的「已發布店面不變」要等 D-11 |
+| AT-29、30、31、32（報表） | S3 報表（SC-SPEC-04 §5）：HTTP `SC-API-25`～`36`（含 CSV 防公式注入 AT-32；幣別不符時整份報表失敗，不跨幣相加）、狀態邏輯 `SC-UI-S3-01`～`16`；瀏覽器 `SC-E2E-71`（預設台灣 30 天、各數字連到對應清單、無效期間不送出、CSV 檔名與 BOM 與防公式注入、非 owner 沒有預留、390／1440 版面） |
+| AT-35 | S1 的商品照片沿用 `HostedStorePhoto` 的晚到保護：會話世代與處理序號都相符、元件也仍掛載時，才把讀好的檔案放進預覽和待上傳內容。目前沒有不靠等待時間就能重現的自動測試，S1 記為 not_run。S3 素材上傳：狀態邏輯測試 `SC-UI-M3-10`、`23`、`24`（會話在送出或讀完回應時改變，不會更新憑證或接受上傳；晚到的結果不會覆蓋較新的上傳）；瀏覽器 `SC-E2E-78`：上傳的回應還沒回來時，切換事業與登出都被拒絕（「尚未確認原操作的結果，請按「重試」確認後再離開。」），並要求原 URL、事業、帳號不變且零登出 POST，另一個事業的畫面與資料不變；原 session 先收到真實 200 headers 並開始讀取 body，獨立使 session 到期、改用另一個帳號登入後才由 loopback relay 交付原後端 ACK body；以原始 Request 與 key 綁定 requestfinished、完整 JSON 與原 ACK 相等，且無 requestfailed／relay error，那個帳號的畫面與資料也不變；回到原帳號時必須出現「重試原操作」與保留檔名，測試點擊原生控制，用同一個 key、If-Match 與內容重送，拿到原本的結果（不以直接 HTTP replay 代替會員操作），每次上傳只多一個版本與一份容量。新 key 帶舊版本號回 412 `version_conflict`，同一個 key 換內容回 409 `idempotency_conflict` |
 
 新測試以前綴命名，從測試輸出可以直接對回這裡：
 
@@ -83,10 +84,22 @@
 | `SC-E2E-20`～`26` | `tests/e2e/supplier-console-recovery.spec.ts` | 回應遺失後重試、未確認時離開、兩個分頁的 412、庫存低於預留、概覽讀取失敗、登出後晚到、權限撤回（AT-06、07、08、29、34、36、37） |
 | `SC-E2E-30`～`32` | `tests/e2e/supplier-console-navigation.spec.ts` | 事業切換時晚到的讀取、200 件商品的清單與返回位置、鍵盤與焦點（AT-03、09、10、30、41） |
 | `SC-E2E-40` | `tests/e2e/supplier-console-visual.spec.ts` | 五種寬度與五種外觀的版面檢查與截圖（AT-40） |
+| `SC-API-25`～`36` | `tests/runtime/supplier-console-report.test.ts` | S3 報表：台灣日界與期間、與清單同一定義、到期不結算、只含被查詢的供應商、owner 與能力、CSV 版面與防公式注入、10,000／10,001 列；`33` 另以未更新統計的隔離資料、原受限角色與實際 EXPLAIN buffer 次數防止每張訂單重掃全部行項，不以放寬逾時通過；失敗不變成 0 或部分 CSV、未設定時沿用原拒絕、畫面最多 200 家而 CSV 列全部店家（AT-04、29、30、32） |
+| `SC-UI-S3-01`～`16` | `tests/runtime/supplier-console-state.test.ts` | S3 報表頁：期間連結、導覽、CSV 下載的會話與逾時、失敗與 409 不顯示數字、非 owner 沒有預留列 |
+| `SC-09` | `tests/runtime/supply-materials.test.ts` | S3 素材紀錄：形狀與自有商品、命令與版本、重播與 CAS、撤回、上限、授權只給目前合作店家、合作店家投影、權限與私人標頭、旗標關閉時 404 |
+| （SQL） | `tests/runtime/supply-materials-sql.test.ts` | migration 171：版本只增不改、授權列唯一與撤銷一次、用途預設關、媒體投影綁完整 Asset／物件、受限角色下身分欄位不可改 |
+| `MATERIAL-ASSET-01`～`08` | `tests/runtime/supply-material-assets.test.ts` | 圖片解碼與標準化、影片原檔與檔頭檢查、只接受兩組固定用途、政策鎖與 revision、解碼器故障在預留前就回 503、容量把兩個用途都算進去（防止素材不計容量）、撤回／種類不符／100 版上限 |
+| `MATERIAL-HTTP-01`～`11` | `tests/runtime/supply-material-media.test.ts` | 上傳與供應商讀檔：raw POST、未知結果續傳同一個 intent、旗標、HEAD／Range／If-Range、讀檔前後權限快照、物件故障回 503（AT-24、26） |
+| `SC-API-M1C-01`～`11` | `tests/runtime/partner-material-content.test.ts` | 合作店家讀檔：位元組與供應商讀到的相同、HEAD 與 range；只限目前版本與目前合作（商品素材要有該商品的合作）；授權只對指定的那間店；所有拒絕都是同一個 404，匿名 401 也帶私人標頭；讀檔途中撤銷、撤回、換版本、失去權限或合作結束都拒絕並取消串流；物件異常回 503；上傳關閉不影響讀取（AT-25、26） |
+| `M2-01`～`17` | `tests/runtime/partner-materials-view.test.ts` | 賣家端「合作素材」區塊：分組、文案、旗標、讀取失敗不顯示「沒有素材」 |
+| `M2-18`、`M2-19` | `tests/runtime/partner-materials-recovery.test.ts` | 已知讀取拒絕（401、403、404，以及 408 與 429 以外的 4xx）清掉這次範圍的私人投影，不留 staleData；網路、逾時與 5xx 保留明示舊資料。供應商預覽只接受同一業務範圍、同一素材、同一目前版本的 ready 讀取 |
+| `SC-UI-M3-01`～`24` | `tests/runtime/supplier-console-state.test.ts` | 素材頁：路由與導覽、上傳的原 key／原檔案重試、離開保護、會話改變、逾時、容量讀不到不是 0、格式預檢 |
+| `SC-E2E-60`～`65`、`71` | `tests/e2e/supplier-console-materials.spec.ts` | 一般 pass：文案素材與授權旅程、沒有媒體時的檔案素材、未知結果重試、唯讀成員、離開保護、390／1440 版面；`71` 是報表頁的期間、清單連結、CSV 下載與非 owner（AT-29、30、32） |
+| `SC-E2E-66`～`70`、`78`～`81` | `tests/e2e/hosted-store-photo.spec.ts`（照片 pass） | 圖片與影片上傳、版本與私人標頭、range 播放、未知結果用同一個 key 只產生一個版本；`69` 合作店家看見並下載目前版本的圖片與影片，沒有合作的店家 404、匿名 401；`70` 新版本、撤銷與撤回後舊路徑 404，供應商仍能開啟每一版（AT-25、26）；`78` 上傳中切換事業或帳號，晚到的回應不改新的範圍，回到原帳號以原操作恢復（AT-35）；`79` 賣家圖片與影片第一次內容 503 後，按「重新整理」對同一版本 URL 再發出 GET 並恢復預覽與下載，清單 503 保留明示舊資料，清單 403 清掉文案、標題、複製、媒體與下載；`80` 供應商圖片與影片同樣在第一次內容 503 後按「更新資料」再 GET，詳情 403 期間不顯示標題、預覽與開啟檔案，也不再 GET 內容，之後新的詳情 200 才恢復同一版本已解碼的預覽；`81` 移除 store:read 後清單 404 清掉私人內容，拒絕期間重試不增加媒體 GET，恢復讀權後新的清單 200 才恢復同一版本圖片，舊版本 URL 404、新版本 URL 200。權限恢復要求新的已授權 metadata，不要求把瀏覽器已經解碼的同一版本圖片再下載一次 |
 
 測試名稱裡的 AT 編號只表示對應關係；驗收狀態仍依 §1，在同一個候選 commit 記下證據後才改。
 
-純供貨照片的瀏覽器案例放進既有的照片 pass（`FREEDOM_E2E_STORE_PHOTO_FIXTURE=1`，`scripts/run-e2e.mjs`），加在 `tests/e2e/hosted-store-photo.spec.ts`，不新增 pass、不改 runner。
+純供貨照片的瀏覽器案例放進既有的照片 pass（`FREEDOM_E2E_STORE_PHOTO_FIXTURE=1`，`scripts/run-e2e.mjs`），加在 `tests/e2e/hosted-store-photo.spec.ts`，不新增 pass、不改 runner。S3 的素材上傳案例也放在這個 pass；不需要真檔案的素材案例放一般 pass。
 
 ## 4. 效能
 
@@ -113,6 +126,8 @@
 - `contracts/guild-launchpad/v1/supplier-console.ts` 與 `.schema.json`
 - `tests/runtime/supplier-console.test.ts`、`tests/runtime/supplier-console-writes.test.ts`、`tests/runtime/supplier-console-state.test.ts`、`tests/e2e/supplier-console.spec.ts`、`tests/e2e/supplier-console-cooperation.spec.ts`、`tests/e2e/supplier-console-recovery.spec.ts`、`tests/e2e/supplier-console-navigation.spec.ts`、`tests/e2e/supplier-console-visual.spec.ts`
 - `docs/platform-plan/execution/supplier-console/**`（本目錄）
+
+S2、S3 新增的路由、測試與素材檔案也登記在同一個 descriptor；完整清單以 descriptor 的 `owned_paths` 為準，這裡不重複列。
 
 `context.mjs` 的 `selectImpact` 把沒有擁有者的路徑當成未知，會選到全部模組；每次新增檔案後都要確認 `unknown_paths` 為空。會改到的既有共用檔案與其擁有者列在 [work-plan.md](work-plan.md#3-共用檔案)。
 

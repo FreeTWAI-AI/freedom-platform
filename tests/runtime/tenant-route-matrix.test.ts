@@ -256,6 +256,9 @@ const routeTable: Record<string, string> = {
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/*': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/content': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/versions/:version_id/content': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/partner-materials/:material_id/versions/:version_id/content': 'middleware',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel': 'tenant',
@@ -586,8 +589,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 121, middleware: 10 });
-  assert.equal(selectedRoutes.length, 162);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 121, middleware: 13 });
+  assert.equal(selectedRoutes.length, 165);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;

@@ -262,6 +262,22 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
   return { instanceId, itemId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
 }
 
+/** One copy material with a current version and one grant to another business's storefront.
+ * A revoked grant gives that business no partner read, so its cross-tenant SELECT stays empty. */
+async function insertSupplyMaterial(q: PoolClient, data: { tenantId: string; principalId: string; scopeId: string },
+  retained: { instanceId: string; itemId: string }, partnerInstanceId: string, revoke: boolean) {
+  const materialId = randomUUID(), versionId = randomUUID();
+  const partner = (await q.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [partnerInstanceId])).rows[0].storefront_shop_id;
+  await q.query(`INSERT INTO supply_materials(material_id,tenant_id,instance_id,scope_id,kind,product_id,title,created_by_principal_id)
+    VALUES($1,$2,$3,$4,'copy',$5,'Synthetic material',$6)`, [materialId, data.tenantId, retained.instanceId, data.scopeId, retained.itemId, data.principalId]);
+  await q.query(`INSERT INTO supply_material_versions(version_id,material_id,tenant_id,instance_id,scope_id,kind,version_no,body,created_by_principal_id)
+    VALUES($1,$2,$3,$4,$5,'copy',1,'Synthetic copy',$6)`, [versionId, materialId, data.tenantId, retained.instanceId, data.scopeId, data.principalId]);
+  await q.query('UPDATE supply_materials SET current_version_id=$2,aggregate_version=2 WHERE material_id=$1', [materialId, versionId]);
+  await q.query(`INSERT INTO supply_material_grants(grant_id,material_id,tenant_id,instance_id,partner_shop_id,granted_by_principal_id)
+    VALUES($1,$2,$3,$4,$5,$6)`, [randomUUID(), materialId, data.tenantId, retained.instanceId, partner, data.principalId]);
+  if (revoke) await q.query('UPDATE supply_material_grants SET revoked_at=clock_timestamp(),revoked_by_principal_id=$2 WHERE material_id=$1', [materialId, data.principalId]);
+}
+
 async function buildFixture() {
   const P = await signIn(DEMO_USERS[0].email);
   const O = await signIn(DEMO_USERS[1].email);
@@ -566,6 +582,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
   'commerce_ship_from_locations', 'commerce_logistics_services',
     'commerce_offline_payment_settings', 'commerce_offline_payments', 'commerce_meetup_handovers',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+    'supply_materials', 'supply_material_versions', 'supply_material_grants',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
@@ -587,6 +604,9 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       const retained = await insertHostedQuote(fixtureClient, data);
       hosted.push({ tenantId: data.tenantId, principalId: data.principalId, instanceId: retained.instanceId, itemId: retained.itemId, session });
     }
+    // A grants a material to B's storefront; B's grant to A is revoked, so A holds no partner read of B's rows.
+    await insertSupplyMaterial(fixtureClient, A, hosted[0], hosted[1].instanceId, false);
+    await insertSupplyMaterial(fixtureClient, B, hosted[1], hosted[0].instanceId, true);
     await fixtureClient.query('COMMIT');
   } catch (error) { await fixtureClient.query('ROLLBACK'); throw error; }
   finally { fixtureClient.release(); }

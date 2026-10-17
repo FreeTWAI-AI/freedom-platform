@@ -18,12 +18,14 @@
 | 商品詳情 | `…/supply/products/<product_id>` |
 | 合作店家 | `…/supply/partners`；詳情 `…/supply/partners/<partner_id>` |
 | 供貨條件與審核 | `…/supply/terms`；單筆審核 `…/supply/terms/<selection_id>` |
-| 預留與訂單 | `…/supply/reservations` |
+| 預留與訂單 | `…/supply/reservations`，可帶 `?state=reserved｜cancelled｜expired&partner=<partner_id>&product=<product_id>&from=YYYY-MM-DD&to=YYYY-MM-DD`（S2）；明細 `…/supply/reservations/<order_id>` |
+| 行銷素材 | `…/supply/materials`；新增 `…/supply/materials/new`；詳情 `…/supply/materials/<material_id>`（S3） |
+| 營運報表 | `…/supply/reports`，可帶 `?from=YYYY-MM-DD&to=YYYY-MM-DD`（S3；兩者合法且不超過 366 天才採用，否則用最近 30 天） |
 | 設定與資料 | `…/supply/settings` |
 
-- `<tenant>`、`<instance>`、`<product_id>`、`<partner_id>`、`<selection_id>` 都必須通過 `OpaqueId`；query 只接受上表的鍵與值，其餘一律忽略（當作沒有），不以 `replaceState` 改寫網址；畫面產生的連結一律是標準形式。
+- `<tenant>`、`<instance>`、`<product_id>`、`<partner_id>`、`<selection_id>`、`<order_id>`、`<material_id>` 都必須通過 `OpaqueId`；query 只接受上表的鍵與值，其餘一律忽略（當作沒有），不以 `replaceState` 改寫網址；畫面產生的連結一律是標準形式。
 - 先切開 path 與 query，再解析；query 永遠不會被當成 tenant 或 instance。
-- 未知頁名（例如 `…/supply/reports` 在 S3 前）顯示「找不到這個頁面」與「回到營運概覽」，不自動建立任何資料。
+- 未知頁名（例如 `…/supply/payments`）顯示「找不到這個頁面」與「回到營運概覽」，不自動建立任何資料。
 - 舊入口：`#stores/<t>/<i>/supply` 就是概覽，書籤不變；新版開啟時 `#stores/<t>/<i>/supply-orders` 顯示營運中心的預留頁（同一事業）。launchpad 關閉時沿用既有歷史訂單頁。`#stores/supply`（商品庫清單）不變。
 - 草稿、搜尋文字、分頁游標與任何 token 不進 URL。
 
@@ -41,6 +43,8 @@
 │  合作店家     │                                              │
 │  供貨條件與審核│                                              │
 │ 管理          │                                              │
+│  行銷素材     │                                              │
+│  營運報表     │                                              │
 │  設定與資料   │                                              │
 └──────────────┴──────────────────────────────────────────────┘
 ```
@@ -49,7 +53,7 @@
 - 側欄、窄螢幕選單與內容欄由共用元件 `modules/agent-commerce/hosted-ui/ConsoleShell.tsx` 產生（項目：key、名稱、分組、hash 連結；設定未完成時整組停用並說明原因）。賣家後台用同一元件，不另做第二套；路由、讀取、命令與離開保護仍由各自的頁面負責。
 - `<nav aria-label="營運中心">`，目前項 `aria-current="page"`，以粗體加底線表示，不只靠顏色。
 - h1 由平台頂部提供（`App.tsx:830` 改為依解析後的頁面取名）；事業名稱在事業列，不另放第二個 h1。換頁時焦點移到內容區的第一個 h2。
-- 預留與訂單只在 owner 讀取成功後出現；只有 `store:read` 時側欄只剩概覽與設定，並在概覽說明原因。
+- 預留與訂單只在 owner 讀取成功後出現；行銷素材與營運報表需要 `store:write`；只有 `store:read` 時側欄只剩概覽與設定，並在概覽說明原因。
 - 頁面工具使用新的頁面 ID `supplier-console`（登錄於 `modules/development/pages.ts` 與 `apps/portal-web/src/page-help.ts`）；新手引導沿用 `stores` 的「商店導覽尚未完成審核」停用原因，不保留右側空欄（`DESIGN.md` 第 15、17 行）。
 
 ## 各頁視覺重點

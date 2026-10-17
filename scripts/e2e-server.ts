@@ -1,3 +1,4 @@
+import { createSupplyMaterialLifecycle } from '../modules/assets/supply-material.js';
 import {createE2eEcpayFixture} from './e2e-ecpay-fixture.js';
 import {FixtureEmailSender} from '../modules/agent-commerce/operations/notifications/email-port.js';
 import {CommerceCredentialKeyring} from '../modules/agent-commerce/payments/credentials.js';
@@ -52,7 +53,7 @@ let productRoleCreated=false;
 let privateAiFixture:Awaited<ReturnType<typeof import('../packages/testing/private-ai-product-fixture.js')['createPrivateAiBrowserFixture']>>|undefined;
 let avatarAssetFixture:Awaited<ReturnType<typeof import('../packages/testing/e2e-avatar-asset-fixture.js')['createAvatarAssetBrowserFixture']>>|undefined;
 // Asset fixtures run in separate passes with a local-only enabled policy row.
-let storePhotoFixture:{store:FakeObjectStore;assets:ReturnType<typeof createStorefrontProductPhotoLifecycle>}|undefined;
+let storePhotoFixture:{materialAssets:ReturnType<typeof createSupplyMaterialLifecycle>;store:FakeObjectStore;assets:ReturnType<typeof createStorefrontProductPhotoLifecycle>}|undefined;
 let commentImageStore:FakeObjectStore|undefined;
 // Isolated harness port only. Default storage policy remains OFF until a case explicitly approves its fixture.
 const arFixtureStore=new FakeObjectStore();
@@ -167,9 +168,10 @@ try{
   if(process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1'){
     if(!productPool)throw Error('Photo browser fixture requires the restricted runtime role.');
     await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-store-photo-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='storefront.product-photo'");
+    await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-supply-material-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')");
     const store=new FakeObjectStore();
     // Real native Sharp normalization; only the object provider is synthetic.
-    storePhotoFixture={store,assets:createStorefrontProductPhotoLifecycle(productPool,{store})};
+    storePhotoFixture={store,materialAssets:createSupplyMaterialLifecycle(productPool,{store}),assets:createStorefrontProductPhotoLifecycle(productPool,{store})};
   }
   // The isolated browser harness explicitly installs comment media in every pass.
   // Product Node/Worker policy remains OFF; trusted CI need not inherit a new flag.
@@ -209,7 +211,7 @@ const app=createApp(productPool??pool,origin,'local',{commerceQueryTransport:pay
   eventParticipationEnabled:process.env.FREEDOM_E2E_EVENT_PARTICIPATION==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),
-  ...(storePhotoFixture?{storePhotoAssets:storePhotoFixture.assets,storePhotoAssetStore:storePhotoFixture.store,storePhotoUploadsEnabled:true}:{}),
+  ...(storePhotoFixture?{supplyMaterialAssets:storePhotoFixture.materialAssets,supplyMaterialAssetStore:storePhotoFixture.store,supplyMaterialUploadsEnabled:true,storePhotoAssets:storePhotoFixture.assets,storePhotoAssetStore:storePhotoFixture.store,storePhotoUploadsEnabled:true}:{}),
   ...(commentImageStore?{socialThumbnailAssetStore:commentImageStore}:{}),
   ...(messageImageFixture?{messageImageAssets:messageImageFixture.assets,messageImageAssetStore:messageImageFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
