@@ -472,6 +472,38 @@ export async function deliverCommerceEmail(
   return {externalCalls: 1};
 }
 
+/** Acquire due-work before email, as delivery does. Candidate discovery takes
+ * no row locks; both lock steps skip busy rows. A skipped due-work row must also
+ * exclude its email, otherwise a subsequent DELETE would invert that order. */
+async function lockSweepEmails(q: PoolClient, now: Date | null, limit: number, retention = false) {
+  const eligible = retention
+    ? "state IN ('sent', 'suppressed', 'expired', 'failed') AND updated_at <= coalesce($1::timestamptz, clock_timestamp()) - interval '45 days'"
+    : "state = 'queued' AND expires_at <= coalesce($1::timestamptz, clock_timestamp())";
+  const order = retention ? 'updated_at, email_id' : 'expires_at, email_id';
+  const candidates = (await q.query<{email_id: string}>(
+    `SELECT email_id FROM commerce_outbound_emails WHERE ${eligible} ORDER BY ${order} LIMIT $2`, [now, limit],
+  )).rows.map(row => row.email_id);
+  if (!candidates.length) return {emails: [], work: []};
+  const work = (await q.query<{due_work_id: string; target_id: string}>(
+    `SELECT due_work_id, target_id FROM commerce_due_work
+     WHERE kind = 'email' AND target_id = ANY($1::uuid[])
+     ORDER BY due_work_id FOR UPDATE SKIP LOCKED`, [candidates],
+  )).rows;
+  const lockedWork = work.map(row => row.due_work_id);
+  const emails = (await q.query<{email_id: string}>(
+    `SELECT email_id FROM commerce_outbound_emails e
+     WHERE ${eligible} AND email_id = ANY($2::uuid[])
+       AND NOT EXISTS (SELECT 1 FROM commerce_due_work w
+         WHERE w.kind = 'email' AND w.target_id = e.email_id
+           AND NOT (w.due_work_id = ANY($3::uuid[])))
+     ORDER BY ${order} FOR UPDATE OF e SKIP LOCKED`, [now, candidates, lockedWork],
+  )).rows.map(row => row.email_id);
+  const selected = new Set(emails);
+  // Never DELETE by target alone: a newly inserted work row was not locked by
+  // this transaction. Delivery can retire that row after observing closed/missing email.
+  return {emails, work: work.filter(row => selected.has(row.target_id)).map(row => row.due_work_id)};
+}
+
 /** Bounded DB-only sweep: expires queued rows past expires_at (deleting their
  * due-work rows) and deletes closed rows past the 45-day retention window. */
 export async function sweepCommerceOutboundEmails(
@@ -487,17 +519,7 @@ export async function sweepCommerceOutboundEmails(
   }
   return isolatedTransaction(pool, async q => {
     const now = options.now?.() ?? null;
-    const dueExpired = (
-      await q.query<{email_id: string}>(
-        `SELECT email_id
-         FROM commerce_outbound_emails
-         WHERE state = 'queued' AND expires_at <= coalesce($1::timestamptz, clock_timestamp())
-         ORDER BY expires_at, email_id
-         FOR UPDATE SKIP LOCKED
-         LIMIT $2`,
-        [now, limit],
-      )
-    ).rows.map(r => r.email_id);
+    const expired = await lockSweepEmails(q, now, limit), dueExpired = expired.emails;
     if (dueExpired.length > 0) {
       await q.query(
         `UPDATE commerce_outbound_emails
@@ -507,30 +529,19 @@ export async function sweepCommerceOutboundEmails(
       );
       await q.query(
         `DELETE FROM commerce_due_work
-         WHERE kind = 'email' AND target_id = ANY($1::uuid[])`,
-        [dueExpired],
+         WHERE due_work_id = ANY($1::uuid[])`,
+        [expired.work],
       );
     }
     const remaining = limit - dueExpired.length;
     let deleted = 0;
     if (remaining > 0) {
-      const dueRetention = (
-        await q.query<{email_id: string}>(
-          `SELECT email_id
-           FROM commerce_outbound_emails
-           WHERE state IN ('sent', 'suppressed', 'expired', 'failed')
-             AND updated_at <= coalesce($1::timestamptz, clock_timestamp()) - interval '45 days'
-           ORDER BY updated_at, email_id
-           FOR UPDATE SKIP LOCKED
-           LIMIT $2`,
-          [now, remaining],
-        )
-      ).rows.map(r => r.email_id);
+      const retained = await lockSweepEmails(q, now, remaining, true), dueRetention = retained.emails;
       if (dueRetention.length > 0) {
         await q.query(
           `DELETE FROM commerce_due_work
-           WHERE kind = 'email' AND target_id = ANY($1::uuid[])`,
-          [dueRetention],
+           WHERE due_work_id = ANY($1::uuid[])`,
+          [retained.work],
         );
         deleted =
           (

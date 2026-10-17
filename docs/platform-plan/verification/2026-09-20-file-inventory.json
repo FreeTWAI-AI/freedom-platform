@@ -389,8 +389,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 66712,
-      "sha256": "c4862fa06ba8019ce9eff33aac590e3f0e348e47813cfdc0fb83c75e51c97d36"
+      "bytes": 67398,
+      "sha256": "e5043ac0ffdd3a8d9f8a87ffff0c2e634785db91017694d44365e469734f0d5e"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 62377,
-      "sha256": "137585ac38ab7c0d345c1b8e40577eb63d480efb1821fc50e52a721694dd475a"
+      "bytes": 66731,
+      "sha256": "ac3972e14cdf22251d616bb55b6f53bcb29b3e80cc509fd61c41d7e4434f0a71"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -17324,8 +17324,8 @@
     },
     {
       "path": "modules/agent-commerce/fulfilment/README.md",
-      "bytes": 28637,
-      "sha256": "2e050eac5fc274d45ab43d2307aba66802dce28fa35ed22ce8fb97445698e3fe"
+      "bytes": 29041,
+      "sha256": "4fd6c839f88b37206267b44d42ce4762b89bd2899fed72e778eb9bdeee082ef9"
     },
     {
       "path": "modules/agent-commerce/fulfilment/freedom.module.json",
@@ -17684,8 +17684,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/freedom.module.json",
-      "bytes": 1195,
-      "sha256": "858ebe1a1cd1e34c485b33a1a16d36e226008874cfae2335044bafac73113f99"
+      "bytes": 1251,
+      "sha256": "5c35f65447103e29af8459305b16696dd1c3f0d2592756a80baed8b56e3aabbe"
     },
     {
       "path": "modules/agent-commerce/operations/provider-entry-paths.ts",
@@ -17714,13 +17714,13 @@
     },
     {
       "path": "modules/agent-commerce/operations/notifications/README.md",
-      "bytes": 15297,
-      "sha256": "81a3075e9edc81f2ca2dfac1612dd9e32e8addbbaf8edffd5ee937e91ea969ab"
+      "bytes": 15635,
+      "sha256": "5fe42dc731ee251cc2ffb97fa2050162c5792be08d0104ed99123ec80839ad01"
     },
     {
       "path": "modules/agent-commerce/operations/notifications/delivery.ts",
-      "bytes": 18496,
-      "sha256": "53e918299c3d5c8055402551be5df7c1656a5516536a9391b065e7ff2e4d7980"
+      "bytes": 19824,
+      "sha256": "84d82ce00fefbf0ff745649d16ddccd1d75693898585c72e172aecd043551487"
     },
     {
       "path": "modules/agent-commerce/operations/notifications/email-port.ts",
@@ -23209,8 +23209,8 @@
     },
     {
       "path": "tests/runtime/commerce-email-delivery.test.ts",
-      "bytes": 39082,
-      "sha256": "4c5866d002f5ed1b13a2ac077dbe8d8e6b4c0986e07a773ead9daa989268203b"
+      "bytes": 44323,
+      "sha256": "6ecc027bfcc42955311e93a69e16386cdea7cd75ac5b90764af2246265be452e"
     },
     {
       "path": "tests/runtime/commerce-email-outbox.test.ts",
@@ -23728,6 +23728,11 @@
       "sha256": "a5e444a9e97a1454ab9ecedf63c6fe367c35b6c5be09f0c77802034bbedcb030"
     },
     {
+      "path": "tests/runtime/hosted-commerce-quarantine.test.ts",
+      "bytes": 6960,
+      "sha256": "d879579fc3d207b8574f8b924b57d5c14d9efdecae2c4078f010db12611cbf7e"
+    },
+    {
       "path": "tests/runtime/hosted-commerce-setup-contracts.test.ts",
       "bytes": 6163,
       "sha256": "a4d63c1b770af1a936489d8c9aff938bb9f7fa457cdf3a745968e6c796a846d6"
@@ -23889,8 +23894,8 @@
     },
     {
       "path": "tests/runtime/hosted-shipping-locations.test.ts",
-      "bytes": 14135,
-      "sha256": "c37fd013a141ba3e5aba326e5d93ca5db099a800b655d402b8fc9536d33f337d"
+      "bytes": 14209,
+      "sha256": "2568c9733201d114af5c614a2dade628f4dd02b612c4a5911caca9b04bfcd6a1"
     },
     {
       "path": "tests/runtime/hosted-shipping-profile.test.ts",

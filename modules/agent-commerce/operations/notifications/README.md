@@ -58,6 +58,9 @@ M2 實際入列與寄送前三種範本（`order_confirmed`、`paid_unallocatabl
 - `sweepCommerceOutboundEmails(pool, { limit = 500, quarantine })` 於 Worker `scheduled()` 的執行器之後執行（不論 `emailEnabled` 開關，但在 `quarantine` 為真時跳過）：
   1. 將已逾 7 天 `expires_at` 的 `queued` 列標記為 `expired`，並刪除對應的 `commerce_due_work` 列（每次最多 500 筆）。
   2. 刪除已處於終態（`sent`、`suppressed`、`expired`、`failed`）且 `updated_at <= clock_timestamp() - interval '45 days'` 的列（每次最多 500 筆）。
+  兩階段共用同一批次上限，並依投遞程序的順序先鎖 due-work、再鎖 Email。
+  掃除使用 `SKIP LOCKED`，跳過無法取得 due-work 或 Email 鎖的候選，保留其 lease／attempts。
+  只刪除本交易已鎖定且對應已處理 Email 的 due-work ID，避免鎖住 Email 後等待新出現的工作列。
 
 ## 範例
 

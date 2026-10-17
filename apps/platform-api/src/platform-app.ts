@@ -605,6 +605,15 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createHostedCheckoutRoutes(pool,origin,runtime,freedomEnv));
   app.route('/',createHostedPaymentRoutes(pool,runtime,freedomEnv,origin));
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
+  // EC-SPEC-10 §8.3 covers setup and catalog writes as well as order actions.
+  // Keep this at composition: fulfilment must not depend on operations settings,
+  // and every storefront route (including future sibling settings) shares it.
+  for (const path of ['/api/v1/tenants/:tenant_id/storefronts/:instance_id', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/*']) app.use(path, async (c, next) => {
+    try {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) requireCondition(runtime.commerceSettings?.quarantine !== true, 503, 'commerce_quarantined', '商務服務暫時停止寫入。');
+      await next();
+    } finally { hostedOrderPrivateCache(c); }
+  });
   app.post('/api/v1/me/account/email-verification/request',async c=>{
     requireCondition(runtime.eventEmailSender,503,'email_verification_unavailable','驗證信郵件服務尚未設定完成。');
     z.object({}).strict().parse(await c.req.json());

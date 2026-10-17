@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { hostedPaymentHarness } from '../e2e/hosted-payment-fixture.js';
 import { EcpayKeyPair, encodeForm, signFields } from '../../modules/agent-commerce/providers/ecpay/index.js';
@@ -904,6 +905,74 @@ describe('commerce email delivery, executor integration, sweep and worker sender
         .state,
       'failed',
     );
+  });
+
+  for (const branch of ['expiry', 'retention'] as const) test(`sweep ${branch} skips a delivery's locked due-work without reversing the lock order or changing its lease`, async () => {
+    const p = await freshPlaced(), emailId = await queueTemplate(p, 'order_access'), otherId = await queueTemplate(p, 'order_access');
+    const now = branch === 'expiry' ? new Date(Date.now() + 7 * 86400_000 + 5000) : new Date();
+    if (branch === 'retention') await f.x.h.pool.query(
+      "UPDATE commerce_outbound_emails SET state='suppressed',updated_at=clock_timestamp()-interval '46 days' WHERE email_id=ANY($1::uuid[])", [[emailId, otherId]],
+    );
+    const claim = (await f.x.h.pool.query(
+      "UPDATE commerce_due_work SET lease_until=$2::timestamptz+interval '2 minutes' WHERE kind='email' AND target_id=$1 RETURNING due_work_id,lease_until::text AS token,attempts,failure_count",
+      [emailId, now],
+    )).rows[0];
+    const sender = new FixtureEmailSender(), journal = new MemoryEffectJournal('local');
+    const connect = f.x.runtime.connect;
+    let entered!: (pid: number) => void, release!: () => void, used = false, finished = false;
+    const ready = new Promise<number>(resolve => { entered = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    // Hold the real delivery transaction after PostgreSQL has granted its
+    // due-work lock, before it requests the corresponding email lock.
+    f.x.runtime.connect = (async () => {
+      const q = await (connect as () => Promise<import('pg').PoolClient>).call(f.x.runtime), query = q.query, originalRelease = q.release;
+      q.query = (async (...args: unknown[]) => {
+        const result = await (query as Function).apply(q, args);
+        if (!used && /WHERE due_work_id = \$1 AND kind = 'email' AND target_id = \$2/.test(String(args[0]))) {
+          used = true; entered((await (query as Function).call(q, 'SELECT pg_backend_pid() pid')).rows[0].pid); await held;
+        }
+        return result;
+      }) as typeof q.query;
+      q.release = (error?: Error | boolean) => { q.query = query; q.release = originalRelease; originalRelease.call(q, error); };
+      return q;
+    }) as typeof f.x.runtime.connect;
+    const delivered = deliverCommerceEmail(f.x.runtime, emailId, {sender, journal, origin: f.origin, now: () => now},
+      {dueWorkId: claim.due_work_id, leaseToken: claim.token, tenantId: p.s.tenantId});
+    // Attach rejection handlers immediately: the old inverse order produces
+    // a real PostgreSQL deadlock when the delivery barrier is released.
+    const deliveryResult = Promise.allSettled([delivered]);
+    let sweepResult: Promise<PromiseSettledResult<{expired: number; deleted: number}>[]> | undefined;
+    try {
+      const pid = await Promise.race([ready, delivered.then(() => { throw Error('delivery missed its due-work barrier'); })]);
+      const sweeping = sweepCommerceOutboundEmails(f.x.runtime, {now: () => now});
+      sweepResult = Promise.allSettled([sweeping]);
+      const blocked = (async () => {
+        for (let i = 0; i < 500 && !finished; i++) {
+          if ((await f.x.h.pool.query("SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND state='active' AND $1=ANY(pg_blocking_pids(pid))", [pid])).rowCount) return 'blocked' as const;
+          await delay(10);
+        }
+        return 'unobserved' as const;
+      })();
+      const order = await Promise.race([sweepResult.then(() => 'completed' as const), blocked]);
+      finished = true; await blocked;
+      if (order === 'completed') {
+        assert.deepEqual((await f.x.h.pool.query('SELECT lease_until::text AS token,attempts,failure_count FROM commerce_due_work WHERE due_work_id=$1', [claim.due_work_id])).rows[0],
+          {token: claim.token, attempts: claim.attempts, failure_count: claim.failure_count});
+        assert.equal((await f.x.h.pool.query('SELECT state FROM commerce_outbound_emails WHERE email_id=$1', [emailId])).rows[0].state, branch === 'expiry' ? 'queued' : 'suppressed');
+      }
+      release();
+      const [delivery, sweep] = [(await deliveryResult)[0], (await sweepResult)[0]];
+      for (const result of [delivery, sweep]) assert.equal(result.status, 'fulfilled', result.status === 'rejected' ? `${result.reason.code}: ${result.reason.message}` : 'completed transaction');
+      assert.equal(order, 'completed', 'sweep must finish while delivery still owns the due-work lock');
+      assert.deepEqual((delivery as PromiseFulfilledResult<unknown>).value, {externalCalls: 0});
+      assert.deepEqual((sweep as PromiseFulfilledResult<unknown>).value, branch === 'expiry' ? {expired: 1, deleted: 0} : {expired: 0, deleted: 1});
+      assert.equal((await f.x.h.pool.query('SELECT count(*)::int n FROM commerce_due_work WHERE target_id=ANY($1::uuid[])', [[emailId, otherId]])).rows[0].n, 0);
+      assert.equal(journal.objects.size, 0);
+      assert.deepEqual(await sweepCommerceOutboundEmails(f.x.runtime, {now: () => now}), branch === 'expiry' ? {expired: 0, deleted: 0} : {expired: 0, deleted: 1});
+    } finally {
+      finished = true; release(); f.x.runtime.connect = connect;
+      await deliveryResult; await sweepResult;
+    }
   });
 
   test('createWorkerEmailSender passes exact payload (from, replyTo omitted when null) and maps Cloudflare error codes', async () => {

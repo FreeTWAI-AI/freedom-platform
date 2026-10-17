@@ -5,6 +5,7 @@
   "owned_paths": [
     "modules/agent-commerce/operations/**",
     "tests/runtime/commerce-runtime-settings.test.ts",
+    "tests/runtime/hosted-commerce-quarantine.test.ts",
     "tests/runtime/commerce-scheduler.test.ts",
     "tests/runtime/commerce-due-work.test.ts",
     "deploy/cloudflare/lib/commerce-wrangler.mjs",

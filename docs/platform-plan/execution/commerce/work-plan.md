@@ -432,6 +432,49 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   尚不把時間相近視為每個案例根因。serial 完成後需做一次同來源、單獨執行的訊息流程對照。
   最終來源的必要 CI 與 code-owner 核准仍待完成，合併 main 前仍須 Ted 確認。
 
+### 2026-10-17：53aa 驗證完成與 code-owner 的兩項修正
+
+- `53aa3486` 的 Verify `39009777021` 全 17 jobs 與 CodeQL `39009774355` 通過。
+  同 run 的 runtime 九份 artifact 已獨立核對：426 檔、6,254/6,254、八區 cleanup=true，
+  最長 1,257.906 秒；source artifact 的父節點／tree／5,095 checkout files 已核對。
+  Browser artifact 為 165 檔／1,044 唯一案例、六模式全成功；default 是 1,007 passed／18
+  fixture-OFF skipped，後五模式補足覆蓋。成功 artifact 只保留 raw report digest references，
+  因此不宣稱已讀回 raw Playwright JSON 或 browser DB 清理證明。
+- 原本機 serial 已完整結束：6,223 passed、31 failed cases、2 after-hook file failures，
+  Node totals 為 6,256 tests／33 failed，零 cancelled／skip／TODO，7,297.3 秒、exit 1。
+  guild-entry／tenant-ownership 的 shared before 建 schema 連線逾時分別影響 8／13 案，
+  after 清理各另算一個檔案失敗；另有四個 beforeEach TRUNCATE、model fixture INSERT 的
+  57014、device positive exchange 503、machine approval 503、client blocker 觀察失敗及
+  skill-book 兩項被 predicate 遮蔽的原始錯誤。沒有從相近時間的 DB 訊息推定全部根因。
+  測試原始輸出、完整 PG logs 與來源 hashes 均保留，精確容器／磁碟 volume 已核對移除。
+- 同來源、原期限、零重試的單次獨立對照：完整訊息三檔 **41/41**（175.8 秒），原失敗所在
+  完整 runtime 十一檔 **251/251**（330.3 秒）；兩批容器／volume 均已核對移除。
+  這些對照不取代原 40/41 browser 與失敗 serial，也不證明原共享主機上的延遲原因。
+  補正 trace 證據界線：11 份可逐 byte 核對的資產全部是 CSS；28 個 JavaScript 請求沒有保存本文。
+- Code-owner review `5556812783` 要求修改。P1：quarantine 下 shipping、offline bank、provider
+  account／credentials／logistics 仍可寫入。現於平台 storefront 根路徑與子路徑的 member 邊界
+  統一拒絕非 GET／HEAD／OPTIONS 的請求；同時涵蓋 upgrade、商品、商店、媒體與分銷設定。
+  保留 GET 的能力檢查及投影，不讓 fulfilment 引入 operations 依賴；刪除 README 的未核准例外。
+  真實 HTTP 反例分別收到 201／201／200／200，原本應為 `503 commerce_quarantined`。
+  新測試比較完整 Commerce／hosted rows、receipt、journal、fresh proof 與 tenant／instance
+  版本，並以同 key／body／proof／version 在解除 quarantine 後成功執行每項受測命令。
+- P2：Email expiry 與 retention 掃除先鎖 Email 再刪 due-work，與投遞相反。兩個控制案例均以
+  真實 delivery 在持有 due-work 鎖後的 barrier 重現 PostgreSQL `40P01 deadlock detected`。
+  掃除改為候選無鎖讀取、due-work 先鎖、Email 後鎖，兩步均 `SKIP LOCKED`；排除未取得
+  due-work 鎖的 Email，且只刪本交易已持鎖的工作 ID。修正後兩個重疊案例均成功，保留未處理
+  列的 lease／attempts，處理另一個不忙碌候選，且 delivery 不產生外部呼叫。
+  typecheck 與 14 個完整相關 runtime 檔案 **121/121** 通過（164.2 秒，零 skip／TODO／cancelled）。
+  測試用容器與精確磁碟 volume 已核對移除。首次治理測試在尚未提交的 worktree 執行，
+  598 案有 11 項失敗：九項 runtime-matrix 被 `runtime_source_changed` 的乾淨來源守門拒絕，
+  另兩項 child-process status 為 null（CircleCI fixture／ingest reporter；原始期限未調整）。
+  原輸出保留；提交後須以乾淨來源完成治理驗證，不把未提交來源的失敗稱為成功。
+  新來源 CI 與 code-owner 核准仍待完成，合併 main 前仍須 Ted 確認。
+- 買家 B05→B07 的剩餘範圍保持明示：後端已凍結 `payment_method`、`offline_instructions`、
+  `payment_grace_until`，但 storefront 頁面尚未消費這些欄位，缺銀行帳號複製、面交指引、
+  付款期限與取消入口。後續需驗證選擇方式→凍結訂單→B07→賣家確認→重新登入，以及取消／
+  結果不明恢復、版本過期、忘記連結／裝置、撤權清除與零額外 payment attempt；目前旗標關閉，
+  不稱完整離線買家體驗已交付，亦不是本次新增 review blocker。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |

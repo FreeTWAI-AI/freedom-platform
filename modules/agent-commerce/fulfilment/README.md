@@ -208,7 +208,12 @@ The console flag mounts these routes below `/api/v1/tenants/:tenant_id/storefron
 | PUT `/products/:product_id/shipping-attributes` | `store:write` |
 
 Writes require a live store and serialize on its instance row. They do not acquire
-an order advisory lock, spend a budget or stop in commerce quarantine. An item's
+an order advisory lock or spend a budget. The platform's storefront write boundary
+rejects quarantine requests with `503 commerce_quarantined` before calling settings
+commands, creating receipts or consuming fresh verification. It also covers offline
+payment settings, provider credentials/services, release upgrades and neighboring
+store/catalog writes. GETs retain their existing authority checks and projections;
+the fulfilment module does not import operations settings. An item's
 attributes belong exclusively to its supply shop's confirmed tenant/instance;
 a retailer's selection of a supplied item grants no settings access.
 

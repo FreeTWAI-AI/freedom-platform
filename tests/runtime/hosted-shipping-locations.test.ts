@@ -84,7 +84,7 @@ describe('shipping locations',()=>{
     const m=await h.member(s,['store:manage']);assert.equal((await h.request(s,'GET','/ship-from-locations',undefined,undefined,m.session)).status,200);
     await h.f.x.h.pool.query("UPDATE tenant_module_permissions SET status='revoked',revoked_at=clock_timestamp(),updated_at=clock_timestamp(),version=version+1 WHERE principal_id=$1",[m.principal]);assert.equal((await h.request(s,'GET','/ship-from-locations',undefined,undefined,m.session)).status,404);
     const outsider=(await h.f.x.h.person('合成外部'+randomUUID())).session;assert.equal((await h.request(s,'GET',`/ship-from-locations/${location.location_id}`,undefined,undefined,outsider)).status,404);
-    h.f.settings.quarantine=true;assert.equal((await create(s)).status,201);
+    h.f.settings.quarantine=true;assert.equal((await create(s,h.locationInput(),503)).data.code,'commerce_quarantined');h.f.settings.quarantine=false;
     for(const status of ['suspended','archived']){await h.f.x.h.pool.query('UPDATE module_instances SET status=$2,version=version+1 WHERE instance_id=$1',[s.instanceId,status]);if(status==='archived')assert.equal((await h.request(s,'GET','/ship-from-locations')).status,404);const r=await h.request(s,'POST','/ship-from-locations',h.locationInput());assert.equal(r.status,409);assert.equal(r.data.code,'storefront_unavailable');await receipts();}
   });
   test('a replacement store in the same tenant cannot read or replace historical locations or item attributes',async()=>{
