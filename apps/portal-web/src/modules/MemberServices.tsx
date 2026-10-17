@@ -50,6 +50,7 @@ export function MemberServices({client}: {client: PortalClient}) {
     const page = await client.get<Mine>('/member-services/mine')
     setMine(page.items)
     setLimit(page.limit)
+    return page.items
   }, [client])
   const load = useCallback(async (nextCategory: string, nextCursor?: string) => {
     if (nextCursor) setMore(true)
@@ -92,7 +93,7 @@ export function MemberServices({client}: {client: PortalClient}) {
       headers: {Accept: 'application/json', 'Content-Type': next.type, 'X-CSRF-Token': client.csrfToken, 'Idempotency-Key': crypto.randomUUID(), 'If-Match': `"${service.aggregate_version}"`},
     })
     const payload = await response.json().catch(() => ({})) as {detail?: string}
-    if (!response.ok) throw new ApiError({message: payload.detail || '封面未能換上，服務已儲存。', status: response.status})
+    if (!response.ok) throw new ApiError({message: payload.detail || '封面未能換上。', status: response.status})
   }
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -107,9 +108,10 @@ export function MemberServices({client}: {client: PortalClient}) {
       if (file) {
         try { await uploadCover(saved, file) }
         catch (cause) {
-          setEditing(saved)
-          setError(cause instanceof Error ? cause.message : '封面未能換上，服務已儲存。')
-          await Promise.all([load(category), refreshMine()])
+          // The upload may have been applied before its response was lost; retry from the current version.
+          const [, fresh] = await Promise.all([load(category), refreshMine().catch(() => null)])
+          setEditing(fresh?.find(item => item.service_id === saved.service_id) ?? saved)
+          setError(`${cause instanceof ApiError ? cause.message : '封面未能換上。'}服務已儲存，按「儲存變更」可重試封面。`)
           return
         }
       }

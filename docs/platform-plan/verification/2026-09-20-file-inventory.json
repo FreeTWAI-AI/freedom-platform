@@ -2504,8 +2504,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberServices.tsx",
-      "bytes": 19253,
-      "sha256": "5c59586850e192e886d3967ac16183f912337e3290fbad080327f307b5a45678"
+      "bytes": 19509,
+      "sha256": "9a5155c17d6501c452e24af70935cce47b5abd65efffcafc1e8fe7c8e7a7ec97"
     },
     {
       "path": "apps/portal-web/src/modules/MemberSettings.css",
@@ -21309,8 +21309,8 @@
     },
     {
       "path": "tests/e2e/member-services.spec.ts",
-      "bytes": 22178,
-      "sha256": "d700210b082062ab5780556c83c10ce2655a3f71a8f89083b5ec6e380e214848"
+      "bytes": 30079,
+      "sha256": "872e3df29dc95b17a6e7ad9c7ebff58e0c7455ca2ecf0ea9fca0cb7f2273e53c"
     },
     {
       "path": "tests/e2e/member-session-lifecycle.spec.ts",
