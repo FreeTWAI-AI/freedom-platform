@@ -20,6 +20,7 @@ export const SERVICE_MODE_LABELS: Record<ServiceMode, string> = {
   online: '線上', in_person: '實體', both: '線上・實體',
 };
 export const SERVICE_LIMIT = 5;
+export const SERVICE_COVER_INPUT_BYTES = 4 * 1024 * 1024;
 
 const LINE = /[\u0000-\u001f\u007f]/;
 const TEXT = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
@@ -35,7 +36,10 @@ export type ServiceIssue = { field: string; code: string; message: string };
 const chars = (value: string) => [...value].length;
 
 function line(value: unknown, max: number, field: string, label: string, required: boolean, issues: ServiceIssue[]) {
-  if (typeof value !== 'string') { if (required) issues.push({ field, code: 'validation_failed', message: `請填寫${label}。` }); return null; }
+  if (typeof value !== 'string') {
+    if (required || value != null) issues.push({ field, code: 'validation_failed', message: required ? `請填寫${label}。` : `${label}格式不正確。` });
+    return null;
+  }
   if (LINE.test(value)) { issues.push({ field, code: 'validation_failed', message: `${label}含有無法使用的字元。` }); return null; }
   const trimmed = value.trim();
   if (!trimmed) { if (required) issues.push({ field, code: 'validation_failed', message: `請填寫${label}。` }); return null; }

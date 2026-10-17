@@ -203,6 +203,11 @@ JavaScript Date 毫秒值重建（#728）。貼文依 `(created_at,post_id)` 降
 
 標題 1–80 字、簡介 1–160 字、說明最多 2000 字、價格與地區各最多 60 字。聯絡方式 1–3 個，名稱 1–20 字。網址必須是 https，沒有帳密、非預設埠、本機或 IP 主機，並用 `normalizeShareUrl` 正規化後儲存。表單送出前跑同一份檢查。
 
+選填 `price_text`／`area_text` 僅接受字串或原本的省略／null 語意（#776）；
+空字串或 trim 後空白仍表示清空。數字、布林、陣列與物件回
+`422 validation_failed`，不把錯誤輸入靜默當成 null，不改服務版本、收據或原值。
+拒絕不占用 command key；修正為合法文字後可沿同一 key 重試。
+
 建立、修改、暫停、恢復與刪除只有主人能做。修改、暫停、恢復、刪除、封面與隱藏都要 `If-Match` 的 `aggregate_version`，並用 Idempotency-Key。刪除是軟刪除（`state=deleted`），同時刪掉封面。暫停只給主人在「我的服務」看見；公開頁與 `/go/` 都回到找不到。平台管理員可隱藏；公會長不行。隱藏後各處都看不到，`/go/` 回到首頁。擁有者停用或是驗收測試帳號時，其他人與公開頁都看不到，主人仍可在會員介面看見自己的有效服務。
 
 封面輸入是 JPEG、PNG 或 WebP，最多 4 MiB，簽名與動畫檢查與其他上傳相同。輸出是 `service_cover`，`cover` 成 1200×675 的 WebP，最多 512 KiB。上傳是帶 Idempotency-Key 與 If-Match 的二進位 PUT。會員看封面走 `GET /api/v1/member-services/:id/cover`（暫停的服務主人仍看得到）；公開封面是 `GET /api/v1/public/member-services/:id/cover`。

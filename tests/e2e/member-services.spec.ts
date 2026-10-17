@@ -139,6 +139,7 @@ test('a member lists a service with a cover and one with a placeholder', async (
   await page.locator('form.service-form').getByRole('button', { name: '建立服務', exact: true }).click();
   await expect(card(page, PLACEHOLDER_TITLE).locator('.service-placeholder')).toContainText('語言教學');
   await expect(page.locator('li.service-mine-row').filter({ hasText: PLACEHOLDER_TITLE })).toBeVisible();
+  await expect(page.locator('section.service-mine h2')).toHaveText('我的服務 2／5');
   servicePath = (await card(page, COVER_TITLE).getByRole('link', { name: '服務頁 ↗' }).getAttribute('href'))!;
   for (const theme of ['light', 'versefolk'] as const) {
     await themeOf(page, theme);
@@ -148,6 +149,151 @@ test('a member lists a service with a cover and one with a placeholder', async (
       await noOverflow(page);
     }
   }
+});
+
+test('the create button says when the 5-service limit is reached, and an oversized cover is refused before upload', async ({ page }) => {
+  await login(page);
+  await page.route('**/api/v1/member-services/mine', async route => {
+    const real = await (await route.fetch()).json() as { items: { service_id: string }[]; limit: number };
+    const items = Array.from({ length: real.limit }, (_, index) => ({ ...real.items[0], service_id: `00000000-0000-4000-8000-00000000000${index}` }));
+    await route.fulfill({ json: { ...real, items } });
+  });
+  await navigate(page, '社員服務');
+  const mine = page.getByRole('region', { name: '我的服務', exact: true });
+  await expect(mine.locator('h2')).toHaveText('我的服務 5／5');
+  await expect(mine.getByRole('button', { name: '新增服務', exact: true })).toBeDisabled();
+  await expect(mine).toContainText('已達 5 項上限（含暫停中的服務）。刪除一項後才能再新增。');
+  await page.unroute('**/api/v1/member-services/mine');
+  await page.reload();
+  await navigate(page, '社員服務');
+  await expect(mine.locator('h2')).toHaveText('我的服務 2／5');
+  await mine.getByRole('button', { name: '新增服務', exact: true }).click();
+  const form = page.locator('form.service-form');
+  const cover = form.locator('input[type="file"]');
+  let uploads = 0;
+  await page.route('**/api/v1/member-services/*/cover', route => { uploads += 1; return route.continue(); });
+  await cover.setInputFiles({ name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
+  await expect(form.getByText('封面需為 4 MiB 以下，請換一張較小的圖片。')).toBeVisible();
+  await expect(cover).toHaveAttribute('aria-invalid', 'true');
+  expect(await cover.evaluate(input => (input as HTMLInputElement).files?.length ?? 0)).toBe(0);
+  await cover.setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: PNG });
+  await expect(form.getByText('封面需為 4 MiB 以下，請換一張較小的圖片。')).toHaveCount(0);
+  await form.getByRole('button', { name: '取消', exact: true }).click();
+  expect(uploads).toBe(0);
+});
+
+test('real API journey: cover recovery, edit, pause, the 5-service cap, delete and re-login', async ({ page, e2eAuthPool }) => {
+  test.setTimeout(240_000);
+  const owner = '20000000-0000-4000-8000-000000000003';
+  const mineTitles = async () => (await e2eAuthPool.query(`SELECT title,state FROM member_services WHERE owner_user_id=$1 AND state IN ('active','paused') ORDER BY title`, [owner])).rows as { title: string; state: string }[];
+  let csrf = '';
+  const coverPuts: string[] = [];
+  page.on('request', request => {
+    csrf = request.headers()['x-csrf-token'] ?? csrf;
+    if (request.method() === 'PUT' && /\/api\/v1\/member-services\/[^/]+\/cover$/.test(request.url())) coverPuts.push(request.url());
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, 'client@local.test');
+  await navigate(page, '社員服務');
+  const mine = page.getByRole('region', { name: '我的服務', exact: true });
+  await expect(mine.locator('h2')).toHaveText('我的服務 0／5');
+
+  // Oversized cover is refused in the browser. A legal one then meets two injected transport faults on the real API:
+  // first the request never reaches the server, then the server applies it but the response is lost. Both retry from the form.
+  const form = await fillService(page, 'E2E 旅程 1', '設計', '封面與恢復');
+  const cover = form.locator('input[type="file"]');
+  await cover.setInputFiles({ name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
+  await expect(form.getByText('封面需為 4 MiB 以下，請換一張較小的圖片。')).toBeVisible();
+  expect(coverPuts).toHaveLength(0);
+  await cover.setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: PNG });
+  const faults = ['before-server', 'response-lost'];
+  await page.route('**/api/v1/member-services/*/cover', async route => {
+    const fault = route.request().method() === 'PUT' ? faults.shift() : undefined;
+    if (fault === 'response-lost') await route.fetch();
+    return fault ? route.abort('failed') : route.continue();
+  });
+  await form.getByRole('button', { name: '建立服務', exact: true }).click();
+  await expect(form.getByRole('alert')).toHaveText('封面未能換上。服務已儲存，按「儲存變更」可重試封面。');
+  await expect(page.getByText('已新增服務。')).toHaveCount(0);
+  await expect(form.getByRole('heading', { name: '編輯服務', exact: true })).toBeVisible();
+  await expect(form.getByRole('textbox', { name: /^標題/ })).toHaveValue('E2E 旅程 1');
+  expect(await mineTitles()).toEqual([{ title: 'E2E 旅程 1', state: 'active' }]);
+  await form.getByRole('button', { name: '儲存變更', exact: true }).click();
+  await expect(form.getByRole('alert')).toHaveText('封面未能換上。服務已儲存，按「儲存變更」可重試封面。');
+  await form.getByRole('button', { name: '儲存變更', exact: true }).click();
+  await expect(page.getByText('已更新服務。')).toBeVisible();
+  await page.unroute('**/api/v1/member-services/*/cover');
+  expect(coverPuts).toHaveLength(3);
+  expect(await mineTitles()).toEqual([{ title: 'E2E 旅程 1', state: 'active' }]);
+  await expect(card(page, 'E2E 旅程 1').locator('img.service-cover')).toBeVisible();
+  expect((await e2eAuthPool.query(`SELECT count(*)::int AS n FROM member_services s JOIN member_service_covers c USING(service_id) WHERE s.owner_user_id=$1 AND s.title='E2E 旅程 1'`, [owner])).rows[0].n).toBe(1);
+
+  // Edit, pause and resume the same service.
+  const row = mine.locator('li.service-mine-row').filter({ hasText: 'E2E 旅程 1' });
+  await row.getByRole('button', { name: '編輯', exact: true }).click();
+  await form.getByRole('textbox', { name: /^簡介/ }).fill('封面與恢復（已編輯）');
+  await form.getByRole('button', { name: '儲存變更', exact: true }).click();
+  await expect(page.getByText('已更新服務。')).toBeVisible();
+  await row.getByRole('button', { name: '暫停', exact: true }).click();
+  await expect(row.locator('.service-state')).toHaveText('暫停中');
+  await row.getByRole('button', { name: '恢復', exact: true }).click();
+  await expect(row.locator('.service-state')).toHaveCount(0);
+
+  // Fill the quota through the UI; a paused service still counts.
+  for (const n of [2, 3, 4, 5]) {
+    await (await fillService(page, `E2E 旅程 ${n}`, '設計', `第 ${n} 項`)).getByRole('button', { name: '建立服務', exact: true }).click();
+    await expect(mine.locator('li.service-mine-row').filter({ hasText: `E2E 旅程 ${n}` })).toBeVisible();
+  }
+  await row.getByRole('button', { name: '暫停', exact: true }).click();
+  await expect(row.locator('.service-state')).toHaveText('暫停中');
+  await expect(mine.locator('h2')).toHaveText('我的服務 5／5');
+  const create = mine.getByRole('button', { name: '新增服務', exact: true });
+  await expect(create).toBeDisabled();
+  await expect(mine).toContainText('已達 5 項上限（含暫停中的服務）。刪除一項後才能再新增。');
+  for (const theme of ['light', 'dark', 'versefolk'] as const) {
+    await themeOf(page, theme);
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await mine.scrollIntoViewIfNeeded();
+      await mine.screenshot({ path: `${SHOTS}/quota-full-${theme}-${width}.png` });
+      await noOverflow(page);
+    }
+  }
+  await themeOf(page, 'light');
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  // The server, not only the disabled button, refuses a sixth service.
+  const sixth = await page.evaluate(async token => {
+    const response = await fetch('/api/v1/member-services', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': token, 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify({ title: 'E2E 第六項', category: 'design', summary: '不該建立', service_mode: 'online', contacts: [{ label: '官網', url: 'https://example.com/six' }] }) });
+    return { status: response.status, code: (await response.json()).code };
+  }, csrf);
+  expect(sixth).toEqual({ status: 409, code: 'member_service_limit' });
+  expect(await mineTitles()).toHaveLength(5);
+
+  // Deleting one frees a slot; the button is usable again from the keyboard.
+  const last = mine.locator('li.service-mine-row').filter({ hasText: 'E2E 旅程 5' });
+  await last.getByRole('button', { name: '刪除', exact: true }).click();
+  await last.getByRole('button', { name: '確定刪除', exact: true }).click();
+  await expect(page.getByText('服務已刪除。')).toBeVisible();
+  await expect(mine.locator('h2')).toHaveText('我的服務 4／5');
+  await expect(create).toBeEnabled();
+  await create.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('form.service-form')).toBeVisible();
+  await page.locator('form.service-form').getByRole('button', { name: '取消', exact: true }).click();
+  await (await fillService(page, 'E2E 旅程 6', '設計', '刪除後再建')).getByRole('button', { name: '建立服務', exact: true }).click();
+  await expect(mine.locator('li.service-mine-row').filter({ hasText: 'E2E 旅程 6' })).toBeVisible();
+
+  // A fresh session reads the same five services, including the paused one.
+  await signOut(page);
+  await login(page, 'client@local.test');
+  await navigate(page, '社員服務');
+  await expect(mine.locator('h2')).toHaveText('我的服務 5／5');
+  await expect(mine.locator('li.service-mine-row')).toHaveCount(5);
+  await expect(mine.locator('li.service-mine-row').filter({ hasText: 'E2E 旅程 1' }).locator('.service-state')).toHaveText('暫停中');
+  expect((await mineTitles()).map(item => item.title)).toEqual(['E2E 旅程 1', 'E2E 旅程 2', 'E2E 旅程 3', 'E2E 旅程 4', 'E2E 旅程 6']);
+  await expect(create).toBeDisabled();
 });
 
 test('another member shares it and a signed-out visitor lands on the public page', async ({ page, browser }) => {

@@ -3,6 +3,7 @@
 .service-intro,.service-public-note{color:var(--muted);font-size:.9rem}
 .service-mine{display:grid;gap:.7rem}
 .service-mine h2,.service-form h2{margin:0;font-size:1.05rem}
+.service-count{color:var(--muted);font-weight:400;font-size:.9rem;font-variant-numeric:tabular-nums}
 .service-mine-head,.service-form-actions,.service-mine-row{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
 .service-mine-head{justify-content:space-between}
 .service-mine ul{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
