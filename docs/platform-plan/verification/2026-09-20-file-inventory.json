@@ -17289,8 +17289,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/seller-command.ts",
-      "bytes": 2748,
-      "sha256": "ed8b7d558261bace4271825af60e6e6fd77004ac2735b47a540783016c85cf61"
+      "bytes": 2829,
+      "sha256": "9c413e3346af517fda9f44cfdb4207a001c480949d18809b5b23edd98431e1cc"
     },
     {
       "path": "modules/agent-commerce/checkout/seller-exceptions.ts",
@@ -17299,8 +17299,8 @@
     },
     {
       "path": "modules/agent-commerce/checkout/seller-orders.ts",
-      "bytes": 25315,
-      "sha256": "cc6a37a4fc880dc0e7618613c5febdcb21639673a0fa77d281817a1fbd7518bb"
+      "bytes": 25295,
+      "sha256": "ccb3236972e6b43b89a4a195c40e21cdfdb66d81f33a08032d96e6fcc91a1e53"
     },
     {
       "path": "modules/agent-commerce/checkout/settlement.ts",
@@ -17824,8 +17824,8 @@
     },
     {
       "path": "modules/agent-commerce/payments/offline/confirm.ts",
-      "bytes": 10362,
-      "sha256": "383abbb79d9006a7ff85a006314944c54cddc0406134fb7898df431ae2769565"
+      "bytes": 10214,
+      "sha256": "e5aca860a70214f53077cddcda964a078d74cfd35d9919233fb4fb4d91785d38"
     },
     {
       "path": "modules/agent-commerce/payments/offline/methods.ts",
@@ -22914,8 +22914,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 80407,
-      "sha256": "0692af0a2b8b08d4278bfde1816f03bdc1149c7465972c89bd3541859312c517"
+      "bytes": 80621,
+      "sha256": "fc92565f7046e110836761880d6bec6ad20144da39d171ecf857b56aae3badc8"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
@@ -23731,6 +23731,11 @@
       "path": "tests/runtime/hosted-logistics-services.test.ts",
       "bytes": 12561,
       "sha256": "33173df975c03cf51b3536b0a67154a5e5df58bdb1d9ffb8b1547ab6031bfa52"
+    },
+    {
+      "path": "tests/runtime/hosted-offline-confirm.test.ts",
+      "bytes": 12470,
+      "sha256": "2dcb0844df5a28b11da78a06f84d5b529f1463bb0512121e3a42fc786dad4b5c"
     },
     {
       "path": "tests/runtime/hosted-order-contracts.test.ts",
@@ -25014,8 +25019,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-retarget.test.ts",
-      "bytes": 64784,
-      "sha256": "18bb71809c7d8d3d65c330895e0db0de39c2bf46723c541d4427aa7537b4804b"
+      "bytes": 64998,
+      "sha256": "6d9395189721f0c923676717f1d31151d129b74d3f7bd22dc4c0d789a2973288"
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",

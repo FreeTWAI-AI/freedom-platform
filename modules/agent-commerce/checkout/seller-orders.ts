@@ -168,7 +168,7 @@ export async function projectSellerCheckoutOrder(q:PoolClient,context:SellerChec
       record_refund:keys.includes('store:refund')&&applications.some(a=>a.refundable_minor>0)&&writable,view_contact:keys.includes('store:customers:read'),view_finance:keys.includes('store:finance:read'),
       confirm_offline_payment:manage&&open&&row.payment_method==='bank_transfer'&&!row.confirmed&&writable,
       complete_meetup:manage&&fulfil&&open&&row.payment_method==='cash_on_meetup'&&!row.confirmed&&writable,
-      record_meetup_handover:fulfil&&writable&&open&&row.confirmed&&!row.unallocatable&&meetupDelivery&&row.handover_id==null&&remaining>0}};
+      record_meetup_handover:fulfil&&writable&&open&&row.confirmed&&meetupDelivery&&row.handover_id==null&&remaining>0}};
 }
 export function readSellerCheckoutOrder(pool:Pool,actor:Actor,tenantId:string,instanceId:string,id:string,options:SellerCheckoutReadOptions={}) {
   return sellerCheckoutRead(pool,actor,tenantId,instanceId,'store:orders:read',(q,context)=>projectSellerCheckoutOrder(q,context,id,options));
