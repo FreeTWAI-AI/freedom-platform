@@ -58,3 +58,5 @@ reader/runtime with uploads disabled; no down-migration or history deletion.
 
 Tests and execution receipts are reported separately. Pure controlled-processor
 checks do not establish native decoder, database, HTTP, cloud or restore behavior.
+
+D-11 的 `storefront.distribution-photo` target 沿用本用途、商品照片正規化與容量政策：供應商目前可公開使用的圖片，在賣家明確選用時複製成賣家自己的 Asset，再由一般 publication refs 與公開媒體路由讀取。Ted 已在 2026-10-16 確認這個複製時機。來源版本留在不可改刪的 copies 表，targets 有獨立的非負版本，不更新供貨選擇的 CAS；替換或停止使用保留舊 Asset。來源失效只影響下次發布，已發布快照維持。

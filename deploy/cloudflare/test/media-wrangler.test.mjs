@@ -173,3 +173,11 @@ test('material media requires supplier console and separately admits new uploads
   }
   assert.equal(fixture(config=>{config.env.next.vars.FREEDOM_SUPPLY_MATERIAL_INVENTED_ENABLED='true';}).structural,false);
 });
+
+test('distribution flag requires both read installations and declares its release floor',()=>{
+ const absent=fixture(config=>{config.env.next.vars.FREEDOM_DISTRIBUTION_PHOTOS_ENABLED='true';});
+ assert(absent.blockers.includes('next:storefront.distribution-photo:read_installations_required'));
+ const on=fixture(config=>{declared(config);config.env.next.vars.FREEDOM_DISTRIBUTION_PHOTOS_ENABLED='true';});
+ assert(on.mapping.next.required_capabilities.includes('media.distribution-photo.asset.v1'));
+ const invalid=fixture(config=>{config.env.next.vars.FREEDOM_DISTRIBUTION_PHOTOS_ENABLED='TRUE';});assert.equal(invalid.structural,false);
+});

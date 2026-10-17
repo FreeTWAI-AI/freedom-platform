@@ -100,6 +100,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_SUPPLIER_CONSOLE_ENABLED?: string;
   FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED?: string;
   FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED?: string;
+  FREEDOM_DISTRIBUTION_PHOTOS_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTOS_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED?: string;
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
@@ -200,7 +201,7 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   for(const flag of [env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED,env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Store photo flags must be true or false.');
   if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&(env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Hosted store photos require guild launchpad and MEDIA.');
   if(env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true'&&(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Store photo uploads require installed photos and IMAGES.');
-  for(const flag of [env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED,env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Supply material flags must be true or false.');
+  for(const flag of [env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED,env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED,env.FREEDOM_DISTRIBUTION_PHOTOS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Supply material flags must be true or false.');
   if(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED==='true'&&(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Supply material media requires supplier console and MEDIA.');
   if(env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED==='true'&&(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Supply material uploads require installed media and IMAGES.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
@@ -314,6 +315,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{quer
     commercePorts:{admission,shipping:createShippingQuotePort({environment}),...cardPorts,...(paymentMethods?{paymentMethods}:{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     supplierConsoleEnabled: env.FREEDOM_SUPPLIER_CONSOLE_ENABLED === 'true',
+    distributionPhotosEnabled:env.FREEDOM_DISTRIBUTION_PHOTOS_ENABLED==='true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',

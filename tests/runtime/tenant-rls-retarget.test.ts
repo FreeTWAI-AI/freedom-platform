@@ -581,6 +581,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
   'commerce_ship_from_locations', 'commerce_logistics_services',
     'commerce_offline_payment_settings', 'commerce_offline_payments', 'commerce_meetup_handovers',
+    'commerce_distribution_photo_copies', 'commerce_distribution_photo_targets',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
     'supply_materials', 'supply_material_versions', 'supply_material_grants',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
@@ -634,6 +635,22 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     }
   } finally {
     await owner.query("UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='storefront.product-photo'");
+  }
+  // A/B distribution rows retain an own ready Asset with foreign material
+  // provenance. They exercise retargeting with every FK and trigger enabled.
+  for(let index=0;index<hosted.length;index++) {
+    const seller=hosted[index],supplier=hosted[1-index];
+    const data=index===0?A:B;
+    const offer=(await owner.query('SELECT * FROM commerce_hosted_supply_offers WHERE instance_id=$1',[supplier.instanceId])).rows[0];
+    const shop=(await owner.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1',[seller.instanceId])).rows[0].storefront_shop_id;
+    await owner.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,hosted_offer_id,hosted_sku)
+      VALUES($1,$2,$3,100,'Synthetic distribution',$4,$5,'P0002')`,[randomUUID(),shop,supplier.itemId,{...offer.terms,sku:'P0002',offer_id:offer.offer_id,offer_sha256:offer.terms_sha256},offer.offer_id]);
+    const photo=(await owner.query('SELECT * FROM commerce_product_photo_targets WHERE tenant_id=$1 AND instance_id=$2',[seller.tenantId,seller.instanceId])).rows[0];
+    const source=(await owner.query('SELECT v.* FROM supply_material_versions v WHERE instance_id=$1',[supplier.instanceId])).rows[0];
+    await owner.query(`INSERT INTO commerce_distribution_photo_targets(tenant_id,instance_id,product_id,scope_id) VALUES($1,$2,$3,$4)`,[seller.tenantId,seller.instanceId,supplier.itemId,data.scopeId]);
+    await owner.query(`INSERT INTO commerce_distribution_photo_copies(asset_id,tenant_id,instance_id,product_id,scope_id,representation_id,policy_revision,source_material_id,source_version_id,source_content_sha256,source_version_no,source_title,copied_by_principal_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,'Synthetic source',$11)`,[photo.asset_id,seller.tenantId,seller.instanceId,supplier.itemId,data.scopeId,photo.representation_id,photo.policy_revision,source.material_id,source.version_id,source.content_sha256,data.principalId]);
+    await owner.query(`UPDATE commerce_distribution_photo_targets SET asset_id=$4,representation_id=$5,policy_revision=$6,aggregate_version=1 WHERE tenant_id=$1 AND instance_id=$2 AND product_id=$3`,[seller.tenantId,seller.instanceId,supplier.itemId,photo.asset_id,photo.representation_id,photo.policy_revision]);
   }
   // Create each tenant's PII through the domain in its own transaction, preserving
   // lifecycle-before-community lock order and retaining all checkout constraints.

@@ -79,7 +79,7 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 
 影片由供應商自己壓縮後上傳（D-14）。平台不在瀏覽器裡壓縮，也不轉檔；超過上限或格式不符時直接說明原因與建議的壓縮設定。另一條路是 Cloudflare Media Transformations：從已存的影片產生縮圖或較小的版本（輸入最多 100 MB；輸出只快取、不另存；每月前 5,000 次免費，之後每 1,000 次 0.5 美元）。它要 Ted 在 zone 開啟，而且來源要讓 Cloudflare 讀得到；素材是私人的，需要另做有時效的簽章來源才能用。S3 第一版不做，等需要平台產生縮圖或收更大的檔案時再提。
 
-公開店面目前沒有影片欄位，所以第一版的影片只供合作店家在後台預覽與下載；D-11 的「發布時複製」只適用圖片。
+公開店面目前沒有影片欄位，所以第一版的影片只供合作店家在後台預覽與下載；D-11 的店面複本只適用圖片。
 
 ### 資料表（migration `171_supply_materials.sql`）
 
@@ -155,8 +155,37 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 
 - 新版本只改 `current_version_id`；舊版本保留，合作店家之後讀到的是新版本。
 - 撤回（素材 `withdrawn` 或撤銷某店授權）後：新的讀取不能再用它；已被下載的副本無法收回，畫面直說。
-- 合作店家在公開店面使用素材的方式（D-11，Ted 已核准）：發布時把該版本複製成**賣家自己 tenant** 的 Asset 並記下來源版本，公開讀取仍走既有店面媒體路由。這樣不需要跨 tenant 的公開參照，也符合「publication 只參照同 tenant Asset」的既有不變條件（`storefront-product-photo.md`）。複製計入賣家容量。
-- **D-11 還沒實作**，不在 S3 這批。在它完成以前：`public_use` 只是記下的許可，沒有任何素材會出現在公開店面；賣家端只能在後台預覽與下載。D-11 要改賣家發布流程（`hosted/publish.ts` 與 publication 照片參照），動工前先通知 Commerce。完成後才適用：已發布的素材是**那一次發布的快照**，不被新版本自動改寫，「供貨合作」頁顯示「供應商已更新素材，重新發布後才會更換」；撤回後新的發布不能再用它，已發布的店面維持到賣家下次發布。
+- D-11 本機候選：合作賣家選「用於公開店面」並確認後，伺服器當次把供應商的目前版本複製成**賣家自己 tenant** 的普通 `storefront.product-photo` Asset，記下來源素材、版本及內容摘要。Ted 已在 2026-10-16 確認這個複製時機；發布仍是純 SQL 交易，不做物件 I/O。
+- 複本先經商品照片 WebP 正規化，使用商品照片 profile／transform version；最多 1 MiB，計入賣家共用容量及商品照片保留額度，供應商容量不增加。替換、停止使用與來源失效都不刪複本、不釋放容量。`commerce_distribution_photo_copies` 保留不可改刪的來源事實；`commerce_distribution_photo_targets` 保存可改的指標與獨立版本，初始為 `0`；不改 `commerce_selections.aggregate_version`。
+- 只能用 `image`、`public_use`、active、授權給**這間 storefront shop** 的目前版本，而且本商品須有 offered 供貨與相符的 accepted 同意。商品素材必須對應這件選品；品牌素材必須屬於供應商本身。影片與文案不能用。沿用 `readPartnerMaterial` 的可見規則，沒有第二套授權。
+- 新版本不改舊複本。`in_use` 表示來源仍可用且等於目前版本；`update_available` 顯示「供應商已更新為第 M 版，店面仍用第 N 版」，由賣家按「改用新版本」再複製。未改用就再次發布，仍用原複本。
+- 來源撤回、本店授權撤銷、改回 `partners` 或本商品合作不再可售時，指標仍保留，清單顯示 `source_unavailable`（包含已失去可售資格但仍有指標的商品）；**下一次發布**不放這張照片。已發布的店面仍用當次發布的快照，直到賣家下次發布。`none` 表示沒有指標；「停止使用」把指標清空、獨立版本加一。
+- publication 只參照賣家同 tenant 的 ready Asset，公開讀取維持 `GET /shops/:slug/media/:revision/:sku`；不公開指向供應商 tenant。賣家回應沒有供應商 tenant／instance／scope／asset ID、成本或其他店家資料。
+
+### D-11 店面照片命令與讀取
+
+| 路由 | 權限與契約 | 行為 |
+| --- | --- | --- |
+| `GET R/distribution-photos` | `store:read`，`DistributionPhotosSchema` | 本店可售合作商品，以及來源失效但仍有指標的商品；版本、狀態、來源版本及賣家複本私人路徑 |
+| `POST R/distribution-photos/:product_id/use` | `store:write`，strict `{material_id, version_id}` | `Idempotency-Key`＋指標的 `If-Match`（尚無列是 `"0"`）；先驗來源、在交易外讀驗證物件、再驗相同快照，然後 prepare → write → finalize；finalize 交易內再驗來源，結果不明沿用同 key／body／If-Match，不多建 Asset |
+| `POST R/distribution-photos/:product_id/detach` | `store:write`，空物件 | 同樣 key／CAS；清空指標，保留 Asset，回 `{product_id, version, changed, current}` |
+| `GET`／`HEAD R/distribution-photos/:product_id/photo/:version` | `store:read` | 只讀本店目前指標的複本；物件 I/O 前後核對指標與權限；inline、strong ETag；不相符回 404 |
+
+所有回應（含匿名 401）為 `private, no-store`、`Vary: Cookie`。讀取失敗顯示原因及「重試」，不顯示「沒有」或 0。公開使用與替換先開確認對話框，說明版本、商品、容量與下次發布才生效；打開時焦點在「取消」，Esc／取消可關閉並回復焦點。無 `store:write` 或旗標關閉時不提供命令按鈕。
+
+供應商撤回或改授權後，「合作素材」的「重新整理」只更新這一區；「店面與發布」要等賣家按「更新供貨狀態」重新讀取店面，才會出現「發布更新」，和其他供貨變動相同（SC-E2E-73 照這個流程走）。
+
+| 拒絕 | 狀態與 code | 文字 |
+| --- | --- | --- |
+| 非本店可售選品、不可見或不適用素材、其他店 | 404 `not_found` | 找不到這個素材。 |
+| 可見但非公開使用 | 409 `material_not_public` | 供應商尚未同意把這個素材用在公開店面。 |
+| 非圖片 | 409 `material_not_image` | 只有圖片素材可以用在公開店面。 |
+| 可見素材已換版本 | 409 `material_version_changed` | 供應商已更新這個素材。 |
+| 上傳／lifecycle／商品照片 policy 不可用 | 503 `distribution_photo_unavailable` | 目前無法把素材用在公開店面。 |
+| 來源物件無法讀取或 metadata 不符 | 503 `material_content_unavailable` | 素材檔案暫時無法讀取。 |
+| 容量、版本 | 429 `quota_exceeded`／409 `asset_retained_quota`；412 `version_conflict`／428 | 沿既有照片命令文字 |
+
+賣家畫面在伺服器文字後接一句下一步：換版本時請按合作素材的「重新整理」再選用新版本；非公開使用時改用其他素材或請供應商開放；非圖片時改選圖片；兩種 503 請稍後再試。其他沿商店頁既有的下一步文字。
 
 ### S3 反例（runtime＋E2E）
 
@@ -166,7 +195,7 @@ Ted 已核准 D-05（圖片）與 D-14（影片），2026-10-15。新用途的 h
 | 未授權的店（C）讀素材 | 404，沒有任何檔案位元組（AT-25） |
 | 上傳時容量不足，按重試 | 同一操作、同一 key；沒有重複 Asset，也沒有可讀的半成品（AT-24） |
 | 讀取途中撤銷授權 | 讀完物件後再檢查一次，撤銷後回 404 並取消串流；不承諾收回已下載的副本（AT-26） |
-| 換新版本 | 合作店家只讀得到新版本，舊版本的網址回 404；已發布店面的部分要等 D-11（AT-27） |
+| 換新版本 | 合作店家只讀得到新版本，舊版本的網址回 404；已發布店面保留賣家複本，改用與發布後才換版（D-11／AT-27） |
 | 切換帳號時檔案讀取晚到 | 舊回應被丟棄，不填進新身分的畫面，也不觸發上傳（AT-35） |
 | 新用途沒登記到容量計算 | 測試失敗（防止素材不計容量） |
 | 影片不是 MP4／WebM、檔頭不符或超過 20 MiB | 拒絕，沒有 Asset；畫面說明原因與建議的壓縮設定 |

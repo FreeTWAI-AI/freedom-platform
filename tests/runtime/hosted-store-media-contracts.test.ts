@@ -32,6 +32,36 @@ test('photo command acknowledges original completion separately from newer curre
   assert.equal(ProductMediaCommandSchema.safeParse({ ...ack, asset_id: id(9) }).success, false);
 });
 
+for (const field of ['completed_version', 'current.version'] as const) {
+  test(`photo command rejects malformed ${field} without throwing from safeParse`, () => {
+    const current = projectPrivateProductMedia({ ...binding, version: '10' }, null);
+    const ack = { profile, product_id: binding.product_id, completed_version: '8', changed: true, current };
+    for (const version of ['abc', '', '0', '01', '-1', '1.5', '1e3', '1\n', '9223372036854775808', '1'.repeat(20)]) {
+      const malformed = field === 'completed_version'
+        ? { ...ack, completed_version: version }
+        : { ...ack, current: { ...current, version } };
+      assert.equal(ProductMediaCommandSchema.safeParse(malformed).success, false, `${field}: ${JSON.stringify(version)}`);
+    }
+  });
+}
+
+test('photo command compares canonical versions across decimal widths and signed-bigint boundaries', () => {
+  for (const [completed, version, accepted] of [
+    ['1', '1', true],
+    ['9', '10', true],
+    ['10', '9', false],
+    ['99', '100', true],
+    ['100', '99', false],
+    ['9223372036854775806', '9223372036854775807', true],
+    ['9223372036854775807', '9223372036854775807', true],
+    ['9223372036854775807', '9223372036854775806', false],
+  ] as const) {
+    const current = projectPrivateProductMedia({ ...binding, version }, null);
+    const ack = { profile, product_id: binding.product_id, completed_version: completed, changed: true, current };
+    assert.equal(ProductMediaCommandSchema.safeParse(ack).success, accepted, `${completed} <= ${version}`);
+  }
+});
+
 test('closed metadata and product DTOs never accept borrowed URLs, storage locators or trusted flags', () => {
   assert.equal(PRODUCT_PHOTO_POLICY.uploads_enabled, false);
   assert.ok(Object.isFrozen(PRODUCT_PHOTO_POLICY));

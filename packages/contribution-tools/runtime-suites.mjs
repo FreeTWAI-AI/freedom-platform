@@ -72,5 +72,5 @@ personal-content community-relations first-participation social-feed social-post
 event-participation-api event-participation-reminders event-reminders-delivery event-waitlist
 event-outcomes squad-outcomes
 participation-metrics
-supply-materials supply-materials-sql
+supply-materials supply-materials-sql distribution-photos distribution-photos-sql
 `.trim().split(/\s+/)).sort());

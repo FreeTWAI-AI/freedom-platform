@@ -1,6 +1,6 @@
 # Closed supplier material files
 
-Migration 168 registers two tenant purposes and starts both policy rows in
+Migration 171 registers two tenant purposes and starts both policy rows in
 `legacy` mode with persistence disabled. Source registration and host installation
 do not authorize storage or enable any real environment. Media installation needs
 both launchpad and supplier console; new uploads have a separate default-OFF flag.
@@ -62,3 +62,5 @@ return 503. Headers and range handling match the private supplier read; no publi
 storage URL is created. D-11 publication copying for `public_use`, cloud
 installation, backup/restore acceptance and operational activation remain
 separate work.
+
+D-11 可把目前的 `image`／`public_use` 素材，透過既有 `readPartnerMaterial` 的逐店授權與合作規則，複製為合作賣家自己 tenant 的普通商品照片。複製在明確選用時發生（Ted 已在 2026-10-16 確認這個時機），經商品照片正規化，容量只記在賣家。來源新版本不改複本，賣家需明確「改用新版本」；撤回、撤銷授權、改回 partners 或合作失效後，下次發布不再引用，既有公開快照不變；來源版本與賣家複本均保留歷史。

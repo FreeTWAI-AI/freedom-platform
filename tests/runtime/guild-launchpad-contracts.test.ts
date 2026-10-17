@@ -1,4 +1,4 @@
-import {SupplierMetricSchema,SupplierTodoSchema,SupplierTodosSchema,SupplierOverviewSchema,SupplierProductSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierProductSelectionSchema,SupplierPartnerSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplyProfileUpdateInputSchema,SupplyProfileReceiptSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
+import {DistributionPhotoCommandSchema,SupplierMetricSchema,SupplierTodoSchema,SupplierTodosSchema,SupplierOverviewSchema,SupplierProductSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierProductSelectionSchema,SupplierPartnerSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplyProfileUpdateInputSchema,SupplyProfileReceiptSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -794,4 +794,36 @@ test('supplier console strict schemas accept private projections and reject inco
   for(const input of [{},{currency:'USD'}])assert.equal(SupplyProfileUpdateInputSchema.safeParse(input).success,false);
   assert.equal(SupplyProfileReceiptSchema.safeParse({instance_id:id,version:'2'}).success,true);
   assert.equal(SupplyProfileReceiptSchema.safeParse({instance_id:id,version:'2',name:'不應回傳'}).success,false);
+});
+
+test('distribution photo command ack compares bounded decimals without throwing', () => {
+  const current = (version: string) => ({
+    product_id: id, sku: 'P1000', title: '茶', version, state: 'in_use' as const, photo: null, source: null, latest: null,
+  });
+  const command = (version: string, currentVersion = version, product = id) => ({
+    product_id: product, version, changed: true, current: current(currentVersion),
+  });
+  const parsed = (value: ReturnType<typeof command>) => {
+    let result: ReturnType<typeof DistributionPhotoCommandSchema.safeParse> | undefined;
+    assert.doesNotThrow(() => { result = DistributionPhotoCommandSchema.safeParse(value); });
+    return result!;
+  };
+  const max = MAX_STORED_VERSION;
+  for (const value of [command('0', '0'), command('9', '10'), command(max, max), command('1', '1'), command('0', '1'), command('99', '100')]) {
+    assert.equal(parsed(value).success, true, JSON.stringify(value));
+  }
+  assert.equal(parsed(command('10', '9')).success, false, 'reverse');
+  assert.equal(parsed(command('1', '1', id2)).success, false, 'product');
+  for (const field of ['version', 'current'] as const) {
+    for (const bad of ['-1', '01', '1\n', '9223372036854775808']) {
+      const value = field === 'version' ? command(bad, '1') : command('1', bad);
+      assert.equal(parsed(value).success, false, `${field} ${JSON.stringify(bad)}`);
+    }
+    for (const bad of ['abc', '1.2', '1e3']) {
+      const value = field === 'version' ? command(bad, '1') : command('1', bad);
+      assert.equal(parsed(value).success, false, `${field} ${bad}`);
+    }
+  }
+  assert.equal(parsed(command('abc', '1.2')).success, false);
+  assert.equal(parsed({...command('1', '1'), changed: 'yes' as unknown as boolean}).success, false);
 });

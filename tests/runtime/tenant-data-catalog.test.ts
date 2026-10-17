@@ -623,6 +623,14 @@ test('T-021 mapped commerce retains drift checks after losing the reverse mappin
   });
 });
 
+test('T-021 distribution copies and pointers have complete direct tenant catalogs',()=>{
+ const entries=TENANT_DATA_CATALOG.datasets.flatMap(entry=>entry.physical_locations);
+ for(const name of ['commerce_distribution_photo_copies','commerce_distribution_photo_targets']) {
+  const table=entries.find(entry=>entry.kind==='table'&&entry.table===name);
+  assert(table&&table.kind==='table');assert.deepEqual(table.tenant_resolution,{kind:'direct',column:'tenant_id'});
+ }
+});
+
 test('browser commerce access devices belong to order/transaction dataset DC-09',()=>{
   const entry=TENANT_DATA_CATALOG.exemptions.find(e=>e.table==='commerce_access_devices');
   assert.equal(entry?.dataset_ref,'DC-09');assert(entry?.reason.includes('commerce decision DC12 (retention; decisions.md)'));

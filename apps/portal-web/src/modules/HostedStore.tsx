@@ -54,6 +54,11 @@ const NEXT: Record<string, string> = {
   storefront_unavailable: '請聯絡業務空間擁有者恢復使用。',
   storefront_exists: '這個業務空間已經有商店，請沿用它。',
   capability_denied: '請聯絡業務空間擁有者確認你的權限。',
+  material_version_changed: '請按合作素材的「重新整理」，再選用新版本。',
+  material_not_public: '請改用其他素材，或請供應商開放公開使用。',
+  material_not_image: '請改選圖片素材。',
+  material_content_unavailable: '請稍後再試一次。',
+  distribution_photo_unavailable: '請稍後再試一次。',
 };
 function errorText(error: unknown) {
   if (error instanceof ApiError) {
@@ -66,7 +71,7 @@ type Preview = z.infer<typeof StorePreviewSchema>;
 const SupplierConsole = lazy(() => import('../../../../modules/agent-commerce/supplier-console/ui/SupplierConsole').then(m => ({default:m.SupplierConsole})));
 const SellerConsole = lazy(() => import('../../../../modules/agent-commerce/seller-console/ui/SellerConsole').then(m => ({default:m.SellerConsole})));
 type RegisterLeave = (guard: ((nextHash:string|null) => boolean) | null) => void;
-export function HostedStore({client, enabled, locationHash, userId, registerLeave, photosEnabled=false, photoUploadsEnabled=false, materialMediaEnabled=false, materialUploadsEnabled=false, consoleEnabled=false, commerceConsoleEnabled=false, providerEnvironment='sandbox'}: {materialMediaEnabled?:boolean;materialUploadsEnabled?:boolean;commerceConsoleEnabled?:boolean;providerEnvironment?:'sandbox'|'live';consoleEnabled?:boolean;client: PortalClient; photosEnabled?:boolean;photoUploadsEnabled?:boolean;enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
+export function HostedStore({client, enabled, locationHash, userId, registerLeave, photosEnabled=false, photoUploadsEnabled=false, materialMediaEnabled=false, materialUploadsEnabled=false, distributionPhotosEnabled=false, consoleEnabled=false, commerceConsoleEnabled=false, providerEnvironment='sandbox'}: {distributionPhotosEnabled?:boolean;materialMediaEnabled?:boolean;materialUploadsEnabled?:boolean;commerceConsoleEnabled?:boolean;providerEnvironment?:'sandbox'|'live';consoleEnabled?:boolean;client: PortalClient; photosEnabled?:boolean;photoUploadsEnabled?:boolean;enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
   const consoleRoute = parseSupplierConsoleRoute(locationHash);
   if (consoleEnabled && enabled && consoleRoute) {
     const key = `${userId}:${client.sessionGeneration}:${consoleRoute.tenantId}:${consoleRoute.instanceId}`;
@@ -89,8 +94,8 @@ export function HostedStore({client, enabled, locationHash, userId, registerLeav
   const valid = path.length === 3 && path[0] === 'stores' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success;
   const fallback = sellerSlugFallback(locationHash);
   if (fallback?.orders) return <HostedSellerOrders key={`${userId}:${client.sessionGeneration}:${fallback.tenantId}:${fallback.instanceId}`} client={client} route={{tenantId:fallback.tenantId,instanceId:fallback.instanceId,supplier:false}} registerLeave={registerLeave}/>;
-  if (fallback) return <StorePage key={`${userId}:${client.sessionGeneration}:${fallback.tenantId}:${fallback.instanceId}`} client={client} userId={userId} tenantId={fallback.tenantId} instanceId={fallback.instanceId} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled} consoleEnabled={consoleEnabled} materialMediaEnabled={materialMediaEnabled}/>;
-  return valid ? <StorePage key={`${userId}:${client.sessionGeneration}:${path[1]}:${path[2]}`} client={client} userId={userId} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled} consoleEnabled={consoleEnabled} materialMediaEnabled={materialMediaEnabled}/> : <MissingStore/>;
+  if (fallback) return <StorePage key={`${userId}:${client.sessionGeneration}:${fallback.tenantId}:${fallback.instanceId}`} client={client} userId={userId} tenantId={fallback.tenantId} instanceId={fallback.instanceId} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled} consoleEnabled={consoleEnabled} materialMediaEnabled={materialMediaEnabled} distributionPhotosEnabled={distributionPhotosEnabled}/>;
+  return valid ? <StorePage key={`${userId}:${client.sessionGeneration}:${path[1]}:${path[2]}`} client={client} userId={userId} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled} consoleEnabled={consoleEnabled} materialMediaEnabled={materialMediaEnabled} distributionPhotosEnabled={distributionPhotosEnabled}/> : <MissingStore/>;
 }
 function BackLink() { return <div className="actions"><a href="#stores" className="btn btn-ghost">返回我的商店</a></div>; }
 function MissingStore() { return <div className="hosted-store stack"><BackLink/><p>找不到這間商店。</p></div>; }
@@ -112,7 +117,7 @@ function StoreList({client}: {client: PortalClient}) {
 
 type Attempt = {targetMissingIsStore?: boolean; method: 'post' | 'patch'; path: string; body: unknown; version?: string; schema: z.ZodType;
   key: string; success: (value: unknown) => void; notice: string; product?: boolean; fieldError?: (error: ApiError) => void};
-function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEnabled,photoUploadsEnabled, consoleEnabled=false, materialMediaEnabled=false}: {userId:string;photosEnabled:boolean;photoUploadsEnabled:boolean;client: PortalClient; tenantId: string; instanceId: string; registerLeave: RegisterLeave; consoleEnabled?: boolean; materialMediaEnabled?: boolean}) {
+function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEnabled,photoUploadsEnabled, consoleEnabled=false, materialMediaEnabled=false, distributionPhotosEnabled=false}: {userId:string;photosEnabled:boolean;photoUploadsEnabled:boolean;client: PortalClient; tenantId: string; instanceId: string; registerLeave: RegisterLeave; consoleEnabled?: boolean; materialMediaEnabled?: boolean;distributionPhotosEnabled?:boolean}) {
   const root = `/tenants/${tenantId}/storefronts/${instanceId}`;
   const [distributionRefresh,setDistributionRefresh]=useState(0);
   const [view, setView] = useState<StoreView | null>(null);
@@ -299,7 +304,7 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
         </section>
         <div id="store-cooperation-panel" className="hosted-supply-panel" hidden={area!=='cooperation'}>{view.capabilities.includes('store:write') ? <HostedDistribution client={client} root={root} refresh={distributionRefresh} busy={areaLocked} writable={can('store:write')} onDirty={(id,value)=>markDirty('distribution/'+id,value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>
           : <p>你沒有供貨合作的管理權限，仍可查看商品與店面資料。</p>}
-          {consoleEnabled&&<PartnerMaterials client={client} userId={userId} tenantId={tenantId} instanceId={instanceId} active={area==='cooperation'} refresh={distributionRefresh} mediaEnabled={materialMediaEnabled}/>}
+          {consoleEnabled&&<PartnerMaterials client={client} userId={userId} tenantId={tenantId} instanceId={instanceId} active={area==='cooperation'} refresh={distributionRefresh} mediaEnabled={materialMediaEnabled} distributionPhotosEnabled={distributionPhotosEnabled} writable={can('store:write')} busy={areaLocked} onCommand={command}/>}
         </div>
         <section id="store-publish-panel" hidden={area!=='publish'} className="hosted-supply-panel stack" aria-labelledby="store-publish-title"><h3 id="store-publish-title">預覽與發布</h3>
           <p>{publication?.state === 'published' ? `目前公開第 ${publication.current_revision} 版。` : publication?.state === 'unpublished' ? '已停止公開。' : '尚未發布。'}</p>

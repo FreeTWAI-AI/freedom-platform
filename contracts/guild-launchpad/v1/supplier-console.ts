@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {OpaqueId, Version} from './primitives.js';
+import {OpaqueId, Version, NonNegativeDecimal, NON_NEGATIVE_DECIMAL_PATTERN} from './primitives.js';
 import {CurrencySchema, ProductViewSchema} from './storefront.js';
 import {SupplyCatalogSetupInputSchema} from './hosted-supply-catalog.js';
 import {SupplyTermsInputSchema, SupplyTermsSchema} from './hosted-supply-terms.js';
@@ -438,6 +438,33 @@ export const PartnerMaterialsSchema = z.object({
   /** By supplier name, brand materials before product ones, then title; the first 200. */
   items: z.array(PartnerMaterialSchema).max(200), truncated: z.boolean(),
 }).strict();
+
+// D-11 storefront use of partner materials
+export const DistributionPhotoStateSchema=z.enum(['none','in_use','update_available','source_unavailable']);
+const distributionPhotoPath=z.string().max(230).regex(/^\/api\/v1\/tenants\/[0-9a-f-]{36}\/storefronts\/[0-9a-f-]{36}\/distribution-photos\/[0-9a-f-]{36}\/photo\/[1-9][0-9]{0,18}$(?![\s\S])/);
+export const DistributionPhotoItemSchema=z.object({
+ product_id:OpaqueId,sku:ProductViewSchema.shape.sku,title:ProductViewSchema.shape.title,version:NonNegativeDecimal,
+ state:DistributionPhotoStateSchema,
+ photo:z.object({content_type:z.literal('image/webp'),byte_size:z.number().int().min(1).max(1048576),
+  width:z.number().int().min(1).max(1920),height:z.number().int().min(1).max(1920),read_path:distributionPhotoPath}).strict().nullable(),
+ source:z.object({material_id:OpaqueId,version_id:OpaqueId,version_no:z.number().int().min(1).max(100),title:materialTitle}).strict().nullable(),
+ latest:z.object({version_id:OpaqueId,version_no:z.number().int().min(1).max(100)}).strict().nullable(),
+}).strict();
+export const DistributionPhotosSchema=z.object({items:z.array(DistributionPhotoItemSchema).max(200)}).strict();
+export const DistributionPhotoUseInputSchema=z.object({material_id:OpaqueId,version_id:OpaqueId}).strict();
+/** Field checks can fail while this refine still runs. Compare the canonical decimal; do not call BigInt on the raw text. */
+function nonNegativeDecimalAtMost(completed: unknown, current: unknown): boolean {
+  if (typeof completed !== 'string' || typeof current !== 'string') return false;
+  if (!NON_NEGATIVE_DECIMAL_PATTERN.test(completed) || !NON_NEGATIVE_DECIMAL_PATTERN.test(current)) return false;
+  if (completed === '0') return true;
+  if (current === '0') return false;
+  if (completed.length !== current.length) return completed.length < current.length;
+  return completed <= current;
+}
+export const DistributionPhotoCommandSchema=z.object({product_id:OpaqueId,version:NonNegativeDecimal,changed:z.boolean(),current:DistributionPhotoItemSchema}).strict()
+ .refine(v=>v.product_id===v.current.product_id && nonNegativeDecimalAtMost(v.version, v.current.version));
+export type DistributionPhotoItem=z.infer<typeof DistributionPhotoItemSchema>;
+export type DistributionPhotoCommand=z.infer<typeof DistributionPhotoCommandSchema>;
 
 export type SupplierMetric = z.infer<typeof SupplierMetricSchema>;
 export type SupplierOverview = z.infer<typeof SupplierOverviewSchema>;

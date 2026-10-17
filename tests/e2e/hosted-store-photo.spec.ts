@@ -9,6 +9,7 @@ import {navigate,signOut} from './navigation.js';
 import {DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {ProductViewSchema} from '../../contracts/guild-launchpad/v1/storefront.js';
 import {ProductMediaCommandSchema,PublicStoreMediaSchema} from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
+import {DistributionPhotosSchema,PartnerMaterialsSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
 
 // Dedicated local schema + restricted runtime + real Sharp; FakeObjectStore is the only synthetic media provider.
 test.setTimeout(90_000);
@@ -947,6 +948,1053 @@ test('SC-E2E-70 a new version, a revoke and a withdrawal close the old paths (AT
   }
 });
 
+async function setMaterialAccessInConsole(page: Page, access: 'partners' | 'public_use') {
+  const accessSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '授權範圍', exact: true})});
+  await accessSection.getByLabel('使用範圍').selectOption(access);
+  if (access === 'public_use') {
+    const accessDialog = page.getByRole('dialog', {name: '可用於合作店家的公開店面', exact: true});
+    await expect(accessDialog).toBeVisible();
+    await accessDialog.getByRole('button', {name: '確認開放', exact: true}).click();
+  }
+  await expect(materialConsole(page).locator('.sc-announcement')).toHaveText('已保存：變更素材授權範圍。');
+}
+
+async function uploadImageVersionInConsole(page: Page, filename: string, color: string) {
+  const uploadSection = materialActive(page)
+    .locator('.sc-section')
+    .filter({has: page.getByRole('heading', {level: 3, name: '新版本', exact: true})});
+  const file = await source(filename, color);
+  await uploadSection.getByLabel('選擇圖片').setInputFiles(file);
+  await uploadSection.getByRole('button', {name: '上傳新版本', exact: true}).click();
+  await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
+}
+
+test('SC-E2E-72 a partner image becomes the seller\'s storefront photo only after use and publish (AT-27)', async ({
+  page,
+  browser,
+  baseURL,
+  playwright,
+  e2eAuthPool,
+}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{close: () => Promise<void>}> = [];
+  const supplierIds: string[] = [];
+
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+
+    const sellerBSlug = `partner-photo-b-${suffix}`;
+    const sellerB = await openPartnerStore(browser, baseURL, e2eAuthPool, `店面照片賣家 B ${suffix}`, sellerBSlug);
+    extraContexts.push(sellerB.ctx);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200},
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const productTitle = sup.offer.terms.title;
+    const matTitle = `商品主圖 ${suffix}`;
+    const materialId = await createFileMaterialInConsole(page, sup.store, 'image', matTitle, sup.product.product_id);
+    await uploadImageVersionInConsole(page, `dist-photo-v1-${suffix}.png`, '#2e6b9e');
+    await setMaterialAccessInConsole(page, 'public_use');
+    await grantMaterialToAllSellableInConsole(page);
+
+    // Seller B publishes the store once before using the image and records the public media JSON
+    await open(sellerB.page, sellerB.store.hash);
+    await storeArea(sellerB.page, '店面與發布');
+    await expect(sellerB.page.getByRole('button', {name: '發布展示頁', exact: true})).toBeEnabled();
+    await sellerB.page.getByRole('button', {name: '發布展示頁', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText('已發布・第 1 版');
+
+    const mediaBeforeResp = await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`);
+    expect(mediaBeforeResp.status()).toBe(200);
+    const mediaBefore = PublicStoreMediaSchema.parse(await mediaBeforeResp.json());
+    expect(mediaBefore.photos).toEqual([]);
+
+    // B opens 供貨合作 → 合作素材
+    let useRequests = 0;
+    sellerB.page.on('request', req => {
+      if (req.method() === 'POST' && req.url().includes('/distribution-photos/') && req.url().endsWith('/use')) {
+        useRequests += 1;
+      }
+    });
+
+    await storeArea(sellerB.page, '供貨合作');
+    const panelB = sellerPartnerMaterials(sellerB.page);
+    const cardB = panelB.locator('article.card').filter({hasText: matTitle});
+    await expect(cardB).toBeVisible();
+    const distBlock = cardB.locator('div.stack > div.stack').filter({hasText: productTitle});
+    await expect(distBlock.locator('strong')).toHaveText(productTitle);
+    const useBtn = distBlock.getByRole('button', {name: '用於公開店面', exact: true});
+    await expect(useBtn).toBeVisible();
+
+    // Open dialog, verify heading, 第 1 版, product title, focus on 取消; 取消 closes and returns focus without /use request
+    await useBtn.click();
+    const useDialog = sellerB.page.getByRole('dialog', {name: '把這張素材用在公開店面？', exact: true});
+    await expect(useDialog).toBeVisible();
+    await expect(useDialog.getByRole('heading', {level: 3, name: '把這張素材用在公開店面？', exact: true})).toBeVisible();
+    await expect(useDialog).toContainText('第 1 版');
+    await expect(useDialog).toContainText(`「${productTitle}」`);
+    const cancelBtn = useDialog.getByRole('button', {name: '取消', exact: true});
+    await expect(cancelBtn).toBeFocused();
+    await cancelBtn.click();
+    await expect(useDialog).toBeHidden();
+    await expect(useBtn).toBeFocused();
+    expect(useRequests).toBe(0);
+
+    // Open again → 複製並使用
+    await useBtn.click();
+    await expect(useDialog).toBeVisible();
+    await useDialog.getByRole('button', {name: '複製並使用', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText(
+      '已更新店面草稿，發布店面後才會生效。',
+    );
+    expect(useRequests).toBe(1);
+
+    await expect(distBlock.locator('.badge')).toHaveText('店面使用中（第 1 版）');
+    await expect(distBlock.getByRole('button', {name: '停止使用', exact: true})).toBeVisible();
+    const expectedPrivateV1 = `/api/v1${sellerB.store.root}/distribution-photos/${sup.product.product_id}/photo/1`;
+    const thumbV1 = distBlock.locator('img.distribution-photo-thumb');
+    await expect(thumbV1).toHaveAttribute('alt', `${productTitle}的店面草稿照片`);
+    await expect(thumbV1).toHaveAttribute('src', expectedPrivateV1);
+    await thumbV1.scrollIntoViewIfNeeded();
+    await expect.poll(() => thumbV1.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+    const privateV1Resp = await sellerB.page.request.get(expectedPrivateV1);
+    expect(privateV1Resp.status()).toBe(200);
+    expect(privateV1Resp.headers()['content-type']).toBe('image/webp');
+    expect(privateV1Resp.headers()['cache-control']).toContain('no-store');
+    const privateV1Bytes = await privateV1Resp.body();
+    expect(privateV1Bytes.length).toBeGreaterThan(0);
+
+    // Anonymous gets 401; supplier's signed-in page.request gets 404 refusal with no image bytes
+    const anonApi = await playwright.request.newContext({baseURL, storageState: {cookies: [], origins: []}});
+    try {
+      const anonPrivateResp = await anonApi.get(expectedPrivateV1);
+      expect(anonPrivateResp.status()).toBe(401);
+      expect(anonPrivateResp.headers()['cache-control']).toContain('no-store');
+
+      const supPrivateResp = await page.request.get(expectedPrivateV1);
+      expect(supPrivateResp.status()).toBe(404);
+      expect(supPrivateResp.headers()['content-type']).not.toContain('image/');
+      expect(supPrivateResp.headers()['cache-control']).toContain('no-store');
+    } finally {
+      await anonApi.dispose();
+    }
+
+    // Database check: one copy row for B and the product whose source is material v1 and asset belongs to B's tenant
+    const [sellerTenantId, sellerInstanceId] = sellerB.store.hash.split('/').slice(1);
+    const copiesV1 = await e2eAuthPool.query(
+      `SELECT c.source_material_id, c.source_version_no, c.asset_id, a.tenant_ref::text AS asset_tenant_id
+         FROM commerce_distribution_photo_copies c
+         JOIN assets a ON a.asset_id = c.asset_id
+        WHERE c.tenant_id = $1 AND c.instance_id = $2 AND c.product_id = $3`,
+      [sellerTenantId, sellerInstanceId, sup.product.product_id],
+    );
+    expect(copiesV1.rowCount).toBe(1);
+    expect(copiesV1.rows[0]).toMatchObject({
+      source_material_id: materialId,
+      source_version_no: 1,
+      asset_tenant_id: sellerTenantId,
+    });
+
+    // Before B publishes again, public media JSON equals the one recorded before the use
+    const mediaStillBefore = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    expect(mediaStillBefore).toEqual(mediaBefore);
+
+    // B 發布更新 → 已發布・第 2 版
+    await storeArea(sellerB.page, '店面與發布');
+    await sellerB.page.getByRole('button', {name: '發布更新', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText('已發布・第 2 版');
+
+    const mediaPubV1 = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    const pubPhotoV1 = mediaPubV1.photos.find(p => p.sku === propB.sku)?.photo ?? null;
+    expect(pubPhotoV1).not.toBeNull();
+    const publicPathV1 = pubPhotoV1!.read_path;
+
+    const anonCheckV1 = await playwright.request.newContext({baseURL, storageState: {cookies: [], origins: []}});
+    let pubBytesV1: Buffer;
+    try {
+      const pubRespV1 = await anonCheckV1.get(publicPathV1);
+      expect(pubRespV1.status()).toBe(200);
+      expect(pubRespV1.headers()['content-type']).toBe('image/webp');
+      pubBytesV1 = await pubRespV1.body();
+      expect(digest(pubBytesV1)).toBe(digest(privateV1Bytes));
+    } finally {
+      await anonCheckV1.dispose();
+    }
+
+    const publicPage = await sellerB.ctx.newPage();
+    await publicPage.goto(`/shops/${sellerBSlug}`);
+    const pubImg = publicPage.locator('article img');
+    await expect(pubImg).toHaveAttribute('src', publicPathV1);
+    await expect.poll(() => pubImg.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+    // Supplier uploads version 2 in the console
+    await uploadImageVersionInConsole(page, `dist-photo-v2-${suffix}.png`, '#b5542c');
+
+    // B presses 重新整理 in 合作素材: 供應商已更新為第 2 版，店面仍用第 1 版 and 改用新版本
+    await storeArea(sellerB.page, '供貨合作');
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(distBlock).toContainText('供應商已更新為第 2 版，店面仍用第 1 版');
+    const updateBtn = distBlock.getByRole('button', {name: '改用新版本', exact: true});
+    await expect(updateBtn).toBeVisible();
+    await expect(distBlock.getByRole('button', {name: '停止使用', exact: true})).toBeVisible();
+
+    const stillV1BeforeUse = await (await sellerB.page.request.get(publicPathV1)).body();
+    expect(digest(stillV1BeforeUse)).toBe(digest(pubBytesV1!));
+
+    // B 改用新版本 → dialog says 第 2 版 → 複製並使用 → 店面使用中（第 2 版）
+    await updateBtn.click();
+    await expect(useDialog).toBeVisible();
+    await expect(useDialog).toContainText('第 2 版');
+    await expect(useDialog).toContainText(`「${productTitle}」`);
+    await useDialog.getByRole('button', {name: '複製並使用', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText(
+      '已更新店面草稿，發布店面後才會生效。',
+    );
+    await expect(distBlock.locator('.badge')).toHaveText('店面使用中（第 2 版）');
+
+    const expectedPrivateV2 = `/api/v1${sellerB.store.root}/distribution-photos/${sup.product.product_id}/photo/2`;
+    await expect(distBlock.locator('img.distribution-photo-thumb')).toHaveAttribute('src', expectedPrivateV2);
+    const privateV2Bytes = await (await sellerB.page.request.get(expectedPrivateV2)).body();
+    expect(digest(privateV2Bytes)).not.toBe(digest(privateV1Bytes));
+
+    // Public bytes are still the version-1 copy until B publishes
+    const mediaStillV1AfterUse = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    expect(mediaStillV1AfterUse.photos.find(p => p.sku === propB.sku)?.photo?.read_path).toBe(
+      publicPathV1,
+    );
+    const stillV1AfterUse = await (await sellerB.page.request.get(publicPathV1)).body();
+    expect(digest(stillV1AfterUse)).toBe(digest(pubBytesV1!));
+
+    // After 發布更新 they differ from version 1 and equal B's new private copy; old public path returns 404
+    await storeArea(sellerB.page, '店面與發布');
+    await sellerB.page.getByRole('button', {name: '發布更新', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText('已發布・第 3 版');
+
+    const mediaPubV2 = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    const pubPhotoV2 = mediaPubV2.photos.find(p => p.sku === propB.sku)?.photo ?? null;
+    expect(pubPhotoV2).not.toBeNull();
+    const publicPathV2 = pubPhotoV2!.read_path;
+    expect(publicPathV2).not.toBe(publicPathV1);
+
+    const anonCheckV2 = await playwright.request.newContext({baseURL, storageState: {cookies: [], origins: []}});
+    try {
+      const pubRespV2 = await anonCheckV2.get(publicPathV2);
+      expect(pubRespV2.status()).toBe(200);
+      expect(pubRespV2.headers()['content-type']).toBe('image/webp');
+      const pubBytesV2 = await pubRespV2.body();
+      expect(digest(pubBytesV2)).toBe(digest(privateV2Bytes));
+      expect(digest(pubBytesV2)).not.toBe(digest(pubBytesV1!));
+
+      const oldPubResp = await anonCheckV2.get(publicPathV1);
+      expect(oldPubResp.status()).toBe(404);
+    } finally {
+      await anonCheckV2.dispose();
+    }
+
+    // Two copy rows exist for the product
+    const copiesV2 = await e2eAuthPool.query(
+      `SELECT source_version_no
+         FROM commerce_distribution_photo_copies
+        WHERE tenant_id = $1 AND instance_id = $2 AND product_id = $3
+        ORDER BY source_version_no ASC`,
+      [sellerTenantId, sellerInstanceId, sup.product.product_id],
+    );
+    expect(copiesV2.rows.map(r => r.source_version_no)).toEqual([1, 2]);
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-73 a withdrawn or closed source keeps the published photo until the next publish (AT-27, SC-R29)', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{close: () => Promise<void>}> = [];
+  const supplierIds: string[] = [];
+
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+    const productTitle = sup.offer.terms.title;
+
+    const sellerBSlug = `partner-withdraw-b-${suffix}`;
+    const sellerB = await openPartnerStore(browser, baseURL, e2eAuthPool, `撤回來源賣家 B ${suffix}`, sellerBSlug);
+    extraContexts.push(sellerB.ctx);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200},
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    // Case 1: Supplier creates material 1, uploads v1, opens public_use, grants B; B uses v1 and publishes
+    const matTitle1 = `撤回測試主圖 ${suffix}`;
+    await createFileMaterialInConsole(page, sup.store, 'image', matTitle1, sup.product.product_id);
+    await uploadImageVersionInConsole(page, `dist-withdraw-v1-${suffix}.png`, '#2b6f5e');
+    await setMaterialAccessInConsole(page, 'public_use');
+    await grantMaterialToAllSellableInConsole(page);
+
+    await open(sellerB.page, sellerB.store.hash);
+    await storeArea(sellerB.page, '供貨合作');
+    const panelB = sellerPartnerMaterials(sellerB.page);
+    const card1 = panelB.locator('article.card').filter({hasText: matTitle1});
+    await expect(card1).toBeVisible();
+    await card1
+      .locator('div.stack > div.stack')
+      .filter({hasText: productTitle})
+      .getByRole('button', {name: '用於公開店面', exact: true})
+      .click();
+    const useDialog = sellerB.page.getByRole('dialog', {name: '把這張素材用在公開店面？', exact: true});
+    await expect(useDialog).toBeVisible();
+    await useDialog.getByRole('button', {name: '複製並使用', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText(
+      '已更新店面草稿，發布店面後才會生效。',
+    );
+
+    await storeArea(sellerB.page, '店面與發布');
+    await sellerB.page.getByRole('button', {name: '發布展示頁', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText('已發布・第 1 版');
+
+    const mediaPub1 = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    const publicPath1 = mediaPub1.photos.find(p => p.sku === propB.sku)!.photo.read_path;
+    const pubBytes1 = await (await sellerB.page.request.get(publicPath1)).body();
+    expect(pubBytes1.length).toBeGreaterThan(0);
+
+    // Supplier 撤回素材 (dialog)
+    const withdrawSection = materialActive(page)
+      .locator('.sc-section')
+      .filter({has: page.getByRole('heading', {level: 3, name: '撤回素材', exact: true})});
+    await withdrawSection.getByRole('button', {name: '撤回素材', exact: true}).click();
+    const withdrawDialog = page.getByRole('dialog', {name: '永久撤回這個素材', exact: true});
+    await expect(withdrawDialog).toBeVisible();
+    await withdrawDialog.getByRole('button', {name: '確認撤回素材', exact: true}).click();
+    await expect(materialConsole(page).locator('.sc-announcement')).toHaveText('已保存：撤回素材。');
+
+    // B presses 重新整理: material is gone and warning shows with 停止使用 and thumbnail; public bytes unchanged
+    await storeArea(sellerB.page, '供貨合作');
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(panelB).not.toContainText(matTitle1);
+    const unavailableWarning = panelB
+      .locator(':scope > div.stack')
+      .filter({hasText: `「${productTitle}」的店面照片來源已撤回或不再開放公開使用，下次發布時不會顯示。`});
+    await expect(unavailableWarning).toBeVisible();
+    await expect(unavailableWarning.getByRole('button', {name: '停止使用', exact: true})).toBeVisible();
+    const warnThumb1 = unavailableWarning.locator('img.distribution-photo-thumb');
+    await expect(warnThumb1).toBeVisible();
+    await expect.poll(() => warnThumb1.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+    const stillPubBytes1 = await (await sellerB.page.request.get(publicPath1)).body();
+    expect(digest(stillPubBytes1)).toBe(digest(pubBytes1));
+
+    // Refresh store preview state via 更新供貨狀態 and publish update: public media has no photo for that product
+    await sellerB.page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    await storeArea(sellerB.page, '店面與發布');
+    await sellerB.page.getByRole('button', {name: '發布更新', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText('已發布・第 2 版');
+
+    const mediaAfterWithdrawPub = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    expect(mediaAfterWithdrawPub.photos.find(p => p.sku === propB.sku)?.photo ?? null).toBeNull();
+
+    // B 停止使用: warning disappears after list reloads; pointer row has no asset and copy row is still there
+    await storeArea(sellerB.page, '供貨合作');
+    await unavailableWarning.getByRole('button', {name: '停止使用', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText(
+      '已更新店面草稿，發布店面後才會生效。',
+    );
+    await expect(unavailableWarning).toHaveCount(0);
+
+    const [sellerTenantId, sellerInstanceId] = sellerB.store.hash.split('/').slice(1);
+    const targetAfterDetach = await e2eAuthPool.query(
+      `SELECT asset_id, aggregate_version::text AS version
+         FROM commerce_distribution_photo_targets
+        WHERE tenant_id = $1 AND instance_id = $2 AND product_id = $3`,
+      [sellerTenantId, sellerInstanceId, sup.product.product_id],
+    );
+    expect(targetAfterDetach.rows).toEqual([{asset_id: null, version: '2'}]);
+
+    const copiesAfterDetach = await e2eAuthPool.query(
+      `SELECT count(*)::int AS cnt
+         FROM commerce_distribution_photo_copies
+        WHERE tenant_id = $1 AND instance_id = $2 AND product_id = $3`,
+      [sellerTenantId, sellerInstanceId, sup.product.product_id],
+    );
+    expect(copiesAfterDetach.rows[0].cnt).toBe(1);
+
+    // Case 2: New material where supplier changes 使用範圍 back to 僅授權的合作店家 instead of withdrawing
+    const matTitle2 = `縮回授權主圖 ${suffix}`;
+    await createFileMaterialInConsole(page, sup.store, 'image', matTitle2, sup.product.product_id);
+    await uploadImageVersionInConsole(page, `dist-close-v1-${suffix}.png`, '#7c3f6e');
+    await setMaterialAccessInConsole(page, 'public_use');
+    await grantMaterialToAllSellableInConsole(page);
+
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    const card2 = panelB.locator('article.card').filter({hasText: matTitle2});
+    await expect(card2).toBeVisible();
+    await card2
+      .locator('div.stack > div.stack')
+      .filter({hasText: productTitle})
+      .getByRole('button', {name: '用於公開店面', exact: true})
+      .click();
+    await expect(useDialog).toBeVisible();
+    await useDialog.getByRole('button', {name: '複製並使用', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText(
+      '已更新店面草稿，發布店面後才會生效。',
+    );
+
+    await storeArea(sellerB.page, '店面與發布');
+    await sellerB.page.getByRole('button', {name: '發布更新', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText('已發布・第 3 版');
+
+    const mediaPub2 = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    const publicPath2 = mediaPub2.photos.find(p => p.sku === propB.sku)!.photo.read_path;
+    const pubBytes2 = await (await sellerB.page.request.get(publicPath2)).body();
+    expect(pubBytes2.length).toBeGreaterThan(0);
+
+    // Supplier changes 使用範圍 back to 僅授權的合作店家
+    await setMaterialAccessInConsole(page, 'partners');
+
+    // B presses 重新整理: sees the same warning, material stays visible without 用於公開店面, next publish drops photo
+    await storeArea(sellerB.page, '供貨合作');
+    await panelB.getByRole('button', {name: '重新整理', exact: true}).click();
+    await expect(unavailableWarning).toBeVisible();
+    await expect(card2).toBeVisible();
+    await expect(card2).toContainText('僅供合作參考，供應商未同意放上公開店面。');
+    await expect(card2.getByRole('button', {name: '用於公開店面'})).toHaveCount(0);
+
+    const stillPubBytes2 = await (await sellerB.page.request.get(publicPath2)).body();
+    expect(digest(stillPubBytes2)).toBe(digest(pubBytes2));
+
+    await sellerB.page.getByRole('button', {name: '更新供貨狀態', exact: true}).click();
+    await storeArea(sellerB.page, '店面與發布');
+    await sellerB.page.getByRole('button', {name: '發布更新', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText('已發布・第 4 版');
+
+    const mediaAfterClosePub = PublicStoreMediaSchema.parse(
+      await (await sellerB.page.request.get(`/api/v1/public/stores/${sellerBSlug}/media`)).json(),
+    );
+    expect(mediaAfterClosePub.photos.find(p => p.sku === propB.sku)?.photo ?? null).toBeNull();
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-74 a use with an unknown result is retried with the same key and makes one copy (AT-27; AT-24 pattern)', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{close: () => Promise<void>}> = [];
+  const supplierIds: string[] = [];
+
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+    const productTitle = sup.offer.terms.title;
+
+    const sellerBSlug = `partner-retry-b-${suffix}`;
+    const sellerB = await openPartnerStore(browser, baseURL, e2eAuthPool, `重試賣家 B ${suffix}`, sellerBSlug);
+    extraContexts.push(sellerB.ctx);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200},
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const matTitle = `重試素材 ${suffix}`;
+    await createFileMaterialInConsole(page, sup.store, 'image', matTitle, sup.product.product_id);
+    await uploadImageVersionInConsole(page, `dist-retry-v1-${suffix}.png`, '#3b5998');
+    await setMaterialAccessInConsole(page, 'public_use');
+    await grantMaterialToAllSellableInConsole(page);
+
+    await open(sellerB.page, sellerB.store.hash);
+    await storeArea(sellerB.page, '供貨合作');
+    const panelB = sellerPartnerMaterials(sellerB.page);
+    const cardB = panelB.locator('article.card').filter({hasText: matTitle});
+    await expect(cardB).toBeVisible();
+    const distBlock = cardB.locator('div.stack > div.stack').filter({hasText: productTitle});
+    const useBtn = distBlock.getByRole('button', {name: '用於公開店面', exact: true});
+    await expect(useBtn).toBeEnabled();
+
+    let abortedOnce = false;
+    const capturedUseRequests: Array<{key: string; ifMatch: string; body: string}> = [];
+    await sellerB.page.route('**/api/v1/tenants/*/storefronts/*/distribution-photos/*/use', async route => {
+      const req = route.request();
+      if (req.method() !== 'POST') return route.continue();
+      capturedUseRequests.push({
+        key: req.headers()['idempotency-key'] ?? '',
+        ifMatch: req.headers()['if-match'] ?? '',
+        body: req.postData() ?? '',
+      });
+      if (!abortedOnce) {
+        abortedOnce = true;
+        await route.fetch();
+        await route.abort('failed');
+        return;
+      }
+      await route.continue();
+    });
+
+    await useBtn.click();
+    const useDialog = sellerB.page.getByRole('dialog', {name: '把這張素材用在公開店面？', exact: true});
+    await expect(useDialog).toBeVisible();
+    await useDialog.getByRole('button', {name: '複製並使用', exact: true}).click();
+
+    await expect(sellerB.page.locator('.hosted-store > [role="alert"]')).toHaveText(
+      '尚未確認原操作的結果，請按「重試」確認。',
+    );
+    const storeRetryBtn = sellerB.page.locator('.hosted-store > .actions').getByRole('button', {name: '重試', exact: true});
+    await expect(storeRetryBtn).toBeVisible();
+
+    // 合作素材 buttons are disabled while the store holds an unknown result
+    await expect(useBtn).toBeDisabled();
+
+    await storeRetryBtn.click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText(
+      '已更新店面草稿，發布店面後才會生效。',
+    );
+    await expect(distBlock.locator('.badge')).toHaveText('店面使用中（第 1 版）');
+
+    expect(capturedUseRequests).toHaveLength(2);
+    expect(capturedUseRequests[0].key).toBeTruthy();
+    expect(capturedUseRequests[0].ifMatch).toBe('"0"');
+    expect(capturedUseRequests[1]).toEqual(capturedUseRequests[0]);
+
+    const [sellerTenantId, sellerInstanceId] = sellerB.store.hash.split('/').slice(1);
+    const copiesCount = await e2eAuthPool.query(
+      `SELECT count(*)::int AS cnt
+         FROM commerce_distribution_photo_copies
+        WHERE tenant_id = $1 AND instance_id = $2 AND product_id = $3`,
+      [sellerTenantId, sellerInstanceId, sup.product.product_id],
+    );
+    expect(copiesCount.rows[0].cnt).toBe(1);
+
+    const targetRow = await e2eAuthPool.query(
+      `SELECT asset_id, aggregate_version::text AS version
+         FROM commerce_distribution_photo_targets
+        WHERE tenant_id = $1 AND instance_id = $2 AND product_id = $3`,
+      [sellerTenantId, sellerInstanceId, sup.product.product_id],
+    );
+    expect(targetRow.rowCount).toBe(1);
+    expect(targetRow.rows[0].asset_id).toBeTruthy();
+    expect(targetRow.rows[0].version).toBe('1');
+
+    await sellerB.page.unroute('**/api/v1/tenants/*/storefronts/*/distribution-photos/*/use');
+
+    // Sign out and back in: the same state shows
+    await signOut(sellerB.page);
+    await login(sellerB.page, sellerB.member.email);
+    await open(sellerB.page, sellerB.store.hash);
+    await storeArea(sellerB.page, '供貨合作');
+    await expect(
+      sellerPartnerMaterials(sellerB.page)
+        .locator('article.card')
+        .filter({hasText: matTitle})
+        .locator('div.stack > div.stack')
+        .filter({hasText: productTitle})
+        .locator('.badge'),
+    ).toHaveText('店面使用中（第 1 版）');
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(c => c.close()));
+  }
+});
+
+test('SC-E2E-75 viewers, the flag off and the layout', async ({
+  page,
+  browser,
+  baseURL,
+  e2eAuthPool,
+}, info) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extraContexts: Array<{close: () => Promise<void>}> = [];
+  const supplierIds: string[] = [];
+
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    supplierIds.push(sup.member.id);
+    const productTitle = sup.offer.terms.title;
+
+    const sellerBSlug = `partner-layout-b-${suffix}`;
+    const sellerB = await openPartnerStore(browser, baseURL, e2eAuthPool, `版面與權限賣家 B ${suffix}`, sellerBSlug);
+    extraContexts.push(sellerB.ctx);
+    const propB = await post(
+      sellerB.page,
+      `${sellerB.store.root}/distribution-selections`,
+      {offer_id: sup.offer.offer_id, terms_sha256: sup.offer.terms_sha256, retail_price_minor: 1200},
+      201,
+    );
+    await post(
+      page,
+      `${sup.store.root}/supply-requests/${propB.selection_id}/decision`,
+      {decision: 'accepted', listing_sha256: propB.listing_sha256},
+      200,
+      propB.version,
+    );
+
+    const matTitle = `版面測試主圖 ${suffix}`;
+    await createFileMaterialInConsole(page, sup.store, 'image', matTitle, sup.product.product_id);
+    await uploadImageVersionInConsole(page, `dist-layout-v1-${suffix}.png`, '#2e7d32');
+    await setMaterialAccessInConsole(page, 'public_use');
+    await grantMaterialToAllSellableInConsole(page);
+
+    // 1. Flag off, UI check only (the server side is covered by DP-10):
+    // Route GET /api/v1/site to the real response with distribution_photos_enabled: false
+    const flagOffPage = await sellerB.ctx.newPage();
+    let flagOffDistPhotoReqs = 0;
+    flagOffPage.on('request', req => {
+      if (req.url().includes('/distribution-photos')) {
+        flagOffDistPhotoReqs += 1;
+      }
+    });
+    await flagOffPage.route('**/api/v1/site', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      const realResp = await route.fetch();
+      const siteJson = await realResp.json();
+      await route.fulfill({
+        response: realResp,
+        json: {...siteJson, distribution_photos_enabled: false},
+      });
+    });
+    await flagOffPage.goto(`/#${sellerB.store.hash}`);
+    await expect(flagOffPage.locator('.hosted-store')).toBeVisible();
+    await storeArea(flagOffPage, '供貨合作');
+    const flagOffPanel = sellerPartnerMaterials(flagOffPage);
+    const flagOffCard = flagOffPanel.locator('article.card').filter({hasText: matTitle});
+    await expect(flagOffCard).toBeVisible();
+    await expect(flagOffCard).toContainText('這個環境尚未開放把素材用在公開店面。');
+    await expect(flagOffCard.getByRole('button', {name: '用於公開店面'})).toHaveCount(0);
+    expect(flagOffDistPhotoReqs).toBe(0);
+    await flagOffPage.close();
+
+    // 2. Layout at 390x844 and 1440x900 with and without the dialog open
+    await open(sellerB.page, sellerB.store.hash);
+    await storeArea(sellerB.page, '供貨合作');
+    const panelB = sellerPartnerMaterials(sellerB.page);
+    const cardB = panelB.locator('article.card').filter({hasText: matTitle});
+    await expect(cardB).toBeVisible();
+    const distBlock = cardB.locator('div.stack > div.stack').filter({hasText: productTitle});
+    const useBtn = distBlock.getByRole('button', {name: '用於公開店面', exact: true});
+    const useDialog = sellerB.page.getByRole('dialog', {name: '把這張素材用在公開店面？', exact: true});
+
+    const measureDesktopSmallButtons = () =>
+      sellerB.page.locator('.partner-materials .btn-small').evaluateAll(elements =>
+        elements
+          .filter(el => (el as HTMLElement).offsetParent !== null)
+          .flatMap(el => {
+            const btnRect = el.getBoundingClientRect();
+            const row = el.closest('.sc-row, .sc-section, .card, .partner-materials') ?? el.parentElement!;
+            const rowRect = row.getBoundingClientRect();
+            return btnRect.width > rowRect.width || btnRect.width >= rowRect.width * 0.9
+              ? [{text: el.textContent, btnWidth: btnRect.width, rowWidth: rowRect.width}]
+              : [];
+          }),
+      );
+
+    for (const [width, height] of [
+      [390, 844],
+      [1440, 900],
+    ] as const) {
+      await sellerB.page.setViewportSize({width, height});
+      await expect(useBtn).toBeVisible();
+      expect(await sellerB.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (width === 1440) {
+        expect(await measureDesktopSmallButtons()).toEqual([]);
+      }
+      await panelB.screenshot({path: info.outputPath(`distribution-photos-panel-${width}x${height}.png`)});
+
+      await useBtn.click();
+      await expect(useDialog).toBeVisible();
+      expect(await sellerB.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const box = await useDialog.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(height);
+      if (width === 1440) {
+        expect(await measureDesktopSmallButtons()).toEqual([]);
+      }
+      await sellerB.page.screenshot({path: info.outputPath(`distribution-photos-dialog-${width}x${height}.png`)});
+      await useDialog.getByRole('button', {name: '取消', exact: true}).click();
+      await expect(useDialog).toBeHidden();
+    }
+
+    // 3. B uses version 1, then a store:read viewer of B's business sees the badge and thumbnail but no action buttons
+    await useBtn.click();
+    await expect(useDialog).toBeVisible();
+    await useDialog.getByRole('button', {name: '複製並使用', exact: true}).click();
+    await expect(sellerB.page.locator('.hosted-store > [role="status"]')).toContainText(
+      '已更新店面草稿，發布店面後才會生效。',
+    );
+    await expect(distBlock.locator('.badge')).toHaveText('店面使用中（第 1 版）');
+
+    const viewer = await person(e2eAuthPool);
+    const viewerCtx = await browser.newContext({baseURL});
+    extraContexts.push(viewerCtx);
+    const viewerPage = await viewerCtx.newPage();
+    await login(viewerPage, viewer.email);
+
+    const candResp = await sellerB.page.request.get(`/api/v1/tenants/invite-candidates?user_id=${viewer.id}`);
+    expect(candResp.status()).toBe(200);
+    const {principal_id} = await candResp.json();
+    const [sellerTenantId, sellerInstanceId] = sellerB.store.hash.split('/').slice(1);
+    const inv = await post(
+      sellerB.page,
+      `/tenants/${sellerTenantId}/invitations`,
+      {
+        invitee_principal_id: principal_id,
+        role: 'viewer',
+        instance_capabilities: [{instance_id: sellerInstanceId, capabilities: ['store:read']}],
+        expires_at: new Date(Date.now() + 86400_000).toISOString(),
+      },
+      201,
+    );
+    await post(viewerPage, `/tenants/${sellerTenantId}/invitations/${inv.invitation_id}/accept`, {}, 200, inv.version);
+
+    await open(viewerPage, sellerB.store.hash);
+    await storeArea(viewerPage, '供貨合作');
+    const viewerPanel = sellerPartnerMaterials(viewerPage);
+    const viewerCard = viewerPanel.locator('article.card').filter({hasText: matTitle});
+    await expect(viewerCard).toBeVisible();
+    const viewerDistBlock = viewerCard.locator('div.stack > div.stack').filter({hasText: productTitle});
+    await expect(viewerDistBlock.locator('.badge')).toHaveText('店面使用中（第 1 版）');
+    const viewerThumb = viewerDistBlock.locator('img.distribution-photo-thumb');
+    await expect(viewerThumb).toBeVisible();
+    await viewerThumb.scrollIntoViewIfNeeded();
+    await expect.poll(() => viewerThumb.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+    for (const btnName of ['用於公開店面', '改用新版本', '改用這個素材', '停止使用']) {
+      await expect(viewerPanel.getByRole('button', {name: btnName, exact: true})).toHaveCount(0);
+    }
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, supplierIds);
+    await Promise.all(extraContexts.map(c => c.close()));
+  }
+});
+
+// Initial bookmarks enter existing lists; every subsequent member operation uses their links and controls.
+async function photoStoreFromList(page:Page,store:{hash:string},initial=false){
+ if(initial)await page.goto('/#stores');
+ else await page.getByRole('link',{name:'返回我的商店',exact:true}).click();
+ await page.locator(`a[href="#${store.hash}"]`).click();
+ await expect(page.locator('.hosted-store')).toBeVisible();
+}
+async function photoMaterialFromList(page:Page,title:string,productId:string){
+ await page.goto('/#stores/supply');
+ await page.getByRole('link',{name:'查看商品與供貨',exact:true}).click();
+ await materialConsole(page).getByRole('link',{name:'行銷素材',exact:true}).click();
+ await materialActive(page).getByRole('link',{name:'新增素材',exact:true}).click();
+ const form=materialActive(page).getByRole('form',{name:'新增素材',exact:true});
+ await form.getByLabel('種類').selectOption('image');await form.getByLabel('素材對象').selectOption(productId);
+ await form.getByLabel('標題').fill(title);await form.getByLabel('說明').fill('連續照片流程的合成授權圖片');
+ await form.getByRole('button',{name:'建立素材',exact:true}).click();
+ await expect(materialActive(page).getByRole('heading',{name:`素材詳情：${title}`,exact:true})).toBeVisible();
+ return new URL(page.url()).hash.match(/\/materials\/([0-9a-f-]{36})$/)![1];
+}
+async function photoGrantAll(page:Page,count:number){
+ const section=materialActive(page).locator('.sc-section').filter({has:page.getByRole('heading',{name:'店家授權',exact:true})});
+ await section.getByRole('button',{name:`授權給目前所有可售的合作店家（${count} 間）`,exact:true}).click();
+ await section.getByRole('button',{name:'授權選取的店家',exact:true}).click();
+ await expect(materialConsole(page).locator('.sc-announcement')).toHaveText('已保存：授權選取的店家。');
+}
+async function photoStoreNavigation(page:Page){
+ const nav=page.locator('#workspace-navigation');await nav.locator(':scope > details > summary').click();
+ await nav.getByRole('searchbox').fill('我的商店');await nav.getByRole('button',{name:'我的商店',exact:true}).click();
+}
+const partnerPhotoBlock=(page:Page,title:string,product:string)=>sellerPartnerMaterials(page).locator('article.card').filter({hasText:title}).locator('div.stack > div.stack').filter({hasText:product});
+async function photoChoose(page:Page,title:string,product:string,update=false){
+ await partnerPhotoBlock(page,title,product).getByRole('button',{name:update?'改用新版本':'用於公開店面',exact:true}).click();
+ await page.getByRole('dialog',{name:'把這張素材用在公開店面？',exact:true}).getByRole('button',{name:'複製並使用',exact:true}).click();
+}
+async function photoPublish(page:Page,revision:number){
+ await storeArea(page,'店面與發布');
+ await page.getByRole('button',{name:revision===1?'發布展示頁':'發布更新',exact:true}).click();
+ await expect(page.locator('.hosted-store > [role="status"]')).toContainText(`已發布・第 ${revision} 版`);
+}
+const photoTenant=(store:{hash:string})=>store.hash.split('/')[1];
+async function photoCapacity(db:Parameters<typeof person>[0],tenant:string){
+ const result=await db.query(`SELECT COALESCE(sum(COALESCE(o.byte_size,i.reserved_bytes,CASE a.purpose
+  WHEN 'storefront.product-photo' THEN 1048576 WHEN 'storefront.supply-material' THEN 1048576
+  WHEN 'storefront.supply-material-video' THEN 20971520 ELSE 262144 END)::bigint),0)::text AS used
+  FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id)
+  WHERE a.tenant_ref=$1 AND a.scope_id=(SELECT scope_id FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1) AND a.purpose IN ('work.tenant-result','storefront.product-photo','storefront.supply-material','storefront.supply-material-video')`,[tenant]);
+ return BigInt(result.rows[0].used);
+}
+async function photoFacts(db:Parameters<typeof person>[0],store:{hash:string},productId:string){
+ const [tenant,instance]=store.hash.split('/').slice(1);
+ const copies=await db.query(`SELECT c.asset_id,c.source_version_no,a.tenant_ref,a.state,o.byte_size::text FROM commerce_distribution_photo_copies c
+ JOIN assets a USING(asset_id) JOIN asset_objects o USING(asset_id) WHERE c.tenant_id=$1 AND c.instance_id=$2 AND c.product_id=$3 ORDER BY c.source_version_no`,[tenant,instance,productId]);
+ const pointers=await db.query('SELECT asset_id,aggregate_version::text AS version FROM commerce_distribution_photo_targets WHERE tenant_id=$1 AND instance_id=$2 AND product_id=$3',[tenant,instance,productId]);
+ const assets=await db.query("SELECT asset_id FROM assets WHERE tenant_ref=$1 AND purpose='storefront.product-photo' ORDER BY asset_id",[tenant]);
+ return {copies:copies.rows,pointers:pointers.rows,assets:assets.rows,capacity:(await photoCapacity(db,tenant)).toString()};
+}
+async function photoAccept(page:Page,supplierPage:Page,root:string,supplierRoot:string,offer:any){
+ const selection=await post(page,`${root}/distribution-selections`,{offer_id:offer.offer_id,terms_sha256:offer.terms_sha256,retail_price_minor:1200},201);
+ await post(supplierPage,`${supplierRoot}/supply-requests/${selection.selection_id}/decision`,{decision:'accepted',listing_sha256:selection.listing_sha256},200,selection.version);
+ return selection;
+}
+
+test('SC-E2E-76 one partner-photo flow: grant, use, draft preview, publish, new version, revoke, next publish (AT-27, SC-R29)',async({page,browser,baseURL,e2eAuthPool},info)=>{
+ const suffix=randomUUID().slice(0,6),contexts:Array<{close:()=>Promise<void>}>=[],suppliers:string[]=[];
+ const evidence:Record<string,unknown>={};
+ try{
+  const sup=await setupSupplierWithOfferForPartnerMedia(page,e2eAuthPool,suffix);suppliers.push(sup.member.id);
+  const slug=`whole-photo-${suffix}`,b=await openPartnerStore(browser,baseURL,e2eAuthPool,`連續照片賣家 ${suffix}`,slug);contexts.push(b.ctx);
+  const selection=await photoAccept(b.page,page,b.store.root,sup.store.root,sup.offer),title=`連續主圖 ${suffix}`,product=sup.offer.terms.title;
+  await photoMaterialFromList(page,title,sup.product.product_id);await uploadImageVersionInConsole(page,`whole-v1-${suffix}.png`,'#286a96');
+  await setMaterialAccessInConsole(page,'public_use');await photoGrantAll(page,1);
+  const supplierUsed1=await photoCapacity(e2eAuthPool,photoTenant(sup.store)),sellerBefore=await photoCapacity(e2eAuthPool,photoTenant(b.store));
+  await photoStoreFromList(b.page,b.store,true);await photoPublish(b.page,1);
+  const anonymous=await browser.newContext({baseURL});contexts.push(anonymous);const publicPage=await anonymous.newPage();
+  const media=async()=>PublicStoreMediaSchema.parse(await(await publicPage.request.get(`/api/v1/public/stores/${slug}/media`)).json());
+  const before=await media();expect(before.photos).toEqual([]);
+  await storeArea(b.page,'供貨合作');await photoChoose(b.page,title,product);
+  const block=partnerPhotoBlock(b.page,title,product);
+  await expect(block).toContainText('店面使用中（第 1 版）');
+  const private1=await block.locator('img.distribution-photo-thumb').getAttribute('src');expect(private1).toBeTruthy();
+  const copy1=await b.page.request.get(private1!);expect(copy1.status()).toBe(200);const hash1=digest(await copy1.body());
+  await storeArea(b.page,'店面與發布');
+  const popup=b.page.waitForEvent('popup');await b.page.getByRole('link',{name:'預覽已儲存的展示頁',exact:true}).click();
+  const preview=await popup;await expect(preview.locator('article img')).toHaveAttribute('src',private1!);
+  await expect(preview.locator('article img')).toBeVisible();
+  await expect.poll(()=>preview.locator('article img').evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  expect(digest(await(await preview.request.get(private1!)).body())).toBe(hash1);await preview.close();
+  expect(await media()).toEqual(before);
+  await photoPublish(b.page,2);const first=(await media()).photos.find(p=>p.sku===selection.sku)!.photo.read_path;
+  const bytes1=await publicPage.request.get(first);expect(bytes1.status()).toBe(200);expect(digest(await bytes1.body())).toBe(hash1);
+  expect(await photoCapacity(e2eAuthPool,photoTenant(sup.store))).toBe(supplierUsed1);
+  await uploadImageVersionInConsole(page,`whole-v2-${suffix}.png`,'#b35429');
+  const supplierUsed2=await photoCapacity(e2eAuthPool,photoTenant(sup.store));
+  await storeArea(b.page,'供貨合作');await sellerPartnerMaterials(b.page).getByRole('button',{name:'重新整理',exact:true}).click();
+  await expect(block).toContainText('供應商已更新為第 2 版，店面仍用第 1 版');await photoChoose(b.page,title,product,true);
+  await expect(block).toContainText('店面使用中（第 2 版）');
+  const private2=await block.locator('img.distribution-photo-thumb').getAttribute('src');
+  const copy2=await b.page.request.get(private2!);expect(copy2.status()).toBe(200);const hash2=digest(await copy2.body());expect(hash2).not.toBe(hash1);
+  expect(digest(await(await publicPage.request.get(first)).body())).toBe(hash1);
+  await photoPublish(b.page,3);const second=(await media()).photos.find(p=>p.sku===selection.sku)!.photo.read_path;
+  const bytes2=await publicPage.request.get(second);expect(bytes2.status()).toBe(200);expect(digest(await bytes2.body())).toBe(hash2);
+  const oldFirst=(await publicPage.request.get(first)).status();expect(oldFirst).toBe(404);evidence.snapshot1AfterSnapshot2={status:oldFirst};
+  const grants=materialActive(page).locator('.sc-section').filter({has:page.getByRole('heading',{name:'店家授權',exact:true})});
+  await grants.locator('ul.sc-list li.sc-row').filter({hasText:b.name}).getByRole('button',{name:'撤銷',exact:true}).click();
+  await page.getByRole('dialog',{name:'撤銷店家授權',exact:true}).getByRole('button',{name:'確認撤銷',exact:true}).click();
+  await expect(materialConsole(page).locator('.sc-announcement')).toHaveText('已保存：撤銷授權。');
+  await storeArea(b.page,'供貨合作');await sellerPartnerMaterials(b.page).getByRole('button',{name:'重新整理',exact:true}).click();
+  const warning=sellerPartnerMaterials(b.page).locator(':scope > div.stack').filter({hasText:`「${product}」的店面照片來源已撤回或不再開放公開使用，下次發布時不會顯示。`});
+  await expect(warning).toBeVisible();await expect(warning.getByRole('button',{name:'停止使用',exact:true})).toBeVisible();
+  await expect(warning.locator('img.distribution-photo-thumb')).toBeVisible();
+  const retained=await publicPage.request.get(second);expect(retained.status()).toBe(200);expect(digest(await retained.body())).toBe(hash2);
+  await publicPage.goto(`/shops/${slug}`);await expect(publicPage.locator('article img')).toHaveAttribute('src',second);
+  await expect.poll(()=>publicPage.locator('article img').evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  expect(await b.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await b.page.screenshot({path:info.outputPath('revoke-keeps-published-photo.png'),fullPage:true});
+  await b.page.getByRole('button',{name:'更新供貨狀態',exact:true}).click();await photoPublish(b.page,4);
+  expect((await media()).photos.find(p=>p.sku===selection.sku)?.photo??null).toBeNull();
+  const oldSecond=(await publicPage.request.get(second)).status();expect(oldSecond).toBe(404);evidence.snapshot2AfterSnapshot3={status:oldSecond};
+  const facts=await photoFacts(e2eAuthPool,b.store,sup.product.product_id);expect(facts.copies.map(c=>c.source_version_no)).toEqual([1,2]);
+  expect(facts.assets).toHaveLength(2);for(const copy of facts.copies)expect(copy).toMatchObject({tenant_ref:photoTenant(b.store),state:'ready'});
+  expect(BigInt(facts.capacity)-sellerBefore).toBe(facts.copies.reduce((sum,c)=>sum+BigInt(c.byte_size),0n));
+  expect(facts.pointers).toEqual([{asset_id:facts.copies[1].asset_id,version:'2'}]);
+  expect(await photoCapacity(e2eAuthPool,photoTenant(sup.store))).toBe(supplierUsed2);
+  const state=await(await b.page.request.get(`/api/v1${b.store.root}/distribution-photos`)).json();
+  expect(state.items.find((p:any)=>p.product_id===sup.product.product_id).state).toBe('source_unavailable');
+  evidence.final={...facts,state:'source_unavailable',hash1,hash2};
+  expect(await b.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await b.page.screenshot({path:info.outputPath('next-publish-without-invalid-photo.png'),fullPage:true});
+ }finally{
+  const evidencePath=info.outputPath('continuous-flow-evidence.json');
+  await (await import('node:fs/promises')).writeFile(evidencePath,JSON.stringify(evidence,null,2));
+  await info.attach('continuous-flow-evidence',{path:evidencePath,contentType:'application/json'});
+  await withdrawPartnerOffers(e2eAuthPool,suppliers);await Promise.all(contexts.map(c=>c.close()));
+ }
+});
+
+test('SC-E2E-77 a use answered after a business-space or account switch changes nothing there; the original key replays to one copy (AT-35)',async({page,browser,baseURL,e2eAuthPool},info)=>{
+ const suffix=randomUUID().slice(0,6),contexts:Array<{close:()=>Promise<void>}>=[],suppliers:string[]=[];
+ const evidence:Record<string,unknown>={},dialogs:string[]=[],requests:Request[]=[],delivery=new Map<string,string>();
+ const pending:Array<()=>Promise<void>>=[];
+ try{
+  const sup=await setupSupplierWithOfferForPartnerMedia(page,e2eAuthPool,suffix);suppliers.push(sup.member.id);
+  const b=await openPartnerStore(browser,baseURL,e2eAuthPool,`切換 B1 ${suffix}`,`switch-b1-${suffix}`);contexts.push(b.ctx);
+  const b2=await launchStore(b.page,`切換 B2 空間 ${suffix}`);await post(b.page,`${b2.root}/setup`,{name:`切換 B2 ${suffix}`,slug:`switch-b2-${suffix}`,currency:'TWD'},201);
+  const c=await openPartnerStore(browser,baseURL,e2eAuthPool,`切換 C1 ${suffix}`,`switch-c1-${suffix}`);contexts.push(c.ctx);
+  for(const [seller,store] of [[b,b.store],[b,b2],[c,c.store]] as const)await photoAccept(seller.page,page,store.root,sup.store.root,sup.offer);
+  const title=`切換主圖 ${suffix}`,product=sup.offer.terms.title,productId=sup.product.product_id;
+  const materialId=await photoMaterialFromList(page,title,productId);await uploadImageVersionInConsole(page,`switch-v1-${suffix}.png`,'#356a91');
+  await setMaterialAccessInConsole(page,'public_use');await photoGrantAll(page,3);
+  const none=async(target:Page,store:{root:string})=>{
+   const panel=sellerPartnerMaterials(target);await expect(partnerPhotoBlock(target,title,product).getByRole('button',{name:'用於公開店面',exact:true})).toBeVisible();
+   await expect(panel.locator('img.distribution-photo-thumb')).toHaveCount(0);await expect(panel).not.toContainText('店面使用中');
+   await expect(target.locator('.hosted-store > [role="status"]')).not.toContainText('已更新店面草稿');
+   const state=await(await target.request.get(`/api/v1${store.root}/distribution-photos`)).json();
+   expect(state.items.find((item:any)=>item.product_id===productId).state).toBe('none');
+  };
+  const screenshot=async(name:string)=>{
+   expect(await b.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+   await b.page.screenshot({path:info.outputPath(name),fullPage:true});
+  };
+  await photoStoreFromList(b.page,b2,true);await storeArea(b.page,'供貨合作');await none(b.page,b2);
+  const b2Before=await photoFacts(e2eAuthPool,b2,productId);expect(b2Before).toEqual({copies:[],pointers:[],assets:[],capacity:'0'});
+  await storeArea(b.page,'店面與發布');const b2Publication=await b.page.locator('#store-publish-panel').innerText();
+  await photoStoreFromList(c.page,c.store,true);await storeArea(c.page,'供貨合作');await none(c.page,c.store);
+  const cBefore=await photoFacts(e2eAuthPool,c.store,productId);expect(cBefore).toEqual({copies:[],pointers:[],assets:[],capacity:'0'});
+  await photoStoreFromList(b.page,b.store);await storeArea(b.page,'供貨合作');await none(b.page,b.store);
+  const bBefore=await photoFacts(e2eAuthPool,b.store,productId),exactPath=`/api/v1${b.store.root}/distribution-photos/${productId}/use`;
+  const key=(request:Request)=>request.headers()['idempotency-key'];
+  b.page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept();});
+  b.page.on('request',request=>requests.push(request));
+  b.page.on('response',response=>{if(key(response.request()))delivery.set(key(response.request()),`response ${response.status()}`);});
+  b.page.on('requestfailed',request=>{if(key(request))delivery.set(key(request),`failed: ${request.failure()?.errorText}`);});
+  const hold=async()=>{
+   let release!:()=>void,ready!:(answer:{request:Request;response:import('@playwright/test').APIResponse})=>void,done!:()=>void;
+   const gate=new Promise<void>(resolve=>{release=resolve;}),committed=new Promise<{request:Request;response:import('@playwright/test').APIResponse}>(resolve=>{ready=resolve;}),delivered=new Promise<void>(resolve=>{done=resolve;});
+   const failures:string[]=[];
+   const handler=async(route:import('@playwright/test').Route)=>{
+    const response=await route.fetch();ready({request:route.request(),response});await gate;
+    try{await route.fulfill({response});}catch(error){failures.push(String(error));}finally{done();}
+   };
+   await b.page.route(`**${exactPath}`,handler);
+   let deliveryPromise:Promise<void>|undefined;
+   const deliver=()=>deliveryPromise??=(async()=>{release();await delivered;if(!b.page.isClosed())await b.page.unroute(`**${exactPath}`,handler);})();pending.push(deliver);
+   return {committed,deliver,failures};
+  };
+  const capture=async(answer:{request:Request;response:import('@playwright/test').APIResponse},version:number)=>{
+   const headers=answer.request.headers(),sig={key:key(answer.request),ifMatch:headers['if-match'],mime:headers['content-type'],body:answer.request.postData()!};
+   expect(answer.response.status()).toBe(200);expect(sig.key).toBeTruthy();expect(sig.ifMatch).toBe(`"${version-1}"`);
+   expect(sig.mime).toBe('application/json');expect(JSON.parse(sig.body)).toEqual({material_id:materialId,version_id:expect.any(String)});
+   evidence[`signature${version}`]=sig;return {...sig,status:answer.response.status(),answer:await answer.response.text()};
+  };
+  const refusal='正在確認原操作，請等候完成後再離開。';
+  const one=await hold();await photoChoose(b.page,title,product);const original1=await capture(await one.committed,1);
+  const b1URL=b.page.url(),heading=await b.page.locator('.hosted-store').getByRole('heading',{name:b.name,exact:true}).innerText(),requestMark=requests.length;
+  await b.page.getByRole('link',{name:'返回我的商店',exact:true}).click();
+  await expect(b.page.locator('.hosted-store > [role="status"]')).toHaveText(`${refusal} 尚未發布`);
+  await expect(b.page).toHaveURL(b1URL);await expect(b.page.locator('.hosted-store').getByRole('heading',{name:b.name,exact:true})).toHaveText(heading);expect(dialogs).toEqual([]);
+  expect(requests.slice(requestMark).filter(r=>new URL(r.url()).pathname.startsWith(`/api/v1${b2.root}`))).toHaveLength(0);
+  evidence.businessRefusal=refusal;await screenshot('business-space-navigation-refused.png');
+  await one.deliver();await expect(partnerPhotoBlock(b.page,title,product)).toContainText('店面使用中（第 1 版）');
+  const after1=await photoFacts(e2eAuthPool,b.store,productId);expect(after1.copies).toHaveLength(1);expect(after1.assets).toHaveLength(1);
+  // The photo projection can refresh before the command's full store reload finishes.
+  // Its final notice marks settlement; until then native navigation correctly refuses to leave.
+  await expect(b.page.locator('.hosted-store > [role="status"]')).toHaveText('已更新店面草稿，發布店面後才會生效。 尚未發布');
+  await photoStoreFromList(b.page,b2);await storeArea(b.page,'供貨合作');await none(b.page,b2);
+  expect(await photoFacts(e2eAuthPool,b2,productId)).toEqual(b2Before);
+  await storeArea(b.page,'店面與發布');expect(await b.page.locator('#store-publish-panel').innerText()).toBe(b2Publication);
+  await screenshot('business-space-b2-unaffected.png');
+  await photoStoreFromList(b.page,b.store);await storeArea(b.page,'供貨合作');
+  await uploadImageVersionInConsole(page,`switch-v2-${suffix}.png`,'#b35e37');
+  await sellerPartnerMaterials(b.page).getByRole('button',{name:'重新整理',exact:true}).click();
+  await expect(partnerPhotoBlock(b.page,title,product)).toContainText('供應商已更新為第 2 版，店面仍用第 1 版');
+  const two=await hold();await photoChoose(b.page,title,product,true);const original2=await capture(await two.committed,2);expect(original2.key).not.toBe(original1.key);
+  await b.page.getByRole('button',{name:'設定',exact:true}).click();
+  await b.page.getByRole('menu',{name:'個人檔案',exact:true}).getByRole('menuitem',{name:'登出',exact:true}).click();
+  const loginHeading=b.page.getByRole('heading',{name:'登入',exact:true});
+  if(!await loginHeading.isVisible()){
+   await expect(b.page.locator('.hosted-store > [role="status"]')).toHaveText(`${refusal} 尚未發布`);await expect(b.page).toHaveURL(b1URL);expect(dialogs).toEqual([]);
+   evidence.signOut={possibleWhileSending:false,refusal};await screenshot('account-signout-refused.png');
+   const expired=await e2eAuthPool.query("UPDATE sessions SET expires_at=now()-interval '1 second' WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>now()",[b.member.id]);expect(expired.rowCount).toBe(1);
+   const unauthorized=b.page.waitForResponse(r=>r.status()===401&&new URL(r.url()).pathname===`/api/v1${b.store.root}/partner-materials`);
+   await sellerPartnerMaterials(b.page).getByRole('button',{name:'重新整理',exact:true}).click();expect((await unauthorized).status()).toBe(401);
+  }else evidence.signOut={possibleWhileSending:true};
+  await expect(loginHeading).toBeVisible();await expect(b.page.locator('.hosted-store')).toHaveCount(0);
+  await loginHere(b.page,c.member.email);await photoStoreNavigation(b.page);await b.page.locator(`a[href="#${c.store.hash}"]`).click();await storeArea(b.page,'供貨合作');await none(b.page,c.store);
+  const cURL=b.page.url(),lateFinished=delivery.has(original2.key)?Promise.resolve(delivery.get(original2.key)):Promise.race([
+   b.page.waitForResponse(r=>key(r.request())===original2.key).then(r=>`response ${r.status()}`),
+   b.page.waitForEvent('requestfailed',{predicate:r=>key(r)===original2.key}).then(r=>`failed: ${r.failure()?.errorText}`),
+  ]);
+  await two.deliver();evidence.lateAnswer={network:two.failures.length?'fulfill failed':await lateFinished,failures:two.failures};
+  await expect(b.page).toHaveURL(cURL);await none(b.page,c.store);expect(await photoFacts(e2eAuthPool,c.store,productId)).toEqual(cBefore);
+  expect(requests.filter(r=>r.method()==='POST'&&new URL(r.url()).pathname===`/api/v1${c.store.root}/distribution-photos/${productId}/use`)).toHaveLength(0);
+  expect(await photoFacts(e2eAuthPool,b2,productId)).toEqual(b2Before);await screenshot('account-c1-after-late-answer.png');
+  await signOut(b.page);await loginHere(b.page,b.member.email);await photoStoreNavigation(b.page);
+  await b.page.locator(`a[href="#${b.store.hash}"]`).click();await storeArea(b.page,'供貨合作');
+  const block=partnerPhotoBlock(b.page,title,product),retry=b.page.getByRole('button',{name:'重試',exact:true});
+  await expect.poll(async()=>await retry.isVisible()?'retry':await block.innerText()).toMatch(/retry|店面使用中（第 2 版）/);
+  const replayHeaders=async()=>{
+   const session=await(await b.page.request.get('/api/v1/session')).json();
+   return {'Idempotency-Key':original2.key,'If-Match':original2.ifMatch,'Content-Type':original2.mime,Origin:new URL(b.page.url()).origin,'X-CSRF-Token':session.csrf_token};
+  };
+  if(await retry.isVisible()){
+   evidence.recovery='重試';const answer=b.page.waitForResponse(r=>key(r.request())===original2.key);await retry.click();const replay=await answer;
+   expect(replay.request().headers()['idempotency-key']).toBe(original2.key);expect(replay.request().headers()['if-match']).toBe(original2.ifMatch);expect(replay.request().postData()).toBe(original2.body);
+   expect(replay.status()).toBe(original2.status);expect(await replay.text()).toBe(original2.answer);
+  }else{
+   evidence.recovery='captured replay';await expect(block).toContainText('店面使用中（第 2 版）');
+   const replay=await b.page.request.post(exactPath,{data:original2.body,headers:await replayHeaders()});expect(replay.status()).toBe(original2.status);expect(await replay.text()).toBe(original2.answer);
+  }
+  await expect(block).toContainText('店面使用中（第 2 版）');const after2=await photoFacts(e2eAuthPool,b.store,productId);
+  expect(after2.copies.map(copy=>copy.source_version_no)).toEqual([1,2]);expect(after2.copies.filter(copy=>!after1.copies.some(old=>old.asset_id===copy.asset_id))).toHaveLength(1);
+  expect(after2.assets).toHaveLength(2);expect(after2.assets.filter(asset=>!after1.assets.some(old=>old.asset_id===asset.asset_id))).toHaveLength(1);
+  expect(BigInt(after2.capacity)-BigInt(after1.capacity)).toBe(BigInt(after2.copies[1].byte_size));
+  expect(BigInt(after2.capacity)-BigInt(bBefore.capacity)).toBe(after2.copies.reduce((sum,copy)=>sum+BigInt(copy.byte_size),0n));
+  for(const copy of after2.copies)expect(copy).toMatchObject({tenant_ref:photoTenant(b.store),state:'ready'});
+  expect(after2.pointers).toEqual([{asset_id:after2.copies[1].asset_id,version:'2'}]);
+  const stale=await b.page.request.post(exactPath,{data:original2.body,headers:{...await replayHeaders(),'Idempotency-Key':randomUUID()}}),staleBody=await stale.json();
+  expect(stale.status()).toBe(412);expect(staleBody.code).toBe('version_conflict');
+  const conflict=await b.page.request.post(exactPath,{data:JSON.stringify({...JSON.parse(original2.body),version_id:randomUUID()}),headers:await replayHeaders()}),conflictBody=await conflict.json();
+  expect(conflict.status()).toBe(409);expect(conflictBody.code).toBe('idempotency_conflict');
+  expect(await photoFacts(e2eAuthPool,b.store,productId)).toEqual(after2);expect(await photoFacts(e2eAuthPool,b2,productId)).toEqual(b2Before);expect(await photoFacts(e2eAuthPool,c.store,productId)).toEqual(cBefore);
+  evidence.counterexamples=[{status:stale.status(),code:staleBody.code},{status:conflict.status(),code:conflictBody.code}];
+  evidence.facts={bBefore,after1,after2,b2Before,cBefore};evidence.dialogs=dialogs;await screenshot('original-use-recovered-once.png');
+ }finally{
+  await Promise.allSettled(pending.map(deliver=>deliver()));
+  evidence.requests=requests.filter(r=>r.method()==='POST'&&new URL(r.url()).pathname.endsWith('/use')).map(r=>({path:new URL(r.url()).pathname,key:r.headers()['idempotency-key'],ifMatch:r.headers()['if-match'],body:r.postData()}));
+  const evidencePath=info.outputPath('scope-switch-evidence.json');
+  await (await import('node:fs/promises')).writeFile(evidencePath,JSON.stringify(evidence,null,2));
+  await info.attach('scope-switch-evidence',{path:evidencePath,contentType:'application/json'});
+  await withdrawPartnerOffers(e2eAuthPool,suppliers);await Promise.all(contexts.map(context=>context.close()));
+ }
+});
+
 test('SC-E2E-78 a material upload answered after a business or account switch changes nothing there; the original attempt recovers to one version (AT-35)', async ({page, e2eAuthPool}, info) => {
   const suffix = randomUUID().slice(0, 6);
   const a = await setupMaterialSupplier(page, e2eAuthPool, `A1-${suffix}`);
@@ -1246,6 +2294,327 @@ test('SC-E2E-78 a material upload answered after a business or account switch ch
   }
 });
 
+async function draftWebp() {
+  return sharp({create:{width:12,height:8,channels:3,background:'#234863'}}).webp().toBuffer();
+}
+
+function isExpectedBrowserAbort(error:unknown, request:Request): boolean {
+  const failure = request.failure()?.errorText ?? '';
+  if (failure === 'net::ERR_ABORTED') return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /net::ERR_ABORTED|Request aborted/.test(message);
+}
+
+function privateProjection(store:{hash:string;root:string}, productId:string, sku:string, title:string, bytes:Buffer) {
+  const [tenant, instance] = store.hash.split('/').slice(1);
+  const readPath = `/api/v1/tenants/${tenant}/storefronts/${instance}/distribution-photos/${productId}/photo/1`;
+  const list = DistributionPhotosSchema.parse({items:[{
+    product_id:productId, sku, title, version:'1', state:'source_unavailable',
+    photo:{content_type:'image/webp', byte_size:bytes.length, width:12, height:8, read_path:readPath},
+    source:null, latest:null,
+  }]});
+  const materials = PartnerMaterialsSchema.parse({
+    profile:'freedom.partner-materials/v1', tenant_id:tenant, instance_id:instance, as_of:'2026-10-16T12:00:00.000Z',
+    items:[{
+      material_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', kind:'image', supplier_name:'合成供應商',
+      subject:{kind:'brand'}, applies_to:[productId], title:'合成公開素材', description:'', access:'public_use',
+      current:{
+        version_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc', version_no:1, created_at:'2026-10-16T12:00:00.000Z',
+        content:{kind:'image', content_type:'image/webp', byte_size:bytes.length, width:12, height:8},
+      },
+    }],
+    truncated:false,
+  });
+  return {list, materials, readPath, listPath:`/api/v1${store.root}/distribution-photos`, materialsPath:`/api/v1${store.root}/partner-materials`};
+}
+
+test('SC-E2E-82 a denied distribution-photo read clears the private projection; an authorized unavailable source stays', async ({page, e2eAuthPool}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const s = await ready(page, e2eAuthPool);
+  const title = `私有草稿 ${suffix}`;
+  const bytes = await draftWebp();
+  const projection = privateProjection(s, s.product.product_id, s.product.sku, title, bytes);
+  const posts: string[] = [];
+  page.on('request', request => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.includes('/distribution-photos')) posts.push(new URL(request.url()).pathname);
+  });
+  let listStatus: 200 | 403 | 404 = 200;
+  await page.route(url => {
+    const path = new URL(url).pathname;
+    return path === projection.listPath || path === projection.materialsPath || path === projection.readPath;
+  }, async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== 'GET') return route.continue();
+    if (path === projection.readPath) return route.fulfill({status:200, contentType:'image/webp', body:bytes});
+    if (path === projection.materialsPath) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.materials)});
+    if (listStatus === 200) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.list)});
+    return route.fulfill({status:listStatus, contentType:'application/json', body:JSON.stringify({type:'about:blank', title:'denied', status:listStatus, code:'forbidden', detail:'合成讀取被拒'})});
+  });
+  await storeArea(page, '供貨合作');
+  const panel = sellerPartnerMaterials(page);
+  await expect(panel.getByText(title, {exact:true})).toBeVisible();
+  await expect(panel.getByText('合成公開素材')).toBeVisible();
+  await expect(panel.locator('img.distribution-photo-thumb')).toHaveCount(2);
+  await expect.poll(() => panel.locator('img.distribution-photo-thumb').first().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+  await expect(panel.getByRole('button', {name:'停止使用', exact:true}).first()).toBeEnabled();
+  await panel.getByRole('button', {name:'改用這個素材', exact:true}).click();
+  const dialog = page.getByRole('dialog', {name:'把這張素材用在公開店面？', exact:true});
+  await expect(dialog).toContainText(title);
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', {name:'取消', exact:true}).click();
+  await expect(dialog).toBeHidden();
+  const cleared = async () => {
+    await expect(panel.getByText(title)).toHaveCount(0);
+    await expect(panel.locator('img.distribution-photo-thumb')).toHaveCount(0);
+    await expect(panel.getByRole('button', {name:'停止使用', exact:true})).toHaveCount(0);
+    await expect(panel.getByRole('button', {name:'改用這個素材', exact:true})).toHaveCount(0);
+    await expect(dialog).toBeHidden();
+    await expect(panel.getByRole('alert')).toContainText('目前無法讀取店面照片');
+    await expect(panel.getByText('合成公開素材')).toBeVisible();
+  };
+  listStatus = 403;
+  await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+  await cleared();
+  listStatus = 200;
+  await panel.getByRole('button', {name:'重試', exact:true}).click();
+  await expect(panel.getByText(title, {exact:true})).toBeVisible();
+  await expect.poll(() => panel.locator('img.distribution-photo-thumb').first().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+  listStatus = 404;
+  await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+  await cleared();
+  expect(posts).toEqual([]);
+});
+
+test('SC-E2E-83 a transient distribution-photo failure keeps the draft, and a late read cannot restore it in another scope', async ({page, e2eAuthPool}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const s = await ready(page, e2eAuthPool);
+  const other = await launchStore(page, `另一空間 ${suffix}`);
+  await post(page, `${other.root}/setup`, {name:`另一商店 ${suffix}`, slug:`other-${suffix}`, currency:'TWD'}, 201);
+  const title = `私有草稿 ${suffix}`;
+  const bytes = await draftWebp();
+  const projection = privateProjection(s, s.product.product_id, s.product.sku, title, bytes);
+  // Synthetic HTTP projection/media on a real shop; this checks the client lifetime, not server revocation.
+  type Settlement = {kind:'response'; status:number} | {kind:'aborted'; error:string};
+  const held: Array<{url:string; settlement:Promise<Settlement>}> = [];
+  let listMode: 'ok' | '503' | 'hold' = 'ok';
+  let waitHold = Promise.resolve();
+  let releaseHold: (() => void) | undefined;
+  const release = () => { const done = releaseHold; releaseHold = undefined; done?.(); };
+  const armHold = () => {
+    listMode = 'hold';
+    held.length = 0;
+    waitHold = new Promise(resolve => { releaseHold = resolve; });
+  };
+  try {
+    await page.route(url => {
+      const path = new URL(url).pathname;
+      return path === projection.listPath || path === projection.materialsPath || path === projection.readPath;
+    }, async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (route.request().method() !== 'GET') return route.continue();
+      if (path === projection.readPath) return route.fulfill({status:200, contentType:'image/webp', body:bytes});
+      if (path === projection.materialsPath) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.materials)});
+      if (listMode === 'hold') {
+        const request = route.request();
+        const gate = waitHold;
+        const settlement = new Promise<Settlement>(resolve => {
+          const clean = () => { page.off('requestfinished', finished); page.off('requestfailed', failed); };
+          const finished = async (seen:Request) => {
+            if (seen !== request) return;
+            clean(); resolve({kind:'response', status:(await request.response())!.status()});
+          };
+          const failed = (seen:Request) => {
+            if (seen !== request) return;
+            clean(); resolve({kind:'aborted', error:request.failure()!.errorText});
+          };
+          page.on('requestfinished', finished); page.on('requestfailed', failed);
+        });
+        held.push({url:request.url(), settlement});
+        try {
+          await gate;
+          await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.list)});
+        } catch (error) {
+          if (isExpectedBrowserAbort(error, request)) {
+            return;
+          }
+          throw error;
+        }
+        return;
+      }
+      if (listMode === '503') return route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({type:'about:blank', title:'unavailable', status:503, code:'unavailable', detail:'合成暫時失敗'})});
+      return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(projection.list)});
+    });
+    await storeArea(page, '供貨合作');
+    const panel = sellerPartnerMaterials(page);
+    const thumb = () => panel.locator('img.distribution-photo-thumb').first();
+    await expect(panel.getByText(title, {exact:true})).toBeVisible();
+    await expect.poll(() => thumb().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+    listMode = '503';
+    await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+    await expect(panel.getByRole('alert')).toContainText('目前無法讀取店面照片');
+    await expect(panel.getByText(title, {exact:true})).toBeVisible();
+    await expect.poll(() => thumb().evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(12);
+    listMode = 'ok';
+    await panel.getByRole('button', {name:'重試', exact:true}).click();
+    await expect(panel.getByRole('alert')).toHaveCount(0);
+    await expect(panel.getByText(title, {exact:true})).toBeVisible();
+    armHold();
+    await panel.getByRole('button', {name:'重新整理', exact:true}).click();
+    await expect.poll(() => held.length).toBeGreaterThan(0);
+    await page.getByRole('link', {name:'返回我的商店', exact:true}).click();
+    await page.locator(`a[href="#${other.hash}"]`).click();
+    await expect(page.locator('.hosted-store')).toBeVisible();
+    await storeArea(page, '供貨合作');
+    await expect(page.getByText(title)).toHaveCount(0);
+    listMode = 'ok';
+    const businessHeld = held.slice();
+    release();
+    const businessOutcome = await Promise.all(businessHeld.map(item => item.settlement));
+    console.log(`SC83-business ${JSON.stringify(businessOutcome)}`);
+    await expect(page.getByText(title)).toHaveCount(0);
+    await expect(page.locator('img.distribution-photo-thumb')).toHaveCount(0);
+    await expect(sellerPartnerMaterials(page)).toContainText('目前沒有供應商授權給這間店的素材');
+    await photoStoreFromList(page, s);
+    await storeArea(page, '供貨合作');
+    await expect(sellerPartnerMaterials(page).getByText(title, {exact:true})).toBeVisible();
+    armHold();
+    await sellerPartnerMaterials(page).getByRole('button', {name:'重新整理', exact:true}).click();
+    await expect.poll(() => held.length).toBeGreaterThan(0);
+    await signOut(page);
+    await expect(page.getByRole('heading', {name:'登入', exact:true})).toBeVisible();
+    await expect(page.getByText(title)).toHaveCount(0);
+    listMode = 'ok';
+    const sessionHeld = held.slice();
+    release();
+    const sessionOutcome = await Promise.all(sessionHeld.map(item => item.settlement));
+    console.log(`SC83-session ${JSON.stringify(sessionOutcome)}`);
+    await expect(page.getByText(title)).toHaveCount(0);
+    const stranger = await person(e2eAuthPool);
+    await loginHere(page, stranger.email);
+    await expect(page.getByText(title)).toHaveCount(0);
+    await expect(page.locator('img.distribution-photo-thumb')).toHaveCount(0);
+  } finally {
+    release();
+    await page.unrouteAll({behavior:'wait'});
+  }
+});
+
+test('SC-E2E-84 a malformed committed use or detach ack keeps the original attempt and one copy', async ({page, browser, baseURL, e2eAuthPool}) => {
+  const suffix = randomUUID().slice(0, 6);
+  const extra: Array<{close: () => Promise<void>}> = [];
+  const suppliers: string[] = [];
+  try {
+    const sup = await setupSupplierWithOfferForPartnerMedia(page, e2eAuthPool, suffix);
+    suppliers.push(sup.member.id);
+    const productTitle = sup.offer.terms.title;
+    const seller = await openPartnerStore(browser, baseURL, e2eAuthPool, `畸形回條賣家 ${suffix}`, `ack-${suffix}`);
+    extra.push(seller.ctx);
+    await photoAccept(seller.page, page, seller.store.root, sup.store.root, sup.offer);
+    const matTitle = `回條素材 ${suffix}`;
+    await createFileMaterialInConsole(page, sup.store, 'image', matTitle, sup.product.product_id);
+    await uploadImageVersionInConsole(page, `ack-v1-${suffix}.png`, '#3b5998');
+    await setMaterialAccessInConsole(page, 'public_use');
+    await grantMaterialToAllSellableInConsole(page);
+    await open(seller.page, seller.store.hash);
+    await storeArea(seller.page, '供貨合作');
+    const block = partnerPhotoBlock(seller.page, matTitle, productTitle);
+    await expect(block.getByRole('button', {name:'用於公開店面', exact:true})).toBeEnabled();
+    const productId = sup.product.product_id;
+    const baseline = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(baseline.copies).toEqual([]);
+    expect(baseline.pointers).toEqual([]);
+    const usePath = `/api/v1${seller.store.root}/distribution-photos/${productId}/use`;
+    const detachPath = `/api/v1${seller.store.root}/distribution-photos/${productId}/detach`;
+    const captured: Array<{key:string; ifMatch:string; body:string}> = [];
+    let originalUse = '';
+    let mangleUse = true;
+    await seller.page.route(`**${usePath}`, async route => {
+      const req = route.request();
+      if (req.method() !== 'POST') return route.continue();
+      captured.push({key:req.headers()['idempotency-key'] ?? '', ifMatch:req.headers()['if-match'] ?? '', body:req.postData() ?? ''});
+      if (!mangleUse) return route.continue();
+      mangleUse = false;
+      const response = await route.fetch();
+      originalUse = await response.text();
+      expect(response.status()).toBe(200);
+      const json = JSON.parse(originalUse) as {version:string};
+      json.version = 'abc';
+      await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(json)});
+    });
+    await block.getByRole('button', {name:'用於公開店面', exact:true}).click();
+    await seller.page.getByRole('dialog', {name:'把這張素材用在公開店面？', exact:true}).getByRole('button', {name:'複製並使用', exact:true}).click();
+    await expect(seller.page.locator('.hosted-store > [role="alert"]')).toHaveText('尚未確認原操作的結果，請按「重試」確認。');
+    const retry = seller.page.locator('.hosted-store > .actions').getByRole('button', {name:'重試', exact:true});
+    await expect(retry).toBeVisible();
+    await expect(block.getByRole('button', {name:'用於公開店面', exact:true})).toBeDisabled();
+    const stayed = seller.page.url();
+    await seller.page.getByRole('link', {name:'返回我的商店', exact:true}).click();
+    await expect(seller.page.locator('.hosted-store > [role="status"]')).toContainText('尚未確認原操作的結果，請按「重試」確認後再離開。');
+    await expect(seller.page).toHaveURL(stayed);
+    expect(captured).toHaveLength(1);
+    expect(captured[0].key).toBeTruthy();
+    expect(captured[0].ifMatch).toBe('"0"');
+    const beforeRetry = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(beforeRetry.copies).toHaveLength(1);
+    expect(beforeRetry.pointers).toEqual([{asset_id:beforeRetry.copies[0].asset_id, version:'1'}]);
+    expect(beforeRetry.assets).toHaveLength(baseline.assets.length + 1);
+    expect(beforeRetry.assets.map(row => row.asset_id)).toContain(beforeRetry.copies[0].asset_id);
+    expect(BigInt(beforeRetry.capacity) - BigInt(baseline.capacity)).toBe(BigInt(beforeRetry.copies[0].byte_size));
+    const replay = seller.page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === usePath);
+    await retry.click();
+    const replayed = await replay;
+    expect(replayed.request().headers()['idempotency-key']).toBe(captured[0].key);
+    expect(replayed.request().headers()['if-match']).toBe(captured[0].ifMatch);
+    expect(replayed.request().postData()).toBe(captured[0].body);
+    expect(replayed.status()).toBe(200);
+    expect(await replayed.text()).toBe(originalUse);
+    await expect(block.locator('.badge')).toHaveText('店面使用中（第 1 版）');
+    const afterUse = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(afterUse).toEqual(beforeRetry);
+    let originalDetach = '';
+    let mangleDetach = true;
+    const detachCaptured: Array<{key:string; ifMatch:string; body:string}> = [];
+    await seller.page.route(`**${detachPath}`, async route => {
+      const req = route.request();
+      if (req.method() !== 'POST') return route.continue();
+      detachCaptured.push({key:req.headers()['idempotency-key'] ?? '', ifMatch:req.headers()['if-match'] ?? '', body:req.postData() ?? ''});
+      if (!mangleDetach) return route.continue();
+      mangleDetach = false;
+      const response = await route.fetch();
+      originalDetach = await response.text();
+      expect(response.status()).toBe(200);
+      const json = JSON.parse(originalDetach) as {current:{version:string}};
+      json.current.version = '1.2';
+      await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(json)});
+    });
+    await block.getByRole('button', {name:'停止使用', exact:true}).click();
+    await expect(seller.page.locator('.hosted-store > [role="alert"]')).toHaveText('尚未確認原操作的結果，請按「重試」確認。');
+    await expect(block.getByRole('button', {name:'停止使用', exact:true})).toBeDisabled();
+    expect(detachCaptured).toHaveLength(1);
+    expect(detachCaptured[0].ifMatch).toBe('"1"');
+    expect(detachCaptured[0].body).toBe('{}');
+    const beforeDetachRetry = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(beforeDetachRetry.copies).toEqual(afterUse.copies);
+    expect(beforeDetachRetry.assets).toEqual(afterUse.assets);
+    expect(beforeDetachRetry.capacity).toBe(afterUse.capacity);
+    expect(beforeDetachRetry.pointers).toEqual([{asset_id:null, version:'2'}]);
+    const detachReplay = seller.page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === detachPath);
+    await seller.page.locator('.hosted-store > .actions').getByRole('button', {name:'重試', exact:true}).click();
+    const detached = await detachReplay;
+    expect(detached.request().headers()['idempotency-key']).toBe(detachCaptured[0].key);
+    expect(detached.request().headers()['if-match']).toBe('"1"');
+    expect(detached.request().postData()).toBe('{}');
+    expect(await detached.text()).toBe(originalDetach);
+    const afterDetach = await photoFacts(e2eAuthPool, seller.store, productId);
+    expect(afterDetach).toEqual(beforeDetachRetry);
+    expect(captured.filter(item => item.key === captured[0].key)).toHaveLength(2);
+    expect(detachCaptured).toHaveLength(2);
+  } finally {
+    await withdrawPartnerOffers(e2eAuthPool, suppliers);
+    await Promise.all(extra.map(ctx => ctx.close()));
+  }
+});
+
 function problemBody(status: number, detail: string, code: string) {
   return JSON.stringify({ type: 'about:blank', title: status === 403 ? 'Forbidden' : 'Service Unavailable', status, detail, code });
 }
@@ -1479,7 +2848,11 @@ test('SC-E2E-80 supplier image and video preview retry the same version, and a d
         name: 'event-video-160x90.mp4', mimeType: 'video/mp4', buffer: await readFile('tests/media-fixtures/event-video-160x90.mp4'),
       });
     }
+    const uploaded = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `${detailPath}/content`);
     await uploadSection.getByRole('button', { name: '上傳新版本', exact: true }).click();
+    const uploadResponse = await uploaded;
+    expect(uploadResponse.status()).toBe(200); expect(await uploadResponse.finished()).toBeNull();
+    await uploadResponse.body();
     await expect(uploadSection.locator('p.field-hint[role="status"]')).toHaveText('已上傳新版本。');
     await expect(contentSection).toContainText(failureText);
     await expect(contentSection.locator(kind === 'image' ? 'img' : 'video')).toHaveCount(0);
@@ -1659,10 +3032,10 @@ test('SC-E2E-81 a removed store read clears partner materials, a regrant reads t
     await expect(panel.getByRole('link', { name: '下載', exact: true })).toHaveCount(0);
     await expect(panel).toContainText('目前無法讀取合作素材。');
     await expect(panel).not.toContainText('顯示的是');
-    await expect(panel.getByRole('button', { name: '重試', exact: true })).toBeEnabled();
+    await expect(panel.locator(':scope > .actions').getByRole('button', { name: '重試', exact: true })).toBeEnabled();
     const listGetsBeforeStillDenied = listGets;
     const stillDenied = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 404);
-    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await panel.locator(':scope > .actions').getByRole('button', { name: '重試', exact: true }).click();
     await stillDenied;
     expect(listGets).toBe(listGetsBeforeStillDenied + 1);
     await expect(panel).not.toContainText(copyBody);
@@ -1683,7 +3056,7 @@ test('SC-E2E-81 a removed store read clears partner materials, a regrant reads t
     await changeMember([{ instance_id: instanceId, capabilities: ['store:read'] }], '恢復商店讀取權限');
     const listGetsBeforeForbidden = listGets;
     const forbiddenRead = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 403);
-    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await panel.locator(':scope > .actions').getByRole('button', { name: '重試', exact: true }).click();
     await forbiddenRead;
     expect(listGets).toBe(listGetsBeforeForbidden + 1);
     await expect(panel).not.toContainText(copyBody);
@@ -1694,7 +3067,7 @@ test('SC-E2E-81 a removed store read clears partner materials, a regrant reads t
     await viewer.unroute(matchList, fulfillList403);
     const listGetsBeforeAllow = listGets;
     const allowedAgain = viewer.waitForResponse(response => new URL(response.url()).pathname === listPath && response.status() === 200);
-    await panel.getByRole('button', { name: '重試', exact: true }).click();
+    await panel.locator(':scope > .actions').getByRole('button', { name: '重試', exact: true }).click();
     await allowedAgain;
     expect(listGets).toBe(listGetsBeforeAllow + 1);
     await expect(panel).toContainText(copyBody);
@@ -1724,4 +3097,124 @@ test('SC-E2E-81 a removed store read clears partner materials, a regrant reads t
     await withdrawPartnerOffers(e2eAuthPool, supplierIds);
     await Promise.all(extraContexts.map(context => context.close()));
   }
+});
+
+test('SC-E2E-85 a malformed committed photo upload ack retains the original File and retries to one asset and publication', async ({page, browser, baseURL, e2eAuthPool}, info) => {
+  const s = await ready(page, e2eAuthPool);
+  const file = await source('original-malformed-ack.png', '#385d75');
+  const tenantId = s.hash.split('/')[1], instanceId = s.hash.split('/')[2];
+  const requests: ReturnType<typeof signature>[] = [];
+  const statuses: number[] = [];
+  let committedAck: unknown;
+  // Observe the actual fetch bodies without replacing the native transport or File.
+  await page.evaluate(path => {
+    const target = window as typeof window & {photoAckFiles: BodyInit[]};
+    target.photoAckFiles = [];
+    const nativeFetch = window.fetch;
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (new URL(url, location.href).pathname === path && init?.method === 'POST') target.photoAckFiles.push(init.body!);
+      return nativeFetch(input, init);
+    };
+  }, s.path);
+  async function facts() {
+    const pointers = (await e2eAuthPool.query('SELECT asset_id,representation_id,policy_revision,linked_at_product_version::text AS version FROM commerce_product_photo_targets WHERE product_id=$1', [s.product.product_id])).rows;
+    const intents = (await e2eAuthPool.query('SELECT intent_id,asset_id,state,source_sha256,expected_version::text AS expected,reserved_bytes FROM asset_upload_intents WHERE target_product_id=$1 ORDER BY intent_id', [s.product.product_id])).rows;
+    const assets = (await e2eAuthPool.query('SELECT a.asset_id,a.state,o.byte_size,o.content_sha256 FROM assets a JOIN asset_upload_intents i USING(asset_id) LEFT JOIN asset_objects o USING(asset_id) WHERE i.target_product_id=$1 ORDER BY a.asset_id', [s.product.product_id])).rows;
+    const effects = (await e2eAuthPool.query('SELECT e.effect_id,e.asset_id,e.state FROM asset_object_write_effects e JOIN asset_upload_intents i USING(asset_id) WHERE i.target_product_id=$1 ORDER BY e.effect_id', [s.product.product_id])).rows;
+    const receipts = (await e2eAuthPool.query("SELECT idempotency_key,response FROM scoped_command_receipts WHERE target_id=$1 AND operation='storefront.product.photo.upload' ORDER BY idempotency_key", [s.product.product_id])).rows;
+    const journal = (await e2eAuthPool.query("SELECT transition_id,aggregate_version::text AS version FROM scoped_transition_journal WHERE aggregate_id=$1 AND operation='storefront.product.photo.upload' ORDER BY transition_id", [s.product.product_id])).rows;
+    const capacity = (await e2eAuthPool.query(`SELECT COALESCE(sum(o.byte_size),0)::text AS used,
+      COALESCE(sum(CASE WHEN o.asset_id IS NULL THEN COALESCE(i.reserved_bytes,CASE a.purpose
+        WHEN 'storefront.product-photo' THEN 1048576 WHEN 'storefront.supply-material' THEN 1048576
+        WHEN 'storefront.supply-material-video' THEN 20971520 ELSE 262144 END) ELSE 0 END),0)::text AS reserved
+      FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id)
+      WHERE a.tenant_ref=$1 AND a.purpose IN ('work.tenant-result','storefront.product-photo','storefront.supply-material','storefront.supply-material-video')`, [tenantId])).rows[0];
+    return {pointers, intents, assets, effects, receipts, journal, capacity};
+  }
+  const baseline = await facts();
+  expect(baseline.assets).toEqual([]); expect(baseline.intents).toEqual([]);
+  expect(baseline.receipts).toEqual([]); expect(baseline.effects).toEqual([]);
+  await page.route('**' + s.path, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    requests.push(signature(route.request()));
+    const response = await route.fetch();
+    statuses.push(response.status());
+    expect(response.status()).toBe(200);
+    if (requests.length === 1) {
+      committedAck = await response.json();
+      ProductMediaCommandSchema.parse(committedAck);
+      const malformed = {...committedAck as object, completed_version: 'abc'};
+      expect(ProductMediaCommandSchema.safeParse(malformed).success).toBe(false);
+      await route.fulfill({response, body: JSON.stringify(malformed)});
+    } else await route.fulfill({response});
+  });
+  await photo(page).getByLabel('商品照片', {exact:true}).setInputFiles(file);
+  await expect(photo(page).getByRole('img', {name:'待儲存的完整商品照片', exact:true})).toBeVisible();
+  await photo(page).getByRole('button', {name:'儲存照片', exact:true}).click();
+  const retry = photo(page).getByRole('button', {name:'重試原照片操作', exact:true});
+  await expect(retry).toBeVisible();
+  await expect(photo(page).getByRole('status')).toHaveText('尚未確認原操作結果。照片與原操作仍保留，請重試確認後再離開。');
+  await expect(photo(page)).toContainText(file.name);
+  await expect(photo(page).getByLabel('商品照片', {exact:true})).toBeDisabled();
+  await expect(photo(page).getByRole('img', {name:'待儲存的完整商品照片', exact:true})).toBeVisible();
+  expect(requests).toHaveLength(1); expect(statuses).toEqual([200]);
+  expect(requests[0]).toMatchObject({version:'"1"', mime:file.mimeType, sha256:digest(file.buffer), bytes:file.buffer.length});
+  expect(requests[0].key).toBeTruthy();
+  const committed = await facts();
+  const ack = ProductMediaCommandSchema.parse(committedAck);
+  expect(ack.completed_version).toBe('2'); expect(ack.current.version).toBe('2');
+  expect(committed.assets).toHaveLength(1);
+  const asset = committed.assets[0]; expect(asset.state).toBe('ready');
+  expect(committed.pointers).toEqual([expect.objectContaining({asset_id:asset.asset_id, version:'2'})]);
+  expect(committed.intents).toEqual([expect.objectContaining({asset_id:asset.asset_id, state:'finalized', expected:'1', source_sha256:requests[0].sha256})]);
+  expect(committed.effects).toEqual([expect.objectContaining({asset_id:asset.asset_id})]);
+  expect(committed.receipts).toEqual([{idempotency_key:requests[0].key, response:{productId:s.product.product_id, completedVersion:'2', changed:true}}]);
+  expect(committed.journal).toEqual([expect.objectContaining({version:'2'})]);
+  expect(BigInt(committed.capacity.used) - BigInt(baseline.capacity.used)).toBe(BigInt(asset.byte_size));
+  expect(committed.capacity.reserved).toBe('0');
+  const originalURL = page.url();
+  await page.getByRole('link', {name:'返回我的商店', exact:true}).click();
+  await expect(page).toHaveURL(originalURL);
+  await expect(photo(page)).toContainText(file.name);
+  expect(requests).toHaveLength(1);
+  const replay = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === s.path);
+  await retry.click();
+  const replayed = await replay;
+  expect(replayed.status()).toBe(200); expect(await replayed.finished()).toBeNull();
+  expect(await replayed.json()).toEqual(committedAck);
+  expect(signature(replayed.request())).toEqual(requests[0]);
+  await expect(photo(page).getByRole('status')).toContainText('已儲存照片變更');
+  await expect(retry).toHaveCount(0); await expect(photo(page)).not.toContainText(file.name);
+  expect(requests).toEqual([requests[0], requests[0]]); expect(statuses).toEqual([200,200]);
+  const retainedFile = await page.evaluate(() => {
+    const files = (window as typeof window & {photoAckFiles: File[]}).photoAckFiles;
+    return {count:files.length, originalFile:files[0] instanceof File, sameFile:files[0] === files[1], name:files[0].name, type:files[0].type, size:files[0].size};
+  });
+  expect(retainedFile).toEqual({count:2, originalFile:true, sameFile:true, name:file.name, type:file.mimeType, size:file.buffer.length});
+  expect(await facts()).toEqual(committed);
+  const privatePath = ack.current.photo!.read_path;
+  await expect(photo(page).locator(':scope > img')).toHaveAttribute('src', privatePath);
+  const anonymous = await browser.newContext({baseURL});
+  try {
+    expect((await anonymous.request.get(privatePath)).status()).toBe(401);
+    await storeArea(page, '店面與發布');
+    await page.getByRole('button', {name:'發布展示頁', exact:true}).click();
+    await expect(page.locator('.hosted-store')).toContainText('已發布・第 1 版');
+    const publicMedia = PublicStoreMediaSchema.parse(await (await anonymous.request.get('/api/v1/public/stores/' + s.slug + '/media')).json());
+    expect(publicMedia.photos).toHaveLength(1);
+    expect(publicMedia.photos[0].sku).toBe(s.product.sku);
+    const publicPath = publicMedia.photos[0].photo.read_path;
+    const published = await anonymous.newPage(); await published.goto('/shops/' + s.slug);
+    await expect(published.locator('article img')).toHaveAttribute('src', publicPath);
+    await expect.poll(() => published.locator('article img').evaluate(node => (node as HTMLImageElement).naturalWidth)).toBe(120);
+    const publicBytes = await (await anonymous.request.get(publicPath)).body();
+    expect(publicBytes.subarray(0,4).toString()).toBe('RIFF');
+    expect(digest(publicBytes)).toBe(digest(await (await page.request.get(privatePath)).body()));
+    expect(digest(publicBytes)).toBe(asset.content_sha256);
+    const refs = (await e2eAuthPool.query('SELECT asset_id,content_sha256 FROM commerce_publication_photo_refs WHERE instance_id=$1', [instanceId])).rows;
+    expect(refs).toEqual([{asset_id:asset.asset_id, content_sha256:asset.content_sha256}]);
+    expect(await facts()).toEqual(committed);
+    await writeFile(info.outputPath('photo-malformed-upload-ack.json'), JSON.stringify({requests, statuses, retainedFile, baseline, committed, publicMedia, refs}, null, 2));
+  } finally {await anonymous.close(); await page.unrouteAll({behavior:'wait'});}
 });

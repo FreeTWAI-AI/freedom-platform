@@ -69,4 +69,4 @@ validation is implied by its source registration.
 
 The closed [supplier material image/video profiles](supply-material.md) share
 that tenant budget and storefront authority, append immutable material versions
-and keep supplier byte reads private. Migration 168 and host flags default OFF.
+and keep supplier byte reads private. Migration 171 and host flags default OFF.
