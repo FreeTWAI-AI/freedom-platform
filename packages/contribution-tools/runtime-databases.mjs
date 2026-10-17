@@ -97,12 +97,12 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
       catch { /* A closed diagnostic stream cannot change cleanup semantics. */ }
     };
     const remaining = () => Math.floor(deadline - performance.now());
-    async function boundedQuery(c, text, values = [], maximum = 2000) {
-      const milliseconds = Math.min(maximum, remaining() - 100);
+    async function boundedQuery(c, text, values = [], maximum = 2000, reserve = 0) {
+      const milliseconds = Math.min(maximum, remaining() - reserve - 100);
       if (milliseconds <= 0) throw Error('cleanup_deadline');
       await c.query({ text: "SELECT set_config('statement_timeout',$1,false)",
-        values: [String(milliseconds)], query_timeout: Math.min(1000, remaining()) });
-      const timeout = Math.min(milliseconds + 50, remaining());
+        values: [String(milliseconds)], query_timeout: Math.min(1000, remaining() - reserve) });
+      const timeout = Math.min(milliseconds + 50, remaining() - reserve);
       if (timeout <= 0) throw Error('cleanup_deadline');
       return c.query({ text, values, query_timeout: timeout });
     }
@@ -112,12 +112,18 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
       return row.pid;
     }
     async function stop(c, pid, application) {
-      const rows = (await boundedQuery(c, 'SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE pid=$1 AND usename=$2 AND application_name=$3', [pid, owner, application])).rows;
+      // Reserve the final second for the separate positive database-absence
+      // check. A false 1s termination ACK is not a final settlement observation.
+      const reserve = 1000;
+      const rows = (await boundedQuery(c, 'SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE pid=$1 AND usename=$2 AND application_name=$3', [pid, owner, application], 2000, reserve)).rows;
       if (rows.some(row => row.stopped !== true)) {
-        // A backend may leave between pg_stat_activity and termination. Only
-        // a fresh absence observation can reconcile a false acknowledgement.
-        const live = await boundedQuery(c, 'SELECT 1 FROM pg_stat_activity WHERE pid=$1 AND usename=$2 AND application_name=$3', [pid, owner, application]);
-        if (live.rowCount) throw Error('owner_backend_unsettled');
+        while (remaining() > reserve + 100) {
+          const live = await boundedQuery(c, 'SELECT 1 FROM pg_stat_activity WHERE pid=$1 AND usename=$2 AND application_name=$3', [pid, owner, application], 250, reserve);
+          if (live.rowCount === 0 && remaining() > reserve) return;
+          if (remaining() <= reserve + 100) break;
+          await new Promise(done => setTimeout(done, 100));
+        }
+        throw Error('owner_backend_unsettled');
       }
     }
     // CREATE may commit with an unknown ACK. Its exact nonce-bound owner must

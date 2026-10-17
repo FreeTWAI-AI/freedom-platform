@@ -194,3 +194,33 @@ Boundary regressions accept exactly 1,200 seconds and reject 1,200 seconds plus 
 
 
 The combined evidence digest hashes the six complete fragments ordered by index; individual original output hashes remain separately available. This is diagnostic candidate-controlled evidence, not authenticated supervisor evidence. All aggregate results retain `gate_enforced:false` and `merge_authorized:false`; this tool supplies no installed App gate, deployment approval or provider access. Local negative tests use synthetic reports and do not prove actual full-suite execution or hosted throughput.
+
+## Bounded nonce-backend settlement (2026-10-17, #873)
+
+[Verify39032894806 partition0](https://github.com/FreeTWAI/freedom-platform/actions/runs/39032894806/job/117396873274)
+at head602ab0 / runner bd78372e completed53 files and807 cases, then failed
+cleanup. DROP lost its acknowledgement after16057ms; the exact cleaner backend
+was still present after the1s termination wait, so the old single readback failed
+at17265ms. PostgreSQL logged termination around18.7s; this does not establish
+that the database was absent. The final checkpoint was57ms. The cleanup source
+matched prior green82806434 and main4e4b9f20; no WP07-causation or checkpoint-delay
+claim is supported. Original failed artifact12101472856 remains failure evidence.
+
+After a false termination acknowledgement, the helper now rechecks only the
+same PID + owner + nonce application identity, at100ms intervals with bounded
+metadata queries. It sends termination once, reserves the last1000ms for fresh
+positive database-absence verification, and keeps the original20s absolute
+cleanup deadline /24s suite reserve. Both query configuration and read timeouts
+respect that reserve. A backend still present at the settlement cutoff fails;
+an absent backend alone never passes cleanup. Database presence, identity or
+ownership mismatch, unavailable observation and deadline expiry remain failures.
+No retry of DROP, larger budget or parsing of late server logs is introduced.
+
+Controlled transport/clock cases exercise the actual helper: unknown DROP ACK
+at16.057s, termination after18.7s, never terminating, database still present,
+settlement only at19.5s and absence observed after20s. These are sequencing
+counterexamples, not a native reproduction of the hosted delay. Native wait/
+lock/I/O capture was unavailable locally: no PostgreSQL binary/cached container
+image, and the pinned CI image pull returned Forbidden. Existing source-bound
+matrix checks and ordinary required CI remain mandatory; no blind full-suite
+rerun is evidence for this change.
