@@ -251,7 +251,9 @@ const routeTable: Record<string, string> = {
   'POST /admin/api/commerce/store-admissions': 'admin',
   'GET /admin/api/commerce/store-admissions': 'admin',
   'POST /admin/api/commerce/store-admissions/:admission_id/revoke': 'admin',
-  // Cache middleware is inventoried separately, never sent as a synthetic ALL request.
+  // Cache and quarantine middleware are inventoried separately, never sent as a synthetic ALL request.
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/*': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*': 'middleware',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'tenant',
@@ -584,8 +586,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 121, middleware: 8 });
-  assert.equal(selectedRoutes.length, 160);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 121, middleware: 10 });
+  assert.equal(selectedRoutes.length, 162);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;

@@ -475,6 +475,26 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   結果不明恢復、版本過期、忘記連結／裝置、撤權清除與零額外 payment attempt；目前旗標關閉，
   不稱完整離線買家體驗已交付，亦不是本次新增 review blocker。
 
+### 2026-10-17：隔離 middleware 的路由盤點補齊
+
+- `195eb8a2` 的 Verify `39015627503` 第 7 區有 1,050 案，唯一失敗在
+  `tenant-route-matrix` 的路由清單檢查；同檔其餘 71 案通過。該區 837.489 秒完成且
+  `database_cleanup_verified=true`，不是容量或清理失敗。ZIP digest 與候選來源已保存。
+  八區與失敗 aggregate 的九份 ZIP／解壓內容、427 份來源 hashes、候選父節點與完整互斥
+  聯集已獨立核對：**6,259 passed／1 failed**，零 skip／TODO／cancelled，八區 cleanup=true，
+  最長 1,135.682 秒。aggregate 正確拒絕此失敗結果，未將七區成功拼成通過。
+- 乾淨同來源的完整 72 案本機反例精確重現 **71 passed／1 failed**：預期路由數 160，
+  實際 162（15.98 秒，零 skip／TODO／cancelled）。新增 storefront 根路徑與 wildcard 的
+  quarantine middleware 需要與既有 cache middleware 一樣登錄在嚴格分類表中。
+- 補入兩條 `ALL` middleware 分類，middleware 預期 8→10、總路由 160→162。
+  每一已掛載路由必須被分類、每一分類必須實際存在的雙向斷言及完整 ACL／RLS 矩陣均保留。
+  產品、migration、Email 鎖順序與 quarantine 邊界的程式 bytes 維持 `195eb8a2`。
+  typecheck 與完整路由／隔離回歸 **76/76** 通過（21.69 秒，零 skip／TODO／cancelled），
+  路由矩陣實際執行 2,763 次 request，同一 runtime-role connection 且 context 清空。
+  前後兩批測試的容器與精確磁碟 volume 均已核對移除；新來源 CI 仍須另跑，
+  不把 195e 的失敗整輪稱為通過。195e 的乾淨治理測試 598/598 及新的 CodeQL 成功另行保留；
+  額外 AGY／Opus 5.5 複核因 CLI 內容過濾錯誤中止，沒有採用為 review approval。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |

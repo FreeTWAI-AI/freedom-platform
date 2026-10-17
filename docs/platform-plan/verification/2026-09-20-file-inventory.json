@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 66731,
-      "sha256": "ac3972e14cdf22251d616bb55b6f53bcb29b3e80cc509fd61c41d7e4434f0a71"
+      "bytes": 68546,
+      "sha256": "c892957d61ea89462a95f1ae910ce57672ebf3de1a609b7618b2dd7e3380cdc2"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -25074,8 +25074,8 @@
     },
     {
       "path": "tests/runtime/tenant-route-matrix.test.ts",
-      "bytes": 128445,
-      "sha256": "7982edad559c3dd11a62b4e63ae2f008304f09c4fbacbb4ef26250085e0fa6be"
+      "bytes": 128614,
+      "sha256": "cfd1ed28fd4a46c61cdb2056722b5d4c3c6c68d1055f5d5d1ec4826ed3e479e6"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
