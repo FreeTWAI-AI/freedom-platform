@@ -46,6 +46,16 @@ for(const value of [true,null,1,' ', 'ecpay.aio.credit.v1,',',ecpay.aio.credit.v
   const result=check({vars:{FREEDOM_COMMERCE_PROVIDER_PROFILES:value}});assert.equal(result.structural,false);assert(result.errors.includes('commerce_provider_profiles_invalid'));
   if(typeof value==='string'&&value.length>2)assert(!JSON.stringify(result).includes(value));
 });
+test('offline-only provider profiles need no journal binding',()=>{
+  for(const value of ['offline.bank_transfer.v1','offline.cash_on_meetup.v1','offline.bank_transfer.v1,offline.cash_on_meetup.v1']){
+    const result=check({vars:{FREEDOM_COMMERCE_PROVIDER_PROFILES:value}});
+    assert.equal(result.structural,true,JSON.stringify(result.errors));
+    assert.deepEqual(result.errors,[]);
+  }
+  const mixed={vars:{FREEDOM_COMMERCE_PROVIDER_PROFILES:'ecpay.aio.credit.v1,offline.bank_transfer.v1'}};
+  assert(check(mixed).errors.includes('commerce_journal_binding_required'));
+  assert.equal(check({...mixed,r2_buckets:[{binding:'COMMERCE_JOURNAL',bucket_name:'synthetic-journal'}]}).structural,true);
+});
 test('each environment with provider profiles must declare its own journal binding',()=>{
   const vars={FREEDOM_COMMERCE_PROVIDER_PROFILES:'ecpay.aio.credit.v1'},r2_buckets=[{binding:'COMMERCE_JOURNAL',bucket_name:'synthetic-journal'}];
   assert.equal(check({vars,r2_buckets}).structural,true);

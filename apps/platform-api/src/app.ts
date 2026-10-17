@@ -1,6 +1,7 @@
 import {detachAfterResponse} from '../../../modules/agent-commerce/operations/due-work.js';
 import {commerceEmailOutbox} from '../../../modules/agent-commerce/operations/notifications/outbox.js';
 import {createCheckoutPaymentPorts} from '../../../modules/agent-commerce/payments/attempts.js';
+import {createPaymentMethodsPort} from '../../../modules/agent-commerce/payments/offline/methods.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
 import {createShippingQuotePort} from '../../../modules/agent-commerce/fulfilment/quote/index.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
@@ -38,13 +39,16 @@ function authNetwork(c:Context) {
 
 /** Node runtime: settings are read from process configuration when used, as before. */
 export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
-  const environment=providerEnvironment(freedomEnv),admission=options.commercePorts?.admission??createStoreAdmissionPort(environment,options.commerceSettings?.providerProfiles??[]);
+  const environment=providerEnvironment(freedomEnv),settingsProfiles=options.commerceSettings?.providerProfiles??[];
+  const admission=options.commercePorts?.admission??createStoreAdmissionPort(environment,settingsProfiles);
   const email=options.commerceSettings?.emailEnabled?(options.commercePorts?.email??commerceEmailOutbox):undefined;
+  const listed=settingsProfiles.length?settingsProfiles:(options.commercePayments?.profiles??[]);
   const payments=options.commercePayments?createCheckoutPaymentPorts({environment,admission,settings:options.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:options.commercePayments.profiles,gateway:options.commercePayments.gateway,keyring:options.commerceCredentialKeyring??null},options.commerceQueryTransport?commerceCheckoutQueryDeps({transport:options.commerceQueryTransport,keyring:options.commerceCredentialKeyring??null,freedomEnv,quarantine:options.commerceSettings?.quarantine,emailEnabled:options.commerceSettings?.emailEnabled,email:options.commercePorts?.email}):undefined):undefined;
+  const paymentMethods=options.commercePorts?.paymentMethods??(listed.length?createPaymentMethodsPort({environment,profiles:listed,card:options.commercePorts?.payment??payments?.payment}):undefined);
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
     afterResponse:options.afterResponse??detachAfterResponse,commerceQueryTransport:options.commerceQueryTransport,
-    commercePayments:options.commercePayments,commerceJournal:options.commerceJournal,commerceEmailSender:options.commerceEmailSender,commerceSettings:options.commerceSettings,commercePorts:{admission,shipping:createShippingQuotePort({environment}),...payments,...options.commercePorts,...(email?{email}:{})},commerceCredentialKeyring:options.commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv),
+    commercePayments:options.commercePayments,commerceJournal:options.commerceJournal,commerceEmailSender:options.commerceEmailSender,commerceSettings:options.commerceSettings,commercePorts:{admission,shipping:createShippingQuotePort({environment}),...payments,...(paymentMethods?{paymentMethods}:{}),...options.commercePorts,...(email?{email}:{})},commerceCredentialKeyring:options.commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv),
     publicGuideAssets:options.publicGuideAssets,
     storePhotoAssetStore:options.storePhotoAssetStore,storePhotoAssets:options.storePhotoAssets,storePhotoUploadsEnabled:options.storePhotoUploadsEnabled===true,
     shopKeyPolicy:options.shopKeyPolicy??process.env.FREEDOM_SHOP_KEY_POLICY as PlatformRuntime['shopKeyPolicy'],

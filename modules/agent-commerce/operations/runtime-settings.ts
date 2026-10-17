@@ -10,7 +10,7 @@ export interface CommerceEnvironment {
   FREEDOM_SUPPLIER_CONSOLE_ENABLED?:string;
   FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
 }
-export const IMPLEMENTED_PROVIDER_PROFILES=Object.freeze(['ecpay.aio.credit.v1']);
+export const IMPLEMENTED_PROVIDER_PROFILES=Object.freeze(['ecpay.aio.credit.v1','offline.bank_transfer.v1','offline.cash_on_meetup.v1']);
 export function readProviderProfiles(raw:string|undefined):readonly string[]{
   if(raw===undefined||raw==='')return Object.freeze([]);
   if(typeof raw!=='string'||/\s/.test(raw))throw new ReadinessError('commerce_provider_profiles_invalid');
@@ -21,7 +21,7 @@ export function readProviderProfiles(raw:string|undefined):readonly string[]{
 /** The socket-based Node host has no installed external-effect journal. */
 export function readNodeCommerceSettings(env:CommerceEnvironment):CommerceSettings{
   const settings=readCommerceSettings(env);
-  if(settings.providerProfiles.length)throw new ReadinessError('commerce_profiles_require_journal');
+  if(settings.providerProfiles.some(profile=>profile.startsWith('ecpay.')))throw new ReadinessError('commerce_profiles_require_journal');
   if(settings.emailEnabled)throw new ReadinessError('commerce_email_requires_worker');
   return settings;
 }

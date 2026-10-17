@@ -48,6 +48,27 @@ test('Node and Worker use the same parsed settings and site reports effective ch
   assert.throws(()=>readWorkerConfig({...env(),FREEDOM_COMMERCE_QUARANTINE:'invalid'}),ReadinessError);
 });
 
+test('an offline-only profile list needs no keyring or journal and still installs payment methods',()=>{
+  const offline='offline.bank_transfer.v1,offline.cash_on_meetup.v1';
+  const node=readNodeCommerceSettings({FREEDOM_COMMERCE_PROVIDER_PROFILES:offline});
+  assert.deepEqual([...node.providerProfiles],['offline.bank_transfer.v1','offline.cash_on_meetup.v1']);
+  const nodeHost=nodeRuntime('local','http://127.0.0.1:4310',{commerceSettings:node});
+  assert.equal(nodeHost.commercePayments,undefined);
+  assert.equal(nodeHost.commerceJournal,undefined);
+  assert.equal(nodeHost.commercePorts?.payment,undefined);
+  assert.equal(typeof nodeHost.commercePorts?.paymentMethods?.resolve,'function');
+  const workerEnv={...env(),FREEDOM_COMMERCE_PROVIDER_PROFILES:offline};
+  const config=readWorkerConfig(workerEnv),worker=workerRuntime(workerEnv,config);
+  assert.equal(config.commerceCredentialKeyring,null);
+  assert.equal(worker.commercePayments,undefined);
+  assert.equal(worker.commerceJournal,undefined);
+  assert.equal(worker.commercePorts?.payment,undefined);
+  assert.equal(typeof worker.commercePorts?.paymentMethods?.resolve,'function');
+  assert.equal(worker.commercePorts?.paymentMethods?.offlinePaymentRequiresMember,true);
+  assert.throws(()=>readWorkerConfig({...workerEnv,COMMERCE_CREDENTIAL_KEYS:'synthetic-invalid'}),(error:unknown)=>error instanceof ReadinessError&&error.message==='Commerce credential keyring configuration is invalid.');
+  assert.throws(()=>readNodeCommerceSettings({FREEDOM_COMMERCE_PROVIDER_PROFILES:`ecpay.aio.credit.v1,${offline}`}),{name:'ReadinessError',message:'commerce_profiles_require_journal'});
+  assert.throws(()=>readWorkerConfig({...env(),FREEDOM_COMMERCE_PROVIDER_PROFILES:`ecpay.aio.credit.v1,offline.bank_transfer.v1`}),{name:'ReadinessError',message:'commerce_profiles_require_keyring'});
+});
 test('checkout requires console even with launchpad enabled',()=>{
   for(const consoleEnabled of [undefined,'false'])assert.throws(()=>readCommerceSettings({FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true',FREEDOM_COMMERCE_CONSOLE_ENABLED:consoleEnabled}),{name:'ReadinessError',message:'commerce_console_required'});
   assert.throws(()=>readCommerceSettings({FREEDOM_COMMERCE_CONSOLE_ENABLED:'true'}),{name:'ReadinessError',message:'commerce_launchpad_required'});

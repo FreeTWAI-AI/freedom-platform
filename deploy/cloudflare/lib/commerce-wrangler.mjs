@@ -22,9 +22,10 @@ export function checkCommerceWranglerConfig(path) {
     if(Object.keys(vars).some(k=>k.startsWith('FREEDOM_COMMERCE_')&&!flags.has(k)&&k!=='FREEDOM_COMMERCE_PROVIDER_PROFILES'))errors.push('commerce_flag_unknown');
     const rawProfiles=vars.FREEDOM_COMMERCE_PROVIDER_PROFILES;
     if(rawProfiles!==undefined&&rawProfiles!==''){
+      const implemented=new Set(['ecpay.aio.credit.v1','offline.bank_transfer.v1','offline.cash_on_meetup.v1']);
       const profiles=typeof rawProfiles==='string'?rawProfiles.split(','):[];
-      if(typeof rawProfiles!=='string'||/\s/.test(rawProfiles)||!profiles.length||new Set(profiles).size!==profiles.length||profiles.some(p=>p!=='ecpay.aio.credit.v1'))errors.push('commerce_provider_profiles_invalid');
-      else if(!Array.isArray(block.r2_buckets)||!block.r2_buckets.some(b=>b&&typeof b==='object'&&b.binding==='COMMERCE_JOURNAL'))errors.push('commerce_journal_binding_required');
+      if(typeof rawProfiles!=='string'||/\s/.test(rawProfiles)||!profiles.length||new Set(profiles).size!==profiles.length||profiles.some(p=>!implemented.has(p)))errors.push('commerce_provider_profiles_invalid');
+      else if(profiles.some(p=>p.startsWith('ecpay.'))&&(!Array.isArray(block.r2_buckets)||!block.r2_buckets.some(b=>b&&typeof b==='object'&&b.binding==='COMMERCE_JOURNAL')))errors.push('commerce_journal_binding_required');
     }
     if(vars.FREEDOM_COMMERCE_EMAIL_ENABLED==='true'){
       if(!Array.isArray(block.send_email)||!block.send_email.some(e=>e&&typeof e==='object'&&e.name==='EMAIL'))errors.push('commerce_email_binding_required');
