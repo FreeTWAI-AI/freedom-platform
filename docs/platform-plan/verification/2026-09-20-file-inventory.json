@@ -324,8 +324,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 11176,
-      "sha256": "37b2a084cc8bf1c76000ef47e765aa871ca6fdb193d177b64722866676fbfac8"
+      "bytes": 11659,
+      "sha256": "1be609f72843f73a1f856dcdaf3287a969cf6a90f3d008a4fb4ebe0a88f900e7"
     },
     {
       "path": "apps/platform-api/src/credential-ingest-client.ts",
@@ -444,8 +444,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 42813,
-      "sha256": "92f6352bda2cd578bc9c9f5c21967fba94373ccca9c8a714b89077cc081a605c"
+      "bytes": 43282,
+      "sha256": "02c39f40de2a69fa4c4ea85a491a3060c17ae3d9b7dbb7f7d40b64f2a24123a4"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -2169,8 +2169,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AgentShops.css",
-      "bytes": 2074,
-      "sha256": "261c5b68cdd9f34c3bb8d99e3dc946060130fe3bedfd2d9a2557526ab5b11a1c"
+      "bytes": 2198,
+      "sha256": "8ca520f0159b82447633010f09e9a624c8d1742a8c6c767a8ee74e2d0b8fb812"
     },
     {
       "path": "apps/portal-web/src/modules/AuthorClaim.css",
@@ -2244,8 +2244,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommercePanels.tsx",
-      "bytes": 25191,
-      "sha256": "435e79f706f3e6cbd948a5d5e7f8e0b07cf8e45fafc88a4453c678c9e1a292b4"
+      "bytes": 25559,
+      "sha256": "6a71d48e77b13737998aff97c7ca4219c3175ed952d32ce2c2b95553976035b9"
     },
     {
       "path": "apps/portal-web/src/modules/Community.tsx",
@@ -13399,8 +13399,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/commerce-wrangler.mjs",
-      "bytes": 4060,
-      "sha256": "88a9bb2197eef365a0365c385530a55832d9e81552767c866c55d3bc45960221"
+      "bytes": 4211,
+      "sha256": "8f3d0d8d8a6a282f7d39481a2cbb9ec7c17f14f19e94405df6fb23315b786c93"
     },
     {
       "path": "deploy/cloudflare/lib/cost.mjs",
@@ -13514,8 +13514,8 @@
     },
     {
       "path": "deploy/cloudflare/test/commerce-wrangler.test.mjs",
-      "bytes": 8730,
-      "sha256": "6f34c149c9c74de7951f2952e68f9a53a5f51b2b46fdb425c5740a9013f8cf4d"
+      "bytes": 9434,
+      "sha256": "7a47b0643ede127c526184cc035b9ff0c8a291cfe34998c946fc8148944672b8"
     },
     {
       "path": "deploy/cloudflare/test/guide-r2-purposes.test.mjs",
@@ -14049,8 +14049,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 33612,
-      "sha256": "2f8b980e0c3faaf278614a8d39e1eda3c872392aa752ee92968b63ff4000e66b"
+      "bytes": 35352,
+      "sha256": "f6d463ad8202d363897efb58fca9c239ea3a77a1df4ed7ea873aee55321a9b9a"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -17174,8 +17174,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 29522,
-      "sha256": "cd66bc1f546e9c29b58d1d2faa8d28f919cce5c592fcc63c753e6ff67b5abac7"
+      "bytes": 30764,
+      "sha256": "a93b38f0ac74d4fbb398fe023ee59d8391c0bbc7840b7f3dc841e241c25bdf7a"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -17684,8 +17684,8 @@
     },
     {
       "path": "modules/agent-commerce/operations/runtime-settings.ts",
-      "bytes": 2806,
-      "sha256": "f4c07ff84493cbac4f13a64f458329a6289624bcf42fc7269bc95f0160f91440"
+      "bytes": 2898,
+      "sha256": "6073dbcc124b7808ef3fd7dc8b1b4e6eba700a7243aa7a682dd0ed6881acc889"
     },
     {
       "path": "modules/agent-commerce/operations/journal/journal.ts",
@@ -21919,8 +21919,8 @@
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
-      "bytes": 17173,
-      "sha256": "eaca8101923796c5a68d0d2ed7307b4fcf311e74182af5c148fa4167008347be"
+      "bytes": 23869,
+      "sha256": "640b84b38a8773d11da422af0836f5ae4cea085a10fcf74e7d56eb747314c59d"
     },
     {
       "path": "tests/e2e/ai-sister-guides.spec.ts",
@@ -23189,8 +23189,8 @@
     },
     {
       "path": "tests/runtime/commerce-effect-journal.test.ts",
-      "bytes": 22686,
-      "sha256": "340c0701a0141a44b224798740e87ff2f6dc20e2707ff9f396425657897d26dd"
+      "bytes": 24427,
+      "sha256": "4ad7b0868ab27863998d75207d63a8800f2408ce791a55c9716c594f9f5b9828"
     },
     {
       "path": "tests/runtime/commerce-email-delivery.test.ts",
@@ -23234,8 +23234,8 @@
     },
     {
       "path": "tests/runtime/commerce-runtime-settings.test.ts",
-      "bytes": 6439,
-      "sha256": "41366c6df77a18b4ebce69fa2f00e855d481d983173588e066012d50fd4b3032"
+      "bytes": 8290,
+      "sha256": "4596a1975f4297e1ebf62642fd70bed83c07eef1f4e968931cbb9c5522a1a2a1"
     },
     {
       "path": "tests/runtime/commerce-scheduler.test.ts",
