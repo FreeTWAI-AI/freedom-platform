@@ -22684,8 +22684,8 @@
     },
     {
       "path": "tests/e2e/storefront-cart.spec.ts",
-      "bytes": 54747,
-      "sha256": "e23b08d3db8030bc649b3bfcce734cbbd60e071603b2d409597d9eabca37dd9e"
+      "bytes": 55095,
+      "sha256": "857f3b454183699a6a8ece10b52b6db265615a7b19d27d225fabf3607cfc6960"
     },
     {
       "path": "tests/e2e/storefront-order-email.spec.ts",
