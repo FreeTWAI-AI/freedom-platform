@@ -154,7 +154,7 @@ export function supplierRun(options:RunOptions,client:CandidateClient,secrets:Se
     const covered=replies.every(reply=>reply.status===200);ctx.check('supplier_public_read_status',covered||(!published&&replies.every(reply=>reply.status===404)));
     if(!covered)return false;
     const bodies=replies.map(reply=>reply.json());for(const body of bodies)ctx.check('supplier_public_json',body&&typeof body==='object'&&!Array.isArray(body));
-    // Anchor every published read, including later photo-only runs, to authenticated publication evidence.
+    // Anchor every published read, even when the photo phase observes an already published store, to authenticated publication evidence.
     ctx.check('supplier_publication_recorded',!!h.publication);const [store,media]=bodies,pin=h.publication!;
     ctx.check('supplier_public_store_matches',store.slug===h.seller.slug&&store.name===h.expected.seller_name&&store.currency==='TWD'&&store.revision===pin.revision);
     const products=Array.isArray(store.products)?store.products.filter((p:any)=>p?.sku===pin.sku):[];

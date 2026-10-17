@@ -15734,8 +15734,8 @@
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/WP-07-release-evidence.md",
-      "bytes": 13556,
-      "sha256": "cdfc564afdada9342df6ca7a4c4ab1be8554dfdb9d35ff413dc4cad48a4fed0f"
+      "bytes": 13776,
+      "sha256": "3000318e9a9803ad8111fcaf870840feb462da6ec5fb2dd6aa2de8883d4bef59"
     },
     {
       "path": "docs/platform-plan/execution/supplier-console/first-journey.md",
@@ -21694,13 +21694,13 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-supplier.ts",
-      "bytes": 39578,
-      "sha256": "c11db04181e818db2389a91ad98cf1487fd0c28fb0fe64210cbfac191811dd42"
+      "bytes": 39608,
+      "sha256": "92d9744e03eec4d61ea874dd9ffa1f187f7243dea738a1e597ce3e7133c5aa92"
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 45984,
-      "sha256": "25b2f125469ba236a51b62c02490817a859c828573efe93c010146c0444ea50e"
+      "bytes": 46227,
+      "sha256": "4df1853601a3a051e2bbe6bec965ba69896b7a54e7bec4899c5607c53f2c3910"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
@@ -22029,8 +22029,8 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-supplier.spec.ts",
-      "bytes": 49281,
-      "sha256": "3f34c5692b18448ccfd4916a74eabe0a5281a9836d4a81ddd71e1cc386306c04"
+      "bytes": 50963,
+      "sha256": "84dfff3c7b28996ea9967c1cbb88c09212270d84cea0a44b4c64477b2abfc6bd"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",

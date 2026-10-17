@@ -27,12 +27,12 @@
 
 2026-10-17 整合 main `1ae0d0a4` 後，工具新建合成店固定使用 `hosted-store@1.1.0`，依賴 `169_hosted_payment_core.sql` 提供的新 offering。上表 `682fe87c`／schema 167／1.0.0 的舊候選不適用此版工具，舊 staging 結果也不是此版工具的雲端證據；必須選含 migration 169 與 1.1.0 offering 的新候選，依固定 SHA 重新驗收。既有店不會由此工具自動升級。
 
-已發布公開投影的證據還需要私有 handle 中的 publication revision 與 SKU；它們來自已登入賣家的成功發布回應與私人讀取。舊 handle 若遇到兩個公開 200 卻缺少這個 pin，會失敗而不聲稱覆蓋；兩個 404 仍只記未發布、未覆蓋。
+已發布公開投影的證據還需要私有 handle 中的 publication revision 與 SKU；它們來自已登入賣家的成功發布回應與私人讀取。phase 層若遇到兩個公開 200 卻缺少這個 pin，會失敗而不聲稱覆蓋；兩個 404 仍只記未發布、未覆蓋。CLI 的 photo／reservations 寫入階段仍要求同次 journey 通過，單獨選 photo 即使提供舊 handle 也會 blocked；底層 phase 測試不代表已支援 CLI 重用寫入。
 
 | 階段 | 對應 | 寫入 |
 | --- | --- | --- |
 | `supplier-journey` | J01（步驟 1～3、5）、J03（6～7，供應商與賣家兩個帳號）、J02（15，重新登入）、J06 的 API 案例（回應遺失後同 key 重送、412） | 新的合成供貨事業、商品、條件與公開版本；合成賣家店與選品；同意決定 |
-| `supplier-photo` | 步驟 4：產生的 PNG 經既有商品照片協定上傳，私人 WebP 讀回並核對尺寸。這一階段不發布賣家店。兩個公開端點都 404 時記 `public_projection: not_covered_unpublished`、`public_projection_private: null`，只表示店尚未發布、公開隔離還沒被這一次讀取覆蓋，階段仍可因私人協定通過。兩個都 200 時，須先匹配 handle 中由已登入賣家發布回應與私人讀取確認的版本、SKU、預期店家及商品內容，再檢查私人資料隔離，才記 `public_projection_private: true`。已發布但沒有 publication pin 的舊 handle 會失敗。其他狀態組合失敗 | 一張產生的照片 |
+| `supplier-photo` | 步驟 4：產生的 PNG 經既有商品照片協定上傳，私人 WebP 讀回並核對尺寸。這一階段不發布賣家店。兩個公開端點都 404 時記 `public_projection: not_covered_unpublished`、`public_projection_private: null`，只表示店尚未發布、公開隔離還沒被這一次讀取覆蓋，階段仍可因私人協定通過。兩個都 200 時，須先匹配 handle 中由已登入賣家發布回應與私人讀取確認的版本、SKU、預期店家及商品內容，再檢查私人資料隔離，才記 `public_projection_private: true`。已發布但沒有 publication pin 時，phase 會失敗；CLI 同次 journey 的依賴不變。其他狀態組合失敗 | 一張產生的照片 |
 | `supplier-reservations` | J04 供應端（步驟 11～14）、J06 的 409。賣家店發布後必讀店面與媒體兩個公開端點，都要 200，才記 `public_projection_private: true`；handle 已有照片時另記 `public_photo_checked: true`。200 回應還須匹配已登入賣家確認的發布版本、店名、slug、TWD、目標 SKU 與商品名稱／說明／零售價，以及同版本媒體投影；空物件、空商品清單或錯誤版本不能當證據，合法空 `photos: []` 可通過。檢查拒絕所選商品的非 null 照片或 `read_path`、私人照片路徑、供應商商品 ID，以及任何 `cost_minor`；公開回應裡的 null 照片佔位不算外洩 | 開預留，買家預留 1 件後取消，再關回預留 |
 | `supplier-recheck` | 回退演練（SC-SPEC-06 §3.6、§4）。關閉與再開都核對書籤上的實際數值，通過後才記 `bookmark_values_matched: true` | 只讀；用到的登入 session 結束時撤銷 |
 

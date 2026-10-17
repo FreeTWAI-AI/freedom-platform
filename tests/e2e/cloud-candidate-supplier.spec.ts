@@ -13,9 +13,10 @@ import {hashPassword} from '../../modules/identity-membership/service.js';
 import {TENANT_CURSOR_TEST_KEY} from '../runtime/tenant-cursor-fixture.js';
 import metadata from '../../contracts/preview/v1/metadata.json' with {type:'json'};
 import packageMetadata from '../../package.json' with {type:'json'};
-import {PHASES,WRITE_DESCRIPTIONS,accountFileRequired,candidateTarget,fetchTransport,localHarnessTarget,runCandidate,selectPhases,
-  type Account,type PhaseId,type Report,type RunOptions,type Target,type Transport,type TransportRequest} from '../../scripts/verify-cloud-candidate-lib.js';
+import {PHASES,WRITE_DESCRIPTIONS,CandidateClient,Secrets,syntheticPng,accountFileRequired,candidateTarget,fetchTransport,localHarnessTarget,runCandidate,selectPhases,
+  type Account,type PhaseId,type PhaseContext,type Report,type RunOptions,type Target,type Transport,type TransportRequest} from '../../scripts/verify-cloud-candidate-lib.js';
 import {main,parseArgs} from '../../scripts/verify-cloud-candidate.js';
+import {supplierRun} from '../../scripts/verify-cloud-candidate-supplier.js';
 
 const supplierPhases=['supplier-journey','supplier-photo','supplier-reservations','supplier-recheck'] as const;
 const target=candidateTarget('staging'),sha='0123456789abcdef0123456789abcdef01234567';
@@ -237,17 +238,31 @@ for(const publicFault of ['empty-store','empty-products','wrong-store','wrong-na
   cleanReport(report,logs,server.known);
 }));
 
-for(const pin of ['matched','missing','stale'] as const)test(`published photo-only recheck requires the authenticated publication pin: ${pin}`,async()=>temporary(async file=>{
+for(const pin of ['matched','missing','stale'] as const)test(`published photo phase requires the authenticated publication pin: ${pin}`,async()=>temporary(async file=>{
   const server=supplierMock({photo:true,photoProtocol:true}),logs:string[]=[];
   const first=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport,log:line=>logs.push(line)});
   expect(first.overall).toBe('pass');const saved=JSON.parse(await readFile(file,'utf8'));expect(saved.publication).toEqual({revision:'1',sku:'P0001'});
   if(pin==='missing')delete saved.publication;else if(pin==='stale')saved.publication.revision='2';await save(file,saved);
-  const start=server.calls.length,report=await runCandidate({...base(['supplier-photo'],file,{supplierAccounts:{supplier:accounts.supplier}}),transport:server.transport,log:line=>logs.push(line)});
-  expect(phase(report,'supplier-photo')).toMatchObject(pin==='matched'?{status:'pass',metrics:{public_projection:'covered_published',public_projection_private:true}}:{status:'fail',reason:pin==='missing'?'supplier_publication_recorded':'supplier_public_store_matches'});
-  expect(report).toMatchObject({overall:pin==='matched'?'pass':'fail',cloud_proof:pin==='matched'});
+  // Exercise the real lower-level phase. The CLI still requires a same-run journey.
+  const start=server.calls.length,secrets=new Secrets(),metrics:Record<string,unknown>={},cleanup:{item:string;state:string}[]=[];
+  const ctx:PhaseContext={check(id,condition){if(!condition)throw Error(id);},metric(key,value){metrics[key]=value;},skip(reason):never{throw Error(reason);},cleanup(item,state){cleanup.push({item,state});}};
+  const runner=supplierRun(base(['supplier-photo'],file,{supplierAccounts:{supplier:accounts.supplier}}),new CandidateClient(target,server.transport,null,secrets),secrets,syntheticPng,async()=>{throw Error('unexpected bookmark');});
+  await runner.preflight(ctx);let failure:string|null=null;
+  try{await runner.phases['supplier-photo'](ctx);}catch(error){failure=(error as Error).message;}finally{await runner.cleanup(ctx);}
+  expect(failure).toBe(pin==='matched'?null:pin==='missing'?'supplier_publication_recorded':'supplier_public_store_matches');
+  if(pin==='matched')expect(metrics).toMatchObject({public_projection:'covered_published',public_projection_private:true});else expect(metrics.public_projection_private).not.toBe(true);
   expect(server.publicStatuses).toEqual([200,200,200,200]);expect(paths(server.calls.slice(start)).filter(path=>path==='POST /api/v1/auth/login')).toHaveLength(1);
   expect(server.settings.supplier.reservation_enabled||server.settings.seller.reservation_enabled).toBe(false);expect(server.sessions.size).toBe(0);
-  expect(report.cleanup.items).toContainEqual({phase:'supplier-photo',item:'supplier synthetic account session',state:'restored'});cleanReport(report,logs,[...server.known,server.readPath]);
+  expect(cleanup).toContainEqual({item:'supplier synthetic account session',state:'restored'});cleanReport(first,logs,[...server.known,server.readPath]);
+  expect(secrets.scrub({metrics,cleanup})).toEqual({value:{metrics,cleanup},hit:false});
+}));
+
+test('CLI photo-only stays blocked with an existing published handle and issues no domain writes',async()=>temporary(async file=>{
+  const server=supplierMock({photo:true,photoProtocol:true});
+  const first=await runCandidate({...base(['supplier-journey','supplier-reservations'],file),transport:server.transport});expect(first.overall).toBe('pass');
+  const start=server.calls.length,report=await runCandidate({...base(['supplier-photo'],file,{supplierAccounts:{supplier:accounts.supplier}}),transport:server.transport});
+  expect(phase(report,'supplier-photo')).toMatchObject({status:'blocked',reason:'requires supplier-journey pass'});expect(report).toMatchObject({overall:'blocked',cloud_proof:false});
+  expect(paths(server.calls.slice(start))).toEqual(['GET /api/v1/health']);expect(server.sessions.size).toBe(0);expect(server.publicStatuses).toEqual([200,200]);cleanReport(report,[],server.known);
 }));
 
 test('failed seller OFF restores the supplier setting and revokes all sessions before failing the phase and run',async()=>{
