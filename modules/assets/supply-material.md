@@ -1,6 +1,6 @@
 # Closed supplier material files
 
-Migration 168 registers two tenant purposes and starts both policy rows in
+Migration 171 registers two tenant purposes and starts both policy rows in
 `legacy` mode with persistence disabled. Source registration and host installation
 do not authorize storage or enable any real environment. Media installation needs
 both launchpad and supplier console; new uploads have a separate default-OFF flag.

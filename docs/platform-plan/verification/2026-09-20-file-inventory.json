@@ -18780,7 +18780,7 @@
     {
       "path": "modules/assets/README.md",
       "bytes": 11823,
-      "sha256": "661c819157322793d2edf6a2bdce7a0c544bac499debdd558d779bb347c5cd3e"
+      "sha256": "283b11633e5a1d6136d59ad5077adb2d886f9cf3e55bd2ba3a098a1e3ee8471c"
     },
     {
       "path": "modules/assets/avatar-policy.ts",
@@ -18945,7 +18945,7 @@
     {
       "path": "modules/assets/supply-material.md",
       "bytes": 4744,
-      "sha256": "612d8c12b10419587c940994aa9c6440f5e285cd6e72c5785c27aa9b463506cc"
+      "sha256": "6f5d5ce69d51e7df5a0bcbb06e93933c6cbbd689f588bafb30f8361e75224131"
     },
     {
       "path": "modules/assets/supply-material.ts",
