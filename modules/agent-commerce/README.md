@@ -51,6 +51,15 @@ Both declared lengths and the actual stream are bounded before parsing.
 All existing Origin, session, CSRF, UTF-8/Unicode/NUL and preview rate-limit
 checks remain in place. Other JSON commands keep their existing ceilings.
 
+The shared manifest schema rejects decoded NUL and unpaired UTF-16 surrogates
+in shop text, product text, public sale terms and manifest URLs. This applies
+after the inner JSON block in a JSON/MD result is decoded, so preview cannot
+offer a manifest that the confirmation HTTP text guard must reject. Valid
+Unicode scalar pairs, intentional U+FFFD and literal `\u0000` / `\ud800`
+text remain unchanged; no replacement or Unicode normalization is applied.
+Existing trimming, length, URL and uniqueness rules still apply. The shared
+business `text()` helper and order/payment/shipment schemas are unchanged.
+
 The server resolver and schema constraints are documented in [resource-scopes](../../packages/resource-scopes/README.md). After schema 117 and 118, an upgraded issuer creates only purpose-bound v2 keys when the owner explicitly requests issuance. Its existing member receipt/digest stays unchanged and a replay still returns `token: null`. The application must receive an explicit `FREEDOM_SHOP_KEY_POLICY=legacy-compatible` or `purpose-bound-only`; absent configuration yields shop-only 503. The Worker config checker lists this as a required injection without changing deployed vars. `/api/v1/health` reports the actual selected policy and issuer profile, or `unconfigured`/null. A merged source SHA or configured example is not an installed policy observation.
 
 ## Controlled legacy exit

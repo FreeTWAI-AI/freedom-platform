@@ -154,6 +154,47 @@ test('manifest preview, atomic import, duplicate import and private/public separ
  assert.equal((await req('/api/v1/commerce/preview',{content:JSON.stringify({...m,secret:'forbidden'})},s)).status,422);
 });
 
+for(const [label,invalid] of [['NUL','\0'],['high surrogate','\uD800'],['low surrogate','\uDC00'],['separated surrogates','\uD800x\uDC00']]){
+ test(`manifest scalar validation rejects decoded ${label} before offering a JSON or MD preview`,async()=>{
+  const session=await login(),bad='合成'+invalid+'文字';
+  const manifests:unknown[]=[];
+  for(const field of ['name','description','contact'])manifests.push({...internal(),[field]:bad});
+  manifests.push({...internal(),website_url:'https://private.example.com/'+invalid});
+  for(const field of ['sku','title','description','shipping_terms','return_terms'])manifests.push({...internal(),products:[{...internal().products[0],[field]:bad}]});
+  manifests.push({...internal(),products:[{...internal().products[0],photo_url:'https://photo.example.com/'+invalid}]});
+  manifests.push({schema:'freedom-shop/v1',kind:'public',name:'公開合成店',description:'測試',website_url:'https://public.example.com',contact:'合成客服',currency:'TWD',selections:[{item_id:randomUUID(),retail_price_minor:50000,sale_terms:bad}]});
+  for(const [index,manifest] of manifests.entries()){
+   const json=JSON.stringify(manifest),content=index%2===0?json:'成果\n```json\n'+json+'\n```';
+   const response=await req('/api/v1/commerce/preview',{content},session);
+   assert.equal(response.status,422,`${label}, field case ${index}`);
+   assert.equal(response.data.code,'validation_failed');
+  }
+  assert.equal((await pool.query('SELECT count(*)::int AS count FROM commerce_shops')).rows[0].count,0);
+ });
+}
+
+test('manifest scalar validation preserves Unicode pairs and literal escapes through preview, import and stored sale terms',async()=>{
+ const session=await login(),value='繁中😀𐀀�\\u0000\\ud800\\udc00';
+ const manifest={...internal(),name:value,description:value,contact:value,products:[{...internal().products[0],sku:value,title:value,description:value,shipping_terms:value,return_terms:value}]};
+ const json=JSON.stringify(manifest);
+ for(const content of [json,'成果\n```json\n'+json+'\n```']){
+  const preview=await req('/api/v1/commerce/preview',{content},session);
+  assert.equal(preview.status,200);
+  assert.equal(preview.data.manifest.products[0].description,value);
+  const imported=await req('/api/v1/commerce/import',{manifest:preview.data.manifest,confirmed:true},session);
+  assert.equal(imported.status,201);
+ }
+ const rows=(await pool.query('SELECT s.name,s.description AS shop_description,s.contact,i.sku,i.title,i.description,i.shipping_terms,i.return_terms FROM commerce_shops s JOIN commerce_items i USING(shop_id)')).rows;
+ assert.deepEqual(rows,[{name:value,shop_description:value,contact:value,sku:value,title:value,description:value,shipping_terms:value,return_terms:value}]);
+ const item=(await req('/api/v1/commerce/catalog',undefined,session)).data.items[0];
+ const publicManifest={schema:'freedom-shop/v1',kind:'public',name:'公開合成店',description:value,website_url:'https://public.example.com',contact:value,currency:'TWD',selections:[{item_id:item.item_id,retail_price_minor:50000,sale_terms:value}]};
+ const preview=await req('/api/v1/commerce/preview',{content:JSON.stringify(publicManifest)},session);
+ assert.equal(preview.status,200);
+ const imported=await req('/api/v1/commerce/import',{manifest:preview.data.manifest,confirmed:true},session);
+ assert.equal(imported.status,201);
+ assert.equal((await pool.query('SELECT snapshot->>\'sale_terms\' AS sale_terms FROM commerce_selections WHERE shop_id=$1',[imported.data.shop_id])).rows[0].sale_terms,value);
+});
+
 test('downloaded kits include exact data, payment application, private access, protocol and no secrets',async()=>{
  const f=await setup();
  for(const kind of ['internal','public']){
