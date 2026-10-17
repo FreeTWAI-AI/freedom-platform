@@ -275,7 +275,9 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND state='pending' AND created_at<=clock_timestamp()-interval '10 minutes'",[id]);
     let existing=(await q.query('SELECT state,registration_attempt_id FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[id,email])).rows[0];
     if(!existing||existing.state==='cancelled'){
-      requireCondition(row.capacity===null||await countEventSeats(q,id)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
+      // The same normalized guest's live invitation already reserves this seat.
+      const mineReserved=(await q.query("SELECT 1 FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2 AND status='invited' AND expires_at>clock_timestamp()",[id,email])).rowCount===1;
+      requireCondition(row.capacity===null||await countEventSeats(q,id)-(mineReserved?1:0)<row.capacity,409,'event_full','活動名額已滿；候補須由本人另行選擇。');
       existing=(await q.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,state,referred_by_user_id,created_at) VALUES($1,$2,$3,'pending',$4,clock_timestamp())
         ON CONFLICT(event_id,email) DO UPDATE SET state='pending',name=EXCLUDED.name,created_at=EXCLUDED.created_at,registration_attempt_id=EXCLUDED.registration_attempt_id,
           referred_by_user_id=COALESCE(community_event_guest_rsvps.referred_by_user_id,EXCLUDED.referred_by_user_id)
@@ -304,7 +306,7 @@ export async function registerPublicEvent(pool:Pool,id:string,raw:unknown,send:E
     const confirmed=await q.query("UPDATE community_event_guest_rsvps SET state='going',email_sent_at=now() WHERE event_id=$1 AND email=$2 AND registration_attempt_id=$3 AND state IN ('pending','going')",[id,email,registration.attempt_id]);
     requireCondition(confirmed.rowCount===1,409,'event_closed','報名狀態已變更，請重新確認本人狀態。');
     if(registration.capability)await markGuestCapabilityProviderAccepted(q,id,email);
-    if(participationEnabled){await markEventParticipationGoing(q,id,{guest_email:email});await reconcileEventWaitlist(q,id);}
+    await markEventParticipationGoing(q,id,{guest_email:email});if(participationEnabled)await reconcileEventWaitlist(q,id);
     // Provider waits and later writes can outlive the start; only this confirmation rolls back.
     requireCondition((await q.query("SELECT 1 FROM community_events WHERE event_id=$1 AND state='published' AND starts_at>clock_timestamp()",[id])).rowCount===1,409,'event_closed',
       reservation.state==='going'?'活動已開始或取消，原報名狀態未變；這次通知可能已由郵件提供者接受。':'活動已開始或取消，這次報名未確認；通知可能已由郵件提供者接受。');

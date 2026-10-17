@@ -8,7 +8,7 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {eventInvitationDeadline,ensureGuestCapability,resolveGuestParticipation,readGuestEventParticipation,mutateGuestEventParticipation,reconcileEventWaitlist,countEventSeats,processEventWaitlist} from '../../modules/community/event-waitlist.js';
 import {setRsvp,registerPublicEvent,cancelEvent,getEventShareCode} from '../../modules/community/events.js';
-import {mutateEventWaitlist,readEventParticipation,updateEventSchedule} from '../../modules/community/event-waitlist.js';
+import {mutateEventWaitlist,readEventParticipation,updateEventSchedule,setEventWaitlistPolicy} from '../../modules/community/event-waitlist.js';
 import {Problem} from '../../packages/shared/problem.js';
 import type {Command} from '../../packages/db/index.js';
 import {login,type Actor} from '../../modules/identity-membership/service.js';
@@ -371,6 +371,170 @@ test('the original RSVP consumes its own invitation rather than allocating a sec
   assert.equal(await countEventSeats(pool,eventId),0);
 });
 
+for(const participationEnabled of [false,true])for(const previous of ['missing','cancelled'] as const)test(`public guest registration consumes its own invitation with a ${previous} RSVP (participation=${participationEnabled})`,async()=>{
+  const email='invited-public@local.test',token=await capability(email);
+  if(previous==='cancelled')await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state) VALUES($1,$2,'合成訪客','cancelled')",[eventId,email]);
+  assert.equal((await action(token,'join')).result.waitlist?.status,'invited');
+  let sent=0;
+  const result=await registerPublicEvent(pool,eventId,{name:'合成訪客',email:email.toUpperCase()},async to=>{assert.equal(to,email);sent++;},'https://example.test',participationEnabled);
+  assert.deepEqual(result,{registered:true,provider_status:'provider_accepted'});assert.equal(sent,1);
+  const current=await readGuestEventParticipation(pool,eventId,token);
+  assert.equal(current.rsvp_state,'going');assert.equal(current.waitlist?.status,'accepted');
+  assert.equal(await countEventSeats(pool,eventId),1);
+  assert.equal((await pool.query('SELECT count(*)::int AS count FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].count,1);
+  await pool.query("UPDATE community_event_waitlist SET invited_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1 AND guest_email=$2",[eventId,email]);
+  await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  assert.equal((await readGuestEventParticipation(pool,eventId,token)).waitlist?.status,'accepted');
+});
+
+for(const policyDisabled of [false,true])for(const participationEnabled of [false,true])for(const firstProviderAccepted of [false,true])test(`a live guest hold protects its credited offer across admission and confirmation (policyDisabled=${policyDisabled}, participation=${participationEnabled}, firstProviderAccepted=${firstProviderAccepted})`,async()=>{
+  const email='gap-public@local.test',token=await capability(email),next=await capability('gap-next@local.test');
+  await action(token,'join');await action(next,'join');
+  const invitation=(await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id;
+  let connects=0,sends=0,gapDeliveries=0,gapStatus:string|undefined;
+  const gapPool={async connect(){
+    if(++connects===2){
+      if(policyDisabled){
+        const current=await readEventParticipation(pool,actor(0),eventId);
+        await setEventWaitlistPolicy(pool,memberCommand(0,`PATCH /events/${eventId}/waitlist-policy`,{waitlist_enabled:false,response_window_minutes:null},current.event_version),eventId);
+        await processEventWaitlist(pool,async()=>{gapDeliveries++;},'https://example.test',undefined,eventId);
+      }else{
+        await pool.query("UPDATE community_event_waitlist SET invited_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1 AND guest_email=$2",[eventId,email]);
+        await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+      }
+      gapStatus=(await pool.query('SELECT status FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].status;
+      assert.equal((await pool.query('SELECT state FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].state,'pending');
+    }
+    return pool.connect();
+  }} as unknown as Pool;
+  const run=()=>registerPublicEvent(gapPool,eventId,{name:'合成交易間隔訪客',email},async()=>{
+    sends++;if(sends===1&&!firstProviderAccepted)throw Error('synthetic provider rejection');
+  },'https://example.test',participationEnabled);
+  if(!firstProviderAccepted){
+    await assert.rejects(run,error=>error instanceof Problem&&error.status===503&&error.code==='event_email_delivery_failed');
+    assert.equal((await pool.query('SELECT state FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].state,'pending');
+  }
+  assert.deepEqual(await run(),{registered:true,provider_status:'provider_accepted'});
+  const current=await readGuestEventParticipation(pool,eventId,token);
+  assert.equal(current.rsvp_state,'going');assert.equal(current.waitlist?.status,'accepted');
+  assert.equal(gapStatus,'invited');assert.equal(sends,firstProviderAccepted?1:2);assert.equal(gapDeliveries,0);
+  assert.equal((await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id,invitation);
+  assert.equal((await readGuestEventParticipation(pool,eventId,next)).waitlist?.status,policyDisabled?'cancelled':'queued');
+  assert.equal(await countEventSeats(pool,eventId),1);
+});
+
+test('a policy-blocked unsent claim becomes dispatchable once after a failed public registration and re-enable',async()=>{
+  const email='claimed-hold@local.test',token=await capability(email);await action(token,'join');
+  let publicSends=0;
+  await assert.rejects(registerPublicEvent(pool,eventId,{name:'合成已入場訪客',email},async()=>{
+    publicSends++;throw Error('synthetic public provider rejection');
+  },'https://example.test',true),cause=>cause instanceof Problem&&cause.status===503&&cause.code==='event_email_delivery_failed');
+  const invitation=(await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id;
+  let connects=0,sends=0;
+  const gapPool={query:pool.query.bind(pool),async connect(){
+    if(++connects===3){
+      assert.equal((await readGuestEventParticipation(pool,eventId,token)).waitlist?.delivery_status,'unknown');
+      const current=await readEventParticipation(pool,actor(0),eventId);
+      await setEventWaitlistPolicy(pool,memberCommand(0,`PATCH /events/${eventId}/waitlist-policy`,{waitlist_enabled:false,response_window_minutes:null},current.event_version),eventId);
+    }
+    return pool.connect();
+  }} as unknown as Pool;
+  await processEventWaitlist(gapPool,async()=>{sends++;},'https://example.test',undefined,eventId);
+  const current=await readGuestEventParticipation(pool,eventId,token);
+  assert.equal(sends,0);assert.equal(current.rsvp_state,'pending');assert.equal(current.waitlist?.status,'invited');
+  assert.equal(publicSends,1);assert.equal(current.waitlist?.delivery_status,'pending');assert.equal(await countEventSeats(pool,eventId),1);
+  await setEventWaitlistPolicy(pool,memberCommand(0,`PATCH /events/${eventId}/waitlist-policy`,{waitlist_enabled:true,response_window_minutes:30},current.event_version),eventId);
+  const send=async(to:string)=>{assert.equal(to,email);sends++;};
+  assert.equal((await processEventWaitlist(pool,send,'https://example.test',undefined,eventId)).provider_accepted,1);
+  assert.equal((await processEventWaitlist(pool,send,'https://example.test',undefined,eventId)).provider_accepted,0);
+  const delivered=await readGuestEventParticipation(pool,eventId,token);
+  assert.equal(sends,1);assert.equal(delivered.waitlist?.delivery_status,'provider_accepted');assert.equal(delivered.waitlist?.status,'invited');assert.equal(delivered.rsvp_state,'pending');
+  assert.equal((await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id,invitation);
+  assert.equal(await countEventSeats(pool,eventId),1);
+});
+
+test('a possibly-sent unknown invitation is not reset or retried by a policy round trip',async()=>{
+  const email='possibly-sent@local.test',token=await capability(email);await action(token,'join');
+  await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state,created_at) VALUES($1,$2,'合成已入場訪客','pending',clock_timestamp())",[eventId,email]);
+  await pool.query(`CREATE FUNCTION reject_invitation_bookkeeping() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.delivery_status='provider_accepted' THEN RAISE EXCEPTION 'synthetic bookkeeping failure'; END IF; RETURN NEW; END $$`);
+  await pool.query('CREATE TRIGGER reject_invitation_bookkeeping BEFORE UPDATE ON community_event_waitlist FOR EACH ROW EXECUTE FUNCTION reject_invitation_bookkeeping()');
+  let sends=0;const send=async()=>{sends++;};
+  try{
+    await assert.rejects(processEventWaitlist(pool,send,'https://example.test',undefined,eventId),/synthetic bookkeeping failure/);
+  }finally{
+    await pool.query('DROP TRIGGER reject_invitation_bookkeeping ON community_event_waitlist');
+    await pool.query('DROP FUNCTION reject_invitation_bookkeeping()');
+  }
+  assert.equal((await readGuestEventParticipation(pool,eventId,token)).waitlist?.delivery_status,'unknown');
+  for(const enabled of [false,true]){
+    const current=await readGuestEventParticipation(pool,eventId,token);
+    await setEventWaitlistPolicy(pool,memberCommand(0,`PATCH /events/${eventId}/waitlist-policy`,{waitlist_enabled:enabled,response_window_minutes:enabled?30:null},current.event_version),eventId);
+    await processEventWaitlist(pool,send,'https://example.test',undefined,eventId);
+  }
+  const current=await readGuestEventParticipation(pool,eventId,token);
+  assert.equal(sends,1);assert.equal(current.waitlist?.delivery_status,'unknown');assert.equal(current.waitlist?.status,'invited');assert.equal(await countEventSeats(pool,eventId),1);
+});
+
+for(const gate of ['expired','started','cancelled','ineligible','replaced'] as const)test(`policy rollback leaves a ${gate} claim unknown`,async()=>{
+  const email='blocked-claim@local.test',token=await capability(email);await action(token,'join');
+  await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state,created_at) VALUES($1,$2,'合成已入場訪客','pending',clock_timestamp())",[eventId,email]);
+  let connects=0,sends=0;
+  const gapPool={query:pool.query.bind(pool),async connect(){
+    if(++connects===3){
+      const current=await readEventParticipation(pool,actor(0),eventId);
+      await setEventWaitlistPolicy(pool,memberCommand(0,`PATCH /events/${eventId}/waitlist-policy`,{waitlist_enabled:false,response_window_minutes:null},current.event_version),eventId);
+      if(gate==='expired')await pool.query("UPDATE community_event_waitlist SET invited_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1",[eventId]);
+      if(gate==='started')await pool.query("UPDATE community_events SET starts_at=clock_timestamp()-interval '1 second' WHERE event_id=$1",[eventId]);
+      if(gate==='cancelled')await pool.query("UPDATE community_events SET state='cancelled' WHERE event_id=$1",[eventId]);
+      if(gate==='ineligible')await pool.query('UPDATE community_event_guest_capabilities SET verified_at=NULL WHERE event_id=$1',[eventId]);
+      if(gate==='replaced')await pool.query('UPDATE community_event_waitlist SET invitation_id=$2 WHERE event_id=$1',[eventId,randomUUID()]);
+    }
+    return pool.connect();
+  }} as unknown as Pool;
+  await processEventWaitlist(gapPool,async()=>{sends++;},'https://example.test',undefined,eventId);
+  assert.equal(sends,0);
+  assert.equal((await pool.query('SELECT delivery_status FROM community_event_waitlist WHERE event_id=$1',[eventId])).rows[0].delivery_status,'unknown');
+});
+
+for(const closed of ['started','cancelled'] as const)test(`a ${closed} event cancels an invitation despite its guest admission hold`,async()=>{
+  const email='closed-hold@local.test',token=await capability(email);await action(token,'join');
+  await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state,created_at) VALUES($1,$2,'合成已入場訪客','pending',clock_timestamp())",[eventId,email]);
+  if(closed==='started')await pool.query("UPDATE community_events SET starts_at=clock_timestamp()-interval '1 minute' WHERE event_id=$1",[eventId]);
+  else{
+    const current=await readEventParticipation(pool,actor(0),eventId);
+    await cancelEvent(pool,memberCommand(0,`POST /events/${eventId}/cancel`,{},current.event_version),eventId,true);
+  }
+  await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  assert.equal((await readGuestEventParticipation(pool,eventId,token)).waitlist?.status,'cancelled');
+});
+
+test('an expired guest hold cannot extend an expired offer or block the next candidate',async()=>{
+  const email='old-hold-offer@local.test',first=await capability(email),next=await capability('old-hold-next@local.test');
+  await action(first,'join');await action(next,'join');
+  await pool.query("INSERT INTO community_event_guest_rsvps(event_id,email,name,state,created_at) VALUES($1,$2,'合成過期保留','pending',clock_timestamp()-interval '11 minutes')",[eventId,email]);
+  await pool.query("UPDATE community_event_waitlist SET invited_at=clock_timestamp()-interval '2 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE event_id=$1 AND guest_email=$2",[eventId,email]);
+  await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  assert.equal((await readGuestEventParticipation(pool,eventId,first)).waitlist?.status,'expired');
+  assert.equal((await pool.query('SELECT state FROM community_event_guest_rsvps WHERE event_id=$1 AND email=$2',[eventId,email])).rows[0].state,'cancelled');
+  assert.equal((await readGuestEventParticipation(pool,eventId,next)).waitlist?.status,'invited');
+  assert.equal(await countEventSeats(pool,eventId),1);
+});
+
+test('public guest registration cannot consume another guest invitation or an expired offer reassigned to the next guest',async()=>{
+  const email='expired-public@local.test',first=await capability(email),second=await capability('next-public@local.test');
+  await action(first,'join');await action(second,'join');
+  let sent=0;
+  await assert.rejects(registerPublicEvent(pool,eventId,{name:'合成訪客',email:'uninvited@local.test'},async()=>{sent++;},'https://example.test',true),error=>error instanceof Problem&&error.code==='event_full');
+  await pool.query("UPDATE community_event_waitlist SET invited_at=now()-interval '2 seconds',expires_at=now()-interval '1 second' WHERE event_id=$1 AND guest_email=$2",[eventId,email]);
+  await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  await assert.rejects(registerPublicEvent(pool,eventId,{name:'合成訪客',email},async()=>{sent++;},'https://example.test',true),error=>error instanceof Problem&&error.code==='event_full');
+  assert.equal(sent,0);assert.equal(await countEventSeats(pool,eventId),1);
+  assert.equal((await readGuestEventParticipation(pool,eventId,first)).waitlist?.status,'expired');
+  assert.equal((await readGuestEventParticipation(pool,eventId,second)).waitlist?.status,'invited');
+  assert.equal((await pool.query('SELECT 1 FROM community_event_guest_rsvps WHERE event_id=$1',[eventId])).rowCount,0);
+});
+
 test('rejoining after withdrawal starts at the back and the factual history survives row reuse',async()=>{
   await setRsvp(pool,memberCommand(0,`POST /events/${eventId}/rsvp`,{going:true}),eventId,true);
   const first=await capability('rejoin-first@local.test'),second=await capability('rejoin-second@local.test');
@@ -401,6 +565,29 @@ test('capacity reduction retracts the newest invitation without cancelling a con
   await updateEventSchedule(pool,memberCommand(0,`PATCH /events/${eventId}/schedule`,{starts_at:start.toISOString(),ends_at:new Date(start.getTime()+3600000).toISOString(),capacity:2},current.event_version),eventId);
   assert.equal((await readGuestEventParticipation(pool,eventId,first)).waitlist?.status,'invited');
   assert.equal((await readGuestEventParticipation(pool,eventId,second)).waitlist?.status,'queued');
+  assert.equal((await readEventParticipation(pool,actor(0),eventId)).rsvp_state,'going');
+  assert.equal(await countEventSeats(pool,eventId),2);
+});
+
+test('capacity reduction respects an admitted guest hold instead of retaining an extra unconsumed invitation',async()=>{
+  await pool.query('UPDATE community_events SET capacity=3 WHERE event_id=$1',[eventId]);
+  await setRsvp(pool,memberCommand(0,`POST /events/${eventId}/rsvp`,{going:true}),eventId,true);
+  const older=await capability('capacity-unconsumed@local.test'),email='capacity-admitted@local.test',held=await capability(email);
+  await action(older,'join');await action(held,'join');
+  const invitation=(await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id;
+  let connects=0;
+  const gapPool={async connect(){
+    if(++connects===2){
+      const current=await readEventParticipation(pool,actor(0),eventId);
+      await updateEventSchedule(pool,memberCommand(0,`PATCH /events/${eventId}/schedule`,{starts_at:start.toISOString(),ends_at:new Date(start.getTime()+3600000).toISOString(),capacity:2},current.event_version),eventId);
+      assert.equal(await countEventSeats(pool,eventId),2);
+    }
+    return pool.connect();
+  }} as unknown as Pool;
+  await registerPublicEvent(gapPool,eventId,{name:'合成已入場訪客',email},async()=>{},'https://example.test',true);
+  assert.equal((await readGuestEventParticipation(pool,eventId,older)).waitlist?.status,'queued');
+  assert.equal((await readGuestEventParticipation(pool,eventId,held)).waitlist?.status,'accepted');
+  assert.equal((await pool.query('SELECT invitation_id FROM community_event_waitlist WHERE event_id=$1 AND guest_email=$2',[eventId,email])).rows[0].invitation_id,invitation);
   assert.equal((await readEventParticipation(pool,actor(0),eventId)).rsvp_state,'going');
   assert.equal(await countEventSeats(pool,eventId),2);
 });
