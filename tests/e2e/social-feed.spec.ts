@@ -32,7 +32,7 @@ test('the phone homepage starts with member posts and one clear composer, with e
     await expect(post.locator('.social-platform-badge')).toHaveCount(0);
     await expect(post.getByRole('button',{name:'刪除',exact:true})).toBeHidden();
     const trigger=feed.getByRole('button',{name:'建立貼文',exact:true}),options=feed.getByRole('button',{name:'動態選項',exact:true});
-    await expect(trigger).toContainText('＋發文');
+    await expect(trigger).toContainText('想分享什麼？');
     for(const theme of ['light','dark','versefolk'])for(const width of [320,390]){
       await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);
       await page.setViewportSize({width,height:844});await page.evaluate(()=>scrollTo(0,0));

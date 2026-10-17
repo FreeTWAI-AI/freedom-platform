@@ -5,7 +5,7 @@ function card(page:Page,text:string){return page.locator('.social-card').filter(
 
 test('wall tools publish topics, mentions, check-ins and pictures; social comments and share controls work at every width',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await login(page);
- await page.getByRole('button',{name:'新增照片貼文',exact:true}).click();
+ await page.getByRole('button',{name:'建立貼文',exact:true}).click();
  const compose=page.getByRole('dialog',{name:'建立貼文',exact:true}),text=`一起分享今日作品 ${Date.now()}`;
  await compose.getByLabel('貼文內容',{exact:true}).fill(text+' #作品');
  await compose.getByLabel('貼文主題').selectOption('work');await compose.getByRole('button',{name:'打卡',exact:true}).click();await compose.getByLabel('打卡地點',{exact:true}).fill('台北松菸');
