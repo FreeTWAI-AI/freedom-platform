@@ -10,6 +10,32 @@
 [R2／AP](source-acceptance.md) 的原文、最低證據層級及所有 168 個 ID。
 歷史 handoff／release-readiness 保留當時證據，不再維護另一份 current 狀態。
 
+## 2026-10-17 Commerce 與離線買家流程收尾
+
+#863 的後端與 schema168–170 已部署兩環境，接著 #875 補齊買家報價、確認下單、
+凍結匯款／面交說明、未知回覆重試及取消流程。新版本 `d39370a1` 與主線 #862 的
+schema171 已部署 staging、production；完整來源與部署證據見[本輪收據](rollout-commerce-buyer-2026-10-17.json)。主線另於16:19 UTC
+合併 #864／schema172，由其原工作流程接續發布；本輪收據只證明 `d39370a1`／171
+在所列時間的狀態，不把後續主線或另一輪部署算入本輪。
+兩輪發布均完成實際資料庫＋物件備份與隔離還原、保留 floor 及資源清理；新日常
+備份工具已安裝，原 timer 已恢復。新工具的自然排程尚未觀察。
+
+買家來源的完整 Verify attempt 2 通過17個 jobs、435個 runtime檔／
+6393個案例及1105個不重複 browser案例。
+第一輪第6區資料庫清理逾時仍記為失敗；原 artifact與完整日誌已保留，根因未確定，
+未放寬 timeout 或測試門檻。#863 原 staging before-restore逾時與明確 restore-only
+補驗也分開保留，不改寫原失敗。首次 schema171 staging嘗試因演練漏建7個既有媒體欄位權限，
+在COMMIT前回滾；唯讀核對後恢復舊服務，補齊演練並通過13案，再以新套件與新備份部署。
+原失敗與恢復收據保留，遷移檢查未放寬。
+
+**Commerce console／checkout／email仍關閉**；供應商 console維持 staging開、production關。
+這是程式與限定雲端部署結案，不是開放真實交易，也不是完整 M3／M4 或 Foundation完成。
+原168項需求、T-047、真人使用、真實OAuth／provider交易與第二操作者恢復未驗項保留。
+Staging使用自有合成會員；production只做公開唯讀驗收。既有166／167／170證據及
+production座標約束保留，schema171後禁止回退舊Worker，還原環境仍須隔離與現行授權對帳。
+
+以下2026-10-14／15記錄為歷史觀察；當前具日期快照以上方收據與`current-state.json`為準。
+
 ## 2026-10-14 安全修補與組織搬遷發布現況
 
 **最新營運證據截至10月15日07:04 UTC：** 兩環境仍為 `938516ee`／schema166，

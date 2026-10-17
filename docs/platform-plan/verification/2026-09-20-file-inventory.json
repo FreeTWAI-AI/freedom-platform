@@ -15474,13 +15474,13 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 72793,
-      "sha256": "4d5920ec46c43a206d3c367bd0ea81dc6598e0d744b00491a38b2991aa323a4b"
+      "bytes": 74042,
+      "sha256": "9799b40a86f48bc1345a02bc243399f88b99416fb8e01e527d51dc08217b41a7"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 30994,
-      "sha256": "fd410df45f5353f6ebdf79748414b323df837338f2c167a7795e68d516c5630f"
+      "bytes": 32339,
+      "sha256": "4a53f570ac94cc3e16439baf09418e14d0e14b2cbacb91eb8dfa398160c5c6b4"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15964,8 +15964,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 90562,
-      "sha256": "b8a2a96fe1a544104c00f7929f1439e2b63531ac2208134525d6628c34570a8b"
+      "bytes": 92660,
+      "sha256": "f7bbbf62bf07b75b3fd9a81cb03d7550dc54dcad5a81b9c95e9dcf433f956c58"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -15984,8 +15984,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 169260,
-      "sha256": "dc6d4bd9bc769782ba3a0d8dc2f4e45d0fe41aaa0b409ca760ba56172d3470b8"
+      "bytes": 192984,
+      "sha256": "425c5936df01b780946d6ffa2a4295251f74176369fe41e3f1ae9f4535b771b8"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -16106,6 +16106,11 @@
       "path": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
       "bytes": 18858,
       "sha256": "7b1a808e482d337c96955714fa70ce5a75d797c92bc599c8eeea955fb8fa63aa"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/rollout-commerce-buyer-2026-10-17.json",
+      "bytes": 21287,
+      "sha256": "8fcceaaa0397572c4cc45ab0630378908174e9d080b9af9ff9f851c05c4f6870"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/rollout-r15-2026-10-10.json",

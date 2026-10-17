@@ -536,6 +536,20 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
 - 此後續來源仍待修正後的 hosted CI、再次 source review、合併及雲端驗收。
   不更新 Foundation 168 項要求為 accepted，不宣告完整 M3／M4、真實金流、物流、寄信或商家採用完成。
 
+### 2026-10-17：離線買家流程合併與限定部署完成
+
+- #875 已正常合併為 `d39370a17d1d1d6af2507acd9ee7b592ff221a21`；精確 head `0d700e1d7f5e919b629f52eb2e9fd3c765db7e32` 的 Verify
+  [39037614076 attempt 2](https://github.com/FreeTWAI/freedom-platform/actions/runs/39037614076)
+  17 jobs、runtime 435 檔／6393 案與 browser
+  1105 個不重複案例通過。來源、同一 attempt 的八區清理／聯集、UI、
+  CodeQL、worker 與獨立 AI-assisted source review 已分別讀回；原失敗保持原結果。
+- #863／schema168–170 與後續買家版本／主線 schema171 已依序部署 staging、production。
+  實際 before／after 的 DB＋物件備份、完整隔離還原、保留 floor 與清理通過；新 daily operator
+  已安裝並恢復原 timer，自然排程未驗。詳見[具日期部署收據](../unified-foundation/rollout-commerce-buyer-2026-10-17.json)。
+- Commerce console／checkout／email仍 OFF；未開放真實商家或 provider 交易。供應商 console
+  保持 staging ON、production OFF。Production 未做會員登入／browser／OAuth驗收。
+  本輪工程與限定部署已結案，完整 M3／M4、原168項 Foundation要求、T-047及真人驗收仍按原缺口追蹤。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |

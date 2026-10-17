@@ -1,0 +1,490 @@
+{
+  "format": "freedom.commerce-buyer-rollout/v1",
+  "recorded_at": "2026-10-17T16:46:04.249377+00:00",
+  "kind": "sanitized_operator_observations",
+  "authorization": "User explicitly requested takeover, completion, normal merges and deployment.",
+  "releases": {
+    "commerce170": {
+      "status": "complete",
+      "completed_at": "2026-10-17T13:46:26.439Z",
+      "source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+      "tree": "753b38268e82de3f63b98e6f6e787172bf925c12",
+      "dist_sha256": "8454428507abd6123dc069e5b3921d4f09258f9b195efa57b1740beca81b09d2",
+      "migrations_applied": [
+        "168_hosted_checkout_core.sql",
+        "169_hosted_payment_core.sql",
+        "170_hosted_fulfilment.sql"
+      ],
+      "private_completion_sha256": "530312a458eacd09117eb9129202a14e16ba3c16111be60308c53db8a91fadb5",
+      "targets": {
+        "staging": {
+          "worker_version": "fe391660-e185-496d-8f0e-33f31c880c5e",
+          "schema": 170,
+          "ledger": {
+            "at": "2026-10-17T13:46:23.038Z",
+            "rows": 169,
+            "digest": "ef84eec34e927ece626dfff6baacc2395241ff8be9f15e1bb99ed20e46c1dbeb"
+          },
+          "health": {
+            "http": 200,
+            "status": "ok",
+            "mode": "staging",
+            "runtime": "cloudflare-workers",
+            "release_sha": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+            "cache_control_no_store": true
+          },
+          "flags": {
+            "commerce_console": false,
+            "commerce_checkout": false,
+            "commerce_email": false,
+            "commerce_quarantine": false,
+            "supplier_console": true,
+            "ar_persistence": false
+          },
+          "acceptance": {
+            "at": "2026-10-17T13:02:16.895316+00:00",
+            "phases": [
+              "preflight",
+              "health",
+              "protocol",
+              "assets",
+              "anonymous",
+              "session",
+              "browser",
+              "logout"
+            ],
+            "notRunPhases": [
+              "guild-cache",
+              "github-handoff",
+              "avatar",
+              "registration",
+              "messages",
+              "messages-mobile",
+              "load"
+            ],
+            "productionMemberSession": "not_applicable",
+            "cleanupVerified": true
+          },
+          "backups": {
+            "before": {
+              "setId": "db0d57ef-6525-493f-a16c-5b58c7b89d8e",
+              "source": "08a832d3d775322f754266f8d2f00cd3980078ca",
+              "schema": 167,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "0c3d327de97c1c3cfa002d5061c9de71cb944938396ab7878b34a877fee042f3"
+            },
+            "migration": {
+              "setId": "ae83366b-6e81-4190-825e-bc0f93120909",
+              "source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+              "schema": 170,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "61f3bf9c14caccc2e1261d9d01d36a9afb24c749fa9a9e14fa8f6f185ce25993"
+            },
+            "after": {
+              "setId": "f5c34066-3ea1-4f86-a1a3-80e952e9aff5",
+              "source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+              "schema": 170,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "5605d9bd1680d13dde960c514b56d4c64346e0b65c518a1c6062ed84e0e83e64"
+            }
+          },
+          "retained_capabilities": [
+            "opensource.sharing-visibility.v1",
+            "commerce.hosted-supply-catalog.v1",
+            "commerce.hosted-inventory-reservation.v1",
+            "commerce.hosted-shared-reservation.v1",
+            "commerce.hosted-checkout.v1",
+            "commerce.hosted-payment.v1"
+          ],
+          "restore_quarantine_required": true,
+          "timer": {
+            "status": "restored",
+            "state": "active",
+            "next": "Sat 2026-10-17 23:34:50 EDT"
+          },
+          "private_deploy_receipt_sha256": "4d37a1d48b53ccdda41b64e9e722bdc2014e5e465039bd0db19153720d314e6f",
+          "private_floor_sha256": "b4947ec537925fc24f3b71893cb2ebbd3dacbe46712def0ebaec1bb596557a06"
+        },
+        "production": {
+          "worker_version": "0effd91b-304b-402a-b4a0-80738e20f2c0",
+          "schema": 170,
+          "ledger": {
+            "at": "2026-10-17T13:46:26.161Z",
+            "rows": 169,
+            "digest": "ef84eec34e927ece626dfff6baacc2395241ff8be9f15e1bb99ed20e46c1dbeb"
+          },
+          "health": {
+            "http": 200,
+            "status": "ok",
+            "mode": "public",
+            "runtime": "cloudflare-workers",
+            "release_sha": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+            "cache_control_no_store": true
+          },
+          "flags": {
+            "commerce_console": false,
+            "commerce_checkout": false,
+            "commerce_email": false,
+            "commerce_quarantine": false,
+            "supplier_console": false,
+            "ar_persistence": false
+          },
+          "acceptance": {
+            "at": "2026-10-17T13:29:14.301301+00:00",
+            "phases": [
+              "preflight",
+              "health",
+              "protocol",
+              "assets",
+              "anonymous"
+            ],
+            "notRunPhases": [
+              "session",
+              "browser",
+              "guild-cache",
+              "github-handoff",
+              "avatar",
+              "registration",
+              "messages",
+              "messages-mobile",
+              "load",
+              "logout"
+            ],
+            "productionMemberSession": "not_run_no_consented_session",
+            "cleanupVerified": true
+          },
+          "backups": {
+            "before": {
+              "setId": "d181776e-58ce-461c-b3ab-2172f00e29e3",
+              "source": "08a832d3d775322f754266f8d2f00cd3980078ca",
+              "schema": 167,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "a98f199ca888e4e3aa5c1408a3f46348ae65d47612c908ac64c9d2b2fd416dce"
+            },
+            "migration": {
+              "setId": "594fd13f-3aea-4cd8-9b6c-299f2aaedfee",
+              "source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+              "schema": 170,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "89bf588ec04ab6135f9639f0bcef314ddebcb56ed4c5c1674d9313ed3ddb6758"
+            },
+            "after": {
+              "setId": "875ba84b-36c9-4ee0-b1c5-98440b8f7984",
+              "source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+              "schema": 170,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "3cff85a9bdb011e7c075a85f8a856523bbd626b0ad25123d317b3c663f150705"
+            }
+          },
+          "retained_capabilities": [
+            "opensource.sharing-visibility.v1",
+            "commerce.hosted-supply-catalog.v1",
+            "commerce.hosted-inventory-reservation.v1",
+            "commerce.hosted-shared-reservation.v1",
+            "commerce.hosted-checkout.v1",
+            "commerce.hosted-payment.v1"
+          ],
+          "restore_quarantine_required": true,
+          "timer": {
+            "status": "restored",
+            "state": "active",
+            "next": "Sun 2026-10-18 00:31:29 EDT"
+          },
+          "private_deploy_receipt_sha256": "efeddf35882e096317ee5d8ff4cc7928ef4305b012ab0ac289801ef423e3e76b",
+          "private_floor_sha256": "8795360f83be15659ed35d63a371ef594a465cb02f8d4f3fd1b6567d78c75c38"
+        }
+      },
+      "daily_dispatcher": {
+        "installed_at": "2026-10-17T13:46:19.677935+00:00",
+        "sha256": "5a30e13b5b4d5c0b6761ad3412343895bf58474ec5da06d5b94ea0948b864a31",
+        "natural_scheduled_run_observed": false
+      }
+    },
+    "buyer171": {
+      "status": "complete",
+      "completed_at": "2026-10-17T16:42:32.826Z",
+      "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+      "tree": "d1717ece44fe875b3f321d9e72551d70223d52c2",
+      "dist_sha256": "1aaed393766beb6d1dc7b4062eddcfe7c6b8f50be67a387dcc966633f7cd1c1a",
+      "migrations_applied": [
+        "171_supply_materials.sql"
+      ],
+      "private_completion_sha256": "420922dadc06b6404e22e5524cb30af1c2a630807aabbffce34e572d775eb65e",
+      "targets": {
+        "staging": {
+          "worker_version": "ad50fd6f-6cc4-479d-9894-94600dc50490",
+          "schema": 171,
+          "ledger": {
+            "at": "2026-10-17T16:42:30.118Z",
+            "rows": 170,
+            "digest": "e145fdf257e8f8d1dceffa59bf2a37c6799461ab9e51fb2475efbf1097f00228"
+          },
+          "health": {
+            "http": 200,
+            "status": "ok",
+            "mode": "staging",
+            "runtime": "cloudflare-workers",
+            "release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+            "cache_control_no_store": true
+          },
+          "flags": {
+            "commerce_console": false,
+            "commerce_checkout": false,
+            "commerce_email": false,
+            "commerce_quarantine": false,
+            "supplier_console": true,
+            "ar_persistence": false
+          },
+          "acceptance": {
+            "at": "2026-10-17T16:02:40.595482+00:00",
+            "phases": [
+              "preflight",
+              "health",
+              "protocol",
+              "assets",
+              "anonymous",
+              "session",
+              "browser",
+              "logout"
+            ],
+            "notRunPhases": [
+              "guild-cache",
+              "github-handoff",
+              "avatar",
+              "registration",
+              "messages",
+              "messages-mobile",
+              "supplier-journey",
+              "supplier-photo",
+              "supplier-reservations",
+              "supplier-recheck",
+              "load"
+            ],
+            "productionMemberSession": "not_applicable",
+            "cleanupVerified": true
+          },
+          "backups": {
+            "before": {
+              "setId": "2a0f6035-41cb-4aeb-af5e-6b9c0f89f9a0",
+              "source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+              "schema": 170,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "b800a1c58f1e43888698825c0ae3af7c860a5284554205ef4b087bdd938c79b0"
+            },
+            "after": {
+              "setId": "af62b149-ce01-4d0f-b307-3bdb7681c5b8",
+              "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+              "schema": 171,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "c24119db25a89e3276c4005ce88680cd6a5a6a14f64c01a2929174265ac8611e"
+            }
+          },
+          "retained_capabilities": [
+            "opensource.sharing-visibility.v1",
+            "commerce.hosted-supply-catalog.v1",
+            "commerce.hosted-inventory-reservation.v1",
+            "commerce.hosted-shared-reservation.v1",
+            "commerce.hosted-checkout.v1",
+            "commerce.hosted-payment.v1",
+            "media.supply-material.asset.v1"
+          ],
+          "restore_quarantine_required": true,
+          "timer": {
+            "status": "restored",
+            "state": "active",
+            "next": "Sat 2026-10-17 23:34:14 EDT"
+          },
+          "private_deploy_receipt_sha256": "f1cd81c93db9875bacbc217be8f0b7e27bb3e927da3d0696afff571ef36abc60",
+          "private_floor_sha256": "d728f541ee042ab190c84da5df02404b8494b0e78bc84cd61cb058e70aff1d21"
+        },
+        "production": {
+          "worker_version": "06fa92e7-c1a0-4efc-aa34-3975ae989a3f",
+          "schema": 171,
+          "ledger": {
+            "at": "2026-10-17T16:42:32.567Z",
+            "rows": 170,
+            "digest": "e145fdf257e8f8d1dceffa59bf2a37c6799461ab9e51fb2475efbf1097f00228"
+          },
+          "health": {
+            "http": 200,
+            "status": "ok",
+            "mode": "public",
+            "runtime": "cloudflare-workers",
+            "release_sha": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+            "cache_control_no_store": true
+          },
+          "flags": {
+            "commerce_console": false,
+            "commerce_checkout": false,
+            "commerce_email": false,
+            "commerce_quarantine": false,
+            "supplier_console": false,
+            "ar_persistence": false
+          },
+          "acceptance": {
+            "at": "2026-10-17T16:31:07.396723+00:00",
+            "phases": [
+              "preflight",
+              "health",
+              "protocol",
+              "assets",
+              "anonymous"
+            ],
+            "notRunPhases": [
+              "session",
+              "browser",
+              "guild-cache",
+              "github-handoff",
+              "avatar",
+              "registration",
+              "messages",
+              "messages-mobile",
+              "supplier-journey",
+              "supplier-photo",
+              "supplier-reservations",
+              "supplier-recheck",
+              "load",
+              "logout"
+            ],
+            "productionMemberSession": "not_run_no_consented_session",
+            "cleanupVerified": true
+          },
+          "backups": {
+            "before": {
+              "setId": "89b73ab7-0fe5-4794-a0a0-96f3fa87a452",
+              "source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+              "schema": 170,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "f919a93a55bf88a5225d461053599113e0029b566b006560e980834f6c913cce"
+            },
+            "after": {
+              "setId": "64ac1c63-57e6-47db-ba5b-08fae4dbef03",
+              "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+              "schema": 171,
+              "restore": "database_and_objects_restored",
+              "remoteReadback": "verified",
+              "cleanupVerified": true,
+              "receiptSha256": "8ee7ee70bdb964f0df3ed21219a7801ef08d4a402c86851fa0190923c7b0549e"
+            }
+          },
+          "retained_capabilities": [
+            "opensource.sharing-visibility.v1",
+            "commerce.hosted-supply-catalog.v1",
+            "commerce.hosted-inventory-reservation.v1",
+            "commerce.hosted-shared-reservation.v1",
+            "commerce.hosted-checkout.v1",
+            "commerce.hosted-payment.v1",
+            "media.supply-material.asset.v1"
+          ],
+          "restore_quarantine_required": true,
+          "timer": {
+            "status": "restored",
+            "state": "active",
+            "next": "Sun 2026-10-18 00:33:03 EDT"
+          },
+          "private_deploy_receipt_sha256": "0559ab2c6b460bdd7d28bcdabf513332d7916da44757aeafde3faceec13518c7",
+          "private_floor_sha256": "a4436b27fca491d1536fd8dc5531970b5a94fe0645685404d9e2a854ed2e63d5"
+        }
+      },
+      "daily_dispatcher": {
+        "installed_at": "2026-10-17T16:42:26.653465+00:00",
+        "sha256": "9bc33c61bd7a1c0db02ea6b640b2005a7d684dea1ab6fb2e2b4e23cbde497f3b",
+        "natural_scheduled_run_observed": false
+      }
+    }
+  },
+  "verified_buyer_source": {
+    "pr": 875,
+    "head": "0d700e1d7f5e919b629f52eb2e9fd3c765db7e32",
+    "merge": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+    "tree": "d1717ece44fe875b3f321d9e72551d70223d52c2",
+    "verify_run": 39037614076,
+    "verify_attempt": 2,
+    "verify_jobs": 17,
+    "runtime_files": 435,
+    "runtime_cases": 6393,
+    "browser_unique_cases": 1105,
+    "runtime_readback_sha256": "91acd1f1fb7d368c3f4218af0c727289537d7a8c1e8aa0913e1a31e47cec9d9c",
+    "browser_readback_sha256": "0bfa85c26632adc6ed3aae4e794d209bc09a67003a61dc7bf1be9a232973bfb2",
+    "source_readback_sha256": "d6f9ea75c6d9839e0190038ebab99cd03bd78b455b0c94bb506f345ddc9dab98",
+    "review_readback_sha256": "a314d420436361347dfa34d75b2a2c5fade34d1a85836def1eee646f0f2ceb79",
+    "codeql_readback_sha256": "2cbdf7f0f0c3b705d5e05a6443a8b13f86d3bfd6d4f202839e4369dd4f6ceb4a",
+    "worker_readback_sha256": "01623703f32870cbdaccbad247094c0c1dfe0604b5ba3dd4e3789db927c33a48"
+  },
+  "preserved_failures": [
+    {
+      "scope": "Buyer Verify39037614076 attempt1",
+      "result": "All 435 runtime files / 6393 cases passed; partition6 DROP DATABASE cleanup failed after unknown acknowledgement and a still-present database readback. The whole attempt failed. UI independently passed 1105 unique cases.",
+      "root_cause": "unconfirmed; no DROP wait-event or I/O trace was retained",
+      "preserved_artifact_zip_count": 12,
+      "preserved_job_log_entries": 352,
+      "preservation_sha256": "ae5ff3ebf0e3454b8f39bb85ba7089ba52c28a3b240e576173b01da6079a53c4",
+      "diagnosis_sha256": "22e230f9259b4b81e88363bb27c3f2f7a35b9005daa59a6d0967f511a40f86a0",
+      "subsequent_action": "One same-source complete Verify retry; no timeout or assertion relaxation."
+    },
+    {
+      "scope": "Commerce170 staging before-backup db0d57ef",
+      "result": "Original restore timeout remains failed; an explicit restore-only run from the same remote set subsequently passed. No recapture or rewritten failed receipt.",
+      "restore_only_completion_sha256": "0c3d327de97c1c3cfa002d5061c9de71cb944938396ab7878b34a877fee042f3"
+    },
+    {
+      "scope": "Buyer171 first live staging attempt",
+      "result": "Pre-COMMIT schema guard rejected seven historical media operator column ACLs omitted by the isolated rehearsal fixture; transaction rolled back without attempting COMMIT. Independent read-only checks confirmed the169-row schema170 ledger and exact prior structure plus the historical ACLs. Staging route/crons and both backup timers were restored before preparing a new kit.",
+      "failed_receipt_sha256": "279210f238f67b652ff3670b50cce801b8d4e24fdb4e3bfd775171440424b399",
+      "readonly_reconciliation_sha256": "3d137e35dfb9b4ba869eb7b348bab5fe5c7136b27c5a90018dccbc2ac894be59",
+      "service_restoration_sha256": "2e17df9386f216a72710a1214095066449568568836bde4f2a74bc2f7dd490ba",
+      "subsequent_action": "Installed exact merged-source operator grants in the isolated fixture, reproduced old-fixture rejection and passed13 canonical installed-runner cases including ACL tampering. New kit, new baselines and fresh before backups; no normalization or relaxation of the migration checks.",
+      "original_before_backup": {
+        "set_id": "c016a926-323c-44fe-a6ce-ab3815eb762d",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true
+      }
+    }
+  ],
+  "limitations": [
+    "Commerce console, checkout and transactional email remain OFF; deployment is not merchant admission or real payment acceptance.",
+    "Staging uses owned synthetic member acceptance; production member login/browser, GitHub OAuth and payment-provider transactions were not run.",
+    "Natural scheduled execution of the newly installed backup operator is not yet observed; manual database/object restores are separate evidence.",
+    "All 168 original Foundation requirements, T-047 current-authority reconciliation, human usability and second-operator recovery remain open where previously unverified.",
+    "This buyer follow-up is not all M3/M4: CVS selection, invoices, complete shipment workflows and aftersales remain incomplete."
+  ],
+  "private_data_policy": "No credentials, connection strings, member data, private local paths or raw provider payloads are included.",
+  "installed_migration_rehearsal": {
+    "cases": 13,
+    "source": "d39370a17d1d1d6af2507acd9ee7b592ff221a21",
+    "installation_digest": "c59f85e02eafd8ec348ed1fd0780303aa52667629710ec7e911fba690419847a",
+    "exact_historical_column_acl_preservation": true,
+    "result_sha256": "1781a3039246beaf013dd217b0a2e2a1aec92fe02672e4712ed279b4f8a15a29",
+    "cleanup_sha256": "72181309fd993a3a3296833dc674ad4a7018b6115f41bfe5c2c3dba37960f7ff",
+    "prior_local_fixture_count_assertion_failure_preserved": true,
+    "limitation": "Local synthetic PostgreSQL evidence; live authorization comes from the separately recorded actual deployment receipts."
+  },
+  "separately_observed_main": {
+    "source": "35ec3ffc72423b970b7a253332d08f6af1b8e6a8",
+    "tree": "341e3ebda3f34cdc81773a57a000ae2de6351b96",
+    "observed_at": "2026-10-17T16:46:04.249377+00:00",
+    "migrations_beyond_this_rollout": [
+      "172_distribution_photos.sql"
+    ],
+    "limitation": "Later main changes and the separate PR864/schema172 release are not claimed deployed by this dated schema171 receipt."
+  }
+}
