@@ -3,6 +3,7 @@ import type {Pool,PoolClient} from 'pg';
 import {isolatedTransaction} from '../../../packages/resource-scopes/tenant-transaction.js';
 import {queryAttempt,PaymentQueryExecutionError,type PaymentQueryDependencies,type PaymentQueryTrigger} from '../payments/queries.js';
 import {endPaymentWindow,lockMachinePaymentAttempt,paymentQueryDueAt} from '../payments/window.js';
+import {endOfflinePaymentWindow} from '../payments/offline/window.js';
 import type {EffectJournalPort} from './journal/journal.js';
 import {deliverCommerceEmail} from './notifications/delivery.js';
 import type {CommerceEmailOutbox,CommerceEmailSender} from './notifications/email-port.js';
@@ -67,6 +68,7 @@ export async function runDueCommerceWork(pool:Pool,deps:DueCommerceWorkDependenc
     handlers.payment_query=row=>queryAttempt(pool,row.target_id,paymentDeps,options.trigger??'schedule',{leaseToken:row.token,tenantId:row.tenant_id});
     handlers.payment_window_end=async row=>{await endPaymentWindow(pool,row.target_id,{now:deps.now,leaseToken:row.token,tenantId:row.tenant_id,signal});return {externalCalls:0};};
   }
+  handlers.offline_payment_window_end=async row=>{await endOfflinePaymentWindow(pool,row.target_id,{now:deps.now,leaseToken:row.token,tenantId:row.tenant_id,signal});return {externalCalls:0};};
   if(deps.emailEnabled&&deps.emailSender&&deps.journal&&deps.origin){
     const emailDeps={sender:deps.emailSender,journal:deps.journal,origin:deps.origin,now:deps.now,quarantine:deps.quarantine,signal};
     handlers.email=row=>deliverCommerceEmail(pool,row.target_id,emailDeps,{dueWorkId:row.due_work_id,leaseToken:row.token,tenantId:row.tenant_id});
@@ -97,7 +99,7 @@ export async function runDueCommerceWork(pool:Pool,deps:DueCommerceWorkDependenc
       counts.failed++;if(error instanceof PaymentQueryExecutionError)counts.externalCalls+=error.externalCalls;
       console.error(JSON.stringify({event:'commerce_due_work_failed',kind:row.kind,code:'internal'}));
       try{await isolatedTransaction(pool,async q=>{
-        if(row.kind==='email'){
+        if(row.kind==='email'||row.kind==='offline_payment_window_end'){
           const current=(await q.query(`SELECT *,lease_until::text AS token FROM commerce_due_work WHERE due_work_id=$1 FOR UPDATE`,[row.due_work_id])).rows[0];
           if(!current||current.token!==row.token)return;
           const now=deps.now?.()??new Date();

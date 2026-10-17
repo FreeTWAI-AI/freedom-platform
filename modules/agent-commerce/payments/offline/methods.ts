@@ -3,12 +3,12 @@ import {Problem} from '../../../../packages/shared/problem.js';
 import type {CheckoutPaymentMethodsPort,CheckoutPaymentPort,PaymentOptionResolution} from '../../checkout/terms.js';
 import {scheduleDueWork} from '../../operations/due-work.js';
 import {currentOfflineSettings} from './settings.js';
+import {OFFLINE_CONFIRMATION_GRACE_MS} from './window.js';
 
 export const OFFLINE_PAYMENT_REQUIRES_MEMBER=true;
 const CARD_PROFILE='ecpay.aio.credit.v1';
 const BANK_PROFILE='offline.bank_transfer.v1';
 const MEETUP_PROFILE='offline.cash_on_meetup.v1';
-const GRACE_MS=72*60*60*1000;
 type Store={tenant_id:string;instance_id:string};
 function wholeDollars(currency:string,totalMinor:number,amounts:readonly number[]){
   return currency==='TWD'&&Number.isSafeInteger(totalMinor)&&totalMinor>0&&totalMinor%100===0&&amounts.every(amount=>Number.isSafeInteger(amount)&&amount>=0&&amount%100===0);
@@ -44,7 +44,7 @@ export function createPaymentMethodsPort(input:{environment:'sandbox'|'live';pro
         meetup_deadline_days:meetupAvailable?settings.document.cash_on_meetup!.deadline_days:null}:null};
     },
     async onOfflineOrderPlaced(q,placed){
-      await scheduleDueWork(q,{tenantId:placed.tenantId,instanceId:placed.instanceId,kind:'offline_payment_window_end',targetId:placed.orderId,dueAt:new Date(placed.expiresAt.getTime()+GRACE_MS)});
+      await scheduleDueWork(q,{tenantId:placed.tenantId,instanceId:placed.instanceId,kind:'offline_payment_window_end',targetId:placed.orderId,dueAt:new Date(placed.expiresAt.getTime()+OFFLINE_CONFIRMATION_GRACE_MS)});
     },
   };
 }

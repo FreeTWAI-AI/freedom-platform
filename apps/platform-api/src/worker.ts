@@ -506,17 +506,15 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
             const email=commerce.emailEnabled?commerceEmailOutbox:undefined;
             try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200,...(email?{email}:{})});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
             try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
-            if(env.COMMERCE_CREDENTIAL_KEYS||commerce.emailEnabled)try{
+            try{
               let emailDeps:{email:typeof commerceEmailOutbox;emailEnabled:true;emailSender:ReturnType<typeof createWorkerEmailSender>;journal:ReturnType<typeof createR2EffectJournal>;origin:string}|undefined;
               if(commerce.emailEnabled)try{
                 const config=readWorkerConfig(env);
                 emailDeps={email:commerceEmailOutbox,emailEnabled:true,emailSender:createWorkerEmailSender(env.EMAIL!),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),origin:config.origin};
               }catch{console.error('commerce_email_not_ready');}
               const keyring=env.COMMERCE_CREDENTIAL_KEYS?CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS):null;
-              if(keyring||emailDeps){
-                const freedomEnv=resolveFreedomEnv(env.FREEDOM_ENV);
-                await (deps.commerceDueWork??runDueCommerceWork)(pool,{...(keyring?{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring}:{}),freedomEnv,...(email?{email}:{}),...emailDeps});
-              }
+              const freedomEnv=resolveFreedomEnv(env.FREEDOM_ENV);
+              await (deps.commerceDueWork??runDueCommerceWork)(pool,{...(keyring?{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring}:{}),freedomEnv,...(email?{email}:{}),...emailDeps});
             }catch{console.error('commerce_due_work_failed');}
             try{
               await (deps.commerceEmailSweep??sweepCommerceOutboundEmails)(pool,{limit:500});
