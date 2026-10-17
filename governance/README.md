@@ -107,8 +107,10 @@ The full pinned browser plan keeps its six mode passes. Its default mode (#784)
 first enumerates all cases without sharding, then runs exactly two concurrent
 native Playwright shards, each still `workers: 1` / `fullyParallel: false`.
 The host assigns separate generated `fp_e2e_*` schemas and localhost ports
-14311/14312; run only one full pinned plan per host. Existing dedicated fixture
-passes and narrow guide/guild plans remain unsharded and retain their obligations.
+14311/14312; run only one full pinned plan per host. The five dedicated fixture
+passes remain unsharded and run only after default validation, in ordered batches
+of at most two, using ports 14313–14317, fresh schemas and separate report/last-run/
+artifact directories. Narrow guide/guild plans stay serial and retain their obligations.
 No candidate CLI profile, file list, shard count or timeout override is accepted.
 
 The current 60-minute default-mode budget from #796 includes discovery and both
@@ -124,8 +126,12 @@ Default evidence requires both ordered `partitions` with host-bound current/tota
 actual exit status and raw-report SHA-256. Their disjoint case union must equal
 the unsharded inventory; a successful subset, duplicate, invented or omitted case
 cannot pass. Receipts retain inventory/case fingerprints without raw test titles.
-Every actual pass is validated against the central evidence contract before its
-scratch can be discarded or the next fixture pass can start. Ordered-prefix
+Every available ordered prefix is validated against the central evidence contract
+before its scratch can be discarded or the next fixture batch can start. A failed
+child cancels its live batch peer; both close before cleanup and no later batch
+starts. A malformed prefix also cancels a live peer. A later completed report waits
+for its predecessor rather than inventing missing evidence. A failed batch retains
+both raw reports under their own diagnostic directories. Ordered-prefix
 validation defers only the whole-plan skipped-to-passed/file coverage obligations;
 it does not invent future pass results or admit an incomplete plan. Aggregation
 errors retain their original reason, including `case_listing_mismatch` even when
