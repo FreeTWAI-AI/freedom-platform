@@ -310,7 +310,8 @@ test('4 & 5. B04 three-line quote formatting, 600ms debounce coalescing, exact r
     await expect(totalsSection).toContainText('於下一步依配送方式計算');
     await expect(totalsSection).toContainText('選擇配送方式後顯示');
     await expect(totalsSection).not.toContainText('折扣');
-    await expect(page.locator('#shop-cart')).toContainText('結帳功能尚未開放。購物車會保留在這個瀏覽器。');
+    await expect(page.locator('#shop-cart')).toContainText('請到結帳頁選擇取貨與付款方式，核對最新價格。');
+    await expect(page.getByRole('link', {name: '前往結帳', exact: true})).toHaveAttribute('href', `/shops/${store.slug}/checkout`);
     await expect(page.getByRole('link', { name: '繼續購物', exact: true })).toHaveAttribute(
       'href',
       `/shops/${store.slug}`,

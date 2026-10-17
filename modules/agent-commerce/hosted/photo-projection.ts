@@ -38,8 +38,11 @@ export async function photoProducts(q: PoolClient, p: Profile, options: { retail
     photo: row.asset_id === null ? null : storedPhoto(row) }));
 }
 export function privatePhotoView(p: Pick<Profile,'tenant_id'|'instance_id'>, item: PhotoProduct) {
-  return projectPrivateProductMedia({ tenant_id:p.tenant_id,instance_id:p.instance_id,product_id:item.product.product_id,version:item.product.version },
+  const view=projectPrivateProductMedia({ tenant_id:p.tenant_id,instance_id:p.instance_id,product_id:item.product.product_id,version:item.product.version },
     item.photo ? photoMetadata(item.photo.ref) : null);
+  if ('distributionPhotoVersion' in item && view.photo) return {...view,photo:{...view.photo,
+    read_path:`/api/v1/tenants/${p.tenant_id}/storefronts/${p.instance_id}/distribution-photos/${item.product.product_id}/photo/${item.distributionPhotoVersion}`}};
+  return view;
 }
 export function draftMediaSnapshot(items: readonly PhotoProduct[]) {
   return publicationMediaSnapshot({ profile: HOSTED_STORE_MEDIA_PROFILE, photos: items.flatMap(item => item.photo ? [item.photo.ref] : []) });

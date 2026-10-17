@@ -262,6 +262,22 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
   return { instanceId, itemId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
 }
 
+/** One copy material with a current version and one grant to another business's storefront.
+ * A revoked grant gives that business no partner read, so its cross-tenant SELECT stays empty. */
+async function insertSupplyMaterial(q: PoolClient, data: { tenantId: string; principalId: string; scopeId: string },
+  retained: { instanceId: string; itemId: string }, partnerInstanceId: string, revoke: boolean) {
+  const materialId = randomUUID(), versionId = randomUUID();
+  const partner = (await q.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [partnerInstanceId])).rows[0].storefront_shop_id;
+  await q.query(`INSERT INTO supply_materials(material_id,tenant_id,instance_id,scope_id,kind,product_id,title,created_by_principal_id)
+    VALUES($1,$2,$3,$4,'copy',$5,'Synthetic material',$6)`, [materialId, data.tenantId, retained.instanceId, data.scopeId, retained.itemId, data.principalId]);
+  await q.query(`INSERT INTO supply_material_versions(version_id,material_id,tenant_id,instance_id,scope_id,kind,version_no,body,created_by_principal_id)
+    VALUES($1,$2,$3,$4,$5,'copy',1,'Synthetic copy',$6)`, [versionId, materialId, data.tenantId, retained.instanceId, data.scopeId, data.principalId]);
+  await q.query('UPDATE supply_materials SET current_version_id=$2,aggregate_version=2 WHERE material_id=$1', [materialId, versionId]);
+  await q.query(`INSERT INTO supply_material_grants(grant_id,material_id,tenant_id,instance_id,partner_shop_id,granted_by_principal_id)
+    VALUES($1,$2,$3,$4,$5,$6)`, [randomUUID(), materialId, data.tenantId, retained.instanceId, partner, data.principalId]);
+  if (revoke) await q.query('UPDATE supply_material_grants SET revoked_at=clock_timestamp(),revoked_by_principal_id=$2 WHERE material_id=$1', [materialId, data.principalId]);
+}
+
 async function buildFixture() {
   const P = await signIn(DEMO_USERS[0].email);
   const O = await signIn(DEMO_USERS[1].email);
@@ -565,7 +581,9 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
   'commerce_ship_from_locations', 'commerce_logistics_services',
     'commerce_offline_payment_settings', 'commerce_offline_payments', 'commerce_meetup_handovers',
+    'commerce_distribution_photo_copies', 'commerce_distribution_photo_targets',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+    'supply_materials', 'supply_material_versions', 'supply_material_grants',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
@@ -587,6 +605,9 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       const retained = await insertHostedQuote(fixtureClient, data);
       hosted.push({ tenantId: data.tenantId, principalId: data.principalId, instanceId: retained.instanceId, itemId: retained.itemId, session });
     }
+    // A grants a material to B's storefront; B's grant to A is revoked, so A holds no partner read of B's rows.
+    await insertSupplyMaterial(fixtureClient, A, hosted[0], hosted[1].instanceId, false);
+    await insertSupplyMaterial(fixtureClient, B, hosted[1], hosted[0].instanceId, true);
     await fixtureClient.query('COMMIT');
   } catch (error) { await fixtureClient.query('ROLLBACK'); throw error; }
   finally { fixtureClient.release(); }
@@ -614,6 +635,22 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     }
   } finally {
     await owner.query("UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='storefront.product-photo'");
+  }
+  // A/B distribution rows retain an own ready Asset with foreign material
+  // provenance. They exercise retargeting with every FK and trigger enabled.
+  for(let index=0;index<hosted.length;index++) {
+    const seller=hosted[index],supplier=hosted[1-index];
+    const data=index===0?A:B;
+    const offer=(await owner.query('SELECT * FROM commerce_hosted_supply_offers WHERE instance_id=$1',[supplier.instanceId])).rows[0];
+    const shop=(await owner.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1',[seller.instanceId])).rows[0].storefront_shop_id;
+    await owner.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,hosted_offer_id,hosted_sku)
+      VALUES($1,$2,$3,100,'Synthetic distribution',$4,$5,'P0002')`,[randomUUID(),shop,supplier.itemId,{...offer.terms,sku:'P0002',offer_id:offer.offer_id,offer_sha256:offer.terms_sha256},offer.offer_id]);
+    const photo=(await owner.query('SELECT * FROM commerce_product_photo_targets WHERE tenant_id=$1 AND instance_id=$2',[seller.tenantId,seller.instanceId])).rows[0];
+    const source=(await owner.query('SELECT v.* FROM supply_material_versions v WHERE instance_id=$1',[supplier.instanceId])).rows[0];
+    await owner.query(`INSERT INTO commerce_distribution_photo_targets(tenant_id,instance_id,product_id,scope_id) VALUES($1,$2,$3,$4)`,[seller.tenantId,seller.instanceId,supplier.itemId,data.scopeId]);
+    await owner.query(`INSERT INTO commerce_distribution_photo_copies(asset_id,tenant_id,instance_id,product_id,scope_id,representation_id,policy_revision,source_material_id,source_version_id,source_content_sha256,source_version_no,source_title,copied_by_principal_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,'Synthetic source',$11)`,[photo.asset_id,seller.tenantId,seller.instanceId,supplier.itemId,data.scopeId,photo.representation_id,photo.policy_revision,source.material_id,source.version_id,source.content_sha256,data.principalId]);
+    await owner.query(`UPDATE commerce_distribution_photo_targets SET asset_id=$4,representation_id=$5,policy_revision=$6,aggregate_version=1 WHERE tenant_id=$1 AND instance_id=$2 AND product_id=$3`,[seller.tenantId,seller.instanceId,supplier.itemId,photo.asset_id,photo.representation_id,photo.policy_revision]);
   }
   // Create each tenant's PII through the domain in its own transaction, preserving
   // lifecycle-before-community lock order and retaining all checkout constraints.

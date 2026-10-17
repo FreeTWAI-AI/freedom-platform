@@ -216,7 +216,7 @@ export async function writeVerifiedObject(store: ObjectStore, key: AssetObjectKe
   if (bytes.byteLength !== metadata.byteSize || await sha256(bytes) !== metadata.sha256) fail('integrity_mismatch');
   if (metadata.profileId === 'member.ar-target') {
     try { inspectArTarget(bytes); } catch { fail('invalid_content'); }
-  } else if (metadata.profileId === 'storefront.product-photo') {
+  } else if (metadata.profileId === 'storefront.product-photo' || metadata.profileId === 'storefront.supply-material') {
     try { assertCanonicalWebpWithin(bytes, 1920, 1920); } catch { fail('invalid_content'); }
   } else if (metadata.profileId !== undefined) validateLegacyMediaBytes(bytes, metadata.contentType);
   else if (metadata.contentType === 'image/webp') {
@@ -249,7 +249,7 @@ export async function prepareLegacyMediaRepresentation(body: ReadableStream<Uint
   const bytes = await readBounded(body, profile.maxBytes);
   if (profileId === 'member.ar-target') {
     try { inspectArTarget(bytes); } catch { fail('invalid_content'); }
-  } else if (profileId === 'storefront.product-photo') {
+  } else if (profileId === 'storefront.product-photo' || profileId === 'storefront.supply-material') {
     try { assertCanonicalWebpWithin(bytes, 1920, 1920); } catch { fail('invalid_content'); }
   } else validateLegacyMediaBytes(bytes, contentType);
   return Object.freeze({bytes,metadata:Object.freeze({profileId,contentType:contentType as ObjectMetadata['contentType'],

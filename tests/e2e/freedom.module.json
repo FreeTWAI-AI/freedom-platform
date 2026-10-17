@@ -34,6 +34,7 @@
     "tests/e2e/fixtures.ts",
     "tests/e2e/navigation.ts",
     "tests/e2e/quick-join.ts",
+    "tests/e2e/guild-member-tiers.spec.ts",
     "scripts/ci/pinned-playwright.config.mjs",
     "scripts/ci/run-pinned-e2e.mjs",
     "tests/e2e/sharing-authoring-fixture.ts",

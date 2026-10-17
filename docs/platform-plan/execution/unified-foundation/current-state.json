@@ -1210,6 +1210,19 @@
         "status": "deployed_and_synthetic_staging_verified",
         "evidence": "docs/platform-plan/execution/unified-foundation/rollout-r21-2026-10-12.json",
         "human_merchant_acceptance": false
+      },
+      "offline_buyer_source_observation": {
+        "observed_at": "2026-10-17T11:17:29.965065+00:00",
+        "backend_merged_source": "1ae0d0a40219cf8cd80c12f9d515a4ce242afaf8",
+        "backend_pr": 863,
+        "followup_branch": "fc/offline-buyer-flow",
+        "status": "B05/B07 implemented with local synthetic browser/runtime evidence; follow-up hosted CI, review, merge and cloud acceptance pending",
+        "evidence": "docs/platform-plan/execution/commerce/work-plan.md#2026-10-17-863-合併與離線買家頁補齊",
+        "limits": [
+          "Not full M3/M4: CVS selection, invoices, shipment workflows and aftersales remain incomplete.",
+          "No real merchant admission, provider transaction, email delivery or human adoption claimed.",
+          "Does not update deployment/schema observations or accept any additional Foundation requirement."
+        ]
       }
     },
     "comment_images": {

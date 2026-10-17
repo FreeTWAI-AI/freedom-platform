@@ -149,11 +149,13 @@ const RLS_TABLES = [
   'commerce_offline_payment_settings', 'commerce_offline_payments', 'commerce_meetup_handovers',
   'commerce_customers', 'commerce_checkout_contacts', 'commerce_exception_cases', 'commerce_order_access_grants',
   'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
+  'commerce_distribution_photo_copies', 'commerce_distribution_photo_targets',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   'application_installations', 'application_module_links', 'module_dependencies', 'module_launch_plans',
   'module_launch_plan_consumptions', 'module_provision_operations', 'module_provision_steps', 'capacity_reservations', 'capacity_ledger',
+  'supply_materials', 'supply_material_versions', 'supply_material_grants',
 ];
 const sha = 'ab'.repeat(32);
 
@@ -535,12 +537,14 @@ const EXPECTED: Record<string, number> = {
   tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2, commerce_hosted_supply_offers: 2,
   // Photo-bearing restore is exercised by media-backup-restore; this fixture
   // must still preserve both empty tables and their tenant policies.
-  commerce_product_photo_targets: 0, commerce_publication_photo_refs: 0,
+  commerce_product_photo_targets: 0, commerce_publication_photo_refs: 0, commerce_distribution_photo_copies: 0, commerce_distribution_photo_targets: 0,
   tenant_work_results: 2, tenant_work_result_targets: 2, tenant_capacity_policies: 3,
   work_items: 3, scoped_command_receipts: 3, scoped_transition_journal: 3, scoped_outbox: 3,
   // This fixture inserts existing Work directly; no registry launch is performed.
   application_installations: 0, application_module_links: 0, module_dependencies: 0, module_launch_plans: 0,
   module_launch_plan_consumptions: 0, module_provision_operations: 0, module_provision_steps: 0, capacity_reservations: 0, capacity_ledger: 0,
+  // No supplier materials in this fixture; the tables and their tenant policies must survive empty.
+  supply_materials: 0, supply_material_versions: 0, supply_material_grants: 0,
 };
 function evidenceCount(evidence: SchemaEvidence, table: string) {
   const found = evidence.tables.find(row => row.table === table);

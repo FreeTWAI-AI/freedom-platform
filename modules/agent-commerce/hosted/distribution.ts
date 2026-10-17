@@ -156,15 +156,12 @@ export async function withdrawDistribution(pool: Pool, actor: Actor, tenantId: s
   }, selectionId);
 }
 
-/** Publication receives only authorized text and the seller's price. No supplier
- * draft media, costs, tenant IDs or authority grants enter the public projection. */
+/** Publication receives authorized text, seller price and seller-owned photo
+ * copies. Supplier draft assets and private authority never enter the projection. */
 export async function distributionProducts(q: PoolClient, p: Profile) {
-  const rows = (await q.query(`SELECT l.item_id,l.hosted_sku,l.snapshot,l.retail_price_minor,l.aggregate_version::text AS version
-    FROM commerce_selections l JOIN commerce_hosted_supply_offers o ON o.offer_id=l.hosted_offer_id AND o.item_id=l.item_id
-    JOIN commerce_distribution_acceptances a ON a.acceptance_id=l.current_acceptance_id AND a.selection_id=l.selection_id
-    WHERE l.shop_id=$1 AND o.state='offered' AND l.acceptance_state='sellable' AND a.decision='accepted'
-      AND a.listing_sha256=l.listing_sha256 AND l.snapshot->>'offer_sha256'=o.terms_sha256
-    ORDER BY l.hosted_sku LIMIT 201`, [p.storefront_shop_id])).rows;
-  return rows.map(row => ({product: {product_id: row.item_id, sku: row.hosted_sku, title: row.snapshot.title,
-    description: row.snapshot.description, price_minor: Number(row.retail_price_minor), currency: p.currency, version: row.version}, photo: null}));
+  const {distributionPhotoRows,distributionStoredPhoto}=await import('../supplier-console/distribution-photo-target.js');
+  const rows=await distributionPhotoRows(q,p);
+  return rows.map(row=>({product:{product_id:row.item_id,sku:row.hosted_sku,title:row.snapshot.title,
+    description:row.snapshot.description,price_minor:Number(row.retail_price_minor),currency:p.currency,version:row.selection_version},
+    distributionPhotoVersion:row.photo_version??'0',photo:row.usable?distributionStoredPhoto(row):null}));
 }

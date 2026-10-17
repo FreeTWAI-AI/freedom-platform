@@ -278,6 +278,7 @@
   - `payment_method`。
   - `offline_instructions`：只有匯款訂單有，內容是凍結版本的快照。
   - `payment_grace_until`：線下訂單的寬限期限（保留期限加 72 小時）；信用卡訂單是 `null`。
+  - `meetup_notes`：訂單凍結配送群組的面交說明，去重後最多 50 項。為相容舊回應可省略；沒有面交群組時為空陣列。不含供應商、設定版本或其他內部識別。
 - 線下訂單的 `can_resume_payment` 一律是 false，`latest_payment_attempt` 一律是 null。
 - `payment_state` 在確認前是 `unpaid`，確認後是 `confirmed`。
 - 賣家看到的付款狀態是「已收款（店家確認）」（EC-SPEC-01 §6.3）。

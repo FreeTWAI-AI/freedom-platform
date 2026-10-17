@@ -15,7 +15,8 @@ client bundle they share (EC-SPEC-01 §3, EC-SPEC-02 §4.2 and §6).
 - Before Ted authorises `FREEDOM_COMMERCE_EMAIL_ENABLED`, B10 shows the
   EC-SPEC-10 §6.2 explanation and collects no Email.
 
-Status: `pages.ts` renders the B04 cart shell (`cartPageHtml`), the B07 order
+Status: `pages.ts` renders the B04 cart shell (`cartPageHtml`), the B05 checkout
+shell (`checkoutPageHtml`), the B07 order
 shell (`orderPageHtml`), the 404 order-missing page (`orderMissingHtml`), the
 B10 order-access guidance page (`orderAccessPageHtml`), the B06 payment return
 shell (`paymentReturnPageHtml`) and the 404 payment-return-missing page
@@ -31,3 +32,17 @@ start or resume payment via `POST …/payment-handoffs`, query payment results v
 `#shop-pay-return` (B06) to poll the order for up to two minutes after a
 provider browser return and render the payment outcome without exposing contact
 data, line items or amounts.
+
+`checkout-page.tsx` freezes server quotes before placing an order, displays
+server payment availability, and supports offline payments with meetup pickup.
+CVS store selection and invoice fields remain pending their provider workflows.
+The checkout key and contact values stay in memory. A placement stores only its
+checkout reference, terms hash, payment method and client order ID in tab session
+storage before sending, so a lost response or refresh can retry the same intent.
+Recovered intents retain the current cart because its original contents are not
+persisted with the intent; another tab may have prepared a newer purchase.
+No bank instructions or contact data are persisted in browser storage.
+`offline-order.tsx` displays authorized, frozen bank/meetup instructions, seller
+confirmation and deadlines, and offers refresh and buyer cancellation. It never
+starts a payment attempt. An optional `meetup_notes` order field supplies public
+notes from the frozen shipping groups, rather than current merchant settings.

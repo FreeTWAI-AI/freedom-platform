@@ -1,4 +1,5 @@
 import type {SupplierChange,SupplierMetric,SupplierProduct,SupplierPartner,SupplierProductSelection,SupplierTodo} from '../../../../contracts/guild-launchpad/v1/supplier-console';
+import {SUPPLY_MATERIAL_IMAGE_MAX_BYTES,SUPPLY_MATERIAL_VIDEO_MAX_BYTES} from '../../../../contracts/guild-launchpad/v1/supplier-console';
 import type {Distribution} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {productMatches} from '../../hosted-ui/CommerceTools';
 import {parseMajorToMinor,formatMinor} from '../../../../apps/portal-web/src/format';
@@ -45,3 +46,24 @@ export const CHANGE_LABELS={
 export const changeLabel=(change:Pick<SupplierChange,'operation'|'version'>)=>change.operation==='storefront.supply-offer.publish'&&change.version!=='1'?'供貨版本由新版本取代':CHANGE_LABELS[change.operation];
 export const changeSubject=(subject:SupplierChange['subject'])=>subject.kind==='business'?'商品庫設定':subject.kind==='request'?`${subject.partner_name}・${subject.title}`:subject.title;
 export const reservationState=(state:'reserved'|'cancelled'|'expired')=>({reserved:'預留中',cancelled:'已取消',expired:'已到期'})[state];
+
+export const materialKind=(kind:'image'|'video'|'copy')=>({image:'圖片',video:'影片',copy:'文案'})[kind];
+export const materialAccess=(access:'partners'|'public_use')=>access==='partners'?'僅授權的合作店家':'可用於合作店家的公開店面';
+export function materialSubject(subject:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterial['subject']){return subject.kind==='brand'?'品牌素材':subject.sku===null||subject.title===null?'商品已移除':`商品 ${subject.sku}・${subject.title}`;}
+export const materialTime=(at:string)=>new Date(at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+export const materialSize=(bytes:number)=>`${(bytes/1048576).toFixed(1)} MB`;
+export function materialCapacityText(capacity:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterials['capacity']|undefined){
+ return capacity?.state==='ready'?`業務空間已用 ${materialSize(capacity.used_bytes)}，處理中 ${materialSize(capacity.reserved_bytes)}，上限 ${materialSize(capacity.limit_bytes)}，還可使用 ${materialSize(capacity.remaining_bytes)}。`:'目前無法讀取業務空間容量。';
+}
+export function materialCapacityProblem(capacity:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterials['capacity']|undefined,kind:'image'|'video'){
+ return capacity?.state==='ready'&&capacity.remaining_bytes<(kind==='image'?SUPPLY_MATERIAL_IMAGE_MAX_BYTES:SUPPLY_MATERIAL_VIDEO_MAX_BYTES)?`剩餘容量不足；處理${kind==='image'?'圖片需預留 1 MB':'影片需預留 20 MB'}。`:null;
+}
+export function materialVersionSummary(version:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterialVersion){const c=version.content;return c.kind==='copy'?Array.from(c.body).slice(0,60).join(''):c.kind==='image'?`${c.width}×${c.height}・${materialSize(c.byte_size)}`:`${c.content_type}・${materialSize(c.byte_size)}`;}
+export function sellableMaterialPartners(partners:import('../../../../contracts/guild-launchpad/v1/supplier-console').SupplyMaterialDetail['partners']){return partners.filter(p=>!p.granted&&p.cooperation==='sellable').map(p=>p.partner_id);}
+export const materialContentPath=(scope:import('./route').ConsoleScope,id:string,versionId:string)=>`/api/v1/tenants/${scope.tenantId}/storefronts/${scope.instanceId}/supply-materials/${id}/versions/${versionId}/content`;
+export function acceptedMaterialPreview<T extends {tenant_id:string;instance_id:string;material:{material_id:string;current:{version_id:string}|null}}>(
+ slot:{state:string;data:T|null},scope:{tenantId:string;instanceId:string},materialId:string,versionId:string):T|null {
+ const data=slot.state==='ready'?slot.data:null;
+ if(!data||data.tenant_id!==scope.tenantId||data.instance_id!==scope.instanceId||data.material.material_id!==materialId||data.material.current?.version_id!==versionId)return null;
+ return data;
+}
