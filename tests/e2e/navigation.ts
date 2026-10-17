@@ -13,6 +13,18 @@ export async function openPageTools(page:Page){
   }
 }
 
+/** Resize an already mounted home and wait for its responsive disclosure update. */
+export async function setHomeViewport(page:Page,size:{width:number;height:number}){
+  const guide=page.locator('.home-guide-disclosure');
+  await expect(guide).toBeAttached();
+  const wasWide=await page.evaluate(()=>window.matchMedia('(min-width:861px)').matches);
+  await page.setViewportSize(size);
+  const wide=size.width>=861;
+  // React applies the media change after the viewport changes. Wait before a
+  // native open click, but preserve member-opened state within the same range.
+  if(wasWide!==wide)await expect(guide).toHaveJSProperty('open',wide);
+}
+
 /** Open the optional home guide through its visible mobile disclosure. */
 export async function openHomeGuide(page:Page){
   // Lazy home content may mount after the shell title becomes visible.

@@ -21379,8 +21379,8 @@
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
-      "bytes": 25716,
-      "sha256": "a36c1654675c63723335bcb73ae9daa663e8897a571826596c992f0a07223725"
+      "bytes": 25732,
+      "sha256": "387c1b6e82e62e6245f1ad6538d9b0fd9f446dc94c95efaefbff7cbe871eec92"
     },
     {
       "path": "tests/e2e/member-connections.spec.ts",
@@ -21419,8 +21419,8 @@
     },
     {
       "path": "tests/e2e/member-navigation-hierarchy.spec.ts",
-      "bytes": 7330,
-      "sha256": "5d91472ecdef5f05a7cb87c620c6c754d64e4cebcf28b5d975938a78fffa772f"
+      "bytes": 7346,
+      "sha256": "cb35546d5dcbd4c5c7fcb77adaaca7fd08a0dba74fb325d5dfc1c4b6ee5bc636"
     },
     {
       "path": "tests/e2e/member-reporting.spec.ts",
@@ -21494,8 +21494,8 @@
     },
     {
       "path": "tests/e2e/navigation.ts",
-      "bytes": 6802,
-      "sha256": "5d39b6e97db1d444f4abb9a43117a25d65184450eeff577856d45d27d189ce8a"
+      "bytes": 7450,
+      "sha256": "2e09220bba7edff0276c12e3a766cfbc712f960e3bae759239a56444f03121d8"
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
