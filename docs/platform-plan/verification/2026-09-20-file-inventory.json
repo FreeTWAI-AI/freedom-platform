@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/development/client-read-connections.md",
-      "bytes": 7442,
-      "sha256": "3c0c6d6e8709268b947021ba0045a0597d559f2440c1d32cf22025654ad1d38b"
+      "bytes": 8582,
+      "sha256": "c6d06f2ac14380faebccbdfdf685e6cccc3fdf31a72907ec3b9c177730175735"
     },
     {
       "path": "docs/development/cloudflare-migration-status-2026-09-24.md",
@@ -18874,8 +18874,8 @@
     },
     {
       "path": "modules/client-connections/service.ts",
-      "bytes": 16730,
-      "sha256": "4e305f02b62a2094626a8e5f356a0996bb60cf7e50f657244e1fcc89dcc325a7"
+      "bytes": 16882,
+      "sha256": "f349c8924d81d1aec88e9567a6a455c3d11290b5028e734a16b81a89a3c26d0e"
     },
     {
       "path": "modules/co-creation/github.ts",
@@ -23169,8 +23169,8 @@
     },
     {
       "path": "tests/runtime/client-connections.test.ts",
-      "bytes": 46581,
-      "sha256": "99bc7869fac50e15eb4958220e3b7ad495de3fb0117adc5c6b2da6e589096c46"
+      "bytes": 50679,
+      "sha256": "e5db96a5d05791edcec2d2f3a125712fa6dab2dabd72535760dbe70db476a62a"
     },
     {
       "path": "tests/runtime/co-creation.test.ts",
