@@ -384,8 +384,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 63292,
-      "sha256": "7573c6d8dc54ffbea6cda6b6dded5ccbe284a7152e587702a8faf85231b660a6"
+      "bytes": 63424,
+      "sha256": "5031973fd897040e516b4f110f09eb2ea33a5246501ce56af491b451cea4aa0c"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -16954,8 +16954,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 28794,
-      "sha256": "f19acc73e1e46682c6c7db3e1ef8a0a7cc92326593db7d87db3a86edffa2e941"
+      "bytes": 31312,
+      "sha256": "70e19b7e4a5c4513316af1f9b15e401017ac4c5db299ffcbccfd2d9699e366ff"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -16969,8 +16969,8 @@
     },
     {
       "path": "modules/agent-commerce/imports.ts",
-      "bytes": 7772,
-      "sha256": "ab0cc08f81b3855505c72f908dfa2c8f836d62457e3daf66c3d8a9fa2cd59dbf"
+      "bytes": 7778,
+      "sha256": "f6428175fe4242a976e36bb66444d5f223fe24043cac91525850350dbc9e23dc"
     },
     {
       "path": "modules/agent-commerce/key-exit.ts",
@@ -16989,8 +16989,8 @@
     },
     {
       "path": "modules/agent-commerce/schema.ts",
-      "bytes": 3854,
-      "sha256": "e8a15787eaf66fb4feda14a33116c75373cffb15af918940e8d9d803f195a195"
+      "bytes": 4371,
+      "sha256": "f15d4d0fd8e6ee73510e25a5420fffe7b35a42dc9ad740d098745c7f1a58782c"
     },
     {
       "path": "modules/agent-commerce/service-command.ts",
@@ -21919,8 +21919,8 @@
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",
-      "bytes": 46528,
-      "sha256": "ab1d57f50130c20b29e326cfab76d48c6099b10931ee4c4529ad4769dd5316ab"
+      "bytes": 53247,
+      "sha256": "f1149bf404d21e9c5dcb5b29b9c278eba751aa56ba48049749f4737659470110"
     },
     {
       "path": "tests/runtime/agent-connections-adversarial.test.ts",
@@ -23194,8 +23194,8 @@
     },
     {
       "path": "tests/runtime/platform-json-body.test.ts",
-      "bytes": 13618,
-      "sha256": "c6794ef25b93849db263549bf19d7b8a544aef8a5483981313d40d0386013afa"
+      "bytes": 16248,
+      "sha256": "f75fb46497a84a13722e67c5545322c4114f17a42d95e409536ab32b200d013d"
     },
     {
       "path": "tests/runtime/portal-build-benchmark.test.ts",
