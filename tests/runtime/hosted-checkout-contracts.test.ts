@@ -4,6 +4,11 @@ import {randomUUID} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import * as c from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
+import {UNAVAILABLE_REASONS} from '../../modules/agent-commerce/fulfilment/rules/types.js';
+import type {RecipientValidationCode} from '../../modules/agent-commerce/fulfilment/rules/recipient.js';
+type Equal<A,B>=[A] extends [B]?[B] extends [A]?true:never:never;
+const deliveryCodesMatchRules:Equal<c.DeliveryFieldErrorCode,RecipientValidationCode>=true;
+void deliveryCodesMatchRules;
 const input={publication_revision:'1',lines:[{sku:'P0001',quantity:1}]};
 test('strict checkout requests reject promotions, duplicate SKU, invalid counts and authority selectors',()=>{
   assert(c.CartQuoteInputSchema.safeParse(input).success);
@@ -18,10 +23,13 @@ test('closed errors and the generated hosted checkout bundle cover each JSON req
   assert(c.CheckoutErrorCodeSchema.safeParse('invalid_json').success);
   const bundle=JSON.parse(readFileSync(new URL('../../contracts/guild-launchpad/v1/hosted-checkout.schema.json',import.meta.url),'utf8'));
   const id=randomUUID(),time='2028-02-29T12:34:56.789Z',hash='a'.repeat(64),item={sku:'P0001',title:'合成商品',quantity:1,unit_price_minor:100,line_total_minor:100};
-  const terms={publication_revision:'1',currency:'TWD',items:[item],merchandise_total_minor:100,discount_total_minor:0,discounts:[],shipping:{groups:[{group_ref:'group',amount_minor:0}]},shipping_total_minor:0,tax_state:'not_assessed',total_minor:100,consents:[],payment_methods:['immediate_card']};
+  const publicShipping={destination_state:'complete',groups:[{group_ref:'g1',method:'home',amount_minor:0,fee_per_parcel_minor:0,outlying_surcharge_per_parcel_minor:0,parcel_count:1,handling_days:1,items:[{sku:'P0001',quantity:1}],meetup_note:null}]};
+  const frozenShipping={delivery_profile_version:'1',destination_state:'complete',groups:[{group_ref:'g1',supplier_shop_id:id,method_ref:'home',fulfilment_mode:'self',agreement:null,profile_version:'1',logistics:{service_key:'ecpay.logistics.home.tcat',logistics_sub_type:'TCAT',ship_from_location_id:id,temperature:'ambient',handling_days:1,cutoff_time:'17:00',working_days:[1]},meetup:null,parcels:[{parcel_ref:'g1-p1',lines:[{sku:'P0001',quantity:1}],weight_g:100,declared_value_minor:100}],attribute_versions:[{sku:'P0001',version:'1'}],fee_per_parcel_minor:0,outlying_surcharge_per_parcel_minor:0,amount_minor:0}]};
+  const terms={publication_revision:'1',currency:'TWD',items:[item],merchandise_total_minor:100,discount_total_minor:0,discounts:[],shipping:publicShipping,shipping_total_minor:0,tax_state:'not_assessed',total_minor:100,consents:[],payment_methods:['immediate_card']};
   const order={order_ref:id,display_number:'280229-ABCDEF',store:{slug:'synthetic-shop',name:'合成商店'},created_at:time,pay_by:time,reservation_expired:false,lifecycle_state:'cancelled',cancel_reason:'paid_cancelled',currency:'TWD',lines:[{...item,options:[]}],merchandise_total_minor:100,discount_total_minor:0,shipping_total_minor:0,total_minor:100,payment_state:'confirmed',latest_payment_attempt:null,can_resume_payment:false,contact:{name:'測試買家甲😀',email:'buyer@example.test',phone:'0900000000'},delivery:{},invoice:null,redacted:false};
   const samples:[string,unknown][]=[
-    ['cart-quote-input',input],['cart-quote',{publication_revision:'1',currency:'TWD',lines:[{...item,options:[],state:'ok'}],merchandise_total_minor:100,discounts:[],shipping:{state:'quoted',groups:[{group_ref:'group',amount_minor:0}],total_minor:0},total_minor:100}],
+    ['shipping-method-ref','home'],['delivery-field-error-code','required'],['shipping-unavailable-reason','fulfilment_not_agreed'],['checkout-shipping',frozenShipping],
+    ['cart-quote-input',input],['cart-quote',{publication_revision:'1',currency:'TWD',lines:[{...item,options:[],state:'ok'}],merchandise_total_minor:100,discounts:[],delivery_options:[],shipping:{state:'quoted',method:'home',groups:[{group_ref:'g1',amount_minor:0}],total_minor:0},total_minor:100}],
     ['checkout-input',{...input,contact:order.contact,delivery:{}}],['checkout',{checkout_ref:id,terms,terms_sha256:hash,expires_at:time}],
     ['placement-input',{terms_sha256:hash,client_order_id:id}],['placement',{order,payment:null}],['order',order],['redeem-input',{token:'synthetic'}],
     ['payment-query-input',{}],['payment-query',order],['payment-handoff-input',{}],['payment-handoff',{handoff_url:'/pay/ecpay/'+'A'.repeat(43),attempt_ref:id,expires_at:time}],
@@ -38,7 +46,7 @@ for c in x['cases']:
  Draft202012Validator.check_schema(s)
  assert Draft202012Validator(s,format_checker=FormatChecker()).is_valid(c['value']) == c['valid'],c
 print(len(x['cases']))`],{input:JSON.stringify({bundle,cases}),encoding:'utf8',timeout:15000});
-  assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),45);
+  assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),57);
 });
 test('checkout timestamps require ASCII UTC milliseconds and reject trailing content',()=>{
   const timestamp=c.CheckoutResponseSchema.shape.expires_at;
@@ -63,6 +71,25 @@ for c in x['cases']:
  assert Draft202012Validator(x['bundle']['$defs'][c['name']],format_checker=FormatChecker()).is_valid(c['value']) == c['valid'],c['name']
 print(len(x['cases']))`],{input:JSON.stringify({bundle,cases}),encoding:'utf8',timeout:15000});
   assert.equal(result.status,0,result.stderr);assert.equal(Number(result.stdout),58);
+});
+
+test('delivery errors and cart options stay pinned to the rules library',()=>{
+  assert.deepEqual(c.ShippingUnavailableReasonSchema.options,[...UNAVAILABLE_REASONS]);
+  for(const code of ['delivery_invalid','delivery_store_required'])assert.equal(c.CheckoutErrorCodeSchema.parse(code),code);
+  const field={path:'delivery.postal_code',code:'unknown_postal_code' as const};
+  const line={sku:'P0001',reason:'outlying_unsupported' as const};
+  assert(c.CheckoutErrorSchema.safeParse({type:'about:blank',title:'delivery_invalid',status:422,code:'delivery_invalid',detail:'配送資料有誤，請檢查標示的欄位。',fields:[field]}).success);
+  assert(c.CheckoutErrorSchema.safeParse({type:'about:blank',title:'shipping_unavailable',status:422,code:'shipping_unavailable',detail:'部分商品無法用這個方式配送。',lines:[line]}).success);
+  assert(!c.CheckoutErrorSchema.safeParse({type:'about:blank',title:'delivery_invalid',status:422,code:'delivery_invalid',detail:'x',fields:[]}).success);
+  assert(!c.CheckoutErrorSchema.safeParse({type:'about:blank',title:'delivery_invalid',status:422,code:'delivery_invalid',detail:'100',fields:[{path:'delivery.postal_code',code:'unknown_postal_code',value:'100'}]}).success);
+  const option={method:'home' as const,available:true,shipping_total_minor:0,parcel_count:1,free_over_minor:null,outlying:{kind:'excluded' as const},note:null,lines:[]};
+  assert(c.CartDeliveryOptionSchema.safeParse(option).success);
+  assert(!c.CartDeliveryOptionSchema.safeParse({...option,available:false}).success);
+  assert(!c.CartDeliveryOptionSchema.safeParse({...option,lines:[{sku:'P0001',reason:'method_unsupported'}]}).success);
+  assert(!c.CartDeliveryOptionSchema.safeParse({...option,shipping_total_minor:null}).success);
+  const drop={...c.CheckoutShippingSchema.parse({delivery_profile_version:'1',destination_state:'complete',groups:[{group_ref:'g1',supplier_shop_id:randomUUID(),method_ref:'home',fulfilment_mode:'drop_ship',agreement:{agreement_id:randomUUID(),version:'1'},profile_version:'1',logistics:{service_key:'ecpay.logistics.home.tcat',logistics_sub_type:'TCAT',ship_from_location_id:randomUUID(),temperature:'ambient',handling_days:1,cutoff_time:'17:00',working_days:[1]},meetup:null,parcels:[{parcel_ref:'g1-p1',lines:[{sku:'P0001',quantity:1}],weight_g:null,declared_value_minor:50}],attribute_versions:[{sku:'P0001',version:'1'}],fee_per_parcel_minor:50,outlying_surcharge_per_parcel_minor:0,amount_minor:50}]})};
+  assert.equal(drop.groups[0].fee_per_parcel_minor,50);
+  assert.equal(drop.groups[0].fulfilment_mode,'drop_ship');
 });
 
 test('buyer query has an empty strict request and the existing order response',()=>{

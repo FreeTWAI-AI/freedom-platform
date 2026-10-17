@@ -113,6 +113,10 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
   ['hosted-checkout', 'Public hosted checkout and payment handoff. Shape validation grants no payment, email or deployment authority.', [
+    ['shipping-method-ref', checkout.ShippingMethodRefSchema, 'output', []],
+    ['delivery-field-error-code', checkout.DeliveryFieldErrorCodeSchema, 'output', []],
+    ['shipping-unavailable-reason', checkout.ShippingUnavailableReasonSchema, 'output', []],
+    ['checkout-shipping', checkout.CheckoutShippingSchema, 'output', ['frozen_delivery_terms']],
     ['cart-quote-input', checkout.CartQuoteInputSchema, 'input', ['unique_skus_current_publication_prices']],
     ['cart-quote', checkout.CartQuoteResponseSchema, 'output', ['read_only_availability']],
     ['checkout-input', checkout.CheckoutInputSchema, 'input', ['exact_policy_set_structural_json_bounds']],
@@ -171,6 +175,10 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
   ['hosted-shipping', 'Immutable hosted shipping settings. Identity, ownership, capability, availability and version checks remain server authority.', [
     ['logistics-service-key', shipping.LogisticsServiceKeySchema, 'output', []],
     ['delivery-method', shipping.DeliveryMethodSchema, 'output', []],
+    ['logistics-delivery-method', shipping.LogisticsDeliveryMethodSchema, 'output', []],
+    ['meetup-delivery-option', shipping.MeetupDeliveryOptionSchema, 'output', []],
+    ['checkout-delivery-input', shipping.CheckoutDeliveryInputSchema, 'output', []],
+    ['cart-delivery-input', shipping.CartDeliveryInputSchema, 'output', []],
     ['shipping-empty-input', shipping.ShippingEmptyInputSchema, 'output', []],
     ['ship-from-location-input', shipping.ShipFromLocationInputSchema, 'output', []],
     ['ship-from-location', shipping.ShipFromLocationSchema, 'output', []],

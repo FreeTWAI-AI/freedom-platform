@@ -18,7 +18,7 @@ describe('item shipping attributes',()=>{
     const replay=await h.request(s,'PUT',path,input,undefined,s.owner,key);assert.equal(replay.status,200);assert.equal(replay.data.attributes.weight_g,200);
     const rows=(await h.f.x.h.pool.query('SELECT item_id,version FROM commerce_item_shipping_attributes ORDER BY version')).rows;assert.deepEqual(rows.map(r=>r.version),[1,2]);
     for(const query of ['UPDATE commerce_item_shipping_attributes SET weight_g=1','DELETE FROM commerce_item_shipping_attributes'])await assert.rejects(h.f.x.h.pool.query(query),(e:unknown)=>(e as {code?:string}).code==='23514');
-    const map=await h.f.x.tx(q=>currentItemShippingAttributes(q,[s.product.product_id,randomUUID()]));assert.equal(map.size,1);assert.deepEqual(map.get(s.product.product_id),{...input,weight_g:200});
+    const map=await h.f.x.tx(q=>currentItemShippingAttributes(q,[s.product.product_id,randomUUID()]));assert.equal(map.size,1);assert.deepEqual(map.get(s.product.product_id),{version:'2',attributes:{...input,weight_g:200}});
     const receipts=(await h.f.x.h.pool.query("SELECT response FROM scoped_command_receipts WHERE operation='commerce.item_shipping_attributes.save'")).rows;assert.equal(receipts.length,2);for(const row of receipts)assert.deepEqual(row.response,{id:s.product.product_id});
   });
   test('all numeric, temperature, boolean and nullable bounds reject before any save',async()=>{
@@ -42,7 +42,7 @@ describe('item shipping attributes',()=>{
     h.expect(await h.request(a,'PUT',`/products/${a.product.product_id}/shipping-attributes`,latest,'1'));
     h.expect(await h.request(b,'PUT',`/products/${b.product.product_id}/shipping-attributes`,other),201);
     const map=await h.f.x.tx(async q=>{const {bindStore}=await import('../../modules/agent-commerce/checkout/authority.js');await bindStore(q,a.tenantId);return currentItemShippingAttributes(q,[a.product.product_id,b.product.product_id,unsaved.product.product_id,randomUUID()]);});
-    assert.equal(map.size,2);assert.deepEqual(map.get(a.product.product_id),latest);assert.deepEqual(map.get(b.product.product_id),other);assert.equal(map.has(unsaved.product.product_id),false);
+    assert.equal(map.size,2);assert.deepEqual(map.get(a.product.product_id),{version:'2',attributes:latest});assert.deepEqual(map.get(b.product.product_id),{version:'1',attributes:other});assert.equal(map.has(unsaved.product.product_id),false);
   });
   test('read and write capabilities are independent and console flag controls all attribute routes',async()=>{
     const s=await h.store(),path=`/products/${s.product.product_id}/shipping-attributes`;

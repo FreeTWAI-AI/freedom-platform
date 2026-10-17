@@ -7,7 +7,7 @@ This module provides the shipping settings layer and pure, I/O-free domain rule 
 ### What exists now
 - Pure rule functions and TypeScript types under `rules/` (`errors.ts`, `types.ts`, `taipei.ts`, `postal.ts`, `recipient.ts`, `ship-by.ts`, `plan.ts`, `tracking.ts`, `index.ts`).
 - Deterministic group clustering, service choice, first-fit parcel packing, fee calculation, recipient validation, ship-by deadline calculation, official ECPay status mapping, tracking state transitions, and logistics event application.
-- 100% pure execution: no database access, no network calls, no system clock reads, no locale-sensitive formatters, no environment access, no console logging, no side-effects. All times are passed as epoch milliseconds.
+- The `rules/` library is 100% pure: no database access, no network calls, no system clock reads, no locale-sensitive formatters, no environment access, no console logging, no side-effects. All times are passed as epoch milliseconds. `quote/` is a separate SQL-local adapter and is not part of that pure library.
 - All returned objects and nested arrays are deeply frozen with `Object.freeze`. Caller input objects and arrays are never mutated, aliased, or frozen.
 
 ### Dependencies
@@ -240,11 +240,68 @@ Later quote work can rely on the current profile version and these functions:
 - `resolveLogisticsService(q, { instanceId, environment, serviceKey })` resolves an
   account, sub-type and current purpose credential version only when both states
   are active. This is the sole resolution policy; callers must not duplicate it.
-- `currentItemShippingAttributes(q, itemIds)` returns a map of latest rule-library
-  attributes, omitting items with no saved attributes.
+- `currentItemShippingAttributes(q, itemIds)` returns a map of
+  `{version, attributes}` for the latest saved row per item, omitting items with
+  no saved attributes. `version` is the attribute row's decimal text.
 
 The route option fixes sandbox/live environment; requests cannot choose it.
 Fulfilment settings and the shipping route must never import payments or operations.
 They read provider tables with SQL and import only fulfilment rules, hosted/checkout,
 providers, packages, tenant HTTP helpers and contracts. Payments may import fulfilment;
 contracts never import module code. This preserves the descriptor dependency graph.
+
+## Hosted shipping quote
+
+`createShippingQuotePort({environment})` is the production `ShippingQuotePort`.
+Checkout injects it from the Node runtime and the Worker, ahead of payment ports
+and any caller override. The port reads the seller's current shipping profile,
+active logistics services and current item attributes with the checkout client
+after the store is bound. It does not call ECPay. The `rules/` library stays
+free of I/O; this adapter is the only place those reads happen.
+
+No profile, or a profile with no delivery options, is 409 `shipping_not_configured`.
+An unconfigured cart ignores delivery input and returns no options. Configured
+checkout parses delivery before planning. An invalid cart is 422 `delivery_invalid`
+before any plan, so a bad key cannot become a 500. Unknown object keys that are
+ASCII identifiers of a safe path length use `delivery.<key>`. Unicode, punctuation,
+empty and over-long keys use one generic `delivery` path and are not echoed.
+Meetup names first reject a raw string longer than 40 UTF-16 units, then
+NFKC-trim to 1–40 code points. They reject C0, DEL, C1 and unpaired surrogates.
+A valid astral character inside that raw bound is accepted. ECPay name weight and
+blocked-term rules do not apply to meetup. Lone surrogates in JSON are still
+rejected by the shared platform boundary.
+
+Own lines are `{kind:'self'}`. Supplied lines are `{kind:'not_agreed'}` and fail
+with `fulfilment_not_agreed` for every offered method, including meetup. This
+port never emits `drop_ship`. An agreements job can later pass a real agreement
+into the planner; until then it must not relabel a supplied line as own. The
+test helper's synthetic drop-ship agreements are not used here.
+
+Meetup is stripped before `planDelivery`. The rules library still knows only the
+four ECPay methods. An offered meetup option with only own lines freezes one
+`self` group: the seller supply shop, the seller profile version, one parcel,
+zero fees, no logistics, the seller note, no attribute versions, and
+`destination_state: 'complete'`. A `drop_ship` meetup line is
+`method_unsupported` and does not build a group. A supplied line is
+`fulfilment_not_agreed`. An own line whose supplier shop is not the seller shop
+fails `validateShippingQuote` as `shipping_quote_invalid`.
+
+ECPay methods use `planDelivery` and `availableMethods`. The seller shop is the
+executor. Services are the profile services whose logistics row is `active`, in
+document order. A profile with options but no active service is configured, then
+`method_unsupported`, not 409. Home outlying follows the postal prefix. Cart
+option totals are always planned as main-island (`outlying: false`) and keep the
+seller's free-over and outlying fields even when the option is unavailable.
+The quoted method uses the buyer's postal outlying flag. Free shipping zeros the
+base fee when merchandise reaches `free_over_minor`; an outlying surcharge is
+still charged. CVS quotes freeze `destination_state: 'store_required'`. Checkout
+refuses to place that state. The map job will attach the chosen store and can
+then freeze `complete`. Fulfilment orders, shipments, labels and tracking are
+unchanged.
+
+`FulfilmentRuleError` from the rules library propagates. It is not rewritten
+into a buyer 4xx. Successful plans pass `validateShippingQuote` before they are
+returned. Cart results are parsed with the cart shipping schema or thrown as
+`shipping_quote_invalid`. A method the seller does not offer is
+`method_unsupported` for every line, before the fulfilment check, so a supplied
+line on an unoffered method is not reported as `fulfilment_not_agreed`.

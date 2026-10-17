@@ -2,8 +2,8 @@
 import {createHash,createHmac,randomBytes,randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
-import {isCheckoutText} from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
-import {requireCondition} from '../../../packages/shared/problem.js';
+import {CheckoutShippingSchema,isCheckoutText,type DeliveryFieldErrorCode,type ShippingUnavailableReason} from '../../../contracts/guild-launchpad/v1/hosted-checkout.js';
+import {Problem,requireCondition} from '../../../packages/shared/problem.js';
 import {publicProjection} from '../hosted/publish.js';
 import {sharedLines} from '../hosted/shared-quotes.js';
 import {bindStore,lockStore,type CheckoutStore,type StoreContext} from './authority.js';
@@ -30,7 +30,6 @@ export function canonicalJSON(value:unknown):string {
 }
 export const hashJSON=(value:unknown)=>createHash('sha256').update(canonicalJSON(value),'utf8').digest('hex');
 export const hashKey=(value:string)=>createHash('sha256').update(value,'utf8').digest('hex');
-const money=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const contactSchema=z.object({name:z.string().trim().min(1).max(120),email:z.string().trim().toLowerCase().email().max(254),phone:z.string().trim().min(1).max(40)});
 const jsonObject=z.record(z.string(),z.unknown());
 const inputSchema=z.object({publication_revision:z.string().regex(/^[1-9][0-9]*$/),
@@ -39,9 +38,24 @@ const inputSchema=z.object({publication_revision:z.string().regex(/^[1-9][0-9]*$
   consents:z.array(z.object({policy_kind:z.string().regex(/^[a-z][a-z0-9_.-]{0,79}$/),policy_version_id:z.uuid()})).max(20).default([]),
 }).refine(v=>new Set(v.lines.map(l=>l.sku)).size===v.lines.length,'Duplicate SKU');
 export type CheckoutInput=z.input<typeof inputSchema>;
+export interface ShippingQuoteLine {
+  readonly sku:string; readonly item_id:string; readonly quantity:number; readonly unit_price_minor:number;
+  /** The executor's supply shop for own lines; the supplier's supply shop otherwise. */
+  readonly supplier_shop_id:string;
+  /** True exactly when the binding's supplier instance is the store's own instance. */
+  readonly own:boolean;
+}
+export interface ShippingQuoteInput {readonly lines:readonly ShippingQuoteLine[]; readonly merchandise_net_minor:number}
 export interface ShippingQuotePort {
-  /** SQL-local policy only. No provider/network call is permitted in this transaction. */
-  quote(q:PoolClient,store:CheckoutStore,input:{lines:readonly {item_id:string;supplier_shop_id:string;quantity:number}[];delivery:Record<string,unknown>}):Promise<unknown>;
+  /** Freeze and placement recompute. SQL-local. Validates the buyer's delivery; throws CheckoutDeliveryProblem. */
+  quote(q:PoolClient,store:StoreContext['profile'],input:ShippingQuoteInput&{delivery:Record<string,unknown>}):Promise<unknown>;
+  /** Cart quotes, inside the READ ONLY transaction. Never throws for undeliverable lines. */
+  cart?(q:PoolClient,store:StoreContext['profile'],input:ShippingQuoteInput&{delivery:Record<string,unknown>|null}):Promise<unknown>;
+}
+export class CheckoutDeliveryProblem extends Problem {
+  constructor(status:number,code:string,message:string,
+    readonly fields?:readonly {path:string;code:DeliveryFieldErrorCode}[],
+    readonly lines?:readonly {sku:string;reason:ShippingUnavailableReason}[]){super(status,code,message);}
 }
 export interface CheckoutAdmissionPort {allowed(q:PoolClient,store:CheckoutStore):boolean|Promise<boolean>}
 export interface UnresolvedOrderPort {find(q:PoolClient,checkoutId:string):Promise<{order_id:string}|null>}
@@ -70,12 +84,54 @@ export interface CheckoutPaymentActions {
 export interface CheckoutPorts {paymentActions?:CheckoutPaymentActions;shipping?:ShippingQuotePort;admission?:CheckoutAdmissionPort;policies?:CheckoutPolicyPort;unresolved?:UnresolvedOrderPort;payment?:CheckoutPaymentPort}
 export const defaultAdmission:CheckoutAdmissionPort={allowed:()=>false};
 const defaultShipping:ShippingQuotePort={async quote(){requireCondition(false,409,'shipping_not_configured','尚未設定配送。');}};
-const shippingSchema=z.object({groups:z.array(z.object({group_ref:z.string().min(1).max(80),supplier_shop_id:z.uuid(),method_ref:z.string().min(1).max(80),amount_minor:money})).min(1).max(50)});
-export function validateShippingQuote(raw:unknown,bindings:readonly {supplier_shop_id:string}[]) {
-  const shipping=shippingSchema.parse(raw);
-  const suppliers=new Set(bindings.map(b=>b.supplier_shop_id));
-  requireCondition(new Set(shipping.groups.map(g=>g.group_ref)).size===shipping.groups.length && shipping.groups.every(g=>suppliers.has(g.supplier_shop_id))
-    && [...suppliers].every(s=>shipping.groups.some(g=>g.supplier_shop_id===s)),422,'shipping_unavailable','商品無法配送。');
+function invalidShippingQuote():never {throw new Error('shipping_quote_invalid');}
+const bySku=(a:string,b:string)=>a<b?-1:a>b?1:0;
+/** Port bugs are internal. The message stays a fixed code and carries no buyer data or quote body. */
+export function validateShippingQuote(raw:unknown,lines:readonly ShippingQuoteLine[]) {
+  const parsed=CheckoutShippingSchema.safeParse(raw);
+  if(!parsed.success)invalidShippingQuote();
+  const shipping=parsed.data;
+  const method=shipping.groups[0]?.method_ref;
+  if(!method)invalidShippingQuote();
+  if(shipping.destination_state==='store_required'&&!method.startsWith('cvs:'))invalidShippingQuote();
+  if(shipping.groups.some(group=>group.method_ref!==method))invalidShippingQuote();
+  const expected=new Map<string,ShippingQuoteLine>();
+  for(const line of lines){if(expected.has(line.sku))invalidShippingQuote();expected.set(line.sku,line);}
+  const covered=new Set<string>();
+  shipping.groups.forEach((group,index)=>{
+    if(group.group_ref!==`g${index+1}`)invalidShippingQuote();
+    const meetup=group.method_ref==='meetup';
+    if((group.meetup!==null)!==meetup||(group.logistics===null)!==meetup)invalidShippingQuote();
+    if((group.agreement===null)!==(group.fulfilment_mode==='self'))invalidShippingQuote();
+    if(meetup&&(group.fee_per_parcel_minor!==0||group.outlying_surcharge_per_parcel_minor!==0||group.parcels.length!==1||group.attribute_versions.length!==0))invalidShippingQuote();
+    const quantities=new Map<string,number>();
+    group.parcels.forEach((parcel,parcelIndex)=>{
+      if(parcel.parcel_ref!==`${group.group_ref}-p${parcelIndex+1}`)invalidShippingQuote();
+      let declared=0;
+      for(const part of parcel.lines){
+        const line=expected.get(part.sku);
+        if(!line||line.supplier_shop_id!==group.supplier_shop_id)invalidShippingQuote();
+        if(group.fulfilment_mode==='self'&&!line.own)invalidShippingQuote();
+        const partValue=line.unit_price_minor*part.quantity;
+        if(!Number.isSafeInteger(partValue))invalidShippingQuote();
+        declared+=partValue;
+        quantities.set(part.sku,(quantities.get(part.sku)??0)+part.quantity);
+      }
+      if(!Number.isSafeInteger(declared)||declared!==parcel.declared_value_minor)invalidShippingQuote();
+    });
+    for(const [sku,quantity] of quantities){
+      if(covered.has(sku)||expected.get(sku)!.quantity!==quantity)invalidShippingQuote();
+      covered.add(sku);
+    }
+    if(!meetup){
+      const skus=[...quantities.keys()].sort(bySku);
+      if(group.attribute_versions.length!==skus.length||group.attribute_versions.some((entry,entryIndex)=>entry.sku!==skus[entryIndex]))invalidShippingQuote();
+    }
+    const perParcel=group.fee_per_parcel_minor+group.outlying_surcharge_per_parcel_minor;
+    const amount=group.parcels.length*perParcel;
+    if(!Number.isSafeInteger(perParcel)||!Number.isSafeInteger(amount)||amount!==group.amount_minor)invalidShippingQuote();
+  });
+  if(covered.size!==expected.size)invalidShippingQuote();
   return shipping;
 }
 /** Quote delivery and checkout delivery/invoice share exactly the same walker. */
@@ -115,10 +171,12 @@ export async function checkoutTerms(q:PoolClient,context:StoreContext,input:Retu
     requireCondition(supplier && supplier.currency===p.currency,409,'terms_changed','供貨來源已更新。');
     return supplier;
   });
-  const shipping=validateShippingQuote(await (ports.shipping??defaultShipping).quote(q,p,{lines:resolved.bindings,delivery:input.delivery}),resolved.bindings);
   const bindings=resolved.bindings.map(b=>({...b,unit_price_minor:resolved.lines.find(l=>l.sku===b.sku)!.unit_price_minor}));
+  const quoteLines:ShippingQuoteLine[]=bindings.map(b=>({sku:b.sku,item_id:b.item_id,quantity:b.quantity,unit_price_minor:b.unit_price_minor,supplier_shop_id:b.supplier_shop_id,own:b.supplier_instance_id===p.instance_id}));
   const items=resolved.lines.map(l=>({...l,offer_sha256:bindings.find(b=>b.sku===l.sku)!.offer_sha256}));
-  const merchandise=items.reduce((n,l)=>n+l.line_total_minor,0),shippingTotal=shipping.groups.reduce((n,g)=>n+g.amount_minor,0),total=merchandise+shippingTotal;
+  const merchandise=items.reduce((n,l)=>n+l.line_total_minor,0);
+  const shipping=validateShippingQuote(await (ports.shipping??defaultShipping).quote(q,p,{lines:quoteLines,merchandise_net_minor:merchandise,delivery:input.delivery}),quoteLines);
+  const shippingTotal=shipping.groups.reduce((n,g)=>n+g.amount_minor,0),total=merchandise+shippingTotal;
   requireCondition(Number.isSafeInteger(total)&&total>0,422,'checkout_total_invalid','結帳總額無效。');
   ports.payment?.assertTermsAvailable({currency:p.currency,totalMinor:total,amountsMinor:[...items.flatMap(l=>[l.unit_price_minor,l.line_total_minor]),...shipping.groups.map(g=>g.amount_minor),total]});
   const terms={profile:'freedom.checkout-terms/v1' as const,publication_revision:projection.revision,publication_id:p.current_publication_id!,currency:p.currency,
@@ -132,7 +190,11 @@ export function publicCheckoutTerms(terms:CheckoutTerms) {
   return {publication_revision:terms.publication_revision,currency:terms.currency,
     items:terms.items.map(({sku,title,quantity,unit_price_minor,line_total_minor})=>({sku,title,quantity,unit_price_minor,line_total_minor})),
     merchandise_total_minor:terms.merchandise_total_minor,discount_total_minor:terms.discount_total_minor,discounts:terms.discounts,
-    shipping:{groups:terms.shipping.groups.map(({group_ref,amount_minor})=>({group_ref,amount_minor}))},
+    shipping:{destination_state:terms.shipping.destination_state,groups:terms.shipping.groups.map(group=>{
+      const quantities=new Map<string,number>();
+      for(const parcel of group.parcels)for(const line of parcel.lines)quantities.set(line.sku,(quantities.get(line.sku)??0)+line.quantity);
+      return {group_ref:group.group_ref,method:group.method_ref,amount_minor:group.amount_minor,fee_per_parcel_minor:group.fee_per_parcel_minor,outlying_surcharge_per_parcel_minor:group.outlying_surcharge_per_parcel_minor,parcel_count:group.parcels.length,handling_days:group.logistics?.handling_days??null,items:[...quantities.keys()].sort(bySku).map(sku=>({sku,quantity:quantities.get(sku)!})),meetup_note:group.meetup?.note??null};
+    })},
     shipping_total_minor:terms.shipping_total_minor,tax_state:terms.tax_state,total_minor:terms.total_minor,consents:terms.consents,payment_methods:terms.payment_methods};
 }
 export async function computeCheckoutTerms(q:PoolClient,store:CheckoutStore,raw:CheckoutInput,ports:CheckoutPorts={}) {

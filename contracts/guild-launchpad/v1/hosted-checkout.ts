@@ -12,6 +12,28 @@ export const CheckoutTimeSchema=z.string().regex(new RegExp(z.regexes.datetime({
 const time=CheckoutTimeSchema;
 const sku=text.min(1).max(32);
 const quantity=z.number().int().min(1).max(99);
+export const ShippingMethodRefSchema=z.enum(['home','cvs:UNIMARTC2C','cvs:FAMIC2C','cvs:HILIFEC2C','meetup']);
+export const DeliveryFieldErrorCodeSchema=z.enum(['required','format','too_short','too_long','unknown_postal_code','blocked_term']);
+export const ShippingUnavailableReasonSchema=z.enum(['fulfilment_not_agreed','shipping_attributes_missing','method_unsupported','temperature_unsupported','too_large','cvs_value_limit','outlying_unsupported']);
+/** Seller meetup note: trimmed, 1–200 code points, controls forbidden except LF. */
+export const MeetupNoteSchema=z.string().trim().regex(/^(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]){1,200}$(?![\s\S])/).regex(/^[^\u0000-\u0009\u000B-\u001F\u007F-\u009F]*$(?![\s\S])/);
+const groupRef=z.string().regex(/^g(?:[1-9]|[1-4][0-9]|50)$(?![\s\S])/);
+const logisticsServiceKey=z.enum(['ecpay.logistics.home.tcat','ecpay.logistics.home.post','ecpay.logistics.cvs.unimartc2c','ecpay.logistics.cvs.famic2c','ecpay.logistics.cvs.hilifec2c']);
+const frozenLogistics=z.object({service_key:logisticsServiceKey,logistics_sub_type:z.enum(['TCAT','POST','UNIMARTC2C','FAMIC2C','HILIFEC2C']),ship_from_location_id:OpaqueId,temperature:z.literal('ambient'),handling_days:z.number().int().min(1).max(14),cutoff_time:z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$(?![\s\S])/),working_days:z.array(z.number().int().min(1).max(7)).min(1).max(7)}).strict();
+const frozenParcel=z.object({parcel_ref:z.string().regex(/^g(?:[1-9]|[1-4][0-9]|50)-p[1-9][0-9]{0,3}$(?![\s\S])/),lines:z.array(z.object({sku,quantity}).strict()).min(1).max(50),weight_g:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).nullable(),declared_value_minor:money}).strict();
+const frozenGroup=z.object({group_ref:groupRef,supplier_shop_id:OpaqueId,method_ref:ShippingMethodRefSchema,fulfilment_mode:z.enum(['self','drop_ship']),agreement:z.object({agreement_id:OpaqueId,version:Version}).strict().nullable(),profile_version:Version,logistics:frozenLogistics.nullable(),meetup:z.object({note:MeetupNoteSchema}).strict().nullable(),parcels:z.array(frozenParcel).min(1).max(4950),attribute_versions:z.array(z.object({sku,version:Version}).strict()).max(50),fee_per_parcel_minor:money,outlying_surcharge_per_parcel_minor:money,amount_minor:money}).strict();
+/** Frozen delivery terms. Invariants that relate groups to the quoted lines live in validateShippingQuote. */
+export const CheckoutShippingSchema=z.object({delivery_profile_version:Version,destination_state:z.enum(['complete','store_required']),groups:z.array(frozenGroup).min(1).max(50)}).strict();
+const publicGroup=z.object({group_ref:groupRef,method:ShippingMethodRefSchema,amount_minor:money,fee_per_parcel_minor:money,outlying_surcharge_per_parcel_minor:money,parcel_count:z.number().int().min(1).max(4950),handling_days:z.number().int().min(1).max(14).nullable(),items:z.array(z.object({sku,quantity}).strict()).min(1).max(50),meetup_note:MeetupNoteSchema.nullable()}).strict();
+const publicShipping=z.object({destination_state:z.enum(['complete','store_required']),groups:z.array(publicGroup).min(1).max(50)}).strict();
+const cartOutlying=z.discriminatedUnion('kind',[z.object({kind:z.literal('excluded')}).strict(),z.object({kind:z.literal('surcharge'),surcharge_per_parcel_minor:money}).strict()]);
+/** available ⇔ no unavailable lines ⇔ both totals are present. */
+export const CartDeliveryOptionSchema=z.object({method:ShippingMethodRefSchema,available:z.boolean(),shipping_total_minor:money.nullable(),parcel_count:z.number().int().nonnegative().max(4950).nullable(),free_over_minor:money.nullable(),outlying:cartOutlying.nullable(),note:MeetupNoteSchema.nullable(),lines:z.array(z.object({sku,reason:ShippingUnavailableReasonSchema}).strict()).max(50)}).strict().superRefine((value,ctx)=>{
+  const both=value.shipping_total_minor!==null&&value.parcel_count!==null;
+  const neither=value.shipping_total_minor===null&&value.parcel_count===null;
+  if(!both&&!neither||value.available!==(value.lines.length===0)||(value.lines.length===0)!==both)ctx.addIssue({code:'custom',message:'Cart delivery option availability does not match its lines and totals.'});
+});
+const deliveryErrorPath=z.string().max(80).regex(/^delivery(?:\.(?:method|[A-Za-z_][A-Za-z0-9_]*))?$(?![\s\S])/);
 const object=z.record(text,z.unknown()).refine(value=>{
   const pending:unknown[]=[value];
   while(pending.length) {
@@ -37,24 +59,24 @@ export const CheckoutInputSchema=z.object({publication_revision:Version,lines:z.
 const line=z.object({sku,title:z.string().min(1).max(120),quantity,unit_price_minor:money,line_total_minor:money}).strict();
 const binding=z.object({selection_id:OpaqueId,item_id:OpaqueId,version:Version,sku,quantity,supplier_shop_id:OpaqueId,supplier_instance_id:OpaqueId,
   offer_id:OpaqueId.nullable(),offer_sha256:sha.nullable(),acceptance_id:OpaqueId.nullable(),listing_sha256:sha.nullable(),unit_price_minor:money}).strict();
-const shippingGroup=z.object({group_ref:z.string().min(1).max(80),supplier_shop_id:OpaqueId,method_ref:z.string().min(1).max(80),amount_minor:money}).strict();
 export const CheckoutTermsSchema=z.object({profile:z.literal('freedom.checkout-terms/v1'),publication_revision:Version,publication_id:OpaqueId,currency:CurrencySchema,
   bindings:z.array(binding).min(1).max(50),items:z.array(line.extend({offer_sha256:sha.nullable()})).min(1).max(50),merchandise_total_minor:money,discount_total_minor:z.literal(0),discounts:z.array(z.never()).max(0),
-  shipping:z.object({groups:z.array(shippingGroup).min(1).max(50)}).strict(),shipping_total_minor:money,tax_state:z.literal('not_assessed'),total_minor:money,
+  shipping:CheckoutShippingSchema,shipping_total_minor:money,tax_state:z.literal('not_assessed'),total_minor:money,
   consents:z.array(consent).max(20),payment_methods:z.array(z.literal('immediate_card')).length(1),contact_sha256:sha}).strict();
 export const PublicCheckoutTermsSchema=z.object({publication_revision:Version,currency:CurrencySchema,
   items:z.array(line).min(1).max(50),merchandise_total_minor:money,discount_total_minor:z.literal(0),discounts:z.array(z.never()).max(0),
-  shipping:z.object({groups:z.array(z.object({group_ref:text.min(1).max(80),amount_minor:money}).strict()).min(1).max(50)}).strict(),
+  shipping:publicShipping,
   shipping_total_minor:money,tax_state:z.literal('not_assessed'),total_minor:money,consents:z.array(consent).max(20),payment_methods:z.array(z.literal('immediate_card')).length(1),
 }).strict();
 export const CheckoutResponseSchema=z.object({checkout_ref:OpaqueId,terms:PublicCheckoutTermsSchema,terms_sha256:sha,expires_at:time}).strict();
 const options=z.array(z.object({name:z.string(),value:z.string()}).strict());
 const cartLine=z.object({sku,title:z.string().nullable(),options,unit_price_minor:money.nullable(),quantity,line_total_minor:money.nullable(),
   state:z.enum(['ok','insufficient','unavailable','revision_changed']),available:z.number().int().nonnegative().optional()}).strict();
-const publicGroup=z.object({group_ref:z.string(),amount_minor:money}).strict();
+const cartGroup=z.object({group_ref:groupRef,amount_minor:money}).strict();
 export const CartQuoteResponseSchema=z.object({publication_revision:Version,currency:CurrencySchema,lines:z.array(cartLine).min(1).max(50),
-  merchandise_total_minor:money,discounts:z.array(z.never()).max(0),shipping:z.discriminatedUnion('state',[
-    z.object({state:z.literal('quoted'),groups:z.array(publicGroup),total_minor:money}).strict(),
+  merchandise_total_minor:money,discounts:z.array(z.never()).max(0),delivery_options:z.array(CartDeliveryOptionSchema).max(5),shipping:z.discriminatedUnion('state',[
+    z.object({state:z.literal('quoted'),method:ShippingMethodRefSchema,groups:z.array(cartGroup).min(1).max(50),total_minor:money}).strict(),
+    z.object({state:z.literal('unavailable'),method:ShippingMethodRefSchema,groups:z.array(z.never()).max(0),total_minor:z.null(),lines:z.array(z.object({sku,reason:ShippingUnavailableReasonSchema}).strict()).min(1).max(50)}).strict(),
     z.object({state:z.enum(['needs_delivery_data','not_configured']),groups:z.array(z.never()).max(0),total_minor:z.null()}).strict(),
   ]),total_minor:money.nullable()}).strict();
 export const PlaceOrderInputSchema=z.object({terms_sha256:sha,client_order_id:OpaqueId}).strict();
@@ -78,12 +100,18 @@ export const EmptyResponseSchema=z.undefined();
 export const CheckoutErrorCodeSchema=z.enum(['commerce_quarantined','checkout_not_enabled','checkout_store_not_found','checkout_not_found','checkout_order_not_found',
   'invalid_idempotency_key','checkout_idempotency_conflict','order_intent_conflict','consents_mismatch','terms_changed','stock_unavailable','unresolved_order','checkout_expired',
   'too_many_open_orders','commerce_rate_limited','order_access_email_unavailable','validation_failed','invalid_checkout_json','checkout_contact_too_large','checkout_contact_unavailable',
-  'shipping_not_configured','shipping_unavailable','checkout_total_invalid','storefront_unavailable','storefront_not_set_up','supply_unavailable','publication_changed','display_number_unavailable','credential_kind_rejected',
+  'shipping_not_configured','shipping_unavailable','delivery_invalid','delivery_store_required','checkout_total_invalid','storefront_unavailable','storefront_not_set_up','supply_unavailable','publication_changed','display_number_unavailable','credential_kind_rejected',
   'payment_profile_unavailable','payment_handoff_unavailable','checkout_order_closed','checkout_hold_expired','payment_already_applied','payment_attempts_exhausted',
   'payment_result_pending','internal_error','invalid_json','origin_rejected','host_rejected','json_required','body_too_large']);
 // payment_result_pending includes Retry-After when the 60-second handoff delay
 // determines a next allowed time. Rate-limit responses also carry Retry-After.
 export const CheckoutErrorSchema=z.object({type:z.string(),title:z.string(),status:z.number().int(),code:CheckoutErrorCodeSchema,detail:z.string(),
-  items:z.array(z.object({sku,available:z.number().int().nonnegative()}).strict()).optional(),order_ref:OpaqueId.optional()}).strict();
+  items:z.array(z.object({sku,available:z.number().int().nonnegative()}).strict()).optional(),order_ref:OpaqueId.optional(),
+  fields:z.array(z.object({path:deliveryErrorPath,code:DeliveryFieldErrorCodeSchema}).strict()).min(1).max(20).optional(),
+  lines:z.array(z.object({sku,reason:ShippingUnavailableReasonSchema}).strict()).min(1).max(50).optional()}).strict();
 export type PublicOrder=z.infer<typeof PublicOrderSchema>;
 export type CartQuoteInput=z.infer<typeof CartQuoteInputSchema>;
+export type CheckoutShipping=z.infer<typeof CheckoutShippingSchema>;
+export type ShippingMethodRef=z.infer<typeof ShippingMethodRefSchema>;
+export type DeliveryFieldErrorCode=z.infer<typeof DeliveryFieldErrorCodeSchema>;
+export type ShippingUnavailableReason=z.infer<typeof ShippingUnavailableReasonSchema>;

@@ -8,6 +8,8 @@ import { ECPAY_ORIGINS, EcpayKeyPair, newTradeNumber, verifySignedForm, encodeFo
 import { buildCreditCheckoutForm } from '../../modules/agent-commerce/providers/ecpay/aio-credit/index.js';
 import { createEcpayPaymentGateway, createFixturePaymentGateway, paymentGatewayUrls, assertPaymentGatewayInstallation } from '../../modules/agent-commerce/payments/gateway.js';
 import { hostedPaymentHarness } from '../e2e/hosted-payment-fixture.js';
+import { ok } from './hosted-checkout-harness.js';
+import { syntheticShippingPort } from '../../scripts/synthetic-shipping-quote.js';
 import { hashKey } from '../../modules/agent-commerce/checkout/terms.js';
 import { COMMERCE_LIMITS } from '../../modules/agent-commerce/checkout/limits.js';
 import { createStoreAdmissionPort } from '../../modules/agent-commerce/operations/admissions.js';
@@ -230,12 +232,12 @@ for (const phase of ['checkout', 'placement'] as const)
         await f.x.publish(s);
         revision = '2';
         quantity = 2;
-        basePorts.shipping = { quote: async (_q, _store, input) => ({ groups: [{ group_ref: 'synthetic', supplier_shop_id: input.lines[0].supplier_shop_id, method_ref: 'synthetic', amount_minor: 200 }] }) };
+        basePorts.shipping = syntheticShippingPort({ fee_per_parcel_minor: 200 });
       }
       if (scenario.reason === 'amount_below_minimum')
         quantity = 1;
       if (scenario.reason === 'amount_above_maximum')
-        basePorts.shipping = { quote: async (_q, _store, input) => ({ groups: [{ group_ref: 'synthetic', supplier_shop_id: input.lines[0].supplier_shop_id, method_ref: 'synthetic', amount_minor: 99999999900 }] }) };
+        basePorts.shipping = syntheticShippingPort({ fee_per_parcel_minor: 99999999900 });
       f.install({ commercePorts: { ...basePorts, ...(phase === 'placement' ? { payment: undefined } : {}) } });
       const input = { ...f.x.input(s.product.sku, quantity), publication_revision: revision };
       let response = await f.http('POST', f.root(s) + '/checkouts', input, undefined, { 'Idempotency-Key': randomUUID() });
@@ -254,10 +256,16 @@ for (const phase of ['checkout', 'placement'] as const)
           assert.equal((await f.x.h.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n, 0, table);
     });
 test('availability checks each shipping group even when their sum and the order total are whole TWD', async () => {
-  const s = await f.x.store();
-  await f.setup(s);
-  f.install({ commercePorts: { shipping: { quote: async (_q, _store, input) => ({ groups: ['a', 'b'].map(group_ref => ({ group_ref, supplier_shop_id: input.lines[0].supplier_shop_id, method_ref: 'synthetic', amount_minor: 50 })) }) } } });
-  const r = await f.http('POST', f.root(s) + '/checkouts', f.x.input(s.product.sku, 5), undefined, { 'Idempotency-Key': randomUUID() });
+  // Two real lines (own and supplied) so strict grouping still yields two groups of 50. The test port's drop_ship agreement is synthetic, not a production agreement.
+  const retailer = await f.x.store(), supplier = await f.x.store();
+  await f.setup(retailer);
+  const offer = ok(await f.x.send(supplier, `/products/${supplier.product.product_id}/supply-offer`, {}, supplier.product.version));
+  const selection = ok(await f.x.send(retailer, '/distribution-selections', { offer_id: offer.offer_id, terms_sha256: offer.terms_sha256, retail_price_minor: 100 }), 201);
+  ok(await f.x.send(supplier, `/supply-requests/${selection.selection_id}/decision`, { decision: 'accepted', listing_sha256: selection.listing_sha256 }, selection.version));
+  await f.x.publish(retailer);
+  f.install({ commercePorts: { shipping: syntheticShippingPort({ fee_per_parcel_minor: 50 }) } });
+  const input = { ...f.x.input(retailer.product.sku, 5), publication_revision: '2', lines: [{ sku: retailer.product.sku, quantity: 5 }, { sku: 'P0002', quantity: 5 }] };
+  const r = await f.http('POST', f.root(retailer) + '/checkouts', input, undefined, { 'Idempotency-Key': randomUUID() });
   expect(r, 409, 'payment_profile_unavailable');
   assert.equal(r.data.detail, '金額有不到 1 元的零頭，不能用信用卡付款。');
 });

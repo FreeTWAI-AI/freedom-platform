@@ -2,6 +2,7 @@ import {detachAfterResponse} from '../../../modules/agent-commerce/operations/du
 import {commerceEmailOutbox} from '../../../modules/agent-commerce/operations/notifications/outbox.js';
 import {createCheckoutPaymentPorts} from '../../../modules/agent-commerce/payments/attempts.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
+import {createShippingQuotePort} from '../../../modules/agent-commerce/fulfilment/quote/index.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { Context } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo';
@@ -43,7 +44,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
     afterResponse:options.afterResponse??detachAfterResponse,commerceQueryTransport:options.commerceQueryTransport,
-    commercePayments:options.commercePayments,commerceJournal:options.commerceJournal,commerceEmailSender:options.commerceEmailSender,commerceSettings:options.commerceSettings,commercePorts:{admission,...payments,...options.commercePorts,...(email?{email}:{})},commerceCredentialKeyring:options.commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv),
+    commercePayments:options.commercePayments,commerceJournal:options.commerceJournal,commerceEmailSender:options.commerceEmailSender,commerceSettings:options.commerceSettings,commercePorts:{admission,shipping:createShippingQuotePort({environment}),...payments,...options.commercePorts,...(email?{email}:{})},commerceCredentialKeyring:options.commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv),
     publicGuideAssets:options.publicGuideAssets,
     storePhotoAssetStore:options.storePhotoAssetStore,storePhotoAssets:options.storePhotoAssets,storePhotoUploadsEnabled:options.storePhotoUploadsEnabled===true,
     shopKeyPolicy:options.shopKeyPolicy??process.env.FREEDOM_SHOP_KEY_POLICY as PlatformRuntime['shopKeyPolicy'],

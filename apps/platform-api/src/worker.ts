@@ -7,6 +7,7 @@ import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/
 import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
 import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
+import {createShippingQuotePort} from '../../../modules/agent-commerce/fulfilment/quote/index.js';
 import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
 import {sweepCommerceOutboundEmails} from '../../../modules/agent-commerce/operations/notifications/delivery.js';
 import {createWorkerEmailSender} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
@@ -299,7 +300,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{quer
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     commerceQueryTransport:queryTransport,commercePayments:payments,commerceJournal:journal,commerceEmailSender:emailSender,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
-    commercePorts:{admission,...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},commerceCheckoutQueryDeps({transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine,emailEnabled:settings.emailEnabled})):{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
+    commercePorts:{admission,shipping:createShippingQuotePort({environment}),...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},commerceCheckoutQueryDeps({transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine,emailEnabled:settings.emailEnabled})):{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     supplierConsoleEnabled: env.FREEDOM_SUPPLIER_CONSOLE_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),

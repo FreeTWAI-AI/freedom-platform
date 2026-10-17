@@ -21,23 +21,12 @@ import {
   PublicOrderSchema,
   type PublicOrder,
 } from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
+import { syntheticShippingPort } from '../../scripts/synthetic-shipping-quote.js';
 
 export const e2eCheckoutPorts: CheckoutPorts = {
   admission: { allowed: () => true },
-  shipping: {
-    async quote(_q, _s, input) {
-      return {
-        groups: [...new Set(input.lines.map(line => line.supplier_shop_id))]
-          .sort()
-          .map(supplierShopId => ({
-            group_ref: supplierShopId,
-            supplier_shop_id: supplierShopId,
-            method_ref: 'synthetic-fixed',
-            amount_minor: 6000,
-          })),
-      };
-    },
-  },
+  // One parcel per supplier group keeps the storefront order fixture's 6000 shipping total.
+  shipping: syntheticShippingPort({ fee_per_parcel_minor: 6000 }),
 };
 
 export async function setupStorefrontOrderStore(db: Pool, browser: Browser, origin: string) {

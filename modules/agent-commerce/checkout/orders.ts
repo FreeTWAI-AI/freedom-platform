@@ -69,6 +69,7 @@ export async function placeCheckoutOrder(q:PoolClient,store:CheckoutStore,input:
     if(error instanceof Problem && ['publication_changed','supply_unavailable','terms_changed','consents_mismatch'].includes(error.code))throw new Problem(409,'terms_changed','售價、公開版本或供貨同意已更新。');
     throw error;
   }
+  requireCondition(saved.shipping?.destination_state==='complete',409,'delivery_store_required','請先選擇取貨門市。');
   const existing=await (ports.unresolved??unresolved).find(q,c.checkout_id);
   if(existing)throw new UnresolvedCheckoutOrder(existing.order_id);
   const items=(await q.query<{item_id:string;available:number}>('SELECT item_id,stock-reserved AS available FROM commerce_items WHERE item_id=ANY($1::uuid[]) ORDER BY item_id FOR UPDATE',[saved.bindings.map(b=>b.item_id)])).rows;

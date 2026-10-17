@@ -279,9 +279,11 @@ are scoped to the store tenant and instance; their 429 includes Retry-After from
 the database clock until the earliest counted prior open order expires (at least 1).
 
 Host checkout, console, quarantine and email settings default off. Checkout requires the console setting,
-which requires the launchpad setting. Production installs store admission, the optional configured payment port
-and, when `emailEnabled` is true on the Worker, the email outbox and Worker sender;
-shipping and policy ports remain absent. The scheduler sweeps up to 200 due holds before GitHub sync
+which requires the launchpad setting. Production installs store admission, the SQL-local shipping quote port,
+the optional configured payment port and, when `emailEnabled` is true on the Worker, the email outbox and
+Worker sender. A caller-supplied `commercePorts` override replaces those ports, so checkout tests and the
+ECPay end-to-end fixture keep their own shipping port. Policy ports remain absent unless a caller injects one.
+The scheduler sweeps up to 200 due holds before GitHub sync
 whenever quarantine is off, including when checkout creation is disabled.
 `commerce.hosted-checkout.v1` is a mandatory write floor from planned or retained
 schema168, independently of feature flags. It grants no payment or deploy authority.
@@ -291,6 +293,45 @@ three open-order slots at one store. B10 email buckets use the same unsalted has
 as the platform auth limiter; the database already holds plaintext email in the
 customer row. A valid cookie makes reads of a real order ref in that store take
 two more queries than a random ref.
+
+## Shipping quote
+
+`ShippingQuotePort` is optional on `CheckoutPorts`. `quote` freezes one shipping
+object for checkout and placement. `cart`, when present, prices delivery options
+inside the read-only cart transaction. The store argument is the full store
+profile. Lines carry sku, item, quantity, server unit price, supplier shop and
+`own` (true only when the binding's supplier instance is this store). `own` is
+not stored on the frozen binding. The port sorts lines by SKU with code-unit
+order. Checkout calls `validateShippingQuote` on the result and stores that
+object. A programming failure throws `Error('shipping_quote_invalid')` with no
+buyer data; the route maps that to 500.
+
+`CheckoutDeliveryProblem` is the buyer-facing shipping error:
+`shipping_not_configured` (409, 「尚未設定配送。」), `delivery_invalid` (422, with
+1–20 field paths), `shipping_unavailable` (422, one line per failing SKU), and
+`delivery_store_required` (409, 「請先選擇取貨門市。」). Field paths are `delivery`,
+`delivery.method`, or `delivery.` plus an ASCII identifier, at most 80 characters.
+A key that cannot be represented that way is the generic `delivery` path and is
+not copied into the response. The route adds `fields` or `lines` only when the
+array is non-empty, then parses the body with `CheckoutErrorSchema`.
+
+The frozen shipping object is internal. `publicCheckoutTerms` publishes
+`destination_state` and, per group, `group_ref`, `method`, amounts, parcel count,
+handling days, SKU quantities and `meetup_note`. Shop ids, agreement ids,
+versions, locations and service keys stay off that view. `payment_methods`
+stays `['immediate_card']`. There is no `payment_options` field; offline payment
+options belong to the offline-core job. Meetup's method reference is exactly
+`meetup`.
+
+Placement recomputes terms and compares `terms_sha256`. A shipping change is
+`terms_changed`. Immediately after that recompute, and before the unresolved-order
+lookup, placement requires `shipping.destination_state === 'complete'`. A missing
+state fails closed as 409 `delivery_store_required`, so a convenience-store quote
+cannot be placed until a later map job stores the chosen shop. Production
+supplied lines are `fulfilment_not_agreed` until agreements exist. The test-only
+`syntheticShippingQuote` helper is not imported here. It may model an already
+agreed drop-ship line for consent regressions, and it rejects a supplied meetup
+line instead of building a drop-ship meetup group.
 
 ## Deliberately outside this slice
 

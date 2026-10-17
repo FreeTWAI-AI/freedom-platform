@@ -27,6 +27,7 @@ export async function validateShippingProfile(q:PoolClient,tenantId:string,insta
   const duplicates=(values:readonly unknown[],path:(index:number)=>string)=>{const seen=new Set();values.forEach((value,index)=>{if(seen.has(value))fields.push({path:path(index),code:'duplicate'});seen.add(value);});};
   duplicates(input.working_days,i=>`working_days.${i}`);
   duplicates(input.services.map(s=>s.service_key),i=>`services.${i}.service_key`);
+  // Meetup needs no logistics service. Duplicate methods, including a second meetup, are still rejected.
   duplicates(input.delivery_options.map(s=>s.method),i=>`delivery_options.${i}.method`);
   duplicates(input.drop_ship?.fees.map(s=>s.service_key)??[],i=>`drop_ship.fees.${i}.service_key`);
   input.services.forEach((service,index)=>{if(service.service_key==='ecpay.logistics.home.post'&&service.outlying_islands==='allowed')fields.push({path:`services.${index}.outlying_islands`,code:'post_mainland_only'});});

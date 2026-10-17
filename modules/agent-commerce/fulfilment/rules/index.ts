@@ -38,6 +38,7 @@ export {
 export {
   validateRecipientName,
   normalizeMobile,
+  validatePostalCode,
   validateHomeRecipient,
   validateCvsRecipient,
   normalizeCvsStoreSelection,
