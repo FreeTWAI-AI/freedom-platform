@@ -20,6 +20,18 @@
 
 DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；`avatar_url` 只在對方目前可見且有頭像時給既有的 `/api/v1/members/:id/avatar?v=` 路徑。回應不含 email、聯絡方式或任何 token。
 
+私訊 `Message.created_at` 在歷史分頁、對話的 `last_message`、搜尋、送出及同 key
+重播讀回中，統一直接投影 PostgreSQL 的 UTC 六位微秒時間（#783），不經
+JavaScript Date 截成毫秒。SQL 仍以原 `(created_at,message_id)` 排序；只有真正
+完全同時才以 UUID 並列。`read_at`、`retracted_at`、顯示日期與頻道序號排序不變。
+
+客戶端排序及已讀邊界共用同一比較規則，保留微秒，也把舊三位毫秒與其六位
+補零表示視為同一時間。但補零不能還原舊 DTO 已遺失的微秒：新版客戶端在重讀
+遇到新六位時間、且已有載入的三位歷史時，會沿原授權分頁重讀已載入的訊息 ID，
+取得原始精度後才替換，不只更新最新一頁。沿用世代／撤權與分頁失敗防護，
+不新增已讀寫入、資料欄位或 migration。已開啟的舊版前端須重新載入才能使用
+新版比較與重讀邏輯；這不是部署或不中斷升級已驗收的聲明。
+
 上表通知與私訊 POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Match`；封鎖設定另使用版本 CAS（見下節）。同一個 key 搭配不同內容回 `409 idempotency_conflict`；重送會先重新檢查目前資格，再讀取原收據。
 
 單則通知第一次標已讀時，先在目前會員與 command receipt 鎖之後鎖定本人通知列，

@@ -20,7 +20,7 @@ import {ChatBody,ChatQuote,ChatExtras,ChatRetracted,RetractMessageDialog,chatPay
 import {ChatInput,ChatTime,useChatViewport,usePhoneChatBounds,useVisibleChatRead} from './ChatWorkspace';
 import {ChatSearch} from './ChatSearch';
 import {WorkshopIcon} from '../WorkshopIcon';
-import {directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessagePage,readLoadedDirectMessageReceipts} from './direct-message-receipts';
+import {compareDirectMessages,directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessagePage,readLoadedDirectMessageReceipts} from './direct-message-receipts';
 import {isFirstImageDecoderRejection,matchesDirectMessageAck,messageImageFileError,messageImageUrl,uploadMessageImage,type MessageImage} from './message-image-client';
 import {MessageImagePreview} from './MessageImagePreview';
 import {chatPollDue,idleChatPoll,resetChatPoll} from './adaptive-chat-poll';
@@ -32,8 +32,7 @@ type Notice={notification_id:string;kind:string;title:string;body:string;created
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
 type Participant={user_id:string;display_name:string;avatar_url:string|null;last_seen_at:string|null;is_online:boolean};
 type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null;retracted_at:string|null;image?:MessageImage}&MessageContent;
-const messageOrder=(a:Message,b:Message)=>a.created_at.localeCompare(b.created_at)||a.message_id.localeCompare(b.message_id);
-const newestMessages=(items:Message[])=>[...items].sort((a,b)=>messageOrder(b,a));
+const newestMessages=(items:Message[])=>[...items].sort((a,b)=>compareDirectMessages(b,a));
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
 type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number;retraction_count?:string};
@@ -326,7 +325,9 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       // A slower response for a previously selected member must never replace the open conversation.
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
       const previous=snapshot.current.thread;
-      const changed=quiet&&(value.retraction_count??'0')!==(previous?.retraction_count??'0');
+      // Legacy Date strings have already lost microseconds; reload their original rows, not guessed zeroes.
+      const changed=quiet&&((value.retraction_count??'0')!==(previous?.retraction_count??'0')
+        ||(value.items.some(item=>item.created_at.length===27)&&previous?.items.some(item=>item.created_at.length===24)));
       const refreshed=changed?await refreshLoadedMessages(value,previous?.items??[],
         offset=>client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=${offset}`,{background:true}),
         ()=>alive.current&&current===threadGeneration.current&&currentPeer.current===id):undefined;
@@ -445,7 +446,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       // Keep all lifecycle/visibility fences, but reconcile metadata before the history fence.
       void loadConversations(true);
       if(generation!==threadGeneration.current)return;
-      if(currentPeer.current===id&&boundary)setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.sender_ref===id&&!message.read_at&&messageOrder(message,boundary)<=0?{...message,read_at:result.read_at}:message)}:value);
+      if(currentPeer.current===id&&boundary)setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.sender_ref===id&&!message.read_at&&compareDirectMessages(message,boundary)<=0?{...message,read_at:result.read_at}:message)}:value);
       if(currentPeer.current===id)await loadThread(id,true);
     }catch(cause){
       if(!unconfirmed(cause))readAttempts.current.delete(id);
