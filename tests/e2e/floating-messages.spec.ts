@@ -153,3 +153,77 @@ test('a direct read ACK refreshes list totals after a newer manual thread read',
     expect(fixture.counts().reads).toBe(1);
   }finally{fixture.release();}
 });
+
+test('legacy loaded history is reread at microsecond precision before quiet refresh replaces it',async({page})=>{
+  const peer='20000000-0000-4000-8000-000000000099',owner='20000000-0000-4000-8000-000000000001';
+  const root=`/api/v1/me/conversations/${peer}`,participant={user_id:peer,display_name:'合成精度夥伴',avatar_url:null,last_seen_at:null,is_online:false};
+  const message=(message_id:string,created_at:string)=>({message_id,sender_ref:peer,recipient_ref:owner,body:`合成精度訊息 ${message_id}`,created_at,read_at:'2026-10-05T00:00:00.000Z',retracted_at:null});
+  const rows=[...Array.from({length:20},(_,index)=>message(`30000000-0000-4000-8000-${String(20-index).padStart(12,'0')}`,`2026-10-04T00:01:${String(19-index).padStart(2,'0')}.000000Z`)),
+    message('00000000-0000-4000-8000-000000000001','2026-10-04T00:00:00.123999Z'),
+    message('ffffffff-ffff-4fff-8fff-ffffffffffff','2026-10-04T00:00:00.123001Z')];
+  // Simulate a producer cutover: old wire dates have already lost their microseconds.
+  // Both affected rows are outside the latest page, so replacing that page alone cannot repair them.
+  let precise=false;
+  const project=(item:typeof rows[number])=>precise?item:{...item,created_at:new Date(item.created_at).toISOString()};
+  await page.route(url=>url.pathname===root+'/messages',route=>{
+    const query=new URL(route.request().url()).searchParams,offset=Number(query.get('offset')??0),limit=Number(query.get('limit')??20);
+    return route.fulfill({json:{participant,can_send:true,items:rows.slice(offset,offset+limit).map(project),unread_count:0,next_offset:offset+limit<rows.length?offset+limit:null,retraction_count:'0'}});
+  });
+  await page.route(url=>url.pathname===root+'/activity',route=>route.fulfill({json:{last_message_id:rows[0].message_id,unread_count:0,can_send:true,last_outgoing:null,retraction_count:'0'}}));
+  await page.route(url=>url.pathname==='/api/v1/me/conversations',route=>route.fulfill({json:{items:[{participant,can_send:true,last_message:project(rows[0]),unread_count:0}],unread_count:0,next_offset:null}}));
+  await login(page);
+  await page.locator('.floating-messages').click();
+  const panel=page.locator('.floating-message-panel');
+  await panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:new RegExp(participant.display_name)}).click();
+  await panel.getByRole('button',{name:'載入較早訊息',exact:true}).click();
+  const shown=panel.locator('[data-message-id]'),expected=rows.toReversed().map(item=>item.message_id);
+  await expect.poll(()=>shown.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-message-id')).sort())).toEqual([...expected].sort());
+  precise=true;
+  await panel.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  await expect.poll(()=>shown.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-message-id')))).toEqual(expected);
+});
+
+for(const order of ['refresh-first','older-first'] as const)test(`precision refresh and older paging preserve every row and cursor (${order})`,async({page})=>{
+  const peer='20000000-0000-4000-8000-000000000099',owner='20000000-0000-4000-8000-000000000001';
+  const root=`/api/v1/me/conversations/${peer}`,participant={user_id:peer,display_name:'合成分頁精度夥伴',avatar_url:null,last_seen_at:null,is_online:false};
+  const rows=Array.from({length:60},(_,index)=>({message_id:`30000000-0000-4000-8000-${String(60-index).padStart(12,'0')}`,sender_ref:peer,recipient_ref:owner,body:`合成分頁訊息 ${index}`,
+    created_at:new Date(Date.UTC(2026,9,4,0,1,59-index)).toISOString().replace('.000Z','.000000Z'),read_at:'2026-10-05T00:00:00.000Z',retracted_at:null}));
+  Object.assign(rows[20],{message_id:'00000000-0000-4000-8000-000000000001',created_at:'2026-10-04T00:01:39.123999Z'});
+  Object.assign(rows[21],{message_id:'ffffffff-ffff-4fff-8fff-ffffffffffff',created_at:'2026-10-04T00:01:39.123001Z'});
+  let precise=false,refreshHeld=false,olderHeld=false,activeRoutes=0;
+  let releaseRefresh!:()=>void,releaseOlder!:()=>void;
+  const refreshGate=new Promise<void>(resolve=>{releaseRefresh=resolve;}),olderGate=new Promise<void>(resolve=>{releaseOlder=resolve;});
+  const reads:{offset:number;precise:boolean}[]=[];
+  const project=(item:typeof rows[number])=>precise?item:{...item,created_at:new Date(item.created_at).toISOString()};
+  await page.route(url=>url.pathname===root+'/messages',async route=>{
+    const query=new URL(route.request().url()).searchParams,offset=Number(query.get('offset')??0),limit=Number(query.get('limit')??20);
+    const items=rows.slice(offset,offset+limit).map(project),wasPrecise=precise;reads.push({offset,precise:wasPrecise});activeRoutes++;
+    try{
+      if(offset===40&&!wasPrecise&&order==='older-first'){olderHeld=true;await olderGate;}
+      if(offset===20&&wasPrecise){refreshHeld=true;await refreshGate;}
+      await route.fulfill({json:{participant,can_send:true,items,unread_count:0,next_offset:offset+limit<rows.length?offset+limit:null,retraction_count:'0'}});
+    }finally{activeRoutes--;}
+  });
+  await page.route(url=>url.pathname===root+'/activity',route=>route.fulfill({json:{last_message_id:rows[0].message_id,unread_count:0,can_send:true,last_outgoing:null,retraction_count:'0'}}));
+  await page.route(url=>url.pathname==='/api/v1/me/conversations',route=>route.fulfill({json:{items:[{participant,can_send:true,last_message:project(rows[0]),unread_count:0}],unread_count:0,next_offset:null}}));
+  try{
+    await login(page);await page.locator('.floating-messages').click();const panel=page.locator('.floating-message-panel');await panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:new RegExp(participant.display_name)}).click();
+    const older=panel.getByRole('button',{name:'載入較早訊息',exact:true}),reload=panel.getByRole('button',{name:'重新讀取訊息',exact:true}),shown=panel.locator('[data-message-id]');
+    await older.click();await expect(shown).toHaveCount(40);const draft=panel.locator('textarea');await draft.fill('分頁與精度刷新都保留這份草稿');
+    if(order==='older-first'){
+      await older.click();await expect.poll(()=>olderHeld).toBe(true);precise=true;await reload.click();
+      expect(reads.filter(read=>read.precise)).toHaveLength(0);await expect(shown).toHaveCount(40);
+      releaseOlder();
+    }else{precise=true;await reload.click();}
+    await expect.poll(()=>refreshHeld).toBe(true);
+    await expect(reload).toHaveAttribute('aria-disabled','true');
+    if(order==='refresh-first'){
+      await expect(older).toBeDisabled();expect(reads.some(read=>read.offset===40)).toBe(false);await expect(shown).toHaveCount(40);
+    }else await expect(shown).toHaveCount(60);
+    releaseRefresh();await expect(reload).toHaveAttribute('aria-disabled','false');
+    if(order==='refresh-first'){await expect(older).toBeEnabled();await older.click();}
+    await expect.poll(()=>shown.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-message-id')))).toEqual(rows.toReversed().map(row=>row.message_id));
+    await expect(older).toHaveCount(0);await expect(draft).toHaveValue('分頁與精度刷新都保留這份草稿');
+    expect(reads).toContainEqual({offset:40,precise:true});
+  }finally{releaseOlder();releaseRefresh();await expect.poll(()=>activeRoutes).toBe(0);}
+});

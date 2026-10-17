@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Message, MessagePage } from '../../modules/member-communications/types.js';
-import { directMessageReceiptRefreshDue, hasDirectMessageChanges, mergeDirectMessagePage, readLoadedDirectMessageReceipts } from '../../apps/portal-web/src/modules/direct-message-receipts.js';
+import { compareDirectMessages, directMessageReceiptRefreshDue, hasDirectMessageChanges, mergeDirectMessagePage, readLoadedDirectMessageReceipts } from '../../apps/portal-web/src/modules/direct-message-receipts.js';
 
 const readAt = '2026-10-04T06:00:00.000Z';
 const message = (index: number, sender = 'sender', read: string | null = null): Message => ({
@@ -117,4 +117,33 @@ test('unread tombstones neither schedule receipt polling nor walk older history 
   }, () => true);
   assert.deepEqual(offsets, [20], 'stop after the actual pending receipt, before the older tombstone page');
   assert.deepEqual([...mixed!], [[live.message_id, readAt]]);
+});
+
+test('page merges preserve microsecond chronology before UUID ties', () => {
+  const older = {...message(2), created_at: '2026-10-04T00:00:00.123001Z'};
+  const newer = {...message(1), created_at: '2026-10-04T00:00:00.123999Z'};
+  assert.deepEqual(mergeDirectMessagePage([newer], [older]).map(item => item.message_id), ['0001', '0002']);
+});
+
+test('mixed timestamp precision orders a later microsecond after a loaded millisecond', () => {
+  const older = {...message(2), created_at: '2026-10-04T00:00:00.123Z'};
+  const newer = {...message(1), created_at: '2026-10-04T00:00:00.123001Z'};
+  assert.deepEqual(mergeDirectMessagePage([newer], [older]).map(item => item.message_id), ['0001', '0002']);
+});
+
+test('mixed timestamp precision uses UUID ties only for the same instant', () => {
+  const lower = {...message(1), created_at: '2026-10-04T00:00:00.123Z'};
+  const higher = {...message(2), created_at: '2026-10-04T00:00:00.123000Z'};
+  assert.deepEqual(mergeDirectMessagePage([higher], [lower]).map(item => item.message_id), ['0002', '0001']);
+});
+
+test('read boundaries compare exact instants across precision and UTC second rollover', () => {
+  const boundary = {...message(2), created_at: '2026-10-04T00:00:59.999999Z'};
+  const later = {...message(1), created_at: '2026-10-04T00:01:00.000Z'};
+  assert.ok(compareDirectMessages(boundary, later) < 0);
+  assert.ok(compareDirectMessages(later, boundary) > 0);
+  const legacy = {...message(1), created_at: '2026-10-04T00:00:00.123Z'};
+  assert.equal(compareDirectMessages(legacy, {...legacy, created_at: '2026-10-04T00:00:00.123000Z'}), 0);
+  assert.ok(compareDirectMessages(legacy, {...legacy, created_at: '2026-10-04T00:00:00.123001Z'}) < 0);
+  assert.ok(compareDirectMessages(legacy, {...legacy, message_id: '0002'}) < 0);
 });

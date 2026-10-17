@@ -67,7 +67,7 @@ async function snapshot<T>(pool:Pool,actor:Actor,run:(q:PoolClient)=>Promise<T>)
 function message(row:any):Message{
   const retracted=iso(row.retracted_at??null);
   // A retracted row keeps its place and read state; the text never leaves the server again.
-  return {message_id:row.message_id,sender_ref:row.sender_ref,recipient_ref:row.recipient_ref,body:retracted?'':row.body,created_at:iso(row.created_at)!,read_at:iso(row.read_at),retracted_at:retracted};
+  return {message_id:row.message_id,sender_ref:row.sender_ref,recipient_ref:row.recipient_ref,body:retracted?'':row.body,created_at:row.created_at_text,read_at:iso(row.read_at),retracted_at:retracted};
 }
 function notification(row:any):Notification{
   return {notification_id:row.notification_id,kind:row.kind,title:row.title,body:row.body,created_at:iso(row.created_at)!,read_at:iso(row.read_at),
@@ -143,6 +143,7 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
           WHERE community_id=$1 AND (sender_ref=$2 OR recipient_ref=$2)) pair
         ORDER BY peer,created_at DESC,message_id DESC)
       SELECT l.*,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.present AS avatar_present,
+        to_char(l.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_text,
         EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
           AND ((b.owner_ref=$2 AND b.target_ref=l.peer) OR (b.owner_ref=l.peer AND b.target_ref=$2))) AS blocked,
         (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
@@ -172,7 +173,8 @@ export async function conversationMessages(pool:Pool,actor:Actor,rawPeer:string,
   return snapshot(pool,actor,async q=>{
     const peer=await resolvePeer(q,actor,id);
     const unread=(await q.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL AND retracted_at IS NULL',[actor.community_id,actor.user_id,id])).rows[0].n;
-    const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at FROM member_direct_messages
+    const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at,
+      to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_text FROM member_direct_messages
       WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
       ORDER BY created_at DESC,message_id DESC LIMIT $4 OFFSET $5`,[actor.community_id,actor.user_id,id,limit+1,offset])).rows;
     const page=pageOf(rows,limit,offset),contents=await messageContents(q,page.items,'direct',actor.user_id);
@@ -208,7 +210,8 @@ export async function searchConversationMessages(pool:Pool,actor:Actor,rawPeer:s
       if(cursor)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
         AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
         [cursor,actor.community_id,actor.user_id,id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
-      const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at FROM member_direct_messages
+      const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at,
+        to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_text FROM member_direct_messages
         WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
           AND retracted_at IS NULL AND body ILIKE $4 AND ($5::uuid IS NULL OR (created_at,message_id)<(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$5))
         ORDER BY created_at DESC,message_id DESC LIMIT $6`,[actor.community_id,actor.user_id,id,messageSearchPattern(query),cursor??null,limit+1])).rows;
@@ -261,7 +264,9 @@ export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string,o
     return {message_id:row.message_id as string};
   },async q=>{await currentMember(q,input.actor,false);await assertCanContact(q,input.actor,id);});
   return snapshot(pool,input.actor,async q=>{
-    const row=(await q.query('SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3',
+    const row=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id,retracted_at,
+      to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_text
+      FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3`,
       [sent.message_id,input.actor.community_id,input.actor.user_id])).rows[0];
     requireCondition(row,404,'message_not_found','找不到這則訊息。');
     return {...message(row),...(await messageContents(q,[row],'direct',input.actor.user_id))[0]};
