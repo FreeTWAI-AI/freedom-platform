@@ -60,6 +60,14 @@ text remain unchanged; no replacement or Unicode normalization is applied.
 Existing trimming, length, URL and uniqueness rules still apply. The shared
 business `text()` helper and order/payment/shipment schemas are unchanged.
 
+Public-manifest `item_id` and machine-order `selection_id` uniqueness follows
+PostgreSQL UUID identity: uppercase and lowercase spellings of one UUID are
+duplicates and fail schema validation with `422 validation_failed`, before
+an import or reservation write. Single uppercase references and distinct
+UUIDs remain valid. Only comparison keys are case-folded; the parsed input,
+request digests and external order IDs are not rewritten. Product SKUs keep
+their existing case-sensitive uniqueness rule (`TEA` and `tea` are distinct).
+
 The server resolver and schema constraints are documented in [resource-scopes](../../packages/resource-scopes/README.md). After schema 117 and 118, an upgraded issuer creates only purpose-bound v2 keys when the owner explicitly requests issuance. Its existing member receipt/digest stays unchanged and a replay still returns `token: null`. The application must receive an explicit `FREEDOM_SHOP_KEY_POLICY=legacy-compatible` or `purpose-bound-only`; absent configuration yields shop-only 503. The Worker config checker lists this as a required injection without changing deployed vars. `/api/v1/health` reports the actual selected policy and issuer profile, or `unconfigured`/null. A merged source SHA or configured example is not an installed policy observation.
 
 ## Controlled legacy exit

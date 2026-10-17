@@ -10,7 +10,7 @@ import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {Problem} from '../../packages/shared/problem.js';
 import {fetchManifest,ownShops,catalog,previewImport} from '../../modules/agent-commerce/imports.js';
-import {parseManifestFile} from '../../modules/agent-commerce/schema.js';
+import {parseManifestFile,manifestInput,orderInput} from '../../modules/agent-commerce/schema.js';
 import {orderView,shopOrders,memberOrders} from '../../modules/agent-commerce/orders.js';
 import {authenticate,tokenHash} from '../../modules/identity-membership/service.js';
 import {listAcceptances} from '../../modules/agent-commerce/distribution.js';
@@ -193,6 +193,29 @@ test('manifest scalar validation preserves Unicode pairs and literal escapes thr
  const imported=await req('/api/v1/commerce/import',{manifest:preview.data.manifest,confirmed:true},session);
  assert.equal(imported.status,201);
  assert.equal((await pool.query('SELECT snapshot->>\'sale_terms\' AS sale_terms FROM commerce_selections WHERE shop_id=$1',[imported.data.shop_id])).rows[0].sale_terms,value);
+});
+
+test('public manifest uniqueness follows UUID identity while SKU uniqueness remains case-sensitive',()=>{
+ const a='a1234567-b123-4123-8123-c123456789ab',b='b1234567-b123-4123-8123-c123456789ab';
+ const {products,access,...base}=internal(),selection={item_id:a,retail_price_minor:50000,sale_terms:'合成條件'};
+ for(const item_id of [a,a.toUpperCase()]){
+  const result=manifestInput.safeParse({...base,kind:'public',selections:[selection,{...selection,item_id}]});
+  assert.equal(result.success,false,'one database UUID must not appear twice');
+ }
+ const distinct=manifestInput.parse({...base,kind:'public',selections:[selection,{...selection,item_id:b.toUpperCase()}]});
+ assert.equal(distinct.kind,'public');
+ if(distinct.kind==='public')assert.deepEqual(distinct.selections.map(row=>row.item_id),[a,b.toUpperCase()]);
+ const skus=manifestInput.parse({...internal(),products:[products[0],{...products[0],sku:'tea'}]});
+ assert.equal(skus.kind,'internal');
+ if(skus.kind==='internal')assert.deepEqual(skus.products.map(row=>row.sku),['TEA','tea']);
+ assert.equal(manifestInput.safeParse({...internal(),products:[products[0],products[0]]}).success,false);
+});
+
+test('order line uniqueness rejects UUID case aliases without rewriting distinct selections or external IDs',()=>{
+ const a='a1234567-b123-4123-8123-c123456789ab',b='b1234567-b123-4123-8123-c123456789ab',line={selection_id:a,quantity:1,delivery_ref:'synthetic_delivery_001'};
+ for(const selection_id of [a,a.toUpperCase()])assert.equal(orderInput.safeParse({external_id:'External-CASE',items:[line,{...line,selection_id}]}).success,false);
+ const parsed=orderInput.parse({external_id:'External-CASE',items:[line,{...line,selection_id:b.toUpperCase()}]});
+ assert.equal(parsed.external_id,'External-CASE');assert.deepEqual(parsed.items.map(row=>row.selection_id),[a,b.toUpperCase()]);
 });
 
 test('downloaded kits include exact data, payment application, private access, protocol and no secrets',async()=>{

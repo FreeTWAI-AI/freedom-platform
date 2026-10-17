@@ -17,11 +17,11 @@ const base={schema:z.literal('freedom-shop/v1'),mode:z.enum(['test','live']).def
 const unique=<T>(items:T[],key:(item:T)=>string)=>new Set(items.map(key)).size===items.length;
 export const manifestInput=z.discriminatedUnion('kind',[
  z.object({...base,kind:z.literal('internal'),access:z.literal('authenticated'),products:z.array(z.object({sku:manifestText(80),title:manifestText(120),description:manifestText(2000),photo_url:manifestUrl.nullable(),price_minor:money,shipping_minor:z.number().int().min(0).max(100000000000),stock:z.number().int().min(0).max(1000000),shipping_terms:manifestText(1500),return_terms:manifestText(1500)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.sku),'商品代號不可重複。')}).strict(),
- z.object({...base,kind:z.literal('public'),selections:z.array(z.object({item_id:z.uuid(),retail_price_minor:money,sale_terms:manifestText(1500)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.item_id),'商品不可重複。')}).strict()
+ z.object({...base,kind:z.literal('public'),selections:z.array(z.object({item_id:z.uuid(),retail_price_minor:money,sale_terms:manifestText(1500)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.item_id.toLowerCase()),'商品不可重複。')}).strict()
 ]);
 export type ShopManifest=z.infer<typeof manifestInput>;
 export const importInput=z.object({manifest:manifestInput,confirmed:z.literal(true)}).strict();
-export const orderInput=z.object({external_id:text(100),items:z.array(z.object({selection_id:z.uuid(),quantity:z.number().int().min(1).max(99),delivery_ref:z.string().regex(/^[a-zA-Z0-9_-]{8,120}$/)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.selection_id),'選品不可重複。')}).strict();
+export const orderInput=z.object({external_id:text(100),items:z.array(z.object({selection_id:z.uuid(),quantity:z.number().int().min(1).max(99),delivery_ref:z.string().regex(/^[a-zA-Z0-9_-]{8,120}$/)}).strict()).min(1).max(50).refine(items=>unique(items,p=>p.selection_id.toLowerCase()),'選品不可重複。')}).strict();
 export const acceptanceInput=z.object({decision:z.enum(['accepted','declined','changes_requested','revoked']),listing_sha256:z.string().regex(/^[a-f0-9]{64}$/),note:z.string().trim().max(1000).default('')}).strict();
 // provider_verified_by_merchant is the shop's own claim. It does not create a SupplierPayable or move money. See handoff section 11.
 export const paymentInput=z.object({event_id:text(120),type:z.enum(['paid','refunded']),provider:text(80),transaction_ref:text(160),amount_minor:money,currency,mode:z.enum(['test','live']),verification:z.literal('provider_verified_by_merchant')}).strict();
