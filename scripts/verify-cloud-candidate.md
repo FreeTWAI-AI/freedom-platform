@@ -131,7 +131,7 @@ The JSON report goes to stdout, and the caller keeps it as the canonical record.
 
 ### Supplier public projection proof
 
-New synthetic stores use the currently offered `hosted-store@1.1.0`. The local harness verifies the supply and legacy reservation journey on that release with both Commerce console and checkout disabled; existing stores are not upgraded by the verifier.
+New synthetic stores require `hosted-store@1.1.0`, offered by main migration `169_hosted_payment_core.sql`. This verifier must not be run against the historical schema-167 / `hosted-store@1.0.0` candidate `682fe87c`; its old staging receipts do not validate the current tool. Select and verify a new candidate containing migration 169 and the 1.1.0 offering before using these phases. The local harness verifies the supply and legacy reservation journey on that release with both Commerce console and checkout disabled; existing stores are not upgraded by the verifier.
 
 After publishing, `supplier-reservations` verifies the authenticated seller store and selected supply item, cross-checks the publish receipt revision, and saves that revision and selected SKU in the private handle. Both public endpoints must then return 200 with the expected store slug and revision. The store must also match the expected name, TWD currency, and exactly one target SKU with its expected title, description and retail price. The media profile must match the same publication; an empty `photos: []` is valid. Only after these positive checks and the private-field/photo absence checks pass does the tool record `public_projection_private: true`. Empty objects, empty products and two public responses sharing the same wrong revision cannot establish proof.
 

@@ -10,18 +10,24 @@
 - 同一個 SHA 的完整 CI 要通過；取消、略過或只跑部分都不算。
 - 之後每一步的 receipt 都寫這個 SHA；staging 與 production 用同一個。
 
-2026-10-16 的狀態：
+歷史快照（2026-10-16，非目前驗收）：
+
+下表保存當時的候選、CI 與 migration 排程；不是目前可直接執行的發布指令。表內 S3／D-11 的預定編號也只屬於當時排程，新候選以實際合併的 migration 清單為準。
 
 | 項目 | 狀態 |
 | --- | --- |
 | 候選 | main `682fe87c`：S1（#761）與 S2（#857，連同 #856）。Ted 在 16:38:58Z 同意上 staging，16:47:03Z 合併 #857，所以 staging 用合併後的 `682fe87c`，不是先前的 `a4ec6c3b` |
 | schema | S1、S2 沒有 migration，staging 仍是 167。S3 帶 168，D-11 帶 169（先合併到 main 的保留編號） |
 | 完整 CI | `682fe87c` 的三個 workflow 都通過：Verify local milestone（run [38934643725](https://github.com/FreeTWAI/freedom-platform/actions/runs/38934643725)）、Push on main（CodeQL，[38934643547](https://github.com/FreeTWAI/freedom-platform/actions/runs/38934643547)）、Directory runtime profile tests（[38934643979](https://github.com/FreeTWAI/freedom-platform/actions/runs/38934643979)） |
-| 之後的 main | main 之後合併了 #858 等變更；候選不追新的 main。production 若經 Ted 同意，用同一個 `682fe87c` |
+| 之後的 main | 當時 main 之後合併了 #858 等變更；當時規劃不追新的 main，production 經 Ted 同意後使用同一個 `682fe87c` |
 
 ## 2. 合成驗收腳本
 
 工具是 `scripts/verify-cloud-candidate.ts` 的四個 supplier 階段，細節見 [工具說明](../../../../scripts/verify-cloud-candidate.md)。
+
+2026-10-17 整合 main `1ae0d0a4` 後，工具新建合成店固定使用 `hosted-store@1.1.0`，依賴 `169_hosted_payment_core.sql` 提供的新 offering。上表 `682fe87c`／schema 167／1.0.0 的舊候選不適用此版工具，舊 staging 結果也不是此版工具的雲端證據；必須選含 migration 169 與 1.1.0 offering 的新候選，依固定 SHA 重新驗收。既有店不會由此工具自動升級。
+
+已發布公開投影的證據還需要私有 handle 中的 publication revision 與 SKU；它們來自已登入賣家的成功發布回應與私人讀取。舊 handle 若遇到兩個公開 200 卻缺少這個 pin，會失敗而不聲稱覆蓋；兩個 404 仍只記未發布、未覆蓋。
 
 | 階段 | 對應 | 寫入 |
 | --- | --- | --- |
