@@ -15439,8 +15439,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 51479,
-      "sha256": "723b1794e270043ccc21edae53426fa1c889ed380473d5df8db52d345a7ecf4b"
+      "bytes": 52848,
+      "sha256": "985dd7fb6d37905964dfcaf8f7106098b8eb26639e1b7a75db845391bcdc0539"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -22914,8 +22914,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 80621,
-      "sha256": "fc92565f7046e110836761880d6bec6ad20144da39d171ecf857b56aae3badc8"
+      "bytes": 80878,
+      "sha256": "c77c15e2caec631cadcbfe4928dfe92568dcc1a17aa86ddf20d4e755c8bf5f48"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",

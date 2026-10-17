@@ -323,6 +323,20 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   下一步在固定候選上驗證 scoped runtime、資料目錄／retarget、Worker、還原、browser 與完整 serial runtime。
   本機整合尚未推送，未部署、未連線綠界、未寄信；main 合併仍須 Ted 決定。
 
+接手驗證續記（2026-10-17 03:03Z）：
+
+- `fe7dd76f` 的 typecheck、契約、build、inventory（5091 hashes／1715 links）、325 項 scoped runtime、
+  593 項治理、562 項部署設定、42 項 selector、946 項 Python 契約與所有 Worker dry-run 通過。
+- Worker 整輪 122/123；原生 main／broker 案例在服務呼叫的 40 秒期限後回 `model_broker_unavailable`。
+  同一來源單跑 1/1 通過（39.35 秒），沒有修改期限；35 次資料庫觀察沒有阻塞樣本，但不能據此判定原失敗原因。
+  兩份結果都保留，所屬 PostgreSQL 容器與 volume 已移除。
+- 還原演練揭露三處過時的預期筆數：匯款 fixture 複製每個租戶的 checkout 聯絡資料後，合計應為四筆，
+  每個租戶可見兩筆。修正總數、各租戶筆數與聯絡資料排序，保留未綁定租戶時零筆的要求。
+  修正前完整演練與單檔都出現相同三項失敗並碰到外層 120 秒期限；修正後租戶還原單檔 8 項通過、
+  1 項既有 T-047 TODO（10.30 秒），typecheck 通過。未改備份／還原實作、RLS、測試期限或 T-047。
+- 完整還原、封存與瀏覽器驗證接續執行；之後完整 serial runtime 與新 head 的 hosted CI 並行。
+  426 個 runtime 檔案均納入八分區，沒有遺漏或重複；排程權重不是實測通過證據。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |

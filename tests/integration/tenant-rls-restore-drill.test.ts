@@ -530,7 +530,8 @@ const EXPECTED: Record<string, number> = {
   commerce_provider_accounts: 2, commerce_provider_account_services: 4, commerce_provider_credentials: 4,
   commerce_ship_from_locations: 2, commerce_logistics_services: 2,
   commerce_offline_payment_settings: 2, commerce_offline_payments: 2, commerce_meetup_handovers: 2,
-  commerce_customers: 2, commerce_checkout_contacts: 2, commerce_exception_cases: 2, commerce_order_access_grants: 2,
+  // Each tenant retains a card contact and the cloned offline-bank contact.
+  commerce_customers: 2, commerce_checkout_contacts: 4, commerce_exception_cases: 2, commerce_order_access_grants: 2,
   tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2, commerce_hosted_supply_offers: 2,
   // Photo-bearing restore is exercised by media-backup-restore; this fixture
   // must still preserve both empty tables and their tenant policies.
@@ -837,7 +838,7 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   for (const [table, key] of [['commerce_customers', 'customer_id'], ['commerce_checkout_contacts', 'contact_id'], ['commerce_exception_cases', 'case_id'], ['commerce_order_access_grants', 'grant_id'], ['commerce_provider_accounts','account_id'], ['commerce_provider_account_services','account_id'], ['commerce_provider_credentials','credential_id'], ['commerce_payment_attempts','attempt_id'], ['commerce_hosted_payment_events','event_id'], ['commerce_due_work','due_work_id'],['commerce_refunds','refund_id'], ['commerce_outbound_emails','email_id'],['commerce_ship_from_locations','location_id'],['commerce_logistics_services','logistics_service_id'],['commerce_shipping_profile_versions','instance_id'],['commerce_item_shipping_attributes','item_id'],['commerce_offline_payment_settings','instance_id'],['commerce_offline_payments','payment_id'],['commerce_meetup_handovers','handover_id']] as const) {
     const rows = async (pool: Pool) => (await pool.query(`SELECT * FROM ${table} ORDER BY ${key}`)).rows;
     const restored = await rows(restoredPool);
-    assert.equal(restored.length, ['commerce_payment_attempts','commerce_provider_account_services','commerce_provider_credentials'].includes(table) ? 4 : 2);
+    assert.equal(restored.length, ['commerce_checkout_contacts','commerce_payment_attempts','commerce_provider_account_services','commerce_provider_credentials'].includes(table) ? 4 : 2, table);
     if (table === 'commerce_payment_attempts') assert.deepEqual(restored.map(row => row.kind).sort(), ['order', 'order', 'service_activation', 'service_activation']);
     assert.deepEqual(restored, (await rows(owner)).filter(row => row.tenant_id !== spaces.c.tenantId));
     assert.equal((await restoredPool.query(`SELECT 1 FROM ${table} WHERE tenant_id=$1`, [spaces.c.tenantId])).rowCount, 0);
@@ -916,9 +917,10 @@ test('J6-R4 restored checkout PII requires the exact tenant context and disappea
       for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_exception_cases', 'commerce_order_access_grants','commerce_provider_accounts','commerce_provider_account_services','commerce_provider_credentials','commerce_ship_from_locations','commerce_logistics_services','commerce_offline_payment_settings','commerce_offline_payments','commerce_meetup_handovers']) assert.equal((await q.query(`SELECT * FROM ${table}`)).rowCount, 0);
       await bindTenantContext(q, { tenantId: space.tenantId, tenantScopeId: space.scopeId });
       for (const table of ['commerce_customers', 'commerce_checkout_contacts', 'commerce_exception_cases', 'commerce_order_access_grants','commerce_provider_accounts','commerce_provider_account_services','commerce_provider_credentials','commerce_ship_from_locations','commerce_logistics_services','commerce_offline_payment_settings','commerce_offline_payments','commerce_meetup_handovers']) {
-        const rows = (await q.query(`SELECT * FROM ${table}`)).rows;
-        assert.equal(rows.length, ['commerce_provider_account_services','commerce_provider_credentials'].includes(table) ? 2 : 1);
-        assert.deepEqual(rows, (await restoredPool.query(`SELECT * FROM ${table} WHERE tenant_id=$1`, [space.tenantId])).rows);
+        const order = table === 'commerce_checkout_contacts' ? ' ORDER BY contact_id' : '';
+        const rows = (await q.query(`SELECT * FROM ${table}${order}`)).rows;
+        assert.equal(rows.length, ['commerce_checkout_contacts','commerce_provider_account_services','commerce_provider_credentials'].includes(table) ? 2 : 1, table);
+        assert.deepEqual(rows, (await restoredPool.query(`SELECT * FROM ${table} WHERE tenant_id=$1${order}`, [space.tenantId])).rows);
       }
     });
   }
