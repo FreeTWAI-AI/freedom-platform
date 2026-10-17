@@ -7,6 +7,7 @@ import {authRateLimit} from '../../../../modules/identity-membership/members.js'
 import {moduleCommand, type PlatformEnv} from '../module-context.js';
 import {boundedMedia} from './community-events.js';
 import {readEventBanner} from '../../../../modules/community/events.js';
+import {readWithMemberSession} from '../../../../packages/db/member-session.js';
 import {addHighlightImage, addHighlightLink, decodeMediaTitle, highlightBannerBytes, highlightImageBytes, highlightImageDigest, listHighlightEvents, normalizeHighlightImage, normalizeHighlightLink, readHighlightCursor, readHighlightEvent, readHighlightMode, removeHighlight} from '../../../../modules/community/event-highlights.js';
 import {highlightsCss, highlightsDetailHtml, highlightsListHtml, highlightsNotFoundHtml} from '../../../../modules/community/event-highlights-page.js';
 import {Problem} from '../../../../packages/shared/problem.js';
@@ -62,11 +63,17 @@ export function createEventHighlightMemberRoutes(pool: Pool,runtime:Pick<Platfor
     await readHighlightEvent(pool,{eventId:id,communityId:actor.community_id,viewerId:actor.user_id});
     return c.body(webp(c,await readEventBanner(pool,actor,id,runtime.eventBannerAssetStore)));
   });
+  // One locked session and one client span the whole composed projection; the
+  // final database-clock recheck covers every wait, including an empty page.
   app.get('/event-highlights', async c => {
     const actor = c.get('actor');
-    return c.json(await listHighlightEvents(pool, {communityId: actor.community_id, viewerId: actor.user_id, mode: readHighlightMode(c.req.query('mode'), false), cursor: readHighlightCursor(c.req.query('cursor'), false)}));
+    const scope = {communityId: actor.community_id, viewerId: actor.user_id, mode: readHighlightMode(c.req.query('mode'), false), cursor: readHighlightCursor(c.req.query('cursor'), false)};
+    return c.json(await readWithMemberSession(pool, actor, q => listHighlightEvents(q, scope)));
   });
-  app.get('/event-highlights/:eventId', async c => c.json(await readHighlightEvent(pool, {communityId: c.get('actor').community_id, viewerId: c.get('actor').user_id, eventId: z.uuid().parse(c.req.param('eventId'))})));
+  app.get('/event-highlights/:eventId', async c => {
+    const actor = c.get('actor'), eventId = z.uuid().parse(c.req.param('eventId'));
+    return c.json(await readWithMemberSession(pool, actor, q => readHighlightEvent(q, {communityId: actor.community_id, viewerId: actor.user_id, eventId})));
+  });
   app.post('/event-highlights/:eventId/links', async c => {
     const input = await moduleCommand(c);
     const eventId = z.uuid().parse(c.req.param('eventId'));

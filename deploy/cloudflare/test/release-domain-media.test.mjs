@@ -6,7 +6,7 @@ import { loadManifest } from '../lib/manifest.mjs';
 import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1'];
+const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.supply-material.asset.v1', 'media.social-preview-create.v1'];
 function fixture() {
   const scan = checkMigrations(`${root}migrations`, loadManifest().database_defaults.migrations);
   assert.equal(scan.ok, true);
@@ -21,7 +21,7 @@ function fixture() {
       observation: { evidence_id: 'synthetic-media-observation', target, observed_at_ms: 9999,
         schema_ledger: scan.ledger, schema_ledger_digest: scan.ledger_digest, enabled_shapes: [], written_shapes: [], active_releases: [active], complete: true },
       release_records: [active, candidate].map(identity => ({ ...identity, evidence_id: 'synthetic-media-approval', status: 'approved',
-        environments: ['next'], schema_ledger_digests: [scan.ledger_digest], capabilities: ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'media.server-policy.v1', ...media],
+        environments: ['next'], schema_ledger_digests: [scan.ledger_digest], capabilities: ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'media.server-policy.v1', ...media],
         approved_at_ms: 9000, expires_at_ms: 11000 })) }
   };
 }
@@ -41,7 +41,7 @@ function prefix(f, last, { planned = true } = {}) {
 test('additive media schema alone preserves disabled legacy compatibility', () => {
   const f = fixture(); for (const record of f.host.release_records) record.capabilities.splice(record.capabilities.indexOf('work.explicit-wire.v1') + 1);
   assert.equal(run(f).status, 'compatible');
-  assert.deepEqual(run(f).required_capabilities, ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
+  assert.deepEqual(run(f).required_capabilities, ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
 });
 
 for (const shape of media) test(`${shape} requires domain and policy support in every binary and every retained shape source`, () => {
@@ -49,7 +49,7 @@ for (const shape of media) test(`${shape} requires domain and policy support in 
     const f = fixture(); (source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation)[source] = [shape];
     const result = run(f); assert.equal(result.status, 'compatible');
     const required = ['media.server-policy.v1', shape, ...(shape==='media.social-preview-create.v1'?['media.social-thumbnail.asset.v1']:[])];
-    assert.deepEqual(result.required_capabilities, ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', ...required].sort());
+    assert.deepEqual(result.required_capabilities, ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', ...required].sort());
     for (const binary of [0, 1]) for (const capability of required) {
       const bad = structuredClone(f); bad.host.release_records[binary].capabilities = bad.host.release_records[binary].capabilities.filter(item => item !== capability);
       assert(run(bad).issues.some(issue => issue.code === 'release_capability_missing' && issue.capability === capability && issue.source_sha === bad.host.release_records[binary].source_sha));
@@ -58,7 +58,7 @@ for (const shape of media) test(`${shape} requires domain and policy support in 
 });
 
 test('retained media capabilities cannot replace missing prerequisite migrations or a restored lower schema', () => {
-  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103], ['media.message-image.asset.v1', 138], ['media.comment-image.asset.v1', 147], ['media.storefront-product-photo.asset.v1', 140], ['media.social-preview-create.v1', 105]]) {
+  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103], ['media.message-image.asset.v1', 138], ['media.comment-image.asset.v1', 147], ['media.storefront-product-photo.asset.v1', 140], ['media.supply-material.asset.v1', 170], ['media.social-preview-create.v1', 105]]) {
     const f = fixture(); prefix(f, missing); f.host.rollback_floor.capabilities = [capability];
     const result = run(f); assert.equal(result.status, 'incompatible');
     assert(result.issues.some(issue => issue.code === 'shape_schema_missing'));
@@ -71,7 +71,7 @@ test('retained media capabilities cannot replace missing prerequisite migrations
 
 test('written video floor cannot be removed by disabling the current installation', () => {
   const f = fixture(); f.host.rollback_floor_shapes = ['media.event-video.asset.v1'];
-  f.host.release_records[0].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
+  f.host.release_records[0].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
   assert(run(f).issues.some(issue => issue.capability === 'media.event-video.asset.v1'));
   prefix(f, 100, { planned: false });
   assert(run(f).issues.some(issue => issue.code === 'historical_shape_schema_missing'));

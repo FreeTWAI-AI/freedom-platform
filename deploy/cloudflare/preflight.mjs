@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {checkCommerceWranglerConfig} from './lib/commerce-wrangler.mjs';
 // Freedom Platform Cloudflare Workers + Cloudflare-billed PlanetScale Postgres migration preflight.
 // Read-only by construction: offline checks, GET-only Cloudflare probes, allowlisted OCI/pscale reads.
 // Phase is cutover_complete (2026-09-25). There is still no execute mode. `plan --env next`
@@ -119,6 +120,7 @@ export async function run(argv, deps = {}) {
     }
     report.wrangler = checkWranglerConfig(path, manifest, { hyperdriveConfigs });
     report.media_wrangler = checkMediaWranglerConfig(path, manifest);
+    report.commerce_wrangler = checkCommerceWranglerConfig(path);
   }
   if (want('cost')) report.cost = { selected: planetscaleCost(manifest), oci_alternative: ['CI.Standard.E4.Flex', 'CI.Standard.A1.Flex'].map((connectorShape) => ociAlternativeCost(manifest, { connectorShape })) };
   if (want('oci-alternative')) report.oci_alternative = ociAlternativeStatus(manifest);
@@ -143,7 +145,7 @@ export async function run(argv, deps = {}) {
   }
 
   const failed = report.manifest?.ok === false || report.migrations?.ok === false || report.wrangler?.status === 'fail'
-    || report.media_wrangler?.structural === false
+    || report.media_wrangler?.structural === false || report.commerce_wrangler?.structural === false
     || (report.compatibility !== undefined && report.compatibility.status !== 'compatible');
   const safe = redactDeep(report);
   if (flags.report) safe.report_file = writePrivateReport(report, deps.reportDir);

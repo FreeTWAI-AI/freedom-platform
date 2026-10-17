@@ -12,7 +12,7 @@ import type { PlatformRuntime } from '../runtime.js';
 import type { PlatformEnv } from '../module-context.js';
 import { privateCache, singleQuery, commandHeaders, etag } from './tenant-http.js';
 
-type PhotoRuntime=Pick<PlatformRuntime,'storePhotoAssets'|'storePhotoAssetStore'|'storePhotoUploadsEnabled'>;
+type PhotoRuntime=Pick<PlatformRuntime,'storePhotoAssets'|'storePhotoAssetStore'|'storePhotoUploadsEnabled'|'supplierConsoleEnabled'>;
 export const storePhotosInstalled=(runtime:PhotoRuntime)=>Boolean(runtime.storePhotoAssetStore);
 export const storePhotoUploadsInstalled=(runtime:PhotoRuntime)=>storePhotosInstalled(runtime)&&Boolean(runtime.storePhotoAssets)&&runtime.storePhotoUploadsEnabled===true;
 export function isStorePhotoUpload(method:string,path:string){return method==='POST'&&/^\/api\/v1\/tenants\/[0-9A-Fa-f-]{36}\/storefronts\/[0-9A-Fa-f-]{36}\/products\/[0-9A-Fa-f-]{36}\/photo$/.test(path);}
@@ -32,23 +32,23 @@ function imageResponse(c:Context<PlatformEnv>,bytes:Uint8Array){
   return c.req.method==='HEAD'?c.body(null):c.body(bytes as Uint8Array<ArrayBuffer>);
 }
 export function createHostedStoreMediaRoutes(pool:Pool,runtime:PhotoRuntime){
-  const app=new Hono<PlatformEnv>(),root='/tenants/:tenant_id/storefronts/:instance_id';
+  const app=new Hono<PlatformEnv>(),root='/tenants/:tenant_id/storefronts/:instance_id',scope={retailOnly:runtime.supplierConsoleEnabled!==true};
   for(const path of [root+'/product-media',root+'/products/:product_id/photo',root+'/products/:product_id/photo/*']) app.use(path,async(c,next)=>{try{requireCondition(storePhotosInstalled(runtime),404,'not_found','找不到這個頁面。');await next();}finally{privateCache(c);}});
   const ids=(c:Context<PlatformEnv>)=>[OpaqueId.parse(c.req.param('tenant_id')),OpaqueId.parse(c.req.param('instance_id'))] as const;
-  app.get(root+'/product-media',async c=>{RemoveProductPhotoInputSchema.parse(singleQuery(c));const[t,i]=ids(c);return c.json(await listProductMedia(pool,c.get('actor'),t,i));});
+  app.get(root+'/product-media',async c=>{RemoveProductPhotoInputSchema.parse(singleQuery(c));const[t,i]=ids(c);return c.json(await listProductMedia(pool,c.get('actor'),t,i,scope));});
   app.post(root+'/products/:product_id/photo',async c=>{
     RemoveProductPhotoInputSchema.parse(singleQuery(c));checkStorePhotoHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
     const h=commandHeaders(c,true),[t,i]=ids(c),productId=OpaqueId.parse(c.req.param('product_id'));
-    const view=await uploadProductPhoto(pool,c.get('actor'),t,i,productId,h.key,h.expected!,{bytes:await sourceBytes(c.req.raw),mime:c.req.header('Content-Type')!},runtime.storePhotoAssets,runtime.storePhotoUploadsEnabled===true);
+    const view=await uploadProductPhoto(pool,c.get('actor'),t,i,productId,h.key,h.expected!,{bytes:await sourceBytes(c.req.raw),mime:c.req.header('Content-Type')!},runtime.storePhotoAssets,runtime.storePhotoUploadsEnabled===true,scope);
     etag(c,view.current.version);return c.json(view);
   });
   app.post(root+'/products/:product_id/photo/remove',async c=>{
     RemoveProductPhotoInputSchema.parse(singleQuery(c));RemoveProductPhotoInputSchema.parse(await c.req.json());const h=commandHeaders(c,true),[t,i]=ids(c);
-    const view=await removeProductPhoto(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('product_id')),h.key,h.expected!);etag(c,view.current.version);return c.json(view);
+    const view=await removeProductPhoto(pool,c.get('actor'),t,i,OpaqueId.parse(c.req.param('product_id')),h.key,h.expected!,scope);etag(c,view.current.version);return c.json(view);
   });
   app.on(['GET','HEAD'],root+'/products/:product_id/photo/:version',async c=>{
     RemoveProductPhotoInputSchema.parse(singleQuery(c));const[t,i]=ids(c);
-    return imageResponse(c,await readPrivateProductPhoto(pool,runtime.storePhotoAssetStore!,c.get('actor'),t,i,c.req.param('product_id')!,c.req.param('version')!));
+    return imageResponse(c,await readPrivateProductPhoto(pool,runtime.storePhotoAssetStore!,c.get('actor'),t,i,c.req.param('product_id')!,c.req.param('version')!,scope));
   });
   return app;
 }

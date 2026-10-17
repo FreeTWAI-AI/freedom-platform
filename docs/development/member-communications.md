@@ -14,13 +14,37 @@
 | `GET /api/v1/me/conversations` | `{items:[{participant, can_send, last_message, unread_count}], unread_count, next_offset}`，依最後一則訊息排序 |
 | `GET /api/v1/me/conversations/:userId/messages` | `{participant, can_send, items: Message[], unread_count, next_offset}`；還沒對話時回空陣列，可直接開始撰寫 |
 | `POST /api/v1/me/conversations/:userId/messages` `{body}` | `201 Message` |
-| `POST /api/v1/me/conversations/:userId/read` `{}` | `{user_id, read_at, updated_count}`；只標對方傳給自己的未讀訊息 |
+| `POST /api/v1/me/conversations/:userId/read` `{}` 或 `{through_message_id}` | `{user_id, read_at, updated_count}`；只標對方傳給自己的未讀訊息，有邊界時只標到該則 |
 | `POST /api/v1/me/conversations/:userId/messages/:messageId/retract` `{}` | `{message_id, retracted_at}`；只有傳送者可收回（#398） |
 | `POST /api/v1/me/channels/:kind/:key/messages/:messageId/retract` `{}` | `{message_id, retracted_at}`；只有傳送者、且仍是該頻道成員可收回 |
 
 DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；`avatar_url` 只在對方目前可見且有頭像時給既有的 `/api/v1/members/:id/avatar?v=` 路徑。回應不含 email、聯絡方式或任何 token。
 
+私訊 `Message.created_at` 在歷史分頁、對話的 `last_message`、搜尋、送出及同 key
+重播讀回中，統一直接投影 PostgreSQL 的 UTC 六位微秒時間（#783），不經
+JavaScript Date 截成毫秒。SQL 仍以原 `(created_at,message_id)` 排序；只有真正
+完全同時才以 UUID 並列。`read_at`、`retracted_at`、顯示日期與頻道序號排序不變。
+
+客戶端排序及已讀邊界共用同一比較規則，保留微秒，也把舊三位毫秒與其六位
+補零表示視為同一時間。但補零不能還原舊 DTO 已遺失的微秒：新版客戶端在重讀
+遇到新六位時間、且已有載入的三位歷史時，會沿原授權分頁重讀已載入的訊息 ID，
+取得原始精度後才替換，不只更新最新一頁。沿用世代／撤權與分頁失敗防護，
+不新增已讀寫入、資料欄位或 migration。已開啟的舊版前端須重新載入才能使用
+新版比較與重讀邏輯；這不是部署或不中斷升級已驗收的聲明。
+
+私訊完整重讀未結束時，較早分頁按鈕與同步 handler 都會阻擋新的分頁請求，
+避免精度刷新覆蓋剛追加的歷史卻保留已前進的游標。若較早頁先開始，沿用既有
+在途分頁紀錄延後 quiet refresh，待追加完成再刷新完整已載入集合；兩個先後都
+保留已讀收據、草稿、選取世代、權限與分頁失敗邊界。
+
 上表通知與私訊 POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Match`；封鎖設定另使用版本 CAS（見下節）。同一個 key 搭配不同內容回 `409 idempotency_conflict`；重送會先重新檢查目前資格，再讀取原收據。
+
+單則通知第一次標已讀時，先在目前會員與 command receipt 鎖之後鎖定本人通知列，
+再以 `clock_timestamp()` 記錄實際 mutation 時間，不使用交易開始時固定的 `now()`。
+因此 session／收據／通知列等待不會倒填第一次已讀時間；等待期間才建立的通知也不會
+出現 `read_at < created_at`。先取得通知列鎖是必要的：單改 UPDATE 裡的時鐘，
+PostgreSQL 仍可能在等待該列之前就算好 expression。`COALESCE` 保留原本已讀時間；
+新 key 再標或原 key 重送都不刷新它，會員／社群過濾及既有撤權守門不變。
 
 通知偏好啟用時，常駐訊息泡泡以未讀私訊加上偏好篩選後的頻道提醒計數，遵守頻道靜音與安靜時段；訊息面板內的歷史與原始未讀游標不變。通知鈴讀取完整歷史後仍以偏好提醒數為準。旗標尚未取得時不先顯示未篩選數字，關閉時沿用既有入口。
 
@@ -42,6 +66,18 @@ DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；
 - 找不到、跨社群、或未完成加入且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成加入時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。任一方向封鎖時傳送與建立／接受好友邀請回通用 `409 recipient_unavailable`，不回傳反向封鎖欄位。
 - 每位傳送者 60 秒內最多 20 則新訊息（`429 message_rate_limited`）。私訊先取得無序 pair lock，再取得傳送者頻率限制 advisory lock；同時送出也不會超過，雙向傳送使用相同 pair barrier。授權通過後重送既有 key 不計次；收件者以 `FOR SHARE` 鎖定。
 - 私訊不產生通知（避免未讀重複計算）。訊息內容不寫入 command receipt 或 transition journal；receipt 只保留 `message_id`。
+- 私訊標讀先沿用 bulk inbox 的本人 `member-inbox-read-all/<community>/<user>`
+  advisory barrier，再以既有方向／顯示邊界選取仍未讀的列，按 message ID 排序 `FOR UPDATE`。
+  MATERIALIZED locking CTE 全部讀完後，aggregate 才取得一次 DB `clock_timestamp()`；
+  同批列與 response 使用同一時間，零列也仍回合法的 `updated_count:0`。
+  因此 session 等待期間才到達的訊息不會被標成早於建立時間，訊息列鎖等待也
+  不會回填等待前的時間；不是以舊時間或 `created_at` 人工夾值。
+  原 key 重播只回原結果，不消耗顯示邊界之後的新訊息；空 body 保留既有未讀全標語意。
+  `member-communications.test.ts` 以真 PG session／訊息列鎖覆蓋兩種 body、
+  同批共用鎖後時間、零更新、較晚訊息與重播，既有封鎖／授權規則不變。
+  同會員的 bulk 與單一對話標讀須在列鎖前共用 barrier，避免 bulk 的 heap 順序與
+  對話的 ID 順序相反而死鎖；回歸以兩個真 PG 行鎖建立該等待圖，兩個請求均須 200，
+  訊息只更新一次，不以自動 retry 或忽略 500 代替正確排序。
 
 ## 獨立會員封鎖與部署邊界
 
@@ -73,6 +109,11 @@ session 自然到期不會修改已鎖列或觸發 `40001`，交易內的 `now()
 
 離開保留歷史和已讀游標，但不保留讀寫權。重新加入後接續游標，離開期間的他人發言仍計未讀。前端先取得可用頻道列表，由本人選擇後才讀取正文，未讀提示不會預先載入頻道內容。
 
+世界、公會與小隊頻道的手動「重新讀取訊息」保留已載入歷史並按 message ID
+去重（#773）。若最新頁出現新 ID，較早頁游標重接該回應的 `next_offset`，
+不以「舊 offset 加新增顯示筆數」猜測中間缺口；沒有新 ID 時保留原較早頁進度。
+草稿、未知傳送的原 payload／key 與原已讀規則不因此重設。
+
 ## 收回訊息（#398，候選 migration 150）
 
 私訊與頻道訊息新增 `retracted_at`。傳送者隨時可收回自己的訊息：路由走既有 Origin、CSRF、`Idempotency-Key`，body 只接受 `{}`；UUID 大小寫正規化為同一 receipt 目標。收件者或其他成員收回回 `403 message_not_own`；找不到、非本對話／頻道或格式錯誤回 404，不透露訊息是否存在。重複收回或重播同一 key 回同一個 `retracted_at`。頻道收回前重新鎖定成員資格，離開後就不能再收回。
@@ -81,7 +122,22 @@ session 自然到期不會修改已鎖列或觸發 `40001`，交易內的 `now()
 
 已送出的回覆若引用已收回的訊息，只回 `reply_to_message_id`，不回原文、名稱或媒體。前端 ACK 必須核對這個 UUID 與原送出目標相同；缺少或不同的目標仍不能确认送出。重播收據會重新投影目前可見內容，不復原被收回的引用。
 
+頻道自動收回刷新（#780）只可交付給它開始時的同一份歷史快照，且交付前不能有
+較早頁讀取在途；React state updater 再核對來源快照，避免覆蓋並行排入的更新。
+一般 activity 輪詢不阻擋「載入較早訊息」。若期間載入較早頁，捨棄舊刷新，
+不先消耗 `retraction_count`；下一次既有輪詢針對目前完整已載入 ID 與引用重讀。
+已到末頁的游標、草稿與選取世代邊界保留，不新增計時器或重試政策。
+
 訊息分頁與不帶正文的 activity 在同一授權快照回傳 `retraction_count` 字串。它計算該對話／頻道目前已提交的收回紀錄；重複收回不增加數量，世界頻道仍套用驗證帳號可見性。即使最新訊息與未讀數都沒有變，前端也會依變更重新讀取已載入訊息及其引用，包括較早分頁；已不可見的資料不留在畫面快取。切換對話或資格失效後不套用舊請求的結果。候選 150 尚未發布，整合時依實際主線順序改號，歷史 migration 與 `known_gaps` 不變。
+
+頻道手動重讀同樣檢查 `retraction_count`（#774）：計數改變時沿既有
+`refreshLoadedMessages` 逐頁刷新所有已載入 ID 及引用，全部成功且仍為同一選取
+世代後，才一起交付新投影與計數。較早頁失敗時顯示原重讀錯誤、保留可重試狀態，
+不先承認新 revision 讓下次忽略收回；切換頻道後的晚到結果仍不得覆蓋目前對話。
+手動重讀的完整請求（含所有較早頁刷新）未結束前，停用「載入較早訊息」，
+並由 handler 同步檢查在途重讀，避免剛載入的頁面被較小的刷新快照覆蓋。
+重讀成功或失敗後恢復較早頁操作；若較早頁早已在途，沿用重讀的新世代
+捨棄其晚到回應，仍從保留的較早頁游標重試，不跳過尚未顯示的訊息。
 
 ## 通知來源
 

@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page} from './fixtures.js';
-import {navigate,expandHomeSections} from './navigation.js';
+import {navigate,expandHomeSections,setHomeViewport} from './navigation.js';
 import {quickJoin} from './quick-join.js';
 import {DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 mkdirSync('test-results',{recursive:true});
@@ -241,13 +241,13 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await expect(page.getByRole('button',{name:'編輯我的名片',exact:true})).toBeVisible();
   await expect(page.getByText('完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。',{exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/mc51-home-cta-1280.png',fullPage:true});
-  await page.setViewportSize({width:390,height:844});
+  await setHomeViewport(page,{width:390,height:844});
   await noOverflow(page,'390 home cta');
   await page.screenshot({path:'test-results/mc51-home-cta-390.png',fullPage:true});
   for(const [label,theme] of themes){
     await shellTheme(page,label,theme);
     for(const width of widths){
-      await page.setViewportSize({width,height:width===390?844:900});
+      await setHomeViewport(page,{width,height:width===390?844:900});
       await expandHomeSections(page);
       await noOverflow(page,`${theme} ${width} home hint`);
       const paint=await hintContrast(page);

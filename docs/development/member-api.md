@@ -164,6 +164,15 @@ Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
 enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
 
+The generic reader recognizes `application/json` type/subtype tokens
+case-insensitively and accepts ASCII SP/HTAB optional whitespace before
+semicolon-delimited parameters, as specified by
+[RFC 9110 §8.3.1](https://www.rfc-editor.org/rfc/rfc9110.html#section-8.3.1)
+and [§5.6.6](https://www.rfc-editor.org/rfc/rfc9110.html#section-5.6.6).
+Prefix lookalikes (`application/jsonp`), other media types and non-HTTP
+whitespace do not match. This changes neither parameter/charset handling nor
+the body, Origin, session or CSRF guards; JSON bytes still use strict UTF-8.
+
 The generic JSON reader decodes those bytes as strict UTF-8. Invalid sequences
 return `400 invalid_json` before authentication or a domain command, rather than
 being replaced with `U+FFFD` and saved. Valid Unicode, including an intentionally
@@ -288,6 +297,14 @@ ordinary accounts still log in. Keep the key stable and securely backed up:
 changing it without separately migrating ciphertext makes enabled factors unreadable.
 No deployment, remote key installation or authenticator-device acceptance is implied.
 
+The login form invalidates a pending authenticator challenge and clears its code
+when the active authentication mode, email or password changes, not when a new
+challenge arrives or its code is entered. Skip reset dispatches when the challenge
+is already off and the code already empty. Unconditional same-value resets on
+every credential keystroke can exhaust React's nested-update limit during rapid
+native typing and lose an email character before registration succeeds. Keep
+authenticator/backup-code entry intact while retaining credential/mode invalidation.
+
 - `POST /me/account/email-verification/request`: `{}`; authenticated member with
   CSRF, including before onboarding completion. The account page exposes send/resend.
   Uses the existing transactional `eventEmailSender` adapter (Worker `EMAIL`
@@ -361,6 +378,13 @@ No deployment, remote key installation or authenticator-device acceptance is imp
 - `GET /members/:id`: same card; inactive, incomplete and other-community users
   return 404. No authenticated access to people until 完成加入（選定主要公會）.
   私人名片、目錄、好友目錄與推薦在最後一個 domain query 後重驗目前 session；SQL 等待跨過 `expires_at` 時回 `401 session_expired`，不回傳私人聯絡資訊。
+  `memberCards` 也在投影前（包括零筆結果）沿用 `assertInteractionMember` 重驗觀看者
+  目前的 active／加入資格，不信任入站 middleware 留下的 ready Actor。user row 鎖等待
+  期間若已提交加入資格重設，名片、目錄、好友與推薦均回 `403 onboarding_required`，
+  不回 contacts、items 或 total；原 session 期限檢查仍獨立存在。原本不要求 onboarding
+  的會員仍依既有 predicate 可讀；允許未完成加入者使用的帳號／加入流程未改。
+  原生 HTTP 回歸用真 user row lock 覆蓋各 consumer 的非空／空結果與有效控制；
+  這不是把加入限制塞進通用 `readWithMemberSession`，公開 opt-in 名片也未改。
 - `GET /friends/directory?scope=accepted|incoming|outgoing&search=&limit=20&offset=0`:
   `{items,total,next_offset}` with the same privacy-filtered member cards. Scope and
   search are applied before the bounded 1–50 row page; blocked or no-longer-visible
@@ -376,6 +400,8 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   accept/remove and renewed removed friendship need current version. Only the
   recipient can accept. Pending requests grant **no** contact access. Remove
   revokes access immediately. Repeat requests do not accept another's invitation.
+- `GET /members/presence?ids=<comma-separated UUIDs>`: up to 50 IDs;
+  `{items:[{user_id,last_seen_at,is_online}]}`, with a nullable last-seen timestamp.
 - `GET /squads?limit=20&offset=0`: `{items,next_offset,kinds}`. Items include
   `squad_id,name,kind,purpose,owner_ref,owner_name,member_count,membership`.
   Membership is null or `{state,aggregate_version}` for the current user.
@@ -385,6 +411,14 @@ No deployment, remote key installation or authenticator-device acceptance is imp
   first active member. The portal opens member search immediately after creation;
   the owner can also use the directory card's 邀請夥伴 action. Invitations retain
   recipient consent and grant no membership or contact access before acceptance.
+- `GET /me/squad-invitations`: recipient-only `{items,next_offset}` with
+  `state=pending|all`, `limit` 1–50 and bounded `offset`. Like the outgoing
+  owner-only invitation list, it reads through `readWithMemberSession`:
+  active user and current session locks, onboarding and domain queries on
+  the same transaction client, then a final SQL wall-clock session check.
+  A domain wait crossing session expiry returns `401 session_expired`,
+  without private invitation rows or an empty-list success. Existing owner
+  eligibility, community filters, visibility and pagination remain unchanged.
 - `GET /squads/:id`: squad plus `members` with `user_id,nickname,state,
   aggregate_version`. Pending members visible only to themselves and owner.
 - `POST /squads/:id/request`: `{}` requests admission; no immediate group access.
@@ -423,6 +457,15 @@ After cutover, the former owner has ordinary member visibility, outbound history
 requires the current owner, and disbanded detail is 404. The session clock is
 rechecked after the last query before commit; this is not a guarantee during
 response transport or a single MVCC snapshot for every roster fact.
+
+Private presence, squad lists and squad detail recheck the viewer's current
+active/onboarding qualification with `assertInteractionMember` inside that
+member-session transaction, before any projection or empty-result return. If a
+user-row wait ends after an onboarding reset commits, they return
+`403 onboarding_required` without presence, squad, roster, items or kinds.
+Legacy members with `onboarding_required=false` retain their existing access.
+This does not add onboarding restrictions to the generic session helper or
+the account/onboarding flows that intentionally allow unfinished membership.
 
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.
@@ -474,6 +517,49 @@ wait that crosses session expiry returns `401 session_expired` without a
 partial page. Records remain scoped to the actor and community-collaboration
 Work; the shared accepted-work feed and contribution-outcomes API are separate
 projections.
+
+## Legacy retail catalog pages
+
+`GET /api/v1/retail/catalog?limit=20&offset=0` returns the signed-in member's
+community catalog as a bounded page. `limit` defaults to 20 and is capped at 50;
+`offset` must be a non-negative integer and unknown query keys are rejected.
+The response is `{items,next_offset}`, where `next_offset` is `null` on the
+final or an empty trailing page. Ordering is stable by `created_at` descending,
+then `product_id` descending.
+
+Each item retains the latest immutable supplier offer, supplier name,
+community scope, verification-test-account exclusion, and
+`internal_preview` limits. Pagination does not turn this legacy member catalog
+into a public retail feed or enable checkout.
+
+The generated `freedom.preview/v1` revision `0.4.1` SDK uses a separate
+`CatalogPage` response; the supplier's full `ProductList` remains unchanged.
+Call `client.call('listCatalog', {query:{limit:20,offset:0}})` and pass the
+returned `next_offset` explicitly for the next page. The canonical query schema
+also generates OpenAPI parameters and TypeScript types; unknown or out-of-range
+query values are rejected before credentialed HTTP. Consumers must deliberately
+update their exact source/bundle pins; protocol hash negotiation remains strict.
+
+## Private marketing campaign pages
+
+`GET /api/v1/marketing/campaigns?limit=20&offset=0` returns only the signed-in
+member's private campaign drafts. `limit` defaults to 20 and is capped at 50;
+`offset` must be a non-negative integer and unknown query keys are rejected.
+The response is `{items,next_offset}`, with `next_offset: null` on the final or
+an empty trailing page. Drafts use stable `created_at DESC, campaign_id DESC`
+ordering, and each item retains its pinned source snapshot and manually
+reported share records.
+The regenerated `freedom.preview/v1` revision `0.4.1` bundle and SDK include
+the bounded `CampaignList` response and its required nullable continuation.
+Consumers must deliberately update their exact source/bundle pins; old SDKs
+reject protocol skew rather than silently accepting a changed response.
+Call `client.call('listCampaigns', {query:{limit:20,offset:0}})` and pass the
+returned `next_offset` explicitly for the next page. The operation's declared
+query parameters generate OpenAPI and TypeScript types and are validated before
+credentialed HTTP; the SDK does not silently ignore pagination options.
+
+Pagination does not publish drafts, write to an external platform, verify a
+share, or infer reach, conversion, payment, or income.
 
 ## Organizer event referral reports
 
@@ -638,6 +724,19 @@ including a fence after object I/O. Media is `no-store`; disabling features
 does not restore withdrawn bytes or detach bindings. Withdrawal cannot recall
 previously downloaded or third-party-cached copies.
 
+Member JSON reads `GET /event-highlights` and `GET /event-highlights/:id` run
+their whole composed projection (events, items, bound-outcome authorization,
+admin flag and quota) on one locked member session and recheck the database
+clock after the last query. Expiry during a SQL wait returns
+`401 session_expired` with no event list, detail, item or quota data,
+including an otherwise empty page. Revocation or deactivation committed
+before the corresponding user/session lock is acquired is rejected.
+Writers queued behind the read's `FOR SHARE` locks wait for that read
+transaction to finish; a still-valid read may therefore return 200.
+Valid sessions keep the same DTOs, ordering,
+cursor, visibility and 404 behavior; anonymous public HTML keeps its separate,
+session-free contract.
+
 Private outcome JSON and authenticated skill backlink HTML hold current
 user/session locks through their database projection and recheck expiry with
 the database clock after its last query. Member media takes separate short
@@ -772,6 +871,13 @@ ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellatio
 STATUS and RFC text escaping/octet folding. It does not turn private locations
 or joining links into a public calendar feed. Import is a manual snapshot:
 redownload after changes; no automatic subscription/update is promised.
+Guest calendar reads take the event's `FOR SHARE` lock before capability/RSVP
+resolution and generate the ICS on that same transaction client. This follows
+the event → capability order used by participation mutations: cancellation
+already holding the event lock must commit before the reader selects its source.
+Cancelled events retain only authorized history with `STATUS:CANCELLED`; a
+cancelled RSVP no longer includes private location or joining links. This does
+not recall previously downloaded calendar snapshots.
 Isolated browser download, UTC/time-zone and independent parser checks do not
 claim an actual Apple/Google Calendar import, external Email delivery, Worker
 cron deployment, attendance rate, XP, ticketing or payment completion.
@@ -832,6 +938,12 @@ not presented as active. Stopping removes the request. No email/contact/private
 draft is exposed. Claims do not send messages, add friends or certify identity,
 quality or response. Guild reply counts include other-author replies only;
 own work counts private opportunities and volunteers receive null.
+Claim and release validate then normalize the target UUID to lowercase before
+self checks, the per-requester advisory lock and database access. Equivalent
+UUID spellings share one CAS decision: two volunteers using the same version
+receive one success and one `412`, never two acknowledged claimants. The member
+cannot claim or release their own request through alternate UUID casing; both
+return `403 self_claim_forbidden`. Existing receipt identities remain unchanged.
 
 Local verification is synthetic source evidence only. Consented real-human
 newcomer trial, operational receptionist handoff, native #193 paths,

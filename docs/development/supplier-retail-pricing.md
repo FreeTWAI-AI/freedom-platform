@@ -14,6 +14,18 @@
 
 兩頁的主流程都是「下載任務 → AI 整理與製作 → 帶回成果」，不要求填商品長表單、學 JSON 或建立 GitHub 帳號。舊商品、合作資料與唯讀客戶端保留在舊版區，不自動轉成已完成金流的新商店。
 
+## 舊版選品目錄
+
+舊版區的 `GET /api/v1/retail/catalog?limit=20&offset=0` 只回一頁同社群供貨
+商品，`limit` 預設 20、最高 50，並以 `next_offset` 指示後續頁。Portal
+保留本機搜尋與供貨方式篩選，明示搜尋範圍是目前已載入商品；使用者可按
+「載入更多商品」接續加入結果。後續頁失敗時保留既有商品並提供重試，不把
+暫時錯誤當成目錄結尾。
+
+排序固定為 `created_at DESC, product_id DESC`；每件仍只投影最新供貨版本，
+保留社群隔離、驗證測試帳號排除與 internal preview 限制。分頁不啟用公開
+商品 feed、品質認證、買家結帳、平台代收款或正式供貨確認。
+
 ## 實作入口
 
 - [內部 MD](../../packages/shop-agent/internal.md)、[公開 MD](../../packages/shop-agent/public.md)、[共用金流與接口章節](../../packages/shop-agent/common.md) 是可維護的原始檔。

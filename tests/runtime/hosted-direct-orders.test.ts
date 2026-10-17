@@ -22,7 +22,7 @@ async function fixture(stock = 3) {
   await h.fullMember(owner.user.user_id, 'guild_commerce_sales');
   const t = await h.createTenant(owner, '合成直售商店');
   const plan = ok(await post(`/tenants/${t.tenantId}/application-launch-plans`, owner,
-    h.planBody('guild_commerce_sales', t.workspaceId, 'hosted-store', 'hosted-store@1.0.0')), 201);
+    h.planBody('guild_commerce_sales', t.workspaceId, 'hosted-store', 'hosted-store@1.1.0')), 201);
   const launched = await post(`/tenants/${t.tenantId}/application-installations`, owner,
     { plan_id: plan.plan_id, expected_plan_version: plan.version, configuration_digest: plan.configuration_digest });
   assert.ok([200, 202].includes(launched.status), JSON.stringify(launched.data));
@@ -130,7 +130,9 @@ test('upgrade backfills active and terminal holds without changing stock; incons
   // This disposable schema deliberately models the old version: remove only
   // the new ledger and its functions, keeping every original order constraint.
   await h.pool.query(`DROP FUNCTION check_commerce_inventory_change() CASCADE;
-    DROP TABLE commerce_inventory_reservations;
+    -- Schema 168 adds an allocation source FK; this v1-only fixture has no
+    -- allocations. Remove that dependency while rebuilding the pre-162 ledger.
+    DROP TABLE commerce_inventory_reservations CASCADE;
     DROP FUNCTION preserve_commerce_inventory_reservation();
     DROP FUNCTION check_commerce_inventory_balance(uuid);DROP FUNCTION check_commerce_inventory_order(uuid)`);
   await h.pool.query('UPDATE commerce_items SET reserved=4 WHERE item_id=$1',[s.product.product_id]);

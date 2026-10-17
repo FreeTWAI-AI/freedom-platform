@@ -19,7 +19,7 @@ function storedPhoto(row: Record<string, unknown>): StoredProductPhoto {
   }) };
 }
 /** One statement keeps actual commerce fields, selection version and draft pointer coherent. */
-export async function photoProducts(q: PoolClient, p: Profile): Promise<PhotoProduct[]> {
+export async function photoProducts(q: PoolClient, p: Profile, options: { retailOnly: boolean }): Promise<PhotoProduct[]> {
   const rows = (await q.query(`SELECT i.item_id AS product_id,i.sku,i.title,i.description,l.retail_price_minor AS price_minor,i.stock,s.currency,l.aggregate_version::text AS version,
     t.asset_id,t.scope_id,t.representation_id,t.policy_revision,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.purpose,o.pixel_width AS width,o.pixel_height AS height
     FROM commerce_items i JOIN commerce_selections l ON l.item_id=i.item_id
@@ -30,16 +30,19 @@ export async function photoProducts(q: PoolClient, p: Profile): Promise<PhotoPro
     LEFT JOIN commerce_product_photo_targets t ON t.product_id=i.item_id AND t.tenant_id=m.tenant_id AND t.instance_id=m.instance_id
     LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.scope_id=t.scope_id AND a.tenant_ref=t.tenant_id AND a.scope_kind='tenant' AND a.purpose='storefront.product-photo' AND a.state='ready' AND a.deletion_fence=0 AND a.representation_id=t.representation_id
     LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.scope_id=a.scope_id AND o.representation_id=a.representation_id AND o.policy_revision=t.policy_revision AND o.purpose=a.purpose AND o.profile_id='storefront.product-photo'
-    WHERE m.tenant_id=$1 AND m.instance_id=$2 AND i.shop_id=$3 AND l.shop_id=$4 AND l.own_retail_enabled ORDER BY i.sku LIMIT 201`,
-  [p.tenant_id,p.instance_id,p.supply_shop_id,p.storefront_shop_id])).rows;
+    WHERE m.tenant_id=$1 AND m.instance_id=$2 AND i.shop_id=$3 AND l.shop_id=$4 AND (NOT $5::boolean OR l.own_retail_enabled) ORDER BY i.sku LIMIT 201`,
+  [p.tenant_id,p.instance_id,p.supply_shop_id,p.storefront_shop_id,options.retailOnly])).rows;
   requireCondition(rows.length <= 200, 500, 'storefront_photo_invalid', '商品資料超出上限。');
   return rows.map(row => ({ product: ProductViewSchema.parse({ product_id: row.product_id, sku: row.sku, title: row.title,
     description: row.description, price_minor: Number(row.price_minor), stock: row.stock, currency: row.currency, version: row.version }),
     photo: row.asset_id === null ? null : storedPhoto(row) }));
 }
 export function privatePhotoView(p: Pick<Profile,'tenant_id'|'instance_id'>, item: PhotoProduct) {
-  return projectPrivateProductMedia({ tenant_id:p.tenant_id,instance_id:p.instance_id,product_id:item.product.product_id,version:item.product.version },
+  const view=projectPrivateProductMedia({ tenant_id:p.tenant_id,instance_id:p.instance_id,product_id:item.product.product_id,version:item.product.version },
     item.photo ? photoMetadata(item.photo.ref) : null);
+  if ('distributionPhotoVersion' in item && view.photo) return {...view,photo:{...view.photo,
+    read_path:`/api/v1/tenants/${p.tenant_id}/storefronts/${p.instance_id}/distribution-photos/${item.product.product_id}/photo/${item.distributionPhotoVersion}`}};
+  return view;
 }
 export function draftMediaSnapshot(items: readonly PhotoProduct[]) {
   return publicationMediaSnapshot({ profile: HOSTED_STORE_MEDIA_PROFILE, photos: items.flatMap(item => item.photo ? [item.photo.ref] : []) });

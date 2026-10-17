@@ -51,7 +51,7 @@ export function createOpenSourceRoutes(pool:Pool, readToken:()=>string|undefined
   });
   app.get('/marketing/campaigns',async c=>{
     const actor=c.get('actor');
-    return c.json({items:await readWithMemberSession(pool,actor,q=>listCampaigns(q,actor))});
+    return c.json(await readWithMemberSession(pool,actor,q=>listCampaigns(q,actor,c.req.query())));
   });
   app.post('/marketing/campaigns',async c=>c.json(await createCampaign(pool,await moduleCommand(c)),201));
   app.post('/marketing/campaigns/:id{[0-9a-f-]+:revise}',async c=>{

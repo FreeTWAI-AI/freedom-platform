@@ -1,3 +1,9 @@
+import { createSupplyMaterialLifecycle } from '../modules/assets/supply-material.js';
+import {createE2eEcpayFixture} from './e2e-ecpay-fixture.js';
+import {FixtureEmailSender} from '../modules/agent-commerce/operations/notifications/email-port.js';
+import {CommerceCredentialKeyring} from '../modules/agent-commerce/payments/credentials.js';
+import {randomBytes} from 'node:crypto';
+import {readCommerceSettings} from '../modules/agent-commerce/operations/runtime-settings.js';
 import { TENANT_CURSOR_TEST_KEY } from '../tests/runtime/tenant-cursor-fixture.js';
 import { spawn } from 'node:child_process';
 import { rmSync } from 'node:fs';
@@ -35,6 +41,7 @@ const linkPreviewFetch=(input:string)=>{
 // Dedicated schema; browser tests never reset the user's local demo records.
 const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA);
 const port=e2ePort(),origin=e2eOrigin();
+const commerceCredentialKeyring=CommerceCredentialKeyring.parse('e2e:'+randomBytes(32).toString('base64'));
 const url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const admin=createPool(url);admin.on('error',()=>{});await admin.query(`CREATE SCHEMA ${schema}`);
 // application_name is this run only, so a stuck backend can be cancelled without touching anyone else's.
@@ -46,7 +53,7 @@ let productRoleCreated=false;
 let privateAiFixture:Awaited<ReturnType<typeof import('../packages/testing/private-ai-product-fixture.js')['createPrivateAiBrowserFixture']>>|undefined;
 let avatarAssetFixture:Awaited<ReturnType<typeof import('../packages/testing/e2e-avatar-asset-fixture.js')['createAvatarAssetBrowserFixture']>>|undefined;
 // Asset fixtures run in separate passes with a local-only enabled policy row.
-let storePhotoFixture:{store:FakeObjectStore;assets:ReturnType<typeof createStorefrontProductPhotoLifecycle>}|undefined;
+let storePhotoFixture:{materialAssets:ReturnType<typeof createSupplyMaterialLifecycle>;store:FakeObjectStore;assets:ReturnType<typeof createStorefrontProductPhotoLifecycle>}|undefined;
 let commentImageStore:FakeObjectStore|undefined;
 // Isolated harness port only. Default storage policy remains OFF until a case explicitly approves its fixture.
 const arFixtureStore=new FakeObjectStore();
@@ -161,9 +168,10 @@ try{
   if(process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1'){
     if(!productPool)throw Error('Photo browser fixture requires the restricted runtime role.');
     await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-store-photo-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='storefront.product-photo'");
+    await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-supply-material-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose IN ('storefront.supply-material','storefront.supply-material-video')");
     const store=new FakeObjectStore();
     // Real native Sharp normalization; only the object provider is synthetic.
-    storePhotoFixture={store,assets:createStorefrontProductPhotoLifecycle(productPool,{store})};
+    storePhotoFixture={store,materialAssets:createSupplyMaterialLifecycle(productPool,{store}),assets:createStorefrontProductPhotoLifecycle(productPool,{store})};
   }
   // The isolated browser harness explicitly installs comment media in every pass.
   // Product Node/Worker policy remains OFF; trusted CI need not inherit a new flag.
@@ -182,7 +190,11 @@ try{
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
-const app=createApp(productPool??pool,origin,'local',{arEnabled:true,arAssetStore:arFixtureStore,shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
+const commerceEmailSender=new FixtureEmailSender();
+const paymentFixture=createE2eEcpayFixture({freedomEnv:'local',origin,pool:productPool??pool,keyring:commerceCredentialKeyring!,emailSender:commerceEmailSender,forward:request=>Promise.resolve(app.fetch(request))});
+// Commerce readiness sees the Supplier Console flag that CONSOLE requires. The runtime option below still keeps the
+// shell off in the default pass, so site.commerce_console_enabled stays false and the legacy store pages run unchanged.
+const app=createApp(productPool??pool,origin,'local',{commerceQueryTransport:paymentFixture.transport,commercePayments:{gateway:paymentFixture.gateway,journal:paymentFixture.journal,profiles:paymentFixture.profiles},commerceEmailSender,commercePorts:{shipping:paymentFixture.shipping},commerceCredentialKeyring,commerceSettings:readCommerceSettings({...process.env,FREEDOM_GUILD_LAUNCHPAD_ENABLED:'true',FREEDOM_COMMERCE_CHECKOUT_ENABLED:'true',FREEDOM_COMMERCE_CONSOLE_ENABLED:'true',FREEDOM_SUPPLIER_CONSOLE_ENABLED:'true',FREEDOM_COMMERCE_EMAIL_ENABLED:'true',FREEDOM_COMMERCE_PROVIDER_PROFILES:paymentFixture.profiles.join(',')}),arEnabled:true,arAssetStore:arFixtureStore,shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
   memberReportingEnabled:process.env.FREEDOM_MEMBER_REPORTING_ENABLED==='true',
   // Explicit browser-harness option; product server/Worker release flags remain default OFF.
@@ -194,12 +206,15 @@ const app=createApp(productPool??pool,origin,'local',{arEnabled:true,arAssetStor
   firstParticipationEnabled:process.env.FREEDOM_E2E_FIRST_PARTICIPATION==='1',
   notificationPreferencesEnabled:process.env.FREEDOM_E2E_NOTIFICATION_PREFERENCES==='1',
   hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
+  // The separately scheduled photo pass also proves supply-only product photos through the console; the default browser pass keeps the console OFF so legacy supply specs run unchanged.
+  supplierConsoleEnabled:process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1',
+  distributionPhotosEnabled:process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1',
   eventParticipationEnabled:process.env.FREEDOM_E2E_EVENT_PARTICIPATION==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),
-  ...(storePhotoFixture?{storePhotoAssets:storePhotoFixture.assets,storePhotoAssetStore:storePhotoFixture.store,storePhotoUploadsEnabled:true}:{}),
+  ...(storePhotoFixture?{supplyMaterialAssets:storePhotoFixture.materialAssets,supplyMaterialAssetStore:storePhotoFixture.store,supplyMaterialUploadsEnabled:true,storePhotoAssets:storePhotoFixture.assets,storePhotoAssetStore:storePhotoFixture.store,storePhotoUploadsEnabled:true}:{}),
   ...(commentImageStore?{socialThumbnailAssetStore:commentImageStore}:{}),
   ...(messageImageFixture?{messageImageAssets:messageImageFixture.assets,messageImageAssetStore:messageImageFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
-server=serve({fetch:app.fetch,hostname:'127.0.0.1',port});
+server=serve({fetch:request=>(['/__e2e/ecpay/','/__e2e/commerce/'].some(path=>new URL(request.url).pathname.startsWith(path)))?paymentFixture.routes.fetch(request):app.fetch(request),hostname:'127.0.0.1',port});

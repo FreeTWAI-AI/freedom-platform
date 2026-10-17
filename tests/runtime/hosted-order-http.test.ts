@@ -34,7 +34,7 @@ async function fixture() {
   const t = await h.createTenant(owner, 'HTTP 合成商店');
   const sellerPost = (path: string, body: unknown, version?: string) => h.call('POST', path, owner, body,
     { 'Idempotency-Key': randomUUID(), ...(version ? { 'If-Match': `"${version}"` } : {}) }, sellerApp);
-  const plan = ok(await sellerPost(`/tenants/${t.tenantId}/application-launch-plans`, h.planBody('guild_commerce_sales', t.workspaceId, 'hosted-store', 'hosted-store@1.0.0')), 201);
+  const plan = ok(await sellerPost(`/tenants/${t.tenantId}/application-launch-plans`, h.planBody('guild_commerce_sales', t.workspaceId, 'hosted-store', 'hosted-store@1.1.0')), 201);
   const launch = await sellerPost(`/tenants/${t.tenantId}/application-installations`, { plan_id: plan.plan_id, expected_plan_version: plan.version, configuration_digest: plan.configuration_digest });
   assert.ok([200, 202].includes(launch.status));
   const instanceId = (await h.pool.query("SELECT instance_id FROM module_instances WHERE tenant_id=$1 AND module_key='storefront'", [t.tenantId])).rows[0].instance_id;

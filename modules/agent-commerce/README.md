@@ -43,11 +43,43 @@ An active legacy key, invalid bound tuple or active hash shared across the two s
 
 The operator must separately verify the complete active/retained issuer inventory and rollback floor, then approve and observe `purpose-bound-only` on both environments. Old issuers that cannot verify the binding cannot remain an allowed rollback. Re-observe the exact release/policy after rollout and retain the client compatibility evidence. This packet does not rotate live keys, discover provider configuration, change policy or assert that this operational exit has happened.
 
+## Member result-file imports
+
+The Portal [result-file reader](../../apps/portal-web/src/modules/CommercePanels.tsx)
+checks the original file's 24000-byte limit before reading it, then decodes those
+bytes as strict UTF-8. Invalid sequences produce the existing accessible error
+banner, clear any previous preview/confirmation, and send no preview request for
+that file. They are not silently replaced with `U+FFFD`. Intentionally encoded
+`U+FFFD`, Chinese, non-BMP characters and a UTF-8 BOM remain supported; JSON/MD
+parsing and domain validation keep their existing rules.
+
+The existing read revision and session generation are captured before file I/O
+and checked again before sending the preview and accepting its response. A late
+read cannot submit an old file under a replacement login or restore a superseded
+preview. Reading/error state uses the existing controls and banner, not a new
+upload transport or storage service. The [browser regressions](../../tests/e2e/agent-shops.spec.ts)
+cover invalid bytes, stale confirmations, the original-byte size boundary,
+Unicode/Markdown recovery and same/different-account replacement during a real
+file read. Their sources are not evidence of a particular execution or live shop
+deployment.
+
 ## Validation scope
 
 The isolated [identity](../../tests/runtime/shop-service-identity.test.ts), [command](../../tests/runtime/shop-service-command.test.ts), and [exit adapter](../../tests/runtime/shop-key-exit.test.ts) tests require an explicit disposable loopback `fp_*` PostgreSQL database. They use synthetic owners/keys, real HTTP handlers/servers and SQL transactions/locks, including restricted LOGIN roles. Their sources are not evidence of a particular execution; recorded commands, source hashes and results belong in the integration evidence. No test here targets production or demonstrates live legacy retirement, general service authority, all commerce common-command coverage or model broker authorization.
 
 ## Hosted stores
+
+### Release 1.1.0 and upgrade
+
+New stores use `hosted-store@1.1.0` / `storefront@1.1.0`, with the original
+storefront contract bytes and twelve registered capabilities. Existing 1.0.0
+instances retain their four keys until their owner invokes the versioned,
+idempotent upgrade command. `GET .../storefronts/:instance_id/release` reports the
+installed references, effective caller keys and registered upgrade path; only an
+active tenant's owner can upgrade an active instance. The paired upgrade bumps
+authority revision, retains grants and records a release journal/control fact.
+It does not enable payment processing. Provider setup and independent admission
+are documented in `payments/README.md` and `operations/README.md`.
 
 The `storefront` module uses the existing commerce tables. A hosted store has two `commerce_shops` rows with `origin='hosted'`: an internal supply shop for items and a public storefront shop for selections. `commerce_resource_tenants` maps each shop to its tenant and instance under tenant RLS. The original acting person principal is saved as `source_owner_id`; readers never infer this historical identity from the current member. Private profile, publication and product reads join confirmed mappings under a session-bound tenant context. Registry provisioning creates no shop; the separate setup command creates both shops, mappings and the profile atomically.
 

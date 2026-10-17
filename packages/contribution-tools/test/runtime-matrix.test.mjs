@@ -96,17 +96,18 @@ test('CLI requires exact named artifacts, preserves failed inputs, rejects dupli
   assert.match(run.stdout,/runtime_partition_artifacts_unavailable/);
   assert.equal(spawnSync(process.execPath,['scripts/runtime-full.mjs','--partition-index','0'],{cwd:root}).status,2);
 });
-async function fixtures6() {
+async function fixturesFor(count) {
   const source = await runtimeSourceManifest(root);
-  return partitionRuntimeFiles(source.full_source_manifest.map(file=>file.path),6).map((selected,index)=>{
+  return partitionRuntimeFiles(source.full_source_manifest.map(file=>file.path),count).map((selected,index)=>{
     const test_files=selected.map(path=>({path,counts:{tests:1,passed:1,failed:0,cancelled:0,skipped:0,todo:0},
       cases:[{case_sha256:sha256(Buffer.from(path)),status:'passed'}],suite_events:[]}));
-    return {schema:'freedom.runtime-partition/v1',check_id:`runtime.partition.${index}`,partition_index:index,partition_count:6,
+    return {schema:'freedom.runtime-partition/v1',check_id:`runtime.partition.${index}`,partition_index:index,partition_count:count,
       ...source,started_at:'2026-10-03T00:00:00.000Z',ended_at:'2026-10-03T00:14:59.000Z',database_cleanup_verified:true,
       report:{check_id:`runtime.partition.${index}`,status:'passed',reason:'tests_executed',test_count:selected.length,
-        evidence_sha256:sha256(Buffer.from(`synthetic-6-${index}`)),selected_files:selected,test_files,database_cleanup_verified:true}};
+        evidence_sha256:sha256(Buffer.from(`synthetic-${count}-${index}`)),selected_files:selected,test_files,database_cleanup_verified:true}};
   });
 }
+const fixtures6 = () => fixturesFor(6);
 
 test('six-partition cases', async t => {
   const fragments = await fixtures6();
@@ -182,19 +183,90 @@ test('six-partition cases', async t => {
   assert.equal(spawnSync(process.execPath, ['scripts/runtime-full.mjs', '--partition-count', '5', '--partition-index', '0', '--output', output], { cwd: root }).status, 2);
 });
 
-test('tracked production/source edits invalidate identity while untracked build output is harmless',async t=>{
+test('eight-partition cases', async t => {
+  const fragments = await fixturesFor(8);
+  const result = await aggregateRuntimePartitions(root, fragments, { partitionCount: 8 });
+  assert.equal(result.status, 'passed');
+  assert.equal(result.partition_count, 8);
+  assert.equal(result.partition_evidence_sha256.length, 8);
+
+  assert.equal((await aggregateRuntimePartitions(root, fragments, { partitionCount: 6 })).reason, 'runtime_partitions_missing');
+  assert.equal((await aggregateRuntimePartitions(root, await fixtures6(), { partitionCount: 8 })).reason, 'runtime_partitions_missing');
+  assert.equal((await aggregateRuntimePartitions(root, fragments, { partitionCount: 7 })).reason, 'runtime_partition_options_invalid');
+  const fBadIndex = structuredClone(fragments);
+  fBadIndex[7].partition_index = 8;
+  assert.equal((await aggregateRuntimePartitions(root, fBadIndex, { partitionCount: 8 })).reason, 'runtime_partition_identity');
+
+  // Eight partitions keep the 1,500-second budget per fragment.
+  const full = structuredClone(fragments);
+  full[0].ended_at = '2026-10-03T00:25:00.000Z';
+  assert.equal((await aggregateRuntimePartitions(root, full, { partitionCount: 8 })).status, 'passed');
+  const long = structuredClone(fragments);
+  long[0].ended_at = '2026-10-03T00:25:00.001Z';
+  assert.equal((await aggregateRuntimePartitions(root, long, { partitionCount: 8 })).reason, 'runtime_partition_window_exceeded');
+
+  // Eight complete budgets plus 30 minutes of queue gaps is a finite 230m span.
+  const sequential = structuredClone(fragments);
+  sequential.forEach((fragment, index) => {
+    const start = Date.parse('2026-10-03T00:00:00.000Z') + index * 1_500_000;
+    fragment.started_at = new Date(start).toISOString();
+    fragment.ended_at = new Date(start + 1_500_000).toISOString();
+  });
+  assert.equal((await aggregateRuntimePartitions(root, sequential, { partitionCount: 8 })).status, 'passed');
+  const exactWindow = structuredClone(fragments);
+  exactWindow[7].started_at = '2026-10-03T03:25:00.000Z';
+  exactWindow[7].ended_at = '2026-10-03T03:50:00.000Z';
+  assert.equal((await aggregateRuntimePartitions(root, exactWindow, { partitionCount: 8 })).status, 'passed');
+  const wide = structuredClone(exactWindow);
+  wide[7].started_at = '2026-10-03T03:25:00.001Z';
+  wide[7].ended_at = '2026-10-03T03:50:00.001Z';
+  assert.equal((await aggregateRuntimePartitions(root, wide, { partitionCount: 8 })).reason, 'runtime_full_window_exceeded');
+
+  await assert.rejects(runRuntimePartition(root, { partitionCount: 8, partitionIndex: 8 }), /invalid_runtime_partition/);
+  await assert.rejects(runRuntimePartition(root, { partitionCount: 7, partitionIndex: 0 }), /invalid_runtime_partition/);
+
+  const dir = await mkdtemp(resolve(tmpdir(), 'fp-runtime-matrix-8-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const output = resolve(dir, 'aggregate.json');
+  for(let index=0;index<8;index++) await writeFile(resolve(dir,`runtime-partition-${index}.json`),JSON.stringify(fragments[index]));
+  assert.equal(spawnSync(process.execPath, ['scripts/runtime-aggregate.mjs', '--partition-count', '8', '--input-dir', dir, '--output', output], { cwd: root, encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync(process.execPath, ['scripts/runtime-aggregate.mjs', '--partition-count', '7', '--input-dir', dir, '--output', output], { cwd: root, encoding: 'utf8' }).status, 2);
+  assert.equal(spawnSync(process.execPath, ['scripts/runtime-full.mjs', '--partition-count', '8', '--partition-index', '8', '--output', output], { cwd: root }).status, 2);
+  assert.equal(spawnSync(process.execPath, ['scripts/runtime-full.mjs', '--partition-count', '7', '--partition-index', '0', '--output', output], { cwd: root }).status, 2);
+});
+
+test('runtime commit binding rejects untracked source and tracked edits but permits ignored artifacts',async t=>{
   const {mkdir}=await import('node:fs/promises');
   const {FULL_RUNTIME_BASELINE}=await import('../runtime-suites.mjs');
   const dir=await mkdtemp(resolve(tmpdir(),'fp-runtime-source-'));t.after(()=>rm(dir,{recursive:true,force:true}));
   for(const path of [...FULL_RUNTIME_BASELINE,'apps/production.ts']){
     await mkdir(dirname(resolve(dir,path)),{recursive:true});await writeFile(resolve(dir,path),'// synthetic source\n');
   }
-  for(const args of [['init','--quiet'],['add','.'],['-c','user.name=Synthetic','-c','user.email=synthetic@example.invalid','commit','--quiet','-m','synthetic']]){
-    assert.equal(spawnSync('git',args,{cwd:dir}).status,0);
+  // A tracked test may import a source module absent from the claimed commit.
+  await writeFile(resolve(dir,FULL_RUNTIME_BASELINE[0]),'import "../../apps/untracked-helper.mjs";\n');
+  await writeFile(resolve(dir,'.gitignore'),'build-output.txt\n.freedom/\n');
+  const git=args=>spawnSync('git',args,{cwd:dir,encoding:'utf8'});
+  for(const args of [['-c','init.templateDir=','init','--quiet'],['add','.'],['-c','user.name=Synthetic','-c','user.email=synthetic@example.invalid','-c','commit.gpgsign=false','commit','--quiet','-m','synthetic']]){
+    assert.equal(git(args).status,0);
   }
-  assert.ok((await runtimeSourceManifest(dir)).candidate_commit);
-  await writeFile(resolve(dir,'build-output.txt'),'untracked synthetic');
-  assert.ok((await runtimeSourceManifest(dir)).candidate_commit);
+  const source=await runtimeSourceManifest(dir);
+  await writeFile(resolve(dir,'build-output.txt'),'ignored synthetic');
+  await mkdir(resolve(dir,'.freedom/context'),{recursive:true});
+  await writeFile(resolve(dir,'.freedom/context/fixture.json'),'{}');
+  assert.deepEqual(await runtimeSourceManifest(dir),source);
+  // A user's display setting must not suppress the admission check.
+  assert.equal(git(['config','status.showUntrackedFiles','no']).status,0);
+  await writeFile(resolve(dir,'apps/untracked-helper.mjs'),'export const synthetic = true;\n');
+  assert.equal(git(['diff','--quiet','HEAD','--']).status,0);
+  await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
+  assert.equal(git(['add','apps/untracked-helper.mjs']).status,0);
+  await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
+  assert.equal(git(['reset','--quiet','HEAD','--','apps/untracked-helper.mjs']).status,0);
+  await rm(resolve(dir,'apps/untracked-helper.mjs'));
   await writeFile(resolve(dir,'apps/production.ts'),'// changed production\n');
+  await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
+  assert.equal(git(['checkout','--','apps/production.ts']).status,0);
+  assert.deepEqual(await runtimeSourceManifest(dir),source);
+  await writeFile(resolve(dir,'.git/index'),'invalid synthetic index');
   await assert.rejects(runtimeSourceManifest(dir),/runtime_source_changed/);
 });

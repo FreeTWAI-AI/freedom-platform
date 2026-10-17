@@ -66,3 +66,7 @@ current installed-store authority, the existing selection CAS, retained typed
 product routing and immutable publication refs. It shares the tenant byte budget
 with Work results. Migration 141 defaults to OFF; no GC, cloud rollout or restore
 validation is implied by its source registration.
+
+The closed [supplier material image/video profiles](supply-material.md) share
+that tenant budget and storefront authority, append immutable material versions
+and keep supplier byte reads private. Migration 171 and host flags default OFF.

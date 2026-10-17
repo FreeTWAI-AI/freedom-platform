@@ -18,6 +18,7 @@ function syntheticClient(scenario: Scenario, generation: number): GuildReadClien
     if (scenario === 'loading') return new Promise<T>((_, reject) => options?.signal?.addEventListener('abort', () => reject(new Error('aborted')), {once: true}));
     if (scenario === 'denied' || scenario === 'unavailable' || scenario === 'error') throw Object.assign(new Error('Synthetic response'), {status: scenario === 'denied' ? 403 : scenario === 'unavailable' ? 404 : 503});
     if (path === '/me/supply-catalogs?pagination=cursor') return {items: scenario === 'empty' ? [] : [{tenant_id: id(1), tenant_display_name: '合成供應工作室', instance_id: id(2), setup_state: 'ready', name: '山間茶作 · 示範供貨', slug: null, publication_state: 'never_published', public_path: null, version: '1'}], next_cursor: null} as T;
+    if (path === `/tenants/${id(1)}/storefronts/${id(2)}/supplier-console/summary`) return {profile: 'freedom.supplier-console.summary/v1', tenant_id: id(1), instance_id: id(2), as_of: new Date().toISOString(), todos: {state: 'ready', pending_requests: 2, outdated_offers: 1, out_of_stock_products: 0}} as T;
     if (path === '/me/content') return {items: scenario === 'empty' ? [] : [{kind: 'showcase', id: id(3), title: '社區活動行事曆 · 合成開源作品', status: 'draft', visibility: 'private', actions: ['edit','publish','withdraw']}, {kind: 'skill_submission', id: id(4), title: '圖片整理工具 · 合成技能投稿', status: 'published', visibility: 'public', actions: ['view']}]} as T;
     if (path === '/events') return {items: scenario === 'empty' ? [] : [
       {event_id: id(12), title: '山間茶席 · 稍後場', starts_at: hoursFromNow(48), ends_at: hoursFromNow(50), mode: 'in_person', state: 'published', guild_key: PREVIEW_GUILD_KEY, location: '合成場地'},
@@ -49,7 +50,7 @@ function Preview() {
         <label className="field">外觀<select defaultValue="dark" onChange={event => {document.documentElement.dataset.theme = event.target.value;}}><option value="dark">夜航</option><option value="light">明亮</option><option value="versefolk">敘生</option></select></label>
       </div>
     </section>
-    <section className="card stack" aria-label="區塊畫面"><GuildBlock key={selected} id={selected} loaders={guildBlockLoaders} viewer={viewer} client={client} guildKey={scenario === 'missing-key' ? undefined : PREVIEW_GUILD_KEY} navigate={path => setAction(`預覽導向：${path}`)} startableApplications={['hosted-store']} startApplication={viewer === 'member' ? key => setAction(`預覽啟動：${key}；實際建立仍由既有應用流程驗權。`) : undefined}/></section>
+    <section className="card stack" aria-label="區塊畫面"><GuildBlock key={selected} id={selected} loaders={guildBlockLoaders} viewer={viewer} client={client} guildKey={scenario === 'missing-key' ? undefined : PREVIEW_GUILD_KEY} navigate={path => setAction(`預覽導向：${path}`)} startableApplications={['hosted-store']} supplierConsoleEnabled startApplication={viewer === 'member' ? key => setAction(`預覽啟動：${key}；實際建立仍由既有應用流程驗權。`) : undefined}/></section>
     <p role="status" className="field-hint">{action}</p>
   </main>;
 }

@@ -6,6 +6,7 @@ test('supply block handles viewer, read failures, existing catalog and delegated
   await page.getByRole('combobox', {name: '區塊', exact: true}).selectOption('guild-block.supply-catalog.v1');
   const card = page.getByRole('region', {name: '區塊畫面'});
   await expect(card.getByRole('button', {name: '山間茶作 · 示範供貨'})).toBeVisible();
+  await expect(card.getByText('待辦：待確認售價申請 2、供貨版本需重新公開 1、缺貨商品 0')).toBeVisible();
   await card.getByRole('button', {name: '山間茶作 · 示範供貨'}).click();
   await expect(page.getByText(/預覽導向：#stores\/.*\/supply/)).toBeVisible();
   await card.getByRole('button', {name: '開始供貨設定'}).click();
@@ -13,6 +14,7 @@ test('supply block handles viewer, read failures, existing catalog and delegated
   await page.getByRole('combobox', {name: '檢視身分', exact: true}).selectOption('read_only');
   await expect(card.getByRole('button', {name: '開始供貨設定'})).toHaveCount(0);
   await expect(card.getByRole('button', {name: '山間茶作 · 示範供貨'})).toBeVisible();
+  await expect(card.getByText('待辦：待確認售價申請 2、供貨版本需重新公開 1、缺貨商品 0')).toBeVisible();
   await page.getByRole('combobox', {name: '檢視身分', exact: true}).selectOption('visitor');
   await expect(card.getByText(/登入後可查看/)).toBeVisible();
   await expect(card.getByRole('button')).toHaveCount(0);
@@ -27,6 +29,7 @@ test('supply block handles viewer, read failures, existing catalog and delegated
   await expect(card.getByRole('alert')).toBeVisible();
   await page.getByRole('combobox', {name: '資料情境', exact: true}).selectOption('ready');
   await expect(card.getByRole('button', {name: '山間茶作 · 示範供貨'})).toBeVisible();
+  await expect(card.getByText('待辦：待確認售價申請 2、供貨版本需重新公開 1、缺貨商品 0')).toBeVisible();
   await page.getByRole('combobox', {name: '區塊', exact: true}).selectOption('unknown');
   await expect(card.getByText(/版本目前無法使用/)).toBeVisible();
   expect(requests.filter(url => new URL(url).pathname.startsWith('/api/'))).toEqual([]);

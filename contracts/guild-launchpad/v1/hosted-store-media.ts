@@ -48,7 +48,9 @@ export const ProductMediaCommandSchema = z.object({
   profile: z.literal(HOSTED_STORE_MEDIA_PROFILE), product_id: OpaqueId,
   completed_version: Version, changed: z.boolean(), current: ProductMediaViewSchema,
 }).strict().refine(value => value.product_id === value.current.product_id
-  && BigInt(value.completed_version) <= BigInt(value.current.version));
+  && (value.completed_version.length < value.current.version.length
+    || (value.completed_version.length === value.current.version.length
+      && value.completed_version <= value.current.version)));
 export type ProductMediaView = z.infer<typeof ProductMediaViewSchema>;
 export type PublicStoreMedia = z.infer<typeof PublicStoreMediaSchema>;
 export type ProductMediaCommand = z.infer<typeof ProductMediaCommandSchema>;

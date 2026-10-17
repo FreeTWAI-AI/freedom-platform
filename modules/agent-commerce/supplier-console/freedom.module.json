@@ -1,0 +1,166 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "supplier-console",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/supplier-console/**",
+    "apps/platform-api/src/routes/hosted-supplier-console.ts",
+    "apps/platform-api/src/routes/hosted-supply-materials.ts",
+    "apps/platform-api/src/routes/hosted-supply-material-media.ts",
+    "apps/platform-api/src/routes/hosted-distribution-photos.ts",
+    "migrations/171_supply_materials.sql",
+    "migrations/172_distribution_photos.sql",
+    "contracts/guild-launchpad/v1/supplier-console.ts",
+    "contracts/guild-launchpad/v1/supplier-console.schema.json",
+    "tests/runtime/supplier-console.test.ts",
+    "tests/runtime/supplier-console-writes.test.ts",
+    "tests/runtime/supplier-console-state.test.ts",
+    "tests/runtime/supplier-console-queries.test.ts",
+    "tests/runtime/supplier-console-report.test.ts",
+    "tests/runtime/supply-materials.test.ts",
+    "tests/runtime/supply-materials-sql.test.ts",
+    "tests/runtime/supply-material-media.test.ts",
+    "tests/runtime/partner-material-content.test.ts",
+    "tests/runtime/partner-materials-view.test.ts",
+    "tests/runtime/distribution-photos.test.ts",
+    "tests/runtime/distribution-photos-sql.test.ts",
+    "tests/runtime/partner-materials-recovery.test.ts",
+    "tests/e2e/supplier-console.spec.ts",
+    "tests/e2e/supplier-console-cooperation.spec.ts",
+    "tests/e2e/supplier-console-recovery.spec.ts",
+    "tests/e2e/supplier-console-navigation.spec.ts",
+    "tests/e2e/supplier-console-visual.spec.ts",
+    "tests/e2e/supplier-console-queries.spec.ts",
+    "tests/e2e/supplier-console-report.spec.ts",
+    "tests/e2e/supplier-console-materials.spec.ts",
+    "docs/platform-plan/execution/supplier-console/**"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "agent-commerce",
+    "hosted-distribution",
+    "asset-lifecycle"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "docs/platform-plan/execution/supplier-console/README.md",
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "modules/agent-commerce/hosted/supply-terms.md",
+    "modules/agent-commerce/hosted/shared-order-contract.md",
+    "modules/assets/storefront-product-photo.md",
+    "DESIGN.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "session-owned-async-actions",
+    "explicit-readonly-target",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full",
+    "e2e.harness"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "commerce.supplier-console-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-supplier-console.ts",
+      "operations": [
+        "supplier-console.overview",
+        "supplier-console.products",
+        "supplier-console.product",
+        "supplier-console.request",
+        "supplier-console.partners",
+        "supplier-console.partner",
+        "supplier-console.reservations",
+        "supplier-console.reservation",
+        "supplier-console.changes",
+        "supplier-console.summary",
+        "supplier-console.report",
+        "supplier-console.report-csv",
+        "storefront.supply-profile.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.supply-materials-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-supply-materials.ts",
+      "operations": [
+        "supplier-console.materials",
+        "supplier-console.material",
+        "storefront.supply-material.create",
+        "storefront.supply-material.update",
+        "storefront.supply-material.copy",
+        "storefront.supply-material.access",
+        "storefront.supply-material.grant",
+        "storefront.supply-material.revoke",
+        "storefront.supply-material.withdraw",
+        "storefront.partner-materials.read"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.supplier-console-page",
+      "kind": "page",
+      "entry": "modules/agent-commerce/supplier-console/ui/SupplierConsole.tsx",
+      "operations": [
+        "supplier-console.overview",
+        "supplier-console.products",
+        "supplier-console.product",
+        "supplier-console.request",
+        "supplier-console.partners",
+        "supplier-console.partner",
+        "supplier-console.reservations",
+        "supplier-console.reservation",
+        "supplier-console.changes",
+        "supplier-console.report",
+        "supplier-console.report-csv",
+        "storefront.supply-catalog.read",
+        "storefront.supply-catalog.setup",
+        "storefront.supply-profile.update",
+        "storefront.supply-product.create",
+        "storefront.supply-product.update",
+        "store.supply-terms.update",
+        "store.supply-offer.list",
+        "store.supply-offer.publish",
+        "store.supply-offer.withdraw",
+        "store.distribution.list",
+        "store.distribution.decide",
+        "storefront.reservations.read",
+        "storefront.reservations.configure",
+        "storefront.supplier.orders.list"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.supply-material-media-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-supply-material-media.ts",
+      "auth_profile": "member-session",
+      "operations": [
+        "storefront.supply-material.upload",
+        "supplier-console.material-content",
+        "storefront.partner-materials.content"
+      ]
+    },
+    {
+      "surface_id": "commerce.distribution-photos-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-distribution-photos.ts",
+      "auth_profile": "member-session",
+      "operations": [
+        "storefront.distribution-photos.read",
+        "storefront.distribution-photo.use",
+        "storefront.distribution-photo.detach",
+        "storefront.distribution-photo.content"
+      ]
+    }
+  ]
+}

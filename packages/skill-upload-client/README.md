@@ -4,7 +4,7 @@
 
 沒有任何相依套件，需要 Node.js 24 以上。這個套件沒有發佈到 npm registry，請從自由工坊網站下載 tarball 後在本機安裝：
 
-此安裝包標為 `private`／`UNLICENSED`：專案尚未提供 LICENSE，本工具不自行新增授權條款。安裝方式不代表取得額外重製或散布授權；投稿所引用的各 GitHub 專案仍依各自 LICENSE，公開可讀與官方身分分開判斷。
+本工具的原創程式與隨附文件採 [MIT License](LICENSE)，允許商業使用、修改與再散布，並須保留授權要求的著作權與許可聲明。`private` 僅表示不發佈到 npm registry。投稿所引用的各 GitHub 專案仍依各自 LICENSE，公開可讀與官方身分分開判斷。
 
 ```sh
 npm install -g ./freedom-skill-client.tgz

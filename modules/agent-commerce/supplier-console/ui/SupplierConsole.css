@@ -1,0 +1,31 @@
+.supplier-console{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.supplier-console [hidden]{display:none!important}
+.sc-business-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;padding-bottom:1rem;border-bottom:1px solid var(--line)}
+.sc-business-bar>div:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;min-width:0}
+.sc-content,.sc-content>*{min-width:0}.sc-content>div:empty,.sc-announcement:empty{display:none}
+.sc-content h2:focus,.sc-content h3:focus{outline-offset:4px}.sc-read-status{color:var(--muted);font-size:.9rem}.sc-read-status .actions{margin:0}
+.sc-metrics{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}.sc-metrics .card{height:100%;margin-top:0;box-shadow:none}.sc-metrics .actions{margin-top:auto}
+.sc-metric-value{font-size:1.45rem;line-height:1.35;font-variant-numeric:tabular-nums}.sc-section{padding-block:1rem;border-bottom:1px solid var(--line)}
+.sc-list,.sc-history{list-style:none;padding:0;margin:0}.sc-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;padding-block:.75rem;border-bottom:1px solid var(--line)}.sc-row>div{min-width:0}.sc-row a{min-height:44px;display:inline-flex;align-items:center}
+.sc-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:.75rem}.sc-toolbar>.field:first-child{flex:1;min-width:10rem}
+.sc-products{width:100%;border-collapse:collapse}.sc-products th,.sc-products td{text-align:left;padding:.75rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}.sc-products th{font-size:.9rem;white-space:nowrap}.sc-nowrap{white-space:nowrap}
+.sc-products .sc-number{text-align:right;font-variant-numeric:tabular-nums}.sc-product-name{display:flex;gap:.5rem;align-items:center}.sc-product-name img{width:48px;height:48px;object-fit:contain;flex:none}.sc-product-name a{min-height:44px;display:inline-block}
+.sc-review-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.sc-review-columns .detail-list div{min-width:0}.sc-review-columns dd{white-space:pre-wrap}
+.supplier-console dialog{width:min(40rem,calc(100vw - 1.5rem));max-height:80vh;overflow:auto;margin:auto;padding:1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);color:var(--ink)}
+.supplier-console .actions{justify-content:flex-start;flex-wrap:wrap}.supplier-console .btn{min-height:44px;flex:none}.supplier-console fieldset{min-width:0}.supplier-console input:not([type=checkbox]):not([type=radio]),.supplier-console select,.supplier-console textarea{width:100%;min-width:0;max-width:100%}.supplier-console .badge{white-space:normal}
+@media(min-width:768px){.sc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1280px){.sc-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1000px){.sc-toolbar>.field:first-child{flex-basis:100%}.sc-products,.sc-products tbody,.sc-products tr,.sc-products td{display:block}.sc-products thead{display:none}.sc-products tr{padding-block:.5rem;border-bottom:1px solid var(--line)}.sc-products td{border:0;padding:.25rem 0}.sc-products td[data-label]::before{content:attr(data-label)'：';font-weight:650}.sc-products td:first-child::before{display:none}.sc-products .sc-number{text-align:left}}
+@media(max-width:720px){.sc-review-columns{grid-template-columns:minmax(0,1fr)}.supplier-console input,.supplier-console select,.supplier-console textarea{font-size:16px}}
+.sc-reservation-filters>.field{flex:1 1 10rem;min-width:0;max-width:100%}.sc-reservation-filters input,.sc-reservation-filters select{min-height:44px}
+.sc-report-table .sc-number,.sc-report-totals dd{text-align:right;font-variant-numeric:tabular-nums}
+.sc-report-table tbody th{white-space:normal}
+@media(max-width:1000px){.sc-report-table tbody th{display:block;border:0;padding:.25rem 0}}
+
+.sc-material-media{display:block;max-width:100%;width:auto;height:auto;max-height:30rem;object-fit:contain}
+.sc-material-copy{white-space:pre-wrap;overflow-wrap:anywhere}
+.sc-material-withdrawn{color:var(--muted)}
+.sc-material-withdrawn a{color:inherit}
+.sc-material-danger>button{color:var(--danger)}
+.sc-material-row-action>button{padding:.5rem .75rem}
+.sc-material-page{line-height:1.6}.sc-material-page .field-hint{font-size:.9rem;line-height:1.6}

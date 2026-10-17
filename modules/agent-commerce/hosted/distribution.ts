@@ -8,9 +8,13 @@ import type {Actor} from '../../identity-membership/service.js';
 import {resellerArrangement} from '../distribution.js';
 import {profile, ready, retailReady, productCount, storeRead, storeCommand, storeFact, type Profile} from './store.js';
 
-function offerView(row: Record<string, any>): SupplyOffer {
+export function offerView(row: Record<string, any>): SupplyOffer {
   return SupplyOfferSchema.parse({offer_id: row.offer_id, product_id: row.item_id, supplier_name: row.supplier_name,
     source_version: String(row.source_version), terms: row.terms, terms_sha256: row.terms_sha256, state: row.state, version: String(row.version)});
+}
+export function supplyOfferTerms(row: {title: string; description: string; price_minor: string | number; shipping_minor: string | number; shipping_terms: string; return_terms: string}, currency: 'TWD' | 'USD') {
+  return SupplyOfferTermsSchema.parse({title: row.title, description: row.description, currency,
+    cost_minor: Number(row.price_minor), shipping_minor: Number(row.shipping_minor), shipping_terms: row.shipping_terms, return_terms: row.return_terms});
 }
 export async function listSupplyOffers(pool: Pool, actor: Actor, tenantId: string, instanceId: string, own = false) {
   return storeRead(pool, actor, tenantId, instanceId, 'store:write', async (q, context) => {
@@ -30,8 +34,7 @@ export async function publishSupplyOffer(pool: Pool, actor: Actor, tenantId: str
       JOIN commerce_selections l USING(item_id) WHERE i.item_id=$1 AND i.shop_id=$2 AND l.shop_id=$3 AND l.hosted_offer_id IS NULL`,
     [productId, p.supply_shop_id, p.storefront_shop_id])).rows[0];
     requireCondition(row, 404, 'not_found', '找不到這項商品。'); checkVersion(row.version, expected);
-    const terms = SupplyOfferTermsSchema.parse({title: row.title, description: row.description, currency: p.currency,
-      cost_minor: Number(row.price_minor), shipping_minor: Number(row.shipping_minor), shipping_terms: row.shipping_terms, return_terms: row.return_terms});
+    const terms = supplyOfferTerms(row, p.currency);
     const hash = digest(terms);
     const prior = (await q.query(`SELECT * FROM commerce_hosted_supply_offers WHERE item_id=$1 AND state='offered'`, [productId])).rows[0];
     if (prior && prior.terms_sha256===hash) return offerView(prior);
@@ -69,7 +72,7 @@ async function selections(q: PoolClient, p: Profile, supplier: boolean, selectio
       AND ($5::uuid IS NULL OR l.selection_id=$5) ORDER BY l.selection_id LIMIT 201`,
   [p.storefront_shop_id, supplier, p.tenant_id, p.instance_id, selectionId ?? null])).rows;
 }
-function selectionView(row: Record<string, any>) {
+export function selectionView(row: Record<string, any>) {
   return DistributionSchema.parse({selection_id: row.selection_id, offer: offerView(row), sku: row.hosted_sku,
     seller_name: row.seller_name, retail_price_minor: Number(row.retail_price_minor), state: row.acceptance_state,
     listing_sha256: row.listing_sha256, version: row.selection_version});
@@ -153,15 +156,12 @@ export async function withdrawDistribution(pool: Pool, actor: Actor, tenantId: s
   }, selectionId);
 }
 
-/** Publication receives only authorized text and the seller's price. No supplier
- * draft media, costs, tenant IDs or authority grants enter the public projection. */
+/** Publication receives authorized text, seller price and seller-owned photo
+ * copies. Supplier draft assets and private authority never enter the projection. */
 export async function distributionProducts(q: PoolClient, p: Profile) {
-  const rows = (await q.query(`SELECT l.item_id,l.hosted_sku,l.snapshot,l.retail_price_minor,l.aggregate_version::text AS version
-    FROM commerce_selections l JOIN commerce_hosted_supply_offers o ON o.offer_id=l.hosted_offer_id AND o.item_id=l.item_id
-    JOIN commerce_distribution_acceptances a ON a.acceptance_id=l.current_acceptance_id AND a.selection_id=l.selection_id
-    WHERE l.shop_id=$1 AND o.state='offered' AND l.acceptance_state='sellable' AND a.decision='accepted'
-      AND a.listing_sha256=l.listing_sha256 AND l.snapshot->>'offer_sha256'=o.terms_sha256
-    ORDER BY l.hosted_sku LIMIT 201`, [p.storefront_shop_id])).rows;
-  return rows.map(row => ({product: {product_id: row.item_id, sku: row.hosted_sku, title: row.snapshot.title,
-    description: row.snapshot.description, price_minor: Number(row.retail_price_minor), currency: p.currency, version: row.version}, photo: null}));
+  const {distributionPhotoRows,distributionStoredPhoto}=await import('../supplier-console/distribution-photo-target.js');
+  const rows=await distributionPhotoRows(q,p);
+  return rows.map(row=>({product:{product_id:row.item_id,sku:row.hosted_sku,title:row.snapshot.title,
+    description:row.snapshot.description,price_minor:Number(row.retail_price_minor),currency:p.currency,version:row.selection_version},
+    distributionPhotoVersion:row.photo_version??'0',photo:row.usable?distributionStoredPhoto(row):null}));
 }

@@ -6,6 +6,7 @@
     "modules/positioning/**",
     "migrations/120_guild_categories_preferences.sql",
     "tests/runtime/guild-category-preferences.test.ts",
+    "tests/runtime/guild-member-tiers.test.ts",
     "contracts/guild-launchpad/v1/guild-preferences.ts",
     "scripts/guild-preferences-backfill.ts",
     "apps/portal-web/src/modules/GuildCard.tsx",

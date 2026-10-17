@@ -70,6 +70,15 @@ the owner. The selector's exact-set admission guard is unchanged. Positive
 narrowing coverage uses the fixed synthetic reviewed graph; tests must not pin
 the current checkout's evolving ownership to an incidental narrow profile.
 
+The guild-workspace router, `apps/platform-api/src/routes/guild-workspace.ts`,
+is exactly owned by `guild-workspace`, alongside its existing launchpad router.
+`tests/runtime/guild-member-tiers.test.ts` is exactly owned by `positioning`,
+whose member-tier commands it exercises. These entries retain `runtime.full`
+and reverse-dependent impact without claiming other routes or runtime tests.
+Unknown paths still block context completion. Baseline/candidate unions,
+reviewed browser-pilot admission and host-required fallback rules are unchanged;
+a successful local context is not trusted CI approval.
+
 The descriptors do not constitute a complete runtime registration audit. The local suite adapters use fixed Node arguments, never descriptor shell commands or package hooks. `governance.unit` runs the contribution-tools tests without database credentials. Runtime adapters require operator-provisioned, disposable PostgreSQL and an **explicit** `TEST_DATABASE_URL` for the CLI, or `testDatabaseUrl` for the library; there is no database discovery or default fallback. Accepted URLs name an `fp_*` database on loopback, optionally with a single absolute Unix-socket `host` parameter. Passwords, remote hosts, duplicate/query connection overrides and non-test database names are rejected. This admission check does not establish that a server is disposable: the operator must provide an isolated test-only server, never a production service that happens to have a matching name. Runtime tests own fresh `fp_*` schemas/roles and their teardown; forced termination can leave test data to clean up on that disposable server.
 
 The fixed registry in `runtime-suites.mjs` maps these existing IDs:
@@ -87,11 +96,56 @@ The fixed registry in `runtime-suites.mjs` maps these existing IDs:
 | `runtime.preview-protocol` | `preview-protocol` |
 | `runtime.full` | All baseline runtime files **plus newly added** direct `tests/runtime/*.test.ts` files |
 
-`e2e.harness` is a separate fixed adapter. It is not a runtime file, so it is not a row in the table above. It runs exactly `scripts/run-e2e.test.mjs` with the same bounded Node reporter, the 60-second non-runtime budget, and no database environment. Neighboring `scripts/**/*.test.mjs` files are not discovered. Deleting that baseline is `suite_files_unavailable` (`not_run`), not a pass. An empty file, a zero-test run, or any skip, TODO, cancellation, or failure does not pass. The verifier report accepts that one `scripts/run-e2e.test.mjs` path and no other `scripts/` test path. This suite checks the Playwright orchestrator. It does not launch a browser. CI's `ui-e2e` job runs `npm run test:e2e` after `npm run build`; that job is the browser evidence, and `verify` does not substitute for it.
+`e2e.harness` is a separate fixed adapter. It is not a runtime file, so it is not a row in the table above. It runs exactly `scripts/run-e2e.test.mjs` with the same bounded Node reporter, the 60-second non-runtime budget, and no database environment. Neighboring `scripts/**/*.test.mjs` files are not discovered. Deleting that baseline is `suite_files_unavailable` (`not_run`), not a pass. An empty file, a zero-test run, or any skip, TODO, cancellation, or failure does not pass. The verifier report accepts that one `scripts/run-e2e.test.mjs` path and no other `scripts/` test path. This suite checks the local Playwright orchestrator, not a browser. CI's `ui-e2e` job runs the trusted `scripts/ci/run-pinned-e2e.mjs` after `npm run build`; `npm run test:e2e` remains the local mode runner. The pinned browser job is the browser evidence, and `verify` does not substitute for it.
 
 | Suite | Fixed baseline | Budget |
 | --- | --- | --- |
 | `e2e.harness` | `scripts/run-e2e.test.mjs` only | 60 seconds, no database |
+
+
+The full pinned browser plan keeps its six mode passes. Its default mode (#784)
+first enumerates all cases without sharding, then runs exactly two concurrent
+native Playwright shards, each still `workers: 1` / `fullyParallel: false`.
+The host assigns separate generated `fp_e2e_*` schemas and localhost ports
+14311/14312; run only one full pinned plan per host. Existing dedicated fixture
+passes and narrow guide/guild plans remain unsharded and retain their obligations.
+No candidate CLI profile, file list, shard count or timeout override is accepted.
+
+The current 60-minute default-mode budget from #796 includes discovery and both
+concurrent processes; discovery keeps its independent 60-second maximum. A failed shard
+cancels its peer by interrupting the Playwright CLI with SIGINT. Playwright then
+runs its configured SIGTERM webServer teardown; the existing 20-second SIGKILL
+escalation remains bounded. Direct SIGTERM to the CLI skips that teardown and
+can leave its separate webServer process group alive. The real-Playwright
+cancellation regression requires both HTTP servers to receive SIGTERM and exit
+before the runner returns. Timeout or
+cancellation remains failed even if every interrupted child exits zero.
+Default evidence requires both ordered `partitions` with host-bound current/total,
+actual exit status and raw-report SHA-256. Their disjoint case union must equal
+the unsharded inventory; a successful subset, duplicate, invented or omitted case
+cannot pass. Receipts retain inventory/case fingerprints without raw test titles.
+Every actual pass is validated against the central evidence contract before its
+scratch can be discarded or the next fixture pass can start. Ordered-prefix
+validation defers only the whole-plan skipped-to-passed/file coverage obligations;
+it does not invent future pass results or admit an incomplete plan. Aggregation
+errors retain their original reason, including `case_listing_mismatch` even when
+both shards exited zero. Failure artifacts prioritize the inventory and both raw
+shard reports before optional traces under the existing 128 MiB / 512-entry,
+regular-file/no-symlink diagnostic-copy policy; they are not admission evidence.
+Reviewed central-pin adoption remains a separate maintainer action. Local or
+hosted candidate execution does not itself approve that pin, replace a failed
+run, or authorize merge/deploy.
+
+The 2026-10-16 local review smoke used the actual pinned CLI and real Playwright
+against 92 synthetic baseline cases whose titles varied with the assigned port.
+Before the fix (`efc2c3dc`), both shards exited zero, all five later fixture passes
+ran (97 executions total), and the final `case_listing_mismatch` retained no raw
+diagnostics. After the fix, the same input stopped after the default pass (92
+executions, both exits zero), preserved that reason, and retained the listing and
+both SHA-bound shard reports: six regular files totaling 183,632 bytes including
+the diagnostic receipt. This is evidence-lifecycle execution, not browser/product
+or database coverage; the earlier full-platform evidence and failed hosted runs
+are unchanged, and the unchanged full program was not rerun for this review.
 
 `runLocalSuite(root, id, {testDatabaseUrl})` remains available from `verify.mjs`; `runLocalSuites(root, ids, {testDatabaseUrl})` and the default `verifyWorkspace(options, {testDatabaseUrl})` batch overlapping runtime selections into **one** Node/tsx invocation. Each file executes once even when full and subset IDs are selected; reports project each suite's file/case evidence from that invocation. There is no persistent cache across calls or source changes. Deleting a baseline file or a fixed subset file cannot become green; consumers without these producer suites receive `suite_files_unavailable`. New direct runtime test files are discovered automatically without first adding them to the baseline list. The tsx loader comes from the installed tooling's dependency resolution; no npm script is executed.
 

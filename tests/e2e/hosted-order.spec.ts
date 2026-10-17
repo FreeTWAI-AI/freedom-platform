@@ -1,9 +1,12 @@
+import {setupE2ePayment} from './hosted-payment-fixture.js';
 import type {Route} from '@playwright/test';
 import {test, expect, type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
-import {buyerLogin, apiLogin, enableStore, fixtureStore, offListener} from './hosted-order-fixture.js';
+import {buyerLogin, apiLogin, enableStore, fixtureStore as reservationFixtureStore, offListener} from './hosted-order-fixture.js';
 import {ReadinessSchema} from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import {ReservationOrderSchema as OrderSchema,type ReservationOrder as HostedOrder} from '../../contracts/guild-launchpad/v1/hosted-shared-order.js';
+
+const fixtureStore:typeof reservationFixtureStore=async(db,browser,origin)=>{const store=await reservationFixtureStore(db,browser,origin);await setupE2ePayment(db,browser,origin,store);return store;};
 
 const surface = (page: Page) => page.locator('.hosted-store');
 function gate<T>() {let resolve!: (value: T) => void; const promise = new Promise<T>(done => {resolve = done;}); return {promise, resolve};}

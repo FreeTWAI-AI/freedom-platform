@@ -1,3 +1,9 @@
+import {detachAfterResponse} from '../../../modules/agent-commerce/operations/due-work.js';
+import {commerceEmailOutbox} from '../../../modules/agent-commerce/operations/notifications/outbox.js';
+import {createCheckoutPaymentPorts} from '../../../modules/agent-commerce/payments/attempts.js';
+import {createPaymentMethodsPort} from '../../../modules/agent-commerce/payments/offline/methods.js';
+import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
+import {createShippingQuotePort} from '../../../modules/agent-commerce/fulfilment/quote/index.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { Context } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo';
@@ -9,16 +15,17 @@ import { createPlatformApp } from './platform-app.js';
 import { LIVE_PUBLIC_ORIGIN } from './routes/published-skills.js';
 import type { GitHubSocialOptions } from './routes/github-social.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
+import { commerceCheckoutQueryDeps } from './routes/hosted-checkout.js';
 import type { PasswordEmailSender } from '../../../modules/identity-membership/password-recovery.js';
 import type { EventEmailSender } from '../../../modules/community/events.js';
 import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type PrivateAiProductTransport } from './private-ai-product.js';
 import type { ModuleProviderMap } from '../../../modules/module-registry/providers.js';
 import { createNodePreviewFetch } from './node-preview-fetch.js';
 
-type NodeAppOptions = {arEnabled?:boolean;arAssetStore?:PlatformRuntime['arAssetStore'];storePhotoAssetStore?:PlatformRuntime['storePhotoAssetStore'];storePhotoAssets?:PlatformRuntime['storePhotoAssets'];storePhotoUploadsEnabled?:boolean;shopKeyPolicy?:PlatformRuntime['shopKeyPolicy'];publicGuideAssets?:PlatformRuntime['publicGuideAssets'];adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
+type NodeAppOptions = {supplyMaterialAssetStore?:PlatformRuntime['supplyMaterialAssetStore'];supplyMaterialAssets?:PlatformRuntime['supplyMaterialAssets'];supplyMaterialUploadsEnabled?:boolean;afterResponse?:PlatformRuntime['afterResponse'];commerceQueryTransport?:PlatformRuntime['commerceQueryTransport'];commercePayments?:PlatformRuntime['commercePayments'];commerceJournal?:PlatformRuntime['commerceJournal'];commerceEmailSender?:PlatformRuntime['commerceEmailSender'];commerceCredentialKeyring?:PlatformRuntime['commerceCredentialKeyring'];commerceSettings?:PlatformRuntime['commerceSettings'];commercePorts?:PlatformRuntime['commercePorts'];arEnabled?:boolean;arAssetStore?:PlatformRuntime['arAssetStore'];storePhotoAssetStore?:PlatformRuntime['storePhotoAssetStore'];storePhotoAssets?:PlatformRuntime['storePhotoAssets'];storePhotoUploadsEnabled?:boolean;shopKeyPolicy?:PlatformRuntime['shopKeyPolicy'];publicGuideAssets?:PlatformRuntime['publicGuideAssets'];adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
   totpEncryptionKey?:string;
   eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];messageImageAssets?:PlatformRuntime['messageImageAssets'];messageImageAssetStore?:PlatformRuntime['messageImageAssetStore'];eventBannerAssets?:PlatformRuntime['eventBannerAssets'];eventBannerAssetStore?:PlatformRuntime['eventBannerAssetStore'];eventVideoAssets?:PlatformRuntime['eventVideoAssets'];eventVideoAssetStore?:PlatformRuntime['eventVideoAssetStore'];skillImageAssets?:PlatformRuntime['skillImageAssets'];skillImageAssetStore?:PlatformRuntime['skillImageAssetStore'];socialThumbnailAssets?:PlatformRuntime['socialThumbnailAssets'];socialThumbnailAssetStore?:PlatformRuntime['socialThumbnailAssetStore'];eventHighlightAssets?:PlatformRuntime['eventHighlightAssets'];eventHighlightAssetStore?:PlatformRuntime['eventHighlightAssetStore'];
-  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport;moduleProviders?:ModuleProviderMap;guildLaunchpadEnabled?:boolean;hostedReservationsEnabled?:boolean;tenantCursorSigningKey?:string;communityDiscoveryEnabled?:boolean;memberBlockingEnabled?:boolean;memberReportingEnabled?:boolean;communitySearchEnabled?:boolean;unifiedSharingEnabled?:boolean;communityRelationsEnabled?:boolean;personalContentEnabled?:boolean;notificationPreferencesEnabled?:boolean;firstParticipationEnabled?:boolean;eventParticipationEnabled?:boolean;squadOutcomesEnabled?:boolean;eventOutcomesEnabled?:boolean;participationMetricsEnabled?:boolean;skillBookStarGateEnabled?:boolean;tenantWorkAssetStore?:PlatformRuntime['tenantWorkAssetStore']};
+  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport;moduleProviders?:ModuleProviderMap;guildLaunchpadEnabled?:boolean;hostedReservationsEnabled?:boolean;supplierConsoleEnabled?:boolean;distributionPhotosEnabled?:boolean;tenantCursorSigningKey?:string;communityDiscoveryEnabled?:boolean;memberBlockingEnabled?:boolean;memberReportingEnabled?:boolean;communitySearchEnabled?:boolean;unifiedSharingEnabled?:boolean;communityRelationsEnabled?:boolean;personalContentEnabled?:boolean;notificationPreferencesEnabled?:boolean;firstParticipationEnabled?:boolean;eventParticipationEnabled?:boolean;squadOutcomesEnabled?:boolean;eventOutcomesEnabled?:boolean;participationMetricsEnabled?:boolean;skillBookStarGateEnabled?:boolean;tenantWorkAssetStore?:PlatformRuntime['tenantWorkAssetStore']};
 
 // Node host adapter. The Worker bundle never imports this module, so the
 // socket-based address below is only ever read from a real Node server.
@@ -32,9 +39,18 @@ function authNetwork(c:Context) {
 
 /** Node runtime: settings are read from process configuration when used, as before. */
 export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<NodeAppOptions,'privateAiProduct'>={}):PlatformRuntime {
+  const environment=providerEnvironment(freedomEnv),settingsProfiles=options.commerceSettings?.providerProfiles??[];
+  const admission=options.commercePorts?.admission??createStoreAdmissionPort(environment,settingsProfiles);
+  const email=options.commerceSettings?.emailEnabled?(options.commercePorts?.email??commerceEmailOutbox):undefined;
+  const listed=settingsProfiles.length?settingsProfiles:(options.commercePayments?.profiles??[]);
+  const payments=options.commercePayments?createCheckoutPaymentPorts({environment,admission,settings:options.commerceSettings??{checkoutEnabled:false,quarantine:false,providerProfiles:[]},profiles:options.commercePayments.profiles,gateway:options.commercePayments.gateway,keyring:options.commerceCredentialKeyring??null},options.commerceQueryTransport?commerceCheckoutQueryDeps({transport:options.commerceQueryTransport,keyring:options.commerceCredentialKeyring??null,freedomEnv,quarantine:options.commerceSettings?.quarantine,emailEnabled:options.commerceSettings?.emailEnabled,email:options.commercePorts?.email}):undefined):undefined;
+  const paymentMethods=options.commercePorts?.paymentMethods??(listed.length?createPaymentMethodsPort({environment,profiles:listed,card:options.commercePorts?.payment??payments?.payment}):undefined);
   if(options.publicGuideAssets&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
   return {
+    afterResponse:options.afterResponse??detachAfterResponse,commerceQueryTransport:options.commerceQueryTransport,
+    commercePayments:options.commercePayments,commerceJournal:options.commerceJournal,commerceEmailSender:options.commerceEmailSender,commerceSettings:options.commerceSettings,commercePorts:{admission,shipping:createShippingQuotePort({environment}),...payments,...(paymentMethods?{paymentMethods}:{}),...options.commercePorts,...(email?{email}:{})},commerceCredentialKeyring:options.commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv),
     publicGuideAssets:options.publicGuideAssets,
+    supplyMaterialAssetStore:options.supplyMaterialAssetStore,supplyMaterialAssets:options.supplyMaterialAssets,supplyMaterialUploadsEnabled:options.supplyMaterialUploadsEnabled===true,
     storePhotoAssetStore:options.storePhotoAssetStore,storePhotoAssets:options.storePhotoAssets,storePhotoUploadsEnabled:options.storePhotoUploadsEnabled===true,
     shopKeyPolicy:options.shopKeyPolicy??process.env.FREEDOM_SHOP_KEY_POLICY as PlatformRuntime['shopKeyPolicy'],
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
@@ -55,6 +71,8 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
     moduleProviders:options.moduleProviders,
     guildLaunchpadEnabled:options.guildLaunchpadEnabled===true,
     hostedReservationsEnabled:options.hostedReservationsEnabled===true,
+    supplierConsoleEnabled:options.supplierConsoleEnabled===true,
+    distributionPhotosEnabled:options.distributionPhotosEnabled===true,
     communityDiscoveryEnabled:options.communityDiscoveryEnabled===true,
     memberBlockingEnabled:options.memberBlockingEnabled===true,
     memberReportingEnabled:options.memberReportingEnabled===true,

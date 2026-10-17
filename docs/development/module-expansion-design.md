@@ -66,7 +66,8 @@ flowchart TB
 完成原投影，最後以目前 database clock 再檢查登入期限。等 SQL 鎖期間到期
 回 `401 session_expired`，不回 `items` 或更新 cookie；空結果也不能略過檢查。
 仍保留原 owner／community／verification-test-account 過濾、最新 offer、
-不可變 snapshot 與 `{items}` 形狀，不因此新增 receipt／transition journal。
+不可變 snapshot；商品目錄回 `{items,next_offset}` 分頁，其餘列表保留 `{items}`，
+不因此新增 receipt／transition journal。
 行銷的低階 `getMarketingProductSource` 仍使用呼叫端原有 command 交易，
 不另開登入或巢狀交易。這是回傳投影前的決策檢查，不保證直到 commit 或
 HTTP 傳送完畢都尚未到期；不代表啟用 checkout、付款或跨倉契約採用。

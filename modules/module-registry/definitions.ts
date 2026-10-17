@@ -70,9 +70,12 @@ export type Requirement = {
 
 export const STOREFRONT_CONTRACT_SOURCE_COMMIT = 'a731461c4f1bc38aa5235db8a29cd3e047f1ab9b';
 export const STOREFRONT_CONTRACT_ARTIFACT_SHA256 = 'eb9a262e2914af0a8fac3631533f8e4350b4d602b7a682d4497774b60c4d8ac7';
-export const HOSTED_STORE_RELEASE = 'hosted-store@1.0.0';
-export const STOREFRONT_MODULE_RELEASE = 'storefront@1.0.0';
-export const STORE_CAPABILITIES = Object.freeze(['store:manage', 'store:read', 'store:write', 'store:publish'] as const);
+export const HOSTED_STORE_RELEASE = 'hosted-store@1.1.0';
+export const STOREFRONT_MODULE_RELEASE = 'storefront@1.1.0';
+export const STORE_CAPABILITIES_1_0 = Object.freeze(['store:manage', 'store:read', 'store:write', 'store:publish'] as const);
+export const STORE_CAPABILITIES = Object.freeze([...STORE_CAPABILITIES_1_0,
+  'store:orders:read', 'store:customers:read', 'store:finance:read', 'store:orders:manage',
+  'store:fulfil', 'store:refund', 'store:invoices', 'store:settlements'] as const);
 export const STOREFRONT_CONTRACT = Object.freeze({
   family: 'guild-launchpad.storefront', version: '1', source_commit: STOREFRONT_CONTRACT_SOURCE_COMMIT,
   artifact_sha256: STOREFRONT_CONTRACT_ARTIFACT_SHA256, behavior_profile: 'freedom.storefront/v1',

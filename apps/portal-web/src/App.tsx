@@ -1,3 +1,5 @@
+import {parseSellerConsoleRoute} from '../../../modules/agent-commerce/seller-console/route';
+import {parseSupplierConsoleRoute} from '../../../modules/agent-commerce/supplier-console/ui/route';
 import {sellerOrdersRoute} from './modules/hosted-seller-order-state'
 import {buyerRoute} from './modules/hosted-order-state'
 import { client, PortalContext, describeError, isOwnRef, type ActionError, type PortalContextValue } from './portal-session'
@@ -423,7 +425,11 @@ function LoginView({
   const [totpRequired,setTotpRequired]=useState(false)
   const [loginCode,setLoginCode]=useState('')
   const codeInput=useRef<HTMLInputElement>(null)
-  useEffect(()=>{setTotpRequired(false);setLoginCode('')},[activeMode,email,password])
+  // Only credential/mode changes invalidate a challenge, not code entry itself.
+  useEffect(()=>{
+    if(totpRequired)setTotpRequired(false)
+    if(loginCode)setLoginCode('')
+  },[activeMode,email,password])
   const [resetNotice,setResetNotice]=useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<unknown>(null)
@@ -618,9 +624,11 @@ function Workspace({
   const [tab, setTab] = useState<TabId>(() => tabFromHash(site?.guild_launchpad_enabled === true))
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
   const {canEndSession:canEndConsoleSession}=useGameConsole()
-  const pageLeaveGuard = useRef<(() => boolean) | null>(null)
+  const consoleRoute = tab === 'stores' && site?.supplier_console_enabled === true ? parseSupplierConsoleRoute(locationHash) : null
+  const sellerRoute = tab === 'stores' && site?.commerce_console_enabled === true ? parseSellerConsoleRoute(locationHash) : null;
+  const pageLeaveGuard = useRef<((nextHash: string | null) => boolean) | null>(null)
   const acceptedHash = useRef(window.location.hash)
-  const registerPageLeave = useCallback((guard: (() => boolean) | null) => { pageLeaveGuard.current = guard }, [])
+  const registerPageLeave = useCallback((guard: ((nextHash: string | null) => boolean) | null) => { pageLeaveGuard.current = guard }, [])
   const replaceBuyerLocation = useCallback((hash: string) => {
     if (!buyerRoute(hash)) return
     // Only the buyer page uses this after holding/confirming its exact attempt.
@@ -662,7 +670,7 @@ function Workspace({
   const selectTab = useCallback((next: TabId, destinationHash?: string) => {
     if(next==='messages'){openMessages();return}
     const nextHash = destinationHash ?? `#${next}`
-    if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) return
+    if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current(nextHash)) return
     acceptedHash.current = nextHash
     if(next==='friends')setFriendScope('accepted')
     setMobileOpen(false)
@@ -724,7 +732,7 @@ function Workspace({
     const changed = () => {
       const nextHash = window.location.hash
       if(nextHash==='#messages'){openMessages();return}
-      if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) {
+      if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current(nextHash)) {
         window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${acceptedHash.current}`)
         return
       }
@@ -793,7 +801,7 @@ function Workspace({
   )
 
   async function logout() {
-    if (pageLeaveGuard.current && !pageLeaveGuard.current()) return
+    if (pageLeaveGuard.current && !pageLeaveGuard.current(null)) return
     if (!canEndConsoleSession() || messageLeaveGuard.current&&!messageLeaveGuard.current()) return
     const ok = await mutate('logout', async (key) => {
       await client.logout(key)
@@ -829,13 +837,13 @@ function Workspace({
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
               <div>
-                {launchpadOpen ? null : <h1 id="workspace-page-title">{tab === 'stores' && (locationHash === '#stores/supply' || /^#stores\/[^/]+\/[^/]+\/supply$/.test(locationHash)) ? t('stores.supplyTitle') : t(`nav.${tab}`)}</h1>}
+                {launchpadOpen ? null : <h1 id="workspace-page-title">{consoleRoute ? t(consoleRoute.titleKey) : sellerRoute ? t(sellerRoute.titleKey) : tab === 'stores' && (locationHash === '#stores/supply' || /^#stores\/[^/]+\/[^/]+\/supply(?:[/?]|$)/.test(locationHash)) ? t('stores.supplyTitle') : t(`nav.${tab}`)}</h1>}
               </div>
-              <PageTools pageId={tab} client={client} compact/>
+              <PageTools pageId={consoleRoute ? 'supplier-console' : tab} client={client} compact/>
               <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)} guided={site?.unified_sharing_enabled===true} storesEnabled={site?.guild_launchpad_enabled===true} onMyContent={site?.personal_content_enabled === true ? () => selectTab('my-content') : undefined}/></div>
             </header>
             <div className="workspace-content">
-              <GuideHost pageId={tab} scopeKey={session.user.user_id}
+              <GuideHost pageId={consoleRoute ? 'supplier-console' : tab} scopeKey={session.user.user_id}
                 memberAccess={!error?.accessExpired && !mobileOpen && !pending && (tab !== 'guild-workspace' || canManageGuild) && (!['business', 'stores'].includes(tab) || site?.guild_launchpad_enabled === true)}/>
               <main ref={mainContent} className="workspace-page" id="main-content" tabIndex={-1} aria-labelledby="workspace-page-title">
             {(shareEntry||shareNotice)&&<p className="share-entry-status" role="status">{shareEntry?`正在開啟${SHARE_TARGETS[shareEntry.target].label}…`:shareNotice}</p>}
@@ -872,7 +880,7 @@ function Workspace({
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
             {tab === 'reservations' && <HostedOrderPage key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} locationHash={locationHash} registerLeave={registerPageLeave} replaceLocation={replaceBuyerLocation} />}
-            {tab === 'stores' && <HostedStore client={client} photosEnabled={site?.hosted_store_photos_enabled===true} photoUploadsEnabled={site?.hosted_store_photo_uploads_enabled===true} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} registerLeave={registerPageLeave} />}
+            {tab === 'stores' && <HostedStore distributionPhotosEnabled={site?.distribution_photos_enabled===true} materialMediaEnabled={site?.supply_material_media_enabled===true} materialUploadsEnabled={site?.supply_material_uploads_enabled===true} commerceConsoleEnabled={site?.commerce_console_enabled === true} providerEnvironment={site?.public_mode === true ? 'live' : 'sandbox'} consoleEnabled={site?.supplier_console_enabled === true} client={client} photosEnabled={site?.hosted_store_photos_enabled===true} photoUploadsEnabled={site?.hosted_store_photo_uploads_enabled===true} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} registerLeave={registerPageLeave} />}
             {tab === 'business' && <TenantSettings client={client} session={session} enabled={site ? site.guild_launchpad_enabled === true : null} />}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}

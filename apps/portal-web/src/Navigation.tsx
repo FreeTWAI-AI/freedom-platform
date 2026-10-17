@@ -41,7 +41,7 @@ export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEn
   useEffect(() => { setExpanded(groups.filter(group => group.pages.includes(current)).map(group => group.label)); }, [current]);
   useEffect(() => { setMoreOpen(false); }, [current]);
   useEffect(() => { const close=(event:PointerEvent)=>{if(!nav.current?.contains(event.target as Node))setMoreOpen(false)};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close)},[]);
-  const supplySelected = /^#stores\/(?:supply$|[^/]+\/[^/]+\/supply(?:\/|$))/.test(currentHash);
+  const supplySelected = /^#stores\/(?:supply$|[^/]+\/[^/]+\/supply(?:-orders)?(?:[/?]|$))/.test(currentHash);
   const item = (id: TabId, title: InterfaceMessage = `nav.${id}`, hash = `#${id}`) => {
     const active = current === id && (id !== 'stores' || supplySelected === (hash === '#stores/supply'));
     return <button key={hash} type="button" className={`nav-item${active ? ' is-active' : ''}`}

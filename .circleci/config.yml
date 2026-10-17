@@ -1,0 +1,118 @@
+# Native worker suite candidate; GitHub coverage stays until coordinated adoption.
+# Run only with synthetic data in a project without secrets or contexts.
+# Existing GitHub required checks continue to own merge eligibility.
+version: 2.1
+
+jobs:
+  worker-unit:
+    resource_class: medium
+    working_directory: ~/freedom-platform
+    docker:
+      - image: cimg/node:24.21.0
+      - image: mirror.gcr.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+        environment:
+          POSTGRES_USER: freedom_local
+          POSTGRES_PASSWORD: local-development-only
+          POSTGRES_DB: fp_foundation_ci
+          # Disposable job-local synthetic database; fixtures use passwordless roles.
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: "-c dynamic_shared_memory_type=mmap"
+    environment:
+      CI: "true"
+      CANDIDATE_SHA: << pipeline.git.revision >>
+      RUNNER_SHA: "3c1ff74476d4072f5a1b8b179a1bb0faecefc461"
+      TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
+      WRANGLER_SEND_METRICS: "false"
+      DO_NOT_TRACK: "1"
+    steps:
+      - run:
+          name: Fetch the exact public candidate
+          command: |
+            [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$RUNNER_SHA" =~ ^[0-9a-f]{40}$ ]]
+            test "$CANDIDATE_SHA" = "$CIRCLE_SHA1"
+            git init .
+            git remote add origin https://github.com/FreeTWAI/freedom-platform.git
+            git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
+            git checkout --detach FETCH_HEAD
+            test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+            mkdir -p .freedom
+            node --input-type=module -e '
+            import { execFileSync } from "node:child_process";
+            import { createHash } from "node:crypto";
+            import { writeFileSync } from "node:fs";
+            const bytes = execFileSync("git", ["show", process.env.CANDIDATE_SHA + ":.circleci/config.yml"]);
+            writeFileSync(".freedom/circleci-config-source.json", JSON.stringify({
+              checkout_commit: process.env.CANDIDATE_SHA,
+              circle_sha1: process.env.CIRCLE_SHA1,
+              config_file_sha256: createHash("sha256").update(bytes).digest("hex"),
+              config_provenance: "oauth-same-repository-checkout-assumption"
+            }) + "\n");
+            '
+      - run: npm ci
+      - run:
+          name: Wait for the disposable PostgreSQL service
+          command: |
+            node --input-type=module -e '
+            import pg from "pg";
+            const deadline = Date.now() + 60000;
+            for (;;) {
+              const client = new pg.Client({ connectionString: process.env.TEST_DATABASE_URL, connectionTimeoutMillis: 2000 });
+              try {
+                await client.connect();
+                await client.query("select 1");
+                break;
+              } catch {
+                if (Date.now() >= deadline) throw new Error("disposable_postgres_not_ready");
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              } finally {
+                await client.end().catch(() => {});
+              }
+            }
+            '
+      - run: npm run contracts:build
+      - run: npm run build
+      - run: npm run worker:dry-run
+      - run: npm run worker:dry-run:admin-sync
+      - run: npm run worker:dry-run:maintainer
+      - run: npm run worker:dry-run:broker
+      - run: npm run worker:dry-run:media-operator
+      - run:
+          name: Run the existing complete worker unit suite
+          no_output_timeout: 20m
+          command: |
+            rm -rf .freedom/trusted
+            git init .freedom/trusted
+            git -C .freedom/trusted remote add origin https://github.com/FreeTWAI/freedom-platform.git
+            git -C .freedom/trusted fetch --no-tags --depth=1 origin "$RUNNER_SHA"
+            git -C .freedom/trusted checkout --detach FETCH_HEAD
+            mkdir -p .freedom/reports
+            node --input-type=module -e '
+            import { readFileSync, writeFileSync } from "node:fs";
+            writeFileSync(".freedom/reports/circleci-worker-source.json", JSON.stringify({
+              candidate_sha: process.env.CANDIDATE_SHA,
+              ...JSON.parse(readFileSync(".freedom/circleci-config-source.json", "utf8")),
+              runner_sha: process.env.RUNNER_SHA,
+              suite: "ci.worker-unit",
+              pipeline_id: process.env.CIRCLE_PIPELINE_ID,
+              workflow_id: process.env.CIRCLE_WORKFLOW_ID,
+              job_id: process.env.CIRCLE_WORKFLOW_JOB_ID,
+              job_number: process.env.CIRCLE_BUILD_NUM,
+              resource_class: "medium",
+              node: process.version
+            }, null, 2) + "\n");
+            '
+            test "$(git -C .freedom/trusted rev-parse HEAD)" = "$RUNNER_SHA"
+            test -z "$(git -C .freedom/trusted status --porcelain)"
+            node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.worker-unit
+      - store_artifacts:
+          path: .freedom/reports/pinned-ci.worker-unit.json
+          destination: worker-unit-evidence.json
+      - store_artifacts:
+          path: .freedom/reports/circleci-worker-source.json
+          destination: worker-unit-source.json
+
+workflows:
+  worker-tests:
+    jobs:
+      - worker-unit

@@ -216,6 +216,11 @@ export class PortalClient {
     try { return await this.request<T>('PATCH', path, { ...options, body }) }
     finally { this.reads.clear() }
   }
+  async put<T>(path: string, body: unknown, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
+    this.reads.clear()
+    try { return await this.request<T>('PUT', path, { ...options, body }) }
+    finally { this.reads.clear() }
+  }
 
   async putArPattern<T>(id:string, bytes:Uint8Array, options:Omit<RequestOptions,'body'|'arPattern'>):Promise<T> {
     if(!/^[0-9a-f-]{36}$/.test(id)||bytes.byteLength>20*1024*1024)throw new ApiError({message:'圖案辨識檔不完整或太大。',status:422})
@@ -433,6 +438,14 @@ export function requireItems<T>(payload: unknown, label: string): T[] {
     throw new ApiError({ message: `${label} 回應格式不正確` })
   }
   return (payload as { items: T[] }).items
+}
+
+export function requireCursorPage<T>(payload: unknown, label: string): {items:T[];next_cursor:string|null} {
+  const items=requireItems<T>(payload,label)
+  if(!payload||typeof payload!=='object'||!('next_cursor' in payload))throw new ApiError({message:`${label} 回應缺少分頁游標`})
+  const cursor=payload.next_cursor
+  if(cursor!==null&&typeof cursor!=='string')throw new ApiError({message:`${label} 分頁游標格式不正確`})
+  return {items,next_cursor:cursor}
 }
 
 export function requireDashboard<T extends { now: unknown; next: unknown; gained: unknown; review_queue: unknown; summary: unknown }>(

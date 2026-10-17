@@ -64,14 +64,24 @@ test('context includes deep-module rules, base and candidate text, without claim
   assert(!('read_by_agent' in context)); assert.deepEqual(context.module_ids, ['governance']);
 });
 
-test('existing scoped Agent Kit package resolves local identity without granting trust', async t => {
+test('reviewed scoped consumer packages resolve local identity without granting trust', async t => {
   const f = await fixture(t);
-  await put(f.root, 'package.json', pretty({ name: '@freetwai/agent-kit' }));
-  const { context } = await buildContext(f.options);
-  assert.equal(context.repository, 'FreeTWAI/freedom-agent-kit');
-  assert.equal(context.assurance_level, 'local');
-  await put(f.root, 'package.json', pretty({ name: '@unreviewed/agent-kit' }));
-  await assert.rejects(buildContext(f.options), { code: 'repository_identity_required' });
+  for (const [name, repository] of [
+    ['@freetwai/agent-kit', 'FreeTWAI/freedom-agent-kit'],
+    ['@freetwai/freedom-storefront', 'FreeTWAI/freedom-storefront'],
+    ['@freetwai/freedom-growth-automation', 'FreeTWAI/freedom-growth-automation'],
+    ['@freetwai/freedom-skill-registry', 'FreeTWAI/freedom-skill-registry'],
+  ]) {
+    await put(f.root, 'package.json', pretty({ name }));
+    const { context } = await buildContext(f.options);
+    assert.equal(context.repository, repository);
+    assert.equal(context.assurance_level, 'local');
+    assert.equal(context.publisher_trust, 'unverified');
+  }
+  for (const name of ['@unreviewed/agent-kit', '@unreviewed/freedom-growth-automation', '@freetwai/freedom-unreviewed']) {
+    await put(f.root, 'package.json', pretty({ name }));
+    await assert.rejects(buildContext(f.options), { code: 'repository_identity_required' });
+  }
 });
 
 test('selected module can include root DESIGN while arbitrary root instructions remain denied', async t => {

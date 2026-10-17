@@ -712,7 +712,7 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
     const status=Object.fromEntries(report.phases.map(p=>[p.id,p.status]));
     const failures=report.phases.filter(p=>p.status==='fail').map(p=>`${p.id}:${p.reason}`);
     expect(failures).toEqual([]);
-    expect(status).toEqual({preflight:'pass',health:'pass',protocol:'pass',assets:'pass',anonymous:'pass',session:'pass',browser:'pass','guild-cache':'pass','github-handoff':'not_run',avatar:'pass',registration:'not_run',messages:'not_run','messages-mobile':'not_run',load:'pass',logout:'pass'});
+    expect(status).toEqual({preflight:'pass',health:'pass',protocol:'pass',assets:'pass',anonymous:'pass',session:'pass',browser:'pass','guild-cache':'pass','github-handoff':'not_run',avatar:'pass',registration:'not_run',messages:'not_run','messages-mobile':'not_run','supplier-journey':'not_run','supplier-photo':'not_run','supplier-reservations':'not_run','supplier-recheck':'not_run',load:'pass',logout:'pass'});
     expect(report.phases.find(p=>p.id==='github-handoff')?.reason).toBe('github_oauth_not_configured_on_candidate');
     expect(report).toMatchObject({harness:'local_harness',cloud_proof:false,overall:'incomplete',expected_release_sha:null});
     // The local Node server has no runtime or release_sha; the harness proves no deployed SHA.
@@ -970,4 +970,14 @@ test('registration phases do not require an account file',async()=>{
   expect(report.phases.find(phase=>phase.id==='registration')?.status).toBe('blocked');
   expect(requests).toBe(1);
   expect(report.account_label).toBeNull();
+});
+
+test('run-wide restore failure fails an otherwise passed guild-cache phase before its status line',async()=>{
+  const server=guildCandidate(),logs:string[]=[];let finished=false;
+  const transport:Transport=async request=>{const path=new URL(request.url).pathname;if(finished&&path==='/api/v1/guilds')return {status:500,headers:new Headers({'content-type':'application/json'}),body:Buffer.from('{}')};const reply=await server.transport(request);if(path==='/api/v1/me/development/skill/video-autopilot'&&!request.headers.Cookie)finished=true;return reply;};
+  const report=await runCandidate({...base(['guild-cache']),transport,account,log:line=>logs.push(line)});
+  expect(report.cleanup.items).toContainEqual({phase:'guild-cache',item:'test guild membership guild_ai_vibe',state:'restore_failed'});
+  expect(report).toMatchObject({overall:'fail',cloud_proof:false,cleanup:{restore_failed:true}});
+  expect(report.phases.find(p=>p.id==='guild-cache')).toMatchObject({status:'fail',reason:'cleanup_restore_failed',checks:expect.arrayContaining([{id:'cleanup_restored',status:'fail'}])});expect(logs).toContain('guild-cache: fail (cleanup_restore_failed)');
+  const cleanReport=()=>{const text=JSON.stringify(report)+'\n'+logs.join('\n');for(const secret of [account.email,account.password])expect(text).not.toContain(secret);expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);expect(report.redaction_applied).toBe(false);};cleanReport();
 });

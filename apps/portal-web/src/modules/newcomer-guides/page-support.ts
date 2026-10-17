@@ -1,8 +1,9 @@
 import type {TabId} from '../../types';
 import type {PageGuideSupport} from './contracts';
-export type GuidePageId = TabId | 'registration' | 'onboarding' | 'admin' | 'skillbooks';
+export type GuidePageId = TabId | 'registration' | 'onboarding' | 'admin' | 'skillbooks' | 'supplier-console';
 // Every real page must explicitly opt in or give a reason. CI also checks developmentPages.
 export const DRAGON_PAGE_SUPPORT = {
+  'supplier-console':{status:'disabled',reason:'商店導覽尚未完成審核'},
   ar:{status:'disabled',reason:'AR 相機採用畫面內操作提示，角色導覽尚未審核'},
   'community-search': {status:'disabled',reason:'社群內容搜尋導覽尚未完成審核，沿用頁面說明'},
   'my-content': {status:'disabled',reason:'私人內容管理導覽尚未完成審核，沿用頁面說明'},
