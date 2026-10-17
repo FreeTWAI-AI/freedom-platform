@@ -24,3 +24,22 @@ test('keyboard-only order opening, cancel dialog and refund focus positions',asy
  try{await openSeller(seller,baseURL!,p.store.seller.email,`#stores/${p.store.tenant}/${p.store.instance}/orders`);await tabTo('[data-seller-order]');await record('list order link');await seller.keyboard.press('Enter');await expect(seller.getByRole('heading',{name:'訂單詳情：'+p.order.display_number})).toBeFocused();await record('detail heading');await tabTo('.seller-axis[aria-label="訂單"] button');await seller.keyboard.press('Enter');await expect(seller.getByRole('dialog',{name:'取消訂單'}).getByRole('button',{name:'關閉'})).toBeFocused();await record('dialog initial focus');await seller.keyboard.press('Tab');await seller.keyboard.press('Enter');await expect(seller.getByRole('region',{name:'訂單',exact:true})).toContainText('已取消');await record('after cancel');await page.getByRole('button',{name:'付款成功',exact:true}).click();await seller.reload();await tabTo('input[type="text"]');await seller.keyboard.type('350');await seller.keyboard.press('Tab'); // Enter today through Chromium’s native date segments using the keyboard.
  const date=seller.getByLabel('退款日期',{exact:true}),parts=taipeiDate().split('-'),target={year:parts[0],month:parts[1],day:parts[2]};for(const order of [['year','month','day'],['month','day','year'],['day','month','year']] as const){for(let i=0;i<3;i++){for(let j=0;j<4;j++)await date.press('ArrowLeft');for(let j=0;j<i;j++)await date.press('ArrowRight');await date.press('Backspace');await seller.keyboard.type(target[order[i]]);}if(await date.inputValue()===taipeiDate())break;}expect(await date.inputValue()).toBe(taipeiDate());for(let j=0;j<4;j++)await date.press('ArrowRight');await tabTo('.seller-axis[aria-label="退款紀錄"] button[type="submit"]');await record('refund submit');await seller.keyboard.press('Enter');await expect(seller.getByText(/商家自行退款/)).toBeVisible();await expect(seller.getByRole('heading',{name:'訂單詳情：'+p.order.display_number})).toBeFocused();await record('after refund');}finally{await writeFile(directory+'/keyboard-focus.json',JSON.stringify(positions,null,2));await seller.close();}
 });
+
+test('API login renews seller session before hash navigation',async({page,browser,baseURL,e2eAuthPool})=>{
+ test.setTimeout(120000);
+ const p=await createE2ePaymentOrder(e2eAuthPool,browser,baseURL!,page.context());
+ const empty=await fixtureStore(e2eAuthPool,browser,baseURL!);
+ const root=`#stores/${p.store.tenant}/${p.store.instance}`;
+ await openSeller(page,baseURL!,p.store.seller.email,root+'/orders');
+ // A new API login changes the cookie and CSRF even for the same seller.
+ await openSeller(page,baseURL!,p.store.seller.email,root+'/orders/'+p.order.order_ref);
+ await openSeller(page,baseURL!,empty.seller.email,`#stores/${empty.tenant}/${empty.instance}/settings/payments`);
+ await expect(page.locator('.seller-console')).toContainText('尚未新增綠界帳戶');
+ await openSeller(page,baseURL!,p.store.seller.email,root+'/orders/'+p.order.order_ref);
+ const cancelled=page.waitForResponse(response=>response.url().endsWith('/checkout-orders/'+p.order.order_ref+'/cancel')&&response.request().method()==='POST');
+ await page.locator('.seller-console').getByRole('button',{name:'取消訂單',exact:true}).click();
+ await page.getByRole('dialog',{name:'取消訂單'}).getByRole('button',{name:'確認取消訂單',exact:true}).click();
+ const response=await cancelled;
+ expect(response.status(),await response.text()).toBe(200);
+ await expect(page.locator('.seller-console').getByRole('region',{name:'訂單',exact:true})).toContainText('已取消');
+});

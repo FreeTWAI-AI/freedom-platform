@@ -22419,8 +22419,8 @@
     },
     {
       "path": "tests/e2e/seller-console-fixture.ts",
-      "bytes": 5236,
-      "sha256": "b42b14014909a30861a2af22dc0c64f46a9a1800833bd31e91d47df02ea65d05"
+      "bytes": 5442,
+      "sha256": "86dba2a3ba13990c5ac7d983adccb3db1a2b67caa92eba37873c6e9d75df2c82"
     },
     {
       "path": "tests/e2e/seller-console-settings.spec.ts",
@@ -22429,8 +22429,8 @@
     },
     {
       "path": "tests/e2e/seller-console-visual.spec.ts",
-      "bytes": 9228,
-      "sha256": "ec93598484b4d41b62b84d1dcc66823303f7725a4c6c67d38794a0c3d6fe3a81"
+      "bytes": 10699,
+      "sha256": "9c8214e5cf42b384d4e584e0352cb2f778bf066880223554d982992527def2b7"
     },
     {
       "path": "tests/e2e/seller-console.spec.ts",
