@@ -405,6 +405,33 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   舊完整 serial runtime 因已知 Commerce 阻塞中止，保留中止前五項實際失敗，不把中止後的 pending
   promise 訊息當新案例失敗，也不宣稱整輪通過。
 
+### 2026-10-17：聊天撤權的第三種 HTTP 順序
+
+- `ce9cba16` 的 Verify `39005304736` 八區及 aggregate 已通過：426 檔、6,254/6,254 案，
+  零失敗／skip／todo／cancelled、八區清理成功，最長 1,122.732 秒。九份 ZIP、來源 hashes、
+  互斥完整聯集及 candidate `3dfe1609` 的父節點 `[08a832d3, ce9cba16]` 已核對；CodeQL 亦通過。
+  該來源的整輪 UI 失敗，不能把 runtime 成功稱為整輪成功。
+- Browser artifact `12091641685` 的 ZIP、listing 及兩份 raw report digest 已核對。
+  原 `chat-stickers` manual-first 在第 362 行等 activity 404，5 秒內計數仍為零。
+  Trace 顯示真實貼圖 POST 201 後丟失 ACK、activity 200、其後自動 messages GET 404；頁面已撤權，
+  下一輪 activity 停止，因此原 fixture 等待的事件不會再出現。測試與產品檔皆來自 actual main #871。
+  default 兩區共 993 passed；另有一個實際失敗、一個中止、skip 與未執行案例，後五個 fixture 模式未跑。
+- 原 activity-first／manual-first 現在分別控制真實 activity 請求讀取及回應交付；不關 polling、不偽造
+  授權回應。新增 history-first：先取得看到已提交訊息的真實 activity 200，撤權後才交付，確認自動
+  history 404 先於手動操作。三種順序均保留隱藏內容、返回原 pending、無權／恢復後重查零 POST、
+  明確重試同 body／key／message_id，以及一 message／一 receipt 的完整斷言；finally 釋放全部 gates。
+- 相同產品來源的受控反例在已確認 history 404 警示後保留原 activity 計數斷言，精確重現原 5 秒失敗。
+  修正後三種順序 **3/3**（29.6 秒、零 retry／skip）、typecheck、build 通過。完整貼圖及兩份頻道
+  流程為 **40/41**（343.5 秒、零 retry／skip），保留唯一 manual-first 的新失敗：真實手動 GET 404
+  在約 5 毫秒內收到，原 5 秒 DOM 斷言未觀察到警示；trace 的撤權 DOM snapshot 在斷言期限後、
+  gated activity 回應交付前才出現。此畫面更新延遲原因未確定，沒有改產品、斷言期限或重試數。
+- 上述受控／回歸使用獨立 worktree、磁碟 PostgreSQL、單一 browser worker 及重工作鎖，所屬兩個容器
+  與 volume 已清理；與原 `ce9cba16` serial runtime 同時執行的事實亦保留。原 serial 的配對、grant、
+  execution-run 與 guild-entry 失敗標記在這批診斷前已出現，仍等原 reporter 的完整 assertion／hook
+  摘要，不因 hosted 全過或同 main 而稱無關。原 PostgreSQL 的三筆 statement timeout 訊息已保存，
+  尚不把時間相近視為每個案例根因。serial 完成後需做一次同來源、單獨執行的訊息流程對照。
+  最終來源的必要 CI 與 code-owner 核准仍待完成，合併 main 前仍須 Ted 確認。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |

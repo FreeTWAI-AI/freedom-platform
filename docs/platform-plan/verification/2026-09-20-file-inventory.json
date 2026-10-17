@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 59499,
-      "sha256": "5b2029aa94334187cb827f87c1e69102bc7cdc7d400d9eec6d8f60ae86e957ca"
+      "bytes": 62377,
+      "sha256": "137585ac38ab7c0d345c1b8e40577eb63d480efb1821fc50e52a721694dd475a"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -22004,8 +22004,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 49515,
-      "sha256": "dba2568a8fe9384d75abd7d243084b7b3a3e1d5fadf77fd1e903d0f299765167"
+      "bytes": 50730,
+      "sha256": "a21a22fa5f9407e10659b017f91504e1f23da60b5a7f644920b702200836df56"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
