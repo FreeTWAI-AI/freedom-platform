@@ -103,7 +103,7 @@ npx tsx scripts/verify-cloud-candidate.ts execute --target public --expected-ver
 
 Deactivate every `cand-reg-*` member named in `cleanup.items` afterwards with the operator cleanup helper. The tool has no database access and cannot confirm that cleanup. No Access file is used for `public`.
 
-The JSON report goes to stdout, and the caller keeps it as the canonical record. Progress lines on stderr carry phase names and statuses only. For `execute`, the exit code is `0` only when every selected phase passed, `1` for any fail, blocked or not_run phase, and `2` for usage or credential-file errors. `plan` exits `0` after printing the report even though every phase is `not_run`; that `0` means the plan was written, not that any phase passed, and usage errors still exit `2`.
+The JSON report goes to stdout, and the caller keeps it as the canonical record. Progress lines on stderr carry phase names and statuses only. Any `restore_failed` item makes an execute run `overall: fail`, `cloud_proof: false`, and exit 1. `cleanup.restore_failed` reports that condition separately from the existing `cleanup.required` operator-follow-up flag. A previously passed phase becomes `fail: cleanup_restore_failed` with `cleanup_restored: fail` after all its cleanup attempts, including final supplier logouts. Existing failure reasons and `not_run`/`blocked` statuses stay intact. `cleanup_required` and `residual_expected` alone do not fail a run. For `execute`, the exit code is `0` only when every selected phase passed and restoration succeeded, `1` for any fail, blocked or not_run phase, and `2` for usage or credential-file errors. `plan` exits `0` after printing the report even though every phase is `not_run`; that `0` means the plan was written, not that any phase passed, and usage errors still exit `2`.
 
 ## Phases and acceptance gates
 
@@ -122,8 +122,20 @@ The JSON report goes to stdout, and the caller keeps it as the canonical record.
 | registration | No account file. Identity `cand-reg-<8 hex>`, email `<label>@example.invalid`, password 32+ characters from `crypto.randomBytes`. Register returns 201 and the same session cookie policy as `session` (`Secure` on HTTPS, `HttpOnly`, `SameSite=Strict`, `Path=/`, host-only). Missing or foreign Origin is `403 origin_rejected` and creates no account. The same email again is `409 account_unavailable`. Two `GET /api/v1/session` reads agree (there is no `/api/v1/me/session`). Onboarding starts incomplete. A deterministic assessment from `GET /api/v1/assessment-definition` reaches `state: evaluated`. `POST /api/v1/me/onboarding/complete` sets the first built-in, non-development guild from `GET /api/v1/guilds` (catalog `guild_key` and the caller's own membership only; never `guild_ai_vibe`, `guild_ai_field`, or `GET /api/v1/guilds/directory`) as primary, with If-Match and Idempotency-Key, and onboarding reports complete. Replaying that command returns the stored response and does not change state. A stale If-Match on the same route is `412 version_conflict`. Logout returns 200, clears the cookie, and a replay is `401 session_expired`; login again is the same account with onboarding still complete. Member-todo sources report positioning `done`, primary guild `done` (catalog membership `active` and `primary_guild_key` from `GET /api/v1/me/guild-preferences`), and GitHub `unavailable` or `incomplete`. If any step throws after the 201, the session is still revoked and the label is still recorded `cleanup_required`. | one new member |
 | messages | Requires `registration` in the same run. Registers member B the same way and completes positioning into A's primary guild. Direct message: A sends (201), B's unread for A is 1, the stored body matches, B marks read and unread is 0, A's unread stays 0, the same Idempotency-Key returns the stored message without a duplicate, and a foreign Origin is `403 origin_rejected`. Squad of only A and B: A creates it, invites B, B sees the invitation and a notification, B accepts, both list the squad channel, A sends, B's unread is 1, offset pages have unique message ids, B marks read, B leaves, and B's read and send are `404 channel_not_available` while A can still read. Notification mark-read decreases the unread count. On `public`, guild-channel sub-checks are `guild_channel: not_run` with reason `real_history_guarded`: the phase does not read or write any guild channel and does not call `GET /api/v1/guilds`. On `staging` and the local harness, A and B use the primary guild channel (send, unread, read, mark read). Staging holds Castle demo data, never live member data. A second built-in guild, when used, is chosen from `GET /api/v1/guilds` and joined with `POST /api/v1/guilds/:key/join`; otherwise `secondary_guild: not_run` with reason `secondary_guild_join_unavailable`. If B's registration returns 201 and a later step throws, B's session is revoked on the exact origin and B's label is recorded `cleanup_required`. B does not leave the primary guild. `rate_limit: not_covered` (the 20-message limit is not exercised). | second member, one squad, messages |
 | messages-mobile | Requires `messages`. Real Chromium, viewport 390×844, `deviceScaleFactor` 3, `isMobile`, `hasTouch`. Same origin guard, no screenshots, page-error capture and teardown as `browser`. Inbox paths are allowed because the browser session is only synthetic member A. Landing 200, UI login as A, open 「我的訊息」 through the notification bell, the direct conversation with B shows the last body sent in `messages`, one UI send appears, direct-message unread badges stay consistent with own messages excluded, `document.documentElement.scrollWidth <= window.innerWidth`, and UI logout clears the cookie. On `public` the shell still requests `GET /api/v1/me/channels?kind=guild` (summary fields only: `channel_key`, `name`, `unread_count`, `last_message_at`) and `GET /api/v1/members/:id` for the member's own card. No guild-channel history is opened (`/api/v1/me/channels/guild/` is not requested). The notification bell may show that summary's unread count; the phase does not clear it. | one mobile browser session |
+| supplier-journey | Staging-only synthetic A/B supply setup, product replay, stale-write rejection, published terms, seller request/decision and fresh-login continuity; private exclusive handle. | business, supply product/terms/offer, seller store/selection, decision |
+| supplier-photo | Console and photo uploads ON; private PNG upload/WebP readback and dimensions; public projections exclude supplier photos and unit supply price. | retained photo version |
+| supplier-reservations | Console and host admission ON; supplier/seller opt-in, publication, own supplier line, stock 409, cancellation replay and single stock release; restore both settings OFF. | cancelled buyer reservation/history, publication, settings |
+| supplier-recheck | Explicit expected ON/OFF; private handle's legacy values retained, console reads match ON / return 404 OFF, same bookmark reaches console / old page in Chromium. | login sessions, revoked afterwards |
 | load | Anonymous GETs of health and two static images only. Bounded by requests ≤600, concurrency ≤16, rps ≤30, timeout ≤30 s. Reports the actual request count, status distribution, network errors by class, error rate, p50/p95/p99 and duration. Passes only within the configured thresholds. It stays not_run until executed. | none |
 | logout | Runs whenever a tool session exists. Returns 200 with `no-store` and clears the cookie. Replaying the revoked cookie gets 401 `session_expired`. | session revoked |
+
+### Supplier public projection proof
+
+New synthetic stores require `hosted-store@1.1.0`, offered by main migration `169_hosted_payment_core.sql`. This verifier must not be run against the historical schema-167 / `hosted-store@1.0.0` candidate `682fe87c`; its old staging receipts do not validate the current tool. Select and verify a new candidate containing migration 169 and the 1.1.0 offering before using these phases. The local harness verifies the supply and legacy reservation journey on that release with both Commerce console and checkout disabled; existing stores are not upgraded by the verifier.
+
+After publishing, `supplier-reservations` verifies the authenticated seller store and selected supply item, cross-checks the publish receipt revision, and saves that revision and selected SKU in the private handle. Both public endpoints must then return 200 with the expected store slug and revision. The store must also match the expected name, TWD currency, and exactly one target SKU with its expected title, description and retail price. The media profile must match the same publication; an empty `photos: []` is valid. Only after these positive checks and the private-field/photo absence checks pass does the tool record `public_projection_private: true`. Empty objects, empty products and two public responses sharing the same wrong revision cannot establish proof.
+
+`supplier-photo` applies the same checks at the phase boundary whenever an already published store returns 200. That branch requires an authenticated publication pin; a missing pin fails `supplier_publication_recorded`. The CLI still requires `supplier-photo` and `supplier-reservations` to follow a passing `supplier-journey` in the same run. A standalone photo request remains blocked even with a valid existing handle; the phase-level published-read tests do not enable CLI reuse of write phases. Two 404s still mean `not_covered_unpublished` with `public_projection_private: null`, and do not require a publication pin. Mixed statuses fail. Publication or projection failures still restore both reservation settings and revoke every opened session.
 
 ### guild-cache (grant/revoke and freshness)
 
@@ -232,3 +244,107 @@ The report is built from whitelisted fields. Error reasons are check ids or `Err
 - The direct-message and channel rate limit (`429 message_rate_limited` after 20 messages in 60 seconds). `messages` reports `rate_limit: not_covered` so the run does not leave a burst of messages behind.
 - Provider configuration (Hyperdrive or other database cache settings, Access policies). Root checks these; the tool has no provider access.
 - Capacity or performance claims for Cloudflare or the database. Local load numbers are not evidence.
+
+## Synthetic Supplier Console acceptance (staging only)
+
+Root provisions three dedicated synthetic members on the candidate: A is a full
+member of `guild_product_quality_supply`, B a full commerce guild member, and C
+any member. Ted approves **every** run. Supply these private, owner-only JSON
+files in the existing account format (`candidate_origin`, `label`, `email`,
+`password`, `synthetic: true`): `FREEDOM_CANDIDATE_SUPPLIER_ACCOUNT_FILE`,
+`FREEDOM_CANDIDATE_SELLER_ACCOUNT_FILE`, and (reservations only)
+`FREEDOM_CANDIDATE_BUYER_ACCOUNT_FILE`. Emails (case-insensitive) and labels must
+be distinct. Use the same eligible membership class as ordinary supplier/seller
+accounts: the reserved verification suffix `@example.invalid` is barred by the
+existing reservation/publication authority and cannot serve these roles. The
+private account file still declares `synthetic: true`. These phases do not use `FREEDOM_CANDIDATE_ACCOUNT_FILE` or select
+`session`/`logout`. Existing Access-file and exact-origin rules still apply.
+
+`FREEDOM_CANDIDATE_SUPPLIER_HANDLE_FILE` must name an absolute path **outside the
+checkout**, with an existing parent directory. For a journey it must not exist:
+the tool creates it exclusively with mode 0600. Later updates use a private temp
+file in the same directory and atomic rename. Recheck requires an existing
+private, owner-held regular JSON file bound to the exact candidate origin. The
+handle is below 4096 bytes and holds the run tag, creation time, tenant, instance,
+product, offer, seller selection, slug and reservation identifiers and expected
+business/product names, prices, stock, terms version and decision/final states.
+Keep it private; it is never a report artifact. No identifiers enter progress
+lines or report metrics. All supplier sessions are revoked after the last
+selected supplier phase, including failure paths.
+
+| Phase | Writes and checks |
+| --- | --- |
+| `supplier-journey` | Creates a synthetic supply-only business and product, saves terms, publishes one supply version, creates a seller store and selection, accepts its request, and returns after a fresh supplier login. Replays the product create with the same key and rejects stale If-Match. Retains business/product/offer/selection data and command/decision history. |
+| `supplier-photo` | Uploads a generated PNG using the ordinary product photo protocol, verifies the private WebP response and dimensions, and reads both public store/media endpoints. Two 404s before publication record `public_projection: not_covered_unpublished` and `public_projection_private: null`; this phase passes its private checks without publishing. Only two checked 200 projections record `public_projection_private: true`; mixed statuses fail. The retained version stays. |
+| `supplier-reservations` | Enables supplier **and seller** reservation settings, publishes the seller store, always checks both published public endpoints return 200 and exclude private supply data/photos (null photo placeholders are allowed), records `public_projection_private: true` and, when a photo exists, `public_photo_checked: true`, creates one synthetic buyer reservation, checks stock and the supplier's own line, rejects stock below reserved with 409, cancels and replays cancellation, and restores both settings to OFF even on failure. |
+| `supplier-recheck` | Read-only legacy and console API comparisons plus a fresh browser login opening the saved product bookmark. Its login sessions are revoked. Requires `--expect-supplier-console on\|off` and headless Chromium; this flag is rejected without this phase. |
+
+All four phases return `not_run: production_supplier_phases_guarded` on public;
+role and handle files are never read there. The three write phases require the
+site's `supplier_console_enabled === true` before login or domain writes.
+Photo additionally requires `hosted_store_photo_uploads_enabled === true`;
+otherwise `not_run: photo_uploads_disabled`. Reservation host admission OFF
+returns `not_run: reservations_admission_off` before setting/product/order writes.
+An explicitly ineligible synthetic store account returns
+`not_run: synthetic_account_not_store_eligible`; other unexpected responses fail
+with fixed check IDs. Disabled console returns `not_run: supplier_console_disabled`.
+Recheck verifies its expected flag rather than using the write-phase guard.
+
+Dependencies are journey → health, photo/reservations → journey, recheck →
+health. Photo and reservation writes require the journey to pass in the same
+run. Recheck is blocked unless
+the selected journey passed, and the selected photo/reservation phases passed or returned one of the fixed
+precondition reasons above. It uses the handle created by that run.
+
+The console API accepts no `state` query: like the UI, the journey checks offered
+products from the complete products read. Supply unit price is `cost_minor` in
+legacy commands/reads and `supply_price_minor` in console reads. The frozen
+published version retains its source terms version after a photo upload.
+
+Rollback drill (only the lead operates host flags after Ted approves):
+
+1. On the fixed staging release with the console ON, run the four phases with
+   `--expect-supplier-console on`; retain the private handle and sanitized report.
+2. Flip the host console flag OFF without changing the origin/database. Run only
+   `supplier-recheck --expect-supplier-console off`, using the same A/B files and
+   handle. Legacy values must match, console routes must be 404, and the same
+   bookmark must render the old supply catalog with the same business name, selected product name, formatted TWD supply price, stock and description; neither missing-store nor missing-catalog text may appear.
+3. Flip ON again. Run only `supplier-recheck --expect-supplier-console on` with
+   that handle; the console bookmark must show the same product heading, stock, available count, supply unit price, per-item shipping fee and shipping/return terms. Both bookmark modes record `bookmark_values_matched: true` only after those comparisons.
+
+An offline plan is safe and reads no role or handle file:
+
+```sh
+npx tsx scripts/verify-cloud-candidate.ts plan --target staging --phases supplier-journey,supplier-photo,supplier-reservations,supplier-recheck --expect-supplier-console on
+```
+
+After acceptance, root deactivates the synthetic accounts' tenants using the
+private handle. Business/products/terms/offer and seller store/selection remain
+`cleanup_required`; journal facts, supplier decisions, retained photo versions,
+and the cancelled reservation/history are `residual_expected`. An uncancelled
+reservation is `cleanup_required`; setting/session restoration failures are
+`restore_failed`. The tool issues no deletion request.
+
+The journey writes the handle only at its end, after the fresh-login read. If it
+fails earlier (including a failed private file write), no handle may exist. The
+`cleanup_required` texts therefore name the dedicated supplier and seller **labels
+from their account files**, not identifiers or run tags. Labels are operator
+references, never registered as secrets. Root resolves those labels through the
+same private account files and lists every owned tenant created at or after this
+report's `started_at`: supplier names start with `WP07 合成供貨`, seller names with
+`WP07 合成選物`. Review and deactivate every tenant in that window, including
+partially launched tenants; these dedicated accounts hold no other data. If a
+reservation needs cleanup, resolve the dedicated buyer label, list its reservations
+created at or after `started_at` in those seller tenants, cancel each through the
+existing authorized procedure, then deactivate the supplier/seller tenants.
+The private handle, when present, lists exact ids as an additional locator. Keep
+account files and the sanitized report until this reconciliation is complete.
+The tool still attempts every touched setting OFF and every role logout after
+any earlier failure; an unresolved setting or session is `restore_failed` and
+cannot be accepted as a successful run.
+
+The isolated loopback harness swaps the app ON → OFF → ON on one listener and
+database. It is `harness: local_harness`, `cloud_proof: false`; it proves the tool,
+not staging acceptance. Its photo phase remains `not_run: photo_uploads_disabled`
+because that harness has no photo store. Real storage, staging permissions and
+host flag rollback remain unverified until an approved staging run observes them.
