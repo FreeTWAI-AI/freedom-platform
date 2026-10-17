@@ -1,5 +1,16 @@
 import type { ConversationActivity, Message, MessagePage } from '../../../../modules/member-communications/types.js';
 
+/** Compare server UTC ISO times without losing microseconds; older pages may still use milliseconds. */
+export function compareDirectMessages(a: Pick<Message, 'created_at' | 'message_id'>, b: Pick<Message, 'created_at' | 'message_id'>): number {
+  const left = a.created_at, right = b.created_at;
+  // Ignore the final Z and zero-pad fractional digits in place, without allocating sort keys.
+  for (let index = 0, length = Math.max(left.length, right.length) - 1; index < length; index++) {
+    const difference = (index < left.length - 1 ? left.charCodeAt(index) : 48) - (index < right.length - 1 ? right.charCodeAt(index) : 48);
+    if (difference) return difference;
+  }
+  return a.message_id.localeCompare(b.message_id);
+}
+
 /** The newest outgoing message is not a receipt revision. A delayed read can
  * affect only an older row, so reconcile visible pending receipts periodically. */
 export function directMessageReceiptRefreshDue(items: Message[], sender: string, checkedAt: number, now: number): boolean {
@@ -53,5 +64,5 @@ export async function readLoadedDirectMessageReceipts(
 export function mergeDirectMessagePage(latest: Message[], loaded: Message[], receipts: ReadonlyMap<string, string | null> = new Map()): Message[] {
   const rows = new Map(loaded.map(item => [item.message_id, receipts.has(item.message_id) ? { ...item, read_at: receipts.get(item.message_id)! } : item]));
   for (const item of latest) rows.set(item.message_id, item);
-  return [...rows.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.message_id.localeCompare(a.message_id));
+  return [...rows.values()].sort((a, b) => compareDirectMessages(b, a));
 }

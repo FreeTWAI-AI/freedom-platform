@@ -197,15 +197,17 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       if(!retractionsChanged&&compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
       idlePoll.current=resetChatPoll();
       if(retractionsChanged){
-        const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key&&snapshot.current.active&&!snapshot.current.sending;
+        // A full replacement may only commit against the history it refreshed, not a later older-page append.
+        const previous=shown.history;
+        const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key&&snapshot.current.active&&!snapshot.current.sending&&snapshot.current.history===previous&&!snapshot.current.more.loading;
         const latest=await client.get<History>(path(key,'messages?limit=50&offset=0'),{background:true});
         if(!isCurrent())return;
-        const items=await refreshLoadedMessages(latest,shown.history.items,
+        const items=await refreshLoadedMessages(latest,previous.items,
           offset=>client.get<History>(path(key,`messages?limit=50&offset=${offset}`),{background:true}),isCurrent);
         if(!items||!isCurrent())return;
-        const fresh=latest.items.filter(item=>!shown.history!.items.some(known=>known.message_id===item.message_id));
+        const fresh=latest.items.filter(item=>!previous.items.some(known=>known.message_id===item.message_id));
         if(fresh.length&&!stick.current)setHasNew(true);
-        setHistory({...latest,items:newestFirst(items),next_offset:fresh.length?latest.next_offset:shown.history.next_offset});
+        setHistory(existing=>existing===previous?{...latest,items:newestFirst(items),next_offset:fresh.length?latest.next_offset:previous.next_offset}:existing);
         failures.current=0;retryAt.current=0;setLiveError('');setCountUnconfirmed('');
         if(kind==='world')onUnread(latest.unread_count);else void loadList(true);
         announceInboxChange();return;
@@ -241,15 +243,27 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   async function loadThread(key:string,quiet=false){
     idlePoll.current=resetChatPoll();
     const generation=++threadGeneration.current,since=epoch.current;threadInFlight.current={key,quiet};
+    const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key;
     setMore({loading:false,error:''});if(!quiet)setReadError(readIssues.current.get(key)??'');
     if(quiet)setRefresh({loading:true,error:''});else{setStatus('loading');setError('');setRefresh({loading:false,error:''});setHistory(null);setNewerUnseen(false);setCountUnconfirmed('');}
     try{
       const value=await client.get<History>(path(key,`messages?limit=${PAGE}&offset=0`));
-      if(generation===threadGeneration.current)threadInFlight.current=null;
       // A slower answer for an earlier selection must never replace the open channel.
-      if(generation!==threadGeneration.current||current.current!==key)return;
+      if(!isCurrent())return;
+      const previous=snapshot.current.history;
+      const changed=quiet&&(value.retraction_count??'0')!==(previous?.retraction_count??'0');
+      const refreshed=changed?await refreshLoadedMessages(value,previous?.items??[],
+        offset=>client.get<History>(path(key,`messages?limit=${PAGE}&offset=${offset}`),{background:true}),isCurrent):undefined;
+      if(!isCurrent()||refreshed===null)return;
+      threadInFlight.current=null;
       gone.current.delete(key);
-      setHistory(existing=>quiet&&existing?{...value,items:newestFirst(merge(value.items,existing.items,item=>item.message_id)),next_offset:existing.next_offset===null?value.next_offset:Math.max(existing.next_offset,value.next_offset??0)+value.items.filter(item=>!existing.items.some(known=>known.message_id===item.message_id)).length}:{...value,items:newestFirst(value.items)});setStatus('ready');setRefresh({loading:false,error:''});setNewerUnseen(false);setCountUnconfirmed('');setLiveError('');
+      setHistory(existing=>{
+        if(!quiet||!existing)return {...value,items:newestFirst(value.items)};
+        const fresh=value.items.some(item=>!existing.items.some(known=>known.message_id===item.message_id));
+        // The newest page cannot measure an unseen gap. Restart behind it when new IDs appear.
+        return {...value,items:refreshed?newestFirst(refreshed):newestFirst(merge(value.items,existing.items,item=>item.message_id)),
+          next_offset:fresh?value.next_offset:existing.next_offset};
+      });setStatus('ready');setRefresh({loading:false,error:''});setNewerUnseen(false);setCountUnconfirmed('');setLiveError('');
       if(kind==='world')onUnread(value.unread_count);
       // A re-read can show newer unread messages; the tab and list totals come from the kind list, never from this channel.
       // loadList never re-reads a history, so this cannot loop. The settings total re-reads its own four sources.
@@ -275,7 +289,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   }
 
   async function earlier(){
-    if(!history||history.next_offset===null||more.loading||!selected)return;
+    if(threadInFlight.current||!history||history.next_offset===null||more.loading||!selected)return;
     const generation=threadGeneration.current,key=selected.key,since=epoch.current;setMore({loading:true,error:''});
     try{
       const value=await client.get<History>(path(key,`messages?limit=${PAGE}&offset=${history.next_offset}`));
@@ -428,7 +442,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           <div className="messages-actions messages-refresh"><button className="btn btn-ghost" title="重新讀取訊息" aria-label="重新讀取訊息" type="button" aria-disabled={refresh.loading} onClick={()=>{if(!refresh.loading)void loadThread(selected.key,true);}}>{refresh.loading?'正在讀取訊息…':'重新讀取訊息'}</button></div>
           {refresh.error&&<p className="banner banner-error" role="alert">訊息重新讀取失敗：{refresh.error}</p>}
           <div className="messages-scroll" ref={scroll} role="log" aria-live="polite" aria-relevant="additions" tabIndex={0} aria-label={`${history.channel.name}對話紀錄`} onScroll={()=>{if(scroll.current){stick.current=scroll.current.scrollHeight-scroll.current.scrollTop-scroll.current.clientHeight<80;if(stick.current)setHasNew(false);}}}>
-          {history.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={more.loading} onClick={()=>void earlier()}>{more.loading?'正在讀取…':more.error?'重試載入較早訊息':'載入較早訊息'}</button>}
+          {history.next_offset!==null&&<button className="btn btn-ghost" type="button" disabled={more.loading||refresh.loading} onClick={()=>void earlier()}>{more.loading?'正在讀取…':more.error?'重試載入較早訊息':'載入較早訊息'}</button>}
           {more.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{more.error}</p>}
           {history.items.length===0?<p className="empty">這個頻道還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="頻道訊息">
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
