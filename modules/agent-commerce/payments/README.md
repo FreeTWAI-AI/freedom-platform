@@ -223,6 +223,40 @@ See [payment rules](../../../docs/platform-plan/execution/commerce/EC-SPEC-04-pa
 [security/tests](../../../docs/platform-plan/execution/commerce/EC-SPEC-09-security-ci-tests.md)
 and [release/recovery](../../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md).
 
+## Offline payments
+
+Bank transfer and cash on meetup sit beside immediate card. `payments/offline/`
+owns settings, the payment-methods port, seller confirmation and the grace-window
+handler. Checkout does not import that implementation. Hosts inject
+`CheckoutPaymentMethodsPort`, whose `offlinePaymentRequiresMember` defaults to
+true when the port omits it. Quote display remaps an available offline option to
+`member_required` for a guest. Placement enforces the same flag and writes no
+checkout order when it refuses.
+
+Settings rows are append-only. Account number, account name, bank name, branch
+name, note and the payment reference stay out of receipts, control-event detail,
+journal rows and Problem detail. A finance seller view may include the reference.
+
+`confirmOfflinePayment`, `completeMeetup` and `recordMeetupHandover` go through
+`sellerCheckoutCommand`. Meetup completion requires both `store:orders:manage`
+and `store:fulfil`. These commands write no journal, matching
+`commerce.refund.record`. Authorization takes no commerce row locks. The seller
+path then locks the store instance, the community and the profile, and applies
+the payment with `applyConfirmedPaymentHeld`. Expiry locks the community and then
+the profile, and never the instance. A meetup stock failure throws
+`meetup_stock_unavailable` before `openException`, so the receipt rolls back with
+the payment.
+
+`offline_payment_window_end` is due at `expires_at + 72h`. Before that grace
+ends, a due row is moved to the grace end. After it, an open unpaid offline order
+is cancelled with `payment_not_completed`. Confirmation is still accepted while
+the order remains open. `settleOrderPayments` ignores every method other than
+`immediate_card`. The handler runs with no keyring, transport or journal.
+
+`payments/offline/` may import checkout, operations and fulfilment. Checkout adds
+no import from `payments/`. `operations/due-work.ts` may import
+`payments/offline/window.ts`. Operations does not otherwise import payments.
+
 ## Public Exports
 
 - `RefundRuleError`: Error class thrown exclusively for caller programming errors; exposes `code: 'invalid_input'` with a fixed English message and never leaks input values.

@@ -69,7 +69,10 @@ before invoking the email sender.
 
 `due-work.ts` maintains the non-PII cross-tenant `commerce_due_work` schedule:
 `payment_query` targets an attempt to query, `payment_window_end` targets its
-60-minute confirmation deadline, and `email` targets a queued row in
+60-minute confirmation deadline, `offline_payment_window_end` targets an offline
+order at `expires_at + 72h` (handler `endOfflinePaymentWindow`; before that grace
+end a due row is rescheduled, and after it an open unpaid order is cancelled with
+`payment_not_completed`), and `email` targets a queued row in
 `commerce_outbound_emails`. `scheduleDueWork` upserts by kind/target using
 LEAST, so an earlier request wins and a retry never postpones work. `runDueCommerceWork` claims at most 200 due rows cross-tenant with
 `FOR UPDATE SKIP LOCKED`, gives them two-minute leases and commits before dispatch.
@@ -80,8 +83,9 @@ fresh access link and extend their send lease to 60 seconds at the end of Prepar
 render in memory and call the sender outside any transaction (marking `sent`
 whenever still `queued` even if the lease expired, while deleting the due-work row
 only when its token still matches the Prepare token). The exact lease timestamp is the ownership token. The claim filters to the
-currently runnable kinds (payment kinds require transport and keyring; `email`
-requires `emailEnabled`, sender, journal and an explicit `origin`), so queued emails never crowd out
+currently runnable kinds (payment kinds require transport and keyring;
+`offline_payment_window_end` is registered with no keyring, transport or journal;
+`email` requires `emailEnabled`, sender, journal and an explicit `origin`), so queued emails never crowd out
 payment queries when email is off or `origin` is unavailable. The executor stops after 50
 external calls or five minutes and releases unstarted claims. Errors log only
 kind and a fixed code. Finished rows are deleted; `failure_count` tracks consecutive
