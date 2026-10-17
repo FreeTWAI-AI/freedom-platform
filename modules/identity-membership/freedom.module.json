@@ -4,6 +4,7 @@
   "owner_role": "foundation",
   "owned_paths": [
     "modules/identity-membership/members.ts",
+    "modules/identity-membership/test-accounts.ts",
     "tests/runtime/member-read-session-clock.test.ts",
     "modules/identity-membership/avatars.ts",
     "modules/identity-membership/avatar-bridge.md",
