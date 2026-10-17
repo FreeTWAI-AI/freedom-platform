@@ -6,6 +6,7 @@
 // The JSON report goes to stdout; progress lines (no values) go to stderr.
 import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
+import { supplierRoles, type SupplierRole } from './verify-cloud-candidate-supplier.js';
 import { pathToFileURL } from 'node:url';
 import {
   LOAD_LIMITS, PHASES, READ_ONLY_PHASES, UsageError, accountFileRequired, candidateTarget, describeError, loadOptions, runCandidate, selectPhases,
@@ -28,6 +29,7 @@ export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|exec
                           health is always added to any network run
   --expected-release-sha S  full 40-hex commit SHA the Worker health.release_sha must equal
                           (required by execute; plan may omit it and reports health not_run)
+  --expect-supplier-console on|off  required only with supplier-recheck (including plan)
   --expected-version V    health.version to require (default: local package.json version)
   --dev-guild KEY         guild_ai_vibe (default) or guild_ai_field for guild-cache
   --dev-book ID           skill book used for /me/development/skill/:book (default video-autopilot)
@@ -42,19 +44,29 @@ Environment (paths to private 0600 files owned by you; read only by execute):
   ${ACCOUNT_ENV}  {"candidate_origin","label","email","password","synthetic":true}
   ${ACCESS_ENV}   {"candidate_origin","client_id","client_secret"}   (optional; omit for public, which has no whole-host Access)
 
+  FREEDOM_CANDIDATE_SUPPLIER_ACCOUNT_FILE  supplier full member of the supply guild
+  FREEDOM_CANDIDATE_SELLER_ACCOUNT_FILE    seller full member of the commerce guild
+  FREEDOM_CANDIDATE_BUYER_ACCOUNT_FILE     member, needed only for supplier-reservations
+  FREEDOM_CANDIDATE_SUPPLIER_HANDLE_FILE   absolute private handle outside this checkout
+  Supplier role files use the account format above; public never reads these files.
+  Root provisions synthetic accounts; Ted approves every staging run and tenant cleanup.
+  Supplier phases are guarded on public. Local harness results are not cloud proof.
+  Any restore_failed fails execute (exit 1); cleanup_required alone does not.
+  Photo reports unpublished public projections as not covered; reservations checks publication.
+
 See scripts/verify-cloud-candidate.md for prerequisites, cleanup and acceptance gates.`;
 
-export type Cli = { command: 'help' | 'plan' | 'execute'; target: Target | null; phases: PhaseId[]; expectedVersion: string | null; expectedReleaseSha: string | null; developmentGuild: string; developmentBook: string; load: ReturnType<typeof loadOptions> };
+export type Cli = { command: 'help' | 'plan' | 'execute'; target: Target | null; phases: PhaseId[]; expectedVersion: string | null; expectedReleaseSha: string | null; expectSupplierConsole: 'on' | 'off' | undefined; developmentGuild: string; developmentBook: string; load: ReturnType<typeof loadOptions> };
 
 /** Strict parser: known flags only, validated values only; nothing free-form can carry a secret. */
 export function parseArgs(argv: readonly string[]): Cli {
   const args = [...argv];
   let command: Cli['command'] = 'plan';
   if (args[0] === 'plan' || args[0] === 'execute') command = args.shift() as Cli['command'];
-  if (args.includes('--help') || args.includes('-h')) return { command: 'help', target: null, phases: [], expectedVersion: null, expectedReleaseSha: null, developmentGuild: 'guild_ai_vibe', developmentBook: 'video-autopilot', load: loadOptions() };
+  if (args.includes('--help') || args.includes('-h')) return { command: 'help', target: null, phases: [], expectedVersion: null, expectedReleaseSha: null, expectSupplierConsole: undefined, developmentGuild: 'guild_ai_vibe', developmentBook: 'video-autopilot', load: loadOptions() };
   const values = new Map<string, string>();
   const numeric = ['--load-requests', '--load-concurrency', '--load-rps', '--load-timeout-ms', '--load-max-p95-ms'];
-  const known = new Set(['--target', '--phases', '--expected-version', '--expected-release-sha', '--dev-guild', '--dev-book', '--load-max-error-rate', ...numeric]);
+  const known = new Set(['--target', '--phases', '--expected-version', '--expected-release-sha', '--dev-guild', '--dev-book', '--expect-supplier-console', '--load-max-error-rate', ...numeric]);
   while (args.length) {
     const flag = args.shift()!;
     if (!known.has(flag)) throw new UsageError('unknown argument');
@@ -66,6 +78,10 @@ export function parseArgs(argv: readonly string[]): Cli {
   if (!values.has('--target')) throw new UsageError('--target is required');
   const target = candidateTarget(values.get('--target')!);
   const phases = selectPhases(values.has('--phases') ? values.get('--phases')!.split(',').filter(Boolean) : null);
+  const expectSupplierConsole = values.get('--expect-supplier-console');
+  if (expectSupplierConsole !== undefined && expectSupplierConsole !== 'on' && expectSupplierConsole !== 'off') throw new UsageError('--expect-supplier-console must be on or off');
+  if (phases.includes('supplier-recheck') && expectSupplierConsole === undefined) throw new UsageError('supplier-recheck requires --expect-supplier-console on|off');
+  if (!phases.includes('supplier-recheck') && expectSupplierConsole !== undefined) throw new UsageError('--expect-supplier-console requires supplier-recheck');
   const expectedVersion = values.get('--expected-version') ?? null;
   if (expectedVersion !== null && !/^[0-9A-Za-z.+-]{1,64}$/.test(expectedVersion)) throw new UsageError('--expected-version must match [0-9A-Za-z.+-]{1,64}');
   // The Worker only accepts and reports lowercase SHAs, so uppercase input is normalized.
@@ -84,7 +100,7 @@ export function parseArgs(argv: readonly string[]): Cli {
     return Number(raw);
   };
   const load = loadOptions({ requests: number('--load-requests'), concurrency: number('--load-concurrency'), rps: number('--load-rps'), timeoutMs: number('--load-timeout-ms'), maxP95Ms: number('--load-max-p95-ms'), maxErrorRate: number('--load-max-error-rate') });
-  return { command, target, phases, expectedVersion, expectedReleaseSha, developmentGuild, developmentBook, load };
+  return { command, target, phases, expectedVersion, expectedReleaseSha, expectSupplierConsole, developmentGuild, developmentBook, load };
 }
 
 /** Reads a private JSON file: absolute path, regular file, owned by this user, mode 0600 or stricter. */
@@ -129,17 +145,20 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv = pro
   const target = cli.target!;
   const contract = JSON.parse(await readFile(new URL('../contracts/preview/v1/metadata.json', import.meta.url), 'utf8'));
   const expectedVersion = cli.expectedVersion ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
-  const base = { target, phases: cli.phases, expectedVersion, expectedReleaseSha: cli.expectedReleaseSha, contract, load: cli.load, developmentGuild: cli.developmentGuild, developmentBook: cli.developmentBook };
+  const base = { target, phases: cli.phases, expectedVersion, expectedReleaseSha: cli.expectedReleaseSha, expectSupplierConsole: cli.expectSupplierConsole, contract, load: cli.load, developmentGuild: cli.developmentGuild, developmentBook: cli.developmentBook };
   if (cli.command === 'plan') {
     process.stdout.write(JSON.stringify(await runCandidate({ ...base, run: 'plan' }), null, 2) + '\n');
     return 0;
   }
   const account = accountFileRequired(cli.phases) ? validateAccount(await readPrivateJson(env[ACCOUNT_ENV], 'account'), target) : null;
   const access = env[ACCESS_ENV] ? validateAccess(await readPrivateJson(env[ACCESS_ENV], 'access'), target) : null;
+  const supplierAccounts: Partial<Record<SupplierRole, Account>> = {};
+  if (target.mode !== 'public') for (const role of supplierRoles(cli.phases)) supplierAccounts[role] = validateAccount(await readPrivateJson(env[`FREEDOM_CANDIDATE_${role.toUpperCase()}_ACCOUNT_FILE`], 'supplier role account'), target);
+  const supplierHandleFile = target.mode === 'public' ? undefined : env.FREEDOM_CANDIDATE_SUPPLIER_HANDLE_FILE;
   let browser: { close(): Promise<void>; newContext(options?: Record<string, unknown>): Promise<any> } | null = null;
   try {
-    if (cli.phases.includes('browser') || cli.phases.includes('messages-mobile')) browser = await (await import('@playwright/test')).chromium.launch({ headless: true });
-    const report = await runCandidate({ ...base, run: 'execute', account, access, browser, log: line => process.stderr.write(line + '\n') });
+    if (cli.phases.includes('browser') || cli.phases.includes('messages-mobile') || (target.mode !== 'public' && cli.phases.includes('supplier-recheck'))) browser = await (await import('@playwright/test')).chromium.launch({ headless: true });
+    const report = await runCandidate({ ...base, run: 'execute', account, access, browser, supplierAccounts, supplierHandleFile, log: line => process.stderr.write(line + '\n') });
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     return report.overall === 'pass' ? 0 : 1;
   } finally {
