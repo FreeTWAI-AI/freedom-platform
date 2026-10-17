@@ -23,6 +23,7 @@ import { digest } from '../../packages/db/index.js';
 import { placeCheckoutOrder } from '../../modules/agent-commerce/checkout/orders.js';
 import { applyConfirmedPayment } from '../../modules/agent-commerce/checkout/payments.js';
 import { canonicalJSON, freezeCheckout } from '../../modules/agent-commerce/checkout/index.js';
+import { CheckoutTermsSchema } from '../../contracts/guild-launchpad/v1/hosted-checkout.js';
 import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
@@ -319,12 +320,13 @@ async function seedOfflineBankFixture(q: PoolClient, checkoutId: string, princip
     FROM commerce_checkouts c
     CROSS JOIN LATERAL (
       SELECT terms, commerce_checkout_hash(terms) AS terms_sha256 FROM (
-        SELECT jsonb_set(jsonb_set(c.terms,'{payment_methods}','["immediate_card","bank_transfer","cash_on_meetup"]'::jsonb),
+        SELECT jsonb_set(jsonb_set(c.terms,'{payment_methods}','["immediate_card","bank_transfer"]'::jsonb),
           '{offline_payment}','{"settings_version":"1","bank_transfer_deadline_days":3,"meetup_deadline_days":null}'::jsonb) AS terms
       ) built
     ) patched
     CROSS JOIN (SELECT date_trunc('milliseconds', clock_timestamp()) t) n
     WHERE c.checkout_id=$1`, [checkoutId, checkoutClone, contactId, keyHash, requestHash]);
+  CheckoutTermsSchema.parse((await q.query('SELECT terms FROM commerce_checkouts WHERE checkout_id=$1', [checkoutClone])).rows[0].terms);
   await q.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,order_profile,client_order_id)
     SELECT $2,p.storefront_shop_id,'chk:'||c.checkout_id::text||':'||($3::uuid)::text,$4,c.currency,(c.terms->>'total_minor')::bigint,t,t+interval '72 hours','hosted_checkout',$3::uuid
     FROM commerce_checkouts c

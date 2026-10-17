@@ -13,8 +13,6 @@ import {applyConfirmedPaymentHeld,recordHandover} from '../../checkout/payments.
 import {quarantineGate} from '../../checkout/public-commands.js';
 import {sellerCheckoutCommand,type SellerCheckoutContext} from '../../checkout/seller-command.js';
 import {projectSellerCheckoutOrder,sellerCheckoutOrderRow,type SellerCheckoutReadOptions} from '../../checkout/seller-orders.js';
-import {effectiveStoreCapabilities} from '../../hosted/capabilities.js';
-
 /** Seller commands already hold the store lock, so payment apply must not take
  * the machine lock expiry takes first. A meetup stock failure throws before
  * any exception row, and the receipt rolls back with the payment. These
@@ -68,8 +66,7 @@ export async function completeMeetup(pool:Pool,actor:Actor,tenantId:string,insta
   const parsed=MeetupCompletionInputSchema.safeParse(raw);
   if(!parsed.success)throw parsed.error;
   const body=parsed.data;
-  return sellerCheckoutCommand(pool,actor,tenantId,instanceId,'store:orders:manage','commerce.checkout_order.complete_meetup',{kind:'hosted_checkout_order',id},body,key,expected,async(q,context)=>{
-    requireCondition((await effectiveStoreCapabilities(q,context.tenant,context.profile.instance_id)).includes('store:fulfil'),403,'capability_denied','目前沒有這個操作的權限。');
+  return sellerCheckoutCommand(pool,actor,tenantId,instanceId,['store:orders:manage','store:fulfil'],'commerce.checkout_order.complete_meetup',{kind:'hosted_checkout_order',id},body,key,expected,async(q,context)=>{
     await sellerCheckoutOrderRow(q,context,id);
     const store={storefront_shop_id:context.profile.storefront_shop_id},paymentId=randomUUID();
     await lockStore(q,store,[],[id],false);
@@ -105,8 +102,9 @@ export async function recordMeetupHandover(pool:Pool,actor:Actor,tenantId:string
     requireCondition(order.lifecycle_state==='open',409,'checkout_order_closed','訂單已結束。');
     requireCondition(await hasConfirmedPayment(q,id),409,'payment_not_confirmed','訂單尚未確認付款。');
     requireCondition(!(await q.query('SELECT 1 FROM commerce_meetup_handovers WHERE order_id=$1',[id])).rowCount,409,'meetup_already_recorded','面交已經登記。');
-    requireCondition(!(await q.query("SELECT 1 FROM commerce_checkout_payment_applications WHERE order_id=$1 AND outcome='unallocatable'",[id])).rowCount,409,'meetup_stock_unavailable','庫存不足，不能登記面交。');
-    const lines=handoverLines(id,(await checkoutInventory(q,id)).allocations);
+    const inventory=await checkoutInventory(q,id),lines=handoverLines(id,inventory.allocations);
+    const stillUnallocatable=inventory.allocations.length===0&&(await q.query("SELECT 1 FROM commerce_checkout_payment_applications WHERE order_id=$1 AND outcome='unallocatable'",[id])).rowCount;
+    requireCondition(!stillUnallocatable,409,'meetup_stock_unavailable','庫存不足，不能登記面交。');
     requireCondition(lines.length>0,409,'nothing_to_hand_over','沒有可交付的商品。');
     const ok=(await q.query<{ok:boolean}>(`SELECT $2::date>=(o.created_at AT TIME ZONE 'Asia/Taipei')::date
       AND $2::date<=(clock_timestamp() AT TIME ZONE 'Asia/Taipei')::date AS ok FROM commerce_orders o WHERE o.order_id=$1`,[id,body.completed_on])).rows[0]?.ok;

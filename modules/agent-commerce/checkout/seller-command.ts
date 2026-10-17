@@ -15,7 +15,7 @@ export type SellerCheckoutOperation='commerce.checkout_order.cancel'|'commerce.c
  * its lock order; authorization does not take commerce row locks. Receipts hold
  * only a reference, and both fresh commands and replays project current rows on
  * this same transaction/client after scoped-command revalidation. */
-export async function sellerCheckoutCommand<T>(pool:Pool,actor:Actor,tenantId:string,instanceId:string,capability:string,
+export async function sellerCheckoutCommand<T>(pool:Pool,actor:Actor,tenantId:string,instanceId:string,capability:string|readonly string[],
   operation:SellerCheckoutOperation,target:{kind:'hosted_checkout_order'|'commerce_exception_case';id:string},body:unknown,
   key:string,expected:string|undefined,run:(q:PoolClient,context:SellerCheckoutContext)=>Promise<{id:string}>,
   project:(q:PoolClient,context:SellerCheckoutContext,id:string)=>Promise<T>):Promise<T> {
@@ -23,7 +23,7 @@ export async function sellerCheckoutCommand<T>(pool:Pool,actor:Actor,tenantId:st
   let context!:SellerCheckoutContext,output!:T;
   const authorize=async(q:PoolClient,tenant:TenantScopeContext)=>{
     await instance(q,tenantId,instanceId,false);
-    await requireStoreInstance(q,tenant,instanceId,capability,true);
+    for(const key of typeof capability==='string'?[capability]:capability)await requireStoreInstance(q,tenant,instanceId,key,true);
     const p=await profile(q,tenantId,instanceId);ready(p);context={tenant,profile:p};
   };
   await scopedTenantCommand(pool,{actor,tenantId,tenantLock:'share',capabilitiesForRole:storeCapabilities,operation,target,body,key,expected},
