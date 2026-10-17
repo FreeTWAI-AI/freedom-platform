@@ -52,7 +52,8 @@ export async function quotePublicCart(pool:Pool,slug:string,input:wire.CartQuote
   return isolatedTransaction(pool,async q=>{
     await q.query('SET TRANSACTION READ ONLY');
     const store=await resolve(q,slug,options,true);
-    return cartQuote(q,store,input,options);
+    const identity=await member(q,access.sessionToken,false);
+    return cartQuote(q,store,input,options,Boolean(identity?.principalId));
   });
 }
 export type PublicPurchaseState={open:false}|{open:true;product?:'available'|'sold_out'};

@@ -6,7 +6,7 @@ import {endPaymentWindow,lockMachinePaymentAttempt,paymentQueryDueAt} from '../p
 import type {EffectJournalPort} from './journal/journal.js';
 import {deliverCommerceEmail} from './notifications/delivery.js';
 import type {CommerceEmailOutbox,CommerceEmailSender} from './notifications/email-port.js';
-export type CommerceDueWorkKind = 'payment_query' | 'payment_window_end' | 'email';
+export type CommerceDueWorkKind = 'payment_query' | 'payment_window_end' | 'email' | 'offline_payment_window_end';
 /** Scheduling never postpones existing work and never changes its tenant. The
  * caller owns the transaction; this helper performs no external operation. */
 export async function scheduleDueWork(q: PoolClient, input: {
