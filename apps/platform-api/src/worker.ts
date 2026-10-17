@@ -3,6 +3,7 @@ import {createEcpayQueryTransport,type PaymentQueryTransport} from '../../../mod
 import {applyDeferredPaymentEvents} from '../../../modules/agent-commerce/payments/events.js';
 import {flushControlEvents} from '../../../modules/agent-commerce/operations/journal/journal.js';
 import {createCheckoutPaymentPorts} from '../../../modules/agent-commerce/payments/attempts.js';
+import {createPaymentMethodsPort} from '../../../modules/agent-commerce/payments/offline/methods.js';
 import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/journal/r2.js';
 import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
 import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
@@ -146,10 +147,11 @@ const RELEASE = /^[0-9a-f]{40}$/;
 /** Validates bindings without I/O. Errors never echo binding values. */
 export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   const commerceSettings=readCommerceSettings(env);
+  const ecpayListed=commerceSettings.providerProfiles.some(profile=>profile.startsWith('ecpay.'));
   let commerceCredentialKeyring:CommerceCredentialKeyring|null;
   try{commerceCredentialKeyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);}
-  catch{throw new ReadinessError(commerceSettings.providerProfiles.length?'commerce_profiles_require_keyring':'Commerce credential keyring configuration is invalid.');}
-  if(commerceSettings.providerProfiles.length){
+  catch{throw new ReadinessError(ecpayListed?'commerce_profiles_require_keyring':'Commerce credential keyring configuration is invalid.');}
+  if(ecpayListed){
     if(!commerceCredentialKeyring)throw new ReadinessError('commerce_profiles_require_keyring');
     if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_profiles_require_journal');
   }
@@ -262,8 +264,11 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
 export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{queryTransport?:PaymentQueryTransport}={}): PlatformRuntime {
   const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment,settings.providerProfiles);
   const queryTransport=options.queryTransport??createEcpayQueryTransport();
-  const journal=(settings.providerProfiles.length||settings.emailEnabled)&&env.COMMERCE_JOURNAL?createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL):undefined;
-  const payments=settings.providerProfiles.length&&journal?{gateway:createEcpayPaymentGateway(environment,config.origin),journal,profiles:settings.providerProfiles}:undefined;
+  const ecpayListed=settings.providerProfiles.some(profile=>profile.startsWith('ecpay.'));
+  const journal=(ecpayListed||settings.emailEnabled)&&env.COMMERCE_JOURNAL?createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL):undefined;
+  const payments=ecpayListed&&journal?{gateway:createEcpayPaymentGateway(environment,config.origin),journal,profiles:settings.providerProfiles}:undefined;
+  const cardPorts=payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},commerceCheckoutQueryDeps({transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine,emailEnabled:settings.emailEnabled})):undefined;
+  const paymentMethods=settings.providerProfiles.length?createPaymentMethodsPort({environment,profiles:settings.providerProfiles,card:cardPorts?.payment}):undefined;
   const emailSender=settings.emailEnabled&&env.EMAIL?createWorkerEmailSender(env.EMAIL):undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
@@ -299,7 +304,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{quer
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     commerceQueryTransport:queryTransport,commercePayments:payments,commerceJournal:journal,commerceEmailSender:emailSender,commerceSettings:settings,
     commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
-    commercePorts:{admission,...(payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},commerceCheckoutQueryDeps({transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine,emailEnabled:settings.emailEnabled})):{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
+    commercePorts:{admission,...cardPorts,...(paymentMethods?{paymentMethods}:{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     supplierConsoleEnabled: env.FREEDOM_SUPPLIER_CONSOLE_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
@@ -519,7 +524,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
             try{
               await (deps.commerceEmailSweep??sweepCommerceOutboundEmails)(pool,{limit:500});
             }catch{console.error('commerce_email_sweep_failed');}
-            if(commerce.providerProfiles.length&&env.COMMERCE_JOURNAL)try{
+            if(commerce.providerProfiles.some(profile=>profile.startsWith('ecpay.'))&&env.COMMERCE_JOURNAL)try{
               await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
             }catch{console.error('commerce_control_journal_failed');}
           }

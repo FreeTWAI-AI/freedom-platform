@@ -44,6 +44,31 @@ test('Node startup settings refuse every non-empty implemented provider list wit
   assert.deepEqual(parsed.providerProfiles, [profile]);
   assert(Object.isFrozen(parsed.providerProfiles));
 });
+test('an offline-only Worker installs payment methods without a gateway, keyring or journal', async () => {
+  const offline = 'offline.bank_transfer.v1,offline.cash_on_meetup.v1';
+  const ready = { ...workerBindings(), FREEDOM_COMMERCE_PROVIDER_PROFILES: offline };
+  const config = readWorkerConfig(ready), runtime = workerRuntime(ready, config);
+  assert.equal(config.commerceCredentialKeyring, null);
+  assert.equal(runtime.commercePayments, undefined);
+  assert.equal(runtime.commerceJournal, undefined);
+  assert.equal(runtime.commercePorts?.payment, undefined);
+  assert.equal(typeof runtime.commercePorts?.paymentMethods?.resolve, 'function');
+  let flushed = false;
+  const handler = createWorkerHandler({
+    createPool: () => ({ query: async () => { throw Error('offline readiness must not query'); }, connect: async () => { throw Error('offline readiness must not connect'); }, end: async () => {} }) as never,
+    commerceApplyDeferred: async () => ({ applied: 0, failed: 0, skipped: 0 }),
+    commerceSweep: async () => 0,
+    commerceDueWork: async () => ({ claimed: 0, completed: 0, failed: 0, externalCalls: 0, released: 0, unknown: 0 }),
+    commerceEmailSweep: async () => ({ expired: 0, deleted: 0 }),
+    commerceFlushJournal: async () => { flushed = true; return { written: 0, failed: 0 }; },
+    syncGitHub: async () => ({ requests: 0, repositories: 0, items_upserted: 0, not_modified: 0, stop_reason: 'completed' }),
+    authPrune: async () => ({ sessions: 0, login_attempts: 0, auth_rate_limits: 0, password_reset_tokens: 0 }),
+  });
+  const pending: Promise<unknown>[] = [];
+  await handler.scheduled({}, ready, { waitUntil: p => pending.push(p) });
+  await Promise.all(pending);
+  assert.equal(flushed, false);
+});
 test('Worker installs a production gateway and R2 journal only with listed profiles', () => {
   const binding = { put() { throw Error('unexpected I/O'); }, get() { throw Error('unexpected I/O'); } };
   const empty = { ...workerBindings(), COMMERCE_JOURNAL: binding };
