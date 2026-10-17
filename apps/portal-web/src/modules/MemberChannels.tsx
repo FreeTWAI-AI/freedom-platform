@@ -197,15 +197,17 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       if(!retractionsChanged&&compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
       idlePoll.current=resetChatPoll();
       if(retractionsChanged){
-        const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key&&snapshot.current.active&&!snapshot.current.sending;
+        // A full replacement may only commit against the history it refreshed, not a later older-page append.
+        const previous=shown.history;
+        const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key&&snapshot.current.active&&!snapshot.current.sending&&snapshot.current.history===previous&&!snapshot.current.more.loading;
         const latest=await client.get<History>(path(key,'messages?limit=50&offset=0'),{background:true});
         if(!isCurrent())return;
-        const items=await refreshLoadedMessages(latest,shown.history.items,
+        const items=await refreshLoadedMessages(latest,previous.items,
           offset=>client.get<History>(path(key,`messages?limit=50&offset=${offset}`),{background:true}),isCurrent);
         if(!items||!isCurrent())return;
-        const fresh=latest.items.filter(item=>!shown.history!.items.some(known=>known.message_id===item.message_id));
+        const fresh=latest.items.filter(item=>!previous.items.some(known=>known.message_id===item.message_id));
         if(fresh.length&&!stick.current)setHasNew(true);
-        setHistory({...latest,items:newestFirst(items),next_offset:fresh.length?latest.next_offset:shown.history.next_offset});
+        setHistory(existing=>existing===previous?{...latest,items:newestFirst(items),next_offset:fresh.length?latest.next_offset:previous.next_offset}:existing);
         failures.current=0;retryAt.current=0;setLiveError('');setCountUnconfirmed('');
         if(kind==='world')onUnread(latest.unread_count);else void loadList(true);
         announceInboxChange();return;
