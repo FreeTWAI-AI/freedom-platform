@@ -5,7 +5,7 @@ import {ensureDevice,grantDevice} from '../../modules/agent-commerce/checkout/ac
 // T-046 copy/backup cleanup is not_run: OPEN-07 values are decided, no executor exists.
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
-import { randomUUID, createHash, randomBytes } from 'node:crypto';
+import { randomUUID, createHash, randomBytes, randomInt } from 'node:crypto';
 import {CommerceCredentialKeyring,sealCredential,unsealCredential,type CredentialMaterial} from '../../modules/agent-commerce/payments/credentials.js';
 import {newTradeNumber} from '../../modules/agent-commerce/providers/ecpay/index.js';
 const commerceKeys=CommerceCredentialKeyring.parse('restore:'+randomBytes(32).toString('base64'))!;
@@ -310,7 +310,7 @@ async function seedOfflineBankFixture(q: PoolClient, checkoutId: string, princip
   const checkoutClone = randomUUID(), contactId = randomUUID(), orderId = randomUUID(), clientOrderId = randomUUID();
   const keyHash = createHash('sha256').update(checkoutClone).digest('hex');
   const requestHash = createHash('sha256').update(orderId).digest('hex');
-  const bankCode = String(100 + (randomBytes(1)[0] % 900)).padStart(3, '0');
+  const bankCode = String(randomInt(100, 1000));
   const account = String(randomBytes(4).readUInt32BE()).padStart(10, '0').slice(0, 12);
   const document = { schema: 'freedom.offline-payment-settings/v1', bank_transfer: { bank_code: bankCode, bank_name: '合成星禾', branch_name: null, account_number: account, account_name: '合成青羽', deadline_days: 3, note: null }, cash_on_meetup: null };
   await q.query(`INSERT INTO commerce_checkout_contacts(contact_id,checkout_id,tenant_id,instance_id,contact_name,contact_email,contact_phone,delivery,invoice,contact_sha256,contact_salt)

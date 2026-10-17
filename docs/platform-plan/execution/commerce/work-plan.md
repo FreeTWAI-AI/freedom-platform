@@ -367,6 +367,20 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   但規則全文尚未讀完，已要求補完，暫不算完整獨立審查；另將隔離移除最後期限檢查，
   驗證裝置鎖及訂單 FK 鎖兩個反例確實失敗，不修改交付分支的防護。
 
+### 2026-10-17：CodeQL 合成銀行代碼修正
+
+- `9a84f07c` 的 CodeQL check `117306013479` 失敗，兩項 annotation 均為還原／retarget
+  fixture 的 `randomBytes(1)[0] % 900`。單一 byte 只能提供 0～255，原式無法涵蓋所需的 900 個值。
+  兩處改用 `randomInt(100, 1000)` 產生三位合成代碼，未加 suppression；其他秘密材料仍由
+  原本的安全亂數產生。卡片 checkout 另建銀行 frozen terms、RLS 與還原斷言完全保留。
+- `9a84f07c` 已完成 typecheck、相關 runtime 218/218、build、inventory；預設 browser 37/38，
+  私訊顯示新訊息的原 5 秒斷言失敗。保持原程式及斷言單跑 1/1、圖片 fixture 18/18 通過，
+  原失敗保留，原因未確定。agy 已補完 96 份規則全文並確認 access-link 聚焦範圍無阻塞；
+  隔離移除最後期限檢查時，裝置／訂單鎖兩反例均以 200≠404 如預期失敗。
+- 已保留上述失敗與中止紀錄。Verify run `39001723029` 為修正已知 CodeQL 阻塞主動取消；
+  本機 serial runtime 在中止前有 107 個通過標記、零失敗標記，但不是全套通過。
+  修正後仍須驗證完整 retarget／還原、typecheck、最終來源完整 CI／CodeQL 與 serial runtime。
+
 ## 6. 共用檔案
 
 | 檔案 | 誰改 | 規則 |
