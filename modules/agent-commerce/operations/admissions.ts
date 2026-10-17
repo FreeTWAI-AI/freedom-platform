@@ -80,8 +80,12 @@ export function createStoreAdmissionPort(environment:CommerceProviderEnvironment
       JOIN module_definitions required ON required.module_key='storefront' AND required.release_ref='storefront@1.1.0'
       JOIN commerce_store_admissions a ON a.tenant_id=i.tenant_id AND a.instance_id=i.instance_id AND a.environment=$2 AND a.revoked_at IS NULL
       WHERE p.storefront_shop_id=$1 AND actual.capabilities @> required.capabilities
-        AND EXISTS(SELECT 1 FROM commerce_provider_account_services service WHERE service.tenant_id=p.tenant_id AND service.instance_id=p.instance_id
+        AND (EXISTS(SELECT 1 FROM commerce_provider_account_services service WHERE service.tenant_id=p.tenant_id AND service.instance_id=p.instance_id
           AND service.environment=$2 AND service.purpose='payment' AND service.state='active' AND service.profile=ANY($3::text[]))
+          OR EXISTS(SELECT 1 FROM commerce_offline_payment_settings s WHERE s.tenant_id=p.tenant_id AND s.instance_id=p.instance_id
+            AND s.version=(SELECT max(version) FROM commerce_offline_payment_settings WHERE tenant_id=p.tenant_id AND instance_id=p.instance_id)
+            AND ((jsonb_typeof(s.document->'bank_transfer')='object' AND 'offline.bank_transfer.v1'=ANY($3::text[]))
+              OR (jsonb_typeof(s.document->'cash_on_meetup')='object' AND 'offline.cash_on_meetup.v1'=ANY($3::text[])))))
       LIMIT 1`,[store.storefront_shop_id,environment,profiles])).rowCount===1;
   }};
 }
