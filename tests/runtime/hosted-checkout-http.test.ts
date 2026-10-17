@@ -107,9 +107,10 @@ async function linkClock(token:string) {
   return (await x.h.pool.query(`SELECT clock_timestamp() AS observed_at,expires_at,expires_at<=clock_timestamp() AS expired,
     expires_at-created_at=interval '168 hours' AS fixed_lifetime FROM commerce_order_access_grants WHERE link_token_sha256=$1`,[hashKey(token)])).rows[0];
 }
-async function waitOnTransaction(pid:number,token:string) {
+async function waitOnTransaction(pid:number,token:string,statement:string|null=null) {
   await until(async()=>(await x.h.pool.query(`SELECT 1 FROM pg_stat_activity a,commerce_order_access_grants g
-    WHERE $1=ANY(pg_blocking_pids(a.pid)) AND g.link_token_sha256=$2 AND a.query_start<g.expires_at`,[pid,hashKey(token)])).rowCount!>0,'HTTP redemption must begin before expiry and wait on the real transaction');
+    WHERE $1=ANY(pg_blocking_pids(a.pid)) AND g.link_token_sha256=$2 AND a.query_start<g.expires_at
+      AND ($3::text IS NULL OR a.query LIKE $3)`,[pid,hashKey(token),statement])).rowCount!>0,'HTTP redemption must begin before expiry and wait on the real transaction');
   assert.equal((await linkClock(token)).expired,false,'observe the lock wait while the link is still live');
 }
 before(async()=>{x=await checkoutHarness('fc_http',{publicSchema:true});origin=x.h.origin;});
@@ -231,15 +232,20 @@ for(const expires of [true,false])test(`link redemption after a real redemption 
     }
   } finally {await q.query('ROLLBACK');q.release();await Promise.allSettled([pending]);}
 });
-test('link expiry while redemption waits on its browser device rolls back the redeemed marker and grant',async t=>{
+for(const locked of ['device','order'] as const)test(`link expiry while redemption waits on its ${locked} rolls back every credential write`,async t=>{
   const f=await placed(),token=await expiringLink(f),path=root(f.s)+'/orders/'+f.order.order_ref,before=await accessState();
   const q=await x.h.pool.connect();let pending:ReturnType<typeof http>|undefined;
   try {
-    await q.query('BEGIN');await q.query('SELECT device_id FROM commerce_access_devices WHERE token_sha256=$1 FOR UPDATE',[hashKey(f.browser.split('=')[1])]);
+    await q.query('BEGIN');
+    if(locked==='device')await q.query('SELECT device_id FROM commerce_access_devices WHERE token_sha256=$1 FOR UPDATE',[hashKey(f.browser.split('=')[1])]);
+    else await q.query('SELECT order_id FROM commerce_checkout_orders WHERE order_id=$1 FOR UPDATE',[f.order.order_ref]);
     const pid=(await q.query('SELECT pg_backend_pid() pid')).rows[0].pid;
-    pending=http('POST',path+'/access',{token},f.browser);await waitOnTransaction(pid,token);
-    await until(async()=>(await linkClock(token)).expired,'database clock must cross link expiry during the device lock wait');
-    t.diagnostic(JSON.stringify({event:'device_blocker_rollback',...(await linkClock(token))}));await q.query('ROLLBACK');
+    pending=http('POST',path+'/access',{token},locked==='device'?f.browser:undefined);
+    // With no browser credential, grantDevice's FK wait occurs after the real
+    // new device INSERT. The failed redemption must roll that device back too.
+    await waitOnTransaction(pid,token,locked==='order'?'INSERT INTO commerce_order_access_grants%':null);
+    await until(async()=>(await linkClock(token)).expired,'database clock must cross link expiry during the downstream lock wait');
+    t.diagnostic(JSON.stringify({event:locked+'_blocker_rollback',...(await linkClock(token))}));await q.query('ROLLBACK');
     same404(await pending);assert.deepEqual(await accessState(),before);same404(await http('GET',path));
     same404(await http('POST',path+'/access',{token},f.browser));assert.deepEqual(await accessState(),before);
   } finally {await q.query('ROLLBACK');q.release();await Promise.allSettled([pending]);}

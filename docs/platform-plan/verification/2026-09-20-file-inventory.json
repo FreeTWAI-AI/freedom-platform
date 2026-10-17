@@ -15449,8 +15449,8 @@
     },
     {
       "path": "docs/platform-plan/execution/commerce/work-plan.md",
-      "bytes": 54673,
-      "sha256": "df8716b1d83f5fb8710e288be582cde793a3890e58c1518a13ce6e8f73de67d4"
+      "bytes": 54979,
+      "sha256": "84c3798980e343150560baee9c2cb5451fc6483ee98dfc2394e03bc654308516"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
@@ -23709,8 +23709,8 @@
     },
     {
       "path": "tests/runtime/hosted-checkout-http.test.ts",
-      "bytes": 61582,
-      "sha256": "51a31123c7fa14219be0983d2cc6971ba08a6e9a1e3df520934c2e6717afbaaf"
+      "bytes": 62114,
+      "sha256": "fafe42c9f18a514858850b384786583d7d11af9c4da3d63f16d5db9bb9ad84dc"
     },
     {
       "path": "tests/runtime/hosted-checkout-purchase-state.test.ts",

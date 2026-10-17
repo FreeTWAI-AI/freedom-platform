@@ -350,7 +350,10 @@ Claude 達到額度上限後，Ted 授權 Codex 接手，並可使用 Grok CLI `
   forget，以及新 device 只取得該訂單權限。原有一般併發一次控制也通過。完整 HTTP 首輪 50/51：
   一處舊公開條款清單漏列已合併的 `offline_payment`；補上精確清單與卡片 fixture 必須為 null 的斷言。
   修正後 typecheck 與結帳核心／HTTP／schema／競態／郵件相關全套 168/168 通過（117.42 秒，零 skip）。
-  訂單頁與 browser 恢復旅程、最終來源同步與新 head CI 仍須完成，不能用舊 head 綠燈解除這項阻塞。
+  訂單頁 7/7、browser 恢復旅程 6/6（零重試／skip／flaky）、build 也通過。
+  隨後補驗新 device 已 INSERT、grant 等待訂單 FK 鎖期間過期的回滾，確認新 device 也不會留下；
+  完整 HTTP 52/52 與 typecheck 通過。已同步 main `dc0f615d` 的 #867，新增治理測試 5/5；
+  最終仍待 #871 的實際 main 整合、新 head 完整 CI 與獨立審查，不能用舊 head 綠燈代替。
 - `fe7d0d1d` 已完成還原 10 pass／1 既有 T-047 TODO、封存 6/6、browser 75/75（零重試）。
   該來源的完整 serial runtime 因發現上述尚未修正的授權問題而主動中止，原日誌保留；中止不是全套通過。
 
