@@ -22,7 +22,8 @@ export interface SharedBinding extends QuoteBinding {
 
 /** Resolve by seller-local SKU, then verify current exact consent. Supplier
  * draft changes do not overwrite an explicitly offered immutable snapshot. */
-export async function sharedLines(q: PoolClient, context: DirectContext, requested: readonly {sku: string; quantity: number}[]) {
+export async function sharedLines(q: PoolClient, context: Pick<DirectContext,'profile'|'shared'>, requested: readonly {sku: string; quantity: number}[],
+  resolveSupplier = (instanceId: string) => sharedSupplier(q,context.profile,context.shared!,instanceId)) {
   const p = context.profile, projection = publicProjection(p.projection);
   requireCondition(context.shared, 409, 'shared_context_required', '預留來源無效。');
   const rows = (await q.query(`SELECT l.*,l.aggregate_version::text AS version,COALESCE(l.hosted_sku,i.sku) AS sku,
@@ -41,7 +42,7 @@ export async function sharedLines(q: PoolClient, context: DirectContext, request
   for (const wanted of [...requested].sort((a,b) => a.sku.localeCompare(b.sku))) {
     const row = rows.find(row => row.sku === wanted.sku), published = projection.products.find(line => line.sku === wanted.sku);
     requireCondition(row && published, 409, 'publication_changed', '商品與公開版本不同，請等待商店重新公開。');
-    const supplier = await sharedSupplier(q, p, context.shared, row.supplier_instance_id);
+    const supplier = await resolveSupplier(row.supplier_instance_id);
     requireCondition(supplier.supply_shop_id === row.supplier_shop_id, 409, 'supply_unavailable', '供貨來源已更新。');
     const own = supplier.instance_id === p.instance_id;
     requireCondition(own ? row.hosted_offer_id === null : row.hosted_offer_id && row.offer_state === 'offered'

@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { isolatedTransaction, bindTenantContext } from '../../../packages/resource-scopes/tenant-transaction.js';
 import { publicProjection } from './publish.js';
 import { StoreTemplateSchema } from '../../../contracts/guild-launchpad/v1/storefront-presentation.js';
@@ -10,6 +10,12 @@ import { projectPublicStoreMedia } from './media.js';
 export async function readPublicStorePage(pool: Pool, rawSlug: string) {
   return isolatedTransaction(pool, async q => {
     await q.query('SET TRANSACTION READ ONLY');
+    return resolvePublicStorePage(q,rawSlug);
+  });
+}
+
+/** Shared liveness proof, in the command's own transaction. */
+export async function resolvePublicStorePage(q:PoolClient,rawSlug:string) {
     const slug = rawSlug.toLowerCase();
     if (!SLUG_PATTERN.test(slug)) return null;
     const row = (await q.query<{ tenant_id: string; instance_id: string; storefront_shop_id: string; supply_shop_id: string; publication_id: string; media_sha256:string; projection: unknown; template_id: unknown }>(`SELECT p.tenant_id,p.instance_id,p.storefront_shop_id,p.supply_shop_id,pub.publication_id,pub.media_sha256,pub.projection,pub.template_id
@@ -38,7 +44,6 @@ export async function readPublicStorePage(pool: Pool, rawSlug: string) {
     return { projection, template_id:StoreTemplateSchema.parse(row.template_id), media,
       publicationId:row.publication_id,tenantId:row.tenant_id,instanceId:row.instance_id,scopeId:scope.scope_id,
       mediaSha256:snapshot.sha256, photos };
-  });
 }
 
 /** Existing public JSON stays exactly storefront/v1. */

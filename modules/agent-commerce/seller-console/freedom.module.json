@@ -1,0 +1,44 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "seller-console",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/seller-console/**",
+    "tests/runtime/seller-console-route.test.ts",
+    "tests/runtime/seller-console-view.test.ts",
+    "tests/e2e/seller-console.spec.ts",
+    "tests/e2e/seller-console-settings.spec.ts",
+    "tests/e2e/seller-console-visual.spec.ts",
+    "tests/e2e/seller-console-fixture.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "agent-commerce",
+    "hosted-checkout",
+    "commerce-payments"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "modules/agent-commerce/seller-console/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-01-product-visual.md",
+    "docs/platform-plan/execution/commerce/pages.md",
+    "modules/agent-commerce/README.md",
+    "DESIGN.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "session-owned-async-actions",
+    "explicit-readonly-target",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full",
+    "e2e.harness"
+  ],
+  "surfaces": []
+}

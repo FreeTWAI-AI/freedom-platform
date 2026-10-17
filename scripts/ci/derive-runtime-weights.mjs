@@ -19,7 +19,11 @@ function parseArgs(argv) {
       args.costsOutput = argv[i + 1];
       i += 2;
     } else if (argv[i] === '--log' && i + 1 < argv.length) {
-      args.logs.push(argv[i + 1]);
+      args.logs.push({ file: argv[i + 1], partial: false });
+      i += 2;
+    } else if (argv[i] === '--partial-log' && i + 1 < argv.length) {
+      // A timed-out partition: only its completed files are measured.
+      args.logs.push({ file: argv[i + 1], partial: true });
       i += 2;
     } else {
       return null;
@@ -38,7 +42,7 @@ if (!args) {
 }
 
 const maps = [];
-for (const logFile of args.logs) {
+for (const { file: logFile, partial } of args.logs) {
   let text;
   try {
     text = fs.readFileSync(logFile, 'utf8');
@@ -47,7 +51,7 @@ for (const logFile of args.logs) {
     process.exit(1);
   }
   try {
-    const map = parseProgressLog(text);
+    const map = parseProgressLog(text, { partial });
     if (map.size === 0) {
       process.stderr.write(`Empty final segment in log: ${logFile}\n`);
       process.exit(1);
@@ -93,6 +97,9 @@ try {
   process.exit(1);
 }
 
+if (args.logs.some(log => log.partial)) {
+  moduleCode = '// Partial scheduling estimates; not a complete source-bound weight refresh.\n' + moduleCode;
+}
 fs.writeFileSync(args.output, moduleCode, 'utf8');
 
 const costsData = {
@@ -100,6 +107,11 @@ const costsData = {
   measurement: 'per-file minimum of serial completed-file progress deltas across the listed hosted runs; includes file loading',
   milliseconds: finalMs
 };
+if (args.logs.some(log => log.partial)) {
+  costsData.input_completeness = 'partial_scheduling_estimates';
+  costsData.partial_logs = args.logs.filter(log => log.partial).map(log => path.basename(log.file));
+  process.stderr.write('Partial scheduling estimates: saturated/in-flight/unstarted files may be absent; not a complete weight refresh.\n');
+}
 fs.writeFileSync(args.costsOutput, JSON.stringify(costsData, null, 2) + '\n', 'utf8');
 
 let totalWeight = 0;

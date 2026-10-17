@@ -1,0 +1,37 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "commerce-providers",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/providers/**",
+    "tests/runtime/ecpay-protocol.test.ts",
+    "tests/runtime/ecpay-aio-credit.test.ts",
+    "tests/runtime/ecpay-domestic-logistics.test.ts",
+    "tests/runtime/ecpay-b2c-invoice.test.ts",
+    "tests/worker/ecpay-protocol-workerd.test.ts",
+    "tests/worker/ecpay-aio-credit-workerd.test.ts",
+    "tests/worker/ecpay-domestic-logistics-workerd.test.ts",
+    "tests/worker/ecpay-b2c-invoice-workerd.test.ts",
+    "tests/worker/ecpay-fixtures/**"
+  ],
+  "public_exports": [
+    "modules/agent-commerce/providers/ecpay/index.ts",
+    "modules/agent-commerce/providers/ecpay/aio-credit/index.ts",
+    "modules/agent-commerce/providers/ecpay/domestic-logistics/index.ts",
+    "modules/agent-commerce/providers/ecpay/b2c-invoice/index.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "modules/agent-commerce/providers/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md"
+  ],
+  "invariants": [],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

@@ -14,7 +14,7 @@ const supplier = 'guild_product_quality_supply';
 const talent = 'guild_talent_direction';
 const other = 'guild_music_mv';
 const manual = {application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0'};
-const hosted = {application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0'};
+const hosted = {application_key: 'hosted-store', release_ref: 'hosted-store@1.1.0'};
 const synthetic = {application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0'};
 const orders: Record<string, readonly string[]> = {
   [supplier]: ['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support'],

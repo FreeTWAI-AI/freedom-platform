@@ -3,7 +3,7 @@ import { Problem } from './problem.js';
 
 /** Server-only continuation integrity. This never grants resource access. */
 export interface TenantListCursorBinding {
-  purpose: 'work' | 'results' | 'instances' | 'installations' | 'seller-orders' | 'buyer-orders' | 'supplier-orders';
+  purpose: 'work' | 'results' | 'instances' | 'installations' | 'seller-orders' | 'buyer-orders' | 'supplier-orders' | 'seller-checkout-orders' | 'exception-cases';
   tenantId: string;
   principalId: string;
   scopeId: string;

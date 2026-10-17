@@ -84,13 +84,65 @@ test('complete counts cannot admit saturated or invalid file timing as schedulin
   for (const [start,end] of [[1_190_000,1_200_000],[1_200_000,1_200_000],[1_490_000,1_500_000],[1_500_000,1_500_000]]) {
     assert.throws(()=>parseProgressLog(buildSyntheticLog(records(start,end))),/saturated_progress_timing/);
   }
-  for (const start of [-1,1.5,'100',null]) {
-    assert.throws(()=>parseProgressLog(buildSyntheticLog(records(start,200))),/inconsistent_progress_log/);
+  for (const partial of [false,true]) for (const value of [-1,1.5,'100',null,1_500_001]) {
+    for (const [start,end] of [[value,200],[100,value]]) {
+      assert.throws(()=>parseProgressLog(buildSyntheticLog(records(start,end)),{partial}),/inconsistent_progress_log/);
+    }
   }
   assert.throws(()=>parseProgressLog(buildSyntheticLog(records(1_400_000,1_500_001))),/inconsistent_progress_log/);
   const timing=parseProgressLog(buildSyntheticLog(records(1_250_000,1_360_000)));
   assert.equal(timing.get('tests/runtime/late.test.ts'),110_000);
   assert.equal(deriveRuntimeWeights([timing]).weights['tests/runtime/late.test.ts'],110);
+});
+
+test('parseProgressLog measures completed files of a named timed-out segment only', () => {
+  const file = (name, start, end) => [
+    {schema: 'freedom.test-file-progress/v1', event: 'started', path: `tests/runtime/${name}.test.ts`, elapsed_ms: start},
+    ...(end === undefined ? [] : [{schema: 'freedom.test-file-progress/v1', event: 'completed', path: `tests/runtime/${name}.test.ts`, elapsed_ms: end}])
+  ];
+  const timedOut = [...file('a', 0, 400), ...file('b', 400, 900), ...file('c', 900),
+    {schema: 'freedom.test-file-progress-summary/v1', selected_count: 4, started_count: 3, completed_count: 2, incomplete: true}];
+  assert.throws(() => parseProgressLog(buildSyntheticLog(timedOut)), /incomplete_progress_log/);
+  assert.deepEqual(Object.fromEntries(parseProgressLog(buildSyntheticLog(timedOut), {partial: true})), {
+    'tests/runtime/a.test.ts': 400,
+    'tests/runtime/b.test.ts': 500
+  });
+
+  // At most the one in-flight file may lack a completion, and the counters must match the segment.
+  const twoInFlight = [...file('a', 0, 400), ...file('b', 400), ...file('c', 500),
+    {schema: 'freedom.test-file-progress-summary/v1', selected_count: 4, started_count: 3, completed_count: 1, incomplete: true}];
+  assert.throws(() => parseProgressLog(buildSyntheticLog(twoInFlight), {partial: true}), /incomplete_progress_log/);
+  const miscounted = [...file('a', 0, 400), ...file('b', 400),
+    {schema: 'freedom.test-file-progress-summary/v1', selected_count: 4, started_count: 3, completed_count: 2, incomplete: true}];
+  assert.throws(() => parseProgressLog(buildSyntheticLog(miscounted), {partial: true}), /inconsistent_progress_log/);
+  const overSelected = [...file('a', 0, 400), ...file('b', 400),
+    {schema: 'freedom.test-file-progress-summary/v1', selected_count: 1, started_count: 2, completed_count: 1, incomplete: true}];
+  assert.throws(() => parseProgressLog(buildSyntheticLog(overSelected), {partial: true}), /incomplete_progress_log/);
+});
+
+test('only explicit partial input omits either generation of saturated endpoints', () => {
+ for (const cap of [1_200_000,1_500_000]) {
+  const records = [
+    {schema: 'freedom.test-file-progress/v1', event: 'started', path: 'tests/runtime/a.test.ts', elapsed_ms: 1_000_000},
+    {schema: 'freedom.test-file-progress/v1', event: 'completed', path: 'tests/runtime/a.test.ts', elapsed_ms: 1_199_999},
+    {schema: 'freedom.test-file-progress/v1', event: 'started', path: 'tests/runtime/b.test.ts', elapsed_ms: 1_199_999},
+    {schema: 'freedom.test-file-progress/v1', event: 'completed', path: 'tests/runtime/b.test.ts', elapsed_ms: cap},
+    {schema: 'freedom.test-file-progress/v1', event: 'started', path: 'tests/runtime/c.test.ts', elapsed_ms: cap},
+    {schema: 'freedom.test-file-progress/v1', event: 'completed', path: 'tests/runtime/c.test.ts', elapsed_ms: cap},
+    {schema: 'freedom.test-file-progress-summary/v1', selected_count: 3, started_count: 3, completed_count: 3, incomplete: false}
+  ];
+  assert.throws(()=>parseProgressLog(buildSyntheticLog(records)),/saturated_progress_timing/);
+  assert.deepEqual(Object.fromEntries(parseProgressLog(buildSyntheticLog(records),{partial:true})), {'tests/runtime/a.test.ts': 199_999});
+ }
+ const startOnly = [
+  {schema:'freedom.test-file-progress/v1',event:'started',path:'tests/runtime/a.test.ts',elapsed_ms:1_200_000},
+  {schema:'freedom.test-file-progress/v1',event:'completed',path:'tests/runtime/a.test.ts',elapsed_ms:1_200_010},
+  {schema:'freedom.test-file-progress-summary/v1',selected_count:1,started_count:1,completed_count:1,incomplete:false}
+ ];
+ assert.equal(parseProgressLog(buildSyntheticLog(startOnly),{partial:true}).size,0);
+ startOnly[1].elapsed_ms=1_199_999;
+ assert.throws(()=>parseProgressLog(buildSyntheticLog(startOnly),{partial:true}),/inconsistent_progress_log/);
+
 });
 
 test('deriveRuntimeWeights logic', () => {
@@ -154,6 +206,21 @@ test('CLI tests', (t) => {
   const moduleStr = fs.readFileSync(path.join(dir, 'out.mjs'), 'utf8');
   assert.equal(moduleStr, renderRuntimeWeightsModule({'tests/runtime/a.test.ts': 1}, 'Test'));
 
+  // A timed-out log: a.test.ts completed in 50ms, then missing.test.ts was in flight.
+  fs.writeFileSync(path.join(dir, 'timed-out.log'), buildSyntheticLog([{...ok[0], elapsed_ms: 0}, {...ok[1], elapsed_ms: 50}, ok[2],
+    {schema: 'freedom.test-file-progress-summary/v1', selected_count: 3, started_count: 2, completed_count: 1, incomplete: true}]));
+  r = runCli(['--root', dir, '--note', 'Test', '--output', path.join(dir, 'partial.mjs'), '--costs-output', path.join(dir, 'partial.json'), '--log', path.join(dir, 'timed-out.log')]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /Parse error in .*timed-out\.log: incomplete_progress_log/);
+  r = runCli(['--root', dir, '--note', 'Test', '--output', path.join(dir, 'partial.mjs'), '--costs-output', path.join(dir, 'partial.json'), '--log', path.join(dir, 'log1.log'), '--partial-log', path.join(dir, 'timed-out.log')]);
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /2 logs, 1 files, total weight 1, 1 dropped/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'partial.json'), 'utf8')).milliseconds, { 'a.test.ts': 50 });
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'partial.json'), 'utf8')).input_completeness, 'partial_scheduling_estimates');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'partial.json'), 'utf8')).partial_logs, ['timed-out.log']);
+  assert.match(r.stderr, /not a complete weight refresh/);
+  assert.match(fs.readFileSync(path.join(dir, 'partial.mjs'), 'utf8'), /^\/\/ Partial scheduling estimates;/);
+
   const costsStr = fs.readFileSync(path.join(dir, 'out.json'), 'utf8');
   assert.ok(costsStr.endsWith('\n'));
   assert.deepEqual(JSON.parse(costsStr), {
@@ -164,19 +231,29 @@ test('CLI tests', (t) => {
 
   // A complete-looking legacy saturated log must fail before either output
   // can overwrite an existing reviewed weights module or cost fixture.
-  const saturated = ok.map(record => record.event === 'started' || record.event === 'completed'
-    ? {...record, elapsed_ms:1_200_000} : record);
-  fs.writeFileSync(path.join(dir, 'saturated.log'), buildSyntheticLog(saturated));
-  r = runCli(['--root', dir, '--note', 'Test', '--output', path.join(dir, 'out.mjs'),
-    '--costs-output', path.join(dir, 'out.json'), '--log', path.join(dir, 'saturated.log')]);
-  assert.equal(r.status, 1);
-  assert.match(r.stderr, /saturated_progress_timing/);
-  assert.equal(fs.readFileSync(path.join(dir, 'out.mjs'), 'utf8'), moduleStr);
-  assert.equal(fs.readFileSync(path.join(dir, 'out.json'), 'utf8'), costsStr);
+  for (const [value,flag,error] of [
+    [1_200_000,'--log',/saturated_progress_timing/],
+    [1_500_000,'--log',/saturated_progress_timing/],
+    [-1,'--log',/inconsistent_progress_log/],
+    ['100','--partial-log',/inconsistent_progress_log/],
+    [1_500_001,'--partial-log',/inconsistent_progress_log/],
+    [1_200_000,'--partial-log',/Empty final segment/],
+    [1_500_000,'--partial-log',/Empty final segment/],
+  ]) {
+    const invalid = ok.map(record => record.event === 'started' || record.event === 'completed'
+      ? {...record, elapsed_ms:value} : record);
+    fs.writeFileSync(path.join(dir, 'saturated.log'), buildSyntheticLog(invalid));
+    r = runCli(['--root', dir, '--note', 'Test', '--output', path.join(dir, 'out.mjs'),
+      '--costs-output', path.join(dir, 'out.json'), '--log', path.join(dir, 'log1.log'), flag, path.join(dir, 'saturated.log')]);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, error);
+    assert.equal(fs.readFileSync(path.join(dir, 'out.mjs'), 'utf8'), moduleStr);
+    assert.equal(fs.readFileSync(path.join(dir, 'out.json'), 'utf8'), costsStr);
+  }
 });
 
 test('Committed module and fixture agree', async () => {
-  const fixturePath = fileURLToPath(new URL('./fixtures/runtime-hosted-costs-disk-20261009.json', import.meta.url));
+  const fixturePath = fileURLToPath(new URL('./fixtures/runtime-hosted-costs-20261016.json', import.meta.url));
   const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
   const m = await import('../runtime-file-weights.mjs');
   const generatedWeights = {};

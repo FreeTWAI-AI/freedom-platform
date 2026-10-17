@@ -1,31 +1,58 @@
 # Diagnostic runtime matrix
 
-Six separate CI hosts can each run one deterministic partition against their own PostgreSQL server. This does not change the local `runLocalSuite(..., 'runtime.full')` default four-process behavior. Each matrix invocation creates and cleans exactly one fresh nonce database through the existing owned-database helper, runs one test process with `--test-concurrency=1`, and preserves its original process report. Arbitrary files, commands, partition counts or indexes are refused.
+Eight separate CI hosts can each run one deterministic partition against their own PostgreSQL server (the tools still accept six and four). This does not change the local `runLocalSuite(..., 'runtime.full')` default four-process behavior. Each matrix invocation creates and cleans exactly one fresh nonce database through the existing owned-database helper, runs one test process with `--test-concurrency=1`, and preserves its original process report. Arbitrary files, commands, partition counts or indexes are refused.
 
 ```sh
-node scripts/runtime-full.mjs --partition-count 6 --partition-index 0 --output .freedom/reports/runtime-partition-0.json
-node scripts/runtime-aggregate.mjs --partition-count 6 --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
+node scripts/runtime-full.mjs --partition-count 8 --partition-index 0 --output .freedom/reports/runtime-partition-0.json
+node scripts/runtime-aggregate.mjs --partition-count 8 --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
 ```
 
-Use indexes 0 through 5 on separate hosts. Upload each `runtime-partition-N.json` even on failure, then download the six files into one flat input directory. A fragment has schema `freedom.runtime-partition/v1` and check ID `runtime.partition.N`; it cannot represent a full-suite pass. Both its outer and nested cleanup flags must be true for acceptance. Failed artifacts remain intact and are never overwritten by aggregation.
+Use indexes 0 through 7 on separate hosts. Upload each `runtime-partition-N.json` even on failure, then download the eight files into one flat input directory. A fragment has schema `freedom.runtime-partition/v1` and check ID `runtime.partition.N`; it cannot represent a full-suite pass. Both its outer and nested cleanup flags must be true for acceptance. Failed artifacts remain intact and are never overwritten by aggregation.
 
-The producer snapshots the actual Git HEAD and full selected source manifest before execution and again after cleanup, rejecting tracked-tree changes. The manifest contains sorted `{path,source_sha256}` entries for all current full-suite files, including the closed baseline; deterministic partition membership uses the reviewed static scheduling weights in `partitionRuntimeFiles`, assigning estimated longest files first to the least-loaded partition with index tie-breaking. The current weights are per-file minimum serial durations from complete file-progress segments of the October 9 disk rehearsals: all six partitions of run 38000643429 and partitions 0, 2, 3 and 5 of run 38003118152. Both full runs remain unsuccessful: the first failed cleanup; the second timed out partitions 1 and 4. Timing observations never turn those results into passes. The parser still rejects an incomplete final segment; the two timed-out segments are not inputs to the generated weights.
+The producer snapshots the actual Git HEAD and full selected source manifest before execution and again after cleanup, rejecting tracked-tree changes. The manifest contains sorted `{path,source_sha256}` entries for all current full-suite files, including the closed baseline; deterministic partition membership uses the reviewed static scheduling weights in `partitionRuntimeFiles`, assigning estimated longest files first to the least-loaded partition with index tie-breaking. The current weights are per-file minimum serial durations from the file-progress segments of hosted runs 38968059268 and 38960147348 (October 16, the commerce candidates) and 38003118152 (October 9). No run passed: 38968059268 timed out partition 1 and failed partition 5's database cleanup, 38960147348 timed out partition 3 and 38003118152 timed out partitions 1 and 4. Timing observations never turn those results into passes. The parser rejects an incomplete final segment unless the log is named with `--partial-log`; a timed-out segment then contributes only its completed files, never the file in flight, and its counters must still match. Those historical reporters clamped `elapsed_ms` at 1,200,000, below their 1,500-second budget; saturated files have no measured duration. The current strict/partial admission rules below supersede the historical omission behavior. Run 38000643429 is no longer an input: its hosts were about 30% faster than run 38960147348 in aggregate, against 21% for run 38003118152, and a minimum across all three understated the files measured only on October 16.
 
-The previous October 7 weights covered 247 files and estimated each current partition at about 545 seconds. On the October 9 candidate, partitions 1 and 4 reached the unchanged deadline with only 51/54 and 52/54 files completed, respectively; all six cleanup proofs succeeded. The new generated fixture covers 320 measured files, rounded up to whole seconds (at least 1). All 323 candidate files remain selected, with the three unmeasured files retaining the 10-second default. Their estimated six loads are 752–753 seconds. Estimates require a fresh coherent hosted run; they are neither throughput guarantees nor acceptance evidence. No runner, case, file, cleanup, partition deadline or aggregate-window requirement changed.
+The October 9 weights covered 320 files. On the October 16 candidate, 411 files were selected and the unmeasured ones kept the 10-second default, including 40 new commerce runtime files; the 39 that completed took about 1,370 seconds together. Partition 3 reached its 1,500-second deadline with 49/69 files completed. The other five passed: partitions 2 and 5 finished their files in about 900 and 970 seconds, partitions 0, 1 and 4 in 1,380–1,525. That first regenerated fixture covered 395 measured files; the other 16 candidate files kept the 10-second default. Their estimated six loads are 1,085–1,090 seconds of per-file minima. Run 38960147348's own durations, with October 9 durations scaled by 1.35 for the 20 files it never completed, give 1,244–1,342 seconds per partition under the new allocation. That assumes `commerce-provider-accounts.test.ts` takes about 40 seconds after its secret scan became one statement per scan; its weight still records the 215 seconds of the measured run. Estimates require a fresh coherent hosted run; they are neither throughput guarantees nor acceptance evidence. No runner, case, file, cleanup, partition deadline or aggregate-window requirement changed.
 
-Regenerate from the ten original job logs (retain failure results separately):
+Historical regeneration used the eighteen job logs (retain failure results separately): the fourteen complete partitions with `--log`, and partition 1 of run 38968059268, partition 3 of run 38960147348 and partitions 1 and 4 of run 38003118152 with `--partial-log`. Partition 5 of run 38968059268 completed all 69 files before its cleanup failed, so it is a complete segment:
 
 ```sh
 node scripts/ci/derive-runtime-weights.mjs --root . \
-  --note "Complete file-progress segments: disk rehearsal38000643429 partitions0-5 and38003118152 partitions0,2,3,5 (2026-10-09); both runs are unsuccessful." \
+  --note "Progress segments of runs 38968059268 (2026-10-16; p1 timed out, p5 failed database cleanup after all files completed), 38960147348 (2026-10-16; p3 timed out) and 38003118152 (2026-10-09; p1,p4 timed out); timed-out partitions add completed files only. No run passed." \
   --output packages/contribution-tools/runtime-file-weights.mjs \
-  --costs-output packages/contribution-tools/test/fixtures/runtime-hosted-costs-disk-20261009.json \
-  --log <complete partition log> ...
+  --costs-output packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261016.json \
+  --log <complete unsaturated partition log> ... --partial-log <explicit historical incomplete or saturated log> ...
 ```
 
-Historical October 7 cost fixtures remain unchanged; their earlier hotspot and four-partition regression bounds still pass with the new weights. The current disk-fixture test uses the existing 900-second six-partition and 1,200-second legacy four-partition capacity. This does not claim that a local four-process full run has acquired the legacy matrix budget.
+The October 9 command, with the ten complete logs of runs 38000643429 and 38003118152, still reproduces `runtime-hosted-costs-disk-20261009.json` exactly. Historical October 7 and October 9 cost fixtures remain unchanged. Their hotspot, maximum and four-partition bounds still pass with the new weights; the October 9 fixture no longer asserts a 15-second spread, because the weights no longer come from it. The October 16 fixture test checks six and eight partitions against the 1,500-second host budget. At about 1,630 seconds of minima per partition, the full suite no longer fits four 1,200-second partitions, so no four-partition bound is asserted for it. This does not claim that a local four-process full run has acquired the legacy matrix budget.
 
 Each process retains the original sorted file order. Unknown files receive the same default weight and remain mandatory; file counts need not be equal. Producer, aggregate and local full runner import the same candidate implementation, not a separately installed timing registry. New selections change the manifest and must be rerun together. Untracked build output does not imply a tracked source change.
+
+## Eight partitions, 2026-10-16
+
+CI now runs eight partitions. Each keeps the 1,500-second absolute budget and the
+24-second cleanup reserve; the aggregate permits eight budgets plus 1,800 seconds
+of queue gaps, a 13,800-second (230-minute) wall span. Six and four partitions
+remain accepted by both tools with their existing limits, and the local full-suite
+default is unchanged.
+
+Run 38968059268 (PR #863 head `e266c86e`, the commerce candidate after its
+weights were regenerated) selected 411 files. No case failed. Partition 1 reached
+its 1,476-second test allowance with 64/69 files completed. Partition 5 completed
+all 69 files and 906 cases in 1,036 seconds, then failed cleanup: its `DROP
+DATABASE` exceeded the 16-second read timeout. The passing partitions took
+1,014, 1,367, 1,415 and 1,412 seconds, three of them within 5% of the allowance.
+Many files ran far above their minima on these hosts (for example, 22 to 108
+seconds and 9 to 82 seconds), so weights cannot keep six partitions inside the
+budget: recomputing the six-way allocation with these weights and this run's
+durations still gives a heaviest partition of about 1,430 seconds before
+provisioning. The same durations give about 1,040 seconds for the heaviest of
+eight partitions.
+
+`runtime-hosted-costs-20261016.json` now covers 404 files; per-file minima total
+about 6,140 seconds, about 1,027 seconds per six-way partition and 770 seconds
+per eight-way partition. Each run uses two more hosted runners. These are
+scheduling estimates, not acceptance evidence; the new matrix still requires one
+fresh complete hosted run.
 
 ## Current queue capacity and attempt isolation, 2026-10-15
 
@@ -48,7 +75,7 @@ CI uploads `runtime-partition-<run_attempt>-<index>` and downloads only
 `runtime-partition-<current_run_attempt>-*` from the current workflow run.
 The six inner JSON filenames remain unchanged. A failed-only retry cannot
 borrow earlier-attempt passes; missing current-attempt fragments fail closed.
-After a runtime or aggregate failure, rerun all six partitions together (the
+After a runtime or aggregate failure, rerun all partitions together (the
 complete workflow), never splice artifacts across attempts. Aggregate diagnostic
 artifacts also include the attempt, preserving previous failures without name
 conflicts. All six fragments still require the exact candidate and source
@@ -113,20 +140,45 @@ test result remains successful; only its late-file scheduling measurements are
 unusable. The other five partitions' timing records did not reach the ceiling.
 
 The reporter's diagnostic bound now matches the existing 1,500-second execution
-budget. Weight generation rejects any started/completed record at either the
+budget for both six and eight partitions. Strict `--log` input rejects any
+started/completed record at either the
 legacy 1,200,000-ms ceiling or the current 1,500,000-ms ceiling, and rejects
 invalid/out-of-range elapsed values. An exact natural hit on a ceiling is also
 conservatively rejected because v1 records cannot distinguish it from clamping.
-No incomplete or saturated partition is silently dropped from a refresh.
+No incomplete or saturated partition is silently dropped from a strict refresh.
+
+Explicit `--partial-log` preserves historical scheduling estimates: it admits
+only matched completed files, omits files with either endpoint at either ceiling,
+and never invents a duration for in-flight or unstarted files. Both modes reject
+invalid start/end values, reversed durations and inconsistent counters. The CLI
+marks partial cost output `input_completeness: partial_scheduling_estimates`,
+lists the partial log names, and emits a warning. These estimates cannot serve as
+a complete refresh; retain the original logs, source identities and missing-file
+accounting. Historical saturated logs must now be explicitly named partial even
+if their file counts were complete. Parse/validation failure (including an empty
+partial segment) occurs before either existing output is overwritten.
 
 Existing weights and their historical fixture remain unchanged. Collect complete,
 unsaturated per-file evidence from a future ordinary required run, verify source
-hashes and the full six-partition union, then evaluate a separate weight refresh.
+hashes and the full current eight-partition union, then evaluate a separate weight refresh.
 Do not infer missing durations from zero deltas or substitute log arrival times
 for the reporter's monotonic clock. Tests exercise late-file emission/decoding,
 legacy saturation rejection and the unchanged failed-timeout result boundary.
 This fixes measurement fidelity; no hosted speedup is demonstrated or promised.
 Suite budgets, selection, case checks, cleanup, scheduling and security are unchanged.
+
+Pre-Commerce run 39002101887 used runner/candidate `cc65d3d4` and verified
+371 files across six partitions; 23 endpoints exceeded 1,200,000 ms, reaching
+1,365,634 ms without clipping. It proves late timing retention, not complete
+Commerce-source coverage or acceleration. Browser shards took 30.4/30.9 minutes
+and remained the critical path. Await ordinary eight-partition CI on the
+integrated source before considering weights or a matched whole-run comparison.
+The earlier local focused 29/30 result remains a failure: the unchanged one-second
+timeout fixture saw zero completed files. Controlled child-start pauses of 100 ms
+and 1,200 ms under the same 1,000 ms host deadline yielded one and zero completed
+files respectively, both correctly failing with test_timeout. This demonstrates
+the fixture startup-scheduling dependency, not the original delay’s exact cause;
+the isolated pass does not erase it. No deadline or assertion was relaxed.
 
 ## Historical capacity change, 2026-10-10
 

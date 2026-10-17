@@ -69,6 +69,18 @@ The isolated [identity](../../tests/runtime/shop-service-identity.test.ts), [com
 
 ## Hosted stores
 
+### Release 1.1.0 and upgrade
+
+New stores use `hosted-store@1.1.0` / `storefront@1.1.0`, with the original
+storefront contract bytes and twelve registered capabilities. Existing 1.0.0
+instances retain their four keys until their owner invokes the versioned,
+idempotent upgrade command. `GET .../storefronts/:instance_id/release` reports the
+installed references, effective caller keys and registered upgrade path; only an
+active tenant's owner can upgrade an active instance. The paired upgrade bumps
+authority revision, retains grants and records a release journal/control fact.
+It does not enable payment processing. Provider setup and independent admission
+are documented in `payments/README.md` and `operations/README.md`.
+
 The `storefront` module uses the existing commerce tables. A hosted store has two `commerce_shops` rows with `origin='hosted'`: an internal supply shop for items and a public storefront shop for selections. `commerce_resource_tenants` maps each shop to its tenant and instance under tenant RLS. The original acting person principal is saved as `source_owner_id`; readers never infer this historical identity from the current member. Private profile, publication and product reads join confirmed mappings under a session-bound tenant context. Registry provisioning creates no shop; the separate setup command creates both shops, mappings and the profile atomically.
 
 Profiles hold the slug and current publication pointer. Publications preserve immutable revisions containing only the public name, brand, description, currency, ordered product display fields and publication metadata. [hosted/public.ts](hosted/public.ts) is the single anonymous reader: its read-only transaction resolves the explicit publication, then binds a principal-less tenant context and, under RLS, checks the active tenant and instance, the confirmed shop mapping, and that the tenant currently has at least one active owner who is not a verification test account. The account that ran setup plays no part in public liveness. Anonymous readers receive the stored allowlist, never live item rows or tenant/member identifiers. Profiles and publications are outside RLS specifically for that reader; every private read remains anchored to an RLS relation.

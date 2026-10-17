@@ -61,7 +61,7 @@ function assertBlocks(body: any, key: string) {
   assert.equal(body.guild_key, key);
   assert.equal(body.mission_override, null);
   assert.deepEqual(body.application_refs, ['guild_commerce_sales', 'guild_product_quality_supply'].includes(key)
-    ? [{application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0', order: 0}, {application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 1}]
+    ? [{application_key: 'hosted-store', release_ref: 'hosted-store@1.1.0', order: 0}, {application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 1}]
     : (key === 'guild_commercial_production' || key === 'guild_talent_direction') ? [{application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 0}] : []);
   assert.equal(body.blocks.length, BLOCK_KINDS.length);
   assert.deepEqual([...body.blocks.map((block: {kind: string}) => block.kind)].sort(), [...BLOCK_KINDS].sort());
