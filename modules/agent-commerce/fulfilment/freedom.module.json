@@ -1,0 +1,39 @@
+{
+  "client_profiles": [],
+  "contract_families": [],
+  "dependencies": [
+    "commerce-providers",
+    "hosted-checkout"
+  ],
+  "format": "freedom.module/v1",
+  "instructions": [
+    "modules/agent-commerce/fulfilment/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-05-fulfilment.md"
+  ],
+  "invariants": [],
+  "module_id": "commerce-fulfilment",
+  "owned_paths": [
+    "modules/agent-commerce/fulfilment/**",
+    "tests/runtime/commerce-fulfilment-rules.test.ts",
+    "docs/platform-plan/execution/commerce/ecpay-logistics-status-map.tsv",
+    "migrations/170_hosted_fulfilment.sql",
+    "apps/platform-api/src/routes/hosted-shipping.ts",
+    "contracts/guild-launchpad/v1/hosted-shipping.ts",
+    "contracts/guild-launchpad/v1/hosted-shipping.schema.json",
+    "tests/runtime/hosted-shipping-locations.test.ts",
+    "tests/runtime/hosted-shipping-profile.test.ts",
+    "tests/runtime/hosted-shipping-attributes.test.ts",
+    "tests/runtime/hosted-shipping-contracts.test.ts",
+    "scripts/synthetic-shipping-quote.ts",
+    "tests/runtime/hosted-shipping-quote.test.ts",
+    "tests/runtime/hosted-shipping-quote-checkout.test.ts"
+  ],
+  "owner_role": "foundation",
+  "public_exports": [
+    "modules/agent-commerce/fulfilment/rules/index.ts"
+  ],
+  "surfaces": [],
+  "tests": [
+    "runtime.full"
+  ]
+}

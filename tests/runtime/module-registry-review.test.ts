@@ -1760,7 +1760,7 @@ test('r8 catalog and launchpad deduplicate releases before sorting and keyset pa
         assert.ok(single.indexOf(`${key}|${key}@1.0.0`) > single.indexOf(`${beforeKey}|${beforeKey}@1.0.0`));
         assert.ok(single.indexOf(`${key}|${key}@1.0.0`) < single.indexOf(`${afterKey}|${afterKey}@1.0.0`));
       } else {
-        assert.deepEqual(single, ['manual-workspace|manual-workspace@1.0.0', `${key}|${key}@1.0.0`, 'hosted-store|hosted-store@1.0.0']);
+        assert.deepEqual(single, ['manual-workspace|manual-workspace@1.0.0', `${key}|${key}@1.0.0`, 'hosted-store|hosted-store@1.1.0']);
       }
     }
   }

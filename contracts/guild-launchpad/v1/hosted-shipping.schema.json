@@ -1,0 +1,2326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/hosted-shipping",
+  "description": "Immutable hosted shipping settings. Identity, ownership, capability, availability and version checks remain server authority.",
+  "$defs": {
+    "logistics-service-key": {
+      "type": "string",
+      "enum": [
+        "ecpay.logistics.home.tcat",
+        "ecpay.logistics.home.post",
+        "ecpay.logistics.cvs.unimartc2c",
+        "ecpay.logistics.cvs.famic2c",
+        "ecpay.logistics.cvs.hilifec2c"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "delivery-method": {
+      "type": "string",
+      "enum": [
+        "home",
+        "cvs:UNIMARTC2C",
+        "cvs:FAMIC2C",
+        "cvs:HILIFEC2C",
+        "meetup"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "logistics-delivery-method": {
+      "type": "string",
+      "enum": [
+        "home",
+        "cvs:UNIMARTC2C",
+        "cvs:FAMIC2C",
+        "cvs:HILIFEC2C"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "meetup-delivery-option": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "const": "meetup"
+        },
+        "note": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+            },
+            {
+              "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+            }
+          ]
+        }
+      },
+      "required": [
+        "method",
+        "note"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "checkout-delivery-input": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "home"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "postal_code": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "address": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "required": [
+            "method",
+            "name",
+            "mobile",
+            "postal_code",
+            "address"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "cvs:UNIMARTC2C"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "cvs:FAMIC2C"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "cvs:HILIFEC2C"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "mobile": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "method": {
+              "type": "string",
+              "const": "meetup"
+            }
+          },
+          "required": [
+            "name",
+            "mobile",
+            "method"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "cart-delivery-input": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "home"
+            },
+            "postal_code": {
+              "type": "string",
+              "maxLength": 10
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "cvs:UNIMARTC2C"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "cvs:FAMIC2C"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "cvs:HILIFEC2C"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "meetup"
+            }
+          },
+          "required": [
+            "method"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-empty-input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "ship-from-location-input": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "sender_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "mobile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "postal_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "ships": {
+          "type": "boolean"
+        },
+        "receives_returns": {
+          "type": "boolean"
+        },
+        "replaces_location_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "label",
+        "sender_name",
+        "mobile",
+        "postal_code",
+        "address",
+        "ships",
+        "receives_returns"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "ship-from-location": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "sender_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "mobile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "postal_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "ships": {
+          "type": "boolean"
+        },
+        "receives_returns": {
+          "type": "boolean"
+        },
+        "location_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "replaces_location_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "in_use": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+        },
+        "retired_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "sender_name",
+        "mobile",
+        "postal_code",
+        "address",
+        "ships",
+        "receives_returns",
+        "location_id",
+        "replaces_location_id",
+        "in_use",
+        "created_at",
+        "retired_at"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "ship-from-location-page": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "sender_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "mobile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              },
+              "postal_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10
+              },
+              "address": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "ships": {
+                "type": "boolean"
+              },
+              "receives_returns": {
+                "type": "boolean"
+              },
+              "location_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "replaces_location_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 36,
+                    "maxLength": 36,
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "in_use": {
+                "type": "boolean"
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+              },
+              "retired_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "label",
+              "sender_name",
+              "mobile",
+              "postal_code",
+              "address",
+              "ships",
+              "receives_returns",
+              "location_id",
+              "replaces_location_id",
+              "in_use",
+              "created_at",
+              "retired_at"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "ship-from-location-retire-input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "parcel-limits": {
+      "type": "object",
+      "properties": {
+        "max_weight_g": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "max_longest_side_mm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "max_dimension_sum_mm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        }
+      },
+      "required": [
+        "max_weight_g",
+        "max_longest_side_mm",
+        "max_dimension_sum_mm"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "profile-service": {
+      "type": "object",
+      "properties": {
+        "service_key": {
+          "type": "string",
+          "enum": [
+            "ecpay.logistics.home.tcat",
+            "ecpay.logistics.home.post",
+            "ecpay.logistics.cvs.unimartc2c",
+            "ecpay.logistics.cvs.famic2c",
+            "ecpay.logistics.cvs.hilifec2c"
+          ]
+        },
+        "ship_from_location_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "temperature": {
+          "type": "string",
+          "const": "ambient"
+        },
+        "handling_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 14
+        },
+        "cutoff_time": {
+          "type": "string",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$(?![\\s\\S])"
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "max_weight_g": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "max_longest_side_mm": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "max_dimension_sum_mm": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30000
+            }
+          },
+          "required": [
+            "max_weight_g",
+            "max_longest_side_mm",
+            "max_dimension_sum_mm"
+          ],
+          "additionalProperties": false
+        },
+        "outlying_islands": {
+          "type": "string",
+          "enum": [
+            "allowed",
+            "excluded"
+          ]
+        }
+      },
+      "required": [
+        "service_key",
+        "ship_from_location_id",
+        "temperature",
+        "handling_days",
+        "cutoff_time",
+        "limits",
+        "outlying_islands"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "delivery-option": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "home",
+                "cvs:UNIMARTC2C",
+                "cvs:FAMIC2C",
+                "cvs:HILIFEC2C"
+              ]
+            },
+            "fee_per_parcel_minor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "multipleOf": 100
+            },
+            "free_over_minor": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 1000000000,
+                  "multipleOf": 100
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outlying": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "excluded"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "surcharge"
+                    },
+                    "surcharge_per_parcel_minor": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000,
+                      "multipleOf": 100
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "surcharge_per_parcel_minor"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "method",
+            "fee_per_parcel_minor",
+            "free_over_minor",
+            "outlying"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "const": "meetup"
+            },
+            "note": {
+              "type": "string",
+              "allOf": [
+                {
+                  "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                },
+                {
+                  "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                }
+              ]
+            }
+          },
+          "required": [
+            "method",
+            "note"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "drop-ship-fee": {
+      "type": "object",
+      "properties": {
+        "service_key": {
+          "type": "string",
+          "enum": [
+            "ecpay.logistics.home.tcat",
+            "ecpay.logistics.home.post",
+            "ecpay.logistics.cvs.unimartc2c",
+            "ecpay.logistics.cvs.famic2c",
+            "ecpay.logistics.cvs.hilifec2c"
+          ]
+        },
+        "fee_per_parcel_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000,
+          "multipleOf": 100
+        }
+      },
+      "required": [
+        "service_key",
+        "fee_per_parcel_minor"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "drop-ship": {
+      "type": "object",
+      "properties": {
+        "offered": {
+          "type": "boolean"
+        },
+        "fees": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "service_key": {
+                "type": "string",
+                "enum": [
+                  "ecpay.logistics.home.tcat",
+                  "ecpay.logistics.home.post",
+                  "ecpay.logistics.cvs.unimartc2c",
+                  "ecpay.logistics.cvs.famic2c",
+                  "ecpay.logistics.cvs.hilifec2c"
+                ]
+              },
+              "fee_per_parcel_minor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000,
+                "multipleOf": 100
+              }
+            },
+            "required": [
+              "service_key",
+              "fee_per_parcel_minor"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "return_location_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "liability": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,1000}$(?![\\s\\S])"
+            },
+            {
+              "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+            }
+          ]
+        },
+        "recipient_retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "accept_within_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 72
+        }
+      },
+      "required": [
+        "offered",
+        "fees",
+        "return_location_id",
+        "liability",
+        "recipient_retention_days",
+        "accept_within_hours"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-profile-document": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "freedom.shipping-profile/v1"
+        },
+        "working_days": {
+          "minItems": 1,
+          "maxItems": 7,
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          }
+        },
+        "services": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "service_key": {
+                "type": "string",
+                "enum": [
+                  "ecpay.logistics.home.tcat",
+                  "ecpay.logistics.home.post",
+                  "ecpay.logistics.cvs.unimartc2c",
+                  "ecpay.logistics.cvs.famic2c",
+                  "ecpay.logistics.cvs.hilifec2c"
+                ]
+              },
+              "ship_from_location_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "temperature": {
+                "type": "string",
+                "const": "ambient"
+              },
+              "handling_days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 14
+              },
+              "cutoff_time": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$(?![\\s\\S])"
+              },
+              "limits": {
+                "type": "object",
+                "properties": {
+                  "max_weight_g": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "max_longest_side_mm": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "max_dimension_sum_mm": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30000
+                  }
+                },
+                "required": [
+                  "max_weight_g",
+                  "max_longest_side_mm",
+                  "max_dimension_sum_mm"
+                ],
+                "additionalProperties": false
+              },
+              "outlying_islands": {
+                "type": "string",
+                "enum": [
+                  "allowed",
+                  "excluded"
+                ]
+              }
+            },
+            "required": [
+              "service_key",
+              "ship_from_location_id",
+              "temperature",
+              "handling_days",
+              "cutoff_time",
+              "limits",
+              "outlying_islands"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "delivery_options": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "home",
+                      "cvs:UNIMARTC2C",
+                      "cvs:FAMIC2C",
+                      "cvs:HILIFEC2C"
+                    ]
+                  },
+                  "fee_per_parcel_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000,
+                    "multipleOf": 100
+                  },
+                  "free_over_minor": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 1000000000,
+                        "multipleOf": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "outlying": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "excluded"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "surcharge"
+                          },
+                          "surcharge_per_parcel_minor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000,
+                            "multipleOf": 100
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "surcharge_per_parcel_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "method",
+                  "fee_per_parcel_minor",
+                  "free_over_minor",
+                  "outlying"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "const": "meetup"
+                  },
+                  "note": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                      },
+                      {
+                        "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "method",
+                  "note"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "drop_ship": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "offered": {
+                  "type": "boolean"
+                },
+                "fees": {
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "service_key": {
+                        "type": "string",
+                        "enum": [
+                          "ecpay.logistics.home.tcat",
+                          "ecpay.logistics.home.post",
+                          "ecpay.logistics.cvs.unimartc2c",
+                          "ecpay.logistics.cvs.famic2c",
+                          "ecpay.logistics.cvs.hilifec2c"
+                        ]
+                      },
+                      "fee_per_parcel_minor": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000,
+                        "multipleOf": 100
+                      }
+                    },
+                    "required": [
+                      "service_key",
+                      "fee_per_parcel_minor"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "return_location_id": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "liability": {
+                  "type": "string",
+                  "allOf": [
+                    {
+                      "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,1000}$(?![\\s\\S])"
+                    },
+                    {
+                      "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                    }
+                  ]
+                },
+                "recipient_retention_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30
+                },
+                "accept_within_hours": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 72
+                }
+              },
+              "required": [
+                "offered",
+                "fees",
+                "return_location_id",
+                "liability",
+                "recipient_retention_days",
+                "accept_within_hours"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "working_days",
+        "services",
+        "delivery_options",
+        "drop_ship"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-profile-input": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "freedom.shipping-profile/v1"
+        },
+        "working_days": {
+          "minItems": 1,
+          "maxItems": 7,
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          }
+        },
+        "services": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "service_key": {
+                "type": "string",
+                "enum": [
+                  "ecpay.logistics.home.tcat",
+                  "ecpay.logistics.home.post",
+                  "ecpay.logistics.cvs.unimartc2c",
+                  "ecpay.logistics.cvs.famic2c",
+                  "ecpay.logistics.cvs.hilifec2c"
+                ]
+              },
+              "ship_from_location_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "temperature": {
+                "type": "string",
+                "const": "ambient"
+              },
+              "handling_days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 14
+              },
+              "cutoff_time": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$(?![\\s\\S])"
+              },
+              "limits": {
+                "type": "object",
+                "properties": {
+                  "max_weight_g": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "max_longest_side_mm": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "max_dimension_sum_mm": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30000
+                  }
+                },
+                "required": [
+                  "max_weight_g",
+                  "max_longest_side_mm",
+                  "max_dimension_sum_mm"
+                ],
+                "additionalProperties": false
+              },
+              "outlying_islands": {
+                "type": "string",
+                "enum": [
+                  "allowed",
+                  "excluded"
+                ]
+              }
+            },
+            "required": [
+              "service_key",
+              "ship_from_location_id",
+              "temperature",
+              "handling_days",
+              "cutoff_time",
+              "limits",
+              "outlying_islands"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "delivery_options": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "home",
+                      "cvs:UNIMARTC2C",
+                      "cvs:FAMIC2C",
+                      "cvs:HILIFEC2C"
+                    ]
+                  },
+                  "fee_per_parcel_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000,
+                    "multipleOf": 100
+                  },
+                  "free_over_minor": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 1000000000,
+                        "multipleOf": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "outlying": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "excluded"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "surcharge"
+                          },
+                          "surcharge_per_parcel_minor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000,
+                            "multipleOf": 100
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "surcharge_per_parcel_minor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "method",
+                  "fee_per_parcel_minor",
+                  "free_over_minor",
+                  "outlying"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "const": "meetup"
+                  },
+                  "note": {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                      },
+                      {
+                        "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "method",
+                  "note"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "drop_ship": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "offered": {
+                  "type": "boolean"
+                },
+                "fees": {
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "service_key": {
+                        "type": "string",
+                        "enum": [
+                          "ecpay.logistics.home.tcat",
+                          "ecpay.logistics.home.post",
+                          "ecpay.logistics.cvs.unimartc2c",
+                          "ecpay.logistics.cvs.famic2c",
+                          "ecpay.logistics.cvs.hilifec2c"
+                        ]
+                      },
+                      "fee_per_parcel_minor": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000,
+                        "multipleOf": 100
+                      }
+                    },
+                    "required": [
+                      "service_key",
+                      "fee_per_parcel_minor"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "return_location_id": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "liability": {
+                  "type": "string",
+                  "allOf": [
+                    {
+                      "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,1000}$(?![\\s\\S])"
+                    },
+                    {
+                      "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                    }
+                  ]
+                },
+                "recipient_retention_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30
+                },
+                "accept_within_hours": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 72
+                }
+              },
+              "required": [
+                "offered",
+                "fees",
+                "return_location_id",
+                "liability",
+                "recipient_retention_days",
+                "accept_within_hours"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "working_days",
+        "services",
+        "delivery_options",
+        "drop_ship"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "logistics-availability": {
+      "type": "object",
+      "properties": {
+        "service_key": {
+          "type": "string",
+          "enum": [
+            "ecpay.logistics.home.tcat",
+            "ecpay.logistics.home.post",
+            "ecpay.logistics.cvs.unimartc2c",
+            "ecpay.logistics.cvs.famic2c",
+            "ecpay.logistics.cvs.hilifec2c"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "suspended",
+            "draft",
+            "not_configured"
+          ]
+        }
+      },
+      "required": [
+        "service_key",
+        "state"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-profile-view": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "schema": {
+                  "type": "string",
+                  "const": "freedom.shipping-profile/v1"
+                },
+                "working_days": {
+                  "minItems": 1,
+                  "maxItems": 7,
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 7
+                  }
+                },
+                "services": {
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "service_key": {
+                        "type": "string",
+                        "enum": [
+                          "ecpay.logistics.home.tcat",
+                          "ecpay.logistics.home.post",
+                          "ecpay.logistics.cvs.unimartc2c",
+                          "ecpay.logistics.cvs.famic2c",
+                          "ecpay.logistics.cvs.hilifec2c"
+                        ]
+                      },
+                      "ship_from_location_id": {
+                        "type": "string",
+                        "minLength": 36,
+                        "maxLength": 36,
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                      },
+                      "temperature": {
+                        "type": "string",
+                        "const": "ambient"
+                      },
+                      "handling_days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 14
+                      },
+                      "cutoff_time": {
+                        "type": "string",
+                        "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$(?![\\s\\S])"
+                      },
+                      "limits": {
+                        "type": "object",
+                        "properties": {
+                          "max_weight_g": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000
+                          },
+                          "max_longest_side_mm": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10000
+                          },
+                          "max_dimension_sum_mm": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 30000
+                          }
+                        },
+                        "required": [
+                          "max_weight_g",
+                          "max_longest_side_mm",
+                          "max_dimension_sum_mm"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "outlying_islands": {
+                        "type": "string",
+                        "enum": [
+                          "allowed",
+                          "excluded"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "service_key",
+                      "ship_from_location_id",
+                      "temperature",
+                      "handling_days",
+                      "cutoff_time",
+                      "limits",
+                      "outlying_islands"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "delivery_options": {
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "method": {
+                            "type": "string",
+                            "enum": [
+                              "home",
+                              "cvs:UNIMARTC2C",
+                              "cvs:FAMIC2C",
+                              "cvs:HILIFEC2C"
+                            ]
+                          },
+                          "fee_per_parcel_minor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000,
+                            "multipleOf": 100
+                          },
+                          "free_over_minor": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 100,
+                                "maximum": 1000000000,
+                                "multipleOf": 100
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "outlying": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "excluded"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "surcharge"
+                                  },
+                                  "surcharge_per_parcel_minor": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000,
+                                    "multipleOf": 100
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "surcharge_per_parcel_minor"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "method",
+                          "fee_per_parcel_minor",
+                          "free_over_minor",
+                          "outlying"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "method": {
+                            "type": "string",
+                            "const": "meetup"
+                          },
+                          "note": {
+                            "type": "string",
+                            "allOf": [
+                              {
+                                "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,200}$(?![\\s\\S])"
+                              },
+                              {
+                                "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "method",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "drop_ship": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "offered": {
+                          "type": "boolean"
+                        },
+                        "fees": {
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "service_key": {
+                                "type": "string",
+                                "enum": [
+                                  "ecpay.logistics.home.tcat",
+                                  "ecpay.logistics.home.post",
+                                  "ecpay.logistics.cvs.unimartc2c",
+                                  "ecpay.logistics.cvs.famic2c",
+                                  "ecpay.logistics.cvs.hilifec2c"
+                                ]
+                              },
+                              "fee_per_parcel_minor": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000,
+                                "multipleOf": 100
+                              }
+                            },
+                            "required": [
+                              "service_key",
+                              "fee_per_parcel_minor"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "return_location_id": {
+                          "type": "string",
+                          "minLength": 36,
+                          "maxLength": 36,
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "liability": {
+                          "type": "string",
+                          "allOf": [
+                            {
+                              "pattern": "^(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]){1,1000}$(?![\\s\\S])"
+                            },
+                            {
+                              "pattern": "^[^\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F]*$(?![\\s\\S])"
+                            }
+                          ]
+                        },
+                        "recipient_retention_days": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 30
+                        },
+                        "accept_within_hours": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 72
+                        }
+                      },
+                      "required": [
+                        "offered",
+                        "fees",
+                        "return_location_id",
+                        "liability",
+                        "recipient_retention_days",
+                        "accept_within_hours"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "schema",
+                "working_days",
+                "services",
+                "delivery_options",
+                "drop_ship"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "saved_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "sandbox",
+            "live"
+          ]
+        },
+        "logistics": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.home.tcat"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.home.post"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.cvs.unimartc2c"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.cvs.famic2c"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "service_key": {
+                  "type": "string",
+                  "const": "ecpay.logistics.cvs.hilifec2c"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "suspended",
+                    "draft",
+                    "not_configured"
+                  ]
+                }
+              },
+              "required": [
+                "service_key",
+                "state"
+              ],
+              "additionalProperties": false
+            }
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
+        }
+      },
+      "required": [
+        "version",
+        "profile",
+        "saved_at",
+        "environment",
+        "logistics"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "item-shipping-attributes-input": {
+      "type": "object",
+      "properties": {
+        "weight_g": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "length_mm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "width_mm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "height_mm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "temperature": {
+          "type": "string",
+          "enum": [
+            "ambient",
+            "chilled",
+            "frozen"
+          ]
+        },
+        "cvs_allowed": {
+          "type": "boolean"
+        },
+        "ship_alone": {
+          "type": "boolean"
+        },
+        "max_per_parcel": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "weight_g",
+        "length_mm",
+        "width_mm",
+        "height_mm",
+        "temperature",
+        "cvs_allowed",
+        "ship_alone",
+        "max_per_parcel"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "item-shipping-attributes": {
+      "type": "object",
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attributes": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "weight_g": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000000
+                },
+                "length_mm": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "width_mm": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "height_mm": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "temperature": {
+                  "type": "string",
+                  "enum": [
+                    "ambient",
+                    "chilled",
+                    "frozen"
+                  ]
+                },
+                "cvs_allowed": {
+                  "type": "boolean"
+                },
+                "ship_alone": {
+                  "type": "boolean"
+                },
+                "max_per_parcel": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 999
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "weight_g",
+                "length_mm",
+                "width_mm",
+                "height_mm",
+                "temperature",
+                "cvs_allowed",
+                "ship_alone",
+                "max_per_parcel"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "product_id",
+        "version",
+        "attributes",
+        "updated_at"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-field-error-code": {
+      "type": "string",
+      "enum": [
+        "required",
+        "format",
+        "too_short",
+        "too_long",
+        "unknown_postal_code",
+        "blocked_term",
+        "duplicate",
+        "post_mainland_only",
+        "not_in_services",
+        "fees_required",
+        "not_found",
+        "retired",
+        "role_required",
+        "not_activated"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-field-error": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-z_]+(\\.([0-9]{1,2}|[a-z_]+))*$(?![\\s\\S])"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "required",
+            "format",
+            "too_short",
+            "too_long",
+            "unknown_postal_code",
+            "blocked_term",
+            "duplicate",
+            "post_mainland_only",
+            "not_in_services",
+            "fees_required",
+            "not_found",
+            "retired",
+            "role_required",
+            "not_activated"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "code"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-error-code": {
+      "type": "string",
+      "enum": [
+        "shipping_input_invalid",
+        "ship_from_location_not_found",
+        "ship_from_location_retired",
+        "ship_from_location_limit",
+        "ship_from_location_role_required",
+        "ship_from_location_in_use",
+        "ship_from_location_unavailable",
+        "logistics_service_unavailable",
+        "not_found",
+        "tenant_not_found",
+        "capability_denied",
+        "tenant_capability_denied",
+        "storefront_unavailable",
+        "storefront_not_set_up",
+        "validation_failed",
+        "invalid_json",
+        "invalid_command_json",
+        "origin_rejected",
+        "host_rejected",
+        "json_required",
+        "body_too_large",
+        "login_required",
+        "csrf_rejected",
+        "onboarding_required",
+        "scope_kind_unavailable",
+        "foundation_mapping_unavailable",
+        "tenant_context_unavailable",
+        "resource_not_found",
+        "invalid_query",
+        "idempotency_required",
+        "idempotency_conflict",
+        "version_required",
+        "invalid_version",
+        "version_conflict",
+        "session_expired",
+        "principal_disabled",
+        "scope_disabled",
+        "internal_error"
+      ],
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    },
+    "shipping-error": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "about:blank"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "shipping_input_invalid",
+            "ship_from_location_not_found",
+            "ship_from_location_retired",
+            "ship_from_location_limit",
+            "ship_from_location_role_required",
+            "ship_from_location_in_use",
+            "ship_from_location_unavailable",
+            "logistics_service_unavailable",
+            "not_found",
+            "tenant_not_found",
+            "capability_denied",
+            "tenant_capability_denied",
+            "storefront_unavailable",
+            "storefront_not_set_up",
+            "validation_failed",
+            "invalid_json",
+            "invalid_command_json",
+            "origin_rejected",
+            "host_rejected",
+            "json_required",
+            "body_too_large",
+            "login_required",
+            "csrf_rejected",
+            "onboarding_required",
+            "scope_kind_unavailable",
+            "foundation_mapping_unavailable",
+            "tenant_context_unavailable",
+            "resource_not_found",
+            "invalid_query",
+            "idempotency_required",
+            "idempotency_conflict",
+            "version_required",
+            "invalid_version",
+            "version_conflict",
+            "session_expired",
+            "principal_disabled",
+            "scope_disabled",
+            "internal_error"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "fields": {
+          "minItems": 1,
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^[a-z_]+(\\.([0-9]{1,2}|[a-z_]+))*$(?![\\s\\S])"
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "required",
+                  "format",
+                  "too_short",
+                  "too_long",
+                  "unknown_postal_code",
+                  "blocked_term",
+                  "duplicate",
+                  "post_mainland_only",
+                  "not_in_services",
+                  "fees_required",
+                  "not_found",
+                  "retired",
+                  "role_required",
+                  "not_activated"
+                ]
+              }
+            },
+            "required": [
+              "path",
+              "code"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+    }
+  }
+}

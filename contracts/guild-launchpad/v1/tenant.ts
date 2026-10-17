@@ -111,7 +111,7 @@ export const PageQuerySchema = z.object({
 }).strict();
 export const InviteCandidateQuerySchema = z.object({ user_id: OpaqueId }).strict();
 
-export const HighRiskPurposeSchema = z.enum(['tenant.ownership.propose', 'tenant.ownership.accept', 'tenant.recovery.accept']);
+export const HighRiskPurposeSchema = z.enum(['tenant.ownership.propose', 'tenant.ownership.accept', 'tenant.recovery.accept', 'commerce.provider_account.write', 'commerce.store_export.create']);
 export const FromRoleAfterSchema = z.enum(['admin', 'operator', 'viewer', 'revoked']);
 export const TransferStateSchema = z.enum(['pending', 'accepted', 'declined', 'cancelled', 'expired', 'invalidated']);
 export const RecoveryStateSchema = z.enum(['opened', 'evidence_required', 'approved', 'executed', 'denied', 'cancelled']);

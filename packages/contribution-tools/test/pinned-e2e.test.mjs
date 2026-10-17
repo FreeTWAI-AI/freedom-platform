@@ -300,8 +300,122 @@ test('diagnostic saturation preserves listing and both reports before bounded op
     assert.ok(receipt.bytes <= 128 * 1024 * 1024);
     assert.ok(receipt.copied <= 512);
     assert.ok(receipt.omitted > 0);
-    assert.ok((await readdir(join(saved, 'artifacts'))).length < 600);
+    // The oversized optional directory is omitted without scanning its tail.
+    await assert.rejects(stat(join(saved, 'artifacts')), { code: 'ENOENT' });
     await assert.rejects(stat(temp), { code: 'ENOENT' });
+  });
+});
+
+function failureReport(results) {
+  return JSON.stringify({ suites: [{ specs: [{ tests: [{ results }] }] }] });
+}
+function failureResult(status, paths) {
+  return { status, attachments: paths.map(path => ({ name: 'trace', path })) };
+}
+async function diagnosticRun(root) {
+  const temp = join(root, 'scratch'), output = join(root, 'result.json');
+  await cleanupE2ePass(temp, output, 'default', true);
+  await assert.rejects(stat(temp), { code: 'ENOENT' });
+  const [run] = await readdir(output + '.failure-artifacts');
+  const saved = join(output + '.failure-artifacts', run);
+  const receipt = JSON.parse(await readFile(join(saved, 'diagnostics.json'), 'utf8'));
+  return { saved, receipt };
+}
+
+test('absolute failure traces survive 520 earlier screenshots that a lexical walk would keep first', async () => {
+  await withFixture(async root => {
+    const temp = join(root, 'scratch');
+    const shots = join(temp, 'shard-1', 'artifacts');
+    const traces = join(temp, 'shard-2', 'artifacts');
+    await mkdir(shots, { recursive: true });
+    await mkdir(traces, { recursive: true });
+    for (let index = 0; index < 520; index++) await writeFile(join(shots, `aaa-${String(index).padStart(4, '0')}.png`), 'p');
+    const passedShot = join(shots, 'zzz-passed.png');
+    const failedTrace = join(traces, 'zzz-failed-trace.zip');
+    const timedTrace = join(traces, 'zzz-timedout-trace.zip');
+    const interruptedTrace = join(shots, 'zzz-interrupted-trace.zip');
+    await writeFile(passedShot, 'passed-only');
+    await writeFile(failedTrace, 'failed-trace');
+    await writeFile(timedTrace, 'timedout-trace');
+    await writeFile(interruptedTrace, 'interrupted-trace');
+    await writeFile(join(traces, 'after-budget.png'), 'ordinary later-shard screenshot');
+    await writeFile(join(root, 'private.txt'), 'must-not-leak');
+    await symlink(join(root, 'private.txt'), join(traces, 'zzz-linked-trace.zip'));
+    const outside = join(root, 'outside-trace.zip');
+    await writeFile(outside, 'outside');
+    await writeFile(join(temp, 'shard-2', 'report.json'), failureReport([
+      failureResult('failed', [
+        failedTrace,
+        join(traces, 'zzz-linked-trace.zip'),
+        outside,
+        `${temp}/shard-2/artifacts/../../private.txt`,
+        `${temp}/shard-2//artifacts/zzz-failed-trace.zip`,
+      ]),
+      failureResult('passed', [passedShot]),
+    ]));
+    await writeFile(join(temp, 'shard-1', 'report.json'), failureReport([
+      failureResult('timedOut', [timedTrace]),
+      failureResult('interrupted', [interruptedTrace]),
+    ]));
+    const { saved, receipt } = await diagnosticRun(root);
+    assert.equal(await readFile(join(saved, 'shard-2', 'artifacts', 'zzz-failed-trace.zip'), 'utf8'), 'failed-trace');
+    assert.equal(await readFile(join(saved, 'shard-2', 'artifacts', 'zzz-timedout-trace.zip'), 'utf8'), 'timedout-trace');
+    assert.equal(await readFile(join(saved, 'shard-1', 'artifacts', 'zzz-interrupted-trace.zip'), 'utf8'), 'interrupted-trace');
+    assert.equal(JSON.parse(await readFile(join(saved, 'shard-2', 'report.json'), 'utf8')).suites[0].specs[0].tests[0].results[0].status, 'failed');
+    const keptShots = (await readdir(join(saved, 'shard-1', 'artifacts'))).filter(name => name.startsWith('aaa-'));
+    assert.deepEqual(keptShots, []);
+    await assert.rejects(stat(join(saved, 'shard-1', 'artifacts', 'zzz-passed.png')), { code: 'ENOENT' });
+    await assert.rejects(stat(join(saved, 'shard-2', 'artifacts', 'zzz-linked-trace.zip')), { code: 'ENOENT' });
+    await assert.rejects(stat(join(saved, 'shard-2', 'artifacts', 'after-budget.png')), { code: 'ENOENT' });
+    await assert.rejects(stat(join(saved, 'outside-trace.zip')), { code: 'ENOENT' });
+    await assert.rejects(stat(join(saved, 'private.txt')), { code: 'ENOENT' });
+    assert.ok(receipt.copied <= 512);
+    assert.ok(receipt.bytes <= 128 * 1024 * 1024);
+    assert.ok(receipt.omitted > 0);
+    assert.equal(receipt.admission_evidence, false);
+  });
+});
+
+test('non-sharded report.json failures stay ahead of later screenshots', async () => {
+  await withFixture(async root => {
+    const temp = join(root, 'scratch');
+    const shots = join(temp, 'artifacts');
+    await mkdir(shots, { recursive: true });
+    for (let index = 0; index < 520; index++) await writeFile(join(shots, `aaa-${String(index).padStart(4, '0')}.png`), 'p');
+    const trace = join(shots, 'zzz-root-trace.zip');
+    await writeFile(trace, 'root-failed-trace');
+    await writeFile(join(temp, 'report.json'), failureReport([failureResult('failed', [trace])]));
+    const { saved, receipt } = await diagnosticRun(root);
+    assert.equal(await readFile(join(saved, 'artifacts', 'zzz-root-trace.zip'), 'utf8'), 'root-failed-trace');
+    assert.deepEqual((await readdir(join(saved, 'artifacts'))).filter(name => name.startsWith('aaa-')), []);
+    assert.equal(JSON.parse(await readFile(join(saved, 'report.json'), 'utf8')).suites[0].specs[0].tests[0].results[0].status, 'failed');
+    assert.ok(receipt.copied <= 512);
+    assert.ok(receipt.bytes <= 128 * 1024 * 1024);
+    assert.ok(receipt.omitted > 0);
+    assert.equal(receipt.admission_evidence, false);
+  });
+});
+
+test('over-deep attachments and symlink ancestors stay out of diagnostics', async () => {
+  await withFixture(async root => {
+    const temp = join(root, 'scratch');
+    const shots = join(temp, 'artifacts');
+    const deep = join(shots, 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8');
+    await mkdir(deep, { recursive: true });
+    await writeFile(join(shots, 'ok-trace.zip'), 'visible-trace');
+    await writeFile(join(deep, 'too-deep.zip'), 'too-deep');
+    await mkdir(join(root, 'outside'));
+    await writeFile(join(root, 'outside', 'trace.zip'), 'leaked-bytes');
+    await symlink(join(root, 'outside'), join(shots, 'link-parent'));
+    await writeFile(join(temp, 'report.json'), failureReport([failureResult('failed', [
+      join(shots, 'ok-trace.zip'),
+      join(deep, 'too-deep.zip'),
+      join(shots, 'link-parent', 'trace.zip'),
+    ])]));
+    const { saved } = await diagnosticRun(root);
+    assert.equal(await readFile(join(saved, 'artifacts', 'ok-trace.zip'), 'utf8'), 'visible-trace');
+    await assert.rejects(stat(join(saved, 'artifacts', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'too-deep.zip')), { code: 'ENOENT' });
+    await assert.rejects(stat(join(saved, 'artifacts', 'link-parent', 'trace.zip')), { code: 'ENOENT' });
   });
 });
 const invoke = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...cliEnv, ...env }, timeout: 60000 });

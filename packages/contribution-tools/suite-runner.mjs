@@ -172,7 +172,7 @@ async function runGroup(root, selections, runtime, options, cap = runtime ? 900_
 // within each serial process. Full local runner and matrix producer/aggregate
 // use this same function; no selected file is dropped or split.
 export function partitionRuntimeFiles(files, count) {
-  if (![1, 2, 4, 6].includes(count) || files.length < count || new Set(files).size !== files.length) throw Error('invalid_runtime_partition');
+  if (![1, 2, 4, 6, 8].includes(count) || files.length < count || new Set(files).size !== files.length) throw Error('invalid_runtime_partition');
   const loads = Array(count).fill(0), assignments = new Map();
   const ordered = files.map((path, index) => ({path, index, weight: RUNTIME_FILE_WEIGHTS[path] ?? DEFAULT_RUNTIME_FILE_WEIGHT}))
     .sort((a, b) => b.weight - a.weight || a.index - b.index);
@@ -452,12 +452,12 @@ const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';
 // Finite matrix capacity, including provisioning and verified cleanup. Hosted
 // observations on 2026-10-15 put the same 55 files about 20% slower and the
 // projected full partition beyond 1,224s. Keep legacy four-partition behavior;
-// six hosts get 1,500s including the unchanged 24s cleanup reserve.
-const PARTITION_BUDGET_MS = Object.freeze({ 4: 1_200_000, 6: 1_500_000 });
-// Queueing can serialize all six hosts: allow six full partition budgets plus
+// six and eight hosts get 1,500s including the unchanged 24s cleanup reserve.
+const PARTITION_BUDGET_MS = Object.freeze({ 4: 1_200_000, 6: 1_500_000, 8: 1_500_000 });
+// Queueing can serialize every host: allow one full partition budget per host plus
 // 30 minutes of bounded queue gaps. CI scopes artifacts to one run attempt;
 // this wall span does not extend any partition's execution/cleanup deadline.
-const MATRIX_WINDOW_MS = Object.freeze({ 4: 1_800_000, 6: 6 * 1_500_000 + 1_800_000 });
+const MATRIX_WINDOW_MS = Object.freeze({ 4: 1_800_000, 6: 6 * 1_500_000 + 1_800_000, 8: 8 * 1_500_000 + 1_800_000 });
 const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const strictKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
@@ -484,7 +484,7 @@ export async function runtimeSourceManifest(root) {
 // one serial test process, including provisioning/cleanup inside its partition budget.
 export async function runRuntimePartition(root, options = {}) {
   const count = options.partitionCount;
-  partitionCheck([4, 6].includes(count) && Number.isInteger(options.partitionIndex) &&
+  partitionCheck([4, 6, 8].includes(count) && Number.isInteger(options.partitionIndex) &&
     options.partitionIndex >= 0 && options.partitionIndex < count, 'invalid_runtime_partition');
   partitionCheck(Object.keys(options).every(key => ['partitionCount','partitionIndex','testDatabaseUrl','signal'].includes(key)), 'invalid_runtime_partition_options');
   const budget = PARTITION_BUDGET_MS[count];
@@ -519,7 +519,7 @@ export async function runRuntimePartition(root, options = {}) {
 export async function aggregateRuntimePartitions(root, fragments, options = {}) {
   const failure = reason => ({check_id:'runtime.full',status:'failed',reason,gate_enforced:false,merge_authorized:false});
   try {
-    partitionCheck(Object.keys(options).every(key => ['partitionCount'].includes(key)) && [4, 6].includes(options.partitionCount ?? 4), 'runtime_partition_options_invalid');
+    partitionCheck(Object.keys(options).every(key => ['partitionCount'].includes(key)) && [4, 6, 8].includes(options.partitionCount ?? 4), 'runtime_partition_options_invalid');
     const numPartitions = options.partitionCount ?? 4;
     partitionCheck(Array.isArray(fragments) && fragments.length === numPartitions, 'runtime_partitions_missing');
     const source = await runtimeSourceManifest(root);

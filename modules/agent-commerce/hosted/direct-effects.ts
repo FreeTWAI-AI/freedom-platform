@@ -3,6 +3,7 @@ import {ReservationOrderSchema, ReservationQuoteSchema, type ReservationOrder} f
 import { requireCondition } from '../../../packages/shared/problem.js';
 import { directFact, type DirectContext, type DirectEffectContext } from './direct-authority.js';
 import {boundReservationInventory, localReservationInventory, type ReservationInventory} from './inventory.js';
+import {settleDueCheckoutHolds} from '../checkout/settlement.js';
 
 export interface DirectOrderRow {
   order_id: string; public_shop_id: string; buyer_principal_id: string; client_order_id: string; quote_id: string;
@@ -78,6 +79,12 @@ export async function expireDirectForItems(q: PoolClient, context: DirectContext
   // item suffice. With <=50 requested items this is bounded by 4950 orders.
   requireCondition(requested.length <= 50 && requested.every(r => Number.isInteger(r.quantity) && r.quantity > 0 && r.quantity <= 99),
     400, 'invalid_reservation_items', '商品數量無效。');
+  // Reclaim only physically needed checkout holds. At least one unit per
+  // selected order bounds the combined checkout/v1 work to <=99 per item.
+  for (const item of [...requested].sort((a,b)=>a.item_id.localeCompare(b.item_id))) {
+    const stock=await inventory.status(item.item_id);
+    if(stock && stock.available<item.quantity)await settleDueCheckoutHolds(q,[item.item_id],{ordersPerItem:Math.min(99,item.quantity-stock.available)});
+  }
   for (const item of [...requested].sort((a, b) => a.item_id.localeCompare(b.item_id))) {
     const stock = await inventory.status(item.item_id);
     requireCondition(stock, 409, 'quote_terms_changed', '商品已更新，請重新確認。');

@@ -737,12 +737,12 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   for (const str of banned) assert.doesNotMatch(text, new RegExp(str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'u'));
 
   const runtimeFull = jobBlock(text, 'runtime-full');
-  assert.match(runtimeFull, /partition: \[0, 1, 2, 3, 4, 5\]/);
+  assert.match(runtimeFull, /partition: \[0, 1, 2, 3, 4, 5, 6, 7\]/);
   assert.match(runtimeFull, /fail-fast: false/);
-  assert.match(runtimeFull, /node \.freedom\/trusted\/scripts\/runtime-full\.mjs --partition-count 6 --partition-index/);
+  assert.match(runtimeFull, /node \.freedom\/trusted\/scripts\/runtime-full\.mjs --partition-count 8 --partition-index/);
 
   const runtimeAggregate = jobBlock(text, 'runtime-aggregate');
-  assert.match(runtimeAggregate, /node \.freedom\/trusted\/scripts\/runtime-aggregate\.mjs --partition-count 6 --input-dir/);
+  assert.match(runtimeAggregate, /node \.freedom\/trusted\/scripts\/runtime-aggregate\.mjs --partition-count 8 --input-dir/);
   // Artifacts belong to one run attempt. A failed-only rerun cannot combine
   // its replacement fragment with previous-attempt passes, even at one SHA.
   assert.match(runtimeFull, /name: runtime-partition-\$\{\{ github\.run_attempt \}\}-\$\{\{ matrix\.partition \}\}/u);

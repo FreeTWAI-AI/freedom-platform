@@ -5,7 +5,7 @@ import { aggregateRuntimePartitions } from '../packages/contribution-tools/suite
 
 const args = process.argv.slice(2);
 const [count, rest] = args[0] === '--partition-count' ? [args[1], args.slice(2)] : ['4', args];
-if (!['4','6'].includes(count) || rest.length !== 4 || rest[0] !== '--input-dir' || !rest[1] || rest[2] !== '--output' || !rest[3]) {
+if (!['4','6','8'].includes(count) || rest.length !== 4 || rest[0] !== '--input-dir' || !rest[1] || rest[2] !== '--output' || !rest[3]) {
   console.error('invalid_runtime_aggregate_arguments'); process.exit(2);
 }
 const partitionCount = Number(count);
