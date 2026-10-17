@@ -205,7 +205,7 @@ test('npm pack ships only the executable and public docs', () => {
   const [result] = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: packageDir, encoding: 'utf8' }));
   assert.equal(result.name, '@freetwai/skill-upload');
   assert.equal(result.version, '0.1.0');
-  assert.deepEqual(result.files.map(f => f.path).sort(), ['README.md', 'SKILL.md', 'bin/freedom-skill-upload.mjs', 'package.json', 'protocol.md']);
+  assert.deepEqual(result.files.map(f => f.path).sort(), ['LICENSE', 'README.md', 'SKILL.md', 'bin/freedom-skill-upload.mjs', 'package.json', 'protocol.md']);
   const binFile = result.files.find(f => f.path === 'bin/freedom-skill-upload.mjs');
   assert.ok(binFile.mode & 0o111, 'bin is executable');
 });

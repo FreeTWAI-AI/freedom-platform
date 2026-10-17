@@ -1,8 +1,23 @@
+import {createHostedDistributionPhotoRoutes,distributionPhotosInstalled} from './routes/hosted-distribution-photos.js';
+import {createHostedSupplyMaterialRoutes} from './routes/hosted-supply-materials.js';
+import {createHostedSupplyMaterialMediaRoutes,isSupplyMaterialUpload,checkSupplyMaterialHeaders,supplyMaterialMediaInstalled,supplyMaterialUploadsInstalled} from './routes/hosted-supply-material-media.js';
+import {createHostedShippingRoutes} from './routes/hosted-shipping.js';
+import {createHostedOfflinePaymentRoutes} from './routes/hosted-offline-payments.js';
+import {assertQueryTransportInstallation} from '../../../modules/agent-commerce/payments/query-transport.js';
+import {isCommerceProviderEntry,isCommerceProviderEntryPath} from '../../../modules/agent-commerce/operations/provider-entry-paths.js';
+import {createHostedSellerCheckoutRoutes} from './routes/hosted-seller-checkout.js';
+import {createHostedCommerceSetupRoutes} from './routes/hosted-commerce-setup.js';
+import {assertPaymentGatewayInstallation} from '../../../modules/agent-commerce/payments/gateway.js';
+import {isPaymentHandoffPath} from '../../../modules/agent-commerce/payments/handoff.js';
+import {createHostedPaymentRoutes,hostedPaymentOptions} from './routes/hosted-payments.js';
+import {providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
+import {createHostedCheckoutRoutes,hostedCheckoutOptions} from './routes/hosted-checkout.js';
+import {createHostedSupplierConsoleRoutes} from './routes/hosted-supplier-console.js';
 import {isArUpload,checkArUploadHeaders,createPublicArRoutes,createMemberArRoutes} from './routes/community-ar.js';
 import {readWithMemberSession} from '../../../packages/db/member-session.js';
 import {createHostedStoreMediaRoutes,createPublicHostedStoreMediaRoutes,isStorePhotoUpload,checkStorePhotoHeaders,storePhotosInstalled,storePhotoUploadsInstalled} from './routes/hosted-store-media.js';
 import { createHostedOrderRoutes } from './routes/hosted-orders.js';
-import { privateCache as hostedOrderPrivateCache } from './routes/tenant-http.js';
+import { privateCache as hostedOrderPrivateCache, singleQuery } from './routes/tenant-http.js';
 import { createHostedStoreRoutes, createPublicHostedStoreRoutes } from './routes/hosted-store.js';
 import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
@@ -16,7 +31,7 @@ import type { Pool } from 'pg';
 import { authenticate, login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
 import { memberBoundary } from './member-boundary.js';
 import { readSessionCookie, sessionCookieName } from './session-cookie.js';
-import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
+import { createWork,claimWork,changeClaim,listWorks,listWorksPage,workListPageQuery,dashboard } from '../../../modules/opportunity-project-work/work.js';
 import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { listOwnShowcases,readOwnShowcase,createShowcaseDraft,updateOwnShowcase,publishOwnShowcase,withdrawOwnShowcase } from '../../../modules/opportunity-project-work/business.js';
@@ -147,21 +162,25 @@ export const wireVersionResponses:MiddlewareHandler=async(c,next)=>{
 /** Browser page for a share token. The JSON and avatar routes set the same tag themselves. */
 export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
 /** Shared by the Worker file fast path; route-specific form destinations stay here. */
-export function platformContentSecurityPolicy(path:string,brokerFormOrigin?:string){
+export function platformContentSecurityPolicy(path:string,brokerFormOrigin?:string,paymentFormOrigin?:string){
   const githubSetupForm=path==='/admin'||path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI/settings/apps/new':'';
-  return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; media-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
+  const destinations=isPaymentHandoffPath(path)?(paymentFormOrigin?' '+paymentFormOrigin:''):githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
+  return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; media-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+destinations;
 }
-export function platformResponseHeaders(path:string,brokerFormOrigin?:string){
-  return {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':platformContentSecurityPolicy(path,brokerFormOrigin)};
+export function platformResponseHeaders(path:string,brokerFormOrigin?:string,paymentFormOrigin?:string){
+  return {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':platformContentSecurityPolicy(path,brokerFormOrigin,paymentFormOrigin)};
 }
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
+  assertQueryTransportInstallation(runtime.commerceQueryTransport,freedomEnv);
+  assertPaymentGatewayInstallation(runtime.commercePayments?.gateway,freedomEnv,origin);
   if(runtime.eventOutcomesEnabled===true&&runtime.squadOutcomesEnabled!==true)throw new Error('event_outcomes_require_squad_outcomes');
   if(runtime.firstParticipationEnabled===true&&runtime.personalContentEnabled!==true)throw new Error('first_participation_requires_personal_content');
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
   const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
+  const paymentFormOrigin=runtime.commercePayments?.gateway?new URL(runtime.commercePayments.gateway.checkoutAction).origin:undefined;
   if(brokerFormOrigin!==undefined){
     const setup=new URL(brokerFormOrigin),main=new URL(origin);
     if(setup.protocol!=='https:'||setup.origin!==brokerFormOrigin||setup.username||setup.password
@@ -206,7 +225,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.use('/api/v1/me/onboarding/*',onboardingDiagnostics());
   app.use('*',async(c,next)=>{
-    const headers=platformResponseHeaders(c.req.path,brokerFormOrigin);
+    const headers=platformResponseHeaders(c.req.path,brokerFormOrigin,paymentFormOrigin);
     for(const [name,value] of Object.entries(headers))if(name!=='Content-Security-Policy')c.header(name,value);
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
@@ -216,9 +235,11 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     if(c.req.path==='/api/v1/me/reports'||c.req.path.startsWith('/api/v1/me/reports/')||c.req.path==='/api/v1/admin/reports'||c.req.path.startsWith('/api/v1/admin/reports/')){
       requireCondition(runtime.memberReportingEnabled===true,404,'not_found','找不到這個頁面。');
     }
-    readSessionCookie(c.req.header('Cookie'),origin);
-    if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     c.header('Content-Security-Policy',headers['Content-Security-Policy']);
+    const commerceProviderEntry=isCommerceProviderEntry(c.req.method,c.req.path);
+    if(isCommerceProviderEntryPath(c.req.path)&&!commerceProviderEntry)return c.body(null,404);
+    if(!commerceProviderEntry)readSessionCookie(c.req.header('Cookie'),origin);
+    if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     // Public guide responses are terminal and own their explicit validated cache policy.
     // Return before generic mutation body parsing; unknown paths never reach the SPA.
     if(isGuideAssetPath(c.req.path)){
@@ -237,8 +258,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       const shopMachine=c.req.path.startsWith('/shop-api/v1/');
       const maintainerWebhook=isMaintainerWebhookPath(c.req.method,c.req.path);
       // GitHub sends no Origin. A browser Origin that is present must still match.
-      if((!agentUpload&&!shopMachine&&!maintainerWebhook)||c.req.header('Origin')!==undefined)requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
-      if(agentUpload) {
+      if(!commerceProviderEntry&&((!agentUpload&&!shopMachine&&!maintainerWebhook)||c.req.header('Origin')!==undefined))requireCondition(allowedOrigins.has(c.req.header('Origin')??''),403,'origin_rejected',freedomEnv==='local'?'操作來源不正確，請從本機工作台操作。':'操作來源不正確，請從自由工坊網站操作。');
+      if(commerceProviderEntry) {
+        // The signed provider route owns form parsing and its bounded byte stream.
+      } else if(agentUpload) {
         // The Agent route authenticates and consumes a bounded stream itself.
       } else if(maintainerWebhook) {
         // The route checks content type, the 2 MiB cap and the signature, then reads the raw body.
@@ -258,6 +281,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       } else if(isStorePhotoUpload(c.req.method,c.req.path)) {
         requireCondition(runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),404,'not_found','找不到這個頁面。');
         checkStorePhotoHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
+      } else if(isSupplyMaterialUpload(c.req.method,c.req.path)) {
+        c.header('Cache-Control','private, no-store');c.header('Vary','Cookie');
+        requireCondition(runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true&&supplyMaterialMediaInstalled(runtime),404,'not_found','找不到這個頁面。');
+        checkSupplyMaterialHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isMessageImageUpload(c.req.method,c.req.path)) {
         // Binary body only when the feature is installed; otherwise the route does not exist.
         requireCondition(messageImagesInstalled(runtime),404,'not_found','找不到這個頁面。');
@@ -272,7 +299,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         // The route reads a capped byte stream after the session check. Do not parse JSON.
         checkTenantResultContentHeaders(c.req.header('Content-Length'));
       } else {
-        requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
+        requireCondition(/^application\/json[ \t]*(?:;|$)/i.test(c.req.header('Content-Type')??''),415,'json_required','操作需要 JSON。');
         // Note creation may embed one base64 image (#387); every other JSON command keeps the small ceiling.
         const jsonLimit=c.req.method==='POST'&&c.req.path==='/api/v1/social-posts/notes'?SOCIAL_NOTE_REQUEST_BYTES:32768;
         requireCondition(Number(c.req.header('Content-Length')??0)<=jsonLimit,413,'body_too_large','內容過長。');
@@ -330,7 +357,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     });
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
-  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true,runtime.participationMetricsEnabled===true));
+  app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true,runtime.participationMetricsEnabled===true,providerEnvironment(freedomEnv),runtime.commercePayments?.journal));
   const skillEventBacklinks=runtime.eventOutcomesEnabled===true?async(id:string,c:Context)=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -342,7 +369,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,ar_enabled:runtime.arEnabled===true&&!!runtime.arAssetStore,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',commerce_checkout_enabled:runtime.commerceSettings?.checkoutEnabled===true&&runtime.commerceSettings?.quarantine!==true,commerce_console_enabled:runtime.commerceSettings?.consoleEnabled===true&&runtime.supplierConsoleEnabled===true&&runtime.guildLaunchpadEnabled===true,public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,member_reporting_enabled:runtime.memberReportingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,ar_enabled:runtime.arEnabled===true&&!!runtime.arAssetStore,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,message_images_enabled:messageImagesInstalled(runtime),event_participation_enabled:runtime.eventParticipationEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,first_participation_enabled:runtime.firstParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true,hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime),distribution_photos_enabled:distributionPhotosInstalled(runtime),supply_material_media_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true&&supplyMaterialMediaInstalled(runtime),supply_material_uploads_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true&&supplyMaterialUploadsInstalled(runtime),supplier_console_enabled:runtime.guildLaunchpadEnabled===true&&runtime.supplierConsoleEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -576,13 +603,24 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
     app.route('/',createPublicModuleRegistryRoutes(pool,origin));
-    app.route('/',createPublicHostedStoreRoutes(pool,runtime.publicOrigin));
+    app.route('/',createPublicHostedStoreRoutes(pool,runtime.publicOrigin,hostedCheckoutOptions(origin,runtime,freedomEnv)));
     if(storePhotosInstalled(runtime))app.route('/',createPublicHostedStoreMediaRoutes(pool,runtime));
   }
-  for (const path of ['/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {
+  for (const path of ['/api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/content', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/versions/:version_id/content', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/partner-materials/:material_id/versions/:version_id/content', '/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
+  app.route('/',createHostedCheckoutRoutes(pool,origin,runtime,freedomEnv));
+  app.route('/',createHostedPaymentRoutes(pool,runtime,freedomEnv,origin));
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
+  // EC-SPEC-10 §8.3 covers setup and catalog writes as well as order actions.
+  // Keep this at composition: fulfilment must not depend on operations settings,
+  // and every storefront route (including future sibling settings) shares it.
+  for (const path of ['/api/v1/tenants/:tenant_id/storefronts/:instance_id', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/*']) app.use(path, async (c, next) => {
+    try {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) requireCondition(runtime.commerceSettings?.quarantine !== true, 503, 'commerce_quarantined', '商務服務暫時停止寫入。');
+      await next();
+    } finally { hostedOrderPrivateCache(c); }
+  });
   app.post('/api/v1/me/account/email-verification/request',async c=>{
     requireCondition(runtime.eventEmailSender,503,'email_verification_unavailable','驗證信郵件服務尚未設定完成。');
     z.object({}).strict().parse(await c.req.json());
@@ -665,6 +703,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/',secure:secureCookies,httpOnly:true,sameSite:'Strict'});return c.json({logged_out:true});});
   app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
+  app.get('/api/v1/work-items/page',async c=>{
+    const query=workListPageQuery.parse(singleQuery(c));
+    return c.json(await listWorksPage(pool,c.get('actor'),query));
+  });
   app.route('/api/v1',createPrivateWorkRoutes(pool));
   app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));
   // Action suffix is part of the constrained segment; validate its UUID separately.
@@ -717,7 +759,17 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders,runtime.tenantListCursors));
     app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore,runtime.tenantListCursors));
     app.route('/api/v1',createHostedStoreRoutes(pool));
+    app.route('/api/v1',createHostedCommerceSetupRoutes(pool,{keyring:runtime.commerceCredentialKeyring??null,journal:runtime.commercePayments?.journal,activation:hostedPaymentOptions(runtime,freedomEnv),environment:runtime.commerceProviderEnvironment??providerEnvironment(freedomEnv)}));
+    if(runtime.commerceSettings?.consoleEnabled===true)app.route('/api/v1',createHostedShippingRoutes(pool,{environment:runtime.commerceProviderEnvironment??providerEnvironment(freedomEnv)}));
+    if(runtime.commerceSettings?.consoleEnabled===true)app.route('/api/v1',createHostedOfflinePaymentRoutes(pool,{profiles:runtime.commerceSettings.providerProfiles}));
+    if(runtime.commerceSettings?.consoleEnabled===true)app.route('/api/v1',createHostedSellerCheckoutRoutes(pool,{settings:runtime.commerceSettings,payment:runtime.commercePorts?.payment,paymentActions:runtime.commercePorts?.paymentActions,cursors:runtime.tenantListCursors,network:runtime.rateLimitNetwork??runtime.sourceNetwork}));
+    if(runtime.supplierConsoleEnabled===true) {
+      app.route('/api/v1',createHostedSupplierConsoleRoutes(pool,{cursors:runtime.tenantListCursors}));
+      app.route('/api/v1',createHostedSupplyMaterialRoutes(pool));
+    }
     if(storePhotosInstalled(runtime))app.route('/api/v1',createHostedStoreMediaRoutes(pool,runtime));
+    if(distributionPhotosInstalled(runtime))app.route('/api/v1',createHostedDistributionPhotoRoutes(pool,runtime));
+    if(runtime.supplierConsoleEnabled===true&&supplyMaterialMediaInstalled(runtime))app.route('/api/v1',createHostedSupplyMaterialMediaRoutes(pool,runtime));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
   for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*','/shop-api/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));

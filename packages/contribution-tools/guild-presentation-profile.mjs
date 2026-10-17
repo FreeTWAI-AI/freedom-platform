@@ -1,7 +1,7 @@
 // Reviewed CI obligations for the two sample guilds. This is not an application
 // registry or executable descriptor data; unknown guilds require a reviewed plan.
 export const GUILD_PRESENTATION_IMPORTS = Object.freeze({
-  'modules/guild-supply/CatalogBlock.tsx': "import React from 'react';\nimport {MyStoresPageSchema} from '../../contracts/guild-launchpad/v1/storefront-pagination';\nimport {useGuildRead, type GuildBlockProps} from '../../packages/guild-presentation/block';\nimport {GuildBlockState} from '../../apps/portal-web/src/guild-blocks/GuildBlockState';\n\n",
+  'modules/guild-supply/CatalogBlock.tsx': "import React from 'react';\nimport {MyStoresPageSchema} from '../../contracts/guild-launchpad/v1/storefront-pagination';\nimport {SupplierSummarySchema} from '../../contracts/guild-launchpad/v1/supplier-console';\nimport {useGuildRead, type GuildBlockProps} from '../../packages/guild-presentation/block';\nimport {GuildBlockState} from '../../apps/portal-web/src/guild-blocks/GuildBlockState';\n\n",
   'modules/guild-open-source/WorksBlock.tsx': "import React from 'react';\nimport {z} from 'zod';\nimport {useGuildRead, type GuildBlockProps} from '../../packages/guild-presentation/block';\nimport {GuildBlockState} from '../../apps/portal-web/src/guild-blocks/GuildBlockState';\n\n",
 });
 
@@ -20,11 +20,11 @@ export const GUILD_PRESENTATION_PROFILE = Object.freeze({
   id: 'guild-presentation',
   leaves: Object.freeze([
     Object.freeze({module: 'guild-supply', owner: 'guild-supply-maintainer',
-      entry: 'modules/guild-supply/CatalogBlock.tsx', dependencies: Object.freeze(['guild-presentation', 'hosted-distribution']),
-      surface: 'guild-block.supply-catalog.v1', operation: 'storefront.supply-catalog.list'}),
+      entry: 'modules/guild-supply/CatalogBlock.tsx', dependencies: Object.freeze(['guild-presentation', 'hosted-distribution', 'supplier-console']),
+      surface: 'guild-block.supply-catalog.v1', operations: Object.freeze(['storefront.supply-catalog.list', 'supplier-console.summary'])}),
     Object.freeze({module: 'guild-open-source', owner: 'guild-open-source-maintainer',
       entry: 'modules/guild-open-source/WorksBlock.tsx', dependencies: Object.freeze(['guild-presentation', 'personal-content']),
-      surface: 'guild-block.open-source-works.v1', operation: 'community.personal-content-page.view'}),
+      surface: 'guild-block.open-source-works.v1', operations: Object.freeze(['community.personal-content-page.view'])}),
   ]),
   runtimeSuite: 'runtime.guild-presentation',
   runtimeFiles: Object.freeze(['guild-blocks', 'guild-launchpad', 'guild-launchpad-contracts', 'guild-launchpad-profiles', 'launchpad-profile-defaults'].map(name => `tests/runtime/${name}.test.ts`)),

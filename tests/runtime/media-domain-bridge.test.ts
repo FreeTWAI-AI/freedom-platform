@@ -35,9 +35,9 @@ test('bridge retains historical bytes yet asset reads refuse cross-purpose metad
 test('typed pointer cannot disappear while the asset attachment remains published',async()=>{const s=await setup(),u=await upload(s);await s.api.finalize(s.owner,{key:randomUUID(),...u.lease});await assert.rejects(pool.query('UPDATE member_service_cover_asset_targets SET asset_id=NULL WHERE service_id=$1',[s.id]),(e:any)=>e.code==='23514');assert.equal((await coverSnapshot(s))!.assetId,u.assetId);});
 test('other domain modes default to legacy and unknown purposes cannot enter the finite registry',async()=>{
  const rows=(await pool.query("SELECT purpose,mode FROM domain_media_storage_policy WHERE purpose<>'member.service-cover'")).rows;
- assert.deepEqual(rows.map(r=>r.purpose).sort(),['skill.submission-image','community.event-banner','community.event-video','community.event-highlight','community.social-thumbnail','community.comment-image','member.message-image','storefront.product-photo','member.ar-target'].sort());
+ assert.deepEqual(rows.map(r=>r.purpose).sort(),['skill.submission-image','community.event-banner','community.event-video','community.event-highlight','community.social-thumbnail','community.comment-image','member.message-image','storefront.product-photo','member.ar-target','storefront.supply-material','storefront.supply-material-video'].sort());
  assert.ok(rows.every(r=>r.mode==='legacy'));
- for(const purpose of ['storefront.product-photo','community.comment-image','member.ar-target'])assert.deepEqual((await pool.query("SELECT persistence_allowed,policy_revision,retained_byte_limit FROM domain_media_storage_policy WHERE purpose=$1",[purpose])).rows,[{persistence_allowed:false,policy_revision:null,retained_byte_limit:null}]);
+ for(const purpose of ['storefront.product-photo','community.comment-image','member.ar-target','storefront.supply-material','storefront.supply-material-video'])assert.deepEqual((await pool.query("SELECT persistence_allowed,policy_revision,retained_byte_limit FROM domain_media_storage_policy WHERE purpose=$1",[purpose])).rows,[{persistence_allowed:false,policy_revision:null,retained_byte_limit:null}]);
  await assert.rejects(pool.query("INSERT INTO domain_media_storage_policy(purpose) VALUES('future.unknown')"),(e:any)=>e.code==='23514');
 });
 
@@ -58,3 +58,9 @@ test('policy prohibition committed while publication waits is observed before re
 test('fresh additive migration leaves canonical cover persistence prohibited with no invented settings',()=>{assert.deepEqual(initialPolicy,{mode:'legacy',policy_revision:null,persistence_allowed:false,retained_byte_limit:null});});
 
 test('canonical installed resolver still rejects an intent pinned to a changed database revision',async()=>{const original=await setup(),s={...original,api:createServiceCoverAssetService(pool,{store:original.store,resolvePolicy:resolveServiceCoverUploadPolicy})},u=await upload(s);await pool.query("UPDATE domain_media_storage_policy SET policy_revision='synthetic-v2' WHERE purpose='member.service-cover'");await assert.rejects(s.api.finalize(s.owner,{key:randomUUID(),...u.lease}),code('asset_policy_changed'));});
+
+test('distribution photos reuse the product-photo policy and do not add a weaker purpose',async()=>{
+ const policy=(await pool.query("SELECT purpose FROM domain_media_storage_policy WHERE purpose LIKE '%distribution%'")).rows;assert.deepEqual(policy,[]);
+ const tables=(await pool.query("SELECT tgrelid::regclass::text AS table_name FROM pg_trigger WHERE tgname='reject_fenced_asset_reference' AND tgrelid IN ('commerce_distribution_photo_copies'::regclass,'commerce_distribution_photo_targets'::regclass) ORDER BY table_name")).rows;
+ assert.deepEqual(tables.map(row=>row.table_name),['commerce_distribution_photo_copies','commerce_distribution_photo_targets']);
+});

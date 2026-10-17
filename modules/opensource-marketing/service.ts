@@ -18,6 +18,10 @@ const campaignContent=z.object({title:text(120),audience:text(1000),goal:text(10
 export const campaignInput=campaignContent.extend({source_project_id:z.uuid().nullable().default(null),source_supplier_product_id:z.uuid().nullable().default(null),source_brief:z.string().trim().max(3000).default('')}).strict()
   .refine(body=>{const count=Number(Boolean(body.source_project_id))+Number(Boolean(body.source_supplier_product_id));return count===1?body.source_brief==='':count===0&&body.source_brief.length>0;},{message:'請選一件自己的開源作品或供貨商品，或填寫活動來源簡述。'});
 const shareInput=z.object({channel:text(80),share_url:externalLink,note:z.string().trim().max(1000).default('')}).strict();
+const campaignPage=z.object({
+  limit:z.coerce.number().int().min(1).max(50).default(20),
+  offset:z.coerce.number().int().min(0).default(0),
+}).strict();
 type ProjectSource=Awaited<ReturnType<typeof inspectGitHubRepository>>;
 
 /** Projection only: use the caller's command or locked member-read transaction. */
@@ -151,9 +155,13 @@ async function campaignView(q:Pool|PoolClient,actor:Actor,id:string) {
   const shares=(await q.query('SELECT * FROM marketing_share_records WHERE campaign_id=$1 ORDER BY created_at DESC,share_id',[id])).rows;
   return {...row,shares};
 }
-export async function listCampaigns(q:PoolClient,actor:Actor) {
-  return (await q.query(`SELECT c.*,COALESCE((SELECT jsonb_agg(s ORDER BY s.created_at DESC) FROM marketing_share_records s WHERE s.campaign_id=c.campaign_id),'[]'::jsonb) AS shares
-    FROM marketing_campaign_drafts c WHERE c.community_id=$1 AND c.owner_ref=$2 ORDER BY c.created_at DESC,c.campaign_id LIMIT 100`,[actor.community_id,actor.user_id])).rows;
+export async function listCampaigns(q:PoolClient,actor:Actor,raw:unknown={}) {
+  const {limit,offset}=campaignPage.parse(raw);
+  const rows=(await q.query(`SELECT c.*,COALESCE((SELECT jsonb_agg(s ORDER BY s.created_at DESC,s.share_id DESC) FROM marketing_share_records s WHERE s.campaign_id=c.campaign_id),'[]'::jsonb) AS shares
+    FROM marketing_campaign_drafts c WHERE c.community_id=$1 AND c.owner_ref=$2
+    ORDER BY c.created_at DESC,c.campaign_id DESC LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
+  const more=rows.length>limit;
+  return {items:rows.slice(0,limit),next_offset:more?offset+limit:null};
 }
 export async function createCampaign(pool:Pool,input:Command) {
   const body=campaignInput.parse(input.body);

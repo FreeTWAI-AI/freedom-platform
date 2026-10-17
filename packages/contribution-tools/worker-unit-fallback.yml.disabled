@@ -1,0 +1,94 @@
+# Review/install separately as .github/workflows/worker-unit-fallback.yml.
+# Hard-disabled even if copied into workflows; activation requires a code review.
+name: Worker unit fallback
+run-name: ci.worker-unit ${{ inputs.source_sha }} ${{ inputs.attempt }}
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+      runner_sha:
+        required: true
+        type: string
+      suite_digest:
+        required: true
+        type: string
+      attempt:
+        required: true
+        type: string
+      run_worker:
+        type: boolean
+        default: false
+permissions: {}
+jobs:
+  worker-unit:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+        env:
+          POSTGRES_USER: freedom_local
+          POSTGRES_PASSWORD: local-development-only
+          POSTGRES_DB: fp_foundation_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: '-c dynamic_shared_memory_type=mmap'
+        ports: ['127.0.0.1:5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U freedom_local -d fp_foundation_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
+      WRANGLER_SEND_METRICS: 'false'
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.21.0'
+      - name: Fetch exact public candidate without checkout credentials
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RUNNER_SHA: ${{ inputs.runner_sha }}
+          SUITE_DIGEST: ${{ inputs.suite_digest }}
+          ROUTING_ATTEMPT: ${{ inputs.attempt }}
+          RUN_WORKER: ${{ inputs.run_worker }}
+        run: |
+          test "$RUN_WORKER" = true
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RUNNER_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SUITE_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$ROUTING_ATTEMPT" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$ ]]
+          git init .
+          git remote add origin https://github.com/FreeTWAI/freedom-platform.git
+          git fetch --no-tags --depth=1 origin "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - run: npm ci
+      - run: npm run contracts:build
+      - run: npm run build
+      - run: npm run worker:dry-run
+      - run: npm run worker:dry-run:admin-sync
+      - run: npm run worker:dry-run:maintainer
+      - run: npm run worker:dry-run:broker
+      - run: npm run worker:dry-run:media-operator
+      - name: Refetch reviewed runner after candidate prerequisites and run complete worker suite
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RUNNER_SHA: ${{ inputs.runner_sha }}
+          SUITE_DIGEST: ${{ inputs.suite_digest }}
+          ROUTING_ATTEMPT: ${{ inputs.attempt }}
+        run: |
+          rm -rf .freedom/trusted
+          git init .freedom/trusted
+          git -C .freedom/trusted remote add origin https://github.com/FreeTWAI/freedom-platform.git
+          git -C .freedom/trusted fetch --no-tags --depth=1 origin "$RUNNER_SHA"
+          git -C .freedom/trusted checkout --detach FETCH_HEAD
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$RUNNER_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+          test "$(sha256sum .freedom/trusted/packages/contribution-tools/pinned-suites.mjs | cut -d ' ' -f 1)" = "$SUITE_DIGEST"
+          node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.worker-unit
+# No controller/provider credentials, actions checkout token, contexts, secrets,
+# check publication or deployment. Report upload/trusted collection is deliberately
+# not faked here: independently isolated evidence collection remains a prerequisite.

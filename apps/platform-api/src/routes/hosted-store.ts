@@ -13,8 +13,11 @@ import { readStoreAppearance, updateStoreAppearance } from '../../../../modules/
 import { SupplyTermsInputSchema } from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
 import { readSupplyTerms, updateSupplyTerms } from '../../../../modules/agent-commerce/hosted/supply-terms.js';
 import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-commerce/hosted/public.js';
-import { storeHtml, productHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
+import { storeHtml, productHtml, publicProduct, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
+import { cartPageHtml, checkoutPageHtml, orderPageHtml, orderMissingHtml, orderAccessPageHtml, paymentReturnPageHtml, paymentReturnMissingHtml } from '../../../../modules/agent-commerce/storefront/pages.js';
+import { resolvePaymentReturn } from '../../../../modules/agent-commerce/payments/browser-return.js';
 import { Problem } from '../../../../packages/shared/problem.js';
+import { publicPurchaseState, type HostedCheckoutOptions } from '../../../../modules/agent-commerce/checkout/public-commands.js';
 import type { PlatformEnv } from '../module-context.js';
 import { privateCache, singleQuery, commandHeaders, etag } from './tenant-http.js';
 import {createHostedDistributionRoutes} from './hosted-distribution.js';
@@ -119,8 +122,15 @@ export function createHostedStoreRoutes(pool: Pool) {
   });
   return app;
 }
-export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string) {
+/** `checkout` is the checkout API's own configuration (see `hostedCheckoutOptions`). */
+export function createPublicHostedStoreRoutes(
+  pool: Pool,
+  publicOrigin?: string,
+  checkout?: HostedCheckoutOptions,
+  options?: { emailEnabled?: boolean },
+) {
   const app = new Hono<PlatformEnv>();
+  const emailEnabled = options?.emailEnabled ?? checkout?.settings?.emailEnabled ?? Boolean(checkout?.email);
   app.get('/api/v1/public/stores/:slug', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStore(pool, c.req.param('slug'));
@@ -131,14 +141,53 @@ export function createPublicHostedStoreRoutes(pool: Pool, publicOrigin?: string)
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStorePage(pool, c.req.param('slug'));
     if (!store) return c.html(storeMissingHtml(), 404);
-    return c.html(storeHtml(store.projection, store.template_id, store.media.photos, publicOrigin ? {publicOrigin} : undefined));
+    const purchase = checkout ? await publicPurchaseState(pool, store.projection.slug, checkout) : {open: false as const};
+    return c.html(storeHtml(store.projection, store.template_id, store.media.photos, publicOrigin ? {publicOrigin} : undefined, purchase));
   });
   app.get('/shops/:slug/products/:sku', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
-    const store = await readPublicStorePage(pool, c.req.param('slug'));
-    const html = store && productHtml(store.projection, c.req.param('sku'), store.media.photos, publicOrigin ? {publicOrigin} : undefined);
+    const store = await readPublicStorePage(pool, c.req.param('slug')), sku = c.req.param('sku');
+    if (!store || !publicProduct(store.projection, sku)) return c.html(storeMissingHtml(true), 404);
+    const purchase = checkout ? await publicPurchaseState(pool, store.projection.slug, checkout, sku) : {open: false as const};
+    const html = productHtml(store.projection, sku, store.media.photos, publicOrigin ? {publicOrigin} : undefined, purchase);
     if (!html) return c.html(storeMissingHtml(true), 404);
     return c.html(html);
+  });
+  app.get('/shops/:slug/cart', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    return c.html(cartPageHtml(store.projection));
+  });
+  app.get('/shops/:slug/checkout', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    return c.html(checkoutPageHtml(store.projection));
+  });
+  app.get('/shops/:slug/orders/:order_ref', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    const orderRef = c.req.param('order_ref');
+    if (!OpaqueId.safeParse(orderRef).success) return c.html(orderMissingHtml(store.projection), 404);
+    return c.html(orderPageHtml(store.projection, orderRef, { emailEnabled }));
+  });
+  app.get('/shops/:slug/order-access', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    return c.html(orderAccessPageHtml(store.projection, { emailEnabled }));
+  });
+  app.get('/shops/:slug/payment-return/:attempt_ref', async c => {
+    c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
+    if (!store) return c.html(storeMissingHtml(), 404);
+    const attemptRef = c.req.param('attempt_ref');
+    if (!OpaqueId.safeParse(attemptRef).success) return c.html(paymentReturnMissingHtml(store.projection), 404);
+    const resolved = await resolvePaymentReturn(pool, store.projection.slug, attemptRef);
+    if (!resolved) return c.html(paymentReturnMissingHtml(store.projection), 404);
+    return c.html(paymentReturnPageHtml(store.projection, resolved.order_ref, attemptRef));
   });
   return app;
 }

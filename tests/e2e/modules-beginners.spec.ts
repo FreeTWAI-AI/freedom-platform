@@ -82,12 +82,25 @@ test('product discovery distinguishes self-reported stock and leads to a real se
     net_price_minor: 20000, currency: 'TWD', availability: item.availability, stock: item.stock,
     shipping_terms: '演練出貨方式', return_terms: '演練退換貨方式',
   });
+  for (let index = 0; index < 20; index++) await command(page, '/supplier/products', {
+    title: `其他分頁商品 ${index}`, photo_url: null, specifications: '用來把目標商品推到下一頁的合成資料。',
+    net_price_minor: 10000, currency: 'TWD', availability: 'manual_confirmation', stock: null,
+    shipping_terms: '演練出貨方式', return_terms: '演練退換貨方式',
+  });
   await signOut(page);
   await login(page, 'client@local.test');
   const store = await command(page, '/retail/stores', { name: `${prefix} 選物店`, description: '合成選品測試', support_contact: '請聯絡測試店主' });
   await navigate(page, '我可以賣東西');await page.getByText('查看舊版商品與合作資料',{exact:true}).click();
   const catalog = page.getByRole('region', { name: '挑選供貨商品', exact: true });
   await catalog.getByLabel('搜尋商品', { exact: true }).fill(prefix);
+  await expect(catalog.locator('.product-card')).toHaveCount(0);
+  const more=catalog.getByRole('button',{name:'載入更多商品',exact:true});
+  await page.route('**/api/v1/retail/catalog?limit=20&offset=20',route=>route.fulfill({status:503,json:{status:503,code:'catalog_page_unavailable',detail:'暫時無法載入後續商品。'}}),{times:1});
+  await more.click();
+  await expect(catalog.getByRole('alert')).toContainText('服務暫時無法回應（503）。請稍後重試。');
+  await expect(catalog.locator('.product-card')).toHaveCount(0);
+  await expect(more).toBeEnabled();
+  await more.click();
   await expect(catalog.locator('.product-card')).toHaveCount(3);
   await catalog.getByRole('combobox', { name: '篩選供貨方式', exact: true }).selectOption('in_stock');
   await expect(catalog.locator('.product-card')).toHaveCount(1);

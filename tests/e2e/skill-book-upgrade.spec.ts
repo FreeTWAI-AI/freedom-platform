@@ -567,6 +567,12 @@ test('a loading draft refresh stays dim inside the dialog', async ({ page }) => 
     if(tab==='開源投稿'){
       const advanced=page.locator('details.work-sharing-advanced');await expect(advanced).toBeVisible();
       if(!await advanced.evaluate(element=>(element as HTMLDetailsElement).open))await advanced.locator(':scope > summary').click();
+    } else {
+      // The guild shelf expands above this trigger when its initial read settles.
+      const shelf = page.getByRole('region', { name: '公會指定技能書', exact: true });
+      const loaded = shelf.getByRole('status').filter({ hasText: /^顯示 \d+ \/ \d+ 本技能書$/ });
+      const empty = shelf.getByText('還沒有已解鎖的技能書。加入公會即可領取，也可先免費預覽。', { exact: true });
+      await expect(loaded.or(empty)).toBeVisible();
     }
     await page.getByRole('button', { name: '上傳技能', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });

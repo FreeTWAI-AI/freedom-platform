@@ -76,7 +76,7 @@ export function createCommunityEventRoutes(pool:Pool,emailSender?:EventEmailSend
   app.get('/events/:id',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>readEvent(q,c.get('actor'),id(c.req.param('id')),runtime?.eventParticipationEnabled===true))));
   app.get('/events/:id/referrals',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>eventReferralReport(q,c.get('actor'),id(c.req.param('id')),c.req.query()))));
   app.get('/events/:id/attendees',async c=>{c.header('Cache-Control','private, no-store');return c.json(await eventAttendees(pool,c.get('actor'),id(c.req.param('id')),c.req.query()));});
-  app.post('/events/:id/share-code',async c=>c.json(await getEventShareCode(pool,c.get('actor'),id(c.req.param('id')))));
+  app.post('/events/:id/share-code',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>getEventShareCode(q,c.get('actor'),id(c.req.param('id'))))));
   app.get('/events/:id/banner',async c=>{
     const bytes=await readEventBanner(pool,c.get('actor'),id(c.req.param('id')),runtime?.eventBannerAssetStore);
     c.header('Content-Type','image/webp');c.header('Cache-Control','private, no-store');c.header('Vary','Cookie');c.header('Cross-Origin-Resource-Policy','same-origin');

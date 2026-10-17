@@ -12,7 +12,7 @@ import { DAG_MIGRATIONS, LEGACY_MIGRATIONS, MIGRATION_V2_GUARD } from '../../../
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const NOW = 1790899200000;
-const CAPABILITIES = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
+const CAPABILITIES = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 function fixture() {
   const scan = checkMigrations(join(ROOT, 'migrations'), loadManifest().database_defaults.migrations);
   const candidate = { source_sha: 'a'.repeat(40), artifact_sha256: 'b'.repeat(64) };
@@ -48,7 +48,7 @@ test('persisted historical avatar representation fences every old reader even af
  f.host.release_records.push({...structuredClone(f.host.release_records[0]),...old,evidence_id:'old-avatar-reader',capabilities:[...CAPABILITIES]});
  const result=evaluate(f);assert.equal(result.status,'incompatible');
  assert(result.issues.some(i=>i.code==='release_capability_missing'&&i.source_sha===old.source_sha&&i.capability==='avatar.legacy-bytes.v1'));
- assert.equal(result.deployment_authority,false);assert.equal(result.restore_proof,false);
+ assert.equal(result.deployment_authority,false);assert.equal(result.execution_authority,false);assert.equal(result.restore_proof,false);
 });
 
 test('retained avatar legacy capability preserves bridge dependency and schema111 without claiming written data',()=>{
@@ -96,8 +96,21 @@ test('hosted offer schema recognition still requires exact ledger and independen
   assert.deepEqual(codes(evaluate(renamed)),['schema_unknown']);
 });
 
+// Pin every evidence input to the schema under test, rather than the newest
+// repository row. Retained floors remain explicit in each rollback assertion.
+function fixtureAt(last) {
+  const f=fixture(); f.scan=prefix(f.scan,last);
+  f.host.observation.schema_ledger=structuredClone(f.scan.ledger);
+  f.host.observation.schema_ledger_digest=f.scan.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests=[f.scan.ledger_digest];
+  const floor=prefix(f.scan,75);
+  f.host.rollback_floor.schema_ledger=structuredClone(floor.ledger);
+  f.host.rollback_floor.schema_ledger_digest=floor.ledger_digest;
+  return f;
+}
+
 test('schema167 recognition keeps schema166 approvals separate and rejects unknown AR ledger bytes', () => {
-  const f = fixture(), old = prefix(f.scan, 166);
+  const f = fixtureAt(167), old = prefix(f.scan, 166);
   assert.equal(f.scan.ledger.at(-1).name, '167_community_ar.sql');
   const current = evaluate(f);
   assert.equal(current.status, 'compatible');
@@ -107,19 +120,110 @@ test('schema167 recognition keeps schema166 approvals separate and rejects unkno
   assert(codes(evaluate(f)).includes('release_schema_unsupported'));
   f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
   assert.equal(evaluate(f).status, 'compatible', 'the exact schema166 release remains independently compatible');
-  const changed = fixture(); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
+  const changed = fixtureAt(167); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
   changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
   assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
-  const renamed = fixture(); renamed.scan.ledger.at(-1).name = '167_unreviewed.sql';
+  const renamed = fixtureAt(167); renamed.scan.ledger.at(-1).name = '167_unreviewed.sql';
   renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
   assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
-  const future = fixture(); future.scan.ledger.push({name: '168_unreviewed.sql', sha256: 'e'.repeat(64)});
+  const future = fixtureAt(167); future.scan.ledger.push({name: '168_unreviewed.sql', sha256: 'e'.repeat(64)});
   future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
   assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
 });
 
 test('retained schema167 cannot be erased by a schema166 restore or rollback plan', () => {
-  const f = fixture(), old = prefix(f.scan, 166);
+  const f = fixtureAt(167), old = prefix(f.scan, 166);
+  f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+  for (const scan of [f.scan, old]) {
+    f.scan = scan;
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    assert(codes(result).includes('historical_schema_floor_mismatch'));
+    for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  }
+});
+
+test('schema168 recognition keeps schema167 approvals separate and rejects unknown checkout ledger bytes', () => {
+  const f = fixtureAt(168), old = prefix(f.scan, 167);
+  assert.equal(f.scan.ledger.at(-1).name, '168_hosted_checkout_core.sql');
+  const current = evaluate(f);
+  assert.equal(current.status, 'compatible');
+  assert.deepEqual(current.required_shapes, []);
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(current[flag], false);
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  assert.equal(evaluate(f).status, 'compatible', 'the exact schema167 release remains independently compatible');
+  const changed = fixtureAt(168); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixtureAt(168); renamed.scan.ledger.at(-1).name = '168_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+  const future = fixtureAt(168); future.scan.ledger.push({name: '169_unreviewed.sql', sha256: 'e'.repeat(64)});
+  future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
+  assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
+});
+
+test('retained schema168 cannot be erased by a schema167 restore or rollback plan', () => {
+  const f = fixtureAt(168), old = prefix(f.scan, 167);
+  f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+  for (const scan of [f.scan, old]) {
+    f.scan = scan;
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    assert(codes(result).includes('historical_schema_floor_mismatch'));
+    for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  }
+});
+
+test('schema169 recognition keeps schema168 approvals separate and rejects unknown provider setup ledger bytes', () => {
+  const f = fixtureAt(169), old = prefix(f.scan, 168);
+  assert.equal(f.scan.ledger.at(-1).name, '169_hosted_payment_core.sql');
+  const current = evaluate(f);
+  assert.equal(current.status, 'compatible');
+  assert.deepEqual(current.required_shapes, []);
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(current[flag], false);
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  assert.equal(evaluate(f).status, 'compatible', 'the exact schema168 release remains independently compatible');
+  const changed = fixtureAt(169); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixtureAt(169); renamed.scan.ledger.at(-1).name = '169_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+  const future = fixtureAt(169); future.scan.ledger.push({name: '170_unreviewed.sql', sha256: 'e'.repeat(64)});
+  future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
+  assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
+});
+
+test('schema170 adds settings without opening the fulfilment capability', () => {
+  const f=fixtureAt(170), old=prefix(f.scan,169);
+  assert.equal(f.scan.ledger.at(-1).name,'170_hosted_fulfilment.sql');
+  const current=evaluate(f);
+  assert.equal(current.status,'compatible');
+  assert(!current.required_capabilities.includes('commerce.hosted-fulfilment.v1'));
+  assert.deepEqual(current.required_shapes,[]);
+  f.host.release_records[0].schema_ledger_digests=[old.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  const renamed=fixtureAt(170);renamed.scan.ledger.at(-1).name='170_unreviewed.sql';
+  renamed.scan.ledger_digest=compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)),['schema_unknown']);
+  const changed=fixtureAt(170);changed.scan.ledger.at(-1).sha256='d'.repeat(64);
+  changed.scan.ledger_digest=compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+});
+
+test('retained schema169 cannot be erased by a schema168 restore or rollback plan', () => {
+  const f = fixtureAt(169), old = prefix(f.scan, 168);
   f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
   f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
   f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
@@ -160,7 +264,7 @@ for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'roll
     const f = fixture();
     const container = source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host : f.host.observation;
     container[source] = ['avatar.asset.v1', 'work.private-human-result.v1'];
-    f.host.release_records[0].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
+    f.host.release_records[0].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
     const result = evaluate(f);
     assert.equal(result.status, 'incompatible');
     for (const capability of ['avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1']) {
@@ -227,7 +331,7 @@ test('editorial and scoped-chat migrations preserve host approval and authority 
   assert.deepEqual(f.scan.ledger.filter(row => /^(112|113)_/.test(row.name)).map(row => row.name), ['112_member_card_editorial.sql', '113_chat_stickers_replies.sql']);
   const result = evaluate(f);
   assert.equal(result.status, 'compatible');
-  assert.deepEqual(result.required_capabilities, ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
+  assert.deepEqual(result.required_capabilities, ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1']);
   for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
   for (const filename of ['112_member_card_editorial.sql', '113_chat_stickers_replies.sql']) {
     const renamed = fixture();
@@ -435,7 +539,7 @@ test('historical capability floor survives disabled/empty shapes for every mixed
     f.host.observation.active_releases = [other];
     f.host.release_records.push({ ...structuredClone(f.host.release_records[0]), ...other });
     f.host.rollback_floor.capabilities = ['work.server-policy.v1'];
-    f.host.release_records[missing === 'candidate' ? 0 : 1].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
+    f.host.release_records[missing === 'candidate' ? 0 : 1].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
     const result = evaluate(f); assert.equal(result.status, 'incompatible'); assert.equal(result.checked_releases, 2);
     assert.ok(result.issues.some(i => i.capability === 'work.server-policy.v1'));
   }
@@ -454,7 +558,7 @@ test('recovery comparison is exact beyond safe integers and increasing generatio
   assert.deepEqual(codes(evaluate(f)), ['historical_recovery_regression']);
   f.host.target.recovery_generation = f.host.observation.target.recovery_generation = '9007199254740994';
   f.host.rollback_floor.capabilities = ['work.server-policy.v1'];
-  f.host.release_records[0].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
+  f.host.release_records[0].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1','platform.legacy.v1','work.explicit-wire.v1'];
   assert.ok(evaluate(f).issues.some(i => i.capability === 'work.server-policy.v1'));
   f.host.release_records[0].capabilities.push('work.server-policy.v1');
   assert.equal(evaluate(f).status, 'compatible'); assert.equal(evaluate(f).restore_proof, false);
@@ -836,3 +940,165 @@ for (const target of ['planned', 'observation', 'floor']) {
     for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
   });
 }
+
+test('planned schema168 refuses a binary without hosted checkout write support',()=>{
+  const f=fixture();f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='commerce.hosted-checkout.v1');
+  const result=evaluate(f);assert.equal(result.status,'incompatible');
+  assert(result.issues.some(i=>i.code==='release_capability_missing'&&i.capability==='commerce.hosted-checkout.v1'));
+});
+test('restoring below168 cannot erase the historical hosted checkout write floor',()=>{
+  const f=fixture(),retained=prefix(f.scan,168),older=prefix(f.scan,167);
+  f.host.rollback_floor.schema_ledger=retained.ledger;f.host.rollback_floor.schema_ledger_digest=retained.ledger_digest;
+  f.scan=older;f.host.observation.schema_ledger=older.ledger;f.host.observation.schema_ledger_digest=older.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests=[older.ledger_digest];
+  f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='commerce.hosted-checkout.v1');
+  const result=evaluate(f);assert.equal(result.status,'incompatible');assert(result.required_capabilities.includes('commerce.hosted-checkout.v1'));
+  assert(result.issues.some(i=>i.code==='release_capability_missing'&&i.capability==='commerce.hosted-checkout.v1'));
+});
+test('schema168 with hosted checkout support passes without granting operational authority',()=>{
+  const result=evaluate(fixture());assert.equal(result.status,'compatible',JSON.stringify(result.issues));
+  assert(result.required_capabilities.includes('commerce.hosted-checkout.v1'));
+  assert.equal(result.deployment_authority,false);assert.equal(result.execution_authority,false);assert.equal(result.restore_proof,false);
+});
+
+test('planned schema167 does not require the later hosted checkout capability',()=>{
+  const f=fixtureAt(167);f.host.release_records[0].capabilities=f.host.release_records[0].capabilities.filter(c=>c!=='commerce.hosted-checkout.v1');
+  const result=evaluate(f);assert.equal(result.status,'compatible');assert.equal(result.required_capabilities.includes('commerce.hosted-checkout.v1'),false);
+});
+
+for (const missing of ['candidate', 'active']) {
+  test(`planned schema169 requires hosted payment support from ${missing}`, () => {
+    const f = fixture();
+    const active = { source_sha: 'c'.repeat(40), artifact_sha256: 'd'.repeat(64) };
+    f.host.observation.active_releases = [active];
+    f.host.release_records.push({ ...structuredClone(f.host.release_records[0]), ...active });
+    const record = f.host.release_records[missing === 'candidate' ? 0 : 1];
+    record.capabilities = record.capabilities.filter(c => c !== 'commerce.hosted-payment.v1');
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    assert.equal(result.checked_releases, 2);
+    assert(result.issues.some(i => i.code === 'release_capability_missing' && i.capability === 'commerce.hosted-payment.v1'));
+  });
+}
+test('restore below169 retains the hosted payment callback floor', () => {
+  const f = fixture(), retained = prefix(f.scan, 169), older = prefix(f.scan, 168);
+  f.host.rollback_floor.schema_ledger = retained.ledger;
+  f.host.rollback_floor.schema_ledger_digest = retained.ledger_digest;
+  f.scan = older;
+  f.host.observation.schema_ledger = older.ledger;
+  f.host.observation.schema_ledger_digest = older.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests = [older.ledger_digest];
+  f.host.release_records[0].capabilities = f.host.release_records[0].capabilities.filter(c => c !== 'commerce.hosted-payment.v1');
+  const result = evaluate(f);
+  assert.equal(result.status, 'incompatible');
+  assert(result.required_capabilities.includes('commerce.hosted-payment.v1'));
+  assert(result.issues.some(i => i.code === 'release_capability_missing' && i.capability === 'commerce.hosted-payment.v1'));
+});
+for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes', 'capability_floor']) {
+  test(`hosted payment ${source} cannot be acknowledged on schema168`, () => {
+    const f = fixtureAt(168), shape = 'commerce.hosted-payment.v1';
+    if (source === 'enable_shapes') f.input.enable_shapes = [shape];
+    else if (source === 'rollback_floor_shapes') f.host.rollback_floor_shapes = [shape];
+    else if (source === 'capability_floor') f.host.rollback_floor.capabilities = [shape];
+    else f.host.observation[source] = [shape];
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    assert(result.issues.some(i => i.shape === shape && i.code.endsWith('shape_schema_missing')));
+  });
+}
+test('schema169 hosted payment compatibility grants no operational authority', () => {
+  const result = evaluate(fixture());
+  assert.equal(result.status, 'compatible', JSON.stringify(result.issues));
+  assert(result.required_capabilities.includes('commerce.hosted-payment.v1'));
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+});
+test('schema168 does not require hosted payment support before it is planned or retained', () => {
+  const f = fixtureAt(168);
+  f.host.release_records[0].capabilities = f.host.release_records[0].capabilities.filter(c => c !== 'commerce.hosted-payment.v1');
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible');
+  assert.equal(result.required_capabilities.includes('commerce.hosted-payment.v1'), false);
+});
+
+test('schema171 recognition keeps schema170 approvals separate and rejects unknown material ledger bytes', () => {
+  const f = fixtureAt(171), old = prefix(f.scan, 170);
+  assert.equal(f.scan.ledger.at(-1).name, '171_supply_materials.sql');
+  const current = evaluate(f);
+  assert.equal(current.status, 'compatible');
+  assert.deepEqual(current.required_shapes, []);
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(current[flag], false);
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  assert.equal(evaluate(f).status, 'compatible', 'the exact schema170 release remains independently compatible');
+  const changed = fixtureAt(171); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixtureAt(171); renamed.scan.ledger.at(-1).name = '171_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+  const future = fixtureAt(171); future.scan.ledger.push({name: '172_unreviewed.sql', sha256: 'e'.repeat(64)});
+  future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
+  assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
+});
+
+test('retained schema171 cannot be erased by a schema170 restore or rollback plan', () => {
+  const f = fixtureAt(171), old = prefix(f.scan, 170);
+  f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+  for (const scan of [f.scan, old]) {
+    f.scan = scan;
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    assert(codes(result).includes('historical_schema_floor_mismatch'));
+    for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  }
+});
+
+test('schema172 recognition keeps schema171 approvals separate and rejects unknown distribution ledger bytes', () => {
+  const f = fixtureAt(172), old = prefix(f.scan, 171);
+  assert.equal(f.scan.ledger.at(-1).name, '172_distribution_photos.sql');
+  const current = evaluate(f);
+  assert.equal(current.status, 'compatible');
+  assert.deepEqual(current.required_shapes, []);
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(current[flag], false);
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  f.scan = old; f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  assert.equal(evaluate(f).status, 'compatible', 'the exact schema171 release remains independently compatible');
+  const changed = fixtureAt(172); changed.scan.ledger.at(-1).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixtureAt(172); renamed.scan.ledger.at(-1).name = '172_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+  const future = fixtureAt(172); future.scan.ledger.push({name: '173_unreviewed.sql', sha256: 'e'.repeat(64)});
+  future.scan.ledger_digest = compatibilityLedgerDigest(future.scan.ledger);
+  assert.deepEqual(codes(evaluate(future)), ['schema_unknown']);
+});
+
+test('retained schema172 cannot be erased by a schema171 restore or rollback plan', () => {
+  const f = fixtureAt(172), old = prefix(f.scan, 171);
+  f.host.rollback_floor.schema_ledger = structuredClone(f.scan.ledger);
+  f.host.rollback_floor.schema_ledger_digest = f.scan.ledger_digest;
+  f.host.observation.schema_ledger = old.ledger; f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests.push(old.ledger_digest);
+  for (const scan of [f.scan, old]) {
+    f.scan = scan;
+    const result = evaluate(f);
+    assert.equal(result.status, 'incompatible');
+    assert(codes(result).includes('historical_schema_floor_mismatch'));
+    for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  }
+});
+
+
+test('distribution copies retain a schema172 reader capability after the flag is off',()=>{
+ const f=fixtureAt(172);f.host.observation.written_shapes=['media.distribution-photo.asset.v1'];
+ assert(evaluate(f).issues.some(i=>i.code==='release_capability_missing'&&i.capability==='media.distribution-photo.asset.v1'));
+ f.host.release_records[0].capabilities.push('media.distribution-photo.asset.v1','media.server-policy.v1');assert.equal(evaluate(f).status,'compatible');
+ f.host.observation.schema_ledger=prefix(f.scan,171).ledger;f.host.observation.schema_ledger_digest=compatibilityLedgerDigest(f.host.observation.schema_ledger);
+ assert(evaluate(f).issues.some(i=>i.code==='observed_shape_schema_missing'&&i.shape==='media.distribution-photo.asset.v1'));
+});

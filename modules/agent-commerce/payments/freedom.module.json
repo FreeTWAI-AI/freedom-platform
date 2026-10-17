@@ -1,0 +1,62 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "commerce-payments",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/payments/**",
+    "tests/runtime/commerce-refund-rules.test.ts",
+    "migrations/169_hosted_payment_core.sql",
+    "apps/platform-api/src/routes/hosted-commerce-setup.ts",
+    "contracts/guild-launchpad/v1/hosted-commerce-setup.ts",
+    "contracts/guild-launchpad/v1/hosted-commerce-setup.schema.json",
+    "tests/runtime/hosted-commerce-setup-contracts.test.ts",
+    "tests/runtime/hosted-store-upgrade.test.ts",
+    "tests/runtime/commerce-provider-accounts.test.ts",
+    "tests/worker/commerce-credential-seal-workerd.test.ts",
+    "apps/platform-api/src/routes/hosted-payments.ts",
+    "scripts/e2e-ecpay-fixture.ts",
+    "tests/runtime/hosted-payment-schema.test.ts",
+    "tests/runtime/hosted-payment-handoff.test.ts",
+    "tests/runtime/hosted-payment-notifications.test.ts",
+    "tests/runtime/hosted-payment-canary.test.ts",
+    "tests/runtime/hosted-payment-queries.test.ts",
+    "tests/runtime/hosted-payment-repay.test.ts",
+    "tests/runtime/hosted-payment-activation.test.ts",
+    "tests/e2e/hosted-payment.spec.ts",
+    "tests/e2e/hosted-payment-fixture.ts",
+    "tests/e2e/hosted-payment-queries.spec.ts",
+    "tests/runtime/hosted-payment-refunds.test.ts",
+    "tests/runtime/hosted-seller-payment-queries.test.ts",
+    "tests/runtime/hosted-logistics-services.test.ts",
+    "apps/platform-api/src/routes/hosted-offline-payments.ts",
+    "contracts/guild-launchpad/v1/hosted-offline-payment.ts",
+    "contracts/guild-launchpad/v1/hosted-offline-payment.schema.json",
+    "tests/runtime/hosted-offline-schema.test.ts",
+    "tests/runtime/hosted-offline-settings.test.ts",
+    "tests/runtime/hosted-offline-checkout.test.ts",
+    "tests/runtime/hosted-offline-confirm.test.ts",
+    "tests/runtime/hosted-offline-expiry.test.ts",
+    "tests/runtime/hosted-offline-contracts.test.ts"
+  ],
+  "public_exports": [
+    "modules/agent-commerce/payments/rules/index.ts"
+  ],
+  "dependencies": [
+    "hosted-checkout",
+    "commerce-providers",
+    "commerce-operations",
+    "commerce-fulfilment"
+  ],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "modules/agent-commerce/payments/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-04-payment.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md"
+  ],
+  "invariants": [],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

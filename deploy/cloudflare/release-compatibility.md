@@ -451,3 +451,24 @@ restoring schema164 cannot erase the retained capability. The capability covers
 current publication visibility and prepared-project version checks, and grants
 neither publication consent nor deployment/restore authority. Host approvals
 remain independently bound to source, artifact, environment and ledger digest.
+
+## Hosted checkout schema168 write floor
+
+`commerce.hosted-checkout.v1` is mandatory for every candidate and active binary
+when the planned schema or retained historical floor reaches migration168. A
+restore below168 does not erase that floor. The capability preserves checkout
+replay, device/link access, durable holds and the M1 writer rules even when new
+checkout admission is off or the host is quarantined. Acknowledging the capability
+grants no payment, email, invoice or deploy authority.
+
+## Hosted payment schema169 write floor
+
+`commerce.hosted-payment.v1` is mandatory for every candidate and active binary
+when the planned schema or retained historical floor reaches migration169. A
+binary that does not know the verified callback would miss payments, so an
+application-only rollback below this floor is incompatible even when checkout
+is disabled or quarantine is on. A restore below169 cannot erase the retained
+floor. Enabled/written shapes and capability-only retained history require the
+same schema and exact independently approved source/artifact/ledger identities.
+Acknowledging the capability grants no payment, deploy or ECPay authority.
+See [EC-SPEC-10](../../docs/platform-plan/execution/commerce/EC-SPEC-10-release-operations.md).

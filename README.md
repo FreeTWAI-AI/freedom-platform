@@ -170,3 +170,15 @@ Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作�
 本分支的 #258 沒有另開分享頁，而是擴充標題列既有的「＋分享」單一入口，且預設關閉：`FREEDOM_UNIFIED_SHARING_ENABLED=true` 才在同一個選單說明各目的的可見範圍與草稿／發布差異，並加入「找人合作」「發起共創邀請」兩個原表單入口；沒開時維持原本的發文、分享作品、刊登商品、分享開源資源。不另建統一發布表、不增加一般作品的 GitHub／Agent／JSON 門檻，原本的來源、授權、本人公開同意與雙方合作隱私仍由各模組負責。「發文」使用既有原生短貼文，只有同社群會員可見、送出即發布；它沒有原生提問型別、草稿或留言通知，本分支不改動這些 #193 契約。
 
 切換入口時，原表單尚未送出的輸入、同意、待處理狀態與實際成功結果只保留在**目前登入工作階段的記憶體**（這部分不受旗標控制）；重新整理、登出或切換帳號會清除。原流程已保存的伺服器私人草稿仍依各自規則續寫。延遲回應不能替下一位會員公開，未知送出結果沿用原 Idempotency-Key 重試；成功只顯示真正已保存物件的原入口，不把草稿當成發布。詳見 [會員 API](docs/development/member-api.md#unified-sharing-entry-258)；本機驗證不代表全項 #258 驗收、部署或啟用完成。
+
+## 授權 / License
+
+本倉 FreeTWAI 原創程式與相關文件（包含 `packages/skill-upload-client` 上傳工具）採用 [MIT License](LICENSE)。MIT 允許商業使用、修改、再散布與銷售軟體副本；請保留著作權及許可聲明。
+
+授權範圍如下；這是材料範圍說明，不修改 MIT 條文：
+
+- 第三方程式、依賴、匯入內容與各自的 LICENSE／NOTICE／來源署名維持原授權，不因根目錄 MIT 而被重新授權。例如 [名片工具授權](apps/portal-web/public/licenses/member-card/)及 [MindAR 授權](modules/community-ar/vendor/MindAR-LICENSE.txt)均保留。
+- 品牌名稱、商標、Logo、圖片及插畫素材不在這次 MIT 授權範圍內。既有個別授權仍適用；沒有個別授權的素材，使用前須另取得權利人的許可。本授權不授予品牌背書或官方身分。
+- 「FreeTWAI contributors」是對本專案貢獻者的集合稱呼，不表示成立法人或移轉著作權；各作者保有其原有權利，既有作者署名與 Git 歷史均保留。
+
+The MIT license covers original FreeTWAI software and its associated documentation, including the skill-upload client. Third-party materials retain their existing licenses and notices. Branding, trademarks, logos, images and illustrations are excluded from this new grant; any existing separate licenses remain applicable. Each contributor retains their copyright.

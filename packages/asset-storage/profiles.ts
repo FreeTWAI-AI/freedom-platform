@@ -13,6 +13,8 @@ export const MEDIA_OBJECT_PROFILES = Object.freeze({
   'community.event-highlight.thumbnail': Object.freeze({maxBytes:200*1024,contentTypes:raster,transformVersion:'community.event-highlight.thumbnail.legacy-bytes.v1',source:'modules/community/event-highlights.ts'}),
   'community.social-thumbnail': Object.freeze({maxBytes:512*1024,contentTypes:raster,transformVersion:'community.social-thumbnail.legacy-bytes.v1',source:'modules/skill-submissions/payload.ts'}),
   'member.service-cover': Object.freeze({maxBytes:512*1024,contentTypes:raster,transformVersion:'member.service-cover.legacy-bytes.v1',source:'modules/skill-submissions/payload.ts'}),
+  'storefront.supply-material': Object.freeze({maxBytes:1048576,contentTypes:Object.freeze(['image/webp'] as const),transformVersion:'storefront.supply-material.webp.v1',source:'modules/assets/supply-material.ts'}),
+  'storefront.supply-material-video': Object.freeze({maxBytes:OBJECT_IO_MAX_BYTES,contentTypes:Object.freeze(['video/mp4','video/webm'] as const),transformVersion:'storefront.supply-material-video.original.v1',source:'modules/assets/supply-material.ts'}),
   /** New uploads only; there is no legacy byte source to preserve. Output is always the canonical WebP written by modules/assets/message-image.ts. */
   'storefront.product-photo': Object.freeze({maxBytes:1024*1024,contentTypes:Object.freeze(['image/webp'] as const),transformVersion:'storefront.product-photo.webp.v1',source:'modules/assets/storefront-product-photo.ts'}),
   'member.message-image': Object.freeze({maxBytes:1024*1024,contentTypes:Object.freeze(['image/webp'] as const),transformVersion:'member.message-image.webp.v1',source:'modules/assets/message-image.ts'}),

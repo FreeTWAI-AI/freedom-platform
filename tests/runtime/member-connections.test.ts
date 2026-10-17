@@ -1,10 +1,14 @@
 import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
+import {once} from 'node:events';
+import {setImmediate} from 'node:timers/promises';
+import type {AddressInfo} from 'node:net';
+import {serve} from '@hono/node-server';
 import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
-import {seedLocal,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
+import {seedLocal,DEMO_COMMUNITY,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {ASSESSMENT_VERSION,ASSESSMENT_SHA256} from '../../modules/positioning/assessment.js';
 import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
@@ -32,6 +36,52 @@ async function member(name='共創夥伴',ready=true,email=`${randomUUID()}@exam
   if(ready)assert.equal((await request('/me/onboarding/quick-start',session,{guild_keys:['guild_ai_vibe'],primary_guild_key:'guild_ai_vibe',confirmed:true,guild_answers:sampleGuildAnswers('guild_ai_vibe')})).status,200);
   return session;
 }
+for(const surface of ['card','directory','empty directory','friends','empty friends','recommendations','empty recommendations'] as const){
+ test(`private ${surface} rechecks viewer qualification after a real member-lock wait`,async()=>{
+  const [viewer,peer,candidate]=DEMO_USERS.map(user=>user.user_id),contact='synthetic-friends-only-contact';
+  await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=clock_timestamp() WHERE user_id=$1',[viewer]);
+  await pool.query(`INSERT INTO member_accounts(user_id,community_id,contacts) VALUES($1,$2,$3::jsonb)
+    ON CONFLICT(user_id) DO UPDATE SET contacts=EXCLUDED.contacts`,[peer,DEMO_COMMUNITY,JSON.stringify({line:{value:contact,audiences:['friends']}})]);
+  await pool.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state)
+    VALUES($1,least($2::uuid,$3::uuid),greatest($2::uuid,$3::uuid),$2,'accepted')`,[DEMO_COMMUNITY,viewer,peer]);
+  let httpApp=app,pending:Promise<Response>|undefined;
+  const server=serve({hostname:'127.0.0.1',port:0,fetch:request=>httpApp.fetch(request)}),holder=await pool.connect();
+  try{
+    if(!server.listening)await once(server,'listening');
+    const httpOrigin=`http://127.0.0.1:${(server.address() as AddressInfo).port}`;httpApp=createApp(pool,httpOrigin);
+    const login=await fetch(httpOrigin+'/api/v1/auth/login',{method:'POST',headers:{Origin:httpOrigin,'Content-Type':'application/json'},body:JSON.stringify({email:DEMO_USERS[0].email,password:DEMO_PASSWORD})});
+    assert.equal(login.status,200);const cookie=login.headers.get('set-cookie')!.split(';')[0];
+    const path=surface==='card'?`/members/${peer}`:surface.includes('recommendations')?`/members/recommendations?limit=3${surface.startsWith('empty')?'&offset=10000':''}`:surface.includes('friends')?`/friends/directory?scope=accepted${surface.startsWith('empty')?'&search=no-such-synthetic-member':''}`:`/members${surface.startsWith('empty')?'?search=no-such-synthetic-member':''}`;
+    const get=()=>fetch(httpOrigin+'/api/v1'+path,{headers:{Cookie:cookie}});
+    const control=await get();assert.equal(control.status,200);const data=await control.json() as any;
+    if(surface.startsWith('empty'))assert.deepEqual(data.items,[]);
+    else if(surface==='card')assert.equal(data.contacts.line,contact);
+    else assert.ok(data.items.some((row:any)=>(row.member?.user_id??row.user_id)===(surface==='recommendations'?candidate:peer)));
+    await holder.query('BEGIN');await holder.query('UPDATE users SET onboarding_completed_at=NULL WHERE user_id=$1',[viewer]);
+    const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    pending=get();let settled=false;pending.then(()=>{settled=true},()=>{settled=true});
+    const deadline=performance.now()+5000;
+    for(;;){
+      if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount)break;
+      assert.equal(settled,false);assert.ok(performance.now()<deadline,'private read must wait on the current viewer lock');await setImmediate();
+    }
+    await holder.query('COMMIT');const response=await pending,denied=await response.json() as any;
+    assert.equal(response.status,403,JSON.stringify(denied));assert.equal(denied.code,'onboarding_required');
+    for(const key of ['items','contacts','user_id','total'])assert.equal(Object.hasOwn(denied,key),false);
+    // Legacy members not required to onboard retain the existing ready predicate.
+    await pool.query('UPDATE users SET onboarding_required=false WHERE user_id=$1',[viewer]);
+    const legacy=await get();assert.equal(legacy.status,200);const current=await legacy.json() as any;
+    if(surface.startsWith('empty'))assert.deepEqual(current.items,[]);
+    else if(surface==='card')assert.equal(current.contacts.line,contact);
+    else assert.ok(current.items.some((row:any)=>(row.member?.user_id??row.user_id)===(surface==='recommendations'?candidate:peer)));
+  }finally{
+    await holder.query('ROLLBACK');holder.release();if(pending)await Promise.allSettled([pending]);
+    if('closeAllConnections' in server)server.closeAllConnections();
+    await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+  }
+ });
+}
+
 test('quick entry explicitly joins a real guild, preserves private draft and grants books atomically without fabricating an assessment',async()=>{
   const session=await member('快速加入',false);
   assert.equal((await request('/members',session)).status,403);

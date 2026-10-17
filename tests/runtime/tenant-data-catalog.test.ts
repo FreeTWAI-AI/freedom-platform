@@ -18,7 +18,10 @@ const schema = `e1cat_${process.pid}_${Date.now()}`;
 const admin = new Pool({ connectionString });
 const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 2 });
 const ENABLED = [
-  'commerce_resource_tenants', 'commerce_order_quotes',
+  'commerce_provider_accounts', 'commerce_provider_account_services', 'commerce_provider_credentials',
+  'commerce_ship_from_locations', 'commerce_logistics_services',
+  'commerce_offline_payment_settings', 'commerce_offline_payments', 'commerce_meetup_handovers',
+  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_customers', 'commerce_checkout_contacts', 'commerce_exception_cases', 'commerce_order_access_grants',
   'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
   'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
   'module_provision_operations', 'module_provision_steps',
@@ -27,7 +30,7 @@ const ENABLED = [
   'tenant_ownership_transfers', 'tenant_recovery_cases',
   'tenant_work_result_targets', 'tenant_work_results', 'tenants', 'work_items', 'workspace_module_bindings', 'workspaces',
 ];
-const EXEMPT = ['assets', 'asset_upload_intents', 'asset_objects', 'resource_scopes', 'users', 'sessions', 'principals'];
+const EXEMPT = ['commerce_access_devices', 'assets', 'asset_upload_intents', 'asset_objects', 'resource_scopes', 'users', 'sessions', 'principals'];
 
 async function walk(dir: string, match: (name: string) => boolean): Promise<{ path: string; source: string }[]> {
   const found: { path: string; source: string }[] = [];
@@ -210,7 +213,7 @@ test('T-021 PostgreSQL IN tenant-purpose checks expose an unregistered asset pur
     await q.query('ALTER TABLE assets DROP CONSTRAINT asset_scope_purpose');
     await q.query(`ALTER TABLE assets ADD CONSTRAINT asset_scope_purpose ${extended}`);
     const snapshot = await liveSnapshot(q);
-    assert.deepEqual(snapshot.asset_purposes, ['storefront.product-photo', 'tenant.crm-note', 'work.tenant-result']);
+    assert.deepEqual(snapshot.asset_purposes, ['storefront.product-photo', 'storefront.supply-material', 'storefront.supply-material-video', 'tenant.crm-note', 'work.tenant-result']);
     return checkTenantCatalog(snapshot, TENANT_DATA_CATALOG);
   }), [{ code: 'unregistered_asset_purpose', subject: 'tenant.crm-note' }]);
 });
@@ -436,7 +439,7 @@ test('T-021 scope resolution requires both columns and a live CHECK admitting te
 test('T-021 asset-purpose resolution requires every declared live tenant purpose', async () => {
   await rolled(async q => {
     const definition = (await q.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='assets'::regclass AND conname='asset_scope_purpose'`)).rows[0].definition;
-    const changed = definition.replace("scope_kind = 'tenant'::text", "scope_kind <> 'tenant'::text");
+    const changed = definition.replaceAll("scope_kind = 'tenant'::text", "scope_kind <> 'tenant'::text");
     assert.notEqual(changed, definition);
     await q.query('ALTER TABLE assets DROP CONSTRAINT asset_scope_purpose');
     await q.query(`ALTER TABLE assets ADD CONSTRAINT asset_scope_purpose ${changed}`);
@@ -618,4 +621,36 @@ test('T-021 mapped commerce retains drift checks after losing the reverse mappin
       { code: 'unregistered_column', subject: 'commerce_items.private_note' },
     ]);
   });
+});
+
+test('T-021 distribution copies and pointers have complete direct tenant catalogs',()=>{
+ const entries=TENANT_DATA_CATALOG.datasets.flatMap(entry=>entry.physical_locations);
+ for(const name of ['commerce_distribution_photo_copies','commerce_distribution_photo_targets']) {
+  const table=entries.find(entry=>entry.kind==='table'&&entry.table===name);
+  assert(table&&table.kind==='table');assert.deepEqual(table.tenant_resolution,{kind:'direct',column:'tenant_id'});
+ }
+});
+
+test('browser commerce access devices belong to order/transaction dataset DC-09',()=>{
+  const entry=TENANT_DATA_CATALOG.exemptions.find(e=>e.table==='commerce_access_devices');
+  assert.equal(entry?.dataset_ref,'DC-09');assert(entry?.reason.includes('commerce decision DC12 (retention; decisions.md)'));
+});
+
+
+test('hosted payment machine tables retain individual participant-ACL catalog rationales', async () => {
+  const tables = ['commerce_payment_attempts', 'commerce_hosted_payment_events', 'commerce_due_work', 'commerce_refunds', 'commerce_refund_lines', 'commerce_outbound_emails', 'commerce_shipping_profile_versions', 'commerce_item_shipping_attributes'];
+  for (const table of tables) {
+    const location = TENANT_DATA_CATALOG.datasets.flatMap(dataset => dataset.physical_locations)
+      .find((entry): entry is TableLocation => entry.kind === 'table' && entry.table === table);
+    assert(location);
+    assert.equal(location.isolation.rls, 'exempt');
+    if (location.isolation.rls !== 'exempt') throw Error('Expected machine-table exemption');
+    assert.equal(location.isolation.reason_code, 'commerce_profile_participant_acl');
+    assert(location.isolation.reason.length > 80);
+    const columns = (await pool.query<{column_name:string}>(`SELECT column_name FROM information_schema.columns
+      WHERE table_schema=$1 AND table_name=$2 ORDER BY ordinal_position`, [schema, table])).rows.map(row => row.column_name);
+    assert.deepEqual(location.columns, columns, `${table} catalog includes every retained payment fact`);
+    const flags = (await pool.query(`SELECT relrowsecurity,relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relname=$2`, [schema, table])).rows[0];
+    assert.deepEqual(flags, {relrowsecurity:false,relforcerowsecurity:false});
+  }
 });

@@ -1,3 +1,4 @@
+import {DistributionPhotoCommandSchema,SupplierMetricSchema,SupplierTodoSchema,SupplierTodosSchema,SupplierOverviewSchema,SupplierProductSchema,SupplierProductsSchema,SupplierProductDetailSchema,SupplierProductSelectionSchema,SupplierPartnerSchema,SupplierPartnersSchema,SupplierPartnerDetailSchema,SupplyProfileUpdateInputSchema,SupplyProfileReceiptSchema} from '../../contracts/guild-launchpad/v1/supplier-console.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -420,7 +421,7 @@ test('guild launchpad contracts regenerate deterministically and match generated
     cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024,
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.match(result.stdout, /30 v1 guild launchpad schemas, 9 bundles and one v2 assembly schema checked\/generated\./);
+  assert.match(result.stdout, /30 v1 guild launchpad schemas, 15 bundles and one v2 assembly schema checked\/generated\./);
 });
 
 test('generated guild launchpad schemas agree with Zod except listed server-only rules', () => {
@@ -748,4 +749,81 @@ print('looser')`;
       assert.equal(result.status, 0, `${profile.name} ${row.rule}\n${result.stdout}${result.stderr}`);
     }
   }
+});
+
+
+test('supplier console strict schemas accept private projections and reject inconsistent or unknown input',()=>{
+  const ready={state:'ready',count:0},unavailable={state:'unavailable',reason:'store_write_required'};
+  const overview={profile:'freedom.supplier-console.overview/v1',tenant_id:id,instance_id:id2,as_of:'2026-10-15T00:00:00.123Z',
+    metrics:{offered_products:ready,pending_requests:unavailable,active_reservation_lines:{state:'unavailable',reason:'owner_required'},out_of_stock_products:ready},
+    todos:{state:'ready',items:[],truncated:false},product_count:0,product_limit:200};
+  assert.equal(SupplierOverviewSchema.safeParse(overview).success,true);
+  assert.equal(SupplierOverviewSchema.safeParse({...overview,metrics:Object.fromEntries(Object.keys(overview.metrics).map(key=>[key,unavailable])),todos:unavailable}).success,true);
+  assert.equal(SupplierOverviewSchema.safeParse({...overview,extra:true}).success,false);
+  for(const value of [{state:'ready'},{state:'unavailable',reason:'unknown'},{...ready,extra:1}])assert.equal(SupplierMetricSchema.safeParse(value).success,false);
+  const todo={kind:'not_offered',product_id:id,title:'商品'};
+  assert.equal(SupplierTodoSchema.safeParse(todo).success,true);
+  assert.equal(SupplierTodoSchema.safeParse({...todo,extra:1}).success,false);
+  assert.equal(SupplierTodosSchema.safeParse({state:'ready',items:Array(21).fill(todo),truncated:true}).success,false);
+  const product={product_id:id,sku:'P0001',title:'商品',description:'介紹',currency:'TWD',supply_price_minor:400,shipping_minor:50,
+    stock:10,reserved:3,available:7,version:'1',offer:null,cooperation:{awaiting:0,sellable:0,changes_requested:0,inactive:0}};
+  assert.equal(SupplierProductSchema.safeParse(product).success,true);
+  for(const value of [{...product,available:8},{...product,sku:'bad sku'},{...product,cost_minor:400}])assert.equal(SupplierProductSchema.safeParse(value).success,false);
+  const products={profile:'freedom.supplier-console.products/v1',as_of:overview.as_of,items:[product],limit:200};
+  assert.equal(SupplierProductsSchema.safeParse(products).success,true);
+  assert.equal(SupplierProductsSchema.safeParse({...products,extra:1}).success,false);
+  const detail={profile:'freedom.supplier-console.product/v1',as_of:overview.as_of,product,shipping_terms:'出貨',return_terms:'退貨',current_offer:null,selections:[],truncated:false};
+  assert.equal(SupplierProductDetailSchema.safeParse(detail).success,true);
+  assert.equal(SupplierProductDetailSchema.safeParse({...detail,extra:1}).success,false);
+  const offerFixture={offer_id:id,product_id:id,supplier_name:'供貨茶坊',source_version:'1',terms:{cost_minor:400,shipping_minor:50,shipping_terms:'三天內出貨',return_terms:'瑕疵品退換',title:'茶杯',description:'',currency:'TWD'},terms_sha256:'a'.repeat(64),state:'offered',version:'1'};
+  const selection={selection_id:id,offer:offerFixture,sku:'cup-1',seller_name:'合作店',retail_price_minor:1100,state:'sellable',listing_sha256:offerFixture.terms_sha256,version:'1'};
+  assert.equal(SupplierProductSelectionSchema.safeParse({...selection,partner_id:id2}).success,true);
+  assert.equal(SupplierProductSelectionSchema.safeParse(selection).success,false);
+  assert.equal(SupplierProductDetailSchema.safeParse({...detail,selections:[{...selection,partner_id:id2}]}).success,true);
+  const partner={partner_id:id2,name:'合作店',cooperation:product.cooperation,products:1};
+  assert.equal(SupplierPartnerSchema.safeParse(partner).success,true);
+  assert.equal(SupplierPartnerSchema.safeParse({...partner,tenant_id:id}).success,false);
+  const partners={profile:'freedom.supplier-console.partners/v1',as_of:overview.as_of,items:[partner],truncated:false};
+  assert.equal(SupplierPartnersSchema.safeParse(partners).success,true);
+  assert.equal(SupplierPartnersSchema.safeParse({...partners,extra:1}).success,false);
+  const partnerDetail={profile:'freedom.supplier-console.partner/v1',as_of:overview.as_of,partner,selections:[],truncated:false};
+  assert.equal(SupplierPartnerDetailSchema.safeParse(partnerDetail).success,true);
+  assert.equal(SupplierPartnerDetailSchema.safeParse({...partnerDetail,extra:1}).success,false);
+  assert.equal(SupplyProfileUpdateInputSchema.safeParse({name:'供貨事業'}).success,true);
+  assert.equal(SupplyProfileUpdateInputSchema.safeParse({description:''}).success,true);
+  for(const input of [{},{currency:'USD'}])assert.equal(SupplyProfileUpdateInputSchema.safeParse(input).success,false);
+  assert.equal(SupplyProfileReceiptSchema.safeParse({instance_id:id,version:'2'}).success,true);
+  assert.equal(SupplyProfileReceiptSchema.safeParse({instance_id:id,version:'2',name:'不應回傳'}).success,false);
+});
+
+test('distribution photo command ack compares bounded decimals without throwing', () => {
+  const current = (version: string) => ({
+    product_id: id, sku: 'P1000', title: '茶', version, state: 'in_use' as const, photo: null, source: null, latest: null,
+  });
+  const command = (version: string, currentVersion = version, product = id) => ({
+    product_id: product, version, changed: true, current: current(currentVersion),
+  });
+  const parsed = (value: ReturnType<typeof command>) => {
+    let result: ReturnType<typeof DistributionPhotoCommandSchema.safeParse> | undefined;
+    assert.doesNotThrow(() => { result = DistributionPhotoCommandSchema.safeParse(value); });
+    return result!;
+  };
+  const max = MAX_STORED_VERSION;
+  for (const value of [command('0', '0'), command('9', '10'), command(max, max), command('1', '1'), command('0', '1'), command('99', '100')]) {
+    assert.equal(parsed(value).success, true, JSON.stringify(value));
+  }
+  assert.equal(parsed(command('10', '9')).success, false, 'reverse');
+  assert.equal(parsed(command('1', '1', id2)).success, false, 'product');
+  for (const field of ['version', 'current'] as const) {
+    for (const bad of ['-1', '01', '1\n', '9223372036854775808']) {
+      const value = field === 'version' ? command(bad, '1') : command('1', bad);
+      assert.equal(parsed(value).success, false, `${field} ${JSON.stringify(bad)}`);
+    }
+    for (const bad of ['abc', '1.2', '1e3']) {
+      const value = field === 'version' ? command(bad, '1') : command('1', bad);
+      assert.equal(parsed(value).success, false, `${field} ${bad}`);
+    }
+  }
+  assert.equal(parsed(command('abc', '1.2')).success, false);
+  assert.equal(parsed({...command('1', '1'), changed: 'yes' as unknown as boolean}).success, false);
 });

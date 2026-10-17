@@ -21,7 +21,7 @@ test('placeholder plan uses genuine entries with all mutations/acceptance unavai
  assert.ok(p.blockers.includes('release_sha_placeholder'));assert.ok(p.blockers.includes('broker_candidate_origin_unsupported'));assert.ok(p.remaining_checks.every(c=>c.status==='not_run'));
  assert.equal(p.configs.main.main,'apps/platform-api/src/worker.ts');assert.equal(p.configs.broker.main,'apps/credential-broker/src/worker.ts');assert.equal(p.configs.operator.main,'apps/media-operator/src/worker.ts');
  assert.equal(p.configs.main.vars.FREEDOM_DATABASE_NAME,'freedom_staging_next');assert.equal(p.expected_roles.operator,'freedom_media_migrator');assert.equal(p.configs.broker.vars.FREEDOM_BROKER_ENABLED,'false');
- assert.deepEqual(p.media_mapping.map(f=>f.purpose),MEDIA_WORKER_FEATURES.map(f=>f.purpose));assert.equal(p.media_mapping.length,10);
+ assert.deepEqual(p.media_mapping.map(f=>f.purpose),MEDIA_WORKER_FEATURES.map(f=>f.purpose));assert.equal(p.media_mapping.length,11);
  assert.deepEqual(p.media_mapping.find(f=>f.purpose==='community.comment-image'),{
   purpose:'community.comment-image',required_bindings:['MEDIA','IMAGES'],
   required_capabilities:['media.comment-image.asset.v1','media.server-policy.v1'],persistence_authorized:'not_run',

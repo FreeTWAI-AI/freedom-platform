@@ -9,7 +9,7 @@ import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const last = Math.max(...readdirSync(join(root, 'migrations')).filter(n => /^\d{3}_.*\.sql$/.test(n)).map(n => Number(n.slice(0, 3))));
 const scan = checkMigrations(join(root, 'migrations'), { first: 1, last, known_gaps: [22] });
-const capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
+const capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 const identity = (character) => ({ source_sha: character.repeat(40), artifact_sha256: character.repeat(64) });
 function fixture() {
   const now = Date.parse('2026-10-02T12:00:00.000Z'), current = identity('a'), candidate = identity('b');
@@ -119,7 +119,7 @@ for (const release of ['active', 'candidate']) for (const capability of ['avatar
   }, 'release_capability_missing'));
 test('RELEASE policy schema alone is not private feature activation', () => {
   const f = fixture(); f.host.observation.written_shapes = [];
-  for (const record of f.host.release_records) record.capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
+  for (const record of f.host.release_records) record.capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
   const result = run(f); assert.equal(result.status, 'compatible', JSON.stringify(result));
   assert(!result.required_capabilities.includes('work.server-policy.v1'));
 });
@@ -127,7 +127,7 @@ test('RELEASE disabled feature does not erase a non-rollback historical data flo
   reject(f => {
     f.host.observation.written_shapes = []; f.host.observation.enabled_shapes = [];
     f.host.rollback_floor_shapes = ['work.private-human-result.v1'];
-    f.host.release_records[1].capabilities = ['commerce.hosted-inventory-reservation.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
+    f.host.release_records[1].capabilities = ['commerce.hosted-checkout.v1','commerce.hosted-inventory-reservation.v1','commerce.hosted-payment.v1','commerce.hosted-supply-catalog.v1','opensource.sharing-visibility.v1', 'platform.legacy.v1', 'work.explicit-wire.v1'];
   }, 'release_capability_missing');
 });
 for (const [name, mutate, issue] of [

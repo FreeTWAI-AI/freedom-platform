@@ -2,6 +2,9 @@ import { test,before,after,beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setImmediate } from 'node:timers/promises';
+import { once } from 'node:events';
+import type { AddressInfo } from 'node:net';
+import { serve } from '@hono/node-server';
 import { z } from 'zod';
 import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
@@ -30,6 +33,46 @@ const session=(r:any):Session=>({cookie:r.response.headers.get('set-cookie')!.sp
 async function signIn(email=DEMO_USERS[0].email):Promise<Session>{const r=await request('/auth/login',undefined,{email,password:DEMO_PASSWORD});assert.equal(r.status,200,JSON.stringify(r.data));return session(r);}
 async function account(s:Session,contacts=emptyContacts(),nickname='會員暱稱'){const before=await request('/me/account',s);return request('/me/account',s,{nickname,contacts},before.data.aggregate_version);}
 
+for(const surface of ['presence','empty presence','squad list','empty squad list','squad roster'] as const){
+ test(`private ${surface} rechecks current qualification after a native member-lock wait`,async()=>{
+  const viewer=await signIn(),owner=await signIn(DEMO_USERS[1].email);
+  const made=await request('/squads',owner,{name:'資格重設邊界',kind:'coaching',purpose:'人工合成會員讀取驗證',communication_channel_name:'資格重設前可見頻道'});
+  assert.equal(made.status,201,JSON.stringify(made.data));const id=made.data.squad_id;
+  const path=surface==='presence'?`/members/presence?ids=${owner.user.user_id}`:surface==='empty presence'?'/members/presence?ids=':surface==='squad list'?'/squads?limit=20&offset=0':surface==='empty squad list'?'/squads?limit=1&offset=10000':`/squads/${id}`;
+  await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=clock_timestamp() WHERE user_id=$1',[viewer.user.user_id]);
+  const server=serve({fetch:app.fetch,hostname:'127.0.0.1',port:0});if(!server.listening)await once(server,'listening');
+  const url=`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/v1${path}`;
+  const get=()=>fetch(url,{headers:{Origin:origin,Cookie:viewer.cookie}});
+  const assertVisible=async()=>{
+    const response=await get(),data=await response.json() as any;assert.equal(response.status,200,JSON.stringify(data));
+    if(surface.startsWith('empty'))assert.deepEqual(data.items,[]);
+    else if(surface==='presence')assert.ok(data.items.some((item:any)=>item.user_id===owner.user.user_id&&item.is_online===true));
+    else if(surface==='squad list')assert.ok(data.items.some((item:any)=>item.squad_id===id));
+    else{assert.equal(data.squad_id,id);assert.equal(data.communication_channel_name,'資格重設前可見頻道');assert.ok(data.members.some((item:any)=>item.user_id===owner.user.user_id&&item.state==='active'));}
+  };
+  const holder=await pool.connect();let pending:Promise<Response>|undefined;let settled=false;
+  try{
+    await assertVisible();
+    await holder.query('BEGIN');const pid=(await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query('UPDATE users SET onboarding_completed_at=NULL WHERE user_id=$1',[viewer.user.user_id]);
+    pending=get().finally(()=>{settled=true;});const deadline=performance.now()+10000;
+    for(;;){
+      if((await admin.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount)break;
+      assert.equal(settled,false);assert.ok(performance.now()<deadline,'native read must wait on the current viewer user lock');await setImmediate();
+    }
+    await holder.query('COMMIT');const response=await pending,data=await response.json() as any;
+    assert.equal(response.status,403,JSON.stringify(data));assert.equal(data.code,'onboarding_required');
+    for(const key of ['items','members','squad_id','kinds','last_seen_at','communication_channel_name'])assert.equal(Object.hasOwn(data,key),false);
+    // Retain the existing qualification of legacy members not required to onboard.
+    await pool.query('UPDATE users SET onboarding_required=false WHERE user_id=$1',[viewer.user.user_id]);await assertVisible();
+  }finally{
+    await holder.query('ROLLBACK');holder.release();if(pending)await Promise.allSettled([pending]);
+    if('closeAllConnections' in server)server.closeAllConnections();
+    await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+  }
+ });
+}
+
 test('registration saves salted password, private unverified contacts and server-side closed onboarding',async()=>{
   const registration={email:'New.Person@example.com',password:'long-enough-new-password',nickname:'新的職人',contacts:{github:{value:'hello-member',audiences:[]}}};
   const result=await request('/auth/register',undefined,registration);assert.equal(result.status,201,JSON.stringify(result.data));const member=session(result);
@@ -37,7 +80,7 @@ test('registration saves salted password, private unverified contacts and server
   assert.equal(row.email,'new.person@example.com');assert.notEqual(row.password_hash,registration.password);assert.equal(row.email_verified_at,null);assert.equal(row.onboarding_required,true);assert.equal(row.onboarding_completed_at,null);
   const own=await request('/me/account',member);assert.equal(own.status,200,JSON.stringify(own.data));assert.deepEqual(own.data.contacts.email.audiences,[]);assert.equal(own.data.contacts.email.value,row.email);assert.equal(own.data.contacts.github.verified,false);
   assert.equal((await request('/session',member)).status,200);assert.equal((await request('/assessment-definition',member)).status,200);assert.equal((await request('/guilds',member)).status,200);
-  for(const path of ['/work-items','/dashboard','/members','/squads','/supplier/products','/retail/stores','/marketing/campaigns','/opensource/projects']) {
+  for(const path of ['/work-items','/work-items/page','/dashboard','/members','/squads','/supplier/products','/retail/stores','/marketing/campaigns','/opensource/projects']) {
     const blocked=await request(path,member);assert.equal(blocked.status,403,`${path}: ${JSON.stringify(blocked.data)}`);assert.equal(blocked.data.code,'onboarding_required');
   }
   assert.equal((await request('/work-items',member,{})).data.code,'onboarding_required');
@@ -277,7 +320,7 @@ test('legacy module reads never bypass contact privacy or return authentication 
   const sentinel='do-not-share-identity@example.com';await account(owner,{...emptyContacts(),email:{audiences:[]},discord:{value:'private-social-sentinel',audiences:[]}});
   const showcase=await request('/showcases',owner,{title:'Public artifact title',description:'An intentionally shared artifact description',artifact_ref:'artifact:public-example',consent_to_share:true});assert.equal(showcase.status,201);
   const forbidden=[sentinel,'private-social-sentinel',owner.user.email,'password_hash','csrf_token','session_hash','login_email'];
-  for(const path of ['/work-items','/dashboard','/showcases','/opportunities','/engagements','/supplier/products','/supplier/requests','/retail/catalog','/retail/stores','/retail/listings','/opensource/projects','/marketing/campaigns','/members','/guilds/directory','/squads']) {
+  for(const path of ['/work-items','/work-items/page','/dashboard','/showcases','/opportunities','/engagements','/supplier/products','/supplier/requests','/retail/catalog','/retail/stores','/retail/listings','/opensource/projects','/marketing/campaigns','/members','/guilds/directory','/squads']) {
     const response=await request(path,viewer);assert.equal(response.status,200,`${path}: ${JSON.stringify(response.data)}`);
     for(const secret of forbidden)assert.ok(!JSON.stringify(response.data).includes(secret),`${path} leaked ${secret}`);
   }

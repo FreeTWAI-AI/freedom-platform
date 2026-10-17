@@ -1,6 +1,6 @@
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import assert from 'node:assert/strict';
-import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { createLocalJWKSet } from 'jose';
@@ -12,6 +12,7 @@ import { migrate } from '../../scripts/database.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
+import { CommerceCredentialKeyring } from '../../modules/agent-commerce/payments/credentials.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -41,7 +42,12 @@ const store = new FakeObjectStore();
 const providers = syntheticModuleProviders(runtime);
 const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-matrix.cloudflareaccess.com', audience: 'tenant-route-matrix',
   csrfSecret: 'synthetic-matrix-admin-csrf-secret-123456789', keySet: createLocalJWKSet({ keys: [] }) });
-const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier });
+const providerMaterial = { hash_key: randomBytes(8).toString('hex'), hash_iv: randomBytes(8).toString('hex') };
+const commerceCredentialKeyring = CommerceCredentialKeyring.parse(`matrix:${randomBytes(32).toString('base64')}`)!;
+const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier, commerceCredentialKeyring,
+  commerceSettings: { checkoutEnabled: false, consoleEnabled: true, quarantine: false, providerProfiles: [] } });
+
+const distributionApp=createApp(runtime,origin,'local',{guildLaunchpadEnabled:true,supplierConsoleEnabled:true,distributionPhotosEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,storePhotoAssetStore:store,supplyMaterialAssetStore:store});
 
 let created = false;
 let runtimeConnection: { current_user: string; session_user: string; rolsuper: boolean; rolbypassrls: boolean; pg_backend_pid: number };
@@ -72,7 +78,8 @@ async function call(method: string, path: string, session?: Session, body?: stri
   const sent: Record<string, string> = { Origin: origin, ...headers };
   if (session) { sent.Cookie = session.cookie; sent['X-CSRF-Token'] = session.csrf; }
   const payload = typeof body === 'string' ? Buffer.from(body, 'utf8') : body;
-  const response = await app.request(origin + (path.startsWith('/admin/') ? path : '/api/v1' + path), { method, headers: sent, body: payload as any });
+  const target=path.includes('/distribution-photos')?distributionApp:app;
+  const response = await target.request(origin + (path.startsWith('/admin/') ? path : '/api/v1' + path), { method, headers: sent, body: payload as any });
   const bytes = new Uint8Array(await response.arrayBuffer());
   const type = response.headers.get('content-type') ?? '';
   const data = type.includes('application/json') && bytes.byteLength ? JSON.parse(Buffer.from(bytes).toString('utf8')) : null;
@@ -203,8 +210,67 @@ async function installSyntheticCatalog() {
 
 const routeTable: Record<string, string> = {
   // Cache middleware is inventoried separately, never sent as a synthetic ALL request.
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/*': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version': 'middleware',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/use': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/detach': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version': 'tenant',
+  'HEAD /api/v1/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/contact': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/cancel': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/offline-payments': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-completion': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-handover': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/payment-queries': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/exception-cases': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id/actions/:action': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/release': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/upgrade': 'tenant',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'middleware',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/shipping-profile': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/suspend': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/resume': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/retire': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts': 'tenant',
+  'PUT /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/suspend': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/resume': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/retire': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/payment/activation-payments': 'tenant',
+  'POST /admin/api/commerce/store-admissions': 'admin',
+  'GET /admin/api/commerce/store-admissions': 'admin',
+  'POST /admin/api/commerce/store-admissions/:admission_id/revoke': 'admin',
+  // Cache and quarantine middleware are inventoried separately, never sent as a synthetic ALL request.
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/*': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'middleware',
   'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/content': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/supply-materials/:material_id/versions/:version_id/content': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/partner-materials/:material_id/versions/:version_id/content': 'middleware',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel': 'tenant',
@@ -524,19 +590,19 @@ async function buildFixture() {
 let fixture: Awaited<ReturnType<typeof buildFixture>>;
 
 test('T-022 1. Route inventory guard', () => {
-  const relevantPaths = /(tenants|tenant-|module-instances|application-|^\/api\/v1\/tenants\/[^/]+\/operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
+  const relevantPaths = /(tenants|tenant-|module-instances|application-|^\/api\/v1\/tenants\/[^/]+\/operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad|^\/admin\/api\/commerce\/store-admissions(?:\/|$))/;
   // Member search telemetry has an operations path, but is not tenant authority.
   assert.equal(relevantPaths.test('/api/v1/community-search/operations/*'), false);
   for (const suffix of ['', '/reconcile', '/cancel']) {
     assert.equal(relevantPaths.test(`/api/v1/tenants/:tenant_id/operations/:operation_id${suffix}`), true);
   }
-  const selectedRoutes = app.routes.filter(r => relevantPaths.test(r.path));
+  const selectedRoutes = [...app.routes.filter(r => relevantPaths.test(r.path)),...distributionApp.routes.filter(r=>r.method!=='ALL'&&r.path.includes('/distribution-photos'))];
   const counts = Object.values(routeTable).reduce<Record<string, number>>((all, kind) => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 85, middleware: 2 });
-  assert.equal(selectedRoutes.length, 115);
+  assert.deepEqual(counts, { admin: 10, guild: 9, principal: 8, global: 4, tenant: 126, middleware: 16 });
+  assert.equal(selectedRoutes.length, 173);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -574,6 +640,47 @@ function assertSameAsRandom(route: string, actor: string, real: Reply, random: R
 
 type Route = { method: string; path: string; body?: any; version?: string; isRaw?: boolean };
 const routes: Route[] = [
+  {method:'GET',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos'},
+  {method:'POST',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/use', body:{material_id:'00000000-0000-4000-8000-000000000001',version_id:'00000000-0000-4000-8000-000000000002'}, version:'"0"'},
+  {method:'POST',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/detach', body:{},version:'"0"'},
+  {method:'GET',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version'},
+  {method:'HEAD',path:'/tenants/:tenant_id/storefronts/:instance_id/distribution-photos/:product_id/photo/:version'},
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/contact' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/cancel', body: {}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/offline-payments', body: {amount_minor:100, received_on:'2026-01-01'}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-completion', body: {amount_minor:100, completed_on:'2026-01-01'}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/meetup-handover', body: {completed_on:'2026-01-01'}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/payment-queries', body: {} },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/checkout-orders/:order_id/refunds', body: { application_ref: randomUUID(), amount_minor: 100, refunded_on: '2026-01-01' } },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/exception-cases?view=retailer' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/exception-cases/:case_id/actions/:action', body: { code: 'confirmed' }, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/release' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/upgrade', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations', body: {label:'合成倉'+randomUUID().slice(0,8),sender_name:'合成星禾',mobile:'09'+String(randomBytes(4).readUInt32BE()).padStart(10,'0').slice(-8),postal_code:'100',address:'合成星禾路'+randomUUID().slice(0,8)+'號',ships:true,receives_returns:true} },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/ship-from-locations/:location_id/retire', body: {} },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/shipping-profile' },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/shipping-profile', body: {schema:'freedom.shipping-profile/v1',working_days:[1],services:[],delivery_options:[],drop_ship:null}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings' },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/offline-payment-settings', body: {schema:'freedom.offline-payment-settings/v1',bank_transfer:null,cash_on_meetup:null,fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes' },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/shipping-attributes', body: {weight_g:100,length_mm:100,width_mm:100,height_mm:100,temperature:'ambient',cvs_allowed:true,ship_alone:false,max_per_parcel:null}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services', body: {service_key:'ecpay.logistics.home.tcat',fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/suspend', body: {fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/resume', body: {fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/logistics-services/:service_key/retire', body: {fresh_auth_verification_id:randomUUID()}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts', body: { provider: 'ecpay', environment: 'sandbox', merchant_id: '1234567', fresh_auth_verification_id: randomUUID() } },
+  { method: 'PUT', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose', body: { profile: 'ecpay.aio.credit.v1', ...providerMaterial, fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/suspend', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/resume', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/:purpose/retire', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/provider-accounts/:account_id/services/payment/activation-payments', body: { fresh_auth_verification_id: randomUUID() }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel', body: {}, version: '"1"' },
@@ -675,8 +782,9 @@ const isSellerOrderRoute = (path: string) => /\/storefronts\/[^/]+\/(?:orders|re
 type TenantData = Awaited<ReturnType<typeof buildFixture>>['A'];
 function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
-    upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
+    version:'1',upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
     principal_id: data.principalId, product_id: data.workId, order_id: data.workId, offer_id: data.workId, selection_id: data.workId,
+    location_id: data.workId, service_key: 'ecpay.logistics.home.tcat', account_id: data.workId, admission_id: data.invitationId, case_id: data.workId, purpose: 'payment', action: 'resolve_with_evidence',
     instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
     plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
@@ -762,11 +870,23 @@ test('T-022 3a. Other tenant in the path', async () => {
 
 test('T-022 3b. Own tenant in path, other tenant resource', async () => {
   for (const route of routes) {
-    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id');
+    // Service purpose and exception action are closed discriminators, not tenant resource identities.
+    if (route.path.includes('/:purpose')) {
+      const invalid = await execute(route, fixture.people.P, { ...ids(fixture.A, route), purpose: randomUUID() });
+      assert.equal(invalid.status, 422, JSON.stringify(describe(invalid)));
+      assert.equal(invalid.data.code, 'validation_failed');
+      scanForLeaks(invalid, `3b invalid service purpose ${route.path}`, fixture.B);
+    }
+    if(route.path.includes('/:service_key')){
+      const invalid=await execute(route,fixture.people.P,{...ids(fixture.A,route),service_key:randomUUID()});
+      assert.equal(invalid.status,422,JSON.stringify(describe(invalid)));assert.equal(invalid.data.code,'validation_failed');
+      scanForLeaks(invalid,`3b invalid logistics service key ${route.path}`,fixture.B);
+    }
+    const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id' && key !== 'purpose' && key !== 'service_key' && key !== 'action');
     for (const position of positions) {
       for (const name of ['P', 'O'] as const) {
         const realIds = { ...ids(fixture.A, route), [position]: ids(fixture.B, route)[position] };
-        const replies = await pair(route, fixture.people[name], realIds, { ...realIds, [position]: randomUUID() });
+        const replies = await pair(route, fixture.people[name], realIds, { ...realIds, [position]: position==='version'?'2':randomUUID() });
         assertSameAsRandom(`${route.method} ${route.path} position=${position}`, name, ...replies);
         for (const reply of replies) {
           assert.ok([403, 404, 405].includes(reply.status), JSON.stringify(describe(reply)));
@@ -792,7 +912,7 @@ test('T-022 3c. P as viewer of B', async () => {
         assert.equal(reply.data.items[0].role, 'viewer');
       } else assert.ok(JSON.stringify(reply.data).includes(fixture.B.tenantId));
     } else if (route.method === 'HEAD') {
-      assert.equal(reply.status, 405, JSON.stringify(describe(reply)));
+      assert.equal(reply.status, route.path.includes('/distribution-photos/')?404:405, JSON.stringify(describe(reply)));
     } else if (/\/ownership-transfers\/:id|\/invitations\/:id\/revoke/.test(route.path) || route.method === 'GET' && route.path.endsWith('/ownership-transfers')) {
       assert.equal(reply.status, 404, `${route.method} ${route.path}: ${JSON.stringify(describe(reply))}`);
       const randomIds = Object.fromEntries(Object.entries(realIds).map(([key, value]) =>
@@ -862,8 +982,8 @@ test('T-022 3d. Anonymous', async () => {
   for (const [key, kind] of Object.entries(routeTable)) {
     if (!['tenant', 'principal', 'admin', 'guild'].includes(kind) || key.includes('/public/')) continue;
     const route = kind === 'tenant' ? routes.find(r => `${r.method} /api/v1${r.path.split('?')[0]}` === key)! : nonTenantRoute(key);
-    const realIds = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
-    const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : randomUUID()]));
+    const realIds: Record<string, string> = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
+    const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : ['purpose', 'action'].includes(key) ? realIds[key] : randomUUID()]));
     const replies = await pair(route, undefined, realIds, randomIds);
     assertSameAsRandom(key, 'Anonymous', ...replies);
     assert.ok([401, 403].includes(replies[0].status), `${key}: ${JSON.stringify(describe(replies[0]))}`);
@@ -1060,7 +1180,7 @@ test('T-022 4. Body, header and query substitution', async () => {
     scanForLeaks(launchpad, '4 launchpad eligibility', other);
     const manages = actor === P || actor === N;
     const expectedApplications = ['manual-workspace', 'hosted-store', 'synthetic-storefront'].map(application_key => ({
-      application_key, release_ref: `${application_key}@1.0.0`,
+      application_key, release_ref: application_key === 'hosted-store' ? 'hosted-store@1.1.0' : `${application_key}@1.0.0`,
       display_name: application_key === 'manual-workspace' ? '人工工作空間' : application_key === 'hosted-store' ? '線上商店' : '合成店面',
       eligibility: { can_launch: manages, reason_codes: manages ? [] : ['tenant_manage_required'],
         policy_revision: '1', required_guild_tier: 'full', tenant_action: manages ? (application_key === 'hosted-store' ? 'select' : 'continue') : 'create' },

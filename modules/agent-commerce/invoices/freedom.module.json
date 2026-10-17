@@ -1,0 +1,26 @@
+{
+  "client_profiles": [],
+  "contract_families": [],
+  "dependencies": [
+    "commerce-providers"
+  ],
+  "format": "freedom.module/v1",
+  "instructions": [
+    "modules/agent-commerce/invoices/README.md",
+    "docs/platform-plan/execution/commerce/EC-SPEC-06-invoice-aftersales.md"
+  ],
+  "invariants": [],
+  "module_id": "commerce-invoices",
+  "owned_paths": [
+    "modules/agent-commerce/invoices/**",
+    "tests/runtime/commerce-invoice-rules.test.ts"
+  ],
+  "owner_role": "foundation",
+  "public_exports": [
+    "modules/agent-commerce/invoices/rules/index.ts"
+  ],
+  "surfaces": [],
+  "tests": [
+    "runtime.full"
+  ]
+}

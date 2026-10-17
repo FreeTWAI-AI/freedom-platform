@@ -1,3 +1,20 @@
+import {createSupplyMaterialLifecycle} from '../../../modules/assets/supply-material.js';
+import {runDueCommerceWork,runAfterResponseWork} from '../../../modules/agent-commerce/operations/due-work.js';
+import {createEcpayQueryTransport,type PaymentQueryTransport} from '../../../modules/agent-commerce/payments/query-transport.js';
+import {applyDeferredPaymentEvents} from '../../../modules/agent-commerce/payments/events.js';
+import {flushControlEvents} from '../../../modules/agent-commerce/operations/journal/journal.js';
+import {createCheckoutPaymentPorts} from '../../../modules/agent-commerce/payments/attempts.js';
+import {createPaymentMethodsPort} from '../../../modules/agent-commerce/payments/offline/methods.js';
+import {createR2EffectJournal} from '../../../modules/agent-commerce/operations/journal/r2.js';
+import {createEcpayPaymentGateway} from '../../../modules/agent-commerce/payments/gateway.js';
+import {CommerceCredentialKeyring} from '../../../modules/agent-commerce/payments/credentials.js';
+import {createStoreAdmissionPort,providerEnvironment} from '../../../modules/agent-commerce/operations/admissions.js';
+import {createShippingQuotePort} from '../../../modules/agent-commerce/fulfilment/quote/index.js';
+import {readCommerceSettings,type CommerceSettings} from '../../../modules/agent-commerce/operations/runtime-settings.js';
+import {sweepCommerceOutboundEmails} from '../../../modules/agent-commerce/operations/notifications/delivery.js';
+import {createWorkerEmailSender} from '../../../modules/agent-commerce/operations/notifications/email-port.js';
+import {commerceEmailOutbox} from '../../../modules/agent-commerce/operations/notifications/outbox.js';
+import {sweepDueCheckoutHolds} from '../../../modules/agent-commerce/checkout/settlement.js';
 import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import { installWorkerGuideAssets } from '../../../packages/public-guide-assets/worker.js';
@@ -5,7 +22,7 @@ import type { GuideR2Binding } from '../../../packages/public-guide-assets/r2.js
 import {createEventHighlightAssetService,resolveEventHighlightUploadPolicy} from '../../../modules/assets/event-highlight.js';
 import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../../modules/assets/social-thumbnail.js';
 import {createSkillImageAssetService} from '../../../modules/assets/skill-image.js';
-import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding } from '@cloudflare/workers-types';
+import type { ExecutionContext, Hyperdrive, ImagesBinding as OfficialImagesBinding, R2Bucket } from '@cloudflare/workers-types';
 import type { Context, Hono } from 'hono';
 import { isIP } from 'node:net';
 import type { Pool } from 'pg';
@@ -21,6 +38,7 @@ import { readSessionCookie } from './session-cookie.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { IMMUTABLE_ASSET_CACHE_CONTROL, isFastPathBuildAsset, isHashedBuildAsset } from './static-assets.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
+import { commerceCheckoutQueryDeps } from './routes/hosted-checkout.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
 import {pruneExpiredAuthRecords} from '../../../modules/identity-membership/auth-pruning.js';
@@ -51,6 +69,13 @@ import { workerPreviewFetch } from './worker-preview-fetch.js';
  * options; process.env is never read or written here.
  */
 export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
+  COMMERCE_CREDENTIAL_KEYS?:string;
+  FREEDOM_COMMERCE_CHECKOUT_ENABLED?:string;
+  FREEDOM_COMMERCE_CONSOLE_ENABLED?:string;
+  FREEDOM_COMMERCE_EMAIL_ENABLED?:string;
+  FREEDOM_COMMERCE_QUARANTINE?:string;
+  FREEDOM_COMMERCE_PROVIDER_PROFILES?:string;
+  COMMERCE_JOURNAL?:Pick<R2Bucket,'put'|'get'>;
   /** Explicit cover composition; native MEDIA alone grants no persistence. */
   FREEDOM_SERVICE_COVER_ENABLED?: string;
   /** Explicit banner composition; canonical community policy remains required. */
@@ -68,10 +93,14 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   /** Separate private-origin bucket, read-only purpose-specific public asset path. */
   GUIDE_STATIC?: GuideR2Binding;
   FREEDOM_PUBLIC_GUIDE_ENABLED?: string;
-  EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
+  EMAIL?: {send(message:{to:string;from:string;subject:string;text:string;replyTo?:string}):Promise<{messageId:string}>};
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
+  FREEDOM_SUPPLIER_CONSOLE_ENABLED?: string;
+  FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED?: string;
+  FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED?: string;
+  FREEDOM_DISTRIBUTION_PHOTOS_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTOS_ENABLED?: string;
   FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED?: string;
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
@@ -117,11 +146,24 @@ export type OfficialBindingsFit = Satisfies<Hyperdrive extends WorkerEnv['HYPERD
 // workers-types declares its own ReadableStream, which never unifies with the Node lib
 // stream in this compilation, so only the Images method names are checked here.
 export type OfficialImagesFit = Satisfies<keyof ImagesBinding extends keyof OfficialImagesBinding ? true : false>;
-export type WorkerConfig = { freedomEnv: FreedomEnv; origin: string; release: string | null; trustConnectingIp: boolean };
+export type WorkerConfig = { freedomEnv: FreedomEnv; origin: string; release: string | null; trustConnectingIp: boolean;commerceSettings?:CommerceSettings;commerceCredentialKeyring?:CommerceCredentialKeyring|null;commerceProviderEnvironment?:'sandbox'|'live' };
 
 const RELEASE = /^[0-9a-f]{40}$/;
 /** Validates bindings without I/O. Errors never echo binding values. */
 export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
+  const commerceSettings=readCommerceSettings(env);
+  const ecpayListed=commerceSettings.providerProfiles.some(profile=>profile.startsWith('ecpay.'));
+  let commerceCredentialKeyring:CommerceCredentialKeyring|null;
+  try{commerceCredentialKeyring=CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS);}
+  catch{throw new ReadinessError(ecpayListed?'commerce_profiles_require_keyring':'Commerce credential keyring configuration is invalid.');}
+  if(ecpayListed){
+    if(!commerceCredentialKeyring)throw new ReadinessError('commerce_profiles_require_keyring');
+    if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_profiles_require_journal');
+  }
+  if(commerceSettings.emailEnabled){
+    if(typeof env.EMAIL?.send!=='function')throw new ReadinessError('commerce_email_binding_required');
+    if(typeof env.COMMERCE_JOURNAL?.put!=='function'||typeof env.COMMERCE_JOURNAL?.get!=='function')throw new ReadinessError('commerce_journal_binding_required');
+  }
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
   try { freedomEnv = resolveFreedomEnv(env.FREEDOM_ENV); } catch { throw new ReadinessError('FREEDOM_ENV binding is invalid.'); }
@@ -154,15 +196,20 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
     if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
   }
+  if(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED))throw new ReadinessError('Supplier console flag must be true or false.');
+  if(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED==='true'&&env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true')throw new ReadinessError('Supplier console requires guild launchpad.');
   for(const flag of [env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED,env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Store photo flags must be true or false.');
   if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&(env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Hosted store photos require guild launchpad and MEDIA.');
   if(env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true'&&(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Store photo uploads require installed photos and IMAGES.');
+  for(const flag of [env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED,env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED,env.FREEDOM_DISTRIBUTION_PHOTOS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Supply material flags must be true or false.');
+  if(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED==='true'&&(env.FREEDOM_SUPPLIER_CONSOLE_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Supply material media requires supplier console and MEDIA.');
+  if(env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED==='true'&&(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Supply material uploads require installed media and IMAGES.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PUBLIC_GUIDE_ENABLED))throw new ReadinessError('Guide release flag must be true or false.');
   if(env.GUIDE_STATIC&&env.GUIDE_STATIC===env.MEDIA)throw new ReadinessError('Guide assets require a separate purpose binding.');
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED==='true'&&typeof env.GUIDE_STATIC?.get!=='function')throw new ReadinessError('GUIDE_STATIC is required for public guide assets.');
-  return { freedomEnv, origin, release, trustConnectingIp };
+  return { freedomEnv, origin, release, trustConnectingIp,commerceSettings,commerceCredentialKeyring,commerceProviderEnvironment:providerEnvironment(freedomEnv) };
 }
 
 /**
@@ -222,7 +269,15 @@ export function workerAdminVerifier(env: WorkerEnv): AdminAccessVerifier {
   try { return createAdminAccessVerifier({ issuer, audience, csrfSecret }); } catch { return unavailable; }
 }
 
-export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRuntime {
+export function workerRuntime(env: WorkerEnv, config: WorkerConfig,options:{queryTransport?:PaymentQueryTransport}={}): PlatformRuntime {
+  const settings=config.commerceSettings??readCommerceSettings(env),environment=providerEnvironment(config.freedomEnv),admission=createStoreAdmissionPort(environment,settings.providerProfiles);
+  const queryTransport=options.queryTransport??createEcpayQueryTransport();
+  const ecpayListed=settings.providerProfiles.some(profile=>profile.startsWith('ecpay.'));
+  const journal=(ecpayListed||settings.emailEnabled)&&env.COMMERCE_JOURNAL?createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL):undefined;
+  const payments=ecpayListed&&journal?{gateway:createEcpayPaymentGateway(environment,config.origin),journal,profiles:settings.providerProfiles}:undefined;
+  const cardPorts=payments?createCheckoutPaymentPorts({environment,admission,settings,...payments,keyring:config.commerceCredentialKeyring??null},commerceCheckoutQueryDeps({transport:queryTransport,keyring:config.commerceCredentialKeyring??null,freedomEnv:config.freedomEnv,quarantine:settings.quarantine,emailEnabled:settings.emailEnabled})):undefined;
+  const paymentMethods=settings.providerProfiles.length?createPaymentMethodsPort({environment,profiles:settings.providerProfiles,card:cardPorts?.payment}):undefined;
+  const emailSender=settings.emailEnabled&&env.EMAIL?createWorkerEmailSender(env.EMAIL):undefined;
   const community = env.FREEDOM_REGISTRATION_COMMUNITY_ID || undefined, tokenKey = env.GITHUB_SOCIAL_TOKEN_KEY || undefined;
   const metricsToken = env.GITHUB_METRICS_TOKEN || undefined;
   const maintainerWebhookSecret = env.GITHUB_MAINTAINER_WEBHOOK_SECRET || undefined;
@@ -255,7 +310,12 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
+    commerceQueryTransport:queryTransport,commercePayments:payments,commerceJournal:journal,commerceEmailSender:emailSender,commerceSettings:settings,
+    commerceCredentialKeyring:config.commerceCredentialKeyring,commerceProviderEnvironment:config.commerceProviderEnvironment??providerEnvironment(config.freedomEnv),
+    commercePorts:{admission,shipping:createShippingQuotePort({environment}),...cardPorts,...(paymentMethods?{paymentMethods}:{}),...(settings.emailEnabled?{email:commerceEmailOutbox}:{})},
     hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
+    supplierConsoleEnabled: env.FREEDOM_SUPPLIER_CONSOLE_ENABLED === 'true',
+    distributionPhotosEnabled:env.FREEDOM_DISTRIBUTION_PHOTOS_ENABLED==='true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',
@@ -319,6 +379,12 @@ export type WorkerDependencies = {
   guildDiscovery?: typeof refreshGuildDiscoveryReports;
   /** Test seam. Production uses pruneExpiredAuthRecords. */
   authPrune?: typeof pruneExpiredAuthRecords;
+  commerceDueWork?:typeof runDueCommerceWork;
+  commerceQueryTransport?:PaymentQueryTransport;
+  commerceSweep?:typeof sweepDueCheckoutHolds;
+  commerceEmailSweep?:typeof sweepCommerceOutboundEmails;
+  commerceApplyDeferred?:typeof applyDeferredPaymentEvents;
+  commerceFlushJournal?:typeof flushControlEvents;
 };
 
 /**
@@ -351,6 +417,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         return problem(403, 'host_rejected', '請從自由工坊網站操作。');
       }
       if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!=='true'&&(url.pathname==='/api/v1/me/first-participation'||url.pathname.startsWith('/api/v1/first-participation/')))return problem(404,'not_found','找不到這個頁面。');
+      const afterResponse:(()=>Promise<void>)[]=[];
       let pool: Pool;
       // A throwing factory must not escape with its raw error or leave anything to end.
       try { pool = createPool(env); } catch (error) {
@@ -380,7 +447,9 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
             }});
           }
         }
-        const runtime=(deps.createRuntime??workerRuntime)(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
+        const runtime=(deps.createRuntime??workerRuntime)(env,config,{queryTransport:deps.commerceQueryTransport}),privateAi=await workerPrivateAiPorts(pool,env,config);
+        runtime.afterResponse=work=>{afterResponse.push(work);};
+        if(deps.commerceQueryTransport)runtime.commerceQueryTransport=deps.commerceQueryTransport;
         if(privateAi)Object.assign(runtime,privateAi);
         runtime.publicGuideAssets=await installWorkerGuideAssets(env);
         if(env.FREEDOM_SERVICE_COVER_ENABLED==='true'&&runtime.avatarAssetStore){
@@ -405,6 +474,11 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           // Keep the closed service installed for retained original receipts; admission remains separate.
           runtime.storePhotoAssets=createStorefrontProductPhotoLifecycle(pool,{store:runtime.avatarAssetStore});
         }
+        if(env.FREEDOM_SUPPLY_MATERIAL_MEDIA_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.supplyMaterialAssetStore=runtime.avatarAssetStore;
+          runtime.supplyMaterialUploadsEnabled=env.FREEDOM_SUPPLY_MATERIAL_UPLOADS_ENABLED==='true';
+          runtime.supplyMaterialAssets=createSupplyMaterialLifecycle(pool,{store:runtime.avatarAssetStore});
+        }
         if(env.FREEDOM_MESSAGE_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.messageImageAssetStore=runtime.avatarAssetStore;
           runtime.messageImageAssets=createMessageImageAssetService(pool,{store:runtime.avatarAssetStore});
@@ -425,7 +499,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         return problem(500, 'internal_error', '操作未完成，請重新整理並查看目前狀態。');
       } finally {
         // Sockets are request-bound in Workers; always release them, even after errors.
-        ctx.waitUntil(pool.end().catch(() => console.error('pool_end_failed')));
+        ctx.waitUntil((async()=>{
+          await Promise.allSettled(afterResponse.map(work=>runAfterResponseWork(work).catch(()=>console.error('commerce_after_response_failed'))));
+          await pool.end().catch(()=>console.error('pool_end_failed'));
+        })());
       }
     },
     async scheduled(_controller: {readonly cron?: string; readonly scheduledTime?: number}, env: WorkerEnv, ctx: WorkerContext): Promise<void> {
@@ -441,6 +518,29 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
               try{await processEventWaitlist(pool,send,config.origin);}catch{console.error('event_waitlist_failed');}
               try{await processEventReminders(pool,send,{enabled:true});}catch{console.error('event_reminders_failed');}
             }catch{console.error('event_participation_not_ready');}
+          }
+          let commerce:CommerceSettings|undefined;
+          try{commerce=readCommerceSettings(env);}catch{console.error('commerce_settings_invalid');}
+          if(commerce&&!commerce.quarantine){
+            const email=commerce.emailEnabled?commerceEmailOutbox:undefined;
+            try{const result=await (deps.commerceApplyDeferred??applyDeferredPaymentEvents)(pool,{limit:200,...(email?{email}:{})});if(result.failed>0)console.error('commerce_payment_deferred_partial',result);}catch{console.error('commerce_payment_deferred_failed');}
+            try{await (deps.commerceSweep??sweepDueCheckoutHolds)(pool,{limit:200});}catch{console.error('commerce_sweep_failed');}
+            try{
+              let emailDeps:{email:typeof commerceEmailOutbox;emailEnabled:true;emailSender:ReturnType<typeof createWorkerEmailSender>;journal:ReturnType<typeof createR2EffectJournal>;origin:string}|undefined;
+              if(commerce.emailEnabled)try{
+                const config=readWorkerConfig(env);
+                emailDeps={email:commerceEmailOutbox,emailEnabled:true,emailSender:createWorkerEmailSender(env.EMAIL!),journal:createR2EffectJournal(config.freedomEnv,env.COMMERCE_JOURNAL!),origin:config.origin};
+              }catch{console.error('commerce_email_not_ready');}
+              const keyring=env.COMMERCE_CREDENTIAL_KEYS?CommerceCredentialKeyring.parse(env.COMMERCE_CREDENTIAL_KEYS):null;
+              const freedomEnv=resolveFreedomEnv(env.FREEDOM_ENV);
+              await (deps.commerceDueWork??runDueCommerceWork)(pool,{...(keyring?{transport:deps.commerceQueryTransport??createEcpayQueryTransport(),keyring}:{}),freedomEnv,...(email?{email}:{}),...emailDeps});
+            }catch{console.error('commerce_due_work_failed');}
+            try{
+              await (deps.commerceEmailSweep??sweepCommerceOutboundEmails)(pool,{limit:500});
+            }catch{console.error('commerce_email_sweep_failed');}
+            if(typeof env.COMMERCE_JOURNAL?.put==='function'&&typeof env.COMMERCE_JOURNAL?.get==='function')try{
+              await (deps.commerceFlushJournal??flushControlEvents)(pool,createR2EffectJournal(resolveFreedomEnv(env.FREEDOM_ENV),env.COMMERCE_JOURNAL),{limit:200});
+            }catch{console.error('commerce_control_journal_failed');}
           }
           try{await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});}
           catch(error){const name=error instanceof Error&&/^[A-Za-z][A-Za-z0-9_]*$/.test(error.name)?error.name:'unknown';console.error('github_sync_failed',name);}
