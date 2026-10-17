@@ -21079,8 +21079,8 @@
     },
     {
       "path": "tests/e2e/community-ar.spec.ts",
-      "bytes": 27124,
-      "sha256": "542b17990efa7f02efec9899eb06baad045d5e74d5f005c5adaf715adad1a086"
+      "bytes": 27538,
+      "sha256": "295e63d5769db072f243c77697999e40420724606290cc6eadb57c7e60dd9853"
     },
     {
       "path": "tests/e2e/community-erp-demo.spec.ts",
