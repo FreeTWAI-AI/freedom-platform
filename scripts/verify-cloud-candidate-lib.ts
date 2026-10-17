@@ -6,6 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { crc32, deflateSync } from 'node:zlib';
 import { guildChannelsRealHistoryGuarded, runMessagesMobile, runMessagesPhase, runRegistrationPhase, type MemberRunState } from './verify-cloud-candidate-members.js';
+import { supplierRun, SUPPLIER_PHASES, type SupplierRole } from './verify-cloud-candidate-supplier.js';
 import { sessionCookieName } from '../apps/platform-api/src/session-cookie.js';
 export { guildChannelsRealHistoryGuarded };
 
@@ -64,7 +65,7 @@ class NotRun extends Error { override name = 'NotRun'; constructor(readonly reas
 /** Thrown before any request leaves for a non-candidate URL. */
 export class OriginGuardError extends Error { override name = 'OriginGuardError'; }
 
-export const PHASES = ['preflight', 'health', 'protocol', 'assets', 'anonymous', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'registration', 'messages', 'messages-mobile', 'load', 'logout'] as const;
+export const PHASES = ['preflight', 'health', 'protocol', 'assets', 'anonymous', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'registration', 'messages', 'messages-mobile', 'supplier-journey', 'supplier-photo', 'supplier-reservations', 'supplier-recheck', 'load', 'logout'] as const;
 export type PhaseId = typeof PHASES[number];
 export const READ_ONLY_PHASES: readonly PhaseId[] = ['preflight', 'health', 'protocol', 'assets', 'anonymous'];
 /** Later phases run only after every dependency passed. `load` stays independent; `logout` stays last and has none. */
@@ -72,6 +73,7 @@ export const PHASE_DEPENDENCIES: Partial<Record<PhaseId, readonly PhaseId[]>> = 
   health: ['preflight'], protocol: ['preflight'], assets: ['preflight'], anonymous: ['preflight'], load: ['preflight'],
   session: ['health'], browser: ['health'], 'guild-cache': ['session'], 'github-handoff': ['session'], avatar: ['session'],
   registration: ['health'], messages: ['registration'], 'messages-mobile': ['messages'],
+  'supplier-journey': ['health'], 'supplier-photo': ['supplier-journey'], 'supplier-reservations': ['supplier-journey'], 'supplier-recheck': ['health'],
 };
 const NEEDS_ACCOUNT: readonly PhaseId[] = ['session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'logout'];
 /** Registration and messaging provision their own members and ignore an account file. */
@@ -87,6 +89,10 @@ export const WRITE_DESCRIPTIONS: Partial<Record<PhaseId, string>> = {
   registration: 'registers one synthetic cand-reg member, completes positioning and one primary guild, then revokes that member\'s sessions',
   messages: 'registers a second synthetic member, creates one squad containing only those two members, and writes direct and squad messages; guild-channel writes run only when the target is not public',
   'messages-mobile': 'opens one mobile browser session of the synthetic member registered in this run and sends one direct message',
+  'supplier-journey': "creates one synthetic supply-only business, one supply product with terms and a published supply version, one synthetic seller store and its selection, and the supplier's decision; identifiers are kept only in the private handle file",
+  'supplier-photo': 'uploads one generated photo to the synthetic supply product and reads it back privately; the retained photo version stays',
+  'supplier-reservations': 'opens reservations on the synthetic supplier store, publishes the seller store, creates and cancels one synthetic buyer reservation, then turns reservations off again',
+  'supplier-recheck': 'performs read-only API and browser checks of the data the journey created; login sessions are revoked',
   logout: 'revokes the tool session',
 };
 
@@ -218,7 +224,7 @@ export const fetchTransport: Transport = async request => {
 export type AccessCredential = { clientId: string; clientSecret: string };
 export type Account = { email: string; password: string; label: string };
 type RequestOptions = { json?: unknown; bytes?: Uint8Array; contentType?: string; origin?: 'same' | 'none' | string; csrf?: string | null; ifMatch?: string | number; idempotency?: boolean | string; session?: boolean; access?: boolean };
-export type Reply = { status: number; headers: Headers; bytes: number; ms: number; json(): any; setCookies(): SetCookie[]; location: string | null };
+export type Reply = { status: number; headers: Headers; bytes: number; ms: number; body(): Uint8Array; json(): any; setCookies(): SetCookie[]; location: string | null };
 
 /** Exact-origin client: one session cookie jar; Access headers only on the exact candidate origin. */
 export class CandidateClient {
@@ -265,7 +271,7 @@ export class CandidateClient {
     let parsed: unknown, parsedOnce = false;
     return {
       status: response.status, headers: response.headers, bytes: response.body.byteLength, ms, setCookies,
-      location: response.headers.get('location'),
+      location: response.headers.get('location'), body: () => response.body,
       json: () => {
         if (!parsedOnce) { parsedOnce = true; try { parsed = JSON.parse(Buffer.from(response.body).toString('utf8')); } catch { parsed = undefined; } }
         return parsed;
@@ -290,7 +296,7 @@ export type Report = {
   tool: string; report_kind: 'cloud_candidate_acceptance'; run: 'plan' | 'execute'; harness: Target['harness']; cloud_proof: boolean;
   statement: string; target: { name: string; origin: string; expected_mode: Mode }; expected_version: string | null; expected_release_sha: string | null;
   account_label: string | null; access_credential: 'provided' | 'absent' | 'not_read'; started_at: string; finished_at: string;
-  overall: Overall; phases_selected: PhaseId[]; phases: PhaseReport[]; cleanup: { required: boolean; items: CleanupItem[] }; load_thresholds?: LoadOptions; redaction_applied: boolean;
+  overall: Overall; phases_selected: PhaseId[]; phases: PhaseReport[]; cleanup: { required: boolean; restore_failed: boolean; items: CleanupItem[] }; load_thresholds?: LoadOptions; redaction_applied: boolean;
 };
 
 function statement(target: Target, run: 'plan' | 'execute') {
@@ -304,6 +310,7 @@ export type RunOptions = {
   /** Required for cloud_candidate health: the Worker's release_sha must equal it. Unused by the local Node harness. */
   expectedReleaseSha?: string | null;
   account?: Account | null; access?: AccessCredential | null; transport?: Transport; load?: LoadOptions; developmentBook?: string; developmentGuild?: string;
+  supplierAccounts?: Partial<Record<SupplierRole, Account>>; supplierHandleFile?: string; expectSupplierConsole?: 'on' | 'off';
   browser?: BrowserLike | null; now?: () => Date; log?: (line: string) => void;
   /** Bound on waiting for in-flight browser route handlers at teardown (default 15000 ms). */
   browserDrainMs?: number;
@@ -332,7 +339,8 @@ export function planReport(options: Omit<RunOptions, 'run'>): Report {
 
 function finish(target: Target, run: 'plan' | 'execute', options: Omit<RunOptions, 'run'>, phases: PhaseReport[], cleanup: CleanupItem[], started: string, secrets: Secrets, now?: () => Date): Report {
   const selected = phases.filter(phase => options.phases.includes(phase.id));
-  const overall: Overall = run === 'plan' ? 'not_run' : selected.some(p => p.status === 'fail') ? 'fail' : selected.some(p => p.status === 'blocked') ? 'blocked'
+  const restoreFailed = cleanup.some(item => item.state === 'restore_failed');
+  const overall: Overall = run === 'plan' ? 'not_run' : restoreFailed || selected.some(p => p.status === 'fail') ? 'fail' : selected.some(p => p.status === 'blocked') ? 'blocked'
     : selected.every(p => p.status === 'pass') ? 'pass' : selected.some(p => p.status === 'pass') ? 'incomplete' : 'not_run';
   const report: Report = {
     tool: TOOL_VERSION, report_kind: 'cloud_candidate_acceptance', run, harness: target.harness,
@@ -341,7 +349,7 @@ function finish(target: Target, run: 'plan' | 'execute', options: Omit<RunOption
     statement: statement(target, run), target: { name: target.name, origin: target.origin, expected_mode: target.mode },
     expected_version: options.expectedVersion, expected_release_sha: options.expectedReleaseSha ?? null, account_label: options.account?.label ?? null, access_credential: run === 'plan' ? 'not_read' : options.access ? 'provided' : 'absent',
     started_at: started, finished_at: (now ?? (() => new Date()))().toISOString(), overall, phases_selected: [...options.phases], phases,
-    cleanup: { required: cleanup.some(item => item.state === 'cleanup_required' || item.state === 'restore_failed'), items: cleanup },
+    cleanup: { required: cleanup.some(item => item.state === 'cleanup_required' || item.state === 'restore_failed'), restore_failed: restoreFailed, items: cleanup },
     ...(options.phases.includes('load') ? { load_thresholds: options.load ?? loadOptions() } : {}),
     redaction_applied: false,
   };
@@ -412,7 +420,7 @@ export function syntheticPng(width = 320, height = 240) {
 }
 
 // ---------------------------------------------------------------- executor
-type PhaseContext = { check(id: string, condition: boolean, note?: string): void; metric(key: string, value: unknown): void; skip(reason: string): never; cleanup(item: string, state: CleanupItem['state']): void };
+export type PhaseContext = { check(id: string, condition: boolean, note?: string): void; metric(key: string, value: unknown): void; skip(reason: string): never; cleanup(item: string, state: CleanupItem['state']): void };
 
 const noStore = (reply: Reply) => /(^|,)\s*no-store\s*(,|$)/i.test(reply.headers.get('cache-control') ?? '');
 const isJson = (reply: Reply) => (reply.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json');
@@ -449,8 +457,10 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
   };
   let userId: string | null = null;
   const members: MemberRunState = { primary: null, peer: null, lastDirectBody: null };
+  const supplier = supplierRun(options, client, secrets, syntheticPng, (ctx, roleAccount, visit) => browserPhase(ctx, options, target, access, roleAccount, secrets, client, null, visit));
 
   const phases: Record<PhaseId, (ctx: PhaseContext) => Promise<void>> = {
+    ...supplier.phases,
     async preflight(ctx) {
       ctx.check('target_allowlisted', target.harness === 'local_harness' || Object.values(CANDIDATES).some(c => c.origin === target.origin && c.mode === target.mode));
       ctx.check('expected_version_set', typeof options.expectedVersion === 'string' && /^[0-9A-Za-z.+-]{1,64}$/.test(options.expectedVersion));
@@ -460,6 +470,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       ctx.check('local_contract_loaded', !!options.contract && typeof (options.contract as { protocol?: unknown }).protocol === 'string');
       const needsAccount = accountFileRequired(options.phases);
       ctx.check('account_available_when_needed', !needsAccount || !!account, needsAccount ? 'selected phases need a dedicated synthetic account' : undefined);
+      await supplier.preflight(ctx);
       ctx.metric('network_requests', 0);
     },
     async health(ctx) {
@@ -633,11 +644,18 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
     },
   };
 
+  const lastSupplier = [...SUPPLIER_PHASES].reverse().find(id => options.phases.includes(id));
+  const cleanupSupplier = (id: PhaseId) => supplier.cleanup({ check() {}, metric() {}, skip(reason): never { throw new NotRun(reason); }, cleanup(item, state) { cleanup.push({ phase: id, item, state }); } });
   for (const id of PHASES) {
     const writes = WRITE_DESCRIPTIONS[id] ? { writes: WRITE_DESCRIPTIONS[id] } : {};
     if (!options.phases.includes(id)) { results.set(id, { id, status: 'not_run', reason: 'not_selected', ...writes, checks: [] }); continue; }
+    const isSupplier = (SUPPLIER_PHASES as readonly string[]).includes(id);
+    if (isSupplier && target.mode === 'public') { results.set(id, { id, status: 'not_run', reason: 'production_supplier_phases_guarded', ...writes, checks: [] }); continue; }
     const missing = (PHASE_DEPENDENCIES[id] ?? []).find(dep => results.get(dep)?.status !== 'pass');
-    if (missing) { results.set(id, { id, status: 'blocked', reason: `requires ${missing} pass`, ...writes, checks: [] }); continue; }
+    const supplierEarlierBlocked = id === 'supplier-recheck' && options.phases.includes('supplier-journey') && (results.get('supplier-journey')?.status !== 'pass' || SUPPLIER_PHASES.slice(0, 3).some(earlier => options.phases.includes(earlier) && results.get(earlier)?.status !== 'pass' && !(results.get(earlier)?.status === 'not_run' && ['supplier_console_disabled', 'photo_uploads_disabled', 'reservations_admission_off', 'synthetic_account_not_store_eligible'].includes(results.get(earlier)?.reason ?? ''))));
+    if (supplierEarlierBlocked) { results.set(id, { id, status: 'blocked', reason: 'requires selected supplier phases pass or fixed not_run', ...writes, checks: [] }); if (id === lastSupplier) await cleanupSupplier(id); continue; }
+    if (isSupplier && results.get('health')?.status !== 'pass') { results.set(id, { id, status: 'blocked', reason: 'requires health pass', ...writes, checks: [] }); if (id === lastSupplier) await cleanupSupplier(id); continue; }
+    if (missing) { results.set(id, { id, status: 'blocked', reason: `requires ${missing} pass`, ...writes, checks: [] }); if (id === lastSupplier) await cleanupSupplier(id); continue; }
     const report: PhaseReport = { id, status: 'pass', ...writes, checks: [] }, began = performance.now();
     const ctx: PhaseContext = {
       check(check, condition, note) { report.checks.push({ id: check, status: condition ? 'pass' : 'fail', ...(note && !condition ? { note } : {}) }); if (!condition) throw new CheckFailed(check); },
@@ -654,6 +672,8 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
     }
     report.duration_ms = Math.round(performance.now() - began);
     results.set(id, report);
+    if (id === lastSupplier) await cleanupSupplier(id);
+    if (report.status === 'pass' && cleanup.some(item => item.phase === id && item.state === 'restore_failed')) { report.status = 'fail'; report.reason = 'cleanup_restore_failed'; report.checks.push({ id: 'cleanup_restored', status: 'fail' }); }
     log(`${id}: ${report.status}${report.reason ? ` (${secrets.redact(report.reason).text})` : ''}`);
   }
   if (userId || NEEDS_ACCOUNT.some(id => options.phases.includes(id) && results.get(id)?.status !== 'not_run')) {
@@ -814,7 +834,7 @@ async function revokeBrowserSession(client: CandidateClient, value: string, secr
   } catch { return 'restore_failed'; }
 }
 
-async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Target, access: AccessCredential | null, account: Account | null, secrets: Secrets, client: CandidateClient, members: MemberRunState | null = null) {
+async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Target, access: AccessCredential | null, account: Account | null, secrets: Secrets, client: CandidateClient, members: MemberRunState | null = null, visit?: (page: any) => Promise<void>) {
   const synthetic = members !== null;
   if (!options.browser) ctx.skip('no_browser_supplied');
   if (!synthetic && !account) throw new CheckFailed('account_required');
@@ -885,7 +905,9 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
     // The account browser phase fails if an inbox response reaches the page.
     // messages-mobile allows those responses and only counts them.
     context.on('response', (response: any) => { try { if (isInboxPath(new URL(response.url()).pathname)) inboxResponses++; } catch { inboxResponses++; } });
-    if (synthetic) {
+    if (visit) {
+      await visit(page);
+    } else if (synthetic) {
       ctx.metric('viewport', { width: 390, height: 844, device_scale_factor: 3, mobile: true, touch: true });
       loggedOut = await runMessagesMobile(page, context, ctx, members, secrets, target.origin, guildChannelsRealHistoryGuarded(target));
     } else {
